@@ -53,6 +53,37 @@ def test_harness_config_flags_inert_openclaw() -> None:
     assert "inert" in warns[0].message
 
 
+def test_harness_config_flags_unregistered_enabled_adapter() -> None:
+    config = SimpleNamespace(
+        harness=SimpleNamespace(
+            enabled=["python-script", "mcp-remote"],
+            openclaw=None,
+        ),
+    )
+
+    findings = check_harness_config(config)
+
+    assert any(
+        finding.status == "warn" and "mcp-remote" in finding.message
+        for finding in findings
+    )
+
+
+def test_harness_config_flags_real_aliased_config() -> None:
+    """The real Pydantic alias must not make inert config invisible."""
+    from jarvis.core.config import HarnessConfig
+
+    config = SimpleNamespace(
+        harness=HarnessConfig.model_validate({
+            "openclaw": {"enabled": True, "version": "test-only"},
+        }),
+    )
+
+    findings = check_harness_config(config)
+
+    assert any(f.status == "warn" and "inert" in f.message for f in findings)
+
+
 def test_harness_config_silent_when_disabled() -> None:
     config = SimpleNamespace(
         harness=SimpleNamespace(openclaw=SimpleNamespace(enabled=False)),
