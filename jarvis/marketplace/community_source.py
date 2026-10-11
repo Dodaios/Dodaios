@@ -1,6 +1,6 @@
 """Fetch and cache the community marketplace index.
 
-The registry repo (PersonalJarvis/marketplace) compiles every published
+The registry repo (Dodaios/marketplace) compiles every published
 plugin, skill and agent template into one static ``index.json`` served from
 GitHub Pages.
 This module is the app's only reader of that feed: fetch with short

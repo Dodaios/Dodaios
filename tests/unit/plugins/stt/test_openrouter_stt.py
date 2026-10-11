@@ -187,7 +187,7 @@ async def test_auth_and_attribution_headers_are_sent() -> None:
 
     h = captured["headers"]
     assert h["Authorization"] == "Bearer secret-key"
-    assert h["HTTP-Referer"] == "https://github.com/PersonalJarvis"
+    assert h["HTTP-Referer"] == "https://github.com/Dodaios/Dodaios"
     assert h["X-Title"] == "Personal Jarvis"
 
 

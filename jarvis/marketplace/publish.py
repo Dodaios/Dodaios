@@ -71,7 +71,7 @@ _REPO_RE = re.compile(r"^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$")
 #: GitHub keeps at most this many characters of an issue body.
 _MAX_ISSUE_BODY = 65_536
 #: The registry intake picks up issues with this title tag or body marker
-#: (scripts/intake.py in PersonalJarvis/marketplace — keep them identical).
+#: (scripts/intake.py in Dodaios/marketplace — keep them identical).
 INTAKE_TITLE_TAG = "[publish]"
 INTAKE_BODY_MARKER = "<!-- jarvis-marketplace-submission -->"
 _UA = {"User-Agent": "Personal-Jarvis/1.0"}

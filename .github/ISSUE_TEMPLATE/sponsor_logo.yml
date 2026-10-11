@@ -47,5 +47,5 @@ body:
     attributes:
       label: Terms
       options:
-        - label: I have read the README sponsor terms in [SPONSORS.md](https://github.com/PersonalJarvis/PersonalJarvis/blob/main/SPONSORS.md) — the maintainer may decline or end the placement at any time; it stays until the end of the month already paid.
+        - label: I have read the README sponsor terms in [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md) — the maintainer may decline or end the placement at any time; it stays until the end of the month already paid.
           required: true

@@ -1,6 +1,6 @@
 class PersonalJarvisInstaller < Formula
   desc "Supply-chain hardened installer for Personal Jarvis (cosign + offline Ed25519 + SLSA L3 + in-toto)"
-  homepage "https://github.com/PersonalJarvis/PersonalJarvis"
+  homepage "https://github.com/Dodaios/Dodaios"
   license "MIT"
 
   # PINNED to the v1.0.5 release.
@@ -15,9 +15,9 @@ class PersonalJarvisInstaller < Formula
   # artifact is immutable).
   #
   # SHA-256 SOURCE OF TRUTH: the pinned release's published checksums.txt:
-  #   curl -fsSL https://github.com/PersonalJarvis/PersonalJarvis/releases/download/v1.0.5/checksums.txt \
+  #   curl -fsSL https://github.com/Dodaios/Dodaios/releases/download/v1.0.5/checksums.txt \
   #     | awk '/install-verify\.sh$/ {print $1}'
-  url "https://github.com/PersonalJarvis/PersonalJarvis/releases/download/v1.0.5/install-verify.sh"
+  url "https://github.com/Dodaios/Dodaios/releases/download/v1.0.5/install-verify.sh"
   version "1.0.5"
   sha256 "a0dc47933dc1930288b177ebd63924bffd4b35521802c82841d838bcf67eeb09"
 
