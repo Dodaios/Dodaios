@@ -1,10 +1,10 @@
 {
-  "repo": "PersonalJarvis/PersonalJarvis",
-  "count": 160,
-  "forks": 61,
-  "placed": 32,
-  "stated": 42,
-  "generatedAt": "2026-10-10T08:46:32.537Z",
+  "repo": "Dodaios/Dodaios",
+  "count": 168,
+  "forks": 65,
+  "placed": 34,
+  "stated": 44,
+  "generatedAt": "2026-10-11T09:17:19.368Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -84,6 +84,13 @@
       "count": 1
     },
     {
+      "lat": -12.25,
+      "lon": -38.97,
+      "label": "Feira de Santana",
+      "country": "Brazil",
+      "count": 1
+    },
+    {
       "lat": 39.752,
       "lon": -86.172,
       "label": "Indianapolis",
@@ -137,6 +144,13 @@
       "lon": 2.331,
       "label": "Paris",
       "country": "France",
+      "count": 1
+    },
+    {
+      "lat": 11.198,
+      "lon": 122.465,
+      "label": "Philippines",
+      "country": "Philippines",
       "count": 1
     },
     {
