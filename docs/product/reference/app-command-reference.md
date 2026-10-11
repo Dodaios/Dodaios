@@ -44,7 +44,7 @@ provider or connection.
 
 ## Browse the Catalog
 
-Use the [generated App Command catalog](https://github.com/PersonalJarvis/PersonalJarvis/blob/main/docs/commands-reference.md)
+Use the [generated App Command catalog](https://github.com/Dodaios/Dodaios/blob/main/docs/commands-reference.md)
 for a readable summary of every command on the current public `main` branch.
 It is generated from the registry source and includes each command's endpoint,
 arguments, confirmation marker, sidebar section ID, and first English alias.

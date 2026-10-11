@@ -67,7 +67,7 @@ schema cache for up to 24 hours. After that, an `api` invocation tries to fetch
 a new schema and falls back to the older cache if the server is unreachable.
 Run `jarvis refresh` to clear the cache before the next `jarvis api` call.
 
-Use the [generated Jarvis CLI command catalog](https://github.com/PersonalJarvis/PersonalJarvis/blob/main/docs/jarvis-cli-reference.md)
+Use the [generated Jarvis CLI command catalog](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli-reference.md)
 for the maintained list of curated groups, arguments, and options. It
 intentionally does not copy the server-specific dynamic API operations.
 

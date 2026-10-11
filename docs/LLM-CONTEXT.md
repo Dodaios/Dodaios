@@ -156,7 +156,7 @@ on a real macOS box and a real Linux desktop to convert each row to a dated
 **Manual install (works everywhere):**
 
 ```bash
-git clone https://github.com/PersonalJarvis/PersonalJarvis ~/.personal-jarvis
+git clone https://github.com/Dodaios/Dodaios ~/.personal-jarvis
 cd ~/.personal-jarvis
 python -m venv .venv
 source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
@@ -698,7 +698,7 @@ Neither blocks anything — but a fresh chat parroting AGENTS.md verbatim will b
 
 **Copyright.** © 2026 Personal Jarvis Maintainers. All contributors retain copyright on their respective contributions; opening a pull request against this repository is taken as agreement that the contribution is licensed under the Apache License 2.0 above, per §5 of the License.
 
-**Canonical source.** This repository — **[`github.com/PersonalJarvis/PersonalJarvis`](https://github.com/PersonalJarvis/PersonalJarvis)** — is the authoritative upstream of Personal Jarvis. Forks, mirrors, vendored copies, and derivative works are welcome under Apache 2.0, but the **original authors are the Personal Jarvis Maintainers**, not whoever is hosting the copy you happened to find. If you encounter Personal Jarvis code outside this URL, you can verify provenance by comparing the git history against the canonical repository.
+**Canonical source.** This repository — **[`github.com/Dodaios/Dodaios`](https://github.com/Dodaios/Dodaios)** — is the authoritative upstream of Personal Jarvis. Forks, mirrors, vendored copies, and derivative works are welcome under Apache 2.0, but the **original authors are the Personal Jarvis Maintainers**, not whoever is hosting the copy you happened to find. If you encounter Personal Jarvis code outside this URL, you can verify provenance by comparing the git history against the canonical repository.
 
 **Attribution & provenance (mandatory).** Section 4 of the Apache License is **not decorative** — redistributing this work, in source or binary form, requires that you (a) hand recipients a copy of the License, (b) mark every file you changed as modified, (c) keep all copyright, patent, trademark, and attribution notices from the source form, and (d) pass on the contents of the `NOTICE` file in any notice you distribute. In plain English: anyone who uses substantial portions of this code in their own project, fork, distribution, product, or training corpus **must retain the `Copyright 2026 Personal Jarvis Maintainers` line, the full Apache 2.0 license text, and the `NOTICE` contents in a place where downstream users can find them** (typical conventions: a `LICENSE` / `NOTICE` / `THIRD_PARTY_NOTICES` file at the root of the derivative work, or an "Open Source Licenses" screen reachable from a product's UI). Stripping the notices and republishing the code is **not** a licensing question — it is **copyright infringement**, actionable under copyright law in the 179 Berne-Convention signatory states. We additionally request — though we cannot legally compel beyond the License — that derivative works include a visible link back to the canonical repository above so users can find the upstream project.
 
