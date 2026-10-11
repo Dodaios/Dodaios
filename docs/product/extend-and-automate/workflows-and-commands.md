@@ -67,7 +67,7 @@ Current command families include these examples:
 The registry is curated, so it does not contain every app control. Browse the
 [App Command Reference](app-command-reference) to understand the fields, or
 inspect the
-[generated App Command catalog](https://github.com/PersonalJarvis/PersonalJarvis/blob/main/docs/commands-reference.md)
+[generated App Command catalog](https://github.com/Dodaios/Dodaios/blob/main/docs/commands-reference.md)
 for the list generated from the current public registry source. The live
 catalog in your installed version remains authoritative for that installation.
 

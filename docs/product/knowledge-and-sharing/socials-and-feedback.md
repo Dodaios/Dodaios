@@ -131,7 +131,7 @@ two or more links for the detail-page check.
 | A saved destination is old | The initial list was written on first use and is not replaced when defaults change | Compare the entry with the current project destination, then update it with `jarvis socials edit` if you administer the installation. |
 | A Socials tile or Feedback button does not open anything | The host has no working browser, a popup was blocked, or the destination is offline | Check the internet connection and desktop browser settings. On a headless installation, allow popups for the Jarvis page and try again. |
 | Discord opens a welcome page or denies the forum | The account has not joined the server or completed onboarding | Return to **Feedback**, select **Join Discord first**, finish onboarding, then use **Open #report-a-bug** again. |
-| The form's submit button reads **Open a prefilled GitHub issue** | This installation has no direct feedback channel, so the report is handed to GitHub instead | Select the button, then review and submit the issue in the browser. Nothing is delivered until you submit it on [GitHub Issues](https://github.com/PersonalJarvis/PersonalJarvis/issues). |
+| The form's submit button reads **Open a prefilled GitHub issue** | This installation has no direct feedback channel, so the report is handed to GitHub instead | Select the button, then review and submit the issue in the browser. Nothing is delivered until you submit it on [GitHub Issues](https://github.com/Dodaios/Dodaios/issues). |
 
 ## Next Steps
 

@@ -117,7 +117,7 @@ title and description, and submit. On an installation with a configured
 feedback channel the report is delivered directly with the app version and
 operating system attached; on other installations — the usual case — the same
 button opens your text as a prefilled issue on the project's
-[public issue tracker](https://github.com/PersonalJarvis/PersonalJarvis/issues),
+[public issue tracker](https://github.com/Dodaios/Dodaios/issues),
 so nothing has to be retyped. The view does not run diagnostics or attach
 logs.
 

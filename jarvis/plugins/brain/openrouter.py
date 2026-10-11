@@ -67,7 +67,7 @@ class OpenRouterBrain:
                 base_url=ep.base_url,
                 timeout=CLIENT_TIMEOUT,
                 default_headers={
-                    "HTTP-Referer": "https://github.com/PersonalJarvis",
+                    "HTTP-Referer": "https://github.com/Dodaios/Dodaios",
                     "X-Title": "Personal Jarvis",
                 },
             )

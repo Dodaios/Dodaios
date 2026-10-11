@@ -249,7 +249,7 @@ stalls if it is wrong.
    as Cloudflare functions.
 7. A deliberate switch from a purely static build to static + functions.
 
-**`PersonalJarvis/PersonalJarvis`** (optional, later — see §9)
+**`Dodaios/Dodaios`** (optional, later — see §9)
 
 8. A "Publish to marketplace" action in the Skills view.
 

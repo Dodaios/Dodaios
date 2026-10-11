@@ -4316,7 +4316,7 @@ class MarketplaceConfig(BaseModel):
     # which the registry's intake workflow validates and publishes
     # (docs/marketplace/agent-templates.md). This is the default path — it
     # needs no server. Empty string hides Publish.
-    publish_registry_repo: str = "PersonalJarvis/marketplace"
+    publish_registry_repo: str = "Dodaios/marketplace"
     # Client id of the marketplace GitHub App (public by design — device flow
     # needs no secret, which is why a downloadable binary can use it).
     publish_github_client_id: str = "Iv23li1YcX62KJO67whO"

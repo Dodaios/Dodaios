@@ -254,7 +254,7 @@ A release happens **only** when the maintainer asks for one.
   the upload. Anyone can check a download:
 
   ```bash
-  gh attestation verify PersonalJarvis-Setup-x64.exe -R PersonalJarvis/PersonalJarvis
+  gh attestation verify PersonalJarvis-Setup-x64.exe -R Dodaios/Dodaios
   ```
 
   Releases up to and including v2.9.0 predate this and have no attestation.
@@ -298,12 +298,12 @@ Steps:
    `gh workflow run release-smoke.yml -f tag=vX.Y.Z` to see whether the
    artifacts themselves are broken.
 2. **Stop the spread (optional, minutes).**
-   `gh release edit vX.Y.Z -R PersonalJarvis/PersonalJarvis --prerelease`
+   `gh release edit vX.Y.Z -R Dodaios/Dodaios --prerelease`
    takes the release out of Latest, so Latest falls back to the previous
    release. New downloads and apps on older versions stop receiving the bad
    one (running apps within their 30-minute cache). Users already on it are
    not downgraded. Check the result with
-   `gh api repos/PersonalJarvis/PersonalJarvis/releases/latest --jq .tag_name`.
+   `gh api repos/Dodaios/Dodaios/releases/latest --jq .tag_name`.
 3. **Fix forward.** Land the revert or fix on main through a normal PR, then
    cut a patch: `gh workflow run release-cut.yml -f bump=patch`. The new
    version is newer than both the bad and the previous release, becomes
