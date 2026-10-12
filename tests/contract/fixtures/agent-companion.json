@@ -11,7 +11,8 @@
     {"shape":"hexagon","color":"#123456","skin":{"colors":["#111111","#222222","#333333","#444444"],"pattern":"linear","angle":359,"effect":"futureeffect","name":""}},
     {"shape":"circle","color":"#a25bff","creature":{"seed":24,"palette":"neon","eyes":"dot"}},
     {"shape":"drop","color":"#123456","creature":{"seed":0,"palette":"futureworld","eyes":"futureeyes"}},
-    {"shape":"pill","color":"#123456","creature":{"seed":99999,"palette":"midnight","eyes":"visor"}}
+    {"shape":"pill","color":"#123456","creature":{"seed":99999,"palette":"midnight","eyes":"visor"}},
+    {"shape":"triangle","color":"#123456","look":"shape"}
   ],
   "invalid": [
     {"shape":"unknown","color":"#123456"},
@@ -55,6 +56,8 @@
     {"shape":"circle","color":"#123456","creature":{"seed":24,"palette":"neon","eyes":"dot eyes"}},
     {"shape":"circle","color":"#123456","creature":{"seed":24,"palette":"neon"}},
     {"shape":"circle","color":"#123456","creature":{"seed":24,"palette":"neon","eyes":"dot","url":"https://example.org"}},
-    {"shape":"circle","color":"#123456","creature":"24"}
+    {"shape":"circle","color":"#123456","creature":"24"},
+    {"shape":"circle","color":"#123456","look":"creature"},
+    {"shape":"circle","color":"#123456","look":7}
   ]
 }

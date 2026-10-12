@@ -937,8 +937,8 @@
         "states": "Preview a state",
         "states_hint": "What the creature acts out while the agent works. Pick one to watch it above.",
         "state_names": { "idle": "Ready", "listening": "Listening", "thinking": "Thinking", "working": "Working", "talking": "Talking", "asking": "Asking", "success": "Done", "error": "Error", "sleeping": "Asleep" },
-        "everywhere": "Show every agent as a pixel creature",
-        "everywhere_hint": "A trial switch for this device. Agents without their own creature get one grown from their shape and colour. Switch it off and every look is back."
+        "by_default": "Pixel creatures by default",
+        "by_default_hint": "Agents that have not picked a look show as a pixel creature grown from their shape and colour. Switch it off to see their shapes again. Applies to this device."
       },
       "pet": "Pet",
       "pet_hint": "The agent wears this pet everywhere: in chats, while it works and as its companion in the Verse.",

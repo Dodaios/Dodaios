@@ -14,7 +14,7 @@ import { companionFlies, type CompanionPet } from "./petCompanions";
 import { PetModel, VoxelPet, type PetDrive } from "./PetModel";
 import { advanceSkin, createSkinMaterial } from "./skinMaterial";
 import { CreatureModel } from "./CreatureModel";
-import { useShownCreature } from "./creatureTrial";
+import { useShownCreature } from "./creatureDefault";
 
 class PetBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };

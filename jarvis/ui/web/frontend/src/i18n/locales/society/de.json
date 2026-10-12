@@ -937,8 +937,8 @@
         "states": "Zustand ansehen",
         "states_hint": "Was das Wesen zeigt, während der Agent arbeitet. Wähle einen Zustand und sieh ihn dir oben an.",
         "state_names": { "idle": "Bereit", "listening": "Hört zu", "thinking": "Denkt nach", "working": "Arbeitet", "talking": "Spricht", "asking": "Fragt nach", "success": "Fertig", "error": "Fehler", "sleeping": "Schläft" },
-        "everywhere": "Alle Agenten als Pixel-Wesen zeigen",
-        "everywhere_hint": "Ein Testschalter für dieses Gerät. Agenten ohne eigenes Wesen bekommen eines aus ihrer Form und Farbe. Schaltest du ihn aus, ist jedes Aussehen wieder da."
+        "by_default": "Pixel-Wesen als Standard",
+        "by_default_hint": "Agenten ohne eigene Auswahl erscheinen als Pixel-Wesen, das aus ihrer Form und Farbe entsteht. Schalte es aus, um wieder ihre Formen zu sehen. Gilt für dieses Gerät."
       },
       "pet": "Pet",
       "pet_hint": "Der Agent trägt dieses Pet überall: in Chats, bei der Arbeit und als Begleiter in der Verse.",

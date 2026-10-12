@@ -14,10 +14,10 @@ const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visi
   id, name: id, description: "", builtin: true, frame_size: 48, animations: { idle: { row: 0, frames: 1, fps: 1, loop: true } }, sheet_url: `/api/pets/${id}/sheet.png`,
 })) };
 
-function setup(fail = false, legacy = false) {
+function setup(fail = false, legacy = false, unpicked = false) {
   const original = SAMPLE_ROSTER.find(a => a.tier !== "lead")!;
   const figure = legacy ? { contract: 1 as const, archetype: "biped" as const, base: "rogue", parts: {} } : original.figure!;
-  const agent = { ...original, agentId: "appearance-test", figure: { ...figure, companion: { ...defaultCompanion("test"), shape: "circle" as const } } };
+  const agent = { ...original, agentId: "appearance-test", figure: { ...figure, companion: { ...defaultCompanion("test"), shape: "circle" as const, ...(unpicked ? {} : { look: "shape" as const }) } } };
   const close = vi.fn();
   // The look picker reads agent levels; an unreachable level system leaves every look open.
   const fetcher = vi.fn(async (url: RequestInfo | URL) => String(url).startsWith("/api/progression")
@@ -121,6 +121,7 @@ it("saves a pixel creature with the look and brings the chosen one back after a 
   expect(Number.isInteger(companion.creature.seed)).toBe(true);
   expect(companion.shape).toBe("circle");
   expect(companion.pet).toBeUndefined();
+  expect(companion.look).toBeUndefined();
 });
 
 it("stores no creature when the look goes back to the shape", async () => {
@@ -131,5 +132,18 @@ it("stores no creature when the look goes back to the shape", async () => {
   fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
   await waitFor(() => expect(saves()).toHaveLength(1));
   const [, init] = saves()[0] as unknown as [string, RequestInit];
-  expect(JSON.parse(init.body as string).avatar.companion.creature).toBeUndefined();
+  const companion = JSON.parse(init.body as string).avatar.companion;
+  expect(companion.creature).toBeUndefined();
+  expect(companion.look).toBe("shape");
+});
+
+it("opens an agent that never picked a look on its pixel creature, and stores the shape once it is chosen", async () => {
+  const { saves } = setup(false, false, true);
+  expect(screen.getByRole("button", { name: "society.companion.look_creature" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByTestId("creature-picker")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_shape" }));
+  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
+  await waitFor(() => expect(saves()).toHaveLength(1));
+  const [, init] = saves()[0] as unknown as [string, RequestInit];
+  expect(JSON.parse(init.body as string).avatar.companion.look).toBe("shape");
 });

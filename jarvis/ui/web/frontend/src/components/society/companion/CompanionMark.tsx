@@ -8,7 +8,7 @@ import type { PetState } from "@/lib/petStates";
 import { AgentSymbol } from "../AgentSymbol";
 import type { CompanionAppearance } from "./appearance";
 import type { CreatureState } from "./creature";
-import { useShownCreature } from "./creatureTrial";
+import { useShownCreature } from "./creatureDefault";
 import { PixelCreature } from "./PixelCreature";
 
 type MarkProps = {

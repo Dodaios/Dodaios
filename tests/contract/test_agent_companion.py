@@ -63,6 +63,10 @@ def test_a_worn_creature_survives_storage_and_sharing_and_a_bare_look_stores_non
     assert public_avatar({"companion": look})["companion"]["creature"] == creature
     bare = validate_avatar_companion({"companion": {**look, "creature": None}})
     assert "creature" not in bare["companion"]
+    assert "look" not in bare["companion"]
+    worn_shape = {"shape": "triangle", "color": "#a25bff", "look": "shape"}
+    assert validate_avatar_companion({"companion": worn_shape})["companion"]["look"] == "shape"
+    assert public_avatar({"companion": worn_shape})["companion"]["look"] == "shape"
 
 
 def test_a_shared_template_keeps_a_builtin_pet_and_drops_a_drawn_one():
