@@ -85,18 +85,23 @@ export function paintCreature(ctx: CanvasRenderingContext2D, width: number, body
     }
   }
   quads.sort((a, b) => a.depth - b.depth);
-  ctx.lineJoin = "round";
-  ctx.lineWidth = Math.max(1, scale * .03);
+  // Every solid face reaches a little past its edges, which closes the seams
+  // between neighbours for the price of one fill (a stroke would double the work).
+  const overlap = Math.max(.5, scale * .02);
   for (const quad of quads) {
+    const grow = quad.alpha === 1 ? overlap : 0;
+    const cx = (quad.points[0]![0] + quad.points[2]![0]) / 2, cy = (quad.points[0]![1] + quad.points[2]![1]) / 2;
     ctx.globalAlpha = quad.alpha;
-    ctx.fillStyle = ctx.strokeStyle = quad.color;
+    ctx.fillStyle = quad.color;
     ctx.beginPath();
-    ctx.moveTo(quad.points[0]![0], quad.points[0]![1]);
-    for (let i = 1; i < 4; i++) ctx.lineTo(quad.points[i]![0], quad.points[i]![1]);
+    for (let i = 0; i < 4; i++) {
+      const dx = quad.points[i]![0] - cx, dy = quad.points[i]![1] - cy;
+      const reach = grow / (Math.hypot(dx, dy) || 1);
+      const x = quad.points[i]![0] + dx * reach, y = quad.points[i]![1] + dy * reach;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
     ctx.closePath();
     ctx.fill();
-    // A hairline in the face's own colour closes the seams between neighbours.
-    if (quad.alpha === 1) ctx.stroke();
   }
   // Signs and sparks stay flat and upright: they are read, not looked at.
   for (const bit of pose.bits) {

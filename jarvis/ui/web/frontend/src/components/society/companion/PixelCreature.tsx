@@ -15,9 +15,27 @@ const listeners = new Set<(frame: number) => void>();
 let timer: number | undefined;
 let watching = false;
 
+/** The most time one tick spends painting, milliseconds; faces left over paint on the next tick. */
+const TICK_BUDGET_MS = 6;
+let cursor = 0;
+
+/**
+ * Paints the faces whose pose changed, round robin, and stops at the budget:
+ * a tick must never hold the UI thread, however many faces are on screen or
+ * however slow one paint is. A face that waits a tick shows its frame late.
+ */
 function tick(): void {
   const frame = Math.floor(performance.now() / CREATURE_TICK_MS);
-  for (const listener of listeners) listener(frame);
+  const order = [...listeners];
+  const deadline = performance.now() + TICK_BUDGET_MS;
+  for (let done = 0; done < order.length; done++) {
+    order[(cursor + done) % order.length]!(frame);
+    if (performance.now() >= deadline) {
+      cursor = (cursor + done + 1) % order.length;
+      return;
+    }
+  }
+  cursor = 0;
 }
 
 /** Runs the timer exactly while someone listens and the window is visible. */
@@ -44,6 +62,17 @@ function onFrame(listener: (frame: number) => void): () => void {
 }
 
 /**
+ * A 2D context that paints on the CPU. A roster holds many small canvases
+ * that repaint rarely; as GPU canvases each one owns graphics memory and
+ * every paint crosses to the graphics process, where a busy GPU (a 3D map, a
+ * video capture) can hold the UI thread for seconds. `willReadFrequently` is
+ * how a page asks for the CPU path.
+ */
+function softwareContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
+  return canvas.getContext("2d", { willReadFrequently: true });
+}
+
+/**
  * An agent's pixel creature at `size` pixels, acting out `state`. The figure
  * fills the square like every other agent face; the canvas reaches a little
  * past it on each side, so a question mark or a spark can play beside the
@@ -57,7 +86,7 @@ export function PixelCreature({ creature, size, state = "idle" }: { creature: Cr
     const node = canvas.current;
     // No 2D canvas (a test DOM): the box keeps its size and stays empty.
     if (!node || typeof CanvasRenderingContext2D === "undefined") return;
-    const context = node.getContext("2d");
+    const context = softwareContext(node);
     if (!context) return;
     const body = creatureBody({ seed, palette, eyes });
     // Twice the layout size at least: the turned cubes need the extra pixels to stay crisp.
@@ -123,7 +152,7 @@ export function CreatureStage({ creature, state = "idle" }: { creature: Creature
   useEffect(() => {
     const node = canvas.current;
     if (!node || typeof CanvasRenderingContext2D === "undefined") return;
-    const context = node.getContext("2d");
+    const context = softwareContext(node);
     if (!context) return;
     const body = creatureBody({ seed, palette, eyes });
     let width = 0;
