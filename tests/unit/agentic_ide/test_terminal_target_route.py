@@ -117,6 +117,32 @@ async def test_terminal_output_cannot_open_outside_the_workspace(
     assert opened == []
 
 
+async def test_the_viewer_reads_a_file_outside_the_workspace_only_when_asked(
+    workspace: Path,
+) -> None:
+    outside = workspace.parent / "shot.png"
+    outside.write_bytes(b"\x89PNG")
+
+    with pytest.raises(HTTPException) as confined:
+        await routes.get_workspace_file("workspace-1", str(outside))
+    assert confined.value.status_code == 404
+
+    shown = await routes.get_workspace_file("workspace-1", str(outside), outside=True)
+    assert Path(shown.path) == outside.resolve()
+    assert shown.media_type == "image/png"
+    assert "sandbox" in shown.headers["content-security-policy"]
+
+    preview = await routes.get_workspace_file_preview("workspace-1", str(outside), outside=True)
+    assert preview.name == "shot.png"
+
+
+async def test_the_viewer_refuses_outside_folders_and_missing_files(workspace: Path) -> None:
+    for path in (str(workspace.parent), str(workspace.parent / "missing.png")):
+        with pytest.raises(HTTPException) as excinfo:
+            await routes.get_workspace_file("workspace-1", path, outside=True)
+        assert excinfo.value.status_code == 404
+
+
 async def test_an_unknown_workspace_is_not_resolved_against_the_front_one(
     workspace: Path,
 ) -> None:

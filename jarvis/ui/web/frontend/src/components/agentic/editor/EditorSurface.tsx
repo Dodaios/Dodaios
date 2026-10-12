@@ -2,6 +2,7 @@ import { useEffect, useRef, type MouseEvent } from "react";
 import { Loader2 } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
+import { isOutsidePath } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { useCodeEditorStore, type EditorTab } from "@/store/codeEditor";
 import { languageFor, loadFile, loadHead, loadHeadText, modelOf, rememberViewState, viewStateOf } from "./editorModels";
@@ -224,7 +225,9 @@ export default function EditorSurface({
     editor.focus();
   }, [reveal, ready, tab.fileKey, tab.mode, tab.key]);
 
-  const external = () => onOpenExternally(tab.path);
+  // The system opener is confined to the workspace, so a file outside it gets no button.
+  const outside = isOutsidePath(tab.path);
+  const external = outside ? undefined : () => onOpenExternally(tab.path);
   const overlay = (() => {
     if (status === "loading") {
       return (
@@ -242,9 +245,14 @@ export default function EditorSurface({
     if (status === "image" || status === "pdf" || status === "audio" || status === "video") {
       return <MediaViewer kind={status} workspaceId={tab.workspaceId} path={tab.path} onOpenExternally={external} />;
     }
-    if (status === "document" || status === "binary" || status === "too_large") {
-      const note =
-        status === "document" ? t("code_editor.document_note") : status === "binary" ? t("code_editor.binary") : t("code_editor.too_large");
+    if (status === "document" || status === "binary" || status === "too_large" || status === "outside") {
+      const note = outside
+        ? t("code_editor.outside_note")
+        : status === "document"
+          ? t("code_editor.document_note")
+          : status === "binary"
+            ? t("code_editor.binary")
+            : t("code_editor.too_large");
       return <ExtractedPreview workspaceId={tab.workspaceId} path={tab.path} note={note} onOpenExternally={external} />;
     }
     return <Notice message={fill(t("code_editor.load_failed"), { error: file?.error ?? "" })} />;

@@ -6672,6 +6672,7 @@
     "show_source": "Ver código",
     "media_failed": "Este archivo no se puede mostrar aquí.",
     "document_note": "Texto leído de este documento. Ábrelo en este equipo para editarlo.",
+    "outside_note": "Este archivo está fuera de la carpeta del proyecto, así que se muestra en modo de solo lectura.",
     "truncated": "Solo se muestra el comienzo del archivo.",
     "empty": "Este archivo no tiene contenido legible.",
     "mixed_eol": "Este archivo mezcla finales de línea. Al guardarlo se usa {eol} en todo.",
