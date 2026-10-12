@@ -208,7 +208,7 @@ def _resolve_keyed_tts_provider(primary_name: str, tts_cfg: Any) -> tuple[str, A
         if _tts_has_credential(cand, tts_cfg):
             log.warning(
                 "TTS provider %r has no usable API key; crossing to %r — the TTS "
-                "family the user actually has a key for — so Jarvis is not mute "
+                "family the user actually has a key for — so Dodaios is not mute "
                 "(open-source AP-22). Set [tts].provider to silence this.",
                 primary_name, cand,
             )

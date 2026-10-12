@@ -2036,7 +2036,7 @@
       "appdata_missing": "未设置 APPDATA 变量。",
       "config_not_found": "在 {path} 未找到 Claude Desktop 配置。",
       "invalid_json": "配置不是有效的 JSON（第 {line} 行，第 {column} 列）。",
-      "not_readable": "无法读取配置。详情见 Jarvis 日志。",
+      "not_readable": "无法读取配置。详情见 Dodaios 日志。",
       "no_servers": "Claude Desktop 配置中未找到 mcpServers。",
       "imported": "已导入 {added} 个新服务器。",
       "imported_with_skipped": "已导入 {added} 个新服务器，跳过 {skipped} 个（已存在）。"
@@ -3297,7 +3297,7 @@
         "no_microphone": "未检测到麦克风。",
         "mic_quiet": "麦克风信号非常弱。",
         "ready": "已就绪：“{phrase}”，引擎“{engine}”（语言“{language}”）。说出它即可唤醒。",
-        "activation_not_persisted": "无法将设置保存到 jarvis.toml。详情见 Jarvis 日志。",
+        "activation_not_persisted": "无法将设置保存到 jarvis.toml。详情见 Dodaios 日志。",
         "model_ready": "唤醒模型已就绪。",
         "model_download_failed": "暂时无法下载唤醒模型，系统会自动重试。在此之前唤醒词使用备用方式。"
       },
@@ -3463,7 +3463,7 @@
       },
       "mouse_reason": {
         "macos_needs_quartz": "鼠标按键快捷键需要 pyobjc Quartz 包，但它尚未安装——请安装 [full] 配置。组合键仍然可用。",
-        "wayland": "Wayland 不允许应用全局监听鼠标按键，因此鼠标按键快捷键在这里无法使用。请使用组合键，或将合成器快捷键绑定到 Jarvis CLI。",
+        "wayland": "Wayland 不允许应用全局监听鼠标按键，因此鼠标按键快捷键在这里无法使用。请使用组合键，或将合成器快捷键绑定到 Dodaios CLI。",
         "linux_needs_pynput": "鼠标按键快捷键需要 pynput 包，但它尚未安装——请安装 [desktop-linux] 扩展。组合键仍然可用。",
         "unsupported_host": "此系统无法全局监听鼠标按键——请改用组合键。"
       }
@@ -4633,7 +4633,7 @@
       "ten_x_engineer": "10 倍工程师",
       "centennial": "百次达成",
       "kilo_club": "千次俱乐部",
-      "one_year_with_jarvis": "与 Jarvis 相伴一年"
+      "one_year_with_jarvis": "与 Dodaios 相伴一年"
     }
   },
   "chat_thread": {

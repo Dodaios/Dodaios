@@ -2036,7 +2036,7 @@
       "appdata_missing": "La variable APPDATA no está definida.",
       "config_not_found": "No se encontró la configuración de Claude Desktop en {path}.",
       "invalid_json": "La configuración no es un JSON válido (línea {line}, columna {column}).",
-      "not_readable": "No se puede leer la configuración. Los detalles están en el registro de Jarvis.",
+      "not_readable": "No se puede leer la configuración. Los detalles están en el registro de Dodaios.",
       "no_servers": "No se encontraron mcpServers en la configuración de Claude Desktop.",
       "imported": "Servidores nuevos importados: {added}.",
       "imported_with_skipped": "Servidores nuevos importados: {added}; omitidos (ya existen): {skipped}."
@@ -3297,7 +3297,7 @@
         "no_microphone": "No se ha detectado ningún micrófono.",
         "mic_quiet": "La señal del micrófono es muy baja.",
         "ready": "Listo: «{phrase}» con el motor «{engine}» (idioma «{language}»). Dila para activarme.",
-        "activation_not_persisted": "No se pudo guardar el ajuste en jarvis.toml. Los detalles están en el registro de Jarvis.",
+        "activation_not_persisted": "No se pudo guardar el ajuste en jarvis.toml. Los detalles están en el registro de Dodaios.",
         "model_ready": "Modelo de activación listo.",
         "model_download_failed": "No se ha podido descargar el modelo de activación ahora mismo; se volverá a intentar automáticamente. Hasta entonces la palabra de activación usa la vía alternativa."
       },
@@ -3463,7 +3463,7 @@
       },
       "mouse_reason": {
         "macos_needs_quartz": "Los atajos con botones del ratón necesitan el paquete pyobjc Quartz, que no está instalado — instala el perfil [full]. Las combinaciones de teclas siguen funcionando.",
-        "wayland": "Wayland no permite que una aplicación vigile los botones del ratón de forma global, así que aquí no puede funcionar un atajo con botón del ratón. Usa una combinación de teclas o asigna un atajo del compositor a la CLI de Jarvis.",
+        "wayland": "Wayland no permite que una aplicación vigile los botones del ratón de forma global, así que aquí no puede funcionar un atajo con botón del ratón. Usa una combinación de teclas o asigna un atajo del compositor a la CLI de Dodaios.",
         "linux_needs_pynput": "Los atajos con botones del ratón necesitan el paquete pynput, que no está instalado — instala el extra [desktop-linux]. Las combinaciones de teclas siguen funcionando.",
         "unsupported_host": "Este sistema no puede vigilar los botones del ratón de forma global — usa una combinación de teclas."
       }
@@ -4633,7 +4633,7 @@
       "ten_x_engineer": "Ingeniero 10x",
       "centennial": "Centenario",
       "kilo_club": "Club del millar",
-      "one_year_with_jarvis": "Un año con Jarvis"
+      "one_year_with_jarvis": "Un año con Dodaios"
     }
   },
   "chat_thread": {

@@ -71,7 +71,7 @@ _QUESTIONS: tuple[str, ...] = (
 )
 
 _GREETING = (
-    "Hey, ich bin Jarvis. Bevor wir richtig starten, frag ich Dich einmal "  # i18n-allow
+    "Hey, ich bin dein Assistent. Bevor wir richtig starten, frag ich Dich einmal "  # i18n-allow
     "kurz durch fuenf Basis-Dinge durch — damit ich weiss, mit wem ich's zu "  # i18n-allow
     "tun habe. "  # i18n-allow
 )
@@ -582,7 +582,7 @@ if __name__ == "__main__":  # pragma: no cover
         greeting = runner.start()
         print(f"\n[Q1] {greeting}\n")
         assert runner.is_started()
-        assert "Jarvis" in greeting
+        assert "Assistent" in greeting
         assert _QUESTIONS[0] in greeting
 
         # --- Stage 0 → 1: name ---
@@ -601,7 +601,7 @@ if __name__ == "__main__":  # pragma: no cover
         assert r == _QUESTIONS[2]
 
         # --- Stage 2 → 3: role ---
-        r = runner.handle_answer("Ich baue Personal Jarvis, Solo-Developer")
+        r = runner.handle_answer("Ich baue Dodaios, Solo-Developer")
         print(f"[A3] Rolle -> next: {r}")
         assert r == _QUESTIONS[3]
 

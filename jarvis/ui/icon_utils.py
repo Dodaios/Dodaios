@@ -30,7 +30,10 @@ from jarvis.core.instance import current_instance
 # window and never overwrite each other's Start-Menu entry. Bound at import —
 # the launcher pins the instance into the environment before importing this.
 _INSTANCE = current_instance()
-APP_DISPLAY_NAME = _INSTANCE.display_name
+# The name REGISTERED with the shell (toast identity, shortcut description,
+# relaunch name, desktop-entry ``Name``). It is the persistent name, not the
+# window title: a registration keeps the value existing installs carry.
+APP_DISPLAY_NAME = _INSTANCE.persistent_name
 APP_USER_MODEL_ID = _INSTANCE.windows_aumid
 BRANDED_LAUNCHER_EXE_NAME = _INSTANCE.windows_branded_launcher_file_name
 START_MENU_SHORTCUT_NAME = _INSTANCE.windows_shortcut_file_name
@@ -1361,7 +1364,7 @@ def set_window_icon_by_title(
 
     Needed because pywebview doesn't stably expose the HWND. ``FindWindowW``
     against the title is a pragmatic way — the Jarvis window title is
-    constant ("Personal Jarvis"). The title is not globally unique, though: a
+    constant (the product name). The title is not globally unique, though: a
     terminal opened in the repository commonly has the same title. Never stamp
     a title match until its owning PID is verified, or the terminal receives
     Jarvis's AUMID/relaunch metadata and gets grouped with the desktop app.

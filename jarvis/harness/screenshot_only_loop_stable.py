@@ -185,7 +185,7 @@ _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.+?)\s*```", re.DOTALL)
 
 
 _SYSTEM_PROMPT = (
-    "You are Jarvis' computer-use agent. Look at the screenshot and decide "
+    "You are Dodaios' computer-use agent. Look at the screenshot and decide "
     "the next action(s) that advance the user goal.\n\n"
     "Output JSON -- no markdown, no prose, no code fences, nothing before "
     "or after the JSON. Two shapes are accepted:\n\n"
@@ -1734,7 +1734,7 @@ _GENERIC_VERIFIER_SYSTEM_PROMPT = (
 # or empty/unread view returns done:false, which drives the loop to scroll+read.
 _READ_VERIFIER_SYSTEM_PROMPT = (
     "You are a STRICT completion judge for a desktop READING task. The user "
-    "asked Jarvis to open something and REPORT what is in it -- the messages in "
+    "asked Dodaios to open something and REPORT what is in it -- the messages in "
     "a chat/channel, the posts in a feed, the text on a page. Look at the "
     "screenshot and decide whether the ACTUAL CONTENT the user asked to read is "
     "visible RIGHT NOW. Output exactly ONE JSON object, no prose, no code "

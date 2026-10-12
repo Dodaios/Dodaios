@@ -319,7 +319,7 @@ class WebServer:
 
     def _build_app(self) -> FastAPI:
         app = FastAPI(
-            title="Personal Jarvis — Admin/UI API",
+            title="Dodaios — Admin/UI API",
             version=__version__,
             # Swagger UI on ``/api/_swagger`` — the semantic ``/api/docs``
             # path belongs to the doc-browser router (see docs_routes.py).
@@ -3950,7 +3950,7 @@ class WebServer:
         """Build the agent-chat service on first use (see agent_chat_routes)."""
         from jarvis.agent_chat.service import AgentChatService
         from jarvis.agent_chat.store import AgentChatStore
-        from jarvis.brain.assistant_name import resolve_assistant_name
+        from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 
         data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
         store = AgentChatStore(data_dir / "agent_chat.db")
@@ -3959,7 +3959,7 @@ class WebServer:
             try:
                 return resolve_assistant_name(self.cfg)
             except Exception:  # noqa: BLE001 — the name is cosmetic
-                return "Jarvis"
+                return DEFAULT_ASSISTANT_NAME
 
         from jarvis.core.events import DelegationResultReady
 

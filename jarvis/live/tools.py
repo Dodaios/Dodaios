@@ -149,7 +149,7 @@ class LiveTools:
         definitions = [
             function(
                 "end_call",
-                "Request voice hang-up. Jarvis asks for confirmation first; call again only "
+                "Request voice hang-up. Dodaios asks for confirmation first; call again only "
                 "after a separate explicit yes to that question. Never end a call for task "
                 "completion or an action approval. Running agents keep their tasks.",
                 {},
@@ -157,14 +157,14 @@ class LiveTools:
             ),
             function(
                 "discover_tools",
-                "Find Jarvis tools and their complete input schemas. Empty query browses all "
+                "Find Dodaios tools and their complete input schemas. Empty query browses all "
                 "tools. Pass next_offset as offset to read the next page.",
                 {"query": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}},
                 ["query"],
             ),
             function(
                 "call_tool",
-                "Execute a discovered Jarvis tool using its canonical name and JSON arguments.",
+                "Execute a discovered Dodaios tool using its canonical name and JSON arguments.",
                 {"name": {"type": "string"}, "arguments_json": {"type": "string"}},
                 ["name", "arguments_json"],
             ),
@@ -326,7 +326,7 @@ class LiveTools:
                     "success": False, "executed": False,
                     "confirmation_required": True,
                     "question": question,
-                    "next_step": "Jarvis asks this question. Wait for a separate explicit yes "
+                    "next_step": "Dodaios asks this question. Wait for a separate explicit yes "
                     "and then call end_call again. Never confirm another action with this yes.",
                 }
             if decision != "confirmed":

@@ -368,7 +368,7 @@ async def _unresolved(found: AgentLookup, lang: str) -> ToolResult:
         panes = ", ".join(f"{p['agent']} ({p['workspace']})" for p in hint["panes"])
         reply += (
             f" Note: '{found.heard}' matches a coding pane in the Agentic IDE ({panes}), not a "
-            "Jarvis agent - reach it with workspace-orchestrate (resolve, then send)."
+            "Dodaios agent - reach it with workspace-orchestrate (resolve, then send)."
         )
     return ToolResult(success=False, output=reply, error="target_unknown")
 

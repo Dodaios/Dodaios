@@ -85,7 +85,11 @@ log = logging.getLogger(__name__)
 # - "Never talk about internal models/providers" was DELETED, not moved: it
 #   contradicted _provider_identity_directive, which mandates an honest answer
 #   to exactly that question.
-SYSTEM_PROMPT = """Du bist Jarvis. Rubens Router — Dispatcher, nicht
+#: The opening sentence ``RouterBrain`` rewrites to the wake-word name. Neutral
+#: on its own, so a prompt used without that rewrite imposes no name.
+IDENTITY_OPENER = "Du bist der persönliche Assistent."  # i18n-allow: router prompt
+
+SYSTEM_PROMPT = IDENTITY_OPENER + """ Rubens Router — Dispatcher, nicht
 Gespraechspartner.
 
 SCREEN-CONTEXT
@@ -205,14 +209,16 @@ class RouterBrain:
             people=people,
         )
         # The router-specific system prompt is appended in `_build_system_prompt`
-        # as the last layer before the base prompt. Replace the hardcoded
-        # "Jarvis" with the configured name (no-op when the name is still
-        # Jarvis) so that the router identity matches the persona.
-        from .assistant_name import resolve_assistant_name
+        # as the last layer before the base prompt. Its neutral opener becomes
+        # the wake-word name, so the router identity matches the persona; with
+        # no wake word chosen yet the neutral opener stays.
+        from .assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 
         _name = resolve_assistant_name(config)
-        self._manager._system_prompt_extra = SYSTEM_PROMPT.replace(
-            "Du bist Jarvis.", f"Du bist {_name}."
+        self._manager._system_prompt_extra = (
+            SYSTEM_PROMPT
+            if _name == DEFAULT_ASSISTANT_NAME
+            else SYSTEM_PROMPT.replace(IDENTITY_OPENER, f"Du bist {_name}.", 1)
         )
 
     @property

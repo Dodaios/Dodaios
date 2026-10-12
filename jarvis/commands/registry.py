@@ -432,7 +432,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 ),
                 "schedule": _routine_schedule_param(),
                 "announce_on_success": _str_param(
-                    "Optional line Jarvis says when a run finishes.", max_length=500,
+                    "Optional line Dodaios says when a run finishes.", max_length=500,
                 ),
             }, "required": ["agent_id", "title", "prompt", "schedule"]},
             voice_aliases={
@@ -674,7 +674,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
             id="reply-language-set",
             title="Set reply language",
             description=(
-                "Pin the language Jarvis answers in (auto follows the spoken "
+                "Pin the language Dodaios answers in (auto follows the spoken "
                 "language)."
             ),
             method="PUT",
@@ -751,7 +751,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
         AppCommand(
             id="wake-word-set",
             title="Change wake word",
-            description="Set the phrase that wakes Jarvis up.",
+            description="Set the phrase that wakes Dodaios up.",
             method="PUT",
             path="/api/settings/wake-word",
             params={
@@ -1032,8 +1032,8 @@ def _build_registry() -> tuple[AppCommand, ...]:
         # ----------------------------------------------------------- system
         AppCommand(
             id="app-restart",
-            title="Restart Jarvis",
-            description="Restart the Jarvis desktop app (voice + UI restart too).",
+            title="Restart Dodaios",
+            description="Restart the Dodaios desktop app (voice + UI restart too).",
             method="POST",
             path="/api/settings/restart-app",
             dangerous=True,

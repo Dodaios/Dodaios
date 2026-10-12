@@ -203,7 +203,7 @@ Test connectivity and authentication for one provider.
 
 ## `reply-language-set` — Set reply language
 
-Pin the language Jarvis answers in (auto follows the spoken language).
+Pin the language Dodaios answers in (auto follows the spoken language).
 
 - **Endpoint:** `PUT /api/settings/reply-language`
 - **Arguments:** `language` (one of: auto, de, en, es, pt; required); `persist` (boolean; optional)
@@ -233,7 +233,7 @@ Show the current wake word and wake-engine settings.
 
 ## `wake-word-set` — Change wake word
 
-Set the phrase that wakes Jarvis up.
+Set the phrase that wakes Dodaios up.
 
 - **Endpoint:** `PUT /api/settings/wake-word`
 - **Arguments:** `phrase` (string; required)
@@ -331,9 +331,9 @@ Finish the running dictation and deliver the text.
 - **Desktop UI section:** `dictation`
 - **Voice example (EN):** "stop dictation"
 
-## `app-restart` — Restart Jarvis
+## `app-restart` — Restart Dodaios
 
-Restart the Jarvis desktop app (voice + UI restart too).
+Restart the Dodaios desktop app (voice + UI restart too).
 
 - **Endpoint:** `POST /api/settings/restart-app`
 - **Arguments:** none

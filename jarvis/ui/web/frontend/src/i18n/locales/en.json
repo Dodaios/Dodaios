@@ -2036,7 +2036,7 @@
       "appdata_missing": "APPDATA variable not set.",
       "config_not_found": "Claude Desktop config not found at {path}.",
       "invalid_json": "Config is not valid JSON (line {line}, column {column}).",
-      "not_readable": "Config not readable. Details are in the Jarvis log.",
+      "not_readable": "Config not readable. Details are in the Dodaios log.",
       "no_servers": "No mcpServers found in the Claude Desktop config.",
       "imported": "{added} new servers imported.",
       "imported_with_skipped": "{added} new servers imported, {skipped} skipped (already exist)."
@@ -3297,7 +3297,7 @@
         "no_microphone": "No microphone detected.",
         "mic_quiet": "Mic signal is very quiet.",
         "ready": "Ready: '{phrase}' on engine '{engine}' (language '{language}'). Say it to wake.",
-        "activation_not_persisted": "The setting could not be saved to jarvis.toml. Details are in the Jarvis log.",
+        "activation_not_persisted": "The setting could not be saved to jarvis.toml. Details are in the Dodaios log.",
         "model_ready": "Wake model ready.",
         "model_download_failed": "Could not download the wake model right now; it will retry automatically. The wake word uses the fallback path until then."
       },
@@ -3463,7 +3463,7 @@
       },
       "mouse_reason": {
         "macos_needs_quartz": "Mouse-button shortcuts need the pyobjc Quartz package, which is not installed — install the [full] profile. Key combinations still work.",
-        "wayland": "Wayland does not let an application watch the mouse buttons globally, so a mouse-button shortcut cannot work here. Use a key combination, or bind a compositor shortcut to the Jarvis CLI.",
+        "wayland": "Wayland does not let an application watch the mouse buttons globally, so a mouse-button shortcut cannot work here. Use a key combination, or bind a compositor shortcut to the Dodaios CLI.",
         "linux_needs_pynput": "Mouse-button shortcuts need the pynput package, which is not installed — install the [desktop-linux] extra. Key combinations still work.",
         "unsupported_host": "This system has no way to watch the mouse buttons globally — use a key combination instead."
       }
@@ -4633,7 +4633,7 @@
       "ten_x_engineer": "10x Engineer",
       "centennial": "Centennial",
       "kilo_club": "Kilo Club",
-      "one_year_with_jarvis": "One Year with Jarvis"
+      "one_year_with_jarvis": "One Year with Dodaios"
     }
   },
   "chat_thread": {

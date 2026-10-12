@@ -421,7 +421,7 @@ _OUTCOME_TEMPLATES: dict[str, dict[str, str]] = {
         "applied": "Erledigt — {label} ist jetzt {new}.",  # i18n-allow
         "applied_restart": (
             "Erledigt — {label} ist jetzt {new}. "  # i18n-allow
-            "Bitte einmal Jarvis neustarten, damit's wirkt."  # i18n-allow
+            "Bitte einmal Dodaios neustarten, damit's wirkt."  # i18n-allow
         ),
         "validate_failed": "Geht nicht — {err}. Setting bleibt {old}.",  # i18n-allow
         "rollback": (
@@ -438,7 +438,7 @@ _OUTCOME_TEMPLATES: dict[str, dict[str, str]] = {
         "applied": "Done — {label} is now {new}.",
         "applied_restart": (
             "Done — {label} is now {new}. "
-            "Please restart Jarvis for the change to take effect."
+            "Please restart Dodaios for the change to take effect."
         ),
         "validate_failed": "Can't do that — {err}. Setting stays {old}.",
         "rollback": "Couldn't save it, reverted to the previous state. {err}",
@@ -450,7 +450,7 @@ _OUTCOME_TEMPLATES: dict[str, dict[str, str]] = {
         "applied": "Listo — {label} ahora es {new}.",  # i18n-allow
         "applied_restart": (
             "Listo — {label} ahora es {new}. "  # i18n-allow
-            "Reinicia Jarvis para que el cambio surta efecto."  # i18n-allow
+            "Reinicia Dodaios para que el cambio surta efecto."  # i18n-allow
         ),
         "validate_failed": "No se puede — {err}. El ajuste sigue en {old}.",  # i18n-allow
         "rollback": (
@@ -466,7 +466,7 @@ _OUTCOME_TEMPLATES: dict[str, dict[str, str]] = {
         "applied": "Pronto — {label} agora é {new}.",  # i18n-allow
         "applied_restart": (
             "Pronto — {label} agora é {new}. "  # i18n-allow
-            "Reinicia o Jarvis para a alteração ter efeito."  # i18n-allow
+            "Reinicia o Dodaios para a alteração ter efeito."  # i18n-allow
         ),
         "validate_failed": "Não dá — {err}. A definição fica em {old}.",  # i18n-allow
         "rollback": (

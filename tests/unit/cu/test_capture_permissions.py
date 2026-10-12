@@ -135,7 +135,7 @@ def test_denied_is_a_stable_state_with_no_second_request(monkeypatch):
     # Screen Recording has no tri-state: a decline reads "off", and the refusal
     # says where to turn it on.
     assert second.value.reason == "needs_settings"
-    assert "turn Personal Jarvis on" in second.value.user_detail
+    assert "turn Dodaios on" in second.value.user_detail
 
 
 def test_a_grant_given_mid_session_is_seen_without_a_restart(monkeypatch):
@@ -446,7 +446,7 @@ def test_pending_native_capture_while_a_request_is_open_says_macos_may_be_asking
     # The Screen Recording dialog has no Allow button: the text sends the user to
     # System Settings and never tells them to "choose Allow".
     assert "macOS may be showing a dialog" in refused.value.user_detail
-    assert "turn Personal Jarvis on" in refused.value.user_detail
+    assert "turn Dodaios on" in refused.value.user_detail
     assert "Allow" not in refused.value.user_detail
     assert len(tcc.requests()) == 1  # nothing new was asked
 

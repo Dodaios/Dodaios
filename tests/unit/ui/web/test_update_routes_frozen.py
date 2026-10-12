@@ -458,7 +458,7 @@ def test_apply_without_a_desktop_window_says_to_restart_by_hand(
 
     assert body["ok"] is True
     assert body["quitting"] is False
-    assert "restart Personal Jarvis" in body["handover"]
+    assert "restart Dodaios" in body["handover"]
 
 
 def test_apply_never_quits_when_the_handover_fails(

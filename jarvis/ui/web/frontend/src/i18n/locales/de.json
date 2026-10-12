@@ -2036,7 +2036,7 @@
       "appdata_missing": "Die Variable APPDATA ist nicht gesetzt.",
       "config_not_found": "Claude-Desktop-Konfiguration nicht gefunden unter {path}.",
       "invalid_json": "Die Konfiguration ist kein gültiges JSON (Zeile {line}, Spalte {column}).",
-      "not_readable": "Die Konfiguration ist nicht lesbar. Details stehen im Jarvis-Log.",
+      "not_readable": "Die Konfiguration ist nicht lesbar. Details stehen im Dodaios-Log.",
       "no_servers": "Keine mcpServers in der Claude-Desktop-Konfiguration gefunden.",
       "imported": "Neue Server importiert: {added}.",
       "imported_with_skipped": "Neue Server importiert: {added}, übersprungen (existieren bereits): {skipped}."
@@ -3297,7 +3297,7 @@
         "no_microphone": "Kein Mikrofon erkannt.",
         "mic_quiet": "Das Mikrofonsignal ist sehr leise.",
         "ready": "Bereit: „{phrase}“ mit Engine „{engine}“ (Sprache „{language}“). Sag es, um mich zu wecken.",
-        "activation_not_persisted": "Die Einstellung konnte nicht in jarvis.toml gespeichert werden. Details stehen im Jarvis-Log.",
+        "activation_not_persisted": "Die Einstellung konnte nicht in jarvis.toml gespeichert werden. Details stehen im Dodaios-Log.",
         "model_ready": "Wake-Modell bereit.",
         "model_download_failed": "Das Wake-Modell konnte gerade nicht heruntergeladen werden; es wird automatisch erneut versucht. Bis dahin nutzt das Wake-Word den Ausweichpfad."
       },
@@ -3463,7 +3463,7 @@
       },
       "mouse_reason": {
         "macos_needs_quartz": "Maustasten-Kürzel brauchen das Paket pyobjc Quartz, das nicht installiert ist — installiere das Profil [full]. Tastenkombinationen funktionieren weiterhin.",
-        "wayland": "Wayland erlaubt Anwendungen nicht, die Maustasten global zu beobachten, daher kann ein Maustasten-Kürzel hier nicht funktionieren. Nutze eine Tastenkombination oder lege ein Compositor-Kürzel auf die Jarvis-CLI.",
+        "wayland": "Wayland erlaubt Anwendungen nicht, die Maustasten global zu beobachten, daher kann ein Maustasten-Kürzel hier nicht funktionieren. Nutze eine Tastenkombination oder lege ein Compositor-Kürzel auf die Dodaios-CLI.",
         "linux_needs_pynput": "Maustasten-Kürzel brauchen das Paket pynput, das nicht installiert ist — installiere das Extra [desktop-linux]. Tastenkombinationen funktionieren weiterhin.",
         "unsupported_host": "Dieses System kann die Maustasten nicht global beobachten — nutze stattdessen eine Tastenkombination."
       }
@@ -4633,7 +4633,7 @@
       "ten_x_engineer": "10x-Engineer",
       "centennial": "Hunderter",
       "kilo_club": "Kilo-Club",
-      "one_year_with_jarvis": "Ein Jahr mit Jarvis"
+      "one_year_with_jarvis": "Ein Jahr mit Dodaios"
     }
   },
   "chat_thread": {

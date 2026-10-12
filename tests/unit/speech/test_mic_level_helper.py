@@ -181,7 +181,7 @@ async def test_cli_mic_step_says_not_granted_and_returns_no_measurement(monkeypa
     assert level is None  # a permission answer, not a silent room
     assert "Microphone access is not granted" in out
     assert "NO audio" not in out  # never the "check your mic selection" advice
-    assert "turned off for Personal Jarvis" in out  # the layer's own sentence
+    assert "turned off for Dodaios" in out  # the layer's own sentence
 
 
 @pytest.mark.asyncio

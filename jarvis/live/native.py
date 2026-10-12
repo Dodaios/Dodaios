@@ -118,7 +118,7 @@ class NativeLiveVoiceSession(LiveVoiceSession):
         self._adopt_desktop_session()
         gateway = get_supervisor_tool_gateway()
         if gateway is None:
-            raise RuntimeError("Jarvis tools are still starting.")
+            raise RuntimeError("Dodaios tools are still starting.")
         root = user_data_dir()
         await asyncio.to_thread(root.mkdir, parents=True, exist_ok=True)
         self._ledger = await asyncio.to_thread(LiveLedger, root / "live.sqlite3")

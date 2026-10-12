@@ -353,14 +353,14 @@ _TEXTS: dict[str, dict[str, str]] = {
     "en": {
         "title": "The window stayed empty.",
         "backend_dead": (
-            "Personal Jarvis is running, but the part that serves this window "
+            "Dodaios is running, but the part that serves this window "
             "has stopped. Restarting the app is the way back."
         ),
         "backend_silent": (
-            "Personal Jarvis is busy and is not answering this window yet. "
+            "Dodaios is busy and is not answering this window yet. "
             "It reloads by itself as soon as it answers again."
         ),
-        "view_empty": ("Personal Jarvis is answering, but the window did not load its page."),
+        "view_empty": ("Dodaios is answering, but the window did not load its page."),
         "button": "Reload",
         "retrying": "Retrying…",
     },
@@ -368,15 +368,15 @@ _TEXTS: dict[str, dict[str, str]] = {
         # i18n-allow: product surface, no bundle available here.
         "title": "Das Fenster ist leer geblieben.",
         "backend_dead": (
-            "Personal Jarvis läuft, aber der Teil, der dieses Fenster "
+            "Dodaios läuft, aber der Teil, der dieses Fenster "  # i18n-allow
             "bedient, ist gestoppt. Ein Neustart der App hilft."
         ),
         "backend_silent": (
-            "Personal Jarvis ist beschäftigt und antwortet diesem Fenster "
+            "Dodaios ist beschäftigt und antwortet diesem Fenster "  # i18n-allow
             "noch nicht. Es lädt von selbst neu, sobald wieder Antwort kommt."
         ),
         "view_empty": (
-            "Personal Jarvis antwortet, aber das Fenster hat seine Seite nicht geladen."
+            "Dodaios antwortet, aber das Fenster hat seine Seite nicht geladen."  # i18n-allow
         ),
         "button": "Neu laden",
         "retrying": "Neuer Versuch …",
@@ -385,14 +385,14 @@ _TEXTS: dict[str, dict[str, str]] = {
         # i18n-allow: product surface, no bundle available here.
         "title": "La ventana se quedó vacía.",
         "backend_dead": (
-            "Personal Jarvis está en marcha, pero la parte que sirve esta "
+            "Dodaios está en marcha, pero la parte que sirve esta "
             "ventana se ha detenido. Reiniciar la aplicación es la salida."
         ),
         "backend_silent": (
-            "Personal Jarvis está ocupado y aún no responde a esta ventana. "
+            "Dodaios está ocupado y aún no responde a esta ventana. "
             "Se recarga solo en cuanto vuelva a responder."
         ),
-        "view_empty": ("Personal Jarvis responde, pero la ventana no cargó su página."),
+        "view_empty": ("Dodaios responde, pero la ventana no cargó su página."),
         "button": "Recargar",
         "retrying": "Reintentando…",
     },
@@ -400,14 +400,14 @@ _TEXTS: dict[str, dict[str, str]] = {
         # i18n-allow: product surface, no bundle available here.
         "title": "窗口一直是空白的。",
         "backend_dead": (
-            "Personal Jarvis 正在运行，但负责这个窗口的部分已经停止。"
+            "Dodaios 正在运行，但负责这个窗口的部分已经停止。"
             "重新启动应用即可恢复。"
         ),
         "backend_silent": (
-            "Personal Jarvis 正忙，暂时还没有响应这个窗口。"
+            "Dodaios 正忙，暂时还没有响应这个窗口。"
             "一旦恢复响应，它会自动重新加载。"
         ),
-        "view_empty": ("Personal Jarvis 已响应，但窗口没有加载出页面。"),
+        "view_empty": ("Dodaios 已响应，但窗口没有加载出页面。"),
         "button": "重新加载",
         "retrying": "正在重试…",
     },
@@ -415,14 +415,14 @@ _TEXTS: dict[str, dict[str, str]] = {
         # i18n-allow: product surface, no bundle available here.
         "title": "A janela ficou vazia.",
         "backend_dead": (
-            "O Personal Jarvis está a correr, mas a parte que serve esta "
+            "O Dodaios está a correr, mas a parte que serve esta "
             "janela parou. Reiniciar a aplicação resolve."
         ),
         "backend_silent": (
-            "O Personal Jarvis está ocupado e ainda não responde a esta janela. "
+            "O Dodaios está ocupado e ainda não responde a esta janela. "
             "Recarrega sozinha assim que voltar a responder."
         ),
-        "view_empty": ("O Personal Jarvis responde, mas a janela não carregou a página."),
+        "view_empty": ("O Dodaios responde, mas a janela não carregou a página."),
         "button": "Recarregar",
         "retrying": "A tentar de novo…",
     },

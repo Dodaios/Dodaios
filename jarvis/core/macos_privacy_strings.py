@@ -23,7 +23,7 @@ What the strings are for. macOS shows the string of the RESPONSIBLE app in the
 system dialog, so each one must say, in one plain sentence, which feature the
 person is about to use. The wording follows Apple's guidance for purpose
 strings (a brief, complete sentence, specific, in the active voice, ending in a
-period). Personal Jarvis asks only when a feature needs a permission, never at
+period). Dodaios asks only when a feature needs a permission, never at
 launch, so every sentence names that feature.
 
 Why some keys are deliberately absent (least privilege; nothing is requested
@@ -43,7 +43,7 @@ from pathlib import Path
 
 # Must equal ``jarvis.core.branding.PRODUCT_NAME``; a parity test pins it
 # (this file may not import the package).
-PRODUCT_NAME = "Personal Jarvis"
+PRODUCT_NAME = "Dodaios"
 
 _USAGE_DESCRIPTIONS: dict[str, str] = {
     "NSMicrophoneUsageDescription": (
@@ -133,11 +133,11 @@ DEVELOPMENT_REGION = "en"
 _LOCALIZED_USAGE_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "de": {
         "NSMicrophoneUsageDescription": (
-            f"{PRODUCT_NAME} verwendet das Mikrofon, wenn du diktierst, mit Jarvis "
+            f"{PRODUCT_NAME} verwendet das Mikrofon, wenn du diktierst, mit Dodaios "
             "sprichst oder das Wake-Word einschaltest."
         ),
         "NSScreenCaptureUsageDescription": (
-            f"{PRODUCT_NAME} erfasst den Bildschirm, wenn du Jarvis bittest, ihn "
+            f"{PRODUCT_NAME} erfasst den Bildschirm, wenn du Dodaios bittest, ihn "
             "anzusehen oder eine App für dich zu steuern."
         ),
         "NSAppleEventsUsageDescription": (
@@ -173,7 +173,7 @@ _LOCALIZED_USAGE_DESCRIPTIONS: dict[str, dict[str, str]] = {
     },
     "es": {
         "NSMicrophoneUsageDescription": (
-            f"{PRODUCT_NAME} usa el micrófono cuando dictas, hablas con Jarvis "
+            f"{PRODUCT_NAME} usa el micrófono cuando dictas, hablas con Dodaios "
             "o activas la palabra de activación."
         ),
         "NSScreenCaptureUsageDescription": (
@@ -209,7 +209,7 @@ _LOCALIZED_USAGE_DESCRIPTIONS: dict[str, dict[str, str]] = {
     # (``pt-PT.lproj``); a bare ``pt`` would be read as Brazilian Portuguese.
     "pt-PT": {
         "NSMicrophoneUsageDescription": (
-            f"{PRODUCT_NAME} usa o microfone quando ditas, falas com o Jarvis "
+            f"{PRODUCT_NAME} usa o microfone quando ditas, falas com o Dodaios "
             "ou ativas a palavra de ativação."
         ),
         "NSScreenCaptureUsageDescription": (

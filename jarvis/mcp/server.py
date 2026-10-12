@@ -80,7 +80,7 @@ def build_app() -> tuple[object, dict]:
     app = FastMCP(
         name="jarvis-mcp-server",
         instructions=(
-            "Exposes Jarvis' memory layer and skill system to MCP clients. "
+            "Exposes Dodaios' memory layer and skill system to MCP clients. "
             "Use memory_search for semantic retrieval over conversation history. "
             "Use skills_run to trigger pre-defined multi-step workflows."
         ),

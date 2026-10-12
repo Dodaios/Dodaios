@@ -309,7 +309,7 @@ def import_claude_desktop_coded() -> tuple[int, list[str], str, str, dict[str, s
     except OSError:
         log.warning("Claude Desktop config not readable: %s", src, exc_info=True)
         return (
-            0, [], "Config not readable. Details are in the Jarvis log.", "not_readable", {}
+            0, [], "Config not readable. Details are in the Dodaios log.", "not_readable", {}
         )
 
     claude_servers = raw.get("mcpServers", {})

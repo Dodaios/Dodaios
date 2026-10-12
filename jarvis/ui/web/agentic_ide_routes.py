@@ -465,7 +465,7 @@ class CloseTerminalsRequest(BaseModel):
 
 class ModeRequest(BaseModel):
     enabled: bool = Field(
-        description="True narrows Jarvis to this workspace; False returns to normal."
+        description="True narrows Dodaios to this workspace; False returns to normal."
     )
 
 
@@ -823,7 +823,7 @@ class AgentStatus(BaseModel):
     accepts_prompts: bool = Field(
         default=True,
         description=(
-            "Can Jarvis type a message into a pane of this entry at all? False "
+            "Can Dodaios type a message into a pane of this entry at all? False "
             "for an entry whose own interface is somewhere else (DeepSeek "
             "Harness boots a server and puts its chat in the browser), which a "
             "surface that opens a CHAT has to know before it offers the entry."
@@ -2024,7 +2024,7 @@ async def native_picker_support(request: Request) -> NativePickerSupport:
         return NativePickerSupport(
             available=False,
             reason=(
-                "The folder window would open on the computer running Jarvis, not on "
+                "The folder window would open on the computer running Dodaios, not on "
                 "this one. Browse or paste a path instead."
             ),
         )
@@ -2054,7 +2054,7 @@ async def open_native_picker(request: Request, req: NativePickRequest) -> Native
         raise HTTPException(
             status_code=403,
             detail=(
-                "The folder window can only be opened from the computer running Jarvis. "
+                "The folder window can only be opened from the computer running Dodaios. "
                 "Browse to the folder or paste its path instead."
             ),
         )
@@ -2598,7 +2598,7 @@ async def open_terminal_target(
     if not is_loopback_request(request.scope):
         raise HTTPException(
             status_code=403,
-            detail="Terminal paths can only be opened on the computer running Jarvis.",
+            detail="Terminal paths can only be opened on the computer running Dodaios.",
         )
     if not getattr(request.app.state, "native_file_actions", False):
         raise HTTPException(status_code=404, detail="native file actions unavailable")

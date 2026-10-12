@@ -2023,7 +2023,7 @@ class JarvisAgentHarnessConfig(BaseModel):
     the schema + default block in jarvis.toml; Wave 3 wires the bridge.
 
     Deliberately NO Anthropic lock in the ``model`` default: an empty ``model``
-    means the bridge resolves the frontier-pro of the active Personal Jarvis
+    means the bridge resolves the frontier-pro of the active Dodaios
     provider (``cfg.brain.primary``) via the provider-slug mapping from AD-6
     (gemini→google/gemini-..., claude-api→anthropic/..., openai→openai/...).
     This way Jarvis-Agent automatically follows the user's provider choice.

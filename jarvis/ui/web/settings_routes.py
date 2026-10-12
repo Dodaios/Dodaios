@@ -2547,7 +2547,7 @@ async def put_overlay_style(body: OverlayStyleBody, request: Request) -> dict[st
             detail=(
                 f"The on-screen overlay belongs to the default app; the {instance.label} "
                 "instance draws none and does not change the shared setting. Switch the "
-                "style in the regular Personal Jarvis app."
+                "style in the regular Dodaios app."
             ),
         )
 
