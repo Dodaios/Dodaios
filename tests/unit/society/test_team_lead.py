@@ -606,6 +606,77 @@ async def test_a_resume_during_a_turn_that_is_winding_down_is_not_lost(team):
     assert any(text.startswith("[team goal resumed") for text in svc.prompts(LEAD))
 
 
+async def _lost_assignment(rt, svc):
+    """A task whose start the scheduler abandoned: on the board, never claimed."""
+    from jarvis.agent_chat.events import make_event
+    from jarvis.society.chat_binding import ensure_session
+
+    leads = rt.team_leads
+    rt.scheduler.detach()  # the ASSIGN gets neither a CLAIM nor a VETO
+    receipt = await leads.assign("boss", member="scout", title="Research", brief="Go.")
+    rt.scheduler.attach()
+    task = (await leads.tasks(receipt["goal_id"]))[0]
+    assert task.state is TeamTaskState.ASSIGNED
+    await rt.store.update_team_task(task.task_id, {"updated_ms": 1})
+    scout = await rt.roster.get("scout")
+    ensure_session(svc, rt.config(), scout)
+
+    def say(kind: str, payload: dict[str, Any]) -> None:
+        svc.store.append_event(SCOUT, make_event(kind, payload))
+
+    return leads, receipt["goal_id"], task, say
+
+
+async def test_a_lost_assignment_is_read_back_from_the_members_chat(team):
+    rt, svc = team
+    leads, goal_id, task, say = await _lost_assignment(rt, svc)
+    seen: list[str] = []
+
+    async def boss(text: str, kwargs: dict[str, Any]) -> str:
+        seen.append(text)
+        await leads.report("boss", status="done", summary="Scout found it.")
+        return "Closed."
+
+    svc.scripts[LEAD] = boss
+    # The member works on it all the same: its chat holds the framed assignment.
+    framed = f"[assignment from boss] Go. Message id: {task.assign_event_id}; sender id: boss"
+    say("user_message", {"text": framed})
+    svc.busy.add(SCOUT)
+    await leads.sweep()
+    # Still running: the task is left alone and the lead is not woken.
+    assert (await leads.tasks(goal_id))[0].state is TeamTaskState.ASSIGNED
+    assert seen == []
+
+    say("assistant_text", {"turn_id": "t1", "text": "Found: three sources."})
+    say("turn_finished", {"turn_id": "t1", "status": "done"})
+    svc.busy.discard(SCOUT)
+    await leads.sweep()
+    await until(_state_is(rt, goal_id, TeamGoalState.DONE))
+    done = (await leads.tasks(goal_id))[0]
+    assert done.state is TeamTaskState.DONE and done.result == "Found: three sources."
+    # The lead heard the real result once; nothing was handed out twice.
+    assert len(seen) == 1 and "Found: three sources." in seen[0]
+    assert len(await leads.tasks(goal_id)) == 1 and svc.prompts(SCOUT) == []
+
+
+async def test_a_lost_assignment_that_failed_or_never_arrived_is_reported_blocked(team):
+    rt, svc = team
+    leads, goal_id, task, say = await _lost_assignment(rt, svc)
+    svc.replies[LEAD] = "Noted."
+    await leads.sweep()  # the member's chat never saw it
+    first = (await leads.tasks(goal_id))[0]
+    assert first.state is TeamTaskState.BLOCKED and "never picked up" in first.result
+
+    await rt.store.update_team_task(
+        task.task_id, {"state": "assigned", "updated_ms": 1, "result": "", "done_ms": None}
+    )
+    say("user_message", {"text": f"Message id: {task.assign_event_id}; sender id: boss"})
+    say("turn_finished", {"turn_id": "t1", "status": "error", "error": "provider unavailable"})
+    await leads.sweep()
+    failed = (await leads.tasks(goal_id))[0]
+    assert failed.state is TeamTaskState.BLOCKED and failed.result == "provider unavailable"
+
+
 # ------------------------------------------------- assignments from the board
 
 
