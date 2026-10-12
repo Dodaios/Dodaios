@@ -147,7 +147,7 @@ function laptop(): Placement[] {
   ];
 }
 
-/** An anglepoise desk lamp; its head reaches out along +z. */
+/** A balanced-arm desk lamp; its head reaches out along +z. */
 function lamp(colour: string): Placement[] {
   return [
     { part: "lampBase", p: [0, TOP + 0.0075, 0], s: [0.06, 0.015, 0.06], c: colour },

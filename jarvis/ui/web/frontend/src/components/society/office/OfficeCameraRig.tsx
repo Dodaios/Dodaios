@@ -7,23 +7,38 @@
  * into the character's eyes (first person onto the monitors) and back out
  * when it stands up; asking for the overview or a fly-to stands it up.
  *
+ * The zoom limits and the overview follow the floor's size, so a campus of
+ * any extent can be framed whole. While the character stands inside a walled
+ * room, the walls the camera looks in through drop to a kerb (wallCutaway.ts).
+ *
  * A press that turned the camera never ends in a click, and the wheel zooms
  * by how far it turned (see officeCamera.ts).
  */
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
+import { useReducedMotion } from "framer-motion";
+import { CanvasActivity } from "@/hooks/useCanvasAwake";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { MOUSE, Vector3, type PerspectiveCamera } from "three";
+import { MOUSE, Vector3, type Object3D, type PerspectiveCamera } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { cameraHome, CAMERA_LIMITS, depthNear, DRAG_CLICK_PX, HOME_PITCH_RAD, HOME_YAW_RAD, wheelZoomSpeed } from "./officeCamera";
-import { seatOf, type OfficeLayout } from "./officeLayout";
+import {
+  cameraLimitsFor, campusOverview, CAMERA_LIMITS, depthNear, DRAG_CLICK_PX, FOLLOW_CATCH_UP_M, FOLLOW_DISTANCE_M, followBlend, followDistanceAfterOverview,
+  HOME_PITCH_RAD, HOME_YAW_RAD, settleView, wheelZoomSpeed, type CameraPose,
+} from "./officeCamera";
+import { seatOf, wallRect, type OfficeLayout, type WallSegment } from "./officeLayout";
+import { cutawayStep, cutawayWalls, wallKey } from "./wallCutaway";
 import { useLeadSeat } from "./leadSeat";
 import { cameraView, officeSession, player, useOfficeStore } from "./officeStore";
 import "./officeCameraRig.css";
 
 /** Where the camera starts: close behind the character, south-east, looking down. */
-export const FOLLOW_DISTANCE = 15;
+export const FOLLOW_DISTANCE = FOLLOW_DISTANCE_M;
 const TARGET_HEIGHT = 0.8;
+/** How often the scene is searched for wall objects, and how often the cutaway is decided (seconds). */
+const WALL_SCAN_S = 1;
+const CUTAWAY_CHECK_S = 0.12;
+/** How long the glide back to a far-away character takes when following resumes. */
+const CATCH_UP_SECONDS = 0.6;
 /** How long the dive into a monitor takes before the chat opens. */
 export const ZOOM_SECONDS = 1.15;
 /** Monitor screen size in metres (see LiveMonitors): the dive ends with it filling the view. */
@@ -42,6 +57,9 @@ export function screenFillDistance(fovDeg: number, aspect: number, width = SCREE
 }
 
 export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; overview: number }) {
+  const active = useContext(CanvasActivity);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const controls = useRef<OrbitControlsImpl>(null);
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
@@ -49,8 +67,21 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
   const scene = useThree((s) => s.scene);
   // The element R3F and the orbit controls listen on (the canvas wrapper, which also holds the <Html> labels).
   const connected = useThree((s) => s.events.connected) as HTMLElement | undefined;
+  const reduced = useReducedMotion() ?? false;
+  // The wheel may back away far enough to frame this floor whole, however large it is.
+  const aspect = size.width / Math.max(1, size.height);
+  const limits = useMemo(() => cameraLimitsFor(layout.bounds, aspect), [layout.bounds, aspect]);
   const lastFocus = useRef(0);
   const lastZoom = useRef(0);
+  // Following resumed far from the character: glide over instead of snapping across the floor.
+  // The glide can also bring the camera back to a walking distance (after the overview).
+  const catchUp = useRef<{ from: Vector3; t: number; fromDistance: number; toDistance: number } | null>(null);
+  const wasFollowing = useRef(false);
+  // The orbit distance before the overview took the camera away; cleared once the person zooms by hand.
+  const beforeOverview = useRef<number | null>(null);
+  // A remembered view is only restored where it still makes sense on this floor plan.
+  const wallRects = useMemo(() => layout.walls.map(wallRect), [layout.walls]);
+  const settle = (pose: CameraPose) => settleView(pose, layout.bounds, wallRects);
   const backOff = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(backOff.current), []);
   const dive = useRef<{ fromEye: Vector3; toEye: Vector3; fromTarget: Vector3; toTarget: Vector3; t: number } | null>(null);
@@ -74,7 +105,7 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
     else viewport?.removeAttribute("data-first-person");
   };
   useEffect(() => () => {
-    cameraView.firstPerson = false;
+    if (activeRef.current) cameraView.firstPerson = false;
     gl.domElement.closest(".office-viewport")?.removeAttribute("data-first-person");
   }, [gl]);
 
@@ -99,7 +130,41 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
   // Remember the view when leaving: the pose before a dive, never the inside of a monitor,
   // and the view before sitting down, never the character's eyes.
   const preDive = useRef<{ position: [number, number, number]; target: [number, number, number] } | null>(null);
+  useEffect(() => {
+    const store = useOfficeStore.getState();
+    lastZoom.current = store.zoom?.seq ?? 0;
+    lastFocus.current = store.focus?.seq ?? 0;
+    if (active) return;
+    clearTimeout(backOff.current);
+    dive.current = null;
+    flight.current = null;
+    const c = controls.current;
+    const beforeSeat = seated.current.before;
+    const saved = beforeSeat
+      ? { position: beforeSeat.position.toArray() as [number, number, number], target: beforeSeat.target.toArray() as [number, number, number] }
+      : preDive.current;
+    if (saved) {
+      camera.position.set(...saved.position);
+      c?.target.set(...saved.target);
+    }
+    if (beforeSeat) {
+      (camera as PerspectiveCamera).fov = beforeSeat.fov;
+      (camera as PerspectiveCamera).updateProjectionMatrix();
+    }
+    seated.current = { blend: 0, before: null };
+    preDive.current = null;
+    if (c) {
+      c.enabled = false;
+      c.update();
+      officeSession.camera = { position: camera.position.toArray() as [number, number, number], target: c.target.toArray() as [number, number, number] };
+    }
+    officeSession.follow = store.follow;
+    shownFirstPerson.current = false;
+    gl.domElement.closest(".office-viewport")?.removeAttribute("data-first-person");
+  }, [active, camera, gl]);
   useEffect(() => () => {
+    // An inactive retained rig already saved its pose; another visible office may own the session now.
+    if (!activeRef.current) return;
     const c = controls.current;
     const beforeSeat = seated.current.before;
     officeSession.camera = beforeSeat
@@ -112,10 +177,20 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
     if (beforeSeat) { (camera as PerspectiveCamera).fov = beforeSeat.fov; (camera as PerspectiveCamera).updateProjectionMatrix(); }
   }, [camera]);
 
-  // Start where the last visit left off, or close to the character.
+  // Start where the last visit left off, or close to the character. This runs when the map comes on screen and
+  // when the floor changes (an elevator ride), never because the floor plan was rebuilt: creating or renaming a
+  // team while the person looks at the map must leave the view where it is.
+  const floorKey = layout.variant;
+  const startedOn = useRef<string | null>(null);
   useEffect(() => {
+    if (!active) { startedOn.current = null; return; }
     if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__office = { camera, controls: controls.current, gl, scene };
-    const saved = officeSession.camera;
+    // The remembered view belongs to the floor the map was left on: after a ride the view starts from the character.
+    const rode = startedOn.current !== null && startedOn.current !== floorKey;
+    startedOn.current = floorKey;
+    // The floor plan may have been rebuilt since the view was remembered: a view of a place that is gone
+    // starts from the character instead, and a camera that would stand in a wall backs out of it.
+    const saved = !rode && officeSession.camera ? settle(officeSession.camera) : null;
     if (saved) {
       camera.position.set(...saved.position);
       controls.current?.target.set(...saved.target);
@@ -130,15 +205,20 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
     controls.current?.target.copy(target);
     controls.current?.update();
     useOfficeStore.getState().setFollow(true);
-  }, [camera, gl, scene, layout.spawn]);
+    // `settle` reads the plan of the render that runs this effect; a rebuilt plan alone must not run it again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera, gl, scene, floorKey, active]);
 
   // "Overview": frame the whole floor and stop following.
   useEffect(() => {
-    if (overview === 0) return;
+    if (!active || overview === 0) return;
     // Seated in first person the glide would keep the camera in the chair: stand up first.
     if (seated.current.blend > 0 || (layout.command && useLeadSeat.getState().seated === layout.command.id)) leaveFirstPerson();
-    const home = cameraHome(layout.bounds, size.width / Math.max(1, size.height));
+    const home = campusOverview(layout.bounds, size.width / Math.max(1, size.height));
+    // "Follow me" comes back to the view the person walked in, not to a view from across the campus.
+    if (controls.current) beforeOverview.current ??= camera.position.distanceTo(controls.current.target);
     flight.current = null;
+    catchUp.current = null;
     useOfficeStore.getState().setFollow(false);
     camera.position.set(...home.position);
     controls.current?.target.set(...home.target);
@@ -156,6 +236,7 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
   // floating label skipped it and kept the last Shift press's "pan", so a
   // plain drag slid the view while the follow dragged it back.
   useEffect(() => {
+    if (!active) return;
     const el = connected ?? gl.domElement;
     const down = (event: PointerEvent) => {
       const c = controls.current;
@@ -165,7 +246,7 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
     };
     el.addEventListener("pointerdown", down, true);
     return () => el.removeEventListener("pointerdown", down, true);
-  }, [connected, gl]);
+  }, [connected, gl, active]);
 
   // A drag turns the camera and nothing else. R3F still delivers a click when
   // the press ends on the object it started on, so a small turn over the
@@ -174,6 +255,7 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
   // swallowed here, in the capture phase, before R3F or a label sees it.
   // The wheel zooms by how far it turned, not a fixed step per event.
   useEffect(() => {
+    if (!active) return;
     const el = connected ?? gl.domElement;
     let origin: { x: number; y: number } | null = null;
     let dragged = false;
@@ -194,7 +276,12 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
       event.preventDefault();
     };
     const wheel = (event: WheelEvent) => {
-      if (controls.current) controls.current.zoomSpeed = wheelZoomSpeed(event.deltaY, event.deltaMode);
+      const c = controls.current;
+      if (!c) return;
+      // Far out a notch covers more of the way, so a large floor zooms in a few notches.
+      c.zoomSpeed = wheelZoomSpeed(event.deltaY, event.deltaMode, camera.position.distanceTo(c.target));
+      // The person chose a distance: following keeps it from here on.
+      beforeOverview.current = null;
     };
     el.addEventListener("pointerdown", down, true);
     window.addEventListener("pointermove", move, true);
@@ -208,10 +295,58 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
       el.removeEventListener("click", click, true);
       el.removeEventListener("wheel", wheel, true);
     };
-  }, [connected, gl]);
+  }, [connected, gl, active]);
+
+  // Inside a walled room the walls between camera and character drop to a kerb, so the room stays readable.
+  // Walls are whatever the scene tags with `userData.officeWall`; an untagged wall is simply never moved.
+  const walls = useRef<{ object: Object3D; key: string }[]>([]);
+  const wallScan = useRef(0);
+  const cutCheck = useRef(0);
+  const cut = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    // A new floor plan brings new wall objects: look again at once.
+    wallScan.current = 0;
+    cutCheck.current = 0;
+    return () => {
+      for (const wall of walls.current) wall.object.scale.y = 1;
+      walls.current = [];
+    };
+  }, [layout]);
+  useFrame((frame, rawDt) => {
+    if (!active || typeof (scene as Partial<Object3D>).traverse !== "function") return;
+    const t = frame.clock.elapsedTime;
+    if (t >= wallScan.current) {
+      wallScan.current = t + WALL_SCAN_S;
+      const found: { object: Object3D; key: string }[] = [];
+      scene.traverse((object) => {
+        const wall = object.userData?.officeWall as WallSegment | undefined;
+        if (wall && typeof wall.x1 === "number") found.push({ object, key: wallKey(wall) });
+      });
+      walls.current = found;
+    }
+    if (walls.current.length === 0) return;
+    if (t >= cutCheck.current) {
+      cutCheck.current = t + CUTAWAY_CHECK_S;
+      // First person looks out of the room from inside it: nothing is in the way.
+      cut.current = cameraView.firstPerson ? new Set() : cutawayWalls(layout.rooms, layout.walls, player, { x: camera.position.x, z: camera.position.z });
+    }
+    const dt = Math.min(rawDt, 0.1);
+    for (const wall of walls.current) {
+      const next = cutawayStep(wall.object.scale.y, cut.current.has(wall.key), dt, reduced);
+      if (next !== wall.object.scale.y) wall.object.scale.y = next;
+    }
+  });
+  useEffect(() => {
+    if (!import.meta.env.DEV || !active) return;
+    // Dev-only: the walls lowered right now, how many wall objects are tagged, and this floor's zoom limits.
+    (window as unknown as Record<string, unknown>).__officeCamera = {
+      cut: () => [...cut.current], walls: () => walls.current.length, limits: () => limits,
+    };
+  }, [active, limits]);
 
   // The near plane follows the zoom, or coplanar layers (oak over slab) fight in bands when zoomed out.
   useFrame(() => {
+    if (!active) return;
     const c = controls.current;
     const lens = camera as PerspectiveCamera;
     if (!c || !lens.isPerspectiveCamera) return;
@@ -222,6 +357,7 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
   });
 
   useFrame((_, rawDt) => {
+    if (!active) return;
     const c = controls.current;
     if (!c) return;
     // Publish the view for the minimap: where the camera stands and which way it looks.
@@ -300,7 +436,8 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
         dive.current = null;
         // If the chat does not take over (no handler), return to the view before the dive.
         backOff.current = setTimeout(() => {
-          const back = preDive.current;
+          // Back to the view before the dive, unless the floor plan changed under it meanwhile.
+          const back = preDive.current ? settle(preDive.current) : null;
           if (back) { camera.position.set(...back.position); c.target.set(...back.target); }
           else camera.position.copy(c.target).add(camera.position.clone().sub(c.target).setLength(CAMERA_LIMITS.minDistance + 1));
           preDive.current = null;
@@ -314,6 +451,8 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
       lastFocus.current = store.focus.seq;
       flight.current = { from: c.target.clone(), to: new Vector3(store.focus.point.x, TARGET_HEIGHT, store.focus.point.z), t: 0 };
     }
+    // Set while a glide also brings the camera back to a walking distance.
+    let zoomTo: number | null = null;
     if (flight.current) {
       const f = flight.current;
       f.t = Math.min(1, f.t + dt / 0.7);
@@ -322,20 +461,47 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
       if (f.t >= 1) flight.current = null;
     } else if (store.follow) {
       desired.current.set(player.x, TARGET_HEIGHT, player.z);
-      desired.current.lerp(c.target, Math.exp(-8 * dt));
+      // Following resumed (the "follow me" button, a step after a pan) far from the character: one eased glide over.
+      if (!wasFollowing.current) {
+        const orbit = camera.position.distanceTo(c.target);
+        const back = beforeOverview.current;
+        beforeOverview.current = null;
+        if (back !== null || desired.current.distanceTo(c.target) > FOLLOW_CATCH_UP_M) {
+          catchUp.current = { from: c.target.clone(), t: 0, fromDistance: orbit, toDistance: back !== null ? followDistanceAfterOverview(back) : orbit };
+        }
+      }
+      const glide = catchUp.current;
+      if (glide) {
+        glide.t = Math.min(1, glide.t + dt / CATCH_UP_SECONDS);
+        const ease = glide.t < 0.5 ? 2 * glide.t * glide.t : 1 - (-2 * glide.t + 2) ** 2 / 2;
+        desired.current.lerpVectors(glide.from, desired.current, ease);
+        zoomTo = glide.fromDistance + (glide.toDistance - glide.fromDistance) * ease;
+        if (glide.t >= 1) catchUp.current = null;
+      } else {
+        // Exponential, so the motion is the same at any frame rate and eases out when the character stops.
+        desired.current.lerpVectors(c.target, desired.current, followBlend(dt));
+      }
     } else {
+      wasFollowing.current = false;
+      catchUp.current = null;
       return;
     }
+    wasFollowing.current = store.follow && !flight.current;
     // Move camera and target together: rotation and zoom stay what the person chose.
     delta.current.copy(desired.current).sub(c.target);
     c.target.add(delta.current);
     camera.position.add(delta.current);
+    if (zoomTo !== null) {
+      // Along the line of sight, so the angle the person chose stays.
+      delta.current.copy(camera.position).sub(c.target).setLength(zoomTo);
+      camera.position.copy(c.target).add(delta.current);
+    }
     c.update();
   });
 
   return (
-    <OrbitControls ref={controls} makeDefault enableDamping dampingFactor={0.12} screenSpacePanning={false}
+    <OrbitControls ref={controls} makeDefault enabled={active} enableDamping dampingFactor={0.12} screenSpacePanning={false}
       minPolarAngle={CAMERA_LIMITS.minPolar} maxPolarAngle={CAMERA_LIMITS.maxPolar}
-      minDistance={CAMERA_LIMITS.minDistance} maxDistance={CAMERA_LIMITS.maxDistance} />
+      minDistance={limits.minDistance} maxDistance={limits.maxDistance} />
   );
 }
