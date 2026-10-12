@@ -17,7 +17,7 @@ def main() -> int:
     except ImportError as exc:
         sys.stderr.write(
             f"jarvisx-overlay: PySide6 unavailable ({exc}); install the [desktop] extra "
-            "for the Jarvis X selection overlay and thumbnails.\n"
+            "for the Dodaios X selection overlay and thumbnails.\n"
         )
         return EXIT_NO_GUI
     return run()

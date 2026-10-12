@@ -45,7 +45,7 @@ _UNSAFE_FALLBACK_DETAIL = (
 _USAGE_FALLBACK_DISABLED_DETAIL = (
     "The selected voice connection could not start. Check its connection and "
     "model settings. Automatic usage-billed API fallback is disabled; "
-    "Jarvis did not switch to another provider."
+    "Dodaios did not switch to another provider."
 )
 # The close reason a browser shows the person when the classic chain cannot be
 # built. WebSocket close reasons are capped at 123 bytes.

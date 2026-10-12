@@ -1,6 +1,6 @@
 """Claude CLI auth service — status, login, logout.
 
-Personal Jarvis talks to Anthropic's ``claude`` (Claude Code) CLI in two roles:
+Dodaios talks to Anthropic's ``claude`` (Claude Code) CLI in two roles:
 
 * **Jarvis-Agent** (heavy-task worker) via the ``claude`` binary using a Claude
   subscription login (no per-call API billing).

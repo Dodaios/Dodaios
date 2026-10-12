@@ -247,7 +247,7 @@ def _unavailable(agent: str) -> str:
             f"{pretty} is not installed or not on this machine's PATH. "
             "Install it from the CLIs page, then try again."
         )
-    return f"{pretty} cannot open: this machine has no shell Jarvis can start."
+    return f"{pretty} cannot open: this machine has no shell Dodaios can start."
 
 
 # A workspace holds as many panes as the user opens, and they may be arranged
@@ -7160,7 +7160,7 @@ class Registry:
             # than merely implied, because such a pane exists on purpose now.
             raise SessionError(
                 f"{term.name} is a {agent_display(term.agent).lower()}, not a coding agent — "
-                "Jarvis does not type into a shell. Type it there yourself, or send it "
+                "Dodaios does not type into a shell. Type it there yourself, or send it "
                 "to an agent terminal."
             )
         if term.status != "live" or not term.pty_id:

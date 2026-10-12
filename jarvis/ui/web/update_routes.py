@@ -1,6 +1,6 @@
 """In-app updater — one "Update Now" button over two very different installs.
 
-Personal Jarvis reaches a machine in one of two supported ways, and each one
+Dodaios reaches a machine in one of two supported ways, and each one
 updates itself differently:
 
 * **frozen** — the visitor downloaded a native installer from the website
@@ -20,7 +20,7 @@ Anything else (a maintainer checkout, a fork, a plain ``pip install``) is
 
 The managed path
 ----------------
-An end user installs Personal Jarvis with the one-line installer, which clones
+An end user installs Dodaios with the one-line installer, which clones
 the public flagship repo into ``~/.personal-jarvis`` and runs the app from that
 checkout. This module lets the running desktop app offer a one-click "Update
 Now" button so the user never has to re-run the installer from a terminal:
@@ -1084,7 +1084,7 @@ async def _apply_frozen(
         raise HTTPException(
             status_code=501,
             detail=(
-                f"no Personal Jarvis installer is published for "
+                f"no Dodaios installer is published for "
                 f"{sys.platform}/{platform_module.machine()}"
             ),
         )
@@ -1189,7 +1189,7 @@ async def _apply_frozen(
     # The new version starts once this process is gone — so go.
     quitting = _quit_for_update(request)
     if not quitting:
-        handover = f"{handover} — restart Personal Jarvis to finish the update"
+        handover = f"{handover} — restart Dodaios to finish the update"
 
     # On Windows the installer that replaces this app is running from the
     # download right now, so it stays (deleting it would kill the update). On

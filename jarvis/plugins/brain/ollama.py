@@ -393,7 +393,7 @@ class OllamaBrain:
             raise RuntimeError(
                 f"The configured Ollama model '{model}' cannot see images. Pick a "
                 f"multimodal model on the Ollama card (ollama pull "
-                f"{RECOMMENDED_VISION_PULL}), or leave the model empty so Jarvis "
+                f"{RECOMMENDED_VISION_PULL}), or leave the model empty so Dodaios "
                 "picks a vision-capable download for image turns."
             )
         if need_vision:

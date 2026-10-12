@@ -60,7 +60,7 @@ CREDENTIAL_GUIDANCE = (
     "society_ask_user question, never tell the user to paste it into the chat, a settings "
     "page, a plugin dialog, a .env file or 'a secure field' yourself, never open a browser "
     "or computer control to find a place for it, and never print, log, commit or write the "
-    "value anywhere. A service Jarvis already connects through its own sign-in (a connected "
+    "value anywhere. A service Dodaios already connects through its own sign-in (a connected "
     "plugin in your capabilities) uses that connection instead. Only the credentials listed "
     "as stored for this turn exist; never claim one is stored otherwise."
 )

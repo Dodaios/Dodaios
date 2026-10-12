@@ -1003,7 +1003,7 @@ def build_prompt(term: Any, rows: Sequence[str], *, folder: str = "") -> str:
         parts.append(f"The instruction this pane was last sent:\n<<<\n{instruction}\n>>>")
     else:
         parts.append(
-            "This pane has not been sent an instruction from Jarvis; whatever it "
+            "This pane has not been sent an instruction from Dodaios; whatever it "
             "is doing was typed into it directly."
         )
     parts.extend(_screen_sections(rows))
