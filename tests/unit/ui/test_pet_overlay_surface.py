@@ -18,6 +18,8 @@ from jarvis.core import runtime_refs
 from jarvis.ui.desktop_app import DesktopApp
 from jarvis.ui.jarvisbar.null_overlay import NullOverlay
 from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessMascotOverlay
+from jarvis.ui.overlay_styles import MASCOT_PET_ID
+from jarvis.ui.pets.loader import builtin_root, load_pet
 from ui.orb import controls
 from ui.orb.overlay import OrbOverlay
 from ui.orb.pet_renderer import PetRenderer
@@ -37,22 +39,47 @@ def test_wake_wave_reaches_the_pet_renderer(monkeypatch: pytest.MonkeyPatch) -> 
     assert calls == ["frame"]
 
 
-def test_only_the_pet_stays_visible_while_idle_and_wants_status_lines() -> None:
-    pet = OrbOverlay(style="pet")
-    assert pet.keeps_visible_when_idle is True
-    assert pet.wants_status_lines is True
-    for style in ("mascot", "voice_orb"):
-        other = OrbOverlay(style=style)
-        assert other.keeps_visible_when_idle is False
-        assert other.wants_status_lines is False
+def test_only_a_pet_stays_visible_while_idle_and_wants_status_lines() -> None:
+    for style in ("pet", "mascot"):  # the mascot is a pet
+        pet = OrbOverlay(style=style)
+        assert pet.keeps_visible_when_idle is True
+        assert pet.wants_status_lines is True
+    orb = OrbOverlay(style="voice_orb")
+    assert orb.keeps_visible_when_idle is False
+    assert orb.wants_status_lines is False
+
+
+def test_the_mascot_shows_its_own_pet_whatever_pet_is_chosen() -> None:
+    mascot = OrbOverlay(style="mascot", pet_id="miso")
+    assert mascot._figure_id() == MASCOT_PET_ID
+    mascot.set_pet("ember")  # a pick under My Pets while the mascot is up
+    assert mascot._figure_id() == MASCOT_PET_ID
+    mascot.set_style("pet")  # before start(): remembered for the boot
+    assert mascot._figure_id() == "ember"
+    mascot.set_style("mascot")
+    assert mascot._figure_id() == MASCOT_PET_ID
+
+
+def test_the_mascot_pet_ships() -> None:
+    """A missing pack would quietly show the default pet instead."""
+    assert load_pet(builtin_root() / MASCOT_PET_ID, builtin=True).manifest.id == MASCOT_PET_ID
+
+
+def test_a_configured_mascot_image_keeps_the_still_picture(tmp_path) -> None:
+    picture = OrbOverlay(style="mascot", mascot_path=str(tmp_path / "mine.png"))
+    assert picture._style == "mascot"
+    assert picture.keeps_visible_when_idle is False
+    assert picture.wants_status_lines is False
 
 
 def test_the_idle_regime_follows_a_style_change() -> None:
-    surface = OrbOverlay(style="mascot")
+    surface = OrbOverlay(style="voice_orb")
     surface.set_style("pet")  # before start(): remembered for the boot
     assert surface.keeps_visible_when_idle is True
     surface.set_style("voice_orb")
     assert surface.keeps_visible_when_idle is False
+    surface.set_style("mascot")
+    assert surface.keeps_visible_when_idle is True
 
 
 def test_the_user_hidden_flag_is_set_synchronously() -> None:
@@ -88,9 +115,15 @@ def test_the_macos_proxy_reports_the_same_pet_attributes() -> None:
     assert proxy.keeps_visible_when_idle is True
     assert proxy.wants_status_lines is True
     assert proxy.pet_user_hidden is False
-    mascot = SubprocessMascotOverlay(style="mascot")
-    assert mascot.keeps_visible_when_idle is False
-    assert mascot.wants_status_lines is False
+    mascot = SubprocessMascotOverlay(style="mascot")  # the mascot is a pet
+    assert mascot.keeps_visible_when_idle is True
+    assert mascot.wants_status_lines is True
+    for other in (
+        SubprocessMascotOverlay(style="voice_orb"),
+        SubprocessMascotOverlay(style="mascot", mascot_path="mine.png"),
+    ):
+        assert other.keeps_visible_when_idle is False
+        assert other.wants_status_lines is False
 
 
 def test_the_macos_proxy_forwards_the_hidden_flag() -> None:
@@ -229,25 +262,29 @@ def test_pet_visible_reports_the_runtime_hide() -> None:
 def test_the_idle_regime_per_style() -> None:
     app = _app()
     assert app._hide_on_idle_for("pet") is False
-    assert app._hide_on_idle_for("mascot") is True
+    assert app._hide_on_idle_for("mascot") is False  # the mascot is a pet
     assert app._hide_on_idle_for("voice_orb") is True
+    app.cfg.ui.orb_mascot_path = "mine.png"  # a still picture pops up per session
+    assert app._hide_on_idle_for("mascot") is True
+    app.cfg.ui.orb_mascot_path = ""
     assert app._hide_on_idle_for("jarvis_bar") is False  # bar_persistent=True
     app.cfg.ui.bar_persistent = False
     assert app._hide_on_idle_for("jarvis_bar") is True
 
 
-def test_a_live_swap_to_the_pet_keeps_it_up_and_back_lets_the_mascot_hide() -> None:
+def test_a_live_swap_to_a_pet_keeps_it_up_and_back_lets_the_voice_orb_hide() -> None:
     surface, bridge = _PetSurface(), _Bridge()
-    app = _app(orb=surface, bridge=bridge, orb_style="mascot")
-    app._surfaces = {"mascot": surface}
-    result = app.swap_overlay("pet")
-    assert result == {"ok": True, "applied_live": True, "style": "pet"}
-    assert bridge._hide_on_idle is False
-    assert ("show", "idle") in surface.calls
-    surface.calls.clear()
-    app.swap_overlay("mascot")
+    app = _app(orb=surface, bridge=bridge, orb_style="voice_orb")
+    app._surfaces = {"voice_orb": surface}
+    for style in ("pet", "mascot"):  # the mascot is a pet
+        result = app.swap_overlay(style)
+        assert result == {"ok": True, "applied_live": True, "style": style}
+        assert bridge._hide_on_idle is False
+        assert ("show", "idle") in surface.calls
+        surface.calls.clear()
+    app.swap_overlay("voice_orb")
     assert bridge._hide_on_idle is True
-    assert ("hide",) in surface.calls  # an idle pet does not linger as a mascot
+    assert ("hide",) in surface.calls  # an idle pet does not linger as a voice orb
 
 
 def test_the_pet_shortcut_is_read_stripped_and_empty_when_unset() -> None:

@@ -128,13 +128,13 @@ def test_restore_is_noop_without_overlay() -> None:
     app._restore_overlay_for_visible_window()
 
 
-def test_restore_keeps_mascot_hide_on_idle() -> None:
-    """The mascot is hide-at-idle regardless of bar_persistent (which only
-    governs the jarvis bar). Restoring must not pin the mascot on screen."""
+def test_restore_keeps_voice_orb_hide_on_idle() -> None:
+    """The voice orb is hide-at-idle regardless of bar_persistent (which only
+    governs the jarvis bar). Restoring must not pin the orb on screen."""
     bar = FakeBar()
     bridge = SimpleNamespace(_hide_on_idle=True)
     app = _app(persistent=True, orb=bar, bridge=bridge)
-    app.cfg.ui.orb_style = "mascot"
+    app.cfg.ui.orb_style = "voice_orb"
 
     app._restore_overlay_for_visible_window()
 
