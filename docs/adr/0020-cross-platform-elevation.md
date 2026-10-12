@@ -20,8 +20,8 @@ supersedes: adr-0001-ipc-named-pipe-hmac
 ## Context
 
 ADR-0001 chose a **Windows Named Pipe + HMAC-SHA256 + Nonce** for the IPC between
-the `asInvoker` Jarvis app and the UAC-elevated admin helper, and declared the
-design "not portable on Linux/Mac — not relevant: Jarvis is Windows-first." The
+the `asInvoker` Dodaios app and the UAC-elevated admin helper, and declared the
+design "not portable on Linux/Mac — not relevant: Dodaios is Windows-first." The
 cloud-first doctrine (`docs/PHILOSOPHY.md`) reversed that assumption: macOS and
 Linux are now **primary** runtime targets, not afterthoughts. The cross-platform
 port (`_FROZEN-DECISIONS.md`) commits to porting **all six** desktop power-user

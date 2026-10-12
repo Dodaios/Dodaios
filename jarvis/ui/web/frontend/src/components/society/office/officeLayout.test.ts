@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PRODUCT_NAME } from "@/lib/branding";
 import {
   allDesks, archPosts, buildOfficeLayout, countStates, departmentKey, FURNITURE_SIZE, footprint, groupDepartments,
   MAX_DEPARTMENTS, MIN_DEPARTMENTS, COMMAND_DESK, COMMAND_REACH, LEVEL_HALL, SPAWN, type OfficeAgentInput,
@@ -12,10 +13,10 @@ const agent = (id: string, provider: string, extra: Partial<OfficeAgentInput> = 
 });
 
 describe("office layout", () => {
-  it("groups agents by provider family and falls back to Jarvis", () => {
-    expect(departmentKey({ providerLabel: "  " })).toBe("Jarvis");
+  it("groups agents by provider family and falls back to the product name", () => {
+    expect(departmentKey({ providerLabel: "  " })).toBe(PRODUCT_NAME);
     const groups = groupDepartments([agent("a1", "codex"), agent("a2", ""), agent("a3", "codex")]);
-    expect(groups.map((g) => g.label)).toEqual(["Codex", "Jarvis"]);
+    expect(groups.map((g) => g.label)).toEqual(["Codex", PRODUCT_NAME]);
     expect(buildOfficeLayout([agent("a1", "codex")]).departments.map((d) => d.label)).toEqual(["Codex", "", "", ""]);
   });
 

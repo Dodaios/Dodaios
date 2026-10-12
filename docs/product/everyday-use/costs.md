@@ -130,7 +130,7 @@ as equally precise measurements.
 Model names alone do not establish the final charge. Provider, billing treatment,
 cached usage, and the recorded price source all matter.
 
-The view is useful for comparing activity inside Personal Jarvis. Your provider's
+The view is useful for comparing activity inside Dodaios. Your provider's
 billing dashboard remains the authority for its invoice and account balance.
 
 ## Troubleshooting

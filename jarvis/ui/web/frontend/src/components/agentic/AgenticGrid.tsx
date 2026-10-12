@@ -2308,8 +2308,8 @@ export function AgenticGrid({
           data-testid="agentic-focus-toggle"
           title={
             focusMode
-              ? "Focused coding mode is on — Jarvis answers inside this workspace. Click to leave."
-              : "Turn on focused coding mode — Jarvis answers inside this workspace until you switch back."
+              ? "Focused coding mode is on — your assistant answers inside this workspace. Click to leave."
+              : "Turn on focused coding mode — your assistant answers inside this workspace until you switch back."
           }
           className={cn(TOOLBAR_BTN, focusMode && TOOLBAR_BTN_ON)}
         >

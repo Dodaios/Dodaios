@@ -10,7 +10,7 @@ meanwhile). See [computer-use.md](../computer-use.md).
 
 ## Context
 
-Users need an unmistakable, always-visible signal that Jarvis is
+Users need an unmistakable, always-visible signal that Dodaios is
 controlling their mouse and keyboard: a colored glow around the monitor
 edges plus an "Esc to cancel" hint — the screen-edge affordance modern
 agent desktops have made familiar. Two prior states existed:
@@ -36,7 +36,7 @@ agent desktops have made familiar. Two prior states existed:
   minimal PySide6 sidecar process (`python -m jarvis.cu.indicator`):
   QPainter gradients only — no QtWebEngine, no web frontend, no IPC
   server stack. One frameless, click-through, always-on-top,
-  never-activating window per monitor; soft breathing Jarvis-gold glow;
+  never-activating window per monitor; soft breathing Dodaios-gold glow;
   localized "Esc to cancel" pill on the primary screen; JSON-lines
   stdin/stdout protocol; exits on parent EOF.
 - **Lifecycle events, not polling**: `CUControlStarted`/`CUControlEnded`
@@ -50,7 +50,7 @@ agent desktops have made familiar. Two prior states existed:
   arms a global Escape binding through the existing cross-platform
   `HotkeyTrigger` backends and cancels ALL active missions via the same
   CU-scoped token registry the voice hangup uses (engine exit 130,
-  honest "cancelled"). A Jarvis-synthesized Esc is stamped by the
+  honest "cancelled"). A Dodaios-synthesized Esc is stamped by the
   actuation layer and ignored (`self_input`). Escape stays armed even
   when the visual is disabled — it is a safety affordance.
 - **Capture hygiene**: on Windows the sidecar windows carry
@@ -68,7 +68,7 @@ agent desktops have made familiar. Two prior states existed:
 
 ## Consequences
 
-- A user always sees when Jarvis drives their machine and can stop it
+- A user always sees when Dodaios drives their machine and can stop it
   with one key — on Windows, macOS, and Linux-X11 alike.
 - The dormant overlay tech debt (87 tracked files + glue) is gone; the
   mascot/cursor-trail features it bundled would need a fresh design if
