@@ -31,7 +31,7 @@ def _point_at_jarvis_agent(args: dict, result: dict) -> dict:
         return result
     names = " or ".join(f"'{name}'" for name in hint["agents"])
     reason = (
-        f"'{agent_ref}' is not a coding pane in the Agentic IDE; it names the user's Jarvis "
+        f"'{agent_ref}' is not a coding pane in the Agentic IDE; it names the user's Dodaios "
         f"agent {names}. Use delegate_to_agent (to assign work) or message_agent (to send a "
         "message) with that agent name instead."
     )
@@ -50,7 +50,7 @@ class WorkspaceOrchestrationTool:
     is_action_tool = True
     description = (
         "Route coding tasks to Projects > Workspaces > coding agents (the coding panes of "
-        "the Agentic IDE). The user's named Jarvis agents (their team, e.g. a Scout or a "
+        "the Agentic IDE). The user's named Dodaios agents (their team, e.g. a Scout or a "
         "Gmail agent) are NOT panes: reach them with delegate_to_agent or message_agent. "
         "A resolve result carrying jarvis_agent means the name is such an agent. "
         "When the user asks for a NEW agent, terminal or session (for example 'spawn two "

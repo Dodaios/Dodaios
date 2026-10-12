@@ -343,7 +343,7 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
 
         svc = _service_from_state(request.app.state)
         if svc is None and getattr(request.app.state, "agent_chat_factory", None) is not None:
-            raise HTTPException(503, "The saved Jarvis chat model is temporarily unavailable")
+            raise HTTPException(503, "The saved Dodaios chat model is temporarily unavailable")
         selection = svc.store.chat_selection() if svc is not None else None
         if selection is not None:
             for key, value in selection.to_dict().items():

@@ -251,7 +251,7 @@ def agent_detail() -> str:
 def user_detail() -> str:
     """The sentence for people: fixed template, no window title, no owner name."""
     return (
-        "A macOS system dialog is open. Personal Jarvis never answers system dialogs "
+        "A macOS system dialog is open. Dodaios never answers system dialogs "
         "for you: answer it yourself, then try the task again."
     )
 

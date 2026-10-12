@@ -735,7 +735,7 @@ async def reject_unauthorized(scope: Scope, send: Send, receive: Receive | None 
         scope,
         send,
         status_code=401,
-        detail="Invalid or missing Jarvis credential.",
+        detail="Invalid or missing Dodaios credential.",
         ws_code=4401,
         authenticate=True,
         receive=receive,

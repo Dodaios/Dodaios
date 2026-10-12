@@ -157,7 +157,7 @@ CATALOG: Final[tuple[CatalogEntry, ...]] = (
             default_username="root",
             ip_hint="Customer login -> Server -> your server's overview shows the IP.",
             key_hint="Paste the key into ~/.ssh/authorized_keys once logged in, "
-            "or let Jarvis do it with the password.",
+            "or let Dodaios do it with the password.",
             key_url=None,
             login_hint="The root password is in the server's access data in the customer login.",
         ),
@@ -169,7 +169,7 @@ CATALOG: Final[tuple[CatalogEntry, ...]] = (
         ssh=SshGuide(
             default_username="ubuntu",
             ip_hint="Control Panel -> Bare Metal Cloud -> VPS -> your VPS shows the IPv4.",
-            key_hint="Add the key when installing the OS, or let Jarvis add it with the password.",
+            key_hint="Add the key when installing the OS, or let Dodaios add it with the password.",
             key_url="https://www.ovh.com/manager/",
             login_hint="OVHcloud emails the login and password after installation.",
         ),
@@ -195,7 +195,7 @@ CATALOG: Final[tuple[CatalogEntry, ...]] = (
         ssh=SshGuide(
             default_username="pi",
             ip_hint="Your router's device list shows it, or run hostname -I on the Pi.",
-            key_hint="Turn on SSH in Raspberry Pi Imager or raspi-config; Jarvis adds "
+            key_hint="Turn on SSH in Raspberry Pi Imager or raspi-config; Dodaios adds "
             "its key with the password.",
             key_url=None,
             login_hint="The user and password you chose in Raspberry Pi Imager.",
@@ -208,7 +208,7 @@ CATALOG: Final[tuple[CatalogEntry, ...]] = (
         ssh=SshGuide(
             default_username="root",
             ip_hint="Your router's device list shows the local IP address.",
-            key_hint="Enable SSH in its settings; Jarvis adds its key with the password.",
+            key_hint="Enable SSH in its settings; Dodaios adds its key with the password.",
             key_url=None,
             login_hint="The account you log in to the machine with.",
         ),

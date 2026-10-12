@@ -1,6 +1,6 @@
 # `install/` — Quick-install bootstrap
 
-This directory ships the one-liner installer for Personal Jarvis. Users
+This directory ships the one-liner installer for Dodaios. Users
 never read these files; they just paste the URL into their shell.
 
 ## End-user one-liner
@@ -29,7 +29,7 @@ app as its last action. Re-running the one-liner updates in place and never
 re-runs setup. `--headless` keeps the minimal torch-free base (the tiny-VPS /
 advanced path).
 
-GUI installs also register Personal Jarvis with the current desktop shell:
+GUI installs also register Dodaios with the current desktop shell:
 Windows Search and Installed Apps, Spotlight via a per-user macOS app bundle,
 or the Linux application menu. The in-app updater and first desktop launch
 repair these artifacts, and uninstall removes them again. Developer checkouts
@@ -49,8 +49,7 @@ claiming success if the full profile or app-bundle registration fails.
 
 Apple does not permit an installer to silently grant Microphone, Screen
 Recording, Accessibility, Input Monitoring or input-control access, so the
-installer asks for none of them and neither does the first launch. Personal
-Jarvis asks at the moment a feature you start needs a permission: the first
+installer asks for none of them and neither does the first launch. Dodaios asks at the moment a feature you start needs a permission: the first
 dictation asks for the microphone, the first screen capture asks for Screen
 Recording, and so on, each through Apple's own dialog or System Settings pane.
 If you decline, only that one feature is unavailable, with one click to the

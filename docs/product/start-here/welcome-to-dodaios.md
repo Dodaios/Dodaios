@@ -1,7 +1,7 @@
 ---
-title: "Welcome to Personal Jarvis"
-slug: welcome-to-personal-jarvis
-summary: "See how Jarvis turns your computer into an AI agent, what stays under your control, and where to begin."
+title: "Welcome to Dodaios"
+slug: welcome-to-dodaios
+summary: "See how Dodaios turns your computer into an AI agent, what stays under your control, and where to begin."
 section: "Start here"
 section_order: 1
 order: 1
@@ -12,10 +12,10 @@ last_reviewed: 2026-07-30
 phase: "-"
 audience: end-user
 tags: [overview, getting-started, privacy, safety]
-related: [install-personal-jarvis, desktop-app-tour, start-your-first-chat]
+related: [install-dodaios, desktop-app-tour, start-your-first-chat]
 ---
 
-Personal Jarvis turns your computer into an AI agent. Give it a task in chat or
+Dodaios turns your computer into an AI agent. Give it a task in chat or
 by voice. It can use the desktop and browser on its host, call connected tools,
 delegate longer work to specialized agents, and return results in one workspace.
 You choose the models, services, and device permissions it can use.
@@ -29,7 +29,7 @@ Agents area and Voice hub. This guide uses the neutral words **assistant**,
 
 ## What You Can Do Now
 
-| Goal | What Personal Jarvis provides |
+| Goal | What Dodaios provides |
 |---|---|
 | Talk or type | Saved chats, Pipeline or Realtime voice conversations, and push-to-talk from the current conversation. |
 | Dictate into another app | Local or hosted speech recognition, a personal dictionary, optional wording cleanup, and recent dictation history. |
@@ -46,7 +46,7 @@ unless you choose it.
 
 ## Choose Local, Self-Hosted, or Cloud
 
-Personal Jarvis does not make one provider load-bearing. You choose providers
+Dodaios does not make one provider load-bearing. You choose providers
 for different jobs such as Brain reasoning, speech input, speech output,
 Realtime voice, tool use, Agents, and knowledge processing.
 
@@ -94,7 +94,7 @@ are related, but not identical.
 
 ## What It Does Not Do Automatically
 
-Personal Jarvis does not include paid provider access, create third-party
+Dodaios does not include paid provider access, create third-party
 accounts, or turn a chat message into secure credential setup. It does not need
 every provider card filled in, and a missing optional integration should not
 break unrelated features.
@@ -128,7 +128,7 @@ about a particular GPU or operating system.
 
 ## Follow a Simple Reader Journey
 
-1. [Install Personal Jarvis](install-personal-jarvis) for your platform and
+1. [Install Dodaios](install-dodaios) for your platform and
    complete the in-app setup.
 2. Choose one Brain path in **API Keys**. Use a provider you already trust or
    start with a key-free local option.
@@ -187,6 +187,6 @@ visible error.
 
 ## Next Steps
 
-- [Install Personal Jarvis](install-personal-jarvis).
+- [Install Dodaios](install-dodaios).
 - [Tour the Desktop App](desktop-app-tour).
 - [Start Your First Chat](start-your-first-chat).

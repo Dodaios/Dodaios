@@ -2,7 +2,7 @@
 
 The Spotify plugin logs in through an app **you** register once, and there is no
 way around that: since 11 February 2026 a Spotify Development Mode app allows at
-most **five authorized users**, so no shared Jarvis-owned client could ever serve
+most **five authorized users**, so no shared Dodaios-owned client could ever serve
 everyone who downloads this project. Every install registers its own.
 
 The good news is that Spotify's version of this is the shortest in the catalog.
@@ -23,7 +23,7 @@ active Premium subscription. If yours lapses, the app stops working.
 
 1. Sign in at <https://developer.spotify.com/dashboard> and click **Create app**.
 2. Fill in:
-   - **App name** — anything, e.g. `Personal Jarvis`
+   - **App name** — anything, e.g. `Dodaios`
    - **App description** — anything, e.g. `Personal voice assistant`
    - **Redirect URI** — exactly this, then click **Add**:
 
@@ -43,16 +43,16 @@ Two mistakes to avoid on step 2, both of which produce
 - **The URI must match character for character**, including the port and the
   `/callback` path. No trailing slash.
 
-You do **not** need the client secret. Jarvis uses PKCE, which secures the flow
+You do **not** need the client secret. Dodaios uses PKCE, which secures the flow
 without one.
 
-## Part B — connect it in Jarvis
+## Part B — connect it in Dodaios
 
 1. Open **Plugins**, find the Spotify card, click **Connect**.
 2. Expand **"Use your own OAuth client (advanced)"** and paste the Client ID.
-   Jarvis stores it in the credential manager as `spotify_oauth_client_id`;
+   Dodaios stores it in the credential manager as `spotify_oauth_client_id`;
    leave the secret field empty.
-3. Continue. Your browser opens Spotify's approval page, which lists what Jarvis
+3. Continue. Your browser opens Spotify's approval page, which lists what Dodaios
    is asking for. Approve it.
 4. The tab reports `Connected.` and can be closed.
 
@@ -63,7 +63,7 @@ works too.
 
 ## Keeping it connected
 
-Spotify caps a refresh token at **six months**. Jarvis renews the hourly access
+Spotify caps a refresh token at **six months**. Dodaios renews the hourly access
 token in the background without asking, but twice a year the card will ask you
 to reconnect. Nothing can extend that — it is a fixed ceiling on Spotify's side,
 which is why the card says "provider limited" rather than promising forever.

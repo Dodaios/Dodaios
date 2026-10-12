@@ -29,7 +29,7 @@ the continuous OpenAI adapter. Cloud recording is disabled by default.
 Text chat and scheduled tasks use the selected `brain.worker` access. A task
 captures that selection at entry and carries it through nested operations;
 changing settings only affects later tasks. Subscription execution uses scoped
-Jarvis MCP grants and fails explicitly when runner isolation is unavailable.
+Dodaios MCP grants and fails explicitly when runner isolation is unavailable.
 
 Speech termination leaves already-started work alive. Explicit task cancellation
 invalidates the current execution generation and its approvals. A new user

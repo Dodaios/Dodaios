@@ -6657,6 +6657,10 @@
     "tabs": "Geöffnete Dateien",
     "close_tab": "{file} schließen",
     "close_tab_hint": "Schließen (Strg+W)",
+    "close_side": "Seitlichen Editor schließen",
+    "side_label": "Seitlicher Editor",
+    "resize_split": "Größe der beiden Editoren ändern",
+    "side_tab_hint": "Im seitlichen Editor geöffnet",
     "show_terminals": "Terminals",
     "show_terminals_hint": "Terminals zeigen; deine Dateien bleiben offen",
     "breadcrumbs": "Dateipfad",
@@ -6683,6 +6687,7 @@
       "close_all": "Alle schließen",
       "copy_path": "Pfad kopieren",
       "copy_relative_path": "Relativen Pfad kopieren",
+      "open_side": "An der Seite öffnen",
       "reveal": "Im Ordner zeigen"
     },
     "status": {
@@ -6782,6 +6787,14 @@
       "paste": "Einfügen",
       "delete_many_title": "{count} Einträge löschen?",
       "busy_saving": "Eine Datei darin wird noch gespeichert. Versuche es gleich noch einmal.",
+      "open_side": "An der Seite öffnen",
+      "reveal_windows": "Im Datei-Explorer anzeigen",
+      "reveal_mac": "Im Finder anzeigen",
+      "reveal_linux": "Enthaltenden Ordner öffnen",
+      "open_terminal": "Im Terminal öffnen",
+      "find_in_folder": "In Ordner suchen…",
+      "select_compare": "Für Vergleich auswählen",
+      "compare_with": "Mit {file} vergleichen",
       "cancel": "Abbrechen"
     },
     "search": {

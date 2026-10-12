@@ -210,7 +210,7 @@ class _Ticker:
 def _not_updatable_message() -> str:
     one_liner = _ONE_LINER_WINDOWS if sys.platform == "win32" else _ONE_LINER_POSIX
     return (
-        "This copy of Personal Jarvis cannot update itself: it was not installed\n"
+        "This copy of Dodaios cannot update itself: it was not installed\n"
         "with the one-line installer (it is a developer checkout or a pip install).\n"
         "  Developer checkout:  git pull\n"
         "  pip install:         pip install --upgrade personal-jarvis\n"
@@ -269,12 +269,12 @@ def run_update(
 
     if is_frozen():
         print(
-            "This Personal Jarvis came from a downloaded installer. Open the app and\n"
+            "This Dodaios came from a downloaded installer. Open the app and\n"
             "use Settings -> Update; it downloads and installs the new version for you."
         )
         return EXIT_NOT_UPDATABLE
 
-    print("Checking for a newer version of Personal Jarvis...", flush=True)
+    print("Checking for a newer version of Dodaios...", flush=True)
     code, out = run_child([PROBE_FLAG, "status"], _PROBE_TIMEOUT_S, False)
     status = _last_json(out)
     if status is None:
@@ -297,7 +297,7 @@ def run_update(
         return EXIT_FAILED
     latest = status.get("latest") or current
     if not status.get("update_available"):
-        print(f"Personal Jarvis {current} is already the newest version.")
+        print(f"Dodaios {current} is already the newest version.")
         return 0
     print(f"Version {latest} is available (you have {current}).")
     if check_only:
@@ -310,7 +310,7 @@ def run_update(
         print("Stopping the background service for the update...", flush=True)
         if not stop_service(int(service)):
             print(
-                "The background service did not stop. Open Personal Jarvis, quit it\n"
+                "The background service did not stop. Open Dodaios, quit it\n"
                 "from the tray icon, then run `jarvis update` again.",
                 file=sys.stderr,
             )
@@ -318,7 +318,7 @@ def run_update(
         pid = None
     if pid is not None:
         print(
-            "Personal Jarvis is running, and it cannot be updated while it is open.\n"
+            "Dodaios is running, and it cannot be updated while it is open.\n"
             "Either click Update inside the app, or quit it (tray icon -> Quit)\n"
             "and run `jarvis update` again.",
             file=sys.stderr,
@@ -343,12 +343,12 @@ def run_update(
         code, _ = run_child([FINALIZE_FLAG, str(root)], None, True)
     result = _read_result(root)
     if code == 0 and result.get("ok", True):
-        print(f"Done. Personal Jarvis {version} is installed.")
+        print(f"Done. Dodaios {version} is installed.")
         print("Start it with: jarvis")
         return 0
     if result.get("rolled_back"):
         print(
-            f"Installing version {version} failed, so Personal Jarvis went back to "
+            f"Installing version {version} failed, so Dodaios went back to "
             f"{current}. Your settings and data are unchanged.",
             file=sys.stderr,
         )
@@ -365,7 +365,7 @@ def run_update(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jarvis update",
-        description="Update Personal Jarvis to the newest published version.",
+        description="Update Dodaios to the newest published version.",
     )
     parser.add_argument(
         "--check",

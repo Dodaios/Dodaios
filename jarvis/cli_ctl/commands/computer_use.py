@@ -13,7 +13,7 @@ app = typer.Typer(
 
 @app.command()
 def start(
-    goal: str = typer.Argument(..., help="What Jarvis should do on the desktop."),
+    goal: str = typer.Argument(..., help="What Dodaios should do on the desktop."),
     timeout_s: float = typer.Option(
         120.0, "--timeout-s", help="Mission deadline in seconds (10-3600).",
     ),

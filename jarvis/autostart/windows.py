@@ -553,7 +553,7 @@ class WindowsAutostart:
                 # a matching task as done, the .lnk fallback was not written
                 # either, so autostart was dead on BOTH paths.
                 detail = (
-                    "The logon scheduled task exists but is disabled, so Jarvis "
+                    "The logon scheduled task exists but is disabled, so Dodaios "
                     "does not start at login — re-enable instant start in "
                     "Settings to switch it back on."
                 )
@@ -669,7 +669,7 @@ class WindowsAutostart:
                 entry_path=self._task_entry_path(),
                 detail=(
                     "Startup shortcut removed, but the scheduled task still starts "
-                    "Jarvis at login — turn instant start off in Settings and "
+                    "Dodaios at login — turn instant start off in Settings and "
                     "confirm the admin prompt to remove it."
                 ),
             )

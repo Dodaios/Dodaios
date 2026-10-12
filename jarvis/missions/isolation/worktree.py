@@ -65,7 +65,7 @@ BASE_SHA_SIDECAR: str = ".mission_base_sha"
 class SourceCheckoutUnavailableError(RuntimeError):
     """The installed application tree is not a usable source checkout.
 
-    Lean missions do not need the Personal Jarvis checkout and never raise
+    Lean missions do not need the Dodaios checkout and never raise
     this error.  A source-dependent mission does: silently treating copied
     package files as a repository would either make ``git worktree add`` fail
     later or tempt a worker to edit the read-only application tree directly.
@@ -74,7 +74,7 @@ class SourceCheckoutUnavailableError(RuntimeError):
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
         super().__init__(
-            "This Jarvis-Agent task requires the Personal Jarvis source "
+            "This Jarvis-Agent task requires the Dodaios source "
             "checkout, but this installation only contains application "
             "files without Git history. Repository-independent tasks remain "
             "available in isolated workspaces."
@@ -324,7 +324,7 @@ class WorktreeManager:
     # config, and the host machine may have none set globally — so we always
     # pass an explicit identity via ``-c`` to make the initial commit
     # deterministic and never prompt. This commit is throwaway scaffolding.
-    _LEAN_COMMIT_NAME = "Personal Jarvis"
+    _LEAN_COMMIT_NAME = "Dodaios"
     _LEAN_COMMIT_EMAIL = "noreply@personal-jarvis.local"
 
     def _create_lean(self, workspace: Path, *, branch_hint: str) -> Path:
@@ -437,7 +437,7 @@ class WorktreeManager:
             exclude_file.parent.mkdir(parents=True, exist_ok=True)
             with exclude_file.open("a", encoding="utf-8") as fh:
                 fh.write(
-                    "\n# Personal Jarvis: regenerable dependency/cache trees "
+                    "\n# Dodaios: regenerable dependency/cache trees "
                     "(keeps `git add -A` cheap; never a deliverable)\n"
                 )
                 fh.write("\n".join(_DEPENDENCY_EXCLUDE_DIRS) + "\n")

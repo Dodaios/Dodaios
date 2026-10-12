@@ -1,4 +1,4 @@
-"""Personal Jarvis — a voice-driven, cross-platform meta-orchestrator."""
+"""Dodaios — a voice-driven, cross-platform meta-orchestrator."""
 
 __version__ = "3.1.1"
 

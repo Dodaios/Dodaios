@@ -1,7 +1,7 @@
 """update_soul tool: the live conversation model keeps SOUL.md up to date itself.
 
 When the user tells the assistant how it should be or present itself ("be
-less formal", "you are George, not Personal Jarvis"), the GPT-Live thinking
+less formal", "you are George, not Dodaios"), the GPT-Live thinking
 model records that as one short note in SOUL.md's learned section while the
 call runs. The next call's identity block (``jarvis.brain.identity``) carries
 it on every surface. This replaces a separate review model call for the

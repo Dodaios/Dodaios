@@ -1,9 +1,9 @@
 # Google OAuth verification — removing the "unverified app" screen
 
 Every Google Connect shows **"Google hasn't verified this app"** because the
-Google Cloud project that owns Jarvis' Google OAuth client is unverified. The
+Google Cloud project that owns Dodaios' Google OAuth client is unverified. The
 screen disappears only when Google approves the project in **Google Auth
-Platform → Verification Center**. Nothing in Jarvis, `gcloud` or any API can
+Platform → Verification Center**. Nothing in Dodaios, `gcloud` or any API can
 submit or complete that review; it is a Cloud Console process owned by the
 project owner.
 
@@ -22,7 +22,7 @@ and draft texts ready to paste.
 | Google Drive | `.../auth/drive` | restricted | same as Gmail |
 
 Every Gmail read scope is restricted, so Gmail cannot avoid the assessment.
-Drive could drop to the non-sensitive `drive.file` scope, but then Jarvis only
+Drive could drop to the non-sensitive `drive.file` scope, but then Dodaios only
 sees files it created or the user opened through it — a product change, not
 a configuration change.
 
@@ -46,21 +46,21 @@ that request only.
 
 ## Draft: app privacy section (for `personaljarvis.ai/privacy/`)
 
-> ### The Personal Jarvis app and your Google data
+> ### The Dodaios app and your Google data
 >
-> The Personal Jarvis desktop app can connect to your Google account (Gmail,
+> The Dodaios desktop app can connect to your Google account (Gmail,
 > Google Drive, Google Calendar, YouTube and Google Cloud) only when you click
 > Connect and approve access on Google's own sign-in page.
 >
 > **What the app accesses.** Only the Google services you connect, and only
-> to carry out what you ask Jarvis to do — for example reading your calendar
+> to carry out what you ask Dodaios to do — for example reading your calendar
 > to answer "what is on today", or creating a YouTube playlist you asked for.
 >
 > **Where the data goes.** The app runs on your own computer. Access and
 > refresh tokens are stored in your operating system's credential store on
 > that computer. Google data is fetched directly from Google's APIs by the app
 > on your computer; we (the developer) never receive, store or see it. When
-> you ask Jarvis a question about your data, the relevant excerpt is sent to
+> you ask Dodaios a question about your data, the relevant excerpt is sent to
 > the AI model provider you configured in the app, solely to answer that
 > request.
 >
@@ -68,24 +68,24 @@ that request only.
 > advertising, transfer it to data brokers, or use it to train or improve
 > generalized AI or machine-learning models.
 >
-> **Limited Use.** Personal Jarvis' use and transfer of information received
+> **Limited Use.** Dodaios' use and transfer of information received
 > from Google APIs adheres to the
 > [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy),
 > including the Limited Use requirements.
 >
-> **Revoking access.** Disconnect the plugin in Jarvis, or remove Personal
+> **Revoking access.** Disconnect the plugin in Dodaios, or remove Personal
 > Jarvis at <https://myaccount.google.com/connections>. Disconnecting deletes
 > the stored tokens from your computer.
 
 ## Draft: scope justifications
 
-- **`calendar`** — Jarvis answers spoken and typed questions about the user's
+- **`calendar`** — Dodaios answers spoken and typed questions about the user's
   schedule across all of their calendars and creates or changes events on
   request. Read-only would prevent creating events the user dictates.
 - **`youtube`** — YouTube Music integration: search, the user's playlists and
   likes, and adding songs to playlists on request.
 - **`youtube.force-ssl`, `youtube.upload`** — YouTube Studio integration:
-  the channel owner asks Jarvis to upload a video (private by default) and to
+  the channel owner asks Dodaios to upload a video (private by default) and to
   edit titles and descriptions.
 - **`yt-analytics.readonly`** — reports channel statistics the owner asks
   for; never modified.
@@ -97,7 +97,7 @@ that request only.
 ## Draft: demo video script (2–3 minutes, unlisted)
 
 1. Show `personaljarvis.ai` (home page and privacy policy).
-2. Open the Personal Jarvis app → Plugins → Google Calendar → **Connect**.
+2. Open the Dodaios app → Plugins → Google Calendar → **Connect**.
 3. In the browser, zoom into the address bar so the OAuth `client_id` is
    readable; show the account chooser and the consent screen with the app
    name and every requested scope.

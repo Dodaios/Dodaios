@@ -140,7 +140,7 @@ def test_a_failure_mid_stream_arrives_as_response_failed(fake, guarded) -> None:
     assert frames[-1]["type"] == "response.failed"
     # Fixed wording only: no exception text leaves the gateway (CodeQL 769).
     assert frames[-1]["response"]["error"]["message"] == (
-        "The ChatGPT subscription needs a new sign-in in Jarvis."
+        "The ChatGPT subscription needs a new sign-in in Dodaios."
     )
 
 

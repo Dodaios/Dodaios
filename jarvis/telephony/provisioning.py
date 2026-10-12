@@ -57,7 +57,7 @@ def sdk_failure(action: str, exc: BaseException) -> TelephonyProvisionError:
 
     status = classify_provider_error(str(exc))
     _log.warning("%s: Twilio SDK error %s (%s)", action, type(exc).__name__, status)
-    hint = _STATUS_HINTS.get(status, "see the Jarvis log for details")
+    hint = _STATUS_HINTS.get(status, "see the Dodaios log for details")
     return TelephonyProvisionError(f"{action}: {hint}.", status=status)
 
 
