@@ -185,6 +185,10 @@ merge queue), and hourly as a safety net:
    (`scripts/ci/agent_integrate.py`). No force push, so an agent that keeps
    pushing to its branch is never overwritten. A pull request that is merely
    behind is left alone: the queue re-tests it on the newest main anyway.
+   Three branches are updated per tick. The slots go first to pull requests
+   with green CI that only conflict with main, then to red ones, and last to
+   those already labelled `needs-rebase`: in number order the three oldest
+   pull requests, two of them unresolvable, had held every slot for days.
 2. Conflicts resolve by file class: **generated** files (frontend `dist/`,
    agent mirrors, CLI reference docs, lockfiles, timing caches) take main's
    copy and are regenerated; **append-only** files (CHANGELOG, allowlists,
