@@ -54,10 +54,11 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
       <div><h3 className="font-medium">{t("society.companion.title")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("society.companion.hint")}</p></div>
     </div>
     {preview3d && <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>}
-    {!lead && <div className="flex items-center justify-between gap-3 text-sm"><span>{t("society.companion.look")}</span>
-      <div className="flex gap-1.5" role="group" aria-label={t("society.companion.look")}>
+    {/* One switch across the full width, like the access switch of the create dialog. */}
+    {!lead && <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.look")}</span>
+      <div className="flex gap-1 rounded-lg border border-border p-1" role="group" aria-label={t("society.companion.look")}>
         {(["creature", "shape", "pet"] as const).map(option => <button key={option} type="button" aria-pressed={kind === option} onClick={() => choose(option)}
-          className={`rounded-full border px-2.5 py-1 text-xs ${kind === option ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-secondary"}`}>
+          className={`min-w-0 flex-1 truncate rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${kind === option ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
           {t(`society.companion.look_${option}`)}
         </button>)}
       </div>

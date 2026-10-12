@@ -51,7 +51,7 @@ export type CreatureEyes = typeof CREATURE_EYES[number];
 
 export const CREATURE_SEED_MAX = 99_999;
 
-/** `CompanionCreature` in `jarvis/society/companion.py`. Ids stay open, so a newer catalog never invalidates a saved look. */
+/** `CompanionCreature` in `jarvis/society/companion.py` (a parity test pins the palette and eye ids). Ids stay open, so a newer catalog never invalidates a saved look. */
 export const creatureSchema = z.object({
   seed: z.number().int().min(0).max(CREATURE_SEED_MAX),
   palette: z.string().regex(/^[a-z]{1,20}$/),
@@ -70,6 +70,12 @@ export function creaturePalette(id: string): CreaturePalette {
 
 function creatureEyes(id: string): CreatureEyes {
   return (CREATURE_EYES as readonly string[]).includes(id) ? id as CreatureEyes : "dot";
+}
+
+/** The creature a new agent starts with: any figure, any colour world, any eyes. */
+export function randomCreature(random: () => number = Math.random): CreatureLook {
+  const pick = <T>(list: readonly T[]): T => list[Math.floor(random() * list.length)]!;
+  return { seed: Math.floor(random() * (CREATURE_SEED_MAX + 1)), palette: pick(CREATURE_PALETTES).id, eyes: pick(CREATURE_EYES) };
 }
 
 /** The one colour a surface that knows no gradient (a chat bubble) uses for this creature. */
