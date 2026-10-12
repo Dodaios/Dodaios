@@ -72,6 +72,8 @@ class TeamChatFake:
         turn_id = f"turn-{len(self.sent)}"
         self.sent.append((session_id, text, kwargs, turn_id))
         self.busy.add(session_id)
+        # As the real service does: the prompt of a turn is part of the chat.
+        self._emit(session_id, "user_message", {"text": text})
         self._turns[session_id] = asyncio.create_task(
             self._run(session_id, turn_id, text, kwargs)
         )
