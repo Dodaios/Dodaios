@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -514,6 +515,26 @@ class SocietyStore:
 
     async def update_team_goal(self, goal_id: str, fields: dict[str, Any]) -> bool:
         return await self._update("society_team_goals", "goal_id", goal_id, fields)
+
+    async def transition_team_goal(
+        self, goal_id: str, from_states: Iterable[str], fields: dict[str, Any]
+    ) -> bool:
+        """Update a goal only while it is in one of ``from_states``.
+
+        The compare-and-swap every state change goes through: two callers
+        that read the same state cannot both move the goal (a stop that
+        lands between a resume's read and its write must win).
+        """
+        states = tuple(from_states)
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        marks = ", ".join("?" for _ in states)
+        cur = await self.conn.execute(
+            f"UPDATE society_team_goals SET {sets} "  # noqa: S608 — identifiers from a fixed allowlist, values bound
+            f"WHERE goal_id = ? AND state IN ({marks})",
+            (*fields.values(), goal_id, *states),
+        )
+        await cur.close()
+        return bool(cur.rowcount)
 
     async def get_team_goal_row(self, goal_id: str) -> dict[str, Any] | None:
         rows = await self._select("SELECT * FROM society_team_goals WHERE goal_id = ?", (goal_id,))

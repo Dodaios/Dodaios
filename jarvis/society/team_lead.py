@@ -67,6 +67,8 @@ __all__ = [
 ]
 
 TRACE_PREFIX: Final[str] = "team:"
+#: Run id the scheduler gets for work handed to a lead: the goal, not a turn.
+GOAL_RUN_PREFIX: Final[str] = "goal:"
 #: Managing turns a lead may spend on one goal before it pauses for the person.
 MAX_LEAD_TURNS: Final[int] = 24
 MAX_TASKS_PER_GOAL: Final[int] = 40
@@ -96,6 +98,13 @@ _PROMOTED_KEY: Final[str] = "team_lead_promoted:"
 
 GOAL_TERMINAL: Final[frozenset[TeamGoalState]] = frozenset(
     {TeamGoalState.DONE, TeamGoalState.FAILED, TeamGoalState.CANCELLED}
+)
+#: Every state a goal can still be closed from.
+GOAL_OPEN: Final[tuple[TeamGoalState, ...]] = (
+    TeamGoalState.QUEUED,
+    TeamGoalState.RUNNING,
+    TeamGoalState.NEEDS_INPUT,
+    TeamGoalState.PAUSED,
 )
 #: States that hold the team: no other goal starts while one is in them.
 GOAL_ACTIVE: Final[frozenset[TeamGoalState]] = frozenset(
@@ -319,6 +328,8 @@ class TeamLeads:
         self._told: dict[str, list[str]] = {}
         #: Goals the person resumed whose lead has not picked them up yet.
         self._resumed: set[str] = set()
+        #: Goals whose lead was asked once for a typed report after a plain answer.
+        self._nudged: set[str] = set()
         self._timers: dict[str, asyncio.TimerHandle] = {}
         self._tasks: set[asyncio.Task[Any]] = set()
         self._locks: dict[str, asyncio.Lock] = {}
@@ -724,7 +735,7 @@ class TeamLeads:
                 "event_id": env.event_id,
             },
         )
-        return f"goal:{goal.goal_id}"
+        return f"{GOAL_RUN_PREFIX}{goal.goal_id}"
 
     async def _advance(self, group_id: str) -> None:
         """Start the team's oldest queued goal when nothing else holds the team."""
@@ -738,7 +749,10 @@ class TeamLeads:
             if not queued:
                 return
             goal = queued[0]
-            await self._set_goal(goal, state=TeamGoalState.RUNNING, lead_turns=0, note="")
+            if not await self._move(
+                goal, TeamGoalState.RUNNING, (TeamGoalState.QUEUED,), lead_turns=0, note=""
+            ):
+                return
         self._wake_lead(goal.goal_id)
 
     async def tell(self, goal_id: str, text: str) -> TeamGoal:
@@ -751,10 +765,14 @@ class TeamLeads:
             raise TeamLeadError("This goal is not in progress.")
         if await self._rt.store.kill_switch():
             raise TeamLeadError("The society is paused.")
-        fields: dict[str, Any] = {"note": ""}
-        if goal.state is not TeamGoalState.RUNNING:
-            fields["lead_turns"] = 0
-        await self._set_goal(goal, state=TeamGoalState.RUNNING, **fields)
+        # A goal that waited gets a fresh turn budget; one in progress keeps its own.
+        waited = (TeamGoalState.NEEDS_INPUT, TeamGoalState.PAUSED)
+        moved = await self._move(
+            goal, TeamGoalState.RUNNING, waited, note="", lead_turns=0
+        ) or await self._move(goal, TeamGoalState.RUNNING, (TeamGoalState.RUNNING,), note="")
+        if not moved:
+            raise TeamLeadError("This goal is not in progress.")
+        self._nudged.discard(goal_id)
         self._told.setdefault(goal_id, []).append(message)
         self._wake_lead(goal_id)
         return await self._require_goal(goal_id)
@@ -769,14 +787,20 @@ class TeamLeads:
             raise TeamLeadError("This goal is not paused.")
         if await self._rt.store.kill_switch():
             raise TeamLeadError("The society is paused.")
+        stopped = (TeamGoalState.PAUSED, TeamGoalState.FAILED)
         active = await self._active_goal(goal.group_id)
         if active is not None and active.goal_id != goal_id:
             # Another goal holds the team: the retried one waits its turn.
-            await self._set_goal(goal, state=TeamGoalState.QUEUED, note="", done_ms=None)
+            if not await self._move(
+                goal, TeamGoalState.QUEUED, stopped, note="", done_ms=None
+            ):
+                raise TeamLeadError("This goal is not paused.")
             return await self._require_goal(goal_id)
-        await self._set_goal(
-            goal, state=TeamGoalState.RUNNING, lead_turns=0, note="", done_ms=None
-        )
+        if not await self._move(
+            goal, TeamGoalState.RUNNING, stopped, lead_turns=0, note="", done_ms=None
+        ):
+            raise TeamLeadError("This goal is not paused.")
+        self._nudged.discard(goal_id)
         self._resumed.add(goal_id)
         self._wake_lead(goal_id)
         return await self._require_goal(goal_id)
@@ -799,8 +823,9 @@ class TeamLeads:
         paused = 0
         for row in await self._rt.store.list_team_goal_rows(limit=1000):
             goal = TeamGoal.from_row(row)
-            if goal.state is TeamGoalState.RUNNING:
-                await self._set_goal(goal, state=TeamGoalState.PAUSED, note="society_paused")
+            if goal.state is TeamGoalState.RUNNING and await self._move(
+                goal, TeamGoalState.PAUSED, (TeamGoalState.RUNNING,), note="society_paused"
+            ):
                 paused += 1
         return paused
 
@@ -810,11 +835,26 @@ class TeamLeads:
             raise TeamLeadError("goal not found", status=404)
         return goal
 
-    async def _set_goal(self, goal: TeamGoal, *, state: TeamGoalState, **fields: Any) -> None:
+    async def _move(
+        self,
+        goal: TeamGoal,
+        state: TeamGoalState,
+        expected: tuple[TeamGoalState, ...],
+        **fields: Any,
+    ) -> bool:
+        """Move a goal to ``state`` only while it is in one of ``expected``.
+
+        Every state change goes through here, so a stop that lands while
+        another caller holds a stale read wins instead of being undone.
+        """
         fields["state"] = str(state)
         fields["updated_ms"] = now_ms()
-        await self._rt.store.update_team_goal(goal.goal_id, fields)
-        await self._announce(goal.group_id, goal_id=goal.goal_id, state=state)
+        moved = await self._rt.store.transition_team_goal(
+            goal.goal_id, [str(s) for s in expected], fields
+        )
+        if moved:
+            await self._announce(goal.group_id, goal_id=goal.goal_id, state=state)
+        return bool(moved)
 
     async def _cancel_turn(self, session_id: str, turn_id: str) -> None:
         svc = self._rt.chat_service()
@@ -827,15 +867,20 @@ class TeamLeads:
 
     async def _finish(
         self, goal: TeamGoal, state: TeamGoalState, *, report: str | None = None, note: str = ""
-    ) -> None:
-        """Close a goal: stop what still runs, answer its origin, start the next."""
-        self._disarm(f"lead:{goal.goal_id}")
-        self._told.pop(goal.goal_id, None)
-        self._resumed.discard(goal.goal_id)
+    ) -> bool:
+        """Close a goal: stop what still runs, answer its origin, start the next.
+
+        ``False`` when the goal was already closed by someone else.
+        """
         fields: dict[str, Any] = {"note": note, "done_ms": now_ms()}
         if report is not None:
             fields["report"] = report
-        await self._set_goal(goal, state=state, **fields)
+        if not await self._move(goal, state, GOAL_OPEN, **fields):
+            return False
+        self._disarm(f"lead:{goal.goal_id}")
+        self._told.pop(goal.goal_id, None)
+        self._resumed.discard(goal.goal_id)
+        self._nudged.discard(goal.goal_id)
         for task in await self.tasks(goal.goal_id):
             if task.state not in TASK_OPEN:
                 continue
@@ -861,6 +906,7 @@ class TeamLeads:
         await self._announce(goal.group_id, goal_id=goal.goal_id, state=state)
         if goal.goal_id not in self._turns:
             await self._advance(goal.group_id)
+        return True
 
     async def _answer_origin(
         self, goal: TeamGoal, state: TeamGoalState, report: str, note: str
@@ -883,7 +929,7 @@ class TeamLeads:
                     trace_id=request.trace_id,
                     parent_event_id=request.event_id,
                     payload={
-                        "run_id": f"goal:{goal.goal_id}",
+                        "run_id": f"{GOAL_RUN_PREFIX}{goal.goal_id}",
                         "status": "done" if done else "blocked",
                         "done": summary[:2000],
                         "output": [f"team:{goal.group_id}"],
@@ -996,7 +1042,18 @@ class TeamLeads:
             return self._plan_prompt(goal)
         news, reported = self._news_body(goal, tasks)
         if not reported:
-            return None
+            if goal.goal_id not in self._nudged or any(t.state in TASK_OPEN for t in tasks):
+                return None
+            body = [
+                f"Goal: {goal.title}",
+                "",
+                "Your last turn ended with no task running and no report, so the person "
+                "has no result yet. If the goal is achieved, call society_team_report "
+                "status=done with the complete result. If only the person can decide "
+                "something, use status=needs_input with one question. If work is still "
+                "needed, hand it out now.",
+            ]
+            return self._frame(goal, "team goal check", body), goal.title, []
         body = [f"Goal: {goal.title}", "", *news]
         body.append(
             "Decide now. Accept what is good, send rework or the next step as a new "
@@ -1008,8 +1065,9 @@ class TeamLeads:
         return self._frame(goal, "team update", body), shown, reported
 
     async def _park(self, goal: TeamGoal, note: str) -> None:
-        self._disarm(f"lead:{goal.goal_id}")
-        await self._set_goal(goal, state=TeamGoalState.PAUSED, note=note)
+        """Pause a running goal with the reason; a goal already stopped stays so."""
+        if await self._move(goal, TeamGoalState.PAUSED, (TeamGoalState.RUNNING,), note=note):
+            self._disarm(f"lead:{goal.goal_id}")
 
     def _wake_lead(self, goal_id: str, delay_s: float = 0.0, attempt: int = 0) -> None:
         """Ask for a managing turn; several asks before it starts become one."""
@@ -1082,8 +1140,13 @@ class TeamLeads:
                 log.warning("society team lead: turn for %s did not start", goal_id, exc_info=True)
                 await self._park(goal, f"error:{str(exc)[:300] or type(exc).__name__}")
                 return
-            started = True
             self._turns[goal_id] = (session.session_id, turn_id)
+            fresh = await self.get_goal(goal_id)
+            if fresh is None or fresh.state is not TeamGoalState.RUNNING:
+                # Stopped or paused while the turn was starting: it must not run on.
+                await self._cancel_turn(session.session_id, turn_id)
+                return
+            started = True
             # Only what this prompt carried is consumed; later words stay pending.
             rest = self._told.get(goal_id, [])[told:]
             if rest:
@@ -1159,21 +1222,32 @@ class TeamLeads:
         await self._announce(goal.group_id, goal_id=goal_id, state=goal.state, reason="turn")
         if goal.state is not TeamGoalState.RUNNING:
             return
+        if goal_id in self._turns:
+            return  # A newer turn owns the goal now; it decides what comes next.
+        if self._told.get(goal_id) or goal_id in self._resumed:
+            # The person spoke or resumed after this turn began (a turn the
+            # kill switch stopped ends "cancelled"): their turn comes next.
+            self._wake_lead(goal_id)
+            return
         if not ok:
             await self._park(goal, f"error:{error}")
             return
         tasks = await self.tasks(goal_id)
-        pending = (
-            bool(self._told.get(goal_id))
-            or goal_id in self._resumed
-            or any(t.state in TASK_FINISHED and not t.reviewed for t in tasks)
-        )
-        if pending:
+        if any(t.state in TASK_FINISHED and not t.reviewed for t in tasks):
             self._wake_lead(goal_id)
             return
         if any(t.state in TASK_OPEN for t in tasks):
             return
-        # Nothing is running and the lead did not report: its answer is the result.
+        if goal_id not in self._nudged:
+            # Nothing is running and nothing was reported. A plain answer may be
+            # the result or a question; the lead says which, once, in a typed
+            # report. Its answer stays visible on the board meanwhile.
+            self._nudged.add(goal_id)
+            if final:
+                await self._rt.store.update_team_goal(goal_id, {"report": final})
+            self._wake_lead(goal_id)
+            return
+        # Asked and still no report: the lead's answer is the result.
         await self._finish(goal, TeamGoalState.DONE, report=final or goal.report)
 
     # ----------------------------------------------------- the lead's tools
@@ -1188,6 +1262,13 @@ class TeamLeads:
         goal = await self.get_goal(goal_id) if goal_id else None
         if goal is not None and goal.state is TeamGoalState.RUNNING:
             return goal
+        if goal_id:
+            # This is a managing turn whose goal was closed, stopped or handed to
+            # the person meanwhile. It must not adopt or start another goal.
+            raise TeamLeadError(
+                "This goal is no longer in progress. End your turn; you are woken "
+                "when there is something to do."
+            )
         active = await self._active_goal(group_id)
         if active is not None:
             if active.state is not TeamGoalState.RUNNING:
@@ -1295,8 +1376,20 @@ class TeamLeads:
         }
 
     def _assign_envelope(
-        self, goal: TeamGoal, lead_id: str, member_id: str, task_id: str, title: str, brief: str
+        self,
+        goal: TeamGoal,
+        lead_id: str,
+        member_id: str,
+        task_id: str,
+        title: str,
+        brief: str,
+        attempt: int = 0,
     ) -> SocietyEnvelope:
+        # Every knock gets its own trace: the scheduler caps the messages of
+        # one trace, and a long wait on a busy member must not hit that cap.
+        trace = f"{TRACE_PREFIX}{goal.goal_id}:{task_id}"
+        if attempt:
+            trace += f":{attempt}"
         text = f"{' '.join(title.split())}\n\n{brief.strip()}"
         payload: dict[str, Any] = {
             "text": text,
@@ -1311,7 +1404,7 @@ class TeamLeads:
             msg_type=MsgType.ASSIGN,
             from_agent=lead_id,
             to_agent=member_id,
-            trace_id=f"{TRACE_PREFIX}{goal.goal_id}:{task_id}",
+            trace_id=trace,
             payload=payload,
         )
 
@@ -1363,13 +1456,24 @@ class TeamLeads:
             )
             await self._announce(goal.group_id, goal_id=goal.goal_id, state=goal.state)
         elif status == "needs_input":
-            await self._set_goal(
-                goal, state=TeamGoalState.NEEDS_INPUT, report=text, note="question"
+            if not await self._move(
+                goal,
+                TeamGoalState.NEEDS_INPUT,
+                (TeamGoalState.RUNNING,),
+                report=text,
+                note="question",
+            ):
+                raise TeamLeadError("This goal is no longer in progress.")
+        elif status in ("done", "failed"):
+            closed = (
+                await self._finish(goal, TeamGoalState.DONE, report=text)
+                if status == "done"
+                else await self._finish(
+                    goal, TeamGoalState.FAILED, report=text, note="reported_failed"
+                )
             )
-        elif status == "done":
-            await self._finish(goal, TeamGoalState.DONE, report=text)
-        elif status == "failed":
-            await self._finish(goal, TeamGoalState.FAILED, report=text, note="reported_failed")
+            if not closed:
+                raise TeamLeadError("This goal is no longer in progress.")
         else:
             raise TeamLeadError("status must be progress, needs_input, done or failed")
         return {"goal_id": goal.goal_id, "title": goal.title, "recorded": status}
@@ -1378,6 +1482,12 @@ class TeamLeads:
 
     async def _on_envelope(self, env: SocietyEnvelope) -> None:
         if not env.trace_id.startswith(TRACE_PREFIX):
+            run_id = str(env.payload.get("run_id") or "")
+            if env.msg_type is MsgType.CLAIM and run_id.startswith(GOAL_RUN_PREFIX):
+                # A goal is not a run: it may queue, wait for the person or pause
+                # for days. Holding one of the lead's run slots that long would
+                # refuse every later assignment; the team's own queue bounds it.
+                self._rt.scheduler.note_run_ended(run_id)
             return
         if env.msg_type not in (MsgType.CLAIM, MsgType.RESULT, MsgType.VETO):
             return
@@ -1453,7 +1563,7 @@ class TeamLeads:
         self._wake_lead(goal.goal_id, self._review_delay)
 
     async def _reassign(self, task_id: str) -> None:
-        """A waiting task knocks again: a fresh ``ASSIGN`` on the same trace."""
+        """A waiting task knocks again: a fresh ``ASSIGN`` on a fresh trace."""
         row = await self._rt.store.get_team_task_row(task_id)
         if row is None:
             return
@@ -1466,12 +1576,19 @@ class TeamLeads:
         if await self._rt.store.kill_switch():
             return
         env = self._assign_envelope(
-            goal, goal.lead_agent_id, task.agent_id, task_id, task.title, task.brief
+            goal,
+            goal.lead_agent_id,
+            task.agent_id,
+            task_id,
+            task.title,
+            task.brief,
+            attempt=task.attempts,
         )
         await self._rt.store.update_team_task(
             task_id,
             {
                 "state": str(TeamTaskState.ASSIGNED),
+                "trace_id": env.trace_id,
                 "assign_event_id": env.event_id,
                 "updated_ms": now_ms(),
             },

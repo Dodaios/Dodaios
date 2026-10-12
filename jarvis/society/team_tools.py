@@ -43,7 +43,9 @@ class TeamAssignTool:
     """Hand one task to one member of the team the caller leads."""
 
     name: str = TEAM_ASSIGN_TOOL_NAME
-    risk_tier: str = "monitor"
+    # Internal coordination, like a message to a teammate: the scheduler's
+    # budgets and caps gate the work, not a card in a chat nobody is watching.
+    risk_tier: str = "safe"
     description: str = (
         "Hand ONE task to ONE member of the team you lead. The member works on it in their "
         "own chat, in the background; this call returns at once with the task's state. You "

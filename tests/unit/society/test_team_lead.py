@@ -218,7 +218,11 @@ async def test_an_answer_without_open_work_is_the_report(team):
     goal = await rt.team_leads.start_goal("team", "What is the answer?")
     await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
     assert (await _goal(rt, goal.goal_id)).report == "It is 42."
-    assert len(svc.prompts(LEAD)) == 1
+    # A plain answer may be a result or a question: the lead is asked once for
+    # a typed report, and only then is its answer taken as the result.
+    prompts = svc.prompts(LEAD)
+    assert len(prompts) == 2 and prompts[1].startswith("[team goal check for team Launch]")
+    assert "society_team_report" in prompts[1]
 
 
 async def test_results_arriving_during_a_lead_turn_reach_the_next_one(team):
@@ -274,6 +278,16 @@ async def test_a_busy_member_is_knocked_on_again_instead_of_failing(team):
 
     await until(waiting)
     assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.RUNNING
+
+    # A long wait outlives the scheduler's per-trace message cap: every knock
+    # is on its own trace.
+    async def knocked_often() -> bool:
+        return (await leads.tasks(goal.goal_id))[0].attempts >= 16
+
+    await until(knocked_often)
+    task = (await leads.tasks(goal.goal_id))[0]
+    assert task.state in (TeamTaskState.WAITING, TeamTaskState.ASSIGNED)
+    assert task.trace_id.count(":") == 3
     svc.busy.discard(SCOUT)
     await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
     assert (await leads.tasks(goal.goal_id))[0].state is TeamTaskState.DONE
@@ -340,8 +354,8 @@ async def test_goals_queue_and_start_one_after_another(team):
     gate.set()
     await until(_state_is(rt, second.goal_id, TeamGoalState.DONE))
     assert (await _goal(rt, first.goal_id)).state is TeamGoalState.DONE
-    prompts = svc.prompts(LEAD)
-    assert "First" in prompts[0] and "Second" in prompts[1]
+    plans = [text for text in svc.prompts(LEAD) if text.startswith("[team goal for")]
+    assert len(plans) == 2 and "First" in plans[0] and "Second" in plans[1]
 
 
 async def test_the_lead_busy_in_its_own_chat_is_retried(team):
@@ -514,6 +528,62 @@ async def test_the_sweep_reports_a_run_that_died_silently(team):
     assert "The run ended without a result." in seen[1]
 
 
+async def test_a_closed_goal_starts_nothing_more_from_its_open_turn(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.gates[LEAD] = asyncio.Event()
+    goal = await leads.start_goal("team", "Research it")
+    await until(lambda: LEAD in svc.busy)
+    # The goal closes while its lead's turn is still open (the lead reported,
+    # or the person stopped it and the turn has not ended yet).
+    await rt.store.update_team_goal(goal.goal_id, {"state": "cancelled"})
+    with pytest.raises(TeamLeadError, match="no longer in progress"):
+        await leads.assign("boss", member="scout", title="Research", brief="Go.")
+    with pytest.raises(TeamLeadError, match="no longer in progress"):
+        await leads.report("boss", status="done", summary="Too late.")
+    assert await leads.tasks(goal.goal_id) == []
+    assert [g.goal_id for g in await leads.goals("team")] == [goal.goal_id]
+    assert svc.prompts(SCOUT) == []
+    with pytest.raises(TeamLeadError, match="not in progress"):
+        await leads.tell(goal.goal_id, "Still there?")
+    with pytest.raises(TeamLeadError, match="not paused"):
+        await leads.resume(goal.goal_id)
+    assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.CANCELLED
+    svc.gates[LEAD].set()
+    await until(svc.idle)
+
+
+async def test_a_stop_wins_over_a_stale_pause_or_resume(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.gates[LEAD] = asyncio.Event()
+    goal = await leads.start_goal("team", "Do it")
+    await until(lambda: LEAD in svc.busy)
+    stale = await _goal(rt, goal.goal_id)  # read while the goal was running
+    await leads.cancel(goal.goal_id)
+    await leads._park(stale, "error:late")  # noqa: SLF001 — a late pause from the stale read
+    assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.CANCELLED
+    assert not await leads._finish(stale, TeamGoalState.DONE, report="late")  # noqa: SLF001
+    assert (await _goal(rt, goal.goal_id)).report == ""
+
+
+async def test_a_resume_during_a_turn_that_is_winding_down_is_not_lost(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.gates[LEAD] = asyncio.Event()
+    goal = await leads.start_goal("team", "Do it")
+    await until(lambda: LEAD in svc.busy)
+    await rt.engage_kill_switch()
+    await rt.release_kill_switch()
+    # The person continues before the stopped turn has fully ended.
+    await leads.resume(goal.goal_id)
+    assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.RUNNING
+    await svc.cancel(LEAD)  # the stopped turn ends "cancelled"
+    svc.gates.pop(LEAD)
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
+    assert any(text.startswith("[team goal resumed") for text in svc.prompts(LEAD))
+
+
 # ------------------------------------------------- assignments from the board
 
 
@@ -541,15 +611,19 @@ async def test_work_handed_to_a_lead_becomes_a_goal_and_answers_its_origin(team)
     events = await rt.store.events_for_trace("voice:abc")
     claim = next(e for e in events if e.msg_type is MsgType.CLAIM)
     run_id = claim.payload["run_id"]
-    assert run_id.startswith("goal:") and rt.scheduler.running == {run_id: "boss"}
+    # A goal may wait for days; it never holds one of the lead's run slots.
+    assert run_id.startswith("goal:") and run_id not in rt.scheduler.running
     goal_id = run_id.removeprefix("goal:")
     assert (await _goal(rt, goal_id)).lang == "de"
 
     await until(_state_is(rt, goal_id, TeamGoalState.DONE))
-    await until(lambda: not rt.scheduler.running)
-    result = next(
-        e for e in await rt.store.events_for_trace("voice:abc") if e.msg_type is MsgType.RESULT
-    )
+
+    async def answered() -> list[SocietyEnvelope]:
+        events = await rt.store.events_for_trace("voice:abc")
+        return [e for e in events if e.msg_type is MsgType.RESULT]
+
+    await until(answered)
+    (result,) = await answered()
     assert result.parent_event_id == env.event_id and result.from_agent == "boss"
     assert result.payload["status"] == "done"
     assert result.payload["done"] == "Researched and summarized."
