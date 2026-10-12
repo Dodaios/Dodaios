@@ -278,6 +278,7 @@ committed PNGs match the script). User-created pets live in
 | `shelly` | Shelly | A snail: the shell spins while thinking, it withdraws to sleep |
 | `ember` | Ember | A baby dragon: smoke rings while thinking, a fire breath on success, a sooty cough on errors, naps in its eggshell |
 | `cocoa` | Cocoa | A chocolate Labrador puppy: tilts its head to listen, digs while it works, sniffs along a scent trail while searching, does zoomies on success, droops its ears on errors and naps in its dog bed |
+| `dodaios` | Dodaios | The hooded figure of the logo in black and white: the hood's tip perks up to listen and droops asleep, three dots hop beside it while it thinks, the cape trails a hop on success, it types on a laptop at its feet, and hangs by the hood with dangling feet when it is carried |
 
 ## Adding a pet
 

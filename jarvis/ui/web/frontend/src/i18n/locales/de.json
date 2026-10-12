@@ -7441,6 +7441,9 @@
       },
       "cocoa": {
         "description": "Ein schokobrauner Labrador-Welpe: legt beim Zuhören den Kopf schief, buddelt beim Arbeiten, flitzt bei Erfolg im Kreis."
+      },
+      "dodaios": {
+        "description": "Die Kapuzenfigur aus dem Logo: Die Kapuzenspitze richtet sich beim Zuhören auf, der Umhang fliegt beim Hüpfen."
       }
     },
     "create_dialog": {
