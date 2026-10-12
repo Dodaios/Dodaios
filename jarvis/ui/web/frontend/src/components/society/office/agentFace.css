@@ -1,0 +1,6 @@
+/* An agent's face on a neutral tile (AgentFace.tsx). Theme tokens only: the tile is one step off the dialog's
+   ground in either theme, with a hairline rim. */
+.office-face { display:inline-flex; flex:none; align-items:center; justify-content:center; border-radius:50%; background:hsl(var(--surface-raised)); box-shadow:inset 0 0 0 1px hsl(var(--border-strong) / .7); }
+/* A hairline in the text colour round the symbol's own outline: dark round a white symbol in light mode, light
+   round a black one in dark mode. Two passes make a line of it instead of a haze. */
+.office-face > * { filter:drop-shadow(0 0 .5px hsl(var(--foreground) / .55)) drop-shadow(0 0 .5px hsl(var(--foreground) / .35)); }

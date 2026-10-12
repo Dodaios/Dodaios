@@ -2,19 +2,21 @@
  * The agents floor's own look — the same company as the coding floor above,
  * but lighter and Scandinavian where that one is walnut and amber: wide
  * pale-oak planks framed by a warm limestone band along the windows with a
- * bronze inlay, a soft warm rim round the slab, and every department on a
- * bordered linen rug in front of a pale-oak tambour wall with clean ink
- * lettering and two floating shelves.
+ * bronze inlay, a soft warm rim round the slab, and every team studio on a
+ * bordered rug in its own colour in front of a pale-oak tambour wall capped
+ * in that colour, the team's name lettered in ink on its west half (the
+ * studio board hangs in front of the east half).
  *
- * Purely visual. The only solid part is the department wall, which stays
- * inside the sign-wall footprint the layout already walks round.
+ * Purely visual. The only solid part is the studio wall, which stays inside
+ * the name-wall footprint the layout already walks round.
  */
 import { useEffect, useMemo } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import { AdditiveBlending, MeshBasicMaterial, MeshStandardMaterial, RepeatWrapping, Shape, type Texture } from "three";
 import { useT } from "@/i18n";
-import { cachedCanvasTexture } from "./canvasMaterials";
-import { Box, GEO, MAT, matte, Railing } from "./OfficeFurniture";
+import { cachedCanvasTexture, ownedCanvasTexture } from "./canvasMaterials";
+import { Box, matte } from "./OfficeFurniture";
+import { studioWallParts } from "./campusLayout";
 import type { Department, OfficeLayout } from "./officeLayout";
 
 /** The agents floor's surfaces and light. */
@@ -51,6 +53,13 @@ export const AGENTS_RUGS: readonly AgentsRug[] = [
   { weave: "chevron", field: "#e6d0c3", thread: "#dbc0b0", border: "#bb7f66", felt: "#cf9d88" },
   { weave: "windowpane", field: "#d2ccdc", thread: "#c4bdd1", border: "#8c84a6", felt: "#aaa3c0" },
   { weave: "rib", field: "#c5d7d0", thread: "#b5cbc3", border: "#6a988c", felt: "#8fb3a9" },
+  // Mustard, rose, sky, olive, cocoa and indigo: a full campus of twelve studios never repeats a colour.
+  { weave: "chevron", field: "#e6d7a6", thread: "#dccb93", border: "#b8963c", felt: "#cdb05f" },
+  { weave: "boucle", field: "#dcc3cb", thread: "#d1b4be", border: "#a8647c", felt: "#bf8a9c" },
+  { weave: "pinstripe", field: "#b9cfdc", thread: "#a9c2d1", border: "#4f86a6", felt: "#7ba5bf" },
+  { weave: "basket", field: "#cfd3aa", thread: "#c2c798", border: "#868c4a", felt: "#a4a96c" },
+  { weave: "rib", field: "#d9c4b4", thread: "#cdb5a3", border: "#9a6a4c", felt: "#b68b70" },
+  { weave: "windowpane", field: "#bfc6d9", thread: "#b0b8ce", border: "#5c6aa0", felt: "#8590bb" },
 ];
 
 /** The rug a department lies on: cycles through the set by the department's tint index. */
@@ -142,7 +151,7 @@ function drawStone(ctx: CanvasRenderingContext2D, w: number, h: number): void {
 }
 
 /** A cached base texture, cloned per surface with its own repeat. */
-function repeated(base: Texture | null, repeatX: number, repeatZ: number): Texture | null {
+export function repeated(base: Texture | null, repeatX: number, repeatZ: number): Texture | null {
   if (!base) return null;
   const map = base.clone();
   map.wrapS = map.wrapT = RepeatWrapping;
@@ -152,14 +161,21 @@ function repeated(base: Texture | null, repeatX: number, repeatZ: number): Textu
   return map;
 }
 
+/** A limestone surface `along` × `across` metres, one repeat of the stone per 3 m. The caller owns (and disposes) it. */
+export function limestone(along: number, across: number): MeshStandardMaterial {
+  const map = repeated(cachedCanvasTexture("agents:stone", 256, 256, drawStone), along / 3, across / 3);
+  return new MeshStandardMaterial({ color: map ? "#ffffff" : AGENTS_SCENE.stone.base, map, roughness: 0.45 });
+}
+
 /** Width of the limestone band along the slab's edge, and of its bronze inlay. */
 const BAND_M = 1.35;
 const INLAY_M = 0.03;
 
 /**
- * The slab, railing and floor of the agents floor: wide pale-oak planks,
- * framed by a limestone band with a bronze inlay along the windows, a warm
- * stone edge and a soft warm rim.
+ * The slab and floor of the agents floor: wide pale-oak planks, framed by a
+ * limestone band with a bronze inlay along the windows, a warm stone edge and
+ * a soft warm rim. The floor's edges (window walls, balustrades) are the
+ * building shell's.
  */
 export function AgentsSlab({ layout, onFloorClick }: { layout: OfficeLayout; onFloorClick: (event: ThreeEvent<MouseEvent>) => void }) {
   const { minX, maxX, minZ, maxZ } = layout.bounds;
@@ -214,10 +230,6 @@ export function AgentsSlab({ layout, onFloorClick }: { layout: OfficeLayout; onF
       <Box size={[innerW + INLAY_M, 0.004, INLAY_M]} position={[cx, 0.002, maxZ - BAND_M]} material={inlay} cast={false} />
       <Box size={[INLAY_M, 0.004, innerD]} position={[minX + BAND_M, 0.002, cz]} material={inlay} cast={false} />
       <Box size={[INLAY_M, 0.004, innerD]} position={[maxX - BAND_M, 0.002, cz]} material={inlay} cast={false} />
-      <Railing from={[minX + 0.2, minZ + 0.2]} to={[maxX - 0.2, minZ + 0.2]} />
-      <Railing from={[maxX - 0.2, minZ + 0.2]} to={[maxX - 0.2, maxZ - 0.2]} />
-      <Railing from={[maxX - 0.2, maxZ - 0.2]} to={[minX + 0.2, maxZ - 0.2]} />
-      <Railing from={[minX + 0.2, maxZ - 0.2]} to={[minX + 0.2, minZ + 0.2]} />
     </group>
   );
 }
@@ -365,8 +377,8 @@ function tambourMaterial(width: number): MeshStandardMaterial {
   return material;
 }
 
-/** Ink letters on a transparent ground: the department's name, a short rule and "Department 0n" under it. */
-function drawLetters(label: string, number: number, accent: string, ctx: CanvasRenderingContext2D, w: number, h: number): void {
+/** Ink letters on a transparent ground: the studio's name, a short rule in its colour and a caption under it. */
+function drawLetters(label: string, caption: string, accent: string, ctx: CanvasRenderingContext2D, w: number, h: number): void {
   ctx.clearRect(0, 0, w, h);
   const tracked = (text: string, font: string, y: number, spacing: number, fill: string) => {
     ctx.font = font;
@@ -392,19 +404,16 @@ function drawLetters(label: string, number: number, accent: string, ctx: CanvasR
   tracked(name, "600 104px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif", 84, 4, AGENTS_SCENE.ink);
   ctx.fillStyle = accent;
   ctx.fillRect(w / 2 - 44, 154, 88, 5);
-  tracked(`DEPARTMENT ${String(number).padStart(2, "0")}`, "600 32px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif", 194, 10, "#5d564e");
+  tracked(caption.toLocaleUpperCase(), "600 32px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif", 194, 10, "#5d564e");
 }
 
-const letterMaterials = new Map<string, MeshStandardMaterial>();
-function letterMaterial(label: string, number: number, accent: string): MeshStandardMaterial {
-  const key = `${number}:${accent}:${label}`;
-  let material = letterMaterials.get(key);
-  if (!material) {
-    const map = cachedCanvasTexture(`agents:letters:${key}`, LETTERS.w, LETTERS.h, (ctx, w, h) => drawLetters(label, number, accent, ctx, w, h));
-    material = new MeshStandardMaterial({ color: map ? "#ffffff" : AGENTS_SCENE.ink, map, transparent: true, alphaTest: 0.3, roughness: 0.6 });
-    letterMaterials.set(key, material);
-  }
-  return material;
+/**
+ * A studio's lettering. A team's name is whatever the person typed, so this is never cached by its text: the wall
+ * that shows it owns the material and its texture, and disposes both when the name changes or the studio goes.
+ */
+function letterMaterial(label: string, caption: string, accent: string): MeshStandardMaterial {
+  const map = ownedCanvasTexture(LETTERS.w, LETTERS.h, (ctx, w, h) => drawLetters(label, caption, accent, ctx, w, h));
+  return new MeshStandardMaterial({ color: map ? "#ffffff" : AGENTS_SCENE.ink, map, transparent: true, alphaTest: 0.3, roughness: 0.6 });
 }
 
 let washCache: MeshBasicMaterial | null = null;
@@ -433,27 +442,23 @@ function washMaterial(): MeshBasicMaterial {
 
 const WALL_MAT = {
   cap: matte(AGENTS_SCENE.tambour.cap, { roughness: 0.55 }),
-  oak: matte("#d9bf97", { roughness: 0.6 }),
   strip: new MeshStandardMaterial({ color: AGENTS_SCENE.light.glow, emissive: AGENTS_SCENE.light.glow, emissiveIntensity: 1.4, toneMapped: false }),
-  ceramic: matte("#f2ece2", { roughness: 0.5 }),
-  clay: matte("#c2856a", { roughness: 0.7 }),
-  stone: matte("#8e8a84", { roughness: 0.6 }),
-  linen: [matte("#e8dcc6"), matte("#c9b79a"), matte("#9fb094"), matte("#7d8ea3"), matte("#bb7f66")],
 };
 
 /**
- * A department's back wall, centred on its front face: a pale-oak tambour
- * panel with an oak cap and a warm light strip under it, the department's
- * name in ink letters, a felt kick band in the rug's colour, and on a wide
- * wall two floating oak shelves with ceramics, books and a plant.
+ * A studio's name wall, centred on its front face: a pale-oak tambour panel
+ * under a cap in the studio's colour with a warm light strip, a felt kick
+ * band in the same colour, and the name in ink letters on the west half.
  */
-function DepartmentWall({ label, number, width, position, rug }: {
-  label: string; number: number; width: number; position: [number, number, number]; rug: AgentsRug;
+function StudioWall({ label, caption, width, nameX, position, rug }: {
+  label: string; caption: string; width: number; nameX: number; position: [number, number, number]; rug: AgentsRug;
 }) {
   const kit = rugKit(rug);
-  const plateW = Math.min(3.0, width * 0.5);
+  const plateW = Math.min(3.0, width / 2 - 0.5);
   const plateH = (plateW * LETTERS.h) / LETTERS.w;
-  const shelfX = width / 2 - 0.9;
+  const accent = rug.border;
+  const letters = useMemo(() => letterMaterial(label, caption, accent), [label, caption, accent]);
+  useEffect(() => () => { letters.map?.dispose(); letters.dispose(); }, [letters]);
   return (
     <group position={position}>
       <Box size={[width, WALL_H, 0.1]} position={[0, WALL_H / 2, -0.02]} material={WALL_MAT.cap} />
@@ -461,36 +466,21 @@ function DepartmentWall({ label, number, width, position, rug }: {
         <planeGeometry args={[width - 0.06, WALL_H - 0.16]} />
       </mesh>
       <Box size={[width - 0.06, 0.12, 0.02]} position={[0, 0.08, 0.04]} material={kit.felt} cast={false} />
-      <Box size={[width + 0.04, 0.05, 0.16]} position={[0, WALL_H + 0.025, 0]} material={WALL_MAT.cap} />
+      {/* The cap wears the studio's colour, so a team reads from across the campus. */}
+      <Box size={[width + 0.04, 0.09, 0.16]} position={[0, WALL_H + 0.045, 0]} material={kit.border} />
       {/* The light strip tucked under the cap, washing down the flutes. */}
       <Box size={[width - 0.2, 0.012, 0.02]} position={[0, WALL_H - 0.012, 0.06]} material={WALL_MAT.strip} cast={false} />
       <mesh position={[0, WALL_H - 0.42, 0.035]} material={washMaterial()}>
         <planeGeometry args={[width - 0.1, 0.8]} />
       </mesh>
-      <mesh position={[0, 1.34, 0.04]} material={letterMaterial(label, number, rug.border)}>
+      <mesh position={[nameX, 1.3, 0.04]} material={letters}>
         <planeGeometry args={[plateW, plateH]} />
       </mesh>
-      {shelfX > plateW / 2 + 0.55 && [-shelfX, shelfX].map((x, side) => (
-        <group key={x} position={[x, 0, 0]}>
-          <Box size={[0.95, 0.04, 0.16]} position={[0, 1.1, 0.11]} material={WALL_MAT.oak} />
-          {/* A ribbed ceramic vase with a sprig, a stack of linen books, a clay pot with a trailing plant. */}
-          <mesh geometry={GEO.potCyl} material={WALL_MAT.ceramic} position={[-0.3, 1.21, 0.11]} scale={[0.05, 0.18, 0.05]} castShadow />
-          <mesh geometry={GEO.blob} material={MAT.leafLight} position={[-0.3, 1.36, 0.11]} scale={[0.06, 0.08, 0.06]} castShadow />
-          {[0, 1, 2].map((i) => (
-            <Box key={i} size={[0.24 - i * 0.02, 0.035, 0.13]} position={[-0.02, 1.1375 + i * 0.037, 0.11]}
-              material={WALL_MAT.linen[(i + number + side) % WALL_MAT.linen.length]} />
-          ))}
-          <mesh geometry={GEO.cyl} material={WALL_MAT.stone} position={[-0.02, 1.27, 0.11]} scale={[0.035, 0.04, 0.035]} castShadow />
-          <mesh geometry={GEO.potCyl} material={WALL_MAT.clay} position={[0.3, 1.18, 0.11]} scale={[0.065, 0.12, 0.065]} castShadow />
-          <mesh geometry={GEO.blob} material={MAT.leaf} position={[0.3, 1.28, 0.11]} scale={[0.11, 0.07, 0.11]} castShadow />
-          <mesh geometry={GEO.blob} material={MAT.leafDark} position={[0.36, 1.14, 0.17]} scale={[0.05, 0.1, 0.04]} castShadow />
-        </group>
-      ))}
     </group>
   );
 }
 
-/** One department's ground and back wall: a bordered, rounded linen rug and the tambour name wall. */
+/** One team studio's ground and name wall: a bordered, rounded rug in the studio's colour and the tambour wall. */
 export function AgentsDepartment({ dept }: { dept: Department }) {
   const t = useT();
   const rug = agentsRug(dept.tint);
@@ -502,6 +492,8 @@ export function AgentsDepartment({ dept }: { dept: Department }) {
     line: roundedRect(w - 0.36, d - 0.36, 0.28),
     field: roundedRect(w - 0.44, d - 0.44, 0.24),
   }), [w, d]);
+  // The pool has no team name: the wall says what it is.
+  const pool = dept.teamId === null || dept.teamId === undefined;
   return (
     <group>
       <mesh position={[cx, 0.005, cz]} rotation={[-Math.PI / 2, 0, 0]} material={kit.border} receiveShadow>
@@ -513,8 +505,9 @@ export function AgentsDepartment({ dept }: { dept: Department }) {
       <mesh position={[cx, 0.007, cz]} rotation={[-Math.PI / 2, 0, 0]} material={kit.field} receiveShadow>
         <shapeGeometry args={[shapes.field, 6]} />
       </mesh>
-      <DepartmentWall label={dept.label || t("society.office.open_space")} number={dept.tint + 1} width={w - 0.4}
-        position={[cx, 0, dept.minZ + 0.1]} rug={rug} />
+      <StudioWall label={dept.label || t("society.office.studio_pool")}
+        caption={t(pool ? "society.office.studio_sign_pool" : "society.office.studio_sign_team")}
+        width={w - 0.4} nameX={studioWallParts(dept).nameX - cx} position={[cx, 0, dept.minZ + 0.1]} rug={rug} />
     </group>
   );
 }

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   allDesks, archPosts, buildOfficeLayout, countStates, departmentKey, FURNITURE_SIZE, footprint, groupDepartments,
-  MAX_DEPARTMENTS, MIN_DEPARTMENTS, COMMAND_DESK, COMMAND_REACH, LEVEL_HALL, SPAWN, type OfficeAgentInput,
+  MAX_DEPARTMENTS, MAX_SEATED, MIN_DEPARTMENTS, COMMAND_DESK, COMMAND_REACH, seatedCount, SPAWN, type OfficeAgentInput,
 } from "./officeLayout";
-import { buildNavGrid, findPath, isWalkable } from "./officeNav";
-import { REWARD_IDS } from "../progression/levelCatalog";
+import { buildNavGrid, isWalkable } from "./officeNav";
 import { cameraHome, fitDistance, focusBounds } from "./officeCamera";
 
 const agent = (id: string, provider: string, extra: Partial<OfficeAgentInput> = {}): OfficeAgentInput => ({
@@ -12,11 +11,11 @@ const agent = (id: string, provider: string, extra: Partial<OfficeAgentInput> = 
 });
 
 describe("office layout", () => {
-  it("groups agents by provider family and falls back to Jarvis", () => {
+  it("groups the coding floor by workspace and falls back to Jarvis", () => {
     expect(departmentKey({ providerLabel: "  " })).toBe("Jarvis");
     const groups = groupDepartments([agent("a1", "codex"), agent("a2", ""), agent("a3", "codex")]);
     expect(groups.map((g) => g.label)).toEqual(["Codex", "Jarvis"]);
-    expect(buildOfficeLayout([agent("a1", "codex")]).departments.map((d) => d.label)).toEqual(["Codex", "", "", ""]);
+    expect(buildOfficeLayout([agent("a1", "codex")], { variant: "coding" }).departments.map((d) => d.label)).toEqual(["Codex", "", "", ""]);
   });
 
   it("gives every staff agent exactly one desk and the lead its own office", () => {
@@ -26,19 +25,22 @@ describe("office layout", () => {
     expect(new Set(seated)).toEqual(new Set(["a1", "a2", "a3", "a4"]));
     expect(seated).toHaveLength(4);
     expect(layout.lead.desks[0].agentId).toBe("a4");
+    expect(seatedCount(layout)).toBe(4);
   });
 
-  it("keeps seating stable when run state changes or the roster is reordered", () => {
-    const roster = [agent("a1", "Codex"), agent("a2", "Codex"), agent("a3", "Gemini")];
-    const before = allDesks(buildOfficeLayout(roster)).map((d) => `${d.id}=${d.agentId}`);
-    const after = allDesks(buildOfficeLayout([...roster].reverse().map((a) => ({ ...a, state: "working" as const }))))
-      .map((d) => `${d.id}=${d.agentId}`);
-    expect(after).toEqual(before);
-  });
+  for (const variant of ["agents", "coding"] as const) {
+    it(`keeps seating stable when run state changes or the roster is reordered (${variant})`, () => {
+      const roster = [agent("a1", "Codex"), agent("a2", "Codex"), agent("a3", "Gemini")];
+      const before = allDesks(buildOfficeLayout(roster, { variant })).map((d) => `${d.id}=${d.agentId}`);
+      const after = allDesks(buildOfficeLayout([...roster].reverse().map((a) => ({ ...a, state: "working" as const })), { variant }))
+        .map((d) => `${d.id}=${d.agentId}`);
+      expect(after).toEqual(before);
+    });
+  }
 
-  it("folds surplus providers into one department and never overlaps departments", () => {
+  it("folds surplus workspaces into one department on the coding floor and never overlaps departments", () => {
     const roster = Array.from({ length: 10 }, (_, i) => agent(`a${i}`, `P${i}`));
-    const layout = buildOfficeLayout(roster);
+    const layout = buildOfficeLayout(roster, { variant: "coding" });
     expect(layout.departments).toHaveLength(MAX_DEPARTMENTS);
     expect(layout.departments.at(-1)?.label).toBe("Other");
     for (const a of layout.departments) for (const b of layout.departments) {
@@ -55,22 +57,33 @@ describe("office layout", () => {
   });
 
   it("builds a furnished floor for an empty roster", () => {
-    const layout = buildOfficeLayout([]);
-    expect(layout.departments).toHaveLength(MIN_DEPARTMENTS);
-    expect(layout.departments.every((d) => d.label === "" && d.desks.length > 0)).toBe(true);
+    const coding = buildOfficeLayout([], { variant: "coding" });
+    expect(coding.departments).toHaveLength(MIN_DEPARTMENTS);
+    expect(coding.departments.every((d) => d.label === "" && d.desks.length > 0)).toBe(true);
+    // The agents floor: the pool studio with a few free desks, and nobody at the lead's desk yet.
+    const agents = buildOfficeLayout([]);
+    expect(agents.departments.map((d) => d.id)).toEqual(["studio-pool"]);
+    expect(agents.departments[0].desks.length).toBeGreaterThan(0);
+    expect(agents.lead.desks).toHaveLength(1);
+    expect(seatedCount(agents)).toBe(0);
   });
 
-  it("makes the posts of an open room's name arch solid", () => {
-    const layout = buildOfficeLayout([agent("a1", "Codex")]);
-    const open = layout.rooms.filter((r) => !r.walled);
-    expect(open.length).toBeGreaterThan(0);
-    for (const post of open.flatMap(archPosts)) {
-      const covered = layout.obstacles.some((o) => post.x >= o.minX && post.x <= o.maxX && post.z >= o.minZ && post.z <= o.maxZ);
-      expect(covered).toBe(true);
-    }
+  it("says how many desks the coding floor can hold", () => {
+    const roster = Array.from({ length: MAX_SEATED + 5 }, (_, i) => agent(`a${i}`, `P${i % 6}`));
+    expect(seatedCount(buildOfficeLayout(roster, { variant: "coding" }))).toBe(MAX_SEATED);
   });
 
   for (const variant of ["agents", "coding"] as const) {
+    it(`makes the posts of an open room's name arch solid (${variant})`, () => {
+      const layout = buildOfficeLayout([agent("a1", "Codex")], { variant });
+      const open = layout.rooms.filter((r) => !r.walled);
+      expect(open.length).toBeGreaterThan(0);
+      for (const post of open.flatMap(archPosts)) {
+        const covered = layout.obstacles.some((o) => post.x >= o.minX && post.x <= o.maxX && post.z >= o.minZ && post.z <= o.maxZ);
+        expect(covered).toBe(true);
+      }
+    });
+
     it(`keeps every checkpoint centre clear of solid furniture (${variant})`, () => {
       const layout = buildOfficeLayout(Array.from({ length: 12 }, (_, i) => agent(`a${i}`, i % 2 ? "Codex" : "Gemini")), { variant });
       const solid = layout.furniture.filter((f) => FURNITURE_SIZE[f.kind].solid).map(footprint);
@@ -91,10 +104,14 @@ describe("office layout", () => {
       expect(stop.x).toBeGreaterThan(elevator.x);
       expect(Math.hypot(stop.x - elevator.x, stop.z - elevator.z)).toBeLessThan(1.5);
       expect(new Set(layout.checkpoints.map((c) => c.id)).size).toBe(layout.checkpoints.length);
+      // The person starts in front of the doors.
+      expect(Math.hypot(layout.spawn.x - stop.x, layout.spawn.z - stop.z)).toBeLessThan(1);
     });
 
     it(`keeps room, furniture and spot ids unique and inside the floor (${variant})`, () => {
-      const layout = buildOfficeLayout(Array.from({ length: 20 }, (_, i) => agent(`a${i}`, `P${i % 3}`)), { variant });
+      const layout = buildOfficeLayout(Array.from({ length: 20 }, (_, i) => agent(`a${i}`, `P${i % 3}`)), {
+        variant, teams: [{ id: "t1", name: "Core", members: ["a1", "a2", "a3"], createdMs: 1 }, { id: "t2", name: "Web", members: ["a4", "a5"], createdMs: 2 }],
+      });
       for (const list of [layout.rooms, layout.furniture, layout.spots]) {
         expect(new Set(list.map((x) => x.id)).size).toBe(list.length);
       }
@@ -109,55 +126,39 @@ describe("office layout", () => {
     });
   }
 
-  it("keeps the agents office as it was when no variant is named", () => {
+  it("builds the agents floor when no variant is named: its rooms and stations, no Level Hall", () => {
     const roster = [agent("a1", "Codex"), agent("a2", "", { tier: "lead" })];
     const plain = buildOfficeLayout(roster);
     expect(plain).toEqual(buildOfficeLayout(roster, { variant: "agents" }));
     expect(plain.variant).toBe("agents");
-    expect(plain.rooms.map((r) => r.kind)).toEqual(["lead", "team", "wardrobe", "reception", "break", "levels"]);
-    expect(plain.checkpoints.map((c) => c.id)).toEqual(["spawn", "create", "manage", "team", "wardrobe", "lead", "studio", "levels", "break", "elevator"]);
+    expect(plain.rooms.map((r) => r.kind)).toEqual(["lead", "team", "wardrobe", "reception", "break"]);
+    // The spawn point creates agents, the reception desk is the one directory and help station; the hall has its own floor.
+    expect(plain.checkpoints.map((c) => c.id)).toEqual(["spawn", "manage", "team", "wardrobe", "lead", "break", "elevator"]);
+    for (const kind of ["levelWall", "studioStage", "rewardPedestal", "levelGuide", "agentTotem"] as const) {
+      expect(plain.furniture.some((f) => f.kind === kind), kind).toBe(false);
+    }
   });
 
-  it.each([0, 12, 40])("builds the Level Hall as the agents floor's east wing (%i agents)", (count) => {
-    const roster = Array.from({ length: count }, (_, i) => agent(`a${i}`, `P${i % 6}`));
-    const layout = buildOfficeLayout(roster);
-    const hall = layout.rooms.find((r) => r.kind === "levels")!;
-    const office = Math.max(...layout.rooms.filter((r) => r.kind !== "levels").map((r) => r.maxX));
-    // One aisle east of the office, across the floor's whole depth, walled with its doors facing the office.
-    expect(hall.walled).toBe(true);
-    expect(hall.minX - office).toBeCloseTo(LEVEL_HALL.aisle, 9);
-    expect(hall.maxX - hall.minX).toBeCloseTo(LEVEL_HALL.width, 9);
-    expect(hall.minZ).toBe(Math.min(...layout.rooms.map((r) => r.minZ)));
-    expect(hall.maxZ).toBe(Math.max(...layout.rooms.map((r) => r.maxZ)));
-    expect(hall.doors.every((d) => d.side === "west")).toBe(true);
-    const spawn = layout.checkpoints.find((c) => c.id === "spawn")!;
-    expect(hall.doors[0].at).toBe(spawn.z);
-    // A pedestal per reward on either side of the road, inside the hall, rising towards the stage.
-    const pedestals = layout.furniture.filter((f) => f.kind === "rewardPedestal");
-    expect(pedestals.map((p) => p.id)).toEqual(REWARD_IDS.map((_, n) => `level-pedestal-${n}`));
-    const cx = (hall.minX + hall.maxX) / 2;
-    pedestals.forEach((p, n) => {
-      const box = footprint(p);
-      expect(box.minX > hall.minX && box.maxX < hall.maxX && box.minZ > hall.minZ && box.maxZ < hall.maxZ, p.id).toBe(true);
-      expect(Math.sign(p.x - cx)).toBe(n % 2 === 0 ? -1 : 1);
-      if (n >= 2) expect(p.z).toBeLessThan(pedestals[n - 2].z);
-    });
-    const stage = layout.furniture.find((f) => f.kind === "studioStage")!;
-    const studio = layout.checkpoints.find((c) => c.id === "studio")!;
-    expect([studio.x, studio.z]).toEqual([stage.x, stage.z]);
-    expect(stage.z).toBeLessThan(Math.min(...pedestals.map((p) => p.z)));
-    // Both checkpoints are reachable on foot from the spawn point, through each of the hall's doors.
+  it("stands every agents-floor station in front of the thing the person uses there", () => {
+    const layout = buildOfficeLayout([agent("a1", "Codex"), agent("a2", "", { tier: "lead" })]);
     const grid = buildNavGrid(layout);
-    const levels = layout.checkpoints.find((c) => c.id === "levels")!;
-    for (const target of [studio.approach!, { x: levels.x, z: levels.z }]) {
-      expect(isWalkable(grid, target)).toBe(true);
-      expect(findPath(grid, layout.arrival, target)).not.toBeNull();
-    }
-    for (const door of hall.doors) {
-      // The aisle in front of every door stays open: no olive tree closes it.
-      expect(isWalkable(grid, { x: office + LEVEL_HALL.aisle / 2, z: door.at }), `door at ${door.at}`).toBe(true);
-      expect(isWalkable(grid, { x: hall.minX + 0.6, z: door.at }), `inside door at ${door.at}`).toBe(true);
-    }
+    const stop = (id: string) => layout.checkpoints.find((c) => c.id === id)!;
+    const prop = (kind: string) => layout.furniture.find((f) => f.kind === kind)!;
+    const near = (id: string, kind: string, reach: number) => {
+      const cp = stop(id), box = footprint(prop(kind));
+      const dx = Math.max(box.minX - cp.x, 0, cp.x - box.maxX), dz = Math.max(box.minZ - cp.z, 0, cp.z - box.maxZ);
+      expect(Math.hypot(dx, dz), `${id} to ${kind}`).toBeLessThanOrEqual(reach);
+    };
+    near("manage", "receptionDesk", 1.5);
+    near("team", "teamBoard", 1.5);
+    near("wardrobe", "dressingMirror", 2.0);
+    near("break", "coffeeBar", 1.5);
+    near("spawn", "spawnTerminal", 0.1);
+    // The reception desk's counter faces south: the person stands on that side.
+    expect(stop("manage").z).toBeGreaterThan(prop("receptionDesk").z);
+    const desk = layout.lead.desks[0];
+    expect(Math.hypot(stop("lead").x - desk.x, stop("lead").z - desk.z)).toBeLessThan(2.6);
+    for (const cp of layout.checkpoints) expect(isWalkable(grid, cp.approach ?? cp), cp.id).toBe(true);
   });
 
   it("builds the coding floor: workspaces as departments, Mission Control and server room, no lead desks", () => {
@@ -171,16 +172,16 @@ describe("office layout", () => {
     expect(layout.furniture.some((f) => f.room === "lead" || f.room === "wardrobe")).toBe(false);
     expect(layout.spots.some((s) => s.room === "command")).toBe(true);
     expect(layout.spots.some((s) => s.room === "server")).toBe(true);
-    // Both floors share the office's footprint (the agents floor adds the Level Hall as an east wing),
-    // and the elevator stands at the same spot on each.
-    const below = buildOfficeLayout(roster);
-    expect(layout.rooms.some((r) => r.kind === "levels")).toBe(false);
-    expect({ ...layout.bounds, maxX: 0 }).toEqual({ ...below.bounds, maxX: 0 });
-    expect(below.bounds.maxX - layout.bounds.maxX).toBeCloseTo(LEVEL_HALL.aisle + LEVEL_HALL.width, 9);
-    const lift = (l: typeof layout) => l.checkpoints.find((c) => c.id === "elevator")!;
-    expect(lift(layout).z).toBe(lift(below).z);
-    expect(lift(layout).x - layout.bounds.minX).toBeCloseTo(lift(below).x - below.bounds.minX);
-    expect(layout.spawn.x - layout.bounds.minX).toBeCloseTo(below.spawn.x - below.bounds.minX);
+    // It keeps its own compact footprint, with no team studios, zones or planting of the campus below.
+    expect(layout.studios).toBeUndefined();
+    expect(layout.zones).toBeUndefined();
+    expect(layout.ambience).toBeUndefined();
+    expect(layout.bounds.maxX - layout.bounds.minX).toBeCloseTo(24.4, 6);
+    // The elevator stands on the lobby's west edge, by the south wall, like on every floor.
+    const lift = layout.checkpoints.find((c) => c.id === "elevator")!;
+    const lobby = layout.rooms.find((r) => r.kind === "reception")!;
+    expect(lift.x - lobby.minX).toBeCloseTo(1.2, 9);
+    expect(lobby.maxZ - lift.z).toBeCloseTo(2.6, 9);
   });
 
   it("builds Mission Control as its own office: slat wall, desk, lounge, and a ring round the desk", () => {
@@ -225,57 +226,56 @@ describe("office layout", () => {
     expect(isWalkable(grid, stop.approach!)).toBe(true);
   });
 
-  for (const [variant, id] of [["agents", "spawn"], ["coding", "launch"]] as const) {
-    for (const count of [0, 12, 40]) {
-      it(`puts the spawn point on the aisle crossing in the middle of the floor (${variant}, ${count} agents)`, () => {
-        const roster = Array.from({ length: count }, (_, i) => agent(`a${i}`, `P${i % 6}`));
-        const layout = buildOfficeLayout(roster, { variant });
-        const stop = layout.checkpoints.find((c) => c.id === id)!;
-        const terminal = layout.furniture.find((f) => f.kind === "spawnTerminal")!;
-        const pad = layout.furniture.find((f) => f.kind === "spawnPad")!;
-        expect(stop.room).toBe("floor");
-        expect([terminal.x, terminal.z]).toEqual([stop.x, stop.z]);
-        expect([pad.x, pad.z]).toEqual([stop.x, stop.z]);
-        // On the centre line between the two department columns, in a cross aisle nearest the floor's middle.
-        const columns = { minX: Math.min(...layout.departments.map((d) => d.minX)), maxX: Math.max(...layout.departments.map((d) => d.maxX)) };
-        expect(stop.x).toBeCloseTo((columns.minX + columns.maxX) / 2, 9);
-        const rowStarts = [...new Set(layout.departments.map((d) => d.minZ))].sort((p, q) => p - q);
-        const crossings = rowStarts.slice(1).map((start, i) => {
-          const above = Math.max(...layout.departments.filter((d) => d.minZ === rowStarts[i]).map((d) => d.maxZ));
-          return (above + start) / 2;
-        });
-        expect(crossings.length).toBeGreaterThan(0);
-        const middle = (layout.bounds.minZ + layout.bounds.maxZ) / 2;
-        const nearest = Math.min(...crossings.map((c) => Math.abs(c - middle)));
-        expect(Math.abs(stop.z - middle)).toBeCloseTo(nearest, 6);
-        // The whole pad stays clear of every department, and the ring sits on the pad.
-        const padBox = footprint(pad);
-        for (const dept of layout.departments) {
-          const overlap = padBox.minX < dept.maxX && dept.minX < padBox.maxX && padBox.minZ < dept.maxZ && dept.minZ < padBox.maxZ;
-          expect(overlap, dept.id).toBe(false);
-        }
-        expect(stop.radius).toBeLessThanOrEqual(FURNITURE_SIZE.spawnPad.w / 2);
-        // The token floats above the terminal; newcomers appear where "walk there" ends, south of the screen.
-        expect(stop.tokenY).toBeGreaterThan(FURNITURE_SIZE.spawnTerminal.h);
-        expect(layout.arrival).toEqual(stop.approach);
-        expect(layout.arrival.z - stop.z).toBeCloseTo(SPAWN.approach, 9);
-        expect(isWalkable(buildNavGrid(layout), layout.arrival)).toBe(true);
+  for (const count of [0, 12, 40]) {
+    it(`puts the coding floor's spawn point on the aisle crossing in the middle of the floor (${count} agents)`, () => {
+      const roster = Array.from({ length: count }, (_, i) => agent(`a${i}`, `P${i % 6}`));
+      const layout = buildOfficeLayout(roster, { variant: "coding" });
+      const stop = layout.checkpoints.find((c) => c.id === "launch")!;
+      const terminal = layout.furniture.find((f) => f.kind === "spawnTerminal")!;
+      const pad = layout.furniture.find((f) => f.kind === "spawnPad")!;
+      expect(stop.room).toBe("floor");
+      expect([terminal.x, terminal.z]).toEqual([stop.x, stop.z]);
+      expect([pad.x, pad.z]).toEqual([stop.x, stop.z]);
+      // On the centre line between the two department columns, in a cross aisle nearest the floor's middle.
+      const columns = { minX: Math.min(...layout.departments.map((d) => d.minX)), maxX: Math.max(...layout.departments.map((d) => d.maxX)) };
+      expect(stop.x).toBeCloseTo((columns.minX + columns.maxX) / 2, 9);
+      const rowStarts = [...new Set(layout.departments.map((d) => d.minZ))].sort((p, q) => p - q);
+      const crossings = rowStarts.slice(1).map((start, i) => {
+        const above = Math.max(...layout.departments.filter((d) => d.minZ === rowStarts[i]).map((d) => d.maxZ));
+        return (above + start) / 2;
       });
-    }
+      expect(crossings.length).toBeGreaterThan(0);
+      const middle = (layout.bounds.minZ + layout.bounds.maxZ) / 2;
+      const nearest = Math.min(...crossings.map((c) => Math.abs(c - middle)));
+      expect(Math.abs(stop.z - middle)).toBeCloseTo(nearest, 6);
+      // The whole pad stays clear of every department, and the ring sits on the pad.
+      const padBox = footprint(pad);
+      for (const dept of layout.departments) {
+        const overlap = padBox.minX < dept.maxX && dept.minX < padBox.maxX && padBox.minZ < dept.maxZ && dept.minZ < padBox.maxZ;
+        expect(overlap, dept.id).toBe(false);
+      }
+      expect(stop.radius).toBeLessThanOrEqual(FURNITURE_SIZE.spawnPad.w / 2);
+      // Newcomers appear where "walk there" ends, south of the screen.
+      expect(layout.arrival).toEqual(stop.approach);
+      expect(layout.arrival.z - stop.z).toBeCloseTo(SPAWN.approach, 9);
+      expect(isWalkable(buildNavGrid(layout), layout.arrival)).toBe(true);
+    });
   }
 
-  it("keeps only one spawn point per floor, and the agents floor's Agent board in the lobby", () => {
+  it("keeps only one spawn point per floor, and the agents floor's directory at the reception desk", () => {
     const agents = buildOfficeLayout([agent("a1", "Codex")]);
     const coding = buildOfficeLayout([agent("p1", "Personal Jarvis")], { variant: "coding" });
     for (const layout of [agents, coding]) {
       expect(layout.furniture.filter((f) => f.kind === "spawnTerminal")).toHaveLength(1);
       expect(layout.furniture.filter((f) => f.kind === "spawnPad")).toHaveLength(1);
     }
-    const board = agents.furniture.find((f) => f.kind === "agentTotem")!;
-    expect(board.room).toBe("reception");
+    const desk = agents.furniture.find((f) => f.kind === "receptionDesk")!;
+    expect(desk.room).toBe("reception");
     const manage = agents.checkpoints.find((c) => c.id === "manage")!;
-    expect([manage.x, manage.z - 1.4]).toEqual([board.x, board.z]);
-    expect(coding.furniture.some((f) => f.kind === "agentTotem")).toBe(false);
+    expect(manage.x).toBe(desk.x);
+    expect(manage.z - desk.z).toBeCloseTo(1.7, 9);
+    expect(agents.checkpoints.some((c) => c.id === "create")).toBe(false);
+    expect(coding.checkpoints.some((c) => c.id === "manage")).toBe(false);
   });
 
   it("counts states", () => {

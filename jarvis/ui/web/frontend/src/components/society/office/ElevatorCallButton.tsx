@@ -5,14 +5,12 @@
  * the elevator) opens the floor picker; picking a floor lights it, then the
  * doors close. The ground floor shows an up arrow, the top floor a down
  * arrow, the floors between both. While the person stands at the elevator it
- * breathes softly and a pill above it invites a press; clicking it from afar
+ * breathes softly (the HUD's prompt names the press); clicking it from afar
  * only walks the character over (see `elevatorCall.ts`).
  */
 import { useEffect, useMemo, useRef } from "react";
-import { Html } from "@react-three/drei";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { MeshStandardMaterial } from "three";
-import { useT } from "@/i18n";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import { callButtonPose } from "./elevatorCall";
 import type { Furniture } from "./officeLayout";
@@ -52,19 +50,16 @@ function arrowTexture(direction: ArrowDirection) {
   });
 }
 
-export function ElevatorCallButton({ shaft, floor, near, hint, lit, animate, onPress }: {
+export function ElevatorCallButton({ shaft, floor, near, lit, animate, onPress }: {
   shaft: Furniture;
   floor: OfficeFloor;
   /** The person stands at the elevator: the button invites a press. */
   near: boolean;
-  /** Show the pill over the button (not while the floor picker it opens is on screen). */
-  hint: boolean;
   /** Pressed: glowing until the ride starts. */
   lit: boolean;
   animate: boolean;
   onPress: () => void;
 }) {
-  const t = useT();
   const pose = callButtonPose(shaft);
   const direction = callDirection(floor);
   const button = useMemo(() => new MeshStandardMaterial({ color: IDLE, roughness: 0.35, metalness: 0.3, emissive: LIT, emissiveIntensity: 0 }), []);
@@ -108,14 +103,6 @@ export function ElevatorCallButton({ shaft, floor, near, hint, lit, animate, onP
       <mesh position={[0, 0, 0.0231]} material={arrow} raycast={() => null}>
         <planeGeometry args={[BUTTON_RADIUS * 1.6, BUTTON_RADIUS * 1.6]} />
       </mesh>
-      {hint && !lit && (
-        <Html center position={[0, 0.62, 0.05]} zIndexRange={[24, 0]} pointerEvents="none">
-          <span className="office-call-pill" data-office-ui>
-            <b>{t("society.office.elevator_choose")}</b>
-            <small>{t("society.office.elevator_press")}</small>
-          </span>
-        </Html>
-      )}
       {/* The click target: a see-through pad a little larger than the button, so it is easy to hit from a distance. */}
       <mesh position={[0, 0, 0.03]} onClick={press}
         onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = "pointer"; }}
