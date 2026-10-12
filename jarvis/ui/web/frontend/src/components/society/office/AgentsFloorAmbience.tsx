@@ -273,19 +273,27 @@ function pool(): MeshBasicMaterial {
 }
 const POOL_GEOMETRY = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
+/** The housing of every pendant on the floor: its middle, its length along x, its height and its width. Pure. */
+export function pendantHousings(departments: readonly Pick<Department, "id" | "desks">[]): { x: number; y: number; z: number; length: number; h: number; w: number }[] {
+  return benchesOf(departments).flatMap((bench) => {
+    const length = Math.max(1.2, bench.length - 1.3);
+    // One over each desk row of the bench.
+    return [-0.45, 0.45].map((dz) => ({ x: bench.x, y: PENDANT.y + PENDANT.h / 2, z: bench.z + dz, length, h: PENDANT.h, w: PENDANT.w }));
+  });
+}
+
 function Pendants({ departments }: { departments: readonly Department[] }) {
   const parts = useMemo(() => {
     const housings: Placement[] = [], glows: Placement[] = [], wires: Placement[] = [], pools: Placement[] = [];
-    for (const bench of benchesOf(departments)) {
-      const run = Math.max(1.2, bench.length - 1.3), wire = FACADE.h - PENDANT.y - PENDANT.h;
-      // One over each desk row of the bench.
-      for (const dz of [-0.45, 0.45]) {
-        housings.push({ position: [bench.x, PENDANT.y + PENDANT.h / 2, bench.z + dz], scale: [run, PENDANT.h, PENDANT.w] });
-        glows.push({ position: [bench.x, PENDANT.y - 0.006, bench.z + dz], scale: [run - 0.04, 0.012, PENDANT.w - 0.014] });
-        for (const dx of [-run * 0.4, run * 0.4]) {
-          wires.push({ position: [bench.x + dx, PENDANT.y + PENDANT.h + wire / 2, bench.z + dz], scale: [0.006, wire, 0.006] });
-        }
+    const wire = FACADE.h - PENDANT.y - PENDANT.h;
+    for (const { x, y, z, length: run, h, w } of pendantHousings(departments)) {
+      housings.push({ position: [x, y, z], scale: [run, h, w] });
+      glows.push({ position: [x, PENDANT.y - 0.006, z], scale: [run - 0.04, 0.012, w - 0.014] });
+      for (const dx of [-run * 0.4, run * 0.4]) {
+        wires.push({ position: [x + dx, PENDANT.y + h + wire / 2, z], scale: [0.006, wire, 0.006] });
       }
+    }
+    for (const bench of benchesOf(departments)) {
       pools.push({ position: [bench.x, 0.012, bench.z], scale: [bench.length + 1.4, 1, 3.4] });
     }
     // Housings and wires are the same steel: one mesh.

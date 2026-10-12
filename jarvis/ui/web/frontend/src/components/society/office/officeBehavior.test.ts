@@ -7,7 +7,7 @@ import {
   COMMONS_WEIGHTS, HANDOFF_DWELL_MS, PERSON_SPACE_M, POOL_IDLE_WEIGHTS, TEAM_IDLE_WEIGHTS, TRIP_REACH, createRng, dwellAfter, planFor, planStillValid, shownActivity, SpotBook,
   tripReach, type ActivityKind, type Plan, type PlanInput,
 } from "./officeBehavior";
-import { HUDDLE_SPACE_M, homeStudio, huddlePlaces, mateDesks, studioRect, visitSlots } from "./officeTeams";
+import { HUDDLE_SPACE_M, homeStudio, huddlePlaces, leadPlace, mateDesks, studioRect, studioOfTeam, visitSlots } from "./officeTeams";
 import { pathLength } from "./officeWalk";
 import { campusOf } from "./officeFixtures";
 
@@ -449,6 +449,81 @@ describe("a round of the team", () => {
   it("lets the person's call outrank a round", () => {
     const caller = campus.layout.checkpoints.find((c) => c.id === "break")!;
     expect(planFor(cInput(team.members[0], "idle", { calledTo: caller, round: { speaker: false } })).kind).toBe("called");
+  });
+});
+
+describe("a team with a lead", () => {
+  // The same campus, and the same with the first team led by its third member.
+  const led = campusOf(26, [7, 6, 5], [2]);
+  const team = studioOfTeam(led.layout, "team-0")!;
+  const plain = studioOfTeam(campus.layout, "team-0")!;
+  const places = huddlePlaces(led.layout, led.grid, team);
+  const centre = leadPlace(places, team)!;
+  const lInput = (agentId: string, state: AgentRunState, extra: Partial<PlanInput> = {}): PlanInput => ({
+    agentId, state, desk: allDesks(led.layout).find((d) => d.agentId === agentId) ?? null, layout: led.layout, grid: led.grid,
+    rng: createRng(agentId), book: new SpotBook(), previous: null, workingColleagues: [], calledTo: null, ...extra,
+  });
+
+  it("knows its lead, and the lead's place is the middle of the front arc", () => {
+    expect(team.leadId).toBe(led.teams[0].members[2]);
+    expect(plain.leadId).toBeNull();
+    expect(centre.id).toBe(`fan:${team.deptId}:0:0`);
+    const board = team.board!;
+    const aside = (p: { x: number; z: number }) => Math.abs((p.x - board.x) * Math.cos(board.facing) - (p.z - board.z) * Math.sin(board.facing));
+    const front = places.filter((p) => p.id.startsWith(`fan:${team.deptId}:0:`));
+    for (const p of front) expect(aside(centre)).toBeLessThanOrEqual(aside(p) + 1e-6);
+    // A studio without a lead has no special place.
+    expect(leadPlace(huddlePlaces(campus.layout, campus.grid, plain), plain)).toBeNull();
+  });
+
+  it("stands the lead at the centre of the front arc in a round, whenever it comes", () => {
+    const lead = team.leadId!;
+    // First to arrive.
+    expect(planFor(lInput(lead, "idle", { round: { speaker: false } })).spotId).toBe(centre.id);
+    // Last to arrive: the others left the place free.
+    const book = new SpotBook();
+    const others = team.members.filter((id) => id !== lead).map((id) => planFor(lInput(id, "idle", { book, round: { speaker: false } })));
+    expect(others.map((p) => p.spotId)).not.toContain(centre.id);
+    expect(new Set(others.map((p) => p.spotId)).size).toBe(others.length);
+    expect(planFor(lInput(lead, "idle", { book, round: { speaker: false } })).spotId).toBe(centre.id);
+    // As the speaker, too.
+    expect(planFor(lInput(lead, "working", { round: { speaker: true } })).spotId).toBe(centre.id);
+  });
+
+  it("does not move a working lead, and invents nothing for an idle one", () => {
+    const lead = team.leadId!;
+    expect(planFor(lInput(lead, "working", { round: { speaker: false } })).kind).toBe("work");
+    expect(planFor(lInput(lead, "waiting", { round: { speaker: false } })).kind).toBe("wait");
+    // No round: the lead's idle day is drawn exactly like a member's, place by place.
+    const rng = () => createRng("same-seed");
+    const asLead = Array.from({ length: 1 }, () => { const r = rng(); return Array.from({ length: 60 }, () => planFor(lInput(lead, "idle", { rng: r }))); })[0];
+    const noLead = { ...led.layout, studios: (led.layout.studios ?? []).map((s) => ({ ...s, leadId: null })) };
+    const r = rng();
+    const asMember = Array.from({ length: 60 }, () => planFor(lInput(lead, "idle", { rng: r, layout: noLead })));
+    expect(asLead.map((p) => [p.kind, p.spotId, p.target.x, p.target.z, p.dwellMs])).toEqual(asMember.map((p) => [p.kind, p.spotId, p.target.x, p.target.z, p.dwellMs]));
+  });
+
+  it("gives the lead's place to a member only when no other is left, and to the lead another when the person stands on it", () => {
+    const lead = team.leadId!;
+    const book = new SpotBook();
+    for (const p of places) if (p.id !== centre.id) book.claim(p.id, `holder-${p.id}`);
+    expect(planFor(lInput(team.members[0], "idle", { book, round: { speaker: false } })).spotId).toBe(centre.id);
+    const plan = planFor(lInput(lead, "idle", { person: { x: centre.x, z: centre.z + 0.2 }, round: { speaker: false } }));
+    expect(plan.kind).toBe("huddle");
+    expect(plan.spotId).not.toBe(centre.id);
+  });
+
+  it("plans a team without a lead exactly as before", () => {
+    // Round by round and seed by seed, the same places as on the campus that never heard of leads.
+    const withNull = { ...campus.layout, studios: (campus.layout.studios ?? []).map((s) => ({ ...s, leadId: null })) };
+    for (let seed = 0; seed < 20; seed += 1) {
+      const a = new SpotBook(), b = new SpotBook();
+      for (const id of plain.members) {
+        const first = planFor(cInput(id, "idle", { book: a, rng: createRng(`${id}:${seed}`), round: { speaker: false } }));
+        const second = planFor(cInput(id, "idle", { book: b, rng: createRng(`${id}:${seed}`), layout: withNull, round: { speaker: false } }));
+        expect(second).toEqual(first);
+      }
+    }
   });
 });
 

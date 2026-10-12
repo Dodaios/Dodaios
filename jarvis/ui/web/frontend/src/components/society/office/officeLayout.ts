@@ -75,7 +75,7 @@ export interface OfficeTeamInput {
   name: string;
   members: readonly string[];
   createdMs: number;
-  /** The agent that leads the team, once the roster knows one; never guessed. */
+  /** The agent that leads the team, as the roster names it; never guessed. Absent or null = no lead. */
   leadId?: string | null;
 }
 
@@ -87,8 +87,13 @@ export interface Studio {
   deptId: string;
   teamId: string | null;
   name: string;
-  /** Member agent ids seated in this studio, in seating order. */
+  /** Member agent ids seated in this studio, in seating order: the lead first, at the head desk, then by arrival. */
   members: string[];
+  /**
+   * The team's lead, seated at this studio's head desk (the first desk of the bench nearest the name wall). Null
+   * when the team has none, and when the agent named as its lead cannot sit here: not a member, not on the roster,
+   * in the lead office, or already at the head of an older team it leads too.
+   */
   leadId: string | null;
   /** The studio board (a `studioBoard` furniture piece): its id, where its face is and the yaw it faces. Null for a studio without one. */
   board: (Point & { id: string; facing: number }) | null;
@@ -596,6 +601,18 @@ export function wallsOf(room: Room): WallSegment[] {
 
 /** The free-standing name arch of an open (unwalled) room: two posts on its north edge. */
 export const ARCH = { halfSpan: 0.95, inset: 0.25, post: 0.08 } as const;
+
+/** The desk every studio's lead sits at (its studio's head desk), with the studio's department. Empty off the agents floor. */
+export function leadDesks(layout: Pick<OfficeLayout, "studios" | "departments">): { desk: DeskSlot; dept: Department }[] {
+  const out: { desk: DeskSlot; dept: Department }[] = [];
+  for (const studio of layout.studios ?? []) {
+    if (!studio.leadId) continue;
+    const dept = layout.departments.find((d) => d.id === studio.deptId);
+    const desk = dept?.desks.find((d) => d.agentId === studio.leadId);
+    if (dept && desk) out.push({ desk, dept });
+  }
+  return out;
+}
 
 /** Post centres of an open room's name arch; the renderer and navigation share them. */
 export function archPosts(room: Rect & { arch?: Point }): Point[] {

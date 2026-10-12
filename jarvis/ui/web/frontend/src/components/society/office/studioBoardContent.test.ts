@@ -7,7 +7,7 @@ import {
 
 const labels: BoardLabels = {
   pool: "Open studio", members: "{0} members", live: "Live", speaking: "Speaking", you: "You",
-  empty: "Nothing has been said yet.", poolNote: "No team yet.", loading: "Reading…", unavailable: "Cannot be read.", more: "+{0} more",
+  empty: "Nothing has been said yet.", poolNote: "No team yet.", loading: "Reading…", unavailable: "Cannot be read.", lead: "Lead: {0}", more: "+{0} more",
   state: { working: "Working", waiting: "Waiting", idle: "Idle", paused: "Paused" },
 };
 const agent = (name: string, state: AgentRunState) => ({ name, state });
@@ -20,9 +20,9 @@ describe("what a studio board shows", () => {
     const model = boardModel(studio, agents, round({}), labels);
     expect(model).toMatchObject({ title: "Launch crew", count: "3 members", live: false, hidden: 0 });
     expect(model.members).toEqual([
-      { id: "nora", name: "Nora", state: "working", speaking: false },
-      { id: "ben", name: "Ben", state: "idle", speaking: false },
-      { id: "kai", name: "Kai", state: "waiting", speaking: false },
+      { id: "nora", name: "Nora", state: "working", speaking: false, lead: false },
+      { id: "ben", name: "Ben", state: "idle", speaking: false, lead: false },
+      { id: "kai", name: "Kai", state: "waiting", speaking: false, lead: false },
     ]);
   });
 
@@ -73,6 +73,36 @@ describe("what a studio board shows", () => {
     const busy = new Map(agents).set("ben", agent("Ben", "working"));
     expect(boardSignature(boardModel(studio, busy, round({ lines: [{ id: "e1", speaker: "nora", text: "hi" }] }), labels), labels)).not.toBe(boardSignature(a, labels));
     expect(boardSignature(boardModel(studio, agents, round({ running: true, lines: [{ id: "e1", speaker: "nora", text: "hi" }] }), labels), labels)).not.toBe(boardSignature(a, labels));
+  });
+});
+
+describe("a team with a lead", () => {
+  it("lists the lead first and marks it, whatever its seat", () => {
+    const model = boardModel({ ...studio, leadId: "kai" }, agents, round({}), labels);
+    expect(model.members.map((m) => [m.id, m.lead])).toEqual([["kai", true], ["nora", false], ["ben", false]]);
+    expect(model.count).toBe("3 members");
+    // A lead that sits in another studio is still this team's lead while its round lists it.
+    const elsewhere = boardModel({ ...studio, leadId: "zoe" }, agents, round({ members: ["nora", "zoe"] }), labels);
+    expect(elsewhere.members.map((m) => [m.id, m.lead])).toEqual([["zoe", true], ["nora", false], ["ben", false], ["kai", false]]);
+    // The mark changes the face.
+    expect(boardSignature(model, labels)).not.toBe(boardSignature(boardModel(studio, agents, round({}), labels), labels));
+  });
+
+  it("keeps the lead in view on a team larger than the list", () => {
+    const crowd = new Map(Array.from({ length: 9 }, (_, i) => [`m${i}`, agent(`M${i}`, "idle")] as const));
+    const big = boardModel({ name: "Big", teamId: "t", members: [...crowd.keys()], leadId: "m8" }, crowd, round({}), labels);
+    expect(big.members[0]).toMatchObject({ id: "m8", lead: true });
+    expect(big.members).toHaveLength(MAX_BOARD_MEMBERS);
+  });
+
+  it("is the board it always was without one, or when the lead is not on the roster", () => {
+    const plain = boardModel(studio, agents, round({}), labels);
+    for (const leadId of [null, undefined, "stranger", ""]) {
+      const model = boardModel({ ...studio, leadId }, agents, round({}), labels);
+      expect(model).toEqual(plain);
+      expect(boardSignature(model, labels)).toBe(boardSignature(plain, labels));
+    }
+    expect(plain.members.some((m) => m.lead)).toBe(false);
   });
 });
 

@@ -495,6 +495,31 @@ street of team rooms round an atrium, with commons people use in between.
   `planStudios` decides who sits where, `layout.studios` describes each
   studio (team, seated members, board, huddle places, centre) and
   `Department.teamId` links its desks.
+- **A team's lead sits at the head of its studio.** The roster names a lead
+  per team (`lead_agent_id` of the chat group, `OfficeTeamInput.leadId`). A
+  lead who is a member the roster knows, and who does not sit in the lead
+  office, takes the head desk: the first desk of the bench nearest the name
+  wall (`dept.desks[0]`). It changes places with the earliest arrival, who
+  would sit there; everyone else keeps arrival order. So naming a lead
+  moves two people and changing one at most three (old lead back to its own
+  place, new lead to the head, the earliest arrival to the new lead's
+  place); the studio's size and everyone outside the team stay as they are.
+  Leading a team comes before "the oldest team" for an agent in several and
+  before the seat cap; an agent named lead of two teams sits with the older
+  one. `Studio.leadId` is that seated lead and null in every other case (no
+  lead, not a member, unknown, in the lead office): never guessed.
+  `leadDesks(layout)` lists the desks. The lead's place is marked in the
+  team's colour (`leadMark` in deskKit.ts, drawn as instances by
+  `DeskDressing`): a shell on the back of its chair with a bronze cap along
+  the top edge and a pad on the seat, a chair mat on the floor under it, and
+  a name stand on the desk's front right corner whose plate leans back
+  towards the camera. The chair is what the south-east camera sees first
+  and it stays when the lead is at the board; the mat is what reads from
+  the overview. `leadMark.test.tsx` puts the mark through the real cameras
+  at 1600 x 900: in the follow view the shell covers about 43 x 45 px and
+  the plate 15 x 12 px, in the overview the mat at least 11 px each way,
+  with no monitor, screen, chair, sitter or pendant in front. The plan is
+  rebuilt when a lead is named or changed, and by nothing else new.
 - **A studio is a room** (`studioShape`, one cell: 11 m wide). At its back a
   name wall capped in the team's colour, the team's name on the west half and
   the studio board in front of the east half with four to seven huddle places
@@ -738,9 +763,18 @@ and again about once a minute, so a round that was already running when the
 Verse was opened, or whose event was missed, is found. A round that fails to
 read five times in a row is no longer shown as running.
 
+A team can have a lead (`lead_agent_id` of its chat group, `Studio.leadId` on
+the floor). The floor shows that and invents nothing more: the studio board
+lists the lead first and names it ("Lead: <name>"), and in a gathering at the
+board (a running round, or a meeting the person called there) the lead stands
+at the centre of the front arc when it is among those gathering; the others
+leave that place free while any other is. A working lead stays at its screen
+like anyone, an idle lead lives the same idle day as its team, and a team
+without a lead is planned and drawn exactly as before.
+
 Not shown, because the app cannot see it: when a line was said (the meeting's
-messages carry no time), a team lead, a task shared by several agents, and
-whether a hand-off was accepted.
+messages carry no time), a task shared by several agents, and whether a
+hand-off was accepted.
 
 **Studio boards** (`StudioBoards.tsx`, `studioBoardContent.ts`). Each board's
 face shows the team's name, its members with their real run state (the

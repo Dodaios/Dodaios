@@ -13,22 +13,26 @@ export function rosterOf(count: number): OfficeAgentInput[] {
   }));
 }
 
-/** Teams of the given sizes over the first agents of the roster, in order; whoever is left has no team. */
-export function teamsOf(roster: readonly OfficeAgentInput[], sizes: readonly number[]): OfficeTeamInput[] {
+/**
+ * Teams of the given sizes over the first agents of the roster, in order; whoever is left has no team.
+ * `leads[i]` names team i's lead by its place among the team's members (absent or null: the team has none).
+ */
+export function teamsOf(roster: readonly OfficeAgentInput[], sizes: readonly number[], leads: readonly (number | null)[] = []): OfficeTeamInput[] {
   let next = 0;
   return sizes.map((size, i) => {
     const members = roster.slice(next, next + size).map((a) => a.agentId);
     next += size;
-    return { id: `team-${i}`, name: `Team ${i}`, members, createdMs: 100 + i };
+    const lead = leads[i];
+    return { id: `team-${i}`, name: `Team ${i}`, members, createdMs: 100 + i, ...(lead != null ? { leadId: members[lead] } : {}) };
   });
 }
 
 export interface Campus { roster: OfficeAgentInput[]; teams: OfficeTeamInput[]; layout: OfficeLayout; grid: NavGrid }
 
 /** The agents floor for `count` agents in teams of `sizes` (the rest sit in the pool). */
-export function campusOf(count: number, sizes: readonly number[]): Campus {
+export function campusOf(count: number, sizes: readonly number[], leads: readonly (number | null)[] = []): Campus {
   const roster = rosterOf(count);
-  const teams = teamsOf(roster, sizes);
+  const teams = teamsOf(roster, sizes, leads);
   const layout = buildOfficeLayout(roster, { teams });
   return { roster, teams, layout, grid: buildNavGrid(layout) };
 }
