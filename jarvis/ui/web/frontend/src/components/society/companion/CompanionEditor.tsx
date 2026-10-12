@@ -56,7 +56,7 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
     {preview3d && <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>}
     {!lead && <div className="flex items-center justify-between gap-3 text-sm"><span>{t("society.companion.look")}</span>
       <div className="flex gap-1.5" role="group" aria-label={t("society.companion.look")}>
-        {(["shape", "creature", "pet"] as const).map(option => <button key={option} type="button" aria-pressed={kind === option} onClick={() => choose(option)}
+        {(["creature", "shape", "pet"] as const).map(option => <button key={option} type="button" aria-pressed={kind === option} onClick={() => choose(option)}
           className={`rounded-full border px-2.5 py-1 text-xs ${kind === option ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-secondary"}`}>
           {t(`society.companion.look_${option}`)}
         </button>)}

@@ -27,8 +27,8 @@ export function CreaturePicker({ value, onChange, mood, onMood }: {
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-sm font-medium">{t("society.companion.creature.figure")}</span>
         <button type="button" onClick={() => setSeeds(Array.from({ length: CHOICES }, rollSeed))}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground hover:bg-secondary">
-          <Dices size={14} aria-hidden />{t("society.companion.creature.roll")}
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover">
+          <Dices size={18} aria-hidden />{t("society.companion.creature.roll")}
         </button>
       </div>
       <div className="flex flex-wrap gap-2">{seeds.map((seed, index) => <button key={`${index}-${seed}`} type="button"
