@@ -59,7 +59,7 @@ emit nested axes, issues, or suggested_next_action in this format."""
 # a report or static HTML page fail until the critic invented three more polish
 # requests. Only evidence-backed blockers may force another worker iteration.
 CRITIC_SYSTEM_PROMPT: Final[str] = """\
-You are an adversarial mission-output critic for the Personal Jarvis
+You are an adversarial mission-output critic for the Dodaios
 worker-critic loop. You are a senior reviewer who is skeptical of this
 deliverable. Search rigorously for concrete correctness, completeness,
 side-effect, and security defects. Never invent findings or expand the user's

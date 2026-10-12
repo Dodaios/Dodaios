@@ -168,11 +168,11 @@ _PHRASES: dict[str, dict[str, str]] = {
     # forwards the engine's own English sentence (en only; the other languages
     # name the permission from the table below); the others are fixed, localized.
     "cu_blocked_permission": {
-        "de": "Ich musste anhalten: Personal Jarvis braucht "  # i18n-allow
+        "de": "Ich musste anhalten: Dodaios braucht "  # i18n-allow
               "die Berechtigung {permission}. "  # i18n-allow
               "Erlaube sie unter {pane}. Versuche es danach noch einmal.",  # i18n-allow
         "en": "I had to stop. {sentence}",
-        "es": "Tuve que parar: Personal Jarvis necesita el permiso de {permission}. "
+        "es": "Tuve que parar: Dodaios necesita el permiso de {permission}. "
               "Actívalo en {pane}. Después, vuelve a intentarlo.",
     },
     # The grant is on but unusable, a permission this session cannot ask for, and a
@@ -181,21 +181,21 @@ _PHRASES: dict[str, dict[str, str]] = {
     # only needs these as the fixed fallback.
     "cu_blocked_restart_hint": {
         "de": "Ich musste anhalten: Die Berechtigung {permission} wirkt "  # i18n-allow
-              "womöglich erst, nachdem Personal Jarvis beendet "  # i18n-allow
+              "womöglich erst, nachdem Dodaios beendet "  # i18n-allow
               "und neu geöffnet wurde. "  # i18n-allow
               "Starte die App neu und versuche es dann noch einmal.",  # i18n-allow
         "en": "I had to stop: the {permission} permission may only take effect after "
-              "Personal Jarvis is quit and reopened. Reopen the app, then try again.",
+              "Dodaios is quit and reopened. Reopen the app, then try again.",
         "es": "Tuve que parar: el permiso de {permission} puede que solo surta efecto "
-              "cuando Personal Jarvis se cierre y se vuelva a abrir. "
+              "cuando Dodaios se cierre y se vuelva a abrir. "
               "Reinicia la app y vuelve a intentarlo.",
     },
     "cu_blocked_unavailable": {
-        "de": "Ich musste anhalten: Personal Jarvis kann in dieser Sitzung "  # i18n-allow
+        "de": "Ich musste anhalten: Dodaios kann in dieser Sitzung "  # i18n-allow
               "nicht nach der Berechtigung {permission} fragen.",  # i18n-allow
-        "en": "I had to stop: Personal Jarvis cannot ask for the {permission} permission "
+        "en": "I had to stop: Dodaios cannot ask for the {permission} permission "
               "in this session.",
-        "es": "Tuve que parar: Personal Jarvis no puede pedir el permiso de {permission} "
+        "es": "Tuve que parar: Dodaios no puede pedir el permiso de {permission} "
               "en esta sesión.",
     },
     "cu_blocked_waiting": {
@@ -226,12 +226,12 @@ _PHRASES: dict[str, dict[str, str]] = {
               "perfil o un control parental. No se puede cambiar desde la app.",
     },
     "cu_blocked_generic": {
-        "de": "Ich musste anhalten, weil macOS eine Berechtigung für Personal Jarvis "  # i18n-allow
+        "de": "Ich musste anhalten, weil macOS eine Berechtigung für Dodaios "  # i18n-allow
               "braucht. Erlaube sie in den Systemeinstellungen unter Datenschutz & "  # i18n-allow
               "Sicherheit und versuche es dann noch einmal.",  # i18n-allow
-        "en": "I had to stop because macOS needs a permission for Personal Jarvis. "
+        "en": "I had to stop because macOS needs a permission for Dodaios. "
               "Allow it in System Settings under Privacy & Security, then try again.",
-        "es": "Tuve que parar porque macOS necesita un permiso para Personal Jarvis. "
+        "es": "Tuve que parar porque macOS necesita un permiso para Dodaios. "
               "Actívalo en Ajustes del Sistema, en Privacidad y seguridad, y vuelve a intentarlo.",
     },
     "cu_timeout": {
@@ -1081,14 +1081,14 @@ _REASON_FAMILIES: tuple[tuple[re.Pattern[str], dict[str, str]], ...] = (
 #: the on-screen card says it), which :func:`localize_failure_reason` then speaks in
 #: the turn's language. Pure regex and fixed tables (AP-11).
 _PERMISSION_NEEDED_TOKEN_RE = re.compile(r"\[permission_needed:(?P<token>[a-z_]+)\]")
-_PERMISSION_CAUSE_EN = "Personal Jarvis does not have the {name} permission right now."
+_PERMISSION_CAUSE_EN = "Dodaios does not have the {name} permission right now."
 _PERMISSION_CAUSE_RE = re.compile(
-    r"^Personal Jarvis does not have the (?P<name>.+?) permission right now\.$"
+    r"^Dodaios does not have the (?P<name>.+?) permission right now\.$"
 )
 _PERMISSION_CAUSE_TEMPLATES: dict[str, str] = {
-    "de": "Personal Jarvis hat die Berechtigung {name} gerade nicht.",  # i18n-allow
+    "de": "Dodaios hat die Berechtigung {name} gerade nicht.",  # i18n-allow
     "en": _PERMISSION_CAUSE_EN,
-    "es": "Personal Jarvis no tiene ahora el permiso de {name}.",
+    "es": "Dodaios no tiene ahora el permiso de {name}.",
 }
 #: How each language names a permission (the macOS UI labels; unverified on a real Mac).
 _PERMISSION_CAUSE_NAMES: dict[str, dict[str, str]] = {
@@ -1125,10 +1125,10 @@ _PERMISSION_TOKEN_BY_EN_NAME: dict[str, str] = {
 #: Causes without a permission name: a macOS system dialog that is open, and a token
 #: this build does not know. English sentence -> its localized wording.
 _PERMISSION_FIXED_CAUSES: dict[str, dict[str, str]] = {
-    "Personal Jarvis paused because a macOS system dialog is open.": {
-        "de": "Personal Jarvis hat angehalten, weil ein Systemdialog offen ist.",  # i18n-allow
-        "en": "Personal Jarvis paused because a macOS system dialog is open.",
-        "es": "Personal Jarvis se detuvo porque hay un cuadro de diálogo del sistema abierto.",
+    "Dodaios paused because a macOS system dialog is open.": {
+        "de": "Dodaios hat angehalten, weil ein Systemdialog offen ist.",  # i18n-allow
+        "en": "Dodaios paused because a macOS system dialog is open.",
+        "es": "Dodaios se detuvo porque hay un cuadro de diálogo del sistema abierto.",
     },
     "A macOS permission is missing right now.": {
         "de": "Eine macOS-Berechtigung fehlt gerade.",  # i18n-allow
@@ -1150,7 +1150,7 @@ def _permission_cause(text: str | None) -> str | None:
         return None
     permission = match.group("token")
     if permission == "system_dialog":
-        return "Personal Jarvis paused because a macOS system dialog is open."
+        return "Dodaios paused because a macOS system dialog is open."
     names = _PERMISSION_CAUSE_NAMES.get(permission)
     if names is None:
         return "A macOS permission is missing right now."

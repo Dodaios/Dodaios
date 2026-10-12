@@ -75,7 +75,7 @@ def capability() -> tuple[bool, str]:
         if is_wayland():
             return False, (
                 "Screen capture is not available in a Wayland session. "
-                "Log in to an X11 session to use Jarvis X."
+                "Log in to an X11 session to use Dodaios X."
             )
     except Exception:  # noqa: BLE001 - probes missing: let the grab decide
         log.debug("jarvisx: platform probes unavailable", exc_info=True)

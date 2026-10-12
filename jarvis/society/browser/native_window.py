@@ -564,12 +564,12 @@ class NativeWindow:
                 raise RuntimeError("Taskbar icon initialization failed")
             icon = u.LoadImageW(None, icon_path, 1, 16, 16, 0x10)
             if not icon:
-                raise RuntimeError("Jarvis browser icon could not be loaded")
-            if overlay(pointer, self.hwnd, icon, "Jarvis Browser") < 0:
-                raise RuntimeError("Jarvis browser badge could not be applied")
+                raise RuntimeError("Dodaios browser icon could not be loaded")
+            if overlay(pointer, self.hwnd, icon, "Dodaios Browser") < 0:
+                raise RuntimeError("Dodaios browser badge could not be applied")
             return True
         except Exception:
-            log.warning("Jarvis browser badge unavailable", exc_info=True)
+            log.warning("Dodaios browser badge unavailable", exc_info=True)
             return False
         finally:
             if icon:

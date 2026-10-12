@@ -212,7 +212,7 @@ def _refuse_on_secondary_instance() -> None:
             detail=(
                 f"The desktop pet belongs to the default app; the {instance.label} "
                 "instance draws no overlay and does not change the shared setting. "
-                "Change the pet in the regular Personal Jarvis app."
+                "Change the pet in the regular Dodaios app."
             ),
         )
 

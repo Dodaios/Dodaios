@@ -339,7 +339,7 @@ def fit_for(
     """
     machine = machine or Machine()
     if not info.probed:
-        return "unknown", "Jarvis could not read what this model can do."
+        return "unknown", "Dodaios could not read what this model can do."
     missing = [cap for cap in spec.required if cap not in info.capabilities]
     if missing:
         return "unfit", ", ".join(_CAPABILITY_WORDS.get(cap, f"no {cap}") for cap in missing)

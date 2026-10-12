@@ -302,7 +302,7 @@ def _require_turn(grant: Grant, signal: Future[str] | None) -> None:
         active = signal is not None and _FAILURES.get(grant) is signal and not signal.done()
     if not active:
         raise GatewayError(
-            "This runtime has no active turn. Start a new turn in Jarvis.",
+            "This runtime has no active turn. Start a new turn in Dodaios.",
             status=409, code="turn_inactive",
         )
 
@@ -638,7 +638,7 @@ def _subscription_message(exc: Exception) -> str:
     from jarvis.live.subscription_auth import SubscriptionAuthError
 
     if isinstance(exc, SubscriptionAuthError) or getattr(exc, "code", "") == "login":
-        return "The ChatGPT subscription needs a new sign-in in Jarvis."
+        return "The ChatGPT subscription needs a new sign-in in Dodaios."
     return "The ChatGPT subscription could not answer this turn."
 
 
@@ -657,7 +657,7 @@ def _subscription_failure(grant: Grant, exc: Exception) -> GatewayError:
     log.warning(
         "runtime gateway: %s subscription call failed: %s", grant.agent_id, _describe(exc)
     )
-    sign_in = "The ChatGPT subscription needs a new sign-in in Jarvis."
+    sign_in = "The ChatGPT subscription needs a new sign-in in Dodaios."
     if isinstance(exc, SubscriptionAuthError):
         return GatewayError(sign_in, status=401, code="provider_auth")
     status = getattr(exc, "status", 0)

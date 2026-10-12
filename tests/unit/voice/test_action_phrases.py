@@ -338,7 +338,7 @@ class TestBlockedPermissionReadback:
     """
 
     _SENTENCE = (
-        "Accessibility is off for Personal Jarvis. The user has to turn it on in "
+        "Accessibility is off for Dodaios. The user has to turn it on in "
         "System Settings > Privacy & Security > Accessibility. Then try the task again."
     )
     _PROFILE = "[cu] mission profile: steps=3 total=9.5s act=3.0s observe=0.3s plan=1.6s\n"
@@ -359,7 +359,7 @@ class TestBlockedPermissionReadback:
 
     def test_english_forwards_the_engine_sentence_without_telemetry(self) -> None:
         out = cu_failure_readback("en", error=None, exit_code=8, detail=self._detail())
-        assert "Accessibility is off for Personal Jarvis." in out
+        assert "Accessibility is off for Dodaios." in out
         assert "Then try the task again." in out
         assert "mission profile" not in out
         assert "[cu]" not in out
@@ -386,7 +386,7 @@ class TestBlockedPermissionReadback:
 
     def test_screen_recording_is_named_by_keyword(self) -> None:
         sentence = (
-            "Screen Recording access is off for Personal Jarvis. The user has to turn it "
+            "Screen Recording access is off for Dodaios. The user has to turn it "
             "on in System Settings > Privacy & Security > Screen & System Audio Recording."
         )
         de = cu_failure_readback(
@@ -396,7 +396,7 @@ class TestBlockedPermissionReadback:
 
     def test_system_dialog_asks_the_person_to_answer_it(self) -> None:
         sentence = (
-            "A macOS system dialog is open. Personal Jarvis never answers system dialogs "
+            "A macOS system dialog is open. Dodaios never answers system dialogs "
             "for you: answer it yourself, then try the task again."
         )
         en = cu_failure_readback("en", error=None, exit_code=8, detail=self._detail(sentence))
@@ -407,7 +407,7 @@ class TestBlockedPermissionReadback:
     def test_restricted_permission_is_explained_not_asked_for(self) -> None:
         sentence = (
             "Accessibility access is restricted on this Mac by a profile or a parental "
-            "control, so Personal Jarvis cannot use it. This cannot be changed from the app."
+            "control, so Dodaios cannot use it. This cannot be changed from the app."
         )
         de = cu_failure_readback("de", error=None, exit_code=8, detail=self._detail(sentence))
         assert de == action_phrase("cu_blocked_restricted", "de")

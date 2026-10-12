@@ -560,6 +560,27 @@ def test_train_updates_only_conflicting_or_stale_red_branches():
     assert decide("UNKNOWN", "approve", False) == "approve"
 
 
+def test_train_gives_its_update_slots_to_the_pull_requests_that_can_land():
+    wanted = [
+        # The oldest ones: an unresolved conflict and a pull request with red CI.
+        {"number": 1, "labels": ["needs-rebase"], "state": "success"},
+        {"number": 2, "labels": [], "state": "failure"},
+        {"number": 3, "labels": ["needs-rebase"], "state": "failure"},
+        # Green pull requests that only conflict with main.
+        {"number": 4, "labels": ["auto-merge"], "state": "success"},
+        {"number": 5, "labels": [], "state": "success"},
+        {"number": 6, "labels": [], "state": "success"},
+    ]
+    assert agent_integrate.grant_updates(wanted, 3) == {4, 5, 6}
+    # A free slot still goes to the red one before the conflict nobody resolved.
+    assert agent_integrate.grant_updates(wanted, 4) == {2, 4, 5, 6}
+    assert agent_integrate.grant_updates(wanted, 6) == {1, 2, 3, 4, 5, 6}
+    # `priority` moves a pull request to the front, whatever its state.
+    urgent = [*wanted, {"number": 9, "labels": ["priority", "needs-rebase"], "state": "failure"}]
+    assert agent_integrate.grant_updates(urgent, 1) == {9}
+    assert agent_integrate.grant_updates(wanted, 0) == set()
+
+
 def test_train_leaves_a_queued_pull_request_to_the_queue():
     decide = agent_integrate.decide
     assert decide("MERGEABLE", "success", True, queued=True) == "queued"

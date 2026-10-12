@@ -1,4 +1,4 @@
-"""CLI integration for Personal Jarvis (Phase: CLI-Integration).
+"""CLI integration for Dodaios (Phase: CLI-Integration).
 
 Users can install, connect, and manage curated and self-registered CLI tools
 (gcloud, gh, supabase, stripe, docker, ...) from the desktop app.

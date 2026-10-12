@@ -17,6 +17,8 @@ export interface SidePanelTerminal {
   workspaceId: string;
   workspaceName: string;
   number: number;
+  /** Absolute folder the shell starts in; omitted = the workspace's own folder. */
+  folder?: string;
 }
 
 export const MAX_TERMINAL_TABS = 16;
@@ -93,7 +95,8 @@ interface IdeSidePanelState {
   tabs: SidePanelTabId[];
   active: SidePanelTabId;
   terminals: SidePanelTerminal[];
-  addTerminalTab: (workspaceId: string, workspaceName: string) => void;
+  /** `folder` starts the shell in that folder of the workspace instead of its root. */
+  addTerminalTab: (workspaceId: string, workspaceName: string, folder?: string) => void;
   setOpen: (open: boolean) => void;
   /** Open a tab (or bring it forward when it is already open). */
   openTab: (id: SidePanelTabId) => void;
@@ -131,14 +134,14 @@ export const useIdeSidePanelStore = create<IdeSidePanelState>((set, get) => {
     tabs: initialTabs.tabs,
     active: initialTabs.active,
     terminals: [],
-    addTerminalTab: (workspaceId, workspaceName) => {
+    addTerminalTab: (workspaceId, workspaceName, folder) => {
       if (!workspaceId) return;
       const { terminals, tabs } = get();
       const siblings = terminals.filter((terminal) => terminal.workspaceId === workspaceId);
       if (siblings.length >= MAX_TERMINAL_TABS) return;
       const id = `terminal:${crypto.randomUUID()}` as const;
       const number = Math.max(0, ...siblings.map((terminal) => terminal.number)) + 1;
-      set({ terminals: [...terminals, { id, workspaceId, workspaceName, number }] });
+      set({ terminals: [...terminals, { id, workspaceId, workspaceName, number, ...(folder ? { folder } : {}) }] });
       commit({ open: true, tabs: [...tabs, id], active: id });
     },
     spotlight: null,

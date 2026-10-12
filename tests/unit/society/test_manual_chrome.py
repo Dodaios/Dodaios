@@ -83,7 +83,7 @@ def test_ordinary_chrome_profile_is_never_opened(installed):
     profile, _ = installed
     chrome.os.environ["LOCALAPPDATA"] = str(profile)
     ordinary = profile / "Google" / "Chrome" / "User Data"
-    with pytest.raises(RuntimeError, match="Jarvis-owned"):
+    with pytest.raises(RuntimeError, match="Dodaios-owned"):
         chrome.select_chrome_executable(ordinary)
 
 

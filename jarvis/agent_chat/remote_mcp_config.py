@@ -104,7 +104,7 @@ async def configure(
 ) -> RemoteToolConfig:
     if runner not in SUPPORTED_RUNNERS:
         raise RemoteToolsUnavailable(
-            "This coding CLI has no supported Jarvis tool transport on another computer. "
+            "This coding CLI has no supported Dodaios tool transport on another computer. "
             "Choose a CLI with MCP support in the agent's model settings."
         )
     config = RemoteToolConfig()

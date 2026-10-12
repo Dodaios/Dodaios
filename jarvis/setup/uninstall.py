@@ -1,4 +1,4 @@
-"""Personal Jarvis uninstaller — remove a local install cleanly for a re-test.
+"""Dodaios uninstaller — remove a local install cleanly for a re-test.
 
 A download leaves FOUR things on a machine, and a plain folder-delete only
 gets the first:
@@ -270,7 +270,7 @@ def _stop_running_instances(install_dir: Path) -> int:
     except ImportError:
         _console.print(
             "    [muted]→ process check unavailable (psutil missing) — "
-            "close Jarvis yourself if it is still running.[/]"
+            "close Dodaios yourself if it is still running.[/]"
         )
         return 0
 
@@ -295,7 +295,7 @@ def _stop_running_instances(install_dir: Path) -> int:
     stopped = len(procs) - len(alive)
     if stopped:
         _console.print(
-            f"    [ok]→ stopped the running Jarvis app "
+            f"    [ok]→ stopped the running Dodaios app "
             f"({stopped} process{'es' if stopped != 1 else ''}).[/]"
         )
     for proc in alive:
@@ -346,15 +346,15 @@ def build_plan() -> UninstallPlan:
 # ---------------------------------------------------------------- presentation
 def _print_plan(plan: UninstallPlan, *, keep_keys: bool, keep_folder: bool) -> None:
     _console.print()
-    _console.print(" [brand.bold]Uninstall Personal Jarvis[/]")
+    _console.print(" [brand.bold]Uninstall Dodaios[/]")
     lines = [
-        "[bad]This removes Jarvis from THIS machine.[/] "
+        "[bad]This removes Dodaios from THIS machine.[/] "
         "It does not touch your accounts or anything you created elsewhere.\n",
     ]
     if plan.running_pids:
         n = len(plan.running_pids)
         lines.append(
-            f"[brand]•[/] Stop the running Jarvis app first "
+            f"[brand]•[/] Stop the running Dodaios app first "
             f"([brand.bold]{n}[/] process{'es' if n != 1 else ''} still active)"
         )
     if not keep_folder:
@@ -384,7 +384,7 @@ def _print_plan(plan: UninstallPlan, *, keep_keys: bool, keep_folder: bool) -> N
 def _confirm() -> bool:
     """Fail-closed confirmation — the user must type 'yes' to proceed."""
     try:
-        answer = input("  Type 'yes' to remove Jarvis (anything else cancels): ").strip().lower()
+        answer = input("  Type 'yes' to remove Dodaios (anything else cancels): ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         return False
     return answer in ("yes", "y")
@@ -553,7 +553,7 @@ def run_uninstall(
     keep_folder: bool = False,
     dry_run: bool = False,
 ) -> int:
-    """Uninstall Personal Jarvis from this machine.
+    """Uninstall Dodaios from this machine.
 
     Returns: 0 success, 1 aborted by the user, 2 not a Jarvis install.
     """
@@ -561,7 +561,7 @@ def run_uninstall(
 
     if not plan.is_jarvis_install:
         _console.print(
-            f"[bad]This does not look like a Personal Jarvis install:[/] "
+            f"[bad]This does not look like a Dodaios install:[/] "
             f"{escape(str(plan.install_dir))}\n[muted]Refusing to delete anything.[/]"
         )
         return 2
@@ -601,7 +601,7 @@ def run_uninstall(
         _console.print("  [ok]Cleanup done.[/] [muted]Removing the install folder itself…[/]\n")
     else:
         _console.print(
-            "  [ok]Done.[/] [muted]Personal Jarvis has been removed. "
+            "  [ok]Done.[/] [muted]Dodaios has been removed. "
             "Re-run the installer any time to start fresh.[/]\n"
         )
     return 0

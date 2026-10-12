@@ -236,7 +236,7 @@ _END_CALL_DECLARATION: dict[str, Any] = {
     "name": "end_call",
     "description": (
         "Request to end the voice call only when the user clearly asks to leave. "
-        "Jarvis asks for confirmation first and ends only after a separate yes. "
+        "Dodaios asks for confirmation first and ends only after a separate yes. "
         "Never end a call because a task finished, the user paused, or approved an action."
     ),
     "parameters": {"type": "object", "properties": {}},
@@ -685,7 +685,7 @@ _GROUNDING_RESULT_CHARS = 2_000
 _DELEGATE_DECLARATION: dict[str, Any] = {
     "name": "jarvis_action",
     "description": (
-        "Execute an action for the user through the Jarvis action system: "
+        "Execute an action for the user through the Dodaios action system: "
         "open apps or views, change settings, control the computer on screen "
         "(click, type, and navigate inside any application window until the "
         "task is finished), manage files, start a background research or "
@@ -694,7 +694,7 @@ _DELEGATE_DECLARATION: dict[str, Any] = {
         "exist and what one is doing, read or write the "
         "user's private Wiki memory — including recalling anything from the "
         "user's own past (what they did, said, visited, planned, or once "
-        "told Jarvis) — and inspect the current MCP, CLI, tool, "
+        "told Dodaios) — and inspect the current MCP, CLI, tool, "
         "integration, configuration, or system state. Also call this to "
         "relay the user's answer to a pending confirmation question. Never "
         "call it just to look up general world knowledge, public facts or "
@@ -715,10 +715,10 @@ _DELEGATE_DECLARATION: dict[str, Any] = {
 }
 _DELEGATE_ROLE_DIRECTIVE = (
     "You have ONE action function: jarvis_action. It hands the user's spoken "
-    "request to the Jarvis action system, which reads and writes the user's "
+    "request to the Dodaios action system, which reads and writes the user's "
     "private Wiki memory, opens apps and views, changes settings, controls the "
     "computer, manages files and windows, starts background research or coding "
-    "missions, and reports the current Jarvis settings, installed tools, MCPs, "
+    "missions, and reports the current Dodaios settings, installed tools, MCPs, "
     "CLIs, integrations, connections, capabilities, and system state. "
     "CALL jarvis_action for EVERY turn that needs the user's own world: their "
     "Wiki or personal memory, their people, their projects, their files, their "
@@ -760,7 +760,7 @@ _DELEGATE_ROLE_DIRECTIVE = (
     "asked for is the exact failure this rule exists for (live 2026-07-26: one "
     "of two coding agents was briefed and the user was told both were "
     "working). "
-    "For some turns the Jarvis orchestrator takes over and injects a trusted "
+    "For some turns the Dodaios orchestrator takes over and injects a trusted "
     "result on its own; a separate instruction tells you when that is the case, "
     "and only then do you wait instead of calling. The function returns "
     "spoken_reply: deliver that content to the user in your own voice, in the "
@@ -769,7 +769,7 @@ _DELEGATE_ROLE_DIRECTIVE = (
     "their answer. Use end_call only when the user says goodbye."
 )
 _DELEGATE_REQUIRED_DIRECTIVE = (
-    "The Jarvis orchestrator is handling this current turn deterministically. "
+    "The Dodaios orchestrator is handling this current turn deterministically. "
     "Do not answer, do not call a function, and do not promise an outcome. Wait "
     "for the trusted action result that the orchestrator will inject."
 )
@@ -798,7 +798,7 @@ _DELEGATE_DISCOURAGED_DIRECTIVE = (
 # still executing and will inject the trusted result when it lands.
 _DELEGATE_PENDING_DIRECTIVE = (
     "An earlier request of this conversation is still being executed by the "
-    "Jarvis orchestrator and has no result yet. Never say it succeeded, "
+    "Dodaios orchestrator and has no result yet. Never say it succeeded, "
     "failed, was saved, or was entered, and never promise to do it yourself. "
     "If the user asks about it, say only that you are still working on it. The "
     "trusted result will be injected as soon as it is ready."
@@ -835,11 +835,11 @@ _DELEGATE_TURN_NORMAL_DIRECTIVE = (
 _DELEGATE_DECLARATION_HYBRID: dict[str, Any] = {
     "name": "jarvis_action",
     "description": (
-        "Hand a request to the Jarvis orchestrator. Call it ONLY for: (1) "
+        "Hand a request to the Dodaios orchestrator. Call it ONLY for: (1) "
         "operating the user's computer on screen — opening, clicking, typing, "
         "and navigating inside application windows or the browser until a "
         "multi-step desktop task is finished; (2) looking at the user's "
-        "screen or a window and describing or reading it; (3) a Jarvis "
+        "screen or a window and describing or reading it; (3) a Dodaios "
         "capability you have NO function of your own for. For everything "
         "else — the user's Wiki and memory, calendar, mail, music, settings, "
         "skills, missions, coding panes, files, connected services — call "
@@ -859,7 +859,7 @@ _DELEGATE_DECLARATION_HYBRID: dict[str, Any] = {
     },
 }
 _HYBRID_ROLE_DIRECTIVE = (
-    "You have live function tools that act on the user's Jarvis app, their "
+    "You have live function tools that act on the user's Dodaios app, their "
     "data, and their connected services, plus ONE orchestrator function, "
     "jarvis_action. The user's own world — their Wiki or personal memory, "
     "their own past ('do you remember', 'when did I'), their calendar, mail, "
@@ -871,7 +871,7 @@ _HYBRID_ROLE_DIRECTIVE = (
     "several steps. jarvis_action is reserved for operating the computer on "
     "screen (it clicks, types, and navigates inside any application window "
     "until a multi-step desktop task is done), for looking at the screen, "
-    "and for a Jarvis capability you have no function for; a round trip "
+    "and for a Dodaios capability you have no function for; a round trip "
     "through it costs the user many seconds, so never use it for something "
     "one of your own functions does. General world knowledge is YOURS: "
     "public facts and figures, well-known people and companies, "
@@ -893,7 +893,7 @@ _HYBRID_ROLE_DIRECTIVE = (
     "spoken confirmation question, ask the user and call the same function "
     "again only after a clear affirmative answer. jarvis_action returns "
     "spoken_reply: deliver that content in your own voice, in the "
-    "conversation language, without reading JSON. For some turns the Jarvis "
+    "conversation language, without reading JSON. For some turns the Dodaios "
     "orchestrator takes over and injects a trusted result on its own; a "
     "separate instruction tells you when, and only then do you wait instead "
     "of calling. Plugin and MCP functions — the ones carrying a service name "
@@ -1016,7 +1016,7 @@ _PENDING_TOOL_CALL_INTERIM_RESULT: dict[str, Any] = {
     "success": False,
     "status": "in_progress",
     "error": (
-        "Still executing. The Jarvis orchestrator is running this request in "
+        "Still executing. The Dodaios orchestrator is running this request in "
         "the background and has no result yet. Do not announce, promise, or "
         "invent an outcome and do not call the function again for it; answer "
         "the user's NEW request now. The trusted result will be injected as a "
@@ -1323,7 +1323,7 @@ def _delegate_result_prompt(
         )
     return (
         f"{SPEAK_REQUEST_OPENER} "
-        "A trusted Jarvis action result is ready. Speak only a concise, natural "
+        "A trusted Dodaios action result is ready. Speak only a concise, natural "
         f"rendering of the tagged result in {language_name}. {framing}Preserve "
         "its exact success or failure meaning and every material fact. Any "
         "name or identifier the result states (a terminal, a file, a count) "
@@ -1918,7 +1918,7 @@ def _delegate_bridge_prompt(*, language: str, exact_text: str) -> str:
     language_name = _LANGUAGE_NAMES.get(language, "the conversation language")
     return (
         f"{SPEAK_REQUEST_OPENER} "
-        "The Jarvis orchestrator is still executing the user's request and "
+        "The Dodaios orchestrator is still executing the user's request and "
         f"has no result yet. Tell the user, in {language_name}, that you are "
         "still working on it, by saying exactly this sentence and nothing "
         f"else:\n{exact_text}\n"
@@ -2062,7 +2062,7 @@ _LateDelegateResult = ParkedResult
 
 
 _TOOL_ROLE_DIRECTIVE = (
-    "You have live function tools that act on the user's Jarvis app and "
+    "You have live function tools that act on the user's Dodaios app and "
     "computer. When the user asks you to DO something — create a file, write "
     "code, research, start background work, open a view, change a setting, "
     "control the computer — call the matching function instead of claiming "
@@ -2209,7 +2209,7 @@ def _learned_block(*, compact: bool = False) -> str:
 def _identity_block(config: Any, *, compact: bool = False) -> str:
     """Name directive and SOUL.md character (``jarvis.brain.identity``).
 
-    Without it a live call answered "I'm Personal Jarvis" instead of the
+    Without it a live call answered "I'm Dodaios" instead of the
     wake-word name (2026-10-02). Cached on SOUL.md's mtime, so it costs one
     ``stat`` at most; degrades to ``""`` so it never blocks the handshake.
     """
@@ -2453,7 +2453,7 @@ def _external_update_prompt(text: str, *, language: str, kind: str) -> str:
     language_name = _LANGUAGE_NAMES.get(language, "the conversation language")
     return (
         f"{SPEAK_REQUEST_OPENER} "
-        "A trusted internal Jarvis event is ready to be delivered to the user. "
+        "A trusted internal Dodaios event is ready to be delivered to the user. "
         f"Speak one brief, natural update in {language_name}. Preserve every "
         "material fact, name, number, success or failure state, and uncertainty. "
         "Say it as yourself, in exactly the same voice, tone, and pace as your "
@@ -5784,7 +5784,7 @@ class RealtimeVoiceSession:
                         # to hang up on the user mid-sentence. Losing an action
                         # degrades a turn; it must not cost the conversation.
                         await self._decline_provider_handoff(
-                            "no deterministic Jarvis delegate is available"
+                            "no deterministic Dodaios delegate is available"
                             if not self._delegate_enabled
                             else "the handoff carried no recognizable user request"
                         )
@@ -11362,7 +11362,7 @@ class RealtimeVoiceSession:
                     {
                         "success": False,
                         "error": (
-                            "No Jarvis action is needed. Answer the user's "
+                            "No Dodaios action is needed. Answer the user's "
                             "request directly in this realtime response."
                         ),
                     },
@@ -11389,7 +11389,7 @@ class RealtimeVoiceSession:
                         "success": False,
                         "error": (
                             "The user's request is already being executed by "
-                            "the Jarvis orchestrator and has no result yet. Do "
+                            "the Dodaios orchestrator and has no result yet. Do "
                             "not start it again. Say only that you are still "
                             "working on it; the trusted result will be "
                             "injected as soon as it is ready."
@@ -11718,7 +11718,7 @@ class RealtimeVoiceSession:
                         "success": False,
                         "confirmation_required": True,
                         "error": (
-                            "Stay on the call. Jarvis handles the hang-up question "
+                            "Stay on the call. Dodaios handles the hang-up question "
                             "and requires a separate explicit yes from the user. "
                             "Do not say goodbye or treat task approval as hang-up approval."
                         ),
@@ -12467,19 +12467,24 @@ class RealtimeVoiceSession:
             "does not answer the question, say that honestly.\n\n"
             f"User question: {query}\n\nEvidence:\n{evidence}"
         )
+        from jarvis.core.protocols import started_by_user
+
         try:
-            reply = str(
-                await asyncio.wait_for(
-                    run_task(
-                        prompt=prompt,
-                        allowed_tools=(),
-                        model_tier="fast",
-                        trace_id=self._turn_trace_id,
-                    ),
-                    timeout=_DELEGATE_TIMEOUT_S,
-                )
-                or ""
-            ).strip()
+            # The person asked this question in a live call: it is their turn,
+            # not unattended work, so it keeps the chain an asked turn runs on.
+            with started_by_user():
+                reply = str(
+                    await asyncio.wait_for(
+                        run_task(
+                            prompt=prompt,
+                            allowed_tools=(),
+                            model_tier="fast",
+                            trace_id=self._turn_trace_id,
+                        ),
+                        timeout=_DELEGATE_TIMEOUT_S,
+                    )
+                    or ""
+                ).strip()
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001 - evidence exists but synthesis did not

@@ -46,6 +46,7 @@ from jarvis.agent_chat.tools import (
     shell_label,
     summarize_call,
 )
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
 from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
 from jarvis.core.response_style import CONVERSATIONAL_RESPONSE_STYLE
 
@@ -148,7 +149,7 @@ class TurnHandle:
     request_approval: Callable[[str, str, dict[str, Any], str], Awaitable[str]]
     cancel: asyncio.Event
     history: list[dict[str, Any]] = field(default_factory=list)
-    assistant_name: str = "Jarvis"
+    assistant_name: str = DEFAULT_ASSISTANT_NAME
     trace_id: uuid.UUID = field(default_factory=uuid.uuid4)
     bus: Any | None = None
     surface: str = "agent"

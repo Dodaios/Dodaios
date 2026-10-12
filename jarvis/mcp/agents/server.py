@@ -190,7 +190,7 @@ def build_server() -> Any:
                     type="text",
                     text=(
                         f"{name} needs a wider scope than {client} has ({scope}). "
-                        "Ask the owner of this Jarvis for a token with a higher "
+                        "Ask the owner of this Dodaios for a token with a higher "
                         "scope, or use a read-only tool instead."
                     ),
                 )

@@ -151,11 +151,11 @@ _GEMINI_VERTEX = AltCredential(
         "Bill Gemini through a Google Cloud Vertex AI project instead of an AI "
         "Studio account — a SEPARATE billing account. Easiest path: create a "
         "Vertex express-mode API key (starts with AQ.) and paste it into the "
-        "normal key field above — Jarvis detects it and routes every tier "
+        "normal key field above — Dodaios detects it and routes every tier "
         "through Vertex automatically. For TTS production quota there is also "
         "the service-account JSON path ([tts].use_vertex + the file below). "
         "Don't mix the accounts up: topping up AI Studio does nothing if "
-        "Jarvis is on Vertex, and vice versa."
+        "Dodaios is on Vertex, and vice versa."
     ),
     dashboard_url="https://console.cloud.google.com/vertex-ai/studio",
     credential_path_hint="~/.config/jarvis/vertex-sa.json",
@@ -171,7 +171,7 @@ _VERTEX_PROJECT_PATH = AltCredential(
     label="Google Cloud project (no key)",
     billing="api",
     credential_help=(
-        "Instead of a key, point Jarvis at a Cloud project: set "
+        "Instead of a key, point Dodaios at a Cloud project: set "
         "[google].vertex_project to the project id that owns "
         "aiplatform.googleapis.com, [google].vertex_location to a region, and "
         "— only if this machine is not already signed in with gcloud — "
@@ -382,7 +382,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         dashboard_url="https://aistudio.google.com/app/apikey",
         credential_help=(
             "Google AI Studio API key (starts with AIza or AQ.) or a Vertex AI "
-            "express-mode key (also AQ.) — Jarvis detects which one it is and "
+            "express-mode key (also AQ.) — Dodaios detects which one it is and "
             "routes it to the right endpoint automatically. Mind the billing: "
             "AI Studio and Vertex are SEPARATE accounts."
         ),
@@ -614,7 +614,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "Runs models fully local through an Ollama server — no API key, "
             "no cloud account, nothing leaves this machine. Install Ollama, "
             "pull a tools-capable model (e.g. ollama pull qwen3.5), and "
-            "Jarvis finds it at http://localhost:11434 automatically. Point "
+            "Dodaios finds it at http://localhost:11434 automatically. Point "
             "the server URL at another machine to share one Ollama box."
         ),
     ),
@@ -666,7 +666,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         dashboard_url="https://elevenlabs.io/app/settings/api-keys",
         credential_help=(
             "ElevenLabs API key for premium multilingual voices (DE+EN via "
-            "eleven_flash_v2_5). Pick one of the curated Jarvis voices in the "
+            "eleven_flash_v2_5). Pick one of the curated Dodaios voices in the "
             "voice picker, or paste your own ElevenLabs voice ID (e.g. a cloned "
             "voice) into it. Billed per character on your ElevenLabs account."
         ),
@@ -717,7 +717,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         credential_help=(
             "xAI API key (starts with xai-) for text to speech. The voice picker "
             "contains the current public built-in roster and preserves Leo as "
-            "the Jarvis default."
+            "the Dodaios default."
         ),
     ),
     ProviderSpec(
@@ -956,7 +956,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "the shared Vertex key, and needs no key at all when "
             "[google].vertex_project points at a Cloud project. Google documents "
             "the Live API as reachable this way through the Gen AI SDK; if your "
-            "project or key cannot open the socket, Jarvis says so and moves to "
+            "project or key cannot open the socket, Dodaios says so and moves to "
             "the next realtime provider instead of failing the call."
         ),
         alt_credential=_VERTEX_PROJECT_PATH,

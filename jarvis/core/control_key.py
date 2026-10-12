@@ -120,7 +120,7 @@ def _warn_shipped_placeholder_once() -> None:
         return
     _warned_shipped_placeholder = True
     logger.warning(
-        "Jarvis Control API key is set to the shipped placeholder value "
+        "Dodaios Control API key is set to the shipped placeholder value "
         "from docker-compose.yml — refusing it and treating it as if no key "
         "were configured. Set %s to a fresh random value before exposing the "
         "control surface.",

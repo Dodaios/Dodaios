@@ -4288,7 +4288,7 @@ def _secret_slot_labels(slots: tuple[str, ...]) -> list[str]:
                 found = True
         if not found:
             # Agent rows are not provider specs; name the section instead.
-            labels.setdefault("Jarvis-Agents" if slot.startswith("jarvis_agent_") else slot)
+            labels.setdefault("Dodaios-Agents" if slot.startswith("jarvis_agent_") else slot)
     return list(labels)
 
 
