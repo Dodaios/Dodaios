@@ -15,6 +15,7 @@ even when the mission row is gone (DB pruned, recovery cleanup).
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 import mimetypes
@@ -831,6 +832,11 @@ async def get_output_graph(slug: str, request: Request) -> HTMLResponse:
 # short preview so the UI sidebar doesn't have to fetch each file.
 _ARTIFACT_PREVIEW_BYTES: int = 4096
 _ARTIFACT_MAX_LISTING: int = 200
+# A page states its ``<title>`` in its head; this much of the file is read to
+# find it, whatever the page weighs.
+_HTML_TITLE_HEAD_BYTES: int = 16 * 1024
+_HTML_TITLE_RE: Final = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+_HTML_TITLE_MAX_CHARS: int = 200
 
 # Cap the /view render path so a huge artifact can't block the event loop on the
 # synchronous read or spike memory while rendering. Larger files use /download.
@@ -898,6 +904,26 @@ def _resolve_artifact_target(request: Request, slug: str, path: str) -> Path:
     return target
 
 
+def _html_title(path: Path) -> str | None:
+    """Return an HTML deliverable's own ``<title>``, or None.
+
+    The Artifacts library names a page by its title. The listing's text
+    preview only covers small files, and a real report or dashboard is far
+    larger than that, so the head of the file is read here regardless of its
+    size. Entities are unescaped; an empty or missing title is None.
+    """
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(_HTML_TITLE_HEAD_BYTES)
+    except OSError:  # an unreadable page is simply listed under its filename
+        return None
+    match = _HTML_TITLE_RE.search(head.decode("utf-8", errors="replace"))
+    if match is None:
+        return None
+    title = " ".join(html.unescape(match.group(1)).split())
+    return title[:_HTML_TITLE_MAX_CHARS] or None
+
+
 def _is_text_filename(name: str) -> bool:
     """Heuristic — file extensions whose contents are safe to inline-preview."""
     lower = name.lower()
@@ -957,10 +983,14 @@ async def list_output_artifacts(slug: str, request: Request) -> dict[str, Any]:
           "files": [
             {"path": "tasks/019e3288/artifacts/files/HelloBot.html",
              "size": 1237, "mtime": 1778963665.0, "is_text": true,
-             "preview": "<html>...\\n..."},
+             "preview": "<html>...\\n...",
+             "title": "Hello Bot"},
             ...
           ]
         }
+
+    ``title`` is an HTML file's own ``<title>`` (None for every other file, and
+    for a page that states none).
     """
     target = _resolve_output_dir(request, slug)
 
@@ -991,6 +1021,9 @@ async def list_output_artifacts(slug: str, request: Request) -> dict[str, Any]:
                 "mtime": stat.st_mtime,
                 "is_text": _is_text_filename(child.name),
                 "preview": None,
+                "title": (
+                    _html_title(child) if child.suffix.lower() in (".html", ".htm") else None
+                ),
             }
             if entry["is_text"] and stat.st_size <= _ARTIFACT_PREVIEW_BYTES * 4:
                 try:
