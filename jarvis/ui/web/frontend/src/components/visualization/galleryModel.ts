@@ -259,21 +259,22 @@ export function tileShape(row: RailRow, ratio?: number): Exclude<TileShape, "fea
   return "square";
 }
 
-/** How far into the wall the lead tile may sit — behind work in progress, not behind half a row. */
-const FEATURE_WITHIN = 3;
+/**
+ * How far into the wall the lead tile may sit — behind work in progress and a
+ * few notes, not behind a whole row of other pictures.
+ */
+const FEATURE_WITHIN = 6;
 
 /**
- * Which card leads the wall as a tile of four: the first page or picture,
- * when it sits right at the top. -1 when nothing does — a wall that opens on
- * notes has no picture worth four tiles.
+ * Which card leads the wall as a tile of four: the first page, picture or
+ * drawing near the top. A note has nothing to fill four tiles with and a PDF
+ * is a sheet, not a square, so neither leads. -1 when nothing does.
  */
 export function featureIndex(rows: RailRow[]): number {
   const limit = Math.min(rows.length, FEATURE_WITHIN);
   for (let index = 0; index < limit; index += 1) {
     const row = rows[index];
-    if (row.kind === "visual" && (row.visual.kind === "page" || row.visual.kind === "image")) {
-      return index;
-    }
+    if (row.kind === "visual" && row.visual.kind !== "document") return index;
   }
   return -1;
 }

@@ -112,13 +112,26 @@ describe("gallery model", () => {
     expect(tileShape(page, 3)).toBe("square");
   });
 
-  it("leads the wall with its first page or picture, never with a note", () => {
+  it("leads the wall with its first page, picture or drawing, never a note or a PDF", () => {
     const building = run("wip", { status: "running", utterance: "Artifact: Board\nDraw it" });
     const rows = buildRailRows([...RUNS, building], VISUALS, [building]);
     // rows: the build, the note (run d), then the page.
     expect(rows.map((r) => r.kind)).toEqual(["build", "run", "visual", "visual", "visual"]);
     expect(featureIndex(rows)).toBe(2);
     expect(featureIndex(rows.filter((r) => r.kind !== "visual"))).toBe(-1);
+    // A drawing leads; a PDF in front of it is passed over.
+    const sheets = buildRailRows(
+      [],
+      [visual("p", "Deck", "document", nowS - HOUR), visual("v", "Mark", "vector", nowS - 2 * HOUR)],
+      [],
+    );
+    expect(featureIndex(sheets)).toBe(1);
+    expect(featureIndex(sheets.slice(0, 1))).toBe(-1);
+    // Too far down to lead anything.
+    const notes = Array.from({ length: 6 }, (_, index) => run(`n${index}`));
+    const buried = buildRailRows(notes, [visual("late", "Late", "page", nowS - 9 * HOUR)], []);
+    expect(buried[6].kind).toBe("visual");
+    expect(featureIndex(buried)).toBe(-1);
   });
 
   it("fits as many columns as the tile size allows, one at least", () => {
