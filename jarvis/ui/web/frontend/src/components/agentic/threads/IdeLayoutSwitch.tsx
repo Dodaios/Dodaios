@@ -13,7 +13,7 @@ type Choice = IdeLayout | "verse";
 const CHOICES: { choice: Choice; label: string; Icon: typeof LayoutGrid }[] = [
   { choice: "grid", label: "Terminal grid", Icon: LayoutGrid },
   { choice: "threads", label: "Threads", Icon: MessagesSquare },
-  { choice: "verse", label: "Jarvis Verse", Icon: Building2 },
+  { choice: "verse", label: "Dodaios Verse", Icon: Building2 },
 ];
 
 /** How the side panel stood before the Verse took the whole view. */

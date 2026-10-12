@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { useIdentity, useProviderCatalog, useUpsertComputer } from "@/hooks/useComputers";
 import { fill, useT } from "@/i18n";
+import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
 import { cn } from "@/lib/utils";
 import { robustCopy } from "@/lib/clipboard";
 import { useEventStore } from "@/store/events";
@@ -129,7 +130,7 @@ export function ConnectDialog({
   const [connectionType, setConnectionType] = useState<"server" | "ssh">("ssh");
   const connecting = useRef(false);
   const [additionalOptions, setAdditionalOptions] = useState(false);
-  const assistantName = useEventStore((s) => s.assistantName) || "Jarvis";
+  const assistantName = useEventStore((s) => s.assistantName) || NEUTRAL_ASSISTANT_NAME;
   const [pasted, setPasted] = useState("");
   const [method, setMethod] = useState<Method>("auto");
   const [missing, setMissing] = useState<Missing>(null);
