@@ -10,6 +10,8 @@ never needs a settings change.
   Unselected lanes may skip in normal mode.
 * ``--strict`` (nightly, release) fails a skipped job too, except the jobs in
   :data:`STRICT_SKIP_OK` that can never run on those events.
+* A run whose commit the merge queue already passed (``proven``) needs only
+  ``detect``: every other job skips, and a strict run never accepts that.
 
     echo "$NEEDS" | python scripts/ci/required_results.py [--strict]
 """
@@ -42,15 +44,15 @@ LANE_JOBS = {
 
 def expected_jobs(outputs: dict[str, str]) -> set[str]:
     """Derive required evidence from detection, rather than trusting skipped jobs."""
+    if outputs.get("proven") == "true":
+        return {"detect"}
     required = {"detect", "gates", "zizmor"}
     for lane, jobs in LANE_JOBS.items():
         if outputs.get(lane) == "true":
             required.update(jobs)
     if outputs.get("macos") == "true" and outputs.get("python") == "true":
         required.add("tests-macos")
-    if outputs.get("macos_desktop") == "true" and (
-        outputs.get("full") != "true" or outputs.get("macos") == "true"
-    ):
+    if outputs.get("macos_desktop") == "true" and outputs.get("desktop_legs") != "none":
         required.add("macos-desktop")
     if outputs.get("release") == "true":
         required.add("release-qualification")
@@ -68,9 +70,13 @@ def evaluate(
     required: set[str] = set()
     if pipeline:
         outputs = (entries.get("detect") or {}).get("outputs") or {}
-        flags = set(LANE_JOBS) | {"full", "macos", "macos_desktop", "release"}
-        if any(outputs.get(flag) not in {"true", "false"} for flag in flags):
+        flags = set(LANE_JOBS) | {"full", "macos", "macos_desktop", "release", "proven"}
+        if any(outputs.get(flag) not in {"true", "false"} for flag in flags) or outputs.get(
+            "desktop_legs"
+        ) not in {"none", "primary", "all"}:
             failed.append("<invalid-detection>")
+        if strict and outputs.get("proven") == "true":
+            failed.append("<proven-in-strict-run>")
         required = expected_jobs(outputs)
         failed.extend(required - entries.keys())
     for name, info in entries.items():
