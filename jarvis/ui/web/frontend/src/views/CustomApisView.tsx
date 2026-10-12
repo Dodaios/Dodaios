@@ -138,7 +138,7 @@ function ConnectionForm({ initial, onSaved }: { initial: ApiConnection | null; o
   }
   return <div className="mx-auto w-full max-w-md pb-3 pt-1">
     <div className="mb-7 flex items-center gap-4">
-      <ConnectionLogo name={name || "Jarvis connection"} brand={initial?.brand_id} image={initial?.logo_data} large />
+      <ConnectionLogo name={name || "Dodaios connection"} brand={initial?.brand_id} image={initial?.logo_data} large />
       <div className="min-w-0"><h2 className="text-xl font-semibold tracking-tight text-foreground-strong">{t(initial ? "custom_apis.edit_key" : "custom_apis.add_title")}</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t(initial ? "custom_apis.edit_hint" : "custom_apis.simple_hint")}</p></div>
     </div>

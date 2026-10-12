@@ -598,7 +598,7 @@ export function AgenticIdeView({ onScreen = true }: AgenticIdeViewProps) {
       : <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
         <FolderPlus className="h-8 w-8 text-muted-foreground/70" />
         <h1 className="text-lg font-medium">{projects.some((project) => !project.scratch && !project.archived) ? "Choose a workspace" : "Connect a project"}</h1>
-        <p className="max-w-md text-sm text-muted-foreground">{projects.some((project) => !project.scratch && !project.archived) ? "Select a workspace from Projects, or create one with + beside its project." : "Connect a folder to bring its coding agents and Jarvis into one workspace."}</p>
+        <p className="max-w-md text-sm text-muted-foreground">{projects.some((project) => !project.scratch && !project.archived) ? "Select a workspace from Projects, or create one with + beside its project." : "Connect a folder to bring its coding agents and your assistant into one workspace."}</p>
         <button type="button" onClick={() => setProjectDialog(true)} className="mt-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent">Connect folder</button>
       </div>}
       </div>
