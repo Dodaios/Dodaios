@@ -143,13 +143,16 @@ async def voice_state(request: Request) -> dict[str, Any]:
 async def voice_call() -> dict[str, Any]:
     """Start a voice conversation — functionally the wake word, by click.
 
-    ``armed`` is ``False`` when the pipeline refused (a session already runs,
-    or activation is blocked) — that is an answer, not an error.
+    ``armed`` is ``False`` when the pipeline refused — that is an answer, not
+    an error — and ``reason`` then names why, from
+    ``jarvis.speech.start_refusal``, so the control can say what actually
+    stopped the start. ``reason`` is ``""`` when the call was armed.
     """
     pipeline = _pipeline()
-    if pipeline is None or not hasattr(pipeline, "request_voice_session"):
+    if pipeline is None or not hasattr(pipeline, "start_voice_session"):
         raise HTTPException(status_code=503, detail="voice-pipeline-unavailable")
-    return {"armed": bool(pipeline.request_voice_session())}
+    reason = str(pipeline.start_voice_session() or "")
+    return {"armed": not reason, "reason": reason}
 
 
 @router.post("/hangup")

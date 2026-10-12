@@ -15,6 +15,7 @@ import pytest
 
 from jarvis.platform.permission_service import PermissionOutcome
 from jarvis.platform.permissions import PermissionId
+from jarvis.speech import start_refusal
 from jarvis.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
 from tests.fakes.fake_permission_service import FakePermissionService
 
@@ -164,3 +165,52 @@ async def test_taskbar_thread_wakes_owner_loop_immediately() -> None:
         "taskbar request did not wake the owner loop promptly; it likely set "
         "asyncio.Event directly from the Tk thread"
     )
+
+
+# --- start_voice_session: every refusal names its own reason -----------------
+
+
+def test_start_answers_empty_when_armed() -> None:
+    p = _pipe()
+    assert p.start_voice_session() == ""
+    assert p._call_event.is_set()
+
+
+def test_start_names_a_running_session() -> None:
+    assert _pipe(state=PipelineState.ACTIVE).start_voice_session() == start_refusal.BUSY
+    assert _pipe(ptt=True).start_voice_session() == start_refusal.BUSY
+
+
+def test_start_names_mute_instead_of_a_running_session() -> None:
+    p = _pipe()
+    p._muted = True
+    assert p.start_voice_session() == start_refusal.MUTED
+    assert not p._call_event.is_set()
+
+
+def test_start_names_a_dictation_that_holds_the_microphone() -> None:
+    p = _pipe()
+    p._dictation_blocks_activation = lambda: True
+    assert p.start_voice_session() == start_refusal.DICTATION
+
+
+def test_start_names_a_browser_call_that_owns_the_microphone(monkeypatch) -> None:
+    from jarvis.live import runtime
+
+    monkeypatch.setattr(runtime, "owns_microphone", lambda **_: True)
+    assert _pipe().start_voice_session() == start_refusal.MICROPHONE_IN_USE
+
+
+def test_start_names_a_refused_microphone() -> None:
+    p = _pipe(gate=False)
+    gate = FakePermissionService()
+    gate.script(PermissionId.MICROPHONE, PermissionOutcome.DENIED)
+    p._permission_gate = gate
+    assert p.start_voice_session() == start_refusal.MICROPHONE
+
+
+def test_every_refusal_is_part_of_the_shared_vocabulary() -> None:
+    assert len(set(start_refusal.VOICE_START_REFUSALS)) == len(
+        start_refusal.VOICE_START_REFUSALS
+    )
+    assert "" not in start_refusal.VOICE_START_REFUSALS
