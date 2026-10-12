@@ -204,6 +204,7 @@ class TelegramChannel:
         redact_logger("httpx")
         await self._validate_token(token)
 
+        failure: str | None = None
         try:
             self._app = ApplicationBuilder().token(token).build()
             self._app.add_handler(MessageHandler(filters.ALL, self._on_telegram_msg))
@@ -213,14 +214,15 @@ class TelegramChannel:
             await self._app.updater.start_polling(
                 poll_interval=self._cfg.polling_interval_s
             )
-        except Exception as exc:  # noqa: BLE001 — re-raised without the token
+        except Exception as exc:  # noqa: BLE001 — reported below without the token
             # ``initialize()`` re-checks the token and raises InvalidToken with
-            # the token in its message; ``from None`` keeps that original out of
-            # every traceback that prints this error.
+            # the token in its message.
             self._app = None
-            raise ChannelStartError(
-                f"Telegram start failed: {_safe_error(exc, token)}"
-            ) from None
+            failure = _safe_error(exc, token)
+        if failure is not None:
+            # Raised outside the handler: the original error is then not even
+            # reachable from this one (no ``__context__``), whatever prints it.
+            raise ChannelStartError(f"Telegram start failed: {failure}")
 
         self._event_handler_ref = self._on_bus_event
         self._bus.subscribe_all(self._event_handler_ref)
@@ -270,25 +272,23 @@ class TelegramChannel:
 
     async def _validate_token(self, token: str) -> None:
         from telegram import Bot  # noqa: WPS433
-        from telegram.error import InvalidToken, TelegramError  # noqa: WPS433
+        from telegram.error import InvalidToken  # noqa: WPS433
 
         bot = Bot(token=token)
+        failure: str | None = None
         try:
             me = await bot.get_me()
             self._bot_username = (me.username or "").lower() or "<unknown>"
         except InvalidToken:
-            raise ChannelStartError(
+            failure = (
                 "Telegram token invalid (InvalidToken). "
                 "Check the token in @BotFather or renew it via the wizard."
-            ) from None
-        except TelegramError as exc:
-            raise ChannelStartError(
-                f"Telegram getMe failed: {_safe_error(exc, token)}"
-            ) from None
-        except Exception as exc:  # noqa: BLE001
-            raise ChannelStartError(
-                f"Telegram getMe failed: {_safe_error(exc, token)}"
-            ) from None
+            )
+        except Exception as exc:  # noqa: BLE001 — reported below without the token
+            failure = f"Telegram getMe failed: {_safe_error(exc, token)}"
+        if failure is not None:
+            # Outside the handler, so the original error is not its context.
+            raise ChannelStartError(failure)
 
     # ------------------------------------------------------------------
     # Inbound

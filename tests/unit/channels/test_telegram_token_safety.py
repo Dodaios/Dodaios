@@ -104,7 +104,9 @@ async def test_a_failed_start_never_carries_the_token(
     with pytest.raises(ChannelStartError) as exc:
         await channel.start()
     assert FAKE_TOKEN not in _all_text(exc.value)
-    assert exc.value.__cause__ is None and exc.value.__suppress_context__
+    # Not merely hidden from a traceback print: the token-bearing original is
+    # not reachable from the raised error at all.
+    assert exc.value.__cause__ is None and exc.value.__context__ is None
 
     # Through the manager: stored status, log and the raised error.
     manager = ChannelManager(ChannelContext(bus=EventBus()))
@@ -112,7 +114,8 @@ async def test_a_failed_start_never_carries_the_token(
     with caplog.at_level(logging.DEBUG), pytest.raises(ChannelStartError) as via_manager:
         await manager.start("telegram")
     assert FAKE_TOKEN not in _all_text(via_manager.value)
-    assert FAKE_TOKEN not in str(manager._start_errors)
+    assert FAKE_TOKEN not in repr(via_manager.value)
+    assert FAKE_TOKEN not in str(manager.start_errors())  # the status payload
     assert FAKE_TOKEN not in caplog.text
 
 

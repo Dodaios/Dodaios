@@ -207,7 +207,7 @@ class ChannelManager:
             log.warning("Channel '%s' stop raised: %s", name, redact_secrets(str(exc)))
         finally:
             self._started.discard(name)
-            log.info("Channel '%s' gestoppt", name)
+            log.info("Channel '%s' stopped", name)
 
     async def stop_all(self) -> None:
         names = list(self._started)
