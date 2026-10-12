@@ -56,6 +56,15 @@ def test_a_worn_pet_survives_and_a_look_without_one_stores_no_pet_key():
     assert "pet" not in bare["companion"]
 
 
+def test_a_worn_creature_survives_storage_and_sharing_and_a_bare_look_stores_none():
+    creature = {"seed": 24, "palette": "neon", "eyes": "dot"}
+    look = {"shape": "circle", "color": "#a25bff", "creature": creature}
+    assert validate_avatar_companion({"companion": look})["companion"]["creature"] == creature
+    assert public_avatar({"companion": look})["companion"]["creature"] == creature
+    bare = validate_avatar_companion({"companion": {"shape": "circle", "color": "#a25bff", "creature": None}})
+    assert "creature" not in bare["companion"]
+
+
 def test_a_shared_template_keeps_a_builtin_pet_and_drops_a_drawn_one():
     builtin = public_avatar({"companion": {"shape": "drop", "color": "#79c7c4", "pet": "cocoa"}})
     assert builtin["companion"]["pet"] == "cocoa"
@@ -107,6 +116,12 @@ def test_fresh_headless_create_edit_reload_without_inference_or_credentials(tmp_
             assert response.json()["agent"]["avatar"]["companion"]["enabled"] is False
             bad = client.patch(url, json={"avatar": {**avatar, "companion": CASES["invalid"][0]}})
             assert bad.status_code == 409
+            # A pixel creature is stored with the look and comes back after a restart.
+            creature = {"seed": 24, "palette": "neon", "eyes": "dot"}
+            updated = {**avatar, "companion": {**CASES["valid"][1], "creature": creature}}
+            response = client.patch(url, json={"avatar": updated})
+            assert response.status_code == 200, response.text
+            assert response.json()["agent"]["avatar"]["companion"]["creature"] == creature
         finally:
             client.portal.call(runtime.close)
     app, runtime = open_app()

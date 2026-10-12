@@ -17,6 +17,8 @@ HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 # Effect ids stay open like accessory ids: a design saved by a newer build keeps
 # its colours in an older one, which simply draws no effect it does not know.
 SkinEffect = Annotated[str, StringConstraints(pattern=r"^[a-z]{1,20}$")]
+# Colour-world and eye ids of a pixel creature, open for the same reason.
+CreatureId = Annotated[str, StringConstraints(pattern=r"^[a-z]{1,20}$")]
 
 #: Mirrors ``COMPANION_SHAPES`` / ``COMPANION_COLORS`` in the frontend's
 #: ``components/society/companion/appearance.ts`` (parity test pins both).
@@ -49,6 +51,21 @@ class CompanionSkin(BaseModel):
     name: str = Field(default="", max_length=40, pattern=r"^[^\x00-\x1f\x7f]*$")
 
 
+class CompanionCreature(BaseModel):
+    """A pixel creature worn instead of the shape (mirrors ``creatureSchema`` in
+    the frontend's ``components/society/companion/creature.ts``).
+
+    The frontend grows the whole figure from ``seed``; nothing but these three
+    values is stored.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    seed: int = Field(ge=0, le=99_999)
+    palette: CreatureId
+    eyes: CreatureId
+
+
 class CompanionAppearance(BaseModel):
     """One identity for the profile and its presentation-only world follower."""
 
@@ -63,6 +80,8 @@ class CompanionAppearance(BaseModel):
     pet: PetId | None = None
     #: A colour design (gradient + effect) instead of the flat colour.
     skin: CompanionSkin | None = None
+    #: A pixel creature instead of the shape; a worn pet still wins.
+    creature: CompanionCreature | None = None
     sizeM: float = Field(default=0.5, ge=0.25, le=0.8)
     followDistanceM: float = Field(default=1.0, ge=0.5, le=2.0)
 
@@ -86,6 +105,8 @@ def _bare(look: dict[str, Any]) -> dict[str, Any]:
         look.pop("pet", None)
     if look.get("skin") is None:
         look.pop("skin", None)
+    if look.get("creature") is None:
+        look.pop("creature", None)
     return look
 
 

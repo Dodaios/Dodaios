@@ -7,6 +7,9 @@ import { usePetById } from "@/hooks/usePets";
 import type { PetState } from "@/lib/petStates";
 import { AgentSymbol } from "../AgentSymbol";
 import type { CompanionAppearance } from "./appearance";
+import type { CreatureState } from "./creature";
+import { useShownCreature } from "./creatureTrial";
+import { PixelCreature } from "./PixelCreature";
 
 type MarkProps = {
   appearance: CompanionAppearance;
@@ -17,11 +20,23 @@ type MarkProps = {
   expressive?: boolean;
   /** Fixes the pet's row; otherwise a surrounding stage or `thinking` decides. */
   state?: PetState;
+  /** The agent's coarse run state: a creature asks while it waits and sleeps while paused. */
+  run?: "idle" | "working" | "waiting" | "paused";
+  /** Fixes what a creature acts out (the look editor's preview). */
+  mood?: CreatureState;
 };
 
+/** A creature acts out the pet vocabulary every stage already speaks. */
+const CREATURE_FOR_PET: Readonly<Record<PetState, CreatureState>> = {
+  idle: "idle", listening: "listening", thinking: "thinking", talking: "talking", success: "success",
+  error: "error", sleeping: "sleeping", working: "working", searching: "working", held: "listening",
+};
+const CREATURE_FOR_RUN = { idle: "idle", working: "working", waiting: "asking", paused: "sleeping" } as const;
+
 /**
- * An agent's face in 2D: its shape symbol, or the pet it wears instead
- * (`companion.pet`, chosen in the look dialog from My Pets). Every surface
+ * An agent's face in 2D: its shape symbol, the pixel creature it wears
+ * instead (`companion.creature`), or its pet (`companion.pet`, chosen in the
+ * look dialog from My Pets). Every surface
  * that draws an agent goes through here, so choosing a pet changes the
  * roster, the chats, the bot stage and the level hall at once.
  *
@@ -30,8 +45,13 @@ type MarkProps = {
  * does not exist here (deleted, or drawn on another machine) shows the shape.
  */
 export function CompanionMark(props: MarkProps) {
-  const { appearance, size, thinking = false, expressive = false } = props;
-  const shape = <AgentSymbol {...appearance} size={size} thinking={thinking} expressive={expressive} />;
+  const { appearance, size, thinking = false, expressive = false, state, run, mood } = props;
+  const creature = useShownCreature(appearance);
+  const staged = useContext(PetStageContext);
+  const pose = state ?? staged;
+  const shape = creature
+    ? <PixelCreature creature={creature} size={size} state={mood ?? (pose ? CREATURE_FOR_PET[pose] : thinking ? "working" : CREATURE_FOR_RUN[run ?? "idle"])} />
+    : <AgentSymbol {...appearance} size={size} thinking={thinking} expressive={expressive} />;
   // Outside a query client (an isolated render, a bare preview) there is no catalog to read.
   const client = useContext(QueryClientContext);
   if (!appearance.pet || !client) return shape;
