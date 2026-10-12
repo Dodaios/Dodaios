@@ -713,7 +713,7 @@ class TaskRunner:
                         prefer_api=owned_failed is not None,
                     )
                 except Exception as exc:
-                    if owned_failed is not None:
+                    if owned_failed is not None and not isinstance(exc, CapacityDeferred):
                         raise RuntimeError(
                             f"{readable_error(exc)} "
                             f"(agent seat had already failed: {readable_error(owned_failed)})"

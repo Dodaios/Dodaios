@@ -104,6 +104,33 @@ async def test_a_deferred_one_shot_run_fails_with_the_reason(store: TaskStore) -
     assert any(e.get("event") == "skipped" for e in _events(row))
 
 
+async def test_a_deferral_after_a_failed_owner_seat_is_still_a_skip(store: TaskStore) -> None:
+    """The owner seat failed and the task-tools retry found nothing it may
+    bill: the run is recorded as skipped, not as a provider error."""
+
+    async def owned_runner(task_id: str, tags: tuple[str, ...], prompt: str, cancel: Any) -> str:
+        raise RuntimeError("the seat's CLI has no task tools")
+
+    runner = TaskRunner(
+        store, EventBus(), agent_brain=DeferringBrain(), owned_agent_runner=owned_runner
+    )
+    task_id = await store.insert(
+        TaskSpec(
+            title="Team sweep",
+            trigger=TriggerEvery(interval_seconds=86400),
+            action=AgentAction(prompt="Sort the inbox."),
+            tags=("team",),
+        )
+    )
+    await asyncio.wait_for(runner.run(task_id, CancelToken()), timeout=2.0)
+
+    row = await store.get(task_id)
+    assert row is not None
+    assert row["state"] == "scheduled"
+    skipped = [e for e in _events(row) if e.get("event") == "skipped"]
+    assert skipped and skipped[0]["reason"] == "waiting_capacity"
+
+
 async def test_a_scheduled_firing_is_unattended(store: TaskStore) -> None:
     brain = RecordingBrain()
     runner = TaskRunner(store, EventBus(), agent_brain=brain)
