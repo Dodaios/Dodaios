@@ -6,7 +6,7 @@ Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 > **Status:** Personal Jarvis has applied to the SignPath Foundation open-source
 > program. Until the application is approved and the first signed release ships,
 > the Windows installer on the
-> [Releases page](https://github.com/PersonalJarvis/PersonalJarvis/releases) is
+> [Releases page](https://github.com/Dodaios/Dodaios/releases) is
 > **unsigned**. Each release's workflow log states whether it was signed.
 
 ## What is signed

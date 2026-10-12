@@ -97,7 +97,7 @@ async def test_shared_profile_has_one_owner_across_agents_and_instances(tmp_path
     try:
         with pytest.raises(RuntimeError, match="in use"):
             await live.ensure(agent("scout"))
-        with pytest.raises(RuntimeError, match="another Jarvis instance"):
+        with pytest.raises(RuntimeError, match="another Dodaios instance"):
             await other.ensure(agent("scout"))
     finally:
         first.run_lock.release()

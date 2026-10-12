@@ -30,6 +30,8 @@ or reopening the app never resumes paid discussion.
 | `browser/` | the agent's browser: one-click venv install of browser-use, the in-venv runner, per-agent persistent profiles + login sessions, `society_browser` |
 | `learning.py` | automatic learning: turn digest → skill in the agent's own namespace, `society_run_skill`, promotion to the global registry as a draft |
 | `quests.py` | the Quest Board: a job the person posts becomes ONE `ASSIGN` to the agent deterministic routing picks (focus overlap, name/title, description words); nobody fits → the foundry forges the seed teammate for the quest's capability, else the one generalist `Runner`; the lifecycle is read back off the trace (CLAIM → running, RESULT → done/failed, VETO → failed) and pushed as `SocietyQuestChanged` |
+| `team_lead.py` | team leads (`docs/agent-society/team-leads.md`): one member manages a team toward the person's goals; a goal becomes tasks, each task ONE `ASSIGN` on its own trace, and the engine reads the lifecycle off the board, knocks again on a busy member, wakes the lead with every result and pauses a goal at its turn budget, on the kill switch and after a restart; pushed as `SocietyTeamChanged` |
+| `team_tools.py` | the lead's tools, offered only while an agent leads a team: `society_team_assign`, `society_team_board`, `society_team_report` |
 | `seeds.py` | the starter team (Scout + Archivist) and proposals from connected capabilities |
 | `chat_binding.py` | roster row → canonical `agent_chat` session; delivers board envelopes as framed turns |
 | `runtime.py` | the lazily built singleton wiring all of it; `current_runtime()` for the surface |

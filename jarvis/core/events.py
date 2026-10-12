@@ -2074,6 +2074,7 @@ class BrowserVoiceRequested(Event):
     """A desktop trigger hands a voice call to the browser media owner."""
 
     action: Literal["start", "stop"] = "start"
+    request_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -2473,6 +2474,23 @@ class SocietyQuestChanged(Event):
     previous: str = ""
     agent_id: str = ""
     title: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class SocietyTeamChanged(Event):
+    """A team's lead, goals or tasks changed.
+
+    Published by :class:`jarvis.society.team_lead.TeamLeads` after the rows
+    were updated: a lead was named, a goal started, a member took or finished
+    a task, the lead reported. The WebSocket forwards it; the team board
+    re-reads within a second instead of on the next poll.
+    """
+
+    group_id: str = ""
+    goal_id: str = ""
+    state: str = ""
+    #: What moved: ``goal``, ``task``, ``turn``, ``lead``, ``mission``, ``checkin``.
+    reason: str = ""
 
 
 @dataclass(frozen=True, slots=True)

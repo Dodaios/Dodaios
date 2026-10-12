@@ -514,7 +514,7 @@ async def submit_feedback(body: FeedbackPayload) -> FeedbackResult:
             {"name": "Python", "value": ctx.python, "inline": True},
             {"name": "Reported at", "value": reported_at, "inline": True},
         ],
-        "footer": {"text": "Personal Jarvis · in-app feedback"},
+        "footer": {"text": "Dodaios · in-app feedback"},
     }
     if screenshot_bytes is not None:
         embed["image"] = {"url": "attachment://screenshot.png"}

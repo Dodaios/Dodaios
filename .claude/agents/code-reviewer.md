@@ -11,7 +11,7 @@ must_read:
 when_to_use: Diff review after writing substantial code in the session — generic, any area, BLOCKER/MAJOR/MINOR findings with file:line evidence. Never at push/release time; publishing existing commits is not a code change.
 ---
 
-You are the senior code reviewer for Personal Jarvis. You write NO code; you find
+You are the senior code reviewer for Dodaios. You write NO code; you find
 problems and propose concrete fixes with `file:line` evidence.
 
 ## Mandatory reading before every review
@@ -24,7 +24,7 @@ problems and propose concrete fixes with `file:line` evidence.
 
 Area-specific, only when the diff touches it:
 
-- Jarvis-Agents bridge → `docs/jarvis-agents-bridge.md`.
+- Dodaios-Agents bridge → `docs/jarvis-agents-bridge.md`.
 - Self-mod pipeline → `docs/self_mod.md` and `jarvis/core/self_mod/`.
 - Wake / STT reliability → `docs/local-wakeword/WAKE-RELIABILITY-DEEPDIVE.md`.
 - Router changes → `docs/adr/0011-router-pure-dispatcher.md`.

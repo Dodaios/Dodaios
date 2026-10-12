@@ -147,7 +147,7 @@ on emitting both `plugins[]` and `skills[]`.
 ### Path 1 — `jarvis plugin …` (the CLI) · **Recommended first**
 
 The contract already demands it (AGENTS.md §5: a feature is a REST route
-plus an auto-CLI), the audience already has Jarvis installed, and it costs
+plus an auto-CLI), the audience already has Dodaios installed, and it costs
 zero infrastructure.
 
 ```
@@ -178,9 +178,9 @@ present; fall back to the GitHub **device flow** (no client secret, works
 headless, prints a code the user types on github.com) — never ask for a PAT
 in a text field.
 
-### Path 3 — the storefront form (`personaljarvis.ai/marketplace/submit`)
+### Path 3 — the storefront form (`dodaios.ai/marketplace/submit`)
 
-The only path that reaches someone who has *not* installed Jarvis, and the
+The only path that reaches someone who has *not* installed Dodaios, and the
 one the README already promises. **In build since 2026-08-14** in a parallel
 effort — see [github-signin-implementation.md](github-signin-implementation.md)
 (GitHub App, cookie session, Cloudflare Pages Functions, bot opens the PR)

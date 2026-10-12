@@ -6,13 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the idea! Tell us what you'd like Jarvis to do and why.
+        Thanks for the idea! Tell us what you'd like Dodaios to do and why.
   - type: textarea
     id: problem
     attributes:
       label: What problem does this solve?
       description: The use case or frustration behind the request.
-      placeholder: "I'm always trying to ... but today Jarvis can't ..."
+      placeholder: "I'm always trying to ... but today Dodaios can't ..."
     validations:
       required: true
   - type: textarea

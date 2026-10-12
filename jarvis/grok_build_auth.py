@@ -1,6 +1,6 @@
 """Grok Build CLI auth service — status, login, logout.
 
-Personal Jarvis drives xAI's ``grok`` coding agent (Grok Build) as a
+Dodaios drives xAI's ``grok`` coding agent (Grok Build) as a
 subscription subagent: SuperGrok / X Premium+ OAuth via ``grok login``, stored
 in ``~/.grok/auth.json`` (or ``$GROK_HOME``). This is the xAI sibling of
 :mod:`jarvis.codex_auth` and :mod:`jarvis.google_cli.auth_service`.

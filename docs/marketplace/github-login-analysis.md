@@ -5,7 +5,7 @@
 **Depends on:** [community-registry.md](community-registry.md) (shipped registry),
 [public-marketplace-analysis.md](public-marketplace-analysis.md) (D1–D9 decisions)
 
-The goal under analysis: **a "Sign in with GitHub" gate on the Jarvis
+The goal under analysis: **a "Sign in with GitHub" gate on the Dodaios
 marketplace — GitHub is the only identity provider, and only a signed-in
 account can upload a skill or a plugin.** No email/password, no second
 account system.
@@ -20,7 +20,7 @@ Everything in §1 was measured against the live repos and the live site on
 | Piece | State on 2026-08-14 |
 |---|---|
 | Registry repo `PersonalJarvis/marketplace` | Live. `submissions/`, `plugins/`, `skills/`, `registry.json`, `schemas/submission.schema.json`, four CI scripts (`validate.py`, `automerge_gate.py`, `expand.py`, `build_index.py`), three workflows (`validate`, `automerge`, `publish`). |
-| Compiled feed | Live — `https://personaljarvis.github.io/marketplace/index.json` answers 200; Pages serves `main` at `/`. |
+| Compiled feed | Live — `https://dodaios.github.io/marketplace/index.json` answers 200; Pages serves `main` at `/`. |
 | Ownership ledger | `registry.json` holds two entries (`sentry`, `three-bullet-brief`), each with `publisher` = a GitHub **login string** and a SemVer version. |
 | Auto-merge gate | Merges only when the PR touches exactly one `submissions/<name>.json`, validation passes, **`publisher` equals the PR author's login**, and (on updates) the owner is unchanged and the version strictly increases. |
 | Submission format | One JSON file. A skill embeds its complete `SKILL.md` as the `skill_md` string (≤ 64 KB); the whole file is capped at 128 KB; descriptions at 500 chars. |
@@ -249,7 +249,7 @@ stalls if it is wrong.
    as Cloudflare functions.
 7. A deliberate switch from a purely static build to static + functions.
 
-**`PersonalJarvis/PersonalJarvis`** (optional, later — see §9)
+**`Dodaios/Dodaios`** (optional, later — see §9)
 
 8. A "Publish to marketplace" action in the Skills view.
 
@@ -259,7 +259,7 @@ stalls if it is wrong.
 
 The desktop app should not use the website's login. It has a better one
 already written: `oauth_device.py`. With device flow enabled on the same
-GitHub App, publishing from inside Jarvis is: show the user code → user
+GitHub App, publishing from inside Dodaios is: show the user code → user
 approves in a browser → the app holds a user token in the existing keyring
 `TokenStore` → the app POSTs the submission plus that token to the same
 `/api/marketplace/submit` endpoint, which verifies the token belongs to our

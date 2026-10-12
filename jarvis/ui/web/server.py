@@ -319,7 +319,7 @@ class WebServer:
 
     def _build_app(self) -> FastAPI:
         app = FastAPI(
-            title="Personal Jarvis — Admin/UI API",
+            title="Dodaios — Admin/UI API",
             version=__version__,
             # Swagger UI on ``/api/_swagger`` — the semantic ``/api/docs``
             # path belongs to the doc-browser router (see docs_routes.py).
@@ -498,6 +498,7 @@ class WebServer:
         from .commands_routes import router as commands_router
         from .computer_use_routes import router as computer_use_router
         from .computers_routes import router as computers_router
+        from .server_pairing_routes import router as server_pairing_router
         from .contacts_routes import router as contacts_router
         from .control_routes import router as control_router
         from .costs_routes import router as costs_router
@@ -707,6 +708,7 @@ class WebServer:
         # Contacts section — user-curated address book (pure file store, no Brain dep).
         app.include_router(contacts_router)
         # Settings -> Computers: the user's own servers and local VMs over SSH.
+        app.include_router(server_pairing_router)
         app.include_router(computers_router)
         # Desktop pets — the `pet` overlay style's pets, look and visibility.
         app.include_router(pets_router)
@@ -756,6 +758,9 @@ class WebServer:
         app.state.agent_chat = None
         app.state.agent_chat_factory = self._build_agent_chat_service
         app.include_router(agent_chat_router)
+        from .agent_server_routes import router as agent_server_router
+
+        app.include_router(agent_server_router)
         # Agent society (jarvis/society) — the roster, the typed board, the
         # scheduler and the mission bridge. Built on the first /api/society
         # call from the factory (store = data/society.db); nothing opens on
@@ -3945,7 +3950,7 @@ class WebServer:
         """Build the agent-chat service on first use (see agent_chat_routes)."""
         from jarvis.agent_chat.service import AgentChatService
         from jarvis.agent_chat.store import AgentChatStore
-        from jarvis.brain.assistant_name import resolve_assistant_name
+        from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 
         data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
         store = AgentChatStore(data_dir / "agent_chat.db")
@@ -3954,7 +3959,7 @@ class WebServer:
             try:
                 return resolve_assistant_name(self.cfg)
             except Exception:  # noqa: BLE001 — the name is cosmetic
-                return "Jarvis"
+                return DEFAULT_ASSISTANT_NAME
 
         from jarvis.core.events import DelegationResultReady
 
@@ -4007,6 +4012,18 @@ class WebServer:
 
     async def stop(self) -> None:
         from jarvis.core import runtime_refs
+
+        appshot_task = getattr(self, "_appshot_shortcut_task", None)
+        if appshot_task is not None:
+            appshot_task.cancel()
+            await asyncio.gather(appshot_task, return_exceptions=True)
+            self._appshot_shortcut_task = None
+        try:
+            from jarvis.appshot.hotkey import stop_appshot_shortcut
+
+            await stop_appshot_shortcut()
+        except Exception:
+            logger.opt(exception=True).warning("Appshot helpers failed to stop")
 
         if runtime_refs.get_web_app() is self.app:
             runtime_refs.set_web_app(None)

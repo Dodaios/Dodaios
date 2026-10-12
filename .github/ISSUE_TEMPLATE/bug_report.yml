@@ -13,7 +13,7 @@ body:
     attributes:
       label: What happened?
       description: A clear, plain description of the bug and what you expected instead.
-      placeholder: "When I say '...', Jarvis does X, but I expected Y."
+      placeholder: "When I say '...', Dodaios does X, but I expected Y."
     validations:
       required: true
   - type: textarea

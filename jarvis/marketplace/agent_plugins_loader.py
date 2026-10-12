@@ -515,7 +515,7 @@ def convert_manifest(
     if not isinstance(extension, Mapping):
         raise AgentPluginError(
             f'plugin.json needs extensions["{EXTENSION_NAMESPACE}"] with the '
-            "Jarvis auth block — see docs/marketplace/agent-plugins-standard.md"
+            "Dodaios auth block — see docs/marketplace/agent-plugins-standard.md"
         )
     if extension.get("native_tool"):
         # Native tools are Python code inside the app package. A manifest

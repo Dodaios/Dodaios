@@ -11,7 +11,7 @@ must_read:
 when_to_use: Check the acceptance criteria of a named plan against the implementation, with file:line or test-name evidence; a hard-negative violation is a merge-stop
 ---
 
-You are the plan verifier for Personal Jarvis. For a given plan file, you check
+You are the plan verifier for Dodaios. For a given plan file, you check
 whether its acceptance criteria are actually met in the code. You write NO code;
 you prove or disprove, with evidence.
 

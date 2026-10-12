@@ -1,4 +1,4 @@
-# Personal Jarvis agent rules
+# Dodaios agent rules
 
 The binding rules for every coding agent in this repo: Claude Code, Codex,
 Gemini CLI, whichever. Write everything here so it addresses ANY agent.
@@ -7,7 +7,7 @@ Gemini CLI, whichever. Write everything here so it addresses ANY agent.
 reads it directly. Never add a `CLAUDE.md`, `.claude/CLAUDE.md` or
 `CLAUDE.local.md`: Claude Code then reads that file INSTEAD of this one
 (`scripts/ci/check_agents_md.py` blocks a tracked one). A Claude pane on a
-Jarvis account config dir sees `~/.claude/CLAUDE.md` as such a parent-dir file,
+Dodaios account config dir sees `~/.claude/CLAUDE.md` as such a parent-dir file,
 so its user settings need the agents-md built-in plugin's `instructionFiles`
 option set to `claude-md-and-agents-md`.
 Edit `.agents/{agents,skills}/`; `.claude/{agents,skills}/` are compatibility
@@ -78,6 +78,12 @@ the install base, and "works on my machine" is the defect. (AP-23)
 - **Any single key must work.** Gate on capability, never a provider name or
   model id (AP-21). A tier whose primary AND fallback share one provider family
   is a brick — every chain crosses families or degrades honestly (AP-22).
+- **Bypass permissions is the project default.** Fresh installs, chats, agents,
+  delegated work and coding panes execute permitted work without asking for
+  permission. Carry this default into native CLI launch flags too; an omitted
+  pick must not restore a vendor's ask-first default. Preserve explicitly
+  selected restrictions and blocked actions. Questions for missing task
+  information remain available; do not turn them into permission prompts.
 - **Nothing the user did not start may bill a key on its own.** Health dots
   come from real calls, never a paid probe. Once a subscription is connected,
   background work runs only on subscriptions or local models
@@ -183,7 +189,7 @@ game assets.
 
 Commit each finished step (Conventional Commits). Use the coding agent's
 standard Git workflow: do not artificially leave completed work local, and do
-not wait for extra PersonalJarvis permission to commit, branch, push, or open
+not wait for extra Dodaios permission to commit, branch, push, or open
 a pull request. Once the scoped review and required checks pass, the agent may
 merge an ordinary authorized PR without another confirmation; a draft PR stays
 draft until its remaining work is done. `git pull --rebase --ff-only` first if
@@ -236,7 +242,11 @@ auto-resolve generated files, gates, relevant tests, push); a `codex/`,
 `claude/`, `agent/` branch or an `auto-merge` label puts a PR on the merge
 train, which resolves its conflicts with main and adds it to main's merge
 queue once green; the queue squash-merges it after `CI gate` passes again on
-the PR merged with the newest main. Direct pushes to main are blocked for
+the PR merged with the newest main. The train enqueues only with its bot
+token: `agent_land.py` therefore requests auto-merge, and a PR opened any
+other way needs `gh pr merge <branch> --auto --squash` once, or it waits for
+a person. A pull request runs Linux and Windows; macOS runs in the merge
+queue (`docs/ci-pipeline.md`, Tiers). Direct pushes to main are blocked for
 everyone but admins.
 Triage any red job against the exact base; never add to a baseline to hide a
 new failure.

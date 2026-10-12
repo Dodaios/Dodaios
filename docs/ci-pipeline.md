@@ -16,24 +16,71 @@ agent branch ──► pull request ──► CI (lanes) ──► CI gate ─�
 
 ## 1. CI — `.github/workflows/ci.yml`
 
+### Tiers: how wide a run is
+
+The organisation has 60 concurrent jobs, 5 of them macOS, shared by every
+agent's pull request. The width of a run therefore follows what the run has
+to prove (`scripts/ci/plan_run.py` emits the tier and every job matrix):
+
+| Tier | When | What runs | Target |
+| --- | --- | --- | --- |
+| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS. | ~10 min |
+| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus one short macOS leg per affected lane (realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle). The blocking proof of the exact tree main gets. | ~10-13 min |
+| `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the long real-product legs: the Hermes install on Windows, the real runtimes and the real browser on macOS. A red nightly opens the issue "Nightly CI is red" (`nightly-alert.yml`). | ~40 min |
+| proven | push to main of a commit the merge queue already passed | `detect` and `CI gate` only. | under 1 min |
+
+A queue group and the push that lands it are one commit, so the push run
+asks the API for a green `merge_group` run of its own SHA and, when there is
+one, turns every lane off. Any doubt (a direct push, an API error) fails open
+to the `queue` tier. A nightly run never accepts an earlier proof.
+
+`CI gate` waits for the slowest job of a run, and several merge groups build
+at once on five macOS slots (the queue builds two groups in parallel). The
+first queue runs of this design carried six to eight macOS legs each: three
+groups and one manual full run waited more than half an hour on macOS alone.
+And the Hermes install on Windows (13 minutes of upstream installer before
+the first turn, 14 to 23 minutes a job) was the last job of three in four
+merge groups. So a group keeps macOS legs of one to four minutes, and the
+long real-product legs run nightly and on release tags: the Hermes install
+on Windows, the two real-runtime legs on macOS (10 and 7 minutes) and the
+real-browser leg on macOS. A regression that only shows there is found by
+the next nightly run, which opens the issue "Nightly CI is red", and at the
+latest by the release run, which blocks publication.
+
+A branch gets the whole macOS matrix before the queue with
+`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
+
+Measured before the tiers (338 runs, 2026-10-07 to 2026-10-12): a run fanned
+out to 46 jobs in the median and up to 69, with 7 to 11 macOS legs; 56 % of
+macOS jobs and 28 % of Linux jobs waited more than five minutes for a runner
+(worst case over two hours); every change ran the suite three times (pull
+request, merge queue, and again on the push of the same commit).
+
+### Jobs
+
 | Stage | What it does | Script |
 | --- | --- | --- |
-| `detect` | Classifies the diff into lanes. Fails open: an empty diff, a pipeline change, the nightly run and a manual run turn every lane on. A merge-queue group (`merge_group`, classified against the queue base) and a push to main classify their lanes too (the concurrent-job limit is shared), but always run the whole test suite on Linux and Windows. | `scripts/ci/classify_changes.py` |
+| `detect` | Picks the tier and the matrices, then classifies the diff into lanes. Fails open: an empty diff, a pipeline change, the nightly run and a manual run turn every lane on. A merge-queue group is classified against the queue base. Only a push the merge queue already proved turns every lane off. | `scripts/ci/plan_run.py`, `scripts/ci/classify_changes.py` |
 | `static gates` | ~20 repository gates (keys, bundle, mirrors, privacy, docs, CLI coverage, ratchets, bash 3.2, no new German) in one job. Every gate reports. | `scripts/ci/run_gates.py` |
 | `zizmor` / `dependency review` | Workflow security audit on every event (merge queue included, exceptions in `.github/zizmor.yml`); dependency review on pull requests only, failing on an added dependency with a high or critical advisory. `security.yml` keeps the Security-tab uploads. | — |
 | `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`JARVIS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
 | `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). | `scripts/ci/run_tests_parallel.py` |
-| `tests windows` | The whole suite in four shards on every run with the python lane, pull requests included, so Windows-only failures block before the merge. | — |
-| `tests macos 1..3` | Nightly and manual runs only (~10x runner cost). | — |
-| `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor, and on main refreshes the duration cache. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
-| Lanes | `frontend`, `jarvisctl`, `deps`, `realtime` (3 OS + slim container), `updater` (3 OS: in-app update, native handover, restart helper), `agent runtimes` (3 OS + slim container + the real Hermes and OpenClaw at their pinned version; see [agent-runtimes.md](agent-runtimes.md#ci-and-release-gates)), `dragdrop`, `browser`, `macOS desktop`, `installer smoke` — each only when its paths change. | — |
+| `tests windows 1..6` | The whole suite in six shards on every tier, pull requests included, so a Windows-only failure blocks the pull request instead of ejecting it from the merge queue. | `scripts/ci/run_tests_parallel.py` |
+| `tests macos 1..3` | Nightly, release and manual runs with macOS only. | — |
+| `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor. The nightly run on main (and a push that bypassed the queue) refreshes the duration cache. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
+| Lanes | `frontend` (three test shards and the build, side by side), `jarvisctl`, `deps`, `realtime` (+ slim container), `updater` (in-app update, native handover, restart helper), `agent runtimes` (+ slim container + the real Hermes and OpenClaw at their pinned version; see [agent-runtimes.md](agent-runtimes.md#ci-and-release-gates)), `dragdrop`, `browser`, `macOS desktop`, `installer smoke` — each only when its paths change, each as wide as the tier: Linux + Windows on a pull request, + macOS in the merge queue, + Intel and ARM in the wide matrix. | `scripts/ci/plan_run.py` |
 | `release qualification` | Tag CI requires a full run with macOS and the browser-auth E2E evidence gate: a plugin labeled verified needs a completed journey, every completed journey ships as verified, and every other plugin ships labeled preview. The step summary counts both. Ordinary branch/PR/nightly CI skips this release-only job. | `scripts/ci/check_plugin_auth_contract.py --require-e2e-pass` |
 | `CI gate` | Aggregates every job. **The only required check**, on the pull request and again on its merge-queue group. A missing or skipped selected lane fails. Unselected lanes may skip; nightly is strict except event-specific jobs. | `scripts/ci/required_results.py` |
 
+The browser lane drives a real Chrome on a shared runner, where a
+timing-sensitive live test failed in about one run in five. Its failed tests
+get one more run, as failed files do in the test shards: a pass there is
+reported as a flaky warning, a second failure blocks.
+
 The realtime lane runs the subscription authentication, direct reasoning,
 voice transport, session orchestration, native login provisioning and Live catalog contracts on Windows,
-macOS and Linux, including the slim container without system audio. These
+macOS and Linux (macOS from the merge queue on), including the slim container without system audio. These
 focused tests are strict: they do not use the broad-suite failure baseline.
 Their fake credentials and transports also prove that a selected subscription
 cannot fall through to a retained API-key provider when its account is absent
@@ -73,8 +120,9 @@ A file that fails inside its batch and passes when re-run alone is reported
 as flaky. That almost always means test-order dependence, and the ratchet does
 not block on it, so it is tracked instead. `test report + floor` lists flaky
 files and new versus known failures in its step summary on every run. After
-each push, nightly and manual CI run on main, `.github/workflows/flaky-tests.yml`
-does the same for every OS and keeps one issue, "Flaky tests on main", updated
+each nightly and manual CI run on main (and a push that bypassed the merge
+queue; a push the queue already proved runs no tests and is skipped),
+`.github/workflows/flaky-tests.yml` does the same for every OS and keeps one issue, "Flaky tests on main", updated
 with a rolling table (test file, OS, number of runs it was flaky in, last seen
 run). Rows age out after 30 days without a sighting. That workflow is the only
 place with `issues: write`; it never runs for pull requests and refuses any CI
@@ -111,16 +159,18 @@ the queue drops entries it no longer needs itself, and a dropped pending run
 would leave `CI gate` unreported until the queue times out. A run on main is
 never cancelled once it started; pushes to main share one queue slot, so a
 burst of pushes leaves one pending run that covers every commit before it
-instead of a backlog behind the organisation's concurrent-job limit. The
-nightly run and manual runs have their own slots.
+instead of a backlog behind the organisation's concurrent-job limit. A push
+the merge queue already proved finishes in under a minute. The nightly run
+and manual runs have their own slots.
 
 ## 2. Integrating several agents — merge queue + `.github/workflows/merge-train.yml`
 
 `main` requires a **merge queue** (repository ruleset "main merge queue":
 squash, `CI gate` required). A pull request's own CI is its admission ticket;
 the queue then builds each entry on top of the newest main plus every entry
-ahead of it, runs `ci.yml` on that exact tree (`merge_group` event, whole
-Linux + Windows suite), and squash-merges only when `CI gate` is green there.
+ahead of it, runs `ci.yml` on that exact tree (`merge_group` event: the
+`queue` tier, whole Linux + Windows suite plus one short macOS leg per
+affected lane), and squash-merges only when `CI gate` is green there.
 Changes that pass alone and break together stop in the queue instead of on
 main. A failed entry leaves the queue; the entries behind it are rebuilt
 without it.
@@ -135,6 +185,10 @@ merge queue), and hourly as a safety net:
    (`scripts/ci/agent_integrate.py`). No force push, so an agent that keeps
    pushing to its branch is never overwritten. A pull request that is merely
    behind is left alone: the queue re-tests it on the newest main anyway.
+   Three branches are updated per tick. The slots go first to pull requests
+   with green CI that only conflict with main, then to red ones, and last to
+   those already labelled `needs-rebase`: in number order the three oldest
+   pull requests, two of them unresolvable, had held every slot for days.
 2. Conflicts resolve by file class: **generated** files (frontend `dist/`,
    agent mirrors, CLI reference docs, lockfiles, timing caches) take main's
    copy and are regenerated; **append-only** files (CHANGELOG, allowlists,
@@ -178,6 +232,14 @@ an entry `GITHUB_TOKEN` added (the entry would wait until the queue's
 timeout). With no queue on main it merges directly. The merge queue's own
 merges fire the normal push to main.
 
+**Without the app: auto-merge.** A green pull request the train cannot
+enqueue would wait for a person. The repository therefore allows GitHub's
+auto-merge, and `scripts/agent_land.py` requests it with the agent's own
+login (`gh pr merge <branch> --auto --squash`): once `CI gate` is green,
+GitHub adds the pull request to the merge queue itself and the `merge_group`
+run starts normally. A pull request opened another way gets the same with
+that one command. Drafts and the opt-out labels are left alone.
+
 **Rollback.** If the queue stalls, disable the "main merge queue" ruleset
 (Settings → Rules → Rulesets, or `gh api -X PUT
 repos/<owner>/<repo>/rulesets/<id> -f enforcement=disabled`). The train sees
@@ -193,8 +255,9 @@ python scripts/agent_land.py --direct   # fast-forward main itself
 ```
 
 It rebases onto the latest main with the same conflict engine, runs the
-static gates, runs the tests the diff can reach, and pushes. It refuses a
-dirty worktree and never stashes or force-pushes.
+static gates, runs the tests the diff can reach, pushes, and asks GitHub to
+queue the pull request once it is green. It refuses a dirty worktree and
+never stashes or force-pushes.
 
 ## 3. Releases, installers and updates
 
@@ -254,7 +317,7 @@ A release happens **only** when the maintainer asks for one.
   the upload. Anyone can check a download:
 
   ```bash
-  gh attestation verify PersonalJarvis-Setup-x64.exe -R PersonalJarvis/PersonalJarvis
+  gh attestation verify PersonalJarvis-Setup-x64.exe -R Dodaios/Dodaios
   ```
 
   Releases up to and including v2.9.0 predate this and have no attestation.
@@ -298,12 +361,12 @@ Steps:
    `gh workflow run release-smoke.yml -f tag=vX.Y.Z` to see whether the
    artifacts themselves are broken.
 2. **Stop the spread (optional, minutes).**
-   `gh release edit vX.Y.Z -R PersonalJarvis/PersonalJarvis --prerelease`
+   `gh release edit vX.Y.Z -R Dodaios/Dodaios --prerelease`
    takes the release out of Latest, so Latest falls back to the previous
    release. New downloads and apps on older versions stop receiving the bad
    one (running apps within their 30-minute cache). Users already on it are
    not downgraded. Check the result with
-   `gh api repos/PersonalJarvis/PersonalJarvis/releases/latest --jq .tag_name`.
+   `gh api repos/Dodaios/Dodaios/releases/latest --jq .tag_name`.
 3. **Fix forward.** Land the revert or fix on main through a normal PR, then
    cut a patch: `gh workflow run release-cut.yml -f bump=patch`. The new
    version is newer than both the bad and the previous release, becomes

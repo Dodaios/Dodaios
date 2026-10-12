@@ -15,13 +15,13 @@ tags: [docs, writing, accessibility, privacy]
 ---
 
 This is the binding writing standard for reader-facing pages in
-`docs/product/`. Use a progressive, task-focused structure with Personal Jarvis
+`docs/product/`. Use a progressive, task-focused structure with Dodaios
 terminology, behavior, and renderer capabilities. Describe features directly,
 without naming other products as design references. Preserve required license
 and attribution notices and factual integration or compatibility information.
 
 The reader should understand what a feature does, why it matters, how to use
-it, how it connects to the rest of Jarvis, and what to do when it does not
+it, how it connects to the rest of Dodaios, and what to do when it does not
 work. Technical accuracy stays intact; unnecessary implementation detail does
 not.
 
@@ -41,17 +41,17 @@ list to understand the page.
 
 ## Frontmatter contract
 
-Every page must start with the existing Jarvis frontmatter plus the four
+Every page must start with the existing Dodaios frontmatter plus the four
 navigation fields proposed below. Until all index consumers support the new
 fields, they remain additive metadata and must not replace `diataxis`, `tags`,
 or `related`.
 
 ```yaml
 ---
-title: "Use voice with Jarvis"
+title: "Use voice with Dodaios"
 slug: use-voice
-summary: "Talk to Jarvis, choose a voice, and fix common microphone issues."
-section: "Use Jarvis"
+summary: "Talk to your assistant, choose a voice, and fix common microphone issues."
+section: "Use Dodaios"
 section_order: 3
 order: 2
 diataxis: howto
@@ -110,7 +110,7 @@ Cover the relevant parts of this flow:
 
 1. What starts the feature: a click, spoken request, scheduled action, or
    incoming message.
-2. What Jarvis does next in plain language.
+2. What Dodaios does next in plain language.
 3. Which adjacent feature supplies input or receives the result.
 4. Where permissions, safety confirmation, or a connected service applies.
 5. What happens when a preferred provider or local capability is unavailable.
@@ -134,14 +134,14 @@ inline code.
 - Define jargon on first use: "a provider - the service that answers your
   request." Do not send readers to a glossary for the first explanation.
 - Expand acronyms on first use. Avoid acronyms that appear only once.
-- Use `Jarvis-Agents` and `Jarvis-Agent` for the internal feature; do not
+- Use `Dodaios-Agents` and `Dodaios-Agent` for the internal feature; do not
   revive historical internal names. When quoting a visible label, explain that
   the app derives it from the configured assistant name, for example
   **Nova-Agents**, with **Assistant-Agents** as the neutral fallback. Never
-  present **Jarvis-Agents** as a fixed label every reader will see.
+  present **Dodaios-Agents** as a fixed label every reader will see.
 - Address limitations directly. Do not use marketing claims such as
   "seamless," "magic," or "always works."
-- Distinguish what Jarvis does automatically from what the reader must do.
+- Distinguish what Dodaios does automatically from what the reader must do.
 - Keep implementation history, phase names, test architecture, and design
   debates out of product pages unless they change the reader's decision.
 
@@ -226,7 +226,7 @@ must match the current product when quoted.
 
 `Next Steps` must link to two to four pages that continue the reader's journey.
 Do not write a bare link list. Add a short reason, for example: "Read
-[Computer Use](computer-use) to let Jarvis work with desktop apps."
+[Computer Use](computer-use) to let Dodaios work with desktop apps."
 
 ## Accessibility
 

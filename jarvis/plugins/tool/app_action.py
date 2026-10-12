@@ -59,7 +59,7 @@ class FindAppActionTool:
     name: str = "find-app-action"
     risk_tier: str = "safe"
     description: str = (
-        "Search ALL actions of the Jarvis desktop app (settings, IDE panes and "
+        "Search ALL actions of the Dodaios desktop app (settings, IDE panes and "
         "workspaces, skills, local models, computers, marketplace, MCP servers, "
         "dictation, chats, agents, automations …) when no other tool does what the "
         "user asked. Pass English keywords; returns action ids, what each does, its "
@@ -126,10 +126,10 @@ class RunAppActionTool:
     risk_tier: str = "monitor"
     is_action_tool: bool = True
     description: str = (
-        "Run one Jarvis app action found with find-app-action. Pass its action_id and "
+        "Run one Dodaios app action found with find-app-action. Pass its action_id and "
         "params: path and query parameters by name, the request body under 'body'. "
         "Report the result the tool returns, never your assumption; a blocked action "
-        "stays blocked — tell the user it is switched off for Jarvis."
+        "stays blocked — tell the user it is switched off for Dodaios."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -146,6 +146,31 @@ class RunAppActionTool:
 
             runtime = _Runtime()
         self._runtime = runtime
+
+    @staticmethod
+    def _reads(args: dict[str, Any]) -> bool:
+        """Does this action only read? The catalog's own rule (``default_tier``).
+
+        A GET that is not marked dangerous reads. The person's per-action mode
+        still decides whether it runs (``risk_tier_for_args``); this only says
+        what it is, so a voice read is never treated as a change, nor answered
+        from an earlier call's result. Deliberately no ``read_only_for_args``:
+        a read-only chat keeps refusing app actions as before.
+        """
+        from jarvis.app_actions.catalog import default_tier
+
+        entry = _catalog().get(str((args or {}).get("action_id") or ""))
+        return entry is not None and default_tier(entry) == "safe"
+
+    def describe_args(self, args: dict[str, Any]) -> dict[str, str]:
+        entry = _catalog().get(str((args or {}).get("action_id") or ""))
+        return {
+            "level": "read" if self._reads(args) else "modify",
+            # Named in a confirmation question when the action asks first.
+            "commands": entry.title
+            if entry is not None
+            else str((args or {}).get("action_id") or ""),
+        }
 
     def risk_tier_for_args(self, args: dict[str, Any]) -> str:
         from jarvis.app_actions import history
@@ -176,7 +201,7 @@ class RunAppActionTool:
             # call honest too.
             history.record(entry.id, "blocked", "Blocked by the action policy", via=self.name)
             return ToolResult(
-                success=False, output=None, error="The user blocked this action for Jarvis."
+                success=False, output=None, error="The user blocked this action for Dodaios."
             )
         params = dict((args or {}).get("params") or {})
         path = entry.path

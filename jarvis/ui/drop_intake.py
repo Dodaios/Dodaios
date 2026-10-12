@@ -47,7 +47,7 @@ async def capture_presence_drop(
             staged = await stage_items_for_prompt_target(items)
         except Exception as exc:  # noqa: BLE001 - ordinary context remains available
             logger.warning(
-                "Jarvis presence drop could not stage Agentic-IDE attachments: {}",
+                "Dodaios presence drop could not stage Agentic-IDE attachments: {}",
                 exc,
             )
 

@@ -9,14 +9,14 @@ under `wiki/obsidian-vault/`, an atomic write pipeline (`AtomicWriter`),
 the WikiCurator pipeline (B1), the SessionRollupWorker (B7), the
 WikiContextInjector and the VoiceFactBridge (B5/B8), and a desktop
 Wiki tab with live-reload and graph view (B3). All of that produces a
-fully-shaped vault on disk — but Jarvis never registers that vault with
+fully-shaped vault on disk — but Dodaios never registers that vault with
 the user's Obsidian app. The user can install Obsidian, launch it, and
 get a "no vaults yet" prompt while a perfectly-populated vault sits in
 `%USERPROFILE%\Desktop\Personal Jarvis\wiki\obsidian-vault\` waiting
 to be opened.
 
 The pre-B9 user-story therefore had two invisible failure modes. First,
-"Obsidian is not installed" — Jarvis had no way to tell, so the Wiki
+"Obsidian is not installed" — Dodaios had no way to tell, so the Wiki
 tab's "Open in Obsidian" button silently did nothing (the
 `obsidian://` URL scheme is a no-op when the handler is unregistered).
 Second, "Obsidian is installed but the vault is not registered" — the
@@ -28,9 +28,9 @@ Two additional pressures shaped the design. The Wiki-tab is the only
 place where this onboarding matters — opening Settings or running a
 CLI wizard far away from the Wiki context defeats the discovery goal.
 And `obsidian.json` (the file that registers vaults with the Obsidian
-app) is owned by an external program; Jarvis must write it carefully,
+app) is owned by an external program; Dodaios must write it carefully,
 because a corrupt `obsidian.json` would brick the user's Obsidian
-install, not just Jarvis.
+install, not just Dodaios.
 
 A live-probe during the B9 build also surfaced a deployment fact that
 contradicts every Obsidian help thread on the internet: on this user's
@@ -58,7 +58,7 @@ brand-new machine on every OS starts in the config-missing state.
 
 `register_vault()` now bootstraps a missing `obsidian.json` instead of
 refusing: it creates the config directory and writes a minimal index
-containing only the Jarvis vault entry, through the same tempfile +
+containing only the Dodaios vault entry, through the same tempfile +
 `fsync` + `os.replace` pipeline (no backup — there is no original to back
 up; on verification failure the created file is removed again). Obsidian
 adopts a pre-existing `obsidian.json` on first launch, so bootstrapping
@@ -76,9 +76,9 @@ differing stored case must not report "not registered".
 ### 2026-07-12 reliability amendment
 
 Vault registration is based on reachability, not string equality. A
-configured Jarvis directory is connected when it exactly matches a registered
+configured Dodaios directory is connected when it exactly matches a registered
 Obsidian vault or is contained by one. This is required by existing-vault mode,
-which stores Jarvis pages under `<registered-vault>/Jarvis`. When multiple
+which stores Dodaios pages under `<registered-vault>/Jarvis`. When multiple
 registered ancestors exist, the most specific one wins.
 
 Deep links use `obsidian://open?path=<absolute-path>` so the same containment
@@ -147,7 +147,7 @@ without treating it as lost source data.
   handler. If the handler is unregistered (Obsidian not installed)
   the browser silently does nothing, which is the cheapest possible
   failure mode for a happy-path button. The walkthrough is German
-  because the user-facing Jarvis UI is German; the API surface and
+  because the user-facing Dodaios UI is German; the API surface and
   the code remain English per the Output Language Policy.
 
 - **System-wide install support in the detector.** `detect_obsidian()`
@@ -173,7 +173,7 @@ without treating it as lost source data.
 - `obsidian.json.b9-backup-YYYYMMDD-HHMMSS` files accumulate under
   `%APPDATA%\obsidian\` on every register operation. We deliberately
   do **not** garbage-collect them — that directory is owned by the
-  Obsidian app, not by Jarvis, and the safe default is "leave the
+  Obsidian app, not by Dodaios, and the safe default is "leave the
   user's home for the user to manage". The backups are small (a
   few hundred bytes of JSON).
 
@@ -221,7 +221,7 @@ but the Obsidian flow lives where the user discovers the problem.
 `obsidian.json` without explicit user consent is hostile, especially
 because it modifies a file owned by an external app the user has
 their own relationship with. The user might already have a vault
-they prefer; silently injecting Jarvis's vault as a new entry would
+they prefer; silently injecting Dodaios's vault as a new entry would
 be a violation of trust. The dialog makes the write opt-in and lets
 the user see the destination path before committing.
 

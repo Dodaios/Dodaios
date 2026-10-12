@@ -20,6 +20,7 @@ vi.mock("./AgentChatPanel", () => ({
   },
 }));
 vi.mock("./MeetingChat", () => ({ MeetingChat: () => <div data-testid="meeting" /> }));
+vi.mock("./TeamLeadBoard", () => ({ TeamLeadBoard: () => <div data-testid="lead-board" /> }));
 
 afterEach(() => { cleanup(); groupApi.remove.mockClear(); });
 
@@ -82,4 +83,26 @@ it("shows an explicit ungroup confirmation and restores individual chats on conf
   fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "society.groups.delete" }));
   await waitFor(() => expect(groupApi.remove).toHaveBeenCalledWith("team"));
   await waitFor(() => expect(onDeleted).toHaveBeenCalledOnce());
+});
+
+it("opens a team that has a lead on the lead's board, and a team without one on its meeting", () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const scout = { agentId: "scout", name: "Scout", tier: "orchestrator", chatSessionId: "society:scout" } as SocietyAgent;
+  const writer = { agentId: "writer", name: "Writer", tier: "specialist", chatSessionId: "society:writer" } as SocietyAgent;
+  render(<QueryClientProvider client={client}><ChatGroupPanel
+    group={{ group_id: "team", name: "Team", members: ["scout", "writer"], created_ms: 1, updated_ms: 1, lead_agent_id: "scout" }}
+    groups={[]} roster={[scout, writer]} onOpenAgent={() => undefined} onOpenGroup={() => undefined}
+    onCreateAgent={() => undefined} onDeleted={() => undefined}
+    onGroupAgents={() => undefined} onAddAgentToGroup={() => undefined}
+  /></QueryClientProvider>);
+
+  const leadView = screen.getByRole("button", { name: "society.lead.tab" });
+  expect(leadView.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByTestId("lead-board")).toBeTruthy();
+  expect(screen.queryByTestId("meeting")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "society.meeting.title" }));
+  expect(screen.getByTestId("meeting")).toBeTruthy();
+  expect(screen.queryByTestId("lead-board")).toBeNull();
+  fireEvent.click(leadView);
+  expect(screen.getByTestId("lead-board")).toBeTruthy();
 });

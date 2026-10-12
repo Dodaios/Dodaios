@@ -3,11 +3,12 @@
  *
  * The bundle ships Inter as "Inter Variable"; a canvas font naming plain
  * "Inter" silently drew the wordmark in the system fallback, so the
- * "PERSONAL JARVIS" sign looked off-brand. A recording 2D context captures
+ * wordmark sign looked off-brand. A recording 2D context captures
  * every font the face sets and every line of text it draws.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ReactElement } from "react";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { LOBBY_RENDERERS } from "./LobbyDecor";
 
 const fonts: string[] = [];
@@ -50,7 +51,7 @@ describe("lobby brand wall", () => {
     const wall = LOBBY_RENDERERS.brandWall() as ReactElement;
     // Calling the component builds its materials, which draw the canvas face.
     (wall.type as () => ReactElement)();
-    expect(texts).toEqual(expect.arrayContaining(["PERSONAL JARVIS", "AGENT HEADQUARTERS"]));
+    expect(texts).toEqual(expect.arrayContaining([PRODUCT_NAME.toUpperCase(), "AGENT HEADQUARTERS"]));
     expect(fonts.length).toBeGreaterThan(0);
     for (const font of fonts) expect(font).toContain("'Inter Variable'");
   });

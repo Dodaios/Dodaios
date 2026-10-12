@@ -10,7 +10,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-from scripts.ci import agent_runtime_suite, classify_changes, required_results, select_tests
+from scripts.ci import (
+    agent_runtime_suite,
+    classify_changes,
+    plan_run,
+    required_results,
+    select_tests,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 LANE_JOBS = {"agent-runtimes-unit", "agent-runtimes-headless", "agent-runtimes-e2e"}
@@ -44,6 +50,7 @@ def test_a_pipeline_change_runs_the_lane_too():
 def _needs(lane: bool, **results: str) -> dict:
     outputs = {flag: "false" for flag in required_results.LANE_JOBS}
     outputs.update(full="false", macos="false", macos_desktop="false", release="false")
+    outputs.update(proven="false", desktop_legs="none")
     outputs["agent_runtimes"] = "true" if lane else "false"
     needs = {"detect": {"result": "success", "outputs": outputs}}
     # Every pipeline also requires the always-on jobs (gates, workflow audit).
@@ -97,11 +104,25 @@ def test_ci_runs_the_lane_on_every_os_and_the_gate_waits_for_it():
     jobs = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))["jobs"]
     assert "agent_runtimes" in jobs["detect"]["outputs"]
     assert LANE_JOBS <= set(jobs["gate"]["needs"])
+    # Before anything lands (the merge queue) the unit suite has run on all
+    # three OSes, both real runtimes on Linux and OpenClaw on Windows; the
+    # nightly and release runs add the Hermes install on Windows and both
+    # runtimes on macOS. ci.yml reads the plan.
     oses = {"ubuntu-latest", "windows-latest", "macos-latest"}
-    assert set(jobs["agent-runtimes-unit"]["strategy"]["matrix"]["os"]) == oses
+    queue = plan_run.plan("merge_group")
+    assert set(queue["lane_os"]) == oses
+    assert {(leg["os"], leg["runtime"]) for leg in queue["e2e_matrix"]} == {
+        ("ubuntu-latest", "hermes"),
+        ("ubuntu-latest", "openclaw"),
+        ("windows-latest", "openclaw"),
+    }
+    assert {(leg["os"], leg["runtime"]) for leg in plan_run.plan("schedule")["e2e_matrix"]} == {
+        (os, runtime) for os in oses for runtime in ("hermes", "openclaw")
+    }
+    unit = jobs["agent-runtimes-unit"]["strategy"]["matrix"]
+    assert unit["os"] == "${{ fromJSON(needs.detect.outputs.lane_os) }}"
     e2e = jobs["agent-runtimes-e2e"]["strategy"]["matrix"]
-    assert set(e2e["os"]) == oses
-    assert set(e2e["runtime"]) == {"hermes", "openclaw"}
+    assert e2e["include"] == "${{ fromJSON(needs.detect.outputs.e2e_matrix) }}"
     assert jobs["agent-runtimes-headless"]["container"] == "python:3.11-slim"
     for job in LANE_JOBS:
         assert jobs[job]["if"] == "needs.detect.outputs.agent_runtimes == 'true'"

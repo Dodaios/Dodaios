@@ -477,6 +477,32 @@ def _text_of(content: Any) -> str:
     return "\n".join(parts)
 
 
+#: What a person typed after a slash command. Claude Code records
+#: ``/goal fix the login test`` as a command block whose arguments are the
+#: request itself — inside the same kind of tag it wraps its own bookkeeping in.
+_COMMAND_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
+
+#: Fewer words than this after a slash command set the command up (``high``,
+#: ``--fix``, a PR number); they do not say what the session is for.
+_COMMAND_REQUEST_WORDS = 3
+
+
+def _command_request(text: str) -> str:
+    """The request a person typed as a slash command's arguments, or "".
+
+    A session opened with ``/goal <request>`` has no plain first message: the
+    whole record is one command block, so :func:`_spoken` finds nobody
+    speaking, and the CLI writes no title of its own for it either. The
+    arguments are still the person's own words, and for such a session they
+    are the only statement of what it is about.
+    """
+    match = _COMMAND_ARGS.search(str(text or ""))
+    if match is None:
+        return ""
+    request = " ".join(match.group(1).split())
+    return request if len(request.split()) >= _COMMAND_REQUEST_WORDS else ""
+
+
 def _claude_first_user_text(session_id: str, home: Path | None) -> str | None:
     path = _claude_file(session_id, home)
     if path is None:
@@ -485,14 +511,16 @@ def _claude_first_user_text(session_id: str, home: Path | None) -> str | None:
         if str(row.get("type") or "") != "user":
             continue
         # A meta row is the CLI annotating the conversation (an image's size, a
-        # slash command's echo); a sidechain is a sub-agent's conversation.
-        # Neither is the person opening this session.
-        if row.get("isMeta") or row.get("isSidechain"):
+        # slash command's echo); a sidechain is a sub-agent's conversation; a
+        # compact summary is the CLI retelling the conversation to itself.
+        # None of them is the person opening this session.
+        if row.get("isMeta") or row.get("isSidechain") or row.get("isCompactSummary"):
             continue
         message = row.get("message")
         if not isinstance(message, dict) or str(message.get("role") or "") != "user":
             continue
-        spoken = _spoken(_text_of(message.get("content")))
+        text = _text_of(message.get("content"))
+        spoken = _spoken(text) or _command_request(text)
         if spoken:
             return spoken
     return ""

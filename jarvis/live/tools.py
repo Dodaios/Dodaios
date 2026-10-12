@@ -146,7 +146,7 @@ class LiveTools:
         definitions = [
             function(
                 "end_call",
-                "Request voice hang-up. Jarvis asks for confirmation first; call again only "
+                "Request voice hang-up. Dodaios asks for confirmation first; call again only "
                 "after a separate explicit yes to that question. Never end a call for task "
                 "completion or an action approval. Running agents keep their tasks.",
                 {},
@@ -154,14 +154,14 @@ class LiveTools:
             ),
             function(
                 "discover_tools",
-                "Find Jarvis tools and their complete input schemas. Empty query browses all "
+                "Find Dodaios tools and their complete input schemas. Empty query browses all "
                 "tools. Pass next_offset as offset to read the next page.",
                 {"query": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}},
                 ["query"],
             ),
             function(
                 "call_tool",
-                "Execute a discovered Jarvis tool using its canonical name and JSON arguments.",
+                "Execute a discovered Dodaios tool using its canonical name and JSON arguments.",
                 {"name": {"type": "string"}, "arguments_json": {"type": "string"}},
                 ["name", "arguments_json"],
             ),
@@ -226,7 +226,10 @@ class LiveTools:
             definitions.append(definition)
         return definitions
 
-    async def execute(self, call_id: str, name: str, args: dict, revision: int) -> dict:
+    async def execute(
+        self, call_id: str, name: str, args: dict, revision: int,
+        *, replay_result: dict | None = None,
+    ) -> dict:
         async with self._lock:
             if (self._hangup_confirmation.pending_turn is not None
                     and confirms_hangup(self.user_text) and name != "end_call"):
@@ -247,7 +250,17 @@ class LiveTools:
             if receipt is not None:
                 return receipt
             try:
-                result = await self._execute(name, args, revision)
+                if replay_result is not None and self.steering_replay_key(name, args) is None:
+                    result = {
+                        "success": False, "executed": False,
+                        "error": "Controls, approvals and reads require a fresh evaluation.",
+                    }
+                elif replay_result is not None and revision == self.revision:
+                    # The session retained this result from an earlier execution.
+                    # Record the new model call ID without performing another effect.
+                    result = {**replay_result, "reused_receipt": True}
+                else:
+                    result = await self._execute(name, args, revision)
             except asyncio.CancelledError:
                 # Leave the claim uncertain: a cancelled request may already have acted.
                 raise
@@ -310,7 +323,7 @@ class LiveTools:
                     "success": False, "executed": False,
                     "confirmation_required": True,
                     "question": question,
-                    "next_step": "Jarvis asks this question. Wait for a separate explicit yes "
+                    "next_step": "Dodaios asks this question. Wait for a separate explicit yes "
                     "and then call end_call again. Never confirm another action with this yes.",
                 }
             if decision != "confirmed":
@@ -481,13 +494,66 @@ class LiveTools:
         ]
 
     def _reads_only(self, name: str, args: dict) -> bool:
-        """True for a call that only reads: tool search or a safe-tier tool."""
+        """A safe permission tier does not imply a read: internal sends are safe."""
         if name == "discover_tools":
             return True
         if name == "call_tool":
             name = str(args.get("name", ""))
+            try:
+                args = json.loads(args.get("arguments_json") or "{}")
+            except (TypeError, ValueError):
+                return False  # Unknown arguments cannot prove a read-only call.
         canonical = self._names.get(name, name)
-        return any(d.name == canonical and d.risk_tier == "safe" for d in self.catalog())
+        descriptor = next((d for d in self.catalog() if d.name == canonical), None)
+        if descriptor is None or not isinstance(args, dict):
+            return False
+        describe = getattr(descriptor, "describe_args", None)
+        if callable(describe):
+            try:
+                return describe(args).get("level") == "read"
+            except Exception:
+                log.warning("Live tool impact inspection failed for %s", canonical, exc_info=True)
+                return False
+        return descriptor.risk_tier == "safe" and not descriptor.is_action_tool
+
+    def _replay_call(self, name: str, args: dict) -> tuple[str, dict] | None:
+        """Normalize aliases and wrappers without authorizing an operation."""
+        if ":" in name:
+            prefix, suffix = name.split(":", 1)
+            if prefix.isidentifier() and (suffix in self._names or suffix in _BUILTIN_TOOLS):
+                name = suffix
+        if name == "call_tool":
+            name = str(args.get("name", ""))
+            try:
+                args = json.loads(args.get("arguments_json") or "{}")
+            except (TypeError, ValueError):
+                return None  # Invalid arguments have no executable identity.
+        name = self._names.get(name, name)
+        return (name, args) if isinstance(args, dict) else None
+
+    def steering_replay_key(self, name: str, args: dict) -> str | None:
+        """Identity of an effect across replanning, independent of model call IDs.
+
+        Session controls and reads cannot be reused this way. In particular,
+        action approval and hang-up each require their own fresh consent.
+        """
+        call = self._replay_call(name, args)
+        if call is None:
+            return None
+        name, args = call
+        if name in _BUILTIN_TOOLS or self._reads_only(name, args):
+            return None
+        return json.dumps([name, args], sort_keys=True, ensure_ascii=False)
+
+    def approval_effect_key(self, name: str, args: dict) -> str | None:
+        """The pending effect's identity; the confirmation itself is never replayed."""
+        call = self._replay_call(name, args)
+        if call is None or call[0] != "confirm_action":
+            return None
+        pending = self._pending.get(str(call[1].get("approval_id", "")))
+        if pending is None and len(self._pending) == 1:
+            pending = next(iter(self._pending.values()))
+        return self.steering_replay_key(pending[1], pending[2]) if pending else None
 
     def _user_approved(self) -> bool:
         """True when the latest user text is a short, unvetoed yes in any locale.

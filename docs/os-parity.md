@@ -17,7 +17,7 @@ macOS audio devices and NVIDIA T600 inference have not been verified live.
 
 ## Screenshots paste anywhere (2026-10-05, T2)
 
-Appshots taken by shortcut or button and Jarvis X screenshots go on the
+Appshots taken by shortcut or button and Dodaios X screenshots go on the
 clipboard in several formats at once (`jarvis/platform/clipboard_image.py`):
 Windows `PNG` + `CF_DIB` (transparency laid on white in the bitmap), macOS
 `public.png` + `public.tiff` through `osascript -l JavaScript` with an
@@ -129,9 +129,9 @@ can enter its send loop, including the compressed Dropbear size-one form.
 Real loopback contracts cover rejection and ordinary channel traffic, while
 unit tests preserve the password-authentication callback and host-key handling.
 
-## Remote agents retain Jarvis tools (2026-10-01, T3)
+## Remote agents retain Dodaios tools (2026-10-01, T3)
 
-Remote coding turns carry their Jarvis MCP tools over a reverse forward on
+Remote coding turns carry their Dodaios MCP tools over a reverse forward on
 the existing pinned SSH connection. Both listeners bind to loopback. The
 remote credential belongs to one active chat turn; the Control API key stays
 on the main computer. Session headers cannot change the owner, and stale
@@ -145,7 +145,7 @@ receive the remote endpoint through their existing launch paths. Claude,
 Codex, Antigravity, Grok, OpenCode, Kimi and Cursor have MCP configuration
 adapters; other runners fail before starting model work. Project-discovered
 configurations are restored after the turn and cannot overlap in one
-workspace. Native files and society_shell remain remote; Jarvis's browser,
+workspace. Native files and society_shell remain remote; Dodaios's browser,
 memory and file-tool workspace remain on the main computer.
 
 Verification: real in-process SSH forwarding tests cover authentication,
@@ -158,7 +158,7 @@ by those tests; SSH servers must permit TCP forwarding. No browser is
 started by this transport.
 
 Live qualification on Windows: a resumed Claude subscription chat on a
-connected Windows computer discovered the Jarvis tools, created a temporary
+connected Windows computer discovered the Dodaios tools, created a temporary
 daily routine, read back its persisted ID and next run,
 deleted it and verified the empty routine list. The final CLI configuration
 uses an explicit HTTP transport type; omitting it hid the server from the
@@ -195,9 +195,9 @@ working file-store fallback logs at INFO. A previously available vault failing
 still logs a warning. Credential storage and recovery behavior remain covered
 by the headless-keyring, locked-keyring, and backend-recovery tests.
 
-## Remote agents retain Jarvis tools (2026-10-01, T3)
+## Remote agents retain Dodaios tools (2026-10-01, T3)
 
-Remote coding turns carry their Jarvis MCP tools over a reverse forward on
+Remote coding turns carry their Dodaios MCP tools over a reverse forward on
 the existing pinned SSH connection. Both listeners bind to loopback. The
 remote credential belongs to one active chat turn; the Control API key stays
 on the main computer. Session headers cannot change the owner, and stale
@@ -211,7 +211,7 @@ receive the remote endpoint through their existing launch paths. Claude,
 Codex, Antigravity, Grok, OpenCode, Kimi and Cursor have MCP configuration
 adapters; other runners fail before starting model work. Project-discovered
 configurations are restored after the turn and cannot overlap in one
-workspace. Native files and society_shell remain remote; Jarvis's browser,
+workspace. Native files and society_shell remain remote; Dodaios's browser,
 memory and file-tool workspace remain on the main computer.
 
 Verification: real in-process SSH forwarding tests cover authentication,
@@ -224,7 +224,7 @@ by those tests; SSH servers must permit TCP forwarding. No browser is
 started by this transport.
 
 Live qualification on Windows: a resumed Claude subscription chat on a
-connected Windows computer discovered the Jarvis tools, created a temporary
+connected Windows computer discovered the Dodaios tools, created a temporary
 daily routine, read back its persisted ID and next run,
 deleted it and verified the empty routine list. The final CLI configuration
 uses an explicit HTTP transport type; omitting it hid the server from the
@@ -236,13 +236,99 @@ Protocol references: [AsyncSSH port forwarding](https://asyncssh.readthedocs.io/
 [Kimi MCP configuration](https://github.com/MoonshotAI/kimi-cli/blob/main/README.md),
 [Cursor MCP](https://docs.cursor.com/en/cli/mcp).
 
+## AppShot capture pixel integrity (2026-10-04, T2)
+
+Packed RGB capture frames are mapped read-only, copied with their actual row
+stride, and unmapped before entering the encoder queue. They do not go through
+Qt's GPU presentation conversion. This fixes intermittent striped/color-shifted
+frames seen in native Windows area recordings. Zero-filled startup buffers are
+skipped; Windows opaque-desktop sources also reject uninitialized alpha values.
+Valid opaque black frames remain recordable. The first usable video frame starts
+at timestamp zero, avoiding an empty startup interval in MP4 playback.
+
+A separate visible Windows test application supplied moving content to the real
+picker/capture/encoder flow. A 15.5-second, 1918-by-948 capture produced 947
+decoded frames with no color-patch corruption, a zero first timestamp, and 226
+distinct positions of the moving marker. Regression tests cover row padding,
+buffer reuse, map failure/cleanup, rotation, mirror, startup transparency and
+opaque black frames. YUV portal sources retain Qt conversion with a detached
+copy; macOS/Linux native capture remains unverified. This evidence supersedes
+the earlier frame-count-only check for visual recording correctness.
+
+## AppShot recording quality and output audio (2026-10-04, T2)
+
+Recording presets default to 1080p at 60 FPS and a 12 Mbps video target.
+Resolution choices through 4K plus native preserve source aspect ratio without
+upscaling; 30/60/120 FPS choices are capped by the selected monitor's refresh
+rate. Missing portal refresh information caps at 60 FPS. The same validation,
+size calculation, MP4 encoding and settings routes apply on every OS. Qt
+Multimedia supplies streaming frames after explicit selection; encoder startup
+tries available hardware H.264 backends, then software H.264/MPEG-4. Missing
+drivers or unsupported dimensions fall back before any packet is written.
+Windows full-screen capture from a 4K/60 Hz monitor to Full HD measured about
+59.6 captured frames/second, with a 120 FPS request correctly capped at 60.
+High-resolution timestamps avoid discarding distinct frames due to coarse
+Windows clock ticks. Native macOS/Linux performance is still unverified.
+
+System audio is opt-in and captures only the default playback device's loopback.
+Windows uses WASAPI through the optional SoundCard desktop dependency. A real
+Windows capture produced an MP4 with synchronized video and audible AAC stereo
+at 48 kHz; deterministic tests cover silent recording, rescaling, all three
+frame rates, invalid settings, and audio retention through trim/speed edits.
+Linux uses PulseAudio/PipeWire monitor sources; native Linux audio remains
+unverified. macOS audio loopback is unavailable and is visibly disabled, while
+silent recording keeps working. No fallback ever opens a microphone. Headless
+installs need no audio backend and keep their existing capture-unavailable state.
+
+## AppShot recording startup latency (2026-10-03, T2)
+
+The primary desktop instance prepares one idle recording worker after shortcut
+arming when AppShots are enabled. Standby loads Qt and the encoder libraries;
+it creates no capture session, windows, video files, or permission prompts and
+takes no pixels. A user start still checks current permissions before sending
+the selection command. After a recording finishes, a fresh worker is prepared.
+Disabling AppShots releases standby; application shutdown also finalizes any
+active recording and reaps its process.
+
+Windows native checks measured about 150–260 ms from a prepared start to the
+visible picker, versus about 1.7 seconds for a cold process on the same desktop.
+Two consecutive selected-area recordings produced playable MP4s and reused their
+prepared workers. Timeout, cancellation during spawn, dead-worker recovery,
+permission revocation and shutdown have focused regression coverage. Standby
+was checked to create neither widgets nor screen grabs. macOS and Linux use the
+same ownership protocol; their native latency remains unmeasured, and a first
+permission dialog or Wayland portal selection still requires user interaction.
+
+## AppShot recording frame and completion card (2026-10-03, T2)
+
+The selected recording area keeps a click-through border until recording stops.
+Elapsed time and a stop button sit below it; the toolbar moves above the area or
+inside the work area when the selection reaches the screen edges. A finalized
+video uses the existing screenshot flight animation to enter a bottom-right
+preview card. Its poster shows the first video frame with a prominent play button
+and a video/duration label. The card can play the local file, save a separate copy
+to Downloads, or drag the MP4 to another application. Screenshot and video previews share the
+indicator process and its shutdown/capture-suppression lifecycle.
+
+Windows area and 4K full-screen recordings were verified with the desktop Python
+runtime: persistent frame, elapsed time, stop-button completion, playable MP4,
+and a visible corner card. Both the frame and toolbar successfully enabled
+native capture exclusion. A separate explicitly capturable visual pass verified
+their geometry and appearance without confusing that pass with clean video output.
+
+macOS and X11 use the same Qt positioning code but remain unverified on real
+desktops. Native capture exclusion is Windows-specific; controls are placed outside
+the recorded area when space permits. Wayland portals do not expose global source
+coordinates: the normal stop window remains available there, while a desktop-wide
+boundary and corner flight retain the indicator's existing Wayland limitation.
+
 ## Live computer control by the session's own model (2026-10-03, T3)
 
 Voice sessions operate the screen through `computer` (ADR-0039). The same
 code runs on every OS through the existing capture and input backends; only
 the readiness check differs. macOS requires Screen Recording to look and
 Accessibility plus Input Control to act, and Secure Input blocks typing.
-Windows refuses on the secure desktop and against elevated windows when Jarvis
+Windows refuses on the secure desktop and against elevated windows when Dodaios
 is not elevated. Linux refuses on Wayland and without a display, with the
 reason spoken to the user. Unit tests cover every branch with platform probes.
 A live run passed on Windows 11; macOS and Linux X11 live runs are unverified.
@@ -287,6 +373,17 @@ input follows the owned focus. Offscreen positions from older builds recover
 onto a monitor without activating Chrome. Hooks and captures have bounded
 cleanup, and stale geometry rejects input.
 
+The owned Windows browser and its native popups use zero desktop opacity and
+non-activating tool-window styles while their original pixels remain available
+to Windows Graphics Capture. This prevents a separate window or edge strip
+from appearing outside the Dodaios preview. Regular Chrome keeps rendering while
+occluded so the embedded view can update. This applies only to Dodaios-owned
+windows; attached user Chrome windows and the page streams on other operating
+systems are unchanged. Fake Win32 tests cover ownership, popup visibility,
+input, and failure handling; a live Windows check covers invisible window
+startup and continued capture. macOS and Linux native window capture remains
+unverified.
+
 Manual website sign-in stays inside the embedded viewer. Vision-capable agents
 with unrestricted website access can use approved native window controls;
 domain-restricted agents keep page-only tools because a complete Chrome frame
@@ -310,9 +407,9 @@ manual unpacked installation. Fake transport, registry and UI checks do not
 prove native Chrome behavior on these platforms, actual OS-reboot persistence,
 or real X publication. See [browser profiles](browser-profiles.md) for scope.
 
-## Remote agents retain Jarvis tools (2026-10-01, T3)
+## Remote agents retain Dodaios tools (2026-10-01, T3)
 
-Remote coding turns carry their Jarvis MCP tools over a reverse forward on
+Remote coding turns carry their Dodaios MCP tools over a reverse forward on
 the existing pinned SSH connection. Both listeners bind to loopback. The
 remote credential belongs to one active chat turn; the Control API key stays
 on the main computer. Session headers cannot change the owner, and stale
@@ -326,7 +423,7 @@ receive the remote endpoint through their existing launch paths. Claude,
 Codex, Antigravity, Grok, OpenCode, Kimi and Cursor have MCP configuration
 adapters; other runners fail before starting model work. Project-discovered
 configurations are restored after the turn and cannot overlap in one
-workspace. Native files and society_shell remain remote; Jarvis's browser,
+workspace. Native files and society_shell remain remote; Dodaios's browser,
 memory and file-tool workspace remain on the main computer.
 
 Verification: real in-process SSH forwarding tests cover authentication,
@@ -339,7 +436,7 @@ by those tests; SSH servers must permit TCP forwarding. No browser is
 started by this transport.
 
 Live qualification on Windows: a resumed Claude subscription chat on a
-connected Windows computer discovered the Jarvis tools, created a temporary
+connected Windows computer discovered the Dodaios tools, created a temporary
 daily routine, read back its persisted ID and next run,
 deleted it and verified the empty routine list. The final CLI configuration
 uses an explicit HTTP transport type; omitting it hid the server from the
@@ -353,8 +450,8 @@ Protocol references: [AsyncSSH port forwarding](https://asyncssh.readthedocs.io/
 
 ## Connected computers on Linux, macOS and Windows (2026-10-01, T3)
 
-This one is about the REMOTE side: the machine Jarvis connects to under
-Computers, whatever OS Jarvis itself runs on. `jarvis/computers/remote_os.py`
+This one is about the REMOTE side: the machine Dodaios connects to under
+Computers, whatever OS Dodaios itself runs on. `jarvis/computers/remote_os.py`
 asks each computer once which shell it speaks (one `echo` that sh, cmd and
 PowerShell answer differently) and, on Linux and macOS, which `PATH` the
 user's own login shell builds (`$SHELL -ilc`, then `-lc`, between markers so
@@ -469,7 +566,7 @@ error it always did.
 
 After a power-off the host is gone, so the next start resumes every agent that
 was running on its own conversation (each CLI's resume argument), in every
-workspace. Jarvis types nothing into any pane: Claude Code panes are resumed
+workspace. Dodaios types nothing into any pane: Claude Code panes are resumed
 with the CLI's own `CLAUDE_CODE_RESUME_INTERRUPTED_TURN`, which finishes a
 turn the power cut interrupted (measured: killed at step 26 of 30, resumed to
 30 with nothing typed; without it the pane waited). That path is identical on
@@ -745,7 +842,7 @@ P-02/P-03 implemented for macOS + X11 Linux (rows narrowed to the Wayland
 residual); P-10 fixed on Linux via `PR_SET_PDEATHSIG` (row narrowed to
 macOS). Git history of this file keeps the original entries.
 
-**Fix pass 2026-07-19:** P-01 fixed and removed. Both the Jarvis Bar and the
+**Fix pass 2026-07-19:** P-01 fixed and removed. Both the Dodaios Bar and the
 mascot now use a main-thread companion-process host on macOS; rendered images
 and bubble fonts are explicitly bound to the overlay's Tcl interpreter so the
 host's Tk bootstrap root cannot steal them.
@@ -790,7 +887,7 @@ same shape as P-29 — the feature was reachable only on the maintainer's OS:
   `XDG_RUNTIME_DIR`, so a pure-Wayland session without XWayland keeps the
   printed URL — the keyring-isolation guarantee outranks the convenience.
 - **POSIX login containment.** Process-tree containment for the login guardian
-  was Windows-only, so a Jarvis crash on macOS/Linux left terminal → guardian
+  was Windows-only, so a Dodaios crash on macOS/Linux left terminal → guardian
   → `codex login` alive with the profile lock still held and every later
   connect reporting a permanent "busy". `make_process_tree` already returns a
   real POSIX process-group reaper; the login path now uses it, and only the
@@ -812,17 +909,17 @@ is launched. Same shape again — a guarantee that held only on Windows.
   previous pass gave the login a POSIX process-group reaper, but on macOS the
   spawned process is `osascript`, which asks the ALREADY-RUNNING Terminal.app to
   `do script` — so the guardian is a grandchild of Terminal, in no process group
-  Jarvis owns. GNOME is the same story through `gnome-terminal-server`. The
-  reaper was signalling a group that contained only the launcher, and a Jarvis
+  Dodaios owns. GNOME is the same story through `gnome-terminal-server`. The
+  reaper was signalling a group that contained only the launcher, and a Dodaios
   crash still left the guardian holding the profile lock with every later
   Connect reporting a permanent "busy". A process tree cannot cross those
   boundaries and neither can an inherited pipe, so the lifeline is now a
-  **parent-liveness lock file**: Jarvis holds it for the whole login, the kernel
+  **parent-liveness lock file**: Dodaios holds it for the whole login, the kernel
   drops it on any kind of death, and the guardian polls it and ends the login if
   it can take it (`jarvis/codex_auth.py::_hold_parent_liveness_lock`,
   `jarvis/codex_login_guard.py::_parent_liveness_lost`, exit code
   `EXIT_PARENT_GONE`). The probe is deliberately conservative — anything it
-  cannot read counts as "Jarvis is alive", because ending a healthy login is
+  cannot read counts as "Dodaios is alive", because ending a healthy login is
   worse than one stale lock.
 - **`wezterm` released the profile lock mid-write.** Plain `wezterm start` hands
   the window to a running `wezterm-gui` and returns at once, so `cleanup_login`
@@ -902,8 +999,8 @@ all three OSes at once.
 
 **Fix pass 2026-08-09 (stable subscription voice).** P-30 is resolved and
 removed. The ChatGPT-subscription card is now a compatibility alias for one
-OS-neutral composition: Jarvis microphone/VAD/STT, streamed Codex App Server
-text, then Jarvis sentence TTS and receipt-backed playback. The selected
+OS-neutral composition: Dodaios microphone/VAD/STT, streamed Codex App Server
+text, then Dodaios sentence TTS and receipt-backed playback. The selected
 profile therefore no longer depends on WebRTC, `aiortc`, PyAV, ChatGPT-Live
 audio boundaries, or provider-side VAD. Windows, macOS, and graphical Linux
 run the same pipeline; headless hosts report `headless_audio_unavailable`
@@ -1017,7 +1114,7 @@ downloadable `.dmg` app had no screen-capture string, the managed app had no
 Desktop / Documents / Downloads string, and the `.dmg` plist carried
 `NSSystemAdministrationUsageDescription` (the wrong key for Accessibility and
 Input Monitoring, which have none), a speech-recognition string and a camera
-string plus the camera entitlement, for APIs Jarvis never calls. Both bundles now
+string plus the camera entitlement, for APIs Dodaios never calls. Both bundles now
 load one stdlib-only table, `jarvis/core/macos_privacy_strings.py`, by path (the
 spec runs before the package is importable): microphone, screen capture (kept for
 parity; whether macOS reads that key is unverified), Apple events, Desktop,
@@ -1054,7 +1151,7 @@ asked, nothing gated):
   exact zeros while the state claims granted produce one "denied or muted" notice.
 - **Screen and computer use.** The first user-started capture asks for Screen
   Recording; a flat wallpaper-only frame is refused, never delivered. Accessibility
-  is asked when Jarvis first types, clicks or focuses a window; tools return
+  is asked when Dodaios first types, clicks or focuses a window; tools return
   `[permission_needed:accessibility]`, and the mission ends `blocked_permission`
   with a Retry, not a model retry loop. AX reads never prompt. The engine keeps one
   silent Screen Recording gate and dispatches nothing while a macOS consent window
@@ -1138,7 +1235,7 @@ implementations, not stubs.
 
 | Area | Verdict |
 |---|---|
-| Computer-Use / desktop actions (click, type, hotkey, scroll, drag, windows, apps, screenshots, UI trees) | Full per-OS backends (Win32/UIA, Quartz/AX, xdotool/AT-SPI); honest degradation on Wayland/headless/missing TCC grants. macOS: Accessibility is asked when Jarvis first types, clicks or focuses a window, Screen Recording at the first user-started capture; AX reads never prompt, and nothing is asked at launch |
+| Computer-Use / desktop actions (click, type, hotkey, scroll, drag, windows, apps, screenshots, UI trees) | Full per-OS backends (Win32/UIA, Quartz/AX, xdotool/AT-SPI); honest degradation on Wayland/headless/missing TCC grants. macOS: Accessibility is asked when Dodaios first types, clicks or focuses a window, Screen Recording at the first user-started capture; AX reads never prompt, and nothing is asked at launch |
 | On-demand Screen Context | One-shot capture is wired into the production brain on Windows, macOS, and Linux/X11; UIA/AX/AT-SPI text is source-filtered, the indicator precedes capture, and Wayland/headless/missing grants refuse honestly (on macOS a flat wallpaper-only frame is refused, never delivered) |
 | Appshots (front-window capture on a shortcut, button or request) | Capture, privacy and delivery are OS-neutral (Screen Context engine, `jarvis/appshot`). The two-sided shortcuts (both Alt, both Shift, both Ctrl) read key state per OS: Windows `GetAsyncKeyState`, macOS `CGEventSourceKeyState` (whether this read needs the Input Monitoring grant is UNVERIFIED; the repo contradicts itself and no Mac measured it, so it is not an Input Monitoring row — see `docs/macos-permissions.md`), Linux/X11 `XQueryKeymap`; Wayland/headless report it unavailable on the Appshots page. The flash and the area picker (both Shift keys, drag a rectangle) are PySide6 overlays where one can run; Wayland/headless report the area picker unavailable. Verified live on Windows only; see `docs/appshots.md` |
 | Voice / audio (capture, playback, VAD, wake, STT, TTS, realtime) | Clean; a headless host has no local voice stack, so the browser that presses Start holds the call over `/ws/audio` (realtime, or the classic STT → brain → TTS bridge while `[browser_voice].enabled`, the default — issue #399); WASAPI logic is inert-by-data off Windows. macOS microphone: asked at the first dictation, push-to-talk, voice session, wake-word switch or mic self-test, never at launch (2026-10-02 pass) |
@@ -1147,12 +1244,14 @@ implementations, not stubs.
 | On-demand Screen Context | One-shot capture is wired into the production brain on Windows, macOS, and Linux/X11; UIA/AX/AT-SPI text is source-filtered, the indicator precedes capture, and Wayland/headless/missing grants refuse honestly |
 | Appshots (front-window capture on a shortcut, button or request) | Capture, privacy and delivery are OS-neutral (Screen Context engine, `jarvis/appshot`). The two-sided shortcuts (both Alt, both Shift, both Ctrl) read key state per OS: Windows `GetAsyncKeyState`, macOS `CGEventSourceKeyState` (Input Monitoring grant), Linux/X11 `XQueryKeymap`; Wayland/headless report it unavailable on the Appshots page. The flash and the area picker (both Shift keys, drag a rectangle, then mark it up with its toolbar) are PySide6 overlays where one can run; the markings are burnt into the capture with Pillow on every OS (`jarvis/appshot/markup.py`); Wayland/headless report the area picker unavailable. The appshot editor is web code and behaves the same everywhere; its Copy, and every shortcut or button appshot, writes the picture natively in several formats (`jarvis/platform/clipboard_image.py`): Windows the registered PNG format + `CF_DIB`, macOS `public.png` + `public.tiff` via `osascript -l JavaScript`, Linux `wl-copy` or `xclip`; the editor falls back to the browser clipboard without them. Save goes to `~/Downloads` on every OS. Verified live on Windows only; see `docs/appshots.md` |
 | Voice / audio (capture, playback, VAD, wake, STT, TTS, realtime) | Clean; a headless host has no local voice stack, so the browser that presses Start holds the call over `/ws/audio` (realtime, or the classic STT → brain → TTS bridge while `[browser_voice].enabled`, the default — issue #399); WASAPI logic is inert-by-data off Windows |
+| Appshots (front-window capture on a shortcut, button or request) | Capture, privacy and delivery are OS-neutral (Screen Context engine, `jarvis/appshot`). The two-sided shortcuts (both Alt, both Shift, both Ctrl) read key state per OS: Windows `GetAsyncKeyState`, macOS `CGEventSourceKeyState` (Input Monitoring grant), Linux/X11 `XQueryKeymap`; Wayland/headless report it unavailable on the Appshots page. The flash and the area picker (both Shift keys, drag a rectangle, then mark it up with its toolbar) are PySide6 overlays where one can run. The main instance prepares their runtimes after wake-ready without capturing pixels; selections reuse Qt but release all screen images and windows after completion. The markings are burnt into the capture with Pillow on every OS (`jarvis/appshot/markup.py`); Wayland/headless report the area picker unavailable. The appshot editor is web code and behaves the same everywhere; its Copy, and every shortcut or button appshot, writes the picture natively in several formats (`jarvis/platform/clipboard_image.py`): Windows the registered PNG format + `CF_DIB`, macOS `public.png` + `public.tiff` via `osascript -l JavaScript`, Linux `wl-copy` or `xclip`; the editor falls back to the browser clipboard without them. Save goes to `~/Downloads` on every OS. Verified live on Windows only; see `docs/appshots.md` |
+| Voice / audio (capture, playback, VAD, wake, STT, TTS, realtime) | Clean; headless disables voice honestly; WASAPI logic is inert-by-data off Windows |
 | Core (launcher, config, keyring, restart, autostart, tray, elevation, paths) | Clean; per-OS autostart (Registry / LaunchAgent / XDG `.desktop`), keyring falls back to a 0600 file on headless hosts |
 | Data / agents (wiki, contacts, telephony, sessions, missions, skills, self-mod, channels, MCP) | Clean; mission workers run on POSIX with a real process-group reaper |
 | Agent society hands (own shell, browser via browser-use, learned skills) | Shell: local subprocess in the agent's workspace on every OS (Git Bash/PowerShell/bash/sh pick as the chat's folder tools), no container by decision. Browser: browser-use lives in a managed venv under the data dir (its pins collide with the app's), installed on demand — `uv`/`venv`, a 3.11–3.13 interpreter preferred, Chromium downloaded once; headless runs need no display, so a headless Linux box runs agents' browsers; the headed login session needs a display (409 without one is the follow-up); attach mode needs a running Chrome with `--remote-debugging-port`. Learning is pure files + the brain, OS-neutral |
 | Agent society substrate (roster, typed board, scheduler, rooms, mission bridge, `/api/society`) | Clean; pure asyncio + SQLite (`data/society.db`, WAL) and FastAPI, no OS API, no GPU, no audio. Full REST parity from a headless `python:3.11-slim` (`tests/contract/test_society_substrate.py` covers messages, rename with stable agent/chat IDs, and archive). The agent sidebar's hide choice is a browser-local display preference on every desktop OS; it does not change roster state. The dynamic `jarvis api society …` CLI layer covers every route. FTS5 over knowledge summaries is optional — a SQLite without it degrades to plain reads (same class as P-05). Per-agent screens (`agent_screen`) are M6 and keep their own per-OS probes |
 
-| Typed chat on the Jarvis surface (brain runner, folder tools, approval card, CLI seats as Jarvis) | Clean; pure asyncio + SQLite, no OS API. Every CLI spawn keeps `NO_WINDOW_CREATIONFLAGS` and UTF-8 stdio. The identity for a Claude Code seat travels as a FILE under the app data dir (`jarvis_harness.write_identity_file`, removed after the turn) because Windows caps a command line at 32 767 characters; Codex and agy take it on stdin (no limit), Grok Build a compact cut on argv (`COMPACT_MAX_CHARS`). The MCP session header and the approval bridge are transport-level and OS-neutral |
+| Typed chat on the Dodaios surface (brain runner, folder tools, approval card, CLI seats as Dodaios) | Clean; pure asyncio + SQLite, no OS API. Every CLI spawn keeps `NO_WINDOW_CREATIONFLAGS` and UTF-8 stdio. The identity for a Claude Code seat travels as a FILE under the app data dir (`jarvis_harness.write_identity_file`, removed after the turn) because Windows caps a command line at 32 767 characters; Codex and agy take it on stdin (no limit), Grok Build a compact cut on argv (`COMPACT_MAX_CHARS`). The MCP session header and the approval bridge are transport-level and OS-neutral |
 
 Persistent Society agent teams use the same SQLite and FastAPI capability on Windows, macOS, and Linux. Membership lives in `society.db`; the frontend opens two existing canonical agent chats side by side with separate socket stores. Grouping never changes agent permissions, routing, or chat history. Headless membership persistence is covered by `tests/contract/test_society_substrate.py::test_persistent_group_membership_headless`.
 
@@ -1163,10 +1262,10 @@ experiences today.
 
 | # | Impact | Area | Gap | Evidence | Behavior off-Windows |
 |---|---|---|---|---|---|
-| P-29 | Low | Subscription voice | The dedicated ChatGPT-subscription voice login is an interactive browser flow, so a headless Linux host — and a graphical Linux desktop that ships no terminal emulator able to host the login for its full lifetime — can never CONNECT the profile there (an existing login still reports ready and calls work through the browser voice bridge) | `jarvis/codex_app_server.py::_login_required_state`, `_linux_login_terminal_missing`, `start_codex_subscription_login`, `jarvis/codex_auth.py::_LINUX_LOGIN_TERMINALS` | Both cases report the same `lifecycle_unavailable` truth on every surface (card, activation, voice-mode, Test), each with its own actionable reason — "run Jarvis on a desktop" or "install one of these terminals" — and never an enabled Connect button that can only produce an error toast |
-| P-24 | Medium | Dictation shortcut | The global dictation/call shortcut needs `pynput` on Linux/X11, and `pynput` hard-requires `evdev` — which is published **source-only** (verified on PyPI 2026-07-28: evdev 1.9.3 ships an sdist and no wheels) and compiles against the kernel headers. Putting it in `[full]` would break the one advertised install path on a stock `python:3.11-slim`, so it is the opt-in `[desktop-linux]` extra instead. Wayland is a separate, unfixable-by-install case: the compositor owns global shortcuts by design (the XDG `GlobalShortcuts` portal lets the *compositor* assign the keys, and no wlroots compositor implements it at all) | `pyproject.toml` (`desktop-linux`), `jarvis/platform/probes.py::has_hotkey`, `jarvis/trigger/backends/noop.py::explain_unavailable` | X11 without the extra: no global shortcut, and the log/UI now names the actual cause and the exact `pip install` that fixes it (it used to blame Wayland unconditionally). Wayland: no global shortcut at all — bind a compositor shortcut to `jarvis api dictation start`. On both, dictation still works from the Jarvis Bar, the Dictation view and the CLI, and voice still works via the wake word |
-| P-25 | Medium | Dictation insertion | Pasting the transcript into another application is blocked, silently, in three OS-specific situations: Windows UIPI when the foreground window is elevated and Jarvis is not (`SendInput` reports success and the input is discarded), macOS Secure Input while a password field is focused, and Wayland outright (no synthetic input). Detection exists for the first two; Wayland is refused up front. Two further silent failures are Windows-only in their FIX: a chord the target does not bind as "paste" (an xterm.js terminal in a Tauri/Electron app swallows Ctrl+V as `^V`), and a target that reads the clipboard late (an async WebView bridge on a busy machine) after the 120 ms restore timer had already put the previous clipboard back | `jarvis/dictation/insert.py::describe_target`, `_insert_windows_verified`, `jarvis/platform/clipboard_offer.py`, `jarvis/platform/input_isolation.py::windows_foreground_window_is_elevated`, `macos_secure_input_enabled` | All three blocks degrade to the SAME honest outcome instead of silence: the transcript is left on the clipboard, the result is reported as `clipboard_only`, and the bar plus the Dictation view say why and that Ctrl+V will paste it. **Windows** offers the text with delayed rendering and sends exactly one configured paste shortcut. Only a render requested by the captured target process confirms clipboard consumption; merely opening the clipboard or a watcher reading it is not confirmation. A missing acknowledgement never triggers another shortcut, character typing, or an executable-wide learned route. Unconfirmed delivery reports `paste_sent` and leaves the transcript on the clipboard for a late or manual paste, without a restore timer. Focus changes or held modifiers before key emission leave the text available as `clipboard_only`. Confirmed reads may restore the previous clipboard only while the offer still owns it. The explicit typing setting remains available. Regression tests cover delayed readers, watchers, focus changes, and offer shutdown; these checks do not establish compatibility with every third-party editor. **macOS / Linux X11**: plain chord + 120 ms timer restore, unchanged — on macOS the first paste asks for Accessibility (`dictation_insert`, at the gesture), without it the result is `clipboard_only` with the reason, and the first paste after an in-process grant reports `paste_sent` until delivery is observed (unverified on a Mac) — no delayed-rendering equivalent exists there (NSPasteboard promises and X11 selections notify the owner too, but are a follow-up). macOS Secure Input detection is implemented but has not been verified on real hardware from this machine |
-| P-25 | Medium | Dictation insertion | Pasting the transcript into another application is blocked, silently, in three OS-specific situations: Windows UIPI when the foreground window is elevated and Jarvis is not (`SendInput` reports success and the input is discarded), macOS Secure Input while a password field is focused, and Wayland outright (no synthetic input). Detection exists for the first two; Wayland is refused up front. Two further silent failures are Windows-only in their FIX: a chord the target does not bind as "paste" (an xterm.js terminal in a Tauri/Electron app swallows Ctrl+V as `^V`), and a target that reads the clipboard late (an async WebView bridge on a busy machine) after the 120 ms restore timer had already put the previous clipboard back | `jarvis/dictation/insert.py::describe_target`, `_insert_windows_verified`, `jarvis/platform/clipboard_offer.py`, `jarvis/platform/input_isolation.py::windows_foreground_window_is_elevated`, `macos_secure_input_enabled` | All three blocks degrade to the SAME honest outcome instead of silence: the transcript is left on the clipboard, the result is reported as `clipboard_only`, and the bar plus the Dictation view say why and that Ctrl+V will paste it. **Windows** offers the text with delayed rendering and sends exactly one configured paste shortcut. Only a render requested by the captured target process confirms clipboard consumption; merely opening the clipboard or a watcher reading it is not confirmation. A missing acknowledgement never triggers another shortcut, character typing, or an executable-wide learned route. Unconfirmed delivery reports `paste_sent` and leaves the transcript on the clipboard for a late or manual paste, without a restore timer. Focus changes or held modifiers before key emission leave the text available as `clipboard_only`. Confirmed reads may restore the previous clipboard only while the offer still owns it. The explicit typing setting remains available. Regression tests cover delayed readers, watchers, focus changes, and offer shutdown; these checks do not establish compatibility with every third-party editor. **macOS / Linux X11**: plain chord + 120 ms timer restore, unchanged — no delayed-rendering equivalent exists there (NSPasteboard promises and X11 selections notify the owner too, but are a follow-up). macOS Secure Input detection is implemented but has not been verified on real hardware from this machine |
+| P-29 | Low | Subscription voice | The dedicated ChatGPT-subscription voice login is an interactive browser flow, so a headless Linux host — and a graphical Linux desktop that ships no terminal emulator able to host the login for its full lifetime — can never CONNECT the profile there (an existing login still reports ready and calls work through the browser voice bridge) | `jarvis/codex_app_server.py::_login_required_state`, `_linux_login_terminal_missing`, `start_codex_subscription_login`, `jarvis/codex_auth.py::_LINUX_LOGIN_TERMINALS` | Both cases report the same `lifecycle_unavailable` truth on every surface (card, activation, voice-mode, Test), each with its own actionable reason — "run Dodaios on a desktop" or "install one of these terminals" — and never an enabled Connect button that can only produce an error toast |
+| P-24 | Medium | Dictation shortcut | The global dictation/call shortcut needs `pynput` on Linux/X11, and `pynput` hard-requires `evdev` — which is published **source-only** (verified on PyPI 2026-07-28: evdev 1.9.3 ships an sdist and no wheels) and compiles against the kernel headers. Putting it in `[full]` would break the one advertised install path on a stock `python:3.11-slim`, so it is the opt-in `[desktop-linux]` extra instead. Wayland is a separate, unfixable-by-install case: the compositor owns global shortcuts by design (the XDG `GlobalShortcuts` portal lets the *compositor* assign the keys, and no wlroots compositor implements it at all) | `pyproject.toml` (`desktop-linux`), `jarvis/platform/probes.py::has_hotkey`, `jarvis/trigger/backends/noop.py::explain_unavailable` | X11 without the extra: no global shortcut, and the log/UI now names the actual cause and the exact `pip install` that fixes it (it used to blame Wayland unconditionally). Wayland: no global shortcut at all — bind a compositor shortcut to `jarvis api dictation start`. On both, dictation still works from the Dodaios Bar, the Dictation view and the CLI, and voice still works via the wake word |
+| P-25 | Medium | Dictation insertion | Pasting the transcript into another application is blocked, silently, in three OS-specific situations: Windows UIPI when the foreground window is elevated and Dodaios is not (`SendInput` reports success and the input is discarded), macOS Secure Input while a password field is focused, and Wayland outright (no synthetic input). Detection exists for the first two; Wayland is refused up front. Two further silent failures are Windows-only in their FIX: a chord the target does not bind as "paste" (an xterm.js terminal in a Tauri/Electron app swallows Ctrl+V as `^V`), and a target that reads the clipboard late (an async WebView bridge on a busy machine) after the 120 ms restore timer had already put the previous clipboard back | `jarvis/dictation/insert.py::describe_target`, `_insert_windows_verified`, `jarvis/platform/clipboard_offer.py`, `jarvis/platform/input_isolation.py::windows_foreground_window_is_elevated`, `macos_secure_input_enabled` | All three blocks degrade to the SAME honest outcome instead of silence: the transcript is left on the clipboard, the result is reported as `clipboard_only`, and the bar plus the Dictation view say why and that Ctrl+V will paste it. **Windows** offers the text with delayed rendering and sends exactly one configured paste shortcut. Only a render requested by the captured target process confirms clipboard consumption; merely opening the clipboard or a watcher reading it is not confirmation. A missing acknowledgement never triggers another shortcut, character typing, or an executable-wide learned route. Unconfirmed delivery reports `paste_sent` and leaves the transcript on the clipboard for a late or manual paste, without a restore timer. Focus changes or held modifiers before key emission leave the text available as `clipboard_only`. Confirmed reads may restore the previous clipboard only while the offer still owns it. The explicit typing setting remains available. Regression tests cover delayed readers, watchers, focus changes, and offer shutdown; these checks do not establish compatibility with every third-party editor. **macOS / Linux X11**: plain chord + 120 ms timer restore, unchanged — on macOS the first paste asks for Accessibility (`dictation_insert`, at the gesture), without it the result is `clipboard_only` with the reason, and the first paste after an in-process grant reports `paste_sent` until delivery is observed (unverified on a Mac) — no delayed-rendering equivalent exists there (NSPasteboard promises and X11 selections notify the owner too, but are a follow-up). macOS Secure Input detection is implemented but has not been verified on real hardware from this machine |
+| P-25 | Medium | Dictation insertion | Pasting the transcript into another application is blocked, silently, in three OS-specific situations: Windows UIPI when the foreground window is elevated and Dodaios is not (`SendInput` reports success and the input is discarded), macOS Secure Input while a password field is focused, and Wayland outright (no synthetic input). Detection exists for the first two; Wayland is refused up front. Two further silent failures are Windows-only in their FIX: a chord the target does not bind as "paste" (an xterm.js terminal in a Tauri/Electron app swallows Ctrl+V as `^V`), and a target that reads the clipboard late (an async WebView bridge on a busy machine) after the 120 ms restore timer had already put the previous clipboard back | `jarvis/dictation/insert.py::describe_target`, `_insert_windows_verified`, `jarvis/platform/clipboard_offer.py`, `jarvis/platform/input_isolation.py::windows_foreground_window_is_elevated`, `macos_secure_input_enabled` | All three blocks degrade to the SAME honest outcome instead of silence: the transcript is left on the clipboard, the result is reported as `clipboard_only`, and the bar plus the Dictation view say why and that Ctrl+V will paste it. **Windows** offers the text with delayed rendering and sends exactly one configured paste shortcut. Only a render requested by the captured target process confirms clipboard consumption; merely opening the clipboard or a watcher reading it is not confirmation. A missing acknowledgement never triggers another shortcut, character typing, or an executable-wide learned route. Unconfirmed delivery reports `paste_sent` and leaves the transcript on the clipboard for a late or manual paste, without a restore timer. Focus changes or held modifiers before key emission leave the text available as `clipboard_only`. Confirmed reads may restore the previous clipboard only while the offer still owns it. The explicit typing setting remains available. Regression tests cover delayed readers, watchers, focus changes, and offer shutdown; these checks do not establish compatibility with every third-party editor. **macOS / Linux X11**: plain chord + 120 ms timer restore, unchanged — no delayed-rendering equivalent exists there (NSPasteboard promises and X11 selections notify the owner too, but are a follow-up). macOS Secure Input detection is implemented but has not been verified on real hardware from this machine |
 | P-04 | Medium | CU typing | Linux desktop Unicode text input needs the system `xdotool` binary (pip cannot install it); the pyautogui fallback used on Linux drops non-ASCII chars (umlauts, CJK, emoji) without it | `jarvis/cu/actuate/posix.py::type_text`, `jarvis/plugins/tool/type_text.py` | With `xdotool` (installer provisions it since 2026-07-15): fine. Without, the drop is now reported HONESTLY (2026-07-23): an all-non-ASCII text fails with an actionable "install xdotool" error, and a mixed text types its ASCII portion and warns that the rest was dropped — no more silent success |
 | P-05 | Low | Wiki | Wiki search hard-fails (RuntimeError with actionable apt/pysqlite3 remediation) on distros whose system SQLite lacks FTS5 | `jarvis/memory/wiki/fts_index.py:279` | `python:3.11-slim` and macOS ship FTS5 — only exotic/old distros affected; message is honest. Decision 2026-07-16: kept as honest hard error — a pysqlite3 shim would rewire seven wiki modules for an exotic audience |
 | P-07 | Low | Audio | No macOS/Linux host-API preference exists (the Windows-name-driven tables are intentionally inert off Windows — documented in-code since 2026-07-16), and headset-name heuristics are Windows-centric | `jarvis/audio/player.py`, `jarvis/audio/capture.py` | Device auto-pick falls back to OS default order — works, less clever than on Windows |
@@ -1182,7 +1281,7 @@ experiences today.
 | P-18 | Low | Agent accounts | Multi-subscription switching gives each account its own CLI config directory (`CLAUDE_CONFIG_DIR` / `CODEX_HOME`) — the CLIs' own documented override. On macOS, Claude Code keeps its credentials in the **Keychain** rather than in that directory, and whether a second config dir earns a second Keychain entry is UNVERIFIED on this hardware (everything here was measured on Windows) | `jarvis/agent_accounts.py::describe`, `env_overrides` | Windows/Linux: a second Claude seat works as designed (its `.credentials.json` lives in its own folder). macOS: the added account may come back reporting **"Not signed in"** after a completed sign-in — which is the honest outcome, not a crash: the switcher never claims a login it cannot read, so a pane is never silently routed to the first account's credentials. Codex is unaffected on all three OSes (`auth.json` is a plain file). Next Mac session: add a second Claude account, sign in, and check whether `describe()` reports it connected |
 
 | P-20 | Low | Coding-CLI panes | Kimi Code panes deliberately ship WITHOUT multi-subscription switching, unlike Claude Code and Codex. Three independent reasons, all recorded on the registry entry: the wound-down Python generation ignores `KIMI_CODE_HOME` entirely, so seats created on a machine that has it would all silently resolve to one login; its configuration and its credentials share a single `config.toml`, so no setup can be carried to a new seat without carrying the key with it; and its credential layout is unverified against a live install of the current generation | `jarvis/workspace/agents.py` (the `kimi` entry), `jarvis/agent_accounts.py::platforms` | All OSes: one Kimi login, and the account switcher honestly does not offer the CLI at all rather than showing a switch that does nothing. Unblocked by verifying the current generation's credential layout and gating the override on the generation probe |
-| P-22 | Low | Orb window | The floating orb window (both looks: the Gigi mascot and the procedural **voice orb**) is a Tk window whose transparency comes from a colour key. Windows keys it out natively; macOS uses Aqua-Tk's `-transparent` in the companion host; on Linux the attribute is accepted only under a **compositing** window manager, and not at all on Wayland | `ui/orb/overlay.py::_apply_color_key`, `_build_renderer`, `jarvis/ui/jarvisbar/host.py::_build_surface` | Windows/macOS: full parity, including drag-to-any-monitor and the live mascot↔voice-orb switch. Linux with a compositor (GNOME/KDE/picom): works. Linux without one, and Wayland: the window would be an opaque magenta square, so it is NOT shown — the surface logs one actionable English line and stays hidden; voice, tray and the app window are unaffected. Note the Jarvis Bar degrades DIFFERENTLY on such a session (it keeps drawing and shows its key colour — pre-existing, the `transparentcolor unsupported` branch in `jarvis/ui/jarvisbar/overlay.py::JarvisBarOverlay.start`), so "None (hidden)" is the honest display style on a non-compositing Linux desktop until the bar adopts the same gate |
+| P-22 | Low | Orb window | The floating orb window (both looks: the Gigi mascot and the procedural **voice orb**) is a Tk window whose transparency comes from a colour key. Windows keys it out natively; macOS uses Aqua-Tk's `-transparent` in the companion host; on Linux the attribute is accepted only under a **compositing** window manager, and not at all on Wayland | `ui/orb/overlay.py::_apply_color_key`, `_build_renderer`, `jarvis/ui/jarvisbar/host.py::_build_surface` | Windows/macOS: full parity, including drag-to-any-monitor and the live mascot↔voice-orb switch. Linux with a compositor (GNOME/KDE/picom): works. Linux without one, and Wayland: the window would be an opaque magenta square, so it is NOT shown — the surface logs one actionable English line and stays hidden; voice, tray and the app window are unaffected. Note the Dodaios Bar degrades DIFFERENTLY on such a session (it keeps drawing and shows its key colour — pre-existing, the `transparentcolor unsupported` branch in `jarvis/ui/jarvisbar/overlay.py::JarvisBarOverlay.start`), so "None (hidden)" is the honest display style on a non-compositing Linux desktop until the bar adopts the same gate |
 | P-44 | Low | Desktop pet | The `pet` display style (an animated pixel-art companion with a control strip and a status bubble, `docs/pets.md`) is a third look of the same orb window, so it inherits P-22's transparency rules. Pixel art has hard edges, so the colour key leaves no fringe. Its shortcut (`[trigger] hotkey_pet_toggle`, default `alt+win+p`, which macOS reads as Cmd+Option+P) goes through the shared hotkey backends. The topmost re-assert and the capture exclusion are Windows-only calls behind a platform check | `ui/orb/overlay.py` (pet style), `ui/orb/pet_renderer.py`, `ui/orb/controls.py` (pet strip), `jarvis/ui/jarvisbar/host.py` / `subprocess_overlay.py` (pet commands), `jarvis/ui/pets/` | Windows: verified live. macOS: the pet runs in the companion host over the existing protocol (contract-tested, not run live). Linux with a compositor: expected to work (not run live); without one, and Wayland: hidden like P-22, and the shortcut is a no-op on Wayland. Headless: no window; the Pets settings page and `/api/pets` still work |
 | P-21 | Low | Coding-CLI panes | OpenCode panes ship single-login for the same class of reason: the only variable that moves its credentials and session database is `XDG_DATA_HOME`, which is a SHARED variable rather than a dedicated override — redirecting it per pane would also redirect any other XDG-aware tool the agent spawns inside that pane | `jarvis/workspace/agents.py` (the `opencode` entry) | All OSes: one OpenCode login. Verified on Windows that `XDG_DATA_HOME` does move `auth.json` and the session database; the blast radius on macOS and Linux has not been measured, which is why it is not wired up |
 | P-38 | Low | Coding-CLI panes | Antigravity (`agy`) panes ship single-login. `GEMINI_HOME` would move the login, but it is a shared variable (the Gemini CLI, mission workers and the pane would all follow it), and `agy` has no `login` subcommand to point at an account directory — sign-in lives on the API-Keys page. The installer is OS-split (`install.ps1` on Windows, `install.sh` elsewhere); the binary also lands in `%LOCALAPPDATA%\agy\bin` on Windows, which `path_augment` already probes | `jarvis/workspace/agents.py` (the `antigravity` entry), `jarvis/google_cli/auth_service.py`, `jarvis/core/path_augment.py` | All OSes: one Google login, and the account switcher does not offer the CLI. Unblocked by a dedicated override that does not also redirect the Gemini CLI |
@@ -1195,8 +1294,8 @@ experiences today.
 | P-28 | Low | Local realtime | The one-click managed install AND the 2026-08-08 supervisor (prewarm, pidfile ownership, start/stop routes, Ollama keep-alive warm ping) are built cross-platform — pathlib, `os.name` venv layout with a POSIX `lib/python*/site-packages` glob, per-hardware torch flavor, `start_new_session` + `killpg` SIGTERM→SIGKILL escalation on POSIX, `HF_HUB_DISABLE_SYMLINKS` Windows-only — but have only been RUN on the Windows dev box. The preflight narrows the SHARED accelerator probe to the two sources this stack can drive -- NVIDIA VRAM (nvidia-smi) and Apple-Silicon unified memory (total RAM), which the derived launch command maps to `cuda`/`mps`. The shared probe itself also reads AMD and Intel cards now (BUG-206), for the local-model fit verdicts; the preflight deliberately drops those to `(0.0, "none")` via `_DRIVEABLE_SOURCES`, because clearing the memory floor and then launching with a torch device the box does not have is worse than the refusal. An AMD/Intel/no-nvidia-smi host therefore still gets the honest "no supported accelerator" blocker (unit-tested) | `jarvis/realtime/local_server/{preflight,install,supervisor}.py` | Any host under 12 GB usable accelerator memory (including every GPU-less/headless box) gets the honest blocker with a cloud pointer instead of an install — verified by unit tests. macOS Apple-Silicon: preflight and install should work but the smoke boot (`--qwen3_tts_device mps`) is UNVERIFIED on real hardware; a failure is honest (install ends in an error state naming the smoke log, readiness stays fail-closed). Linux+NVIDIA: expected to work via the same cu130 wheel index, unverified; the supervisor's POSIX kill/spawn branches are unit-tested but not live-run. The bring-your-own-server URL socket keeps full parity everywhere |
 | P-30 | Medium | Local STT on the GPU | The on-device CTranslate2 recognizer (faster-whisper) needs the cuBLAS 12 / cuDNN 9 runtime wheels, which the `[full]` profile deliberately does not carry. Without them the engine self-heals onto the CPU and, until 2026-08-22, nothing but a log line said so (36 silent fallbacks in one live log; the cloud fallback then ran at ~1× realtime). The wheels are now the opt-in `[cuda]` extra, the provider card reports the accelerator truth (`accelerator_status`: requested device, effective device, reason code) and offers the install from inside the app (`POST /api/local-gpu/libraries`), and the library probe is a pure on-disk look — the out-of-process inference probe (AP-25) remains the only verdict on whether the GPU WORKS | `jarvis/plugins/stt/fwhisper.py::cuda_runtime_libraries_present`, `GPU_LIBRARY_PACKAGES`, `jarvis/speech/local_models.py::accelerator_status`, `jarvis/speech/local_install.py::start_gpu_libraries_install` | Windows: verified live on the dev box (install → `ctranslate2.get_cuda_device_count() == 1`, base/cuda decode). Linux: the same wheels land in `nvidia/cublas/lib`; the probe also accepts a system-wide CUDA via `ctypes.util.find_library("cublas")` — expected to work, UNVERIFIED on real hardware. macOS: no CUDA exists; the card says `unsupported_os` and the recognizer runs on the CPU with no install offered. Headless/GPU-less Linux: libraries absent → honest `cuda_libraries_missing` when the config asks for `cuda`, silent when it asks for `cpu` |
 
-| P-32 | Low | Local models | The in-app Ollama runtime install (the plug-and-go path for local models: detect → install → start → pull, no terminal) has one silent path per OS and an honest refusal elsewhere: Windows uses winget or the official per-user OllamaSetup.exe (built, not yet live-run on a machine WITHOUT Ollama); macOS automates only Homebrew — a dmg drag cannot be scripted honestly, so brew-less Macs get the download pointer; Linux runs the official install.sh only when non-interactive sudo exists (the script escalates internally; without it the refusal names the one terminal command instead of hanging on an invisible password prompt). Detection and start are cross-platform. **Stop** (2026-08-24) touches only the pid Jarvis itself spawned, recorded in `DATA_DIR/ollama_server.pid` beside the log: psutil `terminate` then `kill` after 8 s on all three OSes; a tray-app / terminal / systemd server gets the sentence "not started by Jarvis — stop it where you started it", a recycled pid is never signalled. **Log** = the last N lines of `DATA_DIR/ollama_server.log` (UTF-8, lossy-safe) — the file exists only for a server Jarvis started, identical on every OS. **Test** = `probe_host(base_url)` GET `/api/version` with a 3 s budget → version + latency, pure HTTP, any OS, any remote host. `runtime_status` adds `host_kind` (local vs remote by loopback / own hostname), `models_dir` (`OLLAMA_MODELS`, else Windows `%USERPROFILE%\.ollama\models`, macOS `~/.ollama/models`, Linux `/usr/share/ollama/.ollama/models` when present else `~/.ollama/models`) and `version`. The env guide is copyable text per OS (Windows `setx`, macOS `launchctl setenv`, Linux `systemctl edit ollama.service` drop-in) — the app never edits the OS environment. The voice brain (`brain_link`) and the ack brain fall back to the one configured Ollama address (`resolve_provider_endpoint("ollama")` → `OLLAMA_HOST` → localhost) when their own key is empty, so a remote host is set once | `jarvis/brain/ollama_runtime.py`, `jarvis/ui/web/provider_routes.py` (ollama-runtime routes), `jarvis/realtime/local_server/install.py::_setup_local_brain`, `jarvis/realtime/local_server/brain_link.py::_ollama_base`, `jarvis/brain/ack_brain/config.py::OllamaAckProviderConfig.resolved_endpoint` | Every OS gets the same three-state truth (not installed / stopped / running) and the same buttons; only the INSTALL leg differs. Refusals are one honest sentence with the exact fixing action. All install legs are unit-tested with fakes; no leg has been live-run on a machine without Ollama yet — the cold-machine drill is the recorded release gate. Stop / log / test / env guide / models_dir are unit-tested per OS with fakes (`tests/unit/brain/test_ollama_runtime.py`); a remote `host_kind` hides the local-only controls, so a LAN GPU box is managed on its own machine |
-| P-32 | Info | Local models | Per-model options (a derived profile alias via `/api/create` carrying `num_ctx`, placement and sampling; a `keep_alive` warm ping via `/api/generate`; `think` as `reasoning_effort` on `/v1`) are pure HTTP against the Ollama server root — no OS-specific leg, no subprocess, identical on Windows, macOS, Linux (headless included) and against a remote host | `jarvis/brain/ollama_profiles.py`, `jarvis/plugins/brain/ollama.py`, `jarvis/core/config_writer.py::set_ollama_model_options` | Same behaviour everywhere; the server does the work, Jarvis only names the alias. Unit-tested with an `httpx.MockTransport` fake server; `reasoning_effort` -> `think` verified live on Ollama 0.32.15 |
+| P-32 | Low | Local models | The in-app Ollama runtime install (the plug-and-go path for local models: detect → install → start → pull, no terminal) has one silent path per OS and an honest refusal elsewhere: Windows uses winget or the official per-user OllamaSetup.exe (built, not yet live-run on a machine WITHOUT Ollama); macOS automates only Homebrew — a dmg drag cannot be scripted honestly, so brew-less Macs get the download pointer; Linux runs the official install.sh only when non-interactive sudo exists (the script escalates internally; without it the refusal names the one terminal command instead of hanging on an invisible password prompt). Detection and start are cross-platform. **Stop** (2026-08-24) touches only the pid Dodaios itself spawned, recorded in `DATA_DIR/ollama_server.pid` beside the log: psutil `terminate` then `kill` after 8 s on all three OSes; a tray-app / terminal / systemd server gets the sentence "not started by Dodaios — stop it where you started it", a recycled pid is never signalled. **Log** = the last N lines of `DATA_DIR/ollama_server.log` (UTF-8, lossy-safe) — the file exists only for a server Dodaios started, identical on every OS. **Test** = `probe_host(base_url)` GET `/api/version` with a 3 s budget → version + latency, pure HTTP, any OS, any remote host. `runtime_status` adds `host_kind` (local vs remote by loopback / own hostname), `models_dir` (`OLLAMA_MODELS`, else Windows `%USERPROFILE%\.ollama\models`, macOS `~/.ollama/models`, Linux `/usr/share/ollama/.ollama/models` when present else `~/.ollama/models`) and `version`. The env guide is copyable text per OS (Windows `setx`, macOS `launchctl setenv`, Linux `systemctl edit ollama.service` drop-in) — the app never edits the OS environment. The voice brain (`brain_link`) and the ack brain fall back to the one configured Ollama address (`resolve_provider_endpoint("ollama")` → `OLLAMA_HOST` → localhost) when their own key is empty, so a remote host is set once | `jarvis/brain/ollama_runtime.py`, `jarvis/ui/web/provider_routes.py` (ollama-runtime routes), `jarvis/realtime/local_server/install.py::_setup_local_brain`, `jarvis/realtime/local_server/brain_link.py::_ollama_base`, `jarvis/brain/ack_brain/config.py::OllamaAckProviderConfig.resolved_endpoint` | Every OS gets the same three-state truth (not installed / stopped / running) and the same buttons; only the INSTALL leg differs. Refusals are one honest sentence with the exact fixing action. All install legs are unit-tested with fakes; no leg has been live-run on a machine without Ollama yet — the cold-machine drill is the recorded release gate. Stop / log / test / env guide / models_dir are unit-tested per OS with fakes (`tests/unit/brain/test_ollama_runtime.py`); a remote `host_kind` hides the local-only controls, so a LAN GPU box is managed on its own machine |
+| P-32 | Info | Local models | Per-model options (a derived profile alias via `/api/create` carrying `num_ctx`, placement and sampling; a `keep_alive` warm ping via `/api/generate`; `think` as `reasoning_effort` on `/v1`) are pure HTTP against the Ollama server root — no OS-specific leg, no subprocess, identical on Windows, macOS, Linux (headless included) and against a remote host | `jarvis/brain/ollama_profiles.py`, `jarvis/plugins/brain/ollama.py`, `jarvis/core/config_writer.py::set_ollama_model_options` | Same behaviour everywhere; the server does the work, Dodaios only names the alias. Unit-tested with an `httpx.MockTransport` fake server; `reasoning_effort` -> `think` verified live on Ollama 0.32.15 |
 | P-31 | Low | Detached views | The "own window" detach (Agentic IDE / Voice into a second pywebview window) creates the window at RUNTIME, after `webview.start()`. pywebview documents runtime multi-window, and the code path is OS-neutral (worker-thread create, distinct title, shared backend), but it has only been RUN against the Windows/WebView2 backend; whether the cocoa and GTK backends accept a runtime `create_window` is unverified from this machine. Browser-lock auth in the second window additionally relies on a shared cookie jar, which is verified for WebView2 only | `jarvis/ui/desktop_app.py::open_detached_window`, `jarvis/platform/probes.py::webview_backend_available`, `jarvis/ui/web/desktop_routes.py` | Every failure is honest and keeps the feature usable: a shell whose backend refuses the runtime create answers `ok: false` with the solo URL and the frontend opens it in the user's real browser tab (via open-external); plain-browser clients open the tab directly; headless answers `no_desktop_shell` the same way. macOS/Linux desktop live check pending: detach, close main, reattach, tray-reopen — on success this row shrinks to the cookie-jar note or disappears |
 | P-33 | Low | Music control (YouTube Music) | With the default **background player** (`jarvis/platform/music_player.py` + `music_player_host.py`: a pywebview companion window with its own persistent profile, driven over stdin/stdout JSON lines) pause / resume / next / previous / volume / "what is playing" go through the player's page directly and need only a display plus the `[desktop]` extra (pywebview) — verified live on Windows/WebView2 (a hidden window does NOT start media; minimized does, hence the minimized start); macOS WKWebView and Linux GTK/Qt WebKit are the same code, unverified from this machine, and autoplay policy there may need one press of play (the tool shows the window and says so). In **browser mode**, and wherever the player cannot run, the same verbs go through the OS media session — the registry the keyboard's media keys use — because Google publishes no remote-playback API. Windows reads and steers it through WinRT (`winrt-Windows.Media.Control`, in the `[desktop]` extra; measured live 2026-08-18 against YouTube Music in Chrome, including the two-tabs-same-app-id case) and falls back to blind media keys without the extra. Linux has no binding in the base install and needs the `playerctl` CLI (MPRIS); macOS has no public API at all and needs the Homebrew `nowplaying-cli`, whose MediaRemote access Apple has been narrowing on recent releases | `jarvis/platform/media_session.py::make_media_session_controller`, `WindowsMediaSession`, `LinuxMediaSession`, `MacMediaSession`, `jarvis/plugins/tool/youtube_music_rest.py::_control` | Playing (search + open the `music.youtube.com` deep link) works on every desktop OS. Without the CLI, `now_playing` and the transport verbs answer with the exact install command instead of a fake success, and the play deep link plus the library actions (like, playlists) stay fully usable. Headless: no player exists, so the tool returns the link and says so. Linux `playerctl` and macOS `nowplaying-cli` backends are unit-tested with fake CLI output, not live-run from this machine |
 | P-34 | Low | Drop-path bridge | The desktop shell reports the REAL path of a file or folder dropped onto the UI (`jarvis-native-drop` DOM event from `jarvis/ui/native_drop.py`, consumed by `src/lib/nativeDrop.ts` in the Agentic IDE folder picker). Built on pywebview's own cross-platform drop handling (`pywebviewFullPath` — WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux); live-verified for a dropped FOLDER on Windows/WebView2 only | `jarvis/ui/native_drop.py::register_native_drop`, `jarvis/ui/desktop_app.py::_register_native_drop`, `jarvis/ui/web/frontend/src/lib/nativeDrop.ts` | Honest degradation everywhere: without the announcement (plain browser, headless, a shell whose backend does not resolve paths) the picker falls back to searching for the dropped NAME after 2 s, exactly as before. macOS/Linux live check pending: drop a folder onto the folder step and confirm the exact path is used without a candidate list |
@@ -1210,7 +1309,7 @@ experiences today.
 
 ## Native installers (added 2026-08-25)
 
-Personal Jarvis is downloadable as a native installer on all three systems,
+Dodaios is downloadable as a native installer on all three systems,
 next to the one-line installer and pipx. Every artifact comes out of the same
 PyInstaller freeze of `jarvis.spec` and is published on the GitHub Release for
 the tag together with `installers-SHA256SUMS.txt`, which the in-app updater
@@ -1285,7 +1384,8 @@ build: the first release with this code needs one live update per OS.
 | P-41 | Medium | Dictation final pass | The dictation lane reads its final pass on the machine, in front of any configured cloud provider, through the same out-of-process worker the live preview uses (`jarvis.dictation.preview_worker`) with a stronger checkpoint (`[dictation].local_model`, default `large-v3-turbo`, `int8_float16`, beam 5). 2026-09-02 forensics: 220 of 220 dictations had run on a cloud recognizer the settings did not name, because the VOICE lane had been moved there to keep CUDA out of the desktop process, and the dictation lane inherited the move — round-trips as lag, near-empty answers on 25 s windows as "truncated window" repairs. The provider declines itself with a CROSSABLE failure (HTTP-503-shaped, `LocalEngineUnavailable`) so the configured provider is one step behind on every press and never a restart away: too little free accelerator memory (`[dictation].local_min_free_gb`, default 1.5; an UNKNOWN reading never blocks), a worker that only comes up on the CPU, a missing local runtime, a worker that died. A call abandoned at its ceiling leaves its answer in the pipe, so the next call kills that worker instead of reading it (AP-24) | `jarvis/dictation/local_final.py::LocalFinalSTT`, `jarvis/speech/pipeline.py::_dictation_local_final`, `_dictation_stt`, `jarvis/dictation/local_preview.py::_spawn_worker_model` (`compute`), `preview_worker.py` (`beam_size`, `segments`), `jarvis/hardware/detection.py::free_accelerator_gb` | Windows/Linux with an NVIDIA card and the local runtime: the final pass runs locally when ≥ 1.5 GB is free, else the cloud chain. macOS: no NVIDIA reading → the memory gate passes as unknown, and the worker's own device ladder decides; a CPU-only worker is declined for the final pass (a beam decode of a 25 s window on a CPU is slower than the cloud it would replace), so Apple Silicon stays on the configured provider until a Metal-backed runtime exists. Headless `python:3.11-slim` (no `faster-whisper`): the provider is never built and the chain is exactly what it was. Switch: `[dictation].local_engine = false`. Guards: `tests/unit/dictation/test_local_final.py`, `test_preview_worker.py` |
 | P-41 | Low | CLI install / connect terminal | Pressing **Install** or **Connect** in the CLI section opens a REAL terminal window and runs the command there, because an interactive OAuth login belongs in a shell the user can see and type into. That spawn was Windows-only until 2026-08-28 (`wt` -> `pwsh` -> `powershell`), so on macOS and Linux the two buttons reported "No external terminal available" and no CLI could be installed from the app at all. macOS now goes through `osascript` to Terminal.app, Linux through the first of seven emulators that exists (Debian's `x-terminal-emulator` alternative first, so the user's own default wins), and the window is held open afterwards the way `-NoExit` holds it on Windows. One install click now carries all the way to signed in: the terminal runs the install, refreshes PATH in that same shell, and continues into the CLI's login command, stopping at the first step that fails. The chain operator differs per OS on purpose — Windows PowerShell 5.1 is a possible fallback shell and `&&` is a parser error there, so the Windows spelling nests `if ($?)` instead | `jarvis/clis/external_terminal.py` (`_spawn_windows`, `_spawn_macos`, `_spawn_linux`, `chain_commands`, `path_refresh_command`), `jarvis/ui/web/cli_routes.py::spawn_external`, `tests/unit/clis/test_install_path.py` | Windows: verified live (wt path, composed install+login command). macOS/Linux: same code path, the branch itself unverified from this machine. A box with no screen has no window to open, so there the endpoint falls back to the in-app streaming install job and the UI says so instead of claiming a terminal appeared — a headless server can still install a CLI, it just cannot run an interactive login |
 | P-42 | High | Outbound sockets (every lane) | Every connection borrows an ephemeral port from a pool the OS owns, and a closed one keeps that port through TIME_WAIT. The ceiling and the linger differ per OS, and so does what gives out first: **Windows** 16 384 ports / 120 s — the tightest by far, and the port pool is what empties, which stops EVERY process on the machine from connecting (the desktop appears frozen, then heals itself when TIME_WAIT expires); **Linux** 28 232 ports / 60 s, but `RLIMIT_NOFILE` is normally the tighter of the two (1024 on a stock `python:3.11-slim`), so the backend dies of EMFILE while the desktop around it is fine; **macOS** 16 384 ports / 15 s, so it recovers fastest. BUG-215 was the Windows shape: an unjittered wake storm (one socket per pane, per window, per instance, all on one `visibilitychange`) on top of a standing per-call-client burn. The rule that follows is to cap the burst, never to widen a limit — code that fits the Windows budget fits everywhere | `jarvis/ui/web/frontend/src/lib/connectBudget.ts` (`jitteredDelay`, `spreadDelay`, `requestConnect`), `jarvis/core/http_pool.py` (`HttpClientPool`, `SyncHttpClientPool`, `default_limits`), `jarvis/core/socket_budget.py` (`read_platform_limits`, `take_census`, `SocketBudgetWatchdog`), `jarvis/realtime/local_server/supervisor.py::_port_open` (`SO_LINGER`) | Identical on all three: one shared connect budget in the frontend, pooled keep-alive clients in Python, and a watchdog armed by BOTH entry points (desktop shell and `--headless`) that reads the ceiling per platform — `netsh` on Windows (parsed as integers, because it translates its own field names), `/proc/sys/net/ipv4/ip_local_port_range` plus `RLIMIT_NOFILE` on Linux, `sysctl net.inet.ip.portrange.*` on macOS. A host that answers none of them falls back to the documented default and says the number was assumed; a host with no ceiling at all logs one line and throttles nothing, because a watchdog that cannot see must never be what stops the app working. macOS additionally refuses the system-wide socket table to an unprivileged process, so the census there counts this process only and labels the number a floor. Guards: `tests/contract/test_socket_budget.py` (all three hosts faked, plus a German and a Japanese `netsh`), `tests/unit/core/test_socket_budget_watchdog.py`, `jarvis/ui/web/frontend/src/lib/connectBudget.test.ts` |
-| P-45 | Medium | Hermes / OpenClaw agent runtimes | A society agent can run on Hermes or OpenClaw instead of Jarvis' own loop (docs/agent-runtimes.md), driven over ACP: Hermes as one `hermes acp` process per turn, every agent a profile of one Jarvis-owned Hermes data root (`<runtimes_root>/hermes-home/profiles/<agent>`, one shared dependency environment, prepared by the setup job); OpenClaw through `openclaw acp` against a supervised per-agent Gateway. Setup goes to the pinned `tested` release (`runtime-versions.json`) per OS: Hermes' `install.ps1` / `install.sh` at the pinned commit without browser tools or desktop control; OpenClaw as Jarvis' own copy with a private Node.js — `install.ps1 -NodeOnly` plus that Node's npm on Windows (no winget/UAC), `install-cli.sh --prefix` on macOS/Linux (no sudo). POSIX installer scripts are downloaded first and run under `set -euo pipefail`, so a missing `curl`/`git` or a failed download fails the job with a plain reason. Containment differs per OS exactly as for every CLI seat: a Job Object on Windows; a process group on POSIX plus a descendant tracker that also reaps children started under `setsid` (Hermes runs shell commands that way), found by tree walks and by a per-turn environment mark every descendant inherits, and a `gateway.pid` sweep that stops a Gateway a crashed app left behind (POSIX only — the Job Object already reaps it on Windows). Hermes' Windows home maintenance would register its data root's `bin` on the user's PATH; a `bin` file blocks that, POSIX uses `cli.expose_on_path: false`, and stale entries from older builds are removed once per run. Stop sends ACP `session/cancel` before any kill, and a stall watchdog ends a turn whose runtime stopped responding | `jarvis/agent_runtimes/` (`hermes.py`, `openclaw.py`, `base.py` (`which`, `RuntimeGate`, `HomeFileLock`, `posix_installer`, `windows_installer`), `manager.py`, `versions.py`, `runtime-versions.json`, `path_cleanup.py`), `jarvis/agent_chat/runner_cli.py` (ACP cancel + stall watchdog), `jarvis/core/process_tree.py::DescendantTracker`, `jarvis/core/path_augment.py::refresh_from_persistent_path` | Windows: verified 2026-10-07 with Hermes 0.21.5 and OpenClaw 2026.9.8 through the replay e2e spikes (both model-gateway protocols; Hermes prepare 37–45 s once, first turn 6.8–8.3 s; OpenClaw first turn 31–55 s including the Gateway cold start; the user PATH unchanged, checked against the registry), and through `tests/unit/agent_runtimes/` (fake ACP agent, fake OpenClaw CLI, injected registry). macOS/Linux: the same code paths; the setsid reaping, `flock` locks, `install-cli.sh` and `pipefail` wrapper run only on POSIX CI runners (unit tests, `agent-runtimes-canary.yml`), not verified on a real Mac or Linux desktop from this machine. Headless `python:3.11-slim`: nothing is installed or started unless an agent is switched to a runtime; without `curl`/`git` the setup fails with that reason instead of reporting success. Guards: `tests/unit/agent_runtimes/`, `tests/unit/society/test_agent_runtime_field.py` |
+| P-45 | Medium | Hermes / OpenClaw agent runtimes | A society agent can run on Hermes or OpenClaw instead of Dodaios' own loop (docs/agent-runtimes.md), driven over ACP: Hermes as one `hermes acp` process per turn, every agent a profile of one Dodaios-owned Hermes data root (`<runtimes_root>/hermes-home/profiles/<agent>`, one shared dependency environment, prepared by the setup job); OpenClaw through `openclaw acp` against a supervised per-agent Gateway. Setup goes to the pinned `tested` release (`runtime-versions.json`) per OS: Hermes' `install.ps1` / `install.sh` at the pinned commit without browser tools or desktop control; OpenClaw as Dodaios' own copy with a private Node.js — `install.ps1 -NodeOnly` plus that Node's npm on Windows (no winget/UAC), `install-cli.sh --prefix` on macOS/Linux (no sudo). POSIX installer scripts are downloaded first and run under `set -euo pipefail`, so a missing `curl`/`git` or a failed download fails the job with a plain reason. Containment differs per OS exactly as for every CLI seat: a Job Object on Windows; a process group on POSIX plus a descendant tracker that also reaps children started under `setsid` (Hermes runs shell commands that way), found by tree walks and by a per-turn environment mark every descendant inherits, and a `gateway.pid` sweep that stops a Gateway a crashed app left behind (POSIX only — the Job Object already reaps it on Windows). Hermes' Windows home maintenance would register its data root's `bin` on the user's PATH; a `bin` file blocks that, POSIX uses `cli.expose_on_path: false`, and stale entries from older builds are removed once per run. Stop sends ACP `session/cancel` before any kill, and a stall watchdog ends a turn whose runtime stopped responding | `jarvis/agent_runtimes/` (`hermes.py`, `openclaw.py`, `base.py` (`which`, `RuntimeGate`, `HomeFileLock`, `posix_installer`, `windows_installer`), `manager.py`, `versions.py`, `runtime-versions.json`, `path_cleanup.py`), `jarvis/agent_chat/runner_cli.py` (ACP cancel + stall watchdog), `jarvis/core/process_tree.py::DescendantTracker`, `jarvis/core/path_augment.py::refresh_from_persistent_path` | Windows: verified 2026-10-07 with Hermes 0.21.5 and OpenClaw 2026.9.8 through the replay e2e spikes (both model-gateway protocols; Hermes prepare 37–45 s once, first turn 6.8–8.3 s; OpenClaw first turn 31–55 s including the Gateway cold start; the user PATH unchanged, checked against the registry), and through `tests/unit/agent_runtimes/` (fake ACP agent, fake OpenClaw CLI, injected registry). macOS/Linux: the same code paths; the setsid reaping, `flock` locks, `install-cli.sh` and `pipefail` wrapper run only on POSIX CI runners (unit tests, `agent-runtimes-canary.yml`), not verified on a real Mac or Linux desktop from this machine. Headless `python:3.11-slim`: nothing is installed or started unless an agent is switched to a runtime; without `curl`/`git` the setup fails with that reason instead of reporting success. Guards: `tests/unit/agent_runtimes/`, `tests/unit/society/test_agent_runtime_field.py` |
+| P-46 | Low | Computers: this PC's SSH hosts and Tailscale | The add dialog lists the servers this PC's own `ssh` already knows and each computer can take a second address from Tailscale. Both read only local files or the local CLI, and both differ per OS only in where those live: `~/.ssh/config` and `~/.ssh/known_hosts` under the home folder (`%USERPROFILE%\.ssh` on Windows, where Git for Windows and the Windows OpenSSH client keep the same files), `Include` globs resolved relative to `~/.ssh` as OpenSSH does; the Tailscale CLI from `PATH`, else `C:\Program Files\Tailscale\tailscale.exe` (Windows) or the app bundle's `/Applications/Tailscale.app/Contents/MacOS/Tailscale` (macOS); Linux packages put it on `PATH`. A missing file, a missing CLI, a logged-out Tailscale or any error means simply nothing to offer. Every address a computer has must show the same pinned server identity, on every OS, so a second address can never reach a different machine | `jarvis/computers/ssh_config.py`, `jarvis/computers/tailscale.py` (`binary`, `peers`), `jarvis/computers/service.py` (`_open`, `add_route`), `jarvis/computers/ssh.py::key_files` | Windows: verified live 2026-10-08 (known_hosts read from `%USERPROFILE%`, no Tailscale installed: empty suggestions; routes, failover and the identity check against two local SSH servers). macOS/Linux: same code, unverified on a real box; the parsers are pure and covered by `tests/unit/computers/test_ssh_config_and_tailscale.py`, the failover by `tests/unit/computers/test_routes_and_switch.py`. Headless `python:3.11-slim`: no `~/.ssh`, no Tailscale: both lists are empty and nothing else changes |
 
 ## Agent conversation continuity and learning (2026-09-07)
 
@@ -1404,7 +1504,7 @@ See [source configuration and delivery limits](trigger-sources.md).
 
 ## Chat slash commands and persistent goals (2026-09-10)
 
-The Jarvis text chat and society cards share a command catalog, typed control
+The Dodaios text chat and society cards share a command catalog, typed control
 state, SQLite receipts and an independent goal supervisor. Windows, macOS and
 Linux use the same implementation. Opening a menu performs no model call.
 `/clear` and `/history` change browser presentation only; neither clears a
@@ -1625,7 +1725,7 @@ is not inferred from these checks.
 ## Managed browser sign-in (T2)
 
 The managed browser's explicit **Sign in** action uses installed regular Google
-Chrome on Windows with the existing Jarvis-owned persistent profile. It closes
+Chrome on Windows with the existing Dodaios-owned persistent profile. It closes
 Playwright/CDP first, retains native window capture and person-controlled input,
 and restores agent automation only after explicit handover and clean Chrome
 shutdown. The selected Chrome executable remains pinned to that profile across
@@ -1635,6 +1735,25 @@ The Windows browser worker retains one COM MTA usage cookie across capture
 sessions and releases it when the worker exits. This prevents the capture
 library's cached WinRT factories from outliving their apartment during manual
 handover. Each window still stops its capture and event threads on close.
+
+The shared turn-host client accepts a replacement reader's output only after
+the host acknowledges attachment. Earlier live frames remain in the host's
+replay buffer, so a fast process cannot displace the first replayed line.
+Failed attachments release their local reader and can retry with the host's
+authoritative process metadata. Socket tests exercise both paths without
+depending on Windows, macOS, or Linux scheduling speed.
+
+A stopped Windows popup capture discards its stale pixels and retries once while
+the same owned popup remains visible. Parked owned windows remain fully
+transparent and mouse-transparent. They clear the tool-window, app-window,
+and no-activate extended styles: native capture rejects the no-activate style
+when the app-window style is absent. Positioning still uses SWP_NOACTIVATE
+and keeps the owned window behind the application, including popup recovery.
+Input waits for the replacement's first
+frame. A repeated failure, failed restart, or unfinished capture cleanup reports
+an error instead of retaining an unusable preview or starting overlapping captures.
+Closing the popup resets its retry allowance. Regression tests use native-window
+fakes; this recovery does not establish a successful live Chrome sync or sign-in.
 
 macOS and Linux keep their existing managed browser behavior. They do not expose
 this sign-in capability because the current native capture/input implementation
@@ -1685,7 +1804,7 @@ grant changes; disabling AppShots stops its listeners. Both-modifier polling
 retains its existing behavior without inventing an unverified permission need.
 
 Windows and Linux/X11 retain their existing capture backends. Headless Linux and
-Wayland report unavailable support; Jarvis does not yet implement the Wayland
+Wayland report unavailable support; Dodaios does not yet implement the Wayland
 Screenshot portal. Installing a portal package alone does not enable AppShots.
 Backend availability never substitutes for a macOS grant and does not disable a
 supported Mac's first-use action merely because consent has not been requested.
@@ -1699,7 +1818,7 @@ physical modifier gestures, and Linux desktop sessions remain unverified here.
 The optional subscription provider uses the selected Codex account for native
 Live audio and delegated reasoning. API-key mode remains independently saved.
 Subscription authentication, quota or transport failures never switch to an
-API-key provider. Jarvis retains tool execution, confirmations and cancellation.
+API-key provider. Dodaios retains tool execution, confirmations and cancellation.
 
 Sign-in reuses an existing Codex CLI. When none is present, the user can prepare
 a private native login helper from settings without Node.js or npm. The helper
@@ -1726,3 +1845,19 @@ Agent notebook migration explicitly normalizes the final `USER.md` and
 `MEMORY.md` filename spelling on case-insensitive filesystems. The migration
 journal and backups continue to preserve the original content on every OS.
 The inherited-lock and migration recovery contracts run in the OS test shards.
+
+## Independent agent server and clients
+
+The opt-in independent server uses the existing headless backend on Windows,
+macOS and Linux. Its lifetime no longer depends on a desktop client, an idle
+timer or a desktop handover. Windows runs it in the user session rather than
+as a SYSTEM service. The client uses pywebview where installed; the same server
+also serves ordinary browsers. Remote origins require HTTPS or a local tunnel.
+
+Windows evidence covers the real headless process, readiness and explicit stop,
+the startup budget, and scripted disconnect/reconnect contracts for Dodaios,
+Hermes and OpenClaw. The shared lifecycle and configuration tests are portable;
+native macOS/GTK client windows and live remote-host/provider execution have
+not been verified by these checks. Device capture, wake word and overlays keep
+their existing device and permission requirements; opening a client does not
+grant the server access to that client's desktop.
