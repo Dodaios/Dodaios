@@ -27,8 +27,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from collections.abc import Callable, Sequence
-from typing import Final
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Final
 
 from .capabilities import CapabilityRow
 from .communication import COMMUNICATION_GUIDANCE
@@ -131,6 +131,7 @@ def render_lead_card(
     lead_id: str = LEAD_AGENT_ID,
     busy: Callable[[str], int] | None = None,
     terminals: Sequence[str] = (),
+    teams: Sequence[Mapping[str, Any]] = (),
 ) -> str:
     """The lead's system-prompt block.
 
@@ -162,6 +163,9 @@ def render_lead_card(
             "task would suit a standing agent, offer to set one up there — never invent "
             "an agent that is not on this card."
         )
+    team_lines = _team_lines(teams, {a.agent_id: a for a in team})
+    if team_lines:
+        parts.append("\n".join(team_lines))
     names = [str(t).strip() for t in terminals if str(t or "").strip()]
     if names:
         parts.append(
@@ -171,6 +175,35 @@ def render_lead_card(
         )
     parts.append(f"Roster epoch: {roster_epoch(team)}")
     return "\n\n".join(parts)
+
+
+def _team_lines(
+    teams: Sequence[Mapping[str, Any]], by_id: Mapping[str, AgentRecord]
+) -> list[str]:
+    """Teams that have their own lead: a goal for the team goes to that lead."""
+    rows: list[str] = []
+    for group in sorted(teams, key=lambda g: str(g.get("name") or "").casefold()):
+        lead = by_id.get(str(group.get("lead_agent_id") or ""))
+        if lead is None or str(lead.state) != "active":
+            continue
+        members = [
+            by_id[m].name
+            for m in group.get("members", [])
+            if m in by_id and m != lead.agent_id
+        ]
+        rows.append(
+            f"- {group.get('name')} — lead: {lead.name} · members: "
+            + (", ".join(members) or "none yet")
+        )
+    if not rows:
+        return []
+    return [
+        "Teams with their own lead (team — lead · members). A goal for a whole team "
+        "goes to its LEAD with delegate_to_agent: the lead plans it, hands tasks to "
+        "the members, checks the results and reports back when the goal is done. "
+        "Do not split such a goal across the members yourself.",
+        *rows,
+    ]
 
 
 def _terminal_names() -> tuple[str, ...]:
@@ -240,6 +273,7 @@ def lead_card_section(*, lead_name: str = "Jarvis") -> str:
         agents = rt.roster.snapshot()
         catalog = rt.catalog()
         busy = rt.scheduler.active_runs
+        teams = rt.team_leads.teams_snapshot()
     except Exception:  # noqa: BLE001 — the card is a convenience; the turn must run without it
         log.warning("society: lead card unavailable", exc_info=True)
         return ""
@@ -250,4 +284,5 @@ def lead_card_section(*, lead_name: str = "Jarvis") -> str:
         lead_id=rt.lead_id,
         busy=busy,
         terminals=_terminal_names(),
+        teams=teams,
     )
