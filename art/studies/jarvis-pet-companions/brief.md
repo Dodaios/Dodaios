@@ -24,7 +24,7 @@ and personality come from their idle rows; no external assets are used.
 | `brew` | Teal teapot with a gold knob, spout and handle, a face on its belly | hopping |
 | `mochi` | Pink jelly blob | squash-and-stretch bouncing |
 | `shelly` | Green snail with an orange spiral shell and eyes on stalks | crawling |
-| `dodaios` | The hooded figure of the logo built of cubes, one per pixel of the pet: black with white trim (face lining, collar, cape hem, soles) | waddling on two feet, cape streaming |
+| `dodaios` | The hooded figure of the logo built of cubes, one per pixel of the pet: black with white trim (face lining, collar, cape hem, soles) | walking upright on two legs, cape streaming |
 
 A pet the person drew themselves (a single uploaded sheet) has no authored
 model. It is extruded in the runtime into a voxel figure from its own idle

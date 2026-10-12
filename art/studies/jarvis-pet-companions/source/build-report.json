@@ -60,12 +60,12 @@
       "glb_bytes": 243176
     },
     "dodaios": {
-      "height_m": 0.5,
+      "height_m": 0.587,
       "bottom_m": 0.0,
       "width_m": 0.325,
-      "length_m": 0.375,
-      "triangles": 5250,
-      "glb_bytes": 269368
+      "length_m": 0.325,
+      "triangles": 5004,
+      "glb_bytes": 258112
     }
   }
 }

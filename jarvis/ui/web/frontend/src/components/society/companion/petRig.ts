@@ -274,14 +274,15 @@ export function rigPose(pet: CompanionPet, state: RigState, mood: PetMood, out: 
       break;
     }
     case "dodaios": {
-      // A waddle on two feet: each foot lifts on its way forward and the body rocks over the other.
+      // Upright on two legs: each leg swings from the hip and lifts on its way
+      // forward; the body rises as it passes over the standing leg.
       const step = Math.sin(p);
-      const left = part(out, "dodaios_Foot_L"), right = part(out, "dodaios_Foot_R");
-      left.rx = 0.55 * s * step; left.dy = 0.03 * s * Math.max(0, step);
-      right.rx = -0.55 * s * step; right.dy = 0.03 * s * Math.max(0, -step);
+      const left = part(out, "dodaios_Leg_L"), right = part(out, "dodaios_Leg_R");
+      left.rx = 0.6 * s * step; left.dy = 0.02 * s * Math.max(0, Math.cos(p));
+      right.rx = -0.6 * s * step; right.dy = 0.02 * s * Math.max(0, -Math.cos(p));
       const body = part(out, "dodaios_Body");
-      body.rz = 0.08 * s * step;
-      body.dy = 0.014 * s * Math.abs(step) - 0.02 * sleep;
+      body.rz = 0.05 * s * step;
+      body.dy = 0.012 * s * Math.abs(Math.cos(p)) - 0.015 * sleep;
       body.sy = 1 + 0.02 * Math.sin(t * 1.7) * (1 - s);
       // The head looks around at rest, nods over its work and droops asleep.
       const head = part(out, "dodaios_Head");
