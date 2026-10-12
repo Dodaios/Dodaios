@@ -341,7 +341,7 @@ def test_stop_without_a_pid_file_refuses_honestly() -> None:
     where to stop it instead of pretending nothing is running."""
     ok, detail = ollama_runtime.stop_server()
     assert ok is False
-    assert "not started by Jarvis" in detail
+    assert "not started by Dodaios" in detail
     assert "stop it where you started it" in detail
 
 
@@ -359,7 +359,7 @@ def test_stop_with_a_dead_pid_forgets_the_record(monkeypatch, tmp_path) -> None:
     assert "no longer running" in detail
     assert not (tmp_path / "ollama_server.pid").exists()
     # The next answer is the plain "not ours" sentence again.
-    assert "not started by Jarvis" in ollama_runtime.stop_server()[1]
+    assert "not started by Dodaios" in ollama_runtime.stop_server()[1]
 
 
 def test_stop_terminates_only_the_recorded_ollama_process(monkeypatch, tmp_path) -> None:

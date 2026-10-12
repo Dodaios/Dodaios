@@ -221,6 +221,88 @@ describe("ExplorerPanel", () => {
     expect(sent).toEqual({ source: "README.md", destination: "src/README.md" });
   });
 
+  const openRowMenu = async (path: string) => {
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    const row = screen.getAllByTestId("explorer-tree-row").find((entry) => entry.dataset.path === path)!;
+    fireEvent.contextMenu(row, { clientX: 40, clientY: 60 });
+    return { row, menu: await screen.findByTestId("explorer-menu") };
+  };
+  const item = (menu: HTMLElement, name: RegExp) =>
+    [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((entry) => name.test(entry.textContent ?? ""));
+
+  it("offers the folder actions on a right-click, with paste greyed out until something is copied", async () => {
+    const { row, menu } = await openRowMenu("src");
+    expect(row.dataset.selected).toBe("true");
+    for (const name of [/New file/, /New folder/, /Open in terminal/, /Find in folder/, /Cut/, /Copy path/, /Copy relative path/, /Rename/, /Delete/]) {
+      expect(item(menu, name), String(name)).toBeTruthy();
+    }
+    expect(item(menu, /Paste/)?.disabled).toBe(true);
+    // Comparing is for files.
+    expect(item(menu, /Select for compare/)).toBeUndefined();
+  });
+
+  it("shows an entry in the system file manager", async () => {
+    const { menu } = await openRowMenu("README.md");
+    fireEvent.click(item(menu, /Reveal in|Open containing folder/)!);
+    await waitFor(() => expect(calls.some((call) => call.url.endsWith("terminal-target/reveal"))).toBe(true));
+    const sent = JSON.parse(calls.find((call) => call.url.endsWith("terminal-target/reveal"))!.body);
+    expect(sent).toEqual({ workspace_id: "w1", target: "README.md" });
+    expect(calls.some((call) => call.url.endsWith("terminal-target/open"))).toBe(false);
+  });
+
+  it("opens a terminal in the right-clicked folder", async () => {
+    useIdeSidePanelStore.setState({ terminals: [] });
+    const { menu } = await openRowMenu("src");
+    fireEvent.click(item(menu, /Open in terminal/)!);
+    expect(useIdeSidePanelStore.getState().terminals).toMatchObject([{ workspaceId: "w1", workspaceName: "src", folder: "/code/app/src" }]);
+  });
+
+  it("opens the Search tab for Find in folder", async () => {
+    const { menu } = await openRowMenu("src");
+    fireEvent.click(item(menu, /Find in folder/)!);
+    expect(useIdeSidePanelStore.getState()).toMatchObject({ open: true, active: "search" });
+  });
+
+  it("compares a file with the one selected for compare", async () => {
+    const { menu } = await openRowMenu("README.md");
+    fireEvent.click(item(menu, /Select for compare/)!);
+    fireEvent.click(screen.getAllByTestId("explorer-tree-row")[0]);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(3));
+    const other = screen.getAllByTestId("explorer-tree-row").find((entry) => entry.dataset.path === "src/app.ts")!;
+    fireEvent.contextMenu(other, { clientX: 40, clientY: 90 });
+    fireEvent.click(item(await screen.findByTestId("explorer-menu"), /Compare with README\.md/)!);
+    const state = useCodeEditorStore.getState();
+    expect(state.tabs).toMatchObject([{ path: "src/app.ts", mode: "diff", preview: false }]);
+    expect(Object.values(state.diffBases)).toMatchObject([{ path: "README.md" }]);
+  });
+
+  it("opens a file beside the one already open, from the menu and with Ctrl+Enter", async () => {
+    useCodeEditorStore.setState({ side: {}, sideFocused: false });
+    useCodeEditorStore.getState().openFile("w1", "notes.md", { preview: false });
+    const { row, menu } = await openRowMenu("README.md");
+    fireEvent.click(item(menu, /Open to the side/)!);
+    const tabKey = (path: string) => useCodeEditorStore.getState().tabs.find((tab) => tab.path === path)!.key;
+    expect(useCodeEditorStore.getState().side.w1).toBe(tabKey("README.md"));
+    expect(useCodeEditorStore.getState().active.w1).toBe(tabKey("notes.md"));
+
+    useCodeEditorStore.getState().closeSide("w1");
+    fireEvent.keyDown(row, { key: "Enter", ctrlKey: true });
+    expect(useCodeEditorStore.getState().side.w1).toBe(tabKey("README.md"));
+  });
+
+  it("copies the path with Shift+Alt+C and the relative path with Ctrl+K Ctrl+Shift+C", async () => {
+    const written: string[] = [];
+    vi.stubGlobal("navigator", { ...navigator, userAgent: navigator.userAgent, clipboard: { writeText: async (text: string) => void written.push(text) } });
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    const readme = screen.getAllByTestId("explorer-tree-row")[1];
+    fireEvent.keyDown(readme, { key: "C", code: "KeyC", shiftKey: true, altKey: true });
+    fireEvent.keyDown(readme, { key: "k", code: "KeyK", ctrlKey: true });
+    fireEvent.keyDown(readme, { key: "C", code: "KeyC", ctrlKey: true, shiftKey: true });
+    expect(written).toEqual(["/code/app/README.md", "README.md"]);
+  });
+
   it("asks before deleting and sends the file to the trash", async () => {
     render(<ExplorerPanel view="files" />);
     await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));

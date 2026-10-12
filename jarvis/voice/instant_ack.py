@@ -1296,7 +1296,7 @@ def contextual_ack_prompt(*, language_name: str, utterance: str) -> str:
     the user's own words.
     """
     return (
-        "The Jarvis orchestrator is executing the user's request right now and "
+        "The Dodaios orchestrator is executing the user's request right now and "
         f"has no result yet. Say ONE short sentence in {language_name}, at most "
         "ten words, that tells the user what you are doing for exactly this "
         "request — name its concrete subject with the user's own words (the "

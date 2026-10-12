@@ -146,7 +146,7 @@ class PairBody(BaseModel):
     base_url: str = Field(
         default="",
         description=(
-            "The URL this client will reach Jarvis at. Set it when pairing a client "
+            "The URL this client will reach Dodaios at. Set it when pairing a client "
             "on ANOTHER machine; blank means this box's own address."
         ),
     )

@@ -106,7 +106,7 @@ class JarvisSystemCursor:
                 try:
                     self._activate_fn()
                 except Exception:  # noqa: BLE001
-                    logger.debug("Jarvis cursor activate failed", exc_info=True)
+                    logger.debug("Dodaios cursor activate failed", exc_info=True)
                     return
                 self._active = True
                 if not self._atexit_registered:
@@ -126,7 +126,7 @@ class JarvisSystemCursor:
             try:
                 self._restore_fn()
             except Exception:  # noqa: BLE001
-                logger.debug("Jarvis cursor restore failed", exc_info=True)
+                logger.debug("Dodaios cursor restore failed", exc_info=True)
             self._active = False
             self._timer = None
 
@@ -205,7 +205,7 @@ async def session_bracket():
     """
     c = get_jarvis_system_cursor()
     if c is not None:
-        logger.info("session_bracket entered (Jarvis cursor armed for this mission)")
+        logger.info("session_bracket entered (Dodaios cursor armed for this mission)")
         try:
             c.ping()
         except Exception:  # noqa: BLE001
@@ -220,7 +220,7 @@ async def session_bracket():
                 c.shutdown()
             except Exception:  # noqa: BLE001
                 logger.debug("session_bracket: shutdown failed", exc_info=True)
-        logger.info("session_bracket exited (Jarvis cursor restored)")
+        logger.info("session_bracket exited (Dodaios cursor restored)")
 
 
 # ---------------------------------------------------------------------------
@@ -414,7 +414,7 @@ def build_real_jarvis_cursor(*, idle_ms: int = DEFAULT_IDLE_MS) -> JarvisSystemC
     try:
         _real_restore()
     except Exception:  # noqa: BLE001
-        logger.info("SystemParametersInfo unavailable; Jarvis cursor disabled.")
+        logger.info("SystemParametersInfo unavailable; Dodaios cursor disabled.")
         return None
     return JarvisSystemCursor(
         activate_fn=_real_activate,

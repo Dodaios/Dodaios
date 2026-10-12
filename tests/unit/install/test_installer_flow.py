@@ -22,7 +22,7 @@ def test_dry_run_order_launch_last(monkeypatch, capsys) -> None:
     assert rc == 0
     # The launch line must come after every prepare phase AND after the summary.
     assert out.rindex("Launching") > out.rindex("Voice models")
-    assert out.rindex("Launching") > out.rindex("Personal Jarvis is ready")
+    assert out.rindex("Launching") > out.rindex("Dodaios is ready")
 
 
 def test_dry_run_prints_the_numbered_journey(monkeypatch, capsys) -> None:
@@ -317,7 +317,7 @@ def test_linux_gui_gets_full_profile_and_app_menu_registration(
     assert rc == 0
     assert ".[full]" in out
     assert "repair desktop-shell registration" in out
-    assert 'app menu -> "Personal Jarvis"' in out
+    assert 'app menu -> "Dodaios"' in out
 
 
 def test_update_summary_promises_no_reonboarding(monkeypatch, capsys, tmp_path) -> None:

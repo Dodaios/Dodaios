@@ -437,7 +437,7 @@ def insert_text(
 #: clipboard instead of claiming ``inserted`` and restoring over it.
 _FIRST_PASTE_AFTER_GRANT = threading.Event()
 _PASTE_PERMISSION_FALLBACK = (
-    "Personal Jarvis needs Accessibility access to paste into other apps."
+    "Dodaios needs Accessibility access to paste into other apps."
 )
 _grant_listener_gate: object | None = None
 
@@ -522,7 +522,7 @@ def _first_paste_after_grant_result(
     return InsertResult(
         status="paste_sent",
         detail=(
-            "The paste was sent right after macOS allowed Personal Jarvis to control "
+            "The paste was sent right after macOS allowed Dodaios to control "
             "the keyboard. If no text appeared, paste it from your clipboard or "
             "dictation history."
         ),

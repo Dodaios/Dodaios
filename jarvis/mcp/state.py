@@ -276,7 +276,7 @@ def import_claude_desktop() -> tuple[int, list[str], str]:
         return (0, [], f"Config is not valid JSON (line {exc.lineno}, column {exc.colno}).")
     except OSError:
         log.warning("Claude Desktop config not readable: %s", src, exc_info=True)
-        return (0, [], "Config not readable. Details are in the Jarvis log.")
+        return (0, [], "Config not readable. Details are in the Dodaios log.")
 
     claude_servers = raw.get("mcpServers", {})
     if not isinstance(claude_servers, dict) or not claude_servers:

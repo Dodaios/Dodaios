@@ -307,7 +307,7 @@ def _heuristic_reason(query_tokens: set[str], entry: dict[str, Any]) -> str:
 # Brain-backed ranking
 # ----------------------------------------------------------------------
 
-_RANK_SYSTEM_PROMPT = """You are a skill ranker for Personal Jarvis. The user
+_RANK_SYSTEM_PROMPT = """You are a skill ranker for Dodaios. The user
 is looking for a skill that solves their problem. You get a user query and a
 list of candidates as JSON. Return ONLY a JSON array, sorted from best
 to worst match. Each entry: {"name": "...", "score": 0.0-1.0, "reason": "short
