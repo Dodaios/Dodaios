@@ -2476,6 +2476,23 @@ class SocietyQuestChanged(Event):
 
 
 @dataclass(frozen=True, slots=True)
+class SocietyTeamChanged(Event):
+    """A team's lead, goals or tasks changed.
+
+    Published by :class:`jarvis.society.team_lead.TeamLeads` after the rows
+    were updated: a lead was named, a goal started, a member took or finished
+    a task, the lead reported. The WebSocket forwards it; the team board
+    re-reads within a second instead of on the next poll.
+    """
+
+    group_id: str = ""
+    goal_id: str = ""
+    state: str = ""
+    #: What moved: ``goal``, ``task``, ``turn``, ``lead``, ``mission``, ``checkin``.
+    reason: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class SocietyMessageSent(Event):
     """One agent said something to another, or into a room.
 
