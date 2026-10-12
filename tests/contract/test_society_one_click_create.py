@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from pathlib import Path
 
@@ -13,6 +14,8 @@ from fastapi.testclient import TestClient
 from jarvis.society.companion import (
     COMPANION_COLORS,
     COMPANION_SHAPES,
+    CREATURE_EYES,
+    CREATURE_PALETTES,
     CompanionAppearance,
     random_companion,
 )
@@ -26,6 +29,7 @@ APPEARANCE_TS = (
     Path(__file__).resolve().parents[2]
     / "jarvis/ui/web/frontend/src/components/society/companion/appearance.ts"
 )
+CREATURE_TS = APPEARANCE_TS.with_name("creature.ts")
 
 
 @pytest.fixture
@@ -99,6 +103,10 @@ async def test_every_new_agent_gets_a_valid_random_companion(roster: Roster):
         companion = CompanionAppearance.model_validate(agent.avatar["companion"])
         assert companion.shape in COMPANION_SHAPES
         assert companion.color in COMPANION_COLORS
+        # A new agent starts as a pixel creature.
+        assert companion.creature is not None
+        assert companion.creature.palette in CREATURE_PALETTES
+        assert companion.creature.eyes in CREATURE_EYES
 
 
 async def test_an_explicit_avatar_is_kept(roster: Roster):
@@ -108,10 +116,10 @@ async def test_an_explicit_avatar_is_kept(roster: Roster):
 
 
 def test_random_companion_is_valid_and_varies():
-    looks = {tuple(sorted(random_companion().items())) for _ in range(40)}
-    assert len(looks) > 1
+    looks = [random_companion() for _ in range(40)]
+    assert len({json.dumps(look, sort_keys=True) for look in looks}) > 1
     for look in looks:
-        CompanionAppearance.model_validate(dict(look))
+        CompanionAppearance.model_validate(look)
 
 
 def test_companion_choices_match_the_frontend():
@@ -121,6 +129,14 @@ def test_companion_choices_match_the_frontend():
     assert shapes and colors
     assert tuple(re.findall(r'"([^"]+)"', shapes.group(1))) == COMPANION_SHAPES
     assert tuple(re.findall(r'"([^"]+)"', colors.group(1))) == COMPANION_COLORS
+
+
+def test_creature_choices_match_the_frontend():
+    source = CREATURE_TS.read_text(encoding="utf-8")
+    eyes = re.search(r"CREATURE_EYES = \[([^\]]*)\]", source)
+    assert eyes
+    assert tuple(re.findall(r'palette\("([a-z]+)"', source)) == CREATURE_PALETTES
+    assert tuple(re.findall(r'"([^"]+)"', eyes.group(1))) == CREATURE_EYES
 
 
 def test_post_without_a_name_creates_a_fresh_agent(tmp_path: Path):

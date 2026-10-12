@@ -33,6 +33,14 @@ COMPANION_COLORS: Final[tuple[str, ...]] = (
 )
 
 
+#: Mirrors ``CREATURE_PALETTES`` / ``CREATURE_EYES`` in the frontend's
+#: ``components/society/companion/creature.ts`` (parity test pins both).
+CREATURE_PALETTES: Final[tuple[str, ...]] = (
+    "lava", "ocean", "neon", "moss", "glacier", "gold", "candy", "midnight",
+)
+CREATURE_EYES: Final[tuple[str, ...]] = ("dot", "tall", "wide", "visor")
+
+
 class CompanionSkin(BaseModel):
     """A colour design worn instead of the flat colour (mirrors ``skinSchema`` in
     the frontend's ``components/society/companion/skins.ts``).
@@ -87,12 +95,21 @@ class CompanionAppearance(BaseModel):
 
 
 def random_companion() -> dict[str, Any]:
-    """A random, valid companion look for a newly created agent."""
+    """A random, valid companion look for a newly created agent.
+
+    A new agent starts as a pixel creature; the shape underneath is what it
+    shows once its creature is taken off.
+    """
     rng = secrets.SystemRandom()
     look = CompanionAppearance(
         shape=rng.choice(COMPANION_SHAPES),  # type: ignore[arg-type]
         color=rng.choice(COMPANION_COLORS),
         eyes=rng.choice(("dots", "lines")),  # type: ignore[arg-type]
+        creature=CompanionCreature(
+            seed=rng.randrange(100_000),
+            palette=rng.choice(CREATURE_PALETTES),
+            eyes=rng.choice(CREATURE_EYES),
+        ),
     ).model_dump()
     return _bare(look)
 
