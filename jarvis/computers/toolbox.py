@@ -510,7 +510,7 @@ async def save_claude_token(computer_id: str, token: str) -> None:
             "the one line it prints."
         )
     body = (
-        "# Written by Personal Jarvis: the login Claude Code uses for agents here.\n"
+        "# Written by Dodaios: the login Claude Code uses for agents here.\n"
         f"export CLAUDE_CODE_OAUTH_TOKEN={shlex.quote(value)}\n"
     )
     async with get_service().session(computer_id) as session:

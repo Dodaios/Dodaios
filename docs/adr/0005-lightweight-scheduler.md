@@ -56,7 +56,7 @@ The event subscriber routes events matching the `event_selector` of an `on_event
 + Deterministic behavior: the heap structure is easy to test.
 + Cancel-token integration is trivial (the same primitive throughout, ADR-0004).
 - No features like "fire-and-forget jobs", "every-N-seconds recurring", or "misfire handling" out of the box. Can be retrofitted later if needed; not required by the mandate.
-- No cross-process scheduler semantics. The task scheduler runs only in the Jarvis main app (single instance via `single_instance.py`).
+- No cross-process scheduler semantics. The task scheduler runs only in the Dodaios main app (single instance via `single_instance.py`).
 
 ## Alternatives Considered
 

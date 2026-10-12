@@ -53,7 +53,7 @@ class DispatchWithReviewTool:
         "synthesis (research, aggregation), or is hard to undo. DO NOT USE "
         "for conversation, small talk, or simple tool calls (reading the "
         "calendar, checking the weather) — those go through "
-        "dispatch_to_harness or run directly in the main Jarvis."
+        "dispatch_to_harness or run directly in the main Dodaios."
     )
     schema: dict[str, Any] = {
         "type": "object",

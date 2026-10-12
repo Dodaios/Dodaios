@@ -370,7 +370,7 @@ def route_for(
         raise RouteUnavailable(str(exc)) from exc
     base_url = gateway.base_url()
     if not base_url:
-        raise RouteUnavailable("Jarvis' model gateway is not up yet. Try again in a moment.")
+        raise RouteUnavailable("Dodaios' model gateway is not up yet. Try again in a moment.")
     limits = resolve_limits(config, provider, chosen, ModelCatalog().cached_model(provider, chosen))
     token = gateway.grant_token(
         agent_id, provider, account_id,

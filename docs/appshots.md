@@ -14,7 +14,7 @@ text — and hands it to the conversation as context. Settings live under
 | **Voice or chat** — "take an appshot", "mach einen Appshot", "haz un appshot" | The turn that asked captures the front window and answers with it. Only an explicit request for the whole screen ("an appshot of my full screen") captures the monitor the cursor is on instead — the live model's `take_appshot` passes `scope: "screen"` for it. |
 | **Try it** buttons on the Appshots page | "Take appshot in 3 s" waits three seconds so you can switch windows; "Select area" opens the area picker at once. Both then behave like the shortcuts. |
 
-"Front window" means the app window you work in. Jarvis's own floating
+"Front window" means the app window you work in. Dodaios's own floating
 overlays (the mascot, the bar) take the focus when you click them, so the
 capture looks past them to the app window underneath (BUG-228); with no app
 window there, it takes the whole screen instead.
@@ -39,7 +39,7 @@ every app asks for a different one (`jarvis/platform/clipboard_image.py`):
 | Linux | `image/png` through `wl-copy` (Wayland) or `xclip` (X11) | Every X11 and Wayland toolkit reads `image/png`. Without either tool nothing is copied and the log names the package to install |
 | Headless | — | No clipboard; nothing is attempted |
 
-Jarvis X screenshots (`[jarvisx].copy_to_clipboard`) use the same code.
+Dodaios X screenshots (`[jarvisx].copy_to_clipboard`) use the same code.
 
 ## Selecting an area
 
@@ -262,7 +262,7 @@ stroke, clears a selection, then closes; with unsaved edits it asks first.
 
 ### Feature coverage
 
-Status here: **done** = in the editor; **elsewhere** = Personal Jarvis covers
+Status here: **done** = in the editor; **elsewhere** = Dodaios covers
 it outside the editor; **not done** = not built, with the reason.
 
 | Feature | Status |

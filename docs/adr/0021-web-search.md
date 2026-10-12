@@ -33,7 +33,7 @@ y_statement: >
 
 The router-tier brain needs a cheap, cloud-only way to answer factual
 "what is X / who is Y / when did Z happen" questions without spawning a
-full Jarvis-Agent mission. A dedicated `web_search` skill — backed by
+full Dodaios-Agent mission. A dedicated `web_search` skill — backed by
 Gemini's grounded-search mode — fills that gap.
 
 Two architectural pressures shaped the design:
@@ -95,7 +95,7 @@ appears in exactly one place (`skill.py`) and is verifiable via
 
 - The skill is currently *not* wired into `jarvis/plugins/tool/` or
   `pyproject.toml` entry-points. It lives under `src/skills/` as a
-  standalone artifact. Integration into Jarvis's router-tier
+  standalone artifact. Integration into Dodaios's router-tier
   `ROUTER_TOOLS` frozenset is deferred to a Wave-2 follow-up ADR.
 
 ## Alternatives considered

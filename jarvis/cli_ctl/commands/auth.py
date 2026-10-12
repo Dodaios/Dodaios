@@ -7,7 +7,7 @@ import typer
 from jarvis.cli_ctl import config, render
 from jarvis.cli_ctl.client import ApiError
 
-app = typer.Typer(no_args_is_help=True, help="Authenticate against a Jarvis server.")
+app = typer.Typer(no_args_is_help=True, help="Authenticate against a Dodaios server.")
 
 _PROBE = "/api/control/auth/probe"
 

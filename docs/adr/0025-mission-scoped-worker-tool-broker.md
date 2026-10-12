@@ -12,7 +12,7 @@ audience: developer
 # ADR-0025 — Mission-Scoped Worker Tool Broker
 
 **Status:** Accepted (2026-07-13)
-**Phase:** 6 — Self-Healing Jarvis-Agents Orchestrator
+**Phase:** 6 — Self-Healing Dodaios-Agents Orchestrator
 **Reference:** ADR-0009, ADR-0011, AP-3, AP-5, AP-14, AP-21, AP-22
 
 ## Context
@@ -20,7 +20,7 @@ audience: developer
 Mission workers run in isolated processes and worktrees. That isolation kept
 the supervisor's connected Marketplace, MCP, and app-command tools out of the
 worker capability surface. A tool could therefore be healthy and callable in
-the main Jarvis while a delegated mission honestly reported that it was not
+the main Dodaios while a delegated mission honestly reported that it was not
 available. Directly copying connector configurations into every worker was not
 acceptable: it exposed credentials, worked only for selected CLI backends, and
 bypassed the supervisor's `ToolExecutor` safety path.
@@ -31,7 +31,7 @@ not depend on a provider-specific MCP implementation.
 
 ## Decision
 
-Personal Jarvis uses a process-local, mission-scoped worker tool broker. Each
+Dodaios uses a process-local, mission-scoped worker tool broker. Each
 mission receives a short-lived authenticated grant containing only
 task-relevant MCP tools, connected native connector tools, and the restricted
 app commands carrying an explicit `worker_allowed` Command Registry marker.
@@ -60,9 +60,9 @@ tool error and claim successful completion.
 
 The grant fails closed. Recursive mission tools, skill execution, credential
 surfaces, secret-reading names, dangerous commands, config mutation, live
-desktop/Computer-Use tools, host-shell tools, and Jarvis control-CLI adapters
+desktop/Computer-Use tools, host-shell tools, and Dodaios control-CLI adapters
 are never exported. Workers retain their own sandboxed worktree tools, but may
-control the running Jarvis only through the explicit broker grant. Both
+control the running Dodaios only through the explicit broker grant. Both
 inventory construction and broker issuance validate the
 live Command Registry marker, so a forged inventory cannot promote a denied
 command. A

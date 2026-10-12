@@ -151,7 +151,7 @@ async def test_hosted_tool_is_rejected_before_auth_or_network():
         pytest.fail("Hosted tools must fail before opening a request")
 
     reasoning, credentials = _reasoning(forbidden)
-    with pytest.raises(SubscriptionReasoningError, match="Jarvis function"):
+    with pytest.raises(SubscriptionReasoningError, match="Dodaios function"):
         async for _ in reasoning.stream(
             model="chosen", input=[], instructions="", tools=[{"type": "computer"}]
         ):

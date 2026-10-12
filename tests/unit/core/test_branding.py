@@ -1,4 +1,8 @@
-"""Freeze the persistent product identity values used by existing installs."""
+"""Freeze the persistent product identity values used by existing installs.
+
+The display name (``PRODUCT_NAME``) may change; every persistent identifier
+below is a compatibility contract and keeps the value installs were made with.
+"""
 
 from __future__ import annotations
 
@@ -10,9 +14,12 @@ import pytest
 import jarvis.core.branding as branding
 
 _CURRENT_IDENTITY = {
-    "PRODUCT_NAME": "Personal Jarvis",
+    "PERSISTENT_PRODUCT_NAME": "Personal Jarvis",
+    "PERSISTENT_COMPACT_NAME": "PersonalJarvis",
+    "PERSISTENT_SLUG": "personal-jarvis",
     "PRODUCT_COMPACT_NAME": "PersonalJarvis",
     "PRODUCT_SLUG": "personal-jarvis",
+    "LAUNCHER_ENTRY_NAME": "Personal Jarvis",
     "CONFIG_FILE_NAME": "jarvis.toml",
     "KEYRING_SERVICE_NAME": "personal-jarvis",
     "CONTROL_KEY_PREFIX": "jctl_",
@@ -39,6 +46,7 @@ _CURRENT_IDENTITY = {
     "MACOS_BUNDLE_ID": "com.personal-jarvis.desktop",
     "MACOS_DMG_BUNDLE_ID": "ai.personaljarvis.desktop",
     "MACOS_AUTOSTART_LABEL": "com.personal-jarvis.autostart",
+    "MACOS_SIGNING_IDENTITY_LABEL": "Personal Jarvis Local Signing",
     "LINUX_APP_NAME": "Personal Jarvis",
     "LINUX_DESKTOP_ENTRY_FILE_NAME": "personal-jarvis.desktop",
     "LINUX_WM_CLASS": "personal-jarvis",
@@ -64,6 +72,30 @@ def test_default_exported_identity_values_are_frozen() -> None:
         if previous is not None:
             os.environ[branding.OFFICIAL_REPO_SLUG_ENV_VAR] = previous
         importlib.reload(branding)
+
+
+def test_display_name_is_separate_from_persistent_identity() -> None:
+    assert branding.PRODUCT_NAME == "Dodaios"
+    # No persistent identifier is built from the display name: renaming the
+    # product must never move a path, a registry key or a credential store.
+    display = branding.PRODUCT_NAME.casefold()
+    for name in _CURRENT_IDENTITY:
+        if "REPO" in name or "RELEASES" in name:
+            continue  # the repository is itself called Dodaios/Dodaios
+        assert display not in str(getattr(branding, name)).casefold(), name
+
+
+def test_persistent_identity_does_not_follow_the_display_name(monkeypatch) -> None:
+    # Derivation, not coincidence: read the module source with a different
+    # display name and every frozen value must come out unchanged.
+    source = branding.__spec__.loader.get_source(branding.__name__)
+    assert source.count('PRODUCT_NAME = "Dodaios"') == 1
+    monkeypatch.delenv(branding.OFFICIAL_REPO_SLUG_ENV_VAR, raising=False)
+    namespace: dict[str, object] = {"__name__": "branding_renamed"}
+    renamed = source.replace('PRODUCT_NAME = "Dodaios"', 'PRODUCT_NAME = "Renamed Again"')
+    exec(compile(renamed, "branding_renamed", "exec"), namespace)  # noqa: S102
+    assert namespace["PRODUCT_NAME"] == "Renamed Again"
+    assert {name: namespace[name] for name in _CURRENT_IDENTITY} == _CURRENT_IDENTITY
 
 
 def test_official_repo_slug_override_is_exact() -> None:

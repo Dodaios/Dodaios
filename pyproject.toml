@@ -516,7 +516,7 @@ personal-jarvis = "jarvis.__main__:main"
 jarvis-review-gc = "jarvis.cli.review_gc:main"
 # Phase 8.6 — Review-Pipeline-Eval-Harness (Plan §6.6).
 jarvis-review-eval = "jarvis.cli.review_eval:main"
-# jarvisctl — control CLI for a running Personal Jarvis instance.
+# jarvisctl — control CLI for a running Dodaios instance.
 jarvisctl = "jarvis.cli_ctl.__main__:main"
 jctl = "jarvis.cli_ctl.__main__:main"
 

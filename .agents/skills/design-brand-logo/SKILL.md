@@ -64,7 +64,7 @@ obtainable mark is worse than no work at all.
 
 Do **not** approximate a logo you have seen. Guessing at someone's trademark is
 both legally worse and visually obvious. Design something that is clearly a
-Jarvis-made placeholder:
+Dodaios-made placeholder:
 
 - one geometric glyph that says what the service *does* (a document, a house, a
   calendar), not a stylised initial pretending to be a logotype;

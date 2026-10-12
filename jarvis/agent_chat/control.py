@@ -104,7 +104,7 @@ class ChatControls:
     async def execute(self, sid: str, request: CommandRequest) -> CommandResult:
         session = self.service.store.get_session(sid)
         if session is None or session.surface not in ("jarvis", "society"):
-            raise ValueError("Commands are available in Jarvis and agent chats only")
+            raise ValueError("Commands are available in Dodaios and agent chats only")
         # Stop must remain usable while another command waits for a turn or an approval.
         if request.command == "stop":
             return await self._execute(sid, request)
