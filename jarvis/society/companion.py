@@ -90,6 +90,9 @@ class CompanionAppearance(BaseModel):
     skin: CompanionSkin | None = None
     #: A pixel creature instead of the shape; a worn pet still wins.
     creature: CompanionCreature | None = None
+    #: The agent explicitly wears its shape. A look without it, without a creature
+    #: and without a pet shows the creature the frontend grows from the shape.
+    look: Literal["shape"] | None = None
     sizeM: float = Field(default=0.5, ge=0.25, le=0.8)
     followDistanceM: float = Field(default=1.0, ge=0.5, le=2.0)
 
@@ -124,6 +127,8 @@ def _bare(look: dict[str, Any]) -> dict[str, Any]:
         look.pop("skin", None)
     if look.get("creature") is None:
         look.pop("creature", None)
+    if look.get("look") is None:
+        look.pop("look", None)
     return look
 
 

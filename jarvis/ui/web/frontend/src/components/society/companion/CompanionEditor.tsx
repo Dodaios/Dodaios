@@ -6,7 +6,7 @@ import { COMPANION_COLORS, COMPANION_SHAPES, type CompanionAppearance } from "./
 import { CompanionMark } from "./CompanionMark";
 import { creatureFromShape, type CreatureLook, type CreatureState } from "./creature";
 import { CreaturePicker } from "./CreaturePicker";
-import { useCreatureTrial } from "./creatureTrial";
+import { growsCreature, useCreatureDefault } from "./creatureDefault";
 import { DesignPicker } from "./DesignPicker";
 import { PetSprite } from "@/components/pets/PetSprite";
 import { usePets } from "@/hooks/usePets";
@@ -26,20 +26,21 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
   const update = (patch: Partial<CompanionAppearance>) => onChange({ ...value, ...("color" in patch && !("skin" in patch) ? { skin: undefined } : {}), ...patch });
   const petsQuery = usePets();
   const pets = petsQuery.data?.pets ?? [];
-  const { everywhere, setEverywhere } = useCreatureTrial();
+  const { enabled: creaturesByDefault, setEnabled: setCreaturesByDefault } = useCreatureDefault();
   // The creature last worn in this dialog comes back when the look returns to it; a first one grows from the shape.
   const [lastCreature, setLastCreature] = useState(value.creature);
   const creature = value.creature ?? lastCreature ?? creatureFromShape(value);
-  const wear = (next: CreatureLook) => { setLastCreature(next); update({ pet: undefined, creature: next }); };
+  const wear = (next: CreatureLook) => { setLastCreature(next); update({ pet: undefined, look: undefined, creature: next }); };
   const [mood, setMood] = useState<CreatureState>("idle");
   // The look is a shape, a pixel creature or a pet; "Pet" stays chosen even before a pet exists to pick.
-  const [kind, setKind] = useState<"shape" | "creature" | "pet">(value.pet ? "pet" : value.creature ? "creature" : "shape");
+  const [kind, setKind] = useState<"shape" | "creature" | "pet">(value.pet ? "pet" : value.creature || growsCreature(value, creaturesByDefault) ? "creature" : "shape");
   const choose = (next: "shape" | "creature" | "pet") => {
     setKind(next);
     // The shape, its colour and its accessories stay underneath a creature, for the way back.
-    if (next === "shape" && (value.pet || value.creature)) update({ pet: undefined, creature: undefined });
+    // Choosing the shape is stored: without that mark the look would grow a creature again.
+    if (next === "shape") update({ pet: undefined, creature: undefined, look: "shape" });
     if (next === "creature") wear(creature);
-    if (next === "pet") update({ creature: undefined, ...(!value.pet && pets[0] ? { pet: pets[0].id } : {}) });
+    if (next === "pet") update({ creature: undefined, look: undefined, ...(!value.pet && pets[0] ? { pet: pets[0].id } : {}) });
   };
   // "Pet" chosen before the pets arrived: wear the first one as soon as they do.
   const firstPet = pets[0]?.id;
@@ -64,8 +65,8 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
       </div>
     </div>}
     {!lead && kind !== "pet" && <label className="flex items-start justify-between gap-3 text-sm">
-      <span>{t("society.companion.creature.everywhere")}<span className="mt-0.5 block text-xs text-muted-foreground">{t("society.companion.creature.everywhere_hint")}</span></span>
-      <Switch checked={everywhere} onCheckedChange={setEverywhere} aria-label={t("society.companion.creature.everywhere")} />
+      <span>{t("society.companion.creature.by_default")}<span className="mt-0.5 block text-xs text-muted-foreground">{t("society.companion.creature.by_default_hint")}</span></span>
+      <Switch checked={creaturesByDefault} onCheckedChange={setCreaturesByDefault} aria-label={t("society.companion.creature.by_default")} />
     </label>}
     {!lead && kind === "creature" && <CreaturePicker value={creature} onChange={wear} mood={mood} onMood={setMood} />}
     {!lead && kind === "pet" && <div data-testid="companion-pet-picker"><span className="mb-1 block text-sm font-medium">{t("society.companion.pet")}</span>

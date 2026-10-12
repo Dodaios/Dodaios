@@ -7,7 +7,7 @@ import { petKeys } from "@/hooks/usePets";
 import type { Pet, PetsState } from "@/lib/petsApi";
 import { CompanionMark } from "./CompanionMark";
 import { defaultCompanion, type CompanionAppearance } from "./appearance";
-import { useCreatureTrial } from "./creatureTrial";
+import { useCreatureDefault } from "./creatureDefault";
 
 function pet(id: string): Pet {
   return {
@@ -27,11 +27,11 @@ function renderWith(ui: React.ReactElement, state: PetsState | null = PETS) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
-afterEach(() => { cleanup(); useCreatureTrial.setState({ everywhere: false }); });
+afterEach(() => { cleanup(); useCreatureDefault.setState({ enabled: true }); });
 
 describe("CompanionMark", () => {
-  it("draws the shape for an agent that wears no pet", () => {
-    const { container } = renderWith(<CompanionMark appearance={look()} size={30} />);
+  it("draws the shape for an agent that explicitly wears it", () => {
+    const { container } = renderWith(<CompanionMark appearance={look({ look: "shape" })} size={30} />);
     expect(container.querySelector("svg")).not.toBeNull();
     expect(screen.queryByTestId("pet-sprite")).toBeNull();
   });
@@ -84,18 +84,19 @@ describe("CompanionMark", () => {
     expect(missing.container.querySelector("[data-agent-creature='24']")).not.toBeNull();
   });
 
-  it("shows every shape as a creature while the trial switch is on, and the shape again when it is off", () => {
+  it("grows a creature for a look nobody picked, and shows the shape again once the switch is off", () => {
     const { container } = renderWith(<CompanionMark appearance={look()} size={30} />);
-    expect(container.querySelector("svg")).not.toBeNull();
-    act(() => useCreatureTrial.getState().setEverywhere(true));
     expect(container.querySelector("svg")).toBeNull();
     expect(container.querySelector("[data-agent-creature]")).not.toBeNull();
-    act(() => useCreatureTrial.getState().setEverywhere(false));
+    act(() => useCreatureDefault.getState().setEnabled(false));
     expect(container.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector("[data-agent-creature]")).toBeNull();
+    act(() => useCreatureDefault.getState().setEnabled(true));
+    expect(container.querySelector("[data-agent-creature]")).not.toBeNull();
   });
 
   it("falls back to the shape for a pet this machine does not have", () => {
-    const { container } = renderWith(<CompanionMark appearance={look({ pet: "u0123456789abcdef" })} size={30} />);
+    const { container } = renderWith(<CompanionMark appearance={look({ pet: "u0123456789abcdef", look: "shape" })} size={30} />);
     expect(screen.queryByTestId("pet-sprite")).toBeNull();
     expect(container.querySelector("svg")).not.toBeNull();
   });

@@ -937,8 +937,8 @@
         "states": "Ver un estado",
         "states_hint": "Lo que la criatura muestra mientras el agente trabaja. Elige uno para verlo arriba.",
         "state_names": { "idle": "Listo", "listening": "Escuchando", "thinking": "Pensando", "working": "Trabajando", "talking": "Hablando", "asking": "Preguntando", "success": "Hecho", "error": "Error", "sleeping": "Dormido" },
-        "everywhere": "Mostrar todos los agentes como criaturas de píxeles",
-        "everywhere_hint": "Un interruptor de prueba para este dispositivo. Los agentes sin criatura propia reciben una creada a partir de su forma y su color. Al apagarlo, todos los aspectos vuelven."
+        "by_default": "Criaturas de píxeles por defecto",
+        "by_default_hint": "Los agentes que no han elegido un aspecto aparecen como una criatura de píxeles creada a partir de su forma y su color. Apágalo para volver a ver sus formas. Se aplica a este dispositivo."
       },
       "pet": "Mascota",
       "pet_hint": "El agente lleva esta mascota en todas partes: en los chats, mientras trabaja y como compañero en el Verse.",

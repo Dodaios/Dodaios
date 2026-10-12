@@ -937,8 +937,8 @@
         "states": "预览状态",
         "states_hint": "智能体工作时生物的表现。选择一个状态，在上方查看。",
         "state_names": { "idle": "就绪", "listening": "聆听", "thinking": "思考", "working": "工作", "talking": "说话", "asking": "提问", "success": "完成", "error": "出错", "sleeping": "休眠" },
-        "everywhere": "将所有智能体显示为像素生物",
-        "everywhere_hint": "此设备的试用开关。没有专属生物的智能体会根据其形状和颜色生成一个。关闭后，所有外观恢复原样。"
+        "by_default": "默认使用像素生物",
+        "by_default_hint": "尚未选择外观的智能体会显示为根据其形状和颜色生成的像素生物。关闭后将重新显示它们的形状。仅适用于此设备。"
       },
       "pet": "宠物",
       "pet_hint": "这个智能体在所有地方都会以这只宠物出现：聊天中、工作时，以及在 Verse 中作为伙伴。",
