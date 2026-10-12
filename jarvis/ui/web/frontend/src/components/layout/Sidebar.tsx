@@ -510,7 +510,7 @@ export function Sidebar({
               className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-35">
               <MoreHorizontal aria-hidden className="h-4 w-4" />
             </button>
-            <button type="button" aria-label="Jarvis Live" title="Jarvis Live" onClick={toggleIdeVoice}
+            <button type="button" aria-label="Dodaios Live" title="Dodaios Live" onClick={toggleIdeVoice}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Mic aria-hidden className="h-4 w-4" />
             </button>
