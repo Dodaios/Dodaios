@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 189,
+  "count": 190,
   "forks": 70,
-  "placed": 41,
-  "stated": 52,
-  "generatedAt": "2026-10-12T20:22:38.133Z",
+  "placed": 42,
+  "stated": 53,
+  "generatedAt": "2026-10-12T20:57:51.153Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -39,6 +39,13 @@
       "lon": 4.8,
       "label": "Belgium",
       "country": "Belgium",
+      "count": 1
+    },
+    {
+      "lat": 12.972,
+      "lon": 77.558,
+      "label": "Bengaluru",
+      "country": "India",
       "count": 1
     },
     {
