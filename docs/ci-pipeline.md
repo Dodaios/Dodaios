@@ -215,6 +215,14 @@ an entry `GITHUB_TOKEN` added (the entry would wait until the queue's
 timeout). With no queue on main it merges directly. The merge queue's own
 merges fire the normal push to main.
 
+**Without the app: auto-merge.** A green pull request the train cannot
+enqueue would wait for a person. The repository therefore allows GitHub's
+auto-merge, and `scripts/agent_land.py` requests it with the agent's own
+login (`gh pr merge <branch> --auto --squash`): once `CI gate` is green,
+GitHub adds the pull request to the merge queue itself and the `merge_group`
+run starts normally. A pull request opened another way gets the same with
+that one command. Drafts and the opt-out labels are left alone.
+
 **Rollback.** If the queue stalls, disable the "main merge queue" ruleset
 (Settings → Rules → Rulesets, or `gh api -X PUT
 repos/<owner>/<repo>/rulesets/<id> -f enforcement=disabled`). The train sees
@@ -230,8 +238,9 @@ python scripts/agent_land.py --direct   # fast-forward main itself
 ```
 
 It rebases onto the latest main with the same conflict engine, runs the
-static gates, runs the tests the diff can reach, and pushes. It refuses a
-dirty worktree and never stashes or force-pushes.
+static gates, runs the tests the diff can reach, pushes, and asks GitHub to
+queue the pull request once it is green. It refuses a dirty worktree and
+never stashes or force-pushes.
 
 ## 3. Releases, installers and updates
 
