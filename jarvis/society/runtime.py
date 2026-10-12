@@ -554,6 +554,10 @@ class SocietyRuntime:
             # often a silent pass; reviewing each one would add a model call
             # per member to every message the person sends.
             return
+        if self.team_leads.is_managing(session.session_id):
+            # A lead's managing turn hands out and checks work; a review after
+            # each one would add a model call to every step of every goal.
+            return
         window_key = ""
         if completion.turn.direct_user:
             # The person's turns are reviewed per window, not per answer.

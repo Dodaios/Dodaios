@@ -372,6 +372,11 @@ class TeamLeads:
         """The group ``agent_id`` leads, else ``None``. Synchronous, no IO."""
         return self._leads.get(agent_id)
 
+    def is_managing(self, session_id: str) -> bool:
+        """Whether ``session_id`` runs a lead's managing turn right now. Such a
+        turn is coordination, not the agent's own work (no review follows it)."""
+        return any(turn[0] == session_id for turn in self._turns.values())
+
     def teams_snapshot(self) -> list[dict[str, Any]]:
         """Teams that have a lead, as last read. Synchronous, no IO."""
         return [dict(g) for g in self._groups.values() if g.get("lead_agent_id")]

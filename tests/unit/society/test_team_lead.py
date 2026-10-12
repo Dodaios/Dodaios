@@ -342,6 +342,28 @@ async def test_a_question_waits_for_the_person_and_their_answer_continues(team):
         await leads.tell(goal.goal_id, "More")
 
 
+async def test_a_managing_turn_is_marked_so_no_review_follows_it(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.gates[LEAD] = asyncio.Event()
+    queued: list[str] = []
+    rt.conversations.queue_review = lambda session_id, *a, **k: queued.append(session_id)  # type: ignore[method-assign]
+    goal = await leads.start_goal("team", "Do it")
+    await until(lambda: LEAD in svc.busy)
+    assert leads.is_managing(LEAD) and not leads.is_managing(SCOUT)
+    turn = SimpleNamespace(turn_id="t", direct_user=False)
+    done = '[{"kind": "turn_finished", "payload": {"status": "done"}}]'
+    completion = SimpleNamespace(events_json=done, turn=turn)
+    await rt.turn_completed(SimpleNamespace(session_id=LEAD), completion)
+    assert queued == []
+    # The same agent's own work is still reviewed.
+    await rt.turn_completed(SimpleNamespace(session_id=SCOUT), completion)
+    assert queued == [SCOUT]
+    svc.gates[LEAD].set()
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
+    assert not leads.is_managing(LEAD)
+
+
 async def test_goals_queue_and_start_one_after_another(team):
     rt, svc = team
     leads = rt.team_leads
