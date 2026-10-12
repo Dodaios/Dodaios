@@ -110,7 +110,7 @@ _AVATAR_STRINGS: Final[tuple[str, ...]] = (
     "eyewear",
 )
 _COMPANION_KEYS: Final[frozenset[str]] = frozenset(
-    {"shape", "color", "eyes", "enabled", "sizeM", "followDistanceM", "pet"}
+    {"shape", "color", "eyes", "enabled", "sizeM", "followDistanceM", "pet", "creature"}
 )
 
 

@@ -13,6 +13,8 @@ import { useWornPet } from "./companionPetStore";
 import { companionFlies, type CompanionPet } from "./petCompanions";
 import { PetModel, VoxelPet, type PetDrive } from "./PetModel";
 import { advanceSkin, createSkinMaterial } from "./skinMaterial";
+import { CreatureModel } from "./CreatureModel";
+import { useShownCreature } from "./creatureTrial";
 
 class PetBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -25,8 +27,8 @@ class PetBoundary extends Component<{ children: ReactNode }, { failed: boolean }
 export const WORN_PET_LIFT_M = 0.32;
 
 /**
- * An agent's companion in 3D: its shape, or the pet it wears instead
- * (`companion.pet`) with that pet's own model and gait. While the pets
+ * An agent's companion in 3D: its shape, the pixel creature it wears
+ * instead, or its pet (`companion.pet`) with that pet's own model and gait. While the pets
  * answer is still on its way a worn pet draws nothing, so no shape flashes
  * first; a pet this machine does not have falls back to the shape.
  */
@@ -36,8 +38,10 @@ export function CompanionModel({ appearance, lead = false, drive, paused = false
   drive?: { current: PetDrive }; paused?: boolean;
 }) {
   const pet = useWornPet(lead ? undefined : appearance.pet);
+  const creature = useShownCreature(appearance);
   if (pet === undefined) return null;
   if (pet) return <WornPet pet={pet} drive={drive} paused={paused} />;
+  if (creature && !lead) return <CreatureModel creature={creature} sizeM={appearance.sizeM} />;
   return <ShapeModel appearance={appearance} lead={lead} />;
 }
 
