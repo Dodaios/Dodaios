@@ -88,13 +88,22 @@ from jarvis.core.installer_update import (
     apply_installer,
     download_and_verify,
     download_workdir,
-    installer_asset_name,
+    installer_asset_names,
     machine_for_update,
     select_asset,
+    select_installer_assets,
     sweep_stale_downloads,
     update_blocker,
 )
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from jarvis.core.update_contract import (
+    CONTRACT_PATH,
+    DEFAULT_CONTRACT,
+    VERSION_PATTERN,
+    UpdateContract,
+    parse_update_contract,
+    read_update_contract,
+)
 
 log = logging.getLogger(__name__)
 
@@ -151,6 +160,19 @@ def _running_version() -> str:
         return "unknown"
 
 
+def _version_sources(contract: UpdateContract) -> tuple[tuple[str, str], ...]:
+    """``(path, pattern)`` pairs that can name a tree's version, best first.
+
+    The version file is the one the tree itself names in its update contract,
+    so a release that moved its package is still read correctly by the version
+    before it. ``pyproject.toml`` never moves and stays the fallback.
+    """
+    return (
+        (contract.version_file, VERSION_PATTERN),
+        ("pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
+    )
+
+
 def _version_on_disk(root: Path) -> str | None:
     """Parse the version from the freshly-pulled files on disk.
 
@@ -158,12 +180,9 @@ def _version_on_disk(root: Path) -> str | None:
     memory is still the OLD version, so the post-update version must be read
     from disk, not from ``jarvis.__version__``.
     """
-    for rel, pattern in (
-        (Path("jarvis") / "__init__.py", r'__version__\s*=\s*"([^"]+)"'),
-        (Path("pyproject.toml"), r'^version\s*=\s*"([^"]+)"'),
-    ):
+    for rel, pattern in _version_sources(read_update_contract(root)):
         try:
-            text = (root / rel).read_text(encoding="utf-8")
+            text = root.joinpath(*rel.split("/")).read_text(encoding="utf-8")
         except OSError:
             # Not "file absent" alone — an unreadable version file makes the
             # installed version look older than it is, which shows up as an
@@ -673,12 +692,16 @@ async def _pending_update_overlay(root: Path) -> dict[str, Any]:
 
 
 async def _version_at_revision(root: Path, revision: str) -> str | None:
-    """Read a target version without checking that target out over the live app."""
+    """Read a target version without checking that target out over the live app.
 
-    for rel, pattern in (
-        ("jarvis/__init__.py", r'__version__\s*=\s*"([^"]+)"'),
-        ("pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
-    ):
+    Where the version is written is asked of the TARGET revision's own update
+    contract, not assumed from this version's layout. A revision without a
+    contract keeps its version where every such release keeps it.
+    """
+
+    raw_contract = await _git_output(["show", f"{revision}:{CONTRACT_PATH}"], cwd=root)
+    contract = DEFAULT_CONTRACT if raw_contract is None else parse_update_contract(raw_contract)
+    for rel, pattern in _version_sources(contract):
         raw = await _git_output(["show", f"{revision}:{rel}"], cwd=root)
         if raw is None:
             continue
@@ -893,9 +916,9 @@ def _on_git_progress(line: str) -> None:
     _progress.advance(PHASE_DOWNLOADING, low + (high - low) * share)
 
 
-def _frozen_asset_name() -> str | None:
-    """The installer asset this machine installs, or ``None`` if there is none."""
-    return installer_asset_name(sys.platform, machine_for_update())
+def _frozen_asset_names() -> tuple[str, ...]:
+    """The installer assets this machine can install, best first; empty if none."""
+    return installer_asset_names(sys.platform, machine_for_update())
 
 
 # Old update downloads are reclaimed once per process, on the first status
@@ -915,13 +938,20 @@ async def _sweep_old_downloads_once() -> None:
 
 
 def _frozen_release_assets(
-    release: dict[str, Any], asset_name: str
-) -> tuple[Any | None, Any | None]:
-    """``(installer asset, checksum manifest asset)`` from a release payload."""
+    release: dict[str, Any], asset_names: tuple[str, ...]
+) -> tuple[tuple[Any, ...], Any | None]:
+    """``(installer assets, checksum manifest asset)`` from a release payload.
+
+    The installers are this machine's file under every accepted name the
+    release carries, best first — one entry for any release published so far.
+    """
     assets = release.get("assets") or []
     if not isinstance(assets, list):
-        return None, None
-    return select_asset(assets, asset_name), select_asset(assets, CHECKSUMS_ASSET_NAME)
+        return (), None
+    return (
+        select_installer_assets(assets, asset_names),
+        select_asset(assets, CHECKSUMS_ASSET_NAME),
+    )
 
 
 async def _frozen_status(current: str) -> dict[str, object]:
@@ -958,8 +988,8 @@ async def _frozen_status(current: str) -> dict[str, object]:
     }
     await _sweep_old_downloads_once()
 
-    asset_name = _frozen_asset_name()
-    if asset_name is None:
+    asset_names = _frozen_asset_names()
+    if not asset_names:
         # No installer is published for this OS/CPU pair (a Windows ARM64 box,
         # a Linux aarch64 box). Never offer what cannot be installed.
         log.info(
@@ -977,7 +1007,8 @@ async def _frozen_status(current: str) -> dict[str, object]:
         return result
 
     version = str(latest.get("version") or "")
-    asset, checksums = _frozen_release_assets(latest, asset_name)
+    installers, checksums = _frozen_release_assets(latest, asset_names)
+    asset = installers[0] if installers else None
     result["latest"] = version or None
     result["published_at"] = latest.get("published_at")
     result["release_url"] = latest.get("release_url")
@@ -988,7 +1019,7 @@ async def _frozen_status(current: str) -> dict[str, object]:
         log.info(
             "[update] release %s carries no %s / %s — not offering a frozen update",
             version or "?",
-            asset_name,
+            " / ".join(asset_names),
             CHECKSUMS_ASSET_NAME,
         )
         return result
@@ -1079,8 +1110,8 @@ async def _apply_frozen(
     _progress.begin(INSTALL_KIND_FROZEN)
     _refuse_if_missions_run(request, force=force)
     current = _running_version()
-    asset_name = _frozen_asset_name()
-    if asset_name is None:
+    asset_names = _frozen_asset_names()
+    if not asset_names:
         raise HTTPException(
             status_code=501,
             detail=(
@@ -1112,12 +1143,13 @@ async def _apply_frozen(
     if not _is_newer(release_version, current):
         raise HTTPException(status_code=409, detail="no newer published release exists")
 
-    asset, checksums = _frozen_release_assets(latest, asset_name)
-    if asset is None:
+    installers, checksums = _frozen_release_assets(latest, asset_names)
+    if not installers:
         raise HTTPException(
             status_code=502,
-            detail=f"release {release_tag} does not contain {asset_name}",
+            detail=f"release {release_tag} does not contain {' or '.join(asset_names)}",
         )
+    asset = installers[0]
     if checksums is None:
         raise HTTPException(
             status_code=502,
@@ -1149,9 +1181,21 @@ async def _apply_frozen(
     workdir = download_workdir()
     try:
         _progress.enter(PHASE_DOWNLOADING, detail=asset.name)
-        installer = await download_and_verify(
-            asset, checksums, dest_dir=workdir, on_progress=on_bytes
-        )
+        if len(installers) > 1:
+            # The release carries this installer under more than one accepted
+            # name; the checksum manifest decides which of them is downloaded.
+            installer = await download_and_verify(
+                asset,
+                checksums,
+                dest_dir=workdir,
+                on_progress=on_bytes,
+                alternatives=installers[1:],
+            )
+            asset = next((a for a in installers if a.name == installer.name), asset)
+        else:
+            installer = await download_and_verify(
+                asset, checksums, dest_dir=workdir, on_progress=on_bytes
+            )
         # download_and_verify hashes the file after the last byte lands, so by
         # the time it returns the verify phase is already over — the window is
         # closed here rather than announced, to keep the bar truthful.

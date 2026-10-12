@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import plistlib
 import shutil
 import stat
 import subprocess
@@ -33,11 +34,13 @@ from jarvis.core.installer_update import (
     download_and_verify,
     handover_env,
     installer_asset_name,
+    installer_asset_names,
     machine_for_update,
     parse_sha256sums,
     relaunch_after_exit_command,
     select_asset,
     select_installer_asset,
+    select_installer_assets,
     sweep_stale_downloads,
     update_blocker,
 )
@@ -109,6 +112,80 @@ def test_select_installer_asset_picks_this_machines_file() -> None:
     picked = select_installer_asset(assets, platform_name="darwin", machine="arm64")
     assert picked is not None
     assert picked.name == "PersonalJarvis-macOS-arm64.dmg"
+
+
+@pytest.mark.parametrize(
+    ("platform_name", "machine", "expected"),
+    [
+        ("win32", "AMD64", ("Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe")),
+        ("darwin", "arm64", ("Dodaios-macOS-arm64.dmg", "PersonalJarvis-macOS-arm64.dmg")),
+        ("darwin", "x86_64", ("Dodaios-macOS-x64.dmg", "PersonalJarvis-macOS-x64.dmg")),
+        (
+            "linux",
+            "x86_64",
+            ("Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"),
+        ),
+    ],
+)
+def test_installer_asset_names_lists_every_accepted_name_best_first(
+    platform_name: str, machine: str, expected: tuple[str, ...]
+) -> None:
+    assert installer_asset_names(platform_name, machine) == expected
+    # The name every published release carries stays the single-name answer.
+    assert installer_asset_name(platform_name, machine) == expected[-1]
+
+
+def test_unsupported_platforms_accept_no_name() -> None:
+    assert installer_asset_names("win32", "ARM64") == ()
+    assert installer_asset_names("freebsd", "x86_64") == ()
+
+
+def test_every_accepted_name_belongs_to_exactly_one_platform() -> None:
+    """One table, no name twice: a name must never resolve to two machines."""
+    names = [name for row in iu.INSTALLER_ASSET_NAMES.values() for name in row]
+    assert len(names) == len(set(names))
+    assert all(len(row) == 2 for row in iu.INSTALLER_ASSET_NAMES.values())
+
+
+def test_the_updater_accepts_every_installer_the_release_pipeline_publishes() -> None:
+    """A published installer the updater does not know is an update nobody gets."""
+    from scripts.ci import release_assets
+
+    by_system = {
+        system: {name for (row_system, _cpu), row in iu.INSTALLER_ASSET_NAMES.items()
+                 if row_system == system for name in row}
+        for system in ("windows", "macos", "linux")
+    }
+    assert set(release_assets.PLATFORM_INSTALLERS) == set(by_system)
+    for system, published in release_assets.PLATFORM_INSTALLERS.items():
+        assert published <= by_system[system], system
+    assert release_assets.INSTALLERS == set().union(*release_assets.PLATFORM_INSTALLERS.values())
+
+
+def test_select_installer_asset_prefers_the_first_accepted_name() -> None:
+    assets = _release_assets(
+        "PersonalJarvis-macOS-arm64.dmg",
+        "Dodaios-macOS-arm64.dmg",
+        CHECKSUMS_ASSET_NAME,
+    )
+    picked = select_installer_asset(assets, platform_name="darwin", machine="arm64")
+    assert picked is not None
+    assert picked.name == "Dodaios-macOS-arm64.dmg"
+
+
+def test_select_installer_asset_takes_the_only_name_a_release_carries() -> None:
+    for name in installer_asset_names("linux", "x86_64"):
+        assets = _release_assets(name, CHECKSUMS_ASSET_NAME)
+        picked = select_installer_asset(assets, platform_name="linux", machine="x86_64")
+        assert picked is not None
+        assert picked.name == name
+
+
+def test_select_installer_assets_keeps_the_order_of_the_names() -> None:
+    names = installer_asset_names("win32", "AMD64")
+    assets = _release_assets(*reversed(names), "PersonalJarvis-macOS-x64.dmg")
+    assert [asset.name for asset in select_installer_assets(assets, names)] == list(names)
+    assert select_installer_assets([], names) == ()
 
 
 def test_select_asset_rejects_a_non_https_url() -> None:
@@ -189,6 +266,90 @@ async def test_download_and_verify_refuses_when_the_manifest_omits_the_asset(
         await download_and_verify(
             asset, _asset(CHECKSUMS_ASSET_NAME), dest_dir=tmp_path, fetcher=fetcher
         )
+
+
+async def test_download_and_verify_takes_the_first_name_the_manifest_vouches_for(
+    tmp_path: Path,
+) -> None:
+    preferred = _asset("Dodaios-Setup-x64.exe")
+    published = _asset("PersonalJarvis-Setup-x64.exe")
+    both = f"{PAYLOAD_SHA256}  {preferred.name}\n{PAYLOAD_SHA256}  {published.name}\n"
+    fetcher = FakeAssetFetcher(manifest=both, payload=PAYLOAD)
+
+    result = await download_and_verify(
+        preferred,
+        _asset(CHECKSUMS_ASSET_NAME),
+        dest_dir=tmp_path,
+        fetcher=fetcher,
+        alternatives=[published],
+    )
+
+    assert result == tmp_path / preferred.name
+    assert fetcher.download_urls == [preferred.url]
+
+
+async def test_download_and_verify_skips_a_name_the_manifest_does_not_list(
+    tmp_path: Path,
+) -> None:
+    """Present in the release is not enough: only a checksummed file is fetched."""
+    preferred = _asset("Dodaios-Setup-x64.exe")
+    published = _asset("PersonalJarvis-Setup-x64.exe")
+    fetcher = FakeAssetFetcher(
+        manifest=f"{PAYLOAD_SHA256}  {published.name}\n", payload=PAYLOAD
+    )
+
+    result = await download_and_verify(
+        preferred,
+        _asset(CHECKSUMS_ASSET_NAME),
+        dest_dir=tmp_path,
+        fetcher=fetcher,
+        alternatives=[published],
+    )
+
+    assert result == tmp_path / published.name
+    assert fetcher.download_urls == [published.url]
+    assert not (tmp_path / preferred.name).exists()
+
+
+async def test_download_and_verify_refuses_when_no_accepted_name_is_listed(
+    tmp_path: Path,
+) -> None:
+    preferred = _asset("Dodaios-Setup-x64.exe")
+    published = _asset("PersonalJarvis-Setup-x64.exe")
+    fetcher = FakeAssetFetcher(
+        manifest=f"{PAYLOAD_SHA256}  PersonalJarvis-macOS-arm64.dmg\n", payload=PAYLOAD
+    )
+    with pytest.raises(InstallerUpdateError, match="no entry") as excinfo:
+        await download_and_verify(
+            preferred,
+            _asset(CHECKSUMS_ASSET_NAME),
+            dest_dir=tmp_path,
+            fetcher=fetcher,
+            alternatives=[published],
+        )
+    assert preferred.name in str(excinfo.value)
+    assert published.name in str(excinfo.value)
+    assert fetcher.download_urls == []
+
+
+async def test_download_and_verify_applies_the_size_cap_to_the_chosen_file(
+    tmp_path: Path,
+) -> None:
+    preferred = _asset("Dodaios-Setup-x64.exe")
+    published = _asset("PersonalJarvis-Setup-x64.exe", size=10_000)
+    fetcher = FakeAssetFetcher(
+        manifest=f"{PAYLOAD_SHA256}  {published.name}\n", payload=PAYLOAD
+    )
+    with pytest.raises(InstallerUpdateError, match="cap"):
+        await download_and_verify(
+            preferred,
+            _asset(CHECKSUMS_ASSET_NAME),
+            dest_dir=tmp_path,
+            fetcher=fetcher,
+            max_bytes=1_000,
+            alternatives=[published],
+        )
+    assert fetcher.download_urls == []
 
 
 async def test_download_and_verify_refuses_an_oversized_asset(tmp_path: Path) -> None:
@@ -307,16 +468,30 @@ def test_handover_refuses_an_unsupported_platform(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------- #
 # macOS handover
 # --------------------------------------------------------------------------- #
-def _mounting_runner(app_name: str, payload: str) -> FakeCommandRunner:
+def _write_bundle(app: Path, payload: str, bundle_id: str | None = None) -> None:
+    """A minimal ``.app``: one executable, plus an ``Info.plist`` when identified."""
+    macos = app / "Contents" / "MacOS"
+    macos.mkdir(parents=True, exist_ok=True)
+    (macos / "PersonalJarvis").write_text(payload, encoding="utf-8")
+    if bundle_id is not None:
+        with (app / "Contents" / "Info.plist").open("wb") as stream:
+            plistlib.dump({"CFBundleIdentifier": bundle_id}, stream)
+
+
+def _bundle_payload(app: Path) -> str:
+    return (app / "Contents" / "MacOS" / "PersonalJarvis").read_text(encoding="utf-8")
+
+
+def _mounting_runner(
+    app_name: str, payload: str, bundle_id: str | None = None
+) -> FakeCommandRunner:
     """A runner whose ``hdiutil attach`` really populates the mountpoint."""
 
     def _mount(command: list[str]) -> None:
         if len(command) < 2 or command[1] != "attach":
             return
         mountpoint = Path(command[command.index("-mountpoint") + 1])
-        bundle = mountpoint / app_name / "Contents" / "MacOS"
-        bundle.mkdir(parents=True, exist_ok=True)
-        (bundle / "PersonalJarvis").write_text(payload, encoding="utf-8")
+        _write_bundle(mountpoint / app_name, payload, bundle_id)
 
     def _detach(command: list[str]) -> None:
         # A real detach empties the mountpoint; the updater then removes the
@@ -386,19 +561,166 @@ def test_macos_handover_refuses_without_a_resolvable_app(tmp_path: Path) -> None
         )
 
 
-def test_macos_handover_falls_back_to_the_only_bundle_on_the_volume(
+# A disk image whose bundle is named differently from the running app is a
+# release that renamed the app. The names below are arbitrary on purpose: the
+# handover must not depend on knowing the new name in advance.
+OLD_APP_NAME = "Personal Jarvis.app"
+NEW_APP_NAME = "Renamed Product.app"
+NEW_BUNDLE_ID = "ai.renamed.desktop"
+
+# These cases rename freshly written directories, which a Windows virus scanner
+# can hold open for a moment. The swap only ever runs on macOS, so the cases
+# run wherever such a rename is reliable.
+renames_bundles = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the .app swap only runs on macOS; Windows scanners can briefly lock a renamed dir",
+)
+
+
+def _renamed_release(tmp_path: Path, *, running_id: str | None) -> tuple[Path, Path, Path]:
+    """``(dmg, running app, where the renamed app belongs)``."""
+    dmg = tmp_path / "Dodaios-macOS-arm64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    app = tmp_path / "Applications" / OLD_APP_NAME
+    _write_bundle(app, "old", running_id)
+    return dmg, app, app.with_name(NEW_APP_NAME)
+
+
+@renames_bundles
+@pytest.mark.parametrize("running_id", sorted(iu._OWN_MACOS_BUNDLE_IDS))
+def test_macos_handover_installs_a_renamed_bundle_beside_the_running_one(
+    tmp_path: Path, running_id: str
+) -> None:
+    dmg, app, renamed = _renamed_release(tmp_path, running_id=running_id)
+    runner = _mounting_runner(NEW_APP_NAME, "new", NEW_BUNDLE_ID)
+
+    message = apply_installer(
+        dmg, platform_name="darwin", runner=runner, app_path=app, wait_for_pid=4242
+    )
+
+    # Under its own name, in the same folder - never inside the old-named one.
+    assert _bundle_payload(renamed) == "new"
+    assert not (app / "Contents" / "MacOS" / "PersonalJarvis").exists()
+    # The NEW path is what comes back; the old one no longer exists to open.
+    assert runner.spawned == [
+        relaunch_after_exit_command(4242, [MACOS_OPEN, "-n", str(renamed)])
+    ]
+    # The superseded bundle is gone, and so is every staging leftover.
+    assert not app.exists()
+    assert sorted(p.name for p in app.parent.iterdir()) == [NEW_APP_NAME]
+    assert NEW_APP_NAME in message and OLD_APP_NAME in message
+
+
+@renames_bundles
+@pytest.mark.parametrize("running_id", [None, "com.example.someone-else"])
+def test_macos_handover_keeps_a_superseded_bundle_it_cannot_identify(
+    tmp_path: Path, running_id: str | None
+) -> None:
+    """Only a bundle that names one of our identifiers is ever deleted."""
+    dmg, app, renamed = _renamed_release(tmp_path, running_id=running_id)
+    runner = _mounting_runner(NEW_APP_NAME, "new", NEW_BUNDLE_ID)
+
+    apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app, wait_for_pid=7)
+
+    assert _bundle_payload(renamed) == "new"
+    assert _bundle_payload(app) == "old"
+    assert runner.spawned == [relaunch_after_exit_command(7, [MACOS_OPEN, "-n", str(renamed)])]
+
+
+@renames_bundles
+def test_macos_handover_updates_a_renamed_bundle_that_is_already_installed(
     tmp_path: Path,
 ) -> None:
-    dmg = tmp_path / "PersonalJarvis-macOS-x64.dmg"
-    dmg.write_bytes(PAYLOAD)
-    app = tmp_path / "Applications" / "Personal Jarvis.app"
-    (app / "Contents").mkdir(parents=True)
+    dmg, app, renamed = _renamed_release(tmp_path, running_id=iu.MACOS_DMG_BUNDLE_ID)
+    _write_bundle(renamed, "earlier copy", NEW_BUNDLE_ID)
+    runner = _mounting_runner(NEW_APP_NAME, "new", NEW_BUNDLE_ID)
 
-    # The DMG names the bundle differently from the installed one; there is
-    # still exactly one, so the swap is unambiguous.
-    runner = _mounting_runner("Personal Jarvis 2.app", "new")
     apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app)
-    assert (app / "Contents" / "MacOS" / "PersonalJarvis").read_text(encoding="utf-8") == "new"
+
+    assert _bundle_payload(renamed) == "new"
+    assert not app.exists()
+
+
+@pytest.mark.parametrize("squatter_id", [None, "com.example.someone-else"])
+def test_macos_handover_never_overwrites_an_unrelated_app_with_the_new_name(
+    tmp_path: Path, squatter_id: str | None
+) -> None:
+    dmg, app, renamed = _renamed_release(tmp_path, running_id=iu.MACOS_DMG_BUNDLE_ID)
+    _write_bundle(renamed, "someone else", squatter_id)
+    runner = _mounting_runner(NEW_APP_NAME, "new", NEW_BUNDLE_ID)
+
+    with pytest.raises(InstallerUpdateError, match="different application"):
+        apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app)
+
+    assert _bundle_payload(renamed) == "someone else"
+    assert _bundle_payload(app) == "old"
+    assert runner.spawned == []
+    assert any(cmd[:2] == ["hdiutil", "detach"] for cmd in runner.ran)
+
+
+def test_macos_handover_keeps_the_running_app_when_the_renamed_copy_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dmg, app, renamed = _renamed_release(tmp_path, running_id=iu.MACOS_DMG_BUNDLE_ID)
+    runner = _mounting_runner(NEW_APP_NAME, "new", NEW_BUNDLE_ID)
+
+    def _disk_full(*_args: object, **_kwargs: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(shutil, "copytree", _disk_full)
+
+    with pytest.raises(InstallerUpdateError, match="could not stage"):
+        apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app)
+
+    # The copy never completed, so the bundle the user started is untouched.
+    assert _bundle_payload(app) == "old"
+    assert not renamed.exists()
+    assert runner.spawned == []
+
+
+@renames_bundles
+def test_macos_handover_survives_a_superseded_bundle_that_cannot_be_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dmg, app, renamed = _renamed_release(tmp_path, running_id=iu.MACOS_DMG_BUNDLE_ID)
+    runner = _mounting_runner(NEW_APP_NAME, "new", NEW_BUNDLE_ID)
+    real_replace = os.replace
+
+    def _locked(src: object, dst: object) -> None:
+        if Path(str(src)) == app:
+            raise OSError("resource busy")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", _locked)
+
+    apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app, wait_for_pid=9)
+
+    # The update itself succeeded: the new app is installed and relaunched.
+    assert _bundle_payload(renamed) == "new"
+    assert _bundle_payload(app) == "old"
+    assert runner.spawned == [relaunch_after_exit_command(9, [MACOS_OPEN, "-n", str(renamed)])]
+
+
+@renames_bundles
+def test_macos_same_name_handover_never_reads_a_bundle_identifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The in-place swap is the unchanged path: no ownership logic runs for it."""
+    dmg = tmp_path / "PersonalJarvis-macOS-arm64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    app = tmp_path / "Applications" / OLD_APP_NAME
+    _write_bundle(app, "old")
+
+    def _forbidden(_bundle: Path) -> str | None:
+        raise AssertionError("a same-name update must not inspect bundle identifiers")
+
+    monkeypatch.setattr(iu, "_macos_bundle_identifier", _forbidden)
+    runner = _mounting_runner(OLD_APP_NAME, "new")
+
+    apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app, wait_for_pid=3)
+
+    assert _bundle_payload(app) == "new"
+    assert runner.spawned == [relaunch_after_exit_command(3, [MACOS_OPEN, "-n", str(app)])]
 
 
 # --------------------------------------------------------------------------- #
