@@ -1008,6 +1008,7 @@
       "team_yours": "Your teams",
       "team_none": "No teams yet. Put one together below.",
       "team_members": "{0} members",
+      "team_lead": "Lead: {0}",
       "team_working": "{0} working",
       "team_meet": "Meet at the table",
       "team_meeting_now": "In the meeting",

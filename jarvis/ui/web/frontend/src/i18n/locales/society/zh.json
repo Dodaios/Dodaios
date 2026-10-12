@@ -1008,6 +1008,7 @@
       "team_yours": "你的团队",
       "team_none": "还没有团队。在下方组建一个吧。",
       "team_members": "{0} 名成员",
+      "team_lead": "负责人：{0}",
       "team_working": "{0} 个工作中",
       "team_meet": "在桌边集合",
       "team_meeting_now": "会议中",

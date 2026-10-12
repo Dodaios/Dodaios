@@ -57,6 +57,9 @@ LINUX_DESKTOP_ENTRY_FILE_NAME = f"{PRODUCT_SLUG}.desktop"
 LINUX_WM_CLASS = PRODUCT_SLUG
 
 DEFAULT_OFFICIAL_REPO_SLUG = "Dodaios/Dodaios"
+# Checkouts cloned before the GitHub rename still store this origin. The
+# updater accepts it and rewrites origin to the current slug when it applies.
+LEGACY_OFFICIAL_REPO_SLUGS = ("PersonalJarvis/PersonalJarvis",)
 OFFICIAL_REPO_SLUG_ENV_VAR = "JARVIS_OFFICIAL_REPO_SLUG"
 
 
@@ -89,6 +92,7 @@ __all__ = [
     "CONTROL_KEY_PREFIX",
     "DEFAULT_OFFICIAL_REPO_SLUG",
     "DEFAULT_INSTALL_DIR_NAME",
+    "LEGACY_OFFICIAL_REPO_SLUGS",
     "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
     "FALLBACK_USER_DATA_DIR_NAME",
     "KEYRING_SERVICE_NAME",

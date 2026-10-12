@@ -159,6 +159,7 @@ function TeamCard({ group, agents, layout, sample, actions }: {
   const [error, setError] = useState("");
   const present = group.members.map((id) => agents.find((a) => a.agentId === id)).filter((a): a is SocietyAgent => !!a);
   const working = present.filter((a) => a.state === "working").length;
+  const lead = present.find((a) => a.agentId === group.lead_agent_id);
   const inMeeting = !!meeting && meeting.groupId === group.group_id && meeting.untilMs > Date.now();
 
   const meet = () => {
@@ -199,6 +200,7 @@ function TeamCard({ group, agents, layout, sample, actions }: {
         <span className="office-hint">
           {t("society.office.team_members").replace("{0}", String(present.length))}
           {working > 0 ? ` · ${t("society.office.team_working").replace("{0}", String(working))}` : ""}
+          {lead ? ` · ${t("society.office.team_lead").replace("{0}", lead.name)}` : ""}
         </span>
       </div>
       <div className="team-badges">
