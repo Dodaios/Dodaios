@@ -50,12 +50,14 @@ export interface BoardLabels {
   loading: string;
   /** The transcript cannot be read right now. */
   unavailable: string;
+  /** How the team's lead is named in the member list: "Lead: {0}". */
+  lead: string;
   /** "+{0} more" */
   more: string;
   state: Record<AgentRunState, string>;
 }
 
-export interface BoardMember { id: string; name: string; state: AgentRunState; speaking: boolean }
+export interface BoardMember { id: string; name: string; state: AgentRunState; speaking: boolean; /** The team's lead, listed first. */ lead: boolean }
 export interface BoardLine { id: string; who: string; text: string; fromPerson: boolean }
 
 export interface BoardModel {
@@ -72,14 +74,17 @@ export interface BoardModel {
 }
 
 export function boardModel(
-  studio: Pick<Studio, "name" | "teamId" | "members">, agents: ReadonlyMap<string, Pick<SocietyAgent, "name" | "state">>,
+  studio: Pick<Studio, "name" | "teamId" | "members"> & { leadId?: string | null }, agents: ReadonlyMap<string, Pick<SocietyAgent, "name" | "state">>,
   round: TeamRound | undefined, labels: BoardLabels,
 ): BoardModel {
   // Everyone seated here, then team members who sit elsewhere (an agent can be in several teams).
-  const ids = [...studio.members, ...(round?.members ?? []).filter((id) => !studio.members.includes(id))];
+  const listed = [...studio.members, ...(round?.members ?? []).filter((id) => !studio.members.includes(id))];
+  // The team's lead, when it has one among its members, comes first.
+  const leadId = studio.leadId && listed.includes(studio.leadId) ? studio.leadId : null;
+  const ids = leadId ? [leadId, ...listed.filter((id) => id !== leadId)] : listed;
   const present = ids.flatMap((id) => {
     const agent = agents.get(id);
-    return agent ? [{ id, name: agent.name, state: agent.state, speaking: !!round?.running && round.speakerId === id }] : [];
+    return agent ? [{ id, name: agent.name, state: agent.state, speaking: !!round?.running && round.speakerId === id, lead: id === leadId }] : [];
   });
   const lines: BoardLine[] = (round?.lines ?? []).slice(-MAX_BOARD_LINES).map((line) => ({
     id: line.id, fromPerson: line.speaker === "user",
@@ -104,8 +109,8 @@ export function boardModel(
 /** A cheap identity for "does the face need a redraw". */
 export function boardSignature(model: BoardModel, labels: BoardLabels): string {
   return JSON.stringify([model.title, model.count, model.live, model.hidden, model.note,
-    model.members.map((m) => [m.name, m.state, m.speaking]), model.lines.map((l) => [l.id, l.who, l.text]),
-    labels.live, labels.speaking, labels.more, labels.state]);
+    model.members.map((m) => [m.name, m.state, m.speaking, m.lead]), model.lines.map((l) => [l.id, l.who, l.text]),
+    labels.live, labels.speaking, labels.more, labels.state, labels.lead]);
 }
 
 /** Ink on the board's paper face: the same sheet the board shows at rest, now written on. */
@@ -171,7 +176,7 @@ export function drawStudioBoard(ctx: CanvasRenderingContext2D, model: BoardModel
     ctx.beginPath(); ctx.arc(50, y, 10, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = PAPER.ink;
     ctx.font = `600 29px ${FONT}`;
-    ctx.fillText(clipped(ctx, member.name, colW - 60), 76, y - 12);
+    ctx.fillText(clipped(ctx, member.lead ? labels.lead.replace("{0}", member.name) : member.name, colW - 60), 76, y - 12);
     ctx.fillStyle = member.speaking ? PAPER.live : PAPER.soft;
     ctx.font = `500 21px ${FONT}`;
     ctx.fillText(clipped(ctx, member.speaking ? labels.speaking : labels.state[member.state], colW - 60), 76, y + 17);

@@ -177,6 +177,20 @@ export const HUDDLE_ARCS: readonly { radius: number; angles: readonly number[] }
   { radius: 3.3, angles: [0, -20, 20, -40, 40, -60, 60] },
   { radius: 4.4, angles: [-7.5, 7.5, -22.5, 22.5, -37.5, 37.5] },
 ];
+/**
+ * The lead's place in a gathering at the board: the place of the front arc
+ * nearest the board's centre line. Null for a studio without a lead (then the
+ * arcs have no special place at all) or without a walkable front arc.
+ */
+export function leadPlace(places: readonly Place[], studio: Pick<Studio, "deptId" | "leadId" | "board">): Place | null {
+  const board = studio.board;
+  if (!studio.leadId || !board) return null;
+  const front = places.filter((p) => p.id.startsWith(`fan:${studio.deptId}:0:`));
+  // How far to the side of the board's centre line a place lies.
+  const aside = (p: Place) => Math.abs((p.x - board.x) * Math.cos(board.facing) - (p.z - board.z) * Math.sin(board.facing));
+  return front.reduce<Place | null>((best, p) => (!best || aside(p) < aside(best) - 1e-6 ? p : best), null);
+}
+
 /** The least two places of the arcs are apart; the tests hold the geometry to it. */
 export const HUDDLE_SPACE_M = 1.05;
 

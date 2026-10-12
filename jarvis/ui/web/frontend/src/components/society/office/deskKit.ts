@@ -35,7 +35,9 @@ export type DressingPart =
   | "letterTray" | "trayPost" | "paper" | "page" | "folder"
   | "tabletBody" | "tabletScreen" | "tabletStand" | "phoneBody" | "phoneScreen" | "dock"
   | "penCup" | "pencil" | "frame" | "photo" | "cup" | "cupLid" | "cupSleeve"
-  | "oakPlanter" | "oakSlat" | "brassTrim";
+  | "oakPlanter" | "oakSlat" | "brassTrim"
+  // A plain box in a team's colour: what marks a team lead's place.
+  | "felt";
 
 /**
  * One part in place. `r` is an Euler rotation applied in YXZ order (a yaw,
@@ -527,6 +529,66 @@ export function officeKitPlacements(kit: OfficeKit): Placement[] {
     });
   }
   return out;
+}
+
+/**
+ * Where `DeskInstances` stands the task chair behind a desk, and the chair's backrest as `OfficeChairs` builds it:
+ * a reclined cone segment half a metre high whose middle is 0.86 m up, 0.55 m from an axis in front of the seat.
+ */
+const LEAD_CHAIR = { z: 0.62, axisZ: -0.288, radius: 0.55, midY: 0.86, recline: 0.197, seatTop: 0.522 } as const;
+/** The name stand's plate leans back this far from upright, so it faces a camera looking down at forty degrees. */
+const STAND_TILT = -0.7;
+/** The stand is turned towards the view from the south-east. */
+const STAND_YAW = 0.66;
+
+/**
+ * What marks a team lead's place, in desk-local space, each group in the team's colour:
+ * - `chair`: a shell on the back of the task chair (three panels round its curve) with a bronze cap along its top
+ *   edge, and a pad on the seat. The chair is what the camera sees first, and it stays when the lead is away.
+ * - `mat`: a chair mat on the floor under the chair, which is what reads from the overview.
+ * - `stand`: a tent card on the desk's front right corner: an oak base and a plate leaning back towards the
+ *   camera, with a pale name line and a bronze top edge.
+ * Made of parts the desk kit already draws, plus one plain coloured box; everything stays inside the desk and the
+ * strip its chair rolls on.
+ */
+export function leadMark(colour: string): { chair: Placement[]; mat: Placement[]; stand: Placement[] } {
+  const { recline } = LEAD_CHAIR;
+  const r = LEAD_CHAIR.radius + 0.03;
+  const chair: Placement[] = [];
+  for (const [theta, h] of [[0, 0.44], [-0.29, 0.4], [0.29, 0.4]] as const) {
+    const x = Math.sin(theta) * r, z = LEAD_CHAIR.z + LEAD_CHAIR.axisZ + Math.cos(theta) * r;
+    const y = LEAD_CHAIR.midY - (theta === 0 ? 0 : 0.012);
+    chair.push({ part: "felt", p: [x, y, z], r: [recline, theta, 0], s: [0.172, h, 0.02], c: colour });
+    // The cap sits on the panel's top edge, in the panel's own lean.
+    const up = h / 2 + 0.011;
+    chair.push({
+      part: "brassTrim", r: [recline, theta, 0], s: [0.176, 0.022, 0.034],
+      p: [x + up * Math.sin(recline) * Math.sin(theta), y + up * Math.cos(recline), z + up * Math.sin(recline) * Math.cos(theta)],
+    });
+  }
+  // The pad rests in the seat's dish and stands a few millimetres proud of its rim.
+  chair.push({ part: "felt", p: [0, LEAD_CHAIR.seatTop + 0.007, LEAD_CHAIR.z - 0.02], s: [0.36, 0.018, 0.34], c: colour });
+
+  // Above the studio's rug (its field lies at 7 mm), below the light pools (12 mm).
+  const mat: Placement[] = [{ part: "felt", p: [0, 0.009, 0.725], s: [1.15, 0.003, 0.95], c: colour }];
+
+  const half = 0.065, foot = TOP + 0.014;
+  const up = Math.cos(STAND_TILT) * half, back = Math.sin(STAND_TILT) * half;
+  // The plate's outward normal, for what lies on its face.
+  const ny = -Math.sin(STAND_TILT), nz = Math.cos(STAND_TILT);
+  const stand = assembly(0.66, 0.325, STAND_YAW, [
+    { part: "oakSlat", p: [0, TOP + 0.007, -0.04], s: [0.17, 0.014, 0.1] },
+    { part: "felt", p: [0, foot + up, back], r: [STAND_TILT, 0, 0], s: [0.16, half * 2, 0.006], c: colour },
+    { part: "paper", p: [0, foot + up + ny * 0.0045, back + nz * 0.0045], r: [STAND_TILT, 0, 0], s: [0.11, 0.024, 0.003], c: "#f6f3ec" },
+    { part: "brassTrim", p: [0, foot + up * 2, back * 2], r: [STAND_TILT, 0, 0], s: [0.164, 0.008, 0.012] },
+  ]);
+  return { chair, mat, stand };
+}
+
+/** Every part of a team lead's mark; see `leadMark`. */
+export function leadMarkPlacements(colour: string): Placement[] {
+  const { chair, mat, stand } = leadMark(colour);
+  return [...chair, ...mat, ...stand];
 }
 
 /** The agents floor's planter: taller than the coding floor's box, so it also screens the bench end. */

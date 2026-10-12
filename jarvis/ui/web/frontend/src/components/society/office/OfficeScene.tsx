@@ -19,7 +19,7 @@ import { DeskInstances } from "./DeskInstances";
 import { DeskDressing } from "./DeskDressing";
 import { CodingSlab, CodingStudio } from "./CodingFloorLook";
 import { CodingFloorAmbience } from "./CodingFloorAmbience";
-import { AGENTS_SCENE, AgentsDepartment, AgentsSlab } from "./AgentsFloorLook";
+import { AGENTS_SCENE, AgentsDepartment, agentsRug, AgentsSlab } from "./AgentsFloorLook";
 import { AgentsFloorAmbience } from "./AgentsFloorAmbience";
 import { CampusGround } from "./CampusGround";
 import { StaticBatch } from "./StaticBatch";
@@ -48,7 +48,7 @@ import { OfficePlayer } from "./OfficePlayer";
 import { OfficeDog } from "./OfficeDog";
 import { PlayerBubble } from "./OfficeBubbles";
 import { OfficeCameraRig } from "./OfficeCameraRig";
-import { allDesks, type FurnitureKind, type OfficeLayout, type Point } from "./officeLayout";
+import { allDesks, leadDesks, type FurnitureKind, type OfficeLayout, type Point } from "./officeLayout";
 import { isWalkable, nearestWalkable, type NavGrid } from "./officeNav";
 import { CODING_SCENE, OFFICE } from "./officePalette";
 import { officeSession, player as playerBody, useOfficeStore, type OfficeFloor, type Selection } from "./officeStore";
@@ -185,6 +185,8 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
   const benchDesks = useMemo(() => desks.filter((d) => !d.size), [desks]);
   // Each desk takes its department's zone colour for the felt screen and the seat fabric.
   const zones = useMemo(() => new Map(layout.departments.flatMap((dept) => dept.desks.map((desk) => [desk.id, dept.tint] as const))), [layout]);
+  // A team lead's place is marked in its team's colour: the chair, a mat under it and a name stand on the desk.
+  const leadSigns = useMemo(() => new Map(leadDesks(layout).map(({ desk, dept }) => [desk.id, agentsRug(dept.tint).border] as const)), [layout]);
   const leadRoom = layout.rooms.find((r) => r.kind === "lead");
   const teamRoom = layout.rooms.find((r) => r.kind === "team");
   const breakRoom = layout.rooms.find((r) => r.kind === "break");
@@ -242,7 +244,7 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
           <CampusGround layout={layout} />
           {benchDesks.length > 0 && <>
             <DeskInstances desks={benchDesks} agents={agents} zones={zones} />
-            <DeskDressing desks={benchDesks} departments={layout.departments} floor="agents" />
+            <DeskDressing desks={benchDesks} departments={layout.departments} floor="agents" leadSigns={leadSigns} />
           </>}
         </>}
       <ExecutiveDesks desks={desks} agents={agents} onOpenScreen={onOpenScreen} />

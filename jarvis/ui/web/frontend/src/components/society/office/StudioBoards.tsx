@@ -32,6 +32,7 @@ function useBoardLabels(): BoardLabels {
     poolNote: t("society.office.board_pool_note"),
     loading: t("society.office.board_loading"),
     unavailable: t("society.office.board_unavailable"),
+    lead: t("society.office.team_lead"),
     more: t("society.office.board_more"),
     state: {
       working: t("society.office.state_working"), waiting: t("society.office.state_waiting"),

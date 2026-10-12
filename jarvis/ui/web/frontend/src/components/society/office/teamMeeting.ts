@@ -6,7 +6,7 @@
 import type { SocietyAgent } from "../data";
 import type { OfficeLayout, Point, Studio } from "./officeLayout";
 import { buildNavGrid, type NavGrid } from "./officeNav";
-import { huddlePlaces } from "./officeTeams";
+import { huddlePlaces, leadPlace } from "./officeTeams";
 import type { Summon, TeamMeeting } from "./officeStore";
 
 /** A meeting holds its members at the table this long unless it is ended earlier. */
@@ -46,7 +46,8 @@ const gridCache = new WeakMap<OfficeLayout, NavGrid>();
  * A place at a studio's own board for every member, the arc nearest the board
  * first: what "Meet" started from that studio's board hands to
  * `startMeeting` instead of the team room's chairs. Members beyond the places
- * of the arcs get none and stay where they are. Like every meeting, it never
+ * of the arcs get none and stay where they are. The team's lead, when it is
+ * among them, gets the centre of the front arc. Like every meeting, it never
  * moves a working member. `grid` is the floor's navigation grid when the
  * caller has it; without one it is built from the layout (once per layout).
  */
@@ -65,14 +66,18 @@ export function boardSeats(
   if (!board) return {};
   let floor = grid ?? gridCache.get(layout);
   if (!floor) { floor = buildNavGrid(layout); gridCache.set(layout, floor); }
-  const places = huddlePlaces(layout, floor, studio)
+  const all = huddlePlaces(layout, floor, studio);
+  // A team's lead, when it is among those called, stands at the centre of the front arc.
+  const centre = studio.leadId && members.includes(studio.leadId) ? leadPlace(all, studio) : null;
+  const places = all.filter((p) => p.id !== centre?.id)
     .map((p, i) => ({ p, i, from: Math.hypot(p.x - board.x, p.z - board.z) }))
     .sort((a, b) => Math.round((a.from - b.from) * 10) || a.i - b.i);
   const seats: Record<string, MeetingSeat> = {};
-  members.forEach((id, i) => {
-    const place = places[i]?.p;
+  let next = 0;
+  for (const id of members) {
+    const place = centre && id === studio.leadId ? centre : places[next++]?.p;
     if (place) seats[id] = { target: { x: place.x, z: place.z }, spotId: place.id };
-  });
+  }
   return seats;
 }
 
