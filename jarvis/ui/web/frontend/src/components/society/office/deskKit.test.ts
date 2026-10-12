@@ -1,8 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { dressDesk, dressOfficeDesk, kitPlacements, leadMark, leadMarkPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements } from "./deskKit";
+import { dressDesk, dressOfficeDesk, kitPlacements, LEAD_CHAIR_COLOUR, leadMark, leadMarkPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements } from "./deskKit";
 import { allDesks, benchPlanters, buildOfficeLayout, chairRect, deskRect, seatOf, type Rect } from "./officeLayout";
+import { DEPARTMENT_ZONES } from "./officePalette";
 
 const overlaps = (a: Rect, b: Rect) => a.minX < b.maxX && b.minX < a.maxX && a.minZ < b.maxZ && b.minZ < a.maxZ;
+
+/** A hex colour in CIE L*a*b* (D65). */
+function lab(hex: string): [number, number, number] {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const x = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047);
+  const y = f(r * 0.2126 + g * 0.7152 + b * 0.0722);
+  const z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+
+/** How far apart two colours look (CIE76); about 2 is just noticeable, 30 is unmistakable. */
+function deltaE(a: string, b: string): number {
+  const [l1, a1, b1] = lab(a), [l2, a2, b2] = lab(b);
+  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+}
 
 const roster = (n: number) => Array.from({ length: n }, (_, i) => ({
   agentId: `a${i}`, name: `A${i}`, tier: "specialist" as const, providerLabel: `ws${i % 3}`, state: "working" as const, createdMs: i,
@@ -95,13 +113,20 @@ describe("agents floor office kit", () => {
     }
   });
 
-  it("marks a team lead's place in the team's colour with parts the kit already draws, and one plain box", () => {
+  it("marks a team lead's place with a red chair and the team's colour, from parts the kit already draws and one plain box", () => {
     const mark = leadMark("#8aa391");
     const all = leadMarkPlacements("#8aa391");
     expect(all).toHaveLength(mark.chair.length + mark.mat.length + mark.stand.length);
     expect([...new Set(all.map((p) => p.part))].sort()).toEqual(["brassTrim", "felt", "oakSlat", "paper"]);
-    // Everything coloured wears the team's colour; the name line is paper, oak and bronze are their own.
-    for (const part of all.filter((p) => p.part === "felt")) expect(part.c).toBe("#8aa391");
+    // The chair is one deep red in every studio, so it never blends into chairs that already wear the team's colour;
+    // mat and name plate wear the team's colour. The name line is paper, oak and bronze are their own.
+    for (const part of mark.chair.filter((p) => p.part === "felt")) expect(part.c).toBe(LEAD_CHAIR_COLOUR);
+    for (const part of [...mark.mat, ...mark.stand].filter((p) => p.part === "felt")) expect(part.c).toBe("#8aa391");
+    // It keeps a clear distance (CIE76) from every studio's seat fabric, wall panel and rug and from the dark mesh back.
+    for (const zone of DEPARTMENT_ZONES) {
+      for (const colour of [zone.seat, zone.panel, zone.rug]) expect(deltaE(LEAD_CHAIR_COLOUR, colour)).toBeGreaterThan(30);
+    }
+    expect(deltaE(LEAD_CHAIR_COLOUR, "#1c1f24")).toBeGreaterThan(30);
     expect(leadMark("#c2a24c").mat[0].c).toBe("#c2a24c");
     // A shell of three panels with a cap each and a seat pad; one mat; a base, a plate, a name line and a top edge.
     expect(mark.chair.map((p) => p.part).sort()).toEqual(["brassTrim", "brassTrim", "brassTrim", "felt", "felt", "felt", "felt"]);

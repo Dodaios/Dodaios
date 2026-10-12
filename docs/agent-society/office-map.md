@@ -508,12 +508,14 @@ street of team rooms round an atrium, with commons people use in between.
   before the seat cap; an agent named lead of two teams sits with the older
   one. `Studio.leadId` is that seated lead and null in every other case (no
   lead, not a member, unknown, in the lead office): never guessed.
-  `leadDesks(layout)` lists the desks. The lead's place is marked in the
-  team's colour (`leadMark` in deskKit.ts, drawn as instances by
-  `DeskDressing`): a shell on the back of its chair with a bronze cap along
-  the top edge and a pad on the seat, a chair mat on the floor under it, and
-  a name stand on the desk's front right corner whose plate leans back
-  towards the camera. The chair is what the south-east camera sees first
+  `leadDesks(layout)` lists the desks. The lead's place is marked
+  (`leadMark` in deskKit.ts, drawn as instances by `DeskDressing`): a deep
+  red shell on the back of its chair with a bronze cap along the top edge
+  and a pad on the seat in the same red (one red in every studio, because
+  the studio's own chairs already wear the team's colour; a test holds it
+  clear of every studio's fabric, panel and rug), a chair mat in the team's colour
+  on the floor under it, and a name stand on the desk's front right corner
+  whose plate, in the team's colour, leans back towards the camera. The chair is what the south-east camera sees first
   and it stays when the lead is at the board; the mat is what reads from
   the overview. `leadMark.test.tsx` puts the mark through the real cameras
   at 1600 x 900: in the follow view the shell covers about 43 x 45 px and
