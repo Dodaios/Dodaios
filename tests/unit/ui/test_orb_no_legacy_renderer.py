@@ -7,6 +7,9 @@ import ui.orb.overlay as overlay_mod
 from jarvis.core.config import UIConfig
 from ui.orb.overlay import OrbOverlay
 
+# The still-picture mascot; without a configured image the mascot is a pet.
+pytestmark = pytest.mark.usefixtures("still_picture_mascot")
+
 
 def test_ui_config_default_is_jarvis_bar_not_legacy_orb() -> None:
     # Default flipped to the slim jarvis bar; the legacy procedural "orb" is
@@ -48,6 +51,8 @@ def test_missing_mascot_asset_does_not_fallback_to_legacy_orb(
     tmp_path,
 ) -> None:
     monkeypatch.delenv("JARVIS_ORB_STYLE", raising=False)
+    # The image passed below selects the still picture; no other one may be found.
+    monkeypatch.delenv("JARVIS_ORB_MASCOT_PATH", raising=False)
     monkeypatch.setattr(
         overlay_mod,
         "DEFAULT_MASCOT_REL",

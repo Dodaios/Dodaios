@@ -18,6 +18,9 @@ from jarvis.ui.overlay_styles import ORB_STYLES
 from ui.orb.overlay import MascotRenderer, OrbOverlay, _apply_color_key, _coerce_style
 from ui.orb.voice_orb import VoiceOrbRenderer
 
+# The still-picture mascot; without a configured image the mascot is a pet.
+pytestmark = pytest.mark.usefixtures("still_picture_mascot")
+
 
 @pytest.fixture(autouse=True)
 def _no_env_style(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -67,6 +67,9 @@ from jarvis.ui.jarvisbar.modes import (  # noqa: E402
     VOICE_MODES,
 )
 
+# The still-picture mascot; without a configured image the mascot is a pet.
+pytestmark = pytest.mark.usefixtures("still_picture_mascot")
+
 
 class _FakeBus:
     def subscribe(self, *_a, **_k) -> None:
