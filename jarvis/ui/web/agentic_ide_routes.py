@@ -13,6 +13,7 @@ Endpoints (prefix ``/api/agentic-ide``):
 * ``POST   /folders/native``             → open it and return what was picked
 * ``POST   /folders/create``             → make one new folder inside an existing one
 * ``POST   /terminal-target/open``       → open a path printed by one terminal
+* ``POST   /terminal-target/reveal``     → show a workspace path in the file manager
 * ``GET    /workspaces``                 → every open workspace, in tab order
 * ``PUT    /workspaces/order``           → reorder workspace tabs via drag and drop
 * ``GET    /workspaces/{id}/files``      → browse that workspace's file tree
@@ -465,7 +466,7 @@ class CloseTerminalsRequest(BaseModel):
 
 class ModeRequest(BaseModel):
     enabled: bool = Field(
-        description="True narrows Jarvis to this workspace; False returns to normal."
+        description="True narrows Dodaios to this workspace; False returns to normal."
     )
 
 
@@ -823,7 +824,7 @@ class AgentStatus(BaseModel):
     accepts_prompts: bool = Field(
         default=True,
         description=(
-            "Can Jarvis type a message into a pane of this entry at all? False "
+            "Can Dodaios type a message into a pane of this entry at all? False "
             "for an entry whose own interface is somewhere else (DeepSeek "
             "Harness boots a server and puts its chat in the browser), which a "
             "surface that opens a CHAT has to know before it offers the entry."
@@ -2024,7 +2025,7 @@ async def native_picker_support(request: Request) -> NativePickerSupport:
         return NativePickerSupport(
             available=False,
             reason=(
-                "The folder window would open on the computer running Jarvis, not on "
+                "The folder window would open on the computer running Dodaios, not on "
                 "this one. Browse or paste a path instead."
             ),
         )
@@ -2054,7 +2055,7 @@ async def open_native_picker(request: Request, req: NativePickRequest) -> Native
         raise HTTPException(
             status_code=403,
             detail=(
-                "The folder window can only be opened from the computer running Jarvis. "
+                "The folder window can only be opened from the computer running Dodaios. "
                 "Browse to the folder or paste its path instead."
             ),
         )
@@ -2582,14 +2583,10 @@ async def delete_workspace_entry(
     return {"workspace_id": workspace_id, "path": req.path, "trashed": trashed}
 
 
-@router.post(
-    "/terminal-target/open",
-    summary="Open a file or folder linked in an Agentic-IDE terminal",
-)
-async def open_terminal_target(
-    request: Request, req: OpenTerminalTargetRequest
+async def _launch_terminal_target(
+    request: Request, req: OpenTerminalTargetRequest, *, reveal: bool
 ) -> dict[str, object]:
-    """Open a modifier-clicked workspace path with the operating-system default.
+    """Open a workspace path, or show it selected in the system file manager.
 
     This is local-desktop-only: a remote browser would otherwise act on the
     server's screen. Resolution is confined to the addressed open workspace
@@ -2598,7 +2595,7 @@ async def open_terminal_target(
     if not is_loopback_request(request.scope):
         raise HTTPException(
             status_code=403,
-            detail="Terminal paths can only be opened on the computer running Jarvis.",
+            detail="Terminal paths can only be opened on the computer running Dodaios.",
         )
     if not getattr(request.app.state, "native_file_actions", False):
         raise HTTPException(status_code=404, detail="native file actions unavailable")
@@ -2615,16 +2612,45 @@ async def open_terminal_target(
 
     from jarvis.platform import open_path
 
-    opened = await asyncio.to_thread(open_path.open_file, target)
+    opener = open_path.reveal_in_folder if reveal else open_path.open_file
+    opened = await asyncio.to_thread(opener, target)
     kind = "directory" if target.is_dir() else "file"
     log.info(
-        "Agentic IDE terminal target: workspace=%s kind=%s opened=%s path=%s",
+        "Agentic IDE terminal target: workspace=%s kind=%s reveal=%s opened=%s path=%s",
         req.workspace_id,
         kind,
+        reveal,
         opened,
         target,
     )
     return {"opened": bool(opened), "kind": kind, "path": str(target)}
+
+
+@router.post(
+    "/terminal-target/open",
+    summary="Open a file or folder linked in an Agentic-IDE terminal",
+)
+async def open_terminal_target(
+    request: Request, req: OpenTerminalTargetRequest
+) -> dict[str, object]:
+    """Open a modifier-clicked workspace path with the operating-system default."""
+    return await _launch_terminal_target(request, req, reveal=False)
+
+
+@router.post(
+    "/terminal-target/reveal",
+    summary="Show a workspace file or folder in the system file manager",
+)
+async def reveal_terminal_target(
+    request: Request, req: OpenTerminalTargetRequest
+) -> dict[str, object]:
+    """Show a workspace path selected in the file manager, without launching it.
+
+    A route of its own rather than a flag on ``/terminal-target/open``: a
+    backend that does not know it answers 404, where an ignored flag would
+    have launched the file.
+    """
+    return await _launch_terminal_target(request, req, reveal=True)
 
 
 @router.get("/recents", response_model=RecentsResponse, summary="Recently opened workspaces")

@@ -114,11 +114,11 @@ def _enable_macos_first_mouse(native_view: Any, objc_module: Any) -> bool:
             b"acceptsFirstMouse:",
             method,
         )
-        log.info("Qt Jarvis Bar native first-click handling enabled")
+        log.info("Qt Dodaios Bar native first-click handling enabled")
         return True
     except Exception:  # noqa: BLE001 - click handling degrades to the Qt default
         log.warning(
-            "Qt Jarvis Bar could not enable first-click handling; the macOS "
+            "Qt Dodaios Bar could not enable first-click handling; the macOS "
             "panel may require a second click",
             exc_info=True,
         )
@@ -658,7 +658,7 @@ class QtJarvisBarOverlay:
         """
         del timeout
         log.info(
-            "Qt Jarvis Bar requires the companion process main thread; start_in_thread is a no-op."
+            "Qt Dodaios Bar requires the companion process main thread; start_in_thread is a no-op."
         )
 
     def start(self) -> None:
@@ -685,7 +685,7 @@ class QtJarvisBarOverlay:
                 NSApplication.sharedApplication().setActivationPolicy_(1)
             except Exception:  # noqa: BLE001 - cosmetic; never block the bar
                 log.warning(
-                    "Qt Jarvis Bar could not enter macOS accessory mode; "
+                    "Qt Dodaios Bar could not enter macOS accessory mode; "
                     "a companion Dock icon may remain",
                     exc_info=True,
                 )
@@ -779,7 +779,7 @@ class QtJarvisBarOverlay:
             try:
                 callback()
             except Exception:  # noqa: BLE001 - one command must not kill the loop
-                log.exception("Qt Jarvis Bar UI command failed")
+                log.exception("Qt Dodaios Bar UI command failed")
 
     def _render_frame_ui(self) -> None:
         window = self._window
@@ -862,7 +862,7 @@ class QtJarvisBarOverlay:
                 self._input_mask_key = input_mask_key
             window.update()
         except Exception:  # noqa: BLE001 - one frame must never stop the timer
-            log.exception("Qt Jarvis Bar frame render failed; dropping one frame")
+            log.exception("Qt Dodaios Bar frame render failed; dropping one frame")
         finally:
             self._last_frame_ns = time.monotonic_ns()
 
@@ -972,7 +972,7 @@ class QtJarvisBarOverlay:
             # worse than a bar another app can temporarily cover.
             self._native_window = None
             log.warning(
-                "Qt Jarvis Bar could not configure its non-activating macOS panel; "
+                "Qt Dodaios Bar could not configure its non-activating macOS panel; "
                 "periodic Z-order raises are disabled",
                 exc_info=True,
             )
@@ -991,7 +991,7 @@ class QtJarvisBarOverlay:
         try:
             publisher(mode, observed)
         except Exception:  # noqa: BLE001 - feedback is diagnostic, never fatal
-            log.debug("Qt Jarvis Bar feedback publisher failed", exc_info=True)
+            log.debug("Qt Dodaios Bar feedback publisher failed", exc_info=True)
 
     def _stop_ui(self) -> None:
         for timer in (
@@ -1161,7 +1161,7 @@ class QtJarvisBarOverlay:
             position = interaction.load_jarvisbar_position(DEFAULT_CONFIG_FILE)
             rel = interaction.load_jarvisbar_relative(DEFAULT_CONFIG_FILE)
         except Exception:  # noqa: BLE001 - placement degrades to the default
-            log.debug("Qt Jarvis Bar position load failed", exc_info=True)
+            log.debug("Qt Dodaios Bar position load failed", exc_info=True)
 
         # Recover a relative spot from a legacy absolute-only config so an
         # upgrade keeps the placement (and reproduces it on the follow monitor).
@@ -1253,7 +1253,7 @@ class QtJarvisBarOverlay:
             self._invalidate_static_frame()
             self._render_frame_ui()
         except Exception:  # noqa: BLE001 — a resize hiccup must never crash the bar
-            log.debug("Qt Jarvis Bar live resize failed", exc_info=True)
+            log.debug("Qt Dodaios Bar live resize failed", exc_info=True)
 
     def _reconcile_dynamic_position_ui(self) -> bool:
         """Move between preferred and Dock-safe positions without rewriting config."""
@@ -1536,7 +1536,7 @@ class QtJarvisBarOverlay:
             callback = self._on_voice_action
             if callback is None:
                 log.warning(
-                    "Qt Jarvis Bar %s click has no parent voice-action callback",
+                    "Qt Dodaios Bar %s click has no parent voice-action callback",
                     action,
                 )
             else:
@@ -1557,7 +1557,7 @@ class QtJarvisBarOverlay:
         try:
             callback()
         except Exception:  # noqa: BLE001 - a gesture must not kill the UI loop
-            log.warning("Qt Jarvis Bar %s callback failed", label, exc_info=True)
+            log.warning("Qt Dodaios Bar %s callback failed", label, exc_info=True)
 
     def _refresh_rel_from_preferred_ui(self) -> None:
         """Recompute ``_rel_pos``/``_cur_work`` from the preferred spot + its screen.
@@ -1594,7 +1594,7 @@ class QtJarvisBarOverlay:
                 rel=self._rel_pos,
             )
         except Exception:  # noqa: BLE001 - position persistence is non-critical
-            log.debug("Qt Jarvis Bar position save failed", exc_info=True)
+            log.debug("Qt Dodaios Bar position save failed", exc_info=True)
 
     def _on_reset_double_click(self, _event: Any = None) -> None:
         del _event

@@ -211,9 +211,9 @@ SECRETS: list[SecretSpec] = [
     SecretSpec(
         key="jarvis_agent_vertex_api_key",
         env_fallback="JARVIS_AGENT_VERTEX_API_KEY",
-        label="Vertex AI API Key for Jarvis-Agents",
+        label="Vertex AI API Key for Dodaios-Agents",
         help_url="https://console.cloud.google.com/vertex-ai/studio/settings/api-keys",
-        required_for="Jarvis-Agents (Vertex AI)",
+        required_for="Dodaios-Agents (Vertex AI)",
         prompt=False,
     ),
     SecretSpec(
@@ -267,49 +267,49 @@ SECRETS: list[SecretSpec] = [
     SecretSpec(
         key="jarvis_agent_anthropic_api_key",
         env_fallback="JARVIS_AGENT_ANTHROPIC_API_KEY",
-        label="Anthropic API Key for Jarvis-Agents",
+        label="Anthropic API Key for Dodaios-Agents",
         help_url="https://console.anthropic.com/settings/keys",
-        required_for="Jarvis-Agents (Claude API)",
+        required_for="Dodaios-Agents (Claude API)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_openai_api_key",
         env_fallback="JARVIS_AGENT_OPENAI_API_KEY",
-        label="OpenAI API Key for Jarvis-Agents",
+        label="OpenAI API Key for Dodaios-Agents",
         help_url="https://platform.openai.com/api-keys",
-        required_for="Jarvis-Agents (OpenAI)",
+        required_for="Dodaios-Agents (OpenAI)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_gemini_api_key",
         env_fallback="JARVIS_AGENT_GEMINI_API_KEY",
-        label="Gemini API Key for Jarvis-Agents",
+        label="Gemini API Key for Dodaios-Agents",
         help_url="https://aistudio.google.com/app/apikey",
-        required_for="Jarvis-Agents (Gemini)",
+        required_for="Dodaios-Agents (Gemini)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_openrouter_api_key",
         env_fallback="JARVIS_AGENT_OPENROUTER_API_KEY",
-        label="OpenRouter API Key for Jarvis-Agents",
+        label="OpenRouter API Key for Dodaios-Agents",
         help_url="https://openrouter.ai/keys",
-        required_for="Jarvis-Agents (OpenRouter)",
+        required_for="Dodaios-Agents (OpenRouter)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_grok_api_key",
         env_fallback="JARVIS_AGENT_GROK_API_KEY",
-        label="Grok API Key for Jarvis-Agents",
+        label="Grok API Key for Dodaios-Agents",
         help_url="https://console.x.ai/",
-        required_for="Jarvis-Agents (Grok)",
+        required_for="Dodaios-Agents (Grok)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_nvidia_api_key",
         env_fallback="JARVIS_AGENT_NVIDIA_API_KEY",
-        label="NVIDIA API Key for Jarvis-Agents",
+        label="NVIDIA API Key for Dodaios-Agents",
         help_url="https://build.nvidia.com/settings/api-keys",
-        required_for="Jarvis-Agents (NVIDIA NIM)",
+        required_for="Dodaios-Agents (NVIDIA NIM)",
         prompt=False,
     ),
     SecretSpec(
@@ -427,7 +427,7 @@ SECRETS: list[SecretSpec] = [
         env_fallback="TWILIO_AUTH_TOKEN",
         label="Twilio Auth Token",
         help_url="https://console.twilio.com",
-        required_for="Telephony (call Jarvis on a Twilio phone number)",
+        required_for="Telephony (call Dodaios on a Twilio phone number)",
         optional=True,
         section="telephony",
     ),
@@ -653,7 +653,7 @@ _SECTIONS: tuple[_Section, ...] = (
         id="brain",
         title="Brain — the AI that thinks",
         blurb=(
-            "The ONE thing Jarvis needs to work. Pick a single provider you "
+            "The ONE thing Dodaios needs to work. Pick a single provider you "
             "already have. Tip: OpenRouter gives you almost every model with one key."
         ),
         essential=True,
@@ -662,14 +662,14 @@ _SECTIONS: tuple[_Section, ...] = (
         id="stt",
         title="Speech-to-text — understanding your voice",
         blurb=(
-            "Optional. Jarvis can also transcribe locally & offline. Add one cloud "
+            "Optional. Dodaios can also transcribe locally & offline. Add one cloud "
             "key only if you want faster/other transcription. (OpenAI Whisper uses "
             "the OpenAI key from the Brain group.)"
         ),
     ),
     _Section(
         id="tts",
-        title="Voice — how Jarvis speaks back",
+        title="Voice — how Dodaios speaks back",
         blurb=(
             "Optional. Pick one for a natural cloud voice; without any, a basic "
             "local/system voice is used."
@@ -687,12 +687,12 @@ _SECTIONS: tuple[_Section, ...] = (
     _Section(
         id="channels",
         title="Messaging channels",
-        blurb="Optional. Chat with Jarvis from Telegram.",
+        blurb="Optional. Chat with Dodaios from Telegram.",
     ),
     _Section(
         id="telephony",
         title="Phone calls",
-        blurb="Optional. Call Jarvis on a Twilio phone number.",
+        blurb="Optional. Call Dodaios on a Twilio phone number.",
     ),
     _Section(
         id="team",
@@ -774,7 +774,7 @@ def _api_keys_intro() -> None:
         "field — or every field — and add keys later in the app under "
         "[brand]Settings → API Keys[/].\n\n"
         "You only need [brand.bold]ONE provider per group[/] (one brain, one voice, "
-        "one speech-to-text …) — never the whole list. The only group Jarvis truly "
+        "one speech-to-text …) — never the whole list. The only group Dodaios truly "
         "needs to think is the [brand.bold]Brain[/].\n\n"
         f"[muted]Whatever you enter is stored securely in {_secret_store_location()} — "
         "never in the code or a plain config file.[/]"
@@ -813,7 +813,7 @@ def _offer_local_brain() -> bool:
     _console.print()
     _console.print(
         Panel(
-            "[ok]Ollama detected on this machine.[/] Jarvis can run its brain "
+            "[ok]Ollama detected on this machine.[/] Dodaios can run its brain "
             "[brand.bold]fully local — no API key, nothing leaves this "
             "computer[/]. Cloud keys below stay optional upgrades.",
             border_style="ok",
@@ -918,7 +918,7 @@ def step_mic_check() -> None:
     for idx, dev in enumerate(inputs):
         _println(f"  [{idx}] {dev['name']}  (Channels: {dev['max_input_channels']})")
     _println()
-    _println("Default is 'auto-headset' — Jarvis detects headsets automatically.")
+    _println("Default is 'auto-headset' — Dodaios detects headsets automatically.")
     _println("Manual selection is always possible via jarvis.toml → [audio] input_device.")
 
 
@@ -1026,7 +1026,7 @@ def step_wake_word_setup() -> str:
         except Exception as exc:  # noqa: BLE001 — provisioning is best-effort
             _println(f"   Offline wake model setup skipped ({exc}).")
 
-    _println("   Takes effect after the next Jarvis restart.")
+    _println("   Takes effect after the next Dodaios restart.")
     return phrase
 
 
@@ -1111,20 +1111,20 @@ def step_jarvis_agent_harness_check() -> None:
 
     1. Whether the optional external ``openclaw`` binary is on PATH
        (``npm i -g openclaw`` — the npm package keeps that name).
-    2. Which Personal-Jarvis brain providers are thereby Jarvis-Agent-capable
+    2. Which Dodaios brain providers are thereby Jarvis-Agent-capable
        (= which of the API keys entered above also enable the harness).
-    3. A pointer to the ``Personal-Jarvis slug → worker-harness slug`` mapping.
+    3. A pointer to the ``Dodaios slug → worker-harness slug`` mapping.
     """
     import shutil
 
     _println()
     _println("=" * 60)
-    _println(" Step 7 / 8 — Jarvis-Agent worker harness (optional, heavy tasks)")
+    _println(" Step 7 / 8 — Dodaios-Agent worker harness (optional, heavy tasks)")
     _println("=" * 60)
     _println()
-    _println("Jarvis-Agents handle complex multi-step tasks for you")
+    _println("Dodaios-Agents handle complex multi-step tasks for you")
     _println("('read this repo + build X', 'reproduce the bug + propose a fix').")
-    _println("Personal Jarvis dispatches via the 'spawn_worker' tool to a short-lived")
+    _println("Dodaios dispatches via the 'spawn_worker' tool to a short-lived")
     _println("worker subprocess; the LLM output only lands in the voice path after")
     _println("the Controller signature (see docs/jarvis-agents-bridge.md §3 architecture diagram).")
     _println()
@@ -1150,7 +1150,7 @@ def step_jarvis_agent_harness_check() -> None:
     # 2. Show the provider mapping (lazy import — the wizard should also run
     #    without the fully installed modules).
     _println()
-    _println("Provider mapping (Personal-Jarvis → worker-harness CLI):")
+    _println("Provider mapping (Dodaios → worker-harness CLI):")
     try:
         from jarvis.missions.worker_runtime.provider_map import MAPPINGS
     except Exception:  # noqa: BLE001
@@ -1223,7 +1223,7 @@ def step_finalize() -> None:
     # disabled"). Cross-platform via the autostart port (Windows .lnk / macOS
     # LaunchAgent / Linux XDG .desktop); a headless host degrades to a logged
     # no-op. English copy per the Output Language Policy.
-    autostart = _ask_yesno("Start Jarvis automatically at login?", default=True)
+    autostart = _ask_yesno("Start Dodaios automatically at login?", default=True)
     _apply_autostart_choice(autostart)
 
     # Record terms acceptance + onboarding completion so the desktop app's
@@ -1232,7 +1232,7 @@ def step_finalize() -> None:
     mark_onboarding_complete()
     cfg.mark_setup_complete()
     _println()
-    _println("✓ Setup complete. Enjoy Jarvis!")
+    _println("✓ Setup complete. Enjoy Dodaios!")
     _println()
     _println("Next step:")
     _println("  Run `python -m jarvis` (or run.bat on Windows) → the tray icon appears.")
@@ -1261,7 +1261,7 @@ def _apply_autostart_choice(enabled: bool) -> None:
         if not enabled:
             manager.uninstall(interactive=True)
             _println(
-                "→ Autostart disabled. Start Jarvis any time via run.bat or "
+                "→ Autostart disabled. Start Dodaios any time via run.bat or "
                 "`python -m jarvis.ui.web.launcher`."
             )
             return
@@ -1286,7 +1286,7 @@ def _apply_autostart_choice(enabled: bool) -> None:
 def run() -> int:
     _println()
     _println("╔══════════════════════════════════════════════════════════╗")
-    _println("║  Personal Jarvis — First-Run Setup                       ║")
+    _println("║  Dodaios — First-Run Setup                               ║")
     _println("║  Duration: ~5 minutes, one-time                          ║")
     _println("╚══════════════════════════════════════════════════════════╝")
 
@@ -1308,7 +1308,7 @@ def run() -> int:
             f"(v{CURRENT_TERMS_VERSION}, docs/legal/TERMS.md)."
         )
         cfg.mark_setup_complete()
-        _println("✓ Setup marker written.  Starting Jarvis...")
+        _println("✓ Setup marker written.  Starting Dodaios...")
         return 0
 
     try:
@@ -1327,7 +1327,7 @@ def run() -> int:
         return 0
     except _TermsDeclined:
         _println("\nTerms not accepted — setup stopped. You must accept the terms")
-        _println("to use Jarvis. Re-run `jarvis --wizard` when you're ready.")
+        _println("to use Dodaios. Re-run `jarvis --wizard` when you're ready.")
         return 3
     except KeyboardInterrupt:
         _println("\n\n⚠  Setup aborted. Re-run: `python -m jarvis`")

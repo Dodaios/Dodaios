@@ -793,7 +793,7 @@ def _import_skill_folder(path_str: str, reg: Any) -> tuple[str, list[str]]:
         if folder == base or folder.is_relative_to(base):
             raise HTTPException(
                 status_code=400,
-                detail="This folder is already inside the Jarvis skills directory.",
+                detail="This folder is already inside the Dodaios skills directory.",
             )
     except OSError:  # base dir unresolvable — skip this convenience check, not fatal
         pass
@@ -1899,7 +1899,7 @@ async def install_from_catalog(
             status_code=422,
             detail=(
                 f"Downloaded to {target_path}, but it is not a usable skill: "
-                f"Jarvis found no skill named '{body.name}' in it (the "
+                f"Dodaios found no skill named '{body.name}' in it (the "
                 "frontmatter is missing or unreadable). Delete that folder or "
                 "fix the file."
             ),

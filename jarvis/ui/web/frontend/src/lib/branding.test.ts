@@ -7,9 +7,12 @@ import {
   PRODUCT_NAME,
 } from "@/lib/branding";
 
-describe("branding identity", () => {
-  it("keeps the current frontend values byte-for-byte", () => {
-    expect(PRODUCT_NAME).toBe("Personal Jarvis");
+describe("branding", () => {
+  it("shows the product display name", () => {
+    expect(PRODUCT_NAME).toBe("Dodaios");
+  });
+
+  it("keeps the repository link values", () => {
     expect(OFFICIAL_REPO_SLUG).toBe("PersonalJarvis/PersonalJarvis");
     expect(OFFICIAL_REPO_URL).toBe(
       "https://github.com/PersonalJarvis/PersonalJarvis",

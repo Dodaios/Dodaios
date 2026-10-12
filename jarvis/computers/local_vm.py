@@ -190,7 +190,7 @@ async def list_instances() -> list[LocalInstance]:
     try:
         return parse_list(json.loads(raw))
     except json.JSONDecodeError as exc:
-        raise LocalVmError("Multipass sent a list Jarvis cannot read.") from exc
+        raise LocalVmError("Multipass sent a list Dodaios cannot read.") from exc
 
 
 async def info(name: str) -> LocalInstance | None:
@@ -198,7 +198,7 @@ async def info(name: str) -> LocalInstance | None:
     try:
         return parse_info(json.loads(raw), name)
     except json.JSONDecodeError as exc:
-        raise LocalVmError("Multipass sent details Jarvis cannot read.") from exc
+        raise LocalVmError("Multipass sent details Dodaios cannot read.") from exc
 
 
 def cloud_init(public_key: str) -> str:

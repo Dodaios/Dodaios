@@ -1351,7 +1351,7 @@ class ToolUseLoop:
                         "output": None,
                         "error": (
                             "spawn_worker was not executed: the user is talking "
-                            "about Jarvis/provider/transcript behavior. Answer "
+                            "about Dodaios/provider/transcript behavior. Answer "
                             "directly and concretely; no delegation, no "
                             "confirmation phrase."
                         ),

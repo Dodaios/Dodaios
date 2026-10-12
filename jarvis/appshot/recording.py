@@ -67,7 +67,7 @@ def capability() -> dict[str, Any]:
 
         permission = not screen_access.state_allows_capture(screen_access.screen_recording_state())
         if permission:
-            detail = "Allow Screen Recording for Personal Jarvis in macOS System Settings."
+            detail = "Allow Screen Recording for Dodaios in macOS System Settings."
     from jarvis.appshot.recording_audio import capability as audio_capability
 
     return {"available": not detail, "detail": detail, "permission_required": permission,

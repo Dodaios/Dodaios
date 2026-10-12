@@ -23,7 +23,7 @@ def _now_iso() -> str:
 
 
 # ======================================================================
-# USER.md — the person Jarvis serves
+# USER.md — the person the assistant serves
 # ======================================================================
 #
 # YAML frontmatter contains the 20 structured fields from the research.
@@ -38,7 +38,7 @@ last_updated: {NOW}
 # ---- Cluster 1: Identity & context (stable, via wizard) ----
 identity:
   name: null
-  preferred_address: null      # how Jarvis addresses them (first name, nickname)
+  preferred_address: null      # how the assistant addresses them (first name, nickname)
   pronouns: null
   languages: []                # e.g. [de, en]
   primary_language: de
@@ -70,7 +70,7 @@ values:
   pet_peeves: []               # e.g. [confirmation-fatigue, buzzwords]
   motivations: []              # mastery | autonomy | impact
 
-# ---- Cluster 5: Relationship dynamic with Jarvis ----
+# ---- Cluster 5: Relationship dynamic with the assistant ----
 relationship:
   feedback_pref: null          # direct-correct | suggest | ask-then-act
   autonomy_by_tier: {{}}       # {{safe: 0-5, monitor: 0-5, ask: 0-5, block: 0-5}}
@@ -78,7 +78,7 @@ relationship:
 
 # About the user
 
-_This is the persistent profile. Jarvis reads it on every turn and updates it
+_This is the persistent profile. The assistant reads it on every turn and updates it
 on its own based on conversations. You can edit this file directly at any
 time — it is the source of truth._
 
@@ -94,14 +94,14 @@ time — it is the source of truth._
 
 ## Observations over time
 
-_Jarvis appends here when it learns something new. Format: `[YYYY-MM-DD] <field>: <value>  — "<evidence quote>"`._
+_The assistant appends here when it learns something new. Format: `[YYYY-MM-DD] <field>: <value>  — "<evidence quote>"`._
 
 <!-- curator:observations:start -->
 <!-- curator:observations:end -->
 
 ## Do Not Record
 
-_Jarvis deliberately does NOT store any of the following categories:_
+_The assistant deliberately does NOT store any of the following categories:_
 
 - Political or religious beliefs (echo-chamber risk)
 - Health or mental-health diagnoses (GDPR Art. 9, breach of trust)
@@ -111,7 +111,7 @@ _Jarvis deliberately does NOT store any of the following categories:_
 
 
 # ======================================================================
-# SOUL.md — Jarvis' own personality
+# SOUL.md — the assistant's own personality
 # ======================================================================
 
 SOUL_MD_TEMPLATE = """---
@@ -129,7 +129,7 @@ date myself; everything else is the user's to edit._
 
 ## Who I am
 
-- **Role:** Personal voice assistant and meta-orchestrator inside the Personal Jarvis app. My name comes from the user's wake word; "Personal Jarvis" is the app, not me.
+- **Role:** Personal voice assistant and meta-orchestrator inside the Dodaios app. My name comes from the user's wake word; "Dodaios" is the app, not me.
 - **Vibe:** Helpful but not obsequious. Direct, precise, with dry humor.
 
 ## Tone rules
@@ -166,7 +166,7 @@ created_at: {NOW}
 
 # First-run ritual
 
-Hey. I'm Jarvis, and I don't know anything about you yet. Before I
+Hey. I'm your assistant, and I don't know anything about you yet. Before I
 can actually be useful, let me quickly ask you about the most
 important basics:
 

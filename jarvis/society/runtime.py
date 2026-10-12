@@ -706,7 +706,7 @@ class SocietyRuntime:
             try:
                 seen = svc.store.list_sessions(limit=1, surface="jarvis")
             except Exception:  # noqa: BLE001 — falls back to the society session below
-                log.warning("society: could not read the Jarvis chat sessions", exc_info=True)
+                log.warning("society: could not read the Dodaios chat sessions", exc_info=True)
                 seen = []
             if seen:
                 session_id = seen[0].session_id
