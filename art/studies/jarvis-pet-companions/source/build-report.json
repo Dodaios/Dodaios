@@ -58,6 +58,14 @@
       "length_m": 0.607,
       "triangles": 11584,
       "glb_bytes": 243176
+    },
+    "dodaios": {
+      "height_m": 0.5,
+      "bottom_m": 0.0,
+      "width_m": 0.325,
+      "length_m": 0.375,
+      "triangles": 5250,
+      "glb_bytes": 269368
     }
   }
 }

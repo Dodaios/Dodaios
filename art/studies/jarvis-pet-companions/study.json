@@ -44,6 +44,13 @@
       "source": "source/pets.blend",
       "collection": "Pet_bolt",
       "export": "exports/bolt.glb"
+    },
+    {
+      "id": "dodaios",
+      "kind": "character",
+      "source": "source/pets.blend",
+      "collection": "Pet_dodaios",
+      "export": "exports/dodaios.glb"
     }
   ],
   "runtime_evidence": [],

@@ -5,7 +5,8 @@
  * Built-in pets have an authored Blender model
  * (`art/studies/jarvis-pet-companions`, `scripts/art/build_pet_companions.py`)
  * and a way of moving that fits them: the dragon and Gigi fly, the cat walks,
- * the snail crawls. A pet the person drew themselves has only its sprite
+ * the snail crawls, the hooded Dodaios figure (built of cubes, like its
+ * pixels) waddles on its two feet. A pet the person drew themselves has only its sprite
  * sheet, so it becomes a voxel figure extruded from its idle frames and
  * floats low beside them.
  */
@@ -44,6 +45,7 @@ export const BUILTIN_COMPANIONS: Readonly<Record<string, BuiltinSpec>> = {
   mochi: { kind: "model", gait: "bounce", heightM: 0.28, modelHeightM: 0.25, strideM: 0.45 },
   shelly: { kind: "model", gait: "crawl", heightM: 0.36, modelHeightM: 0.4, strideM: 0.28 },
   cocoa: { kind: "model", gait: "walk", heightM: 0.4, modelHeightM: 0.483, strideM: 0.3 },
+  dodaios: { kind: "model", gait: "waddle", heightM: 0.46, modelHeightM: 0.5, strideM: 0.32 },
 };
 
 /** A drawn pet floats at this height (its voxel figure), metres. */
