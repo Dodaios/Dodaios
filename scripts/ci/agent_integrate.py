@@ -78,6 +78,8 @@ UNION: tuple[str, ...] = (
 AGENT_BRANCH_PREFIXES = ("codex/", "claude/", "agent/", "agents/", "gemini/", "cursor/", "bot/")
 OPT_OUT_LABELS = {"no-auto-merge", "do-not-merge", "wip", "needs-human"}
 OPT_IN_LABEL = "auto-merge"
+# Set when a conflict (or a refused push) was reported; cleared once it is gone.
+REPORTED_LABEL = "needs-rebase"
 
 
 def git(*args: str, check: bool = True, cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess[str]:
@@ -624,7 +626,28 @@ def decide(
     return "wait"
 
 
-def plan(repo: str, max_updates: int) -> dict[str, object]:
+def update_slots(wanting: list[tuple[int, bool]], max_updates: int, turn: int) -> set[int]:
+    """The pull requests that get one of this tick's update slots.
+
+    ``wanting`` lists (number, already_reported) in train order. A pull request
+    whose conflict was already reported (`needs-rebase`) cannot be helped until
+    its author pushes, so it never takes a slot from one that was not tried
+    yet: three such branches at the front once held every slot on every tick
+    and nothing behind them was ever updated. Reported ones share the slots
+    left over, taking turns by ``turn``, so a resolver configured later still
+    reaches each of them.
+    """
+    fresh = [number for number, reported in wanting if not reported]
+    told = [number for number, reported in wanting if reported]
+    chosen = fresh[:max_updates]
+    spare = max_updates - len(chosen)
+    if told and spare > 0:
+        start = turn % len(told)
+        chosen += (told[start:] + told[:start])[:spare]
+    return set(chosen)
+
+
+def plan(repo: str, max_updates: int, turn: int = 0) -> dict[str, object]:
     """Decide what the train does this tick. Reads only; runs no PR code."""
     prs = gh_json(
         "pr",
@@ -651,7 +674,6 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
     )
     print(f"[train] {len(order)} eligible pull request(s); merge queue: {queued is not None}")
     entries: list[dict[str, object]] = []
-    updates = 0
     landing = False
     for pr in order:
         number, branch, sha = pr["number"], pr["headRefName"], pr["headRefOid"]
@@ -668,12 +690,7 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
             queue_failed=queue_rejected(queue_runs.get(number), runs),
         )
         note = f"CI {state}, {mergeable or 'unknown'}"
-        if action == "update":
-            if updates >= max_updates:
-                action, note = "wait", "needs an update, waits for a free slot"
-            else:
-                updates += 1
-        elif action == "merge" and queued is None:
+        if action == "merge" and queued is None:
             if landing:
                 action, note = (
                     "wait",
@@ -690,8 +707,25 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
                 "run_id": run_id,
                 "note": note,
                 "labels": sorted(lb["name"] for lb in pr.get("labels", [])),
+                "mergeable": mergeable,
             }
         )
+    wanting = [
+        (int(e["number"]), REPORTED_LABEL in e["labels"])  # type: ignore[call-overload, operator]
+        for e in entries
+        if e["action"] == "update"
+    ]
+    slots = update_slots(wanting, max_updates, turn)
+    for entry in entries:
+        if entry["action"] == "update" and entry["number"] not in slots:
+            reported = REPORTED_LABEL in entry["labels"]  # type: ignore[operator]
+            entry["action"] = "wait"
+            entry["deferred"] = True
+            entry["note"] = (
+                "conflict already reported; retried when a slot is spare"
+                if reported
+                else "needs an update, waits for a free slot"
+            )
     return {"repo": repo, "main": main_sha, "queue": queued is not None, "entries": entries}
 
 
@@ -893,10 +927,10 @@ def _report_once(entry: dict, repo: str, body: str, dry_run: bool) -> None:
     """Comment and label a pull request the train cannot update - once: the
     `needs-rebase` label marks it as told, so later ticks stay quiet."""
     number = str(entry["number"])
-    if dry_run or "needs-rebase" in entry.get("labels", []):
+    if dry_run or REPORTED_LABEL in entry.get("labels", []):
         return
     gh("pr", "comment", number, "--repo", repo, "--body", body)
-    gh("pr", "edit", number, "--repo", repo, "--add-label", "needs-rebase")
+    gh("pr", "edit", number, "--repo", repo, "--add-label", REPORTED_LABEL)
 
 
 def apply_update(
@@ -947,7 +981,7 @@ def apply_update(
             _report_once(entry, repo, _WORKFLOWS_BODY, dry_run)
             return "update needs the `workflows` permission (main changed .github/workflows)"
         return "update rejected (the branch moved); retry next tick"
-    gh("pr", "edit", str(number), "--repo", repo, "--remove-label", "needs-rebase")
+    gh("pr", "edit", str(number), "--repo", repo, "--remove-label", REPORTED_LABEL)
     ai = [str(f) for f in state.get("ai_resolved") or []]
     if ai:
         listing = ", ".join(f"`{f}`" for f in ai)
@@ -971,6 +1005,16 @@ def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
     summary: list[str] = []
     for entry in data.get("entries", []):
         number, action, run_id = entry["number"], entry["action"], entry.get("run_id")
+        if (
+            not dry_run
+            and action != "update"
+            and not entry.get("deferred")
+            and REPORTED_LABEL in entry.get("labels", [])
+            and entry.get("mergeable") == "MERGEABLE"
+        ):
+            # The author resolved it: a stale label would send the branch's
+            # next conflict to the back of the line.
+            gh("pr", "edit", str(number), "--repo", repo, "--remove-label", REPORTED_LABEL)
         if action == "update":
             try:
                 outcome = apply_update(root, data, entry, dry_run)
@@ -1040,11 +1084,17 @@ def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
     return 0
 
 
+def _turn() -> int:
+    """A number that grows with every tick; reported pull requests take turns by it."""
+    raw = os.environ.get("GITHUB_RUN_NUMBER", "")
+    return int(raw) if raw.isdigit() else 0
+
+
 def train(repo: str, max_updates: int, resolver_cmd: str, dry_run: bool, token_is_bot: bool) -> int:
     """Every phase in one process (a local or manual run)."""
     root = Path(tempfile.mkdtemp(prefix="merge-train-"))
     try:
-        data = plan(repo, max_updates)
+        data = plan(repo, max_updates, _turn())
         if integrate_merge(root, data) and resolver_cmd:
             integrate_resolve(root, data, resolver_cmd)
         integrate_finish(root, data)
@@ -1106,7 +1156,7 @@ def main(argv: list[str] | None = None) -> int:
             args.repo, args.max_updates, args.resolver_cmd, args.dry_run, args.token_is_bot
         )
     if args.cmd == "plan":
-        data = plan(args.repo, args.max_updates)
+        data = plan(args.repo, args.max_updates, _turn())
         args.dir.mkdir(parents=True, exist_ok=True)
         (args.dir / "plan.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
         for entry in data["entries"]:  # type: ignore[union-attr]

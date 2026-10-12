@@ -560,6 +560,45 @@ def test_train_updates_only_conflicting_or_stale_red_branches():
     assert decide("UNKNOWN", "approve", False) == "approve"
 
 
+def test_a_reported_conflict_never_takes_a_slot_from_an_untried_branch():
+    slots = agent_integrate.update_slots
+    reported = [(368, True), (416, True), (452, True)]
+    untried = [(466, False), (485, False), (490, False), (493, False)]
+    assert slots(reported + untried, 3, 0) == {466, 485, 490}
+    assert slots(reported + untried[:2], 3, 0) == {466, 485, 368}
+    assert slots(untried[:2], 3, 0) == {466, 485}
+    assert slots([], 3, 0) == set()
+
+
+def test_reported_conflicts_take_turns_on_the_spare_slots():
+    slots = agent_integrate.update_slots
+    reported = [(368, True), (416, True), (452, True), (466, True)]
+    seen: set[int] = set()
+    for turn in range(4):
+        chosen = slots([*reported, (501, False)], 3, turn)
+        assert 501 in chosen and len(chosen) == 3
+        seen |= chosen - {501}
+    assert seen == {368, 416, 452, 466}
+
+
+def test_a_resolved_branch_loses_its_conflict_label(tmp_path, monkeypatch):
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    entry = {
+        "number": 9,
+        "action": "wait",
+        "note": "CI pending, MERGEABLE",
+        "labels": ["needs-rebase"],
+        "mergeable": "MERGEABLE",
+    }
+    still = {**entry, "number": 10, "mergeable": "CONFLICTING", "deferred": True}
+    refused = {**entry, "number": 11, "deferred": True}  # a push the token may not make
+    plan = {"repo": "example/project", "queue": True, "entries": [entry, still, refused]}
+    assert agent_integrate.apply(tmp_path, plan, False, True) == 0
+    unlabel = ("pr", "edit", "9", "--repo", "example/project", "--remove-label", "needs-rebase")
+    assert fake.calls == [unlabel]
+
+
 def test_train_leaves_a_queued_pull_request_to_the_queue():
     decide = agent_integrate.decide
     assert decide("MERGEABLE", "success", True, queued=True) == "queued"

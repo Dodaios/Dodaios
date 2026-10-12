@@ -194,7 +194,10 @@ merge queue), and hourly as a safety net:
    must leave no conflict markers and must still parse, and CI re-runs on it
    before anything lands. What stays unresolved aborts cleanly, gets the
    `needs-rebase` label and a comment listing the files. `git rerere`
-   replays recorded resolutions.
+   replays recorded resolutions. A tick updates at most three branches, and
+   a labelled one never takes a slot from a branch that was not tried yet:
+   labelled branches share the slots left over, in turn, and lose the label
+   once their author has resolved the conflict.
 3. Every green, conflict-free pull request joins the merge queue, pinned to
    the head commit its CI tested. A head the queue already failed is held
    until a new push or a train update. Without a queue on main (the
