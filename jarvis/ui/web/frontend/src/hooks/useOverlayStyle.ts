@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 
 /**
  * On-screen overlay style from GET /api/settings/overlay-style.
- * "jarvis_bar" = blue-orb control strip (default), "mascot" = ghost mascot, "voice_orb" = the
- * procedural voice orb, "pet" = an animated pixel-art pet with its control
- * strip (Settings → My Pets), "none" = hidden.
+ * "jarvis_bar" = blue-orb control strip (default), "mascot" = the hooded figure of the logo
+ * (the built-in pet `MASCOT_PET_ID`), "voice_orb" = the procedural voice orb, "pet" = the
+ * animated pixel-art pet chosen under Settings → My Pets, "none" = hidden.
  *
  * Mirror of the backend's one list (``jarvis/ui/overlay_styles.py``); the two
  * are pinned together by tests/unit/ui/test_overlay_style_parity.py, which
@@ -12,6 +12,9 @@ import { useCallback, useEffect, useState } from "react";
  * order both pickers render.
  */
 export type OverlayStyle = "jarvis_bar" | "mascot" | "voice_orb" | "pet" | "none";
+
+/** The built-in pet the "mascot" style shows (`MASCOT_PET_ID` in the backend's list). */
+export const MASCOT_PET_ID = "dodaios";
 
 /** Client-side fallback while GET is in flight (same order as the backend). */
 export const OVERLAY_STYLES: OverlayStyle[] = [
