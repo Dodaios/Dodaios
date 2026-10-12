@@ -146,10 +146,10 @@ describe("editor groups side by side", () => {
     store().openFile("w1", "a.ts", { preview: false });
     store().openFile("w1", "b.ts", { preview: false });
     store().openToSide("w1", "c.ts");
-    store().moveTab(edit("b.ts"), 1);
+    store().moveTab(edit("b.ts"), { group: 1 });
     expect(layout()).toEqual(["[a.ts]", "*c.ts [b.ts]"]);
     // The last tab of a group moved away closes that group.
-    store().moveTab(edit("a.ts"), 1);
+    store().moveTab(edit("a.ts"), { group: 1 });
     expect(layout()).toEqual(["*c.ts b.ts [a.ts]"]);
   });
 
@@ -157,8 +157,50 @@ describe("editor groups side by side", () => {
     store().openFile("w1", "a.ts", { preview: false });
     store().openFile("w1", "b.ts", { preview: false });
     store().openToSide("w1", "a.ts");
-    store().moveTab(edit("a.ts"), 1);
+    store().moveTab(edit("a.ts"), { group: 1 });
     expect(layout()).toEqual(["[b.ts]", "*[a.ts]"]);
+  });
+
+  it("reorders tabs within a tab bar", () => {
+    for (const path of ["a.ts", "b.ts", "c.ts"]) store().openFile("w1", path, { preview: false });
+    store().moveTab(edit("c.ts"), { group: 0, before: edit("a.ts") });
+    expect(layout()).toEqual(["*[c.ts] a.ts b.ts"]);
+    store().moveTab(edit("c.ts"), { group: 0 });
+    expect(layout()).toEqual(["*a.ts b.ts [c.ts]"]);
+    // Dropped on itself: nothing moves.
+    store().moveTab(edit("b.ts"), { group: 0, before: edit("b.ts") });
+    expect(layout()).toEqual(["*a.ts b.ts [c.ts]"]);
+  });
+
+  it("drops a tab in front of a tab of another group", () => {
+    store().openFile("w1", "a.ts", { preview: false });
+    store().openFile("w1", "b.ts", { preview: false });
+    store().openToSide("w1", "c.ts");
+    store().moveTab(edit("a.ts"), { group: 1, before: edit("c.ts", 1) });
+    expect(layout()).toEqual(["[b.ts]", "*[a.ts] c.ts"]);
+  });
+
+  it("pulls one of two tabs out into a new group on either side", () => {
+    store().openFile("w1", "a.ts", { preview: false });
+    store().openFile("w1", "b.ts", { preview: false });
+    // Dropped on the right half of its own group's text.
+    store().moveTab(edit("b.ts"), { beside: 0, side: "right" });
+    expect(layout()).toEqual(["[a.ts]", "*[b.ts]"]);
+    // A group's only tab dropped beside that same group stays put.
+    store().moveTab(edit("b.ts", 1), { beside: 1, side: "left" });
+    expect(layout()).toEqual(["[a.ts]", "*[b.ts]"]);
+  });
+
+  it("lays three tabs out as three groups by dragging", () => {
+    for (const path of ["a.ts", "b.ts", "c.ts"]) store().openFile("w1", path, { preview: false });
+    store().moveTab(edit("c.ts"), { beside: 0, side: "right" });
+    store().moveTab(edit("a.ts"), { beside: 0, side: "left" });
+    expect(layout()).toEqual(["*[a.ts]", "[b.ts]", "[c.ts]"]);
+    // A whole group dragged to the far side changes the order of the columns.
+    const first = groupsOf(store(), "w1")[0];
+    const last = groupsOf(store(), "w1")[2];
+    store().moveTab(first.tabs[0].key, { beside: last.id, side: "right" });
+    expect(layout()).toEqual(["[b.ts]", "[c.ts]", "*[a.ts]"]);
   });
 
   it("follows a rename of the files it shows", () => {

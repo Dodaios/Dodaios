@@ -45,8 +45,22 @@ const SPLIT_MIN = 0.15;
 const SPLIT_MAX = 0.85;
 const clampSplit = (ratio: number) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ratio));
 
-/** A tab being dragged from one group's tab bar to another's. */
+/** A tab being dragged: within its tab bar, to another group, or out into a new one. */
 const TAB_DRAG_TYPE = "application/x-jarvis-editor-tab";
+
+type DropZone = "left" | "right" | "center";
+/** Where the dragged tab would land: a spot in a tab bar, or a zone of a group's text area. */
+type DropHint = { group: number; before: number } | { group: number; zone: DropZone };
+
+/** The index of the tab a pointer at `x` would insert in front of; the tab count = after the last. */
+function insertionIndex(bar: HTMLElement, x: number): number {
+  const tabs = bar.querySelectorAll<HTMLElement>('[data-testid="code-editor-tab"]');
+  for (let index = 0; index < tabs.length; index += 1) {
+    const rect = tabs[index].getBoundingClientRect();
+    if (x < rect.left + rect.width / 2) return index;
+  }
+  return tabs.length;
+}
 
 const baseName = (path: string) => path.split("/").pop() ?? path;
 
@@ -99,6 +113,9 @@ export function CodeEditorStage({
   // Each group's share of the width, as a weight; a group never resized has 1.
   const [weights, setWeights] = useState<Readonly<Record<number, number>>>({});
   const dragging = useRef(false);
+  // The tab being dragged, and where it would land if dropped now.
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropHint, setDropHint] = useState<DropHint | null>(null);
   // Tabs whose Markdown, HTML or SVG is shown rendered (Ctrl+Shift+V).
   const [rendered, setRendered] = useState<ReadonlySet<string>>(() => new Set());
   const toggleRendered = (key: string) =>
@@ -286,9 +303,33 @@ export function CodeEditorStage({
     resizePair(left, right, (event.clientX - before.left) / (after.right - before.left));
   };
 
+  const draggedTab = dragKey ? (tabs.find((tab) => tab.key === dragKey) ?? null) : null;
+  const endDrag = () => {
+    setDragKey(null);
+    setDropHint(null);
+  };
+  /** Whether dropping the dragged tab on this zone of a group's text changes anything. */
+  const zoneTakes = (group: EditorGroup, zone: DropZone) => {
+    if (!draggedTab) return false;
+    const own = draggedTab.group === group.id;
+    // The middle moves the tab into the group; a side opens a new group there.
+    return zone === "center" ? !own : !(own && group.tabs.length === 1);
+  };
+  /** The zone of a group's text area under the pointer. */
+  const zoneAt = (group: EditorGroup, area: HTMLElement, x: number): DropZone => {
+    const rect = area.getBoundingClientRect();
+    const at = rect.width > 0 ? (x - rect.left) / rect.width : 0.5;
+    // A group's own tab can only go to a side, so the sides meet in the middle.
+    const edge = zoneTakes(group, "center") ? 1 / 3 : 1 / 2;
+    return at < edge ? "left" : at >= 1 - edge ? "right" : "center";
+  };
+
   const renderGroup = (group: EditorGroup, index: number) => {
     const shownTab = group.active;
     if (!shownTab) return null;
+    const hint = dropHint?.group === group.id ? dropHint : null;
+    const marker = hint && "before" in hint ? hint.before : -1;
+    const zone = hint && "zone" in hint ? hint.zone : null;
     const shownFile = files[shownTab.fileKey];
     const segments = shownTab.path.split("/");
     const last = index === groups.length - 1;
@@ -341,21 +382,28 @@ export function CodeEditorStage({
           <div
             data-testid="code-editor-tabbar"
             className="flex h-9 shrink-0 items-stretch border-b border-border/70 bg-sidebar"
-            // A tab dragged here from another group moves into this one.
+            // A dragged tab lands in front of the tab under the pointer, or at the end.
             onDragOver={(event) => {
               if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;
               event.preventDefault();
               event.dataTransfer.dropEffect = "move";
+              const before = insertionIndex(event.currentTarget, event.clientX);
+              if (marker !== before) setDropHint({ group: group.id, before });
+            }}
+            onDragLeave={(event) => {
+              if (marker >= 0 && !event.currentTarget.contains(event.relatedTarget as Node | null)) setDropHint(null);
             }}
             onDrop={(event) => {
               const key = event.dataTransfer.getData(TAB_DRAG_TYPE);
               if (!key) return;
               event.preventDefault();
-              store.moveTab(key, group.id);
+              const before = group.tabs[insertionIndex(event.currentTarget, event.clientX)]?.key;
+              endDrag();
+              store.moveTab(key, { group: group.id, before });
             }}
           >
             <div role="tablist" aria-label={t("code_editor.tabs")} className="scrollbar-none flex min-w-0 flex-1 items-stretch overflow-x-auto">
-              {group.tabs.map((tab) => {
+              {group.tabs.map((tab, position) => {
                 const file = files[tab.fileKey];
                 const active = tab.key === shownTab.key;
                 const name = baseName(tab.path);
@@ -371,10 +419,15 @@ export function CodeEditorStage({
                     data-dirty={file?.dirty || undefined}
                     tabIndex={0}
                     draggable
+                    data-dragging={dragKey === tab.key || undefined}
                     onDragStart={(event) => {
                       event.dataTransfer.setData(TAB_DRAG_TYPE, tab.key);
                       event.dataTransfer.effectAllowed = "move";
+                      // Once the browser has taken its picture of the tab: the
+                      // drop zones come up over every group's text.
+                      window.setTimeout(() => setDragKey(tab.key), 0);
                     }}
+                    onDragEnd={endDrag}
                     title={tab.path}
                     onClick={() => store.activate(tab.key)}
                     onDoubleClick={() => store.pinTab(tab.key)}
@@ -394,11 +447,12 @@ export function CodeEditorStage({
                       setMenu(tab);
                     }}
                     className={cn(
-                      "group relative flex min-w-0 max-w-[220px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border/50 pl-3 pr-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                      "group relative flex min-w-0 max-w-[220px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border/50 pl-3 pr-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[dragging]:opacity-50",
                       active ? "bg-background text-foreground-strong" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                     )}
                   >
                     {active && <span className={cn("absolute inset-x-0 top-0 h-px", group.focused ? "bg-primary" : "bg-muted-foreground/50")} aria-hidden />}
+                    {marker === position && <span className="pointer-events-none absolute inset-y-1 left-0 z-10 w-0.5 rounded bg-primary" aria-hidden />}
                     {tab.mode === "diff" ? <FileDiff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <FileTypeIcon path={tab.path} />}
                     <span className={cn("truncate", tab.preview && "italic", file?.deleted && "line-through decoration-destructive/70")}>{name}</span>
                     {(duplicateNames.get(name) ?? 0) > 1 && folder && <span className="shrink-0 truncate text-[11px] text-muted-foreground">{folder}</span>}
@@ -424,6 +478,7 @@ export function CodeEditorStage({
                   </div>
                 );
               })}
+              {marker === group.tabs.length && <span className="pointer-events-none my-1 w-0.5 shrink-0 rounded bg-primary" aria-hidden />}
             </div>
             <button
               type="button"
@@ -523,6 +578,44 @@ export function CodeEditorStage({
                 onOpenExternally={openExternally}
               />
             </Suspense>
+            {/* While a tab is dragged, the text area takes the drop: its middle
+                moves the tab into this group, its left or right side opens a
+                new group there. Laid over the editor so the text never sees it. */}
+            {draggedTab && (zoneTakes(group, "center") || zoneTakes(group, "left")) && (
+              <div
+                data-testid="code-editor-drop"
+                data-zone={zone ?? undefined}
+                className="absolute inset-0 z-10"
+                onDragOver={(event) => {
+                  if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;
+                  const next = zoneAt(group, event.currentTarget, event.clientX);
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  if (zone !== next) setDropHint({ group: group.id, zone: next });
+                }}
+                onDragLeave={() => {
+                  if (zone) setDropHint(null);
+                }}
+                onDrop={(event) => {
+                  const key = event.dataTransfer.getData(TAB_DRAG_TYPE);
+                  if (!key) return;
+                  event.preventDefault();
+                  // Where the pointer is now, not where the last painted hint was.
+                  const landed = zoneAt(group, event.currentTarget, event.clientX);
+                  endDrag();
+                  store.moveTab(key, landed === "center" ? { group: group.id } : { beside: group.id, side: landed });
+                }}
+              >
+                <div className="pointer-events-none absolute inset-1 rounded-lg border-2 border-dashed border-primary/30" aria-hidden />
+                {zone && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-2 rounded-md bg-primary/25 ring-2 ring-primary transition-[left,right] duration-150 motion-reduce:transition-none"
+                    style={{ left: zone === "right" ? "50%" : 8, right: zone === "left" ? "50%" : 8 }}
+                  />
+                )}
+              </div>
+            )}
           </div>
         </section>
       </Fragment>
