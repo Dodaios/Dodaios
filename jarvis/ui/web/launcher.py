@@ -2530,7 +2530,7 @@ def _main(argv: list[str] | None = None) -> int:
         import logging as _logging
 
         _logging.getLogger(__name__).info(
-            "Dodaios Control API key ready (%s)", control_key.mask_control_key(_ck)
+            "Jarvis Control API key ready (%s)", control_key.mask_control_key(_ck)
         )
     except Exception as exc:  # noqa: BLE001 — never block boot on key bootstrap
         import logging as _logging
