@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { setReloadHold } from "@/lib/reloadHold";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import type { LineEnding, TextEncoding } from "@/components/agentic/editor/editorApi";
 import type { ViewKind } from "@/components/agentic/editor/fileKinds";
 
@@ -173,6 +174,16 @@ function successor(own: EditorTab[], key: string, closing: Set<string>): string 
 
 let revealNonce = 0;
 
+/**
+ * The editor comes forward. A maximized side panel covers the whole view, so
+ * it goes back to its own width; otherwise a click on a file in the panel
+ * would open that file where nobody can see it.
+ */
+function bringForward(): void {
+  const panel = useIdeSidePanelStore.getState();
+  if (panel.maximized) panel.setMaximized(false);
+}
+
 export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
   tabs: [],
   active: {},
@@ -189,6 +200,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
     const preview = options.preview ?? true;
     const fileKey = fileKeyOf(workspaceId, path);
     const key = tabKeyOf(mode, fileKey);
+    bringForward();
     set((state) => {
       let tabs = state.tabs;
       const existing = tabs.find((tab) => tab.key === key);
@@ -249,11 +261,12 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       return { tabs, active, files: prune(state.files, tabs), closed: closed.slice(-MAX_CLOSED) };
     }),
 
-  activate: (key) =>
-    set((state) => {
-      const tab = state.tabs.find((entry) => entry.key === key);
-      return tab ? { active: { ...state.active, [tab.workspaceId]: key }, visible: true } : {};
-    }),
+  activate: (key) => {
+    const tab = get().tabs.find((entry) => entry.key === key);
+    if (!tab) return;
+    bringForward();
+    set((state) => ({ active: { ...state.active, [tab.workspaceId]: key }, visible: true }));
+  },
 
   pinTab: (key) =>
     set((state) => ({ tabs: state.tabs.map((tab) => (tab.key === key && tab.preview ? { ...tab, preview: false } : tab)) })),
@@ -292,7 +305,10 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       return { files: { ...state.files, [fileKey]: file }, tabs };
     }),
 
-  setVisible: (visible) => set({ visible }),
+  setVisible: (visible) => {
+    if (visible) bringForward();
+    set({ visible });
+  },
   setQuickOpen: (quickOpen) => set({ quickOpen }),
   setCursor: (cursor) => set({ cursor }),
 
