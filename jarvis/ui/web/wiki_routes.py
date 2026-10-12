@@ -1040,7 +1040,7 @@ async def get_telemetry(_request: Request) -> dict[str, Any]:
     """Return the in-memory counter snapshot.
 
     Lightweight observability endpoint -- inspect "is the memory pipeline
-    alive?" without grepping logs. Counters reset on every Jarvis
+    alive?" without grepping logs. Counters reset on every Dodaios
     restart (this is observability, not metrics).
     """
     return {

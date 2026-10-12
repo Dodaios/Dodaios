@@ -331,7 +331,7 @@ async def export_recording_clip(recording_id: str, body: ClipRequest) -> dict[st
 
 @router.post("/recording/{recording_id}/save")
 async def save_recording_copy(recording_id: str) -> dict[str, Any]:
-    """Copy a recording into the Downloads folder of the machine running Jarvis."""
+    """Copy a recording into the Downloads folder of the machine running Dodaios."""
     from jarvis.appshot.recording_cards import save_recording
 
     try:
