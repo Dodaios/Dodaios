@@ -74,6 +74,9 @@ NEVER_GRANTED: Final[frozenset[str]] = frozenset(
         "reveal-key-preview",
         "profile-update",
         "society_message_agent",
+        "society_team_assign",
+        "society_team_board",
+        "society_team_report",
         "message_agent",
         "message-agent",
     }
@@ -199,6 +202,8 @@ def _one_liner(text: str, limit: int = 140) -> str:
 
 
 def _label(tool_name: str, kind: CapabilityKind, tool: Any = None) -> str:
+    if kind is CapabilityKind.PLUGIN and tool_name.startswith("api_"):
+        return getattr(tool, "display_name", None) or tool_name
     if kind is CapabilityKind.CLI:
         display = getattr(tool, "display_name", None)
         if isinstance(display, str) and display.strip():

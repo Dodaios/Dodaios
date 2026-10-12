@@ -15,13 +15,13 @@ tags: [documentation, help, search, troubleshooting, support]
 related: [desktop-app-tour, troubleshooting, app-command-reference]
 ---
 
-The **Docs** area gives you a searchable guide to Personal Jarvis without
+The **Docs** area gives you a searchable guide to Dodaios without
 requiring a separate website. Use it to learn a feature, follow a setup path,
 understand how two parts work together, or find the safest first response to a
 problem.
 
 The local library is included with your installation and works without an
-internet connection while your browser can reach the running Jarvis server.
+internet connection while your browser can reach the running Dodaios server.
 Online documentation, community links, and feedback need an internet
 connection. The Docs controls follow your selected interface language, but the
 guide pages are currently written in English.
@@ -29,7 +29,7 @@ guide pages are currently written in English.
 ## Browse the Local Library
 
 1. Open **Docs** from the app sidebar. On the first visit, **Preparing your
-   documentation** can appear while Jarvis builds the local search index.
+   documentation** can appear while Dodaios builds the local search index.
 2. Start with one of the featured guides, or choose a card under **Browse by
    Topic**. A topic card opens the first guide in that ordered section.
 3. Expand or collapse a section in the documentation sidebar, then select a
@@ -40,7 +40,7 @@ guide pages are currently written in English.
 
 The sidebar keeps up to five recently opened guides in the current browser
 profile. The list appears when the filter is empty. It is not stored in your
-Jarvis account or sent to a documentation service.
+Dodaios account or sent to a documentation service.
 
 Keyboard users can also use the **Skip to documentation content** link. Press
 **Tab** after opening Docs to reveal it, then press **Enter**.
@@ -117,7 +117,7 @@ title and description, and submit. On an installation with a configured
 feedback channel the report is delivered directly with the app version and
 operating system attached; on other installations — the usual case — the same
 button opens your text as a prefilled issue on the project's
-[public issue tracker](https://github.com/PersonalJarvis/PersonalJarvis/issues),
+[public issue tracker](https://github.com/Dodaios/Dodaios/issues),
 so nothing has to be retyped. The view does not run diagnostics or attach
 logs.
 
@@ -131,7 +131,7 @@ screens from anything you share.
 
 ## How It Fits Together
 
-1. **Docs starts with the installed reader library.** Jarvis reads the guides
+1. **Docs starts with the installed reader library.** Dodaios reads the guides
    shipped with your version and builds a local index for navigation and
    full-text search.
 2. **A guide leads to the relevant feature.** Setup and how-to pages explain
@@ -144,10 +144,10 @@ screens from anything you share.
    the goal and need a command, setting, or supported action without another
    tutorial.
 5. **External help is a deliberate handoff.** Online docs, Discord, and the
-   public issue tracker open outside Jarvis. The local Docs search does not send
+   public issue tracker open outside Dodaios. The local Docs search does not send
    your query or guide data to those services.
 
-On a headless installation, open the Jarvis web interface in your own browser.
+On a headless installation, open the Dodaios web interface in your own browser.
 The server has no desktop window and cannot open a browser for you, so external
 links fall back to a new tab in that browser. If the internet is unavailable,
 the installed guides and search can still work, but online docs and Feedback
@@ -171,7 +171,7 @@ this check.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| **Preparing your documentation** | Jarvis is scanning the installed guides and building search for the first time | Wait a moment. The rest of the app can remain usable while this finishes. |
+| **Preparing your documentation** | Dodaios is scanning the installed guides and building search for the first time | Wait a moment. The rest of the app can remain usable while this finishes. |
 | **Documentation could not be loaded** or **Could not load doc.** | The local index or selected file was unavailable, or the request timed out | Select **Try again**. This repeats the request; it is not a manual re-index command. Return to the overview if one guide still fails. |
 | The sidebar filter finds nothing | It checks guide metadata, not every paragraph | Clear the filter, open full-text search, and try one or two feature-specific words. |
 | Full-text search shows no results | All entered words may not occur in one guide, or the local index is not ready | Shorten the query, remove generic words, and wait for the overview to finish loading before trying again. |

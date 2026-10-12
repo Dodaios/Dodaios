@@ -251,7 +251,7 @@ def test_terminal_launch_returns_the_prompt(
 
     assert main_mod._run_desktop(debug=False) == 0
     assert spawned == [1]
-    assert "Starting Personal Jarvis" in capsys.readouterr().out
+    assert "Starting Dodaios" in capsys.readouterr().out
 
 
 def test_foreground_flag_keeps_the_app_in_this_terminal(monkeypatch: pytest.MonkeyPatch) -> None:

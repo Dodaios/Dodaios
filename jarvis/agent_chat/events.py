@@ -26,12 +26,19 @@ Kinds (``payload`` keys in brackets):
 ``tool_call``          [turn_id, call_id, name, input]
 ``tool_result``        [turn_id, call_id, output, is_error, duration_ms]
 ``approval_required``  [turn_id, approval_id, call_id, name, input, summary]
-``approval_resolved``  [turn_id, approval_id, decision]   decision: allow | deny
+``approval_resolved``  [turn_id, approval_id, decision]   decision: allow |
+                        allow_always | deny | cancel | expired (nothing waits
+                        on the card any more: a restart, or the call asked again)
 ``question_required``  [turn_id, question_id, asker, questions, deferred?] — a question
                         card; ``deferred`` = an end-of-turn card (turn_prompts)
                         whose answers go to the agent as the next message
 ``question_progress``  [turn_id, question_id, answers]
 ``question_resolved``  [turn_id, question_id, answers]
+``credential_required`` [turn_id, request_id, asker, env, label, description, placeholder,
+                        replace, expires_ms] — a secure field for a secret the agent
+                        needs (credential_requests.py); the value never appears in any event
+``credential_resolved`` [turn_id, request_id, env, status]   status: saved | declined |
+                        timeout | cancelled
 ``plan_ready``         [turn_id, build_mode]           — a coding agent's plan card
 ``plan_resolved``      [turn_id, decision]             decision: build | keep
 ``subagent_started``   [turn_id, agent_id, description, agent_type, prompt, background,

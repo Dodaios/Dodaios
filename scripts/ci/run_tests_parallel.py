@@ -55,7 +55,15 @@ MIN_FILE_TIMEOUT = 300.0
 MAX_FILE_TIMEOUT = 900.0
 BATCH_TARGET_SECONDS = 45.0
 BATCH_MAX_FILES = 12
+MAX_BATCH_TIMEOUT = 1800.0
+BATCH_TIMEOUT_FACTOR = 6.0  # times the batch's own history
 _OK_EXIT_CODES = {0, 5}  # 5 = every test deselected / none collected
+# A new batch waits while less than this much memory is left to commit. A local
+# run shares the machine with the user's apps: eight batches on a box already
+# near its commit limit once ran Windows out of virtual memory, and every
+# process that allocated next (a Claude Code pane, OBS) died with 0xC0000409.
+MEMORY_RESERVE_BYTES = 6 * 1024**3
+MEMORY_POLL_SECONDS = 2.0
 
 
 # --------------------------------------------------------------------------- discovery
@@ -135,7 +143,103 @@ def file_timeout(file: str, durations: dict[str, float]) -> float:
     return min(MAX_FILE_TIMEOUT, max(MIN_FILE_TIMEOUT, 3 * durations.get(file, 0.0)))
 
 
+def batch_timeout(batch: list[str], durations: dict[str, float]) -> float:
+    """Wall clock for one batch: its slowest file's budget, or a multiple of its load.
+
+    A batch is built to ~45 s of history. Summing every file's five-minute
+    floor gave a twelve-file batch thirty minutes, so one wedged test held a
+    shard until the job timeout killed it without a report. A batch killed
+    early costs nothing but time: each of its files runs again alone.
+    """
+    load = sum(estimate(file, durations) for file in batch)
+    slowest = max(file_timeout(file, durations) for file in batch)
+    return min(MAX_BATCH_TIMEOUT, max(slowest, BATCH_TIMEOUT_FACTOR * load))
+
+
 # --------------------------------------------------------------------------- execution
+
+
+def available_memory() -> int | None:
+    """Bytes the OS can still hand out, or None where it cannot be read.
+
+    Windows reports the commit headroom (RAM plus page file): that is the
+    limit an allocation fails against. Linux reports MemAvailable.
+    """
+    if os.name == "nt":
+        import ctypes
+
+        class _MemoryStatusEx(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        status = _MemoryStatusEx()
+        status.dwLength = ctypes.sizeof(_MemoryStatusEx)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return int(status.ullAvailPageFile)
+    try:
+        with open("/proc/meminfo", encoding="ascii") as meminfo:
+            for line in meminfo:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError):
+        return None  # macOS and other systems without /proc: no gate
+    return None
+
+
+class MemoryGate:
+    """Holds back a new batch while the machine is short of memory.
+
+    A batch only waits while another one is running, so the gate can slow a
+    run down but never stall it: with nothing else in flight the next batch
+    always starts, and its finish is what frees the memory others wait for.
+    """
+
+    def __init__(
+        self,
+        reserve: int = MEMORY_RESERVE_BYTES,
+        probe=available_memory,
+        poll_seconds: float = MEMORY_POLL_SECONDS,
+    ):
+        self.reserve = reserve
+        self.probe = probe
+        self.poll_seconds = poll_seconds
+        self.running = 0
+        self.waits = 0
+        self._cond = threading.Condition()
+
+    def _short(self) -> bool:
+        free = self.probe()
+        return free is not None and free < self.reserve
+
+    def acquire(self) -> None:
+        with self._cond:
+            warned = False
+            while self.running > 0 and self._short():
+                if not warned:
+                    self.waits += 1
+                    warned = True
+                    print(
+                        f"[runner] under {self.reserve // 1024**3} GiB memory left; "
+                        f"waiting for one of {self.running} running batches",
+                        flush=True,
+                    )
+                self._cond.wait(self.poll_seconds)
+            self.running += 1
+
+    def release(self) -> None:
+        with self._cond:
+            self.running -= 1
+            self._cond.notify_all()
 
 
 @dataclass
@@ -214,10 +318,17 @@ def parse_junit(path: Path, files: list[str]) -> tuple[list[str], dict[str, floa
 
 
 class Runner:
-    def __init__(self, args: argparse.Namespace, durations: dict[str, float], workdir: Path):
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        durations: dict[str, float],
+        workdir: Path,
+        gate: MemoryGate | None = None,
+    ):
         self.args = args
         self.durations = durations
         self.workdir = workdir
+        self.gate = gate or MemoryGate()
         self._seq = 0
         self._lock = threading.Lock()
 
@@ -254,24 +365,28 @@ class Runner:
             popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         else:
             popen_kwargs["start_new_session"] = True
+        self.gate.acquire()
         started = time.monotonic()
         timed_out = False
-        with log.open("wb") as sink:
-            proc = subprocess.Popen(  # noqa: S603
-                cmd,
-                cwd=REPO_ROOT,
-                stdout=sink,
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL,
-                env=env,
-                **popen_kwargs,  # type: ignore[arg-type]
-            )
-            try:
-                exit_code = proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                _kill_tree(proc)
-                exit_code = proc.wait()
+        try:
+            with log.open("wb") as sink:
+                proc = subprocess.Popen(  # noqa: S603
+                    cmd,
+                    cwd=REPO_ROOT,
+                    stdout=sink,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                    env=env,
+                    **popen_kwargs,  # type: ignore[arg-type]
+                )
+                try:
+                    exit_code = proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+                    _kill_tree(proc)
+                    exit_code = proc.wait()
+        finally:
+            self.gate.release()
         duration = time.monotonic() - started
         failed, seconds, counts = parse_junit(junit, files)
         tail = ""
@@ -288,7 +403,7 @@ class Runner:
 
     def run_unit(self, batch: list[str]) -> dict[str, object]:
         """Run one batch with isolation-on-failure and a flaky retry."""
-        budget = min(1800.0, sum(file_timeout(f, self.durations) for f in batch))
+        budget = batch_timeout(batch, self.durations)
         first = self.run(batch, budget)
         outcome: dict[str, object] = {"runs": [first], "flaky": [], "first_pass": []}
         if first.ok:

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import secrets
 import sqlite3
@@ -44,6 +45,8 @@ from .events import (
 from .failure_reasons import FailureReason
 from .store import SocietyStore
 
+log = logging.getLogger(__name__)
+
 __all__ = [
     "AgentRecord",
     "LEAD_AGENT_ID",
@@ -52,6 +55,7 @@ __all__ = [
     "PAIR_SESSION_MARKER",
     "canonical_session_id",
     "conversation_session_id",
+    "has_placeholder_name",
     "is_fresh",
     "pair_session_id",
     "slugify",
@@ -64,7 +68,7 @@ _MAX_TITLE: Final[int] = 120
 _MAX_DESCRIPTION: Final[int] = 20_000
 
 #: A visibly temporary name; the agent chooses its identity in conversation.
-_FRESH_NAME: Final[str] = "New Bot"
+_FRESH_NAME: Final[str] = "New Agent"
 
 
 class RosterError(ValueError):
@@ -82,6 +86,19 @@ def slugify(name: str) -> str:
     text = unicodedata.normalize("NFKD", folded).encode("ascii", "ignore").decode("ascii")
     text = re.sub(r"[^a-zA-Z0-9]+", "-", text).strip("-").lower()
     return text or "agent"
+
+
+def has_placeholder_name(agent: AgentRecord) -> bool:
+    """An unnamed creation still waiting for its first role-based name.
+
+    The random creation id distinguishes placeholders from explicit names.
+    Include the previous default so existing conversations can catch up.
+    """
+    return (
+        str(agent.tier) != "lead"
+        and re.fullmatch(r"agent-[0-9a-f]{8}", agent.agent_id) is not None
+        and re.fullmatch(r"New (?:Agent|Bot)(?: [1-9][0-9]*)?", agent.name) is not None
+    )
 
 
 def is_fresh(agent: AgentRecord) -> bool:
@@ -376,6 +393,40 @@ def _validate_computer(value: Any) -> str | None:
     return computer_id
 
 
+#: Roster columns whose change moves an agent off the model route its
+#: Hermes / OpenClaw runtime was granted.
+_SEAT_COLUMNS: Final[tuple[str, ...]] = ("provider", "model", "account_id")
+
+
+def _seat_left(before: dict[str, Any], after: dict[str, Any]) -> bool:
+    """Whether a runtime agent's model gateway grants stopped being its own.
+
+    True for an agent on Hermes / OpenClaw whose provider, model or paying
+    account changed, or that was archived.
+    """
+    if str(after.get("runtime") or "jarvis") == "jarvis":
+        return False
+    if str(after.get("state") or "") == str(AgentState.ARCHIVED) != str(before.get("state") or ""):
+        return True
+    return any(str(before.get(key) or "") != str(after.get(key) or "") for key in _SEAT_COLUMNS)
+
+
+def _revoke_runtime_grants(agent_id: str) -> None:
+    """Drop the agent's model gateway tokens, so a runtime process still
+    holding one cannot spend the old seat; the next turn is granted anew."""
+    from jarvis.agent_runtimes import gateway
+
+    revoke = getattr(gateway, "revoke_agent", None)
+    if revoke is None:  # a build without grant revocation: tokens end with the app
+        return
+    try:
+        revoked = revoke(agent_id)
+    except Exception:  # noqa: BLE001 — the roster change stands; the stale grant is logged
+        log.warning("society: runtime grants of %s not revoked", agent_id, exc_info=True)
+        return
+    log.info("society: revoked %s runtime gateway grant(s) of %s", revoked, agent_id)
+
+
 def _check_runtime_placement(runtime: Any, computer_id: Any) -> None:
     """An external runtime (Hermes, OpenClaw) runs on this computer only, for now."""
     if str(runtime or "jarvis") != "jarvis" and computer_id:
@@ -509,7 +560,7 @@ class Roster:
         self._epoch += 1
 
     async def _placeholder_name(self) -> str:
-        """Use ``New Bot``, adding a number when another agent holds it."""
+        """Use ``New Agent``, adding a number when another agent holds it."""
         candidate = _FRESH_NAME
         number = 2
         while await self._store.get_agent_row_by_name(candidate) is not None:
@@ -719,6 +770,8 @@ class Roster:
         assert row is not None
         record = await self._hydrate(row)
         await self.refresh()
+        if _seat_left(current, row):
+            _revoke_runtime_grants(agent_id)
         return record
 
     async def archive(self, agent_id: str) -> AgentRecord:

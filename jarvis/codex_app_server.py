@@ -305,7 +305,7 @@ _CODEX_CONFIG_ORIGIN_PATH_ALIASES: Final = {
 _TRANSPORT_BASE_INSTRUCTIONS: Final = (
     "This ephemeral thread exists only to carry a realtime voice transport. "
     "Never use tools, inspect files, access the network, or perform actions. "
-    "Never answer a realtime handoff as a Codex agent; the client-owned Jarvis "
+    "Never answer a realtime handoff as a Codex agent; the client-owned Dodaios "
     "supervisor handles every handoff."
 )
 _TRANSPORT_DEVELOPER_INSTRUCTIONS: Final = (
@@ -676,7 +676,7 @@ def _acquire_subscription_process_lock():
         )
     except ExclusiveProcessLockError as exc:
         if exc.reason == "busy":
-            message = "Another Jarvis process is using subscription voice."
+            message = "Another Dodaios process is using subscription voice."
         else:
             message = "The subscription-voice process lock could not be secured."
         raise CodexSubscriptionUnavailable(message) from exc
@@ -1050,7 +1050,7 @@ def _validated_subscription_home(
         canonical_root = root.resolve(strict=True)
     except OSError as exc:
         raise CodexSubscriptionInspectionFailed(
-            "Jarvis's private data directory could not be verified."
+            "Dodaios's private data directory could not be verified."
         ) from exc
     candidate = canonical_root / _SUBSCRIPTION_HOME_DIRNAME
     if not create and not candidate.exists() and not candidate.is_symlink():
@@ -1071,7 +1071,7 @@ def _validated_subscription_home(
         ) from exc
     if canonical_home.parent != canonical_root:
         raise CodexSubscriptionUnavailable(
-            "The dedicated Codex voice profile escaped Jarvis's private data directory."
+            "The dedicated Codex voice profile escaped Dodaios's private data directory."
         )
     _validate_private_directory(canonical_home, require_owner_only=True)
 
@@ -1129,7 +1129,7 @@ def _validated_subscription_home(
             marker_data = json.loads(marker.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
             raise CodexSubscriptionUnavailable(
-                "Use Jarvis's subscription-voice login before starting voice mode."
+                "Use Dodaios's subscription-voice login before starting voice mode."
             ) from exc
         if marker_data != {
             "schema": _SUBSCRIPTION_PROFILE_SCHEMA,
@@ -1157,7 +1157,7 @@ def _rebuild_invalid_subscription_home() -> None:
         root = user_data_dir().resolve(strict=True)
     except OSError as exc:
         raise CodexSubscriptionUnavailable(
-            "Jarvis's private data directory could not be verified."
+            "Dodaios's private data directory could not be verified."
         ) from exc
     candidate = root / _SUBSCRIPTION_HOME_DIRNAME
     try:
@@ -1171,7 +1171,7 @@ def _rebuild_invalid_subscription_home() -> None:
     except OSError as exc:
         raise CodexSubscriptionUnavailable(
             "The invalid Codex voice profile could not be removed. Delete the "
-            f"'{_SUBSCRIPTION_HOME_DIRNAME}' folder in Jarvis's data "
+            f"'{_SUBSCRIPTION_HOME_DIRNAME}' folder in Dodaios's data "
             "directory manually."
         ) from exc
 
@@ -1189,7 +1189,7 @@ def _clear_subscription_runtime_state() -> None:
         root = user_data_dir().resolve(strict=True)
     except OSError as exc:
         raise CodexSubscriptionUnavailable(
-            "Jarvis's private data directory could not be verified."
+            "Dodaios's private data directory could not be verified."
         ) from exc
     runtime_root = root / _SUBSCRIPTION_HOME_DIRNAME / "tmp"
     try:
@@ -1246,7 +1246,7 @@ def _prepare_subscription_login_home() -> Path:
     if not marker.exists() and auth_file.exists():
         raise CodexSubscriptionUnavailable(
             "The dedicated Codex voice profile already contains credentials that were "
-            "not created by Jarvis's direct login flow."
+            "not created by Dodaios's direct login flow."
         )
     if not marker.exists():
         payload = json.dumps(
@@ -1544,7 +1544,7 @@ _CLI_VERSION_RE: Final = re.compile(
 
 _HEADLESS_LOGIN_REASON: Final = (
     "Interactive subscription-voice login is unavailable on headless Linux. "
-    "Run Jarvis on a desktop to connect this dedicated profile."
+    "Run Dodaios on a desktop to connect this dedicated profile."
 )
 _NO_LOGIN_TERMINAL_REASON: Final = (
     "Interactive subscription-voice login needs a terminal emulator this "
@@ -1829,7 +1829,7 @@ def _read_codex_capability(binary_path: str | None) -> CodexAppServerCapability:
             reason_code="ready",
         )
     reason, reason_code = _login_required_state(
-        "Use Jarvis's subscription-voice login to connect ChatGPT."
+        "Use Dodaios's subscription-voice login to connect ChatGPT."
     )
     return CodexAppServerCapability(
         available=True,
@@ -3528,7 +3528,7 @@ class CodexAppServerClient:
                 "id": request_id,
                 "error": {
                     "code": -32000,
-                    "message": "Personal Jarvis does not permit server-initiated actions.",
+                    "message": "Dodaios does not permit server-initiated actions.",
                 },
             }
         log.warning("Denied Codex app-server request method %s", method)
@@ -4779,7 +4779,7 @@ def _reserve_subscription_transport(client: CodexAppServerClient) -> int:
                 _subscription_transport_epoch += 1
                 return _subscription_transport_epoch
             raise CodexSubscriptionUnavailable(
-                "Subscription voice is already running elsewhere in Jarvis. "
+                "Subscription voice is already running elsewhere in Dodaios. "
                 "End the active voice session before starting another one."
             )
         _subscription_transport_process_lock = _acquire_subscription_process_lock()
@@ -4904,7 +4904,7 @@ def get_shared_codex_app_server(
             if owner is not None and not owner.is_closed():
                 raise CodexSubscriptionUnavailable(
                     "Subscription voice is already running elsewhere in "
-                    "Jarvis. End the active voice session before starting "
+                    "Dodaios. End the active voice session before starting "
                     "another one."
                 )
             # The owning loop is gone for good; this entry can never be used

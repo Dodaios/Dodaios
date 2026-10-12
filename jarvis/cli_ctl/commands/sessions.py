@@ -33,7 +33,7 @@ def chat_command(
     yes: bool = options.yes_opt(),
     dry_run: bool = options.dry_opt(),
 ) -> None:
-    """Run an explicit command in a Jarvis or agent chat."""
+    """Run an explicit command in a Dodaios or agent chat."""
     invoke.run(
         "POST",
         f"/api/agent-chat/sessions/{quote(session_id, safe='')}/commands",

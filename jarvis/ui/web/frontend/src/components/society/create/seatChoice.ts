@@ -12,12 +12,18 @@
  * `account_id` (`jarvis/agent_chat/catalog.py` → `ACCESS_ACCOUNTS`).
  *
  * Only what is connected on this machine is listed (maintainer, 2026-09-02):
- * an access that does not work is not shown, never greyed out.
+ * an access that does not work is not shown, never greyed out. The one
+ * exception is an access the provider is known to refuse right now although
+ * it is connected (`access_blocked`: Claude's login on Hermes / OpenClaw
+ * while the account's Extra Usage is off or spent). It is listed with its
+ * reason and cannot be picked, so the person learns why before the first
+ * message fails.
  *
  * Pure: no fetch, no store, so it is unit-tested with plain rows.
  */
 import type { CuratedModel } from "@/lib/agentChatApi";
 import { rankModels } from "@/lib/modelRanking";
+import { modelAccessFamily } from "@/lib/modelAccess";
 import { apiModels } from "../chat/modelChoices";
 import type { BrainKind, BrainSeat } from "./brainPicker";
 
@@ -35,7 +41,13 @@ export interface AccessOption {
   accountId: string;
   /** Billed per use outside the plan (Claude on Hermes / OpenClaw). */
   extraUsage: boolean;
+  /** Why the provider refuses this access right now (a refusal code such as
+   *  `extra_usage_off`); a blocked access is shown but cannot be picked. */
+  blocked?: string;
 }
+
+/** Per provider id and access kind, the refusal code (`/api/agent-runtimes`). */
+export type AccessBlocked = Record<string, Record<string, string>>;
 
 export interface ProviderChoice {
   id: string;
@@ -51,9 +63,6 @@ export interface ProviderChoice {
 
 const KIND_ORDER: Record<BrainKind, number> = { subscription: 0, api: 1, local: 2 };
 
-/** Catalog families that are one brand to a person (Gemini's CLI is Antigravity). */
-const SAME_BRAND: Record<string, string> = { antigravity: "gemini" };
-
 /** A brand's own name and logo where its rows name a product instead. */
 const BRANDS: Record<string, { label: string; logo: string }> = {
   claude: { label: "Anthropic Claude", logo: "claude-api" },
@@ -64,12 +73,19 @@ const BRANDS: Record<string, { label: string; logo: string }> = {
 
 function brandOf(seat: BrainSeat): string {
   const family = seat.provider.family || seat.provider.id;
-  return SAME_BRAND[family] ?? family;
+  return modelAccessFamily(family);
 }
 
-function optionsFor(seat: BrainSeat, ways: readonly string[] | undefined, external: boolean): AccessOption[] {
+function optionsFor(
+  seat: BrainSeat,
+  named: readonly string[] | undefined,
+  external: boolean,
+  blocked: Record<string, string> = {},
+): AccessOption[] {
   const single: AccessOption = { kind: seat.kind, seat, accountId: "", extraUsage: Boolean(seat.extraUsage) };
-  if (!ways) return [single];
+  const refused = Object.keys(blocked).filter((way) => !named?.includes(way));
+  if (!named && !refused.length) return [single];
+  const ways = [...(named ?? []), ...refused];
   // A dual row: the backend named the ways that work right now.
   const viaKey: BrainSeat = {
     ...seat,
@@ -86,7 +102,26 @@ function optionsFor(seat: BrainSeat, ways: readonly string[] | undefined, extern
       : { kind: "subscription", seat: { ...seat, kind: "subscription" }, accountId: SUBSCRIPTION_ACCOUNT, extraUsage: false });
   }
   if (ways.includes("api")) options.push({ kind: "api", seat: viaKey, accountId: API_KEY_ACCOUNT, extraUsage: false });
-  return options.length ? options : [single];
+  for (const option of options) {
+    if (blocked[option.kind]) option.blocked = blocked[option.kind];
+  }
+  return options;
+}
+
+/** Refusal codes with their own explanation (`provider_errors.py`). */
+const BLOCKED_REASONS = new Set(["extra_usage_off", "extra_usage_spent"]);
+
+/** The i18n key that explains a blocked access in plain words. */
+export function blockedReasonKey(code: string): string {
+  return BLOCKED_REASONS.has(code)
+    ? `society.create_agent.access_blocked_${code}`
+    : "society.create_agent.access_blocked";
+}
+
+/** The access to use: ``kind`` when it can be picked, else the first that can. */
+export function pickableOption(choice: ProviderChoice | null, kind = ""): AccessOption | null {
+  const open = choice?.options.filter((option) => !option.blocked) ?? [];
+  return open.find((option) => option.kind === kind) ?? open[0] ?? null;
 }
 
 /**
@@ -98,6 +133,7 @@ export function providerChoices(
   seats: BrainSeat[],
   access: Record<string, readonly string[]> = {},
   external = false,
+  accessBlocked: AccessBlocked = {},
 ): ProviderChoice[] {
   const byBrand = new Map<string, ProviderChoice>();
   for (const seat of seats) {
@@ -115,13 +151,17 @@ export function providerChoices(
       };
       byBrand.set(id, choice);
     }
-    for (const option of optionsFor(seat, access[seat.provider.id], external)) {
+    const blocked = accessBlocked[seat.provider.id];
+    for (const option of optionsFor(seat, access[seat.provider.id], external, blocked && typeof blocked === "object" ? blocked : {})) {
       // One row per way of paying: the first seat of a kind wins.
       if (!choice.options.some((known) => known.kind === option.kind)) choice.options.push(option);
     }
   }
-  const best = (choice: ProviderChoice) => Math.min(...choice.options.map((option) => KIND_ORDER[option.kind]));
+  // A provider whose every access is refused right now sorts last.
+  const best = (choice: ProviderChoice) => Math.min(
+    ...choice.options.map((option) => (option.blocked ? 10 : 0) + KIND_ORDER[option.kind]));
   return [...byBrand.values()]
+    .filter((choice) => choice.options.length > 0)
     .map((choice) => ({ ...choice, options: [...choice.options].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) }))
     .sort((a, b) => best(a) - best(b) || a.label.localeCompare(b.label));
 }
@@ -130,6 +170,9 @@ export function providerChoices(
 export function accessModels(option: AccessOption | null): CuratedModel[] {
   if (!option) return [];
   const models = option.seat.provider.curated_models;
+  // Local tags contain parameter sizes, context sizes and user hashes, which
+  // are not comparable release versions. Preserve the server's catalog order.
+  if (option.kind === "local") return models;
   const ranked = rankModels(models);
   return [...ranked.current, ...ranked.older];
 }

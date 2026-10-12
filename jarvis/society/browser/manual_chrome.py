@@ -76,7 +76,7 @@ def _validate_profile(profile: Path) -> None:
     if local and profile.resolve().is_relative_to(
         (Path(local) / "Google" / "Chrome" / "User Data").resolve()
     ):
-        raise RuntimeError("In-app login requires a Jarvis-owned browser profile")
+        raise RuntimeError("In-app login requires a Dodaios-owned browser profile")
 
 
 def _validate_executable(profile: Path, executable: Path) -> str:
@@ -131,7 +131,7 @@ def select_chrome_executable(profile: Path) -> str | None:
         return existing
     executable = find_installed_chrome()
     if not executable:
-        raise RuntimeError("Install Google Chrome to sign in inside Jarvis")
+        raise RuntimeError("Install Google Chrome to sign in inside Dodaios")
     selected = _validate_executable(profile, Path(executable))
     profile.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None

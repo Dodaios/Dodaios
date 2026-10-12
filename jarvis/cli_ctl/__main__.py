@@ -84,7 +84,7 @@ app = typer.Typer(
     cls=_CompatibleRootGroup,
     no_args_is_help=True,
     add_completion=True,
-    help="Control a running Personal Jarvis instance from the terminal.",
+    help="Control a running Dodaios instance from the terminal.",
 )
 
 # Shared state set by the root callback and read by commands.
@@ -97,7 +97,7 @@ def _root(
         False, "--json", help="Emit raw JSON instead of human tables."
     ),
     url: str | None = typer.Option(
-        None, "--url", help="Override the Jarvis base URL (e.g. http://host:port)."
+        None, "--url", help="Override the Dodaios base URL (e.g. http://host:port)."
     ),
     key: str | None = typer.Option(
         None,
@@ -106,7 +106,7 @@ def _root(
         help="Override the control API key (Bearer token) for this call only.",
     ),
 ) -> None:
-    """jarvisctl — thin HTTP control client for a running Jarvis server."""
+    """jarvisctl — thin HTTP control client for a running Dodaios server."""
     STATE["json"] = json_output
     STATE["url"] = url
     STATE["key"] = key
@@ -131,7 +131,7 @@ def version() -> None:
     """Print the jarvisctl version."""
     from jarvis import __version__
 
-    typer.echo(f"jarvisctl (Personal Jarvis {__version__})")
+    typer.echo(f"jarvisctl (Dodaios {__version__})")
 
 
 @app.command()

@@ -624,6 +624,30 @@ def decide(
     return "wait"
 
 
+def grant_updates(wanted: list[dict[str, object]], max_updates: int) -> set[int]:
+    """Which pull requests get this tick's update slots.
+
+    The slots used to go to the lowest numbers. A pull request the train
+    cannot update (an unresolved conflict, labelled ``needs-rebase``) and one
+    whose own CI is red both ask again on every tick: three of them held all
+    three slots for days while green pull requests that merely conflicted
+    with main waited behind them. First come ``priority``, then the ones the
+    train has not already failed on, then green CI, then the number.
+    """
+
+    def rank(entry: dict[str, object]) -> tuple[bool, bool, bool, int]:
+        labels = {str(label) for label in entry.get("labels") or ()}  # type: ignore[attr-defined]
+        return (
+            "priority" not in labels,
+            "needs-rebase" in labels,
+            entry.get("state") != "success",
+            int(str(entry["number"])),
+        )
+
+    chosen = sorted(wanted, key=rank)[: max(0, max_updates)]
+    return {int(str(entry["number"])) for entry in chosen}
+
+
 def plan(repo: str, max_updates: int) -> dict[str, object]:
     """Decide what the train does this tick. Reads only; runs no PR code."""
     prs = gh_json(
@@ -651,7 +675,6 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
     )
     print(f"[train] {len(order)} eligible pull request(s); merge queue: {queued is not None}")
     entries: list[dict[str, object]] = []
-    updates = 0
     landing = False
     for pr in order:
         number, branch, sha = pr["number"], pr["headRefName"], pr["headRefOid"]
@@ -668,12 +691,7 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
             queue_failed=queue_rejected(queue_runs.get(number), runs),
         )
         note = f"CI {state}, {mergeable or 'unknown'}"
-        if action == "update":
-            if updates >= max_updates:
-                action, note = "wait", "needs an update, waits for a free slot"
-            else:
-                updates += 1
-        elif action == "merge" and queued is None:
+        if action == "merge" and queued is None:
             if landing:
                 action, note = (
                     "wait",
@@ -689,9 +707,14 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
                 "action": action,
                 "run_id": run_id,
                 "note": note,
+                "state": state,
                 "labels": sorted(lb["name"] for lb in pr.get("labels", [])),
             }
         )
+    granted = grant_updates([e for e in entries if e["action"] == "update"], max_updates)
+    for entry in entries:
+        if entry["action"] == "update" and entry["number"] not in granted:
+            entry["action"], entry["note"] = "wait", "needs an update, waits for a free slot"
     return {"repo": repo, "main": main_sha, "queue": queued is not None, "entries": entries}
 
 
@@ -874,8 +897,8 @@ _WORKFLOWS_BODY = (
     "The merge train merged `main` into this branch, but could not push the result: "
     "`main` changed files under `.github/workflows/`, and the train's `GITHUB_TOKEN` "
     "may not push workflow changes. Merge `main` into this branch yourself (for example "
-    "`python scripts/agent_land.py --pr`), or give the repository an `INTEGRATION_TOKEN` "
-    "secret with workflow write access."
+    "`python scripts/agent_land.py --pr`), or configure the merge bot app "
+    "(`MERGE_APP_ID`), whose token may push workflow changes."
 )
 
 
@@ -977,6 +1000,13 @@ def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
             except (subprocess.CalledProcessError, OSError) as exc:
                 outcome = f"update push crashed ({type(exc).__name__}); left for the next tick"
             summary.append(f"#{number}: {outcome}")
+        elif action == "merge" and data.get("queue") and token_is_bot:
+            # GitHub starts no merge_group run for an entry GITHUB_TOKEN added:
+            # it would wait in the queue until the timeout and block the rest.
+            summary.append(
+                f"#{number}: green, not enqueued - the merge queue needs the merge bot "
+                "token (MERGE_APP_ID); add it to the queue by hand meanwhile"
+            )
         elif action == "merge" and data.get("queue"):
             if dry_run:
                 summary.append(f"#{number}: would join the merge queue")
@@ -1013,7 +1043,7 @@ def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
             else:
                 summary.append(
                     f"#{number}: could not {action} CI run {run_id} - approve it in the "
-                    "Actions tab or set the INTEGRATION_TOKEN secret"
+                    "Actions tab or configure the merge bot app (MERGE_APP_ID)"
                 )
         elif action == "queued":
             summary.append(f"#{number}: in the merge queue")

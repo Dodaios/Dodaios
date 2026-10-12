@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { DocsOverview } from "./DocsOverview";
+import { OFFICIAL_REPO_URL } from "@/lib/branding";
 import * as openExternal from "@/lib/openExternal";
 
 function renderOverview() {
@@ -80,6 +81,6 @@ describe("DocsOverview", () => {
     expect(selected).toEqual(["architecture-overview"]);
 
     fireEvent.click(screen.getByRole("link", { name: /view on github/i }));
-    expect(openSpy).toHaveBeenCalledWith("https://github.com/PersonalJarvis/PersonalJarvis/tree/main/docs");
+    expect(openSpy).toHaveBeenCalledWith(`${OFFICIAL_REPO_URL}/tree/main/docs`);
   });
 });

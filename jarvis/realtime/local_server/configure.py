@@ -29,7 +29,7 @@ def build_launch_command(
     from jarvis.realtime.local_server.model_catalog import apply_voice_profile
 
     if not supervisor.is_managed_launch_command(current_command):
-        raise ValueError("only the Jarvis-managed server can be configured here")
+        raise ValueError("only the Dodaios-managed server can be configured here")
     rewritten = supervisor._replace_brain_model(current_command, selected_brain)
     return apply_voice_profile(rewritten, voice_model)
 

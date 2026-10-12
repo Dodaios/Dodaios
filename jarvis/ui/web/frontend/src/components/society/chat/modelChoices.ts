@@ -39,7 +39,10 @@ export function modelSeats(options: ProviderOption[], providers: SocietyProvider
   // Installed CLIs without an account reader (such as OpenCode) own their login.
   const known = new Set(usable.filter((option) => option.connected).map((option) => option.id));
   return brainSeats(usable, providers, mergedLive, known).map((seat) => {
-    const models = [...new Map(seat.provider.curated_models.map((model) => [model.id, model])).values()];
+    // Agents need tools. Unknown metadata remains selectable; a provider's
+    // explicit refusal must not become the default for a newly created agent.
+    const models = [...new Map(seat.provider.curated_models.filter((model) => model.tools !== false)
+      .map((model) => [model.id, model])).values()];
     // The IDE can launch a CLI without a model override. Preserve that same
     // choice when the vendor keeps its catalog private or its discovery fails.
     // API/local seats still need their own model ids; an empty id is not one.
@@ -76,6 +79,24 @@ export function runtimeSeats(
       extraUsage: onLogin.has(seat.provider.id),
       provider: { ...seat.provider, curated_models: apiModels(seat.provider.curated_models) },
     } : seat);
+}
+
+/**
+ * Why a Hermes / OpenClaw seat cannot answer right now ("" when it can): the
+ * provider refuses the way this seat pays (`/api/agent-runtimes` →
+ * `access_blocked`). Claude's login is refused while its Extra Usage is off;
+ * the seat pays that way when it is the login seat (`extraUsage`) or the
+ * agent is pinned to its subscription (`account_id` "subscription").
+ */
+export function seatBlocked(
+  seat: BrainSeat,
+  blocked: Record<string, Record<string, string>> | undefined,
+  pinnedAccount = "",
+): string {
+  const refused = blocked?.[seat.provider.id];
+  if (!refused || typeof refused !== "object") return "";
+  const way = seat.extraUsage || pinnedAccount === "subscription" ? "subscription" : seat.kind;
+  return typeof refused[way] === "string" ? refused[way] : "";
 }
 
 /** A CLI catalog narrowed to real model ids: its aliases mean nothing to an API. */

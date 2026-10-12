@@ -36,6 +36,28 @@ export class AgentNameTaken extends Error {
   }
 }
 
+/** Hermes / OpenClaw cannot drive the chosen provider (422
+ *  `runtime_provider_unsupported`); the UI shows its own translated sentence. */
+export class RuntimeProviderUnsupported extends Error {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "RuntimeProviderUnsupported";
+  }
+}
+
+/** The error a failed society request stands for: a typed one when the
+ *  backend names a reason the UI explains itself, else its detail text. */
+export function requestError(body: { detail?: unknown } | null, fallback: string): Error {
+  const reason = body?.detail;
+  if (typeof reason === "string") return new Error(reason);
+  if (reason && typeof reason === "object") {
+    const typed = reason as { reason?: unknown; detail?: unknown };
+    const text = typeof typed.detail === "string" ? typed.detail : fallback;
+    return typed.reason === "runtime_provider_unsupported" ? new RuntimeProviderUnsupported(text) : new Error(text);
+  }
+  return new Error(fallback);
+}
+
 /** MASTERPLAN §2.5 — exactly one lead (Jarvis), orchestrators may ASSIGN. */
 export type AgentTier = "lead" | "orchestrator" | "specialist";
 
@@ -91,7 +113,7 @@ export interface AgentStats {
   lastActiveMs: number | null;
 }
 
-/** Plain-language rules under the ceiling (agent-definition §3.4); require wins. */
+/** Permission rules under the ceiling (agent-definition §3.4); require wins. */
 export interface ApprovalRules {
   requireApproval: string[];
   alwaysAllow: string[];
@@ -312,12 +334,13 @@ export function withLeadName(data: RosterData, assistantName: string): RosterDat
   return { ...data, agents: data.agents.map((a) => (a.tier === "lead" ? { ...a, name } : a)) };
 }
 
-export function useSocietyRoster() {
+export function useSocietyRoster(enabled = true) {
   const assistantName = useEventStore((s) => s.assistantName) ?? "";
   const select = useCallback((data: RosterData) => withLeadName(data, assistantName), [assistantName]);
   return useQuery({
     queryKey: ROSTER_QUERY_KEY,
     queryFn: fetchSocietyRoster,
+    enabled,
     select,
     staleTime: 15_000,
     // A refetch mid-ceremony would delete the figure being carried to the
@@ -430,15 +453,7 @@ export function useCreateSocietyAgent() {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const detail = (await res.json().catch(() => null)) as { detail?: unknown } | null;
-      const reason = detail?.detail;
-      throw new Error(
-        typeof reason === "string"
-          ? reason
-          : reason && typeof reason === "object" && "detail" in reason
-            ? String((reason as { detail: unknown }).detail)
-            : `create ${res.status}`,
-      );
+      throw requestError((await res.json().catch(() => null)) as { detail?: unknown } | null, `create ${res.status}`);
     }
     const created = (await res.json()) as { agent: SocietyAgentRow; created?: boolean };
     if (created.created === false) throw new AgentNameTaken();
@@ -542,9 +557,8 @@ export function useUpdateAgentModel() {
       body: JSON.stringify(choice),
     });
     if (!res.ok) {
-      // A 422 explains itself ("Hermes and OpenClaw run on an API key…").
-      const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
-      throw new Error(typeof body?.detail === "string" ? body.detail : `HTTP ${res.status}`);
+      // A 422 explains itself; a runtime that cannot drive the provider is typed.
+      throw requestError((await res.json().catch(() => null)) as { detail?: unknown } | null, `HTTP ${res.status}`);
     }
     const body = await res.json() as { agent: SocietyAgentRow };
     const updated = rowToAgent(body.agent);

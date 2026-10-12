@@ -1,7 +1,7 @@
 ---
 title: "Skills"
 slug: skills
-summary: "Understand how a skill gives Jarvis repeatable instructions, when it runs, and how drafts differ from enabled skills."
+summary: "Understand how a skill gives Dodaios repeatable instructions, when it runs, and how drafts differ from enabled skills."
 section: "Extend and automate"
 section_order: 5
 order: 2
@@ -16,20 +16,20 @@ related: [plugins, mcp-connections, jarvis-agents, safety-and-approvals]
 ---
 
 A skill is a saved playbook for recurring work, such as briefings or file
-reviews. Jarvis follows it with the capabilities you have connected. Skills
+reviews. Dodaios follows it with the capabilities you have connected. Skills
 do not grant app access, add actions, or store credentials.
 
 ## Choose the Right Building Block
 
-| Building block | What it gives Jarvis | Use it when |
+| Building block | What it gives Dodaios | Use it when |
 |---|---|---|
-| **Skill** | Repeatable instructions, optional triggers, and supporting files | You want Jarvis to follow your preferred method each time |
+| **Skill** | Repeatable instructions, optional triggers, and supporting files | You want Dodaios to follow your preferred method each time |
 | **Command** | One defined action with known inputs, such as creating or listing something | You need a predictable operation that can be called from the app, command line, or conversation |
-| **Plugin** | A packaged capability or integration | Jarvis does not yet have the action or service you need |
+| **Plugin** | A packaged capability or integration | Dodaios does not yet have the action or service you need |
 | **MCP connection** | Tools supplied by an external service through Model Context Protocol (MCP) | A skill needs to read from or act in a connected service |
-| **Jarvis-Agent** | An isolated background worker for longer, reviewed work | The task needs several substantial steps or should continue outside the conversation |
+| **Dodaios-Agent** | An isolated background worker for longer, reviewed work | The task needs several substantial steps or should continue outside the conversation |
 
-Skills can use connected tools or hand mission instructions to a Jarvis-Agent.
+Skills can use connected tools or hand mission instructions to a Dodaios-Agent.
 
 ## Before You Start
 
@@ -60,7 +60,7 @@ Skills can use connected tools or hand mission instructions to a Jarvis-Agent.
    based on the catalog text rather than an AI comparison.
 
 3. **Review a promising result.** Read its description, stated risk, and
-   categories, then open **Source**. Check what the instructions ask Jarvis to
+   categories, then open **Source**. Check what the instructions ask your assistant to
    do, which services they mention, and whether the source is one you trust.
 
 4. **Choose Install.** A directly downloadable skill appears in the Skills
@@ -82,21 +82,21 @@ copy before deleting it to make room; deletion is permanent.
 
 > [!note] A direct catalog install downloads only `SKILL.md`. It does not clone
 > the source repository or download sibling bundle folders. A catalog result
-> marked **Manual** only opens its source page; Jarvis does not install it.
+> marked **Manual** only opens its source page; Dodaios does not install it.
 
 ## Import a Skill from a Folder
 
-Jarvis only reads skills from its own skills directory. A skill written
+Dodaios only reads skills from its own skills directory. A skill written
 elsewhere — for example in a coding agent's project folder such as
 `.claude/skills/<name>/` — is a **separate skill system** with a similar file
-format, and stays invisible to Jarvis until it is imported:
+format, and stays invisible to Dodaios until it is imported:
 
 ```bash
 jarvis skills import <path-to-skill-folder>
 ```
 
 The command copies the folder's `SKILL.md` and its bundle folders
-(`references/`, `scripts/`, `assets/`, `agents/`) into the Jarvis skills
+(`references/`, `scripts/`, `assets/`, `agents/`) into the Dodaios skills
 directory and reloads the registry. It also accepts an `http(s)` link to a raw
 `SKILL.md` and then behaves like a catalog install.
 
@@ -117,17 +117,17 @@ Import rules:
    fill in the form yourself.
 
 2. **Wait for an editable result.** If the active provider answers, the form is
-   filled with an AI draft. If no provider is reachable, Jarvis supplies a
+   filled with an AI draft. If no provider is reachable, Dodaios supplies a
    simple starter version instead. In both cases, you remain responsible for
    the text that will be saved.
 
 3. **Review every field.** Give the skill a clear name, a specific description,
    and instructions that say what to do, what not to do, and what a useful
-   result looks like. Jarvis uses the description to decide when the skill may
+   result looks like. Dodaios uses the description to decide when the skill may
    help, so avoid broad claims such as "handles everything."
 
 4. **Add a voice trigger only when you need a direct shortcut.** Use a short,
-   distinctive phrase and test it against ordinary conversation. Jarvis treats
+   distinctive phrase and test it against ordinary conversation. Dodaios treats
    the field as a regular expression, so punctuation and special symbols can
    change what it matches. The current form does not offer schedule, language,
    or hotkey setup.
@@ -172,13 +172,13 @@ unable to run until the separate promotion command completes.
 Built-in skills are protected from deletion and editing one requires admin
 access, but you can still switch one off. Personal skills can be deleted
 individually or in a confirmed batch. Dragging rows changes only their display
-order, not which skill Jarvis prefers for a request.
+order, not which skill Dodaios prefers for a request.
 
 ### Use the command line
 
 The `jarvis skills` commands can list and inspect skills, draft and commit an
 AI-assisted skill, search and install from the catalog, switch a non-draft
-skill on or off, and reload the registry. They require a running Jarvis API.
+skill on or off, and reload the registry. They require a running Dodaios API.
 The curated command group does not edit or delete skills.
 
 `jarvis skills enable <name>` cannot promote a **Draft**. After reviewing a
@@ -195,19 +195,19 @@ file to **Active**, and reloads the user-skill registry.
 
 An enabled skill can start in two common ways:
 
-- **Request matching:** Jarvis sees the names and descriptions of enabled
-  skills. When your chat or voice request fits one, Jarvis loads the full
+- **Request matching:** Dodaios sees the names and descriptions of enabled
+  skills. When your chat or voice request fits one, Dodaios loads the full
   instructions before answering. Your wording does not need to repeat an exact
   trigger phrase.
 - **Direct trigger:** A matching chat or voice phrase selects one skill for the
   current turn. This is useful for a dependable shortcut, but an overly broad
   pattern can also match conversation you did not intend as a command.
 
-Jarvis exposes the name and description of enabled skills within a bounded
+Dodaios exposes the name and description of enabled skills within a bounded
 list and text budget, then loads the selected skill's instruction body for the
 turn; bundle files are not included automatically. An **inline** skill guides
-the current turn. A **mission** skill hands the instructions to a Jarvis-Agent;
-if worker dispatch is unavailable or fails, Jarvis follows them inline instead.
+the current turn. A **mission** skill hands the instructions to a Dodaios-Agent;
+if worker dispatch is unavailable or fails, Dodaios follows them inline instead.
 
 The creator writes a voice trigger without a language list, which currently
 defaults to German and English. Add `es` to the trigger's `language` list if it
@@ -216,7 +216,7 @@ spoken-language filter.
 
 Scheduled triggers can exist in an installed skill, but the scheduler starts
 with the voice pipeline, so they do not run in a headless API-only session or
-while Jarvis is stopped. No built-in skill carries a schedule: a skill runs on
+while Dodaios is stopped. No built-in skill carries a schedule: a skill runs on
 its own only when you gave it a schedule yourself. Earlier versions shipped a
 morning-routine skill that ran every morning; an update removes it unless you
 edited it, in which case it stays as your own skill. Hotkey definitions can be stored and displayed, but no
@@ -238,13 +238,13 @@ capability after a registry load. After changing a paired skill's switch, use
 
 A skill supplies instructions; it does not bypass the normal action policy.
 Connected actions still pass through the same safe, monitored, confirmation,
-and blocked decisions used elsewhere in Jarvis. A blocked skill or action does
+and blocked decisions used elsewhere in Dodaios. A blocked skill or action does
 not run. An unattended scheduled action that needs a decision may stop because
 no person is present to approve it.
 
 If a skill names a tool that is not installed or a service that is not
 connected, the normal editor may not warn you before the run. During use,
-Jarvis may skip the unavailable step or report that it could not complete it;
+Dodaios may skip the unavailable step or report that it could not complete it;
 the skill does not gain the missing access. Read [Plugins](plugins) or [MCP
 Connections](mcp-connections) before enabling instructions that depend on an
 external capability.
@@ -254,13 +254,13 @@ external capability.
 1. **A request or trigger starts the match** — chat, voice, or a schedule.
 2. **The state is checked.** Validated and Active skills continue; Draft and
    Disabled skills are rejected before their instructions load.
-3. **Jarvis loads the playbook** and renders it with the current request;
+3. **Dodaios loads the playbook** and renders it with the current request;
    bundle files stay separate unless requested.
 4. **Commands and connections supply the actions.** The skill guides their use
    but cannot create them.
 5. **Safety checks every action** — see [Safety and Approvals](safety-and-approvals).
 6. **Inline work returns to the conversation;** mission skills delegate to
-   [Jarvis-Agents](jarvis-agents), which have their own lifecycle.
+   [Dodaios-Agents](jarvis-agents), which have their own lifecycle.
 
 ## Check That It Works
 
@@ -270,7 +270,7 @@ external capability.
    to use it for a harmless topic. Success is three bullets followed by the
    requested words.
 3. Switch it off, refresh Skills, and confirm that Chats no longer use it. The
-   row should remain **Off** after restarting Jarvis.
+   row should remain **Off** after restarting Dodaios.
 4. Ask AI to draft a second harmless skill and save it. It should appear as
    **Draft**, without a switch, until you promote it separately.
 
@@ -279,7 +279,7 @@ external capability.
 | What you see | What it usually means | What to do |
 |---|---|---|
 | A row says **Draft** and has no switch | Its settings, trigger, or file structure could not be accepted, or it was intentionally saved for review | Select it, read any validation error, and fix only the named issue. After reviewing an intentional draft, use the promotion command above. |
-| The switch is on but Jarvis ignores the skill | The description is vague, the skill fell outside the bounded discovery list, the request does not match it, or the direct trigger is too strict | Name the skill in a clear request, make its description specific, and test a distinctive trigger |
+| The switch is on but Dodaios ignores the skill | The description is vague, the skill fell outside the bounded discovery list, the request does not match it, or the direct trigger is too strict | Name the skill in a clear request, make its description specific, and test a distinctive trigger |
 | A catalog installation fails | The download is unavailable, the network failed, or that name is already installed | Open **Source**, check the connection, and review the existing skill before deciding whether to delete it |
 | The skill starts but cannot finish an action | A required plugin, MCP connection, permission, tool, or approval is missing | Connect the capability in the app, review its permissions, and retry; never put a credential in the skill |
 | An automatic trigger does not run | Spanish is missing from the voice trigger's language list, the schedule is outside the live voice runtime, or the trigger is a skill hotkey | Add the required language, run a schedule with the desktop voice runtime, or use chat or voice instead of a skill hotkey |
@@ -289,11 +289,11 @@ For repeated app, provider, or connection failures, see the main
 
 ## Next Steps
 
-- Read [Plugins](plugins) when the skill needs a capability Jarvis does not yet
+- Read [Plugins](plugins) when the skill needs a capability Dodaios does not yet
   have.
 - Read [MCP Connections](mcp-connections) to connect external tools without
   putting credentials in the skill.
-- Read [Jarvis-Agents](jarvis-agents) to run a longer skill as an isolated,
+- Read [Dodaios-Agents](jarvis-agents) to run a longer skill as an isolated,
   reviewed background mission.
 - Review [Safety and Approvals](safety-and-approvals) before enabling a skill
   that changes files, accounts, or connected services.

@@ -7,7 +7,7 @@ continuous voice sessions of [ADR-0036](0036-continuous-voice-and-agent-selectio
 ## Context
 
 A continuous voice session has two models: the voice model and a thinking
-model that runs Jarvis tools (GPT-Live delegation with an API key, the ChatGPT
+model that runs Dodaios tools (GPT-Live delegation with an API key, the ChatGPT
 subscription's client-side delegation, or the native Gemini/local live model
 itself). Screen work still went through the `computer_use` tool, which started
 a Computer-Use mission. That mission ran its own loop and made its own vision
@@ -18,7 +18,7 @@ asked to open Chrome and the newest post of an account. The mission's first
 vision call sent `reasoning.effort = "none"`; the model only offers
 `low`..`ultra` and answered HTTP 400. Every other provider was refused by the
 billing pin ("cannot switch its selected model or billing account"), so the
-mission ended after one screenshot and Jarvis said it had no model that can
+mission ended after one screenshot and Dodaios said it had no model that can
 see the screen. The thinking model that could see and reason was one level
 above, waiting for a text summary.
 
@@ -34,7 +34,7 @@ computer; no second model is called for it.
    `wait` — and always answers with a fresh screenshot, its `frame_id`, whether
    the screen changed, and the front window title. The model decides every next
    step from what it sees; there is no inner loop and no second model.
-2. **Jarvis owns geometry and staleness.** Coordinates are pixels of the latest
+2. **Dodaios owns geometry and staleness.** Coordinates are pixels of the latest
    screenshot and resolve through that frame's `CoordinateMapper` (DPI, Retina
    points, negative monitor origins). Only the first step of a call may carry
    coordinates, and they must name that screenshot's `frame_id`. Any input
@@ -50,7 +50,7 @@ computer; no second model is called for it.
      input; Secure Input blocks typing. The answer names the missing grant and
      where to allow it.
    - Windows: the secure desktop (UAC prompt, lock screen) blocks everything;
-     an elevated front window blocks input from a non-elevated Jarvis (UIPI).
+     an elevated front window blocks input from a non-elevated Dodaios (UIPI).
    - Linux: Wayland and hosts without a display are refused with the reason.
    - `[computer_use].enabled = false` turns the tool off and removes it from the
      catalog.

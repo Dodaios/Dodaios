@@ -51,9 +51,12 @@ const keepContextMenu = (event: MouseEvent) => event.stopPropagation();
 export default function EditorSurface({
   tab,
   rendered,
+  secondary = false,
   onOpenExternally,
 }: {
   tab: EditorTab;
+  /** The second editor of a split view: closing it leaves the first one's status bar alone. */
+  secondary?: boolean;
   /** Show a Markdown, HTML or SVG file rendered instead of its source. */
   rendered: boolean;
   onOpenExternally: (path: string) => void;
@@ -95,8 +98,10 @@ export default function EditorSurface({
       diffRef.current?.dispose();
       diffRef.current = null;
       editorRef.current = null;
-      useCodeEditorStore.getState().setCursor(null);
+      if (!secondary) useCodeEditorStore.getState().setCursor(null);
     };
+    // `secondary` never changes for a mounted editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

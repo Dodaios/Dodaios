@@ -15,6 +15,7 @@ from scripts.ci import (
     check_workflow_policy,
     classify_changes,
     cut_release,
+    plan_run,
     ratchet_tests,
     release_admit,
     release_assets,
@@ -150,7 +151,7 @@ def test_commit_identity_and_fresh_main_are_required(monkeypatch, tag_sha, fetch
 
 def pipeline_needs():
     flags = {name: "true" for name in classify_changes.LANES}
-    flags.update(full="true", macos="true", release="true")
+    flags.update(full="true", macos="true", release="true", proven="false", desktop_legs="all")
     needs = {name: {"result": "success"} for name in required_results.expected_jobs(flags)}
     needs["detect"]["outputs"] = flags
     return needs
@@ -178,7 +179,7 @@ def test_invalid_detection_does_not_turn_checks_off():
 
 def test_unaffected_lanes_can_still_skip():
     flags = {name: "false" for name in classify_changes.LANES}
-    flags.update(full="false", macos="false", release="false")
+    flags.update(full="false", macos="false", release="false", proven="false", desktop_legs="none")
     needs = {
         "detect": {"result": "success", "outputs": flags},
         "gates": {"result": "success"},
@@ -191,7 +192,9 @@ def test_unaffected_lanes_can_still_skip():
 def test_dependency_review_runs_only_on_pull_requests_and_may_skip_elsewhere():
     ci = workflows()["ci.yml"]["jobs"]
     assert ci["dependency-review"]["if"] == "github.event_name == 'pull_request'"
-    assert "if" not in ci["zizmor"]  # the workflow audit runs on every event
+    # The workflow audit runs on every event; only a push whose commit the
+    # merge queue already audited skips it.
+    assert ci["zizmor"]["if"] == "needs.detect.outputs.proven != 'true'"
     needs = pipeline_needs()
     needs["dependency-review"] = {"result": "skipped"}
     assert required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
@@ -208,6 +211,22 @@ def test_live_site_checks_run_only_nightly_and_never_fail_the_run():
     assert all(s.get("continue-on-error") for s in job["steps"] if "pytest" in s.get("run", ""))
 
 
+def test_every_tier_runs_the_whole_linux_and_windows_suite():
+    ci = workflows()["ci.yml"]["jobs"]
+    for tier in plan_run.TIERS:
+        sized = plan_run.matrices(tier, macos=False)
+        assert sized["linux_shards"] == [1, 2, 3, 4, 5, 6]
+        assert sized["windows_shards"] == [1, 2, 3, 4, 5, 6]
+    # No impact selection in CI: the Windows job always takes its shard of
+    # the whole suite, and the shard count comes from the same plan.
+    windows = "\n".join(step.get("run", "") for step in ci["tests-windows"]["steps"])
+    assert "select_tests" not in windows and "--files-from" not in windows
+    assert ci["tests-windows"]["strategy"]["matrix"]["shard"] == (
+        "${{ fromJSON(needs.detect.outputs.windows_shards) }}"
+    )
+    assert ci["detect"]["outputs"]["windows_shards"] == "${{ steps.mode.outputs.windows_shards }}"
+
+
 def test_merge_queue_runs_the_whole_suite_and_is_never_cancelled():
     ci = workflows()["ci.yml"]
     triggers = ci.get("on", ci.get(True))
@@ -215,9 +234,232 @@ def test_merge_queue_runs_the_whole_suite_and_is_never_cancelled():
     assert "merge_group" in ci["concurrency"]["group"]
     assert "merge_group" not in ci["concurrency"]["cancel-in-progress"]
     mode = next(s for s in ci["jobs"]["detect"]["steps"] if s.get("id") == "mode")
-    assert "push|merge_group) tests_full=true" in mode["run"]
+    assert "plan_run.py plan" in mode["run"]
     assert "merge_group.base_sha" in mode["env"]["PR_BASE"]
+    assert plan_run.decide("merge_group")["tier"] == "queue"
     assert ci["jobs"]["gate"]["if"] == "${{ !cancelled() }}"
+
+
+# --------------------------------------------------------------------------- tiers
+
+
+def test_a_pull_request_never_takes_a_macos_runner():
+    sized = plan_run.plan("pull_request")
+    assert sized["tier"] == "pr" and sized["pr_mode"] and not sized["mac_lanes"]
+    assert sized["desktop_legs"] == "none"
+    assert "macos" not in json.dumps([v for k, v in sized.items() if k != "macos"])
+    # The slowest real-runtime leg never runs per change.
+    assert {"os": "windows-latest", "runtime": "hermes"} not in sized["e2e_matrix"]
+    assert {"os": "windows-latest", "runtime": "openclaw"} in sized["e2e_matrix"]
+    # The real Inno upgrade of a running install stays on the pull request.
+    assert {"os": "windows-latest", "python": "3.12"} in sized["updater_matrix"]
+
+
+def test_the_merge_queue_proves_one_short_macos_leg_per_lane_and_the_slow_legs():
+    sized = plan_run.plan("merge_group")
+    assert sized["mac_lanes"] and not sized["macos"]
+    assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
+    assert sized["desktop_legs"] == "primary"
+    # The gate waits for the slowest job and five macOS slots serve every
+    # merge group: the long legs (the Hermes install on Windows, the real
+    # runtimes and the real browser on macOS) run nightly and on release.
+    assert sized["browser_os"] == ["ubuntu-latest", "windows-latest"]
+    assert sized["e2e_matrix"] == plan_run.plan("pull_request")["e2e_matrix"]
+    assert {(leg["os"], leg["runtime"]) for leg in sized["e2e_matrix"]} == {
+        ("ubuntu-latest", "hermes"),
+        ("ubuntu-latest", "openclaw"),
+        ("windows-latest", "openclaw"),
+    }
+    # The second Windows interpreter of the updater is the queue's one extra.
+    assert {"os": "windows-latest", "python": "3.11"} in sized["updater_matrix"]
+    wide = plan_run.plan("schedule")
+    assert {(leg["os"], leg["runtime"]) for leg in wide["e2e_matrix"]} == {
+        (os, runtime)
+        for os in ("ubuntu-latest", "windows-latest", "macos-latest")
+        for runtime in ("hermes", "openclaw")
+    }
+    # Exactly one macOS leg in each of these lanes: five macOS slots serve
+    # every agent's merge group at once.
+    for key in ("updater_matrix", "crypto_matrix"):
+        assert sum("macos" in json.dumps(leg) for leg in sized[key]) == 1, key
+    # jarvisctl, dragdrop and the installer smoke have no macOS-specific code.
+    assert sized["os_matrix"] == ["ubuntu-latest", "windows-latest"]
+    # A push that reached main without the queue gets the same proof.
+    assert plan_run.plan("push") == sized
+
+
+def test_nightly_release_and_macos_dispatch_keep_the_wide_matrix():
+    for sized in (
+        plan_run.plan("schedule"),
+        plan_run.plan("workflow_dispatch", full_input=True, macos_input=True),
+    ):
+        assert sized["tier"] == "full" and sized["full_mode"] and sized["macos"]
+        assert sized["desktop_legs"] == "all"
+        assert sized["os_matrix"][-1] == "macos-latest"
+        assert len(sized["updater_matrix"]) == 7
+        assert len(sized["crypto_matrix"]) == 6
+        assert set(sized["browser_os"]) == {
+            "ubuntu-latest",
+            "ubuntu-24.04-arm",
+            "windows-latest",
+            "windows-11-arm",
+            "macos-latest",
+            "macos-15-intel",
+        }
+    # A branch asks for macOS before the queue without a full run.
+    branch = plan_run.plan("workflow_dispatch", macos_input=True)
+    assert branch["tier"] == "pr" and branch["pr_mode"] and branch["desktop_legs"] == "all"
+    # The merge train's stand-in for a push on main gets a push's proof,
+    # never the narrower one of a branch run.
+    stand_in = plan_run.plan("workflow_dispatch", ref="refs/heads/main")
+    assert stand_in["tier"] == "queue" and not stand_in["pr_mode"] and stand_in["mac_lanes"]
+    assert plan_run.plan("workflow_dispatch", ref="refs/heads/claude/x")["tier"] == "pr"
+    # The merge train's macOS-free full dispatch stays off macOS.
+    train = plan_run.plan("workflow_dispatch", full_input=True)
+    assert train["full_mode"] and not train["mac_lanes"]
+    assert "macos" not in json.dumps(plan_run.matrices("full", macos=False))
+
+
+def test_ci_reads_every_matrix_from_the_plan():
+    ci = workflows()["ci.yml"]["jobs"]
+    outputs = ci["detect"]["outputs"]
+    planned = plan_run.plan("pull_request")
+    for key in ("lane_os", "updater_matrix", "crypto_matrix", "e2e_matrix", "browser_os"):
+        assert key in planned and outputs[key] == f"${{{{ steps.mode.outputs.{key} }}}}"
+    uses = {
+        "realtime-contract": ("os", "lane_os"),
+        "agent-runtimes-unit": ("os", "lane_os"),
+        "jarvisctl": ("os", "os_matrix"),
+        "dragdrop": ("os", "os_matrix"),
+        "updater": ("include", "updater_matrix"),
+        "native-crypto-runtime": ("include", "crypto_matrix"),
+        "agent-runtimes-e2e": ("include", "e2e_matrix"),
+    }
+    for job, (axis, key) in uses.items():
+        assert ci[job]["strategy"]["matrix"][axis] == (
+            f"${{{{ fromJSON(needs.detect.outputs.{key}) }}}}"
+        ), job
+    assert ci["browser"]["with"]["os"] == "${{ needs.detect.outputs.browser_os }}"
+    assert ci["macos-desktop"]["with"]["legs"] == "${{ needs.detect.outputs.desktop_legs }}"
+    assert "desktop_legs != 'none'" in ci["macos-desktop"]["if"]
+
+
+def _queue_run(**changes):
+    run = {
+        "head_sha": "a" * 40,
+        "event": "merge_group",
+        "status": "completed",
+        "conclusion": "success",
+        "path": ".github/workflows/ci.yml",
+        "head_repository": {"full_name": "owner/app"},
+    }
+    run.update(changes)
+    return run
+
+
+def test_a_commit_the_merge_queue_passed_is_proven():
+    assert plan_run.proven_by_queue([_queue_run()], repo="owner/app", sha="a" * 40)
+    # The API may name the workflow with the ref it ran from.
+    suffixed = _queue_run(path=".github/workflows/ci.yml@refs/heads/gh-readonly-queue/main/pr-1")
+    assert plan_run.proven_by_queue([suffixed], repo="owner/app", sha="a" * 40)
+    assert plan_run.is_proven("owner/app", "a" * 40, "token", lambda *_: [_queue_run()])
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"head_sha": "b" * 40},
+        {"event": "pull_request"},
+        {"event": "push"},
+        {"conclusion": "failure"},
+        {"status": "in_progress", "conclusion": None},
+        {"path": ".github/workflows/pretend-ci.yml"},
+        {"head_repository": {"full_name": "fork/app"}},
+        {"head_repository": None},
+    ],
+)
+def test_anything_but_a_green_queue_run_of_this_commit_is_not_proven(changes):
+    runs = [_queue_run(**changes)]
+    assert not plan_run.proven_by_queue(runs, repo="owner/app", sha="a" * 40)
+
+
+def test_the_proven_lookup_fails_open():
+    def broken(*_):
+        raise OSError("api down")
+
+    assert not plan_run.is_proven("owner/app", "a" * 40, "token", broken)
+    assert not plan_run.is_proven("owner/app", "a" * 40, "", lambda *_: [_queue_run()])
+    assert not plan_run.is_proven("owner/app", "a" * 40, "token", lambda *_: [])
+
+
+def test_a_proven_push_runs_nothing_but_detection_and_the_gate():
+    ci = workflows()["ci.yml"]["jobs"]
+    lanes = classify_changes.classify(["jarvis/core/config.py"], proven=True)
+    assert not any(lanes.values())
+    proven = next(s for s in ci["detect"]["steps"] if s.get("id") == "proven")
+    # Only a run on main that is neither a full nor a macOS run may skip.
+    assert '"$GITHUB_REF" = "refs/heads/main"' in proven["run"]
+    assert '"$FULL" != "true"' in proven["run"] and '"$MACOS" != "true"' in proven["run"]
+    assert ci["detect"]["permissions"] == {"contents": "read", "actions": "read"}
+    assert ci["gates"]["if"] == "needs.detect.outputs.proven != 'true'"
+    flags = {name: "false" for name in classify_changes.LANES}
+    flags.update(full="false", macos="false", release="false", proven="true", desktop_legs="none")
+    needs = {name: {"result": "skipped"} for name in ci["gate"]["needs"]}
+    needs["detect"] = {"result": "success", "outputs": flags}
+    assert required_results.evaluate(needs, pipeline=True)["ok"]
+    # A nightly run is never satisfied by an earlier proof.
+    assert not required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+    # Without the proof the same skips fail the gate.
+    flags["proven"] = "false"
+    assert not required_results.evaluate(needs, pipeline=True)["ok"]
+
+
+def test_the_linux_shard_count_has_one_source():
+    ci = workflows()["ci.yml"]["jobs"]
+    shard = next(s for s in ci["tests-linux"]["steps"] if s.get("name") == "Run shard")
+    floor = next(s for s in ci["test-report"]["steps"] if "--expected-shards" in s.get("run", ""))
+    for step in (shard, floor):
+        assert step["env"]["SHARDS"] == "${{ needs.detect.outputs.linux_shards }}"
+    assert '--shard "$SHARD/$total"' in shard["run"]
+    assert '--expected-shards "$total"' in floor["run"]
+
+
+def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issues():
+    alert = workflows()["nightly-alert.yml"]
+    assert alert["permissions"] == {}
+    job = alert["jobs"]["alert"]
+    assert job["permissions"] == {"actions": "read", "issues": "write"}
+    for clause in (
+        "github.event.workflow_run.event == 'schedule'",
+        "github.event.workflow_run.head_repository.full_name == github.repository",
+        "github.event.workflow_run.head_branch == 'main'",
+    ):
+        assert clause in job["if"], clause
+    # No pull-request code runs next to the issue token.
+    assert all("uses" not in step for step in job["steps"])
+    script = job["steps"][0]["run"]
+    assert "--label nightly-ci" in script and "write issue close" in script
+    # A check by hand runs from main only, vets the run it is given like the
+    # event, and writes nothing unless the dry run is switched off.
+    by_hand = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+    assert by_hand in job["if"]
+    assert '.event == "schedule"' in script and '.head_branch == "main"' in script
+    triggers = alert.get("on", alert.get(True))
+    assert triggers["workflow_dispatch"]["inputs"]["dry_run"]["default"] is True
+    for direct in ("gh issue close", "gh issue edit", "gh issue create", "gh label create"):
+        assert direct not in script, direct
+    # The legs that left the per-change tiers are exactly what the nightly keeps.
+    nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
+    only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]
+    assert {"os": "windows-latest", "runtime": "hermes"} in only_nightly and len(only_nightly) == 3
+
+
+def test_the_duration_cache_is_refreshed_by_the_nightly_run_on_main():
+    steps = workflows()["ci.yml"]["jobs"]["test-report"]["steps"]
+    for name in ("Merge the duration cache (main only)", "Save the duration cache (main only)"):
+        condition = next(s for s in steps if s.get("name") == name)["if"]
+        assert "github.ref == 'refs/heads/main'" in condition
+        assert "github.event_name == 'schedule'" in condition
 
 
 @pytest.mark.parametrize("payload", [{}, {"failed_ids": [], "counts": {}, "files": 0}])

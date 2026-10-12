@@ -18,6 +18,8 @@ import httpx
 
 from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
 
+from . import _agent_profile
+
 log = logging.getLogger(__name__)
 
 #: Shared HTTP timeout for every openai-SDK-based brain (openai / grok /
@@ -429,6 +431,8 @@ def _responses_kwargs_from_chat(chat_kwargs: dict[str, Any]) -> dict[str, Any]:
     )
     if max_out:
         out["max_output_tokens"] = max(int(max_out), _RESPONSES_MIN_OUTPUT_TOKENS)
+    if chat_kwargs.get("timeout") is not None:
+        out["timeout"] = chat_kwargs["timeout"]
     if chat_kwargs.get("tools"):
         out["tools"] = _tools_responses_format(list(chat_kwargs["tools"]))
     return out
@@ -521,8 +525,13 @@ async def stream_complete(
     extra_body: dict[str, Any] | None = None,
     supports_vision: bool = True,
     assistant_tool_call_extra_content: dict[str, Any] | None = None,
+    send_temperature: bool | None = None,
 ) -> AsyncIterator[BrainDelta]:
     """Streaming run against OpenAI-compatible Chat-Completions.
+
+    ``send_temperature`` ``None`` follows the agent request profile (an agent
+    that chose no temperature sends none); ``True`` always sends it — a
+    provider's own per-model temperature setting.
 
     `supports_vision` is passed through to the message builder — when `False`,
     `BrainMessage.images` are dropped and a WARN is logged.
@@ -547,9 +556,15 @@ async def stream_complete(
         "model": model,
         "messages": messages,
         "max_tokens": req.max_tokens,
-        "temperature": req.temperature,
         "stream": True,
     }
+    if send_temperature or (send_temperature is None and _agent_profile.sends_temperature()):
+        kwargs["temperature"] = req.temperature
+    # An agent call may legitimately stay silent for minutes (a reasoning
+    # model thinking, a local server prefilling); the client's voice-tuned
+    # read timeout would cut it off. Unset for every other caller.
+    if (timeout := _agent_profile.http_timeout()) is not None:
+        kwargs["timeout"] = timeout
     # stream_options only exists since openai>=1.30. On old SDKs (e.g. 1.10)
     # the unconditional call would raise a TypeError and crash the plugin
     # chain with "AsyncCompletions.create() got an unexpected keyword argument"
@@ -663,17 +678,30 @@ async def stream_complete(
 
             finish = getattr(choice, "finish_reason", None)
             if finish:
+                if tool_buffer and finish not in {"tool_calls", "stop"}:
+                    # Preserve the stop reason so the caller can retry with a
+                    # larger budget; no partial tool arguments may execute.
+                    tool_buffer.clear()
+                    yield BrainDelta(finish_reason=finish)
+                    continue
                 # Finalize tool calls if present
+                completed_calls = []
                 for idx, buf in sorted(tool_buffer.items()):
                     try:
                         parsed = json.loads(buf["arguments"]) if buf["arguments"] else {}
-                    except json.JSONDecodeError:
-                        parsed = {}
-                    yield BrainDelta(tool_call={
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(
+                            "The provider returned incomplete tool arguments.",
+                        ) from exc
+                    if not isinstance(parsed, dict):
+                        raise ValueError("The provider returned non-object tool arguments.")
+                    completed_calls.append({
                         "id": buf["id"] or f"call_{idx}",
                         "name": reverse_name_map.get(buf["name"], buf["name"]),
                         "input": parsed,
                     })
+                for call in completed_calls:
+                    yield BrainDelta(tool_call=call)
                 tool_buffer.clear()
                 yield BrainDelta(finish_reason=finish)
 

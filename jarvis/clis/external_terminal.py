@@ -24,7 +24,7 @@ the UI instead. ``no_display`` says so explicitly, so the caller can tell
 "nothing installed" apart from "installed somewhere you cannot see".
 
 cwd default = user home, NOT the project directory - the user wants a
-"neutral" terminal, not a "Personal-Jarvis" terminal.
+"neutral" terminal, not a "Dodaios" terminal.
 """
 from __future__ import annotations
 

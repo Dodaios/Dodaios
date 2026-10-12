@@ -8,18 +8,18 @@
 that performs a BM25 full-text search over the recent episode log so the
 brain can answer questions like "what was the command from earlier?" without
 fabricating an answer. The plan was written before Welle 4 of the
-Jarvis-Agents bridge migration and assumes the existence of a "Jarvis-Agent"
+Dodaios-Agents bridge migration and assumes the existence of a "Dodaios-Agent"
 worker tier. In that world the plan unambiguously assigns the tool to
 `SUB_TOOLS` (Plan §7, Hard-Negative #1) — the rationale at the time was
 that recall is a slightly heavier operation (~50–300 ms SQLite hit) that
 the latency-sensitive router should not perform.
 
-Welle 4 deleted the Jarvis-Agent tier in its entirety
+Welle 4 deleted the Dodaios-Agent tier in its entirety
 (`jarvis/brain/factory.py:90-103`). Heavy work is now executed by
-external Jarvis-Agent subprocesses spawned via `spawn_worker`. Those
-subprocesses run their own Jarvis-Agent instances and do **not** inherit
-the Jarvis in-process tool registry — they can only call the tools that
-the Jarvis-Agent itself exposes (`Bash`, `Read`, `Grep`, MCP servers, etc.).
+external Dodaios-Agent subprocesses spawned via `spawn_worker`. Those
+subprocesses run their own Dodaios-Agent instances and do **not** inherit
+the Dodaios in-process tool registry — they can only call the tools that
+the Dodaios-Agent itself exposes (`Bash`, `Read`, `Grep`, MCP servers, etc.).
 A Python tool registered as a `jarvis.tool` entry point is invisible to
 them.
 
@@ -29,10 +29,10 @@ This leaves two real homes for `awareness-recall`:
    process. Latency is fine — a single FTS5 `MATCH` on the local SQLite
    file is well under the 300 ms budget set by the plan, and the result
    stays inside the router's context window so it can decide whether to
-   answer directly or spawn a Jarvis-Agent worker.
-2. **Inside an MCP server that the Jarvis-Agent connects to.** Workable but
+   answer directly or spawn a Dodaios-Agent worker.
+2. **Inside an MCP server that the Dodaios-Agent connects to.** Workable but
    premature: it requires standing up an MCP transport, exposing
-   internal Jarvis state across a process boundary, and forcing the
+   internal Dodaios state across a process boundary, and forcing the
    worker to discover and call the tool. Three additional moving parts
    for a Phase-A3 minimum-viable surface.
 
@@ -44,7 +44,7 @@ entry-point loader. The tool's constructor takes the existing
 `RecallStore` instance the factory already builds for `MessageRecorder`
 and `StoryTracker`, so no new dependency is introduced.
 
-If the router brain decides to delegate work to a Jarvis-Agent worker
+If the router brain decides to delegate work to a Dodaios-Agent worker
 after recalling, it may bake the recall result into the worker's
 `context_hints` field on the `spawn_worker` call. That follow-up is
 out of scope for the initial A3 wave but the placement chosen here does
@@ -68,7 +68,7 @@ not block it.
   clear error rather than disappearing from the schema mid-session.
   This prevents the router brain from re-learning the tool list every
   time awareness is toggled.
-- **Recursion-protection is structural.** Because Jarvis-Agent workers
+- **Recursion-protection is structural.** Because Dodaios-Agent workers
   cannot reach `awareness-recall` at all (no MCP bridge exposes it),
   there is no risk of a recursive spawn chain — analogous to how
   `spawn_worker` itself is intentionally absent from any worker tool
@@ -82,7 +82,7 @@ not block it.
 - **Expose recall via an MCP server.** Future-compatible but adds a
   process boundary, MCP transport plumbing, and worker-side tool
   discovery for what is otherwise a 200-line addition. Revisit if and
-  when Jarvis-Agent workers need recall directly, e.g. for long-running
+  when Dodaios-Agent workers need recall directly, e.g. for long-running
   analytic tasks. The router-tier placement does not preclude this
   upgrade.
 - **Add an in-process worker tier.** Would directly resurrect what
@@ -106,5 +106,5 @@ mission-scoped broker grant, gated on `[awareness].enabled`
 The original rationale is preserved — the tool still executes in the
 supervisor process on the supervisor's recall store; no worker-side tool
 loading, MCP replication, or in-process worker tier was added. This is
-exactly the "Reopen if/when Jarvis-Agent workers need recall directly" path
+exactly the "Reopen if/when Dodaios-Agent workers need recall directly" path
 this ADR anticipated. See ADR-0030 for the full worker knowledge surface.
