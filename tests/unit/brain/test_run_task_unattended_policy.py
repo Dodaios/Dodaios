@@ -15,9 +15,9 @@ from typing import Any
 import pytest
 
 from jarvis.brain import background_policy
-from jarvis.brain import manager as manager_module
 from jarvis.brain.background_policy import BackgroundDeferred
 from jarvis.brain.manager import BrainManager
+from jarvis.core import task_agent
 from jarvis.core.bus import EventBus
 from jarvis.core.config import JarvisConfig
 from jarvis.core.model_selection import ModelSelection, use_operation_model
@@ -175,33 +175,101 @@ async def test_run_now_by_the_person_keeps_the_existing_chain(
 # --- An explicit agent selection ---------------------------------------------
 
 
-async def test_claude_slot_never_bills_its_api_row_unattended_when_the_cli_is_installed(
+def _dual_slot() -> str:
+    """A slot that is a subscription seat while signed in, else a per-token row."""
+    return next(iter(task_agent._DUAL_SEATS))  # noqa: SLF001 - the table under test
+
+
+async def test_dual_slot_never_bills_its_api_row_unattended_once_a_subscription_was_connected(
     mgr: BrainManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The Claude slot falls back to its per-token row when the CLI login is not
-    ready; with the CLI installed that row is never billed on its own."""
+    """The slot fell back to its per-token row because its login is not ready;
+    nobody picked that row, so an unattended turn waits instead of billing it."""
     turns = _Turns(mgr, monkeypatch)
-    monkeypatch.setattr(manager_module, "_claude_cli_installed", lambda: True)
+    slot = _dual_slot()
+    background_policy.note_connected(task_agent.dual_seat_subscription(slot))
 
-    with use_operation_model(ModelSelection("claude-api", "claude-sonnet", "")):
+    with use_operation_model(ModelSelection(slot, "some-model", "")):
         with pytest.raises(BackgroundDeferred):
             await mgr.run_task(prompt="daily digest")
         assert turns.built == []
 
         with started_by_user():
-            assert await mgr.run_task(prompt="daily digest") == "answered by claude-api"
-    assert turns.built == ["claude-api"]
+            assert await mgr.run_task(prompt="daily digest") == f"answered by {slot}"
+    assert turns.built == [slot]
 
 
-async def test_claude_slot_without_the_cli_is_the_users_api_choice(
+async def test_dual_slot_waits_while_any_other_subscription_is_connected(
     mgr: BrainManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     turns = _Turns(mgr, monkeypatch)
-    monkeypatch.setattr(manager_module, "_claude_cli_installed", lambda: False)
+    background_policy.note_connected("codex")
 
-    with use_operation_model(ModelSelection("claude-api", "claude-sonnet", "")):
-        assert await mgr.run_task(prompt="daily digest") == "answered by claude-api"
-    assert turns.built == ["claude-api"]
+    with (
+        use_operation_model(ModelSelection(_dual_slot(), "some-model", "")),
+        pytest.raises(BackgroundDeferred),
+    ):
+        await mgr.run_task(prompt="daily digest")
+    assert turns.built == []
+
+
+async def test_dual_slot_on_a_key_only_install_is_the_users_api_choice(
+    mgr: BrainManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No subscription was ever connected: the key is all this install has, and
+    an installed vendor CLI that was never signed in changes nothing."""
+    turns = _Turns(mgr, monkeypatch)
+    slot = _dual_slot()
+
+    with use_operation_model(ModelSelection(slot, "some-model", "")):
+        assert await mgr.run_task(prompt="daily digest") == f"answered by {slot}"
+    assert turns.built == [slot]
+
+
+async def test_a_dual_slot_run_on_its_seat_remembers_the_subscription(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The seat answered, so the login was working: that sighting is what makes
+    the next unattended turn wait once the login stops answering."""
+    mgr = _manager()
+    turns = _Turns(mgr, monkeypatch)
+    slot = _dual_slot()
+    ready = {"value": True}
+    monkeypatch.setitem(
+        task_agent._DUAL_SEATS,  # noqa: SLF001 - scripted login, no vendor CLI
+        slot,
+        task_agent.DualSeat(
+            seat=task_agent._DUAL_SEATS[slot].seat,  # noqa: SLF001
+            subscription=task_agent.dual_seat_subscription(slot),
+            ready=lambda: ready["value"],
+        ),
+    )
+    seat_runs: list[str] = []
+
+    async def _seat_runner(*, selection: Any, **_: Any) -> str:
+        seat_runs.append(selection.provider)
+        return "answered on the subscription"
+
+    monkeypatch.setattr(task_agent, "_runner", _seat_runner)
+
+    with use_operation_model(ModelSelection(slot, "some-model", "")):
+        assert await mgr.run_task(prompt="daily digest") == "answered on the subscription"
+        assert background_policy.subscription_mode() is True
+
+        ready["value"] = False  # the login expired
+        with pytest.raises(BackgroundDeferred):
+            await mgr.run_task(prompt="daily digest")
+    assert seat_runs == [slot]
+    assert turns.built == []
+
+
+async def test_no_provider_name_decides_the_unattended_chain() -> None:
+    """AP-21: the rule asks the seat table and the billing cards, never a name."""
+    import inspect
+
+    source = inspect.getsource(BrainManager._unattended_task_chain)  # noqa: SLF001
+    for slot in task_agent._DUAL_SEATS:  # noqa: SLF001
+        assert slot not in source
 
 
 async def test_an_explicitly_selected_agent_is_kept(

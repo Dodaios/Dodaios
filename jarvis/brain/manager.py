@@ -13580,13 +13580,25 @@ class BrainManager:
             allowed_tools = (*allowed_tools, _ARTIFACT_TOOL_NAME)
         tools = self._select_task_tools(allowed_tools)
         from jarvis.core.model_selection import operation_model, worker_selection
-        from jarvis.core.task_agent import run_selected, subscription_seat_off_loop
+        from jarvis.core.task_agent import (
+            dual_seat_subscription,
+            run_selected,
+            subscription_seat_off_loop,
+        )
 
         selected = operation_model.get() or worker_selection(self._config)
         if (
             selected is not None
             and await subscription_seat_off_loop(selected.provider) is not None
         ):
+            subscription = dual_seat_subscription(selected.provider)
+            if subscription is not None:
+                # A dual slot only gets its seat while that login answers. The
+                # sighting is what later keeps an unattended turn off the
+                # slot's per-token row when the login stops answering.
+                from jarvis.brain.background_policy import note_connected
+
+                await asyncio.to_thread(note_connected, subscription)
             return await run_selected(
                 selection=selected, prompt=prompt, tool_names=tuple(tools), trace_id=trace_id
             )
@@ -13660,10 +13672,11 @@ class BrainManager:
         """Hold an unattended turn's chain to the background policy.
 
         - An explicit agent selection is the person's own choice and stays —
-          except the Claude slot with the ``claude`` CLI installed: its login is
-          not ready here (a ready one ran on the subscription above), and its
-          per-token API row is never billed on its own (same rule as missions,
-          jarvis/missions/capacity.py).
+          except a dual slot (one that is a subscription seat while its login
+          is ready and a per-token row otherwise). Its login is not ready here
+          (a ready one ran on the subscription above), so the row it fell back
+          to was never picked and follows the same policy as the automatic
+          chain.
         - The automatic chain keeps only subscriptions and local models once a
           subscription is connected; an install without one keeps its chain,
           so a single-key download still works.
@@ -13672,19 +13685,12 @@ class BrainManager:
         key; the runner records the skipped run.
         """
         from jarvis.brain.background_policy import BackgroundDeferred, background_providers
+        from jarvis.core.task_agent import dual_seat_subscription
 
         if selected is not None:
             provider = str(getattr(selected, "provider", "") or "")
-            if provider == "claude-api" and await asyncio.to_thread(_claude_cli_installed):
-                log.warning(
-                    "run_task (unattended): Claude subscription login not ready; "
-                    "deferring instead of using the per-token Claude API row"
-                )
-                raise BackgroundDeferred(
-                    "The Claude subscription is not available for this unattended run; "
-                    "a paid API key is not used without your approval."
-                )
-            return attempts
+            if dual_seat_subscription(provider) is None:
+                return attempts
         policy = await asyncio.to_thread(
             background_providers, [name for name, _model in attempts]
         )
@@ -13804,17 +13810,6 @@ def _scheduled_turn_context(turn_context: str, tools: dict[str, Any]) -> str:
     )
     return f"{turn_context}\n\n{block}" if turn_context else block
 
-
-
-def _claude_cli_installed() -> bool:
-    """Whether the ``claude`` CLI is installed — PATH stat probes, no subprocess."""
-    try:
-        from jarvis.claude_auth import ClaudeAuthService
-
-        return ClaudeAuthService().resolve_binary() is not None
-    except Exception:  # noqa: BLE001 - unreadable: assume installed, so no key is billed
-        log.warning("run_task: claude CLI lookup failed", exc_info=True)
-        return True
 
 def _short_provider_error(exc: Exception) -> str:
     """One readable line for ``last_error`` / the fallback summary — the
