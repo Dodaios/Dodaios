@@ -99,3 +99,87 @@ export function PixelCreature({ creature, size, state = "idle" }: { creature: Cr
       style={{ left: -STAGE_X * cell, top: -STAGE_Y * cell, width: STAGE_W * cell, height: STAGE_H * cell }} />
   </span>;
 }
+
+/** How far the stage figure sways to each side of its resting turn, radians. */
+const STAGE_SWAY = 0.5;
+/** One sway takes this long, milliseconds. */
+const STAGE_SWAY_MS = 7000;
+/** How far a drag across the whole stage turns the figure, radians. */
+const STAGE_DRAG_TURN = Math.PI * 1.5;
+
+/**
+ * The large preview of a pixel creature in the look editor: the same cubes
+ * as the profile face, big, swaying slowly so every side shows, and turned
+ * by dragging. It is a 2D canvas on purpose: it needs no WebGL context, so it
+ * shows on every machine and never competes with the map for one.
+ */
+export function CreatureStage({ creature, state = "idle" }: { creature: CreatureLook; state?: CreatureState }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const turn = useRef(0);
+  const reduced = useReducedMotion() ?? false;
+  const { seed, palette, eyes } = creature;
+  useEffect(() => {
+    const node = canvas.current;
+    if (!node || typeof CanvasRenderingContext2D === "undefined") return;
+    const context = node.getContext("2d");
+    if (!context) return;
+    const body = creatureBody({ seed, palette, eyes });
+    let width = 0;
+    let shown = "";
+    let frameRequest = 0;
+    let visible = true;
+    const paint = (now: number) => {
+      const scale = Math.min(window.devicePixelRatio || 1, 2);
+      const next = Math.round(node.clientWidth * scale);
+      if (next === 0) return;
+      if (next !== width) {
+        width = next;
+        node.width = width;
+        node.height = Math.round((width * STAGE_H) / STAGE_W);
+        shown = "";
+      }
+      const frame = reduced ? CREATURE_STILL_FRAME[state] : Math.floor(now / CREATURE_TICK_MS);
+      const sway = reduced ? 0 : Math.sin((now / STAGE_SWAY_MS) * Math.PI * 2) * STAGE_SWAY;
+      const yaw = FACE_YAW + sway + turn.current;
+      const key = `${frame}|${yaw.toFixed(3)}`;
+      if (key === shown) return;
+      shown = key;
+      paintCreature(context, width, body, creaturePose(state, frame), yaw);
+    };
+    const loop = (now: number) => {
+      paint(now);
+      // Reduced motion paints once and again only after a drag.
+      frameRequest = visible && !reduced ? requestAnimationFrame(loop) : 0;
+    };
+    const start = () => { if (!frameRequest) frameRequest = requestAnimationFrame(loop); };
+    start();
+
+    let dragFrom: number | null = null;
+    const onDown = (event: PointerEvent) => { dragFrom = event.clientX; node.setPointerCapture(event.pointerId); };
+    const onMove = (event: PointerEvent) => {
+      if (dragFrom === null) return;
+      turn.current += ((event.clientX - dragFrom) / Math.max(1, node.clientWidth)) * STAGE_DRAG_TURN;
+      dragFrom = event.clientX;
+      start();
+    };
+    const onUp = () => { dragFrom = null; };
+    node.addEventListener("pointerdown", onDown);
+    node.addEventListener("pointermove", onMove);
+    node.addEventListener("pointerup", onUp);
+    node.addEventListener("pointercancel", onUp);
+    const observer = typeof IntersectionObserver === "undefined" ? null
+      : new IntersectionObserver((entries) => { visible = entries.some((entry) => entry.isIntersecting); if (visible) start(); });
+    observer?.observe(node);
+    return () => {
+      observer?.disconnect();
+      if (frameRequest) cancelAnimationFrame(frameRequest);
+      node.removeEventListener("pointerdown", onDown);
+      node.removeEventListener("pointermove", onMove);
+      node.removeEventListener("pointerup", onUp);
+      node.removeEventListener("pointercancel", onUp);
+    };
+  }, [seed, palette, eyes, state, reduced]);
+  return <div className="flex h-56 w-full items-center justify-center" data-testid="creature-stage" data-creature-state={state}>
+    <canvas ref={canvas} aria-hidden className="h-full max-w-full cursor-grab touch-none active:cursor-grabbing" style={{ aspectRatio: `${STAGE_W} / ${STAGE_H}` }} />
+  </div>;
+}

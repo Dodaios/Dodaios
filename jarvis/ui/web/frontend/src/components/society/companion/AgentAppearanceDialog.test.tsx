@@ -141,7 +141,14 @@ it("opens an agent that never picked a look on its pixel creature, and stores th
   const { saves } = setup(false, false, true);
   expect(screen.getByRole("button", { name: "society.companion.look_creature" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByTestId("creature-picker")).toBeTruthy();
+  // The creature previews on its own canvas stage; the 3D studio is for shapes and pets.
+  expect(screen.getByTestId("creature-stage")).toBeTruthy();
+  expect(screen.queryByTestId("preview")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "society.companion.creature.state_names.asking" }));
+  expect(screen.getByTestId("creature-stage").dataset.creatureState).toBe("asking");
   fireEvent.click(screen.getByRole("button", { name: "society.companion.look_shape" }));
+  expect(screen.queryByTestId("creature-stage")).toBeNull();
+  expect(await screen.findByTestId("preview")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
   await waitFor(() => expect(saves()).toHaveLength(1));
   const [, init] = saves()[0] as unknown as [string, RequestInit];
