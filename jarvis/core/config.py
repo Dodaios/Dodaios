@@ -43,7 +43,7 @@ from jarvis.speech.wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
 from jarvis.ui.pets.states import DEFAULT_PET_ID
 
 from .branding import CONFIG_FILE_NAME, KEYRING_SERVICE_NAME
-from .instance import current_instance
+from .instance import current_instance, resolve_data_dir
 from .protocols import RiskTier
 
 # AckBrainConfig lives under jarvis.brain.ack_brain.config. We cannot
@@ -72,12 +72,10 @@ def _resolve_data_dir() -> Path:
     *instance* (``jarvis.core.instance``): ``data/`` for the default app,
     ``data-dev/`` for the dev app — two desktop apps from one checkout must not
     share SQLite stores, the single-instance lock or the WebView profile.
-    Resolved once at import, like every other path constant here.
+    Resolved once at import, like every other path constant here. The rule
+    itself lives in ``jarvis.core.instance.resolve_data_dir``.
     """
-    env_dir = os.environ.get("JARVIS_DATA_DIR")
-    if env_dir and env_dir.strip():
-        return Path(env_dir.strip())
-    return PROJECT_ROOT / current_instance().data_dir_name
+    return resolve_data_dir(PROJECT_ROOT)
 
 
 DATA_DIR = _resolve_data_dir()

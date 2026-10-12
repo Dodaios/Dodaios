@@ -37,7 +37,7 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from jarvis.missions.ids import uuid7_str
 
@@ -1658,6 +1658,12 @@ class TeamLeads:
                     continue
                 if task.state is TeamTaskState.RUNNING and task.run_id in running:
                     continue
+                outcome = await self._chat_outcome(task)
+                if outcome == "running":
+                    continue  # The member is still on it; a later pass reads its end.
+                if outcome is not None:
+                    await self._close_task(task, outcome[0], outcome[1])
+                    continue
                 await self._close_task(
                     task,
                     TeamTaskState.BLOCKED,
@@ -1675,6 +1681,59 @@ class TeamLeads:
                 self._wake_lead(goal.goal_id)
             else:
                 await self._park(goal, "stalled")
+
+    async def _chat_outcome(
+        self, task: TeamTask
+    ) -> tuple[TeamTaskState, str] | Literal["running"] | None:
+        """What the member's own chat says about an assignment the board lost.
+
+        The scheduler abandons a start that takes too long. The member may be
+        working all the same, with nobody left to write its RESULT, and calling
+        the task "never picked up" would make the lead hand the same work out
+        twice. The chat is durable and the framed assignment carries its message
+        id, so the turn that answered it is read back from there. ``None`` means
+        the chat never saw the assignment, or its turn left no ending.
+        """
+        svc = self._rt.chat_service()
+        if svc is None or not task.assign_event_id:
+            return None
+        from .roster import canonical_session_id
+
+        session_id = canonical_session_id(task.agent_id)
+        try:
+            events = await asyncio.to_thread(svc.store.list_events, session_id, tail=600)
+        except Exception:  # noqa: BLE001 — an unreadable chat reads as "never seen"
+            log.warning("society team lead: chat of %s unreadable", task.agent_id, exc_info=True)
+            return None
+        marker = f"Message id: {task.assign_event_id};"
+        start = next(
+            (
+                index
+                for index, event in enumerate(events)
+                if event.get("kind") == "user_message"
+                and marker in str((event.get("payload") or {}).get("text") or "")
+            ),
+            None,
+        )
+        if start is None:
+            return None
+        final, status, error = "", "", ""
+        for event in events[start + 1 :]:
+            kind = event.get("kind")
+            payload = event.get("payload") or {}
+            if kind == "user_message":
+                break  # The next turn began; this one left no ending.
+            if kind == "assistant_text" and not payload.get("media_only"):
+                final = str(payload.get("text") or final)
+            elif kind == "turn_finished":
+                status = str(payload.get("status") or "done")
+                error = str(payload.get("error") or "")
+                break
+        if not status:
+            return "running" if svc.is_running(session_id) else None
+        if status in ("ok", "done", "completed") and final.strip():
+            return TeamTaskState.DONE, final.strip()
+        return TeamTaskState.BLOCKED, (final or error or "The turn ended without a result.").strip()
 
     # ------------------------------------------------------------ pushes
 
