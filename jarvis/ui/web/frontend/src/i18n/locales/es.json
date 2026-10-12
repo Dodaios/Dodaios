@@ -7441,6 +7441,9 @@
       },
       "cocoa": {
         "description": "Un cachorro de labrador chocolate: ladea la cabeza al escuchar, escarba al trabajar y corre en círculos al acertar."
+      },
+      "dodaios": {
+        "description": "La figura encapuchada del logotipo: la punta de la capucha se levanta al escuchar y la capa vuela al saltar."
       }
     },
     "create_dialog": {
