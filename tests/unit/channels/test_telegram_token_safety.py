@@ -335,7 +335,7 @@ def test_the_redacting_filter_masks_a_bot_url_in_any_log_record(
             f"https://api.telegram.org/bot{FAKE_TOKEN}/sendMessage",
         )
     assert caplog.records and FAKE_TOKEN not in caplog.text
-    assert "api.telegram.org" in caplog.text  # the rest of the line stays readable
+    assert "/sendMessage" in caplog.text  # the rest of the line stays readable
 
 
 async def test_a_successful_workflow_send_logs_no_token(
