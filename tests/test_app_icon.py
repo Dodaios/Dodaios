@@ -1,7 +1,7 @@
 """The app icon and the in-app mark are drawn from one vector logo.
 
 ``scripts/make_app_icon.py`` renders every native icon from
-``assets/brand/jarvis-logo.svg`` and writes the same path into
+``assets/brand/dodaios-logo.svg`` and writes the same path into
 ``src/components/brand/jarvisLogoPath.ts`` for the frontend. There is no
 runtime that can share the two — one side is Python drawing a PNG at build
 time, the other is React drawing SVG in a browser — so a copy nothing checks
