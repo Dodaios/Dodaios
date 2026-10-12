@@ -1022,6 +1022,7 @@
       "team_yours": "Deine Teams",
       "team_none": "Noch keine Teams. Stell unten eins zusammen.",
       "team_members": "{0} Mitglieder",
+      "team_lead": "Leitung: {0}",
       "team_working": "{0} arbeiten",
       "team_meet": "Am Tisch treffen",
       "team_meeting_now": "Im Meeting",

@@ -179,6 +179,10 @@ class SocietyRuntime:
         self._review_lock = asyncio.Lock()
         #: The Quest Board: the person's jobs, routed to one taker, read back off the board.
         self.quests = Quests(self)
+        from .team_lead import TeamLeads
+
+        #: Team leads: a member that manages its team toward the person's goals.
+        self.team_leads = TeamLeads(self, publish=event_publish)
         #: Speech on the board, projected onto the island: two agents talking
         #: turn to each other, two agents apart call across the map.
         self.world_feed = WorldFeed(self, publish=event_publish)
@@ -281,6 +285,8 @@ class SocietyRuntime:
         # synchronous reader on the brain's prompt build — sees the team from
         # the first turn, not from the first REST listing.
         await self.roster.refresh()
+        # After the roster: the lead prompts read names off its snapshot.
+        await self.team_leads.start()
         self._require_open_owner()
         self._started = True
         self._delivery_task = asyncio.create_task(self._deliver_pending())
@@ -458,6 +464,7 @@ class SocietyRuntime:
             cleanup.push_async_callback(asyncio.to_thread, self.conversations.close)
             for release in (
                 self.world_feed.detach,
+                self.team_leads.detach,
                 self.quests.detach,
                 self.checkpoints.detach,
                 self.bridge.detach,
@@ -546,6 +553,10 @@ class SocietyRuntime:
             # A meeting contribution is a read-only reply in a shared round,
             # often a silent pass; reviewing each one would add a model call
             # per member to every message the person sends.
+            return
+        if self.team_leads.is_managing(session.session_id):
+            # A lead's managing turn hands out and checks work; a review after
+            # each one would add a model call to every step of every goal.
             return
         window_key = ""
         if completion.turn.direct_user:
@@ -802,6 +813,15 @@ class SocietyRuntime:
             if reply_policy(env) != "always":
                 raise RuntimeError("this reply policy requires an available agent chat service")
             return await self._dispatch_mission(target, env)
+        from .team_lead import TRACE_PREFIX as TEAM_TRACE_PREFIX
+
+        if (
+            self.team_leads.group_led_by(target.agent_id) is not None
+            and not env.trace_id.startswith(TEAM_TRACE_PREFIX)
+        ):
+            # Work handed to a team lead is a goal for its team: the lead
+            # plans, assigns and answers this assignment with its report.
+            return await self.team_leads.accept_assignment(target, env)
         return await self._dispatch_chat(target, env)
 
     async def _dispatch_chat(self, target: AgentRecord, env: SocietyEnvelope) -> str:
@@ -1135,6 +1155,7 @@ class SocietyRuntime:
     async def engage_kill_switch(self) -> dict[str, Any]:
         await self.store.set_kill_switch(True)
         halted = await self.scheduler.halt_all()
+        goals_paused = await self.team_leads.halt()
         await self._cancel_active_society_chats()
         await self.browser.close()
         settled = 0
@@ -1155,6 +1176,7 @@ class SocietyRuntime:
             "runs_halted": halted,
             "rooms_settled": settled,
             "missions_cancelled": killed,
+            "team_goals_paused": goals_paused,
         }
 
     async def release_kill_switch(self) -> dict[str, Any]:
