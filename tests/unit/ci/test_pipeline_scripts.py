@@ -581,6 +581,33 @@ def test_train_gives_its_update_slots_to_the_pull_requests_that_can_land():
     assert agent_integrate.grant_updates(wanted, 0) == set()
 
 
+def test_train_asks_again_while_github_computes_mergeability(monkeypatch):
+    def listing(state: str) -> list[dict]:
+        own = {"baseRefName": "main", "isDraft": False, "labels": [], "mergeable": state}
+        return [
+            {**own, "number": 1, "headRefName": "claude/a"},
+            {**own, "number": 2, "headRefName": "feature/not-on-the-train", "mergeable": "UNKNOWN"},
+        ]
+
+    answers = [listing("UNKNOWN"), listing("UNKNOWN"), listing("CONFLICTING")]
+    asked: list[tuple[str, ...]] = []
+    naps: list[float] = []
+
+    def fake_gh_json(*args: str) -> object:
+        asked.append(args)
+        return answers[min(len(asked), len(answers)) - 1]
+
+    monkeypatch.setattr(agent_integrate, "gh_json", fake_gh_json)
+    prs = agent_integrate.open_pull_requests("example/project", pause=7.0, sleep=naps.append)
+    # An ineligible pull request never keeps the train waiting.
+    assert prs[0]["mergeable"] == "CONFLICTING" and len(asked) == 3 and naps == [7.0, 7.0]
+
+    asked.clear(), naps.clear()
+    answers[:] = [listing("UNKNOWN")]
+    prs = agent_integrate.open_pull_requests("example/project", attempts=3, sleep=naps.append)
+    assert prs[0]["mergeable"] == "UNKNOWN" and len(asked) == 3 and len(naps) == 2
+
+
 def test_train_leaves_a_queued_pull_request_to_the_queue():
     decide = agent_integrate.decide
     assert decide("MERGEABLE", "success", True, queued=True) == "queued"
