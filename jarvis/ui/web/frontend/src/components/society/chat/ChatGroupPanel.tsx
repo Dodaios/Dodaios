@@ -14,6 +14,10 @@ import { RosterRail } from "../roster/RosterRail";
 import { AgentChatPanel } from "./AgentChatPanel";
 import { ChatGroupDialog } from "./ChatGroupDialog";
 import { MeetingChat } from "./MeetingChat";
+import { TeamLeadBoard } from "./TeamLeadBoard";
+
+/** What the team's main column shows. */
+type GroupView = "lead" | "meeting" | "individual";
 
 /** The active view reads as selected; both states keep the same box size. */
 function viewToggle(active: boolean): string {
@@ -47,7 +51,8 @@ export function ChatGroupPanel({
   const [leftId, setLeftId] = useState(group.members[0] ?? "");
   const [rightId, setRightId] = useState(group.members[1] ?? "");
   const [editing, setEditing] = useState(false);
-  const [shared, setShared] = useState(true);
+  // A team that has a lead opens on the lead's board; the others on their meeting.
+  const [view, setView] = useState<GroupView>(group.lead_agent_id ? "lead" : "meeting");
   const [confirmUngroup, setConfirmUngroup] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
@@ -152,16 +157,20 @@ export function ChatGroupPanel({
       footer={teamFooter} />
     <div className="flex min-h-0 min-w-0 flex-col border-l border-border">
       <div className="flex shrink-0 gap-2 border-b border-border p-2">
-        <button type="button" aria-pressed={shared} onClick={() => setShared(true)}
-          className={viewToggle(shared)}>{t("society.meeting.title")}</button>
-        <button type="button" aria-pressed={!shared} onClick={() => setShared(false)}
-          className={viewToggle(!shared)}>{t("society.meeting.individual")}</button>
+        <button type="button" aria-pressed={view === "lead"} onClick={() => setView("lead")}
+          className={viewToggle(view === "lead")}>{t("society.lead.tab")}</button>
+        <button type="button" aria-pressed={view === "meeting"} onClick={() => setView("meeting")}
+          className={viewToggle(view === "meeting")}>{t("society.meeting.title")}</button>
+        <button type="button" aria-pressed={view === "individual"} onClick={() => setView("individual")}
+          className={viewToggle(view === "individual")}>{t("society.meeting.individual")}</button>
       </div>
-      {shared ? <MeetingChat key={group.group_id} group={group} roster={roster} /> : <div className="grid min-h-0 min-w-0 flex-1 grid-cols-2 divide-x-2 divide-border-strong overflow-hidden bg-background"
-      data-testid="society-group-split">
-      {pane("left", left)}
-      {pane("right", right)}
-    </div>}
+      {view === "lead" ? <TeamLeadBoard key={group.group_id} group={group} roster={roster} onOpenAgent={onOpenAgent} />
+        : view === "meeting" ? <MeetingChat key={group.group_id} group={group} roster={roster} />
+        : <div className="grid min-h-0 min-w-0 flex-1 grid-cols-2 divide-x-2 divide-border-strong overflow-hidden bg-background"
+          data-testid="society-group-split">
+          {pane("left", left)}
+          {pane("right", right)}
+        </div>}
     </div>
     {editing && <ChatGroupDialog group={group} agents={roster} onClose={() => setEditing(false)} onSaved={onOpenGroup} />}
   </div>;
