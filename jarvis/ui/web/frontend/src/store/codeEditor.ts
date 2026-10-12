@@ -107,6 +107,13 @@ export interface OpenOptions {
   group?: number;
 }
 
+/** Where a dragged tab lands. */
+export type TabDrop =
+  /** In a group's tab bar, in front of the tab `before`; at the end when omitted. */
+  | { group: number; before?: string }
+  /** In a new group directly left or right of an existing one. */
+  | { beside: number; side: "left" | "right" };
+
 interface CodeEditorState {
   tabs: EditorTab[];
   /** Per workspace: the tab shown by the group that has the keyboard. */
@@ -132,8 +139,8 @@ interface CodeEditorState {
   splitRight: (key: string) => void;
   /** Hand the keyboard to a group. */
   focusGroup: (workspaceId: string, group: number) => void;
-  /** Move a tab into another group (dragging it onto that group's tab bar). */
-  moveTab: (key: string, group: number) => void;
+  /** Put a dragged tab where it was dropped: a spot in a tab bar, or a new group. */
+  moveTab: (key: string, drop: TabDrop) => void;
   openFile: (workspaceId: string, path: string, options?: OpenOptions) => void;
   closeTab: (key: string) => void;
   closeTabs: (keys: string[]) => void;
@@ -295,26 +302,50 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
     set(settle({ ...state, focusedGroup: { ...state.focusedGroup, [workspaceId]: group } }, [workspaceId]));
   },
 
-  moveTab: (key, group) =>
+  moveTab: (key, drop) =>
     set((state) => {
       const tab = state.tabs.find((entry) => entry.key === key);
-      if (!tab || (tab.group ?? 0) === group) return {};
+      if (!tab) return {};
       const { workspaceId } = tab;
       const groups = groupsOf(state, workspaceId);
-      if (!groups.some((entry) => entry.id === group)) return {};
+      const origin = tab.group ?? 0;
+      const source = groups.find((entry) => entry.id === origin);
+      let order = groups.map((entry) => entry.id);
+      let group: number;
+      let before: string | undefined;
+      if ("beside" in drop) {
+        if (!order.includes(drop.beside)) return {};
+        // A group's only tab dropped beside that same group is already there.
+        if (drop.beside === origin && source?.tabs.length === 1) return {};
+        group = Math.max(...order) + 1;
+        const at = order.indexOf(drop.beside) + (drop.side === "right" ? 1 : 0);
+        order = [...order.slice(0, at), group, ...order.slice(at)];
+      } else {
+        if (!order.includes(drop.group) || drop.before === key) return {};
+        group = drop.group;
+        before = drop.before;
+      }
       const movedKey = tabKeyOf(tab.mode, tab.fileKey, group);
       const rest = state.tabs.filter((entry) => entry.key !== key);
-      // Already open in that group: the dragged tab simply closes into it.
-      const tabs = rest.some((entry) => entry.key === movedKey) ? rest : [...rest, { ...tab, key: movedKey, group }];
+      let tabs = rest;
+      // The same file already open in that group: the dragged tab closes into it.
+      if (group === origin || !rest.some((entry) => entry.key === movedKey)) {
+        const moved: EditorTab = { ...tab, key: movedKey, group };
+        const inGroup = (entry: EditorTab) => entry.workspaceId === workspaceId && (entry.group ?? 0) === group;
+        let at = before ? rest.findIndex((entry) => entry.key === before && inGroup(entry)) : -1;
+        // No tab to land in front of: after the group's last one.
+        if (at < 0) at = rest.reduce((last, entry, index) => (inGroup(entry) ? index + 1 : last), rest.length);
+        tabs = [...rest.slice(0, at), moved, ...rest.slice(at)];
+      }
       const actives: Record<number, string | null> = { ...state.groupActive[workspaceId], [group]: movedKey };
-      const source = groups.find((entry) => entry.id === (tab.group ?? 0));
-      if (source?.active?.key === key) actives[source.id] = successor(source.tabs, key, new Set([key]));
+      if (group !== origin && source?.active?.key === key) actives[origin] = successor(source.tabs, key, new Set([key]));
       return {
         tabs,
         ...settle(
           {
             ...state,
             tabs,
+            groupOrder: { ...state.groupOrder, [workspaceId]: order },
             groupActive: { ...state.groupActive, [workspaceId]: actives },
             focusedGroup: { ...state.focusedGroup, [workspaceId]: group },
           },
