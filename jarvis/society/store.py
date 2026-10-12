@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,21 @@ _EVENT_COLUMNS = (
     "seq, event_id, msg_type, from_agent, to_agent, trace_id, parent_event_id, "
     "ts_ms, cost_usd, payload_json"
 )
+
+
+_GROUP_COLUMNS = "group_id, name, members_json, created_ms, updated_ms, lead_agent_id, mission"
+
+
+def _row_to_group(row: Any) -> dict[str, Any]:
+    return {
+        "group_id": row[0],
+        "name": row[1],
+        "members": json.loads(row[2]),
+        "created_ms": row[3],
+        "updated_ms": row[4],
+        "lead_agent_id": row[5] or None,
+        "mission": row[6] or "",
+    }
 
 
 def _row_to_envelope(row: Any) -> SocietyEnvelope:
@@ -155,7 +171,25 @@ class SocietyStore:
                 "CHECK (runtime IN ('jarvis', 'hermes', 'openclaw'))"
             )
             log.info("society store: migration applied — added runtime")
+        await self._migrate_chat_groups()
         await self._migrate_checkpoint_vocabulary()
+
+    async def _migrate_chat_groups(self) -> None:
+        """Team leads (2026-10): a group may name its lead and carry a mission."""
+        cur = await self.conn.execute("PRAGMA table_info(society_chat_groups)")
+        existing = {str(r[1]) for r in await cur.fetchall()}
+        await cur.close()
+        if "lead_agent_id" not in existing:
+            # NULL = no lead; every existing team keeps working as before.
+            await self.conn.execute(
+                "ALTER TABLE society_chat_groups ADD COLUMN lead_agent_id TEXT DEFAULT NULL"
+            )
+            log.info("society store: migration applied — added chat group lead_agent_id")
+        if "mission" not in existing:
+            await self.conn.execute(
+                "ALTER TABLE society_chat_groups ADD COLUMN mission TEXT NOT NULL DEFAULT ''"
+            )
+            log.info("society store: migration applied — added chat group mission")
 
     async def _migrate_checkpoint_vocabulary(self) -> None:
         """Widen the ``checkpoint`` CHECK to today's vocabulary (the hub shops, 2026-09).
@@ -395,44 +429,26 @@ class SocietyStore:
 
     async def list_chat_groups(self) -> list[dict[str, Any]]:
         async with self.conn.execute(
-            "SELECT group_id, name, members_json, created_ms, updated_ms "
-            "FROM society_chat_groups ORDER BY created_ms ASC"
+            f"SELECT {_GROUP_COLUMNS} FROM society_chat_groups ORDER BY created_ms ASC"  # noqa: S608 — fixed column list
         ) as cur:
             rows = await cur.fetchall()
-        return [
-            {
-                "group_id": row[0],
-                "name": row[1],
-                "members": json.loads(row[2]),
-                "created_ms": row[3],
-                "updated_ms": row[4],
-            }
-            for row in rows
-        ]
+        return [_row_to_group(row) for row in rows]
 
     async def get_chat_group(self, group_id: str) -> dict[str, Any] | None:
         async with self.conn.execute(
-            "SELECT group_id, name, members_json, created_ms, updated_ms "
-            "FROM society_chat_groups WHERE group_id = ?",
+            f"SELECT {_GROUP_COLUMNS} FROM society_chat_groups WHERE group_id = ?",  # noqa: S608 — fixed column list
             (group_id,),
         ) as cur:
             row = await cur.fetchone()
-        if row is None:
-            return None
-        return {
-            "group_id": row[0],
-            "name": row[1],
-            "members": json.loads(row[2]),
-            "created_ms": row[3],
-            "updated_ms": row[4],
-        }
+        return _row_to_group(row) if row is not None else None
 
     async def create_chat_group(
         self, group_id: str, name: str, members: list[str]
     ) -> dict[str, Any]:
         stamp = now_ms()
         await self.conn.execute(
-            "INSERT INTO society_chat_groups VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO society_chat_groups "
+            "(group_id, name, members_json, created_ms, updated_ms) VALUES (?, ?, ?, ?, ?)",
             (group_id, name, json.dumps(members), stamp, stamp),
         )
         return (await self.get_chat_group(group_id)) or {}
@@ -447,8 +463,129 @@ class SocietyStore:
         )
         return (await self.get_chat_group(group_id)) or {}
 
+    async def set_chat_group_lead(
+        self, group_id: str, lead_agent_id: str | None
+    ) -> dict[str, Any]:
+        await self.conn.execute(
+            "UPDATE society_chat_groups SET lead_agent_id = ?, updated_ms = ? WHERE group_id = ?",
+            (lead_agent_id, now_ms(), group_id),
+        )
+        return (await self.get_chat_group(group_id)) or {}
+
+    async def set_chat_group_mission(self, group_id: str, mission: str) -> dict[str, Any]:
+        await self.conn.execute(
+            "UPDATE society_chat_groups SET mission = ?, updated_ms = ? WHERE group_id = ?",
+            (mission, now_ms(), group_id),
+        )
+        return (await self.get_chat_group(group_id)) or {}
+
     async def delete_chat_group(self, group_id: str) -> None:
         await self.conn.execute("DELETE FROM society_chat_groups WHERE group_id = ?", (group_id,))
+
+    # ---------------------------------------------------- team goals and tasks
+
+    async def _insert(self, table: str, row: dict[str, Any]) -> None:
+        cols = ", ".join(row)
+        marks = ", ".join("?" for _ in row)
+        await self.conn.execute(
+            f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608 — identifiers from the caller's fixed dict, values bound
+            tuple(row.values()),
+        )
+
+    async def _update(self, table: str, key: str, key_value: str, fields: dict[str, Any]) -> bool:
+        if not fields:
+            return False
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        cur = await self.conn.execute(
+            f"UPDATE {table} SET {sets} WHERE {key} = ?",  # noqa: S608 — identifiers from a fixed allowlist, values bound
+            (*fields.values(), key_value),
+        )
+        await cur.close()
+        return bool(cur.rowcount)
+
+    async def _select(self, sql: str, args: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+        self.conn.row_factory = aiosqlite.Row
+        cur = await self.conn.execute(sql, args)
+        rows = await cur.fetchall()
+        await cur.close()
+        return [dict(r) for r in rows]
+
+    async def insert_team_goal(self, row: dict[str, Any]) -> None:
+        await self._insert("society_team_goals", row)
+
+    async def update_team_goal(self, goal_id: str, fields: dict[str, Any]) -> bool:
+        return await self._update("society_team_goals", "goal_id", goal_id, fields)
+
+    async def transition_team_goal(
+        self, goal_id: str, from_states: Iterable[str], fields: dict[str, Any]
+    ) -> bool:
+        """Update a goal only while it is in one of ``from_states``.
+
+        The compare-and-swap every state change goes through: two callers
+        that read the same state cannot both move the goal (a stop that
+        lands between a resume's read and its write must win).
+        """
+        states = tuple(from_states)
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        marks = ", ".join("?" for _ in states)
+        cur = await self.conn.execute(
+            f"UPDATE society_team_goals SET {sets} "  # noqa: S608 — identifiers from a fixed allowlist, values bound
+            f"WHERE goal_id = ? AND state IN ({marks})",
+            (*fields.values(), goal_id, *states),
+        )
+        await cur.close()
+        return bool(cur.rowcount)
+
+    async def get_team_goal_row(self, goal_id: str) -> dict[str, Any] | None:
+        rows = await self._select("SELECT * FROM society_team_goals WHERE goal_id = ?", (goal_id,))
+        return rows[0] if rows else None
+
+    async def list_team_goal_rows(
+        self, *, group_id: str | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        """Newest first; every group's goals when ``group_id`` is ``None``."""
+        if group_id is None:
+            return await self._select(
+                "SELECT * FROM society_team_goals ORDER BY created_ms DESC, goal_id DESC LIMIT ?",
+                (int(limit),),
+            )
+        return await self._select(
+            "SELECT * FROM society_team_goals WHERE group_id = ? "
+            "ORDER BY created_ms DESC, goal_id DESC LIMIT ?",
+            (group_id, int(limit)),
+        )
+
+    async def delete_team_goals(self, group_id: str) -> None:
+        await self.conn.execute(
+            "DELETE FROM society_team_tasks WHERE goal_id IN "
+            "(SELECT goal_id FROM society_team_goals WHERE group_id = ?)",
+            (group_id,),
+        )
+        await self.conn.execute("DELETE FROM society_team_goals WHERE group_id = ?", (group_id,))
+
+    async def insert_team_task(self, row: dict[str, Any]) -> None:
+        await self._insert("society_team_tasks", row)
+
+    async def update_team_task(self, task_id: str, fields: dict[str, Any]) -> bool:
+        return await self._update("society_team_tasks", "task_id", task_id, fields)
+
+    async def get_team_task_row(self, task_id: str) -> dict[str, Any] | None:
+        rows = await self._select("SELECT * FROM society_team_tasks WHERE task_id = ?", (task_id,))
+        return rows[0] if rows else None
+
+    async def get_team_task_row_by_trace(self, trace_id: str) -> dict[str, Any] | None:
+        rows = await self._select(
+            "SELECT * FROM society_team_tasks WHERE trace_id = ?", (trace_id,)
+        )
+        return rows[0] if rows else None
+
+    async def list_team_task_rows(self, goal_id: str) -> list[dict[str, Any]]:
+        """A goal's tasks, oldest first."""
+        return await self._select(
+            "SELECT * FROM society_team_tasks WHERE goal_id = ? "
+            "ORDER BY created_ms ASC, task_id ASC",
+            (goal_id,),
+        )
 
     async def last_seq(self) -> int:
         cur = await self.conn.execute("SELECT COALESCE(MAX(seq), 0) FROM society_events")
