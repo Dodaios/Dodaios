@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/globe-CO2hZGe-.js
+import{c as e}from"./index-CtzlVJzZ.js";/**
+========
+import{c as e}from"./index-DUazyMRn.js";/**
+>>>>>>>> 4c9b39da968a298c1aa60772ccfdac8ac3fba10f:jarvis/ui/web/dist/assets/globe-BRhX8lfM.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const o=e("Globe",[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["path",{d:"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20",key:"13o1zl"}],["path",{d:"M2 12h20",key:"9i4pu4"}]]);export{o as G};
