@@ -339,7 +339,10 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
         ))}
         {terminals.map((terminal) => <div key={terminal.id} hidden={!open || terminal.id !== active}
           className="absolute inset-0" data-testid={`ide-side-panel-terminal-${terminal.id}`}>
-          <WorkspaceTerminal paneKey={terminal.id} agentName="shell" workspaceId={terminal.workspaceId}
+          {/* A terminal opened on a folder of the tree starts there; `folder` only
+              counts when no workspace id is named. */}
+          <WorkspaceTerminal paneKey={terminal.id} agentName="shell"
+            workspaceId={terminal.folder ? undefined : terminal.workspaceId} folder={terminal.folder}
             title={`${t("ide_side_panel.terminal_label")} ${terminal.number} · ${terminal.workspaceName}`}
             active={onScreen && open && terminal.id === active} appearance={appearance} />
         </div>)}

@@ -339,7 +339,11 @@ export function loadHead(fileKey: string): Promise<Monaco.editor.ITextModel | nu
     if (!file || !api) return null;
     let text: string | null = null;
     try {
-      text = await fetchHeadText(file.workspaceId, file.path, store().diffBases[fileKey]?.ref);
+      const base = store().diffBases[fileKey];
+      // A file-to-file compare reads the other file from disk; any other diff asks git.
+      text = base?.path
+        ? (await loadTextFile(file.workspaceId, base.path)).text
+        : await fetchHeadText(file.workspaceId, file.path, base?.ref);
     } catch (error) {
       toast((error as Error).message);
     }

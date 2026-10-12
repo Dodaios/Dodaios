@@ -6719,6 +6719,13 @@
       "paste": "粘贴",
       "delete_many_title": "要删除 {count} 项吗？",
       "busy_saving": "里面有文件仍在保存。请稍后再试。",
+      "reveal_windows": "在文件资源管理器中显示",
+      "reveal_mac": "在访达中显示",
+      "reveal_linux": "打开所在文件夹",
+      "open_terminal": "在终端中打开",
+      "find_in_folder": "在文件夹中查找…",
+      "select_compare": "选择以进行比较",
+      "compare_with": "与 {file} 比较",
       "cancel": "取消"
     },
     "search": {

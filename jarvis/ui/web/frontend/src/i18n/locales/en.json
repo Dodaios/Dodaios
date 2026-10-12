@@ -6713,6 +6713,13 @@
       "paste": "Paste",
       "delete_many_title": "Delete {count} items?",
       "busy_saving": "A file in there is still saving. Try again in a moment.",
+      "reveal_windows": "Reveal in File Explorer",
+      "reveal_mac": "Reveal in Finder",
+      "reveal_linux": "Open containing folder",
+      "open_terminal": "Open in terminal",
+      "find_in_folder": "Find in folder…",
+      "select_compare": "Select for compare",
+      "compare_with": "Compare with {file}",
       "cancel": "Cancel"
     },
     "search": {

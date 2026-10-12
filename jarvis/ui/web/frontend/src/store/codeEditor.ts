@@ -77,8 +77,10 @@ interface ClosedTab {
 
 /** What a diff tab compares against instead of the last commit. */
 export interface DiffBase {
-  /** A commit id. */
+  /** A commit id, or a unique key for a file base. */
   ref: string;
+  /** Compare against this workspace file as it is on disk, instead of a commit. */
+  path?: string;
   /** Shown in the diff badge in place of "Changes since the last commit". */
   label: string;
 }

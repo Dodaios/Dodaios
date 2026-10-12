@@ -6713,6 +6713,13 @@
       "paste": "Einfügen",
       "delete_many_title": "{count} Einträge löschen?",
       "busy_saving": "Eine Datei darin wird noch gespeichert. Versuche es gleich noch einmal.",
+      "reveal_windows": "Im Datei-Explorer anzeigen",
+      "reveal_mac": "Im Finder anzeigen",
+      "reveal_linux": "Enthaltenden Ordner öffnen",
+      "open_terminal": "Im Terminal öffnen",
+      "find_in_folder": "In Ordner suchen…",
+      "select_compare": "Für Vergleich auswählen",
+      "compare_with": "Mit {file} vergleichen",
       "cancel": "Abbrechen"
     },
     "search": {

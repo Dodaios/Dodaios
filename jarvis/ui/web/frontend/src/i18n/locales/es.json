@@ -6713,6 +6713,13 @@
       "paste": "Pegar",
       "delete_many_title": "¿Eliminar {count} elementos?",
       "busy_saving": "Un archivo de ahí aún se está guardando. Inténtalo de nuevo en un momento.",
+      "reveal_windows": "Mostrar en el Explorador de archivos",
+      "reveal_mac": "Mostrar en Finder",
+      "reveal_linux": "Abrir la carpeta contenedora",
+      "open_terminal": "Abrir en el terminal",
+      "find_in_folder": "Buscar en la carpeta…",
+      "select_compare": "Seleccionar para comparar",
+      "compare_with": "Comparar con {file}",
       "cancel": "Cancelar"
     },
     "search": {
