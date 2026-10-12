@@ -6663,6 +6663,10 @@
     "tabs": "已打开的文件",
     "close_tab": "关闭 {file}",
     "close_tab_hint": "关闭（Ctrl+W）",
+    "close_side": "关闭侧边编辑器",
+    "side_label": "侧边编辑器",
+    "resize_split": "调整两个编辑器的大小",
+    "side_tab_hint": "已在侧边编辑器中打开",
     "show_terminals": "终端",
     "show_terminals_hint": "显示终端；你的文件保持打开",
     "breadcrumbs": "文件路径",
@@ -6689,6 +6693,7 @@
       "close_all": "全部关闭",
       "copy_path": "复制路径",
       "copy_relative_path": "复制相对路径",
+      "open_side": "在侧边打开",
       "reveal": "在文件夹中显示"
     },
     "status": {
@@ -6788,6 +6793,7 @@
       "paste": "粘贴",
       "delete_many_title": "要删除 {count} 项吗？",
       "busy_saving": "里面有文件仍在保存。请稍后再试。",
+      "open_side": "在侧边打开",
       "reveal_windows": "在文件资源管理器中显示",
       "reveal_mac": "在访达中显示",
       "reveal_linux": "打开所在文件夹",

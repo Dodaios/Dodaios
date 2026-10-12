@@ -277,6 +277,20 @@ describe("ExplorerPanel", () => {
     expect(Object.values(state.diffBases)).toMatchObject([{ path: "README.md" }]);
   });
 
+  it("opens a file beside the one already open, from the menu and with Ctrl+Enter", async () => {
+    useCodeEditorStore.setState({ side: {}, sideFocused: false });
+    useCodeEditorStore.getState().openFile("w1", "notes.md", { preview: false });
+    const { row, menu } = await openRowMenu("README.md");
+    fireEvent.click(item(menu, /Open to the side/)!);
+    const tabKey = (path: string) => useCodeEditorStore.getState().tabs.find((tab) => tab.path === path)!.key;
+    expect(useCodeEditorStore.getState().side.w1).toBe(tabKey("README.md"));
+    expect(useCodeEditorStore.getState().active.w1).toBe(tabKey("notes.md"));
+
+    useCodeEditorStore.getState().closeSide("w1");
+    fireEvent.keyDown(row, { key: "Enter", ctrlKey: true });
+    expect(useCodeEditorStore.getState().side.w1).toBe(tabKey("README.md"));
+  });
+
   it("copies the path with Shift+Alt+C and the relative path with Ctrl+K Ctrl+Shift+C", async () => {
     const written: string[] = [];
     vi.stubGlobal("navigator", { ...navigator, userAgent: navigator.userAgent, clipboard: { writeText: async (text: string) => void written.push(text) } });

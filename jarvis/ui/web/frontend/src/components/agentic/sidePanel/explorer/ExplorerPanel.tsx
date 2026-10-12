@@ -3,6 +3,7 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ClipboardPaste,
+  Columns2,
   Copy,
   CopyPlus,
   ExternalLink,
@@ -868,6 +869,10 @@ function FileTree({
       event.preventDefault();
       chordAt.current = 0;
       copy(item.path);
+    } else if (event.key === "Enter" && mod && !item.is_directory) {
+      // Ctrl+Enter: beside the file already open, instead of in its place.
+      event.preventDefault();
+      editor.openToSide(workspaceId, item.path);
     } else if (event.key === "F2") {
       event.preventDefault();
       setRenaming(item.path);
@@ -1086,6 +1091,7 @@ function FileTree({
             {menu.path && !menu.isDirectory && (
               <>
                 <ThreadMenuItem icon={<SquarePen className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_editor")} onSelect={pick(() => editor.openFile(workspaceId, menu.path, { preview: false }))} />
+                <ThreadMenuItem icon={<Columns2 className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_side")} hint="Ctrl+Enter" onSelect={pick(() => editor.openToSide(workspaceId, menu.path))} />
                 <ThreadMenuItem icon={<ExternalLink className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_externally")} onSelect={pick(() => void openTerminalTarget(workspaceId, menu.path).catch(fail))} />
               </>
             )}
