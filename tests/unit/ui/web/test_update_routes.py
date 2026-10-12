@@ -71,19 +71,23 @@ def test_versions_equal_is_normalized_and_fail_closed() -> None:
     assert not u._versions_equal("invalid", "invalid")
 
 
-def test_remote_is_official_accepts_only_exact_repo() -> None:
+def test_remote_is_official_accepts_current_and_legacy_repo() -> None:
     # https, ssh, and a local path on either slash style all resolve.
+    assert u._remote_is_official("https://github.com/Dodaios/Dodaios.git")
+    assert u._remote_is_official("git@github.com:Dodaios/Dodaios.git")
+    assert u._remote_is_official("C:\\x\\Dodaios\\Dodaios")
+    # A checkout cloned before the rename is still this repository.
     assert u._remote_is_official("https://github.com/PersonalJarvis/PersonalJarvis.git")
     assert u._remote_is_official("git@github.com:PersonalJarvis/PersonalJarvis.git")
-    assert u._remote_is_official("C:\\x\\PersonalJarvis\\PersonalJarvis")
     # A different repo is rejected...
     assert not u._remote_is_official("https://github.com/someone/fork.git")
     # ...and so is a look-alike fork whose name merely starts with the slug...
+    assert not u._remote_is_official("https://github.com/Dodaios/DodaiosEvil.git")
     assert not u._remote_is_official(
         "https://github.com/PersonalJarvis/PersonalJarvisEvil.git"
     )
     # ...or one under a different owner with the right repo name.
-    assert not u._remote_is_official("https://github.com/evil/PersonalJarvis.git")
+    assert not u._remote_is_official("https://github.com/evil/Dodaios.git")
 
 
 def test_remote_override_still_rejects_lookalike_repos(
@@ -96,7 +100,7 @@ def test_remote_override_still_rejects_lookalike_repos(
     )
     assert not u._remote_is_official("https://github.com/evil/RenamedRepo.git")
     assert not u._remote_is_official(
-        "https://github.com/PersonalJarvis/PersonalJarvis.git"
+        "https://github.com/Dodaios/Dodaios.git"
     )
 
 
@@ -232,6 +236,7 @@ def test_apply_happy_path_pulls_and_signals_restart(
         "refs/tags/v1.0.2",
     ] in calls
     assert not any(call[:2] == ["reset", "--hard"] for call in calls)
+    assert not any(call[:2] == ["remote", "set-url"] for call in calls)
     assert sentinel.read_text(encoding="utf-8") == "old"
 
     pending = json.loads(
@@ -240,6 +245,96 @@ def test_apply_happy_path_pulls_and_signals_restart(
     assert pending["previous_revision"] == "a" * 40
     assert pending["target_revision"] == "b" * 40
     assert pending["profile"] == "full"
+
+
+def test_apply_rewrites_legacy_origin_before_fetch(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_managed(monkeypatch, tmp_path)
+    monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
+    _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
+    calls: list[list[str]] = []
+
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+        calls.append(args)
+        return 0, "", ""
+
+    async def _fake_git_output(args, *, cwd, timeout_s=15.0):
+        calls.append(args)
+        if args == ["remote", "get-url", "origin"]:
+            return "https://github.com/PersonalJarvis/PersonalJarvis.git"
+        if args == ["rev-parse", "HEAD"]:
+            return "a" * 40
+        if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
+            return "b" * 40
+        if args == ["show", f"{'b' * 40}:jarvis/__init__.py"]:
+            return '__version__ = "1.0.2"'
+        return None
+
+    monkeypatch.setattr(u, "_git", _fake_git)
+    monkeypatch.setattr(u, "_git_output", _fake_git_output)
+    body = client.post("/api/update/apply").json()
+    assert body["ok"] is True
+    rewrite = ["remote", "set-url", "origin", u.OFFICIAL_REPO_GIT_URL]
+    fetch = ["fetch", "--progress", "--depth", "1", "origin", "refs/tags/v1.0.2"]
+    assert rewrite in calls
+    assert calls.index(rewrite) < calls.index(fetch)
+
+
+def test_apply_leaves_current_origin_untouched(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_managed(monkeypatch, tmp_path)
+    monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
+    _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
+    calls: list[list[str]] = []
+
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+        calls.append(args)
+        return 0, "", ""
+
+    async def _fake_git_output(args, *, cwd, timeout_s=15.0):
+        calls.append(args)
+        if args == ["remote", "get-url", "origin"]:
+            return "https://github.com/Dodaios/Dodaios.git"
+        if args == ["rev-parse", "HEAD"]:
+            return "a" * 40
+        if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
+            return "b" * 40
+        if args == ["show", f"{'b' * 40}:jarvis/__init__.py"]:
+            return '__version__ = "1.0.2"'
+        return None
+
+    monkeypatch.setattr(u, "_git", _fake_git)
+    monkeypatch.setattr(u, "_git_output", _fake_git_output)
+    assert client.post("/api/update/apply").json()["ok"] is True
+    assert not any(call[:2] == ["remote", "set-url"] for call in calls)
+
+
+def test_apply_fails_when_legacy_origin_cannot_be_rewritten(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_managed(monkeypatch, tmp_path)
+    monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
+    _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
+
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+        if args[:2] == ["remote", "set-url"]:
+            return 1, "", "denied"
+        return 0, "", ""
+
+    async def _fake_git_output(args, *, cwd, timeout_s=15.0):
+        if args == ["remote", "get-url", "origin"]:
+            return "git@github.com:PersonalJarvis/PersonalJarvis.git"
+        if args == ["rev-parse", "HEAD"]:
+            return "a" * 40
+        return None
+
+    monkeypatch.setattr(u, "_git", _fake_git)
+    monkeypatch.setattr(u, "_git_output", _fake_git_output)
+    response = client.post("/api/update/apply")
+    assert response.status_code == 500
+    assert not (tmp_path / u._PENDING_UPDATE_NAME).exists()
 
 
 def test_apply_git_fetch_failure_is_502(
@@ -546,3 +641,67 @@ def test_legacy_linux_marker_distinguishes_desktop_from_headless(
 
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     assert u._managed_install_profile(tmp_path) == "full"
+
+
+# --------------------------------------------------------------------------- #
+# Release check across the repository rename
+# --------------------------------------------------------------------------- #
+def _serve_release_api(monkeypatch: pytest.MonkeyPatch, handler) -> list[str]:
+    """Route the updater's real httpx client through an in-process transport."""
+    import httpx
+
+    seen: list[str] = []
+
+    def _recording(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return handler(request)
+
+    real_client = httpx.AsyncClient
+
+    def _client(**kwargs):
+        return real_client(transport=httpx.MockTransport(_recording), **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _client)
+    return seen
+
+
+async def test_release_check_follows_a_renamed_repository(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    moved = "https://api.github.com/repositories/1255092568/releases/latest"
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == u._RELEASES_LATEST_API:
+            return httpx.Response(301, headers={"location": moved})
+        assert str(request.url) == moved
+        return httpx.Response(200, json={"tag_name": "v9.9.9", "assets": []})
+
+    seen = _serve_release_api(monkeypatch, _handler)
+    release = await u._fetch_latest_release()
+    assert release is not None and release["version"] == "9.9.9"
+    assert seen == [u._RELEASES_LATEST_API, moved]
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://example.invalid/repos/Dodaios/Dodaios/releases/latest",
+        "http://api.github.com/repositories/1/releases/latest",
+    ],
+)
+async def test_release_check_refuses_a_redirect_off_the_github_api(
+    monkeypatch: pytest.MonkeyPatch, location: str
+) -> None:
+    import httpx
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == u._RELEASES_LATEST_API:
+            return httpx.Response(301, headers={"location": location})
+        return httpx.Response(200, json={"tag_name": "v9.9.9", "assets": []})
+
+    seen = _serve_release_api(monkeypatch, _handler)
+    assert await u._fetch_latest_release() is None
+    assert seen == [u._RELEASES_LATEST_API]
+    assert u._last_good_release is None

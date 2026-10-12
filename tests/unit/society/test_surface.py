@@ -14,7 +14,11 @@ from jarvis.agent_chat.store import AgentChatStore
 from jarvis.core.bus import EventBus
 from jarvis.core.config import SafetyConfig
 from jarvis.core.protocols import ToolResult
-from jarvis.core.response_style import KEEP_GOING_ON_TOOL_FAILURE, TASK_EXECUTION_GUIDANCE
+from jarvis.core.response_style import (
+    CREDENTIAL_GUIDANCE,
+    KEEP_GOING_ON_TOOL_FAILURE,
+    TASK_EXECUTION_GUIDANCE,
+)
 from jarvis.safety.approval import ApprovalWorkflow
 from jarvis.safety.risk_tier import RiskTierEvaluator
 from jarvis.safety.tool_executor import ToolExecutor
@@ -95,6 +99,7 @@ async def test_task_execution_contract_survives_long_memory_and_compact_transpor
     compact = compact_identity(briefing + "\n\n" + SYSTEM_PREAMBLE)
     assert TASK_EXECUTION_GUIDANCE in compact
     assert KEEP_GOING_ON_TOOL_FAILURE in compact
+    assert CREDENTIAL_GUIDANCE in compact
     assert len(compact) <= 16000
 
 
@@ -168,6 +173,7 @@ async def test_tools_and_filter_follow_the_roster_row(rt: SocietyRuntime, tmp_pa
         "society_routines",
         "society_invoke_routine",
         "society_ask_user",
+        "society_request_credential",
         "society_share_template",
         *FOLDER,
     }
@@ -190,6 +196,7 @@ async def test_tools_and_filter_follow_the_roster_row(rt: SocietyRuntime, tmp_pa
         "society_routines",
         "society_invoke_routine",
         "society_ask_user",
+        "society_request_credential",
         "society_share_template",
         *FOLDER,
     }
@@ -247,7 +254,7 @@ async def test_briefing_is_deterministic_and_complete(rt: SocietyRuntime):
     assert f"Capability epoch: {capability_epoch(catalog)}" in a
     assert "## When a tool fails" in a and KEEP_GOING_ON_TOOL_FAILURE in a
     assert a.index("## When a tool fails") < a.index("## Standing instructions")
-    assert "## The Jarvis ecosystem" in a and "society_message_agent" in a
+    assert "## The Dodaios ecosystem" in a and "society_message_agent" in a
     assert "## Teammates\n- Jarvis — Lead (lead)\n- Scout — Research scout (orchestrator)" in a
     assert "Mailbox" not in a.split("## Teammates")[1]
     assert "You do not assign work" in a

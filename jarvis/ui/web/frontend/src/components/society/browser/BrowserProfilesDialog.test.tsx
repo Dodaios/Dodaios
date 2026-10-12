@@ -204,7 +204,7 @@ describe("browser profile sharing", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Add profile" }));
     const form = screen.getByRole("button", { name: "Create profile" }).closest("form")!;
-    expect((within(form).getByRole("radio", { name: /Extra Jarvis browser/ }) as HTMLInputElement).checked).toBe(true);
+    expect((within(form).getByRole("radio", { name: /Extra Dodaios browser/ }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(within(form).getByRole("radio", { name: /Your regular Chrome/ }));
     fireEvent.change(within(form).getByLabelText("Profile name"), { target: { value: "Work Chrome" } });
     expect((within(form).getByRole("button", { name: "Create profile" }) as HTMLButtonElement).disabled).toBe(true);

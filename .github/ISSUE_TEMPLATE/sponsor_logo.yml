@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for sponsoring Personal Jarvis! 🌌
+        Thank you for sponsoring Dodaios! 🌌
 
         This form is for the **Galaxy tier** ($12,000 a month) or a custom agreement.
         We check every submission against an active sponsorship before anything goes into the README.
@@ -47,5 +47,5 @@ body:
     attributes:
       label: Terms
       options:
-        - label: I have read the README sponsor terms in [SPONSORS.md](https://github.com/PersonalJarvis/PersonalJarvis/blob/main/SPONSORS.md) — the maintainer may decline or end the placement at any time; it stays until the end of the month already paid.
+        - label: I have read the README sponsor terms in [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md) — the maintainer may decline or end the placement at any time; it stays until the end of the month already paid.
           required: true

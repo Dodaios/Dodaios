@@ -1,7 +1,7 @@
 # Personal Jarvis - Windows quick-install bootstrap (Stage 1)
 #
 # Usage (from PowerShell):
-#   irm https://raw.githubusercontent.com/PersonalJarvis/PersonalJarvis/main/install/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
 #
 # This bootstrap is intentionally small. It:
 #   1. Verifies Python 3.11+ and git are available.
@@ -198,11 +198,12 @@ Write-Banner
 # Standalone bootstrap projections of jarvis/core/branding.py. The branding
 # contract test rejects drift because this script runs before Python is installed.
 $OfficialRepoSlug = "$env:JARVIS_OFFICIAL_REPO_SLUG"
-if (-not $OfficialRepoSlug) { $OfficialRepoSlug = 'PersonalJarvis/PersonalJarvis' }
+if (-not $OfficialRepoSlug) { $OfficialRepoSlug = 'Dodaios/Dodaios' }
 if ($OfficialRepoSlug -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
     throw 'JARVIS_OFFICIAL_REPO_SLUG must be an exact owner/repository slug'
 }
 $RepoUrl    = if ($env:JARVIS_INSTALL_REPO) { $env:JARVIS_INSTALL_REPO } else { "https://github.com/$OfficialRepoSlug.git" }
+$LegacyOfficialRepoSlug = 'PersonalJarvis/PersonalJarvis'
 $ConfigFileName = 'jarvis.toml'
 $Branch     = if ($env:JARVIS_INSTALL_REF)  { $env:JARVIS_INSTALL_REF }  else { 'main' }
 $InstallDir = if ($env:JARVIS_INSTALL_DIR)  { $env:JARVIS_INSTALL_DIR }  else { Join-Path $env:USERPROFILE '.personal-jarvis' }
@@ -687,7 +688,27 @@ function Invoke-SalvageReclone {
     Write-Ok 'reinstalled fresh (previous state preserved in the backup dir)'
 }
 
+# A checkout cloned before the GitHub rename still stores the old origin. Git
+# fetches through GitHub's redirect, but the in-app updater identifies a managed
+# install by this remote, so an untouched one loses its Update button. Only the
+# stock repository is retargeted; an explicit repository override is left alone.
+# (POSIX twin: retarget_legacy_origin in install.sh.)
+function Update-LegacyOrigin {
+    if ($env:JARVIS_INSTALL_REPO -or $env:JARVIS_OFFICIAL_REPO_SLUG) { return }
+    $Origin = & git -C $InstallDir config --get remote.origin.url
+    if ($LASTEXITCODE -ne 0 -or -not $Origin) { return }
+    $Tail = "$Origin".Trim().TrimEnd('/') -replace '\.git$', ''
+    if ($Tail -notmatch ('github\.com[:/]' + [regex]::Escape($LegacyOfficialRepoSlug) + '$')) { return }
+    & git -C $InstallDir remote set-url origin $RepoUrl
+    if ($LASTEXITCODE -eq 0) {
+        Write-Note 'pointed this install at the renamed repository'
+    } else {
+        Write-Note 'could not update the stored repository address - continuing'
+    }
+}
+
 if (Test-Path (Join-Path $InstallDir '.git')) {
+    Update-LegacyOrigin
     $UpdateOk = $true
     Push-Location $InstallDir
     try {

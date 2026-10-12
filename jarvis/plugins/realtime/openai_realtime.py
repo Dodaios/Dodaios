@@ -902,7 +902,7 @@ class _OpenAIRealtimeSession:
             # response invariant even if an automatic response races our own.
             self._pending_response_markers.pop()
             log.warning(
-                "OpenAI Realtime response.created omitted Jarvis request metadata; "
+                "OpenAI Realtime response.created omitted Dodaios request metadata; "
                 "accepted one pending response by lifecycle order"
             )
         else:

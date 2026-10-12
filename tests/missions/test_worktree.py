@@ -345,7 +345,7 @@ def test_source_task_fails_before_scaffolding_without_checkout(
 
     with pytest.raises(
         SourceCheckoutUnavailableError,
-        match="requires the Personal Jarvis source checkout",
+        match="requires the Dodaios source checkout",
     ):
         manager.create(
             mission_slug="source-change",

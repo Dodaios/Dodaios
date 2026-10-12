@@ -1,5 +1,5 @@
 ---
-title: "Jarvis Board"
+title: "Dodaios Board"
 slug: jarvis-board
 summary: "Explore personal activity, achievements, and optional sharing, including what data leaves the device."
 section: "Knowledge and sharing"
@@ -15,7 +15,7 @@ tags: [board, activity, achievements, sharing, privacy]
 related: [profile-and-contacts, socials-and-feedback, privacy-and-local-data]
 ---
 
-Jarvis Board gives you a local overview of recorded voice activity, tool use,
+Dodaios Board gives you a local overview of recorded voice activity, tool use,
 and streaks. The current desktop view is a statistics dashboard with an image
 exporter. Several other Board services exist, but they do not yet have a
 complete end-user interface.
@@ -24,30 +24,30 @@ Opening or refreshing **Board** does not publish anything. Some separate Board
 services can contact a configured brain provider or a self-hosted sharing
 service, as explained below.
 
-> [!info] Jarvis Board is experimental. The current view shows local statistics
+> [!info] Dodaios Board is experimental. The current view shows local statistics
 > and creates shareable images. Achievement history, the AI profile, personal
 > records, detailed tool charts, pairing, and a shared feed are not displayed.
 
 ## Read the Board
 
 1. Open **Board** from the app navigation. The visible values load from the
-   Jarvis server running on your device.
-2. Wait for the loading indicators to clear. Jarvis checks for newer recorded
+   Dodaios server running on your device.
+2. Wait for the loading indicators to clear. Dodaios checks for newer recorded
    activity automatically while the view remains open.
 3. Select **Refresh** to rebuild the local summaries immediately. The button
    stops spinning when the rebuild finishes.
 
 | What you see | What it means | Important limit |
 |---|---|---|
-| **You said** and **Jarvis said** | All-time word totals from recorded voice turns | Words are counted by spaces. Typed chats are not a reliable source for these totals. |
+| **You said** and the tile that shows what your assistant said | All-time word totals from recorded voice turns | Words are counted by spaces. Typed chats are not a reliable source for these totals. |
 | **Day streak** | Consecutive days with recorded activity, plus the longest streak | If today is still quiet, the streak that ended yesterday remains visible. |
 | **Active time** | Estimated time from recorded voice sessions and bounded conversation event spans | It is not microphone-on time, focused work time, or time saved. |
-| **Words over time** | Daily word totals for you and Jarvis over the latest 45 days | A blank day means no supported recorded turn was found. |
-| **What you use Jarvis for** | Recorded tool calls grouped into six broad purposes across all available history | It counts tool calls, not whether each action produced a useful result. |
+| **Words over time** | Daily word totals for you and Dodaios over the latest 45 days | A blank day means no supported recorded turn was found. |
+| **What you use Dodaios for** | Recorded tool calls grouped into six broad purposes across all available history | It counts tool calls, not whether each action produced a useful result. |
 | **Activity** | A 26-week calendar of supported conversations, tools, tasks, and app events | Brighter cells mean more recorded events relative to the busiest day shown. They are not a quality score. |
 
 A short line below the main totals also shows average user words per recorded
-conversation, the ratio between Jarvis words and user words, and the first day
+conversation, the ratio between Dodaios words and user words, and the first day
 in the local summary store.
 
 The chart and calendar are primarily visual. They do not currently provide a
@@ -60,13 +60,13 @@ aggregation can leave gaps.
 
 ### Understand achievements
 
-Jarvis evaluates a fixed local achievement catalog when selected tools, tasks,
-Model Context Protocol connections, and Jarvis-Agent runs succeed. Each unlock
+Dodaios evaluates a fixed local achievement catalog when selected tools, tasks,
+Model Context Protocol connections, and Dodaios-Agent runs succeed. Each unlock
 is saved once in the local Board database. If the app is connected to its local
 event stream, a new unlock also appears as an **Achievement:** notification.
 
 The current Board view does not show the achievement grid or earlier unlocks.
-Run `jarvis board achievements` while Jarvis is running to see locked and
+Run `jarvis board achievements` while Dodaios is running to see locked and
 unlocked entries, including saved unlock times and evidence.
 
 ## Share a Snapshot
@@ -80,7 +80,7 @@ handle.
 2. Select **Share** and review the preview. Clear **Your X handle (optional)**
    if you do not want the handle on the card.
 3. Select **Copy Image** to copy the PNG. If image copying is unavailable,
-   Jarvis saves the file instead and tells you what happened.
+   Dodaios saves the file instead and tells you what happened.
 4. Select **Save as PNG** when you want a local file.
 5. Select **Share on X** only when you want to contact that service. A capable
    device opens its share sheet with the image. The desktop fallback copies the
@@ -105,7 +105,7 @@ development notes.
 | Federation | A separate self-hosted backend, signed proxy routes, and unfinished interface components exist | Supported setup, automatic sync startup, pairing, friends, feed, stories, reactions, and a durable disconnect control |
 
 Federation means exchanging selected Board data through a separate service.
-It is disabled by default. More importantly, the standard Jarvis server does
+It is disabled by default. More importantly, the standard Dodaios server does
 not currently start the automatic Board sync client. Changing the federation
 setting alone therefore does not create a working shared Board.
 
@@ -117,7 +117,7 @@ them as an incomplete developer surface, not as a supported sharing workflow.
 
 | Action or service | Data used | Can it leave your device? |
 |---|---|---|
-| Open or refresh **Board** | Daily counts, dates, word totals, session totals, tool categories, and streaks from the local Board database | No external request is required. The app calls only its local Jarvis API. |
+| Open or refresh **Board** | Daily counts, dates, word totals, session totals, tool categories, and streaks from the local Board database | No external request is required. The app calls only its local Dodaios API. |
 | Preview, copy, or save a share card | The statistics shown on the card and the optional handle | No, unless you paste, attach, or upload the result elsewhere. |
 | Select **Share on X** | The visible card, prepared post text, and project link | Yes. The action opens the device share sheet or X composer. |
 | Generate an AI profile | Aggregate Board facts and, when available, summary data from awareness, missions, self-modification history, earlier bios, and feedback | Possibly. A cloud brain provider receives the generated facts prompt; a local provider keeps the call local. |
@@ -147,7 +147,7 @@ only for the current process.
 
 ## Use Board from the Command Line
 
-The curated `jarvis board` commands call the same local API as the app. Jarvis
+The curated `jarvis board` commands call the same local API as the app. Dodaios
 must be running and reachable.
 
 - `jarvis board summary` shows totals and streaks.
@@ -164,7 +164,7 @@ is part of the desktop interface and has no curated Board CLI command.
 
 ## How It Fits Together
 
-1. **Recorded voice sessions and app events supply the data.** Jarvis keeps the
+1. **Recorded voice sessions and app events supply the data.** Dodaios keeps the
    source history in its normal local stores.
 2. **The Board creates smaller daily summaries.** It counts words, sessions,
    activity, tool categories, task outcomes, and streaks in a local database.
@@ -175,7 +175,7 @@ is part of the desktop interface and has no curated Board CLI command.
 4. **Achievements and AI profiles run beside the dashboard.** Achievements
    react to selected successful events. AI profile generation can use a brain
    provider, but neither history surface is mounted in the current Board view.
-5. **Files and personal context remain separate.** A Jarvis-Agent deliverable
+5. **Files and personal context remain separate.** A Dodaios-Agent deliverable
    stays in [Outputs and Files](outputs-and-files). Contact records and Profile
    fields stay in [Profile and Contacts](profile-and-contacts).
 6. **Sharing requires a deliberate action.** The PNG leaves only when you send
@@ -186,7 +186,7 @@ is part of the desktop interface and has no curated Board CLI command.
 
 1. Complete and end a short voice conversation with several ordinary words.
 2. Open **Board** and select **Refresh**.
-3. Confirm that **You said** or **Jarvis said** increases and that today's
+3. Confirm that **You said** or the assistant's word total increases and that today's
    activity cell is no longer empty.
 4. Open **Share**, confirm that the preview contains only the information you
    expect, then close the dialog.
@@ -198,7 +198,7 @@ publishing anything or requiring a federation service.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| **Could not load stats** | The local Board store did not finish starting | Wait for Jarvis startup to finish, select **Refresh**, then use the main troubleshooting guide if the message remains. |
+| **Could not load stats** | The local Board store did not finish starting | Wait for Dodaios startup to finish, select **Refresh**, then use the main troubleshooting guide if the message remains. |
 | Totals stay at zero or recent words are missing | No supported voice turn was recorded, the session is still open, or the recorder is unavailable | End the voice conversation, check that it appears in the Sessions view, then refresh Board. |
 | An achievement notification appeared but no history is visible | The evaluator works, but its grid is not mounted in Board | Run `jarvis board achievements` to inspect the saved list. |
 | **Copy Image** saves a file instead | The browser cannot copy PNG images directly | Use the saved PNG and attach it in the destination you choose. |
@@ -208,7 +208,7 @@ publishing anything or requiring a federation service.
 
 - Read [Privacy and Local Data](privacy-and-local-data) to understand the local
   stores behind conversations, activity summaries, and generated files.
-- Use [Outputs and Files](outputs-and-files) to review actual Jarvis-Agent
+- Use [Outputs and Files](outputs-and-files) to review actual Dodaios-Agent
   deliverables instead of aggregate Board activity.
 - Review [Profile and Contacts](profile-and-contacts) to manage personal context
   that remains separate from Board statistics.

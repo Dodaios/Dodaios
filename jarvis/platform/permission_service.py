@@ -369,7 +369,7 @@ def user_detail_for(
     sentences too (``jarvis permissions status``), so each one states a fact about
     the user's situation and none is an imperative aimed at the reader (P9).
     ``launched_as_bundle`` tells a real ``.app`` run from the wrong place (a mounted
-    disk image: the grantee is Personal Jarvis itself) from a terminal or IDE run.
+    disk image: the grantee is Dodaios itself) from a terminal or IDE run.
     ``refused_use`` (Automation, ``needs_settings`` only) says the access READS as
     allowed but a real Apple Event to the named player was refused anyway, so the
     sentence does not claim the switch is off.
@@ -381,44 +381,44 @@ def user_detail_for(
     if outside_app:
         if launched_as_bundle:
             return (
-                "Personal Jarvis is running from outside its installed location, so "
+                "Dodaios is running from outside its installed location, so "
                 f"macOS may record {subject} for this copy only. The user has to confirm "
                 "that to continue, or allow it in System Settings."
             )
         return (
-            "Personal Jarvis is not running as an installed app, so "
+            "Dodaios is not running as an installed app, so "
             f"{subject} would be granted to the app that started it. The user has to "
             "confirm that to continue, or allow it in System Settings."
         )
     if reason == "restricted":
         return (
             f"{subject} is restricted on this Mac by a profile or a parental control, "
-            "so Personal Jarvis cannot use it. This cannot be changed from the app."
+            "so Dodaios cannot use it. This cannot be changed from the app."
         )
     if reason == "unavailable":
-        return f"Personal Jarvis cannot ask for {subject} in this session."
+        return f"Dodaios cannot ask for {subject} in this session."
     if reason == "denied":
-        return f"{subject} is turned off for Personal Jarvis. The user has to turn it on{where}."
+        return f"{subject} is turned off for Dodaios. The user has to turn it on{where}."
     if reason == "restart_hint":
-        return f"{subject} may only take effect after Personal Jarvis is quit and reopened."
+        return f"{subject} may only take effect after Dodaios is quit and reopened."
     if reason == "needs_settings":
         player = _player_name(target) if family is PermissionId.AUTOMATION else None
         if refused_use and player is not None:
             return (
-                f"macOS refused an Apple event that Personal Jarvis sent to {player}, "
+                f"macOS refused an Apple event that Dodaios sent to {player}, "
                 f"although {subject} reads as allowed. The user has to check that "
-                f"Personal Jarvis is switched on{where}."
+                f"Dodaios is switched on{where}."
             )
         if asking:
             return (
                 f"macOS may be showing a dialog about {subject}. The user has to turn "
-                f"Personal Jarvis on{where}, then return to the app."
+                f"Dodaios on{where}, then return to the app."
             )
-        return f"{subject} is off for Personal Jarvis. The user has to turn it on{where}."
+        return f"{subject} is off for Dodaios. The user has to turn it on{where}."
     # not_determined
     if asking:
         return f"Waiting for the user to answer the macOS dialog about {subject}."
-    return f"Personal Jarvis needs {subject} for this feature and has not asked for it yet."
+    return f"Dodaios needs {subject} for this feature and has not asked for it yet."
 
 
 def agent_detail_for(
@@ -446,7 +446,7 @@ def agent_detail_for(
     elif reason == "restart_hint":
         situation = (
             f"{subject} is allowed but does not work in this running app yet; "
-            "the user may have to quit and reopen Personal Jarvis."
+            "the user may have to quit and reopen Dodaios."
         )
     elif asking:
         situation = f"macOS is asking the user about {subject} right now."
@@ -479,7 +479,7 @@ class _View:
     can_open_settings: bool
     outside: bool
     # Only meaningful with ``outside``: the process IS a real ``.app``, run from the
-    # wrong place, so the grantee is Personal Jarvis itself and not a terminal.
+    # wrong place, so the grantee is Dodaios itself and not a terminal.
     outside_bundle: bool = False
 
     @property

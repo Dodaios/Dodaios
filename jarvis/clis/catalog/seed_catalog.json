@@ -2095,7 +2095,7 @@
       "name": "jarvisctl",
       "display_name": "Jarvis Control CLI",
       "description": "Control this running Jarvis via its own CLI: switch the brain / sub-agent provider, read or change config, search the wiki, list missions / sessions / outputs, manage skills. Reads run free; destructive / recursive commands (dispatch, restart, delete, outbound, …) are blocked.",
-      "homepage": "https://github.com/PersonalJarvis/PersonalJarvis",
+      "homepage": "https://github.com/Dodaios/Dodaios",
       "binary_name": "jarvisctl",
       "check_command": [
         "jarvisctl",
@@ -2109,7 +2109,7 @@
         "pip_package": "personal-jarvis",
         "cargo_package": null,
         "script_url": null,
-        "manual_url": "https://github.com/PersonalJarvis/PersonalJarvis",
+        "manual_url": "https://github.com/Dodaios/Dodaios",
         "recommended": "pip"
       },
       "auth": {

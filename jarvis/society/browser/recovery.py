@@ -15,7 +15,7 @@ async def restart_browser(live: Any, agent: Any) -> None:
         raise ValueError("No browser session is available to restart")
     binding = getattr(old, "profile_binding", None)
     if binding is None or binding.kind != "managed":
-        raise ValueError("Only a browser managed by Jarvis can be restarted here")
+        raise ValueError("Only a browser managed by Dodaios can be restarted here")
 
     # A stuck control command can hold control_lock indefinitely. Recovery
     # fences creation instead, then uses the existing bounded process cleanup.

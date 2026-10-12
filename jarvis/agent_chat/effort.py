@@ -113,7 +113,7 @@ def effort_note(
     level = effort or "the provider's own default"
     return (
         "<jarvis_turn_settings>\n"
-        f"Reasoning effort for this turn: {level} (as selected in the Jarvis composer). "
+        f"Reasoning effort for this turn: {level} (as selected in the Dodaios composer). "
         "If asked about your effort level, report exactly this.\n"
         "</jarvis_turn_settings>\n\n"
     )

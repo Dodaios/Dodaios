@@ -72,11 +72,11 @@ def unreachable_message(base_url: str | None) -> str:
             #    usually a boot still in progress, sometimes a wedged server.
             #    "Start the app" would be plain wrong here.
             return _pick((
-                f"Jarvis is actually running (pid {pid}) — port {port} just "
+                f"Dodaios is actually running (pid {pid}) — port {port} just "
                 "isn't answering yet. A boot takes a few seconds; retry "
                 "shortly. If it stays silent, restart it from the tray or "
                 "via POST /api/settings/restart-app.",
-                f"Found a live Jarvis process (pid {pid}) that isn't serving "
+                f"Found a live Dodaios process (pid {pid}) that isn't serving "
                 f"on port {port} yet. Most likely it's still starting up — "
                 "give it a moment and try again; a tray restart unsticks a "
                 "wedged boot.",
@@ -87,20 +87,20 @@ def unreachable_message(base_url: str | None) -> str:
             ))
         # 3) Stale session file: the app died without cleaning up.
         return _pick((
-            f"A previous Jarvis exited uncleanly — its session file is still "
+            f"A previous Dodaios exited uncleanly — its session file is still "
             f"there but the process (pid {pid}) is gone. Launch it again "
             "(run.bat) and retry.",
-            f"Looks like Jarvis crashed earlier: stale session file, dead "
+            f"Looks like Dodaios crashed earlier: stale session file, dead "
             f"pid {pid}. Start it fresh with run.bat, then rerun this "
             "command.",
         ))
 
     # 4) Nothing on this machine at all.
     return _pick((
-        f"Nothing is listening at {base_url} and no local Jarvis session "
+        f"Nothing is listening at {base_url} and no local Dodaios session "
         "was found. Launch the desktop app (run.bat) — or run.bat --headless "
         "on a server — then retry; for a remote instance pass --url/--key.",
-        f"No running Jarvis found on this machine ({base_url} is silent). "
+        f"No running Dodaios found on this machine ({base_url} is silent). "
         "Start it with run.bat (or run.bat --headless), or point the CLI at "
         "a remote instance via --url/--key.",
     ))

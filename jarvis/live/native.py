@@ -118,7 +118,7 @@ class NativeLiveVoiceSession(LiveVoiceSession):
         self._adopt_desktop_session()
         gateway = get_supervisor_tool_gateway()
         if gateway is None:
-            raise RuntimeError("Jarvis tools are still starting.")
+            raise RuntimeError("Dodaios tools are still starting.")
         root = user_data_dir()
         await asyncio.to_thread(root.mkdir, parents=True, exist_ok=True)
         self._ledger = await asyncio.to_thread(LiveLedger, root / "live.sqlite3")
@@ -154,7 +154,12 @@ class NativeLiveVoiceSession(LiveVoiceSession):
                     + "Use your tools directly "
                     "for actions, private information and current facts. Use discover_tools and "
                     "call_tool for any tool not declared directly. "
-                    + COMPUTER_CONTROL_RULES
+                    + (
+                        # Only when Computer Use is on: the tool is then in the catalog.
+                        COMPUTER_CONTROL_RULES
+                        if any(d.name == "computer" for d in self._tools.catalog())
+                        else ""
+                    )
                     + " When the user asks for an appshot, call take_appshot. "
                     "Request confirmation for pending approvals. Use confirm_action only after "
                     "explicit approval. A started job is not complete. Never invent tool results. "

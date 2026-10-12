@@ -49,13 +49,13 @@ def private_key() -> asyncssh.SSHKey:
                 # A damaged slot must not silently mint a new key: every
                 # computer that trusts the old one would lock us out.
                 raise IdentityError(
-                    "Jarvis's SSH key in the keyring is damaged and cannot be read."
+                    "Dodaios's SSH key in the keyring is damaged and cannot be read."
                 ) from exc
         key = asyncssh.generate_private_key("ssh-ed25519", comment=_comment())
         text = key.export_private_key("openssh").decode("utf-8")
         if not set_secret(PRIVATE_KEY_SECRET, text):
             raise IdentityError("The new SSH key could not be saved to the keyring.")
-        log.info("computers: created Jarvis's SSH key pair")
+        log.info("computers: created Dodaios's SSH key pair")
         return key
 
 

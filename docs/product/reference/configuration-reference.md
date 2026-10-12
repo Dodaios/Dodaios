@@ -15,7 +15,7 @@ tags: [configuration, settings, defaults, environment, restart, reference]
 related: [settings-and-appearance, providers-and-api-keys, credentials-and-secrets, platform-support]
 ---
 
-Personal Jarvis loads non-secret settings from typed defaults, TOML, an optional
+Dodaios loads non-secret settings from typed defaults, TOML, an optional
 YAML profile, and environment variables. App controls can then update a running
 component. A live update survives restart only when persistence succeeds.
 
@@ -29,8 +29,8 @@ an app-saved value on the next start.
 | Surface | Use it for | Important behavior |
 |---|---|---|
 | **Settings** and feature setup screens | Languages, voice, audio, startup, shortcuts, permissions, prompts, integrations, and appearance | Uses feature-owned routes with field-specific validation and live-apply behavior |
-| **API Keys & Providers** | Brain, Tool Model, speech, Realtime, Wiki, and Jarvis-Agent provider choices | Keeps provider selection separate from private credentials and shows only registered provider options |
-| Jarvis CLI and dynamic API commands | Headless use and automation | Calls mounted server routes; run `jarvis refresh` if an upgraded route is missing |
+| **API Keys & Providers** | Brain, Tool Model, speech, Realtime, Wiki, and Dodaios-Agent provider choices | Keeps provider selection separate from private credentials and shows only registered provider options |
+| Dodaios CLI and dynamic API commands | Headless use and automation | Calls mounted server routes; run `jarvis refresh` if an upgraded route is missing |
 | `jarvis config` and `/api/control/config` | Allowlisted scalar settings without a dedicated control | Requires authentication and uses the validating, backed-up config mutation path |
 | `jarvis.toml`, profile YAML, and `JARVIS__...` | Managed deployments and advanced settings without a supported control | Bypasses feature-specific option discovery and live-apply logic |
 
@@ -40,7 +40,7 @@ not prove that it affects behavior.
 
 ## Configuration Precedence
 
-At process start, Jarvis resolves ordinary, non-secret settings from lowest to
+At process start, Dodaios resolves ordinary, non-secret settings from lowest to
 highest priority:
 
 | Priority | Source | Scope |
@@ -127,7 +127,7 @@ The current product-owned groups are smaller than the full schema.
 | **Settings > Languages** | Interface language, voice-recognition language, and reply language |
 | Voice panels in **Settings** | Realtime or Pipeline mode, wake word, thinking pause, volume, audio devices, and Call or Hangup keybinds |
 | App and personalization controls | Launch at login, operating-system permissions, Bar and Overlay behavior, System Prompt, and Agent Instructions |
-| **API Keys & Providers** | Brain, Voice Output, Voice Input, Realtime, Tool Model, Jarvis-Agent, and advanced Wiki or team-provider choices |
+| **API Keys & Providers** | Brain, Voice Output, Voice Input, Realtime, Tool Model, Dodaios-Agent, and advanced Wiki or team-provider choices |
 | Feature-owned setup | Wiki location, Marketplace plugins, channels, telephony, and other integration-specific values |
 
 Safety, security, MCP server, harness, and review sections are protected from
@@ -158,7 +158,7 @@ Typical timing is:
 | **Immediately when running** | Interface language, volume, thinking pause, sound effects, supported audio-device swaps, and several Bar controls |
 | **Next message** | Reply-language policy, System Prompt, and Agent Instructions |
 | **Next voice start or reconnect** | STT changes need a new Pipeline voice start; Realtime can reconnect; TTS can switch live when Pipeline voice is running |
-| **Next action or mission** | Tool Model and Jarvis-Agent provider choices are resolved for new work |
+| **Next action or mission** | Tool Model and Dodaios-Agent provider choices are resolved for new work |
 | **After restart** | Environment overrides, route-reported restart changes, and values saved while their component was unavailable |
 
 A live change without successful persistence can revert at the next start. A
@@ -197,7 +197,7 @@ or sign-in flow owned by the feature.
 Credential lookup uses the operating-system store when usable, then an operator
 environment value, `.env` compatibility, and a permission-restricted file
 fallback. A newer fallback can supersede a stale platform copy during recovery.
-This keeps headless in-app setup usable, but Jarvis does not encrypt the file.
+This keeps headless in-app setup usable, but Dodaios does not encrypt the file.
 See [Credentials and Secrets](credentials-and-secrets) for recovery details.
 
 The nested `JARVIS__...` variables described above are for non-secret settings.
@@ -226,7 +226,7 @@ exact route's `available`, `supported`, or apply status; fields vary by route.
 
 ## How It Fits Together
 
-1. Jarvis loads schema defaults, active TOML, the selected profile, and nested
+1. Dodaios loads schema defaults, active TOML, the selected profile, and nested
    environment overrides.
 2. Registries, credentials, permissions, and host probes determine what is
    usable.
@@ -260,9 +260,9 @@ after restart. Restore the original value. Do not test a desktop-only setting.
 | What you see | What it usually means | What to do |
 |---|---|---|
 | A change works now but returns after restart | The live update succeeded but persistence failed, or a profile/environment value won at boot | Check `persisted`, then remove or update the higher-priority source |
-| The file contains the new value, but Jarvis shows another value | A profile or `JARVIS__...` override masks it | Read the precedence table and inspect the process's deployment configuration |
+| The file contains the new value, but Dodaios shows another value | A profile or `JARVIS__...` override masks it | Read the precedence table and inspect the process's deployment configuration |
 | A named profile appears to do nothing | The profile is `default`, the YAML file is missing, or it was placed beside `JARVIS_CONFIG` instead of in the project `profiles/` directory | Check `JARVIS_PROFILE`, the fixed profile path, and the YAML name |
-| Jarvis rejects the configuration on start | An advanced TOML or YAML edit has invalid syntax or a typed value is invalid | Restore your known-good copy; generic Control API writes roll back automatically when their reload test fails |
+| Dodaios rejects the configuration on start | An advanced TOML or YAML edit has invalid syntax or a typed value is invalid | Restore your known-good copy; generic Control API writes roll back automatically when their reload test fails |
 | A desktop or audio setting persists but does nothing | The host lacks the required session, device, permission, or optional component | Check the operation's `available` or `supported` result and read [Platform Support](platform-support) |
 | A removed credential still appears configured | It comes from an operator environment, `.env`, or another external login | Remove it from the original source, restart, and follow [Credentials and Secrets](credentials-and-secrets) |
 | A current API setting is missing from CLI help | The dynamic OpenAPI cache describes an older server | Run `jarvis refresh`, reconnect to the intended server, then open `jarvis api --help` again |

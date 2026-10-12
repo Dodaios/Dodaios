@@ -7,10 +7,16 @@
 
 name: macOS desktop
 
-# Called by ci.yml's `macos_desktop` lane (path-gated there; on full runs only
-# when macOS is included) and runnable by hand. The caller owns concurrency.
+# Called by ci.yml's `macos_desktop` lane (path-gated there) and runnable by
+# hand. The merge queue runs the Apple Silicon row (`legs: primary`); nightly,
+# release and manual runs add both Intel rows. The caller owns concurrency.
 on:
   workflow_call:
+    inputs:
+      legs:
+        description: "primary = the Apple Silicon row only; anything else = every row."
+        type: string
+        default: all
   workflow_dispatch:
 
 permissions:
@@ -21,24 +27,11 @@ jobs:
     name: ${{ matrix.name }} / Python ${{ matrix.python }}
     strategy:
       fail-fast: false
+      # Rows: Intel, Apple Silicon, and the BUG-060 regression row - the stub
+      # launcher must also link against a NON-framework interpreter (uv's
+      # python-build-standalone), the layout py2app never supported.
       matrix:
-        include:
-          - name: Intel
-            runner: macos-15-intel
-            architecture: x86_64
-            python: "3.12"
-          - name: Apple Silicon
-            runner: macos-15
-            architecture: arm64
-            python: "3.13"
-          # BUG-060 regression row: the stub launcher must also link against
-          # a NON-framework interpreter (uv's python-build-standalone), the
-          # layout py2app never supported.
-          - name: Intel standalone (uv)
-            runner: macos-15-intel
-            architecture: x86_64
-            python: "3.12"
-            python-source: uv-standalone
+        include: ${{ fromJSON(inputs.legs == 'primary' && '[{"name":"Apple Silicon","runner":"macos-15","architecture":"arm64","python":"3.13"}]' || '[{"name":"Intel","runner":"macos-15-intel","architecture":"x86_64","python":"3.12"},{"name":"Apple Silicon","runner":"macos-15","architecture":"arm64","python":"3.13"},{"name":"Intel standalone (uv)","runner":"macos-15-intel","architecture":"x86_64","python":"3.12","python-source":"uv-standalone"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
 
