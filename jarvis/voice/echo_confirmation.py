@@ -145,13 +145,18 @@ _AMBIGUOUS_PATTERNS_ES: tuple[str, ...] = (
 # language gets its own patterns). As in Spanish, "para" is NOT a veto keyword:
 # it is the common preposition ("para enviar" = "to send"). "não sei" needs no
 # ambiguous entry — the veto pass sees "não" first (safety bias, Plan-§AP-12).
+# A bare "podes" ("can you") is NOT a confirmation: it opens questions such as
+# "podes repetir?" ("can you repeat that?"), which must never approve a pending
+# action. It counts only with a go-ahead verb, and "faz" ("do") only as the
+# whole reply or as "faz isso" / "faz lá" ("do that").
 _CONFIRM_PATTERNS_PT: tuple[str, ...] = (
     r"\bsim\b",
     r"\bclaro\b",
     r"\bpode ser\b",
-    r"\bpodes\b",
+    r"\bpodes (avan(ç|c)ar|continuar|enviar|fazer|mandar|seguir)\b",
     r"\bfor(ç|c)a\b",
-    r"\bfaz\b",
+    r"^\W*faz\W*$",
+    r"\bfaz (isso|l(á|a))\b",
     r"\bavan(ç|c)a\b",
     r"\bok\b",
     r"\bokay\b",
