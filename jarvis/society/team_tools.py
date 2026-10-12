@@ -106,7 +106,7 @@ class TeamAssignTool:
                 title=title,
                 brief=brief,
             )
-        except TeamLeadError as exc:
+        except TeamLeadError as exc:  # The refusal is the tool's answer; the lead reads why.
             return _refused(exc)
         return ToolResult(
             success=outcome["state"] != "blocked",
@@ -140,7 +140,7 @@ class TeamBoardTool:
             return ToolResult(
                 success=True, output=await self._runtime.team_leads.board(self._agent_id)
             )
-        except TeamLeadError as exc:
+        except TeamLeadError as exc:  # The refusal is the tool's answer; the lead reads why.
             return _refused(exc)
 
 
@@ -184,7 +184,7 @@ class TeamReportTool:
             outcome = await self._runtime.team_leads.report(
                 self._agent_id, status=status, summary=str(args.get("summary") or "")
             )
-        except TeamLeadError as exc:
+        except TeamLeadError as exc:  # The refusal is the tool's answer; the lead reads why.
             return _refused(exc)
         return ToolResult(success=True, output=outcome)
 

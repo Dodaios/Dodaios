@@ -171,7 +171,7 @@ def _loads(value: Any) -> dict[str, Any]:
         return value
     try:
         data = json.loads(value) if value else {}
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # An unreadable stored blob reads as empty.
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -403,7 +403,7 @@ class TeamLeads:
             old.cancel()
         try:
             loop = asyncio.get_running_loop()
-        except RuntimeError:
+        except RuntimeError:  # No running loop (shutdown): there is nothing left to schedule on.
             return
 
         def fire() -> None:
@@ -1128,7 +1128,7 @@ class TeamLeads:
                         output_language=goal.lang,
                     )
                 )
-            except SessionBusy:
+            except SessionBusy:  # Busy is not a failure: knock again, then say so on the board.
                 if attempt >= MAX_LEAD_WAIT_ATTEMPTS:
                     await self._park(goal, "lead_busy")
                 else:
