@@ -1,9 +1,11 @@
 /**
- * The office floor: an oak-floored plate floating in a starry night behind
- * frameless glass, walled rooms in the north and south, one rug-zoned
- * department per provider family in between — and everybody in it. Each
- * floor dresses the shared plan in its own look (AgentsFloorLook /
- * CodingFloorLook). The arcade floor on top has a plan and a look of its own
+ * The office floors: an oak-floored plate floating in a starry night behind
+ * frameless glass, walled rooms in the north and south and the desks in
+ * between — and everybody in it. The agents floor is a team campus (a studio
+ * per team round an atrium, boulevards, planted courts), the coding floor has
+ * a department per IDE workspace; each dresses its plan in its own look
+ * (AgentsFloorLook / CodingFloorLook). The Level Hall's floor wears the
+ * agents floor's materials. The arcade floor has a plan and a look of its own
  * (ArcadeHall); the person, the elevator and the camera work the same there.
  */
 import { useLayoutEffect, useMemo } from "react";
@@ -19,6 +21,9 @@ import { CodingSlab, CodingStudio } from "./CodingFloorLook";
 import { CodingFloorAmbience } from "./CodingFloorAmbience";
 import { AGENTS_SCENE, AgentsDepartment, AgentsSlab } from "./AgentsFloorLook";
 import { AgentsFloorAmbience } from "./AgentsFloorAmbience";
+import { CampusGround } from "./CampusGround";
+import { StaticBatch } from "./StaticBatch";
+import { BuildingShell } from "./BuildingShell";
 import { ExecutiveDesks, LeadOfficeLight } from "./LeadSuite";
 import { LiveMonitors } from "./LiveMonitors";
 import { TerminalMonitors } from "./TerminalMonitors";
@@ -35,7 +40,7 @@ import { LevelHallFittings } from "./LevelHall";
 import { LobbyFittings } from "./LobbyDecor";
 import { SpawnFittings } from "./SpawnPoint";
 import { RoomFloors, RoomSign, RoomWalls } from "./OfficeRooms";
-import { CHECKPOINT_ICON, CheckpointMarker } from "./CheckpointMarker";
+import { StationObjects } from "./StationObjects";
 import { ElevatorCallButton } from "./ElevatorCallButton";
 import { ArcadeHall } from "../arcade/ArcadeHall";
 import { OFFICE_FIGURE_HEIGHT_M, OfficeAgents, type WalkerContext } from "./OfficeAgents";
@@ -43,7 +48,7 @@ import { OfficePlayer } from "./OfficePlayer";
 import { OfficeDog } from "./OfficeDog";
 import { PlayerBubble } from "./OfficeBubbles";
 import { OfficeCameraRig } from "./OfficeCameraRig";
-import { allDesks, type OfficeLayout, type Point } from "./officeLayout";
+import { allDesks, type FurnitureKind, type OfficeLayout, type Point } from "./officeLayout";
 import { isWalkable, nearestWalkable, type NavGrid } from "./officeNav";
 import { CODING_SCENE, OFFICE } from "./officePalette";
 import { officeSession, player as playerBody, useOfficeStore, type OfficeFloor, type Selection } from "./officeStore";
@@ -104,24 +109,18 @@ export interface OfficeSceneProps {
   elevatorCall: { lit: boolean; picking: boolean; onPress: () => void };
 }
 
-/** The checkpoints, the elevator's call button and the person: the same on every floor. */
+/** The stations, the elevator's call button and the person: the same on every floor. */
 function SharedFloorParts({ floor, layout, grid, ready, awake, reduced, player, selection, nearby, elevatorCall }: Pick<OfficeSceneProps,
   "floor" | "layout" | "grid" | "ready" | "awake" | "reduced" | "player" | "selection" | "nearby" | "elevatorCall">) {
-  const t = useT();
-  const select = useOfficeStore((s) => s.select);
   const shaft = layout.furniture.find((f) => f.kind === "elevator");
   const atLift = nearby?.kind === "checkpoint" && nearby.id === "elevator";
   return (
     <>
-      {/* At the elevator its call button takes over from the floating token, which would hide it. */}
-      {layout.checkpoints.filter((cp) => cp.id !== "elevator" || !atLift).map((cp) => (
-        <CheckpointMarker key={cp.id} checkpoint={cp} label={t(`society.office.cp_${cp.id}`)} icon={CHECKPOINT_ICON[cp.id]}
-          active={(nearby?.kind === "checkpoint" && nearby.id === cp.id) || (selection?.kind === "checkpoint" && selection.id === cp.id)}
-          animate={awake && !reduced} onActivate={() => select({ kind: "checkpoint", id: cp.id })} />
-      ))}
+      {/* Stations are the objects of the room: a click target and a rim on each, nothing floating over the floor. */}
+      <StationObjects layout={layout} nearby={nearby} selection={selection} animate={awake && !reduced} />
       {shaft && (
         <ElevatorCallButton shaft={shaft} floor={floor} lit={elevatorCall.lit} animate={awake && !reduced}
-          near={atLift} hint={atLift && !elevatorCall.picking} onPress={elevatorCall.onPress} />
+          near={atLift} onPress={elevatorCall.onPress} />
       )}
       <FloorArrival floor={floor} layout={layout} grid={grid} ready={ready} awake={awake} />
       <OfficePlayer layout={layout} grid={grid} look={player.look} name={player.name} awake={awake} reduced={reduced} />
@@ -167,6 +166,15 @@ export function OfficeScene(props: OfficeSceneProps) {
   );
 }
 
+/**
+ * The props a station lights up when the person is near, and the spawn point's pad: each stays an object of its
+ * own (the rim is drawn on the meshes under its group) and is merged only within itself. Every other piece of
+ * the agents floor is drawn merged with all the others (StaticBatch).
+ */
+const STATION_PROP_KINDS: ReadonlySet<FurnitureKind> = new Set<FurnitureKind>([
+  "spawnTerminal", "spawnPad", "receptionDesk", "agentTotem", "teamBoard", "dressingMirror", "mirror", "coffeeBar", "elevator", "studioBoard", "teamStand",
+]);
+
 /** Everything that dresses the agents and coding floors: slab, rooms, departments, desks, monitors, furniture. */
 function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awake, reduced, chats, onOpenScreen, desks, onFloorClick }: OfficeSceneProps & {
   desks: ReturnType<typeof allDesks>;
@@ -186,6 +194,7 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
   const background = useMemo(() => new Color(space), [space]);
   const { minX, maxX, minZ, maxZ } = layout.bounds;
   const span = Math.max(maxX - minX, maxZ - minZ);
+  const shadowMap = span > 50 ? 4096 : 2048;
   const table = layout.furniture.find((f) => f.kind === "meetingTable");
   const board = layout.furniture.find((f) => f.kind === "teamBoard");
   const wardrobeRug = layout.furniture.find((f) => f.kind === "roundRug" && f.room === "wardrobe");
@@ -193,6 +202,17 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
   const spawnTerminal = layout.furniture.find((f) => f.kind === "spawnTerminal");
   const levelStage = layout.furniture.find((f) => f.kind === "studioStage");
   const levelGuide = layout.furniture.find((f) => f.kind === "levelGuide") ?? null;
+  // The agents floor's furniture, room signs, studio walls and meeting chairs never change once built: they are
+  // merged by material, a few dozen draw calls instead of well over a thousand (and as many again for shadows).
+  const batch = floor === "agents";
+  const roomLabels = layout.rooms.map((room) => t(`society.office.room_${room.kind}`));
+  const signs = layout.rooms.map((room, i) => <RoomSign key={room.id} room={room} label={roomLabels[i]} />);
+  const batchKey = useMemo(() => [
+    layout.furniture.map((f) => `${f.id}@${f.x},${f.z},${f.rotationY}`).join(";"),
+    layout.departments.map((d) => `${d.id}:${d.label}:${d.tint}@${d.minX},${d.minZ},${d.maxX},${d.maxZ}`).join(";"),
+    roomLabels.join(";"), t("society.office.studio_pool"), t("society.office.studio_sign_team"), t("society.office.studio_sign_pool"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ].join("|"), [layout, roomLabels.join(";"), t]);
   return (
     <>
       <primitive attach="background" object={background} />
@@ -200,32 +220,50 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
       <Stars radius={span * 3} depth={span} count={2500} factor={4} saturation={0} fade speed={reduced ? 0 : 0.3} />
       <hemisphereLight args={coding ? [CODING_SCENE.sky, CODING_SCENE.ground, 0.95] : [AGENTS_SCENE.sky, AGENTS_SCENE.ground, 0.95]} />
       <ambientLight intensity={0.25} />
-      <directionalLight position={[maxX + 10, 26, maxZ + 6]} intensity={1.55} color="#fff7ec" castShadow
-        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.03}
+      {/* The campus is twice as long as the other floors: its sun keeps the same shadow detail with a larger map. */}
+      <directionalLight key={shadowMap} position={[maxX + 10, 26, maxZ + 6]} intensity={1.55} color="#fff7ec" castShadow
+        shadow-mapSize={[shadowMap, shadowMap]} shadow-bias={-0.0004} shadow-normalBias={0.03}
         shadow-camera-left={-span * 0.7} shadow-camera-right={span * 0.7}
-        shadow-camera-top={span * 0.7} shadow-camera-bottom={-span * 0.7} shadow-camera-far={120} />
+        shadow-camera-top={span * 0.7} shadow-camera-bottom={-span * 0.7} shadow-camera-far={Math.max(120, span * 2 + 40)} />
       {coding ? <CodingSlab layout={layout} onFloorClick={onFloorClick} /> : <AgentsSlab layout={layout} onFloorClick={onFloorClick} />}
       {coding ? <CodingFloorAmbience layout={layout} /> : <AgentsFloorAmbience layout={layout} />}
-      <RoomFloors rooms={layout.rooms} />
+      {/* The agents floor and the Level Hall are floors of a building: window walls, the tower below, the city outside. */}
+      {!coding && <BuildingShell layout={layout} />}
+      <RoomFloors rooms={layout.rooms} campus={!coding} />
       <RoomWalls walls={layout.walls} />
-      {layout.rooms.map((room) => <RoomSign key={room.id} room={room} label={t(`society.office.room_${room.kind}`)} />)}
+      {!batch && signs}
       {coding
         ? <>
           {layout.departments.map((dept) => <CodingStudio key={dept.id} dept={dept} agents={agents} />)}
           <DeskDressing desks={benchDesks} departments={layout.departments} />
         </>
         : <>
-          {layout.departments.map((dept) => <AgentsDepartment key={dept.id} dept={dept} />)}
-          <DeskInstances desks={benchDesks} agents={agents} zones={zones} />
-          <DeskDressing desks={benchDesks} departments={layout.departments} floor="agents" />
+          {/* The campus ground (boulevards, atrium, free plot, planted courts); the Level Hall's floor has none. */}
+          <CampusGround layout={layout} />
+          {benchDesks.length > 0 && <>
+            <DeskInstances desks={benchDesks} agents={agents} zones={zones} />
+            <DeskDressing desks={benchDesks} departments={layout.departments} floor="agents" />
+          </>}
         </>}
       <ExecutiveDesks desks={desks} agents={agents} onOpenScreen={onOpenScreen} />
       {leadRoom && <LeadOfficeLight room={leadRoom} />}
       {floor === "coding"
         ? <TerminalMonitors desks={desks} occupants={occupants} awake={awake} onOpen={onOpenScreen} />
         : <LiveMonitors desks={desks} agents={agents} chats={chats} onOpen={onOpenScreen} />}
-      {layout.furniture.map((item) => <FurniturePiece key={item.id} item={item} />)}
-      {table && <MeetingChairs table={table} />}
+      {batch
+        ? <>
+          <StaticBatch signature={batchKey}>
+            {signs}
+            {layout.departments.map((dept) => <AgentsDepartment key={dept.id} dept={dept} />)}
+            {layout.furniture.filter((item) => !STATION_PROP_KINDS.has(item.kind)).map((item) => <FurniturePiece key={item.id} item={item} />)}
+            {table && <MeetingChairs table={table} />}
+          </StaticBatch>
+          {layout.furniture.filter((item) => STATION_PROP_KINDS.has(item.kind)).map((item) => <FurniturePiece key={item.id} item={item} merged />)}
+        </>
+        : <>
+          {layout.furniture.map((item) => <FurniturePiece key={item.id} item={item} />)}
+          {table && <MeetingChairs table={table} />}
+        </>}
       {board && <TeamBoardFace board={board} enabled={awake && floor === "agents"} />}
       {teamRoom && table && <TeamRoomFittings room={teamRoom} table={table} />}
       {breakRoom && <BreakLoungeFittings room={breakRoom} furniture={layout.furniture} />}

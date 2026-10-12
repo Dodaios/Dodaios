@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { huddlePlaces, studioOfTeam } from "./officeTeams";
+import { campusOf } from "./officeFixtures";
 import type { SocietyAgent } from "../data";
 import { allDesks, buildOfficeLayout, type OfficeAgentInput } from "./officeLayout";
 import { buildNavGrid, isWalkable } from "./officeNav";
 import { createRng, planFor, SpotBook, type PlanInput } from "./officeBehavior";
-import { MEETING_MS, meetingProgress, meetingSeats, minutesLeft } from "./teamMeeting";
+import { boardSeats, MEETING_MS, meetingProgress, meetingSeats, minutesLeft } from "./teamMeeting";
 import type { TeamMeeting } from "./officeStore";
 
 const roster: OfficeAgentInput[] = Array.from({ length: 9 }, (_, i) => ({
@@ -90,5 +92,47 @@ describe("meetingProgress", () => {
     expect(minutesLeft(meeting, 1_000)).toBe(10);
     expect(minutesLeft(meeting, 1_000 + MEETING_MS - 30_000)).toBe(1);
     expect(minutesLeft(meeting, 2_000 + MEETING_MS)).toBe(0);
+  });
+});
+
+describe("a meeting at a studio's own board", () => {
+  const campus = campusOf(12, [5]);
+  const studio = studioOfTeam(campus.layout, "team-0")!;
+  const places = huddlePlaces(campus.layout, campus.grid, studio);
+
+  it("gives every member a place in the arcs, the arc nearest the board first", () => {
+    const seats = boardSeats(campus.layout, studio, studio.members);
+    expect(Object.keys(seats)).toEqual(studio.members);
+    const ids = Object.values(seats).map((s) => s.spotId);
+    expect(new Set(ids).size).toBe(studio.members.length);
+    const from = (id: string) => { const seat = seats[id].target; return Math.hypot(seat.x - studio.board!.x, seat.z - studio.board!.z); };
+    for (let i = 1; i < studio.members.length; i += 1) expect(from(studio.members[i])).toBeGreaterThanOrEqual(from(studio.members[i - 1]) - 0.11);
+    for (const seat of Object.values(seats)) expect(places.some((p) => p.id === seat.spotId && p.x === seat.target.x && p.z === seat.target.z)).toBe(true);
+  });
+
+  it("leaves members beyond the places where they are, and has none for a studio without a board", () => {
+    const crowd = Array.from({ length: places.length + 3 }, (_, i) => `m${i}`);
+    expect(Object.keys(boardSeats(campus.layout, studio, crowd, campus.grid))).toHaveLength(places.length);
+    // Both argument orders name the same places.
+    expect(boardSeats(campus.layout, campus.grid, studio, studio.members)).toEqual(boardSeats(campus.layout, studio, studio.members, campus.grid));
+    expect(boardSeats(campus.layout, null, studio, studio.members)).toEqual(boardSeats(campus.layout, studio, studio.members));
+    expect(boardSeats(campus.layout, { ...studio, board: null }, studio.members, null)).toEqual({});
+  });
+
+  it("stands a called member on its place at the board, facing it, and leaves a working one at its screen", () => {
+    const seats = boardSeats(campus.layout, studio, studio.members);
+    const book = new SpotBook();
+    const desks = campus.layout.departments.flatMap((d) => d.desks);
+    const plan = (id: string, state: "idle" | "working") => planFor({
+      agentId: id, state, desk: desks.find((d) => d.agentId === id) ?? null, layout: campus.layout, grid: campus.grid, rng: createRng(id), book,
+      previous: null, workingColleagues: [], calledTo: seats[id].target, calledSeat: seats[id].spotId,
+    });
+    const first = plan(studio.members[0], "idle");
+    const place = places.find((p) => p.id === seats[studio.members[0]].spotId)!;
+    expect(first).toMatchObject({ kind: "huddle", pose: "stand", dwellMs: Infinity, spotId: place.id, target: { x: place.x, z: place.z } });
+    expect(first.facing).toBeCloseTo(place.facing);
+    expect(plan(studio.members[1], "working").kind).toBe("work");
+    // The chairs at the team room's table stay free: this meeting is not there.
+    expect(campus.layout.spots.filter((s) => s.kind === "meeting").every((s) => book.isFree(s.id))).toBe(true);
   });
 });

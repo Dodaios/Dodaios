@@ -68,7 +68,7 @@ const LM = {
   travertine: matte(C.travertine, { roughness: 0.45 }),
   marble: matte(C.marble, { roughness: 0.25 }),
   clay: matte(C.clay, { roughness: 0.8 }),
-  brass: matte("#c7a15e", { roughness: 0.3, metalness: 0.7 }),
+  brass: matte("#b08d5c", { roughness: 0.3, metalness: 0.7 }),
   bronze: matte("#5a4a3a", { roughness: 0.4, metalness: 0.5 }),
   charcoal: matte("#2b2f33", { roughness: 0.5, metalness: 0.1 }),
   ceramic: matte("#f3efe8", { roughness: 0.35 }),
