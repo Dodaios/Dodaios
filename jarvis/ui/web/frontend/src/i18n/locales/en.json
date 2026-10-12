@@ -1499,11 +1499,11 @@
     "fact_source": "Source",
     "reauth_provider_rejected": "The provider no longer accepts this authorization",
     "reauth_client_rejected": "The provider no longer accepts this app's OAuth client",
-    "reauth_client_missing": "Connected before Jarvis stored the OAuth client",
+    "reauth_client_missing": "Connected before Dodaios stored the OAuth client",
     "reauth_rotation_lost": "A renewed token could not be saved, so it was retired",
     "reauth_refresh_missing": "The access token expired and cannot be renewed automatically",
     "reauth_unknown": "The authorization stopped working",
-    "reauth_retrying": "{headline}. Jarvis retries this once a day; reconnect to fix it now.",
+    "reauth_retrying": "{headline}. Dodaios retries this once a day; reconnect to fix it now.",
     "reauth_no_retry": "{headline}. This one cannot be retried automatically — reconnect to fix it.",
     "ago_today": "today",
     "ago_yesterday": "yesterday",
@@ -2895,7 +2895,7 @@
     "key_format_aistudio": "Google AI Studio key",
     "key_format_aistudio_note": "This shape works on Google AI Studio. Vertex AI refuses it — Vertex takes only an express-mode key (AQ.) or a Cloud project via [google].vertex_project.",
     "key_format_google_express": "Google API key (AI Studio or Vertex express)",
-    "key_format_google_express_note": "AI Studio and Vertex AI express keys share this format — the card you save it under decides the endpoint, and for a Gemini card Jarvis detects it automatically.",
+    "key_format_google_express_note": "AI Studio and Vertex AI express keys share this format — the card you save it under decides the endpoint, and for a Gemini card Dodaios detects it automatically.",
     "key_format_unknown": "Unrecognized key format"
   },
   "apikeys_test": {
@@ -3945,7 +3945,7 @@
     "time_just_now": "just now",
     "time_ago_prefix": "",
     "no_source": "no source",
-    "jarvis_federation": "Jarvis Federation"
+    "jarvis_federation": "Dodaios Federation"
   },
   "pair_dialog": {
     "title": "Pair a friend",
@@ -5664,8 +5664,8 @@
       "chat_title": "Chat view — read one agent at a time, like a conversation."
     },
     "focus_mode": {
-      "on_title": "Focused coding mode is on — Jarvis answers inside this workspace. Click to leave.",
-      "off_title": "Turn on focused coding mode — Jarvis answers inside this workspace until you switch back."
+      "on_title": "Focused coding mode is on — your assistant answers inside this workspace. Click to leave.",
+      "off_title": "Turn on focused coding mode — your assistant answers inside this workspace until you switch back."
     },
     "close_workspace": {
       "aria": "Close workspace",
@@ -9060,7 +9060,7 @@
     "layout_aria": "IDE layout",
     "layout_grid": "Terminal grid",
     "layout_threads": "Threads",
-    "layout_verse": "Jarvis Verse",
+    "layout_verse": "Dodaios Verse",
     "terminal_needs_folder": "Terminal needs a project folder",
     "hide_terminal": "Hide terminal",
     "show_terminal": "Show terminal",
@@ -9205,7 +9205,7 @@
     "loading_projects": "Loading projects…",
     "choose_workspace": "Choose a workspace",
     "select_workspace_hint": "Select a workspace from Projects, or create one with + beside its project.",
-    "connect_folder_hint": "Connect a folder to bring its coding agents and Jarvis into one workspace.",
+    "connect_folder_hint": "Connect a folder to bring its coding agents and your assistant into one workspace.",
     "add_agent": "Add coding agent",
     "agents_one": "{count} agent",
     "agents_other": "{count} agents",

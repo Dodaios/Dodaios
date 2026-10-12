@@ -1499,11 +1499,11 @@
     "fact_source": "来源",
     "reauth_provider_rejected": "提供方不再接受此授权",
     "reauth_client_rejected": "提供方不再接受此应用的 OAuth 客户端",
-    "reauth_client_missing": "在 Jarvis 保存 OAuth 客户端之前就已连接",
+    "reauth_client_missing": "在 Dodaios 保存 OAuth 客户端之前就已连接",
     "reauth_rotation_lost": "续期后的令牌无法保存，因此已作废",
     "reauth_refresh_missing": "访问令牌已过期，无法自动续期",
     "reauth_unknown": "授权已失效",
-    "reauth_retrying": "{headline}。Jarvis 每天会重试一次；重新连接可立即修复。",
+    "reauth_retrying": "{headline}。Dodaios 每天会重试一次；重新连接可立即修复。",
     "reauth_no_retry": "{headline}。此问题无法自动重试——请重新连接以修复。",
     "ago_today": "今天",
     "ago_yesterday": "昨天",
@@ -2895,7 +2895,7 @@
     "key_format_aistudio": "Google AI Studio 密钥",
     "key_format_aistudio_note": "此格式适用于 Google AI Studio。Vertex AI 会拒绝它——Vertex 只接受快速模式密钥（AQ.）或通过 [google].vertex_project 指定的 Cloud 项目。",
     "key_format_google_express": "Google API 密钥（AI Studio 或 Vertex 快速模式）",
-    "key_format_google_express_note": "AI Studio 和 Vertex AI 快速模式密钥共用此格式——保存到哪张卡片决定了使用哪个端点；对于 Gemini 卡片，Jarvis 会自动识别。",
+    "key_format_google_express_note": "AI Studio 和 Vertex AI 快速模式密钥共用此格式——保存到哪张卡片决定了使用哪个端点；对于 Gemini 卡片，Dodaios 会自动识别。",
     "key_format_unknown": "无法识别的密钥格式"
   },
   "apikeys_test": {
@@ -3945,7 +3945,7 @@
     "time_just_now": "刚刚",
     "time_ago_prefix": "",
     "no_source": "无来源",
-    "jarvis_federation": "Jarvis 联邦"
+    "jarvis_federation": "Dodaios 联邦"
   },
   "pair_dialog": {
     "title": "配对好友",
@@ -5664,8 +5664,8 @@
       "chat_title": "对话视图——一次阅读一个智能体，就像一段对话。"
     },
     "focus_mode": {
-      "on_title": "专注编程模式已开启——Jarvis 在此工作区内回答。点击退出。",
-      "off_title": "开启专注编程模式——在你切换回来之前，Jarvis 都在此工作区内回答。"
+      "on_title": "专注编程模式已开启——你的助手在此工作区内回答。点击退出。",
+      "off_title": "开启专注编程模式——在你切换回来之前，你的助手都在此工作区内回答。"
     },
     "close_workspace": {
       "aria": "关闭工作区",
@@ -9060,7 +9060,7 @@
     "layout_aria": "IDE 布局",
     "layout_grid": "终端网格",
     "layout_threads": "线程",
-    "layout_verse": "Jarvis Verse",
+    "layout_verse": "Dodaios Verse",
     "terminal_needs_folder": "终端需要一个项目文件夹",
     "hide_terminal": "隐藏终端",
     "show_terminal": "显示终端",
@@ -9205,7 +9205,7 @@
     "loading_projects": "正在加载项目…",
     "choose_workspace": "选择工作区",
     "select_workspace_hint": "从“项目”中选择一个工作区，或点击项目旁的 + 创建一个。",
-    "connect_folder_hint": "连接一个文件夹，将其编程智能体和 Jarvis 汇集到一个工作区。",
+    "connect_folder_hint": "连接一个文件夹，将其编程智能体和你的助手汇集到一个工作区。",
     "add_agent": "添加编程智能体",
     "agents_one": "{count} 个智能体",
     "agents_other": "{count} 个智能体",

@@ -1499,11 +1499,11 @@
     "fact_source": "Origen",
     "reauth_provider_rejected": "El proveedor ya no acepta esta autorización",
     "reauth_client_rejected": "El proveedor ya no acepta el cliente OAuth de esta app",
-    "reauth_client_missing": "Conectado antes de que Jarvis guardara el cliente OAuth",
+    "reauth_client_missing": "Conectado antes de que Dodaios guardara el cliente OAuth",
     "reauth_rotation_lost": "No se pudo guardar un token renovado, así que se retiró",
     "reauth_refresh_missing": "El token de acceso caducó y no se puede renovar automáticamente",
     "reauth_unknown": "La autorización dejó de funcionar",
-    "reauth_retrying": "{headline}. Jarvis lo reintenta una vez al día; reconecta para arreglarlo ahora.",
+    "reauth_retrying": "{headline}. Dodaios lo reintenta una vez al día; reconecta para arreglarlo ahora.",
     "reauth_no_retry": "{headline}. Esto no se puede reintentar automáticamente: reconecta para arreglarlo.",
     "ago_today": "hoy",
     "ago_yesterday": "ayer",
@@ -2895,7 +2895,7 @@
     "key_format_aistudio": "Clave de Google AI Studio",
     "key_format_aistudio_note": "Este formato funciona en Google AI Studio. Vertex AI lo rechaza: Vertex solo acepta una clave de modo exprés (AQ.) o un proyecto de Cloud mediante [google].vertex_project.",
     "key_format_google_express": "Clave API de Google (AI Studio o Vertex exprés)",
-    "key_format_google_express_note": "Las claves de AI Studio y de Vertex AI exprés comparten este formato: la tarjeta en la que la guardes decide el endpoint y, en una tarjeta de Gemini, Jarvis lo detecta automáticamente.",
+    "key_format_google_express_note": "Las claves de AI Studio y de Vertex AI exprés comparten este formato: la tarjeta en la que la guardes decide el endpoint y, en una tarjeta de Gemini, Dodaios lo detecta automáticamente.",
     "key_format_unknown": "Formato de clave no reconocido"
   },
   "apikeys_test": {
@@ -3945,7 +3945,7 @@
     "time_just_now": "ahora mismo",
     "time_ago_prefix": "hace",
     "no_source": "sin origen",
-    "jarvis_federation": "Federación Jarvis"
+    "jarvis_federation": "Federación Dodaios"
   },
   "pair_dialog": {
     "title": "Emparejar a un amigo",
@@ -5664,8 +5664,8 @@
       "chat_title": "Vista de chat: lee un agente cada vez, como una conversación."
     },
     "focus_mode": {
-      "on_title": "El modo de programación enfocado está activado: Jarvis responde dentro de este espacio de trabajo. Haz clic para salir.",
-      "off_title": "Activa el modo de programación enfocado: Jarvis responde dentro de este espacio de trabajo hasta que vuelvas a cambiar."
+      "on_title": "El modo de programación enfocado está activado: tu asistente responde dentro de este espacio de trabajo. Haz clic para salir.",
+      "off_title": "Activa el modo de programación enfocado: tu asistente responde dentro de este espacio de trabajo hasta que vuelvas a cambiar."
     },
     "close_workspace": {
       "aria": "Cerrar espacio de trabajo",
@@ -9060,7 +9060,7 @@
     "layout_aria": "Diseño del IDE",
     "layout_grid": "Cuadrícula de terminales",
     "layout_threads": "Hilos",
-    "layout_verse": "Jarvis Verse",
+    "layout_verse": "Dodaios Verse",
     "terminal_needs_folder": "El terminal necesita una carpeta de proyecto",
     "hide_terminal": "Ocultar terminal",
     "show_terminal": "Mostrar terminal",
@@ -9205,7 +9205,7 @@
     "loading_projects": "Cargando proyectos…",
     "choose_workspace": "Elige un workspace",
     "select_workspace_hint": "Selecciona un workspace en Proyectos o crea uno con + junto a su proyecto.",
-    "connect_folder_hint": "Conecta una carpeta para reunir sus agentes de programación y a Jarvis en un workspace.",
+    "connect_folder_hint": "Conecta una carpeta para reunir sus agentes de programación y a tu asistente en un workspace.",
     "add_agent": "Añadir agente de programación",
     "agents_one": "{count} agente",
     "agents_other": "{count} agentes",

@@ -1499,11 +1499,11 @@
     "fact_source": "Quelle",
     "reauth_provider_rejected": "Der Anbieter akzeptiert diese Autorisierung nicht mehr",
     "reauth_client_rejected": "Der Anbieter akzeptiert den OAuth-Client dieser App nicht mehr",
-    "reauth_client_missing": "Verbunden, bevor Jarvis den OAuth-Client gespeichert hat",
+    "reauth_client_missing": "Verbunden, bevor Dodaios den OAuth-Client gespeichert hat",
     "reauth_rotation_lost": "Ein erneuertes Token konnte nicht gespeichert werden und wurde deshalb verworfen",
     "reauth_refresh_missing": "Das Zugriffstoken ist abgelaufen und kann nicht automatisch erneuert werden",
     "reauth_unknown": "Die Autorisierung funktioniert nicht mehr",
-    "reauth_retrying": "{headline}. Jarvis versucht es einmal am Tag erneut; verbinde neu, um es sofort zu beheben.",
+    "reauth_retrying": "{headline}. Dodaios versucht es einmal am Tag erneut; verbinde neu, um es sofort zu beheben.",
     "reauth_no_retry": "{headline}. Das lässt sich nicht automatisch wiederholen — verbinde neu, um es zu beheben.",
     "ago_today": "heute",
     "ago_yesterday": "gestern",
@@ -2895,7 +2895,7 @@
     "key_format_aistudio": "Google-AI-Studio-Key",
     "key_format_aistudio_note": "Dieses Format funktioniert bei Google AI Studio. Vertex AI lehnt es ab — Vertex akzeptiert nur einen Express-Modus-Key (AQ.) oder ein Cloud-Projekt über [google].vertex_project.",
     "key_format_google_express": "Google-API-Key (AI Studio oder Vertex Express)",
-    "key_format_google_express_note": "AI-Studio- und Vertex-AI-Express-Keys teilen dieses Format — die Karte, unter der du ihn speicherst, bestimmt den Endpunkt, und bei einer Gemini-Karte erkennt Jarvis ihn automatisch.",
+    "key_format_google_express_note": "AI-Studio- und Vertex-AI-Express-Keys teilen dieses Format — die Karte, unter der du ihn speicherst, bestimmt den Endpunkt, und bei einer Gemini-Karte erkennt Dodaios ihn automatisch.",
     "key_format_unknown": "Unbekanntes Key-Format"
   },
   "apikeys_test": {
@@ -3945,7 +3945,7 @@
     "time_just_now": "gerade",
     "time_ago_prefix": "vor",
     "no_source": "keine Quelle",
-    "jarvis_federation": "Jarvis-Föderation"
+    "jarvis_federation": "Dodaios-Föderation"
   },
   "pair_dialog": {
     "title": "Friend pairen",
@@ -5664,8 +5664,8 @@
       "chat_title": "Chat-Ansicht — lies einen Agenten nach dem anderen, wie eine Unterhaltung."
     },
     "focus_mode": {
-      "on_title": "Fokussierter Coding-Modus ist an — Jarvis antwortet in diesem Arbeitsbereich. Klicke zum Verlassen.",
-      "off_title": "Fokussierten Coding-Modus einschalten — Jarvis antwortet in diesem Arbeitsbereich, bis du zurückwechselst."
+      "on_title": "Fokussierter Coding-Modus ist an — dein Assistent antwortet in diesem Arbeitsbereich. Klicke zum Verlassen.",
+      "off_title": "Fokussierten Coding-Modus einschalten — dein Assistent antwortet in diesem Arbeitsbereich, bis du zurückwechselst."
     },
     "close_workspace": {
       "aria": "Arbeitsbereich schließen",
@@ -9060,7 +9060,7 @@
     "layout_aria": "IDE-Layout",
     "layout_grid": "Terminal-Raster",
     "layout_threads": "Threads",
-    "layout_verse": "Jarvis Verse",
+    "layout_verse": "Dodaios Verse",
     "terminal_needs_folder": "Das Terminal braucht einen Projektordner",
     "hide_terminal": "Terminal ausblenden",
     "show_terminal": "Terminal anzeigen",
@@ -9205,7 +9205,7 @@
     "loading_projects": "Projekte werden geladen…",
     "choose_workspace": "Workspace wählen",
     "select_workspace_hint": "Wähle einen Workspace unter Projekte oder leg mit + neben seinem Projekt einen an.",
-    "connect_folder_hint": "Verbinde einen Ordner, um seine Coding-Agents und Jarvis in einem Workspace zusammenzubringen.",
+    "connect_folder_hint": "Verbinde einen Ordner, um seine Coding-Agents und deinen Assistenten in einem Workspace zusammenzubringen.",
     "add_agent": "Coding-Agent hinzufügen",
     "agents_one": "{count} Agent",
     "agents_other": "{count} Agents",
