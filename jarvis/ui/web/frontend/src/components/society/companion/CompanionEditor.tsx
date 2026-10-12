@@ -6,6 +6,7 @@ import { COMPANION_COLORS, COMPANION_SHAPES, type CompanionAppearance } from "./
 import { CompanionMark } from "./CompanionMark";
 import { creatureFromShape, type CreatureLook, type CreatureState } from "./creature";
 import { CreaturePicker } from "./CreaturePicker";
+import { CreatureStage } from "./PixelCreature";
 import { growsCreature, useCreatureDefault } from "./creatureDefault";
 import { DesignPicker } from "./DesignPicker";
 import { PetSprite } from "@/components/pets/PetSprite";
@@ -54,7 +55,10 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
       {!lead && kind === "creature" && <span aria-hidden className="w-2 shrink-0" />}
       <div><h3 className="font-medium">{t("society.companion.title")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("society.companion.hint")}</p></div>
     </div>
-    {preview3d && <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>}
+    {/* A creature previews on a plain canvas, so it shows without a WebGL context; shapes and pets turn in the 3D studio. */}
+    {preview3d && (!lead && kind === "creature"
+      ? <CreatureStage creature={creature} state={mood} />
+      : <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>)}
     {/* One switch across the full width, like the access switch of the create dialog. */}
     {!lead && <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.look")}</span>
       <div className="flex gap-1 rounded-lg border border-border p-1" role="group" aria-label={t("society.companion.look")}>
