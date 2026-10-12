@@ -12,15 +12,15 @@ last_reviewed: 2026-10-02
 phase: "-"
 audience: end-user
 tags: [platforms, windows, macos, linux, headless, requirements, compatibility]
-related: [install-personal-jarvis, permissions, configuration-reference, troubleshooting]
+related: [install-dodaios, permissions, configuration-reference, troubleshooting]
 ---
 
-Personal Jarvis runs on Windows, macOS, Linux desktops, and headless Linux.
-Its browser interface, chats, settings, tasks, and Jarvis-Agent views share one
+Dodaios runs on Windows, macOS, Linux desktops, and headless Linux.
+Its browser interface, chats, settings, tasks, and Dodaios-Agent views share one
 server across platforms. Hardware-facing features such as local audio, global
 shortcuts, overlays, screen capture, and input control depend on the host.
 
-Jarvis checks the operating system, display, dependencies, and permissions
+Dodaios checks the operating system, display, dependencies, and permissions
 before enabling those features. An unavailable capability should leave the
 rest of the app usable and state what is missing.
 
@@ -30,9 +30,9 @@ rest of the app usable and state what is missing.
 |---|---|---|
 | Operating system | 64-bit Windows, macOS, or glibc-based Linux on x86-64 or Arm64 | The dependency gate covers both processor families; the Linux wheel floor is glibc 2.28 |
 | Python | 3.11 through 3.14 | The package requires Python 3.11 or newer and does not yet accept Python 3.15 |
-| Git | A working Git command; no minimum version is enforced | The installer fetches Jarvis, and Jarvis-Agent missions use isolated Git worktrees |
+| Git | A working Git command; no minimum version is enforced | The installer fetches Dodaios, and Dodaios-Agent missions use isolated Git worktrees |
 | Internet connection | Required for installation; normally required for online providers and downloads | An already prepared local feature can keep working offline, but online models and services cannot |
-| Writable user storage | Required | Jarvis needs space for its environment, settings, models, logs, and user data |
+| Writable user storage | Required | Dodaios needs space for its environment, settings, models, logs, and user data |
 
 AI replies need a provider credential or supported subscription login, added
 in **API Keys & Providers** after installation.
@@ -74,7 +74,7 @@ physical input control. It starts the web server unless launch is disabled.
 | Wake word and local speech | Capability-dependent | Capability-dependent | Capability-dependent | Use browser voice or a channel |
 | Global voice shortcuts | Supported | Permission-dependent | X11 with a compatible backend; Full does not install it | Unavailable |
 | Login autostart | Scheduled task or Startup shortcut | LaunchAgent | XDG autostart | Unavailable |
-| Jarvis Bar and mascot | Supported | Supported through a companion | Best effort | No on-screen surface |
+| Dodaios Bar and mascot | Supported | Supported through a companion | Best effort | No on-screen surface |
 | Computer Use | Supported | Permission-dependent | X11 and capability-dependent | Unavailable |
 | In-app notices | Supported | Supported | Supported | Browser only; no native notification promise |
 
@@ -91,18 +91,18 @@ PyTorch and a graphics processor are not required. Supported local voice paths
 run on a CPU; a compatible GPU can accelerate eligible offline speech work.
 
 Windows on ARM and some Python 3.14 cells lack WebRTC or local Whisper wheels.
-Jarvis reports the unavailable engine while simpler local detection, browser
+Dodaios reports the unavailable engine while simpler local detection, browser
 voice, or configured online speech remains available where supported.
 
 Browser voice does not use the server's audio devices. Localhost works over
-HTTP, but a remote browser microphone needs HTTPS. Jarvis listens on loopback
+HTTP, but a remote browser microphone needs HTTPS. Dodaios listens on loopback
 by default; remote use needs authentication, a non-loopback bind, and a trusted
 proxy or tunnel. Never expose the local service directly. See the
 [Control API Reference](control-api-reference).
 
 ## Desktop and Computer Use Differences
 
-At startup, Jarvis records whether the host has a display, hotkey and terminal
+At startup, Dodaios records whether the host has a display, hotkey and terminal
 backends, an accessibility tree, an overlay, cursor access, and elevation.
 Failed probes report **unavailable** instead of stopping startup.
 
@@ -119,19 +119,20 @@ name.
 - **Headless:** there is no display to capture or control. Chat, APIs, browser
   views, missions, and file work still run.
 
-On macOS, answer the permission dialogs for **Personal Jarvis**, not Terminal or
-Python, so they stay attached to the app bundle. The Bar and mascot use its desktop
+On macOS, answer the permission dialogs for the installed app, not Terminal or
+Python, so they stay attached to the app bundle. Until the next installer,
+macOS still names that app **Personal Jarvis**. The Bar and mascot use its desktop
 companion.
 
 Linux overlays are best effort. With no compatible X11, compositor, and Tk
-surface, Jarvis falls back to the tray or no visible surface; chat continues.
+surface, Dodaios falls back to the tray or no visible surface; chat continues.
 
 ## Optional Components
 
 | Component | Required? | What it adds |
 |---|---|---|
 | Provider credential or subscription login | Required for AI replies, not for installation | Chat and the provider-backed features assigned to that connection |
-| Node.js 18 or newer | No | Optional Jarvis-Agent worker command-line tools and some Node-based integrations |
+| Node.js 18 or newer | No | Optional Dodaios-Agent worker command-line tools and some Node-based integrations |
 | GPU | No | Faster eligible offline speech processing |
 | Linux PortAudio library | Only for local Linux audio | Physical microphone and speaker access through the desktop pipeline |
 | Linux `xdotool` and `wmctrl` | Only for full X11 window and input control | Window discovery, focus, movement, and reliable non-ASCII typing; the installer offers these tools when it can |
@@ -168,7 +169,7 @@ still needs a trusted network boundary and HTTPS for remote browser audio.
 | Overlay or tray | Continue without an on-screen voice surface |
 | Preferred provider | Cross provider families when supported, or report unavailable |
 
-A fallback must not claim success. Jarvis should show an unavailable status,
+A fallback must not claim success. Dodaios should show an unavailable status,
 log, or refusal that names the missing capability.
 
 ## Known Platform Limits
@@ -203,7 +204,7 @@ candidate.
 
 1. **The installer chooses Full or Headless.** Platform markers skip
    incompatible optional packages.
-2. **Startup probes the host.** Jarvis records the display, desktop backends,
+2. **Startup probes the host.** Dodaios records the display, desktop backends,
    input access, and accessibility interfaces.
 3. **Permissions and settings narrow the result.** A package can be installed
    while its device, operating-system grant, or provider is unavailable.
@@ -215,13 +216,13 @@ and settings choose among the available paths.
 
 ## Check That It Works
 
-With Personal Jarvis running, check the shared service first:
+With Dodaios running, check the shared service first:
 
 ```text
 jarvis --json system status
 ```
 
-Success confirms that the command reaches Jarvis, not that every desktop
+Success confirms that the command reaches Dodaios, not that every desktop
 capability works.
 
 On a desktop, choose **Settings > Audio devices > Rescan devices** and confirm
@@ -238,7 +239,7 @@ Configure authenticated HTTPS access before using a remote browser microphone.
 | Python is rejected | Outside 3.11 through 3.14 | Let the installer choose, or install a supported version |
 | Linux opens a server | No X11 or Wayland display | Use the printed address, or install from a graphical session |
 | Linux audio is unavailable | PortAudio, access, or device missing | Install PortAudio, reconnect, then choose **Rescan devices** |
-| A macOS shortcut or screen action fails | Privacy grant missing or declined | Use the button on the short message Jarvis shows (**Open System Settings**), and a restart only when it says so; `jarvis permissions reset` starts over (see [App Permissions](permissions) if the command is not found) |
+| A macOS shortcut or screen action fails | Privacy grant missing or declined | Use the button on the short message Dodaios shows (**Open System Settings**), and a restart only when it says so; `jarvis permissions reset` starts over (see [App Permissions](permissions) if the command is not found) |
 | Linux Computer Use refuses | Wayland or no display | Use X11; text and browser features still work |
 | Linux control names are missing | AT-SPI or its bus is unavailable | Install accessibility packages; pixel fallback may work |
 | A local voice engine is unavailable | No compatible native package | Choose another local, browser, or online speech path |
@@ -246,7 +247,7 @@ Configure authenticated HTTPS access before using a remote browser microphone.
 
 ## Next Steps
 
-- Follow [Install Personal Jarvis](install-personal-jarvis) for the supported
+- Follow [Install Dodaios](install-dodaios) for the supported
   full and headless installation paths.
 - Review [App Permissions](permissions) before enabling microphone, shortcut,
   screen, accessibility, or input access.

@@ -104,7 +104,7 @@ type ReauthReason =
 const REAUTH_EXPLANATION: Record<ReauthReason, string> = {
   provider_rejected: "The provider no longer accepts this authorization",
   client_rejected: "The provider no longer accepts this app's OAuth client",
-  client_missing: "Connected before Jarvis stored the OAuth client",
+  client_missing: "Connected before Dodaios stored the OAuth client",
   rotation_lost: "A renewed token could not be saved, so it was retired",
   refresh_missing: "The access token expired and cannot be renewed automatically",
 };
@@ -2107,7 +2107,7 @@ export function ReauthExplanation({ plugin, inline }: { plugin: Plugin; inline?:
         className="truncate text-xs text-foreground"
         title={
           retrying
-            ? `${headline}. Jarvis retries this once a day; reconnect to fix it now.`
+            ? `${headline}. Dodaios retries this once a day; reconnect to fix it now.`
             : `${headline}. This one cannot be retried automatically — reconnect to fix it.`
         }
       >

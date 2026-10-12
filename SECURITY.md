@@ -1,6 +1,6 @@
 # Security policy
 
-Personal Jarvis works close to untrusted content. It reads web pages, documents and
+Dodaios works close to untrusted content. It reads web pages, documents and
 screenshots, it listens to a microphone, and with the desktop extras it drives the mouse and
 keyboard. That shapes how it is built, and it shapes what we consider a security bug.
 
@@ -27,7 +27,7 @@ branches, so please test against the latest `main`.
 These properties come from the architecture, so they hold no matter which providers you
 configure.
 
-**Instructions come only from you.** What Jarvis reads through a tool, a web page, an email,
+**Instructions come only from you.** What Dodaios reads through a tool, a web page, an email,
 a document, a screenshot, a file, is data and never a command. When observed content contains
 text aimed at the agent, it gets surfaced to you instead of executed.
 
@@ -76,7 +76,7 @@ which belong upstream. We track those advisories through Dependabot and update a
 
 ## What you are actually running
 
-Personal Jarvis is a capable local agent. With the optional desktop extras it can see your
+Dodaios is a capable local agent. With the optional desktop extras it can see your
 screen, type, run shell commands and place phone calls. Treat the API keys you give it and
 the permissions you grant it the way you treat your own credentials. The defaults are
 conservative, but review what you switch on before you point it at production systems or at

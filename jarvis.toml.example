@@ -1,7 +1,7 @@
 # ============================================================
-#  Personal Jarvis — configuration TEMPLATE
+#  Dodaios — configuration TEMPLATE
 # ------------------------------------------------------------
-#  This file is OPTIONAL. Jarvis boots with no jarvis.toml at all
+#  This file is OPTIONAL. Dodaios boots with no jarvis.toml at all
 #  (every value below has a built-in default in jarvis/core/config.py).
 #  Copy this to `jarvis.toml` only if you want to override defaults:
 #      cp jarvis.toml.example jarvis.toml
@@ -197,7 +197,7 @@ tray_enabled = true
 admin_api_port = 47821
 startup_chime = true
 # On-screen overlay shown by default on a desktop install: the slim
-# "jarvis_bar" (the Jarvis bar). Alternatives: "mascot" (the hooded figure
+# "jarvis_bar" (the Dodaios Bar). Alternatives: "mascot" (the hooded figure
 # of the logo, as a desktop pet), "voice_orb" (the procedural voice orb),
 # "pet" (the desktop pet chosen under My Pets) or "none".
 # This mirrors the built-in default — listed here so the bar is the obvious,
@@ -206,7 +206,7 @@ orb_style = "jarvis_bar"
 bar_persistent = true        # keep the bar visible at all times (not only during a voice session)
 pet_id = "gigi"              # desktop pet (orb_style = "pet"): built-in id, your own u… id, or "none"
 pet_scale = 1.0              # pet size multiplier, 0.5–2.0
-pet_bubble = true            # show the pet's status bubble (what Jarvis is doing)
+pet_bubble = true            # show the pet's status bubble (what Dodaios is doing)
 pet_strip_always = false     # true: the pet's buttons always show; false: only while active or hovered
 
 # ── Memory ──

@@ -18,26 +18,26 @@ audience: developer
 
 The existing five harnesses (`jarvis_agent`, `codex`, `open-interpreter`, `python-script`, `mcp-remote`) run as a subprocess with their own Python interpreter/shell and communicate via stdout/stdin NDJSON. `CLAUDE.md` §Security states:
 
-> **Harness isolation:** Sub-harnesses run in their own subprocess without access to Jarvis secrets (own ENV allowlist).
+> **Harness isolation:** Sub-harnesses run in their own subprocess without access to Dodaios secrets (own ENV allowlist).
 
 The new Computer-Use harness deliberately breaks this pattern — see the decision below. This ADR documents the exception.
 
 ## Decision
 
-**`jarvis/plugins/harness/computer_use.py` runs in-process** (in the Jarvis main process), while the other five harnesses remain subprocesses.
+**`jarvis/plugins/harness/computer_use.py` runs in-process** (in the Dodaios main process), while the other five harnesses remain subprocesses.
 
 ### Rationale
-By its nature, Computer-Use is **not an external Jarvis-Agent framework** (as Jarvis-Agents or Codex are), but an internal plan-observe-act-verify loop that:
+By its nature, Computer-Use is **not an external Dodaios-Agent framework** (as Dodaios-Agents or Codex are), but an internal plan-observe-act-verify loop that:
 
 1. Uses the existing `BrainManager` directly (Opus plans, Sonnet observes, Haiku steps — cost tracking via ADR-0006 applies automatically)
 2. Consumes the `VisionEngine` directly (no screenshot serialization over pipes)
 3. Passes the `CancelToken` from ADR-0004 through transparently
 4. Emits event-bus events (`ObservationCaptured`, `ActionProposed`, `ActionVerified`) directly — no IPC translation
 
-Architecturally this is closer to the `BrainManager` or `HarnessManager` (both in-process) than to the external Jarvis-Agent worker harness (which wraps an external binary).
+Architecturally this is closer to the `BrainManager` or `HarnessManager` (both in-process) than to the external Dodaios-Agent worker harness (which wraps an external binary).
 
 ### Position relative to the CLAUDE.md rule
-The rule targets **third-party agent code** (Jarvis-Agents, Codex, Open Interpreter), which could potentially read/write arbitrarily. The Computer-Use harness is not third-party code — it is our own orchestrator code, whose tools run through the existing risk-tier/whitelist system. The secret-isolation clause is therefore not violated, because no foreign binary is started.
+The rule targets **third-party agent code** (Dodaios-Agents, Codex, Open Interpreter), which could potentially read/write arbitrarily. The Computer-Use harness is not third-party code — it is our own orchestrator code, whose tools run through the existing risk-tier/whitelist system. The secret-isolation clause is therefore not violated, because no foreign binary is started.
 
 ### Security mitigation
 - All individual actions (click, type, screenshot) run through the `ToolExecutor` including the blacklist check.
@@ -51,7 +51,7 @@ The rule targets **third-party agent code** (Jarvis-Agents, Codex, Open Interpre
 + Cancel is trivial: an `if cancel_token.is_cancelled(): break` before every action step.
 + Cost tracking gets the loop for free.
 + Event-bus events can be published synchronously on both buses (relevant because of the CLAUDE.md two-bus bug, addressed in ADR-0004).
-- A bug in the CU loop (infinite loop, exception in the wrong thread) can affect Jarvis as a whole. **Mitigation:** strict per-step timeouts (default 30s), max 20 steps per plan, `asyncio.wait_for` around every sub-operation.
+- A bug in the CU loop (infinite loop, exception in the wrong thread) can affect Dodaios as a whole. **Mitigation:** strict per-step timeouts (default 30s), max 20 steps per plan, `asyncio.wait_for` around every sub-operation.
 - `pyautogui.click` is synchronously blocking. **Mitigation:** `loop.run_in_executor(None, pyautogui.click, x, y)` — the action step runs in the thread pool, the event loop stays responsive.
 - Pattern break. Future harnesses with the same justification (internal orchestrator loop, not external binary) may invoke this ADR. Others remain subprocesses.
 

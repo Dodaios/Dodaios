@@ -1,0 +1,84 @@
+# Nightly alert: a red nightly CI run opens (or updates) ONE issue.
+#
+# Several legs run only in the nightly and release runs: the real Hermes
+# install on Windows, the real runtimes and the real browser on macOS, Intel
+# macOS, the ARM runners, the macOS test shards (scripts/ci/plan_run.py). A
+# failure there blocks no pull request, so it has to reach someone. This
+# keeps one issue, "Nightly CI is red", with the failed jobs of the latest red
+# nightly, and closes it after the next green one.
+#
+# A separate workflow for the same reason as flaky-tests.yml: `issues: write`
+# never reaches a pull-request run. Nothing is checked out; the run's job list
+# is read as data only.
+name: Nightly alert
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+# Issue updates are read-modify-write; never let two run at once.
+concurrency:
+  group: nightly-alert
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    name: track a red nightly
+    # A fork pull request can be named `main` too: the repository and event
+    # checks, not the branch filter alone, keep its runs out.
+    if: >-
+      github.event.workflow_run.event == 'schedule' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main' &&
+      contains(fromJSON('["success","failure"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          # The label lists issues without the search index, which lags behind
+          # a freshly created issue and would invite a duplicate.
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" --label nightly-ci --state open \
+            --limit 1 --json number --jq '.[0].number // empty')"
+          if [ "$CONCLUSION" = "success" ]; then
+            if [ -n "$number" ]; then
+              gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+                --comment "The nightly run is green again: $RUN_URL"
+              echo "Closed issue #$number" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
+          {
+            echo "The nightly CI run on main failed: $RUN_URL"
+            echo
+            echo "Failed jobs:"
+            echo
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100&filter=latest" \
+              --paginate --jq '.jobs[] | select(.conclusion == "failure" and .name != "CI gate") | "- [\(.name)](\(.html_url))"'
+            echo
+            echo "Some of these legs run only at night and on release tags, so no pull request"
+            echo "was blocked by them. Reproduce on a branch with"
+            echo '`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.'
+          } > "$RUNNER_TEMP/issue.md"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/issue.md"
+            echo "Updated issue #$number" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            gh label create nightly-ci --repo "$GITHUB_REPOSITORY" --force \
+              --color B60205 --description "The nightly CI run on main is red"
+            url="$(gh issue create --repo "$GITHUB_REPOSITORY" --title "Nightly CI is red" \
+              --label nightly-ci --body-file "$RUNNER_TEMP/issue.md")"
+            echo "Created $url" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

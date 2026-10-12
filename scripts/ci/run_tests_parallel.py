@@ -55,6 +55,8 @@ MIN_FILE_TIMEOUT = 300.0
 MAX_FILE_TIMEOUT = 900.0
 BATCH_TARGET_SECONDS = 45.0
 BATCH_MAX_FILES = 12
+MAX_BATCH_TIMEOUT = 1800.0
+BATCH_TIMEOUT_FACTOR = 6.0  # times the batch's own history
 _OK_EXIT_CODES = {0, 5}  # 5 = every test deselected / none collected
 # A new batch waits while less than this much memory is left to commit. A local
 # run shares the machine with the user's apps: eight batches on a box already
@@ -139,6 +141,19 @@ def make_batches(files: list[str], durations: dict[str, float]) -> list[list[str
 
 def file_timeout(file: str, durations: dict[str, float]) -> float:
     return min(MAX_FILE_TIMEOUT, max(MIN_FILE_TIMEOUT, 3 * durations.get(file, 0.0)))
+
+
+def batch_timeout(batch: list[str], durations: dict[str, float]) -> float:
+    """Wall clock for one batch: its slowest file's budget, or a multiple of its load.
+
+    A batch is built to ~45 s of history. Summing every file's five-minute
+    floor gave a twelve-file batch thirty minutes, so one wedged test held a
+    shard until the job timeout killed it without a report. A batch killed
+    early costs nothing but time: each of its files runs again alone.
+    """
+    load = sum(estimate(file, durations) for file in batch)
+    slowest = max(file_timeout(file, durations) for file in batch)
+    return min(MAX_BATCH_TIMEOUT, max(slowest, BATCH_TIMEOUT_FACTOR * load))
 
 
 # --------------------------------------------------------------------------- execution
@@ -388,7 +403,7 @@ class Runner:
 
     def run_unit(self, batch: list[str]) -> dict[str, object]:
         """Run one batch with isolation-on-failure and a flaky retry."""
-        budget = min(1800.0, sum(file_timeout(f, self.durations) for f in batch))
+        budget = batch_timeout(batch, self.durations)
         first = self.run(batch, budget)
         outcome: dict[str, object] = {"runs": [first], "flaky": [], "first_pass": []}
         if first.ok:
