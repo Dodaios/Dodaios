@@ -6,6 +6,7 @@ import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { useOpenPairConversation } from "@/components/agentchat/PairConversation";
 import type { InternalMessageItem } from "@/components/agentchat/reduce";
 import { useT } from "@/i18n";
+import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { useEventStore } from "@/store/events";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function DelegationActivity({ sender, task, roster }: {
   const participant = roster.find((agent) => agent.agentId === sender);
   const name = participant
     ? societyDisplayName(participant, assistantName)
-    : sender === "jarvis" ? (assistantName || "Jarvis") : sender;
+    : sender === "jarvis" ? (assistantName || NEUTRAL_ASSISTANT_NAME) : sender;
   return <ChatActivity icon={<Inbox aria-hidden className="h-3.5 w-3.5 shrink-0" />}
     label={<span className="inline-flex max-w-full items-center gap-2">
       <span>{t("society.chat.assignment_from").replace("{0}", "")}</span>

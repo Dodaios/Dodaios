@@ -14,6 +14,7 @@
  * one geometry per material, and canvas faces are drawn once and shared.
  */
 import { memo } from "react";
+import { PRODUCT_NAME } from "@/lib/branding";
 import {
   BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Matrix4,
   MeshStandardMaterial, Path, Quaternion, Shape, SphereGeometry, TorusGeometry, Vector3,
@@ -204,6 +205,7 @@ const BRAND_FACE = { w: 1.86, h: 2.26, px: 1024 };
 const BRAND_GHOST = { hem: 1.3, size: 0.84, z: 0.09 };
 const BRAND_TYPE = { wordmark: 1.02, strapline: 0.85 };
 const BRAND_FONTS = [`700 120px ${FONT}`, `600 40px ${FONT}`];
+const WORDMARK = PRODUCT_NAME.toUpperCase();
 
 /** Wall height (m) → canvas row on a brand face `h` px tall. */
 function brandRow(y: number, h: number): number {
@@ -254,14 +256,14 @@ function drawBrandFace(ctx: Ctx, w: number, h: number): void {
   ctx.textBaseline = "middle";
   spaced(ctx, w * 0.012);
   ctx.font = BRAND_FONTS[0];
-  const fit = Math.min(1, (w * 0.74) / ctx.measureText("PERSONAL JARVIS").width);
+  const fit = Math.min(1, (w * 0.74) / ctx.measureText(WORDMARK).width);
   ctx.font = `700 ${Math.round(120 * fit)}px ${FONT}`;
   ctx.save();
   ctx.shadowColor = "rgba(24,32,26,0.35)";
   ctx.shadowBlur = 4;
   ctx.shadowOffsetY = 3;
   ctx.fillStyle = "#1b211e";
-  ctx.fillText("PERSONAL JARVIS", w / 2 + w * 0.006, brandRow(BRAND_TYPE.wordmark, h));
+  ctx.fillText(WORDMARK, w / 2 + w * 0.006, brandRow(BRAND_TYPE.wordmark, h));
   ctx.restore();
 
   // The strapline between two brass rules.
