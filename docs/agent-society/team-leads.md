@@ -98,9 +98,12 @@ Both vocabularies are pinned across Python, SQL and TypeScript by
 - The society kill switch pauses every running goal.
 - Goals that were running when the app closed come back `paused`, with their
   open tasks marked as interrupted. Opening the app never resumes one.
-- A task with no sign of life is checked against the scheduler; a run that
-  ended without a result reaches the lead as `blocked` instead of being
-  waited on forever.
+- A task with no sign of life is checked against the scheduler and then
+  against the member's own chat. A member that is still working is left
+  alone, a turn that finished without its result reaching the board becomes
+  the task's result, and only work the chat never saw reaches the lead as
+  `blocked`. The lead is never left waiting forever, and never hands the same
+  work out twice because a start was slow.
 
 ## Check-ins
 
