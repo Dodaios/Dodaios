@@ -181,7 +181,7 @@ the floor plan differ.
   with flopping ears and a wagging tail, Bolt the battery
   waddles, Brew the teapot hops with a rattling lid, Mochi bounces, Shelly
   the snail crawls and Dodaios, the hooded figure built of cubes like its
-  pixels, waddles on two feet with its cape streaming. Pets that fly hover at head height with Gigi's halo and
+  pixels, walks upright on its two legs with its cape streaming. Pets that fly hover at head height with Gigi's halo and
   sparkles; pets on the floor (`gigiFlight.ts` `ground` mode) walk right
   behind the person's feet, take floor routes (`findPath`) on errands instead
   of flying over desks, and carry their nameplate low. Limbs move by
