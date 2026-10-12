@@ -2,9 +2,16 @@
 
 A desktop pet is an animated pixel-art companion that floats on the desktop
 while Jarvis runs. It is the overlay style `pet`, an alternative to the slim
-Jarvis bar (`jarvis_bar`), the Gigi mascot (`mascot`) and the voice orb
-(`voice_orb`). Users pick the style and the pet under
-**Settings → My Pets**.
+Jarvis bar (`jarvis_bar`) and the voice orb (`voice_orb`). Users pick the
+style and the pet under **Settings → My Pets**.
+
+The style `mascot` is a pet as well: it always shows the built-in `dodaios`
+pet, the hooded figure of the logo (`MASCOT_PET_ID` in
+`jarvis/ui/overlay_styles.py`), with everything on this page: the states, the
+control strip, the thought bubble and the cards. The pet chosen under My Pets
+is kept and shows again once the style is `pet`. Only an own picture
+(`[ui] orb_mascot_path`) makes the mascot a still image that pops up for a
+conversation.
 
 The pet sits in the same frameless, always-on-top window as the mascot and the
 voice orb (`ui/orb/overlay.py`, `OrbOverlay`). Switching between those three

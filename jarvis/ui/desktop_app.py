@@ -3876,14 +3876,16 @@ class DesktopApp:
     def _hide_on_idle_for(self, style: str) -> bool:
         """The bridge's idle regime for one overlay style.
 
-        The bar follows "show at all times"; a persistent orb style (the pet)
-        stays up while idle; the mascot and the voice orb pop up per session.
+        The bar follows "show at all times"; a persistent orb style (the pet,
+        and the mascot, which is one) stays up while idle; the voice orb pops
+        up per session.
         """
-        from jarvis.ui.overlay_styles import PERSISTENT_ORB_STYLES
+        from jarvis.ui.overlay_styles import stays_while_idle
 
         if style == "jarvis_bar":
             return not bool(getattr(self.cfg.ui, "bar_persistent", True))
-        return style not in PERSISTENT_ORB_STYLES
+        mascot_image = str(getattr(self.cfg.ui, "orb_mascot_path", "") or "")
+        return not stays_while_idle(style, mascot_image=mascot_image)
 
     def _pet_call(self, method: str, *args: object) -> bool:
         """Call a pet surface method on the live overlay. True when it ran."""
@@ -4083,7 +4085,6 @@ class DesktopApp:
             HIDDEN_STYLE,
             ORB_STYLES,
             OVERLAY_STYLES,
-            PERSISTENT_ORB_STYLES,
         )
 
         style = (style or "jarvis_bar").strip()
@@ -4112,13 +4113,13 @@ class DesktopApp:
             if style in ORB_STYLES and old is not None and hasattr(old, "set_style"):
                 old.set_style(style)
                 _recache_surface(cache, old, style)
-                # The idle regime travels with the look: the pet stays up
-                # while idle, the mascot and the voice orb pop up per session.
+                # The idle regime travels with the look: a pet (the mascot
+                # is one) stays up while idle, the voice orb pops up per session.
                 bridge._hide_on_idle = self._hide_on_idle_for(style)
                 mode = str(getattr(old, "_mode", "idle") or "idle")
-                if style in PERSISTENT_ORB_STYLES:
+                if not bridge._hide_on_idle:
                     old.show(mode)
-                elif previous in PERSISTENT_ORB_STYLES and mode == "idle":
+                elif not self._hide_on_idle_for(previous) and mode == "idle":
                     old.hide()
                 self._note_live_overlay_style(style)
                 logger.info("Orb window re-styled live to {}.", style)
@@ -4155,7 +4156,7 @@ class DesktopApp:
             try:
                 if (
                     style == "jarvis_bar" and self.cfg.ui.bar_persistent
-                ) or style in PERSISTENT_ORB_STYLES:
+                ) or (style in ORB_STYLES and not bridge._hide_on_idle):
                     new.show("idle")
             except Exception:  # noqa: BLE001
                 logger.debug("post-swap show failed", exc_info=True)
