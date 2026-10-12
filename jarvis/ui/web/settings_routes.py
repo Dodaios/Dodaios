@@ -1591,7 +1591,7 @@ def _ask_microphone_for_wake_switch(request: Request, *, enabled: bool) -> dict[
 
 @router.post("/wake-word/activation")
 def set_wake_activation(body: WakeActivationBody, request: Request) -> dict[str, object]:
-    """Turn the always-on wake word ON/OFF — the "how do you activate Jarvis"
+    """Turn the always-on wake word ON/OFF — the "how do you activate the assistant"
     master switch (product rule 2026-07-04).
 
     ``True`` = always-on wake word, which REQUIRES a local model matching the

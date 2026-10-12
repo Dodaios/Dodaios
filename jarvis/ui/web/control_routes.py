@@ -314,7 +314,7 @@ def reject_config(body: PendingIdBody, request: Request) -> dict[str, Any]:
 @router.put("/language", dependencies=[Depends(require_control_key)])
 def put_language(body: LanguageBody, request: Request) -> dict[str, Any]:
     """Switch the language. A concrete code (de/en/es) sets BOTH the reply
-    language (what Jarvis speaks) AND the interface language (what the user
+    language (what the assistant speaks) AND the interface language (what the user
     sees) so the whole experience switches; "auto" only affects replies (it
     mirrors the input language). Both are SAFE -> applied immediately, and the
     interface switches live in the open UI via the ConfigReloaded broadcast."""

@@ -1,8 +1,8 @@
-# Personal Jarvis — Knowledge Vault
+# Dodaios — Knowledge Vault
 
-This directory is Jarvis' **long-term memory**. Every file in here is a
-piece of what he knows about you, the projects you work on, and the
-tools he uses.
+This directory is your assistant's **long-term memory**. Every file in here
+is a piece of what it knows about you, the projects you work on, and the
+tools it uses.
 
 ## What lives here
 
@@ -24,8 +24,7 @@ tools he uses.
 1. Download Obsidian from [obsidian.md](https://obsidian.md). It's free
    for personal use and works offline. No account required.
 2. Launch Obsidian and pick "Open folder as vault".
-3. Point it at this directory:
-   `C:\Users\Administrator\Desktop\Personal Jarvis\data\workspace`
+3. Point it at this directory (the folder that contains this README).
 4. Optional but useful core plugins (toggle in Settings → Core plugins):
    Graph view, Backlinks, Outgoing links, Page preview, Templates,
    Quick switcher.
@@ -37,16 +36,14 @@ Once open, you can:
 - Open the Graph view to see the whole knowledge network.
 - Search across all pages (Ctrl-Shift-F).
 
-### Option B — the Jarvis Desktop App (arriving in Phase B3)
+### Option B — the Dodaios desktop app
 
-The Desktop App will get its own Wiki section with a file tree,
-markdown rendering, and an Obsidian-style graph view — built on
-MIT-licensed React components, no Obsidian dependency. Until B3 lands,
-use Obsidian.
+The Wiki section of the app reads this same folder, so you can browse
+the pages there without Obsidian.
 
 ## How edits happen
 
-Jarvis writes here automatically through the `WikiCurator` (Phase B1).
+Your assistant writes here automatically through the `WikiCurator`.
 You can also edit files manually in Obsidian — your edits survive
 subsequent curator runs as long as you keep the frontmatter and section
 structure intact (see `schema.md`).
@@ -65,8 +62,8 @@ the first time the migration script runs. Recover via `tar -xzf
 
 ## What NOT to store here
 
-- Secrets, API keys, credentials → use the Windows Credential Manager
-  (Jarvis handles these via `get_secret()`).
+- Secrets, API keys, credentials → they belong in the operating system's
+  credential store (Dodaios keeps them there, entered under API Keys).
 - Conversation transcripts verbatim → that's the SQLite recall store's
   job (`data/jarvis.db`). Wiki holds the *distilled* knowledge, not the
   raw log.
@@ -77,5 +74,3 @@ the first time the migration script runs. Recover via `tar -xzf
 
 - `docs/adr/0013-knowledge-wiki-architecture.md` — the architecture
   decision record explaining why this exists.
-- `JARVIS_AWARENESS_PLAN.md` — the short-term + mid-term memory tiers
-  that feed into this vault.
