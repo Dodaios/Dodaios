@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-DKqXVOvS.js
-import{c as W,f as m,t as C,r as x,u as _,cm as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cw as T,B as y,ca as q,q as ee,S as te,L as $,cs as U,ct as K,x as ne}from"./index-osFHungB.js";import{P as L}from"./branding-B70gMSNS.js";import{C as P}from"./check-DCmbATnn.js";import{S as se,C as re}from"./store-DfQ64cuR.js";/**
-========
 import{c as W,f as m,t as C,r as x,u as _,cm as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cw as T,B as y,ca as q,q as ee,S as te,L as $,cs as U,ct as K,x as ne}from"./index-znwWITUi.js";import{P as L}from"./branding-B70gMSNS.js";import{C as P}from"./check-xIq1fFOX.js";import{S as se,C as re}from"./store-DGgyGJm7.js";/**
->>>>>>>> cc332a5d15b7711e76f68446642fe51689da0e7d:jarvis/ui/web/dist/assets/PluginsCommunity-sxyJ7S3r.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

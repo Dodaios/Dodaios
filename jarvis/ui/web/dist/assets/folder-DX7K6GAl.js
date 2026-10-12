@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/folder-CbYrk2cK.js
-import{c as a}from"./index-osFHungB.js";/**
-========
 import{c as a}from"./index-znwWITUi.js";/**
->>>>>>>> cc332a5d15b7711e76f68446642fe51689da0e7d:jarvis/ui/web/dist/assets/folder-DX7K6GAl.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

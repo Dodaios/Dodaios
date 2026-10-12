@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditorWindow-CyxEsV1J.js
-import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-osFHungB.js";import{AppshotEditor as we}from"./AppshotEditor-Dw2i2Cnw.js";import{Q as P}from"./tooltip-CPrJInbM.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-CQIM_VFa.js";import{P as ae}from"./play-DrtjzInL.js";import{P as Ne}from"./pause-CSwXr2kP.js";import"./switch-aH-hj3_x.js";import"./image-plus-C-s352WH.js";import"./check-DCmbATnn.js";import"./columns-2-72j0yPA1.js";/**
-========
 import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-znwWITUi.js";import{AppshotEditor as we}from"./AppshotEditor-BvWOX0hT.js";import{Q as P}from"./tooltip-BUsBv1Ea.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-qAcKjbFB.js";import{P as ae}from"./play-DO8JpWbB.js";import{P as Ne}from"./pause-D2_e0kmp.js";import"./switch-C-KtwpkU.js";import"./image-plus-CnH9y9-Y.js";import"./check-xIq1fFOX.js";import"./columns-2-DPcJNAKp.js";/**
->>>>>>>> cc332a5d15b7711e76f68446642fe51689da0e7d:jarvis/ui/web/dist/assets/AppshotEditorWindow-CfPqwZQM.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

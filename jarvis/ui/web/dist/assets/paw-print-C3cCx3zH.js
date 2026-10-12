@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/paw-print-B8wwjgn0.js
-import{c}from"./index-osFHungB.js";/**
-========
 import{c}from"./index-znwWITUi.js";/**
->>>>>>>> cc332a5d15b7711e76f68446642fe51689da0e7d:jarvis/ui/web/dist/assets/paw-print-C3cCx3zH.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

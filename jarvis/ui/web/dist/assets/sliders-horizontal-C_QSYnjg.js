@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-BoI6Fql3.js
-import{c as y}from"./index-osFHungB.js";/**
-========
 import{c as y}from"./index-znwWITUi.js";/**
->>>>>>>> cc332a5d15b7711e76f68446642fe51689da0e7d:jarvis/ui/web/dist/assets/sliders-horizontal-C_QSYnjg.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
