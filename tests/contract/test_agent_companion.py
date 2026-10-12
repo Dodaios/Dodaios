@@ -61,7 +61,7 @@ def test_a_worn_creature_survives_storage_and_sharing_and_a_bare_look_stores_non
     look = {"shape": "circle", "color": "#a25bff", "creature": creature}
     assert validate_avatar_companion({"companion": look})["companion"]["creature"] == creature
     assert public_avatar({"companion": look})["companion"]["creature"] == creature
-    bare = validate_avatar_companion({"companion": {"shape": "circle", "color": "#a25bff", "creature": None}})
+    bare = validate_avatar_companion({"companion": {**look, "creature": None}})
     assert "creature" not in bare["companion"]
 
 
