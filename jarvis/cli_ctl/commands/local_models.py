@@ -361,7 +361,7 @@ def server_stop(
     yes: bool = options.yes_opt(),
     dry_run: bool = options.dry_opt(),
 ) -> None:
-    """Stop the server Jarvis itself started (never one started elsewhere)."""
+    """Stop the server Dodaios itself started (never one started elsewhere)."""
     invoke.run(
         "POST",
         f"{_base(provider)}/server/stop",
@@ -397,7 +397,7 @@ def server_autostart(
     provider: str = _PROVIDER,
     dry_run: bool = options.dry_opt(),
 ) -> None:
-    """Show or flip "start the server with Jarvis" (fires only while local models are in use)."""
+    """Show or flip "start the server with Dodaios" (fires only while local models are in use)."""
     choice = state.strip().lower()
     if not choice:
         invoke.run("GET", f"{_base(provider)}/runtime/autostart")
@@ -418,7 +418,7 @@ def server_log(
     lines: int = typer.Option(40, "--lines", min=1, max=500),
     provider: str = _PROVIDER,
 ) -> None:
-    """The last lines of the server log Jarvis writes when it starts the server."""
+    """The last lines of the server log Dodaios writes when it starts the server."""
     invoke.run("GET", f"{_base(provider)}/server/log", params={"lines": lines})
 
 

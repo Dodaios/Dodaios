@@ -579,7 +579,7 @@ def issue_body(normalized: dict[str, Any]) -> str:
         lines += ["", f"> {summary}"]
     lines += [
         "",
-        "Published from Personal Jarvis. The automated checks run now; this issue "
+        "Published from Dodaios. The automated checks run now; this issue "
         "closes itself once the entry is live.",
         "",
         "### Submission",

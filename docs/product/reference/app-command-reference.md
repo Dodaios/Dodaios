@@ -15,7 +15,7 @@ tags: [app-commands, voice, chat, cli, api, automation]
 related: [workflows-and-commands, cli-reference, control-api-reference]
 ---
 
-The App Command Registry is Personal Jarvis's curated catalog of high-value
+The App Command Registry is Dodaios's curated catalog of high-value
 actions. Each entry assigns one action a stable ID, an input schema, safety
 metadata, a sidebar section ID, example phrases, and one existing REST
 operation.
@@ -28,10 +28,10 @@ and is not a list of every button in the app.
 
 ## Before You Start
 
-- Start Personal Jarvis before browsing the live catalog through the CLI or
+- Start Dodaios before browsing the live catalog through the CLI or
   REST.
 - Conversational execution needs at least one available Brain path that can
-  call tools. Jarvis can hand a tool request to another configured,
+  call tools. Dodaios can hand a tool request to another configured,
   tool-capable provider when the selected provider cannot call tools. The
   catalog remains browsable when no such provider is reachable.
 - Connect any provider, device, permission, or local feature required by the
@@ -87,7 +87,7 @@ discovery and authentication.
 | `voice_aliases` | Example input phrases for German, English, and Spanish; not guaranteed triggers or valid argument values |
 
 The generated catalog is a compact summary. Use `jarvis commands show` or the
-live REST entry when exact defaults, limits, every alias, or Jarvis-Agent
+live REST entry when exact defaults, limits, every alias, or Dodaios-Agent
 eligibility matters.
 
 Aliases make the intended natural-language meaning easier to discover, but
@@ -110,11 +110,11 @@ still fail when its provider is disconnected, an input is invalid, a requested
 item no longer exists, a device or permission is missing, the host does not
 support the feature, or the app server is unavailable.
 
-For voice and chat, Jarvis exposes each registry entry as its own small tool.
+For voice and chat, Dodaios exposes each registry entry as its own small tool.
 It rejects missing, unknown, incorrectly typed, out-of-range, and unsupported
 schema values before calling the app. The request then goes through the listed
 REST route, where feature-specific state and availability checks still apply.
-Jarvis reports the route's actual response rather than assuming success from
+Dodaios reports the route's actual response rather than assuming success from
 the request wording.
 
 The `dangerous` field is a default, not the complete safety decision. A value
@@ -146,18 +146,18 @@ turn an unavailable feature into a working one.
 4. Desktop controls and feature-specific CLI commands do not dispatch through
    the catalog. They reach the corresponding feature route through their own
    interface.
-5. The route validates current state and performs the action on the Jarvis
+5. The route validates current state and performs the action on the Dodaios
    host. Its real result returns to the starting surface, including failures.
 
 An [App Command](workflows-and-commands) performs one curated action now. A
 Workflow stores several ordered steps for reuse or scheduling. The
-[Jarvis CLI](cli-reference) is a terminal client that can browse the registry
+[Dodaios CLI](cli-reference) is a terminal client that can browse the registry
 and execute supported routes. The [Control API](control-api-reference) is the
 broader HTTP surface from which registry commands select their endpoints.
 
 ## Check That It Works
 
-With Personal Jarvis running, inspect one read-only entry:
+With Dodaios running, inspect one read-only entry:
 
 ```powershell
 jarvis --json commands show providers-list
@@ -173,9 +173,9 @@ App Command, or changing settings.
 | What you see | What it usually means | What to do |
 |---|---|---|
 | `Unknown command id` or `404` | The ID is misspelled or not present in this installed version | Run `jarvis commands list`, then copy the exact `id` |
-| The public catalog and live catalog differ | GitHub `main` and the installed release contain different registry versions | Use the live entry for current behavior and update Jarvis only through the supported release path |
-| Jarvis answers in prose but no action runs | The Brain could not use the conversational tool path or did not select a command | Check the exact command with the CLI, then retry a concrete request or use the matching desktop control |
-| Jarvis asks for confirmation | The command's default tier or the current safety and plausibility checks require review | Review the exact action and inputs, then approve or deny the pending request |
+| The public catalog and live catalog differ | GitHub `main` and the installed release contain different registry versions | Use the live entry for current behavior and update Dodaios only through the supported release path |
+| Dodaios answers in prose but no action runs | The Brain could not use the conversational tool path or did not select a command | Check the exact command with the CLI, then retry a concrete request or use the matching desktop control |
+| Dodaios asks for confirmation | The command's default tier or the current safety and plausibility checks require review | Review the exact action and inputs, then approve or deny the pending request |
 | A listed command returns an error | Its inputs or feature dependency are not valid on the current host | Read the returned detail, fix the provider, permission, device, item, or host requirement, then retry a read-only check first |
 
 ## Next Steps

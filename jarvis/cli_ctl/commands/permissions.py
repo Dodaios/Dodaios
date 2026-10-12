@@ -40,7 +40,7 @@ def _activate_macos_app_for_tcc() -> None:
     bundle = _installed_macos_app()
     if not bundle.is_dir():
         _activation_error(
-            "The installed Personal Jarvis app was not found, so nothing was "
+            "The installed Dodaios app was not found, so nothing was "
             "requested: macOS permissions are only requested for the installed app, "
             "never for the terminal that runs this command. Run the standard "
             "installer, or allow the permission in System Settings yourself."
@@ -55,9 +55,9 @@ def _activate_macos_app_for_tcc() -> None:
             creationflags=NO_WINDOW_CREATIONFLAGS,
         )
     except (OSError, subprocess.SubprocessError):
-        _activation_error("Personal Jarvis could not be activated through LaunchServices.")
+        _activation_error("Dodaios could not be activated through LaunchServices.")
     if completed.returncode != 0:
-        _activation_error("Personal Jarvis could not be activated through LaunchServices.")
+        _activation_error("Dodaios could not be activated through LaunchServices.")
 
     try:
         appkit = importlib.import_module("AppKit")
@@ -75,7 +75,7 @@ def _activate_macos_app_for_tcc() -> None:
             f"({type(exc).__name__})."
         )
     _activation_error(
-        "Personal Jarvis did not become the foreground app. Activate its window "
+        "Dodaios did not become the foreground app. Activate its window "
         "and retry the permission command."
     )
 
@@ -113,7 +113,7 @@ def request(
     """Ask macOS for one permission through the same service the app uses.
 
     Only the installed app is asked for: confirming a grant for the app that
-    started Jarvis (a terminal, an IDE) needs the Jarvis window, so there is no
+    started Dodaios (a terminal, an IDE) needs the Dodaios window, so there is no
     flag for it here and nothing is requested without the installed bundle.
     """
     invoke.run(
@@ -164,7 +164,7 @@ def _installed_bundle_id() -> str:
     info_path = bundle / "Contents" / "Info.plist"
     if not bundle.is_dir() or not info_path.is_file():
         _activation_error(
-            "The installed Personal Jarvis app was not found, so nothing was reset. "
+            "The installed Dodaios app was not found, so nothing was reset. "
             "Pass --bundle-id to name the app, or run `tccutil reset <service> <bundle id>` "
             "yourself (see docs/product/privacy-safety-and-support/troubleshooting.md)."
         )
@@ -178,7 +178,7 @@ def _installed_bundle_id() -> str:
         )
     if not isinstance(raw_id, str) or raw_id not in ACCEPTED_BUNDLE_IDS:
         _activation_error(
-            "The installed app's bundle id is not one of Personal Jarvis's "
+            "The installed app's bundle id is not one of Dodaios's "
             f"({', '.join(ACCEPTED_BUNDLE_IDS)}), so nothing was reset. Pass --bundle-id."
         )
     return raw_id
@@ -218,14 +218,14 @@ def reset(
     yes: bool = options.yes_opt(),
     dry_run: bool = options.dry_opt(),
 ) -> None:
-    """Forget what macOS recorded for Personal Jarvis, so it asks again on next use (macOS only).
+    """Forget what macOS recorded for Dodaios, so it asks again on next use (macOS only).
 
     Runs `/usr/bin/tccutil reset <service> <bundle id>` on this Mac. This is the
     way out of a stuck "denied" answer, since macOS never asks twice by itself
-    and Personal Jarvis has no Privacy page. It only touches this app's own
+    and Dodaios has no Privacy page. It only touches this app's own
     record for one service and never another app's. It does not use the running
     app (the app's own reset route refuses scripts on purpose), so it works with
-    Jarvis closed; quit and reopen the app afterwards, then use the feature.
+    Dodaios closed; quit and reopen the app afterwards, then use the feature.
     """
     from jarvis.cli_ctl.__main__ import as_json
 
@@ -242,7 +242,7 @@ def reset(
     if bundle_id is not None and bundle_id not in ACCEPTED_BUNDLE_IDS:
         render.error(
             f"--bundle-id must be one of: {', '.join(ACCEPTED_BUNDLE_IDS)} "
-            "(this command only resets Personal Jarvis's own record)."
+            "(this command only resets Dodaios's own record)."
         )
         raise typer.Exit(code=2)
     target = bundle_id if bundle_id is not None else _installed_bundle_id()
@@ -278,7 +278,7 @@ def reset(
             **plan,
             "message": (
                 f"The {permission_id.value} record of {target} was reset. Quit and reopen "
-                "Personal Jarvis, then use the feature: macOS asks again."
+                "Dodaios, then use the feature: macOS asks again."
             ),
         },
         as_json=as_json(),

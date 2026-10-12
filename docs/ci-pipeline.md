@@ -24,9 +24,9 @@ to prove (`scripts/ci/plan_run.py` emits the tier and every job matrix):
 
 | Tier | When | What runs | Target |
 | --- | --- | --- | --- |
-| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS, and not the 18-minute Hermes install on Windows. | ~10 min |
-| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs, the slow legs, and one short macOS leg per affected lane (realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle). The blocking proof of the exact tree main gets. | ~10 min, ~20 min when the agent-runtime lane is affected |
-| `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the real runtimes and the real browser on macOS. | ~30 min |
+| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS. | ~10 min |
+| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus one short macOS leg per affected lane (realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle). The blocking proof of the exact tree main gets. | ~10-13 min |
+| `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the long real-product legs: the Hermes install on Windows, the real runtimes and the real browser on macOS. A red nightly opens the issue "Nightly CI is red" (`nightly-alert.yml`). | ~40 min |
 | proven | push to main of a commit the merge queue already passed | `detect` and `CI gate` only. | under 1 min |
 
 A queue group and the push that lands it are one commit, so the push run
@@ -34,12 +34,18 @@ asks the API for a green `merge_group` run of its own SHA and, when there is
 one, turns every lane off. Any doubt (a direct push, an API error) fails open
 to the `queue` tier. A nightly run never accepts an earlier proof.
 
-Up to four merge groups build at once on five macOS slots. The first queue
-runs of this design carried six to eight macOS legs each; three groups and
-one manual full run then waited more than half an hour on macOS alone. The
-two real-runtime legs (10 and 7 minutes) and the real-browser leg therefore
-run on macOS nightly and on release tags, and a group keeps only legs of one
-to four minutes.
+`CI gate` waits for the slowest job of a run, and several merge groups build
+at once on five macOS slots (the queue builds two groups in parallel). The
+first queue runs of this design carried six to eight macOS legs each: three
+groups and one manual full run waited more than half an hour on macOS alone.
+And the Hermes install on Windows (13 minutes of upstream installer before
+the first turn, 14 to 23 minutes a job) was the last job of three in four
+merge groups. So a group keeps macOS legs of one to four minutes, and the
+long real-product legs run nightly and on release tags: the Hermes install
+on Windows, the two real-runtime legs on macOS (10 and 7 minutes) and the
+real-browser leg on macOS. A regression that only shows there is found by
+the next nightly run, which opens the issue "Nightly CI is red", and at the
+latest by the release run, which blocks publication.
 
 A branch gets the whole macOS matrix before the queue with
 `gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.

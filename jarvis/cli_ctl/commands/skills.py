@@ -134,9 +134,9 @@ def import_skill(
 ) -> None:
     """Install a skill from a local folder or a SKILL.md link.
 
-    A local folder is copied into the Jarvis skills directory including its
+    A local folder is copied into the Dodaios skills directory including its
     bundle resources — the bridge for skills authored in a coding agent's
-    folder (e.g. .claude/skills/<name>/), which Jarvis does not scan.
+    folder (e.g. .claude/skills/<name>/), which Dodaios does not scan.
     """
     if source.lower().startswith(("http://", "https://")):
         invoke.run(

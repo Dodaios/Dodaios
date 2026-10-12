@@ -1434,7 +1434,7 @@ def _with_identity(
             # the large identity/history block on every turn.
             return (
                 "<jarvis_turn_context>\n"
-                "You are a Society agent in the running Personal Jarvis app. "
+                "You are a Society agent in the running Dodaios app. "
                 "Your current tools are available through the jarvis MCP server. "
                 "For recurring-work requests, inspect society_routines, then call "
                 "society_propose_change with kind=routine, mode=apply and an exact "
@@ -3470,11 +3470,11 @@ async def _run_cli_once(
         # Also refresh resumed conversations which remember the old missing bridge.
         planned_prompt = (
             "<jarvis_remote_context>\n"
-            "You run on the connected computer. Jarvis MCP tools are connected for this turn "
+            "You run on the connected computer. Dodaios MCP tools are connected for this turn "
             "under your own identity and permissions, including persistent routines, memory "
-            "and the visible Jarvis browser on the main computer. Inspect the real tools; "
+            "and the visible Dodaios browser on the main computer. Inspect the real tools; "
             "earlier messages saying they were unavailable are outdated. Native file tools "
-            "and society_shell run on the connected computer; Jarvis file tools access "
+            "and society_shell run on the connected computer; Dodaios file tools access "
             "your workspace on the main computer.\n</jarvis_remote_context>\n\n" + user_text
         )
 

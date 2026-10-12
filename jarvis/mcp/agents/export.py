@@ -162,7 +162,7 @@ def http_entry(*, token: str | None = None, base_url: str | None = None) -> dict
     """
     from .bridge import SURFACE_PATH, api_base_url, control_key
 
-    credential = token or control_key() or "<your Jarvis control key>"
+    credential = token or control_key() or "<your Dodaios control key>"
     return {
         "type": "http",
         "url": f"{base_url or api_base_url()}{SURFACE_PATH}",

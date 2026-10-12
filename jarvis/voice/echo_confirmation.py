@@ -362,7 +362,7 @@ def format_outcome(
         if kind == "applied_restart":
             return (
                 f"Erledigt — {label} ist jetzt {new_str}. "
-                "Bitte einmal Jarvis neustarten, damit's wirkt."
+                "Bitte einmal Dodaios neustarten, damit's wirkt."
             )
         if kind == "validate_failed":
             return f"Geht nicht — {err}. Setting bleibt {old_str}."  # i18n-allow
@@ -385,7 +385,7 @@ def format_outcome(
     if kind == "applied_restart":
         return (
             f"Done — {label} is now {new_str}. "
-            "Please restart Jarvis for the change to take effect."
+            "Please restart Dodaios for the change to take effect."
         )
     if kind == "validate_failed":
         return f"Can't do that — {err}. Setting stays {old_str}."

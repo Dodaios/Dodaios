@@ -455,7 +455,7 @@ def validate_template(template: Any, listing: dict[str, Any] | None = None) -> l
         if key not in TEMPLATE_KEYS:
             errors.append(f"{key} is not a template field")
     if template.get("schema") != TEMPLATE_SCHEMA:
-        errors.append(f"schema must be {TEMPLATE_SCHEMA} (this Jarvis reads version 1)")
+        errors.append(f"schema must be {TEMPLATE_SCHEMA} (this Dodaios reads version 1)")
     name = template.get("name")
     if not isinstance(name, str) or not _AGENT_NAME_RE.fullmatch(name.strip() or "/"):
         errors.append("name must be 1-40 characters without / \\ : @ # < > or quotes")

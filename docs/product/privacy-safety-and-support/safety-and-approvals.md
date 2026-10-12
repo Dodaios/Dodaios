@@ -15,19 +15,19 @@ tags: [safety, approvals, risk-tiers, permissions, computer-use, automation]
 related: [computer-use, tasks-and-reminders, skills, privacy-and-local-data]
 ---
 
-Jarvis routes supported model-initiated tool calls through one safety gate
+Dodaios routes supported model-initiated tool calls through one safety gate
 before they can act on your computer or a connected account. The gate may let
 a call run, pause it for a clear yes or no, or refuse it. A tool path that
 bypasses this gate is a product defect.
 
-This is a gate around **Jarvis tool calls**. It is not a universal sandbox,
+This is a gate around **Dodaios tool calls**. It is not a universal sandbox,
 an undo system, or a replacement for operating-system permissions and service
 access. A button you select directly in the app, a command you run yourself,
 or a provider's own behavior can have a separate confirmation path.
 
 ## Understand the Four Decisions
 
-Jarvis evaluates the proposed tool together with its arguments. Some tools can
+Dodaios evaluates the proposed tool together with its arguments. Some tools can
 assign a different level to a read action than to a write action.
 
 | Decision | What happens | What to remember |
@@ -37,7 +37,7 @@ assign a different level to a read action than to a write action.
 | **Ask** | The exact call pauses until an approval path answers; no answer normally becomes a denial after about 60 seconds | Review the destination and arguments before approving |
 | **Block** | The call is refused before the tool runs | Approval cannot override a block |
 
-Jarvis checks the proposed tool and arguments in this order: deny rule, allow
+Dodaios checks the proposed tool and arguments in this order: deny rule, allow
 rule, then the tool's own level. It then runs, pauses, or blocks the call.
 
 A matching deny rule always wins. A matching allow rule is standing authority:
@@ -47,7 +47,7 @@ a broad wildcard can silently remove confirmation from many different
 arguments. The current app has no dedicated screen for reviewing these
 advanced allow and deny rules.
 
-For voice requests, Jarvis also checks whether the transcript and wake timing
+For voice requests, Dodaios also checks whether the transcript and wake timing
 look plausible. Uncertainty is logged for monitored calls. Ask-level calls
 still require confirmation. This check does not turn a monitored action into
 an approval prompt.
@@ -61,7 +61,7 @@ shutdown or restart does not preserve authority to run them later.
 
 Before you approve, check:
 
-- **Action:** Is this the tool you expected Jarvis to use?
+- **Action:** Is this the tool you expected Dodaios to use?
 - **Target:** Is the account, person, file, application, or service correct?
 - **Arguments:** Do the visible details match what you requested?
 - **Effect:** Could this send, publish, delete, purchase, call, or expose data?
@@ -72,7 +72,7 @@ confident decision. Deny the call when the preview is incomplete or unclear.
 
 ### Voice and Realtime
 
-For an ask-level conversational action, Jarvis asks a short yes-or-no question
+For an ask-level conversational action, Dodaios asks a short yes-or-no question
 instead of waiting silently for the desktop UI. A clear **yes** runs the
 stored action once. A clear **no** drops it. In the normal voice flow, an
 unrelated next request also abandons the action and repeated unclear replies
@@ -85,9 +85,9 @@ remember the exact action, say no and start again. Realtime also keeps a
 pending action until you clearly answer or close the session; changing the
 subject is not a reliable denial there.
 
-### Jarvis-Agent Missions
+### Dodaios-Agent Missions
 
-A connected tool used by a Jarvis-Agent remains owned by the supervisor. The
+A connected tool used by a Dodaios-Agent remains owned by the supervisor. The
 worker receives a short-lived grant for selected tools, not the saved
 credential or a reusable approval. Recursive mission tools, Skill execution,
 secret and configuration tools, host shells, and live desktop controls are not
@@ -98,7 +98,7 @@ detailed approval panel requires a second click before **Approve and run**;
 
 In the app and spoken updates, the worker name follows your configured wake
 word, such as **Nova-Agent**. With no configured name, the fallback is
-**Assistant-Agent**. This page uses **Jarvis-Agent** for the internal system.
+**Assistant-Agent**. This page uses **Dodaios-Agent** for the internal system.
 
 > [!warning]
 > The detailed Missions view and its **Approvals** tab exist in the current
@@ -167,7 +167,7 @@ the desktop.
 
 A Skill is guidance, not a permission. AI-generated Skills remain drafts until
 you review and promote them. In conversational use, the tools a Skill asks
-Jarvis to call keep their normal safety decisions. Scheduled Skill steps use
+Dodaios to call keep their normal safety decisions. Scheduled Skill steps use
 the Skill's declared policy and refuse ask-level work when no approver is
 present.
 
@@ -178,7 +178,7 @@ gate; they are not evidence that every later service call will ask again.
 
 ### Connections, Plugins, and MCP
 
-Connecting a service gives Jarvis a route to that service. It does not prove
+Connecting a service gives Dodaios a route to that service. It does not prove
 that every method is read-only. Current MCP and marketplace-plugin tools
 normally inherit one shared **monitor** default instead of classifying every
 server method as read versus write. A write-capable method can therefore run
@@ -186,7 +186,7 @@ without a prompt in the default setup.
 
 Connect only servers you trust, grant the narrowest account scopes available,
 and test on non-critical data first. A plugin's own service permission is an
-important backstop when its Jarvis tier is not specific enough.
+important backstop when its Dodaios tier is not specific enough.
 
 ### Computer Use
 
@@ -195,11 +195,11 @@ steps are mostly safe or monitored. It does **not** ask before every click or
 keystroke. Screen, accessibility, and input permissions plus foreground-window
 checks provide additional boundaries. Login, password, two-factor, CAPTCHA,
 and operating-system elevation screens require human handoff rather than secret
-entry by Jarvis. You should still watch the run and avoid sensitive screens.
+entry by Dodaios. You should still watch the run and avoid sensitive screens.
 
 To stop a running mission from **Outputs**, hold the stop control until its
 ring completes. For a live voice or Computer Use turn, use the app's hang-up
-control. If desktop control continues or the UI is unresponsive, close Jarvis.
+control. If desktop control continues or the UI is unresponsive, close Dodaios.
 Stopping prevents later steps; it cannot reverse a click, message, command, or
 upload that already completed.
 
@@ -207,12 +207,12 @@ upload that already completed.
 
 A successful action normally passes several independent boundaries:
 
-1. **Capability:** a Skill, workflow, Brain, or Jarvis-Agent chooses an
+1. **Capability:** a Skill, workflow, Brain, or Dodaios-Agent chooses an
    available tool.
 2. **Permission:** the operating system allows the app to reach the required
    microphone, screen, input, or file boundary. See [App
    Permissions](permissions).
-3. **Connection:** Jarvis can retrieve the required credential and the service
+3. **Connection:** Dodaios can retrieve the required credential and the service
    account has enough scope. See [Credentials and
    Secrets](credentials-and-secrets).
 4. **Safety:** deny and allow rules plus the tool's risk level decide whether
@@ -232,7 +232,7 @@ blocks input.
 
 Use harmless checks rather than creating a real side effect:
 
-1. Start a normal voice session and ask Jarvis to perform a simple web search.
+1. Start a normal voice session and ask your assistant to perform a simple web search.
    Open **Run Inspector** and check that the captured tool call has a low risk
    level and a result.
 2. Ask Computer Use to open a calculator. Expect it to run as monitored work,

@@ -150,7 +150,7 @@ def _report_installed(payload: dict[str, Any]) -> int:
     if payload.get("ready"):
         _field(
             "Status",
-            "ready to use — Jarvis picked it up already, no restart needed",
+            "ready to use — Dodaios picked it up already, no restart needed",
         )
         _field("Check", f"jarvis skills show {item_id}")
         _field("Turn off", f"jarvis skills disable {item_id}")
@@ -167,7 +167,7 @@ def _report_installed(payload: dict[str, Any]) -> int:
         render.line()
         return 0
 
-    _field("Status", f"{payload.get('state') or 'unknown'} — Jarvis will not use it")
+    _field("Status", f"{payload.get('state') or 'unknown'} — Dodaios will not use it")
     if payload.get("problem"):
         _field("Problem", str(payload["problem"]))
     _field("Look", f"jarvis skills show {item_id}")
@@ -194,7 +194,7 @@ def _report_already_there(kind: str, item_id: str, client: Any) -> int:
         ready = state in ("active", "validated")
         _field(
             "Status",
-            "ready to use" if ready else f"{state} — Jarvis will not use it",
+            "ready to use" if ready else f"{state} — Dodaios will not use it",
         )
         if detail.get("error"):
             _field("Problem", str(detail["error"]))

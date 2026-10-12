@@ -15,13 +15,13 @@ tags: [workflows, app-commands, automation, voice, cli, safety]
 related: [tasks-and-reminders, skills, cli-reference, app-command-reference]
 ---
 
-Use an **app command** when you want Jarvis to perform one known action now,
+Use an **app command** when you want Dodaios to perform one known action now,
 such as showing your tasks, testing a provider, or changing the voice volume.
 Each command points to an existing app route with a defined input schema and
 safety level.
 
 Use a **workflow** when you want several saved steps to run in order, either
-manually or on a schedule. Jarvis stores the definition, supplied inputs, step
+manually or on a schedule. Dodaios stores the definition, supplied inputs, step
 outputs, and errors in its local workflow database.
 
 App commands and workflows are separate. The Command Registry does not
@@ -40,9 +40,9 @@ start a saved workflow by name.
 | **App command** | One curated action with known inputs and one app endpoint | You want a predictable action now from chat, voice, the desktop, or CLI |
 | **Workflow** | A named sequence that runs step by step and keeps run history | The order is fixed and you want to reuse or schedule it |
 | **Task** | One saved action that starts at a time, interval, or mission event | You need a reminder or one background turn, not a multi-step sequence |
-| **Skill** | Reusable instructions that guide how Jarvis handles a request | The method and quality rules matter more than a fixed sequence |
-| **Jarvis-Agent** | Isolated, reviewed work with progress and output files | The work is longer, exploratory, or needs several substantial decisions |
-| **Connection** | Access to tools from a plugin, MCP server, or command-line app | Jarvis needs a capability; the connection does not define the workflow |
+| **Skill** | Reusable instructions that guide how Dodaios handles a request | The method and quality rules matter more than a fixed sequence |
+| **Dodaios-Agent** | Isolated, reviewed work with progress and output files | The work is longer, exploratory, or needs several substantial decisions |
+| **Connection** | Access to tools from a plugin, MCP server, or command-line app | Dodaios needs a capability; the connection does not define the workflow |
 
 A workflow is not a longer app command. An app command maps one request to one
 validated app action. A workflow loads a separate saved definition, runs its
@@ -51,7 +51,7 @@ steps sequentially, and stops at the first failure.
 ## Use an App Command
 
 You normally do not need to know a command ID. Ask for a concrete action in
-**Chats** or by voice. When the active Brain supports tools, Jarvis can select
+**Chats** or by voice. When the active Brain supports tools, Dodaios can select
 the matching command, validate its inputs, call the app, and report the app's
 actual response.
 
@@ -59,10 +59,10 @@ Current command families include these examples:
 
 | Area | Requests you can make |
 |---|---|
-| Providers | List or test providers, or switch a supported Brain, voice, speech, Realtime, Computer Use, or Jarvis-Agent provider |
-| Voice and settings | Show or change the wake phrase, choose the reply language or voice mode, set volume, list audio devices, or restart Jarvis |
+| Providers | List or test providers, or switch a supported Brain, voice, speech, Realtime, Computer Use, or Dodaios-Agent provider |
+| Voice and settings | Show or change the wake phrase, choose the reply language or voice mode, set volume, list audio devices, or restart Dodaios |
 | Work and history | List tasks or missions, read a mission result or recent voice turn, and cancel a task or mission |
-| Knowledge and tools | Store a self-contained fact in the Wiki or list the tools currently available to Jarvis |
+| Knowledge and tools | Store a self-contained fact in the Wiki or list the tools currently available to Dodaios |
 
 The registry is curated, so it does not contain every app control. Browse the
 [App Command Reference](app-command-reference) to understand the fields, or
@@ -73,7 +73,7 @@ catalog in your installed version remains authoritative for that installation.
 
 Each registry entry maps the action across four surfaces:
 
-1. **Chat or voice:** Ask naturally. Jarvis runs a matching command only when
+1. **Chat or voice:** Ask naturally. Dodaios runs a matching command only when
    the conversational tool path and the action's dependencies are available.
 2. **Desktop:** Use the control in the command's named app section. The
    desktop does not have a separate command-catalog screen.
@@ -84,7 +84,7 @@ Each registry entry maps the action across four surfaces:
    app address used by the other surfaces. Most people do not need to call it
    directly.
 
-A conversational action is complete only after Jarvis receives success from
+A conversational action is complete only after Dodaios receives success from
 the app. A spoken intention or ordinary prose answer is not proof that a
 setting changed. Commands marked **Requires confirmation** wait for a separate
 approval turn, and policy can still block an action. Dangerous CLI operations
@@ -115,12 +115,12 @@ dialog from registry metadata.
 5. **Open Recent runs.** Expand a run to see the saved output or error for each
    step. A failure ends the sequence; later steps do not run.
 
-6. **Control future runs.** Nothing Jarvis ships runs on a schedule by
+6. **Control future runs.** Nothing Dodaios ships runs on a schedule by
    itself: the scheduled examples arrive switched off, and a schedule starts
    only once you enable it. Earlier versions shipped a **Morning Briefing**
    that was switched on; an update removes it unless you changed it. Enable a
    cron workflow to let the local scheduler
-   start it while Jarvis is running. Schedules currently use the Jarvis host's
+   start it while Dodaios is running. Schedules currently use the Dodaios host's
    local time, and the next-run value can take up to one minute to appear.
    Disable it to clear the next automatic run. **Run now** still works for a
    disabled workflow.
@@ -153,10 +153,10 @@ contains `URL`; it has no general input form.
 |---|---|---|
 | Brain prompt | Sends text to the active Brain and saves its reply | A reachable Brain path is required |
 | Speak | Publishes text to the voice output path | The step records success even when no text-to-speech output is available |
-| Local command | Starts one local executable and saves standard output | The program, working directory, and files must exist on the Jarvis host; shell pipes are not interpreted automatically |
+| Local command | Starts one local executable and saves standard output | The program, working directory, and files must exist on the Dodaios host; shell pipes are not interpreted automatically |
 | Telegram message | Sends text through the Telegram Bot API | A configured bot credential and chat ID are required |
 | Tool call | Requests a named registered tool through the safety executor | The current app bootstrap does not attach the required executor, so this step fails when reached |
-| Harness dispatch | Sends a prompt to a named harness, including Jarvis-Agent definitions | The current app bootstrap does not attach a harness manager, so this step fails when reached |
+| Harness dispatch | Sends a prompt to a named harness, including Dodaios-Agent definitions | The current app bootstrap does not attach a harness manager, so this step fails when reached |
 
 Text fields can use `{{prev.output}}`, `{{step_N.output}}`, and
 `{{input.key}}`. String values in tool arguments support the same substitution.
@@ -176,17 +176,17 @@ from the URL text and does not download or read the page.
 
 1. **A request, button, or schedule starts the path.** Chat and voice can start
    a curated app command. The desktop, CLI, or REST API can start a workflow.
-   A cron schedule can start an enabled workflow while Jarvis is running.
-2. **Jarvis chooses one action or one definition.** The command registry maps
+   A cron schedule can start an enabled workflow while Dodaios is running.
+2. **Dodaios chooses one action or one definition.** The command registry maps
    one command to one existing app route and its accepted inputs. A workflow
    instead loads its saved steps and processes them in order.
 3. **Adjacent features supply context or capability.** A Skill supplies
    repeatable instructions; a plugin, MCP connection, or CLI connection
-   supplies a tool; a Task supplies a time or event trigger; a Jarvis-Agent
+   supplies a tool; a Task supplies a time or event trigger; a Dodaios-Agent
    supplies isolated work and review. None of them silently grants another
    feature access.
 4. **Safety applies at the action boundary.** Conversational commands run
-   through Jarvis's safety policy before their app route is called, and the CLI
+   through Dodaios's safety policy before their app route is called, and the CLI
    adds its own confirmation gate for destructive requests. Direct workflow
    steps have the limitation described above, so definition review and
    activation are the safety boundary. Read
@@ -214,7 +214,7 @@ Then check the workflow path:
 2. Enter `https://example.com`, which is a reserved example address.
 3. Expand the newest run. Success is a **completed** state with output on its
    first step. The result should describe what can be inferred from the URL;
-   it is not evidence that Jarvis read the web page.
+   it is not evidence that Dodaios read the web page.
 
 This verifies the registry read path, manual workflow trigger, Brain step, and
 saved run timeline without changing an external account.
@@ -225,9 +225,9 @@ saved run timeline without changing an external account.
 |---|---|---|
 | Workflows is empty or shows a load error | The local workflow store is still starting or could not open | Wait for app startup, reopen **Workflows**, and restart normally if the view remains unavailable |
 | A run shows **failed** | The first unsuccessful step lacked its Brain, local program, input, file, connection, or runtime dependency | Expand **Recent runs**, read the exact failed step, fix that requirement, and run a supervised test |
-| A schedule never starts | The workflow is disabled, Jarvis was not running, the cron expression is invalid, or the host time differs from what you expected | Enable it, wait up to one minute for **Next run**, and verify the Jarvis host's local clock |
+| A schedule never starts | The workflow is disabled, Dodaios was not running, the cron expression is invalid, or the host time differs from what you expected | Enable it, wait up to one minute for **Next run**, and verify the Dodaios host's local clock |
 | A custom workflow needs input but no form appears | The desktop supports only the workflow-name-based URL shortcut | Use the dynamic CLI or REST run route with an input object, then inspect the saved run input and result |
-| Jarvis describes an app action or workflow run but nothing changes | The conversational tool path was unavailable, no app command returned success, or workflows are not exposed as conversational commands | Check the target state in the desktop, then use the documented CLI or desktop control |
+| Dodaios describes an app action or workflow run but nothing changes | The conversational tool path was unavailable, no app command returned success, or workflows are not exposed as conversational commands | Check the target state in the desktop, then use the documented CLI or desktop control |
 
 For repeated provider, connection, or startup failures, follow the main
 [Troubleshooting](troubleshooting) guide.

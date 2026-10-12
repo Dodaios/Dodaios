@@ -150,7 +150,7 @@ _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.+?)\s*```", re.DOTALL)
 
 
 _SYSTEM_PROMPT = (
-    "You are Jarvis' computer-use agent. Look at the screenshot and decide "
+    "You are Dodaios' computer-use agent. Look at the screenshot and decide "
     "the next action(s) that advance the user goal.\n\n"
     "Output JSON -- no markdown, no prose, no code fences, nothing before "
     "or after the JSON. Two shapes are accepted:\n\n"

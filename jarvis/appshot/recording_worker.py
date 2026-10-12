@@ -52,7 +52,7 @@ def run(
     # Importing the backend in standby opens no capture device or portal.
     importlib.import_module("PySide6.QtMultimedia")
 
-    app = QApplication(["Personal Jarvis — Screen recording"])
+    app = QApplication(["Dodaios — Screen recording"])
     from jarvis.platform.qt_sidecar import hide_from_dock
 
     hide_from_dock()  # macOS: no "Python" Dock icon for the standby recorder
