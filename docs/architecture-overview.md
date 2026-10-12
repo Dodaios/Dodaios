@@ -296,7 +296,7 @@ The six desktop power-user features that were historically Windows-only are now 
 
 ## Brand mark / logo (BINDING)
 
-**The official Jarvis logo is the hooded figure** in `assets/brand/jarvis-logo.svg` (black ink on white, one even-odd path). Every app icon — `assets/icons/jarvis.ico`/`.icns`/`jarvis-1024.png`, the bundled `jarvis/assets/icons/jarvis.png`, the DEV copy, the frontend favicon, splash and `jarvis-mark-256.png` — is rendered from it by `python scripts/make_app_icon.py`, which also writes `src/components/brand/jarvisLogoPath.ts` for the in-app mark; `tests/test_app_icon.py` fails when the two drift. Edit the SVG and re-run the script; never hand-edit a PNG or ICO.
+**The official Jarvis logo is the hooded figure** in `assets/brand/dodaios-logo.svg` (black ink on white, one even-odd path). Every app icon — `assets/icons/jarvis.ico`/`.icns`/`jarvis-1024.png`, the bundled `jarvis/assets/icons/jarvis.png`, the DEV copy, the frontend favicon, splash and `jarvis-mark-256.png` — is rendered from it by `python scripts/make_app_icon.py`, which also writes `src/components/brand/jarvisLogoPath.ts` for the in-app mark; `tests/test_app_icon.py` fails when the two drift. Edit the SVG and re-run the script; never hand-edit a PNG or ICO.
 
 ---
 
