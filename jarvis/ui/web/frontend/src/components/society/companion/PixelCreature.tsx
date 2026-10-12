@@ -104,6 +104,8 @@ export function PixelCreature({ creature, size, state = "idle" }: { creature: Cr
 const STAGE_SWAY = 0.5;
 /** One sway takes this long, milliseconds. */
 const STAGE_SWAY_MS = 7000;
+/** The stage repaints at most this often, milliseconds: the sway is slow, and a preview must stay cheap. */
+const STAGE_FRAME_MS = 33;
 /** How far a drag across the whole stage turns the figure, radians. */
 const STAGE_DRAG_TURN = Math.PI * 1.5;
 
@@ -128,7 +130,10 @@ export function CreatureStage({ creature, state = "idle" }: { creature: Creature
     let shown = "";
     let frameRequest = 0;
     let visible = true;
-    const paint = (now: number) => {
+    let painted = -Infinity;
+    const paint = (now: number, force = false) => {
+      if (!force && now - painted < STAGE_FRAME_MS) return;
+      painted = now;
       const scale = Math.min(window.devicePixelRatio || 1, 2);
       const next = Math.round(node.clientWidth * scale);
       if (next === 0) return;
@@ -160,7 +165,8 @@ export function CreatureStage({ creature, state = "idle" }: { creature: Creature
       if (dragFrom === null) return;
       turn.current += ((event.clientX - dragFrom) / Math.max(1, node.clientWidth)) * STAGE_DRAG_TURN;
       dragFrom = event.clientX;
-      start();
+      // A still figure (reduced motion) repaints on the drag itself.
+      if (reduced) paint(performance.now(), true); else start();
     };
     const onUp = () => { dragFrom = null; };
     node.addEventListener("pointerdown", onDown);
