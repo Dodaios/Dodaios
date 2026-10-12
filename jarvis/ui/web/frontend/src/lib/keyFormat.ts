@@ -91,7 +91,7 @@ export function detectKeyFormat(value: string): KeyFormatHint | null {
     return {
       kind: "google-express",
       label: "Google API key (AI Studio or Vertex express)",
-      note: "AI Studio and Vertex AI express keys share this format — the card you save it under decides the endpoint, and for a Gemini card Jarvis detects it automatically.",
+      note: "AI Studio and Vertex AI express keys share this format — the card you save it under decides the endpoint, and for a Gemini card Dodaios detects it automatically.",
     };
   }
   if (/^sk-/.test(v)) return { kind: "openai", label: "OpenAI API key" };

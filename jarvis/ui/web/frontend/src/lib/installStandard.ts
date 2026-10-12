@@ -10,7 +10,7 @@
  *
  * TWO standards, not one:
  *
- *  - **Personal Jarvis** — `jarvis marketplace install <name>` installs into
+ *  - **the app's own** — `jarvis marketplace install <name>` installs into
  *    this app. Available for every listing, because the registry is ours.
  *  - **skills.sh** — `npx skills add <owner>/<repo>` is the open agent-skills
  *    installer (Vercel Labs; see https://skills.sh). It reads a `SKILL.md`
@@ -30,6 +30,8 @@
  * shell prompt drawn in front of them differs, which is what `shellPrompt`
  * answers.
  */
+
+import { PRODUCT_NAME } from "@/lib/branding";
 
 export type EntryKind = "plugin" | "skill";
 
@@ -204,9 +206,9 @@ export function installBlock(
   const commands: InstallCommand[] = [
     {
       id: "jarvis",
-      label: "Personal Jarvis",
+      label: PRODUCT_NAME,
       command: cli,
-      note: "Runs in any terminal while Personal Jarvis is running.",
+      note: `Runs in any terminal while ${PRODUCT_NAME} is running.`,
     },
   ];
 
