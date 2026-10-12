@@ -11,11 +11,14 @@ run has to prove, not what could be run:
            Linux and Windows, no macOS, and without the slowest real-runtime
            leg. It is the admission ticket to the merge queue.
 ``queue``  A merge-queue group, or a push that reached main without one. The
-           blocking proof of the exact tree main gets: everything ``pr`` runs
-           plus one macOS leg per affected lane and the slow legs.
+           blocking proof of the exact tree main gets: everything ``pr`` runs,
+           the slow legs, and one SHORT macOS leg per affected lane. Up to
+           four groups build at once on five macOS slots, so a group may
+           spend minutes there, not half an hour: the real-runtime and the
+           real-browser macOS legs (5 to 10 minutes each) stay in ``full``.
 ``full``   Nightly, a release tag, a manual full dispatch. The wide matrix:
            Intel macOS, the ARM runners, every interpreter, the macOS test
-           shards. Unchanged in scope; it only stopped running per change.
+           shards, the real runtimes and the real browser on macOS.
 
 ``macos`` (nightly, tags, a dispatch with ``include_macos``) selects the wide
 matrix on any tier: ``gh workflow run ci.yml --ref <branch> -f full=false
@@ -137,14 +140,14 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
     ]
     if slow_legs:
         e2e.append({"os": WINDOWS, "runtime": "hermes"})
-    if mac_lanes:
+    # 10 and 7 minutes on macOS: with three groups in the queue these two
+    # legs alone held every macOS slot for half an hour. Nightly and release.
+    if macos:
         e2e += [{"os": MACOS, "runtime": "hermes"}, {"os": MACOS, "runtime": "openclaw"}]
 
     browser = list(base_os)
-    if mac_lanes:
-        browser.append(MACOS)
     if macos:
-        browser += [LINUX_ARM, WINDOWS_ARM, MACOS_INTEL]
+        browser += [MACOS, LINUX_ARM, WINDOWS_ARM, MACOS_INTEL]
 
     return {
         # jarvisctl, dragdrop and the installer smoke stay off macOS unless

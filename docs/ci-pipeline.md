@@ -25,8 +25,8 @@ to prove (`scripts/ci/plan_run.py` emits the tier and every job matrix):
 | Tier | When | What runs | Target |
 | --- | --- | --- | --- |
 | `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS, and not the 18-minute Hermes install on Windows. | ~10 min |
-| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs, plus one macOS leg per affected lane and the slow legs. The blocking proof of the exact tree main gets. | ~10 min, ~20 min when the agent-runtime lane is affected |
-| `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows. | ~30 min |
+| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs, the slow legs, and one short macOS leg per affected lane (realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle). The blocking proof of the exact tree main gets. | ~10 min, ~20 min when the agent-runtime lane is affected |
+| `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the real runtimes and the real browser on macOS. | ~30 min |
 | proven | push to main of a commit the merge queue already passed | `detect` and `CI gate` only. | under 1 min |
 
 A queue group and the push that lands it are one commit, so the push run
@@ -34,7 +34,14 @@ asks the API for a green `merge_group` run of its own SHA and, when there is
 one, turns every lane off. Any doubt (a direct push, an API error) fails open
 to the `queue` tier. A nightly run never accepts an earlier proof.
 
-A branch gets macOS feedback before the queue with
+Up to four merge groups build at once on five macOS slots. The first queue
+runs of this design carried six to eight macOS legs each; three groups and
+one manual full run then waited more than half an hour on macOS alone. The
+two real-runtime legs (10 and 7 minutes) and the real-browser leg therefore
+run on macOS nightly and on release tags, and a group keeps only legs of one
+to four minutes.
+
+A branch gets the whole macOS matrix before the queue with
 `gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
 
 Measured before the tiers (338 runs, 2026-10-07 to 2026-10-12): a run fanned
@@ -156,8 +163,8 @@ and manual runs have their own slots.
 squash, `CI gate` required). A pull request's own CI is its admission ticket;
 the queue then builds each entry on top of the newest main plus every entry
 ahead of it, runs `ci.yml` on that exact tree (`merge_group` event: the
-`queue` tier, whole Linux + Windows suite plus one macOS leg per affected
-lane), and squash-merges only when `CI gate` is green there.
+`queue` tier, whole Linux + Windows suite plus one short macOS leg per
+affected lane), and squash-merges only when `CI gate` is green there.
 Changes that pass alone and break together stop in the queue instead of on
 main. A failed entry leaves the queue; the entries behind it are rebuilt
 without it.

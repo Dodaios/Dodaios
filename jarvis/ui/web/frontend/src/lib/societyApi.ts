@@ -79,6 +79,18 @@ export type ApprovalState = (typeof APPROVAL_STATES)[number];
 export const QUEST_STATES = ["open", "assigned", "running", "done", "failed", "cancelled"] as const;
 export type QuestState = (typeof QUEST_STATES)[number];
 
+/** A goal the person gave a team; its lead plans, assigns and reports. */
+export const TEAM_GOAL_STATES = [
+  "queued", "running", "needs_input", "paused", "done", "failed", "cancelled",
+] as const;
+export type TeamGoalState = (typeof TEAM_GOAL_STATES)[number];
+
+/** One task a team lead handed to a member. */
+export const TEAM_TASK_STATES = [
+  "waiting", "assigned", "running", "done", "blocked", "cancelled",
+] as const;
+export type TeamTaskState = (typeof TEAM_TASK_STATES)[number];
+
 /** One row of the board, as GET /api/society/events returns it. */
 export interface SocietyEnvelope {
   seq: number;
