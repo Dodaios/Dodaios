@@ -227,6 +227,8 @@ export interface ArtifactSummary {
   mtime: number;
   is_text: boolean;
   preview: string | null;
+  /** A page's own `<title>`, read by the listing (absent on older backends). */
+  title?: string | null;
 }
 
 export interface ArtifactsResponse {
