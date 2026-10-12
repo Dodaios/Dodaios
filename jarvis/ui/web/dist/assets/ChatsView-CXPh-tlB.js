@@ -1,0 +1,1 @@
+import{j as s}from"./index-CB9-ek1y.js";import{P as n}from"./PageHeader-uhCky2q_.js";import"./WorkTrace-DhEu-APx.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
