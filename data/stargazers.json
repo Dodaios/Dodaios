@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 180,
+  "count": 181,
   "forks": 70,
-  "placed": 38,
-  "stated": 48,
-  "generatedAt": "2026-10-12T05:02:29.212Z",
+  "placed": 39,
+  "stated": 49,
+  "generatedAt": "2026-10-12T06:35:14.100Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -214,6 +214,13 @@
       "lon": 151.183,
       "label": "Sydney",
       "country": "Australia",
+      "count": 1
+    },
+    {
+      "lat": 15.46,
+      "lon": 101.073,
+      "label": "Thailand",
+      "country": "Thailand",
       "count": 1
     },
     {
