@@ -17,6 +17,18 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  # A check by hand against a past nightly. It reports what it would do and
+  # writes nothing unless `dry_run` is switched off.
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "A finished nightly (scheduled) CI run on main"
+        required: true
+        type: string
+      dry_run:
+        description: "Report only; do not open, edit or close the issue."
+        type: boolean
+        default: true
 
 permissions: {}
 
@@ -31,10 +43,12 @@ jobs:
     # A fork pull request can be named `main` too: the repository and event
     # checks, not the branch filter alone, keep its runs out.
     if: >-
-      github.event.workflow_run.event == 'schedule' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.head_branch == 'main' &&
-      contains(fromJSON('["success","failure"]'), github.event.workflow_run.conclusion)
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'schedule' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main' &&
+       contains(fromJSON('["success","failure"]'), github.event.workflow_run.conclusion))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -44,19 +58,32 @@ jobs:
       - name: Open, update or close the tracking issue
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
+          # A run id typed by hand is vetted like the event: only a finished
+          # nightly run of this repository's CI on main may feed the issue.
+          if [ -z "$RUN_URL" ]; then
+            case "$RUN_ID" in (''|*[!0-9]*) echo "::error::not a run id: $RUN_ID"; exit 1 ;; esac
+            vetted="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq \
+              'select(.head_repository.full_name == env.GITHUB_REPOSITORY and .path == ".github/workflows/ci.yml" and .head_branch == "main" and .event == "schedule" and .status == "completed") | "\(.conclusion) \(.html_url)"')"
+            [ -n "$vetted" ] || { echo "::error::run $RUN_ID is not a finished nightly CI run on main"; exit 1; }
+            CONCLUSION="${vetted%% *}"; RUN_URL="${vetted#* }"
+          fi
+          write() { if [ "$DRY_RUN" = "true" ]; then echo "dry run, not executed: gh $*"; else gh "$@"; fi; }
           # The label lists issues without the search index, which lags behind
           # a freshly created issue and would invite a duplicate.
           number="$(gh issue list --repo "$GITHUB_REPOSITORY" --label nightly-ci --state open \
             --limit 1 --json number --jq '.[0].number // empty')"
           if [ "$CONCLUSION" = "success" ]; then
             if [ -n "$number" ]; then
-              gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+              write issue close "$number" --repo "$GITHUB_REPOSITORY" \
                 --comment "The nightly run is green again: $RUN_URL"
               echo "Closed issue #$number" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "The nightly run is green and no issue is open." | tee -a "$GITHUB_STEP_SUMMARY"
             fi
             exit 0
           fi
@@ -72,13 +99,14 @@ jobs:
             echo "was blocked by them. Reproduce on a branch with"
             echo '`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.'
           } > "$RUNNER_TEMP/issue.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/issue.md"
           if [ -n "$number" ]; then
-            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/issue.md"
+            write issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/issue.md"
             echo "Updated issue #$number" | tee -a "$GITHUB_STEP_SUMMARY"
           else
-            gh label create nightly-ci --repo "$GITHUB_REPOSITORY" --force \
+            write label create nightly-ci --repo "$GITHUB_REPOSITORY" --force \
               --color B60205 --description "The nightly CI run on main is red"
-            url="$(gh issue create --repo "$GITHUB_REPOSITORY" --title "Nightly CI is red" \
+            url="$(write issue create --repo "$GITHUB_REPOSITORY" --title "Nightly CI is red" \
               --label nightly-ci --body-file "$RUNNER_TEMP/issue.md")"
             echo "Created $url" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
