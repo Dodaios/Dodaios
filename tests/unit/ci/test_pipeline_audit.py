@@ -438,7 +438,16 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     # No pull-request code runs next to the issue token.
     assert all("uses" not in step for step in job["steps"])
     script = job["steps"][0]["run"]
-    assert "--label nightly-ci" in script and "gh issue close" in script
+    assert "--label nightly-ci" in script and "write issue close" in script
+    # A check by hand runs from main only, vets the run it is given like the
+    # event, and writes nothing unless the dry run is switched off.
+    by_hand = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+    assert by_hand in job["if"]
+    assert '.event == "schedule"' in script and '.head_branch == "main"' in script
+    triggers = alert.get("on", alert.get(True))
+    assert triggers["workflow_dispatch"]["inputs"]["dry_run"]["default"] is True
+    for direct in ("gh issue close", "gh issue edit", "gh issue create", "gh label create"):
+        assert direct not in script, direct
     # The legs that left the per-change tiers are exactly what the nightly keeps.
     nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
     only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]

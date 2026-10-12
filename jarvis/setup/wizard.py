@@ -211,9 +211,9 @@ SECRETS: list[SecretSpec] = [
     SecretSpec(
         key="jarvis_agent_vertex_api_key",
         env_fallback="JARVIS_AGENT_VERTEX_API_KEY",
-        label="Vertex AI API Key for Jarvis-Agents",
+        label="Vertex AI API Key for Dodaios-Agents",
         help_url="https://console.cloud.google.com/vertex-ai/studio/settings/api-keys",
-        required_for="Jarvis-Agents (Vertex AI)",
+        required_for="Dodaios-Agents (Vertex AI)",
         prompt=False,
     ),
     SecretSpec(
@@ -267,49 +267,49 @@ SECRETS: list[SecretSpec] = [
     SecretSpec(
         key="jarvis_agent_anthropic_api_key",
         env_fallback="JARVIS_AGENT_ANTHROPIC_API_KEY",
-        label="Anthropic API Key for Jarvis-Agents",
+        label="Anthropic API Key for Dodaios-Agents",
         help_url="https://console.anthropic.com/settings/keys",
-        required_for="Jarvis-Agents (Claude API)",
+        required_for="Dodaios-Agents (Claude API)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_openai_api_key",
         env_fallback="JARVIS_AGENT_OPENAI_API_KEY",
-        label="OpenAI API Key for Jarvis-Agents",
+        label="OpenAI API Key for Dodaios-Agents",
         help_url="https://platform.openai.com/api-keys",
-        required_for="Jarvis-Agents (OpenAI)",
+        required_for="Dodaios-Agents (OpenAI)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_gemini_api_key",
         env_fallback="JARVIS_AGENT_GEMINI_API_KEY",
-        label="Gemini API Key for Jarvis-Agents",
+        label="Gemini API Key for Dodaios-Agents",
         help_url="https://aistudio.google.com/app/apikey",
-        required_for="Jarvis-Agents (Gemini)",
+        required_for="Dodaios-Agents (Gemini)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_openrouter_api_key",
         env_fallback="JARVIS_AGENT_OPENROUTER_API_KEY",
-        label="OpenRouter API Key for Jarvis-Agents",
+        label="OpenRouter API Key for Dodaios-Agents",
         help_url="https://openrouter.ai/keys",
-        required_for="Jarvis-Agents (OpenRouter)",
+        required_for="Dodaios-Agents (OpenRouter)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_grok_api_key",
         env_fallback="JARVIS_AGENT_GROK_API_KEY",
-        label="Grok API Key for Jarvis-Agents",
+        label="Grok API Key for Dodaios-Agents",
         help_url="https://console.x.ai/",
-        required_for="Jarvis-Agents (Grok)",
+        required_for="Dodaios-Agents (Grok)",
         prompt=False,
     ),
     SecretSpec(
         key="jarvis_agent_nvidia_api_key",
         env_fallback="JARVIS_AGENT_NVIDIA_API_KEY",
-        label="NVIDIA API Key for Jarvis-Agents",
+        label="NVIDIA API Key for Dodaios-Agents",
         help_url="https://build.nvidia.com/settings/api-keys",
-        required_for="Jarvis-Agents (NVIDIA NIM)",
+        required_for="Dodaios-Agents (NVIDIA NIM)",
         prompt=False,
     ),
     SecretSpec(
@@ -1119,10 +1119,10 @@ def step_jarvis_agent_harness_check() -> None:
 
     _println()
     _println("=" * 60)
-    _println(" Step 7 / 8 — Jarvis-Agent worker harness (optional, heavy tasks)")
+    _println(" Step 7 / 8 — Dodaios-Agent worker harness (optional, heavy tasks)")
     _println("=" * 60)
     _println()
-    _println("Jarvis-Agents handle complex multi-step tasks for you")
+    _println("Dodaios-Agents handle complex multi-step tasks for you")
     _println("('read this repo + build X', 'reproduce the bug + propose a fix').")
     _println("Dodaios dispatches via the 'spawn_worker' tool to a short-lived")
     _println("worker subprocess; the LLM output only lands in the voice path after")

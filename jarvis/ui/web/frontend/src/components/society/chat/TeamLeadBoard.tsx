@@ -350,9 +350,14 @@ function GoalCard({ goal, leadName, assistantName, agentOf, nameOf, busy, onMess
   const source = goal.source === "jarvis" ? t("society.lead.source_jarvis").replace("{0}", assistantName)
     : goal.source === "lead" ? t("society.lead.source_lead").replace("{0}", leadName)
     : goal.source === "assignment" ? t("society.lead.source_assignment") : "";
-  // The title is the goal's first line; show only what the text adds to it.
+  // The title is the goal's first line, cut short when it is long. Show the
+  // line in full as the heading and only what the text adds to it below.
   const text = goal.text.trim();
-  const detailText = text.startsWith(goal.title) ? text.slice(goal.title.length).trim() : text;
+  const firstLine = text.split("\n", 1)[0].trim();
+  const stem = goal.title.endsWith("\u2026") ? goal.title.slice(0, -1).trimEnd() : goal.title;
+  const ownsTitle = stem.length > 0 && firstLine.replace(/\s+/g, " ").startsWith(stem);
+  const heading = ownsTitle ? firstLine : goal.title;
+  const detailText = ownsTitle ? text.slice(text.indexOf(firstLine) + firstLine.length).trim() : text;
   const detail = goal.note.startsWith("error:") ? goal.note.slice(6) : "";
   const note = goal.state !== "paused" && goal.state !== "failed" ? ""
     : detail ? t("society.lead.note_error").replace("{0}", detail)
@@ -369,7 +374,7 @@ function GoalCard({ goal, leadName, assistantName, agentOf, nameOf, busy, onMess
       data-testid={`team-goal-${goal.goal_id}`} data-state={goal.state}>
       <header className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-semibold text-foreground">{goal.title}</h4>
+          <h4 className="text-sm font-semibold text-foreground">{heading}</h4>
           {detailText && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{detailText}</p>}
           {source && <p className="mt-1 text-xs text-muted-foreground">{source}</p>}
         </div>
