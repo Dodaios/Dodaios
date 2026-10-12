@@ -959,7 +959,7 @@ _DICTATION_HANDOVER_POLL_S = 0.02
 
 # Said when a voice gesture is refused and the permission layer has no sentence of
 # its own (an unreadable permission, an injected gate that only says "no").
-_MICROPHONE_REFUSED_SENTENCE = "Microphone access is not available for Personal Jarvis right now."
+_MICROPHONE_REFUSED_SENTENCE = "Microphone access is not available for Dodaios right now."
 
 # How long the wake loop parks on the microphone permission before it re-reads the
 # gate on its own. The grant normally wakes it at once (PermissionResolved); this
@@ -18724,14 +18724,14 @@ async def _main() -> None:
     )
     print()
     print("=" * 64)
-    print("  Personal Jarvis — Speech pipeline")
+    print("  Dodaios — Speech pipeline")
     print("=" * 64)
     print("  CALL    :  say your wake word           |  Ctrl+RightAlt+J  |  F3+F4")
     # i18n-allow: quoted German hang-up trigger phrase
     print("  HANG UP :  say 'auflegen'               |  F1+F2")
     print("  QUIT    :  Ctrl+C in the terminal")
     print()
-    print("  When Jarvis hears you: chime + a short spoken ack back.")
+    print("  When Dodaios hears you: chime + a short spoken ack back.")
     print("  The live score log shows whether the wake word triggers.")
     print("=" * 64)
     print()

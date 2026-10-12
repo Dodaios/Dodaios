@@ -15,9 +15,9 @@ tags: [cli, terminal, api, automation, reference]
 related: [cli-connections, control-api-reference, app-command-reference, configuration-reference]
 ---
 
-The Jarvis command-line interface (CLI) lets you inspect and control a running
-Personal Jarvis instance from a terminal. It is a thin client: the command
-sends a request, while Jarvis performs the action and applies its normal
+The Dodaios command-line interface (CLI) lets you inspect and control a running
+Dodaios instance from a terminal. It is a thin client: the command
+sends a request, while Dodaios performs the action and applies its normal
 validation and safety rules.
 
 Start with a curated command such as `jarvis system status`. Use the dynamic
@@ -25,29 +25,29 @@ Start with a curated command such as `jarvis system status`. Use the dynamic
 
 ## Before You Start
 
-- Install Personal Jarvis so the `jarvis`, `jarvisctl`, and `jctl` commands are
+- Install Dodaios so the `jarvis`, `jarvisctl`, and `jctl` commands are
   available.
 - Start the desktop app or headless server for any command that reads or
-  changes Jarvis. Curated help, version, and schema-cache maintenance work
+  changes Dodaios. Curated help, version, and schema-cache maintenance work
   without a running server.
 - For a remote instance, use a trusted private connection and authenticate
   with its control key. Do not expose the control address directly to the
   public internet.
 
-Commands affect the computer that runs the Jarvis server, which may be
+Commands affect the computer that runs the Dodaios server, which may be
 different from the computer where you type the command.
 
 ## Choose the Right Surface
 
 | Surface | Use it when | What it controls |
 |---|---|---|
-| **Jarvis CLI** | You want to inspect, automate, or manage Jarvis from a terminal | A running Personal Jarvis instance |
-| **CLI Connections** | You want Jarvis to use another terminal program | External programs installed on the Jarvis host |
+| **Dodaios CLI** | You want to inspect, automate, or manage Dodaios from a terminal | A running Dodaios instance |
+| **CLI Connections** | You want Dodaios to use another terminal program | External programs installed on the Dodaios host |
 | **Control API** | You are building an HTTP integration | The REST operations behind the CLI and app |
-| **App Commands** | You need a stable Jarvis action shared by voice, chat, desktop, CLI, and REST | The canonical cross-surface command catalog |
+| **App Commands** | You need a stable Dodaios action shared by voice, chat, desktop, CLI, and REST | The canonical cross-surface command catalog |
 
-The similar names describe opposite directions: the Jarvis CLI lets **you
-control Jarvis**; a [CLI Connection](cli-connections) lets **Jarvis control an
+The similar names describe opposite directions: the Dodaios CLI lets **you
+control Dodaios**; a [CLI Connection](cli-connections) lets **Dodaios control an
 external CLI**.
 
 ## Choose a Command Layer
@@ -67,7 +67,7 @@ schema cache for up to 24 hours. After that, an `api` invocation tries to fetch
 a new schema and falls back to the older cache if the server is unreachable.
 Run `jarvis refresh` to clear the cache before the next `jarvis api` call.
 
-Use the [generated Jarvis CLI command catalog](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli-reference.md)
+Use the [generated Dodaios CLI command catalog](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli-reference.md)
 for the maintained list of curated groups, arguments, and options. It
 intentionally does not copy the server-specific dynamic API operations.
 
@@ -141,7 +141,7 @@ contains private information.
 ## Platform and Host Limits
 
 The control client runs on Windows, macOS, and Linux, but each operation still
-depends on capabilities of the Jarvis host. A command can exist even when its
+depends on capabilities of the Dodaios host. A command can exist even when its
 feature is unavailable there. For example, desktop privacy prompts require the
 matching desktop operating system, audio commands require host audio devices,
 and some app-opening actions do not work on a headless server.
@@ -158,10 +158,10 @@ different target does not accept.
    available.
 3. The request enters the same [Control API](control-api-reference) used by
    other supported control clients.
-4. Jarvis validates the input, checks authentication, and applies server-side
+4. Dodaios validates the input, checks authentication, and applies server-side
    safety and permission rules. `--yes` satisfies only the CLI confirmation
    gate; it does not bypass those checks.
-5. Jarvis performs the action on its host and returns a result. The CLI renders
+5. Dodaios performs the action on its host and returns a result. The CLI renders
    it as a table or JSON.
 6. If the server, authentication, or host capability is unavailable, the CLI
    exits with an error instead of inventing a result.
@@ -172,7 +172,7 @@ dynamic CLI mirrors that broader surface.
 
 ## Check That It Works
 
-With Personal Jarvis running, use one read-only command:
+With Dodaios running, use one read-only command:
 
 ```powershell
 jarvis --json system status
@@ -187,18 +187,18 @@ server request path are working. It does not test every feature on the host.
 | What you see | What it usually means | What to do |
 |---|---|---|
 | `jarvis --help` shows app-launch options | Top-level `jarvis` help belongs to the launcher | Use `jarvisctl --help`, or ask for help below a control group |
-| Status reports that Jarvis is unreachable | The server is stopped, the target is wrong, or authentication failed | Start Jarvis, check `jarvis auth status`, then verify the saved target |
+| Status reports that Dodaios is unreachable | The server is stopped, the target is wrong, or authentication failed | Start Dodaios, check `jarvis auth status`, then verify the saved target |
 | The `api` group is unavailable | No schema is cached and the server cannot be reached | Start or reconnect to the target, run `jarvis refresh`, then retry `jarvis api --help` |
 | A new API operation is missing | The dynamic schema cache can remain fresh for 24 hours | Run `jarvis refresh`, then invoke the `api` group while the intended server is reachable |
 | A dangerous action is refused | The CLI requires explicit authorization and never prompts | Run the supported `--dry-run`, review it, then repeat with `--yes` only if the action is correct |
 
 ## Next Steps
 
-- Read [CLI Connections](cli-connections) when Jarvis should use an external
+- Read [CLI Connections](cli-connections) when Dodaios should use an external
   terminal program rather than receive a control command.
 - Use the [Control API Reference](control-api-reference) for HTTP
   authentication, discovery, responses, and integration behavior.
 - Open the [App Command Reference](app-command-reference) to understand the
-  stable actions shared across Jarvis surfaces.
+  stable actions shared across Dodaios surfaces.
 - Review the [Configuration Reference](configuration-reference) before
   changing settings from the CLI or API.

@@ -1,4 +1,4 @@
-<h1 align="center">Personal Jarvis</h1>
+<h1 align="center">Dodaios</h1>
 
 <p align="center">
   <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a> ·
@@ -10,6 +10,8 @@
   同时驱动所有编程智能体进行 Vibe Coding，用语音和电脑对话，再组建一支在你休息时也持续工作的 AI 智能体团队。
 </p>
 
+<p align="center"><sub>本项目原名 Personal Jarvis。</sub></p>
+
 <p align="center">
   <a href="https://pypi.org/project/personal-jarvis/"><img alt="PyPI" src="https://img.shields.io/pypi/v/personal-jarvis?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
   <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache_2.0-F7F7F4?labelColor=0A0A0A" /></a>
@@ -19,23 +21,23 @@
 
 <p align="center">
   <a href="#安装">安装</a> ·
-  <a href="https://personaljarvis.ai">官网</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-personal-jarvis.md">文档</a> ·
+  <a href="https://dodaios.ai">官网</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">文档</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
-  <a href="https://x.com/PersonalJarvis">X</a>
+  <a href="https://x.com/dodaios">X</a>
 </p>
 
 https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
 
-<p align="center"><sub>一段真实、未经剪辑的应用录屏（带声音）：用语音和 Jarvis 交谈、把工作交给智能体，并在编程工作区里跟进它们的进度。</sub></p>
+<p align="center"><sub>一段真实、未经剪辑的应用录屏（带声音）：用语音和 Dodaios 交谈、把工作交给智能体，并在编程工作区里跟进它们的进度。</sub></p>
 
 ---
 
-Personal Jarvis 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电脑上能做的一切汇集到一处：
+Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电脑上能做的一切汇集到一处：
 多智能体编程工作区、拥有独立记忆的常驻 AI 智能体、带唤醒词的语音助手、桌面与浏览器操控、插件市场，
 以及你已经付费的所有模型——云端模型、本地模型或你现有的订阅。
 
-你说出想要什么。Jarvis 会直接回答、在你的电脑上把事情做完，或者交给合适的智能体——每一步你都看得见。
+你说出想要什么。Dodaios 会直接回答、在你的电脑上把事情做完，或者交给合适的智能体——每一步你都看得见。
 
 **免费、开源，在你自己的电脑上运行。** 无需注册账号，中间也没有我们的云服务。
 支持 Windows、macOS 和 Linux，另有无界面的服务器模式。
@@ -48,16 +50,16 @@ Personal Jarvis 不是又一个聊天窗口。它是一款桌面应用，把 AI 
 | | |
 |---|---|
 | **Agentic IDE** | 在实时终端窗格中并排运行 Claude Code、Codex、OpenCode、Kimi Code、GLM、Grok Build、Antigravity、Cursor CLI 和 DeepSeek Harness——你的电脑能承载多少就开多少。还能用语音给它们布置任务。 |
-| **Jarvis 智能体** | 组建一支常驻 AI 智能体团队。每个智能体都有自己的对话、指令、工具、日程和记忆，并能从自己的工作中学习。 |
-| **Jarvis Verse** | 在 3D 世界中实时观看你的智能体：它们走向自己的工位、接手工作，并展示此刻正在做什么。 |
+| **Dodaios 智能体** | 组建一支常驻 AI 智能体团队。每个智能体都有自己的对话、指令、工具、日程和记忆，并能从自己的工作中学习。 |
+| **Dodaios Verse** | 在 3D 世界中实时观看你的智能体：它们走向自己的工位、接手工作，并展示此刻正在做什么。 |
 | **语音** | 唤醒词、自然的实时对话、向任意应用听写输入，以及电话通话。像和真人说话一样随时打断它。 |
-| **电脑操控** | Jarvis 亲自操作你的桌面和浏览器——点击、输入、读取屏幕——而控制权始终在你手里。 |
+| **电脑操控** | Dodaios 亲自操作你的桌面和浏览器——点击、输入、读取屏幕——而控制权始终在你手里。 |
 | **市场** | 40 多个一键安装的插件、MCP 服务器、技能和命令行工具：GitHub、Google Workspace、Notion、Slack、Linear、Spotify、Home Assistant 等。 |
 | **任意模型** | OpenAI、Anthropic、Gemini、OpenRouter、NVIDIA、Ollama 以及任何本地服务器——或者你的 Claude 和 ChatGPT 订阅。可以按任务自由搭配。 |
-| **记忆** | 一个由 Jarvis 读取、写入并引用的本地知识库，让上下文在不同对话、智能体和日子之间延续。 |
+| **记忆** | 一个由 Dodaios 读取、写入并引用的本地知识库，让上下文在不同对话、智能体和日子之间延续。 |
 | **例程** | 按计划执行的重复性工作：晨间简报、收件箱整理、每晚报告。 |
-| **截图（Appshots）** | 按两个键，就能让 Jarvis 看到你正在看的窗口或精确区域。用同样的方式录制短片。 |
-| **宠物** | 桌面上的一个小动画伙伴，会在 Jarvis 聆听、思考和说话时做出反应。 |
+| **截图（Appshots）** | 按两个键，就能让 Dodaios 看到你正在看的窗口或精确区域。用同样的方式录制短片。 |
+| **宠物** | 桌面上的一个小动画伙伴，会在 Dodaios 聆听、思考和说话时做出反应。 |
 
 ## 成倍放大的 Vibe Coding
 
@@ -66,16 +68,16 @@ Personal Jarvis 不是又一个聊天窗口。它是一款桌面应用，把 AI 
 
 > *“让 T1 去写测试。”* · *“T2 在忙什么？”* · *“把修复方案发给所有窗格。”*
 
-- **所有编程 CLI 尽在一处。** 直接使用你已有的订阅；Jarvis 会检测已安装的工具，一键在窗格中启动。
+- **所有编程 CLI 尽在一处。** 直接使用你已有的订阅；Dodaios 会检测已安装的工具，一键在窗格中启动。
 - **一份任务，多个智能体。** 把同一个任务发给多个窗格，对比它们交回的结果。
-- **解放双手。** 在智能体打字的同时和 Jarvis 说话；它会按呼号把你的任务转达给对应的窗格。
+- **解放双手。** 在智能体打字的同时和 Dodaios 说话；它会按呼号把你的任务转达给对应的窗格。
 - **随时接管。** 每个窗格都是一个真正的终端，你可以直接在里面输入。
 
 [Agentic IDE 指南 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md)
 
 ## 一支持续工作的智能体团队
 
-**Jarvis 智能体**是你一键创建的长期专家——研究员、发布经理、营销文案，你的工作需要什么就创建什么。
+**Dodaios 智能体**是你一键创建的长期专家——研究员、发布经理、营销文案，你的工作需要什么就创建什么。
 
 - **每个智能体一个永不结束的对话。** 明天从你停下的地方继续。
 - **它们会学习。** 智能体会从自己的工作中积累私有经验，越来越擅长你的任务。
@@ -89,11 +91,11 @@ Personal Jarvis 不是又一个聊天窗口。它是一款桌面应用，把 AI 
 
 ## 和你的电脑说话
 
-选一个你自己的唤醒词——“Hey Nova”“Jarvis”，什么都行——然后直接开口。
+选一个你自己的唤醒词——“Hey Nova”“Computer”，什么都行——然后直接开口。
 
 - **实时对话**，轮流发言自然流畅。可以让它打开网站、查看日历，或在一句话说到一半时派出一个智能体。
 - **听写**把你说的话输入到任意应用中，并支持个人词典。
-- **电话通话**使用你自己的号码：给 Jarvis 打电话，或者在你批准后让它替你给别人打电话。
+- **电话通话**使用你自己的号码：给 Dodaios 打电话，或者在你批准后让它替你给别人打电话。
 - **本地语音**可完全离线运行；云端语音为可选项。
 
 [语音指南 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
@@ -103,14 +105,14 @@ Personal Jarvis 不是又一个聊天窗口。它是一款桌面应用，把 AI 
 
 - **插件和 MCP。** 只需在浏览器中登录一次，即可从市场安装连接器，也可以添加任何 MCP 服务器。
 - **命令行工具。** GitHub、Vercel、Supabase、Stripe、Docker、各类云 CLI 等，都能在应用中被检测到并完成登录。
-- **技能。** 可复用的指令，当你的请求合适时 Jarvis 会自动调用。
-- **渠道。** 通过 Telegram 和 Discord 联系 Jarvis。
+- **技能。** 可复用的指令，当你的请求合适时 Dodaios 会自动调用。
+- **渠道。** 通过 Telegram 和 Discord 联系 Dodaios。
 - **你自己的脚本。** `jarvis` CLI 和本地 API 让其他程序——以及其他智能体——拥有和你一样的控制能力。
 
 [插件 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) ·
 [MCP →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) ·
 [CLI →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/cli-connections.md) ·
-[Jarvis CLI →](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli.md)
+[Dodaios CLI →](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli.md)
 
 ## 控制权在你手里
 
@@ -153,7 +155,7 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 `http://localhost:47821`。远程使用麦克风需要 HTTPS。
 参见[无界面部署指南](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md)。
 在 Intel macOS 和 Windows ARM64 上手动用 pip/pipx 安装时，还需要配置
-[原生软件包索引](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-personal-jarvis.md#install-the-isolated-pypi-package)；
+[原生软件包索引](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md#install-the-isolated-pypi-package)；
 安装程序会自动完成这项配置。
 
 **你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
@@ -182,7 +184,7 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 
 如果你是协助维护本仓库的 AI 智能体，请先阅读 [`AGENTS.md`](https://github.com/Dodaios/Dodaios/blob/main/AGENTS.md)。
 
-如果 Personal Jarvis 对你有用，**点一个 Star 能帮助更多人发现它。** 赞助者名单见 [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md)。
+如果 Dodaios 对你有用，**点一个 Star 能帮助更多人发现它。** 赞助者名单见 [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md)。
 贡献者名单见[英文 README](https://github.com/Dodaios/Dodaios/blob/main/README.md#contribute)。
 
 ## 许可证

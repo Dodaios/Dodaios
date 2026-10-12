@@ -163,20 +163,20 @@ MICROPHONE_REFUSAL_TEXT: dict[str, str] = {
 # dialog any more, so the sentence names the switch and the place instead.
 MICROPHONE_DENIED_REFUSAL_TEXT: dict[str, str] = {
     "en": (
-        "Microphone is off for Personal Jarvis: switch it on in System Settings > "
+        "Microphone is off for Dodaios: switch it on in System Settings > "
         "Privacy & Security > Microphone, then press the key again."
     ),
     "de": (  # i18n-allow
-        "Mikrofon ist für Personal Jarvis aus: schalte es in Systemeinstellungen > "  # i18n-allow
+        "Mikrofon ist für Dodaios aus: schalte es in Systemeinstellungen > "  # i18n-allow
         "Datenschutz & Sicherheit > Mikrofon ein und drücke die Taste dann noch "  # i18n-allow
         "einmal."  # i18n-allow
     ),
     "es": (  # i18n-allow
-        "El micrófono está desactivado para Personal Jarvis: actívalo en Ajustes del "  # i18n-allow
+        "El micrófono está desactivado para Dodaios: actívalo en Ajustes del "  # i18n-allow
         "Sistema > Privacidad y seguridad > Micrófono y vuelve a pulsar la tecla."  # i18n-allow
     ),
     "zh": (  # i18n-allow
-        "Personal Jarvis 的麦克风已关闭："  # i18n-allow
+        "Dodaios 的麦克风已关闭："  # i18n-allow
         "请在“系统设置 > 隐私与安全性 > 麦克风”中开启，"  # i18n-allow
         "然后再按一次快捷键。"  # i18n-allow
     ),
@@ -185,10 +185,10 @@ MICROPHONE_DENIED_REFUSAL_TEXT: dict[str, str] = {
 # Running outside the installed app: the confirmation lives in the web window, and
 # the permission layer's own sentence talks about "the user" in the third person.
 MICROPHONE_OUTSIDE_REFUSAL_TEXT: dict[str, str] = {
-    "en": "Open the Personal Jarvis window to continue.",
-    "de": "Öffne das Personal-Jarvis-Fenster, um fortzufahren.",  # i18n-allow
-    "es": "Abre la ventana de Personal Jarvis para continuar.",  # i18n-allow
-    "zh": "打开 Personal Jarvis 窗口以继续。",  # i18n-allow
+    "en": "Open the Dodaios window to continue.",
+    "de": "Öffne das Dodaios-Fenster, um fortzufahren.",  # i18n-allow
+    "es": "Abre la ventana de Dodaios para continuar.",  # i18n-allow
+    "zh": "打开 Dodaios 窗口以继续。",  # i18n-allow
 }
 
 # A microphone-permission notice is a sentence with a place name in it: 3 s is too

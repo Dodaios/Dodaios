@@ -5,6 +5,7 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useCodeEditorStore, type EditorFile } from "@/store/codeEditor";
 import { useIdeChatStore } from "@/store/ideChat";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { replaceInFiles, searchWorkspace, type SearchQuery, type SearchResult } from "@/components/agentic/editor/editorApi";
 import { checkDisk } from "@/components/agentic/editor/editorModels";
 import { forgetFileList } from "@/components/agentic/editor/QuickOpen";
@@ -15,6 +16,16 @@ const SEARCH_DELAY_MS = 350;
 
 /** Ask the Search tab to take the keyboard (Ctrl+Shift+F). */
 export const SEARCH_FOCUS_EVENT = "jarvis:editor-search-focus";
+
+/** The folder a "Find in folder" asked for, until the Search tab picks it up. */
+let pendingFolder: string | null = null;
+
+/** Open the Search tab limited to one folder of the workspace ("" = all of it). */
+export function searchInFolder(folder: string): void {
+  pendingFolder = folder;
+  useIdeSidePanelStore.getState().openTab("search");
+  window.dispatchEvent(new Event(SEARCH_FOCUS_EVENT));
+}
 
 const baseName = (path: string) => path.split("/").pop() ?? path;
 const folderOf = (path: string) => path.split("/").slice(0, -1).join("/");
@@ -72,8 +83,17 @@ export function SearchPanel() {
   );
 
   useEffect(() => {
+    // "Find in folder" limits the search to that folder, shown in the filters.
+    const takeFolder = () => {
+      if (pendingFolder === null) return;
+      setInclude(pendingFolder);
+      setShowFilters(pendingFolder !== "");
+      pendingFolder = null;
+    };
+    takeFolder();
     input.current?.focus();
     const focus = () => {
+      takeFolder();
       input.current?.focus();
       input.current?.select();
     };

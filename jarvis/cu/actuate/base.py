@@ -362,7 +362,7 @@ def verified_drag(
 
 _WAYLAND_MSG = (
     "Cannot control mouse/keyboard on a Wayland session: Wayland blocks "
-    "synthetic input for security. Log into an X11 session, or run Jarvis on "
+    "synthetic input for security. Log into an X11 session, or run Dodaios on "
     "a host with X11/Windows/macOS."
 )
 _HEADLESS_MSG = (

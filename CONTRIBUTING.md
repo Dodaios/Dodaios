@@ -1,6 +1,6 @@
-# Contributing to Personal Jarvis
+# Contributing to Dodaios
 
-Personal Jarvis is a cross-platform desktop application for voice, agents, and
+Dodaios is a cross-platform desktop application for voice, agents, and
 connected tools. We welcome focused fixes, tests, accessibility work, platform
 reports, and documentation improvements. The useful first step is a problem you
 can reproduce and explain; familiarity with the whole repository is not required.

@@ -1145,12 +1145,12 @@ export interface OpenTerminalTargetResult {
   path: string;
 }
 
-/** Open a modifier-clicked path from one terminal's own workspace. */
-export async function openTerminalTarget(
+async function launchTerminalTarget(
+  action: "open" | "reveal",
   workspaceId: string,
   target: string,
 ): Promise<OpenTerminalTargetResult> {
-  const res = await fetch("/api/agentic-ide/terminal-target/open", {
+  const res = await fetch(`/api/agentic-ide/terminal-target/${action}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ workspace_id: workspaceId, target }),
@@ -1161,6 +1161,22 @@ export async function openTerminalTarget(
     throw new Error("Could not open that file or folder on this computer.");
   }
   return result;
+}
+
+/** Open a modifier-clicked path from one terminal's own workspace. */
+export function openTerminalTarget(
+  workspaceId: string,
+  target: string,
+): Promise<OpenTerminalTargetResult> {
+  return launchTerminalTarget("open", workspaceId, target);
+}
+
+/** Show a workspace path selected in the system file manager, without opening it. */
+export function revealTerminalTarget(
+  workspaceId: string,
+  target: string,
+): Promise<OpenTerminalTargetResult> {
+  return launchTerminalTarget("reveal", workspaceId, target);
 }
 
 /**

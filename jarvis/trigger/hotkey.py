@@ -477,7 +477,7 @@ def mouse_hotkeys_available(platform: str | None = None) -> tuple[bool, str]:
             return False, (
                 "Wayland does not let an application watch the mouse buttons "
                 "globally, so a mouse-button shortcut cannot work here. Use a "
-                "key combination, or bind a compositor shortcut to the Jarvis "
+                "key combination, or bind a compositor shortcut to the Dodaios "
                 "CLI."
             )
         if _module_present("pynput"):
@@ -599,7 +599,7 @@ def modifier_snapshot(
             return None, (
                 "Wayland does not let an application read the modifier keys "
                 "globally. Click the keys on the on-screen keyboard, or bind "
-                "a compositor shortcut to the Jarvis CLI."
+                "a compositor shortcut to the Dodaios CLI."
             )
         return None, (
             "This Linux session cannot read the modifier keys until global "
@@ -763,7 +763,7 @@ class HotkeyTrigger:
             try:
                 if event_name in SELF_INPUT_SUPPRESSED_EVENTS and synthetic_input_recent():
                     log.debug(
-                        "Hotkey %r ignored: Jarvis is synthesizing input right now.",
+                        "Hotkey %r ignored: Dodaios is synthesizing input right now.",
                         event_name,
                     )
                     return

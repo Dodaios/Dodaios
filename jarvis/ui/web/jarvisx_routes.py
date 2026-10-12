@@ -342,7 +342,7 @@ async def copy_item(
     request: Request, item_id: ItemId, body: CopyRequest | None = None
 ) -> dict[str, Any]:
     if not _native_actions(request):
-        return {"ok": False, "message": "The clipboard belongs to the computer Jarvis runs on."}
+        return {"ok": False, "message": "The clipboard belongs to the computer Dodaios runs on."}
     result = await _service(request).copy_item(item_id, edited=(body or CopyRequest()).edited)
     return {"ok": result.ok, "message": result.message}
 

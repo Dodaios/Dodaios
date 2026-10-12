@@ -153,7 +153,7 @@ class TkColorKeyOverlay:
         except Exception:  # noqa: BLE001 — AD-6: a GUI start must never crash boot.
             log.exception(
                 "TkColorKeyOverlay: orb start failed; the orb will be absent "
-                "this session (the rest of Jarvis is unaffected)."
+                "this session (the rest of Dodaios is unaffected)."
             )
 
     def stop(self) -> None:

@@ -248,7 +248,7 @@ def test_a_pull_request_never_takes_a_macos_runner():
     assert sized["tier"] == "pr" and sized["pr_mode"] and not sized["mac_lanes"]
     assert sized["desktop_legs"] == "none"
     assert "macos" not in json.dumps([v for k, v in sized.items() if k != "macos"])
-    # The slowest real-runtime leg waits for the queue.
+    # The slowest real-runtime leg never runs per change.
     assert {"os": "windows-latest", "runtime": "hermes"} not in sized["e2e_matrix"]
     assert {"os": "windows-latest", "runtime": "openclaw"} in sized["e2e_matrix"]
     # The real Inno upgrade of a running install stays on the pull request.
@@ -260,11 +260,18 @@ def test_the_merge_queue_proves_one_short_macos_leg_per_lane_and_the_slow_legs()
     assert sized["mac_lanes"] and not sized["macos"]
     assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
     assert sized["desktop_legs"] == "primary"
-    assert {"os": "windows-latest", "runtime": "hermes"} in sized["e2e_matrix"]
-    # Five macOS slots serve up to four merge groups at once: the long macOS
-    # legs (real runtimes, real browser) wait for the nightly and release runs.
+    # The gate waits for the slowest job and five macOS slots serve every
+    # merge group: the long legs (the Hermes install on Windows, the real
+    # runtimes and the real browser on macOS) run nightly and on release.
     assert sized["browser_os"] == ["ubuntu-latest", "windows-latest"]
-    assert "macos" not in json.dumps(sized["e2e_matrix"])
+    assert sized["e2e_matrix"] == plan_run.plan("pull_request")["e2e_matrix"]
+    assert {(leg["os"], leg["runtime"]) for leg in sized["e2e_matrix"]} == {
+        ("ubuntu-latest", "hermes"),
+        ("ubuntu-latest", "openclaw"),
+        ("windows-latest", "openclaw"),
+    }
+    # The second Windows interpreter of the updater is the queue's one extra.
+    assert {"os": "windows-latest", "python": "3.11"} in sized["updater_matrix"]
     wide = plan_run.plan("schedule")
     assert {(leg["os"], leg["runtime"]) for leg in wide["e2e_matrix"]} == {
         (os, runtime)
@@ -415,6 +422,36 @@ def test_the_linux_shard_count_has_one_source():
         assert step["env"]["SHARDS"] == "${{ needs.detect.outputs.linux_shards }}"
     assert '--shard "$SHARD/$total"' in shard["run"]
     assert '--expected-shards "$total"' in floor["run"]
+
+
+def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issues():
+    alert = workflows()["nightly-alert.yml"]
+    assert alert["permissions"] == {}
+    job = alert["jobs"]["alert"]
+    assert job["permissions"] == {"actions": "read", "issues": "write"}
+    for clause in (
+        "github.event.workflow_run.event == 'schedule'",
+        "github.event.workflow_run.head_repository.full_name == github.repository",
+        "github.event.workflow_run.head_branch == 'main'",
+    ):
+        assert clause in job["if"], clause
+    # No pull-request code runs next to the issue token.
+    assert all("uses" not in step for step in job["steps"])
+    script = job["steps"][0]["run"]
+    assert "--label nightly-ci" in script and "write issue close" in script
+    # A check by hand runs from main only, vets the run it is given like the
+    # event, and writes nothing unless the dry run is switched off.
+    by_hand = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+    assert by_hand in job["if"]
+    assert '.event == "schedule"' in script and '.head_branch == "main"' in script
+    triggers = alert.get("on", alert.get(True))
+    assert triggers["workflow_dispatch"]["inputs"]["dry_run"]["default"] is True
+    for direct in ("gh issue close", "gh issue edit", "gh issue create", "gh label create"):
+        assert direct not in script, direct
+    # The legs that left the per-change tiers are exactly what the nightly keeps.
+    nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
+    only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]
+    assert {"os": "windows-latest", "runtime": "hermes"} in only_nightly and len(only_nightly) == 3
 
 
 def test_the_duration_cache_is_refreshed_by_the_nightly_run_on_main():

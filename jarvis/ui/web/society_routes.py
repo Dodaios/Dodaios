@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import HTTPConnection
 
 from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
+from jarvis.core.protocols import started_by_user
 from jarvis.society.companion import CompanionSkin
 from jarvis.society.events import MsgType
 from jarvis.society.failure_reasons import FailureReason, retry_action
@@ -343,7 +344,7 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
 
         svc = _service_from_state(request.app.state)
         if svc is None and getattr(request.app.state, "agent_chat_factory", None) is not None:
-            raise HTTPException(503, "The saved Jarvis chat model is temporarily unavailable")
+            raise HTTPException(503, "The saved Dodaios chat model is temporarily unavailable")
         selection = svc.store.chat_selection() if svc is not None else None
         if selection is not None:
             for key, value in selection.to_dict().items():
@@ -1650,7 +1651,8 @@ async def operate_agent_routine(
         raise HTTPException(409, "The routine is already running")
     try:
         if body.operation == "run":
-            await scheduler.run_now(task_id)
+            with started_by_user():
+                await scheduler.run_now(task_id)
         else:
             await manage_routine(
                 agent, {"task_id": task_id, "operation": body.operation}, store, scheduler

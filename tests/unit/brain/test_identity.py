@@ -1,6 +1,6 @@
 """Every surface states the same identity: the wake-word name plus SOUL.md.
 
-Regression: a GPT-Live call answered "I'm Personal Jarvis" although the wake
+Regression: a GPT-Live call answered with the product name although the wake
 word made the assistant George (2026-10-02) — the live instructions
 hardcoded the product name and never read SOUL.md.
 """
@@ -39,14 +39,27 @@ def soul(tmp_path: Path) -> Path:
 def test_the_wake_word_name_is_the_assistants_name_not_the_app() -> None:
     text = name_directive("George")
     assert text.startswith("YOUR NAME IS GEORGE.")
-    assert "Personal Jarvis is the name of the app you run inside, not your name" in text
-    assert "never introduce yourself as Personal Jarvis, as Jarvis" in text
+    assert (
+        "Dodaios (formerly Personal Jarvis) is the name of the app you run inside, not your name"
+        in text
+    )
+    assert "never introduce yourself as Dodaios, as Personal Jarvis, as Jarvis or" in text
 
 
 def test_a_jarvis_wake_word_does_not_forbid_its_own_name() -> None:
     text = name_directive("Jarvis")
     assert "YOUR NAME IS JARVIS" in text
     assert "as Jarvis or" not in text
+    assert "as Jarvis," not in text
+    assert "never introduce yourself as Dodaios, as Personal Jarvis or" in text
+
+
+def test_a_wake_word_equal_to_the_app_name_is_not_contradicted() -> None:
+    text = name_directive("Dodaios")
+    assert "YOUR NAME IS DODAIOS" in text
+    assert "not your name" not in text
+    assert "yourself as Dodaios" not in text
+    assert "never introduce yourself as Personal Jarvis, as Jarvis or" in text
 
 
 def test_no_wake_word_gives_no_invented_name() -> None:
@@ -91,13 +104,14 @@ def test_the_gpt_live_session_states_the_identity(soul: Path) -> None:
     )
     assert wire["instructions"].startswith("YOUR NAME IS GEORGE")
     assert wire["delegation"]["responses"]["instructions"].startswith("YOUR NAME IS GEORGE")
-    assert "You are Personal Jarvis" not in wire["instructions"]
+    assert "You are Dodaios" not in wire["instructions"]
 
 
 def test_the_gpt_live_session_without_identity_never_claims_the_app_name() -> None:
     from jarvis.live.config import LiveConfig
 
     wire = LiveConfig(configured=True, backend_model="m").session_config(language="de", tools=[])
+    assert "You are Dodaios" not in wire["instructions"]
     assert "You are Personal Jarvis" not in wire["instructions"]
     assert "no personal name yet" in wire["instructions"]
 

@@ -1,7 +1,7 @@
 ---
 title: "Privacy and Local Data"
 slug: privacy-and-local-data
-summary: "Learn what Jarvis stores locally, what may be sent to a connected service, and how each optional feature changes that boundary."
+summary: "Learn what Dodaios stores locally, what may be sent to a connected service, and how each optional feature changes that boundary."
 section: "Privacy, safety, and support"
 section_order: 6
 order: 1
@@ -15,14 +15,14 @@ tags: [privacy, local-data, retention, deletion, providers, backups]
 related: [credentials-and-secrets, permissions, wiki-and-memory, jarvis-board]
 ---
 
-Jarvis stores history on its host and contacts configured services for remote
+Dodaios stores history on its host and contacts configured services for remote
 AI, speech, tools, calls, or sharing. A local installation also contacts the
 project's OAuth service for some plugin sign-ins.
 
 This page explains those boundaries and their current limits. It is a product
 map, not a promise about a provider's own storage, training, or deletion rules.
 
-> [!info] **Local** means the Jarvis host. If Jarvis runs on a remote server,
+> [!info] **Local** means the Dodaios host. If Dodaios runs on a remote server,
 > its local databases and files are on that server, not automatically on the
 > laptop or phone used to open the app.
 
@@ -32,7 +32,7 @@ A normal request can cross several boundaries:
 
 1. **You provide input.** Chat text, microphone audio, a dropped file, a
    screenshot, or a scheduled task starts the work.
-2. **Jarvis adds context locally.** Depending on the feature, this can include
+2. **Dodaios adds context locally.** Depending on the feature, this can include
    recent conversation history, standing instructions, a Profile summary,
    contact names and relationships, or relevant Wiki excerpts.
 3. **The selected capability processes it.** Local providers work on the host.
@@ -40,13 +40,13 @@ A normal request can cross several boundaries:
 4. **Tools use their own boundary.** A local command can stay on the host, but
    a plugin or Model Context Protocol (MCP) connection can contact a service.
    Safety approval does not make that request local.
-5. **Jarvis stores the result.** Replies, transcripts, tasks, missions, Wiki
+5. **Dodaios stores the result.** Replies, transcripts, tasks, missions, Wiki
    updates, output files, and Board totals can use different local stores.
 
 ## Know What Is Stored
 
 Local stores include the installation data folder, app user-data folder, Wiki
-vault, Jarvis-Agent output area, and saved exports.
+vault, Dodaios-Agent output area, and saved exports.
 
 | Area | What it can contain | Current retention or removal boundary |
 |---|---|---|
@@ -55,8 +55,8 @@ vault, Jarvis-Agent output area, and saved exports.
 | Tasks and missions | Task instructions, schedules, steps, results, errors, mission prompts, review events, and status history | A finished task can be deleted. Mission database history has a separate life and is not removed with the task. |
 | Profile and Contacts | Profile fields and observations, an optional avatar, contact details, aliases, relationships, and notes | You can clear Profile fields, remove the avatar, and delete contacts. Clearing a field does not automatically remove earlier observations that mention it. |
 | Wiki and memory | Markdown pages, contact companion notes, candidate facts, a derived search index, archives, and local recovery snapshots | Wiki content persists until changed locally. Curator actions archive instead of hard-delete, and the current Wiki view has no permanent-delete control. |
-| Jarvis-Agents and Outputs | Mission work areas, logs, reviews, diffs, and approved deliverables | Mission output folders older than 14 days are removed during the normal startup cleanup. Files copied to Downloads or another destination are separate and remain there. |
-| Jarvis Board | Daily totals, tool categories, streaks, achievements, generated biography text, and reactions | These derived summaries are local and have no current clear-all control. Older summaries can remain after their source voice sessions are pruned. |
+| Dodaios-Agents and Outputs | Mission work areas, logs, reviews, diffs, and approved deliverables | Mission output folders older than 14 days are removed during the normal startup cleanup. Files copied to Downloads or another destination are separate and remain there. |
+| Dodaios Board | Daily totals, tool categories, streaks, achievements, generated biography text, and reactions | These derived summaries are local and have no current clear-all control. Older summaries can remain after their source voice sessions are pruned. |
 | Diagnostics and audit data | A rotating desktop log, daily Flight Recorder events, captured screenshot blobs, and an optional latency log | The desktop log rotates at 10 MB and keeps three rotated files. The Flight Recorder is on by default. Its screenshot blobs are removed after 10 days by default, but its daily event files and the optional latency log have no age-based cleanup. |
 
 The embedded app also keeps small interface preferences, such as panel sizes,
@@ -65,15 +65,15 @@ optional Board share handle, in browser-style local storage. Clearing that
 storage resets the preferences but does not remove the databases and files
 listed above.
 
-Jarvis does not automatically sync these local stores between separate
+Dodaios does not automatically sync these local stores between separate
 installations. Devices connected to one server see that server's data, but
-browser preferences stay in each browser profile. Another Jarvis installation
+browser preferences stay in each browser profile. Another Dodaios installation
 has separate data unless you copy it or sync its files through another service.
 
 ### Understand What Is Not Saved Together
 
 One request can leave records in more than one place. Deleting a chat does not
-delete a task it started, a Wiki fact learned from it, a Jarvis-Agent mission,
+delete a task it started, a Wiki fact learned from it, a Dodaios-Agent mission,
 an output file, a Board total, an exported transcript, or an audit-log event.
 
 Text chat history also has a current saving gap: user messages are not always
@@ -81,24 +81,24 @@ written to the Chat store even though replies may be. This does not mean the
 input was never processed or recorded elsewhere. Do not use an empty reopened
 chat as proof that no local or remote copy exists.
 
-## Know What Can Leave the Jarvis Host
+## Know What Can Leave the Dodaios Host
 
 | Feature | What another service may receive | When it happens |
 |---|---|---|
 | Chat and the Brain | Your request, recent context, standing instructions, relevant Profile or Wiki context, dropped text, images, and tool results | When the selected Brain is remote rather than local |
 | Voice | Microphone audio for remote speech recognition or Realtime voice, transcripts for the Brain, and reply text for remote speech output | While you use the corresponding remote voice capability |
 | Vision and Computer Use | Screenshots, visible window context, the requested action, and action results | When a remote vision or action model is needed; approvals still apply to consequential actions |
-| Plugins, MCP, and CLI connections | The arguments and context passed to the tool, plus any result it returns | When you or Jarvis runs that connection; a local CLI can itself contact services outside Jarvis |
+| Plugins, MCP, and CLI connections | The arguments and context passed to the tool, plus any result it returns | When you or Dodaios runs that connection; a local CLI can itself contact services outside Dodaios |
 | Project OAuth token service | Authorization codes, PKCE verifiers, client and redirect information, refresh tokens, and provider token responses | When connecting or refreshing a grant issued to a shipped Google or Slack client; Slack's browser callback also uses this service |
-| Jarvis-Agents | The mission request, selected files or repository context, scoped tool calls, worker output, and review material | When a remote worker or model handles the mission |
+| Dodaios-Agents | The mission request, selected files or repository context, scoped tool calls, worker output, and review material | When a remote worker or model handles the mission |
 | Wiki processing | Candidate facts and relevant page excerpts | When a remote Wiki extractor or curator reviews a possible memory update |
 | Board and sharing | A share card when you send it; a request routed through a configured Board federation service when that API is used | Sharing is user-triggered. Enabling federation alone does not start an automatic aggregate upload in the current app. The biography limitation below is separate. |
-| Feedback and community links | Whatever you post or attach, under the destination's rules | The current Feedback screen opens an external community site; Jarvis does not attach the active chat automatically |
+| Feedback and community links | Whatever you post or attach, under the destination's rules | The current Feedback screen opens an external community site; Dodaios does not attach the active chat automatically |
 
 Phone calls and connected messaging channels necessarily pass audio or messages
 through their configured services. Once data reaches a provider, channel,
 community, or recipient, its retention and deletion rules apply separately.
-Removing the local Jarvis record does not send a deletion request to them.
+Removing the local Dodaios record does not send a deletion request to them.
 
 ### Understand the Project OAuth Service
 
@@ -129,7 +129,7 @@ Viewing or refreshing the Board does not publish its statistics. Optional
 Board federation is off by default, and enabling it alone does not start
 background aggregate synchronization in the current app.
 
-A separate background biography feature is less obvious: after Jarvis has
+A separate background biography feature is less obvious: after Dodaios has
 enough activity, it can ask the currently selected Brain provider to summarize
 Board facts. That request can include tool and task totals, activity timing,
 selected recent activity summaries, mission statistics or titles, and an older
@@ -145,12 +145,12 @@ requests, actions, file paths, and error details. The current app has no in-app
 switch or clear button for these stores, and only the Flight Recorder's
 screenshot blobs have the default 10-day cleanup.
 
-Jarvis masks common credential shapes in selected session previews and refuses
+Dodaios masks common credential shapes in selected session previews and refuses
 Wiki writes that match several credential patterns. The flight recorder does
 not pass every event through that same masking step. These guards reduce risk;
 they are not a complete personal-data or secret filter.
 
-Jarvis does not automatically upload the Flight Recorder or desktop log to a
+Dodaios does not automatically upload the Flight Recorder or desktop log to a
 general telemetry service. They can still leave the host if you copy, attach,
 or share them, or if a connected feature sends relevant diagnostic context.
 
@@ -165,15 +165,15 @@ or share them, or if a connected feature sends relevant diagnostic context.
 | A contact | Use **Delete** in Contacts | Its Wiki companion page is moved to the Wiki archive; it can retain the name, aliases, relationship, and note, but not phone, email, or street address from the contact record |
 | A task | Cancel it if active, then delete it after it reaches a final state | Mission history, generated outputs, audit events, and actions already completed |
 | A voice session, Board history, Flight Recorder event file, or latency log | No item-level removal control is available in the current app | The applicable automatic retention may remove some data later, but not every related or derived record. Desktop log rotation limits old log files, but it is not a privacy erase action. |
-| A saved export or output copy | Delete the file with the operating system or destination app | The original Jarvis record and any copies, backups, recipients, or provider records |
+| A saved export or output copy | Delete the file with the operating system or destination app | The original Dodaios record and any copies, backups, recipients, or provider records |
 
-Jarvis does not currently provide one **Export all my data** or **Delete all my
+Dodaios does not currently provide one **Export all my data** or **Delete all my
 data** workflow. If complete removal matters, treat each local store, every
 export, every backup, and every connected service as a separate copy.
 
 Do not treat uninstalling the app as complete erasure. Data outside the
 installation folder can remain, including the app user-data folder, a separate
-Wiki vault, Jarvis-Agent outputs, saved exports, browser preferences, backups,
+Wiki vault, Dodaios-Agent outputs, saved exports, browser preferences, backups,
 and copies held by connected services.
 
 ### Back up the full set
@@ -182,7 +182,7 @@ The Wiki curator keeps up to ten recent local recovery snapshots before its
 own changes. Those snapshots are for rollback, not a complete personal backup:
 Wiki archives and attachments are excluded.
 
-For a broader backup, close Jarvis first and include all of these locations in
+For a broader backup, close Dodaios first and include all of these locations in
 your operating-system backup:
 
 - the installation data folder, including conversations, sessions, tasks,
@@ -192,7 +192,7 @@ your operating-system backup:
   Profile avatar, and other app-owned files;
 - the active Wiki vault, including its archive and attachments, plus the Wiki
   recovery-snapshot folder if you want rollback history;
-- the Jarvis-Agent output area and any exported copies in Downloads or another
+- the Dodaios-Agent output area and any exported copies in Downloads or another
   folder you chose.
 
 An Obsidian Sync account, cloud-drive folder, system backup, or server snapshot
@@ -206,7 +206,7 @@ it for sensitive material.
 3. **Profile, Contacts, and Wiki** supply durable context. Contact mirroring
    excludes structured phone, email, and address fields, but can copy names,
    relationships, aliases, and notes.
-4. **Jarvis-Agents** retain a separate mission trail and exported copies.
+4. **Dodaios-Agents** retain a separate mission trail and exported copies.
 5. **Board** derives summaries and optional share cards.
 6. **Feedback** opens an external handoff for you to review before posting.
 
@@ -236,7 +236,7 @@ prove that audit logs or a remote provider deleted their records.
 | An output is missing but a downloaded file remains | Startup cleanup removed the mission folder, while the exported copy has its own life | Keep or delete the downloaded copy with the operating system. |
 | A Wiki search result survives a local edit | The derived search index has not caught up | Open Wiki and use **Rebuild index**. Also check the Wiki archive and recovery snapshots when removal matters. |
 | You expected a request to stay local | A remote Brain, speech service, plugin, MCP server, channel, or worker handled part of it | Review the selected provider and connected features before the next request. Choose a local capability where one is available. |
-| You need a complete data export or erasure | The app has no global workflow for it yet | Back up what you need, then handle each Jarvis store, export, backup, and provider account separately. |
+| You need a complete data export or erasure | The app has no global workflow for it yet | Back up what you need, then handle each Dodaios store, export, backup, and provider account separately. |
 
 ## Next Steps
 
@@ -246,5 +246,5 @@ prove that audit logs or a remote provider deleted their records.
   notification, and file access required by the features you use.
 - Use [Wiki and Memory](wiki-and-memory) to understand durable facts, local
   indexing, archives, and remote curator processing in more detail.
-- Read [Jarvis Board](jarvis-board) before sharing statistics or enabling an
+- Read [Dodaios Board](jarvis-board) before sharing statistics or enabling an
   experimental connection to another Board service.
