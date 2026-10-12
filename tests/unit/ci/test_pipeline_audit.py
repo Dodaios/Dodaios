@@ -255,13 +255,18 @@ def test_a_pull_request_never_takes_a_macos_runner():
     assert {"os": "windows-latest", "python": "3.12"} in sized["updater_matrix"]
 
 
-def test_the_merge_queue_proves_one_macos_leg_per_lane_and_the_slow_legs():
+def test_the_merge_queue_proves_one_short_macos_leg_per_lane_and_the_slow_legs():
     sized = plan_run.plan("merge_group")
     assert sized["mac_lanes"] and not sized["macos"]
     assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
-    assert sized["browser_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
     assert sized["desktop_legs"] == "primary"
-    assert {(leg["os"], leg["runtime"]) for leg in sized["e2e_matrix"]} == {
+    assert {"os": "windows-latest", "runtime": "hermes"} in sized["e2e_matrix"]
+    # Five macOS slots serve up to four merge groups at once: the long macOS
+    # legs (real runtimes, real browser) wait for the nightly and release runs.
+    assert sized["browser_os"] == ["ubuntu-latest", "windows-latest"]
+    assert "macos" not in json.dumps(sized["e2e_matrix"])
+    wide = plan_run.plan("schedule")
+    assert {(leg["os"], leg["runtime"]) for leg in wide["e2e_matrix"]} == {
         (os, runtime)
         for os in ("ubuntu-latest", "windows-latest", "macos-latest")
         for runtime in ("hermes", "openclaw")

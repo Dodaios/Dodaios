@@ -39,10 +39,12 @@
 # very same commit.
 #   pr     pull request: the whole Linux + Windows suite and every affected
 #          lane on Linux and Windows. No macOS, no 18-minute real-runtime leg.
-#   queue  merge-queue group: everything `pr` runs, one macOS leg per affected
-#          lane and the slow legs. The only blocking macOS proof per change.
+#   queue  merge-queue group: everything `pr` runs, the slow legs and one
+#          SHORT macOS leg per affected lane. The blocking macOS proof per
+#          change; up to four groups share the five macOS slots.
 #   full   nightly, release tags, manual full dispatch: Intel macOS, the ARM
-#          runners, every interpreter, the macOS test shards.
+#          runners, every interpreter, the macOS test shards, and the real
+#          runtimes and the real browser on macOS (5-10 minutes per leg).
 # A push to main whose commit the merge queue already passed runs nothing
 # but `detect` and the gate (`proven`); a push that bypassed the queue runs
 # the `queue` tier. A branch gets macOS feedback before the queue with
@@ -1045,8 +1047,9 @@ jobs:
   # user PATH and shell profiles stayed put (scripts/ci/agent_runtime_e2e.py).
   # No key, no network to a model. The weekly canary does the same at
   # upstream latest and raises the pin. A pull request runs both runtimes on
-  # Linux and OpenClaw on Windows; the 18-minute Hermes install on Windows
-  # and both macOS legs run in the merge queue (scripts/ci/plan_run.py).
+  # Linux and OpenClaw on Windows; the merge queue adds the 18-minute Hermes
+  # install on Windows; nightly and release runs add both macOS legs
+  # (scripts/ci/plan_run.py).
   agent-runtimes-e2e:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
