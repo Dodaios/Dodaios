@@ -242,7 +242,11 @@ auto-resolve generated files, gates, relevant tests, push); a `codex/`,
 `claude/`, `agent/` branch or an `auto-merge` label puts a PR on the merge
 train, which resolves its conflicts with main and adds it to main's merge
 queue once green; the queue squash-merges it after `CI gate` passes again on
-the PR merged with the newest main. Direct pushes to main are blocked for
+the PR merged with the newest main. The train enqueues only with its bot
+token: `agent_land.py` therefore requests auto-merge, and a PR opened any
+other way needs `gh pr merge <branch> --auto --squash` once, or it waits for
+a person. A pull request runs Linux and Windows; macOS runs in the merge
+queue (`docs/ci-pipeline.md`, Tiers). Direct pushes to main are blocked for
 everyone but admins.
 Triage any red job against the exact base; never add to a baseline to hide a
 new failure.
