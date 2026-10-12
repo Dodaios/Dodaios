@@ -1,4 +1,4 @@
-# Personal Jarvis agent rules
+# Dodaios agent rules
 
 The binding rules for every coding agent in this repo: Claude Code, Codex,
 Gemini CLI, whichever. Write everything here so it addresses ANY agent.
@@ -7,7 +7,7 @@ Gemini CLI, whichever. Write everything here so it addresses ANY agent.
 reads it directly. Never add a `CLAUDE.md`, `.claude/CLAUDE.md` or
 `CLAUDE.local.md`: Claude Code then reads that file INSTEAD of this one
 (`scripts/ci/check_agents_md.py` blocks a tracked one). A Claude pane on a
-Jarvis account config dir sees `~/.claude/CLAUDE.md` as such a parent-dir file,
+Dodaios account config dir sees `~/.claude/CLAUDE.md` as such a parent-dir file,
 so its user settings need the agents-md built-in plugin's `instructionFiles`
 option set to `claude-md-and-agents-md`.
 Edit `.agents/{agents,skills}/`; `.claude/{agents,skills}/` are compatibility
@@ -189,7 +189,7 @@ game assets.
 
 Commit each finished step (Conventional Commits). Use the coding agent's
 standard Git workflow: do not artificially leave completed work local, and do
-not wait for extra PersonalJarvis permission to commit, branch, push, or open
+not wait for extra Dodaios permission to commit, branch, push, or open
 a pull request. Once the scoped review and required checks pass, the agent may
 merge an ordinary authorized PR without another confirmation; a draft PR stays
 draft until its remaining work is done. `git pull --rebase --ff-only` first if

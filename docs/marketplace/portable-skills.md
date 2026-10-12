@@ -1,4 +1,4 @@
-# Portable skills — a marketplace for more than Jarvis
+# Portable skills — a marketplace for more than Dodaios
 
 **Status:** app side live since 2026-08-16 · registry side written, awaiting
 the maintainer's push · storefront open ·
@@ -15,10 +15,10 @@ So the store carries two kinds of skill, and says which is which:
 
 | Flavor | Frontmatter | Where it runs |
 |---|---|---|
-| `jarvis` (default) | this app's schema: triggers, risk policy, execution mode, plugin coupling | Personal Jarvis |
-| `portable` | the open format: `name` + `description`, plus whatever the publishing agent uses | every SKILL.md-reading agent, Jarvis included |
+| `jarvis` (default) | this app's schema: triggers, risk policy, execution mode, plugin coupling | Dodaios |
+| `portable` | the open format: `name` + `description`, plus whatever the publishing agent uses | every SKILL.md-reading agent, Dodaios included |
 
-A publisher does not have to write for Jarvis to publish here. That is the
+A publisher does not have to write for Dodaios to publish here. That is the
 whole point: an open registry that only accepts its own dialect is a private
 registry with extra steps.
 
@@ -55,7 +55,7 @@ searches, so no repo-side change was needed for the command to work.
 Plugins never get the second line: a plugin carries an MCP server and a
 sign-in flow, which that installer knows nothing about.
 
-The storefront on personaljarvis.ai mirrors this file as
+The storefront on dodaios.ai mirrors this file as
 `src/lib/install-standard.ts`. Both surfaces must print the same string —
 change one, change both, and keep both pinned by their tests.
 
@@ -74,10 +74,10 @@ schema, so a typo in a hand-written skill is caught where it is made.
   reads a missing `state` as VALIDATED — the active pool — so dropping an
   author's (or the import route's, AP-15) `state: draft` would *promote* the
   file by discarding its own restriction. It is read so it can only hold a
-  skill back: a value in a vocabulary Jarvis does not share (`state:
+  skill back: a value in a vocabulary Dodaios does not share (`state:
   published`) falls to DRAFT rather than being ignored.
 * **Nothing that grants behaviour crosses over** — not even when a foreign
-  file spells it exactly the way Jarvis does: `triggers` (fires by itself),
+  file spells it exactly the way Dodaios does: `triggers` (fires by itself),
   `risk_policy` (lowers the confirmation tier), `auto_fire` (promotes into the
   matcher), `execution` (dispatches a background worker), `requires_tools`,
   `config`, and the plugin-coupling fields. A portable skill is instructions
@@ -118,7 +118,7 @@ fields, both optional, both tolerated when absent or unknown:
 
 - [x] `build_index.py` emits `flavor` and `compatible_agents` on every skill.
 - [x] **The flavor is derived, not demanded.** A SKILL.md using none of
-      Jarvis' own keys (`schema_version`, `triggers`, `requires_tools`,
+      Dodaios' own keys (`schema_version`, `triggers`, `requires_tools`,
       `risk_policy`, `execution`, `auto_fire`, `state`, `config`,
       `token_budget_estimate`, `plugin_id`, `intent_verbs`, `intent_objects`)
       is portable. Every submission published before the field gets the right
@@ -133,7 +133,7 @@ fields, both optional, both tolerated when absent or unknown:
 
 Not pushed — that is the maintainer's call (contract §2).
 
-### Storefront (personaljarvis.ai) — open
+### Storefront (dodaios.ai) — open
 
 - [ ] Mirror `src/lib/install-standard.ts` (the `commands` array and the
       skills.sh derivation) and render the tabs.
@@ -146,5 +146,5 @@ A portable skill widens the *format*, not the blast radius. Everything that
 carried the weight before still carries it: registry CI, name ownership,
 client-side re-validation, the consent dialog that shows the text, the
 `ToolExecutor` as the single execution path, and the skill lifecycle. The
-adapter's whitelist is the addition: a file from an agent Jarvis has never
+adapter's whitelist is the addition: a file from an agent Dodaios has never
 heard of cannot arrive carrying a lowered risk tier or a trigger that fires it.

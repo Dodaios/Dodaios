@@ -1,6 +1,6 @@
 ---
 name: game-art-pipeline
-description: Develop or redesign Personal Jarvis world art, buildings, characters and 3D assets through an authored Blender reference scene, runtime review and controlled asset rollout. Use for game-art production and world redesign, not ordinary UI copy or behaviour-only bug fixes.
+description: Develop or redesign Dodaios world art, buildings, characters and 3D assets through an authored Blender reference scene, runtime review and controlled asset rollout. Use for game-art production and world redesign, not ordinary UI copy or behaviour-only bug fixes.
 ---
 
 # Game-art production
@@ -19,7 +19,7 @@ in the standard. Blender MCP can assist authoring; script-generated geometry
 still needs visual judgement. Existing shipped assets remain untouched during
 reference development.
 
-Develop a small, finished reference in the actual Jarvis runtime. A functional
+Develop a small, finished reference in the actual Dodaios runtime. A functional
 building, representative character and connecting ground should demonstrate
 the intended look and motion. Review appearance, readability and character separately
 from collision, animation and performance checks.

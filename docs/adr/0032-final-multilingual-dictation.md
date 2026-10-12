@@ -62,7 +62,7 @@ control.
 GPT-4o Transcribe is a valid candidate, not a hardcoded dependency. OpenAI
 reports improved word-error rate and language recognition relative to original
 Whisper. GPT-4o Transcribe is currently token-priced; Whisper Large v3 Turbo is
-currently minute-priced. These are vendor claims and inputs, not a Jarvis
+currently minute-priced. These are vendor claims and inputs, not a Dodaios
 quality verdict:
 
 - [OpenAI GPT-4o Transcribe model](https://developers.openai.com/api/docs/models/gpt-4o-transcribe)

@@ -67,7 +67,7 @@ plugin has `mcp.json` too, because that is what gives it tools; `skills/`
 is what makes it *good* — the tools plus the instructions for using them
 well, in one install.
 
-**`plugin.json`** — the identity. Everything Jarvis-specific sits inside the
+**`plugin.json`** — the identity. Everything Dodaios-specific sits inside the
 `io.github.personaljarvis` namespace, which every other client ignores:
 
 ```json
@@ -124,7 +124,7 @@ version, with tokens as placeholders and never as literals:
 ```
 
 **`io.github.personaljarvis/usage-card.md`** — the words that decide *when*
-your plugin is offered. Without it, Jarvis only reaches for the plugin when
+your plugin is offered. Without it, Dodaios only reaches for the plugin when
 a turn names it outright:
 
 ```markdown
@@ -156,7 +156,7 @@ the user clearly asks to change something.
 | `plugin.json` binding a `native_tool` | Native tools are Python inside the app; that tier is contributed to the main repo. |
 | Plain `http://` anywhere | Your users' tokens travel over these URLs. |
 | A stdio launcher other than `npx`/`uvx`/`docker`, or an unpinned version | Anything else is an arbitrary command line on a stranger's machine. |
-| A token written into `headers` or `env` | Those files are public. Use a `$plugin_…` placeholder; Jarvis fills it at connect time. |
+| A token written into `headers` or `env` | Those files are public. Use a `$plugin_…` placeholder; Dodaios fills it at connect time. |
 | A package with no components at all | It would be a card that collects a token and does nothing. |
 
 Limits: 10 skills per package, 64 KB per `SKILL.md`.
