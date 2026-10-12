@@ -12,6 +12,7 @@ from typing import Annotated, NoReturn
 import typer
 
 from jarvis.cli_ctl import invoke, options, render, safety
+from jarvis.core.branding import MACOS_BUNDLE_ID, MACOS_DMG_BUNDLE_ID
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from jarvis.platform import detect_platform
 from jarvis.platform.permissions import ACCEPTED_BUNDLE_IDS, PermissionId, tcc_reset_service
@@ -209,8 +210,8 @@ def reset(
         typer.Option(
             "--bundle-id",
             help=(
-                "App to reset: ai.personaljarvis.desktop (the downloaded app) or "
-                "com.personal-jarvis.desktop (the managed app). Default: the installed app; "
+                f"App to reset: {MACOS_DMG_BUNDLE_ID} (the downloaded app) or "
+                f"{MACOS_BUNDLE_ID} (the managed app). Default: the installed app; "
                 "name it when both are installed."
             ),
         ),

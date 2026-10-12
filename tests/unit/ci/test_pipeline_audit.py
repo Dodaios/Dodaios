@@ -438,19 +438,64 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     # No pull-request code runs next to the issue token.
     assert all("uses" not in step for step in job["steps"])
     script = job["steps"][0]["run"]
-    assert "--label nightly-ci" in script and "gh issue close" in script
+    assert "--label nightly-ci" in script and "write issue close" in script
+    # A check by hand runs from main only, vets the run it is given like the
+    # event, and writes nothing unless the dry run is switched off.
+    by_hand = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+    assert by_hand in job["if"]
+    assert '.event == "schedule"' in script and '.head_branch == "main"' in script
+    triggers = alert.get("on", alert.get(True))
+    assert triggers["workflow_dispatch"]["inputs"]["dry_run"]["default"] is True
+    for direct in ("gh issue close", "gh issue edit", "gh issue create", "gh label create"):
+        assert direct not in script, direct
     # The legs that left the per-change tiers are exactly what the nightly keeps.
     nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
     only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]
     assert {"os": "windows-latest", "runtime": "hermes"} in only_nightly and len(only_nightly) == 3
 
 
-def test_the_duration_cache_is_refreshed_by_the_nightly_run_on_main():
-    steps = workflows()["ci.yml"]["jobs"]["test-report"]["steps"]
-    for name in ("Merge the duration cache (main only)", "Save the duration cache (main only)"):
-        condition = next(s for s in steps if s.get("name") == name)["if"]
-        assert "github.ref == 'refs/heads/main'" in condition
-        assert "github.event_name == 'schedule'" in condition
+def test_only_a_complete_green_run_on_main_writes_the_duration_caches():
+    ci = workflows()["ci.yml"]["jobs"]
+    job = ci["duration-cache"]
+    # Any run on main (nightly, manual, a push that bypassed the queue), and
+    # only after every Linux and Windows shard succeeded: no `!cancelled()`.
+    assert job["if"] == "needs.detect.outputs.python == 'true' && github.ref == 'refs/heads/main'"
+    assert set(job["needs"]) == {"detect", "tests-linux", "tests-windows"}
+    saves = {
+        s["with"]["path"]: s["with"]["key"]
+        for s in job["steps"]
+        if "cache/save@" in s.get("uses", "")
+    }
+    assert saves == {
+        "test_durations.json": "test-durations-${{ github.run_id }}",
+        "test_durations_windows.json": "test-durations-windows-${{ github.run_id }}",
+    }
+    assert not any("cache/save@" in s.get("uses", "") for s in ci["test-report"]["steps"])
+    assert "duration-cache" in ci["gate"]["needs"]
+
+
+def test_windows_shards_by_its_own_history_and_falls_back_to_the_linux_one():
+    ci = workflows()["ci.yml"]["jobs"]
+    detect = ci["detect"]["steps"]
+    restores = {
+        s["with"]["path"]: s["with"]["restore-keys"]
+        for s in detect
+        if s.get("uses", "").startswith("actions/cache/restore@")
+    }
+    # Two caches with two keys: the Linux history keeps its key and version.
+    assert restores == {
+        "test_durations.json": "test-durations-",
+        "test_durations_windows.json": "test-durations-windows-",
+    }
+    ensure = next(s for s in detect if s.get("id") == "snapshot")["run"]
+    assert "test -s test_durations_windows.json || cp test_durations.json" in ensure
+    shared = next(s for s in detect if s.get("name") == "Share duration snapshot with every shard")
+    assert shared["with"]["path"].split() == ["test_durations.json", "test_durations_windows.json"]
+    windows = next(s for s in ci["tests-windows"]["steps"] if s.get("name") == "Run shard")["run"]
+    assert "--durations test_durations_windows.json" in windows
+    assert '--durations-out "out/durations-windows-$SHARD.json"' in windows
+    linux = next(s for s in ci["tests-linux"]["steps"] if s.get("name") == "Run shard")["run"]
+    assert "test_durations_windows" not in linux
 
 
 @pytest.mark.parametrize("payload", [{}, {"failed_ids": [], "counts": {}, "files": 0}])
