@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 176,
+  "count": 177,
   "forks": 69,
-  "placed": 37,
-  "stated": 47,
-  "generatedAt": "2026-10-12T01:48:54.432Z",
+  "placed": 38,
+  "stated": 48,
+  "generatedAt": "2026-10-12T02:08:04.125Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -95,6 +95,13 @@
       "lon": -38.97,
       "label": "Feira de Santana",
       "country": "Brazil",
+      "count": 1
+    },
+    {
+      "lat": 50.962,
+      "lon": 9.678,
+      "label": "Germany",
+      "country": "Germany",
       "count": 1
     },
     {
