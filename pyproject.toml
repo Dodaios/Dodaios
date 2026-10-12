@@ -9,14 +9,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "personal-jarvis"
-version = "3.0.0"
+version = "3.1.1"
 description = "Turn your computer into an AI agent that coordinates apps, tools, models, and other agents"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
 # Apache-2.0 from 2.0.0 on. Releases up to 1.6.0 shipped MIT and stay MIT —
 # docs/licensing.md has the reasoning and what is still owed at the release.
 license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+license-files = [
+    "LICENSE",
+    "NOTICE",
+    "third_party/*/LICENSE",
+    "third_party/*/NOTICE*",
+    "third_party/*/ThirdPartyNotices.txt",
+    "jarvis/ui/web/frontend/src/assets/octicons-LICENSE.txt",
+]
 authors = [{ name = "Ruben Lütke" }]  # i18n-allow: maintainer proper name (umlaut)
 keywords = [
     "voice-assistant",
@@ -257,11 +264,11 @@ dependencies = [
 # These are the sidebar of the PyPI project page — for many visitors the first
 # and only place they meet the project, so every route out of it is listed.
 [project.urls]
-Homepage = "https://github.com/PersonalJarvis/PersonalJarvis"
-Repository = "https://github.com/PersonalJarvis/PersonalJarvis"
-Issues = "https://github.com/PersonalJarvis/PersonalJarvis/issues"
-Documentation = "https://github.com/PersonalJarvis/PersonalJarvis/blob/main/README.md"
-Changelog = "https://github.com/PersonalJarvis/PersonalJarvis/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Dodaios/Dodaios"
+Repository = "https://github.com/Dodaios/Dodaios"
+Issues = "https://github.com/Dodaios/Dodaios/issues"
+Documentation = "https://github.com/Dodaios/Dodaios/blob/main/README.md"
+Changelog = "https://github.com/Dodaios/Dodaios/blob/main/CHANGELOG.md"
 Discord = "https://discord.gg/x7USduHxbc"
 
 [project.optional-dependencies]
@@ -509,7 +516,7 @@ personal-jarvis = "jarvis.__main__:main"
 jarvis-review-gc = "jarvis.cli.review_gc:main"
 # Phase 8.6 — Review-Pipeline-Eval-Harness (Plan §6.6).
 jarvis-review-eval = "jarvis.cli.review_eval:main"
-# jarvisctl — control CLI for a running Personal Jarvis instance.
+# jarvisctl — control CLI for a running Dodaios instance.
 jarvisctl = "jarvis.cli_ctl.__main__:main"
 jctl = "jarvis.cli_ctl.__main__:main"
 
@@ -554,7 +561,8 @@ vertex-stt = "jarvis.plugins.stt.gemini_api:VertexSTT"
 [project.entry-points."jarvis.tts"]
 # Local, keyless neural speech (Piper VITS voices via sherpa-onnx / ONNX
 # Runtime). The voices are plain ONNX files, deliberately NOT loaded through the
-# GPL-3 piper1-gpl library, so this repo stays free of GPL obligations.
+# piper1-gpl library. Native sherpa builds can still include GPL-licensed
+# phonemization components; redistribution must account for their own terms.
 piper-local = "jarvis.plugins.tts.piper_local:PiperLocalTTS"
 inworld = "jarvis.plugins.tts.inworld_tts:InworldTTS"
 elevenlabs = "jarvis.plugins.tts.elevenlabs_tts:ElevenLabsTTS"
@@ -564,7 +572,7 @@ gemini-flash-tts = "jarvis.plugins.tts.gemini_flash_tts:GeminiFlashTTS"
 # production voice cannot live inside — a Cloud project has no preview cap.
 vertex-tts = "jarvis.plugins.tts.gemini_flash_tts:VertexTTS"
 grok-voice = "jarvis.plugins.tts.grok_voice_tts:GrokVoiceTTS"
-# Phase L.4 — Streaming-TTS mit niedriger TTFB.
+# Phase L.4 — Streaming TTS with low time to first byte.
 cartesia = "jarvis.plugins.tts.cartesia_tts:CartesiaTTS"
 # OpenRouter cloud speech synthesis — reuses the shared openrouter_api_key.
 openrouter-tts = "jarvis.plugins.tts.openrouter_tts:OpenRouterTTS"
@@ -938,6 +946,7 @@ jarvis = [
 
 [tool.setuptools.data-files]
 "share/personal-jarvis/docs" = ["docs/product/**/*.md"]
+"share/personal-jarvis/docs/legal" = ["docs/legal/TERMS.md"]
 
 [tool.ruff]
 line-length = 100
@@ -976,7 +985,7 @@ markers = [
 # Only cryptography may resolve through the reviewed native wheel index.
 [[tool.uv.index]]
 name = "native-crypto"
-url = "https://personaljarvis.github.io/PersonalJarvis/native-crypto/50.0.2-1/simple/"
+url = "https://dodaios.github.io/Dodaios/native-crypto/50.0.2-1/simple/"
 explicit = true
 
 [tool.uv.sources]

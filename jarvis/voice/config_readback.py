@@ -32,11 +32,11 @@ _PHRASES: dict[str, dict[str, str]] = {
         "es": "Listo — {label} ahora es {value}.",
     },
     "applied_restart": {
-        "de": "Erledigt — {label} ist jetzt {value}. Starte Jarvis einmal neu, "
+        "de": "Erledigt — {label} ist jetzt {value}. Starte Dodaios einmal neu, "
               "damit es wirkt.",
-        "en": "Done — {label} is now {value}. Restart Jarvis once for it to take "
+        "en": "Done — {label} is now {value}. Restart Dodaios once for it to take "
               "effect.",
-        "es": "Listo — {label} ahora es {value}. Reinicia Jarvis una vez para que "
+        "es": "Listo — {label} ahora es {value}. Reinicia Dodaios una vez para que "
               "surta efecto.",
     },
     # Hard-refuse (secrets / self-lockout) — an honest decline, never a question.

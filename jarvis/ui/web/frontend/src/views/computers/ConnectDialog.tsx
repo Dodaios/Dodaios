@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { useIdentity, useProviderCatalog, useUpsertComputer } from "@/hooks/useComputers";
 import { fill, useT } from "@/i18n";
+import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
 import { cn } from "@/lib/utils";
 import { robustCopy } from "@/lib/clipboard";
 import { useEventStore } from "@/store/events";
@@ -52,6 +53,7 @@ import { CopyField, Field, inputClass } from "./parts";
 import { ApiImportStep } from "./wizard/ApiImportStep";
 import { LocalVmStep } from "./wizard/LocalVmStep";
 import { errorText } from "./wizard/shared";
+import { KnownHosts } from "./KnownHosts";
 import { ServerAddressForm } from "./ServerAddressForm";
 
 type Screen = { kind: "form" } | { kind: "check" } | { kind: "account"; provider: ProviderInfo } | { kind: "vm" };
@@ -128,7 +130,7 @@ export function ConnectDialog({
   const [connectionType, setConnectionType] = useState<"server" | "ssh">("ssh");
   const connecting = useRef(false);
   const [additionalOptions, setAdditionalOptions] = useState(false);
-  const assistantName = useEventStore((s) => s.assistantName) || "Jarvis";
+  const assistantName = useEventStore((s) => s.assistantName) || NEUTRAL_ASSISTANT_NAME;
   const [pasted, setPasted] = useState("");
   const [method, setMethod] = useState<Method>("auto");
   const [missing, setMissing] = useState<Missing>(null);
@@ -141,6 +143,10 @@ export function ConnectDialog({
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [port, setPort] = useState("");
+  // A host picked from this PC's ~/.ssh/config: its alias lets the automatic
+  // login offer the key file the config names, as long as that host is still
+  // the one in the box.
+  const [picked, setPicked] = useState<{ alias: string; host: string } | null>(null);
   const [keepPassword, setKeepPassword] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -245,6 +251,7 @@ export function ConnectDialog({
       private_key: login === "private_key" ? keyText : undefined,
       passphrase: login === "private_key" && passphrase ? passphrase : undefined,
       provider: "generic",
+      ssh_alias: login === "auto" && picked?.host === detected.host ? picked.alias : undefined,
     };
     let state = startCheck();
     const show = (next: CheckState) => {
@@ -423,7 +430,7 @@ export function ConnectDialog({
             />
           )}
 
-          {screen.kind === "form" && <div id="cx-server-panel" hidden={connectionType !== "server"}><ServerAddressForm /></div>}
+          {screen.kind === "form" && <div id="cx-server-panel" hidden={connectionType !== "server"}><ServerAddressForm onConnected={onClose} /></div>}
 
           {screen.kind === "form" && (
             <form
@@ -435,6 +442,16 @@ export function ConnectDialog({
                 void connect();
               }}
             >
+              <KnownHosts
+                selected={picked?.host === detected.host ? picked?.alias : null}
+                onPick={(host) => {
+                  setPicked({ alias: host.alias, host: host.host });
+                  setPasted(host.host);
+                  setUsername(host.username ?? "");
+                  setPort(host.port !== 22 ? String(host.port) : "");
+                  setName(host.alias);
+                }}
+              />
               <div>
                 <Field label={t("computers.cx_ssh_host")}>
                   <textarea

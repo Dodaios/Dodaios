@@ -77,7 +77,7 @@ class TrayOnlySurface:
         except Exception:  # noqa: BLE001 — AD-6: tray start must never crash boot.
             log.exception(
                 "TrayOnlySurface: tray start failed; no tray presence this "
-                "session (the rest of Jarvis is unaffected)."
+                "session (the rest of Dodaios is unaffected)."
             )
 
     def stop(self) -> None:

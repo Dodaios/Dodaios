@@ -92,10 +92,10 @@ _HERMES_EFFORTS: Final[frozenset[str]] = frozenset(
 )
 
 _BIN_BLOCKER_TEXT: Final[str] = (
-    "Personal Jarvis keeps this a file on purpose. Hermes' home maintenance\n"
+    "Dodaios keeps this a file on purpose. Hermes' home maintenance\n"
     "publishes launchers into <data root>/bin and puts that folder on the\n"
     "user's PATH on Windows; a file here makes that step a no-op for the data\n"
-    "root Jarvis' agents use, so they never change the user's PATH.\n"
+    "root Dodaios' agents use, so they never change the user's PATH.\n"
 )
 
 
@@ -494,8 +494,8 @@ class HermesRuntime:
         write_if_changed(
             home / "SOUL.md",
             persona_text(turn.agent_name)
-            + "Jarvis MCP tools are available through tool_search, tool_describe and "
-            "tool_call. For a task that needs Jarvis or a connected account, use "
+            + "Dodaios MCP tools are available through tool_search, tool_describe and "
+            "tool_call. For a task that needs Dodaios or a connected account, use "
             "tool_search with the service and action, read the returned schema, "
             "then invoke its exact tool name through tool_call. Search before "
             "concluding a capability is missing. For a greeting or ordinary "

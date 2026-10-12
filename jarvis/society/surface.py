@@ -60,6 +60,7 @@ from .roster import (
 from .routine_runner import is_routine_session
 from .runtime import current_runtime
 from .share_tool import ShareTemplateTool
+from .team_tools import team_lead_tools
 
 log = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ _SOCIETY_DENIED: Final[frozenset[str]] = frozenset(
 )
 
 _ECOSYSTEM_CARD: Final[str] = """\
-## The Jarvis ecosystem you work in
+## The Dodaios ecosystem you work in
 - Jarvis is the voice-steered lead of this society; the user talks to Jarvis by voice and to \
 you by typed chat. Only Jarvis and orchestrators assign work; a scheduler (not a model) turns \
 an assignment into a run under the assignee's identity. You never spawn society agents or
@@ -214,7 +215,7 @@ Reuse the agreed task when the user confirms it briefly. After applying, call
 society_routines to verify the saved task and report its actual state and next run.
 If a prerequisite prevents execution, report that specific blocker; never claim the
 routine is active merely because you wrote its operating instructions or a memory note.
-- Approvals: actions above your permission ceiling queue for the user (chat card, Jarvis bar, \
+- Approvals: actions above your permission ceiling queue for the user (chat card, Dodaios bar, \
 voice). A queued action is not refused — say what you are waiting for and continue with what \
 you can. Secrets are never typed into a chat; credentials come from the keyring.
 - Language: answer in the language of the message you received.
@@ -428,6 +429,8 @@ def society_tools(cfg: Any, brain: Any, session: Any) -> dict[str, Tool]:
             ),
         }
     )
+    # A team's lead plans, assigns and reports with three more tools.
+    tools.update(cast(dict[str, Tool], team_lead_tools(rt, agent_id)))
     session_id = str(getattr(session, "session_id", "") or "")
     # A routine runs unattended: it never gets a way to ask the user.
     if not is_routine_session(session_id):
@@ -889,6 +892,9 @@ async def society_system_extra(cfg: Any, brain: Any, session: Any) -> str:
             "\nThis is an unattended routine run: society_request_credential is not available. "
             "If a credential is missing, report which one in your result."
         )
+    team = rt.team_leads.briefing(agent.agent_id)
+    if team:
+        context += "\n\n" + team
     return (
         build_briefing(agent, catalog, roster, browser=browser, learned=learned, memory=memory)
         + context
@@ -1089,7 +1095,7 @@ def _browser_line(browser: dict[str, Any] | None) -> str:
         return (
             "## Your browser\nsociety_browser uses your assigned Chrome profile. "
             "Website authentication must be checked on the actual page. "
-            "If disconnected, ask the user to connect that profile in the Jarvis extension. "
+            "If disconnected, ask the user to connect that profile in the Dodaios extension. "
             "Never switch to another browser or account. One task per call, capped steps."
         )
     logged = "website authentication unverified; ask for manual login when a site requires it"

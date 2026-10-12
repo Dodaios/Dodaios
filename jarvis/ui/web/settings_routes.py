@@ -2489,7 +2489,7 @@ async def put_overlay_style(body: OverlayStyleBody, request: Request) -> dict[st
             detail=(
                 f"The on-screen overlay belongs to the default app; the {instance.label} "
                 "instance draws none and does not change the shared setting. Switch the "
-                "style in the regular Personal Jarvis app."
+                "style in the regular Dodaios app."
             ),
         )
 
@@ -2913,7 +2913,8 @@ async def open_external(body: OpenExternalBody) -> dict[str, object]:
     from jarvis.platform.open_path import open_url
 
     opened = await asyncio.to_thread(open_url, body.url)
-    log.info("open-external: opened=%s url=%s", opened, body.url)
+    # Pairing and OAuth URLs may carry one-time credentials in their fragments.
+    log.info("open-external: opened=%s host=%s", opened, parsed.hostname)
     return {"opened": bool(opened)}
 
 

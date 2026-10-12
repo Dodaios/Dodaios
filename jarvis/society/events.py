@@ -36,6 +36,8 @@ __all__ = [
     "RoomState",
     "RunState",
     "SocietyEnvelope",
+    "TeamGoalState",
+    "TeamTaskState",
     "Tier",
     "now_ms",
 ]
@@ -187,6 +189,42 @@ class QuestState(StrEnum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class TeamGoalState(StrEnum):
+    """A goal the person gave a team; its lead plans, assigns and reports.
+
+    ``queued`` = waits behind the team's current goal; ``running`` = the lead
+    or a member is working on it; ``needs_input`` = the lead asked the person
+    something only they can decide; ``paused`` = stopped without an answer
+    (society halted, app restart, turn budget) until the person resumes it;
+    the three terminal states never change again.
+    """
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    NEEDS_INPUT = "needs_input"
+    PAUSED = "paused"
+    DONE = "done"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class TeamTaskState(StrEnum):
+    """One task a team lead handed to a member, read off the board.
+
+    ``waiting`` = the member was busy and the assignment knocks again;
+    ``assigned`` = the ASSIGN is on the board; ``running`` = the member
+    CLAIMed it; ``done`` / ``blocked`` come from its RESULT (or a final
+    refusal); ``cancelled`` = the goal was stopped first.
+    """
+
+    WAITING = "waiting"
+    ASSIGNED = "assigned"
+    RUNNING = "running"
+    DONE = "done"
+    BLOCKED = "blocked"
     CANCELLED = "cancelled"
 
 

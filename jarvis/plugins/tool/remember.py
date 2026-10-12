@@ -24,7 +24,7 @@ class RememberTool:
     risk_tier: str = "safe"
     description: str = (
         "Save something the user explicitly asked you to remember for future "
-        "conversations into Jarvis' long-term MEMORY.md. Pass one self-contained "
+        "conversations into Dodaios' long-term MEMORY.md. Pass one self-contained "
         "sentence in the user's language that still makes sense later (resolve "
         "'this' or 'that'). Every later conversation sees it."
     )

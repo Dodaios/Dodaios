@@ -1,4 +1,4 @@
-# Running Jarvis headless on a VPS
+# Running Dodaios headless on a VPS
 
 A plain Ubuntu box, no screen, no microphone, no GPU. You talk to it from your
 laptop's browser; the server does the thinking.
@@ -28,7 +28,7 @@ The base profile is cloud-first: no torch, no GPU, no Node.js, no audio
 hardware assumed.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PersonalJarvis/PersonalJarvis/main/install/install.sh | bash -s -- --headless --no-launch
+curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash -s -- --headless --no-launch
 ```
 
 `--headless` skips the desktop-automation tools and the Node.js check.
@@ -53,7 +53,7 @@ audio libraries, so a container image works too.
 
 ## 2. Set the keys — one is enough
 
-Jarvis is built so that any single provider key gets you a working system. You
+Dodaios is built so that any single provider key gets you a working system. You
 do not need one of each.
 
 The setup normally happens in the app's UI, which you do not have yet, so use
@@ -67,7 +67,7 @@ export GEMINI_API_KEY=...
 export OPENROUTER_API_KEY=...
 ```
 
-With one key, Jarvis wires the whole chain from it — the brain, and cloud
+With one key, Dodaios wires the whole chain from it — the brain, and cloud
 speech-to-text and text-to-speech where that provider offers them. Where it
 does not, the tier degrades honestly and says so, rather than pretending.
 
@@ -102,7 +102,7 @@ Save as `/etc/systemd/system/jarvis.service` (adjust the user and paths):
 
 ```ini
 [Unit]
-Description=Personal Jarvis (headless)
+Description=Dodaios (headless)
 After=network-online.target
 Wants=network-online.target
 
@@ -132,7 +132,7 @@ journalctl -u jarvis -f
 
 A **system** unit, not a `--user` one: a user unit stops when the login session
 ends, which is the opposite of what a server wants. (The `--user` autostart path
-in the codebase is for a Linux *desktop*, where Jarvis has to be inside the
+in the codebase is for a Linux *desktop*, where Dodaios has to be inside the
 graphical session to reach a microphone.)
 
 ### Reaching it from your laptop
@@ -147,7 +147,7 @@ ssh -L 47821:127.0.0.1:47821 you@your-vps
 Then open <http://localhost:47821> in your browser. The `jarvis` CLI treats the
 tunnelled port as local too, so `jarvis system status` just works.
 
-**If you bind to a public address instead**, Jarvis refuses to start without a
+**If you bind to a public address instead**, Dodaios refuses to start without a
 control key — deliberately, because on a VPS the key is the only boundary
 there is:
 
@@ -155,7 +155,7 @@ there is:
 export JARVIS_BIND_HOST=0.0.0.0
 ```
 
-Without a key that raises `Refusing to bind the Jarvis Control API to a
+Without a key that raises `Refusing to bind the Dodaios Control API to a
 non-loopback address`. That is the guard working, not a bug. Generate a key
 first, put a TLS-terminating reverse proxy in front, and never expose the raw
 port. The tunnel is simpler and is what most people should use.
@@ -191,7 +191,7 @@ over it.
 
 **The one thing that will trip you up:** browsers only hand out a microphone in
 a *secure context* — HTTPS, or `localhost`. Over `http://your-vps-ip:47821`
-your browser refuses the microphone, and Jarvis shows "Browser voice requires
+your browser refuses the microphone, and Dodaios shows "Browser voice requires
 HTTPS (or localhost)" instead of starting the call.
 
 Two ways out, and the first is easier:
@@ -210,7 +210,7 @@ Two ways out, and the first is easier:
 This is the section that saves the most time, because the two big ones are
 *supposed* to be silent and read as a broken install if you do not expect them.
 
-**Local wake word — off.** "Hey Jarvis" listens to a microphone continuously.
+**Local wake word — off.** The wake word listens to a microphone continuously.
 There is no microphone, so there is nothing to listen to. Start a conversation
 from the UI instead.
 

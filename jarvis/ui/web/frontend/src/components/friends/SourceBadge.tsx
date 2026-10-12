@@ -37,7 +37,7 @@ export function SourceBadge({
   return (
     <span
       className={cn("inline-flex items-center gap-0.5", className)}
-      aria-label={[hasTelegram && "Telegram", hasJarvis && "Jarvis"]
+      aria-label={[hasTelegram && "Telegram", hasJarvis && "Dodaios"]
         .filter(Boolean)
         .join(" + ")}
     >
@@ -51,7 +51,7 @@ export function SourceBadge({
       )}
       {hasJarvis && (
         <span
-          title="Jarvis Federation"
+          title="Dodaios Federation"
           className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-primary"
         >
           <Zap className="h-2.5 w-2.5" />

@@ -63,7 +63,7 @@ async def test_restart_preserves_profile_and_bypasses_stuck_control(recovery):
 async def test_restart_never_closes_an_external_browser(recovery, kind):
     live, agent, old, starts = recovery
     old.profile_binding = SimpleNamespace(kind=kind)
-    with pytest.raises(ValueError, match="managed by Jarvis"):
+    with pytest.raises(ValueError, match="managed by Dodaios"):
         await restart_browser(live, agent)
     assert not old.closed and len(starts) == 1
 

@@ -73,7 +73,12 @@ jobs:
           case "$RUN_ID" in (''|*[!0-9]*) echo "::error::not a run id: $RUN_ID"; exit 1 ;; esac
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > out/run.json
           python scripts/ci/flaky_report.py vet-run out/run.json --repo "$GITHUB_REPOSITORY"
+          # A push the merge queue already proved runs no tests (ci.yml,
+          # `proven`): it has no shard reports and nothing to record.
+          reports="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100"             --jq '[.artifacts[] | select(.name | startswith("tests-"))] | length')"
+          echo "reports=$reports" | tee -a "$GITHUB_OUTPUT"
       - name: Download the run's shard reports
+        if: steps.run.outputs.reports != '0'
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           run-id: ${{ steps.run.outputs.id }}
@@ -82,8 +87,10 @@ jobs:
           path: reports
           merge-multiple: true
       - name: Flaky files and failures (step summary)
+        if: steps.run.outputs.reports != '0'
         run: python scripts/ci/flaky_report.py summary reports
       - name: Update the tracking issue
+        if: steps.run.outputs.reports != '0'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.run.outputs.id }}

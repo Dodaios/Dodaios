@@ -2,7 +2,7 @@
 # Personal Jarvis — macOS / Linux quick-install bootstrap (Stage 1)
 #
 # Usage (from any POSIX shell):
-#   curl -fsSL https://raw.githubusercontent.com/PersonalJarvis/PersonalJarvis/main/install/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 #
 # This bootstrap is intentionally small. It:
 #   1. Verifies Python 3.11+ and git are available.
@@ -19,12 +19,13 @@ set -euo pipefail
 
 # Standalone bootstrap projections of jarvis/core/branding.py. The branding
 # contract test rejects drift because this script runs before Python is installed.
-OFFICIAL_REPO_SLUG="${JARVIS_OFFICIAL_REPO_SLUG:-PersonalJarvis/PersonalJarvis}"
+OFFICIAL_REPO_SLUG="${JARVIS_OFFICIAL_REPO_SLUG:-Dodaios/Dodaios}"
 if [[ ! "$OFFICIAL_REPO_SLUG" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
     printf 'JARVIS_OFFICIAL_REPO_SLUG must be an exact owner/repository slug\n' >&2
     exit 2
 fi
 REPO_URL="${JARVIS_INSTALL_REPO:-https://github.com/${OFFICIAL_REPO_SLUG}.git}"
+LEGACY_OFFICIAL_REPO_SLUG="PersonalJarvis/PersonalJarvis"
 CONFIG_FILE_NAME="jarvis.toml"
 MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
 BRANCH="${JARVIS_INSTALL_REF:-main}"
@@ -1074,7 +1075,33 @@ salvage_reclone() {
     ok 'reinstalled fresh (previous state preserved in the backup dir)'
 }
 
+# A checkout cloned before the GitHub rename still stores the old origin. Git
+# fetches through GitHub's redirect, but the in-app updater identifies a managed
+# install by this remote, so an untouched one loses its Update button. Only the
+# stock repository is retargeted; an explicit repository override is left alone.
+retarget_legacy_origin() {
+    # --- retarget-legacy-origin begin
+    if [ -z "${JARVIS_INSTALL_REPO:-}" ] && [ -z "${JARVIS_OFFICIAL_REPO_SLUG:-}" ]; then
+        _origin="$(git -C "$INSTALL_DIR" config --get remote.origin.url 2>/dev/null || true)"
+        _origin="$(printf '%s' "$_origin" | tr '[:upper:]' '[:lower:]')"
+        _origin="${_origin%/}"
+        _origin="${_origin%.git}"
+        _legacy="$(printf '%s' "$LEGACY_OFFICIAL_REPO_SLUG" | tr '[:upper:]' '[:lower:]')"
+        case "$_origin" in
+            *github.com[:/]"$_legacy")
+                if git -C "$INSTALL_DIR" remote set-url origin "$REPO_URL"; then
+                    note 'pointed this install at the renamed repository'
+                else
+                    note 'could not update the stored repository address - continuing'
+                fi
+                ;;
+        esac
+    fi
+    # --- retarget-legacy-origin end
+}
+
 if [ -d "$INSTALL_DIR/.git" ]; then
+    retarget_legacy_origin
     # shellcheck disable=SC2086  # GIT_NET_OPTS must word-split into -c pairs
     if pretty_git git $GIT_NET_OPTS -C "$INSTALL_DIR" fetch "$GIT_VERBOSITY" --depth 1 origin "$BRANCH" \
         && git -C "$INSTALL_DIR" checkout --quiet "$BRANCH" \

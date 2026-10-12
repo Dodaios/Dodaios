@@ -24,12 +24,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import HTTPConnection
 
 from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
+from jarvis.core.protocols import started_by_user
+from jarvis.society.companion import CompanionSkin
 from jarvis.society.events import MsgType
 from jarvis.society.failure_reasons import FailureReason, retry_action
 from jarvis.society.memory import MEMORY_SHARE_CAPABILITY, MemoryRefused
 from jarvis.society.rooms import RoomError
 from jarvis.society.roster import AgentRecord, RosterError
 from jarvis.society.runtime import SocietyRuntime, SocietyRuntimeClosed
+from jarvis.society.team_lead import TeamLeadError
 
 log = logging.getLogger(__name__)
 
@@ -341,7 +344,7 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
 
         svc = _service_from_state(request.app.state)
         if svc is None and getattr(request.app.state, "agent_chat_factory", None) is not None:
-            raise HTTPException(503, "The saved Jarvis chat model is temporarily unavailable")
+            raise HTTPException(503, "The saved Dodaios chat model is temporarily unavailable")
         selection = svc.store.chat_selection() if svc is not None else None
         if selection is not None:
             for key, value in selection.to_dict().items():
@@ -683,7 +686,14 @@ async def update_chat_group(group_id: str, body: ChatGroupBody, request: Request
     async with rt.meetings.group_mutation():
         if rt.meetings.is_running(group_id):
             raise HTTPException(409, "Stop the meeting before changing its members.")
-        return {"group": await rt.store.update_chat_group(group_id, body.name.strip(), members)}
+        try:
+            # A lead that is no longer on the team stops leading it.
+            await rt.team_leads.members_changed(group_id, members)
+        except TeamLeadError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+        group = await rt.store.update_chat_group(group_id, body.name.strip(), members)
+        await rt.team_leads.refresh()
+        return {"group": group}
 
 
 @router.delete("/chat-groups/{group_id}", openapi_extra={"x-jarvis-dangerous": True})
@@ -697,8 +707,188 @@ async def delete_chat_group(group_id: str, request: Request) -> dict[str, bool]:
             await rt.meetings.stop(group_id)
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
+        await rt.team_leads.group_deleted(group_id)
         await rt.store.delete_chat_group(group_id)
+        await rt.team_leads.refresh()
     return {"deleted": True}
+
+
+# ---------------------------------------------------------------- team leads
+
+
+class TeamLeadBody(BaseModel):
+    #: The member that manages the team; ``None`` removes the lead.
+    agent_id: str | None = Field(default=None, max_length=80)
+
+
+class TeamLeadCreateBody(BaseModel):
+    name: str = Field(default="", max_length=40)
+
+
+class TeamMissionBody(BaseModel):
+    mission: str = Field(default="", max_length=4_000)
+
+
+class TeamCheckinBody(BaseModel):
+    #: Minutes between the lead's unprompted looks at its team; 0 = off.
+    minutes: int = Field(default=0, ge=0, le=1_440)
+
+
+class TeamGoalBody(BaseModel):
+    text: str = Field(min_length=1, max_length=20_000)
+    title: str = Field(default="", max_length=120)
+    lang: str | None = None
+
+
+class TeamGoalMessageBody(BaseModel):
+    text: str = Field(min_length=1, max_length=20_000)
+
+
+def _team_error(exc: TeamLeadError) -> HTTPException:
+    return HTTPException(exc.status, str(exc))
+
+
+async def _team_goal(rt: SocietyRuntime, group_id: str, goal_id: str) -> None:
+    goal = await rt.team_leads.get_goal(goal_id)
+    if goal is None or goal.group_id != group_id:
+        raise HTTPException(404, "goal not found")
+
+
+@router.get("/chat-groups/{group_id}/team", openapi_extra={"x-jarvis-readonly": True})
+async def get_team(group_id: str, request: Request) -> dict[str, Any]:
+    """Read a team's lead, mission, goals and tasks without starting a turn."""
+    rt = await _runtime(request)
+    try:
+        return await rt.team_leads.snapshot(group_id)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+
+
+@router.put("/chat-groups/{group_id}/lead")
+async def set_team_lead(group_id: str, body: TeamLeadBody, request: Request) -> dict[str, Any]:
+    """Name the member that manages the team, or remove the lead."""
+    rt = await _runtime(request)
+    try:
+        await rt.team_leads.set_lead(group_id, body.agent_id)
+        return await rt.team_leads.snapshot(group_id)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+    except RosterError as exc:
+        raise _typed_error(exc) from exc
+
+
+@router.post("/chat-groups/{group_id}/lead")
+async def create_team_lead(
+    group_id: str, body: TeamLeadCreateBody, request: Request
+) -> dict[str, Any]:
+    """Create a new agent whose job is managing this team, and make it the lead."""
+    rt = await _runtime(request)
+    fields: dict[str, Any] = {}
+    from .agent_chat_routes import _service_from_state
+
+    # A new lead runs on the seat the person last picked for a chat, as every
+    # agent created from the app does; without one it uses the Agents tier.
+    svc = _service_from_state(request.app.state)
+    selection = svc.store.chat_selection() if svc is not None else None
+    if selection is not None:
+        fields = {key: value for key, value in selection.to_dict().items() if value}
+    try:
+        _, agent = await rt.team_leads.create_lead(group_id, name=body.name, fields=fields)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+    except RosterError as exc:
+        raise _typed_error(exc) from exc
+    progression = getattr(request.app.state, "progression", None)
+    if progression is not None:
+        await progression.note_agent_hired(agent.agent_id)
+    return {**await rt.team_leads.snapshot(group_id), "agent": agent.to_dict()}
+
+
+@router.put("/chat-groups/{group_id}/mission")
+async def set_team_mission(
+    group_id: str, body: TeamMissionBody, request: Request
+) -> dict[str, Any]:
+    """Save the team's standing purpose; its lead reads it on every managing turn."""
+    rt = await _runtime(request)
+    try:
+        await rt.team_leads.set_mission(group_id, body.mission)
+        return await rt.team_leads.snapshot(group_id)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+
+
+@router.put("/chat-groups/{group_id}/checkin", openapi_extra={"x-jarvis-dangerous": True})
+async def set_team_checkin(
+    group_id: str, body: TeamCheckinBody, request: Request
+) -> dict[str, Any]:
+    """Switch the lead's unprompted team check-in on (0 = off). Each check-in is a turn."""
+    rt = await _runtime(request)
+    try:
+        await rt.team_leads.set_checkin(group_id, body.minutes)
+        return await rt.team_leads.snapshot(group_id)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+
+
+@router.post("/chat-groups/{group_id}/goals", openapi_extra={"x-jarvis-dangerous": True})
+async def start_team_goal(group_id: str, body: TeamGoalBody, request: Request) -> dict[str, Any]:
+    """Give the team a goal; its lead plans it, hands out tasks and reports back."""
+    rt = await _runtime(request)
+    try:
+        goal = await rt.team_leads.start_goal(
+            group_id, body.text, title=body.title, lang=body.lang, origin={"kind": "board"}
+        )
+        return {**await rt.team_leads.snapshot(group_id), "goal_id": goal.goal_id}
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+
+
+@router.post(
+    "/chat-groups/{group_id}/goals/{goal_id}/message",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def message_team_goal(
+    group_id: str, goal_id: str, body: TeamGoalMessageBody, request: Request
+) -> dict[str, Any]:
+    """Answer the lead's question or steer a goal in progress."""
+    rt = await _runtime(request)
+    await _team_goal(rt, group_id, goal_id)
+    try:
+        await rt.team_leads.tell(goal_id, body.text)
+        return await rt.team_leads.snapshot(group_id)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+
+
+@router.post(
+    "/chat-groups/{group_id}/goals/{goal_id}/resume",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def resume_team_goal(group_id: str, goal_id: str, request: Request) -> dict[str, Any]:
+    """Continue a paused goal, retry a failed one, or start a queued one."""
+    rt = await _runtime(request)
+    await _team_goal(rt, group_id, goal_id)
+    try:
+        await rt.team_leads.resume(goal_id)
+        return await rt.team_leads.snapshot(group_id)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+
+
+@router.post(
+    "/chat-groups/{group_id}/goals/{goal_id}/cancel",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def cancel_team_goal(group_id: str, goal_id: str, request: Request) -> dict[str, Any]:
+    """Stop a goal: the lead's turn and every member task that still runs."""
+    rt = await _runtime(request)
+    await _team_goal(rt, group_id, goal_id)
+    try:
+        await rt.team_leads.cancel(goal_id)
+        return await rt.team_leads.snapshot(group_id)
+    except TeamLeadError as exc:
+        raise _team_error(exc) from exc
+
 
 
 @router.post("/agents/{agent_id}/message", openapi_extra={"x-jarvis-dangerous": True})
@@ -903,6 +1093,32 @@ async def apply_seed_proposals(body: ApplySeedsBody, request: Request) -> dict[s
         if agent is not None:
             created.append(agent.to_dict())
     return {"agents": created, "total": len(created)}
+
+
+# --------------------------------------------------------------- designs
+
+
+@router.get("/designs", summary="The person's saved companion designs")
+def get_designs() -> dict[str, Any]:
+    from jarvis.society import design_library
+
+    return {"designs": design_library.list_designs()}
+
+
+@router.post("/designs", summary="Save a companion design for any agent to wear")
+def post_design(skin: CompanionSkin) -> dict[str, Any]:
+    from jarvis.society import design_library
+
+    return design_library.save_design(skin)
+
+
+@router.delete("/designs/{design_id}", summary="Delete a saved companion design")
+def delete_design(design_id: str) -> dict[str, Any]:
+    from jarvis.society import design_library
+
+    if not design_library.delete_design(design_id):
+        raise HTTPException(404, "Design not found")
+    return {"deleted": design_id}
 
 
 # --------------------------------------------------------------- providers
@@ -1435,7 +1651,8 @@ async def operate_agent_routine(
         raise HTTPException(409, "The routine is already running")
     try:
         if body.operation == "run":
-            await scheduler.run_now(task_id)
+            with started_by_user():
+                await scheduler.run_now(task_id)
         else:
             await manage_routine(
                 agent, {"task_id": task_id, "operation": body.operation}, store, scheduler

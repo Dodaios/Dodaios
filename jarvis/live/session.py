@@ -668,7 +668,7 @@ class LiveVoiceSession:
         profile.session_config(language=self._language, tools=[])
         gateway = get_supervisor_tool_gateway()
         if gateway is None:
-            raise RuntimeError("Jarvis tools are still starting. Try voice again shortly.")
+            raise RuntimeError("Dodaios tools are still starting. Try voice again shortly.")
         root = user_data_dir()
 
         async def _open_ledger() -> LiveLedger:

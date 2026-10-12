@@ -26,7 +26,7 @@ from pathlib import Path
 from jarvis.voice_engine.paths import models_dir
 
 _CHUNK = 1 << 20
-_USER_AGENT = "jarvis-voice-engine/0.1 (+https://github.com/PersonalJarvis/PersonalJarvis)"
+_USER_AGENT = "jarvis-voice-engine/0.1 (+https://github.com/Dodaios/Dodaios)"
 
 ProgressFn = Callable[[str, int, int], None]
 

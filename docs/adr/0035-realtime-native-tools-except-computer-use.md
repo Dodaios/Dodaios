@@ -1,4 +1,4 @@
-# ADR-0035 — Realtime native tools: the live model calls every Jarvis tool itself; the Tool Model is for computer use
+# ADR-0035 — Realtime native tools: the live model calls every Dodaios tool itself; the Tool Model is for computer use
 
 **Status:** Accepted · **Date:** 2026-08-19 · **Phase:** Voice UX, realtime engine (every transport, every provider)
 
@@ -10,7 +10,7 @@ migration qualification.
 ## Context
 
 Maintainer mandate (2026-08-19): the realtime voice model must be allowed to
-call *every* Jarvis tool directly — except computer use. The Tool Model
+call *every* Dodaios tool directly — except computer use. The Tool Model
 (`[brain.tool_model]`, historically `cu_model` / `[brain.computer_use]`) was
 introduced for computer use and became the delegate for every action turn
 along the way. That generalisation is what the user hears as "no
@@ -58,7 +58,7 @@ In `hybrid` the live model receives **three kinds of functions**:
    (`jarvis.brain.cu_gate.CU_VEHICLE_TOOL_NAMES`), rendered compactly (§4);
 2. `jarvis_action` — narrowed to (a) operating the computer on screen
    (click, type, navigate inside application windows until a multi-step
-   desktop task is done), (b) looking at the screen, and (c) any Jarvis
+   desktop task is done), (b) looking at the screen, and (c) any Dodaios
    capability for which the model has **no function of its own** (a tool
    dropped under the declaration budget, or one that connected after the
    session started);

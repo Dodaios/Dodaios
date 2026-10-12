@@ -2023,7 +2023,7 @@ class JarvisAgentHarnessConfig(BaseModel):
     the schema + default block in jarvis.toml; Wave 3 wires the bridge.
 
     Deliberately NO Anthropic lock in the ``model`` default: an empty ``model``
-    means the bridge resolves the frontier-pro of the active Personal Jarvis
+    means the bridge resolves the frontier-pro of the active Dodaios
     provider (``cfg.brain.primary``) via the provider-slug mapping from AD-6
     (gemini→google/gemini-..., claude-api→anthropic/..., openai→openai/...).
     This way Jarvis-Agent automatically follows the user's provider choice.
@@ -4303,7 +4303,7 @@ class MarketplaceConfig(BaseModel):
     # registry's GitHub Pages deployment; forks and air-gapped mirrors point
     # this at their own compiled index. Empty string disables the community
     # section entirely (browse shows only the shipped seed catalog).
-    community_index_url: str = "https://personaljarvis.github.io/marketplace/index.json"
+    community_index_url: str = "https://dodaios.github.io/marketplace/index.json"
     # Where the in-app Publish flow submits packages. The endpoint verifies
     # the GitHub identity and opens the registry PR as the marketplace bot;
     # forks point this at their own deployment. Empty string hides Publish,
@@ -4316,7 +4316,7 @@ class MarketplaceConfig(BaseModel):
     # which the registry's intake workflow validates and publishes
     # (docs/marketplace/agent-templates.md). This is the default path — it
     # needs no server. Empty string hides Publish.
-    publish_registry_repo: str = "PersonalJarvis/marketplace"
+    publish_registry_repo: str = "Dodaios/marketplace"
     # Client id of the marketplace GitHub App (public by design — device flow
     # needs no secret, which is why a downloadable binary can use it).
     publish_github_client_id: str = "Iv23li1YcX62KJO67whO"

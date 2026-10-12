@@ -9,14 +9,14 @@ phase: 5
 audience: developer
 ---
 
-# ADR-0011 — Main Jarvis is a Pure Dispatcher with EXACTLY four tools
+# ADR-0011 — Main Dodaios is a Pure Dispatcher with EXACTLY four tools
 
 **Status:** Amended 2026-07-13
 **Phase:** Persona refactor §3 — routing fix
 
 ## Context
 
-The probe-drift inventory (`docs/persona-research.md` section 1) showed that 6 of 10 smalltalk inputs to `voice_e2e_probe` produced empty outputs — the main-Jarvis brain (Grok-4.1-fast or Gemini-2.5-flash as the router tier) reflexively issued `spawn_sub_jarvis` as a tool call. Cause: ROUTER_TOOLS in `factory.py` contained **eleven** tools (open-app, type-text, run-shell, search-web, screen-snapshot, remember, whoami, multi-spawn, spawn-sub-jarvis, plus hotkey/click from earlier work), while the ROUTER system prompt (`router.py:9`) explicitly promised only **four** (`run_shell`, `screenshot`, `multi_spawn`, `spawn_sub_jarvis`).
+The probe-drift inventory (`docs/persona-research.md` section 1) showed that 6 of 10 smalltalk inputs to `voice_e2e_probe` produced empty outputs — the main-Dodaios brain (Grok-4.1-fast or Gemini-2.5-flash as the router tier) reflexively issued `spawn_sub_jarvis` as a tool call. Cause: ROUTER_TOOLS in `factory.py` contained **eleven** tools (open-app, type-text, run-shell, search-web, screen-snapshot, remember, whoami, multi-spawn, spawn-sub-jarvis, plus hotkey/click from earlier work), while the ROUTER system prompt (`router.py:9`) explicitly promised only **four** (`run_shell`, `screenshot`, `multi_spawn`, `spawn_sub_jarvis`).
 
 That was the source of the drift:
 - The LLM had too many direct-action options.
@@ -27,7 +27,7 @@ Master plan §22 specifies: four router tools (`screen_snapshot`, `multi_spawn`,
 
 ## Decision
 
-**Main Jarvis = Pure Dispatcher.** Reduce ROUTER_TOOLS to exactly four, load the deterministic force-spawn heuristic from config, and add a ROUTER-DISCIPLINE prompt section.
+**Main Dodaios = Pure Dispatcher.** Reduce ROUTER_TOOLS to exactly four, load the deterministic force-spawn heuristic from config, and add a ROUTER-DISCIPLINE prompt section.
 
 ### 1. ROUTER_TOOLS reduction
 
@@ -41,7 +41,7 @@ ROUTER_TOOLS = frozenset({
 })
 ```
 
-Direct actions outside these four (`open_app`, `type_text`, `search_web`, `remember`, `whoami`) belong in the Jarvis-Agent tier — the router delegates them via `spawn_sub_jarvis`.
+Direct actions outside these four (`open_app`, `type_text`, `search_web`, `remember`, `whoami`) belong in the Dodaios-Agent tier — the router delegates them via `spawn_sub_jarvis`.
 
 ### 2. Deterministic force-spawn heuristic
 
@@ -78,7 +78,7 @@ DO-NOT-SPAWN — antworte direkt, WENN:
 
 ### 4. D9 recursion guard (unchanged, now explicitly tested)
 
-`spawn-sub-jarvis` must NEVER land in `SUB_TOOLS` — a Jarvis-Agent cannot recursively spawn new Jarvis-Agent instances. Master plan §6 D9. Test: `test_spawn_sub_jarvis_only_in_router_tools`.
+`spawn-sub-jarvis` must NEVER land in `SUB_TOOLS` — a Dodaios-Agent cannot recursively spawn new Dodaios-Agent instances. Master plan §6 D9. Test: `test_spawn_sub_jarvis_only_in_router_tools`.
 
 ## Consequences
 
@@ -129,9 +129,9 @@ SELF_MOD_TOOL_NAMES_ROUTER = frozenset({
 
 | Tool | Phase | Rationale | Recursion guard? |
 |---|---|---|---|
-| `dispatch-to-harness` | 5 (final state) | Main Jarvis needs the direct harness path without Jarvis-Agent spawn latency. Use case: the user asks "What do you see on the screen?" → Main Jarvis calls `screen-snapshot` and immediately `dispatch-to-harness` with the observation output to a coding harness, without triggering the 30-min-hard-cap Jarvis-Agent spawn. | n/a — the tool is not self-recursive. |
-| `dispatch-with-review` | 8.4 (Plan §6.4 quality-gate pipeline) | Main Jarvis calls the review pipeline explicitly. The pipeline worker IS itself a Jarvis-Agent-equivalent construct; if a Jarvis-Agent could in turn call `dispatch-with-review`, it would spawn the pipeline worker, which is again a Jarvis-Agent → a recursion vector analogous to `spawn-sub-jarvis`. | **Yes** — `SUB_TOOLS` does **not** contain the tool. Test: `test_recursive_tools_only_in_router` (`tests/unit/brain/test_routing.py`). |
-| `list_mutable_settings`, `get_config_value`, `set_config_value` | 7.3 (Plan §AD-2 self-mod) | Setting mutation may only be triggered by the main-Jarvis tier. A Jarvis-Agent worker (Opus 4.7) would carry too high a privilege-escalation potential. The tools are registered directly in the loader (not via entry_points), so an accidental sub-tier activation through entry_points discovery is ruled out. | **Yes** — the tools are hardcoded main-Jarvis-only. |
+| `dispatch-to-harness` | 5 (final state) | Main Dodaios needs the direct harness path without Dodaios-Agent spawn latency. Use case: the user asks "What do you see on the screen?" → Main Dodaios calls `screen-snapshot` and immediately `dispatch-to-harness` with the observation output to a coding harness, without triggering the 30-min-hard-cap Dodaios-Agent spawn. | n/a — the tool is not self-recursive. |
+| `dispatch-with-review` | 8.4 (Plan §6.4 quality-gate pipeline) | Main Dodaios calls the review pipeline explicitly. The pipeline worker IS itself a Dodaios-Agent-equivalent construct; if a Dodaios-Agent could in turn call `dispatch-with-review`, it would spawn the pipeline worker, which is again a Dodaios-Agent → a recursion vector analogous to `spawn-sub-jarvis`. | **Yes** — `SUB_TOOLS` does **not** contain the tool. Test: `test_recursive_tools_only_in_router` (`tests/unit/brain/test_routing.py`). |
+| `list_mutable_settings`, `get_config_value`, `set_config_value` | 7.3 (Plan §AD-2 self-mod) | Setting mutation may only be triggered by the main-Dodaios tier. A Dodaios-Agent worker (Opus 4.7) would carry too high a privilege-escalation potential. The tools are registered directly in the loader (not via entry_points), so an accidental sub-tier activation through entry_points discovery is ruled out. | **Yes** — the tools are hardcoded main-Dodaios-only. |
 
 ### What does NOT break the mandate-spirit guarantees
 
@@ -143,7 +143,7 @@ SELF_MOD_TOOL_NAMES_ROUTER = frozenset({
 ### When the appearance of drift becomes a real violation
 
 - A **direct action** migrates into `ROUTER_TOOLS` (e.g. `open-app`). → Mandate violation; the ROUTER would again know direct actions, which we already had on 2026-04-23.
-- A **recursion-vector** tool migrates into `SUB_TOOLS`. → D9 violation; a Jarvis-Agent could recursively spawn.
+- A **recursion-vector** tool migrates into `SUB_TOOLS`. → D9 violation; a Dodaios-Agent could recursively spawn.
 - `_should_force_sub_jarvis` is replaced by an LLM pre-classifier. → ADR-0011 "Alternatives Considered" explicitly rejected this; a code re-introduction would be worth a new ADR.
 
 If none of these three points occurs, the extension of the tool set is by definition within the pure-dispatcher corridor.
@@ -183,7 +183,7 @@ single `cli_<name>` tool. Adding `cli-tools` to `ROUTER_TOOLS` is the fix.
 
 | Tool | Phase | Rationale | Recursion guard? |
 |---|---|---|---|
-| `cli-tools` | CLI integration | Each expanded `cli_<name>` tool is a **direct, safety-gated action** (the user wants "list my GCP projects" answered, not delegated to a 30-min worker spawn). It is the MCP/plugin model for command-line tools. Per-CLI risk patterns (`spec.risk.{whitelist,blacklist}_patterns`) flow into the `RiskTierEvaluator` via `make_cli_patterns_fn`. | **n/a as a recursion vector** — a `cli_<name>` tool runs a subprocess, it cannot spawn the supervisor. It is router-tier only and never enters any worker tool-set (AP-5/AP-14); the deleted Jarvis-Agent tier / `SUB_TOOLS` cannot re-acquire it. |
+| `cli-tools` | CLI integration | Each expanded `cli_<name>` tool is a **direct, safety-gated action** (the user wants "list my GCP projects" answered, not delegated to a 30-min worker spawn). It is the MCP/plugin model for command-line tools. Per-CLI risk patterns (`spec.risk.{whitelist,blacklist}_patterns`) flow into the `RiskTierEvaluator` via `make_cli_patterns_fn`. | **n/a as a recursion vector** — a `cli_<name>` tool runs a subprocess, it cannot spawn the supervisor. It is router-tier only and never enters any worker tool-set (AP-5/AP-14); the deleted Dodaios-Agent tier / `SUB_TOOLS` cannot re-acquire it. |
 
 ### Pure-Dispatcher spirit is preserved
 
@@ -191,7 +191,7 @@ A `cli_<name>` tool is not a generic direct-action like `open_app`/`type_text`
 (those stay off the router by design). It is a **gated external-system call**
 with a declared binary, declared risk tier, and per-CLI allow/deny patterns —
 architecturally the same shape as the existing `dispatch-to-harness`
-meta-action: the router calls it directly instead of forcing a Jarvis-Agent spawn,
+meta-action: the router calls it directly instead of forcing a Dodaios-Agent spawn,
 avoiding the spawn-latency tax for read-only CLI queries.
 
 ### Live-reload contract
@@ -255,7 +255,7 @@ desktop.
 type / key inside the loop is gated through the `ToolExecutor` risk tiers
 (ADR-0008). It is **not** a spawn — it cannot re-enter the supervisor, so it
 carries no D9 recursion risk and never enters a worker tool-set (AP-5/AP-14).
-It is router-tier only; the deleted Jarvis-Agent tier / `SUB_TOOLS` cannot
+It is router-tier only; the deleted Dodaios-Agent tier / `SUB_TOOLS` cannot
 re-acquire it.
 
 ### Regression guards
@@ -394,7 +394,7 @@ Three tools join the router set so the brain has a complete grip on the Desktop
 App configuration by voice/chat:
 
 - `describe-app-settings` (safe, read-only) - a complete, secret-free snapshot:
-  the active brain/TTS/STT/Jarvis-Agent provider (and which have a stored key), the
+  the active brain/TTS/STT/Dodaios-Agent provider (and which have a stored key), the
   key settings, and the configured MCP servers. The "full overview" capability.
 - `switch-provider` (ask, echo-confirm) - switch *which* provider is active for a
   tier ("switch from Grok to Gemini"). Reuses the exact 3-layer persist +
@@ -712,7 +712,7 @@ retry) and the `RefreshScheduler` keeps the refresh token warm.
 ## Amendment — `dispatch-to-harness` removed from the LLM-visible router set (2026-06-28)
 
 **Forensic.** A user said by voice, in effect, *"start a subagent that writes me
-a study sheet."* Jarvis replied: *"the harness 'openclaw' is not available;
+a study sheet."* Dodaios replied: *"the harness 'openclaw' is not available;
 active are only mcp-remote, open-interpreter, python-script and screenshot."*
 The brain had chosen `dispatch_to_harness(harness="openclaw", …)` instead of
 `spawn_worker`. `HarnessManager.get("openclaw")` raised a `KeyError`, and its raw
@@ -721,10 +721,10 @@ aloud.
 
 **Root cause.** `dispatch-to-harness` exposed a free-form `harness` string
 parameter and its description advertised *"OpenClaw, Codex, Python-Script, MCP"*
-as Jarvis-Agent vehicles. But the legacy OpenClaw harness name is **not a registered harness** — it was
+as Dodaios-Agent vehicles. But the legacy OpenClaw harness name is **not a registered harness** — it was
 removed in Welle 4 (~92% nested-claude hang; see `docs/BUGS.md`), and
 `pyproject.toml` registers only `open-interpreter`, `mcp-remote`,
-`python-script`, `screenshot`. So a "Jarvis-Agent" turn could name a phantom harness
+`python-script`, `screenshot`. So a "Dodaios-Agent" turn could name a phantom harness
 that can never run. The capability surface compounded it: `tool.spawn-worker`
 was described as *"Spawn an OpenClaw sub-agent"* and a separate
 `harness.openclaw` capability advertised the dead vehicle.
@@ -733,7 +733,7 @@ was described as *"Spawn an OpenClaw sub-agent"* and a separate
 longer an LLM-selectable tool. The two legitimate paths are unchanged and
 sufficient:
 
-- **heavy Jarvis-Agent work → `spawn-worker`** (Mission-Manager → `ClaudeDirectWorker`);
+- **heavy Dodaios-Agent work → `spawn-worker`** (Mission-Manager → `ClaudeDirectWorker`);
 - **live desktop control → `computer-use`**.
 
 The `DispatchToHarnessTool` class is **retained** for the internal, non-LLM
@@ -824,7 +824,7 @@ schemas + the provider-test regression).
 
 ### Context
 
-The live harness inventory no longer contains the historical Jarvis-Agent/Codex
+The live harness inventory no longer contains the historical Dodaios-Agent/Codex
 vehicles advertised by `multi-spawn`. The tool therefore competed with the
 working `spawn-worker` mission path while offering backend names that could not
 run. This is the same phantom-capability failure class that previously required
@@ -889,7 +889,7 @@ it.
 
 ### Alternatives considered
 
-- Re-register the retired harnesses: rejected because the Jarvis-Agent (formerly
+- Re-register the retired harnesses: rejected because the Dodaios-Agent (formerly
   OpenClaw) subprocess path was removed after repeated reliability failures.
 - Rewrite `dispatch-with-review` as a second alias for `spawn-worker`: rejected
   because duplicate schemas recreate nondeterministic model selection and split
@@ -968,7 +968,7 @@ prepends a deterministic provenance warning when serving a `type: meta`
 page.
 
 The router remains a pure dispatcher: the tool is a direct safe-gated read,
-never a spawn. Jarvis-Agents may access it only through ADR-0025's
+never a spawn. Dodaios-Agents may access it only through ADR-0025's
 mission-scoped supervisor broker; the live object and vault path remain in the
 supervisor, and it never enters a legacy worker tier or direct worker tool set
 (AP-5/AP-14).
@@ -1015,7 +1015,7 @@ Two properties are load-bearing:
   decides rather than the tool.
 
 The router remains a pure dispatcher: this is a direct gated action, never a
-spawn, and it never enters a worker tool set (AP-5/AP-14). Jarvis-Agents reach
+spawn, and it never enters a worker tool set (AP-5/AP-14). Dodaios-Agents reach
 it only through ADR-0025's mission-scoped supervisor broker.
 
 ### Consequences
@@ -1025,7 +1025,7 @@ makes this the most durable connection in the catalog — and the reason the
 setup text asks for a dedicated non-admin Home Assistant user, since the token
 inherits every permission of whoever created it.
 
-Reachability, not authentication, is the honest limitation: a headless Jarvis
+Reachability, not authentication, is the honest limitation: a headless Dodaios
 on a server cannot see a home LAN without a remote URL or a tunnel. The tool
 reports that as a network problem instead of implying a bad credential.
 
@@ -1064,7 +1064,7 @@ can now read, switch and author its own *mode* — the character it answers in
 The precedent is `switch-provider`, not `open_app`. These tools reconfigure the
 assistant itself; they run in-process, touch no external system, and their
 result is deterministic. Nothing here is a direct action on the user's machine,
-so nothing here belongs behind the Jarvis-Agent bridge. Direct gated actions,
+so nothing here belongs behind the Dodaios-Agent bridge. Direct gated actions,
 never spawns, never in a worker tool set (AP-5/AP-14).
 
 Tiers are set by what each one can actually cost:
@@ -1299,7 +1299,7 @@ the feature.
 
 `delegate-to-agent` (risk `monitor`) and `society-status` (risk `safe`) join
 `ROUTER_TOOLS`. They are the voice front door of the agent society
-(`docs/agent-society/MASTERPLAN.md` §3.2): "Jarvis, let Scout research that"
+(`docs/agent-society/MASTERPLAN.md` §3.2): "Dodaios, let Scout research that"
 becomes ONE typed `ASSIGN` envelope on the society board, acknowledged inside
 the 5-second voice budget; "what is Scout doing?" is answered from the roster
 and the last board events without a model call.
@@ -1354,7 +1354,7 @@ per-agent grant and approval rules. This narrowly controls existing IDE coding
 CLIs; it does not invoke the society scheduler or mission worker dispatcher.
 The tool is absent from the global worker catalog and only added to an
 authorized society chat's tools, including its subscription-seat MCP catalog,
-or the lead's typed Jarvis chat under that chat's own identity and approval rules.
+or the lead's typed Dodaios chat under that chat's own identity and approval rules.
 Router membership and the prohibition on recursive worker spawning are
 unchanged. Stable workspace/pane IDs and durable request receipts preserve
 project and delivery identity across asynchronous work and retries.
@@ -1372,7 +1372,7 @@ never treated as user authorization.
 Receiving turns inherit conversation provenance through task-local context;
 new conversations receive fresh traces. Replies retain the trace and parent
 event, so the scheduler's conversation cap remains effective. Lead replies go
-to the front-page Jarvis chat. Legacy `user_message` events are not relabeled.
+to the front-page Dodaios chat. Legacy `user_message` events are not relabeled.
 
 Guards: `tests/contract/test_internal_messages.py`, the router membership test,
 `tests/unit/realtime/test_internal_message_regression.py`, and the shared
@@ -1402,7 +1402,7 @@ ASGI transport as `app-command`.
   registry commands that share an endpoint.
 - The catalog never contains credentials, sign-ins, OAuth callbacks,
   webhooks, the raw control plane, self-modification or the policy routes —
-  voice never carries a secret (AP-2) and Jarvis never edits its own
+  voice never carries a secret (AP-2) and Dodaios never edits its own
   permissions.
 - Never a spawn and never in a worker set (AP-5/AP-14): both names are in the
   worker broker's forbidden list and in the society `NEVER_GRANTED` set.

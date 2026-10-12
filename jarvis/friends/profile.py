@@ -145,7 +145,7 @@ def _fallback_display_name() -> str:
     publish to somebody else's friends list. An unnamed instance stays unnamed
     until its owner types a name.
     """
-    return "Personal Jarvis user"
+    return "Dodaios user"
 
 
 __all__ = ["SocialProfile", "SocialProfileStore", "default_profile_path"]

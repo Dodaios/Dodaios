@@ -32,6 +32,7 @@
  * the floor's centre. It spawns new Jarvis agents downstairs and new coding
  * agents upstairs, and everyone new to the floor appears on its pad.
  */
+import { PRODUCT_NAME } from "@/lib/branding";
 import type { AgentRunState, AgentTier } from "../data";
 import { REWARD_IDS } from "../progression/levelCatalog";
 import { agentsAmbience } from "./agentsAmbience";
@@ -363,10 +364,10 @@ export const MAX_DEPARTMENTS = 6;
 export const MIN_DEPARTMENTS = 4;
 export const MAX_SEATED = MAX_DEPARTMENTS * MAX_BENCHES * SEATS_PER_BENCH;
 
-/** The department an agent works in: its provider family, or Jarvis' own brain. */
+/** The department an agent works in: its provider family, or the product's own brain. */
 export function departmentKey(agent: Pick<OfficeAgentInput, "providerLabel">): string {
   const label = agent.providerLabel.trim();
-  return label.length > 0 ? label.charAt(0).toUpperCase() + label.slice(1) : "Jarvis";
+  return label.length > 0 ? label.charAt(0).toUpperCase() + label.slice(1) : PRODUCT_NAME;
 }
 
 function byArrival(a: OfficeAgentInput, b: OfficeAgentInput): number {
@@ -386,7 +387,7 @@ export function groupDepartments(agents: readonly OfficeAgentInput[]): { label: 
   const ordered = [...groups.entries()]
     .map(([label, members]) => ({ label, members: [...members].sort(byArrival) }))
     .sort((a, b) => b.members.length - a.members.length || a.label.localeCompare(b.label));
-  if (ordered.length === 0) return [{ label: "Jarvis", members: [] }];
+  if (ordered.length === 0) return [{ label: PRODUCT_NAME, members: [] }];
   if (ordered.length <= MAX_DEPARTMENTS) return ordered;
   const kept = ordered.slice(0, MAX_DEPARTMENTS - 1);
   const rest = ordered.slice(MAX_DEPARTMENTS - 1).flatMap((g) => g.members).sort(byArrival);

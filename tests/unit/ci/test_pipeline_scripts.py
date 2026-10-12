@@ -216,6 +216,22 @@ def test_batches_stay_in_one_directory_and_isolate_slow_files():
     assert sorted(f for batch in batches for f in batch) == sorted(files)
 
 
+def test_a_wedged_batch_is_killed_after_minutes_not_after_the_whole_job():
+    # Twelve ordinary files: five minutes, not twelve five-minute floors.
+    batch = [f"tests/unit/a/test_{i}.py" for i in range(12)]
+    quick = dict.fromkeys(batch, 3.0)
+    assert run_tests_parallel.batch_timeout(batch, quick) == run_tests_parallel.MIN_FILE_TIMEOUT
+    # A batch with real load gets a multiple of its own history ...
+    heavy = dict.fromkeys(batch, 100.0)
+    assert run_tests_parallel.batch_timeout(batch, heavy) == run_tests_parallel.MAX_BATCH_TIMEOUT
+    assert run_tests_parallel.batch_timeout(batch[:2], heavy) == 6 * 200.0
+    # ... and never less than its slowest file would get alone.
+    one_slow = {**quick, batch[0]: 280.0}
+    assert run_tests_parallel.batch_timeout(batch, one_slow) >= run_tests_parallel.file_timeout(
+        batch[0], one_slow
+    )
+
+
 def test_file_timeout_scales_with_history_but_is_bounded():
     assert run_tests_parallel.file_timeout("x", {}) == run_tests_parallel.MIN_FILE_TIMEOUT
     assert (
@@ -542,6 +558,27 @@ def test_train_updates_only_conflicting_or_stale_red_branches():
     assert decide("MERGEABLE", "failure", False) == "wait"
     assert decide("UNKNOWN", "success", False) == "wait"
     assert decide("UNKNOWN", "approve", False) == "approve"
+
+
+def test_train_gives_its_update_slots_to_the_pull_requests_that_can_land():
+    wanted = [
+        # The oldest ones: an unresolved conflict and a pull request with red CI.
+        {"number": 1, "labels": ["needs-rebase"], "state": "success"},
+        {"number": 2, "labels": [], "state": "failure"},
+        {"number": 3, "labels": ["needs-rebase"], "state": "failure"},
+        # Green pull requests that only conflict with main.
+        {"number": 4, "labels": ["auto-merge"], "state": "success"},
+        {"number": 5, "labels": [], "state": "success"},
+        {"number": 6, "labels": [], "state": "success"},
+    ]
+    assert agent_integrate.grant_updates(wanted, 3) == {4, 5, 6}
+    # A free slot still goes to the red one before the conflict nobody resolved.
+    assert agent_integrate.grant_updates(wanted, 4) == {2, 4, 5, 6}
+    assert agent_integrate.grant_updates(wanted, 6) == {1, 2, 3, 4, 5, 6}
+    # `priority` moves a pull request to the front, whatever its state.
+    urgent = [*wanted, {"number": 9, "labels": ["priority", "needs-rebase"], "state": "failure"}]
+    assert agent_integrate.grant_updates(urgent, 1) == {9}
+    assert agent_integrate.grant_updates(wanted, 0) == set()
 
 
 def test_train_leaves_a_queued_pull_request_to_the_queue():
