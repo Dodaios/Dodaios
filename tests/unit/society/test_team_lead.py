@@ -546,6 +546,12 @@ async def test_the_sweep_reports_a_run_that_died_silently(team):
     rt.scheduler.note_run_ended(task.run_id)
     await rt.store.update_team_task(task.task_id, {"updated_ms": 1})
     await leads.sweep()
+    # The member's chat still runs that turn: it is not dead, so nobody is told so.
+    assert (await leads.tasks(goal.goal_id))[0].state is TeamTaskState.RUNNING
+    assert len(seen) == 1
+    # Now the turn is gone without an ending in the chat: that is a silent death.
+    svc.busy.discard(SCOUT)
+    await leads.sweep()
     await until(_state_is(rt, goal.goal_id, TeamGoalState.FAILED))
     assert "The run ended without a result." in seen[1]
 
@@ -657,6 +663,54 @@ async def test_a_lost_assignment_is_read_back_from_the_members_chat(team):
     # The lead heard the real result once; nothing was handed out twice.
     assert len(seen) == 1 and "Found: three sources." in seen[0]
     assert len(await leads.tasks(goal_id)) == 1 and svc.prompts(SCOUT) == []
+
+
+async def test_the_slow_start_drill_loses_the_start_and_the_sweep_recovers_it(
+    team, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The drill file makes a real start outlast the board's patience."""
+    from jarvis.society import bus
+
+    rt, svc = team
+    leads = rt.team_leads
+    monkeypatch.setattr(bus, "_HANDLER_TIMEOUT_S", 0.05)
+    (tmp_path / "society_drill.json").write_text('{"slow_start_s": 0.4}', encoding="utf-8")
+    svc.replies[SCOUT] = "Found: three sources."
+    seen: list[str] = []
+
+    async def boss(text: str, kwargs: dict[str, Any]) -> str:
+        seen.append(text)
+        if len(seen) == 1:
+            receipt = await leads.assign("boss", member="scout", title="Research", brief="Go.")
+            assert receipt["state"] == "assigned"  # the start was never confirmed
+            return "Assigned."
+        await leads.report("boss", status="done", summary="Scout found it.")
+        return "Closed."
+
+    svc.scripts[LEAD] = boss
+    goal = await leads.start_goal("team", "Research it")
+    await until(lambda: len(svc.prompts(SCOUT)) == 1 and svc.idle())
+    task = (await leads.tasks(goal.goal_id))[0]
+    # The member worked, yet the board holds no claim and no result for it.
+    assert task.state is TeamTaskState.ASSIGNED and task.run_id == ""
+    kinds = [e.msg_type for e in await rt.store.events_for_trace(task.trace_id)]
+    assert kinds == [MsgType.ASSIGN]
+    assert not rt.scheduler.running and len(seen) == 1
+
+    await rt.store.update_team_task(task.task_id, {"updated_ms": 1})
+    await leads.sweep()
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
+    done = (await leads.tasks(goal.goal_id))[0]
+    assert done.state is TeamTaskState.DONE and done.result == "Found: three sources."
+    assert len(await leads.tasks(goal.goal_id)) == 1 and len(svc.prompts(SCOUT)) == 1
+
+    # Without the file the same start is claimed as usual.
+    (tmp_path / "society_drill.json").unlink()
+    assert rt._drill_seconds("slow_start_s") == 0.0  # noqa: SLF001
+    (tmp_path / "society_drill.json").write_text("not json", encoding="utf-8")
+    assert rt._drill_seconds("slow_start_s") == 0.0  # noqa: SLF001
+    (tmp_path / "society_drill.json").write_text('{"slow_start_s": 900}', encoding="utf-8")
+    assert rt._drill_seconds("slow_start_s") == 30.0  # noqa: SLF001
 
 
 async def test_a_lost_assignment_that_failed_or_never_arrived_is_reported_blocked(team):
