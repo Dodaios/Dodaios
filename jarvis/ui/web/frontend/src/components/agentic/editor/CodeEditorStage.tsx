@@ -1,9 +1,10 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   AlertTriangle,
   ChevronRight,
   Code2,
+  Columns2,
   Copy,
   Eye,
   ExternalLink,
@@ -39,6 +40,11 @@ const EditorSurface = lazy(() => import("./EditorSurface"));
 const DISK_POLL_MS = 3000;
 const DISK_JITTER_MS = 1500;
 
+/** How far the divider between two editors may be dragged, as a share of the width. */
+const SPLIT_MIN = 0.2;
+const SPLIT_MAX = 0.8;
+const clampSplit = (ratio: number) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ratio));
+
 const baseName = (path: string) => path.split("/").pop() ?? path;
 
 interface PendingClose {
@@ -73,12 +79,18 @@ export function CodeEditorStage({
   const stage = useRef<HTMLDivElement>(null);
   const tabs = useCodeEditorStore(useShallow((state) => tabsOf(state, workspaceId)));
   const activeKey = useCodeEditorStore((state) => (workspaceId ? (state.active[workspaceId] ?? null) : null));
+  const sideKey = useCodeEditorStore((state) => (workspaceId ? (state.side[workspaceId] ?? null) : null));
+  const sideHasKeyboard = useCodeEditorStore((state) => state.sideFocused);
   const visible = useCodeEditorStore((state) => state.visible);
   const quickOpen = useCodeEditorStore((state) => state.quickOpen);
   const files = useCodeEditorStore((state) => state.files);
   const diffBases = useCodeEditorStore((state) => state.diffBases);
   const [pending, setPending] = useState<PendingClose | null>(null);
   const [menu, setMenu] = useState<EditorTab | null>(null);
+  // The first editor's share of the width while two are open.
+  const [split, setSplit] = useState(0.5);
+  const splitHost = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
   // Tabs whose Markdown, HTML or SVG is shown rendered (Ctrl+Shift+V).
   const [rendered, setRendered] = useState<ReadonlySet<string>>(() => new Set());
   const toggleRendered = (key: string) =>
@@ -94,7 +106,10 @@ export function CodeEditorStage({
   const pushToast = useEventStore((state) => state.pushToast);
 
   const activeTab = tabs.find((tab) => tab.key === activeKey) ?? tabs[tabs.length - 1] ?? null;
-  const activeFile = activeTab ? files[activeTab.fileKey] : undefined;
+  // A second editor beside the first ("Open to the side"). The breadcrumbs,
+  // banners and status bar describe whichever of the two has the keyboard.
+  const sideTab = activeTab && sideKey ? (tabs.find((tab) => tab.key === sideKey) ?? null) : null;
+  const sideFocused = sideHasKeyboard && sideTab !== null;
   const shown = visible && activeTab !== null;
 
   // Reopen what this workspace had open last run, unsaved text included.
@@ -157,7 +172,9 @@ export function CodeEditorStage({
       if (!state.visible || !host) return;
       if (target && target !== document.body && !host.contains(target)) return;
       const own = tabsOf(state, workspaceId);
-      const current = own.find((tab) => tab.key === state.active[workspaceId]) ?? own[own.length - 1];
+      // Keys go to the editor that has the keyboard.
+      const beside = state.sideFocused ? own.find((tab) => tab.key === state.side[workspaceId]) : undefined;
+      const current = beside ?? own.find((tab) => tab.key === state.active[workspaceId]) ?? own[own.length - 1];
       if (!current) return;
       const handled = () => {
         event.preventDefault();
@@ -169,7 +186,9 @@ export function CodeEditorStage({
         else void saveFile(current.fileKey);
       } else if (key === "w" && !event.shiftKey) {
         handled();
-        requestCloseRef.current([current.key]);
+        // In the second editor, Ctrl+W ends the split; the tab stays open.
+        if (beside) state.closeSide(workspaceId);
+        else requestCloseRef.current([current.key]);
       } else if (key === "tab" || key === "pagedown" || key === "pageup") {
         handled();
         state.cycle(workspaceId, event.shiftKey || key === "pageup" ? -1 : 1);
@@ -185,15 +204,15 @@ export function CodeEditorStage({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [workspaceId]);
 
-  // Notice an agent's edit to the open file: on a timer and when the window regains focus.
-  const activeFileKey = shown ? activeTab.fileKey : null;
+  // Notice an agent's edit to the open files: on a timer and when the window regains focus.
+  const watchedFileKeys = shown ? [...new Set([activeTab.fileKey, ...(sideTab ? [sideTab.fileKey] : [])])].join("\n") : "";
   useEffect(() => {
-    if (!activeFileKey) return;
+    if (!watchedFileKeys) return;
     let alive = true;
     let timer: number | undefined;
     const check = () => {
       if (document.visibilityState === "visible" && useEventStore.getState().activeSection === "agentic-ide") {
-        void checkDisk(activeFileKey);
+        for (const fileKey of watchedFileKeys.split("\n")) void checkDisk(fileKey);
       }
     };
     const tick = () => {
@@ -207,7 +226,7 @@ export function CodeEditorStage({
       window.clearTimeout(timer);
       window.removeEventListener("focus", check);
     };
-  }, [activeFileKey]);
+  }, [watchedFileKeys]);
 
   const duplicateNames = useMemo(() => {
     // Two different files with one name get their folder beside it; the edit
@@ -227,14 +246,30 @@ export function CodeEditorStage({
   if (!shown) return quick;
 
   const store = useCodeEditorStore.getState();
-  const segments = activeTab.path.split("/");
+  const starting = (
+    <p className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+      {t("code_editor.starting")}
+    </p>
+  );
+  const shownTab = sideFocused && sideTab ? sideTab : activeTab;
+  const shownFile = files[shownTab.fileKey];
+  const segments = shownTab.path.split("/");
+
+  // Dragging the divider between the two editors.
+  const dragSplit = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const host = splitHost.current;
+    if (!dragging.current || !host) return;
+    const rect = host.getBoundingClientRect();
+    if (rect.width > 0) setSplit(clampSplit((event.clientX - rect.left) / rect.width));
+  };
 
   return (
     <>
       <div
         ref={stage}
         data-testid="code-editor"
-        data-path={activeTab.path}
+        data-path={shownTab.path}
         className="absolute inset-0 z-20 flex min-h-0 flex-col bg-background"
       >
         {/* Tab bar */}
@@ -278,10 +313,15 @@ export function CodeEditorStage({
                     active ? "bg-background text-foreground-strong" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                   )}
                 >
-                  {active && <span className="absolute inset-x-0 top-0 h-px bg-primary" aria-hidden />}
+                  {active && <span className={cn("absolute inset-x-0 top-0 h-px", sideFocused ? "bg-muted-foreground/50" : "bg-primary")} aria-hidden />}
                   {tab.mode === "diff" ? <FileDiff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <FileTypeIcon path={tab.path} />}
                   <span className={cn("truncate", tab.preview && "italic", file?.deleted && "line-through decoration-destructive/70")}>{name}</span>
                   {(duplicateNames.get(name) ?? 0) > 1 && folder && <span className="shrink-0 truncate text-[11px] text-muted-foreground">{folder}</span>}
+                  {sideTab?.key === tab.key && (
+                    <span title={t("code_editor.side_tab_hint")} data-testid="code-editor-tab-side" className="inline-flex shrink-0 text-muted-foreground">
+                      <Columns2 className="h-3 w-3" aria-hidden />
+                    </span>
+                  )}
                   <button
                     type="button"
                     aria-label={fill(t("code_editor.close_tab"), { file: name })}
@@ -326,29 +366,29 @@ export function CodeEditorStage({
                 <span className={cn("truncate", index === segments.length - 1 && "text-foreground")}>{segment}</span>
               </span>
             ))}
-            {activeTab.mode === "diff" && <span className="ml-1.5 shrink-0 rounded bg-secondary px-1.5 py-px text-[11px]">{diffBases[activeTab.fileKey]?.label ?? t("code_editor.diff_badge")}</span>}
+            {shownTab.mode === "diff" && <span className="ml-1.5 shrink-0 rounded bg-secondary px-1.5 py-px text-[11px]">{diffBases[shownTab.fileKey]?.label ?? t("code_editor.diff_badge")}</span>}
           </nav>
-          {activeTab.mode === "edit" && activeFile?.status === "ready" && renderKindOf(activeTab.path) && (
+          {shownTab.mode === "edit" && shownFile?.status === "ready" && renderKindOf(shownTab.path) && (
             <ActionButton
-              onClick={() => toggleRendered(activeTab.key)}
-              icon={rendered.has(activeTab.key) ? <Code2 className="h-3.5 w-3.5" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
-              label={rendered.has(activeTab.key) ? t("code_editor.show_source") : t("code_editor.preview")}
+              onClick={() => toggleRendered(shownTab.key)}
+              icon={rendered.has(shownTab.key) ? <Code2 className="h-3.5 w-3.5" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
+              label={rendered.has(shownTab.key) ? t("code_editor.show_source") : t("code_editor.preview")}
               hint="Ctrl+Shift+V"
               wide
             />
           )}
           {/* A text comparison only means something for a text file. */}
-          {(activeTab.mode === "diff" || activeFile?.status === "ready") && (
+          {(shownTab.mode === "diff" || shownFile?.status === "ready") && (
             <ActionButton
-              onClick={() => store.openFile(workspaceId, activeTab.path, { mode: activeTab.mode === "diff" ? "edit" : "diff", preview: false })}
-              icon={activeTab.mode === "diff" ? <FileText className="h-3.5 w-3.5" aria-hidden /> : <FileDiff className="h-3.5 w-3.5" aria-hidden />}
-              label={activeTab.mode === "diff" ? t("code_editor.open_file") : t("code_editor.open_changes")}
+              onClick={() => store.openFile(workspaceId, shownTab.path, { mode: shownTab.mode === "diff" ? "edit" : "diff", preview: false })}
+              icon={shownTab.mode === "diff" ? <FileText className="h-3.5 w-3.5" aria-hidden /> : <FileDiff className="h-3.5 w-3.5" aria-hidden />}
+              label={shownTab.mode === "diff" ? t("code_editor.open_file") : t("code_editor.open_changes")}
             />
           )}
           {stagedPane && (
             <ActionButton
               onClick={() =>
-                void attachToTerminal(stagedPane, { paths: [absolute(activeTab.path)] }).catch((error: unknown) =>
+                void attachToTerminal(stagedPane, { paths: [absolute(shownTab.path)] }).catch((error: unknown) =>
                   pushToast("error", (error as Error).message),
                 )
               }
@@ -357,44 +397,114 @@ export function CodeEditorStage({
             />
           )}
           <ActionButton
-            onClick={() => openExternally(activeTab.path)}
+            onClick={() => openExternally(shownTab.path)}
             icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden />}
             label={t("code_editor.open_externally")}
             iconOnly
           />
         </div>
 
-        {activeFile?.conflict && (
+        {shownFile?.conflict && (
           <Banner tone="warning" testId="code-editor-conflict" text={t("code_editor.conflict")}>
-            <BannerButton onClick={() => void revertFile(activeTab.fileKey)}>{t("code_editor.conflict_load_disk")}</BannerButton>
-            <BannerButton onClick={() => void saveFile(activeTab.fileKey, { overwrite: true })}>{t("code_editor.conflict_keep_mine")}</BannerButton>
+            <BannerButton onClick={() => void revertFile(shownTab.fileKey)}>{t("code_editor.conflict_load_disk")}</BannerButton>
+            <BannerButton onClick={() => void saveFile(shownTab.fileKey, { overwrite: true })}>{t("code_editor.conflict_keep_mine")}</BannerButton>
           </Banner>
         )}
-        {activeFile?.mixedEol && !activeFile.conflict && (
+        {shownFile?.mixedEol && !shownFile.conflict && (
           <Banner
             tone="muted"
             testId="code-editor-mixed-eol"
-            text={fill(t("code_editor.mixed_eol"), { eol: activeFile.eol === "\r\n" ? "CRLF" : "LF" })}
+            text={fill(t("code_editor.mixed_eol"), { eol: shownFile.eol === "\r\n" ? "CRLF" : "LF" })}
           />
         )}
-        {activeFile?.deleted && !activeFile.conflict && (
+        {shownFile?.deleted && !shownFile.conflict && (
           <Banner tone="muted" testId="code-editor-deleted" text={t("code_editor.deleted")} />
         )}
 
-        <div className="relative min-h-0 flex-1">
-          <Suspense
-            fallback={
-              <p className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                {t("code_editor.starting")}
-              </p>
-            }
+        <div ref={splitHost} className="flex min-h-0 flex-1">
+          <div
+            data-testid="code-editor-main"
+            className="relative min-h-0 min-w-0"
+            style={{ flex: sideTab ? `${split} 1 0%` : "1 1 0%" }}
+            onFocusCapture={() => store.focusGroup(false)}
+            onPointerDownCapture={() => store.focusGroup(false)}
           >
-            <EditorSurface tab={activeTab} rendered={rendered.has(activeTab.key)} onOpenExternally={openExternally} />
-          </Suspense>
+            <Suspense fallback={starting}>
+              <EditorSurface tab={activeTab} rendered={rendered.has(activeTab.key)} onOpenExternally={openExternally} />
+            </Suspense>
+          </div>
+          {sideTab && (
+            <>
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label={t("code_editor.resize_split")}
+                aria-valuemin={SPLIT_MIN * 100}
+                aria-valuemax={SPLIT_MAX * 100}
+                aria-valuenow={Math.round(split * 100)}
+                tabIndex={0}
+                title={t("code_editor.resize_split")}
+                data-testid="code-editor-split-handle"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  dragging.current = true;
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                }}
+                onPointerMove={dragSplit}
+                onPointerUp={(event) => {
+                  dragging.current = false;
+                  event.currentTarget.releasePointerCapture?.(event.pointerId);
+                }}
+                onPointerCancel={() => {
+                  dragging.current = false;
+                }}
+                onDoubleClick={() => setSplit(0.5)}
+                onKeyDown={(event) => {
+                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                  event.preventDefault();
+                  setSplit((current) => clampSplit(current + (event.key === "ArrowLeft" ? -0.05 : 0.05)));
+                }}
+                className="w-1 shrink-0 cursor-col-resize bg-border/70 transition-colors hover:bg-primary/60 focus-visible:bg-primary/60 focus-visible:outline-none"
+              />
+              <section
+                aria-label={t("code_editor.side_label")}
+                data-testid="code-editor-side"
+                data-path={sideTab.path}
+                data-focused={sideFocused || undefined}
+                className="flex min-h-0 min-w-0 flex-col"
+                style={{ flex: `${1 - split} 1 0%` }}
+                onFocusCapture={() => store.focusGroup(true)}
+                onPointerDownCapture={() => store.focusGroup(true)}
+              >
+                <div className="relative flex h-8 shrink-0 items-center gap-1.5 border-b border-border/50 bg-sidebar pl-3 pr-1.5 text-[13px]">
+                  {sideFocused && <span className="absolute inset-x-0 top-0 h-px bg-primary" aria-hidden />}
+                  {sideTab.mode === "diff" ? <FileDiff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <FileTypeIcon path={sideTab.path} />}
+                  <span className={cn("min-w-0 flex-1 truncate", sideFocused ? "text-foreground-strong" : "text-muted-foreground")} title={sideTab.path}>
+                    {baseName(sideTab.path)}
+                  </span>
+                  {files[sideTab.fileKey]?.dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-foreground/70" aria-hidden />}
+                  <button
+                    type="button"
+                    data-testid="code-editor-side-close"
+                    aria-label={t("code_editor.close_side")}
+                    title={t("code_editor.close_side")}
+                    onClick={() => store.closeSide(workspaceId)}
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+                <div className="relative min-h-0 flex-1">
+                  <Suspense fallback={starting}>
+                    <EditorSurface tab={sideTab} rendered={rendered.has(sideTab.key)} secondary onOpenExternally={openExternally} />
+                  </Suspense>
+                </div>
+              </section>
+            </>
+          )}
         </div>
 
-        <StatusBar fileKey={activeTab.fileKey} />
+        <StatusBar fileKey={shownTab.fileKey} />
       </div>
 
       <ThreadPopover anchor={menuAnchor} open={menu !== null} onClose={() => setMenu(null)} label={t("code_editor.tab_menu")} width={230}>
@@ -404,6 +514,8 @@ export function CodeEditorStage({
             <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_others")} onSelect={() => { setMenu(null); requestClose(tabs.filter((tab) => tab.key !== menu.key).map((tab) => tab.key)); }} />
             <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_saved")} onSelect={() => { setMenu(null); requestClose(tabs.filter((tab) => !files[tab.fileKey]?.dirty).map((tab) => tab.key)); }} />
             <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_all")} onSelect={() => { setMenu(null); requestClose(tabs.map((tab) => tab.key)); }} />
+            <ThreadMenuSeparator />
+            <ThreadMenuItem icon={<Columns2 className="h-4 w-4" />} label={t("code_editor.menu.open_side")} onSelect={() => { setMenu(null); store.openToSide(workspaceId, menu.path, { mode: menu.mode }); }} />
             <ThreadMenuSeparator />
             <ThreadMenuItem icon={<Copy className="h-4 w-4" />} label={t("code_editor.menu.copy_path")} onSelect={() => { setMenu(null); copyText(absolute(menu.path)); }} />
             <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.copy_relative_path")} onSelect={() => { setMenu(null); copyText(menu.path); }} />

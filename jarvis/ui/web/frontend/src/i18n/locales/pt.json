@@ -7360,6 +7360,10 @@
     "tabs": "Ficheiros abertos",
     "close_tab": "Fechar {file}",
     "close_tab_hint": "Fechar (Ctrl+W)",
+    "close_side": "Fechar o editor lateral",
+    "side_label": "Editor lateral",
+    "resize_split": "Redimensionar os dois editores",
+    "side_tab_hint": "Mostrado no editor lateral",
     "show_terminals": "Terminais",
     "show_terminals_hint": "Mostrar os terminais; os ficheiros continuam abertos",
     "breadcrumbs": "Caminho do ficheiro",
@@ -7386,6 +7390,7 @@
       "close_all": "Fechar todos",
       "copy_path": "Copiar caminho",
       "copy_relative_path": "Copiar caminho relativo",
+      "open_side": "Abrir ao lado",
       "reveal": "Mostrar na pasta"
     },
     "status": {
@@ -7502,6 +7507,14 @@
       "paste": "Colar",
       "delete_many_title": "Eliminar {count} itens?",
       "busy_saving": "Um ficheiro lá dentro ainda está a ser guardado. Tenta novamente daqui a pouco.",
+      "open_side": "Abrir ao lado",
+      "reveal_windows": "Mostrar no Explorador de Ficheiros",
+      "reveal_mac": "Mostrar no Finder",
+      "reveal_linux": "Abrir a pasta que o contém",
+      "open_terminal": "Abrir no terminal",
+      "find_in_folder": "Procurar na pasta…",
+      "select_compare": "Selecionar para comparar",
+      "compare_with": "Comparar com {file}",
       "cancel": "Cancelar"
     },
     "search": {
