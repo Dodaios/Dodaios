@@ -39,7 +39,7 @@ service, as explained below.
 
 | What you see | What it means | Important limit |
 |---|---|---|
-| **You said** and **Assistant said** | All-time word totals from recorded voice turns. The second label uses your assistant's name. | Words are counted by spaces. Typed chats are not a reliable source for these totals. |
+| **You said** and the tile that shows what your assistant said | All-time word totals from recorded voice turns | Words are counted by spaces. Typed chats are not a reliable source for these totals. |
 | **Day streak** | Consecutive days with recorded activity, plus the longest streak | If today is still quiet, the streak that ended yesterday remains visible. |
 | **Active time** | Estimated time from recorded voice sessions and bounded conversation event spans | It is not microphone-on time, focused work time, or time saved. |
 | **Words over time** | Daily word totals for you and Dodaios over the latest 45 days | A blank day means no supported recorded turn was found. |
@@ -186,7 +186,7 @@ is part of the desktop interface and has no curated Board CLI command.
 
 1. Complete and end a short voice conversation with several ordinary words.
 2. Open **Board** and select **Refresh**.
-3. Confirm that **You said** or the assistant's **said** total increases and that today's
+3. Confirm that **You said** or the assistant's word total increases and that today's
    activity cell is no longer empty.
 4. Open **Share**, confirm that the preview contains only the information you
    expect, then close the dialog.

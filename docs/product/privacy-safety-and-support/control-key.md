@@ -90,8 +90,8 @@ history and synchronization can copy it to other devices.
 The lock screen appears for a remote browser and for a local browser when
 **Ask for the key in the browser** is on.
 
-1. Open the configured Dodaios address. The page shows the unlock
-   form.
+1. Open the configured Dodaios address. The page shows **Unlock
+   Dodaios**.
 2. Enter the key in **Control Key** and select **Unlock**.
 3. Wait for the Dodaios interface to load. The key field is cleared and the
    browser receives an HttpOnly, `SameSite=Strict` session cookie.
