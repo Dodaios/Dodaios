@@ -58,7 +58,7 @@ async def test_identity_has_the_jarvis_layers_the_transcript_and_the_addendum(mo
         user_text="and now?", history=_history(), resume=None
     )
     assert text.index("YOU ARE GEORGE") < text.index("Date: today")
-    assert "Person: what did we decide?" in text and "Jarvis: To ship on Friday." in text
+    assert "Person: what did we decide?" in text and "You: To ship on Friday." in text
     assert text.endswith(jarvis_harness.SYSTEM_PREAMBLE)
     assert brain.asked_with == ["and now?"], "the wiki context is pulled for THIS turn's text"
 

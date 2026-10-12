@@ -96,6 +96,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+
 from .file_index import cached_index
 from .session import MAX_PROMPT_CHARS, sanitize_prompt
 from .task_kind import (
@@ -344,8 +346,13 @@ ProgressSink = Callable[[ComposeNotice], None]
 and must not be able to await anything, let alone the pane it describes."""
 
 
-def print_notice(notice: ComposeNotice) -> None:
+def print_notice(notice: ComposeNotice, *, speaker: str = "") -> None:
     """Put one notice where the user is actually looking. Never raises.
+
+    ``speaker`` is the name the user gave the assistant; it leads the printed
+    line. A caller without a config leaves it empty and the neutral name is
+    used. The line is read by a person watching a terminal and parsed by
+    nothing.
 
     Standard output when there is one — that is the terminal a headless install
     and a ``--dev`` run are both watched from. Under the tray build there is no
@@ -359,7 +366,7 @@ def print_notice(notice: ComposeNotice) -> None:
         logger.info("Agentic IDE composer: {}", notice.message)
         return
     try:
-        stream.write(f"Jarvis: {notice.message}\n")
+        stream.write(f"{speaker.strip() or DEFAULT_ASSISTANT_NAME}: {notice.message}\n")
         stream.flush()
     except (OSError, ValueError, AttributeError, UnicodeError):
         # A closed, detached or non-decodable stream is not a failure of the
