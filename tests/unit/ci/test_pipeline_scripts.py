@@ -216,6 +216,22 @@ def test_batches_stay_in_one_directory_and_isolate_slow_files():
     assert sorted(f for batch in batches for f in batch) == sorted(files)
 
 
+def test_a_wedged_batch_is_killed_after_minutes_not_after_the_whole_job():
+    # Twelve ordinary files: five minutes, not twelve five-minute floors.
+    batch = [f"tests/unit/a/test_{i}.py" for i in range(12)]
+    quick = dict.fromkeys(batch, 3.0)
+    assert run_tests_parallel.batch_timeout(batch, quick) == run_tests_parallel.MIN_FILE_TIMEOUT
+    # A batch with real load gets a multiple of its own history ...
+    heavy = dict.fromkeys(batch, 100.0)
+    assert run_tests_parallel.batch_timeout(batch, heavy) == run_tests_parallel.MAX_BATCH_TIMEOUT
+    assert run_tests_parallel.batch_timeout(batch[:2], heavy) == 6 * 200.0
+    # ... and never less than its slowest file would get alone.
+    one_slow = {**quick, batch[0]: 280.0}
+    assert run_tests_parallel.batch_timeout(batch, one_slow) >= run_tests_parallel.file_timeout(
+        batch[0], one_slow
+    )
+
+
 def test_file_timeout_scales_with_history_but_is_bounded():
     assert run_tests_parallel.file_timeout("x", {}) == run_tests_parallel.MIN_FILE_TIMEOUT
     assert (

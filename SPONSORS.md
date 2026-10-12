@@ -1,12 +1,12 @@
 # Sponsors
 
-Personal Jarvis is free and open source. Sponsorships pay for model credits,
+Dodaios is free and open source. Sponsorships pay for model credits,
 test machines and the time it takes to keep it that way.
 
 Sponsoring is a gift. It buys no early access, no priority support and no say
-over the roadmap — every user gets the same Personal Jarvis.
+over the roadmap — every user gets the same Dodaios.
 
-[Sponsor Personal Jarvis](https://github.com/sponsors/rubenluetke10-beep)
+[Sponsor Dodaios](https://github.com/sponsors/rubenluetke10-beep)
 
 ## README sponsors
 
@@ -22,7 +22,7 @@ in one line at the very bottom of the README, for the Galaxy tier
   priority, no say over the roadmap.
 
 For a custom arrangement, start a thread in
-[Discussions](https://github.com/PersonalJarvis/PersonalJarvis/discussions)
+[Discussions](https://github.com/Dodaios/Dodaios/discussions)
 before sponsoring.
 
 ## Contact

@@ -1,6 +1,6 @@
-# Jarvis Control API
+# Dodaios Control API
 
-A local, authenticated HTTP API that lets Jarvis — and any local agent (Codex
+A local, authenticated HTTP API that lets Dodaios — and any local agent (Codex
 CLI, Claude Code, a test harness) — do **everything the user can do in the
 desktop app**: read and change settings, switch brain/STT/TTS providers, switch
 the reply language, rotate provider keys, read the providers snapshot. It is the
@@ -25,7 +25,7 @@ gets a unique key.
   `data/.control_api_key` (or `$JARVIS_DATA_DIR`). Read order:
   keyring → file → `JARVIS_CONTROL_API_KEY` env seed.
 - **Runtime reads:** a successful lookup is serialized and cached for the life
-  of the Jarvis process, then invalidated by an in-process key replacement.
+  of the Dodaios process, then invalidated by an in-process key replacement.
   Forked children drop the cache. This keeps per-request Bearer checks from
   repeatedly decrypting the same operating-system credential.
 - **macOS upgrade repair:** if the item was created by an older direct-Python
@@ -73,7 +73,7 @@ Settings panel can bootstrap the key before the user has it.
 
 ### Two languages (interface vs reply)
 
-Jarvis has **two** language settings, both now backend-backed and in the
+Dodaios has **two** language settings, both now backend-backed and in the
 allowlist:
 
 - **`ui.language`** (en/de/es) — the INTERFACE the user sees: every label,
@@ -83,7 +83,7 @@ allowlist:
   forwarded over `/ws`, so the open React UI **switches language live** — no
   reload, every OS. The frontend hydrates it on mount and pushes UI clicks to
   `GET/PUT /api/settings/ui-language`.
-- **`brain.reply_language`** (auto/de/en/es/pt) — what Jarvis SPEAKS/writes back;
+- **`brain.reply_language`** (auto/de/en/es/pt) — what Dodaios SPEAKS/writes back;
   `auto` mirrors the user's input language. SAFE, hot-reloads into the next turn.
 
 The `PUT /api/control/language` verb (and the voice command) set **both** when
@@ -108,7 +108,7 @@ is reported honestly (e.g. STT re-init).
 | 403 | Protected path (secrets, safety lists) |
 | 410 | `pending_id` expired (5 minutes) or was already confirmed or rejected |
 | 422 | The value fails schema validation. An ASK-tier value is validated when it is proposed, so `PUT /config` refuses it before any `pending_id` exists |
-| 500 | Backup, write, reload or rollback failed. The detail is a fixed sentence; the cause is in the Jarvis log |
+| 500 | Backup, write, reload or rollback failed. The detail is a fixed sentence; the cause is in the Dodaios log |
 
 `POST /config/confirm` answers 200 only when the change landed. A failed
 apply is an error status, never `200` with `ok: false`. A confirmed or failed
@@ -117,7 +117,7 @@ entry is consumed either way, so propose the change again to retry.
 
 ## Voice path
 
-"Jarvis, switch your language to English" works end-to-end without this HTTP
+"Dodaios, switch your language to English" works end-to-end without this HTTP
 API: the router brain already has the `set_config_value` tool (router tier), the
 strict force-spawn guard does not intercept a plain language request, and
 `brain.reply_language` is SAFE → applied → hot-reloaded. The Control API is the
@@ -129,7 +129,7 @@ allowlist, the same atomic writer, and the same audit log.
 A built-in skill `control-api` (`jarvis/skills/builtin/control-api/SKILL.md`,
 `category: meta`, shipped VALIDATED, no voice triggers) is copied into every
 install's skills dir on first boot. It is the recipe a local coding agent reads
-when asked "can you change something on my Jarvis?" — base URL, key location,
+when asked "can you change something on my Dodaios?" — base URL, key location,
 auth header, and `curl` examples for the allowlist/config/language/providers/
 secrets endpoints. It has no voice triggers on purpose: a trigger matching
 "switch language" would make the router run the skill body (which cannot make

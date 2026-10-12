@@ -7,18 +7,20 @@ at once queue everything behind it. So the width of a run follows what the
 run has to prove, not what could be run:
 
 ``pr``     A pull request (or a branch run the merge train dispatched). Fast
-           feedback: the whole Linux and Windows suite, every affected lane on
-           Linux and Windows, no macOS, and without the slowest real-runtime
-           leg. It is the admission ticket to the merge queue.
+           feedback: the whole Linux and Windows suite and every affected lane
+           on Linux and Windows, no macOS. It is the admission ticket to the
+           merge queue.
 ``queue``  A merge-queue group, or a push that reached main without one. The
-           blocking proof of the exact tree main gets: everything ``pr`` runs,
-           the slow legs, and one SHORT macOS leg per affected lane. Up to
-           four groups build at once on five macOS slots, so a group may
-           spend minutes there, not half an hour: the real-runtime and the
-           real-browser macOS legs (5 to 10 minutes each) stay in ``full``.
+           blocking proof of the exact tree main gets: everything ``pr`` runs
+           plus one SHORT macOS leg per affected lane. Several groups build
+           at once on five macOS slots, and the gate waits for the slowest
+           job, so no leg of a group may take much longer than the test
+           shards do.
 ``full``   Nightly, a release tag, a manual full dispatch. The wide matrix:
            Intel macOS, the ARM runners, every interpreter, the macOS test
-           shards, the real runtimes and the real browser on macOS.
+           shards, and the long real-product legs: the Hermes install on
+           Windows, the real runtimes and the real browser on macOS. A red
+           nightly opens an issue (.github/workflows/nightly-alert.yml).
 
 ``macos`` (nightly, tags, a dispatch with ``include_macos``) selects the wide
 matrix on any tier: ``gh workflow run ci.yml --ref <branch> -f full=false
@@ -101,7 +103,7 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
     if tier not in TIERS:
         raise ValueError(f"unknown tier {tier!r}")
     mac_lanes = tier == "queue" or macos
-    slow_legs = tier != "pr"
+    queue_legs = tier != "pr"
     base_os = [LINUX, WINDOWS]
 
     updater = [
@@ -111,7 +113,7 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
         # running install: the one handover proof a pull request keeps.
         {"os": WINDOWS, "python": "3.12"},
     ]
-    if slow_legs:
+    if queue_legs:
         updater.append({"os": WINDOWS, "python": "3.11"})
     if mac_lanes:
         updater.append({"os": MACOS, "python": "3.12"})
@@ -131,19 +133,23 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
             {"runner": WINDOWS_ARM, "architecture": "arm64", "python": "3.14"},
         ]
 
-    # The real Hermes install on Windows takes ~18 minutes: it would be the
-    # longest job of every pull request, so it waits for the queue.
+    # Every change proves both real runtimes on Linux and OpenClaw on Windows.
+    # The long legs wait for the nightly and release runs: the Hermes install
+    # on Windows is 13 minutes of upstream installer before the first turn (14
+    # to 23 minutes a job, the last job of three in four merge groups), and
+    # the two macOS legs (10 and 7 minutes) held every macOS slot for half an
+    # hour with three groups in the queue.
     e2e = [
         {"os": LINUX, "runtime": "hermes"},
         {"os": LINUX, "runtime": "openclaw"},
         {"os": WINDOWS, "runtime": "openclaw"},
     ]
-    if slow_legs:
-        e2e.append({"os": WINDOWS, "runtime": "hermes"})
-    # 10 and 7 minutes on macOS: with three groups in the queue these two
-    # legs alone held every macOS slot for half an hour. Nightly and release.
     if macos:
-        e2e += [{"os": MACOS, "runtime": "hermes"}, {"os": MACOS, "runtime": "openclaw"}]
+        e2e += [
+            {"os": WINDOWS, "runtime": "hermes"},
+            {"os": MACOS, "runtime": "hermes"},
+            {"os": MACOS, "runtime": "openclaw"},
+        ]
 
     browser = list(base_os)
     if macos:
