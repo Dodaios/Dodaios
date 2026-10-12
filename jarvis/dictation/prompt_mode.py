@@ -188,7 +188,7 @@ _SIGN_OFF_SENTENCE_RE: Final[re.Pattern[str]] = re.compile(
 # writing (a settings page, a follow-up, a colour): v5's example was a run
 # ABOUT this feature, and a fast model turned the example into the job.
 _INSTRUCTION: Final[str] = """\
-A user is dictating to Jarvis Voice. Whatever they say is turned automatically \
+A user is dictating to Dodaios Voice. Whatever they say is turned automatically \
 into the message they will send to an AI model - usually a coding agent they \
 are already talking to. You write that message in the user's place, and it \
 lands in their input field as if they had typed it.

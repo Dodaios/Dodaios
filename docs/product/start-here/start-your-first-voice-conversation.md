@@ -17,7 +17,7 @@ related: [voice-conversations, audio-and-wake-word, dictation, languages-and-voi
 
 A voice conversation lets you speak naturally, hear the answer, and continue
 with follow-up questions. You can begin with your wake phrase, the Call
-shortcut, or the idle Jarvis Bar.
+shortcut, or the idle Dodaios Bar.
 
 The assistant's displayed name comes from your wake phrase. For example,
 `Hey Nova` displays `Nova`; without a saved name, the neutral fallback is
@@ -60,7 +60,7 @@ Choose one method:
   Wake detection opens the session; it does not interpret the request.
 - **Call shortcut:** Press the configured keys once. Call also works when wake
   activation is off; it is not push-to-talk.
-- **Jarvis Bar:** Select the body of the idle bar.
+- **Dodaios Bar:** Select the body of the idle bar.
 
 Change **Call (answer / start talking)** and **Hangup** under
 **Settings > Voice Keybinds**. On Wayland, use wake or an in-app control if
@@ -112,7 +112,7 @@ has started, the call may end instead of replaying it twice.
 
 | Use | Result | Control |
 |---|---|---|
-| **Voice conversation** | The assistant can answer or act aloud | Wake, Call, or the Jarvis Bar; finish with Hangup |
+| **Voice conversation** | The assistant can answer or act aloud | Wake, Call, or the Dodaios Bar; finish with Hangup |
 | **Dictation** | Speech is inserted as text without a reply | Separate Dictation controls |
 
 ## End or Cancel the Conversation
@@ -121,7 +121,7 @@ Use any one of these controls:
 
 - Say **hang up** or **end the call**.
 - Press your configured **Hangup** shortcut.
-- Hover over the active Jarvis Bar and select its visible **X** precisely.
+- Hover over the active Dodaios Bar and select its visible **X** precisely.
 
 Hangup closes the microphone, stops spoken output, and cancels the active turn
 or Computer Use action. A longer background agent mission may continue; check
@@ -141,7 +141,7 @@ its view if you started one. The sidebar returns to **Ready**.
 
 ## Check That It Works
 
-Start one call with your wake phrase, Call shortcut, or the idle Jarvis Bar.
+Start one call with your wake phrase, Call shortcut, or the idle Dodaios Bar.
 Ask a short question and watch the status move from **Listening** to
 **Thinking** or **Speaking**. You should hear the answer and then see
 **Listening** again. Use Hangup and confirm that the status returns to

@@ -251,7 +251,7 @@ def test_status_never_prompts_and_describes_the_missing_permission(monkeypatch) 
     permission = payload["components"]["permission"]
     assert permission["ready"] is False
     # The sentence of the issue, not the repr of its dataclass.
-    assert permission["detail"].startswith("Screen Recording access is off for Personal Jarvis")
+    assert permission["detail"].startswith("Screen Recording access is off for Dodaios")
     assert "CapturePermissionIssue" not in str(payload)
     assert payload["blocked_reason"] == permission["detail"]
     tcc.assert_no_prompts()

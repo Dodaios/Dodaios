@@ -15,7 +15,7 @@ for the shipped architecture ·
 > preserved analysis that led there.
 
 The idea under analysis: a community-facing plugin marketplace (in the spirit
-of a hub like LobeHub) where **anyone** can publish a plugin for the Jarvis
+of a hub like LobeHub) where **anyone** can publish a plugin for the Dodaios
 agent and the delegated agentic runs, **without that plugin's files ever
 living in this repository**. This document assesses how the idea fits the
 existing `jarvis/marketplace/` substrate, lays out the candidate distribution
@@ -40,7 +40,7 @@ Two further pieces matter for a public marketplace:
 
 * **Packaging standard already adopted.** Since 2026-08-08 every new
   marketplace plugin must be an Agent Plugins v1.0.0 directory
-  (`plugin.json`, optional `mcp.json`, Jarvis specifics under the
+  (`plugin.json`, optional `mcp.json`, Dodaios specifics under the
   `io.github.personaljarvis` extension namespace). The
   [standard doc](agent-plugins-standard.md) explicitly defers a
   "loader/aggregation wave" — a public marketplace **is** that wave.

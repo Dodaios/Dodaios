@@ -78,9 +78,9 @@ SECRET_PATTERNS = (
 #: Templates that document a secret's shape without holding one.
 SECRET_TEMPLATES = (".env.example", ".env.sample", ".env.template", ".env.dist")
 _IDENTITY_ENV = {
-    "GIT_AUTHOR_NAME": "Jarvis",
+    "GIT_AUTHOR_NAME": "Dodaios",
     "GIT_AUTHOR_EMAIL": "jarvis@localhost",
-    "GIT_COMMITTER_NAME": "Jarvis",
+    "GIT_COMMITTER_NAME": "Dodaios",
     "GIT_COMMITTER_EMAIL": "jarvis@localhost",
 }
 
@@ -326,7 +326,7 @@ fi
 [ -d .git ] || git init -q
 if git rev-parse -q --verify HEAD >/dev/null && [ -n "$(git status --porcelain)" ]; then
   export GIT_INDEX_FILE="$(mktemp)"; git read-tree HEAD; git add -A; t=$(git write-tree)
-  c=$(git -c user.name=Jarvis -c user.email=jarvis@localhost commit-tree "$t" -p HEAD \
+  c=$(git -c user.name=Dodaios -c user.email=jarvis@localhost commit-tree "$t" -p HEAD \
       -m "jarvis: server state before sync")
   git update-ref "refs/jarvis/backup/$(date +%s)" "$c"
   rm -f "$GIT_INDEX_FILE"; unset GIT_INDEX_FILE
@@ -546,7 +546,7 @@ then git read-tree HEAD; set -- -p HEAD
 else set --
 fi
 git add -A; t=$(git write-tree)
-c=$(git -c user.name=Jarvis -c user.email=jarvis@localhost commit-tree "$t" "$@" \
+c=$(git -c user.name=Dodaios -c user.email=jarvis@localhost commit-tree "$t" "$@" \
     -m "jarvis: work from the server")
 rm -f "$GIT_INDEX_FILE"; unset GIT_INDEX_FILE
 git update-ref {ref} "$c"

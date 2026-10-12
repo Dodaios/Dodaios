@@ -52,17 +52,17 @@ contain several turns.
    press the configured **Call (answer / start talking)** shortcut. Wake
    detection opens the microphone; it does not answer or transcribe the
    request itself.
-2. **Speak while the app shows Listening.** Jarvis waits for a pause long
+2. **Speak while the app shows Listening.** Dodaios waits for a pause long
    enough to mark the end of your request — the **Thinking pause** setting
    says how long, in Pipeline and Realtime alike. If you keep talking inside
    that pause, the new words are added to the same request instead of being
    sent as a second one; a clearly finished sentence is answered as soon as
    the pause has passed.
-3. **Jarvis prepares one understood request.** Pipeline converts the captured
+3. **Dodaios prepares one understood request.** Pipeline converts the captured
    audio into text first. Realtime receives transcript updates from the live
    connection. Your Speech Dictionary corrects known names and terms in both
    modes before routing and session history use the text.
-4. **Jarvis chooses the path.** An ordinary question can be answered directly.
+4. **Dodaios chooses the path.** An ordinary question can be answered directly.
    A request that needs an app, connected service, Computer Use, or longer work
    goes through the regular planning and Tool Model path. Realtime can hand an
    action request to that path instead of pretending the live voice model has
@@ -93,7 +93,7 @@ Use Realtime for faster back-and-forth when its current feature set covers your
 request. Use Pipeline when you need local speech, independent providers, or the
 broadest tool support.
 
-The **Voice engine** selection says what Jarvis should try next. Its runtime
+The **Voice engine** selection says what Dodaios should try next. Its runtime
 line says what the current session actually uses. Changing the engine during
 an active desktop call closes and reopens that call with the new choice.
 
@@ -104,7 +104,7 @@ conversation.
 
 - Desktop wake detection runs locally and only activates the session.
 - Local Voice Input keeps recognition audio on the computer. If local
-  recognition fails, Jarvis does not silently upload that recording just to
+  recognition fails, Dodaios does not silently upload that recording just to
   recover.
 - A hosted Brain can still receive the resulting transcript, even when Voice
   Input is local.
@@ -126,7 +126,7 @@ The recognition language controls how speech becomes text. The reply language
 controls how the assistant answers. **Voice > Language** belongs to Dictation;
 use **Languages** for voice-conversation recognition and reply settings.
 
-Jarvis resolves the reply language once for each turn. A language you pin wins.
+Dodaios resolves the reply language once for each turn. A language you pin wins.
 In **Auto**, a one- or two-word interjection keeps the conversation's current
 language, while a complete request can switch it. When neither speech nor
 context gives a clear answer, English is the fallback.
@@ -155,7 +155,7 @@ applies that recognition change after the app restart requested by the
   its own view and Outputs for the result.
 
 Stopping a call does not undo a tool effect that already completed. If a
-Realtime connection fails after a request or action has been committed, Jarvis
+Realtime connection fails after a request or action has been committed, Dodaios
 ends the call instead of replaying the captured audio through Pipeline and
 risking a duplicate action. Start a new call for the next turn.
 
@@ -165,7 +165,7 @@ The local session recorder is enabled by default. **Transcription** groups the
 recognized user text, recorded replies, spoken notices, and available provider
 details by voice session. It does not save the microphone audio for these
 views. If a provider supplies no transcript for part of a Realtime exchange,
-Jarvis cannot reconstruct those missing words later.
+Dodaios cannot reconstruct those missing words later.
 
 **Run Inspector** adds captured routing, tool, timing, approval, and error
 details. Dictation uses separate **Recent dictations** history and can retain
@@ -188,7 +188,7 @@ recovery audio only for incomplete results when that option is enabled.
 6. [Dictation](dictation) can use the same microphone and recognition choices,
    but its result goes to a text field instead of the Brain or spoken output.
 
-When the preferred provider is unavailable, Jarvis uses another compatible,
+When the preferred provider is unavailable, Dodaios uses another compatible,
 ready path when it can and names the effective mode. When no safe path remains,
 it reports the unavailable part and leaves Chats usable.
 

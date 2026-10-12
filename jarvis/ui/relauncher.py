@@ -32,6 +32,7 @@ from pathlib import Path
 
 from jarvis.core.branding import (
     CONFIG_FILE_NAME,
+    LAUNCHER_ENTRY_NAME,
     MACOS_APP_DIR_NAME,
     MANAGED_INSTALL_MARKER,
     PRODUCT_NAME,
@@ -1033,12 +1034,12 @@ def _report_restart_failure(old_pid: int, *, still_alive: bool) -> None:
         message = (
             f"{PRODUCT_NAME} could not restart: the previous instance (process "
             f"{old_pid}) has not exited. End it in the task manager, then start "
-            f"{PRODUCT_NAME} from the Start menu."
+            f"{LAUNCHER_ENTRY_NAME} from the Start menu."
         )
     else:
         message = (
             f"{PRODUCT_NAME} could not restart: the new instance did not stay up. "
-            f"Start {PRODUCT_NAME} from the Start menu; the log file has the details."
+            f"Start {LAUNCHER_ENTRY_NAME} from the Start menu; the log file has the details."
         )
     logging.getLogger(__name__).error(message)
     try:

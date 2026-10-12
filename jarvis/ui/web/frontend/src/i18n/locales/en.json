@@ -6665,6 +6665,10 @@
     "tabs": "Open files",
     "close_tab": "Close {file}",
     "close_tab_hint": "Close (Ctrl+W)",
+    "close_side": "Close the side editor",
+    "side_label": "Side editor",
+    "resize_split": "Resize the two editors",
+    "side_tab_hint": "Shown in the side editor",
     "show_terminals": "Terminals",
     "show_terminals_hint": "Show the terminals; your files stay open",
     "breadcrumbs": "File path",
@@ -6691,6 +6695,7 @@
       "close_all": "Close all",
       "copy_path": "Copy path",
       "copy_relative_path": "Copy relative path",
+      "open_side": "Open to the side",
       "reveal": "Reveal in Folder"
     },
     "status": {
@@ -6790,6 +6795,14 @@
       "paste": "Paste",
       "delete_many_title": "Delete {count} items?",
       "busy_saving": "A file in there is still saving. Try again in a moment.",
+      "open_side": "Open to the side",
+      "reveal_windows": "Reveal in File Explorer",
+      "reveal_mac": "Reveal in Finder",
+      "reveal_linux": "Open containing folder",
+      "open_terminal": "Open in terminal",
+      "find_in_folder": "Find in folder…",
+      "select_compare": "Select for compare",
+      "compare_with": "Compare with {file}",
       "cancel": "Cancel"
     },
     "search": {

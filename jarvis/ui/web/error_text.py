@@ -17,7 +17,7 @@ import logging
 
 _log = logging.getLogger(__name__)
 
-LOG_HINT = "Details are in the Jarvis log."
+LOG_HINT = "Details are in the Dodaios log."
 
 
 def internal_error(

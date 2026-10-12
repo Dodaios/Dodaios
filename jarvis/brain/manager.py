@@ -2294,7 +2294,7 @@ _SELF_CONTROL_NOUN_RE = re.compile(
 # as the detailed intensifier.
 _SELF_CONTROL_STANDING = (
     "SELF-CONTROL (always in effect): When the user asks you to change or "
-    "check anything about Jarvis itself — wake phrase, voice, volume, "
+    "check anything about Dodaios itself — wake phrase, voice, volume, "
     "providers, languages, settings, restart, missions/tasks — you CAN do it "
     "yourself with the registry command tools in your tool set (e.g. "
     "`wake-word-set`, `brain-switch`, `provider-test`, `tts-volume-set`, "
@@ -2306,7 +2306,7 @@ _SELF_CONTROL_STANDING = (
 )
 
 _SELF_CONTROL_DIRECTIVE = (
-    "SELF-CONTROL: The user is asking to change or control Jarvis's OWN settings, "
+    "SELF-CONTROL: The user is asking to change or control Dodaios's OWN settings, "
     "configuration, providers, voice, language, or behavior. You have full "
     "control over this. PREFER the registry command tools — `brain-switch`, "
     "`tts-switch`, `provider-test`, `wake-word-set`, `reply-language-set`, "
@@ -4246,7 +4246,7 @@ class BrainManager:
         parts: list[str] = []
 
         # The assistant's identity, placed first so it frames everything: the
-        # wake-word name (Personal Jarvis is the app, never the assistant's
+        # wake-word name (Dodaios is the app, never the assistant's
         # name) plus its character from SOUL.md, read through an mtime cache
         # so what the learning loop writes there reaches the next turn. The
         # realtime and GPT-Live instructions build the same block
@@ -13580,13 +13580,25 @@ class BrainManager:
             allowed_tools = (*allowed_tools, _ARTIFACT_TOOL_NAME)
         tools = self._select_task_tools(allowed_tools)
         from jarvis.core.model_selection import operation_model, worker_selection
-        from jarvis.core.task_agent import run_selected, subscription_seat_off_loop
+        from jarvis.core.task_agent import (
+            dual_seat_subscription,
+            run_selected,
+            subscription_seat_off_loop,
+        )
 
         selected = operation_model.get() or worker_selection(self._config)
         if (
             selected is not None
             and await subscription_seat_off_loop(selected.provider) is not None
         ):
+            subscription = dual_seat_subscription(selected.provider)
+            if subscription is not None:
+                # A dual slot only gets its seat while that login answers. The
+                # sighting is what later keeps an unattended turn off the
+                # slot's per-token row when the login stops answering.
+                from jarvis.brain.background_policy import note_connected
+
+                await asyncio.to_thread(note_connected, subscription)
             return await run_selected(
                 selection=selected, prompt=prompt, tool_names=tuple(tools), trace_id=trace_id
             )
@@ -13601,6 +13613,13 @@ class BrainManager:
             log.debug("run_task: turn context skipped", exc_info=True)
             turn_context = ""
         attempts = self._task_provider_chain(intent)
+        from jarvis.core.protocols import current_started_by_user
+
+        if not current_started_by_user.get():
+            # Nobody started this turn (a schedule, a trigger, a background
+            # start): it may only bill what background work may bill — a
+            # subscription or a local model, never a per-token key on its own.
+            attempts = await self._unattended_task_chain(attempts, selected)
         failures: list[str] = []
         original: Exception | None = None
         for index, (name, model) in enumerate(attempts):
@@ -13644,6 +13663,58 @@ class BrainManager:
         if len(failures) == 1 and original is not None:
             raise original
         raise RuntimeError("all brain providers failed: " + "; ".join(failures))
+
+    async def _unattended_task_chain(
+        self,
+        attempts: list[tuple[str, str | None]],
+        selected: Any,
+    ) -> list[tuple[str, str | None]]:
+        """Hold an unattended turn's chain to the background policy.
+
+        - An explicit agent selection is the person's own choice and stays —
+          except a dual slot (one that is a subscription seat while its login
+          is ready and a per-token row otherwise). Its login is not ready here
+          (a ready one ran on the subscription above), so the row it fell back
+          to was never picked and follows the same policy as the automatic
+          chain.
+        - The automatic chain keeps only subscriptions and local models once a
+          subscription is connected; an install without one keeps its chain,
+          so a single-key download still works.
+
+        Nothing usable raises :class:`BackgroundDeferred` instead of billing a
+        key; the runner records the skipped run.
+        """
+        from jarvis.brain.background_policy import BackgroundDeferred, background_providers
+        from jarvis.core.task_agent import dual_seat_subscription
+
+        if selected is not None:
+            provider = str(getattr(selected, "provider", "") or "")
+            if dual_seat_subscription(provider) is None:
+                return attempts
+        policy = await asyncio.to_thread(
+            background_providers, [name for name, _model in attempts]
+        )
+        if not policy.subscription_mode:
+            return attempts
+        kept = [(name, model) for name, model in attempts if policy.permits(name)]
+        dropped = [name for name, _model in attempts if not policy.permits(name)]
+        if kept:
+            if dropped:
+                log.info(
+                    "run_task (unattended): skipping per-token providers %s; "
+                    "background work stays on %s",
+                    dropped, [name for name, _model in kept],
+                )
+            return kept
+        log.warning(
+            "run_task (unattended): no subscription or local model can run this "
+            "turn (%s); deferring instead of billing %s",
+            policy.reason, dropped,
+        )
+        raise BackgroundDeferred(
+            "No subscription or local model is available for this unattended run; "
+            "a paid API key is not used without your approval."
+        )
 
     def _task_provider_chain(self, intent: str) -> list[tuple[str, str | None]]:
         """The providers a scheduled turn tries, in order.

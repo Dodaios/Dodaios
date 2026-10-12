@@ -404,7 +404,7 @@ class PynputBackend:
         if self._teardown_failed:
             log.warning(
                 "pynput hotkeys remain disabled after a listener teardown "
-                "failure; restart Jarvis to re-arm them safely. Voice still "
+                "failure; restart Dodaios to re-arm them safely. Voice still "
                 "works via the wake word."
             )
             return
@@ -434,7 +434,7 @@ class PynputBackend:
             if granted is not True:
                 log.warning(
                     "Global hotkeys are off on macOS until Input Monitoring "
-                    "is allowed for Personal Jarvis; voice still works via "
+                    "is allowed for Dodaios; voice still works via "
                     "the wake word.",
                 )
                 self._listener = None
@@ -458,7 +458,7 @@ class PynputBackend:
                     "snapshot could not be captured on the main thread, and "
                     "starting the listener without it would crash the app "
                     "(TIS main-thread assertion). Voice still works via the "
-                    "wake word; restarting Jarvis re-attempts the snapshot.",
+                    "wake word; restarting Dodaios re-attempts the snapshot.",
                 )
                 self._listener = None
                 return

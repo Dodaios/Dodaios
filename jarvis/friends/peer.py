@@ -2,7 +2,7 @@
 
 The honest shape of this
 ------------------------
-Personal Jarvis is a local application. Two friends running it are two laptops,
+Dodaios is a local application. Two friends running it are two laptops,
 usually both behind NAT, with no shared account and no company in the middle.
 There is therefore no way to make "just message my friend" work everywhere, and
 pretending otherwise would produce a chat window that silently drops messages.
@@ -300,7 +300,7 @@ class PeerTransport:
                 response = await client.post(url, json=envelope)
         except Exception as exc:  # noqa: BLE001 — every transport failure is one story
             raise PeerUnreachable(
-                f"Could not reach {link.endpoint} — is their Jarvis running and "
+                f"Could not reach {link.endpoint} — is their Dodaios running and "
                 f"reachable from here? ({type(exc).__name__})"
             ) from exc
 

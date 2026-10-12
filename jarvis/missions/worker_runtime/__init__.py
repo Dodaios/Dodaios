@@ -5,7 +5,7 @@ The old subprocess execution path was removed (the maintainer migrated
 to the direct Opus worker, ``ClaudeDirectWorker``). What remains here is the
 provider-agnostic scaffolding the live worker + critic still depend on:
 
-- `provider_map` — Personal-Jarvis provider-slug + ENV-var mapping. Pure data
+- `provider_map` — Dodaios provider-slug + ENV-var mapping. Pure data
   module, no IO. Consumed by the critic + setup wizard.
 - `workspace`   — Mission-isolated workspace profile + ``materialize_worker_contract``
   (AGENTS.md materialisation). Pure file IO. Consumed by the Kontrollierer

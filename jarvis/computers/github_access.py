@@ -54,7 +54,7 @@ def _local_token() -> tuple[str, str]:
 def env_file_body(token: str) -> str:
     quoted = shlex.quote(token)
     return (
-        "# Written by Personal Jarvis: the GitHub login this PC shared with the agents here.\n"
+        "# Written by Dodaios: the GitHub login this PC shared with the agents here.\n"
         f"export GH_TOKEN={quoted}\n"
         f"export GITHUB_TOKEN={quoted}\n"
     )

@@ -219,7 +219,7 @@ async def run_owned_routine(
         # A run pinned to a seat its owner's runtime cannot drive runs on
         # Jarvis' own loop; the run log and its chat say so instead of silently.
         note = (
-            f"This run uses Jarvis' own runtime, not {left}: its model "
+            f"This run uses Dodaios' own runtime, not {left}: its model "
             f"({provider}) is a seat {left} cannot drive."
         )
         if task_store is not None:
