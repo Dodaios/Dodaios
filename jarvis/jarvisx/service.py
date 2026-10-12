@@ -137,7 +137,7 @@ class JarvisXService:
         config = await self._config()
         block = config.jarvisx
         if not block.enabled:
-            return Result(False, "Jarvis X is switched off. Turn it on in its settings.")
+            return Result(False, "Dodaios X is switched off. Turn it on in its settings.")
         refusal = await asyncio.to_thread(_capture_refusal)
         if refusal:
             return Result(False, refusal)
@@ -321,7 +321,7 @@ class JarvisXService:
         config = await self._config()
         block = config.jarvisx
         if not block.enabled:
-            return Result(False, "Jarvis X is switched off. Turn it on in its settings.")
+            return Result(False, "Dodaios X is switched off. Turn it on in its settings.")
         refusal = await asyncio.to_thread(_capture_refusal)
         if refusal:
             return Result(False, refusal)
@@ -497,7 +497,7 @@ class JarvisXService:
         if not callable(opener):
             return Result(
                 False,
-                "The editor window needs the desktop app; this Jarvis runs without one. "
+                "The editor window needs the desktop app; this Dodaios runs without one. "
                 f"Open /?view=jarvisx-editor&solo=1&item={item_id} in a browser instead.",
                 item,
             )

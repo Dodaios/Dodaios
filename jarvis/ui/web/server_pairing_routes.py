@@ -23,7 +23,7 @@ def get_pairing() -> Any:
 
 class CodeBody(BaseModel):
     code: str = Field(min_length=1, max_length=128, repr=False)
-    name: str = Field(default="Jarvis client", min_length=1, max_length=120)
+    name: str = Field(default="Dodaios client", min_length=1, max_length=120)
 
 
 class ConnectBody(BaseModel):
@@ -188,7 +188,7 @@ def enter_server_page(request: Request) -> HTMLResponse:
     return HTMLResponse(
         '<!doctype html><html lang="en"><meta charset="utf-8">'
         '<meta name="color-scheme" content="light dark">'
-        '<title>Opening Jarvis</title><p id="state">Opening your Jarvis server…</p>'
+        '<title>Opening Dodaios</title><p id="state">Opening your Dodaios server…</p>'
         f"<script>{_ENTER_SCRIPT}</script></html>",
         headers={
             "Cache-Control": "no-store",

@@ -29,7 +29,8 @@ from fastapi.testclient import TestClient
 DISCORD_URL = "https://discord.gg/x7USduHxbc"
 REPO_URL = "https://github.com/Dodaios/Dodaios"
 PROFILE_URL = "https://github.com/Dodaios"
-JARVIS_X_URL = "https://x.com/Ruben_Luetke"
+PROJECT_X_URL = "https://x.com/dodaios"
+YOUTUBE_URL = "https://www.youtube.com/@Dodaios"
 INSTAGRAM_URL = "https://www.instagram.com/personaljarvis/"
 
 
@@ -62,23 +63,23 @@ def test_get_seeds_on_first_run(client: TestClient) -> None:
     res = client.get("/api/socials")
     assert res.status_code == 200, res.text
     entries = res.json()["entries"]
-    assert len(entries) == 5
+    assert len(entries) == 6
     # Discord is the first (top) card.
     assert entries[0]["platform"] == "discord"
     assert entries[0]["url"] == DISCORD_URL
-    # The two GitHub links, the official X account, and the Instagram profile
-    # follow. The first-run seed ships ONLY the project's own public accounts.
+    # The two GitHub links, the official X account, the YouTube channel and the
+    # Instagram profile follow. The first-run seed ships ONLY the project's own
+    # public accounts.
     urls = [e["url"] for e in entries]
     assert REPO_URL in urls
     assert PROFILE_URL in urls
-    assert JARVIS_X_URL in urls  # the project's public X presence
+    assert PROJECT_X_URL in urls  # the project's public X presence
+    assert YOUTUBE_URL in urls
     assert INSTAGRAM_URL in urls
     assert any(e["platform"] == "instagram" for e in entries)
-    # Maintainer directive 2026-07-18: the project's X presence is the
-    # maintainer's public handle (@Ruben_Luetke) — the former @PersonalJarvis
-    # account is defunct, so every X link points at the live handle.
+    # The X card carries the product's display name.
     x_labels = [e["label"] for e in entries if e["platform"] == "x"]
-    assert x_labels == ["Personal Jarvis"]
+    assert x_labels == ["Dodaios"]
     # Every entry carries the stable wire shape.
     for e in entries:
         assert set(e) >= {"id", "platform", "label", "url", "enabled", "order"}
@@ -87,7 +88,7 @@ def test_get_seeds_on_first_run(client: TestClient) -> None:
 
 def test_seed_orders_are_contiguous_from_zero(client: TestClient) -> None:
     entries = client.get("/api/socials").json()["entries"]
-    assert [e["order"] for e in entries] == [0, 1, 2, 3, 4]
+    assert [e["order"] for e in entries] == [0, 1, 2, 3, 4, 5]
 
 
 def test_seed_only_happens_once_not_after_emptying(client: TestClient) -> None:
@@ -116,7 +117,7 @@ def test_post_creates_entry_with_server_id_and_next_order(client: TestClient) ->
     assert created["platform"] == "x"
     assert created["url"] == "https://x.com/jarvis"
     assert created["enabled"] is True
-    assert created["order"] == 5  # after seeds 0,1,2,3,4
+    assert created["order"] == 6  # after seeds 0..5
 
     entries = client.get("/api/socials").json()["entries"]
     assert any(e["id"] == created["id"] for e in entries)

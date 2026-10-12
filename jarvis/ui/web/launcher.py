@@ -952,7 +952,7 @@ async def _run_headless(args) -> int:
     # Show the actual bind host (JARVIS_BIND_HOST may be 0.0.0.0 on a VPS);
     # bracket IPv6 literals so the printed URL stays valid.
     _url_host = f"[{_host}]" if ":" in _host else _host
-    print(f"Jarvis backend is running at http://{_url_host}:{cfg.ui.admin_api_port}")
+    print(f"Dodaios backend is running at http://{_url_host}:{cfg.ui.admin_api_port}")
     print("Ctrl+C to quit.")
 
     try:
@@ -2530,7 +2530,7 @@ def _main(argv: list[str] | None = None) -> int:
         import logging as _logging
 
         _logging.getLogger(__name__).info(
-            "Jarvis Control API key ready (%s)", control_key.mask_control_key(_ck)
+            "Dodaios Control API key ready (%s)", control_key.mask_control_key(_ck)
         )
     except Exception as exc:  # noqa: BLE001 — never block boot on key bootstrap
         import logging as _logging

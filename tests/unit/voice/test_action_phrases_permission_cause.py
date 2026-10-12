@@ -71,7 +71,7 @@ def test_the_canned_floor_speaks_the_cause_in_the_turn_language(lang, permission
 
     _assert_clean(line)
     if lang != "en":
-        assert "Personal Jarvis does not have" not in line  # not left in English
+        assert "Dodaios does not have" not in line  # not left in English
 
 
 @pytest.mark.parametrize("lang", ["de", "en", "es"])

@@ -558,7 +558,7 @@ async def apply_provider_switch(
             "ok": False,
             "error_kind": "subagent_only",
             "error": (
-                f"{spec.label} is subagent-only in Jarvis. It cannot be used as "
+                f"{spec.label} is subagent-only in Dodaios. It cannot be used as "
                 "the main Brain provider because it cannot see Computer-Use "
                 "screenshots. Switch it in the Subagent section instead."
             ),

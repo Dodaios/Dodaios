@@ -311,7 +311,7 @@ async def run_custom_api_action(
         raise HTTPException(404, "Action not found")
     gateway = get_supervisor_tool_gateway()
     if gateway is None:
-        raise HTTPException(503, "Jarvis tool execution is not ready yet")
+        raise HTTPException(503, "Dodaios tool execution is not ready yet")
     result = await gateway.execute(
         f"api_{api_id}_call" if definition.connection else f"api_{api_id}_{action_id}",
         {"action": action_id, "arguments": body.arguments}

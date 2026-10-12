@@ -168,7 +168,7 @@ class JarvisXShortcuts:
             if not combo:
                 plan[name] = ShortcutStatus("", False, "No shortcut set.")
             elif not enabled:
-                plan[name] = ShortcutStatus(combo, False, "Jarvis X is switched off.")
+                plan[name] = ShortcutStatus(combo, False, "Dodaios X is switched off.")
             elif problems[name]:
                 plan[name] = ShortcutStatus(combo, False, problems[name])
             elif not owns:

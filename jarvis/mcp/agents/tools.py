@@ -705,7 +705,7 @@ TOOLS: Final[tuple[AgentTool, ...]] = (
     AgentTool(
         name="agents_list",
         description=(
-            "Every agent on this Jarvis: id, name, title, tier, model, focus, "
+            "Every agent on this Dodaios: id, name, title, tier, model, focus, "
             "permission ceiling and run_state (idle / working / paused). "
             "The roster is the team — start here to know who you can talk to."
         ),

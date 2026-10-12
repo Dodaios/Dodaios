@@ -509,7 +509,7 @@ def set_role(
     message = (
         f"{role} now uses {tag}."
         if tag
-        else f"{role} is back to discovery: Jarvis picks the smallest capable download."
+        else f"{role} is back to discovery: Dodaios picks the smallest capable download."
     )
     if not written.get("drift_guarded", True):
         message += (
@@ -755,7 +755,7 @@ class HfPullBody(BaseModel):
 
 _HF_OFF = (
     "Hugging Face browsing is switched off. Turn it on under Local models → "
-    "Hugging Face; until then Jarvis makes no request to huggingface.co."
+    "Hugging Face; until then Dodaios makes no request to huggingface.co."
 )
 
 

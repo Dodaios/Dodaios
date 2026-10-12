@@ -1472,7 +1472,7 @@ def test_subscription_and_api_share_explicit_voice_and_thinking_identity():
         backend = profile.backend_config(language="en", tools=[], identity=identity)
         assert session["instructions"].startswith(identity)
         assert backend["instructions"].startswith(identity)
-        assert "Jarvis then asks its own hang-up confirmation" in backend["instructions"]
+        assert "Dodaios then asks its own hang-up confirmation" in backend["instructions"]
         assert session["delegation"]["type"] == (
             "client" if mode == "chatgpt_subscription" else "responses"
         )
