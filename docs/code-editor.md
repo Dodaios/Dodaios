@@ -9,6 +9,7 @@ terminals back without closing a file.
 | Action | How |
 | --- | --- |
 | Open a file | Click it in the side panel's **Folder** tab, or **Ctrl+P** and type part of its name (`name:42` jumps to line 42) |
+| Open a file an agent printed | Click its path in a terminal: the file opens here, at the printed line. Images, videos, audio and PDFs open in a viewer. A file outside the workspace (a screenshot saved to Downloads) opens read-only. **Ctrl/Cmd+click** still opens web links, and hands a workspace path to the system app when the editor is not on screen |
 | Edit and save | Type, then **Ctrl+S** (**Ctrl+Shift+S** saves every open file). A dot on the tab means unsaved changes |
 | New file / new folder | The buttons in the Folder tab's header, or right-click. The entry goes into the selected folder, next to the selected file, or into the workspace root when nothing is selected. A name with slashes (`src/new.py`) creates the folders on the way |
 | Rename | **F2** or right-click |

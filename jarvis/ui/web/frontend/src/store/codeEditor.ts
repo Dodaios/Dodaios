@@ -23,14 +23,18 @@ export interface EditorTab {
   key: string;
   fileKey: string;
   workspaceId: string;
-  /** POSIX path relative to the workspace root. */
+  /** POSIX path relative to the workspace root; absolute for a file outside it. */
   path: string;
   mode: EditorMode;
   preview: boolean;
 }
 
-/** `ready` = editable text; a ViewKind = shown with a viewer; the rest are read-only notices. */
-export type FileStatus = "loading" | "ready" | "binary" | "too_large" | "error" | ViewKind;
+/**
+ * `ready` = editable text; a ViewKind = shown with a viewer; the rest are
+ * read-only notices. `outside` = a file elsewhere on the computer, shown as
+ * read-only text.
+ */
+export type FileStatus = "loading" | "ready" | "binary" | "too_large" | "outside" | "error" | ViewKind;
 
 export interface EditorFile {
   workspaceId: string;

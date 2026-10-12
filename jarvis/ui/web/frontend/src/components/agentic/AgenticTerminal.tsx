@@ -999,9 +999,10 @@ export function AgenticTerminal({
     const linkOptions = {
       workspaceId,
       onError: (message: string) => onAttachErrorRef.current?.(message),
+      hasSelection: (): boolean => term.hasSelection(),
     };
     const activateLink = createTerminalLinkActivator(linkOptions);
-    const term = new Terminal({
+    const term: Terminal = new Terminal({
       convertEol: false,
       // A dark pane keeps the canvas clear so the shared section glass and the
       // desktop artwork show through. A light pane is opaque: xterm rasterises
@@ -1047,9 +1048,9 @@ export function AgenticTerminal({
       // Instant scrolling: an agent that redraws a live status line while
       // animating a scroll leaves visible tearing.
       smoothScrollDuration: 0,
-      // Plain clicks belong to text selection. xterm otherwise treats an
-      // ordinary click on an OSC-8 link as navigation and shows a native
-      // warning dialog inside the desktop WebView.
+      // Our own activator decides what a click opens (./../../lib/terminalLinks).
+      // xterm otherwise treats an ordinary click on an OSC-8 link as
+      // navigation and shows a native warning dialog inside the desktop WebView.
       linkHandler: createTerminalOscLinkHandler(linkOptions),
       // Lets Option force a selection on macOS while a CLI has mouse tracking
       // on — the chord ./terminalMouseSelection marks every plain press with.

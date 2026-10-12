@@ -1051,13 +1051,37 @@ export function fetchWorkspaceFiles(
   );
 }
 
+/**
+ * Does this path name a file elsewhere on the computer rather than one in the
+ * workspace? Workspace paths are relative; an absolute or home path is a file
+ * an agent saved somewhere else, which the app shows read-only.
+ */
+export function isOutsidePath(path: string): boolean {
+  return /^(?:[a-z]:)?[\\/]|^~[\\/]/i.test(path);
+}
+
 function workspaceFileUrlFor(
   workspaceId: string,
   path: string,
   endpoint: "file" | "file-preview",
 ): string {
   const query = new URLSearchParams({ path });
+  if (isOutsidePath(path)) query.set("outside", "true");
   return `/api/agentic-ide/workspaces/${encodeURIComponent(workspaceId)}/${endpoint}?${query.toString()}`;
+}
+
+/** Can the viewer read this file? Rejects with the server's reason when not. */
+export async function probeWorkspaceFile(
+  workspaceId: string,
+  path: string,
+): Promise<void> {
+  const res = await fetch(workspaceFileUrl(workspaceId, path), {
+    cache: "no-store",
+    headers: { Range: "bytes=0-0" },
+  });
+  if (!res.ok) throw new Error(await detail(res));
+  // Only the status was wanted; a server without range support sends it all.
+  void res.body?.cancel().catch(() => undefined);
 }
 
 /** A same-origin URL suitable for an image, media element, or sandboxed frame. */
