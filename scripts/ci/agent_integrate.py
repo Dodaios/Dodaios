@@ -47,6 +47,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -624,23 +626,78 @@ def decide(
     return "wait"
 
 
+def grant_updates(wanted: list[dict[str, object]], max_updates: int) -> set[int]:
+    """Which pull requests get this tick's update slots.
+
+    The slots used to go to the lowest numbers. A pull request the train
+    cannot update (an unresolved conflict, labelled ``needs-rebase``) and one
+    whose own CI is red both ask again on every tick: three of them held all
+    three slots for days while green pull requests that merely conflicted
+    with main waited behind them. First come ``priority``, then the ones the
+    train has not already failed on, then green CI, then the number.
+    """
+
+    def rank(entry: dict[str, object]) -> tuple[bool, bool, bool, int]:
+        labels = {str(label) for label in entry.get("labels") or ()}  # type: ignore[attr-defined]
+        return (
+            "priority" not in labels,
+            "needs-rebase" in labels,
+            entry.get("state") != "success",
+            int(str(entry["number"])),
+        )
+
+    chosen = sorted(wanted, key=rank)[: max(0, max_updates)]
+    return {int(str(entry["number"])) for entry in chosen}
+
+
+# GitHub computes mergeability on demand: the first listing after a push to
+# main answers UNKNOWN for every pull request and only starts the computation.
+SETTLE_ATTEMPTS = 6
+SETTLE_SECONDS = 10.0
+
+
+def open_pull_requests(
+    repo: str,
+    attempts: int = SETTLE_ATTEMPTS,
+    pause: float = SETTLE_SECONDS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[dict]:
+    """Open pull requests against main, asked again while GitHub still computes
+    whether the eligible ones merge.
+
+    The tick a push to main starts is the one that should update the branches
+    that push put in conflict, and it read UNKNOWN for all of them: it waited
+    on every pull request and did nothing.
+    """
+    prs: list[dict] = []
+    for attempt in range(max(1, attempts)):
+        listing = gh_json(
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--base",
+            "main",
+            "--limit",
+            "100",
+            "--json",
+            "id,number,title,headRefName,headRefOid,isDraft,labels,baseRefName,"
+            "isCrossRepository,mergeable",
+        )
+        prs = listing if isinstance(listing, list) else []
+        computing = sum(1 for pr in prs if eligible(pr) and pr.get("mergeable") == "UNKNOWN")
+        if not computing or attempt + 1 >= attempts:
+            break
+        print(f"[train] mergeability of {computing} pull request(s) not computed yet; asking again")
+        sleep(pause)
+    return prs
+
+
 def plan(repo: str, max_updates: int) -> dict[str, object]:
     """Decide what the train does this tick. Reads only; runs no PR code."""
-    prs = gh_json(
-        "pr",
-        "list",
-        "--repo",
-        repo,
-        "--state",
-        "open",
-        "--base",
-        "main",
-        "--limit",
-        "100",
-        "--json",
-        "id,number,title,headRefName,headRefOid,isDraft,labels,baseRefName,"
-        "isCrossRepository,mergeable",
-    )
+    prs = open_pull_requests(repo)
     queued = merge_queue_numbers(repo)
     queue_runs = queue_runs_by_pr(queue_group_runs(repo)) if queued is not None else {}
     git("fetch", "--quiet", "origin", "main")
@@ -651,7 +708,6 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
     )
     print(f"[train] {len(order)} eligible pull request(s); merge queue: {queued is not None}")
     entries: list[dict[str, object]] = []
-    updates = 0
     landing = False
     for pr in order:
         number, branch, sha = pr["number"], pr["headRefName"], pr["headRefOid"]
@@ -668,12 +724,7 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
             queue_failed=queue_rejected(queue_runs.get(number), runs),
         )
         note = f"CI {state}, {mergeable or 'unknown'}"
-        if action == "update":
-            if updates >= max_updates:
-                action, note = "wait", "needs an update, waits for a free slot"
-            else:
-                updates += 1
-        elif action == "merge" and queued is None:
+        if action == "merge" and queued is None:
             if landing:
                 action, note = (
                     "wait",
@@ -689,9 +740,14 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
                 "action": action,
                 "run_id": run_id,
                 "note": note,
+                "state": state,
                 "labels": sorted(lb["name"] for lb in pr.get("labels", [])),
             }
         )
+    granted = grant_updates([e for e in entries if e["action"] == "update"], max_updates)
+    for entry in entries:
+        if entry["action"] == "update" and entry["number"] not in granted:
+            entry["action"], entry["note"] = "wait", "needs an update, waits for a free slot"
     return {"repo": repo, "main": main_sha, "queue": queued is not None, "entries": entries}
 
 

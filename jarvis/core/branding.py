@@ -52,6 +52,23 @@ CONTROL_KEY_PREFIX = "jctl_"
 SESSION_COOKIE_NAME = "jarvis_session"
 MANAGED_INSTALL_MARKER = ".jarvis-managed-install"
 DEFAULT_INSTALL_DIR_NAME = f".{PERSISTENT_SLUG}"
+# The Python distribution name (``pip install <name>``) and with it the
+# ``share/<name>`` directory a wheel installs its data files under.
+DISTRIBUTION_NAME = PERSISTENT_SLUG
+
+# Terminal commands the install puts on PATH. No command may equal the branded
+# launcher's name ignoring case: on Windows and macOS they would be one file.
+CLI_COMMAND_NAME = "jarvis"
+CLI_COMMAND_ALIAS = PERSISTENT_SLUG
+CONTROL_CLI_COMMAND_NAME = "jarvisctl"
+CLI_COMMAND_NAMES = (CLI_COMMAND_NAME, CLI_COMMAND_ALIAS, CONTROL_CLI_COMMAND_NAME)
+# First line of the PATH block written into a shell profile, and the fish
+# drop-in that carries the same block. Both are found again on uninstall.
+SHELL_PROFILE_MARKER = (
+    f"# {PERSISTENT_PRODUCT_NAME}: command-line tools "
+    f"({CLI_COMMAND_NAME}, {CLI_COMMAND_ALIAS})"
+)
+FISH_CONF_FILE_NAME = f"{PERSISTENT_SLUG}.fish"
 
 WINDOWS_USER_DATA_DIR_NAME = "Jarvis"
 FALLBACK_USER_DATA_DIR_NAME = ".jarvis"
@@ -121,13 +138,19 @@ OFFICIAL_RELEASES_LATEST_API_URL = (
 UPDATER_USER_AGENT = f"{PERSISTENT_COMPACT_NAME}-Updater"
 
 __all__ = [
+    "CLI_COMMAND_ALIAS",
+    "CLI_COMMAND_NAME",
+    "CLI_COMMAND_NAMES",
     "CONFIG_FILE_NAME",
+    "CONTROL_CLI_COMMAND_NAME",
     "CONTROL_KEY_PREFIX",
     "DEFAULT_OFFICIAL_REPO_SLUG",
     "DEFAULT_INSTALL_DIR_NAME",
     "LEGACY_OFFICIAL_REPO_SLUGS",
     "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
+    "DISTRIBUTION_NAME",
     "FALLBACK_USER_DATA_DIR_NAME",
+    "FISH_CONF_FILE_NAME",
     "KEYRING_SERVICE_NAME",
     "LAUNCHER_ENTRY_NAME",
     "LINUX_APP_NAME",
@@ -153,6 +176,7 @@ __all__ = [
     "PRODUCT_NAME",
     "PRODUCT_SLUG",
     "SESSION_COOKIE_NAME",
+    "SHELL_PROFILE_MARKER",
     "UPDATER_USER_AGENT",
     "WINDOWS_APP_USER_MODEL_ID",
     "WINDOWS_AUTOSTART_DESCRIPTION",
