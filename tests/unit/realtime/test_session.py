@@ -2599,9 +2599,13 @@ async def test_local_public_fact_uses_exactly_one_supervisor_search(
         def __init__(self):
             super().__init__()
             self.run_task_calls = []
+            self.started_by_user = []
 
         async def run_task(self, **kwargs):
+            from jarvis.core.protocols import current_started_by_user
+
             self.run_task_calls.append(kwargs)
+            self.started_by_user.append(current_started_by_user.get())
             return "Ada Lovelace was born in 1815 according to the source."
 
     class _GroundedResultSession(FakeSession):
@@ -2643,6 +2647,9 @@ async def test_local_public_fact_uses_exactly_one_supervisor_search(
     }
     assert len(brain.run_task_calls) == 1
     assert brain.run_task_calls[0]["allowed_tools"] == ()
+    # A question asked in a live call is the person's own turn, not unattended
+    # work: it must not be held to the background billing policy.
+    assert brain.started_by_user == [True]
     assert brain.calls == []
     # Exactly ONE result is spoken. An instant-ack line ("Quick online
     # search, one moment.") may land before it on a slow runner — that is the

@@ -12502,19 +12502,24 @@ class RealtimeVoiceSession:
             "does not answer the question, say that honestly.\n\n"
             f"User question: {query}\n\nEvidence:\n{evidence}"
         )
+        from jarvis.core.protocols import started_by_user
+
         try:
-            reply = str(
-                await asyncio.wait_for(
-                    run_task(
-                        prompt=prompt,
-                        allowed_tools=(),
-                        model_tier="fast",
-                        trace_id=self._turn_trace_id,
-                    ),
-                    timeout=_DELEGATE_TIMEOUT_S,
-                )
-                or ""
-            ).strip()
+            # The person asked this question in a live call: it is their turn,
+            # not unattended work, so it keeps the chain an asked turn runs on.
+            with started_by_user():
+                reply = str(
+                    await asyncio.wait_for(
+                        run_task(
+                            prompt=prompt,
+                            allowed_tools=(),
+                            model_tier="fast",
+                            trace_id=self._turn_trace_id,
+                        ),
+                        timeout=_DELEGATE_TIMEOUT_S,
+                    )
+                    or ""
+                ).strip()
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001 - evidence exists but synthesis did not
