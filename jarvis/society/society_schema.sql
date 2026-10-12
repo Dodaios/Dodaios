@@ -84,8 +84,59 @@ CREATE TABLE IF NOT EXISTS society_chat_groups (
     name TEXT NOT NULL,
     members_json TEXT NOT NULL,
     created_ms INTEGER NOT NULL,
-    updated_ms INTEGER NOT NULL
+    updated_ms INTEGER NOT NULL,
+    -- The member that manages this team (jarvis/society/team_lead.py); NULL = no lead.
+    lead_agent_id TEXT DEFAULT NULL,
+    -- The team's standing purpose, read by its lead on every managing turn.
+    mission TEXT NOT NULL DEFAULT ''
 );
+
+-- Goals the person gives a team. The lead breaks a goal into tasks, hands
+-- them to members and reports back; trusted Python reads the lifecycle off
+-- society_events and wakes the lead when a result arrives.
+CREATE TABLE IF NOT EXISTS society_team_goals (
+    goal_id             TEXT PRIMARY KEY,
+    group_id            TEXT NOT NULL,
+    lead_agent_id       TEXT NOT NULL,
+    title               TEXT NOT NULL,
+    text                TEXT NOT NULL DEFAULT '',
+    state               TEXT NOT NULL DEFAULT 'queued'
+                        CHECK (state IN ('queued', 'running', 'needs_input', 'paused',
+                                         'done', 'failed', 'cancelled')),
+    report              TEXT NOT NULL DEFAULT '',   -- the lead's latest report to the person
+    note                TEXT NOT NULL DEFAULT '',   -- why it waits, paused or failed
+    lead_turns          INTEGER NOT NULL DEFAULT 0, -- managing turns spent since the last resume
+    lang                TEXT NOT NULL DEFAULT '',
+    origin_json         TEXT NOT NULL DEFAULT '{}', -- the board assignment it answers, if any
+    created_ms          INTEGER NOT NULL,
+    updated_ms          INTEGER NOT NULL,
+    done_ms             INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_team_goals_group
+    ON society_team_goals(group_id, created_ms);
+
+CREATE TABLE IF NOT EXISTS society_team_tasks (
+    task_id             TEXT PRIMARY KEY,
+    goal_id             TEXT NOT NULL,
+    agent_id            TEXT NOT NULL,              -- the member doing it
+    title               TEXT NOT NULL,
+    brief               TEXT NOT NULL DEFAULT '',
+    state               TEXT NOT NULL DEFAULT 'assigned'
+                        CHECK (state IN ('waiting', 'assigned', 'running', 'done', 'blocked',
+                                         'cancelled')),
+    trace_id            TEXT NOT NULL UNIQUE,
+    assign_event_id     TEXT,
+    run_id              TEXT NOT NULL DEFAULT '',
+    result              TEXT NOT NULL DEFAULT '',
+    reviewed            INTEGER NOT NULL DEFAULT 0, -- the lead has read the outcome
+    attempts            INTEGER NOT NULL DEFAULT 0, -- knocks on a busy member
+    created_ms          INTEGER NOT NULL,
+    updated_ms          INTEGER NOT NULL,
+    done_ms             INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_team_tasks_goal ON society_team_tasks(goal_id, created_ms);
 
 -- Bounded group discussions: state lives here, history in society_events
 -- (msg_type ROOM_OPEN / SAY / ROOM_SETTLE sharing the room's trace_id).

@@ -592,7 +592,9 @@ export function RosterRail({
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-foreground">{group.name}</span>
                 <span className="block truncate text-xs text-muted-foreground">{groupHover?.kind === "group" && groupHover.id === group.group_id
                   ? t(groupReady ? "society.groups.release_to_group" : "society.groups.hold_to_group")
-                  : group.members.map(memberName).join(", ")}</span>
+                  : group.lead_agent_id
+                    ? `${t("society.lead.rail").replace("{0}", memberName(group.lead_agent_id))} · ${group.members.filter((id) => id !== group.lead_agent_id).map(memberName).join(", ")}`
+                    : group.members.map(memberName).join(", ")}</span>
               </span>
             </button>
           </li>)}

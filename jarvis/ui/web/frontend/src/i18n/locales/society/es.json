@@ -1008,6 +1008,7 @@
       "team_yours": "Tus equipos",
       "team_none": "Aún no hay equipos. Forma uno abajo.",
       "team_members": "{0} miembros",
+      "team_lead": "Líder: {0}",
       "team_working": "{0} trabajando",
       "team_meet": "Reunirse en la mesa",
       "team_meeting_now": "En la reunión",

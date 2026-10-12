@@ -73,8 +73,11 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Request
 
 from jarvis.core.branding import (
+    DEFAULT_OFFICIAL_REPO_SLUG,
+    LEGACY_OFFICIAL_REPO_SLUGS,
     MANAGED_INSTALL_MARKER,
     OFFICIAL_RELEASES_LATEST_API_URL,
+    OFFICIAL_REPO_GIT_URL,
     OFFICIAL_REPO_SLUG,
     UPDATER_USER_AGENT,
 )
@@ -101,6 +104,7 @@ router = APIRouter(prefix="/api/update", tags=["update"])
 # guard verifies the installed checkout's ``origin`` resolves here before any
 # ``git reset --hard`` runs, so a dev checkout or a fork can never be self-reset.
 _OFFICIAL_REPO_SLUG = OFFICIAL_REPO_SLUG
+_LEGACY_OFFICIAL_REPO_SLUGS = LEGACY_OFFICIAL_REPO_SLUGS
 _RELEASES_LATEST_API = OFFICIAL_RELEASES_LATEST_API_URL
 # Written by install/installer.py into the checkout root. Its presence is one
 # half of "this copy is safe to self-update".
@@ -387,15 +391,60 @@ def _normalize_remote(url: str) -> str:
     return tail
 
 
+def _remote_matches_slug(url: str, slug: str) -> bool:
+    """True when ``url`` resolves to exactly ``slug``, not a look-alike name."""
+    norm = _normalize_remote(url).lower()
+    needle = slug.lower()
+    return norm == needle or norm.endswith("/" + needle)
+
+
+def _accepted_official_slugs() -> tuple[str, ...]:
+    """Current slug, plus the pre-rename address while that slug is still ours.
+
+    An environment override points the updater at a different repository on
+    purpose, so the legacy address is accepted only for the stock slug.
+    """
+    if _OFFICIAL_REPO_SLUG != DEFAULT_OFFICIAL_REPO_SLUG:
+        return (_OFFICIAL_REPO_SLUG,)
+    return (_OFFICIAL_REPO_SLUG, *_LEGACY_OFFICIAL_REPO_SLUGS)
+
+
 def _remote_is_official(url: str) -> bool:
-    """True only if ``url`` resolves to exactly the official ``owner/name``.
+    """True only if ``url`` resolves to an accepted official ``owner/name``.
 
     Must MATCH the last two path segments, not merely contain the slug — so a
-    look-alike fork (``.../PersonalJarvis/PersonalJarvisEvil``) is rejected.
+    look-alike fork (``.../Dodaios/DodaiosEvil``) is rejected. A checkout whose
+    origin is still ``PersonalJarvis/PersonalJarvis`` stays official; applying
+    an update rewrites that remote to the current URL.
     """
-    norm = _normalize_remote(url).lower()
-    slug = _OFFICIAL_REPO_SLUG.lower()
-    return norm == slug or norm.endswith("/" + slug)
+    return any(_remote_matches_slug(url, slug) for slug in _accepted_official_slugs())
+
+
+async def _retarget_legacy_origin(root: Path) -> None:
+    """Point a pre-rename origin at the current official URL.
+
+    Git still fetches through GitHub's redirect, but the next release of this
+    app identifies the checkout by the stored remote. Rewriting it here is what
+    keeps one-click updates working after the legacy slug is no longer enough.
+    """
+    origin = await _git_output(["remote", "get-url", "origin"], cwd=root)
+    if origin is None or _remote_matches_slug(origin, _OFFICIAL_REPO_SLUG):
+        return
+    if not _remote_is_official(origin):
+        return
+    rc, _out, err = await _git(
+        ["remote", "set-url", "origin", OFFICIAL_REPO_GIT_URL],
+        cwd=root,
+        timeout_s=30.0,
+    )
+    if rc != 0:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "could not retarget origin to the current repository: "
+                f"{err[:300] or 'unknown error'}"
+            ),
+        )
 
 
 async def _resolve_managed_repo() -> Path | None:
@@ -429,7 +478,21 @@ async def _fetch_latest_release() -> dict[str, Any] | None:
     try:
         import httpx
 
-        async with httpx.AsyncClient(timeout=_NETWORK_TIMEOUT_S) as client:
+        async def _stay_on_github_api(response: httpx.Response) -> None:
+            # A renamed repository answers 301. Follow that hop, and refuse any
+            # hop that leaves GitHub's API host: the JSON decides which
+            # installer the button will download.
+            if not response.has_redirect_location:
+                return
+            target = response.url.join(response.headers.get("location") or "")
+            if target.scheme != "https" or target.host != "api.github.com":
+                raise httpx.HTTPError(f"refusing a release-check redirect to {target}")
+
+        async with httpx.AsyncClient(
+            timeout=_NETWORK_TIMEOUT_S,
+            follow_redirects=True,
+            event_hooks={"response": [_stay_on_github_api]},
+        ) as client:
             resp = await client.get(
                 _RELEASES_LATEST_API,
                 headers={
@@ -1379,6 +1442,8 @@ async def _apply_managed() -> dict[str, object]:
             status_code=500,
             detail="could not identify the currently installed revision",
         )
+
+    await _retarget_legacy_origin(root)
 
     # Fetch the published tag, never the moving main branch. The update button
     # promises a specific GitHub Release; applying an unreleased main commit
