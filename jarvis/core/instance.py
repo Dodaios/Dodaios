@@ -55,6 +55,8 @@ from jarvis.core.branding import (
     WINDOWS_SHORTCUT_FILE_NAME,
 )
 
+#: Environment variable that relocates the runtime data directory.
+DATA_DIR_ENV_VAR = "JARVIS_DATA_DIR"
 #: Environment variable naming the instance. Absent / blank = the default app.
 INSTANCE_ENV_VAR = "JARVIS_INSTANCE"
 DEFAULT_INSTANCE_NAME = "default"
@@ -267,7 +269,22 @@ def instance_data_dir(project_root: Path, identity: InstanceIdentity | None = No
     return project_root / (identity or current_instance()).data_dir_name
 
 
+def resolve_data_dir(project_root: Path) -> Path:
+    """The runtime data directory of this process: the one implementation.
+
+    ``JARVIS_DATA_DIR`` (headless hosts, read-only installs, the frozen build's
+    runtime hook) wins outright. Otherwise the directory sits next to the
+    checkout and is named by the instance. ``jarvis.core.config.DATA_DIR`` and
+    the early desktop log both resolve through here, so they cannot disagree.
+    """
+    env_dir = os.environ.get(DATA_DIR_ENV_VAR)
+    if env_dir and env_dir.strip():
+        return Path(env_dir.strip())
+    return instance_data_dir(project_root)
+
+
 __all__ = [
+    "DATA_DIR_ENV_VAR",
     "DEFAULT_ICON_FILE_NAME",
     "DEFAULT_INSTANCE_NAME",
     "DEV_ICON_FILE_NAME",
@@ -281,6 +298,7 @@ __all__ = [
     "current_instance",
     "instance_data_dir",
     "normalize_instance_name",
+    "resolve_data_dir",
     "resolve_instance",
     "select_instance",
 ]
