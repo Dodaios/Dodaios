@@ -2075,7 +2075,7 @@ _TERMINAL_LOCATION_SUFFIX = re.compile(
 )
 
 
-def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
+def _resolve_terminal_target(workspace_folder: str, printed: str, *, confine: bool = True) -> Path:
     """Resolve a printed path without letting terminal output escape its workspace.
 
     Coding-CLI output is untrusted. A modifier-click is deliberate, but it must
@@ -2083,6 +2083,10 @@ def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
     Relative and absolute paths must therefore resolve inside the pane's own
     workspace, including after symlinks are followed. Common line/column
     locators are accepted because compilers and agents routinely print them.
+
+    ``confine=False`` is for the in-app viewer only: showing a file the agent
+    saved elsewhere (a screenshot in Downloads) runs nothing, so the path may
+    resolve anywhere. Every caller that launches or writes keeps the default.
     """
     value = printed.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'", "`"}:
@@ -2113,10 +2117,11 @@ def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
     if not candidate.is_absolute():
         candidate = root / candidate
     target = candidate.resolve(strict=True)
-    try:
-        target.relative_to(root)
-    except ValueError as exc:
-        raise ValueError("terminal target escapes workspace") from exc
+    if confine:
+        try:
+            target.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("terminal target escapes workspace") from exc
     if not (target.is_file() or target.is_dir()):
         raise ValueError("terminal target is not openable")
     return target
@@ -2129,13 +2134,17 @@ _WORKSPACE_FILE_CSP = (
 )
 
 
-def _resolve_workspace_file(workspace_id: str, path: str) -> Path:
-    """Resolve one file inside an open workspace without leaking host paths."""
+def _resolve_workspace_file(workspace_id: str, path: str, *, outside: bool = False) -> Path:
+    """Resolve one file inside an open workspace without leaking host paths.
+
+    ``outside`` lets the viewer show a file that lies elsewhere on this
+    computer; it is read-only by construction, since no write route takes it.
+    """
     session = get_registry().get(workspace_id)
     if session is None:
         raise HTTPException(status_code=404, detail="That workspace is not open.")
     try:
-        target = _resolve_terminal_target(session.folder, path)
+        target = _resolve_terminal_target(session.folder, path, confine=not outside)
     except (OSError, RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=404, detail="That workspace file is unavailable.") from exc
     if not target.is_file():
@@ -2179,13 +2188,14 @@ def _read_workspace_file_preview(target: Path) -> dict[str, object]:
     "/workspaces/{workspace_id}/file",
     summary="View one file from an open workspace",
 )
-async def get_workspace_file(workspace_id: str, path: str) -> FileResponse:
+async def get_workspace_file(workspace_id: str, path: str, outside: bool = False) -> FileResponse:
     """Stream any workspace file for an in-app native viewer.
 
     Active document formats receive a script-blocking CSP. Resolution follows
-    symlinks and rejects every target outside the selected workspace.
+    symlinks and rejects every target outside the selected workspace, unless
+    the viewer asks for a file elsewhere on this computer with ``outside``.
     """
-    target = await asyncio.to_thread(_resolve_workspace_file, workspace_id, path)
+    target = await asyncio.to_thread(_resolve_workspace_file, workspace_id, path, outside=outside)
     media_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
     return FileResponse(
         target,
@@ -2205,9 +2215,11 @@ async def get_workspace_file(workspace_id: str, path: str) -> FileResponse:
     response_model=WorkspaceFilePreviewResponse,
     summary="Preview one file from an open workspace",
 )
-async def get_workspace_file_preview(workspace_id: str, path: str) -> WorkspaceFilePreviewResponse:
+async def get_workspace_file_preview(
+    workspace_id: str, path: str, outside: bool = False
+) -> WorkspaceFilePreviewResponse:
     """Return bounded readable text or a safe hexadecimal fallback."""
-    target = await asyncio.to_thread(_resolve_workspace_file, workspace_id, path)
+    target = await asyncio.to_thread(_resolve_workspace_file, workspace_id, path, outside=outside)
     try:
         preview = await asyncio.to_thread(_read_workspace_file_preview, target)
     except OSError as exc:

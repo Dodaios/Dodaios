@@ -12,15 +12,16 @@ import { openTerminalTarget } from "@/lib/agenticIdeApi";
 import { openExternalUrl } from "@/lib/openExternal";
 
 /**
- * Raised for a Ctrl/Cmd-clicked local path before the OS opener runs. A
- * listener that shows the file in the app (the IDE's Explorer) calls
- * `preventDefault()`, and the OS opener is skipped.
+ * Raised for a clicked local path before the OS opener runs. A listener that
+ * shows the file in the app (the IDE's editor and Explorer) calls
+ * `preventDefault()`, and the OS opener is skipped. `detail.launch` says
+ * whether Ctrl/Cmd was held, the only click that may hand a file to the OS.
  */
 export const OPEN_PATH_EVENT = "jarvis:ide-open-path";
 
 const MAX_LOGICAL_LINE_CHARS = 4096;
 
-const BARE_FILE = /^(?:(?:readme|license|makefile|dockerfile|containerfile)|[^/\\]+\.(?:c|cc|cpp|h|hpp|cs|go|rs|java|kt|kts|swift|php|rb|py|pyi|js|mjs|cjs|jsx|ts|mts|cts|tsx|vue|svelte|html?|css|scss|sass|less|json|jsonl|ya?ml|toml|xml|md|mdx|txt|log|csv|tsv|sql|sh|bash|zsh|fish|ps1|bat|cmd|ini|cfg|conf|env|lock|diff|patch|pdf|png|jpe?g|gif|svg|webp))(?::[1-9]\d*(?::[1-9]\d*)?|#L[1-9]\d*(?::[1-9]\d*)?|\([1-9]\d*(?:,[1-9]\d*)?\))?$/i;
+const BARE_FILE = /^(?:(?:readme|license|makefile|dockerfile|containerfile)|[^/\\]+\.(?:c|cc|cpp|h|hpp|cs|go|rs|java|kt|kts|swift|php|rb|py|pyi|js|mjs|cjs|jsx|ts|mts|cts|tsx|vue|svelte|html?|css|scss|sass|less|json|jsonl|ya?ml|toml|xml|md|mdx|txt|log|csv|tsv|sql|sh|bash|zsh|fish|ps1|bat|cmd|ini|cfg|conf|env|lock|diff|patch|pdf|png|jpe?g|gif|svg|webp|bmp|avif|ico|mp4|m4v|mov|webm|ogv|mp3|wav|ogg|m4a|flac))(?::[1-9]\d*(?::[1-9]\d*)?|#L[1-9]\d*(?::[1-9]\d*)?|\([1-9]\d*(?:,[1-9]\d*)?\))?$/i;
 
 const LOCATION_SUFFIX = /(?:#[lL][1-9]\d*(?::[1-9]\d*)?|:[1-9]\d*(?::[1-9]\d*)?|\([1-9]\d*(?:,[1-9]\d*)?\))$/;
 
@@ -28,6 +29,11 @@ export interface TerminalLinkOptions {
   /** Required for local paths; URLs do not need workspace context. */
   workspaceId?: string;
   onError?: (message: string) => void;
+  /**
+   * Does the terminal hold a text selection? The release that ends a drag
+   * across a path selected text; it did not ask to open the file.
+   */
+  hasSelection?: () => boolean;
 }
 
 export interface TerminalPathMatch {
@@ -70,30 +76,35 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Activate a terminal URL/path only on the conventional Ctrl/Cmd primary click.
+ * Activate a terminal URL or path from a primary click.
  *
- * Ordinary clicks stay available for terminal selection. Paths additionally
- * require a workspace id; the backend resolves and confines them there before
- * it invokes the OS opener.
+ * A plain click on a path shows it inside the app: the editor, with its image
+ * and video viewers. Anything that leaves the app stays on the conventional
+ * Ctrl/Cmd-click, since terminal output is untrusted: a web link, and a path
+ * handed to the OS opener, which the backend first confines to the pane's own
+ * workspace. Paths need a workspace id either way.
  */
 export function activateTerminalLink(
   event: MouseEvent,
   uri: string,
   options: TerminalLinkOptions = {},
 ): void {
-  if (event.button !== 0 || (!event.ctrlKey && !event.metaKey)) return;
+  if (event.button !== 0) return;
+  const launch = event.ctrlKey || event.metaKey;
   if (isHttpUrl(uri)) {
-    void openExternalUrl(uri);
+    if (launch) void openExternalUrl(uri);
     return;
   }
   if (!options.workspaceId || !isTerminalPath(uri)) return;
-  // The IDE's Explorer shows the file — with its diff — when it is mounted; it
-  // answers by cancelling the event. Otherwise the OS opens it as before.
+  if (!launch && options.hasSelection?.()) return;
+  // The IDE shows the file when it is mounted; it answers by cancelling the
+  // event. Otherwise a Ctrl/Cmd-click lets the OS open it as before.
   const routed = new CustomEvent(OPEN_PATH_EVENT, {
     cancelable: true,
-    detail: { workspaceId: options.workspaceId, path: uri },
+    detail: { workspaceId: options.workspaceId, path: uri, launch },
   });
   if (!window.dispatchEvent(routed)) return;
+  if (!launch) return;
   void openTerminalTarget(options.workspaceId, uri).catch((error: unknown) => {
     const message = errorMessage(error);
     if (options.onError) options.onError(message);

@@ -257,6 +257,32 @@ describe("terminal path clicks", () => {
     expect(useCodeEditorStore.getState().tabs).toEqual([]);
     expect(calls.some((call) => call.url.includes("terminal-target"))).toBe(true);
   });
+
+  it("open a printed file on a plain click, without the OS opener", async () => {
+    renderHook(() => useExplorerPathRouting());
+    act(() => activateTerminalLink(new MouseEvent("click", { button: 0 }), "README.md", { workspaceId: "w1" }));
+    await waitFor(() => expect(useCodeEditorStore.getState().tabs).toMatchObject([{ path: "README.md" }]));
+    expect(calls.some((call) => call.url.includes("terminal-target"))).toBe(false);
+  });
+
+  it("open a file saved outside the workspace in the editor's viewer", async () => {
+    renderHook(() => useExplorerPathRouting());
+    act(() =>
+      activateTerminalLink(new MouseEvent("click", { button: 0 }), "C:\\Users\\me\\Downloads\\shot.jpg", { workspaceId: "w1" }),
+    );
+    await waitFor(() => expect(useCodeEditorStore.getState().tabs).toMatchObject([{ path: "C:/Users/me/Downloads/shot.jpg" }]));
+    const probe = calls.find((call) => call.url.includes("/file?"));
+    expect(probe?.url).toContain("outside=true");
+    expect(calls.some((call) => call.url.includes("terminal-target"))).toBe(false);
+  });
+
+  it("say why a missing outside file did not open", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: "That workspace file is unavailable." }), { status: 404 })));
+    renderHook(() => useExplorerPathRouting());
+    act(() => activateTerminalLink(new MouseEvent("click", { button: 0 }), "/tmp/gone.png", { workspaceId: "w1" }));
+    await waitFor(() => expect(useEventStore.getState().toasts.at(-1)?.message).toBe("That workspace file is unavailable."));
+    expect(useCodeEditorStore.getState().tabs).toEqual([]);
+  });
 });
 
 describe("parsePrintedPath", () => {
@@ -272,5 +298,11 @@ describe("parsePrintedPath", () => {
     expect(parsePrintedPath("/code/app", "/etc/passwd").path).toBeNull();
     expect(parsePrintedPath("/code/app", "../secret.txt").path).toBeNull();
     expect(parsePrintedPath("/code/app", "/code/application/x").path).toBeNull();
+  });
+
+  it("names where an outside file lies, for the read-only viewer", () => {
+    expect(parsePrintedPath("C:\\Code\\App", "C:\\Users\\me\\Downloads\\shot.jpg")).toEqual({ path: null, outside: "C:/Users/me/Downloads/shot.jpg" });
+    expect(parsePrintedPath("/code/app", "~/notes/plan.md:3")).toEqual({ path: null, outside: "~/notes/plan.md" });
+    expect(parsePrintedPath("/code/app", "../shared/a.png")).toEqual({ path: null, outside: "/code/app/../shared/a.png" });
   });
 });

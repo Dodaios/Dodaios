@@ -57,7 +57,8 @@ export function MediaViewer({
   kind: Exclude<ViewKind, "document">;
   workspaceId: string;
   path: string;
-  onOpenExternally: () => void;
+  /** Omitted for a file the system opener may not take. */
+  onOpenExternally?: () => void;
 }) {
   const t = useT();
   const [failed, setFailed] = useState(false);
@@ -67,7 +68,7 @@ export function MediaViewer({
   if (failed) {
     return (
       <Notice message={t("code_editor.media_failed")}>
-        <OpenExternallyButton onClick={onOpenExternally} />
+        {onOpenExternally && <OpenExternallyButton onClick={onOpenExternally} />}
       </Notice>
     );
   }
@@ -98,7 +99,7 @@ export function ExtractedPreview({
   workspaceId: string;
   path: string;
   note: string;
-  onOpenExternally: () => void;
+  onOpenExternally?: () => void;
 }) {
   const t = useT();
   const [preview, setPreview] = useState<WorkspaceFilePreviewResponse | null>(null);
@@ -120,7 +121,7 @@ export function ExtractedPreview({
       <div className="sticky top-0 z-[1] flex flex-wrap items-center gap-2 border-b border-border/60 bg-background/95 px-4 py-2 text-xs text-muted-foreground backdrop-blur-sm">
         <FileWarning className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1">{note}</span>
-        <OpenExternallyButton onClick={onOpenExternally} />
+        {onOpenExternally && <OpenExternallyButton onClick={onOpenExternally} />}
       </div>
       {error ? (
         <p className="px-4 py-3 text-xs text-destructive">{error}</p>

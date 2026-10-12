@@ -6672,6 +6672,7 @@
     "show_source": "Quelltext zeigen",
     "media_failed": "Diese Datei lässt sich hier nicht anzeigen.",
     "document_note": "Aus diesem Dokument gelesener Text. Zum Bearbeiten auf diesem Computer öffnen.",
+    "outside_note": "Diese Datei liegt außerhalb des Projektordners und wird nur zum Lesen angezeigt.",
     "truncated": "Nur der Anfang der Datei wird gezeigt.",
     "empty": "Diese Datei hat keinen lesbaren Inhalt.",
     "mixed_eol": "Diese Datei mischt Zeilenenden. Beim Speichern wird überall {eol} geschrieben.",

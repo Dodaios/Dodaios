@@ -1,5 +1,6 @@
 import type * as Monaco from "monaco-editor/editor/editor.api";
 
+import { isOutsidePath } from "@/lib/agenticIdeApi";
 import { useEventStore } from "@/store/events";
 import { useCodeEditorStore, type EditorFile } from "@/store/codeEditor";
 import { viewKindOf } from "./fileKinds";
@@ -286,6 +287,11 @@ export async function loadFile(fileKey: string): Promise<void> {
     store().patchFile(fileKey, { status: kind });
     return;
   }
+  // Editing is for the workspace: no save route reaches a file outside it.
+  if (isOutsidePath(file.path)) {
+    store().patchFile(fileKey, { status: "outside" });
+    return;
+  }
   try {
     const loaded = await loadTextFile(file.workspaceId, file.path);
     if (!store().files[fileKey]) return;
@@ -515,6 +521,8 @@ export function discardFile(fileKey: string): void {
 export async function checkDisk(fileKey: string): Promise<void> {
   const before = store().files[fileKey];
   if (!before || before.saving || before.status === "loading" || before.status === "error") return;
+  // The version route is the workspace's; a viewer re-reads on reopen instead.
+  if (isOutsidePath(before.path)) return;
   const epoch = saveEpochs.get(fileKey) ?? 0;
   let version: string | null;
   try {

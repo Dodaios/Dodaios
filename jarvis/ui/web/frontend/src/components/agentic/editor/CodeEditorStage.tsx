@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
-import { attachToTerminal, openTerminalTarget } from "@/lib/agenticIdeApi";
+import { attachToTerminal, isOutsidePath, openTerminalTarget } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { revealInExplorer } from "@/store/ideExplorer";
@@ -221,7 +221,7 @@ export function CodeEditorStage({
 
   const openExternally = (path: string) =>
     void openTerminalTarget(workspaceId, path).catch((error: unknown) => pushToast("error", (error as Error).message));
-  const absolute = (path: string) => absoluteWorkspacePath(workspacePath, path);
+  const absolute = (path: string) => (isOutsidePath(path) ? path : absoluteWorkspacePath(workspacePath, path));
 
   const quick = quickOpen ? <QuickOpen workspaceId={workspaceId} /> : null;
   if (!shown) return quick;
@@ -356,12 +356,15 @@ export function CodeEditorStage({
               label={fill(t("code_editor.reference_in"), { pane: stagedPane })}
             />
           )}
-          <ActionButton
-            onClick={() => openExternally(activeTab.path)}
-            icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden />}
-            label={t("code_editor.open_externally")}
-            iconOnly
-          />
+          {/* The system opener is confined to the workspace. */}
+          {!isOutsidePath(activeTab.path) && (
+            <ActionButton
+              onClick={() => openExternally(activeTab.path)}
+              icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden />}
+              label={t("code_editor.open_externally")}
+              iconOnly
+            />
+          )}
         </div>
 
         {activeFile?.conflict && (
@@ -406,8 +409,12 @@ export function CodeEditorStage({
             <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_all")} onSelect={() => { setMenu(null); requestClose(tabs.map((tab) => tab.key)); }} />
             <ThreadMenuSeparator />
             <ThreadMenuItem icon={<Copy className="h-4 w-4" />} label={t("code_editor.menu.copy_path")} onSelect={() => { setMenu(null); copyText(absolute(menu.path)); }} />
-            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.copy_relative_path")} onSelect={() => { setMenu(null); copyText(menu.path); }} />
-            <ThreadMenuItem icon={<FolderSearch className="h-4 w-4" />} label={t("code_editor.menu.reveal")} onSelect={() => { setMenu(null); revealInExplorer({ workspaceId, path: menu.path }); }} />
+            {!isOutsidePath(menu.path) && (
+              <>
+                <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.copy_relative_path")} onSelect={() => { setMenu(null); copyText(menu.path); }} />
+                <ThreadMenuItem icon={<FolderSearch className="h-4 w-4" />} label={t("code_editor.menu.reveal")} onSelect={() => { setMenu(null); revealInExplorer({ workspaceId, path: menu.path }); }} />
+              </>
+            )}
           </div>
         )}
       </ThreadPopover>

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 
 import { fetchFileVersion } from "@/components/agentic/editor/editorApi";
-import { openTerminalTarget } from "@/lib/agenticIdeApi";
+import { isOutsidePath, openTerminalTarget, probeWorkspaceFile } from "@/lib/agenticIdeApi";
 import { OPEN_PATH_EVENT } from "@/lib/terminalLinks";
 import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
@@ -50,11 +50,15 @@ export function revealInExplorer(file: OpenedFile): void {
 export interface OpenPathDetail {
   workspaceId: string;
   path: string;
+  /** Ctrl/Cmd was held: what the app cannot show may go to the OS opener. */
+  launch?: boolean;
 }
 
 export interface PrintedPath {
   /** Workspace-relative POSIX path; null when it points outside the workspace. */
   path: string | null;
+  /** Set with a null `path`: where on this computer the file lies instead. */
+  outside?: string;
   line?: number;
   column?: number;
 }
@@ -87,39 +91,58 @@ export function parsePrintedPath(workspaceRoot: string, printed: string): Printe
   const slashes = (text: string) => text.replace(/\\/g, "/");
   let path = slashes(value);
   const root = slashes(workspaceRoot).replace(/\/+$/, "");
-  const absolute = path.startsWith("/") || /^[a-z]:\//i.test(path);
-  if (absolute) {
+  if (isOutsidePath(path)) {
     // Windows paths compare case-insensitively; POSIX paths exactly.
     const windows = /^[a-z]:\//i.test(root);
     const head = windows ? path.slice(0, root.length + 1).toLowerCase() : path.slice(0, root.length + 1);
     const want = windows ? `${root.toLowerCase()}/` : `${root}/`;
-    if (head !== want) return { path: null };
+    if (head !== want) return { path: null, outside: path };
     path = path.slice(root.length + 1);
   }
   path = path.replace(/^(\.\/)+/, "").replace(/\/+$/, "");
-  if (!path || path.split("/").includes("..")) return { path: null };
+  if (!path) return { path: null };
+  // `../shared/x.png` leaves the workspace; the server resolves where to.
+  if (path.split("/").includes("..")) return { path: null, outside: `${root}/${path}` };
   return { path, line, column };
 }
 
 /**
  * Open what a terminal path points at: a file in the editor (at its line), a
- * folder in the Folder tab, anything outside the workspace with the system app.
+ * folder in the Folder tab. A file outside the workspace opens in the editor
+ * too, read-only. `launch` (a Ctrl/Cmd-click) lets the system app take what
+ * the app itself cannot show.
  */
-export async function openPrintedPath(workspaceId: string, workspaceRoot: string, printed: string): Promise<void> {
+export async function openPrintedPath(
+  workspaceId: string,
+  workspaceRoot: string,
+  printed: string,
+  launch = false,
+): Promise<void> {
   const parsed = parsePrintedPath(workspaceRoot, printed);
-  const external = () =>
-    openTerminalTarget(workspaceId, printed).catch((error: unknown) =>
-      useEventStore.getState().pushToast("error", (error as Error).message),
-    );
+  const fail = (error: unknown) => useEventStore.getState().pushToast("error", (error as Error).message);
+  const external = async () => {
+    if (launch) await openTerminalTarget(workspaceId, printed).catch(fail);
+  };
   if (parsed.path === null) {
-    await external();
+    if (!parsed.outside) {
+      await external();
+      return;
+    }
+    try {
+      await probeWorkspaceFile(workspaceId, parsed.outside);
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    useCodeEditorStore.getState().openFile(workspaceId, parsed.outside, { preview: false });
     return;
   }
   let version: string | null;
   try {
     version = await fetchFileVersion(workspaceId, parsed.path);
-  } catch {
-    await external();
+  } catch (error) {
+    if (launch) await external();
+    else fail(error);
     return;
   }
   if (version === null) {
@@ -146,7 +169,7 @@ export function useExplorerPathRouting(): void {
       const workspace = useIdeChatStore.getState().workspace;
       if (!detail?.workspaceId || !detail.path || workspace?.id !== detail.workspaceId) return;
       event.preventDefault();
-      void openPrintedPath(detail.workspaceId, workspace.path, detail.path);
+      void openPrintedPath(detail.workspaceId, workspace.path, detail.path, detail.launch ?? false);
     };
     window.addEventListener(OPEN_PATH_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_PATH_EVENT, onOpen);
