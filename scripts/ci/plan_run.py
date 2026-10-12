@@ -52,6 +52,7 @@ WINDOWS_ARM = "windows-11-arm"
 
 TIERS = ("pr", "queue", "full")
 CI_WORKFLOW_PATH = ".github/workflows/ci.yml"
+MAIN_REF = "refs/heads/main"
 
 LINUX_SHARDS = 6
 # Six Windows shards finish in about the time of the Linux ones plus the
@@ -59,7 +60,9 @@ LINUX_SHARDS = 6
 WINDOWS_SHARDS = 6
 
 
-def decide(event: str, *, full_input: bool = False, macos_input: bool = False) -> dict[str, Any]:
+def decide(
+    event: str, *, full_input: bool = False, macos_input: bool = False, ref: str = ""
+) -> dict[str, Any]:
     """The run mode for a trigger: tier plus the flags the workflow reads."""
     full = macos = pr_mode = False
     if event in {"push", "merge_group"}:
@@ -70,6 +73,10 @@ def decide(event: str, *, full_input: bool = False, macos_input: bool = False) -
         macos = macos_input
         if full_input:
             tier, full = "full", True
+        elif ref == MAIN_REF:
+            # The merge train's stand-in for a push its own merge never fired:
+            # main gets the proof of a push, not the narrower one of a branch.
+            tier = "queue"
         else:
             # A branch run the merge train dispatched behaves like its pull request.
             tier, pr_mode = "pr", True
@@ -156,8 +163,10 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
     }
 
 
-def plan(event: str, *, full_input: bool = False, macos_input: bool = False) -> dict[str, Any]:
-    mode = decide(event, full_input=full_input, macos_input=macos_input)
+def plan(
+    event: str, *, full_input: bool = False, macos_input: bool = False, ref: str = ""
+) -> dict[str, Any]:
+    mode = decide(event, full_input=full_input, macos_input=macos_input, ref=ref)
     return {**mode, **matrices(mode["tier"], macos=mode["macos"])}
 
 
@@ -169,7 +178,7 @@ def proven_by_queue(runs: list[dict[str, Any]], *, repo: str, sha: str) -> bool:
             and run.get("event") == "merge_group"
             and run.get("status") == "completed"
             and run.get("conclusion") == "success"
-            and run.get("path") == CI_WORKFLOW_PATH
+            and str(run.get("path") or "").split("@", 1)[0] == CI_WORKFLOW_PATH
             and ((run.get("head_repository") or {}).get("full_name")) == repo
         ):
             return True
@@ -205,10 +214,13 @@ def is_proven(
     if not (repo and sha and token):
         return False
     try:
-        return proven_by_queue(fetch(repo, sha, token), repo=repo, sha=sha)
+        proven = proven_by_queue(fetch(repo, sha, token), repo=repo, sha=sha)
     except (OSError, ValueError, urllib.error.URLError) as exc:
         print(f"::warning::could not ask for a merge-queue run of {sha}: {exc}")
         return False
+    if not proven:
+        print(f"::notice::no green merge-queue run of {sha}: this run proves it itself")
+    return proven
 
 
 def _render(value: Any) -> str:
@@ -235,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     plan_cmd.add_argument("--event", required=True)
     plan_cmd.add_argument("--full", default="false", help="The dispatch input `full`.")
     plan_cmd.add_argument("--include-macos", default="false")
+    plan_cmd.add_argument("--ref", default="", help="The run's ref (refs/heads/main ...).")
     proven_cmd = commands.add_parser("proven", help="Emit proven=true|false for a commit.")
     proven_cmd.add_argument("--repo", required=True)
     proven_cmd.add_argument("--sha", required=True)
@@ -246,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.event,
                 full_input=args.full == "true",
                 macos_input=args.include_macos == "true",
+                ref=args.ref,
             )
         )
     else:

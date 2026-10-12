@@ -161,7 +161,7 @@ jobs:
           # pull request; a merge group's lanes are classified against the
           # queue base (main or the entry ahead). Nightly and manual full
           # runs force everything.
-          python3 scripts/ci/plan_run.py plan --event "$EVENT" \
+          python3 scripts/ci/plan_run.py plan --event "$EVENT" --ref "$GITHUB_REF" \
             --full "${IN_FULL:-false}" --include-macos "${IN_MACOS:-false}"
           git fetch --no-tags --quiet origin main:refs/remotes/origin/main || true
           base="$PR_BASE"
@@ -460,12 +460,14 @@ jobs:
         continue-on-error: true
         env:
           SHARD: ${{ matrix.shard }}
-        run: >-
-          python scripts/ci/run_tests_parallel.py tests
-          --shard "$SHARD/6"
-          --report "out/test-report-linux-$SHARD.json"
-          --junit-out "out/junit-linux-$SHARD.xml"
-          --durations-out "out/durations-linux-$SHARD.json"
+          SHARDS: ${{ needs.detect.outputs.linux_shards }}
+        run: |
+          total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
+          python scripts/ci/run_tests_parallel.py tests \
+            --shard "$SHARD/$total" \
+            --report "out/test-report-linux-$SHARD.json" \
+            --junit-out "out/junit-linux-$SHARD.xml" \
+            --durations-out "out/durations-linux-$SHARD.json"
       - name: Ratchet (a failure not in the baseline blocks)
         env:
           SHARD: ${{ matrix.shard }}
@@ -592,7 +594,11 @@ jobs:
           path: reports
           merge-multiple: true
       - name: Min-passed floor across all Linux shards (BLOCKING)
-        run: python scripts/ci/ratchet_tests.py summary --floor --expected-shards 6 --baseline scripts/ci/test-baseline-linux.json reports
+        env:
+          SHARDS: ${{ needs.detect.outputs.linux_shards }}
+        run: |
+          total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
+          python scripts/ci/ratchet_tests.py summary --floor --expected-shards "$total" --baseline scripts/ci/test-baseline-linux.json reports
       # Report only: flaky files (failed in a batch, passed alone) and new vs
       # known failures. On main the cross-OS view and the "Flaky tests on main"
       # issue come from .github/workflows/flaky-tests.yml.

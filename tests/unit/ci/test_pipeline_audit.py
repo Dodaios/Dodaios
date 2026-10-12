@@ -297,6 +297,11 @@ def test_nightly_release_and_macos_dispatch_keep_the_wide_matrix():
     # A branch asks for macOS before the queue without a full run.
     branch = plan_run.plan("workflow_dispatch", macos_input=True)
     assert branch["tier"] == "pr" and branch["pr_mode"] and branch["desktop_legs"] == "all"
+    # The merge train's stand-in for a push on main gets a push's proof,
+    # never the narrower one of a branch run.
+    stand_in = plan_run.plan("workflow_dispatch", ref="refs/heads/main")
+    assert stand_in["tier"] == "queue" and not stand_in["pr_mode"] and stand_in["mac_lanes"]
+    assert plan_run.plan("workflow_dispatch", ref="refs/heads/claude/x")["tier"] == "pr"
     # The merge train's macOS-free full dispatch stays off macOS.
     train = plan_run.plan("workflow_dispatch", full_input=True)
     assert train["full_mode"] and not train["mac_lanes"]
@@ -342,6 +347,9 @@ def _queue_run(**changes):
 
 def test_a_commit_the_merge_queue_passed_is_proven():
     assert plan_run.proven_by_queue([_queue_run()], repo="owner/app", sha="a" * 40)
+    # The API may name the workflow with the ref it ran from.
+    suffixed = _queue_run(path=".github/workflows/ci.yml@refs/heads/gh-readonly-queue/main/pr-1")
+    assert plan_run.proven_by_queue([suffixed], repo="owner/app", sha="a" * 40)
     assert plan_run.is_proven("owner/app", "a" * 40, "token", lambda *_: [_queue_run()])
 
 
@@ -392,6 +400,16 @@ def test_a_proven_push_runs_nothing_but_detection_and_the_gate():
     # Without the proof the same skips fail the gate.
     flags["proven"] = "false"
     assert not required_results.evaluate(needs, pipeline=True)["ok"]
+
+
+def test_the_linux_shard_count_has_one_source():
+    ci = workflows()["ci.yml"]["jobs"]
+    shard = next(s for s in ci["tests-linux"]["steps"] if s.get("name") == "Run shard")
+    floor = next(s for s in ci["test-report"]["steps"] if "--expected-shards" in s.get("run", ""))
+    for step in (shard, floor):
+        assert step["env"]["SHARDS"] == "${{ needs.detect.outputs.linux_shards }}"
+    assert '--shard "$SHARD/$total"' in shard["run"]
+    assert '--expected-shards "$total"' in floor["run"]
 
 
 def test_the_duration_cache_is_refreshed_by_the_nightly_run_on_main():
