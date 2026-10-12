@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
 
+from jarvis.missions.events import MISSION_LANGUAGES
+
 from .approvals import Approvals
 from .bridge import MissionBridge
 from .browser.session import BrowserJobs
@@ -79,6 +81,9 @@ _LEAD_INCOMING_TYPES: Final[frozenset[MsgType]] = frozenset(
     {MsgType.SAY, MsgType.QUERY, MsgType.ANSWER, MsgType.PROPOSE}
 )
 _WATCH_EVENT_POLL_SECONDS: Final[float] = 2.0
+#: The drill switch: a file in the data dir that injects a named fault.
+_DRILL_FILE: Final[str] = "society_drill.json"
+_DRILL_MAX_S: Final[float] = 30.0
 
 _current: SocietyRuntime | None = None
 
@@ -824,6 +829,25 @@ class SocietyRuntime:
             return await self.team_leads.accept_assignment(target, env)
         return await self._dispatch_chat(target, env)
 
+    def _drill_seconds(self, key: str) -> float:
+        """A fault the person switched on for a drill, in seconds; ``0`` = off.
+
+        Read from ``<data dir>/society_drill.json`` on every use, so a drill
+        starts and ends without a restart and is off whenever the file is
+        absent. Capped: a drill delays one start, it never hangs the society.
+        """
+        path = self._data_dir / _DRILL_FILE
+        if not path.is_file():
+            return 0.0
+        try:
+            import json
+
+            value = float(json.loads(path.read_text(encoding="utf-8")).get(key) or 0)
+        except (OSError, ValueError, TypeError, AttributeError):
+            log.warning("society drill: %s is unreadable; no fault is injected", path)
+            return 0.0
+        return max(0.0, min(value, _DRILL_MAX_S))
+
     async def _dispatch_chat(self, target: AgentRecord, env: SocietyEnvelope) -> str:
         svc = self._get_chat()
         if svc is None:
@@ -864,6 +888,17 @@ class SocietyRuntime:
             raise
         finally:
             incoming_context.reset(token)
+        hold = self._drill_seconds("slow_start_s")
+        if hold:
+            # A drill the person switched on (docs/agent-society/team-leads.md):
+            # the turn is running, and this start now takes long enough for the
+            # board to give up on it, exactly as a slow start does.
+            log.warning("society drill: holding the start of %s for %.0f s", target.name, hold)
+            try:
+                await asyncio.sleep(hold)
+            except asyncio.CancelledError:
+                svc.unsubscribe(session.session_id, queue)
+                raise
         run_id = f"turn:{turn_id}"
         watcher = asyncio.create_task(
             self._watch_turn(svc, session.session_id, queue, turn_id, run_id, target, env)
@@ -1108,7 +1143,7 @@ class SocietyRuntime:
             "prompt": _agent_frame(target, task),
             "source_actor": "hauptjarvis",
         }
-        if language in ("de", "en"):
+        if language in MISSION_LANGUAGES:
             kwargs["language"] = language
         mission_id = await manager.dispatch(**kwargs)
         self._owners[str(mission_id)] = target.agent_id
