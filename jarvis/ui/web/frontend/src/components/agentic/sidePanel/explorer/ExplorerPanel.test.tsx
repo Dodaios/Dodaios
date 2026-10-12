@@ -6,7 +6,7 @@ import { extractPaneDrop } from "@/components/agentic/paneDrop";
 import { activateTerminalLink } from "@/lib/terminalLinks";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
-import { useCodeEditorStore } from "@/store/codeEditor";
+import { groupsOf, useCodeEditorStore } from "@/store/codeEditor";
 import { parsePrintedPath, useExplorerPathRouting } from "@/store/ideExplorer";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 
@@ -277,18 +277,17 @@ describe("ExplorerPanel", () => {
     expect(Object.values(state.diffBases)).toMatchObject([{ path: "README.md" }]);
   });
 
-  it("opens a file beside the one already open, from the menu and with Ctrl+Enter", async () => {
-    useCodeEditorStore.setState({ side: {}, sideFocused: false });
+  it("opens a file in a group beside the one already open, from the menu and with Ctrl+Enter", async () => {
+    useCodeEditorStore.setState({ groupOrder: {}, groupActive: {}, focusedGroup: {} });
     useCodeEditorStore.getState().openFile("w1", "notes.md", { preview: false });
     const { row, menu } = await openRowMenu("README.md");
     fireEvent.click(item(menu, /Open to the side/)!);
-    const tabKey = (path: string) => useCodeEditorStore.getState().tabs.find((tab) => tab.path === path)!.key;
-    expect(useCodeEditorStore.getState().side.w1).toBe(tabKey("README.md"));
-    expect(useCodeEditorStore.getState().active.w1).toBe(tabKey("notes.md"));
+    const columns = () => groupsOf(useCodeEditorStore.getState(), "w1").map((group) => group.tabs.map((tab) => tab.path));
+    expect(columns()).toEqual([["notes.md"], ["README.md"]]);
 
-    useCodeEditorStore.getState().closeSide("w1");
+    // The new group has the keyboard, so Ctrl+Enter opens a third one beside it.
     fireEvent.keyDown(row, { key: "Enter", ctrlKey: true });
-    expect(useCodeEditorStore.getState().side.w1).toBe(tabKey("README.md"));
+    expect(columns()).toEqual([["notes.md"], ["README.md"], ["README.md"]]);
   });
 
   it("copies the path with Shift+Alt+C and the relative path with Ctrl+K Ctrl+Shift+C", async () => {

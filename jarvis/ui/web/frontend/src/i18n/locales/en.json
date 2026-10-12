@@ -6657,10 +6657,9 @@
     "tabs": "Open files",
     "close_tab": "Close {file}",
     "close_tab_hint": "Close (Ctrl+W)",
-    "close_side": "Close the side editor",
-    "side_label": "Side editor",
-    "resize_split": "Resize the two editors",
-    "side_tab_hint": "Shown in the side editor",
+    "group_label": "Editor group {n}",
+    "split_right": "Split editor right",
+    "resize_split": "Resize the editor groups",
     "show_terminals": "Terminals",
     "show_terminals_hint": "Show the terminals; your files stay open",
     "breadcrumbs": "File path",
@@ -6687,7 +6686,6 @@
       "close_all": "Close all",
       "copy_path": "Copy path",
       "copy_relative_path": "Copy relative path",
-      "open_side": "Open to the side",
       "reveal": "Reveal in Folder"
     },
     "status": {
