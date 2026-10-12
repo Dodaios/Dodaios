@@ -2,17 +2,17 @@
 name: drive-jarvis-cli
 description: >-
   Use when you (a Claude Code / Codex session, or any terminal agent) need to
-  control a running Personal Jarvis instance — switch the brain provider, dispatch
+  control a running Dodaios instance — switch the brain provider, dispatch
   or inspect missions, read/write config, search the wiki, manage skills, browse
   outputs, etc. Teaches the `jarvis` CLI: zero-config local auth, machine-readable
-  output, and the safety flags. Trigger phrases: "control Jarvis", "drive Jarvis
-  from the CLI", "switch Jarvis's brain provider", "dispatch a Jarvis mission".
+  output, and the safety flags. Trigger phrases: "control Dodaios", "drive Dodaios
+  from the CLI", "switch Dodaios's brain provider", "dispatch a Dodaios mission".
 ---
 
-# Drive Jarvis from the CLI
+# Drive Dodaios from the CLI
 
-Jarvis exposes its entire WebUI action surface as a command-line tool, the same
-way `gcloud` / `aws` exposes a cloud platform. You drive a **running** Jarvis over
+Dodaios exposes its entire WebUI action surface as a command-line tool, the same
+way `gcloud` / `aws` exposes a cloud platform. You drive a **running** Dodaios over
 HTTP — no need to be inside the app.
 
 ## Setup (one time)
@@ -24,7 +24,7 @@ on PATH (aliases: `jarvisctl`, `jctl`). Check it:
 jarvis version
 ```
 
-**Auth is zero-config on the same machine as a running Jarvis.** The desktop app
+**Auth is zero-config on the same machine as a running Dodaios.** The desktop app
 writes its live port + control token to a single-instance session file; the CLI
 discovers it automatically, and falls back to the machine's control key. You do
 not need to log in. Confirm reachability:
@@ -33,7 +33,7 @@ not need to log in. Confirm reachability:
 jarvis system status        # {"reachable": true} when Jarvis is running
 ```
 
-For a **remote** Jarvis (e.g. a VPS), tunnel it to loopback and point the CLI at it:
+For a **remote** Dodaios (e.g. a VPS), tunnel it to loopback and point the CLI at it:
 
 ```bash
 ssh -L 47821:127.0.0.1:47821 <host>          # then it behaves like local
@@ -90,5 +90,5 @@ jarvis api --help                            # the full auto-generated surface
 
 - Read with `--json` and parse; act with explicit intent.
 - `--dry-run` first when unsure what a destructive command will send.
-- If `jarvis system status` reports unreachable, Jarvis is not running — start it
+- If `jarvis system status` reports unreachable, Dodaios is not running — start it
   (`jarvis serve` for headless) rather than retrying blindly.

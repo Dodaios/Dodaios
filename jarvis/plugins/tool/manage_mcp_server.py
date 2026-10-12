@@ -34,7 +34,7 @@ class ManageMcpServerTool:
     name: ClassVar[str] = "manage-mcp-server"
     risk_tier: ClassVar[str] = "ask"
     description: ClassVar[str] = (
-        "Manage the MCP (Model Context Protocol) servers Jarvis connects to, by "
+        "Manage the MCP (Model Context Protocol) servers Dodaios connects to, by "
         "editing mcp.json. Actions: 'add' a new server (give a name and the command "
         "to run, or a url for http/sse), 'remove' a server, 'enable' a server (start "
         "it), or 'disable' a server (stop using it). Use this for requests like "

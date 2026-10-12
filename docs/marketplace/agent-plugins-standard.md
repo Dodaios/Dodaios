@@ -6,7 +6,7 @@
 [schemas](https://agent-plugins.org/schemas) ·
 [spec repository](https://github.com/agentplugins/agent-plugins-spec))
 
-Personal Jarvis adopts the vendor-neutral **Agent Plugins** standard as the
+Dodaios adopts the vendor-neutral **Agent Plugins** standard as the
 packaging format for marketplace plugins (the connectors shown in the app's
 Plugins store: GitHub, Notion, Slack, Gmail, …).
 
@@ -20,7 +20,7 @@ Plugins store: GitHub, Notion, Slack, Gmail, …).
    (`$schema` `https://agent-plugins.org/schemas/1.0.0/mcp.schema.json`,
    `mcpServers` map, `type` one of `stdio` / `streamable-http` / `sse`) —
    never inline in `plugin.json` and never with credentials in `headers`.
-3. Everything Jarvis-specific — auth flows, branding, category, longevity
+3. Everything Dodaios-specific — auth flows, branding, category, longevity
    badge, native-tool or channel binding, post-install hints — lives in the
    client extension namespace **`io.github.personaljarvis`** (manifest data
    under `extensions["io.github.personaljarvis"]` in `plugin.json`, files
@@ -63,7 +63,7 @@ jarvis/marketplace/plugins/<name>/
 All older catalog entries still live inline in `seed_catalog.json`; none
 is a directory with a `plugin.json`. Every older plugin therefore needs the
 **baseline migration** (create the directory, write `plugin.json`, move
-Jarvis-specific fields into the extension namespace).
+Dodaios-specific fields into the extension namespace).
 The table below marks what EACH plugin needs on top of that baseline.
 
 Legend: ☐ = needs update (nothing is migrated yet) · **rename** = the id
@@ -108,8 +108,8 @@ Home Assistant); 4 need a spec-conformant rename.
       `version`, `license` validates against the published schema
 - [ ] Hosted MCP server (when present) declared in `mcp.json` with
       `type: "streamable-http"`; **no credentials in `headers`**
-- [ ] All Jarvis-specific fields moved under
-      `extensions["io.github.personaljarvis"]`; nothing Jarvis-specific
+- [ ] All Dodaios-specific fields moved under
+      `extensions["io.github.personaljarvis"]`; nothing Dodaios-specific
       remains at top level
 - [ ] Seed aggregation still serves the identical `/api/marketplace/plugins`
       payload (existing tests stay green; connected users see no change)

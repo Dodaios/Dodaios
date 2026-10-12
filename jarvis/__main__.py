@@ -50,7 +50,7 @@ if len(sys.argv) >= 2 and sys.argv[1] == "--relauncher":
 # The background agent service of a frozen build, same reason: no ``-m`` to
 # start ``jarvis.ui.web.launcher --background-service`` with
 # (see jarvis/core/background_service.py).
-if len(sys.argv) >= 2 and sys.argv[1] == "--background-service":
+if len(sys.argv) >= 2 and sys.argv[1] in {"--background-service", "--persistent-server", "--connect"}:
     from jarvis.ui.web.launcher import main as _launcher_main
 
     raise SystemExit(_launcher_main(sys.argv[1:]))
@@ -92,7 +92,7 @@ if TYPE_CHECKING:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jarvis",
-        description="Personal Jarvis — turn your computer into an AI agent.",
+        description="Dodaios — turn your computer into an AI agent.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--wizard", action="store_true", help="Restart the setup wizard.")
@@ -160,7 +160,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--uninstall",
         action="store_true",
-        help="Remove this Jarvis install from the machine: the install folder, "
+        help="Remove this Dodaios install from the machine: the install folder, "
              "the login-autostart entry, and the API keys saved in the OS "
              "keychain. Asks for confirmation first.",
     )
@@ -233,7 +233,7 @@ def _cmd_phase5_doctor() -> int:
 
     config = cfg.load_config()
     lines: list[str] = []
-    lines.append(f"Jarvis {__version__} — Phase-5-Doctor")
+    lines.append(f"Dodaios {__version__} — Phase-5-Doctor")
     lines.append("=" * 60)
 
     # Entry points
@@ -314,7 +314,7 @@ def _cmd_doctor(as_json: bool = False) -> int:
         ]))
         return 1 if has_failures(findings) else 0
 
-    lines: list[str] = [f"Jarvis {__version__} — Doctor (completeness self-check)",
+    lines: list[str] = [f"Dodaios {__version__} — Doctor (completeness self-check)",
                         "=" * 64]
     last_cat: str | None = None
     for f in findings:
@@ -361,7 +361,7 @@ def _cmd_orb_doctor() -> int:
 
     toml_path = Path(cfg.DEFAULT_CONFIG_FILE)
     lines: list[str] = []
-    lines.append(f"Jarvis {__version__} — Orb-Doctor")
+    lines.append(f"Dodaios {__version__} — Orb-Doctor")
     lines.append("=" * 60)
     lines.append(f"Config: {toml_path}")
     lines.append("")
@@ -484,7 +484,7 @@ async def _run_tray_app(debug: bool = False) -> int:
     from jarvis.ui.tray import JarvisState, JarvisTray
 
     config = cfg.load_config()
-    print(f"Jarvis {__version__} started (profile: {config.profile.name}).")
+    print(f"Dodaios {__version__} started (profile: {config.profile.name}).")
     if debug:
         print(f"Config file: {cfg.DEFAULT_CONFIG_FILE}")
         print(f"Brain primary: {config.brain.primary}")
@@ -546,7 +546,7 @@ async def _run_tray_app(debug: bool = False) -> int:
     finally:
         handler_task.cancel()
         tray.stop()
-    print("Jarvis stopped.")
+    print("Dodaios stopped.")
     return 0
 
 
@@ -732,13 +732,13 @@ def _launch_detached() -> int:
     try:
         launch_desktop_detached()
     except OSError as exc:
-        print(f"Could not start Personal Jarvis: {exc}", file=sys.stderr)
+        print(f"Could not start Dodaios: {exc}", file=sys.stderr)
         print("Try `jarvis --foreground` to see what goes wrong.", file=sys.stderr)
         return 1
     if running:
-        print("Personal Jarvis is already running - bringing its window to the front.")
+        print("Dodaios is already running - bringing its window to the front.")
     else:
-        print("Starting Personal Jarvis... the window opens in a few seconds.")
+        print("Starting Dodaios... the window opens in a few seconds.")
     return 0
 
 

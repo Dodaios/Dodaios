@@ -77,8 +77,10 @@ interface ClosedTab {
 
 /** What a diff tab compares against instead of the last commit. */
 export interface DiffBase {
-  /** A commit id. */
+  /** A commit id, or a unique key for a file base. */
   ref: string;
+  /** Compare against this workspace file as it is on disk, instead of a commit. */
+  path?: string;
   /** Shown in the diff badge in place of "Changes since the last commit". */
   label: string;
 }
@@ -92,6 +94,11 @@ export interface OpenOptions {
   line?: number;
   column?: number;
   length?: number;
+  /**
+   * true = the second editor, beside the first; false = the first. Omitted =
+   * whichever of the two has the keyboard.
+   */
+  side?: boolean;
 }
 
 interface CodeEditorState {
@@ -107,6 +114,16 @@ interface CodeEditorState {
   closed: ClosedTab[];
   /** Per file: the commit its diff tab compares against, when it is not the last commit. */
   diffBases: Record<string, DiffBase>;
+  /** Per workspace: the tab shown in a second editor beside the active one; null = one editor. */
+  side: Record<string, string | null>;
+  /** The second editor has the keyboard: opened files, saves and tab switches go to it. */
+  sideFocused: boolean;
+  /** Open a file in the second editor, splitting the view when it is not split yet. */
+  openToSide: (workspaceId: string, path: string, options?: OpenOptions) => void;
+  /** Back to one editor; the tab stays open. */
+  closeSide: (workspaceId: string) => void;
+  /** Which of the two editors has the keyboard. */
+  focusGroup: (side: boolean) => void;
   openFile: (workspaceId: string, path: string, options?: OpenOptions) => void;
   closeTab: (key: string) => void;
   closeTabs: (keys: string[]) => void;
@@ -183,6 +200,16 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
   reveal: null,
   closed: [],
   diffBases: {},
+  side: {},
+  sideFocused: false,
+
+  openToSide: (workspaceId, path, options = {}) => get().openFile(workspaceId, path, { preview: false, ...options, side: true }),
+
+  closeSide: (workspaceId) => set((state) => ({ side: { ...state.side, [workspaceId]: null }, sideFocused: false })),
+
+  focusGroup: (side) => {
+    if (get().sideFocused !== side) set({ sideFocused: side });
+  },
 
   openFile: (workspaceId, path, options = {}) => {
     const mode = options.mode ?? "edit";
@@ -191,13 +218,22 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
     const key = tabKeyOf(mode, fileKey);
     set((state) => {
       let tabs = state.tabs;
+      // Which of the two editors takes the file. The second one only exists
+      // beside a first: with nothing open, the file simply opens.
+      const mainKey = state.active[workspaceId] ?? null;
+      const sideKey = state.side[workspaceId] ?? null;
+      const hasMain = mainKey !== null && tabs.some((tab) => tab.key === mainKey);
+      const toSide = hasMain && (options.side ?? (state.sideFocused && sideKey !== null));
+      // The tab the other editor shows is never the one a preview replaces.
+      const otherKey = toSide ? mainKey : sideKey;
       const existing = tabs.find((tab) => tab.key === key);
       if (existing) {
         if (!preview && existing.preview) tabs = tabs.map((tab) => (tab.key === key ? { ...tab, preview: false } : tab));
       } else {
         const tab: EditorTab = { key, fileKey, workspaceId, path, mode, preview };
         const replaced = tabs.find(
-          (entry) => entry.workspaceId === workspaceId && entry.preview && !state.files[entry.fileKey]?.dirty,
+          (entry) =>
+            entry.workspaceId === workspaceId && entry.preview && entry.key !== otherKey && !state.files[entry.fileKey]?.dirty,
         );
         if (replaced) {
           tabs = tabs.map((entry) => (entry.key === replaced.key ? tab : entry));
@@ -223,7 +259,9 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       return {
         tabs,
         files: prune(files, tabs),
-        active: { ...state.active, [workspaceId]: key },
+        active: toSide ? state.active : { ...state.active, [workspaceId]: key },
+        side: toSide ? { ...state.side, [workspaceId]: key } : state.side,
+        sideFocused: toSide,
         visible: true,
         reveal,
         diffBases,
@@ -240,19 +278,25 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       if (gone.length === 0) return {};
       const tabs = state.tabs.filter((tab) => !closing.has(tab.key));
       const active = { ...state.active };
+      const side = { ...state.side };
       for (const workspaceId of new Set(gone.map((tab) => tab.workspaceId))) {
         const current = active[workspaceId];
-        if (!current || !closing.has(current)) continue;
-        active[workspaceId] = successor(state.tabs.filter((tab) => tab.workspaceId === workspaceId), current, closing);
+        if (current && closing.has(current)) {
+          active[workspaceId] = successor(state.tabs.filter((tab) => tab.workspaceId === workspaceId), current, closing);
+        }
+        // The split ends when its tab closes, or when both editors would be
+        // left showing the one tab that remains.
+        const beside = side[workspaceId];
+        if (beside && (closing.has(beside) || (closing.has(current ?? "") && active[workspaceId] === beside))) side[workspaceId] = null;
       }
       const closed = [...state.closed, ...gone.map(({ workspaceId, path, mode }) => ({ workspaceId, path, mode }))];
-      return { tabs, active, files: prune(state.files, tabs), closed: closed.slice(-MAX_CLOSED) };
+      return { tabs, active, side, files: prune(state.files, tabs), closed: closed.slice(-MAX_CLOSED) };
     }),
 
   activate: (key) =>
     set((state) => {
       const tab = state.tabs.find((entry) => entry.key === key);
-      return tab ? { active: { ...state.active, [tab.workspaceId]: key }, visible: true } : {};
+      return tab ? { active: { ...state.active, [tab.workspaceId]: key }, sideFocused: false, visible: true } : {};
     }),
 
   pinTab: (key) =>
@@ -262,9 +306,12 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
     set((state) => {
       const own = state.tabs.filter((tab) => tab.workspaceId === workspaceId);
       if (own.length === 0) return {};
-      const index = own.findIndex((tab) => tab.key === state.active[workspaceId]);
+      // Ctrl+Tab steps through the tabs of the editor that has the keyboard.
+      const beside = state.side[workspaceId];
+      const inSide = state.sideFocused && own.some((tab) => tab.key === beside);
+      const index = own.findIndex((tab) => tab.key === (inSide ? beside : state.active[workspaceId]));
       const next = own[(index + step + own.length) % own.length];
-      return { active: { ...state.active, [workspaceId]: next.key } };
+      return inSide ? { side: { ...state.side, [workspaceId]: next.key } } : { active: { ...state.active, [workspaceId]: next.key } };
     }),
 
   reopenClosed: (workspaceId) => {
@@ -315,9 +362,12 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       }
       const activeKey = state.active[workspaceId];
       const activeTab = activeKey ? state.tabs.findIndex((tab) => tab.key === activeKey) : -1;
+      const sideKey = state.side[workspaceId];
+      const sideTab = sideKey ? state.tabs.findIndex((tab) => tab.key === sideKey) : -1;
       return {
         tabs,
         files,
+        side: { ...state.side, [workspaceId]: sideTab >= 0 ? tabs[sideTab].key : null },
         active: { ...state.active, [workspaceId]: activeTab >= 0 ? tabs[activeTab].key : (activeKey ?? null) },
       };
     }),

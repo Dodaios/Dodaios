@@ -208,7 +208,7 @@ async def test_overwrite_off_leaves_an_existing_agent_alone(source, target) -> N
 async def test_a_wrong_bundle_is_refused_with_a_sentence(target) -> None:
     for bad, expected in (
         ("not a dict", "a bundle is a JSON object"),
-        ({"kind": "something-else", "version": 1, "agents": []}, "not a Jarvis ecosystem bundle"),
+        ({"kind": "something-else", "version": 1, "agents": []}, "not a Dodaios ecosystem bundle"),
         ({"kind": "jarvis.agent-ecosystem", "version": 99, "agents": []}, "cannot be read"),
         ({"kind": "jarvis.agent-ecosystem", "version": BUNDLE_VERSION, "agents": []}, "no agents"),
         (

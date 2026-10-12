@@ -184,6 +184,8 @@ class RuntimeLaunch:
     #: Called exactly once when the turn's process is gone: frees the turn
     #: slot (and lets an idle Gateway be reaped).
     release: Callable[[], None] | None = None
+    #: Prevent reusing a persistent gateway after an unconfirmed termination.
+    invalidate: Callable[[], None] | None = None
 
 
 class AgentRuntimeDriver(Protocol):
@@ -375,7 +377,7 @@ class TurnSlots:
             await self.gate.acquire_turn(_SLOT_WAIT_S)
         except TimeoutError:
             raise RuntimeUnavailable(
-                "Jarvis is still setting this runtime up; try again in a few minutes."
+                "Dodaios is still setting this runtime up; try again in a few minutes."
             ) from None
         lock = self.lock(key)
         try:
@@ -394,7 +396,7 @@ class TurnSlots:
                 lock.release()
                 self.gate.release_turn()
                 raise RuntimeUnavailable(
-                    "Another Jarvis process is running this agent right now; try again "
+                    "Another Dodaios process is running this agent right now; try again "
                     "when it is done."
                 ) from None
         released = False
@@ -665,9 +667,9 @@ def persona_text(agent_name: str) -> str:
     """
     name = agent_name.strip() or "this agent"
     return (
-        f"You are {name}, an agent in the person's Personal Jarvis app. Your identity, "
-        "standing instructions, memory and skills arrive from Jarvis in "
+        f"You are {name}, an agent in the person's Dodaios app. Your identity, "
+        "standing instructions, memory and skills arrive from Dodaios in "
         "<jarvis_identity> and <jarvis_turn_context> blocks; follow them over any "
-        "default persona. Jarvis' own tools (memory notes, routines, teammates, "
+        "default persona. Dodaios' own tools (memory notes, routines, teammates, "
         "approvals, the visible browser) are on the `jarvis` MCP server.\n"
     )

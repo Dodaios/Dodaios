@@ -39,7 +39,7 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from jarvis.core.branding import OFFICIAL_REPO_URL
+from jarvis.core.branding import OFFICIAL_REPO_URL, PRODUCT_NAME
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ def _data_file() -> Path:
 
 
 def _seed_entries() -> list[dict[str, Any]]:
-    """The first-run seed: Discord on top, then the two GitHub links.
+    """The first-run seed: Discord on top, then GitHub, X, YouTube and Instagram.
 
     The GitHub profile URL is a placeholder the maintainer corrects to their
     real handle via the UI — the org page is a sane stand-in until then.
@@ -75,12 +75,11 @@ def _seed_entries() -> list[dict[str, Any]]:
     raw = [
         ("discord", "Discord", "https://discord.gg/x7USduHxbc"),
         ("github", "GitHub (Repo)", OFFICIAL_REPO_URL),
-        ("github", "GitHub (Profile)", "https://github.com/PersonalJarvis"),
-        # X: the project's public X presence. Maintainer directive 2026-07-18:
-        # the former @PersonalJarvis account is defunct; the project posts from
-        # the maintainer's public handle @Ruben_Luetke, so every X link in the
-        # repo points there. Users edit or remove the entry via the UI.
-        ("x", "Personal Jarvis", "https://x.com/Ruben_Luetke"),
+        ("github", "GitHub (Profile)", "https://github.com/Dodaios"),
+        # The project's own public accounts. Users edit or remove any entry
+        # via the UI.
+        ("x", PRODUCT_NAME, "https://x.com/dodaios"),
+        ("youtube", "YouTube", "https://www.youtube.com/@Dodaios"),
         ("instagram", "Instagram", "https://www.instagram.com/personaljarvis/"),
     ]
     return [

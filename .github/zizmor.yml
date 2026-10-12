@@ -17,6 +17,10 @@ rules:
       # checked in `if:` and again by flaky_report.py vet-run), checks out
       # `main`, and reads the downloaded shard reports as JSON data.
       - flaky-tests.yml
+      # Reacts to completed nightly CI runs on main only (repository, branch
+      # and the `schedule` event checked in `if:`), checks out nothing, uses
+      # no action, and reads the run's job names and links as data.
+      - nightly-alert.yml
   unpinned-uses:
     config:
       policies:

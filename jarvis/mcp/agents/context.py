@@ -49,7 +49,7 @@ async def society() -> Any:
     if state is None:
         raise EcosystemUnavailable(
             "the agent society",
-            "Jarvis' web server is still starting. Try again in a moment.",
+            "Dodaios' web server is still starting. Try again in a moment.",
         )
     runtime = getattr(state, "society", None)
     if runtime is None:
@@ -57,7 +57,7 @@ async def society() -> Any:
         if factory is None:
             raise EcosystemUnavailable(
                 "the agent society",
-                "this Jarvis build has no society runtime configured.",
+                "this Dodaios build has no society runtime configured.",
             )
         try:
             runtime = factory()
@@ -76,7 +76,7 @@ def chat_service() -> Any:
     state = _app_state()
     if state is None:
         raise EcosystemUnavailable(
-            "agent chat", "Jarvis' web server is still starting. Try again in a moment."
+            "agent chat", "Dodaios' web server is still starting. Try again in a moment."
         )
     service = getattr(state, "agent_chat", None)
     if service is not None:

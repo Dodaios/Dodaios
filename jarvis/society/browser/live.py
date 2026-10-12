@@ -496,7 +496,7 @@ class LiveSessions:
                 lease.acquire(timeout=0)
             except Timeout:
                 raise RuntimeError(
-                    "This browser profile is already open in another Jarvis instance"
+                    "This browser profile is already open in another Dodaios instance"
                 ) from None
             try:
                 if binding.kind == "chrome":

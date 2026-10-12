@@ -4,8 +4,8 @@ contact_links:
     url: https://discord.gg/x7USduHxbc
     about: Usage questions, setup help, and general chat.
   - name: Ideas & design discussion
-    url: https://github.com/PersonalJarvis/PersonalJarvis/discussions
+    url: https://github.com/Dodaios/Dodaios/discussions
     about: Propose a feature, ask how something is meant to work, or float an approach before you build it.
   - name: Security vulnerability
-    url: https://github.com/PersonalJarvis/PersonalJarvis/security/advisories/new
+    url: https://github.com/Dodaios/Dodaios/security/advisories/new
     about: Report privately through GitHub. Please do NOT open a public issue.

@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 @router.get(
     "/triggers/catalog",
     dependencies=[Depends(require_control_key_or_session)],
-    summary="List Jarvis trigger families and available listener drivers",
+    summary="List Dodaios trigger families and available listener drivers",
 )
 def trigger_catalog() -> dict[str, Any]:
     from jarvis.tasks.event_catalog import event_catalog

@@ -33,7 +33,7 @@ export function JarvisXEditorWindow() {
 
   useEffect(() => {
     void hydrateUiLanguage();
-    document.title = "Jarvis X";
+    document.title = "Dodaios X";
   }, []);
 
   const [maximized, setMaximized] = useState(false);

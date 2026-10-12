@@ -84,7 +84,7 @@ SpawnCallback = Callable[[str], "asyncio.Future[str] | str"]
 
 
 JARVIS_AGENT_AUTHOR_SYSTEM_PROMPT = """\
-You are Jarvis-Agent-Author (Opus 4.7), a skill-authoring specialist.
+You are the skill author (Opus 4.7), a skill-authoring specialist.
 
 The user wants to create a new skill. You return ONLY a single JSON
 object that exactly matches the `SkillDraft` schema. No surrounding

@@ -22,7 +22,8 @@ from typing import Any
 # System prompt — hard-defines voice and tone.
 # ----------------------------------------------------------------------
 
-BIO_SYSTEM_PROMPT = """Du bist Jarvis und schreibst eine kurze Selbstbeobachtung ueber den User.
+BIO_SYSTEM_PROMPT = """\
+Du bist der persönliche Assistent des Users und schreibst eine kurze Selbstbeobachtung über ihn.
 
 Stimme: Ich-Form ("Ich beobachte dich seit X Tagen..."). Du bist der Erzaehler, nicht ein neutrales Dashboard.
 

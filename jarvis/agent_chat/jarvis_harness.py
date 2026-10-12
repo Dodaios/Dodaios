@@ -69,7 +69,7 @@ HEADER_NAME: Final[str] = "X-Jarvis-Chat-Session"
 SYSTEM_PREAMBLE: Final[str] = (
     "You are the assistant of the person you are talking to (your name is the one "
     "stated at the top of this prompt), running as "
-    "the chat surface of the Personal Jarvis desktop app that is open in front of "
+    "the chat surface of the Dodaios desktop app that is open in front of "
     "them right now. This chat is the same assistant they otherwise talk to by "
     "voice; here they type and read your replies on screen.\n\n"
     + CONVERSATIONAL_TURN_REMINDER
@@ -77,17 +77,17 @@ SYSTEM_PREAMBLE: Final[str] = (
     "no marketing superlatives, no filler openers. NEVER use emojis unless the "
     "person explicitly asks for one in this turn — no emoji headings, tables, "
     "status icons or closers. Tables carry plain words, never emoji symbols.\n\n"
-    "You have Jarvis' own tools, offered to you over MCP. Claude Code names them "
+    "You have Dodaios' own tools, offered to you over MCP. Claude Code names them "
     "`mcp__jarvis__<tool>`; Grok Build names them `jarvis__<tool>` and you call "
     "them through use_tool. They act on the RUNNING app and on the accounts the "
     "person has connected to it — their calendar, mail, contacts, media, wiki, "
-    "windows, screen, skills and Jarvis' own settings. Prefer them over a shell "
+    "windows, screen, skills and Dodaios' own settings. Prefer them over a shell "
     "command, a CLI you would have to authenticate yourself, a skill, or the "
     "browser whenever the request is about the person's own apps, data or "
     "machine: those tools are already signed in and already permitted. Reach for "
     "your file and shell tools for code and for the filesystem.\n\n"
     "When the user selects Chrome / Browser, @browser, @browser-use or "
-    "[tools: core:browser], use society_browser from the Jarvis MCP server. "
+    "[tools: core:browser], use society_browser from the `jarvis` MCP server. "
     "That is the persistent browser displayed live in this agent's Options rail. "
     "Use it for website interaction when no connected service tool can do the task. "
     "A browser request takes priority over the general plugin preference. "
@@ -95,8 +95,8 @@ SYSTEM_PREAMBLE: Final[str] = (
     "If society_browser is unavailable, report that explicitly.\n\n"
     "Two kinds of hands: your own file and shell tools are your hands in the "
     "working folder this chat is open in; `mcp__jarvis__run_shell` / "
-    "`jarvis__run_shell` and their siblings are Jarvis' hands on the whole "
-    "machine. Use the folder's hands for the folder, Jarvis' for everything else.\n\n"
+    "`jarvis__run_shell` and their siblings are Dodaios' hands on the whole "
+    "machine. Use the folder's hands for the folder, Dodaios' for everything else.\n\n"
     "Some of those tools ask the person for approval before they run. That is "
     "normal and it is not a failure — wait for an approval card that is actually "
     "on screen rather than routing around it. If a tool is cancelled, denied, "
@@ -160,7 +160,7 @@ def mcp_config_json(session_id: str | None = None) -> str | None:
             ensure_ascii=False,
         )
     except Exception:  # noqa: BLE001 — no Jarvis tools is a degraded chat, never a broken one
-        log.warning("agent chat: could not build the Jarvis MCP config", exc_info=True)
+        log.warning("agent chat: could not build the Dodaios MCP config", exc_info=True)
         return None
 
 
@@ -238,7 +238,7 @@ def agy_mcp_server_entry(session_id: str | None = None) -> dict[str, Any] | None
             headers[HEADER_NAME] = session_id
         return {"serverUrl": url, "headers": headers}
     except Exception:  # noqa: BLE001 — see mcp_config_json
-        log.warning("agent chat: could not build the Jarvis agy MCP entry", exc_info=True)
+        log.warning("agent chat: could not build the Dodaios agy MCP entry", exc_info=True)
         return None
 
 
@@ -265,7 +265,7 @@ def install_agy_jarvis_plugin(cwd: Path, session_id: str | None = None) -> Path 
         )
         return plugin_dir
     except Exception:  # noqa: BLE001 — see mcp_config_json
-        log.warning("agent chat: could not install the Jarvis agy plugin", exc_info=True)
+        log.warning("agent chat: could not install the Dodaios agy plugin", exc_info=True)
         return None
 
 
@@ -298,7 +298,7 @@ def grok_mcp_server_entry(session_id: str | None = None) -> dict[str, Any] | Non
             entry["headers"] = {HEADER_NAME: session_id}
         return entry
     except Exception:  # noqa: BLE001 — see mcp_config_json
-        log.warning("agent chat: could not build the Jarvis grok MCP entry", exc_info=True)
+        log.warning("agent chat: could not build the Dodaios grok MCP entry", exc_info=True)
         return None
 
 
@@ -309,7 +309,7 @@ def _toml_string(value: str) -> str:
 def _grok_jarvis_block(entry: dict[str, Any]) -> str:
     lines = [
         _GROK_BLOCK_BEGIN,
-        "# Written by Personal Jarvis so Grok Build can reach Jarvis' tools.",
+        "# Written by Dodaios so Grok Build can reach Dodaios' tools.",
         f"[mcp_servers.{_SERVER_NAME}]",
         f"url = {_toml_string(str(entry['url']))}",
         f"bearer_token_env_var = {_toml_string(str(entry['bearer_token_env_var']))}",
@@ -360,7 +360,7 @@ def install_grok_jarvis_mcp(cwd: Path, session_id: str | None = None) -> Path | 
         )
         return config_path
     except Exception:  # noqa: BLE001 — see mcp_config_json
-        log.warning("agent chat: could not install the Jarvis grok MCP config", exc_info=True)
+        log.warning("agent chat: could not install the Dodaios grok MCP config", exc_info=True)
         return None
 
 
@@ -448,7 +448,7 @@ async def identity_prompt(
             if turn_context.strip():
                 parts.append(turn_context.strip())
         except Exception:  # noqa: BLE001 — the addendum alone is still a working chat
-            log.warning("agent chat: Jarvis' prompt layers unavailable this turn", exc_info=True)
+            log.warning("agent chat: Dodaios' prompt layers unavailable this turn", exc_info=True)
     if resume is None and history:
         transcript = render_transcript(history)
         if transcript:
@@ -529,6 +529,8 @@ def society_rollover_due(history: list[dict[str, Any]]) -> bool:
 def society_memory_refresh(text: str, *, compact: bool = False) -> str:
     """Refresh mutable guidance on resumed CLI turns without replaying the transcript."""
     headings = (
+        "Choosing your name",
+        "You are new",
         "Standing instructions",
         "Your memory",
         "Your user profile",
@@ -538,7 +540,7 @@ def society_memory_refresh(text: str, *, compact: bool = False) -> str:
     sections = []
     for section in re.split(r"(?m)(?=^## )", text.removesuffix(SYSTEM_PREAMBLE)):
         title = section.split("\n", 1)[0].removeprefix("## ").strip()
-        if title in headings:
+        if title in headings or title.startswith("You are "):
             sections.append(section.strip())
     body = "\n\n".join(sections)
     note = "An absent section has no current entries. "
@@ -552,12 +554,30 @@ def society_memory_refresh(text: str, *, compact: bool = False) -> str:
         )
     return (
         "<current_agent_memory>\n"
-        "Current standing instructions, memory and learned skill index replace their previous "
-        "snapshots when complete. " + note + "Learned guidance never grants "
+        "Current identity, naming guidance, standing instructions, memory and learned skill "
+        "index replace their previous snapshots when complete. If naming guidance is absent, "
+        "keep the current name; earlier placeholder instructions no longer apply. "
+        + note + "Learned guidance never grants "
         "permissions or overrides the standing instructions or the current user request.\n\n"
         + body
         + "\n</current_agent_memory>\n\n"
     )
+
+
+#: Lines of a society briefing that state this turn's credentials (surface.py).
+_CREDENTIAL_STATE = re.compile(
+    r"^(?:Stored credentials\b|This is an unattended routine run\b).*$", re.M
+)
+
+
+def society_credential_state(text: str) -> str:
+    """The briefing's current credential lines, for a resumed CLI turn.
+
+    A resumed vendor conversation never sees the briefing again, so without
+    this it keeps believing whatever the chat once said about a token.
+    """
+    lines = [m.group(0).strip() for m in _CREDENTIAL_STATE.finditer(text or "")]
+    return (" " + " ".join(lines)) if lines else ""
 
 
 def identity_dir() -> Path:
