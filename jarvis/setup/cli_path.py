@@ -19,8 +19,9 @@ Everything is idempotent (a repeat install changes nothing) and conservative:
 an unrelated command that already owns a name is kept, never overwritten.
 :func:`remove_commands` undoes all of it for the uninstaller.
 
-Stdlib only: ``install/installer.py`` imports this before the venv has any
-third-party package, and ``jarvis --uninstall`` must not need one either.
+Stdlib only (``jarvis.core.branding`` is too): ``install/installer.py`` imports
+this before the venv has any third-party package, and ``jarvis --uninstall``
+must not need one either.
 """
 
 from __future__ import annotations
@@ -32,15 +33,21 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from jarvis.core.branding import (
+    CLI_COMMAND_NAMES,
+    FISH_CONF_FILE_NAME,
+    SHELL_PROFILE_MARKER,
+)
+
 #: Every command the install exposes. ``personal-jarvis`` is an alias of
 #: ``jarvis``; ``jarvisctl`` is the control CLI's historic name. There is no
 #: ``personaljarvis``: on Windows it would be the same file as the branded
 #: launcher ``PersonalJarvis.exe`` (``jarvis/ui/icon_utils.py``).
-COMMAND_NAMES: tuple[str, ...] = ("jarvis", "personal-jarvis", "jarvisctl")
+COMMAND_NAMES: tuple[str, ...] = CLI_COMMAND_NAMES
 
 #: First line of the block written into a shell profile. Finding it means the
 #: block is already there; removal deletes it together with the line after it.
-PROFILE_MARKER = "# Personal Jarvis: command-line tools (jarvis, personal-jarvis)"
+PROFILE_MARKER = SHELL_PROFILE_MARKER
 
 _POSIX_PROFILE_LINE = (
     'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; '
@@ -137,7 +144,7 @@ def profile_file(
     if name == "bash":
         return home / (".bash_profile" if platform_name == "darwin" else ".bashrc")
     if name == "fish":
-        return home / ".config" / "fish" / "conf.d" / "personal-jarvis.fish"
+        return home / ".config" / "fish" / "conf.d" / FISH_CONF_FILE_NAME
     return home / ".profile"
 
 
