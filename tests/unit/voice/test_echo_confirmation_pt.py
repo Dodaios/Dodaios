@@ -22,11 +22,23 @@ from jarvis.voice.echo_confirmation import (
 
 @pytest.mark.parametrize(
     "text",
-    ["sim", "claro", "pode ser", "força", "faz", "avança", "ok", "certo",
-     "de acordo", "confirmo", "vá lá"],
+    ["sim", "claro", "pode ser", "força", "faz", "faz isso", "faz lá.", "avança",
+     "ok", "certo", "de acordo", "confirmo", "vá lá", "podes enviar",
+     "podes avançar"],
 )
 def test_portuguese_confirm(text: str) -> None:
     assert classify_response(text, language="pt") == "confirm"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["podes repetir?", "podes dizer outra vez", "faz outra coisa",
+     "o que é que isso faz"],
+)
+def test_portuguese_question_or_new_instruction_is_not_a_confirmation(text: str) -> None:
+    # "podes ..." opens a question and "faz ..." a new instruction; neither may
+    # approve the action that is waiting for an answer.
+    assert classify_response(text, language="pt") != "confirm"
 
 
 @pytest.mark.parametrize(
