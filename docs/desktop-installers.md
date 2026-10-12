@@ -280,9 +280,12 @@ switch between them.
 
 For a frozen install (`jarvis/core/installer_update.py`):
 
-1. **Pick the asset.** OS plus CPU architecture map to exactly one name from the
-   table in section 1. No mapping (Windows on ARM, Linux on aarch64) means the
-   button never appears.
+1. **Pick the asset.** OS plus CPU architecture map to one row of
+   `INSTALLER_ASSET_NAMES` in `jarvis/core/installer_update.py`: the name from
+   the table in section 1, and the same file under the `Dodaios-` prefix. The
+   updater takes the first accepted name a release carries; when a release
+   carries more than one, the first that `installers-SHA256SUMS.txt` lists. No
+   mapping (Windows on ARM, Linux on aarch64) means the button never appears.
 2. **Refuse to offer what cannot be installed.** `status` reports
    `update_available: true` only when the release actually carries both this
    platform's installer and `installers-SHA256SUMS.txt`. Status is fail-open:
@@ -297,7 +300,12 @@ For a frozen install (`jarvis/core/installer_update.py`):
      Manager closes the app, the files are replaced, the app comes back.
    - macOS: `hdiutil attach` the DMG, swap the running `.app` with two renames
      on one filesystem (the old bundle is put back if the second rename fails),
-     `hdiutil detach`, relaunch with `open`.
+     `hdiutil detach`, relaunch with `open`. A disk image whose bundle carries
+     another name than the running app is installed beside it under its own
+     name and relaunched from there. The superseded bundle is removed only
+     after that copy is complete and only when its `CFBundleIdentifier` is one
+     of ours; an unrelated app that already has the new name is never
+     overwritten.
    - Linux: copy the new AppImage next to the running one, `chmod +x`,
      `os.replace` onto `$APPIMAGE` (atomic), relaunch.
 
@@ -307,6 +315,24 @@ still holds - but the honest answer is "no restart needed from you".
 
 Managed installs keep today's behaviour untouched: the frozen branch is entered
 only when `is_frozen()` is true, and the frozen branch never runs git.
+
+A managed update is applied by the restart helper of the version that is being
+replaced: it resets the checkout to the new revision, runs that revision's
+installer, verifies its UI bundle and starts it. The helper does not assume the
+new tree looks like its own. Each release states where it keeps its UI bundle,
+launcher module, version file, config file and macOS app bundle in
+`install/update-contract.json` (reader: `jarvis/core/update_contract.py`), and
+the helper reads the contract of whichever tree is checked out at that moment -
+the target after the reset, the previous one after a rollback. A tree without
+the file, or with one that fails validation (unknown schema, a path that leaves
+the checkout), is treated as using the default locations, so a wrong contract
+fails the bundle check and rolls back. A contract may name a `rollback_hook`: a
+tracked script of the new release that runs when its install failed, before
+the checkout returns to the previous revision.
+
+Re-running the one-line installer over an existing install stops every app
+running out of that install before it fetches and resets the checkout, and
+again before it rebuilds the environment.
 
 ---
 

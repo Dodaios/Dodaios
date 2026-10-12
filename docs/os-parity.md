@@ -1375,6 +1375,29 @@ script compiled twice and upgraded over a running install
 Windows, Apple Silicon and Intel macOS. Still not run against a real released
 build: the first release with this code needs one live update per OS.
 
+**Updating across a moved tree (2026-10-12).** The version being replaced
+applies the update, so it reads where the new release keeps things from that
+release's `install/update-contract.json` instead of assuming its own layout
+(`docs/desktop-installers.md` section 6). Per OS: the restart helper starts the
+launcher module the installed tree names (Linux directly, Windows through the
+branded launcher when one exists, macOS through the app bundle the tree names,
+looked up next to the known bundle and in both Applications folders). The
+helper loads every package module it still needs before it resets the
+checkout; a fresh-interpreter test fails if a later code path imports one. A
+frozen install accepts each installer under two file names per platform. On
+macOS a disk image whose bundle is renamed is installed beside the running app
+and the superseded bundle removed only when its bundle identifier is ours.
+`install.sh` (`pkill -f <venv>`, plus `launchctl unload` on macOS) and
+`install.ps1` (every process whose image lives in the install's venv) stop the
+running app before they reset the checkout. Covered by
+`tests/unit/core/test_update_contract.py`,
+`tests/unit/ui/test_relauncher_update_contract.py` (a real git checkout whose
+new release moved its package, including the rollback),
+`tests/unit/core/test_installer_update.py` and
+`tests/unit/install/test_install_stops_app_first.py` (real processes on
+Windows and POSIX). Not verified on hardware: the macOS bundle rename and the
+macOS restart through a renamed bundle run only against fakes.
+
 | # | Impact | Area | Gap | Evidence | Behavior off-Windows |
 |---|---|---|---|---|---|
 | P-38 | Medium | Native installer / desktop window | The Linux AppImage and `.deb` have **no native desktop window**. Windows (WebView2) and macOS (WKWebView) get one from the frozen bundle; Linux does not, because pywebview's GTK backend needs PyGObject and a frozen interpreter can never import the distribution's `python3-gi` (it is compiled against the system CPython), while bundling GTK 3 + WebKit2GTK portably means shipping its helper processes, GIO modules, pixbuf loaders, GSettings schemas and typelibs. The Qt route is also closed today: the `[desktop]` extra installs `pyside6-essentials`, which has no QtWebEngine, and `jarvis.spec` excludes PySide6 outright. Adding `pyside6-addons` and dropping that exclusion is the realistic fix, at roughly +400 MB | `packaging/linux/README.md` ("The window question"), `jarvis/ui/desktop_app.py::_degrade_to_browser_ui`, `jarvis.spec` `excludes`, `pyproject.toml` `[desktop]` | Linux: honest degradation, verified against a real build — the app catches pywebview's `WebViewException`, keeps the backend serving, and `AppRun` waits for `/api/health` and opens the interface with `xdg-open`. Everything except the window frame works, including the whole CLI. A source/pipx install on a Linux desktop with `python3-gi` + `gir1.2-webkit2-4.1` still gets the native window; only the frozen build does not. Sub-gap: the app's fallback message advises installing those system packages, which does not help a frozen build |

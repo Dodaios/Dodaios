@@ -707,7 +707,44 @@ function Update-LegacyOrigin {
     }
 }
 
+# Stop any Jarvis still running out of THIS install. Called before the
+# checkout is replaced and again before its environment is rebuilt: a release
+# may move or delete files the live app still loads, and an app left running
+# across that keeps serving a half-old, half-new program until it falls over.
+# On Windows the running interpreter additionally holds venv DLLs open, which
+# can make pip's in-place upgrade fail.
+#
+# Every process whose image lives in this install's venv is stopped, whatever
+# it is called: the desktop app usually runs as the branded launcher copy
+# beside python.exe, not as python.exe itself. Best-effort: a lookup or stop
+# failure never blocks the install. Safe to call twice - the second call finds
+# nothing left to stop. (POSIX twin: stop_running_app in install.sh.)
+function Stop-RunningApp {
+    $StopVenv = Join-Path $InstallDir '.venv'
+    if (-not (Test-Path (Join-Path $StopVenv 'Scripts\python.exe'))) { return }
+    try {
+        $venvPrefix = $StopVenv.TrimEnd('\') + '\'
+        $stale = @(Get-CimInstance Win32_Process -ErrorAction Stop |
+            Where-Object {
+                $_.ExecutablePath -and
+                $_.ExecutablePath.StartsWith($venvPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and
+                $_.ProcessId -ne $PID
+            })
+        if ($stale.Count -gt 0) {
+            foreach ($proc in $stale) {
+                try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop } catch {}
+            }
+            # Give the OS a beat to release file handles before files change.
+            Start-Sleep -Milliseconds 500
+            Write-Note 'stopped the running Jarvis app for the update'
+        }
+    } catch {
+        Write-Note 'could not check for a running Jarvis app - continuing'
+    }
+}
+
 if (Test-Path (Join-Path $InstallDir '.git')) {
+    Stop-RunningApp
     Update-LegacyOrigin
     $UpdateOk = $true
     Push-Location $InstallDir
@@ -733,6 +770,7 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
     }
 } else {
     if (Test-Path $InstallDir) {
+        Stop-RunningApp
         Write-Note "$InstallDir exists but is not a git repo (leftover from an earlier install) - reinstalling in place."
         Invoke-SalvageReclone
     } else {
@@ -804,32 +842,10 @@ $VenvPython = Join-Path $VenvPath 'Scripts\python.exe'
 # touch its environment. A live app (often revived by the login autostart)
 # keeps serving stale, half-updated features while pip rewrites the venv
 # under it - the "app is already open but nothing works yet" field report
-# (2026-07-14; POSIX twin: the pkill block in install.sh). On Windows the
-# running pythonw.exe additionally holds venv DLLs open, which can make
-# pip's in-place upgrade fail. The installer relaunches a fresh instance
-# as its very last step. Best-effort: a lookup/stop failure never blocks
-# the install.
-if (Test-Path $VenvPython) {
-    try {
-        $venvPrefix = $VenvPath.TrimEnd('\') + '\'
-        $stale = @(Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction Stop |
-            Where-Object {
-                $_.ExecutablePath -and
-                $_.ExecutablePath.StartsWith($venvPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and
-                $_.ProcessId -ne $PID
-            })
-        if ($stale.Count -gt 0) {
-            foreach ($proc in $stale) {
-                try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop } catch {}
-            }
-            # Give the OS a beat to release file handles before pip writes.
-            Start-Sleep -Milliseconds 500
-            Write-Note 'stopped the running Jarvis app for the update'
-        }
-    } catch {
-        Write-Note 'could not check for a running Jarvis app - continuing'
-    }
-}
+# (2026-07-14). The installer relaunches a fresh instance as its very last
+# step. The app was already stopped once before the checkout was replaced;
+# this second call catches one the login autostart revived in between.
+Stop-RunningApp
 
 if (-not (Test-Path $VenvPython)) {
     & $pythonExe -m venv $VenvPath

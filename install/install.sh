@@ -1100,7 +1100,39 @@ retarget_legacy_origin() {
     # --- retarget-legacy-origin end
 }
 
+# Stop any Jarvis still running out of THIS install. Called before the
+# checkout is replaced and again before its environment is rebuilt: a release
+# may move or delete files the live app still loads, and an app left running
+# across that keeps serving a half-old, half-new program until it falls over.
+# Safe to call twice - the second call finds nothing left to stop.
+stop_running_app() {
+    # --- stop-running-app begin (extracted by tests/unit/install/test_install_stops_app_first.py)
+    _stop_venv="$INSTALL_DIR/.venv"
+    if [ -x "$_stop_venv/bin/python" ]; then
+        _stop_found=0
+        if pkill -f "$_stop_venv" 2>/dev/null; then
+            _stop_found=1
+            note 'stopped the running Jarvis app for the update'
+        fi
+        if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+            launchctl unload "$HOME/Library/LaunchAgents/${MACOS_AUTOSTART_LABEL}.plist" >/dev/null 2>&1 || true
+        fi
+        if [ "$_stop_found" -eq 1 ]; then
+            # The signal only asks. Give the app a moment to be gone before
+            # its files change under it; an app that ignores it is not waited
+            # for longer than five seconds.
+            _stop_ticks=0
+            while [ "$_stop_ticks" -lt 50 ] && pgrep -f "$_stop_venv" >/dev/null 2>&1; do
+                sleep 0.1
+                _stop_ticks=$((_stop_ticks + 1))
+            done
+        fi
+    fi
+    # --- stop-running-app end
+}
+
 if [ -d "$INSTALL_DIR/.git" ]; then
+    stop_running_app
     retarget_legacy_origin
     # shellcheck disable=SC2086  # GIT_NET_OPTS must word-split into -c pairs
     if pretty_git git $GIT_NET_OPTS -C "$INSTALL_DIR" fetch "$GIT_VERBOSITY" --depth 1 origin "$BRANCH" \
@@ -1112,6 +1144,7 @@ if [ -d "$INSTALL_DIR/.git" ]; then
         salvage_reclone
     fi
 elif [ -e "$INSTALL_DIR" ]; then
+    stop_running_app
     note "$INSTALL_DIR exists but is not a git repo (leftover from an earlier install) - reinstalling in place."
     salvage_reclone
 else
@@ -1170,14 +1203,9 @@ VENV_PYTHON="$VENV_PATH/bin/python"
 # keeps serving stale, half-updated features while pip rewrites the venv
 # under it — the "app is already open but nothing works yet" field report
 # (2026-07-14). The installer relaunches a fresh instance as its last step.
-if [ -x "$VENV_PYTHON" ]; then
-    if pkill -f "$VENV_PATH" 2>/dev/null; then
-        note 'stopped the running Jarvis app for the update'
-    fi
-    if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
-        launchctl unload "$HOME/Library/LaunchAgents/${MACOS_AUTOSTART_LABEL}.plist" >/dev/null 2>&1 || true
-    fi
-fi
+# The app was already stopped once before the checkout was replaced; this
+# second call catches one the login autostart revived in between.
+stop_running_app
 
 # Rebuild the venv when the selected interpreter's major.minor changed
 # (BUG-059 follow-up): the 3.13-first preference is useless for an EXISTING
