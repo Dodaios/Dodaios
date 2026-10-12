@@ -117,6 +117,7 @@ _WORK_FAMILY: Final[dict[str, str]] = {
     "contact-upsert": FAMILY_COMMS,
     "call-contact": FAMILY_COMMS,
     "society_message_agent": FAMILY_COMMS,
+    "society_team_assign": FAMILY_COMMS,
     # The hand on the desktop: every pointer, key and window tool.
     "open-app": FAMILY_DESKTOP,
     "type-text": FAMILY_DESKTOP,

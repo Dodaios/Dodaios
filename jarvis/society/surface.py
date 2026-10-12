@@ -54,6 +54,7 @@ from .roster import PAIR_SESSION_MARKER, AgentRecord, canonical_session_id, is_f
 from .routine_runner import is_routine_session
 from .runtime import current_runtime
 from .share_tool import ShareTemplateTool
+from .team_tools import team_lead_tools
 
 log = logging.getLogger(__name__)
 
@@ -408,6 +409,8 @@ def society_tools(cfg: Any, brain: Any, session: Any) -> dict[str, Tool]:
             ),
         }
     )
+    # A team's lead plans, assigns and reports with three more tools.
+    tools.update(cast(dict[str, Tool], team_lead_tools(rt, agent_id)))
     session_id = str(getattr(session, "session_id", "") or "")
     # A routine runs unattended: it never gets a way to ask the user.
     if not is_routine_session(session_id):
@@ -869,6 +872,9 @@ async def society_system_extra(cfg: Any, brain: Any, session: Any) -> str:
             "\nThis is an unattended routine run: society_request_credential is not available. "
             "If a credential is missing, report which one in your result."
         )
+    team = rt.team_leads.briefing(agent.agent_id)
+    if team:
+        context += "\n\n" + team
     return (
         build_briefing(agent, catalog, roster, browser=browser, learned=learned, memory=memory)
         + context
