@@ -18,7 +18,7 @@ import type { AgentRunState } from "../data";
 import { seatOf, standOf, type DeskSlot, type OfficeLayout, type Point, type Rect, type Spot, type SpotKind, type Studio } from "./officeLayout";
 import { BODY_SPACING, clearOfBodies, WALK_SPEED } from "./officeMotion";
 import { isWalkable, nearestWalkable, randomWalkablePoint, type NavGrid } from "./officeNav";
-import { homeStudio, huddlePlaces, studioOfTeam, studioRect, visitSlots, type Place } from "./officeTeams";
+import { homeStudio, huddlePlaces, leadPlace, studioOfTeam, studioRect, visitSlots, type Place } from "./officeTeams";
 
 export type Pose = "sit" | "stand" | "sleep" | "wave" | "talk" | "work";
 
@@ -338,10 +338,22 @@ function visitPlan(input: PlanInput, kind: "visit" | "mate", colleague: { agentI
   return place ? placePlan(kind, place, "stand", dwellMs, colleague.agentId) : null;
 }
 
-/** A place at the agent's own studio board, the one it already holds first; null when the studio has none left. */
-function huddlePlan(input: PlanInput, studio: Studio, held: string | null, pose: Pose, dwellMs: number): Plan | null {
+/**
+ * A place at the agent's own studio board, the one it already holds first;
+ * null when the studio has none left. In a gathering (`gathered`: a round of
+ * the team, not an idle look at the board) a team with a lead keeps the
+ * centre of the front arc for it: the lead takes that place when it comes,
+ * and the others leave it free while any other place is.
+ */
+function huddlePlan(input: PlanInput, studio: Studio, held: string | null, pose: Pose, dwellMs: number, gathered = false): Plan | null {
   const places = huddlePlaces(input.layout, input.grid, studio);
-  const open = places.filter((p) => input.book.isFree(p.id));
+  const centre = gathered ? leadPlace(places, studio) : null;
+  // The lead takes its place, unless the person is standing on it.
+  const personThere = !!centre && !!input.person && Math.hypot(centre.x - input.person.x, centre.z - input.person.z) < PERSON_SPACE_M;
+  if (centre && !personThere && studio.leadId === input.agentId && input.book.claim(centre.id, input.agentId)) return placePlan("huddle", centre, pose, dwellMs);
+  const unclaimed = places.filter((p) => input.book.isFree(p.id));
+  const others = centre && studio.leadId !== input.agentId ? unclaimed.filter((p) => p.id !== centre.id) : unclaimed;
+  const open = others.length > 0 ? others : unclaimed;
   // Not on the person's toes: the places round where the person stands are left empty while there are others.
   const person = input.person;
   const roomy = person ? open.filter((p) => Math.hypot(p.x - person.x, p.z - person.z) >= PERSON_SPACE_M) : open;
@@ -503,7 +515,7 @@ export function planFor(input: PlanInput): Plan {
   // their screen, with one exception that is the round itself: the member contributing right now.
   const roundStudio = (input.round?.teamId ? studioOfTeam(input.layout, input.round.teamId) : null) ?? studio;
   if (input.round && roundStudio && (state === "idle" || (state === "working" && input.round.speaker))) {
-    const plan = huddlePlan(input, roundStudio, held, "stand", Infinity);
+    const plan = huddlePlan(input, roundStudio, held, "stand", Infinity, true);
     if (plan) return plan;
   }
 

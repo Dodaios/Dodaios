@@ -136,3 +136,36 @@ describe("a meeting at a studio's own board", () => {
     expect(campus.layout.spots.filter((s) => s.kind === "meeting").every((s) => book.isFree(s.id))).toBe(true);
   });
 });
+
+describe("a board meeting of a team with a lead", () => {
+  const led = campusOf(12, [5], [3]);
+  const studio = studioOfTeam(led.layout, "team-0")!;
+  const places = huddlePlaces(led.layout, led.grid, studio);
+
+  it("gives the lead the centre of the front arc, wherever it comes in the list, and everybody else a place of their own", () => {
+    const lead = studio.leadId!;
+    expect(lead).toBe(led.teams[0].members[3]);
+    const seats = boardSeats(led.layout, studio, studio.members);
+    expect(seats[lead].spotId).toBe(`fan:${studio.deptId}:0:0`);
+    const ids = Object.values(seats).map((s) => s.spotId);
+    expect(new Set(ids).size).toBe(studio.members.length);
+    expect(ids.every((id) => places.some((p) => p.id === id))).toBe(true);
+  });
+
+  it("uses the lead's place for somebody else when the lead is not among those called", () => {
+    const withoutLead = studio.members.filter((id) => id !== studio.leadId);
+    const seats = boardSeats(led.layout, studio, withoutLead);
+    expect(Object.keys(seats)).toEqual(withoutLead);
+    expect(Object.values(seats).map((s) => s.spotId)).toContain(`fan:${studio.deptId}:0:0`);
+  });
+
+  it("is the same seating as ever for a team without a lead", () => {
+    const plain = { ...studio, leadId: null };
+    const before = boardSeats(led.layout, plain, studio.members);
+    // The first member takes the first place of the front arc, as it always did.
+    expect(before[studio.members[0]].spotId).toBe(`fan:${studio.deptId}:0:0`);
+    expect(Object.values(before).map((s) => s.spotId)).toEqual(places.slice(0, studio.members.length)
+      .map((p, i) => ({ p, i, from: Math.hypot(p.x - studio.board!.x, p.z - studio.board!.z) }))
+      .sort((a, b) => Math.round((a.from - b.from) * 10) || a.i - b.i).map((x) => x.p.id));
+  });
+});

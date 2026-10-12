@@ -81,8 +81,9 @@ export interface StudioPlan {
   teamId: string | null;
   /** The team's name; "" for the pool (the renderer names it). */
   name: string;
+  /** The team's lead when it sits here, at the head desk; see `Studio.leadId`. */
   leadId: string | null;
-  /** Seated members in seating order (arrival). */
+  /** Seated members in seating order: by arrival, with the lead (if any) and the earliest arrival having changed places. */
   members: OfficeAgentInput[];
 }
 
@@ -97,6 +98,16 @@ function slug(id: string): string {
  * members can sit there (unknown ids, or everyone already seated elsewhere).
  * Whoever has no team, or no room left in theirs, sits in the pool, which
  * comes first and opens further pool studios only when it outgrows one.
+ *
+ * A team's lead sits at the head of the studio it leads: first in its seating
+ * order, where the earliest arrival would sit, who takes the lead's place in
+ * the order instead. So naming a lead moves two people, and changing one at
+ * most three (the old lead back to its own place, the new one to the head,
+ * the earliest arrival to the new lead's place); everyone else stays. Leading
+ * a team comes before "the oldest team" for an agent in several, and before
+ * the studio's seat cap. A lead must be a member the roster knows who is not
+ * in the lead office; whoever is named lead of several teams sits with the
+ * oldest of them, and the others have no lead on the floor.
  */
 export function planStudios(agents: readonly OfficeAgentInput[], teams: readonly OfficeTeamInput[]): StudioPlan[] {
   const leads = agents.filter((a) => a.tier === "lead").sort(byArrival).slice(0, 2);
@@ -109,21 +120,38 @@ export function planStudios(agents: readonly OfficeAgentInput[], teams: readonly
     .filter((team) => (seen.has(team.id) ? false : (seen.add(team.id), true)))
     .slice(0, MAX_STUDIOS - 1);
 
+  // Agent id -> the team at whose head it sits.
+  const heads = new Map<string, string>();
+  for (const team of ordered) {
+    const lead = team.leadId;
+    if (lead && byId.has(lead) && team.members.includes(lead) && !heads.has(lead)) heads.set(lead, team.id);
+  }
+
   const claimed = new Set<string>();
   const ids = new Set<string>(["studio-pool"]);
   const teamPlans: StudioPlan[] = ordered.map((team) => {
     const mine: OfficeAgentInput[] = [];
     for (const memberId of new Set(team.members)) {
       const agent = byId.get(memberId);
-      if (!agent || claimed.has(memberId)) continue;
+      const headOf = heads.get(memberId);
+      // Whoever leads another team sits there.
+      if (!agent || claimed.has(memberId) || (headOf !== undefined && headOf !== team.id)) continue;
       mine.push(agent);
     }
-    const seated = mine.sort(byArrival).slice(0, STUDIO_SEAT_CAP);
+    mine.sort(byArrival);
+    const lead = team.leadId && heads.get(team.leadId) === team.id ? byId.get(team.leadId) ?? null : null;
+    let seated = mine.slice(0, STUDIO_SEAT_CAP);
+    // A lead who arrived after the studio was full still sits in it, in place of its newest member.
+    if (lead && !seated.includes(lead)) seated = [...seated.slice(0, STUDIO_SEAT_CAP - 1), lead];
+    if (lead) {
+      const at = seated.indexOf(lead);
+      [seated[0], seated[at]] = [seated[at], seated[0]];
+    }
     for (const agent of seated) claimed.add(agent.agentId);
     let id = `studio-${slug(team.id)}`;
     for (let n = 2; ids.has(id); n += 1) id = `studio-${slug(team.id)}-${n}`;
     ids.add(id);
-    return { id, teamId: team.id, name: team.name.trim(), leadId: team.leadId ?? null, members: seated };
+    return { id, teamId: team.id, name: team.name.trim(), leadId: lead?.agentId ?? null, members: seated };
   });
 
   const pool = staff.filter((a) => !claimed.has(a.agentId));
@@ -163,7 +191,10 @@ function cellRanges(): [number, number][] {
   return [[-half - 2 * w, -half - w], [-half - w, -half], [half, half + w], [half + w, half + 2 * w]];
 }
 
-/** Desk slots of a studio: bench by bench, each pair facing across the bench, filled in arrival order. */
+/**
+ * Desk slots of a studio: bench by bench, each pair facing across the bench, filled in seating order. The first
+ * slot, on the bench nearest the name wall, is the head desk: the lead's when the team has one.
+ */
 function studioDesks(id: string, cx: number, minZ: number, shape: StudioShape, members: readonly OfficeAgentInput[]): DeskSlot[] {
   const desks: DeskSlot[] = [];
   let seat = 0;

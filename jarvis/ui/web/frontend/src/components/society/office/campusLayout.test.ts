@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ambienceObstacles, type AgentsAmbienceKind } from "./agentsAmbience";
 import { CAMPUS, MAX_STUDIOS, planStudios, STUDIO_SEAT_CAP, studioShape, studioWallRect } from "./campusLayout";
 import {
-  allDesks, ARCH, archPosts, benchPlanters, buildOfficeLayout, deskRect, FLOOR_EDGE, footprint, FURNITURE_SIZE, seatedCount, seatOf, standOf, STUDIO_BOARD_FACE, studioBoardFace,
+  allDesks, ARCH, archPosts, benchPlanters, buildOfficeLayout, deskRect, FLOOR_EDGE, footprint, FURNITURE_SIZE, leadDesks, seatedCount, seatOf, standOf, STUDIO_BOARD_FACE, studioBoardFace,
   type OfficeAgentInput, type OfficeLayout, type OfficeTeamInput, type Point, type Rect,
 } from "./officeLayout";
 import { buildNavGrid, findPath, isWalkable } from "./officeNav";
@@ -223,6 +223,105 @@ describe("campus: a studio", () => {
     expect(shared.tint).toBeUndefined();
     expect(item(`${pool.id}-screen-w`)).toBeUndefined();
     expect(item(`${second.id}-screen-w`)!.tint).toBe(second.tint);
+  });
+});
+
+describe("campus: a team's lead", () => {
+  const roster = staff(8);
+  const members = [1, 2, 3, 4, 5];
+  const plan = (leadId?: string | null, extra: OfficeTeamInput[] = []) =>
+    buildOfficeLayout(roster, { teams: [team(1, members, leadId === undefined ? {} : { leadId }), ...extra] });
+  const studioOf = (layout: OfficeLayout, teamId: string) => layout.studios!.find((s) => s.teamId === teamId)!;
+  /** Agent id -> desk id, for everyone seated on the floor. */
+  const seats = (layout: OfficeLayout) => new Map(allDesks(layout).filter((d) => d.agentId).map((d) => [d.agentId!, d.id] as const));
+  const moved = (a: OfficeLayout, b: OfficeLayout) => [...seats(a)].filter(([id, desk]) => seats(b).get(id) !== desk).map(([id]) => id).sort();
+
+  it("sits at the head desk: the first desk of the bench nearest the name wall", () => {
+    const layout = plan("a3");
+    const studio = studioOf(layout, "team-1");
+    expect(studio.leadId).toBe("a3");
+    // The lead first, the earliest arrival in the lead's place, everyone else by arrival.
+    expect(studio.members).toEqual(["a3", "a2", "a1", "a4", "a5"]);
+    const dept = layout.departments.find((d) => d.id === studio.deptId)!;
+    const head = dept.desks[0];
+    expect(head.id).toBe("studio-team-1:0:north:0");
+    expect(head.agentId).toBe("a3");
+    // It is on the bench nearest the name wall, and no desk of that bench stands further west.
+    const nearest = Math.min(...dept.desks.map((d) => d.z));
+    expect(head.z - nearest).toBeLessThan(1);
+    expect(dept.desks.every((d) => d.x >= head.x - 1e-9)).toBe(true);
+    expect(leadDesks(layout).map(({ desk, dept: of }) => [desk.id, of.id])).toEqual([["studio-team-1:0:north:0", "studio-team-1"]]);
+    // The lead can be walked to like anyone else.
+    expect(findPath(buildNavGrid(layout), layout.spawn, standOf(head))).not.toBeNull();
+  });
+
+  it("is the same plan for the same teams and lead, however the answer is ordered", () => {
+    const other = team(2, [6, 7], { leadId: "a7" });
+    const a = buildOfficeLayout(roster, { teams: [team(1, members, { leadId: "a3" }), other] });
+    const b = buildOfficeLayout([...roster].reverse(), { teams: [other, team(1, [...members].reverse(), { leadId: "a3" })] });
+    expect(b).toEqual(a);
+    expect(studioOf(a, "team-2").members).toEqual(["a7", "a6"]);
+  });
+
+  it("is never guessed: a lead who is no member, not on the roster or in the lead office leaves the studio without one", () => {
+    const plain = plan();
+    for (const leadId of ["a7", "ghost", "", null]) {
+      const layout = plan(leadId);
+      expect(studioOf(layout, "team-1").leadId, String(leadId)).toBeNull();
+      expect(layout, String(leadId)).toEqual(plain);
+      expect(leadDesks(layout)).toEqual([]);
+    }
+    // A lead-tier agent sits in the lead office, whatever team names it lead.
+    const boss = agent(0, { tier: "lead" });
+    const withBoss = (leadId?: string) => buildOfficeLayout([boss, ...roster], { teams: [team(1, [0, ...members], leadId ? { leadId } : {})] });
+    expect(studioOf(withBoss("a0"), "team-1").leadId).toBeNull();
+    expect(withBoss("a0")).toEqual(withBoss());
+    expect(withBoss("a0").lead.desks[0].agentId).toBe("a0");
+  });
+
+  it("moves only who has to move: two people when a lead is named, three at most when it changes", () => {
+    const none = plan(), third = plan("a3"), fifth = plan("a5"), first = plan("a1");
+    // Named: the lead and the earliest arrival change places.
+    expect(moved(none, third)).toEqual(["a1", "a3"]);
+    // The earliest arrival already sits at the head desk.
+    expect(moved(none, first)).toEqual([]);
+    expect(studioOf(first, "team-1").leadId).toBe("a1");
+    // Changed: the old lead goes back to its own place, the new one to the head, the earliest arrival to the new lead's place.
+    expect(moved(third, fifth)).toEqual(["a1", "a3", "a5"]);
+    expect(moved(third, first)).toEqual(["a1", "a3"]);
+    // Nobody outside the team moves, and the studio keeps its size.
+    for (const next of [third, fifth, first]) {
+      expect(next.bounds).toEqual(none.bounds);
+      expect(next.departments.map((d) => [d.id, d.desks.length])).toEqual(none.departments.map((d) => [d.id, d.desks.length]));
+    }
+  });
+
+  it("sits with the team it leads, not with an older team it is only a member of", () => {
+    const older = team(1, [1, 2, 3]), younger = team(2, [3, 4], { leadId: "a3" });
+    const layout = buildOfficeLayout(roster, { teams: [older, younger] });
+    expect(studioOf(layout, "team-1").members).toEqual(["a1", "a2"]);
+    expect(studioOf(layout, "team-2").members).toEqual(["a3", "a4"]);
+    expect(studioOf(layout, "team-2").leadId).toBe("a3");
+    // Named lead of two teams: at the head of the older one; the other has no lead on the floor.
+    const both = buildOfficeLayout(roster, { teams: [{ ...older, leadId: "a3" }, younger] });
+    expect(studioOf(both, "team-1").members).toEqual(["a3", "a2", "a1"]);
+    expect(studioOf(both, "team-1").leadId).toBe("a3");
+    expect(studioOf(both, "team-2").leadId).toBeNull();
+    expect(studioOf(both, "team-2").members).toEqual(["a4"]);
+    expect(seatedCount(both)).toBe(roster.length);
+  });
+
+  it("keeps its head desk in a studio that is full: the newest member sits in the pool instead", () => {
+    const crowd = staff(STUDIO_SEAT_CAP + 3), newest = `a${STUDIO_SEAT_CAP + 3}`;
+    const everyone = Array.from({ length: STUDIO_SEAT_CAP + 3 }, (_, i) => i + 1);
+    const layout = buildOfficeLayout(crowd, { teams: [team(1, everyone, { leadId: newest })] });
+    const studio = studioOf(layout, "team-1");
+    expect(studio.members).toHaveLength(STUDIO_SEAT_CAP);
+    expect(studio.members[0]).toBe(newest);
+    expect(studio.leadId).toBe(newest);
+    // Three do not fit: the newest three who are not the lead.
+    expect(layout.studios![0].members).toEqual([`a${STUDIO_SEAT_CAP}`, `a${STUDIO_SEAT_CAP + 1}`, `a${STUDIO_SEAT_CAP + 2}`]);
+    expect(seatedCount(layout)).toBe(crowd.length);
   });
 });
 

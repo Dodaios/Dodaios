@@ -18,7 +18,8 @@ import {
 import { RoundedBoxGeometry } from "three-stdlib";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import {
-  dressDesk, dressOfficeDesk, kitPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements, type DressingPart, type Placement,
+  dressDesk, dressOfficeDesk, kitPlacements, leadMarkPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements,
+  type DressingPart, type Placement,
 } from "./deskKit";
 import { GEO, MAT, matte } from "./OfficeFurniture";
 import { benchPlanters, type Department, type DeskSlot, type OfficeVariant } from "./officeLayout";
@@ -224,6 +225,7 @@ const PARTS: Record<DressingPart, PartSpec> = {
   oakPlanter: { geometry: GEO.box, material: matte("#d8bd91", { roughness: 0.7 }), tinted: false, cast: true },
   oakSlat: { geometry: GEO.box, material: matte("#caa574", { roughness: 0.65 }), tinted: false, cast: false },
   brassTrim: { geometry: GEO.box, material: brass, tinted: false, cast: false },
+  felt: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: false },
 };
 const PART_KEYS = Object.keys(PARTS) as DressingPart[];
 
@@ -234,7 +236,8 @@ const quat = new Quaternion();
 const pos = new Vector3();
 const scl = new Vector3();
 
-function localMatrix(part: Placement): Matrix4 {
+/** A placement's own transform: where it stands in its space (a desk's, or the world's), turned and sized. */
+export function placementMatrix(part: Placement): Matrix4 {
   const [rx, ry, rz] = part.r ?? [0, 0, 0];
   euler.set(rx, ry, rz, "YXZ");
   return new Matrix4().compose(pos.set(...part.p), quat.setFromEuler(euler), scl.set(...(part.s ?? [1, 1, 1])));
@@ -244,13 +247,17 @@ function localMatrix(part: Placement): Matrix4 {
  * Every instance of every part on the floor: desk kits (desk space → world) and planters (already world space).
  * The coding floor carries the developer's kit and walnut planters, the agents floor the office kit and oak planters.
  */
+const NO_SIGNS: ReadonlyMap<string, string> = new Map();
+
 export function buildDressing(
   desks: readonly DeskSlot[], departments: readonly Department[], floor: OfficeVariant = "coding",
+  /** Desk id -> the team's colour, for the desks a team lead sits at: each is marked as the lead's place. */
+  leadSigns: ReadonlyMap<string, string> = NO_SIGNS,
 ): Map<DressingPart, Batch> {
   const batches = new Map<DressingPart, Batch>(PART_KEYS.map((k) => [k, { matrices: [], colours: [] }]));
   const add = (part: Placement, world?: Matrix4) => {
     const batch = batches.get(part.part)!;
-    const local = localMatrix(part);
+    const local = placementMatrix(part);
     batch.matrices.push(world ? world.clone().multiply(local) : local);
     batch.colours.push(new Color(part.c ?? "#ffffff"));
   };
@@ -258,8 +265,12 @@ export function buildDressing(
     const turn = desk.facing === "north" ? 0 : Math.PI;
     const world = new Matrix4().makeRotationY(turn).setPosition(desk.x, 0, desk.z);
     const occupied = desk.agentId !== null;
-    const kit = floor === "coding" ? kitPlacements(dressDesk(desk.id, occupied)) : officeKitPlacements(dressOfficeDesk(desk.id, occupied));
+    const lead = leadSigns.get(desk.id);
+    // The lead's name stand takes the front right corner, where a phone would lie.
+    const kit = floor === "coding" ? kitPlacements(dressDesk(desk.id, occupied))
+      : officeKitPlacements({ ...dressOfficeDesk(desk.id, occupied), ...(lead === undefined ? {} : { phone: false }) });
     for (const part of kit) add(part, world);
+    if (lead !== undefined) for (const part of leadMarkPlacements(lead)) add(part, world);
   }
   const planter = floor === "coding" ? planterPlacements : oakPlanterPlacements;
   for (const dept of departments) {
@@ -286,10 +297,12 @@ function PartInstances({ spec, batch }: { spec: PartSpec; batch: Batch }) {
 }
 
 /** The dressing of every bench desk on the floor and the planters of every department's benches. */
-export function DeskDressing({ desks, departments, floor = "coding" }: {
+export function DeskDressing({ desks, departments, floor = "coding", leadSigns = NO_SIGNS }: {
   desks: readonly DeskSlot[]; departments: readonly Department[]; floor?: OfficeVariant;
+  /** Desk id -> the team's colour, for the desks a team lead sits at. */
+  leadSigns?: ReadonlyMap<string, string>;
 }) {
-  const batches = useMemo(() => buildDressing(desks, departments, floor), [desks, departments, floor]);
+  const batches = useMemo(() => buildDressing(desks, departments, floor, leadSigns), [desks, departments, floor, leadSigns]);
   return (
     <group>
       {PART_KEYS.map((key) => {

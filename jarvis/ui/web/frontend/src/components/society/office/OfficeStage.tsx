@@ -209,7 +209,7 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
   // A first failed read counts as an answer too: the floor opens without teams and rebuilds if a retry brings them.
   const teamsKnown = chatGroups.isSuccess || chatGroups.isError || chatGroups.failureCount > 0;
   const teams = useMemo<OfficeTeamInput[]>(() => (chatGroups.data ?? []).map((group) => ({
-    id: group.group_id, name: group.name, members: group.members, createdMs: group.created_ms,
+    id: group.group_id, name: group.name, members: group.members, createdMs: group.created_ms, leadId: group.lead_agent_id ?? null,
   })), [chatGroups.data]);
   const active = useMemo(() => (arcade || hall ? [] : coding ? codingAgents : teamsKnown ? jarvisAgents : []),
     [arcade, hall, coding, codingAgents, jarvisAgents, teamsKnown]);
@@ -221,8 +221,9 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
   const newcomers = useNewcomers(active, floor);
   // The floor plan depends on who works where, never on run state: a status
   // refresh changes monitors and behaviour without re-seating anyone.
-  // The same holds for the teams: their 10 s refetch rebuilds the floor only when a team's name or members changed.
-  const teamsKey = floor === "agents" ? teams.map((team) => `${team.id}|${team.name}|${team.createdMs}|${team.members.join("+")}`).join(",") : "";
+  // The same holds for the teams: their 10 s refetch rebuilds the floor only when a team's name, members or lead changed.
+  const teamsKey = floor === "agents"
+    ? teams.map((team) => `${team.id}|${team.name}|${team.createdMs}|${team.leadId ?? ""}|${team.members.join("+")}`).join(",") : "";
   const seatingKey = floor + ":" + active.map((a) => `${a.agentId}|${a.tier}|${a.providerLabel}|${a.createdMs}`).join(",") + "#" + teamsKey;
   const layout = useMemo(() => (floor === "arcade" ? buildArcadeLayout() : floor === "hall" ? buildHallLayout()
     : buildOfficeLayout(active, { variant: floor, teams })),

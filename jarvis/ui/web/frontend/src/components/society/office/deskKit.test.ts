@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dressDesk, dressOfficeDesk, kitPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements } from "./deskKit";
+import { dressDesk, dressOfficeDesk, kitPlacements, leadMark, leadMarkPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements } from "./deskKit";
 import { allDesks, benchPlanters, buildOfficeLayout, chairRect, deskRect, seatOf, type Rect } from "./officeLayout";
 
 const overlaps = (a: Rect, b: Rect) => a.minX < b.maxX && b.minX < a.maxX && a.minZ < b.maxZ && b.minZ < a.maxZ;
@@ -92,6 +92,25 @@ describe("agents floor office kit", () => {
       if (empty.side !== null) expect(taken.side).toBe(empty.side);
       if (empty.penCup) expect(taken.penCup).toBe(true);
       expect(taken.phone && taken.side === "dock").toBe(false);
+    }
+  });
+
+  it("marks a team lead's place in the team's colour with parts the kit already draws, and one plain box", () => {
+    const mark = leadMark("#8aa391");
+    const all = leadMarkPlacements("#8aa391");
+    expect(all).toHaveLength(mark.chair.length + mark.mat.length + mark.stand.length);
+    expect([...new Set(all.map((p) => p.part))].sort()).toEqual(["brassTrim", "felt", "oakSlat", "paper"]);
+    // Everything coloured wears the team's colour; the name line is paper, oak and bronze are their own.
+    for (const part of all.filter((p) => p.part === "felt")) expect(part.c).toBe("#8aa391");
+    expect(leadMark("#c2a24c").mat[0].c).toBe("#c2a24c");
+    // A shell of three panels with a cap each and a seat pad; one mat; a base, a plate, a name line and a top edge.
+    expect(mark.chair.map((p) => p.part).sort()).toEqual(["brassTrim", "brassTrim", "brassTrim", "felt", "felt", "felt", "felt"]);
+    expect(mark.mat.map((p) => p.part)).toEqual(["felt"]);
+    expect(mark.stand.map((p) => p.part).sort()).toEqual(["brassTrim", "felt", "oakSlat", "paper"]);
+    // The stand keeps clear of the takeaway cup (0.64, 0.07) and of the mouse (0.33, 0.22).
+    for (const part of mark.stand) {
+      expect(Math.hypot(part.p[0] - 0.64, part.p[2] - 0.07), part.part).toBeGreaterThan(0.15);
+      expect(part.p[0] - 0.33, part.part).toBeGreaterThan(0.2);
     }
   });
 
