@@ -143,6 +143,28 @@ it("shows each task with its member, state and result", () => {
   expect(within(draft).queryByRole("button")).toBeNull();
 });
 
+it("shows a goal's text once: the full first line as heading, the rest below", () => {
+  const long = "Research the three largest cities of the country and then do a good deal more with them";
+  api.team = team({
+    goals: [
+      goal({ title: `${long.slice(0, 40)}…`, text: `${long}
+Second line with details.` }),
+      goal({ goal_id: "g2", title: "Short goal", text: "Short goal" }),
+      goal({ goal_id: "g3", title: "Given title", text: "A different description." }),
+    ],
+  });
+  mount();
+  const cut = screen.getByTestId("team-goal-g1");
+  expect(within(cut).getByRole("heading", { level: 4 }).textContent).toBe(long);
+  expect(within(cut).getByText("Second line with details.")).toBeTruthy();
+  expect(cut.textContent?.split(long).length).toBe(2);
+  const short = screen.getByTestId("team-goal-g2");
+  expect(short.textContent?.split("Short goal").length).toBe(2);
+  const given = screen.getByTestId("team-goal-g3");
+  expect(within(given).getByRole("heading", { level: 4 }).textContent).toBe("Given title");
+  expect(within(given).getByText("A different description.")).toBeTruthy();
+});
+
 it("answers the lead's question and stops a goal", async () => {
   api.team = team({ goals: [goal({ state: "needs_input", report: "Which market?", note: "question" })] });
   mount();
