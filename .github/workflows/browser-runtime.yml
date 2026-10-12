@@ -6,6 +6,10 @@ on:
       target:
         type: string
         default: all
+      os:
+        description: "JSON list of runner labels (empty = every platform); ci.yml sizes it per tier."
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       target:
@@ -20,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ inputs.target == 'windows-latest' && fromJSON('["windows-latest"]') || fromJSON('["ubuntu-latest", "ubuntu-24.04-arm", "windows-latest", "windows-11-arm", "macos-latest", "macos-15-intel"]') }}
+        os: ${{ fromJSON(inputs.os || (inputs.target == 'windows-latest' && '["windows-latest"]') || '["ubuntu-latest", "ubuntu-24.04-arm", "windows-latest", "windows-11-arm", "macos-latest", "macos-15-intel"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -47,8 +51,32 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
               stream.write(f"JARVIS_BROWSER_TEST_PYTHON={venv_python()}\n")
               stream.write(f"JARVIS_BROWSER_TEST_EXECUTABLE={browser_executable()}\n")
+      # A real Chrome on a shared runner: in 181 runs one timing-sensitive live
+      # test (a different one each time) failed in 32. As in the suite's
+      # shards, the failed tests get ONE more run: a pass there is reported as
+      # flaky, a second failure blocks. No recorded failure means nothing to
+      # re-run, and that fails too.
       - name: Test real frames, ownership and protocol
-        run: python -m pytest tests/contract/test_browser_live.py tests/contract/test_browser_contract.py tests/contract/test_browser_desktop_mcp.py tests/contract/test_browser_cli_model.py tests/unit/society/test_browser.py tests/unit/society/test_browser_install.py tests/unit/society/test_approvals.py tests/unit/agent_chat/test_jarvis_identity.py tests/unit/agent_chat/test_agent_chat_ladders.py tests/unit/brain/test_tool_gateway.py -q --tb=short --junitxml=browser-results.xml
+        shell: bash
+        run: |
+          tests=(
+            tests/contract/test_browser_live.py
+            tests/contract/test_browser_contract.py
+            tests/contract/test_browser_desktop_mcp.py
+            tests/contract/test_browser_cli_model.py
+            tests/unit/society/test_browser.py
+            tests/unit/society/test_browser_install.py
+            tests/unit/society/test_approvals.py
+            tests/unit/agent_chat/test_jarvis_identity.py
+            tests/unit/agent_chat/test_agent_chat_ladders.py
+            tests/unit/brain/test_tool_gateway.py
+          )
+          if python -m pytest "${tests[@]}" -q --tb=short --junitxml=browser-results.xml; then
+            exit 0
+          fi
+          echo "::warning title=Flaky browser test::A browser test failed and is re-run once; see the first pytest output of this step."
+          python -m pytest "${tests[@]}" --last-failed --last-failed-no-failures none \
+            -q --tb=short --junitxml=browser-results-retry.xml
       - name: Diagnose Windows capture style support after a failure
         if: failure() && matrix.os == 'windows-latest' && env.JARVIS_BROWSER_TEST_PYTHON != ''
         shell: python
@@ -74,4 +102,4 @@ jobs:
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
           name: browser-results-${{ matrix.os }}
-          path: browser-results.xml
+          path: browser-results*.xml

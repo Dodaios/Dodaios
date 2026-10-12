@@ -30,12 +30,23 @@
 # Windows suite, and only a green `CI gate` there lands it. This is what keeps
 # main green when PRs that pass alone break together.
 #
-# Windows: the full suite in four shards on every run that has the python
-# lane, pull requests included, so a Windows-only failure blocks before the
-# merge instead of turning main red after it (the organisation runs on GitHub
-# Team: 60 concurrent jobs, 5 of them macOS).
-# macOS (~10x runner cost): nightly and manual dispatch, plus the path-gated
-# realtime contract and macOS desktop lanes.
+# Tiers (scripts/ci/plan_run.py): the width of a run follows what it has to
+# prove. Measured 2026-10-07..12 over 338 runs: a run fanned out to 46 jobs in
+# the median (up to 69, 7-11 of them macOS) against 60 concurrent jobs with 5
+# macOS slots, so two runs filled the pool; 56 % of macOS jobs waited more than
+# five minutes (worst case two hours), and every change ran the suite three
+# times - pull request, merge queue, and again on the push that landed the
+# very same commit.
+#   pr     pull request: the whole Linux + Windows suite and every affected
+#          lane on Linux and Windows. No macOS, no 18-minute real-runtime leg.
+#   queue  merge-queue group: everything `pr` runs, one macOS leg per affected
+#          lane and the slow legs. The only blocking macOS proof per change.
+#   full   nightly, release tags, manual full dispatch: Intel macOS, the ARM
+#          runners, every interpreter, the macOS test shards.
+# A push to main whose commit the merge queue already passed runs nothing
+# but `detect` and the gate (`proven`); a push that bypassed the queue runs
+# the `queue` tier. A branch gets macOS feedback before the queue with
+# `gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
 #
 # Action SHAs are pinned to 40-char commits (CVE-2025-30066 hardening).
 
@@ -94,6 +105,9 @@ jobs:
     name: detect lanes
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # the merge-queue run lookup behind `proven`
     outputs:
       full: ${{ steps.lanes.outputs.full }}
       python: ${{ steps.lanes.outputs.python }}
@@ -110,20 +124,29 @@ jobs:
       macos: ${{ steps.mode.outputs.macos }}
       base: ${{ steps.mode.outputs.base }}
       pr_mode: ${{ steps.mode.outputs.pr_mode }}
-      linux_shards: ${{ steps.shards.outputs.linux_shards }}
-      windows_shards: ${{ steps.shards.outputs.windows_shards }}
-      tests_full: ${{ steps.shards.outputs.tests_full }}
+      proven: ${{ steps.proven.outputs.proven }}
+      linux_shards: ${{ steps.mode.outputs.linux_shards }}
+      windows_shards: ${{ steps.mode.outputs.windows_shards }}
       os_matrix: ${{ steps.mode.outputs.os_matrix }}
+      lane_os: ${{ steps.mode.outputs.lane_os }}
+      updater_matrix: ${{ steps.mode.outputs.updater_matrix }}
+      crypto_matrix: ${{ steps.mode.outputs.crypto_matrix }}
+      e2e_matrix: ${{ steps.mode.outputs.e2e_matrix }}
+      browser_os: ${{ steps.mode.outputs.browser_os }}
+      desktop_legs: ${{ steps.mode.outputs.desktop_legs }}
       duration_snapshot: ${{ steps.snapshot.outputs.name }}
       release: ${{ github.ref_type == 'tag' }}
     steps:
+      # History without file contents: the diff base needs commits and
+      # trees only, and every other job waits for this one.
       - name: Checkout (full history for the diff base)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
 
-      - name: Decide run mode and diff base
+      - name: Decide the tier, the matrices and the diff base
         id: mode
         shell: bash
         env:
@@ -131,39 +154,44 @@ jobs:
           IN_FULL: ${{ inputs.full }}
           IN_MACOS: ${{ inputs.include_macos }}
           PR_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          # A merge-queue group and a push to main classify their lanes like a
-          # pull request (runners are shared by every agent's PR, and macOS
-          # has only five slots), and like a pull request they run the WHOLE
-          # test suite on Linux and Windows. A merge group's lanes are
-          # classified against the queue base (main or the entry ahead).
-          # Nightly and manual full runs force everything.
-          full=false; macos=false; pr_mode=false; tests_full=false
-          case "$EVENT" in
-            push|merge_group) tests_full=true ;;
-            schedule) full=true; macos=true; tests_full=true ;;
-            workflow_dispatch)
-              [ "$IN_FULL" = "true" ] && full=true && tests_full=true
-              [ "$IN_MACOS" = "true" ] && macos=true ;;
-            pull_request) pr_mode=true ;;
-          esac
-          # A branch run the merge train dispatched behaves like its pull request.
-          if [ "$EVENT" = "workflow_dispatch" ] && [ "$full" = "false" ]; then pr_mode=true; fi
+          # The tier and every job matrix (scripts/ci/plan_run.py). A
+          # merge-queue group and a push to main classify their lanes like a
+          # pull request; a merge group's lanes are classified against the
+          # queue base (main or the entry ahead). Nightly and manual full
+          # runs force everything.
+          python3 scripts/ci/plan_run.py plan --event "$EVENT" --ref "$GITHUB_REF" \
+            --full "${IN_FULL:-false}" --include-macos "${IN_MACOS:-false}"
           git fetch --no-tags --quiet origin main:refs/remotes/origin/main || true
           base="$PR_BASE"
           if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             base="$(git merge-base HEAD refs/remotes/origin/main 2>/dev/null || true)"
           fi
           if [ "$EVENT" = "push" ]; then
-            before="${{ github.event.before }}"
-            case "$before" in (*[!0]*) git cat-file -e "$before^{commit}" 2>/dev/null && base="$before" ;; esac
+            case "$BEFORE" in (*[!0]*) git cat-file -e "$BEFORE^{commit}" 2>/dev/null && base="$BEFORE" ;; esac
           fi
-          if [ "$macos" = "true" ]; then os='["ubuntu-latest","windows-latest","macos-latest"]'; else os='["ubuntu-latest","windows-latest"]'; fi
-          {
-            echo "full_mode=$full"; echo "tests_full=$tests_full"; echo "macos=$macos"
-            echo "pr_mode=$pr_mode"; echo "base=$base"
-            echo "os_matrix=$os"
-          } | tee -a "$GITHUB_OUTPUT"
+          echo "base=$base" | tee -a "$GITHUB_OUTPUT"
+
+      # A queue group and the push that lands it are ONE commit. When the
+      # queue already passed it, this run has nothing left to prove: every
+      # lane goes off and the gate needs `detect` alone. Any doubt (a direct
+      # push, an API error) fails open to the `queue` tier.
+      - name: Did the merge queue already pass this exact commit?
+        id: proven
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          FULL: ${{ steps.mode.outputs.full_mode }}
+          MACOS: ${{ steps.mode.outputs.macos }}
+        run: |
+          if [ "$GITHUB_REF" = "refs/heads/main" ] && [ "$FULL" != "true" ] && [ "$MACOS" != "true" ] \
+            && { [ "$EVENT" = "push" ] || [ "$EVENT" = "workflow_dispatch" ]; }; then
+            python3 scripts/ci/plan_run.py proven --repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA"
+          else
+            echo "proven=false" | tee -a "$GITHUB_OUTPUT"
+          fi
 
       - name: Classify the change into lanes
         id: lanes
@@ -171,11 +199,16 @@ jobs:
         env:
           FULL: ${{ steps.mode.outputs.full_mode }}
           BASE: ${{ steps.mode.outputs.base }}
+          PROVEN: ${{ steps.proven.outputs.proven }}
         run: |
-          if [ "$FULL" = "true" ] || [ -z "$BASE" ]; then
+          if [ "$PROVEN" = "true" ]; then
+            python3 scripts/ci/classify_changes.py --proven
+          elif [ "$FULL" = "true" ] || [ -z "$BASE" ]; then
             python3 scripts/ci/classify_changes.py --full
           else
-            git diff --name-only "$BASE" HEAD | tee changed.txt | python3 scripts/ci/classify_changes.py
+            # --no-renames: both sides of a rename count as changed, and the
+            # blobless checkout never has to fetch file contents to pair them.
+            git diff --name-only --no-renames "$BASE" HEAD | tee changed.txt | python3 scripts/ci/classify_changes.py
           fi
 
       # Resolve the mutable cache ONCE. All shards download the same immutable
@@ -202,22 +235,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      # The whole suite on both: six Linux shards, four Windows shards, on
-      # every run with the python lane. Pull requests used to get one Windows
-      # runner with only the tests the diff could reach, which let Windows-only
-      # failures through to main; the 60-job limit makes room for the full
-      # matrix. scripts/ci/select_tests.py stays for agent_land.py's local run.
-      - name: Size the test matrices
-        id: shards
-        shell: bash
-        run: |
-          echo 'linux_shards=[1,2,3,4,5,6]' >> "$GITHUB_OUTPUT"
-          echo 'windows_shards=[1,2,3,4]' >> "$GITHUB_OUTPUT"
-          echo 'tests_full=true' >> "$GITHUB_OUTPUT"
-
   gates:
     name: static gates
     needs: detect
+    if: needs.detect.outputs.proven != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -256,11 +277,13 @@ jobs:
           "$RUNNER_TEMP/actionlint/actionlint" -shellcheck= -pyflakes=
 
   # Workflow audit. A blocking part of the gate on every event, merge-queue
-  # groups included; security.yml keeps uploading the same audit to the
-  # Security tab from main. Accepted exceptions live in .github/zizmor.yml.
+  # groups included (only a push the queue already proved skips it);
+  # security.yml keeps uploading the same audit to the Security tab from main.
+  # Accepted exceptions live in .github/zizmor.yml.
   zizmor:
     name: zizmor (workflow audit)
     needs: detect
+    if: needs.detect.outputs.proven != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -415,7 +438,7 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.detect.outputs.linux_shards) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -437,12 +460,14 @@ jobs:
         continue-on-error: true
         env:
           SHARD: ${{ matrix.shard }}
-        run: >-
-          python scripts/ci/run_tests_parallel.py tests
-          --shard "$SHARD/6"
-          --report "out/test-report-linux-$SHARD.json"
-          --junit-out "out/junit-linux-$SHARD.xml"
-          --durations-out "out/durations-linux-$SHARD.json"
+          SHARDS: ${{ needs.detect.outputs.linux_shards }}
+        run: |
+          total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
+          python scripts/ci/run_tests_parallel.py tests \
+            --shard "$SHARD/$total" \
+            --report "out/test-report-linux-$SHARD.json" \
+            --junit-out "out/junit-linux-$SHARD.xml" \
+            --durations-out "out/durations-linux-$SHARD.json"
       - name: Ratchet (a failure not in the baseline blocks)
         env:
           SHARD: ${{ matrix.shard }}
@@ -463,60 +488,40 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.detect.outputs.windows_shards) }}
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     defaults:
       run:
         shell: bash
     steps:
+      # The whole suite on every tier: a Windows-only failure blocks the pull
+      # request instead of ejecting it from the merge queue.
+      # scripts/ci/select_tests.py stays for agent_land.py's local run.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - name: Pick the tests (full run, or what this diff can reach)
-        id: pick
-        env:
-          FULL: ${{ needs.detect.outputs.tests_full }}
-          BASE: ${{ needs.detect.outputs.base }}
-          SHARDS: ${{ needs.detect.outputs.windows_shards }}
-        run: |
-          mkdir -p out
-          if [ "$FULL" = "true" ] || [ -z "$BASE" ]; then
-            echo "mode=all" >> "$GITHUB_OUTPUT"
-          else
-            git diff --name-only "$BASE" HEAD > out/changed.txt
-            python scripts/ci/select_tests.py --changed-from out/changed.txt --out out/selected.txt
-          fi
-          count=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
-          echo "total=$count" >> "$GITHUB_OUTPUT"
       - name: Install
-        if: steps.pick.outputs.mode != 'none'
         uses: ./.github/actions/install-locked
         with:
           extras: dev telephony
       - name: Download the shared duration snapshot
-        if: steps.pick.outputs.mode != 'none'
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: ${{ needs.detect.outputs.duration_snapshot }}
       - name: Run shard
-        if: steps.pick.outputs.mode != 'none'
         continue-on-error: true
         env:
           SHARD: ${{ matrix.shard }}
-          PICK_MODE: ${{ steps.pick.outputs.mode }}
-          PICK_TOTAL: ${{ steps.pick.outputs.total }}
+          SHARDS: ${{ needs.detect.outputs.windows_shards }}
         run: |
-          files=()
-          if [ "$PICK_MODE" = "selected" ]; then files=(--files-from out/selected.txt); fi
-          python scripts/ci/run_tests_parallel.py tests "${files[@]}" \
-            --shard "$SHARD/$PICK_TOTAL" \
+          total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
+          python scripts/ci/run_tests_parallel.py tests \
+            --shard "$SHARD/$total" \
             --report "out/test-report-windows-$SHARD.json" \
             --junit-out "out/junit-windows-$SHARD.xml"
       - name: Ratchet (a failure not in the baseline blocks)
-        if: steps.pick.outputs.mode != 'none'
         env:
           SHARD: ${{ matrix.shard }}
         run: python scripts/ci/ratchet_tests.py check --baseline scripts/ci/test-baseline-windows.json "out/test-report-windows-$SHARD.json"
@@ -589,27 +594,39 @@ jobs:
           path: reports
           merge-multiple: true
       - name: Min-passed floor across all Linux shards (BLOCKING)
-        run: python scripts/ci/ratchet_tests.py summary --floor --expected-shards 6 --baseline scripts/ci/test-baseline-linux.json reports
+        env:
+          SHARDS: ${{ needs.detect.outputs.linux_shards }}
+        run: |
+          total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
+          python scripts/ci/ratchet_tests.py summary --floor --expected-shards "$total" --baseline scripts/ci/test-baseline-linux.json reports
       # Report only: flaky files (failed in a batch, passed alone) and new vs
       # known failures. On main the cross-OS view and the "Flaky tests on main"
       # issue come from .github/workflows/flaky-tests.yml.
       - name: Flaky files and failures (report only)
         if: ${{ !cancelled() }}
         run: python scripts/ci/flaky_report.py summary reports
+      # The nightly run refreshes the cache: a push the merge queue already
+      # proved runs no tests, and only a run on main may write a cache every
+      # branch can read.
       - name: Merge the duration cache (main only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
         run: python scripts/ci/ratchet_tests.py durations --out test_durations.json reports
       - name: Save the duration cache (main only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
         uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: test_durations.json
           key: test-durations-${{ github.run_id }}
 
+  # Three test shards and the build side by side: `npm test` alone took seven
+  # minutes in one process and was the longest Linux leg of a run.
   frontend:
-    name: frontend (test + build + budget)
     needs: detect
     if: needs.detect.outputs.frontend == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ["test 1/3", "test 2/3", "test 3/3", "build + budget"]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -625,10 +642,17 @@ jobs:
           cache: npm
           cache-dependency-path: jarvis/ui/web/frontend/package-lock.json
       - run: npm ci
-      - run: npm test
-      - run: npm run build
+      - name: Unit tests (one shard)
+        if: startsWith(matrix.part, 'test ')
+        env:
+          PART: ${{ matrix.part }}
+        run: npm test -- --shard="${PART#test }"
+      - name: Production build
+        if: matrix.part == 'build + budget'
+        run: npm run build
       # The entry chunk's size IS startup latency (AP-26's measurable half).
       - name: Startup bundle budget
+        if: matrix.part == 'build + budget'
         working-directory: ${{ github.workspace }}
         run: python3 scripts/ci/check_frontend_bundle_budget.py
 
@@ -694,14 +718,10 @@ jobs:
     if: needs.detect.outputs.deps == 'true'
     strategy:
       fail-fast: false
+      # Windows ARM on a pull request, Intel macOS added in the queue, both
+      # interpreters and Apple Silicon in the wide matrix (plan_run.py).
       matrix:
-        include:
-          - {runner: macos-15-intel, architecture: x64, python: '3.11'}
-          - {runner: macos-15-intel, architecture: x64, python: '3.14'}
-          - {runner: macos-15, architecture: arm64, python: '3.11'}
-          - {runner: macos-15, architecture: arm64, python: '3.14'}
-          - {runner: windows-11-arm, architecture: arm64, python: '3.12'}
-          - {runner: windows-11-arm, architecture: arm64, python: '3.14'}
+        include: ${{ fromJSON(needs.detect.outputs.crypto_matrix) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     steps:
@@ -737,7 +757,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(needs.detect.outputs.lane_os) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
@@ -772,8 +792,10 @@ jobs:
 
   # The in-app updater on every OS it ships to. Each one replaces a running
   # app differently (Inno handover, .app swap, AppImage swap, git transaction
-  # + restart helper), and the POSIX-only tests run the real relaunch waiter,
-  # so this lane is never narrowed to one runner the way PR test jobs are.
+  # + restart helper), and the POSIX-only tests run the real relaunch waiter.
+  # A pull request runs Linux and the real Windows upgrade; the merge queue
+  # adds macOS and the second Windows interpreter; the wide matrix adds the
+  # Intel Mac (scripts/ci/plan_run.py).
   #
   # Python: 3.11 is the floor, 3.12 is what the native installers freeze.
   # macos-15-intel adds the x86_64 Mac (the Intel .dmg and its Rosetta probe).
@@ -788,10 +810,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ["3.11", "3.12"]
-        include:
-          - {os: macos-15-intel, python: "3.12"}
+        include: ${{ fromJSON(needs.detect.outputs.updater_matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -943,12 +962,16 @@ jobs:
     needs: detect
     if: needs.detect.outputs.browser == 'true'
     uses: ./.github/workflows/browser-runtime.yml
+    with:
+      os: ${{ needs.detect.outputs.browser_os }}
 
   macos-desktop:
     name: macOS desktop
     needs: detect
-    if: needs.detect.outputs.macos_desktop == 'true' && (needs.detect.outputs.full != 'true' || needs.detect.outputs.macos == 'true')
+    if: needs.detect.outputs.macos_desktop == 'true' && needs.detect.outputs.desktop_legs != 'none'
     uses: ./.github/workflows/macos-desktop.yml
+    with:
+      legs: ${{ needs.detect.outputs.desktop_legs }}
 
   installer:
     name: installer smoke
@@ -961,15 +984,16 @@ jobs:
 
   # Hermes / OpenClaw society agents on every OS a person runs them on. The
   # lane (scripts/ci/agent_runtime_suite.py) covers the runtimes AND the chat
-  # and society code that drives them, so a pull request proves macOS too,
-  # not only the nightly run. Fakes only: no key, no network to a model.
+  # and society code that drives them. A pull request proves Linux and
+  # Windows, the merge queue adds macOS before anything lands. Fakes only: no
+  # key, no network to a model.
   agent-runtimes-unit:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(needs.detect.outputs.lane_os) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
@@ -1020,15 +1044,16 @@ jobs:
   # budgets, the runtime unit tests on the same machine, and proof that the
   # user PATH and shell profiles stayed put (scripts/ci/agent_runtime_e2e.py).
   # No key, no network to a model. The weekly canary does the same at
-  # upstream latest and raises the pin.
+  # upstream latest and raises the pin. A pull request runs both runtimes on
+  # Linux and OpenClaw on Windows; the 18-minute Hermes install on Windows
+  # and both macOS legs run in the merge queue (scripts/ci/plan_run.py).
   agent-runtimes-e2e:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        runtime: [hermes, openclaw]
+        include: ${{ fromJSON(needs.detect.outputs.e2e_matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
