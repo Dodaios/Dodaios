@@ -12,13 +12,9 @@ describe("branding", () => {
     expect(PRODUCT_NAME).toBe("Dodaios");
   });
 
-  it("keeps the repository link values", () => {
-    expect(OFFICIAL_REPO_SLUG).toBe("PersonalJarvis/PersonalJarvis");
-    expect(OFFICIAL_REPO_URL).toBe(
-      "https://github.com/PersonalJarvis/PersonalJarvis",
-    );
-    expect(OFFICIAL_REPO_LABEL).toBe(
-      "github.com/PersonalJarvis/PersonalJarvis",
-    );
+  it("links to the official repository", () => {
+    expect(OFFICIAL_REPO_SLUG).toBe("Dodaios/Dodaios");
+    expect(OFFICIAL_REPO_URL).toBe("https://github.com/Dodaios/Dodaios");
+    expect(OFFICIAL_REPO_LABEL).toBe("github.com/Dodaios/Dodaios");
   });
 });
