@@ -279,7 +279,7 @@ class TelegramChannel:
         try:
             me = await bot.get_me()
             self._bot_username = (me.username or "").lower() or "<unknown>"
-        except InvalidToken:
+        except InvalidToken:  # reported below; its own message carries the token
             failure = (
                 "Telegram token invalid (InvalidToken). "
                 "Check the token in @BotFather or renew it via the wizard."
