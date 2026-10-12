@@ -605,8 +605,8 @@ async def test_realtime_progress_bridge_survives_into_plain_export(tmp_path) -> 
             store.get_turns("audible-bridge"),
             events,
         )
-        progress_at = exported.index("Jarvis: I'm still working on it.")
-        reply_at = exported.index("Jarvis: The current figure is 42.")
+        progress_at = exported.index("Assistant: I'm still working on it.")
+        reply_at = exported.index("Assistant: The current figure is 42.")
         assert progress_at < reply_at
     finally:
         store.close()

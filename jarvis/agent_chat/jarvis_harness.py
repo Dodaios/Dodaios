@@ -460,7 +460,12 @@ async def identity_prompt(
 def render_transcript(
     history: list[dict[str, Any]], *, max_chars: int = TRANSCRIPT_MAX_CHARS
 ) -> str:
-    """The chat's log as plain prose, newest last, cut to ``max_chars`` from the front."""
+    """The chat's log as plain prose, newest last, cut to ``max_chars`` from the front.
+
+    The model reading this IS the second speaker, whatever it is called (the
+    assistant on the app's own chat, a named agent on its seat), so its own
+    lines are labelled ``You``. Nothing parses these labels.
+    """
     from jarvis.agent_chat.runner_api import messages_from_events
 
     lines: list[str] = []
@@ -472,7 +477,7 @@ def render_transcript(
         elif message.role == "assistant":
             text = _prose(message.content)
             if text.strip():
-                lines.append(f"Jarvis: {text.strip()}")
+                lines.append(f"You: {text.strip()}")
     out = "\n\n".join(lines)
     if len(out) > max_chars:
         out = "…" + out[-max_chars:]

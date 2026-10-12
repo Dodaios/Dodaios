@@ -136,9 +136,9 @@ def test_save_session_to_downloads_uses_events_for_plain_export(tmp_path, monkey
         content = saved.read_text(encoding="utf-8")
         assert "Modus: Pipeline" in content.splitlines()[0]
         assert "Ended by: hotkey" in content
-        assert "Jarvis: Preamble first." in content
-        assert content.index("Jarvis: Preamble first.") < content.index(
-            "Jarvis: Final answer."
+        assert "Assistant: Preamble first." in content
+        assert content.index("Assistant: Preamble first.") < content.index(
+            "Assistant: Final answer."
         )
     finally:
         store.close()
@@ -228,5 +228,30 @@ def test_latest_turn_returns_404_when_no_user_transcript_exists(tmp_path) -> Non
 
         assert response.status_code == 404
         assert response.json()["detail"] == "user-turn-not-found"
+    finally:
+        store.close()
+
+
+def test_an_export_labels_the_assistant_by_its_wake_word_name(tmp_path) -> None:
+    from types import SimpleNamespace
+
+    store = SessionStore(tmp_path / "sessions.db")
+    store.open()
+    try:
+        _seed_session(store)
+        app = FastAPI()
+        app.include_router(sessions_routes.router)
+        app.state.session_store = store
+        app.state.config = SimpleNamespace(
+            trigger=SimpleNamespace(wake_word=SimpleNamespace(phrase="Hey George"))
+        )
+
+        with TestClient(app) as client:
+            plain = client.get("/api/sessions/s1/export?format=plain").text
+            markdown = client.get("/api/sessions/s1/export?format=markdown").text
+
+        assert "George: Final answer." in plain
+        assert "George sagte" in markdown  # i18n-allow: the export's own German label
+        assert "Jarvis" not in plain and "Jarvis" not in markdown
     finally:
         store.close()

@@ -5105,11 +5105,17 @@ async def terminal_prompt(
             # nobody asked to send are noise.
             beat_bus = getattr(request.app.state, "bus", None)
             on_progress = None
+            from jarvis.brain.assistant_name import resolve_assistant_name
+
+            # The stdout line leads with the name the user gave the assistant.
+            _speaker_name = resolve_assistant_name(
+                getattr(request.app.state, "config", None)
+            )
             if beat_bus is not None and not req.dry_run:
                 from jarvis.core.events import AgenticIdeComposeProgress
 
                 def _publish_beat(notice: ComposeNotice) -> None:
-                    print_notice(notice)
+                    print_notice(notice, speaker=_speaker_name)
                     task = asyncio.get_running_loop().create_task(
                         beat_bus.publish(
                             AgenticIdeComposeProgress(

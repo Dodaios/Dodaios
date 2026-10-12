@@ -52,6 +52,18 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 # ----------------------------------------------------------------------
 
 
+def _assistant_name(request: Request) -> str:
+    """What the user calls the assistant: the speaker label of an export.
+
+    Resolved per request from the wake word, so a renamed assistant shows up
+    in the next export without a restart.
+    """
+    from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
+
+    config = getattr(request.app.state, "config", None)
+    return resolve_assistant_name(config) if config is not None else DEFAULT_ASSISTANT_NAME
+
+
 def _require_store(request: Request) -> SessionStore:
     store: SessionStore | None = getattr(request.app.state, "session_store", None)
     if store is None:
@@ -143,10 +155,14 @@ def export_session(
     events = store.get_events(session_id)
 
     if export_format == "markdown":
-        body = format_session_markdown(session, turns, events)
+        body = format_session_markdown(
+            session, turns, events, assistant_name=_assistant_name(request)
+        )
         return PlainTextResponse(content=body, media_type="text/markdown; charset=utf-8")
     if export_format == "plain":
-        body = format_session_plain(session, turns, events)
+        body = format_session_plain(
+            session, turns, events, assistant_name=_assistant_name(request)
+        )
         return PlainTextResponse(content=body, media_type="text/plain; charset=utf-8")
     # JSON variant — we return the full detail payload.
     detail = SessionDetail(session=session, turns=turns, events=events)
@@ -200,9 +216,13 @@ async def save_session_to_downloads(
 
     # Render the format body.
     if export_format == "markdown":
-        body = format_session_markdown(session, turns, events)
+        body = format_session_markdown(
+            session, turns, events, assistant_name=_assistant_name(request)
+        )
     elif export_format == "plain":
-        body = format_session_plain(session, turns, events)
+        body = format_session_plain(
+            session, turns, events, assistant_name=_assistant_name(request)
+        )
     else:
         detail = SessionDetail(session=session, turns=turns, events=events)
         body = detail.model_dump_json(indent=2)
@@ -286,9 +306,13 @@ async def open_session_with(
     events = store.get_events(session_id)
 
     if export_format == "markdown":
-        rendered = format_session_markdown(session, turns, events)
+        rendered = format_session_markdown(
+            session, turns, events, assistant_name=_assistant_name(request)
+        )
     elif export_format == "plain":
-        rendered = format_session_plain(session, turns, events)
+        rendered = format_session_plain(
+            session, turns, events, assistant_name=_assistant_name(request)
+        )
     else:
         detail = SessionDetail(session=session, turns=turns, events=events)
         rendered = detail.model_dump_json(indent=2)

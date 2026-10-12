@@ -41,7 +41,9 @@ MAX_MESSAGES = 4
 #: so the bound has to clear it rather than cut it in half.
 MAX_MESSAGE_CHARS = 1000
 
-_ROLE_LABELS = {"user": "The user", "assistant": "Jarvis"}
+#: How the two speakers are named to the writer. Read by a model only; the
+#: assistant's own name is the user's choice and plays no part in a brief.
+_ROLE_LABELS = {"user": "The user", "assistant": "The assistant"}
 
 
 def _bounded(text: str) -> str:
