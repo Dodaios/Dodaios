@@ -133,7 +133,7 @@ async def test_switched_off_or_unsupported_hosts_arm_nothing() -> None:
     off = _shortcuts(_config(enabled=False), [])
     statuses = await off.start()
     assert not any(s.armed for s in statuses.values())
-    assert statuses["region"].detail == "Jarvis X is switched off."
+    assert statuses["region"].detail == "Dodaios X is switched off."
     assert FakeTrigger.instances == []
 
     headless = _shortcuts(_config(), [], backend=False)

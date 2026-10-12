@@ -68,6 +68,7 @@ from jarvis.agent_chat.store import (
 )
 from jarvis.agent_chat.surface_kits import kit_for
 from jarvis.agent_chat.turn_host_client import TurnHandedOver
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
 from jarvis.core.protocols import ChatCompletion, ChatTurn, current_chat_turn
 from jarvis.society.delivery import IncomingMessage
 
@@ -91,7 +92,7 @@ def _stop_caller() -> str:
 
 #: What a turn cut off by a restart says (``_seal_orphaned_turns``).
 _ORPHANED_TURN_ERROR: Final = (
-    "Jarvis restarted while this turn was running. "
+    "Dodaios restarted while this turn was running. "
     "Everything after the last step shown here was not captured."
 )
 
@@ -407,7 +408,7 @@ class AgentChatService:
         bus: Callable[[], Any | None] | None = None,
     ) -> None:
         self.store = store
-        self._assistant_name = assistant_name or (lambda: "Jarvis")
+        self._assistant_name = assistant_name or (lambda: DEFAULT_ASSISTANT_NAME)
         self._default_cwd = default_cwd or (lambda: str(Path.home()))
         # The app bus, resolved late (the server builds this service before
         # the brain is up). The brain runner reads its tool events off it and
@@ -1259,7 +1260,7 @@ class AgentChatService:
             selected = []
             if tool_choices:
                 if session.surface != "jarvis":
-                    raise ValueError("Tool selections are supported by the Jarvis chat")
+                    raise ValueError("Tool selections are supported by the Dodaios chat")
                 from jarvis.agent_chat.runner_brain import brain_manager
                 from jarvis.agent_chat.tool_catalog import live_catalog, resolve_choices
 

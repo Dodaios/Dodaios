@@ -180,7 +180,7 @@ def test_the_brief_teaches_the_page_anatomy_and_the_writing() -> None:
 
 def test_the_colophon_carries_the_gigi_mark_and_never_the_star() -> None:
     assert GIGI_MARK_SVG in PAGE_SKELETON
-    assert "Personal Jarvis" in PAGE_SKELETON
+    assert "Dodaios" in PAGE_SKELETON
     assert 'class="eye"' in GIGI_MARK_SVG
     assert "star" not in GIGI_MARK_SVG.lower()
 

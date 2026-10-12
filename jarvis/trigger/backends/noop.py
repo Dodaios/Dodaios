@@ -58,7 +58,7 @@ def explain_unavailable() -> str:
         return (
             "this host cannot register a global keyboard shortcut. Voice still "
             "works via the wake word, and dictation can be started from the "
-            "Jarvis Bar, the Dictation view, or `jarvis api dictation start`."
+            "Dodaios Bar, the Dictation view, or `jarvis api dictation start`."
         )
 
     if platform == "linux":
@@ -77,7 +77,7 @@ def explain_unavailable() -> str:
             "the pynput package is not installed. On an X11 desktop, "
             "`pip install 'personal-jarvis[desktop-linux]'` enables global "
             "shortcuts (it builds evdev, so a C compiler and the kernel "
-            "headers are required). Until then, use the wake word, the Jarvis "
+            "headers are required). Until then, use the wake word, the Dodaios "
             "Bar, or `jarvis api dictation start`."
         )
 
@@ -85,7 +85,7 @@ def explain_unavailable() -> str:
         return (
             "the pyobjc Quartz package is not installed (the [full] profile "
             "includes it). With it, global shortcuts arm themselves once "
-            "macOS has allowed Input Monitoring for Personal Jarvis."
+            "macOS has allowed Input Monitoring for Dodaios."
         )
 
     return (

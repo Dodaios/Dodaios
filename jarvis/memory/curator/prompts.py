@@ -54,7 +54,7 @@ YOU RETURN ONLY JSON. NO Markdown, no comment, no fence.
 # CRITICAL RULE — subject disambiguation
 
 Every fact has exactly ONE subject:
-- `"user"` — the human talking to Jarvis.
+- `"user"` — the human talking to the assistant.
 - `"person:<Name>"` — ANOTHER person the user mentions.
 
 **GOLDEN RULE:** If the user speaks in the first person ("I", "my", "me"),

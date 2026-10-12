@@ -33,7 +33,7 @@ async def test_a_remote_browser_is_told_the_window_would_open_elsewhere(
     probe = await routes.native_picker_support(_request())
 
     assert probe.available is False
-    assert probe.reason and "computer running Jarvis" in probe.reason
+    assert probe.reason and "computer running Dodaios" in probe.reason
 
 
 async def test_a_remote_browser_cannot_open_the_window(

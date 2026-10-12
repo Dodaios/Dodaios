@@ -60,10 +60,10 @@ NOTICE_LABELS: dict[str, dict[str, str]] = {
         "zh": "智能体",  # i18n-allow
     },
     "no_answer": {
-        "en": "Jarvis could not answer",
-        "de": "Jarvis konnte nicht antworten",  # i18n-allow
-        "es": "Jarvis no pudo responder",  # i18n-allow
-        "zh": "Jarvis 无法回答",  # i18n-allow
+        "en": "Dodaios could not answer",
+        "de": "Dodaios konnte nicht antworten",  # i18n-allow
+        "es": "Dodaios no pudo responder",  # i18n-allow
+        "zh": "Dodaios 无法回答",  # i18n-allow
     },
 }
 

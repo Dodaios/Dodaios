@@ -105,7 +105,7 @@ _SILENCE_REPORT_AFTER_S = 5.0
 _SILENCE_DETAIL = (
     "The microphone delivers only silence: access is probably denied or muted."
 )
-_NOT_GRANTED_MESSAGE = "Microphone access is not granted for Personal Jarvis."
+_NOT_GRANTED_MESSAGE = "Microphone access is not granted for Dodaios."
 
 
 class MicrophoneAccessError(PermissionError):

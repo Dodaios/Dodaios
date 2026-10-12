@@ -364,7 +364,7 @@ def readiness(
         return Blocker(
             "disabled",
             "Computer control is turned off in Settings (Computer use). Turn it on to let "
-            "Jarvis operate the screen.",
+            "Dodaios operate the screen.",
         )
     platform = probes.platform()
     if platform == "linux":
@@ -390,7 +390,7 @@ def readiness(
             labels = ", ".join(f"{label} ({state})" for label, state in missing)
             return Blocker(
                 "permission_required",
-                "macOS has not granted Personal Jarvis these permissions: "
+                "macOS has not granted Dodaios these permissions: "
                 f"{labels}. The user can answer the macOS permission prompt or use System "
                 "Settings > Privacy & Security, then try again. Never answer a system "
                 "permission dialog for the user.",
@@ -418,7 +418,7 @@ def readiness(
             return Blocker(
                 "elevated_window",
                 "The window in front runs with administrator rights, so Windows blocks "
-                "Jarvis's mouse and keyboard input there. Switch to another window, or close "
+                "Dodaios's mouse and keyboard input there. Switch to another window, or close "
                 "or answer that one yourself.",
             )
     return None

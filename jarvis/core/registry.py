@@ -105,7 +105,7 @@ def load(group: str, name: str, protocol: type[Protocol] | None = None) -> type[
 
 def describe() -> str:
     """Human-readable overview of all installed plugins — for CLI/admin UI."""
-    lines: list[str] = ["Jarvis Plugin Registry", "=" * 30, ""]
+    lines: list[str] = ["Dodaios Plugin Registry", "=" * 30, ""]
     for group in PLUGIN_GROUPS:
         plugins = list_plugins(group)
         lines.append(f"[{group}]")

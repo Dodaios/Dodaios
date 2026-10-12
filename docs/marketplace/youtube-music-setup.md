@@ -17,15 +17,15 @@ redesign and sit outside YouTube's terms, so this project does not ship one.
 
 | You say | What happens |
 |---|---|
-| "play Radiohead" · "play Karma Police" · "play the album OK Computer" · "play my running playlist" · "play my liked songs" | Jarvis finds it and starts it in **YouTube Music** — in the background player (default) or your browser — on your own account, with your Premium and history. A song opens as its own radio, so music keeps coming. |
+| "play Radiohead" · "play Karma Police" · "play the album OK Computer" · "play my running playlist" · "play my liked songs" | Dodaios finds it and starts it in **YouTube Music** — in the background player (default) or your browser — on your own account, with your Premium and history. A song opens as its own radio, so music keeps coming. |
 | "pause" · "carry on" · "skip this" · "go back" | Steers the background player directly; in browser mode it goes through the system's media session — the same channel your keyboard's play/pause key uses. |
 | "what song is this?" | Read from the player (or the media session): track, artist, album, and which app it comes out of. |
 | "like this song" · "add this to my running playlist" · "create a playlist called Late night" · "what is in my chill playlist?" | Written to your YouTube library through the official API. |
-| "turn it up" · "volume 30" | Works in the background player (Jarvis drives YouTube Music's own volume slider). In browser mode YouTube exposes no volume control — use the system or app volume. |
-| "queue this next" | **Not available.** There is no queue API; Jarvis offers to play it now or add it to a playlist instead. |
+| "turn it up" · "volume 30" | Works in the background player (Dodaios drives YouTube Music's own volume slider). In browser mode YouTube exposes no volume control — use the system or app volume. |
+| "queue this next" | **Not available.** There is no queue API; Dodaios offers to play it now or add it to a playlist instead. |
 | "open YouTube Music" · "hide the player" | Brings the background player forward (login, cookie choice, the queue) or minimizes it again. |
 
-Playback happens **in YouTube Music, not in Jarvis's own audio** — exactly
+Playback happens **in YouTube Music, not in Dodaios's own audio** — exactly
 like the Spotify plugin, where the music comes out of Spotify. By default it
 runs in a **background player**: a small window of its own that starts
 minimized (a taskbar entry, no browser tab, no focus steal) and simply loads
@@ -59,10 +59,10 @@ project:
    to register: the loopback redirect works out of the box for a Google
    **Desktop app** client.
 
-## Part B — connect it in Jarvis
+## Part B — connect it in Dodaios
 
 1. Open **Plugins**, find the YouTube Music card, click **Connect**.
-2. If Jarvis does not have your Google Client ID yet, expand **"Use your own
+2. If Dodaios does not have your Google Client ID yet, expand **"Use your own
    OAuth client (advanced)"** and paste it. It is stored as
    `google_oauth_client_id` — one client for Gmail, Drive, Calendar and
    YouTube Music.
@@ -71,7 +71,7 @@ project:
 
 ## Part C — playback on your machine
 
-**Background player (default).** Music plays in Jarvis's own small player
+**Background player (default).** Music plays in Dodaios's own small player
 window, which needs a display and the desktop extras (pywebview — the same
 `[desktop]` extra the desktop app uses). It starts minimized and keeps playing
 minimized; "open YouTube Music" brings it forward. First run: YouTube shows its
@@ -79,7 +79,7 @@ cookie choice once, and you can log in there once so playback uses your account
 and Premium — both are remembered in a profile of their own under
 `data/music_player/`. Pause, skip, "what is playing" and volume all go through
 that window directly, on every OS the window can open on. Where it cannot
-(headless, Linux without a GTK/Qt WebKit backend), Jarvis falls back to the
+(headless, Linux without a GTK/Qt WebKit backend), Dodaios falls back to the
 browser and says why.
 
 **Browser mode** (Settings → Music → Where YouTube Music plays → Browser).
@@ -97,7 +97,7 @@ then use the OS media session:
 
 Google's rules for the shared client apply: while your OAuth app is in
 **Testing** mode a grant expires after seven days, so publish the app to
-**In production** (see the Google doc's "Keeping it connected"). Jarvis renews
+**In production** (see the Google doc's "Keeping it connected"). Dodaios renews
 the hourly access token itself and only asks to reconnect when the grant is
 truly gone.
 
@@ -107,15 +107,15 @@ truly gone.
   calls a day, separate from the 10,000-unit pool the other calls use. Every
   "play <name>" is one search (repeats within a session are cached; your own
   playlists and liked songs cost none). Enough for a household, not for a
-  party. When they are gone, Jarvis says so; pausing, skipping and your own
+  party. When they are gone, Dodaios says so; pausing, skipping and your own
   playlists keep working. The counter resets at midnight Pacific time.
 - **First autoplay.** A browser blocks autoplay on a site until you have used
-  it there. If Jarvis reports "opened, but playback not confirmed", press play
+  it there. If Dodaios reports "opened, but playback not confirmed", press play
   once — after that it starts on its own.
 - **A song is a video.** YouTube's top hit is sometimes the music video or a
-  live version. Jarvis says what it actually started so you notice at once.
+  live version. Dodaios says what it actually started so you notice at once.
 - **Two tabs (browser mode only).** Each "play" opens a new YouTube Music tab;
-  Jarvis pauses the old one first, so only one plays. The background player has
+  Dodaios pauses the old one first, so only one plays. The background player has
   no such pile-up — it navigates one window.
 - **Spotify and YouTube Music both connected?** A request that names a service
   ("on Spotify", "on YouTube Music") goes there. One that names none goes to

@@ -13,9 +13,9 @@ truth; verify against it rather than trusting any table below.
 
 ## Project
 
-**Personal Jarvis** — voice-driven meta-orchestrator. Not a classical voice
+**Dodaios** — voice-driven meta-orchestrator. Not a classical voice
 assistant: the core pattern is a **Supervisor Agent** that routes heavy work
-through the Mission Manager to capability-selected Jarvis-Agent workers. MCP
+through the Mission Manager to capability-selected Dodaios-Agent workers. MCP
 servers and marketplace integrations contribute gated tools to that same path;
 they are not alternate worker harnesses. The voice layer is just the interface.
 
@@ -47,17 +47,17 @@ subprocess flicker, audio host-API) are catalogued there.
 | **7 — Self-Mod (foundation + writer + tools)** | ✅ | `jarvis/core/self_mod/` (audit, errors, pending, registry, schema, writer). Three router-tier tools: `list_mutable_settings`, `get_config_value`, `set_config_value`. ADR + writeup in `docs/self_mod.md`. **7.5 skill authoring by voice/chat is the `create-skill` router tool** (2026-08-18; `pyproject.toml` → `jarvis.plugins.tool.create_skill:CreateSkillTool`, router-tier, `monitor`; one bounded brain call through `SkillCreatorService`, the same service behind `POST /api/skills/creator/*` and `jarvis skills create`). The older `spawn-skill-author` class is NOT wired (see `docs/LLM-CONTEXT.md` §25). Generated skills land as `state="draft"` and are never auto-activated (AP-15). |
 | **Awareness A0–A5** | removed 2026-09-30 | The window watcher, episode summaries and the `awareness-snapshot` / `awareness-recall` tools were deleted: they spent tokens every turn for a recall feature the product no longer wants. ADR-0009/0010/0012 are superseded; see the ADR-0011 amendment "Awareness tools retired". |
 | **Wiki B0/B1/B2/B3/B5/B7/B8/B9** | ✅ | `jarvis/memory/wiki/` (curator, atomic_writer, page_repository, integration, session_rollup, voice_bridge, telemetry, scheduler). Three router-tier tools: `wiki-recall`, `wiki-page-read`, `wiki-ingest`. ADR-0013/0014/0015. B2 = `docs/obsidian-setup.md` + B9-Wizard. B3 = `WikiView.tsx` + 6-endpoint `wiki_routes.py` + `wiki_ws.py` live-reload. **B4 soft-disabled** 2026-05-17 via `[memory.legacy_curator] enabled = false` — legacy Curator package + `data/workspace/` snapshot stay on disk; Hart-Cut (vault migration + reader refactor + package delete) remains open. **B6 not started**. |
-| **Realtime → Jarvis-Agents bridge** | ✅ canonical path live | **Hybrid tool mode (ADR-0035, 2026-08-19, default):** the live model calls every router tool itself through `RealtimeToolBridge` (catalog minus the computer-use vehicles, compact declarations under `[voice].realtime_tool_declaration_budget_tokens`) and keeps ONE provider-neutral `jarvis_action` for computer use, screen looks and any capability it has no function for; the Tool Model runs only those delegated turns. `delegate` (one function, every action through the router Brain) and `direct` stay as explicit modes. `BrainManager` delegates heavy work through `spawn-worker`; `jarvis/missions/` owns worker selection, isolation, retries, Critic review, and Kontrollierer sign-off. MCP and marketplace tools are granted by capability, not exposed as worker harness names. |
+| **Realtime → Dodaios-Agents bridge** | ✅ canonical path live | **Hybrid tool mode (ADR-0035, 2026-08-19, default):** the live model calls every router tool itself through `RealtimeToolBridge` (catalog minus the computer-use vehicles, compact declarations under `[voice].realtime_tool_declaration_budget_tokens`) and keeps ONE provider-neutral `jarvis_action` for computer use, screen looks and any capability it has no function for; the Tool Model runs only those delegated turns. `delegate` (one function, every action through the router Brain) and `direct` stay as explicit modes. `BrainManager` delegates heavy work through `spawn-worker`; `jarvis/missions/` owns worker selection, isolation, retries, Critic review, and Kontrollierer sign-off. MCP and marketplace tools are granted by capability, not exposed as worker harness names. |
 | **Ack-Brain (pre-thinking)** | ✅ | `jarvis/brain/ack_brain/` — sub-second butler ACK before the deep brain replies. Gemini Flash Lite primary. UI preamble bubble. Suppress-if-fast gate at 2000ms (`[ack_brain].suppress_if_brain_faster_than_ms`). ADR-0014 (flash-brain). |
 | **CLI catalog + terminal view** | ✅ | `jarvis/clis/` (catalog, installer, loader, prober, registry, risk_integration, usage_log) + `jarvis/terminal/` (cross-platform PTY via `terminal.backend.make_pty_backend` — ConPTY/`pywinpty` on Windows, `ptyprocess` on POSIX). Router tool `cli-tools` (virtual loader → one `cli_<name>` tool per connected CLI). UI views: `ClisView`, `TerminalView`. **`spawn-cli-worker` was REMOVED 2026-05-24** (dead entry point; heavy multi-step CLI work goes through `spawn-worker`, single-step through the `cli_<name>` tools — never re-add a CLI spawn tool, it is a D9 recursion vector, AP-5/AP-14). |
 | **Board / Profile ("Knows-you" dashboard)** | ✅ | `jarvis/board/` (aggregator, store, achievements, evaluator, bio prompts, scheduler, `schema.sql`) → `data/board/personal.db`. Parses FlightRecorder JSONL into daily stats / personal records / 10 achievements + an anti-cliché AI-bio. Routes `board_routes.py` (`/api/board/*`) + `profile_routes.py`; views `BoardView.tsx`, `ProfileView.tsx`, `frontend/src/views/profile/`. Deterministic profile writes via the `update-profile` tool. Separate standalone service stub in `board-backend/` (FastAPI + Docker). CHANGELOG `v1.0.0-board`. |
-| **Channels (Web / Telegram / Discord)** | ✅ | `jarvis/channels/` (`base.py` ChannelAdapter, `manager.py`, `bootstrap.py` `bootstrap_channels`, `chat_bridge.py`, `web.py`/`telegram.py`/`discord.py`). Bridges a DM/guild message into the normal Jarvis chat path. Entry points `web` (base), `telegram` (base dep `python-telegram-bot`), `discord` (optional `[channels]` extra, lazy-imported, graceful `ChannelStartError` when absent). Tokens via the OS credential store. |
+| **Channels (Web / Telegram / Discord)** | ✅ | `jarvis/channels/` (`base.py` ChannelAdapter, `manager.py`, `bootstrap.py` `bootstrap_channels`, `chat_bridge.py`, `web.py`/`telegram.py`/`discord.py`). Bridges a DM/guild message into the normal Dodaios chat path. Entry points `web` (base), `telegram` (base dep `python-telegram-bot`), `discord` (optional `[channels]` extra, lazy-imported, graceful `ChannelStartError` when absent). Tokens via the OS credential store. |
 | **Friends + Socials** | ✅ | `jarvis/friends/` (`registry.py` `FriendRegistry` on `aiosqlite`, `status_publisher.py`, `status_filter.py`, `messages.py`, `schemas.py`). Routes `friends_routes.py` + `socials_routes.py`; views `FriendsView.tsx`, `frontend/src/views/friends/` + `socials/`. Telegram channel is the live transport (F-FRIENDS F0/F1). |
 | **Contacts + Telephony** | ✅ | `jarvis/contacts/` (`store.py`, `schema.py`, `notify.py`) — contacts mirror to guaranteed Wiki person pages `people/<slug>.md` on `ContactChanged` (PII stays out of the page). Tools `contact-lookup` (safe), `contact-upsert` (monitor, write), `call-contact` (ask, echo-confirm). `jarvis/telephony/` (`outbound.py`, `twiml.py`, `provisioning.py`, `security.py`, `session.py`) places real outbound calls via Twilio. **Twilio is the optional `[telephony]` extra** — routes (`telephony_routes.py`) + `TelephonyManager` degrade gracefully when absent (AD-T8). Views `TelephonyView.tsx`, `frontend/src/views/contacts/`. |
 | **Marketplace plugins** | ✅ | `jarvis/marketplace/` (catalog + `auth/` OAuth + `oauth_callback_server.py` + `plugin_loader.py`/`plugin_registry.py`/`plugin_relevance.py` + `mcp_bridge.py`). The `plugin-tools` entry-point loader expands connected marketplace plugins into live brain tools. Native REST tools where a catalog transport was insufficient: `gmail` (`gmail_rest`, ask — send is consequential) + `vercel` (`vercel_rest`, monitor — read-only). Router-tier, never a spawn (AP-5/AP-14). Route `marketplace_routes.py`; views `MarketplaceView.tsx` (the storefront section: the community index for plugins and skills under one search), `PluginsView.tsx`, `ExtensionsView.tsx`. |
 | **Workflows** | ✅ | `jarvis/workflows/` (`runner.py`, `scheduler.py`, `store.py`, `schema.sql`, `seed.py`). Imperative cron/manual-triggered multi-step pipelines (brain-prompt / harness-dispatch / shell / tool-call / speak steps) — distinct from Phase-6 *missions* (single persistent self-healing action). Route `workflows_routes.py` (CRUD); `bootstrap_workflows` on `app.state`. View `WorkflowsView.tsx`. |
-| **Conductor** | ✅ | **Separate root package `conductor/`** (`api/`, `core/`, `jobs/`, `seed/`, `cli.py`) with its own SQLite store — a YAML-first agentic-workflow canvas (shell/http/agent jobs, cron/webhook/manual triggers, timeline view). Jarvis mounts the Conductor router inside its own FastAPI server → `ConductorView.tsx`. Do not confuse with **Workflows** (imperative, in-`jarvis/`) — Conductor is YAML-first and standalone-capable. |
-| **Jarvis-Agents / Outputs** | ✅ | `jarvis/agents/registry.py` builds an in-RAM agent event tree from the EventBus (harness/Brain/Tool signals; TTL-cached, no DB) → `sub_agents_routes.py` (`/api/sub-agents/tree`) + `SubAgentsView.tsx`. **Outputs** (`outputs_routes.py` + `OutputsView.tsx`) list a mission's *deliverables* from the filesystem (`<repo_parent>/sub-agents-outputs/<slug>/`, NOT a DB). An "artifact" is a `.md`/PDF/HTML/code file a worker produced. Per-artifact download (`Content-Disposition` attachment) / view (server-rendered markdown→HTML under a strict `default-src 'none'` CSP) / desktop-only reveal+open-with-default-app via `jarvis/platform/open_path.py`; native actions are off on headless/VPS (`native_file_actions` launcher flag). |
+| **Conductor** | ✅ | **Separate root package `conductor/`** (`api/`, `core/`, `jobs/`, `seed/`, `cli.py`) with its own SQLite store — a YAML-first agentic-workflow canvas (shell/http/agent jobs, cron/webhook/manual triggers, timeline view). Dodaios mounts the Conductor router inside its own FastAPI server → `ConductorView.tsx`. Do not confuse with **Workflows** (imperative, in-`jarvis/`) — Conductor is YAML-first and standalone-capable. |
+| **Dodaios-Agents / Outputs** | ✅ | `jarvis/agents/registry.py` builds an in-RAM agent event tree from the EventBus (harness/Brain/Tool signals; TTL-cached, no DB) → `sub_agents_routes.py` (`/api/sub-agents/tree`) + `SubAgentsView.tsx`. **Outputs** (`outputs_routes.py` + `OutputsView.tsx`) list a mission's *deliverables* from the filesystem (`<repo_parent>/sub-agents-outputs/<slug>/`, NOT a DB). An "artifact" is a `.md`/PDF/HTML/code file a worker produced. Per-artifact download (`Content-Disposition` attachment) / view (server-rendered markdown→HTML under a strict `default-src 'none'` CSP) / desktop-only reveal+open-with-default-app via `jarvis/platform/open_path.py`; native actions are off on headless/VPS (`native_file_actions` launcher flag). |
 | **Frontier (model auto-switch)** | ✅ | `jarvis/brain/frontier_{resolver,autoswitch}.py` query each provider's `/v1/models` at boot, detect newer models, and propose switching `BrainProviderConfig`; the user acknowledges via a modal → `POST /api/frontier/ack`. Route `frontier_routes.py` (`/api/frontier/{pending,ack}`); cache `data/frontier_cache.json` (24h TTL). Aligns with the "frontier-quality-before-cost" user preference. |
 | **Preview / Pointer / Federation** | ✅ | `jarvis/preview/registry.py` + `preview_routes.py` — registry of dev-server iframes (Vite `:5173`, Storybook) surfaced in the sidebar; paired with the `start-preview-server` / `verify-localhost` self-verification tools. `jarvis/pointer/` (`intent.py`, `context.py`, `turn.py`) — "AI Pointer": resolves the UI element under the mouse cursor via the OS accessibility tree (not a screenshot), attached only on deictic intent ("what's that", "click there"); router tool `inspect-pointer`. `federation_proxy_routes.py` — local signing proxy to the Board-federation backend (frontend has no privkey; signs with the credential-store key; path-whitelist anti-traversal). |
 
@@ -106,7 +106,7 @@ Access via `jarvis.core.config.get_secret(key, env_fallback)` only. Hierarchy: O
 
 ### Brain providers + ack-brain
 
-Multi-provider is mandatory — **never hardcode** Anthropic/Claude. Config under `[brain.providers.*]` in `jarvis.toml`. Runtime switch via voice ("Jarvis, switch to Gemini") is a plan requirement; `BrainManager` must support it. Smart fallback chain in `jarvis/brain/manager.py`. Workers use a `claude-cli` backend via Claude Max OAuth (user has no Anthropic API account).
+Multi-provider is mandatory — **never hardcode** Anthropic/Claude. Config under `[brain.providers.*]` in `jarvis.toml`. Runtime switch via voice ("switch to Gemini") is a plan requirement; `BrainManager` must support it. Smart fallback chain in `jarvis/brain/manager.py`. Workers use a `claude-cli` backend via Claude Max OAuth (user has no Anthropic API account).
 
 #### Provider-agnostic features (no provider/model hardcoding) — BINDING
 
@@ -114,7 +114,7 @@ Every feature must work with **whatever brain provider the user has selected/act
 
 When the active/selected provider lacks a needed capability — e.g. a text-only CLI brain (`antigravity` / `codex-CLI`) cannot see images for Computer-Use — fall through to the first **available** provider that *has* the capability, provider-agnostically and never pinned to a favorite; if none is available, degrade gracefully with an honest message. A provider or model literal may appear **only** as a documented default/fallback (a plugin's own `DEFAULT_MODEL`) or behind a runtime capability probe — never as the gate that decides whether a feature runs. The Computer-Use "no vision" incident was a *capability-flag* bug (grok's `supports_vision` was wrongly `False`) — the correct fix was to set the flag, **not** to pin Computer-Use to grok. This generalizes AP-6 (don't hardcode Claude) to **don't hardcode *any* provider** (see AP-21).
 
-**Open-source single-provider resilience (BINDING).** This is an open-source project: it must work for **any** downloader with **whatever single provider key** they happen to have. So the same fall-through is mandatory when the active/selected provider *fails at runtime* — its key is missing/empty, it is rate-limited (HTTP 429), out of credit (HTTP 402), or unreachable: the chain MUST advance to the next **available** provider in a **different family**, never retry the same dead one, never give up. **No single provider being absent or depleted may brick a core path** — and "core path" is not only the deep answer: it is the **router**, the **ack/flash** tier, the **STT (voice input)**, the **Jarvis-Agent/mission worker**, and the **mission critic**. A tier whose primary AND its fallback resolve to the same provider family is a single-provider brick (see AP-22). Build every tier's chain from the providers that *actually have a usable key at runtime* (model it on `manager._build_fallback_chain` + the pre-boot key check), never from hardcoded names. Recovery from a dead provider must be reachable **in-app**, never via a hand-edited `jarvis.toml` or a spun-up cloud instance.
+**Open-source single-provider resilience (BINDING).** This is an open-source project: it must work for **any** downloader with **whatever single provider key** they happen to have. So the same fall-through is mandatory when the active/selected provider *fails at runtime* — its key is missing/empty, it is rate-limited (HTTP 429), out of credit (HTTP 402), or unreachable: the chain MUST advance to the next **available** provider in a **different family**, never retry the same dead one, never give up. **No single provider being absent or depleted may brick a core path** — and "core path" is not only the deep answer: it is the **router**, the **ack/flash** tier, the **STT (voice input)**, the **Dodaios-Agent/mission worker**, and the **mission critic**. A tier whose primary AND its fallback resolve to the same provider family is a single-provider brick (see AP-22). Build every tier's chain from the providers that *actually have a usable key at runtime* (model it on `manager._build_fallback_chain` + the pre-boot key check), never from hardcoded names. Recovery from a dead provider must be reachable **in-app**, never via a hand-edited `jarvis.toml` or a spun-up cloud instance.
 
 Ack-Brain (`jarvis/brain/ack_brain/`) emits a sub-second butler-style preamble before the deep brain replies. Suppress-if-fast gate at 2000ms keeps it out of the way when the deep brain is already fast.
 
@@ -128,7 +128,7 @@ Pydantic and TypeScript, parity-tested):
 
 | Surface | What a typed turn is | Runner per seat | Permission ladder |
 |---|---|---|---|
-| `"jarvis"` — the front page's Chat section | **Jarvis with a keyboard**: the same assistant the microphone talks to (soul, persona, profile, identity card, memory, wiki, skills, ALL tools through the risk tiers) on the model the composer picked for THIS chat | EVERY seat → `runner_brain` (`BrainManager.generate` + a `TurnOverride`). No CLI seats at all (`SurfaceKit.cli_seats = False`) | ONE ladder in Claude Code's words — `ask` / `accept-edits` / `bypass` + `plan` |
+| `"jarvis"` — the front page's Chat section | **Dodaios with a keyboard**: the same assistant the microphone talks to (soul, persona, profile, identity card, memory, wiki, skills, ALL tools through the risk tiers) on the model the composer picked for THIS chat | EVERY seat → `runner_brain` (`BrainManager.generate` + a `TurnOverride`). No CLI seats at all (`SurfaceKit.cli_seats = False`) | ONE ladder in Claude Code's words — `ask` / `accept-edits` / `bypass` + `plan` |
 | `"agent"` — the Agentic IDE's chat mode | a plain coding-agent session in a folder | `runner_api` (tool loop) or a plain `runner_cli` | the vendor's own ladder |
 
 **Which providers a surface may be seated on** is `catalog.rows_for(surface)`,
@@ -156,10 +156,10 @@ pick runs on its own cached instance (`_get_brain(scope=)`), so its credential
 voice's. `switch(persist=False)` / `apply_provider_model` per chat turn is the
 mistake that got the first version reverted (ce3fb9673).
 
-**Hands and approvals.** The folder chip is Jarvis' working folder for the
+**Hands and approvals.** The folder chip is Dodaios' working folder for the
 chat: `folder_tools.py` wraps Read/Write/Edit/Ls/Glob/Grep/RunCommand as real
 `Tool`s (reads `safe`, writes and the shell `ask`) so they run through
-`ToolExecutor` like every other Jarvis tool — one safety path (AP-3), the
+`ToolExecutor` like every other Dodaios tool — one safety path (AP-3), the
 blacklist matching `"RunCommand <cmd>"`. A gate the executor raises is answered
 by the chat's clickable card, not the voice's two-turn "yes": the turn's tool
 context declares `approval_surface: interactive` + an `approval_ref`
@@ -171,21 +171,21 @@ handler) turns the stance into a decision: `ask` cards everything consequential,
 gate itself; `plan` offers reading hands only. The blacklist is never reached
 from here in any stance.
 
-**A CLI seat as Jarvis** (built, currently unreachable). No surface seats a
-CLI as Jarvis any more — the front page dropped its CLI seats on 2026-08-26
+**A CLI seat as Dodaios** (built, currently unreachable). No surface seats a
+CLI as Dodaios any more — the front page dropped its CLI seats on 2026-08-26
 and the IDE's chat runs a plain coding agent — so `run_cli_turn(identity=…)`
 is False on every turn today. The machinery stays wired to the kit
 (`kit.brain_runner and kit.cli_seats`) rather than to a surface name, so a
 surface that wants both works without a rebuild. How it works, when reached:
 a subscription CLI keeps its own loop (that is what the subscription pays
-for; only the vendor's official binary spends it) but runs with Jarvis' head: `BrainManager.render_surface_prompt` renders the
+for; only the vendor's official binary spends it) but runs with Dodaios' head: `BrainManager.render_surface_prompt` renders the
 voice turn's prompt layers read-only, `jarvis_harness.build_identity` adds the
 chat's transcript on a fresh conversation and the surface addendum, and each
 CLI takes it the way it can (Claude Code: `--append-system-prompt-file`; Codex
 and agy: in front of the stdin prompt; Grok Build: a compact cut on argv). The
 CLI's MCP config names the session in an `X-Jarvis-Chat-Session` header;
 `mcp_server_routes` reads it into `jarvis_tools_server.CHAT_SESSION_REF`, and a
-Jarvis tool the CLI reaches over MCP asks on the chat's card instead of failing
+Dodaios tool the CLI reaches over MCP asks on the chat's card instead of failing
 fast as unattended.
 
 ### Risk-Tier system
@@ -270,9 +270,9 @@ The six desktop power-user features that were historically Windows-only are now 
 
 - **Dependency reality (AD-14 — do not "fix" this):** `pynput` + `ptyprocess` live in the `[desktop]` extra (`ptyprocess` gated `sys_platform != 'win32'`); `pyobjc-framework-{Quartz,ApplicationServices,Accessibility}` in `[desktop-macos]` (`sys_platform == 'darwin'`). **Linux `pyatspi` is NOT on PyPI — never add it as a pip dependency.** It is GObject-Introspection, distro-packaged (`apt install python3-pyatspi gir1.2-atspi-2.0`), surfaced via the `capabilities.has_ax_tree` runtime probe.
 - **Doctrine intact:** the headless €5-VPS base install ships **none** of these desktop extras and still boots on a fresh `python:3.11-slim` Linux container — every port is extras-gated and degrades to a logged no-op (AD-6) when its capability is absent.
-- **Overlay display styles:** `[ui] orb_style` picks the on-screen surface — the slim Jarvis bar, or one of three looks of the floating orb window (`mascot`, `voice_orb`, `pet`), or none. The vocabulary lives in `jarvis/ui/overlay_styles.py`; `ui/orb/bus_bridge.py` drives every surface from bus events. Every switch applies live: orb-window looks re-style one window, and a surface the app has not built yet starts in its own host process (`jarvis/ui/jarvisbar/host.py`), because a second in-process Tk root aborts the app (BUG-031). The desktop pet (animated pixel-art sprites, control strip, status bubble) is specified in [`docs/pets.md`](pets.md).
+- **Overlay display styles:** `[ui] orb_style` picks the on-screen surface — the slim Dodaios bar, or one of three looks of the floating orb window (`mascot`, `voice_orb`, `pet`), or none. The vocabulary lives in `jarvis/ui/overlay_styles.py`; `ui/orb/bus_bridge.py` drives every surface from bus events. Every switch applies live: orb-window looks re-style one window, and a surface the app has not built yet starts in its own host process (`jarvis/ui/jarvisbar/host.py`), because a second in-process Tk root aborts the app (BUG-031). The desktop pet (animated pixel-art sprites, control strip, status bubble) is specified in [`docs/pets.md`](pets.md).
 - **Computer-Use screen indicator (ADR-0028):** while a CU mission drives the
-  local mouse/keyboard, a breathing Jarvis-gold border glows on every monitor
+  local mouse/keyboard, a breathing Dodaios-gold border glows on every monitor
   edge with a localized "Esc to cancel" pill. It is a minimal
   PySide6 sidecar (`jarvis/cu/indicator`, `pyside6-essentials` in
   `[desktop]`) spawned lazily per mission off the `CUControlStarted/Ended`
@@ -289,14 +289,14 @@ The six desktop power-user features that were historically Windows-only are now 
 - **Subprocess hygiene:** every `subprocess.*` / `asyncio.create_subprocess_exec` call must pass `creationflags=NO_WINDOW_CREATIONFLAGS` from `jarvis/core/process_utils.py`. Missing this triggers the BUG-012 flicker storm under `pythonw.exe`.
 - **Audio:** WASAPI via `sounddevice`. **WDM-KS host-API is forbidden** (`_FORBIDDEN_OUTPUT_HOSTAPIS` in `jarvis/audio/player.py`) — PortAudio's blocking write API crashes there (BUG-014). Pattern-match device names on shortest unique token (`"PRO X"`), not marketing name.
 - **Hotkeys:** `global-hotkeys`. Avoid `Alt+F4`, `Ctrl+C`, `Win+*`. Safe combos: `ctrl+right_alt+<letter>`.
-- **No Windows Service.** SYSTEM user has no headset/mic access. Jarvis is a tray app in the user session under `pythonw.exe`; autostart via shortcut in `shell:startup`.
+- **No Windows Service.** SYSTEM user has no headset/mic access. Dodaios is a tray app in the user session under `pythonw.exe`; autostart via shortcut in `shell:startup`.
 - **UAC manifest:** `asInvoker`. Elevate per-action, never globally.
 
 ---
 
 ## Brand mark / logo (BINDING)
 
-**The official Jarvis logo is the hooded figure** in `assets/brand/dodaios-logo.svg` (black ink on white, one even-odd path). Every app icon — `assets/icons/jarvis.ico`/`.icns`/`jarvis-1024.png`, the bundled `jarvis/assets/icons/jarvis.png`, the DEV copy, the frontend favicon, splash and `jarvis-mark-256.png` — is rendered from it by `python scripts/make_app_icon.py`, which also writes `src/components/brand/jarvisLogoPath.ts` for the in-app mark; `tests/test_app_icon.py` fails when the two drift. Edit the SVG and re-run the script; never hand-edit a PNG or ICO.
+**The official Dodaios logo is the hooded figure** in `assets/brand/dodaios-logo.svg` (black ink on white, one even-odd path). Every app icon — `assets/icons/jarvis.ico`/`.icns`/`jarvis-1024.png`, the bundled `jarvis/assets/icons/jarvis.png`, the DEV copy, the frontend favicon, splash and `jarvis-mark-256.png` — is rendered from it by `python scripts/make_app_icon.py`, which also writes `src/components/brand/jarvisLogoPath.ts` for the in-app mark; `tests/test_app_icon.py` fails when the two drift. Edit the SVG and re-run the script; never hand-edit a PNG or ICO.
 
 ---
 
@@ -304,7 +304,7 @@ The six desktop power-user features that were historically Windows-only are now 
 
 **The wake word is whatever the user configures (`[trigger.wake_word]`), and EVERY part of the wake path must work with ANY such phrase — never hardcode, assume, or special-case a specific wake word.** There is no built-in/trademarked default ("Hey Jarvis", "Alexa", etc. are NOT assumed); the maintainer's own is a custom phrase, but the code must behave identically for any phrase the user picks. This applies end-to-end: the wake-plan resolver, the OpenWakeWord vs. custom-phrase (`stt_match` rolling-Whisper) routing, the phrase matcher/verifier, AND the wake transcription itself.
 
-Concretely, for the custom-phrase (`stt_match`) path: the rolling-Whisper wake **must transcribe in the user's wake language** (`[stt].wake_language`, default `de`) and must NOT silently auto-detect — auto-detect mis-hears a German/short wake phrase as English and mangles it, so the phrase never matches and the wake never fires. A wake word that the user set but that Jarvis cannot recognize is a release-blocking bug. Regression-guard any change here against at least one non-English custom phrase.
+Concretely, for the custom-phrase (`stt_match`) path: the rolling-Whisper wake **must transcribe in the user's wake language** (`[stt].wake_language`, default `de`) and must NOT silently auto-detect — auto-detect mis-hears a German/short wake phrase as English and mangles it, so the phrase never matches and the wake never fires. A wake word that the user set but that Dodaios cannot recognize is a release-blocking bug. Regression-guard any change here against at least one non-English custom phrase.
 
 ---
 

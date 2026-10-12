@@ -2294,7 +2294,7 @@ _SELF_CONTROL_NOUN_RE = re.compile(
 # as the detailed intensifier.
 _SELF_CONTROL_STANDING = (
     "SELF-CONTROL (always in effect): When the user asks you to change or "
-    "check anything about Jarvis itself — wake phrase, voice, volume, "
+    "check anything about Dodaios itself — wake phrase, voice, volume, "
     "providers, languages, settings, restart, missions/tasks — you CAN do it "
     "yourself with the registry command tools in your tool set (e.g. "
     "`wake-word-set`, `brain-switch`, `provider-test`, `tts-volume-set`, "
@@ -2306,7 +2306,7 @@ _SELF_CONTROL_STANDING = (
 )
 
 _SELF_CONTROL_DIRECTIVE = (
-    "SELF-CONTROL: The user is asking to change or control Jarvis's OWN settings, "
+    "SELF-CONTROL: The user is asking to change or control Dodaios's OWN settings, "
     "configuration, providers, voice, language, or behavior. You have full "
     "control over this. PREFER the registry command tools — `brain-switch`, "
     "`tts-switch`, `provider-test`, `wake-word-set`, `reply-language-set`, "
@@ -4246,7 +4246,7 @@ class BrainManager:
         parts: list[str] = []
 
         # The assistant's identity, placed first so it frames everything: the
-        # wake-word name (Personal Jarvis is the app, never the assistant's
+        # wake-word name (Dodaios is the app, never the assistant's
         # name) plus its character from SOUL.md, read through an mtime cache
         # so what the learning loop writes there reaches the next turn. The
         # realtime and GPT-Live instructions build the same block

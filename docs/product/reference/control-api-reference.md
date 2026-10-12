@@ -16,17 +16,17 @@ related: [cli-reference, app-command-reference, credentials-and-secrets, archite
 ---
 
 The Control API lets a trusted terminal, agent, or integration operate a running
-Personal Jarvis instance over HTTP instead of using screen automation. Jarvis
+Dodaios instance over HTTP instead of using screen automation. Dodaios
 serves a broad REST surface under `/api/*`; `/api/control/*` is the focused
 facade for configuration, providers, languages, secrets, and the Control key.
 
 ## Before You Start
 
-- Start the Jarvis instance you intend to control.
+- Start the Dodaios instance you intend to control.
 - Use that instance's Control key for programmatic access. Provider keys do not
-  authenticate Jarvis itself.
+  authenticate Dodaios itself.
 - Keep loopback access for same-computer use. For remote access, use HTTPS on a
-  private network or an encrypted tunnel. Jarvis does not add TLS to plain HTTP.
+  private network or an encrypted tunnel. Dodaios does not add TLS to plain HTTP.
 - Choose REST, the smaller App Command catalog, or a curated CLI command before
   building a client.
 
@@ -80,7 +80,7 @@ for the desktop and browser interface.
 | Caller | Credential flow | Important boundary |
 |---|---|---|
 | Desktop or browser | A one-use bootstrap token or accepted Control key becomes an HTTP-only session cookie | Exchange requires HTTPS or direct loopback access |
-| Jarvis CLI | Local discovery or a saved profile supplies the target and Control key | Use the hidden login prompt, not an inline key |
+| Dodaios CLI | Local discovery or a saved profile supplies the target and Control key | Use the hidden login prompt, not an inline key |
 | Custom client | A secret manager supplies the Control key as the Bearer credential | Keep it out of code, traces, and diagnostics |
 
 The outer security boundary accepts a valid Control key or app session for most
@@ -103,14 +103,14 @@ update every CLI profile and integration. The corresponding routes are
 
 ## Follow the Request Lifecycle
 
-| Stage | What Jarvis checks or does | Typical failure |
+| Stage | What Dodaios checks or does | Typical failure |
 |---|---|---|
 | 1. Resolve target | The client chooses the host and port; local CLI discovery can find a changed desktop port | Connection failure or stale target |
-| 2. Guard access | Jarvis checks Host, Origin where applicable, and the credential | `400`, `401`, or `403` |
+| 2. Guard access | Dodaios checks Host, Origin where applicable, and the credential | `400`, `401`, or `403` |
 | 3. Validate and run | FastAPI validates input, then the route applies its allowlist, safety, state, and capability checks | `400`, `403`, `404`, `409`, `422`, or `503` |
 | 4. Return | The route reports its result or error | JSON, empty `204`, or another declared content type |
 
-> [!warning] `--dry-run` and `--yes` are Jarvis CLI safeguards, not HTTP
+> [!warning] `--dry-run` and `--yes` are Dodaios CLI safeguards, not HTTP
 > protocol features. Direct REST mutations run the checks on that route but do
 > not open the app's conversational approval flow.
 
@@ -175,7 +175,7 @@ operator-supplied base URL rather than assume that value.
 Headless mode serves the same REST application. It does not create missing
 desktop capabilities: audio-device, overlay, accessibility, file-opening, and
 other graphical operations can return an unavailable response even though they
-appear in OpenAPI. Every action happens on the Jarvis host, not necessarily on
+appear in OpenAPI. Every action happens on the Dodaios host, not necessarily on
 the computer running the client.
 
 During warm-up, the listener can accept a connection before the full application
@@ -213,7 +213,7 @@ status and content type before interpreting the body.
 | `410` | A pending config change expired, was consumed, or is unknown | Create a new pending change and review it again |
 | `422` | Query or body fields failed schema validation | Read the validation details and correct types, required fields, or allowed values |
 | `500` | Storage or an internal operation failed | Preserve non-secret diagnostics and check local app health before retrying |
-| `503` | Jarvis is warming up or the requested subsystem or host capability is unavailable | Wait briefly for startup, then inspect the feature's readiness |
+| `503` | Dodaios is warming up or the requested subsystem or host capability is unavailable | Wait briefly for startup, then inspect the feature's readiness |
 
 Retry read-only requests with bounded backoff when transport or warm-up fails.
 Do not automatically retry a mutation after a timeout: the server may have
@@ -230,7 +230,7 @@ be interpreted from that route's schema.
 ## How It Fits Together
 
 1. A desktop control, CLI command, App Command, or custom client starts an
-   operation and identifies the running Jarvis target.
+   operation and identifies the running Dodaios target.
 2. [Credentials and Secrets](credentials-and-secrets) supplies either the
    Control key to a trusted program or an app session to the browser. Provider
    credentials are separate and cannot authenticate this step.
@@ -243,7 +243,7 @@ be interpreted from that route's schema.
 5. Permissions, safety policy, connected-service access, and host capabilities
    apply where that route implements them. A valid Control key never creates a
    missing provider, desktop permission, audio device, or approval.
-6. Jarvis returns the real route result. If a preferred provider or local
+6. Dodaios returns the real route result. If a preferred provider or local
    capability is unavailable, the feature either follows its configured
    fallback path or reports that limitation; the API does not invent success.
 
@@ -253,7 +253,7 @@ business logic.
 
 ## Check That It Works
 
-With Jarvis running, use the CLI's read-only authentication check:
+With Dodaios running, use the CLI's read-only authentication check:
 
 ```powershell
 jarvis --json auth status

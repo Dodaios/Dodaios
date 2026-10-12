@@ -38,7 +38,7 @@ _OUTPUT_CONTRACT = """\
 The single most important decision you make is: "does this source carry
 a fact worth persisting, or is it smalltalk?". Get this wrong in the
 direction of false positives and the wiki fills with chitchat. Get it
-wrong in the direction of false negatives and Personal Jarvis forgets
+wrong in the direction of false negatives and Dodaios forgets
 real facts about its user. Apply the two lists below before considering
 any update.
 
@@ -363,7 +363,7 @@ def build_system_prompt(
     """
 
     parts: list[str] = [
-        "You are the long-term knowledge-wiki curator for Personal Jarvis.",
+        "You are the long-term knowledge-wiki curator for Dodaios.",
         "Your job: turn one new source into a small, coherent set of",
         "wiki page updates. Follow the schema below without exception.",
         "",
@@ -477,7 +477,7 @@ salience=1-5 (how central the fact is to the user's own life).
 
 Explicit persistence requests are binding across all supported conversation
 languages (English, German, and Spanish):
-- When the user asks Jarvis to remember, note, save, record, or add something
+- When the user asks the assistant to remember, note, save, record, or add something
   to the wiki AND separately discloses a supported fact, elevate that fact.
   The primary decision MUST be "add" or "update" unless the exact fact already
   appears unchanged in an existing page or the proposed fact is not supported
