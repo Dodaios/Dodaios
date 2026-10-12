@@ -2,7 +2,7 @@
 
     python scripts/make_app_icon.py
 
-The single source is ``assets/brand/jarvis-logo.svg``: the hooded figure as one
+The single source is ``assets/brand/dodaios-logo.svg``: the hooded figure as one
 even-odd path in a ``0 0 256 256`` viewBox. Everything else is generated from
 it — the taskbar/dock tile at every ICO size, the 1024 px master the macOS
 ``.icns`` is built from, the DEV-badged copy, the free-standing white mark for
@@ -29,7 +29,7 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-LOGO_SVG = ROOT / "assets" / "brand" / "jarvis-logo.svg"
+LOGO_SVG = ROOT / "assets" / "brand" / "dodaios-logo.svg"
 FRONTEND = ROOT / "jarvis" / "ui" / "web" / "frontend"
 LOGO_TS = FRONTEND / "src" / "components" / "brand" / "jarvisLogoPath.ts"
 VIEWBOX = 256.0
@@ -187,7 +187,7 @@ def write_ico(path: Path, members: list[Image.Image]) -> None:
 
 def logo_ts_source(d: str) -> str:
     return (
-        "// Generated from assets/brand/jarvis-logo.svg by scripts/make_app_icon.py.\n"
+        "// Generated from assets/brand/dodaios-logo.svg by scripts/make_app_icon.py.\n"
         '// The Personal Jarvis mark in a 0 0 256 256 viewBox; fill it with fill-rule="evenodd".\n'
         f'export const JARVIS_LOGO_PATH =\n  "{d}";\n'
     )
