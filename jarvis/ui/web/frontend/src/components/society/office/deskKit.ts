@@ -540,14 +540,20 @@ const LEAD_CHAIR = { z: 0.62, axisZ: -0.288, radius: 0.55, midY: 0.86, recline: 
 const STAND_TILT = -0.7;
 /** The stand is turned towards the view from the south-east. */
 const STAND_YAW = 0.66;
+/**
+ * The lead's chair wears one deep red in every studio. In the team's own colour it vanished among the studio's
+ * chairs, which already wear that colour; this red keeps its distance from every studio's seat fabric, wall panel
+ * and rug and from the chairs' dark mesh (deskKit.test.ts measures it).
+ */
+export const LEAD_CHAIR_COLOUR = "#a3202f";
 
 /**
- * What marks a team lead's place, in desk-local space, each group in the team's colour:
- * - `chair`: a shell on the back of the task chair (three panels round its curve) with a bronze cap along its top
- *   edge, and a pad on the seat. The chair is what the camera sees first, and it stays when the lead is away.
- * - `mat`: a chair mat on the floor under the chair, which is what reads from the overview.
- * - `stand`: a tent card on the desk's front right corner: an oak base and a plate leaning back towards the
- *   camera, with a pale name line and a bronze top edge.
+ * What marks a team lead's place, in desk-local space:
+ * - `chair`: a deep red shell on the back of the task chair (three panels round its curve) with a bronze cap along
+ *   its top edge, and a pad on the seat in the same red. The chair is what the camera sees first, and it stays when the lead is away.
+ * - `mat`: a chair mat in the team's colour on the floor under the chair, which is what reads from the overview.
+ * - `stand`: a tent card on the desk's front right corner: an oak base and a plate in the team's colour leaning
+ *   back towards the camera, with a pale name line and a bronze top edge.
  * Made of parts the desk kit already draws, plus one plain coloured box; everything stays inside the desk and the
  * strip its chair rolls on.
  */
@@ -558,7 +564,7 @@ export function leadMark(colour: string): { chair: Placement[]; mat: Placement[]
   for (const [theta, h] of [[0, 0.44], [-0.29, 0.4], [0.29, 0.4]] as const) {
     const x = Math.sin(theta) * r, z = LEAD_CHAIR.z + LEAD_CHAIR.axisZ + Math.cos(theta) * r;
     const y = LEAD_CHAIR.midY - (theta === 0 ? 0 : 0.012);
-    chair.push({ part: "felt", p: [x, y, z], r: [recline, theta, 0], s: [0.172, h, 0.02], c: colour });
+    chair.push({ part: "felt", p: [x, y, z], r: [recline, theta, 0], s: [0.172, h, 0.02], c: LEAD_CHAIR_COLOUR });
     // The cap sits on the panel's top edge, in the panel's own lean.
     const up = h / 2 + 0.011;
     chair.push({
@@ -567,7 +573,7 @@ export function leadMark(colour: string): { chair: Placement[]; mat: Placement[]
     });
   }
   // The pad rests in the seat's dish and stands a few millimetres proud of its rim.
-  chair.push({ part: "felt", p: [0, LEAD_CHAIR.seatTop + 0.007, LEAD_CHAIR.z - 0.02], s: [0.36, 0.018, 0.34], c: colour });
+  chair.push({ part: "felt", p: [0, LEAD_CHAIR.seatTop + 0.007, LEAD_CHAIR.z - 0.02], s: [0.36, 0.018, 0.34], c: LEAD_CHAIR_COLOUR });
 
   // Above the studio's rug (its field lies at 7 mm), below the light pools (12 mm).
   const mat: Placement[] = [{ part: "felt", p: [0, 0.009, 0.725], s: [1.15, 0.003, 0.95], c: colour }];
