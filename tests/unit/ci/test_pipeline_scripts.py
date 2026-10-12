@@ -560,6 +560,54 @@ def test_train_updates_only_conflicting_or_stale_red_branches():
     assert decide("UNKNOWN", "approve", False) == "approve"
 
 
+def test_train_gives_its_update_slots_to_the_pull_requests_that_can_land():
+    wanted = [
+        # The oldest ones: an unresolved conflict and a pull request with red CI.
+        {"number": 1, "labels": ["needs-rebase"], "state": "success"},
+        {"number": 2, "labels": [], "state": "failure"},
+        {"number": 3, "labels": ["needs-rebase"], "state": "failure"},
+        # Green pull requests that only conflict with main.
+        {"number": 4, "labels": ["auto-merge"], "state": "success"},
+        {"number": 5, "labels": [], "state": "success"},
+        {"number": 6, "labels": [], "state": "success"},
+    ]
+    assert agent_integrate.grant_updates(wanted, 3) == {4, 5, 6}
+    # A free slot still goes to the red one before the conflict nobody resolved.
+    assert agent_integrate.grant_updates(wanted, 4) == {2, 4, 5, 6}
+    assert agent_integrate.grant_updates(wanted, 6) == {1, 2, 3, 4, 5, 6}
+    # `priority` moves a pull request to the front, whatever its state.
+    urgent = [*wanted, {"number": 9, "labels": ["priority", "needs-rebase"], "state": "failure"}]
+    assert agent_integrate.grant_updates(urgent, 1) == {9}
+    assert agent_integrate.grant_updates(wanted, 0) == set()
+
+
+def test_train_asks_again_while_github_computes_mergeability(monkeypatch):
+    def listing(state: str) -> list[dict]:
+        own = {"baseRefName": "main", "isDraft": False, "labels": [], "mergeable": state}
+        return [
+            {**own, "number": 1, "headRefName": "claude/a"},
+            {**own, "number": 2, "headRefName": "feature/not-on-the-train", "mergeable": "UNKNOWN"},
+        ]
+
+    answers = [listing("UNKNOWN"), listing("UNKNOWN"), listing("CONFLICTING")]
+    asked: list[tuple[str, ...]] = []
+    naps: list[float] = []
+
+    def fake_gh_json(*args: str) -> object:
+        asked.append(args)
+        return answers[min(len(asked), len(answers)) - 1]
+
+    monkeypatch.setattr(agent_integrate, "gh_json", fake_gh_json)
+    prs = agent_integrate.open_pull_requests("example/project", pause=7.0, sleep=naps.append)
+    # An ineligible pull request never keeps the train waiting.
+    assert prs[0]["mergeable"] == "CONFLICTING" and len(asked) == 3 and naps == [7.0, 7.0]
+
+    asked.clear(), naps.clear()
+    answers[:] = [listing("UNKNOWN")]
+    prs = agent_integrate.open_pull_requests("example/project", attempts=3, sleep=naps.append)
+    assert prs[0]["mergeable"] == "UNKNOWN" and len(asked) == 3 and len(naps) == 2
+
+
 def test_train_leaves_a_queued_pull_request_to_the_queue():
     decide = agent_integrate.decide
     assert decide("MERGEABLE", "success", True, queued=True) == "queued"
