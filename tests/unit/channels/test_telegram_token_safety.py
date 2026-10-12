@@ -12,6 +12,7 @@ import logging
 import sys
 import traceback
 import types
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -175,20 +176,147 @@ async def test_workflow_network_error_has_no_url_or_token(
         await _runner()._run_telegram_send(telegram_step, {}, {})
     assert str(exc.value) == "Telegram request failed: ConnectError"
     assert FAKE_TOKEN not in _all_text(exc.value)
+    assert exc.value.__cause__ is None and exc.value.__context__ is None
 
 
-async def test_workflow_http_error_carries_no_provider_body(
-    monkeypatch: pytest.MonkeyPatch, telegram_step: Any
-) -> None:
+def _answer(monkeypatch: pytest.MonkeyPatch, response: httpx.Response) -> None:
     async def _post(self: Any, url: str, **_k: Any) -> Any:
-        return httpx.Response(
-            400, json={"ok": False, "description": f"Bad Request: chat not found {FAKE_TOKEN}"}
-        )
+        return response
 
     monkeypatch.setattr(httpx.AsyncClient, "post", _post)
+
+
+@pytest.mark.parametrize(
+    ("status", "description", "expected"),
+    [
+        (400, "Bad Request: chat not found", "the chat was not found"),
+        (403, "Forbidden: bot was blocked by the user", "the recipient blocked the bot"),
+        (
+            403,
+            "Forbidden: bot can't initiate conversation with a user",
+            "has not started a chat with the bot",
+        ),
+        (400, "Bad Request: can't parse entities: Can't find end", "formatting is not valid"),
+        (401, "Unauthorized", "the bot token was rejected"),
+        (404, "Not Found", "the bot token was rejected"),
+        (403, "Forbidden: something new", "not allowed to write to that chat"),
+        (502, "Bad Gateway", "not available right now"),
+    ],
+)
+async def test_workflow_http_error_says_why_in_its_own_words(
+    monkeypatch: pytest.MonkeyPatch,
+    telegram_step: Any,
+    status: int,
+    description: str,
+    expected: str,
+) -> None:
+    """The person learns why the send failed, from a sentence written here:
+    Telegram's own text and the token are never part of it."""
+    _answer(
+        monkeypatch,
+        httpx.Response(
+            status,
+            json={"ok": False, "error_code": status, "description": f"{description} {FAKE_TOKEN}"},
+        ),
+    )
     with pytest.raises(RuntimeError) as exc:
         await _runner()._run_telegram_send(telegram_step, {}, {})
-    assert str(exc.value) == "Telegram HTTP 400"
+    text = str(exc.value)
+    assert text.startswith(f"Telegram HTTP {status}: ") and expected in text
+    assert FAKE_TOKEN not in _all_text(exc.value)
+    assert description not in text  # matched, never passed on
+
+
+async def test_workflow_rate_limit_names_the_wait(
+    monkeypatch: pytest.MonkeyPatch, telegram_step: Any
+) -> None:
+    _answer(
+        monkeypatch,
+        httpx.Response(
+            429,
+            json={
+                "ok": False,
+                "description": "Too Many Requests: retry after 17",
+                "parameters": {"retry_after": 17},
+            },
+        ),
+    )
+    with pytest.raises(RuntimeError) as exc:
+        await _runner()._run_telegram_send(telegram_step, {}, {})
+    assert str(exc.value) == (
+        "Telegram HTTP 429: Telegram is rate limiting the bot; try again in 17 s"
+    )
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(400, json={"ok": False, "description": f"Bad Request: new {FAKE_TOKEN}"}),
+        httpx.Response(400, text=f"<html>proxy error for /bot{FAKE_TOKEN}/sendMessage</html>"),
+        httpx.Response(400, json=[f"unexpected {FAKE_TOKEN}"]),
+        httpx.Response(
+            429, json={"ok": False, "parameters": {"retry_after": f"soon {FAKE_TOKEN}"}}
+        ),
+    ],
+)
+async def test_workflow_unknown_http_error_keeps_only_the_status(
+    monkeypatch: pytest.MonkeyPatch, telegram_step: Any, response: httpx.Response
+) -> None:
+    _answer(monkeypatch, response)
+    with pytest.raises(RuntimeError) as exc:
+        await _runner()._run_telegram_send(telegram_step, {}, {})
+    assert str(exc.value).startswith(f"Telegram HTTP {response.status_code}")
+    assert FAKE_TOKEN not in _all_text(exc.value)
+
+
+async def test_a_failed_workflow_run_stores_and_logs_no_token(
+    monkeypatch: pytest.MonkeyPatch,
+    telegram_step: Any,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """End to end: the run record, the step record and every log line of a
+    failed ``telegram_send`` step, with the token echoed in the error body."""
+    import asyncio
+
+    from jarvis.workflows import WorkflowRunner, WorkflowStore
+    from jarvis.workflows.schema import ManualTrigger, TelegramSendStep, WorkflowDef
+
+    _answer(
+        monkeypatch,
+        httpx.Response(
+            400,
+            json={
+                "ok": False,
+                "description": f"Bad Request: chat not found /bot{FAKE_TOKEN}/sendMessage",
+            },
+        ),
+    )
+    store = WorkflowStore(tmp_path / "wf.sqlite")
+    await store.init()
+    try:
+        runner = WorkflowRunner(store=store, bus=EventBus())
+        workflow_id = await store.upsert_workflow(
+            WorkflowDef(
+                name="TG",
+                trigger=ManualTrigger(),
+                steps=(TelegramSendStep(text="hi", chat_id="4242"),),
+            )
+        )
+        with caplog.at_level(logging.DEBUG):
+            run_id = await runner.trigger(workflow_id)
+            run: dict[str, Any] | None = None
+            for _ in range(200):
+                await asyncio.sleep(0.01)
+                run = await store.get_run(run_id)
+                if run and run["state"] in ("completed", "failed"):
+                    break
+        assert run is not None and run["state"] == "failed"
+        assert "the chat was not found" in (run["error"] or "")
+        assert FAKE_TOKEN not in str(run)
+        assert FAKE_TOKEN not in caplog.text
+    finally:
+        await store.close()
 
 
 # --- httpx request log lines (INFO, full URL) -----------------------------------------

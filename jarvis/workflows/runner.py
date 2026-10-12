@@ -690,26 +690,87 @@ class WorkflowRunner:
         if parse_mode:
             payload["parse_mode"] = parse_mode
 
+        failure: str | None = None
         async with httpx.AsyncClient(timeout=15.0) as client:
             try:
                 r = await client.post(url, json=payload)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — reported below, by type only
                 # The type only: an httpx error can carry the URL, and the URL
-                # carries the bot token. ``from None`` keeps it out of tracebacks.
-                raise RuntimeError(
-                    f"Telegram request failed: {type(exc).__name__}"
-                ) from None
+                # carries the bot token.
+                failure = type(exc).__name__
+        if failure is not None:
+            # Raised outside the handler, so the original error is not even
+            # reachable from this one as its context.
+            raise RuntimeError(f"Telegram request failed: {failure}")
 
         if r.status_code >= 400:
-            # The status only — Telegram's ``description`` is a provider error
-            # body and stays out of the run record, the UI and the log (AP-34).
-            raise RuntimeError(f"Telegram HTTP {r.status_code}")
+            raise RuntimeError(_telegram_failure(r))
         return f"sent to chat_id={chat_id} ({len(text)} characters)"
 
 
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
+
+#: What a failed ``sendMessage`` means, by a fragment of Telegram's
+#: ``description``. The description is only matched: it is a provider error
+#: body and never reaches the run record, the UI or a log (AP-34).
+_TELEGRAM_REASONS: tuple[tuple[str, str], ...] = (
+    (
+        "chat not found",
+        "the chat was not found. Check the chat ID; the recipient has to start "
+        "the bot before it can write to them",
+    ),
+    ("bot was blocked", "the recipient blocked the bot"),
+    ("can't initiate conversation", "the recipient has not started a chat with the bot yet"),
+    ("user is deactivated", "the recipient's account is deactivated"),
+    ("upgraded to a supergroup", "the group became a supergroup and has a new chat ID"),
+    ("bot was kicked", "the bot was removed from that chat"),
+    ("not a member", "the bot is not a member of that chat"),
+    ("rights to send", "the bot is not allowed to post in that chat"),
+    ("can't parse entities", "the message formatting is not valid for the configured parse mode"),
+    ("message is too long", "the message is too long"),
+    ("text is empty", "the message text is empty"),
+)
+
+#: The reason when the description names none of the above.
+_TELEGRAM_STATUS_REASONS: dict[int, str] = {
+    401: "the bot token was rejected. Check it in @BotFather",
+    # Telegram answers a malformed token with 404, not 401.
+    404: "the bot token was rejected. Check it in @BotFather",
+    403: "the bot is not allowed to write to that chat",
+    429: "Telegram is rate limiting the bot",
+}
+
+
+def _telegram_failure(response: Any) -> str:
+    """One sentence for a failed Bot API call: the status and a fixed reason.
+
+    Every word is written here, so neither the bot token nor any text of
+    Telegram's own can end up in it.
+    """
+    status = int(response.status_code)
+    description = ""
+    retry_after: int | None = None
+    try:
+        body = response.json()
+    except ValueError:  # no JSON body (a proxy page): the status decides alone
+        body = None
+    if isinstance(body, dict):
+        description = str(body.get("description") or "").lower()
+        parameters = body.get("parameters")
+        if isinstance(parameters, dict) and isinstance(parameters.get("retry_after"), int):
+            retry_after = parameters["retry_after"]
+    reason = next(
+        (text for fragment, text in _TELEGRAM_REASONS if fragment in description),
+        _TELEGRAM_STATUS_REASONS.get(status),
+    )
+    if reason is None and status >= 500:
+        reason = "Telegram is not available right now"
+    if status == 429 and retry_after is not None and retry_after >= 0:
+        reason = f"{_TELEGRAM_STATUS_REASONS[429]}; try again in {retry_after} s"
+    return f"Telegram HTTP {status}: {reason}" if reason else f"Telegram HTTP {status}"
+
 
 _TEMPLATE_RE = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
 
