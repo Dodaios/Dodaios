@@ -54,6 +54,7 @@ if str(_SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(_SOURCE_ROOT))
 
 from jarvis.core.branding import (  # noqa: E402 - bootstrap source path above
+    LAUNCHER_ENTRY_NAME,
     MACOS_APP_NAME,
     MANAGED_INSTALL_MARKER,
     OFFICIAL_REPO_SLUG,
@@ -591,7 +592,7 @@ def _note_stalled_spotlight() -> None:
     if (result.stdout or "").strip().splitlines()[-1:] != ["False"]:
         return
     note("Spotlight on this Mac is not indexing new apps, so search will not find")
-    note(f"{PRODUCT_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
+    note(f"{LAUNCHER_ENTRY_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
     note("To repair the macOS search index, run:  sudo mdutil -E /")
 
 
@@ -876,14 +877,15 @@ def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
     """
     rows: list[tuple[str, str, str]] = [("Installed to", str(repo_root()), "muted")]
     if sys.platform == "win32":
-        rows.append(("Start again", f'Windows search -> "{PRODUCT_NAME}"', "brand"))
+        # The entry the OS lists, not the display name: this is what a search finds.
+        rows.append(("Start again", f'Windows search -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
     elif sys.platform == "darwin":
         rows.append(
-            ("Start again", f'Launchpad or Spotlight → "{PRODUCT_NAME}"', "brand")
+            ("Start again", f'Launchpad or Spotlight → "{LAUNCHER_ENTRY_NAME}"', "brand")
         )
         rows.append(("Permissions", "macOS asks on first launch - approve each prompt", "muted"))
     elif sys.platform.startswith("linux") and not (headless or is_headless_linux()):
-        rows.append(("Start again", f'app menu -> "{PRODUCT_NAME}"', "brand"))
+        rows.append(("Start again", f'app menu -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
     else:
         rows.append(("Start again", ".venv/bin/python -m jarvis.ui.web.launcher", "brand"))
         rows.append(("", "(in the install folder)", "muted"))
