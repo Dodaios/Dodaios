@@ -5047,7 +5047,15 @@
       "close": "Close the voice bubble",
       "mute": "Mute {0}'s voice for this session",
       "unmute": "Unmute {0}'s voice",
-      "start_failed": "Could not start listening — a conversation may already be running.",
+      "start_failed": "Voice could not be started. Please try again.",
+      "start_refused": {
+        "busy": "A voice conversation is already open. Hang up first, then start again.",
+        "muted": "Voice is muted. Unmute it to start a conversation.",
+        "dictation": "A dictation is using the microphone. Finish it, then start again.",
+        "microphone_in_use": "Another voice call is using the microphone. End it, then start again.",
+        "microphone": "The microphone is not available. Allow microphone access in your system settings, then try again.",
+        "unavailable": "Voice is not ready right now. Restart the app and try again."
+      },
       "notice_jump": "Go to {0}",
       "notice_dismiss": "Hide this update"
     },

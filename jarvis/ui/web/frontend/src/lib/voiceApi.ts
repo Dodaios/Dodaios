@@ -3,6 +3,11 @@
 
 export interface VoiceCallAnswer {
   armed: boolean;
+  /**
+   * Why the host refused, when `armed` is false (`lib/voiceStartRefusal.ts`).
+   * Absent on a host from before the field existed.
+   */
+  reason?: string;
 }
 
 export interface VoiceHangupAnswer {

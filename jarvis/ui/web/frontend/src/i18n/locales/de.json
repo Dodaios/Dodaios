@@ -5047,7 +5047,15 @@
       "close": "Sprach-Bubble schließen",
       "mute": "Stimme von {0} für diese Sitzung stummschalten",
       "unmute": "Stummschaltung von {0} aufheben",
-      "start_failed": "Das Zuhören konnte nicht gestartet werden — möglicherweise läuft bereits ein Gespräch.",
+      "start_failed": "Die Sprachfunktion konnte nicht gestartet werden. Bitte versuche es erneut.",
+      "start_refused": {
+        "busy": "Es ist bereits ein Sprachgespräch offen. Lege zuerst auf und starte dann neu.",
+        "muted": "Die Sprachfunktion ist stummgeschaltet. Hebe die Stummschaltung auf, um ein Gespräch zu starten.",
+        "dictation": "Ein Diktat nutzt gerade das Mikrofon. Beende es und starte dann neu.",
+        "microphone_in_use": "Ein anderer Sprachanruf nutzt gerade das Mikrofon. Beende ihn und starte dann neu.",
+        "microphone": "Das Mikrofon ist nicht verfügbar. Erlaube den Mikrofonzugriff in den Systemeinstellungen und versuche es erneut.",
+        "unavailable": "Die Sprachfunktion ist gerade nicht bereit. Starte die App neu und versuche es erneut."
+      },
       "notice_jump": "Zu {0} springen",
       "notice_dismiss": "Diese Meldung ausblenden"
     },

@@ -124,4 +124,42 @@ describe("useVoiceCall", () => {
 
     expect(fakes.requestVoiceHangup).toHaveBeenCalledTimes(1);
   });
+
+  it("says why the host refused instead of guessing a running conversation", async () => {
+    fakes.requestVoiceCall.mockResolvedValue({ armed: false, reason: "muted" });
+    const { result } = renderHook(() => useVoiceCall());
+
+    await act(() => result.current.toggleCall());
+
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith(
+      "warning",
+      "agentic_grid.voice_bubble.start_refused.muted",
+    );
+  });
+
+  it("names no cause when the host gives none", async () => {
+    fakes.requestVoiceCall.mockResolvedValue({ armed: false });
+    const { result } = renderHook(() => useVoiceCall());
+
+    await act(() => result.current.toggleCall());
+
+    expect(toast).toHaveBeenCalledWith("warning", "agentic_grid.voice_bubble.start_failed");
+  });
+
+  it("offers the hang-up for a session this window does not show", async () => {
+    fakes.requestVoiceCall.mockResolvedValue({ armed: false, reason: "busy" });
+    const { result } = renderHook(() => useVoiceCall());
+
+    await act(() => result.current.toggleCall());
+
+    const [kind, message, options] = toast.mock.calls[0];
+    expect([kind, message]).toEqual([
+      "warning",
+      "agentic_grid.voice_bubble.start_refused.busy",
+    ]);
+    expect(options.action.label).toBe("agentic_grid.voice_bubble.hang_up");
+    await options.action.onAction();
+    expect(fakes.requestVoiceHangup).toHaveBeenCalledTimes(1);
+  });
 });

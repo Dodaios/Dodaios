@@ -127,6 +127,7 @@ from jarvis.sessions.constants import (
 from jarvis.skills.schema import SkillDirectTriggered
 from jarvis.skills.skill_context import try_get_skill_context
 from jarvis.skills.trigger_matcher import TriggerMatcher
+from jarvis.speech import start_refusal
 from jarvis.speech.completeness import (
     Completeness,
     classify_completeness,
@@ -7629,6 +7630,20 @@ class SpeechPipeline:
     def request_voice_session(
         self, *, seed_messages: list[tuple[str, str]] | None = None
     ) -> bool:
+        """``start_voice_session`` for a caller that only needs armed / not armed."""
+        return not self.start_voice_session(seed_messages=seed_messages)
+
+    def _activation_state_refusal(self) -> str:
+        """Which half of ``_activation_state_allows`` said no, as a refusal code."""
+        if getattr(self, "_muted", False):
+            return start_refusal.MUTED
+        if self._dictation_blocks_activation():
+            return start_refusal.DICTATION
+        return start_refusal.MICROPHONE_IN_USE
+
+    def start_voice_session(
+        self, *, seed_messages: list[tuple[str, str]] | None = None
+    ) -> str:
         """Arm a wake-style voice session from outside the audio path.
 
         The "Speak in this conversation" button (``POST /api/chats/{kind}/
@@ -7641,23 +7656,26 @@ class SpeechPipeline:
         ``asyncio.Event`` directly from Tk can leave the selector asleep until
         unrelated I/O happens to wake it.
 
-        Returns ``False`` (no-op) when a session is already active or arming,
-        or when the desktop app is not visible (``_activation_allowed``). The
-        brain is seeded ONLY when we actually arm, so a rejected request never
-        pollutes an unrelated in-flight session's history. Like PTT (an
-        explicit user action with no audio-echo path), the post-hangup
-        wake-lock is intentionally not consulted here.
+        Returns ``""`` when the session was armed, otherwise the one reason it
+        was not, from ``jarvis.speech.start_refusal`` (a no-op: a session is
+        already active or arming, voice is muted, a dictation or a browser call
+        holds the microphone, or the microphone is not granted). The caller
+        shows that reason; it must never guess one. The brain is seeded ONLY
+        when we actually arm, so a rejected request never pollutes an unrelated
+        in-flight session's history. Like PTT (an explicit user action with no
+        audio-echo path), the post-hangup wake-lock is intentionally not
+        consulted here.
         """
         if self._ptt_mode or self._state != PipelineState.IDLE:
             log.info("request_voice_session ignored: pipeline not idle.")
-            return False
+            return start_refusal.BUSY
         if not self._activation_state_allows():
             log.info(
                 "request_voice_session ignored: %s",
                 self._activation_block_reason(explicit=True, include_permission=False)
-                or "activation not allowed",
+                or "another call owns the microphone",
             )
-            return False
+            return self._activation_state_refusal()
         # Gesture entry: the speak button / bar click may ask macOS for the
         # microphone. A first request raises the dialog and returns False (the UI
         # says "allowed - press again"); the session is never armed retroactively.
@@ -7665,7 +7683,7 @@ class SpeechPipeline:
         refusal = self._ensure_microphone("voice")
         if refusal is not None:
             log.info("request_voice_session ignored: %s", refusal)
-            return False
+            return start_refusal.MICROPHONE
         if seed_messages:
             brain = getattr(self, "_brain", None)
             seed = getattr(brain, "seed_history", None)
@@ -7683,7 +7701,7 @@ class SpeechPipeline:
             len(seed_messages or []),
         )
         self._explicit_call_pending = True
-        return self._arm_call_event()
+        return "" if self._arm_call_event() else start_refusal.UNAVAILABLE
 
     def request_voice_hangup(self) -> bool:
         """Hang up the voice channel from outside the audio path.
