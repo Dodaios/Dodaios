@@ -25,6 +25,20 @@ from jarvis.core.protocols import BrainMessage, ToolResult
 from jarvis.sessions.store import SessionStore
 
 
+async def _background_done(mgr: BrainManager) -> None:
+    """Wait for the ingest the fast path started in the background.
+
+    The fast path answers at once and writes in a task it keeps in
+    ``_cu_background_tasks``. Awaiting that task is exact; a fixed pause was
+    a race that lost under load (a 20 ms write inside a 50 ms window).
+    """
+    pending = list(getattr(mgr, "_cu_background_tasks", None) or ())
+    if pending:
+        await asyncio.wait_for(asyncio.gather(*pending, return_exceptions=True), timeout=10)
+    # One more turn of the loop for done-callbacks and late publishes.
+    await asyncio.sleep(0)
+
+
 class FakeWikiIngestTool:
     name = "wiki-ingest"
     risk_tier = "monitor"
@@ -142,7 +156,7 @@ async def test_explicit_command_ingests_and_announces_after_write(manager_factor
         "Schreib ins Wiki, dass Joys Geburtstag am 14. August ist"  # i18n-allow
     )
     assert reply is not None                     # immediate progress ack
-    await asyncio.sleep(0.05)                    # let the background task run
+    await _background_done(mgr)
     assert tool.calls, "wiki-ingest must be invoked through the executor"
     completed = [e for e in bus.published if type(e).__name__ == "AnnouncementRequested"]
     assert completed, "outcome must be announced (zero silent drops)"
@@ -163,7 +177,7 @@ async def test_failure_is_announced_honestly_never_as_success(manager_factory):
     mgr, executor, bus = manager_factory(tools={"wiki-ingest": tool})
     reply = await mgr._run_wiki_ingest_fast_path("write that to the wiki")
     assert reply is not None
-    await asyncio.sleep(0.05)
+    await _background_done(mgr)
     completed = [e for e in bus.published if type(e).__name__ == "AnnouncementRequested"]
     assert completed
     text = completed[-1].text.lower()
@@ -181,7 +195,7 @@ async def test_failure_announcement_carries_the_reason(manager_factory):
     mgr, executor, bus = manager_factory(tools={"wiki-ingest": tool})
     reply = await mgr._run_wiki_ingest_fast_path("write that to the wiki")
     assert reply is not None
-    await asyncio.sleep(0.05)
+    await _background_done(mgr)
     completed = [e for e in bus.published if type(e).__name__ == "AnnouncementRequested"]
     assert completed
     text = completed[-1].text
@@ -202,7 +216,7 @@ async def test_bare_exit_code_reason_is_not_spoken(manager_factory):
     tool = FakeWikiIngestTool(ToolResult(success=False, output="", error="exit 5"))
     mgr, executor, bus = manager_factory(tools={"wiki-ingest": tool})
     await mgr._run_wiki_ingest_fast_path("write that to the wiki")
-    await asyncio.sleep(0.05)
+    await _background_done(mgr)
     completed = [e for e in bus.published if type(e).__name__ == "AnnouncementRequested"]
     assert completed
     text = completed[-1].text
@@ -221,7 +235,7 @@ async def test_anaphoric_command_without_usable_content_asks_what_to_write(manag
     reply = await mgr._run_wiki_ingest_fast_path("write that to the wiki")
     assert reply is not None
     assert "wiki" in reply.lower()
-    await asyncio.sleep(0.05)
+    await _background_done(mgr)
     assert not tool.calls, "the absent-content path must not call the executor"
     assert not [
         e for e in bus.published if type(e).__name__ == "AnnouncementRequested"
@@ -299,7 +313,7 @@ async def test_latest_transcript_falls_back_to_active_persisted_session(
         )
 
         assert reply is not None
-        await asyncio.sleep(0.05)
+        await _background_done(mgr)
         assert len(tool.calls) == 1
         saved_text = tool.calls[0]["text"]
         assert "Aurora" in saved_text
@@ -359,7 +373,7 @@ async def test_latest_transcript_never_uses_unscoped_persisted_history(
 
         assert reply is not None
         assert "wiki" in reply.lower()
-        await asyncio.sleep(0.05)
+        await _background_done(mgr)
         assert not tool.calls
     finally:
         store.close()
@@ -393,7 +407,7 @@ async def test_reported_obsidian_follow_up_ingests_inline_facts(manager_factory)
     )
 
     assert reply is not None
-    await asyncio.sleep(0.05)
+    await _background_done(mgr)
     assert len(tool.calls) == 1
     saved = tool.calls[0]["text"].lower()
     assert "genervt" in saved
@@ -425,6 +439,6 @@ async def test_live_polite_travel_fact_reaches_wiki_before_local_action(
     )
 
     assert reply
-    await asyncio.sleep(0.05)
+    await _background_done(mgr)
     assert len(tool.calls) == 1
     assert "beispielstadt" in tool.calls[0]["text"].lower()

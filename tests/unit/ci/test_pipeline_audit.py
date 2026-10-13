@@ -260,26 +260,34 @@ def test_a_pull_request_never_takes_a_macos_runner():
     assert {"os": "windows-latest", "python": "3.12"} in sized["updater_matrix"]
 
 
-def test_nothing_macos_specific_lands_unproven():
+def test_a_merge_group_takes_at_most_two_macos_runners():
+    # Five macOS slots serve every group and every rebuild of one. With a
+    # macOS leg per lane plus three test shards a group carried eleven macOS
+    # jobs, and they waited 30 to 54 minutes for a slot (2026-10-13).
     sized = plan_run.plan("merge_group")
-    assert sized["mac_lanes"] and not sized["macos"]
-    assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
-    assert sized["desktop_legs"] == "primary"
-    # A macOS failure stops a change in the queue instead of surfacing the
-    # morning after: every macOS leg of the affected lanes, the real runtimes
-    # and the real browser included, runs before anything lands. Only the
-    # Hermes install on Windows (14 to 23 minutes) stays in the nightly and
-    # release runs.
-    assert {"os": "macos-latest", "python": "3.12"} in sized["updater_matrix"]
-    assert any(leg["runner"] == "macos-15-intel" for leg in sized["crypto_matrix"])
-    assert sized["browser_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
-    assert {(leg["os"], leg["runtime"]) for leg in sized["e2e_matrix"]} == {
-        ("ubuntu-latest", "hermes"),
-        ("ubuntu-latest", "openclaw"),
-        ("windows-latest", "openclaw"),
-        ("macos-latest", "hermes"),
-        ("macos-latest", "openclaw"),
-    }
+    assert not sized["mac_lanes"] and not sized["macos"]
+    matrices = [v for k, v in sized.items() if k not in ("macos", "mac_lanes", "mac_impact")]
+    assert "macos" not in json.dumps(matrices)
+    # The two: the macOS tests the change can reach, on one runner, and the
+    # Apple Silicon desktop bundle when the macOS lane is affected.
+    assert sized["mac_impact"] is True and sized["desktop_legs"] == "primary"
+    tests = ["tests/unit/platform/test_a.py", "tests/unit/brain/test_routing.py", "tests/x.py"]
+    assert select_tests.one_runner("all", tests, tests) == (
+        "selected",
+        ["tests/unit/brain/test_routing.py", "tests/unit/platform/test_a.py"],
+    )
+    many = [f"tests/unit/z/test_{i}.py" for i in range(select_tests.SHARD_FILES + 1)]
+    assert select_tests.one_runner("selected", many, many + tests)[1] == [
+        "tests/unit/brain/test_routing.py",
+        "tests/unit/platform/test_a.py",
+    ]
+    assert select_tests.one_runner("selected", tests[:1], tests) == ("selected", tests[:1])
+    assert select_tests.one_runner("none", [], tests) == ("none", [])
+    assert select_tests.shards_for("selected", 2) == [1]
+    # The wide matrix keeps every macOS leg of every lane.
+    wide = plan_run.plan("schedule")
+    assert wide["lane_os"][-1] == "macos-latest" and "macos-latest" in wide["browser_os"]
+    assert {"os": "macos-latest", "python": "3.12"} in wide["updater_matrix"]
     # The second Windows interpreter of the updater is the queue's one extra.
     assert {"os": "windows-latest", "python": "3.11"} in sized["updater_matrix"]
     wide = plan_run.plan("schedule")
@@ -288,10 +296,6 @@ def test_nothing_macos_specific_lands_unproven():
         for os in ("ubuntu-latest", "windows-latest", "macos-latest")
         for runtime in ("hermes", "openclaw")
     }
-    # Exactly one macOS leg in each of these lanes: five macOS slots serve
-    # every agent's merge group at once.
-    for key in ("updater_matrix", "crypto_matrix"):
-        assert sum("macos" in json.dumps(leg) for leg in sized[key]) == 1, key
     # jarvisctl, dragdrop and the installer smoke have no macOS-specific code.
     assert sized["os_matrix"] == ["ubuntu-latest", "windows-latest"]
     # A push that reached main without the queue gets the same proof.
@@ -322,7 +326,7 @@ def test_nightly_release_and_macos_dispatch_keep_the_wide_matrix():
     # The merge train's stand-in for a push on main gets a push's proof,
     # never the narrower one of a branch run.
     stand_in = plan_run.plan("workflow_dispatch", ref="refs/heads/main")
-    assert stand_in["tier"] == "queue" and not stand_in["pr_mode"] and stand_in["mac_lanes"]
+    assert stand_in["tier"] == "queue" and not stand_in["pr_mode"] and stand_in["mac_impact"]
     assert plan_run.plan("workflow_dispatch", ref="refs/heads/claude/x")["tier"] == "pr"
     # The merge train's macOS-free full dispatch stays off macOS.
     train = plan_run.plan("workflow_dispatch", full_input=True)
@@ -461,7 +465,7 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     # The legs that left the per-change tiers are exactly what the nightly keeps.
     nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
     only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]
-    assert only_nightly == [{"os": "windows-latest", "runtime": "hermes"}]
+    assert {"os": "windows-latest", "runtime": "hermes"} in only_nightly and len(only_nightly) == 3
 
 
 def test_the_nightly_run_never_queues_its_macos_legs_ahead_of_a_merge_group():
@@ -524,7 +528,7 @@ def test_a_merge_group_runs_the_macos_tests_its_change_can_reach():
     # empty matrix can never reach the job.
     detect = ci["detect"]
     select = next(s for s in detect["steps"] if s.get("id") == "mactests")["run"]
-    assert "select_tests.py --changed-from changed.txt --out mac_tests.txt" in select
+    assert "select_tests.py --one-runner --changed-from changed.txt --out mac_tests.txt" in select
     assert "'[1]'" in detect["outputs"]["mac_test_shards"]
     shared = next(
         s for s in detect["steps"] if s.get("name") == "Share duration snapshot with every shard"
