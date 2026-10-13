@@ -8950,7 +8950,9 @@
       "open_aria": "Open GitHub {destination}: {identity}",
       "open_title": "Open {destination}",
       "refresh_failed": "GitHub status could not be refreshed.",
-      "refreshing": "Refreshing GitHub status…"
+      "refreshing": "Refreshing GitHub status…",
+      "loading": "Reading the GitHub status…",
+      "no_branch": "This session works in no GitHub branch"
     },
     "dock": {
       "swap": "Swap positions",

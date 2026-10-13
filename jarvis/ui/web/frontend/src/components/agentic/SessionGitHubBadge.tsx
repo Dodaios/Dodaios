@@ -1,10 +1,13 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { Loader2 } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { GitHubIcon, type GitHubIconName } from "./GitHubIcon";
 import { PANE_BRAND, PANE_CHROME, type TerminalAppearance } from "./terminalThemes";
-import { useSessionGitHub, type PaneGitHubStatus, type SessionGitHubStatus } from "./useSessionGitHub";
+import {
+  useSessionGitHubState, type PaneGitHubState, type PaneGitHubStatus, type SessionGitHubStatus,
+} from "./useSessionGitHub";
 
 const PR: Record<SessionGitHubStatus["state"], [GitHubIconName, string]> = {
   branch: ["git-branch", "ide_panes.github.state_branch"],
@@ -162,13 +165,30 @@ function BranchList({ rows, appearance }: { rows: BranchRow[]; appearance: Termi
   </>;
 }
 
-export function GitHubStatusBadge({ status, appearance }: {
+/** The header's place for the branch while there is no branch to show in it. */
+function Placeholder({ state, appearance }: { state: PaneGitHubState; appearance: TerminalAppearance }) {
+  const t = useT();
+  if (state === "idle") return null;
+  const label = t(state === "loading" ? "ide_panes.github.loading" : "ide_panes.github.no_branch");
+  return <span data-header-control="true" data-testid="session-github-status" data-state={state}
+    role={state === "loading" ? "status" : "img"} aria-label={label} title={label}
+    className={`inline-flex h-6 w-6 shrink-0 items-center justify-center ${state === "loading" ? "opacity-60" : "opacity-40"}`}
+    style={{ color: PANE_BRAND[appearance].inkMuted }}>
+    {state === "loading"
+      ? <Loader2 className="block h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+      : <GitHubIcon name="dash" width={16} height={16} className="block shrink-0" />}
+  </span>;
+}
+
+export function GitHubStatusBadge({ status, appearance, state = "idle" }: {
   status: PaneGitHubStatus | null;
   appearance: TerminalAppearance;
+  /** What to show in the branch's place while there is none: see {@link PaneGitHubState}. */
+  state?: PaneGitHubState;
 }) {
   const t = useT();
   const shown = status ? describe(status, t) : null;
-  if (!shown) return null;
+  if (!shown) return status ? null : <Placeholder state={state} appearance={appearance} />;
   const others = (status?.others ?? []).map((other) => describe(other, t))
     .filter((row): row is BranchRow => row !== null && row.identity !== shown.identity);
   if (others.length) return <BranchList rows={[shown, ...others]} appearance={appearance} />;
@@ -203,6 +223,6 @@ export function SessionGitHubBadge({ workspaceId, name, appearance }: {
   name: string;
   appearance: TerminalAppearance;
 }) {
-  const status = useSessionGitHub(workspaceId, name);
-  return <GitHubStatusBadge status={status} appearance={appearance} />;
+  const { status, state } = useSessionGitHubState(workspaceId, name);
+  return <GitHubStatusBadge status={status} state={state} appearance={appearance} />;
 }

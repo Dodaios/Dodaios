@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { useSessionGitHub, type SessionGitHubStatus } from "./useSessionGitHub";
+import { useSessionGitHub, useSessionGitHubState, type SessionGitHubStatus } from "./useSessionGitHub";
 import { resetConnectBudgetForTests } from "@/lib/connectBudget";
 
 const value: SessionGitHubStatus = {
@@ -153,4 +153,35 @@ it("stores each settled answer for the next load, and survives unreadable storag
   await act(() => vi.advanceTimersByTimeAsync(300));
   expect(hook.result.current?.state).toBe("open");
   expect(JSON.parse(sessionStorage.getItem("ide-pane-github:broken") ?? "null").panes.t1.branch).toBe("feature/a");
+});
+
+it("says a pane is loading until its first answer, and that it has no branch once that is known", async () => {
+  const sessions = { t1: "first", t2: "other" };
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ panes: {}, refreshing: true, sessions }) });
+  vi.stubGlobal("fetch", fetcher);
+  const pane = renderHook(() => useSessionGitHubState("states", "t1"));
+  const remote = renderHook(() => useSessionGitHubState("states", "on-another-computer"));
+  // Nothing is known yet: every header waits.
+  expect(pane.result.current).toEqual({ status: null, state: "loading" });
+  expect(remote.result.current.state).toBe("loading");
+  await act(() => vi.advanceTimersByTimeAsync(300));
+  // The backend reads t1; a pane it does not cover is not waiting for anything.
+  expect(pane.result.current.state).toBe("loading");
+  expect(remote.result.current.state).toBe("idle");
+  fetcher.mockResolvedValue({ ok: true, json: async () => ({ panes: { t1: null, t2: value }, refreshing: false, sessions }) });
+  await act(() => vi.advanceTimersByTimeAsync(800));
+  expect(pane.result.current).toEqual({ status: null, state: "none" });
+  // Back on stage later, what is known shows at once: no spinner again.
+  pane.unmount(); remote.unmount();
+  fetcher.mockImplementation(() => new Promise(() => {}));
+  expect(renderHook(() => useSessionGitHubState("states", "t1")).result.current.state).toBe("none");
+  expect(renderHook(() => useSessionGitHubState("states", "on-another-computer")).result.current.state).toBe("idle");
+});
+
+it("stops loading when the status cannot be read", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+  const hook = renderHook(() => useSessionGitHubState("unreachable", "t1"));
+  expect(hook.result.current.state).toBe("loading");
+  await act(() => vi.advanceTimersByTimeAsync(300));
+  expect(hook.result.current.state).toBe("idle");
 });
