@@ -99,7 +99,7 @@ _open_ui_when_ready() {
 
 if [ -f "${BROWSER_UI_MARKER}" ] \
   && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] \
-  && [ "${JARVIS_APPIMAGE_NO_BROWSER:-0}" != "1" ]; then
+  && [ "${DODAIOS_APPIMAGE_NO_BROWSER:-${JARVIS_APPIMAGE_NO_BROWSER:-0}}" != "1" ]; then
   # $$ is this shell's pid, which `exec` below hands to the app - so the poller
   # watches the app itself, not a shell that no longer exists.
   _open_ui_when_ready "$$" "${JARVIS_UI_URL}" &

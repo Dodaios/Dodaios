@@ -70,7 +70,8 @@ closes the gap: with no arguments and a graphical session it waits for
 `/api/health` to answer and then opens the address with `xdg-open` (falling
 back through `gio`, `x-www-browser`, `sensible-browser`, and the common browser
 binaries). It never opens a tab it has not confirmed first, and it stops
-waiting as soon as the app exits. `JARVIS_APPIMAGE_NO_BROWSER=1` turns it off.
+waiting as soon as the app exits. `DODAIOS_APPIMAGE_NO_BROWSER=1` (or the earlier `JARVIS_APPIMAGE_NO_BROWSER=1`)
+turns it off.
 
 Whether to do this at all is decided at build time, not guessed: `build.sh`
 inspects the freeze for PyGObject and writes

@@ -8690,6 +8690,8 @@
       "unavailable": "GitHub-Status nicht verfügbar",
       "branch_generic": "GitHub-Branch",
       "local_only": "Noch nicht auf GitHub",
+      "branches_title": "Branches dieser Sitzung",
+      "branches_aria": "{count} Branches dieser Sitzung, aktuell {identity}",
       "dest_pr": "Pull Request #{number}",
       "dest_branch": "Branch",
       "open_aria": "GitHub {destination} öffnen: {identity}",

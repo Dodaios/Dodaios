@@ -2,8 +2,9 @@
 """Pick the test files a change can plausibly affect (impact selection).
 
 Used where running everything is expensive and a full run follows anyway:
-the Windows leg of a pull request (the full Windows suite runs on every push
-to main and nightly) and ``scripts/agent_land.py``'s fast local check.
+the macOS tests of a merge-queue group (the whole suite on macOS is 27
+runner-minutes on five shared slots and runs nightly) and
+``scripts/agent_land.py``'s fast local check.
 
 Selection is textual and deliberately generous — FAIL OPEN:
 
@@ -17,13 +18,15 @@ Selection is textual and deliberately generous — FAIL OPEN:
 * conftest, packaging, lockfiles or the pipeline itself select EVERYTHING,
   and so does a selection larger than :data:`ALL_RATIO` of the suite.
 
-Writes the file list to ``--out`` and ``mode=all|selected|none`` plus
-``count=N`` to ``$GITHUB_OUTPUT``.
+Writes the file list to ``--out`` and ``mode=all|selected|none``,
+``count=N`` and ``shards=[...]`` (how many runners the selection needs) to
+``$GITHUB_OUTPUT``.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -37,6 +40,10 @@ from scripts.ci import agent_runtime_suite  # noqa: E402
 from scripts.ci.run_tests_parallel import discover  # noqa: E402
 
 ALL_RATIO = 0.35
+#: A selection up to this many files still fits one runner in about the time
+#: the other legs of a run take; a larger one gets two, everything gets three.
+SHARD_FILES = 450
+FULL_SHARDS = 3
 _EVERYTHING_PREFIXES = (".github/workflows/", "scripts/ci/", "tests/fakes/", "tests/fixtures/")
 _EVERYTHING_FILES = {
     "conftest.py",
@@ -112,6 +119,15 @@ def select(changed: list[str], tests: list[str], texts: dict[str, str]) -> tuple
     return "selected", sorted(chosen)
 
 
+def shards_for(mode: str, count: int) -> list[int]:
+    """The runners a selection needs: none, one, two, or the full split."""
+    if mode == "none":
+        return []
+    if mode == "all":
+        return list(range(1, FULL_SHARDS + 1))
+    return [1] if count <= SHARD_FILES else [1, 2]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--changed-from", type=Path, help="File with changed paths (else stdin).")
@@ -133,7 +149,8 @@ def main(argv: list[str] | None = None) -> int:
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as handle:
-            handle.write(f"mode={mode}\ncount={len(chosen)}\n")
+            shards = json.dumps(shards_for(mode, len(chosen)), separators=(",", ":"))
+            handle.write(f"mode={mode}\ncount={len(chosen)}\nshards={shards}\n")
     return 0
 
 
