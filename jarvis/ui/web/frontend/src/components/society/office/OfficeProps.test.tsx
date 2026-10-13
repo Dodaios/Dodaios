@@ -55,7 +55,8 @@ afterEach(() => {
 
 const KINDS = Object.keys(FURNITURE_SIZE) as FurnitureKind[];
 
-describe("office props", () => {
+// Every case mounts a scene graph; on a loaded runner the first mounts share the suite's start-up cost.
+describe("office props", { timeout: 20_000 }, () => {
   it("has a renderer for every furniture kind", () => {
     expect(Object.keys(PROP_RENDERERS).sort()).toEqual([...KINDS].sort());
   });

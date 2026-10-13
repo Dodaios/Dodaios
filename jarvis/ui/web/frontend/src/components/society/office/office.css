@@ -1,42 +1,111 @@
 /* HUD over the office canvas: theme tokens, so it follows light and dark mode. */
 .office-stage { position:relative; width:100%; min-width:0; height:100%; min-height:0; overflow:hidden; background:#0b1024; }
-.office-viewport { position:absolute; inset:0; touch-action:none; }
+/* In-world labels (name plates, bubbles) are positioned DOM in here with z-indexes of their own: one stacking
+   context keeps all of them under every HUD card. */
+.office-viewport { position:absolute; inset:0; touch-action:none; isolation:isolate; }
 .office-viewport:focus-visible { outline:2px solid hsl(var(--ring)); outline-offset:-2px; }
 .office-fallback { display:flex; align-items:center; justify-content:center; height:100%; padding:24px; font-size:13px; color:hsl(var(--muted-foreground)); background:hsl(var(--background)); }
 .office-hud { position:absolute; z-index:30; }
-.office-hud-left { left:14px; top:14px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; max-width:min(320px, calc(100% - 28px)); }
-/* A column to the left of the minimap (top-right, 204 px wide + 8 px gap). */
-.office-hud-right { right:226px; top:14px; display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
-/* Narrow: under the minimap, wrapping within its width. */
-@media (max-width:760px) { .office-hud-right { right:14px; top:256px; flex-direction:row; flex-wrap:wrap; justify-content:flex-end; max-width:204px; } }
-/* No minimap (short or very narrow window): back to a wrapping row in the corner. */
-@media (max-height:520px), (max-width:600px) { .office-hud-right { right:14px; top:14px; flex-direction:row; flex-wrap:wrap; justify-content:flex-end; max-width:max(180px, calc(100% - 370px)); } }
+/* Top left: the floor card, the level card and whatever the floor has to say. It never reaches under the toolbar and the minimap (226 px) on the right. */
+.office-hud-left { left:14px; top:14px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; max-width:min(320px, calc(100% - 430px)); }
 .office-card { border:1px solid hsl(var(--border)); border-radius:12px; background:hsl(var(--popover) / .92); color:hsl(var(--popover-foreground)); box-shadow:0 4px 18px rgb(0 0 0 / .25); backdrop-filter:blur(6px); }
-.office-title { display:flex; flex-direction:column; gap:2px; padding:8px 12px; font-size:14px; }
-.office-title span { font-size:11px; color:hsl(var(--muted-foreground)); }
-.office-counts { display:flex; gap:14px; padding:7px 12px; font-size:12px; font-weight:600; }
-.office-counts span { display:inline-flex; align-items:center; gap:6px; }
-.office-counts i { width:8px; height:8px; border-radius:50%; background:hsl(var(--muted-foreground)); }
-.office-counts [data-tone="working"] i { background:hsl(var(--success)); }
-.office-counts [data-tone="waiting"] i { background:hsl(var(--warning)); }
+.office-title { display:flex; flex-direction:column; gap:3px; max-width:100%; padding:8px 12px; font-size:14px; }
+.office-title strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.office-title > span { font-size:11px; color:hsl(var(--muted-foreground)); }
+/* Who is doing what, as one quiet line under the floor's name. */
+.office-states { display:flex; flex-wrap:wrap; gap:2px 10px; }
+.office-states span { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+.office-states i { width:7px; height:7px; border-radius:50%; background:hsl(var(--muted-foreground)); }
+.office-states [data-tone="working"] i { background:hsl(var(--success)); }
+.office-states [data-tone="waiting"] i { background:hsl(var(--warning)); }
+.office-states [data-tone="paused"] i { background:transparent; box-shadow:inset 0 0 0 1.5px hsl(var(--muted-foreground)); }
 .office-note { margin:0; padding:6px 10px; font-size:11px; color:hsl(var(--muted-foreground)); }
-.office-button { border:1px solid hsl(var(--border)); border-radius:10px; padding:6px 11px; background:hsl(var(--popover) / .92); color:hsl(var(--popover-foreground)); font-size:12px; white-space:nowrap; cursor:pointer; backdrop-filter:blur(6px); }
-.office-button:hover { background:hsl(var(--secondary)); }
-.office-button:focus-visible { outline:2px solid hsl(var(--ring)); outline-offset:2px; }
-.office-help { left:50%; bottom:12px; transform:translateX(-50%); margin:0; padding:5px 12px; border-radius:999px; font-size:11px; white-space:nowrap; max-width:calc(100% - 28px); overflow:hidden; text-overflow:ellipsis; background:hsl(var(--popover) / .85); color:hsl(var(--muted-foreground)); border:1px solid hsl(var(--border)); pointer-events:none; }
 
-/* In-world name pills: part of the diorama, so they keep one dark look in both modes. */
+/* The toolbar and what opens from it: a dock left of the minimap (top right, 204 px wide + 8 px gap) that reaches
+   down to the stage's lower edge, so the places card under the toolbar can never grow out of the stage. The dock
+   itself takes no pointer; the toolbar and the card do. */
+.office-tools-dock { right:226px; top:14px; bottom:16px; z-index:32; display:flex; flex-direction:column; align-items:flex-end; gap:9px; pointer-events:none; }
+.office-tools-dock > * { pointer-events:auto; }
+.office-tools { flex:none; display:flex; gap:2px; padding:3px; border:1px solid hsl(var(--border)); border-radius:11px; background:hsl(var(--popover) / .92); color:hsl(var(--popover-foreground)); box-shadow:0 4px 18px rgb(0 0 0 / .25); backdrop-filter:blur(6px); }
+.office-tool { position:relative; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; padding:0; border:0; border-radius:8px; background:none; color:inherit; cursor:pointer; }
+.office-tool svg { width:16px; height:16px; }
+.office-tool:hover { background:hsl(var(--secondary)); }
+.office-tool[aria-pressed="true"], .office-tool[aria-expanded="true"] { background:hsl(var(--secondary)); color:hsl(var(--foreground)); box-shadow:inset 0 0 0 1px hsl(var(--border)); }
+.office-tool:focus-visible { outline:2px solid hsl(var(--ring)); outline-offset:1px; }
+/* Its label, on hover and on keyboard focus (the button carries the same text as its accessible name). */
+.office-tool[data-tip]:hover::after, .office-tool[data-tip]:focus-visible::after { content:attr(data-tip); position:absolute; top:calc(100% + 9px); left:50%; transform:translateX(-50%); z-index:2; padding:4px 8px; border-radius:7px; border:1px solid hsl(var(--border)); background:hsl(var(--popover)); color:hsl(var(--popover-foreground)); font-size:11px; font-weight:500; line-height:1.3; white-space:nowrap; pointer-events:none; box-shadow:0 4px 14px rgb(0 0 0 / .22); }
+/* The last button's label would leave the toolbar's right edge towards the minimap: keep it inside. */
+.office-tools > .office-tool:last-child[data-tip]::after { left:auto; right:0; transform:none; }
+/* The places card: an opaque floating surface (never see-through over the scene). It is as tall as its list and
+   uses the room under the toolbar down to the stage's lower edge (the dock ends there), up to a cap for very tall
+   stages; only what does not fit scrolls inside it. */
+.office-places-card { position:relative; flex:0 1 auto; display:flex; flex-direction:column; min-height:0; width:min(320px, calc(100vw - 28px)); max-height:680px; overflow:hidden; border:1px solid hsl(var(--border)); border-radius:12px; background:hsl(var(--popover)); color:hsl(var(--popover-foreground)); box-shadow:0 10px 30px rgb(0 0 0 / .32); }
+.office-places-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:6px; scrollbar-gutter:stable; }
+/* More rows below: the lower edge fades, so a cut-off row reads as "scroll" and not as the end. */
+.office-places-card[data-more]::after { content:""; position:absolute; left:0; right:0; bottom:0; height:30px; border-radius:0 0 11px 11px; background:linear-gradient(hsl(var(--popover) / 0), hsl(var(--popover))); pointer-events:none; }
+/* Narrow: the toolbar sits under the minimap. */
+@media (max-width:760px) { .office-tools-dock { right:14px; top:262px; } .office-hud-left { max-width:min(320px, calc(100% - 254px)); } }
+/* No minimap (short or very narrow window): the toolbar takes its corner. */
+@media (max-height:520px), (max-width:600px) { .office-tools-dock { right:14px; top:14px; } .office-hud-left { max-width:calc(100% - 28px - 190px); } }
+/* The IDE side panel: no minimap; the toolbar is a column in the corner, its labels and the places card open to its left. */
+.office-stage.office-stage-compact .office-tools-dock { right:8px; top:8px; bottom:8px; flex-direction:row-reverse; align-items:flex-start; }
+.office-stage.office-stage-compact .office-tools { flex-direction:column; }
+.office-stage.office-stage-compact .office-hud-left { max-width:calc(100% - 62px); }
+.office-stage.office-stage-compact .office-tool[data-tip]::after { top:50%; left:auto; right:calc(100% + 9px); transform:translateY(-50%); }
+.office-stage.office-stage-compact .office-places-card { width:min(280px, calc(100vw - 80px)); max-height:min(680px, 100%); }
+
+/* Bottom centre: the one prompt, a station's short answer, the first-visit hints. */
+.office-hud-bottom { left:50%; bottom:16px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:8px; width:max-content; max-width:calc(100% - 28px); pointer-events:none; }
+.office-hud-bottom > * { pointer-events:auto; max-width:100%; }
+.office-hud-bottom > [role="status"]:empty { display:none; }
+.office-prompt { display:inline-flex; align-items:center; gap:8px; padding:6px 13px 6px 6px; border-radius:10px; border:1px solid hsl(var(--border)); background:hsl(var(--popover) / .94); color:hsl(var(--popover-foreground)); font:inherit; font-size:13px; cursor:pointer; box-shadow:0 6px 20px rgb(0 0 0 / .3); backdrop-filter:blur(6px); }
+.office-prompt b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.office-prompt span { color:hsl(var(--muted-foreground)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Narrow host: the action is never cut short; it wraps instead (the object's name is not shown there). */
+.office-prompt[data-compact] { text-align:left; }
+.office-prompt[data-compact] b { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.office-prompt[data-compact] .office-key { flex:none; }
+.office-prompt:hover { background:hsl(var(--popover)); }
+.office-prompt:focus-visible { outline:2px solid hsl(var(--ring)); outline-offset:2px; }
+.office-notice { margin:0; padding:6px 12px; font-size:12px; }
+.office-hints { display:flex; align-items:center; gap:14px; padding:8px 8px 8px 14px; }
+.office-hints ul { display:flex; flex-wrap:wrap; gap:6px 16px; margin:0; padding:0; list-style:none; }
+.office-hints li { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:hsl(var(--muted-foreground)); white-space:nowrap; }
+.office-hints-dismiss { flex:none; padding:5px 11px; border:1px solid hsl(var(--border)); border-radius:8px; background:hsl(var(--background)); color:hsl(var(--foreground)); font:inherit; font-size:12px; font-weight:500; cursor:pointer; }
+.office-hints-dismiss:hover { background:hsl(var(--secondary)); }
+.office-hints-dismiss:focus-visible { outline:2px solid hsl(var(--ring)); outline-offset:2px; }
+@media (max-width:700px) { .office-hints { flex-direction:column; align-items:stretch; padding:10px; } }
+
+/* In-world name plates: part of the diorama, so they keep one dark look in both modes.
+   From afar an agent is only its state dot; the plate fades in over it (see namePlate.ts). Dot and plate share
+   one grid cell, so nothing moves when one takes over from the other. */
+.office-plate-wrap { display:inline-grid; place-items:center; pointer-events:none; }
+.office-plate-wrap > * { grid-area:1 / 1; }
+.office-plate-dot { position:relative; width:9px; height:9px; border-radius:50%; background:#94a3b8; box-shadow:0 0 0 2px rgb(24 26 32 / .8); pointer-events:auto; cursor:pointer; transition:opacity .18s ease; }
+/* A dot is small; its target is not. */
+.office-plate-dot::after { content:""; position:absolute; inset:-7px; border-radius:50%; }
+.office-plate-wrap[data-state="working"] .office-plate-dot { background:#4ade80; }
+.office-plate-wrap[data-state="waiting"] .office-plate-dot { background:#fbbf24; }
+.office-plate-wrap[data-state="paused"] .office-plate-dot { background:rgb(24 26 32 / .8); box-shadow:0 0 0 2px rgb(24 26 32 / .8), inset 0 0 0 1.5px #94a3b8; }
+.office-plate-wrap .office-plate { transition:opacity .18s ease; }
+/* The hidden plate stays in the tab order: keyboard focus on it opens it. */
+.office-plate-wrap[data-detail="dot"] .office-plate { opacity:0; pointer-events:none; }
+.office-plate-wrap[data-detail="full"] .office-plate { pointer-events:auto; }
+.office-plate-wrap[data-detail="full"] .office-plate-dot { opacity:0; pointer-events:none; }
+@media (prefers-reduced-motion:reduce) { .office-plate-dot, .office-plate-wrap .office-plate { transition:none; } }
 .office-plate { transform-origin:center bottom; display:inline-flex; align-items:center; gap:5px; padding:2px 8px 2px 2px; border:0; border-radius:999px; background:rgb(24 26 32 / .84); color:#f8fafc; cursor:pointer; font-family:inherit; white-space:nowrap; user-select:none; box-shadow:0 2px 8px rgb(0 0 0 / .35); }
 .office-plate:hover { background:rgb(36 39 48 / .95); }
-.office-plate-name { max-width:16em; overflow:hidden; text-overflow:ellipsis; font-size:12px; font-weight:700; }
+.office-plate-name { max-width:16em; overflow:hidden; text-overflow:ellipsis; font-size:12px; font-weight:600; }
 .office-plate-badge { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; font-size:10px; font-weight:800; color:#fff; clip-path:polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }
-.office-plate-state { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; color:#cbd5e1; }
+.office-plate-state { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:500; color:#cbd5e1; }
 .office-plate-state em { font-style:normal; }
 .office-plate-state i { width:7px; height:7px; border-radius:50%; background:#94a3b8; }
 .office-plate[data-state="working"] .office-plate-state i { background:#4ade80; box-shadow:0 0 6px #4ade80; }
 .office-plate[data-state="waiting"] .office-plate-state i { background:#fbbf24; }
 .office-plate:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; }
-/* Coding plates keep the expanded title, call-sign and last ask visible without hover. */
+.office-plate[data-selected] { box-shadow:0 0 0 2px #93c5fd, 0 2px 8px rgb(0 0 0 / .35); }
+.office-plate-player { cursor:default; background:rgb(58 44 12 / .9); box-shadow:0 0 0 1.5px #f5b83d, 0 2px 8px rgb(0 0 0 / .35); }
+/* Coding plates carry the whole title (subject, then result) and the run state. */
 .office-plate[data-pane] { align-items:flex-start; gap:6px; padding:4px 10px 4px 4px; border-radius:12px; text-align:left; }
 .office-plate[data-pane] .office-plate-badge { flex:none; margin-top:1px; }
 /* The coding CLI's mark: ink marks masked in the plate's white, colour lockups on a dark tile. */
@@ -54,20 +123,8 @@
 .office-plate[data-pane][data-open] .office-plate-name,
 .office-plate[data-pane][data-open] .office-plate-result { max-width:min(20em, 100%); white-space:normal; overflow:visible; overflow-wrap:anywhere; text-overflow:clip; }
 .office-plate[data-pane][data-open] .office-plate-line { max-width:100%; flex-wrap:wrap; }
-/* Checkpoint label pills: same dark in-world pill as .office-plate, with a gold hexagon badge. */
-.office-checkpoint { transform-origin:center center; display:inline-flex; align-items:center; gap:6px; padding:3px 11px 3px 3px; border:1px solid rgb(245 184 61 / .55); border-radius:999px; background:rgb(24 26 32 / .86); color:#fff7ec; cursor:pointer; font-family:inherit; font-size:12px; font-weight:700; white-space:nowrap; user-select:none; box-shadow:0 2px 8px rgb(0 0 0 / .35); transition:background .15s, border-color .15s, box-shadow .15s; }
-.office-checkpoint:hover { background:rgb(36 39 48 / .95); border-color:#f5b83d; }
-.office-checkpoint-badge { display:inline-flex; align-items:center; justify-content:center; flex:none; width:20px; height:20px; background:#f5b83d; color:#2a1d0a; clip-path:polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }
-.office-checkpoint-badge svg { width:12px; height:12px; }
-.office-checkpoint-label { max-width:12em; overflow:hidden; text-overflow:ellipsis; }
-.office-checkpoint-text { display:flex; flex-direction:column; align-items:flex-start; min-width:0; line-height:1.2; }
-/* The action behind the place, shown while the character stands in (or the panel is open). */
-.office-checkpoint-hint { max-width:14em; overflow:hidden; text-overflow:ellipsis; font-size:10px; font-weight:600; color:#f5d493; }
-.office-checkpoint[data-active="true"] { background:rgb(58 42 12 / .94); border-color:#f5b83d; color:#fff; box-shadow:0 0 0 2px rgb(245 184 61 / .35), 0 2px 14px rgb(245 184 61 / .5); }
-.office-checkpoint:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; }
-@media (prefers-reduced-motion:reduce) { .office-checkpoint { transition:none; } }
-@media (max-width:900px) { .office-help { white-space:normal; text-align:center; border-radius:12px; } }
-@media (max-width:600px) { .office-help { display:none; } .office-counts { gap:8px; } }
-/* The executive chair's prompt: a wider pill with the E key and a short hint. */
-.office-seat-prompt { padding:4px 12px 4px 4px; gap:7px; font-size:12px; font-weight:600; cursor:default; }
-.office-seat-prompt kbd { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:6px; background:#f5b83d; color:#1f1300; font-family:inherit; font-size:11px; font-weight:800; }
+/* A seat's or the dog's own prompt beside it: the same dark pill with a key cap and a short hint. */
+.office-seat-prompt { padding:4px 12px 4px 4px; gap:7px; font-size:12px; font-weight:500; cursor:default; }
+.office-seat-prompt kbd { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:6px; background:#f8fafc; color:#181a20; font-family:inherit; font-size:11px; font-weight:700; }
+/* Seated first person at Mission Control: the dots step aside with the plates (officeCameraRig.css hides those). */
+.office-viewport[data-first-person] .office-plate-dot { visibility:hidden; }

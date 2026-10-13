@@ -63,7 +63,7 @@ const BM = {
   charcoal: matte(C.charcoal, { roughness: 0.7 }),
   cream: matte(C.cream, { roughness: 0.45 }),
   navy: matte(C.navy, { roughness: 0.7 }),
-  brass: matte("#c9a25a", { roughness: 0.35, metalness: 0.6 }),
+  brass: matte("#b08d5c", { roughness: 0.35, metalness: 0.6 }),
   chrome: matte("#d5d8dc", { roughness: 0.25, metalness: 0.7 }),
   black: matte("#1d1e21", { roughness: 0.5 }),
   marble: matte("#ece9e4", { roughness: 0.3 }),
@@ -962,6 +962,10 @@ export const BreakLoungeFittings = memo(function BreakLoungeFittings({ room, fur
   const bar = furniture.find((f) => f.kind === "coffeeBar" && f.room === "break");
   const wallX = room.minX + 0.075;
   const t = useT();
+  // The gallery and the clock hang either side of the west door, wherever a floor's break room has it.
+  const westDoor = room.doors.find((door) => door.side === "west");
+  const galleryZ = westDoor ? westDoor.at + westDoor.width / 2 + 0.55 : room.minZ + 5.55;
+  const clockZ = westDoor ? westDoor.at - westDoor.width / 2 - 0.65 : room.minZ + 2.35;
   return (
     <group>
       {table && (
@@ -982,9 +986,9 @@ export const BreakLoungeFittings = memo(function BreakLoungeFittings({ room, fur
       {/* West wall: a gallery of three prints south of the door, a clock north of it. */}
       <group position={[wallX, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         {([
-          [room.minZ + 5.55, 1.42, 0.36, 0.45, faces.arches()],
-          [room.minZ + 6.25, 1.3, 0.56, 0.7, faces.sunset()],
-          [room.minZ + 6.95, 1.48, 0.36, 0.45, faces.botanical()],
+          [galleryZ, 1.42, 0.36, 0.45, faces.arches()],
+          [galleryZ + 0.7, 1.3, 0.56, 0.7, faces.sunset()],
+          [galleryZ + 1.4, 1.48, 0.36, 0.45, faces.botanical()],
         ] as const).map(([z, y, fw, fh, face]) => (
           <group key={z} position={[-z, y, 0]}>
             <Box size={[fw + 0.05, fh + 0.05, 0.025]} position={[0, 0, 0]} material={BM.oak} />
@@ -992,7 +996,7 @@ export const BreakLoungeFittings = memo(function BreakLoungeFittings({ room, fur
             <Panel size={[fw - 0.08, fh - 0.08]} position={[0, 0, 0.0155]} material={face} />
           </group>
         ))}
-        <group position={[-(room.minZ + 2.35), 1.55, 0]}>
+        <group position={[-clockZ, 1.55, 0]}>
           <Cyl radius={0.17} height={0.03} position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} material={BM.oak} />
           <mesh position={[0, 0, 0.0155]} material={faces.clock()}><circleGeometry args={[0.15, 32]} /></mesh>
         </group>

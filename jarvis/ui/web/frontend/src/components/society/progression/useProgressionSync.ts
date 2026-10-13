@@ -22,6 +22,12 @@ const RESYNC_MS = 60_000;
 const RESYNC_JITTER_MS = 15_000;
 /** Ticks for "+XP" closer together than this are one sound. */
 const TICK_GAP_MS = 400;
+/**
+ * The floors the server pays a first visit for (`VERSE_FLOORS` in jarvis/progression/service.py). A backend
+ * started before the Level Hall became a floor refuses "hall"; the report is best-effort, so that costs nothing
+ * but a line in the console. `verseFloors.test.ts` holds this list, the server's and the elevator's together.
+ */
+export const METERED_FLOORS: ReadonlySet<OfficeFloor> = new Set<OfficeFloor>(["agents", "coding", "arcade", "hall"]);
 
 export function useProgressionSync(awake: boolean, floor: OfficeFloor): void {
   const seen = useRef<number>(0);
@@ -78,7 +84,7 @@ export function useProgressionSync(awake: boolean, floor: OfficeFloor): void {
 
   // The day's first visit and every floor discovered.
   useEffect(() => { if (awake) void reportWorldAction("daily_visit"); }, [awake]);
-  useEffect(() => { if (awake) void reportWorldAction("floor_discovered", floor); }, [awake, floor]);
+  useEffect(() => { if (awake && METERED_FLOORS.has(floor)) void reportWorldAction("floor_discovered", floor); }, [awake, floor]);
 
   // The office dog: a pat, a treat.
   useEffect(() => useOfficeDog.subscribe((state, prev) => {
