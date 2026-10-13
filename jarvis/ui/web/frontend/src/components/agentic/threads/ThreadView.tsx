@@ -15,6 +15,7 @@ import { OpenSubagent, SubagentHeader, SubagentSwitcher } from "./ThreadSubagent
 import { useRecalledMessages, withoutRecalled } from "./recalledMessages";
 import { fetchDiscoveredAgents, listSubagents, mergeDiscovered, subagentPath, subagentTurn, type DiscoveredAgent } from "./subagents";
 import { projectIdFor, rememberedSeat, useThreadChatStore } from "./threadModel";
+import { TeamThreadView } from "./team/TeamThreadView";
 
 /**
  * The IDE's thread layout: one conversation with a coding agent at a time.
@@ -62,7 +63,8 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
     ?? (session ? visible.find((entry) => entry.id === projectIdFor(session, visible, projectOf)) : undefined)
     ?? fallbackProject;
   const folder = session?.cwd || project?.path || "";
-  const isDraft = selection.sessionId === null;
+  // A team thread on screen is neither a thread nor a thread's draft.
+  const isDraft = selection.sessionId === null && !selection.team;
   const originatingProject = project?.id;
   const rememberCreated = useCallback((created: AgentChatSession) => {
     if (originatingProject) useIdeThreadsStore.getState().rememberProject(created.session_id, originatingProject);
@@ -82,7 +84,7 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
     const created = pending && store.activeSessionId && store.activeSessionId !== selection.sessionId ? store.activeSessionId : null;
     if (pending && created) {
       startingIn.current = null;
-      if (!selection.sessionId && selection.projectId === pending) {
+      if (!selection.sessionId && !selection.team && selection.projectId === pending) {
         threads.adoptThread(created, pending);
         return;
       }
@@ -93,8 +95,9 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
       return;
     }
     if (startingIn.current) return; // the draft's first message is on its way
+    if (selection.team) return; // a team thread shows; the thread store keeps what it has
     if (store.activeSessionId || store.timeline.items.length > 0) store.newChat();
-  }, [selection.sessionId, selection.projectId, activeSessionId]);
+  }, [selection.sessionId, selection.projectId, selection.team, activeSessionId]);
 
   // The agents are listed the moment the view opens, not when a menu is.
   useEffect(() => {
@@ -232,6 +235,10 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
       <p className="max-w-md text-sm text-muted-foreground">{t("ide_threads.empty_body")}</p>
       <button type="button" onClick={connectProject} className="mt-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary">{t("ide_threads.connect_folder")}</button>
     </div>;
+  }
+
+  if (selection.team) {
+    return <TeamThreadView key={selection.team} team={selection.team} project={project} onScreen={onScreen} />;
   }
 
   const threadKey = selection.sessionId ?? `draft:${project.id}`;

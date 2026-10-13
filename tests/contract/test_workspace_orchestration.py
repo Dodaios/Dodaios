@@ -1074,3 +1074,82 @@ def test_status_is_a_read_and_watch_is_a_logged_action(rig):
     assert tool.risk_tier_for_args({"action": "status"}) == "safe"
     assert tool.describe_args({"action": "status"})["level"] == "read"
     assert tool.risk_tier_for_args({"action": "watch"}) == "monitor"
+
+
+# --- A copy of an agent's conversation, optionally in its own worktree ----------------
+
+
+async def test_fork_opens_a_copy_of_the_named_agent_and_addresses_it(rig, monkeypatch):
+    orchestrator, registry, sessions = rig
+    owner = registry.session
+    asked = []
+
+    async def fork(wanted, *, workspace_id=None, worktree=False, name=None, direction="right"):
+        asked.append((wanted, workspace_id, worktree, name))
+        copy = Terminal("t9", "Alex 2", "codex", "Codex", 1, status="live")
+        if worktree:
+            copy.folder, copy.branch = "/repo/.worktrees/try-b", "try-b"
+        owner.terminals.append(copy)
+        return copy
+
+    monkeypatch.setattr(registry, "fork_terminal", fork)
+    plain = await orchestrator.run(
+        {"action": "fork", "workspace": owner.name, "agent": "Alex"}
+    )
+    assert plain["status"] == "forked" and plain["agent"] == "Alex"
+    assert plain["copy"]["name"] == "Alex 2" and plain["copy"]["terminal_id"].startswith("pane:")
+    assert "folder" not in plain["copy"]
+    apart = await orchestrator.run(
+        {"action": "fork", "workspace": owner.name, "agent": "Alex", "worktree": True,
+         "name": " try-b "}
+    )
+    assert apart["copy"]["branch"] == "try-b" and "own worktree" in apart["reason"]
+    assert asked == [("Alex", owner.id, False, None), ("Alex", owner.id, True, "try-b")]
+    assert not sessions.calls  # nothing is typed into either pane
+
+
+async def test_a_fork_the_app_refuses_is_passed_on_with_its_reason(rig, monkeypatch):
+    from jarvis.agentic_ide.session import SessionError
+
+    orchestrator, registry, _sessions = rig
+
+    async def refuse(wanted, **_kwargs):
+        raise SessionError("Alex is a plain terminal — it has no chat to fork.")
+
+    monkeypatch.setattr(registry, "fork_terminal", refuse)
+    result = await orchestrator.run(
+        {"action": "fork", "workspace": registry.session.name, "agent": "Alex"}
+    )
+    assert result["status"] == "not_accepted" and "no chat to fork" in result["reason"]
+
+
+def test_fork_is_a_logged_action_with_a_valid_schema(rig):
+    import jsonschema
+
+    tool = WorkspaceOrchestrationTool(rig[0])
+    jsonschema.validate({"action": "fork", "agent": "Alex", "worktree": True}, tool.schema)
+    assert tool.risk_tier_for_args({"action": "fork"}) == "monitor"
+
+
+async def test_a_job_that_ends_while_the_watch_is_set_up_is_not_watched_forever(
+    rig, reportable, monkeypatch
+):
+    from jarvis.agentic_ide import followthrough
+
+    orchestrator, registry, _sessions = rig
+    term = registry.session.terminals[0]
+    term.activity = "working"
+    real = followthrough.watch
+
+    async def finishes_meanwhile(pane, origin):
+        armed = await real(pane, origin)
+        pane.activity = "idle"  # its end is now part of the watch's starting point
+        return armed
+
+    monkeypatch.setattr(followthrough, "watch", finishes_meanwhile)
+    with _Origin("voice"):
+        result = await orchestrator.run(
+            {"action": "watch", "workspace": registry.session.name, "agent": term.name}
+        )
+    assert result["status"] == "not_running" and "just finished" in result["reason"]
+    assert term.delegation_result is None
