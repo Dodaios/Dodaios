@@ -80,19 +80,29 @@ function Frame({ framing }: { framing: Framing }) {
 }
 
 /**
- * A shape at rest on the table: it sways a little to each side and breathes,
- * so the preview shows its volume without being turned by hand. A pet brings
+ * A shape at rest on the table: it sways to each side, breathes, leans and
+ * hops every few seconds, so the preview shows its volume and its character
+ * without being turned by hand. A pet brings
  * its own life (PetModel) and is left alone.
  */
-function Idle({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+/** The preview's shape hops this often, and one hop takes this long, seconds. */
+const HOP_EVERY_S = 3.4, HOP_S = 0.7;
+
+function Idle({ enabled, heightM, children }: { enabled: boolean; heightM: number; children: ReactNode }) {
   const group = useRef<Group>(null);
   useFrame(({ clock }) => {
     const node = group.current;
     if (!node || !enabled) return;
     const t = clock.getElapsedTime();
-    const breath = Math.sin(t * 1.5) * 0.012;
-    node.rotation.y = Math.sin(t * 0.6) * 0.3;
-    node.scale.set(1 + breath, 1 - breath, 1 + breath);
+    const breath = Math.sin(t * 1.9) * 0.02;
+    // Every few seconds a hop: down into a squash, up, and a soft landing.
+    const beat = (t % HOP_EVERY_S) / HOP_S;
+    const air = beat < 1 ? Math.sin(beat * Math.PI) : 0;
+    const squash = beat < 1 ? Math.sin(beat * Math.PI * 2) * -0.07 : 0;
+    node.rotation.y = Math.sin(t * 0.8) * 0.5;
+    node.rotation.z = Math.sin(t * 1.3) * 0.05;
+    node.position.y = air * heightM * 0.22;
+    node.scale.set(1 + breath - squash, 1 - breath + squash, 1 + breath - squash);
   });
   return <group ref={group}>{children}</group>;
 }
@@ -118,7 +128,7 @@ export function CompanionPreview({ appearance, lead = false }: { appearance: Com
         camera={{ position: framing.position, fov: FOV, near: 0.02, far: 20 }} gl={{ alpha: true, antialias: true }}>
         <Studio />
         <Frame framing={framing} />
-        <Suspense fallback={null}><Idle enabled={live && !pet}><CompanionModel appearance={appearance} lead={lead} /></Idle></Suspense>
+        <Suspense fallback={null}><Idle enabled={live && !pet} heightM={appearance.sizeM}><CompanionModel appearance={appearance} lead={lead} /></Idle></Suspense>
         <ContactShadows position={[0, 0.001, 0]} opacity={0.5} scale={Math.max(1, framing.target[1] * 6)} blur={2.6} far={1} resolution={512} frames={live ? Infinity : 1} />
         <OrbitControls makeDefault target={framing.target} enablePan={false} enableZoom={false} autoRotate={turning} autoRotateSpeed={0.9}
           minPolarAngle={0.25} maxPolarAngle={Math.PI * 0.55} />
