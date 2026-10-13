@@ -20,7 +20,7 @@ beforeEach(() => {
     cursor: null,
     reveal: null,
     closed: [],
-    groupOrder: {},
+    layout: {},
     groupActive: {},
     focusedGroup: {},
   });
@@ -201,6 +201,40 @@ describe("editor groups side by side", () => {
     const last = groupsOf(store(), "w1")[2];
     store().moveTab(first.tabs[0].key, { beside: last.id, side: "right" });
     expect(layout()).toEqual(["[b.ts]", "[c.ts]", "*[a.ts]"]);
+  });
+
+  it("stacks a tab below or above a group", () => {
+    store().openFile("w1", "a.ts", { preview: false });
+    store().openFile("w1", "b.ts", { preview: false });
+    store().moveTab(edit("b.ts"), { beside: 0, side: "bottom" });
+    expect(store().layout.w1).toEqual({ dir: "column", children: [0, 1] });
+    expect(layout()).toEqual(["[a.ts]", "*[b.ts]"]);
+    store().openFile("w1", "c.ts", { preview: false });
+    store().moveTab(edit("c.ts", 1), { beside: 0, side: "top" });
+    expect(store().layout.w1).toEqual({ dir: "column", children: [2, 0, 1] });
+  });
+
+  it("splits one cell of a stack sideways and tidies up when a cell closes", () => {
+    store().openFile("w1", "a.ts", { preview: false });
+    store().openFile("w1", "b.ts", { preview: false });
+    store().openFile("w1", "c.ts", { preview: false });
+    store().moveTab(edit("b.ts"), { beside: 0, side: "bottom" });
+    store().moveTab(edit("c.ts"), { beside: 1, side: "right" });
+    // a on top; b and c side by side below it.
+    expect(store().layout.w1).toEqual({ dir: "column", children: [0, { dir: "row", children: [1, 2] }] });
+    expect(layout()).toEqual(["[a.ts]", "[b.ts]", "*[c.ts]"]);
+    store().closeTab(edit("b.ts", 1));
+    expect(store().layout.w1).toEqual({ dir: "column", children: [0, 2] });
+    store().closeTab(edit("a.ts"));
+    expect(store().layout.w1).toBe(2);
+  });
+
+  it("opens to the side beside a stacked group, inside its row", () => {
+    store().openFile("w1", "a.ts", { preview: false });
+    store().openFile("w1", "b.ts", { preview: false });
+    store().moveTab(edit("b.ts"), { beside: 0, side: "bottom" });
+    store().splitRight(edit("b.ts", 1));
+    expect(store().layout.w1).toEqual({ dir: "column", children: [0, { dir: "row", children: [1, 2] }] });
   });
 
   it("follows a rename of the files it shows", () => {
