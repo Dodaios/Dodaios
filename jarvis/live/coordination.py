@@ -20,6 +20,9 @@ WORK_STATUS_RULE: Final[str] = (
     "needs the user; never read out lists, diffs or code. When the user wants to "
     "hear when an agent they started themselves is done, call watch for it; a "
     "task you sent is reported back on its own. "
+    "A workspace's repository is workspace-git: its changed files, its worktrees, a new "
+    "worktree when the user asks for one, putting one away or bringing it back, commit, "
+    "push and pull request. "
 )
 
 
