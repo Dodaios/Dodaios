@@ -129,7 +129,7 @@ async def test_an_agent_that_was_an_orchestrator_before_stays_one(team):
 
 async def test_jarvis_and_a_lead_of_another_team_are_refused(team):
     rt, _ = team
-    with pytest.raises(TeamLeadError, match="Jarvis"):
+    with pytest.raises(TeamLeadError, match="already leads every agent"):
         await rt.team_leads.set_lead("team", "jarvis")
     await rt.store.create_chat_group("other", "Other", ["boss", "scout"])
     with pytest.raises(TeamLeadError, match="another team"):

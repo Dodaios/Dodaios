@@ -9,6 +9,8 @@
  */
 import { fill, translate } from "@/i18n";
 
+import { MARKETPLACE_REPO_URL } from "@/lib/branding";
+
 export type ShareFindingKind = "secret" | "email" | "path" | "phone" | "address";
 
 /** One thing taken out of the text before sharing — named, never repeated. */
@@ -107,8 +109,7 @@ export class ShareError extends Error {
 export const shareDraftKey = (agentId: string) => ["society", "share-template", agentId] as const;
 
 /** The registry's issue form — the browser route when the app may not file it. */
-export const MARKETPLACE_ISSUE_FORM_URL =
-  "https://github.com/PersonalJarvis/marketplace/issues/new?template=publish.yml";
+export const MARKETPLACE_ISSUE_FORM_URL = `${MARKETPLACE_REPO_URL}/issues/new?template=publish.yml`;
 
 async function readError(res: Response): Promise<ShareError> {
   const body = (await res.json().catch(() => ({}))) as {
