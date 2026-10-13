@@ -1,5 +1,6 @@
 """Session badges must describe the exact GitHub branch and pushed commit."""
 
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -213,8 +214,10 @@ def test_multiple_panes_share_requests_and_errors_are_unknown(monkeypatch):
     monkeypatch.setattr(status, "checkout", local)
     monkeypatch.setattr(
         status,
-        "pane_branch",
-        lambda record: SimpleNamespace(folder="worktree", branch=TARGET.branch, created_at=0),
+        "pane_branches",
+        lambda record: [
+            SimpleNamespace(folder="worktree", branch=TARGET.branch, created_at=0, unproven=False)
+        ],
     )
     monkeypatch.setattr(
         github_link, "credential", lambda: github_link.Credential("test-token", "gh")
@@ -228,6 +231,125 @@ def test_multiple_panes_share_requests_and_errors_are_unknown(monkeypatch):
     cached.fetched_at = 0
     failed = status.statuses(records[:1])["t1"]
     assert failed["published"] and not failed["available"]
+
+
+def _session(monkeypatch, branches, answers, unproven=()):
+    """One pane whose session worked on ``branches``; GitHub answers per branch."""
+    status._slot.cache_clear()
+    requests: list[str] = []
+
+    def graphql(_token, _query, variables):
+        requests.append(variables["branch"])
+        return answers[variables["branch"]]
+
+    monkeypatch.setattr(
+        status,
+        "checkout",
+        lambda folder, branch, created_at: status.Checkout(TARGET.repo, branch, HEAD),
+    )
+    monkeypatch.setattr(
+        status,
+        "pane_branches",
+        lambda record: [
+            SimpleNamespace(
+                folder="worktree", branch=branch, created_at=0, unproven=branch in unproven
+            )
+            for branch in branches
+        ],
+    )
+    monkeypatch.setattr(
+        github_link, "credential", lambda: github_link.Credential("test-token", "gh")
+    )
+    monkeypatch.setattr(github_link, "graphql", graphql)
+    return requests
+
+
+def _answer(branch, number, state):
+    return payload(pr(number, state, headRefName=branch))
+
+
+def test_open_work_is_shown_before_a_finished_branch_and_the_rest_is_listed(monkeypatch):
+    answers = {
+        "claude/merged-last": _answer("claude/merged-last", 3, "MERGED"),
+        "claude/still-open": _answer("claude/still-open", 2, "OPEN"),
+        "claude/closed-first": _answer("claude/closed-first", 1, "CLOSED"),
+    }
+    _session(monkeypatch, list(answers), answers)
+
+    pane = status.statuses([status.PaneBranchRecord("t1", "t1", "worktree")])["t1"]
+
+    assert (pane["branch"], pane["state"], pane["number"]) == ("claude/still-open", "open", 2)
+    assert [(other["branch"], other["state"]) for other in pane["others"]] == [
+        ("claude/merged-last", "merged"),
+        ("claude/closed-first", "closed"),
+    ]
+
+
+def test_current_branch_stays_in_front_when_nothing_is_open(monkeypatch):
+    answers = {
+        "claude/merged-last": _answer("claude/merged-last", 3, "MERGED"),
+        "claude/closed-first": _answer("claude/closed-first", 1, "CLOSED"),
+    }
+    _session(monkeypatch, list(answers), answers)
+
+    pane = status.statuses([status.PaneBranchRecord("t1", "t1", "worktree")])["t1"]
+
+    assert pane["branch"] == "claude/merged-last"
+    assert [other["branch"] for other in pane["others"]] == ["claude/closed-first"]
+
+
+def test_single_branch_has_no_others(monkeypatch):
+    answers = {"claude/only": _answer("claude/only", 4, "OPEN")}
+    _session(monkeypatch, list(answers), answers)
+
+    pane = status.statuses([status.PaneBranchRecord("t1", "t1", "worktree")])["t1"]
+
+    assert pane["branch"] == "claude/only" and pane["others"] == []
+
+
+def test_finished_branch_is_read_rarely_and_never_looks_stale(monkeypatch):
+    answers = {
+        "claude/open": _answer("claude/open", 2, "OPEN"),
+        "claude/merged": _answer("claude/merged", 3, "MERGED"),
+    }
+    requests = _session(monkeypatch, list(answers), answers)
+    records = [status.PaneBranchRecord("t1", "t1", "worktree")]
+    status.statuses(records)
+    for branch in answers:
+        status._snapshot(status.Checkout(TARGET.repo, branch, HEAD), "test-token").fetched_at -= 60
+
+    pane = status.statuses(records)["t1"]
+
+    assert requests == ["claude/open", "claude/merged", "claude/open"]
+    (merged,) = pane["others"]
+    assert merged["state"] == "merged" and merged["available"]
+    assert time.time() - merged["fetched_at"] < 5
+
+
+def test_deleted_branch_needs_its_pull_request_to_count(monkeypatch):
+    answers = {
+        "claude/current": _answer("claude/current", 5, "OPEN"),
+        "claude/deleted-merged": _answer("claude/deleted-merged", 4, "MERGED"),
+        "claude/deleted-never-pushed": payload(head=""),
+    }
+    _session(
+        monkeypatch,
+        list(answers),
+        answers,
+        unproven={"claude/deleted-merged", "claude/deleted-never-pushed"},
+    )
+
+    pane = status.statuses([status.PaneBranchRecord("t1", "t1", "worktree")])["t1"]
+
+    assert pane["branch"] == "claude/current"
+    assert [other["branch"] for other in pane["others"]] == ["claude/deleted-merged"]
+
+
+def test_pane_whose_only_branch_is_unconfirmed_shows_nothing(monkeypatch):
+    answers = {"claude/deleted-never-pushed": payload(head="")}
+    _session(monkeypatch, list(answers), answers, unproven=set(answers))
+
+    assert status.statuses([status.PaneBranchRecord("t1", "t1", "worktree")]) == {"t1": None}
 
 
 def test_route_uses_pane_cwd_and_excludes_remote_computers(monkeypatch):
