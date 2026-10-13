@@ -407,16 +407,16 @@ each of them:
 
 | Job | Where | What it proves |
 |---|---|---|
-| `agent-runtimes-unit` | Linux and Windows on a pull request, macOS added in the merge queue; the portable base install | The runtime drivers, gateway, ACP runner, chat service, send queue, controls, society binding, roster, routines and society routes (`python scripts/ci/agent_runtime_suite.py`). Fakes only. |
+| `agent-runtimes-unit` | Linux, Windows and macOS on every pull request and merge group; the portable base install | The runtime drivers, gateway, ACP runner, chat service, send queue, controls, society binding, roster, routines and society routes (`python scripts/ci/agent_runtime_suite.py`). Fakes only. |
 | `agent-runtimes-headless` | `python:3.11-slim` | The runtime package imports and its tests pass on a server with no GPU, audio or desktop stack, and the app's Hermes setup without curl stops with "Setup needs curl". |
-| `agent-runtimes-e2e` | Every pull request and merge group: Linux × Hermes, OpenClaw and Windows × OpenClaw. Nightly and release: Windows × Hermes and macOS × Hermes, OpenClaw added | `scripts/ci/agent_runtime_e2e.py`: the app's own setup job (`manager.wait_ready`) installs the release pinned in `jarvis/agent_runtimes/runtime-versions.json` with a desktop app's PATH, never npm or a manual installer. Then two turns per model-gateway protocol against scripted providers (`--replay`), the fake-model driver check with turn-1 budgets (Hermes 30 s, OpenClaw 90 s), `pytest tests/unit/agent_runtimes`, and proof that the Windows user PATH gained no `agent_runtimes` entry and OpenClaw edited no shell profile. No key and no network to a model. |
+| `agent-runtimes-e2e` | Every pull request: Linux × Hermes, OpenClaw and Windows × OpenClaw. Merge queue: macOS × Hermes, OpenClaw added. Nightly and release: Windows × Hermes added | `scripts/ci/agent_runtime_e2e.py`: the app's own setup job (`manager.wait_ready`) installs the release pinned in `jarvis/agent_runtimes/runtime-versions.json` with a desktop app's PATH, never npm or a manual installer. Then two turns per model-gateway protocol against scripted providers (`--replay`), the fake-model driver check with turn-1 budgets (Hermes 30 s, OpenClaw 90 s), `pytest tests/unit/agent_runtimes`, and proof that the Windows user PATH gained no `agent_runtimes` entry and OpenClaw edited no shell profile. No key and no network to a model. |
 
 Before a change lands, the merge queue has run the unit suite on all three
-OSes, both real runtimes on Linux and OpenClaw on Windows
-(`scripts/ci/plan_run.py` sizes the matrices). The Hermes install on Windows
-(14 to 23 minutes a job, 13 of them the upstream installer) and the real
-runtimes on macOS (10 and 7 minutes, on five runner slots shared with every
-merge group) run nightly, on release tags and on request
+OSes, both real runtimes on Linux and on macOS, and OpenClaw on Windows
+(`scripts/ci/plan_run.py` sizes the matrices): a macOS failure stops the
+change instead of surfacing the next morning. The Hermes install on Windows
+(14 to 23 minutes a job, 13 of them the upstream installer) runs nightly,
+on release tags and on request
 (`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`). The
 impact selection of `scripts/agent_land.py` adds the same suite whenever the
 lane is on, so a runtime change also runs the chat and society tests, not
