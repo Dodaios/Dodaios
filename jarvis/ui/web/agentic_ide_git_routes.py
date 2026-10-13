@@ -489,40 +489,10 @@ def delete_branch(req: DeleteBranchRequest) -> dict:
 
 
 def _create_pull_request(folder: Path, req: BranchPullRequestRequest) -> str:
-    """Push the branch if needed and open its pull request. Returns the URL.
-
-    Uses the GitHub connection the Git tab already reads with; without one (or
-    before a repository was picked for the folder) the GitHub CLI opens it.
-    """
-    cred = github_link.credential()
-    repo = github_link.bound_repository(folder)
-    wanted = git_ops.normalize_branch(req.branch)
-    info = git_ops.inspect(folder)
-    if cred is None or not repo:
-        if wanted and wanted != info.branch:
-            raise GitError("Connect GitHub to open this pull request.", code="not_connected")
-        return git_ops.create_pull_request(folder, title=req.title, draft=req.draft)
-    branch = wanted or info.branch
-    if not info.is_repo or not branch:
-        raise GitError("Check out a branch before opening a pull request.", code="detached")
-    if branch == info.default_branch:
-        raise GitError(
-            f"{branch} is the default branch — open the pull request from a feature branch.",
-            code="invalid",
-        )
-    upstream = git_ops.push(folder, branch)
-    head = upstream.partition("/")[2] or branch
-    base_ref = f"origin/{info.default_branch}"
-    if base_ref not in info.remote_branches:
-        base_ref = info.default_branch
-    title = req.title.strip() or git_ops.first_subject(folder, branch, base_ref)
-    try:
-        created = github_pulls.create(
-            repo, cred.token, head=head, base=info.default_branch, title=title, draft=req.draft
-        )
-    except github_link.GitHubError as exc:
-        raise GitError(str(exc), code=exc.code) from exc
-    return created.url
+    """Push the branch if needed and open its pull request. Returns the URL."""
+    return github_pulls.open_for_branch(
+        folder, branch=req.branch, title=req.title, draft=req.draft
+    )
 
 
 @router.post("/branch/pull-request", summary="Open a pull request for a workspace's branch")

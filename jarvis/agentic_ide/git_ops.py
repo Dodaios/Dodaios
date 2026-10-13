@@ -93,9 +93,15 @@ def gh_available() -> bool:
 
 
 def _run(
-    args: list[str], cwd: Path, *, timeout: float = _GIT_TIMEOUT_S, program: str = "git"
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: float = _GIT_TIMEOUT_S,
+    program: str = "git",
+    extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
+    env.update(extra_env or {})
     # Never block on a credential or editor prompt nobody can see.
     env["GIT_TERMINAL_PROMPT"] = "0"
     env.setdefault("GIT_EDITOR", "true")
@@ -131,8 +137,15 @@ def _reason(result: subprocess.CompletedProcess[str]) -> str:
     return lines[-1] if lines else f"exited with {result.returncode}"
 
 
-def _ok(args: list[str], cwd: Path, *, timeout: float = _GIT_TIMEOUT_S, what: str = "") -> str:
-    result = _run(args, cwd, timeout=timeout)
+def _ok(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: float = _GIT_TIMEOUT_S,
+    what: str = "",
+    extra_env: dict[str, str] | None = None,
+) -> str:
+    result = _run(args, cwd, timeout=timeout, extra_env=extra_env)
     if result.returncode != 0:
         prefix = f"Git could not {what}: " if what else "Git: "
         raise GitError(prefix + _reason(result))
@@ -443,8 +456,11 @@ def brief(folder: str | Path) -> dict[str, Any] | None:
     if root is None:
         return None
     info = RepoInfo(folder=str(path), is_repo=True, root=str(root))
+    # No optional locks: the board reads every workspace at once while agents
+    # run their own git commands there, and must never make one of them fail.
     status = _run(
-        ["status", "--porcelain=v2", "--branch", "--untracked-files=normal"],
+        ["--no-optional-locks", "status", "--porcelain=v2", "--branch",
+         "--untracked-files=normal"],
         root,
         timeout=_BRIEF_TIMEOUT_S,
     )
