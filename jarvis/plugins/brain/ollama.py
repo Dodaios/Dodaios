@@ -37,12 +37,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
+import time
 from collections.abc import AsyncIterator
-from dataclasses import fields, replace
+from dataclasses import dataclass, fields, replace
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
+from jarvis.brain import local_context
 from jarvis.core import config as cfg
 from jarvis.core.config import OllamaModelOptions
 from jarvis.core.protocols import BrainDelta, BrainRequest
@@ -66,6 +70,61 @@ RECOMMENDED_VISION_PULL = "qwen3-vl"
 # chain moves on, while a slow CPU-bound generation may legitimately stream
 # for minutes — hence the wide read timeout.
 CLIENT_TIMEOUT = httpx.Timeout(connect=2.0, read=120.0, write=30.0, pool=30.0)
+
+# The automatic window per (server root, model): sized once per process, since
+# a changed ``num_ctx`` makes Ollama reload the weights.
+_AUTOMATIC_CONTEXT: dict[tuple[str, str], int] = {}
+# What ``/api/ps`` last reported per (server root, running model): the context
+# (``None`` when the server does not report one) and when it was read.
+_RUNNING_CONTEXT: dict[tuple[str, str], tuple[int | None, float]] = {}
+_RUNNING_TTL_S = 300.0
+# (server root, profile alias) the server refused to create, and when.
+_PROFILE_REFUSED: dict[tuple[str, str], float] = {}
+_PROFILE_REFUSED_TTL_S = 300.0
+
+_NUM_CTX_PARAMETER_RE = re.compile(r"^\s*num_ctx\s+(\d+)\s*$", re.MULTILINE)
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedCall:
+    """What one ``complete()`` streams with. Per call, never per instance."""
+
+    run_model: str
+    req: BrainRequest
+    #: The context this call should run with, or ``None`` when nothing set one.
+    planned: int | None
+    #: Whether the server is known to run ``planned`` (a created profile, or
+    #: the model's own declaration).
+    confirmed: bool
+
+
+def reset_context_memo() -> None:
+    """Forget sized and verified windows (tests, or a changed endpoint)."""
+    _AUTOMATIC_CONTEXT.clear()
+    _RUNNING_CONTEXT.clear()
+    _PROFILE_REFUSED.clear()
+
+
+def _running_memo(root: str, run_model: str) -> int | None:
+    """The context ``/api/ps`` last reported for ``run_model``, if still fresh."""
+    memo = _RUNNING_CONTEXT.get((root, run_model.removesuffix(":latest")))
+    if memo is None or time.monotonic() - memo[1] > _RUNNING_TTL_S:
+        return None
+    return memo[0]
+
+
+def _is_this_machine(root: str) -> bool:
+    """Whether the server root points at the machine this app runs on."""
+    return (urlsplit(root).hostname or "").lower() in _LOOPBACK_HOSTS
+
+
+def _declared_num_ctx(parameters: Any) -> int | None:
+    """The ``num_ctx`` a model's own Modelfile sets, from ``/api/show``."""
+    if not isinstance(parameters, str):
+        return None
+    match = _NUM_CTX_PARAMETER_RE.search(parameters)
+    return int(match.group(1)) if match else None
 
 
 def normalize_server_root(url: str) -> str:
@@ -172,16 +231,26 @@ class OllamaBrain:
         # Per-model ``/api/show`` capability cache, shared by discovery and the
         # image path so one turn never probes the same download twice.
         self._caps_cache: dict[str, set[str] | None] = {}
+        # The same answer's native context window, for the automatic sizing,
+        # and the ``num_ctx`` the model's own Modelfile declares, if any.
+        self._native_context: dict[str, int | None] = {}
+        self._declared_context: dict[str, int | None] = {}
         self.supports_vision = _declared_vision_support(self._model)
         if self._model:
             from jarvis.brain.model_catalog import model_capabilities
 
             self.supports_tools = model_capabilities("ollama", self._model)["tools"] is not False
-            # Tool fitting and history compaction happen before complete().
-            # Publish an explicit local context limit before either budgets.
-            options = self._model_options(self._model)
-            if options is not None and options.num_ctx:
-                self.context_window = options.num_ctx
+        # Tool fitting and history compaction happen before complete().
+        # Publish an explicit local context limit before either budgets: the
+        # person's own, else the window this model was last given, else the
+        # floor every automatic window starts from (never the class figure,
+        # which the server does not run unless it is asked to).
+        options = self._model_options(self._model) if self._model else None
+        if options is not None and options.num_ctx:
+            self.context_window = options.num_ctx
+        else:
+            seen = local_context.known_window_for_model(self.name, self._model)
+            self.context_window = seen or self._unconfirmed_budget(self._model)
 
     def can_call_tools(self) -> bool:
         return self.supports_tools
@@ -348,9 +417,16 @@ class OllamaBrain:
             ) as client:
                 resp = await client.post(f"{root}/api/show", json={"model": name})
                 resp.raise_for_status()
-                caps = resp.json().get("capabilities")
+                shown = resp.json()
+                caps = shown.get("capabilities")
             if isinstance(caps, list):
                 caps_set = {str(c) for c in caps}
+            from jarvis.brain.ollama_inventory import (  # noqa: PLC0415 — lazy (AP-26)
+                native_context_length,
+            )
+
+            self._native_context[name] = native_context_length(shown.get("model_info"))
+            self._declared_context[name] = _declared_num_ctx(shown.get("parameters"))
         except Exception:  # noqa: BLE001 — retry unavailable metadata on the next turn
             log.debug("ollama: capability lookup failed for %s", name, exc_info=True)
             caps_set = None
@@ -400,7 +476,19 @@ class OllamaBrain:
             # The negotiated model DOES see — keep the instance flag honest for
             # the next synchronous resolver question.
             self.supports_vision = True
-        run_model, req = await self._apply_model_options(model, req)
+        call = await self._prepare_call(model, req)
+        req = call.req
+        root = self._resolve_root()
+        native = self._native_context.get(model)
+        # Refuse before sending what the window certainly cannot hold. Until
+        # the server confirmed a window (a created profile, or an earlier
+        # look at the loaded model) there is nothing to hold the request to.
+        window = self._effective_window(call, root)
+        if window:
+            self.context_window = window
+            local_context.ensure_fits(
+                req, window, provider=self.name, model=model, kind="ollama", ceiling=native
+            )
         # A temperature the person set on the model card is sent even to an
         # agent that chose none; otherwise the agent request profile decides.
         options = self._model_options(model)
@@ -408,10 +496,253 @@ class OllamaBrain:
         # Invariant at this point: either the request carries no images, or the
         # model just negotiated declares ``vision`` — so the streamer may encode
         # them.
-        async for delta in stream_complete(
-            client, run_model, req, supports_vision=True, send_temperature=send_temperature
-        ):
-            yield delta
+        stream = stream_complete(
+            client, call.run_model, req, supports_vision=True, send_temperature=send_temperature
+        )
+        reported: int | None = None
+        try:
+            first = True
+            async for delta in stream:
+                if first:
+                    # The first token proves the model is loaded, so the server
+                    # can now say which window it really runs. Checked before
+                    # anything is handed on: a prompt that was cut short must
+                    # never reach the caller as an answer.
+                    window = await self._verify_running_context(call, root, model) or window
+                    if window:
+                        self.context_window = window
+                        local_context.ensure_fits(
+                            req,
+                            window,
+                            provider=self.name,
+                            model=model,
+                            kind="ollama",
+                            ceiling=native,
+                            truncated=True,
+                        )
+                first = False
+                if delta.usage:
+                    reported = local_context.reported_prompt_tokens(delta.usage)
+                yield delta
+        except local_context.LocalContextError:
+            raise
+        except Exception as exc:
+            if not local_context.is_overflow_refusal(str(exc)):
+                raise
+            # The server refused the size itself. Say how large the window has
+            # to be and where to set it instead of passing a bare HTTP 400 on.
+            raise local_context.refusal_error(
+                req, provider=self.name, model=model, kind="ollama", window_tokens=window or 0
+            ) from exc
+        finally:
+            await stream.aclose()
+        if not window:
+            # No profile and a server that does not report its window: judge
+            # it by what it says it read.
+            self._judge_reported_prompt(req, root, model, reported)
+
+    def _judge_reported_prompt(
+        self, req: BrainRequest, root: str, model: str, reported: int | None
+    ) -> None:
+        verdict, tokens = local_context.judge_reported_prompt(
+            self.name, root, model, req, reported
+        )
+        if verdict == "tighten":
+            self.context_window = tokens
+            log.warning(
+                "ollama: %s twice read about %d prompt tokens of requests at least "
+                "twice that size, so the prompt is most likely being cut short. "
+                "Planning the next turn for %d tokens. %s",
+                model,
+                tokens,
+                tokens,
+                local_context.fix_hint("ollama", local_context.certain_tokens(req)),
+            )
+        elif verdict == "restore":
+            self.context_window = self._unconfirmed_budget(model)
+
+    def _unconfirmed_budget(self, model: str) -> int:
+        """What to budget for before any window is confirmed for ``model``.
+
+        The floor every automatic window starts from, held to the model's own
+        window where the cached catalog knows it — never the class figure,
+        which the server does not run unless it is asked to.
+        """
+        from jarvis.brain.ollama_profiles import (  # noqa: PLC0415 — lazy (AP-26)
+            AUTOMATIC_CONTEXT_FLOOR,
+        )
+
+        native = self._native_context.get(model)
+        if native is None and model:
+            try:
+                from jarvis.brain.model_catalog import (  # noqa: PLC0415 — lazy (AP-26)
+                    model_context_length,
+                )
+
+                native = model_context_length("ollama", model)
+            except Exception:  # noqa: BLE001 — an unreadable catalog means "unknown"
+                log.debug("ollama: cached context length unavailable for %s", model)
+        return min(AUTOMATIC_CONTEXT_FLOOR, native) if native else AUTOMATIC_CONTEXT_FLOOR
+
+    async def prepare_context_window(self) -> None:
+        """Settle ``context_window`` before the caller budgets a turn.
+
+        Tools are fitted before ``complete()`` runs, so a brain that only
+        learned its window there would have its first turn planned for the
+        wrong size. With a pinned model this sizes the window once (two local
+        round-trips, then cached); a discovering brain keeps the floor until
+        its first call picked a model. Never raises.
+        """
+        if not self._model or self._requested_context_window is not None:
+            return
+        try:
+            root = self._resolve_root()
+            options = self._model_options(self._model)
+            planned = (
+                options.num_ctx
+                if options is not None and options.num_ctx
+                else await self._planned_window(self._model)
+            )
+            # What the server was last seen running for this model wins over
+            # the plan: a refused profile or a capped window is already known.
+            seen = local_context.known_window(self.name, root, self._model)
+            reported = seen[0] if seen is not None and seen[1] == "server" else None
+            self.context_window = min(planned, reported) if reported else planned
+        except Exception as exc:  # noqa: BLE001 — sizing must never cost the turn
+            log.debug("ollama: could not settle the context window early: %s", exc)
+
+    async def _planned_window(self, model: str) -> int:
+        """The window ``model`` should run with when the person set none.
+
+        The larger of what the model declares for itself (a Modelfile
+        ``num_ctx``) and the automatic size: a model that already asks for
+        more than the automatic window must not be shrunk by it.
+        """
+        automatic = await self._automatic_context(model)
+        return max(automatic, self._declared_context.get(model) or 0)
+
+    async def _automatic_context(self, model: str) -> int:
+        """The window sized for this machine, once per server and model.
+
+        Remembered for the life of the process, because a changed ``num_ctx``
+        makes Ollama reload the weights. Only a complete answer is remembered:
+        when the size or the model facts could not be read (a server still
+        starting), the conservative result stands for this call and the next
+        one asks again. Never raises.
+        """
+        root = self._resolve_root()
+        key = (root, model.removesuffix(":latest"))
+        cached = _AUTOMATIC_CONTEXT.get(key)
+        if cached is not None:
+            return cached
+        from jarvis.brain import ollama_pull  # noqa: PLC0415 — lazy (AP-26)
+        from jarvis.brain.ollama_inventory import same_model  # noqa: PLC0415
+        from jarvis.brain.ollama_profiles import automatic_context  # noqa: PLC0415
+
+        size_gb: float | None = None
+        try:
+            async with httpx.AsyncClient(
+                timeout=CLIENT_TIMEOUT, headers=self._native_headers(),
+            ) as client:
+                resp = await client.get(f"{root}/api/tags")
+                resp.raise_for_status()
+                rows = resp.json().get("models") or []
+            for row in rows:
+                if same_model(str(row.get("name") or ""), model):
+                    size = int(row.get("size") or 0)
+                    size_gb = size / (1024**3) if size > 0 else None
+                    break
+        except Exception as exc:  # noqa: BLE001 — an unreadable size means the floor
+            log.debug("ollama: size lookup for %s failed: %s", model, exc)
+        if model not in self._native_context:
+            await self._capabilities(model, root)
+        if _is_this_machine(root):
+            accelerator_gb, _source = await asyncio.to_thread(ollama_pull.accelerator_gb)
+            ram_gb = await asyncio.to_thread(ollama_pull.total_memory_gb)
+        else:
+            # The server is another machine; this one's memory says nothing
+            # about what fits there.
+            accelerator_gb, ram_gb = 0.0, None
+        tokens, reason = automatic_context(
+            size_gb=size_gb,
+            native_context=self._native_context.get(model),
+            accelerator_gb=accelerator_gb,
+            ram_gb=ram_gb,
+        )
+        if size_gb is not None and model in self._native_context:
+            _AUTOMATIC_CONTEXT[key] = tokens
+            # A brain built for the next turn budgets for this from the start.
+            local_context.remember_window(
+                self.name, root, model, tokens, source="plan", kind="ollama"
+            )
+        log.info("ollama: %s has no context set, using %s", model, reason)
+        return tokens
+
+    def _effective_window(self, call: _PreparedCall, root: str) -> int | None:
+        """The window this call is known to run with, or ``None``.
+
+        What the server last reported for the model about to stream wins,
+        held to the plan; otherwise the plan counts only when the server
+        accepted it.
+        """
+        running = _running_memo(root, call.run_model)
+        if running:
+            return min(running, call.planned) if call.planned else running
+        return call.planned if call.confirmed else None
+
+    async def _verify_running_context(
+        self, call: _PreparedCall, root: str, model: str
+    ) -> int | None:
+        """Read the window the server RUNS and return the one this call has.
+
+        ``/api/ps`` reports the context a loaded model was given. A smaller
+        one than planned means the profile was not applied or the server
+        capped it; the caller then refuses a request that already exceeds it
+        instead of answering from a shortened prompt. The answer is kept for
+        a few minutes per server and running model, and it is applied on
+        every call, not only the one that fetched it. A server that does not
+        report the figure leaves the plan standing.
+        """
+        key = (root, call.run_model.removesuffix(":latest"))
+        memo = _RUNNING_CONTEXT.get(key)
+        if memo is None or time.monotonic() - memo[1] > _RUNNING_TTL_S:
+            from jarvis.brain.ollama_inventory import same_model  # noqa: PLC0415 — lazy (AP-26)
+
+            running: int | None = None
+            try:
+                async with httpx.AsyncClient(
+                    timeout=CLIENT_TIMEOUT, headers=self._native_headers(),
+                ) as client:
+                    resp = await client.get(f"{root}/api/ps")
+                    resp.raise_for_status()
+                    rows = resp.json().get("models") or []
+                for row in rows:
+                    if same_model(str(row.get("name") or row.get("model") or ""), call.run_model):
+                        value = row.get("context_length")
+                        if isinstance(value, (int, float)) and value > 0:
+                            running = int(value)
+                        break
+            except Exception as exc:  # noqa: BLE001 — verification is best-effort
+                log.debug("ollama: running-context check for %s failed: %s", call.run_model, exc)
+                return self._effective_window(call, root)
+            _RUNNING_CONTEXT[key] = (running, time.monotonic())
+            if running is not None:
+                effective = min(running, call.planned) if call.planned else running
+                local_context.remember_window(
+                    self.name, root, model, effective, source="server", kind="ollama"
+                )
+                if call.planned and running < call.planned:
+                    log.warning(
+                        "ollama: %s runs with %d tokens of context, not the %d that "
+                        "were prepared. %s",
+                        call.run_model,
+                        running,
+                        call.planned,
+                        local_context.fix_hint(
+                            "ollama", call.planned, ceiling=self._native_context.get(model)
+                        ),
+                    )
+        return self._effective_window(call, root)
 
     def _model_options(self, model: str) -> OllamaModelOptions | None:
         """The user's per-model knobs for ``model`` from
@@ -433,60 +764,108 @@ class OllamaBrain:
                 or provider.models.get(f"{model}:latest"))
 
     async def _apply_model_options(self, model: str, req: BrainRequest) -> tuple[str, BrainRequest]:
-        """Turn the per-model options into ``(model to stream, request)``.
+        """``(model to stream, request)`` for ``model`` — see ``_prepare_call``."""
+        call = await self._prepare_call(model, req)
+        return call.run_model, call.req
+
+    async def _prepare_call(self, model: str, req: BrainRequest) -> _PreparedCall:
+        """Turn the per-model options into what one call streams with.
 
         Bakeable knobs go through a derived profile alias (``/api/create``);
         ``keep_alive`` through the warm ping; ``temperature`` / ``num_predict``
         / ``think`` override the request — but only where the caller left the
         field at its default, so a deterministic tool step that asked for
         ``temperature=0`` or ``reasoning_effort="none"`` keeps its own choice.
-        ``num_ctx`` also narrows ``context_window`` so the manager budgets
-        against the real window instead of the class floor.
+
+        The context window is never left to the server's default, which is
+        small and shortens a longer prompt without an error: the runtime's
+        allocation wins, then the person's own ``num_ctx``, then the larger of
+        the model's own declaration and the automatic size. Everything this
+        call needs afterwards is returned, not kept on the instance: one
+        brain serves concurrent calls.
         """
         opts = self._model_options(model)
+        # ``confirmed``: the server is known to run ``planned`` without a
+        # profile, because the model itself declares it.
+        confirmed = False
         if self._requested_context_window is not None:
             if opts is not None and opts.num_ctx and opts.num_ctx < self._requested_context_window:
                 raise RuntimeError("The local model context changed. Start the turn again.")
             opts = (opts or OllamaModelOptions()).model_copy(
                 update={"num_ctx": self._requested_context_window}
             )
-        if opts is None:
-            return model, req
+            planned: int | None = self._requested_context_window
+        elif opts is not None and opts.num_ctx:
+            planned = opts.num_ctx
+        else:
+            planned = await self._planned_window(model)
+            declared = self._declared_context.get(model)
+            if declared and declared >= planned:
+                confirmed = True
+            else:
+                opts = (opts or OllamaModelOptions()).model_copy(update={"num_ctx": planned})
         from jarvis.brain.ollama_profiles import (  # noqa: PLC0415 — lazy (AP-26)
             ensure_profile,
             has_bakeable,
+            profile_name,
             to_v1_kwargs,
             warm,
         )
 
         root = self._resolve_root()
         run_model = model
-        if has_bakeable(opts):
-            try:
-                run_model = await ensure_profile(root, model, opts, headers=self._native_headers())
-            except Exception as exc:  # noqa: BLE001 — degrade to the base model, say so
-                if self._requested_context_window is not None:
-                    # The runtime already budgets against this window. Sending
-                    # to the base model would silently serve a smaller context.
-                    raise RuntimeError(
-                        "Could not prepare the selected local model context."
-                    ) from exc
-                log.warning(
-                    "ollama: profile for %s unavailable, running the base model (%s)",
-                    model,
-                    exc,
-                )
-                run_model = model
-        if opts.num_ctx:
-            self.context_window = opts.num_ctx
-        if opts.keep_alive is not None:
+        if opts is not None and has_bakeable(opts):
+            refused_key = (root, profile_name(model, opts))
+            refused_at = _PROFILE_REFUSED.get(refused_key)
+            if refused_at is not None and time.monotonic() - refused_at < _PROFILE_REFUSED_TTL_S:
+                # This server said no a moment ago; asking again on every turn
+                # costs two round-trips and a warning each time.
+                created = False
+            else:
+                try:
+                    run_model = await ensure_profile(
+                        root, model, opts, headers=self._native_headers()
+                    )
+                    created = True
+                    _PROFILE_REFUSED.pop(refused_key, None)
+                except Exception as exc:  # noqa: BLE001 — degrade to the base model, say so
+                    if self._requested_context_window is not None:
+                        # The runtime already budgets against this window.
+                        # Sending to the base model would silently serve a
+                        # smaller context.
+                        raise RuntimeError(
+                            "Could not prepare the selected local model context."
+                        ) from exc
+                    _PROFILE_REFUSED[refused_key] = time.monotonic()
+                    log.warning(
+                        "ollama: profile for %s unavailable, running the base model with "
+                        "the server's own context instead of %s tokens (%s)",
+                        model,
+                        opts.num_ctx,
+                        exc,
+                    )
+                    created = False
+            if opts.num_ctx:
+                confirmed = created
+        if opts is not None and opts.keep_alive is not None:
             await warm(root, run_model, opts.keep_alive, headers=self._native_headers())
         overrides: dict[str, Any] = {}
         defaults = {f.name: f.default for f in fields(BrainRequest)}
         for key, value in to_v1_kwargs(opts).items():
             if getattr(req, key, None) == defaults.get(key):
                 overrides[key] = value
-        return run_model, (replace(req, **overrides) if overrides else req)
+        if planned and confirmed:
+            # Only a window the server accepted is published for the next
+            # turn's budget. After a refused profile the running window is
+            # whatever the server defaults to; ``_verify_running_context``
+            # reads it once the model has loaded.
+            self.context_window = planned
+        return _PreparedCall(
+            run_model=run_model,
+            req=replace(req, **overrides) if overrides else req,
+            planned=planned,
+            confirmed=bool(planned and confirmed),
+        )
 
     def estimate_cost(self, req: BrainRequest) -> float:
         # Local inference has no per-token bill.
