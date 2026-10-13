@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-R_IIvAzc.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BMjoOlCx.js";import{S as sr}from"./switch-B9e9frwe.js";import{Q as D}from"./tooltip-D2IMUapS.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BCCvl3RS.js";import{C as Tn}from"./check-DIcwh5Ve.js";import{C as En}from"./columns-2-DdU4ri4G.js";/**
+|||||||| parent of 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/AppshotEditor-Bd4dOXz4.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-Z2iArCeM.js";import{S as sr}from"./switch-D8NKkOjD.js";import{Q as D}from"./tooltip-B9qfcdA0.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-Bwet4gAw.js";import{C as Tn}from"./check-Dbmd6cmh.js";import{C as En}from"./columns-2-DqnHfERA.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-Cgg9nbzz.js";import{S as sr}from"./switch-s99Iccgh.js";import{Q as D}from"./tooltip-nyssiFA0.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BbZhwNZQ.js";import{C as Tn}from"./check-BTN0Frxy.js";import{C as En}from"./columns-2-CNBNud-P.js";/**
+>>>>>>>> 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/AppshotEditor-DBvcRebG.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

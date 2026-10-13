@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/file-code-2-D4bsvxRi.js
 import{c as e}from"./index-BMjoOlCx.js";/**
+|||||||| parent of 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/file-code-2-BVVAVJdG.js
+import{c as e}from"./index-Z2iArCeM.js";/**
+========
+import{c as e}from"./index-Cgg9nbzz.js";/**
+>>>>>>>> 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/file-code-2-DnQqWzIX.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

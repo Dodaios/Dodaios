@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-BXfpN56Y.js
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gy as qa,cq as Za,j as je}from"./index-BMjoOlCx.js";var Jl={exports:{}},Lt={};/**
+|||||||| parent of 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/react-three-fiber.esm-B-X-qS16.js
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gy as qa,cq as Za,j as je}from"./index-Z2iArCeM.js";var Jl={exports:{}},Lt={};/**
+========
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gA as qa,cq as Za,j as je}from"./index-Cgg9nbzz.js";var Jl={exports:{}},Lt={};/**
+>>>>>>>> 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/react-three-fiber.esm-BtUWF5lo.js
  * @license React
  * react-reconciler-constants.production.min.js
  *

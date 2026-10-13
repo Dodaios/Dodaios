@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-DUkH0ti4.js
 import{c as P,r as i,j as e,u as C,bm as A,X as O,bU as q,bV as B,e as g,bn as D,bW as H,d as F}from"./index-BMjoOlCx.js";import{C as I}from"./TraceTimeline-DD0Whxm1.js";import{L as U}from"./lock-CXd6qs8v.js";import{C as W}from"./code-xml-DwrDF2hO.js";import{C as X}from"./chevron-right-U3vRsiLn.js";/**
+|||||||| parent of 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/CodingThreadLink-BuS9nb-x.js
+import{c as P,r as i,j as e,u as C,bm as A,X as O,bU as q,bV as B,e as g,bn as D,bW as H,d as F}from"./index-Z2iArCeM.js";import{C as I}from"./TraceTimeline-ngGV5dAL.js";import{L as U}from"./lock-guJRZMvV.js";import{C as W}from"./code-xml-B4N_lw58.js";import{C as X}from"./chevron-right-BGxZkR3d.js";/**
+========
+import{c as P,r as i,j as e,u as C,bm as A,X as O,bU as q,bV as B,e as g,bn as D,bW as H,d as F}from"./index-Cgg9nbzz.js";import{C as I}from"./TraceTimeline-DzBZhk-u.js";import{L as U}from"./lock-C9aRktL1.js";import{C as W}from"./code-xml-BwRrjqlr.js";import{C as X}from"./chevron-right-DjKexqMR.js";/**
+>>>>>>>> 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/CodingThreadLink-BWIIhqv2.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

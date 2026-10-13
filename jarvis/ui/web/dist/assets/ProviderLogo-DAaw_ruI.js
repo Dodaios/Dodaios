@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-DAaw_ruI.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-CKxq66Rb.js";import{c as I,j as i,e as n}from"./index-BMjoOlCx.js";import{S as U}from"./server-Bynz-PRX.js";/**
+|||||||| parent of 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/ProviderLogo-NQ5myFqL.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-Z2iArCeM.js";import{S as U}from"./server-Dq1LtVqz.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-Cgg9nbzz.js";import{S as U}from"./server-o_OlRBu4.js";/**
+>>>>>>>> 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/ProviderLogo-BaOy6RM9.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

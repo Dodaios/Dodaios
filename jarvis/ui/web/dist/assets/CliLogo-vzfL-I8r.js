@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-vzfL-I8r.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-1YJpAeah.js";import{c as n,j as a,e as o}from"./index-BMjoOlCx.js";import{T as c}from"./terminal-CGUIcGpv.js";import{C as I}from"./credit-card-Bd9BOw_Y.js";import{G as S}from"./git-branch-DvlFSQpJ.js";import{R as W}from"./rocket-CqeWDmkR.js";import{C as $}from"./cloud-D_p8hdWt.js";/**
+|||||||| parent of 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/CliLogo-lDrxm80T.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-DqRDF6AU.js";import{c as n,j as a,e as o}from"./index-Z2iArCeM.js";import{T as c}from"./terminal-BKc3yrKf.js";import{C as I}from"./credit-card-B4Xs1LAX.js";import{G as S}from"./git-branch-GROpumLd.js";import{R as W}from"./rocket-IWRZEUH7.js";import{C as $}from"./cloud-BKCp2d8c.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-DAlY5m52.js";import{c as n,j as a,e as o}from"./index-Cgg9nbzz.js";import{T as c}from"./terminal-DqtnarKH.js";import{C as I}from"./credit-card-eON27Zbl.js";import{G as S}from"./git-branch-CCr6EEoR.js";import{R as W}from"./rocket-CkI0F9VQ.js";import{C as $}from"./cloud-Chkc4akA.js";/**
+>>>>>>>> 6c3effd164 (feat(agentic-ide): show a team thread as a live board, a lane per member and a band per step):jarvis/ui/web/dist/assets/CliLogo-CISVaGSv.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
