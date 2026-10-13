@@ -1,7 +1,9 @@
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { fill, useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { GitHubIcon, type GitHubIconName } from "./GitHubIcon";
-import { PANE_BRAND, type TerminalAppearance } from "./terminalThemes";
+import { PANE_BRAND, PANE_CHROME, type TerminalAppearance } from "./terminalThemes";
 import { useSessionGitHub, type SessionGitHubStatus } from "./useSessionGitHub";
 
 const PR: Record<SessionGitHubStatus["state"], [GitHubIconName, string]> = {
@@ -13,24 +15,34 @@ const PR: Record<SessionGitHubStatus["state"], [GitHubIconName, string]> = {
   closed: ["git-pull-request-closed", "ide_panes.github.state_closed"],
 };
 
-export function GitHubStatusBadge({ status, appearance }: {
-  status: SessionGitHubStatus | null;
-  appearance: TerminalAppearance;
-}) {
-  const t = useT();
+const MENU_WIDTH = 320;
+
+/** One branch as the header words it: where it leads, and what state it is in. */
+interface BranchRow {
+  branch: string;
+  identity: string;
+  icon: GitHubIconName;
+  label: string;
+  /** Null while nothing is on GitHub to open. */
+  url: string | null;
+  destination: string;
+  /** The pull request number, when the link leads to one. */
+  pullRequest: string | null;
+  /** Merged or closed: listed, but no longer the pane's open work. */
+  settled: boolean;
+}
+
+function describe(status: SessionGitHubStatus, t: (key: string) => string): BranchRow | null {
   if (!status?.owned) return null;
   if (!/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/.test(status.repo) || !status.branch) return null;
   const identity = `${status.repo} · ${status.branch}`;
   const unavailable = !status.available || Date.now() / 1000 - status.fetched_at > 60;
   if (!status.published) {
     // Nothing on GitHub to open yet: the pane still says which branch its work is on.
-    const label = t(unavailable ? "ide_panes.github.unavailable" : "ide_panes.github.local_only");
-    return <span data-header-control="true" data-testid="session-github-status" role="img"
-      aria-label={`${identity}: ${label}`} title={`${identity}\n${label}`}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center opacity-50"
-      style={{ color: PANE_BRAND[appearance].inkMuted }}>
-      <GitHubIcon name="git-branch" width={16} height={16} className="block shrink-0" />
-    </span>;
+    return {
+      branch: status.branch, identity, icon: "git-branch", url: null, destination: "", pullRequest: null, settled: false,
+      label: t(unavailable ? "ide_panes.github.unavailable" : "ide_panes.github.local_only"),
+    };
   }
   // The PR may belong to an upstream repository when this branch is a fork.
   const pullRequest = /^https:\/\/github\.com\/[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+\/pull\/([1-9]\d*)$/.exec(status.url);
@@ -41,11 +53,136 @@ export function GitHubStatusBadge({ status, appearance }: {
   const [icon, labelKey] = unavailable
     ? ["git-branch" as const, "ide_panes.github.unavailable"]
     : PR[status.state] ?? ["git-branch" as const, "ide_panes.github.branch_generic"];
-  const label = t(labelKey);
+  return {
+    branch: status.branch, identity, icon, label: t(labelKey), url, destination,
+    pullRequest: pullRequest ? pullRequest[1] : null,
+    settled: !unavailable && (status.state === "merged" || status.state === "closed"),
+  };
+}
+
+/** A session that worked on several branches: one symbol, the rest one click away. */
+function BranchList({ rows, appearance }: { rows: BranchRow[]; appearance: TerminalAppearance }) {
+  const t = useT();
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const open = position !== null;
+  const brand = PANE_BRAND[appearance];
+  const chrome = PANE_CHROME[appearance];
+  const shown = rows[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: PointerEvent) => {
+      if (event.target instanceof Node && !menuRef.current?.contains(event.target)
+        && !buttonRef.current?.contains(event.target)) setPosition(null);
+    };
+    const dismiss = () => setPosition(null);
+    document.addEventListener("pointerdown", away, true);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("blur", dismiss);
+    return () => {
+      document.removeEventListener("pointerdown", away, true);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("blur", dismiss);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const left = Math.max(8, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8));
+    setPosition((current) => current ? null : { left, top: rect.bottom + 4 });
+  };
+  const close = () => { setPosition(null); buttonRef.current?.focus(); };
+
+  const menu = createPortal(<div ref={menuRef} id={menuId} role="menu" hidden={!open}
+    data-testid="session-github-branches" aria-label={t("ide_panes.github.branches_title")}
+    className="fixed z-[90] max-w-[calc(100vw-16px)] rounded-lg border p-1 shadow-lg"
+    style={{ ...(position ?? { left: 0, top: 0 }), width: MENU_WIDTH, borderColor: chrome.border,
+      background: chrome.float, color: brand.ink, "--pane-chip": brand.chip } as CSSProperties}
+    onPointerDown={(event) => event.stopPropagation()}
+    onMouseDown={(event) => event.stopPropagation()}
+    onKeyDown={(event) => {
+      if (event.key === "Escape" || event.key === "Tab") { event.preventDefault(); event.stopPropagation(); close(); return; }
+      if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("a[role=menuitem]") ?? []);
+      const at = items.indexOf(document.activeElement as HTMLElement);
+      const index = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+        : (at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+      items[index]?.focus();
+    }}>
+    <div className="px-2.5 pb-1 pt-1.5 text-[11px]" style={{ color: brand.inkFaint }}>{t("ide_panes.github.branches_title")}</div>
+    {rows.map((row) => {
+      const line = <>
+        <GitHubIcon name={row.icon} width={16} height={16} className="block shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate font-mono text-xs">{row.branch}</span>
+        <span className="shrink-0 text-[11px]" style={{ color: brand.inkFaint }}>
+          {row.pullRequest ? `#${row.pullRequest} · ` : ""}{row.label}
+        </span>
+      </>;
+      const layout = `flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left ${row.settled ? "opacity-60" : ""}`;
+      if (!row.url) {
+        return <div key={row.identity} role="menuitem" aria-disabled="true" title={`${row.identity}\n${row.label}`}
+          className={layout}>{line}</div>;
+      }
+      const url = row.url;
+      return <a key={row.identity} role="menuitem" href={url} target="_blank" rel="noopener noreferrer"
+        aria-label={fill(t("ide_panes.github.open_aria"), { destination: row.destination, identity: row.identity })}
+        title={`${row.identity}\n${row.label}\n${fill(t("ide_panes.github.open_title"), { destination: row.destination })}`}
+        className={`${layout} hover:bg-[color:var(--pane-chip)] hover:opacity-100 focus:bg-[color:var(--pane-chip)] focus:opacity-100 focus:outline-none`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setPosition(null);
+          // WebView2 drops target=_blank: use the desktop's real-browser bridge.
+          void openExternalUrl(url);
+        }}>{line}</a>;
+    })}
+  </div>, document.body);
+
+  return <>
+    <button ref={buttonRef} type="button" data-header-control="true" data-testid="session-github-status"
+      aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined}
+      aria-label={fill(t("ide_panes.github.branches_aria"), { count: rows.length, identity: shown.identity })}
+      title={`${shown.identity}\n${shown.label}\n${t("ide_panes.github.branches_title")}: ${rows.length}`}
+      className={`inline-flex h-6 shrink-0 items-center justify-center gap-0.5 rounded px-1 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current ${shown.url ? "opacity-75" : "opacity-50"}`}
+      style={{ color: brand.inkMuted }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => { if (event.key === "ArrowDown" && !open) { event.preventDefault(); toggle(); } }}
+      onClick={(event) => { event.stopPropagation(); toggle(); }}>
+      <GitHubIcon name={shown.icon} width={16} height={16} className="block shrink-0" />
+      <span className="text-[10px] leading-none tabular-nums" aria-hidden="true">{rows.length}</span>
+    </button>
+    {menu}
+  </>;
+}
+
+export function GitHubStatusBadge({ status, appearance }: {
+  status: SessionGitHubStatus | null;
+  appearance: TerminalAppearance;
+}) {
+  const t = useT();
+  const shown = status ? describe(status, t) : null;
+  if (!shown) return null;
+  const others = (status?.others ?? []).map((other) => describe(other, t))
+    .filter((row): row is BranchRow => row !== null && row.identity !== shown.identity);
+  if (others.length) return <BranchList rows={[shown, ...others]} appearance={appearance} />;
+  if (!shown.url) {
+    return <span data-header-control="true" data-testid="session-github-status" role="img"
+      aria-label={`${shown.identity}: ${shown.label}`} title={`${shown.identity}\n${shown.label}`}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center opacity-50"
+      style={{ color: PANE_BRAND[appearance].inkMuted }}>
+      <GitHubIcon name="git-branch" width={16} height={16} className="block shrink-0" />
+    </span>;
+  }
+  const url = shown.url;
   return <a data-header-control="true" data-testid="session-github-status"
     href={url} target="_blank" rel="noopener noreferrer"
-    aria-label={fill(t("ide_panes.github.open_aria"), { destination, identity })}
-    title={`${identity}\n${label}\n${fill(t("ide_panes.github.open_title"), { destination })}`}
+    aria-label={fill(t("ide_panes.github.open_aria"), { destination: shown.destination, identity: shown.identity })}
+    title={`${shown.identity}\n${shown.label}\n${fill(t("ide_panes.github.open_title"), { destination: shown.destination })}`}
     className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-75 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current"
     style={{ color: PANE_BRAND[appearance].inkMuted }}
     onPointerDown={(event) => event.stopPropagation()}
@@ -55,7 +192,7 @@ export function GitHubStatusBadge({ status, appearance }: {
       // WebView2 drops target=_blank: use the desktop's real-browser bridge.
       void openExternalUrl(url);
     }}>
-    <GitHubIcon name={icon} width={16} height={16} className="block shrink-0" />
+    <GitHubIcon name={shown.icon} width={16} height={16} className="block shrink-0" />
   </a>;
 }
 
