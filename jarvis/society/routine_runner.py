@@ -10,6 +10,7 @@ from uuid import uuid4
 from jarvis.core.protocols import RoutineDeferred
 
 from .chat_binding import SURFACE, _workspace, pair_for
+from .display_name import display_name
 from .routines import agent_id_from_tags, routine_seat
 
 log = logging.getLogger(__name__)
@@ -250,7 +251,7 @@ async def run_owned_routine(
                 "task_id": task_id,
                 "session_id": session.session_id,
                 "agent_id": agent.agent_id,
-                "agent_name": agent.name,
+                "agent_name": display_name(agent),
                 "text": title[:200],
             },
         )
@@ -333,7 +334,7 @@ async def _report_autonomous_result(
                    if tag.startswith(ORIGIN_SESSION_TAG)), agent.session_id)
     payload = {
         "kind": "society_result", "status": "done", "text": answer,
-        "agent_id": agent.agent_id, "agent_name": agent.name,
+        "agent_id": agent.agent_id, "agent_name": display_name(agent),
         "source": "routine", "task_id": task_id,
     }
     try:

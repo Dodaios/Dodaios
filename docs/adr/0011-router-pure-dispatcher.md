@@ -1454,3 +1454,42 @@ native tools.
   echoing provider text, `token_expired` → one refresh + retry, `Retry-After`
   handling, cursor pagination, channel/DM resolution, per-action risk tiers.
 - `tests/unit/brain/test_routing.py` (exact router set includes `slack`).
+
+## Amendment 2026-10-13 — Shown tools and `find_tools`
+
+`ROUTER_TOOLS` says what the router may call. Which of those schemas ride a
+request is a second decision, made per turn in
+`BrainManager._shortlist_tools` (`jarvis/brain/tool_shortlist.py`).
+
+Until now the answer was "all that fit": when the set exceeded a small
+model's window the largest schemas were dropped first, which removed the
+richly described tools before the trivial ones, and a dropped tool was
+unreachable for the turn. Now the turn's tools are split into a **shown**
+set, chosen by priority (the tool a gate mandated, the caller's own tools,
+the everyday core, then the rest), and a **deferred** rest that stays
+callable. A deferred tool named outright runs; `find_tools` searches the
+deferred set by intent and names what matches, and those tools ride the
+following rounds as ordinary definitions. When the window is what forced the
+split, room for the finder and for what it adds is held back first.
+
+Tools are deferred for three reasons only: the window cannot hold them, the
+window marks a small model (32,768 tokens or less, shown 24 tools besides the
+pinned ones), or the caller has a role that names its tools
+(`TurnOverride.tools_direct`, set for a society agent with a focus). A hosted
+model with room and no role gets the unchanged dict.
+
+`find_tools` is not a member of `ROUTER_TOOLS` and not a standing tool: it is
+built per turn from that turn's deferred dict and exists only when something
+was deferred. It is read-only (`safe`), searches nothing but the dict it was
+built from, and so cannot widen what a turn may call; every call it leads to
+still goes through `ToolExecutor`. A lookup is not an action: it is not
+recorded among the tools that ran, gets no spoken acknowledgement and no
+"done" marker. No spawn tool enters any set through it
+(AP-5/AP-14): it returns only tools the turn already held.
+
+### Regression guards
+
+- `tests/unit/brain/test_tool_shortlist.py` (priority, deferral, the loop
+  revealing found tools, the manager's three reasons)
+- `tests/unit/brain/test_context_window_fit.py` (window and count limits)
+- `tests/unit/brain/test_routing.py` (exact router set, unchanged)

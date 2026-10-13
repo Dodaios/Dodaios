@@ -42,6 +42,9 @@ ExtraBuilder = Callable[[Any, Any], Awaitable[str]]
 SessionToolsBuilder = Callable[[Any, Any, Any], dict[str, Tool]]
 SessionExtraBuilder = Callable[[Any, Any, Any], Awaitable[str]]
 SessionFilterBuilder = Callable[[Any], Callable[[dict[str, Tool]], dict[str, Tool]] | None]
+#: ``session -> tool names`` this session's caller works with, or ``None``
+#: (see ``TurnOverride.tools_direct``).
+SessionDirectTools = Callable[[Any], frozenset[str] | None]
 #: ``(session, tool_name, args) -> handled``: what "Always allow" on the
 #: approval card means on this surface. ``True`` = the surface remembered it
 #: its own way (a society agent writes its own approval rule); ``False`` =
@@ -104,6 +107,7 @@ class SurfaceKit:
     session_tools: SessionToolsBuilder | None = None
     session_system_extra: SessionExtraBuilder | None = None
     session_tool_filter: SessionFilterBuilder | None = None
+    session_direct_tools: SessionDirectTools | None = None
     #: How the card's "Always allow" is remembered here (see the alias above).
     session_always_allow: SessionAlwaysAllow | None = None
     turn_completed: Callable[[Any, ChatCompletion], Awaitable[None]] | None = None
@@ -171,6 +175,13 @@ def _society_filter(session: Any) -> Callable[[dict[str, Tool]], dict[str, Tool]
     from jarvis.society.surface import society_tool_filter
 
     return society_tool_filter(session)
+
+
+def _society_direct(session: Any) -> frozenset[str] | None:
+    """The tools the agent's role points at (lazy)."""
+    from jarvis.society.surface import society_direct_tools
+
+    return society_direct_tools(session)
 
 
 async def _society_always_allow(session: Any, tool_name: str, args: dict[str, Any]) -> bool:
@@ -284,6 +295,7 @@ _KITS: Final[dict[str, SurfaceKit]] = {
         session_tools=_society_tools,
         session_system_extra=_society_extra,
         session_tool_filter=_society_filter,
+        session_direct_tools=_society_direct,
         session_always_allow=_society_always_allow,
         turn_completed=_society_completed,
         history_start=_society_history_start,
