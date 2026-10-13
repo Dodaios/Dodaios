@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { figureKey, type FigureLook } from "./figureScene";
-import { figuresSupported, readFigure, watchFigure, watchFigureSupport, type Figure } from "./figureStore";
+import { FIGURE_BROKEN, figuresSupported, readFigure, watchFigure, watchFigureSupport, type Figure } from "./figureStore";
 
 /** True while agent shapes can be drawn as 3D figures here; re-renders when that changes. */
 export function useFiguresSupported(): boolean {
@@ -21,10 +21,13 @@ function figurePixels(size: number): number {
  * once by the figure worker and painted into a plain 2D canvas; until it is
  * there the box is empty at its final size, and while a changed look is on
  * its way the previous picture stays. `children` is drawn over the eyes, in
- * the flat symbol's own units (a face with moving eyes).
+ * the flat symbol's own units (a face with moving eyes). A look that cannot
+ * be drawn shows `fallback` instead.
  */
-export function ShapeFigure({ look, size, shape, behind, children, overlay }: {
+export function ShapeFigure({ look, size, shape, behind, children, overlay, fallback }: {
   look: FigureLook; size: number;
+  /** Shown when this look could not be drawn and no earlier picture is there. */
+  fallback: ReactNode;
   /** For `data-agent-figure`: what tests and styles tell figures apart by. */
   shape: string;
   /** Drawn behind the picture (a glow). */
@@ -38,7 +41,8 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay }: {
   const subscribe = useCallback((listener: () => void) => watchFigure(look, pixels, listener),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the key names the look and the size
     [key]);
-  const figure = useSyncExternalStore(subscribe, () => readFigure(look, pixels), () => undefined);
+  const answer = useSyncExternalStore(subscribe, () => readFigure(look, pixels), () => undefined);
+  const figure = answer === FIGURE_BROKEN ? undefined : answer;
   // The last picture stays while the next one is drawn.
   const [last, setLast] = useState<Figure | undefined>(figure);
   if (figure && figure !== last) setLast(figure);
@@ -52,6 +56,7 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay }: {
     const context = node.getContext("2d", { willReadFrequently: true });
     context?.putImageData(new ImageData(shown.data, shown.pixels, shown.pixels), 0, 0);
   }, [shown]);
+  if (answer === FIGURE_BROKEN && !shown) return <>{fallback}</>;
   return <span className="society-agent-figure" data-agent-figure={shape} data-ready={shown ? "true" : undefined} style={{ width: size, height: size }}>
     {behind}
     <canvas ref={canvas} aria-hidden />
