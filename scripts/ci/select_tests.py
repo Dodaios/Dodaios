@@ -18,10 +18,13 @@ Selection is textual and deliberately generous — FAIL OPEN:
 * conftest, packaging, lockfiles or the pipeline itself select EVERYTHING,
   and so does a selection larger than :data:`ALL_RATIO` of the suite.
 
-``--one-runner`` bounds the selection to what one runner does in a few
-minutes: a change that reaches everything (or more than
-:data:`SHARD_FILES` files) runs the macOS-focused set instead, the tests of
-the code that asks for or acts on a macOS facility.
+``--one-runner`` sizes the selection for the one macOS runner of a merge
+group. A change that reaches everything (or more than :data:`SHARD_FILES`
+files) runs the macOS-focused set instead, the tests of the code that asks
+for or acts on a macOS facility. Every selection is then filled up to
+:data:`MAC_BUDGET_SECONDS` of test history with the tests most likely to
+behave differently on macOS: the focused set, the tests of the other
+directories the macOS lane watches, and every test that names macOS itself.
 
 Writes the file list to ``--out`` and ``mode=all|selected|none``,
 ``count=N`` and ``shards=[...]`` (how many runners the selection needs) to
@@ -42,13 +45,19 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.ci import agent_runtime_suite, classify_changes  # noqa: E402
-from scripts.ci.run_tests_parallel import discover  # noqa: E402
+from scripts.ci.run_tests_parallel import discover, estimate, load_durations  # noqa: E402
 
 ALL_RATIO = 0.35
 #: A selection up to this many files still fits one runner in about the time
 #: the other legs of a run take; a larger one gets two, everything gets three.
 SHARD_FILES = 450
 FULL_SHARDS = 3
+#: What the macOS job of a merge group may spend on tests, as the sum of the
+#: per-file history. The runner has three workers: 389 s of history ran in
+#: 157 s and 384 s in 142 s (2026-10-13), so 660 s is about five minutes and
+#: the job ends before the Windows shards the gate waits for (8 to 9 minutes).
+MAC_BUDGET_SECONDS = 660.0
+_MAC_WORDS = re.compile(r"darwin|macos", re.IGNORECASE)
 _EVERYTHING_PREFIXES = (".github/workflows/", "scripts/ci/", "tests/fakes/", "tests/fixtures/")
 _EVERYTHING_FILES = {
     "conftest.py",
@@ -134,11 +143,50 @@ def mac_focus(tests: list[str]) -> list[str]:
     return sorted({t for t in tests if t.startswith(prefixes)} | {t for t in SMOKE if t in tests})
 
 
-def one_runner(mode: str, chosen: list[str], tests: list[str]) -> tuple[str, list[str]]:
-    """Bound a selection to one runner; ``none`` stays ``none``."""
-    if mode == "all" or len(chosen) > SHARD_FILES:
-        return "selected", mac_focus(tests)
-    return mode, chosen
+def mac_lane_tests(tests: list[str]) -> list[str]:
+    """The unit tests of every product directory the macOS lane watches."""
+    prefixes = tuple(
+        "tests/unit/" + (p[len("jarvis/") :] if p.startswith("jarvis/") else p)
+        for p in classify_changes._MACOS_PREFIXES
+        if p.endswith("/") and not p.startswith(("tests/", "packaging/"))
+    )
+    return sorted(t for t in tests if t.startswith(prefixes))
+
+
+def mac_aware(tests: list[str], texts: dict[str, str]) -> list[str]:
+    """The tests that name macOS: they branch on the platform or skip by it."""
+    return sorted(t for t in tests if _MAC_WORDS.search(texts.get(t, "")))
+
+
+def one_runner(
+    mode: str,
+    chosen: list[str],
+    tests: list[str],
+    texts: dict[str, str] | None = None,
+    durations: dict[str, float] | None = None,
+    budget: float = MAC_BUDGET_SECONDS,
+) -> tuple[str, list[str]]:
+    """Size a selection for one macOS runner; ``none`` stays ``none``.
+
+    What the change reaches always runs (the focused set for a change that
+    reaches everything). The rest of the budget goes to the tests a macOS-only
+    failure is most likely to show in, cheapest first so the budget covers as
+    many files as it can.
+    """
+    if mode == "none":
+        return mode, chosen
+    history = durations or {}
+    focus = mac_focus(tests)
+    kept = set(focus if mode == "all" or len(chosen) > SHARD_FILES else chosen)
+    spent = sum(estimate(file, history) for file in kept)
+    for tier in (focus, mac_lane_tests(tests), mac_aware(tests, texts or {})):
+        for file in sorted(set(tier) - kept, key=lambda f: (estimate(f, history), f)):
+            cost = estimate(file, history)
+            if spent + cost > budget:
+                break
+            kept.add(file)
+            spent += cost
+    return "selected", sorted(kept)
 
 
 def shards_for(mode: str, count: int) -> list[int]:
@@ -157,7 +205,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--one-runner",
         action="store_true",
-        help="Bound the selection to one runner (the macOS-focused set for a wide change).",
+        help="Size the selection for the one macOS runner of a merge group.",
+    )
+    parser.add_argument(
+        "--durations",
+        type=Path,
+        help="Per-file duration history: what the selection costs (--one-runner).",
     )
     args = parser.parse_args(argv)
 
@@ -171,14 +224,20 @@ def main(argv: list[str] | None = None) -> int:
         for t in tests
     }
     mode, chosen = select(changed, tests, texts)
+    shard_list = shards_for(mode, len(chosen))
     if args.one_runner:
-        mode, chosen = one_runner(mode, chosen, tests)
+        reached = len(chosen) if mode == "selected" else 0
+        history = load_durations(args.durations)
+        mode, chosen = one_runner(mode, chosen, tests, texts, history)
+        shard_list = [1] if chosen else []
+        cost = sum(estimate(file, history) for file in chosen)
+        print(f"reached={reached} one-runner files={len(chosen)} history={cost:.0f}s")
     args.out.write_text("\n".join(chosen) + ("\n" if chosen else ""), encoding="utf-8")
     print(f"mode={mode} count={len(chosen)} of {len(tests)}")
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as handle:
-            shards = json.dumps(shards_for(mode, len(chosen)), separators=(",", ":"))
+            shards = json.dumps(shard_list, separators=(",", ":"))
             handle.write(f"mode={mode}\ncount={len(chosen)}\nshards={shards}\n")
     return 0
 

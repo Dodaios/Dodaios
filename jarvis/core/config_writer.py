@@ -1104,6 +1104,20 @@ def set_missions_paid_api_fallback(enabled: bool, *, path: Path = DEFAULT_CONFIG
     _patch_table(path, "missions", "paid_api_fallback", enabled)
 
 
+def set_wiki_semantic_search(
+    enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE
+) -> None:
+    """Persist ``[wiki_context] semantic_search`` (search the wiki by meaning).
+
+    The only writer of this key, called from ``PUT /api/wiki/semantic-search``.
+    The route starts or stops the search engine itself, so the change applies
+    at once; this write makes it survive a restart.
+    """
+    if not isinstance(enabled, bool):
+        raise TypeError("semantic_search must be a bool")
+    _patch_table(path, "wiki_context", "semantic_search", enabled)
+
+
 def set_reply_language(name: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist the user-facing reply-language pin in ``[brain] reply_language``.
 
