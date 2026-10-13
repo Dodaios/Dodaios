@@ -7,7 +7,7 @@ import { useProgression } from "../progression/progressionStore";
 import { OfficeStage } from "./OfficeStage";
 
 const state = vi.hoisted(() => ({
-  canvasMounts: 0, canvasUnmounts: 0, visits: 0, maps: 0,
+  canvasMounts: 0, canvasUnmounts: 0, visits: 0, maps: 0, tools: 0, drawn: [] as [string, string][],
   roster: { data: { agents: [], sample: false } },
   coding: { occupants: [], byAgentId: new Map(), loaded: true },
   rosterEnabled: vi.fn(), codingEnabled: vi.fn(), chatsEnabled: vi.fn(),
@@ -32,6 +32,8 @@ vi.mock("./useDeskChats", () => ({
   useDeskChats: (_sessions: unknown, enabled: boolean) => { state.chatsEnabled(enabled); return new Map(); },
 }));
 vi.mock("./useDprBudget", () => ({ useDprBudget: () => 1 }));
+// The agents floor is built from the teams; the stage waits for the first answer about them.
+vi.mock("@/lib/societyChatGroups", () => ({ useSocietyChatGroups: () => ({ data: [], isSuccess: true, isError: false }) }));
 vi.mock("@react-three/fiber", () => ({
   advance: () => undefined,
   Canvas: ({ children, frameloop }: { children: ReactNode; frameloop: string }) => {
@@ -43,16 +45,30 @@ vi.mock("@react-three/fiber", () => ({
     return <div data-testid="canvas" data-loop={frameloop} data-active={active}>{children}</div>;
   },
 }));
-vi.mock("./OfficeScene", () => ({ OfficeScene: ({ awake }: { awake: boolean }) => <div data-testid="scene" data-awake={awake} /> }));
+vi.mock("./OfficeScene", () => ({
+  OfficeScene: ({ awake, floor }: { awake: boolean; floor: string }) => {
+    // What the stage draws, and what the shared store says at that very moment of rendering.
+    state.drawn.push([floor, useOfficeStore.getState().floor]);
+    return <div data-testid="scene" data-awake={awake} />;
+  },
+}));
 vi.mock("./OfficeCameraRig", () => ({ ZOOM_SECONDS: 1 }));
 vi.mock("./OfficeFrameDriver", () => ({ OfficeFrameDriver: () => null }));
 vi.mock("./OfficePlayer", () => ({ ownsKeyboard: () => false }));
-vi.mock("./OfficePanels", () => ({ AgentPanel: () => null, CheckpointPanel: () => null }));
+vi.mock("./OfficePanels", () => ({
+  AgentPanel: () => null,
+  StationSurface: () => <div data-testid="surface" />,
+  stationSurface: (selection: { kind: string; id: string } | null) => (selection?.kind === "checkpoint" && selection.id === "manage" ? "sheet" : null),
+}));
+vi.mock("./TeamRoomPanel", () => ({ MeetingStatus: () => null }));
+vi.mock("./OfficeHud", () => ({
+  OfficeTools: () => { useEffect(() => { state.tools += 1; return () => { state.tools -= 1; }; }, []); return null; },
+  StationPrompt: () => null, ControlHints: () => <div data-testid="hints" />, stationAction: () => "", stationLabel: () => "",
+}));
 vi.mock("./PaneCommandPanel", () => ({ PaneCommandPanel: () => null }));
 vi.mock("./ArcadeCabinet", () => ({ ArcadeCabinet: () => null }));
 vi.mock("./ElevatorPanel", () => ({ ElevatorPanel: () => null }));
 vi.mock("./ElevatorDoors", () => ({ ElevatorDoors: () => null }));
-vi.mock("./OfficeCompass", () => ({ OfficeCompass: () => null }));
 vi.mock("./OfficeMinimap", () => ({ OfficeMinimap: () => {
   useEffect(() => { state.maps += 1; return () => { state.maps -= 1; }; }, []);
   return null;
@@ -82,8 +98,15 @@ it("retains one canvas across chat visits while stopping input, visits, HUD and 
   expect(state.canvasMounts).toBe(1);
   expect(state.visits).toBe(1);
   expect(state.maps).toBe(1);
+  expect(state.tools).toBe(1);
+  // H opens the directory at the reception from anywhere, as a dialog over the map; H again closes it.
   fireEvent.keyDown(window, { code: "KeyH" });
-  expect(useOfficeStore.getState().selection).toEqual({ kind: "checkpoint", id: "create" });
+  expect(useOfficeStore.getState().selection).toEqual({ kind: "checkpoint", id: "manage" });
+  expect(screen.getByTestId("surface")).toBeTruthy();
+  fireEvent.keyDown(window, { code: "KeyH" });
+  expect(useOfficeStore.getState().selection).toBeNull();
+  fireEvent.keyDown(window, { code: "KeyH" });
+  expect(useOfficeStore.getState().selection).toEqual({ kind: "checkpoint", id: "manage" });
 
   view.rerender(<OfficeStage active={false} />);
   expect(screen.getByTestId("canvas")).toBe(canvas);
@@ -92,6 +115,8 @@ it("retains one canvas across chat visits while stopping input, visits, HUD and 
   expect(screen.getByTestId("scene").dataset.awake).toBe("false");
   expect(state.visits).toBe(0);
   expect(state.maps).toBe(0);
+  expect(state.tools).toBe(0);
+  expect(screen.queryByTestId("surface")).toBeNull();
   expect(state.rosterEnabled).toHaveBeenLastCalledWith(false);
   expect(state.codingEnabled).toHaveBeenLastCalledWith(false);
   expect(state.chatsEnabled).toHaveBeenLastCalledWith(false);
@@ -120,6 +145,24 @@ it("retains one canvas across chat visits while stopping input, visits, HUD and 
   expect(state.canvasUnmounts).toBe(1);
   expect(state.visits).toBe(0);
   expect(state.maps).toBe(0);
+});
+
+it("opens on the floor its host names without writing to the shared store while rendering", () => {
+  useOfficeStore.setState({ floor: "agents" });
+  state.drawn.length = 0;
+  // Another mounted office (the Agents view behind the IDE tab) watches the same store.
+  const seenByOther: string[] = [];
+  function OtherHost() { seenByOther.push(useOfficeStore((s) => s.floor)); return null; }
+  render(<><OtherHost /><OfficeStage initialFloor="coding" /></>);
+  // The store was untouched while the stage rendered: the switch came after, in an effect…
+  expect(state.drawn[0]).toEqual(["coding", "agents"]);
+  // …yet the stage never drew a frame of the other floor,
+  expect(state.drawn.map(([floor]) => floor)).not.toContain("agents");
+  // and the store, and with it every other host, ends up on the named floor.
+  expect(useOfficeStore.getState().floor).toBe("coding");
+  expect(seenByOther).toEqual(["agents", "coding"]);
+  expect(document.querySelector(".office-stage")?.getAttribute("data-office-floor")).toBe("coding");
+  useOfficeStore.setState({ floor: "agents" });
 });
 
 it("releases the coding poll while a visited coding floor is hidden", () => {
