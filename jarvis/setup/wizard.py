@@ -51,6 +51,7 @@ from rich.padding import Padding
 from rich.panel import Panel
 from rich.theme import Theme
 
+from jarvis.cli.command_name import main_command
 from jarvis.core import config as cfg
 from jarvis.hardware import detection
 
@@ -1327,7 +1328,7 @@ def run() -> int:
         return 0
     except _TermsDeclined:
         _println("\nTerms not accepted — setup stopped. You must accept the terms")
-        _println("to use Dodaios. Re-run `jarvis --wizard` when you're ready.")
+        _println(f"to use Dodaios. Re-run `{main_command()} --wizard` when you're ready.")
         return 3
     except KeyboardInterrupt:
         _println("\n\n⚠  Setup aborted. Re-run: `python -m jarvis`")
