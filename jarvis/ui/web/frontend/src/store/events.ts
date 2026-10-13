@@ -55,6 +55,8 @@ export const VOICE_STATES: readonly VoiceState[] = [
 
 export type SectionId =
   | "chats"
+  // Today: the person's own task list — overdue, due today, high priority.
+  | "today"
   | "agents"
   | "skills"
   | "plugins"
@@ -116,6 +118,7 @@ export type SectionId =
 
 export const SECTION_IDS = [
   "chats",
+  "today",
   "agents",
   "skills",
   "plugins",
@@ -212,6 +215,7 @@ export function soloWindowFromSearch(search: string): boolean {
 
 export const SECTION_LABELS: Record<SectionId, string> = {
   chats: "Chats",
+  today: "Today",
   agents: "Agents",
   skills: "Skills",
   plugins: "Plugins",
@@ -258,6 +262,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
  */
 export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   chats: "nav.chats",
+  today: "nav.today",
   agents: "nav.agents",
   skills: "nav.skills",
   plugins: "nav.plugins",
