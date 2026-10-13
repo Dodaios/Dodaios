@@ -24,8 +24,10 @@ describe("an agent that never picked a look", () => {
     expect(face().dataset.creatureState).toBe("idle");
     rerender(<AgentSwatch agent={{ ...agent, state: "working" }} />);
     expect(face().dataset.creatureState).toBe("working");
+    expect(face().querySelector("[data-agent-working]")).not.toBeNull();
     rerender(<AgentSwatch agent={{ ...agent, state: "waiting" }} />);
     expect(face().dataset.creatureState).toBe("asking");
+    expect(face().querySelector("[data-agent-working]")).toBeNull();
   });
 });
 
@@ -42,8 +44,11 @@ describe("agent vector identities", () => {
       expect(container.querySelector("[data-thinking=true]")).toBeNull();
     }
     rerender(<AgentSwatch agent={{ ...agent, tier: "lead", state: "working" }} />);
+    // The lead stays in the picture at work and carries the same bubble as everyone else.
     expect(container.querySelector("[data-agent-mascot=gigi]")).not.toBeNull();
     expect(container.querySelector("[data-thinking=true]")).not.toBeNull();
+    expect(container.querySelector("[data-agent-working]")).not.toBeNull();
+    expect(container.querySelector(".society-agent-symbol [data-agent-mascot=gigi]")).toBeNull();
   });
   it("renders a symbol immediately without a portrait, image request or canvas", () => {
     const { container } = render(<AgentSwatch agent={agent} size={40} />);
