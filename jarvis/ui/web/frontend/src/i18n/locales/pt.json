@@ -7360,10 +7360,9 @@
     "tabs": "Ficheiros abertos",
     "close_tab": "Fechar {file}",
     "close_tab_hint": "Fechar (Ctrl+W)",
-    "close_side": "Fechar o editor lateral",
-    "side_label": "Editor lateral",
-    "resize_split": "Redimensionar os dois editores",
-    "side_tab_hint": "Mostrado no editor lateral",
+    "group_label": "Grupo de editores {n}",
+    "split_right": "Dividir o editor à direita",
+    "resize_split": "Redimensionar os grupos de editores",
     "show_terminals": "Terminais",
     "show_terminals_hint": "Mostrar os terminais; os ficheiros continuam abertos",
     "breadcrumbs": "Caminho do ficheiro",
@@ -7390,7 +7389,6 @@
       "close_all": "Fechar todos",
       "copy_path": "Copiar caminho",
       "copy_relative_path": "Copiar caminho relativo",
-      "open_side": "Abrir ao lado",
       "reveal": "Mostrar na pasta"
     },
     "status": {

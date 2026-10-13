@@ -56,6 +56,13 @@ read-only installation. They control loading and are not nested settings.
 Changing `JARVIS_CONFIG` does not relocate profiles; a missing profile file
 produces no overlay.
 
+Every variable on this page can also be written with the `DODAIOS_` prefix:
+`DODAIOS__SECTION__KEY`, `DODAIOS_CONFIG`, `DODAIOS_PROFILE`, and so on (and
+`DODAIOSCTL_` for the command-line client's `JARVISCTL_` variables). The
+`JARVIS_` spelling keeps working. When both are set to different values, the
+`DODAIOS_` one is used and a log line names the variable. Dodaios reads the
+value under the `JARVIS_` name, and that is the name a program it starts sees.
+
 | Location | Resolution |
 |---|---|
 | Active configuration | Non-blank `JARVIS_CONFIG`; otherwise `<project-folder>/jarvis.toml` |

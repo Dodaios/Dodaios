@@ -195,6 +195,25 @@ function Write-Err([string]$Text)    { Write-Host "$Gut  $Red$Crs $Text$Rst" }
 Write-Banner
 
 # ----------------------------------------------------------------- config
+# Every JARVIS_INSTALL_* option also answers to DODAIOS_INSTALL_*. When both
+# are set to different values the DODAIOS_ one wins, and the clash is named,
+# never its values. The rest of this script, and installer.py after it, read
+# the JARVIS_ spelling (jarvis/core/env_prefix.py does the same for the app).
+function Use-InstallOptionNames {
+    foreach ($Option in 'REPO', 'REF', 'DIR', 'PREREQS') {
+        $NewName = "DODAIOS_INSTALL_$Option"
+        $OldName = "JARVIS_INSTALL_$Option"
+        $NewValue = [Environment]::GetEnvironmentVariable($NewName)
+        if (-not $NewValue) { continue }
+        $OldValue = [Environment]::GetEnvironmentVariable($OldName)
+        if ($OldValue -and $OldValue -cne $NewValue) {
+            Write-Note "$NewName and $OldName differ; using $NewName."
+        }
+        [Environment]::SetEnvironmentVariable($OldName, $NewValue)
+    }
+}
+Use-InstallOptionNames
+
 # Standalone bootstrap projections of jarvis/core/branding.py. The branding
 # contract test rejects drift because this script runs before Python is installed.
 $OfficialRepoSlug = "$env:JARVIS_OFFICIAL_REPO_SLUG"
