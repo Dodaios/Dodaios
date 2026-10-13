@@ -4,7 +4,9 @@
  * who keeps working at their desk). Pure, so the panel and tests share it.
  */
 import type { SocietyAgent } from "../data";
-import type { OfficeLayout, Point } from "./officeLayout";
+import type { OfficeLayout, Point, Studio } from "./officeLayout";
+import { buildNavGrid, type NavGrid } from "./officeNav";
+import { huddlePlaces, leadPlace } from "./officeTeams";
 import type { Summon, TeamMeeting } from "./officeStore";
 
 /** A meeting holds its members at the table this long unless it is ended earlier. */
@@ -35,6 +37,47 @@ export function meetingSeats(layout: OfficeLayout, members: readonly string[]): 
     const side = extra % 2 === 0 ? 1 : -1;
     seats[id] = { target: { x: centre.x + side * (2.4 + 0.5 * Math.floor(extra / 2)), z: centre.z } };
   });
+  return seats;
+}
+
+const gridCache = new WeakMap<OfficeLayout, NavGrid>();
+
+/**
+ * A place at a studio's own board for every member, the arc nearest the board
+ * first: what "Meet" started from that studio's board hands to
+ * `startMeeting` instead of the team room's chairs. Members beyond the places
+ * of the arcs get none and stay where they are. The team's lead, when it is
+ * among them, gets the centre of the front arc. Like every meeting, it never
+ * moves a working member. `grid` is the floor's navigation grid when the
+ * caller has it; without one it is built from the layout (once per layout).
+ */
+export function boardSeats(layout: OfficeLayout, studio: Studio, members: readonly string[], grid?: NavGrid | null): Record<string, MeetingSeat>;
+/** The same, with the grid named before the studio; both orders are kept so no caller breaks. */
+export function boardSeats(layout: OfficeLayout, grid: NavGrid | null | undefined, studio: Studio, members: readonly string[]): Record<string, MeetingSeat>;
+export function boardSeats(
+  layout: OfficeLayout, second: Studio | NavGrid | null | undefined, third: Studio | readonly string[], fourth?: NavGrid | null | readonly string[],
+): Record<string, MeetingSeat> {
+  // (layout, studio, members, grid?) has the member list third; (layout, grid, studio, members) has it last.
+  const membersThird = Array.isArray(third);
+  const studio = (membersThird ? second : third) as Studio;
+  const members = (membersThird ? third : fourth) as readonly string[];
+  const grid = (membersThird ? fourth : second) as NavGrid | null | undefined;
+  const board = studio.board;
+  if (!board) return {};
+  let floor = grid ?? gridCache.get(layout);
+  if (!floor) { floor = buildNavGrid(layout); gridCache.set(layout, floor); }
+  const all = huddlePlaces(layout, floor, studio);
+  // A team's lead, when it is among those called, stands at the centre of the front arc.
+  const centre = studio.leadId && members.includes(studio.leadId) ? leadPlace(all, studio) : null;
+  const places = all.filter((p) => p.id !== centre?.id)
+    .map((p, i) => ({ p, i, from: Math.hypot(p.x - board.x, p.z - board.z) }))
+    .sort((a, b) => Math.round((a.from - b.from) * 10) || a.i - b.i);
+  const seats: Record<string, MeetingSeat> = {};
+  let next = 0;
+  for (const id of members) {
+    const place = centre && id === studio.leadId ? centre : places[next++]?.p;
+    if (place) seats[id] = { target: { x: place.x, z: place.z }, spotId: place.id };
+  }
   return seats;
 }
 

@@ -65,6 +65,12 @@ export const SPAWN_LOOKS: Record<OfficeFloor, SpawnLook> = {
     screenTop: "#1c1540", screenBottom: "#0b0918", text: "#f4f1ff", accent: "#ff5fa2", accentDeep: "#1a1236",
     pad: "#1a1430", speck: ["#2a1f4a", "#151027", "#7df9ff"], padEdge: "#9b8cff", padBand: "#ff5fa2",
   },
+  // The Level Hall has no spawn point; the entry keeps the table complete in the hall's cream, charcoal and brass.
+  hall: {
+    body: "#e7e0d0", plinth: "#2b2d33", metal: "#b8964f", bezel: "#23262b", glow: "#ffe2bd",
+    screenTop: "#2b2d33", screenBottom: "#16171b", text: "#f6efe1", accent: "#b8964f", accentDeep: "#1c1d21",
+    pad: "#e7e0d0", speck: ["#ddd5c7", "#f3efe7", "#bdb3a0"], padEdge: "#b8964f", padBand: "#2b2d33",
+  },
 };
 
 interface SpawnMaterials {
@@ -575,7 +581,7 @@ function beamMaterialsFor(floor: OfficeFloor) {
 }
 
 /**
- * The spawn point's life: two gyroscope rings turning round the floor token,
+ * The spawn point's life: a beacon of two gyroscope rings turning above the terminal,
  * the glow breathing, and a column of light on the pad whenever someone new
  * arrives on the floor (a newcomer walks off the pad to its desk). Reduced
  * motion keeps the rings still and skips the beam.
@@ -628,7 +634,7 @@ export function SpawnFittings({ terminal, arrival, floor, newcomers, animate }: 
 
   return (
     <>
-      <group position={[terminal.x, SPAWN.tokenY, terminal.z]}>
+      <group position={[terminal.x, SPAWN.beaconY, terminal.z]}>
         <group ref={gyroA}><mesh geometry={gyroGeometry[0]} material={m.glow} /></group>
         <group ref={gyroB}><mesh geometry={gyroGeometry[1]} material={m.glow} /></group>
       </group>

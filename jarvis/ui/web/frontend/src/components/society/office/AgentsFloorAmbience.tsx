@@ -1,23 +1,24 @@
 /**
- * The agents floor's ambience between the rooms: olive trees in pale stone
- * pots closing the cross aisles at the windows, cushioned oak window benches
- * and slatted oak planters of grasses along both glass sides, a rack of felt
- * acoustic baffles floating over every bench in its department's colour with
- * two warm linear lights under it and soft pools of light below, and one warm
- * fill light for the whole floor.
+ * The agents floor's planting, fittings and light: olive trees in pale stone
+ * pots at the end of every street and in a few deliberate groups, cushioned
+ * oak benches, slatted oak planters of grasses (every studio's planted front
+ * among them), the built fittings of studios and commons (`CampusFittings`),
+ * a slim linear pendant light over every desk row with a soft pool of light
+ * below, and one warm fill light for the whole floor.
  *
  * Every repeated part is one instanced mesh, so the whole dressing costs a
- * handful of draw calls. The solid pieces come from `agentsAmbience`, which
- * the layout also adds to its obstacles; the baffles and light pools are out
- * of reach (overhead, or flat on the floor). The baffles fade out whenever the
- * camera comes down towards their height, so they never block a close view.
+ * few dozen draw calls however large the campus grows. The solid pieces are
+ * the plan's `ambience` items, which the layout also adds to its obstacles;
+ * the pendants and light pools are out of reach (a metre over every head, or
+ * flat on the floor), and nothing overhead is wide enough to hide a desk.
  */
-import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
-import { AdditiveBlending, Group, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry } from "three";
+import { useMemo } from "react";
+import { AdditiveBlending, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry } from "three";
 import { cachedCanvasTexture } from "./canvasMaterials";
-import { agentsAmbience, BENCH_H, PLANTER_H, type AgentsAmbienceItem } from "./agentsAmbience";
-import { agentsRug, AGENTS_SCENE } from "./AgentsFloorLook";
+import { BENCH_H, PLANTER_H, type AgentsAmbienceItem } from "./agentsAmbience";
+import { FACADE } from "./BuildingShell";
+import { AGENTS_SCENE } from "./AgentsFloorLook";
+import { CampusFittings } from "./CampusFittings";
 import { benchesOf, Instances, type Placement } from "./CodingFloorAmbience";
 import { GEO, MAT, matte } from "./OfficeFurniture";
 import type { Department, OfficeLayout } from "./officeLayout";
@@ -87,10 +88,10 @@ function Olives({ items }: { items: readonly AgentsAmbienceItem[] }) {
       trunk.push({ position: [x - 0.08, 1.35, z + 0.02], scale: [0.035, 0.62, 0.035], rotation: [0.1, 0, 0.28] });
       trunk.push({ position: [x + 0.09, 1.4, z - 0.03], scale: [0.032, 0.66, 0.032], rotation: [-0.12, 0, -0.26] });
       // The crown: an open dome of small clusters, so the trunk shows through.
-      for (let k = 0; k < 22; k += 1) {
-        const a = rand() * Math.PI * 2, ring = 0.15 + rand() * 0.45;
+      for (let k = 0; k < 11; k += 1) {
+        const a = (k / 11) * Math.PI * 2 + rand() * 0.6, ring = 0.15 + rand() * 0.42;
         const y = 1.55 + rand() * 0.7 - ring * 0.35;
-        const s = 0.1 + rand() * 0.09;
+        const s = 0.15 + rand() * 0.1;
         leaves[Math.floor(rand() * leaves.length)].push({
           position: [x + Math.cos(a) * ring, y, z + Math.sin(a) * ring], scale: [s * 1.3, s * 0.8, s * 1.3],
         });
@@ -101,10 +102,12 @@ function Olives({ items }: { items: readonly AgentsAmbienceItem[] }) {
   return (
     <group>
       <Instances geometry={GEO.potCyl} material={AMB.stone} items={parts.pot} />
-      <Instances geometry={GEO.cyl} material={AMB.stoneDark} items={parts.lip} />
+      <Instances geometry={GEO.cyl} material={AMB.stoneDark} items={parts.lip} cast={false} />
       <Instances geometry={GEO.cyl} material={AMB.gravel} items={parts.gravel} cast={false} />
       <Instances geometry={GEO.cyl} material={AMB.bark} items={parts.trunk} />
-      {parts.leaves.map((list, i) => <Instances key={i} geometry={GEO.blob} material={OLIVE_LEAVES[i]} items={list} />)}
+      {/* Flat-shaded clusters: twenty faces each read the same as eighty. */}
+      {/* Two of a crown's three tones throw its shadow; the third would only draw it again. */}
+      {parts.leaves.map((list, i) => <Instances key={i} geometry={GEO.facet} material={OLIVE_LEAVES[i]} items={list} cast={i < 2} />)}
     </group>
   );
 }
@@ -162,8 +165,8 @@ function Benches({ items }: { items: readonly AgentsAmbienceItem[] }) {
     <group>
       <Instances geometry={GEO.box} material={AMB.oakDark} items={parts.plinth} cast={false} />
       <Instances geometry={GEO.box} material={AMB.oak} items={parts.box} />
-      <Instances geometry={GEO.box} material={AMB.linen} items={parts.cushion} />
-      <Instances geometry={GEO.box} material={AMB.fabric} items={parts.fabric} />
+      <Instances geometry={GEO.box} material={AMB.linen} items={parts.cushion} cast={false} />
+      <Instances geometry={GEO.box} material={AMB.fabric} items={parts.fabric} cast={false} />
     </group>
   );
 }
@@ -177,6 +180,7 @@ function Planters({ items }: { items: readonly AgentsAmbienceItem[] }) {
   const parts = useMemo(() => {
     const liner: Placement[] = [], slats: Placement[] = [], cap: Placement[] = [], soil: Placement[] = [], plumes: Placement[] = [], stalks: Placement[] = [];
     const grass: Placement[][] = GRASS.map(() => []);
+    const mounds: Placement[][] = GRASS.map(() => []);
     for (const item of items) {
       const rand = lcg(seedOf(item.id));
       const depth = item.maxX - item.minX, len = item.maxZ - item.minZ;
@@ -193,9 +197,13 @@ function Planters({ items }: { items: readonly AgentsAmbienceItem[] }) {
       cap.push({ position: [cx, PLANTER_H - 0.015, cz], scale: [depth + 0.01, 0.03, len + 0.01] });
       soil.push({ position: [cx, PLANTER_H + 0.002, cz], scale: [depth - 0.06, 0.006, len - 0.06] });
       // Clumps of fine blades fanning out of a low mound, and every so often a pale plume above them.
-      for (let z = item.minZ + 0.12; z < item.maxZ - 0.08; z += 0.11 + rand() * 0.05) {
-        const bx = cx + (rand() - 0.5) * 0.1, tone = Math.floor(rand() * GRASS.length);
-        grass[tone].push({ position: [bx, PLANTER_H + 0.03, z], scale: [0.07, 0.06, 0.07] });
+      // A planter runs along its longer side; the clumps follow it.
+      const alongX = depth > len;
+      const [from, to] = alongX ? [item.minX, item.maxX] : [item.minZ, item.maxZ];
+      for (let at = from + 0.12; at < to - 0.08; at += 0.11 + rand() * 0.05) {
+        const across = (alongX ? cz : cx) + (rand() - 0.5) * 0.1, tone = Math.floor(rand() * GRASS.length);
+        const bx = alongX ? at : across, z = alongX ? across : at;
+        mounds[tone].push({ position: [bx, PLANTER_H + 0.03, z], scale: [0.07, 0.06, 0.07] });
         let tallest = 0;
         for (let k = 0; k < 6; k += 1) {
           const h = 0.18 + rand() * 0.24, rx = (rand() - 0.5) * 0.9, rz = (rand() - 0.5) * 0.9;
@@ -214,29 +222,36 @@ function Planters({ items }: { items: readonly AgentsAmbienceItem[] }) {
         }
       }
     }
-    return { liner, slats, cap, soil, grass, plumes, stalks };
+    return { liner, slats, cap, soil, grass, mounds, plumes, stalks };
   }, [items]);
   return (
     <group>
       <Instances geometry={GEO.box} material={AMB.oakDark} items={parts.liner} />
       <Instances geometry={GEO.box} material={AMB.oak} items={parts.slats} cast={false} />
-      <Instances geometry={GEO.box} material={AMB.oak} items={parts.cap} />
+      <Instances geometry={GEO.box} material={AMB.oak} items={parts.cap} cast={false} />
       <Instances geometry={GEO.box} material={MAT.soil} items={parts.soil} cast={false} />
-      {parts.grass.map((list, i) => <Instances key={i} geometry={GEO.blob} material={GRASS[i]} items={list} />)}
-      <Instances geometry={GEO.blob} material={AMB.plume} items={parts.plumes} />
+      {/* Hundreds of blades per planter: each is a slim spindle of eight faces, the mound under them a facet. */}
+      {parts.grass.map((list, i) => <Instances key={i} geometry={GEO.blade} material={GRASS[i]} items={list} cast={false} />)}
+      {parts.mounds.map((list, i) => <Instances key={`m${i}`} geometry={GEO.facet} material={GRASS[i]} items={list} cast={false} />)}
+      <Instances geometry={GEO.facet} material={AMB.plume} items={parts.plumes} cast={false} />
       <Instances geometry={GEO.cyl} material={AMB.stalk} items={parts.stalks} cast={false} />
     </group>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Felt baffles over the benches
+// Pendant lights over the benches
 // ---------------------------------------------------------------------------
 
-/** Top of the baffle rack, a baffle's height, thickness and length (across the bench), and their pitch along it. */
-const BAFFLE = { top: 3.3, h: 0.36, t: 0.035, len: 1.8, pitch: 0.4 } as const;
-/** The baffles fade out between these camera heights, so a close or low view never looks through them. */
-const BAFFLE_FADE = { from: 6.5, to: 9 } as const;
+/**
+ * A slim linear pendant over each desk row: its height and its housing. Its two wires run up to the ceiling line.
+ * A line five centimetres wide a metre over every head never stands between the camera and the people at the desks.
+ */
+const PENDANT = { y: 2.75, w: 0.05, h: 0.035 } as const;
+const PENDANT_MAT = {
+  housing: matte("#2a2724", { roughness: 0.5 }),
+  glow: new MeshStandardMaterial({ color: AGENTS_SCENE.light.glow, emissive: AGENTS_SCENE.light.glow, emissiveIntensity: 1.5, toneMapped: false }),
+};
 
 let poolMaterial: MeshBasicMaterial | null = null;
 /** A soft oval of warm light, added onto the floor. */
@@ -258,65 +273,36 @@ function pool(): MeshBasicMaterial {
 }
 const POOL_GEOMETRY = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
-function Baffles({ departments }: { departments: readonly Department[] }) {
-  const lamps = useRef<Group>(null);
-  // Own materials, so fading them touches nothing else in the scene.
-  const mats = useMemo(() => ({
-    felt: matte("#ffffff", { roughness: 1, transparent: true }),
-    strip: new MeshStandardMaterial({
-      color: AGENTS_SCENE.light.glow, emissive: AGENTS_SCENE.light.glow, emissiveIntensity: 1.8, toneMapped: false, transparent: true,
-    }),
-    cable: matte("#2a2724", { roughness: 0.5, transparent: true }),
-  }), []);
-  useEffect(() => () => { mats.felt.dispose(); mats.strip.dispose(); mats.cable.dispose(); }, [mats]);
+/** The housing of every pendant on the floor: its middle, its length along x, its height and its width. Pure. */
+export function pendantHousings(departments: readonly Pick<Department, "id" | "desks">[]): { x: number; y: number; z: number; length: number; h: number; w: number }[] {
+  return benchesOf(departments).flatMap((bench) => {
+    const length = Math.max(1.2, bench.length - 1.3);
+    // One over each desk row of the bench.
+    return [-0.45, 0.45].map((dz) => ({ x: bench.x, y: PENDANT.y + PENDANT.h / 2, z: bench.z + dz, length, h: PENDANT.h, w: PENDANT.w }));
+  });
+}
+
+function Pendants({ departments }: { departments: readonly Department[] }) {
   const parts = useMemo(() => {
-    const fins: Placement[] = [], rails: Placement[] = [], strips: Placement[] = [], cables: Placement[] = [], pools: Placement[] = [];
-    for (const dept of departments) {
-      const felt = agentsRug(dept.tint).felt;
-      for (const bench of benchesOf([dept])) {
-        // A rack of vertical felt fins across the bench: seen from above they are fine lines, so the desks stay visible.
-        const run = bench.length - 0.9, count = Math.max(2, Math.round(run / BAFFLE.pitch) + 1);
-        for (let i = 0; i < count; i += 1) {
-          const x = bench.x - run / 2 + (run * i) / (count - 1);
-          fins.push({ position: [x, BAFFLE.top - BAFFLE.h / 2, bench.z], scale: [BAFFLE.t, BAFFLE.h, BAFFLE.len], color: felt });
-        }
-        for (const dz of [-BAFFLE.len * 0.35, BAFFLE.len * 0.35]) {
-          rails.push({ position: [bench.x, BAFFLE.top + 0.012, bench.z + dz], scale: [run + 0.08, 0.024, 0.03], color: felt });
-        }
-        // Two linear lights under the fins, one over each desk row.
-        for (const dz of [-0.45, 0.45]) {
-          strips.push({ position: [bench.x, BAFFLE.top - BAFFLE.h - 0.05, bench.z + dz], scale: [run - 0.4, 0.025, 0.05] });
-        }
-        for (const dx of [-run * 0.4, run * 0.4]) {
-          for (const dz of [-BAFFLE.len * 0.35, BAFFLE.len * 0.35]) cables.push({ position: [bench.x + dx, BAFFLE.top + 0.6, bench.z + dz], scale: [0.005, 1.2, 0.005] });
-          // The light hangs from the rack on short drops.
-          for (const dz of [-0.45, 0.45]) cables.push({ position: [bench.x + dx, BAFFLE.top - (BAFFLE.h + 0.05) / 2, bench.z + dz], scale: [0.005, BAFFLE.h + 0.05, 0.005] });
-        }
-        pools.push({ position: [bench.x, 0.012, bench.z], scale: [bench.length + 1.4, 1, 3.4] });
+    const housings: Placement[] = [], glows: Placement[] = [], wires: Placement[] = [], pools: Placement[] = [];
+    const wire = FACADE.h - PENDANT.y - PENDANT.h;
+    for (const { x, y, z, length: run, h, w } of pendantHousings(departments)) {
+      housings.push({ position: [x, y, z], scale: [run, h, w] });
+      glows.push({ position: [x, PENDANT.y - 0.006, z], scale: [run - 0.04, 0.012, w - 0.014] });
+      for (const dx of [-run * 0.4, run * 0.4]) {
+        wires.push({ position: [x + dx, PENDANT.y + h + wire / 2, z], scale: [0.006, wire, 0.006] });
       }
     }
-    return { fins, rails, strips, cables, pools };
-  }, [departments]);
-  const fade = useRef(-1);
-  useFrame(({ camera }) => {
-    const t = Math.min(1, Math.max(0, (camera.position.y - BAFFLE_FADE.from) / (BAFFLE_FADE.to - BAFFLE_FADE.from)));
-    if (t === fade.current) return;
-    fade.current = t;
-    for (const m of [mats.felt, mats.strip, mats.cable]) {
-      m.opacity = t;
-      // Opaque when fully shown, so the fins sort and shadow like any solid.
-      m.depthWrite = t >= 1;
+    for (const bench of benchesOf(departments)) {
+      pools.push({ position: [bench.x, 0.012, bench.z], scale: [bench.length + 1.4, 1, 3.4] });
     }
-    if (lamps.current) lamps.current.visible = t > 0;
-  });
+    // Housings and wires are the same steel: one mesh.
+    return { steel: [...housings, ...wires], glows, pools };
+  }, [departments]);
   return (
     <group>
-      <group ref={lamps}>
-        <Instances geometry={GEO.box} material={mats.felt} items={parts.fins} cast={false} />
-        <Instances geometry={GEO.box} material={mats.felt} items={parts.rails} cast={false} />
-        <Instances geometry={GEO.box} material={mats.strip} items={parts.strips} cast={false} />
-        <Instances geometry={GEO.box} material={mats.cable} items={parts.cables} cast={false} />
-      </group>
+      <Instances geometry={GEO.box} material={PENDANT_MAT.housing} items={parts.steel} cast={false} />
+      <Instances geometry={GEO.box} material={PENDANT_MAT.glow} items={parts.glows} cast={false} />
       <Instances geometry={POOL_GEOMETRY} material={pool()} items={parts.pools} cast={false} />
     </group>
   );
@@ -327,7 +313,7 @@ function Baffles({ departments }: { departments: readonly Department[] }) {
 // ---------------------------------------------------------------------------
 
 export function AgentsFloorAmbience({ layout }: { layout: OfficeLayout }) {
-  const items = useMemo(() => agentsAmbience(layout), [layout]);
+  const items = useMemo(() => layout.ambience ?? [], [layout]);
   const byKind = useMemo(() => ({
     olive: items.filter((i) => i.kind === "olive"),
     bench: items.filter((i) => i.kind === "bench"),
@@ -341,7 +327,9 @@ export function AgentsFloorAmbience({ layout }: { layout: OfficeLayout }) {
       <Olives items={byKind.olive} />
       <Benches items={byKind.bench} />
       <Planters items={byKind.planter} />
-      <Baffles departments={layout.departments} />
+      {/* Studio screens, cabinets, sofas and tables, and the commons' step seating, kitchen, booths and large trees. */}
+      <CampusFittings items={items} />
+      <Pendants departments={layout.departments} />
     </group>
   );
 }
