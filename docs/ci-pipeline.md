@@ -255,8 +255,14 @@ An agent in its own worktree runs one command when its work is done:
 
 ```bash
 python scripts/agent_land.py            # feature branch -> PR labelled auto-merge
-python scripts/agent_land.py --direct   # fast-forward main itself
+python scripts/agent_land.py --direct   # admin only: fast-forward main itself
 ```
+
+Local `main` is a mirror of `origin/main`: the commit hook
+(`scripts/ci/check_commit_branch.py`) refuses a commit on it, and the script
+refuses to land from it. Work starts on a branch cut from `origin/main`
+(`git worktree add -b <agent>/<topic> <path> origin/main`) and the main
+checkout follows with `git pull --ff-only` once the pull request has merged.
 
 It rebases onto the latest main with the same conflict engine, runs the
 static gates, runs the tests the diff can reach, pushes, and asks GitHub to
