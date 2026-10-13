@@ -8,7 +8,7 @@
 import accessoryModels from "@/assets/society/companions/accessories.glb";
 import companionModels from "@/assets/society/companions/companions.glb";
 import type { FigureRequest, FigureResponse } from "./figure.worker";
-import { figureKey, type FigureLook } from "./figureScene";
+import { figureKey, type FigureLook, type FigureSmoke } from "./figureScene";
 
 export interface Figure {
   /** Width and height, device pixels. */
@@ -17,6 +17,10 @@ export interface Figure {
   data: Uint8ClampedArray<ArrayBuffer>;
   /** SVG matrix from flat symbol units to picture pixels, at the eyes (figureFaceMatrix). */
   face: [number, number, number, number, number, number];
+  /** How much of each pixel is body, one byte per pixel; only where an effect moves across the body. */
+  body?: Uint8ClampedArray<ArrayBuffer>;
+  /** Where worn items smoke, in picture pixels. */
+  smoke: FigureSmoke[];
 }
 
 /** The most picture memory kept, bytes. */
@@ -102,12 +106,12 @@ function giveUp(key: string): void {
 
 function keep(key: string, figure: Figure): void {
   pictures.set(key, figure);
-  pictureBytes += figure.data.byteLength;
+  pictureBytes += figure.data.byteLength + (figure.body?.byteLength ?? 0);
   // Oldest first; a Map keeps insertion order. A face that still shows an evicted picture keeps its own copy.
   for (const [old, value] of pictures) {
     if (pictureBytes <= PICTURE_BUDGET || old === key) break;
     pictures.delete(old);
-    pictureBytes -= value.data.byteLength;
+    pictureBytes -= value.data.byteLength + (value.body?.byteLength ?? 0);
   }
 }
 
@@ -119,7 +123,10 @@ function answer(message: FigureResponse): void {
   if (!message.ok) { giveUp(key); return; }
   current = undefined;
   workerFailures = 0;
-  keep(key, { pixels: message.pixels, data: new Uint8ClampedArray(message.data), face: message.face });
+  keep(key, {
+    pixels: message.pixels, data: new Uint8ClampedArray(message.data), face: message.face,
+    body: message.body && new Uint8ClampedArray(message.body), smoke: message.smoke,
+  });
   const entry = wanted.get(key);
   wanted.delete(key);
   entry?.listeners.forEach(listener => listener());
