@@ -9538,5 +9538,127 @@
     "decrease": "diminuir",
     "increase": "aumentar",
     "recheck": "verificar novamente"
+  },
+  "team_threads": {
+    "new": "Novo tópico de equipa",
+    "new_in": "Novo tópico de equipa em {project}",
+    "missing": "Este tópico de equipa já não existe.",
+    "loading": "A carregar o tópico de equipa",
+    "pause": "Pausar",
+    "resume": "Continuar",
+    "stop": "Parar",
+    "delete": "Eliminar tópico de equipa",
+    "delete_confirm": "Eliminar com os tópicos dos membros?",
+    "steps": "Passos",
+    "members": "Equipa",
+    "usage": "{minutes} de {max_minutes} min · {turns} de {max_turns} turnos",
+    "cost_partial": "Alguns membros usam um lugar que não indica o preço, por isso o valor está incompleto.",
+    "cost_hint": "Valor ao preço de tabela, tal como os agentes de código o indicam. Um lugar de subscrição não é faturado por turno.",
+    "accept_plan": "Aceitar este plano",
+    "accept_work": "Aceitar o trabalho como está",
+    "another_round": "Mais uma ronda",
+    "message": "Intervir: cada membro lê isto no seu próximo turno",
+    "message_decide": "Decida os pontos em aberto; a equipa faz mais uma ronda com a sua resposta",
+    "send": "Enviar",
+    "open_member": "Abrir o tópico de {member}",
+    "round": "ronda {round}",
+    "files_changed": "{count} ficheiros alterados",
+    "state": {
+      "running": "A trabalhar",
+      "paused": "Em pausa",
+      "needs_input": "À sua espera",
+      "done": "Concluído",
+      "stopped": "Parado",
+      "failed": "Falhou"
+    },
+    "phase": {
+      "draft": "Planos próprios",
+      "challenge": "Contraste",
+      "converge": "Plano principal",
+      "build": "Construir",
+      "review": "Revisão"
+    },
+    "kind": {
+      "draft": "Plano próprio",
+      "critique": "Contraste",
+      "plan": "Plano principal",
+      "vote": "Voto",
+      "build": "Relatório de construção",
+      "review": "Revisão",
+      "fix": "Resposta à revisão"
+    },
+    "vote": {
+      "agree": "concorda",
+      "object": "discorda"
+    },
+    "review": {
+      "approve": "aprova",
+      "changes": "pede alterações"
+    },
+    "severity": {
+      "blocking": "Bloqueante",
+      "minor": "Menor"
+    },
+    "member": {
+      "working": "a trabalhar",
+      "waiting": "à sua espera",
+      "left": "saiu",
+      "builder": "Constrói o plano"
+    },
+    "reason": {
+      "user": "Pausou este tópico de equipa.",
+      "interrupted": "A aplicação fechou enquanto a equipa trabalhava. Nada continua até o indicar.",
+      "plan_disagreement": "A equipa não chegou a acordo sobre um plano após {rounds} rondas.",
+      "review_disagreement": "Após {rounds} rondas de revisão, os revisores ainda não aprovam.",
+      "limit_time": "O limite de tempo foi atingido. Continue para dar à equipa mais metade.",
+      "limit_turns": "O limite de turnos foi atingido. Continue para dar à equipa mais metade.",
+      "limit_cost": "O limite de custo foi atingido. Continue para o aumentar.",
+      "stalled": "{note} não terminou o seu turno. Continue para perguntar de novo.",
+      "member_failed": "{note}. Sem este membro não resta equipa. Continue para perguntar de novo.",
+      "not_enough_members": "Restam menos de dois membros, por isso a equipa não pode continuar.",
+      "error": "O tópico de equipa falhou: {note}"
+    },
+    "notice": {
+      "same_family": "Todos os membros usam a mesma família de modelos, por isso os seus pontos cegos coincidem. Uma segunda família deteta mais.",
+      "plan_agreed": "A equipa acordou o plano principal na ronda {rounds}. {member} constrói-o.",
+      "plan_accepted_by_user": "Aceitou o plano principal como está. {member} constrói-o.",
+      "member_left": "{member} saiu da equipa: {error}",
+      "member_failed": "Um membro não conseguiu fazer o seu turno: {note}",
+      "member_model_changed": "{member} não conseguiu usar o modelo predefinido e continua com {model}: {error}",
+      "builder_changed": "{member} constrói a partir daqui.",
+      "files_changed": "Foram alterados ficheiros num passo que só lê ({step}): {files}",
+      "no_git": "Esta pasta não é um repositório git, por isso os revisores leem os ficheiros diretamente.",
+      "paused": "Em pausa.",
+      "stopped": "Parado.",
+      "resumed": "Continuado.",
+      "limit_time": "O limite de tempo foi atingido.",
+      "limit_turns": "O limite de turnos foi atingido.",
+      "limit_cost": "O limite de custo foi atingido.",
+      "stalled": "{note} não terminou o seu turno.",
+      "not_enough_members": "Restam menos de dois membros."
+    },
+    "summary": {
+      "done": "Concluído. Plano acordado na ronda {plan}, alteração aprovada na ronda de revisão {review}. Os revisores apontaram {count} problemas, {blocking} deles bloqueantes.",
+      "accepted_by_user": "Aceitou o trabalho com problemas em aberto. Os revisores apontaram {count} problemas, {blocking} deles bloqueantes.",
+      "open_points": "Pontos em aberto"
+    },
+    "issues": {
+      "title": "Detetado pela equipa: {count} ({open} em aberto)",
+      "resolved": "resolvido",
+      "open": "em aberto",
+      "plan": "plano",
+      "review": "revisão"
+    },
+    "draft": {
+      "title": "O que deve a equipa construir em {project}?",
+      "body": "Cada membro planeia sozinho, contrastam os planos uns dos outros e acordam um. Um constrói e os outros reveem até aprovarem. Pode intervir a qualquer momento.",
+      "none_ready": "Ainda não há nenhum agente de código nem fornecedor ligado. Ligue um para iniciar uma equipa.",
+      "member_n": "Membro {number}",
+      "remove_named": "Remover {target}",
+      "add": "Adicionar membro",
+      "placeholder": "Descreva a tarefa para a equipa",
+      "start": "Iniciar a equipa",
+      "bounds": "Para e pergunta-lhe após 90 minutos, 40 turnos ou três rondas sem acordo."
+    }
   }
 }
