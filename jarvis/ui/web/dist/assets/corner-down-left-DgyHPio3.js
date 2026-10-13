@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/corner-down-left-CzCoXnlo.js
+import{c as o}from"./index-wqyv4dIZ.js";/**
+========
+import{c as o}from"./index-kUK78RJZ.js";/**
+>>>>>>>> 99cfae59d1e0af9eecea92097cfc4d44a88d0f57:jarvis/ui/web/dist/assets/corner-down-left-DgyHPio3.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const r=o("CornerDownLeft",[["polyline",{points:"9 10 4 15 9 20",key:"r3jprv"}],["path",{d:"M20 4v7a4 4 0 0 1-4 4H4",key:"6o5b7l"}]]);export{r as C};
