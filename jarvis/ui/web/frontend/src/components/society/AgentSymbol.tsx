@@ -181,7 +181,8 @@ export function AgentSymbol(props: SymbolProps) {
   return <FigureSymbol {...props} />;
 }
 
-function FigureSymbol({ shape, color, size, eyes = "lines", accessories, expressive = false, skin }: SymbolProps) {
+function FigureSymbol(props: SymbolProps) {
+  const { shape, color, size, eyes = "lines", accessories, expressive = false, skin } = props;
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const worn = wornAccessories(accessories);
   // Moving eyes are drawn on top of an eyeless figure; glasses cover them, so the figure keeps its own.
@@ -194,7 +195,7 @@ function FigureSymbol({ shape, color, size, eyes = "lines", accessories, express
   }), [shape, color, eyes, wornKey, skinKey, moving]);
   const effect = skin ? skinEffect(skin) : "none";
   const eyeY = symbolEyeY(shape);
-  return <ShapeFigure look={look} size={size} shape={shape}
+  return <ShapeFigure look={look} size={size} shape={shape} fallback={<FlatSymbol {...props} />}
     behind={skin && effect === "glow" ? <span aria-hidden className="agent-figure-halo" style={{ background: `radial-gradient(closest-side, ${skinHighlight(skin.colors)}, transparent)` }} /> : undefined}
     overlay={skin && effect === "sparkle" ? <svg aria-hidden focusable="false" viewBox="0 0 40 44" className="society-agent-symbol"><SkinOverlay id={id} skin={skin} body={() => null} /></svg> : undefined}>
     {moving && <g className="agent-symbol-gaze"><g data-agent-eyes fill={companionEyeColors(color).eye}><g className="agent-symbol-lids">
