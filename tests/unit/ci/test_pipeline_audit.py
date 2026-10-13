@@ -281,7 +281,8 @@ def test_a_merge_group_takes_at_most_two_macos_runners():
         "tests/unit/brain/test_routing.py",
         "tests/unit/platform/test_a.py",
     ]
-    assert select_tests.one_runner("selected", tests[:1], tests) == ("selected", tests[:1])
+    # A narrow selection keeps what it reached and takes the focused set too.
+    assert select_tests.one_runner("selected", tests[2:], tests) == ("selected", sorted(tests))
     assert select_tests.one_runner("none", [], tests) == ("none", [])
     assert select_tests.shards_for("selected", 2) == [1]
     # The wide matrix keeps every macOS leg of every lane.
@@ -452,7 +453,8 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     # No pull-request code runs next to the issue token.
     assert all("uses" not in step for step in job["steps"])
     script = job["steps"][0]["run"]
-    assert "--label nightly-ci" in script and "write issue close" in script
+    assert "label=nightly-ci" in script and "write issue close" in script
+    assert '--label "$label"' in script
     # A check by hand runs from main only, vets the run it is given like the
     # event, and writes nothing unless the dry run is switched off.
     by_hand = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
@@ -529,6 +531,13 @@ def test_a_merge_group_runs_the_macos_tests_its_change_can_reach():
     detect = ci["detect"]
     select = next(s for s in detect["steps"] if s.get("id") == "mactests")["run"]
     assert "select_tests.py --one-runner --changed-from changed.txt --out mac_tests.txt" in select
+    # The selection is sized by the duration history, so it runs after the
+    # step that guarantees one exists.
+    assert "--durations test_durations.json" in select
+    names = [s.get("name") or s.get("id") for s in detect["steps"]]
+    assert names.index("Ensure a duration snapshot exists") < names.index(
+        "Select the macOS tests this change can reach"
+    )
     assert "'[1]'" in detect["outputs"]["mac_test_shards"]
     shared = next(
         s for s in detect["steps"] if s.get("name") == "Share duration snapshot with every shard"
@@ -547,6 +556,70 @@ def test_a_merge_group_runs_the_macos_tests_its_change_can_reach():
     assert not required_results.evaluate(needs, pipeline=True)["ok"]
     flags["mac_tests"] = "false"
     assert "tests-macos-impact" not in required_results.expected_jobs(flags)
+
+
+def test_the_macos_runner_of_a_merge_group_is_filled_up_to_its_budget():
+    # The runner ended after one to three minutes while the gate waited eight
+    # to nine for Windows: the rest goes to the tests a macOS-only failure is
+    # most likely to show in, by the duration history.
+    reached = "tests/unit/brain/test_reached.py"
+    focus = "tests/unit/platform/test_focus.py"
+    lane = ["tests/unit/dictation/test_cheap.py", "tests/unit/dictation/test_dear.py"]
+    aware = "tests/unit/core/test_paths.py"
+    plain = "tests/unit/core/test_plain.py"
+    tests = sorted([reached, focus, *lane, aware, plain])
+    texts = dict.fromkeys(tests, "import json")
+    texts[aware] = 'if sys.platform == "darwin":'
+    history = {reached: 500.0, focus: 10.0, lane[0]: 5.0, lane[1]: 40.0, aware: 20.0, plain: 1.0}
+    assert select_tests.mac_lane_tests(tests) == sorted([*lane, focus])
+    assert select_tests.mac_aware(tests, texts) == [aware]
+
+    def sized(budget, mode="selected", chosen=(reached,)):
+        return select_tests.one_runner(mode, list(chosen), tests, texts, history, budget)[1]
+
+    # Enough budget: everything macOS-relevant, never an unrelated test.
+    assert sized(1000.0) == sorted([reached, focus, *lane, aware])
+    # What the change reached always runs, even alone above the budget.
+    assert sized(100.0) == [reached]
+    # The focused set first, then the lane's directories, then the tests
+    # that name macOS; a file that no longer fits ends its tier only.
+    assert sized(515.0) == sorted([reached, focus, lane[0]])
+    assert sized(536.0) == sorted([reached, focus, lane[0], aware])
+    # A change that reaches everything runs the whole focused set, then fills.
+    assert sized(0.0, mode="all", chosen=tests) == [focus]
+    assert sized(16.0, mode="all", chosen=tests) == sorted([focus, lane[0]])
+    # A file the history never timed costs the runner's default, not nothing.
+    assert select_tests.one_runner("selected", [reached], tests, texts, {}, 4.0)[1] == [reached]
+    # Whatever the selection holds, it is one runner.
+    assert select_tests.MAC_BUDGET_SECONDS <= 720
+
+
+def test_main_gets_the_whole_suite_on_macos_after_the_merge():
+    sweep = workflows()["macos-main-sweep.yml"]
+    triggers = sweep.get("on", sweep.get(True))
+    assert triggers["push"]["branches"] == ["main"]
+    # One sweep at a time and never cancelled: the pending one covers every
+    # commit merged while the running one took its single macOS slot.
+    assert sweep["concurrency"] == {"group": "macos-main-sweep", "cancel-in-progress": False}
+    assert sweep["permissions"] == {"contents": "read"}
+    assert list(sweep["jobs"]) == ["suite"]
+    job = sweep["jobs"]["suite"]
+    assert job["runs-on"] == "macos-latest" and "strategy" not in job
+    assert job["if"] == "github.ref == 'refs/heads/main'"
+    runs = "\n".join(step.get("run", "") for step in job["steps"])
+    assert "run_tests_parallel.py tests" in runs and "--shard" not in runs
+    assert "--files-from" not in runs and "test-baseline-macos.json" in runs
+    # Nothing waits for it: it is no job of the workflow behind `CI gate`.
+    assert "macos-main-sweep" not in yaml.safe_dump(workflows()["ci.yml"])
+    # A red sweep reaches someone through the same job as a red nightly.
+    alert = workflows()["nightly-alert.yml"]
+    watched = alert.get("on", alert.get(True))["workflow_run"]
+    assert watched["workflows"] == ["CI", sweep["name"]] and watched["branches"] == ["main"]
+    job = alert["jobs"]["alert"]
+    assert f"github.event.workflow_run.name == '{sweep['name']}'" in job["if"]
+    script = job["steps"][0]["run"]
+    assert '$path == ".github/workflows/macos-main-sweep.yml"' in script
+    assert "label=macos-main" in script and "/compare/" in script
 
 
 def test_only_a_complete_green_run_on_main_writes_the_duration_caches():
