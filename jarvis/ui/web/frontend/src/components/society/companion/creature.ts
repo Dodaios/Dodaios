@@ -250,7 +250,6 @@ function stamp(bits: CreatureBit[], glyph: keyof typeof GLYPHS, x: number, y: nu
 }
 
 const CONFETTI: readonly (readonly [number, number, 0 | 1 | 2])[] = [[-1.2, -.9, 0], [-.6, -1.3, 2], [.5, -1.4, 1], [1.1, -1, 0], [-1.6, -.3, 1], [1.6, -.4, 2]];
-const SPARK_PATH: readonly (readonly [number, number, number])[] = [[-1, 8, 1], [-2, 7, 1], [-2, 6, .7], [-2, 5, .4]];
 
 export function creaturePose(state: CreatureState, frame: number): CreaturePose {
   const f = Math.max(0, Math.floor(frame));
@@ -278,13 +277,13 @@ export function creaturePose(state: CreatureState, frame: number): CreaturePose 
       break;
     }
     case "working": {
-      p.dy = [0, 0, -1, -1][f % 4]!;
+      // Eyes on the work, a look to each side now and then, a blink. How the body moves while it
+      // works is the face's own, smooth layer (faceMotion.css), never a jump of whole cells here.
+      const k = f % 52;
       p.ey = 1;
-      const spark = SPARK_PATH[f % 6];
-      if (spark) {
-        const [x, y, alpha] = spark;
-        p.bits.push({ x, y, color: 0, alpha }, { x: GRID - 1 - x, y, color: 0, alpha });
-      }
+      if (k < 2) p.eyes = "shut";
+      else if (k >= 18 && k < 24) p.ex = -1;
+      else if (k >= 38 && k < 46) { p.ey = 0; p.ex = 1; }
       break;
     }
     case "talking": {
@@ -335,7 +334,7 @@ export function creaturePose(state: CreatureState, frame: number): CreaturePose 
 
 /** One representative frame per state, for people who asked for less motion. */
 export const CREATURE_STILL_FRAME: Readonly<Record<CreatureState, number>> = {
-  idle: 5, listening: 6, thinking: 12, working: 1, talking: 1, asking: 0, success: 8, error: 7, sleeping: 10,
+  idle: 5, listening: 6, thinking: 12, working: 6, talking: 1, asking: 0, success: 8, error: 7, sleeping: 10,
 };
 
 /** Eye cells per kind as [row, column]; the lower row is the one a lid closes. */
