@@ -9361,6 +9361,7 @@
       "limit_turns": "The turn limit is reached. Continue to give the team half as many again.",
       "limit_cost": "The cost limit is reached. Continue to raise it.",
       "stalled": "{note} did not finish its turn. Continue to ask again.",
+      "member_failed": "{note}. Without this member no team is left. Continue to ask again.",
       "not_enough_members": "Fewer than two members are left, so the team cannot go on.",
       "error": "The team thread failed: {note}"
     },
@@ -9369,6 +9370,7 @@
       "plan_agreed": "The team agreed on the master plan in round {rounds}. {member} builds it.",
       "plan_accepted_by_user": "You took the master plan as it is. {member} builds it.",
       "member_left": "{member} left the team: {error}",
+      "member_failed": "A member could not take its turn: {note}",
       "member_model_changed": "{member} could not run on its default model and goes on with {model}: {error}",
       "builder_changed": "{member} builds from here.",
       "files_changed": "Files changed during a step that only reads ({step}): {files}",

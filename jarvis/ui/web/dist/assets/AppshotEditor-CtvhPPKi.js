@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-CtvhPPKi.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-CtvhPPKi.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-Bq_n5QN6.js";import{S as sr}from"./switch-Dy8fnz7d.js";import{Q as D}from"./tooltip-BFZ3Flko.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-EUjvdCEW.js";import{C as Tn}from"./check-CSzWeEwV.js";import{C as En}from"./columns-2-Be9ktlwT.js";/**
 |||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/AppshotEditor-BDQkXem2.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-Bx3U5l4b.js";import{S as sr}from"./switch-L7ivSvAX.js";import{Q as D}from"./tooltip-N4kZQ9ka.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-CQcXiOjg.js";import{C as Tn}from"./check-D3k377hY.js";import{C as En}from"./columns-2-BrUl_4V-.js";/**
 ========
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BA1FRfCX.js";import{S as sr}from"./switch-Bwg_kfDL.js";import{Q as D}from"./tooltip-3ISceyX8.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-CAvmUSN-.js";import{C as Tn}from"./check-D3wsOceh.js";import{C as En}from"./columns-2-BgkQu1t0.js";/**
 >>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/AppshotEditor-Cyqkb6HZ.js
+|||||||| parent of 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/AppshotEditor-Cyqkb6HZ.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BA1FRfCX.js";import{S as sr}from"./switch-Bwg_kfDL.js";import{Q as D}from"./tooltip-3ISceyX8.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-CAvmUSN-.js";import{C as Tn}from"./check-D3wsOceh.js";import{C as En}from"./columns-2-BgkQu1t0.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-CQ_naDoQ.js";import{S as sr}from"./switch-BjN04cTC.js";import{Q as D}from"./tooltip-CdeuKtQV.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-YK_FChXM.js";import{C as Tn}from"./check-DxfeyoFL.js";import{C as En}from"./columns-2-DAay_r9G.js";/**
+>>>>>>>> 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/AppshotEditor-BHYUaYOK.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

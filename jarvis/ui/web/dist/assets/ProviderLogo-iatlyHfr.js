@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-iatlyHfr.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-iatlyHfr.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-Bq_n5QN6.js";import{S as U}from"./server-B7SCgQJ7.js";/**
 |||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/ProviderLogo-Bq0kaCpU.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-Bx3U5l4b.js";import{S as U}from"./server-CzuW7lWY.js";/**
 ========
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-BA1FRfCX.js";import{S as U}from"./server-dTN8nkWj.js";/**
 >>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/ProviderLogo-BcUodbL4.js
+|||||||| parent of 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/ProviderLogo-BcUodbL4.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-BA1FRfCX.js";import{S as U}from"./server-dTN8nkWj.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-CQ_naDoQ.js";import{S as U}from"./server-CyDv27nS.js";/**
+>>>>>>>> 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/ProviderLogo-jjhavWXR.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

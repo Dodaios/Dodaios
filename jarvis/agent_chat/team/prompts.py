@@ -43,7 +43,8 @@ def _frame(name: str, roster: list[str], cwd: str, step: str) -> str:
 
 
 def _quote(label: str, text: str) -> str:
-    body = (text or "").strip()
+    # A peer's text must not close its own block and speak outside of it.
+    body = (text or "").replace(f"</{label}>", "").strip()
     if len(body) > MAX_QUOTE:
         body = body[:MAX_QUOTE].rstrip() + "\n[shortened]"
     return f"<{label}>\n{body}\n</{label}>"

@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-DfZ8CH43.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-DfZ8CH43.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-DQZICfC3.js";import{c as n,j as a,e as o}from"./index-Bq_n5QN6.js";import{T as c}from"./terminal-BfEJLBc-.js";import{C as I}from"./credit-card-CJTZVkMf.js";import{G as S}from"./git-branch-DVMHat0P.js";import{R as W}from"./rocket-Ch8fmVti.js";import{C as $}from"./cloud-D7F63rHc.js";/**
 |||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/CliLogo-lCZgXa23.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-uT_NCu-u.js";import{c as n,j as a,e as o}from"./index-Bx3U5l4b.js";import{T as c}from"./terminal-DOxs6rqd.js";import{C as I}from"./credit-card-Df3ZGLb9.js";import{G as S}from"./git-branch-vnv0YBdI.js";import{R as W}from"./rocket-CMP4xOch.js";import{C as $}from"./cloud-B9n5W6ty.js";/**
 ========
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-CAe26aaU.js";import{c as n,j as a,e as o}from"./index-BA1FRfCX.js";import{T as c}from"./terminal-giiMfPGL.js";import{C as I}from"./credit-card-CM2HT9vj.js";import{G as S}from"./git-branch-vRMtu_54.js";import{R as W}from"./rocket-DLlhbala.js";import{C as $}from"./cloud-CjE60PTt.js";/**
 >>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/CliLogo-CF9DG67m.js
+|||||||| parent of 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/CliLogo-CF9DG67m.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-CAe26aaU.js";import{c as n,j as a,e as o}from"./index-BA1FRfCX.js";import{T as c}from"./terminal-giiMfPGL.js";import{C as I}from"./credit-card-CM2HT9vj.js";import{G as S}from"./git-branch-vRMtu_54.js";import{R as W}from"./rocket-DLlhbala.js";import{C as $}from"./cloud-CjE60PTt.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors--xTvtakO.js";import{c as n,j as a,e as o}from"./index-CQ_naDoQ.js";import{T as c}from"./terminal-CHUZlzks.js";import{C as I}from"./credit-card-D9r_BoMt.js";import{G as S}from"./git-branch-BHuPUtTU.js";import{R as W}from"./rocket-DNe0Yn_E.js";import{C as $}from"./cloud-CYajGXxz.js";/**
+>>>>>>>> 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/CliLogo-Dfx-ZL7Z.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

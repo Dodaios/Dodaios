@@ -193,14 +193,19 @@ class TeamThreads:
             for member in members:
                 self._discard(member["session_id"])
             raise TeamError(f"A member could not be seated: {exc}") from exc
-        team_id = self._store.create(
-            title=title,
-            task=task,
-            cwd=str(folder),
-            lang=self._language(task),
-            limits=asdict(Limits.of(limits)),
-            members=members,
-        )
+        try:
+            team_id = self._store.create(
+                title=title,
+                task=task,
+                cwd=str(folder),
+                lang=self._language(task),
+                limits=asdict(Limits.of(limits)),
+                members=members,
+            )
+        except Exception:
+            for member in members:
+                self._discard(member["session_id"])
+            raise
         self._store.append(
             team_id, kind="user", author="user", phase="draft", payload={"text": task}
         )
@@ -209,7 +214,7 @@ class TeamThreads:
             # Honest about what a one-family team cannot give (AP-22).
             self._notice(team_id, "draft", "same_family")
         self._spawn(team_id)
-        return self.snapshot(team_id)
+        return await asyncio.to_thread(self.snapshot, team_id)
 
     async def message(self, team_id: str, text: str) -> dict[str, Any]:
         """The person steps in. Every member reads it with its next turn."""
@@ -232,7 +237,7 @@ class TeamThreads:
         ):
             # The answer settles the open points: one more round with it.
             return await self.resume(team_id)
-        return self.snapshot(team_id)
+        return await asyncio.to_thread(self.snapshot, team_id)
 
     async def pause(self, team_id: str) -> dict[str, Any]:
         team = self._require(team_id)
@@ -241,7 +246,7 @@ class TeamThreads:
         self._store.update(team_id, state="paused", reason="user", note="")
         await self._cancel_run(team_id)
         self._notice(team_id, team["phase"], "paused")
-        return self.snapshot(team_id)
+        return await asyncio.to_thread(self.snapshot, team_id)
 
     async def stop(self, team_id: str) -> dict[str, Any]:
         team = self._require(team_id)
@@ -250,7 +255,7 @@ class TeamThreads:
         self._store.update(team_id, state="stopped", reason="user", note="")
         await self._cancel_run(team_id)
         self._notice(team_id, team["phase"], "stopped")
-        return self.snapshot(team_id)
+        return await asyncio.to_thread(self.snapshot, team_id)
 
     async def resume(self, team_id: str) -> dict[str, Any]:
         """Continue a paused or waiting thread; a reached bound grows by half."""
@@ -280,7 +285,7 @@ class TeamThreads:
         self._store.update(team_id, state="running", reason="", note="", limits=limits, work=work)
         self._notice(team_id, team["phase"], "resumed", {"after": reason or team["reason"]})
         self._spawn(team_id)
-        return self.snapshot(team_id)
+        return await asyncio.to_thread(self.snapshot, team_id)
 
     async def accept(self, team_id: str) -> dict[str, Any]:
         """The person ends a disagreement: take the plan, or the work, as it is."""
@@ -290,6 +295,8 @@ class TeamThreads:
             "review_disagreement",
         ):
             raise TeamError("There is no disagreement to settle.")
+        if self._closing:
+            raise TeamError("Team threads are shutting down.")
         if team["reason"] == "plan_disagreement":
             round_no = int(team["work"].get("plan_round", 1))
             plan = self._last(team_id, "plan", round_no)
@@ -300,7 +307,7 @@ class TeamThreads:
             self._spawn(team_id)
         else:
             self._finish(team_id, accepted_open=True)
-        return self.snapshot(team_id)
+        return await asyncio.to_thread(self.snapshot, team_id)
 
     async def delete(self, team_id: str) -> None:
         team = self._require(team_id)
@@ -421,9 +428,25 @@ class TeamThreads:
     # ------------------------------------------------------------ the run
 
     def _spawn(self, team_id: str) -> None:
-        if team_id in self._tasks:
+        running = self._tasks.get(team_id)
+        if running is not None and not running.done():
             return
-        self._tasks[team_id] = asyncio.create_task(self._run(team_id))
+        task = asyncio.create_task(self._run(team_id))
+        self._tasks[team_id] = task
+        task.add_done_callback(lambda done: self._ended(team_id, done))
+
+    def _ended(self, team_id: str, task: asyncio.Task[None]) -> None:
+        """The run task is gone, however it went (even cancelled before its first step)."""
+        if self._tasks.get(team_id) is task:
+            self._tasks.pop(team_id, None)
+        if self._closing or team_id in self._tasks:
+            return
+        team = self._store.get(team_id)
+        if team is not None and team["state"] == "running":
+            # Neither Pause, Stop nor shutdown ended this run. Never leave a
+            # thread "working" with nobody working: it waits for Continue.
+            log.warning("team thread %s: its run ended without a state", team_id)
+            self._store.update(team_id, state="paused", reason="interrupted", note="")
 
     async def _cancel_run(self, team_id: str) -> None:
         task = self._tasks.get(team_id)
@@ -446,21 +469,13 @@ class TeamThreads:
         except _Halt:  # the run stopped itself and already filed why
             return
         except asyncio.CancelledError:
-            team = self._store.get(team_id)
-            if team is not None and team["state"] == "running" and not self._closing:
-                # Neither Pause, Stop nor shutdown ended this run. Never leave a
-                # thread "working" with nobody working: it waits for Continue.
-                log.warning("team thread %s: its run was cancelled from outside", team_id)
-                self._store.update(team_id, state="paused", reason="interrupted", note="")
-            raise
+            raise  # Pause, Stop or shutdown; anything else is parked by ``_ended``
         except Exception as exc:  # noqa: BLE001 - one broken thread must not take others down
             log.exception("team thread %s failed", team_id)
             self._store.update(team_id, state="failed", reason="error", note=str(exc)[:500])
         finally:
             self._bank_time(team_id)
             self._working.pop(team_id, None)
-            if self._tasks.get(team_id) is asyncio.current_task():
-                self._tasks.pop(team_id, None)
 
     def _bank_time(self, team_id: str) -> None:
         started = self._segment.pop(team_id, None)
@@ -563,7 +578,7 @@ class TeamThreads:
             previous = self._last(team_id, "plan", round_no - 1) if round_no > 1 else None
             objections: dict[str, list[str]] = {}
             if previous is not None:
-                for vote in self._round(team_id, "vote", round_no - 1):
+                for vote in self._votes(team_id, previous):
                     if not vote["payload"].get("agree"):
                         objections[names.get(vote["author"], vote["author"])] = list(
                             vote["payload"].get("objections") or []
@@ -589,7 +604,7 @@ class TeamThreads:
             )
             return  # The loop comes back with the plan (or with a new author).
         author_name = next(m["name"] for m in active if m["member_id"] == plan["author"])
-        voted = {v["author"] for v in self._round(team_id, "vote", round_no)}
+        voted = {v["author"] for v in self._votes(team_id, plan)}
         voters = [
             m for m in active if m["member_id"] != plan["author"] and m["member_id"] not in voted
         ]
@@ -602,6 +617,9 @@ class TeamThreads:
                 "agree": verdict.positive,
                 "stated": verdict.stated,
                 "objections": list(verdict.objections),
+                # A vote is on one plan: a plan rewritten in the same round
+                # (its author left) is voted on again.
+                "plan_seq": plan["seq"],
             }
 
         await self._batch(
@@ -623,7 +641,7 @@ class TeamThreads:
         ids = {m["member_id"] for m in self._active(team_id)}
         if plan["author"] not in ids:
             return  # The author left while the others voted: a new plan is due.
-        votes = [v for v in self._round(team_id, "vote", round_no) if v["author"] in ids]
+        votes = [v for v in self._votes(team_id, plan) if v["author"] in ids]
         against = [v for v in votes if not v["payload"].get("agree")]
         if not against:
             self._adopt(team_id, plan, by_user=False)
@@ -901,6 +919,23 @@ class TeamThreads:
         timed_out: list[str] = []
         said_before = {e["author"] for e in self._store.entries(team_id)}
 
+        failed: list[tuple[dict[str, Any], str]] = []
+
+        async def file(member: dict[str, Any], result: TurnResult) -> None:
+            payload: Any = {"text": result.text[:_MAX_TEXT]}
+            if record is not None:
+                payload = record(member, result)
+                if asyncio.iscoroutine(payload):
+                    payload = await payload
+            self._store.append(
+                team_id,
+                kind=kind,
+                author=member["member_id"],
+                phase=phase,
+                round=round_no,
+                payload=payload,
+            )
+
         async def one(member: dict[str, Any]) -> None:
             mid = member["member_id"]
             notes = [
@@ -912,58 +947,40 @@ class TeamThreads:
             started = int(time.time() * 1000)
             self._working.setdefault(team_id, {})[mid] = started
             try:
-                result = await self._port.ask(
-                    member["session_id"],
-                    text,
-                    display=_STEP_LABEL[kind],
-                    language=fresh["lang"],
-                    timeout_s=timeout_s,
-                )
-                self._count(team_id, mid, result, notes_upto)
-                fallback = str(member.get("fallback_model") or "")
-                if (
-                    result.status == "failed"
-                    and fallback
-                    and fallback != member["model"]
-                    and mid not in said_before
-                ):
-                    # The seat's own default was refused before the member said
-                    # anything: one more try on a model its account lists.
-                    self._port.remodel(member["session_id"], fallback)
-                    self._store.member_model(team_id, mid, fallback)
-                    self._notice(
-                        team_id,
-                        phase,
-                        "member_model_changed",
-                        {"member_id": mid, "model": fallback, "error": result.error[:500]},
-                    )
-                    result = await self._port.ask(
-                        member["session_id"],
-                        text,
-                        display=_STEP_LABEL[kind],
-                        language=fresh["lang"],
-                        timeout_s=timeout_s,
-                    )
-                    self._count(team_id, mid, result, notes_upto)
+                result = await self._turn(team_id, member, text, kind, fresh["lang"], timeout_s)
+                if result.status == "failed":
+                    # One more try before the member counts as failed: an
+                    # overloaded provider or a dropped connection passes. Where
+                    # the seat's own default model was refused before the member
+                    # said anything, the retry runs on a model its account lists.
+                    fallback = str(member.get("fallback_model") or "")
+                    if fallback and fallback != member["model"] and mid not in said_before:
+                        self._port.remodel(member["session_id"], fallback)
+                        self._store.member_model(team_id, mid, fallback)
+                        self._notice(
+                            team_id,
+                            phase,
+                            "member_model_changed",
+                            {"member_id": mid, "model": fallback, "error": result.error[:500]},
+                        )
+                    result = await self._turn(team_id, member, text, kind, fresh["lang"], timeout_s)
             finally:
                 if self._working.get(team_id, {}).get(mid) == started:
                     self._working[team_id].pop(mid, None)
             if result.status == "ok":
-                payload: Any = {"text": result.text[:_MAX_TEXT]}
-                if record is not None:
-                    payload = record(member, result)
-                    if asyncio.iscoroutine(payload):
-                        payload = await payload
-                self._store.append(
-                    team_id, kind=kind, author=mid, phase=phase, round=round_no, payload=payload
-                )
+                self._notes_read(team_id, mid, notes_upto)
+                filing = asyncio.ensure_future(file(member, result))
+                try:
+                    await asyncio.shield(filing)
+                except asyncio.CancelledError:
+                    # The answer exists and is paid for: file it before the stop
+                    # goes on, or Continue would ask for the same work again.
+                    await asyncio.wait({filing})
+                    raise
             elif result.status == "timeout":
                 timed_out.append(member["name"])
             else:
-                self._store.member_left(team_id, mid, result.error)
-                self._notice(
-                    team_id, phase, "member_left", {"member_id": mid, "error": result.error[:500]}
-                )
+                failed.append((member, result.error))
 
         turns = [asyncio.create_task(one(member)) for member in members]
         try:
@@ -991,6 +1008,26 @@ class TeamThreads:
                     "files_changed",
                     {"step": kind, "files": list(change.files[:8])},
                 )
+        if failed:
+            if len(self._active(team_id)) - len(failed) >= MIN_MEMBERS:
+                for member, error in failed:
+                    self._store.member_left(team_id, member["member_id"], error)
+                    self._notice(
+                        team_id,
+                        phase,
+                        "member_left",
+                        {"member_id": member["member_id"], "error": error[:500]},
+                    )
+            else:
+                # Without them no team is left. That does not end the thread:
+                # the seat may only be signed out or over its quota for now, and
+                # Continue asks again.
+                self._halt(
+                    team,
+                    "needs_input",
+                    "member_failed",
+                    note="; ".join(f"{member['name']}: {error[:300]}" for member, error in failed),
+                )
         if timed_out:
             self._halt(
                 team,
@@ -1001,17 +1038,59 @@ class TeamThreads:
         if len(self._active(team_id)) < MIN_MEMBERS:
             self._halt(team, "failed", "not_enough_members")
 
-    def _count(self, team_id: str, member_id: str, result: TurnResult, notes_upto: int) -> None:
+    async def _turn(
+        self,
+        team_id: str,
+        member: dict[str, Any],
+        text: str,
+        kind: str,
+        language: str,
+        timeout_s: float,
+    ) -> TurnResult:
+        """One member turn, counted against the bounds.
+
+        Counted when it starts, not when it ends: a turn that Pause or Stop cut
+        short was still run, and it must not be free.
+        """
         work = self._work(team_id)
         work["turns"] = int(work.get("turns", 0)) + 1
-        if result.cost_usd is None:
+        self._store.update(team_id, work=work)
+        try:
+            result = await self._port.ask(
+                member["session_id"],
+                text,
+                display=_STEP_LABEL[kind],
+                language=language,
+                timeout_s=timeout_s,
+            )
+        except asyncio.CancelledError:
+            self._price(team_id, None)  # stopped half way: what it cost is unknown
+            raise
+        self._price(team_id, result.cost_usd)
+        if result.status == "ok" and not result.text.strip() and kind not in ("build", "fix"):
+            # A plan, a vote or a review without words is no contribution. A
+            # build without a report still changed the files, and counts.
+            return TurnResult(
+                "failed",
+                error="The turn ended without an answer.",
+                cost_usd=result.cost_usd,
+                duration_ms=result.duration_ms,
+            )
+        return result
+
+    def _price(self, team_id: str, cost_usd: float | None) -> None:
+        work = self._work(team_id)
+        if cost_usd is None:
             work["cost_partial"] = True
         else:
-            work["cost_usd"] = float(work.get("cost_usd", 0.0)) + result.cost_usd
-        if result.status == "ok":
-            seen = dict(work.get("notes_seen") or {})
-            seen[member_id] = notes_upto
-            work["notes_seen"] = seen
+            work["cost_usd"] = float(work.get("cost_usd", 0.0)) + cost_usd
+        self._store.update(team_id, work=work)
+
+    def _notes_read(self, team_id: str, member_id: str, notes_upto: int) -> None:
+        work = self._work(team_id)
+        read = dict(work.get("notes_seen") or {})
+        read[member_id] = notes_upto
+        work["notes_seen"] = read
         self._store.update(team_id, work=work)
 
     async def _change(self, cwd: str, baseline: str) -> dict[str, Any] | None:
@@ -1084,6 +1163,14 @@ class TeamThreads:
         rows = self._round(team_id, kind, round_no)
         return rows[-1] if rows else None
 
+    def _votes(self, team_id: str, plan: dict[str, Any]) -> list[dict[str, Any]]:
+        """The votes cast on exactly this master plan."""
+        return [
+            vote
+            for vote in self._round(team_id, "vote", int(plan["round"]))
+            if vote["payload"].get("plan_seq") == plan["seq"]
+        ]
+
     def _plan(self, team: dict[str, Any]) -> dict[str, Any]:
         seq = int(team["work"].get("plan_seq", 0))
         for entry in self._store.entries(team["team_id"]):
@@ -1095,7 +1182,7 @@ class TeamThreads:
         """The builder's latest word: the build report or the newest fix report."""
         for entry in reversed(self._store.entries(team_id)):
             if entry["kind"] in ("fix", "build"):
-                return str(entry["payload"].get("text") or "")
+                return str(entry["payload"].get("text") or "") or "No report was written."
         return ""
 
     def _builder(self, team: dict[str, Any]) -> dict[str, Any]:
@@ -1149,8 +1236,9 @@ def _unique_names(seats: list[SeatPick]) -> list[str]:
 def _issues(entries: list[dict[str, Any]], *, done: bool) -> list[dict[str, Any]]:
     """Everything the members caught in each other's work, oldest first.
 
-    An objection is settled once its author agreed to a later plan (or the plan
-    was built); a finding once its reviewer approved a later round.
+    An objection is settled once its author agreed to a later plan or wrote the
+    next one itself (or the team agreed on a plan); a finding once its reviewer
+    approved a later round.
     """
     issues: list[dict[str, Any]] = []
     agreed_after: dict[str, int] = {}
@@ -1159,7 +1247,7 @@ def _issues(entries: list[dict[str, Any]], *, done: bool) -> list[dict[str, Any]
         e["kind"] == "notice" and e["payload"].get("code") in ("plan_agreed",) for e in entries
     )
     for entry in entries:
-        if entry["kind"] == "vote" and entry["payload"].get("agree"):
+        if entry["kind"] == "plan" or (entry["kind"] == "vote" and entry["payload"].get("agree")):
             agreed_after[entry["author"]] = max(
                 agreed_after.get(entry["author"], 0), entry["round"]
             )

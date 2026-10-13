@@ -137,16 +137,19 @@ async def test_a_turn_stopped_in_the_members_thread_does_not_cancel_the_coordina
     assert chat.cancelled == []  # nothing left to stop, and nobody was cancelled
 
 
-async def test_a_turn_without_an_answer_fails() -> None:
+async def test_a_turn_without_words_is_handed_on_as_it_is() -> None:
     chat = ScriptedChat()
     chat.finish("done", text="  ")
 
     result = await _ask(chat)
 
-    # An earlier line of the same turn is still its answer; none at all is not.
+    # An earlier line of the same turn is still its answer.
     assert (result.status, result.text) == ("ok", "Looking around")
+    # No word at all is still a finished turn (a build that only edited files);
+    # whether that counts is the coordinator's call.
     chat.store.events = []
-    assert (await _ask(chat)).status == "failed"
+    silent = await _ask(chat)
+    assert (silent.status, silent.text) == ("ok", "")
 
 
 async def test_a_turn_over_its_time_is_cancelled_and_reported() -> None:

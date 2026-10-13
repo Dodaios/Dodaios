@@ -19,6 +19,7 @@ BLOCK: Final[str] = "team-verdict"
 _FENCE = re.compile(r"```[ \t]*team-verdict[ \t]*\r?\n(.*?)```", re.DOTALL | re.IGNORECASE)
 _LOOSE = re.compile(r'"verdict"\s*:\s*"([a-z_]+)"', re.IGNORECASE)
 _SEVERITIES: Final[tuple[str, ...]] = ("blocking", "minor")
+_NEGATIVE: Final[tuple[str, ...]] = ("object", "changes")
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,13 +63,18 @@ def _block(reply: str) -> tuple[dict[str, Any] | None, str]:
     body = ((reply[: last.start()]) + reply[last.end() :]).strip()
     try:
         data = json.loads(last.group(1).strip())
-    except ValueError:  # malformed JSON: still read the verdict word if it is there
+    except ValueError:  # malformed JSON: only a "no" can still be read out of it
         loose = _LOOSE.search(last.group(1))
-        return ({"verdict": loose.group(1)} if loose else None), body
+        word = loose.group(1).lower() if loose else ""
+        # The reasons were lost with the JSON. Consent read from a broken block
+        # would drop objections or findings, so it counts as no verdict at all.
+        return ({"verdict": word} if word in _NEGATIVE else None), body
     return (data if isinstance(data, dict) else None), body
 
 
 def _strings(value: Any, limit: int = 12) -> tuple[str, ...]:
+    if isinstance(value, str):
+        value = [value]  # one objection written as a sentence instead of a list
     if not isinstance(value, list):
         return ()
     return tuple(str(item).strip()[:1200] for item in value[:limit] if str(item).strip())
@@ -114,6 +120,8 @@ def parse_review(reply: str) -> Verdict:
     word = str(data.get("verdict") or "").strip().lower()
     findings: list[Finding] = []
     raw = data.get("findings")
+    if isinstance(raw, str | dict):
+        raw = [raw]  # one finding written without the list around it
     for item in raw[:20] if isinstance(raw, list) else []:
         if isinstance(item, str):
             item = {"issue": item}

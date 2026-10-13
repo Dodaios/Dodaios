@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-BGY3C4YX.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-BGY3C4YX.js
 import{c as y}from"./index-Bq_n5QN6.js";/**
 |||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/sliders-horizontal-oLW_bdi-.js
 import{c as y}from"./index-Bx3U5l4b.js";/**
 ========
 import{c as y}from"./index-BA1FRfCX.js";/**
 >>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/sliders-horizontal-B9fYOE6j.js
+|||||||| parent of 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/sliders-horizontal-B9fYOE6j.js
+import{c as y}from"./index-BA1FRfCX.js";/**
+========
+import{c as y}from"./index-CQ_naDoQ.js";/**
+>>>>>>>> 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/sliders-horizontal-BvZ6qfTQ.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -2,7 +2,9 @@
 
 A snapshot is the tree id of the whole working tree (tracked and untracked
 files, ignore rules respected), written through a throwaway index so the
-person's own index, refs and files stay exactly as they are. Two snapshots
+person's own index, refs and files stay exactly as they are. The only trace
+is unreferenced objects in the repository's object store, which git's own
+housekeeping removes. Two snapshots
 give the diff the reviewers read, and tell whether a phase that must not
 change files did.
 
@@ -80,7 +82,7 @@ class GitWorkspace:
                     # Start from the real index: its stat cache spares rehashing the tree.
                     shutil.copyfile(source, temp_index)
             env = {**os.environ, "GIT_INDEX_FILE": temp_index}
-            if _git(cwd, "add", "-A", env=env) is None:
+            if _git(cwd, "add", "-A", "--ignore-errors", env=env) is None:
                 return None
             tree = (_git(cwd, "write-tree", env=env) or "").strip()
             return tree or None

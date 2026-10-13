@@ -63,7 +63,8 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
     ?? (session ? visible.find((entry) => entry.id === projectIdFor(session, visible, projectOf)) : undefined)
     ?? fallbackProject;
   const folder = session?.cwd || project?.path || "";
-  const isDraft = selection.sessionId === null;
+  // A team thread on screen is neither a thread nor a thread's draft.
+  const isDraft = selection.sessionId === null && !selection.team;
   const originatingProject = project?.id;
   const rememberCreated = useCallback((created: AgentChatSession) => {
     if (originatingProject) useIdeThreadsStore.getState().rememberProject(created.session_id, originatingProject);
@@ -83,7 +84,7 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
     const created = pending && store.activeSessionId && store.activeSessionId !== selection.sessionId ? store.activeSessionId : null;
     if (pending && created) {
       startingIn.current = null;
-      if (!selection.sessionId && selection.projectId === pending) {
+      if (!selection.sessionId && !selection.team && selection.projectId === pending) {
         threads.adoptThread(created, pending);
         return;
       }
@@ -94,8 +95,9 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
       return;
     }
     if (startingIn.current) return; // the draft's first message is on its way
+    if (selection.team) return; // a team thread shows; the thread store keeps what it has
     if (store.activeSessionId || store.timeline.items.length > 0) store.newChat();
-  }, [selection.sessionId, selection.projectId, activeSessionId]);
+  }, [selection.sessionId, selection.projectId, selection.team, activeSessionId]);
 
   // The agents are listed the moment the view opens, not when a menu is.
   useEffect(() => {

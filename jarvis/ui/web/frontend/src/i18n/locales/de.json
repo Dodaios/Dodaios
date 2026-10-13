@@ -9361,6 +9361,7 @@
       "limit_turns": "Das Zuglimit ist erreicht. Mit Fortsetzen bekommt das Team noch einmal die Hälfte dazu.",
       "limit_cost": "Das Kostenlimit ist erreicht. Mit Fortsetzen wird es angehoben.",
       "stalled": "{note} hat den Zug nicht beendet. Mit Fortsetzen wird erneut gefragt.",
+      "member_failed": "{note}. Ohne dieses Mitglied bleibt kein Team übrig. Mit Fortsetzen wird erneut gefragt.",
       "not_enough_members": "Es sind weniger als zwei Mitglieder übrig. Das Team kann nicht weitermachen.",
       "error": "Der Team-Thread ist fehlgeschlagen: {note}"
     },
@@ -9369,6 +9370,7 @@
       "plan_agreed": "Das Team hat sich in Runde {rounds} auf den Masterplan geeinigt. {member} baut ihn.",
       "plan_accepted_by_user": "Du hast den Masterplan so übernommen. {member} baut ihn.",
       "member_left": "{member} ist ausgeschieden: {error}",
+      "member_failed": "Ein Mitglied konnte seinen Zug nicht ausführen: {note}",
       "member_model_changed": "{member} konnte nicht mit dem Standardmodell laufen und macht mit {model} weiter: {error}",
       "builder_changed": "{member} baut ab hier.",
       "files_changed": "In einem Schritt, der nur liest ({step}), wurden Dateien geändert: {files}",

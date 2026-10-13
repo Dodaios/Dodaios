@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-BMHdRDNK.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-BMHdRDNK.js
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,ck as qa,j as je}from"./index-Bq_n5QN6.js";var Jl={exports:{}},Lt={};/**
 |||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/react-three-fiber.esm-DWEC3ukh.js
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,ck as qa,j as je}from"./index-Bx3U5l4b.js";var Jl={exports:{}},Lt={};/**
 ========
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gx as Za,co as qa,j as je}from"./index-BA1FRfCX.js";var Jl={exports:{}},Lt={};/**
 >>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/react-three-fiber.esm-CRIz3zOV.js
+|||||||| parent of 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/react-three-fiber.esm-CRIz3zOV.js
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gx as Za,co as qa,j as je}from"./index-BA1FRfCX.js";var Jl={exports:{}},Lt={};/**
+========
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gx as Za,co as qa,j as je}from"./index-CQ_naDoQ.js";var Jl={exports:{}},Lt={};/**
+>>>>>>>> 428eff052a (fix(agent-chat): harden the team-thread coordinator after review and live runs):jarvis/ui/web/dist/assets/react-three-fiber.esm-BDqnGlJ-.js
  * @license React
  * react-reconciler-constants.production.min.js
  *
