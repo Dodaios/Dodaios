@@ -225,18 +225,33 @@ jobs:
           path: test_durations.json
           key: test-durations-never-exact
           restore-keys: test-durations-
+      # Windows runs the same files at other speeds: sharded by the Linux
+      # history, one Windows shard took 12 minutes while the others took 7 to
+      # 8, and the gate waits for the slowest. It has a history of its own,
+      # in a cache of its own so the Linux one keeps its key and version.
+      - name: Restore the Windows duration history once
+        if: steps.lanes.outputs.python == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test_durations_windows.json
+          key: test-durations-windows-never-exact
+          restore-keys: test-durations-windows-
       - name: Ensure a duration snapshot exists
         id: snapshot
         if: steps.lanes.outputs.python == 'true'
         run: |
           test -f test_durations.json || echo '{}' > test_durations.json
+          # Until Windows has a history it shards by the Linux one, as before.
+          test -s test_durations_windows.json || cp test_durations.json test_durations_windows.json
           echo "name=test-duration-snapshot-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - name: Share duration snapshot with every shard
         if: steps.lanes.outputs.python == 'true'
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: ${{ steps.snapshot.outputs.name }}
-          path: test_durations.json
+          path: |
+            test_durations.json
+            test_durations_windows.json
           if-no-files-found: error
           retention-days: 7
 
@@ -524,8 +539,10 @@ jobs:
           total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
           python scripts/ci/run_tests_parallel.py tests \
             --shard "$SHARD/$total" \
+            --durations test_durations_windows.json \
             --report "out/test-report-windows-$SHARD.json" \
-            --junit-out "out/junit-windows-$SHARD.xml"
+            --junit-out "out/junit-windows-$SHARD.xml" \
+            --durations-out "out/durations-windows-$SHARD.json"
       - name: Ratchet (a failure not in the baseline blocks)
         env:
           SHARD: ${{ matrix.shard }}
@@ -610,18 +627,51 @@ jobs:
       - name: Flaky files and failures (report only)
         if: ${{ !cancelled() }}
         run: python scripts/ci/flaky_report.py summary reports
-      # The nightly run refreshes the cache: a push the merge queue already
-      # proved runs no tests, and only a run on main may write a cache every
-      # branch can read.
-      - name: Merge the duration cache (main only)
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
-        run: python scripts/ci/ratchet_tests.py durations --out test_durations.json reports
-      - name: Save the duration cache (main only)
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
+
+  # Shard timings for the next runs, one history per OS. Only a run on main
+  # may write a cache every branch can read: the nightly run, a manual run on
+  # main and a push that bypassed the queue (a push the merge queue already
+  # proved runs no tests). Only complete, green shards feed it: a history
+  # with holes would unbalance every run after it.
+  duration-cache:
+    name: duration cache (main only)
+    needs: [detect, tests-linux, tests-windows]
+    if: needs.detect.outputs.python == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Download the Linux shard reports
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          pattern: tests-linux-*
+          path: reports/linux
+          merge-multiple: true
+      - name: Download the Windows shard reports
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          pattern: tests-windows-*
+          path: reports/windows
+          merge-multiple: true
+      - name: Merge the shard timings
+        run: |
+          python scripts/ci/ratchet_tests.py durations --out test_durations.json reports/linux
+          python scripts/ci/ratchet_tests.py durations --out test_durations_windows.json reports/windows
+      - name: Save the Linux duration cache
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: test_durations.json
           key: test-durations-${{ github.run_id }}
+      - name: Save the Windows duration cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test_durations_windows.json
+          key: test-durations-windows-${{ github.run_id }}
 
   # Three test shards and the build side by side: `npm test` alone took seven
   # minutes in one process and was the longest Linux leg of a run.
@@ -1112,6 +1162,7 @@ jobs:
       - tests-windows
       - tests-macos
       - test-report
+      - duration-cache
       - frontend
       - jarvisctl
       - deps
