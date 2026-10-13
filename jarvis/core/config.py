@@ -4522,10 +4522,12 @@ class AgenticIdeConfig(BaseModel):
     smart_recaps: bool = Field(
         default=False,
         description=(
-            "Let a model write a pane's header title when its coding CLI has not "
-            "named the session itself. Off (the default) uses the CLI's own title "
-            "(Claude Code, Codex) and otherwise the pane's first or last prompt, "
-            "which costs nothing. On spends background model requests."
+            "Let a model write and refresh a pane's header recap when its coding "
+            "CLI has not named the session itself. Off (the default) uses the "
+            "CLI's own title (Claude Code, Codex); a session the CLI left unnamed "
+            "gets one title from its opening request, written by a connected "
+            "subscription, and otherwise shows the pane's first or last prompt. "
+            "On spends background model requests."
         ),
     )
 
