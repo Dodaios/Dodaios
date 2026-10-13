@@ -1320,7 +1320,10 @@ class ToolUseLoop:
                     # prompt advertises skills/CLIs it was not granted recovers
                     # from "run-skill is not here" only if it learns what is
                     # (BUG-212 — the briefing ended on the fallback phrase).
-                    available = ", ".join(sorted(self._tools)) or "none"
+                    available = (
+                        ", ".join(sorted(n for n in self._tools if n not in self._hidden))
+                        or "none"
+                    )
                     tool_result_payload = {
                         "error": (
                             f"Tool '{tool_name}' is not available in this turn. "
@@ -1593,7 +1596,10 @@ class ToolUseLoop:
                     # absent — this is what keeps the voice pipeline from speaking
                     # "Erledigt." for a desktop action that did not happen
                     # (2026-06-09).
-                    if result.success:
+                    # A lookup that only names other tools is not an action:
+                    # counting it would let "I sent the mail" stand after a
+                    # turn that only searched for the mail tool.
+                    if result.success and not getattr(tool, "is_lookup_only", False):
                         final_agg.executed_tool_names.add(tool_name)
                     # suppress_response=True: tool provides its own final response,
                     # the second brain iteration is skipped (fix for 1-3 s stall
