@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
 from jarvis.agent_chat.events import make_event
+from jarvis.core.mcp_names import CLI_TOOL_PREFIX, TOOLS_SERVER_NAMES, cli_tool_name
 
 log = logging.getLogger(__name__)
 
@@ -62,10 +63,15 @@ _STOPPED_EARLY: Final[dict[str, str]] = {
     "cancelled": "The turn was cancelled before it finished.",
 }
 
-#: ``mcp_<server>_<tool>`` (Hermes) and ``<server>__<tool>`` spellings of a
-#: Jarvis MCP tool, normalised to the ``mcp__jarvis__<tool>`` form the
-#: society checkpoints and quests read.
-_JARVIS_TOOL_PREFIXES: Final[tuple[str, ...]] = ("mcp_jarvis_", "jarvis__", "jarvis.")
+#: ``mcp_<server>_<tool>`` (Hermes), ``<server>__<tool>`` and
+#: ``<server>.<tool>`` spellings of a tool on this app's own MCP server, per
+#: name that server is registered under. Normalised to the
+#: ``mcp__<server>__<tool>`` form the society checkpoints and quests read.
+_OWN_TOOL_PREFIXES: Final[tuple[tuple[str, str], ...]] = tuple(
+    (prefix, server)
+    for server in TOOLS_SERVER_NAMES
+    for prefix in (f"mcp_{server}_", f"{server}__", f"{server}.")
+)
 _IDENTIFIER: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z_][\w.:-]{0,120}$")
 
 
@@ -109,12 +115,16 @@ class McpServer:
 
 
 def normalize_tool_name(name: str) -> str:
-    """Give a Jarvis MCP tool the ``mcp__jarvis__<tool>`` name Jarvis reads."""
-    if name.startswith("mcp__"):
+    """Give a tool on this app's MCP server the ``mcp__<server>__<tool>`` name it is read by.
+
+    The server part stays the one the runtime used: a session mounted under an
+    earlier name keeps reporting it, and every reader accepts both.
+    """
+    if name.startswith(CLI_TOOL_PREFIX):
         return name
-    for prefix in _JARVIS_TOOL_PREFIXES:
+    for prefix, server in _OWN_TOOL_PREFIXES:
         if name.startswith(prefix):
-            return "mcp__jarvis__" + name[len(prefix) :]
+            return cli_tool_name(name[len(prefix) :], server)
     return name
 
 
