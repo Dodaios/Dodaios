@@ -377,9 +377,11 @@ async def amend_mission(mission_id: str, body: AmendBody, request: Request) -> d
         "correction": correction,
         "applies": (
             "The running worker cannot be interrupted. The next attempt gets this "
-            "correction, and the attempt running now is followed by one more. If the "
-            "mission was in its last attempt it finishes without it; mission-result "
-            "then lists it under unapplied_corrections."
+            "correction, and the attempt running now is followed by one more, in the "
+            "same workspace: if that attempt fails, the mission ends as failed even "
+            "though the earlier result had been accepted. If the mission was in its "
+            "last attempt it finishes without the correction; mission-result then lists "
+            "it under unapplied_corrections."
         ),
     }
 

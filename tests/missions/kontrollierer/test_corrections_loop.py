@@ -149,3 +149,60 @@ def test_corrections_survive_a_restart_and_a_torn_last_line(tmp_path: Path) -> N
     assert block.index("1. First") < block.index("2. Second")
     assert "a later correction wins over an earlier one" in block
     assert render([]) == ""
+
+
+def test_a_correction_added_after_a_torn_line_is_kept_and_returned(tmp_path: Path) -> None:
+    from jarvis.missions.corrections import CorrectionInbox
+
+    inbox = CorrectionInbox(tmp_path / "mission")
+    inbox.add("First correction")
+    with inbox.path.open("a", encoding="utf-8") as handle:
+        handle.write('{"text": "torn')  # the app died while writing this one
+    added = inbox.add("Second correction")
+    assert (added.number, added.text) == (2, "Second correction")
+    assert [item.text for item in inbox.read()] == ["First correction", "Second correction"]
+
+
+def test_steps_noting_late_corrections_at_once_lose_none(tmp_path: Path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from jarvis.missions.corrections import CorrectionInbox
+
+    inbox = CorrectionInbox(tmp_path / "mission")
+    corrections = [inbox.add(f"Correction {index}") for index in range(12)]
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        list(
+            pool.map(lambda item: inbox.note_unapplied(f"step-{item.number}", [item]), corrections)
+        )
+    assert [item.number for item in inbox.unapplied()] == list(range(1, 13))
+
+
+def test_an_unreadable_record_of_late_corrections_is_reported_not_fatal(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    from jarvis.missions.corrections import CorrectionInbox
+
+    inbox = CorrectionInbox(tmp_path / "mission")
+    inbox.add("Only correction")
+    inbox.path.with_name("corrections-unapplied.json").write_text("{not json", encoding="utf-8")
+    with caplog.at_level("WARNING"):
+        assert inbox.unapplied() == []
+    assert "Unreadable record of late corrections" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_the_extra_attempt_is_recorded_as_the_users_wish_not_the_reviewers(
+    manager: MissionManager, tmp_path: Path  # noqa: F811
+) -> None:
+    from jarvis.missions.events import WorkerCorrectionRequired
+
+    critic = FakeCriticRunner(_make_approve_verdict(), _make_approve_verdict())
+    worker = _AmendingWorker(amend_during=0)
+    _k, mid, _end = await _run(manager, tmp_path, critic, worker)
+    asked = [
+        envelope for envelope in await manager.store.events_for_mission(mid)
+        if isinstance(envelope.payload, WorkerCorrectionRequired)
+    ]
+    assert [(e.source_actor, e.payload.correction_instruction) for e in asked] == [
+        ("ui", _CORRECTION)
+    ]

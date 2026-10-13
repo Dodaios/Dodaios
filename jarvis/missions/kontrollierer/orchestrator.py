@@ -2277,6 +2277,8 @@ class Kontrollierer:
             if is_approval_valid(verdict):
                 # A correction that arrived while this attempt ran: the result
                 # is good for the task as it was, not as the user changed it.
+                # The next attempt changes the same workspace, so from here on
+                # the step ends as that attempt ends, also when it fails.
                 late = (await asyncio.to_thread(inbox.read))[len(handed):]
                 if late and self._can_start_correction(iteration, task_t0):
                     reflections.append(
@@ -2291,6 +2293,8 @@ class Kontrollierer:
                         instruction=late[-1].text,
                         iteration=iteration,
                         next_model=(FRONTIER_MODEL if iteration + 1 >= 2 else "sonnet"),
+                        # The user asked for this attempt, not the reviewer.
+                        source_actor="ui",
                     )
                     continue
                 if late:
@@ -4621,11 +4625,12 @@ class Kontrollierer:
         instruction: str,
         iteration: int,
         next_model: str,
+        source_actor: Literal["critic", "ui"] = "critic",
     ) -> None:
         env = EventEnvelope(
             mission_id=mission_id,
             worker_id=worker_id,
-            source_actor="critic",
+            source_actor=source_actor,
             ts_ms=now_ms(),
             payload=WorkerCorrectionRequired(
                 worker_id=worker_id,
