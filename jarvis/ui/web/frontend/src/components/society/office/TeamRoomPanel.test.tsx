@@ -176,14 +176,17 @@ describe("team room panel", () => {
   test("a working agent's face is its symbol, never the three thinking dots", async () => {
     mount();
     await screen.findByText("Launch crew");
+    // A face is the agent's pixel creature, or its shape as a symbol or a 3D figure.
+    const drawn = "[data-agent-creature], [data-agent-symbol], [data-agent-figure]";
     const face = screen.getByTitle("Bo · Working");
-    expect(face.querySelector("[data-agent-symbol]")).toBeTruthy();
+    expect(face.querySelector(drawn)).toBeTruthy();
     expect(face.querySelector("[data-thinking='true']")).toBeNull();
+    expect(face.querySelector("[data-creature-state]")?.getAttribute("data-creature-state") ?? "idle").toBe("idle");
     // Every face sits on the neutral tile, so a white or black symbol never vanishes into the dialog.
-    expect(face.querySelector(".office-face [data-agent-symbol]")).toBeTruthy();
+    expect(face.querySelector(".office-face")?.querySelector(drawn)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const picker = screen.getByRole("group", { name: "Members" });
-    expect(picker.querySelectorAll(".office-face [data-agent-symbol]")).toHaveLength(agents.length);
+    expect([...picker.querySelectorAll(".office-face")].filter(tile => tile.querySelector(drawn))).toHaveLength(agents.length);
   });
 
   test("opened to start a team it shows the new-team form at once, and Cancel leads to the teams", async () => {
