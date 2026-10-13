@@ -22,7 +22,7 @@ worktree, process containment, and post-run diff/path review remain mandatory.
 from __future__ import annotations
 
 import asyncio
-import json
+import base64
 import logging
 import os
 import re
@@ -42,27 +42,37 @@ from .process_utils import create_worker_subprocess, resolve_node_executable
 
 logger = logging.getLogger(__name__)
 
+# The launcher names no cmdlet, only language keywords and .NET calls. Resolving
+# a cmdlet that is not loaded yet makes PowerShell analyse every module on the
+# machine's module path before it reaches its own built-in ones, and the
+# mission-scoped profile gives it no analysis cache to reuse: a machine with
+# many installed modules paid tens of seconds for that before each command.
 _WINDOWS_GATE_SCRIPT = """param(
     [Parameter(Mandatory=$true)][string]$GatePath,
     [Parameter(Mandatory=$true)][string]$PayloadPath
 )
 $deadline = [DateTime]::UtcNow.AddSeconds(30)
-while (-not (Test-Path -LiteralPath $GatePath -PathType Leaf)) {
+while (-not [System.IO.File]::Exists($GatePath)) {
     if ([DateTime]::UtcNow -ge $deadline) {
-        Write-Error "Containment gate did not open before its deadline."
+        [Console]::Error.WriteLine("Containment gate did not open before its deadline.")
         exit 125
     }
-    Start-Sleep -Milliseconds 10
+    [System.Threading.Thread]::Sleep(10)
 }
 try {
-    $payload = Get-Content -LiteralPath $PayloadPath -Raw | ConvertFrom-Json
+    $words = @()
+    foreach ($line in [System.IO.File]::ReadAllLines($PayloadPath)) {
+        $bytes = [System.Convert]::FromBase64String($line)
+        $words += [System.Text.Encoding]::UTF8.GetString($bytes)
+    }
+    $executable = $words[0]
     $commandArgs = @()
-    foreach ($item in $payload.arguments) { $commandArgs += [string]$item }
-    & ([string]$payload.executable) @commandArgs
+    for ($index = 1; $index -lt $words.Count; $index++) { $commandArgs += $words[$index] }
+    & $executable @commandArgs
     if ($null -eq $LASTEXITCODE) { exit 1 }
     exit [int]$LASTEXITCODE
 } catch {
-    Write-Error $_
+    [Console]::Error.WriteLine([string]$_)
     exit 1
 }
 """
@@ -637,8 +647,8 @@ def _prepare_windows_gated_launch(
     launcher therefore waits on a random gate file. Jarvis assigns that waiting
     launcher to a non-breakaway Job Object first and creates the gate only after
     assignment succeeds. The trusted launcher self-exits after 30 seconds if
-    Jarvis crashes in that narrow pre-assignment window. Target argv is JSON
-    data, never interpolated into PowerShell source.
+    Jarvis crashes in that narrow pre-assignment window. Target argv is data,
+    one base64 line per word, never interpolated into PowerShell source.
     """
     powershell = (
         shutil.which("powershell.exe", path=env.get("PATH"))
@@ -667,17 +677,17 @@ def _prepare_windows_gated_launch(
     launch_dir.mkdir(parents=True, exist_ok=True)
     token = uuid.uuid4().hex
     script_path = launch_dir / "contained-command.ps1"
-    payload_path = launch_dir / f"payload-{token}.json"
+    payload_path = launch_dir / f"payload-{token}.txt"
     gate_path = launch_dir / f"gate-{token}"
     with contextlib_suppress(FileNotFoundError):
         gate_path.unlink()
     script_path.write_text(_WINDOWS_GATE_SCRIPT, encoding="utf-8")
     payload_path.write_text(
-        json.dumps(
-            {"executable": executable, "arguments": list(args)},
-            ensure_ascii=True,
+        "".join(
+            base64.b64encode(word.encode("utf-8")).decode("ascii") + "\n"
+            for word in (executable, *args)
         ),
-        encoding="utf-8",
+        encoding="ascii",
     )
     command = [
         powershell,
