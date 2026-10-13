@@ -11,10 +11,12 @@ from typing import Final
 
 #: For the model that executes tools: progress, sync and branch questions.
 WORK_STATUS_RULE: Final[str] = (
-    "When the user asks how far the coding agents are, whether one is done, who "
-    "is waiting for them, or which branch a workspace is on, call "
-    "workspace-orchestrate status once: it covers every open agent and each "
-    "workspace's git state. Say the takeaway in a sentence or two and name who "
+    "When the user asks what is running, how far things are, whether something is "
+    "done or who is waiting for them, call task_status once: it is one board of this "
+    "call's background tasks, every open coding agent with its workspace's git state, "
+    "the missions that have not ended and the agent team. For one workspace's agents "
+    "or its branch alone, workspace-orchestrate status with that workspace is enough. "
+    "Say the takeaway in a sentence or two and name who "
     "needs the user; never read out lists, diffs or code. When the user wants to "
     "hear when an agent they started themselves is done, call watch for it; a "
     "task you sent is reported back on its own. "
