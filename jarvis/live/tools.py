@@ -71,6 +71,14 @@ _CONTROL_TOOLS = frozenset({"end_call"})
 # After the user moves on, an action that is about to finish still answers its
 # own call; only one that keeps running becomes a background task.
 MOVE_ON_GRACE_S = 0.6
+# Where the user's other running work is read for the one board, by section:
+# the catalog tool that knows it and the arguments for its compact listing.
+_BOARD_SOURCES: tuple[tuple[str, str, dict], ...] = (
+    ("coding_agents", "workspace-orchestrate", {"action": "status"}),
+    ("missions", "missions-list", {"active": True, "limit": 20}),
+    ("team", "society_status", {"board": True}),
+)
+_BOARD_ERROR_CHARS = 200
 _APPROVAL_NEXT_STEP = (
     "Ask the user to approve this action. After an explicit yes, call confirm_action "
     "directly (not through call_tool) with this approval_id. A yes is never a hang-up."
@@ -109,6 +117,28 @@ def function(name: str, description: str, properties: dict, required: list[str])
             "additionalProperties": False,
         },
     }
+
+
+def _board_section(section: str, output: Any) -> Any:
+    """One source's listing as the board shows it; None when it has another shape."""
+    if section == "coding_agents":
+        if not isinstance(output, dict) or output.get("status") != "ok":
+            return None
+        return {key: output[key] for key in ("counts", "needs_you", "workspaces") if key in output}
+    if section == "missions":
+        response = output.get("response") if isinstance(output, dict) else None
+        missions = response.get("missions") if isinstance(response, dict) else None
+        if not isinstance(missions, list):
+            return None
+        return [
+            {"mission_id": row.get("id"), "state": row.get("state"), "request": row.get("prompt")}
+            for row in missions
+            if isinstance(row, dict)
+        ]
+    if section == "team":
+        agents = output.get("agents") if isinstance(output, dict) else None
+        return agents if isinstance(agents, list) else None
+    return None
 
 
 class LiveTools:
@@ -231,11 +261,18 @@ class LiveTools:
             ),
             function(
                 "task_status",
-                "List this call's background tasks: actions that kept running while the "
-                "user moved on, each with its request, state and result. Use it when the "
-                "user asks how far something is or what came out of it. Pass cancel with a "
+                "One board of everything running for the user: this call's background "
+                "tasks (actions that kept running while the user moved on, each with its "
+                "request, state and result), every open coding agent with its workspace's "
+                "git state, the missions that have not ended, and the agent team. "
+                "needs_you names what is waiting for the user. Use it when the user asks "
+                "what is running, how far something is, what came out of it or who needs "
+                "them. scope call returns only this call's tasks. Pass cancel with a "
                 "task_id only when the user asks to stop that task.",
-                {"cancel": {"type": "string"}},
+                {
+                    "cancel": {"type": "string"},
+                    "scope": {"type": "string", "enum": ["all", "call"]},
+                },
                 [],
             ),
         ]
@@ -452,10 +489,21 @@ class LiveTools:
         if pending is not None and pending[3] == sys.maxsize:
             self._pending[str(approval_id)] = (*pending[:3], self.revision)
 
-    def _task_status(self, args: dict) -> dict:
+    async def _task_status(self, args: dict) -> dict:
         wanted = str(args.get("cancel") or "").strip()
         if not wanted:
-            return {"success": True, "tasks": self.tasks.snapshot()}
+            board: dict = {"success": True, "tasks": self.tasks.snapshot()}
+            if str(args.get("scope") or "all") != "call":
+                board.update(await self._work_elsewhere())
+            needs_you = [
+                f"{task.task_id}: approval for {task.summary}"
+                for task in self.tasks.waiting_for_approval()
+            ]
+            agents = board.get("coding_agents")
+            if isinstance(agents, dict):
+                needs_you.extend(str(name) for name in agents.get("needs_you") or [])
+            board["needs_you"] = needs_you
+            return board
         task = self.tasks.get(wanted)
         if task is None or not self.tasks.cancel(task):
             return {
@@ -471,6 +519,35 @@ class LiveTools:
             "note": "Stopped. An effect that already happened is not undone.",
             "tasks": self.tasks.snapshot(),
         }
+
+    async def _work_elsewhere(self) -> dict:
+        """The user's running work outside this call, one section per source.
+
+        Each section is read through the same gated tool the model could call
+        itself. A source that is missing from the catalog is left out; one
+        that fails says so instead of emptying the whole board.
+        """
+        available = {descriptor.name for descriptor in self.catalog()}
+        sources = [source for source in _BOARD_SOURCES if source[1] in available]
+        answers = await asyncio.gather(
+            *(self.gateway.execute(tool, dict(args), self._request(uuid4()))
+              for _section, tool, args in sources),
+            return_exceptions=True,
+        )
+        board: dict = {}
+        for (section, tool, _args), answer in zip(sources, answers, strict=True):
+            if isinstance(answer, asyncio.CancelledError):
+                raise answer
+            if isinstance(answer, BaseException):
+                log.warning("Live board: %s failed", tool, exc_info=answer)
+                board[section] = {"unavailable": "This part could not be read."}
+                continue
+            output = self._result(answer).get("output")
+            rows = _board_section(section, output) if answer.success else None
+            board[section] = rows if rows is not None else {
+                "unavailable": str(answer.error or output or "No answer.")[:_BOARD_ERROR_CHARS]
+            }
+        return board
 
     def _task_settled(self, task: BackgroundTask, work: asyncio.Future) -> None:
         if not work.cancelled() and work.exception() is not None:
@@ -641,7 +718,7 @@ class LiveTools:
                 offset = 0
             return discover(self.catalog(), str(args.get("query", "")), offset)
         if name == "task_status":
-            return self._task_status(args)
+            return await self._task_status(args)
         if name == "confirm_action":
             approval_id = str(args.get("approval_id", ""))
             if approval_id not in self._pending and len(self._pending) == 1:
