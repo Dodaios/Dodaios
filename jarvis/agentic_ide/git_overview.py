@@ -17,8 +17,8 @@ reused until a ref moves, so a poll of an unchanged repository costs one
 ``git status``. GitHub
 is read for the repository the person picked for this folder ONCE
 (:mod:`jarvis.agentic_ide.github_link`), with their existing GitHub
-connection, in ONE GraphQL query per repository, cached per repository: N open
-panes polling one project cost one network call per minute — shorter while a
+connection, in a few GraphQL queries asked side by side, cached per repository: N open
+panes polling one project cost one GitHub read per minute — shorter while a
 check is still running, because that is exactly when the user is waiting.
 
 Degrades, never raises: no git, not a repository, GitHub not connected, no
@@ -66,18 +66,44 @@ GITHUB_BUSY_TTL_S = 20.0
 #: A forced refresh still reuses an answer this young.
 GITHUB_MIN_REFRESH_S = 5.0
 
-_QUERY = """
+# GitHub is asked three things side by side instead of in one query. One
+# query for all of it takes about ten seconds on a repository with many checks
+# per commit — the edge of GitHub's own time limit, where it answers 504. Each
+# part alone is well inside it, and the slowest one sets the wait.
+
+#: Every open pull request with the CI of its newest commit.
+_OPEN_QUERY = """
 query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
     url
-    pullRequests(first: 40, orderBy: {field: UPDATED_AT, direction: DESC}) {
+    pullRequests(first: 50, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes {
+        ...PullRequestRow
+        commits(last: 1) { nodes { commit { oid statusCheckRollup { ...Rollup } } } }
+      }
+    }
+  }
+}
+"""
+
+#: What recently landed or was dropped — the state alone, no CI.
+_RECENT_QUERY = """
+query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(first: 60, states: [MERGED, CLOSED],
+                 orderBy: {field: UPDATED_AT, direction: DESC}) {
       nodes { ...PullRequestRow }
     }
-    openPullRequests: pullRequests(first: 50, states: OPEN,
-                                   orderBy: {field: UPDATED_AT, direction: DESC}) {
-      nodes { ...PullRequestRow }
-    }
-    refs(refPrefix: "refs/heads/", first: 60,
+  }
+}
+"""
+
+#: CI of the most recently changed branches (the ones without a pull request need it).
+_REFS_CI_QUERY = """
+query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    url
+    refs(refPrefix: "refs/heads/", first: 30,
          orderBy: {field: TAG_COMMIT_DATE, direction: DESC}) {
       nodes {
         name
@@ -86,14 +112,19 @@ query($owner: String!, $name: String!) {
     }
   }
 }
+"""
+
+_PR_FRAGMENT = """
 fragment PullRequestRow on PullRequest {
   number title url state isDraft isCrossRepository
   headRefName headRefOid baseRefName mergedAt updatedAt
   isInMergeQueue mergeable reviewDecision
   author { login }
   mergeQueueEntry { position }
-  commits(last: 1) { nodes { commit { oid statusCheckRollup { ...Rollup } } } }
 }
+"""
+
+_ROLLUP_FRAGMENT = """
 fragment Rollup on StatusCheckRollup {
   state
   contexts(first: 40) {
@@ -230,6 +261,8 @@ class GitHubState:
     repo_url: str = ""
     #: Epoch seconds of the GitHub answer in use.
     fetched_at: float = 0.0
+    #: A newer answer is being read right now; the tab asks again shortly.
+    refreshing: bool = False
 
 
 @dataclass(slots=True)
@@ -406,8 +439,8 @@ def parse_github(payload: dict[str, Any], fetched_at: float = 0.0) -> _GitHubSna
         return _GitHubSnapshot(ok=False, reason="GitHub did not return this repository.")
     snap = _GitHubSnapshot(ok=True, repo_url=str(repo.get("url") or ""), fetched_at=fetched_at)
     nodes = [
-        *((repo.get("pullRequests") or {}).get("nodes") or []),
         *((repo.get("openPullRequests") or {}).get("nodes") or []),
+        *((repo.get("pullRequests") or {}).get("nodes") or []),
     ]
     seen: set[int] = set()
     for node in nodes:
@@ -463,21 +496,60 @@ def _iso_to_unix(value: str) -> int:
         return 0
 
 
+def _repository(payload: dict[str, Any]) -> dict[str, Any]:
+    repo = ((payload or {}).get("data") or {}).get("repository")
+    return repo if isinstance(repo, dict) else {}
+
+
 def _fetch_github(repo: str, token: str) -> _GitHubSnapshot:
     now = time.time()
     owner, _, name = repo.partition("/")
-    try:
-        payload = github_link.graphql(token, _QUERY, {"owner": owner, "name": name})
-    except github_link.GitHubError as exc:  # shown in the tab as github.reason/code
-        return _GitHubSnapshot(ok=False, reason=str(exc), code=exc.code, fetched_at=now)
-    snap = parse_github(payload, fetched_at=now)
-    if snap.ok:
-        _add_all_refs(snap, token, owner, name)
+    variables = {"owner": owner, "name": name}
+
+    def ask(query: str) -> dict[str, Any] | github_link.GitHubError:
+        try:
+            return github_link.graphql(token, query, variables)
+        except github_link.GitHubError as exc:  # handed back to the caller below
+            return exc
+
+    open_job = git_local.Job(ask, _OPEN_QUERY + _PR_FRAGMENT + _ROLLUP_FRAGMENT)
+    recent_job = git_local.Job(ask, _RECENT_QUERY + _PR_FRAGMENT)
+    refs_job = git_local.Job(ask, _REFS_CI_QUERY + _ROLLUP_FRAGMENT)
+    names_job = git_local.Job(_all_refs, token, owner, name)
+    opened, recent, refs = open_job.result(), recent_job.result(), refs_job.result()
+    names = names_job.result()
+    for answer in (opened, refs):
+        if isinstance(answer, github_link.GitHubError):  # shown in the tab as github.reason/code
+            return _GitHubSnapshot(ok=False, reason=str(answer), code=answer.code, fetched_at=now)
+    if isinstance(recent, github_link.GitHubError):
+        # Open pull requests and CI landed; only "merged" marks are missing this round.
+        logger.debug("Git overview: recent pull requests failed: {}", recent.code)
+        recent = {}
+    open_repo, refs_repo = _repository(opened), _repository(refs)
+    if not open_repo and not refs_repo:
+        return _GitHubSnapshot(ok=False, reason="GitHub did not return this repository.")
+    merged = {
+        "data": {
+            "repository": {
+                "url": open_repo.get("url") or refs_repo.get("url") or "",
+                "openPullRequests": open_repo.get("pullRequests") or {},
+                "pullRequests": _repository(recent).get("pullRequests") or {},
+                "refs": refs_repo.get("refs") or {},
+            }
+        }
+    }
+    snap = parse_github(merged, fetched_at=now)
+    for ref_name, oid, stamp in names:
+        if ref_name not in snap.refs:
+            snap.refs[ref_name] = (oid, CiStatus())
+        if stamp:
+            snap.ref_dates.setdefault(ref_name, stamp)
     return snap
 
 
-def _add_all_refs(snap: _GitHubSnapshot, token: str, owner: str, name: str) -> None:
-    """Add every other GitHub branch (without CI) to ``snap``, page by page."""
+def _all_refs(token: str, owner: str, name: str) -> list[tuple[str, str, int]]:
+    """Every GitHub branch as (name, tip, commit time), without CI, page by page."""
+    found: list[tuple[str, str, int]] = []
     after: str | None = None
     for _ in range(MAX_REF_PAGES):
         try:
@@ -485,25 +557,26 @@ def _add_all_refs(snap: _GitHubSnapshot, token: str, owner: str, name: str) -> N
                 token, _REFS_QUERY, {"owner": owner, "name": name, "after": after}
             )
         except github_link.GitHubError as exc:
-            # The CI-bearing first page already landed; older branches just stay hidden.
+            # The CI-bearing branches still land; older ones just stay hidden.
             logger.debug("Git overview: branch list page failed: {}", exc.code)
-            return
-        repo = ((payload or {}).get("data") or {}).get("repository") or {}
-        refs = repo.get("refs") or {}
+            break
+        refs = _repository(payload).get("refs") or {}
         for node in refs.get("nodes") or []:
             if not isinstance(node, dict) or not node.get("name"):
                 continue
-            ref_name = str(node["name"])
             target = node.get("target") or {}
-            if ref_name not in snap.refs:
-                snap.refs[ref_name] = (str(target.get("oid") or "")[:12], CiStatus())
-            stamp = _iso_to_unix(str(target.get("committedDate") or ""))
-            if stamp:
-                snap.ref_dates.setdefault(ref_name, stamp)
+            found.append(
+                (
+                    str(node["name"]),
+                    str(target.get("oid") or "")[:12],
+                    _iso_to_unix(str(target.get("committedDate") or "")),
+                )
+            )
         page = refs.get("pageInfo") or {}
         after = page.get("endCursor")
         if not page.get("hasNextPage") or not after:
-            return
+            break
+    return found
 
 
 class _GitHubCache:
@@ -513,9 +586,13 @@ class _GitHubCache:
         self._guard = threading.Lock()
         self._locks: dict[str, threading.Lock] = {}
         self._entries: dict[str, _GitHubSnapshot] = {}
+        #: Repositories whose answer is known to be outdated (a push, a new pull request).
+        self._expired: set[str] = set()
+        #: Repositories with a background read on its way.
+        self._inflight: set[str] = set()
 
-    def _fresh(self, snap: _GitHubSnapshot | None, now: float, force: bool) -> bool:
-        if snap is None:
+    def _fresh(self, key: str, snap: _GitHubSnapshot | None, now: float, force: bool) -> bool:
+        if snap is None or key in self._expired:
             return False
         age = now - snap.fetched_at
         if force:
@@ -524,61 +601,79 @@ class _GitHubCache:
 
     def _load(self, key: str, token: str, lock: threading.Lock, force: bool) -> _GitHubSnapshot:
         # One fetch per repository at a time; everyone else waits for its answer.
-        with lock:
-            snap = self._entries.get(key)
-            if self._fresh(snap, time.time(), force):
-                assert snap is not None
+        try:
+            with lock:
+                snap = self._entries.get(key)
+                if self._fresh(key, snap, time.time(), force):
+                    assert snap is not None
+                    return snap
+                with self._guard:
+                    # Whatever expires it from here on is newer than this read.
+                    self._expired.discard(key)
+                snap = _fetch_github(key, token)
+                with self._guard:
+                    self._entries[key] = snap
                 return snap
-            snap = _fetch_github(key, token)
-            self._entries[key] = snap
-            return snap
+        finally:
+            with self._guard:
+                self._inflight.discard(key)
+
+    def _in_background(self, key: str, token: str, lock: threading.Lock, force: bool) -> None:
+        with self._guard:
+            if key in self._inflight:
+                return
+            self._inflight.add(key)
+        threading.Thread(
+            target=self._load,
+            args=(key, token, lock, force),
+            name="git-overview-github",
+            daemon=True,
+        ).start()
 
     def get(
         self, key: str, token: str, *, force: bool = False, wait: bool = True
     ) -> _GitHubSnapshot | None:
         """``key`` is the repository (``owner/name``).
 
-        With ``wait=False`` a repository read for the first time answers None at
-        once and loads in the background: the first GitHub read takes seconds,
-        and the local branches should not wait for it.
+        With ``wait=False`` nothing waits for GitHub, which takes seconds: a
+        repository read for the first time answers None and loads in the
+        background, and a forced refresh answers with what is known while the
+        new answer is on its way (:meth:`loading` says so).
         """
         with self._guard:
             lock = self._locks.setdefault(key, threading.Lock())
             snap = self._entries.get(key)
-        if force or (snap is None and wait):
+        if wait and (force or snap is None):
             return self._load(key, token, lock, force)
         if snap is None:
-            if not lock.locked():
-                threading.Thread(
-                    target=self._load,
-                    args=(key, token, lock, False),
-                    name="git-overview-github",
-                    daemon=True,
-                ).start()
+            self._in_background(key, token, lock, False)
             return None
-        if not self._fresh(snap, time.time(), False) and not lock.locked():
+        if not self._fresh(key, snap, time.time(), force):
             # Stale-while-revalidate: a poll never waits seconds for GitHub;
             # it gets the last answer now and the new one on its next tick.
-            threading.Thread(
-                target=self._load,
-                args=(key, token, lock, False),
-                name="git-overview-github",
-                daemon=True,
-            ).start()
+            self._in_background(key, token, lock, force)
         return snap
+
+    def loading(self, key: str) -> bool:
+        """A background read of ``key`` is on its way."""
+        with self._guard:
+            return key in self._inflight
 
     def peek(self, key: str) -> _GitHubSnapshot | None:
         """The answer already in memory, however old; never a network call."""
         with self._guard:
             return self._entries.get(key)
 
-    def drop(self, key: str) -> None:
+    def expire(self, key: str) -> None:
+        """Keep showing the answer, but read a new one at the next chance."""
         with self._guard:
-            self._entries.pop(key, None)
+            if key in self._entries:
+                self._expired.add(key)
 
     def clear(self) -> None:
         with self._guard:
             self._entries.clear()
+            self._expired.clear()
 
 
 _CACHE = _GitHubCache()
@@ -590,11 +685,12 @@ def clear_cache() -> None:
 
 
 def clear_github(folder: str | Path) -> None:
-    """Forget GitHub's answer for ``folder``'s repository, so the next read asks
-    again — after a push or a new pull request the cached one is known stale."""
+    """Mark GitHub's answer for ``folder``'s repository as outdated — after a
+    push or a new pull request it is. The tab keeps showing it and gets the new
+    one as soon as it is read."""
     repo = github_link.bound_repository(folder)
     if repo:
-        _CACHE.drop(repo)
+        _CACHE.expire(repo)
 
 
 # ------------------------------------------------------------------ local git
@@ -710,6 +806,7 @@ def _github_for(
     state.code = snap.code
     state.repo_url = snap.repo_url or f"https://github.com/{state.repo}"
     state.fetched_at = snap.fetched_at
+    state.refreshing = _CACHE.loading(state.repo)
     return snap if snap.ok else None
 
 

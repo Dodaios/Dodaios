@@ -43,7 +43,7 @@ _PATHS_TTL_S = 60.0
 _DEFAULT_CANDIDATES = ("main", "master", "trunk", "develop")
 
 
-class _Job:
+class Job:
     """One call on a daemon thread, so a cold read runs its git commands side by side.
 
     Daemon threads on purpose: a hung git must never keep the app from exiting.
@@ -399,12 +399,12 @@ class _Branches:
 def _read_branches(paths: RepoPaths, current: str, fingerprint: tuple) -> _Branches:
     root = paths.root
     default = _read_origin_default(root)
-    heads_job = _Job(_read_heads, root)
-    remotes_job = _Job(_read_remote_heads, root)
+    heads_job = Job(_read_heads, root)
+    remotes_job = Job(_read_remote_heads, root)
     # Counted while the branch list is still being read; the guess holds
     # whenever the default branch exists both here and on the remote.
     guess = [f"refs/heads/{default}", f"refs/remotes/origin/{default}"] if default else []
-    counts_job = _Job(_read_ahead_behind, root, guess) if guess else None
+    counts_job = Job(_read_ahead_behind, root, guess) if guess else None
     rows, remote_heads = heads_job.result(), remotes_job.result()
     names = {row.name: row for row in rows}
     if not default:
@@ -583,7 +583,7 @@ def read(folder: str | Path, *, fresh: bool = False) -> LocalState | None:
         now = time.monotonic()
         checkout_job = None
         if fresh or entry.checkout is None or now - entry.checkout_at >= STATUS_SHARE_S:
-            checkout_job = _Job(_read_checkout, paths)
+            checkout_job = Job(_read_checkout, paths)
         fingerprint = refs_fingerprint(paths)
         branches = entry.branches
         stale = (
