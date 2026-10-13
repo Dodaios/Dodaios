@@ -1,4 +1,4 @@
-# ADR-0040 — Several orders at once: background tasks in a live call, parked requests in chat
+# ADR-0041 — Several orders at once: background tasks in a live call, parked requests in chat
 
 **Status:** Accepted · **Date:** 2026-10-13 · **Extends:**
 [ADR-0034](0034-non-blocking-heavy-turns.md) for the continuous voice sessions of

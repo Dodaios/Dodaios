@@ -353,7 +353,7 @@ def test_step_mirror_ignores_another_turns_events():
     asyncio.run(scenario())
 
 
-# -- composed prompts and background work (ADR-0040) ---------------------------
+# -- composed prompts and background work (ADR-0041) ---------------------------
 
 
 async def test_a_continuation_is_briefing_not_the_persons_words(
