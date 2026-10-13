@@ -216,8 +216,8 @@ def test_jarvis_codex_seat_uses_owned_browser_not_inherited_plugins(
     assert "--ignore-user-config" in plan.argv
     assert "--ignore-rules" in plan.argv
     assert "browser_use" in plan.argv and "plugins" in plan.argv
-    assert 'mcp_servers.jarvis.tools.society_browser.approval_mode="approve"' in plan.argv
-    assert "mcp_servers.jarvis.required=true" in plan.argv
+    assert 'mcp_servers.dodaios.tools.society_browser.approval_mode="approve"' in plan.argv
+    assert "mcp_servers.dodaios.required=true" in plan.argv
     coding = runner_cli.plan_codex(**args)
     assert "--ignore-user-config" not in coding.argv
     assert "browser_use" not in coding.argv
