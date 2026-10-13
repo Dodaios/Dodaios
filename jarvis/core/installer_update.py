@@ -2,13 +2,16 @@
 
 A frozen install (Windows ``Setup.exe``, macOS ``.dmg``, Linux ``.AppImage``)
 has no git checkout, so ``jarvis/ui/web/update_routes.py``'s managed path cannot
-update it. What it does have is a GitHub Release carrying exactly one installer
-asset per platform plus a ``installers-SHA256SUMS.txt`` manifest:
+update it. What it does have is a GitHub Release carrying one installer asset
+per platform plus a ``installers-SHA256SUMS.txt`` manifest:
 
 * ``PersonalJarvis-Setup-x64.exe``          Windows 10/11 x64
 * ``PersonalJarvis-macOS-arm64.dmg``        Apple Silicon
 * ``PersonalJarvis-macOS-x64.dmg``          Intel Mac
 * ``PersonalJarvis-Linux-x86_64.AppImage``  Linux x86_64
+
+A release may publish the same four files under the ``Dodaios-`` prefix instead;
+:data:`INSTALLER_ASSET_NAMES` lists every accepted name per platform.
 
 This module resolves which of those belongs to the running machine, downloads
 it, proves it byte-for-byte against the checksum manifest of the SAME release,
@@ -46,7 +49,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from jarvis.core.branding import UPDATER_USER_AGENT
+from jarvis.core.branding import (
+    MACOS_APP_DIR_NAME,
+    MACOS_BUNDLE_ID,
+    MACOS_DMG_BUNDLE_ID,
+    UPDATER_USER_AGENT,
+)
 from jarvis.core.frozen import bundle_root, is_frozen
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
@@ -54,6 +62,7 @@ log = logging.getLogger(__name__)
 
 __all__ = [
     "CHECKSUMS_ASSET_NAME",
+    "INSTALLER_ASSET_NAMES",
     "AssetFetcher",
     "CommandRunner",
     "DownloadProgress",
@@ -66,10 +75,12 @@ __all__ = [
     "download_and_verify",
     "handover_env",
     "installer_asset_name",
+    "installer_asset_names",
     "machine_for_update",
     "parse_sha256sums",
     "select_asset",
     "select_installer_asset",
+    "select_installer_assets",
     "sweep_stale_downloads",
     "update_blocker",
 ]
@@ -136,33 +147,62 @@ class InstallerAsset:
 # --------------------------------------------------------------------------- #
 # Asset selection
 # --------------------------------------------------------------------------- #
-def installer_asset_name(platform_name: str, machine: str) -> str | None:
-    """The release asset this OS/CPU pair installs, or ``None`` when unsupported.
+#: Every installer file name the updater accepts, per ``(os, cpu)``, best
+#: first. This is the one place the names live.
+#:
+#: A release publishes each installer under ONE of the names in its row. The
+#: updater takes the first name the release actually carries, so an install
+#: keeps updating whichever prefix a release uses. The LAST name of a row is
+#: the one every release published so far carries
+#: (``scripts/ci/release_assets.py`` pins that set for the release pipeline).
+INSTALLER_ASSET_NAMES: dict[tuple[str, str], tuple[str, ...]] = {
+    ("windows", "x64"): ("Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"),
+    ("macos", "arm64"): ("Dodaios-macOS-arm64.dmg", "PersonalJarvis-macOS-arm64.dmg"),
+    ("macos", "x64"): ("Dodaios-macOS-x64.dmg", "PersonalJarvis-macOS-x64.dmg"),
+    ("linux", "x64"): (
+        "Dodaios-Linux-x86_64.AppImage",
+        "PersonalJarvis-Linux-x86_64.AppImage",
+    ),
+}
+
+
+def installer_asset_names(platform_name: str, machine: str) -> tuple[str, ...]:
+    """Accepted release asset names for this OS/CPU pair, best first.
 
     ``machine`` is compared case-insensitively because the same CPU reports
     different spellings per OS: Windows says ``AMD64``, Linux says ``x86_64``,
     macOS says ``arm64`` while ``platform.machine()`` under Rosetta says
-    ``x86_64``. An unrecognised pair returns ``None`` — the caller then reports
-    "no installer for this platform" instead of guessing.
+    ``x86_64``. An unrecognised pair returns an empty tuple — the caller then
+    reports "no installer for this platform" instead of guessing.
     """
     arch = machine.strip().lower()
-    intel64 = {"x86_64", "amd64", "x64"}
+    if arch in {"x86_64", "amd64", "x64"}:
+        cpu = "x64"
+    elif arch in {"arm64", "aarch64"}:
+        cpu = "arm64"
+    else:
+        return ()
 
     if platform_name == "win32":
-        if arch in intel64:
-            return "PersonalJarvis-Setup-x64.exe"
-        return None
-    if platform_name == "darwin":
-        if arch in {"arm64", "aarch64"}:
-            return "PersonalJarvis-macOS-arm64.dmg"
-        if arch in intel64:
-            return "PersonalJarvis-macOS-x64.dmg"
-        return None
-    if platform_name.startswith("linux"):
-        if arch in intel64:
-            return "PersonalJarvis-Linux-x86_64.AppImage"
-        return None
-    return None
+        system = "windows"
+    elif platform_name == "darwin":
+        system = "macos"
+    elif platform_name.startswith("linux"):
+        system = "linux"
+    else:
+        return ()
+    return INSTALLER_ASSET_NAMES.get((system, cpu), ())
+
+
+def installer_asset_name(platform_name: str, machine: str) -> str | None:
+    """The asset name every published release carries for this OS/CPU pair.
+
+    ``None`` when no installer exists for the pair. Use
+    :func:`installer_asset_names` to pick a file out of a release: a release
+    may carry the installer under another accepted name.
+    """
+    names = installer_asset_names(platform_name, machine)
+    return names[-1] if names else None
 
 
 def _running_under_rosetta() -> bool:
@@ -243,6 +283,20 @@ def select_asset(assets: Iterable[Any], name: str) -> InstallerAsset | None:
     return None
 
 
+def select_installer_assets(
+    assets: Iterable[Any], names: Sequence[str]
+) -> tuple[InstallerAsset, ...]:
+    """The assets of one release that match ``names``, in the order of ``names``.
+
+    Usually one entry. More than one means the release carries the installer
+    under several accepted names; :func:`download_and_verify` then takes the
+    first that the checksum manifest vouches for.
+    """
+    listed = list(assets)
+    found = (select_asset(listed, name) for name in names)
+    return tuple(asset for asset in found if asset is not None)
+
+
 def select_installer_asset(
     assets: Iterable[Any],
     *,
@@ -251,13 +305,12 @@ def select_installer_asset(
 ) -> InstallerAsset | None:
     """The installer asset for the running machine, or ``None``."""
     active_platform = sys.platform if platform_name is None else platform_name
-    name = installer_asset_name(
+    names = installer_asset_names(
         active_platform,
         machine_for_update(active_platform) if machine is None else machine,
     )
-    if name is None:
-        return None
-    return select_asset(assets, name)
+    candidates = select_installer_assets(assets, names)
+    return candidates[0] if candidates else None
 
 
 # --------------------------------------------------------------------------- #
@@ -432,8 +485,15 @@ async def download_and_verify(
     max_bytes: int = MAX_INSTALLER_BYTES,
     on_progress: DownloadProgress | None = None,
     download_timeout_s: float = DOWNLOAD_TIMEOUT_S,
+    alternatives: Sequence[InstallerAsset] = (),
 ) -> Path:
     """Download ``asset`` and prove it against ``checksums``. Fail closed.
+
+    ``alternatives`` are further assets of the SAME release holding the same
+    installer under another accepted name, in order of preference after
+    ``asset``. The first of them all that has a line in the checksum manifest
+    is the one downloaded: a file the manifest does not vouch for is never
+    fetched, whatever it is called.
 
     ``checksums`` must come from the SAME release as ``asset`` — verifying
     against another release's manifest would authorise the wrong bytes. The
@@ -477,12 +537,21 @@ async def download_and_verify(
         raise InstallerUpdateError(f"could not download {CHECKSUMS_ASSET_NAME}: {exc}") from exc
 
     digests = parse_sha256sums(manifest_text)
-    expected = digests.get(asset.name)
-    if not expected:
+    candidates = (asset, *alternatives)
+    vouched = [candidate for candidate in candidates if digests.get(candidate.name)]
+    if not vouched:
+        named = " or ".join(candidate.name for candidate in candidates)
         raise InstallerUpdateError(
-            f"{CHECKSUMS_ASSET_NAME} of this release has no entry for {asset.name} — "
+            f"{CHECKSUMS_ASSET_NAME} of this release has no entry for {named} — "
             "refusing to install an unverified file"
         )
+    if vouched[0] is not asset:
+        asset = vouched[0]
+        if asset.size and asset.size > max_bytes:
+            raise InstallerUpdateError(
+                f"{asset.name} is {asset.size} bytes, over the {max_bytes} byte cap"
+            )
+    expected = digests[asset.name]
 
     target = _prepare_target(dest_dir, asset.name)
     try:
@@ -796,7 +865,19 @@ def _handover_macos(
     relaunch: bool,
     wait_for_pid: int,
 ) -> str:
-    """Mount the DMG, swap the running ``.app`` for the one inside, relaunch."""
+    """Mount the DMG, swap the running ``.app`` for the one inside, relaunch.
+
+    The running bundle is replaced in place whenever the disk image carries
+    the app under the running bundle's name or under the name this version
+    ships with. The second case is a bundle the USER renamed or duplicated
+    ("Keep Both" in Finder): the image still holds the usual name, and the
+    update belongs into the bundle they launched.
+
+    Only an image whose single bundle has a name this version has never used is
+    a release that renamed the app. That one is installed beside the running
+    bundle under its own name, relaunched from there, and the old bundle is
+    removed afterwards (see :func:`_install_renamed_bundle`).
+    """
     if app_path is None:
         raise InstallerUpdateError(
             "could not locate the running Personal Jarvis.app — refusing to update"
@@ -832,7 +913,13 @@ def _handover_macos(
                 )
             source = candidates[0]
 
-        _replace_directory(source, app_path)
+        known_names = {app_path.name.casefold(), MACOS_APP_DIR_NAME.casefold()}
+        if source.name.casefold() in known_names:
+            installed = app_path
+            _replace_directory(source, app_path)
+        else:
+            installed = app_path.with_name(source.name)
+            _install_renamed_bundle(source, installed, replaced=app_path)
     finally:
         # ``attached`` misses one case: hdiutil mounted the image and then
         # reported failure (or timed out after mounting). The mountpoint is the
@@ -850,12 +937,18 @@ def _handover_macos(
     if relaunch:
         try:
             runner.spawn_detached(
-                relaunch_after_exit_command(wait_for_pid, [MACOS_OPEN, "-n", str(app_path)])
+                relaunch_after_exit_command(wait_for_pid, [MACOS_OPEN, "-n", str(installed)])
             )
         except OSError as exc:
             raise InstallerUpdateError(
                 f"the update was installed but could not be relaunched: {exc}"
             ) from exc
+    if installed != app_path:
+        log.info("[update] installed %s from %s, replacing %s", installed, dmg.name, app_path)
+        return (
+            f"{installed.name} was installed in place of {app_path.name}; "
+            "it starts as soon as this window closes"
+        )
     log.info("[update] replaced %s from %s", app_path, dmg.name)
     return f"{app_path.name} was replaced; it restarts as soon as this window closes"
 
@@ -967,6 +1060,64 @@ def _replace_directory(source: Path, target: Path) -> None:
     shutil.rmtree(previous, ignore_errors=True)
 
 
+# Bundle identifiers this product has shipped under: the installer-built app
+# and the downloadable disk image. Only a bundle that names one of them is
+# ever removed by an update.
+_OWN_MACOS_BUNDLE_IDS = frozenset({MACOS_BUNDLE_ID, MACOS_DMG_BUNDLE_ID})
+
+
+def _macos_bundle_identifier(bundle: Path) -> str | None:
+    """``CFBundleIdentifier`` of ``bundle``; ``None`` when it cannot be read."""
+    import plistlib
+
+    try:
+        with (bundle / "Contents" / "Info.plist").open("rb") as stream:
+            bundle_id = plistlib.load(stream).get("CFBundleIdentifier")
+    except (OSError, ValueError, plistlib.InvalidFileException) as exc:
+        # Missing or unreadable metadata proves nothing about ownership.
+        log.debug("[update] no readable Info.plist in %s: %s", bundle, exc)
+        return None
+    return bundle_id if isinstance(bundle_id, str) and bundle_id else None
+
+
+def _install_renamed_bundle(source: Path, installed: Path, *, replaced: Path) -> None:
+    """Install a bundle whose name changed next to the one it supersedes.
+
+    Copying it ONTO the running bundle would leave the new app inside a folder
+    that still carries the old name. It goes beside it instead, and only once
+    that copy is complete is the superseded bundle taken away — so a failure at
+    any point leaves the app the user started exactly where it was.
+
+    Two things are never touched: an unrelated app that already owns the new
+    name, and a superseded bundle that does not identify itself as ours.
+    """
+    if installed.exists():
+        present = _macos_bundle_identifier(installed)
+        if present is None or present != _macos_bundle_identifier(source):
+            raise InstallerUpdateError(
+                f"{installed} already exists and is a different application — "
+                "refusing to overwrite it"
+            )
+
+    _replace_directory(source, installed)
+
+    if _macos_bundle_identifier(replaced) not in _OWN_MACOS_BUNDLE_IDS:
+        log.warning("[update] %s does not identify itself as ours; leaving it in place", replaced)
+        return
+    # Renamed aside first, so a removal that fails halfway leaves a hidden
+    # leftover instead of a visible app that no longer starts.
+    retired = replaced.with_name(f".{replaced.name}.old")
+    shutil.rmtree(retired, ignore_errors=True)
+    try:
+        os.replace(replaced, retired)
+    except OSError as exc:
+        # The new app is installed and is what gets relaunched; a superseded
+        # bundle that stays behind costs disk space, not the update.
+        log.warning("[update] could not remove the superseded %s: %s", replaced, exc)
+        return
+    shutil.rmtree(retired, ignore_errors=True)
+
+
 def _running_macos_app() -> Path | None:
     """``/Applications/Personal Jarvis.app`` for the RUNNING process, if any.
 
@@ -994,7 +1145,7 @@ def supported_here() -> bool:
     """True when this process is frozen AND an installer exists for its platform."""
     if not is_frozen():
         return False
-    return installer_asset_name(sys.platform, machine_for_update()) is not None
+    return bool(installer_asset_names(sys.platform, machine_for_update()))
 
 
 @dataclass(frozen=True)

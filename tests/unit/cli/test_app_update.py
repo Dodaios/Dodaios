@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,6 +19,7 @@ from jarvis.cli.app_update import (
     PROBE_FLAG,
     run_update,
 )
+from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from jarvis.ui.relauncher import UPDATE_RESULT_FILENAME
 
 
@@ -209,3 +213,103 @@ def test_jarvis_main_routes_update(monkeypatch):
     )
     assert entry.main(["update", "--check"]) == 0
     assert seen == [True]
+
+
+# --------------------------------------------------------------------------- #
+# Nothing is imported from the package once the install step has run
+# --------------------------------------------------------------------------- #
+_AFTER_INSTALL_DRIVER = r"""
+import importlib.abc
+import json
+import sys
+from pathlib import Path
+
+from jarvis.cli import app_update
+from jarvis.cli.app_update import FINALIZE_FLAG, PROBE_FLAG
+
+root = Path(sys.argv[1])
+outcome = json.loads(sys.argv[2])
+
+
+class PackageIsGone(importlib.abc.MetaPathFinder):
+    def __init__(self):
+        self.late = []
+
+    def find_spec(self, name, path=None, target=None):
+        if name == "jarvis" or name.startswith("jarvis."):
+            self.late.append(name)
+            raise ModuleNotFoundError(f"No module named {name!r}", name=name)
+        return None
+
+
+guard = PackageIsGone()
+
+
+def run_child(args, timeout, detached):
+    if args == [PROBE_FLAG, "status"]:
+        return 0, json.dumps(
+            {
+                "managed": True,
+                "kind": "managed",
+                "current": "2.8.0",
+                "latest": "2.9.0",
+                "update_available": True,
+                "service_pid": None,
+            }
+        )
+    if args == [PROBE_FLAG, "stage"]:
+        return 0, json.dumps({"ok": True, "root": str(root), "version": "2.9.0"})
+    if args[0] == FINALIZE_FLAG:
+        # The install step replaced the checkout: the release it installed may
+        # keep its package somewhere else entirely.
+        (root / ".jarvis-update-result.json").write_text(json.dumps(outcome), encoding="utf-8")
+        sys.meta_path.insert(0, guard)
+        return (0 if outcome["ok"] else 1), ""
+    raise AssertionError(args)
+
+
+rc = app_update.run_update(
+    run_child=run_child,
+    is_frozen=lambda: False,
+    running_app_pid=lambda: None,
+    interactive=False,
+)
+print("RESULT " + json.dumps({"rc": rc, "late": guard.late}))
+"""
+
+
+@pytest.mark.parametrize(
+    ("outcome", "expected_rc", "expected_text"),
+    [
+        ({"ok": True, "rolled_back": False}, 0, "2.9.0 is installed"),
+        ({"ok": False, "rolled_back": True}, EXIT_FAILED, "went back to 2.8.0"),
+    ],
+)
+def test_nothing_is_imported_from_the_package_after_the_install_step(
+    tmp_path, outcome, expected_rc, expected_text
+):
+    """The parent outlives the install, and must not read the new tree's code.
+
+    Run in a fresh interpreter so only what ``jarvis update`` itself loaded is
+    in memory. From the install step on, importing a not-yet-loaded ``jarvis``
+    module fails as it would after the package moved, and is recorded.
+    """
+    proc = subprocess.run(  # noqa: S603 - this interpreter, test-controlled script
+        [sys.executable, "-c", _AFTER_INSTALL_DRIVER, str(tmp_path), json.dumps(outcome)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=180,
+        cwd=str(Path(__file__).resolve().parents[3]),
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+    assert proc.returncode == 0, proc.stderr[-4000:]
+    result = json.loads(
+        next(
+            line for line in reversed(proc.stdout.splitlines()) if line.startswith("RESULT ")
+        ).removeprefix("RESULT ")
+    )
+    assert result == {"rc": expected_rc, "late": []}
+    assert expected_text in proc.stdout + proc.stderr
