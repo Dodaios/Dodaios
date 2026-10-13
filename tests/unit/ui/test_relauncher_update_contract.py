@@ -602,7 +602,11 @@ class _Crossing:
         )
 
 
-@pytest.fixture(params=["jarvis", "pkg_old"])
+# The package directory a tree is assumed to use when it states no contract.
+DEFAULT_PACKAGE = DEFAULT_CONTRACT.version_file.partition("/")[0]
+
+
+@pytest.fixture(params=[DEFAULT_PACKAGE, "pkg_old"])
 def crossing(request: pytest.FixtureRequest, tmp_path: Path) -> _Crossing:
     """``old`` keeps its package at the default place without a contract, or
     elsewhere with one; ``new`` moved everything to ``pkg_new``."""
@@ -617,7 +621,7 @@ def crossing(request: pytest.FixtureRequest, tmp_path: Path) -> _Crossing:
 
     _write_package(root, old_package, "1.0.0")
     _write_installer(root, fails_on_request=False)
-    if old_package != "jarvis":
+    if old_package != DEFAULT_PACKAGE:
         _write_contract(
             root,
             UpdateContract(
@@ -803,10 +807,15 @@ if simulated != "native":
     # real OS. Only the package under test sees the simulated one.
     sys.platform = simulated
 
+from jarvis.core.branding import LEGACY_PACKAGE_NAMES
 from jarvis.ui import relauncher
 
 if preload == "skip":
     relauncher._load_modules_needed_after_update = lambda: None
+
+# Every name the package can be imported as: the one it has here, and the
+# earlier ones that still resolve to it.
+PACKAGE_NAMES = {relauncher.__name__.partition(".")[0], *LEGACY_PACKAGE_NAMES}
 
 
 class PackageIsGone(importlib.abc.MetaPathFinder):
@@ -816,7 +825,7 @@ class PackageIsGone(importlib.abc.MetaPathFinder):
         self.late = []
 
     def find_spec(self, name, path=None, target=None):
-        if name == "jarvis" or name.startswith("jarvis."):
+        if name.partition(".")[0] in PACKAGE_NAMES:
             self.late.append(name)
             raise ModuleNotFoundError(f"No module named {name!r}", name=name)
         return None
@@ -865,7 +874,9 @@ def run_update_command(cmd, *, root, timeout):
     if cmd[:3] == ["git", "reset", "--hard"]:
         if guard not in sys.meta_path:
             # From here on the checkout holds a release that moved its package.
-            loaded_at_reset.extend(sorted(m for m in sys.modules if m.split(".")[0] == "jarvis"))
+            loaded_at_reset.extend(
+                sorted(m for m in sys.modules if m.partition(".")[0] in PACKAGE_NAMES)
+            )
             sys.meta_path.insert(0, guard)
         if cmd[3] == target:
             checkout["on_target"] = True

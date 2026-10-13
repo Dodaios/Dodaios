@@ -226,9 +226,13 @@ from pathlib import Path
 
 from jarvis.cli import app_update
 from jarvis.cli.app_update import FINALIZE_FLAG, PROBE_FLAG
+from jarvis.core.branding import LEGACY_PACKAGE_NAMES
 
 root = Path(sys.argv[1])
 outcome = json.loads(sys.argv[2])
+# Every name the package can be imported as: the one it has here, and the
+# earlier ones that still resolve to it.
+PACKAGE_NAMES = {app_update.__name__.partition(".")[0], *LEGACY_PACKAGE_NAMES}
 
 
 class PackageIsGone(importlib.abc.MetaPathFinder):
@@ -236,7 +240,7 @@ class PackageIsGone(importlib.abc.MetaPathFinder):
         self.late = []
 
     def find_spec(self, name, path=None, target=None):
-        if name == "jarvis" or name.startswith("jarvis."):
+        if name.partition(".")[0] in PACKAGE_NAMES:
             self.late.append(name)
             raise ModuleNotFoundError(f"No module named {name!r}", name=name)
         return None

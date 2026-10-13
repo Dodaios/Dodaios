@@ -22,6 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 from jarvis.core.protocols import RiskTier, Tool
+from jarvis.marketplace.bundled_servers import runs_connected_server
 from jarvis.marketplace.catalog import PluginCatalog, PluginSpec
 from jarvis.marketplace.catalog_data import load_catalog
 from jarvis.marketplace.plugin_mcp import plugin_to_mcp_server_spec
@@ -593,7 +594,7 @@ class PluginToolRegistry:
 
 
 def _default_client_factory(spec: Any, *, env_overrides: dict[str, str] | None = None) -> Any:
-    if spec.install_command[1:3] == ["-m", "jarvis.plugins.tool.connected_server"]:
+    if runs_connected_server(spec.install_command):
         from jarvis.marketplace.bundled_rest_client import BundledRestMcpClient
 
         return BundledRestMcpClient(spec)
