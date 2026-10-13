@@ -258,6 +258,6 @@ def test_routes_report_git_errors_with_a_code(repo: Path) -> None:
     info = routes.inspect_folder(folder=made["folder"])
     assert info["is_worktree"] and info["branch"] == "agent/api"
     with pytest.raises(HTTPException) as exc:
-        routes.push_branch(routes.FolderRequest(folder=str(repo)))
+        routes.push_branch(routes.PushRequest(folder=str(repo)))
     assert exc.value.status_code == 422
     assert exc.value.detail["code"] == "no_remote"
