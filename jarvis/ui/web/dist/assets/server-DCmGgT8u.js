@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/server-DHEPaT7F.js
+import{c as e}from"./index-BBYJHm1_.js";/**
+========
+import{c as e}from"./index-kUK78RJZ.js";/**
+>>>>>>>> e3876856f8e9298629ee96c68f2ac5315b43167d:jarvis/ui/web/dist/assets/server-DCmGgT8u.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const y=e("Server",[["rect",{width:"20",height:"8",x:"2",y:"2",rx:"2",ry:"2",key:"ngkwjq"}],["rect",{width:"20",height:"8",x:"2",y:"14",rx:"2",ry:"2",key:"iecqi9"}],["line",{x1:"6",x2:"6.01",y1:"6",y2:"6",key:"16zg32"}],["line",{x1:"6",x2:"6.01",y1:"18",y2:"18",key:"nzw8ys"}]]);export{y as S};

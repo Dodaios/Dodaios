@@ -206,7 +206,8 @@ def test_openclaw_config_keeps_both_keys_out_of_the_file(tmp_path):
     provider = config["models"]["providers"]["jarvis"]
     assert provider["apiKey"] == "${JARVIS_RUNTIME_API_KEY}"
     assert provider["api"] == "openai-completions"
-    headers = config["mcp"]["servers"]["jarvis"]["headers"]
+    assert list(config["mcp"]["servers"]) == ["dodaios"]
+    headers = config["mcp"]["servers"]["dodaios"]["headers"]
     assert headers["Authorization"] == "Bearer ${JARVIS_CONTROL_API_KEY}"
     assert headers["X-Jarvis-Chat-Session"] == "society:hermit"
     run = OpenClawRuntime().config_for(
@@ -214,7 +215,7 @@ def test_openclaw_config_keeps_both_keys_out_of_the_file(tmp_path):
     )
     # A routine run's tool calls carry its own session (approvals, grants).
     assert (
-        run["mcp"]["servers"]["jarvis"]["headers"]["X-Jarvis-Chat-Session"]
+        run["mcp"]["servers"]["dodaios"]["headers"]["X-Jarvis-Chat-Session"]
         == "society:hermit:routine:t1:abc"
     )
 

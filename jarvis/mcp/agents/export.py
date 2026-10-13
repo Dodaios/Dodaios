@@ -19,14 +19,25 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, Final
+from urllib.parse import urlsplit
+
+from jarvis.core.branding import LEGACY_MCP_AGENTS_SERVER_NAMES, MCP_AGENTS_SERVER_NAME
 
 log = logging.getLogger(__name__)
 
-#: The server's name in a client's config. Kept stable — renaming it in a
-#: client's file orphans the old entry rather than replacing it.
-ENTRY_NAME: Final[str] = "jarvis-agents"
+#: The server's name in a client's config.
+ENTRY_NAME: Final[str] = MCP_AGENTS_SERVER_NAME
+
+#: Names this module wrote the entry under before. An entry found under one of
+#: them keeps working untouched until the next write here, which replaces it
+#: (see :func:`_is_own_entry`) so a client never holds the same server twice.
+LEGACY_ENTRY_NAMES: Final[tuple[str, ...]] = LEGACY_MCP_AGENTS_SERVER_NAMES
+
+#: The module the stdio entry launches. Also how an entry is recognised as ours.
+_BRIDGE_MODULE: Final[str] = "jarvis.mcp.agents.bridge"
 
 
 @dataclass(frozen=True)
@@ -148,7 +159,7 @@ def stdio_entry(
             env["JARVIS_CONTROL_KEY"] = key
     return {
         "command": python or sys.executable,
-        "args": ["-m", "jarvis.mcp.agents.bridge"],
+        "args": ["-m", _BRIDGE_MODULE],
         "env": env,
     }
 
@@ -168,6 +179,25 @@ def http_entry(*, token: str | None = None, base_url: str | None = None) -> dict
         "url": f"{base_url or api_base_url()}{SURFACE_PATH}",
         "headers": {"Authorization": f"Bearer {credential}"},
     }
+
+
+def _is_own_entry(entry: Any) -> bool:
+    """Whether a config entry points at this app's agent surface.
+
+    Decided by the entry's target and never by its name: the stdio shape
+    launches the bridge module, the HTTP shape calls the surface path. An
+    entry somebody wrote by hand under the same name, pointing anywhere else,
+    is theirs.
+    """
+    from .bridge import SURFACE_PATH
+
+    if not isinstance(entry, dict):
+        return False
+    args = entry.get("args")
+    if isinstance(args, list) and ("-m", _BRIDGE_MODULE) in pairwise(args):
+        return True
+    url = entry.get("url")
+    return isinstance(url, str) and urlsplit(url).path.rstrip("/") == SURFACE_PATH
 
 
 def entry_for(
@@ -218,7 +248,10 @@ def install(
     """Write the entry into the client's own config file.
 
     Merges rather than replaces: an existing ``mcpServers`` object keeps every
-    other server, and only our named entry is rewritten. TOML clients are not
+    other server, and only our named entry is rewritten. An entry this module
+    wrote under an earlier name is replaced by the new one, so the client does
+    not list every tool twice; an entry under such a name that points
+    somewhere else was written by the person and stays. TOML clients are not
     written to — a hand-formatted ``config.toml`` is easy to corrupt and hard
     to restore, so Codex gets a snippet to paste instead.
     """
@@ -260,6 +293,9 @@ def install(
     if not isinstance(servers, dict):
         return {"ok": False, "error": f"{path} has an mcpServers key that is not an object."}
     replaced = ENTRY_NAME in servers
+    renamed_from = [name for name in LEGACY_ENTRY_NAMES if _is_own_entry(servers.get(name))]
+    for name in renamed_from:
+        del servers[name]
     servers[ENTRY_NAME] = entry
     path.parent.mkdir(parents=True, exist_ok=True)
     # Write through a sibling temp file: a client reading a half-written config
@@ -271,7 +307,8 @@ def install(
         "ok": True,
         "client": target.label,
         "path": str(path),
-        "replaced": replaced,
+        "replaced": replaced or bool(renamed_from),
+        "renamed_from": renamed_from,
         "transport": transport,
         "restart_required": True,
     }
@@ -279,6 +316,7 @@ def install(
 
 __all__ = [
     "ENTRY_NAME",
+    "LEGACY_ENTRY_NAMES",
     "ClientTarget",
     "entry_for",
     "http_entry",

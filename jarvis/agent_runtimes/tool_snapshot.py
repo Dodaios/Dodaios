@@ -8,6 +8,8 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from jarvis.core.mcp_names import own_cli_tool_prefixes
+
 log = logging.getLogger(__name__)
 
 
@@ -49,7 +51,8 @@ def refresh_tool_search_cache(home: Path, session_id: str | None) -> bool:
                 tool if isinstance(tool, str) else tool.get("function", {}).get("name", "")
                 for tool in tools if isinstance(tool, (str, dict))
             ]
-            if not any(str(name).startswith("mcp__jarvis__") for name in names):
+            own = own_cli_tool_prefixes()
+            if not any(str(name).startswith(own) for name in names):
                 return False
             changed = connection.execute(
                 "UPDATE sessions SET tool_names = NULL WHERE id = ? AND tool_names = ?",

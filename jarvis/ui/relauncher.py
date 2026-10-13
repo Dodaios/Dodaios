@@ -31,7 +31,6 @@ import time
 from pathlib import Path
 
 from jarvis.core.branding import (
-    CONFIG_FILE_NAME,
     LAUNCHER_ENTRY_NAME,
     MACOS_APP_DIR_NAME,
     MANAGED_INSTALL_MARKER,
@@ -39,8 +38,13 @@ from jarvis.core.branding import (
     WINDOWS_BRANDED_LAUNCH_ENV_VAR,
     WINDOWS_BRANDED_LAUNCHER_DIR_NAME,
 )
+from jarvis.core.update_contract import (
+    DEFAULT_CONTRACT,
+    UpdateContract,
+    read_update_contract,
+)
 
-LAUNCHER_MODULE = "jarvis.ui.web.launcher"
+LAUNCHER_MODULE = DEFAULT_CONTRACT.launcher_module
 MANAGED_MARKER = MANAGED_INSTALL_MARKER
 PENDING_UPDATE_FILENAME = ".jarvis-update-pending.json"
 UPDATE_RESULT_FILENAME = ".jarvis-update-result.json"
@@ -195,8 +199,13 @@ def build_launch_command(
     executable: str,
     *,
     launcher_args: tuple[str, ...] = (),
+    contract: UpdateContract = DEFAULT_CONTRACT,
 ) -> list[str]:
     """Argv that boots a fresh desktop app through its stable OS identity.
+
+    ``contract`` names the launcher module and the macOS bundle of the tree
+    that is installed right now. After an update that is the NEW release's
+    answer, which this (older) process could not know by itself.
 
     A macOS desktop restart always re-enters through LaunchServices so it can
     never attach TCC access to a raw Python interpreter.  A missing or invalid
@@ -213,7 +222,8 @@ def build_launch_command(
 
     identity = current_instance()
     args = (*identity.launcher_args, *launcher_args)
-    fallback = [executable, "-m", LAUNCHER_MODULE, *args]
+    launcher_module = contract.launcher_module
+    fallback = [executable, "-m", launcher_module, *args]
     if sys.platform == "darwin" and not identity.is_default:
         # The bundle is the DEFAULT app's stable identity and LaunchServices
         # does not carry ``JARVIS_INSTANCE`` into it — re-entering through it
@@ -222,7 +232,7 @@ def build_launch_command(
         # microphone-bound duties the TCC attachment is for).
         return fallback
     if sys.platform == "darwin":
-        bundle = Path.home() / "Applications" / MACOS_APP_DIR_NAME
+        bundle = Path.home() / "Applications" / contract.macos_app_dir_name
         try:
             from jarvis.setup.macos_app_bundle import (
                 macos_app_bundle_is_launchable,
@@ -231,7 +241,9 @@ def build_launch_command(
             )
 
             bundle = macos_app_bundle_path()
-            if not macos_app_bundle_is_launchable(bundle):
+            if contract.macos_app_dir_name != MACOS_APP_DIR_NAME:
+                bundle = _renamed_macos_bundle(bundle, contract)
+            elif not macos_app_bundle_is_launchable(bundle):
                 logging.getLogger(__name__).error(
                     "macOS restart target is missing or invalid: %s", bundle
                 )
@@ -248,8 +260,51 @@ def build_launch_command(
             # process. Spawning ``python -m launcher`` used to re-exec through
             # this copy and exit; the helper treated that exit as a bounce and
             # started two more copies that raced the first (BUG-181).
-            return [str(branded), "-m", LAUNCHER_MODULE, *args]
+            return [str(branded), "-m", launcher_module, *args]
     return fallback
+
+
+def _macos_bundle_identifier(bundle: Path) -> str | None:
+    """``CFBundleIdentifier`` of ``bundle``; ``None`` when it cannot be read."""
+    import plistlib
+
+    try:
+        with (bundle / "Contents" / "Info.plist").open("rb") as stream:
+            bundle_id = plistlib.load(stream).get("CFBundleIdentifier")
+    except (OSError, ValueError, plistlib.InvalidFileException):
+        return None  # missing or unreadable metadata identifies nothing
+    return bundle_id if isinstance(bundle_id, str) and bundle_id else None
+
+
+def _renamed_macos_bundle(known: Path, contract: UpdateContract) -> Path:
+    """Where the installed release keeps its app bundle under another name.
+
+    This version only knows the bundle it was built with. A release that
+    renamed it says so in its update contract; the bundle then sits in one of
+    the two Applications folders, and the one this version used is tried first.
+
+    The name alone does not decide. The downloadable disk-image app can sit in
+    the other Applications folder under the very same name, and starting that
+    one after an installer-managed update would bring back a different install.
+    Only a bundle carrying the identifier the contract names is taken. When
+    none does, the answer is a path where no other app sits, so the restart
+    fails visibly instead of opening someone else.
+    """
+    app_dir_name = contract.macos_app_dir_name
+    vacant: Path | None = None
+    for folder in (known.parent, Path("/Applications"), Path.home() / "Applications"):
+        candidate = folder / app_dir_name
+        if not candidate.is_dir():
+            vacant = vacant or candidate
+        elif _macos_bundle_identifier(candidate) == contract.macos_bundle_id:
+            return candidate
+    logging.getLogger(__name__).error(
+        "macOS restart target %s (%s) was not found next to %s",
+        app_dir_name,
+        contract.macos_bundle_id,
+        known,
+    )
+    return vacant or known.with_name(app_dir_name)
 
 
 def _read_windows_user_jarvis_env() -> dict[str, str] | None:
@@ -481,7 +536,9 @@ def _restart_admin_port(cwd: str | Path | None = None) -> int:
     base = _DEFAULT_ADMIN_PORT
     root = Path(cwd) if cwd else None
     if root is not None:
-        cfg = root / CONFIG_FILE_NAME
+        # Asked of the tree on disk at probe time: after an update the config
+        # file carries whatever name the installed release gave it.
+        cfg = root / read_update_contract(root).config_file
         try:
             import tomllib
 
@@ -490,7 +547,7 @@ def _restart_admin_port(cwd: str | Path | None = None) -> int:
             if isinstance(port, int) and 1 <= port <= 65535:
                 base = port
         except (OSError, UnicodeDecodeError, ValueError, TypeError, AttributeError):
-            pass  # unreadable jarvis.toml → packaged default port
+            pass  # unreadable config file → packaged default port
     return current_instance().port(base)
 
 
@@ -729,9 +786,16 @@ def _installer_command(root: Path, profile: str) -> list[str]:
 
 
 def _ui_bundle_ready(root: Path) -> bool:
-    """Verify that the checked-out release owns a loadable JS/CSS entry set."""
+    """Verify that the checked-out release owns a loadable JS/CSS entry set.
 
-    dist = root / "jarvis" / "ui" / "web" / "dist"
+    The bundle directory is the one the tree on disk names in its update
+    contract, read here so the answer always belongs to the revision that the
+    preceding ``git reset`` checked out — the target, or the previous one after
+    a rollback.
+    """
+
+    bundle_dir = read_update_contract(root).ui_bundle_dir
+    dist = root.joinpath(*bundle_dir.split("/"))
     index = dist / "index.html"
     try:
         html = index.read_text(encoding="utf-8")
@@ -744,7 +808,7 @@ def _ui_bundle_ready(root: Path) -> bool:
     if not any(ref.endswith(".js") for ref in refs):
         return False
 
-    required = {"jarvis/ui/web/dist/index.html"}
+    required = {f"{bundle_dir}/index.html"}
     for ref in refs:
         asset = dist / Path(ref)
         try:
@@ -752,7 +816,7 @@ def _ui_bundle_ready(root: Path) -> bool:
                 return False
         except OSError:
             return False
-        required.add(f"jarvis/ui/web/dist/{ref}")
+        required.add(f"{bundle_dir}/{ref}")
 
     for rel in required:
         if (
@@ -792,6 +856,37 @@ def _write_update_result(
         os.replace(temp, path)
     except OSError:
         pass
+
+
+#: Upper bound for a release's rollback hook. It undoes what that release's
+#: installer changed outside the checkout, which is file moves, not downloads.
+_ROLLBACK_HOOK_TIMEOUT_S = 300.0
+
+
+def _run_rollback_hook(root: Path, hook: str, *, previous: str, target: str) -> None:
+    """Let the failed release undo what its installer changed, before it goes.
+
+    Only the release that moved a config file or re-registered the desktop
+    entry knows how to put it back, so the script comes from its tree and runs
+    while that tree is still checked out. It must be a file the release tracks:
+    a stray script in the checkout is never executed. Its failure is logged and
+    never stops the rollback, which is the part that brings the app back.
+    """
+    log = logging.getLogger(__name__)
+    script = root.joinpath(*hook.split("/"))
+    tracked = _run_update_command(
+        ["git", "ls-files", "--error-unmatch", "--", hook], root=root, timeout=30.0
+    )
+    if tracked != 0 or not script.is_file():
+        log.warning("update rollback hook %s is not a tracked file; skipping it", hook)
+        return
+    rc = _run_update_command(
+        [_managed_python(root), str(script), previous, target],
+        root=root,
+        timeout=_ROLLBACK_HOOK_TIMEOUT_S,
+    )
+    if rc != 0:
+        log.warning("update rollback hook %s exited with %s; rolling back anyway", hook, rc)
 
 
 #: Precious, small user state that must survive ANY update outcome. Copied to
@@ -884,7 +979,11 @@ def finalize_pending_update(cwd: str | Path) -> bool:
         _run_update_command(["git", "reset", "--hard", target], root=root, timeout=120.0) == 0
     )
     target_install_ok = False
+    rollback_hook: str | None = None
     if target_reset_ok:
+        # Read before the installer runs: a failed install may leave the file
+        # in any state, and the hook is needed exactly then.
+        rollback_hook = read_update_contract(root).rollback_hook
         target_install_ok = _run_update_command(
             _installer_command(root, profile), root=root, timeout=3600.0
         ) == 0 and _ui_bundle_ready(root)
@@ -899,6 +998,8 @@ def finalize_pending_update(cwd: str | Path) -> bool:
         )
         return True
 
+    if rollback_hook is not None:
+        _run_rollback_hook(root, rollback_hook, previous=previous, target=target)
     rollback_reset_ok = (
         _run_update_command(["git", "reset", "--hard", previous], root=root, timeout=120.0) == 0
     )
@@ -985,8 +1086,12 @@ def main(
     except Exception:  # noqa: BLE001, S110 — a mute helper is what we had before
         pass
 
+    # Everything below the finalize step may run against a checkout that holds
+    # another release, so the package modules it needs are loaded first.
+    _load_modules_needed_after_update()
+    base_env = fresh_user_env()
     cmd = build_launch_command(sys.executable, launcher_args=launcher_args)
-    env = _apply_branded_launch_env(fresh_user_env(), cmd)
+    env = _apply_branded_launch_env(base_env, cmd)
 
     update_finalized = False
     for attempt in range(attempts):
@@ -1006,6 +1111,15 @@ def main(
         if not update_finalized:
             _finalize_update(cwd)
             update_finalized = True
+            # The command above describes the tree this helper started from.
+            # Whatever the finalizer left installed — the new release, or the
+            # previous one after a rollback — says where its launcher lives.
+            cmd = build_launch_command(
+                sys.executable,
+                launcher_args=launcher_args,
+                contract=read_update_contract(cwd),
+            )
+            env = _apply_branded_launch_env(base_env, cmd)
 
         proc = spawn_detached(cmd, cwd=cwd, env=env, _popen=_spawn)
         new_pid = getattr(proc, "pid", None)
@@ -1020,6 +1134,43 @@ def main(
             return 0
     _report(pid, still_alive=_alive(pid))
     return 1
+
+
+#: Package modules this helper imports inside functions that can run after a
+#: pending update was applied. ``jarvis.setup.macos_app_bundle`` is macOS-only
+#: work and is loaded only there.
+_MODULES_NEEDED_AFTER_UPDATE = (
+    "jarvis.core.frozen",
+    "jarvis.core.instance",
+    "jarvis.core.process_utils",
+    "jarvis.ui.native_dialog",
+)
+_MACOS_MODULES_NEEDED_AFTER_UPDATE = ("jarvis.setup.macos_app_bundle",)
+
+
+def _load_modules_needed_after_update() -> None:
+    """Import, now, every package module this helper still calls later.
+
+    Applying a pending update replaces the checkout under this process, and
+    the new release may have moved or renamed the package. A function-level
+    import that first ran after that point would read the NEW tree — or find
+    nothing at all — while the rest of this process still is the old version,
+    and the app would never come back. Loading the modules up front pins them
+    to the version that started the helper; the later imports are then served
+    from ``sys.modules``.
+    """
+    import importlib
+
+    names = _MODULES_NEEDED_AFTER_UPDATE
+    if sys.platform == "darwin":
+        names = (*names, *_MACOS_MODULES_NEEDED_AFTER_UPDATE)
+    for name in names:
+        try:
+            importlib.import_module(name)
+        except Exception:  # noqa: BLE001 - the restart must still be attempted
+            logging.getLogger(__name__).warning(
+                "relauncher: could not preload %s", name, exc_info=True
+            )
 
 
 def _report_restart_failure(old_pid: int, *, still_alive: bool) -> None:
