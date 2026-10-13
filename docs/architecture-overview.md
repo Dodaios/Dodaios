@@ -86,7 +86,9 @@ L0 OS/Hardware     Win32, CUDA, Mic/Speakers, global-hotkeys
 
 ### Plugin system (structural, not nominal)
 
-Plugins live under `jarvis/plugins/<group>/<name>.py`, register via `pyproject.toml` `[project.entry-points."jarvis.<group>"]`, and **must not import from `jarvis.*`** inside the plugin module — only structural compatibility with the protocol (registry at `jarvis/core/registry.py`). After editing entry-points: `pip install -e . --no-deps`.
+Plugins live under `jarvis/plugins/<group>/<name>.py`, register via `pyproject.toml` `[project.entry-points."dodaios.<group>"]`, and **must not import from `jarvis.*`** inside the plugin module — only structural compatibility with the protocol (registry at `jarvis/core/registry.py`). After editing entry-points: `pip install -e . --no-deps`.
+
+Every group has two names. `dodaios.<group>` is the one to register a new plugin under; `jarvis.<group>` is the name plugins were published under before, and it stays valid: both are read in one scan of the installed distributions (`jarvis/core/entry_points.py`), and the first-party tables in `pyproject.toml` still use it. A name registered under both loads once, and if the two registrations point at different objects the `dodaios.<group>` one loads.
 
 Groups (frozen in `PLUGIN_GROUPS`): `jarvis.wakeword`, `jarvis.stt`, `jarvis.tts`, `jarvis.brain`, `jarvis.harness`, `jarvis.tool`, `jarvis.channel`.
 

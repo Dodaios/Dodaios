@@ -407,7 +407,7 @@ def _load_tools_for_tier(
         mission_manager: MissionManager instance for ``spawn_worker``.
             When None, the tool is removed from the set.
     """
-    from importlib.metadata import entry_points
+    from jarvis.core.entry_points import entry_points
 
     if tier != "router":
         raise ValueError(
@@ -1128,7 +1128,7 @@ def _phase2_full_brain(
             # the cu_tools dict — otherwise the brain plans actions that the
             # loop cannot execute. These tools are CU-specific and not in
             # ROUTER_TOOLS, so they are loaded directly from entry_points.
-            from importlib.metadata import entry_points as _eps
+            from jarvis.core.entry_points import entry_points as _eps
             _CU_EXTRA = {
                 # Verify / wait helpers already wired in earlier waves.
                 "wait-for-ui-state",
@@ -1395,7 +1395,7 @@ def _phase2_full_brain(
 
 def _legacy_full_brain(bus: Any | None = None) -> Any:
     """Legacy BrainManager path (before tiered routing) — only via JARVIS_BRAIN=legacy."""
-    from importlib.metadata import entry_points
+    from jarvis.core.entry_points import entry_points
 
     from jarvis.brain.manager import BrainManager
     from jarvis.core import config as cfg

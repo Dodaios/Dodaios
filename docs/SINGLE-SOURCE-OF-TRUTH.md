@@ -114,13 +114,18 @@ the first sentence while the rest is still being generated.
 ## 4. The Plugin System
 
 Plugins live under `jarvis/plugins/<group>/<name>.py` and register via `pyproject.toml`
-entry-points (`[project.entry-points."jarvis.<group>"]`). The system is **structural, not
+entry-points (`[project.entry-points."dodaios.<group>"]`). The system is **structural, not
 nominal**: a plugin must satisfy the *shape* of a protocol, but **must not import from
 `jarvis.*`** inside the plugin module. This keeps plugins decoupled and independently
 distributable.
 
-The seven frozen plugin groups: `jarvis.wakeword`, `jarvis.stt`, `jarvis.tts`,
-`jarvis.brain`, `jarvis.harness`, `jarvis.tool`, `jarvis.channel`.
+The plugin groups: `dodaios.wakeword`, `dodaios.stt`, `dodaios.tts`, `dodaios.brain`,
+`dodaios.harness`, `dodaios.tool`, `dodaios.channel`, `dodaios.realtime`.
+
+Each group is also read under its earlier name, `jarvis.<group>`, and that name stays
+valid: a plugin published against it keeps loading without a change. A plugin that
+registers the same name under both loads once; if the two point at different objects,
+the `dodaios.<group>` registration is the one that loads.
 
 After editing entry-points, you must re-run `pip install -e . --no-deps` to make the new
 plugin active — a subtle trap that has caused real "my fix doesn't work" incidents.

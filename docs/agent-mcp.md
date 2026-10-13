@@ -84,6 +84,16 @@ temp file, because a client reading a half-written config loses *all* its
 servers, not just ours. Codex is never written to: a hand-formatted
 `config.toml` is easy to corrupt and hard to restore, so it gets a snippet.
 
+The entry is written as `dodaios-agents`. A client connected before the rename
+holds it as `jarvis-agents`, and that entry keeps working untouched: it
+launches the same bridge and calls the same path. The next `connect` or
+`pair` with `"install": true` replaces it with `dodaios-agents` instead of
+adding a second one, so the client never lists every tool twice. Which entry
+is ours is decided by its target (the bridge module, or the surface URL),
+never by its name: a server somebody else put under `jarvis-agents` stays
+where it is. When pasting a snippet by hand, remove an existing
+`jarvis-agents` entry in the same step.
+
 Environment overrides, for a Jarvis that is not on this box:
 
 * `JARVIS_API_URL` — base URL of the Jarvis to drive

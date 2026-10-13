@@ -246,11 +246,11 @@ def test_resumed_society_seat_refreshes_routine_contract(monkeypatch, tmp_path):
         resume="existing-thread",
         identity=identity,
     )
-    assert "mcp_servers.jarvis.required=true" in plan.argv
+    assert "mcp_servers.dodaios.required=true" in plan.argv
     # Codex exec cannot answer its own MCP prompts; every Jarvis tool defers
     # to the session catalog and ToolExecutor, which own the approval card.
-    assert 'mcp_servers.jarvis.default_tools_approval_mode="approve"' in plan.argv
-    assert 'mcp_servers.jarvis.tools.society_browser.approval_mode="approve"' in plan.argv
+    assert 'mcp_servers.dodaios.default_tools_approval_mode="approve"' in plan.argv
+    assert 'mcp_servers.dodaios.tools.society_browser.approval_mode="approve"' in plan.argv
     # A society seat gets no vendor-native hands that would bypass that gate.
     assert 'sandbox_mode="read-only"' in plan.argv
     assert 'approval_policy="never"' in plan.argv

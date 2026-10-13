@@ -233,8 +233,8 @@ def test_grok_with_identity_writes_a_project_mcp_config(monkeypatch, tmp_path: P
     config = (tmp_path / ".grok" / "config.toml").read_text(encoding="utf-8")
     assert "[mcp_servers.linear]" in config
     assert "https://mcp.linear.app/mcp" in config
-    assert "[mcp_servers.jarvis]" in config
-    assert config.count("[mcp_servers.jarvis]") == 1
+    assert "[mcp_servers.dodaios]" in config
+    assert config.count("[mcp_servers.dodaios]") == 1
     assert "/api/control/mcp/" in config
     assert 'bearer_token_env_var = "JARVIS_CONTROL_API_KEY"' in config
     assert "sess-1" in config
@@ -250,7 +250,7 @@ def test_grok_with_identity_writes_a_project_mcp_config(monkeypatch, tmp_path: P
         identity=_identity(tmp_path),
     )
     again = (tmp_path / ".grok" / "config.toml").read_text(encoding="utf-8")
-    assert again.count("[mcp_servers.jarvis]") == 1
+    assert again.count("[mcp_servers.dodaios]") == 1
     assert "[mcp_servers.linear]" in again
 
 
@@ -285,7 +285,9 @@ def test_agy_with_identity_drops_a_workspace_plugin(monkeypatch, tmp_path: Path)
     )
     plugin = tmp_path / ".agents" / "plugins" / "jarvis-hands" / "mcp_config.json"
     payload = json.loads(plugin.read_text(encoding="utf-8"))
-    server = payload["mcpServers"]["jarvis"]
+    # The file is written whole, so one mount is all it can hold.
+    assert list(payload["mcpServers"]) == ["dodaios"]
+    server = payload["mcpServers"]["dodaios"]
     assert server["serverUrl"].endswith("/api/control/mcp/")
     assert server["headers"]["Authorization"] == "Bearer k"
     assert server["headers"][jarvis_harness.HEADER_NAME] == "sess-1"
