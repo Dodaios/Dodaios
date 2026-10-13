@@ -2532,6 +2532,15 @@
     "wiki_links": "{0} 个链接",
     "wiki_empty_body": "还没有页面。等你们的对话中有值得记录的内容，知识库就会创建一个页面。",
     "wiki_needs_name": "添加你的名字后，知识库就可以为你创建页面。",
+    "semantic_title": "按含义搜索",
+    "semantic_off": "找到与你的问题意思相同的笔记，即使用词不同或语言不同。开启时会一次性下载一个 {0} MB 的搜索模型；它只在这台电脑上运行。",
+    "semantic_starting": "正在启动…",
+    "semantic_downloading": "正在下载搜索模型… {0}%",
+    "semantic_indexing": "正在读取你的知识库页面… {0}%",
+    "semantic_ready": "已开启。{0} 个页面可以按含义找到。",
+    "semantic_unavailable": "此系统不支持。关键词搜索照常可用。",
+    "semantic_failed": "设置失败。请关闭后重新开启以重试。",
+    "semantic_save_failed": "无法保存该设置。",
     "file_title": "个人资料文件",
     "file_hint": "USER.md，此页面背后的文件",
     "file_hint_dated": "USER.md · 修改于 {0}",
@@ -4051,7 +4060,8 @@
     "unavailable": "搜索暂时不可用。",
     "no_hits_prefix": "没有找到匹配 ",
     "no_hits_suffix": " 的结果。试试其他关键词，或在图谱中查找。",
-    "hits_heading": "匹配结果"
+    "hits_heading": "匹配结果",
+    "by_meaning": "按含义"
   },
   "wiki_graph": {
     "empty_prefix": "你的记忆图谱还是空的。一旦 ",

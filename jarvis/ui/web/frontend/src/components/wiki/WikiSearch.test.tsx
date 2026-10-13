@@ -215,6 +215,65 @@ describe("WikiSearch", () => {
     });
   });
 
+  it("labels a hit that semantic search found, and only that one", async () => {
+    // Such a hit shares no word with the query, so nothing in its snippet is
+    // highlighted; the label is what tells the reader why it is in the list.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            query: "sister birthday",
+            hits: [
+              {
+                slug: "party",
+                title: "Party",
+                path: "projects/party.md",
+                snippet: "The birthday party is in May.",
+                score: 0.8,
+                by_meaning: false,
+              },
+              {
+                slug: "anna",
+                title: "Anna",
+                path: "entities/anna.md",
+                snippet: "Meine Schwester, Geburtstag am 4. Mai.",
+                score: 0.7,
+                by_meaning: true,
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+
+    const client = makeClient();
+    render(
+      <Wrapper client={client}>
+        <WikiSearch onResultClick={() => {}} />
+      </Wrapper>,
+    );
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    const input = await screen.findByTestId("wiki-search-input");
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "sister birthday" } });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    await waitFor(() => expect(screen.getAllByTestId("wiki-search-hit")).toHaveLength(2));
+    const labels = screen.getAllByTestId("wiki-search-by-meaning");
+    expect(labels).toHaveLength(1);
+    expect(labels[0].closest('[data-testid="wiki-search-hit"]')?.getAttribute("data-slug")).toBe(
+      "anna",
+    );
+  });
+
   it("marks every occurrence of the query term in a snippet", async () => {
     // Regression: highlighting used `pattern.test(part)` with a /g regex,
     // whose `lastIndex` carried over between calls — so it alternated

@@ -43,6 +43,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from jarvis.memory.wiki import semantic_setup
 from jarvis.memory.wiki.ingest_service import (
     MAX_INGEST_CHARS,
     MAX_SOURCE_CHARS,
@@ -57,6 +58,7 @@ from jarvis.memory.wiki.page import parse_markdown
 from jarvis.memory.wiki.prompt import resolve_user_entity_slug
 from jarvis.memory.wiki.protocols import WikiPage
 from jarvis.memory.wiki.search import VaultSearch
+from jarvis.memory.wiki.semantic_search import with_semantic_hits
 from jarvis.memory.wiki.telemetry import telemetry as _telemetry
 from jarvis.memory.wiki.vault_root import resolve_vault_root
 from jarvis.memory.wiki.wikilink import (
@@ -115,6 +117,17 @@ class WikiIngestResponse(BaseModel):
     failed_validation: int
     blocked_sensitive_content: int
     pages_touched: list[str]
+
+
+#: How long the wiki search waits for semantic hits before it answers with
+#: the word hits alone.
+_SEMANTIC_SEARCH_TIMEOUT_S = 2.0
+
+
+class WikiSemanticSearchBody(BaseModel):
+    """The semantic search switch."""
+
+    enabled: bool
 
 
 class WikiBackfillRequest(BaseModel):
@@ -706,8 +719,25 @@ async def get_search(
         log.warning("wiki_route_failed route=/search q=%r error=%s", q, exc)
         return {"ok": False, "error": "search failed"}
 
+    # Pages the word search missed but that mean the same, when the user
+    # switched semantic search on. Appended, never reordered in, and on its
+    # own clock: the word hits above are the answer even when the model is
+    # busy encoding the vault or still loading.
+    by_words = len(hits)
+    try:
+        hits = await asyncio.wait_for(
+            asyncio.to_thread(
+                with_semantic_hits, hits, sanitised, vault_root=vault_root, wait=True
+            ),
+            timeout=_SEMANTIC_SEARCH_TIMEOUT_S,
+        )
+    except TimeoutError:
+        log.info("wiki search: semantic hits skipped, the model did not answer in time")
+    except Exception as exc:  # noqa: BLE001 - the word search result stands on its own
+        log.warning("wiki search: semantic hits skipped: %s", exc)
+
     rendered: list[dict[str, Any]] = []
-    for hit in hits:
+    for index, hit in enumerate(hits):
         path = Path(hit.path)
         rel_path = _relative_to_vault(path, vault_root)
         rendered.append(
@@ -717,6 +747,7 @@ async def get_search(
                 "path": rel_path,
                 "snippet": hit.snippet,
                 "score": hit.score,
+                "by_meaning": index >= by_words,
             }
         )
 
@@ -1096,6 +1127,10 @@ async def reindex_wiki(
             conn.close()
 
     before, indexed = await asyncio.to_thread(_run)
+    if not dry_run and config is not None:
+        # The word index was rebuilt from the vault on disk; bring the
+        # semantic one up to date in the background as well, if it is on.
+        semantic_setup.resume(config)
     return {
         "ok": True,
         "dry_run": dry_run,
@@ -1104,6 +1139,51 @@ async def reindex_wiki(
         "indexed_before": before,
         "indexed_pages": indexed,
     }
+
+
+@router.get("/semantic-search")
+def get_semantic_search(request: Request) -> dict[str, Any]:
+    """State of semantic search: switched on or off, whether its model is on
+    this machine, the setup step in progress and how many pages are covered.
+    Read-only; never downloads or loads anything."""
+    return semantic_setup.status(_require_config(request))
+
+
+@router.put("/semantic-search", openapi_extra={"x-jarvis-risk-tier": "monitor"})
+def put_semantic_search(body: WikiSemanticSearchBody, request: Request) -> dict[str, Any]:
+    """Switch semantic search on or off.
+
+    ON: downloads a 135 MB multilingual search model once (from the pinned
+    public revision, checksummed), then encodes the wiki pages on this machine
+    in the background; nothing leaves the machine and no API key is used.
+    Questions then also find pages that mean the same in other words or in
+    another language. OFF: frees the model's memory; the downloaded model
+    stays on disk. The word search works the same either way. Poll the GET
+    for progress.
+    """
+    from jarvis.core.config_writer import set_wiki_semantic_search
+
+    config = _require_config(request)
+    try:
+        set_wiki_semantic_search(body.enabled)
+    except (OSError, ValueError) as exc:
+        log.exception("wiki semantic search: could not persist the switch")
+        raise HTTPException(
+            status_code=500, detail="The setting could not be saved."
+        ) from exc
+    config.wiki_context.semantic_search = body.enabled
+    if body.enabled:
+        semantic_setup.start(config)
+    else:
+        semantic_setup.stop()
+    return semantic_setup.status(config)
+
+
+def _require_config(request: Request) -> Any:
+    config = getattr(request.app.state, "config", None)
+    if config is None or getattr(config, "wiki_context", None) is None:
+        raise HTTPException(status_code=503, detail="The app configuration is not loaded.")
+    return config
 
 
 @router.post(
