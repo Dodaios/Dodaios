@@ -298,7 +298,7 @@ async def open_doc_in_editor(request: Request, slug: str) -> dict[str, Any]:
 
     Caution: on some systems Notepad is configured with BOM-save
     behavior; re-saving can mangle the frontmatter. The
-    ``jarvis-doc-author`` skill remains the preferred authoring path.
+    ``dodaios-doc-author`` skill remains the preferred authoring path.
     """
     from jarvis.platform import open_path
 

@@ -92,7 +92,7 @@ class CopyRequest(BaseModel):
 
 
 def _service(request: Request) -> Any:
-    from jarvis.jarvisx.service import get_service  # noqa: PLC0415
+    from jarvis.dodaiosx.service import get_service  # noqa: PLC0415
 
     service = get_service()
     service.bind(bus=getattr(request.app.state, "bus", None), app_state=request.app.state)
@@ -104,7 +104,7 @@ def _native_actions(request: Request) -> bool:
 
 
 def _item_or_404(item_id: str) -> Any:
-    from jarvis.jarvisx.store import get_store  # noqa: PLC0415
+    from jarvis.dodaiosx.store import get_store  # noqa: PLC0415
 
     item = get_store().get(item_id)
     if item is None:
@@ -129,14 +129,14 @@ def _media_type(path: Path) -> str:
 
 def _settings_payload() -> dict[str, Any]:
     from jarvis.core.config import load_config  # noqa: PLC0415
-    from jarvis.jarvisx import capture, geometry, paths  # noqa: PLC0415
-    from jarvis.jarvisx.hotkeys import (  # noqa: PLC0415
+    from jarvis.dodaiosx import capture, geometry, paths  # noqa: PLC0415
+    from jarvis.dodaiosx.hotkeys import (  # noqa: PLC0415
         SHORTCUT_KEYS,
         configured_hotkeys,
         get_shortcuts,
     )
-    from jarvis.jarvisx.overlay.controller import overlay_capability  # noqa: PLC0415
-    from jarvis.jarvisx.recorder import probe_encoder  # noqa: PLC0415
+    from jarvis.dodaiosx.overlay.controller import overlay_capability  # noqa: PLC0415
+    from jarvis.dodaiosx.recorder import probe_encoder  # noqa: PLC0415
 
     config = load_config()
     block = config.jarvisx
@@ -190,7 +190,7 @@ async def put_settings(patch: SettingsPatch) -> dict[str, Any]:
     """Write the changed settings, then re-arm the shortcuts in place."""
     from jarvis.core.config import load_config  # noqa: PLC0415
     from jarvis.core.config_writer import set_jarvisx_settings  # noqa: PLC0415
-    from jarvis.jarvisx.hotkeys import (  # noqa: PLC0415
+    from jarvis.dodaiosx.hotkeys import (  # noqa: PLC0415
         SHORTCUT_KEYS,
         check_hotkeys,
         configured_hotkeys,
@@ -227,7 +227,7 @@ async def put_settings(patch: SettingsPatch) -> dict[str, Any]:
     if shortcuts is not None and (hotkey_patch or "enabled" in changes):
         await shortcuts.reload()
     if changes.get("keep_newest"):
-        from jarvis.jarvisx.store import get_store  # noqa: PLC0415
+        from jarvis.dodaiosx.store import get_store  # noqa: PLC0415
 
         await asyncio.to_thread(get_store().prune, int(changes["keep_newest"]))
     return await asyncio.to_thread(_settings_payload)
@@ -240,7 +240,7 @@ async def put_settings(patch: SettingsPatch) -> dict[str, Any]:
 
 @router.get("/items", operation_id="items_list")
 async def list_items(limit: int = Query(default=100, ge=1, le=1000)) -> dict[str, Any]:
-    from jarvis.jarvisx.store import get_store  # noqa: PLC0415
+    from jarvis.dodaiosx.store import get_store  # noqa: PLC0415
 
     items = await asyncio.to_thread(get_store().recent, limit)
     return {"items": [item.to_json() for item in items]}
@@ -280,7 +280,7 @@ def _thumb_bytes(item: Any) -> bytes:
     try:
         from PIL import Image  # noqa: PLC0415
 
-        from jarvis.jarvisx.capture import thumbnail_jpeg  # noqa: PLC0415
+        from jarvis.dodaiosx.capture import thumbnail_jpeg  # noqa: PLC0415
 
         with Image.open(item.path) as image:
             rgb = image.convert("RGB")
@@ -306,7 +306,7 @@ async def get_edited(item_id: ItemId) -> FileResponse:
 @router.put("/items/{item_id}/edited", operation_id="item_edited_save")
 async def put_edited(request: Request, item_id: ItemId) -> dict[str, Any]:
     """Save the editor's annotated PNG as ``<name>-edited.png`` next to the original."""
-    from jarvis.jarvisx.service import MAX_EDITED_BYTES  # noqa: PLC0415
+    from jarvis.dodaiosx.service import MAX_EDITED_BYTES  # noqa: PLC0415
 
     content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if content_type != "image/png":
