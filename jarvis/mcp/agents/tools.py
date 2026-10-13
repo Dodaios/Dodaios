@@ -107,6 +107,13 @@ async def _ecosystem_status(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _agent_row(rt: Any, agent: Any) -> dict[str, Any]:
+    """An agent as a client reads it: the lead under the name the user gave the assistant."""
+    from jarvis.society.display_name import display_row
+
+    return display_row(agent, rt.config())
+
+
 async def _agents_list(args: dict[str, Any]) -> dict[str, Any]:
     rt = await society()
     include_archived = bool(args.get("include_archived"))
@@ -114,7 +121,7 @@ async def _agents_list(args: dict[str, Any]) -> dict[str, Any]:
     running = rt.scheduler.running
     rows = []
     for agent in agents:
-        row = agent.to_dict()
+        row = _agent_row(rt, agent)
         if agent.state == "paused":
             row["run_state"] = "paused"
         elif agent.agent_id in running.values():
@@ -131,7 +138,7 @@ async def _agent_get(args: dict[str, Any]) -> dict[str, Any]:
     limit = max(1, min(int(args.get("recent_events") or 20), 200))
     events = await rt.store.events_for_agent(agent.agent_id, limit=limit)
     return {
-        "agent": agent.to_dict(),
+        "agent": _agent_row(rt, agent),
         "recent_events": [e.model_dump(mode="json") for e in events],
         "active_runs": rt.scheduler.active_runs(agent.agent_id),
         "skills": [s for s in _agent_skill_names(rt, agent.agent_id)],
@@ -188,7 +195,7 @@ async def _agent_create(args: dict[str, Any]) -> dict[str, Any]:
         )
     except RosterError as exc:
         raise _refuse_typed(exc) from exc
-    return {"agent": agent.to_dict(), "created": created}
+    return {"agent": _agent_row(rt, agent), "created": created}
 
 
 # ---------------------------------------------------------- conversation
@@ -229,10 +236,10 @@ async def _agent_chat(args: dict[str, Any]) -> dict[str, Any]:
         # No provider can run this agent — an unconfigured box, not a bug. The
         # message already says what to set up, so pass it through rather than
         # burying it in a traceback the caller cannot act on.
-        raise EcosystemUnavailable(f"agent {agent.name}", str(exc)) from exc
+        raise EcosystemUnavailable(f"agent {rt.display_name(agent)}", str(exc)) from exc
     if svc.is_running(session.session_id):
         raise EcosystemUnavailable(
-            f"agent {agent.name}",
+            f"agent {rt.display_name(agent)}",
             "it is in the middle of a turn. Wait for it to finish, then ask again.",
         )
 
@@ -242,7 +249,8 @@ async def _agent_chat(args: dict[str, Any]) -> dict[str, Any]:
             turn_id = await svc.send(session.session_id, text)
         except SessionBusy as exc:
             raise EcosystemUnavailable(
-                f"agent {agent.name}", "it started another turn just now. Try again shortly."
+                f"agent {rt.display_name(agent)}",
+                "it started another turn just now. Try again shortly.",
             ) from exc
         reply = await _await_turn(queue, turn_id, wait_s)
     finally:
@@ -250,7 +258,7 @@ async def _agent_chat(args: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "agent_id": agent.agent_id,
-        "agent_name": agent.name,
+        "agent_name": rt.display_name(agent),
         "session_id": session.session_id,
         "turn_id": turn_id,
         **reply,
@@ -330,7 +338,7 @@ async def _agent_message(args: dict[str, Any]) -> dict[str, Any]:
         msg_type=msg_type,
         payload=args.get("payload") or None,
     )
-    return {"event": env.model_dump(mode="json"), "delivered_to": agent.name}
+    return {"event": env.model_dump(mode="json"), "delivered_to": rt.display_name(agent)}
 
 
 async def _agent_assign(args: dict[str, Any]) -> dict[str, Any]:
@@ -363,7 +371,7 @@ async def _agent_assign(args: dict[str, Any]) -> dict[str, Any]:
     trail = await rt.store.events_for_trace(env.trace_id)
     verdict = next((e for e in trail if e.seq and env.seq and e.seq > env.seq), None)
     return {
-        "assigned_to": agent.name,
+        "assigned_to": rt.display_name(agent),
         "trace_id": env.trace_id,
         "event": env.model_dump(mode="json"),
         "outcome": verdict.model_dump(mode="json") if verdict else None,
@@ -997,7 +1005,7 @@ TOOLS: Final[tuple[AgentTool, ...]] = (
                 "tier": {
                     "type": "string",
                     "enum": ["orchestrator", "specialist"],
-                    "description": "Default specialist. The lead seat is Jarvis' and is taken.",
+                    "description": "Default specialist. The lead seat is the assistant's own.",
                 },
             },
             ["name", "title", "description"],

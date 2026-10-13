@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <strong>Run every coding agent side by side, and steer them by voice.</strong><br />
-  Claude Code, Codex, OpenCode and six more share one screen in an open-source desktop app. It is also a voice assistant and a team of AI agents that keeps working while you are away.
+  <strong>Dodaios is an open-source agent OS for your desktop.</strong><br />
+  It is the layer between you and your AI agents: it runs them, remembers for them, connects their tools and keeps you in control.
 </p>
 
 <p align="center">
