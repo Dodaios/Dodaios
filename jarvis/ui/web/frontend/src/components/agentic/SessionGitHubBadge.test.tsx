@@ -126,6 +126,27 @@ describe("session GitHub link", () => {
     expect(screen.getByRole("link").title).toContain("GitHub status unavailable");
   });
 
+  it("spins while the status is read for the first time", () => {
+    render(<GitHubStatusBadge status={null} state="loading" appearance="dark" />);
+    const slot = screen.getByRole("status", { name: "Reading the GitHub status…" });
+    expect(slot.getAttribute("data-state")).toBe("loading");
+    expect(slot.querySelector("svg")?.getAttribute("class")).toContain("animate-spin");
+    expect(slot.style.color).not.toBe("");
+  });
+
+  it("marks a session that works in no branch instead of leaving a gap", () => {
+    render(<GitHubStatusBadge status={null} state="none" appearance="light" />);
+    const slot = screen.getByRole("img", { name: "This session works in no GitHub branch" });
+    expect(slot.getAttribute("data-state")).toBe("none");
+    expect(slot.querySelector("svg")?.getAttribute("class") ?? "").not.toContain("animate-spin");
+  });
+
+  it("never puts a placeholder over a status it has", () => {
+    render(<GitHubStatusBadge status={status()} state="loading" appearance="dark" />);
+    expect(screen.getByRole("link")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("rejects invalid repository link metadata", () => {
     const { container } = render(<GitHubStatusBadge status={status({ repo: "evil.invalid/a/b" })} appearance="dark" />);
     expect(container.innerHTML).toBe("");
