@@ -42,6 +42,22 @@ describe("agent-chat reduce", () => {
     expect(failed.items[0]).toMatchObject({ status: "error", error: "claude-cli did not finish within 3600 s." });
   });
 
+  it("marks the turns the team engine gave a lead, and none the person typed", () => {
+    const frame = (kind: string) => `[${kind} for team Launch]\nGoal: Launch the page\nGoal id: g1. Managing turns left: 20.`;
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: frame("team goal"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team update"), typed: "Launch the page: 2 results" }),
+      ev("user_message", { text: frame("team goal check"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team goal resumed"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team goal reply"), typed: "Germany" }),
+      ev("user_message", { text: "I read [team update for team Launch] somewhere" }),
+    ]);
+    expect(tl.items.map((item) => (item.type === "user" ? item.teamEvent : "?"))).toEqual([
+      undefined, "update", "check", "resumed", undefined, undefined,
+    ]);
+    expect(tl.items[1]).toMatchObject({ type: "user", text: "Launch the page: 2 results" });
+  });
+
   it("folds a full turn: user line, deltas into one text block, tool call + result, finish", () => {
     const tl = reduceEvents(EMPTY_TIMELINE, [
       ev("user_message", { text: "hi" }),

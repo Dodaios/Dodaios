@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, expect, it } from "vitest";
 import { loadLocaleChunk } from "@/i18n";
-import { AgentMessageActivity, RoutineActivity, routineTask } from "./ChatActivity";
+import { AgentMessageActivity, RoutineActivity, TeamEventLine, routineTask } from "./ChatActivity";
 import { ReasoningTrace, WorkTrace } from "@/components/agentchat/WorkTrace";
 import type { InternalMessageItem, ReasoningBlock, ToolBlock } from "@/components/agentchat/reduce";
 
@@ -190,4 +190,17 @@ it("folds a finished turn to the reply and opens the whole trace again", () => {
   expect(text.indexOf("Check the report first")).toBeLessThan(text.indexOf("The report is ready."));
   fireEvent.click(toggle);
   expect(screen.queryByText(/Check the report first/)).toBeNull();
+});
+
+it("shows a turn the team engine gave a lead as a quiet line, never as a message", () => {
+  const { rerender } = render(<TeamEventLine event="update" text={"Launch the page: 2 results"} />);
+  const line = screen.getByTestId("team-event-line");
+  expect(line.getAttribute("data-event")).toBe("update");
+  expect(line.textContent).toContain("Results from the team (2)");
+  expect(line.textContent).toContain("· Launch the page");
+  expect(line.textContent).not.toContain("2 results");
+  rerender(<TeamEventLine event="check" text="Launch the page" />);
+  expect(screen.getByTestId("team-event-line").textContent).toBe("Asked for the report· Launch the page");
+  rerender(<TeamEventLine event="resumed" text="" />);
+  expect(screen.getByTestId("team-event-line").textContent).toBe("Goal continued");
 });

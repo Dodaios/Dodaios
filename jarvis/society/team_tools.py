@@ -81,8 +81,8 @@ class TeamAssignTool:
             },
             "goal": {
                 "type": "string",
-                "description": "Only when this task starts new work and no goal is in "
-                "progress: the goal it serves, in one short sentence.",
+                "description": "Optional. When no goal is in progress, this task opens one: "
+                "a name for that goal, a few words long.",
             },
         },
         "required": ["member", "title", "task"],
@@ -193,7 +193,14 @@ class TeamReportTool:
             )
         except TeamLeadError as exc:  # The refusal is the tool's answer; the lead reads why.
             return _refused(exc)
-        return ToolResult(success=True, output=outcome)
+        return ToolResult(
+            success=True,
+            output={
+                **outcome,
+                "next": "The person reads this report in your chat as written. End your turn "
+                "in one short line; do not repeat the report.",
+            },
+        )
 
 
 def team_lead_tools(runtime: Any, agent_id: str) -> dict[str, Any]:

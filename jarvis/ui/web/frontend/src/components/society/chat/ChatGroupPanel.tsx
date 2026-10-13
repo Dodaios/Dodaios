@@ -14,7 +14,7 @@ import { RosterRail } from "../roster/RosterRail";
 import { AgentChatPanel } from "./AgentChatPanel";
 import { ChatGroupDialog } from "./ChatGroupDialog";
 import { MeetingChat } from "./MeetingChat";
-import { TeamLeadBoard } from "./TeamLeadBoard";
+import { TeamLeadView } from "./TeamLeadView";
 
 /** What the team's main column shows. */
 type GroupView = "lead" | "meeting" | "individual";
@@ -51,7 +51,7 @@ export function ChatGroupPanel({
   const [leftId, setLeftId] = useState(group.members[0] ?? "");
   const [rightId, setRightId] = useState(group.members[1] ?? "");
   const [editing, setEditing] = useState(false);
-  // A team that has a lead opens on the lead's board; the others on their meeting.
+  // A team that has a lead opens on the chat with its lead; the others on their meeting.
   const [view, setView] = useState<GroupView>(group.lead_agent_id ? "lead" : "meeting");
   const [confirmUngroup, setConfirmUngroup] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -164,7 +164,7 @@ export function ChatGroupPanel({
         <button type="button" aria-pressed={view === "individual"} onClick={() => setView("individual")}
           className={viewToggle(view === "individual")}>{t("society.meeting.individual")}</button>
       </div>
-      {view === "lead" ? <TeamLeadBoard key={group.group_id} group={group} roster={roster} onOpenAgent={onOpenAgent} />
+      {view === "lead" ? <TeamLeadView key={group.group_id} group={group} roster={roster} onOpenAgent={onOpenAgent} />
         : view === "meeting" ? <MeetingChat key={group.group_id} group={group} roster={roster} />
         : <div className="grid min-h-0 min-w-0 flex-1 grid-cols-2 divide-x-2 divide-border-strong overflow-hidden bg-background"
           data-testid="society-group-split">

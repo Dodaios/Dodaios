@@ -1265,10 +1265,12 @@ class TeamLeads:
         goal = await self.get_goal(goal_id)
         if goal is None:
             return
+        # The turn is over whatever became of the goal: the view stops showing
+        # the lead at work, also for a goal this very turn closed.
+        await self._announce(goal.group_id, goal_id=goal_id, state=goal.state, reason="turn")
         if goal.state in GOAL_TERMINAL:
             await self._advance(goal.group_id)
             return
-        await self._announce(goal.group_id, goal_id=goal_id, state=goal.state, reason="turn")
         if goal.state is not TeamGoalState.RUNNING:
             return
         if goal_id in self._turns:
@@ -1592,7 +1594,31 @@ class TeamLeads:
                 raise TeamLeadError("This goal is no longer in progress.")
         else:
             raise TeamLeadError("status must be progress, needs_input, done or failed")
+        await self._post_report(goal, status, text)
         return {"goal_id": goal.goal_id, "title": goal.title, "recorded": status}
+
+    async def _post_report(self, goal: TeamGoal, status: str, text: str) -> None:
+        """The report as a card in the lead's chat, where the person reads along:
+        a report made with a tool is otherwise visible on the team panel only."""
+        lead = await self._rt.roster.get(goal.lead_agent_id)
+        if lead is None:
+            return
+        try:
+            await self._rt.post_chat_notice(
+                lead,
+                {
+                    "kind": "team_report",
+                    "status": status,
+                    "goal_id": goal.goal_id,
+                    "title": goal.title,
+                    "agent_id": lead.agent_id,
+                    "agent_name": lead.name,
+                    "text": text[:20_000],
+                },
+            )
+        except Exception:  # noqa: BLE001 — the report stays on the team panel either way
+            log.warning("society team lead: report of %s not shown in chat", goal.goal_id,
+                        exc_info=True)
 
     # --------------------------------------------------------- the board
 
