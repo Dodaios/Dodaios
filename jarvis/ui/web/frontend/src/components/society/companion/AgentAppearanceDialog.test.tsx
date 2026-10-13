@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import { AgentAppearanceDialog } from "./AgentAppearanceDialog";
@@ -153,4 +153,23 @@ it("opens an agent that never picked a look on its pixel creature, and stores th
   await waitFor(() => expect(saves()).toHaveLength(1));
   const [, init] = saves()[0] as unknown as [string, RequestInit];
   expect(JSON.parse(init.body as string).avatar.companion.look).toBe("shape");
+});
+
+it("rolls a whole new creature at once: figure, colour world and eyes, and wears it", async () => {
+  const { saves } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_creature" }));
+  const pressedWorld = () => screen.getAllByRole("button", { pressed: true }).map(button => button.getAttribute("aria-label") ?? "").find(label => label.startsWith("society.companion.creature.palettes."));
+  const before = pressedWorld();
+  fireEvent.click(screen.getByRole("button", { name: "society.companion.creature.roll" }));
+  const rolled = pressedWorld();
+  expect(rolled).toBeTruthy();
+  expect(rolled).not.toBe(before);
+  // The rolled figure is worn and leads the row of choices.
+  const figures = within(screen.getByTestId("creature-picker")).getAllByRole("button").filter(button => (button.getAttribute("aria-label") ?? "").startsWith("society.companion.creature.number"));
+  expect(figures[0].getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
+  await waitFor(() => expect(saves()).toHaveLength(1));
+  const [, init] = saves()[0] as unknown as [string, RequestInit];
+  const creature = JSON.parse(init.body as string).avatar.companion.creature;
+  expect("society.companion.creature.palettes." + creature.palette).toBe(rolled);
 });

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dices } from "lucide-react";
 import { useT } from "@/i18n";
 import {
-  CREATURE_EYES, CREATURE_PALETTES, CREATURE_SEED_MAX, CREATURE_STATES, type CreatureLook, type CreatureState,
+  CREATURE_EYES, CREATURE_PALETTES, CREATURE_SEED_MAX, CREATURE_STATES, randomCreature, type CreatureLook, type CreatureState,
 } from "./creature";
 import { PixelCreature } from "./PixelCreature";
 
@@ -12,8 +12,10 @@ const chip = (on: boolean) => `rounded-full border px-2.5 py-1 text-xs ${on ? "b
 
 /**
  * Everything a pixel creature has to choose: one of eight rolled figures, a
- * colour world and an eye kind. The state row only previews what the
- * creature acts out; it is never saved.
+ * colour world and an eye kind. "Roll again" rolls all three at once and
+ * wears the result, so one click gives a whole new creature; the rows below
+ * fine-tune it. The state row only previews what the creature acts out; it
+ * is never saved.
  */
 export function CreaturePicker({ value, onChange, mood, onMood }: {
   value: CreatureLook; onChange: (next: CreatureLook) => void;
@@ -22,11 +24,18 @@ export function CreaturePicker({ value, onChange, mood, onMood }: {
   const t = useT();
   // The worn figure leads the first row, so opening the dialog never loses it.
   const [seeds, setSeeds] = useState(() => [value.seed, ...Array.from({ length: CHOICES - 1 }, rollSeed)]);
+  const roll = () => {
+    // Always another colour world, so a roll is never mistaken for a reshuffle of the same figure.
+    let next = randomCreature();
+    for (let tries = 0; next.palette === value.palette && tries < 8; tries++) next = randomCreature();
+    setSeeds([next.seed, ...Array.from({ length: CHOICES - 1 }, rollSeed)]);
+    onChange(next);
+  };
   return <div className="flex flex-col gap-5" data-testid="creature-picker">
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-sm font-medium">{t("society.companion.creature.figure")}</span>
-        <button type="button" onClick={() => setSeeds(Array.from({ length: CHOICES }, rollSeed))}
+        <button type="button" onClick={roll}
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover">
           <Dices size={18} aria-hidden />{t("society.companion.creature.roll")}
         </button>
