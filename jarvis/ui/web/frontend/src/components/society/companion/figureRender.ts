@@ -1,7 +1,9 @@
 /**
  * Draws an agent's shape as a small 3D figure on the CPU: the same meshes
- * the map uses, turned a little to the side, lit from the upper left and
- * set on a soft ground shadow. The result is a plain RGBA image, so a profile
+ * the map uses, turned a little to the side and lit from the upper left.
+ * The shadow it stands on is not part of the picture: the face draws it as
+ * a layer of its own (`figureGround` says where), so the figure can hop
+ * off it. The result is a plain RGBA image, so a profile
  * face is real 3D without a WebGL context. Everything here is pure; the
  * worker (figure.worker.ts) calls it off the UI thread.
  *
@@ -104,7 +106,6 @@ const FILL_COLOR: LinearRgb = [0.1, 0.12, 0.15];
 
 /** The share of the image left free around the figure and its shadow. */
 const PAD = 0.03;
-const SHADOW_ALPHA = 0.3;
 /** The shadow reaches this far past the footprint, in footprint radii. */
 const SHADOW_REACH = 1.18;
 /** It lies a little away from the light: this far along x and z, in footprint radii. */
@@ -353,7 +354,7 @@ export function traceFigure(parts: readonly Pick<FigurePart, "mesh" | "offset" |
 
 /** The colours of a traced figure: one coat per part, in the order the parts were traced. */
 export function shadeFigure(trace: FigureTrace, coats: readonly FigureCoat[]): FigureImage {
-  const { size, samples, depth, normal, owner, light, open, box, foot } = trace;
+  const { size, samples, depth, normal, owner, light, open, box } = trace;
   const { k, ox, oy, yaw, pitch } = trace.frame;
   const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
   const width = size * samples;
@@ -409,19 +410,10 @@ export function shadeFigure(trace: FigureTrace, coats: readonly FigureCoat[]): F
           sumR += shoulder(r); sumG += shoulder(g); sumB += shoulder(b); hits++;
         }
       }
-      const cover = hits / (samples * samples);
-      let ground = 0;
-      if (foot && cover < 1) {
-        // Where this pixel's view ray meets the ground (model y = 0).
-        const xv = ((oxPixel + 0.5) * samples - ox) / k, z1 = -((oy - (oyPixel + 0.5) * samples) / k) / sp;
-        const qx = (xv * cy - z1 * sy - foot.x) / foot.rx, qz = (xv * sy + z1 * cy - foot.z) / foot.rz;
-        ground = SHADOW_ALPHA * smooth(SHADOW_REACH, 0.3, Math.hypot(qx, qz)) * (1 - cover);
-      }
-      const alpha = cover + ground;
-      if (alpha <= 0) continue;
+      if (!hits) continue;
       const out = (oyPixel * size + oxPixel) * 4;
-      // The samples carry the figure's light; the shadow under it adds only darkness.
-      const weight = 1 / (samples * samples * alpha);
+      const weight = 1 / hits;
+      const alpha = hits / (samples * samples);
       data[out] = TO_SRGB[Math.round(Math.max(0, Math.min(1, sumR * weight)) * 4096)]!;
       data[out + 1] = TO_SRGB[Math.round(Math.max(0, Math.min(1, sumG * weight)) * 4096)]!;
       data[out + 2] = TO_SRGB[Math.round(Math.max(0, Math.min(1, sumB * weight)) * 4096)]!;
@@ -429,6 +421,25 @@ export function shadeFigure(trace: FigureTrace, coats: readonly FigureCoat[]): F
     }
   }
   return { size, data, frame: { k: k / samples, ox: ox / samples, oy: oy / samples, yaw, pitch } };
+}
+
+/** The shadow a figure stands on, as an ellipse on the picture: centre and radii, pixels. */
+export interface FigureGround { x: number; y: number; rx: number; ry: number }
+
+/** Where the ground shadow of a traced figure lies, or nothing when it does not stand on the ground. */
+export function figureGround(trace: FigureTrace): FigureGround | undefined {
+  const { foot, samples } = trace;
+  if (!foot) return undefined;
+  const { k, yaw, pitch } = trace.frame;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), sp = Math.sin(pitch);
+  const frame: FigureFrame = { ...trace.frame, k: k / samples, ox: trace.frame.ox / samples, oy: trace.frame.oy / samples };
+  const [x, y] = projectFigure(frame, foot.x, 0, foot.z);
+  // The footprint's ellipse on the ground, seen through the turn and the tilt.
+  return {
+    x, y,
+    rx: Math.hypot(foot.rx * cy, foot.rz * sy) * SHADOW_REACH * frame.k,
+    ry: Math.hypot(foot.rx * sy, foot.rz * cy) * sp * SHADOW_REACH * frame.k,
+  };
 }
 
 /**
