@@ -34,6 +34,13 @@ export function SkinDefs({ id, skin }: { id: string; skin: CompanionSkin }) {
   </defs>;
 }
 
+/** The twinkling specks of a starry design, in symbol units; whoever draws them cuts them to the body. */
+export function SkinStars() {
+  return <g className="agent-skin-stars" fill="#ffffff">
+    {STARS.map(([x, y, r], index) => <circle key={index} cx={x} cy={y} r={r} style={{ animationDelay: `${-index * 0.43}s` }} />)}
+  </g>;
+}
+
 /** A soft pulsing halo of the design's brightest colour, drawn behind the body. */
 export function SkinGlow({ id, skin, body }: { id: string; skin: CompanionSkin; body: (fill: string) => ReactNode }) {
   if (skinEffect(skin) !== "glow") return null;
@@ -62,9 +69,7 @@ export function SkinOverlay({ id, skin, body }: { id: string; skin: CompanionSki
   return <g data-skin-effect={effect}>
     <mask id={maskId} maskUnits="userSpaceOnUse" x={-20} y={-20} width={80} height={84}>{body("#ffffff")}</mask>
     <g mask={`url(#${maskId})`}>
-      {effect === "stars" && <g className="agent-skin-stars" fill="#ffffff">
-        {STARS.map(([x, y, r], index) => <circle key={index} cx={x} cy={y} r={r} style={{ animationDelay: `${-index * 0.43}s` }} />)}
-      </g>}
+      {effect === "stars" && <SkinStars />}
       {effect === "shimmer" && <>
         <defs><linearGradient id={`${id}-shine`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#ffffff" stopOpacity="0" /><stop offset="0.5" stopColor="#ffffff" stopOpacity="0.75" /><stop offset="1" stopColor="#ffffff" stopOpacity="0" />
