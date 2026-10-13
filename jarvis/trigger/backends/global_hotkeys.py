@@ -316,6 +316,21 @@ def _registration_combos(normalized: str) -> list[str]:
     return combos
 
 
+def _library_handlers(row) -> list:
+    """``[on_press, on_release, actuate_on_partial_release]`` for one row.
+
+    The library ends a chord only once EVERY key of it is up, unless the row
+    asks for the first lifted key to end it. A toggle (release handler only)
+    asks for that: otherwise it stays deaf while one key is held and the other
+    is pressed again, and fires on a different edge than the event-driven
+    backends. Push-to-talk keeps the full release, so letting go of one key of
+    a held chord does not submit the recording.
+    """
+    on_press = row[1] if len(row) > 1 else None
+    on_release = row[2] if len(row) > 2 else None
+    return [on_press, on_release, on_press is None]
+
+
 class GlobalHotkeysBackend:
     """Windows ``global-hotkeys`` backend (relocated logic, AD-7).
 
@@ -364,8 +379,9 @@ class GlobalHotkeysBackend:
         compat: list[list] = []
         for row in bindings:
             variants = _registration_combos(row[0])
-            primary.append([_to_library_combo(variants[0]), *row[1:]])
-            compat.extend([_to_library_combo(v), *row[1:]] for v in variants[1:])
+            handlers = _library_handlers(row)
+            primary.append([_to_library_combo(variants[0]), *handlers])
+            compat.extend([_to_library_combo(v), *handlers] for v in variants[1:])
         bindings = primary
         combo_strings = [row[0] for row in primary + compat]
 

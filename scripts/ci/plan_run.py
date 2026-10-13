@@ -8,16 +8,16 @@ run has to prove, not what could be run:
 
 ``pr``     A pull request (or a branch run the merge train dispatched). Fast
            feedback: the whole Linux and Windows suite and every affected lane
-           on Linux, Windows and macOS. The macOS legs here are the short
-           ones (one to four minutes): they end inside the nine minutes the
-           Windows shards take, so a macOS failure shows on the pull request
-           and costs the run no time. It is the admission ticket to the
-           merge queue.
+           on Linux and Windows. No macOS: five macOS slots serve every run,
+           and with macOS legs on each push, pull requests waited 6 to 25
+           minutes for a slot on 2026-10-13. It is the admission ticket to
+           the merge queue.
 ``queue``  A merge-queue group, or a push that reached main without one. The
            blocking proof of the exact tree main gets: everything ``pr`` runs
-           plus the long macOS legs, the real runtimes and the real browser
-           (5 to 10 minutes each). Nothing macOS-specific that a lane tests
-           lands unproven; the price is paid once per change, not per push.
+           plus every macOS leg of the affected lanes, short and long (the
+           real runtimes and the real browser included). Nothing
+           macOS-specific that a lane tests lands unproven, and the five
+           slots are spent once per change, not once per push.
 ``full``   Nightly, a release tag, a manual full dispatch. The wide matrix:
            Intel macOS, the ARM runners, every interpreter, the macOS test
            shards, and the Hermes install on Windows (14 to 23 minutes). A
@@ -60,6 +60,7 @@ TIERS = ("pr", "queue", "full")
 CI_WORKFLOW_PATH = ".github/workflows/ci.yml"
 MAIN_REF = "refs/heads/main"
 
+UNTHROTTLED = 20  # above the widest matrix: every leg at once
 LINUX_SHARDS = 6
 # Six Windows shards finish in about the time of the Linux ones plus the
 # slower checkout; four made Windows the longest leg of every run.
@@ -93,9 +94,13 @@ def decide(
         "full_mode": full,
         "macos": macos,
         "pr_mode": pr_mode,
-        # One macOS leg per affected lane on every per-change tier; a full
-        # run carries them only when the caller asked for macOS.
-        "mac_lanes": tier != "full" or macos,
+        # The macOS legs of the affected lanes: in the queue, and wherever
+        # the caller asked for macOS.
+        "mac_lanes": tier == "queue" or macos,
+        # The nightly run has no reader waiting for it but shares the macOS
+        # slots with every merge group: its matrices run one leg at a time
+        # instead of queueing 22 macOS jobs ahead of everybody else's.
+        "matrix_parallel": 1 if event == "schedule" else UNTHROTTLED,
     }
 
 
@@ -103,10 +108,8 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
     """Every job matrix of ci.yml for a tier. ``macos`` adds the wide legs."""
     if tier not in TIERS:
         raise ValueError(f"unknown tier {tier!r}")
-    mac_lanes = tier != "full" or macos
+    mac_lanes = tier == "queue" or macos
     queue_legs = tier != "pr"
-    # The long macOS legs: once per change, in the queue, and in the wide matrix.
-    long_mac = tier == "queue" or macos
     base_os = [LINUX, WINDOWS]
 
     updater = [
@@ -147,13 +150,13 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
         {"os": LINUX, "runtime": "openclaw"},
         {"os": WINDOWS, "runtime": "openclaw"},
     ]
-    if long_mac:
+    if mac_lanes:
         e2e += [{"os": MACOS, "runtime": "hermes"}, {"os": MACOS, "runtime": "openclaw"}]
     if macos:
         e2e.append({"os": WINDOWS, "runtime": "hermes"})
 
     browser = list(base_os)
-    if long_mac:
+    if mac_lanes:
         browser.append(MACOS)
     if macos:
         browser += [LINUX_ARM, WINDOWS_ARM, MACOS_INTEL]
@@ -167,8 +170,8 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
         "crypto_matrix": crypto,
         "e2e_matrix": e2e,
         "browser_os": browser,
-        # Every change proves the Apple Silicon bundle (four minutes); the
-        # wide matrix adds both Intel rows.
+        # Skipped on a pull request; the queue proves the Apple Silicon
+        # bundle, the wide matrix adds both Intel rows.
         "desktop_legs": "all" if macos else ("primary" if mac_lanes else "none"),
         "linux_shards": list(range(1, LINUX_SHARDS + 1)),
         "windows_shards": list(range(1, WINDOWS_SHARDS + 1)),
