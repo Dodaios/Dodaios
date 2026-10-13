@@ -1053,9 +1053,22 @@ def _build_registry() -> tuple[AppCommand, ...]:
         AppCommand(
             id="missions-list",
             title="List missions",
-            description="List Jarvis-Agent missions and their status.",
+            description=(
+                "List Jarvis-Agent missions and their status, newest first. Set active "
+                "to see only the ones that have not ended yet."
+            ),
             method="GET",
             path="/api/missions",
+            params={"type": "object", "properties": {
+                "active": {
+                    "type": "boolean",
+                    "description": "Only missions still pending, running or waiting.",
+                },
+                "limit": {
+                    "type": "integer", "minimum": 1, "maximum": 100,
+                    "description": "How many missions to return (default 100).",
+                },
+            }},
             worker_allowed=True,
             ui_section="agents",
             voice_aliases={
