@@ -8,19 +8,20 @@ run has to prove, not what could be run:
 
 ``pr``     A pull request (or a branch run the merge train dispatched). Fast
            feedback: the whole Linux and Windows suite and every affected lane
-           on Linux and Windows, no macOS. It is the admission ticket to the
+           on Linux, Windows and macOS. The macOS legs here are the short
+           ones (one to four minutes): they end inside the nine minutes the
+           Windows shards take, so a macOS failure shows on the pull request
+           and costs the run no time. It is the admission ticket to the
            merge queue.
 ``queue``  A merge-queue group, or a push that reached main without one. The
            blocking proof of the exact tree main gets: everything ``pr`` runs
-           plus one SHORT macOS leg per affected lane. Several groups build
-           at once on five macOS slots, and the gate waits for the slowest
-           job, so no leg of a group may take much longer than the test
-           shards do.
+           plus the long macOS legs, the real runtimes and the real browser
+           (5 to 10 minutes each). Nothing macOS-specific that a lane tests
+           lands unproven; the price is paid once per change, not per push.
 ``full``   Nightly, a release tag, a manual full dispatch. The wide matrix:
            Intel macOS, the ARM runners, every interpreter, the macOS test
-           shards, and the long real-product legs: the Hermes install on
-           Windows, the real runtimes and the real browser on macOS. A red
-           nightly opens an issue (.github/workflows/nightly-alert.yml).
+           shards, and the Hermes install on Windows (14 to 23 minutes). A
+           red nightly opens an issue (.github/workflows/nightly-alert.yml).
 
 ``macos`` (nightly, tags, a dispatch with ``include_macos``) selects the wide
 matrix on any tier: ``gh workflow run ci.yml --ref <branch> -f full=false
@@ -92,9 +93,9 @@ def decide(
         "full_mode": full,
         "macos": macos,
         "pr_mode": pr_mode,
-        # One macOS leg per affected lane: in the queue, and wherever the
-        # caller asked for macOS.
-        "mac_lanes": tier == "queue" or macos,
+        # One macOS leg per affected lane on every per-change tier; a full
+        # run carries them only when the caller asked for macOS.
+        "mac_lanes": tier != "full" or macos,
     }
 
 
@@ -102,8 +103,10 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
     """Every job matrix of ci.yml for a tier. ``macos`` adds the wide legs."""
     if tier not in TIERS:
         raise ValueError(f"unknown tier {tier!r}")
-    mac_lanes = tier == "queue" or macos
+    mac_lanes = tier != "full" or macos
     queue_legs = tier != "pr"
+    # The long macOS legs: once per change, in the queue, and in the wide matrix.
+    long_mac = tier == "queue" or macos
     base_os = [LINUX, WINDOWS]
 
     updater = [
@@ -133,27 +136,27 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
             {"runner": WINDOWS_ARM, "architecture": "arm64", "python": "3.14"},
         ]
 
-    # Every change proves both real runtimes on Linux and OpenClaw on Windows.
-    # The long legs wait for the nightly and release runs: the Hermes install
-    # on Windows is 13 minutes of upstream installer before the first turn (14
-    # to 23 minutes a job, the last job of three in four merge groups), and
-    # the two macOS legs (10 and 7 minutes) held every macOS slot for half an
-    # hour with three groups in the queue.
+    # Every change proves both real runtimes on Linux and OpenClaw on Windows,
+    # and in the queue both on macOS (10 and 7 minutes): a macOS failure must
+    # stop a change before it lands, not surface the morning after. The
+    # Hermes install on Windows waits for the nightly and release runs: 13
+    # minutes of upstream installer before the first turn, 14 to 23 minutes a
+    # job, and Windows is proven per change by OpenClaw and the unit suite.
     e2e = [
         {"os": LINUX, "runtime": "hermes"},
         {"os": LINUX, "runtime": "openclaw"},
         {"os": WINDOWS, "runtime": "openclaw"},
     ]
+    if long_mac:
+        e2e += [{"os": MACOS, "runtime": "hermes"}, {"os": MACOS, "runtime": "openclaw"}]
     if macos:
-        e2e += [
-            {"os": WINDOWS, "runtime": "hermes"},
-            {"os": MACOS, "runtime": "hermes"},
-            {"os": MACOS, "runtime": "openclaw"},
-        ]
+        e2e.append({"os": WINDOWS, "runtime": "hermes"})
 
     browser = list(base_os)
+    if long_mac:
+        browser.append(MACOS)
     if macos:
-        browser += [MACOS, LINUX_ARM, WINDOWS_ARM, MACOS_INTEL]
+        browser += [LINUX_ARM, WINDOWS_ARM, MACOS_INTEL]
 
     return {
         # jarvisctl, dragdrop and the installer smoke stay off macOS unless
@@ -164,8 +167,8 @@ def matrices(tier: str, *, macos: bool) -> dict[str, Any]:
         "crypto_matrix": crypto,
         "e2e_matrix": e2e,
         "browser_os": browser,
-        # Skipped on a pull request; the queue proves the Apple Silicon
-        # bundle, the wide matrix adds both Intel rows.
+        # Every change proves the Apple Silicon bundle (four minutes); the
+        # wide matrix adds both Intel rows.
         "desktop_legs": "all" if macos else ("primary" if mac_lanes else "none"),
         "linux_shards": list(range(1, LINUX_SHARDS + 1)),
         "windows_shards": list(range(1, WINDOWS_SHARDS + 1)),

@@ -11,6 +11,7 @@
 #  Never commit a real jarvis.toml — it is gitignored.
 #
 #  Overrides cascade: jarvis.toml  →  ENV (JARVIS__SECTION__KEY=...)
+#  DODAIOS__SECTION__KEY=... is the same override; if both are set, it wins.
 #  Any section you delete falls back to the code defaults.
 #  This template ships cloud-first defaults (no GPU, no local model,
 #  no microphone required) so it runs on a 1 vCPU / 1 GB VPS.
