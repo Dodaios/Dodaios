@@ -144,6 +144,8 @@ jobs:
       browser_os: ${{ steps.mode.outputs.browser_os }}
       desktop_legs: ${{ steps.mode.outputs.desktop_legs }}
       matrix_parallel: ${{ steps.mode.outputs.matrix_parallel }}
+      mac_tests: ${{ steps.mactests.outputs.mode != 'none' }}
+      mac_test_shards: ${{ steps.mactests.outputs.shards == '[]' && '[1]' || steps.mactests.outputs.shards }}
       duration_snapshot: ${{ steps.snapshot.outputs.name }}
       release: ${{ github.ref_type == 'tag' }}
     steps:
@@ -221,6 +223,24 @@ jobs:
             git diff --name-only --no-renames "$BASE" HEAD | tee changed.txt | python3 scripts/ci/classify_changes.py
           fi
 
+      # A merge group runs the macOS tests its change can reach: the whole
+      # suite on macOS is 27 runner-minutes on five shared slots. No diff
+      # (changed.txt missing or empty) selects everything.
+      - name: Select the macOS tests this change can reach
+        id: mactests
+        shell: bash
+        env:
+          PYTHON_LANE: ${{ steps.lanes.outputs.python }}
+          MAC_IMPACT: ${{ steps.mode.outputs.mac_impact }}
+        run: |
+          : > mac_tests.txt
+          if [ "$PYTHON_LANE" = "true" ] && [ "$MAC_IMPACT" = "true" ]; then
+            test -f changed.txt || : > changed.txt
+            python3 scripts/ci/select_tests.py --changed-from changed.txt --out mac_tests.txt
+          else
+            { echo "mode=none"; echo "shards=[]"; } | tee -a "$GITHUB_OUTPUT"
+          fi
+
       # Resolve the mutable cache ONCE. All shards download the same immutable
       # snapshot; staggered runners must never compute different partitions.
       - name: Restore duration history once
@@ -257,6 +277,7 @@ jobs:
           path: |
             test_durations.json
             test_durations_windows.json
+            mac_tests.txt
           if-no-files-found: error
           retention-days: 7
 
@@ -598,6 +619,57 @@ jobs:
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: tests-macos-${{ matrix.shard }}
+          path: out/
+          retention-days: 14
+
+  # The macOS tests the change can reach, before it lands (merge queue). One
+  # runner for an ordinary change; a change that selects everything (the
+  # pipeline, conftest, the lockfile) gets the full three-way split. The
+  # nightly and release runs keep the whole suite in `tests-macos`.
+  tests-macos-impact:
+    needs: detect
+    if: needs.detect.outputs.python == 'true' && needs.detect.outputs.mac_tests == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.detect.outputs.mac_test_shards) }}
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install
+        uses: ./.github/actions/install-locked
+        with:
+          extras: dev telephony
+      - name: Download the shared duration snapshot
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ${{ needs.detect.outputs.duration_snapshot }}
+      - name: Run the selected tests
+        continue-on-error: true
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ needs.detect.outputs.mac_test_shards }}
+        run: |
+          total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
+          python scripts/ci/run_tests_parallel.py tests --files-from mac_tests.txt \
+            --shard "$SHARD/$total" \
+            --report "out/test-report-macos-impact-$SHARD.json" \
+            --junit-out "out/junit-macos-impact-$SHARD.xml"
+      - name: Ratchet (a failure not in the baseline blocks)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: python scripts/ci/ratchet_tests.py check --baseline scripts/ci/test-baseline-macos.json "out/test-report-macos-impact-$SHARD.json"
+      - name: Upload shard report
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: tests-macos-impact-${{ matrix.shard }}
           path: out/
           retention-days: 14
 
@@ -1183,6 +1255,7 @@ jobs:
       - tests-linux
       - tests-windows
       - tests-macos
+      - tests-macos-impact
       - test-report
       - duration-cache
       - frontend

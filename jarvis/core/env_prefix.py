@@ -35,9 +35,24 @@ So a child process and a plugin read the ``JARVIS_`` name; they never see a
 ``DODAIOS_`` one, whoever set it.
 
 Standard library only and no I/O besides the environment: this runs before
-logging exists and on every process start. ``packaging/pyinstaller_rthook_frozen.py``
-cannot import the package and carries a copy of :func:`_adopt`;
-``tests/unit/core/test_env_prefix.py`` holds the two copies identical.
+logging exists and on every process start.
+
+Programs that read a variable before the package is imported
+-------------------------------------------------------------
+They cannot rely on this module, so each does the same move for the names it
+reads, with the same precedence:
+
+* ``packaging/pyinstaller_rthook_frozen.py`` carries a copy of :func:`_adopt`;
+  ``tests/unit/core/test_env_prefix.py`` holds the two copies identical.
+* ``install/install.sh`` and ``install/install.ps1`` adopt every option they
+  read, the uninstallers their one; ``tests/unit/install/test_install_option_names.py``
+  fails when a script reads a ``JARVIS_`` variable it does not adopt.
+* ``packaging/linux/AppRun`` reads its one switch under both names.
+
+Everything else is Python inside the package, and importing any ``jarvis.*``
+module runs the package's ``__init__`` first. A helper the app starts by file
+path (``jarvis/agentic_ide/claude_session_hook.py``) reads only variables the
+app itself sets, which are ``JARVIS_`` ones.
 """
 
 from __future__ import annotations

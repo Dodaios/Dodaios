@@ -28,7 +28,7 @@ import re
 import shlex
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -117,16 +117,31 @@ def _enter(cwd: Path, target: str) -> Path:
     return (cwd / target).resolve()
 
 
-def _git_calls(command: str, folder: str) -> list[tuple[Path, list[str], int]]:
-    """Every literal ``git`` call: its folder, its arguments, the chain's length."""
-    lexer = shlex.shlex(command, posix=False, punctuation_chars=";&|\n")
+def _lex(text: str) -> list[str] | None:
+    lexer = shlex.shlex(text, posix=False, punctuation_chars=";&|\n")
     lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
     try:
-        words = [_unquote(word) for word in lexer]
+        return [_unquote(word) for word in lexer]
     except ValueError:
-        logger.debug("Session branch: incomplete quoted command")
-        return []
+        logger.debug("Session branch: unbalanced quotes, this text is not read as one command")
+        return None
+
+
+def _git_calls(command: str, folder: str) -> list[tuple[Path, list[str], int]]:
+    """Every literal ``git`` call: its folder, its arguments, the chain's length."""
+    words = _lex(command)
+    if words is None:
+        # A heredoc body or a quote that spans lines breaks the whole command.
+        # The lines that stand on their own are still commands.
+        words = []
+        for line in command.splitlines():
+            part = _lex(line)
+            if part:
+                words.extend([*part, "\n"])
+        if not words:
+            logger.debug("Session branch: incomplete quoted command")
+            return []
     segments: list[list[str]] = [[]]
     for word in words:
         if word and all(character in ";&|\n" for character in word):
@@ -427,28 +442,74 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
     return candidates, worked
 
 
-def owned_branch(record: PaneBranchRecord) -> CreatedBranch | None:
-    """The newest branch this pane demonstrably created."""
-    if record.created_branch:
-        return CreatedBranch(record.created_branch, record.folder)
+_absent: dict[tuple[str, str], tuple[float, bool]] = {}
+
+
+def _gone(folder: str, root: str, branch: str) -> bool:
+    """Is ``branch`` no longer a local branch of this repository?"""
+    key = (root, branch)
+    now = time.monotonic()
+    with _cache_lock:
+        known = _absent.get(key)
+    if known is not None and now - known[0] < 60:
+        return known[1]
+    listed = git_overview._out(
+        ["for-each-ref", "--count=1", "--format=%(refname)", f"refs/heads/{branch}"], Path(folder)
+    )
+    if listed is None:
+        return False
+    gone = not listed.strip()
+    with _cache_lock:
+        if len(_absent) >= 512:
+            _absent.clear()
+        _absent[key] = (now, gone)
+    return gone
+
+
+def _creations_of(record: PaneBranchRecord) -> Iterator[CreatedBranch]:
+    """The branches this pane's creation calls account for, newest first.
+
+    ``confirmed`` is true for a creation this machine can still prove. A
+    finished branch is usually deleted, and its worktree with it: the reflog
+    that proved it is gone then. Such a branch is passed on unconfirmed, for
+    the caller to accept only once GitHub shows a pull request from it that
+    was opened after the call. A branch that still exists and was created at
+    some other time belongs to another session and is never passed on.
+    """
     candidates, _ = _evidence(record)
     if not candidates:
-        return None
+        return
     root = _common(record.folder)
     if not root:
-        return None
+        return
+    folders: dict[str, str] = {}
     for candidate in reversed(candidates):
-        if candidate.confirmed and _common(candidate.folder) == root:
-            return candidate
+        if candidate.folder not in folders:
+            folders[candidate.folder] = _common(candidate.folder)
+        if candidate.confirmed and folders[candidate.folder] == root:
+            yield candidate
         # The result did not name the branch, or the command reached this
         # repository by a path this module cannot follow (a shell variable).
         # The pane's own repository then has to show the creation inside the
         # call.
-        if _recorded_creation(
+        elif _recorded_creation(
             record.folder, candidate.branch, candidate.called_at, candidate.created_at
         ):
-            return replace(candidate, folder=record.folder, confirmed=True)
-    return None
+            yield replace(candidate, folder=record.folder, confirmed=True)
+        elif candidate.created_at and _gone(record.folder, root, candidate.branch):
+            yield replace(candidate, folder=record.folder, confirmed=False)
+
+
+def _created(record: PaneBranchRecord) -> Iterator[CreatedBranch]:
+    """Every branch this pane demonstrably created, newest first."""
+    return (created for created in _creations_of(record) if created.confirmed)
+
+
+def owned_branch(record: PaneBranchRecord) -> CreatedBranch | None:
+    """The newest branch this pane demonstrably created."""
+    if record.created_branch:
+        return CreatedBranch(record.created_branch, record.folder)
+    return next(_created(record), None)
 
 
 @dataclass(frozen=True)
@@ -491,28 +552,43 @@ def _repository(folder: str, root: str) -> _Repository:
     return repository
 
 
-def _worked_branch(record: PaneBranchRecord) -> tuple[str, float] | None:
-    """The feature branch out in the checkout this session last changed.
+def _worked(record: PaneBranchRecord) -> Iterator[tuple[str, float]]:
+    """The feature branches out in the checkouts this session changed, newest first.
 
     The default branch does not count: a command run in the main checkout must
-    not hide the feature branch the session has been building.
+    not hide the feature branch the session has been building. Each branch is
+    named once, at its latest change.
     """
     _, worked = _evidence(record)
     if not worked:
-        return None
+        return
     root = _common(record.folder)
     if not root:
-        return None
+        return
     repository = _repository(record.folder, root)
     default = {repository.default_branch} if repository.default_branch else {"main", "master"}
+    named: set[str] = set()
+    resolved: dict[str, str] = {}
     for folder, at in reversed(worked):
         touched = _key(folder)
-        for checkout, branch in repository.checkouts:
-            if touched == checkout or touched.startswith(checkout + os.sep):
-                if branch not in default:
-                    return branch, at
-                break
-    return None
+        if touched not in resolved:
+            resolved[touched] = next(
+                (
+                    branch
+                    for checkout, branch in repository.checkouts
+                    if touched == checkout or touched.startswith(checkout + os.sep)
+                ),
+                "",
+            )
+        branch = resolved[touched]
+        if branch and branch not in default and branch not in named:
+            named.add(branch)
+            yield branch, at
+
+
+def _worked_branch(record: PaneBranchRecord) -> tuple[str, float] | None:
+    """The feature branch out in the checkout this session last changed."""
+    return next(_worked(record), None)
 
 
 @dataclass(frozen=True)
@@ -522,6 +598,43 @@ class PaneBranch:
     # Set only for a branch the pane created: a pull request older than this
     # belongs to an earlier branch of the same name.
     created_at: float = 0
+    # The local branch is gone, so only a pull request opened after
+    # ``created_at`` can still tie it to this pane.
+    unproven: bool = False
+
+
+def _since(created: CreatedBranch) -> float:
+    """From when a pull request can belong to this creation.
+
+    The call's start, not its end: one command may create the branch, push it
+    and open the pull request before its result is written.
+    """
+    return created.called_at or created.created_at
+
+
+def _own_branch(record: PaneBranchRecord) -> PaneBranch | None:
+    """The branch this session created or last changed a checkout of, whichever is newer."""
+    created = owned_branch(record)
+    if record.created_branch and created is not None:
+        return PaneBranch(created.branch, created.folder)
+    worked = _worked_branch(record)
+    if created is not None and (
+        worked is None or worked[0] == created.branch or created.created_at >= worked[1]
+    ):
+        return PaneBranch(created.branch, created.folder, _since(created))
+    if worked is not None:
+        return PaneBranch(worked[0], record.folder)
+    return None
+
+
+def _checked_out(record: PaneBranchRecord) -> PaneBranch | None:
+    path = Path(record.folder)
+    head = (
+        git_overview._out(["symbolic-ref", "--quiet", "--short", "HEAD"], path)
+        if path.is_dir()
+        else None
+    )
+    return PaneBranch(head.strip(), record.folder) if head and head.strip() else None
 
 
 def pane_branch(record: PaneBranchRecord) -> PaneBranch | None:
@@ -531,20 +644,50 @@ def pane_branch(record: PaneBranchRecord) -> PaneBranch | None:
     of, whichever is newer, and failing both the branch checked out where the
     pane runs. A detached HEAD has none.
     """
-    created = owned_branch(record)
-    if record.created_branch and created is not None:
-        return PaneBranch(created.branch, created.folder)
-    worked = _worked_branch(record)
-    if created is not None and (
-        worked is None or worked[0] == created.branch or created.created_at >= worked[1]
-    ):
-        return PaneBranch(created.branch, created.folder, created.created_at)
-    if worked is not None:
-        return PaneBranch(worked[0], record.folder)
-    path = Path(record.folder)
-    head = (
-        git_overview._out(["symbolic-ref", "--quiet", "--short", "HEAD"], path)
-        if path.is_dir()
-        else None
-    )
-    return PaneBranch(head.strip(), record.folder) if head and head.strip() else None
+    return _own_branch(record) or _checked_out(record)
+
+
+#: A pane header lists this many branches of one session at most.
+MAX_PANE_BRANCHES = 8
+
+
+def pane_branches(record: PaneBranchRecord) -> list[PaneBranch]:
+    """Every branch a pane's session has worked on.
+
+    The branch it works in now comes first, then the others it created or
+    changed a checkout of, newest first. A branch that is gone locally is
+    listed ``unproven``. The branch that merely happens to be checked out
+    where the pane runs is the answer only for a session with no branch of
+    its own.
+    """
+    current = _own_branch(record)
+    others: dict[str, tuple[float, PaneBranch]] = {}
+    for created in _creations_of(record):
+        if current is not None and created.branch == current.branch:
+            continue
+        if created.branch not in others:
+            others[created.branch] = (
+                created.created_at,
+                PaneBranch(
+                    created.branch,
+                    created.folder,
+                    _since(created),
+                    unproven=not created.confirmed,
+                ),
+            )
+    for branch, at in _worked(record):
+        if current is not None and branch == current.branch:
+            continue
+        known = others.get(branch)
+        # A created branch keeps its creation time: it tells its pull request
+        # from an older one of the same name. Work in a checkout proves it.
+        others[branch] = (
+            max(at, known[0]) if known else at,
+            replace(known[1], unproven=False) if known else PaneBranch(branch, record.folder),
+        )
+    ranked = [branch for _, branch in sorted(others.values(), key=lambda e: e[0], reverse=True)]
+    listed = [current, *ranked] if current is not None else ranked
+    if not listed:
+        fallback = _checked_out(record)
+        return [fallback] if fallback is not None else []
+    return listed[:MAX_PANE_BRANCHES]
