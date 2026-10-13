@@ -527,7 +527,10 @@ class RouterBrain:
             # "task done" cleanly. Trivial-path turns (no tool_calls) skip
             # this; Voice-Control utterances skip too (action == confirmation).
             final_text = agg.text or ""
-            if agg.tool_calls and not is_voice_control_utterance(utterance):
+            # A turn that only looked up which tool exists did nothing to
+            # report as done.
+            acted = any(tc.get("name") != "find_tools" for tc in agg.tool_calls)
+            if acted and not is_voice_control_utterance(utterance):
                 from .ack_generator import final_summary_marker
                 lang = self._output_locale(utterance)
                 marker = final_summary_marker(language=lang)
