@@ -525,7 +525,7 @@ def finish_base(
     if borrowed:
         extras["clips_from"] = borrowed["file"]
     doc.setdefault("asset", {})["extras"] = {"jarvis_figure": extras}
-    doc["asset"]["generator"] = "Personal Jarvis build_figures.py"
+    doc["asset"]["generator"] = "Dodaios build_figures.py"
     gt.write_glb(glb_path, doc, glb.blob)
     log(
         f"finished {glb_path.name}: {glb_path.stat().st_size // 1024} KB, "
@@ -557,7 +557,7 @@ def finish_part(glb_path: Path, spec: dict, target: dict, source: dict, attach: 
         "source": f"{source['name']} ({source['license']}) / {spec['object']}",
     }
     doc.setdefault("asset", {})["extras"] = {"jarvis_part": extras}
-    doc["asset"]["generator"] = "Personal Jarvis build_figures.py"
+    doc["asset"]["generator"] = "Dodaios build_figures.py"
     gt.write_glb(glb_path, doc, glb.blob)
     log(f"finished part {glb_path.name}: {glb_path.stat().st_size // 1024} KB, {tris} tris")
     return {"triangles": tris, "two_sided": two_sided}
@@ -896,7 +896,7 @@ def build_clip_library(source: dict, archetype: dict, out_dir: Path, make_rig) -
             "source": clip_source_credit(source),
         }
     }
-    doc["asset"]["generator"] = "Personal Jarvis build_figures.py"
+    doc["asset"]["generator"] = "Dodaios build_figures.py"
     gt.write_glb(path, doc, glb.blob)
     log(f"clip library {path.name}: {path.stat().st_size // 1024} KB, clips {sorted(clips)}")
     return {"file": path.name, "clips": clips}

@@ -256,9 +256,9 @@ texture/part set drives world walker AND card figure; a rendered face crop feeds
 
 The world gets its **own, complete branding — it is a game inside the app, not another app
 surface.** Direction: bright, beautiful, high-quality video-game art — warm light, saturated
-friendly colors, real game feel. Explicitly NOT in scope for the world: the Cursor-derived design
-doc (`PersonalJarvisDesignDesign.md.md` — cream/grey editorial canvas, Cursor Orange; that
-document never styles the world), and NOT the app's Ink & Paper monochrome. The surrounding app
+friendly colors, real game feel. Explicitly NOT in scope for the world: the app's design system
+(`docs/design/DESIGN.md`; that document never styles the world), and NOT the app's Ink & Paper
+monochrome. The surrounding app
 chrome (sidebar, drawers, ledger) stays Ink & Paper; the world
 viewport and everything rendered inside it (tiles, light, sky mood, in-world labels, speech
 bubbles) is its own branded space with its own palette and type.

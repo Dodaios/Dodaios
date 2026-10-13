@@ -542,7 +542,7 @@ async def get_composer_tools(
     cwd: str | None = None,
     stance: str = "ask",
 ) -> dict[str, Any]:
-    """Discover tools for the Jarvis chat without executing any capability."""
+    """Discover tools for the Dodaios chat without executing any capability."""
     from jarvis.agent_chat.tool_catalog import discover
 
     svc = (await _async_service(request))

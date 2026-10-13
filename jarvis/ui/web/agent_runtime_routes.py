@@ -36,7 +36,7 @@ _USABLE_TTL_S = 10.0
 @router.get("")
 async def list_agent_runtimes(request: Request, refresh: bool = False) -> dict[str, Any]:
     """Every external runtime: installed, version, ready, problem, setup job,
-    plus the Jarvis providers an agent on such a runtime can use right now
+    plus the Dodaios providers an agent on such a runtime can use right now
     (``supported_providers``: saved key or local server; ``all_providers``:
     every provider the runtimes can drive once connected; ``login_providers``:
     usable ones that answer on a Claude login, billed as extra usage;

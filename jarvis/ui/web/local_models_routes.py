@@ -214,7 +214,7 @@ def _http_error(exc: OllamaServerError) -> HTTPException:
 async def get_inventory(provider_id: str, request: Request) -> InventoryResponse:
     """Every download with its facts, what is loaded, and the disk total.
 
-    Jarvis's own aliases (option profiles, the voice alias) are hidden from
+    Dodaios's own aliases (option profiles, the voice alias) are hidden from
     ``models``; ``running`` still names them, so the memory an alias holds is
     visible and ``loaded_vram_bytes`` stays honest.
     """
@@ -900,7 +900,7 @@ async def get_server(provider_id: str) -> ServerResponse:
     openapi_extra={"x-jarvis-dangerous": True},
 )
 async def post_server_stop(provider_id: str) -> ServerActionResponse:
-    """Stop the Ollama Jarvis itself started — never one started elsewhere."""
+    """Stop the Ollama Dodaios itself started — never one started elsewhere."""
     _require_pull_capable(provider_id)
     ok, message = await asyncio.to_thread(ollama_runtime.stop_server)
     return ServerActionResponse(ok=ok, message=message)
@@ -956,7 +956,7 @@ class AutostartBody(BaseModel):
 
 @router.get("/runtime/autostart", response_model=AutostartResponse)
 def get_autostart(provider_id: str, request: Request) -> AutostartResponse:
-    """Whether the local server starts with Jarvis, and whether that would fire."""
+    """Whether the local server starts with Dodaios, and whether that would fire."""
     _require_pull_capable(provider_id)
     from jarvis.core.config import ollama_autostart
     from jarvis.local_models import autostart
@@ -1045,7 +1045,7 @@ async def post_server_test(provider_id: str, body: ServerTestBody) -> ServerProb
 async def get_server_log(
     provider_id: str, lines: int = Query(default=40, ge=1, le=500)
 ) -> ServerLogResponse:
-    """The last lines of the server log Jarvis writes when it starts Ollama."""
+    """The last lines of the server log Dodaios writes when it starts Ollama."""
     _require_pull_capable(provider_id)
     return ServerLogResponse(lines=await asyncio.to_thread(ollama_runtime.tail_log, lines))
 
