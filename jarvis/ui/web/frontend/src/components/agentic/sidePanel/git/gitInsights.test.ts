@@ -128,6 +128,20 @@ describe("nextStep", () => {
     expect(step({ upstream: "" }, { on_github: false }).kind).toBe("publish");
   });
 
+  it("sends edits on the default branch to a branch of their own where work lands through pull requests", () => {
+    const onMain = { branch: "main", upstream: "origin/main", files: 5, unstaged: 3, untracked: 2 };
+    const withPrs = overview(onMain);
+    withPrs.pull_requests = [pr(4)];
+    // Only what git tracks is counted: new files nobody added are not the reason to branch.
+    expect(nextStep(withPrs)).toEqual({ kind: "branch_off", count: 3 });
+    // No pull requests anywhere: committing on the default branch is how this repository works.
+    expect(nextStep(overview(onMain))).toEqual({ kind: "commit", count: 5 });
+    // A feature branch commits as before, pull requests or not.
+    const feature = overview({ files: 2, unstaged: 2 });
+    feature.pull_requests = [pr(4)];
+    expect(nextStep(feature)).toEqual({ kind: "commit", count: 2 });
+  });
+
   it("does not suggest committing files git does not track yet", () => {
     expect(step({ files: 5, untracked: 5 }).kind).not.toBe("commit");
   });
