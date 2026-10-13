@@ -17,11 +17,15 @@ How it works (a per-file runner):
    in fresh processes, and a failed file gets one more fresh attempt. A pass
    on that attempt is reported as FLAKY, not as a failure.
 5. **Bound**: every process has a wall-clock budget and is killed with its
-   whole process tree, so a hang costs one file, never the job.
+   whole process tree, so a hang costs one file, never the job. A first
+   budget that ran out proves nothing about a file with no history on this
+   OS (one file takes 3 s on Linux and 229 s on Windows): after a timeout
+   each file gets one run alone with twice the floor budget.
 
 Outputs: ``--report`` (JSON: failed test ids, flaky files, counts) and
 ``--junit-out`` (merged JUnit XML), plus ``--durations-out`` (timings of files
-that passed on the first attempt — a hang can never ratchet its own budget).
+that passed in their batch or on their first run alone; a hang never passes,
+so it can never ratchet its own budget).
 
 The runner exits 1 when any test failed for real; whether that blocks the
 build is ``test_ratchet.py``'s decision (known failures are baselined).
@@ -53,6 +57,10 @@ _SKIP_DIRS = {"__pycache__", "node_modules", "fakes", "fixtures", ".pytest_cache
 DEFAULT_DURATION = 4.0  # seconds, for a file the cache has never seen
 MIN_FILE_TIMEOUT = 300.0
 MAX_FILE_TIMEOUT = 900.0
+# One run alone after a budget ran out. Twice the floor: enough for a file
+# that is slow on this OS, and two real hangs in one batch still end before
+# the job timeout does.
+RETRY_FILE_TIMEOUT = 600.0
 BATCH_TARGET_SECONDS = 45.0
 BATCH_MAX_FILES = 12
 MAX_BATCH_TIMEOUT = 1800.0
@@ -411,9 +419,18 @@ class Runner:
             return outcome
         runs: list[RunResult] = []
         flaky: list[str] = []
+        timed: list[str] = []
         for file in batch:
+            # A budget that ran out names no culprit and may only mean "slow
+            # on this OS": the history can come from another one, or be
+            # missing. One run alone with a doubled budget decides.
             budget_one = file_timeout(file, self.durations)
-            single = first if len(batch) == 1 else self.run([file], budget_one)
+            if first.timed_out:
+                budget_one = max(budget_one, RETRY_FILE_TIMEOUT)
+            rerun = len(batch) > 1 or first.timed_out
+            single = self.run([file], budget_one) if rerun else first
+            if rerun and single.ok:
+                timed.append(file)
             if not single.ok and not single.timed_out:
                 retry = self.run([file], budget_one)
                 if retry.ok:
@@ -422,6 +439,9 @@ class Runner:
             runs.append(single)
         outcome["runs"] = runs
         outcome["flaky"] = flaky
+        # Passed alone at the first attempt: a real timing, so the file gets a
+        # history (and with it a batch and a budget of its own) next time.
+        outcome["first_pass"] = timed
         return outcome
 
 

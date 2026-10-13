@@ -232,6 +232,74 @@ def test_a_wedged_batch_is_killed_after_minutes_not_after_the_whole_job():
     )
 
 
+class _ScriptedRunner(run_tests_parallel.Runner):
+    """A runner whose pytest processes are scripted: (files) -> seconds needed, or None to hang."""
+
+    def __init__(self, needs: dict[str, float | None], fails_once: set[str] | None = None) -> None:
+        self.durations: dict[str, float] = {}
+        self.needs = needs
+        self.fails_once = set(fails_once or ())
+        self.calls: list[tuple[tuple[str, ...], float]] = []
+
+    def run(self, files: list[str], timeout: float) -> run_tests_parallel.RunResult:
+        self.calls.append((tuple(files), timeout))
+        total = 0.0
+        for file in files:
+            need = self.needs[file]
+            if need is None or total + need > timeout:
+                return run_tests_parallel.RunResult(files, -9, timeout, True)
+            total += need
+        if len(files) == 1 and files[0] in self.fails_once:
+            self.fails_once.discard(files[0])
+            return run_tests_parallel.RunResult(files, 1, total, False, failed_ids=["x::test"])
+        seconds = {file: float(self.needs[file] or 0) for file in files}
+        return run_tests_parallel.RunResult(files, 0, total, False, file_seconds=seconds)
+
+
+def test_a_file_that_is_slow_on_this_os_is_not_reported_as_a_hang():
+    # 229 s on Windows, no history: its batch runs out of the 300 s budget.
+    slow, quick = "tests/missions/workers/test_slow_here.py", "tests/missions/workers/test_quick.py"
+    runner = _ScriptedRunner({slow: 320.0, quick: 2.0})
+    outcome = runner.run_unit([quick, slow])
+    assert all(run.ok for run in outcome["runs"])
+    # After the timeout each file ran alone with the doubled budget ...
+    assert runner.calls[1:] == [
+        ((quick,), run_tests_parallel.RETRY_FILE_TIMEOUT),
+        ((slow,), run_tests_parallel.RETRY_FILE_TIMEOUT),
+    ]
+    # ... and both get a timing, so the slow one has a history next time.
+    assert outcome["first_pass"] == [quick, slow] and outcome["flaky"] == []
+    # The same file alone in its batch: one more run, not a failure.
+    alone = _ScriptedRunner({slow: 320.0})
+    outcome = alone.run_unit([slow])
+    assert [run.ok for run in outcome["runs"]] == [True] and outcome["first_pass"] == [slow]
+    budgets = [budget for _files, budget in alone.calls]
+    assert budgets == [300.0, run_tests_parallel.RETRY_FILE_TIMEOUT]
+
+
+def test_a_real_hang_still_fails_and_records_no_timing():
+    hung, fine = "tests/unit/a/test_hung.py", "tests/unit/a/test_fine.py"
+    runner = _ScriptedRunner({hung: None, fine: 1.0})
+    outcome = runner.run_unit([fine, hung])
+    by_file = {run.files[0]: run for run in outcome["runs"]}
+    assert by_file[fine].ok and by_file[hung].timed_out
+    assert outcome["first_pass"] == [fine]
+    # One generous run alone, never a third one.
+    assert sum(files == (hung,) for files, _budget in runner.calls) == 1
+
+
+def test_a_failed_file_keeps_its_one_fresh_attempt_and_its_own_budget():
+    shaky, fine = "tests/unit/a/test_shaky.py", "tests/unit/a/test_fine.py"
+    runner = _ScriptedRunner({shaky: 1.0, fine: 1.0}, fails_once={shaky})
+    # The batch itself passes (the failure is scripted for the run alone).
+    assert runner.run_unit([fine, shaky])["first_pass"] == [fine, shaky]
+    single = _ScriptedRunner({shaky: 1.0}, fails_once={shaky})
+    outcome = single.run_unit([shaky])
+    # Failed alone, passed on the fresh attempt: flaky, and no timing recorded.
+    assert outcome["flaky"] == [shaky] and outcome["first_pass"] == []
+    assert [budget for _files, budget in single.calls] == [300.0, 300.0]
+
+
 def test_file_timeout_scales_with_history_but_is_bounded():
     assert run_tests_parallel.file_timeout("x", {}) == run_tests_parallel.MIN_FILE_TIMEOUT
     assert (
