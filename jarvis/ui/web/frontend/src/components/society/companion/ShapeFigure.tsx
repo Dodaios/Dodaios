@@ -58,7 +58,7 @@ function outlineUrl(figure: Figure, grown: boolean): string | undefined {
  * colours of a flowing design (multiplied onto a white body), the shine of a
  * shimmering one, both cut to the body's outline, and the smoke of a cigar.
  */
-export function ShapeFigure({ look, size, shape, behind, children, overlay, fallback, flow, shine, smoke }: {
+export function ShapeFigure({ look, size, shape, behind, children, overlay, fallback, flow, shine, inside, smoke }: {
   look: FigureLook; size: number;
   /** Shown when this look could not be drawn and no earlier picture is there. */
   fallback: ReactNode;
@@ -72,6 +72,8 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
   flow?: { colors: readonly string[]; angle: number };
   /** A shine sweeps across the body. */
   shine?: boolean;
+  /** Drawn on the body in the flat symbol's units and cut to its outline (twinkling stars). */
+  inside?: ReactNode;
   /** Draws one plume of smoke, in symbol units around its source. */
   smoke?: (plume: FigureSmoke, index: number) => ReactNode;
   children?: ReactNode;
@@ -119,6 +121,11 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
       </span>}
     </span>
     {cut && shine && <span aria-hidden className="agent-figure-shine" style={cut}><i /></span>}
+    {cut && shown && inside && <span aria-hidden className="agent-figure-inside" style={cut}>
+      <svg focusable="false" viewBox={`0 0 ${shown.pixels} ${shown.pixels}`} className="society-agent-symbol">
+        <g transform={`matrix(${shown.face.map(value => +value.toFixed(4)).join(" ")})`}>{inside}</g>
+      </svg>
+    </span>}
     {shown && children && <svg aria-hidden focusable="false" viewBox={`0 0 ${shown.pixels} ${shown.pixels}`} className="society-agent-symbol" data-expressive="true">
       <g transform={`matrix(${shown.face.map(value => +value.toFixed(4)).join(" ")})`}>{children}</g>
     </svg>}
