@@ -2532,6 +2532,15 @@
     "wiki_links": "{0} ligações",
     "wiki_empty_body": "Ainda sem página. A wiki cria uma quando as tuas conversas lhe derem algo para registar.",
     "wiki_needs_name": "Adiciona o teu nome e a wiki pode criar uma página sobre ti.",
+    "semantic_title": "Pesquisar por significado",
+    "semantic_off": "Encontra notas que significam o mesmo que a tua pergunta, por outras palavras ou noutra língua. Ao ativar, é transferido uma única vez um modelo de pesquisa de {0} MB; funciona apenas neste computador.",
+    "semantic_starting": "A iniciar…",
+    "semantic_downloading": "A transferir o modelo de pesquisa… {0}%",
+    "semantic_indexing": "A ler as tuas páginas da wiki… {0}%",
+    "semantic_ready": "Ativado. {0} páginas podem ser encontradas por significado.",
+    "semantic_unavailable": "Não disponível neste sistema. A pesquisa por palavras funciona como antes.",
+    "semantic_failed": "Não foi possível configurar. Desativa e volta a ativar para tentar de novo.",
+    "semantic_save_failed": "Não foi possível guardar a definição.",
     "file_title": "Ficheiro de perfil",
     "file_hint": "USER.md, o ficheiro por trás desta página",
     "file_hint_dated": "USER.md · alterado {0}",
@@ -4051,7 +4060,8 @@
     "unavailable": "A pesquisa não está disponível de momento.",
     "no_hits_prefix": "Sem resultados para ",
     "no_hits_suffix": ". Experimenta outras palavras-chave ou procura no grafo.",
-    "hits_heading": "Resultados"
+    "hits_heading": "Resultados",
+    "by_meaning": "Por significado"
   },
   "wiki_graph": {
     "empty_prefix": "O teu grafo de memória ainda está vazio. Assim que o ",
