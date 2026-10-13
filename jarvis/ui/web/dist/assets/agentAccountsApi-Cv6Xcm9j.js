@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/agentAccountsApi-Cv6Xcm9j.js
 import{c as i,f as s,t as r}from"./index-Bx3U5l4b.js";/**
+|||||||| parent of e1ca928b6 (feat(agentic-ide): list every branch a session worked on in the pane header):jarvis/ui/web/dist/assets/agentAccountsApi-BkChwCd9.js
+import{c as i,f as s,t as r}from"./index-CvGug5If.js";/**
+========
+import{c as i,f as s,t as r}from"./index-DYqRkGiR.js";/**
+>>>>>>>> e1ca928b6 (feat(agentic-ide): list every branch a session worked on in the pane header):jarvis/ui/web/dist/assets/agentAccountsApi-DCb1Mp9z.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

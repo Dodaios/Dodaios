@@ -8690,6 +8690,8 @@
       "unavailable": "Estado do GitHub indisponível",
       "branch_generic": "Ramo do GitHub",
       "local_only": "Ainda não está no GitHub",
+      "branches_title": "Ramos desta sessão",
+      "branches_aria": "{count} ramos desta sessão, agora {identity}",
       "dest_pr": "pull request #{number}",
       "dest_branch": "ramo",
       "open_aria": "Abrir {destination} do GitHub: {identity}",
