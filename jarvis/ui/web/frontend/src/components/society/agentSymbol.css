@@ -157,7 +157,8 @@
 /* Effects that move across the body: layers over the still picture, cut to the body's outline by a mask
    of the same picture and moved by transforms only. */
 .agent-figure-picture > .agent-figure-flow,
-.society-agent-figure > .agent-figure-shine {
+.society-agent-figure > .agent-figure-shine,
+.society-agent-figure > .agent-figure-inside {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -166,6 +167,13 @@
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
+}
+
+.agent-figure-inside > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* A flowing design: the body is drawn white with its light and shade, and the colours are multiplied onto
