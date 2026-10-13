@@ -865,6 +865,7 @@ def list_sessions(
 ) -> dict[str, Any]:
     svc = _service(request)
     out = []
+    teams = _team_sessions(request) if surface in (None, "agent") else {}
     for s in svc.store.list_sessions(limit=limit, surface=surface):
         if surface is None and s.surface in HIDDEN_SURFACES:
             continue
@@ -873,9 +874,22 @@ def list_sessions(
         if s.surface == "agent":
             d["pending_approvals"] = svc.pending_approvals(s.session_id)
             d["cli_title"] = _cli_title(svc, s)
+            # A member of a team thread is listed under its team, not as a thread.
+            d["team_id"] = teams.get(s.session_id, "")
         out.append(d)
     _title_chats(request, svc, out)
     return {"sessions": out}
+
+
+def _team_sessions(request: Request) -> dict[str, str]:
+    """Which sessions belong to a team thread (``session_id -> team_id``)."""
+    from .team_thread_routes import team_sessions
+
+    try:
+        return team_sessions(request.app.state)
+    except Exception:  # noqa: BLE001 - the thread list must not fail with the team store
+        log.warning("team threads unavailable; listing their members as threads", exc_info=True)
+        return {}
 
 
 def _cli_title(svc: Any, session: Any) -> str:
