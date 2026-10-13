@@ -19,6 +19,8 @@ export interface SessionGitHubStatus {
   merge_status?: string;
   review?: string;
   locked?: boolean;
+  /** The session's other branches, newest first. Absent from an older backend. */
+  others?: SessionGitHubStatus[];
 }
 
 export type SessionCiState = CiStatus["state"] | "cancelled" | "neutral" | "skipped"
@@ -47,7 +49,10 @@ function start(workspaceId: string): Entry {
   const notify = () => entry.listeners.forEach((listener) => listener());
   const unavailable = (reason: string) => {
     entry.panes = Object.fromEntries(Object.entries(entry.panes).map(([name, status]) => [
-      name, status ? { ...status, available: false, reason } : null,
+      name, status ? {
+        ...status, available: false, reason,
+        others: status.others?.map((other) => ({ ...other, available: false, reason })),
+      } : null,
     ]));
     notify();
   };
