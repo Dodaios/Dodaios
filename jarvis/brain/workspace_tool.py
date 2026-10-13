@@ -71,7 +71,10 @@ class WorkspaceOrchestrationTool:
         "presses keys such as enter, escape, up/down, digits, shift+tab (permission mode); "
         "interrupt stops its current turn; restart starts a stopped or failed agent again "
         "under the same terminal_id on its own conversation (a running one is left alone, so "
-        "a repeat is harmless); close removes it. These are the user's own app "
+        "a repeat is harmless); close removes it; fork opens a copy that continues the "
+        "same conversation beside it, and with worktree=true in a new git worktree and "
+        "branch (name), so two agents can work on one task or one can try another way "
+        "without touching the other's files. These are the user's own app "
         "actions: run them when asked, without asking back. A send refused because the agent "
         "is not running (stopped: true) types nothing: when the user wants that agent to do "
         "the task, restart it and resend with the same request_id and prompt. "
@@ -142,6 +145,7 @@ class WorkspaceOrchestrationTool:
                     "interrupt",
                     "restart",
                     "close",
+                    "fork",
                 ],
             },
             **{
@@ -217,7 +221,8 @@ class WorkspaceOrchestrationTool:
                 "type": "string",
                 "description": (
                     "create: optional name for a single new agent; open_workspace: the new "
-                    "workspace's tab name."
+                    "workspace's tab name; fork with worktree: the branch name (suggested "
+                    "when omitted)."
                 ),
             },
             "agents": {
@@ -235,6 +240,13 @@ class WorkspaceOrchestrationTool:
             "folder": {
                 "type": "string",
                 "description": "open_workspace: absolute path of the folder to open.",
+            },
+            "worktree": {
+                "type": "boolean",
+                "description": (
+                    "fork: run the copy in a new git worktree on a new branch instead of "
+                    "the same folder."
+                ),
             },
             "keys": {
                 "type": "array",
