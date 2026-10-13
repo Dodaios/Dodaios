@@ -95,7 +95,7 @@ submissions/<name>/
 ├── mcp.json                        # optional — exactly one server
 ├── skills/<skill-name>/SKILL.md    # optional, repeatable — instructions
 │   └── references/*.md             # optional — text the skill may read
-└── io.github.personaljarvis/
+└── io.github.dodaios/              # `io.github.personaljarvis/` is read as well
     ├── usage-card.md               # optional — relevance keywords + guidance
     └── logo.svg                    # optional — square mark
 ```

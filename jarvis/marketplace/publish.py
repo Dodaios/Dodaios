@@ -40,9 +40,10 @@ from typing import Any
 import httpx
 
 from jarvis.marketplace.agent_plugins_loader import (
-    EXTENSION_NAMESPACE,
     MAX_SKILL_MD_BYTES,
     AgentPluginError,
+    extension_of,
+    with_published_extension,
 )
 from jarvis.marketplace.agent_plugins_loader import (
     validate_bundled_skills as _install_time_validate_bundled_skills,
@@ -212,6 +213,14 @@ def validate_draft(draft: dict[str, Any]) -> tuple[dict[str, Any] | None, list[F
                 if mcp_error:
                     errors.append(FieldError(mcp_error, "mcp_json"))
         usage_card = draft.get("usage_card")
+        try:
+            # The submission carries the extension block under the namespace
+            # this app writes and, while the registry requires it, under the
+            # earlier one as well. Whatever namespace the draft was typed or
+            # imported with, what goes out is the same.
+            plugin_json = with_published_extension(plugin_json)
+        except AgentPluginError as exc:
+            errors.append(FieldError(str(exc), "plugin_json"))
         value.update(
             plugin_json=plugin_json,
             mcp_json=mcp_json,
@@ -350,11 +359,9 @@ def _validate_mcp(mcp: dict[str, Any], *, plugin_json: Mapping[str, Any]) -> str
         return "mcp_json must define exactly one server"
     server_name, server = next(iter(servers.items()))
 
-    extensions = plugin_json.get("extensions") if isinstance(plugin_json, Mapping) else None
-    extension = extensions.get(EXTENSION_NAMESPACE) if isinstance(extensions, Mapping) else None
     try:
         converted = _install_time_validate_mcp_server(
-            str(server_name), server, extension if isinstance(extension, Mapping) else None
+            str(server_name), server, extension_of(plugin_json)
         )
     except AgentPluginError as exc:
         return str(exc)

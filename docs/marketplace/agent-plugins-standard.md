@@ -22,10 +22,12 @@ Plugins store: GitHub, Notion, Slack, Gmail, …).
    never inline in `plugin.json` and never with credentials in `headers`.
 3. Everything Dodaios-specific — auth flows, branding, category, longevity
    badge, native-tool or channel binding, post-install hints — lives in the
-   client extension namespace **`io.github.personaljarvis`** (manifest data
-   under `extensions["io.github.personaljarvis"]` in `plugin.json`, files
-   under an `io.github.personaljarvis/` directory). Other clients ignore that
-   namespace, exactly as the spec intends.
+   client extension namespace **`io.github.dodaios`** (manifest data
+   under `extensions["io.github.dodaios"]` in `plugin.json`, files
+   under an `io.github.dodaios/` directory). Other clients ignore that
+   namespace, exactly as the spec intends. The namespace's earlier name,
+   `io.github.personaljarvis`, stays valid on read everywhere and for good:
+   see "The namespace has two names" below.
 4. Existing catalog entries are migrated per the audit below. The loader
    wave has landed for COMMUNITY plugins: `agent_plugins_loader.py` converts
    Agent Plugins v1.0.0 manifests from the
@@ -42,10 +44,10 @@ Plugins store: GitHub, Notion, Slack, Gmail, …).
 | `description` | `plugin.json` → `description` |
 | `mcp_server` (`transport: "http"`) | `mcp.json` → `mcpServers.<id>` with `type: "streamable-http"` and the same `url` |
 | `mcp_server.auth_header_template` | **Must NOT move to `mcp.json`** — the spec forbids credentials in `headers`. Token injection stays a client concern in the extension namespace. |
-| `auth` (all five modes), `oauth_client_family` | `extensions["io.github.personaljarvis"]` |
-| `display_name`, `category`, `logo_*`, `featured`, `longevity`, `longevity_note`, `post_install_hint_md`, `future_v2_note` | `extensions["io.github.personaljarvis"]` |
-| `native_tool` (Vercel, Google trio, Home Assistant) | `extensions["io.github.personaljarvis"]` — such a plugin is valid under the spec with `plugin.json` alone (components are optional), but carries nothing portable |
-| Channel enablement (Discord, Telegram) | `extensions["io.github.personaljarvis"]` — same extension-only shape |
+| `auth` (all five modes), `oauth_client_family` | `extensions["io.github.dodaios"]` |
+| `display_name`, `category`, `logo_*`, `featured`, `longevity`, `longevity_note`, `post_install_hint_md`, `future_v2_note` | `extensions["io.github.dodaios"]` |
+| `native_tool` (Vercel, Google trio, Home Assistant) | `extensions["io.github.dodaios"]` — such a plugin is valid under the spec with `plugin.json` alone (components are optional), but carries nothing portable |
+| Channel enablement (Discord, Telegram) | `extensions["io.github.dodaios"]` — same extension-only shape |
 
 Target layout per plugin (seed side; the gitignored `data/` override keeps its
 merge semantics):
@@ -54,8 +56,38 @@ merge semantics):
 jarvis/marketplace/plugins/<name>/
 ├── plugin.json                      # $schema, name, description, version, license
 ├── mcp.json                         # only when a hosted/stdio MCP server exists
-└── io.github.personaljarvis/        # auth, branding, longevity, hints (extension files)
+└── io.github.dodaios/               # auth, branding, longevity, hints (extension files)
 ```
+
+## The namespace has two names
+
+`io.github.dodaios` is the namespace the app writes. `io.github.personaljarvis`
+is what it was called before the product was renamed, and what every package
+published until then carries. Both are read wherever a manifest is read
+(`agent_plugins_loader.extension_of`): the community index, an uploaded
+package, the in-app Publish check, the auth-contract gate, and the usage-card
+directory when a package folder or a repository is imported.
+
+- **Identity.** The namespace is the key a block sits under and no part of
+  what the plugin is. A plugin is identified by `plugin.json` → `name`, which
+  becomes the catalog id. The same package under either namespace converts to
+  the same catalog entry, installs into the same row and keeps its update
+  link; an installed plugin is stored as that converted entry, which holds no
+  namespace at all.
+- **Both keys at once.** A manifest may carry its block under both
+  namespaces. The blocks must then be identical; a manifest whose two blocks
+  differ is refused, because the registry validates one key and a client may
+  read the other.
+- **What is published.** A submission from the app carries the block under
+  both keys. The registry validator (`scripts/validate.py`) and every app
+  version released before the rename read only `io.github.personaljarvis`;
+  the copy keeps new submissions valid for both. It is dropped once the
+  registry accepts the new namespace
+  ([validator-parity.md](validator-parity.md), "The extension namespace").
+- **The shipped packages** under `jarvis/marketplace/plugins/` and
+  `jarvis/marketplace/drafts/` keep `io.github.personaljarvis`. They are
+  packages in the published format, and that format's authority still
+  requires the earlier key. They move together with the registry.
 
 ## Migration audit — status as of 2026-08-08
 
@@ -108,8 +140,9 @@ Home Assistant); 4 need a spec-conformant rename.
       `version`, `license` validates against the published schema
 - [ ] Hosted MCP server (when present) declared in `mcp.json` with
       `type: "streamable-http"`; **no credentials in `headers`**
-- [ ] All Dodaios-specific fields moved under
-      `extensions["io.github.personaljarvis"]`; nothing Dodaios-specific
+- [ ] All Dodaios-specific fields moved under the extension namespace
+      (`extensions["io.github.personaljarvis"]` for a shipped package today,
+      see "The namespace has two names"); nothing Dodaios-specific
       remains at top level
 - [ ] Seed aggregation still serves the identical `/api/marketplace/plugins`
       payload (existing tests stay green; connected users see no change)

@@ -65,6 +65,23 @@ FINGERPRINT_FIELDS = (
 BROWSER_AUTH_MODES = frozenset(
     ("hosted_mcp_oauth_dcr", "oauth_device_flow", "oauth_pkce_loopback", "instance_browser")
 )
+# The namespaces a mirror may keep its block under, the current one first.
+# This gate is stdlib-only, so the names are restated from
+# jarvis.core.branding; tests/unit/marketplace/test_extension_namespace.py
+# pins them to it.
+EXTENSION_NAMESPACES = ("io.github.dodaios", "io.github.personaljarvis")
+
+
+def _extension_block(manifest: dict) -> dict:
+    """A mirror's own block, under whichever namespace its ``plugin.json`` uses."""
+    extensions = manifest.get("extensions")
+    if not isinstance(extensions, dict):
+        return {}
+    for namespace in EXTENSION_NAMESPACES:
+        block = extensions.get(namespace)
+        if isinstance(block, dict):
+            return block
+    return {}
 
 
 def config_fingerprint(plugin: dict) -> str:
@@ -332,7 +349,7 @@ def main() -> int:
             except Exception as exc:  # noqa: BLE001
                 findings.append(f"mirror {mirror_dir.name}: unreadable plugin.json ({exc})")
                 continue
-            ext = (data.get("extensions") or {}).get("io.github.personaljarvis", {})
+            ext = _extension_block(data)
             auth = ext.get("auth", {}) if isinstance(ext.get("auth"), dict) else {}
             if not auth:
                 continue

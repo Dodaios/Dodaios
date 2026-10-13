@@ -33,7 +33,7 @@ noted at the end.
 | 4 | `plugin_json.$schema` must equal the Agent Plugins v1.0.0 URL exactly | `validate_plugin` | not checked |
 | 5 | `plugin_json.name` must equal the submission name | `validate_plugin` | not checked |
 | 6 | `plugin_json.description` is **required** (not just length-capped) | `validate_plugin` | length checked only when present |
-| 7 | `extensions["io.github.personaljarvis"]` is required | `validate_plugin` | not checked |
+| 7 | `extensions["io.github.personaljarvis"]` is required (the namespace's earlier name; see "The extension namespace" below) | `validate_plugin` | not checked |
 | 8 | `native_tool` is refused (repo-contributed code, not publishable) | `validate_plugin` | not checked |
 | 9 | `auth.mode` must be one of the five known modes | `AUTH_MODES` | not checked |
 | 10 | `mcp_auth_header_template` needs a `$plugin_…` placeholder and may embed no literal credential | `validate_plugin` | not checked |
@@ -64,6 +64,62 @@ merge, but the credential is in the repository's history from that moment.
 The registry repo is private today, which contains the blast radius. It is
 scheduled to be reopened once the login path is green (spec §8 step 5), so
 this should close before that happens.
+
+## The extension namespace
+
+The app writes `io.github.dodaios` and reads that namespace and its earlier
+name `io.github.personaljarvis` alike
+(`jarvis/marketplace/agent_plugins_loader.py`: `EXTENSION_NAMESPACES`,
+`extension_of`). The registry does not yet:
+
+| Registry file | Today | Effect of a manifest that uses only `io.github.dodaios` |
+|---|---|---|
+| `scripts/validate.py` (`EXTENSION_NAMESPACE`, `validate_plugin`) | requires `extensions["io.github.personaljarvis"]` | rule 7 fails: the submission is refused |
+| `scripts/expand.py` (`EXTENSION_DIR`) | writes the usage card to `io.github.personaljarvis/usage-card.md` | none for the app: the card travels in the index as `usage_card` text |
+| `scripts/build_index.py` (`EXTENSION_DIR`) | reads the usage card from `io.github.personaljarvis/` | a package whose card sits only in `io.github.dodaios/` is indexed without it |
+| `scripts/export_rules.py` → `rules.json` | publishes one `extension_namespace` | a consumer of `rules.json` learns only the earlier name |
+
+So that publishing keeps working unchanged, a submission from the app carries
+its block under **both** keys, identical
+(`PUBLISHED_EXTENSION_NAMESPACES`, applied in `publish.validate_draft`). The
+registry validates the earlier key as it always has and ignores the new one;
+app versions released before the rename read the earlier key from the index;
+this version reads the new one. Because the two keys are validated by
+different parties, the app refuses a manifest whose two blocks differ.
+
+### What the registry needs, exactly
+
+In `Dodaios/marketplace`, in one change:
+
+1. `scripts/validate.py`: replace the single `EXTENSION_NAMESPACE` with
+   `EXTENSION_NAMESPACES = ("io.github.dodaios", "io.github.personaljarvis")`.
+   In `validate_plugin`, take the block from the first namespace present whose
+   value is an object, and fail rule 7 only when none is. When both are
+   present, require them to be equal (`==` on the parsed objects) and report
+   `plugin_json.extensions: the two namespace blocks must be identical`
+   otherwise. Every later rule (8, 9, 10) then runs on that one block.
+2. `scripts/expand.py`: write the usage card to
+   `io.github.dodaios/usage-card.md`. Leave an existing
+   `io.github.personaljarvis/usage-card.md` in place for packages already
+   expanded; do not rewrite published directories.
+3. `scripts/build_index.py`: read the usage card from
+   `io.github.dodaios/usage-card.md`, falling back to
+   `io.github.personaljarvis/usage-card.md`.
+4. `scripts/export_rules.py`: add `extension_namespaces` (the tuple above) to
+   `rules.json` and keep `extension_namespace` with its current value, so a
+   consumer that reads the old field keeps working.
+5. Tests next to the validator: a plugin under each namespace alone passes; a
+   plugin under both with equal blocks passes; under both with different
+   blocks fails; under neither fails rule 7.
+6. Do **not** rewrite the `plugin.json` of any published package, and do not
+   change any published name: the index is a wire contract, and app versions
+   released before the rename read `io.github.personaljarvis` from it.
+
+Once that is live, the app can stop sending the copy by setting
+`PUBLISHED_EXTENSION_NAMESPACES` to the current namespace only. From then on
+a newly published plugin is no longer installable by an app version released
+before the rename, which is the point at which that support ends; nothing
+else depends on the copy.
 
 ## The fix that stops it recurring
 
