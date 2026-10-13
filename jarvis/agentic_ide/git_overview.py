@@ -75,10 +75,12 @@ SLOW_READ_S = 2.0
 # part alone is well inside it.
 #
 # The checks behind each pull request's verdict are the slow part by far, so
-# the pull requests are asked twice: once with the verdict alone, which is on
-# screen in about two seconds, and once with the checks, which follow.
+# the pull requests are asked twice: once with the verdict and GitHub's own
+# tally of the checks, which is on screen in about two seconds, and once with
+# the checks themselves (their names and runs), which follow.
 
-#: Every open pull request with the CI verdict of its newest commit, no checks.
+#: Every open pull request with the CI verdict of its newest commit and how
+#: many checks passed, failed and run — no single check.
 _OPEN_QUICK_QUERY = """
 query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
@@ -86,7 +88,7 @@ query($owner: String!, $name: String!) {
     pullRequests(first: 50, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) {
       nodes {
         ...PullRequestRow
-        commits(last: 1) { nodes { commit { oid statusCheckRollup { state } } } }
+        commits(last: 1) { nodes { commit { oid statusCheckRollup { ...Tally } } } }
       }
     }
   }
@@ -159,6 +161,17 @@ fragment Rollup on StatusCheckRollup {
       }
       ... on StatusContext { context state targetUrl }
     }
+  }
+}
+"""
+
+_TALLY_FRAGMENT = """
+fragment Tally on StatusCheckRollup {
+  state
+  contexts(first: 1) {
+    totalCount
+    checkRunCountsByState { state count }
+    statusContextCountsByState { state count }
   }
 }
 """
@@ -400,6 +413,8 @@ def ci_from_rollup(rollup: dict[str, Any] | None, commit: str = "") -> CiStatus:
         else:
             ci.pending += 1
             pending_url = pending_url or url
+    if not ci.total:
+        _tally(ci, contexts)
     rollup_state = str(rollup.get("state") or "").upper()
     if ci.failed or rollup_state in {"FAILURE", "ERROR"}:
         ci.state = "failure"
@@ -416,6 +431,33 @@ def ci_from_rollup(rollup: dict[str, Any] | None, commit: str = "") -> CiStatus:
     ci.names = (failed_names or running_names)[:MAX_CHECK_NAMES]
     ci.url = failed_url or running_url or pending_url or first_url
     return ci
+
+
+def _tally(ci: CiStatus, contexts: dict[str, Any]) -> None:
+    """Counts from GitHub's own tally, for an answer that carries no single check."""
+    for entry in contexts.get("checkRunCountsByState") or []:
+        if not isinstance(entry, dict):
+            continue
+        state, count = str(entry.get("state") or "").upper(), int(entry.get("count") or 0)
+        if state in _PASSED:
+            ci.passed += count
+        elif state == "IN_PROGRESS":
+            ci.running += count
+        elif state in _QUEUED:
+            ci.pending += count
+        else:
+            ci.failed += count
+    for entry in contexts.get("statusContextCountsByState") or []:
+        if not isinstance(entry, dict):
+            continue
+        state, count = str(entry.get("state") or "").upper(), int(entry.get("count") or 0)
+        if state == "SUCCESS":
+            ci.passed += count
+        elif state in {"FAILURE", "ERROR"}:
+            ci.failed += count
+        else:
+            ci.pending += count
+    ci.total = ci.passed + ci.failed + ci.running + ci.pending
 
 
 def _pr_state(node: dict[str, Any]) -> str:
@@ -533,8 +575,9 @@ def _fetch_github(
     """GitHub's answer for ``repo``.
 
     ``early`` is handed a first answer as soon as the quick parts are in: every
-    pull request with its CI verdict and every branch, without the checks
-    behind a verdict and without CI for a branch that has no pull request.
+    pull request with its CI verdict and check counts and every branch, without
+    the names and runs of the checks and without CI for a branch that has no
+    pull request.
     """
     now = time.time()
     owner, _, name = repo.partition("/")
@@ -546,7 +589,7 @@ def _fetch_github(
         except github_link.GitHubError as exc:  # handed back to the caller below
             return exc
 
-    quick_job = git_local.Job(ask, _OPEN_QUICK_QUERY + _PR_FRAGMENT)
+    quick_job = git_local.Job(ask, _OPEN_QUICK_QUERY + _PR_FRAGMENT + _TALLY_FRAGMENT)
     open_job = git_local.Job(ask, _OPEN_QUERY + _PR_FRAGMENT + _ROLLUP_FRAGMENT)
     recent_job = git_local.Job(ask, _RECENT_QUERY + _PR_FRAGMENT)
     refs_job = git_local.Job(ask, _REFS_CI_QUERY + _ROLLUP_FRAGMENT)
@@ -608,19 +651,26 @@ def _snapshot(
 def _keep_details(first: _GitHubSnapshot, last: _GitHubSnapshot) -> None:
     """Fill the quick answer from the last full one wherever nothing moved.
 
-    The quick answer has each pull request's verdict but not the checks behind
-    it, and no CI at all for a branch without a pull request. For a commit the
-    last full answer already covered, what it said is still the best there is.
+    The quick answer has each pull request's verdict and check counts but not
+    which checks failed or run, and no CI at all for a branch without a pull
+    request. For a commit the last full answer already covered, what it said
+    is still the best there is.
     """
-    # A verdict alone cannot tell "running" from "waiting to start".
+    # A verdict without counts cannot tell "running" from "waiting to start".
     coarse = {"running": "pending"}
     known = {pr.number: pr.ci for pr in last.prs}
     for pr in first.prs:
         old = known.get(pr.number)
-        if old is None or not old.total or old.commit != pr.ci.commit:
+        if old is None or old.commit != pr.ci.commit:
             continue
-        if coarse.get(old.state, old.state) == coarse.get(pr.ci.state, pr.ci.state):
-            pr.ci = old
+        if coarse.get(old.state, old.state) != coarse.get(pr.ci.state, pr.ci.state):
+            continue
+        if not pr.ci.total:
+            pr.ci = old  # a bare verdict: the last answer says more in every way
+            continue
+        # The counts are newer; which checks they are comes from the last answer.
+        pr.ci.names = old.names
+        pr.ci.url = old.url or pr.ci.url
     for name, (oid, ci) in list(first.refs.items()):
         old_ref = last.refs.get(name)
         if old_ref is not None and old_ref[0] == oid and ci.state == "none":
