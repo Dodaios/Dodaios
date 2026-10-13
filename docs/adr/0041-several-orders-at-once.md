@@ -94,6 +94,13 @@ A stop word cancels every running background task. `task_status` lists the
 tasks of the call with their request, state and a shortened result without
 pictures, and stops one by id.
 
+The same call is the one board of everything running for the user. Besides this
+call's tasks it reads every open coding agent with its workspace's git state, the
+missions that have not ended and the agent team, each through the gated tool the
+model could call itself, and names what is waiting for the user in `needs_you`.
+A source the install does not have is left out; one that fails says so in its own
+section. `scope: call` returns only this call's tasks.
+
 ### 4. Chat: a turn that only waits hands its seat to the next message
 
 On Dodaios' own chat (surface `jarvis`), a turn whose model work is done and

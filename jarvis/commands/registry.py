@@ -418,7 +418,11 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "The ONLY way to make an agent do something on a schedule (daily briefing, "
                 "weekly report, every morning at 8). Never use create-skill for this. The "
                 "prompt is the complete task the agent runs each time: sources, steps, "
-                "output. Speak the returned next_run; on timezone_required ask the user."
+                "output. For a routine that watches something, write into the prompt that "
+                "the agent stays quiet while nothing changed and reports only a real change, "
+                "a completion, a failure or something the user must do, unless the user "
+                "asked for regular updates. Speak the returned next_run; on "
+                "timezone_required ask the user."
             ),
             # Not dangerous: the user ordered it, and a routine is paused or
             # deleted in one step (a second spoken yes was a live complaint).
@@ -1049,9 +1053,22 @@ def _build_registry() -> tuple[AppCommand, ...]:
         AppCommand(
             id="missions-list",
             title="List missions",
-            description="List Jarvis-Agent missions and their status.",
+            description=(
+                "List Jarvis-Agent missions and their status, newest first. Set active "
+                "to see only the ones that have not ended yet."
+            ),
             method="GET",
             path="/api/missions",
+            params={"type": "object", "properties": {
+                "active": {
+                    "type": "boolean",
+                    "description": "Only missions still pending, running or waiting.",
+                },
+                "limit": {
+                    "type": "integer", "minimum": 1, "maximum": 100,
+                    "description": "How many missions to return (default 100).",
+                },
+            }},
             worker_allowed=True,
             ui_section="agents",
             voice_aliases={

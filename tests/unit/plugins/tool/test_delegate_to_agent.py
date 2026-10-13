@@ -147,6 +147,20 @@ async def test_status_answers_from_the_board(runtime):
     assert unknown.success is False
 
 
+async def test_status_board_gives_one_short_row_per_agent(runtime):
+    rt, _ = runtime
+    status = SocietyStatusTool(runtime_resolver=lambda: rt)
+    delegate = DelegateToAgentTool(runtime_resolver=lambda: rt)
+    await delegate.execute({"agent": "scout", "task": "Find the best VPS."}, _ctx("let scout"))
+    board = await status.execute({"board": True}, _ctx("what is everyone doing"))
+    assert board.success
+    rows = {row["agent"]: row for row in board.output["agents"]}
+    assert set(rows) == {"Archivist", "Scout"}  # the lead is not a row of its own board
+    assert rows["Scout"]["state"] == "working" and "VPS" in rows["Scout"]["task"]
+    assert rows["Scout"]["latest"]
+    assert rows["Archivist"] == {"agent": "Archivist", "state": "idle"}
+
+
 # --------------------------------------------------------------- the lead picks
 
 

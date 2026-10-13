@@ -19,7 +19,8 @@ from typing import Final
 #: which has a byte budget (``jarvis.live.tools._CATALOG_BYTE_BUDGET``).
 AGENT_BRIEF_RULE: Final[str] = (
     "Write the brief as a work order the agent completes on its own: find the cause, "
-    "make the change, verify it, then report what changed. 'Check', 'look into', "
+    "make the change, verify it, then report back what changed, where things stand "
+    "and any decision the user has to make; when blocked, report that too. 'Check', 'look into', "
     "'deep dive' or 'audit' include fixing what is found. Never add read-only, "
     "no-changes or report-only limits yourself; use them only when the user "
     "explicitly asked just for analysis, a plan or an answer. Let the agent decide "
