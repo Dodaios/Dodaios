@@ -29,7 +29,7 @@ const SKILL: CommunitySkillWire = {
   publisher: "octocat",
   version: "1.0.0",
   categories: ["productivity"],
-  source_url: "https://github.com/PersonalJarvis/marketplace",
+  source_url: "https://github.com/Dodaios/marketplace",
   raw_url: "https://raw.example/skills/three-point-check/SKILL.md",
   installed: false,
 };
@@ -125,7 +125,7 @@ describe("the install command inside the consent dialog", () => {
 
     expect(
       screen.getByText(
-        "npx skills add PersonalJarvis/marketplace --skill three-point-check",
+        "npx skills add Dodaios/marketplace --skill three-point-check",
         { exact: false },
       ),
     ).toBeDefined();

@@ -34,6 +34,7 @@ from jarvis.tasks.schema import (
     WorkflowAction,
 )
 
+from .display_name import display_name
 from .roster import AgentRecord
 
 #: Appended to a routine whose prompt asks for an artifact. The build runs in
@@ -218,8 +219,9 @@ def next_run_readback(due_at_ns: int | None, timezone: str | None) -> str | None
 
 def _routine_prompt(agent: AgentRecord, prompt: str) -> str:
     lines = [
-        f"You are {agent.name}" + (f", {agent.title}" if agent.title else "") + ",",
-        "an agent in the user's agent society led by Jarvis, running a scheduled routine.",
+        # Stored with the routine, so it names no lead: that name follows the wake word.
+        f"You are {display_name(agent)}" + (f", {agent.title}" if agent.title else "") + ",",
+        "an agent in the user's agent society, running a scheduled routine.",
     ]
     if agent.description.strip():
         lines += ["", "Standing instructions:", agent.description.strip()]

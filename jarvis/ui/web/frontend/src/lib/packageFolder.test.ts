@@ -43,6 +43,27 @@ describe("folderToDraft — the folder is the classification (publishing-plan.md
     expect(draft.warnings).toEqual([]);
   });
 
+  it.each(["io.github.dodaios", "io.github.personaljarvis"])(
+    "reads the usage card from the %s directory",
+    async (namespace) => {
+      const draft = await folderToDraft([
+        namedFile("plugin.json", PLUGIN_JSON),
+        namedFile(`${namespace}/usage-card.md`, "Use it for tasks."),
+      ]);
+      expect(draft.usage_card).toBe("Use it for tasks.");
+      expect(draft.files).toContain(`${namespace}/usage-card.md`);
+    },
+  );
+
+  it("takes the current directory's usage card when a package has both", async () => {
+    const draft = await folderToDraft([
+      namedFile("plugin.json", PLUGIN_JSON),
+      namedFile("io.github.personaljarvis/usage-card.md", "earlier"),
+      namedFile("io.github.dodaios/usage-card.md", "current"),
+    ]);
+    expect(draft.usage_card).toBe("current");
+  });
+
   it('warns when an mcp.json server has no "type" — the store requires it', async () => {
     const draft = await folderToDraft([
       namedFile("plugin.json", PLUGIN_JSON),

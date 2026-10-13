@@ -4195,7 +4195,7 @@ async def codex_login(request: Request) -> dict[str, Any]:
 
 @router.post("/codex/subscription-voice/login")
 async def codex_subscription_voice_login(request: Request) -> dict[str, Any]:
-    """Start Codex's own login in Jarvis's isolated voice profile."""
+    """Start Codex's own login in Dodaios's isolated voice profile."""
     from jarvis.codex_app_server import (
         CodexSubscriptionUnavailable,
         start_codex_subscription_login,

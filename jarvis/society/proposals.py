@@ -29,6 +29,7 @@ from typing import Any, Final
 
 from .approvals import Approval
 from .capabilities import CapabilityRow
+from .display_name import display_name
 from .events import ApprovalState
 from .failure_reasons import FailureReason
 from .roster import AgentRecord, RosterError, _validate_name
@@ -318,7 +319,7 @@ def proposal_notice(agent: AgentRecord, item: Approval) -> dict[str, Any]:
         "reason": str(action.get("reason") or ""),
         "status": "pending",
         "agent_id": agent.agent_id,
-        "agent_name": agent.name,
+        "agent_name": display_name(agent),
         "text": item.summary,
     }
 
@@ -338,7 +339,7 @@ def resolved_notice(
         "status": status,
         "text": text,
         "agent_id": agent.agent_id,
-        "agent_name": agent.name,
+        "agent_name": display_name(agent),
     }
     if previous is not None:
         # What an undo restores (identity only): the fields as they were.
