@@ -40,6 +40,7 @@ from .approval_surface import (
     UNATTENDED,
     resolve_approval_surface,
 )
+from .origin import OriginLedger, TargetOrigin, classify_targets
 from .risk_tier import ActionBlocked, RiskTierEvaluator
 
 if TYPE_CHECKING:
@@ -116,6 +117,10 @@ class ToolExecutor:
         # (user said "ja") or ``cancel_pending`` (user said "nein"). The tool +
         # args live here OUT-OF-BAND — never in the serialized ToolResult.output.
         self._pending_voice: dict[UUID, tuple[Tool, dict[str, Any]]] = {}
+        # ADR-0040, record only: the addressable values tool results held, per
+        # trace, so a call's target can be told apart by where it came from.
+        # Kept here because this is the one entry point every tool call takes.
+        self._origins = OriginLedger()
 
     #: The longest a surface may keep an approval open, whatever it asks for.
     MAX_APPROVAL_TIMEOUT_S = 900.0
@@ -175,6 +180,29 @@ class ToolExecutor:
             wake_age_s=wake_age,
             config=self._plausibility_config,
         )
+
+    def _target_origin(
+        self, tool: Tool, args: dict[str, Any], tid: UUID, user_utterance: str
+    ) -> TargetOrigin:
+        """Where this call's target came from. Never decides anything and never
+        raises: a classification that fails is an empty record, not a failed
+        call."""
+        try:
+            return classify_targets(
+                tool, args, ledger=self._origins, trace=str(tid), user_text=user_utterance
+            )
+        except Exception as exc:  # noqa: BLE001 — a record must never cost the call
+            log.debug("target-origin classification failed for %s: %s", tool.name, exc)
+            return TargetOrigin()
+
+    def _record_result_origin(
+        self, tool: Tool, tid: UUID, result: ToolResult, args: dict[str, Any]
+    ) -> None:
+        """Remember the addressable values a tool result held (best effort)."""
+        try:
+            self._origins.record(str(tid), tool, result.output, args)
+        except Exception as exc:  # noqa: BLE001 — a record must never cost the call
+            log.debug("origin ledger could not read the result of %s: %s", tool.name, exc)
 
     async def publish_guard_denied(
         self,
@@ -300,6 +328,11 @@ class ToolExecutor:
             ))
             return ToolResult(success=False, output=None, error=str(exc))
 
+        # Where the call's target came from (ADR-0040, record only). Settled
+        # here, before an approval ticket exists, so nothing but the publish
+        # sits between arming it and ``ActionProposed``.
+        origin = self._target_origin(tool, args, tid, user_utterance)
+
         # 2. Plausibility check (Phase 4): the result can force confirmation
         # even when the tier workflow does not (for example, ``monitor``).
         plaus = self._evaluate_plausibility(tool, decision)
@@ -372,6 +405,9 @@ class ToolExecutor:
                 args=args,
                 risk_tier=decision.tier,
                 rationale=safe_preview(rationale),
+                effect=origin.effect,
+                target_origin=origin.origin,
+                origin_source=origin.source,
             ))
         except BaseException:
             if approval_ticket is not None:
@@ -409,6 +445,9 @@ class ToolExecutor:
                     approval_ref=_optional_string(
                         (config_snapshot or {}).get("approval_ref")
                     ),
+                    effect=origin.effect,
+                    target_origin=origin.origin,
+                    origin_source=origin.source,
                 )
             )
             # Scoped authorizers have the first decision, including explicit
@@ -541,6 +580,7 @@ class ToolExecutor:
             ))
             return ToolResult(success=False, output=None, error=str(exc))
 
+        self._record_result_origin(tool, tid, result, args)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=tid,
@@ -603,6 +643,7 @@ class ToolExecutor:
                 error=str(exc),
             ))
             return ToolResult(success=False, output=None, error=str(exc))
+        self._record_result_origin(tool, trace_id, result, args)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=trace_id,

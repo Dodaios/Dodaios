@@ -62,6 +62,8 @@ _PANE_ACTIONS = frozenset({"observe", "respond", "keys", "interrupt", "restart",
 # types nothing; restart brings the same pane back on its own conversation.
 _STOPPED = frozenset({"exited", "error"})
 _WORKSPACE_ACTIONS = frozenset({"open_workspace", "restore", "show"})
+# How much of an agent's last prompt the status board repeats.
+_STATUS_JOB_CHARS = 200
 # How many times one request may be re-attempted after receipts proving that
 # nothing was typed (the pane was busy, closed, or not a coding pane).
 _REFUSED_ATTEMPTS = 20
@@ -237,6 +239,20 @@ def _assignment(args: dict) -> str:
     return json.dumps([str(args.get("prompt") or "").strip(), args.get("image_refs", [])])
 
 
+def _git_brief(folder: str) -> dict[str, Any] | None:
+    """A workspace folder's git state for the status board; None when there is none."""
+    from . import git_ops
+
+    try:
+        return git_ops.brief(folder)
+    except (git_ops.GitError, OSError) as exc:
+        from loguru import logger
+
+        # The board still answers for the agents; only this folder's git row is missing.
+        logger.debug("Workspace status: no git state for {}: {}", folder, exc)
+        return None
+
+
 class WorkspaceOrchestrator:
     """One graph for Live discovery, explicit resolution and scoped delivery."""
 
@@ -315,16 +331,20 @@ class WorkspaceOrchestrator:
             ),
         }
 
-    def inspect(self, args: dict[str, Any]) -> dict[str, Any]:
-        """Read current task and transcript evidence only for the requested scope."""
+    def _scoped(self, args: dict[str, Any]) -> dict[str, Any]:
+        """The graph narrowed to the workspace or project a request names.
+
+        A reference that matches nothing comes back as the reply saying so,
+        which carries no ``projects``.
+        """
         graph = self.graph()
         if args.get("workspace") or args.get("workspace_id"):
             picked = self._workspace(args, graph, "")
             if isinstance(picked, dict):
                 return picked
             project, workspace = picked
-            graph = {**graph, "projects": [{**project, "workspaces": [workspace]}]}
-        elif args.get("project") or args.get("project_id"):
+            return {**graph, "projects": [{**project, "workspaces": [workspace]}]}
+        if args.get("project") or args.get("project_id"):
             reference = str(args.get("project_id") or args["project"])
             projects = (
                 [p for p in graph["projects"] if p["id"] == reference]
@@ -334,7 +354,136 @@ class WorkspaceOrchestrator:
             )
             if not projects:
                 return self._choice("project", [], graph, unmatched=reference)
-            graph = {**graph, "projects": projects}
+            return {**graph, "projects": projects}
+        return graph
+
+    async def status(self, args: dict[str, Any]) -> dict[str, Any]:
+        """One compact row per open coding agent, with each workspace's git state.
+
+        The answer to "what is running, what is done, who needs me": no
+        transcript is read, so it stays cheap across every workspace.
+        """
+        graph = await asyncio.to_thread(self._scoped, args)
+        if "projects" not in graph:
+            return graph
+        now = time.time()
+        counts: dict[str, int] = {}
+        needs_you: list[str] = []
+        rows: list[dict[str, Any]] = []
+        closed = 0
+        for project in graph["projects"]:
+            for workspace in project["workspaces"]:
+                owner = self.registry.get(workspace["id"])
+                if owner is None:
+                    closed += 1
+                    continue
+                watched = {
+                    "pane:" + term.history_id
+                    for term in owner.terminals
+                    if getattr(getattr(term, "delegation_result", None), "watched", False)
+                }
+                agents = []
+                for agent in workspace["agents"]:
+                    state = agent["availability"]
+                    counts[state] = counts.get(state, 0) + 1
+                    if state in {"needs_input", "needs_attention"}:
+                        needs_you.append(f"{agent['name']} ({workspace['name']})")
+                    since = float(agent.get("activity_since") or 0)
+                    agents.append({
+                        "terminal_id": agent["id"],
+                        "name": agent["name"],
+                        "cli": agent["agent"],
+                        "state": state,
+                        **({"for_seconds": round(max(0.0, now - since))} if since else {}),
+                        **({"title": agent["title"]} if agent.get("title") else {}),
+                        **({"job": " ".join(agent["last_prompt"].split())[:_STATUS_JOB_CHARS]}
+                           if agent.get("last_prompt") else {}),
+                        **({"watched": True} if agent["id"] in watched else {}),
+                    })
+                rows.append({
+                    "project_id": project["id"],
+                    "project": project["name"],
+                    "workspace_id": workspace["id"],
+                    "workspace": workspace["name"],
+                    "folder": workspace["folder"],
+                    "visible": bool(workspace.get("active")),
+                    "agents": agents,
+                })
+        states = await asyncio.gather(
+            *(asyncio.to_thread(_git_brief, row["folder"]) for row in rows)
+        )
+        for row, git in zip(rows, states, strict=True):
+            row.pop("folder")
+            if git is not None:
+                row["git"] = git
+        return {
+            "status": "ok",
+            "counts": counts,
+            "needs_you": needs_you,
+            "workspaces": rows,
+            **({"closed_workspaces": closed} if closed else {}),
+            "note": (
+                "busy = in a turn; needs_input = showing a question; idle = its conversation "
+                "is waiting; empty = unused; needs_attention = stopped, failed or exited. "
+                "A finished turn says nothing about whether the work is correct. observe one "
+                "agent for what it wrote; git counts uncommitted files per workspace folder."
+            ),
+        }
+
+    async def watch(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Report back when the named agent ends the job it is working on now.
+
+        For work the user started by hand: a brief sent through this
+        orchestrator is already followed without asking.
+        """
+        from jarvis.core.delegation import current_delegation_origin
+
+        from . import followthrough
+
+        picked = await self._pane(args)
+        if isinstance(picked, dict):
+            return picked
+        _owner, term, target = picked
+        state = snapshot(term)["availability"]
+        reply = {"target": target, "agent": term.name, "state": state}
+        tracked = getattr(term, "delegation_result", None)
+        if tracked is not None and followthrough.current(term, tracked):
+            return {
+                **reply, "status": "watching", "already": True,
+                "reason": "Its result is already on its way to this conversation when it stops.",
+            }
+        if state != "busy":
+            return {
+                **reply, "status": "not_running",
+                "reason": "That agent is not in a turn, so there is nothing to wait for. "
+                          "Its state is above; observe it for what it wrote.",
+            }
+        origin = current_delegation_origin.get() or {}
+        if origin.get("reply_surface") not in {"voice", "chat"}:
+            return {
+                **reply, "status": "unavailable",
+                "reason": "No conversation to report back to; nothing is watched.",
+            }
+        if not followthrough.can_report(term):
+            return {
+                **reply, "status": "unavailable",
+                "reason": "This agent's CLI keeps no local record its completion can be read "
+                          "from, so its end cannot be reported. Nothing is watched; use status "
+                          "to look again.",
+            }
+        await followthrough.watch(term, origin)
+        return {
+            **reply, "status": "watching",
+            "reason": "Its result is handed to this conversation when it stops or asks. Tell "
+                      "the user it is being watched, never that it is done, and do not poll. A "
+                      "new prompt typed into that agent ends the watch.",
+        }
+
+    def inspect(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Read current task and transcript evidence only for the requested scope."""
+        graph = self._scoped(args)
+        if "projects" not in graph:
+            return graph
         for project in graph["projects"]:
             for workspace in project["workspaces"]:
                 owner = self.registry.get(workspace["id"])
@@ -1241,7 +1390,7 @@ class WorkspaceOrchestrator:
         created = {a["terminal_id"] for a in (creation or {}).get("agents", [])}
         to_created = action == "send" and str(args.get("terminal_id") or "") in created
         if (args.get("_requires_new") or creation) and not to_created and action not in {
-            "inspect", "create", "open_workspace", "context", "observe",
+            "inspect", "create", "open_workspace", "context", "observe", "status", "watch",
         }:
             # A NEW request cannot borrow an idle pane for its new task, but it
             # may also carry independent work for an agent the user NAMED
@@ -1280,6 +1429,11 @@ class WorkspaceOrchestrator:
             return self.resolve(args, graph)
         if action == "create":
             return await self.create(args, trace_id=trace_id)
+        if action in {"status", "watch"}:
+            from . import task_state
+
+            await task_state.refresh(self.registry)
+            return await (self.status(args) if action == "status" else self.watch(args))
         if action in _PANE_ACTIONS:
             return await self.pane_action(args)
         if action in _WORKSPACE_ACTIONS:

@@ -1324,6 +1324,11 @@ def _payload_for(event: Event) -> dict[str, Any]:
         # Run Inspector: decision-path + latency + error fields (2026-06-17).
         "intent",        # IntentClassified.intent
         "risk_tier",     # IntentClassified / ActionProposed
+        # ADR-0040: where an action's target came from. A class and a tool
+        # name, never the address itself, so persisting them raw is safe.
+        "effect",
+        "target_origin",
+        "origin_source",
         "approved_by",   # ActionApproved
         "reason",        # ActionDenied
         "phase",         # LatencySpan
@@ -1394,6 +1399,10 @@ def _payload_for(event: Event) -> dict[str, Any]:
         if k == "transcript" and v is not None:
             payload["text"] = getattr(v, "text", "")
             payload["lang"] = getattr(v, "language", "")
+            continue
+        # A call without a target carries empty origin fields; a row per
+        # tool call that says nothing three times is noise.
+        if v == "" and k in ("effect", "target_origin", "origin_source"):
             continue
         payload[k] = v
     # ActionProposed.args may hold PII (an email body / recipient, a search

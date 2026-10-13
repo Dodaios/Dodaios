@@ -7,12 +7,13 @@ needs for that is stated by the tree itself in ``install/update-contract.json``,
 so a release may move its package, its launcher or its config file and still be
 reachable from the version before it.
 
-A tree without the file — every release before the file existed — is described
-by :data:`DEFAULT_CONTRACT`, which holds exactly the locations those releases
-use. The same answer is given for a file this version cannot trust: an unknown
-schema, malformed JSON, or a value that is not a plain relative location.
-Falling back is the fail-closed choice: the update then looks for the UI bundle
-in the default place, does not find it, and rolls back to the previous revision.
+A tree that states nothing is described by :data:`DEFAULT_CONTRACT`: the
+locations this version uses itself. Only a release from before the file existed
+states nothing, and an update never leads back to one. The same answer is given
+for a file this version cannot trust: an unknown schema, malformed JSON, or a
+value that is not a plain relative location. Falling back is the fail-closed
+choice: a release that moved its files is then looked for in the default place,
+is not found there, and the update rolls back to the previous revision.
 
 Standard library only and no I/O at import time — the restart helper loads this
 module, and it must stay a throwaway process.
