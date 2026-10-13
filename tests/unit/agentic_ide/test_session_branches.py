@@ -401,3 +401,120 @@ def test_detached_head_has_no_branch(repository):
     _git(repository, "checkout", "-q", "--detach", "HEAD")
 
     assert branches.pane_branch(branches.PaneBranchRecord("t1", "h", str(repository))) is None
+
+
+# --- a session that worked on several branches ---
+
+
+def _listed(monkeypatch, tmp_path, created, worked, current="current", gone=()):
+    folder = str(tmp_path)
+    monkeypatch.setattr(
+        branches,
+        "_own_branch",
+        lambda _: branches.PaneBranch(current, folder, 30) if current else None,
+    )
+    monkeypatch.setattr(
+        branches,
+        "_creations_of",
+        lambda _: iter(
+            [
+                branches.CreatedBranch(name, folder, at, confirmed=name not in gone)
+                for name, at in created
+            ]
+        ),
+    )
+    monkeypatch.setattr(branches, "_worked", lambda _: iter(worked))
+    monkeypatch.setattr(branches, "_checked_out", lambda _: branches.PaneBranch("main", folder))
+    return branches.pane_branches(branches.PaneBranchRecord("t1", "history", folder))
+
+
+def test_session_lists_its_other_branches_newest_first(monkeypatch, tmp_path):
+    listed = _listed(
+        monkeypatch,
+        tmp_path,
+        created=[("current", 30), ("created-early", 10)],
+        worked=[("current", 40), ("created-early", 25), ("only-worked", 20)],
+    )
+
+    assert [entry.branch for entry in listed] == ["current", "created-early", "only-worked"]
+    # The creation time survives: it tells this branch's pull request from an older one.
+    assert listed[1].created_at == 10
+    assert listed[2].created_at == 0
+
+
+def test_branch_list_is_capped(monkeypatch, tmp_path):
+    created = [(f"branch-{index}", index) for index in reversed(range(20))]
+
+    listed = _listed(monkeypatch, tmp_path, created=created, worked=[])
+
+    assert len(listed) == branches.MAX_PANE_BRANCHES
+    assert [entry.branch for entry in listed[:3]] == ["current", "branch-19", "branch-18"]
+
+
+def test_deleted_branch_is_listed_as_unproven(monkeypatch, tmp_path):
+    listed = _listed(monkeypatch, tmp_path, created=[("deleted", 10)], worked=[], gone={"deleted"})
+
+    assert [(entry.branch, entry.unproven) for entry in listed] == [
+        ("current", False),
+        ("deleted", True),
+    ]
+
+
+def test_finished_branches_stand_in_front_of_the_checked_out_default(monkeypatch, tmp_path):
+    listed = _listed(
+        monkeypatch, tmp_path, created=[("deleted", 10)], worked=[], current="", gone={"deleted"}
+    )
+
+    assert [entry.branch for entry in listed] == ["deleted"]
+
+
+def test_session_without_a_branch_of_its_own_gets_the_checked_out_one(monkeypatch, tmp_path):
+    listed = _listed(monkeypatch, tmp_path, created=[], worked=[], current="")
+
+    assert [entry.branch for entry in listed] == ["main"]
+
+
+def test_pull_request_opened_inside_the_creating_call_still_counts(monkeypatch, tmp_path):
+    folder = str(tmp_path)
+    monkeypatch.setattr(branches, "_own_branch", lambda _: None)
+    monkeypatch.setattr(
+        branches,
+        "_creations_of",
+        lambda _: iter([branches.CreatedBranch("one-call", folder, 90, called_at=50)]),
+    )
+    monkeypatch.setattr(branches, "_worked", lambda _: iter([]))
+
+    (listed,) = branches.pane_branches(branches.PaneBranchRecord("t1", "history", folder))
+
+    assert listed.created_at == 50
+
+
+def test_heredoc_does_not_hide_the_branch_creation_before_it(tmp_path):
+    command = (
+        "git switch -c claude/topic origin/main\ncat >> notes.md <<'EOF'\nthe pane's note\nEOF"
+    )
+
+    found = branches.created_by_command(command, str(tmp_path))
+
+    assert [entry.branch for entry in found] == ["claude/topic"]
+
+
+def test_deleted_branch_is_passed_on_unconfirmed_and_a_foreign_one_never(repository, monkeypatch):
+    now = time.time()
+    _git(repository, "branch", "foreign")
+    events = [
+        *timed("git switch -c deleted | tail -1", "", started=now - 20, ended=now - 19),
+        *timed(
+            "git switch -c foreign | tail -1",
+            "",
+            started=now + 3600,
+            ended=now + 3601,
+            identity="later",
+        ),
+    ]
+    record = _pane(repository, monkeypatch, events)
+
+    found = [(entry.branch, entry.confirmed) for entry in branches._creations_of(record)]
+
+    assert found == [("deleted", False)]
+    assert branches.owned_branch(record) is None

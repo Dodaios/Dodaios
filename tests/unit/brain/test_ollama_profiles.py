@@ -275,3 +275,36 @@ def test_every_knob_has_one_sentence() -> None:
     set_keys = [k for k in ("num_ctx", "num_gpu", "keep_alive") if getattr(opts, k) is not None]
     assert len(reasons) == 1 + 3  # the budget sentence + one per knob (placement always speaks)
     assert set_keys == ["num_ctx", "num_gpu", "keep_alive"]
+
+
+# ── automatic_context (a model the person set no context for) ────────────
+def test_the_automatic_window_never_drops_below_the_floor() -> None:
+    """Memory decides how far above the floor the window goes, never whether
+    the prompt fits at all: below it the app has no room for its tools."""
+    tokens, reason = profiles.automatic_context(
+        size_gb=6.0, native_context=262_144, accelerator_gb=0.0, ram_gb=8.0
+    )
+    assert tokens == profiles.AUTOMATIC_CONTEXT_FLOOR
+    assert "floor" in reason
+
+
+def test_the_automatic_window_stops_at_the_ceiling() -> None:
+    tokens, _ = profiles.automatic_context(
+        size_gb=2.0, native_context=262_144, accelerator_gb=48.0, ram_gb=64.0
+    )
+    assert tokens == profiles.AUTOMATIC_CONTEXT_CEILING
+
+
+def test_the_automatic_window_respects_a_small_native_window() -> None:
+    tokens, _ = profiles.automatic_context(
+        size_gb=4.0, native_context=8_192, accelerator_gb=24.0, ram_gb=64.0
+    )
+    assert tokens == 8_192
+
+
+def test_unreadable_size_and_memory_still_give_the_floor() -> None:
+    tokens, reason = profiles.automatic_context(
+        size_gb=None, native_context=None, accelerator_gb=0.0, ram_gb=None
+    )
+    assert tokens == profiles.AUTOMATIC_CONTEXT_FLOOR
+    assert "unreadable memory" in reason

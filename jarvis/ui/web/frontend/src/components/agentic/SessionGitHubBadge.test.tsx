@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { openExternalUrl } from "@/lib/openExternal";
 import { GitHubStatusBadge } from "./SessionGitHubBadge";
 import type { SessionGitHubStatus } from "./useSessionGitHub";
-import { PANE_BRAND } from "./terminalThemes";
+import { PANE_BRAND, PANE_CHROME } from "./terminalThemes";
 
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: vi.fn().mockResolvedValue(true) }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -117,5 +117,88 @@ describe("session GitHub link", () => {
   it("rejects invalid repository link metadata", () => {
     const { container } = render(<GitHubStatusBadge status={status({ repo: "evil.invalid/a/b" })} appearance="dark" />);
     expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("a session with several branches", () => {
+  const several = () => status({
+    branch: "claude/still-open", url: "https://github.com/owner/repo/pull/9", number: 9, state: "open",
+    others: [
+      status({ branch: "claude/merged", url: "https://github.com/owner/repo/pull/8", number: 8, state: "merged" }),
+      status({ branch: "claude/closed", url: "https://github.com/owner/repo/pull/7", number: 7, state: "closed" }),
+      status({ branch: "claude/local", published: false, state: "branch", number: null }),
+    ],
+  });
+
+  it("shows one symbol with the number of branches and keeps the list closed", () => {
+    render(<GitHubStatusBadge status={several()} appearance="dark" />);
+    const button = screen.getByRole("button", { name: /4 branches of this session, now owner\/repo · claude\/still-open/ });
+    expect(button.textContent).toBe("4");
+    expect(button.querySelectorAll("svg")).toHaveLength(1);
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByTestId("session-github-branches").hidden).toBe(true);
+  });
+
+  it("lists every branch with its state, the shown one first", () => {
+    render(<GitHubStatusBadge status={several()} appearance="dark" />);
+    fireEvent.click(screen.getByTestId("session-github-status"));
+    const menu = screen.getByTestId("session-github-branches");
+    expect(menu.hidden).toBe(false);
+    const rows = Array.from(menu.querySelectorAll("[role=menuitem]"));
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "claude/still-open#9 · Open pull request",
+      "claude/merged#8 · Pull request merged",
+      "claude/closed#7 · Closed without merging",
+      "claude/localNot on GitHub yet",
+    ]);
+    expect(rows[1].className).toContain("opacity-60");
+    expect(rows[0].className).not.toContain("opacity-60");
+  });
+
+  it("opens the chosen pull request and closes the list", () => {
+    const drag = vi.fn();
+    render(<div onPointerDown={drag} onClick={drag}><GitHubStatusBadge status={several()} appearance="dark" /></div>);
+    fireEvent.pointerDown(screen.getByTestId("session-github-status"));
+    fireEvent.click(screen.getByTestId("session-github-status"));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Open GitHub pull request #8/ }));
+    expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith("https://github.com/owner/repo/pull/8");
+    expect(screen.getByTestId("session-github-branches").hidden).toBe(true);
+    expect(drag).not.toHaveBeenCalled();
+  });
+
+  it("does not link a branch that is not on GitHub", () => {
+    render(<GitHubStatusBadge status={several()} appearance="dark" />);
+    fireEvent.click(screen.getByTestId("session-github-status"));
+    const local = screen.getByText("claude/local").closest("[role=menuitem]") as HTMLElement;
+    expect(local.tagName).toBe("DIV");
+    expect(local.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("closes on Escape and on a press outside", () => {
+    render(<GitHubStatusBadge status={several()} appearance="dark" />);
+    const button = screen.getByTestId("session-github-status");
+    const menu = screen.getByTestId("session-github-branches");
+    fireEvent.click(button);
+    fireEvent.keyDown(menu, { key: "Escape" });
+    expect(menu.hidden).toBe(true);
+    fireEvent.click(button);
+    fireEvent.pointerDown(document.body);
+    expect(menu.hidden).toBe(true);
+  });
+
+  it("drops a listed branch with invalid repository metadata", () => {
+    render(<GitHubStatusBadge status={status({ others: [status({ repo: "evil.invalid/a/b", branch: "x" })] })} appearance="dark" />);
+    expect(screen.getByRole("link")).toBeTruthy();
+    expect(screen.queryByTestId("session-github-branches")).toBeNull();
+  });
+
+  it.each(["light", "dark"] as const)("draws the list on the %s float step", (appearance) => {
+    render(<GitHubStatusBadge status={several()} appearance={appearance} />);
+    const reference = document.createElement("div");
+    reference.style.background = PANE_CHROME[appearance].float;
+    reference.style.color = PANE_BRAND[appearance].ink;
+    const menu = screen.getByTestId("session-github-branches");
+    expect(menu.style.background).toBe(reference.style.background);
+    expect(menu.style.color).toBe(reference.style.color);
   });
 });

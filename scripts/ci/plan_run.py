@@ -18,6 +18,9 @@ run has to prove, not what could be run:
            real runtimes and the real browser included). Nothing
            macOS-specific that a lane tests lands unproven, and the five
            slots are spent once per change, not once per push.
+           The whole Python suite on macOS is 27 runner-minutes: a group
+           runs the macOS tests its change can reach (select_tests.py), in
+           one job for an ordinary change.
 ``full``   Nightly, a release tag, a manual full dispatch. The wide matrix:
            Intel macOS, the ARM runners, every interpreter, the macOS test
            shards, and the Hermes install on Windows (14 to 23 minutes). A
@@ -101,6 +104,9 @@ def decide(
         # slots with every merge group: its matrices run one leg at a time
         # instead of queueing 22 macOS jobs ahead of everybody else's.
         "matrix_parallel": 1 if event == "schedule" else UNTHROTTLED,
+        # The macOS tests the change can reach (select_tests.py) run before it
+        # lands; the wide matrix runs the whole macOS suite instead.
+        "mac_impact": tier == "queue" and not macos,
     }
 
 
