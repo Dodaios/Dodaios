@@ -290,6 +290,11 @@ async def run_with_delegates(service: Any, handle: Any, prompt: str, run_attempt
                         rows = await gate.collect()
             except SeatYielded as yielded:
                 parked = yielded.rows
+                log.info(
+                    "agent chat %s: turn %s only waits for its delegates and makes room "
+                    "for the next message",
+                    handle.session.session_id, handle.turn_id,
+                )
                 # The closed turn says who is still working on its request.
                 gate.finish["payload"]["background"] = [
                     work.name for key, work in gate.work.items() if key not in gate.delivered
