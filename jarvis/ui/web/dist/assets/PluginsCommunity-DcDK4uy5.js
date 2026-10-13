@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-DcDK4uy5.js
 import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cx as T,B as y,cb as q,q as ee,S as te,L as $,ct as U,cu as K,x as ne}from"./index-B8EqKdQS.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-Bm6cENrC.js";import{S as se,C as re}from"./store-BAtSVjZ6.js";/**
+|||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/PluginsCommunity-6GxSF2l6.js
+import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cx as T,B as y,cb as q,q as ee,S as te,L as $,ct as U,cu as K,x as ne}from"./index-kUK78RJZ.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-2zXYk7Fg.js";import{S as se,C as re}from"./store-BuG69XZT.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cx as T,B as y,cb as q,q as ee,S as te,L as $,ct as U,cu as K,x as ne}from"./index-CXQfV28M.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-Dpsj1LDb.js";import{S as se,C as re}from"./store-D0CW4Pe5.js";/**
+>>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/PluginsCommunity-CIZVu_F5.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

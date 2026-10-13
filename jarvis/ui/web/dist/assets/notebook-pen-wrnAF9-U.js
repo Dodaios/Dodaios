@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/notebook-pen-wrnAF9-U.js
 import{c as a}from"./index-B8EqKdQS.js";/**
+|||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/notebook-pen-Cxil2yt1.js
+import{c as a}from"./index-kUK78RJZ.js";/**
+========
+import{c as a}from"./index-CXQfV28M.js";/**
+>>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/notebook-pen-31XmSzV6.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

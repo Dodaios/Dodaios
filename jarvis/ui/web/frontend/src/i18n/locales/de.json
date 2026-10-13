@@ -7536,6 +7536,33 @@
       "skipped_dirty": "{count} Dateien mit ungespeicherten Änderungen wurden ausgelassen; speichere sie zuerst.",
       "skipped_other": "{count} Dateien ließen sich nicht ändern."
     },
+    "prompt": {
+      "placeholder": "Schreib den Prompt so, wie du ihn einem Terminal geben würdest…",
+      "input_aria": "Dein Prompt",
+      "model_aria": "Modell, das den Prompt verbessert",
+      "model_auto": "Automatisch",
+      "model_auto_hint": "Das Modell, das deine Aufgaben-Briefings schreibt",
+      "model_default": "Standardmodell",
+      "model_search": "Modelle suchen",
+      "connect_first": "Erst verbinden",
+      "improve": "Verbessern",
+      "improving": "Wird verbessert…",
+      "instruction": "Anweisung",
+      "instruction_hint": "Was das Modell mit deinem Prompt tun soll. Es formuliert immer das Ziel, nicht die Umsetzung, und kennt das Repository des gewählten Terminals.",
+      "instruction_reset": "Zurücksetzen",
+      "result": "Verbesserter Prompt",
+      "written_by": "von {model}",
+      "too_long": "{count} von {max} Zeichen: zu lang zum Senden.",
+      "target_aria": "Terminal, das den Prompt erhält",
+      "no_target": "Kein Terminal",
+      "no_target_hint": "Öffne ein Terminal mit einem Coding-Agenten, um den Prompt zu senden.",
+      "copy": "Kopieren",
+      "copy_failed": "Der Prompt konnte nicht kopiert werden.",
+      "send": "Senden",
+      "sent": "An {pane} gesendet.",
+      "not_accepted": "{pane} hat den Prompt nicht angenommen. Der Text steht in seinem Eingabefeld; drück dort Enter.",
+      "unconfirmed": "Bei {pane} war nicht zu sehen, dass der Prompt ankam. Sieh in diesem Terminal nach."
+    },
     "tabs": {
       "browser": "Browser",
       "git": "Git",
@@ -7545,7 +7572,8 @@
       "changes": "Änderungen",
       "search": "Suche",
       "subscriptions": "Abos",
-      "office": "Dodaios Verse"
+      "office": "Dodaios Verse",
+      "prompt": "Prompt"
     },
     "subscriptions": {
       "bank": {

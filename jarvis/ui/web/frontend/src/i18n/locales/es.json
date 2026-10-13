@@ -7536,6 +7536,33 @@
       "skipped_dirty": "Se omitieron {count} archivos con cambios sin guardar; guárdalos primero.",
       "skipped_other": "{count} archivos no se pudieron cambiar."
     },
+    "prompt": {
+      "placeholder": "Escribe el prompt como se lo darías a un terminal…",
+      "input_aria": "Tu prompt",
+      "model_aria": "Modelo que mejora el prompt",
+      "model_auto": "Automático",
+      "model_auto_hint": "El modelo que redacta tus encargos",
+      "model_default": "Modelo predeterminado",
+      "model_search": "Buscar modelos",
+      "connect_first": "Conéctalo primero",
+      "improve": "Mejorar",
+      "improving": "Mejorando…",
+      "instruction": "Instrucción",
+      "instruction_hint": "Lo que se le pide al modelo que haga con tu prompt. Siempre escribe el objetivo, no la implementación, y conoce el repositorio del terminal elegido.",
+      "instruction_reset": "Restablecer",
+      "result": "Prompt mejorado",
+      "written_by": "por {model}",
+      "too_long": "{count} de {max} caracteres: demasiado largo para enviar.",
+      "target_aria": "Terminal que recibe el prompt",
+      "no_target": "Ningún terminal",
+      "no_target_hint": "Abre un terminal con un agente de programación para enviar el prompt.",
+      "copy": "Copiar",
+      "copy_failed": "No se pudo copiar el prompt.",
+      "send": "Enviar",
+      "sent": "Enviado a {pane}.",
+      "not_accepted": "{pane} no aceptó el prompt. El texto está en su campo de entrada; pulsa Intro allí.",
+      "unconfirmed": "{pane} no mostró la llegada del prompt. Revisa ese terminal."
+    },
     "tabs": {
       "browser": "Navegador",
       "git": "Git",
@@ -7545,7 +7572,8 @@
       "changes": "Cambios",
       "search": "Buscar",
       "subscriptions": "Suscripciones",
-      "office": "Dodaios Verse"
+      "office": "Dodaios Verse",
+      "prompt": "Prompt"
     },
     "subscriptions": {
       "bank": {

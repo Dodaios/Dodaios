@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-DrO_n-LS.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-B8EqKdQS.js";import{S as U}from"./server-DBlUhPW-.js";/**
+|||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/ProviderLogo-B5BvH6W3.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-kUK78RJZ.js";import{S as U}from"./server-DCmGgT8u.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-CXQfV28M.js";import{S as U}from"./server-lIx-Y-ft.js";/**
+>>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/ProviderLogo-DRMNaj7o.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

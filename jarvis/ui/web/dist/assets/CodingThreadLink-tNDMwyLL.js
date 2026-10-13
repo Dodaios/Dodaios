@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-tNDMwyLL.js
 import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-B8EqKdQS.js";import{C as I}from"./TraceTimeline-DPOQUsso.js";import{L as X}from"./lock-CasS8AFI.js";import{C as $}from"./code-xml-B4NpghFG.js";import{C as J}from"./chevron-right-DBgZL70C.js";/**
+|||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/CodingThreadLink-DlxhpNdI.js
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-kUK78RJZ.js";import{C as I}from"./TraceTimeline-BLSw-rUz.js";import{L as X}from"./lock-oaAA-lip.js";import{C as $}from"./code-xml-DPOZ0Po-.js";import{C as J}from"./chevron-right-BU3LGb1d.js";/**
+========
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-CXQfV28M.js";import{C as I}from"./TraceTimeline-DJgPRYAf.js";import{L as X}from"./lock-C6OJmfKv.js";import{C as $}from"./code-xml-CIMEd_07.js";import{C as J}from"./chevron-right-8CfLbSix.js";/**
+>>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/CodingThreadLink-vsKKeWOp.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

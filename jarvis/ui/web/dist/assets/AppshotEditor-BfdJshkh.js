@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-BfdJshkh.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-B8EqKdQS.js";import{S as sr}from"./switch-CqpnYyX7.js";import{Q as D}from"./tooltip-jXSJfpzI.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BbnFmjIJ.js";import{C as Tn}from"./check-Bm6cENrC.js";import{C as En}from"./columns-2-BT6niJAV.js";/**
+|||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/AppshotEditor-T0NZjEmi.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-kUK78RJZ.js";import{S as sr}from"./switch-CT4RBT9o.js";import{Q as D}from"./tooltip-D0uuzMZQ.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-B0ThbBoT.js";import{C as Tn}from"./check-2zXYk7Fg.js";import{C as En}from"./columns-2-CTJ014Rh.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-CXQfV28M.js";import{S as sr}from"./switch-umB__dKF.js";import{Q as D}from"./tooltip-CifnLB0O.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-DHNb7wCW.js";import{C as Tn}from"./check-Dpsj1LDb.js";import{C as En}from"./columns-2-D5AMBUTz.js";/**
+>>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/AppshotEditor-91-vcsRz.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

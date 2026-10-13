@@ -7536,6 +7536,33 @@
       "skipped_dirty": "已跳过 {count} 个有未保存更改的文件；请先保存它们。",
       "skipped_other": "有 {count} 个文件无法修改。"
     },
+    "prompt": {
+      "placeholder": "像交给终端那样写下你的提示词…",
+      "input_aria": "你的提示词",
+      "model_aria": "用于优化提示词的模型",
+      "model_auto": "自动",
+      "model_auto_hint": "为你撰写任务简报的模型",
+      "model_default": "默认模型",
+      "model_search": "搜索模型",
+      "connect_first": "请先连接",
+      "improve": "优化",
+      "improving": "正在优化…",
+      "instruction": "指令",
+      "instruction_hint": "告诉模型如何处理你的提示词。它始终只写目标而不写实现方式，并了解所选终端的代码仓库。",
+      "instruction_reset": "重置",
+      "result": "优化后的提示词",
+      "written_by": "由 {model} 撰写",
+      "too_long": "{count} / {max} 个字符：太长，无法发送。",
+      "target_aria": "接收提示词的终端",
+      "no_target": "没有终端",
+      "no_target_hint": "打开一个带有编程智能体的终端以发送提示词。",
+      "copy": "复制",
+      "copy_failed": "无法复制提示词。",
+      "send": "发送",
+      "sent": "已发送到 {pane}。",
+      "not_accepted": "{pane} 没有接收提示词。文本仍在它的输入框中，请在那里按 Enter。",
+      "unconfirmed": "{pane} 未显示提示词已到达。请检查该终端。"
+    },
     "tabs": {
       "browser": "浏览器",
       "git": "Git",
@@ -7545,7 +7572,8 @@
       "changes": "更改",
       "search": "搜索",
       "subscriptions": "订阅",
-      "office": "Dodaios Verse"
+      "office": "Dodaios Verse",
+      "prompt": "提示词"
     },
     "subscriptions": {
       "bank": {

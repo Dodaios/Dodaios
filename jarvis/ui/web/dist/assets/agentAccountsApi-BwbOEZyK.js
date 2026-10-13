@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/agentAccountsApi-BwbOEZyK.js
 import{c as i,f as s,t as r}from"./index-B8EqKdQS.js";/**
+|||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/agentAccountsApi-DiJU8phJ.js
+import{c as i,f as s,t as r}from"./index-kUK78RJZ.js";/**
+========
+import{c as i,f as s,t as r}from"./index-CXQfV28M.js";/**
+>>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/agentAccountsApi-DT2d5sQg.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-C7WWyQAI.js
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-B8EqKdQS.js";var Jl={exports:{}},Lt={};/**
+|||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/react-three-fiber.esm-BrO0Ih5z.js
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-kUK78RJZ.js";var Jl={exports:{}},Lt={};/**
+========
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gx as Za,cj as qa,j as je}from"./index-CXQfV28M.js";var Jl={exports:{}},Lt={};/**
+>>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/react-three-fiber.esm-DJR77NEP.js
  * @license React
  * react-reconciler-constants.production.min.js
  *
