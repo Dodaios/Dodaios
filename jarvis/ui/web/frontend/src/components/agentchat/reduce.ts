@@ -226,7 +226,24 @@ export interface UserItem {
   toolChoices?: ToolChoice[];
   /** A Jarvis agent wrote this message into a coding thread on the person's behalf. */
   author?: { agentId: string; name: string };
+  /**
+   * The team engine woke a team lead with this turn; nobody typed it. `update`
+   * brings members' results, `check` asks for the report, `resumed` continues
+   * a goal the person resumed.
+   */
+  teamEvent?: TeamEvent;
   tsMs: number;
+}
+
+export type TeamEvent = "update" | "check" | "resumed";
+
+/** The frame the team engine puts on a lead's managing turn (jarvis/society/team_lead.py `_frame`). */
+const TEAM_FRAME = /^\[team (update|goal check|goal resumed) for team /;
+const TEAM_EVENTS: Record<string, TeamEvent> = { update: "update", "goal check": "check", "goal resumed": "resumed" };
+
+function teamEventOf(prompt: string): TeamEvent | undefined {
+  const match = TEAM_FRAME.exec(prompt);
+  return match ? TEAM_EVENTS[match[1]] : undefined;
 }
 
 /** One file's receipt in the timeline — enough to say what was sent, no more. */
@@ -792,6 +809,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             id: `u-${seq || ev.ts_ms}`,
             ...(p.origin === "control" ? { origin: "control" as const } : {}),
             ...(messageAuthor(p.author) ? { author: messageAuthor(p.author) } : {}),
+            ...(teamEventOf(str(p.text)) ? { teamEvent: teamEventOf(str(p.text)) } : {}),
             // `typed` is present only when the message carried files, and it
             // is the person's own sentence; `text` is the composed prompt.
             text: str(p.typed) || str(p.text),

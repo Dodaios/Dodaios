@@ -64,6 +64,13 @@ class TeamChatFake:
         for queue in list(self._subscribers.get(session_id, ())):
             queue.put_nowait(event)
 
+    def notices(self, session_id: str) -> list[dict[str, Any]]:
+        return [
+            event["payload"]
+            for event in self.store.list_events(session_id, tail=200)
+            if event["kind"] == "notice"
+        ]
+
     # -------------------------------------------------------------- turns
 
     async def send(self, session_id: str, text: str, **kwargs: Any) -> str:

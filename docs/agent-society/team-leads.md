@@ -1,16 +1,18 @@
 # Team leads
 
 A team (a group of agents in the Agents section) can have a **lead**: one of
-its members that manages the team for the person. The person gives the team a
-goal. The lead breaks it into tasks, hands each task to the member whose role
-fits, checks what comes back, sends rework or re-assigns, and reports when the
-goal is done. The person steps in only for what is theirs: answering a
-question the lead cannot decide, continuing a paused goal, or stopping one.
+its members that manages the team for the person. The person talks to the lead
+in an ordinary chat and says what the team should achieve. The lead breaks it
+into tasks, hands each task to the member whose role fits, checks what comes
+back, sends rework or re-assigns, and reports when the goal is done. The
+person steps in only for what is theirs: answering a question the lead cannot
+decide, continuing a paused goal, or stopping one.
 
 Code: `jarvis/society/team_lead.py` (the engine), `jarvis/society/team_tools.py`
 (the lead's tools), `/api/society/chat-groups/{id}/…` in
-`jarvis/ui/web/society_routes.py`, and the board in
-`src/components/society/chat/TeamLeadBoard.tsx`.
+`jarvis/ui/web/society_routes.py`, and the lead's view in
+`src/components/society/chat/TeamLeadView.tsx` (the chat) with
+`TeamLeadPanel.tsx` (the team beside it).
 
 ## Naming a lead
 
@@ -23,6 +25,32 @@ team lead because it already leads every agent.
 
 The team's **mission** is a short standing purpose. The lead reads it on every
 managing turn.
+
+## Talking to the lead
+
+The **Lead** tab of a team is the lead's own chat, the same conversation and
+composer every agent has. There is no separate form for goals:
+
+- **Asking for work** is a message. When the lead hands out the first task
+  from it, a goal opens in the person's own words (source `chat`).
+- **Answering** a question the lead asked, or telling it to go on with a
+  paused goal, is a message too. The lead's tools work on that goal again
+  inside the person's turn; a turn nobody typed (a check-in, another agent's
+  message) can never answer for the person.
+- **Reports** appear in the conversation as cards: the result of a goal, an
+  interim update, a failure, or the lead's question.
+- Above the composer sit the actions only a lead is asked: a status, a
+  suggestion for the next goals, a look at the team, and taking the
+  initiative. Each sends its sentence as the person's message.
+
+Beside the chat, the team panel follows the work live: the goal in progress
+with every task, what waits behind it, the members and what each is on, and
+the finished goals. It holds the controls that are not a sentence (stop,
+continue, try again) and the setup: mission, initiative, who leads.
+
+After the person's turn the engine follows up exactly as after a managing
+turn: results that landed meanwhile are reviewed, and a goal left with
+nothing running and no report is asked once for a typed one.
 
 ## How a goal runs
 
@@ -57,8 +85,8 @@ Offered only in the chats of an agent that currently leads a team.
 
 | Tool | What it does |
 |---|---|
-| `society_team_assign` | Hand one task to one member. Returns at once with the task's state. |
-| `society_team_board` | Read the mission, the members and every open goal with its tasks. |
+| `society_team_assign` | Hand one task to one member. Returns at once with the task's state. With no goal in progress it opens one; `goal` names it. |
+| `society_team_board` | Read the mission, the members, every open goal with its tasks, and the goals finished most recently. |
 | `society_team_report` | `progress`, `needs_input` (one question for the person), `done`, `failed`. |
 
 None of them starts work by itself. Assigning appends an envelope; the
@@ -105,14 +133,24 @@ Both vocabularies are pinned across Python, SQL and TypeScript by
   `blocked`. The lead is never left waiting forever, and never hands the same
   work out twice because a start was slow.
 
-## Check-ins
+## Initiative
 
-Off by default. When the person switches them on (every hour, every four
-hours, or once a day), the lead looks at its team unprompted: it follows up on
-stuck work and starts standing duties the mission names. A check-in is an
-ordinary agent routine tagged `team-checkin:<team id>`, so it appears with the
+How much a lead does without being asked is the person's choice, made in the
+team panel's setup:
+
+| Way | What the lead does |
+|---|---|
+| Only when asked | Works when the person writes and whenever a result comes in. The default. |
+| Keeps watch | Also looks at its team unprompted (every hour, every four hours, or once a day): it follows up on stuck work and starts standing duties the mission names. |
+| Takes the initiative | As above, and when no goal is open it sets the team's next goal from the mission and hands out the first tasks (source `lead`). |
+
+A look is an ordinary agent routine tagged `team-checkin:<team id>` (and
+`team-initiative:<team id>` when it may set goals), so it appears with the
 lead's other routines and follows the same rules for which seat may run
-background work.
+background work. A lead that takes the initiative stays inside every bound
+below: one goal at a time, the turn budget, the task limit. With a mission
+that gives it nothing to derive a goal from, it starts nothing and says what
+it needs.
 
 ## Drills
 

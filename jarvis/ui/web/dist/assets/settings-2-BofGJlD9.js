@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/settings-2-BofGJlD9.js
 import{c as e}from"./index-B8EqKdQS.js";/**
+|||||||| parent of 4b98ab0c9 (feat(society): make a team's Lead tab the chat with its lead):jarvis/ui/web/dist/assets/settings-2-V9vCfCtd.js
+import{c as e}from"./index-BUF1O4fr.js";/**
+========
+import{c as e}from"./index-Dl38OUJs.js";/**
+>>>>>>>> 4b98ab0c9 (feat(society): make a team's Lead tab the chat with its lead):jarvis/ui/web/dist/assets/settings-2-1OnShtYF.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

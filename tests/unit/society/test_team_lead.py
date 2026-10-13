@@ -229,6 +229,25 @@ async def test_an_answer_without_open_work_is_the_report(team):
     assert "society_team_report" in prompts[1]
 
 
+async def test_the_view_hears_when_the_turn_that_closed_a_goal_ends(team):
+    rt, svc = team
+    leads = rt.team_leads
+    pushed: list[tuple[str, bool]] = []
+    leads._publish = lambda event: pushed.append((event.reason, bool(leads._turns)))  # noqa: SLF001
+
+    async def boss(text: str, kwargs: dict[str, Any]) -> str:
+        await leads.report("boss", status="done", summary="Done.")
+        return "Closed."
+
+    svc.scripts[LEAD] = boss
+    goal = await leads.start_goal("team", "Do it")
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
+    # The goal closed while its turn still ran; the last push comes once the
+    # turn is over, so no view keeps showing the lead at work.
+    await until(lambda: pushed and pushed[-1] == ("turn", False))
+    assert (await leads.snapshot("team"))["working"] is False
+
+
 async def test_results_arriving_during_a_lead_turn_reach_the_next_one(team):
     rt, svc = team
     leads = rt.team_leads
@@ -342,6 +361,17 @@ async def test_a_question_waits_for_the_person_and_their_answer_continues(team):
     await leads.tell(goal.goal_id, "Germany")
     await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
     assert "The person says about this goal:" in seen[1] and "Germany" in seen[1]
+    # Both reports are cards in the lead's chat, where the person reads along.
+    def reports() -> list[dict[str, Any]]:
+        return [n for n in svc.notices(LEAD) if n["kind"] == "team_report"]
+
+    await until(lambda: len(reports()) == 2)
+    cards = reports()
+    assert [(n["status"], n["text"]) for n in cards] == [
+        ("needs_input", "Which market?"),
+        ("done", "Planned for Germany."),
+    ]
+    assert cards[0]["title"] == "Plan the launch" and cards[0]["agent_name"] == "Boss"
     with pytest.raises(TeamLeadError, match="not in progress"):
         await leads.tell(goal.goal_id, "More")
 
@@ -1024,6 +1054,9 @@ async def test_the_assign_tool_composes_a_brief_and_refuses_strangers(team):
     report = TeamReportTool(rt, "boss")
     bad = await report.execute({"status": "maybe", "summary": "x"}, None)
     assert not bad.success
+    update = await report.execute({"status": "progress", "summary": "Half way."}, None)
+    assert update.success and update.output["recorded"] == "progress"
+    assert "do not repeat the report" in update.output["next"]
     stranger = await TeamReportTool(rt, "scout").execute(
         {"status": "done", "summary": "x"}, None
     )

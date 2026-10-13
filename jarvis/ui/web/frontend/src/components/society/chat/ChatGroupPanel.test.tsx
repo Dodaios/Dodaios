@@ -20,7 +20,7 @@ vi.mock("./AgentChatPanel", () => ({
   },
 }));
 vi.mock("./MeetingChat", () => ({ MeetingChat: () => <div data-testid="meeting" /> }));
-vi.mock("./TeamLeadBoard", () => ({ TeamLeadBoard: () => <div data-testid="lead-board" /> }));
+vi.mock("./TeamLeadView", () => ({ TeamLeadView: () => <div data-testid="lead-board" /> }));
 
 afterEach(() => { cleanup(); groupApi.remove.mockClear(); });
 
