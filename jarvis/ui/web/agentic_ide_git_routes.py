@@ -17,13 +17,21 @@ Endpoints (all under ``/api/agentic-ide/git``)::
     POST /push                Push the current branch (sets upstream once)
     POST /fetch               Fetch every remote
     POST /pull-request        Open a PR with the GitHub CLI
+    POST /pull                Fast-forward a workspace's branch (or rebase it, when asked)
+    POST /switch              Check out another branch in a workspace's folder
+    POST /branch/push         Push a workspace's current branch, or a named one
+    POST /branch/update       Fast-forward a branch to its upstream without switching to it
+    POST /branch/delete       Delete a branch (asks again when its commits exist nowhere else)
+    POST /branch/pull-request Open a PR with the GitHub connection (or the GitHub CLI)
     POST /merge               Merge a branch back into its target
     POST /worktrees/remove    Remove a linked worktree (asks again when dirty)
     POST /worktrees/prune     Forget worktrees deleted by hand
 
-Every route takes the folder it works on — a workspace folder, a project path
-or a worktree — and runs git in the anyio threadpool (plain ``def`` handlers),
-never on the event loop. Loopback-only like the rest of the IDE API.
+The older routes take the folder they work on — a workspace folder, a project
+path or a worktree. The Git tab's own actions (pull, switch, ``/branch/*``) take
+the id of an open workspace instead, so they can only ever act on a repository
+the person has open. All of them run git in the anyio threadpool (plain ``def``
+handlers), never on the event loop. Loopback-only like the rest of the IDE API.
 
 A failed git call answers 422 with ``{"detail": {"message", "code"}}`` so the
 UI can offer the follow-up it has for that code (``dirty`` → "remove anyway?").
@@ -43,6 +51,7 @@ from jarvis.agentic_ide import (
     git_ops,
     git_overview,
     github_link,
+    github_pulls,
     github_status,
 )
 from jarvis.agentic_ide.git_ops import GitError, PrepareMode
@@ -52,6 +61,16 @@ from jarvis.agentic_ide.thread_folders import allowed_thread_folder
 from jarvis.ui.web.surface_security import is_loopback_request
 
 router = APIRouter(prefix="/api/agentic-ide/git", tags=["agentic-ide-git"])
+
+
+def _open_folders() -> list[str]:
+    """Every folder something is running in: each workspace, and each pane's own
+    checkout (an agent's worktree) — none of them may be removed under it."""
+    folders: list[str] = []
+    for session in get_registry().sessions:
+        folders.append(session.folder)
+        folders.extend(pane.cwd(session.folder) for pane in session.terminals)
+    return folders
 
 
 def _fail(exc: GitError) -> HTTPException:
@@ -73,6 +92,34 @@ class CommitRequest(FolderRequest):
 
 
 class PullRequestRequest(FolderRequest):
+    title: str = Field("", max_length=300)
+    draft: bool = False
+
+
+class WorkspaceRequest(BaseModel):
+    workspace_id: str = Field(..., min_length=1, description="The open workspace to act in")
+
+
+class PullBranchRequest(WorkspaceRequest):
+    rebase: bool = Field(False, description="Rebase local commits onto the remote ones")
+
+
+class BranchRequest(WorkspaceRequest):
+    branch: str = Field(..., min_length=1, max_length=300)
+
+
+class PushBranchRequest(WorkspaceRequest):
+    branch: str = Field("", max_length=300, description="Branch to push; current if empty")
+
+
+class DeleteBranchRequest(BranchRequest):
+    force: bool = Field(False, description="Delete even when its commits exist nowhere else")
+    remote: bool = Field(False, description="Also delete the branch on the remote")
+    with_worktree: bool = Field(False, description="Also remove its clean, unused worktree")
+
+
+class BranchPullRequestRequest(WorkspaceRequest):
+    branch: str = Field("", max_length=300, description="Branch to open it from; current if empty")
     title: str = Field("", max_length=300)
     draft: bool = False
 
@@ -362,6 +409,133 @@ def open_pull_request(req: PullRequestRequest) -> dict:
     return {"ok": True, "url": url}
 
 
+# The Git tab's actions. Each names an open workspace, never a path: the folder
+# comes from the workspace, so none of them can be pointed elsewhere on the machine.
+
+
+@router.post("/pull", summary="Bring a workspace's branch up to date with its remote")
+def pull_branch(req: PullBranchRequest) -> dict:
+    """Fast-forward only unless ``rebase``; a conflicting rebase is aborted."""
+    folder = _workspace_folder(req.workspace_id)
+    try:
+        message = git_ops.pull(folder, rebase=req.rebase)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    return {"ok": True, "message": message}
+
+
+@router.post("/switch", summary="Check out another branch in a workspace's folder")
+def switch_branch(req: BranchRequest) -> dict:
+    folder = _workspace_folder(req.workspace_id)
+    try:
+        prepared = git_ops.prepare(folder, "switch_branch", branch=req.branch)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    return {"ok": True, "branch": prepared.branch, "message": prepared.message}
+
+
+@router.post("/branch/push", summary="Push a workspace's current branch, or a named one")
+def push_workspace_branch(req: PushBranchRequest) -> dict:
+    folder = _workspace_folder(req.workspace_id)
+    try:
+        upstream = git_ops.push(folder, req.branch)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    git_overview.clear_github(folder)
+    return {"ok": True, "upstream": upstream}
+
+
+@router.post("/branch/update", summary="Fast-forward a branch to its upstream")
+def update_branch(req: BranchRequest) -> dict:
+    folder = _workspace_folder(req.workspace_id)
+    try:
+        message = git_ops.update_branch(folder, req.branch)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    return {"ok": True, "message": message}
+
+
+@router.post(
+    "/branch/delete",
+    summary="Delete a local branch",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+def delete_branch(req: DeleteBranchRequest) -> dict:
+    """Delete a branch whose work is safe elsewhere; ask again otherwise.
+
+    "Safe" is decided here, not by the caller: every commit is in another
+    branch or on a remote that stays, or GitHub merged the pull request that
+    carried exactly this tip. Anything else answers ``unmerged`` until ``force``.
+    """
+    folder = _workspace_folder(req.workspace_id)
+    try:
+        name = git_ops.normalize_branch(req.branch)
+        tip = git_ops.branch_tip(folder, name)
+        merged = git_overview.merged_pull_request(folder, name, tip) is not None
+        message = git_ops.delete_branch(
+            folder,
+            name,
+            force=req.force,
+            merged=merged,
+            remote=req.remote,
+            with_worktree=req.with_worktree,
+            open_folders=_open_folders(),
+        )
+    except GitError as exc:
+        raise _fail(exc) from exc
+    if req.remote:
+        git_overview.clear_github(folder)
+    return {"ok": True, "message": message}
+
+
+def _create_pull_request(folder: Path, req: BranchPullRequestRequest) -> str:
+    """Push the branch if needed and open its pull request. Returns the URL.
+
+    Uses the GitHub connection the Git tab already reads with; without one (or
+    before a repository was picked for the folder) the GitHub CLI opens it.
+    """
+    cred = github_link.credential()
+    repo = github_link.bound_repository(folder)
+    wanted = git_ops.normalize_branch(req.branch)
+    info = git_ops.inspect(folder)
+    if cred is None or not repo:
+        if wanted and wanted != info.branch:
+            raise GitError("Connect GitHub to open this pull request.", code="not_connected")
+        return git_ops.create_pull_request(folder, title=req.title, draft=req.draft)
+    branch = wanted or info.branch
+    if not info.is_repo or not branch:
+        raise GitError("Check out a branch before opening a pull request.", code="detached")
+    if branch == info.default_branch:
+        raise GitError(
+            f"{branch} is the default branch — open the pull request from a feature branch.",
+            code="invalid",
+        )
+    upstream = git_ops.push(folder, branch)
+    head = upstream.partition("/")[2] or branch
+    base_ref = f"origin/{info.default_branch}"
+    if base_ref not in info.remote_branches:
+        base_ref = info.default_branch
+    title = req.title.strip() or git_ops.first_subject(folder, branch, base_ref)
+    try:
+        created = github_pulls.create(
+            repo, cred.token, head=head, base=info.default_branch, title=title, draft=req.draft
+        )
+    except github_link.GitHubError as exc:
+        raise GitError(str(exc), code=exc.code) from exc
+    return created.url
+
+
+@router.post("/branch/pull-request", summary="Open a pull request for a workspace's branch")
+def open_branch_pull_request(req: BranchPullRequestRequest) -> dict:
+    folder = _workspace_folder(req.workspace_id)
+    try:
+        url = _create_pull_request(folder, req)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    git_overview.clear_github(folder)
+    return {"ok": True, "url": url}
+
+
 @router.post("/merge", summary="Merge the current branch back into its target")
 def merge_branch(req: MergeRequest) -> dict:
     try:
@@ -377,8 +551,7 @@ def merge_branch(req: MergeRequest) -> dict:
     openapi_extra={"x-jarvis-dangerous": True},
 )
 def remove_worktree(req: RemoveWorktreeRequest) -> dict:
-    open_folders = [session.folder for session in get_registry().sessions]
-    if git_ops.worktree_in_use(req.worktree, open_folders):
+    if git_ops.worktree_in_use(req.worktree, _open_folders()):
         raise HTTPException(
             status_code=422,
             detail={
