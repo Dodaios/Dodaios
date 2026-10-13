@@ -15,6 +15,11 @@ const api = vi.hoisted(() => ({
   patchAgentChatSession: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
+const teams = vi.hoisted(() => ({ rows: [] as unknown[] }));
+vi.mock("@/lib/teamThreadsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/teamThreadsApi")>()),
+  useTeamThreads: () => ({ data: teams.rows }),
+}));
 vi.mock("@/lib/gitApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/gitApi")>()),
   inspectGit: vi.fn().mockResolvedValue({ is_repo: false, branches: [], changes: [], remotes: [] }),
@@ -181,6 +186,28 @@ describe("ThreadTree", () => {
     fireEvent.click(screen.getByRole("button", { name: "Restore Fix login test" }));
     expect(screen.getByTestId("thread-row-s1")).toBeTruthy();
     expect(screen.queryByTestId("thread-archived-p1")).toBeNull();
+  });
+
+  it("lists a team thread once and keeps its members out of the thread list", async () => {
+    teams.rows = [{ team_id: "t1", title: "Add a retry", cwd: "/repo", state: "needs_input", phase: "review", reason: "", created_ms: 1, updated_ms: 2, members: [] }];
+    api.fetchAgentChatSessions.mockResolvedValue([
+      sessionRow({ cli_title: "Fix login test" }),
+      sessionRow({ session_id: "s2", cli_title: "Add a retry · Claude", team_id: "t1" }),
+    ]);
+    try {
+      render(<ThreadTree />);
+      await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
+      expect(screen.queryByText("Add a retry · Claude")).toBeNull();
+      fireEvent.click(screen.getByTestId("team-thread-row-t1"));
+      expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null, team: "t1" });
+      expect(screen.getByTestId("team-thread-row-t1").getAttribute("aria-current")).toBe("page");
+      // The ordinary thread is no longer the one on screen.
+      expect(screen.getByText("Fix login test").closest("button")?.getAttribute("aria-current")).toBeNull();
+      fireEvent.click(screen.getByTestId("team-thread-new-p1"));
+      expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null, team: "new" });
+    } finally {
+      teams.rows = [];
+    }
   });
 
   it("moves a thread with Alt and the arrow keys and keeps that order", async () => {
