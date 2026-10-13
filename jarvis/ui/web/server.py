@@ -3439,8 +3439,23 @@ class WebServer:
         from jarvis.memory.wiki.db_path import resolve_wiki_db_path
         from jarvis.memory.wiki.fts_index import rebuild_index
 
+        def _resume_semantic_search() -> None:
+            # Semantic search, when the user switched it on: its own thread
+            # loads the model and encodes only the pages that changed. Called
+            # on every way out of this function, so the switch always learns
+            # an honest state, also when there is no vault to search.
+            try:
+                from jarvis.memory.wiki import semantic_setup
+
+                semantic_setup.resume(self.cfg)
+            except Exception:  # noqa: BLE001 - the word search stands on its own
+                logger.opt(exception=True).warning(
+                    "wiki_boot_index: semantic search could not be resumed"
+                )
+
         wiki_cfg = self.cfg.wiki_integration
         if not wiki_cfg.enabled:
+            _resume_semantic_search()
             return
 
         from jarvis.memory.wiki.vault_root import resolve_vault_root
@@ -3448,6 +3463,7 @@ class WebServer:
         vault_root = resolve_vault_root(wiki_cfg.vault_root).path
         if not vault_root.is_dir():
             logger.info("wiki_boot_index: vault missing — skipping ({})", vault_root)
+            _resume_semantic_search()
             return
 
         db_path = resolve_wiki_db_path(self.cfg.memory.data_dir)
@@ -3475,6 +3491,8 @@ class WebServer:
                     logger.debug("wiki index health recording failed", exc_info=True)
             finally:
                 conn.close()
+            # Behind the word index, so it never competes with start-up (AP-26).
+            _resume_semantic_search()
 
         if background:
             thread = threading.Thread(
