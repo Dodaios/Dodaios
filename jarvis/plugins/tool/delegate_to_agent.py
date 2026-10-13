@@ -29,6 +29,7 @@ from jarvis.core.delegation import origin_metadata
 from jarvis.core.protocols import ExecutionContext, ToolResult
 from jarvis.society.agent_names import AgentLookup, coding_pane_hint, lookup_agent
 from jarvis.society.communication import REPLY_POLICY_SCHEMA, select_reply_policy
+from jarvis.society.display_name import display_name
 
 log = logging.getLogger(__name__)
 
@@ -281,7 +282,7 @@ class DelegateToAgentTool:
                 break
         tracking = {
             "agent_id": target.agent_id,
-            "agent_name": target.name,
+            "agent_name": display_name(target),
             "assignment_id": env.event_id,
             "trace_id": env.trace_id,
             "reply_policy": policy,
@@ -296,7 +297,9 @@ class DelegateToAgentTool:
                 output={
                     **tracking,
                     "state": "refused",
-                    "acknowledgement": _REFUSED[lang].format(name=target.name, reason=reason),
+                    "acknowledgement": _REFUSED[lang].format(
+                        name=display_name(target), reason=reason
+                    ),
                 },
                 error=str(outcome.payload.get("reason") or "vetoed"),
             )
@@ -307,7 +310,7 @@ class DelegateToAgentTool:
                 **tracking,
                 "state": "running" if outcome is not None else "recorded",
                 "acknowledgement": (ack if outcome is not None else _QUEUED)[lang].format(
-                    name=target.name,
+                    name=display_name(target),
                 ),
             },
             artifacts=(
@@ -347,7 +350,7 @@ async def _unresolved(found: AgentLookup, lang: str) -> ToolResult:
     the two kinds of agent are reached through different tools.
     """
     if found.decision == "ask" and found.candidates:
-        names = [a.name for a in found.candidates]
+        names = [display_name(a) for a in found.candidates]
         return ToolResult(
             success=False,
             output={
@@ -393,7 +396,7 @@ class SocietyStatusTool:
         "statistics (these are observations, not quality scores). Pass assignment_id "
         "to inspect that exact assignment; trace_id is optional. If prior tool ids are "
         "no longer in context, use agent + latest_assignment=true to retrieve the newest "
-        "assignment Jarvis sent that agent from the stored board, including its task and "
+        "assignment you sent that agent from the stored board, including its task and "
         "result. This means newest assignment, not an arbitrary recent event. If 'that task' "
         "could mean an older task or several agents, clarify the agent/task first."
     )
@@ -407,7 +410,7 @@ class SocietyStatusTool:
             "latest_assignment": {
                 "type": "boolean",
                 "description": (
-                    "With agent: inspect the newest assignment sent by Jarvis. "
+                    "With agent: inspect the newest assignment you sent. "
                     "Do not combine with assignment_id."
                 ),
             },
@@ -554,15 +557,18 @@ class SocietyStatusTool:
             events = await runtime.store.events_for_agent(target.agent_id, limit=5)
             text = next((e.text for e in reversed(events) if e.text), "")
             return ToolResult(
-                success=True, output=_STATUS_WORKING[lang].format(name=target.name, text=text)
+                success=True,
+                output=_STATUS_WORKING[lang].format(name=display_name(target), text=text),
             )
         events = await runtime.store.events_for_agent(target.agent_id, limit=1)
         if not events:
-            return ToolResult(success=True, output=_STATUS_IDLE[lang].format(name=target.name))
+            return ToolResult(
+                success=True, output=_STATUS_IDLE[lang].format(name=display_name(target))
+            )
         last = events[-1]
         return ToolResult(
             success=True,
             output=_STATUS_LAST[lang].format(
-                name=target.name, kind=str(last.msg_type).lower(), text=last.text[:200]
+                name=display_name(target), kind=str(last.msg_type).lower(), text=last.text[:200]
             ),
         )

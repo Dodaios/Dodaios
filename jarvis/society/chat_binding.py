@@ -27,6 +27,7 @@ from typing import Any, Final
 
 from .communication import response_instruction
 from .delivery import DeliveryBusy, IncomingMessage, incoming_context
+from .display_name import display_name
 from .events import MsgType, SocietyEnvelope
 from .roster import (
     LEAD_AGENT_ID,
@@ -312,8 +313,13 @@ def frame_incoming(env: SocietyEnvelope, sender_name: str) -> str:
 ASSIGNMENT_HEADER = "[assignment from "
 
 
-def frame_assignment(env: SocietyEnvelope) -> str:
-    """An ASSIGN as the receiving agent's chat turn — with the handoff ask."""
+def frame_assignment(env: SocietyEnvelope, sender_name: str = "") -> str:
+    """An ASSIGN as the receiving agent's chat turn — with the handoff ask.
+
+    The header carries the sender's id (the chat reads it back to draw the
+    delegation card); the name the agent should use for the sender follows the
+    ids at the end.
+    """
     sender = env.from_agent if env.from_agent != "user" else "the user"
     task = env.text or str(env.payload.get("task") or "")
     lines = [f"{ASSIGNMENT_HEADER}{sender}]", task.strip()]
@@ -324,7 +330,11 @@ def frame_assignment(env: SocietyEnvelope) -> str:
         "When you are done, end with a handoff: what is done, where the output is, "
         "what evidence you used, what remains open, who should own the next step."
     )
-    lines.append(f"Message id: {env.event_id}; sender id: {env.from_agent}")
+    named = sender_name if sender_name not in ("", env.from_agent) else ""
+    lines.append(
+        f"Message id: {env.event_id}; sender id: {env.from_agent}"
+        + (f"; sender name: {named}" if named else "")
+    )
     lines.append(response_instruction(env))
     return "\n".join(lines)
 
@@ -349,7 +359,9 @@ def make_deliver_hook(
 
             runtime = current_runtime()
             record = await runtime.roster.get(env.from_agent) if runtime is not None else None
-            sender = record.name if record is not None else env.from_agent
+            sender = (
+                display_name(record, get_cfg()) if record is not None else env.from_agent
+            )
         incoming = IncomingMessage(
             message_id=env.event_id,
             sender_id=env.from_agent,
@@ -388,7 +400,9 @@ def make_deliver_hook(
         if receipt is not None and receipt["status"] == "delivered":
             return
         if svc.is_running(session.session_id) or agent_busy(svc, target):
-            raise DeliveryBusy(f"target busy: {target.name} is running a turn")
+            raise DeliveryBusy(
+                f"target busy: {display_name(target, get_cfg())} is running a turn"
+            )
         token = incoming_context.set(incoming)
         try:
             from jarvis.agent_chat.service import SessionBusy

@@ -103,6 +103,12 @@ class TurnOverride:
         applies (the folder tools of a chat, scoped to its working directory).
     ``tool_filter``
         Applied last; a plan-mode caller keeps the read-only tools only.
+    ``tools_direct``
+        The tools this caller works with. When set, the model is shown these
+        and ``tools_extra``; every other tool the turn may use stays callable
+        behind ``find_tools`` (``jarvis/brain/tool_shortlist.py``). ``None``
+        shows everything that fits, which is what voice and the typed chat
+        get.
     ``tool_context``
         Extra keys for every tool's ``ExecutionContext.config`` this turn —
         the approval surface, the working directory, written delivery.
@@ -131,6 +137,7 @@ class TurnOverride:
     reasoning_effort: ReasoningEffort | None = None
     tools_extra: Mapping[str, Tool] = field(default_factory=dict)
     tool_filter: Callable[[dict[str, Tool]], dict[str, Tool]] | None = None
+    tools_direct: frozenset[str] | None = None
     tool_context: Mapping[str, Any] = field(default_factory=dict)
     credential_scope: str = "agent"
     max_turns: int | None = None

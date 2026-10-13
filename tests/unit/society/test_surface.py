@@ -255,7 +255,8 @@ async def test_briefing_is_deterministic_and_complete(rt: SocietyRuntime):
     assert "## When a tool fails" in a and KEEP_GOING_ON_TOOL_FAILURE in a
     assert a.index("## When a tool fails") < a.index("## Standing instructions")
     assert "## The Dodaios ecosystem" in a and "society_message_agent" in a
-    assert "## Teammates\n- Jarvis — Lead (lead)\n- Scout — Research scout (orchestrator)" in a
+    # No wake phrase here, so the lead reads under the neutral assistant name.
+    assert "## Teammates\n- Assistant — Lead (lead)\n- Scout — Research scout (orchestrator)" in a
     assert "Mailbox" not in a.split("## Teammates")[1]
     assert "You do not assign work" in a
 
@@ -744,3 +745,23 @@ async def test_a_cache_miss_keeps_the_agents_own_reporting_tools(
     assert {MESSAGE_TOOL_NAME, "society_ask_user", MEMORY_RECALL_TOOL_NAME} <= picked
     assert SHELL_TOOL_NAME not in picked and WIKI_NOTE_TOOL_NAME not in picked, "no writes"
     assert not picked & set(TOOLS), "no granted hands while the grants are unknown"
+
+
+async def test_an_agent_is_shown_the_tools_its_focus_names(rt: SocietyRuntime):
+    """An agent may use everything it is granted, but the model is shown its
+    own tools and the ones its role points at; the rest waits behind
+    find_tools. Without a focus nothing is narrowed."""
+    from jarvis.society.surface import society_direct_tools
+
+    await rt.roster.create(name="Mailer", approval_mode="bypass", focus=["plugin:gmail"])
+    await rt.roster.create(name="Generalist", approval_mode="bypass")
+    mailer = SimpleNamespace(session_id="society:mailer", surface="society")
+    generalist = SimpleNamespace(session_id="society:generalist", surface="society")
+    # Before the briefing filled the cache nothing is known, so nothing narrows.
+    assert society_direct_tools(mailer) is None
+    await society_system_extra(None, None, mailer)
+    await society_system_extra(None, None, generalist)
+    direct = society_direct_tools(mailer)
+    assert direct is not None and "gmail" in direct
+    assert society_direct_tools(generalist) is None
+    assert society_direct_tools(SimpleNamespace(session_id="jarvis-chat")) is None

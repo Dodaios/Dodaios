@@ -37,6 +37,7 @@ from .checkpoints import CheckpointEngine
 from .communication import reply_policy, should_report
 from .conversation import ConversationArchive
 from .delivery import IncomingMessage, incoming_context
+from .display_name import display_name, lead_display_name
 from .events import MsgType, QuestState, RoomState, SocietyEnvelope, Tier, now_ms
 from .focus import derive_approval_rules, derive_focus
 from .learning import AgentSkills, LearningPass, TurnDigest, default_creator_factory
@@ -98,11 +99,12 @@ def set_current_runtime(runtime: SocietyRuntime | None) -> None:
     _current = runtime
 
 
-def _agent_frame(agent: AgentRecord, task: str) -> str:
+def _agent_frame(agent: AgentRecord, task: str, config: Any = None) -> str:
     """The mission prompt that carries the agent's identity to a worker."""
+    name = display_name(agent, config)
     lines = [
-        f"You are {agent.name}" + (f", {agent.title}" if agent.title else "") + ",",
-        f"a {agent.tier} agent in the user's agent society led by Jarvis.",
+        f"You are {name}" + (f", {agent.title}" if agent.title else "") + ",",
+        f"a {agent.tier} agent in the user's agent society led by {lead_display_name(config)}.",
     ]
     if agent.description.strip():
         lines += ["", "Standing instructions:", agent.description.strip()]
@@ -395,7 +397,8 @@ class SocietyRuntime:
         from jarvis.core.delegation import result_announcement
 
         event = result_announcement(
-            source="society.lead", request_id=request.event_id, name=target.name,
+            source="society.lead", request_id=request.event_id,
+            name=self.display_name(target),
             request=request.text, status=status, report=summary,
             language=str(request.payload.get("lang") or ""),
         )
@@ -411,7 +414,8 @@ class SocietyRuntime:
                 session = svc.store.get_session(session_id) if session_id else None
                 if session is not None and session.surface == "jarvis":
                     await post(session_id, {
-                        "kind": kind, "agent_id": target.agent_id, "agent_name": target.name,
+                        "kind": kind, "agent_id": target.agent_id,
+                        "agent_name": self.display_name(target),
                         "msg_type": message_type, "status": status, "text": summary[:1000],
                         "session_id": target.session_id, "trace_id": request.trace_id,
                         "assignment_id": request.event_id, "report": event.report,
@@ -448,6 +452,10 @@ class SocietyRuntime:
     def config(self) -> Any:
         """The live app config the chat binding reads provider defaults from."""
         return self._get_cfg()
+
+    def display_name(self, agent: AgentRecord) -> str:
+        """The name to show, speak or send for ``agent`` (``display_name`` module)."""
+        return display_name(agent, self._get_cfg())
 
     async def close(self) -> None:
         # HTTP serving continues during independent server cleanup. Fence this
@@ -856,26 +864,28 @@ class SocietyRuntime:
 
         # Work Jarvis or a teammate hands out runs in the agent's one chat; the
         # chat shows the framed assignment as a delegation card from its sender.
+        sender = await self.roster.get(env.from_agent)
+        sender_name = self.display_name(sender) if sender is not None else env.from_agent
         session = ensure_session(svc, self._get_cfg(), target)
         if svc.is_running(session.session_id):
-            raise RuntimeError(f"target busy: {target.name} is running a turn")
+            raise RuntimeError(f"target busy: {self.display_name(target)} is running a turn")
         queue = svc.subscribe(session.session_id)
         # Both API and CLI turns inherit the same trusted request provenance.
         token = incoming_context.set(
             IncomingMessage(
                 message_id=env.event_id,
                 sender_id=env.from_agent,
-                sender_name=env.from_agent,
+                sender_name=sender_name,
                 sender_kind="jarvis" if env.from_agent == LEAD_AGENT_ID else "agent",
                 text=env.text,
-                prompt=frame_assignment(env),
+                prompt=frame_assignment(env, sender_name),
                 trace_id=env.trace_id,
             )
         )
         try:
             turn_id = await svc.send(
                 session.session_id,
-                frame_assignment(env),
+                frame_assignment(env, sender_name),
                 **({"read_only": True} if env.payload.get("read_only") is True else {}),
                 **(
                     {"direct_user": False}
@@ -1140,7 +1150,7 @@ class SocietyRuntime:
         task = env.text or str(env.payload.get("task", "")) or "(no task text)"
         language = env.payload.get("lang")
         kwargs: dict[str, Any] = {
-            "prompt": _agent_frame(target, task),
+            "prompt": _agent_frame(target, task, self._get_cfg()),
             "source_actor": "hauptjarvis",
         }
         if language in MISSION_LANGUAGES:
