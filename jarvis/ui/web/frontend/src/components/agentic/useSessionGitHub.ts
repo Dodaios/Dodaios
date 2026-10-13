@@ -39,16 +39,21 @@ export type SessionCiState = CiStatus["state"] | "cancelled" | "neutral" | "skip
   | "waiting" | "requested" | "expected" | "error";
 
 type Panes = Record<string, PaneGitHubStatus | null>;
+/** Which session each pane ran when its status was read. */
+type Sessions = Record<string, string>;
+type Known = { panes: Panes; sessions: Sessions };
 type Entry = {
   panes: Panes;
+  sessions: Sessions;
   listeners: Set<() => void>;
   stop: () => void;
 };
 const entries = new Map<string, Entry>();
 const EMPTY: Panes = {};
+const UNKNOWN: Known = { panes: EMPTY, sessions: {} };
 // A workspace's last answer outlives its listeners, and a reload of the window:
 // a pane coming back on stage shows its branch at once, and the refresh follows.
-const remembered = new Map<string, Panes>();
+const remembered = new Map<string, Known>();
 const STORE = "ide-pane-github:";
 // While a newer answer is being read the backend is asked again this soon.
 const FOLLOW_UP_MS = 700;
@@ -67,32 +72,34 @@ function markAll(panes: Panes, refreshing: boolean): Panes {
 }
 
 /** What was last known about a workspace, as an answer still being refreshed. */
-function recall(workspaceId: string): Panes {
-  let panes = remembered.get(workspaceId);
-  if (!panes) {
-    panes = EMPTY;
+function recall(workspaceId: string): Known {
+  let known = remembered.get(workspaceId);
+  if (!known) {
+    known = UNKNOWN;
     try {
-      const stored: unknown = JSON.parse(sessionStorage.getItem(STORE + workspaceId) ?? "null");
-      if (stored && typeof stored === "object" && !Array.isArray(stored)) panes = markAll(stored as Panes, true);
+      const stored = JSON.parse(sessionStorage.getItem(STORE + workspaceId) ?? "null") as Partial<Known> | null;
+      if (stored?.panes && typeof stored.panes === "object" && stored.sessions && typeof stored.sessions === "object") {
+        known = { panes: markAll(stored.panes, true), sessions: stored.sessions };
+      }
     } catch {
       // Blocked or unreadable storage only costs the head start; the poll follows.
     }
-    remembered.set(workspaceId, panes);
+    remembered.set(workspaceId, known);
   }
-  return panes;
+  return known;
 }
 
-function remember(workspaceId: string, panes: Panes) {
-  remembered.set(workspaceId, markAll(panes, true));
+function remember(workspaceId: string, known: Known) {
+  remembered.set(workspaceId, { panes: markAll(known.panes, true), sessions: known.sessions });
   try {
-    sessionStorage.setItem(STORE + workspaceId, JSON.stringify(panes));
+    sessionStorage.setItem(STORE + workspaceId, JSON.stringify(known));
   } catch {
     // Storage is full or blocked: the answer still lives in memory.
   }
 }
 
 function start(workspaceId: string): Entry {
-  const entry: Entry = { panes: recall(workspaceId), listeners: new Set(), stop: () => {} };
+  const entry: Entry = { ...recall(workspaceId), listeners: new Set(), stop: () => {} };
   let disposed = false;
   let followUps = 0;
   let controller: AbortController | undefined;
@@ -124,7 +131,7 @@ function start(workspaceId: string): Entry {
       const query = new URLSearchParams({ workspace_id: workspaceId });
       const response = await fetch(`/api/agentic-ide/git/session-status?${query}`, { signal: controller.signal });
       if (!response.ok) throw new Error("GitHub status could not be refreshed.");
-      const data = await response.json() as { panes: Panes; refreshing?: boolean };
+      const data = await response.json() as { panes: Panes; refreshing?: boolean; sessions?: Sessions };
       if (disposed) return;
       // The backend answers with what it last read and reads on in the
       // background; until that lands, this answer is the last known one.
@@ -141,9 +148,14 @@ function start(workspaceId: string): Entry {
         }
         return [name, mark(status, pending)];
       }));
-      // A pane the backend has not read yet keeps what was last known of it.
-      entry.panes = pending ? { ...markAll(entry.panes, true), ...next } : next;
-      if (!pending) remember(workspaceId, entry.panes);
+      // A pane the backend has not read yet keeps what was last known of it,
+      // as long as it still runs the session that answer was read for.
+      const sessions = data.sessions ?? {};
+      const kept = pending ? Object.entries(entry.panes).filter(([name]) => !(name in next)
+        && sessions[name] !== undefined && sessions[name] === entry.sessions[name]) : [];
+      entry.panes = { ...markAll(Object.fromEntries(kept), true), ...next };
+      entry.sessions = sessions;
+      if (!pending) remember(workspaceId, { panes: entry.panes, sessions });
       notify();
     } catch {
       if (!disposed) unavailable(translate("ide_panes.github.refresh_failed"));
@@ -193,14 +205,14 @@ export function useSessionGitHub(workspaceId?: string, pane?: string): PaneGitHu
     return () => {
       entry.listeners.delete(listener);
       if (!entry.listeners.size) {
-        remembered.set(workspaceId, markAll(entry.panes, true));
+        remembered.set(workspaceId, { panes: markAll(entry.panes, true), sessions: entry.sessions });
         entry.stop();
         entries.delete(workspaceId);
       }
     };
   }, [workspaceId]);
   // Before the first subscription the last known answer already paints.
-  const snapshot = useCallback(() => workspaceId ? entries.get(workspaceId)?.panes ?? recall(workspaceId) : EMPTY, [workspaceId]);
+  const snapshot = useCallback(() => workspaceId ? entries.get(workspaceId)?.panes ?? recall(workspaceId).panes : EMPTY, [workspaceId]);
   const panes = useSyncExternalStore(subscribe, snapshot, () => EMPTY);
   return pane ? panes[pane] ?? null : null;
 }

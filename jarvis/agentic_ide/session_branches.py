@@ -460,7 +460,11 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
     if cached is not None and stamp is not None and stamp == cached.stamp:
         cached.used_at = now
         return cached.candidates, cached.worked
-    events = agent_transcript.read_events(record.agent, record.session_id, home=record.home) or []
+    events = agent_transcript.read_events(record.agent, record.session_id, home=record.home)
+    if events is None:
+        # Not read (locked, being rotated): that is no evidence about the
+        # record, so it is not kept beyond the short window either.
+        events, stamp = [], None
     candidates = created_branches(
         events, record.folder, not_before=record.started_at, unconfirmed=True
     )
