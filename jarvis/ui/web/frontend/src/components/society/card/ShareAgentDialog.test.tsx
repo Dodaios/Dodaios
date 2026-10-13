@@ -89,7 +89,7 @@ function installFetchMock() {
         ok: true,
         name: "release-scribe",
         version: "1.0.0",
-        issue_url: "https://github.com/PersonalJarvis/marketplace/issues/7",
+        issue_url: "https://github.com/Dodaios/marketplace/issues/7",
         install: { cli: "jarvis marketplace install release-scribe", runner: "", prompt: "" },
       });
     }

@@ -40,7 +40,7 @@ from collections.abc import (
 )
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID, uuid4
 
 # Real turn outcomes feed the passive health record behind the status dots.
@@ -77,6 +77,13 @@ from jarvis.core.protocols import (
     ImageBlock,
     ReasoningEffort,
     Tool,
+)
+from jarvis.brain.tool_shortlist import (
+    FIND_TOOLS_NAME,
+    ROLE_BASE,
+    FindToolsTool,
+    plan_surface,
+    tool_tokens,
 )
 from jarvis.brain.turn_override import TurnOverride
 from jarvis.core.redact import safe_preview
@@ -3860,6 +3867,8 @@ class BrainManager:
         delegated_voice: bool = False,
         tool_context: dict[str, Any] | None = None,
         loop_control: Any = None,
+        own_tools: Iterable[str] = (),
+        direct_tools: frozenset[str] | None = None,
     ) -> BrainDispatcher:
         """Builds the dispatcher with an optional tool override.
 
@@ -3887,24 +3896,39 @@ class BrainManager:
         as soon as evidence suffices — to the system prompt of delegated
         voice turns only, so classic chat prompts stay byte-identical.
 
-        The tool surface is then sized to the brain's context window
-        (2026-08-27, ``_fit_tools_to_brain``); the turn's message log counts
-        toward that — a delegated turn's from ``_TURN_HISTORY_OVERRIDE``, a
-        classic turn's from the live ``self._history`` (the same two sources
-        ``_cu_context_lines`` reads).
+        The tool surface is then split into what the model is shown and
+        what stays callable behind ``find_tools`` (``_shortlist_tools``);
+        the turn's message log counts toward the budget — a delegated turn's
+        from ``_TURN_HISTORY_OVERRIDE``, a classic turn's from the live
+        ``self._history`` (the same two sources ``_cu_context_lines`` reads).
+
+        ``own_tools`` / ``direct_tools``: the caller's own hands, always
+        shown, and — for a caller whose role names the tools it works with —
+        the only others that are (``TurnOverride.tools_direct``).
         """
         tools = tools_override if tools_override is not None else self._tools
         system_prompt = self._build_system_prompt()
         history = _TURN_HISTORY_OVERRIDE.get()
         if history is None:
             history = tuple(getattr(self, "_history", None) or ())
-        tools = self._fit_tools_to_brain(
-            tools, brain, system_prompt=system_prompt, history=history
+        tools, deferred = self._shortlist_tools(
+            tools,
+            brain,
+            system_prompt=system_prompt,
+            history=history,
+            own_tools=own_tools,
+            direct_tools=direct_tools,
         )
         # Per-plugin usage guidance for whichever plugins are active this turn
         # (the "MCP + thin skill" reliability layer). Appended last so it sits
         # closest to the turn; only present when a plugin tool is in scope.
-        cards = self._plugin_usage_cards_block(tools)
+        # Cards only for the tools the model is shown: guidance for a tool it
+        # cannot see spends the window on nothing.
+        cards = self._plugin_usage_cards_block(
+            {name: tool for name, tool in tools.items() if name not in deferred}
+            if deferred
+            else tools
+        )
         if cards:
             system_prompt = f"{system_prompt}\n\n{cards}"
         if delegated_voice:
@@ -3922,6 +3946,7 @@ class BrainManager:
             reasoning_effort=reasoning_effort,
             tool_context=tool_context,
             loop_control=loop_control,
+            deferred_tools=deferred,
             **kwargs,
         )
 
@@ -3949,6 +3974,10 @@ class BrainManager:
             kwargs["max_turns"] = override.max_turns
         if override.loop_control is not None:
             kwargs["loop_control"] = override.loop_control
+        if override.tools_extra:
+            kwargs["own_tools"] = tuple(override.tools_extra)
+        if override.tools_direct is not None:
+            kwargs["direct_tools"] = override.tools_direct
         return kwargs
 
     async def render_surface_prompt(self, *, user_text: str) -> tuple[str, str]:
@@ -6872,35 +6901,49 @@ class BrainManager:
         )
         return {n: t for n, t in tools.items() if n != "screenshot"}
 
-    def _fit_tools_to_brain(
+    def _shortlist_tools(
         self,
         tools: dict[str, Tool],
         brain: Any,
         *,
         system_prompt: str,
         history: Sequence[BrainMessage] | None,
-    ) -> dict[str, Tool]:
-        """Size the turn's tool surface to the answering brain's context window.
+        own_tools: Iterable[str] = (),
+        direct_tools: frozenset[str] | None = None,
+    ) -> tuple[dict[str, Tool], frozenset[str]]:
+        """Decide which of the turn's tools the model is SHOWN.
 
-        Live 2026-08-27 10:11 (and 2026-08-26 20:32, 20:58): the front page's
-        chat ran on a local 32k model, the registry held 221 tools (78
-        built-in, 131 from three connected MCP servers, 12 CLIs) and a plain
-        "Hallo" went out as 67,852 tokens. The server refused it with a 400,
-        the one-provider chain was exhausted, and the user read "I can't
-        reach my provider — check the network". Nothing had ever read
-        ``Brain.context_window``: the Ollama plugin narrows it to the model's
-        ``num_ctx`` so the manager can budget, and the manager budgeted
-        nothing. Cloud brains declare 128k–1M and are never touched here; a
-        brain without a declared window is left alone as well.
+        Returns ``(tools, deferred names)``. Every tool stays in the dict and
+        stays callable; the deferred ones are not put in front of the model
+        and are reached through ``find_tools``
+        (``jarvis/brain/tool_shortlist.py``). With nothing deferred the dict comes back
+        untouched, which is every turn of a hosted model with room to spare.
 
-        The tool a deterministic gate mandated this turn and ``run-skill`` on
-        a skill match are never dropped. Everything else follows the order in
-        ``_fit_tools_to_context_window``. A tool the model cannot see is one
-        capability lost for one turn; a request the server refuses is the
-        whole turn lost.
+        Three reasons to defer, each on its own evidence:
+
+        * **The window.** Live 2026-08-27: a local 32k model, 221 tools, a
+          plain "Hallo" went out as 67,852 tokens and the server refused it.
+          The first answer dropped what did not fit, largest first — which
+          removed the richly described tools (a save tool with a real schema)
+          before a parameterless list tool, and a dropped tool was gone for
+          the turn. Now the everyday tools are shown first and the rest is
+          deferred, not lost.
+        * **A small model.** A window of ``_SMALL_WINDOW_TOKENS`` or less is
+          a small model, and a small model picks badly from a long list even
+          when the list fits: it is shown ``_SMALL_MODEL_DIRECT_TOOLS`` at
+          most. Gated on the declared window, never a provider name (AP-21).
+        * **The caller's role.** ``direct_tools`` names the tools an agent
+          works with; it is shown those and its own hands, on any provider.
+
+        The provider's own tool-count cap (``max_tools``) defers the same way.
+        The tool a deterministic gate mandated this turn, ``run-skill`` on a
+        skill match and the caller's own hands are always shown.
         """
-        if not isinstance(tools, dict) or not tools:
-            return tools
+        nothing: frozenset[str] = frozenset()
+        # A real tool of that name leaves no room for the finder: show
+        # everything, as before.
+        if not isinstance(tools, dict) or not tools or FIND_TOOLS_NAME in tools:
+            return tools, nothing
         try:
             window = int(getattr(brain, "context_window", 0) or 0)
         except (TypeError, ValueError):
@@ -6911,37 +6954,68 @@ class BrainManager:
         except (TypeError, ValueError):
             # A malformed tool limit means 'unknown'; no trimming then.
             max_tools = 0
-        if window <= 0 and max_tools <= 0:
-            return tools
-        used = (
-            _approx_tokens(system_prompt)
-            + _approx_history_tokens(history)
-            + _CONTEXT_FIT_RESERVE_TOKENS
-        )
-        keep: set[str] = set()
+        if window <= 0 and max_tools <= 0 and direct_tools is None:
+            return tools, nothing
+        keep: set[str] = {name for name in own_tools if name in tools}
         mandated = getattr(self, "_evidence_required_tool", None)
         if mandated:
             keep.add(str(mandated))
         if getattr(self, "_skill_turn_match", None) is not None:
             keep.add("run-skill")
-        fitted, dropped = _fit_tools_to_context_window(
-            tools, context_window=window, used_tokens=used, keep=keep, max_tools=max_tools
+        used = (
+            _approx_tokens(system_prompt)
+            + _approx_history_tokens(history)
+            + _CONTEXT_FIT_RESERVE_TOKENS
         )
-        if dropped:
-            log.warning(
-                "Tool surface trimmed for %s: %d of %d tools hidden this turn so "
-                "the request fits the model's %d-token window and %s-tool cap "
-                "(prompt+history ~%d tokens, budget for tools %d). First hidden: %s",
-                getattr(brain, "name", type(brain).__name__),
-                len(dropped),
-                len(tools),
-                window,
-                max_tools or "no",
-                used,
-                max(window - used, 0),
-                ", ".join(dropped[:5]),
-            )
-        return fitted
+        budget = max(window - used, 0) if window > 0 else None
+        # One slot of a provider's count cap is held for ``find_tools``.
+        limits = [max(max_tools - 1, 1)] if max_tools > 0 else []
+        if 0 < window <= _SMALL_WINDOW_TOKENS:
+            limits.append(_SMALL_MODEL_DIRECT_TOOLS + len(keep))
+        max_direct = min(limits) if limits else 0
+        only = None if direct_tools is None else {*direct_tools, *ROLE_BASE}
+        plan = plan_surface(
+            tools, keep=keep, budget_tokens=budget, max_direct=max_direct, only=only
+        )
+        if not plan.deferred:
+            return tools, nothing
+        reveal_tokens: int | None = None
+        if budget is not None:
+            # The finder and what it reveals need room of their own. When the
+            # window is what forced the split, hold that room back and choose
+            # again; otherwise the first lookup overflows the window that the
+            # shown tools already fill to the brim.
+            spent = sum(tool_tokens(name, tool) for name, tool in plan.direct.items())
+            headroom = budget - spent
+            if headroom < _REVEAL_RESERVE_TOKENS:
+                reveal_tokens = min(_REVEAL_RESERVE_TOKENS, budget // 3)
+                plan = plan_surface(
+                    tools,
+                    keep=keep,
+                    budget_tokens=max(budget - reveal_tokens - _FINDER_TOKENS, 0),
+                    max_direct=max_direct,
+                    only=only,
+                )
+            else:
+                reveal_tokens = headroom - _FINDER_TOKENS
+        surface: dict[str, Tool] = dict(plan.direct)
+        surface[FIND_TOOLS_NAME] = cast(
+            Tool, FindToolsTool(plan.deferred, reveal_tokens=reveal_tokens)
+        )
+        surface.update(plan.deferred)
+        log.info(
+            "Tool surface for %s: %d of %d tools shown, %d behind find_tools "
+            "(window %s, prompt+history ~%d tokens, count limit %s). First deferred: %s",
+            getattr(brain, "name", type(brain).__name__),
+            len(plan.direct),
+            len(tools),
+            len(plan.deferred),
+            window or "undeclared",
+            used,
+            min(limits) if limits else "none",
+            ", ".join(list(plan.deferred)[:5]),
+        )
+        return surface, frozenset(plan.deferred)
 
     def _hide_spawn_on_knowledge_question(
         self, tools: dict[str, Tool], user_text: str
@@ -14225,6 +14299,16 @@ async def _settle_context_window(brain: Any) -> None:
 #: small enough for this to matter — see ``_fit_tools_to_context_window``.
 _CONTEXT_FIT_RESERVE_TOKENS = 4096
 
+#: A declared window at or below this is a small model: it is shown a short
+#: list of tools even when a longer one would fit (see ``_shortlist_tools``).
+_SMALL_WINDOW_TOKENS = 32_768
+#: How many tools such a model is shown besides the ones a turn pins.
+_SMALL_MODEL_DIRECT_TOOLS = 24
+#: Room held back for the definitions ``find_tools`` adds during a turn whose
+#: window is already full, and for the finder itself with its index of names.
+_REVEAL_RESERVE_TOKENS = 2_000
+_FINDER_TOKENS = 700
+
 #: Chars per token for the size estimate. Deliberately low: tool schemas are
 #: JSON, which tokenizes denser than prose, and over-estimating costs a few
 #: tools on a 32k window while under-estimating costs the whole turn.
@@ -14255,17 +14339,7 @@ def _approx_history_tokens(history: Sequence[BrainMessage] | None) -> int:
 
 def _tool_surface_tokens(name: str, tool: Any) -> int:
     """What ONE tool costs on the wire: name, description and schema."""
-    description = getattr(tool, "description", "") or ""
-    schema = getattr(tool, "schema", None) or {}
-    try:
-        wire = json.dumps(
-            {"name": name, "description": description, "input_schema": schema},
-            ensure_ascii=False,
-            default=str,
-        )
-    except (TypeError, ValueError):
-        wire = f"{name} {description} {schema}"
-    return _approx_tokens(wire)
+    return tool_tokens(name, tool)
 
 
 def _fit_tools_to_context_window(
@@ -14276,48 +14350,33 @@ def _fit_tools_to_context_window(
     keep: Iterable[str] = (),
     max_tools: int = 0,
 ) -> tuple[dict[str, Tool], list[str]]:
-    """Shrink a tool surface until it fits ``context_window`` and ``max_tools``.
+    """The tools that fit ``context_window`` and ``max_tools``, and the rest.
 
-    Returns ``(surviving tools, dropped names in drop order)``. A window or a
-    tool cap of ``0`` or less means the brain declared none. ``used_tokens``
-    is everything else the request carries (system prompt, history,
-    reserve); what remains is the budget for tools.
+    Returns ``(tools that fit, names passed over)``. A window or a tool cap
+    of ``0`` or less means the brain declared none. ``used_tokens`` is
+    everything else the request carries (system prompt, history, reserve);
+    what remains is the budget for tools.
 
-    Drop order, deliberately: connected-server tools first — they are
-    additions to Jarvis's own surface, each one a full JSON schema, and on a
-    small window they are what does not fit (live 2026-08-27: 131 of 221
-    tools came from three MCP servers). Within a group the largest go first,
-    so as many hands as possible stay. Names in ``keep`` are never dropped.
-    When even the prompt alone exceeds the window every droppable tool goes
-    and the caller's log says so; the request still fails, but honestly.
+    The choice is made by ``plan_surface``: the everyday tools first, then
+    the rest in registry order, connected-server tools last — they are
+    additions to the app's own surface, each one a full JSON schema (live
+    2026-08-27: 131 of 221 tools came from three MCP servers). A tool that
+    does not fit is passed over and the next one tried. Names in ``keep``
+    always fit. When even the prompt alone exceeds the window nothing but
+    ``keep`` is left.
     """
     if (context_window <= 0 and max_tools <= 0) or not tools:
         return tools, []
-    costs = {name: _tool_surface_tokens(name, tool) for name, tool in tools.items()}
-    budget = context_window - used_tokens if context_window > 0 else sum(costs.values())
-    total = sum(costs.values())
-    count_cap = max_tools if max_tools > 0 else len(tools)
-    if total <= budget and len(tools) <= count_cap:
-        return tools, []
-    kept = set(keep)
-    droppable = [name for name in tools if name not in kept]
-    # A stable sort keeps the registry order inside each (group, size) tie.
-    droppable.sort(
-        key=lambda name: (
-            0 if getattr(tools[name], "is_mcp_tool", False) else 1,
-            -costs[name],
-        )
+    plan = plan_surface(
+        tools,
+        keep=keep,
+        budget_tokens=max(context_window - used_tokens, 0) if context_window > 0 else None,
+        max_direct=max(max_tools, 0),
     )
-    dropped: list[str] = []
-    remaining = len(tools)
-    for name in droppable:
-        if total <= budget and remaining <= count_cap:
-            break
-        total -= costs[name]
-        remaining -= 1
-        dropped.append(name)
-    gone = set(dropped)
-    return {name: tool for name, tool in tools.items() if name not in gone}, dropped
+    if not plan.deferred:
+        return tools, []
+    passed = set(plan.deferred)
+    return {name: tool for name, tool in tools.items() if name not in passed}, list(plan.deferred)
 
 
 #: Wordings with which providers refuse a request larger than the model's
