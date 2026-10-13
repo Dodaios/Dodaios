@@ -38,15 +38,15 @@
 # times - pull request, merge queue, and again on the push that landed the
 # very same commit.
 #   pr     pull request: the whole Linux + Windows suite and every affected
-#          lane on Linux and Windows. No macOS.
-#   queue  merge-queue group: everything `pr` runs plus one SHORT macOS leg
-#          per affected lane. The blocking macOS proof per change; several
-#          groups share the five macOS slots, and no leg takes much longer
-#          than the test shards.
+#          lane on Linux, Windows and macOS. The macOS legs here are the
+#          short ones (one to four minutes): a macOS failure shows on the
+#          pull request, and they end before the Windows shards do.
+#   queue  merge-queue group: everything `pr` runs plus the long macOS legs
+#          (real runtimes, real browser). Nothing macOS-specific that a lane
+#          tests lands unproven; the groups share the five macOS slots.
 #   full   nightly, release tags, manual full dispatch: Intel macOS, the ARM
-#          runners, every interpreter, the macOS test shards, and the long
-#          real-product legs (the Hermes install on Windows, the real
-#          runtimes and the real browser on macOS). A red nightly opens an
+#          runners, every interpreter, the macOS test shards, and the
+#          Hermes install on Windows (14-23 minutes). A red nightly opens an
 #          issue (nightly-alert.yml).
 # A push to main whose commit the merge queue already passed runs nothing
 # but `detect` and the gate (`proven`); a push that bypassed the queue runs
@@ -781,8 +781,8 @@ jobs:
     if: needs.detect.outputs.deps == 'true'
     strategy:
       fail-fast: false
-      # Windows ARM on a pull request, Intel macOS added in the queue, both
-      # interpreters and Apple Silicon in the wide matrix (plan_run.py).
+      # Windows ARM and Intel macOS on every change, both interpreters and
+      # Apple Silicon in the wide matrix (plan_run.py).
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.crypto_matrix) }}
     runs-on: ${{ matrix.runner }}
@@ -856,8 +856,8 @@ jobs:
   # The in-app updater on every OS it ships to. Each one replaces a running
   # app differently (Inno handover, .app swap, AppImage swap, git transaction
   # + restart helper), and the POSIX-only tests run the real relaunch waiter.
-  # A pull request runs Linux and the real Windows upgrade; the merge queue
-  # adds macOS and the second Windows interpreter; the wide matrix adds the
+  # A pull request runs Linux, macOS and the real Windows upgrade; the merge
+  # queue adds the second Windows interpreter; the wide matrix adds the
   # Intel Mac (scripts/ci/plan_run.py).
   #
   # Python: 3.11 is the floor, 3.12 is what the native installers freeze.
@@ -1047,9 +1047,9 @@ jobs:
 
   # Hermes / OpenClaw society agents on every OS a person runs them on. The
   # lane (scripts/ci/agent_runtime_suite.py) covers the runtimes AND the chat
-  # and society code that drives them. A pull request proves Linux and
-  # Windows, the merge queue adds macOS before anything lands. Fakes only: no
-  # key, no network to a model.
+  # and society code that drives them, on all three OSes on every pull
+  # request: a macOS failure shows before the queue. Fakes only: no key, no
+  # network to a model.
   agent-runtimes-unit:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
@@ -1108,8 +1108,9 @@ jobs:
   # user PATH and shell profiles stayed put (scripts/ci/agent_runtime_e2e.py).
   # No key, no network to a model. The weekly canary does the same at
   # upstream latest and raises the pin. Every change runs both runtimes on
-  # Linux and OpenClaw on Windows; nightly and release runs add the Hermes
-  # install on Windows (14-23 minutes) and both macOS legs
+  # Linux and OpenClaw on Windows; the merge queue adds both runtimes on
+  # macOS, so a macOS failure stops a change before it lands; nightly and
+  # release runs add the Hermes install on Windows (14-23 minutes)
   # (scripts/ci/plan_run.py).
   agent-runtimes-e2e:
     needs: detect

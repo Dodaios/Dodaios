@@ -21,6 +21,9 @@ from jarvis.core.paths import user_data_dir
 
 HOOK_PATH = Path(__file__).resolve().parents[3] / "packaging" / "pyinstaller_rthook_frozen.py"
 
+# The hook moves DODAIOS_ variables to their JARVIS_ names on the real environment.
+pytestmark = pytest.mark.usefixtures("prefixed_environment_restored")
+
 
 def _load_hook() -> ModuleType:
     """Import the hook as a module. Its top-level ``_apply()`` is a no-op here.
