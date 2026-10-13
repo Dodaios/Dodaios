@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-5qFVhDwc.js
 import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-CvGug5If.js";import{A as Xe}from"./AgentMark-B1-nli3S.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-CygtC2yU.js";import{P as tt}from"./pencil-C-emO7ji.js";import{F as nt}from"./folder-Yqo6rSlo.js";import{C as st}from"./check-DHp_u7oS.js";import{C as rt}from"./chevron-right-DFVHstp2.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/ThreadTree-BPJawI_N.js
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-B8EqKdQS.js";import{A as Xe}from"./AgentMark-DD6CK2wr.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-BPwQ_Zwp.js";import{P as tt}from"./pencil-8aaweFk9.js";import{F as nt}from"./folder-7BLUCvAi.js";import{C as st}from"./check-Bm6cENrC.js";import{C as rt}from"./chevron-right-DBgZL70C.js";/**
+========
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-BrfLx6iD.js";import{A as Xe}from"./AgentMark-CSNLmjwg.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-Buzu_RRK.js";import{P as tt}from"./pencil-CUURJysH.js";import{F as nt}from"./folder-D51j9Zd4.js";import{C as st}from"./check-2bDEw_UQ.js";import{C as rt}from"./chevron-right-DFI4OeAZ.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/ThreadTree-CxSeUOS5.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

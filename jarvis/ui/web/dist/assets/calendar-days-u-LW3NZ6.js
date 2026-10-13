@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/calendar-days-u-LW3NZ6.js
 import{c as h}from"./index-CvGug5If.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/calendar-days-BUmhz1UA.js
+import{c as h}from"./index-B8EqKdQS.js";/**
+========
+import{c as h}from"./index-BrfLx6iD.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/calendar-days-DTsiRDK3.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

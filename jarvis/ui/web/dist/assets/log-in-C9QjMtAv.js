@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/log-in-C9QjMtAv.js
 import{c as e}from"./index-CvGug5If.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/log-in-ClzAHUJD.js
+import{c as e}from"./index-B8EqKdQS.js";/**
+========
+import{c as e}from"./index-BrfLx6iD.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/log-in-1dqp2QnO.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

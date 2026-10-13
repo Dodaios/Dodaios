@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-BOX58xkb.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-CvGug5If.js";import{S as sr}from"./switch-Co_UnmWq.js";import{Q as D}from"./tooltip-B3J1JBe6.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-D8Gko8pe.js";import{C as Tn}from"./check-DHp_u7oS.js";import{C as En}from"./columns-2-DMGLcPPx.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/AppshotEditor-BfdJshkh.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-B8EqKdQS.js";import{S as sr}from"./switch-CqpnYyX7.js";import{Q as D}from"./tooltip-jXSJfpzI.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BbnFmjIJ.js";import{C as Tn}from"./check-Bm6cENrC.js";import{C as En}from"./columns-2-BT6niJAV.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BrfLx6iD.js";import{S as sr}from"./switch-MKrcbWo3.js";import{Q as D}from"./tooltip-789xOIDS.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-GLmnBoV4.js";import{C as Tn}from"./check-2bDEw_UQ.js";import{C as En}from"./columns-2-B19FFAo6.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/AppshotEditor-BOGjTXTo.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

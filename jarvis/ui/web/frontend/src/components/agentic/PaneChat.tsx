@@ -117,9 +117,8 @@ export interface PaneChatProps {
   title?: string;
   /**
    * The longer form behind the title — the paragraph the recap card shows.
-   * The header line is cut to a grid pane's width on the backend (48
-   * characters, hence the "…" a long prompt ends in); this is where the
-   * rest of the sentence lives, and the card is the place it can be read.
+   * The header line shows as much of the title as its row is wide; the card
+   * is the place the whole of it, and the paragraph behind it, can be read.
    */
   titleDetail?: string;
   /** Who wrote the recap and why it is the one on screen — the card's footer. */

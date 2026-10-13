@@ -5,8 +5,8 @@
  * ## What was wrong with the version this replaces
  *
  * The header line itself was never the problem: a header is a few centimetres
- * wide, a recap is a sentence, and CSS clipping it is correct. The problem was
- * everything around that:
+ * wide, a recap is a sentence, and the line showing as much as fits is correct.
+ * The problem was everything around that:
  *
  * * **The long form was unreadable.** It lived in a CSS-only hover tooltip
  *   anchored inside the pane, capped at the pane's own width. On a quarter of a
@@ -52,6 +52,7 @@ import {
 import { fill, translate, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { RecapReason, RecapSource } from "@/lib/agenticIdeApi";
+import { PaneTitleText } from "./PaneTitleText";
 import { PANE_BRAND } from "./terminalThemes";
 
 /** How wide the card gets before it starts wrapping, and its floor on a phone. */
@@ -324,7 +325,7 @@ export function PaneRecap({
           "focus-visible:ring-1 focus-visible:ring-[color:var(--pane-accent)]",
         )}
       >
-        <span className="min-w-0 flex-1 truncate">{headline}</span>
+        <PaneTitleText text={headline} className="flex-1" />
         <ChevronDown
           aria-hidden="true"
           className={cn(

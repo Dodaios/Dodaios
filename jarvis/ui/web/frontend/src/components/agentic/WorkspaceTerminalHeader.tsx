@@ -6,6 +6,7 @@ import { AgentMark } from "./AgentMark";
 import { BranchIcon } from "./branchIcon";
 import { SessionGitHubBadge } from "./SessionGitHubBadge";
 import { usePaneTitle } from "@/store/paneRecaps";
+import { PaneTitleText } from "./PaneTitleText";
 import { PromptHistoryButton } from "./PromptHistoryButton";
 import { SplitAboveIcon, SplitBelowIcon, SplitLeftIcon, SplitRightIcon } from "./splitIcons";
 import { PANE_BRAND, PANE_CHROME, PANE_TILE, themeFor, type PaneEdgeState, type TerminalAppearance } from "./terminalThemes";
@@ -283,11 +284,11 @@ export function WorkspaceTerminalHeader({
           style={{ background: status === "live" ? theme.green : status === "error" ? theme.red : status === "connecting" ? theme.yellow : brand.inkFaint }} />
         <AgentMark agent={agent} label={displayName} logoUrl={agentLogoUrl} variant="plain" size="sm"
           className="!text-[color:var(--pane-ink)] [&>.bg-foreground]:!bg-[color:var(--pane-ink)]" />
-        <span data-testid={`pane-title-${name}`} title={title ? `${title} (${name})` : name}
+        <PaneTitleText text={title || name} data-testid={`pane-title-${name}`} title={title ? `${title} (${name})` : name}
           // On a tile the working pane's title takes the same signal hue as
           // its edge, the way a multiplexer lights the label in its border.
-          className={tile ? `truncate ${focused ? "font-semibold" : ""}` : "truncate"}
-          style={tile ? { color: focused ? PANE_TILE[appearance].focus : brand.inkMuted } : undefined}>{title || name}</span>
+          className={tile && focused ? "font-semibold" : ""}
+          style={tile ? { color: focused ? PANE_TILE[appearance].focus : brand.inkMuted } : undefined} />
         {computerName && <span data-testid={`pane-computer-${name}`} title={fill(t("ide_panes.header.runs_on"), { computer: computerName })}
           className={`flex min-w-0 max-w-[35%] shrink items-center gap-1 ${radius} bg-[color:var(--pane-chip)] px-1.5 py-0.5 text-[11px] font-normal text-[color:var(--pane-ink-muted)]`}>
           <Server className="h-3 w-3 shrink-0" aria-hidden="true" /><span className="truncate">{computerName}</span></span>}

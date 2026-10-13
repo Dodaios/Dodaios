@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/phone-call-BD3TQ4HV.js
 import{c as a}from"./index-CvGug5If.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/phone-call-hgjlobq8.js
+import{c as a}from"./index-B8EqKdQS.js";/**
+========
+import{c as a}from"./index-BrfLx6iD.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/phone-call-DXfnOyGP.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

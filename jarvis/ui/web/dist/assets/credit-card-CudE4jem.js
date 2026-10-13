@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/credit-card-CudE4jem.js
 import{c as e}from"./index-CvGug5If.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/credit-card-po4sXAxN.js
+import{c as e}from"./index-B8EqKdQS.js";/**
+========
+import{c as e}from"./index-BrfLx6iD.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/credit-card-DiSE6T7l.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -25,9 +25,9 @@ feature is worth and would fail entirely for a user without a spare key (§3).
 Two forms come out, because the header and the tooltip answer differently sized
 questions:
 
-* :attr:`Recap.headline` — ONE clause for a label that will be truncated by the
-  pane's width. Front-loaded with the freshest signal, since the beginning is
-  the part that survives the ellipsis.
+* :attr:`Recap.headline` — ONE clause for the pane's title row, sent whole.
+  The row shows as much of it as the pane is wide; front-loaded all the same,
+  since the beginning is the part a narrow pane still shows.
 * :attr:`Recap.detail` — one or two plain sentences for the hover tooltip: what
   it was asked to do, and what has happened since.
 
@@ -58,13 +58,14 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # status bar and a blank frame row, small enough that the scan is free.
 TAIL_LINES = 14
 
-# The header has room for roughly one short navigation label once the pane's
-# call-sign and controls have taken their share.  The old 120-character cap
-# delegated the real limit to CSS, which routinely hid the words that finally
-# identified the user's goal.  Forty-eight characters keeps the WHOLE label in
-# a normal pane and forces both the model and the deterministic floor to put the
-# differentiating subject first.
-HEADLINE_CHARS = 48
+# A transport bound, not a display budget. How much of a title fits is the
+# pane's business: a wide pane has room for a whole sentence and a narrow one
+# for four words, and only the frontend knows which it is drawing. This used to
+# be 48, which ended every longer request in an ellipsis even in a pane with
+# half a screen of empty title row beside it. The row clips what does not fit;
+# nothing here shortens a title to make it fit. Same bound as a hand-written
+# title (``recap_engine.MAX_EDIT_HEADLINE``).
+HEADLINE_CHARS = 200
 # The long form is read in a card that wraps and scrolls, not in a one-line
 # tooltip — so the cap is here to bound the payload, not to make the text fit.
 # It used to be 280, which cut the second sentence off mid-word in exactly the
@@ -73,9 +74,8 @@ DETAIL_CHARS = 480
 # How much of the instruction is quoted in the long form. A prompt is often a
 # whole brief; this is the part of it that identifies the task.
 TASK_CHARS = 200
-# The same job in the header.  It shares the exact cap: a fallback must not be
-# allowed to overflow merely because its source was an instruction rather than
-# a transcript row.
+# The same job in the header. It shares the exact bound: an instruction is
+# sent as whole as a transcript row is.
 HEADLINE_TASK_CHARS = HEADLINE_CHARS
 
 # Glyphs an agent TUI draws in front of its input line. A row starting with one
@@ -224,7 +224,7 @@ def _job_line(text: str) -> str:
 class Recap:
     """What one pane is doing, in the two lengths the UI needs.
 
-    ``headline`` goes in the pane header and is expected to be clipped;
+    ``headline`` goes in the pane header, which shows as much as fits;
     ``detail`` is the one-or-two-sentence version behind the hover tooltip.
     Both are plain English and both may be empty — a pane that has done nothing
     yet has nothing to report, and inventing a sentence for it would be noise.
@@ -246,9 +246,8 @@ def condense(text: str, limit: int) -> str:
     cleaned = " ".join(str(text or "").split())
     if len(cleaned) <= limit:
         return cleaned
-    # The ellipsis belongs INSIDE the advertised budget.  Returning `limit + 1`
-    # made every caller's cap slightly dishonest, and this cap now corresponds
-    # to actual pixels in the pane header rather than only a transport guard.
+    # The ellipsis belongs INSIDE the advertised budget. Returning `limit + 1`
+    # made every caller's cap slightly dishonest.
     cut = cleaned[: max(1, limit - 1)]
     spaced = cut.rsplit(" ", 1)[0]
     # A single very long token (a path, a hash) has no space to cut at — take

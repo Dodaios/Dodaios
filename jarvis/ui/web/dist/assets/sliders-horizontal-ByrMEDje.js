@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-ByrMEDje.js
 import{c as y}from"./index-CvGug5If.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/sliders-horizontal-BTfZgtPe.js
+import{c as y}from"./index-B8EqKdQS.js";/**
+========
+import{c as y}from"./index-BrfLx6iD.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/sliders-horizontal-LWkZZ6Jf.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

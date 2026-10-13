@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-uvFB8oUG.js
 import{j as s}from"./index-CvGug5If.js";import{P as n}from"./PageHeader-BLha2ijI.js";import"./WorkTrace-Bp7xV6cY.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/ChatsView-COZoQfYA.js
+import{j as s}from"./index-B8EqKdQS.js";import{P as n}from"./PageHeader-C9bZegaZ.js";import"./WorkTrace-cpqR6iYq.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-BrfLx6iD.js";import{P as n}from"./PageHeader-DRv2ph-F.js";import"./WorkTrace-D0ULCYgE.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/ChatsView-DHRWSggz.js

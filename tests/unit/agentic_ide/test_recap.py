@@ -295,12 +295,21 @@ def test_the_headline_is_capped_for_transport() -> None:
     term = _pane(status="live", agent="shell", display_name="Terminal")
     # A wide pane, so the row is not already clipped by the terminal's width.
     term.transcript.resize(400, 30)
-    term.transcript.feed("word " * 200 + "\r\n")
+    term.transcript.feed("word " * 70 + "\r\n")
 
     headline = summarize(term).headline
 
     assert len(headline) <= HEADLINE_CHARS
     assert headline.endswith("…")
+
+
+def test_a_sentence_long_request_reaches_the_header_whole() -> None:
+    """How much of a title fits is the pane's width to decide, not this module's:
+    a request of ordinary length is sent entire, with no ellipsis put on it."""
+    request = "Turn the Git tab of our app into a control center with branches and pull requests"
+    term = _pane(status="live", last_prompt=request)
+
+    assert summarize(term).headline == request
 
 
 def test_a_pane_serializes_its_recap_for_the_ui() -> None:

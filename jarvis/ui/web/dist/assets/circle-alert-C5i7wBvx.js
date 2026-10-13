@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/circle-alert-C5i7wBvx.js
 import{c as e}from"./index-CvGug5If.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/circle-alert-9ajdrMw6.js
+import{c as e}from"./index-B8EqKdQS.js";/**
+========
+import{c as e}from"./index-BrfLx6iD.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/circle-alert-iH0sYeqn.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

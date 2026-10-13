@@ -173,10 +173,10 @@ QUIET_S = 600.0
 PROVIDER_FAILURES_BEFORE_QUIET = 3
 PROVIDER_QUIET_S = 600.0
 
-#: This is a DISPLAY budget, not merely a transport cap.  In a normal grid the
-#: call-sign and pane actions leave room for about 48 characters; a 90-character
-#: model instruction merely guaranteed that CSS would hide the distinguishing
-#: half.  Keep this in parity with the deterministic floor in :mod:`.recap`.
+#: The transport bound a title is held to, in parity with the deterministic
+#: floor in :mod:`.recap`. The model is still ASKED for a short label (see the
+#: contract below: a narrow pane shows only its first words), but a longer
+#: answer is shown whole rather than cut to an ellipsis.
 HEADLINE_CHARS = recap.HEADLINE_CHARS
 DETAIL_CHARS = 640
 

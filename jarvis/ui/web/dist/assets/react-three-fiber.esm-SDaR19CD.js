@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-SDaR19CD.js
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-CvGug5If.js";var Jl={exports:{}},Lt={};/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/react-three-fiber.esm-C7WWyQAI.js
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-B8EqKdQS.js";var Jl={exports:{}},Lt={};/**
+========
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-BrfLx6iD.js";var Jl={exports:{}},Lt={};/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/react-three-fiber.esm-DjapwKwF.js
  * @license React
  * react-reconciler-constants.production.min.js
  *

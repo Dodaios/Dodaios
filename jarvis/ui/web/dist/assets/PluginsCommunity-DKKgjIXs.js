@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-DKKgjIXs.js
 import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cx as T,B as y,cb as q,q as ee,S as te,L as $,ct as U,cu as K,x as ne}from"./index-CvGug5If.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-DHp_u7oS.js";import{S as se,C as re}from"./store-BiFSde3u.js";/**
+|||||||| parent of 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/PluginsCommunity-DcDK4uy5.js
+import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cx as T,B as y,cb as q,q as ee,S as te,L as $,ct as U,cu as K,x as ne}from"./index-B8EqKdQS.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-Bm6cENrC.js";import{S as se,C as re}from"./store-BAtSVjZ6.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cx as T,B as y,cb as q,q as ee,S as te,L as $,ct as U,cu as K,x as ne}from"./index-BrfLx6iD.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-2bDEw_UQ.js";import{S as se,C as re}from"./store-Blzy3iPi.js";/**
+>>>>>>>> 2f7211650 (feat(agentic-ide): write a pane title out for as far as its pane is wide):jarvis/ui/web/dist/assets/PluginsCommunity-Cb0wgnZb.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
