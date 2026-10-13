@@ -532,11 +532,30 @@ class SocietyRuntime:
         await asyncio.to_thread(self.conversations.ingest, session.session_id, events)
         await self._complete_message_reply(session, completion, events)
         terminal = [e for e in events if e.get("kind") == "turn_finished"]
-        if not terminal or terminal[-1].get("payload", {}).get("status") not in {
+        finished = bool(terminal) and terminal[-1].get("payload", {}).get("status") in {
             "done",
             "ok",
             "completed",
-        }:
+        }
+        if completion.turn.direct_user:
+            from .surface import agent_id_of
+
+            owner = agent_id_of(session.session_id)
+            if owner and self.team_leads.group_led_by(owner) is not None:
+                # The person's own turn in a team lead's chat: a goal the lead
+                # acted on in it is followed up like a managing turn.
+                final = next(
+                    (
+                        str(e.get("payload", {}).get("text") or "")
+                        for e in reversed(events)
+                        if e.get("kind") == "assistant_text"
+                    ),
+                    "",
+                )
+                self.background(
+                    self.team_leads.person_turn_ended(owner, ok=finished, final=final)
+                )
+        if not finished:
             return
         names = {
             str(e.get("payload", {}).get("name") or "")

@@ -17,6 +17,10 @@ person gives the TEAM a goal; from there the lead works on its own:
    next queued goal starts. A goal that came in as a board assignment (from
    Jarvis by voice, or a quest) answers that assignment with its report.
 
+The person leads the lead in an ordinary chat. What they write there is their
+own turn: work the lead hands out from it opens a goal in the person's words,
+and their answer or go-ahead continues a goal that waits for them.
+
 Nothing here calls a model. The lead's turns run on the lead's own seat, the
 members' on theirs, and every turn belongs to a goal the person started (or a
 check-in they switched on, which is an ordinary agent routine). Opening the
@@ -57,6 +61,7 @@ log = logging.getLogger(__name__)
 
 __all__ = [
     "CHECKIN_TAG",
+    "INITIATIVE_TAG",
     "MAX_LEAD_TURNS",
     "MAX_TASKS_PER_GOAL",
     "TRACE_PREFIX",
@@ -93,6 +98,10 @@ SWEEP_S: Final[float] = 60.0
 STALL_MS: Final[int] = 3 * 60 * 1000
 
 CHECKIN_TAG: Final[str] = "team-checkin:"
+#: A check-in that may also set the team's next goal carries this tag too.
+INITIATIVE_TAG: Final[str] = "team-initiative:"
+#: Finished goals a lead reads on its board, so it does not repeat their work.
+BOARD_FINISHED: Final[int] = 5
 CHECKIN_MINUTES: Final[tuple[int, ...]] = (0, 60, 240, 1440)
 _PROMOTED_KEY: Final[str] = "team_lead_promoted:"
 
@@ -143,8 +152,12 @@ _LEAD_RULES: Final[str] = (
     "person: what was achieved, where the output is, what remains open. Use "
     "status=needs_input for a decision only the person can make (ask one precise question), "
     "status=progress for an interim update on long work, status=failed when the goal cannot "
-    "be reached and why.\n"
-    "- society_team_board shows the goal and every task at any time."
+    "be reached and why. End a status=done report with the next step you recommend.\n"
+    "- society_team_board shows the goal and every task at any time.\n"
+    "- The person talks to you in this chat. When they ask for work, start it at once: "
+    "society_team_assign opens the goal (name it in `goal`). When they answer a question "
+    "you asked or tell you to go on, continue that goal in the same turn: your tools work "
+    "on it again. When they only ask something, answer from the board."
 )
 
 CHECKIN_PROMPT: Final[str] = (
@@ -154,6 +167,20 @@ CHECKIN_PROMPT: Final[str] = (
     "society_team_assign. If nothing needs you, say so in one line and stop. Never invent "
     "work the mission or an open goal does not call for."
 )
+
+INITIATIVE_PROMPT: Final[str] = (
+    "Team check-in. Call society_team_board first. If a goal is stuck, blocked or waiting on "
+    "a member, act on it: follow up, re-assign, or report to the person. If no goal is open, "
+    "take the initiative: decide what moves the team mission forward most right now, make it "
+    "the team's next goal and hand out its first tasks with society_team_assign, naming the "
+    "goal in `goal`. Choose one goal the team can finish, and never repeat what a finished "
+    "goal already delivered. If the mission gives you nothing to derive a goal from, start "
+    "nothing and say in one line what you need from the person. If a goal is in progress and "
+    "nothing needs you, say so in one line and stop."
+)
+
+#: What a chat composer appends below the person's words (mentions, tool pins).
+_CHAT_MARKS: Final[re.Pattern[str]] = re.compile(r"\n\n\[(?:agent mentions|tools:|to jarvis)")
 
 _NAME_UNSAFE: Final[re.Pattern[str]] = re.compile(r"[/\\:@#<>\"'`]")
 
@@ -330,6 +357,8 @@ class TeamLeads:
         self._resumed: set[str] = set()
         #: Goals whose lead was asked once for a typed report after a plain answer.
         self._nudged: set[str] = set()
+        #: Goals a lead acted on inside the person's own turn in its chat.
+        self._chat_goals: set[str] = set()
         self._timers: dict[str, asyncio.TimerHandle] = {}
         self._tasks: set[asyncio.Task[Any]] = set()
         self._locks: dict[str, asyncio.Lock] = {}
@@ -451,12 +480,14 @@ class TeamLeads:
         lead = await self._rt.roster.get(lead_id) if lead_id else None
         goals = await self.goals(group_id)
         rows = [goal.to_dict(await self.tasks(goal.goal_id)) for goal in goals]
+        minutes, initiative = await self.checkin(group_id) if lead is not None else (0, False)
         return {
             "group_id": group_id,
             "lead_agent_id": lead_id,
             "lead_available": lead is not None and lead.state is AgentState.ACTIVE,
             "mission": group.get("mission") or "",
-            "checkin_minutes": await self.checkin_minutes(group_id) if lead is not None else 0,
+            "checkin_minutes": minutes,
+            "initiative": initiative,
             "goals": rows,
             "working": any(goal.goal_id in self._turns for goal in goals),
             "max_lead_turns": MAX_LEAD_TURNS,
@@ -506,7 +537,7 @@ class TeamLeads:
                 return group
             if current and await self._active_goal(group_id) is not None:
                 raise TeamLeadError("Stop the team's current goal before changing its lead.")
-            minutes = await self.checkin_minutes(group_id) if current else 0
+            minutes, initiative = await self.checkin(group_id) if current else (0, False)
             if agent_id is None:
                 await self._drop_checkin(group_id)
                 group = await self._rt.store.set_chat_group_lead(group_id, None)
@@ -537,7 +568,7 @@ class TeamLeads:
             await self.refresh()
             if minutes:
                 try:
-                    await self.set_checkin(group_id, minutes)
+                    await self.set_checkin(group_id, minutes, initiative=initiative)
                 except TeamLeadError:
                     log.info("society team lead: check-in not moved to the new lead")
             await self._announce(group_id, reason="lead")
@@ -614,18 +645,23 @@ class TeamLeads:
             if CHECKIN_TAG + group_id in row.get("tags", ()) and row.get("state") not in ended
         ]
 
-    async def checkin_minutes(self, group_id: str) -> int:
-        """How often the lead looks at its team unprompted; ``0`` = never."""
+    async def checkin(self, group_id: str) -> tuple[int, bool]:
+        """How often the lead looks at its team unprompted (``0`` = never), and
+        whether such a look may also set the team's next goal."""
         try:
             rows = await self._checkin_rows(group_id)
         except Exception:  # noqa: BLE001 — an unreadable task store reads as "off" on the board
             log.warning("society team lead: check-in state unreadable", exc_info=True)
-            return 0
+            return 0, False
         for row in rows:
             seconds = float((row.get("trigger") or {}).get("interval_seconds") or 0)
             if seconds > 0:
-                return int(round(seconds / 60))
-        return 0
+                return int(round(seconds / 60)), INITIATIVE_TAG + group_id in row.get("tags", ())
+        return 0, False
+
+    async def checkin_minutes(self, group_id: str) -> int:
+        """How often the lead looks at its team unprompted; ``0`` = never."""
+        return (await self.checkin(group_id))[0]
 
     async def _drop_checkin(self, group_id: str) -> None:
         store, scheduler = self._rt.task_services()
@@ -636,8 +672,12 @@ class TeamLeads:
             await scheduler.cancel_task(task_id)
             await store.delete(task_id)
 
-    async def set_checkin(self, group_id: str, minutes: int) -> int:
-        """Switch the lead's unprompted check-in on (an agent routine) or off."""
+    async def set_checkin(self, group_id: str, minutes: int, *, initiative: bool = False) -> int:
+        """Switch the lead's unprompted check-in on (an agent routine) or off.
+
+        With ``initiative`` a check-in that finds no open goal sets the team's
+        next one from its mission; without it the lead only follows up.
+        """
         if minutes not in CHECKIN_MINUTES:
             raise TeamLeadError("Unknown check-in interval.", status=422)
         group = await self._require_group(group_id)
@@ -656,10 +696,13 @@ class TeamLeads:
             spec = build_task_spec(
                 lead,
                 title=f"Team check-in: {group['name']}",
-                prompt=CHECKIN_PROMPT,
+                prompt=INITIATIVE_PROMPT if initiative else CHECKIN_PROMPT,
                 schedule={"kind": "every", "interval_seconds": minutes * 60},
             )
-            spec = spec.model_copy(update={"tags": (*spec.tags, CHECKIN_TAG + group_id)})
+            tags = (*spec.tags, CHECKIN_TAG + group_id)
+            if initiative:
+                tags = (*tags, INITIATIVE_TAG + group_id)
+            spec = spec.model_copy(update={"tags": tags})
             await create_routine(store, scheduler, spec)
         await self._announce(group_id, reason="checkin")
         return minutes
@@ -886,6 +929,7 @@ class TeamLeads:
         self._told.pop(goal.goal_id, None)
         self._resumed.discard(goal.goal_id)
         self._nudged.discard(goal.goal_id)
+        self._chat_goals.discard(goal.goal_id)
         for task in await self.tasks(goal.goal_id):
             if task.state not in TASK_OPEN:
                 continue
@@ -1043,7 +1087,7 @@ class TeamLeads:
                 "blocked, then lead it to its report."
             )
             return self._frame(goal, "team goal resumed", body), goal.title, reported
-        if not tasks and goal.lead_turns == 0:
+        if not tasks and goal.lead_turns == 0 and goal.goal_id not in self._nudged:
             return self._plan_prompt(goal)
         news, reported = self._news_body(goal, tasks)
         if not reported:
@@ -1257,9 +1301,29 @@ class TeamLeads:
 
     # ----------------------------------------------------- the lead's tools
 
-    async def _goal_for_lead(self, lead_id: str, *, create_title: str = "") -> TeamGoal:
-        """The goal a lead's tool call belongs to; a lead working from its own
-        chat with no goal open starts one."""
+    @staticmethod
+    def _person_turn(lead_id: str) -> Any | None:
+        """The person's own turn in this lead's chat, when a tool call runs
+        inside one. Trusted provenance: the chat service sets it, no model does."""
+        from jarvis.core.protocols import current_chat_turn
+
+        from .surface import agent_id_of
+
+        turn = current_chat_turn.get()
+        if turn is None or not turn.direct_user or agent_id_of(turn.session_id) != lead_id:
+            return None
+        return turn
+
+    async def _goal_for_lead(
+        self, lead_id: str, *, create_title: str = "", goal_hint: str = ""
+    ) -> TeamGoal:
+        """The goal a lead's tool call belongs to.
+
+        Inside the person's own turn in the lead's chat, a goal that waits for
+        the person continues (their words are the answer or the go-ahead), and
+        work handed out with no goal open starts one in the person's words. A
+        lead working unprompted (a check-in) names the goal it starts itself.
+        """
         group_id = self._leads.get(lead_id)
         if group_id is None:
             raise TeamLeadError("You do not lead a team.")
@@ -1274,16 +1338,31 @@ class TeamLeads:
                 "This goal is no longer in progress. End your turn; you are woken "
                 "when there is something to do."
             )
+        turn = self._person_turn(lead_id)
         active = await self._active_goal(group_id)
         if active is not None:
             if active.state is not TeamGoalState.RUNNING:
-                raise TeamLeadError(
-                    f'The goal "{active.title}" is {active.state}; the person continues it '
-                    "from the team board."
-                )
+                waited = (TeamGoalState.NEEDS_INPUT, TeamGoalState.PAUSED)
+                if (
+                    turn is None
+                    or await self._rt.store.kill_switch()
+                    or not await self._move(
+                        active, TeamGoalState.RUNNING, waited, note="", lead_turns=0
+                    )
+                ):
+                    raise TeamLeadError(
+                        f'The goal "{active.title}" is {active.state}; it continues when '
+                        "the person answers you in this chat."
+                    )
+                self._nudged.discard(active.goal_id)
+                active = await self._require_goal(active.goal_id)
+            if turn is not None:
+                self._chat_goals.add(active.goal_id)
             return active
         if not create_title:
             raise TeamLeadError("Your team has no goal in progress.")
+        words = _CHAT_MARKS.split(turn.user_text, maxsplit=1)[0].strip() if turn else ""
+        text = (words or goal_hint or create_title)[:MAX_GOAL_TEXT]
         new_id = uuid7_str()
         stamp = now_ms()
         await self._rt.store.insert_team_goal(
@@ -1291,19 +1370,43 @@ class TeamLeads:
                 "goal_id": new_id,
                 "group_id": group_id,
                 "lead_agent_id": lead_id,
-                "title": goal_title(create_title),
-                "text": create_title,
+                "title": goal_title(text, goal_hint) if words else goal_title(text),
+                "text": text,
                 "state": str(TeamGoalState.RUNNING),
                 "lead_turns": 1,
-                "origin_json": json.dumps({"kind": "lead"}),
+                "lang": self._language(words, None) if words else "",
+                "origin_json": json.dumps({"kind": "chat" if words else "lead"}),
                 "created_ms": stamp,
                 "updated_ms": stamp,
             }
         )
+        if turn is not None:
+            self._chat_goals.add(new_id)
         await self._announce(group_id, goal_id=new_id, state=TeamGoalState.RUNNING)
         created = await self.get_goal(new_id)
         assert created is not None
         return created
+
+    async def person_turn_ended(self, lead_id: str, *, ok: bool, final: str = "") -> None:
+        """The person's own turn in the lead's chat ended.
+
+        A goal the lead acted on in that turn gets what follows a managing
+        turn: results that landed meanwhile are reviewed, and a goal left with
+        nothing running and no report is asked once for a typed one. A turn
+        that failed is the person's to see in the chat; the sweep parks a goal
+        it left with nothing in progress.
+        """
+        group_id = self._leads.get(lead_id)
+        if group_id is None:
+            return
+        goal = await self._active_goal(group_id)
+        touched = goal is not None and goal.goal_id in self._chat_goals
+        self._chat_goals -= {g.goal_id for g in await self.goals(group_id, limit=200)}
+        if not ok or goal is None or not touched or goal.state is not TeamGoalState.RUNNING:
+            return
+        if goal.goal_id in self._turns or f"lead:{goal.goal_id}" in self._timers:
+            return  # A managing turn is already running or on its way.
+        await self._after_lead_turn(goal.goal_id, ok=True, final=final.strip(), error="")
 
     def _resolve_member(self, group: Mapping[str, Any], lead_id: str, wanted: str) -> AgentRecord:
         by_id = {a.agent_id: a for a in self._rt.roster.snapshot()}
@@ -1341,7 +1444,7 @@ class TeamLeads:
         target = self._resolve_member(group, lead_id, member)
         if target.state is not AgentState.ACTIVE:
             raise TeamLeadError(f"{target.name} is {target.state} and cannot take work.")
-        goal = await self._goal_for_lead(lead_id, create_title=goal_title_hint or title)
+        goal = await self._goal_for_lead(lead_id, create_title=title, goal_hint=goal_title_hint)
         tasks = await self.tasks(goal.goal_id)
         if len(tasks) >= MAX_TASKS_PER_GOAL:
             raise TeamLeadError("This goal reached its task limit; report to the person.")
@@ -1421,7 +1524,11 @@ class TeamLeads:
             raise TeamLeadError("You do not lead a team.")
         group = self._groups[group_id]
         await self._rt.roster.refresh()
-        goals = [g for g in await self.goals(group_id, limit=30) if g.state not in GOAL_TERMINAL]
+        every = await self.goals(group_id, limit=30)
+        goals = [g for g in every if g.state not in GOAL_TERMINAL]
+        closed = sorted(
+            (g for g in every if g.state in GOAL_TERMINAL), key=lambda g: g.updated_ms, reverse=True
+        )
         rows = []
         for goal in sorted(goals, key=lambda g: g.created_ms):
             tasks = await self.tasks(goal.goal_id)
@@ -1447,6 +1554,10 @@ class TeamLeads:
             "mission": group.get("mission") or "",
             "members": self._roster_lines(group, lead_id),
             "goals": rows,
+            "finished": [
+                {"title": g.title, "state": str(g.state), "report": g.report[:400]}
+                for g in closed[:BOARD_FINISHED]
+            ],
         }
 
     async def report(self, lead_id: str, *, status: str, summary: str) -> dict[str, Any]:
