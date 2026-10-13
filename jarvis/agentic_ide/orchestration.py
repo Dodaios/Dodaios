@@ -57,7 +57,9 @@ _TARGET_KEYS = ("project_id", "workspace_id", "terminal_id")
 # A send of the same prompt to the same pane counts as a retry only this soon;
 # a later "continue" or "/compact" is a new instruction and must be typed.
 _RETRY_WINDOW_S = 120
-_PANE_ACTIONS = frozenset({"observe", "respond", "keys", "interrupt", "restart", "close"})
+_PANE_ACTIONS = frozenset(
+    {"observe", "respond", "keys", "interrupt", "restart", "close", "fork"}
+)
 # A pane whose agent process is gone (exited, or could not start). A send there
 # types nothing; restart brings the same pane back on its own conversation.
 _STOPPED = frozenset({"exited", "error"})
@@ -471,7 +473,17 @@ class WorkspaceOrchestrator:
                           "from, so its end cannot be reported. Nothing is watched; use status "
                           "to look again.",
             }
-        await followthrough.watch(term, origin)
+        armed = await followthrough.watch(term, origin)
+        if snapshot(term)["availability"] != "busy":
+            # It finished while the watch was being set up: that end is already
+            # in the watch's starting point and would never be reported.
+            if getattr(term, "delegation_result", None) is armed:
+                term.delegation_result = None
+            return {
+                **reply, "state": snapshot(term)["availability"], "status": "not_running",
+                "reason": "That agent just finished, so there is nothing to wait for. "
+                          "Its state is above; observe it for what it wrote.",
+            }
         return {
             **reply, "status": "watching",
             "reason": "Its result is handed to this conversation when it stops or asks. Tell "
@@ -916,6 +928,35 @@ class WorkspaceOrchestrator:
                 return {"status": "pressed", "target": target, "keys": keys, "agent": term.name}
             if action == "restart":
                 return await self._restart(owner, term, target)
+            if action == "fork":
+                in_worktree = args.get("worktree") is True
+                copy = await self.registry.fork_terminal(
+                    term.name,
+                    workspace_id=owner.id,
+                    worktree=in_worktree,
+                    name=str(args.get("name") or "").strip() or None,
+                )
+                await self._announce(
+                    lambda: terminals_added_event(
+                        owner, [copy], source_layer="agentic_ide.orchestration"
+                    )
+                )
+                return {
+                    "status": "forked",
+                    "target": target,
+                    "agent": term.name,
+                    "copy": {
+                        "terminal_id": "pane:" + copy.history_id,
+                        "name": copy.name,
+                        **({"folder": copy.folder, "branch": copy.branch} if in_worktree else {}),
+                    },
+                    "reason": (
+                        "The copy continues the same conversation"
+                        + (" in its own worktree and branch" if in_worktree else "")
+                        + ". The original is untouched. Send the copy its next task by its "
+                        "terminal_id."
+                    ),
+                }
             if action == "close":
                 from .fleet_actions import terminals_closed_event
 
@@ -1391,6 +1432,7 @@ class WorkspaceOrchestrator:
         to_created = action == "send" and str(args.get("terminal_id") or "") in created
         if (args.get("_requires_new") or creation) and not to_created and action not in {
             "inspect", "create", "open_workspace", "context", "observe", "status", "watch",
+            "git",
         }:
             # A NEW request cannot borrow an idle pane for its new task, but it
             # may also carry independent work for an agent the user NAMED
@@ -1429,6 +1471,10 @@ class WorkspaceOrchestrator:
             return self.resolve(args, graph)
         if action == "create":
             return await self.create(args, trace_id=trace_id)
+        if action == "git":
+            from . import workspace_git
+
+            return await workspace_git.run(self, args)
         if action in {"status", "watch"}:
             from . import task_state
 
