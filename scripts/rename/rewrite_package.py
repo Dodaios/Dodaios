@@ -218,6 +218,19 @@ LEGACY_IDENTIFIERS: tuple[Legacy, ...] = (
         ('home / ".jarvis" / "skills"', "~/.jarvis/agent_runtimes", "%LOCALAPPDATA%\\Jarvis"),
     ),
     Legacy(
+        "config and vault folders",
+        "~/.config/jarvis holds the credentials on a remote machine and society/jarvis is "
+        "the vault folder of the agent named Jarvis. Both are data, even where the next "
+        "segment happens to be a folder the package also has (workspace, memory, skills).",
+        r"(?:\.config|society)[/\\]{{1,2}}{old}\b",
+        (
+            "~/.config/jarvis/agent.env",
+            'workspaceDir: "society/jarvis/workspace"',
+            "vault / society/jarvis/memory/notes.md",
+            "the convention path ~/.config/jarvis/...",
+        ),
+    ),
+    Legacy(
         "assistant name and wake word",
         'The assistant is called whatever the user chose; "Jarvis" in prose, prompts and '
         "speech vocabulary is a name, not the package (structural: a bare or capitalised "
@@ -319,6 +332,7 @@ _IMPORTING_CALL_RE = re.compile(
     r"setitem|delitem|setattr|delattr)\s*[\(\[]\s*(?:sys\.modules\s*,\s*)?[rbf]*[\"']$"
 )
 _IMPORT_STMT_RE = re.compile(r"(?:^|[\s;:\"'`(>])(?:import|from)\s+$")
+_FROM_RE = re.compile(r"\bfrom\s+$")
 _IMPORT_REGEX_RE = re.compile(r"(?:import|from)\W{0,6}\\s[+*]$")
 _IMPORT_WORD_RE = re.compile(r"\bimport(?:s|ed|ing)?\b", re.IGNORECASE)
 _DASH_M_RE = re.compile(r"(?:^|[\s\"'`\[(,=])-m(?:\s+|[\"']\s*,\s*[\"'])$")
@@ -759,6 +773,12 @@ class Rewriter:
         if state.is_local_name(start):
             return "keep", "local variable"
         if _IMPORT_STMT_RE.search(before) and not re.match(r"\s*[-/]", after):
+            if _FROM_RE.search(before) and not re.match(r"\s+import\b", after):
+                # "a message from <old>" is prose. ``"from <old>" not in
+                # code`` is a guard over import statements, or prose again.
+                if after[:1] in ("'", '"', "`"):
+                    return "ambiguous", "quoted `from` and the name: an import guard, or prose"
+                return "keep", "name"
             return "rewrite", "import"
         if _IMPORT_REGEX_RE.search(before):
             return "rewrite", "import"

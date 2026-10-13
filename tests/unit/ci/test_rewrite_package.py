@@ -578,6 +578,20 @@ def test_a_guard_over_module_names_is_reported_and_left_alone(text):
     assert [hit.line for hit in result.ambiguous] == [1]
 
 
+def test_the_word_from_before_the_name_is_an_import_only_with_an_import():
+    text = (
+        "from jarvis import __version__\n"
+        'assert sent.startswith("[assignment from jarvis]")\n'
+        "task = \"Type the sentence 'hello from jarvis' into it.\"\n"
+        'assert "from jarvis" not in generated_code\n'
+    )
+    data, result = _rewriter().rewrite("tests/test_prose.py", text.encode("utf-8"))
+
+    assert data.decode("utf-8") == text.replace("from jarvis import", "from dodaios import")
+    # The quoted forms may be guards over import statements: a person decides.
+    assert [hit.line for hit in result.ambiguous] == [3, 4]
+
+
 def test_a_lookup_in_the_package_data_table_follows_its_key():
     """pyproject's package-data key moves; a test that reads the table by
     that key has to move with it, and no other lookup may."""
