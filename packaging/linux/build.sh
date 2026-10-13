@@ -53,6 +53,8 @@ APPIMAGETOOL_CACHE="${DIST_DIR}/.build-tools/appimagetool-${APPIMAGETOOL_VERSION
 
 ICON_SOURCE="${REPO_ROOT}/assets/icons/jarvis-gigi-256.png"
 DESKTOP_FILE_NAME="personal-jarvis.desktop"
+# The console command and its earlier name; both ship (jarvis.spec builds both).
+CLI_EXE_NAMES=("dodaios" "jarvis")
 ICON_FILE_NAME="personal-jarvis.png"
 
 log() { printf '[linux-build] %s\n' "$*"; }
@@ -172,16 +174,19 @@ if building; then
   if [ ! -e "${APPDIR}/usr/bin/Jarvis" ]; then
     ln -s "${GUI_EXE_NAME}" "${APPDIR}/usr/bin/Jarvis"
   fi
-  if [ ! -e "${APPDIR}/usr/bin/jarvis" ]; then
-    # On Linux both targets are the same program - PyInstaller's console flag
-    # has no meaning here - so a link keeps the CLI entry the contract asks for
-    # even when the spec ships only one executable. Say it loudly: on Windows
-    # and macOS a missing console target is a real gap, not a cosmetic one.
-    log "WARNING: the freeze has no 'jarvis' executable - jarvis.spec has no console CLI EXE target. Linking it to ${GUI_EXE_NAME} so the CLI entry exists."
-    ln -s "${GUI_EXE_NAME}" "${APPDIR}/usr/bin/jarvis"
-  fi
+  for cli_name in "${CLI_EXE_NAMES[@]}"; do
+    if [ ! -e "${APPDIR}/usr/bin/${cli_name}" ]; then
+      # On Linux both targets are the same program - PyInstaller's console flag
+      # has no meaning here - so a link keeps the CLI entry the contract asks
+      # for even when the spec ships no such executable. Say it loudly: on
+      # Windows and macOS a missing console target is a real gap, not a
+      # cosmetic one.
+      log "WARNING: the freeze has no '${cli_name}' executable - jarvis.spec has no console CLI EXE target of that name. Linking it to ${GUI_EXE_NAME} so the CLI entry exists."
+      ln -s "${GUI_EXE_NAME}" "${APPDIR}/usr/bin/${cli_name}"
+    fi
+  done
 else
-  log "[dry-run] would copy ${FREEZE_DIR}/. into ${APPDIR}/usr/bin/ and link Jarvis/jarvis to ${GUI_EXE_NAME}"
+  log "[dry-run] would copy ${FREEZE_DIR}/. into ${APPDIR}/usr/bin/ and link Jarvis/${CLI_EXE_NAMES[*]} to ${GUI_EXE_NAME}"
 fi
 
 run "${PYTHON}" "${SCRIPT_DIR}/make_desktop_entry.py" \
@@ -296,7 +301,9 @@ Description: AI agent for your computer
  agents. This package ships the self-contained desktop build; it needs no
  system Python and no pip installation.
 EOF
-    ln -sf /opt/PersonalJarvis/usr/bin/jarvis "${DEB_ROOT}/usr/bin/jarvis"
+    for cli_name in "${CLI_EXE_NAMES[@]}"; do
+      ln -sf "/opt/PersonalJarvis/usr/bin/${cli_name}" "${DEB_ROOT}/usr/bin/${cli_name}"
+    done
     ln -sf /opt/PersonalJarvis/AppRun "${DEB_ROOT}/usr/bin/personal-jarvis"
     cp "${ICON_SOURCE}" "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/${ICON_FILE_NAME}"
   fi

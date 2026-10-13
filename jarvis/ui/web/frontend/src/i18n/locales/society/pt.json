@@ -1011,8 +1011,8 @@
           "error": "Erro",
           "sleeping": "A dormir"
         },
-        "everywhere": "Mostrar todos os agentes como criaturas de píxeis",
-        "everywhere_hint": "Um interruptor experimental para este dispositivo. Os agentes sem criatura própria recebem uma criada a partir da sua forma e cor. Desliga-o e todos os aspetos voltam."
+        "by_default": "Criaturas de píxeis por omissão",
+        "by_default_hint": "Os agentes que ainda não escolheram um aspeto aparecem como uma criatura de píxeis criada a partir da sua forma e da sua cor. Desative para voltar a ver as formas. Aplica-se a este dispositivo."
       },
       "pet": "Animal",
       "pet_hint": "O agente leva este animal para todo o lado: nos chats, enquanto trabalha e como companheiro no Verse.",

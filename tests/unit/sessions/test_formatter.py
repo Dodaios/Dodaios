@@ -205,7 +205,7 @@ def test_plain_has_no_telemetry() -> None:
 def test_plain_uses_speaker_labels() -> None:
     out = format_session_plain(_session(), _example_turns())
     assert "Du: Kannst du für mich bitte einmal meine Gmails durchsuchen?" in out
-    assert "Jarvis: Einen Augenblick." in out
+    assert "Assistant: Einen Augenblick." in out
 
 
 def test_plain_header_is_a_single_slim_line() -> None:
@@ -228,9 +228,9 @@ def test_plain_preserves_umlauts() -> None:
 def test_plain_turn_without_reply_renders_cleanly() -> None:
     out = format_session_plain(_session(), _example_turns())
     assert "Du: auflegen" in out
-    # The reply-less turn must not emit a dangling empty "Jarvis:" line.
-    assert "Jarvis: \n" not in out
-    assert not out.rstrip().endswith("Jarvis:")
+    # The reply-less turn must not emit a dangling empty "Assistant:" line.
+    assert "Assistant: \n" not in out
+    assert not out.rstrip().endswith("Assistant:")
 
 
 def test_plain_empty_session_is_graceful() -> None:
@@ -306,7 +306,7 @@ def test_plain_includes_spoken_phrases_as_clean_dialogue() -> None:
     spoken = [_spoken("turn-0", "Das hat zu lange gedauert.", "timeout")]
     out = format_session_plain(_session(), turns, spoken)
     # The voiced phrase reads as part of the dialogue — no kind tag, no slop.
-    assert "Jarvis: Das hat zu lange gedauert." in out
+    assert "Assistant: Das hat zu lange gedauert." in out
     assert "timeout" not in out  # plain export stays clean of meta-tags
 
 
@@ -326,8 +326,8 @@ def test_plain_orders_preamble_before_final_response_by_timestamp() -> None:
         ),
     ]
     out = format_session_plain(_session(), turns, events)
-    preamble_pos = out.index("Jarvis: Ich rufe deine heutigen Termine")
-    final_pos = out.index("Jarvis: Ich konnte das gerade nicht abrufen.")
+    preamble_pos = out.index("Assistant: Ich rufe deine heutigen Termine")
+    final_pos = out.index("Assistant: Ich konnte das gerade nicht abrufen.")
     assert preamble_pos < final_pos
 
 
@@ -340,7 +340,7 @@ def test_plain_prefers_confirmed_reply_over_generated_model_text() -> None:
 
     out = format_session_plain(_session(), turns, events)
 
-    assert "Jarvis: This sentence reached playback." in out
+    assert "Assistant: This sentence reached playback." in out
     assert "Generated text that was not played." not in out
 
 
@@ -356,8 +356,8 @@ def test_plain_orders_late_readback_after_final_response() -> None:
         ),
     ]
     out = format_session_plain(_session(), turns, events)
-    final_pos = out.index("Jarvis: Ich kuemmere mich darum.")
-    readback_pos = out.index("Jarvis: Die Recherche ist fertig.")
+    final_pos = out.index("Assistant: Ich kuemmere mich darum.")
+    readback_pos = out.index("Assistant: Die Recherche ist fertig.")
     assert final_pos < readback_pos
 
 
@@ -406,7 +406,7 @@ def test_plain_folds_withheld_twin_into_the_spoken_reply() -> None:
 
     out = format_session_plain(_session(), turns, events)
 
-    assert out.count(f"Jarvis: {answer}") == 1
+    assert out.count(f"Assistant: {answer}") == 1
 
 
 def test_markdown_keeps_the_abort_detail_when_folding_the_withheld_twin() -> None:
@@ -445,7 +445,7 @@ def test_withheld_event_without_a_spoken_twin_still_renders() -> None:
 
     out = format_session_plain(_session(), turns, events)
 
-    assert "Jarvis: Der Anfang der Antwort, der abgebrochen wurde." in out
+    assert "Assistant: Der Anfang der Antwort, der abgebrochen wurde." in out
 
 
 # --- direct tests for the small pure helpers ---------------------------------
@@ -523,3 +523,20 @@ def test_pretty_voice_mode(mode: str, expected: str) -> None:
 
 def test_pretty_voice_mode_empty() -> None:
     assert _pretty_voice_mode("") == "Unknown"
+
+
+def test_the_assistants_lines_carry_the_name_the_user_gave_it() -> None:
+    plain = format_session_plain(_session(), _example_turns(), assistant_name="George")
+    assert "George: Einen Augenblick." in plain
+    assert "Assistant:" not in plain and "Jarvis" not in plain
+
+    markdown = format_session_markdown(_session(), _example_turns(), assistant_name="George")
+    assert "George sagte" in markdown  # i18n-allow: the export's own German label
+    assert "Jarvis" not in markdown
+
+
+def test_a_blank_name_falls_back_to_the_neutral_label() -> None:
+    from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+
+    out = format_session_plain(_session(), _example_turns(), assistant_name="   ")
+    assert f"{DEFAULT_ASSISTANT_NAME}: Einen Augenblick." in out

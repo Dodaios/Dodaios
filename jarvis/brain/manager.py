@@ -7752,7 +7752,9 @@ class BrainManager:
 
             # Keep the stdout/log line a headless install watches, exactly as
             # the REST route does — the socket beat is an addition to it.
-            print_notice(notice)
+            print_notice(
+                notice, speaker=resolve_assistant_name(getattr(self, "_config", None))
+            )
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:  # pragma: no cover - no loop, no clients
@@ -9114,7 +9116,7 @@ class BrainManager:
             history = tuple(getattr(self, "_history", None) or ())
         lines: list[str] = []
         for message in history[-_CU_CONTEXT_MAX_MESSAGES:]:
-            role = "User" if getattr(message, "role", "") == "user" else "Jarvis"
+            role = "User" if getattr(message, "role", "") == "user" else "Assistant"
             content = " ".join(str(getattr(message, "content", "") or "").split())
             if not content:
                 continue

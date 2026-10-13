@@ -4,7 +4,12 @@ import { AgentSymbol } from "../AgentSymbol";
 import { AccessoryPicker } from "./AccessoryPicker";
 import { COMPANION_COLORS, COMPANION_SHAPES, type CompanionAppearance } from "./appearance";
 import { CompanionMark } from "./CompanionMark";
+import { creatureFromShape, type CreatureLook, type CreatureState } from "./creature";
+import { CreaturePicker } from "./CreaturePicker";
+import { CreatureStage } from "./PixelCreature";
+import { growsCreature, useCreatureDefault } from "./creatureDefault";
 import { DesignPicker } from "./DesignPicker";
+import { SegmentedChoice } from "./SegmentedChoice";
 import { PetSprite } from "@/components/pets/PetSprite";
 import { usePets } from "@/hooks/usePets";
 import gigiMark from "@/assets/gigi-companion-avatar.png";
@@ -23,12 +28,21 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
   const update = (patch: Partial<CompanionAppearance>) => onChange({ ...value, ...("color" in patch && !("skin" in patch) ? { skin: undefined } : {}), ...patch });
   const petsQuery = usePets();
   const pets = petsQuery.data?.pets ?? [];
-  // The look is a shape or a pet; "Pet" stays chosen even before a pet exists to pick.
-  const [kind, setKind] = useState<"shape" | "pet">(value.pet ? "pet" : "shape");
-  const choose = (next: "shape" | "pet") => {
+  const { enabled: creaturesByDefault, setEnabled: setCreaturesByDefault } = useCreatureDefault();
+  // The creature last worn in this dialog comes back when the look returns to it; a first one grows from the shape.
+  const [lastCreature, setLastCreature] = useState(value.creature);
+  const creature = value.creature ?? lastCreature ?? creatureFromShape(value);
+  const wear = (next: CreatureLook) => { setLastCreature(next); update({ pet: undefined, look: undefined, creature: next }); };
+  const [mood, setMood] = useState<CreatureState>("idle");
+  // The look is a shape, a pixel creature or a pet; "Pet" stays chosen even before a pet exists to pick.
+  const [kind, setKind] = useState<"shape" | "creature" | "pet">(value.pet ? "pet" : value.creature || growsCreature(value, creaturesByDefault) ? "creature" : "shape");
+  const choose = (next: "shape" | "creature" | "pet") => {
     setKind(next);
-    if (next === "shape" && value.pet) update({ pet: undefined });
-    if (next === "pet" && !value.pet && pets[0]) update({ pet: pets[0].id });
+    // The shape, its colour and its accessories stay underneath a creature, for the way back.
+    // Choosing the shape is stored: without that mark the look would grow a creature again.
+    if (next === "shape") update({ pet: undefined, creature: undefined, look: "shape" });
+    if (next === "creature") wear(creature);
+    if (next === "pet") update({ creature: undefined, look: undefined, ...(!value.pet && pets[0] ? { pet: pets[0].id } : {}) });
   };
   // "Pet" chosen before the pets arrived: wear the first one as soon as they do.
   const firstPet = pets[0]?.id;
@@ -37,18 +51,25 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
   }, [kind, value, firstPet, onChange]);
   return <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-5 p-4" data-testid="companion-editor">
     <div className="flex items-center gap-5 rounded-xl bg-secondary/50 p-5">
-      {lead ? <img src={gigiMark} width={88} height={88} alt="" /> : <CompanionMark appearance={value} size={88} />}
+      {lead ? <img src={gigiMark} width={88} height={88} alt="" /> : <CompanionMark appearance={value} size={88} mood={kind === "creature" ? mood : undefined} />}
+      {/* A previewed state plays its sign beside the head; keep the text clear of it. */}
+      {!lead && kind === "creature" && <span aria-hidden className="w-2 shrink-0" />}
       <div><h3 className="font-medium">{t("society.companion.title")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("society.companion.hint")}</p></div>
     </div>
-    {preview3d && <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>}
-    {!lead && <div className="flex items-center justify-between gap-3 text-sm"><span>{t("society.companion.look")}</span>
-      <div className="flex gap-1.5" role="group" aria-label={t("society.companion.look")}>
-        {(["shape", "pet"] as const).map(option => <button key={option} type="button" aria-pressed={kind === option} onClick={() => choose(option)}
-          className={`rounded-full border px-2.5 py-1 text-xs ${kind === option ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-secondary"}`}>
-          {t(`society.companion.look_${option}`)}
-        </button>)}
-      </div>
+    {/* A creature previews on a plain canvas, so it shows without a WebGL context; shapes and pets turn in the 3D studio. */}
+    {preview3d && (!lead && kind === "creature"
+      ? <CreatureStage creature={creature} state={mood} />
+      : <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>)}
+    {/* One switch across the full width, like the access switch of the create dialog. */}
+    {!lead && <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.look")}</span>
+      <SegmentedChoice label={t("society.companion.look")} value={kind} onChange={choose}
+        options={(["creature", "shape", "pet"] as const).map(id => ({ id, label: t(`society.companion.look_${id}`) }))} />
     </div>}
+    {!lead && kind !== "pet" && <label className="flex items-start justify-between gap-3 text-sm">
+      <span>{t("society.companion.creature.by_default")}<span className="mt-0.5 block text-xs text-muted-foreground">{t("society.companion.creature.by_default_hint")}</span></span>
+      <Switch checked={creaturesByDefault} onCheckedChange={setCreaturesByDefault} aria-label={t("society.companion.creature.by_default")} />
+    </label>}
+    {!lead && kind === "creature" && <CreaturePicker value={creature} onChange={wear} mood={mood} onMood={setMood} />}
     {!lead && kind === "pet" && <div data-testid="companion-pet-picker"><span className="mb-1 block text-sm font-medium">{t("society.companion.pet")}</span>
       <p className="mb-2 text-xs text-muted-foreground">{pets.length || petsQuery.isLoading ? t("society.companion.pet_hint") : t("society.companion.no_pets")}</p>
       <div className="flex flex-wrap gap-2">{pets.map(pet => <button key={pet.id} type="button" title={pet.name}
@@ -60,18 +81,15 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
     {!lead && kind === "shape" && <><div><span className="mb-2 block text-sm font-medium">{t("society.companion.shape")}</span>
       <div className="flex flex-wrap gap-2">{COMPANION_SHAPES.map(shape => <button key={shape} type="button"
         aria-label={t(`society.companion.shapes.${shape}`)} aria-pressed={value.shape === shape}
-        onClick={() => update({ shape })} className={`grid h-12 w-12 place-items-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.shape === shape ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
-        <AgentSymbol shape={shape} color={value.color} eyes={value.eyes} accessories={value.accessories} skin={value.skin} size={36} />
+        title={t(`society.companion.shapes.${shape}`)}
+        onClick={() => update({ shape })} className={`grid h-16 w-16 place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.shape === shape ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
+        <AgentSymbol shape={shape} color={value.color} eyes={value.eyes} accessories={value.accessories} skin={value.skin} size={52} />
       </button>)}</div>
     </div>
-    <div className="flex items-center justify-between gap-3 text-sm"><span>{t("society.companion.eyes")}</span>
+    <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.eyes")}</span>
       {/* Plain toggles: a popup menu inside a modal dialog can strand its pointer lock. */}
-      <div className="flex gap-1.5" role="group" aria-label={t("society.companion.eyes")}>
-        {(["dots", "lines"] as const).map(eyes => <button key={eyes} type="button" aria-pressed={value.eyes === eyes} onClick={() => update({ eyes })}
-          className={`rounded-full border px-2.5 py-1 text-xs ${value.eyes === eyes ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-secondary"}`}>
-          {t(`society.companion.${eyes}`)}
-        </button>)}
-      </div>
+      <SegmentedChoice label={t("society.companion.eyes")} value={value.eyes} onChange={eyes => update({ eyes })}
+        options={(["dots", "lines"] as const).map(id => ({ id, label: t(`society.companion.${id}`) }))} />
     </div>
     <AccessoryPicker value={value} onChange={accessories => update({ accessories })} agentId={agentId} />
     </>}
