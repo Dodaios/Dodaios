@@ -1131,6 +1131,37 @@ def _build_registry() -> tuple[AppCommand, ...]:
             },
         ),
         AppCommand(
+            id="mission-amend",
+            title="Correct a running mission",
+            description=(
+                "Give a mission that is still running the user's correction or changed "
+                "wish, in their words, without restarting it. The running worker cannot "
+                "be interrupted: the next attempt gets the correction. Read applies in the "
+                "result and tell the user that, never that it is already done. A mission "
+                "that has ended refuses; start a new one for the change."
+            ),
+            method="POST",
+            path="/api/missions/{mission_id}/amend",
+            params={
+                "type": "object",
+                "properties": {
+                    "mission_id": _str_param("Mission id to correct.", min_length=1),
+                    "instruction": _str_param(
+                        "The correction, complete in itself.", min_length=1, max_length=4000
+                    ),
+                },
+                "required": ["mission_id", "instruction"],
+            },
+            path_params=("mission_id",),
+            ui_section="agents",
+            voice_aliases={
+                "de": ("sag der mission sie soll es anders machen",),  # i18n-allow: input vocab
+                "en": ("tell the mission to do it differently",),
+                "es": ("dile a la misión que lo haga de otra forma",),  # i18n-allow: input vocab
+                "pt": ("diz à missão para fazer de outra forma",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
             id="tasks-list",
             title="List tasks",
             description="List scheduled and running tasks (agent routines).",

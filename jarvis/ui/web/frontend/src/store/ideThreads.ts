@@ -25,7 +25,15 @@ export interface ThreadSelection {
   projectId: string;
   /** The chat session on screen, or null for a new thread's draft. */
   sessionId: string | null;
+  /**
+   * A team thread on screen instead: its id, or `TEAM_DRAFT` while the person
+   * still picks the members and writes the task. Absent for an ordinary thread.
+   */
+  team?: string;
 }
+
+/** `ThreadSelection.team` of a team thread that has not started yet. */
+export const TEAM_DRAFT = "new";
 
 const LAYOUT_KEY = "jarvis.agenticIde.layout.v1";
 const SELECTION_KEY = "jarvis.agenticIde.threadSelection.v1";
@@ -67,7 +75,9 @@ const parseSelection = (raw: unknown): ThreadSelection | null => {
   const row = raw as Record<string, unknown>;
   const projectId = typeof row.projectId === "string" ? row.projectId : "";
   const sessionId = typeof row.sessionId === "string" && row.sessionId ? row.sessionId : null;
-  return { projectId, sessionId };
+  // A stored draft is not worth restoring; an open team thread is.
+  const team = typeof row.team === "string" && row.team && row.team !== TEAM_DRAFT ? row.team : undefined;
+  return team ? { projectId, sessionId: null, team } : { projectId, sessionId };
 };
 
 const parseStringMap = (raw: unknown): Record<string, string> | null => {
@@ -124,6 +134,10 @@ interface IdeThreadsState {
   openThread: (sessionId: string, projectId: string) => void;
   /** Open an empty draft in a project; its first message starts the thread. */
   newThread: (projectId: string) => void;
+  /** Open a team thread. */
+  openTeam: (teamId: string, projectId: string) => void;
+  /** Open the form that starts a team thread in a project. */
+  newTeam: (projectId: string) => void;
   /** The draft became a session: remember where it belongs and show it. */
   adoptThread: (sessionId: string, projectId: string) => void;
   /** A session started in `projectId` while another thread was picked: file it, show nothing new. */
@@ -161,6 +175,15 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
   newThread: (projectId) => {
     const selection = { projectId, sessionId: null };
     write(SELECTION_KEY, selection);
+    set((state) => ({ selection, focusNonce: state.focusNonce + 1 }));
+  },
+  openTeam: (teamId, projectId) => {
+    const selection = { projectId, sessionId: null, team: teamId };
+    write(SELECTION_KEY, selection);
+    set({ selection });
+  },
+  newTeam: (projectId) => {
+    const selection = { projectId, sessionId: null, team: TEAM_DRAFT };
     set((state) => ({ selection, focusNonce: state.focusNonce + 1 }));
   },
   adoptThread: (sessionId, projectId) => {

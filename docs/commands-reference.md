@@ -371,6 +371,16 @@ Cancel a running Jarvis-Agent mission by id.
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "cancel the mission"
 
+## `mission-amend` — Correct a running mission
+
+Give a mission that is still running the user's correction or changed wish, in their words, without restarting it. The running worker cannot be interrupted: the next attempt gets the correction. Read applies in the result and tell the user that, never that it is already done. A mission that has ended refuses; start a new one for the change.
+
+- **Endpoint:** `POST /api/missions/{mission_id}/amend`
+- **Arguments:** `mission_id` (string; required); `instruction` (string; required)
+- **Requires confirmation:** no
+- **Desktop UI section:** `agents`
+- **Voice example (EN):** "tell the mission to do it differently"
+
 ## `tasks-list` — List tasks
 
 List scheduled and running tasks (agent routines).

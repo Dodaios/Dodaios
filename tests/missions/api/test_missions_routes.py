@@ -753,3 +753,74 @@ async def test_rerun_allowed_again_after_child_terminal(
     assert second != first
     children = await manager.store.find_child_missions(src)
     assert {c[0] for c in children} == {first, second}
+
+
+# ---------------------------------------------------------------------------
+# Corrections for a running mission
+# ---------------------------------------------------------------------------
+
+
+class _CorrectionsOnly:
+    """The part of the orchestrator the amend and result routes talk to."""
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+
+    def _inbox(self, mission_id: str):
+        from jarvis.missions.corrections import CorrectionInbox
+
+        return CorrectionInbox(self._root / mission_id[:13])
+
+    def amend_mission(self, mission_id: str, instruction: str) -> dict[str, Any]:
+        correction = self._inbox(mission_id).add(instruction)
+        return {"number": correction.number, "text": correction.text, "running": True}
+
+    def mission_corrections(self, mission_id: str) -> dict[str, Any]:
+        corrections = self._inbox(mission_id).read()
+        if not corrections:
+            return {}
+        return {
+            "corrections": [item.to_dict() for item in corrections],
+            "unapplied_corrections": [],
+        }
+
+
+def test_amend_records_the_correction_and_says_when_it_applies(
+    app_with_manager: FastAPI, tmp_path: Path
+) -> None:
+    with TestClient(app_with_manager) as client:
+        mid = client.post("/api/missions/dispatch", json={"prompt": "build it"}).json()[
+            "mission_id"
+        ]
+        app_with_manager.state.kontrollierer = _CorrectionsOnly(tmp_path / "missions")
+        before = client.get(f"/api/missions/{mid}/result").json()
+        assert "corrections" not in before
+        r = client.post(f"/api/missions/{mid}/amend", json={"instruction": "Make it  dark."})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["ok"] is True and body["state"] == MissionState.PENDING.value
+        assert body["correction"] == {"number": 1, "text": "Make it dark.", "running": True}
+        assert "next attempt" in body["applies"]
+        result = client.get(f"/api/missions/{mid}/result").json()
+        assert [item["text"] for item in result["corrections"]] == ["Make it dark."]
+        assert result["unapplied_corrections"] == []
+
+
+def test_amend_refuses_what_it_cannot_apply(app_with_manager: FastAPI, tmp_path: Path) -> None:
+    with TestClient(app_with_manager) as client:
+        mid = client.post("/api/missions/dispatch", json={"prompt": "build it"}).json()[
+            "mission_id"
+        ]
+        # No orchestrator wired yet: nothing could ever read the correction.
+        assert client.post(
+            f"/api/missions/{mid}/amend", json={"instruction": "x"}
+        ).status_code == 503
+        app_with_manager.state.kontrollierer = _CorrectionsOnly(tmp_path / "missions")
+        assert client.post(
+            "/api/missions/unknown/amend", json={"instruction": "x"}
+        ).status_code == 404
+        empty = client.post(f"/api/missions/{mid}/amend", json={"instruction": "   "})
+        assert empty.status_code == 422
+        assert client.post(f"/api/missions/{mid}/cancel").status_code == 200
+        ended = client.post(f"/api/missions/{mid}/amend", json={"instruction": "too late"})
+        assert ended.status_code == 409 and "new request" in ended.json()["detail"]
