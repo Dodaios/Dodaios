@@ -176,15 +176,19 @@ LEGACY_IDENTIFIERS: tuple[Legacy, ...] = (
         "entry-point groups",
         "jarvis.stt, jarvis.tool, ... are plugin group names installed plugins declare; the "
         "additive stage adds the new groups next to them. A group that shares its name with "
-        "a module (jarvis.brain) is told apart by context and reported when that fails.",
+        "a module (jarvis.brain) is told apart by context and reported when that fails. "
+        "jarvis.<group> and jarvis.<slot> are how a document writes any group at all.",
         r"entry[-_]points?\W{{0,3}}[\"']{old}\.[a-z_<>*]+[\"']"
         r"|\bgroup\s*=\s*[\"']{old}\.[a-z_]+[\"']"
-        r"|entry_points(?:_for)?\(\s*[\"']{old}\.[a-z_]+[\"']",
+        r"|entry_points(?:_for)?\(\s*[\"']{old}\.[a-z_]+[\"']"
+        r"|{old}\.<(?:group|slot)>",
         (
             '[project.entry-points."jarvis.brain"]',
             '[project.entry-points."jarvis.<group>"]',
             'entry_points(group="jarvis.tool")',
             'entry_points_for("jarvis.stt")',
+            "the earlier `jarvis.<group>` name stays valid",
+            "every plugin written before the rename registers as ``jarvis.<slot>``",
         ),
     ),
     Legacy(
@@ -271,6 +275,20 @@ FROZEN_FILES: tuple[Frozen, ...] = (
     Frozen("docs/BUGS.md", "the bug register cites paths as they were when a bug was found"),
     Frozen("{pkg}/ui/web/dist/**", "generated bundle: moved as is, `npm run build` rewrites it"),
     Frozen("{pkg}/ui/web/frontend/src/i18n/**", "i18n texts are product copy, not references"),
+    Frozen(
+        "{pkg}/marketplace/seed_catalog.json",
+        "stored plugin configuration: an entry starts its bundled server by module name "
+        "(`python -m <old>.plugins.tool.connected_server`), that command is copied into "
+        "every install's catalog override and is part of the `config_fingerprint` the "
+        "browser evidence in docs/marketplace/plugin-e2e-audit.json is bound to. Rewritten, "
+        "it would make that evidence stale and every stored command differ from the "
+        "catalog; the compatibility package keeps the old module names starting",
+    ),
+    Frozen(
+        "{pkg}/marketplace/plugins/**",
+        "the agent-plugin form of the same catalog entries: every manifest repeats its "
+        "entry's server command and has to stay equal to it",
+    ),
     Frozen("**/package-lock.json", "lockfile, regenerated"),
     Frozen("uv.lock", "lockfile, regenerated"),
     Frozen("scripts/rename/**", "this codemod: its tables name the old identifiers as data"),
@@ -286,6 +304,10 @@ class LocalPrefix:
 
     glob: str
     reason: str
+    #: The names right below ``<old>/`` this entry is about. Empty: every
+    #: unresolved one in the file. Named: only those, so a path to a removed
+    #: module in the same document is still rewritten.
+    names: tuple[str, ...] = ()
 
 
 UNRESOLVED_PATHS_KEPT: tuple[LocalPrefix, ...] = (
@@ -294,6 +316,27 @@ UNRESOLVED_PATHS_KEPT: tuple[LocalPrefix, ...] = (
         "jarvis/<computer>/<time> names the git branch a remote pane's work comes back on",
     ),
     LocalPrefix("tests/unit/agentic_ide/test_remote_*.py", "the same branch prefix, asserted"),
+    LocalPrefix(
+        "board-backend/README.md",
+        "`cd jarvis/board-backend` enters the folder a shell example cloned the repository into",
+        ("board-backend",),
+    ),
+    LocalPrefix(
+        "docs/agent-society/build-plan-m1-m2.md",
+        "`jarvis/agent session lists` names two chat surfaces, not a path",
+        ("agent",),
+    ),
+    LocalPrefix(
+        "docs/LLM-CONTEXT.md",
+        "jarvis/sub_jarvis/ is the tombstone of the deleted sub tier, named as a thing that "
+        "must stay dead; it is not tracked and does not move",
+        ("sub_jarvis",),
+    ),
+    LocalPrefix(
+        "docs/agent-society/research/branch-a-product-ui.md",
+        "the same tombstone",
+        ("sub_jarvis",),
+    ),
 )
 
 #: Entry-point group suffixes known without a pyproject (the real list is read
@@ -515,7 +558,11 @@ class Rewriter:
             if entry.pattern
         ]
         self._frozen = _for_packages((frozen.glob for frozen in FROZEN_FILES), old, new)
-        self._kept_prefixes = _for_packages((kept.glob for kept in UNRESOLVED_PATHS_KEPT), old, new)
+        self._kept_prefixes = [
+            (pattern, kept.names)
+            for kept in UNRESOLVED_PATHS_KEPT
+            for pattern in _for_packages((kept.glob,), old, new)
+        ]
 
     # ----- construction from a checkout
 
@@ -550,8 +597,13 @@ class Rewriter:
     def is_frozen(self, path: str) -> bool:
         return any(fnmatch.fnmatchcase(path, pattern) for pattern in self._frozen)
 
-    def keeps_unresolved_paths(self, path: str) -> bool:
-        return any(fnmatch.fnmatchcase(path, pattern) for pattern in self._kept_prefixes)
+    def keeps_unresolved_paths(self, path: str, name: str = "") -> bool:
+        """True when ``<old>/<name>`` in the file at ``path`` is a prefix of
+        another kind (``UNRESOLVED_PATHS_KEPT``)."""
+        return any(
+            fnmatch.fnmatchcase(path, pattern) and (not names or name in names)
+            for pattern, names in self._kept_prefixes
+        )
 
     def resolves(self, name: str) -> bool:
         """True when ``name`` is an entry of the package directory."""
@@ -736,7 +788,7 @@ class Rewriter:
             return None  # ``<old>\b`` in a regular expression, ``<old>\n`` in a string
         if state.is_web:
             return "keep", "web source: tool prefix"
-        if self.keeps_unresolved_paths(state.path):
+        if self.keeps_unresolved_paths(state.path, name):
             return "keep", "prefix of another kind"
         # ``a/<old>/x.py`` and ``b/<old>/x.py`` in a diff are the path itself.
         in_diff = re.search(r"(?:^|[\s\"'`])[ab]/$", text[max(0, start - 3) : start]) is not None
