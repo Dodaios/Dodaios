@@ -208,7 +208,12 @@ export type TurnBlock = TextBlock | ReasoningBlock | ToolBlock;
 export type TurnStatus = "running" | "done" | "cancelled" | "error";
 
 export interface UserItem {
-  origin?: "control";
+  /**
+   * Not typed by the person: "control" is a chat command's own turn,
+   * "background" opens the result of an earlier request whose agents
+   * finished after its turn had closed (`text` is that request).
+   */
+  origin?: "control" | "background";
   type: "user";
   id: string;
   /**
@@ -262,6 +267,11 @@ export interface TurnItem {
   error: string | null;
   /** The plan card of a turn that finished in plan mode. */
   plan?: PlanState;
+  /**
+   * Who still works on this turn's request after it closed: the turn handed
+   * its seat to the next message and the result arrives in a turn of its own.
+   */
+  background?: string[];
 }
 
 export interface ErrorItem {
@@ -791,6 +801,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             type: "user",
             id: `u-${seq || ev.ts_ms}`,
             ...(p.origin === "control" ? { origin: "control" as const } : {}),
+            ...(p.origin === "background" ? { origin: "background" as const } : {}),
             ...(messageAuthor(p.author) ? { author: messageAuthor(p.author) } : {}),
             // `typed` is present only when the message carried files, and it
             // is the person's own sentence; `text` is the composed prompt.
@@ -1223,6 +1234,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             : turn.liveUsage,
         costUsd: num(p.cost_usd),
         error: str(p.error, "") || null,
+        ...(Array.isArray(p.background) && p.background.length > 0
+          ? { background: (p.background as unknown[]).map((name) => str(name)) }
+          : {}),
       }));
       return {
         ...finished,

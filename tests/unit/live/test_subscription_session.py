@@ -1502,3 +1502,92 @@ async def test_subscription_keeps_jarvis_hangup_confirmation_and_model_pin(make_
     session._tools.revision = 2
     confirmed = await session._tools.execute("hangup-confirm", "end_call", {}, 2)
     assert confirmed["success"] and session._tools.end_requested
+
+
+async def _until(predicate, limit_s: float = 5.0) -> None:
+    deadline = asyncio.get_running_loop().time() + limit_s
+    while not predicate():
+        if asyncio.get_running_loop().time() > deadline:
+            raise AssertionError("condition not reached")
+        await asyncio.sleep(0.005)
+
+
+async def test_followup_is_reasoned_about_while_the_first_action_still_runs(
+    make_session, monkeypatch,
+):
+    """A second order no longer waits for the first order's tool to return.
+
+    The running action goes on as a background task; when it ends, reasoning
+    gets its receipt with tools, so the order that needed it is carried out.
+    """
+    import jarvis.live.tools as live_tools
+
+    monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", 0.01)
+    gateway = PausingAgentGateway()
+    start = {"project": "Alpha", "count": 1}
+    session, reasoning, _, _, _, _ = make_session([
+        completed_response("start", [agent_call("start-1", "start-agent", start)]),
+        completed_response("followup", [spoken_result("The agent is starting; that follows.")]),
+        completed_response("continued", [agent_call("send-1", "message-agent", {
+            "agent_id": "agent-alpha", "message": "Run the regression tests.",
+        })]),
+        completed_response("told", [spoken_result("The agent is up and has its instructions.")]),
+    ], gateway)
+    try:
+        await session.handle_control({"type": "text_input", "text": "Start one agent for Alpha."})
+        await asyncio.wait_for(gateway.started.wait(), 1)
+        await session.handle_control({
+            "type": "text_input", "text": "Tell that agent to run the regression tests.",
+        })
+        await _until(lambda: len(reasoning.requests) == 2)
+        assert not gateway.release.is_set()  # the first action is still running
+        receipts = {
+            i["call_id"]: json.loads(i["output"])
+            for i in reasoning.requests[1]["input"] if i.get("type") == "function_call_output"
+        }
+        assert receipts["start-1"]["pending"] is True
+        assert receipts["start-1"]["task_id"] == "task-1"
+        assert not gateway.requests[0].cancel_token.is_cancelled()
+        await wait_for_jobs(session)
+        assert [c[0] for c in gateway.calls] == ["start-agent"]
+
+        gateway.release.set()
+        await asyncio.gather(*session._background_work)
+        await _until(lambda: len(reasoning.requests) == 4)
+        await wait_for_jobs(session)
+        assert reasoning.requests[2]["tools"]  # the receipt may finish what waited on it
+        receipt_turn = json.dumps(reasoning.requests[2]["input"])
+        assert "background_task_completion" in receipt_turn and "agent-alpha" in receipt_turn
+        assert [c[0] for c in gateway.calls] == ["start-agent", "message-agent"]
+        assert gateway.calls[-1][1]["agent_id"] == "agent-alpha"
+        spoken = [m["content"] for m in session._connection.sent
+                  if m["type"] == "session.commentary.append"]
+        assert spoken == [
+            "The agent is starting; that follows.",
+            "The agent is up and has its instructions.",
+        ]
+    finally:
+        gateway.release.set()
+        await session.handle_control({"type": "cancel_work"})
+
+
+async def test_an_unvoiced_task_result_stays_owed_in_the_subscription_session(make_session):
+    """The subscription session settles reports itself; a background task's
+    result that was not spoken has to come back, not vanish as "failed"."""
+    session, _, gateway, _, _, _ = make_session([])
+    done = asyncio.get_running_loop().create_future()
+    done.set_result({"success": True})
+    task = session._tools.tasks.add(
+        tool="start-agent", arguments={}, summary="start-agent", request_text="Start an agent.",
+        revision=session._tools.revision, epoch=session._wire_epoch, work=done,
+    )
+    session._tools.tasks.settle(task, done)
+    session._task_report_told = task
+    session._report_state = "sent"
+    session._subscription_report_id = "report-1"
+
+    session._fail_subscription_report("report-1")  # the user spoke before it was voiced
+
+    assert session._task_reports == [task] and task.report_attempts == 1
+    assert session._report_state == "" and session._task_report_told is None
+    assert session.take_report_outcome() == ""  # never read as an agent reply's outcome
