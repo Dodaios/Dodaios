@@ -1,10 +1,10 @@
 import { GigiAvatar } from "./GigiAvatar";
 import { cn } from "@/lib/utils";
 
-import { SymbolThinkingDots } from "./AgentSymbol";
 import { resolveCompanion } from "./companion/appearance";
 import { creatureColor } from "./companion/creature";
 import { CompanionMark } from "./companion/CompanionMark";
+import { WorkingBadge } from "./companion/WorkingBadge";
 import type { SocietyAgent } from "./data";
 
 type SwatchAgent = Pick<SocietyAgent, "figure" | "palette" | "name"> &
@@ -53,14 +53,14 @@ export function AgentSwatch({
   return (
     <span
       aria-hidden
-      className={cn("relative inline-flex shrink-0 items-center justify-center select-none", isJarvis && "society-agent-symbol", className)}
+      className={cn("relative inline-flex shrink-0 items-center justify-center select-none", className)}
       data-thinking={isJarvis && thinking ? "true" : undefined}
       style={{ width: size, height: size }}
     >
       {isJarvis ? (
         <>
         <GigiAvatar size={size} />
-        {thinking && <svg aria-hidden viewBox="0 0 40 44" className="pointer-events-none absolute inset-0 h-full w-full"><SymbolThinkingDots color="#ffcf45" /></svg>}
+        {thinking && <WorkingBadge size={size} />}
         </>
       ) : (
         <CompanionMark appearance={appearance} size={size} thinking={thinking} expressive={expressive} run={agent.state} />
