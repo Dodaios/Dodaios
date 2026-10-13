@@ -387,6 +387,7 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
         safe = {
             "authentication_required",
             "access_denied",
+            "voice_not_offered",
             "quota_exhausted",
             "rate_limited",
             "invalid_configuration",
@@ -961,7 +962,7 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
         if code not in {
             "authentication_required", "access_denied", "quota_exhausted", "rate_limited",
             "invalid_configuration", "subscription_auth_unavailable",
-            "subscription_account_changed",
+            "subscription_account_changed", "voice_not_offered",
         }:
             return False
         await self._failure(code, terminal=True)
