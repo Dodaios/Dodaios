@@ -491,8 +491,11 @@ def test_the_seed_catalog_keeps_the_commands_installs_have_stored(repo):
     codemod.apply(repo, OLD, NEW)
 
     assert _read(repo, "dodaios/marketplace/seed_catalog.json") == _SEED_CATALOG
-    mirror = _read(repo, "dodaios/marketplace/plugins/zoom/plugin.json")
-    assert '"-m", "dodaios.plugins.tool.connected_server"' in mirror
+    # Its agent-plugin form says the same thing and has to go on saying it.
+    assert _read(repo, "dodaios/marketplace/plugins/zoom/plugin.json") == _SEED_CATALOG
+    assert _rewritten(_SEED_CATALOG, "docs/example.json") == _SEED_CATALOG.replace(
+        "jarvis.plugins.tool", "dodaios.plugins.tool"
+    )
     assert codemod.plan(repo, OLD, NEW)[0].pending is False
 
 

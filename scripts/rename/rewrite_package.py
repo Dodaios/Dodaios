@@ -284,6 +284,11 @@ FROZEN_FILES: tuple[Frozen, ...] = (
         "it would make that evidence stale and every stored command differ from the "
         "catalog; the compatibility package keeps the old module names starting",
     ),
+    Frozen(
+        "{pkg}/marketplace/plugins/**",
+        "the agent-plugin form of the same catalog entries: every manifest repeats its "
+        "entry's server command and has to stay equal to it",
+    ),
     Frozen("**/package-lock.json", "lockfile, regenerated"),
     Frozen("uv.lock", "lockfile, regenerated"),
     Frozen("scripts/rename/**", "this codemod: its tables name the old identifiers as data"),

@@ -121,6 +121,15 @@ def forbidden_file(name: str, forbidden: set[str]) -> bool:
     return name in forbidden
 
 
+#: Earlier import names of the package. A catalog manifest starts a bundled
+#: server by module name and keeps the name it was published with, so each of
+#: these stays an accepted spelling next to the name of the directory the
+#: manifests live in. This hook is standard library only, so the tuple restates
+#: ``LEGACY_PACKAGE_NAMES`` of the package's branding module;
+#: tests/unit/ci/test_public_mcp_privacy.py pins the two together.
+LEGACY_PACKAGE_NAMES = ("jarvis",)
+
+
 def is_public_catalog_mcp(rel: str, text: str) -> bool:
     """Recognize only credential-free catalog manifests, using a strict schema subset.
 
@@ -175,10 +184,16 @@ def is_public_catalog_mcp(rel: str, text: str) -> bool:
             return False
         if server["type"] != "stdio" or server["command"] != "python":
             return False
-        expected = ["-m", "jarvis.plugins.tool.connected_server", plugin_id.replace("-", "_")]
-        return server["args"] == expected or (
-            plugin_id == "amd-gpu" and server["args"] == ["-m", "jarvis.marketplace.amd_mcp"]
-        )
+        # The package the manifest belongs to is the directory it sits in.
+        packages = (rel.partition("/")[0], *LEGACY_PACKAGE_NAMES)
+        connector = plugin_id.replace("-", "_")
+        if server["args"] in [
+            ["-m", f"{package}.plugins.tool.connected_server", connector] for package in packages
+        ]:
+            return True
+        return plugin_id == "amd-gpu" and server["args"] in [
+            ["-m", f"{package}.marketplace.amd_mcp"] for package in packages
+        ]
     except (ValueError, TypeError, RecursionError):
         # Malformed or ambiguous JSON/URLs remain forbidden, without echoing content.
         return False
