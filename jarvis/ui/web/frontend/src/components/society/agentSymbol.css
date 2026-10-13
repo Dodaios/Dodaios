@@ -106,15 +106,42 @@
 }
 
 /* The 3D figure (companion/ShapeFigure): a canvas at the face's size, with
-   optional vector layers over it. It fades in once, when its first picture
+   optional layers over it. It fades in once, when its first picture
    arrives; later pictures replace it without a flicker. */
 .society-agent-figure {
   position: relative;
   display: inline-block;
   flex-shrink: 0;
 }
+/* Everything that belongs to the body moves as one: it breathes from the ground up, a little out of step
+   with every other figure (--agent-figure-delay), and gives a small hop when the pointer finds it. */
+.society-agent-figure > .agent-figure-body {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 88%;
+  animation: agent-figure-breathe 4.2s ease-in-out infinite;
+  animation-delay: var(--agent-figure-delay, 0ms);
+}
+@keyframes agent-figure-breathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-1.2%) scale(1.014, 0.984); }
+}
+:is(button, a, [role="button"], [role="tab"], li):hover > .society-agent-figure > .agent-figure-body,
+:is(button, a, [role="button"], [role="tab"], li):hover :is(span, div) > .society-agent-figure > .agent-figure-body,
+.society-agent-figure:hover > .agent-figure-body {
+  animation: agent-figure-hop 0.55s cubic-bezier(0.3, 0.7, 0.4, 1), agent-figure-breathe 4.2s ease-in-out 0.55s infinite;
+}
+@keyframes agent-figure-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  22% { transform: translateY(1.5%) scale(1.06, 0.92); }
+  52% { transform: translateY(-9%) scale(0.97, 1.05); }
+  78% { transform: translateY(0) scale(1.03, 0.96); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
 /* The picture and what is blended onto it: flowing colours meet the picture only, never the page behind. */
-.society-agent-figure > .agent-figure-picture {
+.agent-figure-body > .agent-figure-picture {
   position: relative;
   display: block;
   width: 100%;
@@ -125,19 +152,62 @@
   opacity: 0;
   transition: opacity 0.18s ease-out;
 }
-.society-agent-figure[data-ready="true"] > .agent-figure-picture { opacity: 1; }
+.society-agent-figure[data-ready="true"] .agent-figure-picture { opacity: 1; }
 .agent-figure-picture > canvas {
   display: block;
   width: 100%;
   height: 100%;
 }
-.society-agent-figure > svg {
+.society-agent-figure > svg,
+.agent-figure-body > svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   overflow: visible;
   pointer-events: none;
+}
+
+/* Living eyes: the pair glances about now and then, each eye blinks. Lengths in em of one symbol unit. */
+.agent-figure-body > .agent-figure-eyes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: agent-figure-glance 11s ease-in-out infinite;
+  animation-delay: var(--agent-figure-delay, 0ms);
+}
+.society-agent-figure[data-ready="true"] .agent-figure-eyes { opacity: 1; }
+.agent-figure-eyes > i {
+  position: absolute;
+  display: block;
+}
+.agent-figure-eyes > i > b {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: agent-figure-blink 5.4s ease-in-out infinite;
+  animation-delay: var(--agent-figure-delay, 0ms);
+}
+@keyframes agent-figure-glance {
+  0%, 18%, 30%, 56%, 70%, 100% { transform: translate(0, 0); }
+  21%, 27% { transform: translate(-1em, 0.15em); }
+  59%, 66% { transform: translate(0.9em, -0.35em); }
+}
+@keyframes agent-figure-blink {
+  0%, 44%, 50%, 90%, 94.5%, 97%, 100% { transform: scaleY(1); }
+  47% { transform: scaleY(0.08); }
+  92% { transform: scaleY(0.08); }
+  95.8% { transform: scaleY(0.08); }
+}
+/* The pointer has found it: wide eyes for the hop. */
+:is(button, a, [role="button"], [role="tab"], li):hover .agent-figure-eyes > i > b,
+.society-agent-figure:hover .agent-figure-eyes > i > b {
+  animation: agent-figure-wide 0.55s ease-out, agent-figure-blink 5.4s ease-in-out 0.55s infinite;
+}
+@keyframes agent-figure-wide {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.18, 1.22); }
 }
 
 /* A glowing design: a soft halo of its brightest colour breathes behind the figure. */
@@ -157,8 +227,8 @@
 /* Effects that move across the body: layers over the still picture, cut to the body's outline by a mask
    of the same picture and moved by transforms only. */
 .agent-figure-picture > .agent-figure-flow,
-.society-agent-figure > .agent-figure-shine,
-.society-agent-figure > .agent-figure-inside {
+.agent-figure-body > .agent-figure-shine,
+.agent-figure-body > .agent-figure-inside {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -218,8 +288,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .society-agent-figure > .agent-figure-picture { transition: none; }
-  .society-agent-figure > .agent-figure-halo { animation: none; }
-  .agent-figure-flow > i > b { animation: none; }
+  .agent-figure-body > .agent-figure-picture { transition: none; }
+  .society-agent-figure > .agent-figure-body,
+  .agent-figure-body > .agent-figure-eyes,
+  .agent-figure-eyes > i > b,
+  .society-agent-figure > .agent-figure-halo,
+  .agent-figure-flow > i > b { animation: none !important; }
   .agent-figure-shine > i { animation: none; transform: translateX(230%) skewX(-22deg); opacity: 0.5; }
 }
