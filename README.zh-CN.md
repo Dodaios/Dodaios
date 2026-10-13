@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <strong>让所有编程智能体并排运行，用语音指挥它们。</strong><br />
-  Claude Code、Codex、OpenCode 等九款编程智能体同屏运行在一款开源桌面应用里。它同时是语音助手，也是一支在你休息时持续工作的 AI 智能体团队。
+  <strong>Dodaios 是一个面向桌面的开源智能体操作系统（Agent OS）。</strong><br />
+  它是你和 AI 智能体之间的那一层：负责运行它们、替它们记忆、连接它们的工具，并让你始终掌握控制权。
 </p>
 
 <p align="center">

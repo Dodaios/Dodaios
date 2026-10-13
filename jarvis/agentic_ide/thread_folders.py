@@ -38,7 +38,7 @@ def _known_roots() -> list[Path]:
     try:
         from jarvis.agentic_ide.session import get_registry
 
-        roots += [str(session.folder) for session in get_registry().sessions() if session.folder]
+        roots += [str(session.folder) for session in get_registry().sessions if session.folder]
     except Exception as exc:  # noqa: BLE001 - no registry (a bare test app) leaves the projects
         logger.debug("Agentic IDE: workspace list unreadable for a folder check: {}", exc)
     return [path for path in (_resolved(root) for root in roots) if path is not None]
