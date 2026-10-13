@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-CP4UqRp2.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-FJIn5-cm.js";import{S as sr}from"./switch--oLvig3L.js";import{Q as D}from"./tooltip-DP8Vh3HX.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-DjDRdpIc.js";import{C as Tn}from"./check-B1GII35X.js";import{C as En}from"./columns-2-Bk3ZiH1G.js";/**
+|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/AppshotEditor-BVEb-75b.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-_qSXhpsC.js";import{S as sr}from"./switch-CoYLwspV.js";import{Q as D}from"./tooltip-r59GfOi_.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-D3htLuzb.js";import{C as Tn}from"./check-Dg1yGEC9.js";import{C as En}from"./columns-2-Djt3aas3.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-9iFP8g5N.js";import{S as sr}from"./switch-CCtXFjG8.js";import{Q as D}from"./tooltip-D-oTldlV.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-CjEHbRZZ.js";import{C as Tn}from"./check-BCMp14MY.js";import{C as En}from"./columns-2-Ip6u1L8l.js";/**
+>>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/AppshotEditor-b6NVb3S_.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

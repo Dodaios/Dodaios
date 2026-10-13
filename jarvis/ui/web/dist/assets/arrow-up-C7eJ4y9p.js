@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/arrow-up-C7eJ4y9p.js
 import{c as r}from"./index-FJIn5-cm.js";/**
+|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/arrow-up-BT9TdpzS.js
+import{c as r}from"./index-_qSXhpsC.js";/**
+========
+import{c as r}from"./index-9iFP8g5N.js";/**
+>>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/arrow-up-CalKYABC.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-C_VqSX4q.js
 import{c as pe,u as ge,bS as Be,aM as V,d as Fe,bW as m,r as l,j as t,bg as $e,bf as ce,fl as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bj as Ye,w as Je,fm as Ve}from"./index-FJIn5-cm.js";import{A as Xe}from"./AgentMark-DaOhi5d2.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-DwsxafmO.js";import{P as tt}from"./pencil-C8-FAIWW.js";import{F as nt}from"./folder-BhSaba0D.js";import{C as st}from"./check-B1GII35X.js";import{C as rt}from"./chevron-right-COVXGxWr.js";/**
+|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/ThreadTree-Bg-vtEKp.js
+import{c as pe,u as ge,bS as Be,aM as V,d as Fe,bW as m,r as l,j as t,bg as $e,bf as ce,fl as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bj as Ye,w as Je,fm as Ve}from"./index-_qSXhpsC.js";import{A as Xe}from"./AgentMark-CkYa_o7G.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-BT55Ac9O.js";import{P as tt}from"./pencil-Cun72Of_.js";import{F as nt}from"./folder-ofFL1PPR.js";import{C as st}from"./check-Dg1yGEC9.js";import{C as rt}from"./chevron-right-DNWsda9i.js";/**
+========
+import{c as pe,u as ge,bS as Be,aN as V,d as Fe,bW as m,r as l,j as t,bh as $e,bg as ce,fl as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bk as Ye,w as Je,fm as Ve}from"./index-9iFP8g5N.js";import{A as Xe}from"./AgentMark-BY5O_fBM.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-DdlMXpDa.js";import{P as tt}from"./pencil-Cd6JLbhf.js";import{F as nt}from"./folder-BvH_ZkI2.js";import{C as st}from"./check-BCMp14MY.js";import{C as rt}from"./chevron-right-BAJNwubh.js";/**
+>>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/ThreadTree-CRju8SvQ.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-Bek6QnLG.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BBcekb1-.js";import{c as n,j as a,e as o}from"./index-FJIn5-cm.js";import{T as c}from"./terminal-DjiuvnhT.js";import{C as I}from"./credit-card-DC7EE8uc.js";import{G as S}from"./git-branch-mtPH7K53.js";import{R as W}from"./rocket-DncfBXV4.js";import{C as $}from"./cloud-1H9gVepr.js";/**
+|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/CliLogo-C9NUHwpF.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-KN_WNrT3.js";import{c as n,j as a,e as o}from"./index-_qSXhpsC.js";import{T as c}from"./terminal-Djdai_kQ.js";import{C as I}from"./credit-card-B90DIDKJ.js";import{G as S}from"./git-branch-ChstJ0mk.js";import{R as W}from"./rocket-D5-HV_aK.js";import{C as $}from"./cloud-2ttvyFGA.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-CctA39uU.js";import{c as n,j as a,e as o}from"./index-9iFP8g5N.js";import{T as c}from"./terminal-CSfIimQh.js";import{C as I}from"./credit-card-NcXJPb7n.js";import{G as S}from"./git-branch-BQMdR3r6.js";import{R as W}from"./rocket-CbsCb-dk.js";import{C as $}from"./cloud-_cgEUU9m.js";/**
+>>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/CliLogo-CjZBV66-.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

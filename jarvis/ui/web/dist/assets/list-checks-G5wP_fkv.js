@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/list-checks-G5wP_fkv.js
 import{c as e}from"./index-FJIn5-cm.js";/**
+|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/list-checks-CtQvmP_f.js
+import{c as e}from"./index-_qSXhpsC.js";/**
+========
+import{c as e}from"./index-9iFP8g5N.js";/**
+>>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/list-checks-q8gHR-7H.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-Dp_nKJaz.js
 import{c as P,r as i,j as e,u as C,bm as A,X as O,bU as q,bV as B,e as g,bn as D,bW as H,d as F}from"./index-FJIn5-cm.js";import{C as I}from"./TraceTimeline-BTG0rjfp.js";import{L as U}from"./lock-B6kwdd9l.js";import{C as W}from"./code-xml-DPpUe_Xg.js";import{C as X}from"./chevron-right-COVXGxWr.js";/**
+|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/CodingThreadLink-B1Y350hR.js
+import{c as P,r as i,j as e,u as C,bm as A,X as O,bU as q,bV as B,e as g,bn as D,bW as H,d as F}from"./index-_qSXhpsC.js";import{C as I}from"./TraceTimeline-Cfbdnfoi.js";import{L as U}from"./lock-CMg4oBCL.js";import{C as W}from"./code-xml--TDc4rZz.js";import{C as X}from"./chevron-right-DNWsda9i.js";/**
+========
+import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-9iFP8g5N.js";import{C as I}from"./TraceTimeline-D8VojNcl.js";import{L as U}from"./lock-DLNAF8d6.js";import{C as W}from"./code-xml-BawCQ-Xa.js";import{C as X}from"./chevron-right-BAJNwubh.js";/**
+>>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/CodingThreadLink-DZpA6OvS.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

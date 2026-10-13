@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/calendar-days-B6M5rGyH.js
 import{c as h}from"./index-FJIn5-cm.js";/**
+|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/calendar-days-Dd75Z_fr.js
+import{c as h}from"./index-_qSXhpsC.js";/**
+========
+import{c as h}from"./index-9iFP8g5N.js";/**
+>>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/calendar-days-DVIsbmaz.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
