@@ -343,10 +343,10 @@ Restart the Dodaios desktop app (voice + UI restart too).
 
 ## `missions-list` — List missions
 
-List Jarvis-Agent missions and their status.
+List Jarvis-Agent missions and their status, newest first. Set active to see only the ones that have not ended yet.
 
 - **Endpoint:** `GET /api/missions`
-- **Arguments:** none
+- **Arguments:** `active` (boolean; optional); `limit` (integer; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "show me the missions"

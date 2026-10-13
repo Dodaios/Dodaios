@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { figureKey, type FigureLook, type FigureSmoke } from "./figureScene";
 import { FIGURE_BROKEN, figuresSupported, readFigure, watchFigure, watchFigureSupport, type Figure } from "./figureStore";
 
@@ -46,6 +46,31 @@ function outlineUrl(figure: Figure, grown: boolean): string | undefined {
   return sheet.toDataURL("image/png");
 }
 
+/** Where the eyes sit across the flat symbol, and half their width and height, in symbol units. */
+const EYE_X = [15.4, 24.6] as const;
+const EYE_HALF = { lines: [1.35, 3.15], dots: [2.15, 2.3] } as const;
+
+/**
+ * The eyes of a figure as two plain elements at the place the picture's own
+ * projection gives them: a wrapper that glances, and in it each eye, leaning
+ * with the turned face, that blinks. Lengths are in `em` of one symbol
+ * unit, so the motion scales with the face.
+ */
+function LivingEyes({ figure, size, eyes }: { figure: Figure; size: number; eyes: { kind: "dots" | "lines"; y: number; color: string } }) {
+  const [a, b, c, d, e, f] = figure.face;
+  const scale = size / figure.pixels;
+  // One symbol unit across and down the turned face, CSS pixels.
+  const across = Math.hypot(a, b) * scale, down = Math.hypot(c, d) * scale;
+  const [halfX, halfY] = EYE_HALF[eyes.kind];
+  const lean = Math.atan2(b, a) * 180 / Math.PI;
+  return <span aria-hidden className="agent-figure-eyes" data-figure-eyes={eyes.kind} style={{ fontSize: down }}>
+    {EYE_X.map(x => <i key={x} style={{
+      left: (a * x + c * eyes.y + e) * scale - halfX * across, top: (b * x + d * eyes.y + f) * scale - halfY * down,
+      width: halfX * across * 2, height: halfY * down * 2, transform: `skewY(${lean.toFixed(2)}deg)`,
+    }}><b style={{ background: eyes.color }} /></i>)}
+  </span>;
+}
+
 /**
  * An agent's shape as a 3D figure, `size` pixels wide. The picture is drawn
  * once by the figure worker and painted into a plain 2D canvas; until it is
@@ -57,8 +82,13 @@ function outlineUrl(figure: Figure, grown: boolean): string | undefined {
  * What moves is laid over the still picture as compositor-only layers: the
  * colours of a flowing design (multiplied onto a white body), the shine of a
  * shimmering one, both cut to the body's outline, and the smoke of a cigar.
+ *
+ * The figure is alive at rest: it breathes, and with `eyes` it blinks and
+ * glances about. Those eyes are plain elements moved by transforms only, so
+ * a roster of faces costs the UI thread nothing while it idles; each figure
+ * runs a little out of step with the others.
  */
-export function ShapeFigure({ look, size, shape, behind, children, overlay, fallback, flow, shine, inside, smoke }: {
+export function ShapeFigure({ look, size, shape, behind, children, overlay, fallback, flow, shine, inside, smoke, eyes }: {
   look: FigureLook; size: number;
   /** Shown when this look could not be drawn and no earlier picture is there. */
   fallback: ReactNode;
@@ -74,6 +104,8 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
   shine?: boolean;
   /** Drawn on the body in the flat symbol's units and cut to its outline (twinkling stars). */
   inside?: ReactNode;
+  /** Living eyes over an eyeless picture: their kind, their height in symbol units and their ink. */
+  eyes?: { kind: "dots" | "lines"; y: number; color: string };
   /** Draws one plume of smoke, in symbol units around its source. */
   smoke?: (plume: FigureSmoke, index: number) => ReactNode;
   children?: ReactNode;
@@ -110,8 +142,13 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
   const cut = masked(current?.body);
   // A flowing body is white until its colours lie over it: show nothing rather than a white figure.
   const ready = !!shown && (!shown.body || !!cut);
-  return <span className="society-agent-figure" data-agent-figure={shape} data-ready={ready ? "true" : undefined} style={{ width: size, height: size }}>
+  // Every figure keeps its own beat, so a roster never breathes or blinks as one.
+  let beat = 0;
+  for (let i = 0; i < key.length; i++) beat = (beat * 31 + key.charCodeAt(i)) % 9973;
+  const pace = { "--agent-figure-delay": `${-beat}ms` } as CSSProperties;
+  return <span className="society-agent-figure" data-agent-figure={shape} data-ready={ready ? "true" : undefined} style={{ width: size, height: size, ...pace }}>
     {behind}
+    <span className="agent-figure-body">
     <span className="agent-figure-picture" style={flow ? masked(current?.whole) : undefined}>
       <canvas ref={canvas} aria-hidden />
       {cut && flow && <span aria-hidden className="agent-figure-flow" style={cut}>
@@ -126,12 +163,14 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
         <g transform={`matrix(${shown.face.map(value => +value.toFixed(4)).join(" ")})`}>{inside}</g>
       </svg>
     </span>}
+    {shown && eyes && <LivingEyes figure={shown} size={size} eyes={eyes} />}
     {shown && children && <svg aria-hidden focusable="false" viewBox={`0 0 ${shown.pixels} ${shown.pixels}`} className="society-agent-symbol" data-expressive="true">
       <g transform={`matrix(${shown.face.map(value => +value.toFixed(4)).join(" ")})`}>{children}</g>
     </svg>}
     {shown && smoke && shown.smoke.length > 0 && <svg aria-hidden focusable="false" viewBox={`0 0 ${shown.pixels} ${shown.pixels}`} className="society-agent-symbol" data-figure-smoke>
       {shown.smoke.map((plume, index) => <g key={index} transform={`translate(${+plume.x.toFixed(2)} ${+plume.y.toFixed(2)}) scale(${+plume.scale.toFixed(4)})`}>{smoke(plume, index)}</g>)}
     </svg>}
+    </span>
     {shown && overlay}
   </span>;
 }
