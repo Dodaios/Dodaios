@@ -22,6 +22,16 @@ export interface FigureLook {
 }
 
 const INK: LinearRgb = [0.0052, 0.0052, 0.007];
+/** Indices in SKIN_EFFECTS of the two effects that move across the body. */
+export const EFFECT_SHIMMER = 2, EFFECT_FLOW = 3;
+
+/** True when a moving layer is cut to the body's outline, so the picture needs its cover. */
+export function bodyEffectMoves(look: FigureLook): boolean {
+  return look.skin?.effect === EFFECT_SHIMMER || look.skin?.effect === EFFECT_FLOW;
+}
+
+/** A plume of smoke over the picture: where it rises, pixels, and how large one symbol unit is there. */
+export interface FigureSmoke { x: number; y: number; scale: number; size: number; fill: string }
 
 /** A `#rrggbb` colour in linear light. */
 export function linearRgb(hex: string): LinearRgb {
@@ -57,9 +67,15 @@ export function figureParts(look: FigureLook, bodies: ReadonlyMap<string, Figure
     colors: look.skin.colors.map(linearRgb), radial: look.skin.radial, angle: look.skin.angle,
     effect: look.skin.effect, highlight: linearRgb(look.skin.highlight),
   };
+  // Flowing colours are laid over the picture as a moving layer (ShapeFigure), which
+  // multiplies a white body: the picture carries only its light and shade.
+  const flowing = paint?.effect === EFFECT_FLOW;
   for (const mesh of bodies.get(`${look.shape}.Body`) ?? []) {
     // A soft vinyl sheen lets the light show the volume; a shimmering design is glossier.
-    parts.push({ mesh, color, finish: "matte", roughness: paint?.effect === 2 ? 0.38 : 0.62, paint, body: true });
+    parts.push({
+      mesh, color: flowing ? [1, 1, 1] : color, finish: "matte", roughness: paint?.effect === EFFECT_SHIMMER ? 0.38 : 0.62,
+      paint: flowing ? undefined : paint, body: true,
+    });
   }
   const kind = look.eyes === "dots" ? "Dots" : "Lines";
   const eyes = [0, 1].flatMap(side => bodies.get(`${look.shape}.${kind}.${side}`) ?? []);
@@ -110,6 +126,27 @@ export function figureFaceMatrix(look: FigureLook, bodies: ReadonlyMap<string, F
   const at = (x: number, y: number) => projectFigure(frame, (x - 20) * unit, (meta.bottom - y) * unit, depth);
   const origin = at(0, 0), right = at(1, 0), down = at(0, 1);
   return [right[0] - origin[0], right[1] - origin[1], down[0] - origin[0], down[1] - origin[1], origin[0], origin[1]];
+}
+
+/**
+ * Where worn items smoke (a cigar), placed like the map companion places its
+ * plume: the picture shows the item, the face draws the moving puffs on top.
+ */
+export function figureSmoke(look: FigureLook, frame: FigureFrame): FigureSmoke[] {
+  const meta = ACCESSORY_CATALOG.shapes[look.shape];
+  const unit = 1 / (meta.bottom - meta.top);
+  const plumes: FigureSmoke[] = [];
+  for (const item of wornAccessories(look.accessories)) {
+    const [x, y, k] = meta.anchors[item.slot];
+    const size = k * (item.scale ?? 1) * unit;
+    const depth = slotDepthM(look.shape, item.slot);
+    for (const part of item.parts) {
+      if (part.t !== "smoke") continue;
+      const [px, py] = projectFigure(frame, (x - 20) * unit + part.c[0] * size, (meta.bottom - y) * unit - part.c[1] * size, depth + part.c[2] * size);
+      plumes.push({ x: px, y: py, scale: frame.k * size, size: part.size, fill: part.fill });
+    }
+  }
+  return plumes;
 }
 
 /** Names what a figure is made of, whatever its colours: equal keys trace alike. */
