@@ -229,7 +229,7 @@ def _cmd_phase5_doctor() -> int:
     """Status check for all Phase-5 features. Shows what is enabled,
     what is missing, and what is running on defaults. No config changes.
     """
-    import importlib.metadata as _md
+    from jarvis.core.entry_points import entry_points
 
     config = cfg.load_config()
     lines: list[str] = []
@@ -241,7 +241,7 @@ def _cmd_phase5_doctor() -> int:
         # Computer-use harness name sourced from the local action gate
         # (single home for the literal).
         from jarvis.brain.local_action_gate import HARNESS_NAME
-        eps = list(_md.entry_points(group="jarvis.harness"))
+        eps = list(entry_points(group="jarvis.harness"))
         have_cu = any(ep.name == HARNESS_NAME for ep in eps)
         lines.append(f"[{'OK' if have_cu else 'FAIL'}] Harness plugin "
                       f"{HARNESS_NAME!r} in entry-points index: {have_cu}")
@@ -249,7 +249,7 @@ def _cmd_phase5_doctor() -> int:
         lines.append(f"[FAIL] Harness entry points not readable: {exc}")
 
     try:
-        eps = list(_md.entry_points(group="jarvis.tool"))
+        eps = list(entry_points(group="jarvis.tool"))
         have_admin = any(ep.name == "dispatch-to-admin" for ep in eps)
         lines.append(f"[{'OK' if have_admin else 'FAIL'}] Tool plugin "
                       f"'dispatch-to-admin' in entry-points index: {have_admin}")

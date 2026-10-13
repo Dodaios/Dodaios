@@ -7,7 +7,8 @@ platform-specific config), so the bus and dependencies are bundled in
 a :class:`ChannelContext` and passed to plugins.
 
 Discovery:
-    Lazy-load via ``importlib.metadata.entry_points(group="jarvis.channel")``.
+    Lazy-load via ``jarvis.core.entry_points.entry_points(group="jarvis.channel")``,
+    which also reads the group's ``dodaios.channel`` spelling.
     Failed loads end up in ``self._failed_load`` and do not block the others.
 
 Instantiation:
@@ -26,10 +27,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from importlib.metadata import entry_points
 from typing import TYPE_CHECKING, Any
 
 from jarvis.core.bus import EventBus
+from jarvis.core.entry_points import entry_points
 from jarvis.core.protocols import ChannelAdapter
 
 if TYPE_CHECKING:  # pragma: no cover

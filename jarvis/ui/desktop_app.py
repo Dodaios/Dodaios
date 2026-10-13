@@ -4663,7 +4663,7 @@ class DesktopApp:
             # complex dependencies (dispatch-to-harness, spawn-worker) are
             # skipped; those are Jarvis-Agent specialties anyway, not meant for
             # skill bodies. ``remember`` and friends all fit this schema.
-            from importlib.metadata import entry_points as _eps
+            from jarvis.core.entry_points import entry_points as _eps
 
             skill_tool_registry: dict[str, Any] = {}
             for _ep in _eps(group="jarvis.tool"):
