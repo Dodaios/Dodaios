@@ -124,6 +124,7 @@ def _lex(text: str) -> list[str] | None:
     try:
         return [_unquote(word) for word in lexer]
     except ValueError:
+        logger.debug("Session branch: unbalanced quotes, this text is not read as one command")
         return None
 
 
