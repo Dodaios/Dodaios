@@ -158,7 +158,8 @@ def _run_child(args: list[str], timeout: float | None, detached: bool) -> tuple[
                 "so this keeps going - please wait.",
                 flush=True,
             )
-        except subprocess.TimeoutExpired:  # Kill and reap the timed-out probe, then return a failure result.
+        except subprocess.TimeoutExpired:
+            # Kill and reap the timed-out probe, then return a failure result.
             proc.kill()
             proc.communicate()
             return -1, ""
@@ -240,12 +241,17 @@ def _stop_background_service(pid: int, *, wait: Callable[..., bool] | None = Non
         clear_handover_request()
 
 
-def _read_result(root: Path) -> dict[str, Any]:
+def _result_file_name() -> str:
     from jarvis.ui.relauncher import UPDATE_RESULT_FILENAME
 
+    return UPDATE_RESULT_FILENAME
+
+
+def _read_result(root: Path, file_name: str) -> dict[str, Any]:
     try:
-        payload = json.loads((root / UPDATE_RESULT_FILENAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):  # An absent or incomplete update receipt represents no available result.
+        payload = json.loads((root / file_name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # An absent or incomplete update receipt represents no available result.
         return {}
     return payload if isinstance(payload, dict) else {}
 
@@ -336,12 +342,16 @@ def run_update(
 
     root = Path(str(staged["root"]))
     version = staged.get("version") or latest
+    # Resolved before the install step. Afterwards the checkout holds the new
+    # release, and an import from this process would read THAT release's files
+    # - or fail outright if it moved the package.
+    result_file_name = _result_file_name()
     with _Ticker(
         f"Installing version {version} - this takes a few minutes, keep this window open...",
         enabled=interactive,
     ):
         code, _ = run_child([FINALIZE_FLAG, str(root)], None, True)
-    result = _read_result(root)
+    result = _read_result(root, result_file_name)
     if code == 0 and result.get("ok", True):
         print(f"Done. Dodaios {version} is installed.")
         print("Start it with: jarvis")

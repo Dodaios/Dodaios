@@ -1037,6 +1037,35 @@ fetch_payload() {
 # checkout. A stale folder must never require manual cleanup to install.
 salvage_reclone() {
     local stale_backup
+    # --- salvage-guard begin (extracted by tests/unit/install/test_install_stops_app_first.py)
+    # Nothing is stopped or moved until the download server answers. Without a
+    # connection the fresh copy cannot arrive, and an install that was moved
+    # aside for nothing is worse than one that simply was not updated.
+    # git is asked first. A network that lets no git transfer through still
+    # reaches the archive download the installer falls back to, so a plain
+    # HTTPS answer from the same host counts as well.
+    _reachable=0
+    # shellcheck disable=SC2086  # GIT_NET_OPTS must word-split into -c pairs
+    if git $GIT_NET_OPTS ls-remote --quiet --heads "$REPO_URL" >/dev/null 2>&1; then
+        _reachable=1
+    else
+        case "$REPO_URL" in
+            *github.com/*)
+                _probe_path="${REPO_URL#*github.com/}"
+                if command -v curl >/dev/null 2>&1 \
+                    && curl -fsIL --max-time 20 "https://github.com/${_probe_path%.git}" >/dev/null 2>&1; then
+                    _reachable=1
+                fi
+                ;;
+        esac
+    fi
+    if [ "$_reachable" -ne 1 ]; then
+        err 'cannot reach the download server right now - nothing was changed.'
+        note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the installer.'
+        exit 1
+    fi
+    stop_running_app
+    # --- salvage-guard end
     stale_backup="${INSTALL_DIR%/}.stale-$(date +%Y%m%d-%H%M%S)"
     if ! mv "$INSTALL_DIR" "$stale_backup"; then
         err "cannot move the broken install dir aside ($INSTALL_DIR -> $stale_backup)."
@@ -1100,10 +1129,71 @@ retarget_legacy_origin() {
     # --- retarget-legacy-origin end
 }
 
+# Stop any Jarvis still running out of THIS install. Called right before the
+# checkout is replaced and again before its environment is rebuilt: a release
+# may move or delete files the live app still loads, and an app left running
+# across that keeps serving a half-old, half-new program until it falls over.
+# Safe to call twice - the second call finds nothing left to stop.
+#
+# The installer refuses to do this to itself. Started from a terminal inside
+# the app, its own parents run out of this install's environment; stopping
+# them would end the installer mid-way with the app gone and nothing
+# installed. It stops BEFORE anything was touched and says where to run it.
+stop_running_app() {
+    # --- stop-running-app begin (extracted by tests/unit/install/test_install_stops_app_first.py)
+    _stop_venv="$INSTALL_DIR/.venv"
+    if [ -x "$_stop_venv/bin/python" ]; then
+        _stop_pid=$$
+        _stop_depth=0
+        while [ -n "$_stop_pid" ] && [ "$_stop_pid" -gt 1 ] 2>/dev/null && [ "$_stop_depth" -lt 32 ]; do
+            # -ww: BSD ps cuts the command line at the terminal width, and
+            # the stop below matches against the whole of it.
+            _stop_args="$(ps -ww -o args= -p "$_stop_pid" 2>/dev/null || true)"
+            case "$_stop_args" in
+                *"$_stop_venv"*)
+                    err 'this installer was started from inside the running app.'
+                    note 'Updating stops the app, which would end this installer with it.'
+                    note 'Nothing was changed. Run the install command again from a normal'
+                    note 'terminal outside the app.'
+                    exit 1
+                    ;;
+            esac
+            _stop_parent="$(ps -o ppid= -p "$_stop_pid" 2>/dev/null | tr -d ' ' || true)"
+            [ "$_stop_parent" = "$_stop_pid" ] && break
+            _stop_pid="$_stop_parent"
+            _stop_depth=$((_stop_depth + 1))
+        done
+        _stop_found=0
+        if pkill -f "$_stop_venv" 2>/dev/null; then
+            _stop_found=1
+            note 'stopped the running Jarvis app for the update'
+        fi
+        if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+            launchctl unload "$HOME/Library/LaunchAgents/${MACOS_AUTOSTART_LABEL}.plist" >/dev/null 2>&1 || true
+        fi
+        if [ "$_stop_found" -eq 1 ]; then
+            # The signal only asks. Give the app a moment to be gone before
+            # its files change under it; an app that ignores it is not waited
+            # for longer than five seconds.
+            _stop_ticks=0
+            while [ "$_stop_ticks" -lt 50 ] && pgrep -f "$_stop_venv" >/dev/null 2>&1; do
+                sleep 0.1
+                _stop_ticks=$((_stop_ticks + 1))
+            done
+        fi
+    fi
+    # --- stop-running-app end
+    return 0
+}
+
+# The fetch only writes inside .git, so the app keeps running through it: a
+# failed download (offline, an outage) then leaves a working app behind. It is
+# stopped at the last moment, right before the files it runs from change.
 if [ -d "$INSTALL_DIR/.git" ]; then
     retarget_legacy_origin
     # shellcheck disable=SC2086  # GIT_NET_OPTS must word-split into -c pairs
     if pretty_git git $GIT_NET_OPTS -C "$INSTALL_DIR" fetch "$GIT_VERBOSITY" --depth 1 origin "$BRANCH" \
+        && stop_running_app \
         && git -C "$INSTALL_DIR" checkout --quiet "$BRANCH" \
         && git -C "$INSTALL_DIR" reset --quiet --hard "origin/$BRANCH"; then
         ok 'updated existing checkout to latest'
@@ -1170,14 +1260,9 @@ VENV_PYTHON="$VENV_PATH/bin/python"
 # keeps serving stale, half-updated features while pip rewrites the venv
 # under it — the "app is already open but nothing works yet" field report
 # (2026-07-14). The installer relaunches a fresh instance as its last step.
-if [ -x "$VENV_PYTHON" ]; then
-    if pkill -f "$VENV_PATH" 2>/dev/null; then
-        note 'stopped the running Jarvis app for the update'
-    fi
-    if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
-        launchctl unload "$HOME/Library/LaunchAgents/${MACOS_AUTOSTART_LABEL}.plist" >/dev/null 2>&1 || true
-    fi
-fi
+# The app was already stopped once before the checkout was replaced; this
+# second call catches one the login autostart revived in between.
+stop_running_app
 
 # Rebuild the venv when the selected interpreter's major.minor changed
 # (BUG-059 follow-up): the 3.13-first preference is useless for an EXISTING
