@@ -1,4 +1,16 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/file-json-B9OVTxeu.js
 import{c as a}from"./index-Bx3U5l4b.js";/**
+|||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/file-json-C4Gj9Wz6.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/file-json-C4Gj9Wz6.js
+import{c as a}from"./index-CvGug5If.js";/**
+|||||||| parent of 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/file-json-qmliI149.js
+import{c as a}from"./index-kUK78RJZ.js";/**
+========
+import{c as a}from"./index-BBJ9dd5N.js";/**
+>>>>>>>> 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/file-json-Bi0n88bC.js
+========
+import{c as a}from"./index-CQDzutdp.js";/**
+>>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/file-json-CMaPHJjt.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

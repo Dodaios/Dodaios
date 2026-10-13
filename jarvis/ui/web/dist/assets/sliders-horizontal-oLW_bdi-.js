@@ -1,4 +1,16 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-oLW_bdi-.js
 import{c as y}from"./index-Bx3U5l4b.js";/**
+|||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/sliders-horizontal-ByrMEDje.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-ByrMEDje.js
+import{c as y}from"./index-CvGug5If.js";/**
+|||||||| parent of 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/sliders-horizontal-DoM6BIks.js
+import{c as y}from"./index-kUK78RJZ.js";/**
+========
+import{c as y}from"./index-BBJ9dd5N.js";/**
+>>>>>>>> 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/sliders-horizontal-0JNHh2KL.js
+========
+import{c as y}from"./index-CQDzutdp.js";/**
+>>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/sliders-horizontal-DURhUkev.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
