@@ -90,19 +90,33 @@ SUPERVISOR_BOUNDARY_DIRECTIVE: Final[str] = (
 )
 
 
+# The worker's closing words are what the user hears about the mission. Left
+# alone they are a file list or nothing at all, so the readback could not say
+# whether the work is finished or what the user still has to decide.
+FINAL_REPORT_DIRECTIVE: Final[str] = (
+    "FINAL REPORT - CLOSE WITH A SHORT SUMMARY. End your work with a few plain "
+    "sentences: what you built or found, where things stand (done, partly done, "
+    "or blocked and why), and any decision the user still has to make. It is "
+    "read back to the user, so leave out file listings, commands and logs "
+    "unless they are the point. When you stop early or are blocked, say so "
+    "there instead of ending silently."
+)
+
+
 def compose_worker_prompt(prior_block: str, step_prompt: str) -> str:
     """Build the full worker prompt: framing directives first.
 
-    Leads with the artifact-language directive and then the output-shape
-    directive, so both frame the whole task before any prior feedback or
-    instruction is read. ``prior_block`` is the (possibly empty) rendered
-    critic-reflection block that carries correction context across iterations.
-    ``step_prompt`` is the task instruction for this step (verbatim user
-    utterance or a decomposed sub-task).
+    Leads with the artifact-language directive, the output-shape directive,
+    the supervisor boundary and the final-report directive, so they frame the
+    whole task before any prior feedback or instruction is read.
+    ``prior_block`` is the (possibly empty) rendered critic-reflection block
+    that carries correction context across iterations. ``step_prompt`` is the
+    task instruction for this step (verbatim user utterance or a decomposed
+    sub-task).
     """
     head = (
         f"{ARTIFACT_LANGUAGE_DIRECTIVE}\n\n{OUTPUT_SHAPE_DIRECTIVE}\n\n"
-        f"{SUPERVISOR_BOUNDARY_DIRECTIVE}"
+        f"{SUPERVISOR_BOUNDARY_DIRECTIVE}\n\n{FINAL_REPORT_DIRECTIVE}"
     )
     if prior_block and prior_block.strip():
         return f"{head}\n\n{prior_block}\n\n{step_prompt}"
@@ -112,6 +126,7 @@ def compose_worker_prompt(prior_block: str, step_prompt: str) -> str:
 __all__ = [
     "ARTIFACT_LANGUAGE_DIRECTIVE",
     "OUTPUT_SHAPE_DIRECTIVE",
+    "FINAL_REPORT_DIRECTIVE",
     "SUPERVISOR_BOUNDARY_DIRECTIVE",
     "compose_worker_prompt",
 ]
