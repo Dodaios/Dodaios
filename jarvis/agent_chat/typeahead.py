@@ -221,15 +221,18 @@ def teammates(agent_id: str) -> list[Suggestion]:
     except Exception:  # noqa: BLE001 — a composer must never 500 on a missing society
         log.warning("typeahead: the roster could not be listed", exc_info=True)
         return []
+    from jarvis.society.display_name import display_name
+
     out: list[Suggestion] = []
     for agent in rows:
         if agent.agent_id == agent_id or str(agent.state) != "active":
             continue
+        name = display_name(agent)
         out.append(
             Suggestion(
                 # "X Marketing" would end the @token at its space.
-                value=re.sub(r"\s+", "-", agent.name.strip()),
-                label=agent.name,
+                value=re.sub(r"\s+", "-", name.strip()),
+                label=name,
                 hint=agent.title,
                 kind="agent",
                 group=GROUP_TEAMMATES,

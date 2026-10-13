@@ -3242,13 +3242,13 @@ async def forget_resume_offer() -> dict:
 async def set_mode(request: Request, req: ModeRequest) -> dict:
     """Turn the focused coding mode on or off.
 
-    While on, Jarvis answers inside the open workspace — it knows the folder,
+    While on, the assistant answers inside the open workspace — it knows the folder,
     the codebase, and what each named terminal is doing. Turning it off returns
     the assistant to its normal, whole-machine behaviour; the terminals keep
     running either way.
 
     The switch is announced on the bus because coding mode is NOT local to this
-    view: it changes how Jarvis answers on every screen, so the app-wide
+    view: it changes how the assistant answers on every screen, so the app-wide
     indicator has to hear about a switch made anywhere — including one made by
     voice or by the CLI while the user is looking at a different section.
     """
@@ -4140,7 +4140,7 @@ async def refresh_terminal_recap(name: str, workspace_id: str | None = None) -> 
 def get_last_prompt(name: str, workspace_id: str | None = None) -> LastPrompt:
     """What terminal ``name`` was last told to do, word for word.
 
-    This is the proof half of a delivery. Jarvis composes a brief, types it
+    This is the proof half of a delivery. Dodaios composes a brief, types it
     into a pane and says it did — and until this existed, the only evidence was
     the pane's own screen, which is exactly what is missing in every case worth
     checking: a pane that had parked its output, an emulator that never
@@ -5056,7 +5056,7 @@ async def terminal_prompt(
     running — speech artefacts removed, the task stated as an imperative, and
     the relevant files of this workspace attached as ``@path`` references. Both
     the spoken path and the UI's typed prompt bar send with it on (maintainer
-    decision 2026-08-12): typed or said, Jarvis writes the brief either way.
+    decision 2026-08-12): typed or said, Dodaios writes the brief either way.
 
     ``dry_run=true`` returns the composed prompt without sending it, so a caller
     can show it for approval first.
