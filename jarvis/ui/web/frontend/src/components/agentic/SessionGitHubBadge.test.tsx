@@ -20,10 +20,25 @@ function status(extra: Partial<SessionGitHubStatus> = {}): SessionGitHubStatus {
 }
 
 describe("session GitHub link", () => {
-  it.each([null, status({ published: false }), status({ owned: false }),
-    status({ owned: undefined as unknown as boolean })])("hides unconfirmed session branches", (value) => {
+  it.each([null, status({ owned: false }),
+    status({ owned: undefined as unknown as boolean })])("hides a pane without a branch", (value) => {
     const { container } = render(<GitHubStatusBadge status={value} appearance="dark" />);
     expect(container.innerHTML).toBe("");
+  });
+
+  it("shows a quiet branch symbol while the branch is only local", () => {
+    render(<GitHubStatusBadge status={status({ published: false, state: "branch", number: null })} appearance="dark" />);
+    const symbol = screen.getByTestId("session-github-status");
+    expect(symbol.getAttribute("role")).toBe("img");
+    expect(symbol.getAttribute("aria-label")).toBe("owner/repo · feature/test: Not on GitHub yet");
+    expect(symbol.title).toContain("Not on GitHub yet");
+    expect(symbol.querySelectorAll("svg")).toHaveLength(1);
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("does not claim a local branch is unpublished while GitHub cannot be read", () => {
+    render(<GitHubStatusBadge status={status({ published: false, available: false })} appearance="dark" />);
+    expect(screen.getByTestId("session-github-status").title).toContain("GitHub status unavailable");
   });
 
   it("renders just one quiet icon even with running CI and merge warnings", () => {

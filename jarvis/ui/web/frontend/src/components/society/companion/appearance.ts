@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ACCESSORY_SLOTS, type AccessoryChoice } from "./accessories";
+import { creatureSchema } from "./creature";
 import { skinSchema } from "./skins";
 
 export const COMPANION_SHAPES = ["circle", "squircle", "pill", "triangle", "hexagon", "cloud", "drop"] as const;
@@ -26,6 +27,11 @@ export const companionSchema = z.object({
   pet: z.string().regex(PET_ID).optional(),
   // A colour design (gradient + effect) worn instead of the flat colour; see skins.ts.
   skin: skinSchema.optional(),
+  // A pixel creature worn instead of the shape; see creature.ts.
+  creature: creatureSchema.optional(),
+  // The agent explicitly wears its shape. Without it (and without a creature or a
+  // pet) a look shows the creature grown from its shape; see creatureDefault.ts.
+  look: z.literal("shape").optional(),
   // Accept earlier saved slider values, but every presentation uses one scale.
   sizeM: z.number().finite().min(0.25).max(0.8).default(COMPANION_SIZE_M).transform(() => COMPANION_SIZE_M),
   followDistanceM: z.number().finite().min(0.5).max(2).default(COMPANION_FOLLOW_DISTANCE_M).transform(() => COMPANION_FOLLOW_DISTANCE_M),

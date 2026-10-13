@@ -259,8 +259,11 @@ log "running PyInstaller"
 
 if building; then
   [ -d "${APP_BUNDLE}" ] || die "PyInstaller did not produce '${APP_BUNDLE}'. jarvis.spec must contain a darwin BUNDLE(...) block that names the app '${APP_NAME}'."
-  [ -x "${APP_BUNDLE}/Contents/MacOS/jarvis" ] \
-    || die "'${APP_BUNDLE}/Contents/MacOS/jarvis' is missing. The bundle must ship the console CLI entry so 'jarvis serve' works from a native install."
+  # The console command and its earlier name; jarvis.spec builds both.
+  for cli_name in dodaios jarvis; do
+    [ -x "${APP_BUNDLE}/Contents/MacOS/${cli_name}" ] \
+      || die "'${APP_BUNDLE}/Contents/MacOS/${cli_name}' is missing. The bundle must ship the console CLI entry so '${cli_name} serve' works from a native install."
+  done
   # CFBundleExecutable must exist or the app cannot launch at all, and Finder
   # reports it as damaged rather than naming the missing file.
   BUNDLE_EXECUTABLE="$(
