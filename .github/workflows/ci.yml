@@ -41,7 +41,8 @@
 #          lane on Linux and Windows. No macOS: five macOS slots serve
 #          every run, and macOS legs on each push made pull requests wait.
 #   queue  merge-queue group: everything `pr` runs plus at most two macOS
-#          jobs: the macOS tests the change can reach, and the Apple Silicon
+#          jobs: the macOS tests the change can reach, filled up to about
+#          five minutes with the tests that name macOS, and the Apple Silicon
 #          desktop bundle when the macOS lane is affected. Five macOS slots
 #          serve every group; eleven macOS jobs a group waited 30-54 minutes.
 #   full   nightly, release tags, manual full dispatch: Intel macOS, the ARM
@@ -52,6 +53,8 @@
 # but `detect` and the gate (`proven`); a push that bypassed the queue runs
 # the `queue` tier. A branch gets macOS feedback before the queue with
 # `gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
+# After the merge, macos-main-sweep.yml runs the whole suite on macOS on one
+# runner, outside the gate.
 #
 # Action SHAs are pinned to 40-char commits (CVE-2025-30066 hardening).
 
@@ -223,25 +226,6 @@ jobs:
             git diff --name-only --no-renames "$BASE" HEAD | tee changed.txt | python3 scripts/ci/classify_changes.py
           fi
 
-      # A merge group runs the macOS tests its change can reach, on ONE
-      # runner: the whole suite on macOS is 27 runner-minutes on five shared
-      # slots. A change that reaches everything (or no diff: changed.txt
-      # missing or empty) runs the macOS-focused set instead.
-      - name: Select the macOS tests this change can reach
-        id: mactests
-        shell: bash
-        env:
-          PYTHON_LANE: ${{ steps.lanes.outputs.python }}
-          MAC_IMPACT: ${{ steps.mode.outputs.mac_impact }}
-        run: |
-          : > mac_tests.txt
-          if [ "$PYTHON_LANE" = "true" ] && [ "$MAC_IMPACT" = "true" ]; then
-            test -f changed.txt || : > changed.txt
-            python3 scripts/ci/select_tests.py --one-runner --changed-from changed.txt --out mac_tests.txt
-          else
-            { echo "mode=none"; echo "shards=[]"; } | tee -a "$GITHUB_OUTPUT"
-          fi
-
       # Resolve the mutable cache ONCE. All shards download the same immutable
       # snapshot; staggered runners must never compute different partitions.
       - name: Restore duration history once
@@ -270,6 +254,28 @@ jobs:
           # Until Windows has a history it shards by the Linux one, as before.
           test -s test_durations_windows.json || cp test_durations.json test_durations_windows.json
           echo "name=test-duration-snapshot-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+      # A merge group runs the macOS tests its change can reach, on ONE
+      # runner: the whole suite on macOS is 27 runner-minutes on five shared
+      # slots. A change that reaches everything (or no diff: changed.txt
+      # missing or empty) runs the macOS-focused set instead. The runner then
+      # has minutes left before the Windows shards finish: the duration
+      # history fills them with the tests that name macOS or belong to the
+      # macOS lane, up to about five minutes of tests in all.
+      - name: Select the macOS tests this change can reach
+        id: mactests
+        shell: bash
+        env:
+          PYTHON_LANE: ${{ steps.lanes.outputs.python }}
+          MAC_IMPACT: ${{ steps.mode.outputs.mac_impact }}
+        run: |
+          : > mac_tests.txt
+          if [ "$PYTHON_LANE" = "true" ] && [ "$MAC_IMPACT" = "true" ]; then
+            test -f changed.txt || : > changed.txt
+            python3 scripts/ci/select_tests.py --one-runner --changed-from changed.txt --out mac_tests.txt \
+              --durations test_durations.json
+          else
+            { echo "mode=none"; echo "shards=[]"; } | tee -a "$GITHUB_OUTPUT"
+          fi
       - name: Share duration snapshot with every shard
         if: steps.lanes.outputs.python == 'true'
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
