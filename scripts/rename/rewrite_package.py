@@ -774,11 +774,12 @@ class Rewriter:
             return "keep", "local variable"
         if _IMPORT_STMT_RE.search(before) and not re.match(r"\s*[-/]", after):
             if _FROM_RE.search(before) and not re.match(r"\s+import\b", after):
-                # "a message from <old>" is prose. ``"from <old>" not in
-                # code`` is a guard over import statements, or prose again.
-                if after[:1] in ("'", '"', "`"):
-                    return "ambiguous", "quoted `from` and the name: an import guard, or prose"
-                return "keep", "name"
+                # ``"from <old>"`` with nothing else in the quotes is the start
+                # of an import statement a guard tests for; with other words
+                # around it ("a message from <old>") it is prose.
+                opened = re.search(r"([\"'`])from\s+$", before)
+                if opened is None or after[:1] != opened.group(1):
+                    return "keep", "name"
             return "rewrite", "import"
         if _IMPORT_REGEX_RE.search(before):
             return "rewrite", "import"

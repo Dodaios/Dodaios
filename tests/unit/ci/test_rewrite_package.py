@@ -584,12 +584,20 @@ def test_the_word_from_before_the_name_is_an_import_only_with_an_import():
         'assert sent.startswith("[assignment from jarvis]")\n'
         "task = \"Type the sentence 'hello from jarvis' into it.\"\n"
         'assert "from jarvis" not in generated_code\n'
+        'offending = [ln for ln in lines if ln.startswith(("from jarvis", "import jarvis"))]\n'
     )
     data, result = _rewriter().rewrite("tests/test_prose.py", text.encode("utf-8"))
 
-    assert data.decode("utf-8") == text.replace("from jarvis import", "from dodaios import")
-    # The quoted forms may be guards over import statements: a person decides.
-    assert [hit.line for hit in result.ambiguous] == [3, 4]
+    # The start of an import statement on its own is one a guard tests for;
+    # the same two words inside a sentence are prose.
+    assert data.decode("utf-8") == (
+        "from dodaios import __version__\n"
+        'assert sent.startswith("[assignment from jarvis]")\n'
+        "task = \"Type the sentence 'hello from jarvis' into it.\"\n"
+        'assert "from dodaios" not in generated_code\n'
+        'offending = [ln for ln in lines if ln.startswith(("from dodaios", "import dodaios"))]\n'
+    )
+    assert result.ambiguous == []
 
 
 def test_a_lookup_in_the_package_data_table_follows_its_key():
