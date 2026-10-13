@@ -1357,8 +1357,13 @@ def _phase2_full_brain(
                     name="wiki-vault-warmup",
                     daemon=True,
                 ).start()
+                from jarvis.memory.wiki.semantic_search import get_active
+
                 manager._wiki_injector = WikiContextInjector(
                     search=search,
+                    # The provider returns None until the user switches
+                    # semantic search on; nothing is loaded here.
+                    semantic_search=get_active,
                     max_chars=getattr(wiki_cfg, "max_chars", 1500),
                     latency_budget_ms=getattr(wiki_cfg, "latency_budget_ms", 150),
                     min_keyword_length=getattr(wiki_cfg, "min_keyword_length", 3),
