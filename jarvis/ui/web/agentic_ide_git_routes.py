@@ -14,9 +14,13 @@ Endpoints (all under ``/api/agentic-ide/git``)::
     PUT  /github/binding      Remember which GitHub repository a workspace folder is
     POST /prepare             Git half of opening a workspace or an agent
     POST /commit              Stage everything and commit
-    POST /push                Push the current branch (sets upstream once)
+    POST /push                Push the current branch, or a named one (sets upstream once)
+    POST /pull                Fast-forward the current branch (or rebase it, when asked)
+    POST /switch              Check out another branch in this folder
+    POST /branch/update       Fast-forward a branch to its upstream without switching to it
+    POST /branch/delete       Delete a branch (asks again when its commits exist nowhere else)
     POST /fetch               Fetch every remote
-    POST /pull-request        Open a PR with the GitHub CLI
+    POST /pull-request        Open a PR with the GitHub connection (or the GitHub CLI)
     POST /merge               Merge a branch back into its target
     POST /worktrees/remove    Remove a linked worktree (asks again when dirty)
     POST /worktrees/prune     Forget worktrees deleted by hand
@@ -43,6 +47,7 @@ from jarvis.agentic_ide import (
     git_ops,
     git_overview,
     github_link,
+    github_pulls,
     github_status,
 )
 from jarvis.agentic_ide.git_ops import GitError, PrepareMode
@@ -75,6 +80,25 @@ class CommitRequest(FolderRequest):
 class PullRequestRequest(FolderRequest):
     title: str = Field("", max_length=300)
     draft: bool = False
+    branch: str = Field("", max_length=300, description="Branch to open it from; current if empty")
+
+
+class PushRequest(FolderRequest):
+    branch: str = Field("", max_length=300, description="Branch to push; current if empty")
+
+
+class PullRequest(FolderRequest):
+    rebase: bool = Field(False, description="Rebase local commits onto the remote ones")
+
+
+class BranchRequest(FolderRequest):
+    branch: str = Field(..., min_length=1, max_length=300)
+
+
+class DeleteBranchRequest(BranchRequest):
+    force: bool = Field(False, description="Delete even when its commits exist nowhere else")
+    remote: bool = Field(False, description="Also delete the branch on the remote")
+    with_worktree: bool = Field(False, description="Also remove its clean, unused worktree")
 
 
 class MergeRequest(FolderRequest):
@@ -335,13 +359,74 @@ def commit_changes(req: CommitRequest) -> dict:
     return {"ok": True, "commit": sha}
 
 
-@router.post("/push", summary="Push the current branch")
-def push_branch(req: FolderRequest) -> dict:
+@router.post("/push", summary="Push the current branch, or a named one")
+def push_branch(req: PushRequest) -> dict:
     try:
-        upstream = git_ops.push(req.folder)
+        upstream = git_ops.push(req.folder, req.branch)
     except GitError as exc:
         raise _fail(exc) from exc
+    git_overview.clear_github(req.folder)
     return {"ok": True, "upstream": upstream}
+
+
+@router.post("/pull", summary="Bring the current branch up to date with its remote")
+def pull_branch(req: PullRequest) -> dict:
+    """Fast-forward only unless ``rebase``; a conflicting rebase is aborted."""
+    try:
+        message = git_ops.pull(req.folder, rebase=req.rebase)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    return {"ok": True, "message": message}
+
+
+@router.post("/switch", summary="Check out another branch in this folder")
+def switch_branch(req: BranchRequest) -> dict:
+    try:
+        prepared = git_ops.prepare(req.folder, "switch_branch", branch=req.branch)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    return {"ok": True, "branch": prepared.branch, "message": prepared.message}
+
+
+@router.post("/branch/update", summary="Fast-forward a branch to its upstream")
+def update_branch(req: BranchRequest) -> dict:
+    try:
+        message = git_ops.update_branch(req.folder, req.branch)
+    except GitError as exc:
+        raise _fail(exc) from exc
+    return {"ok": True, "message": message}
+
+
+@router.post(
+    "/branch/delete",
+    summary="Delete a local branch",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+def delete_branch(req: DeleteBranchRequest) -> dict:
+    """Delete a branch whose work is safe elsewhere; ask again otherwise.
+
+    "Safe" is decided here, not by the caller: every commit is in another
+    branch or on the remote, or GitHub merged the pull request that carried
+    exactly this tip. Anything else answers ``unmerged`` until ``force``.
+    """
+    try:
+        name = git_ops.normalize_branch(req.branch)
+        tip = git_ops.branch_tip(req.folder, name)
+        merged = git_overview.merged_pull_request(req.folder, name, tip) is not None
+        message = git_ops.delete_branch(
+            req.folder,
+            name,
+            force=req.force,
+            merged=merged,
+            remote=req.remote,
+            with_worktree=req.with_worktree,
+            open_folders=[session.folder for session in get_registry().sessions],
+        )
+    except GitError as exc:
+        raise _fail(exc) from exc
+    if req.remote:
+        git_overview.clear_github(req.folder)
+    return {"ok": True, "message": message}
 
 
 @router.post("/fetch", summary="Fetch every remote")
@@ -353,12 +438,50 @@ def fetch_remotes(req: FolderRequest) -> dict:
     return {"ok": True}
 
 
-@router.post("/pull-request", summary="Open a pull request for the current branch")
+def _create_pull_request(req: PullRequestRequest) -> str:
+    """Push the branch if needed and open its pull request. Returns the URL.
+
+    Uses the GitHub connection the Git tab already reads with; without one (or
+    before a repository was picked for the folder) the GitHub CLI opens it.
+    """
+    cred = github_link.credential()
+    repo = github_link.bound_repository(req.folder)
+    wanted = git_ops.normalize_branch(req.branch)
+    if cred is None or not repo:
+        if wanted and wanted != git_ops.inspect(req.folder).branch:
+            raise GitError("Connect GitHub to open this pull request.", code="not_connected")
+        return git_ops.create_pull_request(req.folder, title=req.title, draft=req.draft)
+    info = git_ops.inspect(req.folder)
+    branch = wanted or info.branch
+    if not info.is_repo or not branch:
+        raise GitError("Check out a branch before opening a pull request.", code="detached")
+    if branch == info.default_branch:
+        raise GitError(
+            f"{branch} is the default branch — open the pull request from a feature branch.",
+            code="invalid",
+        )
+    upstream = git_ops.push(req.folder, branch)
+    head = upstream.partition("/")[2] or branch
+    base_ref = f"origin/{info.default_branch}"
+    if base_ref not in info.remote_branches:
+        base_ref = info.default_branch
+    title = req.title.strip() or git_ops.first_subject(req.folder, branch, base_ref)
+    try:
+        created = github_pulls.create(
+            repo, cred.token, head=head, base=info.default_branch, title=title, draft=req.draft
+        )
+    except github_link.GitHubError as exc:
+        raise GitError(str(exc), code=exc.code) from exc
+    return created.url
+
+
+@router.post("/pull-request", summary="Open a pull request for a branch")
 def open_pull_request(req: PullRequestRequest) -> dict:
     try:
-        url = git_ops.create_pull_request(req.folder, title=req.title, draft=req.draft)
+        url = _create_pull_request(req)
     except GitError as exc:
         raise _fail(exc) from exc
+    git_overview.clear_github(req.folder)
     return {"ok": True, "url": url}
 
 
