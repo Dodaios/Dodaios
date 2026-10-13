@@ -1,11 +1,14 @@
 """A re-run quick installer stops the running app before it replaces the checkout.
 
 A release may move or delete files the live app still loads. Both shell
-installers therefore stop every app running out of THIS install first, and only
-then fetch and reset. The stop logic is run for real here - the block extracted
-from ``install/install.sh`` and the function extracted from
-``install/install.ps1`` - so the shipped scripts cannot drift from what is
-tested, and the order of the steps is pinned from the scripts' own text.
+installers therefore stop every app running out of THIS install right before
+its files change - after the download, so a failed download leaves a working
+app behind - and refuse outright when they were started from inside that app,
+because stopping it would end the installer too. The stop logic is run for
+real here - the blocks extracted from ``install/install.sh`` and the functions
+extracted from ``install/install.ps1`` - so the shipped scripts cannot drift
+from what is tested, and the order of the steps is pinned from the scripts'
+own text.
 """
 from __future__ import annotations
 
@@ -29,6 +32,10 @@ INSTALL_PS1 = REPO / "install" / "install.ps1"
 BLOCK_BEGIN = "# --- stop-running-app begin"
 BLOCK_END = "# --- stop-running-app end"
 STOPPED_NOTE = "NOTE|stopped the running Jarvis app for the update"
+INSIDE_APP = "ERR|this installer was started from inside the running app."
+GUARD_BEGIN = "# --- salvage-guard begin"
+GUARD_END = "# --- salvage-guard end"
+UNREACHABLE = "ERR|cannot reach the download server right now - nothing was changed."
 
 SLEEPER = "import os, sys, time; print(os.getpid(), flush=True); time.sleep(300)"
 
@@ -39,6 +46,29 @@ SH_STUB_DRIVER = """#!/usr/bin/env bash
 set -euo pipefail
 record() { printf '%s\\n' "$*" >> "$CALL_LOG"; }
 note() { printf 'NOTE|%s\\n' "$*"; }
+err() { printf 'ERR|%s\\n' "$*"; }
+# ``ps [-ww] -o <field>= -p <pid>`` answered from FAKE_PS_TABLE (pid|ppid|args
+# per line). SELF stands for this script, whose real pid the block starts from.
+ps() {
+    record "PS|$*"
+    _ps_field=''
+    _ps_pid=''
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            -o) _ps_field="$2"; shift ;;
+            -p) _ps_pid="$2"; shift ;;
+        esac
+        shift
+    done
+    [ "$_ps_pid" = "$$" ] && _ps_pid=SELF
+    printf '%s\\n' "${FAKE_PS_TABLE:-}" | while IFS='|' read -r _p _pp _a; do
+        [ "$_p" = "$_ps_pid" ] || continue
+        case "$_ps_field" in
+            ppid=) printf '%s\\n' "$_pp" ;;
+            args=) printf '%s\\n' "$_a" ;;
+        esac
+    done
+}
 pkill() { record "PKILL|$*"; [ "${FAKE_APP_RUNNING:-0}" = "1" ]; }
 pgrep() { record "PGREP|$*"; [ "${FAKE_APP_LINGERS:-0}" = "1" ]; }
 sleep() { record "SLEEP|$*"; }
@@ -54,20 +84,57 @@ printf 'DONE\\n'
 SH_REAL_DRIVER = """#!/usr/bin/env bash
 set -euo pipefail
 note() { printf 'NOTE|%s\\n' "$*"; }
+err() { printf 'ERR|%s\\n' "$*"; }
 launchctl() { printf 'LAUNCHCTL|%s\\n' "$*"; }
 source "$BLOCK_FILE"
 source "$BLOCK_FILE"
 printf 'DONE\\n'
 """
 
+# The salvage path asks the repository before it stops or moves anything.
+SH_GUARD_DRIVER = """#!/usr/bin/env bash
+set -euo pipefail
+note() { printf 'NOTE|%s\\n' "$*"; }
+err() { printf 'ERR|%s\\n' "$*"; }
+git() { printf 'GIT|%s\\n' "$*" >> "$CALL_LOG"; [ "${FAKE_REMOTE_ANSWERS:-0}" = "1" ]; }
+curl() { printf 'CURL|%s\\n' "$*" >> "$CALL_LOG"; [ "${FAKE_ARCHIVE_ANSWERS:-0}" = "1" ]; }
+stop_running_app() { printf 'STOP|\\n' >> "$CALL_LOG"; }
+GIT_NET_OPTS='-c http.lowSpeedLimit=1024'
+source "$GUARD_FILE"
+printf 'DONE\\n'
+"""
+
 PS_DRIVER = """$ErrorActionPreference = 'Stop'
 function Write-Note([string]$Text) { Write-Host "NOTE|$Text" }
+function Write-Err([string]$Text) { Write-Host "ERR|$Text" }
 $InstallDir = $env:TEST_INSTALL_DIR
 . $env:TEST_FUNCTION_FILE
 Stop-RunningApp
 Stop-RunningApp
 Write-Host 'DONE'
 """
+
+PS_REACHABLE_DRIVER = """$ErrorActionPreference = 'Stop'
+$GitNetOpts = @('-c', 'http.lowSpeedLimit=1024')
+$RepoUrl = $env:TEST_REPO_URL
+if ($env:TEST_GIT_EXIT) {
+    # Stand-ins for both transports: a function wins over a program of its name.
+    function git { $global:LASTEXITCODE = [int]$env:TEST_GIT_EXIT }
+    function curl.exe {
+        Write-Host "CURL|$($args -join ' ')"
+        $global:LASTEXITCODE = [int]$env:TEST_CURL_EXIT
+    }
+}
+. $env:TEST_FUNCTION_FILE
+Write-Host "REACHABLE|$(Test-RepositoryReachable)"
+"""
+
+# Runs the installer's stop function as a child of a process that lives in the
+# install's venv - what a terminal inside the app looks like to the installer.
+INSIDE_APP_LAUNCHER = (
+    "import subprocess, sys; "
+    "sys.exit(subprocess.run(sys.argv[2:], check=False).returncode)"
+)
 
 PS_PARSE = """$errors = $null
 $tokens = $null
@@ -178,19 +245,36 @@ def _calls(tmp_path: Path, prefix: str) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
-# Order: stop, then replace
+# Order: download, stop, then replace
 # --------------------------------------------------------------------------- #
-def test_sh_stops_the_app_before_it_fetches_and_resets() -> None:
+def test_sh_stops_the_app_after_the_fetch_and_before_the_reset() -> None:
     source = INSTALL_SH.read_text(encoding="utf-8")
     update = source.split('if [ -d "$INSTALL_DIR/.git" ]; then\n', 1)[1]
     update, rest = update.split('\nelif [ -e "$INSTALL_DIR" ]; then\n', 1)
     leftover = rest.split("\nelse\n", 1)[0]
 
-    stop = update.index("stop_running_app")
-    assert stop < update.index(" fetch ")
+    fetch = update.index(" fetch ")
+    stop = update.index("&& stop_running_app")
+    # A fetch only writes inside .git: a failed one must leave the app running.
+    assert fetch < stop
+    assert stop < update.index(" checkout ")
     assert stop < update.index("reset --quiet --hard")
-    # A directory that is not a checkout is moved aside whole - same rule.
-    assert leftover.index("stop_running_app") < leftover.index("salvage_reclone")
+    assert update.count("stop_running_app") == 1
+    # A directory that is not a checkout goes through the salvage path, which
+    # owns its own stop.
+    assert "stop_running_app" not in leftover
+    assert "salvage_reclone" in leftover
+
+
+def test_sh_salvage_asks_the_repository_then_stops_then_moves() -> None:
+    source = INSTALL_SH.read_text(encoding="utf-8")
+    salvage = source.split("salvage_reclone() {\n", 1)[1].split("\n}\n", 1)[0]
+
+    reachable = salvage.index("ls-remote")
+    stop = salvage.index("stop_running_app")
+    move = salvage.index('mv "$INSTALL_DIR"')
+    assert reachable < stop < move
+    assert move < salvage.index("fetch_payload")
 
 
 def test_sh_still_stops_the_app_before_the_environment_is_rebuilt() -> None:
@@ -209,16 +293,35 @@ def test_sh_keeps_one_copy_of_the_stop_logic() -> None:
     assert source.count("stop_running_app() {") == 1
 
 
-def test_ps1_stops_the_app_before_it_fetches_and_resets() -> None:
+def test_ps1_stops_the_app_after_the_fetch_and_before_the_reset() -> None:
     source = INSTALL_PS1.read_text(encoding="utf-8")
     update = source.split("if (Test-Path (Join-Path $InstallDir '.git')) {\n", 1)[1]
     update, rest = update.split("\n} else {\n", 1)
     leftover = rest.split("\n    } else {\n", 1)[0]
+    attempt = update.split("\n    } finally {\n", 1)[0]
 
-    stop = update.index("Stop-RunningApp")
-    assert stop < update.index(" fetch ")
-    assert stop < update.index("reset --quiet --hard")
-    assert leftover.index("Stop-RunningApp") < leftover.index("Invoke-SalvageReclone")
+    fetch = attempt.index(" fetch ")
+    stop = attempt.index("Stop-RunningApp")
+    assert fetch < stop
+    assert stop < attempt.index(" checkout ")
+    assert stop < attempt.index("reset --quiet --hard")
+    assert attempt.count("Stop-RunningApp") == 1
+    # Only reached when the fetch succeeded.
+    guarded = attempt[attempt.rindex("if ($UpdateOk) {", 0, stop) : stop]
+    assert guarded.count("\n") == 1
+    assert "Stop-RunningApp" not in leftover
+    assert "Invoke-SalvageReclone" in leftover
+
+
+def test_ps1_salvage_asks_the_repository_then_stops_then_moves() -> None:
+    source = INSTALL_PS1.read_text(encoding="utf-8")
+    salvage = source.split("function Invoke-SalvageReclone {\n", 1)[1].split("\n}\n", 1)[0]
+
+    reachable = salvage.index("Test-RepositoryReachable")
+    stop = salvage.index("Stop-RunningApp")
+    move = salvage.index("Move-Item")
+    assert reachable < stop < move
+    assert move < salvage.index("Invoke-FetchPayload")
 
 
 def test_ps1_still_stops_the_app_before_the_environment_is_rebuilt() -> None:
@@ -458,3 +561,340 @@ def test_ps1_really_stops_processes_of_this_install_and_no_other(tmp_path: Path)
         assert bystander.poll() is None
     finally:
         _end(app, renamed, bystander)
+
+
+# --------------------------------------------------------------------------- #
+# The installer never stops the process tree it runs in
+# --------------------------------------------------------------------------- #
+def _ps_table(*rows: tuple[str, str, str]) -> str:
+    return "\n".join("|".join(row) for row in rows)
+
+
+@needs_bash
+@pytest.mark.parametrize(
+    "ancestors",
+    [
+        # A terminal pane: the shell's parent is the app's terminal host.
+        [("SELF", "100", "bash install.sh"), ("100", "1", "VENV/bin/python -m jarvis.terminal")],
+        # Further up the chain counts just the same.
+        [
+            ("SELF", "100", "bash install.sh"),
+            ("100", "200", "/bin/zsh -l"),
+            ("200", "300", "VENV/bin/python -m jarvis.ui.web.launcher"),
+            ("300", "1", "/sbin/launchd"),
+        ],
+        # The script itself was started with a path inside the environment.
+        [("SELF", "100", "bash VENV/bin/some-wrapper"), ("100", "1", "/sbin/init")],
+    ],
+)
+def test_sh_refuses_before_stopping_anything_when_started_inside_the_app(
+    tmp_path: Path, ancestors: list[tuple[str, str, str]]
+) -> None:
+    install_dir = _fake_posix_venv(tmp_path)
+    venv = _sh_path(install_dir / ".venv")
+    table = _ps_table(*[(pid, ppid, args.replace("VENV", venv)) for pid, ppid, args in ancestors])
+
+    proc = _run_sh(
+        tmp_path, install_dir, SH_STUB_DRIVER, FAKE_APP_RUNNING="1", FAKE_PS_TABLE=table
+    )
+
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert INSIDE_APP in proc.stdout
+    assert "normal" in proc.stdout and "terminal outside the app" in proc.stdout
+    # Refused BEFORE the first signal: nothing was stopped, nothing unloaded.
+    assert _calls(tmp_path, "PKILL|") == []
+    assert _calls(tmp_path, "LAUNCHCTL|") == []
+    assert "DONE" not in proc.stdout
+
+
+@needs_bash
+def test_sh_stops_the_app_when_started_from_an_ordinary_terminal(tmp_path: Path) -> None:
+    install_dir = _fake_posix_venv(tmp_path)
+    table = _ps_table(
+        ("SELF", "100", "bash install.sh"),
+        ("100", "200", "/bin/zsh -l"),
+        ("200", "1", "/usr/bin/some-terminal"),
+    )
+    proc = _run_sh(
+        tmp_path, install_dir, SH_STUB_DRIVER, FAKE_APP_RUNNING="1", FAKE_PS_TABLE=table
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert STOPPED_NOTE in proc.stdout
+    assert len(_calls(tmp_path, "PKILL|")) == 2
+    # The whole command line is asked for: BSD ps cuts it at the terminal
+    # width otherwise, and pkill matches against all of it.
+    looked_up = [call for call in _calls(tmp_path, "PS|") if "args=" in call]
+    assert looked_up and all(call.startswith("PS|-ww ") for call in looked_up)
+
+
+@needs_bash
+@pytest.mark.parametrize(
+    "table",
+    [
+        # A process reported as its own parent ends the walk at once.
+        pytest.param(
+            _ps_table(("SELF", "100", "bash install.sh"), ("100", "100", "/bin/odd")),
+            id="own-parent",
+        ),
+        # A longer cycle runs into the depth bound. Dozens of subshells are
+        # slow under Git Bash, so that one runs where forking is cheap.
+        pytest.param(
+            _ps_table(
+                ("SELF", "100", "bash install.sh"),
+                ("100", "200", "/bin/a"),
+                ("200", "100", "/bin/b"),
+            ),
+            id="cycle",
+            marks=pytest.mark.skipif(sys.platform == "win32", reason="slow under Git Bash"),
+        ),
+    ],
+)
+def test_sh_gives_up_on_a_process_table_that_loops(tmp_path: Path, table: str) -> None:
+    install_dir = _fake_posix_venv(tmp_path)
+    proc = _run_sh(
+        tmp_path, install_dir, SH_STUB_DRIVER, FAKE_APP_RUNNING="1", FAKE_PS_TABLE=table
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip().endswith("DONE")
+
+
+@needs_bash
+@posix_only
+def test_sh_really_refuses_under_a_parent_from_this_install(tmp_path: Path) -> None:
+    install_dir = tmp_path / "install"
+    venv_python = install_dir / ".venv" / "bin" / "python"
+    venv_python.parent.mkdir(parents=True)
+    venv_python.symlink_to(sys.executable)
+    driver = tmp_path / "driver.sh"
+    driver.write_text(SH_REAL_DRIVER, encoding="utf-8", newline="\n")
+    env = dict(os.environ)
+    env.update(
+        BLOCK_FILE=str(_sh_block(tmp_path)),
+        INSTALL_DIR=str(install_dir),
+        MACOS_AUTOSTART_LABEL="com.example.autostart",
+        HOME=str(tmp_path / "home"),
+    )
+
+    app, app_pid = _start_sleeper(sys.executable, str(venv_python))
+    try:
+        # The parent carries the venv path on its command line, as the app's
+        # terminal host does; the installer block is its child.
+        proc = _run(
+            [sys.executable, "-c", INSIDE_APP_LAUNCHER, str(venv_python), str(BASH), str(driver)],
+            env=env,
+        )
+
+        assert proc.returncode == 1, proc.stdout + proc.stderr
+        assert INSIDE_APP in proc.stdout
+        assert STOPPED_NOTE not in proc.stdout
+        # The app it would have stopped is untouched.
+        assert pid_alive(app_pid)
+        assert app.poll() is None
+    finally:
+        _end(app)
+
+
+# --------------------------------------------------------------------------- #
+# The salvage path changes nothing while the repository is out of reach
+# --------------------------------------------------------------------------- #
+def _run_sh_guard(tmp_path: Path, **overrides: str) -> subprocess.CompletedProcess[str]:
+    source = INSTALL_SH.read_text(encoding="utf-8")
+    assert GUARD_BEGIN in source and GUARD_END in source, (
+        "the salvage-guard extraction markers vanished from install.sh"
+    )
+    guard = tmp_path / "guard.sh"
+    guard.write_text(
+        source.split(GUARD_BEGIN, 1)[1].split("\n", 1)[1].split(GUARD_END, 1)[0],
+        encoding="utf-8",
+        newline="\n",
+    )
+    driver = tmp_path / "driver.sh"
+    driver.write_text(SH_GUARD_DRIVER, encoding="utf-8", newline="\n")
+    (tmp_path / "calls.log").write_text("", encoding="utf-8")
+    env = dict(os.environ)
+    env.update(
+        {
+            "GUARD_FILE": _sh_path(guard),
+            "CALL_LOG": _sh_path(tmp_path / "calls.log"),
+            "REPO_URL": "https://example.invalid/owner/repo.git",
+            **overrides,
+        }
+    )
+    return _run([str(BASH), str(driver)], env=env)
+
+
+@needs_bash
+def test_sh_salvage_changes_nothing_when_the_repository_is_out_of_reach(
+    tmp_path: Path,
+) -> None:
+    proc = _run_sh_guard(tmp_path)
+
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert UNREACHABLE in proc.stdout
+    assert _calls(tmp_path, "STOP|") == []
+    assert "DONE" not in proc.stdout
+    asked = _calls(tmp_path, "GIT|")
+    assert len(asked) == 1
+    assert asked[0].endswith("ls-remote --quiet --heads https://example.invalid/owner/repo.git")
+    # The archive download only exists for the hosted repository.
+    assert _calls(tmp_path, "CURL|") == []
+
+
+@needs_bash
+def test_sh_salvage_stops_the_app_once_the_repository_answers(tmp_path: Path) -> None:
+    proc = _run_sh_guard(tmp_path, FAKE_REMOTE_ANSWERS="1")
+
+    assert proc.returncode == 0, proc.stderr
+    assert "ERR|" not in proc.stdout
+    assert _calls(tmp_path, "STOP|") == ["STOP|"]
+    assert proc.stdout.strip().endswith("DONE")
+
+
+GITHUB_REPO_URL = "https://github.com/owner/repo.git"
+
+
+@needs_bash
+def test_sh_salvage_goes_on_when_only_the_archive_download_gets_through(
+    tmp_path: Path,
+) -> None:
+    """git blocked, HTTPS open: an install that came from the archive still updates."""
+    proc = _run_sh_guard(tmp_path, REPO_URL=GITHUB_REPO_URL, FAKE_ARCHIVE_ANSWERS="1")
+
+    assert proc.returncode == 0, proc.stderr
+    assert "ERR|" not in proc.stdout
+    assert len(_calls(tmp_path, "GIT|")) == 1
+    probes = _calls(tmp_path, "CURL|")
+    assert len(probes) == 1
+    assert probes[0].endswith(" https://github.com/owner/repo")
+    assert _calls(tmp_path, "STOP|") == ["STOP|"]
+    assert proc.stdout.strip().endswith("DONE")
+
+
+@needs_bash
+def test_sh_salvage_changes_nothing_when_neither_transport_answers(tmp_path: Path) -> None:
+    proc = _run_sh_guard(tmp_path, REPO_URL=GITHUB_REPO_URL)
+
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert UNREACHABLE in proc.stdout
+    assert len(_calls(tmp_path, "CURL|")) == 1
+    assert _calls(tmp_path, "STOP|") == []
+    assert "DONE" not in proc.stdout
+
+
+def _ps_function(name: str) -> str:
+    source = INSTALL_PS1.read_text(encoding="utf-8")
+    match = re.search(rf"^function {name} \{{\r?\n.*?^\}}\r?$", source, re.S | re.M)
+    assert match is not None, f"{name} vanished from install.ps1"
+    return match.group(0)
+
+
+def _powershell(script: Path) -> list[str]:
+    return [
+        str(POWERSHELL),
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script),
+    ]
+
+
+@needs_powershell
+@pytest.mark.skipif(GIT is None, reason="git is not installed")
+def test_ps1_tells_a_reachable_repository_from_an_unreachable_one(tmp_path: Path) -> None:
+    function_file = tmp_path / "function.ps1"
+    function_file.write_text(_ps_function("Test-RepositoryReachable"), encoding="utf-8")
+    driver = tmp_path / "driver.ps1"
+    driver.write_text(PS_REACHABLE_DRIVER, encoding="utf-8")
+    bare = tmp_path / "origin.git"
+    assert _run([str(GIT), "init", "--quiet", "--bare", str(bare)]).returncode == 0
+
+    answers = {}
+    for label, url in (("there", str(bare)), ("gone", str(tmp_path / "no-such-repo.git"))):
+        env = dict(os.environ)
+        env.update(TEST_REPO_URL=url, TEST_FUNCTION_FILE=str(function_file))
+        proc = _run(_powershell(driver), env=env)
+        assert proc.returncode == 0, proc.stderr
+        answers[label] = _lines(proc, "REACHABLE|")
+
+    assert answers == {"there": ["REACHABLE|True"], "gone": ["REACHABLE|False"]}
+
+
+@needs_powershell
+@pytest.mark.parametrize(
+    ("repo_url", "git_exit", "curl_exit", "reachable", "probes"),
+    [
+        # git answers: nothing else is asked.
+        (GITHUB_REPO_URL, "0", "7", "True", 0),
+        # git blocked, HTTPS open: the archive download would get through.
+        (GITHUB_REPO_URL, "128", "0", "True", 1),
+        (GITHUB_REPO_URL, "128", "7", "False", 1),
+        # The archive download only exists for the hosted repository.
+        ("https://example.invalid/owner/repo.git", "128", "0", "False", 0),
+    ],
+)
+def test_ps1_counts_the_archive_download_as_a_way_to_reach_the_repository(
+    tmp_path: Path, repo_url: str, git_exit: str, curl_exit: str, reachable: str, probes: int
+) -> None:
+    function_file = tmp_path / "function.ps1"
+    function_file.write_text(_ps_function("Test-RepositoryReachable"), encoding="utf-8")
+    driver = tmp_path / "driver.ps1"
+    driver.write_text(PS_REACHABLE_DRIVER, encoding="utf-8")
+    env = dict(os.environ)
+    env.update(
+        TEST_REPO_URL=repo_url,
+        TEST_FUNCTION_FILE=str(function_file),
+        TEST_GIT_EXIT=git_exit,
+        TEST_CURL_EXIT=curl_exit,
+    )
+
+    proc = _run(_powershell(driver), env=env)
+
+    assert proc.returncode == 0, proc.stderr
+    assert _lines(proc, "REACHABLE|") == [f"REACHABLE|{reachable}"]
+    asked = _lines(proc, "CURL|")
+    assert len(asked) == probes
+    for call in asked:
+        assert call.endswith(" https://github.com/owner/repo")
+
+
+@needs_powershell
+@windows_only
+def test_ps1_really_refuses_under_a_parent_from_this_install(tmp_path: Path) -> None:
+    install_dir = tmp_path / "install"
+    venv = install_dir / ".venv"
+    created = _run([sys.executable, "-m", "venv", "--without-pip", str(venv)], timeout=300)
+    assert created.returncode == 0, created.stderr
+    function_file = tmp_path / "function.ps1"
+    function_file.write_text(_ps_function("Stop-RunningApp"), encoding="utf-8")
+    driver = tmp_path / "driver.ps1"
+    driver.write_text(PS_DRIVER, encoding="utf-8")
+    env = dict(os.environ)
+    env.update(TEST_INSTALL_DIR=str(install_dir), TEST_FUNCTION_FILE=str(function_file))
+
+    app, app_pid = _start_sleeper(venv / "Scripts" / "python.exe")
+    try:
+        # PowerShell runs as a child of the venv's interpreter - what a
+        # terminal pane inside the app looks like to the installer.
+        proc = _run(
+            [
+                str(venv / "Scripts" / "python.exe"),
+                "-c",
+                INSIDE_APP_LAUNCHER,
+                "-",
+                *_powershell(driver),
+            ],
+            env=env,
+        )
+
+        assert proc.returncode == 1, proc.stdout + proc.stderr
+        assert INSIDE_APP in proc.stdout
+        assert "terminal outside the app" in proc.stdout
+        assert STOPPED_NOTE not in proc.stdout
+        assert "DONE" not in proc.stdout
+        # Refused BEFORE the first kill: the app of this install still runs.
+        assert pid_alive(app_pid)
+        assert app.poll() is None
+    finally:
+        _end(app)

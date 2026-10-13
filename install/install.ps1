@@ -641,12 +641,45 @@ function Invoke-FetchPayload {
     return $false
 }
 
+# Nothing is stopped or moved until the download server answers. Without a
+# connection the fresh copy cannot arrive, and an install that was moved aside
+# for nothing is worse than one that simply was not updated.
+# git is asked first. A network that lets no git transfer through still reaches
+# the archive download the installer falls back to, so a plain HTTPS answer
+# from the same host counts as well.
+# (POSIX twin: the salvage-guard block in install.sh.)
+function Test-RepositoryReachable {
+    # git reports an unreachable repository on stderr, which Windows PowerShell
+    # turns into a terminating error under 'Stop'. The exit code is the answer.
+    $PreviousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & git @GitNetOpts ls-remote --quiet --heads $RepoUrl 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { return $true }
+        if ($RepoUrl -notmatch 'github\.com/') { return $false }
+        if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { return $false }
+        $ProbePath = ($RepoUrl -split 'github\.com/', 2)[1] -replace '\.git$', ''
+        & curl.exe -fsIL --max-time 20 "https://github.com/$ProbePath" 2>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $PreviousPreference
+    }
+}
+
 # Self-heal a broken install dir (leftover non-git folder from an earlier or
 # aborted install, or a checkout whose git state no longer updates): keep the
 # old tree as a timestamped sibling backup - never delete - clone fresh, then
 # carry the user's local state (data/, jarvis.toml, .env) into the new
 # checkout. A stale folder must never require manual cleanup to install.
 function Invoke-SalvageReclone {
+    if (-not (Test-RepositoryReachable)) {
+        Write-Err 'cannot reach the download server right now - nothing was changed.'
+        Write-Note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the installer.'
+        exit 1
+    }
+    Stop-RunningApp
     $StaleBackup = "$InstallDir.stale-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     try {
         Move-Item -LiteralPath $InstallDir -Destination $StaleBackup -ErrorAction Stop
@@ -722,15 +755,41 @@ function Update-LegacyOrigin {
 function Stop-RunningApp {
     $StopVenv = Join-Path $InstallDir '.venv'
     if (-not (Test-Path (Join-Path $StopVenv 'Scripts\python.exe'))) { return }
+    $StartedInsideApp = $false
     try {
         $venvPrefix = $StopVenv.TrimEnd('\') + '\'
-        $stale = @(Get-CimInstance Win32_Process -ErrorAction Stop |
+        $all = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+        $stale = @($all |
             Where-Object {
                 $_.ExecutablePath -and
                 $_.ExecutablePath.StartsWith($venvPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and
                 $_.ProcessId -ne $PID
             })
         if ($stale.Count -gt 0) {
+            # The installer refuses to do this to itself. Started from a
+            # terminal inside the app, its own parents (the pane's console
+            # host, the terminal host, the app) run out of this venv; stopping
+            # them would end the installer mid-way with the app gone and
+            # nothing installed.
+            $staleIds = @{}
+            foreach ($proc in $stale) { $staleIds[[int]$proc.ProcessId] = $true }
+            $byId = @{}
+            foreach ($proc in $all) { $byId[[int]$proc.ProcessId] = $proc }
+            $seen = @{}
+            $cursor = $byId[[int]$PID]
+            while ($cursor -and -not $seen.ContainsKey([int]$cursor.ProcessId)) {
+                $seen[[int]$cursor.ProcessId] = $true
+                $parent = $byId[[int]$cursor.ParentProcessId]
+                # Windows reuses process ids: a "parent" that started after its
+                # child is an unrelated process that inherited the number.
+                if (-not $parent -or $parent.CreationDate -gt $cursor.CreationDate) { break }
+                if ($staleIds.ContainsKey([int]$parent.ProcessId)) { $StartedInsideApp = $true; break }
+                $cursor = $parent
+            }
+        }
+        # A refusal is reported below, outside this try: its catch would turn
+        # it into "could not check" and carry on.
+        if (-not $StartedInsideApp -and $stale.Count -gt 0) {
             foreach ($proc in $stale) {
                 try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop } catch {}
             }
@@ -741,10 +800,19 @@ function Stop-RunningApp {
     } catch {
         Write-Note 'could not check for a running Jarvis app - continuing'
     }
+    if ($StartedInsideApp) {
+        Write-Err 'this installer was started from inside the running app.'
+        Write-Note 'Updating stops the app, which would end this installer with it.'
+        Write-Note 'Nothing was changed. Run the install command again from a normal'
+        Write-Note 'terminal outside the app.'
+        exit 1
+    }
 }
 
+# The fetch only writes inside .git, so the app keeps running through it: a
+# failed download (offline, an outage) then leaves a working app behind. It is
+# stopped at the last moment, right before the files it runs from change.
 if (Test-Path (Join-Path $InstallDir '.git')) {
-    Stop-RunningApp
     Update-LegacyOrigin
     $UpdateOk = $true
     Push-Location $InstallDir
@@ -752,6 +820,7 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
         & git @GitNetOpts fetch $GitVerbosity --depth 1 origin $Branch
         if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         if ($UpdateOk) {
+            Stop-RunningApp
             & git checkout --quiet $Branch
             if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         }
@@ -770,7 +839,6 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
     }
 } else {
     if (Test-Path $InstallDir) {
-        Stop-RunningApp
         Write-Note "$InstallDir exists but is not a git repo (leftover from an earlier install) - reinstalling in place."
         Invoke-SalvageReclone
     } else {
