@@ -44,6 +44,8 @@ describe("CompanionMark", () => {
     client.setQueryData(petKeys.all, PETS);
     rerender(<QueryClientProvider client={client}><CompanionMark appearance={look({ pet: "cocoa" })} size={30} thinking /></QueryClientProvider>);
     expect(screen.getByTestId("pet-sprite").dataset.state).toBe("working");
+    // At work the pet keeps its face and carries the working bubble.
+    expect(container.querySelector("[data-agent-pet='cocoa'] [data-agent-working]")).not.toBeNull();
   });
 
   it("plays the row a surrounding stage asks for", () => {
@@ -72,6 +74,29 @@ describe("CompanionMark", () => {
     }
     rerender(<QueryClientProvider client={new QueryClient()}><PetStageContext.Provider value="talking"><CompanionMark appearance={look({ creature })} size={36} /></PetStageContext.Provider></QueryClientProvider>);
     expect(face().dataset.creatureState).toBe("talking");
+  });
+
+  it("shows the working bubble on a creature at work, but not where a stage or a preview already says so", () => {
+    const creature = { seed: 24, palette: "neon", eyes: "dot" };
+    const mark = (node: JSX.Element) => <QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider>;
+    const { container, rerender } = render(mark(<CompanionMark appearance={look({ creature })} size={36} />));
+    const bubble = () => container.querySelector("[data-agent-creature] [data-agent-working]");
+    expect(bubble()).toBeNull();
+    rerender(mark(<CompanionMark appearance={look({ creature })} size={36} run="working" />));
+    expect(bubble()).not.toBeNull();
+    rerender(mark(<CompanionMark appearance={look({ creature })} size={36} thinking />));
+    expect(bubble()).not.toBeNull();
+    for (const quiet of [{ run: "waiting" }, { run: "paused" }, { run: "working", mood: "working" }] as const) {
+      rerender(mark(<CompanionMark appearance={look({ creature })} size={36} {...quiet} />));
+      expect(bubble()).toBeNull();
+    }
+    // A small face (a stack of members, a name in a line) still works, without a bubble over it.
+    rerender(mark(<CompanionMark appearance={look({ creature })} size={26} run="working" />));
+    expect(container.querySelector<HTMLElement>("[data-agent-creature]")!.dataset.creatureState).toBe("working");
+    expect(bubble()).toBeNull();
+    rerender(mark(<PetStageContext.Provider value="working"><CompanionMark appearance={look({ creature })} size={36} run="working" /></PetStageContext.Provider>));
+    expect(container.querySelector<HTMLElement>("[data-agent-creature]")!.dataset.creatureState).toBe("working");
+    expect(bubble()).toBeNull();
   });
 
   it("keeps the worn pet over a creature, and shows the creature when that pet is missing here", () => {
