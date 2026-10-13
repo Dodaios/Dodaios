@@ -39,6 +39,13 @@ export interface PullRequest {
   updated_at: string;
   queue_position: number | null;
   ci: CiStatus;
+  /** GitHub cannot merge it as it is: it conflicts with its base. */
+  conflicting?: boolean;
+  /** `approved` | `changes_requested` | `review_required` | "" (no review rule). */
+  review?: string;
+  author?: string;
+  /** Opened from a fork: its branch is not one of this repository's. */
+  fork?: boolean;
 }
 
 export interface MergedInto {
@@ -67,6 +74,36 @@ export interface BranchRow {
   ci: CiStatus;
   /** Local commits CI has not seen yet. */
   ci_stale: boolean;
+  /** The upstream is configured but was deleted on the remote. */
+  upstream_gone?: boolean;
+  /** GitHub has commits here that were not fetched yet; `behind` undercounts until a fetch. */
+  unfetched?: boolean;
+  /** Commits it has that the default branch lacks, and the other way round; null when unknown. */
+  base_ahead?: number | null;
+  base_behind?: number | null;
+}
+
+/** The folder's own state: what is uncommitted and how it stands to its remote. */
+export interface Checkout {
+  branch: string;
+  detached: boolean;
+  unborn: boolean;
+  head: string;
+  upstream: string;
+  ahead: number;
+  behind: number;
+  /** Files with any uncommitted change. */
+  files: number;
+  staged: number;
+  unstaged: number;
+  untracked: number;
+  conflicted: number;
+  /** `merge` | `rebase` | `cherry-pick` | `revert` | `bisect` while one is unfinished. */
+  operation: string;
+  stashes: number;
+  /** Epoch seconds of the last fetch; 0 when never. */
+  last_fetch: number;
+  has_remote: boolean;
 }
 
 export interface GitHubState {
@@ -83,6 +120,8 @@ export interface GitHubState {
   repo_url: string;
   /** Epoch seconds of the GitHub answer in use. */
   fetched_at: number;
+  /** A newer answer is being read right now; ask again shortly. */
+  refreshing?: boolean;
 }
 
 export interface RepoOverview {
@@ -97,6 +136,12 @@ export interface RepoOverview {
   remote_branches: BranchRow[];
   truncated: boolean;
   github: GitHubState;
+  /** Missing from a backend that predates the control center (until the next app start). */
+  checkout?: Checkout;
+  /** What `base_ahead` / `base_behind` compare with (`origin/main`). */
+  base_ref?: string;
+  /** Every open pull request, the ones needing a look first. */
+  pull_requests?: PullRequest[];
 }
 
 /** A failed call; `routeMissing` means the running backend predates this tab (restart once). */

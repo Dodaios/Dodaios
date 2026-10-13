@@ -182,8 +182,11 @@ def test_pull_request_states_cover_the_five_github_states() -> None:
         (3, "queued"),
         (4, "merged"),
         (5, "closed"),
+        (6, "open"),
     ]
     assert snap.prs[2].queue_position == 2
+    # A fork's pull request is listed, but never attached to a branch of this repository.
+    assert [pr.fork for pr in snap.prs] == [False, False, False, False, False, True]
     assert snap.busy  # a queued PR is worth re-reading sooner
 
 

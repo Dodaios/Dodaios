@@ -6,8 +6,14 @@
 </p>
 
 <p align="center">
-  <strong>开源的桌面 AI 智能体超级应用。</strong><br />
-  同时驱动所有编程智能体进行 Vibe Coding，用语音和电脑对话，再组建一支在你休息时也持续工作的 AI 智能体团队。
+  <strong>让所有编程智能体并排运行，用语音指挥它们。</strong><br />
+  Claude Code、Codex、OpenCode 等九款编程智能体同屏运行在一款开源桌面应用里。它同时是语音助手，也是一支在你休息时持续工作的 AI 智能体团队。
+</p>
+
+<p align="center">
+  <a href="#安装"><strong>一行命令安装</strong></a> ·
+  <a href="https://github.com/Dodaios/Dodaios/releases/latest">下载桌面版</a><br />
+  <sub>有 Claude 或 ChatGPT 订阅，或者有本地模型，就不需要 API 密钥。</sub>
 </p>
 
 <p align="center"><sub>本项目原名 Personal Jarvis。</sub></p>
@@ -20,7 +26,6 @@
 </p>
 
 <p align="center">
-  <a href="#安装">安装</a> ·
   <a href="https://dodaios.ai">官网</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">文档</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
@@ -33,6 +38,28 @@ https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
 
 ---
 
+## 安装
+
+**Windows（PowerShell）**
+
+```powershell
+irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
+```
+
+**macOS 和 Linux**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
+```
+
+安装程序会检查 Python 3.11+ 和 Git，提示安装缺少的组件，注册桌面启动器并打开应用。
+再次运行即可更新现有安装。语言、唤醒词和模型都在应用内设置。
+
+**你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
+桌面版安装包和服务器部署见[更多安装方式](#更多安装方式)。
+
+## 功能一览
+
 Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电脑上能做的一切汇集到一处：
 多智能体编程工作区、拥有独立记忆的常驻 AI 智能体、带唤醒词的语音助手、桌面与浏览器操控、插件市场，
 以及你已经付费的所有模型——云端模型、本地模型或你现有的订阅。
@@ -44,8 +71,6 @@ Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电�
 
 > **界面语言：** 桌面应用提供简体中文界面。可在首次启动的设置窗口中选择“中文”，
 > 也可以随时在“设置 > 语言”中切换。
-
-## 功能一览
 
 | | |
 |---|---|
@@ -123,22 +148,9 @@ Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电�
 [安全与审批 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md) ·
 [隐私与本地数据 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/privacy-and-local-data.md)
 
-## 安装
+## 更多安装方式
 
-**Windows — PowerShell**
-
-```powershell
-irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
-```
-
-**macOS 和 Linux**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
-```
-
-安装程序会检查 Python 3.11+ 和 Git，提示安装缺少的组件，注册桌面启动器并打开应用。
-再次运行即可更新现有安装。语言、唤醒词和模型都在应用内设置。
+[一行安装命令](#安装)是最快的方式。
 
 **桌面版下载：** [Windows](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Setup-x64.exe) ·
 [macOS（Apple 芯片）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-arm64.dmg) ·
@@ -157,8 +169,6 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 在 Intel macOS 和 Windows ARM64 上手动用 pip/pipx 安装时，还需要配置
 [原生软件包索引](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md#install-the-isolated-pypi-package)；
 安装程序会自动完成这项配置。
-
-**你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
 
 ## 第一步
 

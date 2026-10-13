@@ -101,6 +101,18 @@ def test_the_auth_contract_gate_restates_the_namespaces() -> None:
     assert gate._extension_block({}) == {}
 
 
+def test_the_frontend_restates_the_namespaces() -> None:
+    """The Publish form cannot import the package; its copy is pinned here."""
+    source = (_ROOT / "jarvis/ui/web/frontend/src/lib/extensionNamespace.ts").read_text(
+        encoding="utf-8"
+    )
+    current = re.search('EXTENSION_NAMESPACE = "([^"]+)"', source)
+    legacy = re.search("LEGACY_EXTENSION_NAMESPACES[^=]*= *([[][^]]*[]])", source)
+    assert current is not None and legacy is not None
+    assert current.group(1) == loader.EXTENSION_NAMESPACE
+    assert tuple(json.loads(legacy.group(1))) == loader.LEGACY_EXTENSION_NAMESPACES
+
+
 # ---------------------------------------------------------------------------
 # Reading
 # ---------------------------------------------------------------------------
