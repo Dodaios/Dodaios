@@ -1,8 +1,9 @@
-"""Put the ``jarvis`` commands on the user's PATH — Windows, macOS and Linux.
+"""Put the ``dodaios`` commands on the user's PATH — Windows, macOS and Linux.
 
 The one-line installer builds a private virtualenv inside the install folder,
-so its console scripts (``jarvis``, ``personal-jarvis``, ...) start out
-reachable only by their full path. This module makes them plain terminal
+so its console scripts (``dodaios``, ``dodaiosctl`` and the earlier names
+``jarvis``, ``personal-jarvis``, ``jarvisctl``) start out reachable only by
+their full path. This module makes them plain terminal
 commands, per user and without administrator rights:
 
 * **macOS / Linux** — a symlink per command in ``~/.local/bin`` (the XDG user
@@ -19,8 +20,12 @@ Everything is idempotent (a repeat install changes nothing) and conservative:
 an unrelated command that already owns a name is kept, never overwritten.
 :func:`remove_commands` undoes all of it for the uninstaller.
 
+An install made before a command existed gains it on its next installer or
+update run: the new name is linked beside the old ones, and the profile block,
+found by its unchanged first line, is not written a second time.
+
 Stdlib only (``jarvis.core.branding`` is too): ``install/installer.py`` imports
-this before the venv has any third-party package, and ``jarvis --uninstall``
+this before the venv has any third-party package, and ``dodaios --uninstall``
 must not need one either.
 """
 
@@ -39,10 +44,10 @@ from jarvis.core.branding import (
     SHELL_PROFILE_MARKER,
 )
 
-#: Every command the install exposes. ``personal-jarvis`` is an alias of
-#: ``jarvis``; ``jarvisctl`` is the control CLI's historic name. There is no
-#: ``personaljarvis``: on Windows it would be the same file as the branded
-#: launcher ``PersonalJarvis.exe`` (``jarvis/ui/icon_utils.py``).
+#: Every command the install exposes: ``dodaios`` and ``dodaiosctl``, then the
+#: earlier names of the two (``jarvis``, ``personal-jarvis``, ``jarvisctl``).
+#: There is no ``personaljarvis``: on Windows it would be the same file as the
+#: branded launcher ``PersonalJarvis.exe`` (``jarvis/ui/icon_utils.py``).
 COMMAND_NAMES: tuple[str, ...] = CLI_COMMAND_NAMES
 
 #: First line of the block written into a shell profile. Finding it means the
@@ -382,7 +387,7 @@ def install_commands(
         report.errors.append(f"could not add {target_dir} to PATH: {exc}")
 
     # A command of the same name earlier on PATH wins over ours. Say so rather
-    # than let `jarvis` silently start something else.
+    # than let `dodaios` silently start something else.
     if not report.needs_new_terminal:
         for command in report.linked:
             found = which(command, path=environ.get("PATH") or environ.get("Path"))

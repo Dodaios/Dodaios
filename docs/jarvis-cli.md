@@ -1,6 +1,6 @@
 # The Dodaios CLI
 
-`jarvis` is a command-line interface to a **running** Dodaios instance. It
+`dodaios` is a command-line interface to a **running** Dodaios instance. It
 exposes the same action surface as the desktop WebUI, so anything you can click in
 the UI you can also do from a terminal — and, more importantly, so can an external
 coding agent (Claude Code, Codex) or a script.
@@ -9,6 +9,11 @@ This is the same relationship `gcloud` / `aws` / `az` have with their cloud
 platforms: a single CLI that surfaces the full capability plane of a service. You
 point it at a running Dodaios and drive it.
 
+> The command was called `jarvis` before the product was renamed. `jarvis`,
+> `personal-jarvis`, `jarvisctl` and `jctl` are still installed and do exactly
+> what `dodaios` and `dodaiosctl` do, so existing scripts keep working; help
+> output repeats whichever name you typed.
+>
 > Full command list: [`jarvis-cli-reference.md`](jarvis-cli-reference.md)
 > (auto-generated). Design rationale: [`superpowers/specs/2026-06-21-jarvis-cli-design.md`](superpowers/specs/2026-06-21-jarvis-cli-design.md).
 
@@ -16,11 +21,11 @@ point it at a running Dodaios and drive it.
 
 The CLI is a **thin HTTP client over the REST API**, in two layers:
 
-1. **Dynamic layer (`jarvis api <tag> <op>`)** — every mounted REST endpoint is
+1. **Dynamic layer (`dodaios api <tag> <op>`)** — every mounted REST endpoint is
    surfaced automatically from the server's OpenAPI spec. New features become
    commands with no extra code. This is what guarantees *every* WebUI action is
    reachable.
-2. **Curated layer (`jarvis <group> <command>`)** — hand-written, ergonomic
+2. **Curated layer (`dodaios <group> <command>`)** — hand-written, ergonomic
    commands for the common domains: `brain`, `config`, `missions`, `wiki`,
    `sessions`, `skills`, `outputs`, `board`, `costs`, `workflows`, `conductor`,
    `contacts`, `telephony`, `marketplace`, `mcps`, `docs`, `frontier`,
@@ -39,13 +44,13 @@ It runs on Linux, macOS, and Windows (pure-Python: `typer`, `httpx`,
 The CLI ships with the package, so after the normal install it is on your PATH:
 
 ```bash
-pip install -e .            # provides the `jarvis` binary (aliases: jarvisctl, jctl)
-jarvis version
+pip install -e .            # provides the `dodaios` and `dodaiosctl` commands
+dodaios version
 ```
 
-Bare `jarvis` (no subcommand) still launches the app/tray as before; `jarvis serve`
-still starts the headless server. Only the control subcommands (`jarvis missions
-…`, `jarvis brain …`, etc.) route into the CLI.
+Bare `dodaios` (no subcommand) still launches the app/tray as before; `dodaios serve`
+still starts the headless server. Only the control subcommands (`dodaios missions
+…`, `dodaios brain …`, etc.) route into the CLI.
 
 ## Auth & discovery
 
@@ -55,12 +60,12 @@ CLI discovers it automatically (and falls back to the machine's control key). Ju
 run commands:
 
 ```bash
-jarvis system status        # {"reachable": true} when Dodaios is up
-jarvis --json brain status
+dodaios system status        # {"reachable": true} when Dodaios is up
+dodaios --json brain status
 ```
 
 Resolution order (highest first): explicit `--url` / `--key` → `JARVISCTL_BASE_URL`
-/ `JARVISCTL_CONTROL_KEY` env → saved profile (`jarvis auth login`) → the live
+/ `JARVISCTL_CONTROL_KEY` env → saved profile (`dodaios auth login`) → the live
 session file → the local control key + default `127.0.0.1:47821`.
 
 **Remote / VPS.** Tunnel the loopback port and the CLI treats it as local:
@@ -73,8 +78,8 @@ Or save a remote profile (the key is read from a hidden prompt — never an inli
 argument that would land in shell history):
 
 ```bash
-jarvis auth login --url https://jarvis.example:47821
-# (prompts for the control key; or: echo "$JCTL" | jarvis auth login --url … --key -)
+dodaios auth login --url https://jarvis.example:47821
+# (prompts for the control key; or: echo "$JCTL" | dodaios auth login --url … --key -)
 ```
 
 ## Output
@@ -83,8 +88,8 @@ Put `--json` **before** the group for machine-readable output; omit it for human
 tables:
 
 ```bash
-jarvis --json missions list          # JSON, for scripts/agents
-jarvis missions list                 # rich table, for humans
+dodaios --json missions list          # JSON, for scripts/agents
+dodaios missions list                 # rich table, for humans
 ```
 
 ## Installing from the marketplace
@@ -93,8 +98,8 @@ A marketplace page prints one line to copy. It works for every kind of entry —
 skills and plugins — and you never have to know which one you are looking at:
 
 ```bash
-jarvis marketplace install three-bullet-brief
-jarvis marketplace browse                       # everything on offer + what you have
+dodaios marketplace install three-bullet-brief
+dodaios marketplace browse                       # everything on offer + what you have
 ```
 
 At a terminal the command first shows what the entry is and where it comes from,
@@ -122,28 +127,28 @@ another pull-capable card (a cloud card answers with a sentence, never an empty
 table):
 
 ```bash
-jarvis local-models roles                          # chat / tools_screen / deep / embedding
-jarvis local-models roles set deep qwen3:32b
-jarvis local-models models                         # every download, what is loaded, disk total
-jarvis local-models models show qwen3:32b
-jarvis local-models models unload qwen3:32b --yes  # frees memory; the next turn reloads
-jarvis local-models models delete old:7b --reassign qwen3:32b --yes
-jarvis local-models options set qwen3:32b num_ctx=16384 temperature=0.2 think=false
-jarvis local-models options suggest qwen3:32b     # an advisory profile for this machine
-jarvis local-models catalog search "vision" --capability vision
-jarvis local-models catalog tags qwen3
-jarvis local-models catalog recommended
-jarvis local-models hf enable on                   # off by default; nothing calls huggingface.co until then
-jarvis local-models hf search "llama 3.1 gguf"
-jarvis local-models hf files bartowski Llama-3.1-8B-Instruct-GGUF
-jarvis local-models hf pull bartowski Llama-3.1-8B-Instruct-GGUF --quant Q4_K_M
-jarvis local-models server status
-jarvis local-models server test http://127.0.0.1:11434
-jarvis local-models server verify                  # the server, one real chat answer, one real embedding
-jarvis local-models server autostart off           # on by default; fires only while local models are in use
-jarvis local-models server log --lines 80
-jarvis local-models server env-guide --os linux
-jarvis local-models server stop --yes              # only a server Dodaios itself started
+dodaios local-models roles                          # chat / tools_screen / deep / embedding
+dodaios local-models roles set deep qwen3:32b
+dodaios local-models models                         # every download, what is loaded, disk total
+dodaios local-models models show qwen3:32b
+dodaios local-models models unload qwen3:32b --yes  # frees memory; the next turn reloads
+dodaios local-models models delete old:7b --reassign qwen3:32b --yes
+dodaios local-models options set qwen3:32b num_ctx=16384 temperature=0.2 think=false
+dodaios local-models options suggest qwen3:32b     # an advisory profile for this machine
+dodaios local-models catalog search "vision" --capability vision
+dodaios local-models catalog tags qwen3
+dodaios local-models catalog recommended
+dodaios local-models hf enable on                   # off by default; nothing calls huggingface.co until then
+dodaios local-models hf search "llama 3.1 gguf"
+dodaios local-models hf files bartowski Llama-3.1-8B-Instruct-GGUF
+dodaios local-models hf pull bartowski Llama-3.1-8B-Instruct-GGUF --quant Q4_K_M
+dodaios local-models server status
+dodaios local-models server test http://127.0.0.1:11434
+dodaios local-models server verify                  # the server, one real chat answer, one real embedding
+dodaios local-models server autostart off           # on by default; fires only while local models are in use
+dodaios local-models server log --lines 80
+dodaios local-models server env-guide --os linux
+dodaios local-models server stop --yes              # only a server Dodaios itself started
 ```
 
 `options set` replaces the whole profile: `KEY=VALUE` pairs are typed (numbers,
@@ -159,12 +164,12 @@ Dodaios asks macOS for a permission at the moment a feature first needs
 it, never at launch. The `permissions` group is the terminal view of that:
 
 ```bash
-jarvis permissions status                          # read only: never prompts, never blocks
-jarvis permissions status --include-automation     # also read Music/Spotify (they must be running)
-jarvis permissions request microphone --yes        # ask now, through the same service the app uses
-jarvis permissions open-settings microphone --yes  # open the matching System Settings pane
-jarvis permissions reset microphone --dry-run      # preview the tccutil command, run nothing
-jarvis permissions reset microphone --yes          # forget macOS's answer so it asks again (macOS only)
+dodaios permissions status                          # read only: never prompts, never blocks
+dodaios permissions status --include-automation     # also read Music/Spotify (they must be running)
+dodaios permissions request microphone --yes        # ask now, through the same service the app uses
+dodaios permissions open-settings microphone --yes  # open the matching System Settings pane
+dodaios permissions reset microphone --dry-run      # preview the tccutil command, run nothing
+dodaios permissions reset microphone --yes          # forget macOS's answer so it asks again (macOS only)
 ```
 
 `status` prints each permission (`granted`, `not_determined`, `denied`, `restricted`,
@@ -207,7 +212,7 @@ the genuinely consequential:
   stop` — refuse unless you pass `--yes` (or set
   `JARVIS_CLI_ASSUME_YES=1`). A prompt is not an accepted substitute.
 - **Desktop restart is UI-only.** Control/API clients, including
-  `jarvis system restart`, cannot restart the app even with `--yes --force`;
+  `dodaios system restart`, cannot restart the app even with `--yes --force`;
   the maintainer must click Restart in the desktop UI. This preserves live
   Agentic-IDE terminals and makes human presence explicit.
 - `--dry-run` on any command prints the exact request (method, path, body, whether
@@ -221,21 +226,21 @@ This is a first-class use case. An external coding agent can control your runnin
 Dodaios end-to-end through its shell:
 
 1. **It's already installed and authenticated.** After `pip install -e .` the
-   `jarvis` binary is on PATH, and local auth is zero-config (session-file
-   discovery). The agent runs `jarvis system status` to confirm Dodaios is up.
-2. **It discovers the surface** with `jarvis --help`, `jarvis <group> --help`, and
-   `jarvis api --help` for the full generated list.
+   `dodaios` binary is on PATH, and local auth is zero-config (session-file
+   discovery). The agent runs `dodaios system status` to confirm Dodaios is up.
+2. **It discovers the surface** with `dodaios --help`, `dodaios <group> --help`, and
+   `dodaios api --help` for the full generated list.
 3. **It reads with `--json`** and parses, and **acts with explicit intent**, using
    `--dry-run` to preview and `--yes` to authorize destructive actions.
 
 Worked example — switch the brain provider, then dispatch a mission:
 
 ```bash
-jarvis --json brain status                       # see the active provider
-jarvis brain switch openai                        # reversible → runs immediately
-jarvis brain subagent-switch openai               # switch the worker provider too
-jarvis missions dispatch "summarize today's PRs" --yes   # destructive → needs --yes
-jarvis --json missions list --state RUNNING       # watch it
+dodaios --json brain status                       # see the active provider
+dodaios brain switch openai                        # reversible → runs immediately
+dodaios brain subagent-switch openai               # switch the worker provider too
+dodaios missions dispatch "summarize today's PRs" --yes   # destructive → needs --yes
+dodaios --json missions list --state RUNNING       # watch it
 ```
 
 The `drive-jarvis-cli` skill (in `.claude/skills/`) packages these conventions so
