@@ -10,7 +10,11 @@ from __future__ import annotations
 import logging
 import sys
 
-from jarvis.trigger.backends.pynput import PynputBackend, _combo_is_down
+from jarvis.trigger.backends.pynput import (
+    _GENERIC_MODIFIER_ALIASES,
+    PynputBackend,
+    _combo_is_down,
+)
 
 log = logging.getLogger(__name__)
 
@@ -52,15 +56,23 @@ def key_is_down(token: str, vk: int | None = None) -> bool | None:
         return None
 
 
+def _completes(tokens: frozenset[str], pressed: set[str]) -> bool:
+    """Whether one of the newly pressed keys belongs to the chord."""
+    return any(
+        _GENERIC_MODIFIER_ALIASES.get(token, frozenset({token})) & pressed for token in tokens
+    )
+
+
 class AppshotKeyEvents(PynputBackend):
     """One keyboard hook; inherited stop() joins it before any re-registration."""
 
     def __init__(self) -> None:
         super().__init__()
-        # The longest chord that has been fully down during this hold. A
-        # shorter chord inside it (area ``ctrl+b`` under recording
-        # ``ctrl+shift+b``) must not fire on the way up.
-        self._latched: set[int] | None = None
+        # The held set as the last reconcile saw it. Only a key that is new
+        # against it can start a chord, so a shorter chord (area ``ctrl+b``)
+        # never starts because a longer one (recording ``ctrl+shift+b``) lost
+        # a key on the way up.
+        self._seen: set[str] = set()
         self._token_vk: dict[str, int] = {}
 
     @property
@@ -89,11 +101,10 @@ class AppshotKeyEvents(PynputBackend):
                 removed = True
         if not removed:
             return
+        self._seen &= self._held
         for combo in self._combos:
             if combo["down"] and not _combo_is_down(combo["tokens"], self._held):
                 combo["down"] = False
-        if not self._held:
-            self._latched = None
 
     def _on_press_key(self, key) -> None:
         token = self._token_for(key)
@@ -106,57 +117,49 @@ class AppshotKeyEvents(PynputBackend):
         super()._on_release_key(key)
         self._drop_stale(keep=None)
 
-    def _reconcile(self) -> None:
-        """Fire only the longest chord that is fully held.
+    def stop(self) -> None:
+        super().stop()
+        self._seen.clear()
 
-        The shared matcher fires every chord whose keys are down, so a shorter
-        shortcut starts as well the moment the longer one is released one key
-        at a time. Once a longer chord has been the winner, it stays the winner
-        until every key is up.
+    def _reconcile(self) -> None:
+        """Start a chord on the press that completes it; end it when a key lifts.
+
+        The shared matcher starts every chord whose keys are down, whatever the
+        last event was, so a shorter shortcut started the moment a longer one
+        lost a key. Here only a newly pressed key starts a chord, and of the
+        chords it completes the longest wins. A key that stays down serves the
+        next chord too: Ctrl+X, then Ctrl+Y, without letting go of Ctrl.
         """
         if not self._permission_check():
             self._held.clear()
-            self._latched = None
+            self._seen.clear()
             for combo in self._combos:
                 combo["down"] = False
             return
-        down_now = [combo for combo in self._combos if _combo_is_down(combo["tokens"], self._held)]
-        if down_now:
-            longest = max(len(combo["tokens"]) for combo in down_now)
-            winners = {id(combo) for combo in down_now if len(combo["tokens"]) == longest}
-            previous = self._latched or set()
-            prev_len = max(
-                (len(combo["tokens"]) for combo in self._combos if id(combo) in previous),
-                default=0,
-            )
-            if self._latched is None or longest > prev_len:
-                for combo in self._combos:
-                    if combo["down"] and id(combo) not in winners:
-                        combo["down"] = False
-                self._latched = winners
-        winners = self._latched or set()
-        if not self._held:
-            for combo in self._combos:
-                if not combo["down"]:
-                    continue
-                combo["down"] = False
-                if id(combo) in winners and combo["on_release"] is not None:
-                    self._got_event = True
-                    combo["on_release"]()
-            self._latched = None
-            return
-        for combo in self._combos:
-            is_down = id(combo) in winners and _combo_is_down(combo["tokens"], self._held)
-            if is_down and not combo["down"]:
-                combo["down"] = True
-                self._got_event = True
-                if combo["on_press"] is not None:
-                    combo["on_press"]()
-            elif not is_down and combo["down"]:
+        pressed = self._held - self._seen
+        self._seen = set(self._held)
+        live = [(combo, _combo_is_down(combo["tokens"], self._held)) for combo in self._combos]
+        for combo, is_down in live:
+            if combo["down"] and not is_down:
                 combo["down"] = False
                 self._got_event = True
                 if combo["on_release"] is not None:
                     combo["on_release"]()
+        if not pressed:
+            return
+        longest = max((len(combo["tokens"]) for combo, is_down in live if is_down), default=0)
+        for combo, is_down in live:
+            if not is_down:
+                continue
+            if len(combo["tokens"]) < longest:
+                combo["down"] = False  # The longer chord took over: no toggle.
+                continue
+            if combo["down"] or not _completes(combo["tokens"], pressed):
+                continue
+            combo["down"] = True
+            self._got_event = True
+            if combo["on_press"] is not None:
+                combo["on_press"]()
 
     def _token_for(self, key) -> str | None:
         vk = getattr(key, "vk", None)
