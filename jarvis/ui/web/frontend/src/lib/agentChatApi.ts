@@ -449,11 +449,13 @@ export async function deleteAgentChatSession(sessionId: string): Promise<void> {
 
 export async function fetchAgentChatSession(
   sessionId: string,
-  options: { tail?: number } = {},
+  options: { tail?: number; signal?: AbortSignal } = {},
 ): Promise<{ session: AgentChatSession; events: AgentChatEvent[] }> {
   const query = options.tail ? `?tail=${Math.max(1, Math.round(options.tail))}` : "";
+  const url = `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}${query}`;
   return json(
-    await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}${query}`),
+    // A caller that schedules its own reads (the office's desk monitors) can give them a deadline.
+    options.signal ? await fetch(url, { signal: options.signal }) : await fetch(url),
     "session-failed",
   );
 }

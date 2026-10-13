@@ -4,12 +4,12 @@
  * Pattern textures and sign textures are drawn once and cached.
  */
 import { useEffect, useMemo } from "react";
-import { DoubleSide, MeshStandardMaterial, RepeatWrapping, type Texture } from "three";
+import { BoxGeometry, DoubleSide, MeshStandardMaterial, RepeatWrapping, type BufferGeometry, type Texture } from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Box, MAT, Rounded } from "./OfficeFurniture";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import { ARCH, archPosts, type Door, type Room, type RoomKind, type WallSegment } from "./officeLayout";
-import { LEAD_MAT } from "./LeadSuite";
-import { OFFICE, ROOM_FLOOR_COLOURS } from "./officePalette";
+import { CAMPUS_ROOM_FLOORS, OFFICE, ROOM_FLOOR_COLOURS } from "./officePalette";
 
 // ---------------------------------------------------------------------------
 // Floors
@@ -28,13 +28,19 @@ function lcg(seed: number): () => number {
 const PATTERN_METRES: Record<RoomKind, number> = { lead: 2.6, team: 2, wardrobe: 2, reception: 3.2, break: 2.4, command: 3.2, server: 2,
   arcade: 2.4, classics: 2, puzzle: 2, action: 2, foyer: 2.4, prizes: 2, snack: 1.6, levels: 3.2 };
 
-function drawFloor(kind: RoomKind, ctx: CanvasRenderingContext2D, w: number, h: number): void {
-  const { base, accents } = ROOM_FLOOR_COLOURS[kind];
+interface FloorTones { base: string; accents: readonly string[] }
+const CAMPUS_FLOORS: Partial<Record<RoomKind, FloorTones>> = CAMPUS_ROOM_FLOORS;
+/** A room kind's floor tones: the agents floor's rooms wear the campus's finishes, every other floor its own. */
+function floorTones(kind: RoomKind, campus: boolean): FloorTones {
+  return (campus ? CAMPUS_FLOORS[kind] : undefined) ?? ROOM_FLOOR_COLOURS[kind];
+}
+
+function drawFloor(kind: RoomKind, { base, accents }: FloorTones, ctx: CanvasRenderingContext2D, w: number, h: number): void {
   const rand = lcg(kind.length * 7919 + kind.charCodeAt(0));
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
   if (kind === "lead") {
-    // Dark walnut chevron: columns of slanted planks that alternate direction, so
+    // A chevron of planks: columns of slanted planks that alternate direction, so
     // the tile wraps seamlessly on both axes (64-px columns, 16-px planks).
     const col = 64, plank = 16, image = ctx.createImageData(w, h);
     const tones = accents.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)));
@@ -160,8 +166,9 @@ function drawFloor(kind: RoomKind, ctx: CanvasRenderingContext2D, w: number, h: 
   }
 }
 
-function floorTexture(kind: RoomKind): Texture | null {
-  const texture = cachedCanvasTexture(`floor:${kind}`, 256, 256, (ctx, w, h) => drawFloor(kind, ctx, w, h));
+function floorTexture(kind: RoomKind, campus: boolean): Texture | null {
+  const tones = floorTones(kind, campus);
+  const texture = cachedCanvasTexture(`floor:${kind}:${tones.base}`, 256, 256, (ctx, w, h) => drawFloor(kind, tones, ctx, w, h));
   if (texture) {
     texture.wrapS = texture.wrapT = RepeatWrapping;
     texture.anisotropy = 8;
@@ -169,19 +176,19 @@ function floorTexture(kind: RoomKind): Texture | null {
   return texture;
 }
 
-function RoomFloor({ room }: { room: Room }) {
+function RoomFloor({ room, campus }: { room: Room; campus: boolean }) {
   const w = room.maxX - room.minX;
   const d = room.maxZ - room.minZ;
   const material = useMemo(() => {
-    const base = floorTexture(room.kind);
+    const base = floorTexture(room.kind, campus);
     let map: Texture | null = null;
     if (base) {
       map = base.clone();
       map.repeat.set(w / PATTERN_METRES[room.kind], d / PATTERN_METRES[room.kind]);
       map.needsUpdate = true;
     }
-    return new MeshStandardMaterial({ color: map ? "#ffffff" : ROOM_FLOOR_COLOURS[room.kind].base, map, roughness: 0.85 });
-  }, [room.kind, w, d]);
+    return new MeshStandardMaterial({ color: map ? "#ffffff" : floorTones(room.kind, campus).base, map, roughness: 0.85 });
+  }, [room.kind, campus, w, d]);
   // The clone and its material belong to this room; the cached base texture stays.
   useEffect(() => () => { material.map?.dispose(); material.dispose(); }, [material]);
   return (
@@ -192,9 +199,12 @@ function RoomFloor({ room }: { room: Room }) {
   );
 }
 
-/** A floor overlay per room: walnut chevron (lead), slate felt (team), terrazzo (wardrobe), pale stone (reception), light oak (break). */
-export function RoomFloors({ rooms }: { rooms: Room[] }) {
-  return <group>{rooms.map((room) => <RoomFloor key={room.id} room={room} />)}</group>;
+/**
+ * A floor overlay per room: a plank chevron (lead), slate felt (team), terrazzo (wardrobe), pale stone (reception),
+ * light oak (break). `campus`: the agents floor, whose rooms take the campus's own oak, limestone and felt.
+ */
+export function RoomFloors({ rooms, campus = false }: { rooms: Room[]; campus?: boolean }) {
+  return <group>{rooms.map((room) => <RoomFloor key={room.id} room={room} campus={campus} />)}</group>;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,35 +221,44 @@ const frostMaterial = new MeshStandardMaterial({
   color: "#f4f1ec", transparent: true, opacity: 0.55, roughness: 0.95, side: DoubleSide, depthWrite: false,
 });
 
+/** A box of a wall run, in the run's own frame. */
+function boxAt(size: [number, number, number], position: [number, number, number]): BufferGeometry {
+  return new BoxGeometry(...size).translate(...position);
+}
+
 /**
  * One glass wall run: slim black steel base, mullions and top rail around a
  * clear pane with a frosted band at eye level, so the glass reads as glass.
+ * Every room on every floor has the same glazing. A run is three meshes
+ * whatever its length: the whole frame is one merged geometry, the two
+ * frosted bands another.
  */
 function GlassWall({ wall }: { wall: WallSegment }) {
-  // The lead office is framed in brass on a walnut base, behind warm-tinted glass.
-  const lead = wall.room === "lead";
-  const frame = lead ? LEAD_MAT.brass : MAT.railing;
-  const base = lead ? LEAD_MAT.walnutDark : MAT.railing;
-  const glass = lead ? LEAD_MAT.wallGlass : MAT.glass;
   const length = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
-  if (length < 0.05) return null;
   const angle = Math.atan2(wall.z2 - wall.z1, wall.x2 - wall.x1);
-  const posts = Math.max(2, Math.ceil(length / POST_SPACING) + 1);
-  const post = lead ? 0.05 : 0.03;
+  const parts = useMemo(() => {
+    const posts = Math.max(2, Math.ceil(length / POST_SPACING) + 1);
+    const steel = [
+      boxAt([length, 0.06, 0.06], [0, 0.03, 0]),
+      boxAt([length, 0.04, 0.05], [0, WALL_HEIGHT - 0.02, 0]),
+      ...Array.from({ length: posts }, (_, i) => boxAt([0.03, WALL_HEIGHT, 0.05], [-length / 2 + (length * i) / (posts - 1), WALL_HEIGHT / 2, 0])),
+    ];
+    const frame = mergeGeometries(steel);
+    for (const piece of steel) piece.dispose();
+    const bands = [boxAt([length, FROST.h, 0.024], [0, FROST.y, 0]), boxAt([length, FROST.stripeH, 0.024], [0, FROST.stripeY, 0])];
+    const frost = mergeGeometries(bands);
+    for (const band of bands) band.dispose();
+    return { frame, frost };
+  }, [length]);
+  useEffect(() => () => { parts.frame?.dispose(); parts.frost?.dispose(); }, [parts]);
+  if (length < 0.05) return null;
   return (
-    <group position={[(wall.x1 + wall.x2) / 2, 0, (wall.z1 + wall.z2) / 2]} rotation={[0, -angle, 0]}>
-      <Box size={[length, lead ? BASE_HEIGHT : 0.06, lead ? 0.1 : 0.06]} position={[0, lead ? BASE_HEIGHT / 2 : 0.03, 0]} material={base} />
+    // The camera rig finds a wall run by this tag and lowers it while it stands between camera and character.
+    <group position={[(wall.x1 + wall.x2) / 2, 0, (wall.z1 + wall.z2) / 2]} rotation={[0, -angle, 0]} userData={{ officeWall: wall }}>
+      {parts.frame && <mesh geometry={parts.frame} material={MAT.railing} castShadow receiveShadow />}
       <Box size={[length, WALL_HEIGHT - BASE_HEIGHT - 0.04, 0.02]} position={[0, (WALL_HEIGHT + BASE_HEIGHT - 0.04) / 2, 0]}
-        material={glass} cast={false} />
-      {!lead && <>
-        <Box size={[length, FROST.h, 0.024]} position={[0, FROST.y, 0]} material={frostMaterial} cast={false} />
-        <Box size={[length, FROST.stripeH, 0.024]} position={[0, FROST.stripeY, 0]} material={frostMaterial} cast={false} />
-      </>}
-      <Box size={[length, 0.04, lead ? 0.07 : 0.05]} position={[0, WALL_HEIGHT - 0.02, 0]} material={frame} />
-      {Array.from({ length: posts }, (_, i) => (
-        <Box key={i} size={[post, WALL_HEIGHT, lead ? 0.07 : 0.05]} position={[-length / 2 + (length * i) / (posts - 1), WALL_HEIGHT / 2, 0]}
-          material={frame} />
-      ))}
+        material={MAT.glass} cast={false} />
+      {parts.frost && <mesh geometry={parts.frost} material={frostMaterial} />}
     </group>
   );
 }
@@ -263,20 +282,20 @@ const SIGN_TEXT_W = 1.4;
 const SIGN_CANVAS = { w: 512, h: 112 } as const;
 
 const signMaterials = new Map<string, MeshStandardMaterial>();
-/** A sign face; the lead office's is gold lettering on black between two brass rules. */
+/** A sign face; the lead office's is bronze lettering between two fine rules, on the same board as every room's. */
 function signMaterial(label: string, lead = false): MeshStandardMaterial {
   const key = `${lead ? "lead" : "room"}:${label}`;
   let material = signMaterials.get(key);
   if (!material) {
     const map = cachedCanvasTexture(`room-sign:${key}`, SIGN_CANVAS.w, SIGN_CANVAS.h, (ctx, w, h) => {
-      ctx.fillStyle = lead ? "#111217" : OFFICE.signBoard;
+      ctx.fillStyle = OFFICE.signBoard;
       ctx.fillRect(0, 0, w, h);
       if (lead) {
-        ctx.fillStyle = "#d8ae52";
+        ctx.fillStyle = "#b08d5c";
         ctx.fillRect(14, 10, w - 28, 3);
         ctx.fillRect(14, h - 13, w - 28, 3);
       }
-      ctx.fillStyle = lead ? "#f5c55a" : OFFICE.signText;
+      ctx.fillStyle = lead ? "#e3c594" : OFFICE.signText;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       // Shrink long names (e.g. "Despacho del líder") to fit before cutting them off.
@@ -294,7 +313,7 @@ function signMaterial(label: string, lead = false): MeshStandardMaterial {
     });
     material = new MeshStandardMaterial({
       color: map ? "#ffffff" : OFFICE.signBoard, map, roughness: 0.8,
-      // The lead's gold lettering glows faintly, like a lit plaque.
+      // The lead's bronze lettering glows faintly, like a lit plaque.
       ...(lead && map ? { emissive: "#ffffff", emissiveMap: map, emissiveIntensity: 0.35 } : {}),
     });
     signMaterials.set(key, material);
@@ -308,7 +327,7 @@ function SignBoard({ label, lead = false }: { label: string; lead?: boolean }) {
   const textH = (SIGN_TEXT_W * SIGN_CANVAS.h) / SIGN_CANVAS.w;
   return (
     <group>
-      <Rounded size={[SIGN_W, SIGN_H, 0.06]} radius={0.025} position={[0, 0, 0]} material={lead ? LEAD_MAT.brass : MAT.sign} />
+      <Rounded size={[SIGN_W, SIGN_H, 0.06]} radius={0.025} position={[0, 0, 0]} material={MAT.sign} />
       <mesh position={[0, 0, 0.0305]} material={material}><planeGeometry args={[SIGN_TEXT_W, textH]} /></mesh>
       <mesh position={[0, 0, -0.0305]} rotation={[0, Math.PI, 0]} material={material}><planeGeometry args={[SIGN_TEXT_W, textH]} /></mesh>
     </group>
@@ -336,7 +355,7 @@ export function RoomSign({ room, label }: { room: Room; label: string }) {
     const { x, z, rotationY } = doorAnchor(room, door);
     return (
       <group position={[x, 0, z]} rotation={[0, rotationY, 0]}>
-        <Box size={[door.width, 0.07, 0.07]} position={[0, WALL_HEIGHT - 0.035, 0]} material={room.kind === "lead" ? LEAD_MAT.brass : MAT.railing} />
+        <Box size={[door.width, 0.07, 0.07]} position={[0, WALL_HEIGHT - 0.035, 0]} material={MAT.railing} />
         <group position={[0, WALL_HEIGHT + SIGN_H / 2 + 0.02, 0]}><SignBoard label={label} lead={room.kind === "lead"} /></group>
       </group>
     );
