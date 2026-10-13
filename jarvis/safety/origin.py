@@ -10,11 +10,12 @@ AP-11 puts on the voice scrubber):
 
 * A **ledger** per trace of the addressable values that appeared in tool
   results: e-mail addresses, URLs and their hosts, phone numbers, file paths.
-  Each is remembered with the tool that produced it and whether that tool's
-  output is the user's own data (``internal``) or came from outside
-  (``external``). Only addressable values are tracked on purpose: a model can
-  paraphrase a sentence, but an address it rewrites stops working, so exact
-  matching on targets is reliable where tainting free text is not.
+  Each is remembered with the tool that produced it and whether that tool
+  reads data the user owns (``internal``) or anything else (``external``).
+  Only addressable values are tracked on purpose: a model can paraphrase a
+  sentence, but an address it rewrites stops working, so exact matching on
+  targets is reliable where tainting free text is not. A value a call passed
+  in itself is not evidence when the same call hands it back.
 * **Targets**: which arguments of a call say where its effect lands, and what
   kind of effect that is. Declared here for the app's own tools, derived from
   schema property names for connected-server and marketplace tools, which
@@ -25,6 +26,9 @@ AP-11 puts on the voice scrubber):
 
 The values themselves never leave this module: an event carries the class and
 the name of the tool the value came from, never the address.
+
+Everything here runs on the event loop inside ``ToolExecutor``, so every scan
+is linear in the size of a result and that size is bounded.
 """
 
 from __future__ import annotations
@@ -53,35 +57,22 @@ TARGET_ORIGINS: Final[tuple[str, ...]] = ("user", "known", "unsourced", "externa
 #: The vocabulary of ``ActionProposed.effect``.
 EFFECTS: Final[tuple[str, ...]] = ("read", "modify", "outbound", "destructive", "spend", "unknown")
 
-#: Tools whose output is the user's own data or the app's own state. Every
-#: other tool's output counts as external, unknown tools included: content
-#: nobody vouched for is not the user's word. Canonical names.
+#: Tools that READ data the user owns and return more than they were given.
+#: Deliberately short. A tool that writes hands its own arguments back, and
+#: the wiki holds pages that were ingested from the web, so neither can vouch
+#: for an address: listing them here would let a page launder its address
+#: through one save. Every other tool's output counts as external, unknown
+#: tools included. Canonical names.
 _INTERNAL_OUTPUT: Final[frozenset[str]] = frozenset(
     {
         "contact_lookup",
-        "contact_upsert",
-        "wiki_recall",
-        "wiki_list",
-        "wiki_page_read",
-        "wiki_ingest",
-        "remember",
         "whoami",
-        "update_profile",
         "describe_app_settings",
         "find_app_action",
-        "run_app_action",
-        "navigate",
         "find_tools",
-        "run_skill",
         "list_mutable_settings",
         "get_config_value",
-        "set_config_value",
         "society_status",
-        "society_memory_recall",
-        "society_conversation_recall",
-        "society_wiki_note",
-        "society_routines",
-        "switch_provider",
     }
 )
 
@@ -103,7 +94,11 @@ _DECLARED: Final[dict[str, dict[str, tuple[tuple[str, ...], str]]]] = {
         "create_folder": ((), "modify"),
         "*": ((), "read"),
     },
-    "google_calendar": {"list_events": ((), "read"), "*": ((), "modify")},
+    "google_calendar": {
+        "list_events": ((), "read"),
+        "delete_event": ((), "destructive"),
+        "*": ((), "modify"),
+    },
     "call_contact": {"*": (("name",), "outbound")},
     "run_shell": {"*": (("command",), "modify")},
     "type_text": {"*": (("text",), "modify")},
@@ -123,21 +118,28 @@ _TARGET_PROPERTY_NAMES: Final[frozenset[str]] = frozenset(
     }
 )  # fmt: skip
 
-_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
-_URL_RE = re.compile(r"https?://[^\s\"'<>)\]]+", re.IGNORECASE)
+# Every pattern is anchored on its left edge and bounded in length, so a scan
+# is linear: an unanchored ``[...]+@`` re-reads a long run of letters from
+# every position in it, which freezes the event loop on a page of dashes.
+_EMAIL_RE = re.compile(
+    r"(?<![\w.%+-])[\w.%+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,8}(?![\w-])"
+)
+_URL_RE = re.compile(r"(?<![\w])https?://[^\s\"'<>)\]]{1,480}", re.IGNORECASE)
 # A sentence may end right after the number; a decimal continues with a digit.
-_PHONE_RE = re.compile(r"(?<![\w.])\+?\d[\d ()/-]{6,}\d(?!\w|\.\d)")
-_WINDOWS_PATH_RE = re.compile(r"\b[A-Za-z]:\\[^\s\"'<>|]+")
-_UNIX_PATH_RE = re.compile(r"(?<![\w:/])/(?:[\w.-]+/)+[\w.-]+")
+_PHONE_RE = re.compile(r"(?<![\w.])\+?\d[\d ()/-]{6,22}\d(?!\w|\.\d)")
+_WINDOWS_PATH_RE = re.compile(r"(?<![\w])[A-Za-z]:[\\/][^\s\"'<>|]{1,480}")
+_UNIX_PATH_RE = re.compile(r"(?<![\w:/.])/(?:[\w.-]{1,120}/){1,24}[\w.-]{1,120}")
 
-#: Text of one tool result that is searched for addressable values. A result
-#: larger than this was capped before the model saw it anyway.
-_MAX_RESULT_CHARS: Final[int] = 200_000
-#: A string longer than this without whitespace is treated as encoded bytes.
-_MAX_UNBROKEN_CHARS: Final[int] = 2_000
-#: Addressable values remembered per trace, and traces remembered at all.
+#: Text of one tool result that is searched for addressable values.
+_MAX_RESULT_CHARS: Final[int] = 100_000
+#: A whitespace-free run longer than this is encoded bytes, not an address.
+_MAX_TOKEN_CHARS: Final[int] = 512
+#: Values remembered per trace and per origin, and traces remembered at all.
 _MAX_VALUES_PER_TRACE: Final[int] = 2_000
 _MAX_TRACES: Final[int] = 256
+#: A free-text target (a contact name, a channel) shorter than this is too
+#: likely to sit inside an unrelated word of the user's sentence.
+_MIN_FREE_TEXT_CHARS: Final[int] = 4
 
 
 def canonical(name: str) -> str:
@@ -145,47 +147,75 @@ def canonical(name: str) -> str:
     return (name or "").strip().lower().replace("-", "_").replace(".", "_")
 
 
-def _looks_encoded(text: str) -> bool:
-    """A long run without whitespace is image or file bytes, not prose."""
-    return len(text) > _MAX_UNBROKEN_CHARS and not any(ch.isspace() for ch in text[:400])
+def _text(value: Any, budget: int = _MAX_RESULT_CHARS) -> str:
+    """The searchable text of ``value``, bounded while it is collected.
 
-
-def _flatten(value: Any) -> str:
-    """The TEXT of a result, encoded payloads left out.
-
-    A screenshot rides in a result as base64; read as text it yields
-    thousands of path-shaped fragments that are not addresses.
+    Encoded payloads are left out as they are met: ``bytes`` are skipped and
+    a whitespace-free run longer than :data:`_MAX_TOKEN_CHARS` is dropped, so
+    a screenshot in a result costs nothing and yields no path-shaped noise.
     """
-    if isinstance(value, str):
-        return "" if _looks_encoded(value) else value
-    if isinstance(value, dict):
-        return "\n".join(_flatten(item) for item in value.values())
-    if isinstance(value, (list, tuple, set)):
-        return "\n".join(_flatten(item) for item in value)
-    return "" if value is None else str(value)
+    parts: list[str] = []
+    left = budget
+
+    def walk(item: Any) -> None:
+        nonlocal left
+        if left <= 0 or item is None or isinstance(item, (bytes, bytearray, memoryview)):
+            return
+        if isinstance(item, str):
+            for token in item[: left * 2].split():
+                if left <= 0:
+                    return
+                if len(token) <= _MAX_TOKEN_CHARS:
+                    parts.append(token)
+                    left -= len(token) + 1
+            return
+        if isinstance(item, dict):
+            for child in item.values():
+                walk(child)
+            return
+        if isinstance(item, (list, tuple, set, frozenset)):
+            for child in item:
+                walk(child)
+            return
+        if isinstance(item, (int, float, bool)):
+            parts.append(str(item))
+            left -= 24
+
+    walk(value)
+    return " ".join(parts)
+
+
+def _host(url: str) -> str:
+    rest = url.split("://", 1)[1] if "://" in url else url
+    host = rest.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0].split("@")[-1]
+    return host.split(":", 1)[0].removeprefix("www.")
+
+
+def _groups(text: str) -> list[tuple[str, ...]]:
+    """Addressable values in ``text``, each with the weaker forms that also
+    identify it: a URL comes with its host."""
+    groups: list[tuple[str, ...]] = []
+    for match in _EMAIL_RE.findall(text):
+        groups.append((match.lower(),))
+    for match in _URL_RE.findall(text):
+        url = match.rstrip(".,;:!?").lower().rstrip("/")
+        host = _host(url)
+        groups.append((url, host) if host else (url,))
+    for match in _PHONE_RE.findall(text):
+        digits = re.sub(r"\D", "", match)
+        if 7 <= len(digits) <= 15:
+            groups.append(("tel:" + digits,))
+    for match in _WINDOWS_PATH_RE.findall(text):
+        path = match.rstrip(".,;:").replace("/", "\\")
+        groups.append((re.sub(r"\\+", r"\\", path).lower(),))
+    for match in _UNIX_PATH_RE.findall(text):
+        groups.append((match.rstrip(".,;:").lower(),))
+    return groups
 
 
 def addressable_values(value: Any) -> set[str]:
     """Normalised e-mail addresses, URLs with their hosts, phones and paths."""
-    text = _flatten(value)[:_MAX_RESULT_CHARS]
-    found: set[str] = set()
-    for match in _EMAIL_RE.findall(text):
-        found.add(match.lower())
-    for match in _URL_RE.findall(text):
-        url = match.rstrip(".,;:!?").lower()
-        found.add(url.rstrip("/"))
-        host = url.split("://", 1)[1].split("/", 1)[0].split("?", 1)[0]
-        if host:
-            found.add(host.removeprefix("www."))
-    for match in _PHONE_RE.findall(text):
-        digits = re.sub(r"\D", "", match)
-        if 7 <= len(digits) <= 15:
-            found.add("tel:" + digits)
-    for match in _WINDOWS_PATH_RE.findall(text):
-        found.add(match.rstrip(".,;:").replace("\\\\", "\\").lower())
-    for match in _UNIX_PATH_RE.findall(text):
-        found.add(match.rstrip(".,;:").lower())
-    return found
+    return {form for group in _groups(_text(value)) for form in group}
 
 
 def tool_output_origin(tool: Any) -> str:
@@ -244,48 +274,98 @@ class TargetOrigin:
 
 
 class OriginLedger:
-    """Addressable values seen in tool results, per trace. In memory only."""
+    """Addressable values seen in tool results, per trace. In memory only.
+
+    What the user's own data vouched for and what came from outside are kept
+    apart and bounded apart, so one large page cannot crowd a contact out.
+    """
 
     def __init__(self) -> None:
-        # trace -> value -> (origin of the tool's output, tool name)
-        self._traces: OrderedDict[str, dict[str, tuple[str, str]]] = OrderedDict()
+        # trace -> (internal values, external values); value -> tool name
+        self._traces: OrderedDict[str, tuple[dict[str, str], dict[str, str]]] = OrderedDict()
 
-    def record(self, trace: str, tool: Any, output: Any) -> None:
-        """Remember what a tool result contained."""
+    def record(self, trace: str, tool: Any, output: Any, args: Any = None) -> None:
+        """Remember what a tool result contained.
+
+        ``args`` are the arguments of the call that produced ``output``. A
+        value the call passed in is left out: a tool that echoes its input
+        back has added no evidence about where that input came from.
+        """
         values = addressable_values(output)
+        if args is not None and values:
+            values -= addressable_values(args)
         if not values:
             return
-        origin = tool_output_origin(tool)
+        internal = tool_output_origin(tool) == "internal"
         name = str(getattr(tool, "name", "") or "")
-        seen = self._traces.get(trace)
-        if seen is None:
-            seen = self._traces[trace] = {}
+        entry = self._traces.get(trace)
+        if entry is None:
+            entry = self._traces[trace] = ({}, {})
             while len(self._traces) > _MAX_TRACES:
                 self._traces.popitem(last=False)
         else:
             self._traces.move_to_end(trace)
+        bucket = entry[0] if internal else entry[1]
         for value in values:
-            if len(seen) >= _MAX_VALUES_PER_TRACE:
-                break
-            # A value the user's own data already vouched for stays internal.
-            if seen.get(value, ("", ""))[0] != "internal":
-                seen[value] = (origin, name)
+            if value in bucket or len(bucket) < _MAX_VALUES_PER_TRACE:
+                bucket.setdefault(value, name)
 
     def lookup(self, trace: str, value: str) -> tuple[str, str] | None:
-        seen = self._traces.get(trace)
-        return seen.get(value) if seen else None
+        """``(origin, tool name)`` for ``value``; the user's own data wins."""
+        entry = self._traces.get(trace)
+        if entry is None:
+            return None
+        if value in entry[0]:
+            return "internal", entry[0][value]
+        if value in entry[1]:
+            return "external", entry[1][value]
+        return None
 
     def forget(self, trace: str) -> None:
         self._traces.pop(trace, None)
 
 
-def _tokens(value: Any) -> set[str]:
-    """What a target argument names: its addresses, else the value itself."""
-    found = addressable_values(value)
-    if found:
-        return found
-    text = " ".join(_flatten(value).split()).strip().lower()
-    return {text} if text else set()
+def _spoken(token: str, spoken: str) -> bool:
+    """Whether ``token`` stands in the user's sentence as a whole value.
+
+    A bare substring test reads ``bob@corp.com`` as spoken when the user said
+    ``bob@corp.com.au``, and ``dir`` as spoken inside "directory".
+    """
+    if not token or not spoken:
+        return False
+    start = spoken.find(token)
+    while start >= 0:
+        end = start + len(token)
+        before = spoken[start - 1] if start else " "
+        after = spoken[end] if end < len(spoken) else " "
+        tail = spoken[end + 1] if end + 1 < len(spoken) else " "
+        clean_before = not (before.isalnum() or before in "@._-/\\")
+        clean_after = not (after.isalnum() or after in "@_-/\\")
+        if after == "." and tail.isalnum():
+            clean_after = False
+        if clean_before and clean_after:
+            return True
+        start = spoken.find(token, start + 1)
+    return False
+
+
+def _rank(
+    group: tuple[str, ...], *, ledger: OriginLedger, trace: str, spoken: str
+) -> tuple[int, str]:
+    """``(index into TARGET_ORIGINS, source tool)`` for one target value.
+
+    Any form of the value counts: a URL the user named only by its host is
+    still the user's. The strongest evidence wins within one value.
+    """
+    if any(_spoken(form, spoken) for form in group):
+        return 0, ""
+    hits = [hit for form in group if (hit := ledger.lookup(trace, form)) is not None]
+    for origin, source in hits:
+        if origin == "internal":
+            return 1, source
+    if hits:
+        return 3, hits[0][1]
+    return 2, ""
 
 
 def classify_targets(
@@ -308,21 +388,19 @@ def classify_targets(
     names = tool_targets(tool, args) if isinstance(args, dict) else ()
     if not names:
         return TargetOrigin(effect=effect)
-    spoken = " ".join((user_text or "").split()).lower()
-    spoken_values = addressable_values(user_text or "")
+    spoken = " ".join((user_text or "")[:_MAX_RESULT_CHARS].split()).lower()
     worst = -1
     source = ""
     for name in names:
-        for token in _tokens(args.get(name)):
-            hit = ledger.lookup(trace, token)
-            if token in spoken_values or (len(token) >= 3 and token in spoken):
-                rank, origin_source = 0, ""
-            elif hit is not None and hit[0] == "internal":
-                rank, origin_source = 1, hit[1]
-            elif hit is not None:
-                rank, origin_source = 3, hit[1]
-            else:
-                rank, origin_source = 2, ""
+        text = _text(args.get(name), 8_000)
+        groups = _groups(text)
+        if not groups:
+            free = text.strip().lower()
+            # A name or a channel has no address form; it can only be matched
+            # against what the user said.
+            groups = [(free,)] if len(free) >= _MIN_FREE_TEXT_CHARS else []
+        for group in groups:
+            rank, origin_source = _rank(group, ledger=ledger, trace=trace, spoken=spoken)
             if rank > worst:
                 worst, source = rank, origin_source
     if worst < 0:
