@@ -43,6 +43,7 @@ from jarvis.speech.wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
 from jarvis.ui.pets.states import DEFAULT_PET_ID
 
 from .branding import CONFIG_FILE_NAME, KEYRING_SERVICE_NAME
+from .env_prefix import accepted_names
 from .instance import current_instance, resolve_data_dir
 from .protocols import RiskTier
 
@@ -5794,16 +5795,22 @@ def get_secret(key: str, env_fallback: str | None = None) -> str | None:
     if env_fallback and (val := os.environ.get(env_fallback)):
         return val
 
-    # Development fallback: .env file.
+    # Development fallback: .env file. A JARVIS_ name may be written under the
+    # DODAIOS_ prefix there too; as in the environment, the new spelling wins.
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists() and env_fallback:
+        names = accepted_names(env_fallback)
+        found: dict[str, str] = {}
         for line in env_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
             k, _, v = line.partition("=")
-            if k.strip() == env_fallback:
-                return v.strip().strip('"').strip("'")
+            if k.strip() in names:
+                found.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+        for name in names:
+            if name in found:
+                return found[name]
 
     if file_val:
         return file_val
