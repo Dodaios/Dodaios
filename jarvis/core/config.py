@@ -43,7 +43,7 @@ from jarvis.speech.wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
 from jarvis.ui.pets.states import DEFAULT_PET_ID
 
 from .branding import CONFIG_FILE_NAME, KEYRING_SERVICE_NAME
-from .instance import current_instance
+from .instance import current_instance, resolve_data_dir
 from .protocols import RiskTier
 
 # AckBrainConfig lives under jarvis.brain.ack_brain.config. We cannot
@@ -72,12 +72,10 @@ def _resolve_data_dir() -> Path:
     *instance* (``jarvis.core.instance``): ``data/`` for the default app,
     ``data-dev/`` for the dev app — two desktop apps from one checkout must not
     share SQLite stores, the single-instance lock or the WebView profile.
-    Resolved once at import, like every other path constant here.
+    Resolved once at import, like every other path constant here. The rule
+    itself lives in ``jarvis.core.instance.resolve_data_dir``.
     """
-    env_dir = os.environ.get("JARVIS_DATA_DIR")
-    if env_dir and env_dir.strip():
-        return Path(env_dir.strip())
-    return PROJECT_ROOT / current_instance().data_dir_name
+    return resolve_data_dir(PROJECT_ROOT)
 
 
 DATA_DIR = _resolve_data_dir()
@@ -1638,7 +1636,7 @@ class BrainConfig(BaseModel):
         validation_alias=AliasChoices("tool_model", "computer_use"),
     )
     # User-facing reply language pin (desktop "Languages" view → Reply Language).
-    # "auto" mirrors the user's input language (DE/EN/ES); "de"/"en"/"es" force
+    # "auto" mirrors the user's input language (DE/EN/ES/PT); "de"/"en"/"es"/"pt" force
     # that language as a hard rule for every Jarvis reply. Consumed by
     # ``BrainManager._reply_language_directive``. Persisted via
     # ``config_writer.set_reply_language``.
@@ -2146,7 +2144,7 @@ class UIConfig(BaseModel):
     # value, so a voice command or the Control API can change it and the open UI
     # switches live (a ConfigReloaded / UiLanguageChanged event reaches the
     # frontend over /ws). Distinct from brain.reply_language (what Jarvis SPEAKS).
-    language: Literal["en", "de", "es", "zh"] = "en"
+    language: Literal["en", "de", "es", "pt", "zh"] = "en"
     # Colour theme of the whole desktop app: "dark" (the product default —
     # matte black + signal yellow), "light" (warm paper + dark gold), or
     # "system" (follow the OS appearance, re-evaluated live when the OS flips).

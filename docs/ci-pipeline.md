@@ -68,7 +68,8 @@ request, merge queue, and again on the push of the same commit).
 | `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). | `scripts/ci/run_tests_parallel.py` |
 | `tests windows 1..6` | The whole suite in six shards on every tier, pull requests included, so a Windows-only failure blocks the pull request instead of ejecting it from the merge queue. | `scripts/ci/run_tests_parallel.py` |
 | `tests macos 1..3` | Nightly, release and manual runs with macOS only. | — |
-| `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor. The nightly run on main (and a push that bypassed the queue) refreshes the duration cache. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
+| `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
+| `duration cache` | Runs on main only (nightly, a manual run, a push that bypassed the queue) and only after every Linux and Windows shard succeeded: merges the shard timings into one history per OS. Windows shards by its own history; until one exists it uses the Linux one. | `scripts/ci/ratchet_tests.py durations` |
 | Lanes | `frontend` (three test shards and the build, side by side), `jarvisctl`, `deps`, `realtime` (+ slim container), `updater` (in-app update, native handover, restart helper), `agent runtimes` (+ slim container + the real Hermes and OpenClaw at their pinned version; see [agent-runtimes.md](agent-runtimes.md#ci-and-release-gates)), `dragdrop`, `browser`, `macOS desktop`, `installer smoke` — each only when its paths change, each as wide as the tier: Linux + Windows on a pull request, + macOS in the merge queue, + Intel and ARM in the wide matrix. | `scripts/ci/plan_run.py` |
 | `release qualification` | Tag CI requires a full run with macOS and the browser-auth E2E evidence gate: a plugin labeled verified needs a completed journey, every completed journey ships as verified, and every other plugin ships labeled preview. The step summary counts both. Ordinary branch/PR/nightly CI skips this release-only job. | `scripts/ci/check_plugin_auth_contract.py --require-e2e-pass` |
 | `CI gate` | Aggregates every job. **The only required check**, on the pull request and again on its merge-queue group. A missing or skipped selected lane fails. Unselected lanes may skip; nightly is strict except event-specific jobs. | `scripts/ci/required_results.py` |
@@ -185,6 +186,9 @@ merge queue), and hourly as a safety net:
    (`scripts/ci/agent_integrate.py`). No force push, so an agent that keeps
    pushing to its branch is never overwritten. A pull request that is merely
    behind is left alone: the queue re-tests it on the newest main anyway.
+   GitHub computes mergeability on demand, so right after a push to main
+   the train asks again (up to a minute) until it knows which branches
+   that push put in conflict.
    Three branches are updated per tick. The slots go first to pull requests
    with green CI that only conflict with main, then to red ones, and last to
    those already labelled `needs-rebase`: in number order the three oldest

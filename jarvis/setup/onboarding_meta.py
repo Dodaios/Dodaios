@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from jarvis.core.branding import DISTRIBUTION_NAME
+
 logger = logging.getLogger(__name__)
 
 CURRENT_TERMS_VERSION = "1.1"
@@ -78,7 +80,7 @@ def read_terms_text() -> str:
         sysconfig.get_path("data", scheme=sysconfig.get_preferred_scheme("user")),
     )
     installed_paths = (
-        Path(root) / "share" / "personal-jarvis" / "docs" / "legal" / "TERMS.md"
+        Path(root) / "share" / DISTRIBUTION_NAME / "docs" / "legal" / "TERMS.md"
         for root in data_roots
     )
     for terms_path in dict.fromkeys((_TERMS_PATH, *installed_paths)):
