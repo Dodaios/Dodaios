@@ -129,8 +129,8 @@ def _clean_due_date(value: Any) -> str | None:
     if isinstance(value, str):
         try:
             return date.fromisoformat(value.strip()).isoformat()
-        except ValueError:
-            pass
+        except ValueError as exc:
+            raise InvalidTask("due_date must be a date in the form YYYY-MM-DD") from exc
     raise InvalidTask("due_date must be a date in the form YYYY-MM-DD")
 
 
