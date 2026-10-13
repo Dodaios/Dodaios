@@ -102,6 +102,13 @@ person types into the thread is theirs and wakes no agent. After 25 automatic
 updates for one thread the agent stops following it until the person writes
 in the agent's chat again.
 
+## Team threads
+
+The people icon on a project row gives one task to several coding agents on
+different models. They plan alone, challenge each other, agree on one plan,
+and one builds while the others review, all in one shared thread:
+[`agentic-ide-team-threads.md`](agentic-ide-team-threads.md).
+
 ## Restarts do not stop a thread
 
 A thread's coding CLI does not run as a child of the app. It runs in the
