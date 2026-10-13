@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-DBLj2dJG.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-0xVgyO3x.js";import{c as n,j as a,e as o}from"./index-B8EqKdQS.js";import{T as c}from"./terminal-DbmsbJ_V.js";import{C as I}from"./credit-card-po4sXAxN.js";import{G as S}from"./git-branch-2TbSUQeU.js";import{R as W}from"./rocket-BF-69n_s.js";import{C as $}from"./cloud-B8ou7f6G.js";/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/CliLogo-Cjv8xLbD.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BmVpk843.js";import{c as n,j as a,e as o}from"./index-BUF1O4fr.js";import{T as c}from"./terminal-CcDNQ94_.js";import{C as I}from"./credit-card-Bhl0JIZV.js";import{G as S}from"./git-branch-B7qbN8zo.js";import{R as W}from"./rocket-DvO7vmiQ.js";import{C as $}from"./cloud-soUTvhpM.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-C_9_OGRJ.js";import{c as n,j as a,e as o}from"./index-C9o6Qbl0.js";import{T as c}from"./terminal-CzmFDVcg.js";import{C as I}from"./credit-card-rznjesPk.js";import{G as S}from"./git-branch-C4KUu9eB.js";import{R as W}from"./rocket-CusLsfND.js";import{C as $}from"./cloud-DPxE-fC_.js";/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/CliLogo-BvdzLuNY.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

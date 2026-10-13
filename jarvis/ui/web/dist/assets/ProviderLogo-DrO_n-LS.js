@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-DrO_n-LS.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-B8EqKdQS.js";import{S as U}from"./server-DBlUhPW-.js";/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/ProviderLogo-B_M2Mlfh.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-BUF1O4fr.js";import{S as U}from"./server-C51n0Eg5.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-C9o6Qbl0.js";import{S as U}from"./server--8zQG6dx.js";/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/ProviderLogo-DqJ8fjXw.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -176,6 +176,31 @@ _BLEED_STOPWORDS: frozenset[str] = frozenset({
 })
 
 
+def _order_turn(ctx: ExecutionContext) -> str:
+    """The finished user turn a spawn came from, where the surface names one.
+
+    A typed chat message and a live call's request are delimited by the user
+    (Enter, or the live model's own turn-taking), so each is one whole order.
+    The classic voice pipeline cuts long utterances itself and names no turn
+    here: ``""`` keeps its spawns under the plain time window.
+    """
+    from jarvis.core.protocols import current_chat_turn
+
+    turn = current_chat_turn.get()
+    if turn is not None and turn.direct_user:
+        return f"chat:{turn.session_id}:{turn.turn_id}"
+    config = getattr(ctx, "config", None) or {}
+    live = str(config.get("live_session_id") or "")
+    if live:
+        return f"live:{live}:{config.get('task_revision')}"
+    return ""
+
+
+def _fold_order(utterance: str) -> str:
+    """An order's words without case, punctuation or spacing differences."""
+    return " ".join(re.findall(r"\w+", (utterance or "").casefold()))
+
+
 def _shares_content_word(a: str, b: str) -> bool:
     """True if ``a`` and ``b`` share a non-trivial content word.
 
@@ -493,8 +518,15 @@ class SpawnWorkerTool:
         #                         incremented synchronously before the first
         #                         await so two concurrent execute() coroutines
         #                         cannot both pass (#4).
+        #   _last_spawn_turn / _last_spawn_order — where the armed spawn came
+        #                         from and what it asked for. A spawn from a
+        #                         DIFFERENT identifiable turn that asks for
+        #                         something else is a second order, not a
+        #                         duplicate (see ``_order_turn``).
         self._last_spawn_at: float = 0.0
         self._active_dispatches: int = 0
+        self._last_spawn_turn: str = ""
+        self._last_spawn_order: str = ""
 
     def _resolve_manager(self) -> MissionManager | None:
         """Returns the active MissionManager or None if not yet bootstrapped.
@@ -583,10 +615,24 @@ class SpawnWorkerTool:
         # legitimate retry dispatches immediately instead of hearing a false
         # "already running" ACK (#3 spawn-cooldown-no-failure-reset).
         now = time.monotonic()
+        # A typed message and a live call's request are whole turns the user
+        # finished, never fragments of one utterance: a second ORDER from
+        # another such turn dispatches while the first still runs. Without an
+        # identifiable turn (the classic voice pipeline, where the fragment
+        # regression lives) every spawn inside the window stays a duplicate.
+        order_turn = _order_turn(ctx)
+        order = _fold_order(utterance)
+        second_order = bool(
+            order_turn
+            and self._last_spawn_turn
+            and order_turn != self._last_spawn_turn
+            and order != self._last_spawn_order
+        )
         if (
             self._active_dispatches > 0
             and self._last_spawn_at > 0
             and (now - self._last_spawn_at) < _COOLDOWN_SECONDS
+            and not second_order
         ):
             # "already_running" is the composer's deterministic fast path —
             # no LLM round-trip on a turn that is pure duplicate rejection.
@@ -679,6 +725,8 @@ class SpawnWorkerTool:
         # create_task we roll the increment back so the gate can't wedge.
         self._last_spawn_at = now
         self._active_dispatches += 1
+        self._last_spawn_turn = order_turn
+        self._last_spawn_order = order
         launched = False
         try:
             # 1. UI/Telemetry-Announce — kein Voice-ACK (Pipeline filtert Empty).

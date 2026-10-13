@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-C7WWyQAI.js
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-B8EqKdQS.js";var Jl={exports:{}},Lt={};/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/react-three-fiber.esm-BNdB-0-F.js
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-BUF1O4fr.js";var Jl={exports:{}},Lt={};/**
+========
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-C9o6Qbl0.js";var Jl={exports:{}},Lt={};/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/react-three-fiber.esm-D3cVLfm_.js
  * @license React
  * react-reconciler-constants.production.min.js
  *

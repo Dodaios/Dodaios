@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/circle-alert-9ajdrMw6.js
 import{c as e}from"./index-B8EqKdQS.js";/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/circle-alert-BMvK2jfN.js
+import{c as e}from"./index-BUF1O4fr.js";/**
+========
+import{c as e}from"./index-C9o6Qbl0.js";/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/circle-alert-B5bjETkO.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

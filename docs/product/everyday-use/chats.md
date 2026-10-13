@@ -87,6 +87,24 @@ answer. Its history, recovery, statistics, language, polish, translation, and
 retention are separate. Text placed in chat remains a draft. See [Dictate Into
 Any App](dictation).
 
+## Send the Next Message While Agents Work
+
+In the Dodaios chat on the front page you can give a second order while the
+first is still being worked on:
+
+- When the assistant has handed your request to a coding agent or one of your
+  agents and is only waiting for it, your next message starts at once. The
+  earlier reply notes who **keeps running in the background**.
+- The result of the earlier request arrives later as its own reply, under a
+  line that names that request, so it is not mistaken for an answer to your
+  newest message.
+- While the assistant is still writing a reply or running a tool, a new
+  message waits and shows **Waits until the current task is done**; it starts
+  as soon as that reply is finished.
+
+Restarting the app forgets which requests were waiting for a result. The
+agents' own work is not lost: check the coding pane or the agent's chat.
+
 ## Add Temporary File Context
 
 Chats has no attachment picker. Drag a file, image, PDF, selected text, or link

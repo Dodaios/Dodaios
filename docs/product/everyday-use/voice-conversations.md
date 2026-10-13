@@ -154,6 +154,29 @@ applies that recognition change after the app restart requested by the
   as **Nova-Agent**, with **Assistant-Agent** as the neutral fallback. Review
   its own view and Outputs for the result.
 
+### Give Several Orders in One Call
+
+In a Realtime call you do not have to wait for one order to finish before
+giving the next. Say "brief the agent in terminal two about the login bug",
+and while that is still being sent, "and create an agent for the
+documentation":
+
+- Independent actions run side by side. Only work on the screen is done one
+  step after another.
+- An action that is still running when you move on continues in the
+  background. The assistant says that it is running, not that it is done.
+- When it finishes, the assistant tells you at the next pause and names the
+  order it belongs to. It does not talk over you.
+- An order that depends on a running one ("tell that agent to run the tests"
+  while the agent is still starting) is carried out when the first one has
+  finished.
+- Ask "how far are you with the agent?" for the state of the running work.
+  A clear stop command cancels all of it; "stop the briefing" cancels one.
+
+Pipeline calls still handle one request at a time, and background agent
+missions run one after another: a second mission is accepted and starts when
+the first has ended.
+
 Stopping a call does not undo a tool effect that already completed. If a
 Realtime connection fails after a request or action has been committed, Dodaios
 ends the call instead of replaying the captured audio through Pipeline and

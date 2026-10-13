@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-tNDMwyLL.js
 import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-B8EqKdQS.js";import{C as I}from"./TraceTimeline-DPOQUsso.js";import{L as X}from"./lock-CasS8AFI.js";import{C as $}from"./code-xml-B4NpghFG.js";import{C as J}from"./chevron-right-DBgZL70C.js";/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/CodingThreadLink-BoWdHcv8.js
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-BUF1O4fr.js";import{C as I}from"./TraceTimeline-BZ-VV1Mr.js";import{L as X}from"./lock-cqCmPiep.js";import{C as $}from"./code-xml-BsM-O2Mz.js";import{C as J}from"./chevron-right-DvUgbOGK.js";/**
+========
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-C9o6Qbl0.js";import{C as I}from"./TraceTimeline-C9QB6nbN.js";import{L as X}from"./lock-aWU4ZOeg.js";import{C as $}from"./code-xml-Dh94kcFK.js";import{C as J}from"./chevron-right-D5oPB9XT.js";/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/CodingThreadLink-DP4JHKaU.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

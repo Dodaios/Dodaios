@@ -1504,10 +1504,12 @@ async def test_subscription_keeps_jarvis_hangup_confirmation_and_model_pin(make_
     assert confirmed["success"] and session._tools.end_requested
 
 
-async def _until(condition, timeout=5.0):
-    async with asyncio.timeout(timeout):
-        while not condition():
-            await asyncio.sleep(0.005)
+async def _until(predicate, limit_s: float = 5.0) -> None:
+    deadline = asyncio.get_running_loop().time() + limit_s
+    while not predicate():
+        if asyncio.get_running_loop().time() > deadline:
+            raise AssertionError("condition not reached")
+        await asyncio.sleep(0.005)
 
 
 async def test_followup_is_reasoned_about_while_the_first_action_still_runs(

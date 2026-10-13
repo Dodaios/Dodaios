@@ -26,7 +26,7 @@ from typing import Any, Final
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MAX_QUEUED", "QueueFull", "close_orphans", "send_or_queue"]
+__all__ = ["MAX_QUEUED", "QueueFull", "close_orphans", "has_waiting", "send_or_queue"]
 
 #: Messages one chat may hold while its agent works.
 MAX_QUEUED: Final[int] = 64
@@ -66,6 +66,12 @@ def _queues(svc: Any) -> dict[str, _ChatQueue]:
         queues = {}
         svc._society_send_queues = queues
     return queues
+
+
+def has_waiting(svc: Any, session_id: str) -> bool:
+    """Whether a message of the person is waiting for this chat's seat."""
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    return bool(pending is not None and (pending.items or pending.starting))
 
 
 def _queueable(svc: Any, session_id: str) -> bool:
@@ -110,6 +116,12 @@ async def send_or_queue(
     queues = _queues(svc)
     if not _queueable(svc, session_id):
         return await svc.send(session_id, text, attachments, tool_choices=tool_choices), ""
+    if svc.is_running(session_id):
+        # A turn that only waits for agents hands its seat over; one that is
+        # still answering keeps it and this message queues behind it.
+        release = getattr(svc, "release_waiting_turn", None)
+        if release is not None:
+            await release(session_id)
     pending = queues.setdefault(session_id, _ChatQueue())
     first = False
     if not pending.items and not pending.starting and not svc.is_running(session_id):

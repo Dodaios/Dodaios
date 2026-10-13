@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/save-CnR45V7i.js
 import{c as a}from"./index-B8EqKdQS.js";/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/save-BTxSjkpk.js
+import{c as a}from"./index-BUF1O4fr.js";/**
+========
+import{c as a}from"./index-C9o6Qbl0.js";/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/save-Cx3gWAz0.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

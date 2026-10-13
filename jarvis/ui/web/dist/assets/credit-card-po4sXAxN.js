@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/credit-card-po4sXAxN.js
 import{c as e}from"./index-B8EqKdQS.js";/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/credit-card-Bhl0JIZV.js
+import{c as e}from"./index-BUF1O4fr.js";/**
+========
+import{c as e}from"./index-C9o6Qbl0.js";/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/credit-card-rznjesPk.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

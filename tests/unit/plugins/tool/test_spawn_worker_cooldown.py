@@ -329,3 +329,87 @@ def test_suppress_acks_are_short_and_unique() -> None:
             assert any(k in text for k in in_flight_markers), (
                 f"ACK must indicate in-flight job: {ack!r}"
             )
+
+
+# --------------------------------------------------------------------------- #
+# A second order is not a duplicate                                           #
+#                                                                             #
+# The window above exists for fragments of ONE utterance. A typed message and #
+# a live call's request are whole turns the user finished; a second order     #
+# from another such turn has to dispatch while the first is still running,    #
+# or "do X ... and also do Y" silently loses Y.                               #
+# --------------------------------------------------------------------------- #
+
+
+def _live_ctx(revision: int, turn_text: str = "") -> ExecutionContext:
+    return ExecutionContext(
+        trace_id=uuid4(),
+        user_utterance=turn_text,
+        config={"live_session_id": "call-1", "task_revision": revision},
+        memory_read=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_second_order_from_another_live_turn_dispatches() -> None:
+    mgr = _FakeMissionManager()
+    tool = SpawnWorkerTool(bus=EventBus(), manager=mgr, kontrollierer=_HeldKontrollierer())
+    first = await tool.execute(
+        {"utterance": "Research the flight prices", "action": "researches"}, _live_ctx(4)
+    )
+    second = await tool.execute(
+        {"utterance": "Build a slideshow about solar power", "action": "builds"}, _live_ctx(6)
+    )
+    await asyncio.sleep(0.05)
+    assert first.output not in _SUPPRESS_POOL and second.output not in _SUPPRESS_POOL
+    assert len(mgr.dispatch_calls) == 2, f"the second order was lost: {mgr.dispatch_calls!r}"
+    assert "solar power" in mgr.dispatch_calls[1]["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_the_same_order_repeated_in_a_later_turn_stays_a_duplicate() -> None:
+    mgr = _FakeMissionManager()
+    tool = SpawnWorkerTool(bus=EventBus(), manager=mgr, kontrollierer=_HeldKontrollierer())
+    await tool.execute({"utterance": "Research the flight prices."}, _live_ctx(4))
+    repeat = await tool.execute({"utterance": "research the flight prices"}, _live_ctx(6))
+    await asyncio.sleep(0.05)
+    assert repeat.output in _SUPPRESS_POOL
+    assert len(mgr.dispatch_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_second_order_from_another_typed_message_dispatches() -> None:
+    from jarvis.core.protocols import ChatTurn, current_chat_turn
+
+    mgr = _FakeMissionManager()
+    tool = SpawnWorkerTool(bus=EventBus(), manager=mgr, kontrollierer=_HeldKontrollierer())
+    for index, order in enumerate(("Research the flight prices", "Build a slideshow")):
+        token = current_chat_turn.set(ChatTurn("chat-1", f"turn-{index}", order, True, "t"))
+        try:
+            result = await tool.execute({"utterance": order}, _ctx())
+        finally:
+            current_chat_turn.reset(token)
+        assert result.output not in _SUPPRESS_POOL
+    await asyncio.sleep(0.05)
+    assert len(mgr.dispatch_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_turnless_spawn_keeps_the_fragment_window() -> None:
+    """The classic pipeline names no turn: a different text inside the window
+    is still treated as a fragment of the running request."""
+    mgr = _FakeMissionManager()
+    tool = SpawnWorkerTool(bus=EventBus(), manager=mgr, kontrollierer=_HeldKontrollierer())
+    await tool.execute({"utterance": "Build a slideshow"}, _ctx())
+    fragment = await tool.execute({"utterance": "about drugs in schools"}, _ctx())
+    await asyncio.sleep(0.05)
+    assert fragment.output in _SUPPRESS_POOL
+    assert len(mgr.dispatch_calls) == 1
+
+
+class _HeldKontrollierer:
+    """A mission that is still running when the next order arrives."""
+
+    async def run_mission(self, mission_id: str) -> None:
+        del mission_id
+        await asyncio.Event().wait()

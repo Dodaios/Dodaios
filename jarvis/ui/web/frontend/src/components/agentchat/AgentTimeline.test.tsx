@@ -73,3 +73,37 @@ describe("timeStamps", () => {
     expect(timeStamps([user("a", t0)], new Date(2026, 9, 1)).get("a")).toContain(",");
   });
 });
+
+describe("several orders in one chat", () => {
+  it("marks the result of an earlier request instead of drawing a second bubble", () => {
+    draw([
+      ev("user_message", {
+        text: "Continue the original user task using the delegated results below.",
+        typed: "Brief the agent in terminal two",
+        origin: "background",
+      }),
+    ]);
+    expect(screen.queryByTestId("agent-message-user")).toBeNull();
+    const marker = screen.getByTestId("background-result");
+    expect(marker.textContent).toContain("Brief the agent in terminal two");
+    expect(marker.textContent).not.toContain("Continue the original");
+  });
+
+  it("shows a message waiting behind the running turn until it starts", () => {
+    const queued = ev("notice", { kind: "message_queued", queue_id: "q1", text: "and this too" });
+    draw([queued]);
+    expect(screen.getByTestId("message-queued").textContent).toContain("and this too");
+    cleanup();
+    draw([queued, ev("notice", { kind: "message_dequeued", queue_id: "q1", status: "sent" })]);
+    expect(screen.queryByTestId("message-queued")).toBeNull();
+  });
+});
+
+it("says who still works on a request whose turn made room for the next message", () => {
+  draw([
+    ev("turn_started", { turn_id: "t1" }),
+    ev("assistant_text", { turn_id: "t1", text: "Sent to the agent in terminal two." }),
+    ev("turn_finished", { turn_id: "t1", status: "done", background: ["Agent T2"] }),
+  ]);
+  expect(screen.getByTestId("turn-background").textContent).toContain("Agent T2");
+});

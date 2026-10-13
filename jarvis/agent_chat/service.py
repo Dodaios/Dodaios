@@ -44,6 +44,7 @@ from jarvis.agent_chat.credential_requests import (
 )
 from jarvis.agent_chat.effort import normalize_effort
 from jarvis.agent_chat.events import make_event
+from jarvis.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
 from jarvis.agent_chat.permissions import default_permission, ladder_key, normalize_permission
 from jarvis.agent_chat.questions import (
     CANCELLED,
@@ -870,6 +871,28 @@ class AgentChatService:
         run = self._running.get(session_id)
         return bool(run and (run.task is None or not run.task.done()))
 
+    @property
+    def parked_work(self) -> ParkedWorkBoard:
+        """Requests whose delegates still work after their turn closed."""
+        board = getattr(self, "_parked_work", None)
+        if board is None:  # a service built without __init__ (test doubles)
+            board = self._parked_work = ParkedWorkBoard(self)
+        return board
+
+    def delegate_wait(self, handle: Any, gate: Any) -> Any:
+        """Mark a turn as only waiting for its delegates (a context manager)."""
+        return self.parked_work.waiting(handle, gate)
+
+    def carry_delegation(
+        self, handle: Any, gate: Any, original: str, rows: list[dict[str, Any]]
+    ) -> None:
+        """Continue a wait whose turn handed its seat to the next message."""
+        self.parked_work.carry(handle, gate, original, rows)
+
+    async def release_waiting_turn(self, session_id: str) -> bool:
+        """Free the chat for a new message when its running turn only waits."""
+        return await self.parked_work.release(session_id)
+
     def running_session_ids(self) -> list[str]:
         """Sessions occupying a chat seat, including pre-admission setup."""
         return [
@@ -1118,8 +1141,15 @@ class AgentChatService:
         display_text: str | None = None,
         routine_run: bool = False,
         author: dict[str, str] | None = None,
+        background_result: bool = False,
     ) -> str:
         """Persist the person's message and start the turn. Returns turn_id.
+
+        ``background_result`` continues an earlier request of the person whose
+        delegates finished after its turn had closed (``parked_work``). It is
+        their own task, so the turn runs with their standing, but nothing was
+        typed: no command parsing, no goal steering, and the timeline marks
+        the message as that request's result instead of a new bubble.
 
         ``author`` marks a message another agent wrote on the person's behalf
         (``{"agent_id", "name"}``, a Jarvis agent steering a coding thread):
@@ -1138,6 +1168,9 @@ class AgentChatService:
         session = self.store.get_session(session_id)
         if session is None:
             raise NoSuchSession(session_id)
+        # Nothing was typed for a background result: it passes the gates a
+        # control-owned message passes, and keeps the person's standing.
+        control_owned = control_owned or background_result
         if session.surface == "society":
             session = await self.bind_society_session(session_id, routine_run=routine_run)
         selected_runner = None
@@ -1244,6 +1277,13 @@ class AgentChatService:
             # What the turn receives; ``text`` stays what the person typed so the
             # timeline shows their sentence rather than a page of extracted PDF.
             prompt = chat_attachments.compose(text, attached)
+            if direct_user and incoming is None and not control_owned:
+                # Earlier requests still running behind this message: the turn
+                # is told, so it neither resends that work nor waits for it.
+                background = self.parked_work.context_note(session_id)
+                if background:
+                    prompt += "\n\n" + background
+                    display_text = text if display_text is None else display_text
             if attached and session.surface == "jarvis":
                 image_context = await asyncio.to_thread(
                     chat_attachments.handoff_context, session.cwd, attached, session_id=session_id,
@@ -1357,6 +1397,7 @@ class AgentChatService:
                             # NEXT turn (runner_api.messages_from_events).
                             "text": prompt,
                             **({"origin": "control"} if control_owned and not direct_user else {}),
+                            **({"origin": BACKGROUND_ORIGIN} if background_result else {}),
                             **({"author": dict(author)} if author else {}),
                             **(
                                 {"tool_choices": [row.model_dump(mode="json") for row in selected]}

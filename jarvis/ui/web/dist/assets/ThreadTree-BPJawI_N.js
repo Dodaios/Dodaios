@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-BPJawI_N.js
 import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-B8EqKdQS.js";import{A as Xe}from"./AgentMark-DD6CK2wr.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-BPwQ_Zwp.js";import{P as tt}from"./pencil-8aaweFk9.js";import{F as nt}from"./folder-7BLUCvAi.js";import{C as st}from"./check-Bm6cENrC.js";import{C as rt}from"./chevron-right-DBgZL70C.js";/**
+|||||||| parent of 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/ThreadTree-CjQ7PyVQ.js
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-BUF1O4fr.js";import{A as Xe}from"./AgentMark-f8Kz5CP2.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-Cert9DFo.js";import{P as tt}from"./pencil-Cvj361Mg.js";import{F as nt}from"./folder-CMvun4nX.js";import{C as st}from"./check-skxWFWa1.js";import{C as rt}from"./chevron-right-DvUgbOGK.js";/**
+========
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-C9o6Qbl0.js";import{A as Xe}from"./AgentMark-DejfsVBR.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-BqMN2M5m.js";import{P as tt}from"./pencil-C-z6mpOn.js";import{F as nt}from"./folder-B0goVyzR.js";import{C as st}from"./check-DQFy50Xm.js";import{C as rt}from"./chevron-right-D5oPB9XT.js";/**
+>>>>>>>> 469127ce2 (feat(chat): take the next message while an earlier request still runs):jarvis/ui/web/dist/assets/ThreadTree-DPxOvcEX.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
