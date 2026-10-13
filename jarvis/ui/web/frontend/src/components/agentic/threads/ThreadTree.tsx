@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Folder, FolderOpen, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePlus, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Folder, FolderOpen, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -8,9 +8,10 @@ import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
-import { useIdeThreadsStore } from "@/store/ideThreads";
+import { TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
+import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
-import { arrangeThreads, moveThreadId, shortAge, threadStatus, threadTitle, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
+import { arrangeThreads, moveThreadId, projectIdFor, shortAge, threadStatus, threadTitle, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
 /** Threads a project shows before "Show more". */
@@ -72,6 +73,9 @@ export function ThreadTree() {
   const seen = useIdeThreadsStore((state) => state.seen);
   const openThread = useIdeThreadsStore((state) => state.openThread);
   const newThread = useIdeThreadsStore((state) => state.newThread);
+  const openTeam = useIdeThreadsStore((state) => state.openTeam);
+  const newTeam = useIdeThreadsStore((state) => state.newTeam);
+  const teams = useTeamThreads().data;
   const forgetThread = useIdeThreadsStore((state) => state.forgetThread);
   const archived = useIdeThreadsStore((state) => state.archived);
   const order = useIdeThreadsStore((state) => state.order);
@@ -98,7 +102,19 @@ export function ThreadTree() {
   }, []);
 
   const visible = useMemo(() => projects.filter((project) => !project.archived && !project.scratch), [projects]);
-  const grouped = useMemo(() => threadsByProject(sessions, visible, projectOf), [sessions, visible, projectOf]);
+  // A team thread's members are read inside their team, not as threads of their own.
+  const grouped = useMemo(
+    () => threadsByProject(sessions.filter((session) => !session.team_id), visible, projectOf),
+    [sessions, visible, projectOf],
+  );
+  const teamsOf = useMemo(() => {
+    const map = new Map<string, TeamThreadRow[]>();
+    for (const team of teams ?? []) {
+      const projectId = projectIdFor({ session_id: team.team_id, cwd: team.cwd }, visible, projectOf);
+      if (projectId) map.set(projectId, [...(map.get(projectId) ?? []), team]);
+    }
+    return map;
+  }, [teams, visible, projectOf]);
   const agentOf = useMemo(() => {
     const map = new Map<string, { agent: string; label: string }>();
     for (const provider of catalog?.providers ?? []) {
@@ -154,8 +170,10 @@ export function ThreadTree() {
       .sort((a, b) => (archived[b.session_id] ?? 0) - (archived[a.session_id] ?? 0));
     const ids = threads.map((thread) => thread.session_id);
     const archiveShown = archiveOpen[project.id] ?? false;
-    const draftHere = selection.sessionId === null && selection.projectId === project.id;
-    const open = expansion[project.id] ?? (threads.length > 0 || draftHere);
+    const teamRows = teamsOf.get(project.id) ?? [];
+    const draftHere = selection.sessionId === null && !selection.team && selection.projectId === project.id;
+    const teamDraftHere = selection.team === TEAM_DRAFT && selection.projectId === project.id;
+    const open = expansion[project.id] ?? (threads.length > 0 || teamRows.length > 0 || draftHere || teamDraftHere);
     const shown = showAll[project.id] ? threads : threads.slice(0, FOLDED_COUNT);
     const running = threads.filter((thread) => thread.running).length;
     return <div key={project.id} className="mb-px" data-testid={`thread-project-${project.id}`}>
@@ -175,8 +193,39 @@ export function ThreadTree() {
           className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/80 transition-colors hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <SquarePlus className="h-4 w-4" strokeWidth={1.75} />
         </button>
+        <button type="button" aria-label={fill(t("team_threads.new_in"), { project: project.name })} title={t("team_threads.new")}
+          data-testid={`team-thread-new-${project.id}`}
+          onClick={() => { setProjectOpen(project.id, true); newTeam(project.id); }}
+          className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/80 transition-colors hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Users className="h-4 w-4" strokeWidth={1.75} />
+        </button>
       </div>
       {open && <div className="mb-1 flex flex-col gap-px">
+        {teamDraftHere && <div aria-current="page"
+          className="flex min-h-8 items-center gap-2 rounded-md bg-muted px-2 pl-8 text-[15px] text-muted-foreground">
+          <Users aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{t("team_threads.new")}</span>
+        </div>}
+        {teamRows.map((team) => {
+          const selected = selection.team === team.team_id;
+          return <button key={team.team_id} type="button" aria-current={selected ? "page" : undefined}
+            data-testid={`team-thread-row-${team.team_id}`}
+            onClick={() => openTeam(team.team_id, project.id)} title={team.title}
+            className={cn(
+              "flex min-h-8 min-w-0 items-center gap-2 rounded-md py-1 pl-8 pr-2 text-left text-[15px] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              selected ? "bg-muted text-foreground-strong" : "text-foreground",
+            )}>
+            <Users aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{team.title}</span>
+            {team.state === "running"
+              ? <Loader2 aria-label={t("team_threads.state.running")} className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+              : team.state === "needs_input"
+                ? <span aria-label={t("team_threads.state.needs_input")} className="h-2 w-2 shrink-0 rounded-full bg-warning" />
+                : team.state === "done"
+                  ? <Check aria-label={t("team_threads.state.done")} className="h-3.5 w-3.5 shrink-0 text-success" />
+                  : <span className="text-xs tabular-nums text-muted-foreground">{shortAge(team.updated_ms)}</span>}
+          </button>;
+        })}
         {draftHere && <div aria-current="page"
           className="flex min-h-8 items-center gap-2 rounded-md bg-muted px-2 pl-8 text-[15px] text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">{t("ide_threads.new_thread")}</span>
@@ -292,7 +341,7 @@ export function ThreadTree() {
           className="flex min-h-7 items-center rounded-md pl-8 text-left text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {showAll[project.id] ? t("ide_threads.show_less") : fill(t("ide_threads.show_more"), { count: threads.length - FOLDED_COUNT })}
         </button>}
-        {threads.length === 0 && !draftHere && <button type="button" onClick={() => newThread(project.id)}
+        {threads.length === 0 && !draftHere && !teamDraftHere && <button type="button" onClick={() => newThread(project.id)}
           className="flex min-h-7 items-center gap-2 rounded-md pl-8 text-left text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Plus aria-hidden className="h-3.5 w-3.5" />{t("ide_threads.start_thread")}
         </button>}

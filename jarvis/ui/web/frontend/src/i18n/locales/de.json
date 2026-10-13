@@ -9538,5 +9538,127 @@
     "decrease": "verringern",
     "increase": "erhöhen",
     "recheck": "erneut prüfen"
+  },
+  "team_threads": {
+    "new": "Neuer Team-Thread",
+    "new_in": "Neuer Team-Thread in {project}",
+    "missing": "Diesen Team-Thread gibt es nicht mehr.",
+    "loading": "Team-Thread wird geladen",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "stop": "Stoppen",
+    "delete": "Team-Thread löschen",
+    "delete_confirm": "Mit den Threads der Mitglieder löschen?",
+    "steps": "Schritte",
+    "members": "Team",
+    "usage": "{minutes} von {max_minutes} Min. · {turns} von {max_turns} Zügen",
+    "cost_partial": "Einige Mitglieder laufen auf einem Platz, der keinen Preis meldet. Der Betrag ist daher unvollständig.",
+    "cost_hint": "Betrag zum Listenpreis, wie ihn die Coding-Agents melden. Ein Abo-Platz wird nicht pro Zug abgerechnet.",
+    "accept_plan": "Diesen Plan nehmen",
+    "accept_work": "Die Arbeit so annehmen",
+    "another_round": "Noch eine Runde",
+    "message": "Eingreifen: Jedes Mitglied liest das mit seinem nächsten Zug",
+    "message_decide": "Entscheide die offenen Punkte. Das Team geht mit deiner Antwort in eine weitere Runde",
+    "send": "Senden",
+    "open_member": "Thread von {member} öffnen",
+    "round": "Runde {round}",
+    "files_changed": "{count} Dateien geändert",
+    "state": {
+      "running": "Arbeitet",
+      "paused": "Pausiert",
+      "needs_input": "Wartet auf dich",
+      "done": "Fertig",
+      "stopped": "Gestoppt",
+      "failed": "Fehlgeschlagen"
+    },
+    "phase": {
+      "draft": "Eigene Pläne",
+      "challenge": "Gegenprüfung",
+      "converge": "Masterplan",
+      "build": "Bauen",
+      "review": "Review"
+    },
+    "kind": {
+      "draft": "Eigener Plan",
+      "critique": "Gegenprüfung",
+      "plan": "Masterplan",
+      "vote": "Abstimmung",
+      "build": "Baubericht",
+      "review": "Review",
+      "fix": "Antwort auf das Review"
+    },
+    "vote": {
+      "agree": "stimmt zu",
+      "object": "widerspricht"
+    },
+    "review": {
+      "approve": "gibt frei",
+      "changes": "verlangt Änderungen"
+    },
+    "severity": {
+      "blocking": "Blockierend",
+      "minor": "Gering"
+    },
+    "member": {
+      "working": "arbeitet",
+      "waiting": "wartet auf dich",
+      "left": "ausgeschieden",
+      "builder": "Baut den Plan"
+    },
+    "reason": {
+      "user": "Du hast diesen Team-Thread pausiert.",
+      "interrupted": "Die App wurde geschlossen, während das Team arbeitete. Es geht erst weiter, wenn du es sagst.",
+      "plan_disagreement": "Das Team hat sich nach {rounds} Runden auf keinen Plan geeinigt.",
+      "review_disagreement": "Nach {rounds} Review-Runden geben die Prüfer die Arbeit noch nicht frei.",
+      "limit_time": "Das Zeitlimit ist erreicht. Mit Fortsetzen bekommt das Team noch einmal die Hälfte dazu.",
+      "limit_turns": "Das Zuglimit ist erreicht. Mit Fortsetzen bekommt das Team noch einmal die Hälfte dazu.",
+      "limit_cost": "Das Kostenlimit ist erreicht. Mit Fortsetzen wird es angehoben.",
+      "stalled": "{note} hat den Zug nicht beendet. Mit Fortsetzen wird erneut gefragt.",
+      "member_failed": "{note}. Ohne dieses Mitglied bleibt kein Team übrig. Mit Fortsetzen wird erneut gefragt.",
+      "not_enough_members": "Es sind weniger als zwei Mitglieder übrig. Das Team kann nicht weitermachen.",
+      "error": "Der Team-Thread ist fehlgeschlagen: {note}"
+    },
+    "notice": {
+      "same_family": "Alle Mitglieder laufen auf derselben Modellfamilie, ihre blinden Flecken überschneiden sich. Eine zweite Familie findet mehr.",
+      "plan_agreed": "Das Team hat sich in Runde {rounds} auf den Masterplan geeinigt. {member} baut ihn.",
+      "plan_accepted_by_user": "Du hast den Masterplan so übernommen. {member} baut ihn.",
+      "member_left": "{member} ist ausgeschieden: {error}",
+      "member_failed": "Ein Mitglied konnte seinen Zug nicht ausführen: {note}",
+      "member_model_changed": "{member} konnte nicht mit dem Standardmodell laufen und macht mit {model} weiter: {error}",
+      "builder_changed": "{member} baut ab hier.",
+      "files_changed": "In einem Schritt, der nur liest ({step}), wurden Dateien geändert: {files}",
+      "no_git": "Dieser Ordner ist kein Git-Repository. Die Prüfer lesen die Dateien direkt.",
+      "paused": "Pausiert.",
+      "stopped": "Gestoppt.",
+      "resumed": "Fortgesetzt.",
+      "limit_time": "Das Zeitlimit ist erreicht.",
+      "limit_turns": "Das Zuglimit ist erreicht.",
+      "limit_cost": "Das Kostenlimit ist erreicht.",
+      "stalled": "{note} hat den Zug nicht beendet.",
+      "not_enough_members": "Es sind weniger als zwei Mitglieder übrig."
+    },
+    "summary": {
+      "done": "Fertig. Plan in Runde {plan} vereinbart, Änderung in Review-Runde {review} freigegeben. Die Prüfer haben {count} Befunde gemeldet, davon {blocking} blockierend.",
+      "accepted_by_user": "Du hast die Arbeit mit offenen Befunden angenommen. Die Prüfer haben {count} Befunde gemeldet, davon {blocking} blockierend.",
+      "open_points": "Offene Punkte"
+    },
+    "issues": {
+      "title": "Vom Team gefunden: {count} ({open} offen)",
+      "resolved": "gelöst",
+      "open": "offen",
+      "plan": "Plan",
+      "review": "Review"
+    },
+    "draft": {
+      "title": "Was soll das Team in {project} bauen?",
+      "body": "Jedes Mitglied plant allein, dann prüfen sie die Pläne der anderen und einigen sich auf einen. Eines baut, die anderen prüfen, bis sie freigeben. Du kannst jederzeit eingreifen.",
+      "none_ready": "Es ist noch kein Coding-Agent oder Anbieter verbunden. Verbinde einen, um ein Team zu starten.",
+      "member_n": "Mitglied {number}",
+      "remove_named": "{target} entfernen",
+      "add": "Mitglied hinzufügen",
+      "placeholder": "Beschreibe die Aufgabe für das Team",
+      "start": "Team starten",
+      "bounds": "Hält an und fragt dich nach 90 Minuten, 40 Zügen oder drei Runden ohne Einigung."
+    }
   }
 }
