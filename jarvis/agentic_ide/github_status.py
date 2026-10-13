@@ -70,7 +70,19 @@ def _git(folder: Path, *args: str) -> str:
     return (git_overview._out(list(args), folder) or "").strip()
 
 
+def _answered(folder: Path, *args: str) -> str | None:
+    """Git's answer, or None when git gave none (locked, timed out, no repository)."""
+    result = git_overview._run(list(args), folder)
+    if result is None:
+        return None
+    if result.returncode == 0:
+        return str(result.stdout).strip()
+    # `git config --get` exits 1 for an option that is not set: that is an answer.
+    return "" if args[0] == "config" and result.returncode == 1 else None
+
+
 _settings: dict[tuple[str, tuple[str, ...]], tuple[float, str]] = {}
+_settings_lock = threading.Lock()
 
 
 def _setting(folder: Path, *args: str) -> str:
@@ -78,17 +90,19 @@ def _setting(folder: Path, *args: str) -> str:
 
     Each git call is a new process, and a workspace with a handful of branches
     spent most of a read asking for values that change when someone edits the
-    repository's configuration.
+    repository's configuration. Only an answer git gave is kept: a call that
+    failed is asked again on the next read.
     """
     key = (str(folder), args)
     now = time.monotonic()
-    known = _settings.get(key)
+    with _settings_lock:
+        known = _settings.get(key)
     if known is not None and now - known[0] < 60:
         return known[1]
-    value = _git(folder, *args)
-    # An unset option is an answer; a remote without an address is git failing
-    # to answer, and that is asked again on the next read.
-    if value or args[0] == "config":
+    value = _answered(folder, *args)
+    if value is None:
+        return ""
+    with _settings_lock:
         if len(_settings) >= 512:
             _settings.clear()
         _settings[key] = (now, value)
@@ -398,7 +412,7 @@ class _Board:
     panes: dict[str, dict[str, Any] | None] = field(default_factory=dict)
     # Which session each pane's answer was read for: a pane that now runs
     # another one is never shown its predecessor's branch.
-    read_for: dict[str, tuple[str, str]] = field(default_factory=dict)
+    read_for: dict[str, str] = field(default_factory=dict)
     read_at: float | None = None
     # A read for the tab in front is running.
     refreshing: bool = False
@@ -415,8 +429,8 @@ _boards_lock = threading.Lock()
 _ahead_turn = threading.Lock()
 
 
-def _identity(record: PaneBranchRecord) -> tuple[str, str]:
-    return record.history_id, record.folder
+def _identity(record: PaneBranchRecord) -> str:
+    return "\n".join((record.history_id, record.session_id, record.folder))
 
 
 def _read(entry: _Board, records: list[PaneBranchRecord], ahead: bool) -> None:
@@ -454,7 +468,9 @@ def board(key: str, records: list[PaneBranchRecord], *, ahead: bool = False) -> 
     then GitHub. A header that has to wait for that is empty for as long, so
     nothing waits: the caller gets the last answer now, and an outdated one is
     brought up to date in the background. ``refreshing`` says a newer answer
-    is on its way and worth asking for again shortly.
+    is on its way and worth asking for again shortly. ``sessions`` names the
+    session each pane runs, so a caller holding an older answer can tell
+    whether it still belongs to the pane.
 
     ``ahead`` is the one read of a workspace nobody is looking at yet, so that
     it has an answer by the time someone does.
@@ -487,10 +503,20 @@ def board(key: str, records: list[PaneBranchRecord], *, ahead: bool = False) -> 
         }
         refreshing = entry.refreshing or entry.ahead
     if start:
-        threading.Thread(
-            target=_read,
-            args=(entry, records, ahead),
-            name="pane-github-status",
-            daemon=True,
-        ).start()
-    return {"panes": panes, "refreshing": refreshing}
+        try:
+            threading.Thread(
+                target=_read,
+                args=(entry, records, ahead),
+                name="pane-github-status",
+                daemon=True,
+            ).start()
+        except RuntimeError:
+            # No thread to be had: the read did not start, so nothing may wait for it.
+            logger.warning("Session GitHub status: the background read could not start")
+            with _boards_lock:
+                if ahead:
+                    entry.ahead = False
+                else:
+                    entry.refreshing = False
+                refreshing = entry.refreshing or entry.ahead
+    return {"panes": panes, "refreshing": refreshing, "sessions": current}

@@ -566,6 +566,21 @@ def test_a_record_whose_growth_cannot_be_seen_is_read_again(tmp_path, monkeypatc
     assert len(reads) == 2
 
 
+def test_a_record_that_could_not_be_read_is_not_kept_as_empty(tmp_path, monkeypatch):
+    branches._cache.clear()
+    monkeypatch.setattr(agent_transcript, "can_read", lambda _: True)
+    answers = [None, [call({"cmd": "git switch -c owned"}), result("new branch 'owned'")]]
+    monkeypatch.setattr(agent_transcript, "read_events", lambda *_, **__: answers.pop(0))
+    monkeypatch.setattr(agent_transcript, "stamp", lambda *_, **__: (100, 1))
+    record = branches.PaneBranchRecord("t1", "history", str(tmp_path), "claude", "session")
+
+    assert branches._evidence(record) == ([], [])
+    for entry in branches._cache.values():
+        entry.read_at -= 60
+    # The record itself did not change; the failed read is still not its answer.
+    assert [found.branch for found in branches._evidence(record)[0]] == ["owned"]
+
+
 def test_stamp_follows_the_record_file(tmp_path, monkeypatch):
     path = tmp_path / "session.jsonl"
     path.write_text("{}\n", encoding="utf-8")

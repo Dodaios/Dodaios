@@ -189,7 +189,30 @@ def test_checkout_reads_worktree_head_and_custom_upstream(monkeypatch, tmp_path)
         return ""
 
     monkeypatch.setattr(status, "_git", git)
+    monkeypatch.setattr(status, "_answered", git)
     assert status.checkout(tmp_path, "local-name") == TARGET
+
+
+def test_remote_setting_is_asked_once_and_a_failed_call_is_not_kept(monkeypatch, tmp_path):
+    answers = [
+        SimpleNamespace(returncode=128, stdout=""),
+        SimpleNamespace(returncode=1, stdout=""),
+        None,
+    ]
+    asked = []
+
+    def run(args, folder):
+        asked.append(args)
+        return answers.pop(0)
+
+    monkeypatch.setattr(status.git_overview, "_run", run)
+    option = ("config", "--get", "branch.topic.pushRemote")
+    # A locked repository gives no answer; that is asked again.
+    assert status._setting(tmp_path, *option) == ""
+    # "Not set" is an answer and is kept.
+    assert status._setting(tmp_path, *option) == ""
+    assert status._setting(tmp_path, *option) == ""
+    assert len(asked) == 2
 
 
 def test_detached_head_never_gets_branch_status(monkeypatch, tmp_path):
@@ -434,7 +457,8 @@ def test_board_answers_at_once_and_reads_in_the_background(monkeypatch, boards):
     began = time.time()
     first = status.board("w", records)
     assert time.time() - began < 1
-    assert first == {"panes": {}, "refreshing": True}
+    assert (first["panes"], first["refreshing"]) == ({}, True)
+    assert first["sessions"] == {"t1": "history\n\nworktree"}
     # A second caller joins the read that is already running.
     assert status.board("w", records) == first
     release.set()
@@ -443,7 +467,7 @@ def test_board_answers_at_once_and_reads_in_the_background(monkeypatch, boards):
     # Once the answer has aged, a poll gets it at once and a newer one afterwards.
     boards["w"].read_at -= 120
     again = status.board("w", records)
-    assert again == {"panes": {"t1": {"branch": "claude/1"}}, "refreshing": True}
+    assert (again["panes"], again["refreshing"]) == ({"t1": {"branch": "claude/1"}}, True)
     assert _settled("w", records)["panes"]["t1"] == {"branch": "claude/2"}
 
 
@@ -457,8 +481,14 @@ def test_board_never_shows_a_pane_its_predecessors_branch(monkeypatch, boards):
     assert _settled("w", first)["panes"]["t1"] == {"branch": "first"}
 
     successor = [status.PaneBranchRecord("t1", "second", "worktree")]
-    assert status.board("w", successor) == {"panes": {}, "refreshing": True}
+    answer = status.board("w", successor)
+    assert (answer["panes"], answer["refreshing"]) == ({}, True)
+    assert answer["sessions"] != _settled("w", first)["sessions"]
     assert _settled("w", successor)["panes"]["t1"] == {"branch": "second"}
+    # The same pane running another conversation is another session too.
+    resumed = [status.PaneBranchRecord("t1", "second", "worktree", "claude", "next-session")]
+    assert status.board("w", resumed)["panes"] == {}
+    _settled("w", resumed)
 
 
 def test_failed_background_read_keeps_the_last_answer_and_ends(monkeypatch, boards):
@@ -489,7 +519,15 @@ def test_workspace_behind_the_front_tab_is_read_ahead_once(monkeypatch, boards):
     assert status.known("background")
     _settled("background", records, ahead=True)
     assert reads == [1]
-    assert status.board("background", records) == {
-        "panes": {"t1": {"branch": "claude/ahead"}},
-        "refreshing": False,
-    }
+    answer = status.board("background", records)
+    assert (answer["panes"], answer["refreshing"]) == ({"t1": {"branch": "claude/ahead"}}, False)
+
+
+def test_read_that_cannot_start_leaves_nothing_waiting(monkeypatch, boards):
+    def no_thread(*_, **__):
+        raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(status.threading, "Thread", no_thread)
+    records = [status.PaneBranchRecord("t1", "history", "worktree")]
+    assert status.board("w", records)["refreshing"] is False
+    assert status.board("behind", records, ahead=True)["refreshing"] is False

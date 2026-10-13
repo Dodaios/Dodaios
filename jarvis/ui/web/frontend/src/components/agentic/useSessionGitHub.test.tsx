@@ -98,17 +98,29 @@ it("answers with what is known and asks again while a newer answer is read", asy
 });
 
 it("keeps a pane's last known branch until the backend has read it", async () => {
-  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ panes: { t1: value }, refreshing: false }) });
+  const sessions = { t1: "first" };
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ panes: { t1: value }, refreshing: false, sessions }) });
   vi.stubGlobal("fetch", fetcher);
   const hook = renderHook(() => useSessionGitHub("restarted", "t1"));
   await act(() => vi.advanceTimersByTimeAsync(300));
-  fetcher.mockResolvedValue({ ok: true, json: async () => ({ panes: {}, refreshing: true }) });
+  fetcher.mockResolvedValue({ ok: true, json: async () => ({ panes: {}, refreshing: true, sessions }) });
   await act(() => vi.advanceTimersByTimeAsync(20_000));
   expect(hook.result.current?.branch).toBe("feature/a");
   expect(hook.result.current?.refreshing).toBe(true);
   // Once the read has landed, a pane without a branch has none.
-  fetcher.mockResolvedValue({ ok: true, json: async () => ({ panes: { t1: null }, refreshing: false }) });
+  fetcher.mockResolvedValue({ ok: true, json: async () => ({ panes: { t1: null }, refreshing: false, sessions }) });
   await act(() => vi.advanceTimersByTimeAsync(800));
+  expect(hook.result.current).toBeNull();
+});
+
+it("never shows a pane the branch of the session it ran before", async () => {
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ panes: { t1: value }, refreshing: false, sessions: { t1: "first" } }) });
+  vi.stubGlobal("fetch", fetcher);
+  const hook = renderHook(() => useSessionGitHub("successor", "t1"));
+  await act(() => vi.advanceTimersByTimeAsync(300));
+  expect(hook.result.current?.branch).toBe("feature/a");
+  fetcher.mockResolvedValue({ ok: true, json: async () => ({ panes: {}, refreshing: true, sessions: { t1: "second" } }) });
+  await act(() => vi.advanceTimersByTimeAsync(20_000));
   expect(hook.result.current).toBeNull();
 });
 
@@ -125,7 +137,7 @@ it("shows a tab's branch the moment it is back on stage", async () => {
 });
 
 it("paints what was last known after the window reloaded", () => {
-  sessionStorage.setItem("ide-pane-github:reloaded", JSON.stringify({ t1: value }));
+  sessionStorage.setItem("ide-pane-github:reloaded", JSON.stringify({ panes: { t1: value }, sessions: { t1: "first" } }));
   vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => {})));
   const hook = renderHook(() => useSessionGitHub("reloaded", "t1"));
   expect(hook.result.current?.branch).toBe("feature/a");
@@ -140,5 +152,5 @@ it("stores each settled answer for the next load, and survives unreadable storag
   expect(hook.result.current).toBeNull();
   await act(() => vi.advanceTimersByTimeAsync(300));
   expect(hook.result.current?.state).toBe("open");
-  expect(JSON.parse(sessionStorage.getItem("ide-pane-github:broken") ?? "null").t1.branch).toBe("feature/a");
+  expect(JSON.parse(sessionStorage.getItem("ide-pane-github:broken") ?? "null").panes.t1.branch).toBe("feature/a");
 });
