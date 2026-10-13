@@ -14,7 +14,9 @@ snapshot; they are not part of the repository either.
 from __future__ import annotations
 
 import json
+import os
 import re
+import secrets
 import tempfile
 import time
 from dataclasses import asdict, dataclass
@@ -60,8 +62,59 @@ def _git(args: list[str], cwd: Path, *, what: str = "", env: dict[str, str] | No
     return git_ops._ok(args, cwd, what=what, extra_env=env)
 
 
+#: How many untracked entries are looked into for a repository of their own.
+_NESTED_SCAN_LIMIT = 20_000
+#: How many ignored entries a refusal names.
+_IGNORED_NAMED = 8
+_NO_SNAPSHOT_YET = "0" * 40
+
+
 def _slug(text: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", text).strip("-.") or "worktree"
+    """A ref-safe label: no ``..``, no trailing dot, no ``.lock`` ending."""
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "-", text).strip("-")
+    return slug or "worktree"
+
+
+def _unsaved_by_a_snapshot(tree_path: Path) -> tuple[list[str], list[str]]:
+    """What a snapshot would NOT hold: nested repositories, and ignored entries.
+
+    A repository inside the worktree (a submodule, a clone someone made there)
+    is recorded as a pointer only, never with its files; ignored files are not
+    recorded at all. Removing the checkout would delete both.
+    """
+    nested: list[str] = []
+    modules = git_ops._run(["submodule", "status"], tree_path)
+    if modules.returncode == 0:
+        nested.extend(
+            line.split()[1] for line in modules.stdout.splitlines()
+            if line.strip() and not line.startswith("-") and len(line.split()) > 1
+        )
+    listed = git_ops._run(
+        ["ls-files", "--others", "--exclude-standard", "--directory"], tree_path
+    )
+    seen = 0
+    for entry in listed.stdout.splitlines() if listed.returncode == 0 else []:
+        if not entry.endswith("/"):
+            continue
+        top = tree_path / entry
+        if (top / ".git").exists():
+            nested.append(entry.rstrip("/"))
+            continue
+        for current, folders, _files in os.walk(top):
+            seen += 1 + len(folders)
+            if ".git" in folders or Path(current, ".git").is_file():
+                nested.append(os.path.relpath(current, tree_path).replace(os.sep, "/"))
+                break
+            if seen > _NESTED_SCAN_LIMIT:
+                break
+    ignored_listing = git_ops._run(
+        ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"], tree_path
+    )
+    ignored = (
+        [line for line in ignored_listing.stdout.splitlines() if line.strip()]
+        if ignored_listing.returncode == 0 else []
+    )
+    return nested, ignored
 
 
 def _main_root(folder: str | Path) -> tuple[Path, git_ops.RepoInfo]:
@@ -97,8 +150,15 @@ def _find_tree(info: git_ops.RepoInfo, worktree: str) -> git_ops.Worktree:
     )
 
 
-def archive(folder: str | Path, worktree: str, *, open_folders: list[str]) -> ArchivedWorktree:
-    """Save everything in a linked worktree to a snapshot, then remove the checkout."""
+def archive(
+    folder: str | Path, worktree: str, *, open_folders: list[str], drop_ignored: bool = False
+) -> ArchivedWorktree:
+    """Save a linked worktree's work to a snapshot, then remove the checkout.
+
+    Refuses whatever the snapshot could not bring back: a repository nested in
+    the worktree, and, unless ``drop_ignored``, ignored files (they are not
+    part of a snapshot and removing the checkout deletes them).
+    """
     main_root, info = _main_root(folder)
     tree = _find_tree(info, worktree)
     tree_path = Path(tree.path)
@@ -112,6 +172,24 @@ def archive(folder: str | Path, worktree: str, *, open_folders: list[str]) -> Ar
         )
     if tree.locked:
         raise GitError("This worktree is locked and stays where it is.", code="locked")
+    nested, ignored = _unsaved_by_a_snapshot(tree_path)
+    if nested:
+        raise GitError(
+            "This worktree holds a repository of its own ("
+            + ", ".join(nested[:_IGNORED_NAMED])
+            + "); a snapshot would not save its files. Commit and push it, or move it "
+            "out, before archiving.",
+            code="nested_repository",
+        )
+    if ignored and not drop_ignored:
+        more = len(ignored) - _IGNORED_NAMED
+        raise GitError(
+            "Ignored files are not part of a snapshot and would be deleted with the "
+            "checkout: " + ", ".join(ignored[:_IGNORED_NAMED])
+            + (f" and {more} more" if more > 0 else "")
+            + ". Copy what is still needed, then archive again with drop_ignored.",
+            code="ignored_files",
+        )
     head = _git(["rev-parse", "HEAD"], tree_path, what="read the worktree").strip()
     head_tree = _git(["rev-parse", "HEAD^{tree}"], tree_path).strip()
     with tempfile.TemporaryDirectory(prefix="worktree-archive-") as scratch:
@@ -123,7 +201,7 @@ def archive(folder: str | Path, worktree: str, *, open_folders: list[str]) -> Ar
     stamp = int(time.time())
     label = tree.branch or tree_path.name
     entry = ArchivedWorktree(
-        name=f"{_slug(label)}-{stamp}",
+        name=f"{_slug(label)}-{stamp}-{secrets.token_hex(2)}",
         branch=tree.branch,
         path=str(tree_path),
         head=head,
@@ -141,7 +219,8 @@ def archive(folder: str | Path, worktree: str, *, open_folders: list[str]) -> Ar
     written = _git(["show", "-s", "--format=%ct", commit], main_root).strip()
     entry.archived_at = int(written) if written.isdigit() else stamp
     ref = ARCHIVE_REF_PREFIX + entry.name
-    _git(["update-ref", ref, commit], main_root, what="save the snapshot")
+    # Only as a new ref: a snapshot never replaces another one.
+    _git(["update-ref", ref, commit, _NO_SNAPSHOT_YET], main_root, what="save the snapshot")
     try:
         _git(["worktree", "remove", "--force", str(tree_path)], main_root,
              what="remove the worktree")
@@ -168,6 +247,10 @@ def archived(folder: str | Path) -> list[ArchivedWorktree]:
         main_root,
     )
     if listing.returncode != 0:
+        logger.warning(
+            "Agentic IDE git: archived worktrees of {} could not be listed: {}",
+            main_root, git_ops._reason(listing),
+        )
         return []
     entries: list[ArchivedWorktree] = []
     for line in listing.stdout.splitlines():
@@ -240,9 +323,21 @@ def restore(folder: str | Path, name: str) -> Prepared:
     if entry.uncommitted:
         # Working files only: the saved changes come back uncommitted, as they
         # were, and files that had been untracked are untracked again.
-        _git(["restore", f"--source={ref}", "--worktree", "--", "."], target,
-             what="put the saved files back")
-    _git(["update-ref", "-d", ref], main_root, what="clear the snapshot")
+        try:
+            _git(["restore", f"--source={ref}", "--worktree", "--", "."], target,
+                 what="put the saved files back")
+        except GitError:
+            # Half a restore would block the next try: take the checkout away
+            # again. The snapshot is untouched and can be restored once more.
+            git_ops._run(["worktree", "remove", "--force", str(target)], main_root)
+            raise
+    cleared = git_ops._run(["update-ref", "-d", ref], main_root)
+    if cleared.returncode != 0:
+        # The files are back; a leftover snapshot only shows up in the list.
+        logger.warning(
+            "Agentic IDE git: snapshot {} could not be cleared after its restore: {}",
+            entry.name, git_ops._reason(cleared),
+        )
     logger.info("Agentic IDE git: restored worktree {} from {}", target, entry.name)
     if on_branch:
         message = f"Restored {entry.branch} to {target}."

@@ -255,3 +255,26 @@ async def test_pull_requests_says_when_github_is_not_connected(rig, monkeypatch)
     monkeypatch.setattr(git_overview, "overview", lambda folder: gone)
     refused = await git(rig, "pull_requests")
     assert refused["status"] == "not_accepted" and "missing" in refused["reason"]
+
+
+async def test_archiving_names_ignored_files_and_needs_the_users_word_to_drop_them(rig):
+    made = await git(rig, "worktree_create", branch="scratch")
+    tree = Path(made["folder"])
+    _write(rig[2] / ".git" / "info" / "exclude", "secret.env" + chr(10))
+    _write(tree / "secret.env", "TOKEN=x")
+    refused = await git(rig, "worktree_archive", worktree="scratch")
+    assert refused["status"] == "not_accepted" and refused["code"] == "ignored_files"
+    assert "secret.env" in refused["reason"] and _is_dir(tree)
+    done = await git(rig, "worktree_archive", worktree="scratch", drop_ignored=True)
+    assert done["status"] == "ok" and not _is_dir(tree)
+
+
+async def test_opening_a_pull_request_refreshes_what_github_is_known_to_hold(rig, monkeypatch):
+    from jarvis.agentic_ide import git_overview, github_pulls
+
+    cleared = []
+    monkeypatch.setattr(github_pulls, "open_for_branch", lambda folder, **kw: "https://x/pr/1")
+    monkeypatch.setattr(git_overview, "clear_github", cleared.append)
+    opened = await git(rig, "pull_request", title="Add the thing")
+    assert opened["status"] == "ok" and opened["url"] == "https://x/pr/1"
+    assert [Path(folder) for folder in cleared] == [rig[2]]

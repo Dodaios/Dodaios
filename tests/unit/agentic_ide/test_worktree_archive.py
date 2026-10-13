@@ -70,7 +70,7 @@ def tree(repo: Path) -> Path:
 
 def test_archive_saves_the_work_and_removes_only_the_checkout(repo: Path, tree: Path) -> None:
     tip = _git(repo, "rev-parse", "feature")
-    entry = worktree_archive.archive(repo, "feature", open_folders=[str(repo)])
+    entry = worktree_archive.archive(repo, "feature", open_folders=[str(repo)], drop_ignored=True)
     assert not tree.exists()
     assert entry.branch == "feature" and entry.uncommitted and entry.head == tip
     assert _git(repo, "rev-parse", "feature") == tip  # the branch and its commit stay
@@ -82,7 +82,7 @@ def test_archive_saves_the_work_and_removes_only_the_checkout(repo: Path, tree: 
 
 
 def test_restore_brings_back_the_files_as_uncommitted_changes(repo: Path, tree: Path) -> None:
-    worktree_archive.archive(repo, str(tree), open_folders=[])
+    worktree_archive.archive(repo, str(tree), open_folders=[], drop_ignored=True)
     restored = worktree_archive.restore(repo, "feature")
     assert Path(restored.folder) == tree and restored.branch == "feature" and restored.created
     assert (tree / "app.py").read_text(encoding="utf-8") == "print('changed')\n"
@@ -107,14 +107,14 @@ def test_archive_works_on_a_machine_without_a_git_identity(
 ) -> None:
     for key in ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"):
         monkeypatch.delenv(key)
-    entry = worktree_archive.archive(repo, "feature", open_folders=[])
+    entry = worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
     assert entry.uncommitted and not tree.exists()
 
 
 def test_a_branch_that_moved_on_is_restored_detached_at_the_archived_commit(
     repo: Path, tree: Path
 ) -> None:
-    entry = worktree_archive.archive(repo, "feature", open_folders=[])
+    entry = worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
     _git(repo, "switch", "feature")
     (repo / "later.txt").write_text("after the archive\n", encoding="utf-8")
     _git(repo, "add", "later.txt")
@@ -140,7 +140,7 @@ def test_what_must_not_be_archived_is_refused_and_nothing_is_lost(repo: Path, tr
 
 
 def test_restore_refuses_an_occupied_path_and_keeps_the_snapshot(repo: Path, tree: Path) -> None:
-    entry = worktree_archive.archive(repo, "feature", open_folders=[])
+    entry = worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
     tree.mkdir(parents=True)
     with pytest.raises(GitError) as taken:
         worktree_archive.restore(repo, entry.name)
@@ -152,10 +152,86 @@ def test_restore_refuses_an_occupied_path_and_keeps_the_snapshot(repo: Path, tre
 
 
 def test_archiving_the_same_branch_twice_restores_the_newest(repo: Path, tree: Path) -> None:
-    first = worktree_archive.archive(repo, "feature", open_folders=[])
+    first = worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
     worktree_archive.restore(repo, first.name)
     (tree / "notes.md").write_text("second round\n", encoding="utf-8")
-    second = worktree_archive.archive(repo, "feature", open_folders=[])
+    second = worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
     assert [item.name for item in worktree_archive.archived(repo)] == [second.name]
     worktree_archive.restore(repo, "feature")
     assert (tree / "notes.md").read_text(encoding="utf-8") == "second round\n"
+
+
+# --- what a snapshot cannot bring back is never deleted silently ---------------------
+
+
+def test_ignored_files_stop_the_archive_until_the_user_agrees(repo: Path, tree: Path) -> None:
+    with pytest.raises(GitError) as refused:
+        worktree_archive.archive(repo, "feature", open_folders=[])
+    assert refused.value.code == "ignored_files" and "build/" in str(refused.value)
+    assert (tree / "build" / "out.bin").exists() and (tree / "notes.md").exists()
+    assert worktree_archive.archived(repo) == []
+    entry = worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
+    assert entry.uncommitted and not tree.exists()
+
+
+def test_a_repository_nested_in_the_worktree_is_never_archived(repo: Path, tree: Path) -> None:
+    nested = tree / "vendor" / "lib"
+    nested.mkdir(parents=True)
+    _git(nested, "init", "-q")
+    (nested / "work.txt").write_text("only here", encoding="utf-8")
+    with pytest.raises(GitError) as refused:
+        worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
+    assert refused.value.code == "nested_repository" and "vendor" in str(refused.value)
+    assert (nested / "work.txt").exists()
+    assert worktree_archive.archived(repo) == []
+
+
+def test_two_archives_in_one_second_never_share_a_snapshot(repo: Path, monkeypatch) -> None:
+    first = Path(git_ops.prepare(repo, "new_worktree", branch="fix/a").folder)
+    second = Path(git_ops.prepare(repo, "new_worktree", branch="fix.a").folder)
+    (first / "one.txt").write_text("one", encoding="utf-8")
+    (second / "two.txt").write_text("two", encoding="utf-8")
+    monkeypatch.setattr(worktree_archive.time, "time", lambda: 1_800_000_000)
+    a = worktree_archive.archive(repo, "fix/a", open_folders=[])
+    b = worktree_archive.archive(repo, "fix.a", open_folders=[])
+    assert a.name != b.name
+    assert {item.branch for item in worktree_archive.archived(repo)} == {"fix/a", "fix.a"}
+    worktree_archive.restore(repo, a.name)
+    assert (first / "one.txt").read_text(encoding="utf-8") == "one"
+
+
+def test_a_restore_that_fails_halfway_can_be_tried_again(
+    repo: Path, tree: Path, monkeypatch
+) -> None:
+    entry = worktree_archive.archive(repo, "feature", open_folders=[], drop_ignored=True)
+    real = worktree_archive._git
+    state = {"fail": True}
+
+    def flaky(args, cwd, **kwargs):
+        if args[0] == "restore" and state["fail"]:
+            raise GitError("Git could not put the saved files back: disk full")
+        return real(args, cwd, **kwargs)
+
+    monkeypatch.setattr(worktree_archive, "_git", flaky)
+    with pytest.raises(GitError):
+        worktree_archive.restore(repo, entry.name)
+    assert not tree.exists()  # no half-restored checkout is left in the way
+    assert [item.name for item in worktree_archive.archived(repo)] == [entry.name]
+    state["fail"] = False
+    worktree_archive.restore(repo, entry.name)
+    assert (tree / "notes.md").read_text(encoding="utf-8") == "never added\n"
+
+
+def test_reading_the_brief_state_takes_no_optional_locks(repo: Path, monkeypatch) -> None:
+    seen = []
+    real = git_ops._run
+
+    def spy(args, cwd, **kwargs):
+        seen.append(list(args))
+        return real(args, cwd, **kwargs)
+
+    monkeypatch.setattr(git_ops, "_run", spy)
+    state = git_ops.brief(repo)
+    assert state is not None and state["branch"] == "main"
+    status = next(args for args in seen if "status" in args)
+    assert status[0] == "--no-optional-locks"
