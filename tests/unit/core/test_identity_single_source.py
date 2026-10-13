@@ -253,10 +253,12 @@ def test_the_project_metadata_restates_the_distribution_and_its_commands() -> No
     for legacy in branding.LEGACY_CONTROL_CLI_COMMAND_NAMES:
         assert scripts[legacy] == scripts[branding.CONTROL_CLI_COMMAND_NAME], legacy
     assert scripts[branding.CLI_COMMAND_NAME] != scripts[branding.CONTROL_CLI_COMMAND_NAME]
-    # No script is registered that branding does not account for, apart from
-    # the short control alias and the two maintenance tools.
-    unlisted = set(scripts) - set(branding.CLI_COMMAND_NAMES)
-    assert unlisted == {"jctl", "jarvis-review-gc", "jarvis-review-eval"}
+    # No further alias of either command is registered behind branding's back.
+    # The one exception is the short control alias, which is a console script
+    # but deliberately not one of the commands the installer puts on PATH.
+    commands = {scripts[branding.CLI_COMMAND_NAME], scripts[branding.CONTROL_CLI_COMMAND_NAME]}
+    aliases = {name for name, target in scripts.items() if target in commands}
+    assert aliases - set(branding.CLI_COMMAND_NAMES) == {"jctl"}
     assert scripts["jctl"] == scripts[branding.CONTROL_CLI_COMMAND_NAME]
     data_files = project["tool"]["setuptools"]["data-files"]
     assert data_files, "the wheel ships its reader documents as data files"
