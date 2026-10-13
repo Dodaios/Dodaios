@@ -86,7 +86,7 @@ async def _agent_resources() -> list[tuple[str, str, str]]:
     return [
         (
             f"{_AGENT_PREFIX}{a.agent_id}",
-            a.name,
+            rt.display_name(a),
             f"{a.title} — {a.description}"[:300],
         )
         for a in agents

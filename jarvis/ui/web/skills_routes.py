@@ -854,9 +854,9 @@ async def import_skill_from_path(
 ) -> dict[str, Any]:
     """Imports a skill folder from a local path into the user skills dir.
 
-    This is the bridge for skills the user authored OUTSIDE the Jarvis skill
+    This is the bridge for skills the user authored OUTSIDE the Dodaios skill
     root — most commonly a coding agent's skill folder (Claude Code / Codex
-    style ``.claude/skills/<name>/``), which Jarvis never scans. Live
+    style ``.claude/skills/<name>/``), which Dodaios never scans. Live
     forensic 2026-08-12: every skill the maintainer "built" lived there, so
     the brain literally could not know them.
 

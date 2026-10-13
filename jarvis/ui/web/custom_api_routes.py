@@ -207,7 +207,7 @@ async def connect_api_by_name(body: ConnectApiRequest, request: Request) -> Conn
 async def set_api_connection_enabled(
     api_id: str, body: ConnectionEnabledRequest, request: Request
 ) -> ConnectionSummary:
-    """Pause or resume this service for Jarvis and its agents."""
+    """Pause or resume this service for Dodaios and its agents."""
     try:
         definition = await asyncio.to_thread(_store(request).get, api_id)
         if definition is None:
