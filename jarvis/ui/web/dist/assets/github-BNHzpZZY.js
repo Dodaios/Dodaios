@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/github-BNHzpZZY.js
 import{c}from"./index-CvGug5If.js";/**
+|||||||| parent of 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/github-Dd6hnZw8.js
+import{c}from"./index-kUK78RJZ.js";/**
+========
+import{c}from"./index-BBJ9dd5N.js";/**
+>>>>>>>> 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/github-l6uQ6COC.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

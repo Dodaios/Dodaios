@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/wand-sparkles-DEbUCf2V.js
 import{c as a}from"./index-CvGug5If.js";/**
+|||||||| parent of 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/wand-sparkles-X5K2dpd5.js
+import{c as a}from"./index-kUK78RJZ.js";/**
+========
+import{c as a}from"./index-BBJ9dd5N.js";/**
+>>>>>>>> 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/wand-sparkles-uoQqtX4B.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

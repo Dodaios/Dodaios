@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-Dq8bqqoC.js
 import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-CvGug5If.js";import{C as I}from"./TraceTimeline-BLJPP0Ib.js";import{L as X}from"./lock-CwqZV7Dp.js";import{C as $}from"./code-xml-BeiPq69n.js";import{C as J}from"./chevron-right-DFVHstp2.js";/**
+|||||||| parent of 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/CodingThreadLink-DlxhpNdI.js
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-kUK78RJZ.js";import{C as I}from"./TraceTimeline-BLSw-rUz.js";import{L as X}from"./lock-oaAA-lip.js";import{C as $}from"./code-xml-DPOZ0Po-.js";import{C as J}from"./chevron-right-BU3LGb1d.js";/**
+========
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-BBJ9dd5N.js";import{C as I}from"./TraceTimeline-DOTcdhdO.js";import{L as X}from"./lock-Coy5GpAo.js";import{C as $}from"./code-xml-BfxU7UE0.js";import{C as J}from"./chevron-right-Bkf6GMhY.js";/**
+>>>>>>>> 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/CodingThreadLink-DbHqCTif.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-5qFVhDwc.js
 import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-CvGug5If.js";import{A as Xe}from"./AgentMark-B1-nli3S.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-CygtC2yU.js";import{P as tt}from"./pencil-C-emO7ji.js";import{F as nt}from"./folder-Yqo6rSlo.js";import{C as st}from"./check-DHp_u7oS.js";import{C as rt}from"./chevron-right-DFVHstp2.js";/**
+|||||||| parent of 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/ThreadTree-y1vO5-mk.js
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-kUK78RJZ.js";import{A as Xe}from"./AgentMark-yqJvCb9l.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-BOLfMFCu.js";import{P as tt}from"./pencil-Bk7u3g5x.js";import{F as nt}from"./folder-B9UuxsD7.js";import{C as st}from"./check-2zXYk7Fg.js";import{C as rt}from"./chevron-right-BU3LGb1d.js";/**
+========
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-BBJ9dd5N.js";import{A as Xe}from"./AgentMark-DvcHxqtr.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-DZqIhsFK.js";import{P as tt}from"./pencil-bScHK54H.js";import{F as nt}from"./folder-BGzr0bz1.js";import{C as st}from"./check-B-R9XMvp.js";import{C as rt}from"./chevron-right-Bkf6GMhY.js";/**
+>>>>>>>> 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/ThreadTree-BuWufAdT.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
