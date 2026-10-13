@@ -16,10 +16,10 @@ the goal and leaves the route to the agent (the composer's own rule, imported
 so the two cannot drift), and the writer sees the repository the receiving
 pane works in.
 
-The model is the user's pick. A named provider resolves through the same seat
-an agent chat on that provider uses (``society.seat_brain``), so the rewrite
-runs on the credential the picker showed and nothing else; with no pick it is
-whoever writes the IDE's task briefs (``writer.resolve_writer``).
+The model is the user's pick. The caller hands the picked model in as a brain
+(the web route builds it from the seat an agent chat on that provider uses), so
+this package stays free of the chat and agent packages; with no brain given it
+is whoever writes the IDE's task briefs (``writer.resolve_writer``).
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ IMPROVE_TIMEOUT_S = 90.0
 _MAP_CHARS = 2400
 
 #: The usage ledger's name for this work.
-_CALLER = "prompt_improver"
+USAGE_CALLER = "prompt_improver"
 
 _FIXED_RULES = f"""\
 {GOAL_NOT_IMPLEMENTATION_RULE}
@@ -68,6 +68,10 @@ only when the prompt has several separate parts.
 
 Write in the language the prompt is written in. Answer with the improved \
 prompt only: no preamble, no quotes, no code fence."""
+
+
+class EmptyPrompt(ValueError):
+    """There is nothing to improve."""
 
 
 class ImproverUnavailable(RuntimeError):
@@ -129,38 +133,6 @@ def user_block(prompt: str, context: str) -> str:
     return "\n\n".join(parts)
 
 
-def _load_config() -> Any:
-    from jarvis.core.config import load_config
-
-    return load_config()
-
-
-def _seat_for(provider: str, model: str) -> tuple[Any, Any]:
-    """``(config, seat)`` for the user's pick. Blocking: a CLI probe, a config load."""
-    from jarvis.agent_chat.catalog import offers
-    from jarvis.agent_chat.service import resolve_runner
-    from jarvis.society.seat_brain import Seat
-
-    if not offers("agent", provider):
-        raise ImproverUnavailable(f"'{provider}' is not a model provider this app offers.")
-    runner = resolve_runner(provider, surface="agent")
-    if runner == "unknown":
-        raise ImproverUnavailable(f"'{provider}' cannot write prompts on this machine.")
-    return _load_config(), Seat(provider, model, runner)
-
-
-async def _resolve_pick(provider: str, model: str) -> tuple[Any, str]:
-    """The user's pick as a brain, on the seat an agent chat on it would use."""
-    from jarvis.society import seat_brain
-
-    config, seat = await asyncio.to_thread(_seat_for, provider, model)
-    try:
-        brain = await seat_brain.seat_brain(config, seat, caller=_CALLER)
-    except seat_brain.SeatUnavailable as exc:
-        raise ImproverUnavailable(str(exc)) from None
-    return brain, f"provider:{provider}"
-
-
 def _resolve_default() -> tuple[Any, str]:
     """Whoever writes the IDE's task briefs. Blocking."""
     from .writer import resolve_writer
@@ -175,7 +147,7 @@ def _resolve_default() -> tuple[Any, str]:
 
 
 def _strip_wrapping(text: str) -> str:
-    """Drop a code fence or quotes a model put around the whole answer."""
+    """Drop a code fence a model put around the whole answer."""
     out = text.strip()
     if out.startswith("```") and out.endswith("```") and out.count("```") == 2:
         out = out[3:-3]
@@ -193,14 +165,19 @@ async def _write(brain: Any, system: str, block: str) -> str:
         system=system,
         # A rewrite that must carry the user's intent, not a creative draft.
         temperature=0.2,
-        # The pane takes MAX_PROMPT_CHARS; a goal-only prompt is far shorter.
-        max_tokens=2048,
+        # A goal-only prompt is far shorter; the room is for a model that
+        # spends part of its budget reasoning before it answers.
+        max_tokens=4096,
         stream=True,
     )
+    from jarvis.costs.ledger import usage_context
+
     chunks: list[str] = []
-    async for delta in brain.complete(request):
-        if delta.content:
-            chunks.append(delta.content)
+    # One coroutine consumes the whole stream, so the tag is set and reset here.
+    with usage_context(USAGE_CALLER):
+        async for delta in brain.complete(request):
+            if delta.content:
+                chunks.append(delta.content)
     return "".join(chunks)
 
 
@@ -209,33 +186,40 @@ async def improve(
     *,
     folder: str = "",
     profile: ProjectProfile | None = None,
-    provider: str = "",
-    model: str = "",
     instruction: str = "",
     brain: Any = None,
+    source: str = "",
 ) -> ImprovedPrompt:
-    """Rewrite ``prompt`` with the chosen model, knowing the repo in ``folder``.
+    """Rewrite ``prompt``, knowing the repository in ``folder``.
 
-    ``provider`` empty means the IDE's configured brief writer. ``brain`` pins
-    the writing model outright (tests, and callers that already hold one).
+    ``brain`` is the model the user picked, with ``source`` saying where it
+    came from; without one the IDE's configured brief writer answers.
 
-    Raises ``ValueError`` for an empty prompt, ``ImproverUnavailable`` when no
+    Raises ``EmptyPrompt`` for an empty prompt, ``ImproverUnavailable`` when no
     model can take the job and ``ImproverFailed`` when the model did not
     deliver. There is no fallback text: the user's own prompt is still in
     front of them, and a template presented as "improved" would be a lie.
     """
     text = (prompt or "").strip()
     if not text:
-        raise ValueError("The prompt is empty.")
+        raise EmptyPrompt("The prompt is empty.")
     text = text[:MAX_PROMPT_CHARS]
 
-    context = await asyncio.to_thread(repo_context, folder, text, profile)
-    if brain is not None:
-        source = "pinned"
-    elif provider:
-        brain, source = await _resolve_pick(provider, model.strip())
-    else:
-        brain, source = await asyncio.to_thread(_resolve_default)
+    try:
+        context = await asyncio.to_thread(repo_context, folder, text, profile)
+    except Exception as exc:  # noqa: BLE001 - the notes are a help, never a requirement
+        logger.info("Prompt improver: no repository notes ({})", type(exc).__name__)
+        context = ""
+    if brain is None:
+        try:
+            brain, source = await asyncio.to_thread(_resolve_default)
+        except ImproverUnavailable:
+            raise
+        except Exception as exc:  # noqa: BLE001 - by type; the text may quote the config
+            logger.info("Prompt improver: no brief writer ({})", type(exc).__name__)
+            raise ImproverUnavailable(
+                f"The model that writes prompts could not be prepared ({type(exc).__name__})."
+            ) from None
 
     try:
         raw = await asyncio.wait_for(
@@ -254,14 +238,16 @@ async def improve(
     if not improved:
         raise ImproverFailed("The model returned an empty answer.")
     return ImprovedPrompt(
-        text=improved, source=source, writer=str(getattr(brain, "name", "") or "")
+        text=improved, source=source or "pinned", writer=str(getattr(brain, "name", "") or "")
     )
 
 
 __all__ = [
     "DEFAULT_INSTRUCTION",
+    "EmptyPrompt",
     "IMPROVE_TIMEOUT_S",
     "MAX_INSTRUCTION_CHARS",
+    "USAGE_CALLER",
     "ImprovedPrompt",
     "ImproverFailed",
     "ImproverUnavailable",

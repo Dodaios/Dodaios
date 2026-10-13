@@ -10,6 +10,7 @@ through ``POST /api/agentic-ide/terminals/{name}/prompt`` when the user says so.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -48,12 +49,62 @@ def _target(workspace: str | None, pane: str | None) -> tuple[str, Any]:
         found = registry.find_terminal(pane, workspace or None)
         if found is not None:
             session, term = found
+            if term.computer_id:
+                # The agent works on another machine; this folder is not its repository.
+                return "", None
             folder = term.cwd(session.folder)
             return folder, session.profile if folder == session.folder else None
     session = registry.get(workspace or None)
     if session is None:
         return "", None
     return session.folder, session.profile
+
+
+def _seat_for(provider: str, model: str) -> tuple[Any, Any]:
+    """``(config, seat)`` for the picked provider. Blocking: a CLI probe, a config load."""
+    from jarvis.agent_chat.catalog import offers
+    from jarvis.agent_chat.service import resolve_runner
+    from jarvis.core.config import load_config
+    from jarvis.society.seat_brain import Seat
+
+    if not offers("agent", provider):
+        raise prompt_improver.ImproverUnavailable(
+            f"'{provider}' is not a model provider this app offers."
+        )
+    runner = resolve_runner(provider, surface="agent")
+    if runner == "unknown":
+        raise prompt_improver.ImproverUnavailable(
+            f"'{provider}' cannot write prompts on this machine."
+        )
+    return load_config(), Seat(provider, model, runner)
+
+
+async def _picked_brain(provider: str, model: str) -> Any:
+    """The user's pick as a brain, on the seat an agent chat on that provider uses.
+
+    The rewrite then runs on the credential the picker showed and on nothing
+    else. Raises ``ImproverUnavailable`` with an app-authored message; a
+    failure of any other kind is reported by its type, because its text may
+    quote the configuration.
+    """
+    from jarvis.society import seat_brain
+
+    try:
+        config, seat = await asyncio.to_thread(_seat_for, provider, model)
+        return await seat_brain.seat_brain(config, seat, caller=prompt_improver.USAGE_CALLER)
+    except prompt_improver.ImproverUnavailable:
+        raise
+    except seat_brain.SeatUnavailable as exc:
+        raise prompt_improver.ImproverUnavailable(str(exc)) from None
+    except Exception as exc:  # noqa: BLE001 - reported by type, see the docstring
+        log.info(
+            "Prompt improver: the %s seat could not be prepared (%s).",
+            provider,
+            type(exc).__name__,
+        )
+        raise prompt_improver.ImproverUnavailable(
+            f"'{provider}' could not be prepared ({type(exc).__name__})."
+        ) from None
 
 
 @router.get(
@@ -78,16 +129,18 @@ async def improve_prompt(req: ImproveRequest) -> dict[str, Any]:
     configured brief writer answers. Nothing is sent to a pane.
     """
     folder, profile = _target(req.workspace, req.pane)
+    provider = req.provider.strip().lower()
     try:
+        brain = await _picked_brain(provider, req.model.strip()) if provider else None
         result = await prompt_improver.improve(
             req.prompt,
             folder=folder,
             profile=profile,
-            provider=req.provider.strip(),
-            model=req.model.strip(),
             instruction=req.instruction,
+            brain=brain,
+            source=f"provider:{provider}" if provider else "",
         )
-    except ValueError as exc:
+    except prompt_improver.EmptyPrompt as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except prompt_improver.ImproverUnavailable as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

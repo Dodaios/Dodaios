@@ -16,6 +16,7 @@ from jarvis.agentic_ide import prompt_improver, writer
 from jarvis.agentic_ide.prompt_blueprint import GOAL_NOT_IMPLEMENTATION_RULE
 from jarvis.agentic_ide.prompt_improver import (
     DEFAULT_INSTRUCTION,
+    EmptyPrompt,
     ImproverFailed,
     ImproverUnavailable,
     improve,
@@ -101,7 +102,7 @@ async def test_a_code_fence_around_the_whole_answer_is_dropped() -> None:
 
 async def test_an_empty_prompt_is_refused_before_any_model_is_asked() -> None:
     brain = _Brain()
-    with pytest.raises(ValueError):
+    with pytest.raises(EmptyPrompt):
         await improve("   ", brain=brain)
     assert brain.requests == []
 
@@ -134,31 +135,49 @@ async def test_no_pick_uses_the_ides_brief_writer(monkeypatch: pytest.MonkeyPatc
     assert result.source == "tool_model:fake"
 
 
-async def test_a_provider_the_app_does_not_offer_is_refused() -> None:
-    with pytest.raises(ImproverUnavailable):
-        await improve("fix it", provider="no-such-provider")
+async def test_a_brief_writer_that_cannot_be_prepared_is_reported_by_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A broken configuration must not put its own text in front of the user."""
+
+    def _broken(**_kwargs: object) -> tuple[object, str]:
+        raise ValueError("jarvis.toml: secret detail")
+
+    monkeypatch.setattr(writer, "resolve_writer", _broken)
+
+    with pytest.raises(ImproverUnavailable) as caught:
+        await improve("fix it")
+
+    assert "ValueError" in str(caught.value)
+    assert "secret detail" not in str(caught.value)
 
 
-async def test_a_picked_provider_is_built_as_that_seat(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The pick resolves to exactly that provider and model, on its own runner."""
-    from jarvis.agent_chat import catalog, service
-    from jarvis.society import seat_brain
+async def test_unreadable_repository_notes_cost_the_context_never_the_rewrite(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _unreadable(*_args: object) -> str:
+        raise OSError("disk went away")
 
-    brain = _Brain("Rename the config key.")
-    built: list[object] = []
+    monkeypatch.setattr(prompt_improver, "repo_context", _unreadable)
+    brain = _Brain("Fix it properly.")
 
-    async def _seat_brain(_config: object, seat: object, *, caller: str) -> _Brain:
-        built.append((seat, caller))
-        return brain
+    result = await improve("fix it", folder="/gone", brain=brain, source="provider:picked")
 
-    monkeypatch.setattr(catalog, "offers", lambda surface, provider: provider == "picked")
-    monkeypatch.setattr(service, "resolve_runner", lambda provider, **_kwargs: "api")
-    monkeypatch.setattr(seat_brain, "seat_brain", _seat_brain)
-    monkeypatch.setattr(prompt_improver, "_load_config", lambda: object())
-
-    result = await improve("rename it", provider="picked", model="model-x")
-
-    seat, caller = built[0]
-    assert (seat.provider, seat.model, seat.runner) == ("picked", "model-x", "api")
-    assert caller == "prompt_improver"
+    assert result.text == "Fix it properly."
     assert result.source == "provider:picked"
+    assert brain.requests[0].messages[0].content == "PROMPT TO IMPROVE\nfix it"
+
+
+async def test_the_call_is_filed_under_the_prompt_improver_in_the_usage_ledger() -> None:
+    from jarvis.costs.ledger import current_caller
+
+    seen: list[str] = []
+
+    class _Watching(_Brain):
+        async def complete(self, request):  # noqa: ANN001, ANN202 - protocol fake
+            seen.append(current_caller())
+            yield type("Delta", (), {"content": "Done."})()
+
+    await improve("fix it", brain=_Watching())
+
+    assert seen == [prompt_improver.USAGE_CALLER]
