@@ -133,3 +133,62 @@ def test_the_wait_is_bounded_and_the_tool_is_offered_only_with_a_team():
     )
     assert "ask_agent" in names({"message_agent": stub})
     assert "ask_agent" not in names({})
+
+
+async def test_a_send_that_reports_failure_leaves_nothing_marked(team, monkeypatch):
+    rt, spoken = team
+
+    async def failed(_event_id):
+        return "failed"
+
+    monkeypatch.setattr(rt.store, "delivery_status", failed)
+    result = await AskAgentTool(runtime_resolver=lambda: rt).execute(
+        {"agent": "Scout", "question": "Are you there?"}, _ctx()
+    )
+    assert result.success is False
+    assert rt._awaited_inline == set()
+    # The message may have gone out all the same: its answer is announced as usual.
+    await _answer(rt, "Yes.")
+    for _ in range(200):
+        if any(isinstance(e, AnnouncementRequested) for e in spoken):
+            break
+        await asyncio.sleep(0.01)
+    assert [e for e in spoken if isinstance(e, AnnouncementRequested)]
+
+
+async def test_only_the_one_question_is_marked_never_later_traffic(team):
+    from jarvis.society.runtime import reply_awaited_inline
+
+    rt, _spoken = team
+    scout = await rt.roster.resolve("Scout")
+    used: list[str] = []
+    token = reply_awaited_inline.set(used)
+    try:
+        first = await rt.say(
+            from_agent=rt.lead_id, to_agent=scout.agent_id, text="one", msg_type=MsgType.QUERY
+        )
+        # A task that inherited the context sends more: none of it is marked.
+        second = await asyncio.create_task(
+            rt.say(from_agent=rt.lead_id, to_agent=scout.agent_id, text="two",
+                   msg_type=MsgType.QUERY)
+        )
+        note = await rt.say(
+            from_agent=scout.agent_id, to_agent=rt.lead_id, text="fyi", msg_type=MsgType.SAY
+        )
+    finally:
+        reply_awaited_inline.reset(token)
+    assert used == [first.event_id]
+    assert rt._awaited_inline == {first.event_id}
+    assert second.event_id not in rt._awaited_inline and note.event_id not in rt._awaited_inline
+    rt.stop_awaiting_inline(first.event_id)
+    assert rt._awaited_inline == set()
+
+
+async def test_after_every_way_out_nothing_stays_marked(team):
+    rt, _spoken = team
+    tool = AskAgentTool(runtime_resolver=lambda: rt)
+    asking = asyncio.create_task(tool.execute({"agent": "Scout", "question": "Status?"}, _ctx()))
+    await _question(rt)
+    asking.cancel()
+    await asyncio.gather(asking, return_exceptions=True)
+    assert rt._awaited_inline == set()

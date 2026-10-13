@@ -90,40 +90,51 @@ class AskAgentTool:
         wait_s = max(5, min(MAX_WAIT_S, wait_s))
         from jarvis.society.runtime import reply_awaited_inline
 
-        waiting = reply_awaited_inline.set(True)
         try:
             runtime = self._resolve()
             if runtime is None:
                 return ToolResult(success=False, output=None, error="society unavailable")
+            # Started first: tasks the runtime creates must not inherit the mark.
             await runtime.ensure_started()
-            sent = await MessageAgentTool(runtime, runtime.lead_id).execute(
-                {
-                    "target": str(args.get("agent") or ""),
-                    "text": str(args.get("question") or ""),
-                    "kind": "query",
-                    "reply_policy": "always",
-                },
-                ctx,
-            )
         except Exception as exc:  # noqa: BLE001 - an honest, inspectable tool failure
-            log.warning("ask_agent: delivery failed", exc_info=True)
+            log.warning("ask_agent: the agent team is not available", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
-        finally:
-            reply_awaited_inline.reset(waiting)
-        if not sent.success or not isinstance(sent.output, dict):
-            return sent
-        agent = str(sent.output.get("target") or args.get("agent") or "")
-        request = await runtime.store.get_event(str(sent.output.get("message_id") or ""))
-        if request is None:
-            return sent
+        # The one question sent below is marked as awaited; ``marked`` receives
+        # its id, so every way out of this call can lift the mark again.
+        marked: list[str] = []
+        waiting = reply_awaited_inline.set(marked)
         reply = None
         try:
+            try:
+                sent = await MessageAgentTool(runtime, runtime.lead_id).execute(
+                    {
+                        "target": str(args.get("agent") or ""),
+                        "text": str(args.get("question") or ""),
+                        "kind": "query",
+                        "reply_policy": "always",
+                    },
+                    ctx,
+                )
+            except Exception as exc:  # noqa: BLE001 - an honest, inspectable tool failure
+                log.warning("ask_agent: delivery failed", exc_info=True)
+                return ToolResult(success=False, output=None, error=str(exc))
+            finally:
+                reply_awaited_inline.reset(waiting)
+            if not sent.success or not isinstance(sent.output, dict):
+                return sent
+            agent = str(sent.output.get("target") or args.get("agent") or "")
+            request = await runtime.store.get_event(str(sent.output.get("message_id") or ""))
+            if request is None:
+                return sent
             deadline = _now() + wait_s
             while reply is None and _now() < deadline:
                 await asyncio.sleep(_POLL_S)
                 reply = await result_for(runtime.store, request)
         finally:
-            runtime.stop_awaiting_inline(request.event_id)
+            # Also after a failed or uncertain send: a reply that still comes
+            # is then announced like any other.
+            for request_id in marked:
+                runtime.stop_awaiting_inline(request_id)
         if reply is None:
             # An answer that landed while the wait ended was not announced:
             # read once more before calling it pending.
