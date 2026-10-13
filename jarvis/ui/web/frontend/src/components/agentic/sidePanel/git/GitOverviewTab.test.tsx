@@ -695,6 +695,40 @@ describe("GitOverviewTab — branches", () => {
     await vi.waitFor(() => expect(posted("branch/delete")[0]).toMatchObject({ branch: "feature/queued", remote: true }));
   });
 
+  it("asks about the GitHub copy again, unticked, before deleting work that exists nowhere else", async () => {
+    refusals["branch/delete"] = [[422, { message: "feature/queued has 1 commit that exist nowhere else.", code: "unmerged" }]];
+    render(<GitOverviewTab />);
+    await screen.findAllByTestId("git-branch-row");
+    fireEvent.click(within(row("feature/queued")).getByTestId("git-branch-more"));
+    fireEvent.click(within(await screen.findByTestId("git-branch-menu")).getByTestId("git-menu-delete"));
+    const first = await screen.findByTestId("git-confirm");
+    fireEvent.click(within(first).getByTestId("git-confirm-remote"));
+    fireEvent.click(within(first).getByTestId("git-confirm-ok"));
+    await screen.findByText("feature/queued holds work that exists nowhere else");
+    // The earlier tick is not carried over silently: this dialog decides for itself.
+    expect((screen.getByTestId("git-confirm-remote") as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByTestId("git-confirm-ok"));
+    await vi.waitFor(() => expect(posted("branch/delete")).toHaveLength(2));
+    expect(posted("branch/delete")[0]).toMatchObject({ force: false, remote: true });
+    expect(posted("branch/delete")[1]).toMatchObject({ force: true, remote: false });
+  });
+
+  it("drops a half-written commit and an open question when another workspace is shown", async () => {
+    answer = withCheckout({ ahead: 0, files: 3, unstaged: 2, untracked: 1 }, { ahead: 0 });
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("git-next-action"));
+    fireEvent.change(screen.getByTestId("git-commit-message"), { target: { value: "meant for the first workspace" } });
+    fireEvent.click(within(row("feature/draft")).getByTestId("git-branch-toggle"));
+    fireEvent.click(within(row("feature/draft")).getByTestId("git-act-delete"));
+    expect(await screen.findByTestId("git-confirm")).toBeTruthy();
+    useIdeChatStore.setState({ workspace: { id: "w2", name: "Other", path: "/code/other" }, stagedPane: null });
+    answer = { ...withCheckout({ ahead: 0, files: 3, unstaged: 2, untracked: 1 }, { ahead: 0 }), root: "/code/other" };
+    await vi.waitFor(() => expect(calls.some((url) => url.includes("workspace_id=w2"))).toBe(true));
+    await vi.waitFor(() => expect(screen.queryByTestId("git-confirm")).toBeNull());
+    expect(screen.queryByTestId("git-commit-form")).toBeNull();
+    expect(posts).toEqual([]);
+  });
+
   it("offers GitHub pages and copies from a branch's menu", async () => {
     render(<GitOverviewTab />);
     await screen.findAllByTestId("git-branch-row");
