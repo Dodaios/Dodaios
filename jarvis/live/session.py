@@ -18,6 +18,7 @@ from jarvis.core.runtime_refs import get_supervisor_tool_gateway
 from jarvis.core.turn_language import resolve_output_language
 from jarvis.live.config import LiveConfig
 from jarvis.live.state import LiveLedger, TranscriptFragment
+from jarvis.live.tasks import BackgroundTask, report_prompt
 from jarvis.live.timing import StartupTimings
 from jarvis.live.tools import LiveTools, take_images
 from jarvis.realtime.audio import StreamingPcm16Resampler
@@ -101,6 +102,8 @@ _BACKCHANNEL = frozenset(
 #: How long a handed-over agent report may wait for the model to start
 #: answering it. Past that it counts as not delivered and stays owed.
 REPORT_START_TIMEOUT_S = 20.0
+# How often a background task's result is handed to a call that does not voice it.
+_TASK_REPORT_ATTEMPTS = 3
 
 
 def _speech_pipeline() -> Any:
@@ -180,7 +183,14 @@ class LiveVoiceSession:
         self._detail = ""
         self._hangup_reason = ""
         self._ledger: LiveLedger | None = None
-        self._tools: LiveTools | None = None
+        self._live_tools: LiveTools | None = None
+        # Actions that left their turn (``LiveTools.execute_releasable``): the
+        # running ones, and the finished ones whose receipt is still to be told.
+        self._background_work: set[asyncio.Future] = set()
+        self._task_reports: list[BackgroundTask] = []
+        self._task_report_job: asyncio.Task | None = None
+        # The task whose report the model is answering right now.
+        self._task_report_told: BackgroundTask | None = None
         self._resampler = StreamingPcm16Resampler(48000, 24000)
         self._captions = {"user": "", "assistant": ""}
         from jarvis.live.transcript import LiveTranscript
@@ -250,6 +260,18 @@ class LiveVoiceSession:
         )
 
     @property
+    def _tools(self) -> LiveTools | None:
+        return self._live_tools
+
+    @_tools.setter
+    def _tools(self, tools: LiveTools | None) -> None:
+        self._live_tools = tools
+        if tools is not None:
+            tools.on_task_released = self._on_task_released
+            tools.on_task_finished = self._on_task_finished
+            tools.wire_epoch = lambda: self._wire_epoch
+
+    @property
     def surface(self) -> str:
         """Where the call's media lives: ``browser`` (WebView) or ``desktop``."""
         return self._surface
@@ -292,8 +314,13 @@ class LiveVoiceSession:
         """True at a real conversational pause: nobody speaks, nothing runs.
 
         An agent's report may start only then; it never talks over the user,
-        a running answer or a tool that is still working.
+        a running answer or a tool the model is still waiting for. A background
+        task is none of these: it runs on while results are told.
         """
+        return self._floor_open and self._task_report_job is None
+
+    @property
+    def _floor_open(self) -> bool:
         return bool(
             self.is_active
             and not self._recovering
@@ -343,6 +370,29 @@ class LiveVoiceSession:
         if self._report_state != "started":
             return
         self._report_state = "done" if delivered else "failed"
+        self._settle_task_report(delivered=delivered)
+
+    def _settle_task_report(self, *, delivered: bool) -> None:
+        """Close a background task's own report; an unspoken one stays owed.
+
+        The outcome is consumed here, so the speech pipeline never reads it as
+        the outcome of an agent reply it handed over.
+        """
+        task, self._task_report_told = self._task_report_told, None
+        if task is None:
+            return
+        self._report_state = ""
+        self._report_response_id = ""
+        if delivered:
+            return
+        task.report_attempts += 1
+        if task.report_attempts < _TASK_REPORT_ATTEMPTS and self._task_report_current(task):
+            self._task_reports.insert(0, task)
+        else:
+            log.warning(
+                "Live call did not voice the result of %s; its receipt stays in the ledger",
+                task.task_id,
+            )
 
     def _cancel_report_timeout(self) -> None:
         if self._report_timeout is not None:
@@ -359,6 +409,7 @@ class LiveVoiceSession:
             REPORT_START_TIMEOUT_S,
         )
         self._report_state = "failed"
+        self._settle_task_report(delivered=False)
         self._notify_pause()
 
     def _notify_pause(self) -> None:
@@ -369,15 +420,21 @@ class LiveVoiceSession:
         never reaches a turn boundary the pipeline can see, and every result
         waited until the call ended (live 2026-10-02: Scout's report).
         """
-        if self._closing or not self.ready_for_report:
+        if self._closing or not self._floor_open:
+            return
+        # An agent reply's outcome nobody read yet goes to the pipeline before
+        # a task report reuses the report state.
+        outcome_unread = self._report_state in {"done", "failed"}
+        if not outcome_unread and self._offer_task_report():
             return
         hook = getattr(_speech_pipeline(), "live_call_paused", None)
-        if not callable(hook):
-            return
-        try:
-            hook(self)
-        except Exception:  # noqa: BLE001 — a failed offer stays queued for the next pause
-            log.warning("Live call pause could not be signalled", exc_info=True)
+        if callable(hook):
+            try:
+                hook(self)
+            except Exception:  # noqa: BLE001 — a failed offer stays queued for the next pause
+                log.warning("Live call pause could not be signalled", exc_info=True)
+        if outcome_unread:
+            self._offer_task_report()
 
     def _notify_ended(self) -> None:
         """Settle an owed reply that was still on its way when the call ended."""
@@ -392,6 +449,93 @@ class LiveVoiceSession:
             hook(self)
         except Exception:  # noqa: BLE001 — the reply stays in the chat either way
             log.warning("Live call end could not be signalled", exc_info=True)
+
+    def _on_task_released(self, task: BackgroundTask) -> None:
+        """An action left its turn: keep it alive, but it is no longer awaited."""
+        self._background_work.add(task.work)
+        task.work.add_done_callback(self._background_work.discard)
+
+    def _on_task_finished(self, task: BackgroundTask) -> None:
+        """Queue a background task's receipt for the next pause."""
+        if self._closing or task.status == "cancelled":
+            return
+        self._task_reports.append(task)
+        if len(self._task_reports) > 16:
+            dropped = self._task_reports.pop(0)
+            log.warning(
+                "Live task report queue full; the receipt of %s stays in the ledger",
+                dropped.task_id,
+            )
+        self._notify_pause()
+
+    def _task_report_current(self, task: BackgroundTask) -> bool:
+        """Whether a finished task may still be told on this connection.
+
+        An action's outcome is owed even when the user has said more since; a
+        late screen or lookup result only answers the request it was made for.
+        """
+        tools = self._tools
+        return bool(
+            self.is_active
+            and not self._recovering
+            and tools is not None
+            and task.epoch == self._wire_epoch
+            and not (task.cancel_token is not None and task.cancel_token.is_cancelled())
+            and not (task.obsolete_on_new_request and task.revision != tools.revision)
+        )
+
+    def _offer_task_report(self) -> bool:
+        """Start telling the oldest finished task; True while one is being told."""
+        if self._task_report_job is not None:
+            return True
+        self._task_reports = [t for t in self._task_reports if self._task_report_current(t)]
+        if not self._task_reports:
+            return False
+        task = self._task_reports.pop(0)
+        job = asyncio.create_task(self._report_task(task), name="live-task-report")
+        self._task_report_job = job
+        self._control_tasks.add(job)
+        job.add_done_callback(self._control_tasks.discard)
+        return True
+
+    async def _report_task(self, task: BackgroundTask) -> None:
+        delivered = True
+        # Set before the wire: the model's answer can arrive while the send is
+        # still awaited, and must settle this report.
+        self._task_report_told = task
+        try:
+            delivered = await self._deliver_task_report(task)
+        except asyncio.CancelledError:
+            self._task_report_told = None
+            raise
+        except Exception:
+            # Delivery may be uncertain. The receipt stays in the ledger; a
+            # partly sent report is never repeated and no action is retried.
+            self._task_report_told = None
+            self._cancel_report_timeout()
+            self._report_state = ""
+            log.warning("Live report for %s could not be delivered", task.task_id, exc_info=True)
+        finally:
+            self._task_report_job = None
+        if not delivered:
+            if self._task_report_told is task:
+                self._task_report_told = None
+            if self._task_report_current(task):
+                # The floor closed in between; offered again at the next pause.
+                self._task_reports.insert(0, task)
+
+    async def _deliver_task_report(self, task: BackgroundTask) -> bool:
+        if not self._floor_open:
+            return False
+        result = dict(task.result or {})
+        take_images(result)
+        return await self._submit_report(
+            report_prompt(task, result, language=self._language), {"task_report": True}
+        )
+
+    def _report_floor(self, kwargs: dict[str, Any]) -> bool:
+        """Whether this report may start now; a task report holds the floor it took."""
+        return self._floor_open if kwargs.get("task_report") else self.ready_for_report
 
     def _track_job(self, task: asyncio.Task) -> None:
         """Keep a tool task; a finished task may open the floor for a report."""
@@ -1485,7 +1629,7 @@ class LiveVoiceSession:
                     arguments = json.loads(item["arguments"])
                     if not isinstance(arguments, dict):
                         raise ValueError("Expected object arguments")
-                    result = await self._tools.execute(
+                    result = await self._tools.execute_releasable(
                         f"{self._wire_epoch}:{item['call_id']}", item["name"], arguments, revision
                     )
                 except (ValueError, TypeError):  # The tool receives an invalid-arguments result.
@@ -1722,7 +1866,7 @@ class LiveVoiceSession:
         a turn is in flight — the caller parks it and retries at the next
         boundary — so it never talks over the user or a running answer.
         """
-        if not self.ready_for_report:
+        if not self._report_floor(kwargs):
             return False
         from jarvis.realtime.report_prompt import report_update_prompt
 
@@ -1733,6 +1877,15 @@ class LiveVoiceSession:
             language=language,
             kind=str(kwargs.get("spoken_kind") or "completion"),
         )
+        return await self._submit_report(prompt, kwargs)
+
+    async def _submit_report(self, prompt: str, kwargs: dict[str, Any]) -> bool:
+        """Put one report prompt on the wire; the caller checked the floor.
+
+        ``kwargs["task_report"]`` marks a background task's own receipt: the
+        model may then finish what the user had waiting on it.
+        """
+        del kwargs  # the backend of this wire always holds its tools
         # Marked before the wire: the model's answer can arrive while the
         # send is still being awaited, and must count as this report's.
         self._report_sent()
@@ -1894,10 +2047,10 @@ class LiveVoiceSession:
                         duration_s=self._voice_seconds,
                     )
                 )
-            if self._jobs:
+            if self._jobs or self._background_work:
                 from jarvis.live.runtime import retain_work
 
-                retain_work(tuple(self._jobs), self._ledger)
+                retain_work((*self._jobs, *self._background_work), self._ledger)
             else:
                 await asyncio.to_thread(self._ledger.close)
         self._closed.set()

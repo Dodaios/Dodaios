@@ -22,6 +22,7 @@ from jarvis.live.product import PRODUCT_BRIEF
 from jarvis.live.runtime import claim, register, unregister
 from jarvis.live.session import LiveVoiceSession, _identity
 from jarvis.live.state import LiveLedger, TranscriptFragment
+from jarvis.live.tasks import BackgroundTask, report_prompt
 from jarvis.live.tools import LiveTools, take_images
 from jarvis.realtime.audio import StreamingPcm16Resampler
 from jarvis.realtime.protocol import RealtimeSessionConfig, RealtimeUnavailableError
@@ -39,9 +40,10 @@ _DUPLEX_REFUSAL_FALLBACK = "The selected voice engine cannot take a call right n
 # attribute so tests can pin it low.
 _TOOL_DEADLINE_S = VOICE_TOOL_BUDGET_S
 # Session built-ins of ``LiveTools``: always declared, whatever the budget.
-_SESSION_TOOLS = frozenset(
-    {"end_call", "discover_tools", "call_tool", "confirm_action", "computer", "take_appshot"}
-)
+_SESSION_TOOLS = frozenset({
+    "end_call", "discover_tools", "call_tool", "confirm_action", "task_status",
+    "computer", "take_appshot",
+})
 # Under a declaration budget (a provider's ``tool_declaration_budget_tokens``
 # or ``[voice].realtime_tool_declaration_budget_tokens``, the smaller wins), at
 # most this many catalog tools are declared directly; every other tool stays
@@ -111,7 +113,6 @@ class NativeLiveVoiceSession(LiveVoiceSession):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._late_tool_results: list[tuple[int, int, str, dict]] = []
         self._native_turn_complete = True
 
     async def _start(self, message: dict) -> None:
@@ -574,24 +575,17 @@ class NativeLiveVoiceSession(LiveVoiceSession):
     async def _call(self, event: Any, revision: int) -> None:
         assert self._tools is not None
         try:
-            work = asyncio.ensure_future(
-                self._tools.execute(
-                    f"{self._wire_epoch}:{event.call_id or uuid4()}",
-                    event.tool_name,
-                    event.tool_args or {},
-                    revision,
-                )
+            # The live model is blocked on this call. It is released with a
+            # pending receipt once the call outlasts the voice budget, or once
+            # the user moves on while an action still runs; the tool itself
+            # finishes as a background task and keeps its receipt.
+            result = await self._tools.execute_releasable(
+                f"{self._wire_epoch}:{event.call_id or uuid4()}",
+                event.tool_name,
+                event.tool_args or {},
+                revision,
+                deadline_s=_TOOL_DEADLINE_S,
             )
-            try:
-                # ``shield``: the deadline releases the LIVE MODEL, never the
-                # tool; an action mid-flight finishes and keeps its receipt.
-                result = await asyncio.wait_for(asyncio.shield(work), _TOOL_DEADLINE_S)
-            except asyncio.CancelledError:
-                work.cancel()  # cancelling the call still cancels its tool, as before
-                raise
-            except TimeoutError:  # a slow tool is released, not dropped
-                self._native_turn_complete = False  # The pending answer starts another response.
-                result = self._release_slow_tool(work, str(event.tool_name or ""), revision)
             if self._closing:
                 return
             result = await self._send_tool_images(result)
@@ -631,111 +625,37 @@ class NativeLiveVoiceSession(LiveVoiceSession):
         return result
 
     def _notify_pause(self) -> None:
-        # The original function call already received its pending answer. Its
-        # final receipt is a new report at a pause, never a second function
-        # response and never a repeated action. A changed request/connection
-        # invalidates the queued report; the durable ledger still keeps it.
         if self._native_turn_complete and not self._has_pending_work():
             self._thinking = False
-        if self._tools is not None:
-            self._late_tool_results = [
-                item for item in self._late_tool_results
-                if item[0] == self._wire_epoch and item[1] == self._tools.revision
-                and not self._tools.cancel_token.is_cancelled()
-            ]
-        if self._late_tool_results and self.ready_for_report:
-            item = self._late_tool_results.pop(0)
-            self._report_sent()  # Reserve the pause before any asynchronous send.
-            task = asyncio.create_task(self._report_late_tool(item), name="native-tool-report")
-            self._control_tasks.add(task)
-            task.add_done_callback(self._control_tasks.discard)
-            return
         super()._notify_pause()
 
-    async def _report_late_tool(self, item: tuple[int, int, str, dict]) -> None:
-        from jarvis.realtime.report_prompt import report_update_prompt
+    async def _deliver_task_report(self, task: BackgroundTask) -> bool:
+        # The original function call already received its pending answer. The
+        # final receipt is a new report at a pause, never a second function
+        # response and never a repeated action; its screenshot goes first.
+        if not self._floor_open:
+            return False
+        result = await self._send_tool_images(dict(task.result or {}))
+        if not self._task_report_current(task):
+            return True  # Overtaken while the image went out; the ledger keeps it.
+        if not self._floor_open:
+            return False
+        return await self._submit_report(
+            "[Application event, not the user speaking]\n"
+            + report_prompt(task, result, language=self._language),
+            {"task_report": True},
+        )
 
-        epoch, revision, name, result = item
+    async def _submit_report(self, prompt: str, kwargs: dict[str, Any]) -> bool:
+        del kwargs  # a native model always holds its functions
+        self._report_sent()
         try:
-            if not self._late_tool_current(epoch, revision):
-                self._cancel_report_timeout()
-                self._report_state = ""
-                return
-            result = await self._send_tool_images(result)
-            if not self._late_tool_current(epoch, revision):
-                self._cancel_report_timeout()
-                self._report_state = ""
-                return
-            await self._connection.send_text(report_update_prompt(
-                f"The previously pending tool {name} has finished.",
-                json.dumps(result, ensure_ascii=False, default=str),
-                language=self._language,
-                kind="tool_completion",
-            ))
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            # Delivery may be uncertain. Keep the durable receipt, but never
-            # retry an action or automatically repeat a partially sent report.
+            await self._connection.send_text(prompt)
+        except BaseException:
             self._cancel_report_timeout()
             self._report_state = ""
-            log.warning("Late native tool report could not be delivered", exc_info=True)
-
-    def _late_tool_current(self, epoch: int, revision: int) -> bool:
-        return bool(
-            self.is_active and not self._recovering and not self._input_active
-            and epoch == self._wire_epoch and self._tools is not None
-            and revision == self._tools.revision and not self._tools.cancel_token.is_cancelled()
-        )
-
-    def _release_slow_tool(self, work: asyncio.Future, name: str, revision: int) -> dict:
-        """Answer the model honestly while the tool runs on in the background."""
-        started = time.monotonic()
-        epoch = self._wire_epoch
-        log.warning(
-            "Native tool %s still running after %.0fs; releasing the live model with a "
-            "pending result, the tool finishes in the background",
-            name,
-            _TOOL_DEADLINE_S,
-        )
-        # Kept in ``_jobs``: a call that ends now still waits for its receipt.
-        self._jobs.add(work)
-        work.add_done_callback(self._jobs.discard)
-
-        def _late(done: asyncio.Future) -> None:
-            waited_ms = round((time.monotonic() - started) * 1000)
-            if done.cancelled():
-                log.info("Late native tool %s was cancelled", name)
-            elif done.exception() is not None:
-                log.warning("Late native tool %s failed: %s", name, done.exception())
-            else:
-                outcome = done.result()
-                log.info(
-                    "Late native tool %s finished %d ms after its release (success=%s)",
-                    name,
-                    waited_ms,
-                    bool(isinstance(outcome, dict) and outcome.get("success")),
-                )
-                if isinstance(outcome, dict) and not self._closing:
-                    self._late_tool_results.append((epoch, revision, name, outcome))
-                    if len(self._late_tool_results) > 16:
-                        self._late_tool_results.pop(0)
-                        log.warning(
-                            "Late native tool report queue full; oldest receipt stays in ledger"
-                        )
-                    self._notify_pause()
-
-        work.add_done_callback(_late)
-        return {
-            "success": False,
-            "pending": True,
-            "error": (
-                f"This tool is still running after {_TOOL_DEADLINE_S:.0f} seconds and will "
-                "finish in the background. Tell the user in one short sentence that it is "
-                "taking longer than usual; do not call it again in this turn and do not "
-                "claim it is done."
-            ),
-        }
+            raise
+        return True
 
     async def handle_control(self, message: dict) -> None:
         if self._closing:
@@ -762,7 +682,7 @@ class NativeLiveVoiceSession(LiveVoiceSession):
             # The model reasons over the agent's full report before speaking
             # (``report_prompt``); refused mid-turn so the caller retries at
             # the next pause instead of talking over anyone.
-            if not self.ready_for_report:
+            if not self._report_floor(kwargs):
                 return False
             from jarvis.realtime.report_prompt import report_update_prompt
 
@@ -772,14 +692,7 @@ class NativeLiveVoiceSession(LiveVoiceSession):
                 language=str(kwargs.get("language") or self._language),
                 kind=str(kwargs.get("spoken_kind") or "completion"),
             )
-            self._report_sent()
-            try:
-                await self._connection.send_text(text)
-            except BaseException:
-                self._cancel_report_timeout()
-                self._report_state = ""
-                raise
-            return True
+            return await self._submit_report(text, kwargs)
         await self._connection.send_text(text)
         return True
 
@@ -808,7 +721,7 @@ class NativeLiveVoiceSession(LiveVoiceSession):
         self._stop_watching_input_mute()
         self._clear_media_levels()
         self._closing = True
-        self._late_tool_results.clear()
+        self._task_reports.clear()
         await self._publish_phase("idle")
         self._hangup_reason = reason
         unregister(self.session_id)
@@ -827,10 +740,10 @@ class NativeLiveVoiceSession(LiveVoiceSession):
             from jarvis.live.recording import archive_session
 
             await archive_session(self, reason)
-            if self._jobs:
+            if self._jobs or self._background_work:
                 from jarvis.live.runtime import retain_work
 
-                retain_work(tuple(self._jobs), self._ledger)
+                retain_work((*self._jobs, *self._background_work), self._ledger)
             else:
                 await asyncio.to_thread(self._ledger.close)
         self._closed.set()

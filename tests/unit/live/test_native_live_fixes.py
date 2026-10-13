@@ -300,17 +300,17 @@ async def test_slow_tool_releases_the_model_with_an_honest_pending_result(
         _, _, result = connection.tool_results[0]
         assert result["pending"] is True and result["success"] is False
         assert "still running" in result["error"]
+        assert result["task_id"] == "task-1"
         assert gateway.finished == []  # the tool itself was not cancelled
-        assert session._has_pending_work()  # its receipt is still owed
+        assert session._background_work  # it runs on as a background task
+        assert not session._has_pending_work()  # and holds no other report up
         release.set()
         # Await the released work itself instead of polling a wall clock: its
         # receipt lands after the tool body returns, which a loaded Windows CI
         # runner can stretch past half a second.
-        await asyncio.wait_for(
-            asyncio.gather(*[job for job in session._jobs if not job.done()]), _HANG_GUARD_S
-        )
+        await asyncio.wait_for(asyncio.gather(*session._background_work), _HANG_GUARD_S)
         assert gateway.finished == ["search_web"]
-        assert not session._has_pending_work()
+        assert not session._background_work
         assert len(connection.tool_results) == 1  # the late result is not re-sent
     finally:
         session._ledger.close()
@@ -398,7 +398,9 @@ async def test_late_computer_receipt_and_image_reach_the_model_at_a_pause(
         assert connection.tool_results[0][2]["pending"] is True
         # The pending spoken answer must finish before its final result interrupts it.
         release.set()
-        await asyncio.wait_for(asyncio.gather(*session._jobs), _HANG_GUARD_S)
+        await asyncio.wait_for(
+            asyncio.gather(*session._jobs, *session._background_work), _HANG_GUARD_S
+        )
         assert "send_image" not in connection.names()
         assert "send_text" not in connection.names()
         await session._native_event(RealtimeEvent(type="turn_complete"))
@@ -433,7 +435,9 @@ async def test_computer_finishing_after_pending_speech_wakes_its_report(
         await session._native_event(RealtimeEvent(type="turn_complete"))
         session._input_active = True
         release.set()
-        await asyncio.wait_for(asyncio.gather(*session._jobs), _HANG_GUARD_S)
+        await asyncio.wait_for(
+            asyncio.gather(*session._jobs, *session._background_work), _HANG_GUARD_S
+        )
         await _settle(session)
         assert "send_text" not in connection.names()  # The person is speaking.
         session._input_active = False
@@ -460,7 +464,7 @@ async def test_late_computer_report_waits_for_other_pending_work(
     try:
         await session._call(_screen_call(), 0)
         await session._native_event(RealtimeEvent(type="turn_complete"))
-        work = tuple(job for job in session._jobs if job is not other)
+        work = tuple(session._background_work)
         release.set()
         await asyncio.wait_for(asyncio.gather(*work), _HANG_GUARD_S)
         assert "send_text" not in connection.names()
@@ -501,7 +505,9 @@ async def test_late_computer_never_revives_an_obsolete_request(
         else:
             session._closing = True
         release.set()
-        await asyncio.wait_for(asyncio.gather(*session._jobs), _HANG_GUARD_S)
+        await asyncio.wait_for(
+            asyncio.gather(*session._jobs, *session._background_work), _HANG_GUARD_S
+        )
         await _settle(session)
         assert "send_image" not in connection.names()
         assert "send_text" not in connection.names()
@@ -549,9 +555,10 @@ async def test_declarations_respect_the_providers_budget(call, make_provider):
     try:
         tools = provider.opened_with[0].tools
         names = [tool["name"] for tool in tools]
-        for builtin in ("end_call", "discover_tools", "call_tool", "confirm_action"):
+        builtins = ("end_call", "discover_tools", "call_tool", "confirm_action", "task_status")
+        for builtin in builtins:
             assert builtin in names
-        described = [tool["description"].split(": ", 1)[0] for tool in tools[4:]]
+        described = [tool["description"].split(": ", 1)[0] for tool in tools[len(builtins):]]
         if provider.tool_declaration_budget_tokens:
             assert len(json.dumps(tools)) <= provider.tool_declaration_budget_tokens * 4
             assert len(described) <= native._DIRECT_TOOL_LIMIT
