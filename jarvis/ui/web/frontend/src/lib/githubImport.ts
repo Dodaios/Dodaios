@@ -11,8 +11,6 @@
  * for the submit endpoint, and this browser is only reading public files.
  */
 
-import { usageCardPaths } from "@/lib/extensionNamespace";
-
 const API = "https://api.github.com";
 const UA_HEADERS = { Accept: "application/vnd.github+json" };
 
@@ -110,13 +108,10 @@ export async function scanRepo(owner: string, repo: string, branch: string): Pro
 
   const candidates: RepoCandidate[] = pluginDirs.map((dir) => {
     const prefix = dir ? `${dir}/` : "";
-    // The usage card sits in the extension directory, whose name changed with
-    // the product's: take the first one the package actually has.
-    const usageCard = usageCardPaths(prefix).find((p) => pathSet.has(p));
     const wanted = [
       `${prefix}plugin.json`,
       `${prefix}mcp.json`,
-      ...(usageCard ? [usageCard] : []),
+      `${prefix}io.github.personaljarvis/usage-card.md`,
     ].filter((p) => pathSet.has(p));
     const skillMds = paths.filter((p) => p.startsWith(`${prefix}skills/`) && p.endsWith("/SKILL.md"));
     return { dir, kind: "plugin", paths: [...wanted, ...skillMds.slice(0, 10)] };
