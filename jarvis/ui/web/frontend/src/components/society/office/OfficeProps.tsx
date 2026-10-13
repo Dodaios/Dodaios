@@ -21,6 +21,8 @@ import { WARDROBE_RENDERERS } from "./WardrobeRoom";
 import { LOBBY_RENDERERS } from "./LobbyDecor";
 import { SPAWN_RENDERERS } from "./SpawnPoint";
 import { LEVEL_HALL_RENDERERS } from "./LevelHall";
+import { STUDIO_RENDERERS } from "./StudioBoard";
+import { StaticBatch } from "./StaticBatch";
 import { ARCADE_RENDERERS } from "../arcade/ArcadeHallProps";
 import { MeetingChair } from "./OfficeChairs";
 import { Bookshelf, Box, Couch, GEO, MAT, matte, Plant, Rounded, Rug } from "./OfficeFurniture";
@@ -569,15 +571,20 @@ export const PROP_RENDERERS: Record<FurnitureKind, (props: { item: Furniture }) 
   ...LOBBY_RENDERERS,
   ...SPAWN_RENDERERS,
   ...LEVEL_HALL_RENDERERS,
+  ...STUDIO_RENDERERS,
   ...ARCADE_RENDERERS,
 };
 
-/** One furniture item, placed at (x, 0, z) and turned by `rotationY` (0 = front faces +z). */
-export const FurniturePiece = memo(function FurniturePiece({ item }: { item: Furniture }) {
+/**
+ * One furniture item, placed at (x, 0, z) and turned by `rotationY` (0 = front faces +z). `merged` draws the
+ * piece as a few merged meshes that stay inside its own named group: for a piece that must remain an object of
+ * its own (a station lights up through the meshes under its group) but is as static as any other.
+ */
+export const FurniturePiece = memo(function FurniturePiece({ item, merged = false }: { item: Furniture; merged?: boolean }) {
   const Render = PROP_RENDERERS[item.kind];
   return (
     <group position={[item.x, 0, item.z]} rotation={[0, item.rotationY, 0]} name={`prop:${item.id}`}>
-      <Render item={item} />
+      {merged ? <StaticBatch signature={item.id} keepFlat><Render item={item} /></StaticBatch> : <Render item={item} />}
     </group>
   );
 });

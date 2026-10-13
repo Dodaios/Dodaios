@@ -16131,3 +16131,34 @@ does (`tests/unit/speech/conftest.py`), so a developer's real key no longer
 flips desktop-path tests. Guards: `tests/unit/realtime/test_factory.py`,
 `tests/unit/web/test_voice_mode_route.py`,
 `tests/unit/speech/test_realtime_mode.py`.
+
+## BUG-233: every program start from the app failed with WinError 8 once its PATH grew too long (HIGH, FIXED 2026-10-13)
+
+**Symptom.** On Windows an agent chat answered `Could not start codex-cli:
+[WinError 8] Not enough memory resources are available to process this
+command`, the Codex brain logged `CodexBrain CLI: spawn failed` with the same
+error, and the install test on the provider card said the Codex install looks
+broken. The same `codex` ran fine from a terminal, with the npm launcher and
+with the native binary alike (GitHub issue #574). Nothing was short of memory.
+
+**Cause.** For each `CreateProcess` Windows builds one search path from the
+application directory, the system directories and the calling process's
+`PATH`, in a string that holds 32,767 characters. When that overflows, every
+spawn of the process fails with `ERROR_NOT_ENOUGH_MEMORY`, whatever is started
+and whatever environment the child is given; a child that is handed such a
+PATH exits with `STATUS_NO_MEMORY` during its own start-up. Measured on
+Windows 11: with a 26-character application directory the last working PATH is
+32,688 characters and the first failing one 32,689. `ensure_cli_paths` and
+`refresh_from_persistent_path` appended CLI install folders to the app's own
+PATH with no upper bound, and neither looked at the length they inherited.
+
+**Fix.** `jarvis/core/path_augment.py` writes PATH through one bounded writer
+(`_store_path`, budget `_WINDOWS_PATH_BUDGET` = 31,000 characters, Windows
+only). Past the budget `fit_path_entries` gives up empty and repeated entries
+first, then folders that do not exist, then real folders from the end, and a
+CLI folder that still does not fit is left out with a warning. A PATH that is
+already too long when the app starts is repaired by the same call at boot. The
+Codex install test now reports the system's own refusal instead of a broken
+install (`codex_auth.version_spawn_error`). Guards:
+`tests/unit/core/test_path_augment.py` (including a real spawn past the limit
+on Windows), `tests/unit/test_agent_cli_probe.py`.

@@ -39,3 +39,68 @@ export function* bodiesExcept(selfId: string | null, player: Point | null): Gene
  * each frame; the level system's cosmetics and celebrations follow it.
  */
 export const petBody = { x: 0, z: 0, y: 0, top: 0.5, sizeM: 0.5, active: false };
+
+/**
+ * The bodies within `radius` of `at`, without `selfId`: what a walker steers round. Fills and returns `out`,
+ * so a walker reuses one array instead of allocating a list of the whole floor every frame.
+ */
+export function bodiesNear(selfId: string | null, at: Point, radius: number, player: Point | null, out: Point[] = []): Point[] {
+  out.length = 0;
+  // The same bodies as `bodiesExcept`, walked in place: this runs for every walker on every frame.
+  for (const [id, p] of agentPositions) {
+    if (id !== selfId && !companions.has(id) && Math.abs(p.x - at.x) <= radius && Math.abs(p.z - at.z) <= radius) out.push(p);
+  }
+  for (const [id, p] of extraBodies) {
+    if (id !== selfId && Math.abs(p.x - at.x) <= radius && Math.abs(p.z - at.z) <= radius) out.push(p);
+  }
+  if (player && Math.abs(player.x - at.x) <= radius && Math.abs(player.z - at.z) <= radius) out.push(player);
+  return out;
+}
+
+/** Write where an agent stands; its entry is moved in place, so a frame of forty walkers allocates nothing. */
+export function placeAgent(agentId: string, x: number, z: number): void {
+  const at = agentPositions.get(agentId);
+  if (at) { at.x = x; at.z = z; } else agentPositions.set(agentId, { x, z });
+}
+
+/** What one walker is doing right now, for the dev handle (`window.__officeLife`); written in development builds only. */
+export interface WalkerDebug {
+  id: string;
+  name: string;
+  state: string;
+  /** The team whose studio the agent sits in; null = the pool, or a floor without studios. */
+  team: string | null;
+  studio: string | null;
+  /** Its part in a running round of its team: none, gather, speaker or busy. */
+  role: string;
+  plan: string | null;
+  phase: "travel" | "dwell";
+  target: Point | null;
+  spot: string | null;
+  with: string | null;
+  at: Point;
+  /** Waypoints and metres left on the current walk. */
+  pathLength: number;
+  remainingM: number;
+  /**
+   * The current walk by the walker's own clock (the frame time it was actually given, not wall time and not
+   * what a stepping script assumes): seconds walked so far and the average speed along the route in m/s.
+   * Both are 0 while it stands.
+   */
+  walkS: number;
+  speed: number;
+  /** Seconds without progress on the current walk (the stuck watch). */
+  stuckS: number;
+  /**
+   * Since the walker mounted: detours round a body, safe placements, route repairs, arrivals beside an occupied
+   * place, walks given up because the way stayed closed, targets a new floor plan walled off.
+   */
+  replans: number;
+  rescues: number;
+  repaths: number;
+  near: number;
+  blocked: number;
+  lost: number;
+}
+
+export const walkerDebug = new Map<string, WalkerDebug>();

@@ -11,8 +11,9 @@
  * singletons and materials are cached by colour, so twenty figures share them;
  * the frame loop allocates nothing.
  */
-import { type ReactNode, useMemo, useRef, type MutableRefObject } from "react";
+import { isValidElement, type ReactNode, useMemo, useRef, type MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
+import { StaticBatch } from "./StaticBatch";
 import {
   BoxGeometry, CapsuleGeometry, Color, ConeGeometry, CylinderGeometry, MeshBasicMaterial, MeshStandardMaterial,
   SphereGeometry, TorusGeometry, type Group,
@@ -32,32 +33,34 @@ const HD = TOY.head;
 /** The forearm tapers a little below the upper arm towards the wrist. */
 const FORE_RADIUS = TOY.armRadius - 0.006;
 
+// Tessellation is sized for a figure a few centimetres tall on screen: a floor of forty figures draws each of
+// these shapes forty times, twice with the shadow pass.
 const GEO = {
-  sphere: new SphereGeometry(1, 40, 28),
+  sphere: new SphereGeometry(1, 28, 18),
   lowSphere: new SphereGeometry(1, 16, 12),
   /** Upper half of a sphere, reaching slightly past the equator: hair caps and hats. */
-  dome: new SphereGeometry(1, 40, 18, 0, Math.PI * 2, 0, Math.PI * 0.56),
-  pelvis: new RoundedBoxGeometry(TOY.pelvis.w, TOY.pelvis.h, TOY.pelvis.d, 3, 0.05),
-  chest: new RoundedBoxGeometry(TOY.torso.w, TOY.torso.h - 0.02, TOY.torso.d, 3, 0.08),
+  dome: new SphereGeometry(1, 28, 12, 0, Math.PI * 2, 0, Math.PI * 0.56),
+  pelvis: new RoundedBoxGeometry(TOY.pelvis.w, TOY.pelvis.h, TOY.pelvis.d, 2, 0.05),
+  chest: new RoundedBoxGeometry(TOY.torso.w, TOY.torso.h - 0.02, TOY.torso.d, 2, 0.08),
   thigh: new CapsuleGeometry(TOY.legRadius, 0.12, 4, 10),
   shin: new CapsuleGeometry(0.056, 0.1, 4, 10),
   // Each limb capsule overshoots its joint, so the rounded ends overlap into a closed elbow at any bend.
-  upperArm: new CapsuleGeometry(TOY.armRadius, TOY.upperArm - 0.04, 6, 16),
-  foreArm: new CapsuleGeometry(FORE_RADIUS, TOY.foreArm - 0.05, 6, 16),
+  upperArm: new CapsuleGeometry(TOY.armRadius, TOY.upperArm - 0.04, 4, 12),
+  foreArm: new CapsuleGeometry(FORE_RADIUS, TOY.foreArm - 0.05, 4, 12),
   /** A short T-shirt sleeve, slightly flared, hanging from the shoulder cap. */
-  sleeve: new CylinderGeometry(TOY.armRadius + 0.011, TOY.armRadius + 0.016, 0.075, 24),
-  cuff: new CylinderGeometry(FORE_RADIUS + 0.007, FORE_RADIUS + 0.007, 0.024, 24),
-  shoe: new RoundedBoxGeometry(0.13, 0.075, TOY.heel + TOY.toe + 0.01, 3, 0.034),
+  sleeve: new CylinderGeometry(TOY.armRadius + 0.011, TOY.armRadius + 0.016, 0.075, 16),
+  cuff: new CylinderGeometry(FORE_RADIUS + 0.007, FORE_RADIUS + 0.007, 0.024, 16),
+  shoe: new RoundedBoxGeometry(0.13, 0.075, TOY.heel + TOY.toe + 0.01, 2, 0.034),
   sole: new RoundedBoxGeometry(0.136, 0.022, TOY.heel + TOY.toe + 0.018, 2, 0.01),
   smile: new TorusGeometry(0.042, 0.009, 6, 14, Math.PI),
   spike: new ConeGeometry(0.065, 0.16, 6),
   brim: new RoundedBoxGeometry(0.3, 0.022, 0.17, 2, 0.01),
   /** A band of hair around the back and sides, from just above the equator down: the hair a hat leaves visible. */
-  hairBand: new SphereGeometry(1, 40, 14, Math.PI * 0.92, Math.PI * 1.16, Math.PI * 0.46, Math.PI * 0.3),
+  hairBand: new SphereGeometry(1, 28, 10, Math.PI * 0.92, Math.PI * 1.16, Math.PI * 0.46, Math.PI * 0.3),
   /** A unit triangular pyramid, one flat face towards +z, tip up: a jacket's V-opening (scaled, turned tip down). */
   wedge: new ConeGeometry(1, 1, 3, 1, false, Math.PI),
   box: new BoxGeometry(1, 1, 1),
-  collar: new CylinderGeometry(0.085, 0.097, 1, 24),
+  collar: new CylinderGeometry(0.085, 0.097, 1, 16),
   pocket: new RoundedBoxGeometry(0.2, 0.07, 0.02, 2, 0.01),
   lens: new TorusGeometry(0.047, 0.008, 8, 24),
 };
@@ -139,7 +142,7 @@ function Face({ look }: { look: ToyLook }) {
         );
       })}
       {[-1, 1].map((sx) => (
-        <mesh key={`e${sx}`} geometry={GEO.sphere} material={skin} position={[sx * (HD.rx - 0.012), HD.y - 0.02, -0.01]} scale={[0.03, 0.058, 0.045]} castShadow />
+        <mesh key={`e${sx}`} geometry={GEO.sphere} material={skin} position={[sx * (HD.rx - 0.012), HD.y - 0.02, -0.01]} scale={[0.03, 0.058, 0.045]} />
       ))}
     </group>
   );
@@ -416,11 +419,11 @@ function OutfitDetails({ look }: { look: ToyLook }) {
         </group>
       );
     case "turtleneck":
-      return <mesh geometry={GEO.collar} material={garment(look, look.shirt)} position={[0, 0.29, 0]} scale={[1, 0.075, 1]} castShadow />;
+      return <mesh geometry={GEO.collar} material={garment(look, look.shirt)} position={[0, 0.29, 0]} scale={[1, 0.075, 1]} />;
     case "quarterzip":
       return (
         <group>
-          <mesh geometry={GEO.collar} material={garment(look, look.shirt)} position={[0, 0.285, 0]} scale={[1.04, 0.055, 1.04]} castShadow />
+          <mesh geometry={GEO.collar} material={garment(look, look.shirt)} position={[0, 0.285, 0]} scale={[1.04, 0.055, 1.04]} />
           <mesh geometry={GEO.box} material={METAL} position={[0, 0.25, FRONT - 0.01]} rotation={[-0.45, 0, 0]} scale={[0.008, 0.09, 0.01]} />
           <mesh geometry={GEO.box} material={METAL} position={[0.012, 0.21, FRONT + 0.004]} scale={[0.012, 0.022, 0.006]} />
         </group>
@@ -429,7 +432,7 @@ function OutfitDetails({ look }: { look: ToyLook }) {
       return (
         <group>
           {/* The hood lies folded behind the neck. */}
-          <mesh geometry={GEO.sphere} material={garment(look, look.shirt)} position={[0, 0.275, -0.07]} scale={[0.15, 0.065, 0.085]} castShadow />
+          <mesh geometry={GEO.sphere} material={garment(look, look.shirt)} position={[0, 0.275, -0.07]} scale={[0.15, 0.065, 0.085]} />
           {[-1, 1].map((sx) => (
             <mesh key={sx} geometry={GEO.box} material={accent} position={[sx * 0.035, 0.22, FRONT - 0.002]} rotation={[-0.3, 0, 0]} scale={[0.009, 0.075, 0.009]} />
           ))}
@@ -484,7 +487,7 @@ function UniformDetails({ look, u }: { look: ToyLook; u: UniformStyle }) {
     case "field":
       return (
         <group>
-          <mesh geometry={GEO.collar} material={garment(look, u.coat)} position={[0, 0.287, 0]} scale={[1.05, 0.06, 1.05]} castShadow />
+          <mesh geometry={GEO.collar} material={garment(look, u.coat)} position={[0, 0.287, 0]} scale={[1.05, 0.06, 1.05]} />
           <mesh geometry={GEO.box} material={garment(look, mix(u.coat, "#000000", 0.1))} position={[0.008, 0.15, FRONT + 0.004]} scale={[0.026, 0.25, 0.008]} />
           {Array.from({ length: 4 }, (_, i) => (
             <mesh key={i} geometry={GEO.lowSphere} material={metal} position={[0.008, 0.23 - i * 0.055, FRONT + 0.009]} scale={[0.007, 0.007, 0.004]} />
@@ -564,8 +567,10 @@ type JointRef = MutableRefObject<Group | null>;
  * sleeve over a bare arm; every other outfit has long sleeves ending in a cuff
  * at the wrist (a vest shows the shirt's sleeves, a suit the shirt cuff).
  */
-function Arm({ side, look, shoulder, elbow, holding, sleeve }: {
+function Arm({ side, look, shoulder, elbow, holding, sleeve, rigidKey }: {
   side: 1 | -1; look: ToyLook; shoulder: JointRef; elbow: JointRef; holding?: ReactNode; sleeve?: ReactNode;
+  /** Names the look and what is worn: each rigid half of the arm is baked again when it changes. */
+  rigidKey: string;
 }) {
   const skin = matte(look.skin);
   const sleeveColour = look.outfit === "vest" && !look.uniform ? look.inner : look.shirt;
@@ -578,18 +583,24 @@ function Arm({ side, look, shoulder, elbow, holding, sleeve }: {
   const hand = -TOY.foreArm - 0.006;
   return (
     <group ref={shoulder} position={[side * TOY.shoulderX, TOY.shoulderY, 0]}>
-      {/* Shoulder cap, pulled in towards the chest so it rounds off the torso's corner instead of perching on it. */}
-      <mesh geometry={GEO.sphere} material={cloth} position={[-side * 0.008, -0.004, 0]} scale={[TOY.armRadius + 0.012, TOY.armRadius + 0.008, TOY.armRadius + 0.012]} castShadow />
-      {!long && <mesh geometry={GEO.sleeve} material={cloth} position={[0, -0.045, 0]} castShadow />}
-      <mesh geometry={GEO.upperArm} material={long ? cloth : skin} position={[0, -TOY.upperArm / 2, 0]} castShadow />
-      {/* A rank patch on the outer face of the upper sleeve, bent round the arm. */}
-      {sleeve && <group position={[side * (TOY.armRadius + 0.001), -0.088, 0]} rotation={[0, side * Math.PI / 2, 0]}>{sleeve}</group>}
+      {/* Each half of the arm is rigid between its joints, so it is drawn merged, in the joint's own frame. */}
+      <StaticBatch signature={rigidKey} castAsOne>
+        {/* Shoulder cap, pulled in towards the chest so it rounds off the torso's corner instead of perching on it. */}
+        <mesh geometry={GEO.sphere} material={cloth} position={[-side * 0.008, -0.004, 0]} scale={[TOY.armRadius + 0.012, TOY.armRadius + 0.008, TOY.armRadius + 0.012]} castShadow />
+        {!long && <mesh geometry={GEO.sleeve} material={cloth} position={[0, -0.045, 0]} />}
+        <mesh geometry={GEO.upperArm} material={long ? cloth : skin} position={[0, -TOY.upperArm / 2, 0]} castShadow />
+        {/* A rank patch on the outer face of the upper sleeve, bent round the arm. */}
+        {sleeve && <group position={[side * (TOY.armRadius + 0.001), -0.088, 0]} rotation={[0, side * Math.PI / 2, 0]}>{sleeve}</group>}
+      </StaticBatch>
       <group ref={elbow} position={[0, -TOY.upperArm, 0]}>
-        <mesh geometry={GEO.foreArm} material={long ? cloth : skin} position={[0, -TOY.foreArm / 2 + 0.01, 0]} castShadow />
-        {long && <mesh geometry={GEO.cuff} material={cuff} position={[0, hand + 0.052, 0]} />}
-        {/* Mitten hand: a soft paddle, palm turned towards the body, with a thumb pointing forward. */}
-        <mesh geometry={GEO.sphere} material={skin} position={[0, hand, 0.004]} scale={[TOY.handRadius * 0.82, TOY.handRadius * 1.08, TOY.handRadius * 0.95]} castShadow />
-        <mesh geometry={GEO.lowSphere} material={skin} position={[-side * 0.03, hand + 0.018, 0.034]} rotation={[0.5, 0, side * 0.45]} scale={[0.02, 0.03, 0.02]} castShadow />
+        <StaticBatch signature={rigidKey} castAsOne>
+          <mesh geometry={GEO.foreArm} material={long ? cloth : skin} position={[0, -TOY.foreArm / 2 + 0.01, 0]} castShadow />
+          {long && <mesh geometry={GEO.cuff} material={cuff} position={[0, hand + 0.052, 0]} />}
+          {/* Mitten hand: a soft paddle, palm turned towards the body, with a thumb pointing forward. */}
+          <mesh geometry={GEO.sphere} material={skin} position={[0, hand, 0.004]} scale={[TOY.handRadius * 0.82, TOY.handRadius * 1.08, TOY.handRadius * 0.95]} castShadow />
+          <mesh geometry={GEO.lowSphere} material={skin} position={[-side * 0.03, hand + 0.018, 0.034]} rotation={[0.5, 0, side * 0.45]} scale={[0.02, 0.03, 0.02]} />
+        </StaticBatch>
+        {/* Whatever the hand holds comes and goes, so it stays a part of its own. */}
         {holding && <group position={[0, hand - 0.01, 0.03]}>{holding}</group>}
       </group>
     </group>
@@ -611,7 +622,7 @@ function Leg({ side, look, hip, knee, ankle }: { side: 1 | -1; look: ToyLook; hi
         {stripe && <mesh geometry={GEO.box} material={stripe} position={[side * 0.054, -TOY.shin / 2 + 0.005, 0]} scale={[0.006, TOY.shin + 0.04, 0.018]} />}
         <group ref={ankle} position={[0, -TOY.shin, 0]}>
           <mesh geometry={GEO.shoe} material={matte(look.shoes, dress ? 0.3 : 0.6)} position={[0, -TOY.sole + 0.0425, (TOY.toe - TOY.heel) / 2]} castShadow />
-          <mesh geometry={GEO.sole} material={sole} position={[0, -TOY.sole + 0.011, (TOY.toe - TOY.heel) / 2]} castShadow />
+          <mesh geometry={GEO.sole} material={sole} position={[0, -TOY.sole + 0.011, (TOY.toe - TOY.heel) / 2]} />
         </group>
       </group>
     </group>
@@ -657,6 +668,42 @@ export interface FigureRegalia {
   hat?: ReactNode;
 }
 
+const identities = new WeakMap<object, number>();
+let lastIdentity = 0;
+/** A number for an object that has no content to name it by (a component, a material): the same object, the same number. */
+function identityOf(value: object): number {
+  let id = identities.get(value);
+  if (id === undefined) {
+    lastIdentity += 1;
+    id = lastIdentity;
+    identities.set(value, id);
+  }
+  return id;
+}
+
+/**
+ * A name for what a piece of JSX draws, by content: its element types, keys
+ * and props all the way down. Two renders of the same regalia are new objects
+ * with the same name, so the figure's merged parts are not baked again for
+ * them. Components, functions and class instances (materials, geometries)
+ * count as themselves.
+ */
+export function contentKey(node: unknown, depth = 0): string {
+  if (node === null || node === undefined || typeof node === "boolean") return "";
+  if (typeof node !== "object" && typeof node !== "function") return String(node);
+  if (typeof node === "function" || depth > 16) return `@${identityOf(node)}`;
+  if (Array.isArray(node)) return `[${node.map((item) => contentKey(item, depth + 1)).join(",")}]`;
+  if (isValidElement(node)) {
+    const type: unknown = node.type;
+    const name = typeof type === "string" ? type : typeof type === "symbol" ? String(type) : `@${identityOf(type as object)}`;
+    return `<${name}${node.key === null ? "" : `#${node.key}`} ${contentKey(node.props, depth + 1)}>`;
+  }
+  const proto: unknown = Object.getPrototypeOf(node);
+  if (proto !== Object.prototype && proto !== null) return `@${identityOf(node)}`;
+  const record = node as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${key}:${contentKey(record[key], depth + 1)}`).join(",")}}`;
+}
+
 /** Where a shoulder piece rests on the torso: over the shoulder cap, sloping down outward. */
 const SHOULDER_REST = { x: 0.15, y: 0.288, slope: 0.22 };
 
@@ -677,6 +724,15 @@ export function ToyFigure({ look, drive, paused, heightM = TOY_HEIGHT, seatHeigh
   const rKnee = useRef<Group>(null);
   const lAnkle = useRef<Group>(null);
   const rAnkle = useRef<Group>(null);
+
+  // The head, the torso and each half of an arm are rigid: everything on them (face, hair, hat, collar, pockets,
+  // insignia, sleeve, cuff, hand) is drawn as a few merged meshes instead of three dozen, and baked again whenever
+  // the look or what is worn changes. What is worn is named by its content: the level store hands out new JSX for
+  // the same regalia with every snapshot it reads, and that must not bake every dressed figure again.
+  const lookKey = useMemo(() => JSON.stringify(look), [look]);
+  const hat = regalia?.hat, chest = regalia?.chest, shoulder = regalia?.shoulder, sleeve = regalia?.sleeve;
+  const wornKey = useMemo(() => contentKey([hat, chest, shoulder, sleeve]), [hat, chest, shoulder, sleeve]);
+  const rigidKey = `${lookKey}#${wornKey}#${mannequin ? 1 : 0}`;
 
   const state = useMemo(() => ({
     time: Math.random() * 10, // desynchronise idle loops between figures
@@ -753,23 +809,27 @@ export function ToyFigure({ look, drive, paused, heightM = TOY_HEIGHT, seatHeigh
         <Leg side={1} look={look} hip={lHip} knee={lKnee} ankle={lAnkle} />
         <Leg side={-1} look={look} hip={rHip} knee={rKnee} ankle={rAnkle} />
         <group ref={torso} position={[0, TOY.hipUp, 0]}>
-          <mesh geometry={GEO.chest} material={garment(look, look.shirt)} position={[0, 0.02 + (TOY.torso.h - 0.02) / 2, 0]} castShadow />
-          {look.uniform ? <UniformDetails look={look} u={look.uniform} /> : <OutfitDetails look={look} />}
-          <mesh geometry={GEO.lowSphere} material={matte(look.skin)} position={[0, TOY.neckY - 0.01, 0]} scale={[0.07, 0.04, 0.07]} />
-          <Arm side={1} look={look} shoulder={lShoulder} elbow={lElbow} sleeve={regalia?.sleeve} />
-          <Arm side={-1} look={look} shoulder={rShoulder} elbow={rElbow} holding={holding} sleeve={regalia?.sleeve} />
-          {regalia?.shoulder && ([1, -1] as const).map((side) => (
-            <group key={side} position={[side * SHOULDER_REST.x, SHOULDER_REST.y, 0]} rotation={[0, side === 1 ? 0 : Math.PI, -SHOULDER_REST.slope]}>
-              {regalia.shoulder}
-            </group>
-          ))}
-          {regalia?.chest}
+          <StaticBatch signature={rigidKey}>
+            <mesh geometry={GEO.chest} material={garment(look, look.shirt)} position={[0, 0.02 + (TOY.torso.h - 0.02) / 2, 0]} castShadow />
+            {look.uniform ? <UniformDetails look={look} u={look.uniform} /> : <OutfitDetails look={look} />}
+            <mesh geometry={GEO.lowSphere} material={matte(look.skin)} position={[0, TOY.neckY - 0.01, 0]} scale={[0.07, 0.04, 0.07]} />
+            {regalia?.shoulder && ([1, -1] as const).map((side) => (
+              <group key={side} position={[side * SHOULDER_REST.x, SHOULDER_REST.y, 0]} rotation={[0, side === 1 ? 0 : Math.PI, -SHOULDER_REST.slope]}>
+                {regalia.shoulder}
+              </group>
+            ))}
+            {regalia?.chest}
+          </StaticBatch>
+          <Arm side={1} look={look} shoulder={lShoulder} elbow={lElbow} sleeve={regalia?.sleeve} rigidKey={rigidKey} />
+          <Arm side={-1} look={look} shoulder={rShoulder} elbow={rElbow} holding={holding} sleeve={regalia?.sleeve} rigidKey={rigidKey} />
           <group ref={head} position={[0, TOY.neckY, 0]}>
-            <mesh geometry={GEO.sphere} material={matte(look.skin)} position={[0, HD.y, 0]} scale={[HD.rx, HD.ry, HD.rz]} castShadow />
-            {!mannequin && <Face look={look} />}
-            {!mannequin && <Eyewear look={look} />}
-            {mannequin ? null : regalia?.hat ? <HairUnderHat color={look.hair} /> : <Hair style={look.hairStyle} look={look} />}
-            {regalia?.hat}
+            <StaticBatch signature={rigidKey}>
+              <mesh geometry={GEO.sphere} material={matte(look.skin)} position={[0, HD.y, 0]} scale={[HD.rx, HD.ry, HD.rz]} castShadow />
+              {!mannequin && <Face look={look} />}
+              {!mannequin && <Eyewear look={look} />}
+              {mannequin ? null : regalia?.hat ? <HairUnderHat color={look.hair} /> : <Hair style={look.hairStyle} look={look} />}
+              {regalia?.hat}
+            </StaticBatch>
           </group>
         </group>
       </group>
