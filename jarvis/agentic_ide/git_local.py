@@ -262,6 +262,10 @@ def refs_fingerprint(paths: RepoPaths) -> tuple:
         trees = []
     for tree in trees:
         marks.append((tree.name, *_stamp(Path(tree.path) / "HEAD")))
+        # Rewritten when the worktree's folder is moved.
+        marks.append((f"{tree.name}/gitdir", *_stamp(Path(tree.path) / "gitdir")))
+    # The reflog grows with every move of HEAD, even two inside one timestamp tick.
+    marks.append(("logs/HEAD", *_stamp(paths.common_dir / "logs" / "HEAD")))
     return tuple(marks)
 
 
@@ -285,7 +289,8 @@ def _parse_track(text: str) -> tuple[int, int, bool]:
     return ahead, behind, gone
 
 
-def _read_heads(root: Path) -> list[LocalBranch]:
+def _read_heads(root: Path) -> list[LocalBranch] | None:
+    """Every local branch; None when git did not answer (never cached as "no branches")."""
     text = git_out(
         [
             "for-each-ref",
@@ -296,8 +301,10 @@ def _read_heads(root: Path) -> list[LocalBranch]:
         ],
         root,
     )
+    if text is None:
+        return None
     rows: list[LocalBranch] = []
-    for line in (text or "").splitlines():
+    for line in text.splitlines():
         name, oid, upstream, track, stamp, tree = ([*line.split("\t"), "", "", "", "", ""])[:6]
         if not name:
             continue
@@ -396,7 +403,7 @@ class _Branches:
     remote_heads: dict[str, str]
 
 
-def _read_branches(paths: RepoPaths, current: str, fingerprint: tuple) -> _Branches:
+def _read_branches(paths: RepoPaths, current: str, fingerprint: tuple) -> _Branches | None:
     root = paths.root
     default = _read_origin_default(root)
     heads_job = Job(_read_heads, root)
@@ -406,6 +413,10 @@ def _read_branches(paths: RepoPaths, current: str, fingerprint: tuple) -> _Branc
     guess = [f"refs/heads/{default}", f"refs/remotes/origin/{default}"] if default else []
     counts_job = Job(_read_ahead_behind, root, guess) if guess else None
     rows, remote_heads = heads_job.result(), remotes_job.result()
+    if rows is None:
+        if counts_job is not None:
+            counts_job.result()
+        return None
     names = {row.name: row for row in rows}
     if not default:
         default = next((name for name in _DEFAULT_CANDIDATES if name in names), current)
@@ -527,11 +538,13 @@ def _has_remote(common_dir: Path) -> bool:
         return False
 
 
-def _read_checkout(paths: RepoPaths) -> Checkout:
+def _read_checkout(paths: RepoPaths) -> Checkout | None:
+    """The checkout's state; None when git did not answer."""
     checkout = Checkout()
     text = git_out(["status", "--porcelain=v2", "--branch", "--untracked-files=normal"], paths.root)
-    if text is not None:
-        _parse_status(text, checkout)
+    if text is None:
+        return None
+    _parse_status(text, checkout)
     checkout.operation = _operation(paths.git_dir)
     checkout.stashes = _count_lines(paths.common_dir / "logs" / "refs" / "stash")
     checkout.last_fetch = _stamp(paths.common_dir / "FETCH_HEAD")[0] // 1_000_000_000
@@ -593,14 +606,32 @@ def read(folder: str | Path, *, fresh: bool = False) -> LocalState | None:
             or now - branches.taken_at >= BRANCHES_MAX_AGE_S
         )
         if checkout_job is not None:
-            entry.checkout = checkout_job.result()
-            entry.checkout_at = time.monotonic()
-        checkout = entry.checkout
-        assert checkout is not None
+            read_now = checkout_job.result()
+            if read_now is not None:
+                entry.checkout = read_now
+                entry.checkout_at = time.monotonic()
+            else:
+                # Git did not answer: show what was last known, and ask again next time.
+                logger.debug("Git: status of {} could not be read", paths.root)
+                entry.checkout_at = 0.0
+        checkout = entry.checkout or Checkout()
         if stale:
-            branches = _read_branches(paths, checkout.branch, fingerprint)
-            entry.branches = branches
-        assert branches is not None
+            read_branches = _read_branches(paths, checkout.branch, fingerprint)
+            if read_branches is not None:
+                branches = entry.branches = read_branches
+            else:
+                logger.debug("Git: branches of {} could not be read", paths.root)
+        if branches is None:
+            # Nothing was ever read and git is not answering: an empty repository
+            # for this one call, remembered nowhere.
+            branches = _Branches(
+                fingerprint=(),
+                taken_at=0.0,
+                default_branch="",
+                base_ref="",
+                rows=[],
+                remote_heads={},
+            )
         return LocalState(
             root=paths.root,
             checkout=checkout,

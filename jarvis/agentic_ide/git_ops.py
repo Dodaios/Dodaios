@@ -736,11 +736,13 @@ def pull(folder: str | Path, *, rebase: bool = False) -> str:
         )
     root = Path(info.root)
     if not rebase:
-        result = _run(["pull", "--ff-only"], root, timeout=_NETWORK_TIMEOUT_S)
+        # --no-rebase: a configured pull.rebase must not turn this into a rewrite.
+        result = _run(["pull", "--ff-only", "--no-rebase"], root, timeout=_NETWORK_TIMEOUT_S)
         if result.returncode == 0:
             return f"{info.branch} is up to date with {info.upstream}."
-        text = ((result.stderr or "") + (result.stdout or "")).lower()
-        if "fast-forward" in text or "diverg" in text:
+        # Asked of git itself, not read from its wording (which follows the locale).
+        after = inspect(path)
+        if after.ahead > 0 and after.behind > 0:
             raise GitError(
                 f"{info.branch} and {info.upstream} have both moved on. "
                 "Rebase your commits onto the remote ones to continue.",
@@ -749,7 +751,8 @@ def pull(folder: str | Path, *, rebase: bool = False) -> str:
         raise GitError(f"Git could not pull: {_reason(result)}")
     if info.staged or info.unstaged or info.conflicted:
         raise GitError("Commit your changes first, then rebase.", code="dirty")
-    result = _run(["pull", "--rebase"], root, timeout=_NETWORK_TIMEOUT_S)
+    # =merges: a local merge commit is replayed as a merge, not flattened away.
+    result = _run(["pull", "--rebase=merges"], root, timeout=_NETWORK_TIMEOUT_S)
     if result.returncode != 0:
         conflicts = _run(["diff", "--name-only", "--diff-filter=U"], root).stdout.split()
         _run(["rebase", "--abort"], root)
@@ -781,8 +784,16 @@ def update_branch(folder: str | Path, branch: str) -> str:
         raise GitError(f"{name} has no branch on the remote to update from.", code="no_upstream")
     root = Path(info.root)
     if known.worktree:
+        if not Path(known.worktree).is_dir():
+            raise GitError(
+                f"The worktree {known.worktree} no longer exists — prune it.", code="prunable"
+            )
         # A checked-out branch moves only inside its own checkout.
-        result = _run(["pull", "--ff-only"], Path(known.worktree), timeout=_NETWORK_TIMEOUT_S)
+        result = _run(
+            ["pull", "--ff-only", "--no-rebase"],
+            Path(known.worktree),
+            timeout=_NETWORK_TIMEOUT_S,
+        )
     else:
         result = _run(
             ["fetch", remote, f"refs/heads/{target}:refs/heads/{name}"],
@@ -790,8 +801,9 @@ def update_branch(folder: str | Path, branch: str) -> str:
             timeout=_NETWORK_TIMEOUT_S,
         )
     if result.returncode != 0:
-        text = ((result.stderr or "") + (result.stdout or "")).lower()
-        if "fast-forward" in text or "diverg" in text or "rejected" in text:
+        # Commits the upstream lacks, counted by git — not read from its wording.
+        own = _run(["rev-list", "--count", f"{known.upstream}..refs/heads/{name}"], root)
+        if own.returncode == 0 and own.stdout.strip() not in {"", "0"}:
             raise GitError(
                 f"{name} has commits {known.upstream} lacks, so it cannot simply be moved forward.",
                 code="diverged",
@@ -800,22 +812,20 @@ def update_branch(folder: str | Path, branch: str) -> str:
     return f"{name} is up to date with {known.upstream}."
 
 
-def unique_commits(root: Path, branch: str) -> int:
+def unique_commits(root: Path, branch: str, *, ignoring: str = "") -> int:
     """Commits only ``branch`` has — in no other local branch and on no remote.
 
+    ``ignoring`` names a remote-tracking branch (``origin/feature``) that does
+    not count as "elsewhere": the copy that is about to be deleted as well.
     -1 when git cannot say (treated as "there may be some").
     """
+    # A pattern for --branches is relative to refs/heads, one for --remotes to refs/remotes.
+    elsewhere = [f"--exclude={branch}", "--branches"]
+    if ignoring:
+        elsewhere.append(f"--exclude={ignoring}")
+    elsewhere.append("--remotes")
     result = _run(
-        [
-            "rev-list",
-            "--count",
-            f"refs/heads/{branch}",
-            "--not",
-            # A pattern for --branches is relative to refs/heads.
-            f"--exclude={branch}",
-            "--branches",
-            "--remotes",
-        ],
+        ["rev-list", "--count", f"refs/heads/{branch}", "--not", *elsewhere],
         root,
     )
     text = result.stdout.strip()
@@ -870,8 +880,11 @@ def delete_branch(
                 f"A workspace is still open in {Path(tree.path).name}. Close it first.",
                 code="in_use",
             )
+    target_remote, _, target = known.upstream.partition("/")
+    also_remote = remote and bool(target) and target_remote in info.remotes
     if not force and not merged:
-        unique = unique_commits(root, name)
+        # Deleting the remote branch too: its copy is no longer a place the work survives.
+        unique = unique_commits(root, name, ignoring=known.upstream if also_remote else "")
         if unique != 0:
             plural = "" if unique == 1 else "s"
             count = f"{unique} commit{plural}" if unique > 0 else "commits"
@@ -884,8 +897,7 @@ def delete_branch(
         root = Path(info.main_root or info.root)
     _ok(["branch", "-D", name], root, what=f"delete {name}")
     summary = f"Deleted {name}."
-    target_remote, _, target = known.upstream.partition("/")
-    if remote and target and target_remote in info.remotes:
+    if also_remote:
         result = _run(["push", target_remote, "--delete", target], root, timeout=_NETWORK_TIMEOUT_S)
         if result.returncode == 0:
             summary = f"Deleted {name} here and on {target_remote}."

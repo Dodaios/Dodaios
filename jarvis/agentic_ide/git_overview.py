@@ -527,7 +527,9 @@ def _fetch_github(repo: str, token: str) -> _GitHubSnapshot:
         recent = {}
     open_repo, refs_repo = _repository(opened), _repository(refs)
     if not open_repo and not refs_repo:
-        return _GitHubSnapshot(ok=False, reason="GitHub did not return this repository.")
+        return _GitHubSnapshot(
+            ok=False, reason="GitHub did not return this repository.", fetched_at=now
+        )
     merged = {
         "data": {
             "repository": {
@@ -590,11 +592,13 @@ class _GitHubCache:
         self._expired: set[str] = set()
         #: Repositories with a background read on its way.
         self._inflight: set[str] = set()
+        #: When a read last failed while an older good answer was kept.
+        self._failed: dict[str, float] = {}
 
     def _fresh(self, key: str, snap: _GitHubSnapshot | None, now: float, force: bool) -> bool:
         if snap is None or key in self._expired:
             return False
-        age = now - snap.fetched_at
+        age = now - max(snap.fetched_at, self._failed.get(key, 0.0))
         if force:
             return age < GITHUB_MIN_REFRESH_S
         return age < (GITHUB_BUSY_TTL_S if snap.busy else GITHUB_TTL_S)
@@ -610,10 +614,17 @@ class _GitHubCache:
                 with self._guard:
                     # Whatever expires it from here on is newer than this read.
                     self._expired.discard(key)
-                snap = _fetch_github(key, token)
+                fetched = _fetch_github(key, token)
                 with self._guard:
-                    self._entries[key] = snap
-                return snap
+                    if fetched.ok or snap is None or not snap.ok:
+                        self._entries[key] = fetched
+                        self._failed.pop(key, None)
+                    else:
+                        # GitHub was unreachable for a moment: what was read
+                        # before stays on screen, and the next try waits a turn.
+                        self._failed[key] = time.time()
+                        fetched = snap
+                return fetched
         finally:
             with self._guard:
                 self._inflight.discard(key)
@@ -674,6 +685,7 @@ class _GitHubCache:
         with self._guard:
             self._entries.clear()
             self._expired.clear()
+            self._failed.clear()
 
 
 _CACHE = _GitHubCache()

@@ -59,6 +59,16 @@ from jarvis.ui.web.surface_security import is_loopback_request
 router = APIRouter(prefix="/api/agentic-ide/git", tags=["agentic-ide-git"])
 
 
+def _open_folders() -> list[str]:
+    """Every folder something is running in: each workspace, and each pane's own
+    checkout (an agent's worktree) — none of them may be removed under it."""
+    folders: list[str] = []
+    for session in get_registry().sessions:
+        folders.append(session.folder)
+        folders.extend(pane.cwd(session.folder) for pane in session.terminals)
+    return folders
+
+
 def _fail(exc: GitError) -> HTTPException:
     return HTTPException(status_code=422, detail={"message": str(exc), "code": exc.code})
 
@@ -420,7 +430,7 @@ def delete_branch(req: DeleteBranchRequest) -> dict:
             merged=merged,
             remote=req.remote,
             with_worktree=req.with_worktree,
-            open_folders=[session.folder for session in get_registry().sessions],
+            open_folders=_open_folders(),
         )
     except GitError as exc:
         raise _fail(exc) from exc
@@ -500,8 +510,7 @@ def merge_branch(req: MergeRequest) -> dict:
     openapi_extra={"x-jarvis-dangerous": True},
 )
 def remove_worktree(req: RemoveWorktreeRequest) -> dict:
-    open_folders = [session.folder for session in get_registry().sessions]
-    if git_ops.worktree_in_use(req.worktree, open_folders):
+    if git_ops.worktree_in_use(req.worktree, _open_folders()):
         raise HTTPException(
             status_code=422,
             detail={

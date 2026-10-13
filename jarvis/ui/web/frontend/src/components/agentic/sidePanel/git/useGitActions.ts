@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fill, useT } from "@/i18n";
 import {
   commitAll,
@@ -55,6 +55,8 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
   const [busy, setBusy] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const running = useRef(false);
+  // A question asked about one repository is void once another one is shown.
+  useEffect(() => setConfirmation(null), [folder]);
 
   /** Runs `work`; a rejection whose code is in `handled` is returned instead of shown. */
   const run = useCallback(
@@ -94,6 +96,7 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
         },
       });
 
+    const onRemote = (row: BranchRow) => row.on_github && Boolean(row.upstream) && !row.upstream_gone;
     const removeNow = async (row: BranchRow, force: boolean, remote: boolean) => {
       const failure = await run(
         `delete:${row.name}`,
@@ -109,7 +112,9 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
           title: fill(t("ide_side_panel.git.confirm.delete_force_title"), { branch: row.name }),
           body: t("ide_side_panel.git.confirm.delete_force_body"),
           confirmLabel: t("ide_side_panel.git.confirm.delete_force_ok"),
-          run: ({ remote: alsoRemote }) => removeNow(row, true, alsoRemote || remote),
+          // Asked again, unticked: losing the remote copy too is this dialog's own decision.
+          remoteOption: onRemote(row),
+          run: ({ remote: again }) => removeNow(row, true, again),
         });
       }
     };
@@ -160,7 +165,7 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
             ? fill(t("ide_side_panel.git.confirm.delete_body_worktree"), { path: row.worktree })
             : t("ide_side_panel.git.confirm.delete_body"),
           confirmLabel: t("ide_side_panel.git.confirm.delete_ok"),
-          remoteOption: row.on_github && Boolean(row.upstream) && !row.upstream_gone,
+          remoteOption: onRemote(row),
           run: ({ remote }) => removeNow(row, false, remote),
         }),
       createPullRequest: (target = "") => {
