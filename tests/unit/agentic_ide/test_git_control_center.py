@@ -155,7 +155,7 @@ def test_unfetched_commits_on_github_are_flagged(
     theirs = _commit(other, "theirs.txt")
     _git(other, "push", "-q")
 
-    def snapshot(repo_name: str, token: str) -> git_overview._GitHubSnapshot:
+    def snapshot(repo_name: str, token: str, early: object = None) -> git_overview._GitHubSnapshot:
         snap = git_overview._GitHubSnapshot(ok=True, fetched_at=git_overview.time.time())
         snap.refs["main"] = (theirs[:12], CiStatus())
         return snap
@@ -466,7 +466,8 @@ def test_github_is_asked_in_parts_and_a_missing_part_only_costs_its_own_data(
 
     monkeypatch.setattr(github_link, "graphql", fake_graphql)
     snap = git_overview._fetch_github("o/r", "t")
-    assert sorted(asked) == ["open", "recent", "refs"]
+    # The open pull requests are asked twice: the verdicts first, the checks after.
+    assert sorted(asked) == ["open", "open", "recent", "refs"]
     # Recently merged pull requests are missing this round; everything else landed.
     assert snap.ok and [pr.number for pr in snap.prs] == [1, 2]
     assert (snap.prs[1].conflicting, snap.prs[1].review, snap.prs[1].author) == (
@@ -485,7 +486,9 @@ def test_a_refresh_never_makes_the_tab_wait_for_github(
     release = threading.Event()
     reads: list[float] = []
 
-    def slow_fetch(repo_name: str, token: str) -> git_overview._GitHubSnapshot:
+    def slow_fetch(
+        repo_name: str, token: str, early: object = None
+    ) -> git_overview._GitHubSnapshot:
         reads.append(git_overview.time.time())
         if len(reads) > 1:
             release.wait(5)
@@ -568,7 +571,7 @@ def test_a_failed_github_read_keeps_the_last_good_answer(monkeypatch: pytest.Mon
     ]
     reads: list[str] = []
 
-    def fetch(repo_name: str, token: str) -> git_overview._GitHubSnapshot:
+    def fetch(repo_name: str, token: str, early: object = None) -> git_overview._GitHubSnapshot:
         reads.append(repo_name)
         return answers[min(len(reads), len(answers)) - 1]
 
@@ -644,3 +647,136 @@ def test_an_open_workspace_is_a_folder_threads_may_read(
     monkeypatch.setattr(library, "list_projects", lambda include_archived=False: [])
     assert thread_folders.allowed_thread_folder(opened) == opened.resolve()
     assert thread_folders.allowed_thread_folder(tmp_path) is None
+
+
+# ------------------------------------------------------------------ quick answer
+
+
+def _checks(conclusion: str) -> dict:
+    return {
+        "state": "SUCCESS" if conclusion == "SUCCESS" else "FAILURE",
+        "contexts": {
+            "totalCount": 1,
+            "nodes": [
+                {
+                    "__typename": "CheckRun",
+                    "name": "CI gate",
+                    "status": "COMPLETED",
+                    "conclusion": conclusion,
+                    "detailsUrl": "https://github.com/o/r/runs/1",
+                }
+            ],
+        },
+    }
+
+
+def _with_ci(node: dict, rollup: dict, oid: str = "a" * 40) -> dict:
+    return {**node, "commits": {"nodes": [{"commit": {"oid": oid, "statusCheckRollup": rollup}}]}}
+
+
+def _github_in_two_steps(monkeypatch: pytest.MonkeyPatch, checks, oid: str = "a" * 40):
+    """A fake GitHub whose checks-bearing answer comes from ``checks()``."""
+
+    def fake_graphql(token: str, query: str, variables: dict | None = None) -> dict:
+        if "pageInfo" in query:
+            return _repo_payload(refs={"pageInfo": {"hasNextPage": False}, "nodes": []})
+        if "states: OPEN" in query and "contexts" not in query:
+            node = _with_ci(_pr_node(1, "a"), {"state": "SUCCESS"}, oid)
+            return _repo_payload(pullRequests={"nodes": [node]})
+        if "states: OPEN" in query:
+            return checks()
+        if "MERGED" in query:
+            return _repo_payload(pullRequests={"nodes": []})
+        return _repo_payload(refs={"nodes": [{"name": "main", "target": {"oid": "0" * 40}}]})
+
+    monkeypatch.setattr(github_link, "graphql", fake_graphql)
+
+
+def _until(done) -> None:
+    deadline = git_overview.time.time() + 5
+    while not done() and git_overview.time.time() < deadline:
+        git_overview.time.sleep(0.02)
+    assert done()
+
+
+def test_pull_requests_and_verdicts_show_before_their_checks_arrive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import threading
+
+    release = threading.Event()
+
+    def checks() -> dict:
+        release.wait(5)
+        node = _with_ci(_pr_node(1, "a"), _checks("SUCCESS"))
+        return _repo_payload(pullRequests={"nodes": [node]})
+
+    _github_in_two_steps(monkeypatch, checks)
+    cache = git_overview._GitHubCache()
+    assert cache.get("o/r", "t", wait=False) is None
+    _until(lambda: cache.peek("o/r") is not None)
+    first = cache.peek("o/r")
+    # The verdict is there and leads to the checks page; the checks are still loading.
+    assert first.ok and cache.loading("o/r")
+    assert (first.prs[0].ci.state, first.prs[0].ci.total) == ("success", 0)
+    assert first.prs[0].ci.url == "https://github.com/o/r/pull/1/checks"
+    release.set()
+    _until(lambda: not cache.loading("o/r"))
+    full = cache.peek("o/r")
+    assert (full.prs[0].ci.total, full.prs[0].ci.passed) == (1, 1)
+    assert "main" in full.refs
+
+
+def test_verdicts_stay_when_the_checks_cannot_be_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    def checks() -> dict:
+        raise github_link.GitHubError("GitHub took too long.", code="unreachable")
+
+    _github_in_two_steps(monkeypatch, checks)
+    snap = git_overview._fetch_github("o/r", "t")
+    assert snap.ok and [(pr.number, pr.ci.state) for pr in snap.prs] == [(1, "success")]
+
+
+def test_a_refresh_keeps_the_checks_of_commits_that_did_not_move(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def snapshot(oid: str, ci: CiStatus) -> git_overview._GitHubSnapshot:
+        snap = git_overview._GitHubSnapshot(ok=True)
+        snap.prs = [
+            git_overview.PullRequest(
+                number=1, title="", url="", state="open", base="main", head="a", ci=ci
+            )
+        ]
+        snap.refs["side"] = (oid, CiStatus())
+        return snap
+
+    detailed = CiStatus(state="success", total=3, passed=3, commit="a" * 12)
+    last = snapshot("b" * 12, detailed)
+    last.refs["side"] = ("b" * 12, CiStatus(state="failure", total=2, failed=1))
+
+    same = snapshot("b" * 12, CiStatus(state="success", commit="a" * 12))
+    git_overview._keep_details(same, last)
+    assert same.prs[0].ci.total == 3 and same.refs["side"][1].state == "failure"
+
+    # A new commit, or a verdict that changed, is not dressed in the old checks.
+    moved = snapshot("c" * 12, CiStatus(state="success", commit="d" * 12))
+    git_overview._keep_details(moved, last)
+    assert moved.prs[0].ci.total == 0 and moved.refs["side"][1].state == "none"
+    turned = snapshot("b" * 12, CiStatus(state="failure", commit="a" * 12))
+    git_overview._keep_details(turned, last)
+    assert turned.prs[0].ci.total == 0
+
+
+def test_a_slow_read_says_where_the_time_went(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from loguru import logger
+
+    lines: list[str] = []
+    sink = logger.add(lambda message: lines.append(str(message)), level="INFO")
+    try:
+        git_overview.overview(repo, github=False)
+        assert not [line for line in lines if "slow read" in line]
+        monkeypatch.setattr(git_overview, "SLOW_READ_S", 0.0)
+        git_overview.overview(repo, github=False)
+    finally:
+        logger.remove(sink)
+    slow = [line for line in lines if "slow read" in line]
+    assert len(slow) == 1 and "local git" in slow[0] and "GitHub" in slow[0]
