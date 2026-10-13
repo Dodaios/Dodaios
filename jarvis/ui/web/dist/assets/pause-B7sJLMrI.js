@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/pause-Brldh-Js.js
+import{c as e}from"./index-8G4nADvk.js";/**
+========
+import{c as e}from"./index-CvGug5If.js";/**
+>>>>>>>> c4f7a4d54d28debdcc1dbd133ad30b93fcdd4396:jarvis/ui/web/dist/assets/pause-B7sJLMrI.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const r=e("Pause",[["rect",{x:"14",y:"4",width:"4",height:"16",rx:"1",key:"zuxfzm"}],["rect",{x:"6",y:"4",width:"4",height:"16",rx:"1",key:"1okwgv"}]]);export{r as P};

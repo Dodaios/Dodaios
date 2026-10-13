@@ -8692,6 +8692,7 @@
       "state_closed": "Cerrada sin fusionar",
       "unavailable": "Estado de GitHub no disponible",
       "branch_generic": "Rama de GitHub",
+      "local_only": "Aún no está en GitHub",
       "dest_pr": "pull request #{number}",
       "dest_branch": "rama",
       "open_aria": "Abrir {destination} de GitHub: {identity}",
