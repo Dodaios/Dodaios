@@ -111,7 +111,7 @@ class TestFitToolsToContextWindow:
             "linear/list_issues",
         ]
 
-    def test_then_the_largest_remaining_tools_go_first(self) -> None:
+    def test_a_tool_that_does_not_fit_is_passed_over_for_the_next(self) -> None:
         tools = {
             "tiny": _tool("tiny", size=1),
             "huge": _tool("huge", size=40),
@@ -157,21 +157,24 @@ class TestFitOnTheManager:
     def test_cloud_sized_window_keeps_the_whole_surface(self) -> None:
         m = self._mgr()
         tools = {f"t{i}": _tool(f"t{i}", size=10, mcp=i % 2 == 0) for i in range(221)}
-        fitted = m._fit_tools_to_brain(
+        fitted, deferred = m._shortlist_tools(
             tools, _FakeBrain(1_048_576), system_prompt="x" * 40_000, history=None
         )
-        assert fitted is tools
+        assert fitted is tools and not deferred
 
     def test_local_window_trims_the_live_shape(self) -> None:
         # 221 tools, a long system prompt, a 32k window: the surface shrinks
         # and the connected-server tools are the ones that went.
         m = self._mgr()
         tools = {f"t{i}": _tool(f"t{i}", size=10, mcp=i % 2 == 0) for i in range(221)}
-        fitted = m._fit_tools_to_brain(
+        surface, deferred = m._shortlist_tools(
             tools, _FakeBrain(32_768), system_prompt="x" * 30_000, history=None
         )
-        assert 0 < len(fitted) < 221
-        assert not any(t.is_mcp_tool for t in fitted.values())
+        shown = {n: t for n, t in surface.items() if n not in deferred}
+        assert 0 < len(shown) < 221
+        assert not any(getattr(t, "is_mcp_tool", False) for t in shown.values())
+        # Deferred, not dropped: every tool is still there to be called.
+        assert set(tools) <= set(surface)
 
     def test_mandated_tool_survives_a_local_window(self) -> None:
         m = self._mgr()
@@ -182,11 +185,12 @@ class TestFitOnTheManager:
             "run-skill": _tool("run-skill", size=60),
             "github/x": _tool("github/x", size=60, mcp=True),
         }
-        fitted = m._fit_tools_to_brain(
+        surface, deferred = m._shortlist_tools(
             tools, _FakeBrain(4_200), system_prompt="", history=None
         )
-        assert {"search_web", "run-skill"} <= set(fitted)
-        assert "github/x" not in fitted
+        shown = set(surface) - deferred
+        assert {"search_web", "run-skill"} <= shown
+        assert "github/x" not in shown
 
     def test_undeclared_window_is_left_alone(self) -> None:
         m = self._mgr()
@@ -195,7 +199,10 @@ class TestFitOnTheManager:
             name = "w"
 
         tools = {"a": _tool("a", size=60)}
-        assert m._fit_tools_to_brain(tools, _Windowless(), system_prompt="", history=None) is tools
+        surface, deferred = m._shortlist_tools(
+            tools, _Windowless(), system_prompt="", history=None
+        )
+        assert surface is tools and not deferred
 
 
 # ---------------------------------------------------------- the cause
