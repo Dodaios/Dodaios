@@ -24,8 +24,7 @@ Plugins store: GitHub, Notion, Slack, Gmail, …).
    badge, native-tool or channel binding, post-install hints — lives in the
    client extension namespace **`io.github.dodaios`** (manifest data
    under `extensions["io.github.dodaios"]` in `plugin.json`, files
-   under an `io.github.personaljarvis/` directory, which keeps the
-   namespace's earlier name). Other clients ignore that
+   under an `io.github.dodaios/` directory). Other clients ignore that
    namespace, exactly as the spec intends. The namespace's earlier name,
    `io.github.personaljarvis`, stays valid on read everywhere and for good:
    see "The namespace has two names" below.
@@ -57,7 +56,7 @@ merge semantics):
 jarvis/marketplace/plugins/<name>/
 ├── plugin.json                      # $schema, name, description, version, license
 ├── mcp.json                         # only when a hosted/stdio MCP server exists
-└── io.github.personaljarvis/        # auth, branding, longevity, hints (extension files)
+└── io.github.dodaios/               # auth, branding, longevity, hints (extension files)
 ```
 
 ## The namespace has two names
@@ -66,9 +65,10 @@ jarvis/marketplace/plugins/<name>/
 is what it was called before the product was renamed, and what every package
 published until then carries. Both are read wherever a manifest is read
 (`agent_plugins_loader.extension_of`): the community index, an uploaded
-package, the in-app Publish check and the auth-contract gate. The extension
-directory of a package (`io.github.personaljarvis/usage-card.md`) keeps its
-earlier name for now: the Publish form reads the usage card from there.
+package, the in-app Publish check and the auth-contract gate. The Publish
+form reads a package's usage card from `io.github.dodaios/usage-card.md` and,
+for a package laid out before the rename, from
+`io.github.personaljarvis/usage-card.md`.
 
 - **Identity.** The namespace is the key a block sits under and no part of
   what the plugin is. A plugin is identified by `plugin.json` → `name`, which

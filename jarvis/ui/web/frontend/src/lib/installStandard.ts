@@ -91,7 +91,7 @@ const NAME_RE = /^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$/;
  * What a GitHub owner, repository, or folder segment may contain.
  *
  * Deliberately its own rule rather than `NAME_RE`: GitHub allows uppercase and
- * underscores (`PersonalJarvis/marketplace`), which our registry names do not.
+ * underscores (`Dodaios/marketplace`), which our registry names do not.
  * It stays strict about everything a shell would interpret, because this value
  * is pasted into a command line unquoted.
  */

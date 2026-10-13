@@ -16,7 +16,7 @@ import { InstallTerminal } from "@/components/InstallTerminal";
 import { cn } from "@/lib/utils";
 import { installBlock } from "@/lib/installStandard";
 import { openExternalUrl } from "@/lib/openExternal";
-import { PRODUCT_NAME } from "@/lib/branding";
+import { MARKETPLACE_REPO_URL, PRODUCT_NAME } from "@/lib/branding";
 import { useEventStore } from "@/store/events";
 import type { AgentTemplateWire } from "@/lib/agentShare";
 import { fill, translate, useT } from "@/i18n";
@@ -31,7 +31,7 @@ import { fill, translate, useT } from "@/i18n";
 // ---------------------------------------------------------------------------
 
 /** The storefront's submit page — where "Publish your own" sends authors. */
-export const MARKETPLACE_SUBMIT_URL = "https://github.com/PersonalJarvis/marketplace";
+export const MARKETPLACE_SUBMIT_URL = MARKETPLACE_REPO_URL;
 
 // Wire types — mirror /api/marketplace/community (see marketplace_routes.py).
 export interface CommunityPluginWire {

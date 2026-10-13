@@ -223,7 +223,7 @@ to zero tools), the keyword relevance gate, risk tiers via
 * **Usage cards + logos.** Submission requirements to decide: a usage card
   (keywords) strongly improves the relevance gate; a `logo_slug`/`logo_url`
   keeps the store visually consistent. Both fit in the
-  `io.github.personaljarvis/` extension directory.
+  `io.github.dodaios/` extension directory.
 * **Runs parity is free.** Because `mcp_bridge.py` assembles the worker MCP
   config from the same catalog + token store, every installed community
   plugin reaches delegated agentic runs with no extra work. The only open
