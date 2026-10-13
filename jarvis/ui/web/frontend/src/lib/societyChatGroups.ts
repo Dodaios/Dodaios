@@ -147,7 +147,7 @@ export interface SocietyTeamGoal {
   /** Why the goal waits: a code (`turn_budget`), or `error:<detail>`. */
   note: string;
   lead_turns: number;
-  /** Where it came from: the team board, the assistant, the lead's own chat. */
+  /** Where it came from: `chat` (the person, in the lead's chat), `board`, `jarvis`, `assignment`, or `lead` (its own initiative). */
   source: string;
   created_ms: number;
   updated_ms: number;
@@ -163,6 +163,8 @@ export interface SocietyTeam {
   mission: string;
   /** Minutes between the lead's unprompted looks at the team; 0 = off. */
   checkin_minutes: number;
+  /** Whether such a look may also set the team's next goal from its mission. */
+  initiative: boolean;
   goals: SocietyTeamGoal[];
   /** Whether the lead is in a managing turn right now. */
   working: boolean;
@@ -227,8 +229,8 @@ export function setSocietyTeamMission(groupId: string, mission: string) {
   return json<SocietyTeam>(`${teamUrl(groupId)}/mission`, { ...body({ mission }), method: "PUT" });
 }
 
-export function setSocietyTeamCheckin(groupId: string, minutes: number) {
-  return json<SocietyTeam>(`${teamUrl(groupId)}/checkin`, { ...body({ minutes }), method: "PUT" });
+export function setSocietyTeamCheckin(groupId: string, minutes: number, initiative = false) {
+  return json<SocietyTeam>(`${teamUrl(groupId)}/checkin`, { ...body({ minutes, initiative }), method: "PUT" });
 }
 
 export function startSocietyTeamGoal(groupId: string, text: string) {

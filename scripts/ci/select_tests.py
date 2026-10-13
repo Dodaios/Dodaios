@@ -18,6 +18,11 @@ Selection is textual and deliberately generous — FAIL OPEN:
 * conftest, packaging, lockfiles or the pipeline itself select EVERYTHING,
   and so does a selection larger than :data:`ALL_RATIO` of the suite.
 
+``--one-runner`` bounds the selection to what one runner does in a few
+minutes: a change that reaches everything (or more than
+:data:`SHARD_FILES` files) runs the macOS-focused set instead, the tests of
+the code that asks for or acts on a macOS facility.
+
 Writes the file list to ``--out`` and ``mode=all|selected|none``,
 ``count=N`` and ``shards=[...]`` (how many runners the selection needs) to
 ``$GITHUB_OUTPUT``.
@@ -36,7 +41,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.ci import agent_runtime_suite  # noqa: E402
+from scripts.ci import agent_runtime_suite, classify_changes  # noqa: E402
 from scripts.ci.run_tests_parallel import discover  # noqa: E402
 
 ALL_RATIO = 0.35
@@ -119,6 +124,23 @@ def select(changed: list[str], tests: list[str], texts: dict[str, str]) -> tuple
     return "selected", sorted(chosen)
 
 
+def mac_focus(tests: list[str]) -> list[str]:
+    """The tests of the macOS lane's own code, plus the contract guards.
+
+    About 200 files and two to three minutes on one runner: what a merge
+    group runs on macOS when its change reaches the whole suite.
+    """
+    prefixes = tuple(p for p in classify_changes._MACOS_PREFIXES if p.startswith("tests/"))
+    return sorted({t for t in tests if t.startswith(prefixes)} | {t for t in SMOKE if t in tests})
+
+
+def one_runner(mode: str, chosen: list[str], tests: list[str]) -> tuple[str, list[str]]:
+    """Bound a selection to one runner; ``none`` stays ``none``."""
+    if mode == "all" or len(chosen) > SHARD_FILES:
+        return "selected", mac_focus(tests)
+    return mode, chosen
+
+
 def shards_for(mode: str, count: int) -> list[int]:
     """The runners a selection needs: none, one, two, or the full split."""
     if mode == "none":
@@ -132,6 +154,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--changed-from", type=Path, help="File with changed paths (else stdin).")
     parser.add_argument("--out", type=Path, default=Path("selected-tests.txt"))
+    parser.add_argument(
+        "--one-runner",
+        action="store_true",
+        help="Bound the selection to one runner (the macOS-focused set for a wide change).",
+    )
     args = parser.parse_args(argv)
 
     if args.changed_from:
@@ -144,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         for t in tests
     }
     mode, chosen = select(changed, tests, texts)
+    if args.one_runner:
+        mode, chosen = one_runner(mode, chosen, tests)
     args.out.write_text("\n".join(chosen) + ("\n" if chosen else ""), encoding="utf-8")
     print(f"mode={mode} count={len(chosen)} of {len(tests)}")
     output = os.environ.get("GITHUB_OUTPUT")
