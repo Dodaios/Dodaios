@@ -90,6 +90,27 @@ describe("scanRepo", () => {
     expect(skill?.dir).toBe("standalone-skill");
   });
 
+  it.each(["io.github.dodaios", "io.github.personaljarvis"])(
+    "picks up a package's usage card from its %s directory",
+    async (namespace) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          jsonResponse({
+            truncated: false,
+            tree: [
+              { path: "pkg/plugin.json", type: "blob" },
+              { path: `pkg/${namespace}/usage-card.md`, type: "blob" },
+            ],
+          }),
+        ),
+      );
+
+      const { candidates } = await scanRepo("todofox", "todo-fox", "main");
+      expect(candidates[0].paths).toEqual(["pkg/plugin.json", `pkg/${namespace}/usage-card.md`]);
+    },
+  );
+
   it("surfaces a truncated tree instead of silently under-scanning", async () => {
     vi.stubGlobal(
       "fetch",

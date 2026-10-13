@@ -12,6 +12,7 @@
  */
 
 import { fill, translate } from "@/i18n";
+import { usageCardPaths } from "@/lib/extensionNamespace";
 
 export interface PackageSkill {
   name: string;
@@ -252,7 +253,11 @@ export async function folderToDraft(input: NamedFile[]): Promise<FolderDraft> {
       warnings.push(translate("plugins_package.plugin_json_invalid"));
     }
     draft.mcp_json_text = await read(byPath("mcp.json"));
-    draft.usage_card = await read(byPath("io.github.personaljarvis/usage-card.md"));
+    draft.usage_card = await read(
+      usageCardPaths()
+        .map(byPath)
+        .find((file) => file !== undefined),
+    );
     if (!draft.mcp_json_text) {
       warnings.push(translate("plugins_package.no_mcp_json"));
     } else {

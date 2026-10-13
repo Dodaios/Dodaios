@@ -74,6 +74,15 @@ WINDOWS_USER_DATA_DIR_NAME = "Jarvis"
 FALLBACK_USER_DATA_DIR_NAME = ".jarvis"
 DESKTOP_OUTPUT_MIRROR_DIR_NAME = "Jarvis-Output"
 
+# --- Marketplace manifest namespace -------------------------------------------
+# The key a plugin package keeps this app's own data under
+# (``plugin.json`` -> ``extensions[<namespace>]``) and the directory its
+# extension files live in (``<namespace>/usage-card.md``). Every package
+# published before the rename carries a legacy namespace, so those are read
+# forever (``jarvis.marketplace.agent_plugins_loader``).
+MARKETPLACE_EXTENSION_NAMESPACE = "io.github.dodaios"
+LEGACY_MARKETPLACE_EXTENSION_NAMESPACES = ("io.github.personaljarvis",)
+
 WINDOWS_MUTEX_NAME = rf"Global\{PERSISTENT_COMPACT_NAME}_v1"
 WINDOWS_APP_USER_MODEL_ID = f"{PERSISTENT_COMPACT_NAME}.{PERSISTENT_COMPACT_NAME}"
 WINDOWS_UNINSTALL_REGISTRY_SUBKEY = (
@@ -156,6 +165,8 @@ __all__ = [
     "LINUX_APP_NAME",
     "LINUX_DESKTOP_ENTRY_FILE_NAME",
     "LINUX_WM_CLASS",
+    "LEGACY_MARKETPLACE_EXTENSION_NAMESPACES",
+    "MARKETPLACE_EXTENSION_NAMESPACE",
     "MACOS_APP_DIR_NAME",
     "MACOS_APP_NAME",
     "MACOS_AUTOSTART_LABEL",

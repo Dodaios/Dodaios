@@ -1,12 +1,14 @@
 """Convert an Agent Plugins v1.0.0 manifest set into a catalog `PluginSpec`.
 
 The community registry distributes plugins as Agent Plugins v1.0.0 packages
-(docs/marketplace/agent-plugins-standard.md): a `plugin.json` whose Jarvis
-specifics live under ``extensions["io.github.personaljarvis"]``, plus an
-optional `mcp.json`. This module is the "loader wave" that document defers:
-it validates the manifests and produces the same `PluginSpec` the seed
-catalog uses, so an installed community plugin flows through the exact same
-runtime (connect flows, relevance gate, worker bridge) as a shipped one.
+(docs/marketplace/agent-plugins-standard.md): a `plugin.json` whose Dodaios
+specifics live under ``extensions["io.github.dodaios"]`` (or, in every package
+published before the rename, under the namespace's earlier name; see
+:func:`extension_of`), plus an optional `mcp.json`. This module is the "loader
+wave" that document defers: it validates the manifests and produces the same
+`PluginSpec` the seed catalog uses, so an installed community plugin flows
+through the exact same runtime (connect flows, relevance gate, worker bridge)
+as a shipped one.
 
 Security posture: the registry auto-merges submissions on green CI, so the
 client must NOT blindly trust index content. Every rule CI enforces on
@@ -25,9 +27,29 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from jarvis.core.branding import (
+    LEGACY_MARKETPLACE_EXTENSION_NAMESPACES,
+    MARKETPLACE_EXTENSION_NAMESPACE,
+)
 from jarvis.marketplace.catalog import PluginSpec
 
-EXTENSION_NAMESPACE = "io.github.personaljarvis"
+#: The namespace this app WRITES: the key of its block in ``plugin.json``'s
+#: ``extensions`` and the directory of its extension files in a package.
+EXTENSION_NAMESPACE = MARKETPLACE_EXTENSION_NAMESPACE
+
+#: Earlier names of that namespace. Read wherever a manifest is read, forever:
+#: installed plugins, the community index and every package already published
+#: carry one of them.
+LEGACY_EXTENSION_NAMESPACES = LEGACY_MARKETPLACE_EXTENSION_NAMESPACES
+
+#: Every namespace a manifest may use, the current one first.
+EXTENSION_NAMESPACES: tuple[str, ...] = (EXTENSION_NAMESPACE, *LEGACY_EXTENSION_NAMESPACES)
+
+#: The registry's validator and every app version released before the rename
+#: read ONLY the earlier namespace (docs/marketplace/validator-parity.md,
+#: "The extension namespace"). Until the registry accepts the current one, a
+#: manifest this app publishes carries its block under both keys.
+PUBLISHED_EXTENSION_NAMESPACES: tuple[str, ...] = EXTENSION_NAMESPACES
 
 # Spec name constraints (agent-plugins.org 1.0.0): 1-64 chars, lowercase
 # alphanumerics plus `-` and `.`, alphanumeric start and end, no `--`/`..`,
@@ -437,6 +459,67 @@ def _convert_stdio_server(name: str, server: Mapping[str, Any]) -> dict[str, Any
     }
 
 
+def extension_of(plugin_json: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The plugin's Dodaios block, under whichever namespace the manifest uses.
+
+    The namespace is only the KEY the block sits under. It is no part of what
+    the plugin is: a plugin's identity is its ``name`` (which becomes
+    ``PluginSpec.id``), so the same package read under the current namespace
+    or an earlier one is the same item, installs into the same row and keeps
+    its update link.
+
+    The current namespace is read first, then each earlier one. A manifest
+    that carries the block under several namespaces (what this app publishes
+    while the registry still requires the earlier key) must carry the SAME
+    block under each: the registry validates one key and this client would
+    read another, so two blocks that disagree are refused instead of one being
+    picked.
+
+    Returns ``None`` when the manifest has no block under any namespace.
+    """
+    extensions = plugin_json.get("extensions") if isinstance(plugin_json, Mapping) else None
+    if not isinstance(extensions, Mapping):
+        return None
+    found = [
+        (namespace, extensions[namespace])
+        for namespace in EXTENSION_NAMESPACES
+        if isinstance(extensions.get(namespace), Mapping)
+    ]
+    if not found:
+        return None
+    first_namespace, block = found[0]
+    for namespace, other in found[1:]:
+        if dict(other) != dict(block):
+            raise AgentPluginError(
+                f'plugin.json: extensions["{first_namespace}"] and '
+                f'extensions["{namespace}"] must be identical'
+            )
+    return block
+
+
+def with_published_extension(plugin_json: Mapping[str, Any]) -> dict[str, Any]:
+    """``plugin_json`` as this app publishes it: its block under the current namespace.
+
+    Whatever namespace the draft used, the result carries the block under
+    :data:`EXTENSION_NAMESPACE` and, as long as the registry requires it, an
+    identical copy under each earlier one (:data:`PUBLISHED_EXTENSION_NAMESPACES`).
+    Other clients' extension blocks are left exactly as they are. A manifest
+    without a block of ours is returned unchanged for the validator to refuse.
+    """
+    manifest = dict(plugin_json)
+    block = extension_of(manifest)
+    if block is None:
+        return manifest
+    others = {
+        key: value
+        for key, value in dict(manifest.get("extensions") or {}).items()
+        if key not in EXTENSION_NAMESPACES
+    }
+    published = {namespace: dict(block) for namespace in PUBLISHED_EXTENSION_NAMESPACES}
+    manifest["extensions"] = {**published, **others}
+    return manifest
+
+
 def validate_mcp_server(
     name: str, server: Mapping[str, Any], extension: Mapping[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -450,8 +533,8 @@ def validate_mcp_server(
     launcher allowlist with its pinned-package rule — without also
     reimplementing the "which server did the author mean" selection.
 
-    ``extension`` is the plugin's ``extensions["io.github.personaljarvis"]``
-    block, consulted only for a hosted server's optional
+    ``extension`` is the plugin's extension block (:func:`extension_of`),
+    consulted only for a hosted server's optional
     ``mcp_auth_header_template``; omit it when validating an ``mcp.json`` in
     isolation, before the rest of the manifest exists.
     """
@@ -510,9 +593,8 @@ def convert_manifest(
     name = validate_spec_name(plugin_json.get("name"))
     description = _require_str(plugin_json.get("description"), "plugin description")
 
-    extensions = plugin_json.get("extensions")
-    extension = extensions.get(EXTENSION_NAMESPACE) if isinstance(extensions, Mapping) else None
-    if not isinstance(extension, Mapping):
+    extension = extension_of(plugin_json)
+    if extension is None:
         raise AgentPluginError(
             f'plugin.json needs extensions["{EXTENSION_NAMESPACE}"] with the '
             "Dodaios auth block — see docs/marketplace/agent-plugins-standard.md"
@@ -540,7 +622,7 @@ def convert_manifest(
     if fallback_auth is not None:
         if not isinstance(fallback_auth, Mapping):
             raise AgentPluginError(
-                'extensions["io.github.personaljarvis"].fallback_auth must be an object'
+                f'extensions["{EXTENSION_NAMESPACE}"].fallback_auth must be an object'
             )
         if fallback_auth.get("mode") != "pat_paste":
             raise AgentPluginError("fallback_auth must use mode 'pat_paste'")
@@ -598,8 +680,13 @@ __all__ = [
     "AgentPluginError",
     "BundledSkill",
     "EXTENSION_NAMESPACE",
+    "EXTENSION_NAMESPACES",
+    "LEGACY_EXTENSION_NAMESPACES",
+    "PUBLISHED_EXTENSION_NAMESPACES",
     "convert_manifest",
+    "extension_of",
     "validate_bundled_skills",
     "validate_mcp_server",
     "validate_spec_name",
+    "with_published_extension",
 ]
