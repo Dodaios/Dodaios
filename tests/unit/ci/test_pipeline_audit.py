@@ -243,18 +243,15 @@ def test_merge_queue_runs_the_whole_suite_and_is_never_cancelled():
 # --------------------------------------------------------------------------- tiers
 
 
-def test_a_pull_request_shows_macos_failures_with_short_legs_only():
+def test_a_pull_request_never_takes_a_macos_runner():
+    # Five macOS slots serve every run. With macOS legs on each push, pull
+    # requests waited 6 to 25 minutes for a slot (2026-10-13): the macOS
+    # proof is spent once per change, in the merge queue.
     sized = plan_run.plan("pull_request")
-    assert sized["tier"] == "pr" and sized["pr_mode"] and sized["mac_lanes"]
-    # One short macOS leg per affected lane: a macOS failure shows on the
-    # pull request, and the legs end before the Windows shards do.
-    assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
-    assert sized["desktop_legs"] == "primary"
-    assert {"os": "macos-latest", "python": "3.12"} in sized["updater_matrix"]
-    # The long macOS legs (real runtimes, real browser) run once per change, in the queue.
-    assert "macos" not in json.dumps([sized["e2e_matrix"], sized["browser_os"]])
-    # Nothing in jarvisctl, dragdrop or the installer smoke is macOS-specific.
-    assert sized["os_matrix"] == ["ubuntu-latest", "windows-latest"]
+    assert sized["tier"] == "pr" and sized["pr_mode"] and not sized["mac_lanes"]
+    assert sized["desktop_legs"] == "none"
+    matrices = [v for k, v in sized.items() if k not in ("macos", "mac_lanes")]
+    assert "macos" not in json.dumps(matrices)
     # The slowest real-runtime leg never runs per change.
     assert {"os": "windows-latest", "runtime": "hermes"} not in sized["e2e_matrix"]
     assert {"os": "windows-latest", "runtime": "openclaw"} in sized["e2e_matrix"]
@@ -268,9 +265,12 @@ def test_nothing_macos_specific_lands_unproven():
     assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
     assert sized["desktop_legs"] == "primary"
     # A macOS failure stops a change in the queue instead of surfacing the
-    # morning after: the real runtimes and the real browser run on macOS
-    # before anything lands. Only the Hermes install on Windows (14 to 23
-    # minutes) stays in the nightly and release runs.
+    # morning after: every macOS leg of the affected lanes, the real runtimes
+    # and the real browser included, runs before anything lands. Only the
+    # Hermes install on Windows (14 to 23 minutes) stays in the nightly and
+    # release runs.
+    assert {"os": "macos-latest", "python": "3.12"} in sized["updater_matrix"]
+    assert any(leg["runner"] == "macos-15-intel" for leg in sized["crypto_matrix"])
     assert sized["browser_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
     assert {(leg["os"], leg["runtime"]) for leg in sized["e2e_matrix"]} == {
         ("ubuntu-latest", "hermes"),
@@ -461,6 +461,36 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
     only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]
     assert only_nightly == [{"os": "windows-latest", "runtime": "hermes"}]
+
+
+def test_the_nightly_run_never_queues_its_macos_legs_ahead_of_a_merge_group():
+    ci = workflows()["ci.yml"]
+    # One leg at a time in every matrix that carries macOS legs: the nightly
+    # run has no reader waiting, the merge groups sharing the five slots do.
+    assert plan_run.plan("schedule")["matrix_parallel"] == 1
+    for event in ("pull_request", "merge_group", "push"):
+        assert plan_run.plan(event)["matrix_parallel"] == plan_run.UNTHROTTLED
+    # A release tag run is a manual dispatch and stays at full width.
+    release = plan_run.plan("workflow_dispatch", full_input=True, macos_input=True)
+    assert release["matrix_parallel"] == plan_run.UNTHROTTLED
+    throttle = "${{ fromJSON(needs.detect.outputs.matrix_parallel) }}"
+    for job in (
+        "tests-macos",
+        "jarvisctl",
+        "native-crypto-runtime",
+        "realtime-contract",
+        "updater",
+        "dragdrop",
+        "agent-runtimes-unit",
+        "agent-runtimes-e2e",
+    ):
+        assert ci["jobs"][job]["strategy"]["max-parallel"] == throttle, job
+    assert ci["jobs"]["detect"]["outputs"]["matrix_parallel"] == (
+        "${{ steps.mode.outputs.matrix_parallel }}"
+    )
+    # Every matrix fits below the unthrottled limit.
+    widest = max(len(v) for v in plan_run.plan("schedule").values() if isinstance(v, list))
+    assert widest < plan_run.UNTHROTTLED
 
 
 def test_only_a_complete_green_run_on_main_writes_the_duration_caches():

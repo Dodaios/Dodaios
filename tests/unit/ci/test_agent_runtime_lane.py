@@ -104,12 +104,11 @@ def test_ci_runs_the_lane_on_every_os_and_the_gate_waits_for_it():
     jobs = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))["jobs"]
     assert "agent_runtimes" in jobs["detect"]["outputs"]
     assert LANE_JOBS <= set(jobs["gate"]["needs"])
-    # A pull request runs the unit suite on all three OSes. Before anything
-    # lands (the merge queue) both real runtimes have run on Linux and macOS
-    # and OpenClaw on Windows; the nightly and release runs add the Hermes
-    # install on Windows. ci.yml reads the plan.
+    # Before anything lands (the merge queue) the unit suite has run on all
+    # three OSes, both real runtimes on Linux and macOS and OpenClaw on
+    # Windows; the nightly and release runs add the Hermes install on
+    # Windows. ci.yml reads the plan.
     oses = {"ubuntu-latest", "windows-latest", "macos-latest"}
-    assert set(plan_run.plan("pull_request")["lane_os"]) == oses
     queue = plan_run.plan("merge_group")
     assert set(queue["lane_os"]) == oses
     assert {(leg["os"], leg["runtime"]) for leg in queue["e2e_matrix"]} == {

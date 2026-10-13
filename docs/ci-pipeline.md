@@ -24,8 +24,8 @@ to prove (`scripts/ci/plan_run.py` emits the tier and every job matrix):
 
 | Tier | When | What runs | Target |
 | --- | --- | --- | --- |
-| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux, Windows and macOS. The macOS legs here are the short ones, one to four minutes (realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle): a macOS failure shows on the pull request, and they end before the Windows shards do. | ~10 min |
-| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus the long macOS legs: both real runtimes and the real browser on macOS (5 to 10 minutes each). The blocking proof of the exact tree main gets; nothing macOS-specific that a lane tests lands unproven. | ~11-13 min, longer when several groups need the five macOS slots at once |
+| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS. | ~10 min |
+| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus every macOS leg of the affected lanes: realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle, both real runtimes and the real browser. The blocking proof of the exact tree main gets; nothing macOS-specific that a lane tests lands unproven. | ~11-17 min |
 | `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the Hermes install on Windows. A red nightly opens the issue "Nightly CI is red" (`nightly-alert.yml`). | ~40 min |
 | proven | push to main of a commit the merge queue already passed | `detect` and `CI gate` only. | under 1 min |
 
@@ -35,7 +35,7 @@ one, turns every lane off. Any doubt (a direct push, an API error) fails open
 to the `queue` tier. A nightly run never accepts an earlier proof.
 
 `CI gate` waits for the slowest job of a run, and several merge groups build
-at once on five macOS slots (the queue builds two groups in parallel). The
+at once on five macOS slots. The
 first queue runs of this design carried six to eight macOS legs each: three
 groups and one manual full run waited more than half an hour on macOS alone.
 And the Hermes install on Windows (13 minutes of upstream installer before
@@ -46,13 +46,21 @@ nightly run, which opens the issue "Nightly CI is red", and at the latest by
 the release run, which blocks publication.
 
 macOS is different: a macOS failure must stop a change, not surface the
-morning after. The short macOS legs run on every pull request, where they
-finish inside the time the Windows shards take anyway. The long ones (both
-real runtimes, 10 and 7 minutes, and the real browser) run once per change,
-in the merge queue, which builds three groups at a time. When several
-groups carry them at once they wait for one of the five macOS slots, and
-the queue run takes that much longer. The whole Python suite on macOS
-(three shards of nine minutes) still runs nightly and on release tags only.
+morning after. Every macOS leg of the affected lanes, the real runtimes (10
+and 7 minutes) and the real browser included, therefore runs in the merge
+queue, before anything lands. It does not run on the pull request: five
+macOS slots serve every run, and when the short legs ran on each push as
+well (one morning, 2026-10-13), pull requests waited 6 to 25 minutes for a
+slot. The queue builds two groups at a time, so at most sixteen macOS legs
+compete for the five slots; in the first such group all eight were done 14
+minutes in. The whole Python suite on macOS (three shards of nine minutes)
+still runs nightly and on release tags only.
+
+The nightly run has no reader waiting for it, so its matrices run one leg at
+a time (`matrix_parallel`) instead of queueing 22 macOS jobs ahead of every
+merge group. Its cron slot is 18:17 UTC: GitHub starts this repository's
+schedules about seven hours late, and the old 02:17 slot ran between 08:30
+and 09:30 UTC, in the working morning.
 
 A branch gets the whole macOS matrix before the queue with
 `gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
