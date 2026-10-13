@@ -29,8 +29,10 @@ it("opens on the directory with its sections, descriptions and an always visible
   setup();
   await pane().findByRole("button", { name: "Gmail" });
   expect(pane().getByText("Search and read your mail")).toBeDefined();
-  // Featured picks lead; the categories follow in the product's own order.
-  expect(pane().getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Popular", "Calendar & Mail", "Developer"]);
+  // Featured picks lead and are not repeated: GitHub is Developer's only plugin,
+  // so that section has nothing left to show on the home page.
+  expect(pane().getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Popular", "Calendar & Mail"]);
+  expect(pane().getAllByRole("button", { name: "GitHub" })).toHaveLength(1);
   fireEvent.change(pane().getByRole("searchbox"), { target: { value: "Microsoft" } });
   await pane().findByRole("button", { name: "Outlook" });
   expect(pane().queryByRole("button", { name: "Gmail" })).toBeNull();

@@ -5,6 +5,7 @@ import {
   catalogSections,
   categorySectionId,
   COMMUNITY_SECTION,
+  homeRows,
   homeSectionId,
   isInstalled,
   ownSections,
@@ -62,6 +63,36 @@ describe("catalogSections", () => {
       ["Developer"],
     );
     expect(ids(sections[0].plugins)).toEqual(["shipped"]);
+  });
+});
+
+describe("homeRows", () => {
+  it("shows a plugin once: what Popular lists is left out of its category below", () => {
+    const rows = homeRows(
+      catalogSections(
+        [plugin("alpha"), plugin("beta", { featured: true })],
+        ["Developer"],
+      ),
+    );
+    expect(rows.map((s) => [s.id, ids(s.plugins)])).toEqual([
+      [POPULAR_SECTION, ["beta"]],
+      [categorySectionId("Developer"), ["alpha"]],
+    ]);
+  });
+
+  it("caps a section at six rows and lets the overflow show in the section below", () => {
+    const featured = Array.from({ length: 8 }, (_, i) => plugin(`f${i}`, { featured: true }));
+    const rows = homeRows(catalogSections(featured, ["Developer"]));
+    expect(ids(rows[0].plugins)).toEqual(["f0", "f1", "f2", "f3", "f4", "f5"]);
+    // The two featured plugins Popular had no room for are not lost.
+    expect(ids(rows[1].plugins)).toEqual(["f6", "f7"]);
+  });
+
+  it("drops a section whose plugins are all shown above", () => {
+    const rows = homeRows(
+      catalogSections([plugin("only", { featured: true })], ["Developer"]),
+    );
+    expect(rows.map((s) => s.id)).toEqual([POPULAR_SECTION]);
   });
 });
 

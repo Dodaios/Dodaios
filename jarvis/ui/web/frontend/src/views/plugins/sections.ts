@@ -2,8 +2,8 @@
  * How the plugin directory is cut into sections.
  *
  * The home page never lists the whole catalog: it shows a handful of sections,
- * each capped at `SECTION_LIMIT` rows, and a section's heading opens its full
- * list. Kept free of React so the grouping rules can be tested on their own.
+ * each capped at `SECTION_LIMIT` rows and none repeating a plugin, and a
+ * section's heading opens its full list. Kept free of React so the grouping rules can be tested on their own.
  */
 import type { Plugin } from "@/views/PluginsView";
 
@@ -76,6 +76,23 @@ export function ownSections(plugins: Plugin[]): BrowseSection[] {
     .sort(byName);
   if (community.length > 0) sections.push({ id: COMMUNITY_SECTION, plugins: community });
   return sections;
+}
+
+/** What each section shows on the home page: at most `SECTION_LIMIT` rows, and
+ *  a plugin a section above already shows is not repeated below — every plugin
+ *  is on the page once. A section left with nothing to show is dropped; its
+ *  own page still lists all of it. */
+export function homeRows(sections: BrowseSection[]): BrowseSection[] {
+  const shown = new Set<string>();
+  const rows: BrowseSection[] = [];
+  for (const section of sections) {
+    const plugins = section.plugins
+      .filter((plugin) => !shown.has(plugin.id))
+      .slice(0, SECTION_LIMIT);
+    for (const plugin of plugins) shown.add(plugin.id);
+    if (plugins.length > 0) rows.push({ id: section.id, plugins });
+  }
+  return rows;
 }
 
 /** Every section of both scopes, for resolving an open section by its id. */
