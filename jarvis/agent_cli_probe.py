@@ -151,10 +151,20 @@ def test_codex(binary_path: str | None = None) -> AgentCliTestResult:
     if not status.installed:
         return _not_installed("codex", "Install with: npm i -g @openai/codex", t0)
     ok = status.version is not None
-    message = status.message if ok else (
-        f"Found at {status.binary_path}, but 'codex --version' did not answer "
-        "— the install looks broken."
-    )
+    spawn_error = codex_auth.version_spawn_error(status.binary_path)
+    if ok:
+        message = status.message
+    elif spawn_error:
+        # The host refused to start it, which says nothing about the install.
+        message = (
+            f"Found at {status.binary_path}, but the system could not start it: "
+            f"{spawn_error}"
+        )
+    else:
+        message = (
+            f"Found at {status.binary_path}, but 'codex --version' did not answer "
+            "— the install looks broken."
+        )
     return AgentCliTestResult(
         cli="codex",
         ok=ok,
