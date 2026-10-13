@@ -9,7 +9,7 @@ and `docs/BUGS.md` (BUG-056, BUG-057).
 | Item | Status | Detail / Reference |
 |---|---|---|
 | Menu-bar tray icon | Done 2026-07-17 | `pystray.Icon(..., darwin_nsapplication=...)` + `run_detached()` on the AppKit main thread; worker-thread mutations marshaled via `PyObjCTools.AppHelper.callAfter` (`jarvis/ui/tray.py`, BUG-056 follow-up). |
-| Mascot/orb subprocess host | Done 2026-07-17 | Mascot/orb renders in the jarvisbar subprocess host as `SubprocessMascotOverlay` (`jarvis/ui/jarvisbar/subprocess_overlay.py`); `OrbOverlay` gained macOS Aqua-Tk alpha transparency (`-transparent` root) (BUG-057 follow-up). |
+| Mascot/orb subprocess host | Done 2026-07-17 | Mascot/orb renders in the jarvisbar subprocess host as `SubprocessMascotOverlay` (`jarvis/ui/dodaiosbar/subprocess_overlay.py`); `OrbOverlay` gained macOS Aqua-Tk alpha transparency (`-transparent` root) (BUG-057 follow-up). |
 | JarvisBar subprocess host | Pre-existing | The own-process Tk host the mascot work builds on (BUG-057). |
 | macOS audio ducking | Done 2026-07-17 | AppleScript (`osascript`) ducking of known players (Music, Spotify) with an opt-in master-volume fallback; every call wrapped, degrades per player (`jarvis/audio/ducking/macos.py`). |
 | WebRTC VAD tier | Done 2026-07-17 | The middle fallback tier (Silero ONNX → WebRTC VAD → RMS energy) is actually wired in `jarvis/audio/vad.py` — previously aspirational (BUG-061 follow-up). |

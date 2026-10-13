@@ -4,7 +4,7 @@ A display style answers "what does Jarvis look like on the desktop while it is
 listening?". It is a value that crosses Python, the REST payload, TypeScript and
 four user-visible surfaces (Settings, onboarding, the config file, the CLI), so
 it is exactly the five-layer enum this repo has been bitten by four times
-(AP-4 / BUG-008). Same remedy as ``jarvis.ui.jarvisbar.modes``: the tuple lives
+(AP-4 / BUG-008). Same remedy as ``jarvis.ui.dodaiosbar.modes``: the tuple lives
 in a module with NO imports at all, every layer imports these names instead of
 restating them, and ``tests/unit/ui/test_overlay_style_parity.py`` fails the
 build when a layer drifts — including the TypeScript union and the i18n labels.

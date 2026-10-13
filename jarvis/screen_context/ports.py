@@ -159,7 +159,7 @@ class PersistedBarLocator:
     def position(self) -> Point | None:
         try:
             from jarvis.core.config_writer import DEFAULT_CONFIG_FILE  # noqa: PLC0415
-            from jarvis.ui.jarvisbar import interaction  # noqa: PLC0415
+            from jarvis.ui.dodaiosbar import interaction  # noqa: PLC0415
 
             return interaction.load_jarvisbar_position(Path(DEFAULT_CONFIG_FILE))
         except Exception:  # noqa: BLE001 — the seam must never raise
