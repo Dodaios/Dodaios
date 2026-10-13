@@ -28,20 +28,34 @@ from jarvis.core.branding import (
     [
         ("dodaios", "dodaios"),
         ("/home/u/.local/bin/dodaios", "dodaios"),
-        (r"C:\Users\u\.personal-jarvis\bin\dodaios.exe", "dodaios"),
+        ("/home/u/.local/bin/dodaios.exe", "dodaios"),
         # An earlier name is repeated back, whatever its case or extension.
         ("jarvis", "jarvis"),
-        (r"C:\Users\u\.personal-jarvis\bin\JARVIS.EXE", "jarvis"),
+        ("/home/u/.local/bin/JARVIS.EXE", "jarvis"),
         ("/usr/bin/personal-jarvis", "personal-jarvis"),
         # Anything else is not a command name of ours: the primary name.
         ("/repo/jarvis/__main__.py", "dodaios"),
-        (r"C:\Program Files\Personal Jarvis\PersonalJarvis.exe", "dodaios"),
+        ("/Applications/Personal Jarvis.app/Contents/MacOS/PersonalJarvis", "dodaios"),
         ("/opt/venv/bin/jarvisctl", "dodaios"),
         ("-c", "dodaios"),
         ("", "dodaios"),
     ],
 )
 def test_the_command_name_follows_how_the_process_was_started(argv0: str, expected: str) -> None:
+    assert main_command(argv0) == expected
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="backslash paths are Windows paths")
+@pytest.mark.parametrize(
+    ("argv0", "expected"),
+    [
+        (r"C:\Users\u\.personal-jarvis\bin\dodaios.exe", "dodaios"),
+        (r"C:\Users\u\.personal-jarvis\bin\JARVIS.EXE", "jarvis"),
+        (r"C:\Users\u\.personal-jarvis\bin\personal-jarvis.exe", "personal-jarvis"),
+        (r"C:\Program Files\Personal Jarvis\PersonalJarvis.exe", "dodaios"),
+    ],
+)
+def test_the_command_name_is_read_from_a_windows_launcher_path(argv0: str, expected: str) -> None:
     assert main_command(argv0) == expected
 
 
