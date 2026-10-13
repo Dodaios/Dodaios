@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import runner_api, service
+from jarvis.agent_chat import plain_chat, runner_api, service
 from jarvis.agent_chat.catalog import rows_for
 from jarvis.agent_chat.native_control import TOOL_FREE_RUNNERS, disable_cli_tools
 from jarvis.agent_chat.runner_api import supports_api_runner
@@ -115,13 +115,13 @@ async def test_an_api_seat_gets_no_tools_and_the_surfaces_own_system_prompt(
         store.close()
 
 
-async def test_a_cli_seat_hears_the_instructions_once_at_the_head_of_the_conversation(
+async def test_a_cli_seat_runs_tool_free_and_carries_the_surfaces_prompt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    prompts: list[tuple[str, bool, bool]] = []
+    prompts: list[tuple[str, bool, str]] = []
 
     async def _run_cli_turn(handle: Any, prompt: str, runner: str, **_kwargs: object) -> str:
-        prompts.append((prompt, handle.tools_disabled, bool(handle.plain_system)))
+        prompts.append((prompt, handle.tools_disabled, handle.plain_system))
         await handle.emit(
             service.make_event(
                 "turn_finished",
@@ -143,14 +143,69 @@ async def test_a_cli_seat_hears_the_instructions_once_at_the_head_of_the_convers
         await svc.send(session.session_id, "second question")
         await _until_finished(queue)
 
-        (first, first_tool_free, first_plain), (second, second_tool_free, _plain) = prompts
-        assert first.startswith("<side_chat_instructions>") and first.endswith("first question")
-        assert "You are Testo" in first
-        assert first_tool_free and first_plain and second_tool_free
-        # The CLI resumed its own conversation, which already holds them.
-        assert second == "second question"
+        # The runner decides where the instructions go; the service hands it
+        # the person's own words and the surface's prompt beside them.
+        assert [prompt for prompt, _tool_free, _system in prompts] == [
+            "first question",
+            "second question",
+        ]
+        assert all(tool_free for _prompt, tool_free, _system in prompts)
+        assert all("You are Testo" in system for _prompt, _tool_free, system in prompts)
     finally:
         store.close()
+
+
+def _handle(system: str = "Be a plain chat.", history: list[dict[str, Any]] | None = None) -> Any:
+    return SimpleNamespace(plain_system=system, history=history or [])
+
+
+def test_a_cli_conversation_opens_with_the_instructions() -> None:
+    prompt = plain_chat.cli_prompt(_handle(), "first question", None)
+    assert prompt.startswith("<chat_instructions>\nBe a plain chat.\n</chat_instructions>")
+    assert prompt.endswith("first question")
+    assert "<earlier_conversation>" not in prompt
+
+
+def test_a_resumed_cli_conversation_gets_the_persons_words_alone() -> None:
+    assert plain_chat.cli_prompt(_handle(), "second question", "vendor-1") == "second question"
+
+
+def test_a_conversation_restarted_after_a_lost_resume_gets_instructions_and_history() -> None:
+    """A fresh CLI session must not leave the chat without its framing."""
+    history = [
+        {"kind": "user_message", "payload": {"text": "what is the plan?"}},
+        {"kind": "reasoning", "payload": {"text": "private thinking"}},
+        {"kind": "assistant_text", "payload": {"text": "Ship the chat."}},
+    ]
+    prompt = plain_chat.cli_prompt(_handle(history=history), "and then?", None)
+    assert prompt.startswith("<chat_instructions>")
+    assert "User: what is the plan?\n\nAssistant: Ship the chat." in prompt
+    assert "private thinking" not in prompt
+    assert prompt.endswith("and then?")
+
+
+def test_a_long_chat_keeps_its_newest_messages_in_the_transcript() -> None:
+    history = [
+        {"kind": "user_message", "payload": {"text": f"message {index} " + "x" * 400}}
+        for index in range(40)
+    ]
+    kept = plain_chat.transcript(history, max_chars=2000)
+    assert "message 39" in kept and "message 0 " not in kept
+    assert len(kept) < 2600
+
+
+def test_a_surface_with_tools_sends_the_cli_the_message_as_it_is() -> None:
+    handle = SimpleNamespace(plain_system="", history=[])
+    assert plain_chat.cli_prompt(handle, "do the work", None) == "do the work"
+    assert plain_chat.permission_mode(handle, "codex-cli", "full-access") == "full-access"
+
+
+def test_a_plain_chat_on_a_cli_that_could_still_write_runs_read_only() -> None:
+    assert plain_chat.permission_mode(_handle(), "codex-cli", "full-access") == "read-only"
+    # No tool at all leaves nothing to sandbox.
+    assert plain_chat.permission_mode(_handle(), "claude-cli", "bypassPermissions") == (
+        "bypassPermissions"
+    )
 
 
 async def test_the_workspace_notes_describe_the_sessions_folder(tmp_path: Path) -> None:

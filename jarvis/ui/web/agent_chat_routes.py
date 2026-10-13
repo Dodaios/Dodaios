@@ -494,6 +494,7 @@ def _catalog_rows(
     # own: other surfaces keep every seat.
     prefs = agent_provider_prefs.load()
     agents = surface == agent_provider_prefs.AGENT_SURFACE
+    plain = kit_for(surface).plain
     rows: list[dict[str, Any]] = []
     for row in rows_for(surface):
         d = row.to_dict()
@@ -523,7 +524,8 @@ def _catalog_rows(
         # Which characters open the composer's typeahead on this seat —
         # decided here, from the runner, so the box never offers a "/" list
         # to a seat that would read it as plain text.
-        d["typeahead"] = list(typeahead.triggers_for(runner, surface))
+        # A plain chat has nothing to complete against: no commands, no files.
+        d["typeahead"] = [] if plain else list(typeahead.triggers_for(runner, surface))
         if agents:
             d["enabled"] = prefs.enabled(row.id)
         d["hidden_models"] = list(prefs.hidden(row.id))

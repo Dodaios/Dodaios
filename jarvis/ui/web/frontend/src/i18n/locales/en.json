@@ -7595,7 +7595,8 @@
       "too_long": "This answer is too long for a terminal: {count} of {max} characters.",
       "sent": "Sent to {pane}.",
       "not_accepted": "{pane} did not take the prompt. The text is in its input box; press Enter there.",
-      "unconfirmed": "{pane} never showed the prompt arriving. Check that terminal."
+      "unconfirmed": "{pane} never showed the prompt arriving. Check that terminal.",
+      "needs_restart": "Restart the app once to use the chat: it was updated while it was running."
     },
     "tabs": {
       "browser": "Browser",
