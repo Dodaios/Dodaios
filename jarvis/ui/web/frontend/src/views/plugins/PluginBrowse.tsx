@@ -54,12 +54,12 @@ import {
   type BrowseSection,
   catalogSections,
   COMMUNITY_SECTION,
+  homeRows,
   isInstalled,
   isOwnerAdded,
   ownSections,
   type PluginScope,
   POPULAR_SECTION,
-  SECTION_LIMIT,
   sectionCategory,
   UPLOADED_SECTION,
 } from "@/views/plugins/sections";
@@ -323,6 +323,8 @@ function BrowseSkeleton() {
   );
 }
 
+/** One home-page section: the rows it was given, under a heading that opens
+ *  the section's full list. */
 function SectionBlock({ section, onOpenSection, handlers }: {
   section: BrowseSection;
   onOpenSection: (id: string) => void;
@@ -342,7 +344,7 @@ function SectionBlock({ section, onOpenSection, handlers }: {
           <ChevronRight className="h-4 w-4 text-foreground-faint transition-transform group-hover/heading:text-muted-foreground motion-safe:group-hover/heading:translate-x-0.5" aria-hidden />
         </button>
       </h3>
-      <PluginGrid plugins={section.plugins.slice(0, SECTION_LIMIT)} label={title} handlers={handlers} />
+      <PluginGrid plugins={section.plugins} label={title} handlers={handlers} />
     </section>
   );
 }
@@ -535,7 +537,7 @@ export function PluginBrowse({
       {!loading && !error && home && (
         <>
           {banner}
-          {sections.map((section) => (
+          {homeRows(sections).map((section) => (
             <SectionBlock key={section.id} section={section} onOpenSection={onSection} handlers={handlers} />
           ))}
           {sections.length === 0 && (

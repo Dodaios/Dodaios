@@ -169,6 +169,9 @@ describe("PluginsView lists the catalog in sections", () => {
       "Popular",
       "Developer",
     ]);
+    // A plugin is on the home page once: the featured one is not repeated
+    // under its category.
+    expect(screen.getAllByRole("button", { name: "Tool 7" })).toHaveLength(1);
     // Six of the eight show on the home page; the heading opens all of them.
     const developer = screen.getByRole("region", { name: "Developer" });
     expect(within(developer).getAllByRole("listitem")).toHaveLength(6);
@@ -1337,16 +1340,29 @@ describe("PluginsView search and scope controls", () => {
     expect(screen.queryByText("No plugins connected yet")).toBeNull();
   });
 
-  it("lists a plugin once per section — no promo strip, no Coming-soon decoy", async () => {
-    // A carousel used to put GitHub on screen a second time, and the
+  it("lists every plugin exactly once — no promo strip, no Coming-soon decoy", async () => {
+    // The carousel used to put GitHub on screen a second time, and the
     // Coming-soon strip listed names that had long had real catalog entries.
-    installCatalogFetchMock();
+    // A featured plugin leads under Popular and is not repeated below.
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ...CATALOG,
+        plugins: CATALOG.plugins.map((p) => ({ ...p, featured: p.id === "github" })),
+      }),
+    })) as unknown as typeof fetch;
     renderPluginsView();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "GitHub" })).toBeDefined();
     });
     expect(screen.getAllByText("GitHub")).toHaveLength(1);
+    expect(screen.getAllByText("Vercel")).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Popular",
+      "Developer",
+    ]);
     expect(screen.queryByText("Coming soon")).toBeNull();
   });
 });
