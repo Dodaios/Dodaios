@@ -68,6 +68,15 @@ Resolution order (highest first): explicit `--url` / `--key` → `JARVISCTL_BASE
 / `JARVISCTL_CONTROL_KEY` env → saved profile (`dodaios auth login`) → the live
 session file → the local control key + default `127.0.0.1:47821`.
 
+**Environment variables: set either prefix.** Every variable the CLI and the app
+read may be written as `DODAIOS_…` or `JARVIS_…`: `DODAIOSCTL_BASE_URL` or
+`JARVISCTL_BASE_URL`, `DODAIOS_CLI_ASSUME_YES` or `JARVIS_CLI_ASSUME_YES`,
+`DODAIOS__SECTION__KEY` or `JARVIS__SECTION__KEY`. If both are set to different
+values, the `DODAIOS_` one is used and one log line names the variable. Inside
+the app and in child processes the `JARVIS_` spelling is what is present: the
+`DODAIOS_` name is moved to it at start and then removed, so a script or plugin
+the app starts reads `JARVIS_…`.
+
 **Remote / VPS.** Tunnel the loopback port and the CLI treats it as local:
 
 ```bash

@@ -18,15 +18,19 @@
 set -euo pipefail
 
 # --- install-option-names begin
-# Every JARVIS_INSTALL_* option also answers to DODAIOS_INSTALL_*. When both
-# are set to different values the DODAIOS_ one wins, and the clash is named,
-# never its values. The rest of this script, and installer.py after it, read
-# the JARVIS_ spelling (jarvis/core/env_prefix.py does the same for the app).
+# Every JARVIS_ option this script reads also answers to its DODAIOS_
+# spelling. When both are set to different values the DODAIOS_ one wins, and
+# the clash is named, never its values. The rest of this script, and
+# installer.py after it, read the JARVIS_ spelling (jarvis/core/env_prefix.py
+# does the same for the app). JARVIS_PAYLOAD_COMMIT is not an option: it is
+# the signed commit the verifying installer hands over, and no second name
+# may override it.
 adopt_install_option_names() {
     local option new_name old_name new_value old_value
-    for option in REPO REF DIR PREREQS YES; do
-        new_name="DODAIOS_INSTALL_$option"
-        old_name="JARVIS_INSTALL_$option"
+    for option in INSTALL_REPO INSTALL_REF INSTALL_DIR INSTALL_PREREQS INSTALL_YES \
+        OFFICIAL_REPO_SLUG PYTHON PYTHON_SEARCH_DIRS NO_PYTHON_BOOTSTRAP; do
+        new_name="DODAIOS_$option"
+        old_name="JARVIS_$option"
         new_value="${!new_name:-}"
         old_value="${!old_name:-}"
         [ -n "$new_value" ] || continue
