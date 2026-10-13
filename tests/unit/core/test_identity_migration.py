@@ -41,6 +41,7 @@ from jarvis.core.identity_migration import (
 )
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from tests.fakes.fake_keyring_backend import FakeKeyringBackend
+from tests.package_names import PACKAGE_NAMES
 
 MODULE_PATH = Path(engine.__file__).resolve()
 
@@ -617,8 +618,8 @@ _CHILD = textwrap.dedent(
     spec = importlib.util.spec_from_file_location("identity_migration_by_path", module_path)
     engine = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(engine)
-    if any(name == "jarvis" or name.startswith("jarvis.") for name in sys.modules):
-        sys.exit("the engine imported the jarvis package")
+    if any(name.partition(".")[0] in PACKAGE_NAMES for name in sys.modules):
+        sys.exit("the engine imported the package it belongs to")
 
     def crash(source, target):
         os._exit(70)
@@ -648,7 +649,9 @@ _CHILD = textwrap.dedent(
 def child(tmp_path: Path) -> Iterator[Callable[..., subprocess.Popen[str]]]:
     """Start a separate Python process that runs one migration."""
     script = tmp_path / "migrate_child.py"
-    script.write_text(_CHILD, encoding="utf-8")
+    # The child must not import anything of the package, so the names it
+    # checks for are written into its source.
+    script.write_text(_CHILD.replace("PACKAGE_NAMES", repr(PACKAGE_NAMES)), encoding="utf-8")
     started: list[subprocess.Popen[str]] = []
 
     def start(mode: str, legacy: Path, current: Path, go: Path | None = None) -> subprocess.Popen:

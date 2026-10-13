@@ -1790,6 +1790,24 @@ _HANDSHAKE_FAILURE_MESSAGES: dict[str, dict[str, str]] = {
             "Carrega-o no fornecedor e volta a funcionar."
         ),
     },
+    "not_offered": {
+        "de": (  # i18n-allow: localized runtime voice output
+            "Dein Konto bietet diese Sprachverbindung gerade nicht an. "  # i18n-allow
+            "Prüfe den Tarif oder wähle ein anderes Konto."  # i18n-allow
+        ),
+        "en": (
+            "Your account does not offer this voice connection right now. "
+            "Check its plan or select another account."
+        ),
+        "es": (  # i18n-allow: localized runtime voice output
+            "Tu cuenta no ofrece esta conexión de voz ahora mismo. "
+            "Revisa el plan o elige otra cuenta."
+        ),
+        "pt": (  # i18n-allow: localized runtime voice output
+            "A tua conta não oferece esta ligação de voz neste momento. "
+            "Verifica o plano ou escolhe outra conta."
+        ),
+    },
     "dropped": {
         "de": (  # i18n-allow: localized runtime voice output
             "Die Sprachverbindung ist abgebrochen."  # i18n-allow

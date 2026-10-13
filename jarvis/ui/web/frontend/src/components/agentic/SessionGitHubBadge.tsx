@@ -15,7 +15,8 @@ const PR: Record<SessionGitHubStatus["state"], [GitHubIconName, string]> = {
   closed: ["git-pull-request-closed", "ide_panes.github.state_closed"],
 };
 
-const MENU_WIDTH = 320;
+// Wide enough for a full `agent/topic` branch name beside its state.
+const MENU_WIDTH = 460;
 
 /** One branch as the header words it: where it leads, and what state it is in. */
 interface BranchRow {

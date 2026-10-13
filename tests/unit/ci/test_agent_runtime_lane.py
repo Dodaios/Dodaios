@@ -104,20 +104,19 @@ def test_ci_runs_the_lane_on_every_os_and_the_gate_waits_for_it():
     jobs = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))["jobs"]
     assert "agent_runtimes" in jobs["detect"]["outputs"]
     assert LANE_JOBS <= set(jobs["gate"]["needs"])
-    # Before anything lands (the merge queue) the unit suite has run on all
-    # three OSes, both real runtimes on Linux and macOS and OpenClaw on
-    # Windows; the nightly and release runs add the Hermes install on
-    # Windows. ci.yml reads the plan.
+    # Every change runs the lane on Linux and Windows: the unit suite, both
+    # real runtimes on Linux, OpenClaw on Windows. On macOS a merge group
+    # runs the suite's tests through the impact selection; the nightly and
+    # release runs run the lane itself on all three OSes. ci.yml reads the plan.
     oses = {"ubuntu-latest", "windows-latest", "macos-latest"}
     queue = plan_run.plan("merge_group")
-    assert set(queue["lane_os"]) == oses
+    assert set(queue["lane_os"]) == oses - {"macos-latest"}
     assert {(leg["os"], leg["runtime"]) for leg in queue["e2e_matrix"]} == {
         ("ubuntu-latest", "hermes"),
         ("ubuntu-latest", "openclaw"),
         ("windows-latest", "openclaw"),
-        ("macos-latest", "hermes"),
-        ("macos-latest", "openclaw"),
     }
+    assert set(plan_run.plan("schedule")["lane_os"]) == oses
     assert {(leg["os"], leg["runtime"]) for leg in plan_run.plan("schedule")["e2e_matrix"]} == {
         (os, runtime) for os in oses for runtime in ("hermes", "openclaw")
     }

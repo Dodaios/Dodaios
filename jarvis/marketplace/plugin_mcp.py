@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 
+from jarvis.marketplace.bundled_servers import runs_bundled_server, runs_connected_server
 from jarvis.marketplace.catalog import PluginSpec
 from jarvis.marketplace.mcp_bridge import _resolve_placeholders, _token_replacements
 from jarvis.marketplace.token_store import Tokens
@@ -60,16 +61,13 @@ def plugin_to_mcp_server_spec(
         if not install:
             return None
         resolved_install = [_resolve_placeholders(str(a), repl) for a in install]
-        if resolved_install[:2] == ["python", "-m"] and resolved_install[2:3] in (
-            ["jarvis.plugins.tool.connected_server"],
-            ["jarvis.marketplace.amd_mcp"],
-        ):
+        if resolved_install[:1] == ["python"] and runs_bundled_server(resolved_install):
             resolved_install[0] = sys.executable
         env_template = spec.get("env_template") or {}
         env_overrides = {
             str(k): _resolve_placeholders(str(v), repl) for k, v in env_template.items()
         }
-        if resolved_install[1:3] == ["-m", "jarvis.plugins.tool.connected_server"]:
+        if runs_connected_server(resolved_install):
             env_overrides["JARVIS_CONNECTOR_AUTH_TYPE"] = (
                 "oauth" if tokens.extra.get("client_id") else "pat"
             )

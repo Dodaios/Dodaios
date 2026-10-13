@@ -105,7 +105,10 @@ def test_the_current_and_the_legacy_namespace_come_from_branding() -> None:
     assert ep_module.group_spellings("dodaios.tool") == ("dodaios.tool", "jarvis.tool")
 
 
-@pytest.mark.parametrize("group", ["console_scripts", "jarvis", "other.tool", "jarvis."])
+@pytest.mark.parametrize(
+    "group",
+    ["console_scripts", "jarvis", "other.tool", "jarvis."],  # rename-keep: group names
+)
 def test_a_group_outside_the_plugin_namespaces_has_one_spelling(group: str) -> None:
     assert ep_module.group_spellings(group) == (group,)
 
