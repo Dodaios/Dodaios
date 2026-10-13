@@ -26,6 +26,7 @@ import {
   usePublishIdentity,
 } from "@/components/marketplace/PublishIdentity";
 import { fill, useLocaleChunk, useT } from "@/i18n";
+import { EXTENSION_NAMESPACE, extensionOf } from "@/lib/extensionNamespace";
 import { openExternalUrl } from "@/lib/openExternal";
 import { cn } from "@/lib/utils";
 import {
@@ -132,7 +133,7 @@ const PLUGIN_TEMPLATE = `{
   "version": "1.0.0",
   "description": "One sentence on what the plugin connects.",
   "extensions": {
-    "io.github.personaljarvis": {
+    "${EXTENSION_NAMESPACE}": {
       "display_name": "My Plugin",
       "category": "Productivity",
       "auth": { "mode": "pat_paste", "pat_help_url": "https://example.com/settings/tokens" }
@@ -748,7 +749,7 @@ function HowPublishingWorks({ t }: { t: Translate }) {
 ├── mcp.json                     ← ${t("marketplace.studio_layout_mcp_json")}
 ├── skills/                      ← ${t("marketplace.studio_layout_skills")}
 │   └── my-skill/SKILL.md
-└── io.github.personaljarvis/
+└── ${EXTENSION_NAMESPACE}/
     └── usage-card.md            ← ${t("marketplace.studio_layout_usage_card")}
 
 my-skill/
@@ -1374,7 +1375,7 @@ function CardPreview({ draft, t }: { draft: Draft; t: Translate }) {
         extensions?: Record<string, { display_name?: string; category?: string }>;
       };
       description = manifest.description ?? "";
-      const ext = manifest.extensions?.["io.github.personaljarvis"];
+      const ext = extensionOf(manifest);
       if (ext?.display_name) displayName = ext.display_name;
       if (ext?.category) category = ext.category;
     } catch {
