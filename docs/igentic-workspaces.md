@@ -67,6 +67,20 @@ worker tools and does not grant Society agents any new capability.
    when a new prompt is typed into that session, and reports a finished turn,
    never verified work. A task sent through `send` is followed without it.
 
+`fork` opens a copy of a session that continues the same conversation beside the
+original, and with `worktree` in a new git worktree and branch, so two agents can
+work on one task without touching each other's files.
+
+The repository of a workspace has its own voice tool, `workspace-git`. Like the
+actions above it names a workspace, never a path. It reads the branch, sync state
+and changed files (`state`), the checkouts and archived worktrees (`worktrees`)
+and the pull requests with their checks (`pull_requests`); it creates a worktree,
+commits, pushes and opens a pull request. `worktree_archive` removes a checkout
+only after saving its uncommitted work into a snapshot ref
+(`refs/dodaios/archived-worktrees/…`), and `worktree_restore` brings it back at
+its old path with those files uncommitted again. Ignored files are not part of a
+snapshot.
+
 For example, a request to fix an installer in a named project can address a
 background workspace while the user continues viewing another project. The
 orchestrator never temporarily changes global selection to make a delivery.
