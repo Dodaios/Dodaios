@@ -38,12 +38,12 @@
 # times - pull request, merge queue, and again on the push that landed the
 # very same commit.
 #   pr     pull request: the whole Linux + Windows suite and every affected
-#          lane on Linux, Windows and macOS. The macOS legs here are the
-#          short ones (one to four minutes): a macOS failure shows on the
-#          pull request, and they end before the Windows shards do.
-#   queue  merge-queue group: everything `pr` runs plus the long macOS legs
-#          (real runtimes, real browser). Nothing macOS-specific that a lane
-#          tests lands unproven; the groups share the five macOS slots.
+#          lane on Linux and Windows. No macOS: five macOS slots serve
+#          every run, and macOS legs on each push made pull requests wait.
+#   queue  merge-queue group: everything `pr` runs plus every macOS leg of
+#          the affected lanes (real runtimes and real browser included).
+#          Nothing macOS-specific that a lane tests lands unproven, and the
+#          five macOS slots are spent once per change.
 #   full   nightly, release tags, manual full dispatch: Intel macOS, the ARM
 #          runners, every interpreter, the macOS test shards, and the
 #          Hermes install on Windows (14-23 minutes). A red nightly opens an
@@ -64,7 +64,11 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 2 * * *" # nightly strict full run, macOS included
+    # Nightly strict full run, macOS included. GitHub starts this
+    # repository's schedules about seven hours late (measured over a week:
+    # the 02:17 slot ran between 08:30 and 09:30 UTC, in the middle of the
+    # working morning). 18:17 aims at the small hours.
+    - cron: "17 18 * * *"
   workflow_dispatch:
     inputs:
       full:
@@ -139,6 +143,7 @@ jobs:
       e2e_matrix: ${{ steps.mode.outputs.e2e_matrix }}
       browser_os: ${{ steps.mode.outputs.browser_os }}
       desktop_legs: ${{ steps.mode.outputs.desktop_legs }}
+      matrix_parallel: ${{ steps.mode.outputs.matrix_parallel }}
       duration_snapshot: ${{ steps.snapshot.outputs.name }}
       release: ${{ github.ref_type == 'tag' }}
     steps:
@@ -560,6 +565,7 @@ jobs:
     if: needs.detect.outputs.macos == 'true' && needs.detect.outputs.python == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         shard: [1, 2, 3]
     runs-on: macos-latest
@@ -724,6 +730,7 @@ jobs:
     if: needs.detect.outputs.cli == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.os_matrix) }}
     runs-on: ${{ matrix.os }}
@@ -781,8 +788,9 @@ jobs:
     if: needs.detect.outputs.deps == 'true'
     strategy:
       fail-fast: false
-      # Windows ARM and Intel macOS on every change, both interpreters and
-      # Apple Silicon in the wide matrix (plan_run.py).
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
+      # Windows ARM on a pull request, Intel macOS added in the queue, both
+      # interpreters and Apple Silicon in the wide matrix (plan_run.py).
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.crypto_matrix) }}
     runs-on: ${{ matrix.runner }}
@@ -819,6 +827,7 @@ jobs:
     if: needs.detect.outputs.realtime == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.lane_os) }}
     runs-on: ${{ matrix.os }}
@@ -856,8 +865,8 @@ jobs:
   # The in-app updater on every OS it ships to. Each one replaces a running
   # app differently (Inno handover, .app swap, AppImage swap, git transaction
   # + restart helper), and the POSIX-only tests run the real relaunch waiter.
-  # A pull request runs Linux, macOS and the real Windows upgrade; the merge
-  # queue adds the second Windows interpreter; the wide matrix adds the
+  # A pull request runs Linux and the real Windows upgrade; the merge queue
+  # adds macOS and the second Windows interpreter; the wide matrix adds the
   # Intel Mac (scripts/ci/plan_run.py).
   #
   # Python: 3.11 is the floor, 3.12 is what the native installers freeze.
@@ -872,6 +881,7 @@ jobs:
     if: needs.detect.outputs.updater == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.updater_matrix) }}
     runs-on: ${{ matrix.os }}
@@ -991,6 +1001,7 @@ jobs:
     if: needs.detect.outputs.dragdrop == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.os_matrix) }}
     runs-on: ${{ matrix.os }}
@@ -1047,14 +1058,15 @@ jobs:
 
   # Hermes / OpenClaw society agents on every OS a person runs them on. The
   # lane (scripts/ci/agent_runtime_suite.py) covers the runtimes AND the chat
-  # and society code that drives them, on all three OSes on every pull
-  # request: a macOS failure shows before the queue. Fakes only: no key, no
-  # network to a model.
+  # and society code that drives them. A pull request proves Linux and
+  # Windows; the merge queue adds macOS, so a macOS failure stops the change
+  # before it lands. Fakes only: no key, no network to a model.
   agent-runtimes-unit:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.lane_os) }}
     runs-on: ${{ matrix.os }}
@@ -1117,6 +1129,7 @@ jobs:
     if: needs.detect.outputs.agent_runtimes == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.e2e_matrix) }}
     runs-on: ${{ matrix.os }}
