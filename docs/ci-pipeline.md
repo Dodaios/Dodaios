@@ -258,11 +258,15 @@ python scripts/agent_land.py            # feature branch -> PR labelled auto-mer
 python scripts/agent_land.py --direct   # admin only: fast-forward main itself
 ```
 
-Local `main` is a mirror of `origin/main`: the commit hook
-(`scripts/ci/check_commit_branch.py`) refuses a commit on it, and the script
-refuses to land from it. Work starts on a branch cut from `origin/main`
-(`git worktree add -b <agent>/<topic> <path> origin/main`) and the main
-checkout follows with `git pull --ff-only` once the pull request has merged.
+Local `main` is a mirror of `origin/main`. The commit hook
+(`scripts/ci/check_commit_branch.py`) refuses a commit on it, the
+`reference-transaction` hook refuses every other move of it (`git update-ref`,
+a cherry-pick, a rebase, `--no-verify`) to a commit no remote `main` contains,
+and the script refuses to land from it. Work starts on a branch cut from
+`origin/main` (`git worktree add -b <agent>/<topic> <path> origin/main`) and
+the main checkout follows with `git pull --ff-only` once the pull request has
+merged. Hooks come from the checkout a command runs in, so a worktree cut
+before a hook existed does not have it until it is rebased.
 
 It rebases onto the latest main with the same conflict engine, runs the
 static gates, runs the tests the diff can reach, pushes, and asks GitHub to
