@@ -5,7 +5,7 @@
  * the cheap half of the work. Terminating the worker releases everything.
  */
 import { meshesByName, readGlb, type FigureMesh } from "./figureGlb";
-import { figureCover, shadeFigure, traceFigure, type FigureTrace } from "./figureRender";
+import { figureCover, figureGround, shadeFigure, traceFigure, type FigureGround, type FigureTrace } from "./figureRender";
 import {
   bodyEffectMoves, figureFaceMatrix, figureParts, figureSmoke, figureTraceKey, wearsAccessories, type FigureLook, type FigureSmoke,
 } from "./figureScene";
@@ -26,6 +26,8 @@ export type FigureResponse =
     /** How much of each pixel is body, one byte per pixel: only for a look whose effect moves across the body. */
     body?: ArrayBuffer;
     smoke: FigureSmoke[];
+    /** The shadow the figure stands on; the face draws it under the picture. */
+    ground?: FigureGround;
   }
   | { id: number; ok: false };
 
@@ -80,7 +82,7 @@ async function draw(request: FigureRequest): Promise<FigureResponse> {
   return {
     id: request.id, ok: true, pixels, data: image.data.buffer as ArrayBuffer, face: figureFaceMatrix(look, bodies, image.frame),
     body: bodyEffectMoves(look) ? figureCover(trace, parts.map(part => !!part.body)).buffer : undefined,
-    smoke: figureSmoke(look, image.frame),
+    smoke: figureSmoke(look, image.frame), ground: figureGround(trace),
   };
 }
 
