@@ -560,6 +560,24 @@ def test_undecidable_hits_are_reported_with_their_line_and_left_alone(repo):
     assert rendered.startswith("notes.py:2:") or "notes.py:" in rendered
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        'if any(name.startswith("jarvis.") for name in sys.modules):\n',
+        "offenders = [m for m in imported if m.startswith('jarvis.')]\n",
+        'if name.startswith("jarvis"):\n',
+        'PREFIXES = ("mcp_jarvis_", "jarvis.")\n',
+    ],
+)
+def test_a_guard_over_module_names_is_reported_and_left_alone(text):
+    """Kept silently, a test that forbids imports of the package would go on
+    passing while it no longer looks at a single module."""
+    data, result = _rewriter().rewrite("tests/test_guard.py", text.encode("utf-8"))
+
+    assert data.decode("utf-8") == text
+    assert [hit.line for hit in result.ambiguous] == [1]
+
+
 def test_a_local_variable_named_like_the_package_is_not_an_import():
     text = "jarvis = roster.lead()\nprint(jarvis.core, jarvis.agent_id)\n"
     rewriter = _rewriter()
