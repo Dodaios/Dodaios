@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-uvFB8oUG.js
-import{j as s}from"./index-CvGug5If.js";import{P as n}from"./PageHeader-BLha2ijI.js";import"./WorkTrace-Bp7xV6cY.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-|||||||| parent of 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/ChatsView-B_tdu4Oy.js
-import{j as s}from"./index-kUK78RJZ.js";import{P as n}from"./PageHeader-QaQJ6U2T.js";import"./WorkTrace-iYTkfKHX.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-========
-import{j as s}from"./index-BBJ9dd5N.js";import{P as n}from"./PageHeader-Bz881Bi7.js";import"./WorkTrace-g2OJYIbX.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
->>>>>>>> 740f21889 (build(frontend): rebuild the bundle for the Git control center):jarvis/ui/web/dist/assets/ChatsView-CF5I9Dbw.js
