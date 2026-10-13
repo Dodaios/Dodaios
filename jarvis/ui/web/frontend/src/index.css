@@ -2958,7 +2958,8 @@ body {
 
 /* Team thread board (components/agentic/threads/team): a cell whose member is
    working right now carries a signal line that travels along its top edge, and
-   the step being worked on breathes. Reduced motion keeps the line, still. */
+   the step being worked on breathes. The app's reduced-motion floor stills all
+   of it; the line stays visible. */
 @layer components {
   .team-live {
     position: relative;
@@ -2996,16 +2997,5 @@ body {
   @keyframes team-step-now {
     0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.45); }
     50% { box-shadow: 0 0 0 4px hsl(var(--accent) / 0); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .team-live::before {
-      animation: none;
-      background: hsl(var(--accent));
-    }
-    .team-live-line,
-    .team-pulse,
-    .team-step-now {
-      animation: none;
-    }
   }
 }
