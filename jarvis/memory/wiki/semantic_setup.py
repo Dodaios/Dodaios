@@ -228,14 +228,19 @@ def _publish(
 
 
 def _explain(exc: Exception) -> str:
-    """One English sentence a person can act on."""
+    """One English sentence a person can act on.
+
+    A fixed sentence per kind of failure, never the exception's own text: the
+    state is served over the API, and an exception can carry local paths. The
+    full error is in the log, written by the caller.
+    """
     try:
         import httpx
 
         if isinstance(exc, httpx.HTTPStatusError):
             return (
-                "The search model could not be downloaded: the server answered "
-                f"{exc.response.status_code}. Switch it on again later."
+                "The search model could not be downloaded: the server refused "
+                "the request. Switch it on again later."
             )
         if isinstance(exc, httpx.TransportError):
             return (
@@ -243,10 +248,13 @@ def _explain(exc: Exception) -> str:
                 "connection and switch it on again."
             )
     except ImportError:
-        log.debug("httpx is unavailable; reporting the raw setup error")
+        log.debug("httpx is unavailable; reporting a general setup error")
     if isinstance(exc, OSError):
-        return f"The search model could not be stored on this disk: {exc}"
-    return f"Semantic search could not be set up: {exc}"
+        return (
+            "The search model could not be stored on this disk. Check the free "
+            "space and switch it on again."
+        )
+    return "Semantic search could not be set up. The log has the details."
 
 
 def _data_dir(config: Any) -> str | None:
