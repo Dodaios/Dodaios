@@ -119,6 +119,8 @@ ACK_SKIP_TOOLS: frozenset[str] = frozenset({
     # passive observations
     "screen_snapshot",
     "whoami",
+    # looking up which tool to use is not something to announce
+    "find_tools",
     # fast passive memory reads (2026-07-06: wiki-recall answered in 72 ms —
     # a spoken "one moment" for that is pure chatter)
     "wiki_recall",

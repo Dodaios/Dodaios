@@ -976,7 +976,7 @@ def request_permission(
     the person has to flip a switch, DENIED once macOS will not ask again). The
     decision itself arrives later as ``PermissionResolved``. Outside the installed
     app nothing is asked unless the body says ``allow_outside_app``: the person's
-    one "Ask macOS now" click on a toast that says the app that started Jarvis
+    one "Ask macOS now" click on a toast that says the app that started Dodaios
     receives the grant. Rate limited (429).
     """
     options = body if body is not None else PermissionRequestBody()
