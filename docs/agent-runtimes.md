@@ -294,7 +294,10 @@ replayed during `session/load` is swallowed because the chat already shows it.
   in the process environment.
 - **Dodaios tools:** passed per session in `session/new` / `session/load`
   `mcpServers` (HTTP with headers); `HERMES_ACP_SKIP_CONFIGURED_MCP=1` keeps
-  any configured servers out. Hermes names them `mcp__jarvis__<tool>`.
+  any configured servers out. The server is mounted as `dodaios`, so Hermes
+  names them `mcp__dodaios__<tool>`; a conversation started while the server
+  was still mounted as `jarvis` has its pinned tool list discarded on resume
+  and rebuilt under the new name.
 - **Sessions:** persisted in the profile's `state.db`; `session/load` restores
   a conversation in a new process and replays it. An unknown id answers
   `session/load` with an empty result, which Dodaios treats as "resume lost" and
@@ -357,8 +360,10 @@ replayed during `session/load` is swallowed because the chat already shows it.
 - **Dodaios tools:** OpenClaw rejects per-session `mcpServers`, so the Dodaios
   server is configured in the agent's own state directory. Values such as
   `${JARVIS_CONTROL_API_KEY}` are substituted from the Gateway's environment,
-  so no key is written to disk. OpenClaw names them `jarvis__<tool>`; Dodaios
-  normalises that to `mcp__jarvis__<tool>`.
+  so no key is written to disk. OpenClaw names them `dodaios__<tool>`; Dodaios
+  normalises that to `mcp__dodaios__<tool>`. Names under the server's earlier
+  name (`jarvis__<tool>`, `mcp__jarvis__<tool>`) are read the same way
+  everywhere a tool name is matched (`jarvis/core/mcp_names.py`).
 - **Sessions:** the fixed session key keeps one conversation across bridge
   processes; the ACP session id changes per process and is not stored.
 - **Heartbeat:** OpenClaw runs a background model turn every 30 minutes by

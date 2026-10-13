@@ -71,6 +71,8 @@ describe("actionNoticeOf", () => {
 
   it("classifies a call even behind a transport prefix", () => {
     expect(callPresence(call("mcp__jarvis__society_memory_recall", {}))).toBe("recall");
+    expect(callPresence(call("mcp__dodaios__society_memory_recall", {}))).toBe("recall");
+    expect(presenceOf(turn([call("mcp__dodaios__society_wiki_note", { title: "x" })]))).toBe("writing");
     expect(callPresence(call("Bash", {}))).toBe("command");
   });
 });
