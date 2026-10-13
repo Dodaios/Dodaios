@@ -61,15 +61,15 @@ class CorrectionInbox:
     def read(self) -> list[Correction]:
         try:
             lines = self._path.read_text(encoding="utf-8").splitlines()
-        except FileNotFoundError:
+        except FileNotFoundError:  # no correction was given to this mission yet
             return []
         found: list[Correction] = []
         for line in lines:
             try:
                 row = json.loads(line)
                 text = str(row["text"]).strip()
-            except (ValueError, KeyError, TypeError):
-                continue  # a torn last line from a crash is not a correction
+            except (ValueError, KeyError, TypeError):  # a line torn by a crash: no correction
+                continue
             if text:
                 found.append(Correction(len(found) + 1, text, int(row.get("ts_ms") or 0)))
         return found
@@ -91,8 +91,8 @@ class CorrectionInbox:
                 if existing.tell():
                     existing.seek(-1, os.SEEK_END)
                     torn = existing.read(1) != b"\n"
-        except FileNotFoundError:
-            torn = False  # the first correction of this mission
+        except FileNotFoundError:  # the first correction of this mission
+            torn = False
         with self._path.open("a", encoding="utf-8") as handle:
             if torn:
                 handle.write("\n")
@@ -126,7 +126,7 @@ class CorrectionInbox:
     def _late(self) -> dict[str, list[int]]:
         try:
             data = json.loads(self._unapplied_path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
+        except FileNotFoundError:  # nothing came too late so far
             return {}
         except ValueError:
             log.warning("Unreadable record of late corrections: %s", self._unapplied_path)
