@@ -113,3 +113,23 @@ stuck work and starts standing duties the mission names. A check-in is an
 ordinary agent routine tagged `team-checkin:<team id>`, so it appears with the
 lead's other routines and follows the same rules for which seat may run
 background work.
+
+## Drills
+
+One failure cannot be produced on demand through the app: a start that takes
+longer than the board waits for it. A drill file makes it reproducible in a
+running app, with a real model and without changing any code.
+
+Create `society_drill.json` in the app's data directory:
+
+```json
+{"slow_start_s": 8}
+```
+
+While the file exists, every start of a member's turn is held for that many
+seconds (at most 30) after the turn has begun. The board gives up on the start
+after five seconds, so the task stays `assigned` although the member is
+working. A few minutes later the sweep reads the member's finished turn from
+its chat, the task becomes `done`, and the lead is woken with the result. The
+file is read on every start: delete it and the next start is normal again, no
+restart needed. Each held start is logged as `society drill: holding the start`.
