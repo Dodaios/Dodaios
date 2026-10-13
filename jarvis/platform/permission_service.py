@@ -148,6 +148,10 @@ _ORACLE_EVERY_S: Final = 10.0
 _AUTOMATION_READ_TIMEOUT_S: Final = 5.0
 _AUTOMATION_QUARANTINE_S: Final = 600.0
 _AUTOMATION_REFRESH_WAIT_S: Final = 0.25
+# A timed wait can end a clock step before the deadline it was given: the
+# monotonic clock of Python 3.11 moves in 15.6 ms steps on Windows. A wait that
+# comes this close to a deadline counts as having reached it.
+_DEADLINE_SLACK_S: Final = 0.02
 
 # After a native request FAILED (the call raised or the symbol was missing) a retry
 # loop must not hammer it: the next automatic attempt waits this long. An explicit
@@ -682,8 +686,13 @@ class _AutomationGuard:
                     name="permission-automation-probe",
                     daemon=True,
                 ).start()
+        waited_out = False
         if wait_s > 0:
-            call.done.wait(min(wait_s, max(0.0, call.deadline - time.monotonic())))
+            remaining = max(0.0, call.deadline - time.monotonic())
+            answered = call.done.wait(min(wait_s, remaining))
+            # A reader whose wait reached the deadline has seen the timeout,
+            # whatever the clock reads afterwards.
+            waited_out = not answered and remaining - wait_s <= _DEADLINE_SLACK_S
         with self._lock:
             if call.done.is_set():
                 if self._inflight.get(target) is call:
@@ -691,7 +700,7 @@ class _AutomationGuard:
                 if target in self._failed:
                     return _GuardRead("failed")
                 return _GuardRead("value", self._last.get(target))
-            if time.monotonic() >= call.deadline:
+            if waited_out or time.monotonic() >= call.deadline:
                 self._quarantine_locked(target, self._clock())
                 return _GuardRead("quarantined")
             return _GuardRead("pending", self._last.get(target))

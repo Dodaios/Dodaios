@@ -45,6 +45,7 @@ from uuid import UUID, uuid4
 
 # Real turn outcomes feed the passive health record behind the status dots.
 from jarvis.brain import provider_health_ledger as _health_ledger
+from jarvis.brain.local_context import LOCAL_CONTEXT_MARKER
 
 # ONE canonical billing/budget/quota marker list, shared with the test-badge
 # classifier (provider_test.classify_provider_error) so the live fallback chain and
@@ -2702,6 +2703,38 @@ _PROVIDER_DOWN_CAUSE_PHRASES: dict[str, dict[str, str]] = {
             "contexto não chega. Escolhe um modelo com mais contexto ou começa uma conversa nova."
         ),
     },
+    # A LOCAL server runs the model with a window too small for the request
+    # (``jarvis.brain.local_context``). Unlike ``context_overflow`` the remedy
+    # is not another model or a new chat but one setting on the user's own
+    # machine, so the phrase names that setting.
+    "local_context": {
+        "de": (
+            "Entschuldige — dein lokales Modell läuft mit einem zu kleinen "  # i18n-allow
+            "Kontextfenster für diese Anfrage. Stell in deinem lokalen "  # i18n-allow
+            "Modell-Server eine größere Kontextlänge ein und lade das Modell "  # i18n-allow
+            "neu; bei den Modellen unter Lokale Modelle geht das über Tune. "  # i18n-allow
+            "Die nötige Größe steht im Protokoll."  # i18n-allow
+        ),
+        "en": (
+            "Sorry — your local model runs with a context window too small "
+            "for this request. Raise the context length in your local model "
+            "server and reload the model; for the models under Local Models, "
+            "use Tune. The log names the size it needs."
+        ),
+        "es": (
+            "Lo siento: tu modelo local funciona con una ventana de contexto "
+            "demasiado pequeña para esta solicitud. Aumenta la longitud de "
+            "contexto en tu servidor de modelos local y vuelve a cargar el "
+            "modelo; para los modelos de Modelos locales, usa Tune. El "
+            "registro indica el tamaño necesario."
+        ),
+        "pt": (
+            "Desculpa: o teu modelo local corre com uma janela de contexto demasiado pequena "
+            "para este pedido. Aumenta o comprimento de contexto no teu servidor de modelos "
+            "local e recarrega o modelo; para os modelos em Modelos locais, usa Tune. O "
+            "registo indica o tamanho necessário."
+        ),
+    },
     "unreachable": {
         "de": (
             "Entschuldige — ich erreiche meinen Anbieter gerade nicht, "  # i18n-allow
@@ -2761,6 +2794,7 @@ _PROVIDER_DOWN_CAUSE_PRIORITY: tuple[str, ...] = (
     "account_blocked",
     "vision_unsupported",
     "invalid_model",
+    "local_context",
     "context_overflow",
     "rate_limit",
     "unreachable",
@@ -2782,6 +2816,7 @@ def _primary_provider_down_cause(
         "account_blocked",
         "vision_unsupported",
         "invalid_model",
+        "local_context",
         "context_overflow",
         "rate_limit",
         "skipped_cooldown",
@@ -12320,6 +12355,7 @@ class BrainManager:
                 if prefer_tool_model
                 else self._override_dispatch_kwargs(turn_override)
             )
+            await _settle_context_window(brain)
             disp = self._build_dispatcher(
                 brain, tools_override=_turn_tools, **_disp_kwargs
             )
@@ -12591,7 +12627,10 @@ class BrainManager:
                 # router bricked the whole turn even though OpenRouter was funded
                 # — AP-22). Only a genuinely transient 429 takes the cooldown path.
                 kind = _classify_provider_error(msg, default="call_fail")
-                if turn_override is None:
+                # A window too small for one request says nothing about whether
+                # the provider works; recording it would turn its status dot
+                # red for a setting, not a fault.
+                if turn_override is None and kind != "local_context":
                     _health_ledger.record_failure(
                         prov_name, _health_ledger.MODALITY_BRAIN, exc, model=model
                     )
@@ -12633,7 +12672,10 @@ class BrainManager:
                                 "Provider %s fuer diese Session deaktiviert (%s) — die Kette "
                                 "weicht auf einen anderen verfuegbaren Anbieter aus. "
                                 "Setup: Sidebar -> API-Keys.", prov_name, kind)
-                    provider_errors.append((prov_name, model, kind, msg[:200]))
+                    # The local-context sentence ends with the setting to
+                    # change; cutting it at 200 chars would drop exactly that.
+                    detail = msg if kind == "local_context" else msg[:200]
+                    provider_errors.append((prov_name, model, kind, detail))
                 # NOTE BUG-019 (2026-05-11): this generic ``continue`` does
                 # not touch the failing provider's *internal* state. For
                 # most providers that's correct (an HTTP error is purely
@@ -13776,6 +13818,7 @@ class BrainManager:
         for index, (name, model) in enumerate(attempts):
             try:
                 brain = self._get_brain(name, model)
+                await _settle_context_window(brain)
                 dispatcher = self._build_dispatcher(
                     brain, tools_override=tools,
                     # ``unattended``: the tool-use loop feeds an unknown tool
@@ -14146,6 +14189,36 @@ def _is_invalid_model_exc(msg: str) -> bool:
     ))
 
 
+#: How long a brain may take to say which context window it really has before
+#: the turn goes ahead with the figure it already published.
+_CONTEXT_SETTLE_TIMEOUT_S = 3.0
+
+
+async def _settle_context_window(brain: Any) -> None:
+    """Let a brain that has to ASK for its window do so before tools are fitted.
+
+    A hosted model's window is a constant on its class. A local server's is
+    whatever that server was started or loaded with, so the two local brains
+    expose ``prepare_context_window`` and learn it with one or two cached
+    round-trips. Without this the first turn is budgeted for a figure the
+    server may not run, and is then refused whole instead of having its tool
+    surface trimmed. Gated on the capability, never a provider name (AP-21);
+    a brain without the method is untouched. Bounded and never raises: a slow
+    or failing probe costs nothing but the better budget.
+    """
+    prepare = getattr(brain, "prepare_context_window", None)
+    if not callable(prepare):
+        return
+    try:
+        await asyncio.wait_for(prepare(), timeout=_CONTEXT_SETTLE_TIMEOUT_S)
+    except Exception as exc:  # noqa: BLE001 — the turn runs on the published figure
+        log.debug(
+            "Context window of %s not settled before the turn: %s",
+            getattr(brain, "name", type(brain).__name__),
+            exc,
+        )
+
+
 #: Tokens held back from a brain's context window before its tool surface is
 #: sized: the user's turn text, the per-turn context block, the plugin usage
 #: cards and the first answer or tool round. Only a local brain has a window
@@ -14278,6 +14351,9 @@ def _classify_provider_error(msg: str, *, default: str) -> str:
       1. missing_key (auth/config — important for the dead-list).
       2. account_blocked (credit/quota/tier/budget — also dead-list, by wording).
       3. invalid_model (config bug — different action: fix jarvis.toml).
+      0. local_context (a local server runs the model with a window too small
+         for this request — our own guard's wording, so it is checked first;
+         per request, never a dead-list or cooldown).
       3b. context_overflow (the request is larger than the model's window —
           per request, so neither dead-list nor cooldown; the spoken cause
           names the size, not the network).
@@ -14295,6 +14371,10 @@ def _classify_provider_error(msg: str, *, default: str) -> str:
     contain "limit" (e.g. "exceeded the rate limit for this resource") is not
     incorrectly classified as a 429 cooldown.
     """
+    # A local server's window is named by our own guard with a fixed wording;
+    # checked first so no other heuristic can read the sentence differently.
+    if LOCAL_CONTEXT_MARKER in msg.lower():
+        return "local_context"
     if _is_missing_key_exc(msg):
         return "missing_key"
     if _is_account_blocked_exc(msg):
@@ -14389,6 +14469,7 @@ def _format_provider_chain_error(
     vision_unsupported: list[str] = []
     invalid_models: list[str] = []
     context_overflow: list[str] = []
+    local_context: list[str] = []
     rate_limited: list[str] = []
     empty_responses: list[str] = []
     other_fails: list[str] = []
@@ -14405,6 +14486,9 @@ def _format_provider_chain_error(
             invalid_models.append(prov_name)
         elif kind == "context_overflow":
             context_overflow.append(prov_name)
+        elif kind == "local_context":
+            # The guard's own sentence carries the sizes and the setting.
+            local_context.append(_detail or prov_name)
         elif kind in ("rate_limit", "skipped_cooldown"):
             rate_limited.append(prov_name)
         elif kind == "empty_response":
@@ -14479,6 +14563,8 @@ def _format_provider_chain_error(
             "Modell mit groesserem Kontext waehlen, verbundene MCP-Server "
             "reduzieren oder einen neuen Chat starten."
         )
+    if local_context:
+        parts.append(" ".join(_uniq(local_context)))
     # 2. Rate limits are listed as supplementary info
     if rate_limited:
         prefix = "Ausserdem rate" if parts else "Rate"
@@ -14495,6 +14581,7 @@ def _format_provider_chain_error(
         )
     # 4. Other failures only mentioned when there is no clear root cause
     if (not missing_keys and not invalid_models and not context_overflow
+            and not local_context
             and not rate_limited and not empty_responses and other_fails):
         parts.append(
             f"Provider {', '.join(other_fails)} unerreichbar. "

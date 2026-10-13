@@ -169,6 +169,49 @@ def test_a_hung_automation_read_times_out_and_the_player_is_quarantined(
         probe.release.set()
 
 
+class _ClockBetweenTwoSteps:
+    """Stands in for ``time`` in the service: a monotonic clock that has not moved on.
+
+    On Windows the monotonic clock of Python 3.11 advances in 15.6 ms steps, so a
+    wait can run out a moment before the clock reaches the deadline it was given.
+    Every other attribute is the real ``time``.
+    """
+
+    def __init__(self) -> None:
+        self._now = time.monotonic()
+
+    def monotonic(self) -> float:
+        return self._now
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(time, name)
+
+
+def test_a_read_that_waited_out_the_timeout_quarantines_whatever_the_clock_reads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(service_module, "time", _ClockBetweenTwoSteps())
+    probe = HungProbe()
+
+    def hung() -> PermissionState:
+        probe(_MUSIC, False)
+        return PermissionState.NOT_DETERMINED
+
+    try:
+        guard = service_module._AutomationGuard(
+            timeout_s=0.05, quarantine_s=600.0, clock=lambda: 0.0
+        )
+        assert guard.read(_MUSIC, hung, wait_s=0.05).kind == "quarantined"
+
+        # A reader that gave the probe less than its budget has seen no timeout.
+        patient = service_module._AutomationGuard(
+            timeout_s=5.0, quarantine_s=600.0, clock=lambda: 0.0
+        )
+        assert patient.read(_MUSIC, hung, wait_s=0.02).kind == "pending"
+    finally:
+        probe.release.set()
+
+
 def test_an_automation_read_without_a_player_asks_nobody(make_env: Callable[..., Env]) -> None:
     env = make_env(installed_players=[_MUSIC], running_players=[_MUSIC])
 

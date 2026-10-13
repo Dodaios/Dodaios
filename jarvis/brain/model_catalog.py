@@ -1058,6 +1058,27 @@ def model_capabilities(provider: str, model_id: str) -> dict[str, bool | None]:
     return {"vision": None, "tools": None}
 
 
+def model_context_length(provider: str, model_id: str) -> int | None:
+    """A model's declared context window, read SYNCHRONOUSLY from the cached
+    catalog; ``None`` when the cache does not know it.
+
+    For a brain constructor that has to publish a budget before it may touch
+    the network (same route and same reason as :func:`model_capabilities`).
+    """
+    from jarvis.core import config as _cfg
+
+    cache_path = _cfg.DATA_DIR / "model_catalog_cache.json"
+    wanted = {(model_id or "").strip(), (model_id or "").strip().removesuffix(":latest")}
+    try:
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        for m in data.get(provider, {}).get("models", []):
+            if str(m.get("id") or "").removesuffix(":latest") in wanted:
+                return _positive_limit(m.get("context_length"))
+    except Exception:  # noqa: BLE001, S110 — missing/corrupt cache means unknown
+        pass
+    return None
+
+
 def pick_vision_model(provider: str) -> str | None:
     """The best vision-capable brain model of ``provider``, from the cached
     ``/v1/models`` catalog — or ``None`` when the catalog carries no modality

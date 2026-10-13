@@ -5,8 +5,10 @@
  * the cheap half of the work. Terminating the worker releases everything.
  */
 import { meshesByName, readGlb, type FigureMesh } from "./figureGlb";
-import { shadeFigure, traceFigure, type FigureTrace } from "./figureRender";
-import { figureFaceMatrix, figureParts, figureTraceKey, wearsAccessories, type FigureLook } from "./figureScene";
+import { figureCover, shadeFigure, traceFigure, type FigureTrace } from "./figureRender";
+import {
+  bodyEffectMoves, figureFaceMatrix, figureParts, figureSmoke, figureTraceKey, wearsAccessories, type FigureLook, type FigureSmoke,
+} from "./figureScene";
 
 export interface FigureRequest {
   id: number;
@@ -19,7 +21,12 @@ export interface FigureRequest {
 }
 
 export type FigureResponse =
-  | { id: number; ok: true; pixels: number; data: ArrayBuffer; face: [number, number, number, number, number, number] }
+  | {
+    id: number; ok: true; pixels: number; data: ArrayBuffer; face: [number, number, number, number, number, number];
+    /** How much of each pixel is body, one byte per pixel: only for a look whose effect moves across the body. */
+    body?: ArrayBuffer;
+    smoke: FigureSmoke[];
+  }
   | { id: number; ok: false };
 
 type Meshes = Map<string, FigureMesh[]>;
@@ -70,7 +77,11 @@ async function draw(request: FigureRequest): Promise<FigureResponse> {
   if (trace) { traces.delete(key); traces.set(key, trace); }
   else { trace = traceFigure(parts, pixels); remember(key, trace); }
   const image = shadeFigure(trace, parts);
-  return { id: request.id, ok: true, pixels, data: image.data.buffer as ArrayBuffer, face: figureFaceMatrix(look, bodies, image.frame) };
+  return {
+    id: request.id, ok: true, pixels, data: image.data.buffer as ArrayBuffer, face: figureFaceMatrix(look, bodies, image.frame),
+    body: bodyEffectMoves(look) ? figureCover(trace, parts.map(part => !!part.body)).buffer : undefined,
+    smoke: figureSmoke(look, image.frame),
+  };
 }
 
 // One picture at a time, in the order asked.
@@ -87,7 +98,7 @@ self.onmessage = (event: MessageEvent<FigureRequest>) => {
       console.warn("Companion figure unavailable", error);
       answer = { id: request.id, ok: false };
     }
-    if (answer.ok) (self as unknown as { postMessage: (message: FigureResponse, transfer: Transferable[]) => void }).postMessage(answer, [answer.data]);
+    if (answer.ok) (self as unknown as { postMessage: (message: FigureResponse, transfer: Transferable[]) => void }).postMessage(answer, answer.body ? [answer.data, answer.body] : [answer.data]);
     else self.postMessage(answer);
   });
 };

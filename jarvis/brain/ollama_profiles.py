@@ -60,6 +60,10 @@ _PROFILE_ALIAS_RE = re.compile(r"^(?P<prefix>.+)-jarvis-(?P<hash>[0-9a-f]{8})$")
 
 #: Context ladder :func:`suggest_options` picks from (tokens).
 _CONTEXT_LADDER: tuple[int, ...] = (4096, 8192, 16384, 32768, 65536, 131072)
+#: Bounds of the window a model gets when the person set none
+#: (:func:`automatic_context`).
+AUTOMATIC_CONTEXT_FLOOR = 16_384
+AUTOMATIC_CONTEXT_CEILING = 32_768
 #: Rough KV-cache cost in GB per 1k tokens, scaled by the model's on-disk size
 #: (a 4 GB model ~0.12 GB/1k, an 18 GB model ~0.54 GB/1k). An estimate: the
 #: real figure depends on the architecture and the KV cache type, which is why
@@ -267,6 +271,50 @@ def largest_context_for(
             if needed <= budget_gb:
                 chosen = rung
     return chosen
+
+
+def automatic_context(
+    *,
+    size_gb: float | None,
+    native_context: int | None,
+    accelerator_gb: float,
+    ram_gb: float | None,
+) -> tuple[int, str]:
+    """``(num_ctx, reason)`` for a model the person set no context for.
+
+    Ollama serves a small default window unless one is baked into the model,
+    and it shortens a longer prompt without an error — the system prompt and
+    the first tool schemas are what goes missing. So a model always gets an
+    explicit window: the largest ladder rung that fits this machine's memory,
+    held between :data:`AUTOMATIC_CONTEXT_FLOOR` (the app's prompt and a
+    working set of tools do not fit below it, so memory only warns here and
+    never refuses) and :data:`AUTOMATIC_CONTEXT_CEILING` (Ollama allocates the
+    whole cache up front; a larger window is the person's own choice in
+    Local Models → Tune), and never above the model's own window.
+    """
+    if accelerator_gb > 0:
+        budget: float | None = accelerator_gb
+        where = f"{accelerator_gb:.0f} GB of accelerator memory"
+    elif ram_gb:
+        budget = ram_gb * _RAM_SHARE
+        where = f"{_RAM_SHARE:.0%} of {ram_gb:g} GB RAM"
+    else:
+        budget = None
+        where = "unreadable memory"
+    fitted = (
+        largest_context_for(size_gb=size_gb, native_context=native_context, budget_gb=budget)
+        if size_gb is not None
+        else _CONTEXT_LADDER[0]
+    )
+    chosen = min(max(fitted, AUTOMATIC_CONTEXT_FLOOR), AUTOMATIC_CONTEXT_CEILING)
+    if native_context:
+        chosen = min(chosen, native_context)
+    note = (
+        ""
+        if fitted >= chosen
+        else f"; {fitted:,} would fit comfortably, the floor of {chosen:,} applies"
+    )
+    return chosen, f"num_ctx {chosen:,} sized from {where}{note}"
 
 
 def suggest_options(

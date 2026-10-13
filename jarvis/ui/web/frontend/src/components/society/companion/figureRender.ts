@@ -388,7 +388,6 @@ export function shadeFigure(trace: FigureTrace, coats: readonly FigureCoat[]): F
               if (paint.effect === 3) ring(paint.colors, along * 0.9, skin); else ramp(paint.colors, along, skin);
               cr = skin[0]!; cg = skin[1]!; cb = skin[2]!;
               if (paint.effect === 1) { const s = specks(bx, by, bz, 7, 0.3) * 2.2; er = s; eg = s; eb = s; }
-              if (paint.effect === 2) { const band = Math.exp(-(((bx + by * 0.6 + 0.12) * 6) ** 2)) * 0.4; er = band; eg = band; eb = band; }
               if (paint.effect === 4) { er = paint.highlight[0] * 0.3; eg = paint.highlight[1] * 0.3; eb = paint.highlight[2] * 0.3; }
               if (paint.effect === 5) { const s = specks(bx, by, bz, 5, 0.18) * 2.2; er = paint.highlight[0] * s; eg = paint.highlight[1] * s; eb = paint.highlight[2] * s; }
             }
@@ -431,6 +430,27 @@ export function shadeFigure(trace: FigureTrace, coats: readonly FigureCoat[]): F
     }
   }
   return { size, data, frame: { k: k / samples, ox: ox / samples, oy: oy / samples, yaw, pitch } };
+}
+
+/**
+ * How much of each pixel shows the chosen parts, 0 to 255: the outline a
+ * moving effect is cut to (a shine that sweeps the body must not cross the
+ * hat). `chosen` holds one flag per part, in the order the parts were traced.
+ */
+export function figureCover(trace: FigureTrace, chosen: readonly boolean[]): Uint8ClampedArray<ArrayBuffer> {
+  const { size, samples, owner } = trace;
+  const width = size * samples;
+  const cover = new Uint8ClampedArray(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let hits = 0;
+      for (let subY = 0; subY < samples; subY++) for (let subX = 0; subX < samples; subX++) {
+        if (chosen[owner[(y * samples + subY) * width + x * samples + subX]! - 1]) hits++;
+      }
+      cover[y * size + x] = Math.round(hits * 255 / (samples * samples));
+    }
+  }
+  return cover;
 }
 
 /**
