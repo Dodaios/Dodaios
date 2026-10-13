@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-CjRFpYbw.js
 import{c as y}from"./index-BUF1O4fr.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/sliders-horizontal-C_QSYnjg.js
+import{c as y}from"./index-znwWITUi.js";/**
+========
+import{c as y}from"./index-DBeLOPrj.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/sliders-horizontal-BLBEv5B6.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

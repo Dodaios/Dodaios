@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-C4Ny40cg.js
 import{j as s}from"./index-BUF1O4fr.js";import{P as n}from"./PageHeader-BJW2f8Dj.js";import"./WorkTrace-x_TLZWF4.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/ChatsView-Cn3iYxwC.js
+import{j as s}from"./index-znwWITUi.js";import{P as n}from"./PageHeader-CXY9somh.js";import"./WorkTrace-CdiFOx2Z.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-DBeLOPrj.js";import{P as n}from"./PageHeader-DpcEvAWk.js";import"./WorkTrace-BlPgim4Q.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/ChatsView-B-5QgXdv.js

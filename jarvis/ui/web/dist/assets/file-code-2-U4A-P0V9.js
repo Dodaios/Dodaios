@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/file-code-2-U4A-P0V9.js
 import{c as e}from"./index-BUF1O4fr.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/file-code-2-DpC39_LR.js
+import{c as e}from"./index-znwWITUi.js";/**
+========
+import{c as e}from"./index-DBeLOPrj.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/file-code-2-9Wt-aP7J.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

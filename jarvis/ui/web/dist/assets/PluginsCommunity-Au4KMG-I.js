@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-Au4KMG-I.js
 import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cx as T,B as y,cb as q,q as ee,S as te,L as $,ct as U,cu as K,x as ne}from"./index-BUF1O4fr.js";import{P as L}from"./branding-B70gMSNS.js";import{C as P}from"./check-skxWFWa1.js";import{S as se,C as re}from"./store-Bx15JezR.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/PluginsCommunity-sxyJ7S3r.js
+import{c as W,f as m,t as C,r as x,u as _,cm as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cw as T,B as y,ca as q,q as ee,S as te,L as $,cs as U,ct as K,x as ne}from"./index-znwWITUi.js";import{P as L}from"./branding-B70gMSNS.js";import{C as P}from"./check-xIq1fFOX.js";import{S as se,C as re}from"./store-DGgyGJm7.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cm as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cw as T,B as y,ca as q,q as ee,S as te,L as $,cs as U,ct as K,x as ne}from"./index-DBeLOPrj.js";import{P as L}from"./branding-B70gMSNS.js";import{C as P}from"./check-BSlJrNLV.js";import{S as se,C as re}from"./store-D9LeygjO.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/PluginsCommunity-R_dwl4JF.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

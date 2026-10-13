@@ -8691,6 +8691,7 @@
       "state_closed": "Ohne Merge geschlossen",
       "unavailable": "GitHub-Status nicht verfügbar",
       "branch_generic": "GitHub-Branch",
+      "local_only": "Noch nicht auf GitHub",
       "dest_pr": "Pull Request #{number}",
       "dest_branch": "Branch",
       "open_aria": "GitHub {destination} öffnen: {identity}",

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/calendar-days-DOqpdrWc.js
 import{c as h}from"./index-BUF1O4fr.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/calendar-days-D9ALvKqm.js
+import{c as h}from"./index-znwWITUi.js";/**
+========
+import{c as h}from"./index-DBeLOPrj.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/calendar-days-Bu4V7Rov.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

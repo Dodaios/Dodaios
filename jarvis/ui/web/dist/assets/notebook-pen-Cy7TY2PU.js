@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/notebook-pen-Cy7TY2PU.js
 import{c as a}from"./index-BUF1O4fr.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/notebook-pen-1sUT6nqk.js
+import{c as a}from"./index-znwWITUi.js";/**
+========
+import{c as a}from"./index-DBeLOPrj.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/notebook-pen-DGXCx78n.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

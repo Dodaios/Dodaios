@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-BoWdHcv8.js
 import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-BUF1O4fr.js";import{C as I}from"./TraceTimeline-BZ-VV1Mr.js";import{L as X}from"./lock-cqCmPiep.js";import{C as $}from"./code-xml-BsM-O2Mz.js";import{C as J}from"./chevron-right-DvUgbOGK.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/CodingThreadLink-CjMAxs0z.js
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bQ as q,bR as B,e as g,bm as D,bS as H,d as F}from"./index-znwWITUi.js";import{C as I}from"./TraceTimeline-C59dXa2M.js";import{L as X}from"./lock-yupxIESP.js";import{C as $}from"./code-xml-NFlkvY-V.js";import{C as J}from"./chevron-right-BLP4xay4.js";/**
+========
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bQ as q,bR as B,e as g,bm as D,bS as H,d as F}from"./index-DBeLOPrj.js";import{C as I}from"./TraceTimeline-2H14vz-0.js";import{L as X}from"./lock-CI42w7qb.js";import{C as $}from"./code-xml-D8y4AqHM.js";import{C as J}from"./chevron-right-WQ85lmnT.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/CodingThreadLink-CTqCafdM.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

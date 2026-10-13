@@ -292,3 +292,112 @@ def test_call_without_a_clock_is_never_confirmed_by_the_repository(repository, m
     events[1]["ts_ms"] = time.time() * 1000
 
     assert branches.owned_branch(_pane(repository, monkeypatch, events)) is None
+
+
+# --- the branch a pane works in: created, changed, or simply checked out ---
+
+
+def wrote(path, *, name="Edit", at=2000.0, identity="write", key="file_path"):
+    return [
+        {
+            "kind": "tool_call",
+            "ts_ms": at * 1000,
+            "payload": {"call_id": identity, "name": name, "input": {key: str(path)}},
+        },
+        {
+            "kind": "tool_result",
+            "ts_ms": at * 1000,
+            "payload": {"call_id": identity, "output": "ok", "is_error": False},
+        },
+    ]
+
+
+def test_reading_a_folder_is_not_working_in_it(tmp_path):
+    events = timed("git -C ../other log --oneline; git -C ../other diff", "abc")
+
+    assert branches.worked_folders(events, str(tmp_path)) == []
+
+
+def test_git_writes_and_file_tools_place_the_session(tmp_path):
+    events = timed("cd ../wt && git commit -m x", "", ended=1010.0) + wrote(
+        tmp_path / "pkg" / "a.py", name="Write"
+    )
+
+    assert branches.worked_folders(events, str(tmp_path)) == [
+        (str((tmp_path / ".." / "wt").resolve()), 1010.0),
+        (str(tmp_path / "pkg"), 2000.0),
+    ]
+
+
+def test_failed_write_places_nobody(tmp_path):
+    events = timed("git commit -m x", "nothing to commit")
+    events[1]["payload"]["is_error"] = True
+
+    assert branches.worked_folders(events, str(tmp_path)) == []
+
+
+@pytest.fixture
+def feature_checkout(repository):
+    branches._repositories.clear()
+    checkout = repository / "wt"
+    _git(repository, "worktree", "add", "-q", "-b", "feature/x", str(checkout))
+    return checkout
+
+
+@pytest.mark.parametrize(
+    "tool, key", [("Edit", "file_path"), ("write_file", "file_path"), ("WriteFile", "path")]
+)
+def test_pane_works_in_the_branch_of_the_checkout_it_changed(
+    repository, feature_checkout, monkeypatch, tool, key
+):
+    events = wrote(feature_checkout / "pkg" / "a.py", name=tool, key=key)
+
+    found = branches.pane_branch(_pane(repository, monkeypatch, events))
+
+    assert (found.branch, found.created_at) == ("feature/x", 0)
+
+
+def test_a_commit_in_another_checkout_places_the_pane(repository, feature_checkout, monkeypatch):
+    events = timed(f'git -C "{feature_checkout}" commit --allow-empty -m x', "[feature/x 1] x")
+
+    assert branches.pane_branch(_pane(repository, monkeypatch, events)).branch == "feature/x"
+
+
+def test_default_branch_work_does_not_hide_the_feature_branch(
+    repository, feature_checkout, monkeypatch
+):
+    events = wrote(feature_checkout / "a.py", at=2000.0) + timed(
+        "git add README.md", "", started=3000.0, ended=3001.0
+    )
+
+    assert branches.pane_branch(_pane(repository, monkeypatch, events)).branch == "feature/x"
+
+
+def test_pane_without_evidence_gets_the_branch_of_its_folder(
+    repository, feature_checkout, monkeypatch
+):
+    reader = timed("git -C wt log --oneline", "abc")
+
+    assert branches.pane_branch(_pane(repository, monkeypatch, reader)).branch == "main"
+    in_checkout = branches.PaneBranchRecord("t2", "other", str(feature_checkout))
+    assert branches.pane_branch(in_checkout).branch == "feature/x"
+
+
+def test_newer_created_branch_wins_and_keeps_its_creation_time(
+    repository, feature_checkout, monkeypatch
+):
+    started = time.time()
+    _git(repository, "branch", "claude/topic")
+    events = wrote(feature_checkout / "a.py", at=started - 500) + timed(
+        "git branch claude/topic | tail -1", "", started=started - 1, ended=time.time() + 1
+    )
+
+    found = branches.pane_branch(_pane(repository, monkeypatch, events))
+
+    assert found.branch == "claude/topic" and found.created_at > 0
+
+
+def test_detached_head_has_no_branch(repository):
+    _git(repository, "checkout", "-q", "--detach", "HEAD")
+
+    assert branches.pane_branch(branches.PaneBranchRecord("t1", "h", str(repository))) is None

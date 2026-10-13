@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-Cjv8xLbD.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BmVpk843.js";import{c as n,j as a,e as o}from"./index-BUF1O4fr.js";import{T as c}from"./terminal-CcDNQ94_.js";import{C as I}from"./credit-card-Bhl0JIZV.js";import{G as S}from"./git-branch-B7qbN8zo.js";import{R as W}from"./rocket-DvO7vmiQ.js";import{C as $}from"./cloud-soUTvhpM.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/CliLogo-CNyZym0a.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-opg9i1Yo.js";import{c as n,j as a,e as o}from"./index-znwWITUi.js";import{T as c}from"./terminal-DeLqC5Yv.js";import{C as I}from"./credit-card-HZ6wp3s4.js";import{G as S}from"./git-branch-BzykGfkp.js";import{R as W}from"./rocket-BA7uSqkQ.js";import{C as $}from"./cloud-Be9S4Zce.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BY2qRlw3.js";import{c as n,j as a,e as o}from"./index-DBeLOPrj.js";import{T as c}from"./terminal-BxRRvvTN.js";import{C as I}from"./credit-card-DQ7iGrmu.js";import{G as S}from"./git-branch-lK4tQmtA.js";import{R as W}from"./rocket-Db38VHa4.js";import{C as $}from"./cloud-DTGoLgYa.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/CliLogo-1lUNmHZk.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

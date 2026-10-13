@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-CjQ7PyVQ.js
 import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-BUF1O4fr.js";import{A as Xe}from"./AgentMark-f8Kz5CP2.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-Cert9DFo.js";import{P as tt}from"./pencil-Cvj361Mg.js";import{F as nt}from"./folder-CMvun4nX.js";import{C as st}from"./check-skxWFWa1.js";import{C as rt}from"./chevron-right-DvUgbOGK.js";/**
+|||||||| parent of bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/ThreadTree-TXIDLpSd.js
+import{c as pe,u as ge,bO as Be,aM as V,d as Fe,bS as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-znwWITUi.js";import{A as Xe}from"./AgentMark-DaAVRAN2.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-D23piEgl.js";import{P as tt}from"./pencil-CbO18v8X.js";import{F as nt}from"./folder-DX7K6GAl.js";import{C as st}from"./check-xIq1fFOX.js";import{C as rt}from"./chevron-right-BLP4xay4.js";/**
+========
+import{c as pe,u as ge,bO as Be,aM as V,d as Fe,bS as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-DBeLOPrj.js";import{A as Xe}from"./AgentMark-Co7P9fAq.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-BmbMPj9o.js";import{P as tt}from"./pencil-DFXwhu_m.js";import{F as nt}from"./folder-BjcV-_m4.js";import{C as st}from"./check-BSlJrNLV.js";import{C as rt}from"./chevron-right-WQ85lmnT.js";/**
+>>>>>>>> bbc038b6f (feat(agentic-ide): always show the branch a pane works in, with its pull request):jarvis/ui/web/dist/assets/ThreadTree-DWVMd2Lj.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
