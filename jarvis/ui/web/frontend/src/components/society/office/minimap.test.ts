@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildOfficeLayout, type OfficeAgentInput } from "./officeLayout";
 import {
   MAP_PAINT, STATE_RING, ZOOM_DEFAULT_M, ZOOM_MAX_M, ZOOM_MIN_M, bearingOf, centredTransform, clampToEdge, clampToRect,
-  clampZoom, columnLabel, compassPosition, compassTicks, drawAgentToken, drawEdgeArrow, drawFloorArt, drawPlayerArrow,
-  fitTransform, gridLabel, initialOf, inkOn, mapGrid, mapToWorld, pickNearest, placeAt, relativeBearing, shade,
+  clampZoom, columnLabel, compassPosition, compassTicks, drawAgentToken, drawEdgeArrow, drawFloorArt, drawMapLabel, drawPlayerArrow,
+  fitSheet, fitTransform, minimapCentre, gridLabel, initialOf, inkOn, mapGrid, mapToWorld, pickNearest, placeAt, relativeBearing, shade,
   worldToMap, yawToBearing, zoomStep,
 } from "./minimap";
 
@@ -185,15 +185,102 @@ describe("hit testing", () => {
     expect(pickNearest([{ id: "far", x: edge.x, y: edge.y }], { x: 186, y: 101 }, 10)?.id).toBe("far");
   });
 
-  it("names the place under a point: checkpoint, then room, then department", () => {
-    const layout = buildOfficeLayout([agent("a1", "codex"), agent("a2", "gemini")]);
-    const create = layout.checkpoints.find((c) => c.id === "create")!;
-    expect(placeAt(layout, create)).toEqual({ kind: "checkpoint", id: "create" });
+  it("names the place under a point: checkpoint, then room, then studio, then the campus zone", () => {
+    const layout = buildOfficeLayout([agent("a1", "codex"), agent("a2", "gemini")], {
+      teams: [{ id: "t1", name: "Core", members: ["a1"], createdMs: 1 }],
+    });
+    const manage = layout.checkpoints.find((c) => c.id === "manage")!;
+    expect(placeAt(layout, manage)).toEqual({ kind: "checkpoint", id: "manage" });
     const lead = layout.rooms.find((r) => r.kind === "lead")!;
     expect(placeAt(layout, { x: lead.minX + 0.3, z: lead.minZ + 0.3 })).toEqual({ kind: "room", id: "lead" });
-    const dept = layout.departments[0];
-    expect(placeAt(layout, { x: dept.minX + 0.2, z: dept.minZ + 0.2 })).toEqual({ kind: "department", label: dept.label });
+    // The pool studio has no name of its own; a team's studio carries the team's.
+    const [pool, core] = layout.departments;
+    expect(placeAt(layout, { x: pool.minX + 0.2, z: pool.minZ + 0.2 })).toEqual({ kind: "department", label: "" });
+    expect(placeAt(layout, { x: core.minX + 0.2, z: core.minZ + 0.2 })).toEqual({ kind: "department", label: "Core" });
+    // Between the studios: the most specific zone wins where they overlap.
+    const zone = (kind: string) => layout.zones!.find((z) => z.kind === kind)!;
+    const mid = (kind: string) => ({ x: (zone(kind).minX + zone(kind).maxX) / 2, z: (zone(kind).minZ + zone(kind).maxZ) / 2 });
+    const atrium = zone("atrium");
+    expect(placeAt(layout, { x: atrium.minX + 0.5, z: atrium.minZ + 0.5 })).toEqual({ kind: "zone", id: "atrium" });
+    expect(placeAt(layout, { x: zone("plaza").minX + 0.5, z: atrium.minZ + 0.5 })).toEqual({ kind: "zone", id: "plaza" });
+    expect(placeAt(layout, { x: 0, z: zone("boulevard").minZ + 0.5 })).toEqual({ kind: "zone", id: "boulevard" });
+    for (const kind of ["plot", "garden", "booths", "library", "cafe"] as const) expect(placeAt(layout, mid(kind)), kind).toEqual({ kind: "zone", id: kind });
     expect(placeAt(layout, { x: layout.bounds.minX + 0.01, z: 0 })).toBeNull();
+    // The coding floor has no zones: open floor stays nameless.
+    const coding = buildOfficeLayout([], { variant: "coding" });
+    expect(placeAt(coding, coding.arrival)).toEqual({ kind: "checkpoint", id: "launch" });
+    expect(placeAt(coding, { x: 0, z: coding.arrival.z + 1.4 })).toBeNull();
+  });
+});
+
+describe("the minimap's framing", () => {
+  const bounds = { minX: -26, maxX: 26, minZ: -23.5, maxZ: 23.5 };
+
+  it("follows the person in the middle of the floor and stays on the floor at its edges", () => {
+    // In the open: centred on the person.
+    expect(minimapCentre({ x: 3, z: -2 }, bounds, 26)).toEqual({ x: 3, z: -2 });
+    // At the elevator by the south window: the card stops a step past the edge instead of showing half a card of night.
+    const south = minimapCentre({ x: -9, z: 20.9 }, bounds, 26);
+    expect(south.x).toBe(-9);
+    expect(south.z).toBeCloseTo(23.5 + 1.5 - 13, 9);
+    // In a corner both axes hold.
+    expect(minimapCentre({ x: 25, z: -23 }, bounds, 26)).toEqual({ x: 26 + 1.5 - 13, z: -23.5 - 1.5 + 13 });
+    // The person is still on the card.
+    const t = centredTransform(south, 26, 200, 200);
+    const me = worldToMap(t, { x: -9, z: 20.9 });
+    expect(me.y).toBeGreaterThan(100);
+    expect(me.y).toBeLessThan(200);
+  });
+
+  it("centres a floor that is narrower than the view", () => {
+    const hall = { minX: -6.2, maxX: 6.2, minZ: -21.8, maxZ: 21.8 };
+    const centre = minimapCentre({ x: -3.4, z: 17 }, hall, 26);
+    expect(centre.x).toBeCloseTo(0, 9);
+    expect(centre.z).toBeCloseTo(21.8 + 1.5 - 13, 9);
+    // Zoomed out past the whole floor, the floor sits in the middle whatever the person does.
+    expect(minimapCentre({ x: 20, z: 20 }, bounds, 90)).toEqual({ x: 0, z: 0 });
+  });
+});
+
+describe("the full map's sheet", () => {
+  it("takes the plan's shape, so no band of the sheet stays empty", () => {
+    const pad = 30, head = 46;
+    // A nearly square plan in a wide space: full height, only as wide as the plan needs.
+    const square = fitSheet({ minX: 0, maxX: 52, minZ: 0, maxZ: 47 }, 1400, 800, pad, head);
+    expect(square.height).toBe(800);
+    expect((square.width - pad * 2) / (square.height - head - pad * 2)).toBeCloseTo(52 / 47, 1);
+    expect(square.width).toBeLessThan(1000);
+    // A plan taller than wide gets a narrow sheet; a wide plan is held by the width instead.
+    const tall = fitSheet({ minX: 0, maxX: 52, minZ: 0, maxZ: 81 }, 1400, 800, pad, head);
+    expect(tall.width).toBeLessThan(square.width);
+    const wide = fitSheet({ minX: 0, maxX: 120, minZ: 0, maxZ: 30 }, 900, 800, pad, head);
+    expect(wide.width).toBe(900);
+    expect(wide.height).toBeLessThan(800);
+    expect((wide.width - pad * 2) / (wide.height - head - pad * 2)).toBeCloseTo(4, 1);
+    // Never wider than the cap, never taller than the space.
+    expect(fitSheet({ minX: 0, maxX: 100, minZ: 0, maxZ: 40 }, 3000, 900, pad, head).width).toBe(1200);
+  });
+
+  it("keeps a long name over its own place: smaller first, then cut", () => {
+    const calls: string[] = [];
+    let font = "";
+    const ctx = {
+      set font(value: string) { font = value; },
+      get font() { return font; },
+      // Seven pixels a letter at 12 px, scaling with the size.
+      measureText: (text: string) => ({ width: text.length * 7 * (Number(/([0-9.]+)px/.exec(font)?.[1] ?? 12) / 12) }),
+      strokeText: (text: string) => { calls.push(text); },
+      fillText: (text: string) => { calls.push(text); },
+    } as unknown as CanvasRenderingContext2D;
+    drawMapLabel(ctx, "CORE", 0, 0, 12, 800, 80);
+    expect(calls.at(-1)).toBe("CORE");
+    expect(font).toContain("12px");
+    drawMapLabel(ctx, "PLATFORM TEAM", 0, 0, 12, 800, 80);
+    expect(calls.at(-1)).toBe("PLATFORM TEAM");
+    expect(font).not.toContain(" 12px");
+    drawMapLabel(ctx, "THE VERY LONG NAME OF A TEAM", 0, 0, 12, 800, 80);
+    expect(calls.at(-1)!.endsWith("…")).toBe(true);
+    expect(calls.at(-1)!.length).toBeLessThan(20);
   });
 });
 
@@ -227,6 +314,26 @@ describe("drawing", () => {
     // Walls are the only straight segments started with moveTo after the planks; at least one per wall.
     expect(log.filter((l) => l.startsWith("moveTo")).length).toBeGreaterThanOrEqual(layout.walls.length);
     expect(log[log.length - 1]).not.toMatch(/^globalAlpha=0/);
+  });
+
+  it("paints the campus: paved boulevards, planted ground, the free plot, the atrium, trees and every studio's name wall", () => {
+    const { ctx, log } = recorder();
+    drawFloorArt(ctx, layout, fitTransform(layout.bounds, 420, 360), layout.bounds);
+    for (const colour of [MAP_PAINT.paving, MAP_PAINT.moss, MAP_PAINT.felt, MAP_PAINT.tile, MAP_PAINT.plot, MAP_PAINT.atrium, MAP_PAINT.olive,
+      MAP_PAINT.tree, MAP_PAINT.bench, MAP_PAINT.screen, MAP_PAINT.oak, MAP_PAINT.sofa, MAP_PAINT.counter]) {
+      expect(log, colour).toContain(`fillStyle=${colour}`);
+    }
+    // The plot is outlined dashed, in the bronze of the atrium's ring.
+    expect(log).toContain(`strokeStyle=${MAP_PAINT.inlay}`);
+    expect(log.some((l) => l.startsWith("setLineDash(") && l !== "setLineDash()")).toBe(true);
+    // A round mark per tree and per standing table, besides the atrium's disc.
+    const round = layout.ambience!.filter((i) => i.kind === "olive" || i.kind === "tree" || i.kind === "hightable").length;
+    expect(log.filter((l) => l.startsWith("arc(")).length).toBeGreaterThanOrEqual(round + 1);
+    // The coding floor paints none of it.
+    const above = recorder();
+    const coding = buildOfficeLayout([agent("p1", "Website")], { variant: "coding" });
+    drawFloorArt(above.ctx, coding, fitTransform(coding.bounds, 220, 300), coding.bounds);
+    for (const colour of [MAP_PAINT.paving, MAP_PAINT.moss, MAP_PAINT.plot, MAP_PAINT.olive]) expect(above.log).not.toContain(`fillStyle=${colour}`);
   });
 
   it("rings tokens by state, dashes the paused one and prints the initial", () => {
