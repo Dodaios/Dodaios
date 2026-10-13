@@ -7539,6 +7539,33 @@
       "skipped_dirty": "{count} ficheiros com alterações por guardar foram ignorados; guarda-os primeiro.",
       "skipped_other": "Não foi possível alterar {count} ficheiros."
     },
+    "prompt": {
+      "placeholder": "Escreva o prompt como você o daria a um terminal…",
+      "input_aria": "Seu prompt",
+      "model_aria": "Modelo que melhora o prompt",
+      "model_auto": "Automático",
+      "model_auto_hint": "O modelo que escreve os seus briefings de tarefa",
+      "model_default": "Modelo padrão",
+      "model_search": "Buscar modelos",
+      "connect_first": "Conecte primeiro",
+      "improve": "Melhorar",
+      "improving": "Melhorando…",
+      "instruction": "Instrução",
+      "instruction_hint": "O que o modelo deve fazer com o seu prompt. Ele sempre escreve o objetivo, não a implementação, e conhece o repositório do terminal escolhido.",
+      "instruction_reset": "Redefinir",
+      "result": "Prompt melhorado",
+      "written_by": "por {model}",
+      "too_long": "{count} de {max} caracteres: longo demais para enviar.",
+      "target_aria": "Terminal que recebe o prompt",
+      "no_target": "Nenhum terminal",
+      "no_target_hint": "Abra um terminal com um agente de programação para enviar o prompt.",
+      "copy": "Copiar",
+      "copy_failed": "Não foi possível copiar o prompt.",
+      "send": "Enviar",
+      "sent": "Enviado para {pane}.",
+      "not_accepted": "{pane} não aceitou o prompt. O texto está na caixa de entrada dele; pressione Enter lá.",
+      "unconfirmed": "{pane} não mostrou a chegada do prompt. Verifique esse terminal."
+    },
     "tabs": {
       "browser": "Navegador",
       "git": "Git",
@@ -7548,7 +7575,8 @@
       "changes": "Alterações",
       "search": "Pesquisa",
       "subscriptions": "Subscrições",
-      "office": "Dodaios Verse"
+      "office": "Dodaios Verse",
+      "prompt": "Prompt"
     },
     "subscriptions": {
       "bank": {
@@ -7824,7 +7852,11 @@
         "ready": "#{number} passou em todas as verificações",
         "ready_reason": "Está pronto para ser revisto e integrado.",
         "done": "Está tudo atualizado",
-        "done_reason": "Nada para fazer commit, enviar ou receber."
+        "done_reason": "Nada para fazer commit, enviar ou receber.",
+        "branch_off_one": "Mover {n} ficheiro alterado para um branch",
+        "branch_off_other": "Mover {n} ficheiros alterados para um branch",
+        "branch_off_reason": "{branch} é o branch predefinido. O trabalho chega aqui através de pull requests, por isso começa num branch próprio.",
+        "branch_off_action": "Novo branch…"
       },
       "commit": {
         "placeholder": "Mensagem do commit",
@@ -7854,7 +7886,8 @@
         "rebased": "Rebase de {branch} sobre o remoto concluído.",
         "switched": "Mudou para {branch}.",
         "updated": "{branch} está atualizado com o remoto.",
-        "deleted": "{branch} eliminado."
+        "deleted": "{branch} eliminado.",
+        "branch_created": "Agora em {branch}."
       },
       "attention": {
         "title": "Precisa de atenção",
@@ -7927,7 +7960,15 @@
         "unfetched_tip": "O GitHub tem commits mais recentes que ainda não foram buscados.",
         "gone": "remoto eliminado",
         "gone_tip": "O branch dele no remoto foi eliminado."
-      }
+      },
+      "branch": {
+        "placeholder": "Nome do novo branch",
+        "scope": "As suas alterações sem commit vão consigo; nada é registado.",
+        "create": "Criar branch"
+      },
+      "connect_repo_body": "Escolha o repositório GitHub desta pasta para ver aqui os pull requests e a CI.",
+      "connect_repo_other": "Outro…",
+      "connect_repo_choose": "Escolher um repositório…"
     },
     "skills": {
       "subtitle": "Arrasta uma para um terminal para a colar",

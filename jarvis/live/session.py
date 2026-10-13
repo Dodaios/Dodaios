@@ -1130,6 +1130,9 @@ class LiveVoiceSession:
         cause = {NO_CREDITS: "no_credits", RATE_LIMITED: "rate_limited"}.get(
             status, "unavailable"
         )
+        if getattr(exc, "code", "") == "voice_not_offered":
+            # Waiting does not help here: the account has to change.
+            cause = "not_offered"
         log.warning("Live session could not start (cause=%s): %s", cause, exc)
         try:
             await self._send_json(

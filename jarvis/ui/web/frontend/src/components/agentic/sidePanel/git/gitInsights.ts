@@ -119,6 +119,13 @@ export function openPullRequests(overview: RepoOverview): PullRequest[] {
   return found;
 }
 
+/** The repository lands its work through pull requests (GitHub knows at least one). */
+export function usesPullRequests(overview: RepoOverview): boolean {
+  if (!overview.github.available) return false;
+  if ((overview.pull_requests ?? []).length > 0) return true;
+  return [...overview.branches, ...overview.remote_branches].some((row) => row.pull_requests.length > 0);
+}
+
 // ------------------------------------------------------------------ next step
 
 export type NextStep =
@@ -127,6 +134,7 @@ export type NextStep =
   | { kind: "fetch" }
   | { kind: "pull"; count: number }
   | { kind: "commit"; count: number }
+  | { kind: "branch_off"; count: number }
   | { kind: "rebase"; ahead: number; behind: number }
   | { kind: "publish" }
   | { kind: "push"; count: number }
@@ -155,11 +163,16 @@ export function nextStep(overview: RepoOverview): NextStep {
   // A fast-forward never touches local commits, so it comes before anything else.
   if (checkout.behind > 0 && checkout.ahead === 0) return { kind: "pull", count: checkout.behind };
   const tracked = checkout.staged + checkout.unstaged;
-  if (tracked > 0) return { kind: "commit", count: checkout.files };
+  const isDefault = checkout.branch === overview.default_branch;
+  if (tracked > 0) {
+    // Where work lands through pull requests, edits on the default branch
+    // belong on a branch of their own first — committing here is the wrong turn.
+    if (isDefault && usesPullRequests(overview)) return { kind: "branch_off", count: tracked };
+    return { kind: "commit", count: checkout.files };
+  }
   if (checkout.behind > 0 && checkout.ahead > 0) {
     return { kind: "rebase", ahead: checkout.ahead, behind: checkout.behind };
   }
-  const isDefault = checkout.branch === overview.default_branch;
   const hasWork = (row?.base_ahead ?? 1) > 0;
   if (!checkout.upstream && checkout.has_remote && (!isDefault || !row?.on_github) && hasWork) {
     return { kind: "publish" };

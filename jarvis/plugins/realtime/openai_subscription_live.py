@@ -43,6 +43,7 @@ SUBSCRIPTION_VOICES = (
 _MAX_SDP_BYTES = 256 * 1024
 _MAX_FRAME_BYTES = 1024 * 1024
 _MAX_SEEN_EVENTS = 8192
+_PLAN = re.compile(r"[a-z0-9][a-z0-9_ -]{0,31}\Z")
 _CALL_ID = re.compile(
     r"(?:rtc_[A-Za-z0-9_-]+|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})\Z"
 )
@@ -51,12 +52,20 @@ _CALL_ID = re.compile(
 class SubscriptionLiveError(RuntimeError):
     """Static, safe error classification for UI recovery and no-key fallback."""
 
-    def __init__(self, code: str, *, allocation_unconfirmed: bool = False) -> None:
+    def __init__(
+        self, code: str, *, allocation_unconfirmed: bool = False, plan: str = ""
+    ) -> None:
         self.code = code
         self.allocation_unconfirmed = allocation_unconfirmed
+        plan = plan.strip().lower()
+        named = f" ({plan.replace('_', ' ').title()} plan)" if _PLAN.fullmatch(plan) else ""
         messages = {
             "authentication_required": "Reconnect your ChatGPT subscription before starting voice.",
             "access_denied": "The ChatGPT account does not allow this GPT-Live session.",
+            "voice_not_offered": (
+                f"The selected ChatGPT account{named} is not offered subscription voice. "
+                "Check its plan or select another account in Agent accounts."
+            ),
             "quota_exhausted": "The ChatGPT subscription voice allowance is exhausted.",
             "rate_limited": "ChatGPT subscription voice is temporarily rate limited.",
             "invalid_configuration": "The selected subscription voice configuration was rejected.",
@@ -482,6 +491,7 @@ class OpenAISubscriptionLiveProvider:
         self._connection_permit = connection_permit
         self._http_client_factory = http_client_factory
         self._websocket_connect = websocket_connect
+        self._plan = ""
 
     async def can_open_duplex_session(self) -> bool:
         return callable(self._credentials)
@@ -503,6 +513,7 @@ class OpenAISubscriptionLiveProvider:
         account = getattr(credential, "account_id", "")
         if not token or not account:
             raise SubscriptionLiveError("authentication_required")
+        self._plan = str(getattr(credential, "plan", "") or "")
         return {"Authorization": f"Bearer {token}", "chatgpt-account-id": account}
 
     async def _retire_allocation(self, call_id: str, headers: dict, connector: Any) -> bool:
@@ -664,6 +675,12 @@ class OpenAISubscriptionLiveProvider:
                             # never switch the billing source.
                             headers = {**await self._headers(force_refresh=True), **request_headers}
                             continue
+                        if response.status_code == 404:
+                            # The call route does not exist for this account: no
+                            # retry reaches it, and "temporarily unavailable"
+                            # sends the user waiting for nothing. Live
+                            # 2026-10-13: an account whose paid plan had ended.
+                            raise SubscriptionLiveError("voice_not_offered", plan=self._plan)
                         if response.status_code >= 300:
                             raise SubscriptionLiveError(_error_code(response.status_code))
                         allocated = True

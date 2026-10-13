@@ -2,8 +2,8 @@
 
 The desktop/headless serve-first boot only stays fast because the
 ``FastBootstrap`` can bind the port and serve the UI shell BEFORE the heavy
-imports (``fastapi``, the ``jarvis.brain`` graph, ``jarvis.core.config`` with
-its brain pulls) are paid. If a future change makes
+imports (``fastapi``, the brain graph under ``jarvis/brain/``,
+``jarvis.core.config`` with its brain pulls) are paid. If a future change makes
 ``jarvis.ui.web.fast_bootstrap`` transitively import any of those, the bind
 moves back behind the heavy work and the boot silently regresses — the exact
 "it keeps getting slower as I add features" rot this guards against.
@@ -18,9 +18,11 @@ from __future__ import annotations
 import subprocess
 import sys
 
+from tests.package_names import PACKAGE_NAME
+
 # Modules that must NOT be pulled in merely by importing the bootstrap. Each is a
 # multi-hundred-ms import that the serve-first boot deliberately defers.
-_FORBIDDEN = ("fastapi", "jarvis.brain", "jarvis.core.config")
+_FORBIDDEN = ("fastapi", f"{PACKAGE_NAME}.brain", f"{PACKAGE_NAME}.core.config")
 
 
 def test_fast_bootstrap_import_stays_light() -> None:
