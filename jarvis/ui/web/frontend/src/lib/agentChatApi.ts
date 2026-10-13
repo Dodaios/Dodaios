@@ -170,6 +170,8 @@ export interface AgentChatSession {
    * the stored title is still the first message's; absent otherwise.
    */
   cli_title?: string;
+  /** The team thread this session is a member of ("" or absent: an ordinary thread). */
+  team_id?: string;
 }
 
 export const INTERNAL_DELIVERY_STATUSES = ["queued", "delivered", "failed"] as const;
