@@ -30,8 +30,9 @@ from __future__ import annotations
 import logging
 import shutil
 from dataclasses import dataclass
-from importlib.metadata import entry_points
 from typing import Any, Literal
+
+from jarvis.core.entry_points import entry_points
 
 log = logging.getLogger(__name__)
 

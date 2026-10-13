@@ -106,6 +106,14 @@ LINUX_APP_NAME = PERSISTENT_PRODUCT_NAME
 LINUX_DESKTOP_ENTRY_FILE_NAME = f"{PERSISTENT_SLUG}.desktop"
 LINUX_WM_CLASS = PERSISTENT_SLUG
 
+# --- Plugin entry-point groups -------------------------------------------------
+# A plugin registers under ``<namespace>.<slot>`` (``dodaios.tool``,
+# ``dodaios.brain``, ...). The legacy namespaces are a wire contract with every
+# plugin already published: they are read forever, next to the current one, by
+# ``jarvis.core.entry_points``.
+PLUGIN_GROUP_NAMESPACE = "dodaios"
+LEGACY_PLUGIN_GROUP_NAMESPACES = ("jarvis",)
+
 DEFAULT_OFFICIAL_REPO_SLUG = "Dodaios/Dodaios"
 # Checkouts cloned before the GitHub rename still store this origin. The
 # updater accepts it and rewrites origin to the current slug when it applies.
@@ -147,6 +155,7 @@ __all__ = [
     "DEFAULT_OFFICIAL_REPO_SLUG",
     "DEFAULT_INSTALL_DIR_NAME",
     "LEGACY_OFFICIAL_REPO_SLUGS",
+    "LEGACY_PLUGIN_GROUP_NAMESPACES",
     "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
     "DISTRIBUTION_NAME",
     "FALLBACK_USER_DATA_DIR_NAME",
@@ -172,6 +181,7 @@ __all__ = [
     "PERSISTENT_COMPACT_NAME",
     "PERSISTENT_PRODUCT_NAME",
     "PERSISTENT_SLUG",
+    "PLUGIN_GROUP_NAMESPACE",
     "PRODUCT_COMPACT_NAME",
     "PRODUCT_NAME",
     "PRODUCT_SLUG",
