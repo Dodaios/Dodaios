@@ -259,10 +259,12 @@ def test_update_run_stops_the_live_app_before_touching_the_venv() -> None:
     half-rewritten venv underneath — 'the app is already open but nothing
     works'. install.sh must stop instances of THIS install before phase 3."""
     src = INSTALL_SH.read_text(encoding="utf-8")
-    assert 'pkill -f "$VENV_PATH"' in src
+    assert '_stop_venv="$INSTALL_DIR/.venv"' in src
+    assert 'pkill -f "$_stop_venv"' in src
     assert "stopped the running Jarvis app for the update" in src
     # The stop must come BEFORE the venv rebuild block.
-    assert src.index("stopped the running Jarvis app") < src.index(
+    environment = src.split("phase '3/6' 'Python environment'", 1)[1]
+    assert environment.index("\nstop_running_app\n") < environment.index(
         "rebuilding the Python environment"
     )
 

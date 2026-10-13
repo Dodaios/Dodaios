@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from jarvis.core.branding import MCP_TOOLS_SERVER_NAME
 from jarvis.core.response_style import CONVERSATIONAL_TURN_REMINDER
 
 log = logging.getLogger(__name__)
@@ -54,9 +55,11 @@ log = logging.getLogger(__name__)
 _MCP_PATH: Final[str] = "/api/control/mcp/"
 
 #: The server name the CLI shows to the model. Claude Code exposes the tools as
-#: ``mcp__jarvis__<tool>``; Grok Build as ``jarvis__<tool>`` (called through
-#: ``use_tool``). The preamble names both prefixes, so they must stay in step.
-_SERVER_NAME: Final[str] = "jarvis"
+#: ``mcp__<name>__<tool>``; Grok Build as ``<name>__<tool>`` (called through
+#: ``use_tool``). The preamble spells both prefixes from this one name, and
+#: every reader of a tool name accepts the earlier name as well
+#: (``jarvis.core.mcp_names``).
+_SERVER_NAME: Final[str] = MCP_TOOLS_SERVER_NAME
 
 #: The request header that carries the chat's session id to the tool server.
 #: ``jarvis.mcp.jarvis_tools_server`` reads it (through
@@ -78,7 +81,8 @@ SYSTEM_PREAMBLE: Final[str] = (
     "person explicitly asks for one in this turn — no emoji headings, tables, "
     "status icons or closers. Tables carry plain words, never emoji symbols.\n\n"
     "You have Dodaios' own tools, offered to you over MCP. Claude Code names them "
-    "`mcp__jarvis__<tool>`; Grok Build names them `jarvis__<tool>` and you call "
+    f"`mcp__{_SERVER_NAME}__<tool>`; Grok Build names them "
+    f"`{_SERVER_NAME}__<tool>` and you call "
     "them through use_tool. They act on the RUNNING app and on the accounts the "
     "person has connected to it — their calendar, mail, contacts, media, wiki, "
     "windows, screen, skills and Dodaios' own settings. Prefer them over a shell "
@@ -87,15 +91,15 @@ SYSTEM_PREAMBLE: Final[str] = (
     "machine: those tools are already signed in and already permitted. Reach for "
     "your file and shell tools for code and for the filesystem.\n\n"
     "When the user selects Chrome / Browser, @browser, @browser-use or "
-    "[tools: core:browser], use society_browser from the `jarvis` MCP server. "
+    f"[tools: core:browser], use society_browser from the `{_SERVER_NAME}` MCP server. "
     "That is the persistent browser displayed live in this agent's Options rail. "
     "Use it for website interaction when no connected service tool can do the task. "
     "A browser request takes priority over the general plugin preference. "
     "Do not substitute your own browser, HTTP fetch or shell for this selection. "
     "If society_browser is unavailable, report that explicitly.\n\n"
     "Two kinds of hands: your own file and shell tools are your hands in the "
-    "working folder this chat is open in; `mcp__jarvis__run_shell` / "
-    "`jarvis__run_shell` and their siblings are Dodaios' hands on the whole "
+    f"working folder this chat is open in; `mcp__{_SERVER_NAME}__run_shell` / "
+    f"`{_SERVER_NAME}__run_shell` and their siblings are Dodaios' hands on the whole "
     "machine. Use the folder's hands for the folder, Dodaios' for everything else.\n\n"
     "Some of those tools ask the person for approval before they run. That is "
     "normal and it is not a failure — wait for an approval card that is actually "
@@ -278,7 +282,7 @@ _GROK_BLOCK_END: Final[str] = "# END JARVIS HANDS"
 
 
 def grok_mcp_server_entry(session_id: str | None = None) -> dict[str, Any] | None:
-    """The Grok ``[mcp_servers.jarvis]`` row for this app's tool server.
+    """The Grok ``[mcp_servers.<name>]`` row for this app's tool server.
 
     Grok speaks ``url`` + ``bearer_token_env_var`` + ``headers`` (not Claude's
     ``type``/``url`` JSON). ``None`` when the app cannot offer the tools —

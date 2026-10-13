@@ -31,6 +31,8 @@ describe("desk chat lines", () => {
   });
   it("labels tools and versions events", () => {
     expect(toolLabel("Read")).toBe("Read");
+    expect(toolLabel("mcp__dodaios__society_shell")).toBe("society_shell");
+    expect(toolLabel("mcp__jarvis__society_shell")).toBe("society_shell");
     expect(toolLabel(undefined)).toBe("tool");
     expect(chatVersion([])).toBe("0");
     expect(chatVersion([ev(9, "x", {})])).toBe("9:1");
