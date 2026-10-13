@@ -159,3 +159,30 @@ async def test_an_empty_balance_is_spoken_instead_of_a_silent_hangup():
     spoken = [f for f in frames if f.get("type") == "error_spoken"]
     assert len(spoken) == 1
     assert "credit" in spoken[0]["text"].lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("language,word", [("en", "plan"), ("de", "Tarif")])  # i18n-allow
+async def test_an_account_without_voice_is_told_to_change_the_account(language, word):
+    """Live 2026-10-13: "temporarily unavailable" kept a user waiting for days
+    on an account whose plan no longer carried subscription voice."""
+    from jarvis.plugins.realtime.openai_subscription_live import SubscriptionLiveError
+
+    frames = []
+
+    async def send(frame):
+        frames.append(frame)
+
+    session = LiveVoiceSession(
+        session_id="live-not-offered",
+        bus=None,
+        send_json=send,
+        send_binary=send,
+        config=SimpleNamespace(brain=SimpleNamespace(reply_language=language)),
+        providers=[SimpleNamespace(name="test")],
+    )
+    await session._announce_start_failure(SubscriptionLiveError("voice_not_offered", plan="free"))
+
+    spoken = [f for f in frames if f.get("type") == "error_spoken"]
+    assert len(spoken) == 1
+    assert word in spoken[0]["text"]

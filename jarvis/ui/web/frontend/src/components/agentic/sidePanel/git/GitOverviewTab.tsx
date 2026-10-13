@@ -14,9 +14,17 @@ import { BranchMenu } from "./BranchMenu";
 import { CleanupDialog } from "./CleanupDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { agoLabel, LinkIcon } from "./gitBadges";
-import { ConnectGitHubCard, GitHubRepoPicker } from "./GitHubRepoPicker";
+import { ConnectGitHubCard, ConnectRepositoryCard, GitHubRepoPicker } from "./GitHubRepoPicker";
 import { attention, canCleanUp, checkoutOf, openPullRequests, type AttentionItem, type BranchFilter } from "./gitInsights";
-import { fetchBranchEditors, fetchGitOverview, GitOverviewError, type BranchEditors, type BranchRow, type RepoOverview } from "./gitOverviewApi";
+import {
+  bindGitHubRepo,
+  fetchBranchEditors,
+  fetchGitOverview,
+  GitOverviewError,
+  type BranchEditors,
+  type BranchRow,
+  type RepoOverview,
+} from "./gitOverviewApi";
 import { PullRequestList } from "./PullRequestList";
 import { Section } from "./Section";
 import { StatusPanel } from "./StatusPanel";
@@ -237,6 +245,8 @@ export function GitOverviewTab() {
   // answer lands the tab shows the choice and the local branches, never the
   // picker again — a picker that stays put reads as "the click did nothing".
   const [pickedRepo, setPickedRepo] = useState("");
+  const [binding, setBinding] = useState(false);
+  const pushToast = useEventStore((state) => state.pushToast);
   useEffect(() => setChanging(false), [workspaceId]);
   useEffect(() => setPickedRepo(""), [data, workspaceId]);
   useEffect(() => {
@@ -253,9 +263,20 @@ export function GitOverviewTab() {
     return <p className="px-4 py-6 text-center text-xs text-muted-foreground">{t("ide_side_panel.git.no_workspace")}</p>;
   }
   const github = data?.github;
-  const picking = Boolean(
-    data && workspaceId && !pickedRepo && (github?.code === "needs_repo" || (changing && github?.code !== "not_connected")),
-  );
+  // The list of repositories only opens when asked for: a folder without a
+  // repository picked still shows its local state, with a card that offers the pick.
+  const picking = Boolean(data && workspaceId && !pickedRepo && changing && github?.code !== "not_connected");
+  const connectRepository = (repo: string) => {
+    if (!workspaceId || binding) return;
+    setBinding(true);
+    bindGitHubRepo(workspaceId, repo)
+      .then(() => {
+        setPickedRepo(repo);
+        refresh();
+      })
+      .catch((err: Error) => pushToast("error", err.message))
+      .finally(() => setBinding(false));
+  };
   const boundRepo = pickedRepo || github?.repo || "";
   const repoName = (data?.root || workspace.path).replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? workspace.name;
   const checkout = data?.available ? checkoutOf(data) : null;
@@ -359,7 +380,7 @@ export function GitOverviewTab() {
             setChanging(false);
             refresh();
           }}
-          onCancel={github?.repo ? () => setChanging(false) : undefined}
+          onCancel={() => setChanging(false)}
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -384,6 +405,14 @@ export function GitOverviewTab() {
               {!data.checkout && <OlderBackendNote />}
               <StatusPanel key={workspace.id} overview={data} actions={actions} onOpenChanges={() => useIdeSidePanelStore.getState().openTab("changes")} />
               {github?.code === "not_connected" && <ConnectGitHubCard />}
+              {github?.code === "needs_repo" && !pickedRepo && (
+                <ConnectRepositoryCard
+                  suggested={github.suggested_repo}
+                  busy={binding}
+                  onUse={connectRepository}
+                  onChoose={() => setChanging(true)}
+                />
+              )}
               <AttentionList items={items} onAct={onAttention} />
               {github?.available && (
                 <div ref={prsRef}>

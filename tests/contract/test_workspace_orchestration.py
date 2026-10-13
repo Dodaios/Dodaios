@@ -944,3 +944,133 @@ async def test_messages_queued_for_one_pane_arrive_in_order(rig, fast_queue):
     rig[2].refused = False
     await until(lambda: not rig[0]._queued)
     assert rig[2].typed == [first["prompt"], second["prompt"]]
+
+
+# --- One board for "what is running, what is done, who needs me" ----------------
+
+
+async def test_status_lists_every_open_agent_and_who_needs_the_user_in_one_call(rig):
+    orchestrator, registry, sessions = rig
+    visible = registry.session
+    other = next(s for s in registry.sessions if s.id != visible.id)
+    visible.terminals[0].activity = "working"
+    other.terminals[0].activity = "asking"
+    board = await orchestrator.run({"action": "status"})
+    assert board["status"] == "ok"
+    rows = {row["workspace"]: row for row in board["workspaces"]}
+    assert set(rows) == {"Personal Jarvis", "Other project"}
+    assert rows[visible.name]["agents"][0]["state"] == "busy"
+    assert rows[visible.name]["visible"] is True
+    assert rows[other.name]["agents"][0]["state"] == "needs_input"
+    assert board["counts"] == {"busy": 1, "needs_input": 1}
+    assert board["needs_you"] == [f"Alex ({other.name})"]
+    assert "folder" not in rows[visible.name]
+    assert not sessions.calls  # no pane is read or touched for the overview
+
+
+async def test_status_narrows_to_a_named_workspace(rig):
+    board = await rig[0].run({"action": "status", "workspace": "Other project"})
+    assert [row["workspace"] for row in board["workspaces"]] == ["Other project"]
+    missing = await rig[0].run({"action": "status", "workspace": "No such workspace"})
+    assert "workspaces" not in missing and missing["status"] != "ok"
+
+
+@pytest.fixture
+def visible_repo(rig):
+    """The visible workspace's folder as a fresh repository with one new file."""
+    import subprocess
+    from pathlib import Path
+
+    from jarvis.agentic_ide import git_ops
+    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+
+    if not git_ops.git_available():
+        pytest.skip("git is not installed")
+    visible = rig[1].session
+    subprocess.run(  # noqa: S603 - a fixed git command in a temporary folder
+        ["git", "init", "-q"], cwd=visible.folder, check=True,  # noqa: S607
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+    Path(visible.folder, "notes.txt").write_text("draft", encoding="utf-8")
+    return visible
+
+
+async def test_status_reports_the_git_state_of_a_workspace_folder(rig, visible_repo):
+    board = await rig[0].run({"action": "status"})
+    rows = {row["workspace"]: row for row in board["workspaces"]}
+    git = rows[visible_repo.name]["git"]
+    assert git["branch"] and git["changed_files"] == 1
+    assert git["worktree"] is False and git["conflicted"] == 0
+    plain = next(name for name in rows if name != visible_repo.name)
+    assert "git" not in rows[plain]  # a folder outside any repository has no git row
+
+
+class _Origin:
+    """The conversation a tool call came from, as the workspace tool records it."""
+
+    def __init__(self, surface: str) -> None:
+        self.origin = {"reply_surface": surface, "reply_session_id": "", "lang": "en"}
+
+    def __enter__(self):
+        from jarvis.core.delegation import current_delegation_origin
+
+        self._var = current_delegation_origin
+        self._token = self._var.set(self.origin)
+
+    def __exit__(self, *_exc):
+        self._var.reset(self._token)
+
+
+@pytest.fixture
+def reportable(monkeypatch):
+    from jarvis.agentic_ide import followthrough
+
+    monkeypatch.setattr(followthrough, "can_report", lambda _term: True)
+    monkeypatch.setattr(followthrough, "_events", lambda _term: [])
+
+
+async def test_watch_follows_a_hand_started_job_and_shows_on_the_board(rig, reportable):
+    orchestrator, registry, sessions = rig
+    term = registry.session.terminals[0]
+    term.activity, term.last_prompt = "working", "Refactor the importer"
+    watch = {"action": "watch", "workspace": registry.session.name, "agent": term.name}
+    with _Origin("voice"):
+        first = await orchestrator.run(watch)
+        again = await orchestrator.run(watch)
+    assert first["status"] == "watching" and "already" not in first
+    assert again["status"] == "watching" and again["already"] is True
+    assert term.delegation_result.watched
+    assert "Refactor the importer" in term.delegation_result.request
+    board = await orchestrator.run({"action": "status", "workspace": registry.session.name})
+    assert board["workspaces"][0]["agents"][0]["watched"] is True
+    assert not sessions.calls  # watching types nothing into the pane
+
+
+async def test_watch_refuses_honestly_when_there_is_nothing_to_report(rig, monkeypatch):
+    orchestrator, registry, _sessions = rig
+    term = registry.session.terminals[0]
+    watch = {"action": "watch", "workspace": registry.session.name, "agent": term.name}
+    with _Origin("voice"):
+        idle = await orchestrator.run(watch)
+    assert idle["status"] == "not_running" and term.delegation_result is None
+    term.activity = "working"
+    with _Origin("voice"):
+        unreadable = await orchestrator.run(watch)  # this CLI session has no record yet
+    assert unreadable["status"] == "unavailable" and term.delegation_result is None
+    from jarvis.agentic_ide import followthrough
+
+    monkeypatch.setattr(followthrough, "can_report", lambda _term: True)
+    with _Origin("none"):
+        nowhere = await orchestrator.run(watch)
+    assert nowhere["status"] == "unavailable" and term.delegation_result is None
+
+
+def test_status_is_a_read_and_watch_is_a_logged_action(rig):
+    import jsonschema
+
+    tool = WorkspaceOrchestrationTool(rig[0])
+    jsonschema.validate({"action": "status", "workspace": "Other project"}, tool.schema)
+    jsonschema.validate({"action": "watch", "agent": "Alex"}, tool.schema)
+    assert tool.risk_tier_for_args({"action": "status"}) == "safe"
+    assert tool.describe_args({"action": "status"})["level"] == "read"
+    assert tool.risk_tier_for_args({"action": "watch"}) == "monitor"
