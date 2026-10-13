@@ -79,6 +79,11 @@ class TeamAssignTool:
                 "type": "string",
                 "description": "The output and evidence that establish the task is done.",
             },
+            "goal": {
+                "type": "string",
+                "description": "Only when this task starts new work and no goal is in "
+                "progress: the goal it serves, in one short sentence.",
+            },
         },
         "required": ["member", "title", "task"],
     }
@@ -105,6 +110,7 @@ class TeamAssignTool:
                 member=str(args.get("member") or ""),
                 title=title,
                 brief=brief,
+                goal_title_hint=str(args.get("goal") or "").strip(),
             )
         except TeamLeadError as exc:  # The refusal is the tool's answer; the lead reads why.
             return _refused(exc)
@@ -126,8 +132,9 @@ class TeamBoardTool:
     risk_tier: str = "safe"
     description: str = (
         "Read the board of the team you lead: its mission, who is on it and whether they are "
-        "free, every open goal, and each task with its state and result. Read-only. Use it "
-        "to check where a goal stands before deciding, never to wait for a result."
+        "free, every open goal, each task with its state and result, and the goals finished "
+        "most recently. Read-only. Use it to check where the team stands before deciding or "
+        "answering the person, never to wait for a result."
     )
     schema: dict[str, Any] = {"type": "object", "properties": {}}
 

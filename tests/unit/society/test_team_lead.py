@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -12,11 +14,13 @@ import aiosqlite
 import pytest
 
 from jarvis.agent_chat.store import AgentChatStore
+from jarvis.core.protocols import ChatTurn, current_chat_turn
 from jarvis.society.events import MsgType, SocietyEnvelope, TeamGoalState, TeamTaskState, Tier
 from jarvis.society.lead_card import render_lead_card
 from jarvis.society.runtime import SocietyRuntime
 from jarvis.society.store import SocietyStore
 from jarvis.society.team_lead import (
+    INITIATIVE_PROMPT,
     MAX_LEAD_TURNS,
     TRACE_PREFIX,
     TeamLeadError,
@@ -30,7 +34,7 @@ from jarvis.society.team_tools import (
     TeamReportTool,
     team_lead_tools,
 )
-from tests.fakes.team_chat import TeamChatFake
+from tests.fakes.team_chat import FakeTasks, TeamChatFake
 
 LEAD = "society:boss"
 SCOUT = "society:scout"
@@ -790,6 +794,183 @@ async def test_a_lead_assigning_from_its_own_chat_opens_a_goal(team):
     assert "[team update for team Launch]" in svc.prompts(LEAD)[0]
 
 
+# ------------------------------------------------- the person's own chat turn
+
+
+@contextmanager
+def person_says(text: str, session_id: str = LEAD, *, direct_user: bool = True):
+    """Run the body as a tool call inside a turn of the lead's chat."""
+    token = current_chat_turn.set(
+        ChatTurn(
+            session_id=session_id,
+            turn_id="person-turn",
+            user_text=text,
+            direct_user=direct_user,
+            trace_id="trace",
+        )
+    )
+    try:
+        yield
+    finally:
+        current_chat_turn.reset(token)
+
+
+async def test_work_asked_for_in_the_leads_chat_opens_a_goal_in_the_persons_words(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.gates[SCOUT] = asyncio.Event()
+    asked = "Find out why signups dropped.\nLook at last week first.\n\n[tools: browser]"
+    with person_says(asked):
+        receipt = await TeamAssignTool(rt, "boss").execute(
+            {"member": "Scout", "title": "Pull the numbers", "task": "Go.", "goal": "Signup drop"},
+            None,
+        )
+    assert receipt.success
+    goal = await _goal(rt, receipt.output["goal_id"])
+    assert goal.origin == {"kind": "chat"} and goal.title == "Signup drop"
+    assert goal.text == "Find out why signups dropped.\nLook at last week first."
+    assert (await leads.snapshot("team"))["goals"][0]["source"] == "chat"
+
+    # Without a name from the lead the goal is called by the person's first line.
+    await leads.cancel(goal.goal_id)
+    with person_says("Write the launch post"):
+        again = await leads.assign("boss", member="writer", title="Draft", brief="Go.")
+    assert (await _goal(rt, again["goal_id"])).title == "Write the launch post"
+    svc.gates[SCOUT].set()
+
+
+async def test_an_answer_in_the_leads_chat_continues_a_goal_that_waits(team):
+    rt, svc = team
+    leads = rt.team_leads
+
+    async def boss(text: str, kwargs: dict[str, Any]) -> str:
+        await leads.report("boss", status="needs_input", summary="Which market?")
+        return "I need one answer."
+
+    svc.scripts[LEAD] = boss
+    goal = await leads.start_goal("team", "Plan the launch")
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.NEEDS_INPUT))
+    await until(lambda: svc.idle() and not leads._turns)  # noqa: SLF001 — the turn is read back
+
+    # A turn nobody typed (a check-in, another agent's message) cannot answer for the person.
+    for stranger in (
+        person_says("Germany", direct_user=False),
+        person_says("Germany", session_id=SCOUT),
+    ):
+        with stranger, pytest.raises(TeamLeadError, match="answers you in this chat"):
+            await leads.assign("boss", member="scout", title="Research", brief="Go.")
+    assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.NEEDS_INPUT
+
+    svc.gates[SCOUT] = asyncio.Event()
+    with person_says("Germany"):
+        receipt = await leads.assign("boss", member="scout", title="Research", brief="Go.")
+    assert receipt["goal_id"] == goal.goal_id
+    resumed = await _goal(rt, goal.goal_id)
+    assert resumed.state is TeamGoalState.RUNNING and resumed.lead_turns == 0
+    svc.scripts.pop(LEAD)
+    svc.gates[SCOUT].set()
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
+
+
+async def test_a_go_ahead_in_the_leads_chat_continues_a_paused_goal_but_not_past_the_switch(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.failing.add(LEAD)
+    goal = await leads.start_goal("team", "Plan the launch")
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.PAUSED))
+    svc.failing.discard(LEAD)
+
+    await rt.store.set_kill_switch(True)
+    with person_says("Go on"), pytest.raises(TeamLeadError):
+        await leads.report("boss", status="progress", summary="Back on it.")
+    assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.PAUSED
+    await rt.store.set_kill_switch(False)
+
+    with person_says("Go on"):
+        await leads.report("boss", status="done", summary="Finished after all.")
+    assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.DONE
+
+
+async def test_the_persons_turn_is_followed_up_like_a_managing_turn(team):
+    rt, svc = team
+    leads = rt.team_leads
+    seen: list[str] = []
+
+    async def boss(text: str, kwargs: dict[str, Any]) -> str:
+        seen.append(text)
+        if len(seen) == 1:
+            await leads.report("boss", status="needs_input", summary="Which market?")
+            return "I need one answer."
+        await leads.report("boss", status="done", summary="Germany it is.")
+        return "Closed."
+
+    svc.scripts[LEAD] = boss
+    goal = await leads.start_goal("team", "Plan the launch")
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.NEEDS_INPUT))
+    await until(lambda: svc.idle() and not leads._turns)  # noqa: SLF001 — the turn is read back
+
+    # The lead answers the person in plain words and reports nothing: the
+    # goal it reopened is asked once for a typed report.
+    with person_says("Germany"):
+        await leads.report("boss", status="progress", summary="Noted: Germany.")
+    await leads.person_turn_ended("boss", ok=True, final="Noted.")
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
+    assert "[team goal check for team Launch]" in seen[1]
+
+    # A turn that touched no goal, or failed, starts nothing.
+    sent = len(svc.sent)
+    await leads.person_turn_ended("boss", ok=True, final="Hello.")
+    await leads.person_turn_ended("scout", ok=True, final="Hello.")
+    await asyncio.sleep(0.05)
+    assert len(svc.sent) == sent
+
+
+async def test_the_runtime_reports_the_persons_turn_in_a_leads_chat(team):
+    rt, _ = team
+    ended: list[tuple[str, bool, str]] = []
+
+    async def record(lead_id: str, *, ok: bool, final: str = "") -> None:
+        ended.append((lead_id, ok, final))
+
+    rt.team_leads.person_turn_ended = record  # type: ignore[method-assign]
+
+    def completion(session_id: str, direct_user: bool, status: str) -> Any:
+        events = [
+            {"kind": "user_message", "payload": {"text": "Hi"}},
+            {"kind": "assistant_text", "payload": {"text": "On it."}},
+            {"kind": "turn_finished", "payload": {"status": status}},
+        ]
+        turn = ChatTurn(
+            session_id=session_id, turn_id="t", user_text="Hi", direct_user=direct_user,
+            trace_id="x",
+        )
+        return SimpleNamespace(turn=turn, events_json=json.dumps(events))
+
+    for session_id, direct_user, status in (
+        (LEAD, True, "error"),
+        (LEAD, False, "done"),
+        (SCOUT, True, "done"),
+    ):
+        await rt.turn_completed(
+            SimpleNamespace(session_id=session_id), completion(session_id, direct_user, status)
+        )
+    await until(lambda: ended)
+    assert ended == [("boss", False, "On it.")]
+
+
+async def test_the_board_names_what_was_finished_so_it_is_not_done_twice(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.replies[LEAD] = "Shipped the page."
+    goal = await leads.start_goal("team", "Launch the page")
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.DONE))
+    board = await leads.board("boss")
+    assert board["goals"] == []
+    assert board["finished"] == [
+        {"title": "Launch the page", "state": "done", "report": "Shipped the page."}
+    ]
+
+
 # ---------------------------------------------------------------- the tools
 
 
@@ -876,31 +1057,6 @@ async def test_jarvis_card_names_the_teams_that_have_a_lead(team):
 # ------------------------------------------------------- check-ins, storage
 
 
-class FakeTasks:
-    """The slice of the task store and scheduler a routine needs."""
-
-    def __init__(self) -> None:
-        self.specs: dict[str, Any] = {}
-        self.cancelled: list[str] = []
-
-    async def schedule(self, spec: Any, **_: Any) -> str:
-        self.specs[str(spec.id)] = spec
-        return str(spec.id)
-
-    async def cancel_task(self, task_id: str) -> None:
-        self.cancelled.append(task_id)
-
-    async def delete(self, task_id: str) -> None:
-        self.specs.pop(task_id, None)
-
-    async def list(self, limit: int = 1000) -> list[dict[str, Any]]:
-        return [
-            {"id": task_id, "title": spec.title, "state": "scheduled",
-             "spec_json": spec.model_dump_json()}
-            for task_id, spec in self.specs.items()
-        ]
-
-
 async def test_a_check_in_is_an_agent_routine_the_person_switches_on(team):
     rt, _ = team
     fake = FakeTasks()
@@ -921,6 +1077,32 @@ async def test_a_check_in_is_an_agent_routine_the_person_switches_on(team):
     assert len(fake.specs) == 1 and len(fake.cancelled) == 1
     await leads.set_lead("team", None)
     assert fake.specs == {}
+
+
+async def test_a_check_in_with_initiative_may_set_the_next_goal(team):
+    rt, _ = team
+    fake = FakeTasks()
+    rt.task_services = lambda: (fake, fake)
+    leads = rt.team_leads
+    assert (await leads.snapshot("team"))["initiative"] is False
+
+    await leads.set_checkin("team", 60)
+    assert await leads.checkin("team") == (60, False)
+    assert (await leads.snapshot("team"))["initiative"] is False
+
+    await leads.set_checkin("team", 240, initiative=True)
+    (spec,) = fake.specs.values()
+    assert {"team-checkin:team", "team-initiative:team"} <= set(spec.tags)
+    assert INITIATIVE_PROMPT in spec.action.prompt and "take the initiative" in INITIATIVE_PROMPT
+    snapshot = await leads.snapshot("team")
+    assert snapshot["checkin_minutes"] == 240 and snapshot["initiative"] is True
+
+    # A new lead inherits how the team is watched.
+    await leads.set_lead("team", "writer")
+    (moved,) = fake.specs.values()
+    assert "agent:writer" in moved.tags and "team-initiative:team" in moved.tags
+    await leads.set_checkin("team", 0, initiative=True)
+    assert fake.specs == {} and await leads.checkin("team") == (0, False)
 
 
 async def test_an_older_database_gains_the_lead_columns(tmp_path: Path):

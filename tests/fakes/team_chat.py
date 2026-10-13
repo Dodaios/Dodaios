@@ -127,3 +127,28 @@ class TeamChatFake:
             task.cancel()
         if self._turns:
             await asyncio.wait(set(self._turns.values()))
+
+
+class FakeTasks:
+    """The slice of the task store and scheduler a routine needs."""
+
+    def __init__(self) -> None:
+        self.specs: dict[str, Any] = {}
+        self.cancelled: list[str] = []
+
+    async def schedule(self, spec: Any, **_: Any) -> str:
+        self.specs[str(spec.id)] = spec
+        return str(spec.id)
+
+    async def cancel_task(self, task_id: str) -> None:
+        self.cancelled.append(task_id)
+
+    async def delete(self, task_id: str) -> None:
+        self.specs.pop(task_id, None)
+
+    async def list(self, limit: int = 1000) -> list[dict[str, Any]]:
+        return [
+            {"id": task_id, "title": spec.title, "state": "scheduled",
+             "spec_json": spec.model_dump_json()}
+            for task_id, spec in self.specs.items()
+        ]
