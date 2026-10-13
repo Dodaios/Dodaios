@@ -62,6 +62,12 @@ _BINARY_CANDIDATES: tuple[str, ...] = ("codex", "codex.cmd", "codex.exe")
 # probe is cached too, so a hanging/absent codex never re-pays the 4 s timeout.
 _VERSION_CACHE: dict[str, str | None] = {}
 
+# Why the last ``codex --version`` probe of a binary could not be started at
+# all, keyed like ``_VERSION_CACHE``. A host that refuses the spawn is not a
+# broken install, and an install test that says so sends the user reinstalling
+# a working CLI. (BUG-233)
+_VERSION_SPAWN_ERRORS: dict[str, str] = {}
+
 # A dedicated subscription login must not inherit provider, cloud, proxy,
 # dynamic-loader, keyring, or agent-session state.  Keep this list deliberately
 # small: these are OS process essentials, not a denylist that has to predict the
@@ -324,6 +330,15 @@ def clear_version_cache() -> None:
     it, so they don't call this).
     """
     _VERSION_CACHE.clear()
+    _VERSION_SPAWN_ERRORS.clear()
+
+
+def version_spawn_error(binary: str | None) -> str | None:
+    """Why the host could not start ``binary`` for its version probe, if it could not.
+
+    ``None`` when the probe ran (whatever it answered) or never happened.
+    """
+    return _VERSION_SPAWN_ERRORS.get(binary) if binary else None
 
 # Visible-console flag for the interactive login (Windows only). The desktop app
 # runs under pythonw.exe (no console); without a fresh console the user could
@@ -764,9 +779,15 @@ class CodexAuthService:
                 creationflags=NO_WINDOW_CREATIONFLAGS,
                 env=self._subprocess_environment(),
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except subprocess.TimeoutExpired:
             _VERSION_CACHE[binary] = None
             return None
+        except OSError as exc:
+            # The spawn itself was refused; keep the reason for the install test.
+            _VERSION_SPAWN_ERRORS[binary] = str(exc)
+            _VERSION_CACHE[binary] = None
+            return None
+        _VERSION_SPAWN_ERRORS.pop(binary, None)
         out = (proc.stdout or proc.stderr or "").strip()
         version = out or None
         _VERSION_CACHE[binary] = version

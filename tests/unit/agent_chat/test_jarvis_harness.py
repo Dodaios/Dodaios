@@ -191,9 +191,53 @@ def test_both_cli_shapes_point_at_the_same_endpoint(monkeypatch):
 
 def test_the_preamble_names_the_prefix_the_tools_actually_get():
     """If the prefix drifts, the model is told to use tools it cannot see."""
-    assert "`mcp__jarvis__<tool>`" in jarvis_harness.SYSTEM_PREAMBLE
-    assert "`jarvis__<tool>`" in jarvis_harness.SYSTEM_PREAMBLE
-    assert jarvis_harness._SERVER_NAME == "jarvis"
+    assert jarvis_harness._SERVER_NAME == "dodaios"
+    assert "`mcp__dodaios__<tool>`" in jarvis_harness.SYSTEM_PREAMBLE
+    assert "`dodaios__<tool>`" in jarvis_harness.SYSTEM_PREAMBLE
+    assert "`mcp__dodaios__run_shell` / `dodaios__run_shell`" in jarvis_harness.SYSTEM_PREAMBLE
+    assert "from the `dodaios` MCP server" in jarvis_harness.SYSTEM_PREAMBLE
+    # The model is told one name: the one the tools are mounted under.
+    assert "jarvis__" not in jarvis_harness.SYSTEM_PREAMBLE
+
+
+def test_every_cli_shape_mounts_the_server_under_the_one_name(monkeypatch):
+    """Claude's JSON, Codex' overrides and the Grok block must agree on the name."""
+    monkeypatch.setattr(jarvis_harness, "control_key", lambda: "k")
+    runtime_refs.set_api_base_url("http://127.0.0.1:47821")
+
+    assert list(json.loads(jarvis_harness.mcp_config_json("s") or "{}")["mcpServers"]) == [
+        "dodaios"
+    ]
+    codex = jarvis_harness.codex_config_args("society:scout")
+    assert codex[1::2] and all(arg.startswith("mcp_servers.dodaios.") for arg in codex[1::2])
+    assert 'mcp_servers.dodaios.tools.society_browser.approval_mode="approve"' in codex
+    assert 'mcp_servers.dodaios.default_tools_approval_mode="approve"' in codex
+    block = jarvis_harness._grok_jarvis_block(jarvis_harness.grok_mcp_server_entry("s") or {})
+    assert "[mcp_servers.dodaios]" in block and "[mcp_servers.dodaios.headers]" in block
+
+
+def test_a_grok_block_written_under_the_earlier_name_is_replaced_not_joined():
+    """A project file from an older version must not end up with two mounts."""
+    older = "\n".join(
+        [
+            "[mcp_servers.linear]",
+            'url = "https://mcp.linear.app/mcp"',
+            "",
+            "# BEGIN JARVIS HANDS",
+            "[mcp_servers.jarvis]",
+            'url = "http://127.0.0.1:47821/api/control/mcp/"',
+            "# END JARVIS HANDS",
+            "",
+        ]
+    )
+    block = jarvis_harness._grok_jarvis_block(
+        {"url": "http://127.0.0.1:47821/api/control/mcp/", "bearer_token_env_var": "K"}
+    )
+    merged = jarvis_harness._merge_grok_jarvis_block(older, block)
+
+    assert "[mcp_servers.jarvis]" not in merged
+    assert merged.count("[mcp_servers.dodaios]") == 1
+    assert "[mcp_servers.linear]" in merged
 
 
 def test_agy_plugin_is_skipped_when_the_app_is_not_ready(tmp_path, monkeypatch):

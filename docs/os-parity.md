@@ -1,5 +1,16 @@
 # OS Feature Parity — macOS / Linux Gap Register
 
+## PATH length budget (issue #574, T2)
+
+On Windows the app keeps its own `PATH` within 31,000 characters: past the
+32,767-character search path Windows builds per program start, every spawn
+from the process fails with `WinError 8`. Repeated entries and folders that do
+not exist are dropped first, real folders from the end last, and an inherited
+PATH that is already too long is repaired at boot. macOS and Linux have no such
+per-variable limit, so the PATH is never shortened there; the budget logic runs
+on every OS in the unit tests, and the real spawn past the limit was verified on
+Windows 11 only.
+
 ## Local voice and audio topology refresh (issue #464, T2)
 
 Local final transcription uses its configured model independently of the wake
@@ -1892,3 +1903,19 @@ native macOS/GTK client windows and live remote-host/provider execution have
 not been verified by these checks. Device capture, wake word and overlays keep
 their existing device and permission requirements; opening a client does not
 grant the server access to that client's desktop.
+
+## Independent server pairing (T3)
+
+The Computers server-address form pairs running Dodaios instances over HTTPS
+or loopback HTTP through a tunnel. Codes expire after five minutes and are
+single-use; durable credentials use the existing cross-platform secret store.
+The receiving server keeps credential hashes. Browser opening uses one-minute
+single-use tickets and the standard HttpOnly session cookie. Revocation blocks
+new connections; already opened browser sessions retain their normal lifetime.
+This connection opens the remote Dodaios UI; SSH remains the transport for
+remote terminals and IDE offload. No platform-specific native capability,
+inbound port, reverse proxy, or paid provider is activated by pairing.
+
+The protocol, auth-boundary, persistence, and frontend tests run on Windows and
+use portable Python/HTTP paths. Actual macOS/Linux keychains and external
+HTTPS deployments have not been exercised. See [server pairing](server-pairing.md).

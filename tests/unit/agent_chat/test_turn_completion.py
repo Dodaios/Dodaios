@@ -353,14 +353,16 @@ async def test_a_secret_asked_for_in_the_reply_is_steered_to_the_secure_field_on
     assert await gate.next_prompt() is None
 
 
-async def test_a_turn_that_opened_the_field_is_left_alone(card_world, monkeypatch):
+@pytest.mark.parametrize("server", ["dodaios", "jarvis"])
+async def test_a_turn_that_opened_the_field_is_left_alone(card_world, monkeypatch, server):
+    """The tool is recognised behind the server's current and its earlier name."""
     from jarvis.agent_chat import turn_completion
 
     monkeypatch.setattr(turn_completion, "_stored_credentials", stored([]))
     _, _, gate = card_world
     call = make_event(
         "tool_call",
-        {"call_id": "c", "name": "mcp__jarvis__society_request_credential", "input": {}},
+        {"call_id": "c", "name": f"mcp__{server}__society_request_credential", "input": {}},
     )
     await finish_with(
         gate, call, make_event("assistant_text", {"text": "Please enter the token in the field."})

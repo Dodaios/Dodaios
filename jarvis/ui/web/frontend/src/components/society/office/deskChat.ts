@@ -17,7 +17,7 @@ function clean(text: unknown, max = 160): string {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
 
-/** Short, human tool names: "mcp__jarvis__society_shell" → "society_shell". */
+/** Short, human tool names: "mcp__dodaios__society_shell" → "society_shell". */
 export function toolLabel(name: unknown): string {
   if (typeof name !== "string" || !name) return "tool";
   const parts = name.split("__");
