@@ -37,6 +37,8 @@ function watchCursor(editor: CodeEditor): monaco.IDisposable[] {
     editor.onDidChangeCursorSelection(() => reportCursor(editor)),
     editor.onDidChangeModel(() => reportCursor(editor)),
     editor.onDidChangeModelOptions(() => reportCursor(editor)),
+    // With several editors side by side, the status bar follows the one typed in.
+    editor.onDidFocusEditorText(() => reportCursor(editor)),
   ];
 }
 
@@ -51,11 +53,17 @@ const keepContextMenu = (event: MouseEvent) => event.stopPropagation();
 export default function EditorSurface({
   tab,
   rendered,
+  focused = true,
   secondary = false,
   onOpenExternally,
 }: {
   tab: EditorTab;
-  /** The second editor of a split view: closing it leaves the first one's status bar alone. */
+  /**
+   * This editor's group has the keyboard. Only that editor takes the focus
+   * when its tab changes and jumps to an "open at line" request.
+   */
+  focused?: boolean;
+  /** Other editors stand beside this one: closing it leaves the status bar to them. */
   secondary?: boolean;
   /** Show a Markdown, HTML or SVG file rendered instead of its source. */
   rendered: boolean;
@@ -68,6 +76,10 @@ export default function EditorSurface({
   const diffRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
   const shown = useRef<string | null>(null);
   const handledReveal = useRef(0);
+  const hasKeyboard = useRef(focused);
+  hasKeyboard.current = focused;
+  const beside = useRef(secondary);
+  beside.current = secondary;
   const file = useCodeEditorStore((state) => state.files[tab.fileKey]);
   const reveal = useCodeEditorStore((state) => state.reveal);
   const status = file?.status ?? "loading";
@@ -98,10 +110,8 @@ export default function EditorSurface({
       diffRef.current?.dispose();
       diffRef.current = null;
       editorRef.current = null;
-      if (!secondary) useCodeEditorStore.getState().setCursor(null);
+      if (!beside.current) useCodeEditorStore.getState().setCursor(null);
     };
-    // `secondary` never changes for a mounted editor.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -120,9 +130,20 @@ export default function EditorSurface({
       if (state) editor.restoreViewState(state);
       shown.current = tab.key;
     }
-    reportCursor(editor);
-    editor.focus();
+    if (hasKeyboard.current) {
+      reportCursor(editor);
+      editor.focus();
+    }
   }, [tab.key, tab.fileKey, tab.mode, ready]);
+
+  // A group that gets the keyboard while nothing holds the focus (the group
+  // beside it just closed) puts the cursor back into its text.
+  useEffect(() => {
+    if (!focused || !ready) return;
+    const held = document.activeElement;
+    if (held && held !== document.body) return;
+    (tab.mode === "diff" ? diffRef.current?.getModifiedEditor() : editorRef.current)?.focus();
+  }, [focused, ready, tab.mode]);
 
   // Gutter markers against the last commit: green added, blue modified, a red
   // notch where lines were deleted. Recomputed shortly after each edit.
@@ -204,8 +225,10 @@ export default function EditorSurface({
       diff.setModel({ original, modified });
       const right = diff.getModifiedEditor();
       watchers = watchCursor(right);
-      reportCursor(right);
-      right.focus();
+      if (hasKeyboard.current) {
+        reportCursor(right);
+        right.focus();
+      }
     });
     return () => {
       alive = false;
@@ -216,6 +239,12 @@ export default function EditorSurface({
   // "Open at line": a Ctrl+click on `file.py:42` in a terminal, or Quick Open's `name:42`.
   useEffect(() => {
     if (!ready || !reveal || reveal.fileKey !== tab.fileKey || reveal.nonce === handledReveal.current) return;
+    // The same file may be open in several groups; only the one the file was
+    // opened in jumps to the line.
+    if (!hasKeyboard.current) {
+      handledReveal.current = reveal.nonce;
+      return;
+    }
     const editor = tab.mode === "diff" ? diffRef.current?.getModifiedEditor() : editorRef.current;
     if (!editor || editor.getModel() !== modelOf(tab.fileKey)) return;
     handledReveal.current = reveal.nonce;
