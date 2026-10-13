@@ -49,7 +49,7 @@ interface Part {
 }
 
 const CHAIR_Z = 0.62;
-const rounded = (w: number, h: number, d: number, r: number) => new RoundedBoxGeometry(w, h, d, 2, r);
+const rounded = (w: number, h: number, d: number, r: number) => new RoundedBoxGeometry(w, h, d, 1, r);
 
 /** The task chair's finishes as desk part roles: the frame and fabric follow a desk tone, metal and mesh stay. */
 const CHAIR_ROLE: Record<ChairFinish, PartRole> = { frame: "chair", fabric: "seat", metal: "chrome", mesh: "mesh" };

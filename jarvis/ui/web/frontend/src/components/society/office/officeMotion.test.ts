@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { BODY_SPACING, WALK_SPEED, applySeparation, clearOfBodies, separation, stepClearOfBodies, stepMover, stepMoverAvoiding, turnToward, type Mover, wrapAngle } from "./officeMotion";
+import {
+  BODY_SPACING, BRISK_SPEED, STUCK, WALK_SPEED, applySeparation, clearOfBodies, clickPaceFor, hurryPaceFor, newStuckWatch, paceFor, segmentWalkable, separation, stepClearOfBodies, stepMover,
+  stepMoverAvoiding, stepWalker, turnToward, watchProgress, type Mover, wrapAngle,
+} from "./officeMotion";
 
 describe("office motion", () => {
   it("turns the short way and clamps the step", () => {
@@ -93,5 +96,179 @@ describe("separation", () => {
     // Both still reach their goals.
     expect(a.path).toHaveLength(0);
     expect(b.path).toHaveLength(0);
+  });
+});
+
+const open = () => true;
+const DT = 1 / 60;
+
+describe("stepWalker", () => {
+  it("lands exactly on the last waypoint and faces the way it walked", () => {
+    for (const dt of [1 / 144, 1 / 60, 1 / 30, 0.1]) {
+      const m: Mover = { x: 0, z: 0, heading: Math.PI / 2, path: [{ x: 3, z: 0 }, { x: 3, z: 2.37 }] };
+      let ticks = 0;
+      while (!stepWalker(m, WALK_SPEED, dt, [], open).arrived && ticks < 5000) ticks += 1;
+      expect([m.x, m.z], `dt ${dt}`).toEqual([3, 2.37]);
+      expect(m.heading, `dt ${dt}`).toBeCloseTo(0);
+    }
+  });
+
+  it("turns before it walks instead of gliding sideways round a corner", () => {
+    // Facing east, the route goes west: a U-turn.
+    const m: Mover = { x: 0, z: 0, heading: Math.PI / 2, path: [{ x: -5, z: 0 }] };
+    let sideways = 0;
+    for (let i = 0; i < 120; i += 1) {
+      const before = m.x;
+      const { moved } = stepWalker(m, WALK_SPEED, DT, [], open);
+      // Moving west while still facing away from west by more than 60°.
+      if (Math.abs(wrapAngle(-Math.PI / 2 - m.heading)) > 1.05) sideways += Math.abs(m.x - before);
+      expect(moved).toBeLessThanOrEqual(WALK_SPEED * DT + 1e-9);
+    }
+    expect(sideways).toBeLessThan(0.03);
+    expect(m.heading).toBeCloseTo(-Math.PI / 2);
+    expect(m.x).toBeLessThan(-2);
+  });
+
+  it("never steps onto blocked ground: it slides along a wall it is pushed against, or waits", () => {
+    // A wall along z < 0; someone beside the walker pushes it towards the wall.
+    const floor = (p: { x: number; z: number }) => p.z >= 0;
+    const m: Mover = { x: 0, z: 0.05, heading: Math.PI / 2, path: [{ x: 6, z: 0.05 }] };
+    const pusher = { x: 1.2, z: 0.75 };
+    for (let i = 0; i < 400 && m.path.length > 0; i += 1) {
+      stepWalker(m, WALK_SPEED, DT, [pusher], floor);
+      expect(m.z).toBeGreaterThanOrEqual(0);
+      expect(Math.hypot(m.x - pusher.x, m.z - pusher.z)).toBeGreaterThan(BODY_SPACING - 0.02);
+    }
+    expect([m.x, m.z]).toEqual([6, 0.05]);
+  });
+
+  it("never steps into anybody: with no way round it waits and says so", () => {
+    // A corridor one body wide, someone standing in it.
+    const corridor = (p: { x: number; z: number }) => Math.abs(p.z) <= 0.3;
+    const m: Mover = { x: 0, z: 0, heading: Math.PI / 2, path: [{ x: 6, z: 0 }] };
+    const body = { x: 3, z: 0 };
+    let blocked = false;
+    for (let i = 0; i < 600; i += 1) {
+      const step = stepWalker(m, WALK_SPEED, DT, [body], corridor);
+      blocked = step.blocked;
+      expect(Math.hypot(m.x - body.x, m.z - body.z)).toBeGreaterThan(BODY_SPACING - 0.01);
+    }
+    expect(blocked).toBe(true);
+    expect(m.x).toBeLessThan(3);
+    expect(m.path).toHaveLength(1);
+  });
+
+  it("walks out of a seat and onto one although both lie inside a footprint", () => {
+    // The chair's footprint covers x in [-0.5, 0.5]; a neighbour sits within arm's reach of the target seat.
+    const floor = (p: { x: number; z: number }) => Math.abs(p.x) > 0.5 && Math.abs(p.x - 6) > 0.5;
+    const m: Mover = { x: 0, z: 0, heading: 0, path: [{ x: 0.7, z: 0 }, { x: 5.3, z: 0 }, { x: 6, z: 0 }] };
+    let ticks = 0;
+    while (!stepWalker(m, WALK_SPEED, DT, [{ x: 6, z: 0.55 }], floor).arrived && ticks < 2000) ticks += 1;
+    expect([m.x, m.z]).toEqual([6, 0]);
+  });
+
+  it("reports when steering carried it off its route", () => {
+    // The straight line to the waypoint crosses a pillar the route went round.
+    const pillar = (p: { x: number; z: number }) => !(p.x > 0.9 && p.x < 2 && Math.abs(p.z) < 0.3);
+    const m: Mover = { x: 0.9, z: 0, heading: Math.PI / 2, path: [{ x: 3, z: 0 }] };
+    const step = stepWalker(m, WALK_SPEED, DT, [], pillar);
+    expect(step.offPath).toBe(true);
+    expect(pillar(m)).toBe(true);
+  });
+
+  it("goes for the next waypoint once it is in plain view, never back to one it was pushed past", () => {
+    const m: Mover = { x: 1.8, z: 0.4, heading: Math.PI / 2, path: [{ x: 2, z: 0 }, { x: 6, z: 0 }] };
+    stepWalker(m, WALK_SPEED, DT, [{ x: 1.4, z: -0.3 }], open);
+    expect(m.path).toEqual([{ x: 6, z: 0 }]);
+  });
+});
+
+describe("segmentWalkable", () => {
+  it("samples the first stretch of a line", () => {
+    const wall = (p: { x: number; z: number }) => p.x < 1 || p.x > 1.2;
+    expect(segmentWalkable({ x: 0, z: 0 }, { x: 0.9, z: 0 }, wall)).toBe(true);
+    expect(segmentWalkable({ x: 0, z: 0 }, { x: 3, z: 0 }, wall)).toBe(false);
+    // Only the first metres count: a wall far down the line is the route's business.
+    expect(segmentWalkable({ x: -5, z: 0 }, { x: 3, z: 0 }, wall)).toBe(true);
+  });
+});
+
+describe("paceFor", () => {
+  it("strolls on short legs and walks briskly across the campus", () => {
+    expect(paceFor(0)).toBe(WALK_SPEED);
+    expect(paceFor(8)).toBe(WALK_SPEED);
+    expect(paceFor(60)).toBe(BRISK_SPEED);
+    expect(paceFor(17)).toBeGreaterThan(WALK_SPEED);
+    expect(paceFor(17)).toBeLessThan(BRISK_SPEED);
+    expect(paceFor(20)).toBeGreaterThan(paceFor(15));
+  });
+});
+
+describe("hurryPaceFor", () => {
+  it("is brisk on anything but the last steps, and never slower than the ordinary pace", () => {
+    expect(hurryPaceFor(1)).toBe(WALK_SPEED);
+    expect(hurryPaceFor(8)).toBe(BRISK_SPEED);
+    expect(hurryPaceFor(40)).toBe(BRISK_SPEED);
+    for (let m = 0; m < 40; m += 1) expect(hurryPaceFor(m)).toBeGreaterThanOrEqual(paceFor(m));
+  });
+});
+
+describe("clickPaceFor", () => {
+  it("jogs a long click-to-move route and settles to a walk before it arrives", () => {
+    expect(clickPaceFor(60, 2, 4.4)).toBe(4.4);
+    expect(clickPaceFor(22, 2, 4.4)).toBe(4.4);
+    expect(clickPaceFor(7, 2, 4.4)).toBe(2);
+    expect(clickPaceFor(0, 2, 4.4)).toBe(2);
+    expect(clickPaceFor(14, 2, 4.4)).toBeGreaterThan(2);
+    expect(clickPaceFor(14, 2, 4.4)).toBeLessThan(4.4);
+    // Never a jump in pace: the change is spread over the metres in between.
+    for (let m = 0; m < 30; m += 0.5) expect(Math.abs(clickPaceFor(m + 0.5, 2, 4.4) - clickPaceFor(m, 2, 4.4))).toBeLessThan(0.1);
+  });
+
+  it("crosses a campus in well under half the time a plain walk takes", () => {
+    const time = (pace: (left: number) => number) => {
+      const m: Mover = { x: 0, z: 0, heading: Math.PI / 2, path: [{ x: 70, z: 0 }] };
+      let seconds = 0;
+      while (seconds < 120 && !stepWalker(m, pace(70 - m.x), DT, [], open).arrived) seconds += DT;
+      return seconds;
+    };
+    const walked = time(() => 2);
+    const clicked = time((left) => clickPaceFor(left, 2, 4.4));
+    expect(walked).toBeCloseTo(35, 0);
+    expect(clicked).toBeLessThan(20);
+    expect(clicked).toBeGreaterThan(70 / 4.4);
+  });
+});
+
+describe("the stuck watch", () => {
+  it("stays quiet while a figure makes progress, however slowly it queues", () => {
+    const watch = newStuckWatch({ x: 0, z: 0 });
+    let x = 0;
+    for (let i = 0; i < 60 * 30; i += 1) {
+      x += 0.34 * DT;
+      expect(watchProgress(watch, { x, z: 0 }, DT)).toBe("ok");
+    }
+  });
+
+  it("asks for a re-plan after 1.5 s without progress, twice, then for a rescue", () => {
+    const watch = newStuckWatch({ x: 0, z: 0 });
+    const verdicts: string[] = [];
+    for (let i = 0; i < 60 * 6.2; i += 1) {
+      // Shuffling on the spot is not progress.
+      const verdict = watchProgress(watch, { x: Math.sin(i / 5) * 0.15, z: 0 }, DT);
+      if (verdict !== "ok") verdicts.push(`${verdict}@${((i + 1) * DT).toFixed(1)}`);
+    }
+    // (Sixty frames of 1/60 s fall a hair short of a second, so each verdict comes a frame late.)
+    expect(verdicts).toEqual(["replan@1.5", "replan@3.0", "rescue@4.5", "replan@6.1"]);
+    expect(STUCK.maxReplans).toBe(2);
+  });
+
+  it("starts over with every unit of progress", () => {
+    const watch = newStuckWatch({ x: 0, z: 0 });
+    for (let i = 0; i < 80; i += 1) watchProgress(watch, { x: 0, z: 0 }, DT);
+    expect(watchProgress(watch, { x: 0, z: 0 }, 1)).toBe("replan");
+    expect(watch.replans).toBe(1);
+    expect(watchProgress(watch, { x: STUCK.progressM, z: 0 }, DT)).toBe("ok");
+    expect(watch).toMatchObject({ idleS: 0, replans: 0, x: STUCK.progressM });
   });
 });

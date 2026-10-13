@@ -18,11 +18,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as R
 import { Map as MapIcon, Minus, Plus } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { useT } from "@/i18n";
-import type { CheckpointKind, OfficeLayout, Point, Rect, RoomKind } from "./officeLayout";
+import type { CampusZoneKind, CheckpointKind, OfficeLayout, Point, Rect, RoomKind } from "./officeLayout";
 import { cameraView, player, useOfficeStore } from "./officeStore";
 import { agentPositions } from "./walkerRegistry";
 import {
-  MAP_PAINT, ZOOM_DEFAULT_M, ZOOM_MAX_M, ZOOM_MIN_M, centredTransform, clampToEdge, clampToRect, clampZoom, drawAgentToken, drawCheckpoints,
+  MAP_PAINT, ZOOM_DEFAULT_M, ZOOM_MAX_M, ZOOM_MIN_M, centredTransform, clampToEdge, clampToRect, clampZoom, drawAgentToken, drawCheckpoints, minimapCentre,
   drawEdgeArrow, drawFloorArt, drawPlayerArrow, drawViewCone, mapToWorld, pickNearest, placeAt, worldToMap, zoomStep,
   type AgentToken, type MapPoint, type MapTransform,
 } from "./minimap";
@@ -87,16 +87,19 @@ export function OfficeMinimap({ layout, agents, selectedId, onOpenMap }: OfficeM
   const dpr = usePixelRatio();
 
   // The render loop reads these through a ref, so a roster refetch never restarts it.
-  const live = useRef({ agents, selectedId, zoom, reduced });
-  live.current = { agents, selectedId, zoom, reduced };
+  const live = useRef({ agents, selectedId, zoom, reduced, bounds: layout.bounds });
+  live.current = { agents, selectedId, zoom, reduced, bounds: layout.bounds };
+  /** Where the person's arrow is on the card: the middle, except near the floor's edge. */
+  const meRef = useRef({ x: MINIMAP_SIZE / 2, y: MINIMAP_SIZE / 2 });
 
   const draw = useCallback((now: number) => {
     const canvas = canvasRef.current;
     const ctx = context2d(canvas);
     if (!canvas || !ctx) return;
-    const { agents: roster, selectedId: sel, zoom: metres, reduced: still } = live.current;
+    const { agents: roster, selectedId: sel, zoom: metres, reduced: still, bounds } = live.current;
     const size = MINIMAP_SIZE;
-    const tr = centredTransform(player, metres, size, size);
+    // The card follows the person but stays on the floor.
+    const tr = centredTransform(minimapCentre(player, bounds, metres), metres, size, size);
     transformRef.current = tr;
     const ratio = canvas.width / size;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -109,6 +112,7 @@ export function OfficeMinimap({ layout, agents, selectedId, onOpenMap }: OfficeM
       ctx.drawImage(layer.canvas, origin.x, origin.y, layer.cssW, layer.cssH);
     }
     const centre = worldToMap(tr, player);
+    meRef.current = centre;
     if (cameraView.ready) drawViewCone(ctx, centre, cameraView.yaw, cameraView.halfWidth, size * 0.5);
 
     const hits: Hit[] = [];
@@ -242,7 +246,18 @@ export function OfficeMinimap({ layout, agents, selectedId, onOpenMap }: OfficeM
     levels: t("society.office.room_levels"),
   };
   const youLabel = t("society.office.minimap_you");
-  const openSpace = t("society.office.open_space");
+  // Agents floor: the campus between the studios. The pool studio has no team name; the map gives it one.
+  const zoneLabels: Record<CampusZoneKind, string> = {
+    boulevard: t("society.office.zone_boulevard"),
+    plaza: t("society.office.zone_boulevard"),
+    atrium: t("society.office.zone_atrium"),
+    plot: t("society.office.zone_plot"),
+    garden: t("society.office.zone_garden"),
+    booths: t("society.office.zone_booths"),
+    library: t("society.office.zone_library"),
+    cafe: t("society.office.zone_cafe"),
+  };
+  const openSpace = t(layout.variant === "agents" ? "society.office.studio_pool" : "society.office.open_space");
 
   const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const at = mapPoint(event);
@@ -251,13 +266,14 @@ export function OfficeMinimap({ layout, agents, selectedId, onOpenMap }: OfficeM
     const hit = pickNearest(hitsRef.current, at, HIT_PX);
     if (hit) {
       text = agents.get(hit.id)?.name ?? null;
-    } else if ((at.x - MINIMAP_SIZE / 2) ** 2 + (at.y - MINIMAP_SIZE / 2) ** 2 <= HIT_PX * HIT_PX) {
+    } else if ((at.x - meRef.current.x) ** 2 + (at.y - meRef.current.y) ** 2 <= HIT_PX * HIT_PX) {
       text = youLabel;
     } else {
       const place = placeAt(layout, mapToWorld(transformRef.current, at));
       if (place?.kind === "checkpoint") text = checkpointLabels[place.id];
       else if (place?.kind === "room") text = roomLabels[place.id];
       else if (place?.kind === "department") text = place.label || openSpace;
+      else if (place?.kind === "zone") text = zoneLabels[place.id];
     }
     setTooltip((prev) => {
       if (!text) return null;
