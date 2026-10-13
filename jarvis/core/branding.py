@@ -58,15 +58,25 @@ DISTRIBUTION_NAME = PERSISTENT_SLUG
 
 # Terminal commands the install puts on PATH. No command may equal the branded
 # launcher's name ignoring case: on Windows and macOS they would be one file.
-CLI_COMMAND_NAME = "jarvis"
-CLI_COMMAND_ALIAS = PERSISTENT_SLUG
-CONTROL_CLI_COMMAND_NAME = "jarvisctl"
-CLI_COMMAND_NAMES = (CLI_COMMAND_NAME, CLI_COMMAND_ALIAS, CONTROL_CLI_COMMAND_NAME)
+# The first two are the names help text, hints and documentation use.
+CLI_COMMAND_NAME = "dodaios"
+CONTROL_CLI_COMMAND_NAME = "dodaiosctl"
+# Earlier names of the two commands. They stay installed and keep working:
+# scripts, shell history and other tools call them.
+LEGACY_CLI_COMMAND_NAMES = ("jarvis", PERSISTENT_SLUG)
+LEGACY_CONTROL_CLI_COMMAND_NAMES = ("jarvisctl",)
+CLI_COMMAND_NAMES = (
+    CLI_COMMAND_NAME,
+    CONTROL_CLI_COMMAND_NAME,
+    *LEGACY_CLI_COMMAND_NAMES,
+    *LEGACY_CONTROL_CLI_COMMAND_NAMES,
+)
 # First line of the PATH block written into a shell profile, and the fish
-# drop-in that carries the same block. Both are found again on uninstall.
+# drop-in that carries the same block. Both are found again on a later install
+# and on uninstall, so the line keeps the spelling existing profiles carry: it
+# names the earlier commands, and the block puts every command on PATH.
 SHELL_PROFILE_MARKER = (
-    f"# {PERSISTENT_PRODUCT_NAME}: command-line tools "
-    f"({CLI_COMMAND_NAME}, {CLI_COMMAND_ALIAS})"
+    f"# {PERSISTENT_PRODUCT_NAME}: command-line tools ({', '.join(LEGACY_CLI_COMMAND_NAMES)})"
 )
 FISH_CONF_FILE_NAME = f"{PERSISTENT_SLUG}.fish"
 
@@ -138,7 +148,6 @@ OFFICIAL_RELEASES_LATEST_API_URL = (
 UPDATER_USER_AGENT = f"{PERSISTENT_COMPACT_NAME}-Updater"
 
 __all__ = [
-    "CLI_COMMAND_ALIAS",
     "CLI_COMMAND_NAME",
     "CLI_COMMAND_NAMES",
     "CONFIG_FILE_NAME",
@@ -146,6 +155,8 @@ __all__ = [
     "CONTROL_KEY_PREFIX",
     "DEFAULT_OFFICIAL_REPO_SLUG",
     "DEFAULT_INSTALL_DIR_NAME",
+    "LEGACY_CLI_COMMAND_NAMES",
+    "LEGACY_CONTROL_CLI_COMMAND_NAMES",
     "LEGACY_OFFICIAL_REPO_SLUGS",
     "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
     "DISTRIBUTION_NAME",

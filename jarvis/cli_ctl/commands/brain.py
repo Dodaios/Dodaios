@@ -41,7 +41,7 @@ def switch(
     yes: bool = options.yes_opt(),
     dry_run: bool = options.dry_opt(),
 ) -> None:
-    """Switch the ACTIVE main brain provider (e.g. `jarvis brain switch openai`)."""
+    """Switch the ACTIVE main brain provider (e.g. `dodaios brain switch openai`)."""
     invoke.run(
         "POST", "/api/brain/switch",
         body={"provider": provider, "persist": persist},

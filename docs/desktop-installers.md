@@ -39,15 +39,16 @@ pyinstaller jarvis.spec --noconfirm --clean
 `onedir`, not `onefile`: no 3-5 second extraction on every launch, and each DLL
 can be signed on its own.
 
-It produces **two executables that share one payload**:
+It produces **executables that share one payload**:
 
-| Binary                    | Console? | What it is                                                       |
-| ------------------------- | -------- | ---------------------------------------------------------------- |
-| `PersonalJarvis` (`.exe`) | no       | the windowed app - Start Menu, Dock, `.desktop`                   |
-| `jarvis` (`.exe`)         | yes      | the CLI: `jarvis serve`, `jarvis --version`, `jarvis missions list` |
+| Binary                    | Console? | What it is                                                          |
+| ------------------------- | -------- | ------------------------------------------------------------------- |
+| `PersonalJarvis` (`.exe`) | no       | the windowed app - Start Menu, Dock, `.desktop`                      |
+| `dodaios` (`.exe`)        | yes      | the CLI: `dodaios serve`, `dodaios --version`, `dodaios missions list` |
+| `jarvis` (`.exe`)         | yes      | the same CLI under its earlier name, kept for existing scripts       |
 
-Both run `jarvis/__main__.py`, so the CLI from a native install behaves exactly
-like the pip console script.
+All of them run `jarvis/__main__.py`, so the CLI from a native install behaves
+exactly like the pip console script.
 
 > **Why the GUI binary is not called `Jarvis`.** `Jarvis` and `jarvis` are the
 > same path on Windows (NTFS) and on a default macOS APFS volume, so one would
@@ -57,8 +58,9 @@ like the pip console script.
 
 Layout:
 
-- Windows / Linux: `dist/Jarvis/` with both binaries plus `_internal/`
-- macOS: `dist/Personal Jarvis.app`, CLI at `Contents/MacOS/jarvis`
+- Windows / Linux: `dist/Jarvis/` with the binaries plus `_internal/`
+- macOS: `dist/Personal Jarvis.app`, CLI at `Contents/MacOS/dodaios` (and
+  `Contents/MacOS/jarvis`)
 
 ### Where a frozen install keeps user data
 
@@ -107,7 +109,8 @@ The wizard itself is `packaging/windows/PersonalJarvis.iss`:
 - a **fixed `AppId` GUID** so every future setup upgrades in place instead of
   adding a second entry to "Installed apps"
 - Start Menu shortcut; optional desktop shortcut (off by default)
-- optional **"Add the `jarvis` command to PATH"** (on by default). Implemented
+- optional **"Add the `dodaios` command to PATH"** (on by default; the folder
+  it adds also holds `jarvis.exe`, so the earlier name works too). Implemented
   in `[Code]` against `HKCU\Environment` and broadcast with `WM_SETTINGCHANGE`,
   so a newly opened terminal sees it without a sign-out. Adding is idempotent,
   and clearing the task on an upgrade removes the entry again.

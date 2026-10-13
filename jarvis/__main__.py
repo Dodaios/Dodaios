@@ -81,6 +81,7 @@ if len(sys.argv) >= 2 and sys.argv[1] == "update":
     raise SystemExit(_update_main(sys.argv[2:]))
 
 from jarvis import __version__
+from jarvis.cli.command_name import main_command
 from jarvis.core import config as cfg
 from jarvis.core import registry
 from jarvis.hardware import detection
@@ -90,8 +91,9 @@ if TYPE_CHECKING:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    command = main_command()
     parser = argparse.ArgumentParser(
-        prog="jarvis",
+        prog=command,
         description="Dodaios — turn your computer into an AI agent.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -103,7 +105,7 @@ def _build_parser() -> argparse.ArgumentParser:
              "component, status, message, hint) instead of the human report, so an "
              "installer can gate on the result without parsing prose. Exit codes are "
              "unchanged. Must follow the command flag — a LEADING `--json` is the "
-             "control CLI's own global option (`jarvis --json missions list`).",
+             f"control CLI's own global option (`{command} --json missions list`).",
     )
     parser.add_argument("--plugins", action="store_true", help="List the plugin registry.")
     parser.add_argument(
@@ -185,13 +187,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--tray",
         action="store_true",
         help="Only the tray icon, no backend and no window. A diagnostic "
-             "leftover — the product entry point is bare `jarvis`.",
+             f"leftover — the product entry point is bare `{command}`.",
     )
     parser.add_argument(
         "--foreground",
         action="store_true",
         help="Keep the desktop app attached to this terminal (logs here, closes "
-             "with it). By default `jarvis` typed in a terminal starts the app "
+             f"with it). By default `{command}` typed in a terminal starts the app "
              "in the background and returns the prompt.",
     )
     parser.add_argument(
@@ -201,7 +203,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="serve: start the headless web UI (browser/server, no desktop) — "
              "the cloud-first path for a VPS, Mac or Linux. Open the printed URL. "
              "update: install the newest published version "
-             "(`jarvis update --check` only reports).",
+             f"(`{command} update --check` only reports).",
     )
     return parser
 
@@ -565,7 +567,7 @@ def _run_control(argv: list[str]) -> int:
 
     root = build_root_command()
     try:
-        rv = root.main(args=argv, prog_name="jarvis", standalone_mode=False)
+        rv = root.main(args=argv, prog_name=main_command(), standalone_mode=False)
         return rv if isinstance(rv, int) else 0
     except click.exceptions.Exit as exc:
         return int(getattr(exc, "exit_code", 0) or 0)
@@ -733,7 +735,7 @@ def _launch_detached() -> int:
         launch_desktop_detached()
     except OSError as exc:
         print(f"Could not start Dodaios: {exc}", file=sys.stderr)
-        print("Try `jarvis --foreground` to see what goes wrong.", file=sys.stderr)
+        print(f"Try `{main_command()} --foreground` to see what goes wrong.", file=sys.stderr)
         return 1
     if running:
         print("Dodaios is already running - bringing its window to the front.")
@@ -760,7 +762,7 @@ def _missing_desktop_dependency() -> str | None:
     return (
         "The desktop window needs pywebview, which this install does not have.\n"
         "  Install it:  pip install 'personal-jarvis[full]'\n"
-        "  Or run without a window:  jarvis serve"
+        f"  Or run without a window:  {main_command()} serve"
     )
 
 
