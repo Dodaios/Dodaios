@@ -20,6 +20,7 @@ from scripts.ci import (
     release_admit,
     release_assets,
     required_results,
+    select_tests,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -493,6 +494,57 @@ def test_the_nightly_run_never_queues_its_macos_legs_ahead_of_a_merge_group():
     assert widest < plan_run.UNTHROTTLED
 
 
+def test_a_merge_group_runs_the_macos_tests_its_change_can_reach():
+    ci = workflows()["ci.yml"]["jobs"]
+    # Only the queue tier: a pull request takes no macOS runner, and the wide
+    # matrix runs the whole macOS suite instead.
+    assert plan_run.plan("merge_group")["mac_impact"] is True
+    assert plan_run.plan("push")["mac_impact"] is True
+    assert plan_run.plan("pull_request")["mac_impact"] is False
+    assert plan_run.plan("schedule")["mac_impact"] is False
+    # One runner for an ordinary change, two for a large one, the full split
+    # when the change selects everything, none when it reaches no test.
+    assert select_tests.shards_for("selected", 12) == [1]
+    assert select_tests.shards_for("selected", select_tests.SHARD_FILES + 1) == [1, 2]
+    assert select_tests.shards_for("all", 2500) == [1, 2, 3]
+    assert select_tests.shards_for("none", 0) == []
+    job = ci["tests-macos-impact"]
+    assert job["runs-on"] == "macos-latest"
+    assert job["if"] == (
+        "needs.detect.outputs.python == 'true' && needs.detect.outputs.mac_tests == 'true'"
+    )
+    assert job["strategy"]["matrix"]["shard"] == (
+        "${{ fromJSON(needs.detect.outputs.mac_test_shards) }}"
+    )
+    run = next(s for s in job["steps"] if s.get("name") == "Run the selected tests")["run"]
+    assert "--files-from mac_tests.txt" in run and '--shard "$SHARD/$total"' in run
+    ratchet = next(s for s in job["steps"] if s.get("name", "").startswith("Ratchet"))["run"]
+    assert "test-baseline-macos.json" in ratchet
+    # The selection is made once, in detect, and shipped in the snapshot; an
+    # empty matrix can never reach the job.
+    detect = ci["detect"]
+    select = next(s for s in detect["steps"] if s.get("id") == "mactests")["run"]
+    assert "select_tests.py --changed-from changed.txt --out mac_tests.txt" in select
+    assert "'[1]'" in detect["outputs"]["mac_test_shards"]
+    shared = next(
+        s for s in detect["steps"] if s.get("name") == "Share duration snapshot with every shard"
+    )
+    assert "mac_tests.txt" in shared["with"]["path"].split()
+    # The gate waits for it and requires it when it was selected.
+    assert "tests-macos-impact" in ci["gate"]["needs"]
+    flags = {name: "true" for name in classify_changes.LANES}
+    flags.update(full="false", macos="false", release="false", proven="false")
+    flags.update(desktop_legs="primary", mac_tests="true")
+    assert "tests-macos-impact" in required_results.expected_jobs(flags)
+    needs = {name: {"result": "success"} for name in required_results.expected_jobs(flags)}
+    needs["detect"]["outputs"] = flags
+    assert required_results.evaluate(needs, pipeline=True)["ok"]
+    needs["tests-macos-impact"]["result"] = "skipped"
+    assert not required_results.evaluate(needs, pipeline=True)["ok"]
+    flags["mac_tests"] = "false"
+    assert "tests-macos-impact" not in required_results.expected_jobs(flags)
+
+
 def test_only_a_complete_green_run_on_main_writes_the_duration_caches():
     ci = workflows()["ci.yml"]["jobs"]
     job = ci["duration-cache"]
@@ -541,7 +593,10 @@ def test_windows_shards_by_its_own_history_and_falls_back_to_the_linux_one():
     ensure = next(s for s in detect if s.get("id") == "snapshot")["run"]
     assert "test -s test_durations_windows.json || cp test_durations.json" in ensure
     shared = next(s for s in detect if s.get("name") == "Share duration snapshot with every shard")
-    assert shared["with"]["path"].split() == ["test_durations.json", "test_durations_windows.json"]
+    assert shared["with"]["path"].split()[:2] == [
+        "test_durations.json",
+        "test_durations_windows.json",
+    ]
     windows = next(s for s in ci["tests-windows"]["steps"] if s.get("name") == "Run shard")["run"]
     assert "--durations test_durations_windows.json" in windows
     assert '--durations-out "out/durations-windows-$SHARD.json"' in windows

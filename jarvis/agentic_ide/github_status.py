@@ -21,7 +21,7 @@ from loguru import logger
 
 from jarvis.agentic_ide import git_overview, github_link
 from jarvis.agentic_ide.github_checks import CheckStatus, checks
-from jarvis.agentic_ide.session_branches import PaneBranchRecord, pane_branch
+from jarvis.agentic_ide.session_branches import PaneBranchRecord, pane_branches
 
 _QUERY = """
 query($owner: String!, $name: String!, $branch: String!, $ref: String!, $prIds: [ID!]!) {
@@ -137,6 +137,8 @@ class BranchStatus:
     merge_status: str = ""
     review: str = ""
     locked: bool = False
+    # The session's other branches, newest first; set on the one a header shows.
+    others: list[BranchStatus] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -149,6 +151,17 @@ class _Snapshot:
     fetched_at: float = 0
     reason: str = ""
     pr_ids: list[str] = field(default_factory=list)
+    # The pull request is merged or closed: that verdict is read again rarely.
+    settled: bool = False
+
+
+#: States a pull request does not leave by itself.
+SETTLED_STATES = frozenset({"merged", "closed"})
+_LIVE_TTL = 20
+# A session's finished branches are listed beside its current one. Reading each
+# of them every 20 seconds would spend the hourly GitHub budget on answers that
+# no longer change; a reopened or reused branch shows up after this long.
+_SETTLED_TTL = 300
 
 
 @lru_cache(maxsize=256)
@@ -160,7 +173,8 @@ def _slot(repo: str, branch: str, credential_id: str) -> _Snapshot:
 def _snapshot(target: Checkout, token: str) -> _Snapshot:
     cached = _slot(target.repo, target.branch, hashlib.sha256(token.encode()).hexdigest())
     with cached.lock:
-        if time.time() - cached.fetched_at < 20:
+        ttl = _SETTLED_TTL if cached.settled and not cached.reason else _LIVE_TTL
+        if time.time() - cached.fetched_at < ttl:
             return cached
         owner, name = target.repo.split("/", 1)
         try:
@@ -183,6 +197,10 @@ def _snapshot(target: Checkout, token: str) -> _Snapshot:
             matching.sort(key=lambda pr: (pr.get("state") != "OPEN", -int(pr.get("number") or 0)))
             cached.pr_ids = [str(matching[0]["id"])] if matching else cached.pr_ids
             cached.reason = ""
+            read = parse_status(target, payload, 0)
+            # Neither a finished pull request nor a branch that exists nowhere
+            # changes from one poll to the next.
+            cached.settled = read.state in SETTLED_STATES or not (read.published or target.head)
         except github_link.GitHubError as exc:
             # Retain only identity evidence on failure. The UI suppresses all
             # previous success/merge colours while available is false.
@@ -268,8 +286,22 @@ def parse_status(target: Checkout, payload: dict[str, Any], fetched_at: float) -
     return status
 
 
+def _foreground(listed: list[BranchStatus]) -> BranchStatus:
+    """The branch a header shows: unfinished work before finished work.
+
+    ``listed`` leads with the branch the pane works in now. It stays in front
+    unless its pull request is merged or closed while another branch of the
+    session is still open; then the open one is what the pane still owes.
+    """
+    return next((status for status in listed if status.state not in SETTLED_STATES), listed[0])
+
+
 def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict[str, Any] | None]:
-    """One result per pane that works in a branch; shared GitHub reads."""
+    """One result per pane that works in a branch; shared GitHub reads.
+
+    A session that worked on several branches gets the others under
+    ``others``, newest first.
+    """
     result: dict[str, dict[str, Any] | None] = {}
     # Old route versions supplied only folders: those carry no ownership proof.
     if isinstance(records, dict):
@@ -277,30 +309,40 @@ def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict
     targets: dict[tuple[str, str, float], Checkout | None] = {}
     credential: github_link.Credential | None = None
     credential_read = False
+    now = time.time()
     for record in records:
-        pane = record.pane
-        owned = pane_branch(record)
-        if owned is None:
-            result[pane] = None
+        listed: list[BranchStatus] = []
+        for owned in pane_branches(record):
+            key = (owned.folder, owned.branch, owned.created_at)
+            if key not in targets:
+                targets[key] = checkout(*key)
+            target = targets[key]
+            if target is None:
+                continue
+            if not credential_read:
+                credential = github_link.credential()
+                credential_read = True
+            if credential is None:
+                status = parse_status(target, {}, 0)
+                status.available = False
+                status.reason = "GitHub is not connected."
+            else:
+                snapshot = _snapshot(target, credential.token)
+                # A settled verdict is served from a longer cache and does not
+                # go stale the way a running check does.
+                read_at = now if snapshot.settled else snapshot.fetched_at
+                status = parse_status(target, snapshot.payload, read_at)
+                status.available = not snapshot.reason
+                status.reason = snapshot.reason
+            # A branch that is gone locally belongs to this pane only if GitHub
+            # shows a pull request opened from it after the pane created it.
+            if owned.unproven and (status.number is None or not status.available):
+                continue
+            listed.append(status)
+        if not listed:
+            result[record.pane] = None
             continue
-        key = (owned.folder, owned.branch, owned.created_at)
-        if key not in targets:
-            targets[key] = checkout(*key)
-        target = targets[key]
-        if target is None:
-            result[pane] = None
-            continue
-        if not credential_read:
-            credential = github_link.credential()
-            credential_read = True
-        if credential is None:
-            status = parse_status(target, {}, 0)
-            status.available = False
-            status.reason = "GitHub is not connected."
-        else:
-            snapshot = _snapshot(target, credential.token)
-            status = parse_status(target, snapshot.payload, snapshot.fetched_at)
-            status.available = not snapshot.reason
-            status.reason = snapshot.reason
-        result[pane] = status.to_dict()
+        shown = _foreground(listed)
+        shown.others = [status for status in listed if status is not shown]
+        result[record.pane] = shown.to_dict()
     return result

@@ -1,4 +1,4 @@
-"""The shell installers answer to ``DODAIOS_INSTALL_*`` as well as ``JARVIS_INSTALL_*``.
+"""The shell installers answer to the ``DODAIOS_`` spelling of every option they read.
 
 ``install.sh`` and ``install.ps1`` run before Python exists, so they cannot use
 ``jarvis.core.env_prefix``. Each carries one small block that folds the new
@@ -27,14 +27,34 @@ UNINSTALL_PS1 = _ROOT / "install" / "uninstall.ps1"
 
 BLOCK_BEGIN = "# --- install-option-names begin"
 BLOCK_END = "# --- install-option-names end"
-SH_OPTIONS = ("REPO", "REF", "DIR", "PREREQS", "YES")
-PS_OPTIONS = ("REPO", "REF", "DIR", "PREREQS")
+SH_OPTIONS = (
+    "INSTALL_REPO",
+    "INSTALL_REF",
+    "INSTALL_DIR",
+    "INSTALL_PREREQS",
+    "INSTALL_YES",
+    "OFFICIAL_REPO_SLUG",
+    "PYTHON",
+    "PYTHON_SEARCH_DIRS",
+    "NO_PYTHON_BOOTSTRAP",
+)
+PS_OPTIONS = (
+    "INSTALL_REPO",
+    "INSTALL_REF",
+    "INSTALL_DIR",
+    "INSTALL_PREREQS",
+    "OFFICIAL_REPO_SLUG",
+    "PYTHON",
+)
+# Read by the scripts but never adopted from a second name: the signed commit
+# the verifying installer hands over.
+NOT_AN_OPTION = {"PAYLOAD_COMMIT"}
 
 SH_DRIVER = """#!/usr/bin/env bash
 set -euo pipefail
 source "$BLOCK_FILE"
-for option in REPO REF DIR PREREQS YES; do
-    name="JARVIS_INSTALL_$option"
+for option in $TEST_OPTIONS; do
+    name="JARVIS_$option"
     printf 'VALUE|%s|%s\\n' "$option" "${!name:-}"
 done
 bash -c 'printf "CHILD|%s\\n" "${JARVIS_INSTALL_DIR:-}"'
@@ -44,8 +64,8 @@ PS_DRIVER = """$ErrorActionPreference = 'Stop'
 function Write-Note([string]$Text) { Write-Host "NOTE|$Text" }
 . $env:TEST_FUNCTION_FILE
 Use-InstallOptionNames
-foreach ($Option in 'REPO', 'REF', 'DIR', 'PREREQS') {
-    $Value = [Environment]::GetEnvironmentVariable("JARVIS_INSTALL_$Option")
+foreach ($Option in $env:TEST_OPTIONS.Split(' ')) {
+    $Value = [Environment]::GetEnvironmentVariable("JARVIS_$Option")
     Write-Host "VALUE|$Option|$Value"
 }
 """
@@ -114,7 +134,12 @@ def _run_sh(tmp_path: Path, **variables: str) -> subprocess.CompletedProcess[str
     )
     driver = tmp_path / "driver.sh"
     driver.write_text(SH_DRIVER, encoding="utf-8", newline="\n")
-    env = {**_base_env(), "BLOCK_FILE": str(block).replace("\\", "/"), **variables}
+    env = {
+        **_base_env(),
+        "BLOCK_FILE": str(block).replace("\\", "/"),
+        "TEST_OPTIONS": " ".join(SH_OPTIONS),
+        **variables,
+    }
     result = _run([BASH, str(driver)], env)
     assert result.returncode == 0, result.stderr
     return result
@@ -129,7 +154,12 @@ def _run_ps(tmp_path: Path, **variables: str) -> subprocess.CompletedProcess[str
     function_file.write_text(match.group(0), encoding="utf-8")
     driver = tmp_path / "driver.ps1"
     driver.write_text(PS_DRIVER, encoding="utf-8")
-    env = {**_base_env(), "TEST_FUNCTION_FILE": str(function_file), **variables}
+    env = {
+        **_base_env(),
+        "TEST_FUNCTION_FILE": str(function_file),
+        "TEST_OPTIONS": " ".join(PS_OPTIONS),
+        **variables,
+    }
     result = _run(
         [
             POWERSHELL,
@@ -154,12 +184,12 @@ def _run_ps(tmp_path: Path, **variables: str) -> subprocess.CompletedProcess[str
 @needs_bash
 def test_install_sh_reads_every_option_under_the_new_prefix(tmp_path: Path) -> None:
     result = _run_sh(
-        tmp_path, **{f"DODAIOS_INSTALL_{option}": f"new-{option}" for option in SH_OPTIONS}
+        tmp_path, **{f"DODAIOS_{option}": f"new-{option}" for option in SH_OPTIONS}
     )
 
     assert _values(result.stdout) == {option: f"new-{option}" for option in SH_OPTIONS}
     # installer.py and every other child read the old spelling too.
-    assert "CHILD|new-DIR" in result.stdout
+    assert "CHILD|new-INSTALL_DIR" in result.stdout
     assert result.stderr == ""
 
 
@@ -168,8 +198,8 @@ def test_install_sh_keeps_reading_the_old_prefix(tmp_path: Path) -> None:
     result = _run_sh(tmp_path, JARVIS_INSTALL_DIR="old-dir", JARVIS_INSTALL_REF="old-ref")
 
     values = _values(result.stdout)
-    assert values["DIR"] == "old-dir" and values["REF"] == "old-ref"
-    assert values["REPO"] == "" and result.stderr == ""
+    assert values["INSTALL_DIR"] == "old-dir" and values["INSTALL_REF"] == "old-ref"
+    assert values["INSTALL_REPO"] == "" and result.stderr == ""
 
 
 @needs_bash
@@ -178,7 +208,7 @@ def test_install_sh_lets_the_new_name_win_and_names_the_clash(tmp_path: Path) ->
         tmp_path, JARVIS_INSTALL_DIR="old-secret-dir", DODAIOS_INSTALL_DIR="new-secret-dir"
     )
 
-    assert _values(result.stdout)["DIR"] == "new-secret-dir"
+    assert _values(result.stdout)["INSTALL_DIR"] == "new-secret-dir"
     assert "DODAIOS_INSTALL_DIR" in result.stderr and "JARVIS_INSTALL_DIR" in result.stderr
     assert "secret" not in result.stderr
 
@@ -192,7 +222,7 @@ def test_install_sh_lets_the_new_name_win_and_names_the_clash(tmp_path: Path) ->
 @needs_powershell
 def test_install_ps1_reads_every_option_under_the_new_prefix(tmp_path: Path) -> None:
     result = _run_ps(
-        tmp_path, **{f"DODAIOS_INSTALL_{option}": f"new-{option}" for option in PS_OPTIONS}
+        tmp_path, **{f"DODAIOS_{option}": f"new-{option}" for option in PS_OPTIONS}
     )
 
     assert _values(result.stdout) == {option: f"new-{option}" for option in PS_OPTIONS}
@@ -203,7 +233,7 @@ def test_install_ps1_reads_every_option_under_the_new_prefix(tmp_path: Path) -> 
 def test_install_ps1_keeps_reading_the_old_prefix(tmp_path: Path) -> None:
     result = _run_ps(tmp_path, JARVIS_INSTALL_DIR="old-dir")
 
-    assert _values(result.stdout)["DIR"] == "old-dir"
+    assert _values(result.stdout)["INSTALL_DIR"] == "old-dir"
     assert "NOTE|" not in result.stdout
 
 
@@ -213,7 +243,7 @@ def test_install_ps1_lets_the_new_name_win_and_names_the_clash(tmp_path: Path) -
         tmp_path, JARVIS_INSTALL_DIR="old-secret-dir", DODAIOS_INSTALL_DIR="new-secret-dir"
     )
 
-    assert _values(result.stdout)["DIR"] == "new-secret-dir"
+    assert _values(result.stdout)["INSTALL_DIR"] == "new-secret-dir"
     notes = [line for line in result.stdout.splitlines() if line.startswith("NOTE|")]
     assert len(notes) == 1
     assert "DODAIOS_INSTALL_DIR" in notes[0] and "JARVIS_INSTALL_DIR" in notes[0]
@@ -229,20 +259,23 @@ def test_install_ps1_lets_the_new_name_win_and_names_the_clash(tmp_path: Path) -
 def test_the_two_installers_adopt_the_options_each_one_reads() -> None:
     shell = INSTALL_SH.read_text(encoding="utf-8")
     powershell = INSTALL_PS1.read_text(encoding="utf-8")
-    assert f"for option in {' '.join(SH_OPTIONS)}; do" in shell
+    listed = re.search(r"for option in ([A-Z_ \\\n]+); do", shell)
+    assert listed is not None and tuple(listed.group(1).replace("\\", " ").split()) == SH_OPTIONS
     assert "foreach ($Option in " + ", ".join(f"'{o}'" for o in PS_OPTIONS) + ")" in powershell
-    # Every JARVIS_INSTALL_* option a script reads is one it also adopts.
+    # Every JARVIS_ variable a script reads is an option it also adopts. The
+    # scripts run before Python exists, so nothing else would carry the
+    # DODAIOS_ spelling over for them.
     for source, adopted in ((shell, SH_OPTIONS), (powershell, PS_OPTIONS)):
-        read = set(re.findall(r"JARVIS_INSTALL_([A-Z_]+)", source))
-        assert read <= set(adopted), sorted(read - set(adopted))
+        read = set(re.findall(r"JARVIS_([A-Z][A-Z_]*[A-Z])", source)) - NOT_AN_OPTION
+        assert read == set(adopted), sorted(read ^ set(adopted))
 
 
 @pytest.mark.parametrize("path", [INSTALL_SH, INSTALL_PS1, UNINSTALL_SH, UNINSTALL_PS1])
 def test_the_scripts_spell_the_prefixes_the_app_uses(path: Path) -> None:
     new_prefix, old_prefix = env_prefix._PREFIXES[0]
     source = path.read_text(encoding="utf-8")
-    assert f"{new_prefix}INSTALL_" in source
-    assert f"{old_prefix}INSTALL_" in source
+    assert new_prefix in source
+    assert old_prefix in source
 
 
 @needs_bash
@@ -278,3 +311,40 @@ def test_the_shell_uninstaller_targets_the_directory_either_name_gives(
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == expected
+
+
+def test_the_appimage_launcher_reads_its_switch_under_both_prefixes() -> None:
+    # AppRun is POSIX sh and runs before the app: the new spelling first, the
+    # earlier one as its fallback.
+    source = (_ROOT / "packaging" / "linux" / "AppRun").read_text(encoding="utf-8")
+    assert '"${DODAIOS_APPIMAGE_NO_BROWSER:-${JARVIS_APPIMAGE_NO_BROWSER:-0}}" != "1"' in source
+    assert len(re.findall(r"JARVIS_[A-Z_]*[A-Z]", source.replace("JARVIS_UI_URL", ""))) == 1
+
+
+@needs_bash
+@pytest.mark.parametrize(
+    ("variables", "opens"),
+    [
+        ({}, True),
+        ({"JARVIS_APPIMAGE_NO_BROWSER": "1"}, False),
+        ({"DODAIOS_APPIMAGE_NO_BROWSER": "1"}, False),
+        ({"DODAIOS_APPIMAGE_NO_BROWSER": "0", "JARVIS_APPIMAGE_NO_BROWSER": "1"}, True),
+    ],
+)
+def test_the_appimage_switch_turns_the_browser_hand_off_off(
+    tmp_path: Path, variables: dict[str, str], opens: bool
+) -> None:
+    source = (_ROOT / "packaging" / "linux" / "AppRun").read_text(encoding="utf-8")
+    match = re.search(r'\[ "\$\{DODAIOS_APPIMAGE_NO_BROWSER[^\]]*\]', source)
+    assert match is not None
+    script = tmp_path / "switch.sh"
+    script.write_text(
+        "set -u\nif " + match.group(0) + "; then echo OPEN; else echo SKIP; fi\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    result = _run([BASH, str(script)], {**_base_env(), **variables})
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == ("OPEN" if opens else "SKIP")
