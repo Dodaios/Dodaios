@@ -49,6 +49,7 @@ from jarvis.cli_ctl.commands import tasks as tasks_cmd
 from jarvis.cli_ctl.commands import telephony as telephony_cmd
 from jarvis.cli_ctl.commands import wiki as wiki_cmd
 from jarvis.cli_ctl.commands import workflows as workflows_cmd
+from jarvis.core.branding import CONTROL_CLI_COMMAND_NAME
 
 
 class _CompatibleRootGroup(TyperGroup):
@@ -80,7 +81,7 @@ class _CompatibleRootGroup(TyperGroup):
 
 
 app = typer.Typer(
-    name="jarvisctl",
+    name=CONTROL_CLI_COMMAND_NAME,
     cls=_CompatibleRootGroup,
     no_args_is_help=True,
     add_completion=True,
@@ -106,7 +107,7 @@ def _root(
         help="Override the control API key (Bearer token) for this call only.",
     ),
 ) -> None:
-    """jarvisctl — thin HTTP control client for a running Dodaios server."""
+    """Thin HTTP control client for a running Dodaios server."""
     STATE["json"] = json_output
     STATE["url"] = url
     STATE["key"] = key
@@ -127,11 +128,14 @@ def make_client(url: str | None = None, key: str | None = None) -> JarvisClient:
 
 
 @app.command()
-def version() -> None:
-    """Print the jarvisctl version."""
+def version(ctx: typer.Context) -> None:
+    """Print the CLI version."""
     from jarvis import __version__
 
-    typer.echo(f"jarvisctl (Dodaios {__version__})")
+    # The name the command was started under: dodaios, dodaiosctl, or an
+    # earlier name of either.
+    command = ctx.find_root().info_name or CONTROL_CLI_COMMAND_NAME
+    typer.echo(f"{command} (Dodaios {__version__})")
 
 
 @app.command()

@@ -1,4 +1,4 @@
-"""Read-only GitHub status for branches actually created by each coding session.
+"""Read-only GitHub status for the branch each coding session works in.
 
 Unlike the repository overview, this queries the exact remote branch, including
 its historical PR when GitHub has deleted the branch after merging. No local
@@ -21,7 +21,7 @@ from loguru import logger
 
 from jarvis.agentic_ide import git_overview, github_link
 from jarvis.agentic_ide.github_checks import CheckStatus, checks
-from jarvis.agentic_ide.session_branches import PaneBranchRecord, owned_branch
+from jarvis.agentic_ide.session_branches import PaneBranchRecord, pane_branch
 
 _QUERY = """
 query($owner: String!, $name: String!, $branch: String!, $ref: String!, $prIds: [ID!]!) {
@@ -269,7 +269,7 @@ def parse_status(target: Checkout, payload: dict[str, Any], fetched_at: float) -
 
 
 def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict[str, Any] | None]:
-    """One result per pane with ownership evidence; shared GitHub reads."""
+    """One result per pane that works in a branch; shared GitHub reads."""
     result: dict[str, dict[str, Any] | None] = {}
     # Old route versions supplied only folders: those carry no ownership proof.
     if isinstance(records, dict):
@@ -279,7 +279,7 @@ def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict
     credential_read = False
     for record in records:
         pane = record.pane
-        owned = owned_branch(record)
+        owned = pane_branch(record)
         if owned is None:
             result[pane] = None
             continue

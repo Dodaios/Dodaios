@@ -54,6 +54,7 @@ if str(_SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(_SOURCE_ROOT))
 
 from jarvis.core.branding import (  # noqa: E402 - bootstrap source path above
+    CLI_COMMAND_NAME,
     LAUNCHER_ENTRY_NAME,
     MACOS_APP_NAME,
     MANAGED_INSTALL_MARKER,
@@ -830,7 +831,7 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
 
 
 def step_cli_links(*, dry_run: bool) -> None:
-    """Make `jarvis` / `personal-jarvis` plain terminal commands on every OS.
+    """Make `dodaios` and its earlier names plain terminal commands on every OS.
 
     The venv's console scripts are linked (macOS/Linux, ``~/.local/bin``) or
     copied (Windows, ``<install>\\bin``) onto the user's PATH — see
@@ -890,8 +891,8 @@ def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
         rows.append(("Start again", ".venv/bin/python -m jarvis.ui.web.launcher", "brand"))
         rows.append(("", "(in the install folder)", "muted"))
     if not (headless or is_headless_linux()):
-        rows.append(("", "or type jarvis in a new terminal", "muted"))
-    rows.append(("Update", "type jarvis update in a terminal", "muted"))
+        rows.append(("", f"or type {CLI_COMMAND_NAME} in a new terminal", "muted"))
+    rows.append(("Update", f"type {CLI_COMMAND_NAME} update in a terminal", "muted"))
     rows.append(("", "(or re-run the same install one-liner)", "muted"))
     if update:
         rows.append(("Next", "your setup and settings are kept - no re-onboarding", "muted"))
