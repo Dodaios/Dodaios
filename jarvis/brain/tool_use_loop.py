@@ -1493,7 +1493,12 @@ class ToolUseLoop:
                     )
                     result = await self._executor.execute(
                         tool, tool_args,
-                        user_utterance=user_utterance,
+                        # A turn whose text the application composed (a
+                        # continuation with delegated results) names the
+                        # person's own request for the tools' checks.
+                        user_utterance=str(
+                            self._tool_context.get("person_request") or user_utterance
+                        ),
                         config_snapshot={
                             **self._tool_context,
                             "output_language": out_lang,

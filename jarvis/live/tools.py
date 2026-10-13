@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import re
+import sys
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -146,8 +147,13 @@ class LiveTools:
         self._control_lock = asyncio.Lock()
         # One execution per call ID: RTC and the sideband can both deliver it.
         self._inflight: dict[str, tuple[str, str, asyncio.Future]] = {}
-        # Calls that left their turn while still running (see ``_execute``).
+        # Actions awaited by ``execute_releasable``, and those of them that
+        # left their turn while still running (see the approval gate in
+        # ``_execute``).
+        self._releasable: set[str] = set()
         self._released: set[str] = set()
+        # Approvals whose effect is being carried out right now.
+        self._confirming: set[str] = set()
         self.tasks = TaskBoard()
         # The session's hooks for a task leaving its turn and for its receipt.
         self.on_task_released: Any = None
@@ -323,9 +329,12 @@ class LiveTools:
         request = self.request_text
         # Resolved now: an approval is taken off the list once its effect runs.
         call = self._effect_of(name, args)
+        if self._is_background_action(name, args):
+            self._releasable.add(call_id)
         work = asyncio.ensure_future(
             self.execute(call_id, name, args, revision, replay_result=replay_result)
         )
+        work.add_done_callback(lambda _done: self._releasable.discard(call_id))
         try:
             released = await self._outlives_its_turn(work, name, args, revision, deadline_s)
         except asyncio.CancelledError:
@@ -436,6 +445,12 @@ class LiveTools:
                 if text:
                     return f"{tool}: {text}"
         return tool
+
+    def approval_presented(self, approval_id: str) -> None:
+        """A background task's approval question has now reached the user."""
+        pending = self._pending.get(str(approval_id or ""))
+        if pending is not None and pending[3] == sys.maxsize:
+            self._pending[str(approval_id)] = (*pending[:3], self.revision)
 
     def _task_status(self, args: dict) -> dict:
         wanted = str(args.get("cancel") or "").strip()
@@ -634,6 +649,14 @@ class LiveTools:
                 # model that mistypes the 36-character id must not void it.
                 approval_id = next(iter(self._pending))
             pending = self._pending.get(approval_id)
+            if pending is None and approval_id in self._confirming:
+                # The same yes delivered twice: the first call is carrying it out.
+                return {
+                    "success": False,
+                    "executed": False,
+                    "status": "already_running",
+                    "error": "This approved action is already being carried out.",
+                }
             if pending is None or self.revision <= pending[3] or not self._user_approved():
                 # Say why, or the model asks the same question again and again.
                 return {
@@ -649,13 +672,19 @@ class LiveTools:
             trace, _, _, _ = self._pending.pop(approval_id)
             from jarvis.core.model_selection import ModelSelection, use_operation_model
 
-            if self.backend_model:
-                with use_operation_model(
-                    self.model_selection or ModelSelection("openai", self.backend_model)
-                ):
+            self._confirming.add(approval_id)
+            try:
+                if self.backend_model:
+                    with use_operation_model(
+                        self.model_selection or ModelSelection("openai", self.backend_model)
+                    ):
+                        result = await self.gateway.execute_confirmed(
+                            trace, self._request(trace)
+                        )
+                else:
                     result = await self.gateway.execute_confirmed(trace, self._request(trace))
-            else:
-                result = await self.gateway.execute_confirmed(trace, self._request(trace))
+            finally:
+                self._confirming.discard(approval_id)
             return self._result(result)
         canonical = self._names.get(name, name)
         if name == "call_tool":
@@ -714,10 +743,10 @@ class LiveTools:
                 }
             result = await self.gateway.execute(canonical, args, self._request(trace))
         if result.error == VOICE_CONFIRM_SENTINEL:
-            # A call that left its turn is still the user's order: its approval
-            # question is kept and reaches them with the task's report. Only a
-            # call nobody waits for any more is withdrawn.
-            overtaken = revision != self.revision and call_id not in self._released
+            # An action the session still follows is the user's order even
+            # after they said more: its approval question is kept. Only a call
+            # nobody waits for any more is withdrawn.
+            overtaken = revision != self.revision and call_id not in self._releasable
             if operation_token.is_cancelled() or overtaken:
                 await self.gateway.cancel_pending(trace, reason="superseded")
                 return {"success": False, "status": "superseded"}
@@ -725,7 +754,11 @@ class LiveTools:
                 await self.gateway.cancel_pending(trace, reason="voice_session_closed")
                 return {"success": False, "status": "voice_closed_before_confirmation"}
             approval_id = str(trace)
-            self._pending[approval_id] = (trace, canonical, dict(args), self.revision)
+            # A yes counts only when it was said after the question. A call
+            # that already left its turn has not asked yet: its approval is
+            # unanswerable until its report was told (``approval_presented``).
+            asked_at = sys.maxsize if call_id in self._released else self.revision
+            self._pending[approval_id] = (trace, canonical, dict(args), asked_at)
             return {
                 "success": False,
                 "confirmation_required": True,

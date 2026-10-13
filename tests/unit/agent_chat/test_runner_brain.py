@@ -381,6 +381,23 @@ async def test_a_continuation_is_briefing_not_the_persons_words(
     assert text == CONTINUE_TURN and "Kai" not in text
     briefing = kw["turn_override"].system_extra
     assert "Kai fixed it." in briefing and original in briefing
+    # Tools that check a call against the person's request still see it.
+    assert kw["turn_override"].tool_context["person_request"] == original
+    assert kw["force_output_language"] == "en"  # the request's language, resolved once
+
+
+async def test_an_ordinary_turn_names_no_separate_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    fake = FakeBrainManager()
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
+    svc = _service(None)
+    session = _jarvis_session(svc, tmp_path)
+    q = svc.subscribe(session.session_id)
+    await svc.send(session.session_id, "Open my notes please")
+    await _drain(q, "turn_finished")
+    _, kw = fake.calls[0]
+    assert "person_request" not in kw["turn_override"].tool_context
 
 
 async def test_a_turn_is_briefed_on_requests_still_running_behind_it(

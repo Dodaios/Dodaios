@@ -384,6 +384,9 @@ class LiveVoiceSession:
         self._report_state = ""
         self._report_response_id = ""
         if delivered:
+            if task.status == "needs_approval" and isinstance(self._tools, LiveTools):
+                # The question was told just now; a yes said from here on counts.
+                self._tools.approval_presented(str((task.result or {}).get("approval_id") or ""))
             return
         task.report_attempts += 1
         if task.report_attempts < _TASK_REPORT_ATTEMPTS and self._task_report_current(task):

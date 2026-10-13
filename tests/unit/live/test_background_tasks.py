@@ -517,7 +517,49 @@ async def test_a_released_action_that_needs_approval_keeps_its_question(runtime)
     await asyncio.wait_for(task.work, _HANG_GUARD_S)
     assert task.status == "needs_approval"
     assert task.result["confirmation_required"] is True
-    assert task.result["approval_id"] in tools._pending  # the question is still open
+    approval_id = task.result["approval_id"]
+    assert approval_id in tools._pending  # the question is still open
+
+    # A yes the user gave to something else, before this question was told,
+    # must not approve it.
+    tools.user_text = "yes"
+    tools.revision += 1
+    early = await tools.execute(
+        "c2", "confirm_action", {"approval_id": approval_id}, tools.revision
+    )
+    assert early["success"] is False and approval_id in tools._pending
+    # Once the report was told, a yes said after it counts.
+    tools.approval_presented(approval_id)
+    same_yes = await tools.execute(
+        "c3", "confirm_action", {"approval_id": approval_id}, tools.revision
+    )
+    assert same_yes["success"] is False  # still the earlier yes
+    tools.revision += 1
+    approved = await tools.execute(
+        "c4", "confirm_action", {"approval_id": approval_id}, tools.revision
+    )
+    assert approved["success"] is True and approval_id not in tools._pending
+
+
+@pytest.mark.asyncio
+async def test_an_approval_reached_in_the_grace_after_moving_on_is_kept(runtime, monkeypatch):
+    """Whether the question survives must not depend on how fast it was reached."""
+    from jarvis.core.protocols import ToolResult
+    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+
+    monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", _HANG_GUARD_S)
+    tools, gateway = runtime
+    gateway.results["brief-agent"] = ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)
+    release = gateway.hold("brief-agent")
+    call = asyncio.create_task(
+        tools.execute_releasable("c1", *_call("brief-agent"), tools.revision)
+    )
+    await asyncio.wait_for(gateway.execution_started.wait(), _HANG_GUARD_S)
+    tools.revision += 1
+    release.set()  # the gate answers inside the grace: the call was not released
+    result = await asyncio.wait_for(call, _HANG_GUARD_S)
+    assert result["confirmation_required"] is True and result["approval_id"] in tools._pending
+    assert len(tools.tasks) == 0
 
 
 @pytest.mark.asyncio
@@ -575,6 +617,11 @@ async def test_an_approved_effect_leaves_its_turn_like_any_other_action(tmp_path
         # The hang-up control is not held up by the running effect.
         ended = await asyncio.wait_for(tools.execute("c3", "end_call", {}, tools.revision), 5)
         assert ended["success"] is False  # nobody asked to hang up; it answered at once
+        # The same yes delivered a second time is told what is happening.
+        twice = await tools.execute(
+            "c4", "confirm_action", {"approval_id": asked["approval_id"]}, tools.revision
+        )
+        assert twice["status"] == "already_running"
         tools.user_text = _SECOND_ORDER
         tools.revision += 1
         receipt = await asyncio.wait_for(approved, _HANG_GUARD_S)
@@ -628,3 +675,36 @@ async def test_a_report_that_was_never_sent_does_not_claim_the_next_outcome(
     await _settle(session)
     assert session._task_report_told is None
     assert _reports(connection) == []
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_a_background_approval_can_be_given_once_its_question_was_told(
+    held_action, make_provider,
+):
+    import sys
+
+    from jarvis.core.protocols import ToolResult
+    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+
+    session, connection, gateway, release = held_action(make_provider)
+    gateway.results["brief-agent"] = ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)
+    await _order_then_move_on(session, connection, gateway)
+    release.set()
+    await asyncio.wait_for(asyncio.gather(*session._background_work), _HANG_GUARD_S)
+    await _settle(session)
+    tools = session._tools
+    approval_id = next(iter(tools._pending))
+    assert tools._pending[approval_id][3] == sys.maxsize  # nobody has heard the question
+    assert "needs_approval" in _reports(connection)[0]
+
+    # The model tells the question: its reply to the report ends.
+    await session._native_event(RealtimeEvent(type="output_transcript_delta", text="May I?"))
+    await session._native_event(RealtimeEvent(type="turn_complete"))
+    assert tools._pending[approval_id][3] == tools.revision
+    tools.user_text = "yes"
+    tools.revision += 1
+    approved = await tools.execute(
+        "c9", "confirm_action", {"approval_id": approval_id}, tools.revision
+    )
+    assert approved["success"] is True

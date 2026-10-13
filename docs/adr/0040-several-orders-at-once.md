@@ -68,7 +68,9 @@ without one.
 An approved effect (`confirm_action`) is an action like any other and leaves
 its turn the same way. An action that reaches its approval question only after
 it was released keeps that question: the task ends as `needs_approval` and the
-report asks the user, instead of the order being withdrawn as overtaken.
+report asks the user, instead of the order being withdrawn as overtaken. Such
+an approval cannot be answered before its report was told: a yes the user gave
+to another question in the meantime never approves it.
 
 ### 3. Live voice: the receipt is told at a pause, and it may finish what waited
 
@@ -114,7 +116,10 @@ an order addresses, what to cancel, where to navigate. A continuation quotes
 the original order and the agents' reports, so it travels as the turn's
 briefing too and the turn's text is a neutral "continue" line. Read as the
 person's words it would send the original order to the pane a second time;
-that also holds for the continuation of a wait that kept its turn.
+that also holds for the continuation of a wait that kept its turn. Tools that
+check a call against what the person asked for still receive the original
+request (`person_request` in the turn's tool context), and the reply language
+is resolved from it.
 
 A stop pressed during a turn stops that turn and leaves earlier requests
 alone. A stop pressed while nothing answers, and deleting the chat, drop the

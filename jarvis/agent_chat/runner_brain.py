@@ -30,6 +30,7 @@ import re
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, get_args
 
@@ -450,6 +451,7 @@ async def run_brain_turn(
     kit_tools, system_extra = await kit_payload(session, brain)
     from jarvis.agent_chat.delegation_wait import CONTINUE_TURN, is_continuation_prompt
 
+    person_request = ""
     if is_continuation_prompt(text):
         # The brain reads the turn's text for deterministic routes: which
         # coding pane is addressed, what to cancel, where to navigate. A
@@ -458,6 +460,23 @@ async def run_brain_turn(
         # again. It is this turn's briefing instead.
         system_extra += "\n\n" + text
         text = CONTINUE_TURN
+        from jarvis.core.protocols import current_chat_turn
+
+        origin = current_chat_turn.get()
+        person_request = origin.user_text if origin is not None else ""
+        if person_request and not handle.output_language:
+            # The answer follows the request it continues, not the neutral
+            # English line above.
+            from jarvis.core.turn_language import resolve_output_language
+
+            language = resolve_output_language(
+                getattr(brain, "reply_language", "auto") or "auto",
+                "unknown",
+                person_request,
+                conversation_language=getattr(brain, "conversation_language", "") or "",
+            )
+            if language in {"de", "en", "es", "pt"}:
+                handle.output_language = language
     board = getattr(getattr(handle, "control_service", None), "parked_work", None)
     background = board.context_note(session.session_id) if board is not None else ""
     if background:
@@ -491,6 +510,13 @@ async def run_brain_turn(
         kit_tools=kit_tools,
         system_extra=system_extra,
     )
+    if person_request:
+        # Tools that check a call against what the person asked for (a task
+        # unrelated to the turn, an authorized fan-out) read the request, not
+        # the neutral continue line.
+        override = replace(
+            override, tool_context={**override.tool_context, "person_request": person_request}
+        )
     _note_skill_trigger(brain, text)
 
     if bridge is not None:
