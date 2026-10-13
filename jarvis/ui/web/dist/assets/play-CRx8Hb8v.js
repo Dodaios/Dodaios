@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/play-DTiGy68E.js
+import{c as o}from"./index-Vs8Z87mp.js";/**
+========
+import{c as o}from"./index-BdhEZ1p6.js";/**
+>>>>>>>> d53a1dc2dac90cf6ee82fdebc276caf753246828:jarvis/ui/web/dist/assets/play-CRx8Hb8v.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const c=o("Play",[["polygon",{points:"6 3 20 12 6 21 6 3",key:"1oa8hb"}]]);export{c as P};
