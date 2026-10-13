@@ -242,7 +242,7 @@ def build_launch_command(
 
             bundle = macos_app_bundle_path()
             if contract.macos_app_dir_name != MACOS_APP_DIR_NAME:
-                bundle = _renamed_macos_bundle(bundle, contract.macos_app_dir_name)
+                bundle = _renamed_macos_bundle(bundle, contract)
             elif not macos_app_bundle_is_launchable(bundle):
                 logging.getLogger(__name__).error(
                     "macOS restart target is missing or invalid: %s", bundle
@@ -264,21 +264,47 @@ def build_launch_command(
     return fallback
 
 
-def _renamed_macos_bundle(known: Path, app_dir_name: str) -> Path:
+def _macos_bundle_identifier(bundle: Path) -> str | None:
+    """``CFBundleIdentifier`` of ``bundle``; ``None`` when it cannot be read."""
+    import plistlib
+
+    try:
+        with (bundle / "Contents" / "Info.plist").open("rb") as stream:
+            bundle_id = plistlib.load(stream).get("CFBundleIdentifier")
+    except (OSError, ValueError, plistlib.InvalidFileException):
+        return None  # missing or unreadable metadata identifies nothing
+    return bundle_id if isinstance(bundle_id, str) and bundle_id else None
+
+
+def _renamed_macos_bundle(known: Path, contract: UpdateContract) -> Path:
     """Where the installed release keeps its app bundle under another name.
 
     This version only knows the bundle it was built with. A release that
     renamed it says so in its update contract; the bundle then sits in one of
     the two Applications folders, and the one this version used is tried first.
+
+    The name alone does not decide. The downloadable disk-image app can sit in
+    the other Applications folder under the very same name, and starting that
+    one after an installer-managed update would bring back a different install.
+    Only a bundle carrying the identifier the contract names is taken. When
+    none does, the answer is a path where no other app sits, so the restart
+    fails visibly instead of opening someone else.
     """
+    app_dir_name = contract.macos_app_dir_name
+    vacant: Path | None = None
     for folder in (known.parent, Path("/Applications"), Path.home() / "Applications"):
         candidate = folder / app_dir_name
-        if candidate.is_dir():
+        if not candidate.is_dir():
+            vacant = vacant or candidate
+        elif _macos_bundle_identifier(candidate) == contract.macos_bundle_id:
             return candidate
     logging.getLogger(__name__).error(
-        "macOS restart target %s was not found next to %s", app_dir_name, known
+        "macOS restart target %s (%s) was not found next to %s",
+        app_dir_name,
+        contract.macos_bundle_id,
+        known,
     )
-    return known.with_name(app_dir_name)
+    return vacant or known.with_name(app_dir_name)
 
 
 def _read_windows_user_jarvis_env() -> dict[str, str] | None:

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 import jarvis
-from jarvis.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME
+from jarvis.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME, MACOS_BUNDLE_ID
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from jarvis.core.update_contract import (
     CONTRACT_PATH,
@@ -67,6 +67,7 @@ def test_the_contract_agrees_with_every_other_copy_of_these_names() -> None:
 
     assert DEFAULT_CONTRACT.config_file == CONFIG_FILE_NAME
     assert DEFAULT_CONTRACT.macos_app_dir_name == MACOS_APP_DIR_NAME
+    assert DEFAULT_CONTRACT.macos_bundle_id == MACOS_BUNDLE_ID
     assert DEFAULT_CONTRACT.launcher_module == autostart_launcher
     assert relauncher.LAUNCHER_MODULE == DEFAULT_CONTRACT.launcher_module
     assert DEFAULT_CONTRACT.rollback_hook is None
@@ -110,6 +111,7 @@ def test_a_moved_tree_is_read_as_it_describes_itself(tmp_path: Path) -> None:
             version_file="newpkg/__init__.py",
             config_file="newpkg.toml",
             macos_app_dir_name="New Product.app",
+            macos_bundle_id="com.new-product.desktop",
             rollback_hook="install/rollback.py",
         ),
         encoding="utf-8",
@@ -120,6 +122,7 @@ def test_a_moved_tree_is_read_as_it_describes_itself(tmp_path: Path) -> None:
         version_file="newpkg/__init__.py",
         config_file="newpkg.toml",
         macos_app_dir_name="New Product.app",
+        macos_bundle_id="com.new-product.desktop",
         rollback_hook="install/rollback.py",
     )
 
@@ -244,6 +247,16 @@ def test_an_app_name_that_is_not_one_bundle_directory_rejects_the_document(
 
 
 @pytest.mark.parametrize(
+    "bad_id",
+    ["desktop", "com..desktop", ".com.app", "com.app.", "com/app", "com.app name", "", 9, None],
+)
+def test_a_bundle_id_that_is_not_a_reverse_dns_name_rejects_the_document(
+    bad_id: object,
+) -> None:
+    assert parse_update_contract(_document(macos_bundle_id=bad_id)) == DEFAULT_CONTRACT
+
+
+@pytest.mark.parametrize(
     "bad_hook",
     ["../rollback.py", "/opt/rollback.py", "install/rollback.sh", "install/rollback", "", 1, []],
 )
@@ -266,3 +279,87 @@ def test_a_file_that_is_not_utf8_is_not_a_contract(tmp_path: Path) -> None:
     (tmp_path / "install").mkdir()
     (tmp_path / CONTRACT_PATH).write_bytes(b'{"schema": 1, "config_file": "\xff\xfe.toml"}')
     assert read_update_contract(tmp_path) == DEFAULT_CONTRACT
+
+
+# --------------------------------------------------------------------------- #
+# Schema 1, frozen
+# --------------------------------------------------------------------------- #
+# The exact document this version ships, and documents a later release may
+# publish for this version to read. An installed copy keeps the reader it was
+# released with, so these must keep parsing to these values: tightening a rule
+# here silently turns a published contract into "use the defaults", which for a
+# release that moved its files means every update rolls back.
+SCHEMA_1_GOLDEN = [
+    (
+        """{
+  "schema": 1,
+  "ui_bundle_dir": "jarvis/ui/web/dist",
+  "launcher_module": "jarvis.ui.web.launcher",
+  "version_file": "jarvis/__init__.py",
+  "config_file": "jarvis.toml",
+  "macos_app_dir_name": "Personal Jarvis.app",
+  "macos_bundle_id": "com.personal-jarvis.desktop"
+}
+""",
+        UpdateContract(
+            ui_bundle_dir="jarvis/ui/web/dist",
+            launcher_module="jarvis.ui.web.launcher",
+            version_file="jarvis/__init__.py",
+            config_file="jarvis.toml",
+            macos_app_dir_name="Personal Jarvis.app",
+            macos_bundle_id="com.personal-jarvis.desktop",
+            rollback_hook=None,
+        ),
+    ),
+    (
+        '{"schema": 1, "ui_bundle_dir": "dodaios/ui/web/dist",'
+        ' "launcher_module": "dodaios.ui.web.launcher",'
+        ' "version_file": "dodaios/__init__.py", "config_file": "dodaios.toml",'
+        ' "macos_app_dir_name": "Dodaios.app", "macos_bundle_id": "ai.dodaios.desktop",'
+        ' "rollback_hook": "install/rollback_hook.py", "a_key_from_the_future": [1, 2]}',
+        UpdateContract(
+            ui_bundle_dir="dodaios/ui/web/dist",
+            launcher_module="dodaios.ui.web.launcher",
+            version_file="dodaios/__init__.py",
+            config_file="dodaios.toml",
+            macos_app_dir_name="Dodaios.app",
+            macos_bundle_id="ai.dodaios.desktop",
+            rollback_hook="install/rollback_hook.py",
+        ),
+    ),
+    (
+        '{"schema": 1, "ui_bundle_dir": "src/app_2/ui.web/dist-prod",'
+        ' "launcher_module": "_app2.ui.web.launcher_v2",'
+        ' "version_file": "src/app_2/_version.py", "config_file": ".app-2.toml",'
+        ' "macos_app_dir_name": "App 2 (beta)-x.app"}',
+        None,  # the app name carries parentheses, which no rule allows
+    ),
+    (
+        '{"schema": 1, "ui_bundle_dir": "src/app_2/ui.web/dist-prod",'
+        ' "launcher_module": "_app2.ui.web.launcher_v2",'
+        ' "version_file": "src/app_2/_version.py", "config_file": ".app-2.toml",'
+        ' "macos_app_dir_name": "App 2 beta-x.app", "macos_bundle_id": "io.app-2.Desktop"}',
+        UpdateContract(
+            ui_bundle_dir="src/app_2/ui.web/dist-prod",
+            launcher_module="_app2.ui.web.launcher_v2",
+            version_file="src/app_2/_version.py",
+            config_file=".app-2.toml",
+            macos_app_dir_name="App 2 beta-x.app",
+            macos_bundle_id="io.app-2.Desktop",
+            rollback_hook=None,
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize(("document", "expected"), SCHEMA_1_GOLDEN)
+def test_schema_1_documents_keep_their_meaning(
+    document: str, expected: UpdateContract | None
+) -> None:
+    assert parse_update_contract(document) == (expected or DEFAULT_CONTRACT)
+
+
+def test_the_shipped_contract_is_the_first_golden_document() -> None:
+    """Byte for byte: what an installed copy of the previous version will read."""
+    shipped = (REPO / CONTRACT_PATH).read_bytes().replace(b"\r\n", b"\n")
+    assert shipped.decode("utf-8") == SCHEMA_1_GOLDEN[0][0]

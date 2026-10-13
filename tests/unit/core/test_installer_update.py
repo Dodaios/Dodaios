@@ -577,6 +577,48 @@ renames_bundles = pytest.mark.skipif(
 )
 
 
+@renames_bundles
+@pytest.mark.parametrize(
+    "running_name",
+    [
+        "Personal Jarvis 2.app",  # Finder's "Keep Both"
+        "Assistant.app",  # renamed by hand
+        "personal jarvis.app",  # same name, other case
+    ],
+)
+def test_macos_handover_falls_back_to_the_only_bundle_on_the_volume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, running_name: str
+) -> None:
+    """A bundle the USER renamed is updated in place, never duplicated.
+
+    The disk image still carries the app under the name this version ships
+    with. That is not a release renaming the app: the update goes into the
+    bundle the user launched, and nothing is installed beside it or deleted.
+    """
+    dmg = tmp_path / "PersonalJarvis-macOS-x64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    app = tmp_path / "Applications" / running_name
+    _write_bundle(app, "old", iu.MACOS_DMG_BUNDLE_ID)
+    other_copy = tmp_path / "Applications" / "Untouched Copy.app"
+    _write_bundle(other_copy, "the user's second copy", iu.MACOS_DMG_BUNDLE_ID)
+
+    def _forbidden(_bundle: Path) -> str | None:
+        raise AssertionError("an in-place update must not weigh bundle identifiers")
+
+    monkeypatch.setattr(iu, "_macos_bundle_identifier", _forbidden)
+    runner = _mounting_runner(iu.MACOS_APP_DIR_NAME, "new", iu.MACOS_DMG_BUNDLE_ID)
+
+    apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app, wait_for_pid=5)
+
+    assert _bundle_payload(app) == "new"
+    assert _bundle_payload(other_copy) == "the user's second copy"
+    assert runner.spawned == [relaunch_after_exit_command(5, [MACOS_OPEN, "-n", str(app)])]
+    # Nothing new appeared next to it, and no staging leftover survived.
+    assert sorted(p.name.casefold() for p in app.parent.iterdir()) == sorted(
+        [running_name.casefold(), "untouched copy.app"]
+    )
+
+
 def _renamed_release(tmp_path: Path, *, running_id: str | None) -> tuple[Path, Path, Path]:
     """``(dmg, running app, where the renamed app belongs)``."""
     dmg = tmp_path / "Dodaios-macOS-arm64.dmg"

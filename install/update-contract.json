@@ -4,5 +4,6 @@
   "launcher_module": "jarvis.ui.web.launcher",
   "version_file": "jarvis/__init__.py",
   "config_file": "jarvis.toml",
-  "macos_app_dir_name": "Personal Jarvis.app"
+  "macos_app_dir_name": "Personal Jarvis.app",
+  "macos_bundle_id": "com.personal-jarvis.desktop"
 }

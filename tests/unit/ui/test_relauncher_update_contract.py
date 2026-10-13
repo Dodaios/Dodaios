@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 import shutil
 import subprocess
 import sys
@@ -42,6 +43,7 @@ MOVED = UpdateContract(
     version_file="pkg_new/__init__.py",
     config_file="pkg_new.toml",
     macos_app_dir_name="Moved Product.app",
+    macos_bundle_id="com.moved-product.desktop",
     rollback_hook="install/rollback_hook.py",
 )
 
@@ -54,6 +56,7 @@ def _contract_document(contract: UpdateContract) -> str:
         "version_file",
         "config_file",
         "macos_app_dir_name",
+        "macos_bundle_id",
         "rollback_hook",
     ):
         value = getattr(contract, name)
@@ -183,14 +186,22 @@ def test_windows_branded_launcher_runs_the_module_the_tree_names(
     ]
 
 
+def _app_bundle(path: Path, bundle_id: str | None) -> Path:
+    """An app bundle directory, identified by ``bundle_id`` when one is given."""
+    (path / "Contents").mkdir(parents=True)
+    if bundle_id is not None:
+        with (path / "Contents" / "Info.plist").open("wb") as stream:
+            plistlib.dump({"CFBundleIdentifier": bundle_id}, stream)
+    return path
+
+
 def test_macos_restart_opens_the_bundle_the_tree_names(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
 ) -> None:
     import jarvis.setup.macos_app_bundle as bundle_module
 
     known = tmp_path / "Applications" / relauncher.MACOS_APP_DIR_NAME
-    renamed = known.with_name(MOVED.macos_app_dir_name)
-    renamed.mkdir(parents=True)
+    renamed = _app_bundle(known.with_name(MOVED.macos_app_dir_name), MOVED.macos_bundle_id)
     monkeypatch.setattr(relauncher.sys, "platform", "darwin")
     monkeypatch.setattr(bundle_module, "macos_app_bundle_path", lambda: known)
 
@@ -222,6 +233,55 @@ def test_macos_restart_names_the_renamed_bundle_even_before_it_exists(
     # Fail closed on the new identity; never fall back to a raw interpreter.
     assert command[:3] == ["/usr/bin/open", "-W", "-a"]
     assert Path(command[3]).name == MOVED.macos_app_dir_name
+
+
+def test_macos_restart_skips_another_app_that_carries_the_same_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
+) -> None:
+    """The disk-image app can share the new name; it is a different install."""
+    import jarvis.setup.macos_app_bundle as bundle_module
+
+    known = tmp_path / "Applications" / relauncher.MACOS_APP_DIR_NAME
+    home = tmp_path / "home"
+    _app_bundle(known.with_name(MOVED.macos_app_dir_name), "ai.movedproduct.desktop")
+    managed = _app_bundle(
+        home / "Applications" / MOVED.macos_app_dir_name, MOVED.macos_bundle_id
+    )
+    monkeypatch.setattr(relauncher.sys, "platform", "darwin")
+    monkeypatch.setattr(relauncher.Path, "home", lambda: home)
+    monkeypatch.setattr(bundle_module, "macos_app_bundle_path", lambda: known)
+
+    assert relauncher.build_launch_command("python3", contract=MOVED) == [
+        "/usr/bin/open",
+        "-W",
+        "-a",
+        str(managed),
+    ]
+
+
+@pytest.mark.parametrize("other_id", ["ai.movedproduct.desktop", None])
+def test_macos_restart_never_opens_another_app_for_want_of_the_right_one(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    default_instance: None,
+    other_id: str | None,
+) -> None:
+    """Only a same-named stranger exists: the restart fails rather than open it."""
+    import jarvis.setup.macos_app_bundle as bundle_module
+
+    known = tmp_path / "Applications" / relauncher.MACOS_APP_DIR_NAME
+    home = tmp_path / "home"
+    stranger = _app_bundle(known.with_name(MOVED.macos_app_dir_name), other_id)
+    monkeypatch.setattr(relauncher.sys, "platform", "darwin")
+    monkeypatch.setattr(relauncher.Path, "home", lambda: home)
+    monkeypatch.setattr(bundle_module, "macos_app_bundle_path", lambda: known)
+
+    command = relauncher.build_launch_command("python3", contract=MOVED)
+
+    assert command[:3] == ["/usr/bin/open", "-W", "-a"]
+    assert Path(command[3]).name == MOVED.macos_app_dir_name
+    assert Path(command[3]) != stranger
+    assert not Path(command[3]).exists()
 
 
 # --------------------------------------------------------------------------- #
@@ -720,7 +780,7 @@ async def test_crossing_reads_each_revisions_version_from_its_own_version_file(
 # --------------------------------------------------------------------------- #
 # Nothing is imported from the package after the checkout changed
 # --------------------------------------------------------------------------- #
-IMPORT_GUARD_DRIVER = r'''
+IMPORT_GUARD_DRIVER = r"""
 import asyncio  # noqa: F401 - loaded for the real OS before it is disguised
 import ctypes  # noqa: F401
 import importlib.abc
@@ -737,7 +797,7 @@ try:
 except ImportError:
     pass
 
-simulated, workdir, preload = sys.argv[1], Path(sys.argv[2]), sys.argv[3]
+simulated, workdir, preload, scenario = sys.argv[1], Path(sys.argv[2]), sys.argv[3], sys.argv[5]
 if simulated != "native":
     # Standard-library and third-party modules above were imported for the
     # real OS. Only the package under test sees the simulated one.
@@ -750,7 +810,7 @@ if preload == "skip":
 
 
 class PackageIsGone(importlib.abc.MetaPathFinder):
-    """After the reset the old package is no longer on disk: refuse and record."""
+    # After the reset the old package is no longer on disk: refuse and record.
 
     def __init__(self):
         self.late = []
@@ -764,39 +824,66 @@ class PackageIsGone(importlib.abc.MetaPathFinder):
 
 guard = PackageIsGone()
 root = workdir / "install"
+previous, target = "a" * 40, "b" * 40
 (root / ".git").mkdir(parents=True)
 (root / relauncher.MANAGED_MARKER).write_text("{}\n", encoding="utf-8")
 (root / relauncher.PENDING_UPDATE_FILENAME).write_text(
     json.dumps(
         {
             "schema": 1,
-            "previous_revision": "a" * 40,
-            "target_revision": "b" * 40,
+            "previous_revision": previous,
+            "target_revision": target,
             "profile": "full",
         }
     ),
     encoding="utf-8",
 )
 contract = json.loads(sys.argv[4])
+if scenario != "rollback_hook":
+    contract.pop("rollback_hook", None)
+contract_file = root / "install" / "update-contract.json"
 loaded_at_reset = []
+commands = []
+checkout = {"on_target": False}
+
+
+def write_ui_bundle(bundle_dir):
+    dist = root.joinpath(*bundle_dir.split("/"))
+    (dist / "assets").mkdir(parents=True, exist_ok=True)
+    (dist / "index.html").write_text(
+        '<script type="module" src="/assets/app.js"></script>', encoding="utf-8"
+    )
+    (dist / "assets" / "app.js").write_text("export {};\n", encoding="utf-8")
+
+
+# The tree this helper started from keeps its bundle in the default place.
+write_ui_bundle("jarvis/ui/web/dist")
 
 
 def run_update_command(cmd, *, root, timeout):
-    if cmd[:3] == ["git", "reset", "--hard"] and guard not in sys.meta_path:
-        # From here on the checkout holds a release that moved its package.
-        loaded_at_reset.extend(sorted(m for m in sys.modules if m.split(".")[0] == "jarvis"))
-        (root / "install").mkdir(exist_ok=True)
-        (root / "install" / "update-contract.json").write_text(
-            json.dumps(contract), encoding="utf-8"
-        )
-        dist = root.joinpath(*contract["ui_bundle_dir"].split("/"))
-        (dist / "assets").mkdir(parents=True)
-        (dist / "index.html").write_text(
-            '<script type="module" src="/assets/app.js"></script>', encoding="utf-8"
-        )
-        (dist / "assets" / "app.js").write_text("export {};\n", encoding="utf-8")
-        sys.meta_path.insert(0, guard)
-    return 0
+    commands.append([str(part) for part in cmd])
+    if cmd[:3] == ["git", "reset", "--hard"]:
+        if guard not in sys.meta_path:
+            # From here on the checkout holds a release that moved its package.
+            loaded_at_reset.extend(sorted(m for m in sys.modules if m.split(".")[0] == "jarvis"))
+            sys.meta_path.insert(0, guard)
+        if cmd[3] == target:
+            checkout["on_target"] = True
+            contract_file.parent.mkdir(exist_ok=True)
+            contract_file.write_text(json.dumps(contract), encoding="utf-8")
+            write_ui_bundle(contract["ui_bundle_dir"])
+            if "rollback_hook" in contract:
+                root.joinpath(*contract["rollback_hook"].split("/")).write_text(
+                    "", encoding="utf-8"
+                )
+        else:
+            # Back on the previous tree, which states no contract of its own.
+            checkout["on_target"] = False
+            contract_file.unlink()
+        return 0
+    if cmd == ["installer", "full"]:
+        return 1 if checkout["on_target"] and scenario != "success" else 0
+    return 0  # git ls-files, and the rollback hook itself
 
 
 relauncher._run_update_command = run_update_command
@@ -808,11 +895,10 @@ dialogs = []
 
 def spawn(cmd, **_kwargs):
     spawned.append(list(cmd))
-    # Reached through sys.modules on purpose: importing here would load the
-    # very modules this run is checking for.
-    process_utils = sys.modules.get("jarvis.core.process_utils")
-    if process_utils is not None:
-        process_utils.standard_error_is_visible = lambda: False
+    # The one thing that cannot run for real is the dialog itself. It is
+    # swapped on the ALREADY LOADED module, reached through sys.modules:
+    # importing it here would load the very module this run checks for, and
+    # the helper's own import statement still has to resolve it afterwards.
     native_dialog = sys.modules.get("jarvis.ui.native_dialog")
     if native_dialog is not None:
         native_dialog.show_error_dialog = lambda title, message: dialogs.append(title)
@@ -835,9 +921,19 @@ common = dict(
     _serving=serving,
 )
 came_back = relauncher.main(["4242", str(root)], **common)
-never_settled = relauncher.main(
-    ["4242", str(root)], _settled=lambda *_a, **_kw: False, **common
-)
+result = json.loads((root / relauncher.UPDATE_RESULT_FILENAME).read_text(encoding="utf-8"))
+
+# A windowed process has no stderr. Taking it away makes the real
+# ``standard_error_is_visible`` answer "no", which is what sends the failure
+# report on to the dialog - through the helper's real imports.
+real_stderr = sys.stderr
+sys.stderr = None
+try:
+    never_settled = relauncher.main(
+        ["4242", str(root)], _settled=lambda *_a, **_kw: False, **common
+    )
+finally:
+    sys.stderr = real_stderr
 print(
     "RESULT "
     + json.dumps(
@@ -850,13 +946,17 @@ print(
             "dialogs": dialogs,
             "ports": ports,
             "loaded_at_reset": loaded_at_reset,
+            "commands": commands,
+            "result": result,
         }
     )
 )
-'''
+"""
 
 
-def _run_import_guard(tmp_path: Path, simulated: str, *, preload: str = "keep") -> dict:
+def _run_import_guard(
+    tmp_path: Path, simulated: str, *, scenario: str = "success", preload: str = "keep"
+) -> dict:
     env = {
         key: value for key, value in os.environ.items() if not key.upper().startswith("JARVIS")
     }
@@ -872,6 +972,7 @@ def _run_import_guard(tmp_path: Path, simulated: str, *, preload: str = "keep") 
             str(tmp_path),
             preload,
             json.dumps(json.loads(_contract_document(MOVED))),
+            scenario,
         ],
         capture_output=True,
         text=True,
@@ -895,19 +996,22 @@ def _simulated_platforms() -> list[str]:
     return ["native", *(name for name in ("darwin", "linux") if name != REAL_PLATFORM)]
 
 
+@pytest.mark.parametrize("scenario", ["success", "rollback", "rollback_hook"])
 @pytest.mark.parametrize("simulated", _simulated_platforms())
 def test_no_package_module_is_imported_after_the_checkout_changed(
-    tmp_path: Path, simulated: str
+    tmp_path: Path, simulated: str, scenario: str
 ) -> None:
     """Once the tree is reset, the old package may no longer exist on disk.
 
-    A fresh interpreter runs the helper end to end. From the first
+    A fresh interpreter runs the helper end to end, once per way an update can
+    go: the target installs, the target fails and the checkout goes back, and
+    the same with the target's rollback hook in between. From the first
     ``git reset`` on, any import of a not-yet-loaded ``jarvis`` module fails
     the way it would after the package moved - and is recorded. The helper
-    must still bring the app back, report a failed restart, and resolve the
-    admin port, all from modules it loaded beforehand.
+    must still bring the app back, report a failed restart through the dialog,
+    and resolve the admin port, all from modules it loaded beforehand.
     """
-    outcome = _run_import_guard(tmp_path, simulated)
+    outcome = _run_import_guard(tmp_path, simulated, scenario=scenario)
 
     assert outcome["guard_installed"] is True
     assert outcome["late"] == []
@@ -922,12 +1026,33 @@ def test_no_package_module_is_imported_after_the_checkout_changed(
         "jarvis.core.process_utils",
         "jarvis.ui.native_dialog",
     } <= set(outcome["loaded_at_reset"])
+
     platform_name = REAL_PLATFORM if simulated == "native" else simulated
     if platform_name == "darwin":
         assert "jarvis.setup.macos_app_bundle" in outcome["loaded_at_reset"]
-        assert outcome["spawned"][0][-1].endswith(MOVED.macos_app_dir_name)
+
+    hook_runs = [cmd for cmd in outcome["commands"] if _is_hook_call(cmd)]
+    resets = [cmd[3] for cmd in outcome["commands"] if cmd[:3] == ["git", "reset", "--hard"]]
+    first_launch = outcome["spawned"][0]
+    if scenario == "success":
+        assert outcome["result"]["ok"] is True
+        assert resets == ["b" * 40]
+        assert hook_runs == []
+        if platform_name == "darwin":
+            assert first_launch[-1].endswith(MOVED.macos_app_dir_name)
+        else:
+            assert first_launch[1:3] == ["-m", MOVED.launcher_module]
+        return
+
+    # Both rollback branches end on the previous tree, verified and started by
+    # ITS layout - on macOS through the bundle this version itself knows.
+    assert outcome["result"] == {**outcome["result"], "ok": False, "rolled_back": True}
+    assert resets == ["b" * 40, "a" * 40]
+    assert len(hook_runs) == (1 if scenario == "rollback_hook" else 0)
+    if platform_name == "darwin":
+        assert first_launch[-1].endswith(relauncher.MACOS_APP_DIR_NAME)
     else:
-        assert outcome["spawned"][0][1:3] == ["-m", MOVED.launcher_module]
+        assert first_launch[1:3] == ["-m", DEFAULT_CONTRACT.launcher_module]
 
 
 def test_the_guard_notices_a_module_that_was_not_loaded_in_time(tmp_path: Path) -> None:

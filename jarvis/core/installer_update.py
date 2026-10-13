@@ -49,7 +49,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from jarvis.core.branding import MACOS_BUNDLE_ID, MACOS_DMG_BUNDLE_ID, UPDATER_USER_AGENT
+from jarvis.core.branding import (
+    MACOS_APP_DIR_NAME,
+    MACOS_BUNDLE_ID,
+    MACOS_DMG_BUNDLE_ID,
+    UPDATER_USER_AGENT,
+)
 from jarvis.core.frozen import bundle_root, is_frozen
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
@@ -862,11 +867,16 @@ def _handover_macos(
 ) -> str:
     """Mount the DMG, swap the running ``.app`` for the one inside, relaunch.
 
-    A disk image whose bundle carries the running app's name replaces it in
-    place. One whose bundle is named differently is a release that renamed the
-    app: it is installed beside the running bundle under its own name, that new
-    path is what gets relaunched, and the old bundle is removed afterwards (see
-    :func:`_install_renamed_bundle`).
+    The running bundle is replaced in place whenever the disk image carries
+    the app under the running bundle's name or under the name this version
+    ships with. The second case is a bundle the USER renamed or duplicated
+    ("Keep Both" in Finder): the image still holds the usual name, and the
+    update belongs into the bundle they launched.
+
+    Only an image whose single bundle has a name this version has never used is
+    a release that renamed the app. That one is installed beside the running
+    bundle under its own name, relaunched from there, and the old bundle is
+    removed afterwards (see :func:`_install_renamed_bundle`).
     """
     if app_path is None:
         raise InstallerUpdateError(
@@ -903,10 +913,12 @@ def _handover_macos(
                 )
             source = candidates[0]
 
-        installed = app_path.with_name(source.name)
-        if installed == app_path:
+        known_names = {app_path.name.casefold(), MACOS_APP_DIR_NAME.casefold()}
+        if source.name.casefold() in known_names:
+            installed = app_path
             _replace_directory(source, app_path)
         else:
+            installed = app_path.with_name(source.name)
             _install_renamed_bundle(source, installed, replaced=app_path)
     finally:
         # ``attached`` misses one case: hdiutil mounted the image and then

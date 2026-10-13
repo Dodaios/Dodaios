@@ -1381,15 +1381,23 @@ release's `install/update-contract.json` instead of assuming its own layout
 (`docs/desktop-installers.md` section 6). Per OS: the restart helper starts the
 launcher module the installed tree names (Linux directly, Windows through the
 branded launcher when one exists, macOS through the app bundle the tree names,
-looked up next to the known bundle and in both Applications folders). The
+looked up next to the known bundle and in both Applications folders and taken
+only when it carries the bundle identifier the tree names). The
 helper loads every package module it still needs before it resets the
 checkout; a fresh-interpreter test fails if a later code path imports one. A
 frozen install accepts each installer under two file names per platform. On
-macOS a disk image whose bundle is renamed is installed beside the running app
-and the superseded bundle removed only when its bundle identifier is ours.
+macOS a disk image is swapped in place when it carries the app under the
+running bundle's name or the name this version ships with (a bundle the user
+renamed stays where it is); only a name this version has never used is
+installed beside the running app, and the superseded bundle removed only when
+its bundle identifier is ours.
 `install.sh` (`pkill -f <venv>`, plus `launchctl unload` on macOS) and
 `install.ps1` (every process whose image lives in the install's venv) stop the
-running app before they reset the checkout. Covered by
+running app after the fetch and right before they reset the checkout. Both
+refuse, before stopping anything, when one of the installer's own parent
+processes belongs to that install (`ps` ancestor walk on POSIX, the
+`ParentProcessId` chain on Windows), which is what a terminal inside the app
+looks like. Covered by
 `tests/unit/core/test_update_contract.py`,
 `tests/unit/ui/test_relauncher_update_contract.py` (a real git checkout whose
 new release moved its package, including the rollback),

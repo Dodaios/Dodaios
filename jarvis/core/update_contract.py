@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from jarvis.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME
+from jarvis.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME, MACOS_BUNDLE_ID
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ _RELATIVE_PATH_RE = re.compile(r"^(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$")
 _FILE_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 _MODULE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 _APP_DIR_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]*\.app$")
+_BUNDLE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$")
 _MAX_VALUE_LENGTH = 240
 
 
@@ -74,6 +75,9 @@ class UpdateContract:
     config_file: str = CONFIG_FILE_NAME
     #: Directory name of the macOS application bundle the installer builds.
     macos_app_dir_name: str = MACOS_APP_DIR_NAME
+    #: ``CFBundleIdentifier`` of that bundle. A bundle of the right name with
+    #: another identifier is a different app and is never started in its place.
+    macos_bundle_id: str = MACOS_BUNDLE_ID
     #: Script the release wants run when its install failed and the checkout is
     #: about to return to the previous revision - the place to undo what its
     #: installer changed outside the checkout. Run as
@@ -121,6 +125,14 @@ def _is_app_dir_name(value: object) -> bool:
     )
 
 
+def _is_bundle_id(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) <= _MAX_VALUE_LENGTH
+        and bool(_BUNDLE_ID_RE.fullmatch(value))
+    )
+
+
 def _is_rollback_hook(value: object) -> bool:
     return value is None or (_is_relative_path(value) and str(value).endswith(".py"))
 
@@ -131,6 +143,7 @@ _FIELD_CHECKS = (
     ("version_file", _is_relative_path),
     ("config_file", _is_file_name),
     ("macos_app_dir_name", _is_app_dir_name),
+    ("macos_bundle_id", _is_bundle_id),
     ("rollback_hook", _is_rollback_hook),
 )
 
