@@ -383,11 +383,18 @@ def inspect(folder: str | Path) -> RepoInfo:
     info.is_repo = True
     info.root = str(root)
 
-    status = _run(["status", "--porcelain=v2", "--branch", "--untracked-files=normal"], root)
+    # No optional locks: this is read while agents run their own git here.
+    status = _run(
+        ["--no-optional-locks", "status", "--porcelain=v2", "--branch",
+         "--untracked-files=normal"],
+        root,
+    )
     if status.returncode == 0:
         _parse_status(status.stdout, info)
     if not info.unborn:
-        shortstat = _run(["diff", "--shortstat", "HEAD"], root)
+        shortstat = _run(
+            ["-c", "diff.autoRefreshIndex=false", "diff", "--shortstat", "HEAD"], root
+        )
         if shortstat.returncode == 0:
             plus = re.search(r"(\d+) insertion", shortstat.stdout)
             minus = re.search(r"(\d+) deletion", shortstat.stdout)
