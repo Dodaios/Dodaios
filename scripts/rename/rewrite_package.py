@@ -341,6 +341,14 @@ _DIRECTORY_LIST_RE = re.compile(
 _DASH_M_LEFT_RE = re.compile(r"[\"']-m[\"']\s*,\s*$")
 # ``name.startswith("<old>")``: module names, command names, branch names ...
 _PREFIX_TEST_RE = re.compile(r"\bstartswith\(\s*\(?\s*[rbf]*[\"']$")
+# A lookup in setuptools' package-data table, whose key is the package:
+# ``cfg["package-data"]["<old>"]``, ``cfg.get("package-data", {}).get("<old>")``,
+# or the same through a variable the table was assigned to.
+_PACKAGE_DATA_LOOKUP_RE = re.compile(r"package[-_]data[\"'][^\n\"']{0,12}(?:\[|\.get\()\s*[\"']$")
+_PACKAGE_DATA_ASSIGN_RE = re.compile(
+    r"^[ \t]*(\w+)[ \t]*(?::[^=\n]*)?=[^=\n][^\n]*package[-_]data[\"'][^\n]*$", re.MULTILINE
+)
+_LOOKUP_ON_NAME_RE = re.compile(r"\b(\w+)(?:\[|\.get\()\s*[\"']$")
 # What follows a quoted name in a path: ``/ "core"`` or ``, "core"``.
 _FOLLOWER_RE = re.compile(r"\s*\)*\s*(/|,)\s*[rf]?[\"']([^\"'/\\\n]+)[\"']")
 
@@ -774,6 +782,8 @@ class Rewriter:
             return "rewrite", "importable name"
         if _DIRECTORY_LIST_RE.search(before):
             return "rewrite", "directory list"
+        if state.looks_up_package_data(before):
+            return "rewrite", "package data key"
         if _PREFIX_TEST_RE.search(before):
             return "ambiguous", "prefix test: on module names, or on something else"
         text = state.text
@@ -832,6 +842,7 @@ class _FileState:
         self._line_starts: list[int] | None = None
         self._made_up: bool | None = None
         self._imports: bool | None = None
+        self._data_tables: frozenset[str] | None = None
 
     def line_span(self, index: int) -> tuple[int, int]:
         start = self.text.rfind("\n", 0, index) + 1
@@ -978,6 +989,18 @@ class _FileState:
         # The parser counts columns in UTF-8 bytes.
         offset = len(self.text[index - column + 1 : index].encode("utf-8"))
         return (line, offset) in self._names
+
+    def looks_up_package_data(self, before: str) -> bool:
+        """True when the quoted name after ``before`` is a key looked up in
+        setuptools' package-data table, in one expression or through a
+        variable this file assigned the table to."""
+        if _PACKAGE_DATA_LOOKUP_RE.search(before):
+            return True
+        if self._data_tables is None:
+            names = _PACKAGE_DATA_ASSIGN_RE.findall(self.text) if self.is_python else ()
+            self._data_tables = frozenset(names)
+        lookup = _LOOKUP_ON_NAME_RE.search(before)
+        return lookup is not None and lookup.group(1) in self._data_tables
 
     def imports_package(self) -> bool:
         """True when the file binds the package's own name with an import."""

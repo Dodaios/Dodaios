@@ -578,6 +578,26 @@ def test_a_guard_over_module_names_is_reported_and_left_alone(text):
     assert [hit.line for hit in result.ambiguous] == [1]
 
 
+def test_a_lookup_in_the_package_data_table_follows_its_key():
+    """pyproject's package-data key moves; a test that reads the table by
+    that key has to move with it, and no other lookup may."""
+    text = (
+        'direct = pyproject["tool"]["setuptools"]["package-data"]["jarvis"]\n'
+        'patterns = data.get("tool", {}).get("setuptools", {}).get("package-data", {})\n'
+        'assert "assets/**/*" in patterns.get("jarvis", [])\n'
+        'assert "ui/web/dist/*" in patterns["jarvis"]\n'
+        'assert scripts["jarvis"] == entry and surfaces.get("jarvis") is None\n'
+    )
+
+    assert _rewritten(text, "tests/test_packaging.py") == (
+        'direct = pyproject["tool"]["setuptools"]["package-data"]["dodaios"]\n'
+        'patterns = data.get("tool", {}).get("setuptools", {}).get("package-data", {})\n'
+        'assert "assets/**/*" in patterns.get("dodaios", [])\n'
+        'assert "ui/web/dist/*" in patterns["dodaios"]\n'
+        'assert scripts["jarvis"] == entry and surfaces.get("jarvis") is None\n'
+    )
+
+
 def test_a_local_variable_named_like_the_package_is_not_an_import():
     text = "jarvis = roster.lead()\nprint(jarvis.core, jarvis.agent_id)\n"
     rewriter = _rewriter()
