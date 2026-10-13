@@ -9538,5 +9538,127 @@
     "decrease": "decrease",
     "increase": "increase",
     "recheck": "re-check"
+  },
+  "team_threads": {
+    "new": "New team thread",
+    "new_in": "New team thread in {project}",
+    "missing": "This team thread no longer exists.",
+    "loading": "Loading the team thread",
+    "pause": "Pause",
+    "resume": "Continue",
+    "stop": "Stop",
+    "delete": "Delete team thread",
+    "delete_confirm": "Delete it with its members' threads?",
+    "steps": "Steps",
+    "members": "Team",
+    "usage": "{minutes} of {max_minutes} min · {turns} of {max_turns} turns",
+    "cost_partial": "Some members run on a seat that reports no price, so the amount is incomplete.",
+    "cost_hint": "The amount at list price, as the coding agents report it. A subscription seat is not billed per turn.",
+    "accept_plan": "Take this plan",
+    "accept_work": "Accept the work as it is",
+    "another_round": "Another round",
+    "message": "Step in: every member reads this with its next turn",
+    "message_decide": "Decide the open points; the team goes one more round with your answer",
+    "send": "Send",
+    "open_member": "Open the thread of {member}",
+    "round": "round {round}",
+    "files_changed": "{count} files changed",
+    "state": {
+      "running": "Working",
+      "paused": "Paused",
+      "needs_input": "Waiting for you",
+      "done": "Done",
+      "stopped": "Stopped",
+      "failed": "Failed"
+    },
+    "phase": {
+      "draft": "Own plans",
+      "challenge": "Challenge",
+      "converge": "Master plan",
+      "build": "Build",
+      "review": "Review"
+    },
+    "kind": {
+      "draft": "Own plan",
+      "critique": "Challenge",
+      "plan": "Master plan",
+      "vote": "Vote",
+      "build": "Build report",
+      "review": "Review",
+      "fix": "Answer to the review"
+    },
+    "vote": {
+      "agree": "agrees",
+      "object": "objects"
+    },
+    "review": {
+      "approve": "approves",
+      "changes": "requests changes"
+    },
+    "severity": {
+      "blocking": "Blocking",
+      "minor": "Minor"
+    },
+    "member": {
+      "working": "working",
+      "waiting": "waits for you",
+      "left": "left",
+      "builder": "Builds the plan"
+    },
+    "reason": {
+      "user": "You paused this team thread.",
+      "interrupted": "The app closed while the team was working. Nothing continues until you say so.",
+      "plan_disagreement": "The team did not agree on a plan after {rounds} rounds.",
+      "review_disagreement": "After {rounds} review rounds the reviewers still do not approve.",
+      "limit_time": "The time limit is reached. Continue to give the team half as much again.",
+      "limit_turns": "The turn limit is reached. Continue to give the team half as many again.",
+      "limit_cost": "The cost limit is reached. Continue to raise it.",
+      "stalled": "{note} did not finish its turn. Continue to ask again.",
+      "member_failed": "{note}. Without this member no team is left. Continue to ask again.",
+      "not_enough_members": "Fewer than two members are left, so the team cannot go on.",
+      "error": "The team thread failed: {note}"
+    },
+    "notice": {
+      "same_family": "Every member runs on the same model family, so their blind spots overlap. A second family catches more.",
+      "plan_agreed": "The team agreed on the master plan in round {rounds}. {member} builds it.",
+      "plan_accepted_by_user": "You took the master plan as it is. {member} builds it.",
+      "member_left": "{member} left the team: {error}",
+      "member_failed": "A member could not take its turn: {note}",
+      "member_model_changed": "{member} could not run on its default model and goes on with {model}: {error}",
+      "builder_changed": "{member} builds from here.",
+      "files_changed": "Files changed during a step that only reads ({step}): {files}",
+      "no_git": "This folder is not a git repository, so the reviewers read the files directly.",
+      "paused": "Paused.",
+      "stopped": "Stopped.",
+      "resumed": "Continued.",
+      "limit_time": "The time limit is reached.",
+      "limit_turns": "The turn limit is reached.",
+      "limit_cost": "The cost limit is reached.",
+      "stalled": "{note} did not finish its turn.",
+      "not_enough_members": "Fewer than two members are left."
+    },
+    "summary": {
+      "done": "Done. Plan agreed in round {plan}, change approved in review round {review}. The reviewers raised {count} findings, {blocking} of them blocking.",
+      "accepted_by_user": "You accepted the work with open findings. The reviewers raised {count} findings, {blocking} of them blocking.",
+      "open_points": "Open points"
+    },
+    "issues": {
+      "title": "Caught by the team: {count} ({open} open)",
+      "resolved": "resolved",
+      "open": "open",
+      "plan": "plan",
+      "review": "review"
+    },
+    "draft": {
+      "title": "What should the team build in {project}?",
+      "body": "Each member plans alone, they challenge each other's plans and agree on one. One builds, the others review until they approve. You can step in at any time.",
+      "none_ready": "No coding agent or provider is connected yet. Connect one to start a team.",
+      "member_n": "Member {number}",
+      "remove_named": "Remove {target}",
+      "add": "Add member",
+      "placeholder": "Describe the task for the team",
+      "start": "Start the team",
+      "bounds": "Stops and asks you after 90 minutes, 40 turns, or three rounds without agreement."
+    }
   }
 }
