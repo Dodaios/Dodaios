@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/useCanvasAwake-oqnS1asR.js
-import{r as e}from"./index-Bx3U5l4b.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
-|||||||| parent of e1ca928b6 (feat(agentic-ide): list every branch a session worked on in the pane header):jarvis/ui/web/dist/assets/useCanvasAwake-DFJusd8R.js
-import{r as e}from"./index-CvGug5If.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
-========
-import{r as e}from"./index-DYqRkGiR.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
->>>>>>>> e1ca928b6 (feat(agentic-ide): list every branch a session worked on in the pane header):jarvis/ui/web/dist/assets/useCanvasAwake-3YNYfZpx.js
