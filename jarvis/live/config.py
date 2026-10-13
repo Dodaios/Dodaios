@@ -8,7 +8,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from jarvis.core.agent_brief import AGENT_BRIEF_RULE
 from jarvis.cu.direct import COMPUTER_CONTROL_RULES
-from jarvis.live.coordination import ON_SCREEN_RULE, WORK_STATUS_RULE, conversation_rules
+from jarvis.live.coordination import (
+    ON_SCREEN_RULE,
+    TEAM_TALK_RULE,
+    WORK_STATUS_RULE,
+    conversation_rules,
+)
 from jarvis.live.product import PRODUCT_BRIEF
 from jarvis.live.recovery import HISTORY_CONTEXT_RULE
 
@@ -123,6 +128,7 @@ class LiveConfig(BaseModel):
                 "count and the task as prompt; never an existing agent and never spawn_worker. "
                 + WORK_STATUS_RULE
                 + ON_SCREEN_RULE
+                + TEAM_TALK_RULE
                 + AGENT_BRIEF_RULE
                 + " "
                 + (COMPUTER_CONTROL_RULES if computer else "")
