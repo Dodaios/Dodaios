@@ -9,6 +9,7 @@ import { CreaturePicker } from "./CreaturePicker";
 import { CreatureStage } from "./PixelCreature";
 import { growsCreature, useCreatureDefault } from "./creatureDefault";
 import { DesignPicker } from "./DesignPicker";
+import { SegmentedChoice } from "./SegmentedChoice";
 import { PetSprite } from "@/components/pets/PetSprite";
 import { usePets } from "@/hooks/usePets";
 import gigiMark from "@/assets/gigi-companion-avatar.png";
@@ -61,12 +62,8 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
       : <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>)}
     {/* One switch across the full width, like the access switch of the create dialog. */}
     {!lead && <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.look")}</span>
-      <div className="flex gap-1 rounded-lg border border-border p-1" role="group" aria-label={t("society.companion.look")}>
-        {(["creature", "shape", "pet"] as const).map(option => <button key={option} type="button" aria-pressed={kind === option} onClick={() => choose(option)}
-          className={`min-w-0 flex-1 truncate rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${kind === option ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
-          {t(`society.companion.look_${option}`)}
-        </button>)}
-      </div>
+      <SegmentedChoice label={t("society.companion.look")} value={kind} onChange={choose}
+        options={(["creature", "shape", "pet"] as const).map(id => ({ id, label: t(`society.companion.look_${id}`) }))} />
     </div>}
     {!lead && kind !== "pet" && <label className="flex items-start justify-between gap-3 text-sm">
       <span>{t("society.companion.creature.by_default")}<span className="mt-0.5 block text-xs text-muted-foreground">{t("society.companion.creature.by_default_hint")}</span></span>
@@ -84,18 +81,15 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
     {!lead && kind === "shape" && <><div><span className="mb-2 block text-sm font-medium">{t("society.companion.shape")}</span>
       <div className="flex flex-wrap gap-2">{COMPANION_SHAPES.map(shape => <button key={shape} type="button"
         aria-label={t(`society.companion.shapes.${shape}`)} aria-pressed={value.shape === shape}
-        onClick={() => update({ shape })} className={`grid h-12 w-12 place-items-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.shape === shape ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
-        <AgentSymbol shape={shape} color={value.color} eyes={value.eyes} accessories={value.accessories} skin={value.skin} size={36} />
+        title={t(`society.companion.shapes.${shape}`)}
+        onClick={() => update({ shape })} className={`grid h-16 w-16 place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.shape === shape ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
+        <AgentSymbol shape={shape} color={value.color} eyes={value.eyes} accessories={value.accessories} skin={value.skin} size={52} />
       </button>)}</div>
     </div>
-    <div className="flex items-center justify-between gap-3 text-sm"><span>{t("society.companion.eyes")}</span>
+    <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.eyes")}</span>
       {/* Plain toggles: a popup menu inside a modal dialog can strand its pointer lock. */}
-      <div className="flex gap-1.5" role="group" aria-label={t("society.companion.eyes")}>
-        {(["dots", "lines"] as const).map(eyes => <button key={eyes} type="button" aria-pressed={value.eyes === eyes} onClick={() => update({ eyes })}
-          className={`rounded-full border px-2.5 py-1 text-xs ${value.eyes === eyes ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-secondary"}`}>
-          {t(`society.companion.${eyes}`)}
-        </button>)}
-      </div>
+      <SegmentedChoice label={t("society.companion.eyes")} value={value.eyes} onChange={eyes => update({ eyes })}
+        options={(["dots", "lines"] as const).map(id => ({ id, label: t(`society.companion.${id}`) }))} />
     </div>
     <AccessoryPicker value={value} onChange={accessories => update({ accessories })} agentId={agentId} />
     </>}

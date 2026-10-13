@@ -5,6 +5,7 @@ import {
   CREATURE_EYES, CREATURE_PALETTES, CREATURE_SEED_MAX, CREATURE_STATES, randomCreature, type CreatureLook, type CreatureState,
 } from "./creature";
 import { PixelCreature } from "./PixelCreature";
+import { SegmentedChoice } from "./SegmentedChoice";
 
 const CHOICES = 8;
 const rollSeed = () => Math.floor(Math.random() * (CREATURE_SEED_MAX + 1));
@@ -54,12 +55,9 @@ export function CreaturePicker({ value, onChange, mood, onMood }: {
         className={`h-9 w-9 rounded-full border border-border ring-offset-2 ring-offset-popover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.palette === palette.id ? "ring-2 ring-foreground" : ""}`}
         style={{ background: `linear-gradient(180deg, ${palette.colors.join(", ")})` }} />)}</div>
     </div>
-    <div className="flex items-center justify-between gap-3 text-sm"><span>{t("society.companion.eyes")}</span>
-      <div className="flex flex-wrap justify-end gap-1.5" role="group" aria-label={t("society.companion.eyes")}>
-        {CREATURE_EYES.map(eyes => <button key={eyes} type="button" aria-pressed={value.eyes === eyes} onClick={() => onChange({ ...value, eyes })} className={chip(value.eyes === eyes)}>
-          {t(`society.companion.creature.eye_kinds.${eyes}`)}
-        </button>)}
-      </div>
+    <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.eyes")}</span>
+      <SegmentedChoice label={t("society.companion.eyes")} value={value.eyes} onChange={eyes => onChange({ ...value, eyes })}
+        options={CREATURE_EYES.map(id => ({ id, label: t(`society.companion.creature.eye_kinds.${id}`) }))} />
     </div>
     <div>
       <span className="mb-1 block text-sm font-medium">{t("society.companion.creature.states")}</span>

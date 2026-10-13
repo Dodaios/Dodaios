@@ -6,6 +6,10 @@
  *
  * Jarvis adaptation: stable ID-based appearance and state-driven CSS motion,
  * without a SDK, JavaScript frame clock, model download or WebGL in the roster.
+ *
+ * Where a worker is available the symbol is shown as a 3D figure instead: the
+ * map companion's own meshes, drawn once on the CPU (companion/ShapeFigure).
+ * The flat drawing below stays for the working dots and as the fallback.
  */
 
 import { useId, useMemo, type ReactNode } from "react";
@@ -14,8 +18,10 @@ import {
   ACCESSORY_CATALOG, FACE_SLOTS, partDepth, resolveFill, smoothPath, symbolViewBox, wornAccessories,
   type AccessoryChoice, type AccessoryItem, type AccessoryPart,
 } from "./companion/accessories";
+import type { FigureLook } from "./companion/figureScene";
+import { ShapeFigure, useFiguresSupported } from "./companion/ShapeFigure";
 import { SkinDefs, SkinGlow, SkinOverlay } from "./companion/SkinLayers";
-import type { CompanionSkin } from "./companion/skins";
+import { SKIN_EFFECTS, skinEffect, skinHighlight, type CompanionSkin } from "./companion/skins";
 import "./agentSymbol.css";
 export type { SymbolShape } from "./companion/appearance";
 
@@ -158,8 +164,48 @@ function ExpressiveEye({ side, cx, cy, rx, ry }: { side: "l" | "r"; cx: number; 
   </g>;
 }
 
-export function AgentSymbol({ shape, color, size, eyes = "lines", thinking = false, accessories, expressive = false, skin }: { shape: SymbolShape; color: string; size: number; eyes?: "dots" | "lines"; thinking?: boolean; accessories?: AccessoryChoice; expressive?: boolean; skin?: CompanionSkin }) {
-  const eyeY = shape === "cloud" || shape === "triangle" ? 23 : shape === "drop" ? 25 : 17.2;
+interface SymbolProps { shape: SymbolShape; color: string; size: number; eyes?: "dots" | "lines"; thinking?: boolean; accessories?: AccessoryChoice; expressive?: boolean; skin?: CompanionSkin }
+
+function symbolEyeY(shape: SymbolShape): number {
+  return shape === "cloud" || shape === "triangle" ? 23 : shape === "drop" ? 25 : 17.2;
+}
+
+/**
+ * An agent's shape: a small 3D figure of its body, eyes and accessories, or
+ * the flat symbol where figures cannot be drawn. A working agent shows the
+ * three flat dots either way.
+ */
+export function AgentSymbol(props: SymbolProps) {
+  const supported = useFiguresSupported();
+  if (!supported || props.thinking) return <FlatSymbol {...props} />;
+  return <FigureSymbol {...props} />;
+}
+
+function FigureSymbol({ shape, color, size, eyes = "lines", accessories, expressive = false, skin }: SymbolProps) {
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const worn = wornAccessories(accessories);
+  // Moving eyes are drawn on top of an eyeless figure; glasses cover them, so the figure keeps its own.
+  const moving = expressive && !worn.some(item => item.slot === "face");
+  const wornKey = worn.map(item => item.id).join(","), skinKey = skin ? JSON.stringify(skin) : "";
+  const look = useMemo<FigureLook>(() => ({
+    shape, color, eyes, accessories, blind: moving,
+    skin: skin && { colors: skin.colors, radial: skin.pattern === "radial", angle: skin.angle, effect: SKIN_EFFECTS.indexOf(skinEffect(skin)), highlight: skinHighlight(skin.colors) },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- accessories and skin are read through their keys
+  }), [shape, color, eyes, wornKey, skinKey, moving]);
+  const effect = skin ? skinEffect(skin) : "none";
+  const eyeY = symbolEyeY(shape);
+  return <ShapeFigure look={look} size={size} shape={shape}
+    behind={skin && effect === "glow" ? <span aria-hidden className="agent-figure-halo" style={{ background: `radial-gradient(closest-side, ${skinHighlight(skin.colors)}, transparent)` }} /> : undefined}
+    overlay={skin && effect === "sparkle" ? <svg aria-hidden focusable="false" viewBox="0 0 40 44" className="society-agent-symbol"><SkinOverlay id={id} skin={skin} body={() => null} /></svg> : undefined}>
+    {moving && <g className="agent-symbol-gaze"><g data-agent-eyes fill={companionEyeColors(color).eye}><g className="agent-symbol-lids">
+      <ExpressiveEye side="l" cx={15.2} cy={eyeY} rx={eyes === "lines" ? 1.8 : 2.4} ry={eyes === "lines" ? 3.5 : 2.7} />
+      <ExpressiveEye side="r" cx={24.8} cy={eyeY} rx={eyes === "lines" ? 1.8 : 2.4} ry={eyes === "lines" ? 3.5 : 2.7} />
+    </g></g></g>}
+  </ShapeFigure>;
+}
+
+function FlatSymbol({ shape, color, size, eyes = "lines", thinking = false, accessories, expressive = false, skin }: SymbolProps) {
+  const eyeY = symbolEyeY(shape);
   const ink = companionEyeColors(color);
   const maskId = `agent-body-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const worn = useMemo(() => wornAccessories(accessories), [accessories]);
