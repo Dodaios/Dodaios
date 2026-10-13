@@ -366,15 +366,37 @@ def worked_folders(
     return found
 
 
-_Evidence = tuple[float, list[CreatedBranch], list[tuple[str, float]]]
+@dataclass
+class _Evidence:
+    read_at: float
+    used_at: float
+    # The record's size and modification time when it was read; None when the
+    # record is not one file whose growth can be seen.
+    stamp: tuple[int, int] | None
+    candidates: list[CreatedBranch]
+    worked: list[tuple[str, float]]
+
+
 _cache: dict[tuple[str, str, str, float], _Evidence] = {}
 _cache_lock = threading.Lock()
+_commons: dict[str, tuple[float, str]] = {}
 
 
 def _common(folder: str) -> str:
+    """The repository ``folder`` belongs to; asked of git once a minute."""
+    now = time.monotonic()
+    with _cache_lock:
+        known = _commons.get(folder)
+    if known is not None and now - known[0] < 60:
+        return known[1]
     path = Path(folder)
     value = git_overview._out(["rev-parse", "--git-common-dir"], path) if path.is_dir() else None
-    return os.path.normcase(str((path / value.strip()).resolve())) if value else ""
+    common = os.path.normcase(str((path / value.strip()).resolve())) if value else ""
+    with _cache_lock:
+        if len(_commons) >= 512:
+            _commons.clear()
+        _commons[folder] = (now, common)
+    return common
 
 
 _REFLOG_ENTRY = re.compile(r"@\{(\d+)\}\t(.*)")
@@ -428,16 +450,24 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
     now = time.monotonic()
     with _cache_lock:
         cached = _cache.get(key)
-    if cached is not None and now - cached[0] < 15:
-        return cached[1], cached[2]
+    if cached is not None and now - cached.read_at < 15:
+        cached.used_at = now
+        return cached.candidates, cached.worked
+    # A record that has not grown says what it said before. Reading one costs
+    # seconds once it is tens of megabytes, and a session waiting for its next
+    # prompt, in a tab nobody is looking at, adds nothing to it.
+    stamp = agent_transcript.stamp(record.agent, record.session_id, home=record.home)
+    if cached is not None and stamp is not None and stamp == cached.stamp:
+        cached.used_at = now
+        return cached.candidates, cached.worked
     events = agent_transcript.read_events(record.agent, record.session_id, home=record.home) or []
     candidates = created_branches(
         events, record.folder, not_before=record.started_at, unconfirmed=True
     )
     worked = worked_folders(events, record.folder, not_before=record.started_at)
     with _cache_lock:
-        _cache[key] = (now, candidates, worked)
-        for expired in [key for key, entry in _cache.items() if now - entry[0] > 300]:
+        _cache[key] = _Evidence(now, now, stamp, candidates, worked)
+        for expired in [key for key, entry in _cache.items() if now - entry.used_at > 1800]:
             del _cache[expired]
     return candidates, worked
 

@@ -11,6 +11,7 @@ import hashlib
 import re
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -69,6 +70,31 @@ def _git(folder: Path, *args: str) -> str:
     return (git_overview._out(list(args), folder) or "").strip()
 
 
+_settings: dict[tuple[str, tuple[str, ...]], tuple[float, str]] = {}
+
+
+def _setting(folder: Path, *args: str) -> str:
+    """A remote's name or address: asked of git once a minute, not on every poll.
+
+    Each git call is a new process, and a workspace with a handful of branches
+    spent most of a read asking for values that change when someone edits the
+    repository's configuration.
+    """
+    key = (str(folder), args)
+    now = time.monotonic()
+    known = _settings.get(key)
+    if known is not None and now - known[0] < 60:
+        return known[1]
+    value = _git(folder, *args)
+    # An unset option is an answer; a remote without an address is git failing
+    # to answer, and that is asked again on the next read.
+    if value or args[0] == "config":
+        if len(_settings) >= 512:
+            _settings.clear()
+        _settings[key] = (now, value)
+    return value
+
+
 def _repository(url: str) -> str:
     """Accept GitHub hosts exactly, never a hostname containing github.com."""
     match = re.fullmatch(r"git@github\.com:([^/]+/[^/]+?)(?:\.git)?/?", url)
@@ -104,12 +130,12 @@ def checkout(folder: str | Path, branch: str = "", created_at: float = 0) -> Che
     if full_ref != f"refs/heads/{branch}":
         head = upstream = ref = ""
     # A configured push remote takes precedence in triangular fork workflows.
-    push = _git(path, "config", "--get", f"branch.{branch}.pushRemote")
-    push = push or _git(path, "config", "--get", "remote.pushDefault")
+    push = _setting(path, "config", "--get", f"branch.{branch}.pushRemote")
+    push = push or _setting(path, "config", "--get", "remote.pushDefault")
     remote = push or upstream or "origin"
     if remote == ".":
         return None
-    url = _git(path, "remote", "get-url", remote)
+    url = _setting(path, "remote", "get-url", remote)
     repo = _repository(url)
     if not repo:
         return None
@@ -162,6 +188,8 @@ _LIVE_TTL = 20
 # of them every 20 seconds would spend the hourly GitHub budget on answers that
 # no longer change; a reopened or reused branch shows up after this long.
 _SETTLED_TTL = 300
+#: GitHub requests one read of a workspace makes at a time.
+_GITHUB_READS = 4
 
 
 @lru_cache(maxsize=256)
@@ -307,27 +335,42 @@ def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict
     if isinstance(records, dict):
         return {pane: None for pane in records}
     targets: dict[tuple[str, str, float], Checkout | None] = {}
-    credential: github_link.Credential | None = None
-    credential_read = False
     now = time.time()
+    panes = []
     for record in records:
-        listed: list[BranchStatus] = []
-        for owned in pane_branches(record):
+        owned_branches = pane_branches(record)
+        for owned in owned_branches:
             key = (owned.folder, owned.branch, owned.created_at)
             if key not in targets:
                 targets[key] = checkout(*key)
-            target = targets[key]
+        panes.append((record, owned_branches))
+    wanted = list(dict.fromkeys(target for target in targets.values() if target is not None))
+    credential = github_link.credential() if wanted else None
+    snapshots: dict[Checkout, _Snapshot] = {}
+    if credential is not None:
+        token = credential.token
+        if len(wanted) > 1:
+            # One request per branch, side by side: a session with eight
+            # branches must not take eight round trips in a row.
+            with ThreadPoolExecutor(
+                max_workers=min(_GITHUB_READS, len(wanted)), thread_name_prefix="pane-github-read"
+            ) as pool:
+                reads = pool.map(lambda target: _snapshot(target, token), wanted)
+                snapshots = dict(zip(wanted, reads, strict=True))
+        else:
+            snapshots = {target: _snapshot(target, token) for target in wanted}
+    for record, owned_branches in panes:
+        listed: list[BranchStatus] = []
+        for owned in owned_branches:
+            target = targets[(owned.folder, owned.branch, owned.created_at)]
             if target is None:
                 continue
-            if not credential_read:
-                credential = github_link.credential()
-                credential_read = True
             if credential is None:
                 status = parse_status(target, {}, 0)
                 status.available = False
                 status.reason = "GitHub is not connected."
             else:
-                snapshot = _snapshot(target, credential.token)
+                snapshot = snapshots[target]
                 # A settled verdict is served from a longer cache and does not
                 # go stale the way a running check does.
                 read_at = now if snapshot.settled else snapshot.fetched_at
@@ -346,3 +389,108 @@ def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict
         shown.others = [status for status in listed if status is not shown]
         result[record.pane] = shown.to_dict()
     return result
+
+
+@dataclass
+class _Board:
+    """A workspace's last answer, and whether a newer one is being read."""
+
+    panes: dict[str, dict[str, Any] | None] = field(default_factory=dict)
+    # Which session each pane's answer was read for: a pane that now runs
+    # another one is never shown its predecessor's branch.
+    read_for: dict[str, tuple[str, str]] = field(default_factory=dict)
+    read_at: float | None = None
+    # A read for the tab in front is running.
+    refreshing: bool = False
+    # The read ahead of this workspace's first visit is queued or running.
+    ahead: bool = False
+
+
+_BOARD_TTL = 5
+_MAX_BOARDS = 64
+_boards: dict[str, _Board] = {}
+_boards_lock = threading.Lock()
+# Workspaces in background tabs are read ahead one at a time: nobody is waiting
+# for them, and they must not take the machine from the tab in front.
+_ahead_turn = threading.Lock()
+
+
+def _identity(record: PaneBranchRecord) -> tuple[str, str]:
+    return record.history_id, record.folder
+
+
+def _read(entry: _Board, records: list[PaneBranchRecord], ahead: bool) -> None:
+    panes: dict[str, dict[str, Any] | None] | None = None
+    try:
+        if ahead:
+            with _ahead_turn:
+                panes = statuses(records)
+        else:
+            panes = statuses(records)
+    except Exception:  # noqa: BLE001 - nothing may leave a board "refreshing" for good
+        logger.opt(exception=True).warning("Session GitHub status: the background read failed")
+    with _boards_lock:
+        if panes is not None:
+            entry.panes = panes
+            entry.read_for = {record.pane: _identity(record) for record in records}
+        # A failed read waits its turn like a good one instead of retrying at once.
+        entry.read_at = time.monotonic()
+        if ahead:
+            entry.ahead = False
+        else:
+            entry.refreshing = False
+
+
+def known(key: str) -> bool:
+    """Has this workspace been read, or is its first read on its way?"""
+    with _boards_lock:
+        return key in _boards
+
+
+def board(key: str, records: list[PaneBranchRecord], *, ahead: bool = False) -> dict[str, Any]:
+    """What is known about a workspace's panes, at once.
+
+    Reading it takes seconds: every session's record, git in every checkout,
+    then GitHub. A header that has to wait for that is empty for as long, so
+    nothing waits: the caller gets the last answer now, and an outdated one is
+    brought up to date in the background. ``refreshing`` says a newer answer
+    is on its way and worth asking for again shortly.
+
+    ``ahead`` is the one read of a workspace nobody is looking at yet, so that
+    it has an answer by the time someone does.
+    """
+    with _boards_lock:
+        entry = _boards.get(key)
+        if entry is None:
+            if len(_boards) >= _MAX_BOARDS:
+                idle = [name for name, old in _boards.items() if not (old.refreshing or old.ahead)]
+                idle.sort(key=lambda name: _boards[name].read_at or 0)
+                for name in idle[: max(1, len(idle) // 2)]:
+                    del _boards[name]
+            entry = _boards[key] = _Board()
+        current = {record.pane: _identity(record) for record in records}
+        if ahead:
+            start = entry.read_at is None and not (entry.refreshing or entry.ahead)
+            entry.ahead = entry.ahead or start
+        else:
+            outdated = (
+                entry.read_at is None
+                or time.monotonic() - entry.read_at >= _BOARD_TTL
+                or any(entry.read_for.get(pane) != identity for pane, identity in current.items())
+            )
+            start = outdated and not entry.refreshing
+            entry.refreshing = entry.refreshing or start
+        panes = {
+            pane: entry.panes[pane]
+            for pane, identity in current.items()
+            if pane in entry.panes and entry.read_for.get(pane) == identity
+        }
+        refreshing = entry.refreshing or entry.ahead
+    if start:
+        threading.Thread(
+            target=_read,
+            args=(entry, records, ahead),
+            name="pane-github-status",
+            daemon=True,
+        ).start()
+    return {"panes": panes, "refreshing": refreshing}
