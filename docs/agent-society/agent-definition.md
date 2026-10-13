@@ -57,7 +57,8 @@ card; nothing hidden drives behavior.
   present, else the Anthropic API), Jarvis' brain runner for API rows.
 - **On a seat the CLI runs AS the agent**: its briefing (§3.3) is the identity the CLI is handed
   (`jarvis_harness.identity_prompt(prompt_override=…)`, Jarvis' own layers stay out), Jarvis'
-  tools reach it over MCP (`mcp__jarvis__*`), and it brings its own hands (Claude Code's shell,
+  tools reach it over MCP (`mcp__dodaios__*`; `mcp__jarvis__*` in transcripts written before the
+  server was renamed, read alike), and it brings its own hands (Claude Code's shell,
   editor, browser). The society-only tools (`society_message_agent`, `society_wiki_note`,
   `society_shell`, `society_browser`, `society_run_skill`) are available on the brain runner
   today and are NOT yet offered over MCP to a seated CLI (tracked gap).

@@ -1,5 +1,16 @@
 # OS Feature Parity — macOS / Linux Gap Register
 
+## PATH length budget (issue #574, T2)
+
+On Windows the app keeps its own `PATH` within 31,000 characters: past the
+32,767-character search path Windows builds per program start, every spawn
+from the process fails with `WinError 8`. Repeated entries and folders that do
+not exist are dropped first, real folders from the end last, and an inherited
+PATH that is already too long is repaired at boot. macOS and Linux have no such
+per-variable limit, so the PATH is never shortened there; the budget logic runs
+on every OS in the unit tests, and the real spawn past the limit was verified on
+Windows 11 only.
+
 ## Local voice and audio topology refresh (issue #464, T2)
 
 Local final transcription uses its configured model independently of the wake
@@ -1375,6 +1386,37 @@ script compiled twice and upgraded over a running install
 Windows, Apple Silicon and Intel macOS. Still not run against a real released
 build: the first release with this code needs one live update per OS.
 
+**Updating across a moved tree (2026-10-12).** The version being replaced
+applies the update, so it reads where the new release keeps things from that
+release's `install/update-contract.json` instead of assuming its own layout
+(`docs/desktop-installers.md` section 6). Per OS: the restart helper starts the
+launcher module the installed tree names (Linux directly, Windows through the
+branded launcher when one exists, macOS through the app bundle the tree names,
+looked up next to the known bundle and in both Applications folders and taken
+only when it carries the bundle identifier the tree names). The
+helper loads every package module it still needs before it resets the
+checkout; a fresh-interpreter test fails if a later code path imports one. A
+frozen install accepts each installer under two file names per platform. On
+macOS a disk image is swapped in place when it carries the app under the
+running bundle's name or the name this version ships with (a bundle the user
+renamed stays where it is); only a name this version has never used is
+installed beside the running app, and the superseded bundle removed only when
+its bundle identifier is ours.
+`install.sh` (`pkill -f <venv>`, plus `launchctl unload` on macOS) and
+`install.ps1` (every process whose image lives in the install's venv) stop the
+running app after the fetch and right before they reset the checkout. Both
+refuse, before stopping anything, when one of the installer's own parent
+processes belongs to that install (`ps` ancestor walk on POSIX, the
+`ParentProcessId` chain on Windows), which is what a terminal inside the app
+looks like. Covered by
+`tests/unit/core/test_update_contract.py`,
+`tests/unit/ui/test_relauncher_update_contract.py` (a real git checkout whose
+new release moved its package, including the rollback),
+`tests/unit/core/test_installer_update.py` and
+`tests/unit/install/test_install_stops_app_first.py` (real processes on
+Windows and POSIX). Not verified on hardware: the macOS bundle rename and the
+macOS restart through a renamed bundle run only against fakes.
+
 | # | Impact | Area | Gap | Evidence | Behavior off-Windows |
 |---|---|---|---|---|---|
 | P-38 | Medium | Native installer / desktop window | The Linux AppImage and `.deb` have **no native desktop window**. Windows (WebView2) and macOS (WKWebView) get one from the frozen bundle; Linux does not, because pywebview's GTK backend needs PyGObject and a frozen interpreter can never import the distribution's `python3-gi` (it is compiled against the system CPython), while bundling GTK 3 + WebKit2GTK portably means shipping its helper processes, GIO modules, pixbuf loaders, GSettings schemas and typelibs. The Qt route is also closed today: the `[desktop]` extra installs `pyside6-essentials`, which has no QtWebEngine, and `jarvis.spec` excludes PySide6 outright. Adding `pyside6-addons` and dropping that exclusion is the realistic fix, at roughly +400 MB | `packaging/linux/README.md` ("The window question"), `jarvis/ui/desktop_app.py::_degrade_to_browser_ui`, `jarvis.spec` `excludes`, `pyproject.toml` `[desktop]` | Linux: honest degradation, verified against a real build — the app catches pywebview's `WebViewException`, keeps the backend serving, and `AppRun` waits for `/api/health` and opens the interface with `xdg-open`. Everything except the window frame works, including the whole CLI. A source/pipx install on a Linux desktop with `python3-gi` + `gir1.2-webkit2-4.1` still gets the native window; only the frozen build does not. Sub-gap: the app's fallback message advises installing those system packages, which does not help a frozen build |
@@ -1861,3 +1903,19 @@ native macOS/GTK client windows and live remote-host/provider execution have
 not been verified by these checks. Device capture, wake word and overlays keep
 their existing device and permission requirements; opening a client does not
 grant the server access to that client's desktop.
+
+## Independent server pairing (T3)
+
+The Computers server-address form pairs running Dodaios instances over HTTPS
+or loopback HTTP through a tunnel. Codes expire after five minutes and are
+single-use; durable credentials use the existing cross-platform secret store.
+The receiving server keeps credential hashes. Browser opening uses one-minute
+single-use tickets and the standard HttpOnly session cookie. Revocation blocks
+new connections; already opened browser sessions retain their normal lifetime.
+This connection opens the remote Dodaios UI; SSH remains the transport for
+remote terminals and IDE offload. No platform-specific native capability,
+inbound port, reverse proxy, or paid provider is activated by pairing.
+
+The protocol, auth-boundary, persistence, and frontend tests run on Windows and
+use portable Python/HTTP paths. Actual macOS/Linux keychains and external
+HTTPS deployments have not been exercised. See [server pairing](server-pairing.md).

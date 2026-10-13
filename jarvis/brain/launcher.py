@@ -143,7 +143,7 @@ def _load_tools() -> dict:
     integration that needs one tool per connected CLI) to work despite static
     entry points.
     """
-    from importlib.metadata import entry_points
+    from jarvis.core.entry_points import entry_points
     tools: dict = {}
     for ep in entry_points(group="jarvis.tool"):
         try:
