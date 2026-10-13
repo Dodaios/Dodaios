@@ -407,3 +407,93 @@ def test_the_pull_request_route_pushes_and_titles_from_the_first_commit(
         "repo": "o/r", "head": "feature/x", "base": "main", "title": "add b.txt", "draft": False,
     }  # fmt: skip
     assert _git(remote, "rev-parse", "feature/x") == tip  # pushed first
+
+
+# ------------------------------------------------------------------ reading GitHub
+
+
+def _repo_payload(**parts: object) -> dict:
+    return {"data": {"repository": {"url": "https://github.com/o/r", **parts}}}
+
+
+def _pr_node(number: int, head: str, state: str = "OPEN") -> dict:
+    return {
+        "number": number,
+        "title": f"PR {number}",
+        "url": f"https://github.com/o/r/pull/{number}",
+        "state": state,
+        "headRefName": head,
+        "baseRefName": "main",
+        "mergeable": "CONFLICTING" if number == 2 else "MERGEABLE",
+        "reviewDecision": "CHANGES_REQUESTED" if number == 2 else None,
+        "author": {"login": "dana"},
+    }
+
+
+def test_github_is_asked_in_parts_and_a_missing_part_only_costs_its_own_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[str] = []
+
+    def fake_graphql(token: str, query: str, variables: dict | None = None) -> dict:
+        if "pageInfo" in query:
+            return _repo_payload(refs={"pageInfo": {"hasNextPage": False}, "nodes": []})
+        if "states: OPEN" in query:
+            asked.append("open")
+            return _repo_payload(pullRequests={"nodes": [_pr_node(1, "a"), _pr_node(2, "b")]})
+        if "MERGED" in query:
+            asked.append("recent")
+            raise github_link.GitHubError("GitHub could not be reached.", code="unreachable")
+        asked.append("refs")
+        return _repo_payload(refs={"nodes": [{"name": "main", "target": {"oid": "0" * 40}}]})
+
+    monkeypatch.setattr(github_link, "graphql", fake_graphql)
+    snap = git_overview._fetch_github("o/r", "t")
+    assert sorted(asked) == ["open", "recent", "refs"]
+    # Recently merged pull requests are missing this round; everything else landed.
+    assert snap.ok and [pr.number for pr in snap.prs] == [1, 2]
+    assert (snap.prs[1].conflicting, snap.prs[1].review, snap.prs[1].author) == (
+        True,
+        "changes_requested",
+        "dana",
+    )
+    assert "main" in snap.refs
+
+
+def test_a_refresh_never_makes_the_tab_wait_for_github(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+
+    release = threading.Event()
+    reads: list[float] = []
+
+    def slow_fetch(repo_name: str, token: str) -> git_overview._GitHubSnapshot:
+        reads.append(git_overview.time.time())
+        if len(reads) > 1:
+            release.wait(5)
+        snap = git_overview._GitHubSnapshot(ok=True, fetched_at=git_overview.time.time())
+        snap.refs["main"] = ("0" * 12, CiStatus(state="success" if len(reads) > 1 else "none"))
+        return snap
+
+    monkeypatch.setattr(git_overview, "_fetch_github", slow_fetch)
+    monkeypatch.setattr(github_link, "credential", lambda: github_link.Credential("t", "app"))
+    monkeypatch.setattr(github_link, "bound_repository", lambda folder: "o/r")
+    first = git_overview.overview(repo)
+    assert first.github.available and not first.github.refreshing
+
+    # A push makes the answer outdated: it stays on screen while the new one loads.
+    git_overview.clear_github(repo)
+    started = git_overview.time.time()
+    stale = git_overview.overview(repo, refresh=True, wait_for_github=False)
+    assert git_overview.time.time() - started < 2
+    assert stale.github.available and stale.github.refreshing
+    assert stale.branches[0].ci.state == "none"
+    release.set()
+    deadline = git_overview.time.time() + 5
+    while git_overview.time.time() < deadline:
+        later = git_overview.overview(repo, wait_for_github=False)
+        if not later.github.refreshing:
+            break
+        git_overview.time.sleep(0.05)
+    assert later.branches[0].ci.state == "success" and len(reads) == 2
