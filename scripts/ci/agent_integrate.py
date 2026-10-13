@@ -27,6 +27,10 @@ Conflicts are resolved by file class, cheapest first:
 
 ``git rerere`` is on throughout, so a resolution recorded once is replayed.
 
+A branch cut before the package directory was moved is not merged across that
+commit at all: it is updated to the commit before it, then the rename script
+is replayed on the branch's own changes (``replay_package_move``).
+
 Usage::
 
     agent_integrate.py update --onto origin/main [--mode merge|rebase]
@@ -39,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import importlib.util
 import json
 import os
 import py_compile
@@ -53,6 +58,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
 FRONTEND = "jarvis/ui/web/frontend"
 
 # (glob, regenerator key). Main's copy is taken, then the key regenerates it.
@@ -77,6 +83,13 @@ UNION: tuple[str, ...] = (
     ".gitignore",
     "docs/BUGS.md",
 )
+# The package directory before and after its rename, and the script whose
+# output IS the commit that renames it. Until main carries the new directory
+# nothing here does anything; afterwards a branch that still has the old one
+# is carried across by ``replay_package_move`` instead of by conflicts.
+OLD_PACKAGE = "jarvis"
+NEW_PACKAGE = "dodaios"
+RENAME_SCRIPT = "scripts/rename/rewrite_package.py"
 AGENT_BRANCH_PREFIXES = ("codex/", "claude/", "agent/", "agents/", "gemini/", "cursor/", "bot/")
 OPT_OUT_LABELS = {"no-auto-merge", "do-not-merge", "wip", "needs-human"}
 OPT_IN_LABEL = "auto-merge"
@@ -332,6 +345,139 @@ def _in_progress(cwd: Path) -> str | None:
     return None
 
 
+def _in_tree(rev: str, path: str, cwd: Path) -> bool:
+    return git("cat-file", "-e", f"{rev}:{path}", check=False, cwd=cwd).returncode == 0
+
+
+def _move_commit(onto: str, cwd: Path) -> str:
+    """The commit on ``onto``'s first-parent line that added the new directory."""
+    found = git(
+        "log", "-1", "--first-parent", "-m", "--diff-filter=A", "--format=%H", onto,
+        "--", f"{NEW_PACKAGE}/__init__.py",
+        check=False, cwd=cwd,
+    )  # fmt: skip
+    return found.stdout.strip()
+
+
+def carried_package_move(onto: str, cwd: Path = REPO_ROOT) -> str | None:
+    """The move commit when HEAD was carried across the package move by an
+    earlier update: it has the new layout and still holds commits of its own
+    from the old one, below the merge that replayed the move. A rebase would
+    drop that merge and replay those commits onto the new layout, a conflict
+    in every file they touch, so such a branch is updated by merge from then
+    on. ``None`` in every other case - which is every case until main has the
+    new directory."""
+    new_init = f"{NEW_PACKAGE}/__init__.py"
+    if not _in_tree(onto, new_init, cwd) or not _in_tree("HEAD", new_init, cwd):
+        return None
+    own = git("rev-list", "--no-merges", "--topo-order", f"{onto}..HEAD", check=False, cwd=cwd)
+    # Oldest first: a commit from before the move is the first one asked.
+    if all(_in_tree(commit, new_init, cwd) for commit in reversed(own.stdout.split())):
+        return None
+    return _move_commit(onto, cwd) or None
+
+
+def package_move(onto: str, cwd: Path = REPO_ROOT) -> tuple[str, str] | None:
+    """``(last commit before the move, the move commit)`` when ``onto`` has
+    renamed the package directory and HEAD has not; ``None`` in every other
+    case - which is every case until that rename lands on main."""
+    new_init = f"{NEW_PACKAGE}/__init__.py"
+    if not _in_tree(onto, new_init, cwd) or _in_tree("HEAD", new_init, cwd):
+        return None
+    if not _in_tree("HEAD", f"{OLD_PACKAGE}/__init__.py", cwd):
+        return None
+    move = _move_commit(onto, cwd)
+    if not move or not _in_tree(move, RENAME_SCRIPT, cwd):
+        return None  # renamed by hand: nothing to replay, the ordinary update applies
+    parent = git("rev-parse", "--verify", "--quiet", f"{move}^", check=False, cwd=cwd)
+    before = parent.stdout.strip()
+    if not before or _in_tree(before, new_init, cwd):
+        return None
+    return before, move
+
+
+def _git_bytes(
+    *args: str, cwd: Path, stdin: bytes | None = None, env: dict[str, str] | None = None
+) -> bytes:
+    return subprocess.run(  # noqa: S603
+        ["git", *args],  # noqa: S607
+        cwd=cwd,
+        input=stdin,
+        env=env,
+        capture_output=True,
+        check=True,
+        creationflags=_NO_WINDOW,
+    ).stdout
+
+
+def _load_rename_script(move: str, cwd: Path):  # noqa: ANN202
+    """The rename script exactly as the move commit ran it. It is main's code
+    and treats the branch's files as text; it never executes them."""
+    source = _git_bytes("show", f"{move}:{RENAME_SCRIPT}", cwd=cwd)
+    with tempfile.TemporaryDirectory(prefix="package-rename-") as tmp:
+        path = Path(tmp) / "package_rename_at_move.py"
+        path.write_bytes(source)
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        if spec is None or spec.loader is None:
+            raise OSError(f"cannot load {RENAME_SCRIPT} from {move}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module  # dataclasses look their module up by name
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.modules.pop(spec.name, None)
+    return module
+
+
+def replay_package_move(before: str, move: str, cwd: Path = REPO_ROOT) -> str:
+    """Carry HEAD across the package rename; returns the new commit.
+
+    HEAD must contain ``before``. The move commit is the rename script's
+    output on ``before``, so the same script applied to the files THIS branch
+    changed is the branch's side of the merge, and every other file is the
+    move commit's own. That tree is committed as the merge of HEAD with the
+    move commit: no file is merged by hand and none can conflict.
+    """
+    rewriter = _load_rename_script(move, cwd).Rewriter.from_tree(cwd, OLD_PACKAGE, NEW_PACKAGE)
+    listing = _git_bytes("ls-tree", "-r", "-z", "HEAD", cwd=cwd).decode("utf-8", "surrogateescape")
+    entries: dict[str, tuple[str, str]] = {}
+    for record in listing.split("\0"):
+        if record:
+            meta, _, path = record.partition("\t")
+            mode, _kind, sha = meta.split(" ")
+            entries[path] = (mode, sha)
+    changed = _git_bytes("diff", "--name-only", "--no-renames", "-z", before, "HEAD", cwd=cwd)
+    index_info: list[str] = []
+    for path in changed.decode("utf-8", "surrogateescape").split("\0"):
+        if not path:
+            continue
+        target = rewriter.map_path(path)
+        if path not in entries:  # the branch deleted it
+            index_info.append(f"0 {'0' * 40}\t{target}")
+            continue
+        mode, sha = entries[path]
+        if mode in ("100644", "100755"):
+            data = _git_bytes("cat-file", "blob", sha, cwd=cwd)
+            rewritten = rewriter.transform(path, data)
+            if rewritten != data:
+                sha = _git_bytes(
+                    "hash-object", "-w", "--stdin", cwd=cwd, stdin=rewritten
+                ).decode().strip()  # fmt: skip
+        index_info.append(f"{mode} {sha}\t{target}")
+    with tempfile.TemporaryDirectory(prefix="package-rename-") as tmp:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        _git_bytes("read-tree", move, cwd=cwd, env=env)
+        _git_bytes(
+            "update-index", "-z", "--index-info", cwd=cwd, env=env,
+            stdin="".join(f"{line}\0" for line in index_info).encode("utf-8", "surrogateescape"),
+        )  # fmt: skip
+        tree = _git_bytes("write-tree", cwd=cwd, env=env).decode().strip()
+    message = f"Merge the {OLD_PACKAGE} -> {NEW_PACKAGE} package move"
+    commit = git("commit-tree", tree, "-p", "HEAD", "-p", move, "-m", message, cwd=cwd).stdout
+    git("merge", "--ff-only", commit.strip(), cwd=cwd)
+    return commit.strip()
+
+
 def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> dict[str, object]:
     """Update HEAD with ``onto``. Returns a JSON-able report; ``status`` is
     ``up-to-date`` | ``updated`` | ``conflict``."""
@@ -341,6 +487,24 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
     regen: set[str] = set()
     resolved: list[str] = []
     ai: list[str] = []
+    moved = package_move(onto, cwd)
+    carried = ""
+    if moved:
+        before, move = moved
+        # Everything up to the move is an ordinary update between two trees of
+        # the same layout; the move itself is replayed, never merged.
+        first = update(before, mode, resolver_cmd, cwd)
+        if first["status"] == "conflict":
+            return {**first, "onto": before}
+        resolved += first.get("resolved", [])  # type: ignore[arg-type]
+        ai += first.get("ai_resolved", [])  # type: ignore[arg-type]
+        replay_package_move(before, move, cwd)
+        carried = move
+    elif mode == "rebase":
+        carried = carried_package_move(onto, cwd) or ""
+    if carried:
+        report["package_move"] = carried
+        mode = "merge"  # a rebase would drop the merge that carries the move
     if mode == "merge":
         result = git("merge", "--no-edit", "--no-ff", onto, check=False, cwd=cwd)
         if result.returncode != 0:
@@ -349,8 +513,11 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
             ai += res.ai_resolved
             regen |= res.regenerate
             if res.unresolved or conflicted_files(cwd):
+                left = res.unresolved or conflicted_files(cwd)
                 git("merge", "--abort", check=False, cwd=cwd)
-                return {"status": "conflict", "unresolved": res.unresolved or conflicted_files(cwd)}
+                # A replayed move stays: the branch is whole in the new layout.
+                across = {"package_move": carried} if carried else {}
+                return {"status": "conflict", "unresolved": left, **across}
             git("commit", "--no-edit", check=False, cwd=cwd)
     else:
         git("rebase", onto, check=False, cwd=cwd)
@@ -792,6 +959,16 @@ def merge_main_into(
     if git("merge-base", "--is-ancestor", main_sha, "HEAD", check=False, cwd=wt).returncode == 0:
         return {"status": "up-to-date"}
     state: dict[str, object] = {"status": "merged", "resolved": [], "ai_resolved": [], "regen": []}
+    moved = package_move(main_sha, wt)
+    if moved:
+        before, move = moved
+        if git("merge-base", "--is-ancestor", before, "HEAD", check=False, cwd=wt).returncode == 0:
+            replay_package_move(before, move, wt)
+        else:
+            # This tick brings the branch to the last commit of the old
+            # layout; the next one replays the move on top of that.
+            main_sha = before
+            state["onto"] = before
     message = f"Merge main into {branch}"
     result = git("merge", "--no-edit", "--no-ff", "-m", message, main_sha, check=False, cwd=wt)
     if result.returncode != 0:
@@ -993,7 +1170,12 @@ def apply_update(
         or git("rev-parse", ref, check=False, cwd=checkout).stdout.strip() != sha
     ):
         return "update bundle missing or unreadable; next tick"
-    if not _bundle_is_safe(sha, entry, data["main"], checkout):
+    # A branch that predates the package move is first brought to the last
+    # commit before it - a commit of main's own history, never one the
+    # integrate job could make up.
+    onto = str(state.get("onto") or data["main"])
+    known = git("merge-base", "--is-ancestor", onto, data["main"], check=False, cwd=checkout)
+    if known.returncode != 0 or not _bundle_is_safe(sha, entry, onto, checkout):
         return "update bundle rejected (not the planned head plus main); next tick"
     push = git("push", "origin", f"{sha}:refs/heads/{branch}", check=False, cwd=checkout)
     if push.returncode != 0:

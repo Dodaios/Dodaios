@@ -145,7 +145,7 @@ def workspace_overview(
 
 @router.get("/session-status", summary="Current GitHub branch, pull request and CI status per pane")
 def session_github_status(workspace_id: str = Query(..., min_length=1)) -> dict:
-    """Read GitHub state only for a branch this pane demonstrably created."""
+    """Read GitHub state for the branch each pane works in."""
     session = get_registry().get(workspace_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Workspace not found.")

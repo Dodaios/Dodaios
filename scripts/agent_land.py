@@ -141,9 +141,13 @@ def main(argv: list[str] | None = None) -> int:
         print("\nThese files conflict and need a human-quality resolution:")
         for path in report.get("unresolved", []):  # type: ignore[union-attr]
             print(f"  - {path}")
+        # A branch that predates the package move stops at the commit before
+        # it; one already carried across the move holds a merge a rebase drops.
+        target = report.get("onto", upstream)
+        verb = "merge" if report.get("package_move") else "rebase"
         print(
-            f"\nRun `git rebase {upstream}`, resolve them (keep both sides' intent), "
-            "`git add` them, `git rebase --continue`, then run this script again."
+            f"\nRun `git {verb} {target}`, resolve them (keep both sides' intent), "
+            f"`git add` them, `git {verb} --continue`, then run this script again."
         )
         return 3
 
