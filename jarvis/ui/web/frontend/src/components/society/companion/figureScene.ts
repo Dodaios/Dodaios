@@ -23,11 +23,12 @@ export interface FigureLook {
 
 const INK: LinearRgb = [0.0052, 0.0052, 0.007];
 /** Indices in SKIN_EFFECTS of the two effects that move across the body. */
-export const EFFECT_SHIMMER = 2, EFFECT_FLOW = 3;
+export const EFFECT_STARS = 1, EFFECT_SHIMMER = 2, EFFECT_FLOW = 3;
 
 /** True when a moving layer is cut to the body's outline, so the picture needs its cover. */
 export function bodyEffectMoves(look: FigureLook): boolean {
-  return look.skin?.effect === EFFECT_SHIMMER || look.skin?.effect === EFFECT_FLOW;
+  const effect = look.skin?.effect;
+  return effect === EFFECT_STARS || effect === EFFECT_SHIMMER || effect === EFFECT_FLOW;
 }
 
 /** A plume of smoke over the picture: where it rises, pixels, and how large one symbol unit is there. */
