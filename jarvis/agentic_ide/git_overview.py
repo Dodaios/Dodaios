@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -65,13 +66,34 @@ GITHUB_TTL_S = 60.0
 GITHUB_BUSY_TTL_S = 20.0
 #: A forced refresh still reuses an answer this young.
 GITHUB_MIN_REFRESH_S = 5.0
+#: A read that takes this long says in the log where the time went.
+SLOW_READ_S = 2.0
 
-# GitHub is asked three things side by side instead of in one query. One
-# query for all of it takes about ten seconds on a repository with many checks
-# per commit — the edge of GitHub's own time limit, where it answers 504. Each
-# part alone is well inside it, and the slowest one sets the wait.
+# GitHub is asked its parts side by side instead of in one query. One query
+# for all of it takes about ten seconds on a repository with many checks per
+# commit — the edge of GitHub's own time limit, where it answers 504. Each
+# part alone is well inside it.
+#
+# The checks behind each pull request's verdict are the slow part by far, so
+# the pull requests are asked twice: once with the verdict alone, which is on
+# screen in about two seconds, and once with the checks, which follow.
 
-#: Every open pull request with the CI of its newest commit.
+#: Every open pull request with the CI verdict of its newest commit, no checks.
+_OPEN_QUICK_QUERY = """
+query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    url
+    pullRequests(first: 50, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes {
+        ...PullRequestRow
+        commits(last: 1) { nodes { commit { oid statusCheckRollup { state } } } }
+      }
+    }
+  }
+}
+"""
+
+#: The same pull requests with the checks behind each verdict.
 _OPEN_QUERY = """
 query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
@@ -451,6 +473,10 @@ def parse_github(payload: dict[str, Any], fetched_at: float = 0.0) -> _GitHubSna
         commit = (commits[0] or {}).get("commit") if commits else None
         commit = commit if isinstance(commit, dict) else {}
         entry = node.get("mergeQueueEntry") or {}
+        ci = ci_from_rollup(commit.get("statusCheckRollup"), str(commit.get("oid") or ""))
+        if ci.state != "none" and not ci.url and node.get("url"):
+            # A verdict that came without its checks still has somewhere to go.
+            ci.url = f"{node['url']}/checks"
         snap.prs.append(
             PullRequest(
                 number=int(node.get("number") or 0),
@@ -463,7 +489,7 @@ def parse_github(payload: dict[str, Any], fetched_at: float = 0.0) -> _GitHubSna
                 merged_at=str(node.get("mergedAt") or ""),
                 updated_at=str(node.get("updatedAt") or ""),
                 queue_position=entry.get("position") if isinstance(entry, dict) else None,
-                ci=ci_from_rollup(commit.get("statusCheckRollup"), str(commit.get("oid") or "")),
+                ci=ci,
                 conflicting=str(node.get("mergeable") or "").upper() == "CONFLICTING",
                 review=str(node.get("reviewDecision") or "").lower(),
                 author=str((node.get("author") or {}).get("login") or ""),
@@ -501,7 +527,15 @@ def _repository(payload: dict[str, Any]) -> dict[str, Any]:
     return repo if isinstance(repo, dict) else {}
 
 
-def _fetch_github(repo: str, token: str) -> _GitHubSnapshot:
+def _fetch_github(
+    repo: str, token: str, early: Callable[[_GitHubSnapshot], None] | None = None
+) -> _GitHubSnapshot:
+    """GitHub's answer for ``repo``.
+
+    ``early`` is handed a first answer as soon as the quick parts are in: every
+    pull request with its CI verdict and every branch, without the checks
+    behind a verdict and without CI for a branch that has no pull request.
+    """
     now = time.time()
     owner, _, name = repo.partition("/")
     variables = {"owner": owner, "name": name}
@@ -512,19 +546,41 @@ def _fetch_github(repo: str, token: str) -> _GitHubSnapshot:
         except github_link.GitHubError as exc:  # handed back to the caller below
             return exc
 
+    quick_job = git_local.Job(ask, _OPEN_QUICK_QUERY + _PR_FRAGMENT)
     open_job = git_local.Job(ask, _OPEN_QUERY + _PR_FRAGMENT + _ROLLUP_FRAGMENT)
     recent_job = git_local.Job(ask, _RECENT_QUERY + _PR_FRAGMENT)
     refs_job = git_local.Job(ask, _REFS_CI_QUERY + _ROLLUP_FRAGMENT)
     names_job = git_local.Job(_all_refs, token, owner, name)
-    opened, recent, refs = open_job.result(), recent_job.result(), refs_job.result()
-    names = names_job.result()
-    for answer in (opened, refs):
-        if isinstance(answer, github_link.GitHubError):  # shown in the tab as github.reason/code
-            return _GitHubSnapshot(ok=False, reason=str(answer), code=answer.code, fetched_at=now)
+    quick, recent, names = quick_job.result(), recent_job.result(), names_job.result()
     if isinstance(recent, github_link.GitHubError):
         # Open pull requests and CI landed; only "merged" marks are missing this round.
         logger.debug("Git overview: recent pull requests failed: {}", recent.code)
         recent = {}
+    if early is not None and not isinstance(quick, github_link.GitHubError):
+        first = _snapshot(quick, recent, {}, names, now)
+        if first.ok:
+            early(first)
+    opened, refs = open_job.result(), refs_job.result()
+    if isinstance(opened, github_link.GitHubError) and not isinstance(
+        quick, github_link.GitHubError
+    ):
+        # The checks behind each verdict are missing this round; the verdicts are not.
+        logger.debug("Git overview: pull request checks failed: {}", opened.code)
+        opened = quick
+    for answer in (opened, refs):
+        if isinstance(answer, github_link.GitHubError):  # shown in the tab as github.reason/code
+            return _GitHubSnapshot(ok=False, reason=str(answer), code=answer.code, fetched_at=now)
+    return _snapshot(opened, recent, refs, names, now)
+
+
+def _snapshot(
+    opened: dict[str, Any],
+    recent: dict[str, Any],
+    refs: dict[str, Any],
+    names: list[tuple[str, str, int]],
+    now: float,
+) -> _GitHubSnapshot:
+    """One answer out of the parts GitHub was asked for."""
     open_repo, refs_repo = _repository(opened), _repository(refs)
     if not open_repo and not refs_repo:
         return _GitHubSnapshot(
@@ -547,6 +603,28 @@ def _fetch_github(repo: str, token: str) -> _GitHubSnapshot:
         if stamp:
             snap.ref_dates.setdefault(ref_name, stamp)
     return snap
+
+
+def _keep_details(first: _GitHubSnapshot, last: _GitHubSnapshot) -> None:
+    """Fill the quick answer from the last full one wherever nothing moved.
+
+    The quick answer has each pull request's verdict but not the checks behind
+    it, and no CI at all for a branch without a pull request. For a commit the
+    last full answer already covered, what it said is still the best there is.
+    """
+    # A verdict alone cannot tell "running" from "waiting to start".
+    coarse = {"running": "pending"}
+    known = {pr.number: pr.ci for pr in last.prs}
+    for pr in first.prs:
+        old = known.get(pr.number)
+        if old is None or not old.total or old.commit != pr.ci.commit:
+            continue
+        if coarse.get(old.state, old.state) == coarse.get(pr.ci.state, pr.ci.state):
+            pr.ci = old
+    for name, (oid, ci) in list(first.refs.items()):
+        old_ref = last.refs.get(name)
+        if old_ref is not None and old_ref[0] == oid and ci.state == "none":
+            first.refs[name] = old_ref
 
 
 def _all_refs(token: str, owner: str, name: str) -> list[tuple[str, str, int]]:
@@ -614,16 +692,26 @@ class _GitHubCache:
                 with self._guard:
                     # Whatever expires it from here on is newer than this read.
                     self._expired.discard(key)
-                fetched = _fetch_github(key, token)
+
+                def early(first: _GitHubSnapshot) -> None:
+                    # Pull requests and their verdicts are on screen while the
+                    # checks behind them are still on their way.
+                    if snap is not None and snap.ok:
+                        _keep_details(first, snap)
+                    with self._guard:
+                        self._entries[key] = first
+
+                fetched = _fetch_github(key, token, early)
                 with self._guard:
-                    if fetched.ok or snap is None or not snap.ok:
+                    shown = self._entries.get(key)
+                    if fetched.ok or shown is None or not shown.ok:
                         self._entries[key] = fetched
                         self._failed.pop(key, None)
                     else:
                         # GitHub was unreachable for a moment: what was read
                         # before stays on screen, and the next try waits a turn.
                         self._failed[key] = time.time()
-                        fetched = snap
+                        fetched = shown
                 return fetched
         finally:
             with self._guard:
@@ -860,7 +948,9 @@ def overview(
         return RepoOverview(available=False, reason="The workspace folder is missing.")
     if shutil.which("git") is None:
         return RepoOverview(available=False, reason="Git is not installed.")
+    started = time.perf_counter()
     state = git_local.read(path, fresh=refresh)
+    local_done = time.perf_counter()
     if state is None:
         return RepoOverview(available=False, reason="This folder is not a git repository.")
     root = state.root
@@ -882,6 +972,7 @@ def overview(
     snap: _GitHubSnapshot | None = None
     if github:
         snap = _github_for(root, info, refresh, wait_for_github)
+    github_done = time.perf_counter()
 
     # Current and default branch always make the list, however old they are.
     keep = {head, info.default_branch}
@@ -920,6 +1011,18 @@ def overview(
         # Newest first, like the local list; the later pages arrive in name order.
         info.remote_branches.sort(key=lambda row: row.committed_at, reverse=True)
         info.pull_requests = _open_pull_requests(snap)
+    total = time.perf_counter() - started
+    if total >= SLOW_READ_S:
+        # Rare, and impossible to explain afterwards without the parts.
+        logger.info(
+            "Git overview: slow read of {} — {:.1f} s (local git {:.1f} s, "
+            "GitHub {:.1f} s, branch rows {:.1f} s)",
+            root,
+            total,
+            local_done - started,
+            github_done - local_done,
+            total - (github_done - started),
+        )
     return info
 
 
