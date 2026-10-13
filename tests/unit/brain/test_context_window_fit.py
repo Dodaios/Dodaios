@@ -250,6 +250,101 @@ class TestContextOverflowCause:
         assert "Netzwerk" not in text  # i18n-allow
 
 
+class TestLocalContextCause:
+    """A local server runs the model with a window too small for the request.
+
+    The remedy is one setting on the person's own machine, not another model
+    or a new chat, so the cause is its own and says so.
+    """
+
+    @staticmethod
+    def _error() -> str:
+        from jarvis.brain.local_context import LocalContextError, fix_hint
+
+        return str(
+            LocalContextError(
+                provider="local-openai",
+                model="qwen",
+                needed_tokens=18_000,
+                window_tokens=4_096,
+                how_to_fix=fix_hint("lm-studio", 18_000),
+            )
+        )
+
+    def test_the_guards_own_sentence_classifies_as_local_context(self) -> None:
+        assert _classify_provider_error(self._error(), default="call_fail") == "local_context"
+
+    def test_it_never_dead_lists_the_provider(self) -> None:
+        assert "local_context" not in _DEAD_LIST_KINDS
+
+    def test_spoken_cause_names_the_setting_to_change(self) -> None:
+        errors = [("local-openai", "qwen", "local_context", self._error())]
+        cause = _primary_provider_down_cause(errors)
+        assert cause == "local_context"
+        phrase = _provider_down_phrase("en", 0, cause)
+        assert phrase == _PROVIDER_DOWN_CAUSE_PHRASES["local_context"]["en"]
+        low = phrase.lower()
+        assert "context length" in low and "local" in low
+        assert "network" not in low
+
+    def test_it_outranks_the_generic_overflow_wording(self) -> None:
+        errors = [
+            ("openrouter", "m", "context_overflow", "…"),
+            ("ollama", "qwen", "local_context", self._error()),
+        ]
+        assert _primary_provider_down_cause(errors) == "local_context"
+
+    def test_developer_diagnostic_keeps_the_size_and_the_setting(self) -> None:
+        text = _format_provider_chain_error(
+            [("local-openai", "qwen", "local_context", self._error())]
+        )
+        assert "4096" in text and "18000" in text
+        assert "Context Length" in text
+        assert "Netzwerk" not in text  # i18n-allow
+
+
+class TestWindowIsSettledBeforeFitting:
+    """A local server's window is whatever it was started with, so the brain
+    has to ask. That must happen before tools are fitted, or the first turn is
+    budgeted for a figure the server does not run."""
+
+    async def test_a_brain_that_can_ask_is_asked_first(self) -> None:
+        from jarvis.brain.manager import _settle_context_window
+
+        class _Asking(_FakeBrain):
+            async def prepare_context_window(self) -> None:
+                self.context_window = 4_096
+
+        brain = _Asking(32_768)
+        await _settle_context_window(brain)
+        assert brain.context_window == 4_096
+
+    async def test_a_hosted_brain_is_not_touched(self) -> None:
+        from jarvis.brain.manager import _settle_context_window
+
+        brain = _FakeBrain(1_000_000)
+        await _settle_context_window(brain)
+        assert brain.context_window == 1_000_000
+
+    async def test_a_failing_or_slow_probe_never_costs_the_turn(self, monkeypatch) -> None:
+        import asyncio
+
+        import jarvis.brain.manager as manager
+
+        class _Broken(_FakeBrain):
+            async def prepare_context_window(self) -> None:
+                raise RuntimeError("server gone")
+
+        class _Slow(_FakeBrain):
+            async def prepare_context_window(self) -> None:
+                await asyncio.sleep(5)
+
+        monkeypatch.setattr(manager, "_CONTEXT_SETTLE_TIMEOUT_S", 0.01)
+        for brain in (_Broken(32_768), _Slow(32_768)):
+            await manager._settle_context_window(brain)
+            assert brain.context_window == 32_768
+
+
 class TestToolCountCap:
     """Live 2026-09-29: xAI refused 378 tools ("the maximum is 350")."""
 
