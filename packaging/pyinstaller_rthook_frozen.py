@@ -21,7 +21,11 @@ override variables at the per-user application directory and seeds a first-run
 ``jarvis.toml`` from the copy inside the bundle.
 
 An explicitly exported ``JARVIS_CONFIG`` / ``JARVIS_DATA_DIR`` always wins, so a
-maintainer can still run a frozen build against a scratch directory.
+maintainer can still run a frozen build against a scratch directory. So does
+``DODAIOS_CONFIG`` / ``DODAIOS_DATA_DIR``: a variable written under the
+``DODAIOS_`` prefix is moved to its ``JARVIS_`` name first, by the hook's own
+copy of ``jarvis.core.env_prefix._adopt`` (``tests/unit/core/test_env_prefix.py``
+holds the copy identical).
 
 Standard library only, and no ``jarvis`` import: a failure in a runtime hook
 kills a windowed process before any logging exists. ``tests/unit/packaging/
@@ -40,6 +44,27 @@ from pathlib import Path
 _WINDOWS_USER_DATA_DIR_NAME = "Jarvis"
 _FALLBACK_USER_DATA_DIR_NAME = ".jarvis"
 _CONFIG_FILE_NAME = "jarvis.toml"
+# Mirrors jarvis.core.env_prefix: the prefixes and the adoption itself.
+_PREFIXES = (("DODAIOS_", "JARVIS_"), ("DODAIOSCTL_", "JARVISCTL_"))
+
+
+def _adopt(environ):
+    """Move every new-prefix variable to the name the code reads; return the clashing names."""
+    clashes = []
+    for name in list(environ):
+        for new_prefix, old_prefix in _PREFIXES:
+            if not name.startswith(new_prefix) or name == new_prefix:
+                continue
+            value = environ.pop(name)
+            old_name = old_prefix + name[len(new_prefix) :]
+            if value:
+                if environ.get(old_name) not in (None, "", value):
+                    clashes.append(name)
+                environ[old_name] = value
+            elif old_name not in environ:
+                environ[old_name] = value
+            break
+    return clashes
 
 
 def _user_data_dir() -> Path:
@@ -72,6 +97,17 @@ def _warn(message: str) -> None:
 def _apply() -> None:
     if not (getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")):
         return
+
+    try:
+        clashes = _adopt(os.environ)
+    except (OSError, ValueError) as exc:
+        # The operating system refused an environment write. The package runs
+        # the same adoption on import and reports it with logging available;
+        # the hook only has to keep the process alive until then.
+        _warn(f"could not adopt the DODAIOS_ variable names: {exc}")
+        clashes = []
+    for new_name in clashes:
+        _warn(f"{new_name} and its JARVIS_ spelling are set to different values; using {new_name}.")
 
     home = _user_data_dir()
     config_path = home / _CONFIG_FILE_NAME

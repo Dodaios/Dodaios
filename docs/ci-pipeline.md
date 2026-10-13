@@ -24,9 +24,9 @@ to prove (`scripts/ci/plan_run.py` emits the tier and every job matrix):
 
 | Tier | When | What runs | Target |
 | --- | --- | --- | --- |
-| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS. | ~10 min |
-| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus one short macOS leg per affected lane (realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle). The blocking proof of the exact tree main gets. | ~10-13 min |
-| `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the long real-product legs: the Hermes install on Windows, the real runtimes and the real browser on macOS. A red nightly opens the issue "Nightly CI is red" (`nightly-alert.yml`). | ~40 min |
+| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux, Windows and macOS. The macOS legs here are the short ones, one to four minutes (realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle): a macOS failure shows on the pull request, and they end before the Windows shards do. | ~10 min |
+| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus the long macOS legs: both real runtimes and the real browser on macOS (5 to 10 minutes each). The blocking proof of the exact tree main gets; nothing macOS-specific that a lane tests lands unproven. | ~11-13 min, longer when several groups need the five macOS slots at once |
+| `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the Hermes install on Windows. A red nightly opens the issue "Nightly CI is red" (`nightly-alert.yml`). | ~40 min |
 | proven | push to main of a commit the merge queue already passed | `detect` and `CI gate` only. | under 1 min |
 
 A queue group and the push that lands it are one commit, so the push run
@@ -40,12 +40,19 @@ first queue runs of this design carried six to eight macOS legs each: three
 groups and one manual full run waited more than half an hour on macOS alone.
 And the Hermes install on Windows (13 minutes of upstream installer before
 the first turn, 14 to 23 minutes a job) was the last job of three in four
-merge groups. So a group keeps macOS legs of one to four minutes, and the
-long real-product legs run nightly and on release tags: the Hermes install
-on Windows, the two real-runtime legs on macOS (10 and 7 minutes) and the
-real-browser leg on macOS. A regression that only shows there is found by
-the next nightly run, which opens the issue "Nightly CI is red", and at the
-latest by the release run, which blocks publication.
+merge groups. The Hermes install on Windows therefore runs nightly and on
+release tags; a regression that only shows there is found by the next
+nightly run, which opens the issue "Nightly CI is red", and at the latest by
+the release run, which blocks publication.
+
+macOS is different: a macOS failure must stop a change, not surface the
+morning after. The short macOS legs run on every pull request, where they
+finish inside the time the Windows shards take anyway. The long ones (both
+real runtimes, 10 and 7 minutes, and the real browser) run once per change,
+in the merge queue, which builds three groups at a time. When several
+groups carry them at once they wait for one of the five macOS slots, and
+the queue run takes that much longer. The whole Python suite on macOS
+(three shards of nine minutes) still runs nightly and on release tags only.
 
 A branch gets the whole macOS matrix before the queue with
 `gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
@@ -65,11 +72,11 @@ request, merge queue, and again on the push of the same commit).
 | `zizmor` / `dependency review` | Workflow security audit on every event (merge queue included, exceptions in `.github/zizmor.yml`); dependency review on pull requests only, failing on an added dependency with a high or critical advisory. `security.yml` keeps the Security-tab uploads. | — |
 | `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`JARVIS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
-| `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). | `scripts/ci/run_tests_parallel.py` |
+| `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). A file that runs out of its budget alone gets one more attempt with twice that budget, capped at the file ceiling: a file without history starts on the generic floor, and a pass there is reported as flaky and enters the history with its real duration. | `scripts/ci/run_tests_parallel.py` |
 | `tests windows 1..6` | The whole suite in six shards on every tier, pull requests included, so a Windows-only failure blocks the pull request instead of ejecting it from the merge queue. | `scripts/ci/run_tests_parallel.py` |
 | `tests macos 1..3` | Nightly, release and manual runs with macOS only. | — |
 | `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
-| `duration cache` | Runs on main only (nightly, a manual run, a push that bypassed the queue) and only after every Linux and Windows shard succeeded: merges the shard timings into one history per OS. Windows shards by its own history; until one exists it uses the Linux one. | `scripts/ci/ratchet_tests.py durations` |
+| `duration cache` | Runs on main only (nightly, a manual run, a push that bypassed the queue) and only after every Linux and Windows shard succeeded: merges the shard timings into one history per OS, on top of the history the run started from, so a file that was flaky in one run keeps its timing. Windows shards by its own history; until one exists it uses the Linux one. | `scripts/ci/ratchet_tests.py durations` |
 | Lanes | `frontend` (three test shards and the build, side by side), `jarvisctl`, `deps`, `realtime` (+ slim container), `updater` (in-app update, native handover, restart helper), `agent runtimes` (+ slim container + the real Hermes and OpenClaw at their pinned version; see [agent-runtimes.md](agent-runtimes.md#ci-and-release-gates)), `dragdrop`, `browser`, `macOS desktop`, `installer smoke` — each only when its paths change, each as wide as the tier: Linux + Windows on a pull request, + macOS in the merge queue, + Intel and ARM in the wide matrix. | `scripts/ci/plan_run.py` |
 | `release qualification` | Tag CI requires a full run with macOS and the browser-auth E2E evidence gate: a plugin labeled verified needs a completed journey, every completed journey ships as verified, and every other plugin ships labeled preview. The step summary counts both. Ordinary branch/PR/nightly CI skips this release-only job. | `scripts/ci/check_plugin_auth_contract.py --require-e2e-pass` |
 | `CI gate` | Aggregates every job. **The only required check**, on the pull request and again on its merge-queue group. A missing or skipped selected lane fails. Unselected lanes may skip; nightly is strict except event-specific jobs. | `scripts/ci/required_results.py` |

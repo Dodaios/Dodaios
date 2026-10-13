@@ -65,7 +65,8 @@ $WindowsShortcutFileName = 'Personal Jarvis.lnk'
 $WindowsUninstallRegistrySubkey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\PersonalJarvis'
 $WindowsAppUserModelId = 'PersonalJarvis.PersonalJarvis'
 
-$InstallDir = if ($env:JARVIS_INSTALL_DIR) { $env:JARVIS_INSTALL_DIR } else { Join-Path $env:USERPROFILE $DefaultInstallDirName }
+# DODAIOS_INSTALL_DIR and JARVIS_INSTALL_DIR are one option; the new name wins.
+$InstallDir = if ($env:DODAIOS_INSTALL_DIR) { $env:DODAIOS_INSTALL_DIR } elseif ($env:JARVIS_INSTALL_DIR) { $env:JARVIS_INSTALL_DIR } else { Join-Path $env:USERPROFILE $DefaultInstallDirName }
 $VenvPython = Join-Path $InstallDir '.venv\Scripts\python.exe'
 
 Write-Step 'Uninstall Personal Jarvis'
