@@ -66,6 +66,13 @@ _PY_IRRELEVANT_FILES = {
 
 _PIPELINE_PREFIXES = (".github/workflows/", ".github/actions/", "scripts/ci/")
 
+# The package directory as every table below spells it. A changed path under
+# any name the directory has had is read as this spelling first, so renaming
+# the directory can never turn a lane off: neither for the commit that moves
+# it nor for a branch that still carries the other layout.
+_PACKAGE_PREFIX = "jarvis/"
+_PACKAGE_NAMES = ("jarvis", "dodaios")
+
 _FRONTEND_PREFIXES = ("jarvis/ui/web/frontend/",)
 _FRONTEND_FILES = {"scripts/ci/check_frontend_bundle_budget.py"}
 
@@ -252,6 +259,9 @@ def _normalize(paths: Iterable[str]) -> list[str]:
         path = raw.strip().replace("\\", "/")
         if path.startswith("./"):
             path = path[2:]
+        head, slash, rest = path.partition("/")
+        if slash and head in _PACKAGE_NAMES:
+            path = _PACKAGE_PREFIX + rest
         if path:
             out.append(path)
     return out
