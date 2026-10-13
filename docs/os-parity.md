@@ -1903,3 +1903,19 @@ native macOS/GTK client windows and live remote-host/provider execution have
 not been verified by these checks. Device capture, wake word and overlays keep
 their existing device and permission requirements; opening a client does not
 grant the server access to that client's desktop.
+
+## Independent server pairing (T3)
+
+The Computers server-address form pairs running Dodaios instances over HTTPS
+or loopback HTTP through a tunnel. Codes expire after five minutes and are
+single-use; durable credentials use the existing cross-platform secret store.
+The receiving server keeps credential hashes. Browser opening uses one-minute
+single-use tickets and the standard HttpOnly session cookie. Revocation blocks
+new connections; already opened browser sessions retain their normal lifetime.
+This connection opens the remote Dodaios UI; SSH remains the transport for
+remote terminals and IDE offload. No platform-specific native capability,
+inbound port, reverse proxy, or paid provider is activated by pairing.
+
+The protocol, auth-boundary, persistence, and frontend tests run on Windows and
+use portable Python/HTTP paths. Actual macOS/Linux keychains and external
+HTTPS deployments have not been exercised. See [server pairing](server-pairing.md).

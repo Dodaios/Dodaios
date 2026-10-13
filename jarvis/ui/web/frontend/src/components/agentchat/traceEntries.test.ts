@@ -6,7 +6,7 @@ import pt from "@/i18n/locales/pt.json";
 import { reduceThinkingSteps, type ThinkingStep } from "@/lib/thinkingSteps";
 import type { ToolBlock, TurnBlock } from "./reduce";
 import {
-  buildTimeline, commandBinary, shortPath, traceDuration, withoutCd,
+  buildTimeline, commandBinary, ownServerTool, shortPath, traceDuration, withoutCd,
   type ActivityEntry, type Call, type TimelineOptions,
 } from "./traceEntries";
 import { stepsToBlocks } from "./VoiceWorkTrace";
@@ -89,6 +89,25 @@ describe("trace timeline", () => {
     expect(own).toMatchObject({ kind: "tool", text: "Society routines" });
     const cli = only(tool("j", { name: "mcp__jarvis__cli_jarvisctl", input: { command: "jarvisctl outputs list" }, output: "" }));
     expect(cli).toMatchObject({ kind: "command", text: "jarvisctl outputs list" });
+  });
+
+  it("reads the app's own server under its current and its earlier name alike", () => {
+    for (const server of ["dodaios", "jarvis"]) {
+      const plugin = only(tool("g", { name: `mcp__${server}__gmail`, input: { query: "is:unread" }, output: "[]" }));
+      expect(plugin).toMatchObject({ kind: "service", text: "Gmail" });
+      expect(plugin.brand).toBeTruthy();
+      const own = only(tool("r", { name: `mcp__${server}__society_routines`, input: {}, output: "{}" }));
+      expect(own).toMatchObject({ kind: "tool", text: "Society routines" });
+      const cli = only(tool("j", { name: `mcp__${server}__cli_jarvisctl`, input: { command: "jarvisctl outputs list" }, output: "" }));
+      expect(cli).toMatchObject({ kind: "command", text: "jarvisctl outputs list" });
+      const artifact = only(tool("a", { name: `mcp__${server}__create_artifact`, input: { title: "GitHub Stars" }, output: "Built." }));
+      expect(artifact).toMatchObject({ kind: "family", text: "Created an artifact", detail: "GitHub Stars" });
+    }
+    expect(ownServerTool("dodaios/gmail")).toBe("gmail");
+    expect(ownServerTool("Jarvis/gmail")).toBe("gmail");
+    expect(ownServerTool("github/create_issue")).toBeNull();
+    expect(ownServerTool("gmail")).toBeNull();
+    expect(ownServerTool("dodaios/")).toBeNull();
   });
 
   it("keeps Jarvis's own tools in their words and a terse result", () => {

@@ -472,6 +472,18 @@ def test_only_a_complete_green_run_on_main_writes_the_duration_caches():
     }
     assert not any("cache/save@" in s.get("uses", "") for s in ci["test-report"]["steps"])
     assert "duration-cache" in ci["gate"]["needs"]
+    # Each history is merged onto the one the run started from: a file that
+    # was flaky in this run reports no timing and must keep the one it had.
+    names = [s.get("name", "") for s in job["steps"]]
+    assert names.index("Download the duration history this run started from") < names.index(
+        "Merge the shard timings"
+    )
+    merge = next(s["run"] for s in job["steps"] if s.get("name") == "Merge the shard timings")
+    assert "--base test_durations.json --out test_durations.json reports/linux" in merge
+    assert (
+        "--base test_durations_windows.json --out test_durations_windows.json reports/windows"
+        in merge
+    )
 
 
 def test_windows_shards_by_its_own_history_and_falls_back_to_the_linux_one():

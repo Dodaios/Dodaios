@@ -28,7 +28,8 @@ These cost real bugs. Nothing catches them but you.
   `pip install -e` from a linked worktree: that pin is the user's desktop app,
   and their next restart boots your branch with an empty `data/`. (BUG-219)
 - **`main` takes no local commits.** Local `main` mirrors `origin/main` and
-  moves only by `git pull --ff-only`; the commit hook refuses a commit on it.
+  moves only by `git pull --ff-only`; the hooks refuse a commit on it and any
+  other move (`update-ref`, cherry-pick, rebase) to a commit no remote has.
   Every change lives on a feature branch in a worktree of your own:
   `git worktree add -b <agent>/<topic> <path> origin/main`, one topic per
   branch. A commit on local `main` exists on one machine, and the squash-merging

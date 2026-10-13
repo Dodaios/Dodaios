@@ -522,6 +522,18 @@ jctl = "jarvis.cli_ctl.__main__:main"
 
 # Plugin entry points — all slots are already declared.
 # New plugins are discovered without any core changes.
+#
+# A slot has two names: `dodaios.<slot>` (what a new plugin registers under)
+# and `jarvis.<slot>` (what every plugin published earlier registers under).
+# The app reads both in one scan, for good (jarvis/core/entry_points.py).
+#
+# The first-party plugins below stay in the `jarvis.<slot>` tables on purpose:
+# an install's entry points are frozen into its `*.dist-info` when the
+# environment is built, so an install that updates its source without
+# rebuilding still carries the tables of the version that wrote them, and an
+# older version rolled back onto a newer environment reads `jarvis.<slot>`
+# only. One table that both read keeps every first-party plugin loading
+# exactly once in each case.
 
 [project.entry-points."jarvis.wakeword"]
 openwakeword = "jarvis.plugins.wake.openwakeword_provider:OpenWakeWordProvider"
