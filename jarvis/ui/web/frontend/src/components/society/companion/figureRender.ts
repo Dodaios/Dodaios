@@ -387,7 +387,6 @@ export function shadeFigure(trace: FigureTrace, coats: readonly FigureCoat[]): F
               const along = paint.radial ? Math.hypot(bx + 0.12, by - 0.16, bz - 0.3) * 1.25 : bx * Math.sin(rad) + by * Math.cos(rad) + 0.5;
               if (paint.effect === 3) ring(paint.colors, along * 0.9, skin); else ramp(paint.colors, along, skin);
               cr = skin[0]!; cg = skin[1]!; cb = skin[2]!;
-              if (paint.effect === 1) { const s = specks(bx, by, bz, 7, 0.3) * 2.2; er = s; eg = s; eb = s; }
               if (paint.effect === 4) { er = paint.highlight[0] * 0.3; eg = paint.highlight[1] * 0.3; eb = paint.highlight[2] * 0.3; }
               if (paint.effect === 5) { const s = specks(bx, by, bz, 5, 0.18) * 2.2; er = paint.highlight[0] * s; eg = paint.highlight[1] * s; eb = paint.highlight[2] * s; }
             }
