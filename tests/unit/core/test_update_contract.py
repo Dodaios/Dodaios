@@ -12,7 +12,7 @@ import json
 import re
 import subprocess
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
@@ -59,6 +59,28 @@ def test_the_contract_points_at_files_this_tree_really_has() -> None:
     match = re.search(VERSION_PATTERN, version_text)
     assert match is not None
     assert match.group(1) == jarvis.__version__
+
+
+def test_a_package_move_publishes_a_contract_this_reader_follows() -> None:
+    """The codemod that moves the package rewrites the tracked contract. An
+    installed copy of THIS version reads the result from the new release, so
+    it has to parse - under this reader - to the moved locations."""
+    from scripts.rename import rewrite_package as codemod
+
+    package = jarvis.__name__
+    moved = "pkg_after_the_move"
+    layout = ["__init__.py", "ui/web/launcher.py", "ui/web/dist/index.html"]
+    assert all((REPO / package / path).is_file() for path in layout)
+    shipped = (REPO / CONTRACT_PATH).read_bytes()
+
+    published = codemod.Rewriter(package, moved, layout).transform(CONTRACT_PATH, shipped)
+
+    assert parse_update_contract(published.decode("utf-8")) == replace(
+        read_update_contract(REPO),
+        ui_bundle_dir=f"{moved}/ui/web/dist",
+        launcher_module=f"{moved}.ui.web.launcher",
+        version_file=f"{moved}/__init__.py",
+    )
 
 
 def test_the_contract_agrees_with_every_other_copy_of_these_names() -> None:

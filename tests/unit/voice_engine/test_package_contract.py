@@ -8,6 +8,7 @@ from pathlib import Path
 
 import jarvis.voice_engine as engine
 from jarvis.voice_engine import models
+from tests.package_names import PACKAGE_NAMES, is_package_module
 
 PACKAGE = Path(engine.__file__).parent
 _HEAVY = {"onnxruntime", "sherpa_onnx", "torch", "pocket_tts", "faster_qwen3_tts", "mlx", "soxr",
@@ -27,12 +28,17 @@ def _imports(path: Path) -> list[tuple[str, bool]]:
     return found
 
 
+def _is_engine_module(module: str) -> bool:
+    engines = [f"{package}.voice_engine" for package in PACKAGE_NAMES]
+    return any(module == engine or module.startswith(engine + ".") for engine in engines)
+
+
 def test_engine_imports_nothing_from_the_app() -> None:
     offenders = [
         (path.name, module)
         for path in PACKAGE.rglob("*.py")
         for module, _ in _imports(path)
-        if module.startswith("jarvis.") and not module.startswith("jarvis.voice_engine")
+        if is_package_module(module) and not _is_engine_module(module)
     ]
     assert offenders == []
 

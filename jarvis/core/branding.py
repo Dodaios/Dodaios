@@ -175,6 +175,14 @@ LEGACY_MCP_TOOLS_SERVER_NAMES = ("jarvis",)
 MCP_AGENTS_SERVER_NAME = "dodaios-agents"
 LEGACY_MCP_AGENTS_SERVER_NAMES = ("jarvis-agents",)
 
+# --- Import names --------------------------------------------------------------
+# Every import name the Python package has been published under. A stored
+# command such as ``python -m <name>.plugins.tool.connected_server`` names its
+# module by one of them and is configuration on somebody's disk, so each name
+# stays recognised for good. The name the package is imported as right now is
+# never restated: code reads it off the package itself (``__name__``).
+LEGACY_PACKAGE_NAMES = ("jarvis",)
+
 __all__ = [
     "CLI_COMMAND_NAME",
     "CLI_COMMAND_NAMES",
@@ -186,6 +194,7 @@ __all__ = [
     "LEGACY_CLI_COMMAND_NAMES",
     "LEGACY_CONTROL_CLI_COMMAND_NAMES",
     "LEGACY_OFFICIAL_REPO_SLUGS",
+    "LEGACY_PACKAGE_NAMES",
     "LEGACY_PLUGIN_GROUP_NAMESPACES",
     "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
     "DISTRIBUTION_NAME",

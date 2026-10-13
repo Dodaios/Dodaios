@@ -126,6 +126,40 @@ def test_arbitrary_stdio_commands_are_forbidden(args):
     )
 
 
+def test_a_manifest_may_name_the_server_under_every_package_name():
+    """Published manifests keep the module name they were published with."""
+    from jarvis.core import branding
+
+    assert gate.LEGACY_PACKAGE_NAMES == branding.LEGACY_PACKAGE_NAMES
+    here = PATH.partition("/")[0]
+    assert here == branding.__name__.partition(".")[0]
+    for package in {here, *gate.LEGACY_PACKAGE_NAMES}:
+        server = {
+            "type": "stdio",
+            "command": "python",
+            "args": ["-m", f"{package}.plugins.tool.connected_server", "some_plugin"],
+        }
+        assert gate.is_public_catalog_mcp(
+            PATH.replace("github", "some-plugin"), manifest(server, "some_plugin")
+        ), package
+        amd = {
+            "type": "stdio",
+            "command": "python",
+            "args": ["-m", f"{package}.marketplace.amd_mcp"],
+        }
+        assert gate.is_public_catalog_mcp(
+            PATH.replace("github", "amd-gpu"), manifest(amd, "amd_gpu")
+        ), package
+    stranger = {
+        "type": "stdio",
+        "command": "python",
+        "args": ["-m", "other.plugins.tool.connected_server", "some_plugin"],
+    }
+    assert not gate.is_public_catalog_mcp(
+        PATH.replace("github", "some-plugin"), manifest(stranger, "some_plugin")
+    )
+
+
 def test_normalized_stdio_identity_is_allowed():
     server = {
         "type": "stdio",

@@ -188,7 +188,7 @@ def write_ico(path: Path, members: list[Image.Image]) -> None:
 def logo_ts_source(d: str) -> str:
     return (
         "// Generated from assets/brand/dodaios-logo.svg by scripts/make_app_icon.py.\n"
-        '// The Personal Jarvis mark in a 0 0 256 256 viewBox; fill it with fill-rule="evenodd".\n'
+        '// The Dodaios mark in a 0 0 256 256 viewBox; fill it with fill-rule="evenodd".\n'
         f'export const JARVIS_LOGO_PATH =\n  "{d}";\n'
     )
 

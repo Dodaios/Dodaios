@@ -3,7 +3,7 @@ export function serverOrigin(value) {
   const url = new URL(value);
   if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.username || url.password
       || (url.pathname !== "/" && url.pathname !== "") || url.search || url.hash) {
-    throw new Error("Use the local Jarvis address: http://127.0.0.1:PORT");
+    throw new Error("Use the local Dodaios address: http://127.0.0.1:PORT");
   }
   return url.origin;
 }

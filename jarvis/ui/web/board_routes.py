@@ -226,7 +226,7 @@ async def personal_categories(
     request: Request,
     window_days: int | None = Query(None, ge=1, le=365),
 ) -> CategoriesResponse:
-    """Usage broken down by the six task categories ("what did you use Jarvis
+    """Usage broken down by the six task categories ("what did you use Dodaios
     for"). ``window_days`` omitted = all history.
     """
     store = _require_store(request)
