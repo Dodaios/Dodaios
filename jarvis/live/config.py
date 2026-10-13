@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from jarvis.core.agent_brief import AGENT_BRIEF_RULE
 from jarvis.cu.direct import COMPUTER_CONTROL_RULES
+from jarvis.live.coordination import WORK_STATUS_RULE, conversation_rules
 from jarvis.live.product import PRODUCT_BRIEF
 from jarvis.live.recovery import HISTORY_CONTEXT_RULE
 
@@ -120,13 +121,7 @@ class LiveConfig(BaseModel):
                 "A request for a NEW coding agent (or several: 'two Claude Code agents') is "
                 "workspace-orchestrate create in the named or visible workspace, with cli, "
                 "count and the task as prompt; never an existing agent and never spawn_worker. "
-                "When the user asks how far the coding agents are, whether one is done, who "
-                "is waiting for them, or which branch a workspace is on, call "
-                "workspace-orchestrate status once: it covers every open agent and each "
-                "workspace's git state. Say the takeaway in a sentence or two and name who "
-                "needs the user; never read out lists, diffs or code. When the user wants to "
-                "hear when an agent they started themselves is done, call watch for it; a "
-                "task you sent is reported back on its own. "
+                + WORK_STATUS_RULE
                 + AGENT_BRIEF_RULE
                 + " "
                 + (COMPUTER_CONTROL_RULES if computer else "")
@@ -165,7 +160,8 @@ class LiveConfig(BaseModel):
                 + language_rule
                 + HISTORY_CONTEXT_RULE
                 + "Be natural, concise and helpful. "
-                "Backchannel policy: Use moderate backchannels. "
+                + conversation_rules("the backend")
+                + "Backchannel policy: Use moderate backchannels. "
                 "Interruption policy: Listen when interrupted. "
                 "Stopping speech does not cancel work. "
                 "Call lifetime belongs to Dodaios. Delegate a hang-up request to the backend; "
