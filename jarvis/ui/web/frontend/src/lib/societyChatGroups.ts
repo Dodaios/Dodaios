@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEventStore } from "@/store/events";
+import { spreadDelay } from "@/lib/connectBudget";
 import type { TeamGoalState, TeamTaskState } from "@/lib/societyApi";
 
 export interface SocietyChatGroup {
@@ -28,13 +29,45 @@ const body = (data: unknown): RequestInit => ({
   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
 });
 
+/**
+ * How long until a polled query is due again, `periodMs` on average.
+ *
+ * The period is spread around itself (`spreadDelay`: half to one and a half
+ * times), so windows and panes that started together do not knock together
+ * for ever. The spread is taken from the time of the last answer instead of
+ * a fresh random number, for one reason: several components watch the same
+ * query (the office stage, the team board, the agents view), each with its
+ * own timer. With a number of their own they would drift apart and send one
+ * request each; with the same number they stay due at the same moment and
+ * React Query folds them into one request.
+ *
+ * `lastMs` is when the query last answered, with data or with an error (so a
+ * failing endpoint is asked again after a period, not at once); 0 = not yet.
+ */
+export function nextPollIn(lastMs: number, periodMs: number, now: number = Date.now()): number {
+  if (lastMs <= 0) return periodMs;
+  const phase = (lastMs % POLL_PHASE_MS) / POLL_PHASE_MS;
+  return Math.max(POLL_FLOOR_MS, lastMs + spreadDelay(periodMs, () => phase) - now);
+}
+/** A prime number of milliseconds: answers a few ms apart land on unrelated phases. */
+const POLL_PHASE_MS = 9973;
+/** An overdue poll (the machine slept) is asked this soon, not in a tight loop; small, so watchers stay in step. */
+const POLL_FLOOR_MS = 250;
+
+const GROUPS_POLL_MS = 10_000;
+const ROUND_POLL_MS = 2_000;
+
 export function useSocietyChatGroups(enabled = true) {
   return useQuery({
     queryKey: ["society", "chat-groups"],
     queryFn: async () => (await json<{ groups: SocietyChatGroup[] }>("/api/society/chat-groups")).groups,
     enabled,
     staleTime: 15_000,
-    refetchInterval: 10_000,
+    // Jittered (AP-33), and not tied to `document.visibilityState`: the desktop WebView reports a visible
+    // window as hidden, which would stop this poll for good and leave a team made in chat without its studio.
+    // `enabled` is what keeps a caller that is really off screen quiet.
+    refetchInterval: (query) => nextPollIn(Math.max(query.state.dataUpdatedAt, query.state.errorUpdatedAt), GROUPS_POLL_MS),
+    refetchIntervalInBackground: true,
   });
 }
 
@@ -61,12 +94,20 @@ export interface SocietyMeeting {
 
 const meetingUrl = (groupId: string) => `/api/society/chat-groups/${encodeURIComponent(groupId)}/meeting`;
 
+/** One read of a group's meeting, for callers that schedule their own reads (the office's studio boards). */
+export function fetchSocietyMeeting(groupId: string, signal?: AbortSignal): Promise<SocietyMeeting> {
+  return signal ? json<SocietyMeeting>(meetingUrl(groupId), { signal }) : json<SocietyMeeting>(meetingUrl(groupId));
+}
+
 export function useSocietyMeeting(groupId: string) {
   return useQuery({
     queryKey: ["society", "meeting", groupId],
-    queryFn: () => json<SocietyMeeting>(meetingUrl(groupId)),
-    // Poll only while a round runs; an idle transcript changes only when someone sends.
-    refetchInterval: (query) => (query.state.data?.running ? 2_000 : false),
+    queryFn: () => fetchSocietyMeeting(groupId),
+    // Poll only while a round runs; an idle transcript changes only when someone sends. Jittered, and not tied
+    // to `document.visibilityState` (see useSocietyChatGroups): a running round must not freeze in the desktop window.
+    refetchInterval: (query) => (query.state.data?.running
+      ? nextPollIn(Math.max(query.state.dataUpdatedAt, query.state.errorUpdatedAt), ROUND_POLL_MS) : false),
+    refetchIntervalInBackground: true,
   });
 }
 

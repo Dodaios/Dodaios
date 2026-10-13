@@ -50,7 +50,7 @@ works with any single key.
 | Source | Pays | XP | Limit |
 |---|---|---|---|
 | `daily_visit` | person | 25 | once per day (server date) |
-| `floor_discovered` | person | 20 | once per floor (`agents`, `coding`, `arcade`) |
+| `floor_discovered` | person | 20 | once per floor (`agents`, `coding`, `arcade`, `hall`) |
 | `dog_petted` | person | 3 | every 60 s, 30/day |
 | `dog_treat` | person | 10 | every 5 min, 30/day |
 | `arcade_round` | person | 8 | every 45 s, 80/day (a scored round) |
@@ -147,7 +147,8 @@ Reduced motion keeps the information (card, plate, toast) and drops the motion.
 - On the figures: enlisted insignia on both upper sleeves, officer and
   general insignia on shoulder boards, the decoration over the left breast
   pocket (the aiguillette from the right shoulder), the cap on the head.
-- **The Level Hall** on the agents floor (office-map.md §5f): the rank wall,
+- **The Level Hall**, the building's top floor (floor 3 in the elevator,
+  office-map.md §5f; its first visit pays `floor_discovered` like every floor): the rank wall,
   the studio dais, a display case per uniform piece along the runner and the
   service guide. Stepping on the dais opens the screen's Studio page, the
   guide its Overview, a case its piece on the promotion road.

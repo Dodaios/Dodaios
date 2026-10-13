@@ -6,7 +6,7 @@
  * in the indicator and cannot be pressed. A pressed button lights its rim
  * for a moment, then the panel closes and the doors start to move.
  *
- * Keys: the floor's number (0, 1, 2) presses it, arrows move between the
+ * Keys: the floor's number (0 to 3) presses it, arrows move between the
  * buttons, Escape (or E) closes. It is a dialog, so the character stands
  * still while it is open (`ownsKeyboard`). Part of the diorama: one steel
  * palette in light and dark mode.

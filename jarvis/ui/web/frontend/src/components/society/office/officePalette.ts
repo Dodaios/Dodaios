@@ -62,6 +62,13 @@ export const DEPARTMENT_ZONES = [
   { rug: "#e2cbc0", panel: "#c48e7a", seat: "#b0705b" },
   { rug: "#c6c1d5", panel: "#918aad", seat: "#766e96" },
   { rug: "#b8d0c9", panel: "#6f9f94", seat: "#528579" },
+  // The agents floor's campus holds up to twelve studios: mustard, rose, sky, olive, cocoa and indigo follow.
+  { rug: "#e2d3a2", panel: "#c2a24c", seat: "#a8873a" },
+  { rug: "#d8bfc7", panel: "#b0728a", seat: "#955a72" },
+  { rug: "#b5cbd8", panel: "#5e93b0", seat: "#467a96" },
+  { rug: "#cbcfa6", panel: "#92975a", seat: "#787d44" },
+  { rug: "#d5c0b0", panel: "#a67a5e", seat: "#8b624a" },
+  { rug: "#bbc2d5", panel: "#6d7aac", seat: "#566392" },
 ] as const;
 
 /** Rug tints per department (kept for callers that only need the floor colour). */
@@ -183,34 +190,51 @@ export const ROOM_FLOOR_COLOURS = {
   levels: { base: "#e7e0d0", accents: ["#e7e0d0", "#2b2d33", "#bdb3a0", "#b8964f"] },
 } as const;
 
+/**
+ * The agents floor's rooms take their floors from the campus's own finishes instead: the plank oak of the open
+ * floor (break room), the same oak a tone deeper and laid as a chevron (lead office), the limestone of the window
+ * band (lobby, and as terrazzo with oak and stone chips in the wardrobe) and the slate felt of the focus booths
+ * (team room). One floor family from the studios to the last room.
+ */
+export const CAMPUS_ROOM_FLOORS = {
+  lead: { base: "#a98a64", accents: ["#b08f69", "#9f805b", "#a98964", "#b89872", "#967752"] },
+  team: { base: "#c3cbd3", accents: ["#bac3cc", "#cbd2d9", "#bfc7cf"] },
+  wardrobe: { base: "#e7e0d4", accents: ["#d3cabb", "#c9ad8c", "#b9b0a3", "#efe9df"] },
+  reception: { base: "#e7e0d4", accents: ["#ddd5c7", "#efe9df", "#e2dace"] },
+  break: { base: "#dcc6a1", accents: ["#e4d0ae", "#dcc6a1", "#e9d8ba", "#d8bf98"] },
+} as const;
+
 /** Checkpoint gold: floor ring, hexagon token and the label badge. */
 export const CHECKPOINT_GOLD = { ring: "#f5b83d", rim: "#e0a02a", face: "#f7c65a", faceDeep: "#e39b1f", icon: "#ffffff" } as const;
 
 /**
- * The lead office's executive suite: dark walnut, brass, oxblood leather and a
- * navy rug. Brass is the one deliberately metallic material outside the
- * railings, so the boss's room reads as the most precious place on the floor.
+ * The lead office's executive suite, in the campus's own materials a tone
+ * deeper: smoked oak, bronze, cognac leather and a slate rug. (The keys keep
+ * the names the suite was built with: `walnut*` is its timber, `brass` its
+ * metal.) Bronze is the one metallic accent beside the floor's dark steel, so
+ * the boss's room reads as the most precious place on the floor without
+ * leaving its family.
  */
 export const LEAD_SUITE = {
-  walnut: "#5b3a25",
-  walnutDark: "#3a2416",
-  walnutLight: "#80583a",
-  brass: "#d8ae52",
-  leather: "#7a2c22",
-  leatherDark: "#4e1a14",
-  leatherTan: "#a9683c",
-  velvetGold: "#d9a441",
+  walnut: "#8b6b4a",
+  walnutDark: "#6a4f37",
+  walnutLight: "#ad8a63",
+  brass: "#b08d5c",
+  leather: "#8e5a3a",
+  leatherDark: "#6b4129",
+  leatherTan: "#b98558",
+  velvetGold: "#c9a25a",
   chrome: "#c9ced6",
   blackGlass: "#12141a",
   marble: "#eeeae3",
   led: "#ffd08a",
   lampGlass: "#2f7a4f",
   shade: "#fff0d2",
-  backlight: "#8a5a36",
+  backlight: "#a07a52",
   glass: "#e8d3a8",
-  rug: { field: "#1d2744", inner: "#26335a", border: "#c9a24a", accent: "#8f2f3a" },
+  rug: { field: "#39414d", inner: "#48515e", border: "#b08d5c", accent: "#8e5a3a" },
   globe: { ocean: "#5f8f96", land: "#e2cd98", line: "#3d5c61" },
   bottles: ["#b8661e", "#4f7a3a", "#d9e6ea", "#8c2a2a", "#c79a3a"],
   trophy: "#e8b949",
-  dog: { basket: "#6d4a33", cushion: "#8f2f3a" },
+  dog: { basket: "#8b6b4a", cushion: "#8e5a3a" },
 } as const;
