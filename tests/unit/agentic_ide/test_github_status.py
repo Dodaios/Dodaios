@@ -85,7 +85,7 @@ def test_pr_states_survive_branch_deletion(state, extra, expected):
     assert value.ci.state == "success"
 
 
-def test_local_only_has_no_badge_and_green_checks_do_not_mean_merged():
+def test_local_only_is_unpublished_and_green_checks_do_not_mean_merged():
     assert not status.parse_status(TARGET, payload(head=""), 1).published
     value = status.parse_status(TARGET, payload(checks=rollup()), 1)
     assert value.published and value.state == "branch"
@@ -213,7 +213,7 @@ def test_multiple_panes_share_requests_and_errors_are_unknown(monkeypatch):
     monkeypatch.setattr(status, "checkout", local)
     monkeypatch.setattr(
         status,
-        "owned_branch",
+        "pane_branch",
         lambda record: SimpleNamespace(folder="worktree", branch=TARGET.branch, created_at=0),
     )
     monkeypatch.setattr(
