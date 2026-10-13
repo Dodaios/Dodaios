@@ -94,6 +94,8 @@ export interface WikiSearchHit {
   path: string;
   snippet: string;
   score: number;
+  /** Found by semantic search: the page means the same but shares no word. */
+  by_meaning?: boolean;
 }
 
 export interface WikiSearchResponse {
@@ -215,6 +217,48 @@ export async function fetchWikiHealth(): Promise<WikiHealthSnapshot | null> {
   } catch {
     return null;
   }
+}
+
+export type WikiSemanticSearchState = "off" | "downloading" | "indexing" | "ready" | "error";
+
+/** `GET/PUT /api/wiki/semantic-search`: the switch, the facts, the step in progress. */
+export interface WikiSemanticSearchStatus {
+  enabled: boolean;
+  /** False where this system cannot run the search model at all. */
+  available: boolean;
+  state: WikiSemanticSearchState;
+  message: string;
+  /** 0..1 within the current step, or null when there is nothing to measure. */
+  progress: number | null;
+  model_present: boolean;
+  download_bytes: number;
+  pages: number;
+  passages: number;
+}
+
+/**
+ * State of semantic search. `null` means the backend has no such setting (an
+ * older one answers 404), and then there is simply no row. Every other failure
+ * throws, so a poll that fails once keeps the last state on screen instead of
+ * making the row vanish in the middle of a download.
+ */
+export async function fetchWikiSemanticSearch(): Promise<WikiSemanticSearchStatus | null> {
+  const res = await fetch("/api/wiki/semantic-search");
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return (await res.json()) as WikiSemanticSearchStatus;
+}
+
+export async function setWikiSemanticSearch(enabled: boolean): Promise<WikiSemanticSearchStatus> {
+  const res = await fetch("/api/wiki/semantic-search", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  }
+  return (await res.json()) as WikiSemanticSearchStatus;
 }
 
 export async function rebuildWikiIndex(): Promise<WikiReindexResponse> {

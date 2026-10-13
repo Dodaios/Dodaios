@@ -30,6 +30,17 @@ Relevance contract (``jarvis.brain.wiki_relevance``):
     When the gates decline a turn the knowledge is not lost: the router brain
     holds the ``wiki-recall`` tool and can look something up deliberately.
 
+Semantic search (optional, off unless the user switched it on):
+    The word search finds a page by the words it shares with the question. A
+    question phrased differently from the note, or asked in another language,
+    shares none. With semantic search active the injector also asks for pages
+    that MEAN something close to the whole question and appends the ones the
+    word search did not already bring. The two legs are independent: the word
+    search runs exactly as it does without semantic search, a slow or broken
+    semantic leg costs the turn nothing but its own hits, and a turn with no
+    personal anchor (the strict verdict) gets no semantic hits at all, because
+    for this kind of search a "nearest page" exists for every question.
+
 Latency contract:
     The whole ``maybe_inject`` coroutine must complete in <= ``latency_budget_ms``
     milliseconds.  It uses ``asyncio.wait_for`` to enforce this.  A slow vault
@@ -47,7 +58,8 @@ import asyncio
 import logging
 import re
 import time
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from jarvis.memory.wiki.search import VaultSearch
@@ -65,6 +77,18 @@ from jarvis.brain.wiki_relevance_vocab import STOPWORDS
 from jarvis.memory.wiki.telemetry import telemetry
 
 log = logging.getLogger(__name__)
+
+#: Similarity a page must reach to ride along on a turn nobody asked it into.
+#: Measured on a real vault with the multilingual model: questions about the
+#: user's own notes score 0.45 to 0.65 against the right page, while unrelated
+#: questions with a personal ring ("tell me a joke") stay below 0.40.
+SEMANTIC_MIN_SCORE = 0.42
+
+#: A further semantic hit must come close to the best one of the same turn.
+SEMANTIC_RELATIVE_FLOOR = 0.85
+
+#: Pages the semantic leg may add to one turn.
+SEMANTIC_MAX_HITS = 3
 
 # Tokenize on whitespace and common punctuation
 _TOKEN_RE = re.compile(r"[^\w\s]|\s+", re.UNICODE)
@@ -153,6 +177,7 @@ class WikiContextInjector:
         self,
         *,
         search: VaultSearch | None,
+        semantic_search: Callable[[], Any] | None = None,
         max_chars: int = 12_000,
         latency_budget_ms: int = 150,
         min_keyword_length: int = 4,
@@ -168,6 +193,10 @@ class WikiContextInjector:
         # wider budget covers the cold path when that race is lost, and is
         # far below anything audible next to a multi-second brain call.
         self._search = search
+        # A provider, not an instance: the user can switch semantic search on
+        # or off while the app runs, and the injector must follow without
+        # being rebuilt. It returns ``None`` while the feature is off.
+        self._semantic_search = semantic_search
         self._max_chars = max_chars
         self._latency_budget_ms = latency_budget_ms
         self._min_keyword_length = min_keyword_length
@@ -247,60 +276,78 @@ class WikiContextInjector:
             user_text,
             min_length=self._min_keyword_length,
         )
-        if not keywords:
+        semantic = self._semantic_for_turn(strict)
+        if not keywords and semantic is None:
             self._miss(t0, "no_keywords")
             return system_prompt
 
         query = " ".join(keywords)
-
-        # Run search with a strict latency budget
         budget_ms = self._latency_budget_ms
+        # Started before the word search is awaited so both run side by side
+        # inside the one budget. It embeds the whole question, not keywords.
+        semantic_task = (
+            asyncio.ensure_future(_run_semantic(semantic, user_text))
+            if semantic is not None
+            else None
+        )
+
         try:
-            retrieval = _run_search(self._search, query)
-            hits = await asyncio.wait_for(
-                retrieval,
-                timeout=budget_ms / 1000.0,
-            )
-        except TimeoutError:
-            log.warning(
-                "WikiContextInjector timed out after %dms (budget=%dms) — "
-                "skipping wiki context for this turn",
-                int((time.monotonic() - t0) * 1000),
-                budget_ms,
-            )
-            self._miss(t0, "timeout")
-            return system_prompt
-        except Exception:  # noqa: BLE001
-            log.warning(
-                "WikiContextInjector search raised unexpectedly — "
-                "skipping wiki context",
-                exc_info=True,
-            )
-            self._miss(t0, "search_error")
-            return system_prompt
+            hits: list = []
+            miss_reason = "no_keywords"
+            if keywords:
+                # Run search with a strict latency budget
+                try:
+                    retrieval = _run_search(self._search, query)
+                    hits = await asyncio.wait_for(
+                        retrieval,
+                        timeout=budget_ms / 1000.0,
+                    )
+                except TimeoutError:
+                    log.warning(
+                        "WikiContextInjector timed out after %dms (budget=%dms) — "
+                        "skipping wiki context for this turn",
+                        int((time.monotonic() - t0) * 1000),
+                        budget_ms,
+                    )
+                    self._miss(t0, "timeout")
+                    return system_prompt
+                except Exception:  # noqa: BLE001
+                    log.warning(
+                        "WikiContextInjector search raised unexpectedly — "
+                        "skipping wiki context",
+                        exc_info=True,
+                    )
+                    self._miss(t0, "search_error")
+                    return system_prompt
 
+                miss_reason = "no_hits"
+                # Gate 2 (post-retrieval): the index matches on ANY query term, so
+                # a page sharing one common word arrives looking just like one
+                # that is on topic. Coverage + a within-call relative floor
+                # separate them.
+                if hits and self._relevance_gate:
+                    hits = relevant_hits(
+                        hits,
+                        query,
+                        min_coverage=self._strict_min_coverage
+                        if strict
+                        else self._min_coverage,
+                        min_relative_score=self._min_relative_score,
+                    )
+                    if not hits:
+                        miss_reason = (
+                            "no_relevant_hits_strict" if strict else "no_relevant_hits"
+                        )
+
+            semantic_hits = await self._semantic_hits(semantic_task, t0, hits)
+        finally:
+            # Every way out, a cancelled turn included: the lookup must not
+            # outlive the turn that asked for it. A finished one ignores this.
+            _abandon(semantic_task)
+        hits = [*hits, *semantic_hits]
         if not hits:
-            self._miss(t0, "no_hits")
+            self._miss(t0, miss_reason)
             return system_prompt
-
-        # Gate 2 (post-retrieval): the index matches on ANY query term, so a
-        # page sharing one common word arrives looking just like one that is
-        # on topic. Coverage + a within-call relative floor separate them.
-        if self._relevance_gate:
-            hits = relevant_hits(
-                hits,
-                query,
-                min_coverage=self._strict_min_coverage
-                if strict
-                else self._min_coverage,
-                min_relative_score=self._min_relative_score,
-            )
-            if not hits:
-                self._miss(
-                    t0,
-                    "no_relevant_hits_strict" if strict else "no_relevant_hits",
-                )
-                return system_prompt
 
         latency_ms = int((time.monotonic() - t0) * 1000)
 
@@ -336,15 +383,70 @@ class WikiContextInjector:
         augmented = system_prompt + "\n\n" + frame_context_block(context_parts)
 
         telemetry.inc("wiki_context_hits")
+        if semantic_hits:
+            telemetry.inc("wiki_context_semantic_hits")
         log.info(
             "WikiContextInjector injected=True hits=%d latency_ms=%d "
-            "verdict=%s mode=%s",
+            "verdict=%s mode=%s semantic=%d",
             hits_included,
             latency_ms,
             verdict_reason,
             "strict" if strict else "standard",
+            len(semantic_hits),
         )
         return augmented
+
+    def _semantic_for_turn(self, strict: bool) -> Any | None:
+        """The semantic search to ask this turn, or ``None``.
+
+        A strict verdict means the turn carries no personal anchor. The word
+        search may still answer it when a page covers nearly the whole
+        question; a similarity score cannot make that distinction, so the
+        semantic leg stays out of such turns.
+        """
+        if self._semantic_search is None or strict:
+            return None
+        try:
+            semantic = self._semantic_search()
+        except Exception:  # noqa: BLE001 - an optional engine never breaks a turn
+            log.debug("Semantic wiki search is unavailable this turn", exc_info=True)
+            return None
+        # The two engines must look at the same vault, or a hit would name a
+        # page the word search's vault does not have.
+        own_root = getattr(self._search, "_root", None)
+        other_root = getattr(semantic, "vault_root", None)
+        if own_root is not None and other_root is not None and own_root != other_root:
+            return None
+        return semantic
+
+    async def _semantic_hits(
+        self, task: asyncio.Future | None, t0: float, lexical_hits: list
+    ) -> list:
+        """Semantic hits for pages the word search did not already bring."""
+        if task is None:
+            return []
+        remaining = self._latency_budget_ms / 1000.0 - (time.monotonic() - t0)
+        try:
+            found = await asyncio.wait_for(task, timeout=max(remaining, 0.005))
+        except TimeoutError:
+            log.debug("Semantic wiki search missed the turn's budget; skipped")
+            return []
+        except Exception:  # noqa: BLE001 - the word search result stands on its own
+            log.debug("Semantic wiki search failed this turn", exc_info=True)
+            return []
+        if not found:
+            return []
+        floor = found[0].score * SEMANTIC_RELATIVE_FLOOR
+        # Path objects, not strings: on Windows the same page can arrive in two
+        # spellings that differ only in case.
+        taken = {getattr(hit, "path", None) for hit in lexical_hits}
+        extra: list = []
+        for hit in found:
+            if hit.score < floor or hit.path in taken:
+                continue
+            taken.add(hit.path)
+            extra.append(hit)
+        return extra
 
 
 async def _run_search(search: VaultSearch, query: str) -> list:
@@ -355,3 +457,18 @@ async def _run_search(search: VaultSearch, query: str) -> list:
     """
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, search.search, query)
+
+
+async def _run_semantic(search: Any, text: str) -> list:
+    """Ask the semantic engine without ever waiting for its model."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: search.search(text, k=SEMANTIC_MAX_HITS, min_score=SEMANTIC_MIN_SCORE),
+    )
+
+
+def _abandon(task: asyncio.Future | None) -> None:
+    """Stop waiting for a semantic lookup whose turn already ended."""
+    if task is not None:
+        task.cancel()

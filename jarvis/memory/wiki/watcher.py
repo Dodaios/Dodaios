@@ -418,6 +418,7 @@ class WikiWatcher:
                 operation=operation,
                 path=rel_path,
             )
+            self._maintain_semantic_index(abs_path, operation, rel_path)
         except Exception as exc:  # noqa: BLE001
             log.warning(
                 "wiki_watcher_index_failed",
@@ -433,6 +434,31 @@ class WikiWatcher:
                 )
             except Exception:  # noqa: BLE001
                 log.debug("wiki_watcher: health recording failed", exc_info=True)
+
+
+    def _maintain_semantic_index(self, abs_path: Path, operation: str, rel_path: str) -> None:
+        """Keep the semantic index in step with the same change, when it is on.
+
+        Outside the word index's lock and its error handling on purpose: the
+        word index is already correct at this point, and encoding a page
+        takes long enough that it must not hold other page timers up.
+        """
+        try:
+            from jarvis.memory.wiki.semantic_search import get_active
+
+            active = get_active()
+            if active is None or active.vault_root != self.vault_root:
+                return
+            if operation == "remove":
+                active.remove_page(abs_path)
+            else:
+                active.index_page(abs_path)
+        except Exception:  # noqa: BLE001 - the next start brings the index up to date
+            log.warning(
+                "wiki_watcher_semantic_index_failed",
+                exc_info=True,
+                extra={"path": rel_path},
+            )
 
 
 class _WatchdogBridge(FileSystemEventHandler):  # type: ignore[misc]
