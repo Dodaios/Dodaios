@@ -165,7 +165,7 @@ const REPOS = {
     { name: "o/r", description: "", private: false, fork: false, url: "", pushed_at: "" },
   ],
 };
-const ACTION = /\/api\/agentic-ide\/git\/(fetch|pull|push|commit|switch|pull-request|branch\/update|branch\/delete)$/;
+const ACTION = /\/api\/agentic-ide\/git\/(fetch|pull|commit|switch|branch\/push|branch\/pull-request|branch\/update|branch\/delete)$/;
 
 beforeEach(() => {
   answer = OVERVIEW;
@@ -238,7 +238,7 @@ describe("GitOverviewTab — the checkout at a glance", () => {
     expect(next.dataset.step).toBe("push");
     expect(next.textContent).toContain("Push 2 commits to origin/feature/wip");
     fireEvent.click(screen.getByTestId("git-next-action"));
-    await vi.waitFor(() => expect(posted("push")).toEqual([{ folder: "/code/app", branch: "" }]));
+    await vi.waitFor(() => expect(posted("branch/push")).toEqual([{ workspace_id: "w1", branch: "" }]));
     // The overview is read again once the action finished.
     await vi.waitFor(() => expect(calls.some((url) => url.includes("refresh=true"))).toBe(true));
   });
@@ -273,12 +273,12 @@ describe("GitOverviewTab — the checkout at a glance", () => {
     expect((await screen.findByTestId("git-next")).textContent).toContain("Pull 3 commits from origin/feature/wip");
     expect(screen.getByTestId("git-sync-sentence").textContent).toBe("origin/feature/wip is 3 commits ahead of this computer.");
     fireEvent.click(screen.getByTestId("git-next-action"));
-    await vi.waitFor(() => expect(posted("pull")).toEqual([{ folder: "/code/app", rebase: false }]));
+    await vi.waitFor(() => expect(posted("pull")).toEqual([{ workspace_id: "w1", rebase: false }]));
     // The branch had diverged: nothing was rewritten, the tab asks first.
     const dialog = await screen.findByTestId("git-confirm");
     expect(dialog.textContent).toContain("Rebase your commits onto the remote ones?");
     fireEvent.click(within(dialog).getByTestId("git-confirm-ok"));
-    await vi.waitFor(() => expect(posted("pull")).toEqual([{ folder: "/code/app", rebase: false }, { folder: "/code/app", rebase: true }]));
+    await vi.waitFor(() => expect(posted("pull")).toEqual([{ workspace_id: "w1", rebase: false }, { workspace_id: "w1", rebase: true }]));
   });
 
   it("offers a rebase for a diverged branch and does nothing when it is cancelled", async () => {
@@ -309,7 +309,7 @@ describe("GitOverviewTab — the checkout at a glance", () => {
     render(<GitOverviewTab />);
     expect((await screen.findByTestId("git-next")).dataset.step).toBe("open_pr");
     fireEvent.click(screen.getByTestId("git-next-action"));
-    await vi.waitFor(() => expect(posted("pull-request")).toEqual([{ folder: "/code/app", title: "", draft: false, branch: "" }]));
+    await vi.waitFor(() => expect(posted("branch/pull-request")).toEqual([{ workspace_id: "w1", branch: "", title: "", draft: false }]));
     await vi.waitFor(() => expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/pull/11"));
   });
 
@@ -434,8 +434,8 @@ describe("GitOverviewTab — what needs attention", () => {
     await vi.waitFor(() => expect(screen.getByTestId("git-cleanup").dataset.phase).toBe("done"));
     // Never forced: the worktree with uncommitted work stayed, and the dialog says why.
     expect(posted("branch/delete")).toEqual([
-      { folder: "/code/app", branch: "feature/done", force: false, remote: false, with_worktree: false },
-      { folder: "/code/app", branch: "feature/old", force: false, remote: false, with_worktree: true },
+      { workspace_id: "w1", branch: "feature/done", force: false, remote: false, with_worktree: false },
+      { workspace_id: "w1", branch: "feature/old", force: false, remote: false, with_worktree: true },
     ]);
     expect(screen.getByTestId("git-cleanup").textContent).toContain("Removed 1 branch");
     expect(screen.getByTestId("git-cleanup-kept").textContent).toContain("uncommitted change");
@@ -648,16 +648,16 @@ describe("GitOverviewTab — branches", () => {
     const local = within(row("wip/local")).getByTestId("git-branch-details");
     expect(within(local).getByTestId("git-act-push").textContent).toBe("Publish");
     fireEvent.click(within(local).getByTestId("git-act-push"));
-    await vi.waitFor(() => expect(posted("push")).toEqual([{ folder: "/code/app", branch: "wip/local" }]));
+    await vi.waitFor(() => expect(posted("branch/push")).toEqual([{ workspace_id: "w1", branch: "wip/local" }]));
     await vi.waitFor(() => expect((within(local).getByTestId("git-act-switch") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(within(local).getByTestId("git-act-switch"));
-    await vi.waitFor(() => expect(posted("switch")).toEqual([{ folder: "/code/app", branch: "wip/local" }]));
+    await vi.waitFor(() => expect(posted("switch")).toEqual([{ workspace_id: "w1", branch: "wip/local" }]));
 
     fireEvent.click(within(row("feature/stale")).getByTestId("git-branch-toggle"));
     const stale = within(row("feature/stale")).getByTestId("git-branch-details");
     await vi.waitFor(() => expect((within(stale).getByTestId("git-act-update") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(within(stale).getByTestId("git-act-update"));
-    await vi.waitFor(() => expect(posted("branch/update")).toEqual([{ folder: "/code/app", branch: "feature/stale" }]));
+    await vi.waitFor(() => expect(posted("branch/update")).toEqual([{ workspace_id: "w1", branch: "feature/stale" }]));
     // The branch the person is on, and the default branch, cannot be deleted from here.
     fireEvent.click(within(row("main")).getByTestId("git-branch-toggle"));
     expect(within(row("main")).queryByTestId("git-act-delete")).toBeNull();
@@ -674,14 +674,14 @@ describe("GitOverviewTab — branches", () => {
     expect(posts).toEqual([]); // the click alone deleted nothing
     fireEvent.click(within(first).getByTestId("git-confirm-ok"));
     await vi.waitFor(() =>
-      expect(posted("branch/delete")).toEqual([{ folder: "/code/app", branch: "feature/draft", force: false, remote: false, with_worktree: false }]),
+      expect(posted("branch/delete")).toEqual([{ workspace_id: "w1", branch: "feature/draft", force: false, remote: false, with_worktree: false }]),
     );
     // The backend found commits that exist nowhere else: a second, explicit question.
     const second = await screen.findByText("feature/draft holds work that exists nowhere else");
     expect(second).toBeTruthy();
     expect(screen.getByTestId("git-confirm").textContent).toContain("Deleting it loses those commits for good.");
     fireEvent.click(screen.getByTestId("git-confirm-ok"));
-    await vi.waitFor(() => expect(posted("branch/delete")[1]).toEqual({ folder: "/code/app", branch: "feature/draft", force: true, remote: false, with_worktree: false }));
+    await vi.waitFor(() => expect(posted("branch/delete")[1]).toEqual({ workspace_id: "w1", branch: "feature/draft", force: true, remote: false, with_worktree: false }));
   });
 
   it("can delete the branch on GitHub too, when asked", async () => {

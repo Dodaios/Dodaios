@@ -206,7 +206,8 @@ export function GitOverviewTab() {
   const workspace = useIdeChatStore((state) => state.workspace);
   const workspaceId = workspace?.id ?? null;
   const { data, error, routeMissing, loading, refresh } = useGitOverview(workspaceId);
-  const actions = useGitActions(data?.root || workspace?.path || "", data?.branch ?? "", refresh);
+  // Fetch and commit name the workspace's own folder; everything else names the workspace.
+  const actions = useGitActions(workspaceId ?? "", workspace?.path ?? "", data?.branch ?? "", refresh);
   const [filter, setFilter] = useState<BranchFilter>("all");
   const [open, setOpen] = useState({ prs: true, branches: true });
   const [menu, setMenu] = useState<{ row: BranchRow; x: number; y: number } | null>(null);
@@ -464,7 +465,7 @@ export function GitOverviewTab() {
       {cleaning && data && (
         <CleanupDialog
           rows={cleaning}
-          folder={data.root}
+          workspaceId={workspace.id}
           onClose={(changed) => {
             setCleaning(null);
             if (changed) refresh();

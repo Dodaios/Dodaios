@@ -5,9 +5,9 @@ import {
   deleteBranch,
   fetchRemotes,
   GitApiError,
-  openPullRequest,
+  openBranchPullRequest,
   pullBranch,
-  pushBranch,
+  pushWorkspaceBranch,
   switchBranch,
   updateBranch,
 } from "@/lib/gitApi";
@@ -49,19 +49,19 @@ export interface GitActions {
  * The two that cannot be undone — rewriting local commits and deleting a
  * branch — only run from a confirmation.
  */
-export function useGitActions(folder: string, branch: string, refresh: () => void): GitActions {
+export function useGitActions(workspaceId: string, folder: string, branch: string, refresh: () => void): GitActions {
   const t = useT();
   const pushToast = useEventStore((state) => state.pushToast);
   const [busy, setBusy] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const running = useRef(false);
   // A question asked about one repository is void once another one is shown.
-  useEffect(() => setConfirmation(null), [folder]);
+  useEffect(() => setConfirmation(null), [workspaceId]);
 
   /** Runs `work`; a rejection whose code is in `handled` is returned instead of shown. */
   const run = useCallback(
     async (key: string, work: () => Promise<string>, handled: string[] = []): Promise<GitApiError | null | undefined> => {
-      if (running.current || !folder) return undefined;
+      if (running.current || !folder || !workspaceId) return undefined;
       running.current = true;
       setBusy(key);
       try {
@@ -79,7 +79,7 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
         refresh();
       }
     },
-    [folder, pushToast, refresh],
+    [folder, pushToast, refresh, workspaceId],
   );
 
   return useMemo<GitActions>(() => {
@@ -90,7 +90,7 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
         confirmLabel: t("ide_side_panel.git.confirm.rebase_ok"),
         run: async () => {
           await run("pull", async () => {
-            await pullBranch(folder, true);
+            await pullBranch(workspaceId, true);
             return fill(t("ide_side_panel.git.done.rebased"), { branch });
           });
         },
@@ -101,7 +101,7 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
       const failure = await run(
         `delete:${row.name}`,
         async () => {
-          await deleteBranch(folder, row.name, { force, remote, withWorktree: Boolean(row.worktree) });
+          await deleteBranch(workspaceId, row.name, { force, remote, withWorktree: Boolean(row.worktree) });
           return fill(t("ide_side_panel.git.done.deleted"), { branch: row.name });
         },
         ["unmerged"],
@@ -131,7 +131,7 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
       },
       pull: () => {
         const pulled = async () => {
-          await pullBranch(folder);
+          await pullBranch(workspaceId);
           return fill(t("ide_side_panel.git.done.pulled"), { branch });
         };
         void run("pull", pulled, ["diverged"]).then((failure) => {
@@ -140,7 +140,7 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
       },
       rebase,
       push: (target = "") => {
-        void run(`push:${target}`, async () => fill(t("ide_side_panel.git.done.pushed"), { upstream: (await pushBranch(folder, target)).upstream }));
+        void run(`push:${target}`, async () => fill(t("ide_side_panel.git.done.pushed"), { upstream: (await pushWorkspaceBranch(workspaceId, target)).upstream }));
       },
       commit: async (message) => {
         const failure = await run("commit", async () => fill(t("ide_side_panel.git.done.committed"), { commit: (await commitAll(folder, message)).commit }));
@@ -148,13 +148,13 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
       },
       switchTo: (target) => {
         void run(`switch:${target}`, async () => {
-          await switchBranch(folder, target);
+          await switchBranch(workspaceId, target);
           return fill(t("ide_side_panel.git.done.switched"), { branch: target });
         });
       },
       update: (target) => {
         void run(`update:${target}`, async () => {
-          await updateBranch(folder, target);
+          await updateBranch(workspaceId, target);
           return fill(t("ide_side_panel.git.done.updated"), { branch: target });
         });
       },
@@ -170,11 +170,11 @@ export function useGitActions(folder: string, branch: string, refresh: () => voi
         }),
       createPullRequest: (target = "") => {
         void run(`pr:${target}`, async () => {
-          const { url } = await openPullRequest(folder, { branch: target });
+          const { url } = await openBranchPullRequest(workspaceId, { branch: target });
           if (url) void openExternalUrl(url);
           return t("ide_side_panel.git.done.pr_opened");
         });
       },
     };
-  }, [branch, busy, confirmation, folder, run, t]);
+  }, [branch, busy, confirmation, folder, run, t, workspaceId]);
 }
