@@ -34,6 +34,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
 from .delivery import DeliveryBusy
+from .display_name import display_name
 from .events import SCHEDULER_ACTOR as _SCHEDULER
 from .events import USER_ACTOR as _USER
 from .events import MsgType, SocietyEnvelope, Tier
@@ -235,14 +236,15 @@ class SocietyScheduler:
                 await self._veto(
                     env,
                     FailureReason.BUDGET_EXHAUSTED,
-                    f"{target.name} spent ${spent:.2f} of ${target.daily_budget_usd:.2f} today",
+                    f"{display_name(target)} spent ${spent:.2f} of "
+                    f"${target.daily_budget_usd:.2f} today",
                 )
                 return
         if self.active_runs(target.agent_id) >= target.max_concurrent_runs:
             await self._veto(
                 env,
                 FailureReason.CONCURRENCY_CAP,
-                f"{target.name} already runs {target.max_concurrent_runs} task(s)",
+                f"{display_name(target)} already runs {target.max_concurrent_runs} task(s)",
             )
             return
         if self._dispatch is None:
@@ -261,7 +263,7 @@ class SocietyScheduler:
                 to_agent=env.from_agent,
                 trace_id=env.trace_id,
                 parent_event_id=env.event_id,
-                payload={"run_id": run_id, "text": f"{target.name} took the task"},
+                payload={"run_id": run_id, "text": f"{display_name(target)} took the task"},
             )
         )
 

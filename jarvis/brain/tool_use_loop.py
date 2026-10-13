@@ -17,7 +17,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -55,6 +55,7 @@ from .loop_control import (
 )
 from .streaming import StreamingAggregate, aggregate, aggregate_with_consumer
 from .tool_call_recovery import extract_leaked_tool_calls
+from .tool_shortlist import FIND_TOOLS_NAME
 
 # Central backstop for tool-output bloat: no tool result may exceed this many
 # chars in the tool-role message fed back to the brain. Individual tools should
@@ -641,10 +642,21 @@ class ToolUseLoop:
         reasoning_effort: ReasoningEffort | None = None,
         tool_context: dict[str, Any] | None = None,
         loop_control: LoopControl | None = None,
+        deferred_tools: Iterable[str] = (),
     ) -> None:
         self._brain = brain
         self._tools = tools
         self._executor = executor
+        # Tools of this turn whose schemas are NOT sent (jarvis/brain/
+        # tool_shortlist.py). They stay in ``tools`` and run when called; the
+        # ``find_tools`` tool reveals the ones the model asked about, and the
+        # next round then carries their schemas.
+        self._hidden: set[str] = {name for name in deferred_tools if name in tools}
+        self._surface_changed = False
+        finder = tools.get(FIND_TOOLS_NAME) if self._hidden else None
+        bind = getattr(finder, "bind", None)
+        if callable(bind):
+            bind(self._reveal_tools)
         # Caller-supplied keys for every tool's ``ExecutionContext.config``
         # (see BrainDispatcher.tool_context). Per-turn keys set below win.
         self._tool_context = dict(tool_context or {})
@@ -809,8 +821,16 @@ class ToolUseLoop:
                 "description": getattr(tool, "description", ""),
                 "input_schema": tool.schema,
             }
-            for tool in self._tools.values()
+            for name, tool in self._tools.items()
+            if name not in self._hidden
         ]
+
+    def _reveal_tools(self, names: Iterable[str]) -> None:
+        """Show the schemas of deferred tools from the next round on."""
+        found = {name for name in names if name in self._hidden}
+        if found:
+            self._hidden -= found
+            self._surface_changed = True
 
     async def _phase(self, phase: str, detail: str = "") -> None:
         """Report what the turn is doing — once per change, never per token."""
@@ -978,6 +998,12 @@ class ToolUseLoop:
                 log.info("tool_use_loop: %d steer message(s) folded in", len(pending))
             round_no += 1
             await self._phase(PHASE_GATHER, f"round {round_no}")
+            if self._surface_changed:
+                self._surface_changed = False
+                # Only while tools are still on offer: a round that was forced
+                # tool-less (deadline, final answer) must stay that way.
+                if tools_payload:
+                    tools_payload = self._tool_schemas()
 
             req = BrainRequest(
                 messages=tuple(current_messages),
@@ -1294,7 +1320,10 @@ class ToolUseLoop:
                     # prompt advertises skills/CLIs it was not granted recovers
                     # from "run-skill is not here" only if it learns what is
                     # (BUG-212 — the briefing ended on the fallback phrase).
-                    available = ", ".join(sorted(self._tools)) or "none"
+                    available = (
+                        ", ".join(sorted(n for n in self._tools if n not in self._hidden))
+                        or "none"
+                    )
                     tool_result_payload = {
                         "error": (
                             f"Tool '{tool_name}' is not available in this turn. "
@@ -1567,7 +1596,10 @@ class ToolUseLoop:
                     # absent — this is what keeps the voice pipeline from speaking
                     # "Erledigt." for a desktop action that did not happen
                     # (2026-06-09).
-                    if result.success:
+                    # A lookup that only names other tools is not an action:
+                    # counting it would let "I sent the mail" stand after a
+                    # turn that only searched for the mail tool.
+                    if result.success and not getattr(tool, "is_lookup_only", False):
                         final_agg.executed_tool_names.add(tool_name)
                     # suppress_response=True: tool provides its own final response,
                     # the second brain iteration is skipped (fix for 1-3 s stall

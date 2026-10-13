@@ -53,7 +53,7 @@ function stubServer(identity: PublishIdentityWire, opts?: { validateErrors?: unk
             ok: true,
             name: body.name,
             version: body.version,
-            pr_url: "https://github.com/PersonalJarvis/marketplace/pull/1",
+            pr_url: "https://github.com/Dodaios/marketplace/pull/1",
             install: {
               cli: `jarvis marketplace install ${body.name}`,
               runner: `uvx --from personal-jarvis jarvis marketplace install ${body.name}`,

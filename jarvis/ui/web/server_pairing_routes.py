@@ -58,7 +58,7 @@ def _json(value: Any) -> JSONResponse:
 
 @router.post("/code", operation_id="computer_pairing_code")
 def create_pairing_code(request: Request) -> JSONResponse:
-    """Create a five-minute, single-use code granting access to this Jarvis instance."""
+    """Create a five-minute, single-use code granting access to this Dodaios instance."""
     _secure(request)
     try:
         return _json(get_pairing().issue_code())
@@ -123,7 +123,7 @@ def revoke_paired_client(client_id: str) -> JSONResponse:
 
 @router.get("/servers", operation_id="computer_servers_list")
 def list_paired_servers() -> JSONResponse:
-    """List saved independent Jarvis servers without their credentials."""
+    """List saved independent Dodaios servers without their credentials."""
     return _json({"servers": [s.model_dump() for s in get_pairing().servers()]})
 
 
@@ -148,7 +148,7 @@ async def check_server(server_id: str) -> JSONResponse:
 
 @router.post("/servers/{server_id}/open", operation_id="computer_servers_open")
 async def open_server(request: Request, server_id: str) -> JSONResponse:
-    """Return a one-use link opening the server's authenticated Jarvis UI."""
+    """Return a one-use link opening the server's authenticated Dodaios UI."""
     _secure(request)
     try:
         return _json({"url": await get_pairing().launch(server_id)})

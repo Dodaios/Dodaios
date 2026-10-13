@@ -51,7 +51,7 @@ const INDEX: CommunityResponse = {
       publisher: "octocat",
       version: "1.0.0",
       categories: ["email"],
-      source_url: "https://github.com/PersonalJarvis/marketplace/tree/main/agents/inbox-butler",
+      source_url: "https://github.com/Dodaios/marketplace/tree/main/agents/inbox-butler",
       agent: TEMPLATE,
       valid: true,
       installed: false,

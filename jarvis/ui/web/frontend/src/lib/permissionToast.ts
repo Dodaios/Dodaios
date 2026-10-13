@@ -1,5 +1,5 @@
 /**
- * The one thing Personal Jarvis says when a macOS permission stopped a feature:
+ * The one thing Dodaios says when a macOS permission stopped a feature:
  * a toast, in the app's existing toast layer, with one sentence and at most one
  * button.
  *
