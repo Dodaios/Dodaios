@@ -144,6 +144,20 @@ def test_list_state_filter_excludes_unmatched(
         assert r2.json()["total"] == 0
 
 
+def test_list_active_leaves_out_missions_that_ended(app_with_manager: FastAPI) -> None:
+    with TestClient(app_with_manager) as client:
+        ended = client.post("/api/missions/dispatch", json={"prompt": "ended"}).json()
+        waiting = client.post("/api/missions/dispatch", json={"prompt": "waiting"}).json()
+        assert client.post(f"/api/missions/{ended['mission_id']}/cancel").status_code == 200
+
+        active = client.get("/api/missions?active=true").json()
+        assert [m["id"] for m in active["missions"]] == [waiting["mission_id"]]
+        assert client.get("/api/missions").json()["total"] == 2
+        # An explicit state wins over the shortcut.
+        both = client.get("/api/missions?active=true&state=CANCELLED").json()
+        assert [m["id"] for m in both["missions"]] == [ended["mission_id"]]
+
+
 def test_list_rejects_unknown_state(app_with_manager: FastAPI) -> None:
     with TestClient(app_with_manager) as client:
         r = client.get("/api/missions?state=BOGUS")

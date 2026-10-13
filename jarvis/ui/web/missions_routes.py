@@ -161,17 +161,21 @@ async def list_missions(
     request: Request,
     state: str | None = None,
     limit: int = 100,
+    active: bool = False,
 ) -> dict[str, Any]:
     """List of all missions, optionally filtered by state.
 
     Query parameters:
     - ``state``: comma-separated list of MissionState values (e.g. ``RUNNING,PENDING``).
     - ``limit``: max number of entries (server cap 1000).
+    - ``active``: only missions that have not ended yet; ``state`` wins when both are given.
     """
     mgr = _require_manager(request)
 
     limit = max(1, min(int(limit), 1000))
     state_filter: list[str] | None = None
+    if active and not state:
+        state_filter = sorted(s.value for s in MissionState if not is_terminal(s))
     if state:
         candidates = [s.strip() for s in state.split(",") if s.strip()]
         unknown = [s for s in candidates if s not in _VALID_STATES]
