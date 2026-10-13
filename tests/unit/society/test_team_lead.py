@@ -921,6 +921,51 @@ async def test_a_go_ahead_in_the_leads_chat_continues_a_paused_goal_but_not_past
     assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.DONE
 
 
+async def test_tasks_handed_out_together_from_the_chat_share_one_goal(team):
+    rt, svc = team
+    leads = rt.team_leads
+    svc.gates[SCOUT] = asyncio.Event()
+    svc.gates[WRITER] = asyncio.Event()
+    with person_says("Research it and write it up"):
+        first, second = await asyncio.gather(
+            leads.assign("boss", member="scout", title="Research", brief="Go."),
+            leads.assign("boss", member="writer", title="Write", brief="Go."),
+        )
+    assert first["goal_id"] == second["goal_id"]
+    goals = await leads.goals("team")
+    assert len(goals) == 1 and len(await leads.tasks(goals[0].goal_id)) == 2
+    svc.gates[SCOUT].set()
+    svc.gates[WRITER].set()
+
+
+async def test_a_stop_wins_over_an_answer_that_is_on_its_way(team):
+    rt, svc = team
+    leads = rt.team_leads
+
+    async def boss(text: str, kwargs: dict[str, Any]) -> str:
+        await leads.report("boss", status="needs_input", summary="Which market?")
+        return "I need one answer."
+
+    svc.scripts[LEAD] = boss
+    goal = await leads.start_goal("team", "Plan the launch")
+    await until(_state_is(rt, goal.goal_id, TeamGoalState.NEEDS_INPUT))
+    await until(lambda: svc.idle() and not leads._turns)  # noqa: SLF001 — the turn is read back
+
+    # The person stops the goal while the lead's call is between its checks.
+    resolved = leads._goal_for_lead  # noqa: SLF001 — the seam between resolving and assigning
+
+    async def stopped_meanwhile(lead_id: str, **kwargs: Any) -> Any:
+        found = await resolved(lead_id, **kwargs)
+        await leads.cancel(found.goal_id)
+        return found
+
+    leads._goal_for_lead = stopped_meanwhile  # type: ignore[method-assign]  # noqa: SLF001
+    with person_says("Germany"), pytest.raises(TeamLeadError, match="no longer in progress"):
+        await leads.assign("boss", member="scout", title="Research", brief="Go.")
+    assert (await _goal(rt, goal.goal_id)).state is TeamGoalState.CANCELLED
+    assert await leads.tasks(goal.goal_id) == []
+
+
 async def test_the_persons_turn_is_followed_up_like_a_managing_turn(team):
     rt, svc = team
     leads = rt.team_leads
