@@ -1129,3 +1129,27 @@ def test_fork_is_a_logged_action_with_a_valid_schema(rig):
     tool = WorkspaceOrchestrationTool(rig[0])
     jsonschema.validate({"action": "fork", "agent": "Alex", "worktree": True}, tool.schema)
     assert tool.risk_tier_for_args({"action": "fork"}) == "monitor"
+
+
+async def test_a_job_that_ends_while_the_watch_is_set_up_is_not_watched_forever(
+    rig, reportable, monkeypatch
+):
+    from jarvis.agentic_ide import followthrough
+
+    orchestrator, registry, _sessions = rig
+    term = registry.session.terminals[0]
+    term.activity = "working"
+    real = followthrough.watch
+
+    async def finishes_meanwhile(pane, origin):
+        armed = await real(pane, origin)
+        pane.activity = "idle"  # its end is now part of the watch's starting point
+        return armed
+
+    monkeypatch.setattr(followthrough, "watch", finishes_meanwhile)
+    with _Origin("voice"):
+        result = await orchestrator.run(
+            {"action": "watch", "workspace": registry.session.name, "agent": term.name}
+        )
+    assert result["status"] == "not_running" and "just finished" in result["reason"]
+    assert term.delegation_result is None

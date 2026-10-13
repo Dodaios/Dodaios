@@ -142,13 +142,15 @@ def _perform(op: str, folder: str, args: dict[str, Any], open_folders: list[str]
         }
     if op == "worktree_archive":
         entry = worktree_archive.archive(
-            folder, str(args.get("worktree") or ""), open_folders=open_folders
+            folder, str(args.get("worktree") or ""), open_folders=open_folders,
+            drop_ignored=args.get("drop_ignored") is True,
         )
         return {
             "archived": entry.to_dict(),
             "message": (
                 f"Archived {entry.branch or Path(entry.path).name}. "
-                + ("Its uncommitted work is saved with it. " if entry.uncommitted else "")
+                + ("Its uncommitted, non-ignored work is saved with it. "
+                   if entry.uncommitted else "")
                 + "The branch and its commits are untouched; worktree_restore brings it back."
             ),
         }
@@ -159,6 +161,8 @@ def _perform(op: str, folder: str, args: dict[str, Any], open_folders: list[str]
         return {"commit": sha, "message": f"Committed as {sha}."}
     if op == "push":
         upstream = git_ops.push(folder, str(args.get("branch") or ""))
+        # What GitHub is known to hold for this folder is now out of date.
+        git_overview.clear_github(folder)
         return {"upstream": upstream, "message": f"Pushed to {upstream}."}
     if op == "pull_request":
         url = github_pulls.open_for_branch(
@@ -167,6 +171,7 @@ def _perform(op: str, folder: str, args: dict[str, Any], open_folders: list[str]
             title=str(args.get("title") or ""),
             draft=args.get("draft") is True,
         )
+        git_overview.clear_github(folder)
         return {"url": url, "message": "Pull request opened."}
     raise ValueError("Unknown git operation.")
 

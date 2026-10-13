@@ -473,7 +473,17 @@ class WorkspaceOrchestrator:
                           "from, so its end cannot be reported. Nothing is watched; use status "
                           "to look again.",
             }
-        await followthrough.watch(term, origin)
+        armed = await followthrough.watch(term, origin)
+        if snapshot(term)["availability"] != "busy":
+            # It finished while the watch was being set up: that end is already
+            # in the watch's starting point and would never be reported.
+            if getattr(term, "delegation_result", None) is armed:
+                term.delegation_result = None
+            return {
+                **reply, "state": snapshot(term)["availability"], "status": "not_running",
+                "reason": "That agent just finished, so there is nothing to wait for. "
+                          "Its state is above; observe it for what it wrote.",
+            }
         return {
             **reply, "status": "watching",
             "reason": "Its result is handed to this conversation when it stops or asks. Tell "

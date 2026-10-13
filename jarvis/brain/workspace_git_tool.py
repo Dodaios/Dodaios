@@ -31,7 +31,9 @@ class WorkspaceGitTool:
         "state (here marks the checked-out branch's). worktree_create: a new worktree on "
         "branch (a new branch from base, or an existing one); only when the user asks for a "
         "worktree. worktree_archive: put a worktree away (name it by branch or folder) with "
-        "all its uncommitted work saved; the branch and its commits stay. worktree_restore: "
+        "its uncommitted work saved; the branch and its commits stay. Ignored files are not "
+        "saved: it refuses while there are any and names them; pass drop_ignored only "
+        "after the user agreed to lose them. worktree_restore: "
         "bring an archived worktree back at its old path. commit: stage everything that is "
         "not ignored and commit with message. push: the checked-out branch, or branch. "
         "pull_request: push if needed and open one (title, draft). Name the workspace as in "
@@ -64,6 +66,13 @@ class WorkspaceGitTool:
                 "description": (
                     "worktree_archive: branch or folder of the worktree; worktree_restore: "
                     "name or branch of the archived one."
+                ),
+            },
+            "drop_ignored": {
+                "type": "boolean",
+                "description": (
+                    "worktree_archive: delete the worktree's ignored files with it. Only "
+                    "after the user agreed."
                 ),
             },
             "message": {"type": "string", "description": "commit: the commit message."},

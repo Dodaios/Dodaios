@@ -456,8 +456,11 @@ def brief(folder: str | Path) -> dict[str, Any] | None:
     if root is None:
         return None
     info = RepoInfo(folder=str(path), is_repo=True, root=str(root))
+    # No optional locks: the board reads every workspace at once while agents
+    # run their own git commands there, and must never make one of them fail.
     status = _run(
-        ["status", "--porcelain=v2", "--branch", "--untracked-files=normal"],
+        ["--no-optional-locks", "status", "--porcelain=v2", "--branch",
+         "--untracked-files=normal"],
         root,
         timeout=_BRIEF_TIMEOUT_S,
     )
