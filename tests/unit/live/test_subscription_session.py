@@ -1569,3 +1569,25 @@ async def test_followup_is_reasoned_about_while_the_first_action_still_runs(
     finally:
         gateway.release.set()
         await session.handle_control({"type": "cancel_work"})
+
+
+async def test_an_unvoiced_task_result_stays_owed_in_the_subscription_session(make_session):
+    """The subscription session settles reports itself; a background task's
+    result that was not spoken has to come back, not vanish as "failed"."""
+    session, _, gateway, _, _, _ = make_session([])
+    done = asyncio.get_running_loop().create_future()
+    done.set_result({"success": True})
+    task = session._tools.tasks.add(
+        tool="start-agent", arguments={}, summary="start-agent", request_text="Start an agent.",
+        revision=session._tools.revision, epoch=session._wire_epoch, work=done,
+    )
+    session._tools.tasks.settle(task, done)
+    session._task_report_told = task
+    session._report_state = "sent"
+    session._subscription_report_id = "report-1"
+
+    session._fail_subscription_report("report-1")  # the user spoke before it was voiced
+
+    assert session._task_reports == [task] and task.report_attempts == 1
+    assert session._report_state == "" and session._task_report_told is None
+    assert session.take_report_outcome() == ""  # never read as an agent reply's outcome

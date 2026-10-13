@@ -63,8 +63,10 @@ _DIRECT_TOOLS = frozenset({"computer", "take_appshot"})
 # arrives after the user asked for something else describes a screen that has
 # moved on. ``computer_use`` is the delegated vehicle for the same screen.
 _SCREEN_TOOLS = _DIRECT_TOOLS | CU_VEHICLE_TOOL_NAMES
-# Session controls that read and write the approval and hang-up state.
-_CONTROL_TOOLS = frozenset({"confirm_action", "end_call"})
+# The hang-up question is asked once: its state changes across an await.
+# ``confirm_action`` takes its pending approval in one step and then runs the
+# approved effect, which must not hold anything else up.
+_CONTROL_TOOLS = frozenset({"end_call"})
 # After the user moves on, an action that is about to finish still answers its
 # own call; only one that keeps running becomes a background task.
 MOVE_ON_GRACE_S = 0.6
@@ -144,6 +146,8 @@ class LiveTools:
         self._control_lock = asyncio.Lock()
         # One execution per call ID: RTC and the sideband can both deliver it.
         self._inflight: dict[str, tuple[str, str, asyncio.Future]] = {}
+        # Calls that left their turn while still running (see ``_execute``).
+        self._released: set[str] = set()
         self.tasks = TaskBoard()
         # The session's hooks for a task leaving its turn and for its receipt.
         self.on_task_released: Any = None
@@ -317,6 +321,8 @@ class LiveTools:
         # Read now: by the time the call is released, the user's next words
         # are the latest segment, and they are not what this call answers.
         request = self.request_text
+        # Resolved now: an approval is taken off the list once its effect runs.
+        call = self._effect_of(name, args)
         work = asyncio.ensure_future(
             self.execute(call_id, name, args, revision, replay_result=replay_result)
         )
@@ -327,7 +333,8 @@ class LiveTools:
             raise
         if not released:
             return work.result()
-        call = self._replay_call(name, args) or (name, args)
+        self._released.add(call_id)
+        work.add_done_callback(lambda _done: self._released.discard(call_id))
         task = self.tasks.add(
             tool=call[0],
             arguments=call[1],
@@ -393,10 +400,25 @@ class LiveTools:
                         self._revision_waiters.remove(moved)
         return False
 
+    def _effect_of(self, name: str, args: dict) -> tuple[str, dict]:
+        """The tool and arguments a call acts with; an approval names its action."""
+        call = self._replay_call(name, args) or (name, args)
+        if call[0] == "confirm_action":
+            pending = self._pending.get(str(call[1].get("approval_id", "")))
+            if pending is None and len(self._pending) == 1:
+                pending = next(iter(self._pending.values()))
+            if pending is not None:
+                return pending[1], dict(pending[2])
+        return call
+
     def _is_background_action(self, name: str, args: dict) -> bool:
         """An effect in the user's world whose outcome is owed whatever came next."""
         call = self._replay_call(name, args)
-        if call is None or call[0] in _BUILTIN_TOOLS or call[0] in _SCREEN_TOOLS:
+        if call is None or call[0] in _SCREEN_TOOLS:
+            return False
+        if call[0] == "confirm_action":
+            return True  # the approved effect runs inside this call
+        if call[0] in _BUILTIN_TOOLS:
             return False
         return not self._reads_only(*call)
 
@@ -436,6 +458,11 @@ class LiveTools:
         }
 
     def _task_settled(self, task: BackgroundTask, work: asyncio.Future) -> None:
+        if not work.cancelled() and work.exception() is not None:
+            log.warning(
+                "Live background %s (%s) raised", task.task_id, task.tool,
+                exc_info=work.exception(),
+            )
         self.tasks.settle(task, work)
         if task.result is not None:
             # The action ran for its own request; that the user said more
@@ -502,7 +529,7 @@ class LiveTools:
                 # Record the new model call ID without performing another effect.
                 result = {**replay_result, "reused_receipt": True}
             else:
-                result = await self._execute(name, args, revision)
+                result = await self._execute(name, args, revision, call_id=call_id)
         except asyncio.CancelledError:
             # Leave the claim uncertain: a cancelled request may already have acted.
             raise
@@ -526,7 +553,9 @@ class LiveTools:
         await asyncio.to_thread(self.ledger.finish, self.session_id, call_id, receipt)
         return result
 
-    async def _execute(self, name: str, args: dict, revision: int) -> dict:
+    async def _execute(
+        self, name: str, args: dict, revision: int, *, call_id: str = "",
+    ) -> dict:
         operation_token = self.cancel_token
         if operation_token.is_cancelled():
             return {"success": False, "status": "cancelled"}
@@ -685,7 +714,11 @@ class LiveTools:
                 }
             result = await self.gateway.execute(canonical, args, self._request(trace))
         if result.error == VOICE_CONFIRM_SENTINEL:
-            if operation_token.is_cancelled() or revision != self.revision:
+            # A call that left its turn is still the user's order: its approval
+            # question is kept and reaches them with the task's report. Only a
+            # call nobody waits for any more is withdrawn.
+            overtaken = revision != self.revision and call_id not in self._released
+            if operation_token.is_cancelled() or overtaken:
                 await self.gateway.cancel_pending(trace, reason="superseded")
                 return {"success": False, "status": "superseded"}
             if not self.accepting:

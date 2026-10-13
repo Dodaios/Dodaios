@@ -58,6 +58,8 @@ class ParkedWork:
     gate: DelegationWait
     rows: list[dict[str, Any]] = field(default_factory=list)
     task: asyncio.Task[None] | None = None
+    #: The delegates have reported; only the chat's seat is still awaited.
+    reported: bool = False
 
     def names(self) -> list[str]:
         """Who is still working on it."""
@@ -159,7 +161,12 @@ class ParkedWorkBoard:
         return list(self._parked.get(session_id, ()))
 
     def stop(self, session_id: str) -> int:
-        """Drop the chat's background waits; the delegated work itself runs on."""
+        """Drop the chat's background waits; the delegated work itself runs on.
+
+        Called when the chat is deleted, and for a stop pressed while no turn
+        is running: then the waits are all there is to stop. A stop pressed
+        during a turn stops that turn and leaves earlier requests alone.
+        """
         parked = self._parked.pop(session_id, [])
         for item in parked:
             item.gate.stop.set()
@@ -170,6 +177,7 @@ class ParkedWorkBoard:
         lines = [
             f'- "{item.request}" (working on it: {", ".join(item.names()) or "being finished"})'
             for item in self.running(session_id)
+            if not item.reported
         ]
         if not lines:
             return ""
@@ -178,13 +186,14 @@ class ParkedWorkBoard:
             "requests were handed to agents that are still working; each result arrives "
             "in this chat on its own and is then answered separately. Do not send that "
             "work again, do not wait for it, and do not report it as finished. Answer "
-            "the message above.\n" + "\n".join(lines) + "]"
+            "the person's message.\n" + "\n".join(lines) + "]"
         )
 
     async def _carry(self, session_id: str, parked: ParkedWork) -> None:
         try:
             with collect_delegated_work(parked.gate.add):
                 rows = [*parked.rows, *await parked.gate.collect()]
+            parked.reported = True
             if rows and parked in self._parked.get(session_id, ()):
                 await self._resume(session_id, parked, rows)
         except asyncio.CancelledError:

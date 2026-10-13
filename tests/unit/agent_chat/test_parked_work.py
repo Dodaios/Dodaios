@@ -104,10 +104,13 @@ async def test_the_next_message_is_answered_while_the_first_request_still_runs(c
     closed = chat.events("turn_finished")[0]["payload"]
     assert closed["status"] == "done" and closed["background"] == ["Agent T2"]
     assert [item.request for item in chat.svc.parked_work.running(chat.sid)] == [_FIRST]
-    # The second turn knows what is still running and shows only what was typed.
-    assert "Background work of this chat" in chat.prompts[1][1]
-    assert _FIRST in chat.prompts[1][1] and "Agent T2" in chat.prompts[1][1]
-    assert chat.events("user_message")[1]["payload"]["typed"] == _SECOND
+    # The second turn receives the person's words untouched. What still runs
+    # is briefing for the runner, never part of the message: the brain reads
+    # that text to decide which coding pane an order addresses.
+    assert chat.prompts[1][1] == _SECOND
+    assert chat.events("user_message")[1]["payload"]["text"] == _SECOND
+    note = chat.svc.parked_work.context_note(chat.sid)
+    assert _FIRST in note and "Agent T2" in note
     assert len(chat.prompts) == 2  # no model call while the agent works
 
     chat.pane_done = True
@@ -160,6 +163,19 @@ async def test_a_finished_request_waits_for_the_running_turn(chat):
     await _until(lambda: len(chat.prompts) == 3)
     await chat.idle()
     assert "The login bug is fixed." in chat.prompts[2][1]
+
+
+async def test_two_messages_sent_into_a_wait_keep_their_order(chat):
+    await send_or_queue(chat.svc, chat.sid, _FIRST)
+    await _until(chat.waiting_for_agents)
+    second, third = await asyncio.gather(
+        send_or_queue(chat.svc, chat.sid, _SECOND),
+        send_or_queue(chat.svc, chat.sid, "And then tell me a joke."),
+    )
+    assert second[0] and third[1]  # the first one starts, the later one waits behind it
+    await _until(lambda: len(chat.prompts) == 3)
+    await chat.idle()
+    assert [prompt for _, prompt in chat.prompts[1:]] == [_SECOND, "And then tell me a joke."]
 
 
 async def test_a_dropped_background_wait_starts_no_turn(chat):

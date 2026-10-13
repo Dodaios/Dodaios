@@ -351,3 +351,64 @@ def test_step_mirror_ignores_another_turns_events():
         assert rows[0][1]["name"] == "Read"
 
     asyncio.run(scenario())
+
+
+# -- composed prompts and background work (ADR-0040) ---------------------------
+
+
+async def test_a_continuation_is_briefing_not_the_persons_words(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    """The brain reads a turn's text to decide which coding pane an order
+    addresses. A continuation quotes the original order and the agents'
+    reports, so as the turn's text it would send that order to the pane again."""
+    from jarvis.agent_chat.delegation_wait import CONTINUE_TURN, continuation_prompt
+
+    fake = FakeBrainManager()
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
+    svc = _service(None)
+    session = _jarvis_session(svc, tmp_path)
+    q = svc.subscribe(session.session_id)
+    original = "Tell Kai to fix the login bug."
+    prompt = continuation_prompt(
+        [{"status": "completed", "report": "Kai fixed it.", "agent": "Kai"}], original, later=True
+    )
+
+    await svc.send(session.session_id, prompt, display_text=original, background_result=True)
+    await _drain(q, "turn_finished")
+
+    text, kw = fake.calls[0]
+    assert text == CONTINUE_TURN and "Kai" not in text
+    briefing = kw["turn_override"].system_extra
+    assert "Kai fixed it." in briefing and original in briefing
+
+
+async def test_a_turn_is_briefed_on_requests_still_running_behind_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    from jarvis.agent_chat.delegation_wait import DelegationWait
+    from jarvis.agent_chat.parked_work import ParkedWork
+    from jarvis.core.delegated_work import DelegatedWork
+
+    fake = FakeBrainManager()
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
+    svc = _service(None)
+    session = _jarvis_session(svc, tmp_path)
+    q = svc.subscribe(session.session_id)
+
+    async def still_working():
+        return None
+
+    gate = DelegationWait(SimpleNamespace(turn_id="t0"))
+    gate.add(DelegatedWork("pane", "Kai", still_working))
+    svc.parked_work._parked[session.session_id] = [
+        ParkedWork("t0", "Tell Kai to fix the login bug.", "Tell Kai to fix the login bug.", gate)
+    ]
+
+    await svc.send(session.session_id, "What is the weather tomorrow?")
+    await _drain(q, "turn_finished")
+
+    text, kw = fake.calls[0]
+    assert text == "What is the weather tomorrow?"  # the person's words, nothing added
+    briefing = kw["turn_override"].system_extra
+    assert "Tell Kai to fix the login bug." in briefing and "do not wait for it" in briefing

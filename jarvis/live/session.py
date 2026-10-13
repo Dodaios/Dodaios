@@ -266,7 +266,7 @@ class LiveVoiceSession:
     @_tools.setter
     def _tools(self, tools: LiveTools | None) -> None:
         self._live_tools = tools
-        if tools is not None:
+        if isinstance(tools, LiveTools):
             tools.on_task_released = self._on_task_released
             tools.on_task_finished = self._on_task_finished
             tools.wire_epoch = lambda: self._wire_epoch
@@ -488,7 +488,13 @@ class LiveVoiceSession:
         """Start telling the oldest finished task; True while one is being told."""
         if self._task_report_job is not None:
             return True
-        self._task_reports = [t for t in self._task_reports if self._task_report_current(t)]
+        current = [t for t in self._task_reports if self._task_report_current(t)]
+        for stale in self._task_reports:
+            if stale not in current:
+                # A new connection, a stop, or a newer request for a result that
+                # only answered the old one. The ledger keeps the receipt.
+                log.info("Live result of %s is no longer told on this call", stale.task_id)
+        self._task_reports = current
         if not self._task_reports:
             return False
         task = self._task_reports.pop(0)
@@ -517,9 +523,11 @@ class LiveVoiceSession:
             log.warning("Live report for %s could not be delivered", task.task_id, exc_info=True)
         finally:
             self._task_report_job = None
+        if self._task_report_told is task and self._report_state not in {"sent", "started"}:
+            # Nothing is on its way to the model: never let another report's
+            # outcome be taken for this task's.
+            self._task_report_told = None
         if not delivered:
-            if self._task_report_told is task:
-                self._task_report_told = None
             if self._task_report_current(task):
                 # The floor closed in between; offered again at the next pause.
                 self._task_reports.insert(0, task)

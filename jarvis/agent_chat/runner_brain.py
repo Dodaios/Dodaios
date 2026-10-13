@@ -448,6 +448,20 @@ async def run_brain_turn(
     cwd = Path(session.cwd or Path.home())
     stance = handle.stance or "ask"
     kit_tools, system_extra = await kit_payload(session, brain)
+    from jarvis.agent_chat.delegation_wait import CONTINUE_TURN, is_continuation_prompt
+
+    if is_continuation_prompt(text):
+        # The brain reads the turn's text for deterministic routes: which
+        # coding pane is addressed, what to cancel, where to navigate. A
+        # continuation quotes the original order and the agents' reports, so
+        # read as the person's words it would send that order to the pane
+        # again. It is this turn's briefing instead.
+        system_extra += "\n\n" + text
+        text = CONTINUE_TURN
+    board = getattr(getattr(handle, "control_service", None), "parked_work", None)
+    background = board.context_note(session.session_id) if board is not None else ""
+    if background:
+        system_extra += "\n\n" + background
     if tool_choices:
         from jarvis.agent_chat.tool_catalog import (
             live_catalog,

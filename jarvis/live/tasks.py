@@ -30,6 +30,10 @@ RUNNING = "running"
 DONE = "done"
 FAILED = "failed"
 CANCELLED = "cancelled"
+#: The action stopped at its approval question; the user's yes is still owed.
+NEEDS_APPROVAL = "needs_approval"
+#: How much of a result ``task_status`` shows; the report carries the whole.
+_RESULT_CHARS = 2000
 
 
 @dataclass(slots=True, eq=False)
@@ -74,8 +78,24 @@ class BackgroundTask:
             "seconds": round(max(0.0, now - self.started_at)),
         }
         if self.result is not None:
-            row["result"] = self.result
+            row["result"] = _preview(self.result)
         return row
+
+
+def _preview(result: dict) -> dict:
+    """A result for a status listing: no pictures, and no page-long output."""
+    shown = {key: value for key, value in result.items() if key != "artifacts"}
+    output = shown.get("output")
+    if isinstance(output, dict) and "_image" in output:
+        shown["output"] = {key: value for key, value in output.items() if key != "_image"}
+    text = json.dumps(shown, ensure_ascii=False, default=str)
+    if len(text) <= _RESULT_CHARS:
+        return shown
+    return {
+        "success": bool(result.get("success")),
+        "excerpt": text[:_RESULT_CHARS] + " …",
+        "note": "Shortened; the task's report carries the full result.",
+    }
 
 
 class TaskBoard:
@@ -145,7 +165,10 @@ class TaskBoard:
             return
         result = work.result()
         task.result = result if isinstance(result, dict) else {"output": result}
-        task.status = DONE if task.result.get("success") else FAILED
+        if task.result.get("confirmation_required"):
+            task.status = NEEDS_APPROVAL
+        else:
+            task.status = DONE if task.result.get("success") else FAILED
 
     def cancel(self, task: BackgroundTask) -> bool:
         """Stop one running task. Its effect may already have happened."""

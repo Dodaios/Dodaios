@@ -411,3 +411,220 @@ async def test_a_stopped_task_is_not_reported(held_action, make_provider):
     await _settle(session)
     assert _reports(connection) == []
     assert gateway.finished == []
+
+
+# The continuous session (function calls answered on the backend wire) ---------------
+
+
+class _Wire:
+    """Records what the continuous session sends to its provider."""
+
+    answer_sdp = ""
+
+    def __init__(self) -> None:
+        self.frames: list[dict] = []
+
+    async def send(self, frame: dict) -> None:
+        self.frames.append(frame)
+
+    async def close(self) -> None:
+        return None
+
+    def outputs(self) -> list[dict]:
+        return [
+            json.loads(frame["item"]["output"]) for frame in self.frames
+            if frame.get("item", {}).get("type") == "function_call_output"
+        ]
+
+    def reports(self) -> list[str]:
+        return [
+            frame["item"]["content"][0]["text"] for frame in self.frames
+            if frame.get("item", {}).get("type") == "message"
+        ]
+
+
+@pytest.mark.asyncio
+async def test_the_continuous_session_releases_and_reports_the_same_way(tmp_path, monkeypatch):
+    from jarvis.live.session import LiveVoiceSession
+
+    monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", 0.01)
+
+    async def send(_frame):
+        return None
+
+    session = LiveVoiceSession(
+        session_id="live", bus=None, send_json=send, send_binary=send,
+        providers=[SimpleNamespace(name="test")],
+        config=SimpleNamespace(brain=SimpleNamespace(reply_language="en")),
+    )
+    wire = _Wire()
+    gateway = FakeToolGateway(_catalog())
+    release = gateway.hold("brief-agent")
+    ledger = LiveLedger(tmp_path / "live.sqlite3")
+    session._connection = wire
+    session._ledger = ledger
+    session._tools = LiveTools(gateway, ledger, "live", language="en", backend_model="")
+    session._tools.user_text = _FIRST_ORDER
+    try:
+        name, args = _call("brief-agent")
+        calls = asyncio.create_task(session._run_calls(
+            [{"call_id": "c1", "name": name, "arguments": json.dumps(args)}],
+            session._tools.revision,
+        ))
+        await asyncio.wait_for(gateway.execution_started.wait(), _HANG_GUARD_S)
+        session._tools.user_text = _SECOND_ORDER
+        session._tools.revision += 1
+        await asyncio.wait_for(calls, _HANG_GUARD_S)
+        assert wire.outputs()[0]["pending"] is True  # the backend is free for the next order
+        assert wire.outputs()[0]["task_id"] == "task-1"
+        assert wire.frames[-1] == {"type": "response.create"}
+        assert wire.reports() == []
+
+        release.set()
+        await asyncio.wait_for(asyncio.gather(*session._background_work), _HANG_GUARD_S)
+        await _settle(session)
+        reports = wire.reports()
+        assert len(reports) == 1
+        assert "background_task_completion" in reports[0] and _FIRST_ORDER in reports[0]
+        assert len(wire.outputs()) == 1  # the receipt is a report, never a second output
+    finally:
+        session._cancel_report_timeout()
+        ledger.close()
+
+
+# Approvals, listings and report bookkeeping -----------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_released_action_that_needs_approval_keeps_its_question(runtime):
+    """The order is not dropped as superseded: its yes is asked with the report."""
+    from jarvis.core.protocols import ToolResult
+    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+
+    tools, gateway = runtime
+    gateway.results["brief-agent"] = ToolResult(
+        False, {"impact": "sends a task"}, VOICE_CONFIRM_SENTINEL
+    )
+    release = gateway.hold("brief-agent")
+    pending = asyncio.create_task(
+        tools.execute_releasable("c1", *_call("brief-agent"), tools.revision)
+    )
+    await asyncio.wait_for(gateway.execution_started.wait(), _HANG_GUARD_S)
+    tools.revision += 1
+    receipt = await asyncio.wait_for(pending, _HANG_GUARD_S)
+    task = tools.tasks.get(receipt["task_id"])
+    release.set()
+    await asyncio.wait_for(task.work, _HANG_GUARD_S)
+    assert task.status == "needs_approval"
+    assert task.result["confirmation_required"] is True
+    assert task.result["approval_id"] in tools._pending  # the question is still open
+
+
+@pytest.mark.asyncio
+async def test_an_overtaken_call_nobody_waits_for_still_withdraws_its_approval(runtime):
+    from jarvis.core.protocols import ToolResult
+    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+
+    tools, gateway = runtime
+    gateway.results["brief-agent"] = ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)
+    release = gateway.hold("brief-agent")
+    call = asyncio.create_task(tools.execute("c1", *_call("brief-agent"), tools.revision))
+    await asyncio.wait_for(gateway.execution_started.wait(), _HANG_GUARD_S)
+    tools.revision += 1
+    release.set()
+    result = await asyncio.wait_for(call, _HANG_GUARD_S)
+    assert result["status"] == "superseded" and tools._pending == {}
+
+
+class _SlowApprovalGateway(FakeToolGateway):
+    """The approved effect itself takes long (a delivery, an upload)."""
+
+    def __init__(self) -> None:
+        super().__init__(_catalog())
+        self.confirmed_started = asyncio.Event()
+        self.confirm = asyncio.Event()
+
+    async def execute_confirmed(self, trace, request):
+        from jarvis.core.protocols import ToolResult
+
+        del trace, request
+        self.confirmed_started.set()
+        await self.confirm.wait()
+        return ToolResult(True, {"verified": True})
+
+
+@pytest.mark.asyncio
+async def test_an_approved_effect_leaves_its_turn_like_any_other_action(tmp_path, monkeypatch):
+    from jarvis.core.protocols import ToolResult
+    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+
+    monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", 0.01)
+    gateway = _SlowApprovalGateway()
+    gateway.results["brief-agent"] = ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)
+    ledger = LiveLedger(tmp_path / "live.sqlite3")
+    tools = LiveTools(gateway, ledger, "call", language="en", backend_model="")
+    tools.user_text = _FIRST_ORDER
+    try:
+        asked = await tools.execute("c1", *_call("brief-agent", {"agent": "T2"}), tools.revision)
+        tools.user_text = "yes"
+        tools.revision += 1
+        approved = asyncio.create_task(tools.execute_releasable(
+            "c2", "confirm_action", {"approval_id": asked["approval_id"]}, tools.revision
+        ))
+        await asyncio.wait_for(gateway.confirmed_started.wait(), _HANG_GUARD_S)
+        # The hang-up control is not held up by the running effect.
+        ended = await asyncio.wait_for(tools.execute("c3", "end_call", {}, tools.revision), 5)
+        assert ended["success"] is False  # nobody asked to hang up; it answered at once
+        tools.user_text = _SECOND_ORDER
+        tools.revision += 1
+        receipt = await asyncio.wait_for(approved, _HANG_GUARD_S)
+        assert receipt["pending"] is True
+        task = tools.tasks.get(receipt["task_id"])
+        assert task.tool == "brief-agent" and task.arguments == {"agent": "T2"}
+        gateway.confirm.set()
+        await asyncio.wait_for(task.work, _HANG_GUARD_S)
+        assert task.status == "done"
+    finally:
+        gateway.confirm.set()
+        ledger.close()
+
+
+@pytest.mark.asyncio
+async def test_task_status_shows_no_pictures_and_no_page_long_results(runtime):
+    from jarvis.core.protocols import ToolResult
+
+    tools, gateway = runtime
+    gateway.results["brief-agent"] = ToolResult(
+        True,
+        {"log": "line of output. " * 600, "_image": {"mime": "image/png", "data": "QUJD" * 4000}},
+    )
+    task = await _released(tools, gateway)
+    gateway.gates["brief-agent"].set()
+    await asyncio.wait_for(task.work, _HANG_GUARD_S)
+    listed = await tools.execute("c2", "task_status", {}, tools.revision)
+    shown = json.dumps(listed)
+    assert "QUJDQUJD" not in shown and len(shown) < 4000
+    assert listed["tasks"][0]["status"] == "done"
+    # The report still has the whole result, picture included.
+    assert any(item.get("type") == "image" for item in task.result["artifacts"])
+    assert len(task.result["output"]["log"]) > 9000
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_a_report_that_was_never_sent_does_not_claim_the_next_outcome(
+    held_action, make_provider,
+):
+    """Otherwise an agent's reply voiced later would be settled as this task's."""
+    session, connection, gateway, release = held_action(make_provider)
+    await _order_then_move_on(session, connection, gateway)
+
+    async def overtaken(_task):
+        return True  # dropped while preparing: nothing went to the model
+
+    session._deliver_task_report = overtaken
+    release.set()
+    await asyncio.wait_for(asyncio.gather(*session._background_work), _HANG_GUARD_S)
+    await _settle(session)
+    assert session._task_report_told is None
+    assert _reports(connection) == []

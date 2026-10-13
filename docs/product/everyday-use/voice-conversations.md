@@ -175,7 +175,8 @@ documentation":
 
 Pipeline calls still handle one request at a time, and background agent
 missions run one after another: a second mission is accepted and starts when
-the first has ended.
+the first has ended. A second mission ordered by voice within half a minute of
+the first is treated as a repeat of it; wait a moment, or type the order.
 
 Stopping a call does not undo a tool effect that already completed. If a
 Realtime connection fails after a request or action has been committed, Dodaios

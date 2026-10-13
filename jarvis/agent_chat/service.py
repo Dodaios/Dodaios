@@ -1067,7 +1067,8 @@ class AgentChatService:
             if kind == "assistant_text" and (not turn_id or data.get("turn_id") == turn_id):
                 replies.append(str(data.get("text") or ""))
             elif kind == "user_message":
-                user_text = str(data.get("text") or "")
+                # What the person wrote, not the composed prompt around it.
+                user_text = str(data.get("typed") or data.get("text") or "")
                 break
         try:
             loop = asyncio.get_running_loop()
@@ -1277,13 +1278,6 @@ class AgentChatService:
             # What the turn receives; ``text`` stays what the person typed so the
             # timeline shows their sentence rather than a page of extracted PDF.
             prompt = chat_attachments.compose(text, attached)
-            if direct_user and incoming is None and not control_owned:
-                # Earlier requests still running behind this message: the turn
-                # is told, so it neither resends that work nor waits for it.
-                background = self.parked_work.context_note(session_id)
-                if background:
-                    prompt += "\n\n" + background
-                    display_text = text if display_text is None else display_text
             if attached and session.surface == "jarvis":
                 image_context = await asyncio.to_thread(
                     chat_attachments.handoff_context, session.cwd, attached, session_id=session_id,
@@ -1573,9 +1567,14 @@ class AgentChatService:
                     # agent. Asked of the kit rather than the surface name, so
                     # a surface that combines the two keeps working.
                     as_jarvis = kit.brain_runner and kit.cli_seats
+                    # Requests still running behind this turn; the brain
+                    # runner carries the same note in its briefing.
+                    background = self.parked_work.context_note(session_id)
                     vendor = await run_cli_turn(
                         active_handle,
-                        run_prompt + selection_briefing(selected),
+                        run_prompt
+                        + selection_briefing(selected)
+                        + (f"\n\n{background}" if background else ""),
                         runner,
                         identity=as_jarvis,
                         bridge=self._bridge_for(bus) if as_jarvis else None,

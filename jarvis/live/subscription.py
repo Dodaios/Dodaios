@@ -113,6 +113,7 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
             return
         self._cancel_report_timeout()
         self._report_state = "done" if delivered else "failed"
+        self._settle_task_report(delivered=delivered)
 
     def _cancel_report_timeout(self) -> None:
         if self._report_timeout is not None:
@@ -125,6 +126,7 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
             return
         self._report_state = "failed"
         log.warning("Subscription voice did not confirm report delivery before its deadline.")
+        self._settle_task_report(delivered=False)
         self._notify_pause()
 
     async def handle_control(self, message: dict) -> None:

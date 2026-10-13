@@ -116,15 +116,28 @@ async def send_or_queue(
     queues = _queues(svc)
     if not _queueable(svc, session_id):
         return await svc.send(session_id, text, attachments, tool_choices=tool_choices), ""
-    if svc.is_running(session_id):
-        # A turn that only waits for agents hands its seat over; one that is
-        # still answering keeps it and this message queues behind it.
-        release = getattr(svc, "release_waiting_turn", None)
-        if release is not None:
-            await release(session_id)
     pending = queues.setdefault(session_id, _ChatQueue())
     first = False
-    if not pending.items and not pending.starting and not svc.is_running(session_id):
+    released = False
+    release = getattr(svc, "release_waiting_turn", None)
+    if (
+        release is not None
+        and svc.is_running(session_id)
+        and not pending.items
+        and not pending.starting
+    ):
+        # A turn that only waits for agents hands its seat over; one that is
+        # still answering keeps it and this message queues behind it. Admission
+        # is reserved first, so a message arriving meanwhile queues behind this
+        # one and a finished background result does not take the seat.
+        pending.starting = True
+        try:
+            released = await release(session_id)
+        finally:
+            pending.starting = False
+    if (released or not pending.items) and not pending.starting and not svc.is_running(
+        session_id
+    ):
         # Reserve admission before setup yields. Later HTTP requests must not
         # overtake this message, even before the service reserves its seat.
         pending.starting = True

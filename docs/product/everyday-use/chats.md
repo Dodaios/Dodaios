@@ -102,6 +102,10 @@ first is still being worked on:
   message waits and shows **Waits until the current task is done**; it starts
   as soon as that reply is finished.
 
+**Stop** during a reply stops that reply only. Earlier requests keep waiting
+for their agents; when nothing is being answered, **Stop** drops those waits,
+and deleting the chat does too.
+
 Restarting the app forgets which requests were waiting for a result. The
 agents' own work is not lost: check the coding pane or the agent's chat.
 

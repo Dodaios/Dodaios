@@ -176,29 +176,43 @@ _BLEED_STOPWORDS: frozenset[str] = frozenset({
 })
 
 
-def _order_turn(ctx: ExecutionContext) -> str:
-    """The finished user turn a spawn came from, where the surface names one.
+def _typed_order() -> tuple[str, str]:
+    """The typed message a spawn came from and the person's own words for it.
 
-    A typed chat message and a live call's request are delimited by the user
-    (Enter, or the live model's own turn-taking), so each is one whole order.
-    The classic voice pipeline cuts long utterances itself and names no turn
-    here: ``""`` keeps its spawns under the plain time window.
+    ``("", "")`` outside a typed chat turn. Pressing Enter delimits a typed
+    message, so it is one whole order; a spoken turn is not named here.
     """
     from jarvis.core.protocols import current_chat_turn
 
     turn = current_chat_turn.get()
-    if turn is not None and turn.direct_user:
-        return f"chat:{turn.session_id}:{turn.turn_id}"
-    config = getattr(ctx, "config", None) or {}
-    live = str(config.get("live_session_id") or "")
-    if live:
-        return f"live:{live}:{config.get('task_revision')}"
-    return ""
+    if turn is None or not turn.direct_user:
+        return "", ""
+    return f"chat:{turn.session_id}:{turn.turn_id}", turn.user_text
 
 
 def _fold_order(utterance: str) -> str:
     """An order's words without case, punctuation or spacing differences."""
     return " ".join(re.findall(r"\w+", (utterance or "").casefold()))
+
+
+def _content_words(text: str) -> set[str]:
+    return {
+        word
+        for word in re.findall(r"[^\W\d_]{3,}", (text or "").lower())
+        if word not in _BLEED_STOPWORDS
+    }
+
+
+def _names_same_work(typed: str, utterance: str) -> bool:
+    """True when the call's task is about what the person typed.
+
+    Stricter than :func:`_shares_content_word`: a message without a content
+    word of its own ("and?", "ok") orders nothing new, and one shared filler
+    word does not make an older order this message's order. At least half of
+    what the person typed has to be in the task.
+    """
+    words = _content_words(typed)
+    return bool(words) and 2 * len(words & _content_words(utterance)) >= len(words)
 
 
 def _shares_content_word(a: str, b: str) -> bool:
@@ -518,11 +532,11 @@ class SpawnWorkerTool:
         #                         incremented synchronously before the first
         #                         await so two concurrent execute() coroutines
         #                         cannot both pass (#4).
-        #   _last_spawn_turn / _last_spawn_order — where the armed spawn came
-        #                         from and what it asked for. A spawn from a
-        #                         DIFFERENT identifiable turn that asks for
-        #                         something else is a second order, not a
-        #                         duplicate (see ``_order_turn``).
+        #   _last_spawn_turn / _last_spawn_order — the typed message the armed
+        #                         spawn came from and its words. A spawn from
+        #                         ANOTHER typed message that orders something
+        #                         else is a second order, not a duplicate (see
+        #                         ``_typed_order``).
         self._last_spawn_at: float = 0.0
         self._active_dispatches: int = 0
         self._last_spawn_turn: str = ""
@@ -615,18 +629,22 @@ class SpawnWorkerTool:
         # legitimate retry dispatches immediately instead of hearing a false
         # "already running" ACK (#3 spawn-cooldown-no-failure-reset).
         now = time.monotonic()
-        # A typed message and a live call's request are whole turns the user
-        # finished, never fragments of one utterance: a second ORDER from
-        # another such turn dispatches while the first still runs. Without an
-        # identifiable turn (the classic voice pipeline, where the fragment
-        # regression lives) every spawn inside the window stays a duplicate.
-        order_turn = _order_turn(ctx)
-        order = _fold_order(utterance)
+        # A typed message is a whole turn the person finished, never a
+        # fragment of one utterance: a second ORDER typed in another message
+        # dispatches while the first still runs. It has to be that message's
+        # own order, in the person's words: a short "and?" or a repeat of the
+        # running order stays a duplicate, whatever the model wrote into the
+        # call. Voice turns name no finished order here (speech arrives in
+        # pieces, and that is where the fragment regression lives), so every
+        # spoken spawn inside the window stays a duplicate.
+        order_turn, typed = _typed_order()
+        order = _fold_order(typed)
         second_order = bool(
             order_turn
             and self._last_spawn_turn
             and order_turn != self._last_spawn_turn
             and order != self._last_spawn_order
+            and _names_same_work(typed, utterance)
         )
         if (
             self._active_dispatches > 0

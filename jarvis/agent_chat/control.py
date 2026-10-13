@@ -22,6 +22,7 @@ from .control_types import (
     GoalState,
     GoalVerdict,
 )
+from .parked_work import BACKGROUND_ORIGIN
 
 log = logging.getLogger(__name__)
 _command_origin: ContextVar[CommandRequest | None] = ContextVar("chat_command_origin", default=None)
@@ -283,8 +284,8 @@ class ChatControls:
             hits = []
             for event in self.service.store.list_events(sid):
                 payload = event.get("payload") or {}
-                if payload.get("origin") == "control":
-                    continue
+                if payload.get("origin") in ("control", BACKGROUND_ORIGIN):
+                    continue  # nothing the person typed
                 if event["kind"] not in ("user_message", "assistant_text", "agent_message"):
                     continue
                 text = str(payload.get("typed") or payload.get("text") or "")

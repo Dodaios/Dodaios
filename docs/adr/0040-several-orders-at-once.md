@@ -39,10 +39,11 @@ introduced; the work that continues is the action that was already started.
 ### 1. Live voice: independent actions run side by side
 
 `LiveTools` serializes only what shares a resource: the screen tools
-(`computer`, `take_appshot`, `computer_use`) and the session controls
-(`confirm_action`, `end_call`). Every other call runs concurrently. One call
-ID delivered on two transports still executes once: the second waits for the
-first one's receipt.
+(`computer`, `take_appshot`, `computer_use`) and the hang-up control
+(`end_call`). Every other call runs concurrently, `confirm_action` included:
+it takes its pending approval in one step and then runs the approved effect.
+One call ID delivered on two transports still executes once: the second waits
+for the first one's receipt.
 
 ### 2. Live voice: an action the user moved on from becomes a background task
 
@@ -64,6 +65,11 @@ ledger. All three session classes use the same path: the native session with
 the voice budget as deadline, the continuous and the subscription session
 without one.
 
+An approved effect (`confirm_action`) is an action like any other and leaves
+its turn the same way. An action that reaches its approval question only after
+it was released keeps that question: the task ends as `needs_approval` and the
+report asks the user, instead of the order being withdrawn as overtaken.
+
 ### 3. Live voice: the receipt is told at a pause, and it may finish what waited
 
 When a background task ends, the session queues its receipt and offers it at
@@ -83,7 +89,8 @@ back. The report:
 - stays owed when the call does not voice it, for a bounded number of pauses.
 
 A stop word cancels every running background task. `task_status` lists the
-tasks of the call with their request, state and result, and stops one by id.
+tasks of the call with their request, state and a shortened result without
+pictures, and stops one by id.
 
 ### 4. Chat: a turn that only waits hands its seat to the next message
 
@@ -98,20 +105,35 @@ message (`jarvis/agent_chat/parked_work.py`):
 - when the delegates have reported, the earlier request continues in a turn of
   its own, opened by a `user_message` with `origin: "background"` that the
   timeline draws as "result for your earlier request";
-- every turn started meanwhile is told which requests still run behind it.
+- every turn started meanwhile is briefed on which requests still run behind
+  it. The briefing is part of the turn's instructions, never of the person's
+  message.
+
+The brain reads a turn's text for its deterministic routes: which coding pane
+an order addresses, what to cancel, where to navigate. A continuation quotes
+the original order and the agents' reports, so it travels as the turn's
+briefing too and the turn's text is a neutral "continue" line. Read as the
+person's words it would send the original order to the pane a second time;
+that also holds for the continuation of a wait that kept its turn.
+
+A stop pressed during a turn stops that turn and leaves earlier requests
+alone. A stop pressed while nothing answers, and deleting the chat, drop the
+requests that still wait for their agents; the agents' own work is untouched.
 
 A turn that is still answering or running a tool keeps its seat, and the new
 message queues behind it as before; when that turn then starts waiting, the
 queued message starts. A wait nobody interrupts keeps its turn, exactly as
 before. An agent's own chat (`society`) keeps holding its turn.
 
-### 5. A second order is not a duplicate spawn
+### 5. A second typed order is not a duplicate spawn
 
-The spawn window exists for fragments of one utterance. A typed message and a
-live call's request are whole turns the user finished, so a spawn from a
-different such turn that asks for something else dispatches while the first
-still runs. The same order repeated, and every spawn without an identifiable
-turn (the classic pipeline), stay under the window.
+The spawn window exists for fragments of one utterance. A typed message is a
+whole turn the person finished, so a spawn from another typed message
+dispatches while the first still runs, provided the task is that message's
+own order in the person's words: at least half of what they typed is in it,
+and it is not the running order again. A short follow-up ("and?"), a repeat,
+and every spoken spawn stay under the window. Speech arrives in pieces on
+every voice engine, and no engine names a finished order to the tool.
 
 ## Consequences
 
@@ -134,6 +156,8 @@ turn (the classic pipeline), stay under the window.
 - Background missions still run one after another
   (`max_concurrent_missions = 1`, a capacity decision for subscription
   workers); a second mission is accepted and queued.
+- In a voice call a second background mission ordered within the spawn window
+  of a running one is still answered as already running (§5).
 - A mission's result is read back in voice and shown in its own views; it is
   not posted into the typed chat that started it.
 
@@ -151,6 +175,12 @@ turn (the classic pipeline), stay under the window.
   depended on it; the receipt is the function result the model was promised.
 - **Text similarity alone for the spawn window.** Fragments of one utterance
   have different words; the turn identity is what tells a second order apart.
+- **The live call's request counter as a turn for the spawn window.** It
+  advances per transcript piece on two of the three sessions, so one spoken
+  order spans several values and a reworded repeat would pass.
+- **The background note inside the person's message.** It names the earlier
+  order and its pane; the deterministic pane route would then type an
+  unrelated new message into that pane.
 
 ## References
 
