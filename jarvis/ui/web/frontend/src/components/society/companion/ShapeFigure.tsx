@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { figureKey, type FigureLook, type FigureSmoke } from "./figureScene";
+import { WorkingBadge } from "./WorkingBadge";
 import { FIGURE_BROKEN, figuresSupported, readFigure, watchFigure, watchFigureSupport, type Figure } from "./figureStore";
 
 /** True while agent shapes can be drawn as 3D figures here; re-renders when that changes. */
@@ -88,7 +89,7 @@ function LivingEyes({ figure, size, eyes }: { figure: Figure; size: number; eyes
  * a roster of faces costs the UI thread nothing while it idles; each figure
  * runs a little out of step with the others.
  */
-export function ShapeFigure({ look, size, shape, behind, children, overlay, fallback, flow, shine, inside, smoke, eyes }: {
+export function ShapeFigure({ look, size, shape, behind, children, overlay, fallback, flow, shine, inside, smoke, eyes, working = false }: {
   look: FigureLook; size: number;
   /** Shown when this look could not be drawn and no earlier picture is there. */
   fallback: ReactNode;
@@ -106,6 +107,8 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
   inside?: ReactNode;
   /** Living eyes over an eyeless picture: their kind, their height in symbol units and their ink. */
   eyes?: { kind: "dots" | "lines"; y: number; color: string };
+  /** The agent is at work: the figure nods over what it does, under the working bubble. */
+  working?: boolean;
   /** Draws one plume of smoke, in symbol units around its source. */
   smoke?: (plume: FigureSmoke, index: number) => ReactNode;
   children?: ReactNode;
@@ -146,7 +149,7 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
   let beat = 0;
   for (let i = 0; i < key.length; i++) beat = (beat * 31 + key.charCodeAt(i)) % 9973;
   const pace = { "--agent-figure-delay": `${-beat}ms` } as CSSProperties;
-  return <span className="society-agent-figure" data-agent-figure={shape} data-ready={ready ? "true" : undefined} style={{ width: size, height: size, ...pace }}>
+  return <span className="society-agent-figure" data-agent-figure={shape} data-ready={ready ? "true" : undefined} data-working={working ? "true" : undefined} style={{ width: size, height: size, ...pace }}>
     {behind}
     <span className="agent-figure-body">
     <span className="agent-figure-picture" style={flow ? masked(current?.whole) : undefined}>
@@ -172,5 +175,6 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
     </svg>}
     </span>
     {shown && overlay}
+    {working && <WorkingBadge size={size} />}
   </span>;
 }
