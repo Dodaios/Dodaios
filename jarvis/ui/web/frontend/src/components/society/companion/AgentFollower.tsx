@@ -91,11 +91,31 @@ function ShapeModel({ appearance, lead = false }: { appearance: CompanionAppeara
         mesh.material = name.includes("Body") ? body : name.includes("Highlight") ? shine : eyes;
       });
     }
-    return { model, materials };
+    // The eyes that show, with the height of their middle: a blink squeezes them about it.
+    const eyes: { mesh: Mesh; middle: number }[] = [];
+    if (!lead) model.traverse(object => {
+      const mesh = object as Mesh;
+      if (!mesh.isMesh || !mesh.visible || !(mesh.name.includes("Dots") || mesh.name.includes("Lines"))) return;
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox;
+      if (box) eyes.push({ mesh, middle: (box.min.y + box.max.y) / 2 });
+    });
+    return { model, materials, eyes };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- appearance.skin is read through skinKey
   }, [scene, lead, appearance.shape, appearance.color, appearance.eyes, skinKey]);
   useEffect(() => () => { instance.materials.forEach(material => material.dispose()); }, [instance]);
-  useFrame((_, delta) => { if (!reduced && skinKey) advanceSkin(instance.materials[0]!, delta); });
+  // Each companion blinks on its own beat; only frames that are drawn anyway move the lids.
+  const blink = useRef(Math.random() * BLINK_EVERY_S);
+  useFrame((_, delta) => {
+    if (reduced) return;
+    if (skinKey) advanceSkin(instance.materials[0]!, delta);
+    blink.current = (blink.current + Math.min(delta, 0.1)) % BLINK_EVERY_S;
+    const open = blink.current < BLINK_S || (blink.current > BLINK_S * 2.4 && blink.current < BLINK_S * 3.4) ? 0.1 : 1;
+    for (const eye of instance.eyes) {
+      eye.mesh.scale.y = open;
+      eye.mesh.position.y = eye.middle * (1 - open);
+    }
+  });
   const wearing = !lead && wornAccessories(appearance.accessories).length > 0;
   // Gigi's authored body is 0.4 m; the symbol master is exactly 1 m.
   return <group scale={appearance.sizeM / (lead ? 0.4 : 1)}>
@@ -104,6 +124,9 @@ function ShapeModel({ appearance, lead = false }: { appearance: CompanionAppeara
     {wearing && <PetBoundary><Suspense fallback={null}><CompanionAccessories appearance={appearance} /></Suspense></PetBoundary>}
   </group>;
 }
+
+/** A shape companion blinks twice in quick succession this often, and one blink takes this long, seconds. */
+const BLINK_EVERY_S = 3.6, BLINK_S = 0.13;
 
 const PUFFS = 7;
 const PUFF_GEOMETRY = new SphereGeometry(1, 12, 8);

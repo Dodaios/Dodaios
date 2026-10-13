@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { ACCESSORY_CATALOG, ACCESSORY_ITEMS } from "./accessories";
 import { COMPANION_SHAPES } from "./appearance";
 import { meshesByName, readGlb } from "./figureGlb";
-import { figureCover, renderFigure, shadeFigure, traceFigure } from "./figureRender";
+import { figureCover, figureGround, renderFigure, shadeFigure, traceFigure } from "./figureRender";
 import { bodyEffectMoves, EFFECT_FLOW, EFFECT_STARS, figureFaceMatrix, figureKey, figureParts, figureSmoke, figureTraceKey, type FigureLook } from "./figureScene";
 
 const ASSETS = path.resolve(__dirname, "../../../assets/society/companions");
@@ -46,7 +46,7 @@ describe("3D profile faces", () => {
     for (let y = 0; y < 48; y++) for (let x = 0; x < 48; x++) {
       const [, , , alpha] = pixel(image, x, y);
       if (alpha > 200) solid++;
-      // The figure never touches the edge; only its faint shadow may reach it.
+      // The figure never touches the edge.
       if (x === 0 || y === 0 || x === 47 || y === 47) expect(alpha).toBeLessThan(120);
     }
     expect(solid).toBeGreaterThan(48 * 48 * 0.2);
@@ -140,6 +140,22 @@ describe("3D profile faces", () => {
     expect(plumes[0]!.y).toBeLessThan(96);
     expect(plumes[0]!.scale).toBeGreaterThan(0);
     expect(figureSmoke(look(), image.frame)).toHaveLength(0);
+  });
+
+  it("leaves the ground shadow out of the picture and says where it lies", () => {
+    const parts = figureParts(look({ shape: "circle" }), bodies);
+    const trace = traceFigure(parts, 64);
+    const image = shadeFigure(trace, parts);
+    const ground = figureGround(trace)!;
+    // Under the body, inside the picture, wider than tall (a circle on the ground seen from above the horizon).
+    expect(ground.x).toBeGreaterThan(16);
+    expect(ground.x).toBeLessThan(48);
+    expect(ground.y).toBeGreaterThan(40);
+    expect(ground.y + ground.ry).toBeLessThanOrEqual(66);
+    expect(ground.rx).toBeGreaterThan(ground.ry * 2);
+    // Beside the body, on the shadow's own height, the picture itself is empty.
+    expect(pixel(image, Math.min(63, Math.round(ground.x + ground.rx * 0.95)), Math.min(63, Math.round(ground.y + ground.ry * 0.6)))[3]).toBe(0);
+    expect(figureGround(traceFigure([], 16))).toBeUndefined();
   });
 
   it("draws nothing for an empty figure", () => {
