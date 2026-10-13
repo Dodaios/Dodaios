@@ -172,17 +172,18 @@ function symbolEyeY(shape: SymbolShape): number {
 
 /**
  * An agent's shape: a small 3D figure of its body, eyes and accessories, or
- * the flat symbol where figures cannot be drawn. A working agent shows the
- * three flat dots either way.
+ * the flat symbol where figures cannot be drawn. At work the figure stays in
+ * the picture: it nods over what it does, under the working bubble. Only the
+ * flat symbol still turns into three dots.
  */
 export function AgentSymbol(props: SymbolProps) {
   const supported = useFiguresSupported();
-  if (!supported || props.thinking) return <FlatSymbol {...props} />;
+  if (!supported) return <FlatSymbol {...props} />;
   return <FigureSymbol {...props} />;
 }
 
 function FigureSymbol(props: SymbolProps) {
-  const { shape, color, size, eyes = "lines", accessories, expressive = false, skin } = props;
+  const { shape, color, size, eyes = "lines", accessories, expressive = false, skin, thinking = false } = props;
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const worn = wornAccessories(accessories);
   // Living eyes are drawn on top of an eyeless figure; glasses cover them, so the figure keeps its own.
@@ -197,7 +198,7 @@ function FigureSymbol(props: SymbolProps) {
   }), [shape, color, eyes, wornKey, skinKey, blind]);
   const effect = skin ? skinEffect(skin) : "none";
   const eyeY = symbolEyeY(shape);
-  return <ShapeFigure look={look} size={size} shape={shape} fallback={<FlatSymbol {...props} />}
+  return <ShapeFigure look={look} size={size} shape={shape} fallback={<FlatSymbol {...props} />} working={thinking}
     eyes={blind && !moving ? { kind: eyes, y: eyeY, color: companionEyeColors(color).eye } : undefined}
     flow={skin && effect === "flow" ? { colors: skin.colors, angle: skin.angle } : undefined} shine={effect === "shimmer"}
     inside={effect === "stars" ? <SkinStars /> : undefined}
