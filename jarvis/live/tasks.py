@@ -147,6 +147,9 @@ class TaskBoard:
     def running(self) -> list[BackgroundTask]:
         return [task for task in self._tasks if task.running]
 
+    def waiting_for_approval(self) -> list[BackgroundTask]:
+        return [task for task in self._tasks if task.status == NEEDS_APPROVAL]
+
     def snapshot(self) -> list[dict[str, Any]]:
         return [task.describe() for task in self._tasks]
 

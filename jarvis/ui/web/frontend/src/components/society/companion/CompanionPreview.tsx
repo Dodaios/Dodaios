@@ -1,5 +1,6 @@
 import { Component, Suspense, useEffect, useRef, type ReactNode } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import type { Group } from "three";
 import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
 import { useReducedMotion } from "framer-motion";
 import { useCanvasAwake } from "@/hooks/useCanvasAwake";
@@ -78,6 +79,24 @@ function Frame({ framing }: { framing: Framing }) {
   return null;
 }
 
+/**
+ * A shape at rest on the table: it sways a little to each side and breathes,
+ * so the preview shows its volume without being turned by hand. A pet brings
+ * its own life (PetModel) and is left alone.
+ */
+function Idle({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  const group = useRef<Group>(null);
+  useFrame(({ clock }) => {
+    const node = group.current;
+    if (!node || !enabled) return;
+    const t = clock.getElapsedTime();
+    const breath = Math.sin(t * 1.5) * 0.012;
+    node.rotation.y = Math.sin(t * 0.6) * 0.3;
+    node.scale.set(1 + breath, 1 - breath, 1 + breath);
+  });
+  return <group ref={group}>{children}</group>;
+}
+
 export function CompanionPreview({ appearance, lead = false }: { appearance: CompanionAppearance; lead?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const { generation } = useWebglSurface(host);
@@ -90,17 +109,18 @@ export function CompanionPreview({ appearance, lead = false }: { appearance: Com
   const framing = pet
     ? previewFraming(pet.heightM, companionFlies(pet) ? WORN_PET_LIFT_M : 0)
     : previewFraming(appearance.sizeM, 0);
-  // A pet breathes, blinks and turns on the table; a still preview only draws when asked.
-  const live = !!pet && !reduced;
+  // A pet breathes, blinks and turns on the table; a shape sways and breathes. Reduced motion draws only when asked.
+  const live = !reduced;
+  const turning = !!pet && live;
   return <div ref={host} className="h-56 w-full touch-none" data-testid="companion-preview">
     {supported && awake && <PreviewBoundary key={generation}>
       <Canvas frameloop={live ? "always" : "demand"} shadows dpr={[1, 2]}
         camera={{ position: framing.position, fov: FOV, near: 0.02, far: 20 }} gl={{ alpha: true, antialias: true }}>
         <Studio />
         <Frame framing={framing} />
-        <Suspense fallback={null}><CompanionModel appearance={appearance} lead={lead} /></Suspense>
+        <Suspense fallback={null}><Idle enabled={live && !pet}><CompanionModel appearance={appearance} lead={lead} /></Idle></Suspense>
         <ContactShadows position={[0, 0.001, 0]} opacity={0.5} scale={Math.max(1, framing.target[1] * 6)} blur={2.6} far={1} resolution={512} frames={live ? Infinity : 1} />
-        <OrbitControls makeDefault target={framing.target} enablePan={false} enableZoom={false} autoRotate={live} autoRotateSpeed={0.9}
+        <OrbitControls makeDefault target={framing.target} enablePan={false} enableZoom={false} autoRotate={turning} autoRotateSpeed={0.9}
           minPolarAngle={0.25} maxPolarAngle={Math.PI * 0.55} />
       </Canvas>
     </PreviewBoundary>}
