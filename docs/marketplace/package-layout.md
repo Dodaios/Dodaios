@@ -57,7 +57,7 @@ todo-fox/
 │   │   └── SKILL.md
 │   └── todo-weekly-review/
 │       └── SKILL.md
-├── io.github.personaljarvis/    ← everything specific to this client
+├── io.github.dodaios/           ← everything specific to this client
 │   └── usage-card.md
 └── LICENSE
 ```
@@ -95,7 +95,7 @@ well, in one install.
 
 The namespace was called `io.github.personaljarvis` before the product was
 renamed. A package written with it stays valid as it is: the app reads the
-block under either key, and a plugin
+block under either key and the usage card from either directory, and a plugin
 is the same plugin whichever one it uses, because its identity is its `name`.
 Three rules keep the two in step:
 
@@ -140,7 +140,7 @@ version, with tokens as placeholders and never as literals:
 }
 ```
 
-**`io.github.personaljarvis/usage-card.md`** — the words that decide *when*
+**`io.github.dodaios/usage-card.md`** — the words that decide *when*
 your plugin is offered. Without it, Dodaios only reaches for the plugin when
 a turn names it outright:
 

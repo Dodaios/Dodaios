@@ -48,7 +48,7 @@ async def _body(request: Request) -> Any:
 
 @router.post("/chat/completions")
 async def runtime_gateway_chat(request: Request) -> Any:
-    """One model call for a Hermes / OpenClaw agent, on its Jarvis provider."""
+    """One model call for a Hermes / OpenClaw agent, on its Dodaios provider."""
     grant = _grant(request)
     try:
         lease = gateway.capture_turn(grant)

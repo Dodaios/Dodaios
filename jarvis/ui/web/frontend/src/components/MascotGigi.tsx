@@ -117,7 +117,7 @@ export function MascotGigi({
         aria-label={t("mascot_gigi.aria_label")}
         title="Gigi"
       >
-        {/* The Personal Jarvis mark: ink on paper, paper on charcoal. */}
+        {/* The Dodaios mark: ink on paper, paper on charcoal. */}
         <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" className="gigi-svg">
           <path className="gigi-body" d={JARVIS_LOGO_PATH} fillRule="evenodd" fill="hsl(var(--gigi-trim))" />
         </svg>
