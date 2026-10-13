@@ -5,7 +5,7 @@ One command for every agent (Claude Code, Codex, Gemini CLI, ...) working in
 its own worktree or clone::
 
     python scripts/agent_land.py            # on a feature branch -> PR, auto-merge
-    python scripts/agent_land.py --direct   # fast-forward main itself
+    python scripts/agent_land.py --direct   # admin only: fast-forward main itself
 
 What it does, in order — and it stops at the first real problem:
 
@@ -99,7 +99,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--remote", default="origin")
     parser.add_argument("--direct", action="store_true", help="Push straight to main.")
-    parser.add_argument("--pr", action="store_true", help="Push the branch and open a PR.")
+    parser.add_argument(
+        "--pr",
+        action="store_true",
+        help="Accepted for compatibility: a feature branch always lands through a PR.",
+    )
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument("--skip-gates", action="store_true")
     parser.add_argument("--no-push", action="store_true", help="Check only.")
@@ -114,7 +118,12 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
     branch = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], check=True).stdout.strip()
-    direct = args.direct or (branch == "main" and not args.pr)
+    if branch == "main" and not args.direct:
+        print("Refusing to land from main: local main mirrors origin/main and takes no commits.")
+        print("Work on a feature branch in your own worktree:")
+        print("  git worktree add -b <agent>/<topic> <path> origin/main")
+        return 2
+    direct = args.direct
     dirty = run(["git", "status", "--porcelain", "--untracked-files=no"]).stdout.strip()
     if dirty:
         print("Refusing to land: the worktree has uncommitted changes to tracked files.")
