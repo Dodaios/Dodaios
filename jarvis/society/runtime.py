@@ -69,7 +69,11 @@ class _UsablePlugins:
 
 #: Set by a caller that waits for the reply to the message it is about to send
 #: and says that reply itself (``jarvis.plugins.tool.ask_agent``).
-reply_awaited_inline: ContextVar[bool] = ContextVar("reply_awaited_inline", default=False)
+#: The value is an empty list that receives the id of the ONE question it
+#: marks; a task that inherits the context finds the list already used.
+reply_awaited_inline: ContextVar[list[str] | None] = ContextVar(
+    "reply_awaited_inline", default=None
+)
 
 
 class SocietyRuntimeClosed(RuntimeError):
@@ -1310,10 +1314,22 @@ class SocietyRuntime:
             payload=body,
             parent_event_id=parent_event_id,
         )
-        if reply_awaited_inline.get():
+        marked = reply_awaited_inline.get()
+        if (
+            marked is not None
+            and not marked
+            and from_agent == self.lead_id
+            and msg_type is MsgType.QUERY
+        ):
             # Marked before it is stored: no reply can arrive ahead of the mark.
+            marked.append(outgoing.event_id)
             self._awaited_inline.add(outgoing.event_id)
-        envelope = await self.store.append_and_publish(outgoing)
+        try:
+            envelope = await self.store.append_and_publish(outgoing)
+        except BaseException:
+            # Never sent: nothing may stay marked for a reply that cannot come.
+            self._awaited_inline.discard(outgoing.event_id)
+            raise
         from .delegation_wait import track_request
 
         await track_request(self, envelope)
