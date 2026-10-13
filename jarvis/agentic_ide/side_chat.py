@@ -86,14 +86,4 @@ async def system_prompt(session: Any, user_text: str, assistant_name: str) -> st
     return f"{prompt}\n\nWORKSPACE\n{notes}" if notes else prompt
 
 
-def opening_message(system: str, user_text: str) -> str:
-    """A conversation's first message on a seat that takes no system prompt.
-
-    A coding CLI run tool-free keeps its own system prompt, so the side chat's
-    instructions travel at the head of the first message instead. The CLI then
-    resumes its own conversation, which still holds them.
-    """
-    return f"<side_chat_instructions>\n{system}\n</side_chat_instructions>\n\n{user_text}"
-
-
-__all__ = ["opening_message", "system_prompt", "workspace_notes"]
+__all__ = ["system_prompt", "workspace_notes"]

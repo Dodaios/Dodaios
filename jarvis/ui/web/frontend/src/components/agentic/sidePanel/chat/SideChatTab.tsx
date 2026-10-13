@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUp, ArrowUpRight, History, Loader2, Square, SquarePen, Trash2 } from "lucide-react";
+import { ArrowUp, ArrowUpRight, History, Square, SquarePen, Trash2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { TurnItem } from "@/components/agentchat/reduce";
@@ -81,10 +81,11 @@ export function SideChatTab() {
     void store.loadSessions();
   }, []);
 
-  // The chat talks about the workspace on screen: its folder is the session's.
+  // A new chat talks about the workspace on screen. A chat that has started
+  // keeps the folder it was started in: reopening it never re-points it.
   useEffect(() => {
-    if (folder && folder !== draft.cwd) void useSideChatStore.getState().setDraft({ cwd: folder });
-  }, [folder, draft.cwd]);
+    if (!activeSessionId && folder && folder !== draft.cwd) void useSideChatStore.getState().setDraft({ cwd: folder });
+  }, [activeSessionId, folder, draft.cwd]);
 
   // The box grows with what is typed, up to a share of the panel.
   useLayoutEffect(() => {
@@ -141,7 +142,9 @@ export function SideChatTab() {
     () => [...sessions].sort((a, b) => b.updated_ms - a.updated_ms).slice(0, HISTORY_ROWS),
     [sessions],
   );
-  const error = lastError || catalogError;
+  // A backend from before this chat existed refuses its surface outright:
+  // the app was updated and not yet restarted. Say that, not the refusal.
+  const error = lastError || (catalogError && !catalog ? t("ide_side_panel.chat.needs_restart") : catalogError);
   // The list is refreshed after every send; the session held from creation has no title yet.
   const listed = sessions.find((session) => session.session_id === activeSessionId);
   const title = listed?.title?.trim() || activeSession?.title?.trim() || t("ide_side_panel.chat.new_chat");
@@ -207,7 +210,7 @@ export function SideChatTab() {
               <EffortPicker provider={provider} draft={draft} liveModels={liveModels} separated
                 onPick={(effort) => void useSideChatStore.getState().setDraft({ effort })} />
             </div>
-            {running && !message.trim()
+            {running
               ? <button type="button" aria-label={t("ide_side_panel.chat.stop")} title={t("ide_side_panel.chat.stop")} data-testid="side-chat-stop"
                 onClick={() => void useSideChatStore.getState().cancel("side-chat-stop-button")}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -220,7 +223,7 @@ export function SideChatTab() {
                   "transition-[opacity,transform] duration-150 hover:scale-105 hover:opacity-95 disabled:opacity-40 disabled:hover:scale-100",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 )}>
-                {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+                <ArrowUp className="h-4 w-4" />
               </button>}
           </div>
         </div>

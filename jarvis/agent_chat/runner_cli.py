@@ -3463,7 +3463,11 @@ async def _run_cli_once(
     # A society agent placed on another computer runs its CLI there over SSH.
     placement = await placement_for_session(session)
     remote_token = _REMOTE_PLANNING.set(placement is not None)
-    planned_prompt = user_text
+    from jarvis.agent_chat import plain_chat
+
+    # A plain chat's instructions open every conversation the CLI starts,
+    # the one a lost resume falls back to included.
+    planned_prompt = plain_chat.cli_prompt(handle, user_text, resume)
     # Set once planning succeeded; an external runtime's plan holds a turn slot.
     plan: CliPlan | None = None
     if placement is not None and not getattr(handle, "tools_disabled", False):
@@ -3539,7 +3543,9 @@ async def _run_cli_once(
                     cwd=cwd,
                     model=session.model,
                     effort=effort,
-                    permission_mode=session.permission_mode,
+                    permission_mode=plain_chat.permission_mode(
+                        handle, runner, session.permission_mode
+                    ),
                     resume=resume,
                     identity=identity,
                 )

@@ -7595,7 +7595,8 @@
       "too_long": "Diese Antwort ist zu lang für ein Terminal: {count} von {max} Zeichen.",
       "sent": "An {pane} gesendet.",
       "not_accepted": "{pane} hat den Prompt nicht angenommen. Der Text steht in seinem Eingabefeld; drück dort Enter.",
-      "unconfirmed": "Bei {pane} war nicht zu sehen, dass der Prompt ankam. Sieh in diesem Terminal nach."
+      "unconfirmed": "Bei {pane} war nicht zu sehen, dass der Prompt ankam. Sieh in diesem Terminal nach.",
+      "needs_restart": "Starte die App einmal neu, um den Chat zu nutzen: Sie wurde im laufenden Betrieb aktualisiert."
     },
     "tabs": {
       "browser": "Browser",

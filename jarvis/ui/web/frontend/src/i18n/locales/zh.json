@@ -7595,7 +7595,8 @@
       "too_long": "这个回答对终端来说太长：{count} / {max} 个字符。",
       "sent": "已发送到 {pane}。",
       "not_accepted": "{pane} 没有接收提示词。文本仍在它的输入框中，请在那里按 Enter。",
-      "unconfirmed": "{pane} 未显示提示词已到达。请检查该终端。"
+      "unconfirmed": "{pane} 未显示提示词已到达。请检查该终端。",
+      "needs_restart": "请重启一次应用以使用聊天：它是在运行期间更新的。"
     },
     "tabs": {
       "browser": "浏览器",

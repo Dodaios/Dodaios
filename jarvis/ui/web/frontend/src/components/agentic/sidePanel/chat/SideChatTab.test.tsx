@@ -153,4 +153,31 @@ describe("SideChatTab", () => {
     // Never composed a second time: the terminal gets the answer the person read.
     expect(sent.body).toMatchObject({ prompt: "Make the login form accessible.", compose: false });
   });
+
+  it("starts a new chat in the workspace on screen and never re-points one that has started", () => {
+    useIdeChatStore.setState({ workspace: { id: "w1", name: "App", path: "/repo/now" } });
+    const fresh = vi.fn(async () => undefined);
+    seed([], { setDraft: fresh });
+    const first = render(<SideChatTab />);
+    expect(fresh).toHaveBeenCalledWith({ cwd: "/repo/now" });
+    first.unmount();
+
+    const started = vi.fn(async () => undefined);
+    seed([USER, turn([ANSWER])], { setDraft: started, draft: { provider: "fake", model: "m1", effort: "", permissionMode: "", buildMode: "", cwd: "/repo/then" } });
+    render(<SideChatTab />);
+    expect(started).not.toHaveBeenCalled();
+  });
+
+  it("asks for a restart when the running backend does not know the chat yet", () => {
+    seed([], { catalog: null, catalogError: "422: Input should be 'jarvis', 'agent'" });
+    render(<SideChatTab />);
+    expect(screen.getByTestId("side-chat-error").textContent).toContain("Restart the app once");
+  });
+
+  it("keeps the stop button while text is typed during an answer", () => {
+    seed([USER, turn([], "running")]);
+    render(<SideChatTab />);
+    fireEvent.change(screen.getByTestId("side-chat-input"), { target: { value: "next question" } });
+    expect(screen.getByTestId("side-chat-stop")).toBeTruthy();
+  });
 });

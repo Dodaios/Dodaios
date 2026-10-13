@@ -330,7 +330,8 @@ async def run_api_turn(handle: TurnHandle, user_text: str) -> None:
     messages = messages_from_events(handle.history)
     messages.append(BrainMessage(role="user", content=user_text))
     permission_mode = normalize_permission("api", session.permission_mode)
-    plain = bool(handle.plain_system)
+    # Either says it: a turn told to carry no tools never gets the tool set.
+    plain = handle.tools_disabled or bool(handle.plain_system)
     system = handle.plain_system or system_prompt(
         cwd=cwd, assistant_name=handle.assistant_name, plan=permission_mode == "plan"
     )

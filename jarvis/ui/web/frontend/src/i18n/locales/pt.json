@@ -7595,7 +7595,8 @@
       "too_long": "Esta resposta é longa demais para um terminal: {count} de {max} caracteres.",
       "sent": "Enviado para {pane}.",
       "not_accepted": "{pane} não aceitou o prompt. O texto está na caixa de entrada dele; pressione Enter lá.",
-      "unconfirmed": "{pane} não mostrou a chegada do prompt. Verifique esse terminal."
+      "unconfirmed": "{pane} não mostrou a chegada do prompt. Verifique esse terminal.",
+      "needs_restart": "Reinicie o app uma vez para usar o chat: ele foi atualizado enquanto estava em execução."
     },
     "tabs": {
       "browser": "Navegador",
