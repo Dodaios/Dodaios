@@ -280,6 +280,30 @@ static gates, runs the tests the diff can reach, pushes, and asks GitHub to
 queue the pull request once it is green. It refuses a dirty worktree and
 never stashes or force-pushes.
 
+### A branch from before a package move
+
+Moving the Python package directory is one commit whose content is exactly
+the output of `scripts/rename/rewrite_package.py` (`--dry-run` lists what a
+run would do and the hits it cannot decide, `--check` fails while the tree
+still refers to the old layout). A branch cut before that commit is never
+merged across it by hand. Both `agent_land.py` and the merge train bring the
+branch to the last commit of the old layout first, an ordinary update, and
+then replay the move: the script, loaded from the move commit itself, is
+applied to the files the branch changed, every other file is taken from the
+move commit, and the result is committed as a merge of the two. Nothing can
+conflict in that step. The train does it in two ticks, one per step; locally
+it is one run, and from the move onwards the branch is updated by merge, not
+by rebase. Until main carries the new directory none of this runs.
+
+`agent_land.py` runs the branch's own copy of these scripts. A branch cut
+before they could replay a move stops at the move with an ordinary conflict
+report and changes nothing: rebase it onto the last commit of the old layout
+by hand, which brings the scripts along, and run `agent_land.py` again. The
+merge train always runs main's copy and needs no such step.
+
+`classify_changes.py` reads a changed path under either name of the package
+directory as the same path, so the move turns no lane off.
+
 ## 3. Releases, installers and updates
 
 A release happens **only** when the maintainer asks for one.

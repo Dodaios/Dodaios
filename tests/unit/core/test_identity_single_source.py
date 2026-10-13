@@ -103,6 +103,10 @@ def test_the_pyinstaller_spec_restates_the_bundle_names() -> None:
         == branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME
     )
     assert _module_constant("jarvis.spec", "CLI_EXE_NAME") == branding.CLI_COMMAND_NAME
+    # The frozen build keeps the command's first earlier name beside the new one.
+    legacy_exes = _module_constant("jarvis.spec", "LEGACY_CLI_EXE_NAMES")
+    assert legacy_exes == branding.LEGACY_CLI_COMMAND_NAMES[:1]
+    assert "*legacy_cli_exes," in _read("jarvis.spec")
     assert _module_constant("jarvis.spec", "MACOS_APP_NAME") == branding.MACOS_APP_DIR_NAME
     assert (
         _module_constant("jarvis.spec", "MACOS_BUNDLE_IDENTIFIER") == branding.MACOS_DMG_BUNDLE_ID
@@ -208,6 +212,7 @@ def test_the_shell_uninstaller_restates_the_macos_identifiers(
         ("AppName", branding.LAUNCHER_ENTRY_NAME),
         ("GuiExeName", branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME),
         ("CliExeName", f"{branding.CLI_COMMAND_NAME}.exe"),
+        ("LegacyCliExeName", f"{branding.LEGACY_CLI_COMMAND_NAMES[0]}.exe"),
         ("UserDataDirDisplay", rf"%LOCALAPPDATA%\{branding.WINDOWS_USER_DATA_DIR_NAME}"),
     ],
 )
@@ -219,9 +224,16 @@ def test_the_windows_installer_script_restates_the_names(definition: str, expect
 
 def test_the_packaging_scripts_restate_the_names() -> None:
     windows = _read("packaging/windows/build.ps1")
-    assert (
-        f'@("{branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME}", "{branding.CLI_COMMAND_NAME}.exe")'
-        in windows
+    frozen_cli_names = (branding.CLI_COMMAND_NAME, branding.LEGACY_CLI_COMMAND_NAMES[0])
+    required = (
+        branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
+        *(f"{name}.exe" for name in frozen_cli_names),
+    )
+    assert "@(" + ", ".join(f'"{name}"' for name in required) + ")" in windows
+    quoted = " ".join(f'"{name}"' for name in frozen_cli_names)
+    assert f"\nCLI_EXE_NAMES=({quoted})\n" in _read("packaging/linux/build.sh")
+    assert f"for cli_name in {' '.join(frozen_cli_names)}; do" in _read(
+        "packaging/macos/build.sh"
     )
     assert (
         f'\nDESKTOP_FILE_NAME="{branding.LINUX_DESKTOP_ENTRY_FILE_NAME}"\n'
@@ -235,7 +247,19 @@ def test_the_project_metadata_restates_the_distribution_and_its_commands() -> No
     assert project["project"]["name"] == branding.DISTRIBUTION_NAME
     scripts = project["project"]["scripts"]
     assert set(branding.CLI_COMMAND_NAMES) <= set(scripts)
-    assert scripts[branding.CLI_COMMAND_NAME] == scripts[branding.CLI_COMMAND_ALIAS]
+    # Every earlier name is the same program as the command it used to be.
+    for legacy in branding.LEGACY_CLI_COMMAND_NAMES:
+        assert scripts[legacy] == scripts[branding.CLI_COMMAND_NAME], legacy
+    for legacy in branding.LEGACY_CONTROL_CLI_COMMAND_NAMES:
+        assert scripts[legacy] == scripts[branding.CONTROL_CLI_COMMAND_NAME], legacy
+    assert scripts[branding.CLI_COMMAND_NAME] != scripts[branding.CONTROL_CLI_COMMAND_NAME]
+    # No further alias of either command is registered behind branding's back.
+    # The one exception is the short control alias, which is a console script
+    # but deliberately not one of the commands the installer puts on PATH.
+    commands = {scripts[branding.CLI_COMMAND_NAME], scripts[branding.CONTROL_CLI_COMMAND_NAME]}
+    aliases = {name for name, target in scripts.items() if target in commands}
+    assert aliases - set(branding.CLI_COMMAND_NAMES) == {"jctl"}
+    assert scripts["jctl"] == scripts[branding.CONTROL_CLI_COMMAND_NAME]
     data_files = project["tool"]["setuptools"]["data-files"]
     assert data_files, "the wheel ships its reader documents as data files"
     for target in data_files:
@@ -455,10 +479,11 @@ def _current_names() -> list[IdentityName]:
 
 # The names the product is planned to move to. Data only: nothing sets them
 # yet. When they become the branding values, today's values become LEGACY_*
-# and the first test below covers them without this table.
+# and the first test below covers them without this table. The commands
+# ``dodaios`` and ``dodaiosctl`` already made that move: they are console
+# scripts now, and the first test sees them among the current names.
 _PLANNED_NAMES: tuple[IdentityName, ...] = (
     IdentityName("executable", "gui-exe", "planned", "DodaiosApp"),
-    IdentityName("executable", "cli:dodaios", "planned", "dodaios"),
     IdentityName("home-dir", "install", "planned", ".dodaios"),
     IdentityName("home-dir", "data", "planned", ".dodaios-data"),
     IdentityName("localappdata-dir", "data", "planned", "Dodaios"),
@@ -474,8 +499,25 @@ def test_no_two_current_or_legacy_names_collide() -> None:
     # branded launcher and the hyphenated command differ by more than case.
     values = {(name.role, name.value) for name in names}
     assert ("gui-exe", _executable_stem(branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME)) in values
-    assert (f"cli:{branding.CLI_COMMAND_ALIAS}", branding.CLI_COMMAND_ALIAS) in values
+    # Every command the install puts on PATH is in the table, the new names
+    # and the earlier ones alike.
+    for command in branding.CLI_COMMAND_NAMES:
+        assert (f"cli:{command}", command) in values
     assert _collisions(names) == []
+
+
+def test_the_planned_launcher_name_stays_clear_of_the_commands_that_exist() -> None:
+    # The planned windowed executable shares a folder with the console
+    # scripts. The commands are real now, so this is the pair that would
+    # collide if the launcher were ever named like the command.
+    planned_gui = [name for name in _PLANNED_NAMES if name.role == "gui-exe"]
+    assert planned_gui, "the planned launcher name left the table"
+    commands = {name.casefold() for name in _console_scripts()}
+    for name in planned_gui:
+        assert name.value.casefold() not in commands
+    # And the check has teeth: a launcher spelled like the command is caught.
+    clash = IdentityName("executable", "gui-exe", "planned", branding.CLI_COMMAND_NAME.title())
+    assert len(_collisions([*_current_names(), clash])) == 1
 
 
 def test_the_planned_names_collide_with_nothing_an_installation_carries() -> None:

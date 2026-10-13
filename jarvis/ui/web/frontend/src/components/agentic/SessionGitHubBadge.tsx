@@ -18,20 +18,30 @@ export function GitHubStatusBadge({ status, appearance }: {
   appearance: TerminalAppearance;
 }) {
   const t = useT();
-  if (!status?.owned || !status.published) return null;
+  if (!status?.owned) return null;
   if (!/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/.test(status.repo) || !status.branch) return null;
+  const identity = `${status.repo} · ${status.branch}`;
+  const unavailable = !status.available || Date.now() / 1000 - status.fetched_at > 60;
+  if (!status.published) {
+    // Nothing on GitHub to open yet: the pane still says which branch its work is on.
+    const label = t(unavailable ? "ide_panes.github.unavailable" : "ide_panes.github.local_only");
+    return <span data-header-control="true" data-testid="session-github-status" role="img"
+      aria-label={`${identity}: ${label}`} title={`${identity}\n${label}`}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center opacity-50"
+      style={{ color: PANE_BRAND[appearance].inkMuted }}>
+      <GitHubIcon name="git-branch" width={16} height={16} className="block shrink-0" />
+    </span>;
+  }
   // The PR may belong to an upstream repository when this branch is a fork.
   const pullRequest = /^https:\/\/github\.com\/[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+\/pull\/([1-9]\d*)$/.exec(status.url);
   const url = pullRequest ? status.url : `https://github.com/${status.repo}/tree/${encodeURIComponent(status.branch)}`;
   const destination = pullRequest
     ? fill(t("ide_panes.github.dest_pr"), { number: pullRequest[1] })
     : t("ide_panes.github.dest_branch");
-  const unavailable = !status.available || Date.now() / 1000 - status.fetched_at > 60;
   const [icon, labelKey] = unavailable
     ? ["git-branch" as const, "ide_panes.github.unavailable"]
     : PR[status.state] ?? ["git-branch" as const, "ide_panes.github.branch_generic"];
   const label = t(labelKey);
-  const identity = `${status.repo} · ${status.branch}`;
   return <a data-header-control="true" data-testid="session-github-status"
     href={url} target="_blank" rel="noopener noreferrer"
     aria-label={fill(t("ide_panes.github.open_aria"), { destination, identity })}
