@@ -6,6 +6,7 @@ import {
   fetchRemotes,
   GitApiError,
   openBranchPullRequest,
+  prepareGit,
   pullBranch,
   pushWorkspaceBranch,
   switchBranch,
@@ -37,6 +38,8 @@ export interface GitActions {
   push: (branch?: string) => void;
   /** Stage everything and commit; resolves true when the commit was made. */
   commit: (message: string) => Promise<boolean>;
+  /** Start a new branch here, taking the uncommitted changes along; true when it exists. */
+  createBranch: (name: string) => Promise<boolean>;
   switchTo: (branch: string) => void;
   update: (branch: string) => void;
   remove: (row: BranchRow) => void;
@@ -144,6 +147,13 @@ export function useGitActions(workspaceId: string, folder: string, branch: strin
       },
       commit: async (message) => {
         const failure = await run("commit", async () => fill(t("ide_side_panel.git.done.committed"), { commit: (await commitAll(folder, message)).commit }));
+        return failure === null;
+      },
+      createBranch: async (name) => {
+        const failure = await run(`branch:${name}`, async () => {
+          const made = await prepareGit(folder, { mode: "new_branch", branch: name, base: "" });
+          return fill(t("ide_side_panel.git.done.branch_created"), { branch: made.branch || name });
+        });
         return failure === null;
       },
       switchTo: (target) => {

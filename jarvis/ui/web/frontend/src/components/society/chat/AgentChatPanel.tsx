@@ -6,9 +6,9 @@ import {
   DelegationActivity,
   RoutineActivity,
   assignmentOf,
-  routineTask,
-} from "./ChatActivity";
+  routineTask, TeamEventLine } from "./ChatActivity";
 import { MemoryNoticeViewer, MemoryUpdateNotice, memoryNoticePath, memoryNoticeTitle } from "./MemoryUpdateNotice";
+import { TeamReportNotice } from "./TeamReportNotice";
 import { foldMemoryNotices } from "./memoryNotices";
 import { foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { mergeOutgoingMessages, useOutgoingMessages } from "@/components/agentchat/useOutgoingMessages";
@@ -32,7 +32,7 @@ import { mergeOutgoingMessages, useOutgoingMessages } from "@/components/agentch
  * the voice runs on the realtime tier (`[brain.realtime]`), which no text
  * runner can drive. The header says so while voice is showing.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRoutineNavigation } from "./routineNavigation";
 import { notifyRoutineChanged } from "../cardData";
 import { routineTaskId } from "./routineExecution";
@@ -127,6 +127,8 @@ export interface AgentChatPanelProps {
   roster: SocietyAgent[];
   /** An isolated store lets two canonical agent sessions remain open side by side. */
   chatStore?: AgentChatStoreHook;
+  /** Shown directly above the composer of an agent's own chat (a team lead's actions). */
+  composerExtras?: ReactNode;
 }
 
 /**
@@ -185,7 +187,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   </PairConversationBoundary>;
 }
 
-function AgentChatPanelContent({ agent, roster, chatStore }: AgentChatPanelProps) {
+function AgentChatPanelContent({ agent, roster, chatStore, composerExtras }: AgentChatPanelProps) {
   if (agent.tier === "lead") {
     return (
       <AgentChatStoreProvider store={useAgentChatStore}>
@@ -196,7 +198,7 @@ function AgentChatPanelContent({ agent, roster, chatStore }: AgentChatPanelProps
   if (!agent.chatSessionId) return <NotBoundYet />;
   return (
     <AgentChatStoreProvider store={chatStore ?? useSocietyChatStore}>
-      <SpecialistChat agent={agent} roster={roster} />
+      <SpecialistChat agent={agent} roster={roster} composerExtras={composerExtras} />
     </AgentChatStoreProvider>
   );
 }
@@ -216,7 +218,7 @@ async function bindAgentChat(agentId: string): Promise<void> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
-function SpecialistChat({ agent, roster }: AgentChatPanelProps) {
+function SpecialistChat({ agent, roster, composerExtras }: AgentChatPanelProps) {
   const t = useT();
   const items = useAgentChat((s) => s.timeline.items);
   const activeSessionId = useAgentChat((s) => s.activeSessionId);
@@ -317,6 +319,7 @@ function SpecialistChat({ agent, roster }: AgentChatPanelProps) {
           {`${t("society.card.chat_bind_failed")} (${bindError})`}
         </p>
       ) : null}
+      {composerExtras}
       <Composer
         key={agent.agentId}
         agent={agent}
@@ -741,6 +744,8 @@ export function Transcript({
                 <AgentMessageActivity item={item} roster={roster} />
               ) : item.type === "user" && assignmentOf(item.text) ? (
                 <DelegationActivity {...assignmentOf(item.text)!} roster={roster} />
+              ) : item.type === "user" && item.teamEvent ? (
+                <TeamEventLine event={item.teamEvent} text={item.text} />
               ) : item.type === "user" ? (
                 <UserBubble item={item} agentId={agent.agentId} sessionId={sessionId ?? agent.chatSessionId ?? undefined} tint={tint} />
               ) : item.type === "turn" ? (
@@ -784,6 +789,7 @@ function TimeStamp({ ms }: { ms: number }) {
 export function NoticeLine({ item }: { item: NoticeItem }) {
   const t = useT();
   if (item.kind === "memory_updated") return <MemoryUpdateNotice item={item} />;
+  if (item.kind === "team_report") return <TeamReportNotice item={item} />;
   if (item.kind === "message_queued") {
     return <p className="self-end py-1 text-xs text-muted-foreground" data-testid="message-queued">
       {t("society.chat.message_waiting")} · {item.text}
