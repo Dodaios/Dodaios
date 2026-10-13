@@ -1400,6 +1400,10 @@ def _payload_for(event: Event) -> dict[str, Any]:
             payload["text"] = getattr(v, "text", "")
             payload["lang"] = getattr(v, "language", "")
             continue
+        # A call without a target carries empty origin fields; a row per
+        # tool call that says nothing three times is noise.
+        if v == "" and k in ("effect", "target_origin", "origin_source"):
+            continue
         payload[k] = v
     # ActionProposed.args may hold PII (an email body / recipient, a search
     # query) — it is deliberately NOT in the whitelist, so the raw dict is never

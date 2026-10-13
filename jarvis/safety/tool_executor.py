@@ -195,10 +195,12 @@ class ToolExecutor:
             log.debug("target-origin classification failed for %s: %s", tool.name, exc)
             return TargetOrigin()
 
-    def _record_result_origin(self, tool: Tool, tid: UUID, result: ToolResult) -> None:
+    def _record_result_origin(
+        self, tool: Tool, tid: UUID, result: ToolResult, args: dict[str, Any]
+    ) -> None:
         """Remember the addressable values a tool result held (best effort)."""
         try:
-            self._origins.record(str(tid), tool, result.output)
+            self._origins.record(str(tid), tool, result.output, args)
         except Exception as exc:  # noqa: BLE001 — a record must never cost the call
             log.debug("origin ledger could not read the result of %s: %s", tool.name, exc)
 
@@ -326,6 +328,11 @@ class ToolExecutor:
             ))
             return ToolResult(success=False, output=None, error=str(exc))
 
+        # Where the call's target came from (ADR-0040, record only). Settled
+        # here, before an approval ticket exists, so nothing but the publish
+        # sits between arming it and ``ActionProposed``.
+        origin = self._target_origin(tool, args, tid, user_utterance)
+
         # 2. Plausibility check (Phase 4): the result can force confirmation
         # even when the tier workflow does not (for example, ``monitor``).
         plaus = self._evaluate_plausibility(tool, decision)
@@ -391,7 +398,6 @@ class ToolExecutor:
 
         # 3.5 Proposed event (the UI can use this as a live indicator). The
         # rationale is redacted and capped so no raw secret reaches the bus.
-        origin = self._target_origin(tool, args, tid, user_utterance)
         try:
             await self._bus.publish(ActionProposed(
                 trace_id=tid,
@@ -574,7 +580,7 @@ class ToolExecutor:
             ))
             return ToolResult(success=False, output=None, error=str(exc))
 
-        self._record_result_origin(tool, tid, result)
+        self._record_result_origin(tool, tid, result, args)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=tid,
@@ -637,7 +643,7 @@ class ToolExecutor:
                 error=str(exc),
             ))
             return ToolResult(success=False, output=None, error=str(exc))
-        self._record_result_origin(tool, trace_id, result)
+        self._record_result_origin(tool, trace_id, result, args)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=trace_id,
