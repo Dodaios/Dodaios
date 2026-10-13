@@ -339,6 +339,8 @@ _DIRECTORY_LIST_RE = re.compile(
     r"[^=\n]*$"
 )
 _DASH_M_LEFT_RE = re.compile(r"[\"']-m[\"']\s*,\s*$")
+# ``name.startswith("<old>")``: module names, command names, branch names ...
+_PREFIX_TEST_RE = re.compile(r"\bstartswith\(\s*\(?\s*[rbf]*[\"']$")
 # What follows a quoted name in a path: ``/ "core"`` or ``, "core"``.
 _FOLLOWER_RE = re.compile(r"\s*\)*\s*(/|,)\s*[rf]?[\"']([^\"'/\\\n]+)[\"']")
 
@@ -652,6 +654,11 @@ class Rewriter:
                 return "rewrite", "module wildcard"
             if tail in ("<", "{", "["):
                 return "ambiguous", "placeholder: a module of the package, or a plugin group"
+            quote = state.text[start - 1 : start]
+            if state.is_python and quote in ("'", '"') and tail == quote:
+                # ``name.startswith("<old>.")``: a guard over imported module
+                # names stops guarding once the modules carry the new name.
+                return "ambiguous", "quoted prefix: of module names, or of something else"
             return "keep", "end of sentence"
         segments = _CHAIN_SEGMENT_RE.findall(chain.group(1))
         first = segments[0]
@@ -767,6 +774,8 @@ class Rewriter:
             return "rewrite", "importable name"
         if _DIRECTORY_LIST_RE.search(before):
             return "rewrite", "directory list"
+        if _PREFIX_TEST_RE.search(before):
+            return "ambiguous", "prefix test: on module names, or on something else"
         text = state.text
         # What stands left of the quote, across a line break.
         left = text[max(0, start - 200) : start - 1]
