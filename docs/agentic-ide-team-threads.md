@@ -40,11 +40,13 @@ member reads.
 | Review | The others review the change against the plan. Findings go back to the builder, who fixes or rebuts them; then they review again. |
 
 The thread is done when every reviewer approves. A reply without a readable
-verdict never counts as agreement.
+verdict never counts as agreement. A vote belongs to one plan: when a plan is
+rewritten, it is voted on again.
 
 Reviewers read the change as a diff between two snapshots of the folder (the
 working tree with untracked files, taken with git through a throwaway index, so
-the person's index, branches and files are not touched). Outside a git
+the person's index, branches and files are not touched; the only trace is
+unreferenced objects that git's own housekeeping removes). Outside a git
 repository they read the files directly and the thread says so. The steps
 before the build must not change files; the coordinator compares snapshots
 around them and reports a change in the thread with the files' names, so a
@@ -98,9 +100,14 @@ waits with a short account of the open points:
 - **Time, turns or cost:** Continue raises the bound by half.
 - **A turn did not finish:** Continue asks that member again.
 
-A member whose seat fails (not signed in, quota, crash) leaves the team and the
-others go on; when the builder leaves, another member takes over. Fewer than
-two members end the thread.
+A turn that fails is tried once more. A member whose seat keeps failing (not
+signed in, quota, crash) leaves the team and the others go on; when the
+builder leaves, another member takes over. When that would leave fewer than
+two members, nobody is dropped: the thread waits and Continue asks again.
+
+A turn counts against the bounds when it starts, so one that Pause cut short
+is not free. An answer that has arrived is filed before a pause takes effect,
+so Continue never asks for the same work twice.
 
 Nothing continues by itself. A thread that was working when the app closed
 comes back paused.

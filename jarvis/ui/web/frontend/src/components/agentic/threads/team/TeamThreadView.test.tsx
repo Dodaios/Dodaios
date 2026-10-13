@@ -66,7 +66,10 @@ function mount(team: string, data: unknown) {
         min_members: 2, max_members: 4,
       }) };
     }
-    return { ok: true, json: async () => data };
+    // Like the server: a read with `after` returns only the entries past it.
+    const after = Number(new URL(url, "http://x").searchParams.get("after") ?? 0);
+    const entries = (data as TeamThread).entries.filter((entry) => entry.seq > after);
+    return { ok: true, json: async () => (init?.method ? data : { ...(data as TeamThread), entries }) };
   });
   vi.stubGlobal("fetch", fetcher);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -98,6 +101,9 @@ it("shows who said what, what was caught and why the team waits", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "team_threads.accept_work" }));
   await waitFor(() => expect(calls.some((call) => call.url === "/api/team-threads/t1/accept" && call.method === "POST")).toBe(true));
+  // The first read asks for everything; nothing was fetched twice.
+  expect(calls.find((call) => call.url.startsWith("/api/team-threads/t1?"))?.url).toBe("/api/team-threads/t1?after=0");
+  expect(screen.getAllByTestId("team-entry-user")).toHaveLength(1);
 });
 
 it("sends what the person says to the team and opens a member's own thread", async () => {

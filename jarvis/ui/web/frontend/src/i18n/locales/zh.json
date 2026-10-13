@@ -9361,6 +9361,7 @@
       "limit_turns": "已达到轮数上限。继续将再给团队一半的轮数。",
       "limit_cost": "已达到费用上限。继续将提高上限。",
       "stalled": "{note} 未完成本轮。继续将重新询问。",
+      "member_failed": "{note}。缺少该成员就无法组成团队。继续将重新询问。",
       "not_enough_members": "剩余成员不足两位，团队无法继续。",
       "error": "团队会话失败：{note}"
     },
@@ -9369,6 +9370,7 @@
       "plan_agreed": "团队在第 {rounds} 轮就总方案达成一致。由 {member} 实现。",
       "plan_accepted_by_user": "你已按现状采用总方案。由 {member} 实现。",
       "member_left": "{member} 已退出团队：{error}",
+      "member_failed": "有成员未能完成本轮：{note}",
       "member_model_changed": "{member} 无法使用其默认模型，改用 {model} 继续：{error}",
       "builder_changed": "此后由 {member} 实现。",
       "files_changed": "在只读步骤（{step}）中有文件被更改：{files}",

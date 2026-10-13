@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { nextPollIn } from "@/lib/societyChatGroups";
 
 /**
@@ -208,9 +208,16 @@ export function useTeamThreads(enabled = true) {
 
 /** One shared thread: fast while the team works, slow while it rests. */
 export function useTeamThread(teamId: string | null, enabled = true) {
+  const client = useQueryClient();
   return useQuery({
     queryKey: teamThreadKey(teamId ?? ""),
-    queryFn: () => json<TeamThread>(one(teamId ?? "")),
+    // Entries never change once filed: each poll asks only for the new ones.
+    queryFn: async () => {
+      const known = client.getQueryData<TeamThread>(teamThreadKey(teamId ?? ""))?.entries ?? [];
+      const after = known.length ? known[known.length - 1].seq : 0;
+      const next = await json<TeamThread>(`${one(teamId ?? "")}?after=${after}`);
+      return { ...next, entries: [...known, ...next.entries.filter((entry) => entry.seq > after)] };
+    },
     enabled: enabled && Boolean(teamId),
     refetchInterval: (query) => nextPollIn(
       lastAnswer(query.state),

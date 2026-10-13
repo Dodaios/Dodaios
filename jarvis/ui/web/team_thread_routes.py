@@ -120,15 +120,25 @@ async def _engine(request: Request) -> TeamThreads:
     return engine
 
 
-def team_sessions(state: Any) -> dict[str, str]:
-    """``session_id -> team_id`` for the thread list; empty before first use."""
+def _engine_if_used(state: Any) -> TeamThreads | None:
+    """The coordinator, unless this install never started a team thread.
+
+    The thread list asks on every refresh; that must not build anything or
+    create a database for someone who never used the feature.
+    """
     engine = getattr(state, "team_threads", None)
     if engine is None:
         cfg = getattr(state, "config", None)
         data_dir = Path(getattr(getattr(cfg, "memory", None), "data_dir", None) or "data")
         if not (data_dir / "team_threads.db").is_file():
-            return {}
+            return None
         engine = _engine_from_state(state)
+    return engine
+
+
+def team_sessions(state: Any) -> dict[str, str]:
+    """``session_id -> team_id`` for the thread list; empty before first use."""
+    engine = _engine_if_used(state)
     return engine.session_teams() if engine is not None else {}
 
 
@@ -254,8 +264,8 @@ async def get_seats() -> dict[str, Any]:
 @router.get("", openapi_extra={"x-jarvis-readonly": True})
 async def list_team_threads(request: Request) -> dict[str, Any]:
     """List every team thread, newest first."""
-    engine = await _engine(request)
-    return {"threads": await asyncio.to_thread(engine.threads)}
+    engine = await asyncio.to_thread(_engine_if_used, request.app.state)
+    return {"threads": await asyncio.to_thread(engine.threads) if engine is not None else []}
 
 
 @router.post("", status_code=201, openapi_extra={"x-jarvis-dangerous": True})
@@ -267,6 +277,11 @@ async def start_team_thread(body: StartBody, request: Request) -> dict[str, Any]
     wanted = [seat.model_dump() for seat in body.seats] or [
         {"provider": s["provider"], "model": s["model"], "effort": ""} for s in default_team(rows)
     ]
+    if body.seats and len(wanted) < MIN_MEMBERS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A team thread has {MIN_MEMBERS} to {MAX_MEMBERS} members.",
+        )
     if len(wanted) < MIN_MEMBERS:
         raise HTTPException(
             status_code=409,
@@ -277,6 +292,11 @@ async def start_team_thread(body: StartBody, request: Request) -> dict[str, Any]
         row = by_id.get(seat["provider"].strip().lower())
         if row is None:
             raise HTTPException(status_code=400, detail=f"Unknown seat: {seat['provider']}")
+        if not row["ready"]:
+            # Said now, not as a member that leaves after the others have worked.
+            raise HTTPException(
+                status_code=409, detail=f"{row['label']} is not connected on this machine."
+            )
         picks.append(
             SeatPick(
                 provider=row["provider"],

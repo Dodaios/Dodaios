@@ -89,6 +89,23 @@ def test_a_seat_knows_a_model_its_account_lists() -> None:
     assert fallback({"runner": "claude-cli"}, live) == ""
 
 
+def test_listing_builds_nothing_for_someone_who_never_used_it(tmp_path: Path) -> None:
+    class Memory:
+        data_dir = str(tmp_path)
+
+    class Config:
+        memory = Memory()
+
+    app = FastAPI()
+    app.include_router(router)
+    app.state.team_threads = None
+    app.state.config = Config()
+    with TestClient(app) as bare:
+        assert bare.get("/api/team-threads").json() == {"threads": []}
+    assert app.state.team_threads is None
+    assert not (tmp_path / "team_threads.db").exists()
+
+
 def test_seats_lists_what_can_sit_in_a_team(client: TestClient) -> None:
     body = client.get("/api/team-threads/seats").json()
 
@@ -175,7 +192,14 @@ def test_requests_a_thread_cannot_take_are_refused(client: TestClient, tmp_path:
         "/api/team-threads",
         json={"task": "x", "cwd": str(tmp_path), "seats": [{"provider": "gemini"}]},
     )
-    assert alone.status_code == 409
+    assert alone.status_code == 422
+    missing_cli = client.post(
+        "/api/team-threads",
+        json={"task": "x", "cwd": str(tmp_path),
+              "seats": [{"provider": "gemini"}, {"provider": "grok-build"}]},
+    )
+    assert missing_cli.status_code == 409
+    assert "not connected" in missing_cli.json()["detail"]
 
     team_id = client.post("/api/team-threads", json={"task": "x", "cwd": str(tmp_path)}).json()[
         "team_id"

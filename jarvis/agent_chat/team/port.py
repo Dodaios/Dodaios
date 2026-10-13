@@ -182,8 +182,8 @@ class ChatTurns:
             ),
             "",
         )
-        if not text:
-            return TurnResult("failed", error="The turn ended without an answer.", **base)
+        # A turn can end well without a word (a build that only edited files);
+        # whether that is an answer is the coordinator's call, per step.
         return TurnResult("ok", text=text, **base)
 
     def remodel(self, session_id: str, model: str) -> None:
@@ -195,4 +195,9 @@ class ChatTurns:
         return bool(self._svc.pending_approvals(session_id))
 
     def discard(self, session_id: str) -> None:
+        # Everything the thread list's own delete removes: the session, its
+        # events and its control row.
         self._svc.store.delete_session(session_id)
+        controls = getattr(self._svc, "controls", None)
+        if controls is not None:
+            controls.store.delete(session_id)

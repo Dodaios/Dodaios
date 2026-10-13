@@ -9361,6 +9361,7 @@
       "limit_turns": "Se alcanzó el límite de turnos. Continúa para dar al equipo la mitad más.",
       "limit_cost": "Se alcanzó el límite de coste. Continúa para subirlo.",
       "stalled": "{note} no terminó su turno. Continúa para preguntar de nuevo.",
+      "member_failed": "{note}. Sin este miembro no queda equipo. Continúa para preguntar de nuevo.",
       "not_enough_members": "Quedan menos de dos miembros, así que el equipo no puede seguir.",
       "error": "El hilo de equipo falló: {note}"
     },
@@ -9369,6 +9370,7 @@
       "plan_agreed": "El equipo acordó el plan maestro en la ronda {rounds}. {member} lo construye.",
       "plan_accepted_by_user": "Aceptaste el plan maestro tal como está. {member} lo construye.",
       "member_left": "{member} salió del equipo: {error}",
+      "member_failed": "Un miembro no pudo hacer su turno: {note}",
       "member_model_changed": "{member} no pudo usar su modelo predeterminado y sigue con {model}: {error}",
       "builder_changed": "{member} construye a partir de aquí.",
       "files_changed": "Se modificaron archivos en un paso que solo lee ({step}): {files}",

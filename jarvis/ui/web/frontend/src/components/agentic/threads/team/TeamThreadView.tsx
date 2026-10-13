@@ -164,8 +164,11 @@ function OpenTeamThread({ teamId, project, onScreen }: { teamId: string; project
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={rootRef} className="chat-scroller min-h-0 flex-1 overflow-y-auto px-5 py-5" role="log" aria-label={thread.title}>
         <div ref={contentRef} className={cn(MEASURE, "flex flex-col gap-3")}>
-          {thread.entries.map((entry) => <Entry key={entry.seq} entry={entry} names={names}
-            latestPlan={entry.kind === "plan" && !thread.entries.some((other) => other.kind === "plan" && other.seq > entry.seq)} />)}
+          {thread.entries.map((entry) => {
+            const latestPlan = entry.kind === "plan" && !thread.entries.some((other) => other.kind === "plan" && other.seq > entry.seq);
+            // Keyed by it too: a plan that a newer one replaced folds by itself.
+            return <Entry key={`${entry.seq}:${latestPlan}`} entry={entry} names={names} latestPlan={latestPlan} />;
+          })}
           {thread.issues.length > 0 && <Issues thread={thread} names={names} />}
         </div>
       </div>
