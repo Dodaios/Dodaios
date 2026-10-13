@@ -7,6 +7,7 @@ name when the process was started under it, and say ``dodaios`` otherwise.
 
 from __future__ import annotations
 
+import re
 import sys
 
 import pytest
@@ -59,9 +60,10 @@ def test_the_launcher_help_names_the_invoked_command(
     parser = entry._build_parser()
 
     assert parser.prog == command
-    help_text = parser.format_help()
+    # Without styling or layout: a newer argparse colours help on a terminal.
+    help_text = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", parser.format_help()).split())
     assert help_text.startswith(f"usage: {command} ")
-    assert f"`{command} update --check`" in " ".join(help_text.split())
+    assert f"`{command} update --check`" in help_text
     with pytest.raises(SystemExit):
         parser.parse_args(["--version"])
     assert capsys.readouterr().out.strip() == f"{command} {__version__}"

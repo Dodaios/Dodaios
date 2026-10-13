@@ -7,6 +7,7 @@ command tree.
 
 from __future__ import annotations
 
+import re
 import sys
 
 import pytest
@@ -17,6 +18,12 @@ from jarvis.cli_ctl.__main__ import app, build_root_command
 from jarvis.core.branding import CONTROL_CLI_COMMAND_NAME
 
 _NAMES = ["dodaiosctl", "jarvisctl", "jctl", "dodaios", "jarvis"]
+_STYLE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(text: str) -> str:
+    """Help output without terminal styling or layout: CI renders it in colour."""
+    return " ".join(_STYLE.sub("", text).split())
 
 
 def test_the_control_app_is_named_after_the_primary_command() -> None:
@@ -42,7 +49,7 @@ def test_the_usage_line_repeats_the_invoked_name(
 
     root.main(args=["--help"], prog_name=name, standalone_mode=False)
 
-    assert f"Usage: {name} [OPTIONS] COMMAND [ARGS]..." in capsys.readouterr().out
+    assert f"Usage: {name} [OPTIONS] COMMAND [ARGS]..." in _plain(capsys.readouterr().out)
 
 
 @pytest.mark.parametrize(
