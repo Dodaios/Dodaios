@@ -384,6 +384,10 @@ async def _status_target(runtime: Any, target_key: str, lang: str) -> Any:
     return await _unresolved(found, lang)
 
 
+# How much of an agent's newest note the team board repeats.
+_BOARD_NOTE_CHARS = 200
+
+
 class SocietyStatusTool:
     """What an agent (or the whole team) is doing — read-only, no model call."""
 
@@ -393,7 +397,8 @@ class SocietyStatusTool:
         "Answer 'what is <agent> doing?', 'is Scout done?', 'who is on the team?' from the "
         "agent society's board. Read-only. Pass the agent's name, or nothing for the team. "
         "Set details=true for responsibilities, capabilities, state and recorded activity/cost "
-        "statistics (these are observations, not quality scores). Pass assignment_id "
+        "statistics (these are observations, not quality scores). Set board=true for one "
+        "short row per agent: working or idle, and its newest note. Pass assignment_id "
         "to inspect that exact assignment; trace_id is optional. If prior tool ids are "
         "no longer in context, use agent + latest_assignment=true to retrieve the newest "
         "assignment you sent that agent from the stored board, including its task and "
@@ -405,6 +410,10 @@ class SocietyStatusTool:
         "properties": {
             "agent": {"type": "string", "description": "An agent's name; omit for the team."},
             "details": {"type": "boolean", "description": "Include actual roster and evidence."},
+            "board": {
+                "type": "boolean",
+                "description": "One short row per agent: working or idle, and its newest note.",
+            },
             "assignment_id": {"type": "string", "description": "Assignment event id."},
             "trace_id": {"type": "string", "description": "Optional expected assignment trace."},
             "latest_assignment": {
@@ -544,6 +553,29 @@ class SocietyStatusTool:
                     ),
                 },
             )
+        if args.get("board") is True:
+            rows = []
+            for agent in await runtime.roster.list():
+                if agent.agent_id == runtime.lead_id:
+                    continue
+                running = runtime.scheduler.active_runs(agent.agent_id)
+                recent = await runtime.store.events_for_agent(agent.agent_id, limit=10)
+                note = next((e.text for e in reversed(recent) if e.text), "")
+                # What it was asked to do says more than "took the task".
+                task = next(
+                    (e.text for e in reversed(recent) if e.msg_type is MsgType.ASSIGN and e.text),
+                    "",
+                ) if running > 0 else ""
+                rows.append(
+                    {
+                        "agent": display_name(agent),
+                        "state": "working" if running > 0 else "idle",
+                        **({"runs": running} if running > 1 else {}),
+                        **({"task": " ".join(task.split())[:_BOARD_NOTE_CHARS]} if task else {}),
+                        **({"latest": " ".join(note.split())[:_BOARD_NOTE_CHARS]} if note else {}),
+                    }
+                )
+            return ToolResult(success=True, output={"agents": rows})
         if not target_key:
             agents = await runtime.roster.list()
             names = ", ".join(a.name for a in agents if a.agent_id != runtime.lead_id)
