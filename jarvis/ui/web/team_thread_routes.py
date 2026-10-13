@@ -141,15 +141,26 @@ def _refused(exc: Exception) -> HTTPException:
 # ------------------------------------------------------------------ seats
 
 
-def _seat_rows() -> list[dict[str, Any]]:
+async def _seats() -> list[dict[str, Any]]:
     """Every seat of the thread layout with whether it can run here right now."""
+    from .agent_chat_routes import _live_cli_models
+
+    try:
+        live = await _live_cli_models()
+    except Exception:  # noqa: BLE001 - without the lists a seat runs its CLI's own default
+        log.warning("team threads: the coding CLIs' model lists are unavailable", exc_info=True)
+        live = {}
+    return await asyncio.to_thread(_seat_rows, live)
+
+
+def _seat_rows(live: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     from jarvis.core.config import get_secret
     from jarvis.ui.web.provider_spec import get_spec
 
     from .agent_chat_routes import _catalog_rows
 
     seats = []
-    for row in _catalog_rows("agent", {}):
+    for row in _catalog_rows("agent", live):
         installed = row.get("cli_installed")
         if installed is None:
             # An API seat: ready with a saved key, or without one on local hardware.
@@ -166,12 +177,24 @@ def _seat_rows() -> list[dict[str, Any]]:
                 "runner": row["runner"],
                 "agent": row.get("agent", ""),
                 "model": row.get("default_model", ""),
+                "fallback": _seat_fallback(row, live),
                 "models": [m["id"] for m in row.get("curated_models") or []],
                 "ready": ready,
                 "local": bool(row.get("keyless")),
             }
         )
     return seats
+
+
+def _seat_fallback(row: dict[str, Any], live: dict[str, list[dict[str, Any]]]) -> str:
+    """A model to fall back on when the seat's own default is refused.
+
+    A seat starts on its runner's default. A CLI's configured default can name
+    a model the signed-in account may not use; the first model the CLI lists
+    for this account is tried once then. ``""`` where the CLI lists none.
+    """
+    listed = live.get(str(row.get("runner") or "")) or []
+    return str(listed[0].get("id") or "") if listed else ""
 
 
 def default_team(seats: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -216,12 +239,10 @@ def default_team(seats: list[dict[str, Any]]) -> list[dict[str, Any]]:
 @router.get("/seats", openapi_extra={"x-jarvis-readonly": True})
 async def get_seats() -> dict[str, Any]:
     """The seats a team can be made of, and the team a new thread starts with."""
-    seats = await asyncio.to_thread(_seat_rows)
+    seats = await _seats()
     return {
         "seats": seats,
-        "default": [
-            {"provider": s["provider"], "model": s["model"]} for s in default_team(seats)
-        ],
+        "default": [{"provider": s["provider"], "model": s["model"]} for s in default_team(seats)],
         "min_members": MIN_MEMBERS,
         "max_members": MAX_MEMBERS,
     }
@@ -241,7 +262,7 @@ async def list_team_threads(request: Request) -> dict[str, Any]:
 async def start_team_thread(body: StartBody, request: Request) -> dict[str, Any]:
     """Give a team of coding agents one task to plan, build and review together."""
     engine = await _engine(request)
-    rows = await asyncio.to_thread(_seat_rows)
+    rows = await _seats()
     by_id = {row["provider"]: row for row in rows}
     wanted = [seat.model_dump() for seat in body.seats] or [
         {"provider": s["provider"], "model": s["model"], "effort": ""} for s in default_team(rows)
@@ -260,6 +281,8 @@ async def start_team_thread(body: StartBody, request: Request) -> dict[str, Any]
             SeatPick(
                 provider=row["provider"],
                 model=seat.get("model") or row["model"],
+                # Only where the person left the model to the seat.
+                fallback_model="" if seat.get("model") else row.get("fallback", ""),
                 effort=seat.get("effort") or "",
                 name=row["label"] if not seat.get("model") else f"{row['label']} · {seat['model']}",
                 family=row["family"],

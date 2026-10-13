@@ -62,7 +62,7 @@ def _block(reply: str) -> tuple[dict[str, Any] | None, str]:
     body = ((reply[: last.start()]) + reply[last.end() :]).strip()
     try:
         data = json.loads(last.group(1).strip())
-    except ValueError:
+    except ValueError:  # malformed JSON: still read the verdict word if it is there
         loose = _LOOSE.search(last.group(1))
         return ({"verdict": loose.group(1)} if loose else None), body
     return (data if isinstance(data, dict) else None), body

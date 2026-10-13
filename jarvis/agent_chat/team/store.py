@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS team_thread_members (
     session_id  TEXT NOT NULL UNIQUE,
     provider    TEXT NOT NULL,
     model       TEXT NOT NULL DEFAULT '',
+    -- A model the account lists, tried once when the seat's own default is refused.
+    fallback_model TEXT NOT NULL DEFAULT '',
     effort      TEXT NOT NULL DEFAULT '',
     name        TEXT NOT NULL,
     family      TEXT NOT NULL DEFAULT '',
@@ -134,13 +136,15 @@ class TeamThreadStore:
             for position, member in enumerate(members):
                 self._conn.execute(
                     "INSERT INTO team_thread_members (team_id, member_id, session_id, provider, "
-                    "model, effort, name, family, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "model, fallback_model, effort, name, family, position) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         team_id,
                         member["member_id"],
                         member["session_id"],
                         member["provider"],
                         member.get("model", ""),
+                        member.get("fallback_model", ""),
                         member.get("effort", ""),
                         member["name"],
                         member.get("family", ""),
@@ -223,6 +227,16 @@ class TeamThreadStore:
                 "UPDATE team_thread_members SET state = 'left', left_reason = ? "
                 "WHERE team_id = ? AND member_id = ?",
                 (reason[:500], team_id, member_id),
+            )
+            self._conn.commit()
+
+    def member_model(self, team_id: str, member_id: str, model: str) -> None:
+        """The member runs on ``model`` from here; its fallback is used up."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE team_thread_members SET model = ?, fallback_model = '' "
+                "WHERE team_id = ? AND member_id = ?",
+                (model, team_id, member_id),
             )
             self._conn.commit()
 

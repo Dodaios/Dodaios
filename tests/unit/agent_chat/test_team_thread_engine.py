@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 import subprocess
 from pathlib import Path
@@ -140,7 +141,7 @@ async def test_a_review_finding_goes_back_to_the_builder_until_it_is_approved(
     assert issue["severity"] == "blocking"
     assert issue["resolved"] is True
     summary = snap["entries"][-1]["payload"]
-    assert summary["findings"] == 1
+    assert summary["finding_count"] == 1
     assert summary["blocking"] == 1
 
 
@@ -261,6 +262,31 @@ async def test_a_member_that_fails_leaves_and_the_others_go_on(tmp_path: Path) -
     assert {e["author"] for e in snap["entries"] if e["kind"] == "review"} == {"m2"}
 
 
+async def test_a_refused_default_model_is_retried_once_on_a_listed_one(tmp_path: Path) -> None:
+    def script(provider: str, step: str, nth: int):
+        if provider == "gpt" and step == "draft" and nth == 0:
+            return TurnResult("failed", error="The model is not supported with this account.")
+        return None
+
+    turns = FakeTurns(script)
+    seats = [SEATS[0], SeatPick("gpt", name="GPT", family="openai", fallback_model="gpt-luna")]
+    snap = await _run(_engine(turns), tmp_path, seats=seats)
+
+    assert snap["state"] == "done"
+    assert turns.remodelled == [("s2", "gpt-luna")]
+    gpt = next(m for m in snap["members"] if m["member_id"] == "m2")
+    assert (gpt["state"], gpt["model"]) == ("active", "gpt-luna")
+    notice = next(e["payload"] for e in snap["entries"] if e["kind"] == "notice")
+    assert notice == {
+        "code": "member_model_changed",
+        "member_id": "m2",
+        "model": "gpt-luna",
+        "error": "The model is not supported with this account.",
+    }
+    # A second failure is a failure: the fallback is tried once.
+    assert len(turns.prompts("gpt", "draft")) == 2
+
+
 async def test_a_team_of_one_cannot_go_on(tmp_path: Path) -> None:
     def script(provider: str, step: str, nth: int):
         if provider == "gpt":
@@ -308,6 +334,39 @@ async def test_pause_stops_the_turns_and_resume_continues_where_it_was(tmp_path:
     # The plans written before the pause were not asked for again.
     assert len(turns.prompts("claude", "draft")) == 1
     assert len(turns.prompts("claude", "critique")) == 2
+
+
+async def test_a_run_cancelled_from_outside_never_stays_working(tmp_path: Path) -> None:
+    def script(provider: str, step: str, nth: int):
+        if provider == "gpt" and step == "critique" and nth == 0:
+            raise asyncio.CancelledError  # a stray cancellation, not Pause or Stop
+        return None
+
+    engine = _engine(FakeTurns(script))
+    snap = await _run(engine, tmp_path)
+
+    assert (snap["state"], snap["reason"]) == ("paused", "interrupted")
+    await engine.resume(snap["team_id"])
+    await engine.settled(snap["team_id"])
+    assert engine.snapshot(snap["team_id"])["state"] == "done"
+
+
+async def test_pause_returns_only_when_every_turn_has_stopped(tmp_path: Path) -> None:
+    turns = FakeTurns(hold={"draft"}, slow_to_stop={"gemini"})
+    engine = _engine(turns)
+    snap = await engine.start(task="Add a retry", cwd=str(tmp_path), seats=SEATS)
+    team_id = snap["team_id"]
+    await turns.reached("draft", 3)
+
+    await engine.pause(team_id)
+
+    # The slow one too: Continue must never meet a member that is still stopping.
+    assert sorted(turns.stopped) == ["s1", "s2", "s3"]
+    await engine.resume(team_id)
+    await turns.reached("draft", 6)
+    assert [m["working"] for m in engine.snapshot(team_id)["members"]] == [True, True, True]
+    await engine.stop(team_id)
+    assert not any(m["working"] for m in engine.snapshot(team_id)["members"])
 
 
 async def test_stop_ends_the_thread_for_good(tmp_path: Path) -> None:
@@ -418,7 +477,7 @@ async def test_files_changed_in_a_reading_step_are_called_out(tmp_path: Path) ->
 
     changed = [e["payload"] for e in snap["entries"]
                if e["kind"] == "notice" and e["payload"]["code"] == "files_changed"]
-    assert changed == [{"code": "files_changed", "step": "draft"}]
+    assert changed == [{"code": "files_changed", "step": "draft", "files": ["app.py"]}]
 
 
 async def test_the_reviewers_read_the_change_since_the_build_started(tmp_path: Path) -> None:

@@ -15,6 +15,7 @@ import { OpenSubagent, SubagentHeader, SubagentSwitcher } from "./ThreadSubagent
 import { useRecalledMessages, withoutRecalled } from "./recalledMessages";
 import { fetchDiscoveredAgents, listSubagents, mergeDiscovered, subagentPath, subagentTurn, type DiscoveredAgent } from "./subagents";
 import { projectIdFor, rememberedSeat, useThreadChatStore } from "./threadModel";
+import { TeamThreadView } from "./team/TeamThreadView";
 
 /**
  * The IDE's thread layout: one conversation with a coding agent at a time.
@@ -232,6 +233,10 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
       <p className="max-w-md text-sm text-muted-foreground">{t("ide_threads.empty_body")}</p>
       <button type="button" onClick={connectProject} className="mt-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary">{t("ide_threads.connect_folder")}</button>
     </div>;
+  }
+
+  if (selection.team) {
+    return <TeamThreadView key={selection.team} team={selection.team} project={project} onScreen={onScreen} />;
   }
 
   const threadKey = selection.sessionId ?? `draft:${project.id}`;
