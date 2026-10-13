@@ -110,9 +110,13 @@ async def resolve_agent(runtime: Any, ref: str) -> Any:
     stores. ``roster.resolve`` already accepts both; this wrapper exists so
     every tool refuses an unknown agent with the same sentence.
     """
-    agent = await runtime.roster.resolve(ref)
+    from jarvis.society.agent_names import resolve_shown
+    from jarvis.society.display_name import display_name
+
+    agent = await resolve_shown(runtime, ref)
     if agent is None:
-        known = [a.name for a in await runtime.roster.list()]
+        config = runtime.config()
+        known = [display_name(a, config) for a in await runtime.roster.list()]
         raise EcosystemUnavailable(
             f"agent {ref!r}",
             f"no agent by that id or name. On this box: {', '.join(known) or 'none yet'}.",

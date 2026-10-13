@@ -255,7 +255,8 @@ async def test_briefing_is_deterministic_and_complete(rt: SocietyRuntime):
     assert "## When a tool fails" in a and KEEP_GOING_ON_TOOL_FAILURE in a
     assert a.index("## When a tool fails") < a.index("## Standing instructions")
     assert "## The Dodaios ecosystem" in a and "society_message_agent" in a
-    assert "## Teammates\n- Jarvis — Lead (lead)\n- Scout — Research scout (orchestrator)" in a
+    # No wake phrase here, so the lead reads under the neutral assistant name.
+    assert "## Teammates\n- Assistant — Lead (lead)\n- Scout — Research scout (orchestrator)" in a
     assert "Mailbox" not in a.split("## Teammates")[1]
     assert "You do not assign work" in a
 
