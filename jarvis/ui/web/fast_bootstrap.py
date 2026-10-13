@@ -11,7 +11,7 @@ after is full speed.
 Dependency-light on purpose: nothing heavy is imported at module load and
 ``uvicorn`` is imported lazily inside :meth:`serve`, so a caller can construct
 and bind a :class:`FastBootstrap` *before* paying for ``import fastapi`` /
-``load_config`` / the ``jarvis.brain`` import graph — which is exactly what
+``load_config`` / the import graph of ``jarvis/brain/`` — which is exactly what
 keeps those costs off the time-to-serving path.
 
 Contract: the real app delegated to runs ON THE SAME EVENT LOOP that serves the
