@@ -1171,6 +1171,8 @@ async def delete_session(session_id: str, request: Request) -> dict[str, Any]:
     if svc.store.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="session not found")
     await svc.controls.pause(session_id, "Session deleted")
+    # No request of a deleted chat may come back as a turn.
+    svc.parked_work.stop(session_id)
     await svc.controls._clear_saved_native(session_id)
     await svc.discard_credential_requests(session_id)
     if not svc.store.delete_session(session_id):
@@ -1233,6 +1235,11 @@ async def cancel_turn(session_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="session not found")
     session = svc.store.get_session(session_id)
     cancelled = svc.is_running(session_id)
+    if not cancelled and svc.parked_work.stop(session_id):
+        # Nothing is answering, so the stop means the requests still waiting
+        # for their agents: their results no longer continue here. The agents'
+        # own work is not touched. During a turn, stop ends that turn only.
+        cancelled = True
     # Who ended a turn is otherwise invisible: name the control that asked.
     headers = request.headers
     log.info(
