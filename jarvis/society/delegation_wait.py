@@ -7,6 +7,7 @@ from typing import Any
 from jarvis.core.delegated_work import DelegatedWork, register_delegated_work
 
 from .communication import reply_policy
+from .display_name import display_name
 from .events import MsgType, SocietyEnvelope
 from .roster import conversation_session_id
 
@@ -84,7 +85,7 @@ async def track_request(runtime: Any, request: SocietyEnvelope) -> None:
     register_delegated_work(
         DelegatedWork(
             key="society:" + request.event_id,
-            name=target.name if target else str(request.to_agent),
+            name=display_name(target) if target else str(request.to_agent),
             probe=probe,
         )
     )

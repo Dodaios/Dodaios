@@ -35,6 +35,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from .display_name import display_name
 from .events import MsgType, SocietyEnvelope, now_ms
 from .roster import AgentRecord, slugify
 
@@ -595,7 +596,7 @@ class SocietyMemory:
             agents.append(
                 {
                     "agent_id": agent.agent_id,
-                    "name": agent.name,
+                    "name": display_name(agent),
                     "title": agent.title,
                     "memory_head": body.strip()[:600],
                     "notes": notes,
@@ -679,7 +680,7 @@ class SocietyMemory:
                         **payload,
                         "kind": "memory_updated",
                         "agent_id": agent.agent_id,
-                        "agent_name": agent.name,
+                        "agent_name": display_name(agent),
                         "status": "done",
                         "text": "Memory updated",
                     },

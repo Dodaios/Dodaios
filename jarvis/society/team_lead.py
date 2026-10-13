@@ -519,7 +519,9 @@ class TeamLeads:
                 raise TeamLeadError("That agent is not available.", status=404)
             if agent.agent_id == LEAD_AGENT_ID:
                 raise TeamLeadError(
-                    "Jarvis already leads every agent; pick another member.", status=422
+                    f"{self._rt.display_name(agent)} already leads every agent; "
+                    "pick another member.",
+                    status=422,
                 )
             other = self._leads.get(agent.agent_id)
             if other and other != group_id:

@@ -26,6 +26,7 @@ import logging
 import sys
 from typing import Any
 
+from jarvis.marketplace.bundled_servers import runs_bundled_server, runs_connected_server
 from jarvis.marketplace.catalog import PluginCatalog
 from jarvis.marketplace.token_store import TokenStore
 
@@ -52,11 +53,7 @@ def _stdio_entry(spec: dict[str, Any], repl: dict[str, str]) -> dict[str, Any] |
         return None
     command = _resolve_placeholders(str(install[0]), repl)
     args = [_resolve_placeholders(str(a), repl) for a in install[1:]]
-    if (
-        command == "python"
-        and args[:1] == ["-m"]
-        and args[1:2] in (["jarvis.plugins.tool.connected_server"], ["jarvis.marketplace.amd_mcp"])
-    ):
+    if command == "python" and runs_bundled_server([command, *args]):
         command = sys.executable
     entry: dict[str, Any] = {"command": command, "args": args}
     env_template = spec.get("env_template") or {}
@@ -112,10 +109,9 @@ def assemble_claude_mcp_servers(
         transport = str(spec.get("transport") or "").lower()
         if transport == "stdio":
             entry = _stdio_entry(spec, repl)
-            if entry is not None and entry.get("args", [])[:2] == [
-                "-m",
-                "jarvis.plugins.tool.connected_server",
-            ]:
+            if entry is not None and runs_connected_server(
+                [entry["command"], *entry.get("args", [])]
+            ):
                 entry.setdefault("env", {})["JARVIS_CONNECTOR_AUTH_TYPE"] = (
                     "oauth" if tokens.extra.get("client_id") else "pat"
                 )

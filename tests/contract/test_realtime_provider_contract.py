@@ -17,6 +17,7 @@ from jarvis.plugins.realtime.openai_realtime import (
 )
 from jarvis.realtime.protocol import RealtimeEvent, RealtimeProvider
 from jarvis.realtime.session import RealtimeVoiceSession
+from tests.package_names import is_package_module
 
 # Every installed provider that declares supports_direct_tools=False must pass
 # the delegate/decline contracts below. Empty today (the capability-limited
@@ -222,8 +223,8 @@ def test_plugin_module_imports_no_jarvis_modules(path: Path):
         if isinstance(node, ast.Import)
         for alias in node.names
     ]
-    assert not any(name == "jarvis" or name.startswith("jarvis.") for name in imports)
-    assert not any(name == "jarvis" or name.startswith("jarvis.") for name in direct_imports)
+    assert not any(is_package_module(name) for name in imports)
+    assert not any(is_package_module(name) for name in direct_imports)
 
 
 @pytest.mark.parametrize(
