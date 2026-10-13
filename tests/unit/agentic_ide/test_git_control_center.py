@@ -274,6 +274,8 @@ def test_a_pushed_or_merged_branch_is_deleted_without_a_second_question(
     _commit(repo, "b.txt")
     _git(repo, "push", "-q", "-u", "origin", "feature/pushed")
     _git(repo, "switch", "-q", "main")
+    # Its work is in main, so both copies of the branch may go.
+    _git(repo, "merge", "-q", "--no-ff", "-m", "merge pushed", "feature/pushed")
     summary = git_ops.delete_branch(repo, "feature/pushed", remote=True)
     assert summary == "Deleted feature/pushed here and on origin."
     assert "feature/pushed" not in _git(remote, "branch", "--list")
@@ -497,3 +499,94 @@ def test_a_refresh_never_makes_the_tab_wait_for_github(
             break
         git_overview.time.sleep(0.05)
     assert later.branches[0].ci.state == "success" and len(reads) == 2
+
+
+# ------------------------------------------------------------------ hardening
+
+
+def test_deleting_the_remote_branch_too_never_counts_it_as_a_safe_copy(
+    repo: Path, remote: Path
+) -> None:
+    _git(repo, "switch", "-q", "-c", "feature/open")
+    tip = _commit(repo, "b.txt")
+    _git(repo, "push", "-q", "-u", "origin", "feature/open")
+    _git(repo, "switch", "-q", "main")
+    # Pushed but not merged: the remote copy is the only other place the work lives.
+    with pytest.raises(GitError) as exc:
+        git_ops.delete_branch(repo, "feature/open", remote=True)
+    assert exc.value.code == "unmerged"
+    assert git_ops.branch_tip(repo, "feature/open") == tip
+    assert _git(remote, "rev-parse", "feature/open") == tip
+    # Without the remote delete the pushed copy keeps the work, so the local branch may go.
+    assert "Deleted feature/open." == git_ops.delete_branch(repo, "feature/open")
+    assert _git(remote, "rev-parse", "feature/open") == tip
+
+
+def test_a_worktree_an_agent_pane_runs_in_counts_as_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from jarvis.ui.web import agentic_ide_git_routes as routes
+
+    pane = SimpleNamespace(cwd=lambda workspace: "/code/app/.worktrees/agent-x")
+    plain = SimpleNamespace(cwd=lambda workspace: workspace)
+    session = SimpleNamespace(folder="/code/app", terminals=[pane, plain])
+    monkeypatch.setattr(routes, "get_registry", lambda: SimpleNamespace(sessions=[session]))
+    assert routes._open_folders() == ["/code/app", "/code/app/.worktrees/agent-x", "/code/app"]
+
+
+def test_a_local_merge_survives_a_rebase(repo: Path, other: Path) -> None:
+    _commit(other, "theirs.txt")
+    _git(other, "push", "-q")
+    _git(repo, "switch", "-q", "-c", "side")
+    _commit(repo, "side.txt")
+    _git(repo, "switch", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+    git_ops.pull(repo, rebase=True)
+    assert _git(repo, "log", "-1", "--format=%s") == "merge side"
+    assert len(_git(repo, "log", "-1", "--format=%P").split()) == 2  # still a merge
+
+
+def test_a_failed_github_read_keeps_the_last_good_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    answers = [
+        git_overview._GitHubSnapshot(ok=True, fetched_at=git_overview.time.time() - 500),
+        git_overview._GitHubSnapshot(ok=False, code="unreachable", fetched_at=0.0),
+    ]
+    reads: list[str] = []
+
+    def fetch(repo_name: str, token: str) -> git_overview._GitHubSnapshot:
+        reads.append(repo_name)
+        return answers[min(len(reads), len(answers)) - 1]
+
+    monkeypatch.setattr(git_overview, "_fetch_github", fetch)
+    cache = git_overview._GitHubCache()
+    good = cache.get("o/r", "t")
+    assert good is answers[0]
+    # Stale by now: a forced read fails, and the good answer stays.
+    assert cache.get("o/r", "t", force=True) is good
+    assert len(reads) == 2
+    # ... and the failure is not retried on every poll.
+    assert cache.get("o/r", "t", wait=False) is good
+    assert not cache.loading("o/r") and len(reads) == 2
+
+
+def test_a_git_call_that_fails_is_not_remembered_as_no_branches(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert [row.name for row in git_local.read(repo).branches] == ["main"]
+    real = git_local.git_out
+    broken = {"on": True}
+
+    def flaky(args: list[str], cwd: Path) -> str | None:
+        if broken["on"] and args[0] in {"for-each-ref", "status"}:
+            return None
+        return real(args, cwd)
+
+    monkeypatch.setattr(git_local, "git_out", flaky)
+    _git(repo, "branch", "feature/new")  # moves a ref: the branch list has to be re-read
+    state = git_local.read(repo, fresh=True)
+    # Git did not answer: the last known state is shown, not an empty repository.
+    assert state is not None and [row.name for row in state.branches] == ["main"]
+    assert state.checkout.branch == "main"
+    broken["on"] = False
+    names = {row.name for row in git_local.read(repo).branches}
+    assert names == {"main", "feature/new"}

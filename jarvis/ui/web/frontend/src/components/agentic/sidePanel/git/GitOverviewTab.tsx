@@ -48,7 +48,9 @@ function useGitOverview(workspaceId: string | null) {
   const [error, setError] = useState("");
   const [routeMissing, setRouteMissing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [force, setForce] = useState(0);
+  const [round, setRound] = useState(0);
+  // Set by refresh(), used up by the next read: a later workspace switch is an ordinary read again.
+  const forceNext = useRef(false);
   const shown = useRef(workspaceId);
   useEffect(() => {
     if (shown.current === workspaceId) return;
@@ -60,7 +62,8 @@ function useGitOverview(workspaceId: string | null) {
     if (!workspaceId) return;
     let alive = true;
     let timer: number | undefined;
-    let refresh = force > 0;
+    let refresh = forceNext.current;
+    forceNext.current = false;
     let githubLoading = false;
     const tick = async () => {
       if (useEventStore.getState().activeSection === "agentic-ide") {
@@ -93,8 +96,11 @@ function useGitOverview(workspaceId: string | null) {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [workspaceId, force]);
-  const refresh = useCallback(() => setForce((value) => value + 1), []);
+  }, [workspaceId, round]);
+  const refresh = useCallback(() => {
+    forceNext.current = true;
+    setRound((value) => value + 1);
+  }, []);
   return { data, error, routeMissing, loading, refresh };
 }
 
@@ -375,7 +381,7 @@ export function GitOverviewTab() {
           ) : (
             <>
               {!data.checkout && <OlderBackendNote />}
-              <StatusPanel overview={data} actions={actions} onOpenChanges={() => useIdeSidePanelStore.getState().openTab("changes")} />
+              <StatusPanel key={workspace.id} overview={data} actions={actions} onOpenChanges={() => useIdeSidePanelStore.getState().openTab("changes")} />
               {github?.code === "not_connected" && <ConnectGitHubCard />}
               <AttentionList items={items} onAct={onAttention} />
               {github?.available && (
