@@ -8,6 +8,7 @@
 import accessoryModels from "@/assets/society/companions/accessories.glb";
 import companionModels from "@/assets/society/companions/companions.glb";
 import type { FigureRequest, FigureResponse } from "./figure.worker";
+import type { FigureGround } from "./figureRender";
 import { figureKey, type FigureLook, type FigureSmoke } from "./figureScene";
 
 export interface Figure {
@@ -21,6 +22,8 @@ export interface Figure {
   body?: Uint8ClampedArray<ArrayBuffer>;
   /** Where worn items smoke, in picture pixels. */
   smoke: FigureSmoke[];
+  /** The shadow the figure stands on, in picture pixels. */
+  ground?: FigureGround;
 }
 
 /** The most picture memory kept, bytes. */
@@ -125,7 +128,7 @@ function answer(message: FigureResponse): void {
   workerFailures = 0;
   keep(key, {
     pixels: message.pixels, data: new Uint8ClampedArray(message.data), face: message.face,
-    body: message.body && new Uint8ClampedArray(message.body), smoke: message.smoke,
+    body: message.body && new Uint8ClampedArray(message.body), smoke: message.smoke, ground: message.ground,
   });
   const entry = wanted.get(key);
   wanted.delete(key);
