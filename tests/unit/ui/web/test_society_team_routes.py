@@ -115,7 +115,10 @@ def test_check_ins_carry_the_initiative_switch(client):
     driving = c.put(f"{url}/checkin", json={"minutes": 60, "initiative": True})
     assert driving.status_code == 200, driving.text
     assert driving.json()["checkin_minutes"] == 60 and driving.json()["initiative"] is True
-    watching = c.put(f"{url}/checkin", json={"minutes": 240})
+    # A caller that only changes the rhythm keeps the way the team has.
+    slower = c.put(f"{url}/checkin", json={"minutes": 240})
+    assert slower.json()["checkin_minutes"] == 240 and slower.json()["initiative"] is True
+    watching = c.put(f"{url}/checkin", json={"minutes": 240, "initiative": False})
     assert watching.json()["checkin_minutes"] == 240 and watching.json()["initiative"] is False
     assert c.put(f"{url}/checkin", json={"minutes": 7}).status_code == 422
     off = c.put(f"{url}/checkin", json={"minutes": 0, "initiative": True})

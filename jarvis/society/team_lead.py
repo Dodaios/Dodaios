@@ -1133,6 +1133,9 @@ class TeamLeads:
             return
         # Claimed before the first await, so a second caller cannot start a twin.
         self._turns[goal_id] = ("", "")
+        # From here the engine follows this goal itself; a mark left by a
+        # person's turn that never reported its end must not outlive that.
+        self._chat_goals.discard(goal_id)
         lead_id = ""
         started = False
         try:
@@ -1341,53 +1344,65 @@ class TeamLeads:
                 "when there is something to do."
             )
         turn = self._person_turn(lead_id)
-        active = await self._active_goal(group_id)
-        if active is not None:
-            if active.state is not TeamGoalState.RUNNING:
-                waited = (TeamGoalState.NEEDS_INPUT, TeamGoalState.PAUSED)
-                if (
-                    turn is None
-                    or await self._rt.store.kill_switch()
-                    or not await self._move(
-                        active, TeamGoalState.RUNNING, waited, note="", lead_turns=0
-                    )
-                ):
-                    raise TeamLeadError(
-                        f'The goal "{active.title}" is {active.state}; it continues when '
-                        "the person answers you in this chat."
-                    )
-                self._nudged.discard(active.goal_id)
-                active = await self._require_goal(active.goal_id)
+        # One caller at a time decides what holds the team: two tasks handed
+        # out in the same step must land in one goal, never open two.
+        async with self._lock(group_id):
+            active = await self._active_goal(group_id)
+            if active is not None:
+                return await self._adopt(active, turn)
+            if not create_title:
+                raise TeamLeadError("Your team has no goal in progress.")
+            words = _CHAT_MARKS.split(turn.user_text, maxsplit=1)[0].strip() if turn else ""
+            text = (words or goal_hint or create_title)[:MAX_GOAL_TEXT]
+            new_id = uuid7_str()
+            stamp = now_ms()
+            await self._rt.store.insert_team_goal(
+                {
+                    "goal_id": new_id,
+                    "group_id": group_id,
+                    "lead_agent_id": lead_id,
+                    "title": goal_title(text, goal_hint) if words else goal_title(text),
+                    "text": text,
+                    "state": str(TeamGoalState.RUNNING),
+                    "lead_turns": 1,
+                    "lang": self._language(words, None) if words else "",
+                    "origin_json": json.dumps({"kind": "chat" if words else "lead"}),
+                    "created_ms": stamp,
+                    "updated_ms": stamp,
+                }
+            )
             if turn is not None:
-                self._chat_goals.add(active.goal_id)
-            return active
-        if not create_title:
-            raise TeamLeadError("Your team has no goal in progress.")
-        words = _CHAT_MARKS.split(turn.user_text, maxsplit=1)[0].strip() if turn else ""
-        text = (words or goal_hint or create_title)[:MAX_GOAL_TEXT]
-        new_id = uuid7_str()
-        stamp = now_ms()
-        await self._rt.store.insert_team_goal(
-            {
-                "goal_id": new_id,
-                "group_id": group_id,
-                "lead_agent_id": lead_id,
-                "title": goal_title(text, goal_hint) if words else goal_title(text),
-                "text": text,
-                "state": str(TeamGoalState.RUNNING),
-                "lead_turns": 1,
-                "lang": self._language(words, None) if words else "",
-                "origin_json": json.dumps({"kind": "chat" if words else "lead"}),
-                "created_ms": stamp,
-                "updated_ms": stamp,
-            }
-        )
-        if turn is not None:
-            self._chat_goals.add(new_id)
+                self._chat_goals.add(new_id)
         await self._announce(group_id, goal_id=new_id, state=TeamGoalState.RUNNING)
         created = await self.get_goal(new_id)
         assert created is not None
         return created
+
+    async def _adopt(self, active: TeamGoal, turn: Any | None) -> TeamGoal:
+        """The goal that holds the team, for a lead's tool call outside a
+        managing turn. One that waits for the person continues only inside
+        the person's own turn, and only while nobody stopped it meanwhile."""
+        if active.state is not TeamGoalState.RUNNING:
+            waited = (TeamGoalState.NEEDS_INPUT, TeamGoalState.PAUSED)
+            if (
+                turn is None
+                or await self._rt.store.kill_switch()
+                or not await self._move(
+                    active, TeamGoalState.RUNNING, waited, note="", lead_turns=0
+                )
+            ):
+                raise TeamLeadError(
+                    f'The goal "{active.title}" is {active.state}; it continues when '
+                    "the person answers you in this chat."
+                )
+            self._nudged.discard(active.goal_id)
+            active = await self._require_goal(active.goal_id)
+            if active.state is not TeamGoalState.RUNNING:
+                # Stopped between the move and this read: the stop wins.
+                raise TeamLeadError("This goal is no longer in progress.")
+        if turn is not None:
+            self._chat_goals.add(active.goal_id)
+        return active
 
     async def person_turn_ended(self, lead_id: str, *, ok: bool, final: str = "") -> None:
         """The person's own turn in the lead's chat ended.
@@ -1450,6 +1465,10 @@ class TeamLeads:
         tasks = await self.tasks(goal.goal_id)
         if len(tasks) >= MAX_TASKS_PER_GOAL:
             raise TeamLeadError("This goal reached its task limit; report to the person.")
+        fresh = await self.get_goal(goal.goal_id)
+        if fresh is None or fresh.state is not TeamGoalState.RUNNING:
+            # Stopped while this call was on its way: no task joins a closed goal.
+            raise TeamLeadError("This goal is no longer in progress.")
         task_id = uuid7_str()
         stamp = now_ms()
         env = self._assign_envelope(goal, lead_id, target.agent_id, task_id, title, brief)
