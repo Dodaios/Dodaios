@@ -57,7 +57,9 @@ _APPROVAL_LOCALES = ("de", "en", "es", "pt")
 _RECENT_SEGMENTS = 4
 _REQUEST_TEXT_CHARS = 1200
 # Declared before every other tool so the size budget never drops them.
-_PRIORITY_TOOLS = frozenset({"workspace-orchestrate", "find-app-action", "run-app-action"})
+_PRIORITY_TOOLS = frozenset(
+    {"workspace-orchestrate", "workspace-git", "find-app-action", "run-app-action"}
+)
 # Declared under its canonical name in every mode (see ``declarations``).
 _DIRECT_TOOLS = frozenset({"computer", "take_appshot"})
 # One screen, one mouse: these never run side by side, and a result that
