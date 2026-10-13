@@ -13640,7 +13640,7 @@ class BrainManager:
         cache: dict[str, Tool | None] = self.__dict__.setdefault("_task_only_tool_cache", {})
         if name in cache:
             return cache[name]
-        from importlib.metadata import entry_points  # noqa: PLC0415
+        from jarvis.core.entry_points import entry_points  # noqa: PLC0415
 
         tool: Tool | None = None
         for ep in entry_points(group="jarvis.tool"):
