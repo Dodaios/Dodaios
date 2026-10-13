@@ -10,8 +10,8 @@ never disagree with what the brain actually did.
 
 Design constraints (all load-bearing):
 
-* **Zero ``jarvis.*`` imports.** ``jarvis.brain`` already imports
-  ``jarvis.skills``; importing back would close a cycle. Guards that need a
+* **Zero ``jarvis.*`` imports.** The brain (``jarvis/brain/``) already imports
+  this package; importing back would close a cycle. Guards that need a
   brain-side verdict (the local-action gate, the force-spawn heuristic) receive
   it as plain data from the caller instead of reaching for it. Everything here
   is pure: same inputs, same verdict, no IO, no clock, no globals.
