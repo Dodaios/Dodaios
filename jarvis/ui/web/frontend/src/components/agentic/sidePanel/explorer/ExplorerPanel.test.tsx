@@ -278,7 +278,7 @@ describe("ExplorerPanel", () => {
   });
 
   it("opens a file in a group beside the one already open, from the menu and with Ctrl+Enter", async () => {
-    useCodeEditorStore.setState({ groupOrder: {}, groupActive: {}, focusedGroup: {} });
+    useCodeEditorStore.setState({ layout: {}, groupActive: {}, focusedGroup: {} });
     useCodeEditorStore.getState().openFile("w1", "notes.md", { preview: false });
     const { row, menu } = await openRowMenu("README.md");
     fireEvent.click(item(menu, /Open to the side/)!);

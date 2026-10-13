@@ -107,12 +107,21 @@ export interface OpenOptions {
   group?: number;
 }
 
+/**
+ * How the groups of a workspace are arranged: one group (its id), or a split
+ * whose children stand side by side (`row`) or above each other (`column`).
+ */
+export type EditorLayout = number | { dir: "row" | "column"; children: EditorLayout[] };
+
+/** A side of a group a new group can be put on. */
+export type LayoutSide = "left" | "right" | "top" | "bottom";
+
 /** Where a dragged tab lands. */
 export type TabDrop =
   /** In a group's tab bar, in front of the tab `before`; at the end when omitted. */
   | { group: number; before?: string }
-  /** In a new group directly left or right of an existing one. */
-  | { beside: number; side: "left" | "right" };
+  /** In a new group directly beside an existing one: left or right of it, above or below it. */
+  | { beside: number; side: LayoutSide };
 
 interface CodeEditorState {
   tabs: EditorTab[];
@@ -127,8 +136,8 @@ interface CodeEditorState {
   closed: ClosedTab[];
   /** Per file: the commit its diff tab compares against, when it is not the last commit. */
   diffBases: Record<string, DiffBase>;
-  /** Per workspace: the editor groups, left to right, by id. Missing = one group. */
-  groupOrder: Record<string, number[]>;
+  /** Per workspace: how the editor groups are laid out; missing = one group. */
+  layout: Record<string, EditorLayout>;
   /** Per workspace and group: the tab that group shows. */
   groupActive: Record<string, Record<number, string | null>>;
   /** Per workspace: the group that has the keyboard; opened files, saves and tab switches go to it. */
@@ -207,7 +216,51 @@ function successor(own: EditorTab[], key: string, closing: Set<string>): string 
   return (right ?? left)?.key ?? null;
 }
 
-type GroupState = Pick<CodeEditorState, "tabs" | "groupOrder" | "groupActive" | "focusedGroup">;
+type GroupState = Pick<CodeEditorState, "tabs" | "layout" | "groupActive" | "focusedGroup">;
+
+/** The ids of a layout's groups, in reading order: left to right, top to bottom. */
+export function leavesOf(layout: EditorLayout): number[] {
+  return typeof layout === "number" ? [layout] : layout.children.flatMap(leavesOf);
+}
+
+/** Drop groups that are gone and collapse splits that are left with one child. */
+function tidy(layout: EditorLayout, alive: ReadonlySet<number>): EditorLayout | null {
+  if (typeof layout === "number") return alive.has(layout) ? layout : null;
+  const children = layout.children
+    .map((child) => tidy(child, alive))
+    .filter((child): child is EditorLayout => child !== null)
+    // A row inside a row is one row.
+    .flatMap((child) => (typeof child !== "number" && child.dir === layout.dir ? child.children : [child]));
+  if (children.length === 0) return null;
+  return children.length === 1 ? children[0] : { dir: layout.dir, children };
+}
+
+/**
+ * The layout for exactly these groups: the remembered one without the groups
+ * that are gone, and any group it does not know yet added on the right.
+ */
+export function layoutFor(stored: EditorLayout | undefined, ids: number[]): EditorLayout {
+  const kept = stored === undefined ? null : tidy(stored, new Set(ids));
+  const placed = new Set(kept === null ? [] : leavesOf(kept));
+  const missing = ids.filter((id) => !placed.has(id)).sort((a, b) => a - b);
+  if (kept === null) return missing.length === 0 ? 0 : missing.length === 1 ? missing[0] : { dir: "row", children: missing };
+  if (missing.length === 0) return kept;
+  return typeof kept !== "number" && kept.dir === "row"
+    ? { dir: "row", children: [...kept.children, ...missing] }
+    : { dir: "row", children: [kept, ...missing] };
+}
+
+/** Put a new group directly beside an existing one. */
+function insertBeside(layout: EditorLayout, target: number, id: number, side: LayoutSide): EditorLayout {
+  const dir = side === "left" || side === "right" ? "row" : "column";
+  const pair = side === "left" || side === "top" ? [id, target] : [target, id];
+  if (typeof layout === "number") return layout === target ? { dir, children: pair } : layout;
+  // Beside a group that already stands in a split of that direction: one more in it.
+  if (layout.dir === dir && layout.children.includes(target)) {
+    return { dir, children: layout.children.flatMap((child) => (child === target ? pair : [child])) };
+  }
+  return { dir: layout.dir, children: layout.children.map((child) => insertBeside(child, target, id, side)) };
+}
 
 /** One column of the editor: its own tabs, one of them shown. */
 export interface EditorGroup {
@@ -220,7 +273,7 @@ export interface EditorGroup {
 }
 
 /**
- * The editor groups of one workspace, left to right.
+ * The editor groups of one workspace, in reading order.
  *
  * Derived from the tabs: a group exists exactly as long as it holds a tab, so
  * closing its last tab closes the column. With nothing open there is one empty
@@ -236,9 +289,8 @@ export function groupsOf(state: GroupState, workspaceId: string | null): EditorG
     if (tabs) tabs.push(tab);
     else byGroup.set(id, [tab]);
   }
-  const stored = (state.groupOrder[workspaceId] ?? []).filter((id) => byGroup.has(id));
-  const order = [...stored, ...[...byGroup.keys()].filter((id) => !stored.includes(id)).sort((a, b) => a - b)];
-  if (order.length === 0) return [{ id: 0, tabs: [], active: null, focused: true }];
+  if (byGroup.size === 0) return [{ id: 0, tabs: [], active: null, focused: true }];
+  const order = leavesOf(layoutFor(state.layout[workspaceId], [...byGroup.keys()]));
   const wanted = state.focusedGroup[workspaceId];
   const focused = wanted !== undefined && order.includes(wanted) ? wanted : order[0];
   const actives = state.groupActive[workspaceId] ?? {};
@@ -253,20 +305,23 @@ export function groupsOf(state: GroupState, workspaceId: string | null): EditorG
 function settle(
   state: GroupState & Pick<CodeEditorState, "active">,
   workspaceIds: Iterable<string>,
-): Pick<CodeEditorState, "active" | "groupOrder" | "groupActive" | "focusedGroup"> {
+): Pick<CodeEditorState, "active" | "layout" | "groupActive" | "focusedGroup"> {
   const active = { ...state.active };
-  const groupOrder = { ...state.groupOrder };
+  const layout = { ...state.layout };
   const groupActive = { ...state.groupActive };
   const focusedGroup = { ...state.focusedGroup };
   for (const workspaceId of workspaceIds) {
     const groups = groupsOf(state, workspaceId);
     const focused = groups.find((group) => group.focused) ?? groups[0];
-    groupOrder[workspaceId] = groups.map((group) => group.id);
+    layout[workspaceId] = layoutFor(
+      state.layout[workspaceId],
+      groups.filter((group) => group.tabs.length > 0).map((group) => group.id),
+    );
     groupActive[workspaceId] = Object.fromEntries(groups.map((group) => [group.id, group.active?.key ?? null]));
     focusedGroup[workspaceId] = focused.id;
     active[workspaceId] = focused.active?.key ?? null;
   }
-  return { active, groupOrder, groupActive, focusedGroup };
+  return { active, layout, groupActive, focusedGroup };
 }
 
 let revealNonce = 0;
@@ -281,7 +336,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
   reveal: null,
   closed: [],
   diffBases: {},
-  groupOrder: {},
+  layout: {},
   groupActive: {},
   focusedGroup: {},
 
@@ -310,7 +365,8 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       const groups = groupsOf(state, workspaceId);
       const origin = tab.group ?? 0;
       const source = groups.find((entry) => entry.id === origin);
-      let order = groups.map((entry) => entry.id);
+      const order = groups.map((entry) => entry.id);
+      let layout = layoutFor(state.layout[workspaceId], order);
       let group: number;
       let before: string | undefined;
       if ("beside" in drop) {
@@ -318,8 +374,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
         // A group's only tab dropped beside that same group is already there.
         if (drop.beside === origin && source?.tabs.length === 1) return {};
         group = Math.max(...order) + 1;
-        const at = order.indexOf(drop.beside) + (drop.side === "right" ? 1 : 0);
-        order = [...order.slice(0, at), group, ...order.slice(at)];
+        layout = insertBeside(layout, drop.beside, group, drop.side);
       } else {
         if (!order.includes(drop.group) || drop.before === key) return {};
         group = drop.group;
@@ -345,7 +400,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
           {
             ...state,
             tabs,
-            groupOrder: { ...state.groupOrder, [workspaceId]: order },
+            layout: { ...state.layout, [workspaceId]: layout },
             groupActive: { ...state.groupActive, [workspaceId]: actives },
             focusedGroup: { ...state.focusedGroup, [workspaceId]: group },
           },
@@ -363,7 +418,8 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       // the group that has the keyboard ("to the side"), or that group itself.
       const groups = groupsOf(state, workspaceId);
       const focused = groups.find((entry) => entry.focused) ?? groups[0];
-      let order = groups.map((entry) => entry.id);
+      const order = groups.map((entry) => entry.id);
+      let layout = layoutFor(state.layout[workspaceId], order);
       let group = options.group !== undefined && order.includes(options.group) ? options.group : focused.id;
       // With nothing open there is nothing to stand beside: the file simply opens.
       if (options.group === undefined && (options.side || options.split) && focused.tabs.length > 0) {
@@ -373,7 +429,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
         if (beside !== undefined) group = beside;
         else {
           group = Math.max(...order) + 1;
-          order = [...order.slice(0, at + 1), group, ...order.slice(at + 1)];
+          layout = insertBeside(layout, focused.id, group, "right");
         }
       }
       const target = groups.find((entry) => entry.id === group);
@@ -414,7 +470,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
           {
             ...state,
             tabs,
-            groupOrder: { ...state.groupOrder, [workspaceId]: order },
+            layout: { ...state.layout, [workspaceId]: layout },
             groupActive: { ...state.groupActive, [workspaceId]: { ...state.groupActive[workspaceId], [group]: key } },
             focusedGroup: { ...state.focusedGroup, [workspaceId]: group },
           },
