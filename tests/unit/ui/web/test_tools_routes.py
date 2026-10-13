@@ -54,3 +54,34 @@ def test_falls_back_to_user_mcp_registry_before_brain_ready() -> None:
     assert body["total"] == 1
     assert body["tools"][0]["name"] == "weather/search"
     assert body["by_source"]["mcp"] == 1
+
+
+def test_usage_reports_what_ran_and_what_never_did(tmp_path, monkeypatch) -> None:
+    import json
+    from datetime import datetime
+
+    from jarvis.telemetry import tool_usage as usage
+
+    day = datetime.now().date().isoformat()
+    rows = [
+        {"ts_ns": 1, "event": "ActionExecuted", "payload": {"tool_name": "wiki-recall"}},
+        {"ts_ns": 2, "event": "ActionExecuted", "payload": {"tool_name": "wiki-recall"}},
+    ]
+    (tmp_path / f"{day}.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+    monkeypatch.setattr(usage, "DEFAULT_DATA_DIR", tmp_path)
+
+    app = FastAPI()
+    app.include_router(router)
+    app.state.brain = SimpleNamespace(
+        _tools={"wiki-recall": _tool("wiki-recall"), "cli_gh": _tool("cli_gh")}
+    )
+    with TestClient(app) as client:
+        body = client.get("/api/tools/usage", params={"days": 7}).json()
+
+    assert body["window_days"] == 7
+    assert body["total_calls"] == 2
+    assert body["tools"][0]["tool"] == "wiki-recall"
+    assert body["registered"] == 2
+    assert body["never_used"] == ["cli_gh"]

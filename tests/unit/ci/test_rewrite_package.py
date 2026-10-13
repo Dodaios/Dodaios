@@ -6,6 +6,8 @@ and expectation, so the codemod itself never rewrites it (``FROZEN_FILES``).
 
 from __future__ import annotations
 
+import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -153,6 +155,22 @@ const own = /^jarvis\\//i.test(name) ? name.slice("jarvis/".length) : null;
 
 _HISTORY = "- moved `jarvis/core/old.py`; run `python -m jarvis.ui.web.launcher`\n"
 
+# What the release before the move publishes for its updater.
+_UPDATE_CONTRACT = """{
+  "schema": 1,
+  "ui_bundle_dir": "jarvis/ui/web/dist",
+  "launcher_module": "jarvis.ui.web.launcher",
+  "version_file": "jarvis/__init__.py",
+  "config_file": "jarvis.toml",
+  "macos_app_dir_name": "Personal Jarvis.app",
+  "macos_bundle_id": "com.personal-jarvis.desktop"
+}
+"""
+
+# One catalog entry and its agent-plugin mirror: the same command twice.
+_BUNDLED_SERVER = '"install": ["python", "-m", "jarvis.plugins.tool.connected_server", "zoom"]'
+_SEED_CATALOG = '{"plugins": [{"id": "zoom", "mcp_server": {' + _BUNDLED_SERVER + "}}]}\n"
+
 FILES: dict[str, str] = {
     "jarvis/__init__.py": '"""The package."""\n\n__version__ = "1.2.3"\n',
     "jarvis/__main__.py": _MAIN,
@@ -179,10 +197,16 @@ FILES: dict[str, str] = {
     "jarvis/ui/web/frontend/src/i18n/locales/en.json": (
         '{"hint": "Run python -m jarvis.ui.web.launcher, see jarvis/core/config.py"}\n'
     ),
+    "jarvis/marketplace/__init__.py": "",
+    "jarvis/marketplace/seed_catalog.json": _SEED_CATALOG,
+    "jarvis/marketplace/plugins/zoom/plugin.json": _SEED_CATALOG,
+    "jarvis/plugins/tool/__init__.py": "",
+    "jarvis/plugins/tool/connected_server.py": _MAIN,
     "jarvis/mcp/__init__.py": "",
     "jarvis/mcp/server.py": _MAIN,
     "jarvis/mcp/agents/__init__.py": "",
     "jarvis/mcp/agents/bridge.py": _MAIN,
+    "install/update-contract.json": _UPDATE_CONTRACT,
     "pyproject.toml": _PYPROJECT,
     "jarvis.spec": _SPEC,
     "jarvis.toml.example": "# settings\n[brain]\n",
@@ -459,6 +483,80 @@ def test_history_and_generated_files_are_moved_but_not_rewritten(repo):
     assert _read(repo, "dodaios/ui/web/dist/index.html") == FILES["jarvis/ui/web/dist/index.html"]
     locale = "ui/web/frontend/src/i18n/locales/en.json"
     assert _read(repo, f"dodaios/{locale}") == FILES[f"jarvis/{locale}"]
+
+
+def test_the_seed_catalog_keeps_the_commands_installs_have_stored(repo):
+    """Its module names are configuration on disk and part of the evidence
+    fingerprint; the same command in any other file follows the package."""
+    codemod.apply(repo, OLD, NEW)
+
+    assert _read(repo, "dodaios/marketplace/seed_catalog.json") == _SEED_CATALOG
+    # Its agent-plugin form says the same thing and has to go on saying it.
+    assert _read(repo, "dodaios/marketplace/plugins/zoom/plugin.json") == _SEED_CATALOG
+    assert _rewritten(_SEED_CATALOG, "docs/example.json") == _SEED_CATALOG.replace(
+        "jarvis.plugins.tool", "dodaios.plugins.tool"
+    )
+    assert codemod.plan(repo, OLD, NEW)[0].pending is False
+
+
+def test_the_frozen_catalog_still_starts_its_server_through_the_old_name(repo):
+    codemod.apply(repo, OLD, NEW)
+    proc = subprocess.run(
+        [sys.executable, "-m", "jarvis.plugins.tool.connected_server"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        creationflags=_NO_WINDOW,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "ran jarvis.plugins.tool.connected_server as __main__" in proc.stdout
+
+
+def test_a_named_prefix_of_another_kind_stays_and_real_paths_next_to_it_move():
+    """``UNRESOLVED_PATHS_KEPT`` with names: only those stay in that file."""
+    text = (
+        "a test that jarvis/agent session lists exclude society sessions\n"
+        "the lock pattern from `jarvis/cron/jobs.py:22` and `jarvis/core/config.py`\n"
+    )
+    rewriter = _rewriter()
+
+    data, result = rewriter.rewrite("docs/agent-society/build-plan-m1-m2.md", text.encode("utf-8"))
+
+    assert data.decode("utf-8") == (
+        "a test that jarvis/agent session lists exclude society sessions\n"
+        "the lock pattern from `dodaios/cron/jobs.py:22` and `dodaios/core/config.py`\n"
+    )
+    assert result.ambiguous == []
+    # Anywhere else the same words are still a question for a person.
+    _data, elsewhere = rewriter.rewrite("docs/other.md", text.encode("utf-8"))
+    assert [hit.line for hit in elsewhere.ambiguous] == [1]
+
+
+@pytest.mark.parametrize(
+    "kept", codemod.UNRESOLVED_PATHS_KEPT, ids=[kept.glob for kept in codemod.UNRESOLVED_PATHS_KEPT]
+)
+def test_every_kept_prefix_says_why_and_is_kept(kept):
+    assert kept.reason
+    rewriter = _rewriter()
+    path = kept.glob.replace("{pkg}", OLD).replace("*", "x")
+    for name in kept.names or ("somebody",):
+        text = f"see jarvis/{name} here\n"
+        data, result = rewriter.rewrite(path, text.encode("utf-8"))
+        assert data.decode("utf-8") == text and result.ambiguous == [], (path, name)
+
+
+def test_a_placeholder_for_any_plugin_group_is_a_group_name():
+    text = (
+        "Each group is also read under its earlier name, `jarvis.<group>`.\n"
+        "# and `jarvis.<slot>` (what every plugin published earlier registers under).\n"
+    )
+    for path in ("docs/overview.md", "pyproject.toml", "notes/sample.py"):
+        data, result = _rewriter().rewrite(path, text.encode("utf-8"))
+        assert data.decode("utf-8") == text and result.ambiguous == [], path
+    # Any other placeholder may as well stand for a module: still reported.
+    _data, result = _rewriter().rewrite("docs/overview.md", b"import `jarvis.<module>`\n")
+    assert [hit.line for hit in result.ambiguous] == [1]
 
 
 def test_a_line_with_the_pragma_is_left_alone():
@@ -848,6 +946,47 @@ def test_the_compatibility_package_carries_a_version_no_release_has(repo):
     stub = _read(repo, "jarvis/__init__.py")
     assert f'__version__ = "{codemod.STUB_VERSION}"' in stub
     assert '__version__ = "1.2.3"' in _read(repo, "dodaios/__init__.py")
+
+
+# How an updater reads a release's version: releases up to 3.1.1 look in
+# ``jarvis/__init__.py`` and nowhere else first; later ones look in the file
+# the release's own update contract names.
+_VERSION_PATTERN = r'__version__\s*=\s*"([^"]+)"'
+
+
+def test_an_updater_from_before_the_contract_stops_at_the_compatibility_version(repo):
+    """It stages an update only when the version it reads equals the published
+    one. The first match in the old place must therefore be the version no
+    release has - and not, say, an example in a comment above it."""
+    codemod.apply(repo, OLD, NEW)
+
+    match = re.search(_VERSION_PATTERN, _read(repo, "jarvis/__init__.py"), re.MULTILINE)
+
+    assert match is not None and match.group(1) == codemod.STUB_VERSION == "0.0.0"
+
+
+def test_the_update_contract_leads_an_updater_to_the_moved_package(repo):
+    """The release that moves the package must say where everything went: the
+    version before it reads this file from the new revision and nothing else."""
+    codemod.apply(repo, OLD, NEW)
+
+    contract = json.loads(_read(repo, "install/update-contract.json"))
+
+    assert contract == {
+        "schema": 1,
+        "ui_bundle_dir": "dodaios/ui/web/dist",
+        "launcher_module": "dodaios.ui.web.launcher",
+        "version_file": "dodaios/__init__.py",
+        # Identifiers of the installation, not locations of the package.
+        "config_file": "jarvis.toml",
+        "macos_app_dir_name": "Personal Jarvis.app",
+        "macos_bundle_id": "com.personal-jarvis.desktop",
+    }
+    # Every location it names is really there after the move.
+    assert (repo / contract["ui_bundle_dir"] / "index.html").is_file()
+    assert (repo / (contract["launcher_module"].replace(".", "/") + ".py")).is_file()
+    version = re.search(_VERSION_PATTERN, _read(repo, contract["version_file"]), re.MULTILINE)
+    assert version is not None and version.group(1) == "1.2.3"
 
 
 # --------------------------------------------------------------------------- this repository

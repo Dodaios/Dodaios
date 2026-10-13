@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from jarvis.core.http_pool import HttpClientPool
 from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.live.subscription_auth import SubscriptionCredentials
+from jarvis.live.subscription_auth import SubscriptionAuthError, SubscriptionCredentials
 
 _BASE_URL = "https://chatgpt.com/backend-api/codex"
 _MAX_EVENT_CHARS = 2 * 1024 * 1024
@@ -148,6 +148,7 @@ class SubscriptionReasoning:
         self._pool = http_pool or HttpClientPool(timeout_s=60.0)
         self._session_id = session_id or str(uuid4())
         self._model_efforts: dict[str, tuple[str, ...]] = {}
+        self._catalog_slugs: frozenset[str] = frozenset()
 
     def _headers(self, credentials: SubscriptionCredentials) -> dict[str, str]:
         return {
@@ -189,6 +190,13 @@ class SubscriptionReasoning:
                 raise SubscriptionReasoningError("The ChatGPT model catalog is unavailable.")
             models: list[dict[str, Any]] = []
             model_efforts: dict[str, tuple[str, ...]] = {}
+            # Hidden rows count too: a model the picker does not list may
+            # still be one this account can use.
+            self._catalog_slugs = frozenset(
+                row["slug"]
+                for row in rows
+                if isinstance(row, dict) and isinstance(row.get("slug"), str)
+            )
             for row in rows:
                 if not isinstance(row, dict) or row.get("visibility", "list") != "list":
                     continue
@@ -293,7 +301,19 @@ class SubscriptionReasoning:
                     if response.status_code == 401 and attempt == 0:
                         continue
                     if response.status_code != 200:
-                        raise await _http_failure(response)
+                        failure = await _http_failure(response)
+                        if (
+                            failure.status in (400, 404)
+                            and failure.code == "invalid_request_error"
+                            and await self._unlisted(model)
+                        ):
+                            # The backend refuses a model the account no longer
+                            # has with a bare 400. Live 2026-10-13: a model
+                            # saved under a plan that had since ended.
+                            failure = _failure(
+                                failure.status, {"error": {"code": "model_not_found"}}
+                            )
+                        raise failure
                     async for event in self._events(response):
                         yield event
                     return
@@ -301,6 +321,20 @@ class SubscriptionReasoning:
                 # Once a stream has started, never replay the request automatically.
                 raise _failure() from exc
         raise _failure(401)
+
+    async def _unlisted(self, model: str) -> bool:
+        """True when the account's own catalog answers and does not carry ``model``.
+
+        One catalog request, no inference, and only after a request was
+        already refused.
+        """
+        try:
+            await self.list_models()
+        except (SubscriptionReasoningError, SubscriptionAuthError):  # the given refusal stands
+            # No catalog, or the login went away meanwhile: the refusal the
+            # backend already gave is the one reported.
+            return False
+        return bool(self._catalog_slugs) and model not in self._catalog_slugs
 
     async def snap_effort(self, model: str, requested: str) -> str:
         """The level ``model`` offers closest to ``requested`` ("" = its default).

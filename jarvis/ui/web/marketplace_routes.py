@@ -57,6 +57,7 @@ from jarvis.marketplace.auth import (
     get_registry,
     sanitize_provider_error,
 )
+from jarvis.marketplace.bundled_servers import runs_amd_server, runs_connected_server
 from jarvis.marketplace.catalog import (
     CATEGORY_ORDER,
     HostedMcpOAuthDcrAuth,
@@ -370,9 +371,9 @@ def _mcp_live(
             reg = _live_plugin_registry()
             if reg is not None and reg.is_bootstrapped() and reg.live_tool_count(plugin_id) == 0:
                 return False, reg.last_connect_error(plugin_id) or "No tools loaded; reconnect"
-        if install[:3] == ["python", "-m", "jarvis.plugins.tool.connected_server"]:
+        if install[:1] == ["python"] and runs_connected_server(install):
             return True, None  # Bundled in-process bridge needs no PATH launcher.
-        if install[:3] == ["python", "-m", "jarvis.marketplace.amd_mcp"]:
+        if install[:1] == ["python"] and runs_amd_server(install):
             import shutil
 
             available = shutil.which("amd-smi") is not None

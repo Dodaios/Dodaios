@@ -217,3 +217,62 @@ async def test_late_old_record_for_identical_prompt_is_not_fresh_work(pane):
     assert not await ft.publish_result("completed", term, pending, events.append)
     assert not events
     assert term.delegation_result is pending
+
+
+# --- Watching a job the user typed by hand --------------------------------------
+#
+# Nothing was sent through the app, so there is no prompt to match: the CLI's
+# own end marker, recorded after the watch began, identifies the answer.
+
+
+def _hand_typed(turns, *, at=99):
+    turns.append({"kind": "user_message", "ts_ms": at * 1000,
+                  "payload": {"text": "Refactor the importer"}})
+
+
+def _turn_end(report, *, at):
+    return [
+        {"kind": "assistant_text", "ts_ms": at * 1000,
+         "payload": {"text": report, "turn_id": "typed"}},
+        {"kind": "turn_finished", "ts_ms": (at + 1) * 1000,
+         "payload": {"status": "done", "turn_id": "typed"}},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_watched_hand_typed_job_reports_its_own_end_once(pane):
+    term, turns = pane
+    _hand_typed(turns)
+    pending = await ft.watch(term, {"lang": "en"})
+    assert term.delegation_result is pending and pending.watched
+    events = []
+    assert not await ft.publish_result("completed", term, pending, events.append)
+    turns.extend(_turn_end("Importer refactored; 12 tests pass.", at=101))
+    assert await ft.publish_result("completed", term, pending, events.append)
+    assert not await ft.publish_result("completed", term, pending, events.append)
+    assert len(events) == 1 and "Importer refactored" in events[0].report
+    assert "T2" in events[0].report and term.delegation_result is None
+
+
+@pytest.mark.asyncio
+async def test_a_watch_never_reads_back_a_turn_that_ended_before_it_began(pane):
+    term, turns = pane
+    _hand_typed(turns, at=95)
+    pending = await ft.watch(term, {"lang": "en"})
+    # The record of the earlier end reaches the disk only now.
+    turns.extend(_turn_end("Finished long ago.", at=96))
+    events = []
+    assert not await ft.publish_result("completed", term, pending, events.append)
+    assert not events and term.delegation_result is pending
+
+
+@pytest.mark.asyncio
+async def test_a_prompt_typed_after_the_watch_ends_it(pane):
+    term, turns = pane
+    _hand_typed(turns)
+    pending = await ft.watch(term, {"lang": "en"})
+    term.last_submit_at += 5
+    turns.extend(_turn_end("Answer to the newer prompt.", at=106))
+    events = []
+    assert not await ft.publish_result("completed", term, pending, events.append)
+    assert not events
