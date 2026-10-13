@@ -28,7 +28,8 @@ These cost real bugs. Nothing catches them but you.
   `pip install -e` from a linked worktree: that pin is the user's desktop app,
   and their next restart boots your branch with an empty `data/`. (BUG-219)
 - **`main` takes no local commits.** Local `main` mirrors `origin/main` and
-  moves only by `git pull --ff-only`; the commit hook refuses a commit on it.
+  moves only by `git pull --ff-only`; the hooks refuse a commit on it and any
+  other move (`update-ref`, cherry-pick, rebase) to a commit no remote has.
   Every change lives on a feature branch in a worktree of your own:
   `git worktree add -b <agent>/<topic> <path> origin/main`, one topic per
   branch. A commit on local `main` exists on one machine, and the squash-merging
@@ -254,7 +255,8 @@ queue once green; the queue squash-merges it after `CI gate` passes again on
 the PR merged with the newest main. The train enqueues only with its bot
 token: `agent_land.py` therefore requests auto-merge, and a PR opened any
 other way needs `gh pr merge <branch> --auto --squash` once, or it waits for
-a person. A pull request runs Linux and Windows; macOS runs in the merge
+a person. A pull request runs Linux, Windows and the short macOS checks;
+the long macOS checks (real runtimes, real browser) run in the merge
 queue (`docs/ci-pipeline.md`, Tiers). Direct pushes to main are blocked for
 everyone but admins.
 Triage any red job against the exact base; never add to a baseline to hide a

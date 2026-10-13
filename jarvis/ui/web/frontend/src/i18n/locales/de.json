@@ -7360,10 +7360,9 @@
     "tabs": "Geöffnete Dateien",
     "close_tab": "{file} schließen",
     "close_tab_hint": "Schließen (Strg+W)",
-    "close_side": "Seitlichen Editor schließen",
-    "side_label": "Seitlicher Editor",
-    "resize_split": "Größe der beiden Editoren ändern",
-    "side_tab_hint": "Im seitlichen Editor geöffnet",
+    "group_label": "Editor-Gruppe {n}",
+    "split_right": "Editor nach rechts teilen",
+    "resize_split": "Größe der Editor-Gruppen ändern",
     "show_terminals": "Terminals",
     "show_terminals_hint": "Terminals zeigen; deine Dateien bleiben offen",
     "breadcrumbs": "Dateipfad",
@@ -7390,7 +7389,6 @@
       "close_all": "Alle schließen",
       "copy_path": "Pfad kopieren",
       "copy_relative_path": "Relativen Pfad kopieren",
-      "open_side": "An der Seite öffnen",
       "reveal": "Im Ordner zeigen"
     },
     "status": {

@@ -18,7 +18,11 @@ const lastSent = new Map<string, string>();
 
 function snapshot(workspaceId: string) {
   const state = useCodeEditorStore.getState();
-  const tabs = tabsOf(state, workspaceId).map(({ path, mode, preview }) => ({ path, mode, preview }));
+  // A file open in two groups is remembered once; the split itself is not.
+  const seen = new Set<string>();
+  const tabs = tabsOf(state, workspaceId)
+    .filter(({ path, mode }) => !seen.has(`${mode}:${path}`) && seen.add(`${mode}:${path}`))
+    .map(({ path, mode, preview }) => ({ path, mode, preview }));
   const active = tabsOf(state, workspaceId).find((tab) => tab.key === state.active[workspaceId])?.path ?? null;
   return { tabs, active, key: JSON.stringify([tabs, active]) };
 }

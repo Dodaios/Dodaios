@@ -27,7 +27,8 @@ MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
 LINUX_DESKTOP_ENTRY_FILE_NAME="personal-jarvis.desktop"
 KEYRING_SERVICE_NAME="personal-jarvis"
 
-INSTALL_DIR="${JARVIS_INSTALL_DIR:-$HOME/$DEFAULT_INSTALL_DIR_NAME}"
+# DODAIOS_INSTALL_DIR and JARVIS_INSTALL_DIR are one option; the new name wins.
+INSTALL_DIR="${DODAIOS_INSTALL_DIR:-${JARVIS_INSTALL_DIR:-$HOME/$DEFAULT_INSTALL_DIR_NAME}}"
 VENV_PYTHON="$INSTALL_DIR/.venv/bin/python"
 
 if [ -t 1 ]; then
