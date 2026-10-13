@@ -17,6 +17,8 @@ import { VoiceGlow } from "@/components/home/VoiceGlow";
 import { useSpokenCursor } from "@/components/home/useSpokenCursor";
 import { TurnSteps, traceWorthShowing } from "@/components/home/TurnSteps";
 import { traceModel } from "@/lib/thinkingSteps";
+import { SHOWN_KIND } from "@/lib/homeTranscript";
+import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 
 /**
  * The live voice conversation shares the chat column and scroll behavior.
@@ -110,6 +112,8 @@ export function VoiceStage({ onExit }: { onExit?: () => void } = {}) {
                   defaultOpen={m.live}
                 />
               </div>
+            ) : m.kind === SHOWN_KIND && m.markdown ? (
+              <ShownContent key={m.id} title={m.text} markdown={m.markdown} />
             ) : (
               <TranscriptLine
                 key={m.id}
@@ -200,6 +204,25 @@ export function TranscriptLine({
           />
         )}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Content the assistant put on screen instead of reading it out: a table,
+ * code, links. Drawn as a card on the assistant's side of the lane, wide
+ * enough for a table, with the same Markdown the chat uses.
+ */
+export function ShownContent({ title, markdown }: { title: string; markdown: string }) {
+  return (
+    <div className="flex justify-start" data-testid="transcript-shown" data-who="assistant">
+      <div className="w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground">
+        {title && <div className="mb-2 text-sm font-medium text-foreground">{title}</div>}
+        <ChatMarkdown
+          text={markdown}
+          className="prose prose-sm max-w-none overflow-x-auto dark:prose-invert"
+        />
+      </div>
     </div>
   );
 }
