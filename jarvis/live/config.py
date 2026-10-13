@@ -120,6 +120,13 @@ class LiveConfig(BaseModel):
                 "A request for a NEW coding agent (or several: 'two Claude Code agents') is "
                 "workspace-orchestrate create in the named or visible workspace, with cli, "
                 "count and the task as prompt; never an existing agent and never spawn_worker. "
+                "When the user asks how far the coding agents are, whether one is done, who "
+                "is waiting for them, or which branch a workspace is on, call "
+                "workspace-orchestrate status once: it covers every open agent and each "
+                "workspace's git state. Say the takeaway in a sentence or two and name who "
+                "needs the user; never read out lists, diffs or code. When the user wants to "
+                "hear when an agent they started themselves is done, call watch for it; a "
+                "task you sent is reported back on its own. "
                 + AGENT_BRIEF_RULE
                 + " "
                 + (COMPUTER_CONTROL_RULES if computer else "")

@@ -332,7 +332,8 @@ def test_is_vault_registered_no_match() -> None:
 def test_is_vault_registered_trailing_slash_robust() -> None:
     """One path with trailing backslash, the other without, still match."""
     vaults = [
-        VaultEntry(id="x", path=Path(r"C:\Users\Admin\Vaults\jarvis\\")),
+        # The folder name of somebody's vault, not the package.
+        VaultEntry(id="x", path=Path(r"C:\Users\Admin\Vaults\jarvis\\")),  # rename-keep
     ]
     expected = Path(r"C:\Users\Admin\Vaults\jarvis")
 

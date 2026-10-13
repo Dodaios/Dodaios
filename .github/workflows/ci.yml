@@ -40,10 +40,10 @@
 #   pr     pull request: the whole Linux + Windows suite and every affected
 #          lane on Linux and Windows. No macOS: five macOS slots serve
 #          every run, and macOS legs on each push made pull requests wait.
-#   queue  merge-queue group: everything `pr` runs plus every macOS leg of
-#          the affected lanes (real runtimes and real browser included).
-#          Nothing macOS-specific that a lane tests lands unproven, and the
-#          five macOS slots are spent once per change.
+#   queue  merge-queue group: everything `pr` runs plus at most two macOS
+#          jobs: the macOS tests the change can reach, and the Apple Silicon
+#          desktop bundle when the macOS lane is affected. Five macOS slots
+#          serve every group; eleven macOS jobs a group waited 30-54 minutes.
 #   full   nightly, release tags, manual full dispatch: Intel macOS, the ARM
 #          runners, every interpreter, the macOS test shards, and the
 #          Hermes install on Windows (14-23 minutes). A red nightly opens an
@@ -223,9 +223,10 @@ jobs:
             git diff --name-only --no-renames "$BASE" HEAD | tee changed.txt | python3 scripts/ci/classify_changes.py
           fi
 
-      # A merge group runs the macOS tests its change can reach: the whole
-      # suite on macOS is 27 runner-minutes on five shared slots. No diff
-      # (changed.txt missing or empty) selects everything.
+      # A merge group runs the macOS tests its change can reach, on ONE
+      # runner: the whole suite on macOS is 27 runner-minutes on five shared
+      # slots. A change that reaches everything (or no diff: changed.txt
+      # missing or empty) runs the macOS-focused set instead.
       - name: Select the macOS tests this change can reach
         id: mactests
         shell: bash
@@ -236,7 +237,7 @@ jobs:
           : > mac_tests.txt
           if [ "$PYTHON_LANE" = "true" ] && [ "$MAC_IMPACT" = "true" ]; then
             test -f changed.txt || : > changed.txt
-            python3 scripts/ci/select_tests.py --changed-from changed.txt --out mac_tests.txt
+            python3 scripts/ci/select_tests.py --one-runner --changed-from changed.txt --out mac_tests.txt
           else
             { echo "mode=none"; echo "shards=[]"; } | tee -a "$GITHUB_OUTPUT"
           fi
@@ -622,10 +623,10 @@ jobs:
           path: out/
           retention-days: 14
 
-  # The macOS tests the change can reach, before it lands (merge queue). One
-  # runner for an ordinary change; a change that selects everything (the
-  # pipeline, conftest, the lockfile) gets the full three-way split. The
-  # nightly and release runs keep the whole suite in `tests-macos`.
+  # The macOS tests the change can reach, before it lands (merge queue), on
+  # one runner; a change that reaches everything (the pipeline, conftest,
+  # the lockfile) runs the macOS-focused set. The nightly and release runs
+  # keep the whole suite in `tests-macos`.
   tests-macos-impact:
     needs: detect
     if: needs.detect.outputs.python == 'true' && needs.detect.outputs.mac_tests == 'true'
@@ -861,8 +862,8 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
-      # Windows ARM on a pull request, Intel macOS added in the queue, both
-      # interpreters and Apple Silicon in the wide matrix (plan_run.py).
+      # Windows ARM on every change; Intel macOS, both interpreters and
+      # Apple Silicon in the wide matrix (plan_run.py).
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.crypto_matrix) }}
     runs-on: ${{ matrix.runner }}
@@ -938,7 +939,7 @@ jobs:
   # app differently (Inno handover, .app swap, AppImage swap, git transaction
   # + restart helper), and the POSIX-only tests run the real relaunch waiter.
   # A pull request runs Linux and the real Windows upgrade; the merge queue
-  # adds macOS and the second Windows interpreter; the wide matrix adds the
+  # adds the second Windows interpreter; the wide matrix adds macOS and the
   # Intel Mac (scripts/ci/plan_run.py).
   #
   # Python: 3.11 is the floor, 3.12 is what the native installers freeze.
@@ -1130,9 +1131,10 @@ jobs:
 
   # Hermes / OpenClaw society agents on every OS a person runs them on. The
   # lane (scripts/ci/agent_runtime_suite.py) covers the runtimes AND the chat
-  # and society code that drives them. A pull request proves Linux and
-  # Windows; the merge queue adds macOS, so a macOS failure stops the change
-  # before it lands. Fakes only: no key, no network to a model.
+  # and society code that drives them. Every change proves Linux and
+  # Windows; on macOS the merge queue runs this suite's tests through the
+  # impact selection (tests-macos-impact), the wide matrix runs the lane
+  # itself. Fakes only: no key, no network to a model.
   agent-runtimes-unit:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
@@ -1192,9 +1194,8 @@ jobs:
   # user PATH and shell profiles stayed put (scripts/ci/agent_runtime_e2e.py).
   # No key, no network to a model. The weekly canary does the same at
   # upstream latest and raises the pin. Every change runs both runtimes on
-  # Linux and OpenClaw on Windows; the merge queue adds both runtimes on
-  # macOS, so a macOS failure stops a change before it lands; nightly and
-  # release runs add the Hermes install on Windows (14-23 minutes)
+  # Linux and OpenClaw on Windows; nightly and release runs add both
+  # runtimes on macOS and the Hermes install on Windows (14-23 minutes)
   # (scripts/ci/plan_run.py).
   agent-runtimes-e2e:
     needs: detect
