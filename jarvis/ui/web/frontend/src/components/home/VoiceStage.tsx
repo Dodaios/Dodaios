@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo } from "react";
+import { Suspense, lazy, useLayoutEffect, useMemo } from "react";
 
 import { useEventStore, type VoiceState } from "@/store/events";
 import { useHomeStore } from "@/store/home";
@@ -18,7 +18,12 @@ import { useSpokenCursor } from "@/components/home/useSpokenCursor";
 import { TurnSteps, traceWorthShowing } from "@/components/home/TurnSteps";
 import { traceModel } from "@/lib/thinkingSteps";
 import { SHOWN_KIND } from "@/lib/homeTranscript";
-import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
+
+const ChatMarkdown = lazy(() =>
+  import("@/components/agentchat/ChatMarkdown").then((module) => ({
+    default: module.ChatMarkdown,
+  })),
+);
 
 /**
  * The live voice conversation shares the chat column and scroll behavior.
@@ -218,10 +223,14 @@ export function ShownContent({ title, markdown }: { title: string; markdown: str
     <div className="flex justify-start" data-testid="transcript-shown" data-who="assistant">
       <div className="w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground">
         {title && <div className="mb-2 text-sm font-medium text-foreground">{title}</div>}
-        <ChatMarkdown
-          text={markdown}
-          className="prose prose-sm max-w-none overflow-x-auto dark:prose-invert"
-        />
+        {/* The Markdown renderer is loaded when the first card appears, so the
+            front page does not carry it at startup. Until then: the raw text. */}
+        <Suspense fallback={<pre className="whitespace-pre-wrap text-sm">{markdown}</pre>}>
+          <ChatMarkdown
+            text={markdown}
+            className="prose prose-sm max-w-none overflow-x-auto dark:prose-invert"
+          />
+        </Suspense>
       </div>
     </div>
   );

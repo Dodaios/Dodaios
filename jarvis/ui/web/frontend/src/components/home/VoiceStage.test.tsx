@@ -1,4 +1,11 @@
-import { act, cleanup, fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -242,7 +249,7 @@ describe("VoiceStage content shown on screen", () => {
     useHomeStore.getState().resetTranscript();
   });
 
-  it("draws a card with its heading and renders the table instead of raw Markdown", () => {
+  it("draws a card with its heading and renders the table instead of raw Markdown", async () => {
     const card: TranscriptLine = {
       id: "shown-1",
       who: "assistant",
@@ -257,10 +264,12 @@ describe("VoiceStage content shown on screen", () => {
     render();
     const shown = screen.getByTestId("transcript-shown");
     expect(shown.textContent).toContain("Changed files");
-    expect(shown.querySelector("table")).not.toBeNull();
+    // The content is readable at once, as text, while the renderer loads.
+    expect(shown.textContent).toContain("app.py");
+    await waitFor(() => expect(shown.querySelector("table")).not.toBeNull(), { timeout: 15_000 });
     expect(shown.textContent).toContain("app.py");
     expect(shown.textContent).not.toContain("|---|");
     // The spoken lines around it stay ordinary lines.
     expect(screen.getAllByTestId("transcript-line")).toHaveLength(2);
-  });
+  }, 20_000);
 });
