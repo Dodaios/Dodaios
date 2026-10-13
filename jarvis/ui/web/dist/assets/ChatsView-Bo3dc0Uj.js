@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-Bo3dc0Uj.js
-import{j as s}from"./index-FJIn5-cm.js";import{P as n}from"./PageHeader-Ct8cAbQE.js";import"./WorkTrace-XYC7T2iK.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-|||||||| parent of da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/ChatsView-Cpg-lQ8a.js
-import{j as s}from"./index-_qSXhpsC.js";import{P as n}from"./PageHeader-P87jQf7x.js";import"./WorkTrace-33wjFzYk.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-========
-import{j as s}from"./index-9iFP8g5N.js";import{P as n}from"./PageHeader-JL1Brtwz.js";import"./WorkTrace-CPfaSvij.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
->>>>>>>> da2d32e52e (fix(agents): open the Agents section with roster and teams already loaded):jarvis/ui/web/dist/assets/ChatsView-F_iOJH79.js
