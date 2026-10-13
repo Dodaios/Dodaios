@@ -43,6 +43,9 @@ class SubscriptionAuthError(RuntimeError):
 class SubscriptionCredentials:
     access_token: str = field(repr=False)
     account_id: str = field(repr=False)
+    # The plan the login names for itself. It explains a refusal the server
+    # already made; it never decides whether a request is sent.
+    plan: str = field(default="", repr=False)
 
 
 def _claims(token: object) -> dict[str, Any]:
@@ -71,13 +74,18 @@ def _credentials(data: dict[str, Any]) -> SubscriptionCredentials:
     if access.startswith("sk-") or any(c in access for c in "\r\n"):
         raise SubscriptionAuthError("The selected account does not contain a ChatGPT OAuth login.")
     account = _string(tokens.get("account_id")) or _string(data.get("account_id"))
+    plan = ""
     for token in (tokens.get("id_token"), access):
         auth_claim = _claims(token).get("https://api.openai.com/auth")
-        if not account and isinstance(auth_claim, dict):
+        if not isinstance(auth_claim, dict):
+            continue
+        if not account:
             account = _string(auth_claim.get("chatgpt_account_id"))
+        if not plan:
+            plan = _string(auth_claim.get("chatgpt_plan_type"))
     if not account or any(c in account for c in "\r\n"):
         raise SubscriptionAuthError("This ChatGPT login has no account identity. Sign in again.")
-    return SubscriptionCredentials(access_token=access, account_id=account)
+    return SubscriptionCredentials(access_token=access, account_id=account, plan=plan)
 
 
 def _needs_refresh(data: dict[str, Any]) -> bool:
