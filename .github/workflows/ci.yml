@@ -658,10 +658,18 @@ jobs:
           pattern: tests-windows-*
           path: reports/windows
           merge-multiple: true
+      - name: Download the duration history this run started from
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ${{ needs.detect.outputs.duration_snapshot }}
+      # On top of the history the run started from. A file that was flaky in
+      # this run reports no timing, and a history rebuilt from one run alone
+      # forgot it: the file fell back to the generic budget, timed out on a
+      # loaded runner, and could never report a timing again.
       - name: Merge the shard timings
         run: |
-          python scripts/ci/ratchet_tests.py durations --out test_durations.json reports/linux
-          python scripts/ci/ratchet_tests.py durations --out test_durations_windows.json reports/windows
+          python scripts/ci/ratchet_tests.py durations --base test_durations.json --out test_durations.json reports/linux
+          python scripts/ci/ratchet_tests.py durations --base test_durations_windows.json --out test_durations_windows.json reports/windows
       - name: Save the Linux duration cache
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

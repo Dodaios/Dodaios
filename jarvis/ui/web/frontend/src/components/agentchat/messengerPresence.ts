@@ -26,7 +26,7 @@ export type Presence =
   /** The turn just finished: a short flourish before the stage clears. */
   | "done";
 
-/** The bare operation of a call, without its transport prefix (`mcp__jarvis__…`, `jarvis/…`). */
+/** The bare operation of a call, without its transport prefix (`mcp__dodaios__…`, `dodaios/…`). */
 export function bareToolName(name: string): string {
   return (name.split(/__|\//).pop() ?? name).replace(/^(?:functions|tools)\./, "").toLowerCase();
 }

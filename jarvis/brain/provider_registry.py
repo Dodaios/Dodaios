@@ -6,9 +6,9 @@ the error is recorded in the log.
 """
 from __future__ import annotations
 
-from importlib.metadata import entry_points
 from typing import Any
 
+from jarvis.core.entry_points import entry_points
 from jarvis.core.protocols import Brain
 
 PLUGIN_GROUP = "jarvis.brain"
