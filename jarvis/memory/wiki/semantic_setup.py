@@ -182,7 +182,7 @@ def _work(
         result = search.sync(progress=note)
         if result.failed and not result.encoded and search.counts()[1] == 0:
             raise RuntimeError(f"none of the {result.failed} wiki pages could be read")
-    except _Cancelled:
+    except _Cancelled:  # switched off or replaced on purpose: there is nothing to report
         _retire(search)
         return
     except Exception as exc:  # noqa: BLE001 - surfaced as a retryable state, not a crash
