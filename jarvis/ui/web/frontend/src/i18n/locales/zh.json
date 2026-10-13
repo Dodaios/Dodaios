@@ -9538,5 +9538,127 @@
     "decrease": "减少",
     "increase": "增加",
     "recheck": "重新检查"
+  },
+  "team_threads": {
+    "new": "新建团队会话",
+    "new_in": "在 {project} 中新建团队会话",
+    "missing": "该团队会话已不存在。",
+    "loading": "正在加载团队会话",
+    "pause": "暂停",
+    "resume": "继续",
+    "stop": "停止",
+    "delete": "删除团队会话",
+    "delete_confirm": "连同成员的会话一起删除？",
+    "steps": "步骤",
+    "members": "团队",
+    "usage": "{minutes} / {max_minutes} 分钟 · {turns} / {max_turns} 轮",
+    "cost_partial": "部分成员使用的席位不报告价格，因此金额不完整。",
+    "cost_hint": "按标价计算的金额，由编码代理报告。订阅席位不按轮次计费。",
+    "accept_plan": "采用此方案",
+    "accept_work": "按现状接受成果",
+    "another_round": "再来一轮",
+    "message": "介入：每位成员会在下一轮读到这条消息",
+    "message_decide": "请对未决事项作出决定；团队将带着你的答复再进行一轮",
+    "send": "发送",
+    "open_member": "打开 {member} 的会话",
+    "round": "第 {round} 轮",
+    "files_changed": "已更改 {count} 个文件",
+    "state": {
+      "running": "进行中",
+      "paused": "已暂停",
+      "needs_input": "等待你",
+      "done": "已完成",
+      "stopped": "已停止",
+      "failed": "失败"
+    },
+    "phase": {
+      "draft": "各自方案",
+      "challenge": "相互质询",
+      "converge": "总方案",
+      "build": "实现",
+      "review": "评审"
+    },
+    "kind": {
+      "draft": "个人方案",
+      "critique": "质询",
+      "plan": "总方案",
+      "vote": "表决",
+      "build": "实现报告",
+      "review": "评审",
+      "fix": "对评审的答复"
+    },
+    "vote": {
+      "agree": "同意",
+      "object": "反对"
+    },
+    "review": {
+      "approve": "通过",
+      "changes": "要求修改"
+    },
+    "severity": {
+      "blocking": "阻塞",
+      "minor": "次要"
+    },
+    "member": {
+      "working": "工作中",
+      "waiting": "等待你",
+      "left": "已退出",
+      "builder": "负责实现方案"
+    },
+    "reason": {
+      "user": "你已暂停此团队会话。",
+      "interrupted": "团队工作时应用被关闭。在你确认之前不会继续。",
+      "plan_disagreement": "经过 {rounds} 轮，团队仍未就方案达成一致。",
+      "review_disagreement": "经过 {rounds} 轮评审，评审者仍未通过。",
+      "limit_time": "已达到时间上限。继续将再给团队一半的时间。",
+      "limit_turns": "已达到轮数上限。继续将再给团队一半的轮数。",
+      "limit_cost": "已达到费用上限。继续将提高上限。",
+      "stalled": "{note} 未完成本轮。继续将重新询问。",
+      "member_failed": "{note}。缺少该成员就无法组成团队。继续将重新询问。",
+      "not_enough_members": "剩余成员不足两位，团队无法继续。",
+      "error": "团队会话失败：{note}"
+    },
+    "notice": {
+      "same_family": "所有成员使用同一模型系列，盲点会重叠。加入第二个系列能发现更多问题。",
+      "plan_agreed": "团队在第 {rounds} 轮就总方案达成一致。由 {member} 实现。",
+      "plan_accepted_by_user": "你已按现状采用总方案。由 {member} 实现。",
+      "member_left": "{member} 已退出团队：{error}",
+      "member_failed": "有成员未能完成本轮：{note}",
+      "member_model_changed": "{member} 无法使用其默认模型，改用 {model} 继续：{error}",
+      "builder_changed": "此后由 {member} 实现。",
+      "files_changed": "在只读步骤（{step}）中有文件被更改：{files}",
+      "no_git": "此文件夹不是 git 仓库，评审者将直接阅读文件。",
+      "paused": "已暂停。",
+      "stopped": "已停止。",
+      "resumed": "已继续。",
+      "limit_time": "已达到时间上限。",
+      "limit_turns": "已达到轮数上限。",
+      "limit_cost": "已达到费用上限。",
+      "stalled": "{note} 未完成本轮。",
+      "not_enough_members": "剩余成员不足两位。"
+    },
+    "summary": {
+      "done": "已完成。方案在第 {plan} 轮达成一致，更改在第 {review} 轮评审通过。评审者提出 {count} 项发现，其中 {blocking} 项为阻塞。",
+      "accepted_by_user": "你已接受带有未决发现的成果。评审者提出 {count} 项发现，其中 {blocking} 项为阻塞。",
+      "open_points": "未决事项"
+    },
+    "issues": {
+      "title": "团队发现的问题：{count}（{open} 项未决）",
+      "resolved": "已解决",
+      "open": "未决",
+      "plan": "方案",
+      "review": "评审"
+    },
+    "draft": {
+      "title": "团队要在 {project} 中构建什么？",
+      "body": "每位成员先独立规划，再相互质询方案并达成一致。一位负责实现，其他成员评审直到通过。你可以随时介入。",
+      "none_ready": "尚未连接任何编码代理或提供商。请先连接一个以启动团队。",
+      "member_n": "成员 {number}",
+      "remove_named": "移除 {target}",
+      "add": "添加成员",
+      "placeholder": "描述交给团队的任务",
+      "start": "启动团队",
+      "bounds": "在 90 分钟、40 轮或三轮未达成一致后停止并询问你。"
+    }
   }
 }

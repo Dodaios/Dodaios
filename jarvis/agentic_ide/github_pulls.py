@@ -10,9 +10,11 @@ API. Failures come back as one sentence — GitHub's own where it has one
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-from jarvis.agentic_ide import github_link
+from jarvis.agentic_ide import git_ops, github_link
+from jarvis.agentic_ide.git_ops import GitError
 from jarvis.agentic_ide.github_link import GitHubError
 
 _REPOSITORY_ID = """
@@ -76,3 +78,44 @@ def create(
             _first_error(payload) or "GitHub could not open the pull request.", code="refused"
         )
     return CreatedPullRequest(number=int(created.get("number") or 0), url=str(created["url"]))
+
+
+def open_for_branch(
+    folder: str | Path, *, branch: str = "", title: str = "", draft: bool = False
+) -> str:
+    """Push ``branch`` (default: the checked-out one) if needed and open its pull request.
+
+    Uses the GitHub connection the Git tab already reads with; without one (or
+    before a repository was picked for the folder) the GitHub CLI opens it.
+    Returns the pull request's URL.
+    """
+    path = Path(folder)
+    cred = github_link.credential()
+    repo = github_link.bound_repository(path)
+    wanted = git_ops.normalize_branch(branch)
+    info = git_ops.inspect(path)
+    if cred is None or not repo:
+        if wanted and wanted != info.branch:
+            raise GitError("Connect GitHub to open this pull request.", code="not_connected")
+        return git_ops.create_pull_request(path, title=title, draft=draft)
+    head_branch = wanted or info.branch
+    if not info.is_repo or not head_branch:
+        raise GitError("Check out a branch before opening a pull request.", code="detached")
+    if head_branch == info.default_branch:
+        raise GitError(
+            f"{head_branch} is the default branch — open the pull request from a feature branch.",
+            code="invalid",
+        )
+    upstream = git_ops.push(path, head_branch)
+    head = upstream.partition("/")[2] or head_branch
+    base_ref = f"origin/{info.default_branch}"
+    if base_ref not in info.remote_branches:
+        base_ref = info.default_branch
+    subject = title.strip() or git_ops.first_subject(path, head_branch, base_ref)
+    try:
+        created = create(
+            repo, cred.token, head=head, base=info.default_branch, title=subject, draft=draft
+        )
+    except GitHubError as exc:
+        raise GitError(str(exc), code=exc.code) from exc
+    return created.url

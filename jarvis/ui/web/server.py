@@ -563,6 +563,7 @@ class WebServer:
         from .starter_plan_routes import router as starter_plan_router
         from .sub_agents_routes import router as sub_agents_router
         from .tasks_routes import router as tasks_router
+        from .team_thread_routes import router as team_thread_router
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
@@ -692,6 +693,8 @@ class WebServer:
         # the focused coding mode.
         # Before the IDE router, so its /{…} paths never shadow /git/….
         app.include_router(agentic_ide_git_router)
+        app.state.team_threads = None
+        app.include_router(team_thread_router)
         # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
         app.include_router(ide_skills_router)
         # The Prompt tab's rewrite of a typed prompt (/api/agentic-ide/prompt-improver).
@@ -4081,6 +4084,15 @@ class WebServer:
             await stop_learning()
         except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
             logger.opt(exception=exc).debug("Jarvis learning loop stop failed")
+
+        team_threads = getattr(self.app.state, "team_threads", None)
+        if team_threads is not None:
+            # Before the chat turns end: a coordinator that sees its members'
+            # turns cancelled under it would read that as members failing.
+            try:
+                await team_threads.close()
+            except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
+                logger.opt(exception=exc).debug("team threads close failed")
 
         agent_chat = getattr(self.app.state, "agent_chat", None)
         if agent_chat is not None:
