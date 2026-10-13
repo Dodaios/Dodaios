@@ -68,7 +68,7 @@ is what makes it *good* — the tools plus the instructions for using them
 well, in one install.
 
 **`plugin.json`** — the identity. Everything Dodaios-specific sits inside the
-`io.github.personaljarvis` namespace, which every other client ignores:
+`io.github.dodaios` namespace, which every other client ignores:
 
 ```json
 {
@@ -78,7 +78,7 @@ well, in one install.
   "version": "1.2.0",
   "license": "MIT",
   "extensions": {
-    "io.github.personaljarvis": {
+    "io.github.dodaios": {
       "display_name": "TodoFox",
       "category": "Lists & Tasks",
       "logo_slug": "todofox",
@@ -92,6 +92,23 @@ well, in one install.
   }
 }
 ```
+
+The namespace was called `io.github.personaljarvis` before the product was
+renamed. A package written with it stays valid as it is: the app reads the
+block under either key, and a plugin
+is the same plugin whichever one it uses, because its identity is its `name`.
+Three rules keep the two in step:
+
+- Publishing from the app (the Publish tab) sends the block under **both**
+  keys, identical. The registry's validator and app versions released before
+  the rename read only the earlier key, so a submission without it would be
+  refused there (see [validator-parity.md](validator-parity.md), "The
+  extension namespace").
+- A pull request opened against the registry by hand needs the same: until
+  the registry accepts `io.github.dodaios` on its own, keep the block under
+  `io.github.personaljarvis` as well.
+- A manifest that carries both keys must carry the same block under each.
+  Two blocks that differ are refused at install, never merged.
 
 **`mcp.json`** — exactly one server, either hosted over HTTPS:
 

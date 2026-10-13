@@ -195,14 +195,17 @@ function Write-Err([string]$Text)    { Write-Host "$Gut  $Red$Crs $Text$Rst" }
 Write-Banner
 
 # ----------------------------------------------------------------- config
-# Every JARVIS_INSTALL_* option also answers to DODAIOS_INSTALL_*. When both
-# are set to different values the DODAIOS_ one wins, and the clash is named,
-# never its values. The rest of this script, and installer.py after it, read
-# the JARVIS_ spelling (jarvis/core/env_prefix.py does the same for the app).
+# Every JARVIS_ option this script reads also answers to its DODAIOS_
+# spelling. When both are set to different values the DODAIOS_ one wins, and
+# the clash is named, never its values. The rest of this script, and
+# installer.py after it, read the JARVIS_ spelling (jarvis/core/env_prefix.py
+# does the same for the app). JARVIS_PAYLOAD_COMMIT is not an option: it is
+# the signed commit the verifying installer hands over, and no second name
+# may override it.
 function Use-InstallOptionNames {
-    foreach ($Option in 'REPO', 'REF', 'DIR', 'PREREQS') {
-        $NewName = "DODAIOS_INSTALL_$Option"
-        $OldName = "JARVIS_INSTALL_$Option"
+    foreach ($Option in 'INSTALL_REPO', 'INSTALL_REF', 'INSTALL_DIR', 'INSTALL_PREREQS', 'OFFICIAL_REPO_SLUG', 'PYTHON') {
+        $NewName = "DODAIOS_$Option"
+        $OldName = "JARVIS_$Option"
         $NewValue = [Environment]::GetEnvironmentVariable($NewName)
         if (-not $NewValue) { continue }
         $OldValue = [Environment]::GetEnvironmentVariable($OldName)

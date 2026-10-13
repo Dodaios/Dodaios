@@ -54,7 +54,10 @@ well (one morning, 2026-10-13), pull requests waited 6 to 25 minutes for a
 slot. The queue builds two groups at a time, so at most sixteen macOS legs
 compete for the five slots; in the first such group all eight were done 14
 minutes in. The whole Python suite on macOS (three shards of nine minutes)
-still runs nightly and on release tags only.
+runs nightly and on release tags; a merge group runs the macOS tests its
+change can reach instead (`tests macos impact`), so a test that the change
+breaks on macOS stops it in the queue. A macOS failure in a test the
+selection does not reach is found by the nightly run.
 
 The nightly run has no reader waiting for it, so its matrices run one leg at
 a time (`matrix_parallel`) instead of queueing 22 macOS jobs ahead of every
@@ -82,7 +85,8 @@ request, merge queue, and again on the push of the same commit).
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
 | `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). A file that runs out of its budget alone gets one more attempt with twice that budget, capped at the file ceiling: a file without history starts on the generic floor, and a pass there is reported as flaky and enters the history with its real duration. | `scripts/ci/run_tests_parallel.py` |
 | `tests windows 1..6` | The whole suite in six shards on every tier, pull requests included, so a Windows-only failure blocks the pull request instead of ejecting it from the merge queue. | `scripts/ci/run_tests_parallel.py` |
-| `tests macos 1..3` | Nightly, release and manual runs with macOS only. | — |
+| `tests macos 1..3` | The whole suite on macOS: nightly, release and manual runs with macOS only. | — |
+| `tests macos impact` | Merge queue: the macOS tests the change can reach, before it lands. One runner for an ordinary change, the full three-way split when the change selects everything (the pipeline, conftest, the lockfile). Selected once, in `detect`. | `scripts/ci/select_tests.py` |
 | `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
 | `duration cache` | Runs on main only (nightly, a manual run, a push that bypassed the queue) and only after every Linux and Windows shard succeeded: merges the shard timings into one history per OS, on top of the history the run started from, so a file that was flaky in one run keeps its timing. Windows shards by its own history; until one exists it uses the Linux one. | `scripts/ci/ratchet_tests.py durations` |
 | Lanes | `frontend` (three test shards and the build, side by side), `jarvisctl`, `deps`, `realtime` (+ slim container), `updater` (in-app update, native handover, restart helper), `agent runtimes` (+ slim container + the real Hermes and OpenClaw at their pinned version; see [agent-runtimes.md](agent-runtimes.md#ci-and-release-gates)), `dragdrop`, `browser`, `macOS desktop`, `installer smoke` — each only when its paths change, each as wide as the tier: Linux + Windows on a pull request, + macOS in the merge queue, + Intel and ARM in the wide matrix. | `scripts/ci/plan_run.py` |
