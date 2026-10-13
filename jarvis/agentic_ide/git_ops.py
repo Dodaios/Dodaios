@@ -45,6 +45,8 @@ WORKTREE_DIR = ".worktrees"
 BRANCH_PREFIX = "agent/"
 
 _GIT_TIMEOUT_S = 60
+# A spoken status answer does not wait a minute for one slow repository.
+_BRIEF_TIMEOUT_S = 10
 # Network operations (push, fetch, PR creation) get longer: a first push of a
 # big branch over a slow link legitimately takes a while.
 _NETWORK_TIMEOUT_S = 180
@@ -427,6 +429,42 @@ def inspect(folder: str | Path) -> RepoInfo:
     info.suggested_branch = suggest_branch_name(root)
     info.worktree_dir = str(worktree_path(Path(info.main_root), info.suggested_branch))
     return info
+
+
+def brief(folder: str | Path) -> dict[str, Any] | None:
+    """Branch, sync state and change count of ``folder``; None outside a repository.
+
+    The status board asks this for every open workspace at once, so it stays at
+    the calls a spoken answer needs and leaves branches, remotes and worktree
+    lists to :func:`inspect`.
+    """
+    path = Path(folder).expanduser()
+    root = repo_root(path)
+    if root is None:
+        return None
+    info = RepoInfo(folder=str(path), is_repo=True, root=str(root))
+    status = _run(
+        ["status", "--porcelain=v2", "--branch", "--untracked-files=normal"],
+        root,
+        timeout=_BRIEF_TIMEOUT_S,
+    )
+    if status.returncode != 0:
+        return None
+    _parse_status(status.stdout, info)
+    changed = sum(
+        1 for line in status.stdout.splitlines() if line.startswith(("1 ", "2 ", "u ", "? "))
+    )
+    return {
+        "branch": info.branch,
+        "detached": info.detached,
+        "upstream": info.upstream,
+        "ahead": info.ahead,
+        "behind": info.behind,
+        "changed_files": changed,
+        "conflicted": info.conflicted,
+        # A linked worktree keeps a ``.git`` FILE pointing at the shared repository.
+        "worktree": (root / ".git").is_file(),
+    }
 
 
 # ------------------------------------------------------------------ naming

@@ -58,6 +58,14 @@ worker tools and does not grant Society agents any new capability.
    exact session.
 4. `context` reads recorded results from the addressed session. A delivery
    receipt never asserts that the coding task has completed.
+5. `status` answers "what is running, what finished, who needs me" in one call:
+   one compact row per open coding session across every workspace (state, how
+   long, its job) plus each workspace folder's git state (branch, ahead/behind,
+   uncommitted files, linked worktree). It reads no transcript.
+6. `watch` reports back to the conversation when a session the user started by
+   hand ends its current job. It needs a CLI that keeps a local record, ends
+   when a new prompt is typed into that session, and reports a finished turn,
+   never verified work. A task sent through `send` is followed without it.
 
 For example, a request to fix an installer in a named project can address a
 background workspace while the user continues viewing another project. The
