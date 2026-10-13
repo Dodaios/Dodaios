@@ -229,7 +229,7 @@ def test_openclaw_never_runs_background_turns_or_persona_files(tmp_path):
     assert defaults["heartbeat"] == {"every": "0m"}
     assert defaults["skipBootstrap"] is True
     assert defaults["contextInjection"] == "never"
-    assert defaults["model"]["primary"] == "jarvis/gpt-5.2"
+    assert defaults["model"]["primary"] == "jarvis/gpt-5.2"  # rename-keep: a model id
     assert config["session"]["reset"]["mode"] == "none"
     assert "automations" in config["tools"]["deny"]
     assert config["tools"]["toolSearch"] is False

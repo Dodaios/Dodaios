@@ -316,6 +316,34 @@ merge train always runs main's copy and needs no such step.
 `classify_changes.py` reads a changed path under either name of the package
 directory as the same path, so the move turns no lane off.
 
+The tree is kept ready for the move, so that the move commit needs no hand
+edits: `--dry-run` reports no undecided hit on main. Three conventions keep it
+that way.
+
+- A test that forbids or blocks imports of the package takes the import names
+  from `tests/package_names.py` instead of spelling one out. After the move it
+  guards the new name and the earlier one, which still resolves to the same
+  modules.
+- A line that carries the old name for another reason (a model id, a folder in
+  somebody's vault, a plugin group written out) ends in a `rename-keep`
+  comment. Where a comment would show up in a document, the file and the name
+  are listed in `UNRESOLVED_PATHS_KEPT` in the script instead.
+- Stored plugin configuration is not rewritten. The marketplace seed catalog
+  and the agent-plugin manifests next to it move as they are (`FROZEN_FILES`):
+  their entries start the bundled servers by module name, an existing install
+  keeps its own copy of that command, and the browser evidence of a plugin is
+  bound to it. Code that has to recognise such a command asks
+  `jarvis/marketplace/bundled_servers.py`, which accepts the module under every
+  name in `LEGACY_PACKAGE_NAMES` (`jarvis/core/branding.py`) and under the name
+  the package is imported as; the push-time privacy scan restates the same
+  names.
+
+The move also rewrites `install/update-contract.json`, which is how the
+release before it finds the moved package (`docs/desktop-installers.md`). A
+release from before that file existed reads the version in the compatibility
+package instead, finds one no release has, and stops before it changes
+anything.
+
 ## 3. Releases, installers and updates
 
 A release happens **only** when the maintainer asks for one.
