@@ -33,6 +33,19 @@ class _FakeOpenAI:
         _FakeOpenAI.last_kwargs = kwargs
 
 
+@pytest.fixture(autouse=True)
+def _forget_context_windows():
+    """Sized and verified windows live per process; no test may inherit one."""
+    from jarvis.brain import local_context
+    from jarvis.plugins.brain import ollama as plugin
+
+    plugin.reset_context_memo()
+    local_context.reset_registry()
+    yield
+    plugin.reset_context_memo()
+    local_context.reset_registry()
+
+
 def _no_override(monkeypatch) -> None:
     install_provider_config(monkeypatch, JarvisConfig())
     monkeypatch.delenv("OLLAMA_HOST", raising=False)
@@ -449,6 +462,10 @@ def test_tags_payload_shape_matches_documented_api() -> None:
 
 
 # ── Per-model options (profile alias, warm ping, request overrides) ──────
+#: What the stubbed sizing answers in the ``wired`` tests.
+AUTOMATIC = 16_384
+
+
 class _FakeStreamer:
     """Records what ``complete`` hands to the shared streamer."""
 
@@ -493,6 +510,17 @@ def wired(monkeypatch):
     monkeypatch.setattr(plugin, "stream_complete", _FakeStreamer.stream)
     monkeypatch.setattr(ollama_profiles, "ensure_profile", _FakeProfiles.ensure_profile)
     monkeypatch.setattr(ollama_profiles, "warm", _FakeProfiles.warm)
+
+    async def _sized(self: OllamaBrain, model: str) -> int:
+        return AUTOMATIC
+
+    async def _unreported(self: OllamaBrain, *args: Any) -> None:
+        return None
+
+    # The sizing and the /api/ps check have their own tests below; here they
+    # must not reach a real server on the machine running the suite.
+    monkeypatch.setattr(OllamaBrain, "_automatic_context", _sized)
+    monkeypatch.setattr(OllamaBrain, "_verify_running_context", _unreported)
     monkeypatch.delenv("OLLAMA_HOST", raising=False)
     _FakeStreamer.calls = []
     _FakeProfiles.ensured = []
@@ -517,15 +545,29 @@ async def _run(brain: OllamaBrain, req: Any) -> None:
         pass
 
 
-async def test_no_options_means_no_profile_no_warm_no_override(monkeypatch, wired) -> None:
+async def test_no_options_still_get_an_explicit_context(monkeypatch, wired) -> None:
+    """Without a setting the server default applies, which is small and
+    shortens a longer prompt without an error. So a window is always sent."""
     _config_with_options(monkeypatch, {})
     brain = OllamaBrain(model="qwen3.5:9b")
     await _run(brain, _req())
     model, req = _FakeStreamer.calls[0]
-    assert model == "qwen3.5:9b"
+    assert model == "qwen3.5-9b-jarvis-deadbeef"
+    assert [(b, o.num_ctx) for _, b, o in wired.ensured] == [("qwen3.5:9b", AUTOMATIC)]
     assert req.temperature == 0.7 and req.reasoning_effort is None
-    assert wired.ensured == [] and wired.warmed == []
-    assert brain.context_window == OllamaBrain.context_window
+    assert wired.warmed == []
+    assert brain.context_window == AUTOMATIC
+
+
+def test_a_fresh_brain_budgets_for_the_floor_not_the_class_figure(monkeypatch) -> None:
+    """Tools are fitted before the first call. Until the window is sized the
+    budget is the floor every automatic window starts from, so the first turn
+    can never be planned larger than what the server is then asked to run."""
+    from jarvis.brain.ollama_profiles import AUTOMATIC_CONTEXT_FLOOR
+
+    _config_with_options(monkeypatch, {})
+    assert OllamaBrain(model="qwen3.5:9b").context_window == AUTOMATIC_CONTEXT_FLOOR
+    assert OllamaBrain().context_window == AUTOMATIC_CONTEXT_FLOOR
 
 
 async def test_bakeable_options_stream_through_the_profile_alias(monkeypatch, wired) -> None:
@@ -544,13 +586,16 @@ async def test_bakeable_options_stream_through_the_profile_alias(monkeypatch, wi
     assert req.reasoning_effort == "none"
 
 
-async def test_request_only_options_never_create_a_profile(monkeypatch, wired) -> None:
+async def test_request_only_options_ride_the_request(monkeypatch, wired) -> None:
     _config_with_options(monkeypatch, {"qwen3.5:9b": {"temperature": 0.1, "num_predict": 300}})
     brain = OllamaBrain(model="qwen3.5:9b")
     await _run(brain, _req())
     model, req = _FakeStreamer.calls[0]
-    assert model == "qwen3.5:9b"
-    assert wired.ensured == [] and wired.warmed == []
+    # The only baked knob is the automatic context; the knobs set on the
+    # model card still ride the request.
+    assert model == "qwen3.5-9b-jarvis-deadbeef"
+    assert [o.num_ctx for _, _, o in wired.ensured] == [AUTOMATIC]
+    assert wired.warmed == []
     assert req.temperature == 0.1 and req.max_tokens == 300
 
 
@@ -570,7 +615,170 @@ async def test_profile_failure_degrades_to_the_base_model(monkeypatch, wired) ->
     await _run(brain, _req())
     model, _ = _FakeStreamer.calls[0]
     assert model == "qwen3.5:9b"
-    assert brain.context_window == 8192
+    call = await brain._prepare_call("qwen3.5:9b", _req())
+    # The plan stands, but nothing confirms the server runs it.
+    assert (call.planned, call.confirmed) == (8192, False)
+
+
+async def test_a_request_the_prepared_window_cannot_hold_is_never_sent(monkeypatch, wired) -> None:
+    from jarvis.brain.local_context import LocalContextError
+
+    _config_with_options(monkeypatch, {"qwen3.5:9b": {"num_ctx": 4096}})
+    brain = OllamaBrain(model="qwen3.5:9b")
+    with pytest.raises(LocalContextError) as err:
+        await _run(brain, _req(system="s" * 80_000))
+    assert _FakeStreamer.calls == []
+    msg = str(err.value)
+    assert "4096" in msg and "Local Models" in msg and "Tune" in msg
+
+
+# ── Automatic sizing and the check against what the server runs ──────────
+class _RoutedClient:
+    """A fake ``httpx.AsyncClient`` that answers by path."""
+
+    tags: dict[str, Any] | None = {}
+    show: dict[str, Any] = {}
+    ps: dict[str, Any] | None = {}
+    seen: list[str] = []
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+    async def __aenter__(self) -> _RoutedClient:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    async def get(self, url: str) -> _FakeResponse:
+        _RoutedClient.seen.append(url)
+        if url.endswith("/api/ps"):
+            if _RoutedClient.ps is None:
+                raise httpx.ConnectError("connection refused")
+            return _FakeResponse(_RoutedClient.ps)
+        if _RoutedClient.tags is None:
+            raise httpx.ConnectError("connection refused")
+        return _FakeResponse(_RoutedClient.tags)
+
+    async def post(self, url: str, json: dict[str, Any] | None = None) -> _FakeResponse:
+        return _FakeResponse(_RoutedClient.show)
+
+
+@pytest.fixture()
+def routed(monkeypatch):
+    import openai
+
+    from jarvis.brain import ollama_profiles, ollama_pull
+    from jarvis.plugins.brain import ollama as plugin
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
+    monkeypatch.setattr(httpx, "AsyncClient", _RoutedClient)
+    monkeypatch.setattr(plugin, "stream_complete", _FakeStreamer.stream)
+    monkeypatch.setattr(ollama_profiles, "ensure_profile", _FakeProfiles.ensure_profile)
+    monkeypatch.setattr(ollama_profiles, "warm", _FakeProfiles.warm)
+    monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (0.0, "none"))
+    monkeypatch.setattr(ollama_pull, "total_memory_gb", lambda: 16.0)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+    _config_with_options(monkeypatch, {})
+    _FakeStreamer.calls = []
+    _FakeProfiles.ensured = []
+    _FakeProfiles.warmed = []
+    _FakeProfiles.fail = False
+    _RoutedClient.tags = {"models": [{"name": "qwen3.5:9b", "size": 6 * 1024**3}]}
+    _RoutedClient.show = {
+        "capabilities": ["completion", "tools"],
+        "model_info": {"general.architecture": "qwen3", "qwen3.context_length": 262_144},
+    }
+    _RoutedClient.ps = {"models": []}
+    _RoutedClient.seen = []
+    return _RoutedClient
+
+
+async def test_sixteen_gb_of_ram_gets_the_floor_not_the_server_default(routed) -> None:
+    """6 GB of weights on a 16 GB machine without a readable accelerator:
+    8k is what fits comfortably, but the prompt of this app does not fit 8k."""
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    assert [o.num_ctx for _, _, o in _FakeProfiles.ensured] == [16_384]
+    assert brain.context_window == 16_384
+
+
+async def test_a_large_card_gets_the_ceiling_not_the_native_window(routed, monkeypatch) -> None:
+    from jarvis.brain import ollama_pull
+
+    monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    # The whole cache is allocated up front: 262k is never the default.
+    assert [o.num_ctx for _, _, o in _FakeProfiles.ensured] == [32_768]
+
+
+async def test_a_small_native_window_caps_the_automatic_one(routed) -> None:
+    routed.show = {
+        "capabilities": ["completion", "tools"],
+        "model_info": {"general.architecture": "old", "old.context_length": 8_192},
+    }
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    assert [o.num_ctx for _, _, o in _FakeProfiles.ensured] == [8_192]
+
+
+async def test_the_window_is_sized_once_per_model(routed) -> None:
+    """A changed num_ctx makes Ollama reload the weights."""
+    await _run(OllamaBrain(model="qwen3.5:9b"), _req())
+    tag_calls = sum(1 for url in routed.seen if url.endswith("/api/tags"))
+    await _run(OllamaBrain(model="qwen3.5:9b"), _req())
+    assert sum(1 for url in routed.seen if url.endswith("/api/tags")) == tag_calls
+
+
+async def test_a_server_that_runs_a_smaller_window_is_believed(routed) -> None:
+    """The profile could not be created, so the base model loads with the
+    server default. /api/ps says which, and that becomes the budget."""
+    _FakeProfiles.fail = True
+    routed.ps = {"models": [{"name": "qwen3.5:9b", "context_length": 4_096}]}
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    assert _FakeStreamer.calls[0][0] == "qwen3.5:9b"
+    assert brain.context_window == 4_096
+    # The next brain for this model plans with the real figure straight away.
+    assert OllamaBrain(model="qwen3.5:9b").context_window == 4_096
+
+
+async def test_a_prompt_the_server_cut_short_never_becomes_an_answer(routed) -> None:
+    from jarvis.brain.local_context import LocalContextError
+
+    _FakeProfiles.fail = True
+    routed.ps = {"models": [{"name": "qwen3.5:9b", "context_length": 4_096}]}
+    brain = OllamaBrain(model="qwen3.5:9b")
+    handed_on: list[Any] = []
+    with pytest.raises(LocalContextError) as err:
+        async for delta in brain.complete(_req(system="s" * 80_000)):
+            handed_on.append(delta)
+    # Refused before the first token reached the caller.
+    assert handed_on == []
+    assert err.value.truncated is True
+    assert "cut this request short" in str(err.value)
+
+
+async def test_an_unanswered_check_leaves_the_plan_standing(routed) -> None:
+    routed.ps = None
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    assert brain.context_window == 16_384
+
+
+async def test_a_server_refusal_names_the_setting(routed, monkeypatch) -> None:
+    from jarvis.brain.local_context import LocalContextError
+    from jarvis.plugins.brain import ollama as plugin
+
+    async def refusing(client: Any, model: str, req: Any, **kwargs: Any):
+        raise RuntimeError("Error code: 400 - the request exceeds the available context size")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(plugin, "stream_complete", refusing)
+    with pytest.raises(LocalContextError) as err:
+        await _run(OllamaBrain(model="qwen3.5:9b"), _req())
+    assert "Local Models" in str(err.value)
 
 
 async def test_discovered_model_is_tuned_like_a_pinned_one(monkeypatch, wired, fake_tags) -> None:
@@ -580,3 +788,107 @@ async def test_discovered_model_is_tuned_like_a_pinned_one(monkeypatch, wired, f
     await _run(brain, _req())
     model, _ = _FakeStreamer.calls[0]
     assert model == "qwen3.5-4b-jarvis-deadbeef"
+
+
+async def test_the_smaller_window_is_enforced_on_every_later_turn(routed) -> None:
+    """The first turn learned that the server runs 4,096. A later, larger
+    request must be held to that too, not only the turn that asked."""
+    from jarvis.brain.local_context import LocalContextError
+
+    _FakeProfiles.fail = True
+    routed.ps = {"models": [{"name": "qwen3.5:9b", "context_length": 4_096}]}
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    assert len(_FakeStreamer.calls) == 1
+    with pytest.raises(LocalContextError) as err:
+        await _run(brain, _req(system="s" * 80_000))
+    # Refused before sending this time: the window is already known.
+    assert len(_FakeStreamer.calls) == 1
+    assert "was not sent" in str(err.value)
+    assert brain.context_window == 4_096
+
+
+async def test_a_model_that_declares_a_larger_window_is_not_shrunk(routed) -> None:
+    """A Modelfile that sets num_ctx 65536 works today. The automatic window
+    must not put a smaller one in front of it."""
+    routed.show = {
+        "capabilities": ["completion", "tools"],
+        "model_info": {"general.architecture": "qwen3", "qwen3.context_length": 262_144},
+        "parameters": "temperature 0.6\nnum_ctx                        65536\nstop <|im_end|>",
+    }
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    assert _FakeProfiles.ensured == []
+    assert _FakeStreamer.calls[0][0] == "qwen3.5:9b"
+    assert brain.context_window == 65_536
+
+
+async def test_a_model_that_declares_a_tiny_window_still_gets_the_floor(routed) -> None:
+    routed.show = {
+        "capabilities": ["completion", "tools"],
+        "model_info": {"general.architecture": "qwen3", "qwen3.context_length": 262_144},
+        "parameters": "num_ctx 2048",
+    }
+    await _run(OllamaBrain(model="qwen3.5:9b"), _req())
+    assert [o.num_ctx for _, _, o in _FakeProfiles.ensured] == [16_384]
+
+
+async def test_a_server_still_starting_does_not_fix_the_size_for_good(routed, monkeypatch) -> None:
+    from jarvis.brain import ollama_pull
+
+    monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
+    routed.tags = None  # /api/tags does not answer yet
+    brain = OllamaBrain(model="qwen3.5:9b")
+    assert await brain._automatic_context("qwen3.5:9b") == 16_384
+    routed.tags = {"models": [{"name": "qwen3.5:9b", "size": 6 * 1024**3}]}
+    assert await brain._automatic_context("qwen3.5:9b") == 32_768
+
+
+async def test_a_remote_server_is_not_sized_from_this_machine(routed, monkeypatch) -> None:
+    from jarvis.brain import ollama_pull
+
+    monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
+    _override("http://otherbox:11434", monkeypatch)
+    brain = OllamaBrain(model="qwen3.5:9b")
+    # 24 GB here says nothing about the machine that holds the weights.
+    assert await brain._automatic_context("qwen3.5:9b") == 16_384
+
+
+async def test_a_refused_profile_is_not_requested_again_on_every_turn(routed, monkeypatch) -> None:
+    from jarvis.brain import ollama_profiles
+
+    attempts: list[str] = []
+
+    async def refusing(root: str, base: str, opts: Any, **kwargs: Any) -> str:
+        attempts.append(base)
+        raise RuntimeError("server said no")
+
+    monkeypatch.setattr(ollama_profiles, "ensure_profile", refusing)
+    brain = OllamaBrain(model="qwen3.5:9b")
+    await _run(brain, _req())
+    await _run(brain, _req())
+    assert attempts == ["qwen3.5:9b"]
+    assert [m for m, _ in _FakeStreamer.calls] == ["qwen3.5:9b", "qwen3.5:9b"]
+
+
+async def test_the_window_is_settled_before_the_first_turn_is_budgeted(routed, monkeypatch) -> None:
+    from jarvis.brain import ollama_pull
+
+    monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
+    brain = OllamaBrain(model="qwen3.5:9b")
+    assert brain.context_window == 16_384
+    await brain.prepare_context_window()
+    assert brain.context_window == 32_768
+    assert _FakeStreamer.calls == []
+    # The next brain for this model starts from the sized window.
+    assert OllamaBrain(model="qwen3.5:9b").context_window == 32_768
+
+
+async def test_concurrent_calls_do_not_share_their_plan(routed) -> None:
+    """One brain serves several calls. What a call was prepared with is
+    returned to it, never parked on the instance for the next one to overwrite."""
+    brain = OllamaBrain(model="qwen3.5:9b")
+    first = await brain._prepare_call("qwen3.5:9b", _req())
+    brain.set_context_window(65_536)
+    second = await brain._prepare_call("qwen3.5:9b", _req())
+    assert (first.planned, second.planned) == (16_384, 65_536)
