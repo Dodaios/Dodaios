@@ -1,7 +1,7 @@
 {
   "$comment": "Four-legged companions, modelled and keyed by scripts/figures/quadruped_builder.py. The `animal` style has no CC0 donor of the right archetype, so the whole character is first-party: the contract's 21-bone quadruped rig, a blocky body on it and its seven clips written frame by frame. Nothing is downloaded.",
-  "name": "Personal Jarvis animals (first-party)",
-  "author": "Personal Jarvis",
+  "name": "Dodaios animals (first-party)",
+  "author": "Dodaios",
   "family": "jarvis-quadruped",
   "license": "first-party",
   "license_url": "",

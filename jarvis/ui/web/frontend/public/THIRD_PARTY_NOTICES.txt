@@ -1,7 +1,7 @@
-Personal Jarvis third-party notices
+Dodaios third-party notices
 
 These notices preserve the original terms for bundled third-party material.
-Third-party material retains its own license; the Personal Jarvis code license
+Third-party material retains its own license; the Dodaios code license
 does not license vendor artwork or trademarks. Production builds append the
 complete notices of the packages that actually contribute code or assets.
 

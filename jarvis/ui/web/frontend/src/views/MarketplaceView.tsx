@@ -33,6 +33,7 @@ import { PublishStudio } from "@/components/marketplace/PublishStudio";
 import { fill, translate, useI18nStore, useLocaleChunk, useT } from "@/i18n";
 import { localeForUiLanguage } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
+import { MARKETPLACE_REPO_URL } from "@/lib/branding";
 import { openExternalUrl } from "@/lib/openExternal";
 import { bundledPluginLogo } from "@/lib/pluginLogos";
 import { useEventStore, type SectionId } from "@/store/events";
@@ -68,7 +69,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /** The public storefront — the same catalogue, on the web. */
-const MARKETPLACE_WEB_URL = "https://github.com/PersonalJarvis/marketplace";
+const MARKETPLACE_WEB_URL = MARKETPLACE_REPO_URL;
 
 type Kind = "plugin" | "skill" | "agent";
 type KindFilter = "all" | Kind | "installed" | "mine";
