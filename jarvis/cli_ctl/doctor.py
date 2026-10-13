@@ -17,6 +17,7 @@ import json
 import os
 import random
 
+from jarvis.cli.command_name import main_command
 from jarvis.cli_ctl import discovery, paths
 from jarvis.cli_ctl.config import DEFAULT_BASE_URL
 
@@ -57,7 +58,7 @@ def unreachable_message(base_url: str | None) -> str:
         return _pick((
             f"No answer from {base_url}. That target comes from --url/env/"
             "config, so check that machine, tunnel, or port — starting the "
-            "local desktop app won't change anything here. `jarvis auth "
+            f"local desktop app won't change anything here. `{main_command()} auth "
             "login` re-points the CLI if the address moved.",
             f"The configured target {base_url} stayed silent. It's an "
             "explicit remote/custom address: verify the host is up and the "

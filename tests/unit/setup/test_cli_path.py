@@ -245,3 +245,114 @@ def test_no_command_collides_with_the_branded_windows_launcher():
 
     branded = Path(current_instance().windows_branded_launcher_file_name).stem.casefold()
     assert branded not in {command.casefold() for command in COMMAND_NAMES}
+
+
+# ------------------------------------------- installs made before a command existed
+#: What an earlier version wrote into a profile, byte for byte. The marker line
+#: names the commands of that time; it is how the block is found again.
+_EARLIER_COMMANDS = ("jarvis", "personal-jarvis", "jarvisctl")
+_EARLIER_POSIX_BLOCK = (
+    "\n# Personal Jarvis: command-line tools (jarvis, personal-jarvis)\n"
+    'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; '
+    '*) export PATH="$HOME/.local/bin:$PATH" ;; esac\n'
+)
+_EARLIER_FISH_BLOCK = (
+    "\n# Personal Jarvis: command-line tools (jarvis, personal-jarvis)\n"
+    "contains -- $HOME/.local/bin $PATH; or set -gx PATH $HOME/.local/bin $PATH\n"
+)
+
+
+def test_the_new_commands_are_on_the_list_beside_the_earlier_ones():
+    assert COMMAND_NAMES[:2] == ("dodaios", "dodaiosctl")
+    assert set(_EARLIER_COMMANDS) < set(COMMAND_NAMES)
+
+
+def test_the_profile_marker_is_the_line_existing_profiles_carry():
+    # A changed marker would not be found in a profile an earlier install
+    # wrote: the next install would add a second block, and an uninstall would
+    # leave the first one behind.
+    assert _EARLIER_POSIX_BLOCK.splitlines()[1] == PROFILE_MARKER
+    assert _EARLIER_FISH_BLOCK.splitlines()[1] == PROFILE_MARKER
+
+
+@pytest.mark.parametrize(
+    ("shell", "platform_name", "block"),
+    [
+        ("/bin/zsh", "darwin", _EARLIER_POSIX_BLOCK),
+        ("/bin/bash", "linux", _EARLIER_POSIX_BLOCK),
+        ("/usr/bin/fish", "linux", _EARLIER_FISH_BLOCK),
+    ],
+)
+def test_an_earlier_install_gains_the_new_commands_and_keeps_one_profile_block(
+    tmp_path, shell, platform_name, block, symlinks_available
+):
+    root = _posix_root(tmp_path)
+    home = tmp_path / "home"
+    bin_dir = home / ".local" / "bin"
+    bin_dir.mkdir(parents=True)
+    for command in _EARLIER_COMMANDS:
+        (bin_dir / command).symlink_to(root / ".venv" / "bin" / command)
+    profile = profile_file(home, login_shell=shell, platform_name=platform_name)
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    earlier_profile = "export EDITOR=vim\n" + block
+    profile.write_text(earlier_profile, encoding="utf-8", newline="\n")
+
+    for _run in range(2):  # the update, then any later installer run
+        report = install_commands(
+            root, platform_name=platform_name, home=home, environ={"PATH": "/usr/bin"},
+            login_shell=shell, which=_never_found,
+        )
+        assert report.errors == [] and report.kept == [] and report.missing == []
+        assert report.linked == list(COMMAND_NAMES)
+        # The block was there already: nothing is written, nothing duplicated.
+        assert report.path_updated is None
+        assert profile.read_text(encoding="utf-8") == earlier_profile
+    for command in COMMAND_NAMES:
+        assert (bin_dir / command).resolve() == (root / ".venv" / "bin" / command).resolve()
+
+    removed = remove_commands(root, platform_name=platform_name, home=home)
+
+    assert not any((bin_dir / command).is_symlink() for command in COMMAND_NAMES)
+    assert profile.read_text(encoding="utf-8") == "export EDITOR=vim\n"
+    assert any("PATH line" in line for line in removed)
+
+
+def test_an_earlier_windows_install_gains_the_new_launchers_without_touching_path(tmp_path):
+    root = _windows_root(tmp_path)
+    bin_dir = root / "bin"
+    bin_dir.mkdir()
+    for command in _EARLIER_COMMANDS:
+        (bin_dir / f"{command}.exe").write_bytes(b"launcher:" + command.encode())
+    store = FakeUserPath(rf"C:\Tools;{bin_dir}", kind=2)
+
+    report = install_commands(
+        root, platform_name="win32", environ={"PATH": rf"C:\Windows;{bin_dir}"}, store=store,
+        which=_never_found,
+    )
+
+    assert report.linked == list(COMMAND_NAMES)
+    for command in COMMAND_NAMES:
+        assert (bin_dir / f"{command}.exe").read_bytes() == b"launcher:" + command.encode()
+    # The folder was on Path already: one entry, not two.
+    assert store.writes == 0 and report.path_updated is None
+    assert report.needs_new_terminal is False
+
+
+def test_a_headless_container_gets_every_command_and_a_profile_block(
+    tmp_path, symlinks_available
+):
+    # python:3.11-slim as root: no SHELL, no display, ~/.local/bin not on PATH.
+    root = _posix_root(tmp_path)
+    home = tmp_path / "root"
+
+    report = install_commands(
+        root, platform_name="linux", home=home,
+        environ={"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": str(home)}, which=_never_found,
+    )
+
+    assert report.errors == [] and report.linked == list(COMMAND_NAMES)
+    for command in COMMAND_NAMES:
+        assert (home / ".local" / "bin" / command).is_symlink()
+    assert report.path_updated == str(home / ".profile")
+    assert (home / ".profile").read_text(encoding="utf-8").count(PROFILE_MARKER) == 1
+    assert report.needs_new_terminal is True
