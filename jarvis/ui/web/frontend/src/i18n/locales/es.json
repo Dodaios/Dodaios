@@ -2532,6 +2532,15 @@
     "wiki_links": "{0} enlaces",
     "wiki_empty_body": "Aún no hay página. La wiki crea una cuando vuestras conversaciones aportan algo.",
     "wiki_needs_name": "Añade tu nombre y la wiki podrá crear una página sobre ti.",
+    "semantic_title": "Buscar por significado",
+    "semantic_off": "Encuentra notas que significan lo mismo que tu pregunta, con otras palabras o en otro idioma. Al activarlo se descarga una sola vez un modelo de búsqueda de {0} MB; funciona solo en este ordenador.",
+    "semantic_starting": "Iniciando…",
+    "semantic_downloading": "Descargando el modelo de búsqueda… {0} %",
+    "semantic_indexing": "Leyendo tus páginas de la wiki… {0} %",
+    "semantic_ready": "Activado. {0} páginas se pueden encontrar por significado.",
+    "semantic_unavailable": "No disponible en este sistema. La búsqueda por palabras funciona como antes.",
+    "semantic_failed": "No se pudo configurar. Desactívalo y vuelve a activarlo para reintentarlo.",
+    "semantic_save_failed": "No se pudo guardar el ajuste.",
     "file_title": "Archivo de perfil",
     "file_hint": "USER.md, el archivo detrás de esta página",
     "file_hint_dated": "USER.md · cambiado el {0}",
@@ -4051,7 +4060,8 @@
     "unavailable": "La búsqueda no está disponible en este momento.",
     "no_hits_prefix": "Sin coincidencias para ",
     "no_hits_suffix": ". Prueba otras palabras clave o consulta el grafo.",
-    "hits_heading": "Coincidencias"
+    "hits_heading": "Coincidencias",
+    "by_meaning": "Por significado"
   },
   "wiki_graph": {
     "empty_prefix": "Tu grafo de memoria aún está vacío. En cuanto ",
