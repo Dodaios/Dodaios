@@ -302,8 +302,10 @@ class SubscriptionReasoning:
                         continue
                     if response.status_code != 200:
                         failure = await _http_failure(response)
-                        if failure.code == "invalid_request_error" and await self._unlisted(
-                            model
+                        if (
+                            failure.status in (400, 404)
+                            and failure.code == "invalid_request_error"
+                            and await self._unlisted(model)
                         ):
                             # The backend refuses a model the account no longer
                             # has with a bare 400. Live 2026-10-13: a model
