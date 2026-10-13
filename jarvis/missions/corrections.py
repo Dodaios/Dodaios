@@ -14,10 +14,16 @@ like the mission's reflections do.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import threading
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+log = logging.getLogger(__name__)
+# Steps of one mission run side by side and may note late corrections at once.
+_unapplied_lock = threading.Lock()
 
 __all__ = [
     "CORRECTIONS_FILENAME",
@@ -76,7 +82,20 @@ class CorrectionInbox:
             raise ValueError(f"A correction is at most {MAX_CORRECTION_CHARS} characters.")
         self._path.parent.mkdir(parents=True, exist_ok=True)
         entry = {"text": cleaned, "ts_ms": int(time.time() * 1000)}
+        # A crash can leave a last line without its line end; start a new line
+        # then, or this correction would be glued onto the torn one and lost.
+        torn = False
+        try:
+            with self._path.open("rb") as existing:
+                existing.seek(0, os.SEEK_END)
+                if existing.tell():
+                    existing.seek(-1, os.SEEK_END)
+                    torn = existing.read(1) != b"\n"
+        except FileNotFoundError:
+            torn = False  # the first correction of this mission
         with self._path.open("a", encoding="utf-8") as handle:
+            if torn:
+                handle.write("\n")
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
@@ -86,10 +105,14 @@ class CorrectionInbox:
         """Record that a step ended before these corrections could reach an attempt."""
         if not corrections:
             return
-        late = self._late()
-        late.setdefault(task_id, [])
-        late[task_id] = sorted({*late[task_id], *(item.number for item in corrections)})
-        self._unapplied_path.write_text(json.dumps(late), encoding="utf-8")
+        with _unapplied_lock:
+            late = self._late()
+            late.setdefault(task_id, [])
+            late[task_id] = sorted({*late[task_id], *(item.number for item in corrections)})
+            # Written whole and swapped in, so a reader never sees half a file.
+            scratch = self._unapplied_path.with_suffix(".json.tmp")
+            scratch.write_text(json.dumps(late), encoding="utf-8")
+            os.replace(scratch, self._unapplied_path)
 
     def unapplied(self) -> list[Correction]:
         """Corrections at least one step finished without, oldest first."""
@@ -103,7 +126,10 @@ class CorrectionInbox:
     def _late(self) -> dict[str, list[int]]:
         try:
             data = json.loads(self._unapplied_path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, ValueError):
+        except FileNotFoundError:
+            return {}
+        except ValueError:
+            log.warning("Unreadable record of late corrections: %s", self._unapplied_path)
             return {}
         return data if isinstance(data, dict) else {}
 
