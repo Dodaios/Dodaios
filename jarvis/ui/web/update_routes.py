@@ -696,7 +696,8 @@ async def _version_at_revision(root: Path, revision: str) -> str | None:
 
     Where the version is written is asked of the TARGET revision's own update
     contract, not assumed from this version's layout. A revision without a
-    contract keeps its version where every such release keeps it.
+    contract is read as laid out like this version; ``pyproject.toml`` names
+    its version wherever the package is.
     """
 
     raw_contract = await _git_output(["show", f"{revision}:{CONTRACT_PATH}"], cwd=root)

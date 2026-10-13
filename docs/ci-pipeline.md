@@ -329,12 +329,14 @@ that way.
   comment. Where a comment would show up in a document, the file and the name
   are listed in `UNRESOLVED_PATHS_KEPT` in the script instead.
 - Stored plugin configuration is not rewritten. The marketplace seed catalog
-  moves as it is (`FROZEN_FILES`): its entries start the bundled servers by
-  module name, an existing install keeps its own copy of that command, and the
-  browser evidence of a plugin is bound to it. Code that has to recognise such
-  a command asks `jarvis/marketplace/bundled_servers.py`, which accepts the
-  module under every name in `LEGACY_PACKAGE_NAMES` (`jarvis/core/branding.py`)
-  and under the name the package is imported as.
+  and the agent-plugin manifests next to it move as they are (`FROZEN_FILES`):
+  their entries start the bundled servers by module name, an existing install
+  keeps its own copy of that command, and the browser evidence of a plugin is
+  bound to it. Code that has to recognise such a command asks
+  `jarvis/marketplace/bundled_servers.py`, which accepts the module under every
+  name in `LEGACY_PACKAGE_NAMES` (`jarvis/core/branding.py`) and under the name
+  the package is imported as; the push-time privacy scan restates the same
+  names.
 
 The move also rewrites `install/update-contract.json`, which is how the
 release before it finds the moved package (`docs/desktop-installers.md`). A

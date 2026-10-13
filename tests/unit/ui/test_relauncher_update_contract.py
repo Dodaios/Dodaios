@@ -602,7 +602,11 @@ class _Crossing:
         )
 
 
-@pytest.fixture(params=["jarvis", "pkg_old"])
+# The package directory a tree is assumed to use when it states no contract.
+DEFAULT_PACKAGE = DEFAULT_CONTRACT.version_file.partition("/")[0]
+
+
+@pytest.fixture(params=[DEFAULT_PACKAGE, "pkg_old"])
 def crossing(request: pytest.FixtureRequest, tmp_path: Path) -> _Crossing:
     """``old`` keeps its package at the default place without a contract, or
     elsewhere with one; ``new`` moved everything to ``pkg_new``."""
@@ -617,7 +621,7 @@ def crossing(request: pytest.FixtureRequest, tmp_path: Path) -> _Crossing:
 
     _write_package(root, old_package, "1.0.0")
     _write_installer(root, fails_on_request=False)
-    if old_package != "jarvis":
+    if old_package != DEFAULT_PACKAGE:
         _write_contract(
             root,
             UpdateContract(
@@ -870,7 +874,9 @@ def run_update_command(cmd, *, root, timeout):
     if cmd[:3] == ["git", "reset", "--hard"]:
         if guard not in sys.meta_path:
             # From here on the checkout holds a release that moved its package.
-            loaded_at_reset.extend(sorted(m for m in sys.modules if m.split(".")[0] == "jarvis"))
+            loaded_at_reset.extend(
+                sorted(m for m in sys.modules if m.partition(".")[0] in PACKAGE_NAMES)
+            )
             sys.meta_path.insert(0, guard)
         if cmd[3] == target:
             checkout["on_target"] = True
