@@ -7536,6 +7536,33 @@
       "skipped_dirty": "{count} files with unsaved changes were left out; save them first.",
       "skipped_other": "{count} files could not be changed."
     },
+    "prompt": {
+      "placeholder": "Type the prompt the way you would give it to a terminal…",
+      "input_aria": "Your prompt",
+      "model_aria": "Model that improves the prompt",
+      "model_auto": "Automatic",
+      "model_auto_hint": "The model that writes your task briefs",
+      "model_default": "Default model",
+      "model_search": "Search models",
+      "connect_first": "Connect first",
+      "improve": "Improve",
+      "improving": "Improving…",
+      "instruction": "Instruction",
+      "instruction_hint": "What the model is told to do with your prompt. It always writes the goal, not the implementation, and knows the repository of the chosen terminal.",
+      "instruction_reset": "Reset",
+      "result": "Improved prompt",
+      "written_by": "by {model}",
+      "too_long": "{count} of {max} characters: too long to send.",
+      "target_aria": "Terminal that receives the prompt",
+      "no_target": "No terminal",
+      "no_target_hint": "Open a terminal with a coding agent to send the prompt.",
+      "copy": "Copy",
+      "copy_failed": "Could not copy the prompt.",
+      "send": "Send",
+      "sent": "Sent to {pane}.",
+      "not_accepted": "{pane} did not take the prompt. The text is in its input box; press Enter there.",
+      "unconfirmed": "{pane} never showed the prompt arriving. Check that terminal."
+    },
     "tabs": {
       "browser": "Browser",
       "git": "Git",
@@ -7545,7 +7572,8 @@
       "changes": "Changes",
       "search": "Search",
       "subscriptions": "Subscriptions",
-      "office": "Dodaios Verse"
+      "office": "Dodaios Verse",
+      "prompt": "Prompt"
     },
     "subscriptions": {
       "bank": {
