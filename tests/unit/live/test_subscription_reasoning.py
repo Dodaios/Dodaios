@@ -437,3 +437,27 @@ async def test_a_refused_model_the_account_no_longer_carries_is_named(catalog, c
     assert requests.count("/backend-api/codex/responses") == 1
     assert requests.count("/backend-api/codex/models") == 1
     await reasoning.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_login_lost_during_the_catalog_check_keeps_the_original_refusal():
+    from jarvis.live.subscription_auth import SubscriptionAuthError
+
+    calls = []
+
+    async def credentials(*, force_refresh=False):
+        calls.append(force_refresh)
+        if len(calls) > 1:
+            raise SubscriptionAuthError("Sign in to the selected ChatGPT account again.")
+        return SubscriptionCredentials("fixture-access", "fixture-account")
+
+    pool = HttpClientPool(
+        timeout_s=1,
+        transport=httpx.MockTransport(lambda _request: httpx.Response(400, text="sensitive-body")),
+    )
+    reasoning = SubscriptionReasoning(credentials, http_pool=pool)
+    with pytest.raises(SubscriptionReasoningError) as caught:
+        await _collect(reasoning)
+    assert caught.value.code == "invalid_request_error" and caught.value.status == 400
+    assert len(calls) == 2
+    await reasoning.aclose()

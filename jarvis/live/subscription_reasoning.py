@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from jarvis.core.http_pool import HttpClientPool
 from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.live.subscription_auth import SubscriptionCredentials
+from jarvis.live.subscription_auth import SubscriptionAuthError, SubscriptionCredentials
 
 _BASE_URL = "https://chatgpt.com/backend-api/codex"
 _MAX_EVENT_CHARS = 2 * 1024 * 1024
@@ -328,8 +328,10 @@ class SubscriptionReasoning:
         """
         try:
             await self.list_models()
-        except SubscriptionReasoningError:
-            return False  # no catalog: the backend's own classification stands
+        except (SubscriptionReasoningError, SubscriptionAuthError):  # the given refusal stands
+            # No catalog, or the login went away meanwhile: the refusal the
+            # backend already gave is the one reported.
+            return False
         return bool(self._catalog_slugs) and model not in self._catalog_slugs
 
     async def snap_effort(self, model: str, requested: str) -> str:
