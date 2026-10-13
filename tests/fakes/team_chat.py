@@ -64,6 +64,13 @@ class TeamChatFake:
         for queue in list(self._subscribers.get(session_id, ())):
             queue.put_nowait(event)
 
+    def notices(self, session_id: str) -> list[dict[str, Any]]:
+        return [
+            event["payload"]
+            for event in self.store.list_events(session_id, tail=200)
+            if event["kind"] == "notice"
+        ]
+
     # -------------------------------------------------------------- turns
 
     async def send(self, session_id: str, text: str, **kwargs: Any) -> str:
@@ -127,3 +134,28 @@ class TeamChatFake:
             task.cancel()
         if self._turns:
             await asyncio.wait(set(self._turns.values()))
+
+
+class FakeTasks:
+    """The slice of the task store and scheduler a routine needs."""
+
+    def __init__(self) -> None:
+        self.specs: dict[str, Any] = {}
+        self.cancelled: list[str] = []
+
+    async def schedule(self, spec: Any, **_: Any) -> str:
+        self.specs[str(spec.id)] = spec
+        return str(spec.id)
+
+    async def cancel_task(self, task_id: str) -> None:
+        self.cancelled.append(task_id)
+
+    async def delete(self, task_id: str) -> None:
+        self.specs.pop(task_id, None)
+
+    async def list(self, limit: int = 1000) -> list[dict[str, Any]]:
+        return [
+            {"id": task_id, "title": spec.title, "state": "scheduled",
+             "spec_json": spec.model_dump_json()}
+            for task_id, spec in self.specs.items()
+        ]

@@ -729,6 +729,9 @@ class TeamMissionBody(BaseModel):
 class TeamCheckinBody(BaseModel):
     #: Minutes between the lead's unprompted looks at its team; 0 = off.
     minutes: int = Field(default=0, ge=0, le=1_440)
+    #: Whether such a look may also set the team's next goal from its mission;
+    #: left out, the team keeps the way it has.
+    initiative: bool | None = None
 
 
 class TeamGoalBody(BaseModel):
@@ -818,10 +821,15 @@ async def set_team_mission(
 async def set_team_checkin(
     group_id: str, body: TeamCheckinBody, request: Request
 ) -> dict[str, Any]:
-    """Switch the lead's unprompted team check-in on (0 = off). Each check-in is a turn."""
+    """Switch the lead's unprompted team check-in on (0 = off). Each check-in is a turn;
+    with ``initiative`` it may also set the team's next goal."""
     rt = await _runtime(request)
     try:
-        await rt.team_leads.set_checkin(group_id, body.minutes)
+        initiative = body.initiative
+        if initiative is None:
+            # A caller that only changes the rhythm must not switch initiative off.
+            initiative = (await rt.team_leads.checkin(group_id))[1]
+        await rt.team_leads.set_checkin(group_id, body.minutes, initiative=initiative)
         return await rt.team_leads.snapshot(group_id)
     except TeamLeadError as exc:
         raise _team_error(exc) from exc
