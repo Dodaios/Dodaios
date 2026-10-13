@@ -147,18 +147,47 @@ def test_the_core_list_has_no_duplicates() -> None:
 # ── Reaching the rest ────────────────────────────────────────────────────
 
 
-async def test_find_tools_returns_schemas_for_what_was_asked() -> None:
+async def test_find_tools_names_what_was_asked_and_reveals_it() -> None:
     deferred = {
         "calendar_create": _tool("calendar_create", description="Create a calendar event"),
         "mail_send": _tool("mail_send", description="Send an email message"),
     }
     revealed: list[str] = []
     finder = FindToolsTool(deferred, reveal=revealed.extend)
-    result = await finder.execute({"query": "send an email"}, _ctx())
+    result = await finder.execute({"query": "I want to send an email"}, _ctx())
     names = [entry["name"] for entry in result.output["tools"]]
-    assert names[0] == "mail_send"
-    assert result.output["tools"][0]["input_schema"] == deferred["mail_send"].schema
-    assert "mail_send" in revealed
+    assert names == ["mail_send"]
+    # The definition arrives as a real tool next round; repeating the schema
+    # here would pay for it twice in a window that is already full.
+    assert "input_schema" not in result.output["tools"][0]
+    assert revealed == ["mail_send"]
+
+
+async def test_a_tool_found_twice_is_revealed_once() -> None:
+    revealed: list[str] = []
+    finder = FindToolsTool({"mail_send": _tool("mail_send")}, reveal=revealed.extend)
+    await finder.execute({"query": "mail_send"}, _ctx())
+    await finder.execute({"query": "mail_send"}, _ctx())
+    assert revealed == ["mail_send"]
+
+
+async def test_a_full_window_bounds_what_one_turn_reveals() -> None:
+    """Shown tools already fill the window. What a lookup adds must fit the
+    room that was held back for it; a match beyond that is still named, with
+    its arguments, so it can be called."""
+    deferred = {
+        "mail_send": _tool("mail_send", size=1, description="send mail"),
+        "mail_search": _tool("mail_search", size=30, description="search mail"),
+    }
+    revealed: list[str] = []
+    room = tool_tokens("mail_send", deferred["mail_send"])
+    finder = FindToolsTool(deferred, reveal=revealed.extend, reveal_tokens=room)
+    result = await finder.execute({"query": "mail"}, _ctx())
+    assert revealed == ["mail_send"]
+    by_name = {entry["name"]: entry for entry in result.output["tools"]}
+    assert set(by_name) == {"mail_send", "mail_search"}
+    assert "arguments" not in by_name["mail_send"]
+    assert by_name["mail_search"]["arguments"] == sorted(f"p{i}" for i in range(30))
 
 
 async def test_find_tools_resolves_an_exact_name_in_either_spelling() -> None:
@@ -246,6 +275,30 @@ async def test_a_deferred_tool_is_not_shown_until_it_was_found() -> None:
     assert "mail_send" in brain.shown(1)
     assert executor.ran == [FIND_TOOLS_NAME, "mail_send"]
     assert "done" in result.text
+
+
+@pytest.mark.asyncio
+async def test_a_lookup_is_not_recorded_as_something_that_was_done() -> None:
+    """The honesty guards read the record of tools that ran. A turn that only
+    searched for the mail tool must not be able to say the mail was sent."""
+    tools, deferred = _surface()
+    brain = _ScriptedBrain([(FIND_TOOLS_NAME, {"query": "send email"})])
+    executor = _RunningExecutor()
+    loop = ToolUseLoop(brain, tools, executor, deferred_tools=deferred)  # type: ignore[arg-type]
+    result = await loop.run([], user_utterance="send anna the notes by email")
+    assert executor.ran == [FIND_TOOLS_NAME]
+    assert result.executed_tool_names == set()
+
+
+def test_the_dispatcher_payload_leaves_deferred_tools_out() -> None:
+    from jarvis.brain.dispatcher import BrainDispatcher
+
+    tools, deferred = _surface()
+    dispatcher = BrainDispatcher(_Brain(32_768), tools=tools, deferred_tools=deferred)  # type: ignore[arg-type]
+    assert [spec["name"] for spec in dispatcher.tools_payload()] == [
+        "search_web",
+        FIND_TOOLS_NAME,
+    ]
 
 
 @pytest.mark.asyncio
@@ -361,3 +414,42 @@ def test_a_providers_count_cap_defers_instead_of_dropping() -> None:
     # The cap counts what is sent, find_tools included.
     assert len(shown) == 10 and FIND_TOOLS_NAME in shown
     assert len(deferred) == 21
+
+
+def test_a_full_window_holds_room_back_for_what_a_lookup_adds() -> None:
+    """Filling the window to the brim with shown tools left no room for the
+    finder or for a single revealed definition: the first lookup overflowed."""
+    tools = {f"t{i}": _tool(f"t{i}", size=10) for i in range(221)}
+    brain = _Brain(60_000)
+    surface, deferred = _mgr()._shortlist_tools(
+        tools, brain, system_prompt="x" * 60_000, history=None
+    )
+    finder = surface[FIND_TOOLS_NAME]
+    shown_cost = sum(
+        tool_tokens(name, tool)
+        for name, tool in surface.items()
+        if name not in deferred and name != FIND_TOOLS_NAME
+    )
+    budget = 60_000 - (60_000 // 3 + 1) - 4_096
+    assert finder._reveal_tokens is not None and finder._reveal_tokens > 0
+    assert shown_cost + finder._reveal_tokens + tool_tokens(FIND_TOOLS_NAME, finder) <= budget
+
+
+def test_a_real_tool_called_find_tools_is_never_overwritten() -> None:
+    tools = {f"t{i}": _tool(f"t{i}") for i in range(80)}
+    tools[FIND_TOOLS_NAME] = _tool(FIND_TOOLS_NAME)
+    surface, deferred = _mgr()._shortlist_tools(
+        tools, _Brain(8_192), system_prompt="", history=None
+    )
+    assert surface is tools and deferred == frozenset()
+
+
+def test_a_count_cap_of_one_still_caps() -> None:
+    class _One(_Brain):
+        max_tools = 1
+
+    tools = {f"t{i}": _tool(f"t{i}") for i in range(5)}
+    surface, deferred = _mgr()._shortlist_tools(
+        tools, _One(1_048_576), system_prompt="", history=None
+    )
+    assert len(deferred) == 4

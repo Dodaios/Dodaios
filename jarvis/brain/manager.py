@@ -3922,7 +3922,13 @@ class BrainManager:
         # Per-plugin usage guidance for whichever plugins are active this turn
         # (the "MCP + thin skill" reliability layer). Appended last so it sits
         # closest to the turn; only present when a plugin tool is in scope.
-        cards = self._plugin_usage_cards_block(tools)
+        # Cards only for the tools the model is shown: guidance for a tool it
+        # cannot see spends the window on nothing.
+        cards = self._plugin_usage_cards_block(
+            {name: tool for name, tool in tools.items() if name not in deferred}
+            if deferred
+            else tools
+        )
         if cards:
             system_prompt = f"{system_prompt}\n\n{cards}"
         if delegated_voice:
@@ -6934,7 +6940,9 @@ class BrainManager:
         skill match and the caller's own hands are always shown.
         """
         nothing: frozenset[str] = frozenset()
-        if not isinstance(tools, dict) or not tools:
+        # A real tool of that name leaves no room for the finder: show
+        # everything, as before.
+        if not isinstance(tools, dict) or not tools or FIND_TOOLS_NAME in tools:
             return tools, nothing
         try:
             window = int(getattr(brain, "context_window", 0) or 0)
@@ -6961,20 +6969,39 @@ class BrainManager:
         )
         budget = max(window - used, 0) if window > 0 else None
         # One slot of a provider's count cap is held for ``find_tools``.
-        limits = [max_tools - 1] if max_tools > 1 else []
+        limits = [max(max_tools - 1, 1)] if max_tools > 0 else []
         if 0 < window <= _SMALL_WINDOW_TOKENS:
             limits.append(_SMALL_MODEL_DIRECT_TOOLS + len(keep))
+        max_direct = min(limits) if limits else 0
+        only = None if direct_tools is None else {*direct_tools, *ROLE_BASE}
         plan = plan_surface(
-            tools,
-            keep=keep,
-            budget_tokens=budget,
-            max_direct=min(limits) if limits else 0,
-            only=None if direct_tools is None else {*direct_tools, *ROLE_BASE},
+            tools, keep=keep, budget_tokens=budget, max_direct=max_direct, only=only
         )
         if not plan.deferred:
             return tools, nothing
+        reveal_tokens: int | None = None
+        if budget is not None:
+            # The finder and what it reveals need room of their own. When the
+            # window is what forced the split, hold that room back and choose
+            # again; otherwise the first lookup overflows the window that the
+            # shown tools already fill to the brim.
+            spent = sum(tool_tokens(name, tool) for name, tool in plan.direct.items())
+            headroom = budget - spent
+            if headroom < _REVEAL_RESERVE_TOKENS:
+                reveal_tokens = min(_REVEAL_RESERVE_TOKENS, budget // 3)
+                plan = plan_surface(
+                    tools,
+                    keep=keep,
+                    budget_tokens=max(budget - reveal_tokens - _FINDER_TOKENS, 0),
+                    max_direct=max_direct,
+                    only=only,
+                )
+            else:
+                reveal_tokens = headroom - _FINDER_TOKENS
         surface: dict[str, Tool] = dict(plan.direct)
-        surface[FIND_TOOLS_NAME] = cast(Tool, FindToolsTool(plan.deferred))
+        surface[FIND_TOOLS_NAME] = cast(
+            Tool, FindToolsTool(plan.deferred, reveal_tokens=reveal_tokens)
+        )
         surface.update(plan.deferred)
         log.info(
             "Tool surface for %s: %d of %d tools shown, %d behind find_tools "
@@ -14277,6 +14304,10 @@ _CONTEXT_FIT_RESERVE_TOKENS = 4096
 _SMALL_WINDOW_TOKENS = 32_768
 #: How many tools such a model is shown besides the ones a turn pins.
 _SMALL_MODEL_DIRECT_TOOLS = 24
+#: Room held back for the definitions ``find_tools`` adds during a turn whose
+#: window is already full, and for the finder itself with its index of names.
+_REVEAL_RESERVE_TOKENS = 2_000
+_FINDER_TOKENS = 700
 
 #: Chars per token for the size estimate. Deliberately low: tool schemas are
 #: JSON, which tokenizes denser than prose, and over-estimating costs a few

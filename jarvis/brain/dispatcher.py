@@ -251,5 +251,6 @@ class BrainDispatcher:
                 "description": getattr(t, "description", ""),
                 "input_schema": t.schema,
             }
-            for t in self._tools.values()
+            for name, t in self._tools.items()
+            if name not in self._deferred_tools
         ]

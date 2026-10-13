@@ -13,8 +13,9 @@ This module splits the dict in two:
   (what the turn mandated, the caller's own hands, the everyday core) until a
   token budget or a count limit is reached;
 * the **deferred** rest, which stays callable. The model reaches it through
-  one small ``find_tools`` tool that searches it by intent and returns full
-  schemas; a deferred tool it names outright simply runs.
+  one small ``find_tools`` tool that searches it by intent; what it finds is
+  shown as a real tool definition from the next round on, and a deferred tool
+  the model names outright simply runs.
 
 Nothing becomes unreachable, so narrowing the direct set never recreates
 "a tool the model cannot see is the bug users report". ``find_tools`` only
@@ -99,10 +100,17 @@ ROLE_BASE: Final[frozenset[str]] = frozenset(
 #: brain manager budgets the rest of the request with.
 _CHARS_PER_TOKEN: Final[int] = 3
 
-#: How many schemas one ``find_tools`` answer may carry, and how large it may
-#: get. A small model that asked for one tool must not get forty.
+#: How many tools one ``find_tools`` answer names. A small model that asked
+#: for one tool must not get forty.
 _FIND_MAX_RESULTS: Final[int] = 6
-_FIND_MAX_CHARS: Final[int] = 12_000
+#: Length of the one-line description each named tool gets in the answer. The
+#: schema itself is not repeated there: it arrives as a tool definition.
+_FIND_LINE_CHARS: Final[int] = 200
+#: Query words that say nothing about which tool is meant.
+_STOP_WORDS: Final[frozenset[str]] = frozenset(
+    {"a", "an", "and", "for", "from", "i", "in", "is", "it", "me", "my", "of", "on", "or",
+     "please", "the", "this", "to", "want", "with"}
+)
 #: Names listed in the tool's own description, so a model can ask for an exact
 #: one instead of guessing words.
 _INDEX_MAX_NAMES: Final[int] = 80
@@ -204,21 +212,34 @@ def _words(text: str) -> set[str]:
 class FindToolsTool:
     """Search the tools of this turn that were not put in front of the model.
 
-    Read-only. ``reveal`` is called with the names it returned, so the loop
-    can show their schemas from the next round on.
+    Read-only. The answer names the matching tools with one line each;
+    ``reveal`` is called with those names, and the loop then sends their
+    schemas as real tool definitions from the next round on. The schema is
+    deliberately not repeated in the answer: paid once, not twice.
+
+    ``reveal_tokens`` bounds what one turn may reveal when the window is what
+    forced the deferral. A match beyond it is still named, so the model can
+    call it; only its definition does not ride along. ``None`` = no bound.
+
+    A lookup is not an action: ``is_lookup_only`` keeps it out of the record
+    of tools that ran, which the honesty guards and the spoken "done" read.
     """
 
     name: str = FIND_TOOLS_NAME
     risk_tier: RiskTier = "safe"
+    is_lookup_only: bool = True
 
     def __init__(
         self,
         deferred: Mapping[str, Tool],
         *,
         reveal: Callable[[Iterable[str]], None] | None = None,
+        reveal_tokens: int | None = None,
     ) -> None:
         self._deferred = dict(deferred)
         self._reveal = reveal
+        self._reveal_tokens = reveal_tokens
+        self._revealed: set[str] = set()
         names = sorted(self._deferred)
         listed: list[str] = []
         used = 0
@@ -231,9 +252,9 @@ class FindToolsTool:
         index = ", ".join(listed) + (f" and {more} more" if more > 0 else "")
         self.description = (
             "More tools are available than the ones listed here. Call this with a "
-            "few words for what you want to do, or an exact tool name, to get the "
-            "matching tools with their full input schemas; then call the tool you "
-            f"need by its name. Not listed above: {index}."
+            "few words for what you want to do, or an exact tool name. The matching "
+            "tools are then added to your tools and you call the one you need by "
+            f"its name. Not listed above: {index}."
         )
         self.schema: dict[str, Any] = {
             "type": "object",
@@ -258,7 +279,7 @@ class FindToolsTool:
         exact = [name for name in self._deferred if canonical(name) == wanted]
         if exact:
             return exact
-        terms = _words(query)
+        terms = _words(query) - _STOP_WORDS
         if not terms:
             return sorted(self._deferred)
         scored: list[tuple[int, str]] = []
@@ -275,19 +296,24 @@ class FindToolsTool:
         query = str((args or {}).get("query") or "").strip()
         ranked = self._ranked(query)
         found: list[dict[str, Any]] = []
-        used = 0
+        newly: list[str] = []
         for name in ranked[:_FIND_MAX_RESULTS]:
             tool = self._deferred[name]
-            entry = {
-                "name": name,
-                "description": getattr(tool, "description", "") or "",
-                "input_schema": getattr(tool, "schema", None) or {},
-            }
-            size = len(json.dumps(entry, ensure_ascii=False, default=str))
-            if found and used + size > _FIND_MAX_CHARS:
-                break
+            line = " ".join((getattr(tool, "description", "") or "").split())
+            entry: dict[str, Any] = {"name": name, "description": line[:_FIND_LINE_CHARS]}
+            if name not in self._revealed:
+                cost = tool_tokens(name, tool)
+                if self._reveal_tokens is not None and cost > self._reveal_tokens:
+                    # No room left to show its definition this turn. It can
+                    # still be called; the arguments are named here instead.
+                    properties = (getattr(tool, "schema", None) or {}).get("properties")
+                    entry["arguments"] = sorted(properties) if isinstance(properties, dict) else []
+                else:
+                    if self._reveal_tokens is not None:
+                        self._reveal_tokens -= cost
+                    self._revealed.add(name)
+                    newly.append(name)
             found.append(entry)
-            used += size
         if not found:
             return ToolResult(
                 success=True,
@@ -297,12 +323,12 @@ class FindToolsTool:
                     "available": sorted(self._deferred)[:_INDEX_MAX_NAMES],
                 },
             )
-        if self._reveal is not None:
-            self._reveal(entry["name"] for entry in found)
+        if self._reveal is not None and newly:
+            self._reveal(newly)
         return ToolResult(
             success=True,
             output={
                 "tools": found,
-                "note": "Call the tool you need by its name with these arguments.",
+                "note": "These are now among your tools. Call the one you need by its name.",
             },
         )

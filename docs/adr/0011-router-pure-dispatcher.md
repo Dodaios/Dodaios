@@ -1468,8 +1468,9 @@ unreachable for the turn. Now the turn's tools are split into a **shown**
 set, chosen by priority (the tool a gate mandated, the caller's own tools,
 the everyday core, then the rest), and a **deferred** rest that stays
 callable. A deferred tool named outright runs; `find_tools` searches the
-deferred set by intent and returns full schemas, which then ride the
-following rounds.
+deferred set by intent and names what matches, and those tools ride the
+following rounds as ordinary definitions. When the window is what forced the
+split, room for the finder and for what it adds is held back first.
 
 Tools are deferred for three reasons only: the window cannot hold them, the
 window marks a small model (32,768 tokens or less, shown 24 tools besides the
@@ -1481,7 +1482,9 @@ model with room and no role gets the unchanged dict.
 built per turn from that turn's deferred dict and exists only when something
 was deferred. It is read-only (`safe`), searches nothing but the dict it was
 built from, and so cannot widen what a turn may call; every call it leads to
-still goes through `ToolExecutor`. No spawn tool enters any set through it
+still goes through `ToolExecutor`. A lookup is not an action: it is not
+recorded among the tools that ran, gets no spoken acknowledgement and no
+"done" marker. No spawn tool enters any set through it
 (AP-5/AP-14): it returns only tools the turn already held.
 
 ### Regression guards
