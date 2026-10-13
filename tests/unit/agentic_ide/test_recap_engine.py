@@ -373,6 +373,180 @@ def test_scheduling_never_raises(monkeypatch) -> None:
     recap_engine.refresh_soon(_pane(lines=40), lines=_rows(40))  # must not raise
 
 
+# ------------------------------------------- the title of an unnamed session
+
+_REQUEST = (
+    "Hello, I would like you to build a new feature so that several tasks "
+    "can run at once, by chat and by voice."
+)
+
+
+def _unnamed(monkeypatch, *, request: str = _REQUEST, cli_title: str = "") -> None:
+    """Model recaps off, a request on record, and the CLI's own title as given."""
+    from jarvis.agentic_ide import cli_title as cli_titles
+    from jarvis.agentic_ide import opening
+
+    monkeypatch.setattr(recap_engine, "_enabled", lambda: False)
+    monkeypatch.setattr(opening, "opening_for", lambda term: request)
+    monkeypatch.setattr(cli_titles, "title_for", lambda term: cli_title)
+
+
+def _past_the_grace(term: Terminal) -> None:
+    state = recap_engine._state(recap_engine.pane_id(term))  # noqa: SLF001
+    state.unnamed_since -= recap_engine.UNNAMED_GRACE_S
+
+
+def test_a_session_its_cli_left_unnamed_gets_one_title(monkeypatch) -> None:
+    """A session opened with a command has no title from its CLI; with model
+    recaps off it still gets one, from the request that opened it — once."""
+    _unnamed(monkeypatch)
+    asked: list[str] = []
+
+    async def title(request: str, **_kwargs: object) -> recap_engine.SmartRecap:
+        asked.append(request)
+        return recap_engine.SmartRecap(
+            "Parallel tasks — chat and voice", "Parallel tasks — chat and voice"
+        )
+
+    monkeypatch.setattr(recap_engine, "title_with_model", title)
+    term = _pane(lines=3)
+
+    async def scenario() -> None:
+        recap_engine.refresh_soon(term, lines=_rows(3))
+        assert not recap_engine._tasks, "the CLI is given time to name it first"  # noqa: SLF001
+        _past_the_grace(term)
+        recap_engine.refresh_soon(term, lines=_rows(3))
+        await asyncio.gather(*list(recap_engine._tasks))  # noqa: SLF001
+        recap_engine.refresh_soon(term, lines=_rows(40))
+        assert not recap_engine._tasks, "a title is written once"  # noqa: SLF001
+
+    asyncio.run(scenario())
+
+    assert asked == [_REQUEST]
+    shown = recap_engine.recap_for(term, lines=_rows(3))
+    assert shown.headline == "Parallel tasks — chat and voice"
+    assert shown.source == recap_engine.BY_MODEL
+    # The title came from the request alone; the detail is still the rules'.
+    assert shown.detail != shown.headline
+    assert recap_engine.known_headline(term) == "Parallel tasks — chat and voice"
+
+
+def test_a_session_its_cli_named_is_not_titled_again(monkeypatch) -> None:
+    _unnamed(monkeypatch, cli_title="Fix the login test")
+    term = _pane(lines=3)
+
+    async def scenario() -> None:
+        recap_engine.refresh_soon(term, lines=_rows(3))
+        _past_the_grace(term)
+        recap_engine.refresh_soon(term, lines=_rows(3))
+        assert not recap_engine._tasks  # noqa: SLF001
+
+    asyncio.run(scenario())
+    assert recap_engine.recap_for(term, lines=_rows(3)).headline == "Fix the login test"
+
+
+def test_a_pane_with_no_request_on_record_is_not_titled(monkeypatch) -> None:
+    _unnamed(monkeypatch, request="")
+    term = _pane(lines=40)
+
+    async def scenario() -> None:
+        recap_engine.refresh_soon(term, lines=_rows(40))
+        _past_the_grace(term)
+        recap_engine.refresh_soon(term, lines=_rows(40))
+        assert not recap_engine._tasks  # noqa: SLF001
+
+    asyncio.run(scenario())
+
+
+def test_a_new_conversation_in_the_pane_waits_for_its_cli_again(monkeypatch) -> None:
+    """The grace runs per conversation: a pane cleared into a new one must not
+    be titled in the seconds before the CLI names it."""
+    _unnamed(monkeypatch)
+    term = _pane(lines=3, resume=SimpleNamespace(id="first"))
+
+    async def scenario() -> None:
+        recap_engine.refresh_soon(term, lines=_rows(3))
+        _past_the_grace(term)
+        term.resume = SimpleNamespace(id="second")
+        recap_engine.refresh_soon(term, lines=_rows(3))
+        assert not recap_engine._tasks  # noqa: SLF001
+
+    asyncio.run(scenario())
+
+
+def test_a_title_does_not_outlive_its_conversation(monkeypatch) -> None:
+    _unnamed(monkeypatch)
+    term = _pane(lines=3, resume=SimpleNamespace(id="first"))
+    state = recap_engine._state(recap_engine.pane_id(term))  # noqa: SLF001
+    state.headline = "Parallel tasks — chat and voice"
+    state.generated_at = time.time()
+    state.session_at = "first"
+    assert recap_engine.known_headline(term) == "Parallel tasks — chat and voice"
+
+    term.resume = SimpleNamespace(id="second")
+
+    assert recap_engine.known_headline(term) != "Parallel tasks — chat and voice"
+    assert recap_engine.recap_for(term, lines=_rows(3)).source == recap_engine.BY_RULES
+
+
+def test_an_unnamed_session_title_never_reaches_a_key(monkeypatch) -> None:
+    """Nobody switched this title on, so an install without a subscription
+    keeps the plain one — no keyed brain is even instantiated."""
+    from jarvis.brain import resolver
+
+    instantiated: list[str] = []
+
+    def _keyed_candidates(_cfg):  # noqa: ANN001, ANN202
+        instantiated.append("keyed")
+        yield SimpleNamespace(model="paid-key")
+
+    monkeypatch.setattr(resolver, "frontier_brain_candidates", _keyed_candidates)
+    monkeypatch.setattr(resolver, "resolve_subscription_brain", lambda cfg, **kwargs: None)
+    monkeypatch.setattr("jarvis.core.config.load_config", lambda: SimpleNamespace())
+
+    assert recap_engine._resolve_brains(True) == []  # noqa: SLF001
+    assert instantiated == []
+
+
+def test_no_subscription_leaves_the_plain_title_without_a_complaint(monkeypatch) -> None:
+    async def nobody(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(recap_engine, "title_with_model", nobody)
+    term = _pane(lines=3)
+    state = recap_engine._state(recap_engine.pane_id(term))  # noqa: SLF001
+    state.inflight = True
+
+    asyncio.run(recap_engine._run(term, recap_engine.pane_id(term), [], "", _REQUEST))  # noqa: SLF001
+
+    assert state.quiet_until > time.time()
+    assert state.note == ""
+    assert not state.inflight
+
+
+def test_the_title_is_written_from_the_request_in_its_own_language(monkeypatch) -> None:
+    class Brain:
+        model = "coding-cli"
+
+        def __init__(self) -> None:
+            self.requests: list[object] = []
+
+        async def complete(self, request):  # noqa: ANN001, ANN202 - protocol fake
+            self.requests.append(request)
+            yield SimpleNamespace(content="HEADLINE: Parallel tasks — chat and voice")
+
+    brain = Brain()
+    monkeypatch.setattr(recap_engine, "_resolve_brains", lambda subscription_only=False: [brain])
+
+    answer = asyncio.run(recap_engine.title_with_model(_REQUEST, folder="C:/work/app"))
+
+    assert answer is not None
+    assert answer.headline == "Parallel tasks — chat and voice"
+    sent = brain.requests[0]
+    assert _REQUEST in sent.messages[0].content  # type: ignore[attr-defined]
+    assert "language the request is written in" in sent.system  # type: ignore[attr-defined]
+
+
 # ----------------------------------------------------------------- the prompt
 
 

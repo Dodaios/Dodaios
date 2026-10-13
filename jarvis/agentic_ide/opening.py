@@ -41,9 +41,10 @@ from . import agent_transcript
 #: so anything shorter spends directory walks on a pane nobody has typed into.
 RETRY_S = 20.0
 
-#: The opening is a title's raw material, not a transcript: this is more than
-#: any headline shows and less than a pasted brief runs to.
-MAX_CHARS = 400
+#: The opening is a title's raw material, not a transcript: far more than any
+#: headline shows, and enough for a title writer to get past the greeting a
+#: dictated request opens with and reach what is asked for.
+MAX_CHARS = 1_500
 
 #: Entries are dropped by pane close (:func:`forget`); this bound only keeps a
 #: process that never closes anything from growing without limit.
