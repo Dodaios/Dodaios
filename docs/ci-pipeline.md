@@ -25,7 +25,7 @@ to prove (`scripts/ci/plan_run.py` emits the tier and every job matrix):
 | Tier | When | What runs | Target |
 | --- | --- | --- | --- |
 | `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS. | ~10 min |
-| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus every macOS leg of the affected lanes: realtime contract, updater, agent-runtime unit suite, native crypto on Intel, the Apple Silicon desktop bundle, both real runtimes and the real browser. The blocking proof of the exact tree main gets; nothing macOS-specific that a lane tests lands unproven. | ~11-17 min |
+| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus at most two macOS jobs: the macOS tests the change can reach (one runner), and the Apple Silicon desktop bundle when the macOS lane is affected. The blocking proof of the exact tree main gets. | ~10-13 min |
 | `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the Hermes install on Windows. A red nightly opens the issue "Nightly CI is red" (`nightly-alert.yml`). | ~40 min |
 | proven | push to main of a commit the merge queue already passed | `detect` and `CI gate` only. | under 1 min |
 
@@ -45,19 +45,28 @@ release tags; a regression that only shows there is found by the next
 nightly run, which opens the issue "Nightly CI is red", and at the latest by
 the release run, which blocks publication.
 
-macOS is different: a macOS failure must stop a change, not surface the
-morning after. Every macOS leg of the affected lanes, the real runtimes (10
-and 7 minutes) and the real browser included, therefore runs in the merge
-queue, before anything lands. It does not run on the pull request: five
-macOS slots serve every run, and when the short legs ran on each push as
-well (one morning, 2026-10-13), pull requests waited 6 to 25 minutes for a
-slot. The queue builds two groups at a time, so at most sixteen macOS legs
-compete for the five slots; in the first such group all eight were done 14
-minutes in. The whole Python suite on macOS (three shards of nine minutes)
-runs nightly and on release tags; a merge group runs the macOS tests its
-change can reach instead (`tests macos impact`), so a test that the change
-breaks on macOS stops it in the queue. A macOS failure in a test the
-selection does not reach is found by the nightly run.
+macOS has five runner slots for everything: every pull request, every merge
+group and every rebuild of a group after an entry ahead of it failed. Three
+arrangements were tried on 2026-10-13 and measured:
+
+- macOS legs on every pull request push: pull requests waited 6 to 25
+  minutes for a slot.
+- Every macOS leg of the affected lanes in the merge queue, plus the macOS
+  test shards: a group carried up to eleven macOS jobs, and they waited 30
+  to 54 minutes while the Linux and Windows jobs had long finished.
+- At most two macOS jobs per group, which is what runs now: the macOS tests
+  the change can reach, on one runner (`tests macos impact`), and the Apple
+  Silicon desktop bundle when the macOS lane is affected.
+
+So a test that a change breaks on macOS stops it in the queue, and a broken
+macOS bundle does too. What the queue does not prove on macOS runs nightly
+and on release tags: the lanes themselves on macOS (realtime contract,
+updater, agent-runtime unit suite on the portable base install, native
+crypto on Intel), both real runtimes, the real browser, and the whole Python
+suite. A macOS failure there is found by the next nightly run, which opens
+the issue "Nightly CI is red", and at the latest by the release run, which
+blocks publication. A branch can ask for all of it at any time with
+`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
 
 The nightly run has no reader waiting for it, so its matrices run one leg at
 a time (`matrix_parallel`) instead of queueing 22 macOS jobs ahead of every
@@ -86,7 +95,7 @@ request, merge queue, and again on the push of the same commit).
 | `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). A file that runs out of its budget alone gets one more attempt with twice that budget, capped at the file ceiling: a file without history starts on the generic floor, and a pass there is reported as flaky and enters the history with its real duration. | `scripts/ci/run_tests_parallel.py` |
 | `tests windows 1..6` | The whole suite in six shards on every tier, pull requests included, so a Windows-only failure blocks the pull request instead of ejecting it from the merge queue. | `scripts/ci/run_tests_parallel.py` |
 | `tests macos 1..3` | The whole suite on macOS: nightly, release and manual runs with macOS only. | — |
-| `tests macos impact` | Merge queue: the macOS tests the change can reach, before it lands. One runner for an ordinary change, the full three-way split when the change selects everything (the pipeline, conftest, the lockfile). Selected once, in `detect`. | `scripts/ci/select_tests.py` |
+| `tests macos impact` | Merge queue: the macOS tests the change can reach, before it lands, on one runner. A change that reaches everything (the pipeline, conftest, the lockfile) runs the macOS-focused set instead: the tests of the code that asks for or acts on a macOS facility, about 200 files. Selected once, in `detect`. | `scripts/ci/select_tests.py --one-runner` |
 | `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
 | `duration cache` | Runs on main only (nightly, a manual run, a push that bypassed the queue) and only after every Linux and Windows shard succeeded: merges the shard timings into one history per OS, on top of the history the run started from, so a file that was flaky in one run keeps its timing. Windows shards by its own history; until one exists it uses the Linux one. | `scripts/ci/ratchet_tests.py durations` |
 | Lanes | `frontend` (three test shards and the build, side by side), `jarvisctl`, `deps`, `realtime` (+ slim container), `updater` (in-app update, native handover, restart helper), `agent runtimes` (+ slim container + the real Hermes and OpenClaw at their pinned version; see [agent-runtimes.md](agent-runtimes.md#ci-and-release-gates)), `dragdrop`, `browser`, `macOS desktop`, `installer smoke` — each only when its paths change, each as wide as the tier: Linux + Windows on a pull request, + macOS in the merge queue, + Intel and ARM in the wide matrix. | `scripts/ci/plan_run.py` |
