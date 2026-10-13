@@ -7852,7 +7852,11 @@
         "ready": "#{number} passou em todas as verificações",
         "ready_reason": "Está pronto para ser revisto e integrado.",
         "done": "Está tudo atualizado",
-        "done_reason": "Nada para fazer commit, enviar ou receber."
+        "done_reason": "Nada para fazer commit, enviar ou receber.",
+        "branch_off_one": "Mover {n} ficheiro alterado para um branch",
+        "branch_off_other": "Mover {n} ficheiros alterados para um branch",
+        "branch_off_reason": "{branch} é o branch predefinido. O trabalho chega aqui através de pull requests, por isso começa num branch próprio.",
+        "branch_off_action": "Novo branch…"
       },
       "commit": {
         "placeholder": "Mensagem do commit",
@@ -7882,7 +7886,8 @@
         "rebased": "Rebase de {branch} sobre o remoto concluído.",
         "switched": "Mudou para {branch}.",
         "updated": "{branch} está atualizado com o remoto.",
-        "deleted": "{branch} eliminado."
+        "deleted": "{branch} eliminado.",
+        "branch_created": "Agora em {branch}."
       },
       "attention": {
         "title": "Precisa de atenção",
@@ -7955,7 +7960,15 @@
         "unfetched_tip": "O GitHub tem commits mais recentes que ainda não foram buscados.",
         "gone": "remoto eliminado",
         "gone_tip": "O branch dele no remoto foi eliminado."
-      }
+      },
+      "branch": {
+        "placeholder": "Nome do novo branch",
+        "scope": "As suas alterações sem commit vão consigo; nada é registado.",
+        "create": "Criar branch"
+      },
+      "connect_repo_body": "Escolha o repositório GitHub desta pasta para ver aqui os pull requests e a CI.",
+      "connect_repo_other": "Outro…",
+      "connect_repo_choose": "Escolher um repositório…"
     },
     "skills": {
       "subtitle": "Arrasta uma para um terminal para a colar",

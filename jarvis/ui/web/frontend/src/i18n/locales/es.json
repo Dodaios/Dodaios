@@ -7852,7 +7852,11 @@
         "ready": "#{number} pasó todas las comprobaciones",
         "ready_reason": "Está lista para revisarse y fusionarse.",
         "done": "Todo está al día",
-        "done_reason": "Nada que confirmar, subir o traer."
+        "done_reason": "Nada que confirmar, subir o traer.",
+        "branch_off_one": "Mover {n} archivo modificado a una rama",
+        "branch_off_other": "Mover {n} archivos modificados a una rama",
+        "branch_off_reason": "{branch} es la rama por defecto. El trabajo llega aquí mediante pull requests, así que empieza en su propia rama.",
+        "branch_off_action": "Nueva rama…"
       },
       "commit": {
         "placeholder": "Mensaje del commit",
@@ -7882,7 +7886,8 @@
         "rebased": "Rebase de {branch} sobre su remoto hecho.",
         "switched": "Cambiado a {branch}.",
         "updated": "{branch} está al día con su remoto.",
-        "deleted": "{branch} eliminada."
+        "deleted": "{branch} eliminada.",
+        "branch_created": "Ahora en {branch}."
       },
       "attention": {
         "title": "Requiere atención",
@@ -7955,7 +7960,15 @@
         "unfetched_tip": "GitHub tiene commits más nuevos que aún no se han traído.",
         "gone": "remoto eliminado",
         "gone_tip": "Su rama en el remoto fue eliminada."
-      }
+      },
+      "branch": {
+        "placeholder": "Nombre de la nueva rama",
+        "scope": "Tus cambios sin confirmar van contigo; no se confirma nada.",
+        "create": "Crear rama"
+      },
+      "connect_repo_body": "Elige el repositorio de GitHub de esta carpeta para ver aquí las pull requests y la CI.",
+      "connect_repo_other": "Otro…",
+      "connect_repo_choose": "Elegir un repositorio…"
     },
     "skills": {
       "subtitle": "Arrástralo a un terminal para pegarlo",

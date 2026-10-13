@@ -11,7 +11,8 @@ audience: developer
 
 # ADR-0040 — Argument- and Origin-Aware Risk Tiers
 
-**Status:** Proposed (2026-10-13). Nothing in this document is implemented.
+**Status:** Proposed. The record-only part is implemented (chunks A and B
+below, without the timeline badge); nothing that changes a decision is.
 **Reference:** AP-3, AP-11, ADR-0025, ADR-0031; `jarvis/safety/risk_tier.py`,
 `jarvis/safety/tool_executor.py`
 
@@ -193,12 +194,44 @@ that.
 - **Computer use.** Clicks have no addressable target. Coverage there is
   limited to typed text, URLs and launched commands.
 
+## What the record-only stage does
+
+`jarvis/safety/origin.py` and `ToolExecutor` implement chunks A and B as a
+record. `ActionProposed` and `ActionApprovalRequired` carry `effect`,
+`target_origin` (`user`, `known`, `unsourced`, `external`, or empty for a call
+without a target) and `origin_source` (the tool whose result held the value).
+The session recorder, the chat trace and the flight recorder keep them. The
+address itself stays in the in-memory ledger.
+
+Where it departs from the proposal above, and why:
+
+- **The ledger lives in `ToolExecutor`, keyed by trace id**, not in the
+  tool-use loop: the executor is the one entry point every tool call takes,
+  so realtime voice, missions and computer use are covered by the same code.
+  The cost is scope. A caller that passes no trace id gets a fresh one per
+  call and never matches (workflow and scheduled-task steps today), and a
+  value from an earlier turn is not seen: "mail the address from that page",
+  said one turn later, reads `unsourced`, not `external`.
+- **Only readers of the user's own data count as internal**: the contact
+  lookup, the identity and settings readers. The wiki does not, because it
+  holds pages ingested from the web; a tool that writes does not, because it
+  hands its own arguments back. A value a call passed in is never recorded
+  from that call's result. This closes the laundering path named under
+  Limits for a single turn, so chunk E shrinks to carrying origin across
+  turns.
+- **Targets without an address form** (a contact name, a channel) can only be
+  matched against the user's words: they read `user` or `unsourced`, never
+  `known` or `external`.
+- **A URL is also matched by its host.** A site the user named by host is
+  theirs; a URL on a host that an earlier result mentioned reads `external`
+  even when that exact URL was not in the result.
+
 ## Work, in independent chunks
 
 | Chunk | Content | Changes behaviour |
 |---|---|---|
-| A | `output_origin` on tools, the per-turn ledger, event fields, timeline badge | no |
-| B | `target_args` and effect class on the native outbound tools; schema-name derivation for MCP and plugins | no |
+| A | `output_origin` on tools, the per-turn ledger, event fields, timeline badge | no (implemented except the badge) |
+| B | `target_args` and effect class on the native outbound tools; schema-name derivation for MCP and plugins | no (implemented) |
 | C | classification in `RiskTierEvaluator`, the `audit` / `ask` / `block` setting, default `audit` | only when set |
 | D | unattended refusal and target lists in mission pre-authorization | yes, for unattended runs |
 | E | origin carried through wiki and contact writes | no |

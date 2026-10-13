@@ -7852,7 +7852,11 @@
         "ready": "#{number} hat alle Prüfungen bestanden",
         "ready_reason": "Er kann geprüft und gemergt werden.",
         "done": "Alles ist auf dem aktuellen Stand",
-        "done_reason": "Nichts zu committen, zu pushen oder zu holen."
+        "done_reason": "Nichts zu committen, zu pushen oder zu holen.",
+        "branch_off_one": "{n} geänderte Datei auf einen Branch legen",
+        "branch_off_other": "{n} geänderte Dateien auf einen Branch legen",
+        "branch_off_reason": "{branch} ist der Standard-Branch. Arbeit kommt hier über Pull Requests an, also beginnt sie auf einem eigenen Branch.",
+        "branch_off_action": "Neuer Branch …"
       },
       "commit": {
         "placeholder": "Commit-Nachricht",
@@ -7882,7 +7886,8 @@
         "rebased": "{branch} auf sein Remote rebased.",
         "switched": "Zu {branch} gewechselt.",
         "updated": "{branch} ist auf dem Stand seines Remotes.",
-        "deleted": "{branch} gelöscht."
+        "deleted": "{branch} gelöscht.",
+        "branch_created": "Jetzt auf {branch}."
       },
       "attention": {
         "title": "Braucht Aufmerksamkeit",
@@ -7955,7 +7960,15 @@
         "unfetched_tip": "GitHub hat neuere Commits, die noch nicht geholt sind.",
         "gone": "Remote gelöscht",
         "gone_tip": "Sein Branch auf dem Remote wurde gelöscht."
-      }
+      },
+      "branch": {
+        "placeholder": "Name des neuen Branches",
+        "scope": "Deine nicht committeten Änderungen kommen mit; es wird nichts committet.",
+        "create": "Branch anlegen"
+      },
+      "connect_repo_body": "Wähle das GitHub-Repository dieses Ordners, um hier Pull Requests und CI zu sehen.",
+      "connect_repo_other": "Anderes …",
+      "connect_repo_choose": "Repository wählen …"
     },
     "skills": {
       "subtitle": "Auf ein Terminal ziehen, um ihn einzufügen",

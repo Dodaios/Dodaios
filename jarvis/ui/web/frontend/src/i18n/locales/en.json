@@ -7852,7 +7852,11 @@
         "ready": "#{number} passed every check",
         "ready_reason": "It is ready to be reviewed and merged.",
         "done": "Everything is up to date",
-        "done_reason": "Nothing to commit, push or pull."
+        "done_reason": "Nothing to commit, push or pull.",
+        "branch_off_one": "Move {n} changed file to a branch",
+        "branch_off_other": "Move {n} changed files to a branch",
+        "branch_off_reason": "{branch} is the default branch. Work lands here through pull requests, so it starts on a branch of its own.",
+        "branch_off_action": "New branch…"
       },
       "commit": {
         "placeholder": "Commit message",
@@ -7882,7 +7886,8 @@
         "rebased": "Rebased {branch} onto its remote.",
         "switched": "Switched to {branch}.",
         "updated": "{branch} is up to date with its remote.",
-        "deleted": "Deleted {branch}."
+        "deleted": "Deleted {branch}.",
+        "branch_created": "Now on {branch}."
       },
       "attention": {
         "title": "Needs attention",
@@ -7955,7 +7960,15 @@
         "unfetched_tip": "GitHub has newer commits that are not fetched yet.",
         "gone": "remote deleted",
         "gone_tip": "Its branch on the remote was deleted."
-      }
+      },
+      "branch": {
+        "placeholder": "Name of the new branch",
+        "scope": "Your uncommitted changes come along; nothing is committed.",
+        "create": "Create branch"
+      },
+      "connect_repo_body": "Pick this folder's GitHub repository to see pull requests and CI here.",
+      "connect_repo_other": "Another…",
+      "connect_repo_choose": "Choose a repository…"
     },
     "skills": {
       "subtitle": "Drag one onto a terminal to paste it",

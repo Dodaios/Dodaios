@@ -7852,7 +7852,11 @@
         "ready": "#{number} 已通过全部检查",
         "ready_reason": "可以审阅并合并了。",
         "done": "一切都是最新的",
-        "done_reason": "没有需要提交、推送或拉取的内容。"
+        "done_reason": "没有需要提交、推送或拉取的内容。",
+        "branch_off_one": "把 {n} 个有改动的文件移到新分支",
+        "branch_off_other": "把 {n} 个有改动的文件移到新分支",
+        "branch_off_reason": "{branch} 是默认分支。这里的改动通过拉取请求合入，所以应先在独立分支上进行。",
+        "branch_off_action": "新建分支…"
       },
       "commit": {
         "placeholder": "提交说明",
@@ -7882,7 +7886,8 @@
         "rebased": "已将 {branch} 变基到远程。",
         "switched": "已切换到 {branch}。",
         "updated": "{branch} 已与远程同步。",
-        "deleted": "已删除 {branch}。"
+        "deleted": "已删除 {branch}。",
+        "branch_created": "现在位于 {branch}。"
       },
       "attention": {
         "title": "需要关注",
@@ -7955,7 +7960,15 @@
         "unfetched_tip": "GitHub 上有尚未获取的新提交。",
         "gone": "远程已删除",
         "gone_tip": "它在远程的分支已被删除。"
-      }
+      },
+      "branch": {
+        "placeholder": "新分支的名称",
+        "scope": "未提交的更改会一并带过去，不会提交任何内容。",
+        "create": "创建分支"
+      },
+      "connect_repo_body": "为此文件夹选择 GitHub 仓库，即可在这里查看拉取请求和 CI。",
+      "connect_repo_other": "其他…",
+      "connect_repo_choose": "选择仓库…"
     },
     "skills": {
       "subtitle": "拖到终端上即可粘贴",
