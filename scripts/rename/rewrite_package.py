@@ -305,7 +305,8 @@ _CHAIN_RE = re.compile(rf"((?:\\{{0,2}}\.{_IDENT})+)")
 _CHAIN_SEGMENT_RE = re.compile(rf"\\{{0,2}}\.({_IDENT})")
 _SEGMENT_RE = re.compile(r"\.?[A-Za-z0-9_][A-Za-z0-9_.\-]*")
 _PATH_TOKEN_RE = re.compile(r"[A-Za-z0-9_./\\-]*")
-_TOML_SECTION_RE = re.compile(r"^\[+([^\]\n]+)\]+[ \t]*(?:#.*)?$", re.MULTILINE)
+# ``\r?``: a checkout with CRLF line endings decides exactly like one with LF.
+_TOML_SECTION_RE = re.compile(r"^\[+([^\]\n]+)\]+[ \t]*(?:#[^\n]*)?\r?$", re.MULTILINE)
 _LEGACY_ASSIGN_RE = re.compile(
     r"^[ \t]*(?:[A-Za-z_][\w.]*\.)?\w*(?:LEGACY|RETIRED)\w*[ \t]*(?::[^=\n]*)?=(?!=)",
     re.MULTILINE | re.IGNORECASE,
@@ -1004,6 +1005,7 @@ import importlib
 import importlib.abc
 import importlib.machinery
 import importlib.util
+import os
 import sys
 
 # Read as text by updaters that predate the move; see the generator.
@@ -1042,10 +1044,20 @@ class _AliasFinder(importlib.abc.MetaPathFinder, importlib.abc.InspectLoader):
         return spec
 
     def create_module(self, spec):  # noqa: ANN001, ANN201
-        return importlib.import_module(_real_name(spec.name))
+        module = importlib.import_module(_real_name(spec.name))
+        # The import system stamps the alias spec on whatever this returns;
+        # ``exec_module`` puts the module's own spec back.
+        spec.loader_state = getattr(module, "__spec__", None)
+        return module
 
     def exec_module(self, module) -> None:  # noqa: ANN001
-        return None  # already executed under its real name
+        # Already executed under its real name. It keeps its real spec, so a
+        # reload, its resources and its relative imports behave as if the old
+        # name had never been used.
+        alias = getattr(module, "__spec__", None)
+        real = getattr(alias, "loader_state", None)
+        if real is not None and getattr(alias, "loader", None) is self:
+            module.__spec__ = real
 
     # ``python -m {old}.x`` asks the loader for code, not for a module.
     def _real_loader(self, fullname: str):  # noqa: ANN202
@@ -1069,7 +1081,16 @@ def _install() -> None:
         # First, so the path finder never builds a second copy from the real
         # package's directory under the old name.
         sys.meta_path.insert(0, _AliasFinder())
-    real = importlib.import_module(_NEW)
+    try:
+        real = importlib.import_module(_NEW)
+    except ModuleNotFoundError as exc:
+        if exc.name != _NEW:
+            raise
+        # An editable install made before the move maps only the old name to
+        # its directory; the package itself sits next to this one.
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        importlib.invalidate_caches()
+        real = importlib.import_module(_NEW)
     prefix = _NEW + "."
     for name, module in list(sys.modules.items()):
         if name.startswith(prefix):

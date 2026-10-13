@@ -349,6 +349,34 @@ def _in_tree(rev: str, path: str, cwd: Path) -> bool:
     return git("cat-file", "-e", f"{rev}:{path}", check=False, cwd=cwd).returncode == 0
 
 
+def _move_commit(onto: str, cwd: Path) -> str:
+    """The commit on ``onto``'s first-parent line that added the new directory."""
+    found = git(
+        "log", "-1", "--first-parent", "-m", "--diff-filter=A", "--format=%H", onto,
+        "--", f"{NEW_PACKAGE}/__init__.py",
+        check=False, cwd=cwd,
+    )  # fmt: skip
+    return found.stdout.strip()
+
+
+def carried_package_move(onto: str, cwd: Path = REPO_ROOT) -> str | None:
+    """The move commit when HEAD was carried across the package move by an
+    earlier update: it has the new layout and still holds commits of its own
+    from the old one, below the merge that replayed the move. A rebase would
+    drop that merge and replay those commits onto the new layout, a conflict
+    in every file they touch, so such a branch is updated by merge from then
+    on. ``None`` in every other case - which is every case until main has the
+    new directory."""
+    new_init = f"{NEW_PACKAGE}/__init__.py"
+    if not _in_tree(onto, new_init, cwd) or not _in_tree("HEAD", new_init, cwd):
+        return None
+    own = git("rev-list", "--no-merges", "--topo-order", f"{onto}..HEAD", check=False, cwd=cwd)
+    # Oldest first: a commit from before the move is the first one asked.
+    if all(_in_tree(commit, new_init, cwd) for commit in reversed(own.stdout.split())):
+        return None
+    return _move_commit(onto, cwd) or None
+
+
 def package_move(onto: str, cwd: Path = REPO_ROOT) -> tuple[str, str] | None:
     """``(last commit before the move, the move commit)`` when ``onto`` has
     renamed the package directory and HEAD has not; ``None`` in every other
@@ -358,11 +386,7 @@ def package_move(onto: str, cwd: Path = REPO_ROOT) -> tuple[str, str] | None:
         return None
     if not _in_tree("HEAD", f"{OLD_PACKAGE}/__init__.py", cwd):
         return None
-    found = git(
-        "log", "-1", "--first-parent", "-m", "--diff-filter=A", "--format=%H", onto, "--", new_init,
-        check=False, cwd=cwd,
-    )  # fmt: skip
-    move = found.stdout.strip()
+    move = _move_commit(onto, cwd)
     if not move or not _in_tree(move, RENAME_SCRIPT, cwd):
         return None  # renamed by hand: nothing to replay, the ordinary update applies
     parent = git("rev-parse", "--verify", "--quiet", f"{move}^", check=False, cwd=cwd)
@@ -464,6 +488,7 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
     resolved: list[str] = []
     ai: list[str] = []
     moved = package_move(onto, cwd)
+    carried = ""
     if moved:
         before, move = moved
         # Everything up to the move is an ordinary update between two trees of
@@ -474,7 +499,11 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
         resolved += first.get("resolved", [])  # type: ignore[arg-type]
         ai += first.get("ai_resolved", [])  # type: ignore[arg-type]
         replay_package_move(before, move, cwd)
-        report["package_move"] = move
+        carried = move
+    elif mode == "rebase":
+        carried = carried_package_move(onto, cwd) or ""
+    if carried:
+        report["package_move"] = carried
         mode = "merge"  # a rebase would drop the merge that carries the move
     if mode == "merge":
         result = git("merge", "--no-edit", "--no-ff", onto, check=False, cwd=cwd)
@@ -487,8 +516,8 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
                 left = res.unresolved or conflicted_files(cwd)
                 git("merge", "--abort", check=False, cwd=cwd)
                 # A replayed move stays: the branch is whole in the new layout.
-                carried = {"package_move": moved[1]} if moved else {}
-                return {"status": "conflict", "unresolved": left, **carried}
+                across = {"package_move": carried} if carried else {}
+                return {"status": "conflict", "unresolved": left, **across}
             git("commit", "--no-edit", check=False, cwd=cwd)
     else:
         git("rebase", onto, check=False, cwd=cwd)
