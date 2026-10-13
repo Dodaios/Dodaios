@@ -104,3 +104,48 @@
   stroke-linecap: round;
   opacity: 0;
 }
+
+/* The 3D figure (companion/ShapeFigure): a canvas at the face's size, with
+   optional vector layers over it. It fades in once, when its first picture
+   arrives; later pictures replace it without a flicker. */
+.society-agent-figure {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.society-agent-figure > canvas {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+.society-agent-figure[data-ready="true"] > canvas { opacity: 1; }
+.society-agent-figure > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* A glowing design: a soft halo of its brightest colour breathes behind the figure. */
+.society-agent-figure > .agent-figure-halo {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  opacity: 0.4;
+  pointer-events: none;
+  animation: agent-figure-halo 2.8s ease-in-out infinite alternate;
+}
+@keyframes agent-figure-halo {
+  from { opacity: 0.22; transform: scale(0.94); }
+  to { opacity: 0.5; transform: scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .society-agent-figure > canvas { transition: none; }
+  .society-agent-figure > .agent-figure-halo { animation: none; }
+}
