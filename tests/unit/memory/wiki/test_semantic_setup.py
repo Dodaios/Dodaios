@@ -295,5 +295,20 @@ def test_a_server_that_refuses_the_file_is_not_blamed_on_the_connection(
     _finish()
 
     message = semantic_setup.status(config)["message"]
-    assert "404" in message
+    assert "server refused" in message
     assert "internet connection" not in message
+
+
+def test_the_state_never_carries_an_exception_text(
+    config: SimpleNamespace, machine: _Machine
+) -> None:
+    """The state is served over the API; an error text can hold local paths."""
+    machine.download_error = PermissionError(13, "denied", "/home/someone/secret/model.part")
+    semantic_setup.start(config)
+    _finish()
+
+    report = semantic_setup.status(config)
+    assert report["state"] == "error"
+    assert "stored on this disk" in report["message"]
+    assert "someone" not in report["message"]
+    assert "denied" not in report["message"]
