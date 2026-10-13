@@ -2532,6 +2532,15 @@
     "wiki_links": "{0} links",
     "wiki_empty_body": "No page yet. The wiki starts one once your conversations give it something to record.",
     "wiki_needs_name": "Add your name and the wiki can start a page about you.",
+    "semantic_title": "Search by meaning",
+    "semantic_off": "Finds notes that mean the same as your question, in other words or another language. Switching it on downloads a {0} MB search model once; it runs only on this computer.",
+    "semantic_starting": "Starting…",
+    "semantic_downloading": "Downloading the search model… {0}%",
+    "semantic_indexing": "Reading your wiki pages… {0}%",
+    "semantic_ready": "On. {0} pages can be found by meaning.",
+    "semantic_unavailable": "Not available on this system. The word search works as before.",
+    "semantic_failed": "It could not be set up. Switch it off and on again to retry.",
+    "semantic_save_failed": "The setting could not be saved.",
     "file_title": "Profile file",
     "file_hint": "USER.md, the file behind this page",
     "file_hint_dated": "USER.md · changed {0}",
@@ -4051,7 +4060,8 @@
     "unavailable": "Search is currently unavailable.",
     "no_hits_prefix": "No matches for ",
     "no_hits_suffix": ". Try other keywords or look in the graph.",
-    "hits_heading": "Matches"
+    "hits_heading": "Matches",
+    "by_meaning": "By meaning"
   },
   "wiki_graph": {
     "empty_prefix": "Your memory graph is still empty. As soon as ",
