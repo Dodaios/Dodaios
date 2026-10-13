@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { useReducedMotion } from "framer-motion";
 import {
   creatureBody, creaturePose, CREATURE_STILL_FRAME, CREATURE_TICK_MS, GRID, STAGE_H, STAGE_W, STAGE_X, STAGE_Y,
   type CreatureLook, type CreatureState,
 } from "./creature";
 import { FACE_YAW, paintCreature } from "./creaturePaint";
+import { WorkingBadge } from "./WorkingBadge";
+import "./faceMotion.css";
 
 /**
  * One clock for every creature on screen. It only runs while a visible
@@ -75,10 +77,17 @@ function softwareContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | 
 /**
  * An agent's pixel creature at `size` pixels, acting out `state`. The figure
  * fills the square like every other agent face; the canvas reaches a little
- * past it on each side, so a question mark or a spark can play beside the
- * head without a wider layout. Reduced motion shows one still frame per state.
+ * past it on each side, so a question mark or confetti can play beside the
+ * head without a wider layout. The canvas paints what changes in whole cells
+ * (eyes, signs); the body's own motion (a breath, the rhythm of work) is a
+ * smooth layer around it (faceMotion.css). With `busy`, the working bubble
+ * sits at its corner. Reduced motion shows one still frame per state.
  */
-export function PixelCreature({ creature, size, state = "idle" }: { creature: CreatureLook; size: number; state?: CreatureState }) {
+export function PixelCreature({ creature, size, state = "idle", busy = false }: {
+  creature: CreatureLook; size: number; state?: CreatureState;
+  /** Shows the working bubble; a stage that already says what the agent does leaves it off. */
+  busy?: boolean;
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const reduced = useReducedMotion() ?? false;
   const { seed, palette, eyes } = creature;
@@ -123,9 +132,14 @@ export function PixelCreature({ creature, size, state = "idle" }: { creature: Cr
     return () => { observer.disconnect(); watch(false); };
   }, [seed, palette, eyes, size, state, reduced]);
   const cell = size / GRID;
-  return <span className="relative inline-block shrink-0" data-agent-creature={seed} data-creature-state={state} style={{ width: size, height: size }}>
-    <canvas ref={canvas} aria-hidden className="pointer-events-none absolute max-w-none"
-      style={{ left: -STAGE_X * cell, top: -STAGE_Y * cell, width: STAGE_W * cell, height: STAGE_H * cell }} />
+  // Each creature keeps its own beat, so a roster never nods as one.
+  const pace = { "--agent-face-delay": `${-((seed * 37) % 4000)}ms` } as CSSProperties;
+  return <span className="agent-creature relative inline-block shrink-0" data-agent-creature={seed} data-creature-state={state} style={{ width: size, height: size, ...pace }}>
+    <span className="agent-creature-body">
+      <canvas ref={canvas} aria-hidden className="pointer-events-none absolute max-w-none"
+        style={{ left: -STAGE_X * cell, top: -STAGE_Y * cell, width: STAGE_W * cell, height: STAGE_H * cell }} />
+    </span>
+    {busy && <WorkingBadge size={size} />}
   </span>;
 }
 
