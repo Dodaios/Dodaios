@@ -177,6 +177,9 @@ async def test_world_actions_are_metered_on_the_server(setup, clock):
     assert await service.report_action("daily_visit") is None  # once per day
     assert await service.report_action("floor_discovered", ref="arcade") is not None
     assert await service.report_action("floor_discovered", ref="arcade") is None
+    # The Level Hall is a floor of its own and pays its first visit like the others.
+    assert await service.report_action("floor_discovered", ref="hall") is not None
+    assert await service.report_action("floor_discovered", ref="hall") is None
     walked = await service.report_action("walk_together")
     assert walked is not None and walked.subject_id == "pet:ember"
 
