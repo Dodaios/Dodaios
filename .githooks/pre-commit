@@ -22,6 +22,21 @@ PY="/c/Program Files/Python311/python.exe"
 [ -x "$PY" ] || PY="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
 [ -n "$PY" ] || exit 0
 
+# --- BRANCH gate (FAIL-CLOSED on a commit on main) ----------------------------
+# Local main mirrors origin/main and moves only by fast-forward. A commit made
+# on it lives on one machine, and since the merge queue squash-merges, local
+# and remote main stop sharing history. rc 1 = HEAD is main; any other rc
+# fails OPEN.
+branch_gate="scripts/ci/check_commit_branch.py"
+if [ -f "$branch_gate" ]; then
+    "$PY" "$branch_gate" --quiet </dev/null
+    if [ "$?" -eq 1 ]; then
+        echo ""
+        echo "pre-commit BLOCKED: BRANCH gate — main takes no local commits."
+        exit 1
+    fi
+fi
+
 # --- AGENTS.md is the only rulebook -------------------------------------------
 check="scripts/ci/check_agents_md.py"
 if [ -f "$check" ]; then

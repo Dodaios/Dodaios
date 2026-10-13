@@ -27,9 +27,17 @@ These cost real bugs. Nothing catches them but you.
   then `python -c "import jarvis; print(jarvis.__file__)"`. (AP-8) Never
   `pip install -e` from a linked worktree: that pin is the user's desktop app,
   and their next restart boots your branch with an empty `data/`. (BUG-219)
-- **The working tree is SHARED** with other agent sessions. Stage only YOUR
-  paths — `git add -p` or an explicit pathspec, and `git commit --only -- <paths>`.
-  `git add -A` sweeps someone else's half-finished work into your commit.
+- **`main` takes no local commits.** Local `main` mirrors `origin/main` and
+  moves only by `git pull --ff-only`; the commit hook refuses a commit on it.
+  Every change lives on a feature branch in a worktree of your own:
+  `git worktree add -b <agent>/<topic> <path> origin/main`, one topic per
+  branch. A commit on local `main` exists on one machine, and the squash-merging
+  queue makes it diverge from the remote for good.
+- **The main checkout is SHARED** with other agent sessions and runs the user's
+  desktop app. Never switch its branch, reset it or stash in it. Wherever a
+  tree is shared, stage only YOUR paths — `git add -p` or an explicit pathspec,
+  and `git commit --only -- <paths>`. `git add -A` sweeps someone else's
+  half-finished work into your commit.
 - **A probe against the running app spends the user's real money.** Turns sent
   to it (`/ws`, `jarvis` CLI, Telegram) bill their own keys: five scripted
   test turns once cost $6.82 on a deep model. Send one turn, on a subscription
@@ -192,8 +200,9 @@ standard Git workflow: do not artificially leave completed work local, and do
 not wait for extra Dodaios permission to commit, branch, push, or open
 a pull request. Once the scoped review and required checks pass, the agent may
 merge an ordinary authorized PR without another confirmation; a draft PR stays
-draft until its remaining work is done. `git pull --rebase --ff-only` first if
-origin moved. Never
+draft until its remaining work is done. Cut each branch from a freshly fetched
+`origin/main`; once its PR has merged, fast-forward the main checkout
+(`git pull --ff-only`) so the desktop app runs the landed code. Never
 `--force`, never `--no-verify`. Isolated mission workers must not run git
 (`add`/`commit`/`branch`/`checkout`/`push`) — the parent runtime captures the
 diff and lands it. Never push from a linked mission worktree. **A push is
