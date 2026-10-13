@@ -18,6 +18,7 @@ that has git at all, and every call is bounded:
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -28,6 +29,10 @@ from loguru import logger
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _GIT_TIMEOUT_S = 8.0
+#: Put before a `git diff` that prints counts or a patch: it then leaves the index
+#: alone instead of refreshing it (which takes the index lock). Not for --raw,
+#: --name-status or --name-only, where it would list files that were only touched.
+NO_INDEX_REFRESH = ["-c", "diff.autoRefreshIndex=false"]
 #: Most changed files reported in one answer.
 MAX_CHANGED_FILES = 500
 #: Most diff lines returned for one file; the rest is summarised by ``truncated``.
@@ -92,10 +97,17 @@ def _git(
     ``stdin`` is fed to git when given; otherwise git reads nothing, so a
     command that would wait for input can never hang the caller.
     """
+    env = dict(os.environ)
+    # These reads are polled while people and agents run their own git in
+    # the same checkout. A status that refreshes the index takes its lock:
+    # their command then fails, and a read killed at the timeout leaves the
+    # lock behind for good.
+    env["GIT_OPTIONAL_LOCKS"] = "0"
     try:
         return subprocess.run(
             ["git", "-c", "core.quotePath=false", *args],
             cwd=str(cwd),
+            env=env,
             input=stdin if stdin is not None else "",
             capture_output=True,
             text=True,
@@ -194,7 +206,7 @@ def workspace_changes(folder: str | Path, only: set[str] | None = None) -> Works
         )
 
     counts: dict[str, tuple[int | None, int | None]] = {}
-    numstat_args = ["diff", "--numstat", "-z", "--no-renames"]
+    numstat_args = [*NO_INDEX_REFRESH, "diff", "--numstat", "-z", "--no-renames"]
     if _has_head(root):
         numstat_args.append("HEAD")
     numstat = _git([*numstat_args, "--", "."], root)
@@ -388,7 +400,7 @@ def file_diff(folder: str | Path, path: str) -> FileDiff:
     if word == "untracked":
         return untracked_diff(root, rel)
 
-    args = ["diff", "--no-color", "--no-ext-diff", "--no-renames", "-U3"]
+    args = [*NO_INDEX_REFRESH, "diff", "--no-color", "--no-ext-diff", "--no-renames", "-U3"]
     if _has_head(root):
         args.append("HEAD")
     diff = _git([*args, "--", rel], root)

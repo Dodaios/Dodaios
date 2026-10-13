@@ -49,7 +49,22 @@ describe("growing a pixel creature", () => {
 });
 
 describe("what a creature acts out", () => {
-  it("keeps every sign and spark of every state inside the stage", () => {
+  it("works without leaving its place: no jump of whole cells and nothing flying about", () => {
+    const eyes = new Set<string>();
+    for (let frame = 0; frame < 120; frame++) {
+      const pose = creaturePose("working", frame);
+      expect([pose.dx, pose.dy, pose.head, pose.squash]).toEqual([0, 0, 0, false]);
+      expect(pose.bits).toHaveLength(0);
+      eyes.add(`${pose.eyes}:${pose.ex}:${pose.ey}`);
+    }
+    // The eyes carry the scene: down at the work, a look to each side, a blink.
+    expect(eyes).toContain("open:0:1");
+    expect(eyes).toContain("open:-1:1");
+    expect(eyes).toContain("open:1:0");
+    expect(eyes).toContain("shut:0:1");
+  });
+
+  it("keeps every sign of every state inside the stage", () => {
     for (const state of CREATURE_STATES) for (let frame = 0; frame < 120; frame++) {
       for (const bit of creaturePose(state, frame).bits) {
         expect(bit.x).toBeGreaterThanOrEqual(-STAGE_X);
