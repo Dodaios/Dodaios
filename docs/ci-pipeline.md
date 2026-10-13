@@ -288,6 +288,12 @@ conflict in that step. The train does it in two ticks, one per step; locally
 it is one run, and from the move onwards the branch is updated by merge, not
 by rebase. Until main carries the new directory none of this runs.
 
+`agent_land.py` runs the branch's own copy of these scripts. A branch cut
+before they could replay a move stops at the move with an ordinary conflict
+report and changes nothing: rebase it onto the last commit of the old layout
+by hand, which brings the scripts along, and run `agent_land.py` again. The
+merge train always runs main's copy and needs no such step.
+
 `classify_changes.py` reads a changed path under either name of the package
 directory as the same path, so the move turns no lane off.
 

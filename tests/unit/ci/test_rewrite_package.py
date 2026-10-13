@@ -571,6 +571,16 @@ def test_a_local_variable_named_like_the_package_is_not_an_import():
 # --------------------------------------------------------------------------- repeatable
 
 
+@pytest.mark.parametrize("name", sorted(FILES))
+def test_a_checkout_with_crlf_line_endings_is_rewritten_the_same(name):
+    """The move is made in a working tree and replayed on blobs; both must
+    decide alike whatever line endings the checkout has."""
+    rewriter = _rewriter()
+    lf = FILES[name].encode("utf-8")
+    crlf = lf.replace(b"\n", b"\r\n")
+    assert rewriter.transform(name, crlf) == rewriter.transform(name, lf).replace(b"\n", b"\r\n")
+
+
 def test_a_second_run_changes_nothing(repo):
     codemod.apply(repo, OLD, NEW)
     _git(repo, "commit", "-q", "-m", "move")
@@ -720,6 +730,57 @@ def test_old_start_commands_still_run(repo, module):
     assert result.returncode == 0, result.stderr
     expected = "jarvis.__main__" if module == "jarvis" else module
     assert result.stdout.strip() == f"ran {expected} as __main__"
+
+
+def test_a_module_reached_by_its_old_name_keeps_its_own_spec(repo):
+    """The import system stamps the spec it loaded a module with on the
+    module; the real one must not end up described by the old name."""
+    codemod.apply(repo, OLD, NEW)
+    script = (
+        "import sys; sys.path.insert(0, '.')\n"
+        "import jarvis.core.branding as a\n"
+        "import jarvis.core as package\n"
+        "assert a.__name__ == a.__spec__.name == 'dodaios.core.branding', a.__spec__\n"
+        "assert package.__spec__.name == 'dodaios.core', package.__spec__\n"
+        "import importlib\n"
+        "assert importlib.reload(a) is sys.modules['jarvis.core.branding']\n"
+        "print('ok')\n"
+    )
+    result = _python(repo, "-c", script)
+    assert result.returncode == 0 and result.stdout.strip() == "ok", result.stderr
+
+
+def test_an_install_that_only_maps_the_old_directory_still_finds_the_package(repo, tmp_path):
+    """An editable install made before the move hands out the old directory
+    for the old name and knows nothing of the new one."""
+    codemod.apply(repo, OLD, NEW)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    script = (
+        "import importlib.util, os, sys\n"
+        f"init = {str(repo / 'jarvis' / '__init__.py')!r}\n"
+        "assert importlib.util.find_spec('dodaios') is None\n"
+        "spec = importlib.util.spec_from_file_location(\n"
+        "    'jarvis', init, submodule_search_locations=[os.path.dirname(init)])\n"
+        "module = importlib.util.module_from_spec(spec)\n"
+        "sys.modules['jarvis'] = module\n"
+        "spec.loader.exec_module(module)\n"
+        "import jarvis, dodaios\n"
+        "from jarvis.core.config import load\n"
+        "assert jarvis is dodaios and load is dodaios.core.config.load\n"
+        "print('ok')\n"
+    )
+    # -I: neither the working directory nor PYTHONPATH may answer for it.
+    result = subprocess.run(
+        [sys.executable, "-I", "-S", "-B", "-c", script],
+        cwd=elsewhere,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+        creationflags=_NO_WINDOW,
+    )
+    assert result.returncode == 0 and result.stdout.strip() == "ok", result.stderr
 
 
 def test_the_compatibility_package_carries_a_version_no_release_has(repo):

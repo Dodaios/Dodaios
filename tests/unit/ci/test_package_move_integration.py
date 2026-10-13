@@ -118,6 +118,7 @@ def test_nothing_happens_while_main_still_has_the_old_layout(repo):
     _feature_work(repo)
 
     assert agent_integrate.package_move("main", repo) is None
+    assert agent_integrate.carried_package_move("main", repo) is None
     report = agent_integrate.update("main", "rebase", "", repo)
 
     assert report["status"] == "updated" and "package_move" not in report
@@ -135,8 +136,12 @@ def test_a_branch_that_already_moved_is_updated_the_ordinary_way(repo):
     _git(repo, "checkout", "-q", "later")
 
     assert agent_integrate.package_move("main", repo) is None
-    assert agent_integrate.update("main", "rebase", "", repo)["status"] == "updated"
+    assert agent_integrate.carried_package_move("main", repo) is None
+    report = agent_integrate.update("main", "rebase", "", repo)
+    assert report["status"] == "updated" and "package_move" not in report
     assert _git(repo, "merge-base", "--is-ancestor", move, "HEAD") == ""
+    # Still a plain rebase: a branch born in the new layout carries no merge.
+    assert _git(repo, "rev-list", "--merges", "main..HEAD").strip() == ""
 
 
 def test_a_move_made_by_hand_is_not_replayed(repo):
@@ -223,6 +228,51 @@ def test_a_conflict_after_the_move_keeps_the_replay_and_says_how_to_go_on(repo):
     assert _git(repo, "status", "--porcelain").strip() == ""
     assert _show(repo, "dodaios/core/alpha.py") == "from dodaios.core import gamma\n"
     assert _show(repo, "app.py") == "VALUE = 3\n"
+
+
+def test_a_carried_branch_is_updated_by_merge_from_then_on(repo):
+    """A rebase would drop the merge that carries the move and replay the
+    branch's old-layout commits onto the new layout, file by file."""
+    move = _move_on_main(repo)
+    _feature_work(repo)
+    assert agent_integrate.update("main", "rebase", "", repo)["status"] == "updated"
+    _git(repo, "checkout", "-q", "main")
+    later = _commit(repo, "main work after the carry", {"app.py": "VALUE = 9\n"})
+    _git(repo, "checkout", "-q", "feature")
+    _commit(repo, "feature work in the new layout", {"dodaios/core/beta.py": "NAME = 'own'\n"})
+
+    assert agent_integrate.package_move("main", repo) is None
+    assert agent_integrate.carried_package_move("main", repo) == move
+    report = agent_integrate.update("main", "rebase", "", repo)
+
+    assert report["status"] == "updated" and report["package_move"] == move, report
+    assert _git(repo, "status", "--porcelain").strip() == ""
+    assert _git(repo, "merge-base", "--is-ancestor", later, "HEAD") == ""
+    assert _show(repo, "dodaios/core/alpha.py") == (
+        "from dodaios.core import beta, gamma\n\nVALUE = 2\n"
+    )
+    assert _show(repo, "dodaios/core/beta.py") == "NAME = 'own'\n"
+    assert _show(repo, "app.py") == "VALUE = 9\n"
+    assert {name for name in _tree(repo) if name.startswith("jarvis/")} == {"jarvis/__init__.py"}
+    check = ["--from", "jarvis", "--to", "dodaios", "--root", str(repo), "--check"]
+    assert codemod.main(check) == 0
+
+
+def test_a_conflict_on_a_carried_branch_is_a_merge_to_continue(repo):
+    move = _move_on_main(repo)
+    _feature_work(repo)
+    assert agent_integrate.update("main", "rebase", "", repo)["status"] == "updated"
+    head = _commit(repo, "feature work", {"app.py": "VALUE = 3\n"})
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, "main work after the carry", {"app.py": "VALUE = 9\n"})
+    _git(repo, "checkout", "-q", "feature")
+
+    report = agent_integrate.update("main", "rebase", "", repo)
+
+    assert report["status"] == "conflict" and report["unresolved"] == ["app.py"]
+    assert report["package_move"] == move
+    assert _git(repo, "rev-parse", "HEAD").strip() == head
+    assert _git(repo, "status", "--porcelain").strip() == ""
 
 
 def test_a_conflict_from_before_the_move_is_reported_against_that_commit(repo):
