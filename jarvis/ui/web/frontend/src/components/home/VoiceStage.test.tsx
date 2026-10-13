@@ -235,3 +235,32 @@ describe("VoiceStage helpers", () => {
     expect(greetingKey(21)).toBe("home.greeting_evening");
   });
 });
+
+describe("VoiceStage content shown on screen", () => {
+  afterEach(() => {
+    cleanup();
+    useHomeStore.getState().resetTranscript();
+  });
+
+  it("draws a card with its heading and renders the table instead of raw Markdown", () => {
+    const card: TranscriptLine = {
+      id: "shown-1",
+      who: "assistant",
+      text: "Changed files",
+      ts: 2,
+      kind: "shown",
+      markdown: "| file | lines |\n|---|---|\n| app.py | 12 |",
+    };
+    useHomeStore.setState({
+      transcript: [said("user", "which files changed", 1), card, said("assistant", "Two files.", 3)],
+    });
+    render();
+    const shown = screen.getByTestId("transcript-shown");
+    expect(shown.textContent).toContain("Changed files");
+    expect(shown.querySelector("table")).not.toBeNull();
+    expect(shown.textContent).toContain("app.py");
+    expect(shown.textContent).not.toContain("|---|");
+    // The spoken lines around it stay ordinary lines.
+    expect(screen.getAllByTestId("transcript-line")).toHaveLength(2);
+  });
+});
