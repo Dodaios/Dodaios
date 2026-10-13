@@ -624,7 +624,9 @@ class Roster:
         unnamed = not str(name or "").strip()
         if unnamed:
             if tier_value is Tier.LEAD:
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "the lead is always Jarvis")
+                raise RosterError(
+                    FailureReason.TIER_NOT_ALLOWED, "the lead is the assistant itself"
+                )
             clean_name = await self._placeholder_name()
             agent_id = await self._fresh_agent_id()
         else:
@@ -640,7 +642,7 @@ class Roster:
                 agent_id = await self._fresh_agent_id()
         if tier_value is Tier.LEAD and agent_id != LEAD_AGENT_ID:
             raise RosterError(
-                FailureReason.TIER_NOT_ALLOWED, "exactly one lead exists and it is Jarvis"
+                FailureReason.TIER_NOT_ALLOWED, "exactly one lead exists: the assistant itself"
             )
         if tier_value is Tier.LEAD and fields.get("computer_id"):
             raise RosterError(
@@ -652,7 +654,7 @@ class Roster:
         if tier_value is Tier.LEAD and "approval_mode" in fields:
             raise RosterError(
                 FailureReason.BLOCKED_BY_POLICY,
-                "the Jarvis lead uses the app chat permission policy",
+                "the lead uses the app chat permission policy",
             )
         same_slug = await self._store.get_agent_row(agent_id)
         if same_slug is not None:
@@ -717,7 +719,10 @@ class Roster:
         if "name" in fields:
             clean_name = _validate_name(fields["name"])
             if agent_id == LEAD_AGENT_ID and clean_name != current["name"]:
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "Jarvis keeps the lead name")
+                raise RosterError(
+                    FailureReason.TIER_NOT_ALLOWED,
+                    "the lead is named by the wake word and cannot be renamed here",
+                )
             existing = await self._store.get_agent_row_by_name(clean_name)
             if existing is not None and existing["agent_id"] != agent_id:
                 existing = await self._release_archived_name(clean_name)
@@ -728,11 +733,11 @@ class Roster:
             if key not in _EDITABLE:
                 raise RosterError(FailureReason.BLOCKED_BY_POLICY, f"field {key!r} is not editable")
             if key == "tier" and agent_id == LEAD_AGENT_ID and str(value) != str(Tier.LEAD):
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "Jarvis stays the lead")
+                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "the lead stays the lead")
             if key == "approval_mode" and agent_id == LEAD_AGENT_ID:
                 raise RosterError(
                     FailureReason.BLOCKED_BY_POLICY,
-                    "the Jarvis lead uses the app chat permission policy",
+                    "the lead uses the app chat permission policy",
                 )
             if key == "computer_id" and agent_id == LEAD_AGENT_ID and value:
                 raise RosterError(
@@ -746,7 +751,9 @@ class Roster:
                     "an agent's runtime is chosen when it is created and cannot change",
                 )
             if key == "tier" and str(value) == str(Tier.LEAD) and agent_id != LEAD_AGENT_ID:
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "only Jarvis is the lead")
+                raise RosterError(
+                    FailureReason.TIER_NOT_ALLOWED, "only the assistant itself is the lead"
+                )
             if key == "parent_agent_id" and value:
                 if str(value) == agent_id:
                     raise RosterError(

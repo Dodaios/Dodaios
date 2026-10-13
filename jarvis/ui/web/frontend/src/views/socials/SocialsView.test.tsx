@@ -60,7 +60,7 @@ const GITHUB_REPO = {
   id: "g1",
   platform: "github",
   label: "GitHub (Repo)",
-  url: "https://github.com/PersonalJarvis/PersonalJarvis",
+  url: "https://github.com/Dodaios/Dodaios",
   enabled: true,
   order: 1,
 };
@@ -68,7 +68,7 @@ const GITHUB_PROFILE = {
   id: "g2",
   platform: "github",
   label: "GitHub (Profile)",
-  url: "https://github.com/PersonalJarvis",
+  url: "https://github.com/Dodaios",
   enabled: true,
   order: 2,
 };
@@ -110,8 +110,8 @@ describe("SocialsView (grouped, read-only)", () => {
 
     const repo = (await screen.findByRole("link", { name: /repo/i })) as HTMLAnchorElement;
     const profile = screen.getByRole("link", { name: /profile/i }) as HTMLAnchorElement;
-    expect(repo.href).toContain("PersonalJarvis");
-    expect(profile.href).toContain("github.com/PersonalJarvis");
+    expect(repo.href).toContain("Dodaios/Dodaios");
+    expect(profile.href).toContain("github.com/Dodaios");
     expect(repo.rel).toContain("noopener");
     fireEvent.click(repo);
     expect(openSpy).toHaveBeenCalledWith(GITHUB_REPO.url);

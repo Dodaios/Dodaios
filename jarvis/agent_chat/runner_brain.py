@@ -169,6 +169,9 @@ def build_override(
             kit.session_tool_filter(session) if kit.session_tool_filter is not None else None,
             plan_filter if stance == PLAN_STANCE else None,
         ),
+        tools_direct=(
+            kit.session_direct_tools(session) if kit.session_direct_tools is not None else None
+        ),
         credential_scope=kit.credential_scope,
         system_extra=system_extra,
         tool_context={

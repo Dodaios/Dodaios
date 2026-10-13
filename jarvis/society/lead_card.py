@@ -30,6 +30,8 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Final
 
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+
 from .capabilities import CapabilityRow
 from .communication import COMMUNICATION_GUIDANCE
 from .roster import LEAD_AGENT_ID, AgentRecord
@@ -127,7 +129,7 @@ def render_lead_card(
     agents: Sequence[AgentRecord],
     catalog: Sequence[CapabilityRow],
     *,
-    lead_name: str = "Jarvis",
+    lead_name: str = DEFAULT_ASSISTANT_NAME,
     lead_id: str = LEAD_AGENT_ID,
     busy: Callable[[str], int] | None = None,
     terminals: Sequence[str] = (),
@@ -259,7 +261,7 @@ def society_owns_task(text: str) -> bool:
         return False
 
 
-def lead_card_section(*, lead_name: str = "Jarvis") -> str:
+def lead_card_section(*, lead_name: str = DEFAULT_ASSISTANT_NAME) -> str:
     """The card for THIS process's society, or ``""`` when there is none.
 
     Read by ``BrainManager._build_system_prompt`` on every prompt build; it
