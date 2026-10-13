@@ -1,0 +1,91 @@
+/* How an agent's face moves, whatever it looks like: the bubble that says it
+   is at work, and the smooth motion of a pixel creature's body. Everything
+   here is a transform or an opacity, so a roster of faces animates on the
+   compositor. Lengths are in em of the face's width. */
+
+/* At work: three dots in a bubble at the upper right corner. */
+.agent-working-badge {
+  position: absolute;
+  top: -0.07em;
+  right: -0.2em;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: max(1.5px, 0.05em);
+  height: max(8px, 0.3em);
+  padding: 0 max(2.5px, 0.085em);
+  border-radius: 999px;
+  background: hsl(var(--popover));
+  box-shadow: 0 0 0 1px hsl(var(--border)), 0 1px 3px rgb(0 0 0 / 0.22);
+  pointer-events: none;
+  animation: agent-working-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.agent-working-badge > i {
+  display: block;
+  width: max(2px, 0.08em);
+  height: max(2px, 0.08em);
+  border-radius: 50%;
+  background: hsl(var(--foreground));
+  opacity: 0.32;
+  animation: agent-working-dot 1.2s ease-in-out infinite;
+  /* Out of step from face to face: a roster of working agents never pulses as one. */
+  animation-delay: var(--agent-face-delay, var(--agent-figure-delay, 0ms));
+}
+.agent-working-badge > i:nth-child(2) { animation-delay: calc(var(--agent-face-delay, var(--agent-figure-delay, 0ms)) + 0.16s); }
+.agent-working-badge > i:nth-child(3) { animation-delay: calc(var(--agent-face-delay, var(--agent-figure-delay, 0ms)) + 0.32s); }
+@keyframes agent-working-in {
+  from { opacity: 0; transform: translateY(18%) scale(0.7); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes agent-working-dot {
+  0%, 62%, 100% { transform: translateY(0); opacity: 0.32; }
+  30% { transform: translateY(-38%); opacity: 1; }
+}
+
+/* A pixel creature's body. The cubes themselves are painted on a canvas at
+   whole cells (eyes, signs, a blink); how the body moves through space is
+   this layer's, so it glides instead of jumping a cell at a time. Each
+   creature keeps its own beat (--agent-face-delay). */
+.agent-creature > .agent-creature-body {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 92%;
+  animation-delay: var(--agent-face-delay, 0ms);
+}
+.agent-creature:is([data-creature-state="idle"], [data-creature-state="listening"], [data-creature-state="thinking"], [data-creature-state="talking"], [data-creature-state="asking"]) > .agent-creature-body {
+  animation-name: agent-creature-breathe;
+  animation-duration: 3.8s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes agent-creature-breathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-1.6%) scale(0.992, 1.018); }
+}
+
+/* At work: it leans over what it does and nods in a typing rhythm, two short
+   beats and a longer one, then lifts its head for a moment. */
+.agent-creature[data-creature-state="working"] > .agent-creature-body {
+  animation-name: agent-creature-work;
+  animation-duration: 2.6s;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1);
+  animation-iteration-count: infinite;
+}
+@keyframes agent-creature-work {
+  0%, 100% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  9% { transform: translateY(4%) rotate(3.5deg) scale(1.012, 0.985); }
+  18% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  27% { transform: translateY(4%) rotate(3.5deg) scale(1.012, 0.985); }
+  36% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  48% { transform: translateY(4.5%) rotate(4deg) scale(1.016, 0.98); }
+  62% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  78% { transform: translateY(-1.5%) rotate(-1.5deg) scale(0.994, 1.012); }
+  90% { transform: translateY(-1.5%) rotate(-1.5deg) scale(0.994, 1.012); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-working-badge,
+  .agent-working-badge > i,
+  .agent-creature > .agent-creature-body { animation: none; }
+  .agent-working-badge > i { opacity: 0.75; }
+}

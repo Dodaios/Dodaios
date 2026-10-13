@@ -10,11 +10,12 @@ import type { CompanionAppearance } from "./appearance";
 import type { CreatureState } from "./creature";
 import { useShownCreature } from "./creatureDefault";
 import { PixelCreature } from "./PixelCreature";
+import { WorkingBadge } from "./WorkingBadge";
 
 type MarkProps = {
   appearance: CompanionAppearance;
   size: number;
-  /** The agent is at work: the shape shows thinking dots, a pet plays its working row. */
+  /** The agent is at work: every look shows the working bubble; a creature nods, a pet plays its working row. */
   thinking?: boolean;
   /** Eyes a stage can animate (shapes only; a pet acts through its own rows). */
   expressive?: boolean;
@@ -49,8 +50,11 @@ export function CompanionMark(props: MarkProps) {
   const creature = useShownCreature(appearance);
   const staged = useContext(PetStageContext);
   const pose = state ?? staged;
+  // At work in a roster or a list: the face says so with its bubble. A stage (the chat's own
+  // line about what the agent does) and the look editor's preview already say it in words.
+  const busy = !pose && mood === undefined && (thinking || run === "working");
   const shape = creature
-    ? <PixelCreature creature={creature} size={size} state={mood ?? (pose ? CREATURE_FOR_PET[pose] : thinking ? "working" : CREATURE_FOR_RUN[run ?? "idle"])} />
+    ? <PixelCreature creature={creature} size={size} busy={busy} state={mood ?? (pose ? CREATURE_FOR_PET[pose] : thinking ? "working" : CREATURE_FOR_RUN[run ?? "idle"])} />
     : <AgentSymbol {...appearance} size={size} thinking={thinking} expressive={expressive} />;
   // Outside a query client (an isolated render, a bare preview) there is no catalog to read.
   const client = useContext(QueryClientContext);
@@ -63,7 +67,8 @@ function PetFace({ petId, size, thinking = false, state, fallback }: MarkProps &
   const staged = useContext(PetStageContext);
   if (pet === undefined) return <span aria-hidden className="inline-block shrink-0" style={{ width: size, height: size }} />;
   if (pet === null) return fallback;
-  return <span className="agent-pet-face inline-flex shrink-0" data-agent-pet={pet.id}>
+  return <span className="agent-pet-face relative inline-flex shrink-0" data-agent-pet={pet.id}>
     <PetSprite pet={pet} state={state ?? staged ?? (thinking ? "working" : "idle")} px={size} />
+    {thinking && !state && !staged && <WorkingBadge size={size} />}
   </span>;
 }
