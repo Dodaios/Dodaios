@@ -106,7 +106,7 @@ def model_present(data_dir: str | Path | None = None) -> bool:
     root = model_dir(data_dir)
     try:
         return all((root / item.path).stat().st_size == item.size for item in MODEL_FILES)
-    except OSError:
+    except OSError:  # a missing file is the answer "not present", not a fault
         return False
 
 
@@ -149,8 +149,8 @@ def download_model(
             if target.stat().st_size == item.size:
                 done += item.size
                 continue
-        except OSError:
-            pass  # not there yet: that is what this function is for
+        except OSError:  # not on disk yet, which is what this function is here to fix
+            pass
         target.parent.mkdir(parents=True, exist_ok=True)
         # The process id keeps two running copies of the app from writing
         # into each other's half-finished file.
