@@ -4,6 +4,9 @@ export const PRODUCT_NAME = "Dodaios";
 export const OFFICIAL_REPO_SLUG = "Dodaios/Dodaios";
 export const OFFICIAL_REPO_URL = `https://github.com/${OFFICIAL_REPO_SLUG}`;
 export const OFFICIAL_REPO_LABEL = `github.com/${OFFICIAL_REPO_SLUG}`;
+/** The community registry: where published plugins, skills and agents live. */
+export const MARKETPLACE_REPO_SLUG = "Dodaios/marketplace";
+export const MARKETPLACE_REPO_URL = `https://github.com/${MARKETPLACE_REPO_SLUG}`;
 
 /**
  * Every name the app's own MCP tools server has been registered under, the
