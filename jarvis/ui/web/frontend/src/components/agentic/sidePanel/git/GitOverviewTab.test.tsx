@@ -165,7 +165,7 @@ const REPOS = {
     { name: "o/r", description: "", private: false, fork: false, url: "", pushed_at: "" },
   ],
 };
-const ACTION = /\/api\/agentic-ide\/git\/(fetch|pull|commit|switch|branch\/push|branch\/pull-request|branch\/update|branch\/delete)$/;
+const ACTION = /\/api\/agentic-ide\/git\/(fetch|pull|commit|switch|prepare|branch\/push|branch\/pull-request|branch\/update|branch\/delete)$/;
 
 beforeEach(() => {
   answer = OVERVIEW;
@@ -190,7 +190,16 @@ beforeEach(() => {
         posts.push({ path: action[1], body: JSON.parse(String(init.body)) });
         const refusal = refusals[action[1]]?.shift();
         if (refusal) return json({ detail: refusal[1] }, refusal[0]);
-        return json({ ok: true, message: "Done.", upstream: "origin/feature/wip", commit: "abc1234", url: "https://github.com/o/r/pull/11" });
+        return json({
+          ok: true,
+          message: "Done.",
+          upstream: "origin/feature/wip",
+          commit: "abc1234",
+          url: "https://github.com/o/r/pull/11",
+          folder: "/code/app",
+          branch: String(posts.at(-1)?.body.branch ?? ""),
+          created: true,
+        });
       }
       if (url.includes("/github/repos")) return json(REPOS);
       if (url.includes("/branch/contents")) return json(CONTENTS);
@@ -257,6 +266,30 @@ describe("GitOverviewTab — the checkout at a glance", () => {
     fireEvent.click(screen.getByTestId("git-commit-submit"));
     await vi.waitFor(() => expect(posted("commit")).toEqual([{ folder: "/code/app", message: "feat: add the widget" }]));
     await vi.waitFor(() => expect(screen.queryByTestId("git-commit-form")).toBeNull());
+  });
+
+  it("moves edits made on the default branch to a new branch instead of committing them there", async () => {
+    answer = {
+      ...withCheckout({ branch: "main", upstream: "origin/main", ahead: 0, files: 62, unstaged: 60, untracked: 2 }),
+      branch: "main",
+      branches: [branch("main", { current: true }), ...OVERVIEW.branches.slice(2)],
+      pull_requests: [pr(7, "open")],
+    };
+    render(<GitOverviewTab />);
+    const next = await screen.findByTestId("git-next");
+    expect(next.dataset.step).toBe("branch_off");
+    expect(next.textContent).toContain("Move 60 changed files to a branch");
+    expect(next.textContent).toContain("main is the default branch");
+    fireEvent.click(screen.getByTestId("git-next-action"));
+    expect((screen.getByTestId("git-branch-submit") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByTestId("git-branch-name"), { target: { value: "feature/tidy-up" } });
+    fireEvent.click(screen.getByTestId("git-branch-submit"));
+    await vi.waitFor(() =>
+      expect(posted("prepare")).toEqual([{ folder: "/code/app", mode: "new_branch", branch: "feature/tidy-up", base: "" }]),
+    );
+    await vi.waitFor(() => expect(screen.queryByTestId("git-branch-form")).toBeNull());
+    // Committing on the default branch stays possible for whoever wants it, as the second choice.
+    expect(posted("commit")).toEqual([]);
   });
 
   it("opens the Changes tab to review what is uncommitted", async () => {
@@ -755,9 +788,42 @@ describe("GitOverviewTab — connecting", () => {
     expect((await screen.findByTestId("git-unavailable")).textContent).toContain("not a git repository");
   });
 
-  it("asks once which GitHub repository the folder is, recommending its remote", async () => {
+  it("shows the local state before a GitHub repository is picked, and connects the recommended one in a click", async () => {
     answer = { ...OVERVIEW, github: { ...OVERVIEW.github, available: false, code: "needs_repo", repo: "", repo_url: "" } };
     render(<GitOverviewTab />);
+    // Nothing is hidden behind the question: branch, sync and branches are all there.
+    expect((await screen.findByTestId("git-current-branch")).textContent).toBe("feature/wip");
+    expect(screen.getByTestId("git-sync-push").dataset.count).toBe("2");
+    expect(screen.getAllByTestId("git-branch-row")).toHaveLength(6);
+    expect(screen.queryByTestId("git-repo-picker")).toBeNull();
+    const card = screen.getByTestId("git-connect-repo");
+    expect(within(card).getByTestId("git-connect-suggested").textContent).toBe("o/r");
+    fireEvent.click(within(card).getByTestId("git-connect-suggested"));
+    await vi.waitFor(() => expect(puts).toEqual([JSON.stringify({ workspace_id: "w1", repo: "o/r" })]));
+    await vi.waitFor(() => expect(screen.queryByTestId("git-connect-repo")).toBeNull());
+    expect(await screen.findByTestId("git-section-prs")).toBeTruthy();
+  });
+
+  it("offers the list of repositories for a folder whose remote is not on GitHub", async () => {
+    answer = {
+      ...OVERVIEW,
+      github: { ...OVERVIEW.github, available: false, code: "needs_repo", repo: "", repo_url: "", suggested_repo: "" },
+    };
+    render(<GitOverviewTab />);
+    const card = await screen.findByTestId("git-connect-repo");
+    expect(within(card).queryByTestId("git-connect-suggested")).toBeNull();
+    expect(screen.getAllByTestId("git-branch-row")).toHaveLength(6);
+    fireEvent.click(within(card).getByTestId("git-connect-choose"));
+    await vi.waitFor(() => expect(screen.getAllByTestId("git-repo-choice")).toHaveLength(2));
+    // The list can be left again without picking; the local state comes back.
+    fireEvent.click(screen.getByLabelText("Keep the current repository"));
+    expect(await screen.findAllByTestId("git-branch-row")).toHaveLength(6);
+  });
+
+  it("asks which GitHub repository the folder is, recommending its remote", async () => {
+    answer = { ...OVERVIEW, github: { ...OVERVIEW.github, available: false, code: "needs_repo", repo: "", repo_url: "" } };
+    render(<GitOverviewTab />);
+    fireEvent.click(within(await screen.findByTestId("git-connect-repo")).getByTestId("git-connect-choose"));
     // The recommendation is clickable at once; the rest of the list follows.
     await vi.waitFor(() => expect(screen.getAllByTestId("git-repo-choice")).toHaveLength(2));
     const choices = screen.getAllByTestId("git-repo-choice");
@@ -773,6 +839,7 @@ describe("GitOverviewTab — connecting", () => {
   it("leaves the picker at once after a pick, while GitHub is still being read", async () => {
     answer = { ...OVERVIEW, github: { ...OVERVIEW.github, available: false, code: "needs_repo", repo: "", repo_url: "" } };
     render(<GitOverviewTab />);
+    fireEvent.click(within(await screen.findByTestId("git-connect-repo")).getByTestId("git-connect-choose"));
     await vi.waitFor(() => expect(screen.getAllByTestId("git-repo-choice")).toHaveLength(2));
     let release: () => void = () => {};
     gate = new Promise<void>((resolve) => {
