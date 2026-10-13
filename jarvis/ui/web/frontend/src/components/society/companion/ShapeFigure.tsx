@@ -1,4 +1,5 @@
-import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { followPointer } from "./figureGaze";
 import { figureKey, type FigureLook, type FigureSmoke } from "./figureScene";
 import { WorkingBadge } from "./WorkingBadge";
 import { FIGURE_BROKEN, figuresSupported, readFigure, watchFigure, watchFigureSupport, type Figure } from "./figureStore";
@@ -53,9 +54,10 @@ const EYE_HALF = { lines: [1.35, 3.15], dots: [2.15, 2.3] } as const;
 
 /**
  * The eyes of a figure as two plain elements at the place the picture's own
- * projection gives them: a wrapper that glances, and in it each eye, leaning
- * with the turned face, that blinks. Lengths are in `em` of one symbol
- * unit, so the motion scales with the face.
+ * projection gives them: a wrapper that glances (or follows the pointer
+ * while it is near, see figureGaze.ts), and in it each eye, leaning with the
+ * turned face, that blinks. Lengths are in `em` of one symbol unit, so the
+ * motion scales with the face.
  */
 function LivingEyes({ figure, size, eyes }: { figure: Figure; size: number; eyes: { kind: "dots" | "lines"; y: number; color: string } }) {
   const [a, b, c, d, e, f] = figure.face;
@@ -64,7 +66,9 @@ function LivingEyes({ figure, size, eyes }: { figure: Figure; size: number; eyes
   const across = Math.hypot(a, b) * scale, down = Math.hypot(c, d) * scale;
   const [halfX, halfY] = EYE_HALF[eyes.kind];
   const lean = Math.atan2(b, a) * 180 / Math.PI;
-  return <span aria-hidden className="agent-figure-eyes" data-figure-eyes={eyes.kind} style={{ fontSize: down }}>
+  const pair = useRef<HTMLSpanElement>(null);
+  useEffect(() => pair.current ? followPointer(pair.current) : undefined, []);
+  return <span ref={pair} aria-hidden className="agent-figure-eyes" data-figure-eyes={eyes.kind} style={{ fontSize: down }}>
     {EYE_X.map(x => <i key={x} style={{
       left: (a * x + c * eyes.y + e) * scale - halfX * across, top: (b * x + d * eyes.y + f) * scale - halfY * down,
       width: halfX * across * 2, height: halfY * down * 2, transform: `skewY(${lean.toFixed(2)}deg)`,
@@ -84,8 +88,9 @@ function LivingEyes({ figure, size, eyes }: { figure: Figure; size: number; eyes
  * colours of a flowing design (multiplied onto a white body), the shine of a
  * shimmering one, both cut to the body's outline, and the smoke of a cigar.
  *
- * The figure is alive at rest: it breathes, and with `eyes` it blinks and
- * glances about. Those eyes are plain elements moved by transforms only, so
+ * The figure is alive at rest: it breathes, hops and wobbles over a shadow
+ * that stays on the ground, and with `eyes` it blinks, glances about and
+ * follows the pointer. Those eyes are plain elements moved by transforms only, so
  * a roster of faces costs the UI thread nothing while it idles; each figure
  * runs a little out of step with the others.
  */
@@ -151,6 +156,10 @@ export function ShapeFigure({ look, size, shape, behind, children, overlay, fall
   const pace = { "--agent-figure-delay": `${-beat}ms` } as CSSProperties;
   return <span className="society-agent-figure" data-agent-figure={shape} data-ready={ready ? "true" : undefined} data-working={working ? "true" : undefined} style={{ width: size, height: size, ...pace }}>
     {behind}
+    {shown?.ground && <i aria-hidden className="agent-figure-ground" style={{
+      left: (shown.ground.x - shown.ground.rx) * size / shown.pixels, top: (shown.ground.y - shown.ground.ry) * size / shown.pixels,
+      width: shown.ground.rx * 2 * size / shown.pixels, height: shown.ground.ry * 2 * size / shown.pixels,
+    }} />}
     <span className="agent-figure-body">
     <span className="agent-figure-picture" style={flow ? masked(current?.whole) : undefined}>
       <canvas ref={canvas} aria-hidden />
