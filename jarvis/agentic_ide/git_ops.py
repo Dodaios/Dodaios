@@ -668,12 +668,16 @@ def commit_all(folder: str | Path, message: str) -> str:
     return _ok(["rev-parse", "--short", "HEAD"], root).strip()
 
 
-def push(folder: str | Path) -> str:
-    """Push the current branch, setting its upstream on the first push."""
+def push(folder: str | Path, branch: str = "") -> str:
+    """Push the current branch — or ``branch``, without checking it out — setting
+    its upstream on the first push."""
     path = _folder(folder)
     info = inspect(path)
     if not info.is_repo:
         raise GitError(f"{path.name} is not a git repository.", code="not_repo")
+    other = normalize_branch(branch)
+    if other and other != info.branch:
+        return _push_other(info, other)
     if info.detached or not info.branch:
         raise GitError("Check out a branch before pushing.", code="detached")
     root = Path(info.root)
@@ -690,6 +694,225 @@ def push(folder: str | Path) -> str:
         what="push",
     )
     return f"{remote}/{info.branch}"
+
+
+def _push_other(info: RepoInfo, branch: str) -> str:
+    """Push a branch that is not the one checked out here."""
+    root = Path(info.root)
+    known = next((entry for entry in info.branches if entry.name == branch), None)
+    if known is None:
+        raise GitError(f"There is no local branch called {branch}.", code="not_found")
+    if not info.remotes:
+        raise GitError("This repository has no remote to push to.", code="no_remote")
+    remote, _, target = known.upstream.partition("/")
+    if not target or remote not in info.remotes:
+        remote = "origin" if "origin" in info.remotes else info.remotes[0]
+        target = branch
+    _ok(
+        ["push", "--set-upstream", remote, f"refs/heads/{branch}:refs/heads/{target}"],
+        root,
+        timeout=_NETWORK_TIMEOUT_S,
+        what="push",
+    )
+    return f"{remote}/{target}"
+
+
+def pull(folder: str | Path, *, rebase: bool = False) -> str:
+    """Bring the current branch up to date with its upstream. Returns a summary.
+
+    The default only fast-forwards, so it can never rewrite or lose a commit;
+    a branch that has diverged answers ``code="diverged"`` and the caller
+    offers ``rebase``. A rebase that conflicts is aborted, never left half-done.
+    """
+    path = _folder(folder)
+    info = inspect(path)
+    if not info.is_repo:
+        raise GitError(f"{path.name} is not a git repository.", code="not_repo")
+    if info.detached or not info.branch:
+        raise GitError("Check out a branch before pulling.", code="detached")
+    if not info.upstream:
+        raise GitError(
+            f"{info.branch} has no branch on the remote to pull from.", code="no_upstream"
+        )
+    root = Path(info.root)
+    if not rebase:
+        result = _run(["pull", "--ff-only"], root, timeout=_NETWORK_TIMEOUT_S)
+        if result.returncode == 0:
+            return f"{info.branch} is up to date with {info.upstream}."
+        text = ((result.stderr or "") + (result.stdout or "")).lower()
+        if "fast-forward" in text or "diverg" in text:
+            raise GitError(
+                f"{info.branch} and {info.upstream} have both moved on. "
+                "Rebase your commits onto the remote ones to continue.",
+                code="diverged",
+            )
+        raise GitError(f"Git could not pull: {_reason(result)}")
+    if info.staged or info.unstaged or info.conflicted:
+        raise GitError("Commit your changes first, then rebase.", code="dirty")
+    result = _run(["pull", "--rebase"], root, timeout=_NETWORK_TIMEOUT_S)
+    if result.returncode != 0:
+        conflicts = _run(["diff", "--name-only", "--diff-filter=U"], root).stdout.split()
+        _run(["rebase", "--abort"], root)
+        if conflicts:
+            shown = ", ".join(conflicts[:5]) + (" …" if len(conflicts) > 5 else "")
+            raise GitError(
+                f"Rebasing {info.branch} onto {info.upstream} conflicts in {shown}. "
+                "Nothing was changed.",
+                code="conflict",
+            )
+        raise GitError(f"Git could not rebase: {_reason(result)}")
+    return f"Rebased {info.branch} onto {info.upstream}."
+
+
+def update_branch(folder: str | Path, branch: str) -> str:
+    """Fast-forward a local branch to its upstream without switching to it."""
+    path = _folder(folder)
+    info = inspect(path)
+    if not info.is_repo:
+        raise GitError(f"{path.name} is not a git repository.", code="not_repo")
+    name = normalize_branch(branch)
+    if name == info.branch:
+        return pull(path)
+    known = next((entry for entry in info.branches if entry.name == name), None)
+    if known is None:
+        raise GitError(f"There is no local branch called {name}.", code="not_found")
+    remote, _, target = known.upstream.partition("/")
+    if not target:
+        raise GitError(f"{name} has no branch on the remote to update from.", code="no_upstream")
+    root = Path(info.root)
+    if known.worktree:
+        # A checked-out branch moves only inside its own checkout.
+        result = _run(["pull", "--ff-only"], Path(known.worktree), timeout=_NETWORK_TIMEOUT_S)
+    else:
+        result = _run(
+            ["fetch", remote, f"refs/heads/{target}:refs/heads/{name}"],
+            root,
+            timeout=_NETWORK_TIMEOUT_S,
+        )
+    if result.returncode != 0:
+        text = ((result.stderr or "") + (result.stdout or "")).lower()
+        if "fast-forward" in text or "diverg" in text or "rejected" in text:
+            raise GitError(
+                f"{name} has commits {known.upstream} lacks, so it cannot simply be moved forward.",
+                code="diverged",
+            )
+        raise GitError(f"Git could not update {name}: {_reason(result)}")
+    return f"{name} is up to date with {known.upstream}."
+
+
+def unique_commits(root: Path, branch: str) -> int:
+    """Commits only ``branch`` has — in no other local branch and on no remote.
+
+    -1 when git cannot say (treated as "there may be some").
+    """
+    result = _run(
+        [
+            "rev-list",
+            "--count",
+            f"refs/heads/{branch}",
+            "--not",
+            # A pattern for --branches is relative to refs/heads.
+            f"--exclude={branch}",
+            "--branches",
+            "--remotes",
+        ],
+        root,
+    )
+    text = result.stdout.strip()
+    return int(text) if result.returncode == 0 and text.isdigit() else -1
+
+
+def delete_branch(
+    folder: str | Path,
+    branch: str,
+    *,
+    force: bool = False,
+    merged: bool = False,
+    remote: bool = False,
+    with_worktree: bool = False,
+    open_folders: list[str] | None = None,
+) -> str:
+    """Delete a local branch. Returns a summary.
+
+    Refuses the current and the default branch. A branch whose commits exist
+    nowhere else answers ``code="unmerged"`` unless ``merged`` (the caller has
+    proof its pull request was merged) or ``force`` — the UI asks a second,
+    explicit question first. ``remote`` also deletes the branch on the remote.
+
+    A branch checked out in a linked worktree is refused unless
+    ``with_worktree``; then that worktree goes too, but only when it holds no
+    uncommitted change and no workspace is open in it (``open_folders``).
+    """
+    path = _folder(folder)
+    info = inspect(path)
+    if not info.is_repo:
+        raise GitError(f"{path.name} is not a git repository.", code="not_repo")
+    name = normalize_branch(branch)
+    known = next((entry for entry in info.branches if entry.name == name), None)
+    if known is None:
+        raise GitError(f"There is no local branch called {name}.", code="not_found")
+    if name == info.branch:
+        raise GitError(
+            f"{name} is the branch you are on. Switch to another one first.", code="current"
+        )
+    if name == info.default_branch:
+        raise GitError(f"{name} is the default branch and stays.", code="invalid")
+    root = Path(info.root)
+    tree = next((entry for entry in info.worktrees if entry.branch == name), None)
+    if tree is not None:
+        if not with_worktree or tree.main:
+            raise GitError(
+                f"{name} is checked out in {tree.path}. Remove that worktree first.",
+                code="checked_out",
+            )
+        if worktree_in_use(tree.path, open_folders or []):
+            raise GitError(
+                f"A workspace is still open in {Path(tree.path).name}. Close it first.",
+                code="in_use",
+            )
+    if not force and not merged:
+        unique = unique_commits(root, name)
+        if unique != 0:
+            plural = "" if unique == 1 else "s"
+            count = f"{unique} commit{plural}" if unique > 0 else "commits"
+            raise GitError(
+                f"{name} has {count} that exist nowhere else. Delete it anyway?", code="unmerged"
+            )
+    if tree is not None:
+        # Never forced: uncommitted work in the worktree keeps both it and the branch.
+        remove_worktree(path, tree.path)
+        root = Path(info.main_root or info.root)
+    _ok(["branch", "-D", name], root, what=f"delete {name}")
+    summary = f"Deleted {name}."
+    target_remote, _, target = known.upstream.partition("/")
+    if remote and target and target_remote in info.remotes:
+        result = _run(["push", target_remote, "--delete", target], root, timeout=_NETWORK_TIMEOUT_S)
+        if result.returncode == 0:
+            summary = f"Deleted {name} here and on {target_remote}."
+        elif "remote ref does not exist" not in (result.stderr or ""):
+            summary += f" It could not be deleted on {target_remote}: {_reason(result)}"
+    logger.info("Agentic IDE git: {}", summary)
+    return summary
+
+
+def branch_tip(folder: str | Path, branch: str) -> str:
+    """The commit a local branch points at, or "" when there is no such branch."""
+    path = _folder(folder)
+    result = _run(["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], path)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def first_subject(folder: str | Path, branch: str, base: str) -> str:
+    """A pull request title for ``branch``: the subject of its oldest own commit."""
+    path = _folder(folder)
+    own = _run(
+        ["log", "--reverse", "--format=%s", "-n", "50", f"{base}..refs/heads/{branch}"], path
+    )
+    lines = [line.strip() for line in own.stdout.splitlines() if line.strip()]
+    if own.returncode == 0 and lines:
+        return lines[0]
+    last = _run(["log", "--format=%s", "-n", "1", f"refs/heads/{branch}"], path)
+    return last.stdout.strip() if last.returncode == 0 and last.stdout.strip() else branch
 
 
 def fetch(folder: str | Path) -> None:

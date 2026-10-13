@@ -12,7 +12,9 @@ separate facts that are easy to mix up:
   passed or failed. Green checks never mean "merged"; the two are reported
   apart on purpose.
 
-Local git is read on every call (a handful of fast plumbing commands). GitHub
+Local git comes from :mod:`jarvis.agentic_ide.git_local`: the branch list is
+reused until a ref moves, so a poll of an unchanged repository costs one
+``git status``. GitHub
 is read for the repository the person picked for this folder ONCE
 (:mod:`jarvis.agentic_ide.github_link`), with their existing GitHub
 connection, in ONE GraphQL query per repository, cached per repository: N open
@@ -39,7 +41,7 @@ from typing import Any
 
 from loguru import logger
 
-from jarvis.agentic_ide import github_link
+from jarvis.agentic_ide import git_local, github_link
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _GIT_TIMEOUT_S = 8.0
@@ -69,13 +71,11 @@ query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
     url
     pullRequests(first: 40, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      nodes {
-        number title url state isDraft isCrossRepository
-        headRefName headRefOid baseRefName mergedAt updatedAt
-        isInMergeQueue
-        mergeQueueEntry { position }
-        commits(last: 1) { nodes { commit { oid statusCheckRollup { ...Rollup } } } }
-      }
+      nodes { ...PullRequestRow }
+    }
+    openPullRequests: pullRequests(first: 50, states: OPEN,
+                                   orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes { ...PullRequestRow }
     }
     refs(refPrefix: "refs/heads/", first: 60,
          orderBy: {field: TAG_COMMIT_DATE, direction: DESC}) {
@@ -85,6 +85,14 @@ query($owner: String!, $name: String!) {
       }
     }
   }
+}
+fragment PullRequestRow on PullRequest {
+  number title url state isDraft isCrossRepository
+  headRefName headRefOid baseRefName mergedAt updatedAt
+  isInMergeQueue mergeable reviewDecision
+  author { login }
+  mergeQueueEntry { position }
+  commits(last: 1) { nodes { commit { oid statusCheckRollup { ...Rollup } } } }
 }
 fragment Rollup on StatusCheckRollup {
   state
@@ -156,6 +164,13 @@ class PullRequest:
     #: 1-based place in the merge queue while ``state == "queued"``.
     queue_position: int | None = None
     ci: CiStatus = field(default_factory=CiStatus)
+    #: GitHub cannot merge it as it is: it conflicts with its base.
+    conflicting: bool = False
+    #: ``approved`` | ``changes_requested`` | ``review_required`` | "" (no review rule).
+    review: str = ""
+    author: str = ""
+    #: Opened from a fork: its branch is not one of this repository's.
+    fork: bool = False
 
 
 @dataclass(slots=True)
@@ -188,6 +203,15 @@ class BranchRow:
     ci: CiStatus = field(default_factory=CiStatus)
     #: The local branch has commits that CI has not seen yet.
     ci_stale: bool = False
+    #: The upstream is configured but was deleted on the remote.
+    upstream_gone: bool = False
+    #: GitHub has commits on this branch that were not fetched yet, so
+    #: ``behind`` undercounts until the next fetch.
+    unfetched: bool = False
+    #: Commits it has that the default branch lacks, and the other way round
+    #: (against ``RepoOverview.base_ref``); None when git cannot say.
+    base_ahead: int | None = None
+    base_behind: int | None = None
 
 
 @dataclass(slots=True)
@@ -221,6 +245,12 @@ class RepoOverview:
     remote_branches: list[BranchRow] = field(default_factory=list)
     truncated: bool = False
     github: GitHubState = field(default_factory=GitHubState)
+    #: The folder's own state: uncommitted changes, ahead/behind, last fetch.
+    checkout: git_local.Checkout = field(default_factory=git_local.Checkout)
+    #: What ``base_ahead`` / ``base_behind`` compare with (``origin/main``).
+    base_ref: str = ""
+    #: Every pull request that is still open, the ones needing a look first.
+    pull_requests: list[PullRequest] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -375,9 +405,15 @@ def parse_github(payload: dict[str, Any], fetched_at: float = 0.0) -> _GitHubSna
     if not isinstance(repo, dict):
         return _GitHubSnapshot(ok=False, reason="GitHub did not return this repository.")
     snap = _GitHubSnapshot(ok=True, repo_url=str(repo.get("url") or ""), fetched_at=fetched_at)
-    for node in (repo.get("pullRequests") or {}).get("nodes") or []:
-        if not isinstance(node, dict) or node.get("isCrossRepository"):
+    nodes = [
+        *((repo.get("pullRequests") or {}).get("nodes") or []),
+        *((repo.get("openPullRequests") or {}).get("nodes") or []),
+    ]
+    seen: set[int] = set()
+    for node in nodes:
+        if not isinstance(node, dict) or int(node.get("number") or 0) in seen:
             continue
+        seen.add(int(node.get("number") or 0))
         commits = (node.get("commits") or {}).get("nodes") or []
         commit = (commits[0] or {}).get("commit") if commits else None
         commit = commit if isinstance(commit, dict) else {}
@@ -395,6 +431,10 @@ def parse_github(payload: dict[str, Any], fetched_at: float = 0.0) -> _GitHubSna
                 updated_at=str(node.get("updatedAt") or ""),
                 queue_position=entry.get("position") if isinstance(entry, dict) else None,
                 ci=ci_from_rollup(commit.get("statusCheckRollup"), str(commit.get("oid") or "")),
+                conflicting=str(node.get("mergeable") or "").upper() == "CONFLICTING",
+                review=str(node.get("reviewDecision") or "").lower(),
+                author=str((node.get("author") or {}).get("login") or ""),
+                fork=bool(node.get("isCrossRepository")),
             )
         )
     for node in (repo.get("refs") or {}).get("nodes") or []:
@@ -527,6 +567,15 @@ class _GitHubCache:
             ).start()
         return snap
 
+    def peek(self, key: str) -> _GitHubSnapshot | None:
+        """The answer already in memory, however old; never a network call."""
+        with self._guard:
+            return self._entries.get(key)
+
+    def drop(self, key: str) -> None:
+        with self._guard:
+            self._entries.pop(key, None)
+
     def clear(self) -> None:
         with self._guard:
             self._entries.clear()
@@ -537,54 +586,18 @@ _CACHE = _GitHubCache()
 
 def clear_cache() -> None:
     _CACHE.clear()
+    git_local.forget()
+
+
+def clear_github(folder: str | Path) -> None:
+    """Forget GitHub's answer for ``folder``'s repository, so the next read asks
+    again — after a push or a new pull request the cached one is known stale."""
+    repo = github_link.bound_repository(folder)
+    if repo:
+        _CACHE.drop(repo)
 
 
 # ------------------------------------------------------------------ local git
-
-
-def _default_branch(root: Path, names: set[str], current: str) -> str:
-    head = _out(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], root)
-    if head and head.strip():
-        return head.strip().split("/", 1)[-1]
-    for candidate in ("main", "master", "trunk", "develop"):
-        if candidate in names:
-            return candidate
-    return current
-
-
-def _local_branches(root: Path, current: str) -> list[BranchRow]:
-    text = _out(
-        [
-            "for-each-ref",
-            "--sort=-committerdate",
-            "--format=%(refname:short)%09%(objectname)%09%(upstream:short)%09"
-            "%(upstream:track,nobracket)%09%(committerdate:unix)%09%(worktreepath)",
-            "refs/heads",
-        ],
-        root,
-    )
-    rows: list[BranchRow] = []
-    for line in (text or "").splitlines():
-        name, oid, upstream, track, stamp, tree = ([*line.split("\t"), "", "", "", "", ""])[:6]
-        if not name:
-            continue
-        row = BranchRow(
-            name=name,
-            current=name == current,
-            upstream=upstream,
-            head=oid[:12],
-            committed_at=int(stamp) if stamp.isdigit() else 0,
-        )
-        for part in track.split(","):
-            word, _, count = part.strip().partition(" ")
-            if word == "ahead" and count.isdigit():
-                row.ahead = int(count)
-            elif word == "behind" and count.isdigit():
-                row.behind = int(count)
-        if tree and not row.current:
-            row.worktree = str(Path(tree))
-        rows.append(row)
-    return rows
 
 
 def _resolve_target(root: Path, target: str, local: set[str]) -> str | None:
@@ -598,8 +611,9 @@ def _resolve_target(root: Path, target: str, local: set[str]) -> str | None:
 def _merged_by_git(root: Path, targets: list[str], local: set[str]) -> dict[str, list[str]]:
     """Branch name → targets whose history already contains all of its commits.
 
-    A branch whose tip IS the target's tip (just created from it, or fast-
-    forwarded) holds no work of its own and is not reported as merged.
+    For pull request bases other than the default branch (that one comes with
+    the branch list). A branch whose tip IS the target's tip holds no work of
+    its own and is not reported as merged.
     """
     merged: dict[str, list[str]] = {}
     for target in targets:
@@ -607,20 +621,29 @@ def _merged_by_git(root: Path, targets: list[str], local: set[str]) -> dict[str,
         if ref is None:
             continue
         tip = (_out(["rev-parse", ref], root) or "").strip()
-        text = _out(
-            [
-                "for-each-ref",
-                f"--merged={ref}",
-                "--format=%(refname:short)%09%(objectname)",
-                "refs/heads",
-            ],
-            root,
-        )
-        for line in (text or "").splitlines():
-            name, _, oid = line.partition("\t")
-            if name and name != target and oid.strip() != tip:
+        for name, oid in git_local.merged_into(root, ref).items():
+            if name != target and oid != tip:
                 merged.setdefault(name, []).append(target)
     return merged
+
+
+def _row(branch: git_local.LocalBranch, current: str) -> BranchRow:
+    row = BranchRow(
+        name=branch.name,
+        current=branch.name == current,
+        upstream=branch.upstream,
+        ahead=branch.ahead,
+        behind=branch.behind,
+        head=branch.head[:12],
+        committed_at=branch.committed_at,
+        upstream_gone=branch.upstream_gone,
+        base_ahead=branch.base_ahead,
+        base_behind=branch.base_behind,
+        merged_into=[MergedInto(target=target, via="git") for target in branch.merged_into],
+    )
+    if branch.worktree and not row.current:
+        row.worktree = branch.worktree
+    return row
 
 
 # ------------------------------------------------------------------ assembly
@@ -634,7 +657,7 @@ def _remote_name(row: BranchRow) -> str:
 
 
 def _attach_github(row: BranchRow, remote: str, snap: _GitHubSnapshot) -> None:
-    prs = [pr for pr in snap.prs if pr.head == remote]
+    prs = [pr for pr in snap.prs if pr.head == remote and not pr.fork]
     prs.sort(key=lambda pr: (_PR_RANK.get(pr.state, 9), -pr.number))
     row.pull_requests = prs[:MAX_PRS_PER_BRANCH]
     ref = snap.refs.get(remote)
@@ -728,20 +751,24 @@ def overview(
         return RepoOverview(available=False, reason="The workspace folder is missing.")
     if shutil.which("git") is None:
         return RepoOverview(available=False, reason="Git is not installed.")
-    top = _out(["rev-parse", "--show-toplevel"], path)
-    if not top or not top.strip():
+    state = git_local.read(path, fresh=refresh)
+    if state is None:
         return RepoOverview(available=False, reason="This folder is not a git repository.")
-    root = Path(top.strip())
-    info = RepoOverview(available=True, root=str(root))
+    root = state.root
+    head = state.checkout.branch
+    info = RepoOverview(
+        available=True,
+        root=str(root),
+        branch=head,
+        detached=state.checkout.detached,
+        head=state.checkout.head,
+        default_branch=state.default_branch,
+        checkout=state.checkout,
+        base_ref=state.base_ref,
+    )
 
-    head = (_out(["symbolic-ref", "--quiet", "--short", "HEAD"], root) or "").strip()
-    info.branch = head
-    info.detached = not head
-    info.head = (_out(["rev-parse", "--short=12", "HEAD"], root) or "").strip()
-
-    rows = _local_branches(root, head)
+    rows = [_row(branch, head) for branch in state.branches]
     local = {row.name for row in rows}
-    info.default_branch = _default_branch(root, local, head)
 
     snap: _GitHubSnapshot | None = None
     if github:
@@ -754,18 +781,22 @@ def overview(
     info.truncated = len(rows) > MAX_BRANCHES
     rows = pinned + rest[: max(0, MAX_BRANCHES - len(pinned))]
 
-    targets = [info.default_branch] if info.default_branch else []
+    # Pull request bases other than the default branch (which the branch list covers).
+    targets: list[str] = []
     for pr in snap.prs if snap and snap.ok else []:
-        if pr.base and pr.base not in targets and pr.base in local:
-            targets.append(pr.base)
-    merged = _merged_by_git(root, targets[:MAX_MERGE_TARGETS], local)
+        if pr.base and pr.base != info.default_branch and pr.base in local:
+            if pr.base not in targets:
+                targets.append(pr.base)
+    extra = _merged_by_git(root, targets[: MAX_MERGE_TARGETS - 1], local) if targets else {}
     for row in rows:
-        row.merged_into = [MergedInto(target=t, via="git") for t in merged.get(row.name, [])]
+        for target in extra.get(row.name, []):
+            row.merged_into.append(MergedInto(target=target, via="git"))
         if snap is not None and snap.ok:
             _attach_github(row, _remote_name(row), snap)
     info.branches = rows
 
     if snap is not None and snap.ok:
+        _mark_unfetched(root, rows, state.remote_heads, snap)
         known = {_remote_name(row) for row in rows} | local
         for name, (oid, _ci) in snap.refs.items():
             if name in known:
@@ -779,4 +810,67 @@ def overview(
                 break
         # Newest first, like the local list; the later pages arrive in name order.
         info.remote_branches.sort(key=lambda row: row.committed_at, reverse=True)
+        info.pull_requests = _open_pull_requests(snap)
     return info
+
+
+#: Open pull requests listed in the tab (the ones needing a look come first).
+MAX_OPEN_PRS = 60
+
+
+def _pr_urgency(pr: PullRequest) -> int:
+    """Lower sorts first: what is broken, then what moves, then what waits."""
+    if pr.ci.state == "failure" or pr.conflicting:
+        return 0
+    if pr.review == "changes_requested":
+        return 1
+    if pr.state == "queued":
+        return 2
+    if pr.ci.state in {"running", "pending"}:
+        return 3
+    return 5 if pr.state == "draft" else 4
+
+
+def _open_pull_requests(snap: _GitHubSnapshot) -> list[PullRequest]:
+    live = [pr for pr in snap.prs if pr.state in {"queued", "open", "draft"}]
+    live.sort(key=lambda pr: pr.updated_at, reverse=True)
+    live.sort(key=_pr_urgency)
+    return live[:MAX_OPEN_PRS]
+
+
+def _mark_unfetched(
+    root: Path, rows: list[BranchRow], remote_heads: dict[str, str], snap: _GitHubSnapshot
+) -> None:
+    """Flag branches whose GitHub tip this computer has not fetched yet.
+
+    A tip that differs from the remote-tracking ref is not enough: right after
+    a push GitHub's cached answer is the older one. Only a commit that is not
+    in the local object store proves there is something to fetch.
+    """
+    candidates: dict[str, list[BranchRow]] = {}
+    for row in rows:
+        if not row.upstream.startswith("origin/"):
+            continue
+        ref = snap.refs.get(_remote_name(row))
+        tracked = remote_heads.get(row.upstream, "")
+        if ref is None or not ref[0] or not tracked or tracked.startswith(ref[0]):
+            continue
+        candidates.setdefault(ref[0], []).append(row)
+    for oid in git_local.missing_commits(root, list(candidates)):
+        for row in candidates[oid]:
+            row.unfetched = True
+
+
+def merged_pull_request(folder: str | Path, branch: str, head: str) -> int | None:
+    """The merged pull request that carried exactly ``head`` of ``branch``, if GitHub
+    already told us about one (no network call): proof that deleting the branch
+    loses nothing even though git ancestry cannot see a squash merge."""
+    repo = github_link.bound_repository(folder)
+    snap = _CACHE.peek(repo) if repo else None
+    if snap is None or not snap.ok or not head:
+        return None
+    for pr in snap.prs:
+        if pr.state == "merged" and pr.head == branch and not pr.fork and pr.head_oid:
+            if head.startswith(pr.head_oid[:7]):
+                return pr.number
+    return None
