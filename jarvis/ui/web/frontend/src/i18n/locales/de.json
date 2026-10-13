@@ -2532,6 +2532,15 @@
     "wiki_links": "{0} Verweise",
     "wiki_empty_body": "Noch keine Seite. Das Wiki legt eine an, sobald eure Gespräche etwas hergeben.",
     "wiki_needs_name": "Trag deinen Namen ein, dann kann das Wiki eine Seite über dich anlegen.",
+    "semantic_title": "Nach Bedeutung suchen",
+    "semantic_off": "Findet Notizen, die dasselbe meinen wie deine Frage, auch mit anderen Worten oder in einer anderen Sprache. Beim Einschalten wird einmalig ein Suchmodell mit {0} MB geladen; es läuft nur auf diesem Computer.",
+    "semantic_starting": "Startet…",
+    "semantic_downloading": "Suchmodell wird geladen… {0} %",
+    "semantic_indexing": "Deine Wiki-Seiten werden gelesen… {0} %",
+    "semantic_ready": "An. {0} Seiten lassen sich nach Bedeutung finden.",
+    "semantic_unavailable": "Auf diesem System nicht verfügbar. Die Wortsuche funktioniert wie bisher.",
+    "semantic_failed": "Die Einrichtung ist fehlgeschlagen. Schalte es aus und wieder ein, um es erneut zu versuchen.",
+    "semantic_save_failed": "Die Einstellung konnte nicht gespeichert werden.",
     "file_title": "Profildatei",
     "file_hint": "USER.md, die Datei hinter dieser Seite",
     "file_hint_dated": "USER.md · geändert am {0}",
@@ -4051,7 +4060,8 @@
     "unavailable": "Suche gerade nicht verfügbar.",
     "no_hits_prefix": "Keine Treffer für ",
     "no_hits_suffix": ". Versuche andere Stichworte oder schau in den Graph.",
-    "hits_heading": "Treffer"
+    "hits_heading": "Treffer",
+    "by_meaning": "Nach Bedeutung"
   },
   "wiki_graph": {
     "empty_prefix": "Dein Memory-Graph ist noch leer. Sobald ",
