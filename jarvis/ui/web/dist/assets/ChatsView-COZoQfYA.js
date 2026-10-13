@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-COZoQfYA.js
-import{j as s}from"./index-B8EqKdQS.js";import{P as n}from"./PageHeader-C9bZegaZ.js";import"./WorkTrace-cpqR6iYq.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-|||||||| parent of 4b98ab0c9 (feat(society): make a team's Lead tab the chat with its lead):jarvis/ui/web/dist/assets/ChatsView-C4Ny40cg.js
-import{j as s}from"./index-BUF1O4fr.js";import{P as n}from"./PageHeader-BJW2f8Dj.js";import"./WorkTrace-x_TLZWF4.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-========
-import{j as s}from"./index-Dl38OUJs.js";import{P as n}from"./PageHeader-74Wnb4_A.js";import"./WorkTrace-BcP1Y-3P.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
->>>>>>>> 4b98ab0c9 (feat(society): make a team's Lead tab the chat with its lead):jarvis/ui/web/dist/assets/ChatsView-DPFp26Pb.js
