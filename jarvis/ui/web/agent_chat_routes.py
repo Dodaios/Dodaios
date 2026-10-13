@@ -83,17 +83,19 @@ log = logging.getLogger(__name__)
 
 #: The Pydantic twin of ``jarvis.agent_chat.store.SURFACES`` (AP-4; the parity
 #: test in tests/unit/agent_chat/test_agent_chat_surface_parity.py pins it).
-SurfaceName = Literal["jarvis", "agent", "local-models", "society"]
+SurfaceName = Literal["jarvis", "agent", "local-models", "society", "side"]
 
 #: The same names, as data — a multipart form field cannot be typed by a
 #: ``Literal`` without turning an unknown surface into a 422 on a file the
 #: person just dropped.
-SURFACE_NAMES: frozenset[str] = frozenset({"jarvis", "agent", "local-models", "society"})
+SURFACE_NAMES: frozenset[str] = frozenset(
+    {"jarvis", "agent", "local-models", "society", "side"}
+)
 
 #: Surfaces that never appear in an unfiltered session list: an agent's
-#: canonical chat belongs to its model card, not to the IDE's or the front
-#: page's history.
-HIDDEN_SURFACES: frozenset[str] = frozenset({"society"})
+#: canonical chat belongs to its model card, and the IDE's side chat to its
+#: side panel, not to the IDE's threads or the front page's history.
+HIDDEN_SURFACES: frozenset[str] = frozenset({"society", "side"})
 
 router = APIRouter(prefix="/api/agent-chat", tags=["agent-chat"])
 

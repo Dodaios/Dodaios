@@ -3547,7 +3547,10 @@ async def _run_cli_once(
             if getattr(handle, "tools_disabled", False):
                 from .native_control import disable_cli_tools
 
-                disable_cli_tools(plan, runner)
+                # A plain chat is a conversation: its next turn resumes this one.
+                disable_cli_tools(
+                    plan, runner, keep_session=bool(getattr(handle, "plain_system", ""))
+                )
             if getattr(handle, "gateway_only", False):
                 if runner == "claude-cli":
                     plan.argv += ["--tools", "", "--strict-mcp-config"]
