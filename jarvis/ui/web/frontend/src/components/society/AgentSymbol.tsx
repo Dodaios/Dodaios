@@ -185,17 +185,20 @@ function FigureSymbol(props: SymbolProps) {
   const { shape, color, size, eyes = "lines", accessories, expressive = false, skin } = props;
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const worn = wornAccessories(accessories);
-  // Moving eyes are drawn on top of an eyeless figure; glasses cover them, so the figure keeps its own.
-  const moving = expressive && !worn.some(item => item.slot === "face");
+  // Living eyes are drawn on top of an eyeless figure; glasses cover them, so the figure keeps its own.
+  const blind = !worn.some(item => item.slot === "face");
+  // A stage plays its own expressions on vector eyes; everywhere else the eyes blink and glance by themselves.
+  const moving = expressive && blind;
   const wornKey = worn.map(item => item.id).join(","), skinKey = skin ? JSON.stringify(skin) : "";
   const look = useMemo<FigureLook>(() => ({
-    shape, color, eyes, accessories, blind: moving,
+    shape, color, eyes, accessories, blind,
     skin: skin && { colors: skin.colors, radial: skin.pattern === "radial", angle: skin.angle, effect: SKIN_EFFECTS.indexOf(skinEffect(skin)), highlight: skinHighlight(skin.colors) },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- accessories and skin are read through their keys
-  }), [shape, color, eyes, wornKey, skinKey, moving]);
+  }), [shape, color, eyes, wornKey, skinKey, blind]);
   const effect = skin ? skinEffect(skin) : "none";
   const eyeY = symbolEyeY(shape);
   return <ShapeFigure look={look} size={size} shape={shape} fallback={<FlatSymbol {...props} />}
+    eyes={blind && !moving ? { kind: eyes, y: eyeY, color: companionEyeColors(color).eye } : undefined}
     flow={skin && effect === "flow" ? { colors: skin.colors, angle: skin.angle } : undefined} shine={effect === "shimmer"}
     inside={effect === "stars" ? <SkinStars /> : undefined}
     smoke={(plume, index) => <SmokePuffs c={[0, 0, 0]} size={plume.size} fill={plume.fill} id={`${id}-smoke-${index}`} />}
