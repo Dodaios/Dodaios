@@ -4,7 +4,7 @@ import { fill, useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { GitHubIcon, type GitHubIconName } from "./GitHubIcon";
 import { PANE_BRAND, PANE_CHROME, type TerminalAppearance } from "./terminalThemes";
-import { useSessionGitHub, type SessionGitHubStatus } from "./useSessionGitHub";
+import { useSessionGitHub, type PaneGitHubStatus, type SessionGitHubStatus } from "./useSessionGitHub";
 
 const PR: Record<SessionGitHubStatus["state"], [GitHubIconName, string]> = {
   branch: ["git-branch", "ide_panes.github.state_branch"],
@@ -33,11 +33,12 @@ interface BranchRow {
   settled: boolean;
 }
 
-function describe(status: SessionGitHubStatus, t: (key: string) => string): BranchRow | null {
+function describe(status: PaneGitHubStatus, t: (key: string) => string): BranchRow | null {
   if (!status?.owned) return null;
   if (!/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/.test(status.repo) || !status.branch) return null;
   const identity = `${status.repo} · ${status.branch}`;
-  const unavailable = !status.available || Date.now() / 1000 - status.fetched_at > 60;
+  // An answer a newer read is on its way for keeps its state meanwhile.
+  const unavailable = !status.available || (!status.refreshing && Date.now() / 1000 - status.fetched_at > 60);
   if (!status.published) {
     // Nothing on GitHub to open yet: the pane still says which branch its work is on.
     return {
@@ -162,7 +163,7 @@ function BranchList({ rows, appearance }: { rows: BranchRow[]; appearance: Termi
 }
 
 export function GitHubStatusBadge({ status, appearance }: {
-  status: SessionGitHubStatus | null;
+  status: PaneGitHubStatus | null;
   appearance: TerminalAppearance;
 }) {
   const t = useT();

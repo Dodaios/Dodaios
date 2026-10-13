@@ -114,6 +114,18 @@ describe("session GitHub link", () => {
     expect(link.getAttribute("href")).toBe("https://github.com/owner/repo/pull/7");
   });
 
+  it("keeps the last known state while a newer answer is being read", () => {
+    render(<GitHubStatusBadge status={{ ...status({ state: "merged", fetched_at: 1 }), refreshing: true }} appearance="dark" />);
+    const link = screen.getByRole("link");
+    expect(link.title).toContain("Pull request merged");
+    expect(link.title).not.toContain("GitHub status unavailable");
+  });
+
+  it("does not let a refresh hide that GitHub cannot be read", () => {
+    render(<GitHubStatusBadge status={{ ...status({ state: "merged", available: false }), refreshing: true }} appearance="dark" />);
+    expect(screen.getByRole("link").title).toContain("GitHub status unavailable");
+  });
+
   it("rejects invalid repository link metadata", () => {
     const { container } = render(<GitHubStatusBadge status={status({ repo: "evil.invalid/a/b" })} appearance="dark" />);
     expect(container.innerHTML).toBe("");

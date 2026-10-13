@@ -23,11 +23,22 @@ export interface SessionGitHubStatus {
   others?: SessionGitHubStatus[];
 }
 
+/** A status as a header shows it: the backend's answer, plus what this window knows. */
+export interface PaneGitHubStatus extends SessionGitHubStatus {
+  /**
+   * Set here, never by the backend: this is the last known answer and a newer
+   * one is being read. It keeps its state on screen meanwhile instead of
+   * turning into "unavailable" for the seconds the read takes.
+   */
+  refreshing?: boolean;
+  others?: PaneGitHubStatus[];
+}
+
 export type SessionCiState = CiStatus["state"] | "cancelled" | "neutral" | "skipped"
   | "action_required" | "timed_out" | "startup_failure" | "stale" | "unknown"
   | "waiting" | "requested" | "expected" | "error";
 
-type Panes = Record<string, SessionGitHubStatus | null>;
+type Panes = Record<string, PaneGitHubStatus | null>;
 type Entry = {
   panes: Panes;
   listeners: Set<() => void>;
@@ -35,13 +46,55 @@ type Entry = {
 };
 const entries = new Map<string, Entry>();
 const EMPTY: Panes = {};
-// A workspace's last answer outlives its listeners: a pane coming back on
-// stage shows its branch at once, and the refresh follows.
+// A workspace's last answer outlives its listeners, and a reload of the window:
+// a pane coming back on stage shows its branch at once, and the refresh follows.
 const remembered = new Map<string, Panes>();
+const STORE = "ide-pane-github:";
+// While a newer answer is being read the backend is asked again this soon.
+const FOLLOW_UP_MS = 700;
+// A read that long is not coming; the steady rhythm takes over.
+const MAX_FOLLOW_UPS = 30;
+
+function mark(status: PaneGitHubStatus | null, refreshing: boolean): PaneGitHubStatus | null {
+  return status && {
+    ...status, refreshing,
+    others: status.others?.map((other) => ({ ...other, refreshing })),
+  };
+}
+
+function markAll(panes: Panes, refreshing: boolean): Panes {
+  return Object.fromEntries(Object.entries(panes).map(([name, status]) => [name, mark(status, refreshing)]));
+}
+
+/** What was last known about a workspace, as an answer still being refreshed. */
+function recall(workspaceId: string): Panes {
+  let panes = remembered.get(workspaceId);
+  if (!panes) {
+    panes = EMPTY;
+    try {
+      const stored: unknown = JSON.parse(sessionStorage.getItem(STORE + workspaceId) ?? "null");
+      if (stored && typeof stored === "object" && !Array.isArray(stored)) panes = markAll(stored as Panes, true);
+    } catch {
+      // Blocked or unreadable storage only costs the head start; the poll follows.
+    }
+    remembered.set(workspaceId, panes);
+  }
+  return panes;
+}
+
+function remember(workspaceId: string, panes: Panes) {
+  remembered.set(workspaceId, markAll(panes, true));
+  try {
+    sessionStorage.setItem(STORE + workspaceId, JSON.stringify(panes));
+  } catch {
+    // Storage is full or blocked: the answer still lives in memory.
+  }
+}
 
 function start(workspaceId: string): Entry {
-  const entry: Entry = { panes: remembered.get(workspaceId) ?? EMPTY, listeners: new Set(), stop: () => {} };
+  const entry: Entry = { panes: recall(workspaceId), listeners: new Set(), stop: () => {} };
   let disposed = false;
+  let followUps = 0;
   let controller: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let cancelConnect: (() => void) | undefined;
@@ -64,31 +117,42 @@ function start(workspaceId: string): Entry {
   };
   const poll = async () => {
     if (disposed || controller || document.hidden) return;
+    let waiting = false;
     controller = new AbortController();
     const timeout = setTimeout(() => controller?.abort(), 30_000);
     try {
       const query = new URLSearchParams({ workspace_id: workspaceId });
       const response = await fetch(`/api/agentic-ide/git/session-status?${query}`, { signal: controller.signal });
       if (!response.ok) throw new Error("GitHub status could not be refreshed.");
-      const data = await response.json() as { panes: Panes };
+      const data = await response.json() as { panes: Panes; refreshing?: boolean };
       if (disposed) return;
+      // The backend answers with what it last read and reads on in the
+      // background; until that lands, this answer is the last known one.
+      waiting = data.refreshing === true;
+      // A read that never lands must not pass its old answer off as current.
+      const pending = waiting && followUps < MAX_FOLLOW_UPS;
       // After logout/offline, keep a previously confirmed branch visible with
       // an unknown status. Never borrow identity across a checkout change.
-      entry.panes = Object.fromEntries(Object.entries(data.panes).map(([name, status]) => {
+      const next = Object.fromEntries(Object.entries(data.panes).map(([name, status]) => {
         const previous = entry.panes[name];
         if (status?.owned && !status.available && previous?.owned && previous.published
           && status.repo === previous.repo && status.branch === previous.branch) {
-          return [name, { ...status, published: true }];
+          return [name, mark({ ...status, published: true }, pending)];
         }
-        return [name, status];
+        return [name, mark(status, pending)];
       }));
+      // A pane the backend has not read yet keeps what was last known of it.
+      entry.panes = pending ? { ...markAll(entry.panes, true), ...next } : next;
+      if (!pending) remember(workspaceId, entry.panes);
       notify();
     } catch {
       if (!disposed) unavailable(translate("ide_panes.github.refresh_failed"));
     } finally {
       clearTimeout(timeout);
       controller = undefined;
-      if (!disposed) timer = setTimeout(() => schedule(0), spreadDelay(20_000));
+      followUps = waiting ? followUps + 1 : 0;
+      const soon = waiting && followUps <= MAX_FOLLOW_UPS;
+      if (!disposed) timer = setTimeout(() => schedule(0), spreadDelay(soon ? FOLLOW_UP_MS : 20_000));
     }
   };
   const resume = () => {
@@ -117,7 +181,7 @@ function start(workspaceId: string): Entry {
   return entry;
 }
 
-export function useSessionGitHub(workspaceId?: string, pane?: string): SessionGitHubStatus | null {
+export function useSessionGitHub(workspaceId?: string, pane?: string): PaneGitHubStatus | null {
   const subscribe = useCallback((listener: () => void) => {
     if (!workspaceId) return () => {};
     let entry = entries.get(workspaceId);
@@ -129,13 +193,14 @@ export function useSessionGitHub(workspaceId?: string, pane?: string): SessionGi
     return () => {
       entry.listeners.delete(listener);
       if (!entry.listeners.size) {
-        remembered.set(workspaceId, entry.panes);
+        remembered.set(workspaceId, markAll(entry.panes, true));
         entry.stop();
         entries.delete(workspaceId);
       }
     };
   }, [workspaceId]);
-  const snapshot = useCallback(() => workspaceId ? entries.get(workspaceId)?.panes ?? EMPTY : EMPTY, [workspaceId]);
+  // Before the first subscription the last known answer already paints.
+  const snapshot = useCallback(() => workspaceId ? entries.get(workspaceId)?.panes ?? recall(workspaceId) : EMPTY, [workspaceId]);
   const panes = useSyncExternalStore(subscribe, snapshot, () => EMPTY);
   return pane ? panes[pane] ?? null : null;
 }

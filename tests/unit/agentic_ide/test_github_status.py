@@ -320,7 +320,9 @@ def test_finished_branch_is_read_rarely_and_never_looks_stale(monkeypatch):
 
     pane = status.statuses(records)["t1"]
 
-    assert requests == ["claude/open", "claude/merged", "claude/open"]
+    # The first read asks for both side by side; the second only for the open one.
+    assert sorted(requests[:2]) == ["claude/merged", "claude/open"]
+    assert requests[2:] == ["claude/open"]
     (merged,) = pane["others"]
     assert merged["state"] == "merged" and merged["available"]
     assert time.time() - merged["fetched_at"] < 5
@@ -369,16 +371,125 @@ def test_route_uses_pane_cwd_and_excludes_remote_computers(monkeypatch):
         branch="owned",
     )
     remote = SimpleNamespace(name="t2", computer_id="server")
-    session = SimpleNamespace(folder="workspace", terminals=[pane, remote])
+    session = SimpleNamespace(id="w", folder="workspace", terminals=[pane, remote])
+    behind = SimpleNamespace(id="behind", folder="elsewhere", terminals=[pane])
     monkeypatch.setattr(
         routes,
         "get_registry",
-        lambda: SimpleNamespace(get=lambda key: session if key == "w" else None),
+        lambda: SimpleNamespace(
+            get=lambda key: session if key == "w" else None, sessions=[session, behind]
+        ),
     )
-    monkeypatch.setattr(status, "statuses", lambda folders: calls.append(folders) or {})
-    assert routes.session_github_status("w") == {"panes": {}}
-    assert calls[0][0].folder == "fork-folder"
-    assert calls[0][0].created_branch == "owned"
+    monkeypatch.setattr(status, "known", lambda key: False)
+
+    def board(key, records, ahead=False):
+        calls.append((key, records, ahead))
+        return {"panes": {}, "refreshing": True}
+
+    monkeypatch.setattr(status, "board", board)
+    assert routes.session_github_status("w") == {"panes": {}, "refreshing": True}
+    key, records, ahead = calls[0]
+    assert (key, ahead, len(records)) == ("w", False, 1)
+    assert records[0].folder == "fork-folder"
+    assert records[0].created_branch == "owned"
+    # The tab behind is read once, ahead of its first visit.
+    assert [(key, ahead) for key, _, ahead in calls[1:]] == [("behind", True)]
     with pytest.raises(HTTPException) as error:
         routes.session_github_status("missing")
     assert error.value.status_code == 404
+
+
+def _settled(key, records, **options):
+    """Ask until the background read has landed; fail rather than hang."""
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        answer = status.board(key, records, **options)
+        if not answer["refreshing"]:
+            return answer
+        time.sleep(0.01)
+    raise AssertionError("the background read never finished")
+
+
+@pytest.fixture
+def boards(monkeypatch):
+    monkeypatch.setattr(status, "_boards", {})
+    monkeypatch.setattr(status, "_BOARD_TTL", 60)
+    return status._boards
+
+
+def test_board_answers_at_once_and_reads_in_the_background(monkeypatch, boards):
+    import threading
+
+    release = threading.Event()
+    reads = []
+
+    def slow(records):
+        reads.append([record.pane for record in records])
+        assert release.wait(5)
+        return {record.pane: {"branch": f"claude/{len(reads)}"} for record in records}
+
+    monkeypatch.setattr(status, "statuses", slow)
+    records = [status.PaneBranchRecord("t1", "history", "worktree")]
+
+    began = time.time()
+    first = status.board("w", records)
+    assert time.time() - began < 1
+    assert first == {"panes": {}, "refreshing": True}
+    # A second caller joins the read that is already running.
+    assert status.board("w", records) == first
+    release.set()
+    assert _settled("w", records)["panes"]["t1"] == {"branch": "claude/1"}
+    assert reads == [["t1"]]
+    # Once the answer has aged, a poll gets it at once and a newer one afterwards.
+    boards["w"].read_at -= 120
+    again = status.board("w", records)
+    assert again == {"panes": {"t1": {"branch": "claude/1"}}, "refreshing": True}
+    assert _settled("w", records)["panes"]["t1"] == {"branch": "claude/2"}
+
+
+def test_board_never_shows_a_pane_its_predecessors_branch(monkeypatch, boards):
+    monkeypatch.setattr(
+        status,
+        "statuses",
+        lambda records: {record.pane: {"branch": record.history_id} for record in records},
+    )
+    first = [status.PaneBranchRecord("t1", "first", "worktree")]
+    assert _settled("w", first)["panes"]["t1"] == {"branch": "first"}
+
+    successor = [status.PaneBranchRecord("t1", "second", "worktree")]
+    assert status.board("w", successor) == {"panes": {}, "refreshing": True}
+    assert _settled("w", successor)["panes"]["t1"] == {"branch": "second"}
+
+
+def test_failed_background_read_keeps_the_last_answer_and_ends(monkeypatch, boards):
+    answers = [{"t1": {"branch": "claude/kept"}}]
+
+    def read(records):
+        if not answers:
+            raise RuntimeError("git went away")
+        return answers.pop()
+
+    monkeypatch.setattr(status, "statuses", read)
+    records = [status.PaneBranchRecord("t1", "history", "worktree")]
+    assert _settled("w", records)["panes"]["t1"] == {"branch": "claude/kept"}
+    boards["w"].read_at -= 120
+    assert status.board("w", records)["refreshing"]
+    assert _settled("w", records)["panes"]["t1"] == {"branch": "claude/kept"}
+
+
+def test_workspace_behind_the_front_tab_is_read_ahead_once(monkeypatch, boards):
+    reads = []
+    monkeypatch.setattr(
+        status, "statuses", lambda records: reads.append(1) or {"t1": {"branch": "claude/ahead"}}
+    )
+    records = [status.PaneBranchRecord("t1", "history", "worktree")]
+
+    assert not status.known("background")
+    assert status.board("background", records, ahead=True)["refreshing"]
+    assert status.known("background")
+    _settled("background", records, ahead=True)
+    assert reads == [1]
+    assert status.board("background", records) == {
+        "panes": {"t1": {"branch": "claude/ahead"}},
+        "refreshing": False,
+    }
