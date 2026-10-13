@@ -40,6 +40,7 @@ from uuid import uuid4
 from jarvis.core.protocols import ToolResult
 
 from .delivery import FOLLOW_UP_RULE, IncomingMessage, incoming_context
+from .display_name import display_name
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ def _clip(text: str, limit: int) -> str:
 
 
 def _author(agent: Any) -> dict[str, str]:
-    return {"agent_id": str(agent.agent_id), "name": str(agent.name)}
+    return {"agent_id": str(agent.agent_id), "name": display_name(agent)}
 
 
 def _provider_rows() -> list[Any]:
@@ -509,7 +510,7 @@ class CodingThreadTool:
             session.session_id,
             owner_session=self._owner_session,
             owner_agent=self.agent_id,
-            owner_name=str(agent.name),
+            owner_name=display_name(agent),
             state={"origin": "agent", "wakes": 0, "fingerprint": fingerprint},
         )
         coordinator = self.runtime.coding_threads
