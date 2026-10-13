@@ -455,7 +455,9 @@ export function PluginBrowse({
           <h2 className="text-xl font-semibold text-foreground-strong">{title}</h2>
           {subtitle && <p className="mt-1 text-base text-muted-foreground">{subtitle}</p>}
         </div>
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+        {/* A basis instead of a bare flex-1: on a narrow pane the controls
+            wrap under the title rather than squeezing the search shut. */}
+        <div className="flex min-w-0 flex-[1_1_18rem] items-center justify-end gap-1">
           <label className="flex h-8 min-w-0 max-w-56 flex-1 items-center gap-2 rounded-full border border-border bg-background px-3 text-muted-foreground focus-within:border-border-strong">
             <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
             <input
