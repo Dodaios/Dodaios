@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-jT4Pji1D.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-jT4Pji1D.js
 import{c as pe,u as ge,bQ as Be,aM as V,d as Fe,bU as m,r as l,j as t,bg as Ue,bf as ce,fk as $e,x as qe,F as Ke,L as q,f as b,X as We,e as O,bj as Ye,w as Je,fl as Ve}from"./index-Bx3U5l4b.js";import{A as Xe}from"./AgentMark-DIm2GxFq.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-BZM7_Q3u.js";import{P as tt}from"./pencil-DKW_Pvvq.js";import{F as nt}from"./folder-D1VUZYVR.js";import{C as st}from"./check-D3k377hY.js";import{C as rt}from"./chevron-right-D46z7eBj.js";/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/ThreadTree-5qFVhDwc.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTree-5qFVhDwc.js
@@ -11,6 +12,11 @@ import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,b
 ========
 import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-CQDzutdp.js";import{A as Xe}from"./AgentMark-Da9koQtg.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-Brl0EB2w.js";import{P as tt}from"./pencil-CSovHKNU.js";import{F as nt}from"./folder-y1VrZm7v.js";import{C as st}from"./check-jZL1wzL9.js";import{C as rt}from"./chevron-right-DquKcSvg.js";/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/ThreadTree-DjscOSIM.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/ThreadTree-DjscOSIM.js
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-CQDzutdp.js";import{A as Xe}from"./AgentMark-Da9koQtg.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-Brl0EB2w.js";import{P as tt}from"./pencil-CSovHKNU.js";import{F as nt}from"./folder-y1VrZm7v.js";import{C as st}from"./check-jZL1wzL9.js";import{C as rt}from"./chevron-right-DquKcSvg.js";/**
+========
+import{c as pe,u as ge,bP as Be,aM as V,d as Fe,bT as m,r as l,j as t,bf as $e,be as ce,fk as qe,x as Ke,F as Ue,L as K,f as b,X as We,e as O,bi as Ye,w as Je,fl as Ve}from"./index-Dq-RES4Y.js";import{A as Xe}from"./AgentMark-CRtqnFUM.js";import{u as k,e as ze,T as Ge,a as E,g as p,b as He,h as Qe,i as Ze,s as X,m as et}from"./threadModel-Bfcvjy5R.js";import{P as tt}from"./pencil-DkE0lNV3.js";import{F as nt}from"./folder-BRavfoJE.js";import{C as st}from"./check-DO1iTMiU.js";import{C as rt}from"./chevron-right-D-mStfpN.js";/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/ThreadTree-wPax9jqn.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

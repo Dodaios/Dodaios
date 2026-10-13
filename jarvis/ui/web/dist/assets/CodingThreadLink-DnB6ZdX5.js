@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-DnB6ZdX5.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-DnB6ZdX5.js
 import{c as P,r as i,j as e,u as C,bm as A,X as O,bS as q,bT as B,e as g,bn as D,bU as H,d as F}from"./index-Bx3U5l4b.js";import{C as I}from"./TraceTimeline-mdj_jk9f.js";import{L as U}from"./lock-DAn719GY.js";import{C as X}from"./code-xml-Cxbn8Tk2.js";import{C as $}from"./chevron-right-D46z7eBj.js";/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/CodingThreadLink-Dq8bqqoC.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-Dq8bqqoC.js
@@ -11,6 +12,11 @@ import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D
 ========
 import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-CQDzutdp.js";import{C as I}from"./TraceTimeline-BmQgFVKC.js";import{L as X}from"./lock-BAMhMAvc.js";import{C as $}from"./code-xml-DElSvNOc.js";import{C as J}from"./chevron-right-DquKcSvg.js";/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/CodingThreadLink-O2yNvYrW.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/CodingThreadLink-O2yNvYrW.js
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-CQDzutdp.js";import{C as I}from"./TraceTimeline-BmQgFVKC.js";import{L as X}from"./lock-BAMhMAvc.js";import{C as $}from"./code-xml-DElSvNOc.js";import{C as J}from"./chevron-right-DquKcSvg.js";/**
+========
+import{c as P,r as i,j as e,u as C,bl as A,X as O,bR as q,bS as B,e as g,bm as D,bT as H,d as F}from"./index-Dq-RES4Y.js";import{C as I}from"./TraceTimeline-IymFQgWV.js";import{L as X}from"./lock-mRC5szOt.js";import{C as $}from"./code-xml-A9jUZ0JB.js";import{C as J}from"./chevron-right-D-mStfpN.js";/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/CodingThreadLink-DfywRJ5u.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

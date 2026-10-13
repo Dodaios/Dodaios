@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-DWEC3ukh.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-DWEC3ukh.js
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,ck as qa,j as je}from"./index-Bx3U5l4b.js";var Jl={exports:{}},Lt={};/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/react-three-fiber.esm-SDaR19CD.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-SDaR19CD.js
@@ -11,6 +12,11 @@ import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 a
 ========
 import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-CQDzutdp.js";var Jl={exports:{}},Lt={};/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/react-three-fiber.esm-CiI2zJlI.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/react-three-fiber.esm-CiI2zJlI.js
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-CQDzutdp.js";var Jl={exports:{}},Lt={};/**
+========
+import{a4 as Mu,O as Fa,P as Da,_ as Ua,a5 as Yl,a6 as Ha,a7 as Aa,a8 as Ba,a9 as Qa,aa as Wa,ab as Va,ac as Ga,ad as Xa,V as jn,a as Lu,ae as Kl,af as Ya,ag as Ka,ah as Ja}from"./three.module-D3TT43S-.js";import{r as B,gw as Za,cj as qa,j as je}from"./index-Dq-RES4Y.js";var Jl={exports:{}},Lt={};/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/react-three-fiber.esm-Dm-XIlJC.js
  * @license React
  * react-reconciler-constants.production.min.js
  *

@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTimeline-5Y3aPBFu.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTimeline-5Y3aPBFu.js
 import{c as le,cl as Te,cm as Ee,u as _,r as u,j as t,e as b,f as k,bW as J,L as $e,X as ce,t as S,ba as Ie,bS as Le,bT as Re,cn as Ae,z as Fe,co as Oe,bB as Be,w as De,ca as ue}from"./index-Bx3U5l4b.js";import{i as We,s as Pe,j as E,C as R,a as se,p as z,Q as He,k as Ue,l as pe,S as qe,n as me,o as ze}from"./TraceTimeline-mdj_jk9f.js";import{M as xe}from"./message-square-Bl08AVxP.js";import{C as W}from"./chevron-right-D46z7eBj.js";import{B as K}from"./bot-i1xesHxK.js";import{C as he}from"./check-D3k377hY.js";import{F as Ge}from"./file-text-Cdafddm0.js";import{H as Ve}from"./AgentComposer-BNxpapFW.js";/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/ThreadTimeline-C81loD9y.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ThreadTimeline-C81loD9y.js
@@ -11,6 +12,11 @@ import{c as le,ck as Te,cl as Ee,u as _,r as u,j as t,e as b,f as k,bV as J,L as
 ========
 import{c as le,ck as Te,cl as Ee,u as _,r as u,j as t,e as b,f as k,bV as J,L as $e,X as ce,t as S,b9 as Ie,bR as Le,bS as Re,cm as Ae,z as Fe,cn as Oe,bA as De,w as Be,c9 as ue}from"./index-CQDzutdp.js";import{i as Pe,s as We,j as E,C as R,a as se,p as z,Q as He,k as Ue,l as pe,S as qe,n as me,o as ze}from"./TraceTimeline-BmQgFVKC.js";import{M as xe}from"./message-square-C6mqmadq.js";import{C as P}from"./chevron-right-DquKcSvg.js";import{B as K}from"./bot-CQH9Affh.js";import{C as he}from"./check-jZL1wzL9.js";import{F as Ge}from"./file-text-CO0GhoJj.js";import{H as Ve}from"./AgentComposer-Dl_lTVxA.js";/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/ThreadTimeline-De0UYVi8.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/ThreadTimeline-De0UYVi8.js
+import{c as le,ck as Te,cl as Ee,u as _,r as u,j as t,e as b,f as k,bV as J,L as $e,X as ce,t as S,b9 as Ie,bR as Le,bS as Re,cm as Ae,z as Fe,cn as Oe,bA as De,w as Be,c9 as ue}from"./index-CQDzutdp.js";import{i as Pe,s as We,j as E,C as R,a as se,p as z,Q as He,k as Ue,l as pe,S as qe,n as me,o as ze}from"./TraceTimeline-BmQgFVKC.js";import{M as xe}from"./message-square-C6mqmadq.js";import{C as P}from"./chevron-right-DquKcSvg.js";import{B as K}from"./bot-CQH9Affh.js";import{C as he}from"./check-jZL1wzL9.js";import{F as Ge}from"./file-text-CO0GhoJj.js";import{H as Ve}from"./AgentComposer-Dl_lTVxA.js";/**
+========
+import{c as le,ck as Te,cl as Ee,u as _,r as u,j as t,e as b,f as k,bV as J,L as $e,X as ce,t as S,b9 as Ie,bR as Le,bS as Re,cm as Ae,z as Fe,cn as Oe,bA as De,w as Be,c9 as ue}from"./index-Dq-RES4Y.js";import{i as Pe,s as We,j as E,C as R,a as se,p as z,Q as He,k as Ue,l as pe,S as qe,n as me,o as ze}from"./TraceTimeline-IymFQgWV.js";import{M as xe}from"./message-square-QzqYbIhL.js";import{C as P}from"./chevron-right-D-mStfpN.js";import{B as K}from"./bot-C1Q9x_hw.js";import{C as he}from"./check-DO1iTMiU.js";import{F as Ge}from"./file-text-sOX53TWj.js";import{H as Ve}from"./AgentComposer-Chpn_owh.js";/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/ThreadTimeline-DR8UC-8t.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/workflow-9qh27DrT.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/workflow-9qh27DrT.js
 import{c as e}from"./index-Bx3U5l4b.js";/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/workflow-BFLyS0ym.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/workflow-BFLyS0ym.js
@@ -11,6 +12,11 @@ import{c as e}from"./index-BBJ9dd5N.js";/**
 ========
 import{c as e}from"./index-CQDzutdp.js";/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/workflow-DYO0CMoV.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/workflow-DYO0CMoV.js
+import{c as e}from"./index-CQDzutdp.js";/**
+========
+import{c as e}from"./index-Dq-RES4Y.js";/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/workflow-Cxib5TxV.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

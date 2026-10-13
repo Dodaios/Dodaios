@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditorWindow-D4U4QeGu.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditorWindow-D4U4QeGu.js
 import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-Bx3U5l4b.js";import{AppshotEditor as we}from"./AppshotEditor-BDQkXem2.js";import{Q as P}from"./tooltip-N4kZQ9ka.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-BHCUk6za.js";import{P as ae}from"./play-DC0K8bhj.js";import{P as Ne}from"./pause-CfeRjBbd.js";import"./switch-L7ivSvAX.js";import"./image-plus-CQcXiOjg.js";import"./check-D3k377hY.js";import"./columns-2-BrUl_4V-.js";/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/AppshotEditorWindow-BGfPKuUB.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditorWindow-BGfPKuUB.js
@@ -11,6 +12,11 @@ import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as
 ========
 import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-CQDzutdp.js";import{AppshotEditor as we}from"./AppshotEditor-DBWfFe8g.js";import{Q as P}from"./tooltip-eJ5dyoV4.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-DYkzvLyU.js";import{P as ae}from"./play-C1gzmCLy.js";import{P as Ne}from"./pause-B4iZjsBr.js";import"./switch-CYci4sB5.js";import"./image-plus-CbQ4TbZE.js";import"./check-jZL1wzL9.js";import"./columns-2-CWeBYv8S.js";/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/AppshotEditorWindow-Cn65KYlP.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/AppshotEditorWindow-Cn65KYlP.js
+import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-CQDzutdp.js";import{AppshotEditor as we}from"./AppshotEditor-DBWfFe8g.js";import{Q as P}from"./tooltip-eJ5dyoV4.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-DYkzvLyU.js";import{P as ae}from"./play-C1gzmCLy.js";import{P as Ne}from"./pause-B4iZjsBr.js";import"./switch-CYci4sB5.js";import"./image-plus-CbQ4TbZE.js";import"./check-jZL1wzL9.js";import"./columns-2-CWeBYv8S.js";/**
+========
+import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-Dq-RES4Y.js";import{AppshotEditor as we}from"./AppshotEditor-CSSIYVkl.js";import{Q as P}from"./tooltip-eW3P-ItV.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-CRjdW6L2.js";import{P as ae}from"./play-BuYo5sp8.js";import{P as Ne}from"./pause-cNmn6fvd.js";import"./switch-DLr_XGF3.js";import"./image-plus-DpKEJjmr.js";import"./check-DO1iTMiU.js";import"./columns-2-Bd-xJ6VB.js";/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/AppshotEditorWindow-CgkzM_sS.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

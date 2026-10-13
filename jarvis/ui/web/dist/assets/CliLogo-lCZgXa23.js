@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-lCZgXa23.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-lCZgXa23.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-uT_NCu-u.js";import{c as n,j as a,e as o}from"./index-Bx3U5l4b.js";import{T as c}from"./terminal-DOxs6rqd.js";import{C as I}from"./credit-card-Df3ZGLb9.js";import{G as S}from"./git-branch-vnv0YBdI.js";import{R as W}from"./rocket-CMP4xOch.js";import{C as $}from"./cloud-B9n5W6ty.js";/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/CliLogo-HWwYEq9B.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-HWwYEq9B.js
@@ -11,6 +12,11 @@ import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j
 ========
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-nNW0vIOm.js";import{c as n,j as a,e as o}from"./index-CQDzutdp.js";import{T as c}from"./terminal-B8GQxj6J.js";import{C as I}from"./credit-card-DxRVWamc.js";import{G as S}from"./git-branch-CsYCYXBm.js";import{R as W}from"./rocket-5ivaxbPl.js";import{C as $}from"./cloud-Dqyg9ipK.js";/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/CliLogo-BlP-ylZn.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/CliLogo-BlP-ylZn.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-nNW0vIOm.js";import{c as n,j as a,e as o}from"./index-CQDzutdp.js";import{T as c}from"./terminal-B8GQxj6J.js";import{C as I}from"./credit-card-DxRVWamc.js";import{G as S}from"./git-branch-CsYCYXBm.js";import{R as W}from"./rocket-5ivaxbPl.js";import{C as $}from"./cloud-Dqyg9ipK.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-DnojEAJf.js";import{c as n,j as a,e as o}from"./index-Dq-RES4Y.js";import{T as c}from"./terminal-lrw3AyTZ.js";import{C as I}from"./credit-card-Csjn-gkL.js";import{G as S}from"./git-branch-BTy-fByJ.js";import{R as W}from"./rocket-DV-NTjGn.js";import{C as $}from"./cloud-v2MtQFqT.js";/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/CliLogo-DajaAH8R.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

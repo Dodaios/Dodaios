@@ -1,4 +1,5 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-Bq0kaCpU.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-Bq0kaCpU.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-Bx3U5l4b.js";import{S as U}from"./server-CzuW7lWY.js";/**
 |||||||| parent of f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/ProviderLogo-DsAtu1_m.js
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-DsAtu1_m.js
@@ -11,6 +12,11 @@ import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k
 ========
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-CQDzutdp.js";import{S as U}from"./server-RZQCaNt-.js";/**
 >>>>>>>> f05ce5a68 (chore: regenerate generated files after update):jarvis/ui/web/dist/assets/ProviderLogo-xJVwLojI.js
+|||||||| parent of ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/ProviderLogo-xJVwLojI.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-CQDzutdp.js";import{S as U}from"./server-RZQCaNt-.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-Dq-RES4Y.js";import{S as U}from"./server-C0CGprdi.js";/**
+>>>>>>>> ca693c4e5 (build(frontend): rebuild the bundle for the workspace-scoped Git actions):jarvis/ui/web/dist/assets/ProviderLogo-eTZ6lx_Z.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
