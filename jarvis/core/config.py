@@ -3231,6 +3231,13 @@ class WikiContextConfig(BaseModel):
     # within one call, so an absolute cutoff would be noise.
     min_relative_score: float = 0.35
 
+    # Semantic search (jarvis/memory/wiki/semantic_search.py): find pages by
+    # what they mean, across languages, next to the word search. Off unless
+    # the user switches it on in the app, because switching it on downloads a
+    # 135 MB model once and keeps it in memory. Written only by the app's own
+    # switch (config_writer.set_wiki_semantic_search).
+    semantic_search: bool = False
+
     # Ambient personal knowledge — the standing identity card
     # (jarvis/brain/identity_card.py). Unlike the per-turn snippets above this
     # is a precomputed, LLM-free distillation of the user's own profile that
