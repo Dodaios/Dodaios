@@ -1,6 +1,8 @@
 """Ownership requires successful creation in this session's own tool record."""
 
 import json
+import subprocess
+import time
 from dataclasses import replace
 
 import pytest
@@ -80,9 +82,7 @@ def test_code_mode_literal_arguments_and_windows_paths(tmp_path):
     cwd = str(tmp_path / "a folder")
     source = (
         'text(await tools.exec_command({cmd: "git worktree add -b codex/fix ../fork HEAD", '
-        'workdir: '
-        + json.dumps(cwd)
-        + "}));"
+        "workdir: " + json.dumps(cwd) + "}));"
     )
     found = branches.created_branches(
         [
@@ -178,3 +178,117 @@ def test_codex_item_ids_do_not_break_call_result_matching(monkeypatch, tmp_path)
     ]
     assert paired == ["shared", "shared"]
     assert branches.created_branches(events, str(tmp_path))[0].branch == "owned"
+
+
+# --- the repository as second witness: every coding CLI, not one output format ---
+
+
+def timed(command, output, *, name="Bash", started=1000.0, ended=1010.0, identity="call"):
+    return [
+        {
+            "kind": "tool_call",
+            "ts_ms": started * 1000,
+            "payload": {"call_id": identity, "name": name, "input": {"command": command}},
+        },
+        {
+            "kind": "tool_result",
+            "ts_ms": ended * 1000,
+            "payload": {"call_id": identity, "output": output, "is_error": False},
+        },
+    ]
+
+
+def _git(repo, *args):
+    subprocess.run(
+        ["git", "-C", str(repo), "-c", "user.email=t@example.invalid", "-c", "user.name=T", *args],
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.fixture
+def repository(tmp_path, monkeypatch):
+    branches._cache.clear()
+    branches._creations.clear()
+    monkeypatch.setattr(agent_transcript, "can_read", lambda _: True)
+    _git(tmp_path, "init", "-q", "-b", "main")
+    _git(tmp_path, "commit", "-q", "--allow-empty", "--no-verify", "-m", "chore: seed")
+    return tmp_path
+
+
+def _pane(repo, monkeypatch, events, agent="claude"):
+    monkeypatch.setattr(agent_transcript, "read_events", lambda *_, **__: events)
+    return branches.PaneBranchRecord("t1", "history", str(repo), agent, "session")
+
+
+def test_result_that_does_not_name_the_branch_stays_unconfirmed(tmp_path):
+    events = timed("git worktree add -b claude/topic ../wt origin/main | tail -1", "HEAD is now")
+
+    assert branches.created_branches(events, str(tmp_path)) == []
+    (found,) = branches.created_branches(events, str(tmp_path), unconfirmed=True)
+    assert (found.branch, found.confirmed) == ("claude/topic", False)
+    assert (found.called_at, found.created_at) == (1000.0, 1010.0)
+
+
+@pytest.mark.parametrize("tool", ["Bash", "PowerShell", "shell", "run_shell_command"])
+def test_every_shell_tool_is_read(tool, tmp_path):
+    events = timed("git switch -c owned", "Switched to a new branch 'owned'", name=tool)
+
+    assert [entry.branch for entry in branches.created_branches(events, str(tmp_path))] == ["owned"]
+
+
+def test_repository_record_confirms_a_filtered_result(repository, monkeypatch):
+    started = time.time()
+    _git(repository, "branch", "claude/topic")
+    events = timed(
+        "git worktree add -b claude/topic ../wt main 2>&1 | tail -1",
+        "HEAD is now at 1234567 chore: seed",
+        started=started - 1,
+        ended=time.time() + 1,
+    )
+
+    owned = branches.owned_branch(_pane(repository, monkeypatch, events))
+
+    assert owned is not None and owned.branch == "claude/topic"
+    assert owned.folder == str(repository)
+
+
+def test_repository_record_confirms_a_path_this_module_cannot_follow(repository, monkeypatch):
+    started = time.time()
+    _git(repository, "branch", "owned")
+    events = timed(
+        'cd "/c/somewhere/else" && git switch -c owned',
+        "Switched to a new branch 'owned'",
+        started=started - 1,
+        ended=time.time() + 1,
+    )
+
+    assert branches.owned_branch(_pane(repository, monkeypatch, events)).branch == "owned"
+
+
+def test_branch_that_existed_before_the_call_is_not_owned(repository, monkeypatch):
+    _git(repository, "branch", "claude/topic")
+    later = time.time() + 3600
+    events = timed(
+        "git worktree add -b claude/topic ../wt main | tail -1",
+        "nothing useful",
+        started=later,
+        ended=later + 5,
+    )
+
+    assert branches.owned_branch(_pane(repository, monkeypatch, events)) is None
+
+
+def test_creation_in_another_repository_is_not_owned(repository, monkeypatch):
+    now = time.time()
+    events = timed("git -C ../elsewhere switch -c owned | tail -1", "", started=now - 1, ended=now)
+
+    assert branches.owned_branch(_pane(repository, monkeypatch, events)) is None
+
+
+def test_call_without_a_clock_is_never_confirmed_by_the_repository(repository, monkeypatch):
+    _git(repository, "branch", "owned")
+    events = [call({"command": "git switch -c owned | tail -1"}, name="Bash"), result("")]
+    events[1]["ts_ms"] = time.time() * 1000
+
+    assert branches.owned_branch(_pane(repository, monkeypatch, events)) is None
