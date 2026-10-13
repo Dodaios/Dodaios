@@ -67,8 +67,32 @@ def test_the_defaults_name_the_instruction_and_the_limits(client: TestClient) ->
     assert body["max_prompt_chars"] == session_mod.MAX_PROMPT_CHARS
 
 
+@pytest.fixture
+def seats(monkeypatch: pytest.MonkeyPatch) -> list[tuple[object, str]]:
+    """Offers one provider, ``picked``, and keeps the seats built for it."""
+    from jarvis.agent_chat import catalog, service
+    from jarvis.core import config as config_mod
+    from jarvis.society import seat_brain
+
+    built: list[tuple[object, str]] = []
+
+    async def _seat_brain(_config: object, seat: object, *, caller: str) -> str:
+        built.append((seat, caller))
+        return "the-picked-brain"
+
+    monkeypatch.setattr(catalog, "offers", lambda surface, provider: provider == "picked")
+    monkeypatch.setattr(service, "resolve_runner", lambda provider, **_kwargs: "api")
+    monkeypatch.setattr(config_mod, "load_config", lambda: object())
+    monkeypatch.setattr(seat_brain, "seat_brain", _seat_brain)
+    return built
+
+
 async def test_the_writer_is_told_about_the_target_panes_repository(
-    client: TestClient, registry: Registry, calls: list[dict], tmp_path: Path
+    client: TestClient,
+    registry: Registry,
+    calls: list[dict],
+    seats: list[tuple[object, str]],
+    tmp_path: Path,
 ) -> None:
     await registry.start(str(tmp_path), [{"agent": "claude"}])
     assert registry.session is not None
@@ -78,7 +102,7 @@ async def test_the_writer_is_told_about_the_target_panes_repository(
         URL,
         json={
             "prompt": "make it faster",
-            "provider": "picked",
+            "provider": "Picked",
             "model": "model-x",
             "instruction": "Tighten it.",
             "workspace": registry.session.id,
@@ -97,13 +121,61 @@ async def test_the_writer_is_told_about_the_target_panes_repository(
     assert call["prompt"] == "make it faster"
     assert call["folder"] == registry.session.folder
     assert call["profile"] is registry.session.profile
-    assert (call["provider"], call["model"], call["instruction"]) == (
-        "picked",
-        "model-x",
-        "Tighten it.",
-    )
+    assert call["instruction"] == "Tighten it."
+    # The pick is exactly that provider and model, on its own runner.
+    seat, caller = seats[0]
+    assert (seat.provider, seat.model, seat.runner) == ("picked", "model-x", "api")
+    assert caller == prompt_improver.USAGE_CALLER
+    assert (call["brain"], call["source"]) == ("the-picked-brain", "provider:picked")
     # Improving is a preview: the pane was never typed into.
     assert pane.prompts_sent == 0
+
+
+def test_a_provider_the_app_does_not_offer_is_refused(
+    client: TestClient, calls: list[dict], seats: list[tuple[object, str]]
+) -> None:
+    response = client.post(URL, json={"prompt": "make it faster", "provider": "nobody"})
+    assert response.status_code == 409
+    assert calls == [] and seats == []
+
+
+def test_a_seat_that_cannot_be_prepared_is_reported_by_type(
+    client: TestClient,
+    calls: list[dict],
+    seats: list[tuple[object, str]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A broken configuration answers 409 without quoting itself."""
+    from jarvis.core import config as config_mod
+
+    def _broken() -> object:
+        raise ValueError("jarvis.toml: secret detail")
+
+    monkeypatch.setattr(config_mod, "load_config", _broken)
+
+    response = client.post(URL, json={"prompt": "make it faster", "provider": "picked"})
+
+    assert response.status_code == 409
+    assert "ValueError" in response.json()["detail"]
+    assert "secret detail" not in response.json()["detail"]
+    assert calls == []
+
+
+async def test_a_pane_on_another_machine_gets_no_local_repository_notes(
+    client: TestClient, registry: Registry, calls: list[dict], tmp_path: Path
+) -> None:
+    await registry.start(str(tmp_path), [{"agent": "claude"}])
+    assert registry.session is not None
+    pane = registry.session.terminals[0]
+    pane.computer_id = "vps-1"
+
+    response = client.post(
+        URL,
+        json={"prompt": "make it faster", "workspace": registry.session.id, "pane": pane.key},
+    )
+
+    assert response.status_code == 200
+    assert calls[0]["folder"] == ""
 
 
 def test_without_a_workspace_the_prompt_is_still_improved(

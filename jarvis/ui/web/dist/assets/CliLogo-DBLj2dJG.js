@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-DBLj2dJG.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-DBLj2dJG.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-0xVgyO3x.js";import{c as n,j as a,e as o}from"./index-B8EqKdQS.js";import{T as c}from"./terminal-DbmsbJ_V.js";import{C as I}from"./credit-card-po4sXAxN.js";import{G as S}from"./git-branch-2TbSUQeU.js";import{R as W}from"./rocket-BF-69n_s.js";import{C as $}from"./cloud-B8ou7f6G.js";/**
 |||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/CliLogo-Ce8Byycl.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BmwuAbag.js";import{c as n,j as a,e as o}from"./index-kUK78RJZ.js";import{T as c}from"./terminal-B8MVQjSb.js";import{C as I}from"./credit-card-B1JDVSJg.js";import{G as S}from"./git-branch-B3kq455g.js";import{R as W}from"./rocket-CYetOu4l.js";import{C as $}from"./cloud-DQFOxa2F.js";/**
 ========
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-Du2VpCRo.js";import{c as n,j as a,e as o}from"./index-CXQfV28M.js";import{T as c}from"./terminal-Bp6zW0mS.js";import{C as I}from"./credit-card-Dq2UUMZW.js";import{G as S}from"./git-branch-Dbp0wqeg.js";import{R as W}from"./rocket-BdAdZXB9.js";import{C as $}from"./cloud-BaMynUh1.js";/**
 >>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/CliLogo-t4jwB-9Q.js
+|||||||| parent of d678f5a01 (fix(agentic-ide): keep the prompt improver inside its package and its errors app-authored):jarvis/ui/web/dist/assets/CliLogo-t4jwB-9Q.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-Du2VpCRo.js";import{c as n,j as a,e as o}from"./index-CXQfV28M.js";import{T as c}from"./terminal-Bp6zW0mS.js";import{C as I}from"./credit-card-Dq2UUMZW.js";import{G as S}from"./git-branch-Dbp0wqeg.js";import{R as W}from"./rocket-BdAdZXB9.js";import{C as $}from"./cloud-BaMynUh1.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-g-osyuSB.js";import{c as n,j as a,e as o}from"./index-Brbp8FhG.js";import{T as c}from"./terminal-B8I2GRmB.js";import{C as I}from"./credit-card-2K6d-IoY.js";import{G as S}from"./git-branch-Bwujipt7.js";import{R as W}from"./rocket-Bq1izlJr.js";import{C as $}from"./cloud-CdyLEBnk.js";/**
+>>>>>>>> d678f5a01 (fix(agentic-ide): keep the prompt improver inside its package and its errors app-authored):jarvis/ui/web/dist/assets/CliLogo-DxUaDDpS.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

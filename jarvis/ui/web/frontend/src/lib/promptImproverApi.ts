@@ -54,7 +54,7 @@ export async function fetchPromptImproverDefaults(): Promise<PromptImproverDefau
 }
 
 /** Rewrite one prompt. Nothing is sent to a pane; rejects with the server's own reason. */
-export async function improvePrompt(request: ImproveRequest, signal?: AbortSignal): Promise<ImprovedPrompt> {
+export async function improvePrompt(request: ImproveRequest): Promise<ImprovedPrompt> {
   const res = await fetch(URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -66,7 +66,6 @@ export async function improvePrompt(request: ImproveRequest, signal?: AbortSigna
       workspace: request.workspaceId ?? null,
       pane: request.pane ?? null,
     }),
-    signal,
   });
   if (!res.ok) throw new Error(await detail(res));
   return (await res.json()) as ImprovedPrompt;

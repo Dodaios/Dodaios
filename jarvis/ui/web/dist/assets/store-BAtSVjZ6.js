@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/store-BAtSVjZ6.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/store-BAtSVjZ6.js
 import{c as a}from"./index-B8EqKdQS.js";/**
 |||||||| parent of 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/store-BuG69XZT.js
 import{c as a}from"./index-kUK78RJZ.js";/**
 ========
 import{c as a}from"./index-CXQfV28M.js";/**
 >>>>>>>> 55c61503c (feat(agentic-ide): add a Prompt tab that improves a prompt and sends it to a terminal):jarvis/ui/web/dist/assets/store-D0CW4Pe5.js
+|||||||| parent of d678f5a01 (fix(agentic-ide): keep the prompt improver inside its package and its errors app-authored):jarvis/ui/web/dist/assets/store-D0CW4Pe5.js
+import{c as a}from"./index-CXQfV28M.js";/**
+========
+import{c as a}from"./index-Brbp8FhG.js";/**
+>>>>>>>> d678f5a01 (fix(agentic-ide): keep the prompt improver inside its package and its errors app-authored):jarvis/ui/web/dist/assets/store-B-vkZ16n.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

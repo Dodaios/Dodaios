@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { ArrowRight, Check, Copy, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -83,7 +83,6 @@ export function PromptTab() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
-  const request = useRef<AbortController | null>(null);
 
   const catalog = useThreadChatStore((state) => state.catalog);
   const connections = useThreadChatStore((state) => state.connections);
@@ -98,7 +97,6 @@ export function PromptTab() {
     fetchPromptImproverDefaults()
       .then((defaults) => setDefaultInstruction(defaults.default_instruction))
       .catch(() => undefined); // the placeholder stays empty; the backend still applies its default
-    return () => request.current?.abort();
   }, []);
 
   const providers = useMemo(
@@ -151,8 +149,8 @@ export function PromptTab() {
     return groups;
   }, [providers, liveModels, savedHidden, pickedProvider, pickedModel, t]);
 
-  // Only agents take a prompt; a plain shell would run the text as a command.
-  const targets = useMemo(() => panes.filter((pane) => pane.accepts_prompts && pane.status !== "exited"), [panes]);
+  // Only a running agent takes a prompt; a plain shell would run the text as a command.
+  const targets = useMemo(() => panes.filter((pane) => pane.accepts_prompts && pane.status !== "exited" && pane.status !== "error"), [panes]);
   const target = useMemo(() => {
     const byChoice = chosenPane ? targets.find((pane) => paneId(pane) === chosenPane) : undefined;
     if (byChoice) return byChoice;
@@ -192,9 +190,6 @@ export function PromptTab() {
   const improve = useCallback(async () => {
     const prompt = draft.trim();
     if (!prompt || busy) return;
-    request.current?.abort();
-    const controller = new AbortController();
-    request.current = controller;
     setBusy("improve");
     setError("");
     setNotice(null);
@@ -206,16 +201,13 @@ export function PromptTab() {
         instruction: instruction.trim(),
         workspaceId: target?.workspace_id,
         pane: target?.key,
-      }, controller.signal);
+      });
       setImproved(result.improved);
       setWriter(result.writer);
     } catch (failure) {
-      if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure));
+      setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
-      if (request.current === controller) {
-        request.current = null;
-        setBusy(null);
-      }
+      setBusy(null);
     }
   }, [draft, busy, pickedProvider, pickedModel, instruction, target]);
 
