@@ -1,0 +1,48 @@
+#!/bin/sh
+# reference-transaction: local main only moves to a commit a remote main has.
+#
+# Local main mirrors the remote. The pre-commit BRANCH gate stops a commit on
+# it, but not the other ways a ref moves: `git update-ref`, `git commit
+# --no-verify`, a cherry-pick, a rebase, `git branch -f`. Each of those leaves
+# local main on a commit that exists on one machine, and since the merge queue
+# squash-merges, local and remote main then stop sharing history.
+#
+# git runs this hook for every ref transaction and passes the state as $1; the
+# updates arrive on stdin, one per line:
+#   <old-value> <new-value> <ref-name>
+# Only the "prepared" state can still refuse, so every other state returns at
+# once, and so does a transaction that does not touch refs/heads/main.
+#
+# Allowed: a new value that some remote-tracking main already contains
+# (`git pull --ff-only`, `git reset --hard origin/main`), deleting the branch,
+# a repository with no remote main to mirror, and CI runners.
+# Fails OPEN when git cannot answer.
+#
+# This hook is VERSIONED in .githooks/; git runs it via core.hooksPath=.githooks
+# (set by scripts/ci/install_git_hooks.py). It never sets that itself.
+
+[ "$1" = "prepared" ] || exit 0
+[ "$GITHUB_ACTIONS" = "true" ] && exit 0
+
+while read -r old new ref; do
+    [ "$ref" = "refs/heads/main" ] || continue
+    # All zeros: the branch is being deleted, nothing can diverge.
+    case "$new" in *[!0]*) ;; *) continue ;; esac
+
+    remotes=$(git for-each-ref --format='%(refname)' 'refs/remotes/*/main' 2>/dev/null) || continue
+    [ -n "$remotes" ] || continue
+    holders=$(git for-each-ref --format='%(refname)' --contains "$new" \
+        'refs/remotes/*/main' 2>/dev/null) || continue
+    [ -n "$holders" ] && continue
+
+    echo "" >&2
+    echo "reference-transaction BLOCKED: main may only move to a commit a remote main has." >&2
+    echo "  $new is on no remote main, so local main would diverge from it." >&2
+    echo "  Put the change on a feature branch in a worktree of your own:" >&2
+    echo "    git worktree add -b <agent>/<topic> <path> origin/main" >&2
+    echo "  and land it with: python scripts/agent_land.py" >&2
+    echo "  To follow the remote: git pull --ff-only" >&2
+    exit 1
+done
+
+exit 0

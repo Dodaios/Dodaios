@@ -17,6 +17,28 @@
 
 set -euo pipefail
 
+# --- install-option-names begin
+# Every JARVIS_INSTALL_* option also answers to DODAIOS_INSTALL_*. When both
+# are set to different values the DODAIOS_ one wins, and the clash is named,
+# never its values. The rest of this script, and installer.py after it, read
+# the JARVIS_ spelling (jarvis/core/env_prefix.py does the same for the app).
+adopt_install_option_names() {
+    local option new_name old_name new_value old_value
+    for option in REPO REF DIR PREREQS YES; do
+        new_name="DODAIOS_INSTALL_$option"
+        old_name="JARVIS_INSTALL_$option"
+        new_value="${!new_name:-}"
+        old_value="${!old_name:-}"
+        [ -n "$new_value" ] || continue
+        if [ -n "$old_value" ] && [ "$old_value" != "$new_value" ]; then
+            printf '%s and %s differ; using %s.\n' "$new_name" "$old_name" "$new_name" >&2
+        fi
+        export "$old_name=$new_value"
+    done
+}
+adopt_install_option_names
+# --- install-option-names end
+
 # Standalone bootstrap projections of jarvis/core/branding.py. The branding
 # contract test rejects drift because this script runs before Python is installed.
 OFFICIAL_REPO_SLUG="${JARVIS_OFFICIAL_REPO_SLUG:-Dodaios/Dodaios}"
