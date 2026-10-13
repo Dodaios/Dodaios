@@ -89,3 +89,59 @@ def test_main_spawns_the_new_launcher_with_the_fresh_env(monkeypatch):
     env = spawned[0]["kwargs"]["env"]
     assert env["JARVIS__TTS__VOICE_DE"] == "Charon"
     assert env["PATH"] == "/bin"
+
+
+def test_fresh_env_carries_an_override_persisted_under_the_new_prefix():
+    # This process moved its own DODAIOS__* copy to the JARVIS__ spelling when
+    # it started, so the inherited environment holds the old name only. The
+    # registry is the fresher source and must reach the new process, where the
+    # same move happens again.
+    from jarvis.core.env_prefix import adopt_environment
+
+    base = {"JARVIS__TTS__VOICE_DE": "Kore", "JARVIS__TTS__SEED": "7", "PATH": r"C:\bin"}
+    persisted = {"DODAIOS__TTS__VOICE_DE": "Charon", "JARVIS__TTS__SEED": "9"}
+
+    env = relauncher.fresh_user_env(base, _read_persisted=lambda: persisted)
+    assert env["DODAIOS__TTS__VOICE_DE"] == "Charon"
+    assert "JARVIS__TTS__VOICE_DE" not in env  # the stale inherited value is gone
+
+    assert adopt_environment(env) == ()  # what the new process does on import
+    assert env == {
+        "JARVIS__TTS__VOICE_DE": "Charon",
+        "JARVIS__TTS__SEED": "9",
+        "PATH": r"C:\bin",
+    }
+
+
+def test_a_persisted_new_prefix_override_wins_over_its_persisted_old_spelling():
+    from jarvis.core.env_prefix import adopt_environment
+
+    persisted = {"JARVIS__BRAIN__PRIMARY": "gemini", "DODAIOS__BRAIN__PRIMARY": "openrouter"}
+
+    env = relauncher.fresh_user_env({}, _read_persisted=lambda: persisted)
+
+    assert adopt_environment(env) == ("DODAIOS__BRAIN__PRIMARY",)
+    assert env == {"JARVIS__BRAIN__PRIMARY": "openrouter"}
+
+
+def test_an_override_deleted_from_the_persisted_env_does_not_survive_the_restart():
+    # Started with DODAIOS__TTS__SEED=7, which became JARVIS__TTS__SEED; the
+    # person has since removed it from the persisted environment.
+    from jarvis.core.env_prefix import adopt_environment
+
+    base = {"DODAIOS__TTS__SEED": "7"}
+    adopt_environment(base)
+
+    env = relauncher.fresh_user_env(base, _read_persisted=dict)
+
+    assert env == {}
+
+
+def test_the_registry_reader_matches_both_prefixes():
+    # The reader itself only runs on Windows against the real registry; this
+    # pins the prefixes it filters on.
+    import inspect
+
+    assert relauncher._CONFIG_ENV_PREFIXES == ("DODAIOS__", "JARVIS__")
+    reader = inspect.getsource(relauncher._read_windows_user_jarvis_env)
+    assert "name.upper().startswith(_CONFIG_ENV_PREFIXES)" in reader

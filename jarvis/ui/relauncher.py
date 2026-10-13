@@ -38,6 +38,7 @@ from jarvis.core.branding import (
     WINDOWS_BRANDED_LAUNCH_ENV_VAR,
     WINDOWS_BRANDED_LAUNCHER_DIR_NAME,
 )
+from jarvis.core.env_prefix import CONFIG_ENV_PREFIX, LEGACY_CONFIG_ENV_PREFIX
 from jarvis.core.update_contract import (
     DEFAULT_CONTRACT,
     UpdateContract,
@@ -49,6 +50,9 @@ MANAGED_MARKER = MANAGED_INSTALL_MARKER
 PENDING_UPDATE_FILENAME = ".jarvis-update-pending.json"
 UPDATE_RESULT_FILENAME = ".jarvis-update-result.json"
 _REVISION_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
+#: Both spellings of a persisted config override (``<PREFIX>_SECTION__KEY``).
+#: This process holds only the second one: the first was moved to it at start.
+_CONFIG_ENV_PREFIXES = (CONFIG_ENV_PREFIX, LEGACY_CONFIG_ENV_PREFIX)
 #: Must match ``jarvis.ui.web.launcher._DEFAULT_ADMIN_PORT`` / the packaged
 #: ``[ui].admin_api_port`` default. Used only when the checkout's config
 #: cannot be read, so a restart still has a port to probe.
@@ -330,7 +334,7 @@ def _read_windows_user_jarvis_env() -> dict[str, str] | None:
                 except OSError:
                     break
                 index += 1
-                if isinstance(name, str) and name.upper().startswith("JARVIS__"):
+                if isinstance(name, str) and name.upper().startswith(_CONFIG_ENV_PREFIXES):
                     persisted[name] = str(value)
         return persisted
     except OSError:
@@ -369,6 +373,9 @@ def fresh_user_env(
     # refreshed names), then lay down the persisted set verbatim.
     for stale in [k for k in env if k.upper().startswith("JARVIS__") and k not in persisted]:
         del env[stale]
+    # A persisted DODAIOS__* override travels under its own name: the new
+    # process moves it to the JARVIS__ spelling when it starts, where it wins
+    # over a persisted JARVIS__ value (jarvis/core/env_prefix.py).
     env.update(persisted)
     return env
 

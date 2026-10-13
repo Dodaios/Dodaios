@@ -342,6 +342,7 @@ def test_config_and_the_early_log_resolve_through_it(
         assert desktop_log_path() == expected / DESKTOP_LOG_FILE_NAME
 
 
+@pytest.mark.usefixtures("prefixed_environment_restored")
 def test_the_frozen_hook_points_the_data_directory_inside_the_user_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
