@@ -33,9 +33,12 @@ type Entry = {
 };
 const entries = new Map<string, Entry>();
 const EMPTY: Panes = {};
+// A workspace's last answer outlives its listeners: a pane coming back on
+// stage shows its branch at once, and the refresh follows.
+const remembered = new Map<string, Panes>();
 
 function start(workspaceId: string): Entry {
-  const entry: Entry = { panes: EMPTY, listeners: new Set(), stop: () => {} };
+  const entry: Entry = { panes: remembered.get(workspaceId) ?? EMPTY, listeners: new Set(), stop: () => {} };
   let disposed = false;
   let controller: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -121,6 +124,7 @@ export function useSessionGitHub(workspaceId?: string, pane?: string): SessionGi
     return () => {
       entry.listeners.delete(listener);
       if (!entry.listeners.size) {
+        remembered.set(workspaceId, entry.panes);
         entry.stop();
         entries.delete(workspaceId);
       }

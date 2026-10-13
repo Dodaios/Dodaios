@@ -23,6 +23,7 @@ import click  # noqa: E402
 import typer  # noqa: E402
 
 from jarvis.cli_ctl.__main__ import app  # noqa: E402
+from jarvis.core.branding import CLI_COMMAND_NAME, PRODUCT_NAME  # noqa: E402
 
 _OUT = _REPO / "docs" / "jarvis-cli-reference.md"
 
@@ -65,20 +66,20 @@ def _walk(cmd: click.Command, prefix: str, lines: list[str]) -> None:
         summary = (cmd.help or cmd.short_help or "").strip().splitlines()
         summary_line = summary[0] if summary else ""
         usage = _usage(cmd)
-        sig = f"jarvis {prefix}" + (f" {usage}" if usage else "")
+        sig = f"{CLI_COMMAND_NAME} {prefix}" + (f" {usage}" if usage else "")
         lines.append(f"- `{sig}` — {summary_line}")
 
 
 def _build_reference() -> str:
     root = typer.main.get_command(app)
     if not _is_group(root):  # defensive: a bare single-command app has no tree
-        raise SystemExit("jarvisctl root is not a command group — cannot build reference")
+        raise SystemExit("the CLI root is not a command group — cannot build reference")
     lines = [
-        "# Jarvis CLI — Command Reference",
+        f"# {PRODUCT_NAME} CLI — Command Reference",
         "",
         "_Generated from the curated command tree by "
         "`scripts/ci/gen_cli_reference.py` — do not edit by hand. Every mounted "
-        "REST endpoint is additionally reachable via `jarvis api <tag> <op>`._",
+        f"REST endpoint is additionally reachable via `{CLI_COMMAND_NAME} api <tag> <op>`._",
         "",
     ]
     for name in sorted(root.commands):
