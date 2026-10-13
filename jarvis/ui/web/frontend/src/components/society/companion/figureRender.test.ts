@@ -6,7 +6,7 @@ import { ACCESSORY_CATALOG, ACCESSORY_ITEMS } from "./accessories";
 import { COMPANION_SHAPES } from "./appearance";
 import { meshesByName, readGlb } from "./figureGlb";
 import { figureCover, renderFigure, shadeFigure, traceFigure } from "./figureRender";
-import { bodyEffectMoves, EFFECT_FLOW, figureFaceMatrix, figureKey, figureParts, figureSmoke, figureTraceKey, type FigureLook } from "./figureScene";
+import { bodyEffectMoves, EFFECT_FLOW, EFFECT_STARS, figureFaceMatrix, figureKey, figureParts, figureSmoke, figureTraceKey, type FigureLook } from "./figureScene";
 
 const ASSETS = path.resolve(__dirname, "../../../assets/society/companions");
 function load(name: string) {
@@ -106,6 +106,9 @@ describe("3D profile faces", () => {
     const flowing = look({ skin, accessories: { head: "top_hat" } });
     expect(bodyEffectMoves(flowing)).toBe(true);
     expect(bodyEffectMoves(look())).toBe(false);
+    // Stars twinkle as a layer cut to the body, so a starry look reports its cover too; a glow does not move across it.
+    expect(bodyEffectMoves(look({ skin: { ...skin, effect: EFFECT_STARS } }))).toBe(true);
+    expect(bodyEffectMoves(look({ skin: { ...skin, effect: 4 } }))).toBe(false);
     const parts = figureParts(flowing, bodies, worn);
     const trace = traceFigure(parts, 64);
     const image = shadeFigure(trace, parts);
