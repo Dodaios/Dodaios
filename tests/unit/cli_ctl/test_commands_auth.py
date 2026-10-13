@@ -10,7 +10,11 @@ runner = CliRunner()
 def test_version_runs_without_server():
     res = runner.invoke(app, ["version"])
     assert res.exit_code == 0
-    assert "jarvisctl" in res.stdout
+    assert "dodaiosctl" in res.stdout
+    # The earlier name still runs it, and is the name it answers with.
+    res = runner.invoke(app, ["version"], prog_name="jarvisctl")
+    assert res.exit_code == 0
+    assert res.stdout.startswith("jarvisctl ")
 
 
 def test_login_stores_key_after_successful_probe(mock_api, tmp_path):

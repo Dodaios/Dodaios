@@ -8689,6 +8689,7 @@
       "state_closed": "未合并即关闭",
       "unavailable": "GitHub 状态不可用",
       "branch_generic": "GitHub 分支",
+      "local_only": "尚未推送到 GitHub",
       "dest_pr": "拉取请求 #{number}",
       "dest_branch": "分支",
       "open_aria": "打开 GitHub {destination}：{identity}",
