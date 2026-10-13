@@ -141,33 +141,50 @@ export function commitAll(folder: string, message: string): Promise<{ commit: st
   return post("/commit", { folder, message });
 }
 
-/** Push the current branch, or `branch` without checking it out. */
-export function pushBranch(folder: string, branch = ""): Promise<{ upstream: string }> {
-  return post("/push", { folder, branch });
+export function pushBranch(folder: string): Promise<{ upstream: string }> {
+  return post("/push", { folder });
+}
+
+// The Git tab's actions name the open workspace, never a path: the backend
+// takes the folder from the workspace, so they cannot act anywhere else.
+
+/** Push the workspace's current branch, or `branch` without checking it out. */
+export function pushWorkspaceBranch(workspaceId: string, branch = ""): Promise<{ upstream: string }> {
+  return post("/branch/push", { workspace_id: workspaceId, branch });
 }
 
 /** Fast-forward the current branch; `rebase` replays local commits onto the remote ones. */
-export function pullBranch(folder: string, rebase = false): Promise<{ message: string }> {
-  return post("/pull", { folder, rebase });
+export function pullBranch(workspaceId: string, rebase = false): Promise<{ message: string }> {
+  return post("/pull", { workspace_id: workspaceId, rebase });
 }
 
-export function switchBranch(folder: string, branch: string): Promise<{ branch: string; message: string }> {
-  return post("/switch", { folder, branch });
+export function switchBranch(workspaceId: string, branch: string): Promise<{ branch: string; message: string }> {
+  return post("/switch", { workspace_id: workspaceId, branch });
 }
 
 /** Fast-forward `branch` to its upstream without switching to it. */
-export function updateBranch(folder: string, branch: string): Promise<{ message: string }> {
-  return post("/branch/update", { folder, branch });
+export function updateBranch(workspaceId: string, branch: string): Promise<{ message: string }> {
+  return post("/branch/update", { workspace_id: workspaceId, branch });
 }
 
 /** Delete a local branch; rejects with code `unmerged` until `force` when its commits exist nowhere else. */
 export function deleteBranch(
-  folder: string,
+  workspaceId: string,
   branch: string,
   options: { force?: boolean; remote?: boolean; withWorktree?: boolean } = {},
 ): Promise<{ message: string }> {
   return post("/branch/delete", {
-    folder, branch, force: options.force ?? false, remote: options.remote ?? false, with_worktree: options.withWorktree ?? false,
+    workspace_id: workspaceId, branch, force: options.force ?? false, remote: options.remote ?? false, with_worktree: options.withWorktree ?? false,
+  });
+}
+
+/** Open a pull request for the workspace's current branch, or for `branch`. */
+export function openBranchPullRequest(
+  workspaceId: string,
+  options: { title?: string; draft?: boolean; branch?: string } = {},
+): Promise<{ url: string }> {
+  return post("/branch/pull-request", {
+    workspace_id: workspaceId, branch: options.branch ?? "", title: options.title ?? "", draft: options.draft ?? false,
   });
 }
 
@@ -175,11 +192,8 @@ export function fetchRemotes(folder: string): Promise<{ ok: boolean }> {
   return post("/fetch", { folder });
 }
 
-export function openPullRequest(
-  folder: string,
-  options: { title?: string; draft?: boolean; branch?: string } = {},
-): Promise<{ url: string }> {
-  return post("/pull-request", { folder, title: options.title ?? "", draft: options.draft ?? false, branch: options.branch ?? "" });
+export function openPullRequest(folder: string, options: { title?: string; draft?: boolean } = {}): Promise<{ url: string }> {
+  return post("/pull-request", { folder, title: options.title ?? "", draft: options.draft ?? false });
 }
 
 export function mergeBack(folder: string, into = ""): Promise<{ commit: string }> {

@@ -17,7 +17,7 @@ interface Kept {
  * nowhere else, or whose worktree holds uncommitted changes or an open
  * workspace, is kept and listed with the reason.
  */
-export function CleanupDialog({ rows, folder, onClose }: { rows: BranchRow[]; folder: string; onClose: (changed: boolean) => void }) {
+export function CleanupDialog({ rows, workspaceId, onClose }: { rows: BranchRow[]; workspaceId: string; onClose: (changed: boolean) => void }) {
   const t = useT();
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(rows.map((row) => row.name)));
   const [phase, setPhase] = useState<"ask" | "running" | "done">("ask");
@@ -53,7 +53,7 @@ export function CleanupDialog({ rows, folder, onClose }: { rows: BranchRow[]; fo
       if (stop.current) break;
       setProgress(index + 1);
       try {
-        await deleteBranch(folder, row.name, { withWorktree: Boolean(row.worktree) });
+        await deleteBranch(workspaceId, row.name, { withWorktree: Boolean(row.worktree) });
         done += 1;
       } catch (err) {
         left.push({ name: row.name, reason: (err as Error).message });

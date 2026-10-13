@@ -251,6 +251,19 @@ def test_push_publishes_a_branch_without_switching_to_it(repo: Path, remote: Pat
     assert git_ops.inspect(repo).branch == "main"
 
 
+def _open(monkeypatch: pytest.MonkeyPatch, folder: Path) -> None:
+    """Make ``folder`` the open workspace ``w1`` — the Git tab's actions act on nothing else."""
+    from types import SimpleNamespace
+
+    from jarvis.ui.web import agentic_ide_git_routes as routes
+
+    session = SimpleNamespace(folder=str(folder), terminals=[])
+    registry = SimpleNamespace(
+        sessions=[session], get=lambda workspace_id: session if workspace_id == "w1" else None
+    )
+    monkeypatch.setattr(routes, "get_registry", lambda: registry)
+
+
 # ------------------------------------------------------------------ delete
 
 
@@ -323,7 +336,8 @@ def test_the_delete_route_takes_a_merged_pull_request_as_proof(
     _git(repo, "switch", "-q", "-c", "feature/squashed")
     tip = _commit(repo, "b.txt")
     _git(repo, "switch", "-q", "main")
-    request = routes.DeleteBranchRequest(folder=str(repo), branch="feature/squashed")
+    _open(monkeypatch, repo)
+    request = routes.DeleteBranchRequest(workspace_id="w1", branch="feature/squashed")
     with pytest.raises(HTTPException) as exc:
         routes.delete_branch(request)
     assert exc.value.detail["code"] == "unmerged"
@@ -403,7 +417,8 @@ def test_the_pull_request_route_pushes_and_titles_from_the_first_commit(
     monkeypatch.setattr(github_pulls, "create", fake_create)
     monkeypatch.setattr(github_link, "credential", lambda: github_link.Credential("t", "app"))
     monkeypatch.setattr(github_link, "bound_repository", lambda folder: "o/r")
-    answer = routes.open_pull_request(routes.PullRequestRequest(folder=str(repo)))
+    _open(monkeypatch, repo)
+    answer = routes.open_branch_pull_request(routes.BranchPullRequestRequest(workspace_id="w1"))
     assert answer == {"ok": True, "url": "https://x/3"}
     assert seen == {
         "repo": "o/r", "head": "feature/x", "base": "main", "title": "add b.txt", "draft": False,
@@ -590,3 +605,42 @@ def test_a_git_call_that_fails_is_not_remembered_as_no_branches(
     broken["on"] = False
     names = {row.name for row in git_local.read(repo).branches}
     assert names == {"main", "feature/new"}
+
+
+def test_the_tab_actions_only_act_on_an_open_workspace(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi import HTTPException
+
+    from jarvis.ui.web import agentic_ide_git_routes as routes
+
+    _open(monkeypatch, repo)
+    for call in (
+        lambda: routes.pull_branch(routes.PullBranchRequest(workspace_id="other")),
+        lambda: routes.switch_branch(routes.BranchRequest(workspace_id="other", branch="main")),
+        lambda: routes.delete_branch(routes.DeleteBranchRequest(workspace_id="other", branch="x")),
+        lambda: routes.push_workspace_branch(routes.PushBranchRequest(workspace_id="other")),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            call()
+        assert exc.value.status_code == 404
+    _git(repo, "branch", "feature/x")
+    assert routes.switch_branch(routes.BranchRequest(workspace_id="w1", branch="feature/x"))["ok"]
+    assert git_ops.inspect(repo).branch == "feature/x"
+
+
+def test_an_open_workspace_is_a_folder_threads_may_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from jarvis.agentic_ide import library, thread_folders
+    from jarvis.agentic_ide import session as ide_session
+
+    opened = tmp_path / "opened"
+    opened.mkdir()
+    registry = SimpleNamespace(sessions=[SimpleNamespace(folder=str(opened))])
+    monkeypatch.setattr(ide_session, "get_registry", lambda: registry)
+    monkeypatch.setattr(library, "list_projects", lambda include_archived=False: [])
+    assert thread_folders.allowed_thread_folder(opened) == opened.resolve()
+    assert thread_folders.allowed_thread_folder(tmp_path) is None
