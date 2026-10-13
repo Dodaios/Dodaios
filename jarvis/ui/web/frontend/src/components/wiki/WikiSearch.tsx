@@ -32,6 +32,8 @@ interface SearchHit {
   path: string;
   snippet: string;
   score: number;
+  /** Found by semantic search, so the snippet has no query word to highlight. */
+  by_meaning?: boolean;
 }
 
 interface SearchResponse {
@@ -365,6 +367,14 @@ export const WikiSearch = forwardRef<WikiSearchHandle, WikiSearchProps>(function
                 <span className="flex items-center gap-2.5">
                   <KindGlyph group={groupOfPath(hit.path)} className="h-2.5 w-2.5 text-foreground-faint" />
                   <span className="truncate text-foreground">{cleanTitle(hit.title, hit.slug)}</span>
+                  {hit.by_meaning ? (
+                    <span
+                      data-testid="wiki-search-by-meaning"
+                      className="shrink-0 rounded-sm border border-border px-1.5 text-xs text-muted-foreground"
+                    >
+                      {t("wiki_search.by_meaning")}
+                    </span>
+                  ) : null}
                   <span className="ml-auto truncate text-sm text-foreground-faint">{hit.path}</span>
                 </span>
                 <span className="line-clamp-2 pl-5 text-sm text-muted-foreground">
