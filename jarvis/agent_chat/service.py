@@ -1447,6 +1447,13 @@ class AgentChatService:
             )
 
             bus = self._bus()
+            # A plain chat's system prompt is the surface's own. Written per
+            # turn, so its workspace notes follow the session's folder.
+            plain_system = (
+                await kit.plain_chat(session, text, self._assistant_name())
+                if kit.plain_chat is not None
+                else ""
+            )
             handle = TurnHandle(
                 session=session,
                 turn_id=turn_id,
@@ -1456,6 +1463,8 @@ class AgentChatService:
                 ),
                 cancel=cancel,
                 history=history,
+                tools_disabled=kit.plain,
+                plain_system=plain_system,
                 assistant_name=self._assistant_name(),
                 bus=bus,
                 surface=session.surface,
@@ -1570,11 +1579,20 @@ class AgentChatService:
                     # Requests still running behind this turn; the brain
                     # runner carries the same note in its briefing.
                     background = self.parked_work.context_note(session_id)
-                    vendor = await run_cli_turn(
-                        active_handle,
+                    cli_prompt = (
                         run_prompt
                         + selection_briefing(selected)
-                        + (f"\n\n{background}" if background else ""),
+                        + (f"\n\n{background}" if background else "")
+                    )
+                    if active_handle.plain_system and not session.vendor_session:
+                        # A tool-free CLI keeps its own system prompt, so a
+                        # plain chat's instructions open its conversation.
+                        from jarvis.agentic_ide.side_chat import opening_message
+
+                        cli_prompt = opening_message(active_handle.plain_system, cli_prompt)
+                    vendor = await run_cli_turn(
+                        active_handle,
+                        cli_prompt,
                         runner,
                         identity=as_jarvis,
                         bridge=self._bridge_for(bus) if as_jarvis else None,
