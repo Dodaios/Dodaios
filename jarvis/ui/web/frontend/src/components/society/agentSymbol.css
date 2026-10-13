@@ -296,3 +296,34 @@
   .agent-figure-flow > i > b { animation: none !important; }
   .agent-figure-shine > i { animation: none; transform: translateX(230%) skewX(-22deg); opacity: 0.5; }
 }
+
+/* At work (ShapeFigure `working`): the figure leans over what it does and nods in a typing rhythm,
+   two short beats and a longer one, then lifts its head; its eyes stay on the work. The same motion
+   a pixel creature has (companion/faceMotion.css). */
+.society-agent-figure[data-working="true"] > .agent-figure-body {
+  animation: agent-figure-work 2.6s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+  animation-delay: var(--agent-figure-delay, 0ms);
+}
+@keyframes agent-figure-work {
+  0%, 100% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  9% { transform: translateY(4%) rotate(3.5deg) scale(1.012, 0.985); }
+  18% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  27% { transform: translateY(4%) rotate(3.5deg) scale(1.012, 0.985); }
+  36% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  48% { transform: translateY(4.5%) rotate(4deg) scale(1.016, 0.98); }
+  62% { transform: translateY(1.5%) rotate(2.5deg) scale(1, 1); }
+  78% { transform: translateY(-1.5%) rotate(-1.5deg) scale(0.994, 1.012); }
+  90% { transform: translateY(-1.5%) rotate(-1.5deg) scale(0.994, 1.012); }
+}
+.society-agent-figure[data-working="true"] > .agent-figure-body > .agent-figure-eyes {
+  animation: agent-figure-focus 2.6s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+  animation-delay: var(--agent-figure-delay, 0ms);
+}
+@keyframes agent-figure-focus {
+  0%, 62%, 100% { transform: translate(0.2em, 0.8em); }
+  78%, 90% { transform: translate(-0.3em, -0.3em); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .society-agent-figure[data-working="true"] > .agent-figure-body,
+  .society-agent-figure[data-working="true"] > .agent-figure-body > .agent-figure-eyes { animation: none; }
+}

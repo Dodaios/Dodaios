@@ -143,3 +143,32 @@ def test_a_plain_folder_is_reported_unavailable_not_raised(tmp_path: Path) -> No
 
     assert not changes.available
     assert changes.reason
+
+
+def test_reading_changes_never_rewrites_the_index(repo: Path) -> None:
+    """A polled read must not take the index lock from someone's own git command."""
+    import os
+
+    from jarvis.agentic_ide import git_ops
+
+    tracked = next(path for path in repo.iterdir() if path.is_file())
+    index = repo / ".git" / "index"
+
+    def touch() -> bytes:
+        # Same content, newer timestamp: a plain `git status` now refreshes the index.
+        stamp = tracked.stat().st_mtime + 30
+        os.utime(tracked, (stamp, stamp))
+        return index.read_bytes()
+
+    before = touch()
+    changes = git_changes.workspace_changes(repo)
+    assert changes.available and git_ops.inspect(repo).is_repo
+    git_changes.file_diff(repo, tracked.name)
+    assert index.read_bytes() == before
+    # ... and a file that was only touched is still not listed as changed.
+    assert tracked.name not in [entry.path for entry in changes.files]
+
+    # The premise holds: git's own status does rewrite it.
+    before = touch()
+    _git(repo, "status")
+    assert index.read_bytes() != before
