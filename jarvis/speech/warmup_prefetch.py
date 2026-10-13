@@ -67,7 +67,13 @@ def prefetch_wake_imports(importer: Callable[[], None] | None = None) -> bool:
     """
 
     def _default_import() -> None:
-        import openwakeword.model  # noqa: F401, PLC0415 — eager warm import
+        # Through the provider's loader, so the prefetch leaves the same lean
+        # module set behind that the provider itself would import.
+        from jarvis.plugins.wake.openwakeword_provider import (  # noqa: PLC0415
+            load_openwakeword_model_class,
+        )
+
+        load_openwakeword_model_class()
 
     do_import = importer or _default_import
     try:
