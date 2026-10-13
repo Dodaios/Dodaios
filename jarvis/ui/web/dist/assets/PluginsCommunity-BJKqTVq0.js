@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-BJKqTVq0.js
 import{c as W,f as m,t as C,r as x,u as _,co as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cy as T,B as y,cc as q,q as ee,S as te,L as $,cu as U,cv as K,x as ne}from"./index-Bq_n5QN6.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-CSzWeEwV.js";import{S as se,C as re}from"./store-CKMgWD-8.js";/**
+|||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/PluginsCommunity-DOkNy0a7.js
+import{c as W,f as m,t as C,r as x,u as _,co as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cy as T,B as y,cc as q,q as ee,S as te,L as $,cu as U,cv as K,x as ne}from"./index-Bx3U5l4b.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-D3k377hY.js";import{S as se,C as re}from"./store-BR4pvD9J.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cn as J,j as e,e as E,z as V,Z as X,d as Y,W as B,cy as T,B as y,cc as q,q as ee,S as te,L as $,cu as U,cv as K,x as ne}from"./index-BA1FRfCX.js";import{P as L}from"./branding-NyvkR5zA.js";import{C as P}from"./check-D3wsOceh.js";import{S as se,C as re}from"./store-TsdzxuCD.js";/**
+>>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/PluginsCommunity-CWYPBG3k.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

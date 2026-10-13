@@ -73,6 +73,10 @@ class SeatPick:
     effort: str = ""
     name: str = ""
     family: str = ""
+    #: A model the account lists. Tried once when the seat's own default is
+    #: refused on the member's first turn, so a CLI configured for a model the
+    #: signed-in account may not use does not cost the team a member.
+    fallback_model: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,12 +102,12 @@ class Limits:
         def whole(key: str, low: int, high: int) -> int:
             try:
                 return max(low, min(high, int(raw.get(key, getattr(base, key)))))
-            except (TypeError, ValueError):
+            except (TypeError, ValueError):  # not a number: the default bound applies
                 return int(getattr(base, key))
 
         try:
             cost = max(0.0, float(raw.get("max_cost_usd", base.max_cost_usd)))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # not a number: the default cap applies
             cost = base.max_cost_usd
         return cls(
             max_minutes=whole("max_minutes", 5, 24 * 60),
@@ -179,6 +183,7 @@ class TeamThreads:
                         "session_id": session_id,
                         "provider": seat.provider,
                         "model": seat.model,
+                        "fallback_model": seat.fallback_model,
                         "effort": seat.effort,
                         "name": name,
                         "family": seat.family,
@@ -438,9 +443,15 @@ class TeamThreads:
                     return
                 self._check_bounds(team)
                 await getattr(self, f"_phase_{team['phase']}")(team)
-        except _Halt:
+        except _Halt:  # the run stopped itself and already filed why
             return
         except asyncio.CancelledError:
+            team = self._store.get(team_id)
+            if team is not None and team["state"] == "running" and not self._closing:
+                # Neither Pause, Stop nor shutdown ended this run. Never leave a
+                # thread "working" with nobody working: it waits for Continue.
+                log.warning("team thread %s: its run was cancelled from outside", team_id)
+                self._store.update(team_id, state="paused", reason="interrupted", note="")
             raise
         except Exception as exc:  # noqa: BLE001 - one broken thread must not take others down
             log.exception("team thread %s failed", team_id)
@@ -839,7 +850,7 @@ class TeamThreads:
                 "plan_rounds": int(work.get("plan_round", 1)),
                 "review_rounds": int(work.get("review_round", 1)),
                 "builder": work.get("builder", ""),
-                "findings": len(findings),
+                "finding_count": len(findings),
                 "blocking": sum(1 for f in findings if f.get("severity") == "blocking"),
                 "objections": sum(
                     len(e["payload"].get("objections") or [])
@@ -888,6 +899,7 @@ class TeamThreads:
         # Everything the person wrote after the task itself.
         user_notes = [e for e in self._store.entries(team_id) if e["kind"] == "user"][1:]
         timed_out: list[str] = []
+        said_before = {e["author"] for e in self._store.entries(team_id)}
 
         async def one(member: dict[str, Any]) -> None:
             mid = member["member_id"]
@@ -897,7 +909,8 @@ class TeamThreads:
                 if e["seq"] > int(seen.get(mid, 0))
             ]
             text = prompt(member, notes)
-            self._working.setdefault(team_id, {})[mid] = int(time.time() * 1000)
+            started = int(time.time() * 1000)
+            self._working.setdefault(team_id, {})[mid] = started
             try:
                 result = await self._port.ask(
                     member["session_id"],
@@ -906,9 +919,35 @@ class TeamThreads:
                     language=fresh["lang"],
                     timeout_s=timeout_s,
                 )
+                self._count(team_id, mid, result, notes_upto)
+                fallback = str(member.get("fallback_model") or "")
+                if (
+                    result.status == "failed"
+                    and fallback
+                    and fallback != member["model"]
+                    and mid not in said_before
+                ):
+                    # The seat's own default was refused before the member said
+                    # anything: one more try on a model its account lists.
+                    self._port.remodel(member["session_id"], fallback)
+                    self._store.member_model(team_id, mid, fallback)
+                    self._notice(
+                        team_id,
+                        phase,
+                        "member_model_changed",
+                        {"member_id": mid, "model": fallback, "error": result.error[:500]},
+                    )
+                    result = await self._port.ask(
+                        member["session_id"],
+                        text,
+                        display=_STEP_LABEL[kind],
+                        language=fresh["lang"],
+                        timeout_s=timeout_s,
+                    )
+                    self._count(team_id, mid, result, notes_upto)
             finally:
-                self._working.get(team_id, {}).pop(mid, None)
-            self._count(team_id, mid, result, notes_upto)
+                if self._working.get(team_id, {}).get(mid) == started:
+                    self._working[team_id].pop(mid, None)
             if result.status == "ok":
                 payload: Any = {"text": result.text[:_MAX_TEXT]}
                 if record is not None:
@@ -926,11 +965,32 @@ class TeamThreads:
                     team_id, phase, "member_left", {"member_id": mid, "error": result.error[:500]}
                 )
 
-        await asyncio.gather(*(one(member) for member in members))
+        turns = [asyncio.create_task(one(member)) for member in members]
+        try:
+            await asyncio.gather(*turns)
+        except BaseException:
+            # gather hands the first cancelled turn on at once. Pause and Stop
+            # must return only when EVERY member's turn has stopped: a CLI still
+            # unwinding would be busy when Continue asks it again.
+            for turn in turns:
+                # Not a second time: that would cut short the stop a turn is in.
+                if not turn.done() and not turn.cancelling():
+                    turn.cancel()
+            await asyncio.wait(turns)
+            raise
         if before:
             after = await asyncio.to_thread(self._workspace.snapshot, team["cwd"])
             if after and after != before:
-                self._notice(team_id, phase, "files_changed", {"step": kind})
+                # Named, so the person can tell a cache a check left behind from an edit.
+                change = await asyncio.to_thread(
+                    self._workspace.change, team["cwd"], before, after, limit=0
+                )
+                self._notice(
+                    team_id,
+                    phase,
+                    "files_changed",
+                    {"step": kind, "files": list(change.files[:8])},
+                )
         if timed_out:
             self._halt(
                 team,

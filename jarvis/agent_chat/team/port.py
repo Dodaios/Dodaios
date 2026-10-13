@@ -8,6 +8,7 @@ it on the agent-chat service, so a member is an ordinary thread of the IDE
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -19,6 +20,8 @@ __all__ = ["ChatTurns", "TurnPort", "TurnResult"]
 #: Who the member's thread shows above the coordinator's messages.
 _AUTHOR = {"agent_id": "team-thread", "name": "Team thread"}
 _DONE = ("ok", "done", "completed")
+#: How long a member's stopped turn may take to unwind before the next one starts.
+_BUSY_WAIT_S = 60.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +36,44 @@ class TurnResult:
     duration_ms: int = 0
 
 
+def _plain_error(error: Any) -> str:
+    """A provider's error as a sentence: the message inside a JSON error body."""
+    text = str(error).strip()
+    if text.startswith("{"):
+        try:
+            body = json.loads(text)
+        except ValueError:  # not JSON after all: the text is the message
+            return text
+        inner = body.get("error") if isinstance(body, dict) else None
+        message = inner.get("message") if isinstance(inner, dict) else body.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+    return text
+
+
+async def _turn_ended(svc: Any, session_id: str, timeout_s: float) -> bool:
+    """Wait for the session's running turn; ``False`` when it outlasts ``timeout_s``.
+
+    The service hands back the turn's own task, so a turn that was stopped
+    (Stop in the member's thread) raises ``CancelledError`` here although nobody
+    cancelled the coordinator. Only a cancellation aimed at this task is passed
+    on; otherwise the coordinator's run would end without a word and the thread
+    would stay "working" with nobody working.
+    """
+    try:
+        await asyncio.wait_for(svc.wait_turn(session_id), timeout=timeout_s)
+    except TimeoutError:  # reported to the coordinator as the turn's result
+        return False
+    except asyncio.CancelledError:
+        task = asyncio.current_task()
+        if task is not None and task.cancelling():
+            raise
+        log.debug("team thread: the turn of %s was stopped from outside", session_id)
+    except Exception:  # noqa: BLE001 - the turn's terminal event says how it ended
+        log.debug("team thread: the turn of %s ended with an error", session_id, exc_info=True)
+    return True
+
+
 class TurnPort(Protocol):
     def open(self, *, provider: str, model: str, effort: str, cwd: str, title: str) -> str:
         """Create the member's session and return its id."""
@@ -41,6 +82,9 @@ class TurnPort(Protocol):
         self, session_id: str, prompt: str, *, display: str, language: str, timeout_s: float
     ) -> TurnResult:
         """Run one turn and return its final message. Cancelling the call stops the turn."""
+
+    def remodel(self, session_id: str, model: str) -> None:
+        """Move the member's session onto another model of the same seat."""
 
     def waiting(self, session_id: str) -> bool:
         """Whether the member's turn waits for the person (an approval card)."""
@@ -69,8 +113,16 @@ class ChatTurns:
     async def ask(
         self, session_id: str, prompt: str, *, display: str, language: str, timeout_s: float
     ) -> TurnResult:
+        from jarvis.agent_chat.service import SessionBusy
+
         svc = self._svc
         turn_id = ""
+        busy = TurnResult("timeout", error="The member is still finishing its previous turn.")
+        if svc.is_running(session_id):
+            # A turn stopped a moment ago (Pause, then Continue) can still be
+            # unwinding its CLI. That is not a failed seat: wait for it.
+            if not await _turn_ended(svc, session_id, _BUSY_WAIT_S):
+                return busy
         # Do not interrupt the service between registering a turn and installing
         # its runner: reap the send first, then cancel the turn by its id.
         sending: asyncio.Task[str] = asyncio.create_task(
@@ -87,9 +139,7 @@ class ChatTurns:
         )
         try:
             turn_id = await asyncio.shield(sending)
-            try:
-                await asyncio.wait_for(svc.wait_turn(session_id), timeout=timeout_s)
-            except TimeoutError:
+            if not await _turn_ended(svc, session_id, timeout_s):
                 await svc.cancel(session_id, expected_turn_id=turn_id)
                 return TurnResult("timeout", error="The turn did not finish in time.")
         except asyncio.CancelledError:
@@ -100,6 +150,8 @@ class ChatTurns:
             except Exception:  # noqa: BLE001 - the stop itself must still propagate
                 log.warning("team thread: stopping a member turn failed", exc_info=True)
             raise
+        except SessionBusy:  # someone else runs a turn in the member's thread right now
+            return busy
         except Exception as exc:  # noqa: BLE001 - a seat that cannot start leaves the team
             return TurnResult("failed", error=str(exc) or type(exc).__name__)
         terminal = await asyncio.to_thread(svc.store.turn_terminal, session_id, turn_id)
@@ -116,7 +168,7 @@ class ChatTurns:
         if payload.get("status") not in _DONE:
             return TurnResult(
                 "failed",
-                error=str(payload.get("error") or payload.get("status") or "no result"),
+                error=_plain_error(payload.get("error") or payload.get("status") or "no result"),
                 **base,
             )
         events = await asyncio.to_thread(svc.store.list_events, session_id, tail=400)
@@ -133,6 +185,11 @@ class ChatTurns:
         if not text:
             return TurnResult("failed", error="The turn ended without an answer.", **base)
         return TurnResult("ok", text=text, **base)
+
+    def remodel(self, session_id: str, model: str) -> None:
+        session = self._svc.store.get_session(session_id)
+        if session is not None:
+            self._svc.store.reseat_session(session_id, provider=session.provider, model=model)
 
     def waiting(self, session_id: str) -> bool:
         return bool(self._svc.pending_approvals(session_id))

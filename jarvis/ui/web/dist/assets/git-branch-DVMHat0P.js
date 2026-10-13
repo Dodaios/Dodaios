@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/git-branch-DVMHat0P.js
 import{c}from"./index-Bq_n5QN6.js";/**
+|||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/git-branch-vnv0YBdI.js
+import{c}from"./index-Bx3U5l4b.js";/**
+========
+import{c}from"./index-BA1FRfCX.js";/**
+>>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/git-branch-vRMtu_54.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

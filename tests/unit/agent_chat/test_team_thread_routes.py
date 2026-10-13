@@ -25,6 +25,7 @@ def _seat(provider: str, family: str, *, agent: str = "", ready: bool = True, **
         "models": [],
         "ready": ready,
         "local": False,
+        "fallback": "",
         **extra,
     }
 
@@ -42,7 +43,10 @@ ROWS = [
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(team_thread_routes, "_seat_rows", lambda: [dict(row) for row in ROWS])
+    async def seats() -> list[dict]:
+        return [dict(row) for row in ROWS]
+
+    monkeypatch.setattr(team_thread_routes, "_seats", seats)
     app = FastAPI()
     app.include_router(router)
     app.state.turns = FakeTurns()
@@ -74,6 +78,15 @@ def test_the_default_team_degrades_to_what_is_ready() -> None:
     # Local hardware only counts when nothing else is there.
     assert _providers(default_team(only("ollama"))) == ["ollama", "ollama"]
     assert default_team(only()) == []
+
+
+def test_a_seat_knows_a_model_its_account_lists() -> None:
+    live = {"codex-cli": [{"id": "gpt-luna"}, {"id": "gpt-terra"}]}
+    fallback = team_thread_routes._seat_fallback
+
+    # The CLI's configured default may be a model the account cannot use.
+    assert fallback({"runner": "codex-cli"}, live) == "gpt-luna"
+    assert fallback({"runner": "claude-cli"}, live) == ""
 
 
 def test_seats_lists_what_can_sit_in_a_team(client: TestClient) -> None:

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-Dzz2cOBM.js
 import{c as P,r as i,j as e,u as C,bm as A,X as O,bS as q,bT as B,e as g,bn as D,bU as H,d as F}from"./index-Bq_n5QN6.js";import{C as I}from"./TraceTimeline-BaA2pG5o.js";import{L as U}from"./lock-cV1jH1QY.js";import{C as X}from"./code-xml-GopdVvOr.js";import{C as $}from"./chevron-right-BSlYUic8.js";/**
+|||||||| parent of 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/CodingThreadLink-DnB6ZdX5.js
+import{c as P,r as i,j as e,u as C,bm as A,X as O,bS as q,bT as B,e as g,bn as D,bU as H,d as F}from"./index-Bx3U5l4b.js";import{C as I}from"./TraceTimeline-mdj_jk9f.js";import{L as U}from"./lock-DAn719GY.js";import{C as X}from"./code-xml-Cxbn8Tk2.js";import{C as $}from"./chevron-right-D46z7eBj.js";/**
+========
+import{c as P,r as i,j as e,u as C,bm as A,X as O,bS as q,bT as B,e as g,bn as D,bU as H,d as F}from"./index-BA1FRfCX.js";import{C as I}from"./TraceTimeline-Duu1ak8Y.js";import{L as U}from"./lock-AwQplESi.js";import{C as X}from"./code-xml-Clt2RnSF.js";import{C as $}from"./chevron-right-VAUDT_E1.js";/**
+>>>>>>>> 7af32b1665 (feat(agentic-ide): team threads in the thread layout, with one shared view):jarvis/ui/web/dist/assets/CodingThreadLink-D6iKf70K.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

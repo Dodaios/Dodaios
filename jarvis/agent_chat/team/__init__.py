@@ -7,7 +7,7 @@ plan, one of them builds it and the others review until they approve. Models
 only write the contributions; none of them can start another's turn.
 
 ``docs/agentic-ide-team-threads.md`` describes the feature,
-``docs/adr/0041-team-threads-trusted-coordinator.md`` the design.
+``docs/adr/0042-team-threads-trusted-coordinator.md`` the design.
 """
 
 from __future__ import annotations

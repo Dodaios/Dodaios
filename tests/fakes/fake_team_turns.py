@@ -67,6 +67,10 @@ class FakeTurns:
     sessions: dict[str, str] = field(default_factory=dict)
     discarded: list[str] = field(default_factory=list)
     cancelled: list[str] = field(default_factory=list)
+    remodelled: list[tuple[str, str]] = field(default_factory=list)
+    #: Sessions whose stopped turn has fully unwound, and the slow ones.
+    stopped: list[str] = field(default_factory=list)
+    slow_to_stop: set[str] = field(default_factory=set)
     #: Steps that wait for ``release`` before they answer.
     hold: set[str] = field(default_factory=set)
     release: asyncio.Event = field(default_factory=asyncio.Event)
@@ -100,6 +104,10 @@ class FakeTurns:
                 await self.release.wait()
             except asyncio.CancelledError:
                 self.cancelled.append(session_id)
+                if provider in self.slow_to_stop:
+                    # A CLI that takes a moment to die after it was told to stop.
+                    await asyncio.sleep(0.05)
+                self.stopped.append(session_id)
                 raise
         await asyncio.sleep(0)
         reply: Any = self.script(provider, step, nth) if self.script else None
@@ -108,6 +116,9 @@ class FakeTurns:
         if isinstance(reply, TurnResult):
             return reply
         return TurnResult("ok", text=reply, cost_usd=self.cost_usd, duration_ms=5)
+
+    def remodel(self, session_id: str, model: str) -> None:
+        self.remodelled.append((session_id, model))
 
     def waiting(self, session_id: str) -> bool:
         return False
