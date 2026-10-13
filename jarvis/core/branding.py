@@ -137,6 +137,17 @@ OFFICIAL_RELEASES_LATEST_API_URL = (
 )
 UPDATER_USER_AGENT = f"{PERSISTENT_COMPACT_NAME}-Updater"
 
+# --- MCP server names ---------------------------------------------------------
+# What the app calls its own MCP servers when it registers them in another
+# tool's configuration: the tools server a chat's coding CLI mounts, and the
+# agents surface an outside client connects. A client derives its tool names
+# from that name (``mcp__<name>__<tool>``), so the legacy names stay readable
+# forever: registrations and transcripts written under them still exist.
+MCP_TOOLS_SERVER_NAME = "dodaios"
+LEGACY_MCP_TOOLS_SERVER_NAMES = ("jarvis",)
+MCP_AGENTS_SERVER_NAME = "dodaios-agents"
+LEGACY_MCP_AGENTS_SERVER_NAMES = ("jarvis-agents",)
+
 __all__ = [
     "CLI_COMMAND_ALIAS",
     "CLI_COMMAND_NAME",
@@ -164,6 +175,10 @@ __all__ = [
     "MACOS_EXECUTABLE_NAME",
     "MACOS_SIGNING_IDENTITY_LABEL",
     "MANAGED_INSTALL_MARKER",
+    "MCP_AGENTS_SERVER_NAME",
+    "MCP_TOOLS_SERVER_NAME",
+    "LEGACY_MCP_AGENTS_SERVER_NAMES",
+    "LEGACY_MCP_TOOLS_SERVER_NAMES",
     "OFFICIAL_RELEASES_LATEST_API_URL",
     "OFFICIAL_REPO_GIT_URL",
     "OFFICIAL_REPO_SLUG",
