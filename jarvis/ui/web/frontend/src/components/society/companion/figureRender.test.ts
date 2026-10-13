@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { ACCESSORY_CATALOG, ACCESSORY_ITEMS } from "./accessories";
 import { COMPANION_SHAPES } from "./appearance";
 import { meshesByName, readGlb } from "./figureGlb";
-import { renderFigure, shadeFigure, traceFigure } from "./figureRender";
-import { figureFaceMatrix, figureKey, figureParts, figureTraceKey, type FigureLook } from "./figureScene";
+import { figureCover, renderFigure, shadeFigure, traceFigure } from "./figureRender";
+import { bodyEffectMoves, EFFECT_FLOW, figureFaceMatrix, figureKey, figureParts, figureSmoke, figureTraceKey, type FigureLook } from "./figureScene";
 
 const ASSETS = path.resolve(__dirname, "../../../assets/society/companions");
 function load(name: string) {
@@ -99,6 +99,44 @@ describe("3D profile faces", () => {
     // 180 degrees runs from the top (first colour) to the bottom (last colour).
     expect(top[0]).toBeGreaterThan(top[2]);
     expect(bottom[2]).toBeGreaterThan(bottom[0]);
+  });
+
+  it("draws a flowing design as a white, lit body and reports where the body is", () => {
+    const skin = { colors: ["#22e3a5", "#8a5cf0"], radial: false, angle: 160, effect: EFFECT_FLOW, highlight: "#22e3a5" };
+    const flowing = look({ skin, accessories: { head: "top_hat" } });
+    expect(bodyEffectMoves(flowing)).toBe(true);
+    expect(bodyEffectMoves(look())).toBe(false);
+    const parts = figureParts(flowing, bodies, worn);
+    const trace = traceFigure(parts, 64);
+    const image = shadeFigure(trace, parts);
+    const cover = figureCover(trace, parts.map(part => !!part.body));
+    const [a, b, c, d, e, f] = figureFaceMatrix(flowing, bodies, image.frame);
+    const eyeY = ACCESSORY_CATALOG.shapes.squircle.eyeY;
+    const at = (x: number, y: number) => [Math.round(a * x + c * y + e), Math.round(b * x + d * y + f)] as const;
+    // Below the eyes: body, drawn without the design's colours (they are laid over it as a moving layer).
+    const [bodyX, bodyY] = at(20, eyeY + 6);
+    const [red, green, blue] = pixel(image, bodyX, bodyY);
+    expect(cover[bodyY * 64 + bodyX]).toBe(255);
+    expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThan(40);
+    // An eye and the hat are not body: the layer must not tint them.
+    const [eyeX, eyeYPixel] = at(15.4, eyeY);
+    expect(cover[eyeYPixel * 64 + eyeX]).toBeLessThan(128);
+    let hat = -1;
+    for (let y = 0; y < 64 && hat < 0; y++) for (let x = 0; x < 64; x++) if (pixel(image, x, y)[3] === 255) { hat = y * 64 + x; break; }
+    expect(cover[hat]).toBe(0);
+  });
+
+  it("places the smoke of a cigar inside the picture", () => {
+    const smoking = look({ accessories: { mouth: "cigar" } });
+    const image = renderFigure(figureParts(smoking, bodies, worn), 96);
+    const plumes = figureSmoke(smoking, image.frame);
+    expect(plumes).toHaveLength(1);
+    expect(plumes[0]!.x).toBeGreaterThan(48);
+    expect(plumes[0]!.x).toBeLessThan(96);
+    expect(plumes[0]!.y).toBeGreaterThan(24);
+    expect(plumes[0]!.y).toBeLessThan(96);
+    expect(plumes[0]!.scale).toBeGreaterThan(0);
+    expect(figureSmoke(look(), image.frame)).toHaveLength(0);
   });
 
   it("draws nothing for an empty figure", () => {
