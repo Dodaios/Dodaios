@@ -803,10 +803,15 @@ if simulated != "native":
     # real OS. Only the package under test sees the simulated one.
     sys.platform = simulated
 
+from jarvis.core.branding import LEGACY_PACKAGE_NAMES
 from jarvis.ui import relauncher
 
 if preload == "skip":
     relauncher._load_modules_needed_after_update = lambda: None
+
+# Every name the package can be imported as: the one it has here, and the
+# earlier ones that still resolve to it.
+PACKAGE_NAMES = {relauncher.__name__.partition(".")[0], *LEGACY_PACKAGE_NAMES}
 
 
 class PackageIsGone(importlib.abc.MetaPathFinder):
@@ -816,7 +821,7 @@ class PackageIsGone(importlib.abc.MetaPathFinder):
         self.late = []
 
     def find_spec(self, name, path=None, target=None):
-        if name == "jarvis" or name.startswith("jarvis."):
+        if name.partition(".")[0] in PACKAGE_NAMES:
             self.late.append(name)
             raise ModuleNotFoundError(f"No module named {name!r}", name=name)
         return None
