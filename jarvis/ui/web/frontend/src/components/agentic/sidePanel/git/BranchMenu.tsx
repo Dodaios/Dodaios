@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
   Copy,
   ExternalLink,
   FolderOpen,
@@ -14,13 +16,16 @@ import {
   Link2,
   CirclePlay,
   SquareTerminal,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { robustCopy } from "@/lib/clipboard";
 import { openExternalUrl } from "@/lib/openExternal";
 import { useEventStore } from "@/store/events";
+import { needsPull, needsPush, syncOf } from "./gitInsights";
 import type { BranchRow } from "./gitOverviewApi";
+import type { GitActions } from "./useGitActions";
 
 const MENU_WIDTH = 264;
 const MENU_MARGIN = 8;
@@ -42,13 +47,15 @@ interface MenuItem {
   hint?: string;
   icon: LucideIcon;
   disabled?: boolean;
+  danger?: boolean;
   onSelect: () => void;
 }
 
 /**
- * Everything one branch row offers: its GitHub pages (branch, commits,
- * comparison with the default branch, the pull request or a new one, the CI
- * run) and the strings people paste elsewhere. Opened by right-click or by
+ * Everything one branch row offers: what can be done with the branch (switch,
+ * update, push, delete), its GitHub pages (branch, commits, comparison with
+ * the default branch, the pull request or a new one, the CI run) and the
+ * strings people paste elsewhere. Opened by right-click or by
  * the row's ⋯ button; portalled so the scrolling list never clips it.
  */
 export function BranchMenu({
@@ -57,6 +64,7 @@ export function BranchMenu({
   defaultBranch,
   x,
   y,
+  actions,
   onDismiss,
 }: {
   row: BranchRow;
@@ -64,6 +72,7 @@ export function BranchMenu({
   defaultBranch: string;
   x: number;
   y: number;
+  actions?: GitActions;
   onDismiss: () => void;
 }) {
   const t = useT();
@@ -135,6 +144,34 @@ export function BranchMenu({
   const isDefault = row.name === defaultBranch;
   const pr = row.pull_requests[0];
   const livePr = pr && pr.state !== "merged" && pr.state !== "closed" ? pr : undefined;
+
+  const act = (work: () => void) => () => {
+    onDismiss();
+    work();
+  };
+  const does: MenuItem[] = [];
+  if (actions && !row.current && !row.worktree) {
+    does.push({
+      id: "switch",
+      label: t(row.remote_only ? "ide_side_panel.git.act.check_out" : "ide_side_panel.git.act.switch"),
+      icon: GitBranch,
+      onSelect: act(() => actions.switchTo(row.name)),
+    });
+  }
+  if (actions && needsPull(row) && row.behind > 0 && row.upstream && !row.upstream_gone) {
+    does.push({ id: "update", label: t("ide_side_panel.git.act.update"), icon: ArrowDownToLine, onSelect: act(() => actions.update(row.name)) });
+  }
+  if (actions && needsPush(row) && syncOf(row) !== "diverged") {
+    does.push({
+      id: "push",
+      label: t(syncOf(row) === "ahead" ? "ide_side_panel.git.act.push" : "ide_side_panel.git.act.publish"),
+      icon: ArrowUpFromLine,
+      onSelect: act(() => actions.push(row.current ? "" : row.name)),
+    });
+  }
+  if (actions && !row.remote_only && !row.current && !isDefault) {
+    does.push({ id: "delete", label: t("ide_side_panel.git.act.delete"), icon: Trash2, danger: true, onSelect: act(() => actions.remove(row)) });
+  }
 
   const github: MenuItem[] = [
     {
@@ -242,7 +279,7 @@ export function BranchMenu({
         <GitBranch aria-hidden className="h-3 w-3 shrink-0" />
         <span className="min-w-0 truncate font-mono">{row.name}</span>
       </div>
-      {[github, copies].map((section, index) => (
+      {[does, github, copies].filter((section) => section.length > 0).map((section, index) => (
         <div key={section[0]?.id ?? index} role="group" className={index > 0 ? "mt-1 border-t border-border/70 pt-1" : ""}>
           {section.map((item) => {
             const Icon = item.icon;
@@ -254,9 +291,9 @@ export function BranchMenu({
                 data-testid={`git-menu-${item.id}`}
                 disabled={item.disabled}
                 onClick={item.onSelect}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45"
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${item.danger ? "text-destructive" : "text-foreground"}`}
               >
-                <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Icon aria-hidden className={`h-4 w-4 shrink-0 ${item.danger ? "text-destructive" : "text-muted-foreground"}`} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate">{item.label}</span>
                   {item.hint && <span className="truncate text-[11px] text-muted-foreground">{item.hint}</span>}
