@@ -205,7 +205,7 @@ class ComputerUseTool:
                     "computer_use.enabled=true — you may offer to set it through the "
                     "config self-mod path (ask-tier, requires the user's confirmation "
                     "and an app restart), or the user can run: "
-                    "jarvis config set computer_use.enabled true. "
+                    "dodaios config set computer_use.enabled true. "
                     "Do not retry this tool in this turn."
                 ),
             )

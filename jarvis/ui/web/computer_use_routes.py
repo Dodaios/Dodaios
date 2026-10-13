@@ -22,6 +22,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from jarvis.core.branding import CLI_COMMAND_NAME
 from jarvis.core.config import ComputerUseConfig
 from jarvis.harness import cu_run_registry
 
@@ -68,7 +69,7 @@ def _require_cu_wired() -> None:
                 "computer-use is not active on this machine: "
                 "[computer_use].enabled is false (the shipped default) or no "
                 "vision engine could be built. Enable it with "
-                "`jarvis config set computer_use.enabled true` and restart."
+                f"`{CLI_COMMAND_NAME} config set computer_use.enabled true` and restart."
             ),
         )
 

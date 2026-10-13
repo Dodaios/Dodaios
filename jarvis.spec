@@ -3,12 +3,14 @@
 # Strategy:
 # - `onedir` instead of `onefile` avoids 3-5 seconds of MEIPASS extraction and
 #   allows each DLL to be signed independently.
-# - TWO executables share ONE Analysis/COLLECT, because a native install has to
-#   cover both surfaces the project promises:
+# - Several executables share ONE Analysis/COLLECT, because a native install
+#   has to cover both surfaces the project promises:
 #     * a windowed GUI launcher (Start Menu / Applications / .desktop), and
-#     * a console CLI named `jarvis`, so `jarvis serve`, `jarvis --version`,
-#       `jarvis missions list` behave exactly like the pip console script.
-#   Both run `jarvis/__main__.py`; only the console flag differs.
+#     * a console CLI named `dodaios`, so `dodaios serve`, `dodaios --version`,
+#       `dodaios missions list` behave exactly like the pip console script.
+#       The same console program is built a second time as `jarvis`, the
+#       command's earlier name, which scripts and shell history still call.
+#   All of them run `jarvis/__main__.py`; only the console flag differs.
 # - The GUI binary is `PersonalJarvis`, not `Jarvis`: `Jarvis` and `jarvis`
 #   are the SAME path on Windows (NTFS) and on a default macOS APFS volume, so
 #   the second executable would overwrite the first. `PersonalJarvis` is the
@@ -47,7 +49,10 @@ BUNDLE_DIR_NAME = "Jarvis"
 # Windowed launcher; see the header note on the case-collision.
 GUI_EXE_NAME = "PersonalJarvis"
 # Console entry point. Same name as the pip console script on purpose.
-CLI_EXE_NAME = "jarvis"
+CLI_EXE_NAME = "dodaios"
+# The console entry point under its earlier name, built from the same program.
+# No name here may equal GUI_EXE_NAME ignoring case: they share one folder.
+LEGACY_CLI_EXE_NAMES = ("jarvis",)
 
 MACOS_APP_NAME = "Personal Jarvis.app"
 MACOS_BUNDLE_IDENTIFIER = "ai.personaljarvis.desktop"
@@ -421,7 +426,8 @@ ICON = _icon_path()
 
 
 # --- Executables ------------------------------------------------------------
-# Two targets, one COLLECT: the windowed launcher and the console CLI.
+# One COLLECT: the windowed launcher, the console CLI, and the console CLI
+# again under each earlier name.
 
 exe_gui = EXE(
     pyz,
@@ -444,30 +450,36 @@ exe_gui = EXE(
     uac_admin=False,       # Run asInvoker; elevate only individual actions.
 )
 
-exe_cli = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name=CLI_EXE_NAME,
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=False,
-    console=True,          # `jarvis serve` must print to the terminal it ran in.
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon=ICON,
-    version=version_resource,
-    uac_admin=False,
-)
+def _console_exe(name):
+    return EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=name,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        console=True,          # `dodaios serve` must print to the terminal it ran in.
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON,
+        version=version_resource,
+        uac_admin=False,
+    )
+
+
+exe_cli = _console_exe(CLI_EXE_NAME)
+legacy_cli_exes = [_console_exe(name) for name in LEGACY_CLI_EXE_NAMES]
 
 coll = COLLECT(
     exe_gui,
     exe_cli,
+    *legacy_cli_exes,
     a.binaries,
     a.zipfiles,
     a.datas,
@@ -498,7 +510,7 @@ if sys.platform == "darwin":
             "CFBundleVersion": VERSION,
             "CFBundlePackageType": "APPL",
             # PyInstaller sets LSBackgroundOnly=True whenever the LAST executable
-            # of the COLLECT is a console one - and the `jarvis` CLI is. A
+            # of the COLLECT is a console one - and the CLI is. A
             # background-only app gets no Dock icon, no menu bar and no windows
             # from LaunchServices; the v2.5.0 image shipped that way. This is a
             # windowed app (the CLI entry runs from a terminal, not through

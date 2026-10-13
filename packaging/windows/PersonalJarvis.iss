@@ -46,7 +46,10 @@
 #define AppPublisher "Personal Jarvis"
 #define AppUrl "https://github.com/Dodaios/Dodaios"
 #define GuiExeName "PersonalJarvis.exe"
-#define CliExeName "jarvis.exe"
+#define CliExeName "dodaios.exe"
+; The command's earlier name. The bundle ships it beside CliExeName, in the
+; same folder the PATH task adds, so both names work in a terminal.
+#define LegacyCliExeName "jarvis.exe"
 #define UserDataDirDisplay "%LOCALAPPDATA%\Jarvis"
 
 [Setup]
@@ -98,7 +101,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "addtopath"; Description: "Add the ""jarvis"" command to PATH (lets you run ""jarvis serve"" in any terminal)"; GroupDescription: "Command line"
+Name: "addtopath"; Description: "Add the ""dodaios"" command to PATH (lets you run ""dodaios serve"" in any terminal)"; GroupDescription: "Command line"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

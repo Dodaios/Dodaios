@@ -22,10 +22,11 @@ _CURRENT_IDENTITY = {
     "LAUNCHER_ENTRY_NAME": "Personal Jarvis",
     "CONFIG_FILE_NAME": "jarvis.toml",
     "DISTRIBUTION_NAME": "personal-jarvis",
-    "CLI_COMMAND_NAME": "jarvis",
-    "CLI_COMMAND_ALIAS": "personal-jarvis",
-    "CONTROL_CLI_COMMAND_NAME": "jarvisctl",
-    "CLI_COMMAND_NAMES": ("jarvis", "personal-jarvis", "jarvisctl"),
+    "CLI_COMMAND_NAME": "dodaios",
+    "CONTROL_CLI_COMMAND_NAME": "dodaiosctl",
+    "LEGACY_CLI_COMMAND_NAMES": ("jarvis", "personal-jarvis"),
+    "LEGACY_CONTROL_CLI_COMMAND_NAMES": ("jarvisctl",),
+    "CLI_COMMAND_NAMES": ("dodaios", "dodaiosctl", "jarvis", "personal-jarvis", "jarvisctl"),
     "SHELL_PROFILE_MARKER": "# Personal Jarvis: command-line tools (jarvis, personal-jarvis)",
     "FISH_CONF_FILE_NAME": "personal-jarvis.fish",
     "KEYRING_SERVICE_NAME": "personal-jarvis",
@@ -89,6 +90,11 @@ def test_display_name_is_separate_from_persistent_identity() -> None:
     for name in _CURRENT_IDENTITY:
         if "REPO" in name or "RELEASES" in name:
             continue  # the repository is itself called Dodaios/Dodaios
+        if "CLI_COMMAND" in name:
+            # The commands are spelled like the product by choice, as literals
+            # of their own: the next test shows they do not follow the display
+            # name, and the earlier command names stay beside them.
+            continue
         assert display not in str(getattr(branding, name)).casefold(), name
 
 

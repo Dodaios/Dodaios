@@ -18,8 +18,8 @@ GitHub Release for the tag.
 Shared pieces that are not per-OS:
 
 - **`../jarvis.spec`** - the PyInstaller build every script starts from. One
-  `onedir` bundle with two executables: the windowed launcher
-  (`PersonalJarvis`) and the console CLI (`jarvis`).
+  `onedir` bundle: the windowed launcher (`PersonalJarvis`) and the console CLI
+  (`dodaios`, built a second time as `jarvis`, its earlier name).
 - **`pyinstaller_rthook_frozen.py`** - runtime hook that points a frozen
   install's `jarvis.toml` and data directory at the per-user application
   directory, so an upgrade cannot overwrite settings and an uninstall cannot
