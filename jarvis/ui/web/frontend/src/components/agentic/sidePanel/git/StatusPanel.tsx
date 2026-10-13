@@ -85,6 +85,13 @@ function describe(t: Translate, step: NextStep, overview: RepoOverview): StepVie
       };
     case "commit":
       return { title: plural(t, "ide_side_panel.git.next.commit", step.count), reason: key("commit_reason"), action: key("commit_action"), tone: "action" };
+    case "branch_off":
+      return {
+        title: plural(t, "ide_side_panel.git.next.branch_off", step.count),
+        reason: fill(key("branch_off_reason"), { branch: overview.default_branch }),
+        action: key("branch_off_action"),
+        tone: "action",
+      };
     case "rebase":
       return {
         title: fill(key("rebase"), { upstream }),
@@ -154,6 +161,8 @@ export function StatusPanel({
   const tree = workingTree(t, overview);
   const [composing, setComposing] = useState(false);
   const [message, setMessage] = useState("");
+  const [naming, setNaming] = useState(false);
+  const [branchName, setBranchName] = useState("");
   const tracking = Boolean(checkout.upstream) && !row?.upstream_gone && !checkout.detached;
   const working = actions.busy !== "" && actions.busy === busyKey(step);
 
@@ -169,6 +178,8 @@ export function StatusPanel({
         return actions.rebase();
       case "commit":
         return setComposing(true);
+      case "branch_off":
+        return setNaming(true);
       case "publish":
       case "push":
         return actions.push();
@@ -197,6 +208,14 @@ export function StatusPanel({
   if (tracking && checkout.ahead > 0 && checkout.behind === 0 && step.kind !== "push" && step.kind !== "resolve") {
     extras.push({ id: "push", label: t("ide_side_panel.git.next.push_action"), run: () => actions.push() });
   }
+  const startBranch = async () => {
+    const name = branchName.trim();
+    if (!name) return;
+    if (await actions.createBranch(name)) {
+      setBranchName("");
+      setNaming(false);
+    }
+  };
   const commit = async () => {
     if (!message.trim()) return;
     if (await actions.commit(message.trim())) {
@@ -257,7 +276,46 @@ export function StatusPanel({
         </p>
       )}
 
-      {composing ? (
+      {naming ? (
+        <div data-testid="git-branch-form" className="mt-2.5 space-y-1.5 rounded-lg border border-border/70 bg-secondary/40 p-2">
+          <input
+            data-testid="git-branch-name"
+            autoFocus
+            value={branchName}
+            onChange={(event) => setBranchName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void startBranch();
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                setNaming(false);
+              }
+            }}
+            placeholder={t("ide_side_panel.git.branch.placeholder")}
+            aria-label={t("ide_side_panel.git.branch.placeholder")}
+            className="h-7 w-full rounded-md border border-border/70 bg-background px-2 font-mono text-[12px] text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <p className="text-[10.5px] leading-snug text-muted-foreground">{t("ide_side_panel.git.branch.scope")}</p>
+          <div className="flex justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setNaming(false)}
+              className="h-7 rounded-md px-2.5 text-[11.5px] text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t("ide_side_panel.git.confirm.cancel")}
+            </button>
+            <button
+              type="button"
+              data-testid="git-branch-submit"
+              disabled={!branchName.trim() || actions.busy !== ""}
+              onClick={() => void startBranch()}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-2.5 text-[11.5px] font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              {actions.busy.startsWith("branch:") && <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" aria-hidden />}
+              {t("ide_side_panel.git.branch.create")}
+            </button>
+          </div>
+        </div>
+      ) : composing ? (
         <div data-testid="git-commit-form" className="mt-2.5 space-y-1.5 rounded-lg border border-border/70 bg-secondary/40 p-2">
           <textarea
             data-testid="git-commit-message"
@@ -337,7 +395,7 @@ export function StatusPanel({
           )}
         </div>
       )}
-      {!composing && extras.length > 0 && (
+      {!composing && !naming && extras.length > 0 && (
         <div data-testid="git-quick-actions" className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 px-0.5 text-[11px]">
           <span className="text-muted-foreground">{t("ide_side_panel.git.next.also")}</span>
           {extras.map((extra) => (
