@@ -680,7 +680,7 @@ def _github_in_two_steps(monkeypatch: pytest.MonkeyPatch, checks, oid: str = "a"
     def fake_graphql(token: str, query: str, variables: dict | None = None) -> dict:
         if "pageInfo" in query:
             return _repo_payload(refs={"pageInfo": {"hasNextPage": False}, "nodes": []})
-        if "states: OPEN" in query and "contexts" not in query:
+        if "states: OPEN" in query and "...Tally" in query:
             node = _with_ci(_pr_node(1, "a"), {"state": "SUCCESS"}, oid)
             return _repo_payload(pullRequests={"nodes": [node]})
         if "states: OPEN" in query:
@@ -764,6 +764,70 @@ def test_a_refresh_keeps_the_checks_of_commits_that_did_not_move(
     turned = snapshot("b" * 12, CiStatus(state="failure", commit="a" * 12))
     git_overview._keep_details(turned, last)
     assert turned.prs[0].ci.total == 0
+
+
+def test_the_quick_answer_counts_checks_from_githubs_tally() -> None:
+    rollup = {
+        "state": "FAILURE",
+        "contexts": {
+            "totalCount": 9,
+            "checkRunCountsByState": [
+                {"state": "SUCCESS", "count": 4},
+                {"state": "SKIPPED", "count": 1},
+                {"state": "FAILURE", "count": 1},
+                {"state": "CANCELLED", "count": 1},
+                {"state": "IN_PROGRESS", "count": 1},
+                {"state": "QUEUED", "count": 1},
+            ],
+            "statusContextCountsByState": [],
+        },
+    }
+    ci = git_overview.ci_from_rollup(rollup, "a" * 40)
+    assert (ci.state, ci.total, ci.passed, ci.failed, ci.running, ci.pending) == (
+        "failure",
+        9,
+        5,
+        2,
+        1,
+        1,
+    )
+    # Nothing failed and something runs: "running", which a bare verdict cannot say.
+    rollup["state"] = "PENDING"
+    rollup["contexts"]["checkRunCountsByState"] = [
+        {"state": "SUCCESS", "count": 2},
+        {"state": "IN_PROGRESS", "count": 1},
+    ]
+    assert git_overview.ci_from_rollup(rollup).state == "running"
+
+
+def test_a_refresh_takes_new_counts_and_keeps_which_checks_failed() -> None:
+    def snapshot(ci: CiStatus) -> git_overview._GitHubSnapshot:
+        snap = git_overview._GitHubSnapshot(ok=True)
+        snap.prs = [
+            git_overview.PullRequest(
+                number=1, title="", url="", state="open", base="main", head="a", ci=ci
+            )
+        ]
+        return snap
+
+    last = snapshot(
+        CiStatus(
+            state="failure",
+            total=40,
+            passed=30,
+            failed=1,
+            running=9,
+            commit="a" * 12,
+            names=["CI gate"],
+            url="https://github.com/o/r/actions/runs/1",
+        )
+    )
+    fresh = CiStatus(state="failure", total=40, passed=39, failed=1, commit="a" * 12, url="x")
+    quick = snapshot(fresh)
+    git_overview._keep_details(quick, last)
+    ci = quick.prs[0].ci
+    assert (ci.passed, ci.running, ci.names) == (39, 0, ["CI gate"])
+    assert ci.url == "https://github.com/o/r/actions/runs/1"
 
 
 def test_a_slow_read_says_where_the_time_went(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
