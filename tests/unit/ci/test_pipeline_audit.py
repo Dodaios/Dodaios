@@ -243,11 +243,18 @@ def test_merge_queue_runs_the_whole_suite_and_is_never_cancelled():
 # --------------------------------------------------------------------------- tiers
 
 
-def test_a_pull_request_never_takes_a_macos_runner():
+def test_a_pull_request_shows_macos_failures_with_short_legs_only():
     sized = plan_run.plan("pull_request")
-    assert sized["tier"] == "pr" and sized["pr_mode"] and not sized["mac_lanes"]
-    assert sized["desktop_legs"] == "none"
-    assert "macos" not in json.dumps([v for k, v in sized.items() if k != "macos"])
+    assert sized["tier"] == "pr" and sized["pr_mode"] and sized["mac_lanes"]
+    # One short macOS leg per affected lane: a macOS failure shows on the
+    # pull request, and the legs end before the Windows shards do.
+    assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
+    assert sized["desktop_legs"] == "primary"
+    assert {"os": "macos-latest", "python": "3.12"} in sized["updater_matrix"]
+    # The long macOS legs (real runtimes, real browser) run once per change, in the queue.
+    assert "macos" not in json.dumps([sized["e2e_matrix"], sized["browser_os"]])
+    # Nothing in jarvisctl, dragdrop or the installer smoke is macOS-specific.
+    assert sized["os_matrix"] == ["ubuntu-latest", "windows-latest"]
     # The slowest real-runtime leg never runs per change.
     assert {"os": "windows-latest", "runtime": "hermes"} not in sized["e2e_matrix"]
     assert {"os": "windows-latest", "runtime": "openclaw"} in sized["e2e_matrix"]
@@ -255,20 +262,22 @@ def test_a_pull_request_never_takes_a_macos_runner():
     assert {"os": "windows-latest", "python": "3.12"} in sized["updater_matrix"]
 
 
-def test_the_merge_queue_proves_one_short_macos_leg_per_lane_and_the_slow_legs():
+def test_nothing_macos_specific_lands_unproven():
     sized = plan_run.plan("merge_group")
     assert sized["mac_lanes"] and not sized["macos"]
     assert sized["lane_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
     assert sized["desktop_legs"] == "primary"
-    # The gate waits for the slowest job and five macOS slots serve every
-    # merge group: the long legs (the Hermes install on Windows, the real
-    # runtimes and the real browser on macOS) run nightly and on release.
-    assert sized["browser_os"] == ["ubuntu-latest", "windows-latest"]
-    assert sized["e2e_matrix"] == plan_run.plan("pull_request")["e2e_matrix"]
+    # A macOS failure stops a change in the queue instead of surfacing the
+    # morning after: the real runtimes and the real browser run on macOS
+    # before anything lands. Only the Hermes install on Windows (14 to 23
+    # minutes) stays in the nightly and release runs.
+    assert sized["browser_os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
     assert {(leg["os"], leg["runtime"]) for leg in sized["e2e_matrix"]} == {
         ("ubuntu-latest", "hermes"),
         ("ubuntu-latest", "openclaw"),
         ("windows-latest", "openclaw"),
+        ("macos-latest", "hermes"),
+        ("macos-latest", "openclaw"),
     }
     # The second Windows interpreter of the updater is the queue's one extra.
     assert {"os": "windows-latest", "python": "3.11"} in sized["updater_matrix"]
@@ -451,7 +460,7 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     # The legs that left the per-change tiers are exactly what the nightly keeps.
     nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
     only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]
-    assert {"os": "windows-latest", "runtime": "hermes"} in only_nightly and len(only_nightly) == 3
+    assert only_nightly == [{"os": "windows-latest", "runtime": "hermes"}]
 
 
 def test_only_a_complete_green_run_on_main_writes_the_duration_caches():
