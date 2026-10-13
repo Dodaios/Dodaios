@@ -43,7 +43,13 @@ from .agent_tools import (
     WikiNoteTool,
 )
 from .ask_tool import ASK_USER_TOOL_NAME, AskUserTool
-from .capabilities import CapabilityKind, CapabilityRow, capability_id_for_tool, select_tools
+from .capabilities import (
+    CapabilityKind,
+    CapabilityRow,
+    capability_id_for_tool,
+    select_tools,
+    tool_name_for_capability,
+)
 from .coding_threads import CodingThreadTool
 from .communication import COMMUNICATION_GUIDANCE
 from .conversation_tool import ConversationRecallTool, RoutineInvokeTool, RoutineListTool
@@ -834,6 +840,31 @@ def society_tool_filter(session: Any) -> Callable[[dict[str, Tool]], dict[str, T
         return ordered
 
     return _apply
+
+
+def society_direct_tools(session: Any) -> frozenset[str] | None:
+    """The tools an agent's focus names, or ``None`` when it has none.
+
+    An agent may use everything it is granted, but it is SHOWN its own tools
+    and the ones its role points at; the rest stays callable behind
+    ``find_tools`` (``jarvis/brain/tool_shortlist.py``). An agent without a
+    focus, or one whose row is not cached yet, is shown everything as before.
+    """
+    rt = current_runtime()
+    agent_id = agent_id_of(getattr(session, "session_id", "") or "")
+    if rt is None or agent_id is None:
+        return None
+    agent = rt.cached_agent(agent_id)
+    if agent is None or not agent.focus:
+        return None
+    from jarvis.clis.capability_provider import equivalent_grants
+
+    names = {
+        name
+        for cap_id in equivalent_grants(agent.focus)
+        if (name := tool_name_for_capability(cap_id))
+    }
+    return frozenset(names) if names else None
 
 
 def requires_explicit_approval(session_id: str, tool_name: str, args: dict[str, Any]) -> bool:
