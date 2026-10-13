@@ -196,6 +196,8 @@ function FigureSymbol(props: SymbolProps) {
   const effect = skin ? skinEffect(skin) : "none";
   const eyeY = symbolEyeY(shape);
   return <ShapeFigure look={look} size={size} shape={shape} fallback={<FlatSymbol {...props} />}
+    flow={skin && effect === "flow" ? { colors: skin.colors, angle: skin.angle } : undefined} shine={effect === "shimmer"}
+    smoke={(plume, index) => <SmokePuffs c={[0, 0, 0]} size={plume.size} fill={plume.fill} id={`${id}-smoke-${index}`} />}
     behind={skin && effect === "glow" ? <span aria-hidden className="agent-figure-halo" style={{ background: `radial-gradient(closest-side, ${skinHighlight(skin.colors)}, transparent)` }} /> : undefined}
     overlay={skin && effect === "sparkle" ? <svg aria-hidden focusable="false" viewBox="0 0 40 44" className="society-agent-symbol"><SkinOverlay id={id} skin={skin} body={() => null} /></svg> : undefined}>
     {moving && <g className="agent-symbol-gaze"><g data-agent-eyes fill={companionEyeColors(color).eye}><g className="agent-symbol-lids">
