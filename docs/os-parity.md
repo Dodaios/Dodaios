@@ -1,5 +1,16 @@
 # OS Feature Parity — macOS / Linux Gap Register
 
+## PATH length budget (issue #574, T2)
+
+On Windows the app keeps its own `PATH` within 31,000 characters: past the
+32,767-character search path Windows builds per program start, every spawn
+from the process fails with `WinError 8`. Repeated entries and folders that do
+not exist are dropped first, real folders from the end last, and an inherited
+PATH that is already too long is repaired at boot. macOS and Linux have no such
+per-variable limit, so the PATH is never shortened there; the budget logic runs
+on every OS in the unit tests, and the real spawn past the limit was verified on
+Windows 11 only.
+
 ## Local voice and audio topology refresh (issue #464, T2)
 
 Local final transcription uses its configured model independently of the wake
