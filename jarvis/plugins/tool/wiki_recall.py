@@ -31,6 +31,7 @@ Vault-root resolution (§6 AGENT-B, spec A7):
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -119,6 +120,10 @@ class WikiRecallTool:
             )
 
         hits = self._search.search(query, k=k)
+        # With semantic search switched on, add pages that mean the same but
+        # share no word with the query. Never waits for the model, and runs
+        # off the event loop: encoding the query is CPU work.
+        hits = await asyncio.to_thread(_with_semantic_hits, hits, query, vault_root)
 
         log.info("wiki-recall: %d hit(s) for query (k=%d)", len(hits), k)
 
@@ -141,6 +146,16 @@ class WikiRecallTool:
             lines.append(f"- **{hit.title}**{snippet_part} ({rel_path})")
 
         return ToolResult(success=True, output="\n".join(lines))
+
+
+def _with_semantic_hits(hits: list[Any], query: str, vault_root: Path) -> list[Any]:
+    try:
+        from jarvis.memory.wiki.semantic_search import with_semantic_hits
+
+        return with_semantic_hits(hits, query, vault_root=vault_root)
+    except Exception as exc:  # noqa: BLE001 - the word search result stands on its own
+        log.debug("wiki-recall: semantic search skipped: %s", exc)
+        return hits
 
 
 def _build_search_instance() -> VaultSearch:
