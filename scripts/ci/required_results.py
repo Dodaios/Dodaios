@@ -52,6 +52,8 @@ def expected_jobs(outputs: dict[str, str]) -> set[str]:
             required.update(jobs)
     if outputs.get("macos") == "true" and outputs.get("python") == "true":
         required.add("tests-macos")
+    if outputs.get("mac_tests") == "true" and outputs.get("python") == "true":
+        required.add("tests-macos-impact")
     if outputs.get("macos_desktop") == "true" and outputs.get("desktop_legs") != "none":
         required.add("macos-desktop")
     if outputs.get("release") == "true":
