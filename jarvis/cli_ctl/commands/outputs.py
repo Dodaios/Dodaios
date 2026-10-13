@@ -31,7 +31,7 @@ def files(slug: str = typer.Argument(...)) -> None:
 def graph(slug: str = typer.Argument(...)) -> None:
     """Print a session's mission-map page (self-contained HTML node graph).
 
-    Pipe it to a file to keep or open it: ``jarvis outputs graph <slug> > map.html``.
+    Pipe it to a file to keep or open it: ``dodaios outputs graph <slug> > map.html``.
     """
     invoke.run("GET", f"/api/outputs/{slug}/graph")
 

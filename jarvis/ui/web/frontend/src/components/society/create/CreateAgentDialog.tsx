@@ -19,6 +19,7 @@ import { useT } from "@/i18n";
 import type { AgentRuntime } from "@/lib/societyApi";
 import { AgentNameTaken, RuntimeProviderUnsupported, useCreateSocietyAgent } from "../data";
 import { defaultCompanion, type CompanionAppearance } from "../companion/appearance";
+import { randomCreature } from "../companion/creature";
 import { RuntimeChoice, useAgentRuntimes } from "../card/RuntimePicker";
 import { modelSeats, runtimeSeats } from "../chat/modelChoices";
 import { useModelMenuData } from "../chat/useModelMenuData";
@@ -39,8 +40,9 @@ function list(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+/** A new agent starts as a pixel creature; the shape underneath is there for a change of mind. */
 function randomCompanion(): CompanionAppearance {
-  return defaultCompanion(`${Date.now()}:${Math.random()}`);
+  return { ...defaultCompanion(`${Date.now()}:${Math.random()}`), creature: randomCreature() };
 }
 
 export function CreateAgentDialogHost() {
