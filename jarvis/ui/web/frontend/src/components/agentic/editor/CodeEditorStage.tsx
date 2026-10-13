@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   AlertTriangle,
@@ -22,7 +22,7 @@ import { attachToTerminal, openTerminalTarget } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { revealInExplorer } from "@/store/ideExplorer";
-import { tabsOf, useCodeEditorStore, type EditorTab } from "@/store/codeEditor";
+import { groupsOf, layoutFor, tabsOf, useCodeEditorStore, type EditorGroup, type EditorLayout, type EditorTab } from "@/store/codeEditor";
 import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
 import { absoluteWorkspacePath } from "@/components/agentic/sidePanel/explorer/explorerApi";
 import { ThreadMenuHeading, ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "@/components/agentic/threads/ThreadPopover";
@@ -40,10 +40,44 @@ const EditorSurface = lazy(() => import("./EditorSurface"));
 const DISK_POLL_MS = 3000;
 const DISK_JITTER_MS = 1500;
 
-/** How far the divider between two editors may be dragged, as a share of the width. */
-const SPLIT_MIN = 0.2;
-const SPLIT_MAX = 0.8;
+/** How far the divider between two groups may be dragged, as a share of their joint width. */
+const SPLIT_MIN = 0.15;
+const SPLIT_MAX = 0.85;
 const clampSplit = (ratio: number) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ratio));
+
+/** A tab being dragged: within its tab bar, to another group, or out into a new one. */
+const TAB_DRAG_TYPE = "application/x-jarvis-editor-tab";
+
+type DropZone = "left" | "right" | "top" | "bottom" | "center";
+
+/** The part of a group's text area a dropped tab would take. */
+const ZONE_BOX: Record<DropZone, CSSProperties> = {
+  left: { left: 8, right: "50%", top: 8, bottom: 8 },
+  right: { left: "50%", right: 8, top: 8, bottom: 8 },
+  top: { left: 8, right: 8, top: 8, bottom: "50%" },
+  bottom: { left: 8, right: 8, top: "50%", bottom: 8 },
+  center: { left: 8, right: 8, top: 8, bottom: 8 },
+};
+
+/** A stable name for a part of the layout, to remember its size under. */
+const nodeKey = (node: EditorLayout): string =>
+  typeof node === "number" ? `g${node}` : `${node.dir}(${node.children.map(nodeKey).join(",")})`;
+
+/** The group in the top right corner, which carries the "Terminals" button. */
+const cornerOf = (node: EditorLayout): number =>
+  typeof node === "number" ? node : cornerOf(node.dir === "row" ? node.children[node.children.length - 1] : node.children[0]);
+/** Where the dragged tab would land: a spot in a tab bar, or a zone of a group's text area. */
+type DropHint = { group: number; before: number } | { group: number; zone: DropZone };
+
+/** The index of the tab a pointer at `x` would insert in front of; the tab count = after the last. */
+function insertionIndex(bar: HTMLElement, x: number): number {
+  const tabs = bar.querySelectorAll<HTMLElement>('[data-testid="code-editor-tab"]');
+  for (let index = 0; index < tabs.length; index += 1) {
+    const rect = tabs[index].getBoundingClientRect();
+    if (x < rect.left + rect.width / 2) return index;
+  }
+  return tabs.length;
+}
 
 const baseName = (path: string) => path.split("/").pop() ?? path;
 
@@ -60,6 +94,12 @@ function copyText(text: string): void {
 
 /**
  * The code editor, laid over the terminal grid of the Agentic IDE.
+ *
+ * It shows one or more editor groups, side by side or above each other. Each
+ * group has its own tab bar, breadcrumbs and text; "Open to the side" adds
+ * one, a dragged tab makes one where it is dropped, and closing a group's last
+ * tab removes it. The group last clicked in has the
+ * keyboard: opened files, shortcuts and the status bar go to it.
  *
  * Files open here from the side panel's Folder and Changes tabs, from a
  * Ctrl+click on a path in a terminal, and from Go to File (Ctrl+P). The
@@ -79,18 +119,21 @@ export function CodeEditorStage({
   const stage = useRef<HTMLDivElement>(null);
   const tabs = useCodeEditorStore(useShallow((state) => tabsOf(state, workspaceId)));
   const activeKey = useCodeEditorStore((state) => (workspaceId ? (state.active[workspaceId] ?? null) : null));
-  const sideKey = useCodeEditorStore((state) => (workspaceId ? (state.side[workspaceId] ?? null) : null));
-  const sideHasKeyboard = useCodeEditorStore((state) => state.sideFocused);
+  const storedLayout = useCodeEditorStore((state) => (workspaceId ? state.layout[workspaceId] : undefined));
+  const groupActive = useCodeEditorStore((state) => (workspaceId ? state.groupActive[workspaceId] : undefined));
+  const focusedGroupId = useCodeEditorStore((state) => (workspaceId ? state.focusedGroup[workspaceId] : undefined));
   const visible = useCodeEditorStore((state) => state.visible);
   const quickOpen = useCodeEditorStore((state) => state.quickOpen);
   const files = useCodeEditorStore((state) => state.files);
   const diffBases = useCodeEditorStore((state) => state.diffBases);
   const [pending, setPending] = useState<PendingClose | null>(null);
   const [menu, setMenu] = useState<EditorTab | null>(null);
-  // The first editor's share of the width while two are open.
-  const [split, setSplit] = useState(0.5);
-  const splitHost = useRef<HTMLDivElement>(null);
+  // Each part of the layout's share of its split, as a weight; one never resized has 1.
+  const [weights, setWeights] = useState<Readonly<Record<string, number>>>({});
   const dragging = useRef(false);
+  // The tab being dragged, and where it would land if dropped now.
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropHint, setDropHint] = useState<DropHint | null>(null);
   // Tabs whose Markdown, HTML or SVG is shown rendered (Ctrl+Shift+V).
   const [rendered, setRendered] = useState<ReadonlySet<string>>(() => new Set());
   const toggleRendered = (key: string) =>
@@ -105,11 +148,31 @@ export function CodeEditorStage({
   const menuAnchor = useRef<HTMLElement | null>(null);
   const pushToast = useEventStore((state) => state.pushToast);
 
-  const activeTab = tabs.find((tab) => tab.key === activeKey) ?? tabs[tabs.length - 1] ?? null;
-  // A second editor beside the first ("Open to the side"). The breadcrumbs,
-  // banners and status bar describe whichever of the two has the keyboard.
-  const sideTab = activeTab && sideKey ? (tabs.find((tab) => tab.key === sideKey) ?? null) : null;
-  const sideFocused = sideHasKeyboard && sideTab !== null;
+  const groups = useMemo(
+    () =>
+      workspaceId
+        ? groupsOf(
+            {
+              tabs,
+              layout: storedLayout === undefined ? {} : { [workspaceId]: storedLayout },
+              groupActive: { [workspaceId]: groupActive ?? {} },
+              focusedGroup: focusedGroupId === undefined ? {} : { [workspaceId]: focusedGroupId },
+            },
+            workspaceId,
+          )
+        : [],
+    [workspaceId, tabs, storedLayout, groupActive, focusedGroupId],
+  );
+  const tree = useMemo(
+    () =>
+      layoutFor(
+        storedLayout,
+        groups.filter((group) => group.tabs.length > 0).map((group) => group.id),
+      ),
+    [storedLayout, groups],
+  );
+  // The tab of the group that has the keyboard: what shortcuts and the status bar act on.
+  const activeTab = tabs.find((tab) => tab.key === activeKey) ?? groups.find((group) => group.focused)?.active ?? null;
   const shown = visible && activeTab !== null;
 
   // Reopen what this workspace had open last run, unsaved text included.
@@ -172,9 +235,8 @@ export function CodeEditorStage({
       if (!state.visible || !host) return;
       if (target && target !== document.body && !host.contains(target)) return;
       const own = tabsOf(state, workspaceId);
-      // Keys go to the editor that has the keyboard.
-      const beside = state.sideFocused ? own.find((tab) => tab.key === state.side[workspaceId]) : undefined;
-      const current = beside ?? own.find((tab) => tab.key === state.active[workspaceId]) ?? own[own.length - 1];
+      // Keys go to the group that has the keyboard.
+      const current = own.find((tab) => tab.key === state.active[workspaceId]) ?? own[own.length - 1];
       if (!current) return;
       const handled = () => {
         event.preventDefault();
@@ -186,9 +248,7 @@ export function CodeEditorStage({
         else void saveFile(current.fileKey);
       } else if (key === "w" && !event.shiftKey) {
         handled();
-        // In the second editor, Ctrl+W ends the split; the tab stays open.
-        if (beside) state.closeSide(workspaceId);
-        else requestCloseRef.current([current.key]);
+        requestCloseRef.current([current.key]);
       } else if (key === "tab" || key === "pagedown" || key === "pageup") {
         handled();
         state.cycle(workspaceId, event.shiftKey || key === "pageup" ? -1 : 1);
@@ -205,7 +265,7 @@ export function CodeEditorStage({
   }, [workspaceId]);
 
   // Notice an agent's edit to the open files: on a timer and when the window regains focus.
-  const watchedFileKeys = shown ? [...new Set([activeTab.fileKey, ...(sideTab ? [sideTab.fileKey] : [])])].join("\n") : "";
+  const watchedFileKeys = shown ? [...new Set(groups.flatMap((group) => (group.active ? [group.active.fileKey] : [])))].join("\n") : "";
   useEffect(() => {
     if (!watchedFileKeys) return;
     let alive = true;
@@ -252,32 +312,104 @@ export function CodeEditorStage({
       {t("code_editor.starting")}
     </p>
   );
-  const shownTab = sideFocused && sideTab ? sideTab : activeTab;
-  const shownFile = files[shownTab.fileKey];
-  const segments = shownTab.path.split("/");
+  const focusTab = activeTab;
 
-  // Dragging the divider between the two editors.
-  const dragSplit = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const host = splitHost.current;
-    if (!dragging.current || !host) return;
-    const rect = host.getBoundingClientRect();
-    if (rect.width > 0) setSplit(clampSplit((event.clientX - rect.left) / rect.width));
+  const weightOf = (node: EditorLayout) => weights[nodeKey(node)] ?? 1;
+  /** Move the divider between two neighbours of a split; their joint size stays. */
+  const resizePair = (first: EditorLayout, second: EditorLayout, ratio: number) => {
+    const total = weightOf(first) + weightOf(second);
+    const share = clampSplit(ratio);
+    setWeights((current) => ({ ...current, [nodeKey(first)]: total * share, [nodeKey(second)]: total * (1 - share) }));
+  };
+  const dragDivider = (event: ReactPointerEvent<HTMLDivElement>, first: EditorLayout, second: EditorLayout, dir: "row" | "column") => {
+    if (!dragging.current) return;
+    const before = event.currentTarget.previousElementSibling?.getBoundingClientRect();
+    const after = event.currentTarget.nextElementSibling?.getBoundingClientRect();
+    if (!before || !after) return;
+    const [start, end, at] = dir === "row" ? [before.left, after.right, event.clientX] : [before.top, after.bottom, event.clientY];
+    if (end > start) resizePair(first, second, (at - start) / (end - start));
   };
 
-  return (
-    <>
-      <div
-        ref={stage}
-        data-testid="code-editor"
+  const draggedTab = dragKey ? (tabs.find((tab) => tab.key === dragKey) ?? null) : null;
+  const endDrag = () => {
+    setDragKey(null);
+    setDropHint(null);
+  };
+  /** Whether dropping the dragged tab on this zone of a group's text changes anything. */
+  const zoneTakes = (group: EditorGroup, zone: DropZone) => {
+    if (!draggedTab) return false;
+    const own = draggedTab.group === group.id;
+    // The middle moves the tab into the group; a side opens a new group there.
+    return zone === "center" ? !own : !(own && group.tabs.length === 1);
+  };
+  /** The zone of a group's text area under the pointer. */
+  const zoneAt = (group: EditorGroup, area: HTMLElement, x: number, y: number): DropZone => {
+    const rect = area.getBoundingClientRect();
+    const across = rect.width > 0 ? (x - rect.left) / rect.width : 0.5;
+    const down = rect.height > 0 ? (y - rect.top) / rect.height : 0.5;
+    // The middle takes the tab into the group; outside it, the nearest edge
+    // wins. A group's own tab can only go to an edge.
+    const inMiddle = across > 1 / 3 && across < 2 / 3 && down > 1 / 3 && down < 2 / 3;
+    if (inMiddle && zoneTakes(group, "center")) return "center";
+    const edges: [DropZone, number][] = [
+      ["left", across],
+      ["right", 1 - across],
+      ["top", down],
+      ["bottom", 1 - down],
+    ];
+    return edges.reduce((best, edge) => (edge[1] < best[1] ? edge : best))[0];
+  };
+
+  const renderGroup = (group: EditorGroup) => {
+    const shownTab = group.active;
+    if (!shownTab) return null;
+    const hint = dropHint?.group === group.id ? dropHint : null;
+    const marker = hint && "before" in hint ? hint.before : -1;
+    const zone = hint && "zone" in hint ? hint.zone : null;
+    const shownFile = files[shownTab.fileKey];
+    const segments = shownTab.path.split("/");
+    const last = group.id === cornerOf(tree);
+    return (
+      <section
+        key={group.id}
+        aria-label={fill(t("code_editor.group_label"), { n: String(groups.indexOf(group) + 1) })}
+        data-testid="code-editor-group"
+        data-group={group.id}
         data-path={shownTab.path}
-        className="absolute inset-0 z-20 flex min-h-0 flex-col bg-background"
+        data-focused={group.focused || undefined}
+        className="flex min-h-0 min-w-0 flex-col"
+        style={{ flex: `${weightOf(group.id)} 1 0%` }}
+        onFocusCapture={() => store.focusGroup(workspaceId, group.id)}
+        onPointerDownCapture={() => store.focusGroup(workspaceId, group.id)}
       >
         {/* Tab bar */}
-        <div className="flex h-9 shrink-0 items-stretch border-b border-border/70 bg-sidebar">
+        <div
+          data-testid="code-editor-tabbar"
+          className="flex h-9 shrink-0 items-stretch border-b border-border/70 bg-sidebar"
+          // A dragged tab lands in front of the tab under the pointer, or at the end.
+          onDragOver={(event) => {
+            if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            const before = insertionIndex(event.currentTarget, event.clientX);
+            if (marker !== before) setDropHint({ group: group.id, before });
+          }}
+          onDragLeave={(event) => {
+            if (marker >= 0 && !event.currentTarget.contains(event.relatedTarget as Node | null)) setDropHint(null);
+          }}
+          onDrop={(event) => {
+            const key = event.dataTransfer.getData(TAB_DRAG_TYPE);
+            if (!key) return;
+            event.preventDefault();
+            const before = group.tabs[insertionIndex(event.currentTarget, event.clientX)]?.key;
+            endDrag();
+            store.moveTab(key, { group: group.id, before });
+          }}
+        >
           <div role="tablist" aria-label={t("code_editor.tabs")} className="scrollbar-none flex min-w-0 flex-1 items-stretch overflow-x-auto">
-            {tabs.map((tab) => {
+            {group.tabs.map((tab, position) => {
               const file = files[tab.fileKey];
-              const active = tab.key === activeTab.key;
+              const active = tab.key === shownTab.key;
               const name = baseName(tab.path);
               const folder = tab.path.split("/").slice(-2, -1)[0];
               return (
@@ -290,6 +422,16 @@ export function CodeEditorStage({
                   data-preview={tab.preview || undefined}
                   data-dirty={file?.dirty || undefined}
                   tabIndex={0}
+                  draggable
+                  data-dragging={dragKey === tab.key || undefined}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData(TAB_DRAG_TYPE, tab.key);
+                    event.dataTransfer.effectAllowed = "move";
+                    // Once the browser has taken its picture of the tab: the
+                    // drop zones come up over every group's text.
+                    window.setTimeout(() => setDragKey(tab.key), 0);
+                  }}
+                  onDragEnd={endDrag}
                   title={tab.path}
                   onClick={() => store.activate(tab.key)}
                   onDoubleClick={() => store.pinTab(tab.key)}
@@ -309,19 +451,15 @@ export function CodeEditorStage({
                     setMenu(tab);
                   }}
                   className={cn(
-                    "group relative flex min-w-0 max-w-[220px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border/50 pl-3 pr-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                    "group relative flex min-w-0 max-w-[220px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border/50 pl-3 pr-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[dragging]:opacity-50",
                     active ? "bg-background text-foreground-strong" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                   )}
                 >
-                  {active && <span className={cn("absolute inset-x-0 top-0 h-px", sideFocused ? "bg-muted-foreground/50" : "bg-primary")} aria-hidden />}
+                  {active && <span className={cn("absolute inset-x-0 top-0 h-px", group.focused ? "bg-primary" : "bg-muted-foreground/50")} aria-hidden />}
+                  {marker === position && <span className="pointer-events-none absolute inset-y-1 left-0 z-10 w-0.5 rounded bg-primary" aria-hidden />}
                   {tab.mode === "diff" ? <FileDiff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <FileTypeIcon path={tab.path} />}
                   <span className={cn("truncate", tab.preview && "italic", file?.deleted && "line-through decoration-destructive/70")}>{name}</span>
                   {(duplicateNames.get(name) ?? 0) > 1 && folder && <span className="shrink-0 truncate text-[11px] text-muted-foreground">{folder}</span>}
-                  {sideTab?.key === tab.key && (
-                    <span title={t("code_editor.side_tab_hint")} data-testid="code-editor-tab-side" className="inline-flex shrink-0 text-muted-foreground">
-                      <Columns2 className="h-3 w-3" aria-hidden />
-                    </span>
-                  )}
                   <button
                     type="button"
                     aria-label={fill(t("code_editor.close_tab"), { file: name })}
@@ -344,17 +482,30 @@ export function CodeEditorStage({
                 </div>
               );
             })}
+            {marker === group.tabs.length && <span className="pointer-events-none my-1 w-0.5 shrink-0 rounded bg-primary" aria-hidden />}
           </div>
           <button
             type="button"
-            data-testid="code-editor-hide"
-            onClick={() => store.setVisible(false)}
-            title={t("code_editor.show_terminals_hint")}
-            className="inline-flex shrink-0 items-center gap-1.5 border-l border-border/60 px-3 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            data-testid="code-editor-split"
+            aria-label={t("code_editor.split_right")}
+            title={t("code_editor.split_right")}
+            onClick={() => store.splitRight(shownTab.key)}
+            className="inline-flex w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
-            <SquareTerminal className="h-3.5 w-3.5" aria-hidden />
-            {t("code_editor.show_terminals")}
+            <Columns2 className="h-3.5 w-3.5" aria-hidden />
           </button>
+          {last && (
+            <button
+              type="button"
+              data-testid="code-editor-hide"
+              onClick={() => store.setVisible(false)}
+              title={t("code_editor.show_terminals_hint")}
+              className="inline-flex shrink-0 items-center gap-1.5 border-l border-border/60 px-3 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <SquareTerminal className="h-3.5 w-3.5" aria-hidden />
+              {t("code_editor.show_terminals")}
+            </button>
+          )}
         </div>
 
         {/* Breadcrumbs and file actions */}
@@ -421,101 +572,144 @@ export function CodeEditorStage({
           <Banner tone="muted" testId="code-editor-deleted" text={t("code_editor.deleted")} />
         )}
 
-        <div ref={splitHost} className="flex min-h-0 flex-1">
-          <div
-            data-testid="code-editor-main"
-            className="relative min-h-0 min-w-0"
-            style={{ flex: sideTab ? `${split} 1 0%` : "1 1 0%" }}
-            onFocusCapture={() => store.focusGroup(false)}
-            onPointerDownCapture={() => store.focusGroup(false)}
-          >
-            <Suspense fallback={starting}>
-              <EditorSurface tab={activeTab} rendered={rendered.has(activeTab.key)} onOpenExternally={openExternally} />
-            </Suspense>
-          </div>
-          {sideTab && (
-            <>
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label={t("code_editor.resize_split")}
-                aria-valuemin={SPLIT_MIN * 100}
-                aria-valuemax={SPLIT_MAX * 100}
-                aria-valuenow={Math.round(split * 100)}
-                tabIndex={0}
-                title={t("code_editor.resize_split")}
-                data-testid="code-editor-split-handle"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  dragging.current = true;
-                  event.currentTarget.setPointerCapture?.(event.pointerId);
-                }}
-                onPointerMove={dragSplit}
-                onPointerUp={(event) => {
-                  dragging.current = false;
-                  event.currentTarget.releasePointerCapture?.(event.pointerId);
-                }}
-                onPointerCancel={() => {
-                  dragging.current = false;
-                }}
-                onDoubleClick={() => setSplit(0.5)}
-                onKeyDown={(event) => {
-                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-                  event.preventDefault();
-                  setSplit((current) => clampSplit(current + (event.key === "ArrowLeft" ? -0.05 : 0.05)));
-                }}
-                className="w-1 shrink-0 cursor-col-resize bg-border/70 transition-colors hover:bg-primary/60 focus-visible:bg-primary/60 focus-visible:outline-none"
-              />
-              <section
-                aria-label={t("code_editor.side_label")}
-                data-testid="code-editor-side"
-                data-path={sideTab.path}
-                data-focused={sideFocused || undefined}
-                className="flex min-h-0 min-w-0 flex-col"
-                style={{ flex: `${1 - split} 1 0%` }}
-                onFocusCapture={() => store.focusGroup(true)}
-                onPointerDownCapture={() => store.focusGroup(true)}
-              >
-                <div className="relative flex h-8 shrink-0 items-center gap-1.5 border-b border-border/50 bg-sidebar pl-3 pr-1.5 text-[13px]">
-                  {sideFocused && <span className="absolute inset-x-0 top-0 h-px bg-primary" aria-hidden />}
-                  {sideTab.mode === "diff" ? <FileDiff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <FileTypeIcon path={sideTab.path} />}
-                  <span className={cn("min-w-0 flex-1 truncate", sideFocused ? "text-foreground-strong" : "text-muted-foreground")} title={sideTab.path}>
-                    {baseName(sideTab.path)}
-                  </span>
-                  {files[sideTab.fileKey]?.dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-foreground/70" aria-hidden />}
-                  <button
-                    type="button"
-                    data-testid="code-editor-side-close"
-                    aria-label={t("code_editor.close_side")}
-                    title={t("code_editor.close_side")}
-                    onClick={() => store.closeSide(workspaceId)}
-                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                </div>
-                <div className="relative min-h-0 flex-1">
-                  <Suspense fallback={starting}>
-                    <EditorSurface tab={sideTab} rendered={rendered.has(sideTab.key)} secondary onOpenExternally={openExternally} />
-                  </Suspense>
-                </div>
-              </section>
-            </>
+        <div className="relative min-h-0 flex-1">
+          <Suspense fallback={starting}>
+            <EditorSurface
+              tab={shownTab}
+              rendered={rendered.has(shownTab.key)}
+              focused={group.focused}
+              secondary={groups.length > 1}
+              onOpenExternally={openExternally}
+            />
+          </Suspense>
+          {/* While a tab is dragged, the text area takes the drop: its middle
+              moves the tab into this group, each of its four sides opens a
+              new group there. Laid over the editor so the text never sees it. */}
+          {draggedTab && (zoneTakes(group, "center") || zoneTakes(group, "left")) && (
+            <div
+              data-testid="code-editor-drop"
+              data-zone={zone ?? undefined}
+              className="absolute inset-0 z-10"
+              onDragOver={(event) => {
+                if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;
+                const next = zoneAt(group, event.currentTarget, event.clientX, event.clientY);
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                if (zone !== next) setDropHint({ group: group.id, zone: next });
+              }}
+              onDragLeave={() => {
+                if (zone) setDropHint(null);
+              }}
+              onDrop={(event) => {
+                const key = event.dataTransfer.getData(TAB_DRAG_TYPE);
+                if (!key) return;
+                event.preventDefault();
+                // Where the pointer is now, not where the last painted hint was.
+                const landed = zoneAt(group, event.currentTarget, event.clientX, event.clientY);
+                endDrag();
+                store.moveTab(key, landed === "center" ? { group: group.id } : { beside: group.id, side: landed });
+              }}
+            >
+              <div className="pointer-events-none absolute inset-1 rounded-lg border-2 border-dashed border-primary/30" aria-hidden />
+              {zone && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute rounded-md bg-primary/25 ring-2 ring-primary transition-all duration-150 motion-reduce:transition-none"
+                  style={ZONE_BOX[zone]}
+                />
+              )}
+            </div>
           )}
         </div>
+      </section>
+    );
+  };
 
-        <StatusBar fileKey={shownTab.fileKey} />
+  /** A group, or a split with a draggable divider between each two of its parts. */
+  const renderNode = (node: EditorLayout): ReactNode => {
+    if (typeof node === "number") {
+      const group = groups.find((entry) => entry.id === node);
+      return group ? renderGroup(group) : null;
+    }
+    const row = node.dir === "row";
+    return (
+      <div
+        key={nodeKey(node)}
+        data-testid="code-editor-layout"
+        data-dir={node.dir}
+        className={cn("flex min-h-0 min-w-0", row ? "flex-row" : "flex-col")}
+        style={{ flex: `${weightOf(node)} 1 0%` }}
+      >
+        {node.children.map((child, index) => {
+          const previous = node.children[index - 1];
+          return (
+            <Fragment key={nodeKey(child)}>
+              {previous !== undefined && (
+                <div
+                  role="separator"
+                  aria-orientation={row ? "vertical" : "horizontal"}
+                  aria-label={t("code_editor.resize_split")}
+                  tabIndex={0}
+                  title={t("code_editor.resize_split")}
+                  data-testid="code-editor-split-handle"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    dragging.current = true;
+                    event.currentTarget.setPointerCapture?.(event.pointerId);
+                  }}
+                  onPointerMove={(event) => dragDivider(event, previous, child, node.dir)}
+                  onPointerUp={(event) => {
+                    dragging.current = false;
+                    event.currentTarget.releasePointerCapture?.(event.pointerId);
+                  }}
+                  onPointerCancel={() => {
+                    dragging.current = false;
+                  }}
+                  onDoubleClick={() => resizePair(previous, child, 0.5)}
+                  onKeyDown={(event) => {
+                    const back = row ? "ArrowLeft" : "ArrowUp";
+                    const forth = row ? "ArrowRight" : "ArrowDown";
+                    if (event.key !== back && event.key !== forth) return;
+                    event.preventDefault();
+                    const share = weightOf(previous) / (weightOf(previous) + weightOf(child));
+                    resizePair(previous, child, share + (event.key === back ? -0.05 : 0.05));
+                  }}
+                  className={cn(
+                    "shrink-0 bg-border/70 transition-colors hover:bg-primary/60 focus-visible:bg-primary/60 focus-visible:outline-none",
+                    row ? "w-1 cursor-col-resize" : "h-1 cursor-row-resize",
+                  )}
+                />
+              )}
+              {renderNode(child)}
+            </Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div
+        ref={stage}
+        data-testid="code-editor"
+        data-path={focusTab.path}
+        className="absolute inset-0 z-20 flex min-h-0 flex-col bg-background"
+      >
+        <div className="flex min-h-0 flex-1">{renderNode(tree)}</div>
+
+        <StatusBar fileKey={focusTab.fileKey} />
       </div>
 
       <ThreadPopover anchor={menuAnchor} open={menu !== null} onClose={() => setMenu(null)} label={t("code_editor.tab_menu")} width={230}>
         {menu && (
           <div role="menu">
             <ThreadMenuItem icon={<X className="h-4 w-4" />} label={t("code_editor.menu.close")} hint="Ctrl+W" onSelect={() => { setMenu(null); requestClose([menu.key]); }} />
-            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_others")} onSelect={() => { setMenu(null); requestClose(tabs.filter((tab) => tab.key !== menu.key).map((tab) => tab.key)); }} />
-            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_saved")} onSelect={() => { setMenu(null); requestClose(tabs.filter((tab) => !files[tab.fileKey]?.dirty).map((tab) => tab.key)); }} />
-            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_all")} onSelect={() => { setMenu(null); requestClose(tabs.map((tab) => tab.key)); }} />
+            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_others")} onSelect={() => { setMenu(null); requestClose(tabs.filter((tab) => tab.group === menu.group && tab.key !== menu.key).map((tab) => tab.key)); }} />
+            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_saved")} onSelect={() => { setMenu(null); requestClose(tabs.filter((tab) => tab.group === menu.group && !files[tab.fileKey]?.dirty).map((tab) => tab.key)); }} />
+            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.close_all")} onSelect={() => { setMenu(null); requestClose(tabs.filter((tab) => tab.group === menu.group).map((tab) => tab.key)); }} />
             <ThreadMenuSeparator />
-            <ThreadMenuItem icon={<Columns2 className="h-4 w-4" />} label={t("code_editor.menu.open_side")} onSelect={() => { setMenu(null); store.openToSide(workspaceId, menu.path, { mode: menu.mode }); }} />
+            <ThreadMenuItem icon={<Columns2 className="h-4 w-4" />} label={t("code_editor.split_right")} onSelect={() => { setMenu(null); store.splitRight(menu.key); }} />
             <ThreadMenuSeparator />
             <ThreadMenuItem icon={<Copy className="h-4 w-4" />} label={t("code_editor.menu.copy_path")} onSelect={() => { setMenu(null); copyText(absolute(menu.path)); }} />
             <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.copy_relative_path")} onSelect={() => { setMenu(null); copyText(menu.path); }} />

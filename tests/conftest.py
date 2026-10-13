@@ -419,5 +419,26 @@ async def fresh_bus():
 
 
 @pytest.fixture
+def prefixed_environment_restored():
+    """Put every ``JARVIS_*`` / ``DODAIOS_*`` variable back after the test.
+
+    For a test that runs the new-prefix adoption on the real process
+    environment (``jarvis.core.env_prefix``, or the frozen runtime hook that
+    carries a copy of it): the adoption writes the ``JARVIS_`` name of every
+    ``DODAIOS_`` variable, and ``monkeypatch`` only takes back the names the
+    test itself set.
+    """
+    import os
+
+    prefixes = ("JARVIS_", "DODAIOS_")
+    before = {name: value for name, value in os.environ.items() if name.startswith(prefixes)}
+    yield
+    for name in [name for name in os.environ if name.startswith(prefixes)]:
+        if name not in before:
+            del os.environ[name]
+    os.environ.update(before)
+
+
+@pytest.fixture
 def anyio_backend():
     return "asyncio"
