@@ -137,6 +137,8 @@ class BranchStatus:
     merge_status: str = ""
     review: str = ""
     locked: bool = False
+    # The session's other branches, newest first; set on the one a header shows.
+    others: list[BranchStatus] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -341,7 +343,6 @@ def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict
             result[record.pane] = None
             continue
         shown = _foreground(listed)
-        payload = shown.to_dict()
-        payload["others"] = [status.to_dict() for status in listed if status is not shown]
-        result[record.pane] = payload
+        shown.others = [status for status in listed if status is not shown]
+        result[record.pane] = shown.to_dict()
     return result
