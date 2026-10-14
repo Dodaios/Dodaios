@@ -481,7 +481,7 @@ _WARM_S = 50
 #: the front one: it keeps the hourly GitHub budget for the tab in front.
 _WARM_GITHUB_TTL = 60
 #: The longest a request that asked to wait holds on for a running read.
-_MAX_WAIT_S = 5
+_MAX_WAIT_S = 15
 _MAX_BOARDS = 64
 _boards: dict[str, _Board] = {}
 _boards_lock = threading.Lock()

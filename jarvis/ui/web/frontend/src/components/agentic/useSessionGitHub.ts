@@ -120,7 +120,8 @@ function start(workspaceId: string): Entry {
     controller = new AbortController();
     const timeout = setTimeout(() => controller?.abort(), 30_000);
     try {
-      const query = new URLSearchParams({ workspace_id: workspaceId });
+      // `instant`: answer from the last read at once; this header asks again.
+      const query = new URLSearchParams({ workspace_id: workspaceId, instant: "1" });
       if (followUps) query.set("wait", String(WAIT_S));
       const response = await fetch(`/api/agentic-ide/git/session-status?${query}`, { signal: controller.signal });
       if (!response.ok) throw new Error("GitHub status could not be refreshed.");
