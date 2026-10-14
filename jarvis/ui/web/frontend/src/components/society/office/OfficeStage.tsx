@@ -23,7 +23,7 @@ import { isCreateCancelled } from "../create/createAgentStore";
 import { OfficeScene } from "./OfficeScene";
 import { allDesks, buildOfficeLayout, countStates, seatedCount, type OfficeTeamInput } from "./officeLayout";
 import { buildHallLayout } from "./hallFloorLayout";
-import { useSocietyChatGroups } from "@/lib/societyChatGroups";
+import { chatGroupsKnown, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { buildNavGrid } from "./officeNav";
 import { SpotBook } from "./officeBehavior";
 import { CAMERA_FOV } from "./officeCamera";
@@ -206,8 +206,7 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
   // The agents floor is built from the teams (society chat groups): every team has its studio. The roster waits
   // for the first answer about them, so nobody is seated in the pool and then sent across the floor.
   const chatGroups = useSocietyChatGroups(awake && floor === "agents");
-  // A first failed read counts as an answer too: the floor opens without teams and rebuilds if a retry brings them.
-  const teamsKnown = chatGroups.isSuccess || chatGroups.isError || chatGroups.failureCount > 0;
+  const teamsKnown = chatGroupsKnown(chatGroups);
   const teams = useMemo<OfficeTeamInput[]>(() => (chatGroups.data ?? []).map((group) => ({
     id: group.group_id, name: group.name, members: group.members, createdMs: group.created_ms, leadId: group.lead_agent_id ?? null,
   })), [chatGroups.data]);

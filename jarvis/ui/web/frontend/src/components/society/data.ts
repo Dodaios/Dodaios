@@ -21,6 +21,7 @@ import type { CompanionAppearance } from "./companion/appearance";
 import { useCreateAgentDialog } from "./create/createAgentStore";
 
 import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
+import { societyChatGroupsQuery } from "@/lib/societyChatGroups";
 import { useEventStore } from "@/store/events";
 import { translate } from "@/i18n";
 
@@ -330,6 +331,33 @@ function patchRoster(
     prev && !prev.sample ? { ...prev, agents: change(prev.agents) } : prev,
   );
   void client.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
+}
+
+/** A list this fresh is not asked for again by `warmSocietyLists`. */
+const WARM_FRESH_MS = 2_000;
+
+/**
+ * Load the roster and the teams ahead of the views that show them.
+ *
+ * The Agents section starts some twenty requests when it mounts and a browser
+ * sends six at a time to one host, so the two lists, asked last, waited over a
+ * second for answers that take milliseconds: new agents were missing and every
+ * team member stood alone until then. Asked here (at app start and on the
+ * switch to the section, before it renders) both are there for its first paint.
+ */
+export async function warmSocietyLists(client: QueryClient): Promise<void> {
+  // A refetch mid-ceremony would delete the figure being carried to the mine.
+  if (retirementRunning()) return;
+  const rosterQuery = { queryKey: ROSTER_QUERY_KEY, queryFn: fetchSocietyRoster, staleTime: WARM_FRESH_MS };
+  const teams = () => client.prefetchQuery({ ...societyChatGroupsQuery, staleTime: WARM_FRESH_MS });
+  // The sample roster has no teams; a roster known to be real asks for both at once.
+  const known = client.getQueryData<RosterData>(ROSTER_QUERY_KEY);
+  if (known && !known.sample) {
+    await Promise.all([client.prefetchQuery(rosterQuery), teams()]);
+    return;
+  }
+  const roster = await client.fetchQuery(rosterQuery);
+  if (!roster.sample) await teams();
 }
 
 /**
