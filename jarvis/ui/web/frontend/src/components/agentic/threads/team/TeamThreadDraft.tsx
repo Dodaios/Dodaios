@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Send, X } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Send, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { BrandedSelect } from "@/components/ui/select";
 import { fill, useT } from "@/i18n";
@@ -93,6 +93,11 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
   const [before, after = ""] = t("team_threads.draft.title").split("{project}");
   return <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto px-5 pb-10" data-testid="team-thread-draft">
     <div className="flex w-full max-w-3xl flex-col gap-5">
+      {/* The form is a step away from what was open, never a place without a way back. */}
+      <button type="button" onClick={() => useIdeThreadsStore.getState().cancelTeamDraft()} data-testid="team-draft-cancel"
+        className="-mb-2 flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />{t("team_threads.draft.cancel")}
+      </button>
       <div className="text-center">
         <h2 className="text-2xl font-normal tracking-tight text-foreground sm:text-3xl">
           {before}<span className="font-semibold text-foreground-strong">{project.name}</span>{after}
