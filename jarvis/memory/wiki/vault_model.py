@@ -81,7 +81,7 @@ def read_properties(raw: str) -> dict[str, Any]:
     block = match.group(1)
     try:
         loaded = yaml.safe_load(block)
-    except yaml.YAMLError:
+    except yaml.YAMLError:  # silent-ok: hand-edited YAML falls back to the flat key: value read
         loaded = None
     if not isinstance(loaded, dict):
         flat: dict[str, Any] = {}

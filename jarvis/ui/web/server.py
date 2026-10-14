@@ -498,6 +498,7 @@ class WebServer:
         from .commands_routes import router as commands_router
         from .computer_use_routes import router as computer_use_router
         from .computers_routes import router as computers_router
+        from .server_pairing_routes import router as server_pairing_router
         from .contacts_routes import router as contacts_router
         from .control_routes import router as control_router
         from .costs_routes import router as costs_router
@@ -543,14 +544,12 @@ class WebServer:
         from .pets_routes import router as pets_router
         from .preview_routes import router as preview_router
         from .profile_routes import router as profile_router
-        from .prompt_improver_routes import router as prompt_improver_router
         from .provider_routes import router as provider_router
         from .review_routes import router as review_router
         from .routine_hooks_routes import router as routine_hooks_router
         from .runtime_gateway_routes import router as runtime_gateway_router
         from .screen_context_routes import router as screen_context_router
         from .self_mod_routes import router as self_mod_router
-        from .server_pairing_routes import router as server_pairing_router
         from .sessions_routes import router as sessions_router
         from .settings_routes import router as settings_router
         from .setup_report_routes import router as setup_report_router
