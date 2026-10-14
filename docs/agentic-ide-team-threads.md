@@ -54,18 +54,32 @@ cache that a check left behind can be told from an edit.
 
 ## The shared thread
 
-- Every contribution appears under its author's name with what it is: own plan,
-  challenge, master plan, vote, build report, review, answer to the review.
-  First plans and challenges open folded; the current master plan, the reports
-  and the reviews are open.
+The thread is a board on one page: a lane per member, a band per step.
+
+- **Lanes.** Each member has a column. Its head stays in view while the board
+  scrolls and says what the member does right now: working, waiting for the
+  person, waiting for its turn, or gone (with the reason).
+- **Bands.** Each step is a row across the lanes: the own plans side by side,
+  a master plan beside the votes on it, a build beside its reviews. A further
+  master-plan or review round is a band of its own. What belongs to nobody's
+  lane (the person's messages, notices, the outcome) spans the board between
+  the bands.
+- **Live.** A member whose turn runs shows its newest steps as they happen:
+  the files it reads, the commands it runs, the edits it makes, its own words,
+  with the time and tokens spent so far. The board listens to a member's
+  thread only while that member works.
+- **Cards.** A filed contribution is a card with its first lines, its verdict
+  and, for a review, its blocking finding. A click opens the whole text under
+  its band, starting at its top; nothing is navigated to.
 - **Caught by the team** lists every objection and finding with who raised it,
   where, and whether it is resolved.
-- Each member is an ordinary thread underneath. A click on its chip opens it
-  with every tool call and diff; the thread list shows the team once and keeps
-  the members out of it.
-- The header shows the step, the time and turns used against their limits, and
-  the cost where a seat reports one. That amount is the list price the coding
-  agents report; a subscription seat is not billed per turn.
+- The header shows the five steps as one line, and time and turns as bars
+  against their limits, with the cost where a seat reports one. That amount is
+  the list price the coding agents report; a subscription seat is not billed
+  per turn.
+- Each member is still an ordinary thread underneath. A click on a lane's head
+  opens it with every tool call and diff; the thread list shows the team once
+  and keeps the members out of it.
 
 ## Stepping in
 
