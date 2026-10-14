@@ -20,51 +20,74 @@ function setup() {
   render(<QueryClientProvider client={query}><PluginsDialog onClose={onClose} /></QueryClientProvider>);
   return { onClose };
 }
+/** The page beside the sidebar; the sidebar lists installed plugins by the same names. */
+const pane = () => within(screen.getByTestId("plugin-catalog-dialog").querySelector<HTMLElement>("[data-plugin-pane]")!);
+const installedList = () => within(screen.getByRole("list", { name: "Installed" }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-it("shows recommendations, larger icon tiles and descriptions with an always visible search", async () => {
+it("opens on the directory with its sections, descriptions and an always visible search", async () => {
   setup();
-  const gmail = await screen.findByRole("button", { name: "Gmail" });
-  expect(gmail.querySelector(".h-12.w-12")).not.toBeNull();
-  expect(screen.getByText("Search and read your mail")).toBeDefined();
-  expect(screen.getByRole("tab", { name: "Recommended" }).getAttribute("aria-selected")).toBe("true");
-  expect(screen.queryByRole("button", { name: "Outlook" })).toBeNull();
-  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Microsoft" } });
-  await screen.findByRole("button", { name: "Outlook" });
-  expect(screen.queryByRole("button", { name: "Gmail" })).toBeNull();
+  await pane().findByRole("button", { name: "Gmail" });
+  expect(pane().getByText("Search and read your mail")).toBeDefined();
+  // Featured picks lead and are not repeated: GitHub is Developer's only plugin,
+  // so that section has nothing left to show on the home page.
+  expect(pane().getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Popular", "Calendar & Mail"]);
+  expect(pane().getAllByRole("button", { name: "GitHub" })).toHaveLength(1);
+  fireEvent.change(pane().getByRole("searchbox"), { target: { value: "Microsoft" } });
+  await pane().findByRole("button", { name: "Outlook" });
+  expect(pane().queryByRole("button", { name: "Gmail" })).toBeNull();
 });
 
-it("groups all plugins in product category order and keeps installed filtering functional", async () => {
+it("lists what is installed in the sidebar and opens a plugin page from there", async () => {
   setup();
-  await screen.findByRole("button", { name: "Gmail" });
-  fireEvent.click(screen.getByRole("tab", { name: "All 3" }));
-  expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Calendar & Mail", "Developer"]);
-  fireEvent.click(screen.getByRole("tab", { name: "Installed 1" }));
-  expect(screen.getByRole("button", { name: "Gmail" })).toBeDefined();
-  expect(screen.queryByRole("button", { name: "GitHub" })).toBeNull();
+  const gmail = await installedList().findByRole("button", { name: "Gmail" });
+  // Only what was connected or added: the untouched plugins stay in the directory.
+  expect(installedList().getAllByRole("listitem")).toHaveLength(1);
+  fireEvent.click(gmail);
+  const crumbs = within(await pane().findByRole("navigation", { name: "Breadcrumb" }));
+  expect(crumbs.getByText("Gmail").getAttribute("aria-current")).toBe("page");
+  expect(gmail.getAttribute("aria-current")).toBe("page");
+  // "Plugins" in the sidebar always returns to the directory's home page.
+  const areas = within(screen.getByRole("navigation", { name: "Plugins, MCPs & Skills" }));
+  fireEvent.click(areas.getByRole("button", { name: "Plugins" }));
+  await pane().findByRole("region", { name: "Popular" });
+  expect(gmail.getAttribute("aria-current")).toBeNull();
 });
 
-it("opens the category list without dismissing the tab strip", async () => {
+it("opens a section's full list without leaving the window", async () => {
   setup();
-  await screen.findByRole("button", { name: "Gmail" });
+  await pane().findByRole("button", { name: "Gmail" });
   const dialog = screen.getByTestId("plugin-catalog-dialog");
-  fireEvent.click(screen.getByTestId("plugin-window-category"));
-  expect(await screen.findByRole("option", { name: "All categories" })).toBeDefined();
-  expect(screen.getByRole("option", { name: "Developer" })).toBeDefined();
-  expect(screen.getByRole("option", { name: "Calendar & Mail" })).toBeDefined();
-  expect(screen.getByRole("tab", { name: "Plugins" })).toBeDefined();
-  expect(screen.getByRole("tab", { name: "Skills" })).toBeDefined();
+  fireEvent.click(pane().getByRole("button", { name: "Show all of Calendar & Mail" }));
+  await waitFor(() => expect(pane().queryByRole("button", { name: "GitHub" })).toBeNull());
+  expect(pane().getByRole("button", { name: "Gmail" })).toBeDefined();
+  expect(pane().getByRole("button", { name: "Outlook" })).toBeDefined();
+  const areas = within(screen.getByRole("navigation", { name: "Plugins, MCPs & Skills" }));
+  expect(areas.getAllByRole("button").map((area) => area.textContent)).toEqual(["Plugins", "MCPs", "Skills"]);
   expect(dialog.scrollTop).toBe(0);
 });
 
 it("closes credential setup with Escape without closing the plugin window", async () => {
   const { onClose } = setup();
-  const github = await screen.findByRole("button", { name: "GitHub" });
+  const [github] = await pane().findAllByRole("button", { name: "GitHub" });
   const row = github.closest("li")!;
-  fireEvent.click(within(row).getByRole("button", { name: "Connect" }));
+  fireEvent.click(within(row).getByRole("button", { name: "Connect plugin" }));
   await screen.findByRole("dialog", { name: "Connect GitHub" });
   fireEvent.keyDown(document, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Connect GitHub" })).toBeNull());
   expect(onClose).not.toHaveBeenCalled();
   expect(screen.getByRole("dialog", { name: "Plugins" })).toBeDefined();
+});
+
+it("closes an open menu with Escape without closing the plugin window", async () => {
+  const { onClose } = setup();
+  await pane().findByRole("button", { name: "Gmail" });
+  fireEvent.click(pane().getByRole("button", { name: "Add" }));
+  expect(screen.getByRole("menu", { name: "Add" })).toBeDefined();
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("menu", { name: "Add" })).toBeNull());
+  expect(onClose).not.toHaveBeenCalled();
+  // With nothing open inside, Escape closes the window itself.
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 });
