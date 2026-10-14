@@ -1236,7 +1236,8 @@
         "ctl_fly_camera": "Switch camera",
         "ctl_fly_land": "Land on the pad",
         "ctl_fly_leave": "Step out (landed)",
-        "ctl_fly_settings": "Flight settings and keys"
+        "ctl_fly_settings": "Flight settings and keys",
+        "ctl_fly_mouse": "Steer with the mouse (click the view)"
       },
       "coding_title": "Coding floor",
       "coding_empty": "No coding agent is running. Start one in the IDE and it takes a desk here.",
@@ -1625,7 +1626,9 @@
       "flight_action_camera": "Switch camera",
       "flight_action_land": "Land on the pad",
       "flight_action_exit": "Step out (landed)",
-      "flight_action_help": "Show the controls"
+      "flight_action_help": "Show the controls",
+      "flight_mouse_hint": "Click the view to steer with the mouse.",
+      "flight_mouse_on": "Mouse steering on: move to turn and pitch. Esc lets go."
     },
     "arcade": {
       "play_prompt": "Play {0}",

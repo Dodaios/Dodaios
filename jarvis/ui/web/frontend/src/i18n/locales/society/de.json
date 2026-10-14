@@ -1236,7 +1236,8 @@
         "ctl_fly_camera": "Kamera wechseln",
         "ctl_fly_land": "Auf dem Pad landen",
         "ctl_fly_leave": "Aussteigen (gelandet)",
-        "ctl_fly_settings": "Flugeinstellungen und Tasten"
+        "ctl_fly_settings": "Flugeinstellungen und Tasten",
+        "ctl_fly_mouse": "Mit der Maus steuern (ins Bild klicken)"
       },
       "coding_title": "Coding-Etage",
       "coding_empty": "Kein Coding-Agent läuft. Starte einen in der IDE, dann bekommt er hier einen Schreibtisch.",
@@ -1625,7 +1626,9 @@
       "flight_action_camera": "Kamera wechseln",
       "flight_action_land": "Auf dem Pad landen",
       "flight_action_exit": "Aussteigen (gelandet)",
-      "flight_action_help": "Steuerung zeigen"
+      "flight_action_help": "Steuerung zeigen",
+      "flight_mouse_hint": "Ins Bild klicken, um mit der Maus zu steuern.",
+      "flight_mouse_on": "Maussteuerung an: bewegen zum Drehen und Nicken. Esc gibt sie frei."
     },
     "arcade": {
       "play_prompt": "{0} spielen",

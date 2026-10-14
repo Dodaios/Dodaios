@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
 import { GROUND_Y, planCity } from "./cityPlan";
-import { DEFAULT_BINDINGS, flightInput, keyLabel, loadBindings, rebind, saveBindings } from "./courierControls";
+import { addMouse, DEFAULT_BINDINGS, flightInput, keyLabel, loadBindings, rebind, saveBindings } from "./courierControls";
 import { engageAutopilot, FLIGHT, forwardOf, NO_INPUT, parkedState, stepFlight, type FlightInput, type FlightState } from "./courierFlight";
 import { buildCourierWorld, rayDistance, sphereContact } from "./courierWorld";
 import { buildOfficeLayout } from "./officeLayout";
@@ -86,6 +86,28 @@ describe("the courier's flight", () => {
     expect(s.p.y).toBeGreaterThan(COURIER.standHeight + 5);
   });
 
+  it("in arcade, climbs and dives steeply and its lift goes straight up or down", () => {
+    const s = parkedState(home);
+    fly(s, { lift: 1 }, 2);
+    fly(s, { throttle: 1 }, 2);
+    // Full stick back for a second: the nose comes far up, and stays there when the stick is let go.
+    fly(s, { pitch: 1 }, 0.8);
+    const climb = forwardOf(s.q).y;
+    expect(climb).toBeGreaterThan(0.6);
+    fly(s, {}, 1);
+    expect(forwardOf(s.q).y).toBeGreaterThan(climb - 0.1);
+    // From level flight the sink key sinks fast, and a dive goes down steeply.
+    const level = parkedState(home);
+    fly(level, { lift: 1 }, 2);
+    fly(level, { throttle: 1 }, 2);
+    const y = level.p.y;
+    fly(level, { lift: -1 }, 1);
+    expect(level.p.y).toBeLessThan(y - 10);
+    expect(level.v.y).toBeLessThan(-FLIGHT.lift * 0.5);
+    fly(level, { pitch: -1 }, 0.8);
+    expect(forwardOf(level.q).y).toBeLessThan(-0.6);
+  });
+
   it("in arcade, flies where its nose points at the throttle's speed and levels its wings", () => {
     const s = parkedState(home);
     fly(s, { lift: 1 }, 3);
@@ -100,7 +122,8 @@ describe("the courier's flight", () => {
 
   it("in simulation, keeps drifting the old way after a turn", () => {
     const s = parkedState(home);
-    fly(s, { lift: 1 }, 3, "simulation");
+    fly(s, { lift: 1 }, 0.6, "simulation");
+    fly(s, { lift: -1 }, 0.6, "simulation");
     fly(s, { throttle: 1 }, 3, "simulation");
     fly(s, { throttle: -1 }, 2, "simulation");
     const before = s.v.clone().normalize();
@@ -187,6 +210,20 @@ describe("the courier's controls", () => {
     expect(input.boost).toBe(true);
     // A resting stick inside the dead zone is nothing.
     expect(flightInput(new Set(), DEFAULT_BINDINGS, { axes: [0.1, -0.1, 0, 0], buttons: [] }, false).yaw).toBe(0);
+  });
+
+  it("turns the mouse into a stick: up lifts the nose, down dips it, sideways turns", () => {
+    const up = addMouse({ ...NO_INPUT }, { x: 0, y: -20 }, false);
+    expect(up.pitch).toBeGreaterThan(0.3);
+    expect(addMouse({ ...NO_INPUT }, { x: 0, y: 20 }, false).pitch).toBeLessThan(-0.3);
+    expect(addMouse({ ...NO_INPUT }, { x: 0, y: -20 }, true).pitch).toBeLessThan(-0.3);
+    expect(addMouse({ ...NO_INPUT }, { x: 30, y: 0 }, false).yaw).toBeGreaterThan(0.3);
+    // And a mouse moved up for a moment really brings the nose up in flight.
+    const s = parkedState(home);
+    fly(s, { lift: 1 }, 2);
+    fly(s, { throttle: 1 }, 2);
+    for (let i = 0; i < 40; i += 1) stepFlight(s, addMouse({ ...NO_INPUT }, { x: 0, y: -30 }, false), 1 / 60, "arcade", world, home);
+    expect(forwardOf(s.q).y).toBeGreaterThan(0.4);
   });
 
   it("rebinds a key to one action and remembers it", () => {
