@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Loader2 } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
@@ -9,6 +9,8 @@ import { gutterChanges } from "./lineDiff";
 import { EDITOR_OPTIONS, applyTheme, monaco } from "./monacoRuntime";
 import { renderKindOf } from "./fileKinds";
 import { ExtractedPreview, MediaViewer, Notice, RenderedPreview } from "./FileViewers";
+import { followColumnCount } from "./followLayout";
+import { followColumns, type FollowColumns } from "./followMode";
 
 type CodeEditor = monaco.editor.ICodeEditor;
 
@@ -49,10 +51,14 @@ const keepContextMenu = (event: MouseEvent) => event.stopPropagation();
  * The text area of the code editor: one long-lived editor for every edit tab
  * (switching tabs swaps the model and restores that tab's cursor and scroll)
  * and one diff editor, created the first time a Changes entry is opened.
+ *
+ * In follow mode the edit tab's text continues in further columns beside the
+ * long-lived editor, as many as the width fits.
  */
 export default function EditorSurface({
   tab,
   rendered,
+  follow = false,
   focused = true,
   secondary = false,
   onOpenExternally,
@@ -67,10 +73,18 @@ export default function EditorSurface({
   secondary?: boolean;
   /** Show a Markdown, HTML or SVG file rendered instead of its source. */
   rendered: boolean;
+  /** Lay the file out over several columns that read on from each other. */
+  follow?: boolean;
   onOpenExternally: (path: string) => void;
 }) {
   const t = useT();
   const codeHost = useRef<HTMLDivElement>(null);
+  const columnsHost = useRef<HTMLDivElement>(null);
+  const followHosts = useRef<(HTMLDivElement | null)[]>([]);
+  const followRef = useRef<FollowColumns | null>(null);
+  // The follow-mode columns after the first one; empty while follow mode is off.
+  const [followers, setFollowers] = useState<monaco.editor.IStandaloneCodeEditor[]>([]);
+  const [columnCount, setColumnCount] = useState(2);
   const diffHost = useRef<HTMLDivElement>(null);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const diffRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
@@ -85,6 +99,7 @@ export default function EditorSurface({
   const status = file?.status ?? "loading";
   const ready = status === "ready";
   const renderKind = renderKindOf(tab.path);
+  const following = follow && ready && tab.mode === "edit" && !(rendered && renderKind);
 
   // Follow the app's light/dark switch. Watching the class on <html> (not a
   // prop) matters: the theme provider repaints the document in its own effect,
@@ -106,6 +121,9 @@ export default function EditorSurface({
     return () => {
       if (shown.current) rememberViewState(shown.current, editor.saveViewState());
       for (const watcher of watchers) watcher.dispose();
+      // The follow columns let go of the lead editor before it goes away.
+      followRef.current?.dispose();
+      followRef.current = null;
       editor.dispose();
       diffRef.current?.dispose();
       diffRef.current = null;
@@ -145,8 +163,36 @@ export default function EditorSurface({
     (tab.mode === "diff" ? diffRef.current?.getModifiedEditor() : editorRef.current)?.focus();
   }, [focused, ready, tab.mode]);
 
+  // Follow mode: as many columns as the width fits, re-counted as it changes.
+  useEffect(() => {
+    const host = columnsHost.current;
+    if (!following || !host) return;
+    const measure = () => setColumnCount(followColumnCount(host.clientWidth));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [following]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    const hosts = followHosts.current.slice(0, columnCount - 1);
+    if (!following || !editor || hosts.length !== columnCount - 1 || hosts.some((host) => !host)) return;
+    const columns = followColumns(editor, hosts as HTMLDivElement[]);
+    followRef.current = columns;
+    const watchers = columns.editors.flatMap(watchCursor);
+    setFollowers(columns.editors);
+    return () => {
+      for (const watcher of watchers) watcher.dispose();
+      columns.dispose();
+      if (followRef.current === columns) followRef.current = null;
+      setFollowers([]);
+    };
+  }, [following, columnCount]);
+
   // Gutter markers against the last commit: green added, blue modified, a red
-  // notch where lines were deleted. Recomputed shortly after each edit.
+  // notch where lines were deleted. Recomputed shortly after each edit, in
+  // every follow-mode column too.
   useEffect(() => {
     const editor = editorRef.current;
     const model = modelOf(tab.fileKey);
@@ -154,27 +200,26 @@ export default function EditorSurface({
     let alive = true;
     let base: string | null = null;
     let timer: number | undefined;
-    const collection = editor.createDecorationsCollection();
+    const collections = [editor, ...followers].map((column) => column.createDecorationsCollection());
     const paint = () => {
       if (!alive || base === null || editor.getModel() !== model) {
-        collection.clear();
+        for (const collection of collections) collection.clear();
         return;
       }
       const lines = model.getLineCount();
       const changes = gutterChanges(base, model.getValue()) ?? [];
-      collection.set(
-        changes.map((change) => {
-          const below = change.kind === "deleted" && change.start > lines;
-          const start = Math.min(change.start, lines);
-          return {
-            range: new monaco.Range(start, 1, Math.min(change.end, lines), 1),
-            options: {
-              isWholeLine: true,
-              linesDecorationsClassName: below ? "jarvis-gutter-deleted-below" : `jarvis-gutter-${change.kind}`,
-            },
-          };
-        }),
-      );
+      const decorations = changes.map((change) => {
+        const below = change.kind === "deleted" && change.start > lines;
+        const start = Math.min(change.start, lines);
+        return {
+          range: new monaco.Range(start, 1, Math.min(change.end, lines), 1),
+          options: {
+            isWholeLine: true,
+            linesDecorationsClassName: below ? "jarvis-gutter-deleted-below" : `jarvis-gutter-${change.kind}`,
+          },
+        };
+      });
+      for (const collection of collections) collection.set(decorations);
     };
     void loadHeadText(tab.fileKey).then((text) => {
       base = text;
@@ -188,9 +233,9 @@ export default function EditorSurface({
       alive = false;
       window.clearTimeout(timer);
       listener.dispose();
-      collection.clear();
+      for (const collection of collections) collection.clear();
     };
-  }, [tab.key, tab.fileKey, tab.mode, ready]);
+  }, [tab.key, tab.fileKey, tab.mode, ready, followers]);
 
   // Diff tabs: the committed text on the left, the live (editable) buffer on the right.
   const diffBaseRef = useCodeEditorStore((state) => state.diffBases[tab.fileKey]?.ref ?? "");
@@ -287,7 +332,26 @@ export default function EditorSurface({
   const showCode = ready && tab.mode === "edit";
   return (
     <div className="relative h-full min-h-0 w-full" data-testid="code-editor-surface" data-language={languageFor(tab.path)}>
-      <div ref={codeHost} onContextMenu={keepContextMenu} className={cn("absolute inset-0", !showCode && "invisible")} />
+      <div
+        ref={columnsHost}
+        onContextMenu={keepContextMenu}
+        data-testid="code-editor-columns"
+        data-follow={following ? columnCount : undefined}
+        className={cn("absolute inset-0 flex", !showCode && "invisible")}
+      >
+        <div ref={codeHost} className="relative h-full min-w-0 flex-1" />
+        {following &&
+          Array.from({ length: columnCount - 1 }, (_, index) => (
+            <div
+              key={index}
+              ref={(host) => {
+                followHosts.current[index] = host;
+              }}
+              data-testid="code-editor-follow-column"
+              className="relative h-full min-w-0 flex-1 border-l border-border/70"
+            />
+          ))}
+      </div>
       {/* `hidden`, not `invisible`: Monaco's diff widget writes an inline
           `visibility: visible` on both of its halves, which overrides a hidden
           parent — the last diff then stayed painted over the next edit tab. */}
