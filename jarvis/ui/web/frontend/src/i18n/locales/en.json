@@ -9561,7 +9561,6 @@
     "delete_confirm": "Delete it with its members' threads?",
     "steps": "Steps",
     "members": "Team",
-    "usage": "{minutes} of {max_minutes} min · {turns} of {max_turns} turns",
     "cost_partial": "Some members run on a seat that reports no price, so the amount is incomplete.",
     "cost_hint": "The amount at list price, as the coding agents report it. A subscription seat is not billed per turn.",
     "accept_plan": "Take this plan",
@@ -9613,7 +9612,8 @@
       "working": "working",
       "waiting": "waits for you",
       "left": "left",
-      "builder": "Builds the plan"
+      "builder": "Builds the plan",
+      "idle": "waiting"
     },
     "reason": {
       "user": "You paused this team thread.",
@@ -9669,6 +9669,25 @@
       "placeholder": "Describe the task for the team",
       "start": "Start the team",
       "bounds": "Stops and asks you after 90 minutes, 40 turns, or three rounds without agreement."
+    },
+    "meter_time": "{minutes} of {max_minutes} min",
+    "meter_turns": "{turns} of {max_turns} turns",
+    "band_count": "{done} of {total}",
+    "no_report": "No report was written.",
+    "findings_count": "{count} findings",
+    "objections_count": "{count} objections",
+    "close_reader": "Close",
+    "live_tokens": "{count} tokens",
+    "live_starting": "Starting…",
+    "live_thinking": "Thinking",
+    "role": {
+      "plans": "Writes its own plan",
+      "challenges": "Challenges the other plans",
+      "author": "Writes the master plan",
+      "voter": "Votes once the plan is there",
+      "builder": "Builds the plan",
+      "reviewer": "Reviews once the build is there",
+      "answers": "Answers the review"
     }
   }
 }

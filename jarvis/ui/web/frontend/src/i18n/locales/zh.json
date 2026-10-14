@@ -9561,7 +9561,6 @@
     "delete_confirm": "连同成员的会话一起删除？",
     "steps": "步骤",
     "members": "团队",
-    "usage": "{minutes} / {max_minutes} 分钟 · {turns} / {max_turns} 轮",
     "cost_partial": "部分成员使用的席位不报告价格，因此金额不完整。",
     "cost_hint": "按标价计算的金额，由编码代理报告。订阅席位不按轮次计费。",
     "accept_plan": "采用此方案",
@@ -9613,7 +9612,8 @@
       "working": "工作中",
       "waiting": "等待你",
       "left": "已退出",
-      "builder": "负责实现方案"
+      "builder": "负责实现方案",
+      "idle": "等待中"
     },
     "reason": {
       "user": "你已暂停此团队会话。",
@@ -9669,6 +9669,25 @@
       "placeholder": "描述交给团队的任务",
       "start": "启动团队",
       "bounds": "在 90 分钟、40 轮或三轮未达成一致后停止并询问你。"
+    },
+    "meter_time": "{minutes} / {max_minutes} 分钟",
+    "meter_turns": "{turns} / {max_turns} 轮",
+    "band_count": "{done} / {total}",
+    "no_report": "未写报告。",
+    "findings_count": "{count} 项发现",
+    "objections_count": "{count} 条异议",
+    "close_reader": "关闭",
+    "live_tokens": "{count} tokens",
+    "live_starting": "正在启动…",
+    "live_thinking": "思考中",
+    "role": {
+      "plans": "撰写自己的方案",
+      "challenges": "质询其他方案",
+      "author": "撰写总方案",
+      "voter": "方案完成后表决",
+      "builder": "实现方案",
+      "reviewer": "实现完成后评审",
+      "answers": "答复评审"
     }
   }
 }

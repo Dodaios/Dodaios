@@ -2955,3 +2955,47 @@ body {
     color: hsl(var(--diff-del));
   }
 }
+
+/* Team thread board (components/agentic/threads/team): a cell whose member is
+   working right now carries a signal line that travels along its top edge, and
+   the step being worked on breathes. The app's reduced-motion floor stills all
+   of it; the line stays visible. */
+@layer components {
+  .team-live {
+    position: relative;
+  }
+  .team-live::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, hsl(var(--accent)) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: team-live-sweep 1.8s linear infinite;
+  }
+  .team-live-line {
+    animation: team-live-in 0.24s ease-out;
+  }
+  .team-pulse {
+    animation: team-pulse 1.4s ease-in-out infinite;
+  }
+  .team-step-now {
+    animation: team-step-now 1.8s ease-in-out infinite;
+  }
+  @keyframes team-live-sweep {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+  @keyframes team-live-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes team-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes team-step-now {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.45); }
+    50% { box-shadow: 0 0 0 4px hsl(var(--accent) / 0); }
+  }
+}
