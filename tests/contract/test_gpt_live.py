@@ -391,6 +391,43 @@ async def test_catalog_tools_are_declared_under_readable_unique_names(ledger):
     assert again == set(names)
 
 
+@pytest.mark.asyncio
+async def test_a_number_written_as_text_is_read_as_the_number(ledger):
+    # A small model sent "wait_seconds": "5" twice and was refused (live 2026-10-14).
+    seen: list[dict] = []
+
+    class Counting(Gateway):
+        def catalog(self):
+            schema = {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "wait_seconds": {"type": "integer"},
+                    "ratio": {"type": "number"},
+                    "label": {"type": "string"},
+                },
+            }
+            return (SupervisorToolDescriptor("ask_agent", "Asks", schema, "safe"),)
+
+        async def execute(self, name, args, request):
+            seen.append(dict(args))
+            return ToolResult(True, {"verified": True})
+
+    runtime = LiveTools(Counting(), ledger, "s", language="en", backend_model="")
+
+    calls = iter(range(100))
+
+    async def call(args: dict) -> dict:
+        request = {"name": "ask_agent", "arguments_json": json.dumps(args)}
+        return await runtime.execute(f"call-{next(calls)}", "call_tool", request, 0)
+
+    assert (await call({"wait_seconds": " 5 ", "ratio": "2.5", "label": "7"}))["success"]
+    assert seen[-1] == {"wait_seconds": 5, "ratio": 2.5, "label": "7"}
+    for wrong in ({"wait_seconds": "five"}, {"wait_seconds": "2.5"}, {"ratio": "nan"}):
+        refused = await call(wrong)
+        assert refused["executed"] is False and refused["retryable"] is True, wrong
+
+
 def test_an_argument_hint_is_left_out_for_a_schema_without_properties():
     from jarvis.live.tools import _accepted_arguments
 

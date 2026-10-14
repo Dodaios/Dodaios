@@ -442,7 +442,8 @@ class WorkspaceOrchestrator:
 
         from . import followthrough
 
-        picked = await self._pane(args)
+        named = any(str(args.get(key) or "").strip() for key in ("terminal_id", "agent"))
+        picked = await self._pane(args) if named else self._the_one_busy_pane()
         if isinstance(picked, dict):
             return picked
         _owner, term, target = picked
@@ -845,6 +846,39 @@ class WorkspaceOrchestrator:
             from loguru import logger
 
             logger.warning("Workspace change was not announced to the UI: {}", exc)
+
+    def _the_one_busy_pane(self) -> tuple[Any, Any, dict[str, str]] | dict:
+        """The agent "the coding agent" means when no name is given: the one in a turn.
+
+        With several agents working the request stays ambiguous and their
+        call-signs are offered; with none there is nothing to wait for.
+        """
+        busy = [
+            (session, term)
+            for session in self.registry.sessions
+            for term in session.terminals
+            if snapshot(term)["availability"] == "busy"
+        ]
+        if len(busy) != 1:
+            return {
+                "status": "needs_clarification",
+                "kind": "agent",
+                "reason": (
+                    "Name the coding agent (its call-sign) or pass terminal_id."
+                    if not busy
+                    else "Several agents are working; name the one to watch."
+                ),
+                "working": [term.name for _session, term in busy],
+            }
+        from . import library
+
+        session, term = busy[0]
+        target = {
+            "project_id": session.project_id or library.project_id_for(session.folder),
+            "workspace_id": session.id,
+            "terminal_id": "pane:" + term.history_id,
+        }
+        return session, term, target
 
     async def _pane(self, args: dict[str, Any]) -> tuple[Any, Any, dict[str, str]] | dict:
         """The one open pane a request names, by IDs from resolve or by call-sign."""
