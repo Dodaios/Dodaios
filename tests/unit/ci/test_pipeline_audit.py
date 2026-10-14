@@ -190,6 +190,35 @@ def test_unaffected_lanes_can_still_skip():
     assert required_results.evaluate(needs, pipeline=True)["ok"]
 
 
+def test_a_green_nightly_passes_the_strict_gate():
+    # The nightly of 2026-10-13 had every job green and still failed the
+    # gate: strict mode refused the skipped merge-queue-only macOS job.
+    gate_needs = workflows()["ci.yml"]["jobs"]["gate"]["needs"]
+    assert plan_run.plan("schedule")["mac_impact"] is False
+    flags = {name: "true" for name in classify_changes.LANES}
+    flags.update(
+        full="true",
+        macos="true",
+        release="false",
+        proven="false",
+        desktop_legs="all",
+        mac_tests="false",
+    )
+    never_at_night = {"dependency-review", "soak", "release-qualification", "tests-macos-impact"}
+    needs = {
+        name: {"result": "skipped" if name in never_at_night else "success"} for name in gate_needs
+    }
+    needs["detect"]["outputs"] = flags
+    assert required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+    # Selected, it still has to run, strict or not.
+    flags["mac_tests"] = "true"
+    assert not required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+    # Any other job skipped at night still fails the strict gate.
+    flags["mac_tests"] = "false"
+    needs["tests-linux"]["result"] = "skipped"
+    assert not required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+
+
 def test_dependency_review_runs_only_on_pull_requests_and_may_skip_elsewhere():
     ci = workflows()["ci.yml"]["jobs"]
     assert ci["dependency-review"]["if"] == "github.event_name == 'pull_request'"

@@ -1564,6 +1564,8 @@
     "copy_link_hint_paste": "Or copy this link and paste it into your browser's address bar.",
     "plugin_connected": "{plugin} connected",
     "connect_named": "Connect {plugin}",
+    "reconnect_named": "Reconnect {plugin}",
+    "more_actions_named": "More actions for {plugin}",
     "device_flow": "Device flow",
     "device_step1": "Step 1 — copy this code",
     "device_step2": "Step 2 — paste it on {plugin}",
