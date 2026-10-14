@@ -116,3 +116,17 @@ export function flightInput(held: ReadonlySet<string>, bindings: FlightBindings,
 
 /** Gamepad buttons that fire a press action: X lands, Y switches the camera, Back the assist, Start leaves the ship. */
 export const PAD_PRESSES: readonly [number, FlightAction][] = [[2, "land"], [3, "camera"], [8, "assist"], [9, "exit"]];
+
+/** Stick travel per pixel of captured mouse movement. */
+export const MOUSE_GAIN = 0.02;
+
+/**
+ * Captured mouse movement (pixels, browser axes: +y is down) added to an input: moving the mouse sideways turns,
+ * moving it up lifts the nose and down dips it (the other way round with inverted pitch).
+ */
+export function addMouse(input: FlightInput, mouse: { x: number; y: number }, invertPitch: boolean): FlightInput {
+  const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+  input.yaw = clamp(input.yaw + mouse.x * MOUSE_GAIN);
+  input.pitch = clamp(input.pitch + (invertPitch ? mouse.y : -mouse.y) * MOUSE_GAIN);
+  return input;
+}
