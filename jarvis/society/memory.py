@@ -530,7 +530,10 @@ class SocietyMemory:
         if not query:
             return []
         vault = self.root(root)
-        self.books(agent, root=vault)
+        from .memory_books import has_books
+
+        if has_books(vault, agent):
+            self.books(agent, root=vault)  # finish an interrupted migration first
         qtokens = _tokens(query)
         hits: list[MemoryHit] = []
         for page in self._pages(vault, agent_id=agent.agent_id):
