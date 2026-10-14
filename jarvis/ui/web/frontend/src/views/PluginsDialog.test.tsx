@@ -71,7 +71,7 @@ it("closes credential setup with Escape without closing the plugin window", asyn
   const { onClose } = setup();
   const [github] = await pane().findAllByRole("button", { name: "GitHub" });
   const row = github.closest("li")!;
-  fireEvent.click(within(row).getByRole("button", { name: "Connect plugin" }));
+  fireEvent.click(within(row).getByRole("button", { name: /^Connect / }));
   await screen.findByRole("dialog", { name: "Connect GitHub" });
   fireEvent.keyDown(document, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Connect GitHub" })).toBeNull());
@@ -91,3 +91,31 @@ it("closes an open menu with Escape without closing the plugin window", async ()
   fireEvent.keyDown(document, { key: "Escape" });
   await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 });
+
+it("opens a plugin picked in the sidebar even while the community page is open", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/community")) {
+      return new Response(JSON.stringify({ status: "fresh", revision: 1, generated_at: null, plugins: [], skills: [], agents: [] }));
+    }
+    return new Response(JSON.stringify(catalog));
+  }));
+  const query = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  render(<QueryClientProvider client={query}><PluginsDialog onClose={vi.fn()} /></QueryClientProvider>);
+  await pane().findByRole("button", { name: "Gmail" });
+  fireEvent.click(pane().getByRole("button", { name: "Add" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "From the community marketplace" }));
+  await waitFor(() => {
+    const crumbs = within(pane().getByRole("navigation", { name: "Breadcrumb" }));
+    expect(crumbs.getByText("From the community marketplace").getAttribute("aria-current")).toBe("page");
+  });
+
+  fireEvent.click(installedList().getByRole("button", { name: "Gmail" }));
+
+  // The plugin page replaces the community page instead of the click doing nothing.
+  await waitFor(() => {
+    const crumbs = within(pane().getByRole("navigation", { name: "Breadcrumb" }));
+    expect(crumbs.getByText("Gmail").getAttribute("aria-current")).toBe("page");
+  });
+});
+
