@@ -236,7 +236,7 @@ def check_text_clipboard(report: Report) -> None:
 
 
 def check_jarvisx_copy(report: Report) -> None:
-    from jarvis.jarvisx.clipboard import copy_png
+    from jarvis.dodaiosx.clipboard import copy_png
 
     ok, message = copy_png(_png(alpha=False))
     expected = _session() != "headless"
@@ -447,7 +447,7 @@ def check_headless_imports(report: Report) -> None:
         "jarvis.appshot.card_actions",
         "jarvis.appshot.library",
         "jarvis.ui.web.appshot_routes",
-        "jarvis.jarvisx.service",
+        "jarvis.dodaiosx.service",
         "jarvis.platform.clipboard_image",
     ):
         try:
