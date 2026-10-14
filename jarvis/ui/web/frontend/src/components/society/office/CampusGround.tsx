@@ -21,7 +21,7 @@ import { useT } from "@/i18n";
 import { AGENTS_SCENE, limestone } from "./AgentsFloorLook";
 import { FACADE } from "./BuildingShell";
 import { cachedCanvasTexture } from "./canvasMaterials";
-import { Instances, type Placement } from "./Instances";
+import { Instances, type Placement } from "./CodingFloorAmbience";
 import { GEO, matte } from "./OfficeFurniture";
 import type { CampusZone, CampusZoneKind, OfficeLayout, Rect } from "./officeLayout";
 

@@ -11,8 +11,6 @@
  * and canvas faces are drawn once and shared.
  */
 import { memo } from "react";
-import { useFoundryLook } from "./foundryLook";
-import { FOUNDRY, glowColour } from "./foundryPalette";
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, DoubleSide, Euler, Matrix4, MeshStandardMaterial, Quaternion, SphereGeometry, Vector3,
 } from "three";
@@ -41,7 +39,7 @@ const C = {
   led: "#ffe2bd",
 } as const;
 
-const TM_OFFICE = {
+const TM = {
   walnut: matte(C.walnut, { roughness: 0.55 }),
   walnutDark: matte(C.walnutDark, { roughness: 0.6 }),
   walnutLight: matte(C.walnutLight, { roughness: 0.55 }),
@@ -63,29 +61,6 @@ const TM_OFFICE = {
   leaves: ["#3f7a45", "#2e5e37", "#5d9a58"].map((c) => matte(c, { flatShading: true, roughness: 0.7 })),
   books: ["#c4775a", "#e9dcc4", "#51705c", "#2f3d56", "#d9a441", "#8b6246", "#7c8fa8"].map((c) => matte(c)),
 };
-
-/**
- * On the Foundry deck the room keeps every piece and swaps its timber, stone
- * and frosted glass for the deck's steel, slate, gold and code light.
- */
-const TM_FOUNDRY: typeof TM_OFFICE = {
-  ...TM_OFFICE,
-  walnut: matte("#3a3f48", { roughness: 0.4, metalness: 0.6 }),
-  walnutDark: matte(FOUNDRY.steelDark, { roughness: 0.5, metalness: 0.5 }),
-  walnutLight: matte("#4b515c", { roughness: 0.4, metalness: 0.6 }),
-  travertine: matte("#2c3037", { roughness: 0.35, metalness: 0.3 }),
-  brass: matte(FOUNDRY.gold, { roughness: 0.28, metalness: 0.85 }),
-  led: new MeshStandardMaterial({ color: "#000000", emissive: glowColour(FOUNDRY.code, 1.15), toneMapped: false }),
-  frosted: new MeshStandardMaterial({ color: "#7fcfff", transparent: true, opacity: 0.16, roughness: 0.2, side: DoubleSide, depthWrite: false }),
-  frostedLine: new MeshStandardMaterial({ color: "#000000", emissive: glowColour(FOUNDRY.code, 1.1), toneMapped: false }),
-};
-
-function useTeamMaterials(): typeof TM_OFFICE {
-  return useFoundryLook() ? TM_FOUNDRY : TM_OFFICE;
-}
-
-/** The Foundry deck's rug: dark slate felt with a gold border. */
-const FOUNDRY_RUG = matte("#23272e", { roughness: 1 });
 
 // ---------------------------------------------------------------------------
 // Canvas faces
@@ -398,7 +373,6 @@ const LEAF_GEOMETRIES: BufferGeometry[] = (() => {
 
 /** An open laptop; the hinge is on its -z side and the screen faces +z. */
 function Laptop({ position, rotationY = 0 }: { position: Vec3; rotationY?: number }) {
-  const TM = useTeamMaterials();
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       <Box size={[0.32, 0.012, 0.22]} position={[0, 0.006, 0]} material={TM.alu} />
@@ -418,7 +392,6 @@ function Laptop({ position, rotationY = 0 }: { position: Vec3; rotationY?: numbe
  * speakerphone puck, a carafe with glasses and a bud vase.
  */
 function TeamTable() {
-  const TM = useTeamMaterials();
   return (
     <group>
       {/* Legs and the cable spine. */}
@@ -463,7 +436,6 @@ function TeamTable() {
  * The face stays where `TeamBoardFace` expects it.
  */
 function TeamBoard() {
-  const TM = useTeamMaterials();
   return (
     <group>
       <Rounded size={[2.52, 1.24, 0.05]} radius={0.015} position={[0, 1.25, -0.04]} material={TM.walnutLight} />
@@ -486,7 +458,6 @@ function TeamBoard() {
  * of it a video-conference display with its camera bar on top.
  */
 function TeamWall() {
-  const TM = useTeamMaterials();
   return (
     <group>
       <Box size={[WALL.w, 1.98, 0.025]} position={[0, 1.01, -0.0475]} material={TM.walnutDark} />
@@ -516,7 +487,6 @@ function TeamWall() {
  * sculpture and a ceramic vase with branches.
  */
 function Credenza() {
-  const TM = useTeamMaterials();
   return (
     <group>
       {[-1.0, 1.0].flatMap((x) => [-0.17, 0.17].map((z) => (
@@ -563,7 +533,6 @@ function Credenza() {
 
 /** A fiddle-leaf fig in a tapered clay planter, nearly two metres tall. */
 function DesignerPlant() {
-  const TM = useTeamMaterials();
   return (
     <group>
       <mesh geometry={TGEO.planter} material={TM.terracotta} position={[0, 0.26, 0]} castShadow receiveShadow />
@@ -580,14 +549,7 @@ function DesignerPlant() {
 
 /** A wool rug with a clay border, sized per instance. */
 function TeamRug({ w, d }: { w: number; d: number }) {
-  const foundry = useFoundryLook();
-  return (
-    <group>
-      <Box size={[w, 0.016, d]} position={[0, 0.008, 0]} material={foundry ? FOUNDRY_RUG : faces.rug()} cast={false} />
-      {foundry && <Box size={[w - 0.2, 0.004, d - 0.2]} position={[0, 0.0175, 0]} material={TM_FOUNDRY.brass} cast={false} />}
-      {foundry && <Box size={[w - 0.26, 0.005, d - 0.26]} position={[0, 0.018, 0]} material={FOUNDRY_RUG} cast={false} />}
-    </group>
-  );
+  return <Box size={[w, 0.016, d]} position={[0, 0.008, 0]} material={faces.rug()} cast={false} />;
 }
 
 /** Renderers of the team room's furniture kinds; merged into OfficeProps' exhaustive table. */
@@ -616,7 +578,6 @@ const BAND = { y: 1.2, h: 0.46 };
  * the glass front either side of the door.
  */
 export const TeamRoomFittings = memo(function TeamRoomFittings({ room, table }: { room: Room; table: Furniture }) {
-  const TM = useTeamMaterials();
   const door = room.doors.find((d) => d.side === "south");
   const bands = door
     ? [[room.minX, door.at - door.width / 2], [door.at + door.width / 2, room.maxX]]
