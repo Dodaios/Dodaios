@@ -18,7 +18,7 @@ from jarvis.live.coordination import (
 
 _RULES = WORK_STATUS_RULE + ON_SCREEN_RULE + TEAM_TALK_RULE + conversation_rules("your tools")
 # Hyphenated or underscored words in the rules that are plain English, not tools.
-_NOT_TOOLS = {"multi-step", "trade-offs"}
+_NOT_TOOLS = {"multi-step", "trade-offs", "mission_id"}
 
 
 def test_every_tool_the_rules_name_is_listed_and_every_listed_tool_is_named():

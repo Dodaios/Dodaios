@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/workflow-cDHmeG36.js
+import{c as e}from"./index-CeXBH1_B.js";/**
+========
+import{c as e}from"./index-Bm0uu_U-.js";/**
+>>>>>>>> 9bac4dcf4c5486da6deb2080af1a6e16be8f176c:jarvis/ui/web/dist/assets/workflow-FTE5bsVu.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const r=e("Workflow",[["rect",{width:"8",height:"8",x:"3",y:"3",rx:"2",key:"by2w9f"}],["path",{d:"M7 11v4a2 2 0 0 0 2 2h4",key:"xkn7yn"}],["rect",{width:"8",height:"8",x:"13",y:"13",rx:"2",key:"1cgmvn"}]]);export{r as W};
