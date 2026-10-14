@@ -27,6 +27,8 @@ import { CampusGround } from "./CampusGround";
 import { StaticBatch } from "./StaticBatch";
 import { BuildingShell } from "./BuildingShell";
 import { CITY_BACKDROP } from "./SingularityCity";
+import { SkyCourier } from "./SkyCourier";
+import { SkyPadStructure } from "./SkyPadStructure";
 import { ExecutiveDesks, LeadOfficeLight } from "./LeadSuite";
 import { LiveMonitors } from "./LiveMonitors";
 import { TerminalMonitors } from "./TerminalMonitors";
@@ -234,6 +236,11 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
       {coding ? <CodingFloorAmbience layout={layout} /> : <AgentsFloorAmbience layout={layout} />}
       {/* Every working floor is a floor of the tower: window walls, the tower below, the city outside. */}
       <BuildingShell layout={layout} reduced={reduced} />
+      {/* The sky pad outside the east windows, and the courier standing on it. */}
+      {layout.skyPad && <>
+        <SkyPadStructure pad={layout.skyPad} bounds={layout.bounds} reduced={reduced} onFloorClick={onFloorClick} />
+        <SkyCourier layout={layout} reduced={reduced} awake={awake} />
+      </>}
       <RoomFloors rooms={layout.rooms} campus={!coding} />
       <RoomWalls walls={layout.walls} />
       {!batch && signs}

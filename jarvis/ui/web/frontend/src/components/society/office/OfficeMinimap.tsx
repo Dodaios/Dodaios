@@ -227,6 +227,7 @@ export function OfficeMinimap({ layout, agents, selectedId, onOpenMap }: OfficeM
     mission: t("society.office.cp_mission"),
     studio: t("society.office.cp_studio"),
     levels: t("society.office.cp_levels"),
+    ship: t("society.office.cp_ship"),
   };
   const roomLabels: Record<RoomKind, string> = {
     lead: t("society.office.room_lead"),
