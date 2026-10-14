@@ -20,7 +20,7 @@ window."*
 ## 2. Key decision — the drop surface
 
 The on-screen "Jarvis bar" and "Jarvis ghost/mascot" are **separate Tk overlay
-windows** (`jarvis/ui/jarvisbar/overlay.py`, the Orb/mascot surface), driven by
+windows** (`jarvis/ui/dodaiosbar/overlay.py`, the Orb/mascot surface), driven by
 `[ui].orb_style ∈ {jarvis_bar, mascot, none}`. They are **not** part of the
 React DOM and **do not exist on a headless VPS**.
 

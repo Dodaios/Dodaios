@@ -25,7 +25,7 @@ independently:
 | macOS | `QtJarvisBarOverlay` (Qt) | Real per-pixel alpha: `WA_TranslucentBackground` + every paint clearing the destination under `CompositionMode_Source`. |
 
 The renderer is shared and identical everywhere:
-`jarvis/ui/jarvisbar/renderer.py::JarvisBarRenderer.render` starts every frame
+`jarvis/ui/dodaiosbar/renderer.py::JarvisBarRenderer.render` starts every frame
 with
 
 ```python
@@ -58,7 +58,7 @@ Two rounds, both macOS-only, both presenting as "a box around the pill":
 `systemTransparent` background onto a genuinely clear window backing. Tk 9 —
 which is what uv's python-build-standalone ships, i.e. *every fresh macOS
 install* — paints it as an opaque appearance color instead. The fix
-(`_apply_macos_clear_backing` in `jarvis/ui/jarvisbar/overlay.py`) sets every
+(`_apply_macos_clear_backing` in `jarvis/ui/dodaiosbar/overlay.py`) sets every
 `NSWindow` of the host process non-opaque with `NSColor.clearColor()` via
 AppKit.
 
@@ -157,7 +157,7 @@ So the user-visible symptom of a **stall** is a **rendering defect**, which is
 why this reads as "the bar has a black border" rather than "the app is busy".
 
 **Fix.** `disable_windows_app_ghosting()` (`jarvis/core/process_utils.py`),
-called from both color-key surfaces — the bar (`jarvis/ui/jarvisbar/overlay.py`)
+called from both color-key surfaces — the bar (`jarvis/ui/dodaiosbar/overlay.py`)
 and the mascot (`ui/orb/overlay.py`). `DisableProcessWindowsGhosting` is
 process-wide and cannot be undone, which is the right trade: a frameless
 click-through overlay gains nothing from a ghost (no title bar to grey out, no
@@ -208,7 +208,7 @@ display is always real.
 #   key must be 0x00ff00ff; flags=3 is expected, not a bug.
 
 # What the renderer emits (any OS) — the padding must be magenta:
-python -c "from jarvis.ui.jarvisbar import renderer as R; \
+python -c "from jarvis.ui.dodaiosbar import renderer as R; \
 r=R.JarvisBarRenderer(); f=r.render(t=.3, mode='listen', ext_level=.7); \
 print(f.mode, f.size, f.getpixel((0,0)))"
 # -> RGB (82, 35) (255, 0, 255)
