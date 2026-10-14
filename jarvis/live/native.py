@@ -85,12 +85,28 @@ def _declared_name(declaration: dict) -> str:
     return str(declaration.get("description", "")).split(": ", 1)[0]
 
 
-def _fit_declarations(declarations: list[dict], budget_chars: int) -> tuple[dict, ...]:
-    """Session built-ins plus a curated direct set that fits ``budget_chars``."""
+def _fit_declarations(
+    declarations: list[dict],
+    budget_chars: int,
+    *,
+    fillers: frozenset[str] | None = None,
+) -> tuple[dict, ...]:
+    """Session built-ins plus a curated direct set that fits ``budget_chars``.
+
+    Slots the preferred tools leave free go to other catalog tools; with
+    ``fillers`` only to those, so a tool with an effect of its own (restarting
+    the app) is never one of a small model's few direct tools by catalog order
+    alone. It stays reachable through discover_tools.
+    """
     session = [d for d in declarations if d.get("name") in _SESSION_TOOLS]
     rank = {name: index for index, name in enumerate(_DIRECT_TOOL_PREFERENCE)}
     catalog = sorted(
-        (d for d in declarations if d.get("name") not in _SESSION_TOOLS),
+        (
+            d
+            for d in declarations
+            if d.get("name") not in _SESSION_TOOLS
+            and (fillers is None or _declared_name(d) in rank or _declared_name(d) in fillers)
+        ),
         key=lambda d: rank.get(_declared_name(d), len(rank)),
     )
     used = sum(len(json.dumps(d)) for d in session)
@@ -286,7 +302,12 @@ class NativeLiveVoiceSession(LiveVoiceSession):
         budget = self._declaration_budget_tokens()
         if budget <= 0:
             return tuple(declarations)
-        fitted = _fit_declarations(declarations, budget * 4)
+        safe = frozenset(
+            descriptor.name
+            for descriptor in self._tools.catalog()
+            if str(getattr(descriptor, "risk_tier", "")) == "safe"
+        )
+        fitted = _fit_declarations(declarations, budget * 4, fillers=safe)
         # AP-30: a trimmed tool set looks exactly like a complete one.
         log.info(
             "Native voice declares %d of %d tools under a %d-token budget for %s; "

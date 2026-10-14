@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -357,6 +358,37 @@ async def test_a_rejected_call_names_the_arguments_the_tool_accepts(ledger):
     assert "Accepted arguments: action (required): one of status, watch; workspace." in (
         result["error"]
     )
+
+
+@pytest.mark.asyncio
+async def test_catalog_tools_are_declared_under_readable_unique_names(ledger):
+    # Behind opaque hashes a small model confused app-restart with show_on_screen.
+    long_name = "plugin." + "x" * 80
+
+    class Named(Gateway):
+        def catalog(self):
+            return tuple(
+                SupervisorToolDescriptor(name, f"Does {name}", {"type": "object"}, "safe")
+                for name in ("app-restart", "app_restart", "show_on_screen", long_name)
+            )
+
+    runtime = LiveTools(Named(), ledger, "s", language="en", backend_model="")
+    names = {
+        runtime._names[d["name"]]: d["name"]
+        for d in runtime.declarations()
+        if d["name"] in runtime._names
+    }
+    assert names["show_on_screen"] == "jarvis_show_on_screen"
+    assert names["app-restart"] == "jarvis_app_restart"
+    # The second spelling of the same readable name keeps its own alias.
+    assert names["app_restart"].startswith("jarvis_app_restart_")
+    assert len(names[long_name]) <= 64
+    assert all(re.fullmatch(r"[A-Za-z0-9_]{1,64}", alias) for alias in names.values())
+    assert len(set(names.values())) == 4
+    # The same aliases on every declaration of the session.
+    aliases = set(names.values())
+    again = {runtime._names[d["name"]] for d in runtime.declarations() if d["name"] in aliases}
+    assert again == set(names)
 
 
 def test_an_argument_hint_is_left_out_for_a_schema_without_properties():
