@@ -16,6 +16,7 @@ import pytest
 from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
 from jarvis.cu.direct import tool_schema
 from jarvis.live import native, runtime
+from jarvis.live.coordination import NAMED_TOOLS
 from jarvis.live.native import NativeLiveVoiceSession
 from jarvis.live.state import LiveLedger
 from jarvis.live.tools import LiveTools
@@ -579,6 +580,8 @@ async def test_declarations_respect_the_providers_budget(call, make_provider):
 @both_providers
 @pytest.mark.asyncio
 async def test_tools_the_rules_name_stay_direct_under_a_budget(call, make_provider):
+    # A crowded install: every preferred tool is there, so the direct limit bites.
+    names = {*native._DIRECT_TOOL_PREFERENCE, *NAMED_TOOLS} - native._SESSION_TOOLS
     named = tuple(
         SupervisorToolDescriptor(
             name,
@@ -586,16 +589,16 @@ async def test_tools_the_rules_name_stay_direct_under_a_budget(call, make_provid
             {"type": "object", "properties": {"value": {"type": "string"}}},
             "safe",
         )
-        for name in ("show_on_screen", "ask_agent")
+        for name in sorted(names)
     )
     provider = make_provider()
     live = call(provider, gateway=FakeToolGateway(catalog_of(30) + named))
     await live.start()
     try:
-        described = {
-            tool["description"].split(": ", 1)[0] for tool in provider.opened_with[0].tools
-        }
-        assert {"show_on_screen", "ask_agent"} <= described
+        tools = provider.opened_with[0].tools
+        described = {tool["description"].split(": ", 1)[0] for tool in tools}
+        described |= {tool["name"] for tool in tools}
+        assert set(NAMED_TOOLS) <= described
     finally:
         await live.session.end()
 
