@@ -1281,7 +1281,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
       lines.push(
         `${MENTION_MARK} Current sender: the user. Current recipient: ${JSON.stringify(agent.name)} (id ${JSON.stringify(agent.agentId)}). ` +
         `Mentioned teammates: ${teammates}. For teammate contact requested by the user, use society_message_agent; ` +
-        "use kind 'query' when asking for information. If a work assignment is needed, contact Jarvis or an orchestrator with that tool. " +
+        "use kind 'query' when asking for information. If a work assignment is needed, contact the lead or an orchestrator with that tool. " +
         "Reply to the user here. An @mention or prose addressed to a teammate does not deliver a message.",
       );
     } else if (surface === "jarvis") {

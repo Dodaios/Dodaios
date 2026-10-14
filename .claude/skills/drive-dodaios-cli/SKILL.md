@@ -30,7 +30,7 @@ discovers it automatically, and falls back to the machine's control key. You do
 not need to log in. Confirm reachability:
 
 ```bash
-jarvis system status        # {"reachable": true} when Jarvis is running
+jarvis system status        # {"reachable": true} when Dodaios is running
 ```
 
 For a **remote** Dodaios (e.g. a VPS), tunnel it to loopback and point the CLI at it:

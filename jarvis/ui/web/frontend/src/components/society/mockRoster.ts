@@ -62,7 +62,7 @@ const ARCHIVIST_FIGURE: FigureRecipe = {
 export const SAMPLE_ROSTER: SocietyAgent[] = [
   {
     agentId: "jarvis",
-    name: "Jarvis",
+    name: "Dodaios",
     title: "Chief executive — leads and delegates the whole team",
     description: [
       "You are the lead of this agent society: its chief executive.",

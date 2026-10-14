@@ -1553,7 +1553,7 @@ async def test_idle_session_renders_external_update_as_realtime_spoken_track():
     assert not any(isinstance(event, ResponseGenerated) for event in bus.events)
     assert not any(isinstance(event, VoiceTurnCompleted) for event in bus.events)
     history = "\n".join(str(message.content) for message in sess._delegate_history)
-    assert "Trusted Jarvis-Agent mission result" in history
+    assert "Trusted Dodaios-Agent mission result" in history
     assert "artifact: report.md" in history
 
 
@@ -2410,7 +2410,7 @@ async def test_instructions_carry_tool_role_when_bridge_active():
 
     instructions = provider.opened_with.instructions
     assert "call the matching function" in instructions
-    assert "Jarvis-Agent spawn" in instructions
+    assert "Dodaios-Agent spawn" in instructions
 
 
 @pytest.mark.asyncio

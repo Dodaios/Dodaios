@@ -124,7 +124,7 @@ docs land in history via ``git rm``.)
 
 ### ``owner`` (string)
 
-Who is responsible for the correctness of the doc? In Personal Jarvis
+Who is responsible for the correctness of the doc? In Dodaios
 currently always ``harald``. Future-proof: later several owners can be set
 via a list (``owner: [harald, claude]``); for now a single string.
 

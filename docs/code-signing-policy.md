@@ -3,7 +3,7 @@
 Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 [SignPath Foundation](https://signpath.org).
 
-> **Status:** Personal Jarvis has applied to the SignPath Foundation open-source
+> **Status:** Dodaios has applied to the SignPath Foundation open-source
 > program. Until the application is approved and the first signed release ships,
 > the Windows installer on the
 > [Releases page](https://github.com/Dodaios/Dodaios/releases) is
@@ -56,7 +56,7 @@ All team members use multi-factor authentication for GitHub and SignPath.
 
 This program will not transfer any information to other networked systems
 unless specifically requested by the user or the person installing or operating
-it. Personal Jarvis contacts a service only when you connect and use it, for
+it. Dodaios contacts a service only when you connect and use it, for
 example a model provider, a speech provider or a plugin you configured. Those
 services handle data under their own privacy policies. Details are in
 [Privacy and Local Data](product/privacy-safety-and-support/privacy-and-local-data.md)

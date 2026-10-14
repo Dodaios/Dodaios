@@ -1,7 +1,7 @@
 # Validator parity — the upload endpoint vs. the registry CI
 
 **Status:** FINDINGS — measured 2026-08-14 ·
-**Authority:** `scripts/validate.py` in `PersonalJarvis/marketplace` ·
+**Authority:** `scripts/validate.py` in `Dodaios/marketplace` ·
 **Compared against:** `functions/_lib/validate.ts` in the storefront ·
 **Related:** [github-signin-implementation.md](github-signin-implementation.md) §4
 

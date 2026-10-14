@@ -322,7 +322,7 @@ def build_prompt(paths: list[str], main_side: str) -> str:
     branch_side = "theirs" if main_side == "ours" else "ours"
     listing = "\n".join(f"- {p}" for p in paths)
     return (
-        "You are resolving git merge conflicts in the Personal Jarvis repository. "
+        "You are resolving git merge conflicts in the Dodaios repository. "
         "The files below contain conflict markers. For each file, edit it in place so "
         "that it keeps the intent of BOTH sides: the main branch "
         f"(git side '{main_side}') is the latest shared state; the feature branch "

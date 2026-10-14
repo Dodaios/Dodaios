@@ -178,29 +178,22 @@ else
     printf '\n'
 fi
 
-# Wordmark glyphs are machine-generated (figlet "ANSI Shadow", the full
-# PERSONAL JARVIS — maintainer request 2026-07-16); do not hand-edit — that is
-# how the historical "Harvis" typo crept in. The 12 rows are colored as ONE
-# continuous vertical gradient (hi → brand → deep) so both words read as a
-# single forged-gold wordmark.
+# Wordmark glyphs are machine-generated (figlet "ANSI Shadow", DODAIOS); do
+# not hand-edit — that is how the historical "Harvis" typo crept in. The 6 rows
+# are colored as ONE continuous vertical gradient (hi → brand → deep) so the
+# word reads as a single forged-gold wordmark.
 cat <<EOF
 
-${GOLD_HI}██████╗ ███████╗██████╗ ███████╗ ██████╗ ███╗   ██╗ █████╗ ██╗${RST}
-${GOLD_HI}██╔══██╗██╔════╝██╔══██╗██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║${RST}
-${GOLD_HI}██████╔╝█████╗  ██████╔╝███████╗██║   ██║██╔██╗ ██║███████║██║${RST}
-${GOLD_HI}██╔═══╝ ██╔══╝  ██╔══██╗╚════██║██║   ██║██║╚██╗██║██╔══██║██║${RST}
-${GOLD}██║     ███████╗██║  ██║███████║╚██████╔╝██║ ╚████║██║  ██║███████╗${RST}
-${GOLD}╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝${RST}
-${GOLD}                ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗${RST}
-${GOLD}                ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝${RST}
-${GOLD_DEEP}                ██║███████║██████╔╝██║   ██║██║███████╗${RST}
-${GOLD_DEEP}           ██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║${RST}
-${GOLD_DEEP}           ╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║${RST}
-${GOLD_DEEP}            ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝${RST}
+${GOLD_HI}       ██████╗  ██████╗ ██████╗  █████╗ ██╗ ██████╗ ███████╗${RST}
+${GOLD_HI}       ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██║██╔═══██╗██╔════╝${RST}
+${GOLD}       ██║  ██║██║   ██║██║  ██║███████║██║██║   ██║███████╗${RST}
+${GOLD}       ██║  ██║██║   ██║██║  ██║██╔══██║██║██║   ██║╚════██║${RST}
+${GOLD_DEEP}       ██████╔╝╚██████╔╝██████╔╝██║  ██║██║╚██████╔╝███████║${RST}
+${GOLD_DEEP}       ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚══════╝${RST}
 
 ${DIM}     talk to your computer · installs the full profile · launches when done${RST}
 
-${DIM}┌${RST}  ${GOLD}Personal Jarvis installer${RST}
+${DIM}┌${RST}  ${GOLD}Dodaios installer${RST}
 EOF
 
 # -------------------------------------------------------------- welcome gate
@@ -226,10 +219,10 @@ ask_welcome() {
         "$GUT" "$GUT" "$DIM" "$RST" > /dev/tty
     while :; do
         if [ "$_sel" -eq 0 ]; then
-            printf '\r%s◆%s  %sWould you like to install Personal Jarvis?%s   %s%s ▸ Yes %s   %s   No  %s' \
+            printf '\r%s◆%s  %sWould you like to install Dodaios?%s   %s%s ▸ Yes %s   %s   No  %s' \
                 "$GOLD" "$RST" "$BOLD" "$RST" "$GOLD" "$REV" "$RST" "$DIM" "$RST" > /dev/tty
         else
-            printf '\r%s◆%s  %sWould you like to install Personal Jarvis?%s   %s   Yes %s   %s%s ▸ No  %s' \
+            printf '\r%s◆%s  %sWould you like to install Dodaios?%s   %s   Yes %s   %s%s ▸ No  %s' \
                 "$GOLD" "$RST" "$BOLD" "$RST" "$DIM" "$RST" "$RED" "$REV" "$RST" > /dev/tty
         fi
         IFS= read -rsn1 _key < /dev/tty || return 0
@@ -458,7 +451,7 @@ write_prerequisite_state() {
     elif [ "$_show_missing" -eq 1 ]; then
         err 'Python 3.11+ not found.'
         if [ -n "$FOUND_TOO_OLD" ]; then
-            note "Closest match: $FOUND_TOO_OLD - too old: Jarvis needs 3.11+."
+            note "Closest match: $FOUND_TOO_OLD - too old: Dodaios needs 3.11+."
             note 'Python versions count 3.8 < 3.9 < 3.10 < 3.11.'
         fi
     fi
@@ -530,11 +523,11 @@ request_prerequisite_consent() {
 
     note "Missing required software: $_missing."
     if [ -n "$PREREQ_MANAGER" ]; then
-        note "Jarvis can install it with $PREREQ_MANAGER, wait, and continue this same run."
+        note "Dodaios can install it with $PREREQ_MANAGER, wait, and continue this same run."
         note 'Continuing authorizes the package manager to accept the relevant package agreements.'
         _prompt='  Install the missing prerequisites now? [Y/n] '
     else
-        note 'No supported package manager was found; Jarvis can keep this run open while you install it.'
+        note 'No supported package manager was found; Dodaios can keep this run open while you install it.'
         _prompt='  Show the manual path and keep checking this run? [Y/n] '
     fi
     printf '%s' "$_prompt" >/dev/tty
@@ -790,7 +783,7 @@ ensure_linux_desktop_tools() {
         *)
             if has_install_tty; then
                 note "Optional desktop tools for window control are missing: $_missing_bins $_missing_gi"
-                note "Without them, asking Jarvis to click / type / switch windows cannot work on X11."
+                note "Without them, asking Dodaios to click / type / switch windows cannot work on X11."
                 printf '  Install them now with %s? [Y/n] ' "$PREREQ_MANAGER" >/dev/tty
                 IFS= read -r _answer </dev/tty || _answer='n'
                 case "$_answer" in ''|y|Y|yes|YES|Yes) _consent=1 ;; esac
@@ -891,7 +884,7 @@ else
     if [ "$node_ok" -eq 1 ]; then
         ok "Node.js $(node --version)"
     else
-        note 'Node.js 18+ not found - continuing, Jarvis runs fine without it.'
+        note 'Node.js 18+ not found - continuing, Dodaios runs fine without it.'
         note 'It only powers the optional coding-agent worker (Claude Code / Codex).'
         note 'Install it any time ("brew install node" / https://nodejs.org/) and'
         note 'add the worker later in-app.'
@@ -899,7 +892,7 @@ else
 fi
 
 # -------------------------------------------------------------- clone / update
-phase '2/6' 'Fetching Personal Jarvis'
+phase '2/6' 'Fetching Dodaios'
 note "$INSTALL_DIR"
 
 # On a terminal, git paints its own "Receiving objects: NN%" progress so a
@@ -1192,7 +1185,7 @@ stop_running_app() {
         _stop_found=0
         if pkill -f "$_stop_venv" 2>/dev/null; then
             _stop_found=1
-            note 'stopped the running Jarvis app for the update'
+            note 'stopped the running Dodaios app for the update'
         fi
         if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
             launchctl unload "$HOME/Library/LaunchAgents/${MACOS_AUTOSTART_LABEL}.plist" >/dev/null 2>&1 || true

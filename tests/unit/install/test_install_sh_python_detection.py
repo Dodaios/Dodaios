@@ -261,7 +261,7 @@ def test_update_run_stops_the_live_app_before_touching_the_venv() -> None:
     src = INSTALL_SH.read_text(encoding="utf-8")
     assert '_stop_venv="$INSTALL_DIR/.venv"' in src
     assert 'pkill -f "$_stop_venv"' in src
-    assert "stopped the running Jarvis app for the update" in src
+    assert "stopped the running Dodaios app for the update" in src
     # The stop must come BEFORE the venv rebuild block.
     environment = src.split("phase '3/6' 'Python environment'", 1)[1]
     assert environment.index("\nstop_running_app\n") < environment.index(
@@ -276,7 +276,7 @@ def test_welcome_gate_asks_before_touching_anything() -> None:
     = running the command), honor JARVIS_INSTALL_YES=1, and exit 0 on No
     having touched nothing."""
     src = INSTALL_SH.read_text(encoding="utf-8")
-    assert "Would you like to install Personal Jarvis?" in src
+    assert "Would you like to install Dodaios?" in src
     assert "JARVIS_INSTALL_YES" in src
     assert "< /dev/tty" in src
     assert "nothing was installed" in src

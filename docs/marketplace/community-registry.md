@@ -20,7 +20,7 @@ is the CDN.
 | Repo | Role |
 |---|---|
 | `Dodaios/Dodaios` (this repo) | In-app half only: fetch the index, browse, one-click install, connect. Never hosts marketplace website code. |
-| `PersonalJarvis/marketplace` | The registry: `submissions/`, CI validation, auto-merge gate, ownership ledger (`registry.json`), compiled `index.json` on GitHub Pages. |
+| `Dodaios/marketplace` | The registry: `submissions/`, CI validation, auto-merge gate, ownership ledger (`registry.json`), compiled `index.json` on GitHub Pages. |
 | dodaios.ai storefront repo (maintainer-owned, separate) | Storefront: `/marketplace` (browse, client-side index fetch) and `/marketplace/submit` (the upload form → pre-filled GitHub PR). |
 
 ```

@@ -12,7 +12,8 @@ def test_load_creates_defaults(tmp_path):
     assert path.exists()
     data = json.loads(path.read_text(encoding="utf-8"))
     assert "persona" in data
-    assert mem.get_section("persona")["name"] == "Jarvis"
+    # The assistant's name is the user's wake word (identity card), never a default.
+    assert "name" not in mem.get_section("persona")
 
 
 def test_add_and_remove_fact(tmp_path):
@@ -58,4 +59,16 @@ def test_corrupt_file_is_backed_up(tmp_path):
     # Backup file created
     assert (tmp_path / "core.corrupted.json").exists()
     # Defaults are back
-    assert mem.get_section("persona")["name"] == "Jarvis"
+    assert "role" in mem.get_section("persona")
+    assert "name" not in mem.get_section("persona")
+
+
+def test_render_skips_the_name_earlier_versions_shipped(tmp_path):
+    path = tmp_path / "core.json"
+    path.write_text(json.dumps({"persona": {"name": "Jarvis", "role": "Helper"}}), encoding="utf-8")
+    prompt = CoreMemory.load(path).render_system_prompt_block()
+    assert "**role**: Helper" in prompt
+    assert "**name**" not in prompt
+
+    path.write_text(json.dumps({"persona": {"name": "Ada"}}), encoding="utf-8")
+    assert "**name**: Ada" in CoreMemory.load(path).render_system_prompt_block()
