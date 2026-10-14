@@ -104,7 +104,7 @@ def _agents_md(mission_id: str) -> str:
         f"# Dodaios Mission Workspace\n\n"
         f"Mission ID: `{mission_id}`\n\n"
         f"## EXECUTION CONTRACT (binding)\n\n"
-        f"You are a Jarvis-Agent worker running inside the Dodaios\n"
+        f"You are a Dodaios-Agent worker running inside the Dodaios\n"
         f"Mission-Manager. Your task is in the agent message. Follow it\n"
         f"verbatim. The rules below are enforced by the mission runtime —\n"
         f"the mission will be marked FAILED if you violate them, and you\n"

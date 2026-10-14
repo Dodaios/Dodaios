@@ -128,7 +128,7 @@ class DispatchWithReviewTool:
     name: str = "dispatch_with_review"
     risk_tier: str = "monitor"
     description: str = (
-        "Runs a Jarvis-Agent task with a review quality gate. "
+        "Runs a Dodaios-Agent task with a review quality gate. "
         "USE this tool when the result is user-irreversible (code "
         "generation, file mutation, skill authoring), requires multi-step "
         "synthesis (research, aggregation), or is hard to undo. DO NOT USE "
@@ -144,7 +144,7 @@ class DispatchWithReviewTool:
                 "type": "string",
                 "minLength": 20,
                 "description": (
-                    "Complete task description for the Jarvis-Agent. "
+                    "Complete task description for the Dodaios-Agent. "
                     "Required, at least 20 characters."
                 ),
             },
