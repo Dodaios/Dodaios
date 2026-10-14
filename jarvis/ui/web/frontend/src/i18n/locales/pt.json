@@ -9561,7 +9561,6 @@
     "delete_confirm": "Eliminar com os tópicos dos membros?",
     "steps": "Passos",
     "members": "Equipa",
-    "usage": "{minutes} de {max_minutes} min · {turns} de {max_turns} turnos",
     "cost_partial": "Alguns membros usam um lugar que não indica o preço, por isso o valor está incompleto.",
     "cost_hint": "Valor ao preço de tabela, tal como os agentes de código o indicam. Um lugar de subscrição não é faturado por turno.",
     "accept_plan": "Aceitar este plano",
@@ -9613,7 +9612,8 @@
       "working": "a trabalhar",
       "waiting": "à sua espera",
       "left": "saiu",
-      "builder": "Constrói o plano"
+      "builder": "Constrói o plano",
+      "idle": "em espera"
     },
     "reason": {
       "user": "Pausou este tópico de equipa.",
@@ -9669,6 +9669,25 @@
       "placeholder": "Descreva a tarefa para a equipa",
       "start": "Iniciar a equipa",
       "bounds": "Para e pergunta-lhe após 90 minutos, 40 turnos ou três rondas sem acordo."
+    },
+    "meter_time": "{minutes} de {max_minutes} min",
+    "meter_turns": "{turns} de {max_turns} turnos",
+    "band_count": "{done} de {total}",
+    "no_report": "Não foi escrito nenhum relatório.",
+    "findings_count": "{count} problemas",
+    "objections_count": "{count} objeções",
+    "close_reader": "Fechar",
+    "live_tokens": "{count} tokens",
+    "live_starting": "A iniciar…",
+    "live_thinking": "A pensar",
+    "role": {
+      "plans": "Escreve o seu próprio plano",
+      "challenges": "Contrasta os outros planos",
+      "author": "Escreve o plano principal",
+      "voter": "Vota quando o plano existir",
+      "builder": "Constrói o plano",
+      "reviewer": "Revê quando estiver construído",
+      "answers": "Responde à revisão"
     }
   }
 }

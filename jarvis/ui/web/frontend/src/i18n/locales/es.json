@@ -9561,7 +9561,6 @@
     "delete_confirm": "¿Eliminarlo con los hilos de sus miembros?",
     "steps": "Pasos",
     "members": "Equipo",
-    "usage": "{minutes} de {max_minutes} min · {turns} de {max_turns} turnos",
     "cost_partial": "Algunos miembros usan un puesto que no informa del precio, así que el importe está incompleto.",
     "cost_hint": "Importe a precio de lista, tal como lo informan los agentes de código. Un puesto de suscripción no se factura por turno.",
     "accept_plan": "Aceptar este plan",
@@ -9613,7 +9612,8 @@
       "working": "trabajando",
       "waiting": "te espera",
       "left": "salió",
-      "builder": "Construye el plan"
+      "builder": "Construye el plan",
+      "idle": "en espera"
     },
     "reason": {
       "user": "Has pausado este hilo de equipo.",
@@ -9669,6 +9669,25 @@
       "placeholder": "Describe la tarea para el equipo",
       "start": "Iniciar el equipo",
       "bounds": "Se detiene y te pregunta tras 90 minutos, 40 turnos o tres rondas sin acuerdo."
+    },
+    "meter_time": "{minutes} de {max_minutes} min",
+    "meter_turns": "{turns} de {max_turns} turnos",
+    "band_count": "{done} de {total}",
+    "no_report": "No se escribió ningún informe.",
+    "findings_count": "{count} hallazgos",
+    "objections_count": "{count} objeciones",
+    "close_reader": "Cerrar",
+    "live_tokens": "{count} tokens",
+    "live_starting": "Iniciando…",
+    "live_thinking": "Pensando",
+    "role": {
+      "plans": "Escribe su propio plan",
+      "challenges": "Contrasta los otros planes",
+      "author": "Escribe el plan maestro",
+      "voter": "Vota cuando esté el plan",
+      "builder": "Construye el plan",
+      "reviewer": "Revisa cuando esté construido",
+      "answers": "Responde a la revisión"
     }
   }
 }
