@@ -3,6 +3,8 @@ import { ArrowUp, History, Square, SquarePen, Trash2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { joinProviderOptions } from "@/store/agentChat";
+import { DictationButton } from "@/components/agentchat/DictationButton";
+import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { AgentModelPicker, EffortPicker } from "@/components/agentic/threads/ThreadPickers";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "@/components/agentic/threads/ThreadPopover";
 import { ThreadTimeline } from "@/components/agentic/threads/ThreadTimeline";
@@ -38,10 +40,10 @@ const ICON_BTN =
 /**
  * The side panel's Chat surface: a plain AI chat with the model you pick.
  *
- * Ask anything, read the answer. It is not a coding agent and knows nothing
- * about the workspace: no seat on its surface has tools, and the model is told
- * only how to answer. Answers stream, and a model's thinking folds behind one
- * line once it is done.
+ * Ask anything, typed or dictated, and read the answer. It is not a coding
+ * agent and knows nothing about the workspace: no seat on its surface has
+ * tools, and the model is told only how to answer. Answers stream, and a
+ * model's thinking folds behind one line once it is done.
  */
 export function SideChatTab() {
   const t = useT();
@@ -66,6 +68,15 @@ export function SideChatTab() {
     setMessageState(value);
     persistMessage(value);
   }, []);
+  // Dictation appends to the box as it is when the words land, not as it was.
+  const messageRef = useRef(message);
+  messageRef.current = message;
+  const setDictated = useCallback((next: string | ((current: string) => string)) => {
+    setMessage(typeof next === "function" ? next(messageRef.current) : next);
+  }, [setMessage]);
+  // Send during a dictation sends once the transcript is in the box.
+  const sendRef = useRef<() => void>(() => undefined);
+  const dictation = useComposerDictation(setDictated, () => sendRef.current());
 
   useEffect(() => {
     const store = useSideChatStore.getState();
@@ -89,19 +100,30 @@ export function SideChatTab() {
   );
   const provider = providers.find((option) => option.id === draft.provider) ?? null;
   const running = busy || timeline.items.some((item) => item.type === "turn" && item.status === "running");
-  const canSend = message.trim().length > 0 && !running && Boolean(provider?.connected);
+  const canSend = (message.trim().length > 0 || dictation.dictating) && !running && Boolean(provider?.connected);
   const started = timeline.items.length > 0;
 
   const send = useCallback(async () => {
+    if (dictation.dictating) {
+      dictation.stopAndSend();
+      return;
+    }
     const text = message.trim();
     if (!text || running) return;
     setMessage("");
     const outcome = await useSideChatStore.getState().send(text);
     // A message that never left comes back into the box.
     if (outcome === "failed") setMessage(text);
-  }, [message, running, setMessage]);
+  }, [dictation, message, running, setMessage]);
+  sendRef.current = () => void send();
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Escape stops an answer that is still coming.
+    if (event.key === "Escape" && running) {
+      event.preventDefault();
+      void useSideChatStore.getState().cancel("side-chat-escape");
+      return;
+    }
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
     void send();
@@ -160,7 +182,7 @@ export function SideChatTab() {
       <div className="shrink-0 px-3 pb-3 pt-1">
         {error && <p role="alert" data-testid="side-chat-error" className="mb-2 px-1 text-xs text-destructive">{error}</p>}
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong">
-          <textarea ref={input} value={message} rows={2}
+          <textarea ref={input} value={message} rows={2} autoFocus
             onChange={(event) => setMessage(event.target.value)} onKeyDown={onKeyDown}
             aria-label={t("ide_side_panel.chat.input_aria")} placeholder={t("ide_side_panel.chat.placeholder")}
             data-testid="side-chat-input"
@@ -173,6 +195,9 @@ export function SideChatTab() {
               <EffortPicker provider={provider} draft={draft} liveModels={liveModels} separated
                 onPick={(effort) => void useSideChatStore.getState().setDraft({ effort })} />
             </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+            <DictationButton dictating={dictation.dictating} onToggle={dictation.toggle}
+              startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
             {running
               ? <button type="button" aria-label={t("ide_side_panel.chat.stop")} title={t("ide_side_panel.chat.stop")} data-testid="side-chat-stop"
                 onClick={() => void useSideChatStore.getState().cancel("side-chat-stop-button")}
@@ -188,6 +213,7 @@ export function SideChatTab() {
                 )}>
                 <ArrowUp className="h-4 w-4" />
               </button>}
+            </div>
           </div>
         </div>
       </div>

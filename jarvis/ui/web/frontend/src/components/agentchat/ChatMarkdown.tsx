@@ -9,6 +9,7 @@ import { openLocalPath } from "@/lib/openLocalPath";
 import { readFence, visualFenceLanguage } from "@/lib/visualFence";
 import { chatLinkAction, chatUrlTransform, localPathFromChatHref } from "./chatLinks";
 import { parseToolResult, ToolResultCard } from "./ToolResultCard";
+import { CodeBlock } from "@/components/docs/CodeBlock";
 import * as Dialog from "@radix-ui/react-dialog";
 
 const RenderedFence = lazy(() => import("@/components/outputs/RenderedFence").then(module => ({ default: module.RenderedFence })));
@@ -181,6 +182,8 @@ const MARKDOWN_COMPONENTS: Components = {
       }
       const language = visualFenceLanguage(fence.language, fence.code);
       if (language) return <Suspense fallback={<pre>{children}</pre>}><RenderedFence language={language} code={fence.code} /></Suspense>;
+      // Any other fenced code: its language on top, a copy button, highlighting.
+      return <CodeBlock language={fence.language} code={fence.code} dense />;
     }
     return <pre {...props}>{children}</pre>;
   },
