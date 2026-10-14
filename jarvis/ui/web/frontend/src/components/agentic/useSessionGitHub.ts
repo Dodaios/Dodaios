@@ -51,11 +51,17 @@ interface Board {
 }
 type Entry = { board: Board; listeners: Set<() => void>; refresh: () => void; stop: () => void };
 
-/** An answer younger than this is shown as current while a newer one is read. */
-const FRESH_MS = 60_000;
-/** While the backend reads a newer answer it is asked again this soon. */
-const FOLLOW_UP_MS = 1_000;
-/** After this many quick follow-ups a slow read is asked about less often. */
+/**
+ * An answer younger than this is shown as current while a newer one is read.
+ * The backend keeps the tabs behind the front one younger than this.
+ */
+export const FRESH_MS = 120_000;
+/**
+ * While the backend reads a newer answer, the next request asks it to hold on
+ * for that read this long, so the answer lands the moment the read does.
+ */
+const WAIT_S = 4;
+/** After this many follow-ups a read that does not land is asked about less often. */
 const MAX_FOLLOW_UPS = 30;
 const POLL_MS = 20_000;
 
@@ -68,6 +74,9 @@ const entries = new Map<string, Entry>();
 const remembered = new Map<string, Board>();
 
 const old = (readAt: number | null) => readAt === null || Date.now() - readAt > FRESH_MS;
+/** GitHub's own answer about the branch is older than {@link FRESH_MS}. */
+const outdated = (status: SessionGitHubStatus | null) =>
+  status !== null && Date.now() - status.fetched_at * 1000 > FRESH_MS;
 
 function start(workspaceId: string): Entry {
   // What this window saw last is shown at once; once it is old it spins until
@@ -112,6 +121,7 @@ function start(workspaceId: string): Entry {
     const timeout = setTimeout(() => controller?.abort(), 30_000);
     try {
       const query = new URLSearchParams({ workspace_id: workspaceId });
+      if (followUps) query.set("wait", String(WAIT_S));
       const response = await fetch(`/api/agentic-ide/git/session-status?${query}`, { signal: controller.signal });
       if (!response.ok) throw new Error("GitHub status could not be refreshed.");
       const data = await response.json() as {
@@ -144,7 +154,8 @@ function start(workspaceId: string): Entry {
       clearTimeout(timeout);
       controller = undefined;
       followUps = refreshing ? followUps + 1 : 0;
-      const delay = !refreshing ? POLL_MS : followUps <= MAX_FOLLOW_UPS ? FOLLOW_UP_MS : 5 * FOLLOW_UP_MS;
+      // A follow-up waits on the backend for the read, so it is sent at once.
+      const delay = !refreshing ? POLL_MS : followUps <= MAX_FOLLOW_UPS ? 100 : 5_000;
       if (!disposed) timer = setTimeout(() => schedule(0), spreadDelay(delay));
     }
   };
@@ -178,7 +189,11 @@ function start(workspaceId: string): Entry {
 }
 
 function paneOf(board: Board, pane: string): PaneGitHub {
-  if (pane in board.panes) return { status: board.panes[pane], pending: old(board.readAt) };
+  if (pane in board.panes) {
+    const status = board.panes[pane];
+    // A status that could not be read says so instead of spinning.
+    return { status, pending: old(board.readAt) || (outdated(status) && status?.available !== false) };
+  }
   const pending = board.waiting === null || board.waiting.has(pane);
   return pending ? { status: null, pending } : IDLE;
 }

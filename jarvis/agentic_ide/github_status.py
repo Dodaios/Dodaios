@@ -212,13 +212,13 @@ def _slot(repo: str, branch: str, credential_id: str) -> _Snapshot:
 _slot_lock = threading.Lock()
 
 
-def _snapshot(target: Checkout, token: str) -> _Snapshot:
+def _snapshot(target: Checkout, token: str, live_ttl: float = _LIVE_TTL) -> _Snapshot:
     # Reads run side by side: two of them must find the same slot, never make
     # one each and ask GitHub twice.
     with _slot_lock:
         cached = _slot(target.repo, target.branch, hashlib.sha256(token.encode()).hexdigest())
     with cached.lock:
-        ttl = _SETTLED_TTL if cached.settled and not cached.reason else _LIVE_TTL
+        ttl = _SETTLED_TTL if cached.settled and not cached.reason else live_ttl
         if time.time() - cached.fetched_at < ttl:
             return cached
         owner, name = target.repo.split("/", 1)
@@ -372,11 +372,14 @@ def _foreground(listed: list[BranchStatus]) -> BranchStatus:
     return next((status for status in listed if status.state not in SETTLED_STATES), listed[0])
 
 
-def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict[str, Any] | None]:
+def statuses(
+    records: list[PaneBranchRecord] | dict[str, str], *, live_ttl: float = _LIVE_TTL
+) -> dict[str, dict[str, Any] | None]:
     """One result per pane that works in a branch; shared GitHub reads.
 
     A session that worked on several branches gets the others under
-    ``others``, newest first.
+    ``others``, newest first. GitHub is asked again about an unfinished
+    branch whose last answer is older than ``live_ttl`` seconds.
     """
     result: dict[str, dict[str, Any] | None] = {}
     # Old route versions supplied only folders: those carry no ownership proof.
@@ -401,7 +404,11 @@ def statuses(records: list[PaneBranchRecord] | dict[str, str]) -> dict[str, dict
     if credential is not None:
         token = credential.token
         snapshots = dict(
-            zip(wanted, _each(lambda target: _snapshot(target, token), wanted), strict=True)
+            zip(
+                wanted,
+                _each(lambda target: _snapshot(target, token, live_ttl), wanted),
+                strict=True,
+            )
         )
     now = time.time()
     for record, owned_branches in zip(records, owned_by_pane, strict=True):
@@ -467,10 +474,20 @@ _BOARD_TTL = 10
 #: A board whose panes changed, or that has no answer yet, waits only this long
 #: between attempts, so a read that fails is not retried on every request.
 _RETRY_S = 1
+#: A tab behind the front one is read again once its answer is this old, so a
+#: switch to it finds an answer recent enough to show without a spinner.
+_WARM_S = 50
+#: How old GitHub's answer about an unfinished branch may get in a tab behind
+#: the front one: it keeps the hourly GitHub budget for the tab in front.
+_WARM_GITHUB_TTL = 60
+#: The longest a request that asked to wait holds on for a running read.
+_MAX_WAIT_S = 5
 _MAX_BOARDS = 64
 _boards: dict[str, _Board] = {}
 _boards_lock = threading.Lock()
-# Workspaces in background tabs, queued for one read ahead of their first visit.
+# Notified whenever a read finishes, for the requests that wait for one.
+_boards_read = threading.Condition(_boards_lock)
+# Workspaces in background tabs, queued to be read one after another.
 _ahead: dict[str, list[PaneBranchRecord]] = {}
 _ahead_running = False
 # Set while no read for a tab in front is running: reads ahead wait for it, so
@@ -504,7 +521,7 @@ def _read(entry: _Board, records: list[PaneBranchRecord], *, front: bool) -> Non
     global _front_reads
     panes: dict[str, dict[str, Any] | None] | None = None
     try:
-        panes = statuses(records)
+        panes = statuses(records, live_ttl=_LIVE_TTL if front else _WARM_GITHUB_TTL)
     except Exception:  # noqa: BLE001 - nothing may leave a board "reading" for good
         logger.opt(exception=True).warning("Session GitHub status: a background read failed")
     finally:
@@ -519,6 +536,7 @@ def _read(entry: _Board, records: list[PaneBranchRecord], *, front: bool) -> Non
                 _front_reads -= 1
                 if not _front_reads:
                     _front_idle.set()
+            _boards_read.notify_all()
 
 
 def _start(target: Callable[[], None], name: str) -> bool:
@@ -531,13 +549,17 @@ def _start(target: Callable[[], None], name: str) -> bool:
     return True
 
 
-def board(key: str, records: list[PaneBranchRecord]) -> dict[str, Any]:
+def board(key: str, records: list[PaneBranchRecord], *, wait: float = 0) -> dict[str, Any]:
     """What is known about a workspace's panes, at once.
 
-    ``refreshing`` says a newer answer is being read and worth asking for again
-    shortly; ``age`` is how many seconds ago the answer was read (None before
-    the first read); ``waiting`` names the panes that have no answer yet;
-    ``failed`` says the last read failed, so the answer is not being kept current.
+    ``refreshing`` says a newer answer is being read and worth asking for again;
+    ``age`` is how many seconds ago the answer was read (None before the first
+    read); ``waiting`` names the panes that have no answer yet; ``failed`` says
+    the last read failed, so the answer is not being kept current.
+
+    With ``wait`` the answer waits up to that many seconds for a running read
+    to finish, so the caller learns of it the moment it lands instead of on
+    its next poll.
     """
     global _front_reads
     with _boards_lock:
@@ -560,6 +582,9 @@ def board(key: str, records: list[PaneBranchRecord]) -> dict[str, Any]:
             if not _front_reads:
                 _front_idle.set()
     with _boards_lock:
+        deadline = time.monotonic() + min(max(wait, 0), _MAX_WAIT_S)
+        while entry.reading and (left := deadline - time.monotonic()) > 0:
+            _boards_read.wait(left)
         panes = {
             pane: entry.panes[pane]
             for pane, identity in current.items()
@@ -577,10 +602,19 @@ def board(key: str, records: list[PaneBranchRecord]) -> dict[str, Any]:
     }
 
 
-def known(key: str) -> bool:
-    """Has this workspace been read, or is its first read on its way?"""
+def _due(entry: _Board | None) -> bool:
+    """Is a board behind the front one worth reading now? Holds ``_boards_lock``."""
+    if entry is None:
+        return True
+    if entry.reading or time.monotonic() - entry.tried_at < _WARM_S:
+        return False
+    return entry.read_at is None or time.time() - entry.read_at >= _WARM_S
+
+
+def due(key: str) -> bool:
+    """Should the tab ``key``, behind the front one, be read ahead now?"""
     with _boards_lock:
-        return key in _boards
+        return key not in _ahead and _due(_boards.get(key))
 
 
 def _drain_ahead() -> None:
@@ -594,7 +628,7 @@ def _drain_ahead() -> None:
             key = next(iter(_ahead))
             records = _ahead.pop(key)
             entry = _boards.get(key)
-            if entry is None or entry.reading or entry.read_at is not None:
+            if entry is None or not _due(entry):
                 continue
             entry.reading = True
             entry.tried_at = time.monotonic()
@@ -602,13 +636,15 @@ def _drain_ahead() -> None:
 
 
 def read_ahead(key: str, records: list[PaneBranchRecord]) -> None:
-    """Read a workspace nobody is looking at yet, once, one after another.
+    """Read a tab nobody is looking at, one after another with the others.
 
-    Its header then has an answer the moment someone switches to its tab.
+    A tab is read before its first visit, and again whenever its answer is
+    older than ``_WARM_S``, for as long as a tab in front is being shown. Its
+    header then has a recent answer the moment someone switches to it.
     """
     global _ahead_running
     with _boards_lock:
-        if key in _boards:
+        if key in _ahead or not _due(_boards.get(key)):
             return
         _entry(key)
         _ahead[key] = records
