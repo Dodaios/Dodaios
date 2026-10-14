@@ -64,6 +64,12 @@ class Sessions:
 
 @pytest.fixture
 def rig(tmp_path, monkeypatch):
+    # The panes below are stamped idle once, at setup. A slow runner can take
+    # longer than the stamp's freshness window to reach the step under test,
+    # and the pane then reads as unknown instead of idle; keep it fresh here.
+    from jarvis.agentic_ide import activity
+
+    monkeypatch.setattr(activity, "STAMP_FRESH_S", 3600.0)
     monkeypatch.setattr(library, "_root", lambda: tmp_path / "library")
     monkeypatch.setattr(resume_store, "_store_path", lambda: tmp_path / "snapshot.json")
     registry = Registry(pty_manager=FakePtyManager())
