@@ -626,6 +626,73 @@ street of team rooms round an atrium, with commons people use in between.
   receives a shadow, traffic is computed on the GPU, and with reduced motion
   its clock stands still. Measured 2026-10-14 on an RTX 5070 Ti at
   2560 × 1217 px: the city adds about 0.4 ms per frame in the overview.
+- **The sky pad and the courier** (`skyPad.ts`, `SkyPadStructure.tsx`,
+  `SkyCourier.tsx`, agents floor only): the main boulevard runs on through a
+  doorway in the east window wall (the balustrade has the same gap) as a 5 m
+  bridge to a round landing deck of 12 m radius, at floor level, inside the
+  city's empty plaza. The deck is graphite with a gold landing circle,
+  chevrons and a touchdown cross, a breathing cyan light round its rim, glass
+  rails, four light masts (glowing lamps, not light sources) and steel struts
+  back into the tower. The courier
+  stands on it: a chrome and gold starship authored in Blender
+  (`art/studies/sky-pad-courier-study/source/build_courier.py`, three levels
+  of detail exported as glTF into `src/assets/society/courier/`), scaled to
+  about 19 m beside the 1.3 m figures. The bridge and the deck are walkable
+  (the navigation grid reaches beyond `layout.floor` for them, an idle wander
+  never does), the courier is solid, and the full map, the minimap and the
+  overview frame the pad too.
+- **Boarding and flying:** the ship is a station (`ship`, beside its hatch).
+  E there, or a click on the ship once the person stands there, boards it (a
+  click from afar walks over first, as at the elevator). The flight
+  (`courierFlight.ts`) is a rigid body with thrust, lift, pitch, yaw and roll:
+  *arcade* assist (the default) flies where the nose points, banks into
+  turns and levels itself; *simulation* is Newtonian with momentum and
+  drift. Cruise 70 m/s, boost to 150 m/s on a charge that drains and
+  refills, brake. Every tower, the Dodaios tower with its floor, the pad, the
+  street level and the singularity's core are solid (`courierWorld.ts`):
+  the ship bounces off in sub-steps no longer than 1.5 m (no tunnelling at
+  full boost), its shield flashes and the camera shakes. Past the city's
+  edge or above 420 m it is turned back gently. The landing assist flies to
+  a hover point over the pad, turns to the pad's heading and sets the ship
+  down with its gear out; any stick input hands control back. The gear comes
+  down by itself below 14 m over the deck. On the pad, E (or F, or the HUD's
+  button) steps out beside the hatch and the office camera takes over again.
+- **Cameras:** a chase camera behind and above with smoothing, pulled in
+  short of any tower between it and the ship; a cockpit view from the
+  canopy. Wider field of view while boosting.
+- **Effects and sound:** engine flames and an engine light that grow with
+  the throttle, glowing exhaust rings, contrails at high speed, a fresnel
+  shield on impact, dust blown across the deck when landing or lifting off.
+  The engine sound is synthesised with Web Audio (no audio files), placed at
+  the ship and heard from the camera (HRTF panning), pitch-shifted by the
+  relative speed (Doppler), muffled in the cockpit, with a thud on impact.
+  With reduced motion the flames, dust and camera shake stay calm. Not
+  built: a heat-haze distortion and a bloom/lens/motion-blur post-process
+  (the renderer has no post-processing pass; glow comes from emissive and
+  additive materials).
+- **Controls** (defaults; rebindable, kept per browser):
+
+  | Action | Keys | Gamepad |
+  | --- | --- | --- |
+  | Throttle up / down | W / S | right / left trigger |
+  | Turn left / right | A / D | left stick x |
+  | Nose up / down | ↓ / ↑ | left stick y |
+  | Roll left / right | Q / E, ← / → | right stick x |
+  | Rise / sink | Space / C or Ctrl | right stick y |
+  | Boost / brake | Shift / X | A / B |
+  | Flight assist | T | Back |
+  | Camera | V | Y |
+  | Landing assist | L | X |
+  | Step out (landed) | E or F | Start |
+  | Help / settings | H / Esc | — |
+
+  The settings (Esc or the HUD's button) switch the assist and the camera,
+  invert pitch, set the engine volume and rebind any action by pressing a
+  key; "Reset keys" restores the defaults. The flight HUD shows speed,
+  height over the deck (or the street level), throttle, boost charge, the
+  assist and camera, the landing assist, and stepping out once landed. While
+  the courier flies, the office's own H, L and M keys and the walking keys
+  rest. The reception's controls guide lists the courier's default keys.
 - **One material language** from the studios to the last room: light plank
   oak, limestone and felt on the floor; light oak for timber; dark steel for
   metal, with bronze as the one accent; steel-framed clear glass with a
@@ -944,6 +1011,17 @@ The floor now keeps the studio look of §5b and moves into the tower:
   free plot) is covered by unit tests for the plan (the stand and its
   standing place, the arch at the desk, 1.2 m or more to walk along both
   windows) and was then checked in a browser by the orchestrator.
+- Sky pad and courier (2026-10-14): `courierFlight.test.ts` holds the pad
+  (outside the slab on the boulevard's line, walkable from the floor to the
+  hatch, the courier solid, no idle wander onto it, the `ship` checkpoint on
+  the agents floor only), the collision world, the flight (lift-off, arcade
+  holding the nose and levelling, simulation drifting, boost and charge, no
+  passing through a tower at full boost, the autopilot landing from out over
+  the city, handing back on input) and the controls (keys and pad into one
+  input, dead zone, rebinding and its storage). `CampusScene.test.tsx` mounts
+  the pad structure and the east doorway. Checked in Chrome against the dev
+  build: walking out to the pad, boarding, chase and cockpit views over the
+  city, the landing assist starting, stepping out.
 - City (2026-10-14): `cityPlan.test.ts` holds the plan for a hall-sized, a
   typical and a large floor: deterministic, the plaza empty, every roof
   within the roof limit, no two towers on one spot, the crater clear with

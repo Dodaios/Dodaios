@@ -20,7 +20,9 @@ describe("office controls guide", () => {
   it("keeps control ids unique and every group filled", () => {
     const ids = OFFICE_CONTROLS.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const group of CONTROL_GROUPS) expect(controlsFor(group, "coding").length).toBeGreaterThan(0);
+    for (const group of CONTROL_GROUPS) expect(controlsFor(group, "agents").length).toBeGreaterThan(0);
+    // The courier stands on the agents floor's sky pad only.
+    for (const group of CONTROL_GROUPS) expect(controlsFor(group, "coding").length > 0).toBe(group !== "fly");
   });
 
   it("drops the lead chair on the coding floor", () => {

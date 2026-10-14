@@ -41,6 +41,7 @@ import {
   type OfficeAgentInput, type OfficeLayout, type OfficeTeamInput, type Point, type Rect, type Room, type RoomKind,
   type Spot, type SpotKind, type SpotPose, type Studio, type WallSegment,
 } from "./officeLayout";
+import { skyPadFor } from "./skyPad";
 
 /**
  * The campus grid, in metres. A cell holds one studio; two cells stand
@@ -399,11 +400,12 @@ export function buildCampusLayout(agents: readonly OfficeAgentInput[], teams: re
   }
 
   // ------------------------------------------------------ streets and plaza
-  // An olive tree closes every street at both windows.
+  // An olive tree closes every street at both windows, except the main boulevard's east end: it runs on as the
+  // bridge to the sky pad.
   const streetZ = [northMaxZ + CAMPUS.street / 2, ...rowZ.map((z, r) => (r === plazaAfter ? plazaZ : z + rowDepth[r] + CAMPUS.street / 2))];
   streetZ.forEach((z, i) => {
     add(olive(`olive-west-${i}`, planMinX - 0.8, z));
-    add(olive(`olive-east-${i}`, planMaxX + 0.8, z));
+    if (z !== plazaZ) add(olive(`olive-east-${i}`, planMaxX + 0.8, z));
   });
   rowZ.forEach((z, r) => {
     const z1 = z + rowDepth[r], zc = (z + z1) / 2;
@@ -629,6 +631,18 @@ export function buildCampusLayout(agents: readonly OfficeAgentInput[], teams: re
     piece("spawn-terminal", "spawnTerminal", "floor", plaza.x, plaza.z),
   );
 
+  // ---------------------------------------------------------------- the sky pad
+  const floor: Rect = {
+    // The navigation grid starts at this corner. Desks stand on a 0.85 m raster from their studio's centre, so
+    // the place beside a chair would fall exactly on a cell boundary for every other cluster width; an eighth
+    // of a cell keeps all of them clear of one.
+    minX: planMinX - FLOOR_EDGE + RAIL_CLEARANCE - GRID_NUDGE, maxX: planMaxX + FLOOR_EDGE - RAIL_CLEARANCE,
+    minZ: topZ - FLOOR_EDGE + RAIL_CLEARANCE, maxZ: bottomZ + FLOOR_EDGE - RAIL_CLEARANCE,
+  };
+  const bounds: Rect = { minX: planMinX - FLOOR_EDGE, maxX: planMaxX + FLOOR_EDGE, minZ: topZ - FLOOR_EDGE, maxZ: bottomZ + FLOOR_EDGE };
+  // The main boulevard runs on through the east windows as a bridge to the landing platform.
+  const skyPad = skyPadFor(bounds, floor, plazaZ);
+
   // ------------------------------------------------------------- checkpoints
   const elevator = furniture.find((f) => f.id === "elevator")!;
   // The spawn point's ring surrounds the terminal; "walk there" and newcomers stand south of it, facing the screen.
@@ -648,6 +662,8 @@ export function buildCampusLayout(agents: readonly OfficeAgentInput[], teams: re
     { id: "break", room: "break", x: barX, z: bz0 + 2.0, radius: 1.6 },
     // The elevator's doors face east into the lobby; its checkpoint is the floor in front of them.
     { id: "elevator", room: "reception", x: elevator.x + 0.95, z: elevator.z, radius: 1.0 },
+    // Out on the sky pad, beside the courier's hatch.
+    { id: "ship", room: "floor", x: skyPad.board.x, z: skyPad.board.z, radius: 1.6 },
   ];
 
   // --------------------------------------------------------------- obstacles
@@ -669,6 +685,8 @@ export function buildCampusLayout(agents: readonly OfficeAgentInput[], teams: re
     ...rooms.filter((r) => !r.walled).flatMap(archPosts).map((p) => ({
       minX: p.x - ARCH.post / 2, maxX: p.x + ARCH.post / 2, minZ: p.z - ARCH.post / 2, maxZ: p.z + ARCH.post / 2,
     })),
+    // The courier on its pad.
+    skyPad.shipRect,
   ];
 
   return {
@@ -677,14 +695,6 @@ export function buildCampusLayout(agents: readonly OfficeAgentInput[], teams: re
     rooms, walls, furniture, spots, checkpoints, obstacles,
     // The person starts in front of the elevator.
     spawn: { x: rx0 + 1.4, z: bottomZ - 2.6 },
-    arrival,
-    floor: {
-      // The navigation grid starts at this corner. Desks stand on a 0.85 m raster from their studio's centre, so
-      // the place beside a chair would fall exactly on a cell boundary for every other cluster width; an eighth
-      // of a cell keeps all of them clear of one.
-      minX: planMinX - FLOOR_EDGE + RAIL_CLEARANCE - GRID_NUDGE, maxX: planMaxX + FLOOR_EDGE - RAIL_CLEARANCE,
-      minZ: topZ - FLOOR_EDGE + RAIL_CLEARANCE, maxZ: bottomZ + FLOOR_EDGE - RAIL_CLEARANCE,
-    },
-    bounds: { minX: planMinX - FLOOR_EDGE, maxX: planMaxX + FLOOR_EDGE, minZ: topZ - FLOOR_EDGE, maxZ: bottomZ + FLOOR_EDGE },
+    arrival, floor, bounds, skyPad,
   };
 }

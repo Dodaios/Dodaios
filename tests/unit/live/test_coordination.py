@@ -3,11 +3,36 @@
 from __future__ import annotations
 
 import inspect
+import re
 
 from jarvis.core.agent_brief import AGENT_BRIEF_RULE
 from jarvis.live import native
 from jarvis.live.config import LiveConfig
-from jarvis.live.coordination import WORK_STATUS_RULE, conversation_rules
+from jarvis.live.coordination import (
+    NAMED_TOOLS,
+    ON_SCREEN_RULE,
+    TEAM_TALK_RULE,
+    WORK_STATUS_RULE,
+    conversation_rules,
+)
+
+_RULES = WORK_STATUS_RULE + ON_SCREEN_RULE + TEAM_TALK_RULE + conversation_rules("your tools")
+# Hyphenated or underscored words in the rules that are plain English, not tools.
+_NOT_TOOLS = {"multi-step", "trade-offs"}
+
+
+def test_every_tool_the_rules_name_is_listed_and_every_listed_tool_is_named():
+    named_in_text = set(re.findall(r"\b[a-z]+(?:[-_][a-z]+)+\b", _RULES)) - _NOT_TOOLS
+    assert named_in_text <= set(NAMED_TOOLS)
+    for name in NAMED_TOOLS:
+        assert re.search(rf"\b{re.escape(name)}\b", _RULES), name
+
+
+def test_the_rules_spell_out_the_argument_a_small_model_has_to_pass():
+    # "workspace-orchestrate status" read as an argument named status (live 2026-10-14).
+    assert "workspace-orchestrate with action status" in WORK_STATUS_RULE
+    assert "workspace-orchestrate with action watch" in WORK_STATUS_RULE
+    assert "workspace-git, with op state" in WORK_STATUS_RULE
 
 
 def _wire(**profile) -> dict:

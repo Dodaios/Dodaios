@@ -9,7 +9,7 @@
 
 import type { OfficeFloor } from "./officeStore";
 
-export type ControlGroup = "move" | "camera" | "interact" | "map" | "arcade";
+export type ControlGroup = "move" | "camera" | "interact" | "map" | "fly" | "arcade";
 
 export interface OfficeControl {
   id: string;
@@ -19,7 +19,7 @@ export interface OfficeControl {
   agentsOnly?: boolean;
 }
 
-export const CONTROL_GROUPS: readonly ControlGroup[] = ["move", "camera", "interact", "map", "arcade"];
+export const CONTROL_GROUPS: readonly ControlGroup[] = ["move", "camera", "interact", "map", "fly", "arcade"];
 
 export type MouseGesture = "click" | "double" | "drag" | "right_drag" | "wheel";
 
@@ -43,6 +43,20 @@ export const OFFICE_CONTROLS: readonly OfficeControl[] = [
   { id: "minimap_focus", group: "map", keys: [["mouse:click"]] },
   { id: "minimap_walk", group: "map", keys: [["mouse:double"]] },
   { id: "minimap_zoom", group: "map", keys: [["mouse:wheel"]] },
+  // The courier's default keys (courierControls.ts); a pilot's own bindings show in the flight HUD's help.
+  { id: "fly_board", group: "fly", keys: [["E"]], agentsOnly: true },
+  { id: "fly_throttle", group: "fly", keys: [["W", "S"]], agentsOnly: true },
+  { id: "fly_turn", group: "fly", keys: [["A", "D"]], agentsOnly: true },
+  { id: "fly_pitch", group: "fly", keys: [["ArrowUp", "ArrowDown"]], agentsOnly: true },
+  { id: "fly_roll", group: "fly", keys: [["Q", "E"], ["ArrowLeft", "ArrowRight"]], agentsOnly: true },
+  { id: "fly_lift", group: "fly", keys: [["Space", "C"]], agentsOnly: true },
+  { id: "fly_boost", group: "fly", keys: [["Shift"]], agentsOnly: true },
+  { id: "fly_brake", group: "fly", keys: [["X"]], agentsOnly: true },
+  { id: "fly_assist", group: "fly", keys: [["T"]], agentsOnly: true },
+  { id: "fly_camera", group: "fly", keys: [["V"]], agentsOnly: true },
+  { id: "fly_land", group: "fly", keys: [["L"]], agentsOnly: true },
+  { id: "fly_leave", group: "fly", keys: [["E"], ["F"]], agentsOnly: true },
+  { id: "fly_settings", group: "fly", keys: [["Esc"]], agentsOnly: true },
   { id: "arcade_play", group: "arcade", keys: [["E"]] },
   { id: "arcade_start", group: "arcade", keys: [["Enter"], ["Space"]] },
   { id: "arcade_action", group: "arcade", keys: [["Space"], ["J"]] },
