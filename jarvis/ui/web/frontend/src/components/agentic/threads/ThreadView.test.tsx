@@ -189,7 +189,7 @@ describe("ThreadTree", () => {
   });
 
   it("lists a team thread once and keeps its members out of the thread list", async () => {
-    teams.rows = [{ team_id: "t1", title: "Add a retry", cwd: "/repo", state: "needs_input", phase: "review", reason: "", created_ms: 1, updated_ms: 2, members: [] }];
+    teams.rows = [{ team_id: "t1", title: "Add a retry", cwd: "/repo", mode: "peers", state: "needs_input", phase: "review", reason: "", created_ms: 1, updated_ms: 2, members: [] }];
     api.fetchAgentChatSessions.mockResolvedValue([
       sessionRow({ cli_title: "Fix login test" }),
       sessionRow({ session_id: "s2", cli_title: "Add a retry · Claude", team_id: "t1" }),
