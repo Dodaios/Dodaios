@@ -86,6 +86,28 @@ describe("the courier's flight", () => {
     expect(s.p.y).toBeGreaterThan(COURIER.standHeight + 5);
   });
 
+  it("in arcade, climbs and dives steeply and its lift goes straight up or down", () => {
+    const s = parkedState(home);
+    fly(s, { lift: 1 }, 2);
+    fly(s, { throttle: 1 }, 2);
+    // Full stick back for a second: the nose comes far up, and stays there when the stick is let go.
+    fly(s, { pitch: 1 }, 0.8);
+    const climb = forwardOf(s.q).y;
+    expect(climb).toBeGreaterThan(0.6);
+    fly(s, {}, 1);
+    expect(forwardOf(s.q).y).toBeGreaterThan(climb - 0.1);
+    // From level flight the sink key sinks fast, and a dive goes down steeply.
+    const level = parkedState(home);
+    fly(level, { lift: 1 }, 2);
+    fly(level, { throttle: 1 }, 2);
+    const y = level.p.y;
+    fly(level, { lift: -1 }, 1);
+    expect(level.p.y).toBeLessThan(y - 10);
+    expect(level.v.y).toBeLessThan(-FLIGHT.lift * 0.5);
+    fly(level, { pitch: -1 }, 0.8);
+    expect(forwardOf(level.q).y).toBeLessThan(-0.6);
+  });
+
   it("in arcade, flies where its nose points at the throttle's speed and levels its wings", () => {
     const s = parkedState(home);
     fly(s, { lift: 1 }, 3);
@@ -100,7 +122,8 @@ describe("the courier's flight", () => {
 
   it("in simulation, keeps drifting the old way after a turn", () => {
     const s = parkedState(home);
-    fly(s, { lift: 1 }, 3, "simulation");
+    fly(s, { lift: 1 }, 0.6, "simulation");
+    fly(s, { lift: -1 }, 0.6, "simulation");
     fly(s, { throttle: 1 }, 3, "simulation");
     fly(s, { throttle: -1 }, 2, "simulation");
     const before = s.v.clone().normalize();

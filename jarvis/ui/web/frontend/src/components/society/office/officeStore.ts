@@ -7,6 +7,7 @@
  */
 import { create } from "zustand";
 import type { CheckpointKind, Point } from "./officeLayout";
+import { courierSession } from "./courierStore";
 
 /**
  * `arcade` is a playable arcade cabinet, by furniture id. `team` is a team studio's board, by its
@@ -110,7 +111,8 @@ export const useOfficeStore = create<OfficeState>((set) => ({
   selection: null,
   nearby: null,
   hover: null,
-  setHover: (hover) => set((s) => (sameSelection(s.hover, hover) ? s : { hover })),
+  // In the courier a click steers the ship: nothing in the office is hovered, picked or walked to meanwhile.
+  setHover: (hover) => set((s) => (sameSelection(s.hover, hover) || (hover && courierSession.flying) ? s : { hover })),
   follow: true,
   focus: null,
   summons: {},
@@ -144,7 +146,7 @@ export const useOfficeStore = create<OfficeState>((set) => ({
     const gone = new Set(agentIds);
     return { summons: Object.fromEntries(Object.entries(s.summons).filter(([id]) => !gone.has(id))) };
   }),
-  select: (selection) => set({ selection }),
+  select: (selection) => { if (!(selection && courierSession.flying)) set({ selection }); },
   setNearby: (nearby) => set((s) => (sameSelection(s.nearby, nearby) ? s : { nearby })),
   setFollow: (follow) => set((s) => (s.follow === follow ? s : { follow })),
   focusOn: (point) => set({ focus: { point, seq: ++seq }, follow: false }),
@@ -161,7 +163,7 @@ export const useOfficeStore = create<OfficeState>((set) => ({
     });
     return { summons: next };
   }),
-  requestWalk: (point) => set({ walkTo: { point, seq: ++seq }, follow: true }),
+  requestWalk: (point) => { if (!courierSession.flying) set({ walkTo: { point, seq: ++seq }, follow: true }); },
 }));
 
 /**

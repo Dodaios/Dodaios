@@ -18,7 +18,7 @@ export type FlightBindings = Record<FlightAction, string[]>;
 
 export const DEFAULT_BINDINGS: FlightBindings = {
   throttleUp: ["KeyW"], throttleDown: ["KeyS"],
-  pitchUp: ["ArrowDown"], pitchDown: ["ArrowUp"],
+  pitchUp: ["ArrowUp"], pitchDown: ["ArrowDown"],
   yawLeft: ["KeyA"], yawRight: ["KeyD"],
   rollLeft: ["KeyQ", "ArrowLeft"], rollRight: ["KeyE", "ArrowRight"],
   liftUp: ["Space"], liftDown: ["KeyC", "ControlLeft"],
@@ -26,7 +26,8 @@ export const DEFAULT_BINDINGS: FlightBindings = {
   assist: ["KeyT"], camera: ["KeyV"], land: ["KeyL"], exit: ["KeyF"], help: ["KeyH"],
 };
 
-const STORAGE_KEY = "dodaios.verse.courier.bindings";
+/** Versioned: the first defaults had the arrows the other way round, and a saved copy of them must not survive. */
+const STORAGE_KEY = "dodaios.verse.courier.bindings.v2";
 
 /** The pilot's bindings: the defaults with whatever this browser remembers laid over them. */
 export function loadBindings(storage: Pick<Storage, "getItem"> | null = safeStorage()): FlightBindings {
@@ -100,6 +101,7 @@ export function flightInput(held: ReadonlySet<string>, bindings: FlightBindings,
   const axis = (plus: FlightAction, minus: FlightAction) => on(plus) - on(minus);
   const b = (i: number) => pad?.buttons[i]?.value ?? 0;
   const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+  // A stick pushed forward (negative y) dives, as in every flight game.
   const pitch = clamp(axis("pitchUp", "pitchDown") + stick(pad?.axes[1]));
   return {
     throttle: clamp(axis("throttleUp", "throttleDown") + b(7) - b(6)),
