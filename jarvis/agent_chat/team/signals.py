@@ -225,7 +225,7 @@ def parse_plan(reply: str) -> PlanReply:
         return PlanReply(False, body, error=f"The reply has no ```{PLAN_BLOCK} block.")
     try:
         data = json.loads(raw.strip())
-    except ValueError as exc:
+    except ValueError as exc:  # said to the planner, who is asked to write it again
         return PlanReply(False, body, error=f"The {PLAN_BLOCK} block is not valid JSON ({exc}).")
     if isinstance(data, list):
         data = {"steps": data}  # the list of steps written without the object around it
