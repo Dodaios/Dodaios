@@ -85,7 +85,7 @@ describe("tool visual identities", () => {
     }
   });
 
-  it.each(["my-github-helper", "drive-jarvis-cli", "daily-brief"])(
+  it.each(["my-github-helper", "drive-dodaios-cli", "daily-brief"])(
     "does not invent a brand for %s",
     (id) => {
       const identity = toolIdentity(

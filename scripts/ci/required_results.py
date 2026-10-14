@@ -24,9 +24,13 @@ import os
 import sys
 from typing import Any
 
-# Jobs that only exist on some events: pull-request-only checks and manual
-# soak runs. A strict run may skip these and nothing else.
-STRICT_SKIP_OK = frozenset({"pr-policy", "dependency-review", "soak", "release-qualification"})
+# Jobs that only exist on some events: pull-request-only checks, manual soak
+# runs, and the merge queue's macOS impact selection (the nightly and release
+# runs take the whole macOS suite in `tests-macos` instead). A strict run may
+# skip these and nothing else; one detection selected still has to run.
+STRICT_SKIP_OK = frozenset(
+    {"pr-policy", "dependency-review", "soak", "release-qualification", "tests-macos-impact"}
+)
 
 LANE_JOBS = {
     "python": {"python-fast", "tests-linux", "tests-windows", "test-report"},

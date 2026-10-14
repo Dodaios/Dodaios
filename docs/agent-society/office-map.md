@@ -189,7 +189,7 @@ the floor plan differ.
   `companion/petCompanions.ts` maps a pet to its companion:
   Gigi keeps its hover model; the seven other built-ins have authored Blender
   models (`scripts/art/build_pet_companions.py`, study
-  `art/studies/jarvis-pet-companions`, one GLB per pet under
+  `art/studies/dodaios-pet-companions`, one GLB per pet under
   `assets/society/companions/pets/`) and a gait of their own: Ember the
   dragon flies with beating wings, Miso the cat trots, Cocoa the puppy trots
   with flopping ears and a wagging tail, Bolt the battery
