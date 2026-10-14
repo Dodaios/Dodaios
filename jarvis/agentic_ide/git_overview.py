@@ -34,7 +34,7 @@ import shutil
 import subprocess
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -75,9 +75,10 @@ SLOW_READ_S = 2.0
 # part alone is well inside it.
 #
 # The checks behind each pull request's verdict are the slow part by far, so
-# the pull requests are asked twice: once with the verdict and GitHub's own
-# tally of the checks, which is on screen in about two seconds, and once with
-# the checks themselves (their names and runs), which follow.
+# the pull requests come with the verdict and GitHub's own tally of the
+# checks, which is on screen in about two seconds. The checks themselves
+# (their names and runs) are asked only for the pull requests whose checks
+# the tab names — the failed and the running ones.
 
 #: Every open pull request with the CI verdict of its newest commit and how
 #: many checks passed, failed and run — no single check.
@@ -95,7 +96,8 @@ query($owner: String!, $name: String!) {
 }
 """
 
-#: The same pull requests with the checks behind each verdict.
+#: The same pull requests with every check behind each verdict: one more try
+#: when the quick read fails.
 _OPEN_QUERY = """
 query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
@@ -570,7 +572,10 @@ def _repository(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _fetch_github(
-    repo: str, token: str, early: Callable[[_GitHubSnapshot], None] | None = None
+    repo: str,
+    token: str,
+    early: Callable[[_GitHubSnapshot], None] | None = None,
+    known_busy: Iterable[int] = (),
 ) -> _GitHubSnapshot:
     """GitHub's answer for ``repo``.
 
@@ -578,6 +583,10 @@ def _fetch_github(
     pull request with its CI verdict and check counts and every branch, without
     the names and runs of the checks and without CI for a branch that has no
     pull request.
+
+    ``known_busy`` are the pull requests that failed or ran at the last read:
+    their checks are asked for at once, side by side with the quick parts, so a
+    refresh does not wait for the quick answer before asking.
     """
     now = time.time()
     owner, _, name = repo.partition("/")
@@ -589,8 +598,9 @@ def _fetch_github(
         except github_link.GitHubError as exc:  # handed back to the caller below
             return exc
 
+    known = sorted({int(number) for number in known_busy})
     quick_job = git_local.Job(ask, _OPEN_QUICK_QUERY + _PR_FRAGMENT + _TALLY_FRAGMENT)
-    open_job = git_local.Job(ask, _OPEN_QUERY + _PR_FRAGMENT + _ROLLUP_FRAGMENT)
+    known_job = git_local.Job(ask, _details_query(known)) if known else None
     recent_job = git_local.Job(ask, _RECENT_QUERY + _PR_FRAGMENT)
     refs_job = git_local.Job(ask, _REFS_CI_QUERY + _ROLLUP_FRAGMENT)
     names_job = git_local.Job(_all_refs, token, owner, name)
@@ -599,21 +609,79 @@ def _fetch_github(
         # Open pull requests and CI landed; only "merged" marks are missing this round.
         logger.debug("Git overview: recent pull requests failed: {}", recent.code)
         recent = {}
-    if early is not None and not isinstance(quick, github_link.GitHubError):
-        first = _snapshot(quick, recent, {}, names, now)
-        if first.ok:
-            early(first)
-    opened, refs = open_job.result(), refs_job.result()
-    if isinstance(opened, github_link.GitHubError) and not isinstance(
-        quick, github_link.GitHubError
-    ):
-        # The checks behind each verdict are missing this round; the verdicts are not.
-        logger.debug("Git overview: pull request checks failed: {}", opened.code)
-        opened = quick
-    for answer in (opened, refs):
-        if isinstance(answer, github_link.GitHubError):  # shown in the tab as github.reason/code
-            return _GitHubSnapshot(ok=False, reason=str(answer), code=answer.code, fetched_at=now)
-    return _snapshot(opened, recent, refs, names, now)
+    if isinstance(quick, github_link.GitHubError):
+        # One more try in the shape that carries the checks too, before giving up.
+        logger.debug("Git overview: quick pull request read failed: {}", quick.code)
+        quick = ask(_OPEN_QUERY + _PR_FRAGMENT + _ROLLUP_FRAGMENT)
+        if isinstance(quick, github_link.GitHubError):  # shown in the tab as github.reason/code
+            return _GitHubSnapshot(ok=False, reason=str(quick), code=quick.code, fetched_at=now)
+    first = _snapshot(quick, recent, {}, names, now)
+    # Which checks to name is decided before ``early`` dresses the answer up.
+    wanted = {pr.number: pr.ci.commit for pr in first.prs if _needs_details(pr)}
+    missing = [number for number in wanted if number not in known]
+    missing_job = git_local.Job(ask, _details_query(missing)) if missing else None
+    if early is not None and first.ok:
+        early(first)
+    details: dict[int, CiStatus] = {}
+    for job in (known_job, missing_job):
+        if job is not None:
+            details.update(_details(job.result()))
+    # A pull request that got a new commit since the last read is asked again.
+    moved = [n for n, commit in wanted.items() if n in details and details[n].commit != commit]
+    if moved:
+        details.update(_details(ask(_details_query(moved))))
+    refs = refs_job.result()
+    if isinstance(refs, github_link.GitHubError):  # shown in the tab as github.reason/code
+        return _GitHubSnapshot(ok=False, reason=str(refs), code=refs.code, fetched_at=now)
+    snap = _snapshot(quick, recent, refs, names, now)
+    _apply_details(snap, details)
+    return snap
+
+
+def _needs_details(pr: PullRequest) -> bool:
+    """The tab names the checks of a pull request that failed or still runs."""
+    return pr.ci.state in {"failure", "running", "pending"}
+
+
+def _details_query(numbers: Iterable[int]) -> str:
+    """The checks behind the verdicts of these pull requests, one alias each."""
+    rows = " ".join(
+        f"p{number}: pullRequest(number: {number}) {{ number commits(last: 1) "
+        "{ nodes { commit { oid statusCheckRollup { ...Rollup } } } } }"
+        for number in sorted({int(n) for n in numbers})
+    )
+    return (
+        "query($owner: String!, $name: String!) { "
+        f"repository(owner: $owner, name: $name) {{ {rows} }} }}" + _ROLLUP_FRAGMENT
+    )
+
+
+def _details(answer: dict[str, Any] | github_link.GitHubError) -> dict[int, CiStatus]:
+    """Pull request number → the CI of its newest commit, checks named."""
+    if isinstance(answer, github_link.GitHubError):
+        # The verdicts and counts stay; only the names of the checks are missing.
+        logger.debug("Git overview: pull request checks failed: {}", answer.code)
+        return {}
+    found: dict[int, CiStatus] = {}
+    for node in _repository(answer).values():
+        if not isinstance(node, dict) or not node.get("number"):
+            continue
+        commits = (node.get("commits") or {}).get("nodes") or []
+        commit = (commits[0] or {}).get("commit") if commits else None
+        if isinstance(commit, dict):
+            found[int(node["number"])] = ci_from_rollup(
+                commit.get("statusCheckRollup"), str(commit.get("oid") or "")
+            )
+    return found
+
+
+def _apply_details(snap: _GitHubSnapshot, details: dict[int, CiStatus]) -> None:
+    """Name the checks of each pull request whose commit the details describe."""
+    for pr in snap.prs:
+        known = details.get(pr.number)
+        if known is not None and known.commit == pr.ci.commit:
+            pr.ci.names = known.names
+            pr.ci.url = known.url or pr.ci.url
 
 
 def _snapshot(
@@ -751,7 +819,12 @@ class _GitHubCache:
                     with self._guard:
                         self._entries[key] = first
 
-                fetched = _fetch_github(key, token, early)
+                busy = (
+                    [pr.number for pr in snap.prs if _needs_details(pr)]
+                    if (snap is not None and snap.ok)
+                    else []
+                )
+                fetched = _fetch_github(key, token, early, busy)
                 with self._guard:
                     shown = self._entries.get(key)
                     if fetched.ok or shown is None or not shown.ok:
