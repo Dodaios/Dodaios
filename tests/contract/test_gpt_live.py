@@ -1131,23 +1131,30 @@ async def test_native_tool_search_ranks_instead_of_requiring_every_word(ledger):
     assert [tool["name"] for tool in result["tools"]] == ["write-file"]
 
 
-def test_steering_tools_are_declared_before_the_size_budget_runs_out(ledger):
+# 900: the byte budget runs out first; 300: the declaration count does.
+@pytest.mark.parametrize("filler_size", [900, 300])
+def test_steering_tools_are_declared_before_the_size_budget_runs_out(ledger, filler_size):
     class Crowded(Gateway):
         def catalog(self):
             filler = tuple(
                 SupervisorToolDescriptor(
-                    f"a-tool-{index:02d}", "x" * 900, {"type": "object"}, "safe"
+                    f"a-tool-{index:02d}", "x" * filler_size, {"type": "object"}, "safe"
                 )
                 for index in range(60)
             )
-            steering = SupervisorToolDescriptor(
-                "workspace-orchestrate", "Route coding tasks", {"type": "object"}, "monitor"
+            steering = tuple(
+                SupervisorToolDescriptor(name, "Steers the call", {"type": "object"}, "monitor")
+                for name in (
+                    "workspace-orchestrate", "workspace-git", "show_on_screen", "ask_agent",
+                )
             )
-            return (*filler, steering)
+            return (*filler, *steering)
 
     runtime = LiveTools(Crowded(), ledger, "s", language="en", backend_model="")
-    declared = runtime.declarations()
-    assert "workspace-orchestrate" in {runtime._names.get(d["name"]) for d in declared}
+    declared = {runtime._names.get(d["name"]) for d in runtime.declarations()}
+    # The conversation rules name these tools; a model that is not given a
+    # named tool tells the user it does not exist.
+    assert {"workspace-orchestrate", "workspace-git", "show_on_screen", "ask_agent"} <= declared
 
 
 @pytest.mark.asyncio
