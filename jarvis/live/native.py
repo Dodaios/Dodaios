@@ -18,7 +18,7 @@ from jarvis.core.paths import user_data_dir
 from jarvis.core.runtime_refs import get_supervisor_tool_gateway
 from jarvis.core.tool_budget import VOICE_TOOL_BUDGET_S
 from jarvis.cu.direct import COMPUTER_CONTROL_RULES
-from jarvis.live.coordination import WORK_STATUS_RULE, conversation_rules
+from jarvis.live.coordination import ON_SCREEN_RULE, WORK_STATUS_RULE, conversation_rules
 from jarvis.live.product import PRODUCT_BRIEF
 from jarvis.live.runtime import claim, register, unregister
 from jarvis.live.session import LiveVoiceSession, _identity
@@ -178,6 +178,7 @@ class NativeLiveVoiceSession(LiveVoiceSession):
                     "Do not switch the UI to address another workspace. Reuse request_id on "
                     "retries and never replay uncertain delivery. "
                     + WORK_STATUS_RULE
+                    + ON_SCREEN_RULE
                     + AGENT_BRIEF_RULE
                 ),
                 history=tuple(

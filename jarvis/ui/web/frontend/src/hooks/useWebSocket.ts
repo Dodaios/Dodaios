@@ -30,6 +30,7 @@ import { handleAppshotEditRequest } from "@/store/appshotEditor";
 import { useDeckStore } from "@/store/deck";
 import { MEMORY_WRITE_EVENT, useMemoryWrites } from "@/store/memoryWrites";
 import { useHomeStore } from "@/store/home";
+import { useAgentChatStore } from "@/store/agentChat";
 import { PANE_ACTIVITY_EVENT } from "@/store/workspacePanes";
 import { WSAudioLevel, WSEventEnvelope, WSWelcome } from "@/schema/ws";
 import { useI18nStore, hydrateUiLanguage, hydrateReplyLanguage, isUiLanguage, translate, fill } from "@/i18n";
@@ -466,7 +467,7 @@ export function useWebSocket(): void {
         }
 
         if (env.event_name === "NavigateSidebar") {
-          const p = env.payload as { section?: string };
+          const p = env.payload as { section?: string; target?: string; target_id?: string };
           const solo = useEventStore.getState().solo;
           // A retired id ("outputs") still arrives from older deep links and
           // spoken aliases; it lands on the section that holds its content now.
@@ -487,6 +488,19 @@ export function useWebSocket(): void {
               // "go to settings" targets the main window, and following it here
               // would blank the very view the user split off to keep.
               setActiveSection(section);
+              // One thing inside the section: an agent's chat or a conversation.
+              if (section === "chats" && p.target_id) {
+                if (p.target === "agent") {
+                  useHomeStore.getState().openAgentChat(p.target_id);
+                } else if (p.target === "chat") {
+                  const events = useEventStore.getState();
+                  events.setActiveConversation("text", null);
+                  events.setMessages([]);
+                  useHomeStore.getState().openAgentChat(null);
+                  useAgentChatStore.getState().openSession(p.target_id);
+                  useHomeStore.getState().setJarvisCardMode("chat");
+                }
+              }
             }
             // The Settings "Autopilot Toasts" switch owns this note.
             if (!solo && isAutopilotToastsEnabled()) {
