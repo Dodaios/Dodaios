@@ -291,7 +291,8 @@ async def get_activity(
     log_path = vault_root / "log.md"
     try:
         text = await asyncio.to_thread(log_path.read_text, encoding="utf-8", errors="replace")
-    except OSError:
+    except OSError as exc:
+        log.info("memory vault: activity feed empty, log.md unreadable: %s", exc)
         text = ""
     return {"ok": True, "items": _parse_activity(text, model, limit)}
 
@@ -581,7 +582,7 @@ async def tidy_vault(payload: TidyBody, request: Request) -> dict[str, Any]:
 def _relative(path: Path, vault_root: Path) -> str:
     try:
         return path.resolve().relative_to(vault_root.resolve()).as_posix()
-    except ValueError:
+    except ValueError:  # silent-ok: the writer only applies in-vault paths; this is display only
         return path.as_posix()
 
 
