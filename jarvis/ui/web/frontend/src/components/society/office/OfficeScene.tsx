@@ -1,5 +1,6 @@
 /**
- * The office floors: an oak-floored plate floating in a starry night behind
+ * The office floors: an oak-floored plate high over the city in the
+ * singularity (the coding floor in a starry violet night of its own) behind
  * frameless glass, walled rooms in the north and south and the desks in
  * between — and everybody in it. The agents floor is a team campus (a studio
  * per team round an atrium, boulevards, planted courts), the coding floor is
@@ -9,7 +10,6 @@
  * (ArcadeHall); the person, the elevator and the camera work the same there.
  */
 import { useLayoutEffect, useMemo } from "react";
-import { Stars } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { Color } from "three";
 import { useT } from "@/i18n";
@@ -32,6 +32,7 @@ import { AgentsFloorAmbience } from "./AgentsFloorAmbience";
 import { CampusGround } from "./CampusGround";
 import { StaticBatch } from "./StaticBatch";
 import { BuildingShell } from "./BuildingShell";
+import { CITY_BACKDROP } from "./SingularityCity";
 import { ExecutiveDesks, LeadOfficeLight } from "./LeadSuite";
 import { LiveMonitors } from "./LiveMonitors";
 import { TerminalMonitors } from "./TerminalMonitors";
@@ -59,7 +60,6 @@ import { PlayerBubble } from "./OfficeBubbles";
 import { OfficeCameraRig } from "./OfficeCameraRig";
 import { allDesks, leadDesks, type FurnitureKind, type OfficeLayout, type Point } from "./officeLayout";
 import { isWalkable, nearestWalkable, type NavGrid } from "./officeNav";
-import { OFFICE } from "./officePalette";
 import { officeSession, player as playerBody, useOfficeStore, type OfficeFloor, type Selection } from "./officeStore";
 import { arrivalPose } from "./officeFloors";
 import { ProgressionLayer } from "../progression/ProgressionLayer";
@@ -202,8 +202,8 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
   const teamRoom = layout.rooms.find((r) => r.kind === "team");
   const breakRoom = layout.rooms.find((r) => r.kind === "break");
   const coding = floor === "coding";
-  // The coding floor is the Foundry deck: a station floating in a nebula, so a glance tells the floors apart.
-  const space = coding ? FOUNDRY.fog : OFFICE.space;
+  // The coding floor is the Foundry deck: a station floating in a nebula, so a glance tells the floors apart; the others stand in the city's haze.
+  const space = coding ? FOUNDRY.fog : CITY_BACKDROP;
   const foundry = useMemo(() => (coding ? foundryFrame(layout) : null), [coding, layout]);
   const working = useMemo(() => [...occupants.values()].filter((o) => o.dot === "working").length, [occupants]);
   const animate = awake && !reduced;
@@ -233,9 +233,8 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
     <FoundryLook.Provider value={coding}>
       <primitive attach="background" object={background} />
       <fog attach="fog" args={[space, span * 2.2, span * 4.5]} />
-      {coding
-        ? <FoundrySky centre={[(minX + maxX) / 2, (minZ + maxZ) / 2]} animate={animate} />
-        : <Stars radius={span * 3} depth={span} count={2500} factor={4} saturation={0} fade speed={reduced ? 0 : 0.3} />}
+      {/* The city's sky has its own stars; the coding floor has its nebula. */}
+      {coding && <FoundrySky centre={[(minX + maxX) / 2, (minZ + maxZ) / 2]} animate={animate} />}
       <hemisphereLight args={coding ? [FOUNDRY.sky, FOUNDRY.ground, 0.6] : [AGENTS_SCENE.sky, AGENTS_SCENE.ground, 0.95]} />
       <ambientLight intensity={coding ? 0.16 : 0.25} />
       {/* The campus is twice as long as the other floors: its sun keeps the same shadow detail with a larger map. */}
@@ -256,7 +255,7 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
         </>}
       </>}
       {/* The agents floor and the Level Hall are floors of a building: window walls, the tower below, the city outside. */}
-      {!coding && <BuildingShell layout={layout} />}
+      {!coding && <BuildingShell layout={layout} reduced={reduced} />}
       <RoomFloors rooms={layout.rooms} campus={!coding} foundry={coding} />
       <RoomWalls walls={layout.walls} foundry={coding} />
       {!batch && signs}
