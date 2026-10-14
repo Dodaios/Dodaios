@@ -186,7 +186,25 @@ def ensure_books(vault: Path, agent: Any) -> dict[str, Path]:
     return {target: folder / name for target, name in FILES.items()}
 
 
+def has_books(vault: Path, agent: Any) -> bool:
+    """True when the agent's folder holds a notebook or a pending migration.
+
+    Reads must not create files: every agent the roster ever listed used to
+    get two frontmatter-only notebooks the first time anything looked at it,
+    which filled the vault with 170 empty pages.
+    """
+    folder = folder_for(vault, agent.agent_id)
+    if not folder.is_dir():
+        return False
+    return any(
+        path.name.lower() in {"memory.md", "user.md", ".memory-layout.pending.json"}
+        for path in folder.iterdir()
+    )
+
+
 def read_books(vault: Path, agent: Any) -> dict[str, list[Entry]]:
+    if not has_books(vault, agent):
+        return {target: [] for target in FILES}
     paths = ensure_books(vault, agent)
     with FileLock(str(paths["memory"].parent / ".memory-books.lock"), timeout=2):
         return {target: parse(body(_read(path))) for target, path in paths.items()}

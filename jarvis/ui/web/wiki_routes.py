@@ -35,7 +35,7 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC
 from pathlib import Path
 from typing import Any
@@ -60,6 +60,7 @@ from jarvis.memory.wiki.protocols import WikiPage
 from jarvis.memory.wiki.search import VaultSearch
 from jarvis.memory.wiki.semantic_search import with_semantic_hits
 from jarvis.memory.wiki.telemetry import telemetry as _telemetry
+from jarvis.memory.wiki.vault_model import read_properties
 from jarvis.memory.wiki.vault_root import resolve_vault_root
 from jarvis.memory.wiki.wikilink import (
     _canonicalise as _canonicalise_link,  # type: ignore[attr-defined]
@@ -236,6 +237,8 @@ class _VisiblePage:
     relative_path: Path
     mtime: float
     size: int
+    #: Real YAML frontmatter values (lists included) for the Memory reader.
+    properties: dict[str, Any] = field(default_factory=dict)
 
 
 def _visible_path_sort_key(relative_path: Path) -> tuple[int, str]:
@@ -374,6 +377,7 @@ def _scan_visible_pages_sync(vault_root: Path) -> list[_VisiblePage]:
                 relative_path=relative,
                 mtime=stat.st_mtime,
                 size=stat.st_size,
+                properties=read_properties(raw),
             )
         fresh[rel_key] = (*signature, entry)
         visible.append(entry)
