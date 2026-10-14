@@ -14,9 +14,13 @@ Output: continuous score [0, 1] per keyword — we filter on
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import sys
+import threading
 import time
-from collections.abc import AsyncIterator
+import types
+from collections.abc import AsyncIterator, Iterator
 
 import numpy as np
 
@@ -24,6 +28,70 @@ from jarvis.audio.wake_normalizer import AdaptiveWakeNormalizer
 from jarvis.core.protocols import AudioChunk
 
 log = logging.getLogger("jarvis.wake")
+
+
+_OWW_TRAINING_MODULE = "openwakeword.custom_verifier_model"
+#: The boot prefetch thread and the provider both load the runtime; one at a
+#: time, so a fallback never purges modules another caller is importing.
+_OWW_IMPORT_LOCK = threading.Lock()
+
+
+def _train_custom_verifier_unavailable(*_args: object, **_kwargs: object) -> None:
+    raise RuntimeError(
+        "openWakeWord verifier training was not loaded with the wake runtime; "
+        f"import {_OWW_TRAINING_MODULE} directly to use it."
+    )
+
+
+@contextlib.contextmanager
+def _inference_only_openwakeword_import() -> Iterator[None]:
+    """Keep the verifier-training stack out of the first openWakeWord import.
+
+    ``openwakeword/__init__`` imports ``custom_verifier_model`` for its
+    ``train_custom_verifier`` helper, and that module imports scipy and
+    scikit-learn (which imports pandas and pyarrow where they are installed).
+    Scoring a wake model touches none of it: the provider never passes
+    ``custom_verifier_models``. Measured 2026-10-13 on top of numpy and
+    onnxruntime: 107 MB private memory and 1.4 s for the plain import (78 MB
+    and 1.1 s without pandas), 13 MB and 0.2 s with the stand-in below.
+
+    Only a module that is not really imported yet is replaced, and only the
+    stand-in set here is removed again, so a later explicit import of the
+    training module still loads the real one.
+    """
+    if _OWW_TRAINING_MODULE in sys.modules or "openwakeword" in sys.modules:
+        yield
+        return
+    stand_in = types.ModuleType(_OWW_TRAINING_MODULE)
+    stand_in.train_custom_verifier = _train_custom_verifier_unavailable  # type: ignore[attr-defined]
+    sys.modules[_OWW_TRAINING_MODULE] = stand_in
+    try:
+        yield
+    finally:
+        if sys.modules.get(_OWW_TRAINING_MODULE) is stand_in:
+            del sys.modules[_OWW_TRAINING_MODULE]
+
+
+def load_openwakeword_model_class() -> type:
+    """Import ``openwakeword.model.Model`` without the training-only stack.
+
+    Any failure of the lean import is retried as the plain one, so a future
+    openWakeWord layout costs the saving, never the wake word. A runtime that
+    is genuinely absent raises its ``ImportError`` from that second attempt.
+    """
+    with _OWW_IMPORT_LOCK:
+        before = set(sys.modules)
+        try:
+            with _inference_only_openwakeword_import():
+                from openwakeword.model import Model
+        except Exception as exc:  # noqa: BLE001 — retried in full right below
+            log.debug("Lean openWakeWord import failed (%s); retrying in full", exc)
+            # Drop only what this attempt left half-imported.
+            for name in set(sys.modules) - before:
+                if name == "openwakeword" or name.startswith("openwakeword."):
+                    del sys.modules[name]
+            from openwakeword.model import Model
+        return Model
 
 
 OWW_SAMPLE_RATE = 16_000
@@ -303,7 +371,7 @@ class OpenWakeWordProvider:
         if self._model is not None or self._runtime_unavailable:
             return
         try:
-            from openwakeword.model import Model
+            Model = load_openwakeword_model_class()  # noqa: N806 — a class
         except ImportError as exc:
             # openwakeword + onnxruntime are BASE deps, so this only happens on a
             # broken/partial install. Degrade to a no-op wake (the pipeline keeps
