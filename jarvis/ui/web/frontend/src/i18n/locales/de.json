@@ -8971,7 +8971,8 @@
       "open_aria": "GitHub {destination} öffnen: {identity}",
       "open_title": "{destination} öffnen",
       "refresh_failed": "GitHub-Status konnte nicht aktualisiert werden.",
-      "refreshing": "GitHub-Status wird aktualisiert…"
+      "refreshing": "GitHub-Status wird aktualisiert…",
+      "loading": "GitHub-Status wird gelesen…"
     },
     "dock": {
       "swap": "Plätze tauschen",

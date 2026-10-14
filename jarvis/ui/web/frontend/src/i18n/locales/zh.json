@@ -8971,7 +8971,8 @@
       "open_aria": "打开 GitHub {destination}：{identity}",
       "open_title": "打开{destination}",
       "refresh_failed": "无法刷新 GitHub 状态。",
-      "refreshing": "正在刷新 GitHub 状态…"
+      "refreshing": "正在刷新 GitHub 状态…",
+      "loading": "正在读取 GitHub 状态…"
     },
     "dock": {
       "swap": "交换位置",

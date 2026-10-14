@@ -1248,6 +1248,34 @@ def read_timeline(
     )
 
 
+def stamp(agent: str, session_id: str, *, home: Path | None = None) -> tuple[int, int] | None:
+    """Size and modification time of a session's record: has it grown since?
+
+    A record is tens of megabytes after a day's work, and reading it whole to
+    learn that nothing was added is the expensive way to ask. ``None`` when the
+    record is not one file this module can name, or is not there: the caller
+    has no cheap answer then and reads it.
+    """
+    key = _agent_key(agent)
+    session = str(session_id or "").strip()
+    if not session:
+        return None
+    try:
+        if key == "claude":
+            path = _claude_file(session, home)
+        elif key == "codex":
+            path = _codex_file(session, home)
+        else:
+            return None
+        if path is None:
+            return None
+        info = path.stat()
+    except OSError:
+        # Unreadable for a moment (the CLI is rotating it): reading it decides.
+        return None
+    return info.st_size, info.st_mtime_ns
+
+
 def read_events(
     agent: str,
     session_id: str,
@@ -2054,4 +2082,5 @@ __all__ = [
     "read",
     "read_events",
     "read_timeline",
+    "stamp",
 ]
