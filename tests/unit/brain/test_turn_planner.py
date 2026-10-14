@@ -442,7 +442,7 @@ def test_unrelated_lookup_does_not_inherit_old_evidence_domain() -> None:
 
 def test_mission_findings_follow_up_inherits_the_completed_mission() -> None:
     context = (
-        "[Trusted Jarvis-Agent mission result] Research finished. "
+        "[Trusted Dodaios-Agent mission result] Research finished. "
         'Result metadata: {"mission_id":"019f5ca2-e30f"}',
     )
 
