@@ -31,6 +31,7 @@ import { translate } from "@/i18n";
 import { PRODUCT_NAME } from "@/lib/branding";
 import type { AgentRunState, AgentTier } from "../data";
 import type { AgentsAmbienceItem } from "./agentsAmbience";
+import type { SkyPad } from "./skyPad";
 import { buildCampusLayout } from "./campusLayout";
 import { codingAmbience } from "./codingAmbience";
 
@@ -139,9 +140,10 @@ export interface WallSegment { x1: number; z1: number; x2: number; z2: number; r
  * "manage" is the agents floor's reception desk: the one directory and help station.
  * "studio" (the dais) and "levels" (the service guide) are the Level Hall floor's.
  * "create" is no longer placed on any floor; the kind stays for the maps' label tables.
+ * "ship" is the courier on the agents floor's sky pad: board it and fly.
  */
 export type CheckpointKind = "spawn" | "launch" | "create" | "manage" | "team" | "wardrobe" | "lead" | "break" | "elevator" | "mission"
-  | "studio" | "levels";
+  | "studio" | "levels" | "ship";
 
 /** A place the person can walk to (or click from afar) to act. "floor" = the open office, outside every room. */
 export interface Checkpoint extends Point {
@@ -377,6 +379,8 @@ export interface OfficeLayout {
   floor: Rect;
   /** The whole slab, railing included. */
   bounds: Rect;
+  /** Agents floor: the landing platform outside the east windows, walkable beyond `floor`. Absent on the other floors. */
+  skyPad?: SkyPad;
 }
 
 /** Desk pitch along a row and the depth of one bench (two rows back to back plus chairs). */

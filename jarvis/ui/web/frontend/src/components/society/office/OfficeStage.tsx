@@ -31,6 +31,8 @@ import { ZOOM_SECONDS } from "./OfficeCameraRig";
 import { useDeskChats } from "./useDeskChats";
 import type { Point } from "./officeLayout";
 import { player, sameSelection, switchFloor, useOfficeStore, type OfficeFloor, type Selection } from "./officeStore";
+import { courierSession, useCourier } from "./courierStore";
+import { CourierHud } from "./CourierHud";
 import { agentPositions, seatedAtDesk } from "./walkerRegistry";
 import { useCodingFloorOccupants, type PaneOccupant } from "./codingFloor";
 import { openPaneSession } from "./codingNavigate";
@@ -327,6 +329,19 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
       rideTimer.current = setTimeout(() => setRide((r) => (r?.phase === "closed" ? { ...r, phase: "opening" } : r)), DOORS_HOLD_MAX_MS);
     }, DOORS_MS);
   }, [ride, reduced]);
+  // E beside the courier on the sky pad, or a click on it, boards it: the flight takes the keys and the camera.
+  const flying = useCourier((s) => s.flying);
+  useEffect(() => {
+    if (!awake || selection?.kind !== "checkpoint" || selection.id !== "ship") return;
+    select(null);
+    // Like the elevator, never from a distance: a click from afar walks the person over to the hatch first.
+    const hatch = layout.checkpoints.find((cp) => cp.id === "ship");
+    if (hatch && Math.hypot(player.x - hatch.x, player.z - hatch.z) > hatch.radius + 0.6) {
+      useOfficeStore.getState().requestWalk({ x: hatch.x, z: hatch.z });
+      return;
+    }
+    useCourier.getState().board();
+  }, [selection, select, awake, layout]);
   // E at the elevator, or a click on its floor token, presses the call button instead of opening a panel.
   useEffect(() => {
     if (!awake || selection?.kind !== "checkpoint" || selection.id !== "elevator") return;
@@ -484,7 +499,8 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
   useEffect(() => {
     if (!awake) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.code !== "KeyH" || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+      // In the courier, H is the pilot's own help.
+      if (event.code !== "KeyH" || event.repeat || event.ctrlKey || event.metaKey || event.altKey || courierSession.flying) return;
       const current = useOfficeStore.getState().selection;
       // The open directory is a dialog of its own: H closes it again unless the person is typing in it.
       if (isReception(current) ? typesText(event.target) : ownsKeyboard(event.target)) return;
@@ -507,7 +523,8 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
   useEffect(() => {
     if (!awake) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.code !== "KeyL" || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+      // In the courier, L is the landing assist.
+      if (event.code !== "KeyL" || event.repeat || event.ctrlKey || event.metaKey || event.altKey || courierSession.flying) return;
       const levels = useProgression.getState();
       if (ownsKeyboard(event.target) && !levels.panel) return;
       if (useOfficeStore.getState().selection?.kind === "arcade") return;
@@ -680,14 +697,15 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
 
       {/* Bottom centre: the one prompt, a station's short answer, and the controls for a first visit. */}
       <div className="office-hud office-hud-bottom">
-        {promptLine && promptTarget && !selection && !picking && !ride && (
+        {promptLine && promptTarget && !selection && !picking && !ride && !flying && (
           <StationPrompt line={promptLine} compact={compact} onUse={() => select(promptTarget)} />
         )}
         <div role="status" aria-live="polite">{notice && <p className="office-card office-notice" data-office-ui>{notice}</p>}</div>
-        {!compact && !hintsSeen && !selection && !picking && !ride && (
+        {!compact && !hintsSeen && !selection && !picking && !ride && !flying && (
           <ControlHints onDismiss={() => useOfficeSettings.getState().set({ hintsSeen: true })} />
         )}
       </div>
+      {flying && <CourierHud />}
       {diving && <div className="office-dive-fade" aria-hidden />}
       {picking && !ride && <ElevatorPanel floor={floor} onPick={pickFloor} onClose={closePicker} />}
       {ride && <ElevatorDoors from={ride.from} to={ride.to} phase={ride.phase} />}

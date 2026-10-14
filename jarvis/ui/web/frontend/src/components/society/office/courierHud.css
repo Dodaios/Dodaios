@@ -1,0 +1,30 @@
+/* The courier's flight HUD: theme tokens only, so light and dark mode both read. */
+.courier-hud { position:absolute; z-index:40; left:50%; bottom:16px; transform:translateX(-50%); display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; padding:10px 14px; max-width:calc(100% - 28px); font-size:12px; }
+.courier-speed { position:relative; display:flex; align-items:baseline; gap:4px; min-width:92px; }
+.courier-speed strong { font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1; }
+.courier-speed span { color:hsl(var(--muted-foreground)); }
+.courier-speed-arc { position:absolute; left:0; right:0; bottom:-5px; height:3px; border-radius:2px; background:linear-gradient(90deg, hsl(var(--primary)) calc(var(--share) * 100%), hsl(var(--border)) 0); }
+.courier-readouts { display:flex; flex-direction:column; gap:4px; min-width:150px; }
+.courier-readouts strong { font-variant-numeric:tabular-nums; }
+.courier-meter { display:grid; grid-template-columns:62px 1fr; align-items:center; gap:6px; color:hsl(var(--muted-foreground)); }
+.courier-meter i { display:block; height:5px; border-radius:3px; background:hsl(var(--secondary)); overflow:hidden; }
+.courier-meter b { display:block; height:100%; background:hsl(var(--primary)); transition:width .12s linear; }
+.courier-actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.courier-status { color:hsl(var(--muted-foreground)); }
+.courier-primary { background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); border-color:transparent; }
+.courier-hud .office-hint { flex-basis:100%; }
+.courier-help { position:absolute; z-index:40; right:14px; bottom:16px; width:min(300px, calc(100% - 28px)); max-height:calc(100% - 120px); overflow:auto; padding:12px 14px; font-size:12px; }
+.courier-help dl { display:flex; flex-direction:column; gap:4px; margin:8px 0; }
+.courier-help dl > div { display:flex; justify-content:space-between; gap:12px; }
+.courier-help dt { color:hsl(var(--muted-foreground)); }
+.courier-help dd { margin:0; }
+.courier-help kbd { font:inherit; font-size:11px; padding:1px 6px; border:1px solid hsl(var(--border)); border-radius:5px; background:hsl(var(--background)); }
+.courier-settings { position:absolute; z-index:50; left:50%; top:50%; transform:translate(-50%, -50%); width:min(420px, calc(100% - 28px)); max-height:calc(100% - 40px); overflow:auto; display:flex; flex-direction:column; gap:10px; padding:14px 16px; font-size:13px; }
+.courier-settings-head { display:flex; justify-content:space-between; align-items:center; }
+.courier-settings-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.courier-settings-row input[type="range"] { flex:1; accent-color:hsl(var(--primary)); }
+.courier-settings-row input[type="checkbox"] { accent-color:hsl(var(--primary)); }
+.courier-bindings { display:grid; grid-template-columns:1fr; gap:4px; }
+.courier-binding { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.courier-binding span { color:hsl(var(--muted-foreground)); }
+@media (max-width:600px) { .courier-hud { bottom:10px; gap:8px; } .courier-help { display:none; } }
