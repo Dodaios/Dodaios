@@ -27,7 +27,7 @@ import courierFar from "@/assets/society/courier/courier-lod2.glb";
 import { planCity } from "./cityPlan";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import { CourierEngineSound } from "./courierAudio";
-import { FLIGHT_ACTIONS, flightInput, PAD_PRESSES, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
+import { addMouse, FLIGHT_ACTIONS, flightInput, PAD_PRESSES, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
 import { engageAutopilot, FLIGHT, forwardOf, heightOverDeck, NO_INPUT, parkedState, stepFlight, type FlightState } from "./courierFlight";
 import { courierSession, useCourier } from "./courierStore";
 import { buildCourierWorld, rayDistance } from "./courierWorld";
@@ -41,14 +41,14 @@ import { COURIER_GROUP } from "./stations";
 /** Authored geometry the runtime drives (model units = authored metres): where the gear retracts to, the exhausts, the pod tails. */
 const MODEL = {
   gearTravel: 1.9,
-  exhausts: [[-6.6, -0.25, 12.6], [6.6, -0.25, 12.6]] as const,
-  tails: [[-6.6, -0.25, 17.2], [6.6, -0.25, 17.2]] as const,
-  shield: [8.6, 4.2, 19] as const,
+  exhausts: [[-5.9, -0.15, 13.8], [5.9, -0.15, 13.8]] as const,
+  tails: [[-5.9, -0.15, 20.8], [5.9, -0.15, 20.8]] as const,
+  shield: [9.2, 4, 21] as const,
 } as const;
 
 /** Chase camera: behind and above the ship (world metres), and where it looks. Cockpit: the pilot's eyes. */
 const CHASE = { back: 22, up: 6, lookAhead: 24, stiffness: 5 } as const;
-const COCKPIT = { up: 1.55, forward: -4.2 } as const;
+const COCKPIT = { up: 1.25, forward: -3.6 } as const;
 const FLIGHT_FOV = { cruise: 60, boost: 72 } as const;
 
 // ---------------------------------------------------------------------------
@@ -104,13 +104,16 @@ function panelTexture(): Texture | null {
     ctx.fillStyle = "#8a8a8a";
     for (let y = 8; y < h; y += 64) for (let x = 6; x < w; x += 12) ctx.fillRect(x, y, 2, 2);
   });
-  if (tex) { tex.wrapS = tex.wrapT = RepeatWrapping; tex.repeat.set(2.5, 2.5); }
+  // The hull's UVs run across (u) and along (v) it: plates about a metre wide and a metre and a quarter long.
+  if (tex) { tex.wrapS = tex.wrapT = RepeatWrapping; tex.repeat.set(1.5, 3); }
   return tex;
 }
 
 interface CourierMaterials {
   byName: Record<string, Material>;
   glow: MeshBasicMaterial;
+  /** The white tail and mast lights: a short flash every second and a half. */
+  strobe: MeshBasicMaterial;
   all: Material[];
 }
 
@@ -122,10 +125,19 @@ function courierMaterials(env: Texture): CourierMaterials {
   const glass = new MeshStandardMaterial({ color: "#0b1526", metalness: 0.9, roughness: 0.04, envMap: env, envMapIntensity: 1.6 });
   const glow = new MeshBasicMaterial({ color: "#6fd8ff", toneMapped: false });
   const strip = new MeshBasicMaterial({ color: "#8be9ff", toneMapped: false });
+  const belly = new MeshStandardMaterial({ color: "#2b2e35", metalness: 0.85, roughness: 0.3, envMap: env, envMapIntensity: 0.9, bumpMap: panels, bumpScale: 0.1 });
+  const vent = new MeshStandardMaterial({ color: "#0b0c10", metalness: 0.5, roughness: 0.6 });
+  const navRed = new MeshBasicMaterial({ color: "#ff2a2a", toneMapped: false });
+  const navGreen = new MeshBasicMaterial({ color: "#2aff6a", toneMapped: false });
+  const navWhite = new MeshBasicMaterial({ color: "#ffffff", toneMapped: false });
   return {
-    byName: { Chrome: chrome, Gold: gold, Graphite: graphite, CanopyGlass: glass, EngineGlow: glow, LightStrip: strip },
+    byName: {
+      Chrome: chrome, Gold: gold, Graphite: graphite, CanopyGlass: glass, EngineGlow: glow, LightStrip: strip,
+      Belly: belly, Vent: vent, NavRed: navRed, NavGreen: navGreen, NavWhite: navWhite,
+    },
     glow,
-    all: [chrome, gold, graphite, glass, glow, strip],
+    strobe: navWhite,
+    all: [chrome, gold, graphite, glass, glow, strip, belly, vent, navRed, navGreen, navWhite],
   };
 }
 
@@ -351,6 +363,8 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
   // The keys and the sound belong to a flight on screen: another section or a hidden window gets its keys back.
   const live = flying && awake;
   const held = useRef(new Set<string>());
+  /** Mouse movement while the pointer is captured: a virtual stick that springs back to the middle. */
+  const mouse = useRef({ x: 0, y: 0 });
   const padPressed = useRef(new Set<number>());
   const sound = useRef<CourierEngineSound | null>(null);
   const camPos = useRef(new Vector3());
@@ -438,11 +452,37 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
     };
     const up = (event: KeyboardEvent) => { held.current.delete(event.code); };
     const blur = () => held.current.clear();
+    // A click into the view captures the mouse for steering; Escape (the browser's own) lets it go again.
+    const canvas = gl.domElement;
+    const capture = () => {
+      if (document.pointerLockElement === canvas || useCourier.getState().settingsOpen) return;
+      try {
+        const pending = canvas.requestPointerLock?.() as unknown as Promise<void> | undefined;
+        pending?.catch?.((error: unknown) => console.warn("mouse steering unavailable", error));
+      } catch (error) {
+        console.warn("mouse steering unavailable", error);
+      }
+    };
+    const move = (event: MouseEvent) => {
+      if (document.pointerLockElement !== canvas) return;
+      mouse.current.x += event.movementX;
+      mouse.current.y += event.movementY;
+    };
+    const lockChange = () => useCourier.getState().set({ mouseLocked: document.pointerLockElement === canvas });
+    canvas.addEventListener("click", capture);
+    window.addEventListener("mousemove", move);
+    document.addEventListener("pointerlockchange", lockChange);
     window.addEventListener("keydown", down, true);
     window.addEventListener("keyup", up, true);
     window.addEventListener("blur", blur);
     pressHandler.current = press;
     return () => {
+      canvas.removeEventListener("click", capture);
+      window.removeEventListener("mousemove", move);
+      document.removeEventListener("pointerlockchange", lockChange);
+      if (document.pointerLockElement === canvas) document.exitPointerLock();
+      mouse.current.x = 0; mouse.current.y = 0;
+      useCourier.getState().set({ mouseLocked: false });
       window.removeEventListener("keydown", down, true);
       window.removeEventListener("keyup", up, true);
       window.removeEventListener("blur", blur);
@@ -451,7 +491,7 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       sound.current = null;
       pressHandler.current = null;
     };
-  }, [live, camera]);
+  }, [live, camera, gl]);
   const pressHandler = useRef<((action: FlightAction) => void) | null>(null);
 
   // Leaving the floor or the map mid-flight: the ship is parked again, the person stands beside it, the lens is
@@ -491,7 +531,12 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
           if (isDown) padPressed.current.add(button); else padPressed.current.delete(button);
         }
       }
-      const input = store.settingsOpen ? NO_INPUT : flightInput(held.current, store.bindings, gamepad, store.invertPitch);
+      const input = store.settingsOpen ? { ...NO_INPUT } : flightInput(held.current, store.bindings, gamepad, store.invertPitch);
+      // The mouse adds to the keys: sideways turns, up lifts the nose, down dips it.
+      const m = mouse.current;
+      addMouse(input, m, store.invertPitch);
+      const springBack = Math.exp(-10 * dt);
+      m.x *= springBack; m.y *= springBack;
       stepFlight(s, input, dt, store.assist, world, home);
       if (s.impact > lastImpact.current + 6 && sound.current) sound.current.impact(s.impact);
       lastImpact.current = s.impact;
@@ -527,6 +572,7 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
     if (levels) for (const { node, y } of levels.gear) node.position.y = y + (1 - st.gear) * MODEL.gearTravel;
     const power = st.landed ? 0.12 : 0.25 + st.throttle * 0.75;
     materials?.glow.color.setRGB(0.25 + power * 0.6, 0.55 + power * 0.45, 1).multiplyScalar(0.6 + power * 1.8);
+    materials?.strobe.color.setScalar(reduced || (clock.elapsedTime % 1.5) < 0.09 ? 1.6 : 0.12);
     flameMaterial.uniforms.uTime.value = reduced ? 0 : clock.elapsedTime;
     flameMaterial.uniforms.uPower.value = st.landed ? 0 : 0.35 + st.throttle * 0.9;
     for (const f of flames.current) if (f) f.scale.set(1, 1, st.landed ? 0.01 : 2 + st.throttle * 7);

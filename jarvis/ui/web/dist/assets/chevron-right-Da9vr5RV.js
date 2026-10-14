@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/chevron-right-D4_GJ0Ox.js
+import{c as t}from"./index-CVgMMeZ7.js";/**
+========
+import{c as t}from"./index-tckthyNq.js";/**
+>>>>>>>> 97a551d811d3bbdb6ab5db5d4fd6ea8ab3037262:jarvis/ui/web/dist/assets/chevron-right-Da9vr5RV.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const h=t("ChevronRight",[["path",{d:"m9 18 6-6-6-6",key:"mthhwq"}]]);export{h as C};

@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/maximize-2-D3igYvnR.js
+import{c as e}from"./index-CVgMMeZ7.js";/**
+========
+import{c as e}from"./index-tckthyNq.js";/**
+>>>>>>>> 97a551d811d3bbdb6ab5db5d4fd6ea8ab3037262:jarvis/ui/web/dist/assets/maximize-2-Bj4RYojf.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const n=e("Maximize2",[["polyline",{points:"15 3 21 3 21 9",key:"mznyad"}],["polyline",{points:"9 21 3 21 3 15",key:"1avn1i"}],["line",{x1:"21",x2:"14",y1:"3",y2:"10",key:"ota7mn"}],["line",{x1:"3",x2:"10",y1:"21",y2:"14",key:"1atl0r"}]]);export{n as M};

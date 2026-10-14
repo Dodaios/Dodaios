@@ -18,7 +18,7 @@ export type FlightBindings = Record<FlightAction, string[]>;
 
 export const DEFAULT_BINDINGS: FlightBindings = {
   throttleUp: ["KeyW"], throttleDown: ["KeyS"],
-  pitchUp: ["ArrowDown"], pitchDown: ["ArrowUp"],
+  pitchUp: ["ArrowUp"], pitchDown: ["ArrowDown"],
   yawLeft: ["KeyA"], yawRight: ["KeyD"],
   rollLeft: ["KeyQ", "ArrowLeft"], rollRight: ["KeyE", "ArrowRight"],
   liftUp: ["Space"], liftDown: ["KeyC", "ControlLeft"],
@@ -26,7 +26,8 @@ export const DEFAULT_BINDINGS: FlightBindings = {
   assist: ["KeyT"], camera: ["KeyV"], land: ["KeyL"], exit: ["KeyF"], help: ["KeyH"],
 };
 
-const STORAGE_KEY = "dodaios.verse.courier.bindings";
+/** Versioned: the first defaults had the arrows the other way round, and a saved copy of them must not survive. */
+const STORAGE_KEY = "dodaios.verse.courier.bindings.v2";
 
 /** The pilot's bindings: the defaults with whatever this browser remembers laid over them. */
 export function loadBindings(storage: Pick<Storage, "getItem"> | null = safeStorage()): FlightBindings {
@@ -100,6 +101,7 @@ export function flightInput(held: ReadonlySet<string>, bindings: FlightBindings,
   const axis = (plus: FlightAction, minus: FlightAction) => on(plus) - on(minus);
   const b = (i: number) => pad?.buttons[i]?.value ?? 0;
   const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+  // A stick pushed forward (negative y) dives, as in every flight game.
   const pitch = clamp(axis("pitchUp", "pitchDown") + stick(pad?.axes[1]));
   return {
     throttle: clamp(axis("throttleUp", "throttleDown") + b(7) - b(6)),
@@ -114,3 +116,17 @@ export function flightInput(held: ReadonlySet<string>, bindings: FlightBindings,
 
 /** Gamepad buttons that fire a press action: X lands, Y switches the camera, Back the assist, Start leaves the ship. */
 export const PAD_PRESSES: readonly [number, FlightAction][] = [[2, "land"], [3, "camera"], [8, "assist"], [9, "exit"]];
+
+/** Stick travel per pixel of captured mouse movement. */
+export const MOUSE_GAIN = 0.02;
+
+/**
+ * Captured mouse movement (pixels, browser axes: +y is down) added to an input: moving the mouse sideways turns,
+ * moving it up lifts the nose and down dips it (the other way round with inverted pitch).
+ */
+export function addMouse(input: FlightInput, mouse: { x: number; y: number }, invertPitch: boolean): FlightInput {
+  const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+  input.yaw = clamp(input.yaw + mouse.x * MOUSE_GAIN);
+  input.pitch = clamp(input.pitch + (invertPitch ? mouse.y : -mouse.y) * MOUSE_GAIN);
+  return input;
+}

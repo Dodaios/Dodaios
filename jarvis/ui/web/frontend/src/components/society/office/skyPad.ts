@@ -21,16 +21,21 @@ export const SKY_PAD = {
   railClearance: 0.65,
 } as const;
 
-/** The courier's size on the pad (metres): its authored 30 m scaled to the Verse's people. */
+/** The courier's size on the pad (metres): its authored ship (a 30 m hull) scaled to the Verse's people. */
 export const COURIER = {
   scale: 0.6,
-  /** Length and span (pods included) at that scale, and the clearance a walker keeps from it. */
-  length: 19.4,
-  span: 9.3,
+  /** Nose tip and pod-spike tips from the hull's middle, the length between them, the span over the pods' fins. */
+  nose: 15.6 * 0.6,
+  tail: 20.8 * 0.6,
+  length: 36.4 * 0.6,
+  span: 13.9 * 0.6,
   clearance: 0.6,
-  /** The hull's middle above the deck when it stands on its gear (authored 1.35 m belly + 2.3 m gear, scaled). */
-  standHeight: (1.35 * 0.78 + 2.3) * 0.6,
+  /** The hull's middle above the deck when it stands on its gear (authored 0.63 m to the gear roots + 2.3 m gear). */
+  standHeight: (0.7 * 0.9 + 2.3) * 0.6,
 } as const;
+
+/** How far the hull's middle stands from the pad's middle towards the tail, so the whole ship sits centred on the deck. */
+const SHIP_SHIFT = (COURIER.tail - COURIER.nose) / 2;
 
 export interface SkyPad {
   side: "east";
@@ -67,7 +72,8 @@ export function skyPadFor(bounds: Rect, floor: Rect, boulevardZ: number): SkyPad
       minZ: boulevardZ - half + SKY_PAD.railClearance, maxZ: boulevardZ + half - SKY_PAD.railClearance,
     },
     pad: { x: padX, z: boulevardZ, r: SKY_PAD.radius },
-    ship: { x: padX, z: boulevardZ, heading: 0 },
+    // Nose to the north (-z): the longer tail half reaches south, so the middle stands a little north of centre.
+    ship: { x: padX, z: boulevardZ - SHIP_SHIFT, heading: 0 },
     shipRect,
     // Beside the hatch on the courier's west flank, facing it: the first thing the bridge leads to.
     board: { x: shipRect.minX - 0.9, z: boulevardZ + 1.2, facing: Math.PI / 2 },

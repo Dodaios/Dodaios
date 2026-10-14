@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/arrow-up-right-CpQTmomb.js
+import{c as t}from"./index-CVgMMeZ7.js";/**
+========
+import{c as t}from"./index-tckthyNq.js";/**
+>>>>>>>> 97a551d811d3bbdb6ab5db5d4fd6ea8ab3037262:jarvis/ui/web/dist/assets/arrow-up-right-Vl-lOdG6.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const o=t("ArrowUpRight",[["path",{d:"M7 7h10v10",key:"1tivn9"}],["path",{d:"M7 17 17 7",key:"1vkiza"}]]);export{o as A};
