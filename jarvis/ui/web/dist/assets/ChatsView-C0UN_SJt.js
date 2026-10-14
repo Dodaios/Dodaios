@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-C0UN_SJt.js
-import{j as s}from"./index-BOnNxRri.js";import{P as n}from"./PageHeader-Decbp-_P.js";import"./WorkTrace-Ee-Ke00a.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-|||||||| parent of 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/ChatsView-NYchkJcO.js
-import{j as s}from"./index-BXc9J8ya.js";import{P as n}from"./PageHeader-DG8eanHg.js";import"./WorkTrace-iSphEtry.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-========
-import{j as s}from"./index-DoZVlDrf.js";import{P as n}from"./PageHeader-BGMBD1RD.js";import"./WorkTrace-C3_6LWLO.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
->>>>>>>> 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/ChatsView-UukCqgVB.js
