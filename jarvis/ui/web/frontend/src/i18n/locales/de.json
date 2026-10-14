@@ -1564,6 +1564,8 @@
     "copy_link_hint_paste": "Oder kopiere diesen Link und füge ihn in die Adressleiste deines Browsers ein.",
     "plugin_connected": "{plugin} verbunden",
     "connect_named": "{plugin} verbinden",
+    "reconnect_named": "{plugin} neu verbinden",
+    "more_actions_named": "Weitere Aktionen für {plugin}",
     "device_flow": "Gerätecode",
     "device_step1": "Schritt 1 — kopiere diesen Code",
     "device_step2": "Schritt 2 — füge ihn bei {plugin} ein",

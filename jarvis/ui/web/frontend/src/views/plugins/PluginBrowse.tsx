@@ -7,7 +7,7 @@
  * only decides what is listed and how a row reads. Colours are theme tokens, so
  * the page reads the same in light and dark mode.
  */
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useId } from "react";
 import {
   Check,
   ChevronRight,
@@ -169,7 +169,7 @@ function RowAction({
     return (
       <button type="button" onClick={() => void run()} className={ACTION_BUTTON}
         disabled={Boolean(plugin.unavailableReason)}
-        aria-label={translate("plugins_view.connect_plugin")}
+        aria-label={fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}
         title={unavailableReasonText(plugin) ?? translate("plugins_view.connect")}>
         <Plus className="h-4 w-4" aria-hidden />
       </button>
@@ -219,7 +219,8 @@ function RowAction({
         </span>
       ) : (
         <button type="button" onClick={() => void run()} className={cn(ACTION_BUTTON, "text-warning hover:text-warning")}
-          aria-label={translate("plugins_view.reconnect_plugin")} title={translate("plugins_view.reconnect")}>
+          aria-label={fill(translate("plugins_view.reconnect_named"), { plugin: plugin.name })}
+          title={translate("plugins_view.reconnect")}>
           <RotateCw className="h-4 w-4" aria-hidden />
         </button>
       )}
@@ -228,7 +229,8 @@ function RowAction({
         actions={actions}
         trigger={({ open, toggle }) => (
           <button type="button" onClick={toggle} aria-haspopup="menu" aria-expanded={open}
-            aria-label={translate("plugins_view.more_actions")} title={translate("plugins_view.more_actions")}
+            aria-label={fill(translate("plugins_view.more_actions_named"), { plugin: plugin.name })}
+            title={translate("plugins_view.more_actions")}
             className={cn(ACTION_BUTTON, open && "bg-surface-raised text-foreground-strong")}>
             <MoreHorizontal className="h-4 w-4" aria-hidden />
           </button>
@@ -249,12 +251,14 @@ export function PluginRow({
   // One lock per row: the "+" and a menu "Reconnect" can never race into two
   // sign-in flows for the same plugin.
   const { busy, run } = useConnectLock(() => onConnect(plugin));
+  const detailsId = useId();
   return (
     <li className="flex min-h-14 items-center gap-1 rounded-xl pr-1.5 transition-colors hover:bg-secondary focus-within:bg-secondary">
       <button
         type="button"
         onClick={() => onOpen(plugin.id)}
         aria-label={plugin.name}
+        aria-describedby={detailsId}
         className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <BrandTile plugin={plugin} size="row" />
@@ -263,18 +267,20 @@ export function PluginRow({
             <span className="truncate text-base font-medium text-foreground-strong">{plugin.name}</span>
             <OriginMark plugin={plugin} />
           </span>
-          <span className="block truncate text-sm text-muted-foreground" title={plugin.description}>
-            {plugin.description}
-          </span>
-          {plugin.unavailableReason && (
-            <span className="block truncate text-xs text-muted-foreground" title={unavailableReasonText(plugin)}>
-              {translate("plugins_view.unsupported_device")}
+          <span id={detailsId} className="block">
+            <span className="block truncate text-sm text-muted-foreground" title={plugin.description}>
+              {plugin.description}
             </span>
-          )}
-          {plugin.status === "needs_reauth" && (
-            <span className="block truncate text-xs text-warning"><ReauthExplanation plugin={plugin} inline /></span>
-          )}
-          <GrantExpiry plugin={plugin} />
+            {plugin.unavailableReason && (
+              <span className="block truncate text-xs text-muted-foreground" title={unavailableReasonText(plugin)}>
+                {translate("plugins_view.unsupported_device")}
+              </span>
+            )}
+            {plugin.status === "needs_reauth" && (
+              <span className="block truncate text-xs text-warning"><ReauthExplanation plugin={plugin} inline /></span>
+            )}
+            <GrantExpiry plugin={plugin} />
+          </span>
         </span>
         {showStatus && (
           <span className="hidden shrink-0 text-sm text-muted-foreground sm:block">{pluginStatusLabel(plugin)}</span>
@@ -287,7 +293,8 @@ export function PluginRow({
 
 function PluginGrid({ plugins, label, single = false, showStatus = false, handlers }: {
   plugins: Plugin[];
-  label: string;
+  /** Left out where a surrounding region already names the list. */
+  label?: string;
   single?: boolean;
   showStatus?: boolean;
   handlers: PluginRowHandlers;
@@ -344,7 +351,7 @@ function SectionBlock({ section, onOpenSection, handlers }: {
           <ChevronRight className="h-4 w-4 text-foreground-faint transition-transform group-hover/heading:text-muted-foreground motion-safe:group-hover/heading:translate-x-0.5" aria-hidden />
         </button>
       </h3>
-      <PluginGrid plugins={section.plugins} label={title} handlers={handlers} />
+      <PluginGrid plugins={section.plugins} handlers={handlers} />
     </section>
   );
 }
@@ -389,6 +396,12 @@ export function PluginBrowse({
   const openSection = sectionId
     ? allSections(plugins, categoryOrder).find((section) => section.id === sectionId) ?? null
     : null;
+  // A section that empties while open (its last plugin removed) closes, so
+  // a later plugin of the same kind does not reopen it unasked.
+  const sectionGone = Boolean(sectionId) && !loading && !openSection;
+  useEffect(() => {
+    if (sectionGone) onSection(null);
+  }, [sectionGone, onSection]);
   // What needs a reconnect leads the installed list; the rest follows A-Z.
   const installed = plugins.filter(isInstalled).sort((a, b) =>
     Number(isBroken(b)) - Number(isBroken(a)) || sortPluginsByName(a, b));
