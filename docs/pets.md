@@ -296,7 +296,7 @@ committed PNGs match the script). User-created pets live in
 
 `OrbOverlay` gains these methods. The bridge calls them through `getattr`, so
 the bar and `NullOverlay` stay untouched. The macOS companion process
-(`jarvis/ui/jarvisbar/host.py`) forwards each one as a command of the same
+(`jarvis/ui/dodaiosbar/host.py`) forwards each one as a command of the same
 name.
 
 | Method | Meaning |

@@ -96,7 +96,7 @@ with the location · **missing** = must be built, with the anchor point.
 | Change the shortcut without restarting | Handy, OpenWhispr, both commercial | **have** | `HotkeyTrigger.rearm` + `pipeline._hotkey_reload_loop` + `PUT /api/settings/keybinds` (`jarvis/ui/web/settings_routes.py::put_keybind`) |
 | Shortcut validation / conflict refusal | Handy (partial) | **have, but Windows-biased** | `jarvis/trigger/hotkey.py::validate_hotkey` rejects modifier-only combos, bare letters, Windows-key combos, Alt+F4 and Ctrl+C, and `put_keybind` additionally rejects any subset/superset overlap between actions. But `cmd` is missing from `_MODIFIER_TOKENS`, so the macOS-critical combos pass: calling the function directly on 2026-07-28 returns ACCEPT for `cmd+c`, `cmd+q`, `cmd+w` and `cmd+space`. `f12` is also accepted despite being permanently reserved for the debugger |
 | A **separate** dictation shortcut (distinct from the voice-call key) | all | **missing** | Anchor: `jarvis/core/config.py::TriggerConfig` (new field), `jarvis/core/config_writer.py::KEYBIND_ACTIONS` / `KEYBIND_TOML_KEY`, the `hotkey_bindings` dict in `pipeline.run`, and the dispatch in `pipeline._hotkey_loop` |
-| Trigger from the on-screen bar instead of a key | commercial A/B, VoiceInk | **partial — dead code** | `pipeline.request_ptt_toggle` exists and its docstring claims it is "the jarvis-bar's square button", but a repository-wide search finds **no caller**. `jarvis/ui/jarvisbar/interaction.py::resolve_click` returns only `hangup` / `mute` / `talk` / `none` |
+| Trigger from the on-screen bar instead of a key | commercial A/B, VoiceInk | **partial — dead code** | `pipeline.request_ptt_toggle` exists and its docstring claims it is "the jarvis-bar's square button", but a repository-wide search finds **no caller**. `jarvis/ui/dodaiosbar/interaction.py::resolve_click` returns only `hangup` / `mute` / `talk` / `none` |
 
 ### 3.2 Capture
 
@@ -150,7 +150,7 @@ with the location · **missing** = must be built, with the anchor point.
 
 | Feature | Reference tools | Our state | Evidence / anchor |
 |---|---|---|---|
-| On-screen indicator while recording | all | **have** | Jarvis Bar: `ui/orb/bus_bridge.py::OrbBridge._on_state` maps `SystemStateChanged` to the coarse modes `idle` / `listen` / `think` / `speak`; `jarvis/ui/jarvisbar/renderer.py::visual_mode` derives the look |
+| On-screen indicator while recording | all | **have** | Jarvis Bar: `ui/orb/bus_bridge.py::OrbBridge._on_state` maps `SystemStateChanged` to the coarse modes `idle` / `listen` / `think` / `speak`; `jarvis/ui/dodaiosbar/renderer.py::visual_mode` derives the look |
 | Live level meter | Handy, commercial A/B | **have** | `jarvis/audio/mic_level.py`; both the PTT drain and the session input stream feed it |
 | Live transcript strip on the indicator | commercial A | **partial — plumbing exists, not connected** | `show_listening_transcript(text, duration_ms)` is implemented on all four overlay surfaces (`overlay.py`, `qt_overlay.py`, `subprocess_overlay.py`, `null_overlay.py`) and is fed today from `TranscriptionUpdate`. `DictationTranscript` is **not subscribed** anywhere in `ui/orb/bus_bridge.py` |
 | A dictation state distinct from the voice states | all | **missing** | Anchor: a new subscriber in `OrbBridge.attach` plus one new branch in `renderer.visual_mode`; the four existing branches stay untouched |

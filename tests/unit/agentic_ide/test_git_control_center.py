@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -155,7 +156,9 @@ def test_unfetched_commits_on_github_are_flagged(
     theirs = _commit(other, "theirs.txt")
     _git(other, "push", "-q")
 
-    def snapshot(repo_name: str, token: str, early: object = None) -> git_overview._GitHubSnapshot:
+    def snapshot(
+        repo_name: str, token: str, early: object = None, known_busy: object = ()
+    ) -> git_overview._GitHubSnapshot:
         snap = git_overview._GitHubSnapshot(ok=True, fetched_at=git_overview.time.time())
         snap.refs["main"] = (theirs[:12], CiStatus())
         return snap
@@ -466,8 +469,8 @@ def test_github_is_asked_in_parts_and_a_missing_part_only_costs_its_own_data(
 
     monkeypatch.setattr(github_link, "graphql", fake_graphql)
     snap = git_overview._fetch_github("o/r", "t")
-    # The open pull requests are asked twice: the verdicts first, the checks after.
-    assert sorted(asked) == ["open", "open", "recent", "refs"]
+    # No pull request failed or runs: nobody asks for the checks behind the verdicts.
+    assert sorted(asked) == ["open", "recent", "refs"]
     # Recently merged pull requests are missing this round; everything else landed.
     assert snap.ok and [pr.number for pr in snap.prs] == [1, 2]
     assert (snap.prs[1].conflicting, snap.prs[1].review, snap.prs[1].author) == (
@@ -487,7 +490,7 @@ def test_a_refresh_never_makes_the_tab_wait_for_github(
     reads: list[float] = []
 
     def slow_fetch(
-        repo_name: str, token: str, early: object = None
+        repo_name: str, token: str, early: object = None, known_busy: object = ()
     ) -> git_overview._GitHubSnapshot:
         reads.append(git_overview.time.time())
         if len(reads) > 1:
@@ -571,7 +574,9 @@ def test_a_failed_github_read_keeps_the_last_good_answer(monkeypatch: pytest.Mon
     ]
     reads: list[str] = []
 
-    def fetch(repo_name: str, token: str, early: object = None) -> git_overview._GitHubSnapshot:
+    def fetch(
+        repo_name: str, token: str, early: object = None, known_busy: object = ()
+    ) -> git_overview._GitHubSnapshot:
         reads.append(repo_name)
         return answers[min(len(reads), len(answers)) - 1]
 
@@ -674,17 +679,47 @@ def _with_ci(node: dict, rollup: dict, oid: str = "a" * 40) -> dict:
     return {**node, "commits": {"nodes": [{"commit": {"oid": oid, "statusCheckRollup": rollup}}]}}
 
 
-def _github_in_two_steps(monkeypatch: pytest.MonkeyPatch, checks, oid: str = "a" * 40):
-    """A fake GitHub whose checks-bearing answer comes from ``checks()``."""
+def _github_in_two_steps(
+    monkeypatch: pytest.MonkeyPatch, checks, oid: str = "a" * 40, asked: list | None = None
+):
+    """A fake GitHub: pull request 1 failed, pull request 2 passed; the checks
+    behind a verdict come from ``checks()`` (a rollup, or it raises)."""
+    tally = {
+        "state": "FAILURE",
+        "contexts": {
+            "totalCount": 2,
+            "checkRunCountsByState": [
+                {"state": "SUCCESS", "count": 1},
+                {"state": "FAILURE", "count": 1},
+            ],
+        },
+    }
 
     def fake_graphql(token: str, query: str, variables: dict | None = None) -> dict:
         if "pageInfo" in query:
             return _repo_payload(refs={"pageInfo": {"hasNextPage": False}, "nodes": []})
         if "states: OPEN" in query and "...Tally" in query:
-            node = _with_ci(_pr_node(1, "a"), {"state": "SUCCESS"}, oid)
-            return _repo_payload(pullRequests={"nodes": [node]})
-        if "states: OPEN" in query:
-            return checks()
+            nodes = [
+                _with_ci(_pr_node(1, "a"), tally, oid),
+                _with_ci(_pr_node(3, "c"), {"state": "SUCCESS"}, oid),
+            ]
+            return _repo_payload(pullRequests={"nodes": nodes})
+        if "pullRequest(number:" in query:
+            numbers = [int(n) for n in re.findall(r"pullRequest\(number: (\d+)\)", query)]
+            if asked is not None:
+                asked.append(numbers)
+            rollup = checks()
+            return _repo_payload(
+                **{
+                    f"p{n}": {
+                        "number": n,
+                        "commits": {
+                            "nodes": [{"commit": {"oid": oid, "statusCheckRollup": rollup}}]
+                        },
+                    }
+                    for n in numbers
+                }
+            )
         if "MERGED" in query:
             return _repo_payload(pullRequests={"nodes": []})
         return _repo_payload(refs={"nodes": [{"name": "main", "target": {"oid": "0" * 40}}]})
@@ -705,26 +740,65 @@ def test_pull_requests_and_verdicts_show_before_their_checks_arrive(
     import threading
 
     release = threading.Event()
+    asked: list = []
 
     def checks() -> dict:
         release.wait(5)
-        node = _with_ci(_pr_node(1, "a"), _checks("SUCCESS"))
-        return _repo_payload(pullRequests={"nodes": [node]})
+        return _checks("FAILURE")
 
-    _github_in_two_steps(monkeypatch, checks)
+    _github_in_two_steps(monkeypatch, checks, asked=asked)
     cache = git_overview._GitHubCache()
     assert cache.get("o/r", "t", wait=False) is None
     _until(lambda: cache.peek("o/r") is not None)
     first = cache.peek("o/r")
-    # The verdict is there and leads to the checks page; the checks are still loading.
+    # Verdicts and counts are there and lead to the checks page; the names still load.
     assert first.ok and cache.loading("o/r")
-    assert (first.prs[0].ci.state, first.prs[0].ci.total) == ("success", 0)
-    assert first.prs[0].ci.url == "https://github.com/o/r/pull/1/checks"
+    failed = first.prs[0]
+    assert (failed.ci.state, failed.ci.failed, failed.ci.total, failed.ci.names) == (
+        "failure",
+        1,
+        2,
+        [],
+    )
+    assert failed.ci.url == "https://github.com/o/r/pull/1/checks"
     release.set()
     _until(lambda: not cache.loading("o/r"))
     full = cache.peek("o/r")
-    assert (full.prs[0].ci.total, full.prs[0].ci.passed) == (1, 1)
+    assert full.prs[0].ci.names == ["CI gate"]
+    assert full.prs[0].ci.url == "https://github.com/o/r/runs/1"
+    # Only the failed pull request was asked for its checks, never the passed one.
+    assert asked == [[1]]
     assert "main" in full.refs
+
+
+def test_a_refresh_asks_for_the_checks_it_already_expects_at_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import threading
+
+    quick_answered = threading.Event()
+    order: list[str] = []
+    asked: list = []
+
+    def checks() -> dict:
+        order.append("checks asked" if not quick_answered.is_set() else "checks after quick")
+        return _checks("FAILURE")
+
+    _github_in_two_steps(monkeypatch, checks, asked=asked)
+    real = github_link.graphql
+
+    def slow_quick(token: str, query: str, variables: dict | None = None) -> dict:
+        if "...Tally" in query:
+            git_overview.time.sleep(0.3)
+            quick_answered.set()
+        return real(token, query, variables)
+
+    monkeypatch.setattr(github_link, "graphql", slow_quick)
+    snap = git_overview._fetch_github("o/r", "t", known_busy=[1])
+    # Pull request 1 failed last time: its checks were asked side by side with
+    # the quick read, and nothing had to be asked again afterwards.
+    assert order == ["checks asked"] and asked == [[1]]
+    assert snap.prs[0].ci.names == ["CI gate"]
 
 
 def test_verdicts_stay_when_the_checks_cannot_be_read(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -733,7 +807,11 @@ def test_verdicts_stay_when_the_checks_cannot_be_read(monkeypatch: pytest.Monkey
 
     _github_in_two_steps(monkeypatch, checks)
     snap = git_overview._fetch_github("o/r", "t")
-    assert snap.ok and [(pr.number, pr.ci.state) for pr in snap.prs] == [(1, "success")]
+    assert snap.ok
+    assert [(pr.number, pr.ci.state, pr.ci.failed) for pr in snap.prs] == [
+        (1, "failure", 1),
+        (3, "success", 0),
+    ]
 
 
 def test_a_refresh_keeps_the_checks_of_commits_that_did_not_move(

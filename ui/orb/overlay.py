@@ -67,7 +67,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageTk
 
 from jarvis.core.config import DEFAULT_CONFIG_FILE as JARVIS_TOML_PATH
 from jarvis.core.win32_dpi import ensure_dpi_awareness as _ensure_dpi_awareness
-from jarvis.ui.jarvisbar.modes import ACTIVE_VOICE_MODES, MODES
+from jarvis.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, MODES
 from jarvis.ui.overlay_styles import LEGACY_STYLE_ALIASES, ORB_STYLES, PERSISTENT_ORB_STYLES
 from jarvis.ui.pets.states import ACTION_STATES, DEFAULT_PET_ID, NO_PET_ID, ONE_SHOT_STATES
 from ui.orb import controls as orb_controls
@@ -2802,7 +2802,7 @@ class OrbOverlay:
         """The Jarvis Bar's Win32 Z-order probe and repair, imported once."""
         if self._topmost_fns is None:
             try:
-                from jarvis.ui.jarvisbar.overlay import (  # noqa: PLC0415
+                from jarvis.ui.dodaiosbar.overlay import (  # noqa: PLC0415
                     _win32_force_topmost,
                     _win32_topmost_band_is_healthy,
                 )
@@ -3298,7 +3298,7 @@ class OrbOverlay:
     def set_on_talk(self, callback: Callable[[], None] | None) -> None:
         """Inject "start a voice session" (the mic disc while idle).
 
-        Wired by ``jarvis.ui.jarvisbar.host`` when the orb runs in the macOS
+        Wired by ``jarvis.ui.dodaiosbar.host`` when the orb runs in the macOS
         companion process, where no SpeechPipeline exists; the parent applies
         it. In-process the orb calls the pipeline itself.
         """
