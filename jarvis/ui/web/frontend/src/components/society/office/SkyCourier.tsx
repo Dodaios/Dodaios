@@ -27,7 +27,7 @@ import courierFar from "@/assets/society/courier/courier-lod2.glb";
 import { planCity } from "./cityPlan";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import { CourierEngineSound } from "./courierAudio";
-import { FLIGHT_ACTIONS, flightInput, PAD_PRESSES, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
+import { addMouse, FLIGHT_ACTIONS, flightInput, PAD_PRESSES, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
 import { engageAutopilot, FLIGHT, forwardOf, heightOverDeck, NO_INPUT, parkedState, stepFlight, type FlightState } from "./courierFlight";
 import { courierSession, useCourier } from "./courierStore";
 import { buildCourierWorld, rayDistance } from "./courierWorld";
@@ -50,8 +50,6 @@ const MODEL = {
 const CHASE = { back: 22, up: 6, lookAhead: 24, stiffness: 5 } as const;
 const COCKPIT = { up: 1.25, forward: -3.6 } as const;
 const FLIGHT_FOV = { cruise: 60, boost: 72 } as const;
-/** Stick travel per pixel of captured mouse movement. */
-const MOUSE_GAIN = 0.014;
 
 // ---------------------------------------------------------------------------
 // Materials
@@ -534,10 +532,9 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
         }
       }
       const input = store.settingsOpen ? { ...NO_INPUT } : flightInput(held.current, store.bindings, gamepad, store.invertPitch);
-      // The mouse adds to the keys: sideways turns, forwards and back pitches (moving it up lifts the nose).
+      // The mouse adds to the keys: sideways turns, up lifts the nose, down dips it.
       const m = mouse.current;
-      input.yaw = Math.max(-1, Math.min(1, input.yaw + m.x * MOUSE_GAIN));
-      input.pitch = Math.max(-1, Math.min(1, input.pitch + (store.invertPitch ? m.y : -m.y) * MOUSE_GAIN));
+      addMouse(input, m, store.invertPitch);
       const springBack = Math.exp(-10 * dt);
       m.x *= springBack; m.y *= springBack;
       stepFlight(s, input, dt, store.assist, world, home);
