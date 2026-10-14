@@ -50,7 +50,7 @@ function seedOf(id: string): number {
 }
 
 /** The shapes of the whole floor, sorted by the instanced mesh that draws them. */
-interface Parts {
+export interface Parts {
   oak: Placement[]; oakDark: Placement[]; tint: Placement[]; steel: Placement[]; stone: Placement[]; glass: Placement[]; glow: Placement[];
   roundOak: Placement[]; roundSteel: Placement[]; roundTint: Placement[]; roundStone: Placement[]; pot: Placement[]; bark: Placement[];
   leaf: Placement[]; leafDark: Placement[]; leafLight: Placement[];
@@ -130,6 +130,9 @@ function buildBooth(item: AgentsAmbienceItem, p: Parts): void {
   p.glass.push(at(-(w / 2 - wall - 0.15), 0.04 + (h - 0.3) / 2, d / 2 - 0.02, 0.3, h - 0.3, 0.02));
 }
 
+/** The thickness of the steel cheeks that close the step seating's lowest tier. */
+const CHEEK = 0.024;
+
 /**
  * Step seating, the atrium's own furniture. Each tier is a dark riser under a pale timber tread that noses out
  * over it. The lowest tier is plainly a seat: a linen pad per place and a back cushion against the next riser.
@@ -142,10 +145,12 @@ function buildSteps(item: AgentsAmbienceItem, p: Parts): void {
     const top = STEPS.rise * (k + 1), front = d / 2 - STEPS.tier * k;
     // The riser: the tier's body, set back a little under the tread and darker, so every step casts a line.
     p.oakDark.push(at(0, (top - tread) / 2, front - STEPS.tier / 2 - 0.01, w - 0.04, top - tread, STEPS.tier - 0.02));
-    p.oak.push(at(0, top - tread / 2, front - STEPS.tier / 2 + nose / 2, w, tread, STEPS.tier + nose));
+    // The lowest tread ends between the steel cheeks: flush with them, the two end faces z-fight into a flickering band.
+    const treadW = k === 0 ? w - CHEEK * 2 : w;
+    p.oak.push(at(0, top - tread / 2, front - STEPS.tier / 2 + nose / 2, treadW, tread, STEPS.tier + nose));
   }
   // Steel cheeks close both ends.
-  for (const lx of [-w / 2 + 0.012, w / 2 - 0.012]) p.steel.push(at(lx, STEPS.rise / 2, d / 2 - STEPS.tier / 2, 0.024, STEPS.rise, STEPS.tier));
+  for (const lx of [-w / 2 + CHEEK / 2, w / 2 - CHEEK / 2]) p.steel.push(at(lx, STEPS.rise / 2, d / 2 - STEPS.tier / 2, CHEEK, STEPS.rise, STEPS.tier));
   const seats = stepsSeats(item).length, seatZ = d / 2 - STEPS.tier / 2;
   for (let i = 0; i < seats; i += 1) {
     const lx = (i - (seats - 1) / 2) * 0.9;
@@ -222,16 +227,19 @@ const BUILDERS: Partial<Record<AgentsAmbienceItem["kind"], (item: AgentsAmbience
   booth: buildBooth, steps: buildSteps, counter: buildCounter, island: buildIsland, tree: buildTree, crate: buildCrate,
 };
 
+/** Every shape of the floor's fittings, sorted by the instanced mesh that draws it. */
+export function fittingParts(items: readonly AgentsAmbienceItem[]): Parts {
+  const parts: Parts = {
+    oak: [], oakDark: [], tint: [], steel: [], stone: [], glass: [], glow: [],
+    roundOak: [], roundSteel: [], roundTint: [], roundStone: [], pot: [], bark: [], leaf: [], leafDark: [], leafLight: [],
+  };
+  for (const item of items) BUILDERS[item.kind]?.(item, parts);
+  return parts;
+}
+
 /** Every built fitting of the floor, drawn by sixteen instanced meshes. */
 export function CampusFittings({ items }: { items: readonly AgentsAmbienceItem[] }) {
-  const p = useMemo(() => {
-    const parts: Parts = {
-      oak: [], oakDark: [], tint: [], steel: [], stone: [], glass: [], glow: [],
-      roundOak: [], roundSteel: [], roundTint: [], roundStone: [], pot: [], bark: [], leaf: [], leafDark: [], leafLight: [],
-    };
-    for (const item of items) BUILDERS[item.kind]?.(item, parts);
-    return parts;
-  }, [items]);
+  const p = useMemo(() => fittingParts(items), [items]);
   return (
     <group>
       <Instances geometry={GEO.box} material={FIT.oak} items={p.oak} />

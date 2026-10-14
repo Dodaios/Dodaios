@@ -144,6 +144,33 @@ def _accepted_arguments(schema: Any) -> str:
     return ("Accepted arguments: " + "; ".join(parts))[:600] + ". "
 
 
+def _numbers_from_text(args: dict, schema: Any) -> dict:
+    """Top-level number arguments a model wrote as text, as numbers.
+
+    ``"wait_seconds": "5"`` was refused twice in a row (live 2026-10-14). Only
+    a string that is exactly a number of the declared type is changed;
+    anything else is left for validation to refuse.
+    """
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    if not isinstance(properties, dict):
+        return args
+    fixed = dict(args)
+    for name, value in args.items():
+        spec = properties.get(name)
+        kind = spec.get("type") if isinstance(spec, dict) else None
+        if not isinstance(value, str) or kind not in ("integer", "number"):
+            continue
+        text = value.strip()
+        try:
+            number: int | float = int(text) if kind == "integer" else float(text)
+        except ValueError:  # not a number: validation names the argument
+            continue
+        if kind == "number" and number != number:  # NaN is no answer
+            continue
+        fixed[name] = number
+    return fixed
+
+
 def _board_section(section: str, output: Any) -> Any:
     """One source's listing as the board shows it; None when it has another shape."""
     if section == "coding_agents":
@@ -827,6 +854,7 @@ class LiveTools:
             }
         import jsonschema  # type: ignore[import-untyped]
 
+        args = _numbers_from_text(args, descriptor.input_schema)
         try:
             jsonschema.validate(args, descriptor.input_schema)
         except jsonschema.ValidationError as exc:

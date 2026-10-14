@@ -603,6 +603,85 @@ async def test_tools_the_rules_name_stay_direct_under_a_budget(call, make_provid
         await live.session.end()
 
 
+def _real_named_tools() -> tuple[SupervisorToolDescriptor, ...]:
+    """The tools the rules name, with the descriptions and schemas they ship with."""
+    from jarvis.brain.workspace_git_tool import WorkspaceGitTool
+    from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
+    from jarvis.commands.registry import get_command
+    from jarvis.plugins.tool.app_command import RegistryCommandTool
+    from jarvis.plugins.tool.ask_agent import AskAgentTool
+    from jarvis.plugins.tool.navigate import NavigateTool
+    from jarvis.plugins.tool.show_on_screen import ShowOnScreenTool
+
+    amend = RegistryCommandTool(get_command("mission-amend"), runtime=None)
+    tools = (
+        WorkspaceOrchestrationTool, WorkspaceGitTool, ShowOnScreenTool, NavigateTool,
+        AskAgentTool, amend,
+    )
+    return tuple(
+        SupervisorToolDescriptor(tool.name, tool.description, tool.schema, "monitor")
+        for tool in tools
+    )
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_every_named_tool_fits_a_small_models_budget_as_it_ships(call, make_provider):
+    # workspace-orchestrate alone is larger than the local voice's whole budget,
+    # so a small model never saw it and could neither check nor watch an agent.
+    real = _real_named_tools()
+    assert {tool.name for tool in real} | {"task_status"} == set(NAMED_TOOLS)
+    provider = make_provider()
+    live = call(provider, gateway=FakeToolGateway(catalog_of(30) + real))
+    await live.start()
+    try:
+        tools = provider.opened_with[0].tools
+        described = {tool["description"].split(": ", 1)[0]: tool for tool in tools}
+        assert set(NAMED_TOOLS) - {"task_status"} <= set(described)
+        assert "task_status" in {tool["name"] for tool in tools}
+        orchestrate = described["workspace-orchestrate"]["parameters"]
+        assert {"status", "watch"} <= set(orchestrate["properties"]["action"]["enum"])
+        if provider.tool_declaration_budget_tokens:
+            assert len(json.dumps(tools)) <= provider.tool_declaration_budget_tokens * 4
+    finally:
+        await live.session.end()
+
+
+def test_a_short_declaration_keeps_every_argument_and_drops_only_prose():
+    declaration = {
+        "name": "jarvis_show_on_screen",
+        "description": "show_on_screen: Shows content. " + "More words here. " * 60,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Heading."},
+                "description": {"type": "string", "title": "Body"},
+                "kind": {"type": "string", "enum": ["a", "b"], "description": "Which."},
+                "items": {
+                    "type": "array",
+                    "items": {"type": "object", "properties": {"x": {"type": "integer",
+                              "description": "An x."}}},
+                },
+            },
+            "required": ["title"],
+            "description": "Arguments.",
+        },
+    }
+    short = native._compact(declaration)
+    params = short["parameters"]
+    assert set(params["properties"]) == {"title", "description", "kind", "items"}
+    assert params["required"] == ["title"] and params["properties"]["kind"]["enum"] == ["a", "b"]
+    assert "description" not in params and "description" not in params["properties"]["title"]
+    assert "title" not in params["properties"]["description"]
+    assert params["properties"]["items"]["items"]["properties"]["x"] == {"type": "integer"}
+    assert short["description"].startswith("show_on_screen: Shows content.")
+    assert short["description"].endswith("Full schema: discover_tools.")
+    assert len(short["description"]) < len(declaration["description"])
+    # A short description stays as it is.
+    tiny = {"name": "t", "description": "t: Does t.", "parameters": {"type": "object"}}
+    assert native._compact(tiny)["description"] == "t: Does t."
+
+
 @both_providers
 @pytest.mark.asyncio
 async def test_free_direct_slots_go_only_to_safe_tools(call, make_provider):
