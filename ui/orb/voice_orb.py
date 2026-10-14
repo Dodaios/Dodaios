@@ -107,7 +107,7 @@ class Motion:
 
 
 #: Per-mode motion, keyed by the surface's coarse modes
-#: (``jarvis.ui.jarvisbar.modes.MODES``) rather than the web orb's voice states.
+#: (``jarvis.ui.dodaiosbar.modes.MODES``) rather than the web orb's voice states.
 #:
 #: * ``dictate`` reuses the listening weather: dictation feeds the very same live
 #:   microphone level, so the orb reacts to the user's voice exactly as it does

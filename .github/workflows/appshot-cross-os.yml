@@ -15,7 +15,7 @@ on:
   pull_request:
     paths:
       - "jarvis/appshot/**"
-      - "jarvis/jarvisx/**"
+      - "jarvis/dodaiosx/**"
       - "jarvis/platform/clipboard*.py"
       - "jarvis/platform/screen_access.py"
       - "jarvis/platform/user_dirs.py"
@@ -38,7 +38,7 @@ concurrency:
 env:
   PYTHONUTF8: "1"
   APPSHOT_TESTS: >-
-    tests/unit/appshot tests/unit/jarvisx tests/unit/platform/test_clipboard.py
+    tests/unit/appshot tests/unit/dodaiosx tests/unit/platform/test_clipboard.py
     tests/unit/platform/test_clipboard_image.py tests/unit/platform/test_clipboard_reader.py
     tests/unit/screen_context tests/unit/trigger/test_pynput_shifted_keys.py
     tests/unit/platform/test_user_dirs.py tests/unit/platform/test_qt_sidecar.py
