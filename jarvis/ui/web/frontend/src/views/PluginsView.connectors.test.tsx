@@ -66,7 +66,7 @@ function setupLocal(available: boolean) {
 it("enables a supported local device without opening an OAuth browser", async () => {
   const { fetcher, alerts } = setupLocal(true);
   fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
-  await screen.findByRole("button", { name: "Disconnect plugin" });
+  await screen.findByRole("img", { name: "Connected" });
   expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/amd_gpu/connect/start"))).toBe(true);
   expect(alerts).not.toHaveBeenCalled();
 });
@@ -79,7 +79,7 @@ it("keeps an unavailable device disconnected and explains the missing capability
   fireEvent.click(connect);
   expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/connect/start"))).toBe(false);
   expect(alerts).not.toHaveBeenCalled();
-  expect(screen.queryByRole("button", { name: "Disconnect plugin" })).toBeNull();
+  expect(screen.queryByRole("img", { name: "Connected" })).toBeNull();
 });
 
 
