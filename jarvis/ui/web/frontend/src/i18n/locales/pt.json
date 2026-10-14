@@ -7445,6 +7445,8 @@
     "deleted": "Este ficheiro foi eliminado do disco. Guardar volta a criá-lo.",
     "preview": "Pré-visualizar",
     "show_source": "Mostrar código-fonte",
+    "follow_mode": "Modo contínuo",
+    "follow_mode_description": "Ler este ficheiro em várias colunas que continuam umas nas outras",
     "media_failed": "Este ficheiro não pode ser mostrado aqui.",
     "document_note": "Texto extraído deste documento. Abre-o neste computador para o editar.",
     "truncated": "Só é mostrado o início do ficheiro.",
