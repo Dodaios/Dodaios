@@ -130,6 +130,20 @@ class VoiceTranscriptUpdated(Event):
 
 
 @dataclass(frozen=True, slots=True)
+class VoiceContentShown(Event):
+    """Content put on screen during a spoken conversation instead of read out.
+
+    ``markdown`` is shown as a card in the conversation the user is looking at
+    (``lib/homeTranscript.ts``). ``session_id`` names the live call it belongs
+    to; empty when no live call owns the turn.
+    """
+
+    session_id: str = ""
+    title: str = ""
+    markdown: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ReasoningSummaryUpdated(Event):
     """Provider-exposed reasoning summary, never private reasoning or audio."""
 
@@ -871,8 +885,14 @@ class NavigateSidebar(Event):
     id is a graceful no-op there. ``section`` mirrors the frontend
     ``SECTION_IDS`` (``store/events.ts``) — kept in sync via the navigate tool's
     parity test.
+
+    ``target`` narrows the destination inside the section: ``"agent"`` opens
+    the chat of the agent ``target_id``, ``"chat"`` the conversation
+    ``target_id``. Empty for a plain section switch.
     """
     section: str = ""
+    target: str = ""
+    target_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)

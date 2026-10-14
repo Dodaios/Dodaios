@@ -61,6 +61,12 @@ export interface TranscriptTextLine extends TranscriptLineBase {
    */
   kind?: string;
   revision?: number;
+  /**
+   * Content the assistant put on screen instead of reading it out
+   * (`VoiceContentShown`): a table, code, links. The line's kind is
+   * "shown" and `text` is its optional heading; it is never spoken.
+   */
+  markdown?: string;
 }
 
 /** The reasoning steps of one turn — tools, workers, the brain call. */
@@ -129,6 +135,9 @@ const MID_TURN_SPOKEN_KINDS: ReadonlySet<string> = new Set([
   "subagent",
 ]);
 
+/** The kind of a line that shows content on screen (see `markdown`). */
+export const SHOWN_KIND = "shown";
+
 let counter = 0;
 function nextId(ts: number): string {
   counter = (counter + 1) % 1_000_000;
@@ -152,6 +161,7 @@ function isDuplicate(
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i];
     if (ts - line.ts > DUPLICATE_WITHIN_MS) return false;
+    if (line.who !== "steps" && line.kind === SHOWN_KIND) continue;
     if (line.who === who && (line.text === text || line.text.endsWith(text))) return true;
   }
   return false;
@@ -427,6 +437,7 @@ export function reduceTranscript(
       if (
         last &&
         last.who === "assistant" &&
+        last.kind !== SHOWN_KIND &&
         tsMs - last.ts < JOIN_WITHIN_MS &&
         (!last.kind || !kind || last.kind === kind)
       ) {
@@ -445,6 +456,20 @@ export function reduceTranscript(
       const text = clean(p.text);
       if (!text || isDuplicate(lines, role, text, tsMs)) return lines;
       return push(role === "user" ? closeOpenTurn(lines, tsMs) : lines, role, text, tsMs);
+    }
+    case "VoiceContentShown": {
+      const markdown = typeof p.markdown === "string" ? p.markdown.trim() : "";
+      if (!markdown) return lines;
+      // The same card delivered twice (a reconnect replays recent events).
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (tsMs - line.ts > DUPLICATE_WITHIN_MS) break;
+        if (line.who === "assistant" && line.markdown === markdown) return lines;
+      }
+      return cap([...lines, {
+        id: nextId(tsMs), ts: tsMs, who: "assistant", text: clean(p.title),
+        kind: SHOWN_KIND, markdown,
+      }]);
     }
     case "VoiceTurnCompleted":
       return closeOpenTurn(lines, tsMs);
