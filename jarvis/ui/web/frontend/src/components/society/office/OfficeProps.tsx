@@ -28,6 +28,24 @@ import { MeetingChair } from "./OfficeChairs";
 import { Bookshelf, Box, Couch, GEO, MAT, matte, Plant, Rounded, Rug } from "./OfficeFurniture";
 import { FURNITURE_SIZE, type Furniture, type FurnitureKind } from "./officeLayout";
 import { PROP_COLOURS as P } from "./officePalette";
+import { FOUNDRY } from "./foundryPalette";
+import { useFoundryLook } from "./foundryLook";
+
+/** The surfaces of the shared lobby pieces, per look. */
+const LOBBY_SURFACES = {
+  office: { wood: MAT.wood, woodDark: MAT.woodDark, body: MAT.deskBody, top: MAT.deskTop, shaft: matte(P.elevatorShaft) },
+  foundry: {
+    wood: matte(FOUNDRY.gold, { roughness: 0.3, metalness: 0.85 }),
+    woodDark: matte(FOUNDRY.steelDark, { roughness: 0.5, metalness: 0.5 }),
+    body: matte("#2b2f37", { roughness: 0.35, metalness: 0.55 }),
+    top: matte(FOUNDRY.steel, { roughness: 0.35, metalness: 0.6 }),
+    shaft: matte("#30343c", { roughness: 0.4, metalness: 0.6 }),
+  },
+};
+
+function useLobbySurfaces() {
+  return LOBBY_SURFACES[useFoundryLook() ? "foundry" : "office"];
+}
 
 type Vec3 = [number, number, number];
 
@@ -254,7 +272,6 @@ function drawMenu(ctx: CanvasRenderingContext2D, w: number, h: number, title: st
 const PM = {
   steel: matte(P.steel, { roughness: 0.35, metalness: 0.25 }),
   steelDark: matte(P.steelDark, { roughness: 0.45, metalness: 0.2 }),
-  shaft: matte(P.elevatorShaft),
   lockers: P.lockers.map((c) => matte(c)),
   lockerVent: matte(P.lockerVent),
   mug: matte(P.mug),
@@ -345,12 +362,13 @@ const RECEPTION_SLATS = Array.from({ length: 15 }, (_, i) => -1.26 + i * 0.18);
  * main keys, so the desk reads as "ask here" from across the floor.
  */
 function ReceptionDesk() {
+  const S = useLobbySurfaces();
   return (
     <group>
       {/* Back wall: dark panel, light slats, a gold light line on top. */}
-      <Box size={[2.8, 2.1, 0.05]} position={[0, 1.05, -0.42]} material={MAT.woodDark} />
-      {RECEPTION_SLATS.map((x) => <Box key={x} size={[0.07, 2.02, 0.03]} position={[x, 1.05, -0.38]} material={MAT.wood} />)}
-      <Box size={[2.8, 0.05, 0.1]} position={[0, 2.125, -0.405]} material={MAT.woodDark} />
+      <Box size={[2.8, 2.1, 0.05]} position={[0, 1.05, -0.42]} material={S.woodDark} />
+      {RECEPTION_SLATS.map((x) => <Box key={x} size={[0.07, 2.02, 0.03]} position={[x, 1.05, -0.38]} material={S.wood} />)}
+      <Box size={[2.8, 0.05, 0.1]} position={[0, 2.125, -0.405]} material={S.woodDark} />
       <Box size={[2.7, 0.018, 0.02]} position={[0, 2.09, -0.345]} material={PM.gold} cast={false} />
       {/* Help display on the wall, facing the visitors. */}
       <Rounded size={[1.56, 0.64, 0.05]} radius={0.03} position={[0, 1.62, -0.34]} material={PM.displayFrame} />
@@ -358,21 +376,21 @@ function ReceptionDesk() {
       <Box size={[0.6, 0.02, 0.012]} position={[0, 1.95, -0.32]} material={PM.gold} cast={false} />
 
       {/* Receptionist side: a low work surface on two pedestals and a keyboard. */}
-      <Rounded size={[2.5, 0.04, 0.3]} radius={0.015} position={[0, 0.74, -0.17]} material={MAT.deskTop} />
-      <Box size={[0.36, 0.72, 0.26]} position={[-1.05, 0.36, -0.17]} material={MAT.deskBody} />
-      <Box size={[0.36, 0.72, 0.26]} position={[1.05, 0.36, -0.17]} material={MAT.deskBody} />
+      <Rounded size={[2.5, 0.04, 0.3]} radius={0.015} position={[0, 0.74, -0.17]} material={S.top} />
+      <Box size={[0.36, 0.72, 0.26]} position={[-1.05, 0.36, -0.17]} material={S.body} />
+      <Box size={[0.36, 0.72, 0.26]} position={[1.05, 0.36, -0.17]} material={S.body} />
       <Box size={[0.4, 0.02, 0.12]} position={[0.2, 0.77, -0.2]} material={MAT.keyboard} />
 
       {/* Visitor counter: plinth, body and wood end caps (body stops short of the caps: no coplanar faces). */}
-      <Box size={[2.64, 0.08, 0.34]} position={[0, 0.04, 0.22]} material={MAT.woodDark} />
+      <Box size={[2.64, 0.08, 0.34]} position={[0, 0.04, 0.22]} material={S.woodDark} />
       <Box size={[2.5, 0.012, 0.012]} position={[0, 0.07, 0.395]} material={PM.gold} cast={false} />
-      <Rounded size={[2.6, 0.9, 0.38]} radius={0.12} position={[0, 0.53, 0.24]} material={MAT.deskBody} />
-      <Rounded size={[0.1, 0.96, 0.42]} radius={0.03} position={[-1.35, 0.5, 0.23]} material={MAT.wood} />
-      <Rounded size={[0.1, 0.96, 0.42]} radius={0.03} position={[1.35, 0.5, 0.23]} material={MAT.wood} />
-      <Rounded size={[2.8, 0.05, 0.46]} radius={0.02} position={[0, 1.005, 0.22]} material={MAT.wood} />
+      <Rounded size={[2.6, 0.9, 0.38]} radius={0.12} position={[0, 0.53, 0.24]} material={S.body} />
+      <Rounded size={[0.1, 0.96, 0.42]} radius={0.03} position={[-1.35, 0.5, 0.23]} material={S.wood} />
+      <Rounded size={[0.1, 0.96, 0.42]} radius={0.03} position={[1.35, 0.5, 0.23]} material={S.wood} />
+      <Rounded size={[2.8, 0.05, 0.46]} radius={0.02} position={[0, 1.005, 0.22]} material={S.wood} />
       <Box size={[2.5, 0.016, 0.012]} position={[0, 0.965, 0.432]} material={PM.gold} cast={false} />
       {/* Front feature panel with the info sign. */}
-      <Rounded size={[0.92, 0.62, 0.03]} radius={0.02} position={[0, 0.52, 0.43]} material={MAT.wood} />
+      <Rounded size={[0.92, 0.62, 0.03]} radius={0.02} position={[0, 0.52, 0.43]} material={S.wood} />
       <mesh position={[0, 0.54, 0.448]} material={lazy.infoSign()}>
         <circleGeometry args={[0.2, 40]} />
       </mesh>
@@ -517,10 +535,11 @@ function RugPiece({ w, d }: { w: number; d: number }) {
 
 /** Steel elevator doors in a free-standing shaft block; doors face +z, wood slats on the back. */
 function Elevator() {
+  const S = useLobbySurfaces();
   return (
     <group>
       {/* The back stops 3 cm short of the slats' outer face: coplanar faces z-fight into stripes. */}
-      <Rounded size={[2.2, 2.4, 0.27]} radius={0.04} position={[0, 1.2, -0.035]} material={PM.shaft} />
+      <Rounded size={[2.2, 2.4, 0.27]} radius={0.04} position={[0, 1.2, -0.035]} material={S.shaft} />
       <Box size={[0.1, 2.08, 0.06]} position={[-0.66, 1.04, 0.12]} material={PM.steelDark} />
       <Box size={[0.1, 2.08, 0.06]} position={[0.66, 1.04, 0.12]} material={PM.steelDark} />
       <Box size={[1.42, 0.1, 0.06]} position={[0, 2.13, 0.12]} material={PM.steelDark} />
@@ -534,7 +553,7 @@ function Elevator() {
       <Box size={[0.035, 0.035, 0.01]} position={[0.9, 1.15, 0.122]} material={PM.indicatorLight} cast={false} />
       <Box size={[0.035, 0.035, 0.01]} position={[0.9, 1.05, 0.122]} material={PM.steelDark} cast={false} />
       {[-0.9, -0.54, -0.18, 0.18, 0.54, 0.9].map((x) => (
-        <Box key={x} size={[0.1, 2.1, 0.03]} position={[x, 1.1, -0.185]} material={MAT.woodDark} cast={false} />
+        <Box key={x} size={[0.1, 2.1, 0.03]} position={[x, 1.1, -0.185]} material={S.woodDark} cast={false} />
       ))}
     </group>
   );

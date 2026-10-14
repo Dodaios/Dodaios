@@ -1556,6 +1556,8 @@
       "spawn_screen_new": "新建智能体",
       "department_n": "部门 {number}",
       "studio_n": "工作室 {number}",
+      "bay_n": "{number} 号舱",
+      "bay_free": "空闲舱位",
       "coffee_menu": "菜单",
       "status_spend": "支出",
       "status_days": "{days} 天",
