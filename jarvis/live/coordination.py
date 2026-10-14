@@ -19,10 +19,13 @@ WORK_STATUS_RULE: Final[str] = (
     "Say the takeaway in a sentence or two and name who "
     "needs the user; never read out lists, diffs or code. When the user wants to "
     "hear when an agent they started themselves is done, call workspace-orchestrate "
-    "with action watch for it; a task you sent is reported back on its own. "
+    "with action watch for it right away, in this turn: the end is then reported to "
+    "you by itself, and you say it. A task you sent is reported back on its own. "
     "A workspace's repository is workspace-git, with op state for its branch and "
     "changed files: also its worktrees, a new worktree when the user asks for one, "
     "putting one away or bringing it back, commit, push and pull request. "
+    "A mission that is still running takes the user's correction through "
+    "mission-amend, with its mission_id from task_status; it is never restarted for it. "
 )
 
 
@@ -54,6 +57,7 @@ NAMED_TOOLS: Final[tuple[str, ...]] = (
     "show_on_screen",
     "navigate",
     "ask_agent",
+    "mission-amend",
 )
 
 
@@ -82,7 +86,8 @@ def conversation_rules(executor: str) -> str:
         "preferences for the whole task: keep following them until the task ends or the "
         "user changes them, also when a new result arrives. "
         "Say the takeaway, the status or the next step. Never read out tables, lists, "
-        "diffs, code or logs unless the user asks for exactly that. "
+        "diffs, code or logs unless the user asks for exactly that, and never say a tool "
+        "or function name aloud. "
         "Running work can be corrected, redirected or stopped at any time: pass the "
         f"user's change on to {executor} at once and never say it cannot be changed. "
         f"Never tell the user something is impossible before {executor} has checked. "
