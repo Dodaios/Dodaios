@@ -544,6 +544,12 @@ class WindowsAutostart:
         info = self._task_probe()
         if info is not None:
             action_matches = self._task_matches(info, spec)
+            # A startup shortcut left beside a matching task launches the app a
+            # second time at login, and with whatever working folder it was
+            # written from - possibly another checkout. That is not current:
+            # reporting it as such made the boot reconcile skip install(), the
+            # only place that removes the leftover, so it survived forever.
+            leftover_shortcut = action_matches and info.enabled and self._shortcut_present()
             if not info.enabled:
                 # A task can be switched off in Task Scheduler, by a group
                 # policy or by a "startup optimizer" while its action still
@@ -557,6 +563,12 @@ class WindowsAutostart:
                     "does not start at login — re-enable instant start in "
                     "Settings to switch it back on."
                 )
+            elif leftover_shortcut:
+                detail = (
+                    "Autostart enabled via scheduled task, but a leftover startup "
+                    "shortcut would start Dodaios a second time; it is removed on "
+                    "the next start."
+                )
             elif action_matches:
                 detail = (
                     "Autostart enabled via scheduled task — instant start at login."
@@ -569,7 +581,7 @@ class WindowsAutostart:
             return AutostartStatus(
                 supported=True,
                 installed=True,
-                matches_spec=action_matches and info.enabled,
+                matches_spec=action_matches and info.enabled and not leftover_shortcut,
                 entry_path=self._task_entry_path(),
                 detail=detail,
             )

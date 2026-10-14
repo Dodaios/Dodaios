@@ -14,7 +14,27 @@ import uuid
 from pathlib import Path
 from typing import Any, Final
 
-__all__ = ["ENTRY_KINDS", "PHASES", "STATES", "TeamThreadStore", "now_ms"]
+__all__ = [
+    "ENTRY_KINDS",
+    "MODES",
+    "PHASES",
+    "ROLES",
+    "STATES",
+    "STEP_STATUSES",
+    "TeamThreadStore",
+    "now_ms",
+]
+
+#: How a team works. ``peers``: everyone plans, one builds, the others review.
+#: ``planner_builder``: one member owns a living plan, one builds it step by
+#: step, the others review the plan and every step. Twin: ``TEAM_THREAD_MODES``.
+MODES: Final[tuple[str, ...]] = ("peers", "planner_builder")
+
+#: What a member does in the planner-and-builder mode. Twin: ``TEAM_THREAD_ROLES``.
+ROLES: Final[tuple[str, ...]] = ("planner", "builder", "reviewer")
+
+#: Where one step of the living plan stands. Twin: ``TEAM_PLAN_STEP_STATUSES``.
+STEP_STATUSES: Final[tuple[str, ...]] = ("open", "building", "in_review", "changes", "accepted")
 
 #: Lifecycle of a team thread. The TypeScript twin is ``TEAM_THREAD_STATES`` in
 #: ``src/lib/teamThreadsApi.ts``; ``tests/unit/agent_chat/test_team_thread_parity.py``
@@ -28,10 +48,22 @@ STATES: Final[tuple[str, ...]] = (
     "failed",
 )
 
-#: The order of work. Twin: ``TEAM_THREAD_PHASES``.
-PHASES: Final[tuple[str, ...]] = ("draft", "challenge", "converge", "build", "review", "done")
+#: The order of work. The first five are the peers' steps, the next three the
+#: planner-and-builder steps; both end in ``done``. Twin: ``TEAM_THREAD_PHASES``.
+PHASES: Final[tuple[str, ...]] = (
+    "draft",
+    "challenge",
+    "converge",
+    "build",
+    "review",
+    "planning",
+    "steps",
+    "final",
+    "done",
+)
 
 #: What an entry of the shared thread is. Twin: ``TEAM_THREAD_ENTRY_KINDS``.
+#: ``review`` and ``fix`` are also the final review of the planner-and-builder mode.
 ENTRY_KINDS: Final[tuple[str, ...]] = (
     "user",
     "draft",
@@ -41,6 +73,10 @@ ENTRY_KINDS: Final[tuple[str, ...]] = (
     "build",
     "review",
     "fix",
+    "plan_version",
+    "plan_review",
+    "step_build",
+    "step_review",
     "notice",
     "summary",
 )
@@ -53,6 +89,7 @@ CREATE TABLE IF NOT EXISTS team_threads (
     cwd         TEXT NOT NULL,
     state       TEXT NOT NULL,
     phase       TEXT NOT NULL,
+    mode        TEXT NOT NULL DEFAULT 'peers',
     reason      TEXT NOT NULL DEFAULT '',  -- why it waits, paused or failed (a short code)
     note        TEXT NOT NULL DEFAULT '',  -- the sentence that goes with the reason
     lang        TEXT NOT NULL DEFAULT '',
@@ -106,6 +143,12 @@ class TeamThreadStore:
             if str(db_path) != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
+            columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(team_threads)")}
+            if "mode" not in columns:
+                # A database from before the planner-and-builder mode: all its threads are peers.
+                self._conn.execute(
+                    "ALTER TABLE team_threads ADD COLUMN mode TEXT NOT NULL DEFAULT 'peers'"
+                )
             self._conn.commit()
 
     def close(self) -> None:
@@ -123,15 +166,32 @@ class TeamThreadStore:
         lang: str,
         limits: dict[str, Any],
         members: list[dict[str, Any]],
+        mode: str = "peers",
+        work: dict[str, Any] | None = None,
     ) -> str:
+        if mode not in MODES:
+            raise ValueError(f"unknown team thread mode {mode!r}")
         team_id = uuid.uuid4().hex
         now = now_ms()
+        phase = "planning" if mode == "planner_builder" else "draft"
         with self._lock:
             self._conn.execute(
-                "INSERT INTO team_threads (team_id, title, task, cwd, state, phase, lang, "
+                "INSERT INTO team_threads (team_id, title, task, cwd, state, phase, mode, lang, "
                 "limits_json, work_json, created_ms, updated_ms) "
-                "VALUES (?, ?, ?, ?, 'running', 'draft', ?, ?, '{}', ?, ?)",
-                (team_id, title, task, cwd, lang, json.dumps(limits), now, now),
+                "VALUES (?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    team_id,
+                    title,
+                    task,
+                    cwd,
+                    phase,
+                    mode,
+                    lang,
+                    json.dumps(limits),
+                    json.dumps(work or {}),
+                    now,
+                    now,
+                ),
             )
             for position, member in enumerate(members):
                 self._conn.execute(
