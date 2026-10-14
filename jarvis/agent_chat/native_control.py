@@ -19,8 +19,20 @@ from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 log = logging.getLogger(__name__)
 
 
-def disable_cli_tools(plan: Any, runner: str) -> None:
-    """A verifier has no tools, including user-installed MCP servers."""
+#: The CLIs ``disable_cli_tools`` can strip of every tool: the Claude Code
+#: shaped ones by flag, Codex by feature switches. The rest only offer a
+#: read-only plan mode, which still reads the checkout.
+_CLAUDE_SHAPED: tuple[str, ...] = ("claude-cli", "glm-cli")
+_CODEX: str = "codex-cli"
+TOOL_FREE_RUNNERS: frozenset[str] = frozenset({*_CLAUDE_SHAPED, _CODEX})
+
+
+def disable_cli_tools(plan: Any, runner: str, *, keep_session: bool = False) -> None:
+    """A verifier has no tools, including user-installed MCP servers.
+
+    ``keep_session`` leaves the CLI's own conversation on disk, so a plain
+    chat can resume it on its next turn; a one-shot verifier leaves it off.
+    """
     argv: list[str] = []
     it = iter(plan.argv)
     for part in it:
@@ -32,14 +44,14 @@ def disable_cli_tools(plan: Any, runner: str) -> None:
                 argv.extend((part, value))
         else:
             argv.append(part)
-    if runner in ("claude-cli", "glm-cli"):
+    if runner in _CLAUDE_SHAPED:
         argv += ["--tools", "", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
-        if "--resume" not in argv:
+        if "--resume" not in argv and not keep_session:
             argv.append("--no-session-persistence")
-    elif runner == "codex-cli":
+    elif runner == _CODEX:
         # exec ignores only configuration, not the selected account's auth store.
         argv += ["--ignore-user-config", "--ignore-rules"]
-        if "resume" not in argv:
+        if "resume" not in argv and not keep_session:
             argv.append("--ephemeral")
         for feature in (
             "shell_tool",
