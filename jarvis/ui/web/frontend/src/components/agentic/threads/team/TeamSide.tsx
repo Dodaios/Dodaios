@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowLeftRight, ArrowRight, ChevronRight, Crosshair, ExternalLink, ListChecks, MessagesSquare, ShieldAlert, X } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowRight, ChevronLeft, ChevronRight, Crosshair, ExternalLink, ListChecks, MessagesSquare, ShieldAlert, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import type { TimelineItem, UserItem } from "@/components/agentchat/reduce";
 import { plural } from "@/components/agentchat/traceEntries";
@@ -11,6 +11,7 @@ import { useMemberTimeline } from "./memberStreams";
 import { useMemberStatus } from "./memberLive";
 import { PlanPanel } from "./PlanPanel";
 import { PROSE_COMPACT } from "./roomStyle";
+import { MemberName } from "./MemberName";
 import { exchangeLabel, YOU, type Exchange, type TeamGraph } from "./teamGraph";
 import { EntryBody, kindLabel, leadOf, TeamStory, verdictOf, type RoomNames } from "./TeamStory";
 
@@ -22,7 +23,8 @@ import { EntryBody, kindLabel, leadOf, TeamStory, verdictOf, type RoomNames } fr
  * builder, the living plan are tabs of their own. A line picked on the canvas
  * shows what went across it in place of the tab, until it is closed. Nothing
  * here navigates away: a member's full thread opens only on request, and
- * that thread leads back to the team.
+ * that thread leads back to the team. A swarm's tabs scroll: arrows at the
+ * ends say there are more, and the picked tab always scrolls into view.
  */
 
 export type RoomTab = { kind: "story" } | { kind: "plan" } | { kind: "member"; id: string };
@@ -63,10 +65,38 @@ export function TeamSide({ thread, graph, names, folder, tab, onTab, following, 
     refs.current.get(tabKey(tabs[next]))?.focus();
   };
   const member = tab.kind === "member" ? names.member(tab.id) : undefined;
+  const strip = useRef<HTMLDivElement | null>(null);
+  const [ends, setEnds] = useState({ before: false, after: false });
+  const many = thread.members.length > 4;
+
+  // Which ends of the strip hide tabs, kept current as it scrolls or resizes.
+  useEffect(() => {
+    const box = strip.current;
+    if (!box) return;
+    const measure = () => {
+      const before = box.scrollLeft > 1;
+      const after = box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
+      setEnds((now) => (now.before === before && now.after === after ? now : { before, after }));
+    };
+    measure();
+    box.addEventListener("scroll", measure, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(box);
+    return () => { box.removeEventListener("scroll", measure); observer?.disconnect(); };
+  }, [tabs.length]);
+  // The picked tab is never hidden past an end of the strip.
+  useEffect(() => {
+    refs.current.get(current)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [current]);
+  const page = (direction: 1 | -1) => strip.current?.scrollBy({ left: direction * strip.current.clientWidth * 0.7, behavior: "smooth" });
+  const pager = "flex w-6 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
   return <section className="flex h-full min-h-0 flex-col" data-testid="team-side" aria-label={t("team_threads.room.chats")}>
     <div className="flex h-10 shrink-0 items-stretch gap-0.5 border-b border-border pl-2 pr-1">
-      <div role="tablist" aria-label={t("team_threads.room.chats")} onKeyDown={onKey}
+      {ends.before && <button type="button" onClick={() => page(-1)} aria-label={t("team_threads.room.tabs_prev")}
+        data-testid="team-tabs-prev" className={pager}><ChevronLeft aria-hidden className="h-3.5 w-3.5" /></button>}
+      <div ref={strip} role="tablist" aria-label={t("team_threads.room.chats")} onKeyDown={onKey}
+        onWheel={(event) => { if (strip.current && Math.abs(event.deltaY) > Math.abs(event.deltaX)) strip.current.scrollLeft += event.deltaY; }}
         className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto [scrollbar-width:none]">
         {tabs.map((item) => {
           const key = tabKey(item);
@@ -82,10 +112,12 @@ export function TeamSide({ thread, graph, names, folder, tab, onTab, following, 
             )}>
             {item.kind === "story" ? <><MessagesSquare aria-hidden className="h-3.5 w-3.5" />{t("team_threads.room.story")}</>
               : item.kind === "plan" ? <><ListChecks aria-hidden className="h-3.5 w-3.5" />{t("team_threads.phase.planning")}</>
-                : person ? <TabMember member={person} names={names} /> : null}
+                : person ? <TabMember member={person} names={names} compact={many} /> : null}
           </button>;
         })}
       </div>
+      {ends.after && <button type="button" onClick={() => page(1)} aria-label={t("team_threads.room.tabs_next")}
+        data-testid="team-tabs-next" className={pager}><ChevronRight aria-hidden className="h-3.5 w-3.5" /></button>}
       <button type="button" onClick={onFollow} aria-pressed={following} data-testid="team-follow"
         title={t("team_threads.room.follow_hint")}
         className={cn(
@@ -105,12 +137,12 @@ export function TeamSide({ thread, graph, names, folder, tab, onTab, following, 
   </section>;
 }
 
-function TabMember({ member, names }: { member: TeamMember; names: RoomNames }) {
+function TabMember({ member, names, compact }: { member: TeamMember; names: RoomNames; compact: boolean }) {
   const agent = names.agent(member);
   const left = member.state === "left";
   return <>
     {agent ? <AgentMark agent={agent} label={member.name} variant="plain" size="sm" /> : null}
-    <span className={cn("max-w-[9rem] truncate", left && "line-through opacity-60")}>{member.name}</span>
+    <MemberName name={member.name} className={cn(compact ? "max-w-[9rem]" : "max-w-[13rem]", left && "line-through opacity-60")} />
     {!left && member.waiting ? <ShieldAlert aria-hidden className="h-3 w-3 text-warning" />
       : !left && member.working ? <span aria-hidden className="team-pulse h-1.5 w-1.5 rounded-full bg-accent" /> : null}
   </>;
@@ -180,7 +212,7 @@ function MemberChat({ member, thread, names, folder, onOpenFull }: {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="truncate text-sm font-medium text-foreground">{member.name}</span>
+          <MemberName name={member.name} className="text-sm font-medium text-foreground" />
           {member.role && <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t(`team_threads.member_role.${member.role}`)}</span>}
           {member.model && !member.name.includes(member.model) && <span className="truncate font-mono text-[11px] text-muted-foreground">{member.model}</span>}
         </span>
@@ -230,7 +262,8 @@ function Who({ id, names }: { id: string; names: RoomNames }) {
   const agent = member ? names.agent(member) : "";
   return <span className="flex min-w-0 items-center gap-1.5">
     {agent && member ? <AgentMark agent={agent} label={member.name} variant="plain" size="sm" /> : null}
-    <span className="truncate font-medium text-foreground">{id === YOU ? t("team_threads.room.you") : names.name(id)}</span>
+    {id === YOU ? <span className="truncate font-medium text-foreground">{t("team_threads.room.you")}</span>
+      : <MemberName name={names.name(id)} className="font-medium text-foreground" />}
   </span>;
 }
 

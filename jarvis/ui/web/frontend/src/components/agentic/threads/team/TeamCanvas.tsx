@@ -23,6 +23,7 @@ import { fill, useT } from "@/i18n";
 import type { TeamMember, TeamThread } from "@/lib/teamThreadsApi";
 import { cn } from "@/lib/utils";
 import { clock, useMemberStatus } from "./memberLive";
+import { MemberName } from "./MemberName";
 import { canvasLines, exchangeLabel, latestExchange, YOU, type EdgeTier, type Exchange, type GraphEdge, type GraphNode, type TeamGraph } from "./teamGraph";
 
 /**
@@ -33,6 +34,10 @@ import { canvasLines, exchangeLabel, latestExchange, YOU, type EdgeTier, type Ex
  * flows; a line of the step the team is in is drawn in ink with its label; an
  * older line stays as a faint trace whose label shows on hover. The layout is
  * fixed per team size and fitted to the frame, so the picture never jumps.
+ * When more lines would carry a label than stay readable (a swarm, where
+ * everyone sends everyone a plan), only the lines of the picked member, the
+ * picked line and the line under the pointer keep theirs, and the picked
+ * member's lines stand out from the rest.
  * A click on a member opens its chat beside the canvas; a click on a line
  * shows what the two exchanged.
  */
@@ -63,8 +68,13 @@ interface LineData extends Record<string, unknown> {
   selected: boolean;
   hovered: boolean;
   faded: boolean;
+  /** Too many labelled lines: this one keeps its label only when it is in focus. */
+  quiet: boolean;
   onOpen: (id: string) => void;
 }
+
+/** More labelled lines than this and the canvas labels only what is in focus. */
+export const LABEL_BUDGET = 10;
 
 const hidden = "!h-px !w-px !min-h-0 !min-w-0 !border-0 !bg-transparent !opacity-0";
 
@@ -91,7 +101,7 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberData>
       <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-secondary">
         {agent ? <AgentMark agent={agent} label={member.name} variant="plain" size="sm" /> : <Users aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
       </span>
-      <span className={cn("min-w-0 flex-1 truncate text-sm font-medium text-foreground", status.tone === "left" && "line-through")}>{member.name}</span>
+      <MemberName name={member.name} className={cn("flex-1 text-sm font-medium text-foreground", status.tone === "left" && "line-through")} />
       {role && <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground" data-testid={`team-role-${member.role}`}>{role}</span>}
     </span>
     <span className={cn("flex min-w-0 items-center gap-1.5 text-xs",
@@ -169,11 +179,11 @@ const LineEdge = memo(function LineEdge({ id, data }: EdgeProps<Edge<LineData>>)
   const t = useT();
   const lang = t("trace_report.locale");
   if (!data) return null;
-  const { line, both, count, from, to, label, selected, hovered, faded, onOpen } = data;
+  const { line, both, count, from, to, label, selected, hovered, faded, quiet, onOpen } = data;
   const { path, label: at } = linePath(from, to, both);
   const tier = selected ? "selected" : data.tier;
   const exchange = latestExchange(line);
-  const showLabel = selected || hovered || data.tier !== "past";
+  const showLabel = selected || hovered || (!quiet && data.tier !== "past");
   return <>
     <BaseEdge id={id} path={path} interactionWidth={18}
       className={cn("fill-none", STROKE[tier], faded && "opacity-40")}
@@ -253,23 +263,29 @@ function Canvas({ thread, graph, agentOf, selectedNode, selectedEdge, onOpenNode
       } satisfies MemberData,
     }), [graph.nodes, thread.state, selectedNode, onOpenNode, agentOf, over]);
 
-  const edges = useMemo<Edge[]>(() => canvasLines(graph).flatMap(({ line, partner, tier, count }) => {
-    const from = byId.get(line.from);
-    const to = byId.get(line.to);
-    if (!from || !to) return [];
-    const exchange = latestExchange(line) as Exchange;
-    const faded = [from, to].some((node) => node.member?.state === "left");
-    const selected = selectedEdge === line.id || (partner !== null && selectedEdge === partner.id);
-    return [{
-      id: line.id, source: line.from, target: line.to, type: "line", selectable: false, focusable: false,
-      // Live lines draw last, on top of the others.
-      zIndex: selected ? 3 : tier === "live" ? 2 : tier === "current" ? 1 : 0,
-      data: {
-        line, both: partner !== null, tier, count, from, to, label: exchangeLabel(exchange, t, lang), selected,
-        hovered: hovered === line.id, faded, onOpen: onOpenEdge,
-      } satisfies LineData,
-    }];
-  }), [graph, byId, selectedEdge, hovered, onOpenEdge, t, lang]);
+  const edges = useMemo<Edge[]>(() => {
+    const lines = canvasLines(graph);
+    const crowded = lines.filter((item) => item.tier !== "past").length > LABEL_BUDGET;
+    return lines.flatMap(({ line, partner, tier, count }) => {
+      const from = byId.get(line.from);
+      const to = byId.get(line.to);
+      if (!from || !to) return [];
+      const exchange = latestExchange(line) as Exchange;
+      // In a crowded picture the picked member's lines are the ones to read.
+      const focused = selectedNode !== null && (line.from === selectedNode || line.to === selectedNode);
+      const faded = [from, to].some((node) => node.member?.state === "left") || (crowded && selectedNode !== null && !focused);
+      const selected = selectedEdge === line.id || (partner !== null && selectedEdge === partner.id);
+      return [{
+        id: line.id, source: line.from, target: line.to, type: "line", selectable: false, focusable: false,
+        // Live lines draw last, on top of the others.
+        zIndex: selected ? 3 : tier === "live" ? 2 : tier === "current" ? 1 : 0,
+        data: {
+          line, both: partner !== null, tier, count, from, to, label: exchangeLabel(exchange, t, lang), selected,
+          hovered: hovered === line.id, faded, quiet: crowded && !focused, onOpen: onOpenEdge,
+        } satisfies LineData,
+      }];
+    });
+  }, [graph, byId, selectedEdge, selectedNode, hovered, onOpenEdge, t, lang]);
 
   // The whole team stays in the frame when the frame or the team changes size.
   const count = graph.nodes.length;

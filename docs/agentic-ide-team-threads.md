@@ -17,13 +17,26 @@ working: **Peers** (the default, described first below) and **Planner and
 builder** (see [its own section](#planner-and-builder)). The team is suggested
 from what is connected on this machine: one seat per model family, a coding CLI
 before a provider API (by default Claude, GPT and Gemini when all three are
-there). The person can swap, add and remove members, two to four in total, then
+there). Each member is a row the person sets: which coding agent or provider,
+which model (from the models that seat offers, minus the ones hidden on the
+API Keys page) and, where the seat has levels, how much effort. **Add member**
+asks which seat joins; nothing is added that the person did not pick. A team
+has two to eight members, and one seat may sit in it several times: two Claude
+Code members on different models, or a swarm of reviewers. Then the person
 writes the task and sends it. That one prompt is all the team needs.
 
-A member starts on its coding agent's own default model. When that default is
-refused on the member's first turn (a CLI configured for a model the signed-in
-account may not use), the member is asked once more on the first model the CLI
-lists for the account, and the thread says so.
+A member left on **Default model** starts on its coding agent's own default.
+When that default is refused on the member's first turn (a CLI configured for
+a model the signed-in account may not use), the member is asked once more on
+the first model the CLI lists for the account, and the thread says so. A model
+the person picked is used as it is.
+
+Every member is a session of its own, named after its seat; a model the person
+picked follows the name ("Anthropic Claude · Opus 5.5"), so two members on one
+seat read apart everywhere: on the canvas, in the chat tabs, in the story and
+in the notices. Members that still share a name are numbered ("Anthropic
+Claude 1", "Anthropic Claude 2"). Where a name is cut short, its model or
+number stays readable.
 
 With one model family connected the team still works (two rows of that family,
 or the same seat twice) and the thread says what such a team cannot give:
@@ -43,7 +56,13 @@ member reads.
 | Review | The others review the change against the plan. Findings go back to the builder, who fixes or rebuts them; then they review again. |
 
 The thread is done when every reviewer approves. A reply without a readable
-verdict never counts as agreement. A vote belongs to one plan: when a plan is
+verdict never counts as agreement.
+
+In a big team each member would read seven plans and seven challenges at full
+length. What several members wrote is therefore passed on within one shared
+budget per prompt (about 48,000 characters): short contributions stay whole,
+and only the long ones are shortened, all to the same length and never below
+2,000 characters each. A vote belongs to one plan: when a plan is
 rewritten, it is voted on again.
 
 Reviewers read the change as a diff between two snapshots of the folder (the
@@ -66,7 +85,10 @@ canvas sits above the chats.
   (the file it reads, the command it runs, with the time), waiting for the
   person, waiting for its turn, finished, or gone with the reason. The person
   is a node too. The layout is fixed per team size and fitted to the frame,
-  so nothing moves while the team works; it can be zoomed and moved.
+  so nothing moves while the team works; it can be zoomed and moved. Five to
+  eight members sit evenly on a ring with the person on top, member 1 on the
+  person's left, so every pair has a line of its own and no box covers
+  another.
 - **Lines.** Every line is a real handoff the coordinator made, never
   decoration: the task and the person's messages to every member, a plan to
   the members who read it, a vote or a plan review back to its author, a build
@@ -75,13 +97,18 @@ canvas sits above the chats.
   "3 findings, 1 blocking", "Change, 4 files", "Agrees"), with a count when
   more went that way. A line a member is working on right now flows; the lines
   of the current step and the step before it are drawn with their labels;
-  older lines stay as faint traces whose label shows on hover.
+  older lines stay as faint traces whose label shows on hover. When more than
+  ten lines would carry a label (a swarm, where everyone sends everyone a
+  plan), only the picked member's lines, the picked line and the line under
+  the pointer show theirs, and the picked member's lines stand out.
 - **Chats.** The side column has a tab per member with that member's own
   conversation as it streams in: its turns, tool calls, diffs and words. What
   the coordinator handed the member is folded to its first line. **Follow**
   (on by default) shows whoever is working; picking a tab or a node turns it
   off. A member's thread is read from its own socket, one per member however
-  many places show it, opened through the app's connect budget.
+  many places show it, opened through the app's connect budget. When the tabs
+  do not fit, arrows at the ends scroll them and the picked tab always scrolls
+  into view.
 - **Exchanges.** A click on a line shows everything the two members exchanged,
   both ways, in order, the newest unfolded. Escape or the close button returns
   to the chat.
@@ -117,7 +144,7 @@ canvas sits above the chats.
 | Bound | Default |
 |---|---|
 | Working time (paused time does not count) | 90 minutes |
-| Model turns | 40 |
+| Model turns | 40; 10 per member from five members on (80 for eight) |
 | Master plans before the thread asks | 3 rounds |
 | Review rounds before the thread asks | 3 rounds |
 | One turn | 30 minutes |
@@ -158,7 +185,9 @@ The second mode gives each member a role instead of making everyone plan:
 The start form shows a role per member: by default member 1 plans, member 2
 builds and every further member reviews. A team needs exactly one planner and
 one builder. Nobody checks only their own work: with two members the builder
-reviews the plan and the planner reviews each step.
+reviews the plan and the planner reviews each step. With more members every
+reviewer reads the plan and every step, and a step is accepted only when all
+of them approve, so a swarm of six reviewers checks each step six times over.
 
 | Step | What happens |
 |---|---|
@@ -197,8 +226,12 @@ reviewer.
 ## API and CLI
 
 `/api/team-threads` (see `jarvis/ui/web/team_thread_routes.py`): list, `seats`,
-start, read, `message`, `pause`, `resume`, `accept`, `stop`, delete. Start takes
-`mode` (`peers` or `planner_builder`) and a `role` per seat; a thread's read
+start, read, `message`, `pause`, `resume`, `accept`, `stop`, delete. `seats`
+lists each seat's `model_options` (id, label, effort levels) and `efforts`,
+`max_members` and the default turn bound per team size (`max_turns`). Start
+takes up to eight seats, the same seat more than once, a `model` and an
+`effort` per seat (an effort the seat does not offer is refused), `mode`
+(`peers` or `planner_builder`) and a `role` per seat; a thread's read
 carries `mode`, each member's `role` and, for planner and builder, `plan`. The routes
 are reachable through the CLI's `api` group like every other route.
 
