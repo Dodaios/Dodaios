@@ -4,7 +4,7 @@ A pet state is what the floating pet *does* on screen (its animation row). It
 is derived from real Jarvis events by ``jarvis.ui.pets.state_machine`` and it
 crosses Python, the sprite manifest on disk, the REST payload, TypeScript and
 the i18n labels — the five-layer enum this repo has been bitten by four times
-(AP-4 / BUG-008). Same remedy as ``jarvis.ui.jarvisbar.modes``: the tuples live
+(AP-4 / BUG-008). Same remedy as ``jarvis.ui.dodaiosbar.modes``: the tuples live
 in a module with NO imports at all, every layer imports these names instead of
 restating them, and ``tests/unit/ui/pets/test_pet_state_parity.py`` fails the
 build when a layer drifts (TS mirror ``frontend/src/lib/petStates.ts``, the

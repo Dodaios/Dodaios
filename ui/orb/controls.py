@@ -16,7 +16,7 @@ Two constraints shape the implementation, and neither is cosmetic:
   Same rule as ``ui.orb.voice_orb``.
 * **Supersampled glyphs.** A 4 px stroke drawn directly at 28 px aliases into a
   staircase. Glyphs are drawn at 4x on their own layer and downscaled with
-  LANCZOS, exactly as ``jarvis.ui.jarvisbar.renderer`` does for its mic.
+  LANCZOS, exactly as ``jarvis.ui.dodaiosbar.renderer`` does for its mic.
 
 The palette is the app's dark theme (``frontend/src/index.css``) resolved
 against the opaque background the app composites onto, because Tk has no
@@ -38,7 +38,7 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
 
-from jarvis.ui.jarvisbar.modes import ACTIVE_VOICE_MODES, CONNECT_MODES
+from jarvis.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, CONNECT_MODES
 
 # --- Palette (the app's dark theme, flattened) ------------------------------
 #: Resting disc: ``bg-background/85`` over the desktop reads as a near-black
@@ -104,7 +104,7 @@ def hit_test(x: float, y: float, count: int = len(ACTIONS)) -> str | None:
     The gaps deliberately resolve to nothing. Every one of these buttons does
     something the user would rather not undo by a near-miss — hanging up is the
     obvious one — so a click has to land ON a disc, the same rule the Jarvis
-    Bar applies to its close-X (``jarvis.ui.jarvisbar.interaction``).
+    Bar applies to its close-X (``jarvis.ui.dodaiosbar.interaction``).
     """
     radius = BUTTON_SIZE / 2.0
     cy = ROW_PADDING + radius

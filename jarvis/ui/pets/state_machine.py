@@ -1,7 +1,7 @@
 """Which animation the pet shows, derived from the overlay's coarse modes.
 
 The bridge already tells every overlay what to *be* through the bar's coarse
-modes (``jarvis.ui.jarvisbar.modes``). The pet maps them onto its own states
+modes (``jarvis.ui.dodaiosbar.modes``). The pet maps them onto its own states
 (``jarvis.ui.pets.states``) and adds what a mode cannot say: the one-shot
 outcomes (``success`` / ``error``), what Jarvis is doing inside a turn (the
 action states ``working`` / ``searching``, set from tool calls), an agent task
@@ -24,7 +24,7 @@ import logging
 import time
 from collections.abc import Callable
 
-from jarvis.ui.jarvisbar.modes import NOTICE_MODES
+from jarvis.ui.dodaiosbar.modes import NOTICE_MODES
 from jarvis.ui.pets.states import (
     ACTION_HOLD_SECONDS,
     ACTION_STATES,
@@ -73,7 +73,7 @@ class PetStateMachine:
     # -- inputs ---------------------------------------------------------
 
     def on_mode(self, mode: str) -> None:
-        """Follow the overlay's coarse mode (``jarvis.ui.jarvisbar.modes``)."""
+        """Follow the overlay's coarse mode (``jarvis.ui.dodaiosbar.modes``)."""
         if mode in NOTICE_MODES:
             self.on_outcome(NOTICE_OUTCOME)
             return
