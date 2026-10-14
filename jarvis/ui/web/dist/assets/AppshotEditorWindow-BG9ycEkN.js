@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditorWindow-BG9ycEkN.js
 import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-BOnNxRri.js";import{AppshotEditor as we}from"./AppshotEditor-CnlPqa3i.js";import{Q as P}from"./tooltip-DPVrYVoq.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-BdXWh1sf.js";import{P as ae}from"./play-7_l2IMOD.js";import{P as Ne}from"./pause-CMT6cLSp.js";import"./switch-CQeOKSrB.js";import"./image-plus-CtDZSoUc.js";import"./check-igJ64rK0.js";import"./columns-2--rJCbvsr.js";/**
+|||||||| parent of eb6165d0bf (build(ui): rebuild the bundle for the coding floor campus):jarvis/ui/web/dist/assets/AppshotEditorWindow-Dp4PK2U9.js
+import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-BXc9J8ya.js";import{AppshotEditor as we}from"./AppshotEditor-yD5bzHSW.js";import{Q as P}from"./tooltip-CQS9HyjX.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-BW1g-OlR.js";import{P as ae}from"./play-C4enL2wd.js";import{P as Ne}from"./pause--bAg947a.js";import"./switch-CNhgBeTz.js";import"./image-plus-DFMESAFL.js";import"./check-DoBGa-_0.js";import"./columns-2-Bp54wLts.js";/**
+========
+import{c as oe,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as ge,l as be,T as ve}from"./index-Diit2BJY.js";import{AppshotEditor as we}from"./AppshotEditor-BDB6Jpxg.js";import{Q as P}from"./tooltip-tZ5FpJ6U.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke}from"./film-Duz6Oe0l.js";import{P as ae}from"./play-C9YulJlO.js";import{P as Ne}from"./pause-C1WDEe3v.js";import"./switch-BqWMMiI6.js";import"./image-plus-BlY5i4OE.js";import"./check-ChtWLjJ2.js";import"./columns-2-CEQQoabq.js";/**
+>>>>>>>> eb6165d0bf (build(ui): rebuild the bundle for the coding floor campus):jarvis/ui/web/dist/assets/AppshotEditorWindow-B-T3r5KR.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
