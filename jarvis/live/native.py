@@ -54,13 +54,18 @@ _SESSION_TOOLS = frozenset({
 # or ``[voice].realtime_tool_declaration_budget_tokens``, the smaller wins), at
 # most this many catalog tools are declared directly; every other tool stays
 # reachable through discover_tools/call_tool. A small local model pays a full
-# LLM round per discovery step, so the frequent tools come first.
+# LLM round per discovery step, so the frequent tools come first. The tools the
+# conversation rules name by name (show_on_screen, ask_agent) stay direct: a
+# small model that does not see a named tool declares it missing instead of
+# discovering it.
 _DIRECT_TOOL_LIMIT = 12
 _DIRECT_TOOL_PREFERENCE = (
     "workspace-orchestrate",
     "find-app-action",
     "run-app-action",
     "search_web",
+    "show_on_screen",
+    "ask_agent",
     "open_app",
     "take_appshot",
     "screen_snapshot",

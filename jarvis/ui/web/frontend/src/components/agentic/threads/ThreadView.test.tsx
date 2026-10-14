@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentChatCatalog, AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -205,6 +206,24 @@ describe("ThreadTree", () => {
       expect(screen.getByText("Fix login test").closest("button")?.getAttribute("aria-current")).toBeNull();
       fireEvent.click(screen.getByTestId("team-thread-new-p1"));
       expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null, team: "new" });
+    } finally {
+      teams.rows = [];
+    }
+  });
+
+  it("leads from a member's own thread back to its team, and keeps the team marked meanwhile", async () => {
+    teams.rows = [{ team_id: "t1", title: "Add a retry", cwd: "/repo", mode: "peers", state: "running", phase: "review", reason: "", created_ms: 1, updated_ms: 2, members: [] }];
+    const member = sessionRow({ session_id: "s2", cli_title: "Add a retry · Claude", team_id: "t1" });
+    api.fetchAgentChatSessions.mockResolvedValue([member]);
+    try {
+      useIdeThreadsStore.getState().openMemberThread("s2", "p1", "t1");
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(<QueryClientProvider client={client}><ThreadTree /><ThreadView onScreen /></QueryClientProvider>);
+      const back = await screen.findByTestId("thread-back-to-team");
+      expect(back.textContent).toContain("Add a retry");
+      expect(screen.getByTestId("team-thread-row-t1").getAttribute("aria-current")).toBe("page");
+      fireEvent.click(within(back).getByRole("button"));
+      expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null, team: "t1" });
     } finally {
       teams.rows = [];
     }
