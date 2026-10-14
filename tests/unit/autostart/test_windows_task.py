@@ -374,6 +374,31 @@ def test_install_drops_a_leftover_shortcut_when_the_task_already_matches() -> No
     assert calls == ["remove_shortcut"]
 
 
+def test_a_leftover_shortcut_beside_a_matching_task_is_not_current() -> None:
+    # The boot reconcile only calls install() for an entry that is not current.
+    # Reporting task + leftover shortcut as current kept the shortcut forever,
+    # and with it a second launch at login from the folder that wrote it.
+    mgr, calls = _mk(task_info=_MATCHING_INFO, shortcut_present=True)
+    st = mgr.status(_SPEC)
+    assert st.installed is True
+    assert st.matches_spec is False
+    assert "leftover" in st.detail
+    assert calls == []
+
+
+def test_reconcile_removes_a_leftover_shortcut_beside_a_matching_task(monkeypatch) -> None:
+    import jarvis.autostart as autostart
+
+    from .conftest import make_caps, make_cfg
+
+    mgr, calls = _mk(task_info=_MATCHING_INFO, shortcut_present=True)
+    monkeypatch.setattr(autostart, "make_autostart_manager", lambda caps: mgr)
+    monkeypatch.setattr(autostart, "resolve_launch_spec", lambda cfg: _SPEC)
+    result = autostart.reconcile_autostart(make_cfg(enabled=True), make_caps())
+    assert calls == ["remove_shortcut"]
+    assert result.matches_spec is True
+
+
 def test_truncated_shortcut_readback_is_drift_not_a_match(monkeypatch) -> None:
     # Padding the missing fields with "" made a half-failed COM read compare
     # equal to a spec with no args/working dir — reporting a stale shortcut as
