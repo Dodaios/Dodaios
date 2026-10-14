@@ -1,5 +1,5 @@
 /**
- * Mission Control, the coding floor's own office: a walnut slat wall with a
+ * Mission Control, the coding floor's own office: a steel slat wall with a
  * live video wall, and a desk with three live monitors and an executive chair.
  * Working it (E in the room, or a click on the video wall or the desk) opens
  * the Mission Control panel: start new coding agents, brief several at once.
@@ -289,7 +289,8 @@ function Screen({ w, h, material }: { w: number; h: number; material: MeshBasicM
 
 const CM = {
   felt: matte("#202328", { roughness: 1 }),
-  walnut: matte("#5b3b27", { roughness: 0.7 }),
+  // The Foundry deck's brushed steel.
+  slat: matte("#3d424c", { roughness: 0.38, metalness: 0.65 }),
   // Light strips: lit from within, so they read as light in any scene lighting.
   cove: new MeshStandardMaterial({ color: "#ffe6c4", emissive: "#ffe6c4", emissiveIntensity: 1.1, toneMapped: false }),
   ice: new MeshStandardMaterial({ color: "#cfe9ff", emissive: "#cfe9ff", emissiveIntensity: 1.1, toneMapped: false }),
@@ -309,9 +310,9 @@ export function CommandWall() {
   const open = useOpenMission();
   return (
     <group>
-      {/* Dark felt backing, a full-height walnut slat screen, warm light in coves top and bottom. */}
+      {/* Dark felt backing, a full-height steel slat screen, warm light in coves top and bottom. */}
       <Box size={[7.8, 2.7, 0.06]} position={[0, 1.35, -0.12]} material={CM.felt} />
-      {SLATS.map((x) => <Box key={x} size={[0.06, 2.62, 0.06]} position={[x, 1.35, -0.06]} material={CM.walnut} cast={false} />)}
+      {SLATS.map((x) => <Box key={x} size={[0.06, 2.62, 0.06]} position={[x, 1.35, -0.06]} material={CM.slat} cast={false} />)}
       <Box size={[7.7, 0.012, 0.02]} position={[0, 0.03, -0.02]} material={CM.cove} cast={false} />
       <Box size={[7.7, 0.012, 0.02]} position={[0, 2.67, -0.02]} material={CM.cove} cast={false} />
       {/* The video wall, flush on the slats; a floating oak shelf with a pair of speakers under it. */}

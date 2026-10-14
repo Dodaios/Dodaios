@@ -177,7 +177,8 @@ describe("office layout", () => {
     expect(layout.studios).toBeUndefined();
     expect(layout.zones).toBeUndefined();
     expect(layout.ambience).toBeUndefined();
-    expect(layout.bounds.maxX - layout.bounds.minX).toBeCloseTo(24.4, 6);
+    // Two bays of 9 m either side of the 6.4 m concourse, plus the 1.6 m window strips.
+    expect(layout.bounds.maxX - layout.bounds.minX).toBeCloseTo(27.6, 6);
     // The elevator stands on the lobby's west edge, by the south wall, like on every floor.
     const lift = layout.checkpoints.find((c) => c.id === "elevator")!;
     const lobby = layout.rooms.find((r) => r.kind === "reception")!;

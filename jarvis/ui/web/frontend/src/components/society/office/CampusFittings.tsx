@@ -16,7 +16,7 @@ import {
   BOOTH, CABINET, COUNTER, CRATE, HIGH_TABLE, ISLAND, SCREEN, SOFA, STEPS, ownSize, stepsSeats, yawOf, type AgentsAmbienceItem,
 } from "./agentsAmbience";
 import { agentsRug, AGENTS_RUGS } from "./AgentsFloorLook";
-import { Instances, type Placement } from "./CodingFloorAmbience";
+import { Instances, type Placement } from "./Instances";
 import { GEO, MAT, matte } from "./OfficeFurniture";
 
 const FIT = {
