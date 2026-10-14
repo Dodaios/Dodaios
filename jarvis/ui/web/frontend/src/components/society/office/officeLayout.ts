@@ -399,6 +399,8 @@ const DEPT_MARGIN_X = 1.1;
 const DEPT_HEADER_Z = 1.8;
 const DEPT_FOOTER_Z = 0.8;
 const AISLE = 3.2;
+/** The coding floor's centre aisle, the concourse: the Core stands at its middle crossing. */
+export const CONCOURSE = 6.4;
 /**
  * Mission Control's desk, in its own space (origin = desk centre, +z = the
  * side where the chair stands): the desk top and the chair the person works
@@ -649,8 +651,9 @@ function buildCodingLayout(agents: readonly OfficeAgentInput[]): OfficeLayout {
   if (groups.length === 1 && groups[0].members.length === 0) groups.length = 0;
   while (groups.length < MIN_DEPARTMENTS) groups.push({ label: "", members: [] });
 
-  // Mission Control's screen (1.4 m) fits the normal aisle with a walkway on each side.
-  const centreAisle = AISLE;
+  // The concourse between the two bay columns: wide enough for the Core at its middle
+  // crossing with a walkway on each side, and for the data rails running down it.
+  const centreAisle = CONCOURSE;
   const floorWidth = COLUMNS * DEPT_WIDTH + (COLUMNS - 1) * centreAisle;
   const minX = -floorWidth / 2;
   const maxX = floorWidth / 2;
