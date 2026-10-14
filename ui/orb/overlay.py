@@ -21,7 +21,7 @@ Rendering pipeline:
     into a PhotoImage that Tkinter renders onto a Canvas.
 
 Public API:
-    overlay = OrbOverlay(style="mascot")    # SWG/Gigi PNG
+    overlay = OrbOverlay(style="mascot")    # the mascot pet (or a custom PNG)
     overlay = OrbOverlay(style="voice_orb") # procedural weather sphere
     overlay.start()                         # blocks until mainloop exit
     overlay.show(mode="listen")             # voice modes: idle/listen/speak/think
@@ -68,7 +68,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageTk
 from jarvis.core.config import DEFAULT_CONFIG_FILE as JARVIS_TOML_PATH
 from jarvis.core.win32_dpi import ensure_dpi_awareness as _ensure_dpi_awareness
 from jarvis.ui.jarvisbar.modes import ACTIVE_VOICE_MODES, MODES
-from jarvis.ui.overlay_styles import LEGACY_STYLE_ALIASES, ORB_STYLES, PERSISTENT_ORB_STYLES
+from jarvis.ui.overlay_styles import LEGACY_STYLE_ALIASES, MASCOT_PET_ID, ORB_STYLES
 from jarvis.ui.pets.states import ACTION_STATES, DEFAULT_PET_ID, NO_PET_ID, ONE_SHOT_STATES
 from ui.orb import controls as orb_controls
 from ui.orb.animations import (
@@ -2372,8 +2372,11 @@ class OrbOverlay:
         # do not crash, but never render the removed legacy orb.
         env_style = (os.environ.get("JARVIS_ORB_STYLE") or "").strip().lower()
         requested_style = env_style or (style or DEFAULT_ORB_STYLE).lower()
-        self._style = _coerce_style(requested_style)
         self._mascot_path_hint = str(mascot_path) if mascot_path else None
+        #: The look is the pet's, showing the mascot figure instead of the
+        #: pet chosen under My Pets (see ``_adopt_style``).
+        self._mascot_figure = False
+        self._style = self._adopt_style(_coerce_style(requested_style))
         # Window size belongs to the style, not to the module: the voice orb is
         # half again as large as the mascot (see VOICE_ORB_WIN_W).
         self._win_w, self._win_h = window_size_for_style(self._style)
@@ -3019,7 +3022,7 @@ class OrbOverlay:
         pointer is on the figure or the strip, or the pet is "None" (the strip
         is all there is, so hiding it would leave nothing to hover).
         """
-        if self._pet_strip_always or self._pet_id == NO_PET_ID:
+        if self._pet_strip_always or self._figure_id() == NO_PET_ID:
             return True
         if self._mode in ACTIVE_VOICE_MODES + PET_VOICE_MODES + PET_THINK_MODES:
             return True
@@ -3810,11 +3813,11 @@ class OrbOverlay:
     def keeps_visible_when_idle(self) -> bool:
         """True while the look is the pet: the bridge shows ``idle`` instead of hiding.
 
-        Read on every idle edge, so a live swap between the pet and the
-        mascot / voice orb changes the idle regime at once. ``hide()`` itself
-        stays a real withdraw for every look.
+        Read on every idle edge, so a live swap between the pet (or the
+        mascot, which is a pet) and the voice orb changes the idle regime at
+        once. ``hide()`` itself stays a real withdraw for every look.
         """
-        return self._style in PERSISTENT_ORB_STYLES
+        return self._style == "pet"
 
     @property
     def pet_user_hidden(self) -> bool:
@@ -3960,11 +3963,15 @@ class OrbOverlay:
         return self._thought
 
     def set_pet(self, pet_id: str) -> None:
-        """Swap the figure live; ``"none"`` keeps the strip without a figure. Thread-safe."""
+        """Swap the figure live; ``"none"`` keeps the strip without a figure. Thread-safe.
+
+        The choice is kept while the mascot is the style and shows again once
+        the style is the pet.
+        """
         pet = str(pet_id or "").strip() or NO_PET_ID
         self._pet_id = pet
         self._note_activity()
-        self._enqueue_ui(lambda: self._apply_pet(pet))
+        self._enqueue_ui(self._apply_pet)
 
     def set_pet_look(
         self,
@@ -4104,11 +4111,28 @@ class OrbOverlay:
         if renderer.state() != before:
             self._kick_frame()
 
-    def _apply_pet(self, pet_id: str) -> None:
+    def _figure_id(self) -> str:
+        """The pet on screen: the mascot's own, or the one chosen under My Pets."""
+        return MASCOT_PET_ID if self._mascot_figure else self._pet_id
+
+    def _custom_mascot_image(self) -> bool:
+        """True when a mascot image was configured: that picture is shown as it is."""
+        return bool(self._mascot_path_hint or os.environ.get("JARVIS_ORB_MASCOT_PATH"))
+
+    def _adopt_style(self, style: str) -> str:
+        """Record what ``style`` shows and return the look that draws it.
+
+        The mascot is the built-in ``MASCOT_PET_ID`` pet, so it is drawn by the
+        pet look. Only a configured mascot image keeps the still picture.
+        """
+        self._mascot_figure = style == "mascot" and not self._custom_mascot_image()
+        return "pet" if self._mascot_figure else style
+
+    def _apply_pet(self) -> None:
         renderer = self._renderer
         if self._style != "pet" or not isinstance(renderer, PetRenderer):
             return
-        renderer.load(pet_id)
+        renderer.load(self._figure_id())
         self._refit_pet_window()
         # "None" keeps its strip up; a figure lets it rest hidden again.
         self._sync_controls_visibility()
@@ -4361,15 +4385,18 @@ class OrbOverlay:
         style = _coerce_style(style)
         if self._root is None:
             # Not started yet → remember the style, start() picks it up
-            self._style = style
+            self._style = self._adopt_style(style)
             return
         self._enqueue_ui(lambda: self._apply_style(style))
 
     def _apply_style(self, style: str) -> None:
+        was_mascot_figure = self._mascot_figure
+        style = self._adopt_style(style)
         if style == "pet":
             # The pet is the other way round: its size comes FROM its renderer.
             new_renderer = self._build_renderer(style)
             if new_renderer is None:
+                self._mascot_figure = was_mascot_figure
                 return  # already logged in _build_renderer
             new_size = window_size_for_style(style, new_renderer)
         else:
@@ -4382,6 +4409,7 @@ class OrbOverlay:
             if new_renderer is None:
                 # Undo the resize — the old renderer is still the one painting.
                 self._win_w, self._win_h = old_size
+                self._mascot_figure = was_mascot_figure
                 return  # The fallback case was already logged in _build_renderer
         self._renderer = new_renderer
         self._style = style
@@ -4427,7 +4455,7 @@ class OrbOverlay:
         if style == "pet":
             try:
                 renderer = PetRenderer(
-                    self._pet_id,
+                    self._figure_id(),
                     pet_scale=self._pet_scale,
                     dpi_ratio=self._dpi_ratio,
                     color_key=(int(COLOR_KEY_RGB[0]), int(COLOR_KEY_RGB[1]), int(COLOR_KEY_RGB[2])),

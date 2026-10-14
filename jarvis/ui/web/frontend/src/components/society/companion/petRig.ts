@@ -273,6 +273,33 @@ export function rigPose(pet: CompanionPet, state: RigState, mood: PetMood, out: 
       eyes(out, "cocoa", state.blink);
       break;
     }
+    case "dodaios": {
+      // Upright on two legs: each leg swings from the hip and lifts on its way
+      // forward; the body rises as it passes over the standing leg.
+      const step = Math.sin(p);
+      const left = part(out, "dodaios_Leg_L"), right = part(out, "dodaios_Leg_R");
+      left.rx = 0.6 * s * step; left.dy = 0.02 * s * Math.max(0, Math.cos(p));
+      right.rx = -0.6 * s * step; right.dy = 0.02 * s * Math.max(0, -Math.cos(p));
+      const body = part(out, "dodaios_Body");
+      body.rz = 0.05 * s * step;
+      body.dy = 0.012 * s * Math.abs(Math.cos(p)) - 0.015 * sleep;
+      body.sy = 1 + 0.02 * Math.sin(t * 1.7) * (1 - s);
+      // The head looks around at rest, nods over its work and droops asleep.
+      const head = part(out, "dodaios_Head");
+      head.rx = 0.05 * s * Math.sin(2 * p) + 0.16 * sleep + 0.1 * work;
+      head.ry = 0.3 * Math.sin(t * 0.45) * (1 - s) * (1 - sleep) * (1 - work);
+      head.rz = 0.12 * talk * Math.sin(t * 3.2);
+      // The cape streams out behind while walking and stirs a little at rest.
+      const cape = part(out, "dodaios_Cape");
+      cape.rx = 0.5 * s + 0.05 * Math.sin(t * 2.3) + 0.1 * s * Math.sin(2 * p);
+      cape.rz = 0.08 * s * step;
+      // The hood's point bobs a beat behind every step and flicks while it talks.
+      const tip = part(out, "dodaios_Tip");
+      tip.rz = 0.14 * Math.sin(t * 1.9) * (1 - sleep) + 0.2 * s * Math.sin(2 * p - 1.2) - 0.3 * sleep;
+      tip.rx = 0.25 * talk * Math.sin(t * 6);
+      eyes(out, "dodaios", state.blink);
+      break;
+    }
     default:
       break;
   }

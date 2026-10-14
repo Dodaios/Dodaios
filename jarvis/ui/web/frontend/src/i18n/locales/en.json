@@ -8534,6 +8534,9 @@
       },
       "cocoa": {
         "description": "A chocolate Labrador puppy: tilts its head to listen, digs while it works, does zoomies on success."
+      },
+      "dodaios": {
+        "description": "The hooded figure of the logo: the hood's tip perks up to listen, the cape flies on a hop."
       }
     },
     "create_dialog": {

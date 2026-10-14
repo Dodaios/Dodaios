@@ -8655,7 +8655,381 @@ COCOA = PetDesign(
 )
 
 
-PETS: tuple[PetDesign, ...] = (GIGI, MISO, BREW, BOLT, MOCHI, SHELLY, EMBER, COCOA)
+# -- Dodaios: the hooded figure -------------------------------------------------
+#
+# Drawn after the logo (``assets/brand/dodaios-logo.svg``, docs/BRAND.md): a
+# small figure sitting on the ground in black and white, a big pointed hood
+# whose tip flicks out to the right, a dark face with two white oval eyes
+# turned a little to the left, two round feet in front and a cape blown out
+# behind it. The logo has no mouth, so one shows only while it talks, cheers
+# or frets. The hood's tip and the cape carry the body language: the tip
+# perks up to listen and droops asleep, the cape flies on a hop and hangs
+# when the figure is carried.
+
+DODAIOS_INK = hexc("#111114")
+DODAIOS_WHITE = hexc("#f4f4f6")
+DODAIOS_SMOKE = hexc("#c9cdd6")
+DODAIOS_SMOKE_DARK = hexc("#8d95a6")
+#: The left eye is the far one of a face turned a little away: a pixel shorter.
+DODAIOS_EYE_FAR = EyeStyle(w=3, h=5, iris=DODAIOS_WHITE, glint=None, lid=DODAIOS_WHITE)
+DODAIOS_EYE_NEAR = EyeStyle(w=4, h=6, iris=DODAIOS_WHITE, glint=None, lid=DODAIOS_WHITE)
+_DODAIOS_EYE_FAR_AT = (13, 21)
+_DODAIOS_EYE_NEAR_AT = (20, 20)
+#: Brand sparkles: white with a bright core instead of the shared gold.
+DODAIOS_SPARK = {"#": hexc("#d9dbe2"), "o": hexc("#ffffff")}
+
+#: The dark face inside the hood and the white lining around it. The face sits
+#: a touch low and right, so the lining shows as the logo's crescent: widest
+#: at the top left, running out along the top and down the left side.
+_DODAIOS_FACE = frozenset(ellipse(20.3, 23.4, 8.6, 7.0))
+_DODAIOS_LINING = frozenset(
+    p for p in ellipse(19.5, 22.5, 10.2, 8.4) - _DODAIOS_FACE if p[0] <= 22 or p[1] <= 18
+)
+_DODAIOS_GROUND = 44
+_DODAIOS_TORSO = frozenset(p for p in ellipse(22, 38.5, 12.5, 7.5) if p[1] <= _DODAIOS_GROUND)
+_DODAIOS_FEET = (13.0, 21.0)
+
+#: Eyes without pupils look by moving: (dx, dy) of both eyes per look.
+_DODAIOS_LOOKS = {
+    "look_left": (-1, 0),
+    "look_right": (1, 0),
+    "up_left": (-1, -1),
+    "up_right": (1, -1),
+    "down": (-1, 1),
+}
+
+#: Idle over the seven loop cells: the hood's tip twitches, the cape stirs.
+_DODAIOS_IDLE_TIP = (0, 0, 0, -1, -1, 0, 0)
+_DODAIOS_IDLE_CAPE = (0, 0, 1, 1, 0, -1, 0)
+#: Listening: the tip perks up towards the sound and holds.
+_DODAIOS_LISTEN_TIP = (-1, -2, -3, -3, -2, -2)
+#: Thinking: the tip wags slowly up and down.
+_DODAIOS_THINK_TIP = (0, -1, -2, -1, 0, 1, 2, 1)
+#: Success: a lower hop than the shared one (the hood is tall), and the cape
+#: trails it: still rising while the body falls, flapping down on landing.
+_DODAIOS_HOP = (0, -2, -3, -4, -3, -2, 0, 0)
+_DODAIOS_HOP_STRETCH = (-1, 1, 0, 0, 0, 0, -1, 0)
+_DODAIOS_HOP_CAPE = (0, -2, -4, -6, -6, -4, 1, 0)
+#: Talking: the cape lifts a little with the louder mouths.
+_DODAIOS_TALK_CAPE = (0, 0, -1, -2)
+
+
+def dodaios_pose(state: str, i: int) -> Pose:
+    pose = base_pose(state, i)
+    if state in ("thinking", "sleeping", "searching"):
+        return replace(pose, mouth="rest")
+    if state == "success":
+        return Pose(
+            state,
+            i,
+            dy=_DODAIOS_HOP[i],
+            eyes="happy",
+            mouth="smile",
+            stretch=_DODAIOS_HOP_STRETCH[i],
+        )
+    if state == "working":
+        # Shifted right to make room for its laptop; eyes down on the screen.
+        return Pose(state, i, dx=3, dy=WORK_BOB[i], eyes="down", mouth="rest")
+    if state == "held":
+        return Pose(state, i, dx=HELD_SWAY[i], dy=-3, eyes="wide", mouth="open")
+    return pose
+
+
+def _dodaios_hood(tip: int) -> Mask:
+    """The hood; ``tip`` lifts (negative) or droops the flick at its point."""
+    return polygon(
+        [
+            (24, 6),
+            (27.5, 8),
+            (30, 11),
+            (33.5, 12.5 + tip / 2),
+            (39, 11 + tip),
+            (35.5, 14.5 + tip / 2),
+            (32.5, 16.5),
+            (33.5, 21),
+            (32.5, 27),
+            (29, 31.5),
+            (20, 33.5),
+            (11, 31.5),
+            (6, 26),
+            (5.5, 21.5),
+            (7.5, 18.5),
+            (13, 13),
+            (19, 8.5),
+        ]
+    )
+
+
+def _dodaios_cape(lift: int, reach: int) -> Mask:
+    """The cape behind the body; ``lift`` raises its point, ``reach`` pulls it in."""
+    return polygon(
+        [
+            (28, 28),
+            (35, 29 + lift / 2),
+            (43 + reach, 32 + lift),
+            (38.5 + reach / 2, 35.5 + lift / 2),
+            (37, 38.5),
+            (36, 43),
+            (29, 41),
+        ]
+    )
+
+
+def _dodaios_foot(cx: float, drop: int) -> Mask:
+    foot = ellipse(cx, 40.5 + drop, 3.8, 4.4)
+    return {p for p in foot if p[1] <= _DODAIOS_GROUND + drop}
+
+
+def _dodaios_look(pose: Pose) -> tuple[int, int, int, int]:
+    """(hood tip, cape lift, cape reach, feet drop) for this frame."""
+    i = pose.i
+    if pose.act:
+        tips = _DODAIOS_ACT_TIP.get(pose.act)
+        lift = _DODAIOS_GUST_LIFT[i] if pose.act == "cape_gust" else 0
+        return (tips[i] if tips else 0, lift, 0, 0)
+    if pose.state == "idle":
+        if i >= len(_DODAIOS_IDLE_TIP):
+            return (0, 0, 0, 0)
+        return (_DODAIOS_IDLE_TIP[i], _DODAIOS_IDLE_CAPE[i], 0, 0)
+    if pose.state == "listening":
+        return (_DODAIOS_LISTEN_TIP[i], 0, 0, 0)
+    if pose.state == "thinking":
+        return (_DODAIOS_THINK_TIP[i], 0, 0, 0)
+    if pose.state == "talking":
+        return (0, _DODAIOS_TALK_CAPE[i], 0, 0)
+    if pose.state == "success":
+        return (-2 if 1 <= i <= 5 else 0, _DODAIOS_HOP_CAPE[i], 0, 0)
+    if pose.state == "error":
+        return (3, i % 2, 0, 0)
+    if pose.state == "sleeping":
+        return (3, 2, -1, 0)
+    if pose.state == "working":
+        return (0, 1, -3, 0)
+    if pose.state == "held":
+        # Picked up by the hood: the tip is pulled up, cape and feet hang.
+        return (-3, 5, -4, 2)
+    return (0, 0, 0, 0)
+
+
+def _dodaios_eyes(f: Frame, style: str) -> None:
+    if style == "hidden":
+        return
+    dx, dy = _DODAIOS_LOOKS.get(style, (0, 0))
+    shape = "open" if style in _DODAIOS_LOOKS or style == "peek" else style
+    near_x, near_y = _DODAIOS_EYE_NEAR_AT
+    draw_eye(f, shape, near_x + dx, near_y + dy, DODAIOS_EYE_NEAR, right=True)
+    if style == "peek":
+        return  # one eye out from under the hood
+    far_x, far_y = _DODAIOS_EYE_FAR_AT
+    draw_eye(f, shape, far_x + dx, far_y + dy, DODAIOS_EYE_FAR, right=False)
+
+
+_DODAIOS_MOUTHS = {
+    "closed": ("####",),
+    "half": (".##.", ".##."),
+    "open": (".##.", "#..#", ".##."),
+    "wide": ("####", "#..#", "####"),
+    "smile": ("#..#", ".##."),
+    "frown": (".##.", "#..#"),
+}
+
+
+def _dodaios_mouth(f: Frame, style: str) -> None:
+    """White on the dark face, between the eyes; the resting face has none."""
+    if style == "rest":
+        return
+    rows = _DODAIOS_MOUTHS[style]
+    f.paint(from_rows(16, 30 - len(rows), rows), DODAIOS_WHITE)
+
+
+def draw_dodaios(f: Frame, pose: Pose) -> None:
+    tip, lift, reach, drop = _dodaios_look(pose)
+    with f.offset(pose.dx, pose.dy):
+        parts = [_dodaios_cape(lift, reach), set(_DODAIOS_TORSO)]
+        parts += [_dodaios_foot(cx, drop) for cx in _DODAIOS_FEET]
+        parts.append(_dodaios_hood(tip))
+        for mask in parts:
+            f.part(mask, shade(mask, DODAIOS_INK, rim=DODAIOS_WHITE))
+        f.paint(_DODAIOS_LINING, DODAIOS_WHITE)
+        _dodaios_eyes(f, pose.eyes)
+        _dodaios_mouth(f, pose.mouth)
+
+
+def _dodaios_thinking_fx(f: Frame, pose: Pose) -> None:
+    """Three dots beside the hood, hopping up one after the other."""
+    up = pose.i // 2
+    for k in range(3):
+        x, y = 37 + 4 * k, 22 - (2 if k == up else 0)
+        f.part(rect(x, y, x + 1, y + 1), FX_WHITE if k == up else FX_DIM)
+
+
+def _dodaios_success_fx(f: Frame, pose: Pose) -> None:
+    fx_sparkles(f, pose.i, DODAIOS_ANCHORS.sparkles, DODAIOS_SPARK)
+
+
+def _dodaios_working_fx(f: Frame, pose: Pose) -> None:
+    """A laptop at the figure's feet: key ticks above it, code chips rising beside it."""
+    i = pose.i
+    x, y = 4, 34
+    lid = rounded_rect(x, y, x + 11, y + 7, 1)
+    f.part(lid, shade(lid, LAPTOP_LID, light=LAPTOP_LID_LIGHT, dark=LAPTOP_LID, dark_depth=1))
+    f.paint(rect(x + 5, y + 3, x + 6, y + 4), LAPTOP_LOGO if i % 4 != 3 else LAPTOP_LID_LIGHT)
+    base = rect(x - 2, y + 8, x + 13, y + 9)
+    f.part(base, {p: (LAPTOP_BASE if p[1] == y + 8 else LAPTOP_BASE_DARK) for p in base})
+    ticks = _KEY_TICKS[i % len(_KEY_TICKS)]
+    if ticks:
+        f.paint(rect(x + 2, y - 1, x + 9, y - 1), SCREEN_GLOW)
+    for dx, dy in ticks:
+        tx = x + min(dx, 10)
+        f.paint({(tx, y + dy - 1), (tx, y + dy - 2)}, FX_WHITE)
+    glyph = _CODE_GLYPHS[(i // 4) % len(_CODE_GLYPHS)]
+    f.glyph(1, y - 5 - 2 * (i % 4), glyph, {"#": CODE_CHIP})
+
+
+def _dodaios_held_fx(f: Frame, pose: Pose) -> None:
+    """Swing streaks on the side the dangling figure just left."""
+    moving = HELD_SWAY[pose.i] - HELD_SWAY[pose.i - 1]
+    if not moving:
+        return
+    x, step = (4, -2) if moving > 0 else (44, 2)
+    f.paint(line(x, 28, x, 33) | line(x + step, 29, x + step, 32), ARC_FADE)
+
+
+# Dodaios's idle acts: a gust takes the cape, the hood comes down over the
+# eyes, a look around, a smoke bomb, and nodding off for a second.
+
+_DODAIOS_GUST_LIFT = (0, -2, -5, -7, -7, -5, -2, 0)
+#: Hood tip per act frame.
+_DODAIOS_ACT_TIP = {
+    "cape_gust": (0, -1, -2, -3, -3, -2, -1, 0),
+    "peekaboo": (0, 1, 2, 2, 2, 1, -2, 0),
+    "look_around": (1, 1, 0, -1, -1, -2, -2, 0),
+    "nod_off": (0, 1, 2, 3, 4, -3, -1, 0),
+}
+_DODAIOS_PEEK_EYES = ("open", "closed", "hidden", "hidden", "peek", "peek", "wide", "open")
+_DODAIOS_PEEK_STRETCH = (0, -1, -1, -1, -1, 0, 1, 0)
+_DODAIOS_AROUND_EYES = (
+    "look_left",
+    "look_left",
+    "open",
+    "look_right",
+    "look_right",
+    "up_right",
+    "up_left",
+    "open",
+)
+_DODAIOS_AROUND_DX = (-1, -1, 0, 1, 1, 0, 0, 0)
+_DODAIOS_NOD_EYES = ("open", "down", "closed", "sleep", "sleep", "wide", "open", "open")
+_DODAIOS_NOD_STRETCH = (0, 0, -1, -1, -1, 1, 0, 0)
+#: Smoke bomb: how far the figure has dithered away per frame (16 = gone).
+_DODAIOS_VANISH = (0, 0, 6, 12, 20, 12, 6, 0)
+#: The smoke per frame as (cx, cy, r) puffs: it bursts at the feet, swallows
+#: the figure, then thins out upwards.
+_DODAIOS_PUFFS: dict[int, tuple[tuple[float, float, float], ...]] = {
+    1: ((22, 40, 3.0),),
+    2: ((14, 38, 4.0), (28, 37, 4.5), (21, 32, 4.0)),
+    3: ((11, 34, 5.0), (30, 33, 5.5), (20, 26, 6.0), (22, 40, 5.0)),
+    4: ((8, 30, 3.5), (34, 28, 4.0), (20, 20, 4.5)),
+    5: ((6, 26, 2.0), (37, 23, 2.5), (20, 15, 2.5)),
+}
+#: Wind streaks of the gust as (y, first x, last x, frames it shows in): one
+#: in front of the figure, two that have passed it.
+_DODAIOS_GUSTS = ((9, 1, 12, (1, 2, 3)), (33, 1, 7, (2, 3, 4)), (22, 36, 46, (3, 4, 5, 6)))
+
+
+def _dodaios_gust_pose(i: int) -> Pose:
+    return Pose("idle", i, eyes="look_right" if 2 <= i <= 5 else "open")
+
+
+def _dodaios_gust_fx(f: Frame, pose: Pose) -> None:
+    for y, x0, x1, frames in _DODAIOS_GUSTS:
+        if pose.i not in frames:
+            continue
+        head = x0 + (x1 - x0) * frames.index(pose.i) // (len(frames) - 1)
+        f.paint(rect(max(x0, head - 4), y, head, y), FX_DIM)
+
+
+def _dodaios_peek_pose(i: int) -> Pose:
+    return Pose("idle", i, eyes=_DODAIOS_PEEK_EYES[i], stretch=_DODAIOS_PEEK_STRETCH[i])
+
+
+def _dodaios_around_pose(i: int) -> Pose:
+    return Pose("idle", i, dx=_DODAIOS_AROUND_DX[i], eyes=_DODAIOS_AROUND_EYES[i])
+
+
+def _dodaios_smoke_pose(i: int) -> Pose:
+    return Pose("idle", i, eyes="wide" if i in (1, 6) else "open")
+
+
+def _dodaios_smoke_fx(f: Frame, pose: Pose) -> None:
+    for cx, cy, r in _DODAIOS_PUFFS.get(pose.i, ()):
+        puff = ellipse(cx, cy, r, r)
+        f.part(
+            puff, shade(puff, DODAIOS_SMOKE, light=FX_WHITE, dark=DODAIOS_SMOKE_DARK, dark_depth=1)
+        )
+
+
+def _dodaios_nod_pose(i: int) -> Pose:
+    return Pose("idle", i, eyes=_DODAIOS_NOD_EYES[i], stretch=_DODAIOS_NOD_STRETCH[i])
+
+
+def _dodaios_nod_fx(f: Frame, pose: Pose) -> None:
+    """A single z while it dozes, a start when it catches itself."""
+    if pose.i in (3, 4):
+        f.glyph(38, 24 - 3 * (pose.i - 3), _Z_SMALL, _Z_PALETTE)
+    elif pose.i == 5:
+        f.paint(line(38, 21, 41, 19) | line(38, 25, 42, 25), ARC)
+
+
+def dodaios_post(img: Image.Image, pose: Pose) -> Image.Image:
+    if pose.act == "smoke_bomb" and _DODAIOS_VANISH[pose.i]:
+        return gigi_vanish(img, _DODAIOS_VANISH[pose.i])
+    return img
+
+
+DODAIOS_ACTS = (
+    IdleAct("cape_gust", 8, 9, _dodaios_gust_pose, _dodaios_gust_fx),
+    IdleAct("peekaboo", 8, 6, _dodaios_peek_pose),
+    IdleAct("look_around", 8, 5, _dodaios_around_pose),
+    IdleAct("smoke_bomb", 8, 8, _dodaios_smoke_pose, _dodaios_smoke_fx),
+    IdleAct("nod_off", 8, 5, _dodaios_nod_pose, _dodaios_nod_fx),
+)
+
+DODAIOS_ANCHORS = Anchors(
+    arcs_left=(9, 12),
+    arcs_right=(36, 22),
+    dots=(19, 4),
+    zzz=(2, 14),
+    bang=(41, 2),
+    sweat=(4, 9),
+    sparkles=((4, 12, 1), (43, 22, 2), (5, 36, 3), (44, 42, 3)),
+    magnifier=(21, 35),
+)
+
+DODAIOS = PetDesign(
+    id="dodaios",
+    name="Dodaios",
+    description=(
+        "The hooded figure of the logo: its hood tip perks up to listen, its cape flies on a hop."
+    ),
+    draw=draw_dodaios,
+    pose=dodaios_pose,
+    anchors=DODAIOS_ANCHORS,
+    # Between the hood's lower edge and the feet: a breath lifts the head and
+    # leaves the feet planted.
+    waist=36,
+    post=dodaios_post,
+    fx={
+        "thinking": _dodaios_thinking_fx,
+        "success": _dodaios_success_fx,
+        "working": _dodaios_working_fx,
+        "held": _dodaios_held_fx,
+    },
+    acts=DODAIOS_ACTS,
+)
+
+
+PETS: tuple[PetDesign, ...] = (GIGI, MISO, BREW, BOLT, MOCHI, SHELLY, EMBER, COCOA, DODAIOS)
 
 
 # ---------------------------------------------------------------------------

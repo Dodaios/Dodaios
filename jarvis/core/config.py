@@ -2174,11 +2174,14 @@ class UIConfig(BaseModel):
     # (see surface_security.open_access_granted). Toggled live from
     # Settings → API Keys → Control Key.
     require_browser_login: bool = False
-    # On-screen overlay style: "jarvis_bar" (slim default), "mascot" (the ghost
-    # mascot), "voice_orb" (the procedural weather sphere — the desktop twin of
-    # the in-app orb), or "none". One list: jarvis.ui.overlay_styles.
+    # On-screen overlay style: "jarvis_bar" (slim default), "mascot" (the
+    # hooded figure of the logo, shown as the built-in Dodaios pet), "pet" (the
+    # pet chosen under My Pets), "voice_orb" (the procedural weather sphere —
+    # the desktop twin of the in-app orb), or "none". One list:
+    # jarvis.ui.overlay_styles.
     orb_style: str = "jarvis_bar"
-    # Optional explicit path to the mascot PNG. Empty = search for default asset.
+    # Optional own mascot PNG. Set, the mascot style shows that still picture
+    # for a conversation instead of the pet. Empty = the pet.
     orb_mascot_path: str = ""
     # Jarvis bar: persistent (always-visible dots pill) vs only-when-active.
     bar_persistent: bool = True

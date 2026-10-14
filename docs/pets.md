@@ -2,9 +2,16 @@
 
 A desktop pet is an animated pixel-art companion that floats on the desktop
 while Jarvis runs. It is the overlay style `pet`, an alternative to the slim
-Jarvis bar (`jarvis_bar`), the Gigi mascot (`mascot`) and the voice orb
-(`voice_orb`). Users pick the style and the pet under
-**Settings → My Pets**.
+Jarvis bar (`jarvis_bar`) and the voice orb (`voice_orb`). Users pick the
+style and the pet under **Settings → My Pets**.
+
+The style `mascot` is a pet as well: it always shows the built-in `dodaios`
+pet, the hooded figure of the logo (`MASCOT_PET_ID` in
+`jarvis/ui/overlay_styles.py`), with everything on this page: the states, the
+control strip, the thought bubble and the cards. The pet chosen under My Pets
+is kept and shows again once the style is `pet`. Only an own picture
+(`[ui] orb_mascot_path`) makes the mascot a still image that pops up for a
+conversation.
 
 The pet sits in the same frameless, always-on-top window as the mascot and the
 voice orb (`ui/orb/overlay.py`, `OrbOverlay`). Switching between those three
@@ -55,7 +62,8 @@ one click.
 - **In the Jarvis Verse.** The chosen pet is also Jarvis in the office map:
   a 3D version of it walks, crawls, hops or flies behind the person's
   character (`docs/agent-society/office-map.md`, *Jarvis is the person's
-  pet*). A pet the person drew becomes a voxel figure cut from its idle
+  pet*). While the mascot is the display style, the mascot's pet walks
+  there. A pet the person drew becomes a voxel figure cut from its idle
   frames.
 - **Worn by an agent.** In an agent's look dialog (*Companion → Look →
   Pet*) any pet from My Pets can replace the agent's shape. It is stored as
@@ -278,6 +286,7 @@ committed PNGs match the script). User-created pets live in
 | `shelly` | Shelly | A snail: the shell spins while thinking, it withdraws to sleep |
 | `ember` | Ember | A baby dragon: smoke rings while thinking, a fire breath on success, a sooty cough on errors, naps in its eggshell |
 | `cocoa` | Cocoa | A chocolate Labrador puppy: tilts its head to listen, digs while it works, sniffs along a scent trail while searching, does zoomies on success, droops its ears on errors and naps in its dog bed |
+| `dodaios` | Dodaios | The hooded figure of the logo in black and white: the hood's tip perks up to listen and droops asleep, three dots hop beside it while it thinks, the cape trails a hop on success, it types on a laptop at its feet, and hangs by the hood with dangling feet when it is carried |
 
 ## Adding a pet
 

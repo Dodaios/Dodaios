@@ -44,6 +44,7 @@ from typing import IO, Any
 # hand-copied predecessor is precisely why ``show("dictate")`` was a silent
 # no-op on the macOS surface for weeks (AP-4 / BUG-008).
 from jarvis.ui.jarvisbar.modes import MODES as _MODES
+from jarvis.ui.overlay_styles import PERSISTENT_ORB_STYLES
 
 log = logging.getLogger("jarvis.ui.jarvisbar")
 
@@ -621,7 +622,7 @@ class SubprocessBarOverlay:
 
         # Same source names as the in-process orb window, so the pipeline's
         # VoiceSpeakerMuteChanged says which control the user pressed.
-        source = "pet" if getattr(self, "_style", "") == "pet" else "orb"
+        source = "pet" if self._shows_pet() else "orb"
         result = toggle_speaker_mute(source=source)
         if result is None:
             log.debug("orb speaker toggle had no live pipeline in the parent")
@@ -767,13 +768,19 @@ class SubprocessMascotOverlay(SubprocessBarOverlay):
 
     @property
     def wants_status_lines(self) -> bool:
-        """True when the hosted window is the pet, which shows status lines."""
-        return self._style == "pet"
+        """True when the hosted window is a pet (the mascot is one): it shows status lines."""
+        return self._shows_pet()
 
     @property
     def keeps_visible_when_idle(self) -> bool:
-        """True when the hosted window is the pet, which stays up while idle."""
-        return self._style == "pet"
+        """True when the hosted window is a pet (the mascot is one): it stays up at idle."""
+        return self._shows_pet()
+
+    def _shows_pet(self) -> bool:
+        """Mirror of ``OrbOverlay``: a configured mascot image stays the still picture."""
+        if self._style == "mascot" and self._mascot_path:
+            return False
+        return self._style in PERSISTENT_ORB_STYLES
 
     @property
     def pet_user_hidden(self) -> bool:
