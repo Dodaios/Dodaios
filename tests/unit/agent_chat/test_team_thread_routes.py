@@ -113,7 +113,7 @@ def test_seats_lists_what_can_sit_in_a_team(client: TestClient) -> None:
         "claude-api", "openai-codex", "antigravity",
     ]
     assert body["min_members"] == 2
-    assert body["max_members"] == 4
+    assert body["max_members"] == 8
     assert len(body["seats"]) == len(ROWS)
 
 
