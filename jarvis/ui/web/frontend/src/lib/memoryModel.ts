@@ -122,6 +122,24 @@ export const MISSING_SCHEME = "#memory-missing:";
 
 const WIKILINK_RE = /(!?)\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g;
 const COMMENT_RE = /<!--[\s\S]*?-->/g;
+
+/**
+ * Remove HTML comments (notebook entry bookkeeping) completely.
+ *
+ * One pass can leave a comment opener behind when comments are nested or
+ * split (`<!<!-- -->-- x -->`), so this repeats until nothing changes and then
+ * drops any opener that never closed. The renderer shows no raw HTML anyway;
+ * this keeps the text itself clean.
+ */
+export function stripComments(text: string, replacement = ""): string {
+  let current = text;
+  for (;;) {
+    const next = current.replace(COMMENT_RE, replacement);
+    if (next === current) break;
+    current = next;
+  }
+  return current.split("<!--").join(replacement);
+}
 const HEADING_RE = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
 const FENCE_RE = /^\s{0,3}(```|~~~)/;
 const EMPTY_BULLET_RE = /^\s*(?:[-*+]|\d+[.)])\s*(?:\[[ xX]?\]\s*)?$/;
@@ -149,7 +167,7 @@ export function prepareBody(body: string, title: string, outgoing: OutgoingRef[]
   const resolved = new Map<string, OutgoingRef>();
   for (const link of outgoing) resolved.set(linkKey(link.raw), link);
 
-  let text = body.replace(COMMENT_RE, "").replace(/\r\n/g, "\n");
+  let text = stripComments(body).replace(/\r\n/g, "\n");
   text = stripLeadingTitle(text, title);
   text = pruneEmptySections(text);
   // An embed (`![[page]]`) reads as a plain link here: the reader shows one
@@ -222,8 +240,7 @@ export function pruneEmptySections(body: string): string {
 
 /** Notebook entries keep their own Markdown; this flattens one for a list row. */
 export function plainText(markdown: string, max = 200): string {
-  const text = markdown
-    .replace(COMMENT_RE, " ")
+  const text = stripComments(markdown, " ")
     .replace(WIKILINK_RE, (_m, _e, target: string, alias?: string) => alias ?? displayOf(target))
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[#*_`>]+/g, "")
