@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { brainValue, splitBrainValue } from "@/components/agentchat/AgentComposer";
 import { ComposerBrainPicker, type BrainSection } from "@/components/agentchat/ComposerBrainPicker";
 import { AgentMark } from "@/components/agentic/AgentMark";
+import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { isUnguardedPermissionMode, permissionModeIcon } from "@/components/agentchat/permissionIcons";
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
 import { useT } from "@/i18n";
@@ -33,6 +34,16 @@ export function agentName(provider: Pick<ProviderOption, "agent" | "label">): st
     case "codex": return "Codex";
     default: return provider.label;
   }
+}
+
+/**
+ * A row's own mark: a coding agent's, or the provider's logo for a seat that
+ * is an API behind a key. Never a letter in a box.
+ */
+function ProviderMark({ provider }: { provider: ProviderOption }) {
+  return provider.agent
+    ? <AgentMark agent={provider.agent} label={provider.label} logoUrl={provider.logoUrl} variant="plain" size="sm" />
+    : <ProviderLogo providerId={provider.id} label={provider.label} size="sm" />;
 }
 
 const EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
@@ -74,7 +85,7 @@ export function AgentModelPicker({
     const locked = lockedProvider !== null && provider.id !== lockedProvider;
     const disabled = !provider.connected || locked;
     const hint = locked ? newThreadHint : !provider.connected ? (provider.cli_installed === false ? notInstalledHint : connectFirstHint) : undefined;
-    const icon = <AgentMark agent={provider.agent ?? ""} label={provider.label} logoUrl={provider.logoUrl} variant="plain" size="sm" />;
+    const icon = <ProviderMark provider={provider} />;
     // Whose model a row is, on a quiet second line under its name.
     const owner = (note?: string) => <span className="inline-flex min-w-0 items-center gap-1.5">
       <span className="inline-flex shrink-0 scale-[0.86]">{icon}</span>
@@ -109,7 +120,7 @@ export function AgentModelPicker({
     family: provider.family,
     access: provider.keyless ? "local" : isApiRunner(provider.runner) ? "api" : "subscription",
     label: agentName(provider),
-    icon: <AgentMark agent={provider.agent ?? ""} label={provider.label} logoUrl={provider.logoUrl} variant="plain" size="sm" />,
+    icon: <ProviderMark provider={provider} />,
     muted: !provider.connected || (lockedProvider !== null && provider.id !== lockedProvider),
   })), [providers, lockedProvider]);
   const pickedIcon = providers.find((provider) => provider.id === draft.provider);
@@ -117,7 +128,7 @@ export function AgentModelPicker({
     value={brainValue(draft.provider, draft.model)} groups={groups} sections={sections} currentSection={draft.provider}
     onChange={(value) => { const [provider, model] = splitBrainValue(value); onPick(provider, model); }}
     fallbackLabel={draft.model || (providers.length ? t("ide_threads.choose_agent") : t("ide_threads.loading_agents"))} searchPlaceholder={t("ide_threads.search_agents_models")}
-    triggerPrefix={pickedIcon ? <AgentMark agent={pickedIcon.agent ?? ""} label={pickedIcon.label} logoUrl={pickedIcon.logoUrl} variant="plain" size="sm" /> : undefined} />;
+    triggerPrefix={pickedIcon ? <ProviderMark provider={pickedIcon} /> : undefined} />;
 }
 
 export function EffortPicker({ provider, draft, liveModels, onPick, separated = false }: {

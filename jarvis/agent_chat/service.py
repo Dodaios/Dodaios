@@ -1447,6 +1447,13 @@ class AgentChatService:
             )
 
             bus = self._bus()
+            # A plain chat's system prompt is the surface's own. Written per
+            # turn, so its workspace notes follow the session's folder.
+            plain_system = (
+                await kit.plain_chat(session, text, self._assistant_name())
+                if kit.plain_chat is not None
+                else ""
+            )
             handle = TurnHandle(
                 session=session,
                 turn_id=turn_id,
@@ -1456,6 +1463,8 @@ class AgentChatService:
                 ),
                 cancel=cancel,
                 history=history,
+                tools_disabled=kit.plain,
+                plain_system=plain_system,
                 assistant_name=self._assistant_name(),
                 bus=bus,
                 surface=session.surface,

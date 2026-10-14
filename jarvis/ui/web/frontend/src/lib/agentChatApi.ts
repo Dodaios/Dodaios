@@ -144,7 +144,7 @@ export async function fetchVoiceChat(): Promise<VoiceChatBinding> {
  * (``jarvis/agent_chat/surface_kits.py``): the front page, the coding
  * agents, and the Local models section's setup assistant.
  */
-export type AgentChatSurface = "jarvis" | "agent" | "local-models" | "society";
+export type AgentChatSurface = "jarvis" | "agent" | "local-models" | "society" | "side";
 
 export interface AgentChatSession {
   session_id: string;
