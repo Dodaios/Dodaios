@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TeamThread } from "@/lib/teamThreadsApi";
 import { plainCommand } from "./memberLive";
-import { buildGraph, exchangeLabel, exchangesBetween, latestExchange, withShortNames, YOU, type TeamGraph } from "./teamGraph";
+import { buildGraph, canvasLines, exchangeLabel, exchangesBetween, latestExchange, withShortNames, YOU, type TeamGraph } from "./teamGraph";
 
 type Member = TeamThread["members"][number];
 const member = (id: string, name: string, extra: Partial<Member> = {}): Member => ({
@@ -139,6 +139,19 @@ describe("the team graph", () => {
     expect(buildGraph(next).edges.filter((line) => line.tier === "live").map((line) => line.id)).toEqual(["m1->m2"]);
   });
 
+  it("draws both directions as one two-way line where they carried the same", () => {
+    const challenge: TeamThread = { ...base, phase: "challenge", members: base.members.slice(0, 2), entries: peers.entries.slice(0, 3) };
+    const drawn = canvasLines(buildGraph(challenge));
+    // The two own plans crossed: one line both ways, counted once per plan.
+    expect(drawn.map((item) => [item.line.id, item.partner?.id ?? null, item.count])).toEqual(
+      expect.arrayContaining([["m1->m2", "m2->m1", 2]]),
+    );
+    // A vote back is not the plan that went out: two lines.
+    const voted = canvasLines(buildGraph({ ...peers, phase: "converge", rounds: { plan: 1, review: 0 }, entries: peers.entries.slice(0, 9) }));
+    expect(voted.find((item) => item.line.id === "m2->m1")?.partner).toBeNull();
+    expect(voted.find((item) => item.line.id === "m1->m2")?.partner).toBeNull();
+  });
+
   it("puts what went across into words", () => {
     const say = (kind: string, payload: object, round = 0) => {
       const graph = buildGraph({ ...base, phase: "done", state: "done", entries: [entry(1, "user", "user", { text: "x" }, "draft"), entry(2, kind, "m1", payload, "review", round)] });
@@ -175,5 +188,6 @@ describe("the team graph", () => {
     expect(plainCommand(String.raw`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Command "pytest -q"`)).toBe("pytest -q");
     expect(plainCommand("bash -lc 'ls -la'")).toBe("ls -la");
     expect(plainCommand("git status")).toBe("git status");
+    expect(plainCommand(String.raw`"C:\pwsh.exe" -Command "Get-ChildItem -Force; Write-Output …`)).toBe("Get-ChildItem -Force; Write-Output …");
   });
 });

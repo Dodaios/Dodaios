@@ -66,12 +66,16 @@ export interface TeamGraph {
 export const MEMBER_NODE = { width: 248, height: 88 } as const;
 export const YOU_NODE = { width: 176, height: 48 } as const;
 
-/** Member centres per team size: a pair side by side, three as a triangle, four as a square. */
+/**
+ * Member centres per team size: a pair side by side, three as a triangle, four
+ * as a trapezoid whose lower pair sits inside the upper one, so the person's
+ * lines to it pass between the upper members rather than through them.
+ */
 const SPOTS: Record<number, [number, number][]> = {
   1: [[0, 200]],
   2: [[-200, 200], [200, 200]],
   3: [[-230, 190], [230, 190], [0, 410]],
-  4: [[-230, 190], [230, 190], [-230, 420], [230, 420]],
+  4: [[-340, 190], [340, 190], [-170, 430], [170, 430]],
 };
 
 export const edgeId = (from: string, to: string) => `${from}->${to}`;
@@ -279,6 +283,44 @@ export function buildGraph(thread: TeamThread): TeamGraph {
     })),
   ];
   return { nodes, edges: [...edges.values()].filter((line) => line.exchanges.length > 0) };
+}
+
+const TIER_RANK: Record<EdgeTier, number> = { past: 0, current: 1, live: 2 };
+
+/** What the canvas draws: a line, or both directions of a pair as one. */
+export interface CanvasLine {
+  /** The line a click opens (its exchange view shows both directions anyway). */
+  line: GraphEdge;
+  /** The other direction, when this one line stands for both. */
+  partner: GraphEdge | null;
+  tier: EdgeTier;
+  count: number;
+}
+
+/**
+ * The lines to draw. When both directions between two nodes last carried the
+ * same kind of thing at the same moment of the work (everyone sending everyone
+ * their own plan), they are one straight two-way line with one label, instead
+ * of two bows saying the same twice.
+ */
+export function canvasLines(graph: TeamGraph): CanvasLine[] {
+  const byId = new Map(graph.edges.map((line) => [line.id, line]));
+  const out: CanvasLine[] = [];
+  const done = new Set<string>();
+  for (const line of graph.edges) {
+    if (done.has(line.id)) continue;
+    done.add(line.id);
+    const back = byId.get(edgeId(line.to, line.from));
+    const mine = latestExchange(line);
+    const theirs = back ? latestExchange(back) : null;
+    if (back && mine && theirs && mine.kind === theirs.kind && mine.tone === theirs.tone && line.tier === back.tier) {
+      done.add(back.id);
+      out.push({ line, partner: back, tier: line.tier, count: line.exchanges.length + back.exchanges.length });
+    } else {
+      out.push({ line, partner: null, tier: line.tier, count: line.exchanges.length });
+    }
+  }
+  return out.sort((left, right) => TIER_RANK[left.tier] - TIER_RANK[right.tier]);
 }
 
 /** The newest exchange of a line, which its label names. */

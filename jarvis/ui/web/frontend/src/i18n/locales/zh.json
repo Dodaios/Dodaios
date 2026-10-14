@@ -9777,7 +9777,8 @@
       "answer_in_thread": "在其线程中回答",
       "exchange_count_one": "{count} 次传递",
       "exchange_count_other": "{count} 次传递",
-      "members_count": "{count} 名成员"
+      "members_count": "{count} 名成员",
+      "to_all": "所有人"
     },
     "graph": {
       "task": "任务",
