@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TimelineItem, TurnBlock, TurnItem, TurnStatus } from "@/components/agentchat/reduce";
+import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 import { SideChatTab } from "./SideChatTab";
 import { useSideChatStore } from "./sideChatStore";
@@ -48,6 +49,7 @@ function seed(items: TimelineItem[], extra: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   localStorage.clear();
+  useEventStore.setState({ dictating: false });
   useIdeChatStore.setState({ workspace: null });
 });
 
@@ -88,6 +90,19 @@ describe("SideChatTab", () => {
     expect(input.value).toBe("");
   });
 
+  it("stops an answer that is still coming on Escape", () => {
+    const { cancel } = seed([USER, turn([], "running")]);
+    render(<SideChatTab />);
+    fireEvent.keyDown(screen.getByTestId("side-chat-input"), { key: "Escape" });
+    expect(cancel).toHaveBeenCalledWith("side-chat-escape");
+  });
+
+  it("puts the cursor in the box when the chat opens", () => {
+    seed([]);
+    render(<SideChatTab />);
+    expect(document.activeElement).toBe(screen.getByTestId("side-chat-input"));
+  });
+
   it("puts a message that never left back into the box", async () => {
     seed([], { send: vi.fn(async () => "failed" as const) });
     render(<SideChatTab />);
@@ -106,7 +121,7 @@ describe("SideChatTab", () => {
     expect(screen.getByText("Make the login form accessible.")).toBeTruthy();
     // An answer offers Copy and nothing that reaches into the IDE.
     expect(screen.queryByTestId("side-chat-send-to-terminal")).toBeNull();
-    const fold = screen.getByTestId("thread-worked-for");
+    const fold = screen.getByTestId("chat-thought-toggle");
     expect(fold.textContent).toContain("Thought for 3.0s");
     // The thought itself is one click away, not in the way.
     expect(screen.queryByText("The person wants a goal, not steps.")).toBeNull();
@@ -118,7 +133,7 @@ describe("SideChatTab", () => {
     const { cancel } = seed([USER, turn([], "running")]);
     render(<SideChatTab />);
 
-    expect(screen.getByTestId("thread-working").textContent).toContain("Thinking for");
+    expect(screen.getByRole("status").textContent).toContain("Thinking");
     fireEvent.click(screen.getByTestId("side-chat-stop"));
     expect(cancel).toHaveBeenCalled();
   });
@@ -134,5 +149,32 @@ describe("SideChatTab", () => {
     render(<SideChatTab />);
     fireEvent.change(screen.getByTestId("side-chat-input"), { target: { value: "next question" } });
     expect(screen.getByTestId("side-chat-stop")).toBeTruthy();
+  });
+
+  it("offers the dictation mic beside Send", () => {
+    seed([]);
+    render(<SideChatTab />);
+    expect(screen.getByRole("button", { name: "Dictate" })).toBeTruthy();
+  });
+
+  it("puts dictated words into the box, after what was typed", () => {
+    seed([]);
+    render(<SideChatTab />);
+    const input = screen.getByTestId("side-chat-input") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "Question:" } });
+
+    act(() => {
+      const seq = useEventStore.getState().dictationCommitSeq + 1;
+      useEventStore.setState({ dictationCommitText: "why is the sky blue", dictationCommitSeq: seq });
+    });
+
+    expect(input.value).toBe("Question: why is the sky blue");
+  });
+
+  it("can send while dictating, before anything is in the box", () => {
+    seed([]);
+    useEventStore.setState({ dictating: true });
+    render(<SideChatTab />);
+    expect((screen.getByTestId("side-chat-send") as HTMLButtonElement).disabled).toBe(false);
   });
 });
