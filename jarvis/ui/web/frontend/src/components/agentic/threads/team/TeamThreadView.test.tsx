@@ -155,7 +155,8 @@ it("unfolds a contribution of the story in place", async () => {
   fireEvent.click(within(first).getByRole("button"));
   const body = within(first).getByTestId("team-entry-body");
   expect(within(body).getByText("backoff").tagName).toBe("STRONG");
-  fireEvent.click(within(first).getByRole("button"));
+  // The open entry's code block brings its own Copy button; fold by the entry's toggle.
+  fireEvent.click(within(first).getByRole("button", { expanded: true }));
   expect(within(first).queryByTestId("team-entry-body")).toBeNull();
 });
 
