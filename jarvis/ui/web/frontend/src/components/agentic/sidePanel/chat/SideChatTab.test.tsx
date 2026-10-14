@@ -106,7 +106,7 @@ describe("SideChatTab", () => {
     expect(screen.getByText("Make the login form accessible.")).toBeTruthy();
     // An answer offers Copy and nothing that reaches into the IDE.
     expect(screen.queryByTestId("side-chat-send-to-terminal")).toBeNull();
-    const fold = screen.getByTestId("thread-worked-for");
+    const fold = screen.getByTestId("chat-thought-toggle");
     expect(fold.textContent).toContain("Thought for 3.0s");
     // The thought itself is one click away, not in the way.
     expect(screen.queryByText("The person wants a goal, not steps.")).toBeNull();
@@ -118,7 +118,7 @@ describe("SideChatTab", () => {
     const { cancel } = seed([USER, turn([], "running")]);
     render(<SideChatTab />);
 
-    expect(screen.getByTestId("thread-working").textContent).toContain("Thinking for");
+    expect(screen.getByRole("status").textContent).toContain("Thinking");
     fireEvent.click(screen.getByTestId("side-chat-stop"));
     expect(cancel).toHaveBeenCalled();
   });
