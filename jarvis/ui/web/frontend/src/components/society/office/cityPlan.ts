@@ -111,6 +111,7 @@ export interface Beacon {
 }
 
 export interface CityPlan {
+  /** The building's middle (the plaza's centre); the street grid runs on absolute multiples of `CITY.cell`. */
   centre: { x: number; z: number };
   towers: Tower[];
   lanes: Lane[];
@@ -140,15 +141,32 @@ export function roofLimit(edgeDistance: number): number {
   return CITY.nearRoof - nearness * CITY.nearDrop;
 }
 
+/**
+ * The city's anchor: the grid line nearest the building's middle. The city is laid out from it and every lot
+ * draws its own random numbers from its absolute grid cell, so a floor that grows or shrinks by a few metres
+ * keeps the same city round it (only the plaza and the roof limits follow the new edge).
+ */
+export function cityAnchor(bounds: Rect): { x: number; z: number; i: number; j: number } {
+  const i = Math.round((bounds.minX + bounds.maxX) / 2 / CITY.cell), j = Math.round((bounds.minZ + bounds.maxZ) / 2 / CITY.cell);
+  return { x: i * CITY.cell, z: j * CITY.cell, i, j };
+}
+
+/** A lot's own random numbers, from its absolute grid cell. */
+function lotRandom(i: number, j: number): () => number {
+  let h = Math.imul(i, 0x27d4eb2d) ^ Math.imul(j, 0x165667b1) ^ 0x5ec7a1;
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  return lcg(h ^ (h >>> 13));
+}
+
 export function singularityPosition(bounds: Rect): { x: number; y: number; z: number } {
-  const cx = (bounds.minX + bounds.maxX) / 2, cz = (bounds.minZ + bounds.maxZ) / 2;
+  const { x: cx, z: cz } = cityAnchor(bounds);
   const [bx, bz] = SINGULARITY.bearing, len = Math.hypot(bx, bz);
   return { x: cx + (bx / len) * SINGULARITY.distance, y: SINGULARITY.y, z: cz + (bz / len) * SINGULARITY.distance };
 }
 
-/** The half width of the street on a grid line: avenues on every `avenueEvery`-th line. */
+/** The half width of the street on an (absolute) grid line: avenues on every `avenueEvery`-th line. */
 function streetHalf(line: number): number {
-  return line % CITY.avenueEvery === 0 ? CITY.avenue : CITY.street;
+  return ((line % CITY.avenueEvery) + CITY.avenueEvery) % CITY.avenueEvery === 0 ? CITY.avenue : CITY.street;
 }
 
 /** How many traffic lanes circle the building, and the room a lane keeps above the roofs beneath it. */
@@ -172,7 +190,9 @@ function roofCap(x: number, z: number, reach: number, bounds: Rect, lanes: reado
 
 export function planCity(bounds: Rect): CityPlan {
   const rand = lcg(0x5ec7a1);
-  const cx = (bounds.minX + bounds.maxX) / 2, cz = (bounds.minZ + bounds.maxZ) / 2;
+  const anchor = cityAnchor(bounds), cx = anchor.x, cz = anchor.z;
+  // The building's own middle: the plaza and the traffic circle it, the street grid hangs off the anchor.
+  const bx = (bounds.minX + bounds.maxX) / 2, bz = (bounds.minZ + bounds.maxZ) / 2;
   const sing = singularityPosition(bounds);
 
   // Flying traffic first, so the towers under it can stay below it: ellipses round the building, high over the
@@ -181,11 +201,12 @@ export function planCity(bounds: Rect): CityPlan {
   const half = Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) / 2;
   for (let i = 0; i < BUILDING_LANES; i += 1) {
     const r = half + CITY.clear + 18 + i * 34 + rand() * 12;
-    const squash = 0.82 + rand() * 0.3;
-    const rx = r, rz = r * squash;
+    // An ellipse no narrower than r in either direction, so no lane cuts across the plaza.
+    const stretch = 1 + rand() * 0.3;
+    const [rx, rz] = i % 2 === 0 ? [r * stretch, r] : [r, r * stretch];
     const y = -62 - rand() * 34;
     const dir = i % 2 === 0 ? 1 : -1;
-    lanes.push({ cx: cx + (rand() - 0.5) * 18, cz: cz + (rand() - 0.5) * 18, rx, rz, y, omega: (dir * (16 + rand() * 10)) / r, cars: Math.round((2 * Math.PI * r) / 18), bob: 1 + rand() * 2.5 });
+    lanes.push({ cx: bx + (rand() - 0.5) * 12, cz: bz + (rand() - 0.5) * 12, rx, rz, y, omega: (dir * (16 + rand() * 10)) / r, cars: Math.round((2 * Math.PI * r) / 18), bob: 1 + rand() * 2.5 });
   }
   const buildingLanes = [...lanes];
   for (let i = 0; i < 3; i += 1) {
@@ -194,17 +215,19 @@ export function planCity(bounds: Rect): CityPlan {
   }
 
   const towers: Tower[] = [];
-  const cell = CITY.cell, span = Math.ceil(CITY.radius / cell);
+  const cell = CITY.cell, span = Math.ceil(CITY.radius / cell) + 1;
   // Ordinary towers keep clear of the crater and of the ring of spires round it.
   const districtClear = SINGULARITY.spireRing[1] + 16;
   for (let i = -span; i < span; i += 1) {
     for (let j = -span; j < span; j += 1) {
       // The lot between grid lines i..i+1 and j..j+1, less the streets round it and a pavement.
-      const x0 = cx + i * cell + streetHalf(i) + 1.5, x1 = cx + (i + 1) * cell - streetHalf(i + 1) - 1.5;
-      const z0 = cz + j * cell + streetHalf(j) + 1.5, z1 = cz + (j + 1) * cell - streetHalf(j + 1) - 1.5;
+      const gi = anchor.i + i, gj = anchor.j + j;
+      const x0 = gi * cell + streetHalf(gi) + 1.5, x1 = (gi + 1) * cell - streetHalf(gi + 1) - 1.5;
+      const z0 = gj * cell + streetHalf(gj) + 1.5, z1 = (gj + 1) * cell - streetHalf(gj + 1) - 1.5;
       const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
       const fromCentre = Math.hypot(mx - cx, mz - cz);
-      const roll = rand(), sizeA = rand(), sizeB = rand(), heightRoll = rand(), kindRoll = rand(), lookRoll = rand(), seed = rand(), slideX = rand(), slideZ = rand();
+      const lot = lotRandom(gi, gj);
+      const roll = lot(), sizeA = lot(), sizeB = lot(), heightRoll = lot(), kindRoll = lot(), lookRoll = lot(), seed = lot(), slideX = lot(), slideZ = lot(), turn = lot();
       if (fromCentre > CITY.radius) continue;
       const lotW = x1 - x0, lotD = z1 - z0;
       // The tower must clear the plaza with all of its lot, not just its middle.
@@ -221,7 +244,7 @@ export function planCity(bounds: Rect): CityPlan {
       if (h < 30) continue;
       towers.push({
         kind, x, z, w, d, h,
-        rot: kind === "prism" || kind === "spire" ? rand() * Math.PI : 0,
+        rot: kind === "prism" || kind === "spire" ? turn * Math.PI : 0,
         seed, lit: 0.1 + lookRoll * 0.16, seams: lookRoll > 0.62, crown: h > 170 && lookRoll > 0.35,
         accent: lookRoll > 0.86 ? 2 : lookRoll > 0.72 ? 1 : 0,
       });
@@ -247,5 +270,5 @@ export function planCity(bounds: Rect): CityPlan {
     if (t.h < 150) continue;
     beacons.push({ x: t.x, y: GROUND_Y + t.h + 1.5, z: t.z, kind: t.seed > 0.82 ? 1 : 0, phase: t.seed });
   }
-  return { centre: { x: cx, z: cz }, towers, lanes, beams, beacons, singularity: sing };
+  return { centre: { x: bx, z: bz }, towers, lanes, beams, beacons, singularity: sing };
 }

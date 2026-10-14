@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/save-CT5-hA86.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/save-CT5-hA86.js
 import{c as a}from"./index-DGorR-oB.js";/**
 |||||||| parent of 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/save-Cbns0XHc.js
 import{c as a}from"./index-BWXOQOWw.js";/**
 ========
 import{c as a}from"./index-CDm9PLYo.js";/**
 >>>>>>>> 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/save-DMRJzQoj.js
+|||||||| parent of 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/save-DMRJzQoj.js
+import{c as a}from"./index-CDm9PLYo.js";/**
+========
+import{c as a}from"./index-Fzx5riUZ.js";/**
+>>>>>>>> 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/save-DGqFkEt3.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

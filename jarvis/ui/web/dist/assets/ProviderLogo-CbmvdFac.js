@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-CbmvdFac.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-CbmvdFac.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-CKxq66Rb.js";import{c as I,j as i,e as n}from"./index-DGorR-oB.js";import{S as U}from"./server-DEOlh-oY.js";/**
 |||||||| parent of 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/ProviderLogo-DzYngmLi.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-BWXOQOWw.js";import{S as U}from"./server-Cbckm0QN.js";/**
 ========
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-CDm9PLYo.js";import{S as U}from"./server-DvBgUycq.js";/**
 >>>>>>>> 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/ProviderLogo-DPvuPKzf.js
+|||||||| parent of 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/ProviderLogo-DPvuPKzf.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-CDm9PLYo.js";import{S as U}from"./server-DvBgUycq.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-Fzx5riUZ.js";import{S as U}from"./server-4YoLI_76.js";/**
+>>>>>>>> 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/ProviderLogo-C76veoMt.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

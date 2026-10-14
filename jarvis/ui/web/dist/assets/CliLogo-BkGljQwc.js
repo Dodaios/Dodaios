@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-BkGljQwc.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-BkGljQwc.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BqxJc216.js";import{c as n,j as a,e as o}from"./index-DGorR-oB.js";import{T as c}from"./terminal-dVDHAuOO.js";import{C as I}from"./credit-card-CeDlOqym.js";import{G as S}from"./git-branch-bqXyM8d0.js";import{R as W}from"./rocket-V3FTZGJA.js";import{C as $}from"./cloud-85N3oxgM.js";/**
 |||||||| parent of 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/CliLogo-B-Dse7HX.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-Bud_a6T6.js";import{c as n,j as a,e as o}from"./index-BWXOQOWw.js";import{T as c}from"./terminal-CVSg6reN.js";import{C as I}from"./credit-card-yLpzOFwt.js";import{G as S}from"./git-branch-C3XIl6CU.js";import{R as W}from"./rocket-B_VIuc6s.js";import{C as $}from"./cloud-Dw6NsMge.js";/**
 ========
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-lcDX8eQd.js";import{c as n,j as a,e as o}from"./index-CDm9PLYo.js";import{T as c}from"./terminal-DcvhD4mW.js";import{C as I}from"./credit-card-yLBsrXg5.js";import{G as S}from"./git-branch-691Rl-Vq.js";import{R as W}from"./rocket-CWYTc23h.js";import{C as $}from"./cloud-C255uiO6.js";/**
 >>>>>>>> 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/CliLogo-DOp97EVD.js
+|||||||| parent of 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/CliLogo-DOp97EVD.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-lcDX8eQd.js";import{c as n,j as a,e as o}from"./index-CDm9PLYo.js";import{T as c}from"./terminal-DcvhD4mW.js";import{C as I}from"./credit-card-yLBsrXg5.js";import{G as S}from"./git-branch-691Rl-Vq.js";import{R as W}from"./rocket-CWYTc23h.js";import{C as $}from"./cloud-C255uiO6.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BZhTfyd4.js";import{c as n,j as a,e as o}from"./index-Fzx5riUZ.js";import{T as c}from"./terminal-DLvPFCOi.js";import{C as I}from"./credit-card-Fyc3r_Ff.js";import{G as S}from"./git-branch-tCxZyuto.js";import{R as W}from"./rocket-Dr2MU_1-.js";import{C as $}from"./cloud-DDcPeWTf.js";/**
+>>>>>>>> 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/CliLogo-ssux73an.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

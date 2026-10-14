@@ -231,7 +231,7 @@ describe("campus scene", () => {
     expect(visible).toHaveLength(2);
   });
 
-  it("draws the city outside in a couple of dozen draw calls, none of them in the shadow pass, all of it below the floor's edge", async () => {
+  it("draws the city outside in a couple of dozen draw calls, none of them in the shadow pass, its towers on the street level far below", async () => {
     const layout = buildOfficeLayout(staff(5));
     const city = await mount(<SingularityCity bounds={layout.bounds} />);
     city.updateMatrixWorld(true);

@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-CwlBcjol.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-CwlBcjol.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-DGorR-oB.js";import{S as sr}from"./switch-BtKyYEOg.js";import{Q as D}from"./tooltip-CdAlm21l.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-iBhvBPtH.js";import{C as Tn}from"./check-VcWjiMWj.js";import{C as En}from"./columns-2-CsHkkgl2.js";/**
 |||||||| parent of 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/AppshotEditor-p63XYXi8.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BWXOQOWw.js";import{S as sr}from"./switch-COxnQXBm.js";import{Q as D}from"./tooltip-IcAtL-wm.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-JVxAopT6.js";import{C as Tn}from"./check-nA_fsibi.js";import{C as En}from"./columns-2-DRFlq1VJ.js";/**
 ========
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-CDm9PLYo.js";import{S as sr}from"./switch-DrhGV64d.js";import{Q as D}from"./tooltip-ByDPnc17.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-C32QxpyO.js";import{C as Tn}from"./check-xob2gC_8.js";import{C as En}from"./columns-2-CqsXdnVE.js";/**
 >>>>>>>> 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/AppshotEditor-BuZsqOZ-.js
+|||||||| parent of 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/AppshotEditor-BuZsqOZ-.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-CDm9PLYo.js";import{S as sr}from"./switch-DrhGV64d.js";import{Q as D}from"./tooltip-ByDPnc17.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-C32QxpyO.js";import{C as Tn}from"./check-xob2gC_8.js";import{C as En}from"./columns-2-CqsXdnVE.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-Fzx5riUZ.js";import{S as sr}from"./switch-hhdWmeOS.js";import{Q as D}from"./tooltip-DmOMM_iK.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-CrV08Zkk.js";import{C as Tn}from"./check-Cw1gGkKL.js";import{C as En}from"./columns-2-DkpOW-_w.js";/**
+>>>>>>>> 349144aea2 (fix(verse): show the singularity's photon ring and keep the city when the floor changes size):jarvis/ui/web/dist/assets/AppshotEditor-xHLe9Abm.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

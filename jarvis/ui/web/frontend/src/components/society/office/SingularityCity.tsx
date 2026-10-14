@@ -163,7 +163,8 @@ function Traffic({ plan, uniforms }: { plan: CityPlan; uniforms: CityUniforms })
     g.instanceCount = total;
     return g;
   }, [plan]);
-  useEffect(() => () => { geometry.dispose(); material.dispose(); }, [geometry, material]);
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
   return <mesh geometry={geometry} material={material} frustumCulled={false} renderOrder={3} />;
 }
 
@@ -175,7 +176,8 @@ function Beacons({ plan, uniforms }: { plan: CityPlan; uniforms: CityUniforms })
     g.setAttribute("aBeacon", new Float32BufferAttribute(plan.beacons.flatMap((b) => [b.kind, b.phase]), 2));
     return g;
   }, [plan]);
-  useEffect(() => () => { geometry.dispose(); material.dispose(); }, [geometry, material]);
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
   return <points geometry={geometry} material={material} frustumCulled={false} renderOrder={3} />;
 }
 
@@ -184,7 +186,8 @@ const BEAM_COLOURS = CITY_PALETTE.accents.map((hex) => new Color(hex));
 function Beams({ plan, uniforms }: { plan: CityPlan; uniforms: CityUniforms }) {
   const material = useMemo(() => beamMaterial(uniforms), [uniforms]);
   const geometry = useMemo(() => new CylinderGeometry(1, 1, 1, 16, 1, true).translate(0, 0.5, 0), []);
-  useEffect(() => () => { geometry.dispose(); material.dispose(); }, [geometry, material]);
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
   const s = plan.singularity;
   // The singularity's jets: up into the night and down to the crater floor, wider and brighter than a roof beam.
   const beams = useMemo(() => [
@@ -222,10 +225,10 @@ function Singularity({ plan, uniforms, reduced }: { plan: CityPlan; uniforms: Ci
     lens: new PlaneGeometry(size, size),
     rings: SINGULARITY.rings.map((r) => new TorusGeometry(r.radius, 0.9, 8, 256)),
   }), [size]);
+  useEffect(() => () => { parts.core.dispose(); parts.disc.dispose(); parts.lens.dispose(); for (const m of parts.rings) m.dispose(); }, [parts]);
   useEffect(() => () => {
-    parts.core.dispose(); parts.disc.dispose(); parts.lens.dispose(); for (const m of parts.rings) m.dispose();
     geometries.core.dispose(); geometries.disc.dispose(); geometries.lens.dispose(); for (const g of geometries.rings) g.dispose();
-  }, [parts, geometries]);
+  }, [geometries]);
   const lens = useRef<Mesh>(null);
   const rings = useRef<(Group | null)[]>([]);
   useFrame(({ camera }, dt) => {
@@ -258,14 +261,25 @@ export function SingularityCity({ bounds: given, reduced = false }: { bounds: Re
   const { minX, maxX, minZ, maxZ } = given;
   const bounds = useMemo<Rect>(() => ({ minX, maxX, minZ, maxZ }), [minX, maxX, minZ, maxZ]);
   const plan = useMemo(() => planCity(bounds), [bounds]);
-  const uniforms = useMemo(() => cityUniforms(plan.singularity), [plan]);
   const plaza = Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) / 2 + CITY.clear - 6;
-  const materials = useMemo(() => ({
-    tower: towerMaterial(uniforms),
-    ground: groundMaterial(uniforms, plan.centre, CITY.cell, CITY.avenueEvery, plaza),
-    mist: MIST_SHEETS.map((m) => mistMaterial(uniforms, plan.centre, plaza, m.strength, m.drift)),
-    sky: skyMaterial(uniforms),
-  }), [uniforms, plan, plaza]);
+  // The materials live as long as the city does; a new plan (a floor that changed size) only moves their uniforms.
+  const [uniforms, materials] = useMemo(() => {
+    const shared = cityUniforms(plan.singularity);
+    return [shared, {
+      tower: towerMaterial(shared),
+      ground: groundMaterial(shared, plan.centre, CITY.cell, CITY.avenueEvery, plaza),
+      mist: MIST_SHEETS.map((m) => mistMaterial(shared, plan.centre, plaza, m.strength, m.drift)),
+      sky: skyMaterial(shared),
+    }] as const;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    uniforms.uSing.value.set(plan.singularity.x, plan.singularity.y, plan.singularity.z);
+    for (const m of [materials.ground, ...materials.mist]) {
+      m.uniforms.uCentre.value = [plan.centre.x, plan.centre.z];
+      m.uniforms.uPlaza.value = plaza;
+    }
+  }, [uniforms, materials, plan, plaza]);
   const geometries = useMemo(() => ({
     ground: new PlaneGeometry(CITY.radius * 2.8, CITY.radius * 2.8).rotateX(-Math.PI / 2),
     mist: new PlaneGeometry(CITY.radius * 2.4, CITY.radius * 2.4).rotateX(-Math.PI / 2),
@@ -273,16 +287,16 @@ export function SingularityCity({ bounds: given, reduced = false }: { bounds: Re
   }), []);
   useEffect(() => () => {
     materials.tower.dispose(); materials.ground.dispose(); materials.sky.dispose(); for (const m of materials.mist) m.dispose();
-    geometries.ground.dispose(); geometries.mist.dispose(); geometries.sky.dispose();
-  }, [materials, geometries]);
+  }, [materials]);
+  useEffect(() => () => { geometries.ground.dispose(); geometries.mist.dispose(); geometries.sky.dispose(); }, [geometries]);
   const byKind = useMemo(() => TOWER_KINDS.map((kind) => plan.towers.filter((t) => t.kind === kind)), [plan]);
   const sky = useRef<Mesh>(null);
   useFrame(({ camera, size, viewport }, dt) => {
     sky.current?.position.copy(camera.position);
     const fov = "fov" in camera ? (camera as { fov: number }).fov : 35;
     uniforms.uPxScale.value = (size.height * viewport.dpr) / (2 * Math.tan((fov * Math.PI) / 360));
-    // The clock wraps every few hours so its precision never decays; a wrap is a single, invisible jump.
-    if (!reduced) uniforms.uTime.value = (uniforms.uTime.value + Math.min(dt, 0.1)) % 7200;
+    // The clock wraps once a day so its precision never decays; traffic and pulses jump once at the wrap.
+    if (!reduced) uniforms.uTime.value = (uniforms.uTime.value + Math.min(dt, 0.1)) % 86_400;
   });
   return (
     <group userData={{ city: "singularity" }}>
