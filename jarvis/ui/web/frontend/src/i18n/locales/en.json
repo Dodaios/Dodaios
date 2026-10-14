@@ -9610,7 +9610,10 @@
       "challenge": "Challenge",
       "converge": "Master plan",
       "build": "Build",
-      "review": "Review"
+      "review": "Review",
+      "planning": "Plan",
+      "steps": "Steps",
+      "final": "Final review"
     },
     "kind": {
       "draft": "Own plan",
@@ -9619,7 +9622,11 @@
       "vote": "Vote",
       "build": "Build report",
       "review": "Review",
-      "fix": "Answer to the review"
+      "fix": "Answer to the review",
+      "plan_version": "Plan",
+      "plan_review": "Plan review",
+      "step_build": "Step",
+      "step_review": "Step review"
     },
     "vote": {
       "agree": "agrees",
@@ -9651,7 +9658,9 @@
       "stalled": "{note} did not finish its turn. Continue to ask again.",
       "member_failed": "{note}. Without this member no team is left. Continue to ask again.",
       "not_enough_members": "Fewer than two members are left, so the team cannot go on.",
-      "error": "The team thread failed: {note}"
+      "error": "The team thread failed: {note}",
+      "plan_unreadable": "The planner wrote no plan the team could read ({note}). Continue to ask again.",
+      "step_disagreement": "Step {number} is still not approved after {rounds} review rounds."
     },
     "notice": {
       "same_family": "Every member runs on the same model family, so their blind spots overlap. A second family catches more.",
@@ -9670,19 +9679,29 @@
       "limit_turns": "The turn limit is reached.",
       "limit_cost": "The cost limit is reached.",
       "stalled": "{note} did not finish its turn.",
-      "not_enough_members": "Fewer than two members are left."
+      "not_enough_members": "Fewer than two members are left.",
+      "plan_version_agreed": "Plan version {version} agreed in round {rounds}: {count} steps.",
+      "plan_version_accepted_by_user": "You took plan version {version} as it is: {count} steps.",
+      "plan_revision": "{member} asks for a revised plan at step {number}.",
+      "step_accepted": "Step {number} accepted: {title}",
+      "step_accepted_by_user": "You accepted step {number} as it is: {title}",
+      "role_changed": "{member} takes over as {role}.",
+      "steps_done": "All {count} steps are accepted. The final review starts."
     },
     "summary": {
       "done": "Done. Plan agreed in round {plan}, change approved in review round {review}. The reviewers raised {count} findings, {blocking} of them blocking.",
       "accepted_by_user": "You accepted the work with open findings. The reviewers raised {count} findings, {blocking} of them blocking.",
-      "open_points": "Open points"
+      "open_points": "Open points",
+      "planned_done": "Done. {count} steps built and accepted on plan version {version}, in {rounds} build rounds. The reviewers raised {findings} findings, {blocking} of them blocking.",
+      "planned_accepted": "You accepted the work with open findings. {count} steps on plan version {version}; the reviewers raised {findings} findings, {blocking} of them blocking."
     },
     "issues": {
       "title": "Caught by the team: {count} ({open} open)",
       "resolved": "resolved",
       "open": "open",
       "plan": "plan",
-      "review": "review"
+      "review": "review",
+      "step": "step {number}"
     },
     "draft": {
       "title": "What should the team build in {project}?",
@@ -9693,7 +9712,12 @@
       "add": "Add member",
       "placeholder": "Describe the task for the team",
       "start": "Start the team",
-      "bounds": "Stops and asks you after 90 minutes, 40 turns, or three rounds without agreement."
+      "bounds": "Stops and asks you after 90 minutes, 40 turns, or three rounds without agreement.",
+      "mode": "How the team works",
+      "body_planned": "One member writes a plan of small steps and another reviews it. The builder builds one step at a time, and each step is checked against its goal before the next one starts. A blocked step goes back to the planner. You can step in at any time.",
+      "role_of": "Role of member {number}",
+      "roles_invalid": "Pick exactly one planner and one builder.",
+      "bounds_planned": "Stops and asks you after 90 minutes, 40 turns, three plan rounds without agreement or three review rounds on one step."
     },
     "meter_time": "{minutes} of {max_minutes} min",
     "meter_turns": "{turns} of {max_turns} turns",
@@ -9712,7 +9736,46 @@
       "voter": "Votes once the plan is there",
       "builder": "Builds the plan",
       "reviewer": "Reviews once the build is there",
-      "answers": "Answers the review"
+      "answers": "Answers the review",
+      "writes_plan": "Writes the plan",
+      "reviews_plan": "Reviews the plan once it is there",
+      "builds_step": "Builds this step",
+      "reviews_step": "Reviews once the step is built",
+      "final_reviewer": "Reviews the whole change"
+    },
+    "accept_step": "Accept this step as it is",
+    "mode": {
+      "peers": "Peers",
+      "planner_builder": "Planner and builder"
+    },
+    "member_role": {
+      "planner": "Planner",
+      "builder": "Builder",
+      "reviewer": "Reviewer"
+    },
+    "step_status": {
+      "open": "open",
+      "building": "building",
+      "in_review": "in review",
+      "changes": "changes requested",
+      "accepted": "accepted"
+    },
+    "plan": {
+      "title": "Plan v{version}",
+      "progress": "{done} of {total} accepted",
+      "proposed": "proposed, in review",
+      "writing": "The planner is writing the plan.",
+      "done_when": "Done when",
+      "revision": "{member} asked for a revision at step {number}",
+      "toggle": "Show or hide the plan",
+      "open_findings": "accepted with open findings",
+      "version_tag": "plan v{version}",
+      "unreadable": "unreadable",
+      "steps_count": "{count} steps",
+      "blocked": "blocked",
+      "done": "done",
+      "plan_change": "Plan change: {text}",
+      "step": "Step {number}"
     }
   }
 }
