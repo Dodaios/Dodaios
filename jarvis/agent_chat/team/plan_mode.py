@@ -244,6 +244,8 @@ class PlannedWork:
             self._adopt_plan(team_id, plan, by_user=False)
             return
         if not votes:
+            if not todo:
+                raise RuntimeError("nobody is left to review the plan")
             return  # Its reviewers left; the loop asks the ones that are there.
         work = self._work(team_id)
         base = int(work.get("plan_base", 1))
@@ -358,6 +360,13 @@ class PlannedWork:
     def _adopt_plan(self, team_id: str, plan: dict[str, Any], *, by_user: bool) -> None:
         work = self._work(team_id)
         base = int(work.get("plan_base", 1))
+        current = self._current_checklist(team_id) or []
+        done = {_key(step["title"]) for step in current if step["status"] == "accepted"}
+        # An open step keeps the tree it started from, so its review still sees the
+        # partial work of a blocked try; a reopened step starts from the tree as it is.
+        work["step_base"] = {
+            key: tree for key, tree in dict(work.get("step_base") or {}).items() if key not in done
+        }
         work["plan_seq"] = plan["seq"]
         work["version"] = int(plan["payload"].get("version") or 1)
         work["accepted"] = list(plan["payload"].get("carried") or [])
@@ -377,10 +386,15 @@ class PlannedWork:
             },
         )
 
-    def _start_revision(self, team: dict[str, Any], request: dict[str, Any]) -> None:
-        """Building waits; the planner writes the next plan version."""
+    def _start_revision(
+        self, team: dict[str, Any], request: dict[str, Any], work: dict[str, Any] | None = None
+    ) -> None:
+        """Building waits; the planner writes the next plan version.
+
+        ``work`` carries changes that must land in the same write (an accepted step).
+        """
         team_id = team["team_id"]
-        work = self._work(team_id)
+        work = dict(work) if work is not None else self._work(team_id)
         work["revision"] = request
         work["plan_round"] = int(work.get("plan_round", 1)) + 1
         work["plan_base"] = work["plan_round"]
@@ -566,6 +580,8 @@ class PlannedWork:
             if r["author"] in ids and r["author"] != builder["member_id"]
         ]
         if not reviews:
+            if not todo:
+                raise RuntimeError("nobody is left to review the step")
             return  # Its reviewers left; the loop asks the ones that are there.
         open_reviews = [r for r in reviews if not r["payload"].get("approve")]
         if not open_reviews:
@@ -595,23 +611,21 @@ class PlannedWork:
         plan = self._adopted(team_id)
         steps = list(plan["payload"].get("steps") or []) if plan else []
         title = steps[number - 1]["title"] if 0 < number <= len(steps) else ""
+        if not 0 < number <= len(steps):
+            raise RuntimeError(f"step {number} is not in the agreed plan")
         work = self._work(team_id)
         work["accepted"] = sorted(set(work.get("accepted") or []) | {number})
         if by_user:
             work["accepted_open"] = sorted(set(work.get("accepted_open") or []) | {_key(title)})
         work.pop("step", None)
         work["step_round"] = 1
-        self._store.update(team_id, work=work)
-        self._notice(
-            team_id,
-            "steps",
-            "step_accepted_by_user" if by_user else "step_accepted",
-            {"number": number, "version": version, "title": title, "rounds": rounds},
-        )
         builds = self._step_entries(team_id, "step_build", version, number)
         asked = next((b for b in reversed(builds) if b["payload"].get("plan_change")), None)
-        if asked is not None:
-            # The step is done, and the builder saw the rest of the plan needs a change.
+        if asked is None:
+            self._store.update(team_id, work=work)
+        else:
+            # The step is done, and the builder saw the rest of the plan needs a
+            # change: accepted and sent to the planner in one write.
             self._start_revision(
                 team,
                 {
@@ -622,7 +636,14 @@ class PlannedWork:
                     "plan_change": asked["payload"].get("plan_change", ""),
                     "by": asked["author"],
                 },
+                work,
             )
+        self._notice(
+            team_id,
+            "steps",
+            "step_accepted_by_user" if by_user else "step_accepted",
+            {"number": number, "version": version, "title": title, "rounds": rounds},
+        )
 
     # ------------------------------------------------------------ final review
 
@@ -700,7 +721,9 @@ class PlannedWork:
             if r["author"] in ids and r["author"] != builder["member_id"]
         ]
         if not reviews:
-            return
+            if not todo:
+                raise RuntimeError("nobody is left to review the change")
+            return  # Its reviewers left; the loop asks the ones that are there.
         open_reviews = [r for r in reviews if not r["payload"].get("approve")]
         if not open_reviews:
             self._finish(team_id)
