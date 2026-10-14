@@ -1,5 +1,6 @@
 /**
- * The office floors: an oak-floored plate floating in a starry night behind
+ * The office floors: an oak-floored plate high over the city in the
+ * singularity (the coding floor in a starry violet night of its own) behind
  * frameless glass, walled rooms in the north and south and the desks in
  * between — and everybody in it. The agents floor is a team campus (a studio
  * per team round an atrium, boulevards, planted courts), the coding floor has
@@ -24,6 +25,7 @@ import { AgentsFloorAmbience } from "./AgentsFloorAmbience";
 import { CampusGround } from "./CampusGround";
 import { StaticBatch } from "./StaticBatch";
 import { BuildingShell } from "./BuildingShell";
+import { CITY_BACKDROP } from "./SingularityCity";
 import { ExecutiveDesks, LeadOfficeLight } from "./LeadSuite";
 import { LiveMonitors } from "./LiveMonitors";
 import { TerminalMonitors } from "./TerminalMonitors";
@@ -50,7 +52,7 @@ import { PlayerBubble } from "./OfficeBubbles";
 import { OfficeCameraRig } from "./OfficeCameraRig";
 import { allDesks, leadDesks, type FurnitureKind, type OfficeLayout, type Point } from "./officeLayout";
 import { isWalkable, nearestWalkable, type NavGrid } from "./officeNav";
-import { CODING_SCENE, OFFICE } from "./officePalette";
+import { CODING_SCENE } from "./officePalette";
 import { officeSession, player as playerBody, useOfficeStore, type OfficeFloor, type Selection } from "./officeStore";
 import { arrivalPose } from "./officeFloors";
 import { ProgressionLayer } from "../progression/ProgressionLayer";
@@ -191,8 +193,8 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
   const teamRoom = layout.rooms.find((r) => r.kind === "team");
   const breakRoom = layout.rooms.find((r) => r.kind === "break");
   const coding = floor === "coding";
-  // The coding floor floats in a violet night of its own, so a glance tells the floors apart.
-  const space = coding ? CODING_SCENE.space : OFFICE.space;
+  // The coding floor floats in a violet night of its own, so a glance tells the floors apart; the others stand in the city's haze.
+  const space = coding ? CODING_SCENE.space : CITY_BACKDROP;
   const background = useMemo(() => new Color(space), [space]);
   const { minX, maxX, minZ, maxZ } = layout.bounds;
   const span = Math.max(maxX - minX, maxZ - minZ);
@@ -219,7 +221,8 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
     <>
       <primitive attach="background" object={background} />
       <fog attach="fog" args={[space, span * 2.2, span * 4.5]} />
-      <Stars radius={span * 3} depth={span} count={2500} factor={4} saturation={0} fade speed={reduced ? 0 : 0.3} />
+      {/* The city's sky has its own stars, above a horizon the camera never shows; the coding floor's night is all stars. */}
+      {coding && <Stars radius={span * 3} depth={span} count={2500} factor={4} saturation={0} fade speed={reduced ? 0 : 0.3} />}
       <hemisphereLight args={coding ? [CODING_SCENE.sky, CODING_SCENE.ground, 0.95] : [AGENTS_SCENE.sky, AGENTS_SCENE.ground, 0.95]} />
       <ambientLight intensity={0.25} />
       {/* The campus is twice as long as the other floors: its sun keeps the same shadow detail with a larger map. */}
@@ -230,7 +233,7 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
       {coding ? <CodingSlab layout={layout} onFloorClick={onFloorClick} /> : <AgentsSlab layout={layout} onFloorClick={onFloorClick} />}
       {coding ? <CodingFloorAmbience layout={layout} /> : <AgentsFloorAmbience layout={layout} />}
       {/* The agents floor and the Level Hall are floors of a building: window walls, the tower below, the city outside. */}
-      {!coding && <BuildingShell layout={layout} />}
+      {!coding && <BuildingShell layout={layout} reduced={reduced} />}
       <RoomFloors rooms={layout.rooms} campus={!coding} />
       <RoomWalls walls={layout.walls} />
       {!batch && signs}
