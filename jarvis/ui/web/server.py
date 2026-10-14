@@ -527,6 +527,7 @@ class WebServer:
         from .marketplace_publish_routes import router as marketplace_publish_router
         from .marketplace_routes import router as marketplace_router
         from .mcp_routes import router as mcp_router
+        from .memory_vault_routes import router as memory_vault_router
         from .mission_billing_routes import router as mission_billing_router
         from .missions_auth import router as missions_auth_router
         from .missions_pty_routes import router as missions_pty_router
@@ -823,6 +824,8 @@ class WebServer:
         app.include_router(onboarding_router)
         # Phase B3 — Wiki view (read-only REST API over the Obsidian vault).
         app.include_router(wiki_router)
+        # Path-addressed Memory section API (index, reader, map, edits).
+        app.include_router(memory_vault_router)
         # Phase B3 — Desktop wiki view live-reload WS endpoint.
         # Forwards WikiPageChanged events from the shared EventBus to
         # subscribed UI clients. WikiWatcher is started in start().
