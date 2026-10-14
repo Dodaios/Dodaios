@@ -8971,7 +8971,8 @@
       "open_aria": "Abrir {destination} do GitHub: {identity}",
       "open_title": "Abrir {destination}",
       "refresh_failed": "Não foi possível atualizar o estado do GitHub.",
-      "refreshing": "A atualizar o estado do GitHub…"
+      "refreshing": "A atualizar o estado do GitHub…",
+      "loading": "A ler o estado do GitHub…"
     },
     "dock": {
       "swap": "Trocar posições",
@@ -9580,7 +9581,6 @@
     "message": "Intervir: cada membro lê isto no seu próximo turno",
     "message_decide": "Decida os pontos em aberto; a equipa faz mais uma ronda com a sua resposta",
     "send": "Enviar",
-    "open_member": "Abrir o tópico de {member}",
     "round": "ronda {round}",
     "files_changed": "{count} ficheiros alterados",
     "state": {
@@ -9627,11 +9627,7 @@
       "minor": "Menor"
     },
     "member": {
-      "working": "a trabalhar",
-      "waiting": "à sua espera",
-      "left": "saiu",
-      "builder": "Constrói o plano",
-      "idle": "em espera"
+      "working": "a trabalhar"
     },
     "reason": {
       "user": "Pausou este tópico de equipa.",
@@ -9703,32 +9699,15 @@
       "body_planned": "Um membro escreve um plano de pequenos passos e outro revê-o. O construtor constrói um passo de cada vez, e cada passo é verificado face ao seu objetivo antes de começar o seguinte. Um passo bloqueado volta ao planeador. Pode intervir a qualquer momento.",
       "role_of": "Papel do membro {number}",
       "roles_invalid": "Escolha exatamente um planeador e um construtor.",
-      "bounds_planned": "Para e pergunta-lhe após 90 minutos, 40 turnos, três rondas de plano sem acordo ou três rondas de revisão num passo."
+      "bounds_planned": "Para e pergunta-lhe após 90 minutos, 40 turnos, três rondas de plano sem acordo ou três rondas de revisão num passo.",
+      "cancel": "Voltar"
     },
     "meter_time": "{minutes} de {max_minutes} min",
     "meter_turns": "{turns} de {max_turns} turnos",
-    "band_count": "{done} de {total}",
     "no_report": "Não foi escrito nenhum relatório.",
-    "findings_count": "{count} problemas",
-    "objections_count": "{count} objeções",
     "close_reader": "Fechar",
-    "live_tokens": "{count} tokens",
     "live_starting": "A iniciar…",
     "live_thinking": "A pensar",
-    "role": {
-      "plans": "Escreve o seu próprio plano",
-      "challenges": "Contrasta os outros planos",
-      "author": "Escreve o plano principal",
-      "voter": "Vota quando o plano existir",
-      "builder": "Constrói o plano",
-      "reviewer": "Revê quando estiver construído",
-      "answers": "Responde à revisão",
-      "writes_plan": "Escreve o plano",
-      "reviews_plan": "Revê o plano quando existir",
-      "builds_step": "Constrói este passo",
-      "reviews_step": "Revê quando o passo estiver construído",
-      "final_reviewer": "Revê a alteração completa"
-    },
     "accept_step": "Aceitar este passo como está",
     "mode": {
       "peers": "Iguais",
@@ -9762,6 +9741,53 @@
       "done": "feito",
       "plan_change": "Alteração do plano: {text}",
       "step": "Passo {number}"
+    },
+    "room": {
+      "back": "Voltar à equipe",
+      "back_named": "Voltar à equipe: {title}",
+      "you": "Você",
+      "needs_you": "precisa de você",
+      "left": "Saiu da equipe",
+      "left_because": "Saiu: {reason}",
+      "waits": "Aguarda você",
+      "idle": "Aguardando a vez",
+      "finished": "Concluído",
+      "canvas": "Como a equipe trabalha em conjunto",
+      "exchange_open": "Ver o que foi passado: {label}",
+      "story": "História",
+      "chats": "Chats",
+      "follow": "Seguir",
+      "follow_hint": "Mostra quem está trabalhando agora",
+      "brief": "Da equipe",
+      "chat_empty": "{member} ainda não teve a vez.",
+      "open_full": "Thread completo",
+      "answer_in_thread": "Responder no thread",
+      "exchange_count_one": "{count} troca",
+      "exchange_count_other": "{count} trocas",
+      "members_count": "{count} membros",
+      "to_all": "todos"
+    },
+    "graph": {
+      "task": "Tarefa",
+      "message": "Sua mensagem",
+      "own_plan": "Plano próprio",
+      "critique": "Crítica",
+      "master_plan": "Plano mestre",
+      "agrees": "Concorda",
+      "objects": "Objeta",
+      "change": "Mudança",
+      "fix": "Correção",
+      "approves": "Aprova",
+      "changes": "Pede mudanças",
+      "plan_change": "Pede uma mudança no plano",
+      "files_one": "{count} arquivo",
+      "files_other": "{count} arquivos",
+      "findings_one": "{count} achado",
+      "findings_other": "{count} achados",
+      "blocking_one": "{count} bloqueante",
+      "blocking_other": "{count} bloqueantes",
+      "objections_one": "{count} objeção",
+      "objections_other": "{count} objeções"
     }
   }
 }
