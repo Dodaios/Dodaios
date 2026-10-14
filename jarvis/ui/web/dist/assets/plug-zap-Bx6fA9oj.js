@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/plug-zap-Bx6fA9oj.js
 import{c as a}from"./index-d9pKU75M.js";/**
+|||||||| parent of b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/plug-zap-DJ3j3JRz.js
+import{c as a}from"./index-DQk7_9KE.js";/**
+========
+import{c as a}from"./index-DHvv5ukA.js";/**
+>>>>>>>> b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/plug-zap-DSVx2jL1.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-BcKYrh2G.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-d9pKU75M.js";import{S as U}from"./server-7PBoSRsM.js";/**
+|||||||| parent of b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/ProviderLogo-Cp5fJKlt.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-DQk7_9KE.js";import{S as U}from"./server-7Z2aB_EO.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-DHvv5ukA.js";import{S as U}from"./server-DlLrfIry.js";/**
+>>>>>>>> b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/ProviderLogo-DGm_IwUR.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-CJ4FgBmY.js
 import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-d9pKU75M.js";import{ChatMarkdown as I}from"./ChatMarkdown-bTQWXquq.js";import{L as U}from"./lock-DR7uCfNU.js";import{C as W}from"./code-xml-BAHOrwTE.js";import{C as X}from"./chevron-right-DGjKYFGs.js";/**
+|||||||| parent of b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/CodingThreadLink-DIb2p_hD.js
+import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-DQk7_9KE.js";import{ChatMarkdown as I}from"./ChatMarkdown-CUKEuGMB.js";import{L as U}from"./lock-hlQQhDly.js";import{C as W}from"./code-xml-7yXerfUH.js";import{C as X}from"./chevron-right-Bj8zLXdj.js";/**
+========
+import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-DHvv5ukA.js";import{ChatMarkdown as I}from"./ChatMarkdown-Dr4FZUWD.js";import{L as U}from"./lock-DoMJHm70.js";import{C as W}from"./code-xml-Db7_WiDm.js";import{C as X}from"./chevron-right-HK7ef15R.js";/**
+>>>>>>>> b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/CodingThreadLink-Dk15UAb1.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

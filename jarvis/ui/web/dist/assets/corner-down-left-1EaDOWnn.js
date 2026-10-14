@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/corner-down-left-1EaDOWnn.js
 import{c as o}from"./index-d9pKU75M.js";/**
+|||||||| parent of b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/corner-down-left-B2eNf73_.js
+import{c as o}from"./index-DQk7_9KE.js";/**
+========
+import{c as o}from"./index-DHvv5ukA.js";/**
+>>>>>>>> b44f7641ae (feat(society): the coding floor as a professional office in the tower):jarvis/ui/web/dist/assets/corner-down-left-ChjC2nP6.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

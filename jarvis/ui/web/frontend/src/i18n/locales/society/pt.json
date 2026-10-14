@@ -1556,8 +1556,6 @@
       "spawn_screen_new": "NOVO AGENTE",
       "department_n": "DEPARTAMENTO {number}",
       "studio_n": "ESTÚDIO {number}",
-      "bay_n": "DOCA {number}",
-      "bay_free": "Doca livre",
       "coffee_menu": "EMENTA",
       "status_spend": "GASTOS",
       "status_days": "{days} D",
