@@ -110,8 +110,20 @@ jobs:
             echo
             echo "Failed jobs:"
             echo
-            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100&filter=latest" \
-              --paginate --jq '.jobs[] | select(.conclusion == "failure" and .name != "CI gate") | "- [\(.name)](\(.html_url))"'
+            jobs_url="repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100&filter=latest"
+            failed="$(gh api "$jobs_url" --paginate --jq '.jobs[]
+              | select(.name != "CI gate" and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))
+              | "- [\(.name)](\(.html_url)) (\(.conclusion))"')"
+            if [ -n "$failed" ]; then
+              echo "$failed"
+            else
+              # Every job passed and the gate still refused the run (a job it
+              # requires skipped or missing): name what the gate named.
+              gate="$(gh api "$jobs_url" --paginate --jq '.jobs[] | select(.name == "CI gate") | "\(.id) \(.html_url)"' | head -n 1)"
+              reason="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/${gate%% *}/logs" 2>/dev/null \
+                | grep -o 'CI gate failed: .*' | head -n 1 || true)"
+              echo "- [CI gate](${gate#* }): no job failed, the gate refused the run (${reason:-see its summary})."
+            fi
             echo
             if [ "$label" = "macos-main" ]; then
               # Sweeps run one after another, newest first in the list: the

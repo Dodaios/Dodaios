@@ -286,7 +286,7 @@ def test_overview_joins_pull_requests_ci_and_squash_merges(
     calls: list[str] = []
 
     def fake_fetch(
-        repo_name: str, token: str, early: object = None
+        repo_name: str, token: str, early: object = None, known_busy: object = ()
     ) -> git_overview._GitHubSnapshot:
         calls.append(repo_name)
         snap = parse_github(
@@ -363,7 +363,7 @@ def test_a_first_read_lists_local_branches_without_waiting_for_github(
     release = threading.Event()
 
     def slow_fetch(
-        repo_name: str, token: str, early: object = None
+        repo_name: str, token: str, early: object = None, known_busy: object = ()
     ) -> git_overview._GitHubSnapshot:
         release.wait(5)
         return parse_github(_payload([]), fetched_at=git_overview.time.time())
