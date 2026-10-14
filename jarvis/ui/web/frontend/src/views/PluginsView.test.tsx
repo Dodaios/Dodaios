@@ -1,9 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  ConnectIconButton,
   matchesNamePrefix,
   matchesQuery,
   matchesStatus,
@@ -13,6 +12,7 @@ import {
   type Plugin,
   PluginsView,
 } from "@/views/PluginsView";
+import { PluginRow } from "@/views/plugins/PluginBrowse";
 
 const CATALOG = {
   version: 1,
@@ -27,7 +27,6 @@ const CATALOG = {
       category: "Developer",
       logo_slug: "github",
       logo_color: "F4F4F5",
-      featured: true,
       auth: { mode: "pat_paste" },
       status: "connected",
       live_callable: true,
@@ -39,7 +38,6 @@ const CATALOG = {
       category: "Developer",
       logo_slug: "vercel",
       logo_color: "F4F4F5",
-      featured: true,
       auth: { mode: "pat_paste" },
       status: "not_connected",
       live_callable: false,
@@ -84,32 +82,104 @@ function renderPluginsView() {
   );
 }
 
+/** One directory row on its own, for the controls a row owns. */
+function renderRow(
+  status: Plugin["status"],
+  onConnect: () => void | Promise<void>,
+  onDisconnect: (id: string) => void = () => {},
+) {
+  const plugin: Plugin = {
+    id: "row_plugin",
+    name: "Row Plugin",
+    description: "d",
+    category: "Developer",
+    logoSlug: "row",
+    authMode: "pat_paste",
+    authConfig: { mode: "pat_paste" },
+    status,
+    longevity: "permanent",
+    oauthClientConfigured: false,
+    fromMarketplace: false,
+    selfUploaded: false,
+  };
+  return render(
+    <ul>
+      <PluginRow
+        plugin={plugin}
+        onOpen={() => {}}
+        onConnect={onConnect}
+        onDisconnect={onDisconnect}
+        onRemove={() => {}}
+      />
+    </ul>,
+  );
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-describe("PluginsView lists the catalog as a table", () => {
-  it("shows one row per plugin, a Browse button and the All/Installed filter", async () => {
+describe("PluginsView lists the catalog in sections", () => {
+  it("shows one row per plugin under its category, both scopes and the add menu", async () => {
     installCatalogFetchMock();
 
     renderPluginsView();
 
     // One row per catalog entry, named after the plugin.
-    await waitFor(() => {
-      expect(screen.getByRole("row", { name: "GitHub" })).toBeDefined();
-    });
-    expect(screen.getByRole("row", { name: "Vercel" })).toBeDefined();
-    expect(screen.getByRole("button", { name: /^Browse\b/i })).toBeDefined();
-    // The status filter is a small tab strip, not a second page.
-    expect(screen.getByRole("tab", { name: /^All\b/ })).toBeDefined();
-    expect(screen.getByRole("tab", { name: /^Installed\b/ })).toBeDefined();
-    // Nothing needs attention in this catalog, so that tab stays hidden.
-    expect(screen.queryByRole("tab", { name: /Needs attention/ })).toBeNull();
+    await screen.findByRole("button", { name: "GitHub" });
+    expect(screen.getByRole("button", { name: "Vercel" })).toBeDefined();
+    // The category is a section; its heading opens the full list.
+    expect(screen.getByRole("button", { name: "Show all of Developer" })).toBeDefined();
+    // Two scopes: what ships with the app, and what the owner added.
+    expect(screen.getByRole("tab", { name: "Built in" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Yours" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Add" })).toBeDefined();
+    // Nothing needs attention in this catalog, so no reconnect notice.
+    expect(screen.queryByText(/reconnecting/)).toBeNull();
     // The roadmap tab carried a static "AVAILABLE" list of Codex plugins that
     // were never installable in Jarvis — it has been removed entirely.
     expect(screen.queryByRole("button", { name: /^Roadmap\b/i })).toBeNull();
     expect(screen.queryByText("ChatGPT Codex plugins")).toBeNull();
+  });
+
+  it("leads with the featured plugins and caps a section at six rows", async () => {
+    const plugins = Array.from({ length: 8 }, (_, index) => ({
+      id: `tool_${index}`,
+      display_name: `Tool ${index}`,
+      description: "d",
+      category: "Developer",
+      logo_slug: "tool",
+      featured: index === 7,
+      auth: { mode: "pat_paste" },
+      status: "not_connected",
+    }));
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ version: 1, schema_version: "t", total: 8, connected: 0, plugins }),
+    })) as unknown as typeof fetch;
+
+    renderPluginsView();
+
+    const popular = await screen.findByRole("region", { name: "Popular" });
+    expect(within(popular).getByRole("button", { name: "Tool 7" })).toBeDefined();
+    // Popular comes before the category sections.
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Popular",
+      "Developer",
+    ]);
+    // A plugin is on the home page once: the featured one is not repeated
+    // under its category.
+    expect(screen.getAllByRole("button", { name: "Tool 7" })).toHaveLength(1);
+    // Six of the eight show on the home page; the heading opens all of them.
+    const developer = screen.getByRole("region", { name: "Developer" });
+    expect(within(developer).getAllByRole("listitem")).toHaveLength(6);
+    fireEvent.click(screen.getByRole("button", { name: "Show all of Developer" }));
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(8));
+    // The breadcrumb leads back to the directory.
+    fireEvent.click(screen.getByRole("button", { name: "Plugins" }));
+    await screen.findByRole("region", { name: "Popular" });
   });
 });
 
@@ -119,41 +189,34 @@ describe("PluginsView live badge", () => {
 
     renderPluginsView();
 
-    // Wait until the catalog data has loaded: the header subtitle shows
-    // "2 available · 1 connected" once the fetch resolves.
-    await waitFor(() => {
-      expect(screen.getByText(/available.*connected/i)).toBeDefined();
-    });
+    await screen.findByRole("button", { name: "GitHub" });
+    // The installed list states each connection in words.
+    fireEvent.click(screen.getByRole("button", { name: "Manage installed plugins" }));
 
-    // GitHub is connected + live_callable: true → the status column says so.
-    expect(screen.getByText("Connected · Live")).toBeDefined();
-    // Vercel is not connected and must not carry the Live mark.
-    expect(screen.getByText("Not connected")).toBeDefined();
+    // GitHub is connected + live_callable: true → its row says so.
+    expect(await screen.findByText("Connected · Live")).toBeDefined();
+    // Vercel was never connected, so the installed list does not carry it.
+    expect(screen.queryByRole("button", { name: "Vercel" })).toBeNull();
   });
 });
 
-describe("PluginsView window catalog states connection in connection words", () => {
+describe("PluginsView states connection in connection words", () => {
   it("says Connect/Connected, never Add/Added, so install and auth cannot mix", async () => {
     installCatalogFetchMock();
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <PluginsView inDialog />
-      </QueryClientProvider>,
-    );
 
-    await waitFor(() => expect(screen.getByText("GitHub")).toBeDefined());
-    expect(screen.getByText("Vercel")).toBeDefined();
-    // Untouched card offers a connection, connected card names it. (The
-    // window catalog buttons are labelled Connect/Disconnect.)
-    expect(screen.getByRole("button", { name: "Connect" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Disconnect" })).toBeDefined();
-    expect(screen.getByText("Connect")).toBeDefined();
-    expect(screen.getByText("Connected")).toBeDefined();
-    // No install wording on connection buttons: "Installed" already names the
-    // tab and the community badge, and "Added" read as done-before-authed.
+    renderPluginsView();
+
+    await screen.findByRole("button", { name: "GitHub" });
+    expect(screen.getByRole("button", { name: "Vercel" })).toBeDefined();
+    // The untouched row offers a connection, the connected row names it.
+    expect(screen.getByRole("button", { name: "Connect plugin" })).toBeDefined();
+    expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
+    // Disconnecting sits behind the row's menu, never one stray click away.
+    expect(screen.queryByRole("menuitem", { name: "Disconnect" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Disconnect" })).toBeDefined();
+    // No install wording on connection controls: "Added" read as
+    // done-before-authed.
     expect(screen.queryByText("Added")).toBeNull();
   });
 });
@@ -163,19 +226,13 @@ describe("PluginsView window catalog states connection in connection words", () 
 // burst of browser tabs + multiple DCR client registrations. The button must
 // lock itself (and show a spinner) while a connect is in flight, ignoring the
 // extra clicks, then re-enable so a genuine retry still works.
-describe("ConnectIconButton click-lock", () => {
+describe("plugin row click-lock", () => {
   it("ignores extra clicks while a connect is in flight", async () => {
     let release: () => void = () => {};
     const onConnect = vi.fn(
       () => new Promise<void>((resolve) => { release = resolve; }),
     );
-    render(
-      <ConnectIconButton
-        status="not_connected"
-        onConnect={onConnect}
-        onDisconnect={() => {}}
-      />,
-    );
+    renderRow("not_connected", onConnect);
     const btn = screen.getByRole("button", { name: "Connect plugin" });
 
     fireEvent.click(btn);
@@ -184,28 +241,26 @@ describe("ConnectIconButton click-lock", () => {
 
     // Only the first click started a flow; the rest were swallowed by the lock.
     expect(onConnect).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(true));
+    const busy = await screen.findByRole("button", { name: "Connecting Row Plugin" });
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
 
     await act(async () => {
       release();
     });
-    expect((btn as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: "Connect plugin" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 
   it("re-enables after the connect resolves so a retry still works", async () => {
     const onConnect = vi.fn(() => Promise.resolve());
-    render(
-      <ConnectIconButton
-        status="not_connected"
-        onConnect={onConnect}
-        onDisconnect={() => {}}
-      />,
-    );
-    const btn = screen.getByRole("button", { name: "Connect plugin" });
+    renderRow("not_connected", onConnect);
 
     await act(async () => {
-      fireEvent.click(btn);
+      fireEvent.click(screen.getByRole("button", { name: "Connect plugin" }));
     });
+    const btn = screen.getByRole("button", { name: "Connect plugin" });
     expect((btn as HTMLButtonElement).disabled).toBe(false);
     await act(async () => {
       fireEvent.click(btn);
@@ -218,16 +273,10 @@ describe("ConnectIconButton click-lock", () => {
 // A revoked / expired plugin (status needs_reauth) must NOT look like a never-
 // connected one. It surfaces a distinct "Reconnect" affordance that re-runs the
 // same connect flow — the one-click repair for a dead token.
-describe("ConnectIconButton reconnect state", () => {
+describe("plugin row reconnect state", () => {
   it("renders a Reconnect button for needs_reauth that triggers onConnect", async () => {
     const onConnect = vi.fn(() => Promise.resolve());
-    render(
-      <ConnectIconButton
-        status="needs_reauth"
-        onConnect={onConnect}
-        onDisconnect={() => {}}
-      />,
-    );
+    renderRow("needs_reauth", onConnect);
     const btn = screen.getByRole("button", { name: "Reconnect plugin" });
     expect(btn).toBeDefined();
     await act(async () => {
@@ -236,16 +285,19 @@ describe("ConnectIconButton reconnect state", () => {
     expect(onConnect).toHaveBeenCalledTimes(1);
   });
 
-  it("never shows a plain Connect or Disconnect button for needs_reauth", () => {
-    render(
-      <ConnectIconButton
-        status="needs_reauth"
-        onConnect={() => {}}
-        onDisconnect={() => {}}
-      />,
-    );
+  it("never shows a plain Connect button or a Connected mark for needs_reauth", () => {
+    renderRow("needs_reauth", () => {});
     expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Disconnect plugin" })).toBeNull();
+    expect(screen.queryByRole("img", { name: "Connected" })).toBeNull();
+  });
+
+  it("keeps Disconnect for a connected plugin behind the row menu", () => {
+    const onDisconnect = vi.fn();
+    renderRow("connected", () => {}, onDisconnect);
+    expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    expect(onDisconnect).toHaveBeenCalledWith("row_plugin");
   });
 });
 
@@ -259,13 +311,13 @@ describe("plugin row click", () => {
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "Vercel" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "Vercel" })).toBeDefined();
     });
     expect(screen.queryByRole("dialog")).toBeNull();
 
     // A row opens the detail page — it never starts a flow by itself.
     await act(async () => {
-      fireEvent.click(screen.getByRole("row", { name: "Vercel" }));
+      fireEvent.click(screen.getByRole("button", { name: "Vercel" }));
     });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Plugins" })).toBeDefined();
@@ -286,11 +338,11 @@ describe("plugin row click", () => {
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "GitHub" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "GitHub" })).toBeDefined();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("row", { name: "GitHub" }));
+      fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
     });
 
     // The detail page states the connection; nothing destructive fires.
@@ -573,7 +625,7 @@ describe("PluginsView publishes OAuth success immediately", () => {
 
     await screen.findByText("Gmail connected");
     expect(
-      screen.getByRole("button", { name: "Disconnect plugin" }),
+      screen.getByRole("img", { name: "Connected" }),
     ).toBeDefined();
     expect(catalogReads).toBeGreaterThan(1);
   });
@@ -739,7 +791,7 @@ describe("PluginsView publishes every supported connection path immediately", ()
     });
     fireEvent.click(screen.getByRole("button", { name: /^connect$/i }));
 
-    await screen.findByRole("button", { name: "Disconnect plugin" });
+    await screen.findByRole("img", { name: "Connected" });
     expect(probe.catalogReads).toBeGreaterThan(1);
   });
 
@@ -768,7 +820,7 @@ describe("PluginsView publishes every supported connection path immediately", ()
     fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
 
     await screen.findByText("DCR Service connected");
-    expect(screen.getByRole("button", { name: "Disconnect plugin" })).toBeDefined();
+    expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
     expect(probe.catalogReads).toBeGreaterThan(1);
   });
 
@@ -801,13 +853,13 @@ describe("PluginsView publishes every supported connection path immediately", ()
     fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
 
     await screen.findByText("Device Service connected");
-    expect(screen.getByRole("button", { name: "Disconnect plugin" })).toBeDefined();
+    expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
     expect(probe.catalogReads).toBeGreaterThan(1);
   });
 });
 
 describe("PluginsView keeps revoked plugins visible", () => {
-  it("shows a needs_reauth plugin under Installed with a Reconnect-needed badge", async () => {
+  it("names a needs_reauth plugin up front and lists it as installed with a Reconnect control", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "/api/marketplace/plugins") {
         return {
@@ -840,23 +892,18 @@ describe("PluginsView keeps revoked plugins visible", () => {
 
     renderPluginsView();
 
-    // Open the Installed filter — the revoked plugin must be there, not hidden
-    // in the full list as if never connected.
-    await waitFor(() => {
-      expect(screen.getByRole("tab", { name: /^Installed\b/i })).toBeDefined();
-    });
-    fireEvent.click(screen.getByRole("tab", { name: /^Installed\b/i }));
-    // The attention filter appears as soon as something needs reconnecting.
-    expect(screen.getByRole("tab", { name: /Needs attention/ })).toBeDefined();
+    // The directory says which connection broke before anything else.
+    await screen.findByText("Gmail needs reconnecting");
+    // Its row is a Reconnect, never a plain "+" as if it was never connected.
+    expect(screen.getByRole("button", { name: "Reconnect plugin" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
 
-    await waitFor(() => {
-      expect(screen.getByText("Gmail")).toBeDefined();
-    });
-    // The row carries the amber "Reconnect needed" badge AND a Reconnect button.
-    expect(screen.getByText("Reconnect needed")).toBeDefined();
-    expect(
-      screen.getByRole("button", { name: "Reconnect plugin" }),
-    ).toBeDefined();
+    // The installed list still carries it — a dead token does not drop the
+    // plugin back among the never-connected ones.
+    fireEvent.click(screen.getByRole("button", { name: "Manage installed plugins" }));
+    await screen.findByText("Reconnect needed");
+    expect(screen.getByRole("button", { name: "Gmail" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Reconnect plugin" })).toBeDefined();
   });
 });
 
@@ -963,17 +1010,18 @@ describe("PluginsView category sections are data-driven", () => {
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "mystery" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "mystery" })).toBeDefined();
     });
     expect(screen.getByText("Something Brand New")).toBeDefined();
-    // The category menu is fed by the same data, so it offers the new one too.
-    fireEvent.click(screen.getByRole("combobox", { name: "Category" }));
-    expect(
-      screen.getByRole("option", { name: "Something Brand New" }),
-    ).toBeDefined();
+    // Its heading opens the section like any other, fed by the same data.
+    fireEvent.click(screen.getByRole("button", { name: "Show all of Something Brand New" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "known" })).toBeNull();
+    });
+    expect(screen.getByRole("button", { name: "mystery" })).toBeDefined();
   });
 
-  it("orders rows by the catalog's category_order", async () => {
+  it("orders sections by the catalog's category_order", async () => {
     catalogWith(
       [row("b", "Second"), row("a", "First")],
       ["First", "Second"],
@@ -982,13 +1030,12 @@ describe("PluginsView category sections are data-driven", () => {
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "a" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "a" })).toBeDefined();
     });
-    const names = screen
-      .getAllByRole("row")
-      .map((r) => r.getAttribute("aria-label"))
-      .filter(Boolean);
-    expect(names.indexOf("a")).toBeLessThan(names.indexOf("b"));
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "First",
+      "Second",
+    ]);
   });
 
   it("states how long the connection lasts before the user connects", async () => {
@@ -1003,17 +1050,17 @@ describe("PluginsView category sections are data-driven", () => {
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "limited" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "limited" })).toBeDefined();
     });
     // The detail page carries the longevity fact sheet.
-    fireEvent.click(screen.getByRole("row", { name: "limited" }));
+    fireEvent.click(screen.getByRole("button", { name: "limited" }));
     await waitFor(() => {
       expect(screen.getByText("Sign in again periodically")).toBeDefined();
     });
     expect(screen.getByText("Google asks again every 7 days in Testing mode.")).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Plugins" }));
-    fireEvent.click(await screen.findByRole("row", { name: "forever" }));
+    fireEvent.click(await screen.findByRole("button", { name: "forever" }));
     await waitFor(() => {
       expect(screen.getByText("Stays connected")).toBeDefined();
     });
@@ -1164,69 +1211,81 @@ describe("plugin status filter", () => {
   });
 });
 
-describe("PluginsView search and filter controls", () => {
-  function openSearch() {
-    fireEvent.click(screen.getByRole("button", { name: "Search plugins…" }));
-    return screen.getByPlaceholderText("Search plugins…");
-  }
+describe("PluginsView search and scope controls", () => {
+  const search = () => screen.getByRole("searchbox", { name: "Search plugins…" });
 
-  it("offers the status filter as tabs next to the search", async () => {
+  it("offers the two scopes as tabs under the header", async () => {
     installCatalogFetchMock();
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("tablist", { name: "Show" })).toBeDefined();
+      expect(screen.getByRole("tablist", { name: "Plugin directory" })).toBeDefined();
     });
-    for (const label of [/^All\b/, /^Installed\b/]) {
+    for (const label of ["Built in", "Yours"]) {
       expect(screen.getByRole("tab", { name: label })).toBeDefined();
     }
   });
 
-  it("hides the match count and reset button until a filter is active", async () => {
+  it("invites adding a plugin when the owner has added none", async () => {
+    installCatalogFetchMock();
+    renderPluginsView();
+
+    await screen.findByRole("button", { name: "GitHub" });
+    fireEvent.click(screen.getByRole("tab", { name: "Yours" }));
+
+    expect(screen.getByText("Nothing added yet")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "GitHub" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Custom connector (URL)" })).toBeDefined();
+  });
+
+  it("hides the match count and clear button until a search is active", async () => {
     installCatalogFetchMock();
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Disconnect plugin" })).toBeDefined();
+      expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
     });
     expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
     expect(screen.queryByText(/matches$/)).toBeNull();
 
-    fireEvent.change(openSearch(), { target: { value: "deployments" } });
+    fireEvent.change(search(), { target: { value: "deployments" } });
 
     // Vercel's description carries "Deployments"; GitHub's does not.
     await waitFor(() => {
       expect(screen.getByText("1 matches")).toBeDefined();
     });
-    expect(screen.getByRole("row", { name: "Vercel" })).toBeDefined();
-    expect(screen.queryByRole("row", { name: "GitHub" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Vercel" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "GitHub" })).toBeNull();
     expect(screen.getByRole("button", { name: "Clear filters" })).toBeDefined();
+    // A search lists results flat: the scope tabs step aside.
+    expect(screen.queryByRole("tablist", { name: "Plugin directory" })).toBeNull();
   });
 
-  it("restores the full list when the filters are cleared", async () => {
+  it("restores the full list when the search is cleared", async () => {
     installCatalogFetchMock();
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Disconnect plugin" })).toBeDefined();
+      expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
     });
-    fireEvent.change(openSearch(), { target: { value: "kubernetes" } });
+    fireEvent.change(search(), { target: { value: "kubernetes" } });
     await waitFor(() => {
       expect(screen.getByText("0 matches")).toBeDefined();
     });
+    expect(screen.getByText("No plugin matches the current filters.")).toBeDefined();
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show all plugins" }));
 
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
     });
-    expect(screen.getByRole("button", { name: "Disconnect plugin" })).toBeDefined();
-    expect(screen.getByRole("row", { name: "Vercel" })).toBeDefined();
+    expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Vercel" })).toBeDefined();
   });
 
-  it("explains an empty result from a non-text filter instead of blanking", async () => {
-    // Filtering by connection state alone can empty the list. That path used
-    // to render nothing at all — no message, no way back.
+  it("explains an empty installed list instead of blanking", async () => {
+    // With nothing connected the installed list is empty. That path used to
+    // render nothing at all — no message, no way back.
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "/api/marketplace/plugins") {
         return {
@@ -1250,47 +1309,60 @@ describe("PluginsView search and filter controls", () => {
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "GitHub" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "GitHub" })).toBeDefined();
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: /^Installed\b/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Manage installed plugins" }));
 
     await waitFor(() => {
-      expect(screen.getByText("No plugin matches the current filters.")).toBeDefined();
+      expect(screen.getByText("No plugins connected yet")).toBeDefined();
     });
-    fireEvent.click(screen.getByRole("button", { name: "Show all plugins" }));
+    fireEvent.click(screen.getByRole("button", { name: "Plugins" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "GitHub" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "GitHub" })).toBeDefined();
     });
   });
 
-  it("never claims nothing is connected while a filter is hiding the plugins", async () => {
+  it("never claims nothing is connected while a search is hiding the plugins", async () => {
     installCatalogFetchMock();
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Disconnect plugin" })).toBeDefined();
+      expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
     });
-    fireEvent.click(screen.getByRole("tab", { name: /^Installed\b/ }));
-    fireEvent.change(openSearch(), { target: { value: "kubernetes" } });
+    fireEvent.click(screen.getByRole("button", { name: "Manage installed plugins" }));
+    fireEvent.change(search(), { target: { value: "kubernetes" } });
 
     await waitFor(() => {
       expect(screen.getByText(/No plugin matches/)).toBeDefined();
     });
-    expect(screen.queryByText("Nothing connected yet")).toBeNull();
+    expect(screen.queryByText("No plugins connected yet")).toBeNull();
   });
 
   it("lists every plugin exactly once — no promo strip, no Coming-soon decoy", async () => {
     // The carousel used to put GitHub on screen a second time, and the
     // Coming-soon strip listed names that had long had real catalog entries.
-    installCatalogFetchMock();
+    // A featured plugin leads under Popular and is not repeated below.
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ...CATALOG,
+        plugins: CATALOG.plugins.map((p) => ({ ...p, featured: p.id === "github" })),
+      }),
+    })) as unknown as typeof fetch;
     renderPluginsView();
 
     await waitFor(() => {
-      expect(screen.getByRole("row", { name: "GitHub" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "GitHub" })).toBeDefined();
     });
     expect(screen.getAllByText("GitHub")).toHaveLength(1);
+    expect(screen.getAllByText("Vercel")).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Popular",
+      "Developer",
+    ]);
     expect(screen.queryByText("Coming soon")).toBeNull();
   });
 });
