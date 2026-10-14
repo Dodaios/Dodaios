@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { TeamThread } from "@/lib/teamThreadsApi";
 import { plainCommand } from "./memberLive";
-import { buildGraph, canvasLines, exchangeLabel, exchangesBetween, latestExchange, withShortNames, YOU, type TeamGraph } from "./teamGraph";
+import {
+  buildGraph, canvasLines, exchangeLabel, exchangesBetween, latestExchange, MEMBER_NODE, memberSpots, nameParts, withShortNames, YOU, YOU_NODE,
+  type GraphNode, type TeamGraph,
+} from "./teamGraph";
 
 type Member = TeamThread["members"][number];
 const member = (id: string, name: string, extra: Partial<Member> = {}): Member => ({
@@ -182,6 +185,57 @@ describe("the team graph", () => {
       "Anthropic Claude · claude-sonnet-5-5", "OpenAI Codex", "Anthropic Claude · claude-haiku-5-5",
     ]);
     expect(withShortNames(base)).toBe(base);
+  });
+
+  it("seats a swarm of five to eight on a ring under the person, every box clear of the others", () => {
+    const clear = (one: GraphNode, other: GraphNode) =>
+      Math.abs(one.x - other.x) >= (one.width + other.width) / 2 + 40 || Math.abs(one.y - other.y) >= (one.height + other.height) / 2 + 40;
+    for (let count = 2; count <= 8; count += 1) {
+      const members = Array.from({ length: count }, (_, index) => member(`m${index + 1}`, `Seat ${index + 1}`));
+      const graph = buildGraph({ ...base, members, entries: [] });
+      // Everyone is on the canvas, the person on top.
+      expect(graph.nodes.map((node) => node.id)).toEqual([YOU, ...members.map((item) => item.member_id)]);
+      expect(graph.nodes[0]).toMatchObject({ x: 0, y: 0, ...YOU_NODE });
+      for (const [index, node] of graph.nodes.entries()) {
+        if (index > 0) expect(node.y).toBeGreaterThan(0);
+        for (const other of graph.nodes.slice(index + 1)) expect(clear(node, other), `${count}: ${node.id} / ${other.id}`).toBe(true);
+      }
+      // The same team always sits the same way.
+      expect(buildGraph({ ...base, members, entries: [] }).nodes).toEqual(graph.nodes);
+    }
+    // Member 1 sits on the person's left, the last on the right, mirrored.
+    const ring = memberSpots(7);
+    expect(ring[0][0]).toBeLessThan(0);
+    expect(ring[6]).toEqual([-ring[0][0], ring[0][1]]);
+    expect(ring[3][0]).toBe(0);
+    expect(MEMBER_NODE.width).toBeGreaterThan(0);
+  });
+
+  it("draws every pair of a swarm and every line of the person", () => {
+    const members = Array.from({ length: 8 }, (_, index) => member(`m${index + 1}`, `Seat ${index + 1}`));
+    const graph = buildGraph({
+      ...base, phase: "challenge", members,
+      entries: [entry(1, "user", "user", { text: "x" }, "draft"),
+        ...members.map((item, index) => entry(index + 2, "draft", item.member_id, { text: "plan" }, "draft"))],
+    });
+    expect(graph.edges.length).toBe(8 + 8 * 7);
+    // Both directions of each pair carried a plan: one two-way line per pair.
+    expect(canvasLines(graph).filter((line) => line.partner !== null).length).toBe(28);
+  });
+
+  it("keeps the part of a name that tells two members on one seat apart", () => {
+    expect(nameParts("Anthropic Claude · Opus 5.5")).toEqual({ head: "Anthropic Claude", tail: " · Opus 5.5" });
+    expect(nameParts("Anthropic Claude 2")).toEqual({ head: "Anthropic Claude", tail: " 2" });
+    expect(nameParts("OpenAI Codex")).toEqual({ head: "OpenAI Codex", tail: "" });
+    const named = withShortNames({ ...base, members: [
+      member("m1", "Anthropic Claude · Opus 5.5", { model: "claude-opus-5-5" }),
+      member("m2", "Anthropic Claude · Sonnet 5.5", { model: "claude-sonnet-5-5" }),
+      member("m3", "Antigravity · Claude Opus 5.5", { model: "claude-opus-5-5" }),
+      member("m4", "Anthropic Claude 1"), member("m5", "Anthropic Claude 2"),
+    ] });
+    expect(named.members.map((item) => item.name)).toEqual([
+      "Anthropic Claude · Opus 5.5", "Anthropic Claude · Sonnet 5.5", "Antigravity", "Anthropic Claude 1", "Anthropic Claude 2",
+    ]);
   });
 
   it("reads a shell call without its shell", () => {
