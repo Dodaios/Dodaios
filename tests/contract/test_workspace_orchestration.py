@@ -1071,6 +1071,36 @@ async def test_watch_refuses_honestly_when_there_is_nothing_to_report(rig, monke
     assert nowhere["status"] == "unavailable" and term.delegation_result is None
 
 
+async def test_watch_without_a_name_follows_the_one_agent_at_work(rig, reportable):
+    # "Tell me when the coding agent is done" with one agent working was asked
+    # back for a call-sign in a live call (2026-10-14).
+    orchestrator, registry, sessions = rig
+    panes = [term for session in registry.sessions for term in session.terminals]
+    with _Origin("voice"):
+        nobody = await orchestrator.run({"action": "watch"})
+    assert nobody["status"] == "needs_clarification" and nobody["working"] == []
+    term = panes[0]
+    term.activity, term.last_prompt = "working", "Run the migration"
+    with _Origin("voice"):
+        watched = await orchestrator.run({"action": "watch"})
+    assert watched["status"] == "watching" and watched["agent"] == term.name
+    assert watched["target"]["terminal_id"] == "pane:" + term.history_id
+    assert term.delegation_result.watched and not sessions.calls
+
+
+async def test_watch_without_a_name_asks_when_several_agents_work(rig, reportable):
+    orchestrator, registry, _sessions = rig
+    panes = [term for session in registry.sessions for term in session.terminals]
+    assert len(panes) >= 2
+    for term in panes[:2]:
+        term.activity = "working"
+    with _Origin("voice"):
+        asked = await orchestrator.run({"action": "watch"})
+    assert asked["status"] == "needs_clarification"
+    assert set(asked["working"]) >= {panes[0].name, panes[1].name}
+    assert all(term.delegation_result is None for term in panes)
+
+
 def test_status_is_a_read_and_watch_is_a_logged_action(rig):
     import jsonschema
 
