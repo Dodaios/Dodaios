@@ -78,12 +78,21 @@ def test_delete_removes_every_file(tmp_path) -> None:
 def test_capture_names_and_unique_paths(tmp_path) -> None:
     when = datetime(2026, 9, 29, 14, 3, 22)
     name = paths.capture_filename("image", when, "png")
-    assert name == "Jarvis X 2026-09-29 at 14.03.22.png"
+    assert name == "Dodaios X 2026-09-29 at 14.03.22.png"
     assert paths.capture_filename("video", when, "mp4").startswith("Recording ")
     (tmp_path / name).write_bytes(b"x")
-    assert paths.unique_path(tmp_path, name).name == "Jarvis X 2026-09-29 at 14.03.22 (2).png"
+    assert paths.unique_path(tmp_path, name).name == "Dodaios X 2026-09-29 at 14.03.22 (2).png"
     edited = paths.edited_path_for(tmp_path / name)
-    assert edited.name == "Jarvis X 2026-09-29 at 14.03.22-edited.png"
+    assert edited.name == "Dodaios X 2026-09-29 at 14.03.22-edited.png"
+
+
+def test_default_save_dir_keeps_a_folder_from_before_the_rename(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(paths, "pictures_dir", lambda: tmp_path)
+    assert paths.default_save_dir() == tmp_path / "Dodaios X"
+    (tmp_path / "Jarvis X").mkdir()
+    assert paths.default_save_dir() == tmp_path / "Jarvis X"
+    (tmp_path / "Dodaios X").mkdir()
+    assert paths.default_save_dir() == tmp_path / "Dodaios X"
 
 
 def test_unusable_save_dir_falls_back(tmp_path, monkeypatch) -> None:

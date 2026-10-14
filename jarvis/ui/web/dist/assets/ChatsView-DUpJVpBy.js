@@ -1,0 +1,5 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-CcG7g8EA.js
+import{j as s}from"./index-B9tLMn8z.js";import{P as n}from"./PageHeader-GSCZojeT.js";import"./WorkTrace-Dtk3QKOU.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-Bour_fCp.js";import{P as n}from"./PageHeader-Dj49fBne.js";import"./WorkTrace-C8ZYmQHq.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> d60357a615fec6742efc05a96cbd4d95754f041d:jarvis/ui/web/dist/assets/ChatsView-DUpJVpBy.js

@@ -265,7 +265,7 @@ class ChatControls:
             if not state.last_request or state.last_status not in ("interrupted", "failed"):
                 if self._last_failure_was_not_yours(sid):
                     raise ValueError(
-                        "The task that failed last came from Jarvis, a teammate or a "
+                        "The task that failed last came from Dodaios, a teammate or a "
                         "routine, not from you, so /continue cannot resume it. Ask the "
                         "agent yourself, or let the sender try again."
                     )

@@ -268,7 +268,7 @@ prove that every provider, permission, or desktop-only capability is ready.
 | What you see | What it usually means | What to do |
 |---|---|---|
 | Authentication status reports `reachable: false` | The server is stopped, the target is wrong, or the key was rejected | Confirm the intended instance is running, then use the hidden `jarvis auth login` flow for that target |
-| `Invalid or missing Jarvis credential` or `Invalid or missing Jarvis Control API key` | The outer guard or a key-only control route rejected the credential | Re-authenticate without printing or logging the key |
+| `Invalid or missing Dodaios credential` or `Invalid or missing Dodaios Control API key` | The outer guard or a key-only control route rejected the credential | Re-authenticate without printing or logging the key |
 | `Untrusted Host header` or `Untrusted Origin header` | The request names an unconfigured host or comes from a foreign browser origin | Use the configured private address and trusted browser origin; do not weaken the guard |
 | The `jarvis api` group or a new operation is missing | No schema is cached, the server is unreachable, or the 24-hour cache is older than the target | Run `jarvis refresh`, then invoke `jarvis api` while the intended server is reachable |
 | Confirmation returns `410` | The pending change expired, was already used, or belonged to a previous process | Submit the original change again and review the new values and ID |

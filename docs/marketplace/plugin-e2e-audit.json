@@ -56,7 +56,7 @@
     {
       "plugin_id": "vercel",
       "result": "BLOCKED",
-      "config_fingerprint": "584c3523ce9f6085713892802c0db379600ed5c8ef6a650a2b5240b5007c3b07",
+      "config_fingerprint": "24a46754a460caabb4d85ce100f07060a45f85b6789091d1dacf25dbf3edb52b",
       "initial_state": "connect_attempt",
       "evidence": {
         "ui": {
@@ -105,7 +105,7 @@
     {
       "plugin_id": "supabase",
       "result": "BLOCKED",
-      "config_fingerprint": "867954a2d0c59235c7f54ae52a013380f82dc932c42e6f313631dae83ce5f0ae",
+      "config_fingerprint": "bed867ef032939784a684d575f9cf6c05f26234766ae149b3b2326ce1f9f1018",
       "initial_state": "connect_attempt",
       "evidence": {
         "ui": {
@@ -303,7 +303,7 @@
     {
       "plugin_id": "stripe",
       "result": "BLOCKED",
-      "config_fingerprint": "f7dd03e28d4820e15f595a7cc0e650fb18012b95450e8fe1171eeef8d9dd627f",
+      "config_fingerprint": "ac2b1be944d4ff4e0c63aa95c506210e0b9f351b99fc9e7a535aa815ec634c50",
       "initial_state": "connect_attempt",
       "evidence": {
         "ui": {
@@ -1045,7 +1045,7 @@
     {
       "plugin_id": "home_assistant",
       "result": "BLOCKED",
-      "config_fingerprint": "9ce0305096af43726baf09d205facc13dd49d0df3bff7cb54b93c59ee08caf1f",
+      "config_fingerprint": "d94b7e20d18902dff6ed6a02a7731455aed590bd78acc5f2ec5e0f6d3ea9d984",
       "initial_state": "connect_attempt",
       "evidence": {
         "ui": {

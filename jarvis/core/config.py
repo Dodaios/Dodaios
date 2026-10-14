@@ -2796,7 +2796,7 @@ class JarvisXConfig(BaseModel):
     thumbnail_dismiss_s: int = 30
 
     #: Folder new captures are saved to. Empty = the user's Pictures folder
-    #: (``Pictures/Jarvis X``), or the Jarvis data folder where there is none.
+    #: (``Pictures/Dodaios X``), or the data folder where there is none.
     save_dir: str = ""
 
     #: Also put each new screenshot on the system clipboard.

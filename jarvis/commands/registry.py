@@ -1054,7 +1054,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
             id="missions-list",
             title="List missions",
             description=(
-                "List Jarvis-Agent missions and their status, newest first. Set active "
+                "List Dodaios-Agent missions and their status, newest first. Set active "
                 "to see only the ones that have not ended yet."
             ),
             method="GET",
@@ -1083,7 +1083,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
             title="Read a mission result",
             description=(
                 "Read the signed summary and actual deliverable contents of one "
-                "completed Jarvis-Agent mission. Use this after listing missions "
+                "completed Dodaios-Agent mission. Use this after listing missions "
                 "when the user asks what a mission found or produced."
             ),
             method="GET",
@@ -1110,7 +1110,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
         AppCommand(
             id="mission-cancel",
             title="Cancel a mission",
-            description="Cancel a running Jarvis-Agent mission by id.",
+            description="Cancel a running Dodaios-Agent mission by id.",
             method="POST",
             path="/api/missions/{mission_id}/cancel",
             params={

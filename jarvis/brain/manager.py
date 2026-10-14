@@ -2407,7 +2407,7 @@ _SELF_CONTROL_DIRECTIVE = (
     "cannot hit the wrong target. For a simple config key use "
     "`set_config_value`; only for actions NOT covered by either, fall back "
     "to the `cli_jarvisctl` tool (e.g. `jarvisctl config set <key> "
-    "<value>`). NEVER say you lack access or permission to change a Jarvis "
+    "<value>`). NEVER say you lack access or permission to change a Dodaios "
     "setting, and never claim the change without actually calling the tool: "
     "call it and confirm success only AFTER it returns, using the values the "
     "tool actually reports."

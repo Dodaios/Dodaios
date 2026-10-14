@@ -1,9 +1,9 @@
-"""Where Jarvis X keeps its files.
+"""Where Dodaios X keeps its files.
 
 Two locations:
 
 - the **save folder** for the captures themselves — ``[jarvisx].save_dir`` when
-  set, else ``Pictures/Jarvis X`` resolved per OS (the Windows known-folder
+  set, else ``Pictures/Dodaios X`` resolved per OS (the Windows known-folder
   API, so a OneDrive-redirected Pictures folder is honoured; the XDG
   ``PICTURES`` entry on Linux; ``~/Pictures`` on macOS), else a folder in the
   Jarvis data directory when the machine has no Pictures folder at all (a
@@ -25,7 +25,11 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 #: Folder name inside Pictures (and the file-name prefix of every capture).
-FOLDER_NAME = "Jarvis X"
+FOLDER_NAME = "Dodaios X"
+
+#: The folder name before the rename. An install that already saved captures
+#: there keeps using it, so its library stays in one place.
+LEGACY_FOLDER_NAME = "Jarvis X"
 
 
 def library_dir() -> Path:
@@ -36,10 +40,18 @@ def library_dir() -> Path:
 
 
 def default_save_dir() -> Path:
-    """``Pictures/Jarvis X`` when a Pictures folder exists, else the data dir."""
+    """``Pictures/Dodaios X`` when a Pictures folder exists, else the data dir.
+
+    An existing ``Pictures/Jarvis X`` from before the rename wins while no
+    ``Dodaios X`` folder exists yet.
+    """
     pictures = pictures_dir()
     if pictures is not None:
-        return pictures / FOLDER_NAME
+        current = pictures / FOLDER_NAME
+        legacy = pictures / LEGACY_FOLDER_NAME
+        if not current.exists() and legacy.is_dir():
+            return legacy
+        return current
     return library_dir() / "captures"
 
 
@@ -81,7 +93,7 @@ def pictures_dir() -> Path | None:
 
 
 def capture_filename(kind: str, when: datetime, ext: str) -> str:
-    """``Jarvis X 2026-09-29 at 14.03.22.png`` (``Recording`` for videos)."""
+    """``Dodaios X 2026-09-29 at 14.03.22.png`` (``Recording`` for videos)."""
     label = "Recording" if kind == "video" else FOLDER_NAME
     stamp = when.strftime("%Y-%m-%d at %H.%M.%S")
     return f"{label} {stamp}.{ext}"
@@ -109,6 +121,7 @@ def edited_path_for(original: Path) -> Path:
 
 __all__ = [
     "FOLDER_NAME",
+    "LEGACY_FOLDER_NAME",
     "capture_filename",
     "default_save_dir",
     "edited_path_for",
