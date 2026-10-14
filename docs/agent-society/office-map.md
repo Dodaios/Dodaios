@@ -627,7 +627,8 @@ street of team rooms round an atrium, with commons people use in between.
   bridge to a round landing deck of 12 m radius, at floor level, inside the
   city's empty plaza. The deck is graphite with a gold landing circle,
   chevrons and a touchdown cross, a breathing cyan light round its rim, glass
-  rails, four light masts and steel struts back into the tower. The courier
+  rails, four light masts (glowing lamps, not light sources) and steel struts
+  back into the tower. The courier
   stands on it: a chrome and gold starship authored in Blender
   (`art/studies/sky-pad-courier-study/source/build_courier.py`, three levels
   of detail exported as glTF into `src/assets/society/courier/`), scaled to

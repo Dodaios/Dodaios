@@ -40,20 +40,30 @@ export function dopplerFactor(frame: Pick<EngineFrame, "ship" | "shipVelocity" |
 
 export class CourierEngineSound {
   private ctx: AudioContext;
-  private master: GainNode;
-  private panner: PannerNode;
-  private muffle: BiquadFilterNode;
-  private hum: OscillatorNode;
-  private hum2: OscillatorNode;
-  private humGain: GainNode;
-  private rushFilter: BiquadFilterNode;
-  private rushGain: GainNode;
-  private hissGain: GainNode;
+  private master!: GainNode;
+  private panner!: PannerNode;
+  private muffle!: BiquadFilterNode;
+  private hum!: OscillatorNode;
+  private hum2!: OscillatorNode;
+  private humGain!: GainNode;
+  private rushFilter!: BiquadFilterNode;
+  private rushGain!: GainNode;
+  private hissGain!: GainNode;
 
   constructor() {
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new Ctx();
     this.ctx = ctx;
+    try {
+      this.build(ctx);
+    } catch (error) {
+      // Half a graph is no use: close the context so it does not linger, and let the caller go on in silence.
+      void ctx.close().catch((closeError) => console.warn("courier sound context did not close", closeError));
+      throw error;
+    }
+  }
+
+  private build(ctx: AudioContext): void {
     this.master = ctx.createGain();
     this.master.gain.value = 0;
     this.muffle = ctx.createBiquadFilter();
@@ -138,15 +148,15 @@ export class CourierEngineSound {
     }
   }
 
-  /** A thud for an impact of this speed (m/s). */
-  impact(speed: number, volume: number): void {
+  /** A thud for an impact of this speed (m/s); the master gain already carries the pilot's volume. */
+  impact(speed: number): void {
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(90, t);
     osc.frequency.exponentialRampToValueAtTime(30, t + 0.4);
-    gain.gain.setValueAtTime(Math.min(0.8, speed / 40) * volume, t);
+    gain.gain.setValueAtTime(Math.min(0.8, speed / 40), t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
     osc.connect(gain).connect(this.muffle);
     osc.start(t);

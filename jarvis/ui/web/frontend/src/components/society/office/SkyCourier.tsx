@@ -13,13 +13,13 @@
  * (art/studies/sky-pad-courier-study); its chrome and gold reflect a small
  * environment of the city's night built once per renderer.
  */
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
   AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, Color, ConeGeometry, DoubleSide, Float32BufferAttribute, Group, LOD, Mesh,
-  MeshBasicMaterial, MeshStandardMaterial, Object3D, PerspectiveCamera, PMREMGenerator, Points, RepeatWrapping, Scene, ShaderMaterial,
-  SphereGeometry, Vector3, type Material, type Texture, type WebGLRenderer,
+  MeshBasicMaterial, MeshStandardMaterial, Object3D, PerspectiveCamera, PMREMGenerator, PointLight, RepeatWrapping, Scene, ShaderMaterial,
+  SphereGeometry, Vector3, type Material, type Texture, type WebGLRenderer, type WebGLRenderTarget,
 } from "three";
 import courierNear from "@/assets/society/courier/courier-lod0.glb";
 import courierMid from "@/assets/society/courier/courier-lod1.glb";
@@ -27,8 +27,8 @@ import courierFar from "@/assets/society/courier/courier-lod2.glb";
 import { planCity } from "./cityPlan";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import { CourierEngineSound } from "./courierAudio";
-import { flightInput, PAD_PRESSES, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
-import { engageAutopilot, FLIGHT, forwardOf, heightOverDeck, parkedState, stepFlight, type FlightState } from "./courierFlight";
+import { FLIGHT_ACTIONS, flightInput, PAD_PRESSES, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
+import { engageAutopilot, FLIGHT, forwardOf, heightOverDeck, NO_INPUT, parkedState, stepFlight, type FlightState } from "./courierFlight";
 import { courierSession, useCourier } from "./courierStore";
 import { buildCourierWorld, rayDistance } from "./courierWorld";
 import { CAMERA_FOV } from "./officeCamera";
@@ -56,7 +56,7 @@ const FLIGHT_FOV = { cruise: 60, boost: 72 } as const;
 // ---------------------------------------------------------------------------
 
 /** The city's night as a small environment for the chrome: violet sky, a gold glow on one side, dark streets with lights. */
-function cityEnvironment(gl: WebGLRenderer): Texture {
+function cityEnvironment(gl: WebGLRenderer): WebGLRenderTarget {
   const scene = new Scene();
   const geometry = new SphereGeometry(50, 48, 24);
   const colours: number[] = [];
@@ -84,7 +84,7 @@ function cityEnvironment(gl: WebGLRenderer): Texture {
   const target = pmrem.fromScene(scene, 0.02);
   pmrem.dispose();
   scene.traverse((o) => { if (o instanceof Mesh) { o.geometry.dispose(); (o.material as Material).dispose(); } });
-  return target.texture;
+  return target;
 }
 
 /** Hull panels: thin seams the chrome's bump map carries, so the surface reads as built and not cast. */
@@ -198,8 +198,11 @@ const TRAIL_POINTS = 26;
 /** A contrail behind one pod tail: a camera-facing ribbon through the tail's recent positions. */
 class Trail {
   readonly geometry = new BufferGeometry();
-  private points: Vector3[] = [];
-  private ages: number[] = [];
+  /** A ring of pooled points, newest at `head`; `count` of them are in use. */
+  private readonly points = Array.from({ length: TRAIL_POINTS }, () => new Vector3());
+  private readonly ages = new Float32Array(TRAIL_POINTS);
+  private head = 0;
+  private count = 0;
   private readonly pos = new Float32Array(TRAIL_POINTS * 2 * 3);
   private readonly fade = new Float32Array(TRAIL_POINTS * 2);
   constructor() {
@@ -209,32 +212,38 @@ class Trail {
     for (let i = 0; i < TRAIL_POINTS - 1; i += 1) { const a = i * 2; index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
     this.geometry.setIndex(index);
   }
-  update(tip: Vector3, strength: number, dt: number, camera: Vector3) {
-    for (let i = 0; i < this.ages.length; i += 1) this.ages[i] += dt;
-    const last = this.points[0];
-    if (!last || last.distanceTo(tip) > 1.4) { this.points.unshift(tip.clone()); this.ages.unshift(0); }
-    else last.copy(tip);
-    while (this.points.length > TRAIL_POINTS) { this.points.pop(); this.ages.pop(); }
-    const side = new Vector3(), dir = new Vector3(), toCam = new Vector3();
+  private at(i: number): Vector3 { return this.points[(this.head - i + TRAIL_POINTS) % TRAIL_POINTS]; }
+  update(tip: Vector3, strength: number, dt: number, camera: Vector3, v: { side: Vector3; dir: Vector3; cam: Vector3 }) {
+    for (let i = 0; i < TRAIL_POINTS; i += 1) this.ages[i] += dt;
+    if (this.count === 0 || this.at(0).distanceTo(tip) > 1.4) {
+      this.head = (this.head + 1) % TRAIL_POINTS;
+      this.points[this.head].copy(tip);
+      this.ages[this.head] = 0;
+      this.count = Math.min(TRAIL_POINTS, this.count + 1);
+    } else {
+      this.at(0).copy(tip);
+    }
     for (let i = 0; i < TRAIL_POINTS; i += 1) {
-      const p = this.points[Math.min(i, this.points.length - 1)] ?? tip;
-      const q = this.points[Math.min(i + 1, this.points.length - 1)] ?? p;
-      dir.subVectors(p, q);
-      if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1);
-      toCam.subVectors(camera, p).normalize();
-      side.crossVectors(dir.normalize(), toCam).normalize().multiplyScalar(0.12 + i * 0.006);
-      this.pos.set([p.x + side.x, p.y + side.y, p.z + side.z, p.x - side.x, p.y - side.y, p.z - side.z], i * 6);
-      const age = this.ages[Math.min(i, this.ages.length - 1)] ?? 9;
+      const used = i < this.count;
+      const p = used ? this.at(i) : this.at(0);
+      const q = i + 1 < this.count ? this.at(i + 1) : p;
+      v.dir.subVectors(p, q);
+      if (v.dir.lengthSq() < 1e-6) v.dir.set(0, 0, 1);
+      v.cam.subVectors(camera, p).normalize();
+      v.side.crossVectors(v.dir.normalize(), v.cam).normalize().multiplyScalar(0.12 + i * 0.006);
+      const o = i * 6;
+      this.pos[o] = p.x + v.side.x; this.pos[o + 1] = p.y + v.side.y; this.pos[o + 2] = p.z + v.side.z;
+      this.pos[o + 3] = p.x - v.side.x; this.pos[o + 4] = p.y - v.side.y; this.pos[o + 5] = p.z - v.side.z;
       // Fading with age and along the trail, and gone where it would pass right by the camera.
       const near = Math.min(1, Math.max(0, (camera.distanceTo(p) - 8) / 20));
-      const alpha = i < this.points.length ? strength * Math.max(0, 1 - age / 1.2) * (1 - i / TRAIL_POINTS) * near : 0;
+      const age = this.ages[(this.head - i + TRAIL_POINTS) % TRAIL_POINTS];
+      const alpha = used ? strength * Math.max(0, 1 - age / 1.2) * (1 - i / TRAIL_POINTS) * near : 0;
       this.fade[i * 2] = alpha; this.fade[i * 2 + 1] = alpha;
     }
     (this.geometry.getAttribute("position") as BufferAttribute).needsUpdate = true;
     (this.geometry.getAttribute("aFade") as BufferAttribute).needsUpdate = true;
-    this.geometry.computeBoundingSphere();
   }
-  clear() { this.points = []; this.ages = []; this.fade.fill(0); (this.geometry.getAttribute("aFade") as BufferAttribute).needsUpdate = true; }
+  clear() { this.count = 0; this.fade.fill(0); (this.geometry.getAttribute("aFade") as BufferAttribute).needsUpdate = true; }
 }
 
 const TRAIL_MATERIAL_SOURCE = {
@@ -249,36 +258,57 @@ const DUST_COUNT = 220;
 // ---------------------------------------------------------------------------
 
 export function SkyCourier({ layout, reduced, awake }: { layout: OfficeLayout; reduced: boolean; awake: boolean }) {
+  // A model that fails to load leaves the pad empty instead of taking the floor down with it.
   return (
-    <Suspense fallback={null}>
-      {layout.skyPad && <Courier layout={layout} pad={layout.skyPad} reduced={reduced} awake={awake} />}
-    </Suspense>
+    <CourierBoundary>
+      <Suspense fallback={null}>
+        {layout.skyPad && <Courier layout={layout} pad={layout.skyPad} reduced={reduced} awake={awake} />}
+      </Suspense>
+    </CourierBoundary>
   );
+}
+
+class CourierBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: unknown) { console.warn("the courier could not be shown", error); }
+  render() { return this.state.failed ? null : this.props.children; }
 }
 
 function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: SkyPad; reduced: boolean; awake: boolean }) {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
   const gltfs = useGLTF([courierNear, courierMid, courierFar]);
-  const env = useMemo(() => cityEnvironment(gl), [gl]);
-  useEffect(() => () => env.dispose(), [env]);
-  const materials = useMemo(() => courierMaterials(env), [env]);
-  useEffect(() => () => { for (const m of materials.all) m.dispose(); }, [materials]);
-  const { lod, gear } = useMemo(() => {
-    const levels = gltfs.map((g) => dress(g.scene, materials));
+  // The environment is a render target of its own: built in an effect, so its disposal pairs with its creation.
+  const [env, setEnv] = useState<WebGLRenderTarget | null>(null);
+  useEffect(() => {
+    const target = cityEnvironment(gl);
+    setEnv(target);
+    return () => target.dispose();
+  }, [gl]);
+  const materials = useMemo(() => (env ? courierMaterials(env.texture) : null), [env]);
+  useEffect(() => () => { for (const m of materials?.all ?? []) m.dispose(); }, [materials]);
+  const levels = useMemo(() => {
+    if (!materials) return null;
+    const dressed = gltfs.map((g) => dress(g.scene, materials));
     const l = new LOD();
-    l.addLevel(levels[0].root, 0);
-    l.addLevel(levels[1].root, 70);
-    l.addLevel(levels[2].root, 170);
-    return { lod: l, gear: levels.flatMap((lvl) => lvl.gear) };
+    l.addLevel(dressed[0].root, 0);
+    l.addLevel(dressed[1].root, 70);
+    l.addLevel(dressed[2].root, 170);
+    return { lod: l, gear: dressed.flatMap((lvl) => lvl.gear) };
   }, [gltfs, materials]);
 
+  // Keyed on the pad's numbers, not its object: every rebuilt floor plan (a new agent, a team change) passes a new
+  // one, and that must neither rebuild the city's colliders nor end a flight.
+  const padRef = useRef(pad);
+  padRef.current = pad;
   const { minX, maxX, minZ, maxZ } = layout.bounds;
+  const hx = pad.ship.x, hz = pad.ship.z, hh = pad.ship.heading, padR = pad.pad.r;
+  const home = useMemo(() => ({ x: hx, z: hz, heading: hh }), [hx, hz, hh]);
   const world = useMemo(() => {
     const bounds = { minX, maxX, minZ, maxZ };
-    return buildCourierWorld(planCity(bounds), bounds, pad);
-  }, [minX, maxX, minZ, maxZ, pad]);
-  const home = pad.ship;
+    return buildCourierWorld(planCity(bounds), bounds, padRef.current);
+  }, [minX, maxX, minZ, maxZ, hx, hz, padR]);
   const state = useRef<FlightState>(parkedState(home));
   const ship = useRef<Group>(null);
 
@@ -305,7 +335,7 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       transparent: true, depthWrite: false, blending: AdditiveBlending,
     });
     geometry.setAttribute("aLife", new BufferAttribute(new Float32Array(DUST_COUNT), 1));
-    return { geometry, material, velocity: new Float32Array(DUST_COUNT * 3), life: new Float32Array(DUST_COUNT), next: 0 };
+    return { geometry, material, velocity: new Float32Array(DUST_COUNT * 3), life: new Float32Array(DUST_COUNT), next: 0, alive: 0 };
   }, []);
   useEffect(() => () => {
     flameGeometry.dispose(); flameMaterial.dispose(); shieldGeometry.dispose(); shieldMaterial.dispose(); trailMaterial.dispose();
@@ -314,42 +344,67 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
   }, [flameGeometry, flameMaterial, shieldGeometry, shieldMaterial, trails, trailMaterial, dust]);
   const flames = useRef<(Mesh | null)[]>([]);
   const shield = useRef<Mesh>(null);
-  const light = useRef<import("three").PointLight>(null);
-  const dustPoints = useRef<Points>(null);
+  const light = useRef<PointLight>(null);
 
   // Flight session: held keys, gamepad presses, the sound, the camera's own smoothing.
   const flying = useCourier((s) => s.flying);
+  // The keys and the sound belong to a flight on screen: another section or a hidden window gets its keys back.
+  const live = flying && awake;
   const held = useRef(new Set<string>());
   const padPressed = useRef(new Set<number>());
   const sound = useRef<CourierEngineSound | null>(null);
   const camPos = useRef(new Vector3());
   const camVel = useRef(new Vector3());
-  const lastCam = useRef(new Vector3());
+  const camPrev = useRef(new Vector3());
   const telemetryClock = useRef(0);
   const lastImpact = useRef(0);
   const landRequest = useCourier((s) => s.landRequest);
-
   const exitRequest = useCourier((s) => s.exitRequest);
+
+  // The model is on the pad: from now on the person can board.
+  useEffect(() => {
+    if (!levels) return;
+    useCourier.getState().setReady(true);
+    return () => useCourier.getState().setReady(false);
+  }, [levels]);
+
+  /** The office camera's lens again, after the flight's wider one. */
+  const restoreCamera = () => {
+    camera.fov = CAMERA_FOV; camera.near = 0.2; camera.updateProjectionMatrix();
+    for (const t of trails) t.clear();
+  };
+  const leaveShip = () => {
+    // Step out beside the hatch, facing the ship; the office camera takes over again.
+    const { board } = padRef.current;
+    playerBody.x = board.x; playerBody.z = board.z; playerBody.heading = board.facing;
+    playerBody.path = []; playerBody.moving = false;
+    restoreCamera();
+    useCourier.getState().disembark();
+    useOfficeStore.getState().setFollow(true);
+  };
+  const leaveRef = useRef(leaveShip);
+  leaveRef.current = leaveShip;
+
   useEffect(() => {
     if (landRequest > 0) engageAutopilot(state.current);
   }, [landRequest]);
   useEffect(() => {
-    if (exitRequest > 0 && state.current.landed && courierSession.flying) leaveShip();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (exitRequest > 0 && state.current.landed && courierSession.flying) leaveRef.current();
   }, [exitRequest]);
 
   useEffect(() => {
-    if (!flying) return;
+    if (!live) return;
     camPos.current.copy(camera.position);
-    lastCam.current.copy(camera.position);
+    camPrev.current.copy(camera.position);
+    let engine: CourierEngineSound | null = null;
     try {
-      sound.current = new CourierEngineSound();
-      sound.current.resume();
+      engine = new CourierEngineSound();
+      engine.resume();
     } catch (error) {
       // No Web Audio (an old engine, a locked-down WebView): the flight goes on in silence.
       console.warn("courier sound unavailable", error);
-      sound.current = null;
     }
+    sound.current = engine;
     const press = (action: FlightAction) => {
       const store = useCourier.getState();
       const s = state.current;
@@ -357,16 +412,24 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       else if (action === "camera") store.setPrefs({ view: store.view === "chase" ? "cockpit" : "chase" });
       else if (action === "land") engageAutopilot(s);
       else if (action === "help") store.set({ helpOpen: !store.helpOpen });
-      else if (action === "exit" && s.landed) leaveShip();
+      else if (action === "exit" && s.landed) leaveRef.current();
     };
     const down = (event: KeyboardEvent) => {
-      if (ownsKeyboard(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
       const store = useCourier.getState();
-      if (event.key === "Escape") { store.set({ settingsOpen: !store.settingsOpen }); event.preventDefault(); return; }
-      if (store.settingsOpen) return;
-      const action = (Object.keys(store.bindings) as FlightAction[]).find((a) => store.bindings[a].includes(event.code));
-      // E stands for "use" everywhere in the office: on the pad it leaves the ship too.
-      if (event.code === "KeyE" && state.current.landed && !event.repeat) { leaveShip(); event.preventDefault(); event.stopPropagation(); return; }
+      // Escape opens and closes the flight settings, wherever focus sits in them.
+      if (event.key === "Escape") {
+        store.set({ settingsOpen: !store.settingsOpen });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (ownsKeyboard(event.target) || store.settingsOpen) return;
+      // A modifier is a binding of its own (Ctrl sinks by default); held with another key it is a shortcut.
+      const isModifier = /^(Control|Alt|Meta|OS)/.test(event.code);
+      if (!isModifier && (event.ctrlKey || event.metaKey || event.altKey)) return;
+      const action = FLIGHT_ACTIONS.find((a) => store.bindings[a].includes(event.code));
+      // E is "use" everywhere in the office: standing on the pad, it also steps out.
+      if (event.code === "KeyE" && state.current.landed && !event.repeat) { leaveRef.current(); event.preventDefault(); event.stopPropagation(); return; }
       if (!action) return;
       event.preventDefault();
       event.stopPropagation();
@@ -384,39 +447,26 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       window.removeEventListener("keyup", up, true);
       window.removeEventListener("blur", blur);
       held.current.clear();
-      sound.current?.close();
+      engine?.close();
       sound.current = null;
       pressHandler.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flying]);
+  }, [live, camera]);
   const pressHandler = useRef<((action: FlightAction) => void) | null>(null);
 
-  function leaveShip() {
-    // Step out beside the hatch, facing the ship; the office camera takes over again.
-    playerBody.x = pad.board.x; playerBody.z = pad.board.z; playerBody.heading = pad.board.facing;
-    playerBody.path = []; playerBody.moving = false;
-    camera.fov = CAMERA_FOV; camera.near = 0.2; camera.updateProjectionMatrix();
-    for (const t of trails) t.clear();
-    useCourier.getState().disembark();
-    useOfficeStore.getState().setFollow(true);
-  }
-
-  // Leaving the floor or the map mid-flight: the ship is parked again and the person stands beside it.
+  // Leaving the floor or the map mid-flight: the ship is parked again, the person stands beside it, the lens is
+  // the office's again.
   useEffect(() => () => {
-    if (courierSession.flying) {
-      state.current = parkedState(home);
-      useCourier.getState().disembark();
-    }
-  }, [home]);
+    if (courierSession.flying) leaveRef.current();
+  }, []);
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === "undefined") return;
     // Dev-only: the live flight state, for runtime checks of the effects and the camera.
-    Object.assign(window, { __courier: { state: () => state.current } });
+    Object.assign(window, { __courier: { state: () => state.current, store: useCourier } });
   }, []);
 
-  const _v = useMemo(() => ({ a: new Vector3(), b: new Vector3(), c: new Vector3(), f: new Vector3(), u: new Vector3() }), []);
+  const _v = useMemo(() => ({ a: new Vector3(), b: new Vector3(), c: new Vector3(), f: new Vector3(), u: new Vector3(), side: new Vector3(), dir: new Vector3(), cam: new Vector3() }), []);
 
   useFrame(({ clock }, rawDt) => {
     const g = ship.current;
@@ -426,20 +476,24 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
     const store = useCourier.getState();
     if (flying) {
       // Gamepad: the first connected pad, its press buttons on their rising edge.
-      let pad: PadState | null = null;
-      const pads = typeof navigator !== "undefined" && navigator.getGamepads ? navigator.getGamepads() : [];
-      for (const p of pads) if (p && p.connected) { pad = p; break; }
-      if (pad) {
+      let gamepad: PadState | null = null;
+      try {
+        const pads = typeof navigator !== "undefined" && navigator.getGamepads ? navigator.getGamepads() : [];
+        for (const p of pads) if (p && p.connected) { gamepad = p; break; }
+      } catch (error) {
+        // A permissions policy may forbid gamepads; the keyboard still flies. Said once, not every frame.
+        if (!gamepadWarned.current) { console.warn("gamepads unavailable", error); gamepadWarned.current = true; }
+      }
+      if (gamepad) {
         for (const [button, action] of PAD_PRESSES) {
-          const isDown = pad.buttons[button]?.pressed ?? false;
+          const isDown = gamepad.buttons[button]?.pressed ?? false;
           if (isDown && !padPressed.current.has(button)) pressHandler.current?.(action);
           if (isDown) padPressed.current.add(button); else padPressed.current.delete(button);
         }
       }
-      const input = store.settingsOpen ? flightInput(new Set(), store.bindings, null, false)
-        : flightInput(held.current, store.bindings, pad, store.invertPitch);
+      const input = store.settingsOpen ? NO_INPUT : flightInput(held.current, store.bindings, gamepad, store.invertPitch);
       stepFlight(s, input, dt, store.assist, world, home);
-      if (s.impact > lastImpact.current + 6 && sound.current) sound.current.impact(s.impact, store.volume);
+      if (s.impact > lastImpact.current + 6 && sound.current) sound.current.impact(s.impact);
       lastImpact.current = s.impact;
       flyCamera(dt, input.boost && s.charge > 0.02);
       sound.current?.update({
@@ -462,17 +516,17 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
         });
       }
     } else if (!s.landed || s.p.distanceToSquared(_v.a.set(home.x, COURIER.standHeight, home.z)) > 1e-4) {
-      // Not flown (left mid-air by a floor change): back on the pad.
+      // Not flown (stepped out, or left mid-air by a floor change): back on the pad.
       state.current = parkedState(home);
     }
 
     // Place the ship and dress it for its state.
-    g.position.copy(state.current.p);
-    g.quaternion.copy(state.current.q);
     const st = state.current;
-    for (const { node, y } of gear) node.position.y = y + (1 - st.gear) * MODEL.gearTravel;
+    g.position.copy(st.p);
+    g.quaternion.copy(st.q);
+    if (levels) for (const { node, y } of levels.gear) node.position.y = y + (1 - st.gear) * MODEL.gearTravel;
     const power = st.landed ? 0.12 : 0.25 + st.throttle * 0.75;
-    materials.glow.color.setRGB(0.25 + power * 0.6, 0.55 + power * 0.45, 1).multiplyScalar(0.6 + power * 1.8);
+    materials?.glow.color.setRGB(0.25 + power * 0.6, 0.55 + power * 0.45, 1).multiplyScalar(0.6 + power * 1.8);
     flameMaterial.uniforms.uTime.value = reduced ? 0 : clock.elapsedTime;
     flameMaterial.uniforms.uPower.value = st.landed ? 0 : 0.35 + st.throttle * 0.9;
     for (const f of flames.current) if (f) f.scale.set(1, 1, st.landed ? 0.01 : 2 + st.throttle * 7);
@@ -480,17 +534,19 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
     shieldMaterial.uniforms.uTime.value = clock.elapsedTime;
     shieldMaterial.uniforms.uStrength.value = st.shield;
     if (shield.current) shield.current.visible = st.shield > 0.01;
-    updateTrails(dt);
-    updateDust(dt);
+    if (flying) updateTrails(dt);
+    if (flying || dust.alive > 0) updateDust(dt);
   });
+  const gamepadWarned = useRef(false);
 
   function flyCamera(dt: number, boosting: boolean) {
     const s = state.current, store = useCourier.getState();
     const f = forwardOf(s.q, _v.f), u = _v.u.set(0, 1, 0).applyQuaternion(s.q);
-    const before = _v.c.copy(camera.position);
     if (store.view === "cockpit") {
       camera.position.copy(s.p).addScaledVector(u, COCKPIT.up).addScaledVector(f, -COCKPIT.forward);
       camera.quaternion.copy(s.q);
+      // The chase camera starts from here when the pilot switches back.
+      camPos.current.copy(camera.position);
     } else {
       // Behind the tail and above it, looking past the nose.
       const want = _v.a.copy(s.p).addScaledVector(f, -CHASE.back).add(_v.b.set(0, CHASE.up, 0));
@@ -503,11 +559,15 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       if (free < reach) want.copy(from).addScaledVector(dir, Math.max(2, free - 1.5));
       camPos.current.lerp(want, 1 - Math.exp(-CHASE.stiffness * dt));
       camera.position.copy(camPos.current);
-      if (!reduced && s.impact > 4) camera.position.add(_v.b.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(s.impact * 0.02));
       camera.up.set(0, 1, 0);
       camera.lookAt(_v.b.copy(s.p).addScaledVector(f, CHASE.lookAhead).addScaledVector(u, 1.5));
     }
-    camVel.current.copy(camera.position).sub(before).divideScalar(Math.max(dt, 1e-3));
+    // The listener's own speed, for the Doppler shift: measured before any shake.
+    camVel.current.copy(camera.position).sub(camPrev.current).divideScalar(Math.max(dt, 1e-3));
+    camPrev.current.copy(camera.position);
+    if (store.view === "chase" && !reduced && s.impact > 4) {
+      camera.position.add(_v.b.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(s.impact * 0.02));
+    }
     const fov = boosting ? FLIGHT_FOV.boost : FLIGHT_FOV.cruise;
     camera.fov += (fov - camera.fov) * Math.min(1, dt * 3);
     camera.near = 0.3;
@@ -517,11 +577,12 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
 
   function updateTrails(dt: number) {
     const s = state.current;
-    const strength = flying ? Math.max(0, Math.min(1, (s.v.length() - FLIGHT.cruise * 0.6) / (FLIGHT.cruise * 0.6))) : 0;
-    MODEL.tails.forEach((tail, i) => {
+    const strength = Math.max(0, Math.min(1, (s.v.length() - FLIGHT.cruise * 0.6) / (FLIGHT.cruise * 0.6)));
+    for (let i = 0; i < MODEL.tails.length; i += 1) {
+      const tail = MODEL.tails[i];
       const tip = _v.a.set(tail[0], tail[1], tail[2]).multiplyScalar(COURIER.scale).applyQuaternion(s.q).add(s.p);
-      trails[i].update(tip, strength, dt, camera.position);
-    });
+      trails[i].update(tip, strength, dt, camera.position, _v);
+    }
   }
 
   function updateDust(dt: number) {
@@ -537,25 +598,29 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       const a = Math.random() * Math.PI * 2, r = 2 + Math.random() * 3;
       pos.setXYZ(i, s.p.x + Math.cos(a) * r, 0.2, s.p.z + Math.sin(a) * r);
       const speed = 6 + Math.random() * 8;
-      dust.velocity.set([Math.cos(a) * speed, 0.6 + Math.random() * 1.4, Math.sin(a) * speed], i * 3);
+      dust.velocity[i * 3] = Math.cos(a) * speed; dust.velocity[i * 3 + 1] = 0.6 + Math.random() * 1.4; dust.velocity[i * 3 + 2] = Math.sin(a) * speed;
       dust.life[i] = 1;
     }
+    let alive = 0;
     for (let i = 0; i < DUST_COUNT; i += 1) {
       if (dust.life[i] <= 0) { life.setX(i, 0); continue; }
+      alive += 1;
       dust.life[i] = Math.max(0, dust.life[i] - dt * 0.8);
       pos.setXYZ(i, pos.getX(i) + dust.velocity[i * 3] * dt, pos.getY(i) + dust.velocity[i * 3 + 1] * dt, pos.getZ(i) + dust.velocity[i * 3 + 2] * dt);
       dust.velocity[i * 3] *= 1 - dt * 0.9; dust.velocity[i * 3 + 2] *= 1 - dt * 0.9;
       life.setX(i, dust.life[i]);
     }
+    dust.alive = alive;
     pos.needsUpdate = true;
     life.needsUpdate = true;
   }
 
+  if (!levels) return null;
   return (
     <>
       <group ref={ship} name={COURIER_GROUP} visible>
         <group scale={COURIER.scale}>
-          <primitive object={lod} />
+          <primitive object={levels.lod} />
           {MODEL.exhausts.map((p, i) => (
             <mesh key={i} ref={(m) => { flames.current[i] = m; }} geometry={flameGeometry} material={flameMaterial} position={p} renderOrder={6} frustumCulled={false} />
           ))}
@@ -564,8 +629,7 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
         </group>
       </group>
       {trails.map((t, i) => <mesh key={i} geometry={t.geometry} material={trailMaterial} frustumCulled={false} renderOrder={5} />)}
-      <points ref={dustPoints} geometry={dust.geometry} material={dust.material} frustumCulled={false} renderOrder={5} />
+      <points geometry={dust.geometry} material={dust.material} frustumCulled={false} renderOrder={5} />
     </>
   );
 }
-

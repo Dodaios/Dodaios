@@ -13,6 +13,11 @@ import { FLIGHT } from "./courierFlight";
 import { useCourier } from "./courierStore";
 import "./courierHud.css";
 
+/** The keys of one action as a pilot reads them, each label once (left and right Shift are both "Shift"). */
+function keysLabel(codes: readonly string[]): string {
+  return [...new Set(codes.map(keyLabel))].join(" / ") || "–";
+}
+
 function Meter({ label, value }: { label: string; value: number }) {
   return (
     <div className="courier-meter">
@@ -33,7 +38,7 @@ export function CourierHud() {
   const store = useCourier.getState;
   const kmh = Math.round(telemetry.speed * 3.6);
   const boostShare = Math.min(1, telemetry.speed / FLIGHT.boost);
-  const keysOf = (action: FlightAction) => bindings[action].map(keyLabel).join(" / ") || "–";
+  const keysOf = (action: FlightAction) => keysLabel(bindings[action]);
   return (
     <>
       <div className="courier-hud office-card" data-office-ui role="group" aria-label={t("society.office.flight_hud")}>
@@ -84,7 +89,12 @@ export function CourierHud() {
 
 function CourierSettings() {
   const t = useT();
-  const { assist, view, invertPitch, volume, bindings } = useCourier();
+  // One selector per choice: the telemetry ticking eight times a second does not redraw the settings.
+  const assist = useCourier((s) => s.assist);
+  const view = useCourier((s) => s.view);
+  const invertPitch = useCourier((s) => s.invertPitch);
+  const volume = useCourier((s) => s.volume);
+  const bindings = useCourier((s) => s.bindings);
   const store = useCourier.getState;
   const [capturing, setCapturing] = useState<FlightAction | null>(null);
   useEffect(() => {
@@ -133,7 +143,7 @@ function CourierSettings() {
           <div key={action} className="courier-binding">
             <span>{t(`society.office.flight_action_${action}`)}</span>
             <button type="button" className="office-chip" aria-pressed={capturing === action} onClick={() => setCapturing(action)}>
-              {capturing === action ? t("society.office.flight_rebind") : bindings[action].map(keyLabel).join(" / ") || "–"}
+              {capturing === action ? t("society.office.flight_rebind") : keysLabel(bindings[action])}
             </button>
           </div>
         ))}

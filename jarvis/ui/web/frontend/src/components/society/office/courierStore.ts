@@ -58,6 +58,8 @@ function savePrefs(prefs: CourierPrefs) {
 
 interface CourierState extends CourierPrefs {
   flying: boolean;
+  /** The ship stands loaded on its pad; boarding waits for it. */
+  ready: boolean;
   bindings: FlightBindings;
   helpOpen: boolean;
   settingsOpen: boolean;
@@ -72,6 +74,7 @@ interface CourierState extends CourierPrefs {
   set: (patch: Partial<Pick<CourierState, "helpOpen" | "settingsOpen" | "telemetry">>) => void;
   requestLanding: () => void;
   requestExit: () => void;
+  setReady: (ready: boolean) => void;
 }
 
 const IDLE: CourierTelemetry = { speed: 0, throttle: 0, charge: 1, altitude: 0, overPad: true, landed: true, autopilot: null, canLand: false };
@@ -79,13 +82,18 @@ const IDLE: CourierTelemetry = { speed: 0, throttle: 0, charge: 1, altitude: 0, 
 export const useCourier = create<CourierState>((set, get) => ({
   ...loadPrefs(),
   flying: false,
+  ready: false,
   bindings: loadBindings(),
   helpOpen: false,
   settingsOpen: false,
   telemetry: IDLE,
   landRequest: 0,
   exitRequest: 0,
-  board: () => { courierSession.flying = true; set({ flying: true, telemetry: IDLE }); },
+  board: () => {
+    if (!get().ready) return;
+    courierSession.flying = true;
+    set({ flying: true, telemetry: IDLE });
+  },
   disembark: () => { courierSession.flying = false; set({ flying: false, settingsOpen: false, helpOpen: false, telemetry: IDLE }); },
   setPrefs: (patch) => {
     set(patch);
@@ -96,6 +104,7 @@ export const useCourier = create<CourierState>((set, get) => ({
   set: (patch) => set(patch),
   requestLanding: () => set((s) => ({ landRequest: s.landRequest + 1 })),
   requestExit: () => set((s) => ({ exitRequest: s.exitRequest + 1 })),
+  setReady: (ready) => set({ ready }),
 }));
 
 /** Read every frame by the camera rig and the character: no subscription, no render. */

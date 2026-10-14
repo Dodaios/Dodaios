@@ -53,6 +53,9 @@ export interface FlightState {
   impact: number;
   landed: boolean;
   autopilot: AutopilotPhase | null;
+  /** The autopilot's watch: the closest it came to its target, and how long it has gone without getting closer. */
+  apBest: number;
+  apStuck: number;
 }
 
 export const FLIGHT = {
@@ -78,6 +81,8 @@ export const FLIGHT = {
   hover: 16,
   approach: 45,
   sink: 3.2,
+  /** Over every roof of the city (the tallest far ones stay below +45 m) and over the office: the approach's height. */
+  safeHeight: 60,
 } as const;
 
 /** Collision spheres along the keel (local z, metres) and their radius. */
@@ -90,7 +95,7 @@ export function parkedState(pad: { x: number; z: number; heading: number }): Fli
   return {
     p: new Vector3(pad.x, COURIER.standHeight, pad.z),
     v: new Vector3(), q: new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), pad.heading), w: new Vector3(),
-    throttle: 0, gear: 1, charge: 1, shield: 0, impact: 0, landed: true, autopilot: null,
+    throttle: 0, gear: 1, charge: 1, shield: 0, impact: 0, landed: true, autopilot: null, apBest: Infinity, apStuck: 0,
   };
 }
 
@@ -108,6 +113,9 @@ function axes(q: Quaternion) {
 export function stepFlight(s: FlightState, raw: FlightInput, dt: number, assist: FlightAssist, world: CourierWorld,
   pad: { x: number; z: number; heading: number }): FlightState {
   let input = raw;
+  // The shield's flash and the impact fade in every state: flying, landing itself or standing on the pad.
+  s.shield = Math.max(0, s.shield - dt * 1.6);
+  s.impact = Math.max(0, s.impact - dt * 30);
   if (s.autopilot) {
     // Any stick or lever input hands the ship back to the pilot.
     if (raw.throttle || raw.pitch || raw.yaw || raw.roll || raw.lift || raw.boost) s.autopilot = null;
@@ -156,8 +164,6 @@ export function stepFlight(s: FlightState, raw: FlightInput, dt: number, assist:
   move(s, dt, world);
   steerHome(s, dt, world);
   s.gear += ((heightOverDeck(s, pad) < FLIGHT.gearHeight ? 1 : 0) - s.gear) * Math.min(1, dt * 1.5);
-  s.shield = Math.max(0, s.shield - dt * 1.6);
-  s.impact = Math.max(0, s.impact - dt * 30);
   return s;
 }
 
@@ -198,12 +204,17 @@ function steerHome(s: FlightState, dt: number, world: CourierWorld) {
 
 /** Start the autopilot that brings the ship home to the pad. */
 export function engageAutopilot(s: FlightState): void {
-  if (!s.landed) s.autopilot = "approach";
+  if (s.landed) return;
+  s.autopilot = "approach";
+  s.apBest = Infinity;
+  s.apStuck = 0;
 }
 
 /**
- * The landing: fly to a hover point over the pad, turn to the pad's heading, sink onto the deck with the gear
- * down. Collisions still count on the way (the approach climbs over what is in the way first).
+ * The landing: climb to the safe height first, cross over to the pad there, come down to a hover point over it,
+ * turn to the pad's heading and sink onto the deck with the gear down. Collisions still count on the way. A watch
+ * notices when the ship stops getting closer (under the pad, against the tower) and sidesteps outwards before it
+ * climbs on.
  */
 function autopilot(s: FlightState, dt: number, world: CourierWorld, pad: { x: number; z: number; heading: number }): FlightState {
   const hover = _a.set(pad.x, COURIER.standHeight + FLIGHT.hover, pad.z);
@@ -211,11 +222,25 @@ function autopilot(s: FlightState, dt: number, world: CourierWorld, pad: { x: nu
   const distance = to.length();
   const flat = Math.hypot(to.x, to.z);
   if (s.autopilot === "approach") {
-    // Far out, keep at least 30 m over the floor's height so the tower and the city stay below the path.
-    const cruise = Math.max(hover.y, Math.min(s.p.y, 60));
-    if (flat > 60) to.y = cruise - s.p.y;
-    const speed = Math.min(FLIGHT.approach, distance * 0.7 + 2);
-    s.v.lerp(to.normalize().multiplyScalar(speed), 1 - Math.exp(-1.5 * dt));
+    if (distance < s.apBest - 0.5) { s.apBest = distance; s.apStuck = 0; } else s.apStuck += dt;
+    const want = _r;
+    if (s.apStuck > 4) {
+      // Stuck: out and away from the pad's middle (out from under it, off the tower's wall), then on again.
+      const out = _u.set(s.p.x - pad.x, 0, s.p.z - pad.z);
+      if (out.lengthSq() < 1) out.set(1, 0, 0);
+      want.copy(out.normalize()).multiplyScalar(18);
+      if (s.apStuck > 7) { s.apStuck = 0; s.apBest = distance; }
+    } else if (flat > 25 && s.p.y < FLIGHT.safeHeight - 3) {
+      // Climb first, barely moving sideways, so nothing of the city stands between the ship and the pad.
+      want.set(to.x, 0, to.z).normalize().multiplyScalar(3).add(_u.set(0, 22, 0));
+    } else if (flat > 25) {
+      // Across at the safe height.
+      want.set(to.x, 0, to.z).normalize().multiplyScalar(Math.min(FLIGHT.approach, flat * 0.7 + 2));
+      want.y = (FLIGHT.safeHeight - s.p.y) * 1.2;
+    } else {
+      want.copy(to).normalize().multiplyScalar(Math.min(FLIGHT.approach, distance * 0.7 + 2));
+    }
+    s.v.lerp(want, 1 - Math.exp(-1.5 * dt));
     if (distance < 3 && s.v.length() < 4) s.autopilot = "hover";
   } else {
     s.v.lerp(_t.set(hover.x - s.p.x, 0, hover.z - s.p.z).multiplyScalar(1.5), 1 - Math.exp(-3 * dt));
@@ -241,7 +266,6 @@ function autopilot(s: FlightState, dt: number, world: CourierWorld, pad: { x: nu
   s.throttle += (Math.min(1, s.v.length() / FLIGHT.cruise) - s.throttle) * Math.min(1, dt * 2);
   move(s, dt, world);
   s.gear += ((heightOverDeck(s, pad) < FLIGHT.gearHeight ? 1 : 0) - s.gear) * Math.min(1, dt * 1.5);
-  s.shield = Math.max(0, s.shield - dt * 1.6);
   return s;
 }
 

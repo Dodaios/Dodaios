@@ -150,6 +150,25 @@ describe("the courier's flight", () => {
     expect(s.gear).toBeCloseTo(1, 1);
   });
 
+  it("lands itself from deep in the city, under the pad and beside the tower too", () => {
+    for (const [dx, y, dz] of [[0, -60, 0], [-30, -120, 0], [180, -200, 90]] as const) {
+      const s = parkedState(home);
+      s.landed = false; s.gear = 0;
+      s.p.set(home.x + dx, y, home.z + dz);
+      engageAutopilot(s);
+      for (let i = 0; i < 60 * 150 && !s.landed; i += 1) stepFlight(s, NO_INPUT, 1 / 60, "arcade", world, home);
+      expect(s.landed, `from ${dx},${y},${dz}`).toBe(true);
+    }
+  });
+
+  it("lets an impact's shake and flash fade while it lands itself and while it stands", () => {
+    const s = parkedState(home);
+    s.impact = 40; s.shield = 1;
+    fly(s, {}, 2);
+    expect(s.impact).toBe(0);
+    expect(s.shield).toBe(0);
+  });
+
   it("hands the controls back the moment the pilot touches them", () => {
     const s = parkedState(home);
     s.landed = false; s.p.set(home.x + 100, 40, home.z);
