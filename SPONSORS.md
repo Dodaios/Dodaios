@@ -29,4 +29,4 @@ before sponsoring.
 
 For sponsorship questions, a custom arrangement or anything you would rather
 not post in public, email
-[contact@personaljarvis.ai](mailto:contact@personaljarvis.ai).
+[contact@dodaios.ai](mailto:contact@dodaios.ai).
