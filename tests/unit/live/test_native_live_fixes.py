@@ -605,6 +605,36 @@ async def test_tools_the_rules_name_stay_direct_under_a_budget(call, make_provid
 
 @both_providers
 @pytest.mark.asyncio
+async def test_free_direct_slots_go_only_to_safe_tools(call, make_provider):
+    # A sparse install left slots free, and catalog order handed one to app-restart.
+    def tool(name, risk):
+        schema = {"type": "object", "properties": {"value": {"type": "string"}}}
+        return SupervisorToolDescriptor(name, f"Does {name}.", schema, risk)
+
+    catalog = (
+        tool("app-restart", "ask"),
+        tool("a-delete-all", "monitor"),
+        tool("b-safe-lookup", "safe"),
+        tool("search_web", "safe"),
+    )
+    provider = make_provider()
+    live = call(provider, gateway=FakeToolGateway(catalog))
+    await live.start()
+    try:
+        tools = provider.opened_with[0].tools
+        described = {tool["description"].split(": ", 1)[0] for tool in tools}
+        if provider.tool_declaration_budget_tokens:
+            assert {"search_web", "b-safe-lookup"} <= described
+            assert not {"app-restart", "a-delete-all"} & described
+        else:
+            # Without a budget every tool is declared; nothing is trimmed.
+            assert {"app-restart", "a-delete-all", "b-safe-lookup"} <= described
+    finally:
+        await live.session.end()
+
+
+@both_providers
+@pytest.mark.asyncio
 async def test_config_budget_bounds_a_provider_without_its_own(call, make_provider):
     provider = make_provider(tool_declaration_budget_tokens=0)
     live = call(provider, _config(budget=1_000), gateway=FakeToolGateway(catalog_of(30)))

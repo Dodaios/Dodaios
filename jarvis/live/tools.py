@@ -341,7 +341,7 @@ class LiveTools:
         for descriptor in ordered:
             if descriptor.name in _DIRECT_TOOLS:
                 continue
-            alias = "jarvis_" + hashlib.sha256(descriptor.name.encode()).hexdigest()[:20]
+            alias = self._alias(descriptor.name)
             definition = {
                 "type": "function",
                 "name": alias,
@@ -355,6 +355,21 @@ class LiveTools:
             self._names[alias] = descriptor.name
             definitions.append(definition)
         return definitions
+
+    def _alias(self, name: str) -> str:
+        """The function name a catalog tool is declared under: readable and unique.
+
+        Every provider accepts letters, digits and underscores up to 64
+        characters. The tool's own name stays legible in it: behind opaque
+        hashes a small model confused app-restart with show_on_screen (live
+        2026-10-14). A name that would collide or not fit keeps a hash suffix.
+        """
+        readable = "jarvis_" + re.sub(r"[^A-Za-z0-9_]", "_", name)
+        owner = self._names.get(readable)
+        if len(readable) <= 64 and owner in (None, name):
+            return readable
+        digest = hashlib.sha256(name.encode()).hexdigest()[:20]
+        return readable[:43] + "_" + digest
 
     async def execute(
         self, call_id: str, name: str, args: dict, revision: int,
