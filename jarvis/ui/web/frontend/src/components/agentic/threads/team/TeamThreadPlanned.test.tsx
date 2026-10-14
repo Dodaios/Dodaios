@@ -5,6 +5,7 @@ import type { IdeProject } from "@/lib/agenticIdeApi";
 import type { TeamThread } from "@/lib/teamThreadsApi";
 import { TEAM_DRAFT } from "@/store/ideThreads";
 import { buildBoard, type StepBand } from "./board";
+import { closeAllMemberStreams } from "./memberStreams";
 import { TeamThreadView } from "./TeamThreadView";
 
 vi.mock("@/i18n", async (importOriginal) => ({
@@ -30,8 +31,31 @@ class QuietSocket {
   close() {}
 }
 
-beforeEach(() => { vi.stubGlobal("WebSocket", QuietSocket); });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+/** jsdom lays nothing out; the canvas only needs to be told its size once. */
+class StillResizeObserver {
+  constructor(private readonly callback: ResizeObserverCallback) {}
+  observe(target: Element) {
+    this.callback([{ target, contentRect: { width: 1000, height: 600 } } as unknown as ResizeObserverEntry], this as unknown as ResizeObserver);
+  }
+  unobserve() {}
+  disconnect() {}
+}
+
+/** The one matrix the canvas reads: its zoom. */
+class ScaleMatrix {
+  m22: number;
+  constructor(transform?: string) {
+    const scale = /scale\(([\d.]+)\)/.exec(transform ?? "")?.[1];
+    this.m22 = scale ? Number(scale) : 1;
+  }
+}
+
+beforeEach(() => {
+  vi.stubGlobal("WebSocket", QuietSocket);
+  vi.stubGlobal("ResizeObserver", StillResizeObserver);
+  vi.stubGlobal("DOMMatrixReadOnly", ScaleMatrix);
+});
+afterEach(() => { cleanup(); closeAllMemberStreams(); vi.unstubAllGlobals(); });
 
 const project = { id: "p1", name: "Shop", path: "/work/shop", workspaces: [] } as unknown as IdeProject;
 
@@ -114,54 +138,52 @@ function mount(team: string, data: unknown) {
   return calls;
 }
 
-it("lays a planner-and-builder thread out as plan rounds, one band per step and the plan on top", async () => {
+it("shows a planner-and-builder team as a room: roles on the canvas, the plan a tab away, the steps in the story", async () => {
   mount("t1", thread);
 
-  // The plan, with each step's state and who holds it.
+  // The real canvas: each member with its role, the reviewer at work.
+  // The canvas and its graph library load lazily; a busy machine takes a while.
+  const canvas = await screen.findByTestId("team-canvas", {}, { timeout: 8000 });
+  await waitFor(() => expect(within(canvas).getByTestId("team-node-m1")).toBeTruthy(), { timeout: 8000 });
+  expect(within(screen.getByTestId("team-node-m1")).getByTestId("team-role-planner")).toBeTruthy();
+  expect(within(screen.getByTestId("team-node-m2")).getByTestId("team-role-builder")).toBeTruthy();
+  expect(screen.getByTestId("team-node-m3").dataset.state).toBe("working");
+  // (jsdom measures no handles, so the canvas draws no lines here: teamGraph.test.ts covers them.)
+  // The rail has the mode's three steps; the header says how far the plan is.
+  expect(screen.getByLabelText("team_threads.steps").querySelectorAll("li")).toHaveLength(3);
+  expect(screen.getByTestId("team-plan-progress").textContent).toContain('{"done":1,"total":2}');
+
+  // Following the reviewer at work; the plan is a tab of its own.
+  expect(await screen.findByTestId("team-chat-m3")).toBeTruthy();
+  fireEvent.click(screen.getByTestId("team-plan-progress"));
   const panel = await screen.findByTestId("team-plan");
   expect(panel.textContent).toContain('team_threads.plan.title {"version":1}');
-  expect(panel.textContent).toContain('team_threads.plan.progress {"done":1,"total":2}');
-  expect(screen.queryByTestId("team-plan-proposed")).toBeNull();
   expect(screen.getByTestId("team-plan-step-1").dataset.status).toBe("accepted");
   const second = screen.getByTestId("team-plan-step-2");
   expect(second.dataset.status).toBe("in_review");
   expect(second.getAttribute("aria-current")).toBe("step");
   expect(second.textContent).toContain("Gemini");
-  expect(second.textContent).toContain("The uploader retries three times");
 
-  // Each member says what it does; the rail has the mode's three steps.
-  expect(within(screen.getByTestId("team-member-m1")).getByTestId("team-role-planner")).toBeTruthy();
-  expect(within(screen.getByTestId("team-member-m2")).getByTestId("team-role-builder")).toBeTruthy();
-  expect(screen.getByLabelText("team_threads.steps").querySelectorAll("li")).toHaveLength(3);
+  // The story: a heading per step, the unreadable plan said plainly, the blocked step with its reason.
+  fireEvent.click(screen.getByTestId("team-tab-story"));
+  const story = screen.getByTestId("team-story");
+  expect(story.textContent).toContain('team_threads.plan.step {"number":1} · Add the setting');
+  expect(story.textContent).toContain("team_threads.plan.unreadable");
+  expect(story.textContent).toContain("The reply has no team-plan block.");
+  const builds = within(story).getAllByTestId("team-story-step_build");
+  expect(builds).toHaveLength(3);
+  expect(builds[2].textContent).toContain("No retry hook");
+  expect(within(story).getByTestId("team-notice-step_accepted").textContent).toContain('"title":"Add the setting"');
+  expect(within(story).getByTestId("team-thread-issues").textContent).toContain('team_threads.issues.step {"number":1}');
+  expect(within(story).getByTestId("team-story-live-m3")).toBeTruthy();
 
-  // The plan round: the unreadable try and the plan beside its review.
-  const planning = screen.getByTestId("team-band-planning:1");
-  expect(within(screen.getByTestId("team-cell-planning:1-m1")).getAllByTestId("team-entry-plan_version")).toHaveLength(2);
-  expect(planning.textContent).toContain("team_threads.plan.unreadable");
-  expect(planning.textContent).toContain("The reply has no team-plan block.");
-  expect(screen.getByTestId("team-cell-planning:1-m3").textContent).toContain("team_threads.vote.agree");
-
-  // A step's band: its builds stacked in the builder's lane, the reviews beside them.
-  const one = screen.getByTestId("team-band-step:1:1");
-  expect(one.textContent).toContain("Add the setting");
-  expect(one.textContent).toContain("team_threads.step_status.accepted");
-  expect(within(screen.getByTestId("team-cell-step:1:1-m2")).getAllByTestId("team-entry-step_build")).toHaveLength(2);
-  expect(screen.getByTestId("team-cell-step:1:1-m3").textContent).toContain("No test for the default");
-  // The current step: blocked, with the builder's reason on the card, and the reviewer live.
-  const two = screen.getByTestId("team-band-step:1:2");
-  expect(two.textContent).toContain("team_threads.step_status.in_review");
-  expect(screen.getByTestId("team-cell-step:1:2-m2").textContent).toContain("team_threads.plan.blocked");
-  expect(screen.getByTestId("team-cell-step:1:2-m2").textContent).toContain("No retry hook");
-  expect(await screen.findByTestId("team-live-m3")).toBeTruthy();
-  expect(screen.getByTestId("team-notice-step_accepted").textContent).toContain('"title":"Add the setting"');
-  expect(screen.getByTestId("team-thread-issues").textContent).toContain('team_threads.issues.step {"number":1}');
-
-  // The whole plan opens under its band.
-  fireEvent.click(within(screen.getByTestId("team-cell-planning:1-m1")).getAllByTestId("team-entry-plan_version")[1]);
-  const plan = within(screen.getByTestId("team-reader")).getByTestId("team-reader-plan");
+  // The whole plan unfolds in place.
+  const [, readable] = within(story).getAllByTestId("team-story-plan_version");
+  fireEvent.click(within(readable).getByRole("button"));
+  const plan = within(readable).getByTestId("team-entry-plan");
   expect(plan.textContent).toContain("Use it in the uploader");
   expect(plan.textContent).toContain("pytest tests/test_config.py passes");
-});
+}, 20_000);
 
 it("asks the person about a step the reviewer never approves, and can take it as it is", async () => {
   const stuck: TeamThread = {
@@ -174,6 +196,7 @@ it("asks the person about a step the reviewer never approves, and can take it as
   const waiting = await screen.findByTestId("team-thread-waiting");
   expect(waiting.textContent).toContain('team_threads.reason.step_disagreement');
   expect(waiting.textContent).toContain('"number":2');
+  fireEvent.click(screen.getByTestId("team-plan-progress"));
   expect(screen.getByTestId("team-plan-revision").textContent).toContain("No retry hook");
   fireEvent.click(screen.getByRole("button", { name: "team_threads.accept_step" }));
   await waitFor(() => expect(calls.some((call) => call.url === "/api/team-threads/t1/accept" && call.method === "POST")).toBe(true));
