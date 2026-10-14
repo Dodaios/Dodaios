@@ -9610,7 +9610,10 @@
       "challenge": "Contraste",
       "converge": "Plano principal",
       "build": "Construir",
-      "review": "Revisão"
+      "review": "Revisão",
+      "planning": "Plano",
+      "steps": "Passos",
+      "final": "Revisão final"
     },
     "kind": {
       "draft": "Plano próprio",
@@ -9619,7 +9622,11 @@
       "vote": "Voto",
       "build": "Relatório de construção",
       "review": "Revisão",
-      "fix": "Resposta à revisão"
+      "fix": "Resposta à revisão",
+      "plan_version": "Plano",
+      "plan_review": "Revisão do plano",
+      "step_build": "Passo",
+      "step_review": "Revisão do passo"
     },
     "vote": {
       "agree": "concorda",
@@ -9651,7 +9658,9 @@
       "stalled": "{note} não terminou o seu turno. Continue para perguntar de novo.",
       "member_failed": "{note}. Sem este membro não resta equipa. Continue para perguntar de novo.",
       "not_enough_members": "Restam menos de dois membros, por isso a equipa não pode continuar.",
-      "error": "O tópico de equipa falhou: {note}"
+      "error": "O tópico de equipa falhou: {note}",
+      "plan_unreadable": "O planeador não escreveu um plano legível ({note}). Continue para perguntar de novo.",
+      "step_disagreement": "O passo {number} continua sem aprovação após {rounds} rondas de revisão."
     },
     "notice": {
       "same_family": "Todos os membros usam a mesma família de modelos, por isso os seus pontos cegos coincidem. Uma segunda família deteta mais.",
@@ -9670,19 +9679,29 @@
       "limit_turns": "O limite de turnos foi atingido.",
       "limit_cost": "O limite de custo foi atingido.",
       "stalled": "{note} não terminou o seu turno.",
-      "not_enough_members": "Restam menos de dois membros."
+      "not_enough_members": "Restam menos de dois membros.",
+      "plan_version_agreed": "Versão {version} do plano acordada na ronda {rounds}: {count} passos.",
+      "plan_version_accepted_by_user": "Aceitou a versão {version} do plano como está: {count} passos.",
+      "plan_revision": "{member} pede um plano revisto no passo {number}.",
+      "step_accepted": "Passo {number} aceite: {title}",
+      "step_accepted_by_user": "Aceitou o passo {number} como está: {title}",
+      "role_changed": "{member} assume o papel de {role}.",
+      "steps_done": "Os {count} passos estão aceites. Começa a revisão final."
     },
     "summary": {
       "done": "Concluído. Plano acordado na ronda {plan}, alteração aprovada na ronda de revisão {review}. Os revisores apontaram {count} problemas, {blocking} deles bloqueantes.",
       "accepted_by_user": "Aceitou o trabalho com problemas em aberto. Os revisores apontaram {count} problemas, {blocking} deles bloqueantes.",
-      "open_points": "Pontos em aberto"
+      "open_points": "Pontos em aberto",
+      "planned_done": "Concluído. {count} passos construídos e aceites segundo a versão {version} do plano, em {rounds} rondas de construção. Os revisores apontaram {findings} problemas, {blocking} deles bloqueantes.",
+      "planned_accepted": "Aceitou o trabalho com problemas em aberto. {count} passos segundo a versão {version} do plano; os revisores apontaram {findings} problemas, {blocking} deles bloqueantes."
     },
     "issues": {
       "title": "Detetado pela equipa: {count} ({open} em aberto)",
       "resolved": "resolvido",
       "open": "em aberto",
       "plan": "plano",
-      "review": "revisão"
+      "review": "revisão",
+      "step": "passo {number}"
     },
     "draft": {
       "title": "O que deve a equipa construir em {project}?",
@@ -9693,7 +9712,12 @@
       "add": "Adicionar membro",
       "placeholder": "Descreva a tarefa para a equipa",
       "start": "Iniciar a equipa",
-      "bounds": "Para e pergunta-lhe após 90 minutos, 40 turnos ou três rondas sem acordo."
+      "bounds": "Para e pergunta-lhe após 90 minutos, 40 turnos ou três rondas sem acordo.",
+      "mode": "Como a equipa trabalha",
+      "body_planned": "Um membro escreve um plano de pequenos passos e outro revê-o. O construtor constrói um passo de cada vez, e cada passo é verificado face ao seu objetivo antes de começar o seguinte. Um passo bloqueado volta ao planeador. Pode intervir a qualquer momento.",
+      "role_of": "Papel do membro {number}",
+      "roles_invalid": "Escolha exatamente um planeador e um construtor.",
+      "bounds_planned": "Para e pergunta-lhe após 90 minutos, 40 turnos, três rondas de plano sem acordo ou três rondas de revisão num passo."
     },
     "meter_time": "{minutes} de {max_minutes} min",
     "meter_turns": "{turns} de {max_turns} turnos",
@@ -9712,7 +9736,46 @@
       "voter": "Vota quando o plano existir",
       "builder": "Constrói o plano",
       "reviewer": "Revê quando estiver construído",
-      "answers": "Responde à revisão"
+      "answers": "Responde à revisão",
+      "writes_plan": "Escreve o plano",
+      "reviews_plan": "Revê o plano quando existir",
+      "builds_step": "Constrói este passo",
+      "reviews_step": "Revê quando o passo estiver construído",
+      "final_reviewer": "Revê a alteração completa"
+    },
+    "accept_step": "Aceitar este passo como está",
+    "mode": {
+      "peers": "Iguais",
+      "planner_builder": "Planeador e construtor"
+    },
+    "member_role": {
+      "planner": "Planeador",
+      "builder": "Construtor",
+      "reviewer": "Revisor"
+    },
+    "step_status": {
+      "open": "em aberto",
+      "building": "em construção",
+      "in_review": "em revisão",
+      "changes": "alterações pedidas",
+      "accepted": "aceite"
+    },
+    "plan": {
+      "title": "Plano v{version}",
+      "progress": "{done} de {total} aceites",
+      "proposed": "proposto, em revisão",
+      "writing": "O planeador está a escrever o plano.",
+      "done_when": "Pronto quando",
+      "revision": "{member} pediu uma revisão no passo {number}",
+      "toggle": "Mostrar ou ocultar o plano",
+      "open_findings": "aceite com problemas em aberto",
+      "version_tag": "plano v{version}",
+      "unreadable": "ilegível",
+      "steps_count": "{count} passos",
+      "blocked": "bloqueado",
+      "done": "feito",
+      "plan_change": "Alteração do plano: {text}",
+      "step": "Passo {number}"
     }
   }
 }

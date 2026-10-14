@@ -3,7 +3,8 @@
 A team thread gives one task to several coding agents on different models and
 lets them carry it together, as peers: they plan, agree, build and review, and
 the person reads one thread. Nobody copies a plan, a diff or a review from one
-agent to another.
+agent to another. In the second mode, planner and builder, one member owns a
+living plan, one builds it step by step and the others review every step.
 
 It lives in the thread layout of the Agentic IDE
 ([`agentic-ide-threads.md`](agentic-ide-threads.md)). Design decisions:
@@ -11,7 +12,9 @@ It lives in the thread layout of the Agentic IDE
 
 ## Starting one
 
-The people icon on a project row opens the start form. The team is suggested
+The people icon on a project row opens the start form. It offers two ways of
+working: **Peers** (the default, described first below) and **Planner and
+builder** (see [its own section](#planner-and-builder)). The team is suggested
 from what is connected on this machine: one seat per model family, a coding CLI
 before a provider API (by default Claude, GPT and Gemini when all three are
 there). The person can swap, add and remove members, two to four in total, then
@@ -126,10 +129,61 @@ so Continue never asks for the same work twice.
 Nothing continues by itself. A thread that was working when the app closed
 comes back paused.
 
+## Planner and builder
+
+The second mode gives each member a role instead of making everyone plan:
+
+| Role | What it does |
+|---|---|
+| Planner | Owns the plan: an ordered list of small steps, each with a title, a goal and `done_when`, the check that proves the step. |
+| Builder | Builds the plan one step at a time and reports each step as done or blocked. |
+| Reviewer | Reviews the plan and every step. |
+
+The start form shows a role per member: by default member 1 plans, member 2
+builds and every further member reviews. A team needs exactly one planner and
+one builder. Nobody checks only their own work: with two members the builder
+reviews the plan and the planner reviews each step.
+
+| Step | What happens |
+|---|---|
+| Plan | The planner writes the plan and ends with a typed `team-plan` block. The plan reviewers agree or object (`team-verdict`); an objection goes back to the planner with the reasons, until the plan is agreed. |
+| Steps | The builder gets the current step with the whole plan around it and ends with a typed `team-step` block. A reviewer checks the step against its `done_when` and the diff since the step started. Changes requested go back to the builder on the same step. |
+| Final review | When every step is accepted, every member but the builder reviews the whole change; the planner signs off on it against its plan. Findings go back to the builder. |
+
+The plan lives in the thread and is versioned. A builder that reports a step
+as blocked, or asks for a change to the rest of the plan, sends the planner a
+revision request: the planner writes the next version, the reviewers check it,
+and building goes on from the first step that is not accepted. An accepted
+step keeps its status in the new version while its title stays the same;
+the planner reopens one by listing its number. A change asked for together
+with a finished step waits until that step is reviewed.
+
+A plan the coordinator cannot read (no block, broken JSON, a step without
+`done_when`) is never taken for a plan: the planner is asked once more with
+the reason, then the thread waits for the person.
+
+The board puts the plan on top: the current version (marked while it is
+still proposed), each step with its state (open, building, in review,
+changes requested, accepted) and who holds it, and an open revision request.
+Below it, a plan round is a band with the plan beside its reviews; each step
+of the plan is a band with its builds in the builder's lane and the reviews
+beside them, fixes stacked under them; the final review is a band of its
+own. Lane heads show each member's role.
+
+Bounds are those of the table above, with two differences: plan rounds count
+per version (a revision starts again at one), and review rounds count per
+step. When a step is still not approved after its rounds, the person answers
+(one more round), accepts the step as it is (the record keeps its findings
+open and the plan marks it), or stops. Messages, Pause, Continue and Stop
+work as in the peers mode, and a member that leaves hands its role to a
+reviewer.
+
 ## API and CLI
 
 `/api/team-threads` (see `jarvis/ui/web/team_thread_routes.py`): list, `seats`,
-start, read, `message`, `pause`, `resume`, `accept`, `stop`, delete. The routes
+start, read, `message`, `pause`, `resume`, `accept`, `stop`, delete. Start takes
+`mode` (`peers` or `planner_builder`) and a `role` per seat; a thread's read
+carries `mode`, each member's `role` and, for planner and builder, `plan`. The routes
 are reachable through the CLI's `api` group like every other route.
 
 ## Not included yet

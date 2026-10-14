@@ -217,3 +217,49 @@ def test_every_route_says_whether_it_changes_anything() -> None:
         extra = getattr(route, "openapi_extra", None) or {}
         reads = route.methods == {"GET"}  # type: ignore[attr-defined]
         assert extra.get("x-jarvis-readonly" if reads else "x-jarvis-dangerous") is True, route.path  # type: ignore[attr-defined]
+
+
+def test_a_planner_and_builder_team_starts_with_its_roles(
+    client: TestClient, tmp_path: Path
+) -> None:
+    started = client.post(
+        "/api/team-threads",
+        json={
+            "task": "Add a retry to the uploader",
+            "cwd": str(tmp_path),
+            "mode": "planner_builder",
+            "seats": [
+                {"provider": "gemini", "role": "builder"},
+                {"provider": "claude-api", "role": "planner"},
+            ],
+        },
+    )
+    assert started.status_code == 201, started.text
+    body = started.json()
+    assert (body["mode"], body["phase"]) == ("planner_builder", "planning")
+    assert [m["role"] for m in body["members"]] == ["builder", "planner"]
+
+    client.portal.call(client.app.state.team_threads.settled, body["team_id"])
+    thread = client.get(f"/api/team-threads/{body['team_id']}").json()
+    assert thread["state"] == "done"
+    assert [s["status"] for s in thread["plan"]["steps"]] == ["accepted", "accepted"]
+    listed = client.get("/api/team-threads").json()["threads"]
+    assert listed[0]["mode"] == "planner_builder"
+
+
+def test_a_mode_or_role_the_team_does_not_know_is_refused(
+    client: TestClient, tmp_path: Path
+) -> None:
+    def start(**extra) -> int:
+        return client.post(
+            "/api/team-threads", json={"task": "x", "cwd": str(tmp_path), **extra}
+        ).status_code
+
+    assert start(mode="solo") == 422
+    assert start(mode="planner_builder", seats=[
+        {"provider": "gemini", "role": "boss"}, {"provider": "openai"},
+    ]) == 422
+    # Two builders and no planner: nobody would plan, and nobody check the plan.
+    assert start(mode="planner_builder", seats=[
+        {"provider": "gemini", "role": "builder"}, {"provider": "openai", "role": "builder"},
+    ]) == 409
