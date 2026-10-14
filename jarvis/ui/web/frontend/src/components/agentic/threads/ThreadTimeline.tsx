@@ -429,7 +429,7 @@ function changedFiles(turn: TurnItem): { path: string; added: number; removed: n
 }
 
 /** The thread's project folder, so changed files read relative to it. */
-const ThreadFolder = createContext("");
+export const ThreadFolder = createContext("");
 
 function slashes(path: string): string {
   return path.replace(/\\/g, "/");

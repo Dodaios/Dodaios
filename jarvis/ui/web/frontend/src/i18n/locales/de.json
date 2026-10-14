@@ -8971,7 +8971,8 @@
       "open_aria": "GitHub {destination} öffnen: {identity}",
       "open_title": "{destination} öffnen",
       "refresh_failed": "GitHub-Status konnte nicht aktualisiert werden.",
-      "refreshing": "GitHub-Status wird aktualisiert…"
+      "refreshing": "GitHub-Status wird aktualisiert…",
+      "loading": "GitHub-Status wird gelesen…"
     },
     "dock": {
       "swap": "Plätze tauschen",
@@ -9580,7 +9581,6 @@
     "message": "Eingreifen: Jedes Mitglied liest das mit seinem nächsten Zug",
     "message_decide": "Entscheide die offenen Punkte. Das Team geht mit deiner Antwort in eine weitere Runde",
     "send": "Senden",
-    "open_member": "Thread von {member} öffnen",
     "round": "Runde {round}",
     "files_changed": "{count} Dateien geändert",
     "state": {
@@ -9627,11 +9627,7 @@
       "minor": "Gering"
     },
     "member": {
-      "working": "arbeitet",
-      "waiting": "wartet auf dich",
-      "left": "ausgeschieden",
-      "builder": "Baut den Plan",
-      "idle": "wartet"
+      "working": "arbeitet"
     },
     "reason": {
       "user": "Du hast diesen Team-Thread pausiert.",
@@ -9703,32 +9699,15 @@
       "body_planned": "Ein Mitglied schreibt einen Plan aus kleinen Schritten, ein anderes prüft ihn. Der Umsetzer baut einen Schritt nach dem anderen, und jeder Schritt wird an seinem Ziel geprüft, bevor der nächste beginnt. Ein blockierter Schritt geht zurück an den Planer. Du kannst jederzeit eingreifen.",
       "role_of": "Rolle von Mitglied {number}",
       "roles_invalid": "Wähle genau einen Planer und einen Umsetzer.",
-      "bounds_planned": "Hält an und fragt dich nach 90 Minuten, 40 Zügen, drei Planrunden ohne Einigung oder drei Review-Runden an einem Schritt."
+      "bounds_planned": "Hält an und fragt dich nach 90 Minuten, 40 Zügen, drei Planrunden ohne Einigung oder drei Review-Runden an einem Schritt.",
+      "cancel": "Zurück"
     },
     "meter_time": "{minutes} von {max_minutes} Min.",
     "meter_turns": "{turns} von {max_turns} Zügen",
-    "band_count": "{done} von {total}",
     "no_report": "Es wurde kein Bericht geschrieben.",
-    "findings_count": "{count} Befunde",
-    "objections_count": "{count} Einwände",
     "close_reader": "Schließen",
-    "live_tokens": "{count} Tokens",
     "live_starting": "Startet…",
     "live_thinking": "Denkt nach",
-    "role": {
-      "plans": "Schreibt den eigenen Plan",
-      "challenges": "Prüft die anderen Pläne",
-      "author": "Schreibt den Masterplan",
-      "voter": "Stimmt ab, sobald der Plan da ist",
-      "builder": "Baut den Plan",
-      "reviewer": "Prüft, sobald gebaut ist",
-      "answers": "Antwortet auf das Review",
-      "writes_plan": "Schreibt den Plan",
-      "reviews_plan": "Prüft den Plan, sobald er da ist",
-      "builds_step": "Setzt diesen Schritt um",
-      "reviews_step": "Prüft, sobald der Schritt umgesetzt ist",
-      "final_reviewer": "Prüft die gesamte Änderung"
-    },
     "accept_step": "Diesen Schritt so übernehmen",
     "mode": {
       "peers": "Gleichrangig",
@@ -9762,6 +9741,53 @@
       "done": "fertig",
       "plan_change": "Planänderung: {text}",
       "step": "Schritt {number}"
+    },
+    "room": {
+      "back": "Zurück zum Team",
+      "back_named": "Zurück zum Team: {title}",
+      "you": "Du",
+      "needs_you": "braucht dich",
+      "left": "Hat das Team verlassen",
+      "left_because": "Ausgestiegen: {reason}",
+      "waits": "Wartet auf dich",
+      "idle": "Wartet, bis es dran ist",
+      "finished": "Fertig",
+      "canvas": "Wie das Team zusammenarbeitet",
+      "exchange_open": "Zeigen, was übergeben wurde: {label}",
+      "story": "Verlauf",
+      "chats": "Chats",
+      "follow": "Folgen",
+      "follow_hint": "Zeigt, wer gerade arbeitet",
+      "brief": "Vom Team",
+      "chat_empty": "{member} war noch nicht dran.",
+      "open_full": "Ganzer Thread",
+      "answer_in_thread": "Im Thread antworten",
+      "exchange_count_one": "{count} Übergabe",
+      "exchange_count_other": "{count} Übergaben",
+      "members_count": "{count} Mitglieder",
+      "to_all": "alle"
+    },
+    "graph": {
+      "task": "Aufgabe",
+      "message": "Deine Nachricht",
+      "own_plan": "Eigener Plan",
+      "critique": "Kritik",
+      "master_plan": "Masterplan",
+      "agrees": "Stimmt zu",
+      "objects": "Widerspricht",
+      "change": "Änderung",
+      "fix": "Korrektur",
+      "approves": "Gibt frei",
+      "changes": "Änderungen verlangt",
+      "plan_change": "Bittet um Planänderung",
+      "files_one": "{count} Datei",
+      "files_other": "{count} Dateien",
+      "findings_one": "{count} Befund",
+      "findings_other": "{count} Befunde",
+      "blocking_one": "{count} blockierend",
+      "blocking_other": "{count} blockierend",
+      "objections_one": "{count} Einwand",
+      "objections_other": "{count} Einwände"
     }
   }
 }

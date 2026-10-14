@@ -1,96 +1,19 @@
-import { useEffect, useState } from "react";
-import { EMPTY_TIMELINE, reduceEvent, reduceEvents, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
+import { useEffect, useMemo, useState } from "react";
+import type { TurnItem } from "@/components/agentchat/reduce";
+import { fill, useT } from "@/i18n";
+import type { TeamMember } from "@/lib/teamThreadsApi";
 import type { Translate } from "@/components/agentchat/traceEntries";
-import { agentChatSocketUrl, type AgentChatEvent } from "@/lib/agentChatApi";
-import { jitteredDelay, requestConnect } from "@/lib/connectBudget";
 import { buildThreadRows, thoughtGist } from "../threadWork";
+import { runningTurnOf, useMemberTimeline } from "./memberStreams";
 
 /**
- * What a member is doing right now, read from its own thread's event stream.
- *
- * A member of a team thread is an ordinary thread session, so its tool calls
- * and its text arrive on that session's socket as they happen. The board
- * listens only while the member's turn runs and shows the newest steps; the
- * whole conversation stays one click away in the member's thread.
+ * What a member is doing right now, in a few lines: its newest tool calls and
+ * words, read from its own thread's stream (`memberStreams`).
  */
-
-const RECONNECT_MS = 1500;
-const RECONNECT_MAX_MS = 20_000;
-/** Text streams in many small events; the board repaints at most this often. */
-const PAINT_MS = 200;
 
 /** The turn a member is in, or `null` while it has none running. */
 export function useMemberTurn(sessionId: string, enabled: boolean): TurnItem | null {
-  const [turn, setTurn] = useState<TurnItem | null>(null);
-
-  useEffect(() => {
-    if (!enabled || !sessionId || typeof WebSocket === "undefined") {
-      setTurn(null);
-      return;
-    }
-    let timeline: Timeline = EMPTY_TIMELINE;
-    let socket: WebSocket | null = null;
-    let cancelConnect: (() => void) | null = null;
-    let paint: ReturnType<typeof setTimeout> | null = null;
-    let attempt = 0;
-    let closed = false;
-
-    const publish = () => {
-      paint = null;
-      if (closed) return;
-      const last = [...timeline.items].reverse().find((item): item is TurnItem => item.type === "turn");
-      setTurn(last && last.status === "running" ? last : null);
-    };
-    const schedule = () => {
-      if (paint === null) paint = setTimeout(publish, PAINT_MS);
-    };
-
-    const connect = () => {
-      cancelConnect = null;
-      if (closed) return;
-      const afterSeq = timeline.lastSeq;
-      const ws = new WebSocket(agentChatSocketUrl(sessionId, afterSeq));
-      socket = ws;
-      ws.onopen = () => { attempt = 0; };
-      ws.onmessage = (message) => {
-        if (socket !== ws) return;
-        let frame: { type?: string; events?: AgentChatEvent[]; event?: AgentChatEvent };
-        try {
-          frame = JSON.parse(String(message.data));
-        } catch {
-          return; // not a frame of this protocol
-        }
-        if (frame.type === "snapshot") {
-          // After a reconnect the snapshot only carries what was missed.
-          timeline = reduceEvents(afterSeq > 0 ? timeline : EMPTY_TIMELINE, frame.events ?? []);
-          schedule();
-        } else if (frame.type === "event" && frame.event) {
-          timeline = reduceEvent(timeline, frame.event);
-          schedule();
-        }
-      };
-      ws.onclose = () => {
-        if (socket !== ws || closed) return;
-        socket = null;
-        // Jittered, escalating and paid for out of the shared connect budget (AP-33).
-        attempt += 1;
-        cancelConnect = requestConnect(connect, jitteredDelay(attempt - 1, RECONNECT_MS, RECONNECT_MAX_MS));
-      };
-      ws.onerror = () => { /* onclose follows and schedules the reconnect */ };
-    };
-
-    cancelConnect = requestConnect(connect, 0);
-    return () => {
-      closed = true;
-      cancelConnect?.();
-      if (paint !== null) clearTimeout(paint);
-      const ws = socket;
-      socket = null;
-      ws?.close();
-    };
-  }, [sessionId, enabled]);
-
-  return turn;
+  return runningTurnOf(useMemberTimeline(sessionId, enabled));
 }
 
 /** One line of a member's live feed. */
@@ -136,9 +59,46 @@ export function liveLines(turn: TurnItem | null, options: { t: Translate; lang: 
   return lines.slice(-(options.max ?? 6));
 }
 
-/** Tokens a running turn has produced so far, when its runner reports them. */
-export function liveTokens(turn: TurnItem | null): number {
-  const usage = turn?.liveUsage;
-  if (!usage) return 0;
-  return Number(usage.output_tokens ?? usage.output ?? 0) || 0;
+function useSeconds(sinceMs: number, on: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [on]);
+  return sinceMs > 0 ? Math.max(0, Math.floor((now - sinceMs) / 1000)) : 0;
+}
+
+export const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
+/** A member's state in one line: what it does right now, or why it does nothing. */
+export function useMemberStatus(member: TeamMember, over: boolean) {
+  const t = useT();
+  const lang = t("trace_report.locale");
+  const left = member.state === "left";
+  const working = member.working && !left;
+  const turn = useMemberTurn(member.session_id, working);
+  const seconds = useSeconds(member.since_ms, working);
+  const action = useMemo(() => liveLines(turn, { t, lang, max: 1 })[0] ?? null, [turn, t, lang]);
+  const doing = action?.kind === "call" ? plainCommand(action.text) : action?.text ?? "";
+  const text = left ? (member.left_reason ? fill(t("team_threads.room.left_because"), { reason: member.left_reason }) : t("team_threads.room.left"))
+    : member.waiting ? t("team_threads.room.waits")
+      : working ? (doing || t(action ? "team_threads.live_thinking" : "team_threads.live_starting"))
+        : over ? t("team_threads.room.finished") : t("team_threads.room.idle");
+  const tone: "working" | "waiting" | "idle" | "left" = left ? "left" : member.waiting ? "waiting" : working ? "working" : "idle";
+  return { text, tone, seconds, call: action?.kind === "call" };
+}
+
+/**
+ * A shell call without its shell: `"C:\…\powershell.exe" -Command "pytest -q"`
+ * reads as `pytest -q`. Anything else comes back as it was.
+ */
+export function plainCommand(text: string): string {
+  const match = /^(?:"[^"]*?|[^"\s]*?)(?:powershell|pwsh|bash|sh|cmd)(?:\.exe)?"?\s+(?:-NoProfile\s+)?(?:-Command|-lc|-c|\/c)\s+([\s\S]+)$/i.exec(text.trim());
+  if (!match) return text;
+  const inner = match[1].trim();
+  const quote = /^["']/.exec(inner)?.[0];
+  if (!quote) return inner;
+  // A long call is cut short with an ellipsis, so its closing quote may be gone.
+  return inner.slice(1).replace(new RegExp(`${quote}(…?)$`), "$1");
 }

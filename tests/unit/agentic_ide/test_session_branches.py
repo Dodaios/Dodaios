@@ -518,3 +518,101 @@ def test_deleted_branch_is_passed_on_unconfirmed_and_a_foreign_one_never(reposit
 
     assert found == [("deleted", False)]
     assert branches.owned_branch(record) is None
+
+
+def test_a_record_that_has_not_grown_is_not_read_again(tmp_path, monkeypatch):
+    branches._cache.clear()
+    monkeypatch.setattr(agent_transcript, "can_read", lambda _: True)
+    reads = []
+    stamps = [(100, 1)]
+
+    def read(*_, **__):
+        reads.append(1)
+        return [call({"cmd": "git switch -c owned"}), result("Switched to a new branch 'owned'")]
+
+    monkeypatch.setattr(agent_transcript, "read_events", read)
+    monkeypatch.setattr(agent_transcript, "stamp", lambda *_, **__: stamps[-1])
+    record = branches.PaneBranchRecord("t1", "history", str(tmp_path), "claude", "session")
+
+    def later():
+        # Past the short window in which nothing is asked at all.
+        for entry in branches._cache.values():
+            entry.read_at -= 60
+
+    assert [found.branch for found in branches._evidence(record)[0]] == ["owned"]
+    later()
+    assert [found.branch for found in branches._evidence(record)[0]] == ["owned"]
+    assert len(reads) == 1
+    stamps.append((180, 2))
+    later()
+    branches._evidence(record)
+    assert len(reads) == 2
+
+
+def test_a_record_whose_growth_cannot_be_seen_is_read_again(tmp_path, monkeypatch):
+    branches._cache.clear()
+    monkeypatch.setattr(agent_transcript, "can_read", lambda _: True)
+    reads = []
+    monkeypatch.setattr(agent_transcript, "read_events", lambda *_, **__: reads.append(1) or [])
+    monkeypatch.setattr(agent_transcript, "stamp", lambda *_, **__: None)
+    record = branches.PaneBranchRecord("t1", "history", str(tmp_path), "grok", "session")
+
+    branches._evidence(record)
+    branches._evidence(record)
+    assert len(reads) == 1
+    for entry in branches._cache.values():
+        entry.read_at -= 60
+    branches._evidence(record)
+    assert len(reads) == 2
+
+
+def test_a_record_that_could_not_be_read_is_not_kept_as_empty(tmp_path, monkeypatch):
+    branches._cache.clear()
+    monkeypatch.setattr(agent_transcript, "can_read", lambda _: True)
+    answers = [None, [call({"cmd": "git switch -c owned"}), result("new branch 'owned'")]]
+    monkeypatch.setattr(agent_transcript, "read_events", lambda *_, **__: answers.pop(0))
+    monkeypatch.setattr(agent_transcript, "stamp", lambda *_, **__: (100, 1))
+    record = branches.PaneBranchRecord("t1", "history", str(tmp_path), "claude", "session")
+
+    assert branches._evidence(record) == ([], [])
+    for entry in branches._cache.values():
+        entry.read_at -= 60
+    # The record itself did not change; the failed read is still not its answer.
+    assert [found.branch for found in branches._evidence(record)[0]] == ["owned"]
+
+
+def test_stamp_follows_the_record_file(tmp_path, monkeypatch):
+    path = tmp_path / "session.jsonl"
+    path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(agent_transcript, "_codex_file", lambda *_: path)
+    monkeypatch.setattr(agent_transcript, "_claude_file", lambda *_: None)
+
+    first = agent_transcript.stamp("codex", "session")
+    assert first is not None and first[0] == path.stat().st_size
+    path.write_text("{}\n{}\n", encoding="utf-8")
+    assert agent_transcript.stamp("codex", "session") != first
+    assert agent_transcript.stamp("claude", "session") is None
+    assert agent_transcript.stamp("codex", "") is None
+    assert agent_transcript.stamp("unknown-cli", "session") is None
+
+
+def test_repository_of_a_folder_is_asked_of_git_once(tmp_path, monkeypatch):
+    branches._commons.clear()
+    asked = []
+
+    def out(args, cwd):
+        asked.append(args)
+        return ".git\n"
+
+    monkeypatch.setattr(branches.git_overview, "_out", out)
+    assert branches._common(str(tmp_path)) == branches._common(str(tmp_path)) != ""
+    assert len(asked) == 1
+
+
+def test_a_folder_git_gave_no_answer_for_is_asked_again(tmp_path, monkeypatch):
+    branches._commons.clear()
+    answers = [None, ".git\n"]
+    monkeypatch.setattr(branches.git_overview, "_out", lambda args, cwd: answers.pop(0))
+
+    assert branches._common(str(tmp_path)) == ""
+    assert branches._common(str(tmp_path)) != ""

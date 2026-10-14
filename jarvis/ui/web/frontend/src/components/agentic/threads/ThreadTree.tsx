@@ -207,7 +207,8 @@ export function ThreadTree() {
           <span className="min-w-0 flex-1 truncate">{t("team_threads.new")}</span>
         </div>}
         {teamRows.map((team) => {
-          const selected = selection.team === team.team_id;
+          // A member's own thread, opened from the team, keeps its team marked.
+          const selected = selection.team === team.team_id || selection.fromTeam === team.team_id;
           return <button key={team.team_id} type="button" aria-current={selected ? "page" : undefined}
             data-testid={`team-thread-row-${team.team_id}`}
             onClick={() => openTeam(team.team_id, project.id)} title={team.title}

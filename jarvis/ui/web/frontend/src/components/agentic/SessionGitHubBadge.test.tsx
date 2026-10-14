@@ -202,3 +202,47 @@ describe("a session with several branches", () => {
     expect(menu.style.color).toBe(reference.style.color);
   });
 });
+
+describe("a status that is still being confirmed", () => {
+  it("holds the branch's place with a spinner before anything is known", () => {
+    render(<GitHubStatusBadge status={null} pending appearance="dark" />);
+    const place = screen.getByRole("status");
+    expect(place.getAttribute("aria-label")).toBe("Reading the GitHub status…");
+    expect(place.getAttribute("data-state")).toBe("loading");
+    expect(screen.getByTestId("session-github-pending").querySelector("svg")?.getAttribute("class")).toContain("animate-spin");
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("keeps an old answer's symbol inside the spinner instead of calling it unavailable", () => {
+    const old = status({ state: "queued", fetched_at: Date.now() / 1000 - 600 });
+    render(<GitHubStatusBadge status={old} pending appearance="dark" />);
+    const link = screen.getByRole("link");
+    expect(link.title).toContain("In the merge queue");
+    expect(link.title).toContain("Refreshing GitHub status…");
+    expect(link.title).not.toContain("GitHub status unavailable");
+    expect(screen.getByTestId("session-github-pending")).toBeTruthy();
+    expect(link.querySelector("svg")?.getAttribute("width")).toBe("10");
+  });
+
+  it("calls the same old answer unavailable once nothing newer is coming", () => {
+    render(<GitHubStatusBadge status={status({ fetched_at: Date.now() / 1000 - 600 })} appearance="dark" />);
+    expect(screen.getByRole("link").title).toContain("GitHub status unavailable");
+    expect(screen.queryByTestId("session-github-pending")).toBeNull();
+  });
+
+  it("spins round the symbol of a session with several branches", () => {
+    const shown = status({ others: [status({ branch: "feature/other", state: "merged" })] });
+    render(<GitHubStatusBadge status={shown} pending appearance="light" />);
+    const button = screen.getByTestId("session-github-status");
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.textContent).toBe("2");
+    expect(button.title).toContain("Refreshing GitHub status…");
+    expect(screen.getByTestId("session-github-pending").style.color).toBe("rgb(139, 87, 0)");
+  });
+
+  it.each(["light", "dark"] as const)("takes the pending hue from the %s pane appearance", (appearance) => {
+    render(<GitHubStatusBadge status={null} pending appearance={appearance} />);
+    const ring = screen.getByTestId("session-github-pending");
+    expect(ring.style.color).toBe(appearance === "light" ? "rgb(139, 87, 0)" : "rgb(210, 148, 62)");
+  });
+});

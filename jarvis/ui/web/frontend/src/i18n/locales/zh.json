@@ -8971,7 +8971,8 @@
       "open_aria": "打开 GitHub {destination}：{identity}",
       "open_title": "打开{destination}",
       "refresh_failed": "无法刷新 GitHub 状态。",
-      "refreshing": "正在刷新 GitHub 状态…"
+      "refreshing": "正在刷新 GitHub 状态…",
+      "loading": "正在读取 GitHub 状态…"
     },
     "dock": {
       "swap": "交换位置",
@@ -9580,7 +9581,6 @@
     "message": "介入：每位成员会在下一轮读到这条消息",
     "message_decide": "请对未决事项作出决定；团队将带着你的答复再进行一轮",
     "send": "发送",
-    "open_member": "打开 {member} 的会话",
     "round": "第 {round} 轮",
     "files_changed": "已更改 {count} 个文件",
     "state": {
@@ -9627,11 +9627,7 @@
       "minor": "次要"
     },
     "member": {
-      "working": "工作中",
-      "waiting": "等待你",
-      "left": "已退出",
-      "builder": "负责实现方案",
-      "idle": "等待中"
+      "working": "工作中"
     },
     "reason": {
       "user": "你已暂停此团队会话。",
@@ -9703,32 +9699,15 @@
       "body_planned": "一位成员撰写由小步骤组成的方案，另一位评审它。实现者一次实现一个步骤，每个步骤都会按其目标检查通过后再开始下一个。受阻的步骤会退回给规划者。你可以随时介入。",
       "role_of": "成员 {number} 的角色",
       "roles_invalid": "请恰好选择一位规划者和一位实现者。",
-      "bounds_planned": "在 90 分钟、40 轮、三轮方案未达成一致或同一步骤三轮评审后停止并询问你。"
+      "bounds_planned": "在 90 分钟、40 轮、三轮方案未达成一致或同一步骤三轮评审后停止并询问你。",
+      "cancel": "返回"
     },
     "meter_time": "{minutes} / {max_minutes} 分钟",
     "meter_turns": "{turns} / {max_turns} 轮",
-    "band_count": "{done} / {total}",
     "no_report": "未写报告。",
-    "findings_count": "{count} 项发现",
-    "objections_count": "{count} 条异议",
     "close_reader": "关闭",
-    "live_tokens": "{count} tokens",
     "live_starting": "正在启动…",
     "live_thinking": "思考中",
-    "role": {
-      "plans": "撰写自己的方案",
-      "challenges": "质询其他方案",
-      "author": "撰写总方案",
-      "voter": "方案完成后表决",
-      "builder": "实现方案",
-      "reviewer": "实现完成后评审",
-      "answers": "答复评审",
-      "writes_plan": "撰写方案",
-      "reviews_plan": "方案完成后评审",
-      "builds_step": "实现此步骤",
-      "reviews_step": "步骤实现后评审",
-      "final_reviewer": "评审整体更改"
-    },
     "accept_step": "按现状接受此步骤",
     "mode": {
       "peers": "平等协作",
@@ -9762,6 +9741,53 @@
       "done": "完成",
       "plan_change": "方案变更：{text}",
       "step": "步骤 {number}"
+    },
+    "room": {
+      "back": "返回团队",
+      "back_named": "返回团队：{title}",
+      "you": "你",
+      "needs_you": "需要你",
+      "left": "已离开团队",
+      "left_because": "已离开：{reason}",
+      "waits": "等待你处理",
+      "idle": "等待轮到它",
+      "finished": "已完成",
+      "canvas": "团队如何协作",
+      "exchange_open": "查看传递的内容：{label}",
+      "story": "经过",
+      "chats": "对话",
+      "follow": "跟随",
+      "follow_hint": "显示当前正在工作的成员",
+      "brief": "来自团队",
+      "chat_empty": "{member} 还没有轮到。",
+      "open_full": "完整线程",
+      "answer_in_thread": "在其线程中回答",
+      "exchange_count_one": "{count} 次传递",
+      "exchange_count_other": "{count} 次传递",
+      "members_count": "{count} 名成员",
+      "to_all": "所有人"
+    },
+    "graph": {
+      "task": "任务",
+      "message": "你的消息",
+      "own_plan": "自己的计划",
+      "critique": "评审意见",
+      "master_plan": "总计划",
+      "agrees": "同意",
+      "objects": "反对",
+      "change": "改动",
+      "fix": "修正",
+      "approves": "批准",
+      "changes": "要求修改",
+      "plan_change": "请求修改计划",
+      "files_one": "{count} 个文件",
+      "files_other": "{count} 个文件",
+      "findings_one": "{count} 个问题",
+      "findings_other": "{count} 个问题",
+      "blocking_one": "{count} 个阻塞",
+      "blocking_other": "{count} 个阻塞",
+      "objections_one": "{count} 条异议",
+      "objections_other": "{count} 条异议"
     }
   }
 }

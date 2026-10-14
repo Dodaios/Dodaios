@@ -55,7 +55,7 @@ from jarvis.agentic_ide import (
     github_status,
 )
 from jarvis.agentic_ide.git_ops import GitError, PrepareMode
-from jarvis.agentic_ide.session import account_home, get_registry
+from jarvis.agentic_ide.session import Session, account_home, get_registry
 from jarvis.agentic_ide.session_branches import PaneBranchRecord
 from jarvis.agentic_ide.thread_folders import allowed_thread_folder
 from jarvis.ui.web.surface_security import is_loopback_request
@@ -191,12 +191,46 @@ def workspace_overview(
 
 
 @router.get("/session-status", summary="Current GitHub branch, pull request and CI status per pane")
-def session_github_status(workspace_id: str = Query(..., min_length=1)) -> dict:
-    """Read GitHub state for the branch each pane works in."""
-    session = get_registry().get(workspace_id)
+def session_github_status(
+    workspace_id: str = Query(..., min_length=1),
+    wait: float = Query(
+        0, ge=0, le=5, description="Seconds to wait for a read already running to finish"
+    ),
+    instant: bool = Query(
+        False, description="Answer from the last read at once; the caller asks again"
+    ),
+) -> dict:
+    """GitHub state for the branch each pane works in, as last read.
+
+    With ``instant`` it answers at once from the last read (see
+    ``github_status.board``); ``refreshing`` says a newer answer is on its
+    way, and ``wait`` holds the answer until that read lands, for at most that
+    many seconds. A caller that does not ask for ``instant`` gets the answer
+    once a running read has landed, as before: it neither knows to ask again
+    soon nor shows an empty answer as "still loading".
+    """
+    if not instant:
+        wait = _LEGACY_WAIT_S
+    registry = get_registry()
+    session = registry.get(workspace_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Workspace not found.")
-    records = [
+    # The tabs behind this one are read ahead, and kept recent while this one
+    # is shown, so a header there has its branch the moment someone switches.
+    for other in registry.sessions:
+        if other.id != workspace_id and github_status.due(other.id):
+            github_status.read_ahead(other.id, _pane_records(other))
+    return github_status.board(workspace_id, _pane_records(session), wait=wait)
+
+
+#: How long an answer for a caller that does not ask for ``instant`` waits
+#: for a running read: longer than a cold read of a large workspace takes.
+_LEGACY_WAIT_S = 15
+
+
+def _pane_records(session: Session) -> list[PaneBranchRecord]:
+    """One record per pane whose checkout is on this computer."""
+    return [
         PaneBranchRecord(
             pane=pane.name,
             history_id=pane.history_id,
@@ -210,7 +244,6 @@ def session_github_status(workspace_id: str = Query(..., min_length=1)) -> dict:
         for pane in session.terminals
         if not pane.computer_id
     ]
-    return {"panes": github_status.statuses(records)}
 
 
 # The editors a branch's checkout is offered in, when installed.
