@@ -409,6 +409,16 @@ async def _live_cli_models() -> dict[str, list[dict[str, Any]]]:
     return await live_models()
 
 
+def _folder_for(surface: str, raw: str | None) -> str | None:
+    """The folder a ``surface`` session may be given; ``None`` = its default.
+
+    A plain chat touches no folder, so whatever a client still remembers (a
+    workspace that has since been deleted, say) is ignored rather than allowed
+    to refuse the chat.
+    """
+    return None if kit_for(surface).plain else _validate_cwd(raw)
+
+
 def _validate_cwd(raw: str | None) -> str | None:
     if raw is None:
         return None
@@ -460,7 +470,7 @@ async def get_catalog(
 
         if agent_accounts.resolve(account_id) is None:
             raise HTTPException(status_code=400, detail="Unknown subscription account")
-    folder = _validate_cwd(cwd)
+    folder = _folder_for(surface, cwd)
     with cli_catalog_scope(
         account_id=account_id,
         cwd=Path(folder) if folder else None,
@@ -999,7 +1009,7 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
                 + ", ".join(m.id for m in permission_modes(ladder))
             ),
         )
-    cwd = _validate_cwd(body.cwd)
+    cwd = _folder_for(body.surface, body.cwd)
     try:
         session = svc.create_session(
             provider=body.provider,
@@ -1109,7 +1119,7 @@ async def patch_session(
         fields["effort"] = normalize_effort(provider, body.effort)
     current = svc.store.get_session(session_id)
     assert current is not None
-    if body.cwd is not None:
+    if body.cwd is not None and not kit_for(current.surface).plain:
         fields["cwd"] = _validate_cwd(body.cwd) or svc.default_cwd(current.surface)
     runner = resolve_runner(
         fields.get("provider") or current.provider,
