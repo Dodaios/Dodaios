@@ -57,10 +57,25 @@ const POLL_FLOOR_MS = 250;
 const GROUPS_POLL_MS = 10_000;
 const ROUND_POLL_MS = 2_000;
 
+/** The teams query itself, for a caller that loads it ahead of the views (`warmSocietyLists`). */
+export const societyChatGroupsQuery = {
+  queryKey: ["society", "chat-groups"] as const,
+  queryFn: async () => (await json<{ groups: SocietyChatGroup[] }>("/api/society/chat-groups")).groups,
+};
+
+/**
+ * Whether the teams have answered at all. Until then nobody knows who belongs
+ * to which team, and a view that lists agents by team must wait instead of
+ * showing every member on its own first. A first failed read counts as an
+ * answer too: the view opens without teams and regroups if a retry brings them.
+ */
+export function chatGroupsKnown(query: { isSuccess: boolean; isError: boolean; failureCount: number }): boolean {
+  return query.isSuccess || query.isError || query.failureCount > 0;
+}
+
 export function useSocietyChatGroups(enabled = true) {
   return useQuery({
-    queryKey: ["society", "chat-groups"],
-    queryFn: async () => (await json<{ groups: SocietyChatGroup[] }>("/api/society/chat-groups")).groups,
+    ...societyChatGroupsQuery,
     enabled,
     staleTime: 15_000,
     // Jittered (AP-33), and not tied to `document.visibilityState`: the desktop WebView reports a visible
