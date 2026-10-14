@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CITY, distanceToRect, GROUND_Y, planCity, roofLimit, SINGULARITY, singularityPosition } from "./cityPlan";
+import { cityUniforms, lensMaterial } from "./cityShaders";
 import type { Rect } from "./officeLayout";
 
 /** A small floor (the Level Hall's size), a typical campus and a large one, not centred on the origin. */
@@ -89,4 +90,28 @@ describe("the city plan", () => {
       for (const b of plan.beams) expect(distanceToRect(b.x, b.z, bounds)).toBeGreaterThan(CITY.lowReach * 0.6);
     });
   }
+
+  it("keeps the same city round a floor that grows: only towers near the new plaza change", () => {
+    const before = FLOORS.campus, after = { ...before, maxX: before.maxX + 9, maxZ: before.maxZ + 5 };
+    const a = planCity(before), b = planCity(after);
+    expect(b.singularity).toEqual(a.singularity);
+    const key = (t: { x: number; z: number; h: number; kind: string }) => `${t.kind}@${t.x.toFixed(2)},${t.z.toFixed(2)}:${t.h.toFixed(2)}`;
+    const kept = new Set(b.towers.map(key));
+    const far = a.towers.filter((t) => distanceToRect(t.x, t.z, after) > CITY.lowReach + 20);
+    const same = far.filter((t) => kept.has(key(t)));
+    // Away from the building every tower stays exactly where and as tall as it was (lanes may trim a few).
+    expect(same.length / far.length).toBeGreaterThan(0.9);
+  });
+});
+
+describe("the singularity's lens", () => {
+  it("draws its photon ring just outside the core, wherever the sheet's size puts it", () => {
+    const size = SINGULARITY.core * 9;
+    const lens = lensMaterial(cityUniforms({ x: 0, y: 0, z: 0 }), SINGULARITY.core, size);
+    // The shader maps the sheet to -1..1; the core's share of that half width brings r = 1 to the core's edge.
+    const coreShare = lens.uniforms.uCore.value as number, sheet = lens.uniforms.uSize.value as number;
+    expect(coreShare * (sheet / 2)).toBeCloseTo(SINGULARITY.core, 6);
+    expect(lens.vertexShader).toContain("position.xy / (uSize * 0.5)");
+    lens.dispose();
+  });
 });

@@ -185,6 +185,12 @@ export function towerMaterial(uniforms: CityUniforms): ShaderMaterial {
       vec3 accent = vAccent < 0.5 ? uAccents[0] : (vAccent < 1.5 ? uAccents[1] : uAccents[2]);
       float heightM = vScale.y;
       float above = vLocal.y * heightM;
+      // The window grid and its screen-space size are taken before the roof/face branch: derivatives inside
+      // non-uniform control flow are undefined, and would shimmer along every roof edge.
+      float u = dot(vWorld.xz, vec2(-n.z, n.x));
+      vec2 cellSize = vec2(1.4 + floor(fract(seed * 3.7) * 3.0) * 0.3, 3.6);
+      vec2 c = vec2(u, vWorld.y) / cellSize;
+      vec2 fw = max(fwidth(c), vec2(1e-4));
       vec3 col;
       if (n.y > 0.55) {
         // A roof: dark membrane, a lit parapet on some, a landing ring on a few, plant boxes on the rest.
@@ -203,9 +209,6 @@ export function towerMaterial(uniforms: CityUniforms): ShaderMaterial {
         col += uWinCool * plant * 0.08;
       } else {
         // A face: glass, windows, seams, crown.
-        float u = dot(vWorld.xz, vec2(-n.z, n.x));
-        vec2 cellSize = vec2(1.4 + floor(fract(seed * 3.7) * 3.0) * 0.3, 3.6);
-        vec2 c = vec2(u, vWorld.y) / cellSize;
         vec2 id = floor(c);
         vec2 f = fract(c);
         // Light comes in offices: a run of windows on one storey lit together, a few dark desks in it, strays elsewhere.
@@ -219,7 +222,6 @@ export function towerMaterial(uniforms: CityUniforms): ShaderMaterial {
         float pick = hash12(office + 7.1 + seed * 31.0);
         vec3 wc = pick < 0.58 ? uWinCool : (pick < 0.93 ? uWinWarm : uWinCyan);
         float bright = (0.4 + 0.6 * hash12(office + 3.3)) * (0.85 + 0.15 * hash12(id + 1.9)) * (0.75 + 0.25 * f.y);
-        vec2 fw = max(fwidth(c), vec2(1e-4));
         // Storey-high glazing: slim mullions, a spandrel band between storeys.
         vec2 lo = vec2(0.08, 0.12), hi = vec2(0.92, 0.94);
         vec2 pane = smoothstep(lo, lo + fw, f) * (1.0 - smoothstep(hi - fw, hi, f));
@@ -287,7 +289,8 @@ export function groundMaterial(uniforms: CityUniforms, centre: { x: number; z: n
     varying vec3 vWorld;
     float line(float d, float halfW, float fw) { return 1.0 - smoothstep(halfW, halfW + fw, d); }
     void main() {
-      vec2 p = vWorld.xz - uCentre;
+      // The grid runs on absolute multiples of the cell, like the plan's lots; the plaza rings round the building.
+      vec2 p = vWorld.xz;
       float fw = max(fwidth(p.x), fwidth(p.y));
       vec2 ds = abs(fract(p / uCell + 0.5) - 0.5) * uCell;
       vec2 da = abs(fract(p / uAvenue + 0.5) - 0.5) * uAvenue;
@@ -320,7 +323,7 @@ export function groundMaterial(uniforms: CityUniforms, centre: { x: number; z: n
       vec3 average = uMist * 0.14 + uAmber * 0.035 + uHead * 0.02 + uCyan * 0.015;
       col = mix(col, average, far);
       // The plaza round the building's foot: dark stone, lit rings.
-      float r = length(p);
+      float r = length(vWorld.xz - uCentre);
       float plaza = 1.0 - smoothstep(uPlaza - 4.0, uPlaza, r);
       float rings = line(abs(fract(r / 9.0) - 0.5) * 9.0, 0.25, fw) * plaza;
       col = mix(col, uMist * 0.12, plaza);
@@ -602,14 +605,18 @@ export function discMaterial(uniforms: CityUniforms, inner: number, outer: numbe
  */
 export function lensMaterial(uniforms: CityUniforms, core: number, size: number): ShaderMaterial {
   return material(uniforms, {
-    uCore: { value: core / size },
+    uSize: { value: size },
+    /** The core's radius as a share of the sheet's half width. */
+    uCore: { value: core / (size / 2) },
     uRing: { value: colour("#ffe7c0") },
     uViolet: { value: colour("#6d3bff") },
   }, /* glsl */ `
+    uniform float uSize;
     varying vec2 vQ;
     varying vec3 vWorld;
     void main() {
-      vQ = position.xy * 2.0;
+      // -1..1 across the sheet.
+      vQ = position.xy / (uSize * 0.5);
       vec4 world = modelMatrix * vec4(position, 1.0);
       vWorld = world.xyz;
       gl_Position = projectionMatrix * viewMatrix * world;
