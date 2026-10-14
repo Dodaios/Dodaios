@@ -47,8 +47,19 @@ export interface TeamSeat {
   agent: string;
   model: string;
   models: string[];
+  /** The models a member on this seat can run, with the effort levels each offers. */
+  model_options: TeamModelOption[];
+  /** The seat's effort levels; empty where it has none to pick. */
+  efforts: string[];
   ready: boolean;
   local: boolean;
+}
+
+export interface TeamModelOption {
+  id: string;
+  label: string;
+  /** Empty: the seat's own levels apply. */
+  efforts: string[];
 }
 
 export interface TeamSeatPick {
@@ -64,6 +75,8 @@ export interface TeamSeats {
   default: TeamSeatPick[];
   min_members: number;
   max_members: number;
+  /** The default turn bound by team size ("2" .. "8"). */
+  max_turns: Record<string, number>;
 }
 
 export interface TeamMember {

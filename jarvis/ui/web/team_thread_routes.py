@@ -27,7 +27,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
-from jarvis.agent_chat.team import SeatPick, TeamError, TeamThreads, TeamThreadStore
+from jarvis.agent_chat.team import Limits, SeatPick, TeamError, TeamThreads, TeamThreadStore
 from jarvis.agent_chat.team.engine import MAX_MEMBERS, MIN_MEMBERS
 from jarvis.agent_chat.team.store import MODES, ROLES
 
@@ -199,6 +199,7 @@ def _seat_rows(live: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
             ready = bool(row.get("keyless")) or any(get_secret(key) for key in keys)
         else:
             ready = bool(installed)
+        options = _model_options(row)
         seats.append(
             {
                 "provider": row["id"],
@@ -208,12 +209,57 @@ def _seat_rows(live: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
                 "agent": row.get("agent", ""),
                 "model": row.get("default_model", ""),
                 "fallback": _seat_fallback(row, live),
-                "models": [m["id"] for m in row.get("curated_models") or []],
+                "models": [option["id"] for option in options],
+                "model_options": options,
+                "efforts": _efforts(row.get("effort_levels")),
                 "ready": ready,
                 "local": bool(row.get("keyless")),
             }
         )
     return seats
+
+
+def _efforts(levels: Any) -> list[str]:
+    """Effort levels a member can be given; "" (the seat's own) is always there too."""
+    return [str(level) for level in levels or [] if str(level or "").strip()]
+
+
+def _model_options(row: dict[str, Any]) -> list[dict[str, Any]]:
+    """The models a member on this seat can run, as every model picker lists them.
+
+    Models hidden on the API Keys page stay out, as in the composer.
+    """
+    hidden = set(row.get("hidden_models") or [])
+    options = []
+    for model in row.get("curated_models") or []:
+        model_id = str(model.get("id") or "")
+        if not model_id or model_id in hidden:
+            continue
+        options.append(
+            {
+                "id": model_id,
+                "label": str(model.get("label") or model_id),
+                "efforts": _efforts(model.get("efforts")),
+            }
+        )
+    return options
+
+
+def short_model_label(seat_label: str, model_label: str) -> str:
+    """The model's name without the words the seat's name already says.
+
+    "Anthropic Claude" with "Claude Opus 5.5" reads "Opus 5.5". A model name
+    that would then start with a bare number ("Grok 4.7" on "Grok Build")
+    keeps its words.
+    """
+    seat_words = {word.lower() for word in seat_label.split()}
+    words = model_label.split()
+    rest = list(words)
+    while rest and rest[0].lower() in seat_words:
+        rest.pop(0)
+    if not rest or rest == words or rest[0][:1].isdigit():
+        return model_label.strip()
+    return " ".join(rest)
 
 
 def _seat_fallback(row: dict[str, Any], live: dict[str, list[dict[str, Any]]]) -> str:
@@ -225,6 +271,14 @@ def _seat_fallback(row: dict[str, Any], live: dict[str, list[dict[str, Any]]]) -
     """
     listed = live.get(str(row.get("runner") or "")) or []
     return str(listed[0].get("id") or "") if listed else ""
+
+
+def _efforts_for(row: dict[str, Any], model: str) -> list[str]:
+    """The effort levels the picked model (or else the seat) offers; [] = any."""
+    for option in row.get("model_options") or []:
+        if option["id"] == model and option.get("efforts"):
+            return list(option["efforts"])
+    return list(row.get("efforts") or [])
 
 
 def default_team(seats: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -275,6 +329,11 @@ async def get_seats() -> dict[str, Any]:
         "default": [{"provider": s["provider"], "model": s["model"]} for s in default_team(seats)],
         "min_members": MIN_MEMBERS,
         "max_members": MAX_MEMBERS,
+        # The default turn bound by team size, so the start form can say it.
+        "max_turns": {
+            str(size): Limits.for_team(size).max_turns
+            for size in range(MIN_MEMBERS, MAX_MEMBERS + 1)
+        },
     }
 
 
@@ -323,14 +382,27 @@ async def start_team_thread(body: StartBody, request: Request) -> dict[str, Any]
             raise HTTPException(
                 status_code=409, detail=f"{row['label']} is not connected on this machine."
             )
+        model = (seat.get("model") or "").strip()
+        effort = (seat.get("effort") or "").strip()
+        offered = _efforts_for(row, model)
+        if effort and offered and effort not in offered:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{row['label']} runs with effort {', '.join(offered)}, not {effort}.",
+            )
+        labels = {option["id"]: option["label"] for option in row.get("model_options") or []}
         picks.append(
             SeatPick(
                 provider=row["provider"],
-                model=seat.get("model") or row["model"],
+                model=model or row["model"],
                 # Only where the person left the model to the seat.
-                fallback_model="" if seat.get("model") else row.get("fallback", ""),
-                effort=seat.get("effort") or "",
-                name=row["label"] if not seat.get("model") else f"{row['label']} · {seat['model']}",
+                fallback_model="" if model else row.get("fallback", ""),
+                effort=effort,
+                name=row["label"],
+                # Two members on one seat read apart by the model the person picked.
+                model_label=short_model_label(row["label"], labels.get(model, model))
+                if model
+                else "",
                 family=row["family"],
             )
         )
