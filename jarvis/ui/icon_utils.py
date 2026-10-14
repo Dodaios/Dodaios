@@ -240,7 +240,7 @@ def _config_wants_on_device_speech() -> bool:
     recognizer left to catch them.
 
     A direct, BOM-safe TOML read (the idiom
-    ``jarvis.ui.jarvisbar.interaction._load_jarvisbar_section`` already uses):
+    ``jarvis.ui.dodaiosbar.interaction._load_jarvisbar_section`` already uses):
     one file stat and a parse, no pydantic, no provider catalogue, nothing
     initialised (AP-26). An unreadable or absent file answers ``False``, which
     the caller treats as "cannot tell" and therefore never as a reason to

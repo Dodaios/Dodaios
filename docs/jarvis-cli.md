@@ -252,7 +252,7 @@ dodaios missions dispatch "summarize today's PRs" --yes   # destructive → need
 dodaios --json missions list --state RUNNING       # watch it
 ```
 
-The `drive-jarvis-cli` skill (in `.claude/skills/`) packages these conventions so
+The `drive-dodaios-cli` skill (in `.claude/skills/`) packages these conventions so
 an agent can pick them up automatically.
 
 ## Extending the CLI

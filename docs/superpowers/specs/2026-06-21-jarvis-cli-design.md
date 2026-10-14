@@ -381,7 +381,7 @@ maintainer's chosen "skill + hard gate" option.
   spec via `docgen.py`; lists every curated command and the dynamic surface. The
   coverage gate / skill regenerate it so it never drifts.
 - A pointer in `CLAUDE.md` / `AGENTS.md` and optionally a
-  `.claude/skills/drive-jarvis-cli/` skill so coding agents discover the command
+  `.claude/skills/drive-dodaios-cli/` skill so coding agents discover the command
   surface and the conventions.
 
 ---
@@ -438,7 +438,7 @@ guarantees nothing is *unreachable* between waves; curation adds ergonomics.
   federation, runs/review.
 - **Wave 4 — Auto-generation skill + complete docs.** `generate-cli-command`
   skill (templates now that curated patterns are stable); `docs/jarvis-cli.md` +
-  generated reference; CLAUDE.md/AGENTS.md pointer; `drive-jarvis-cli` skill.
+  generated reference; CLAUDE.md/AGENTS.md pointer; `drive-dodaios-cli` skill.
 - **Wave 5 — External-agent enablement & remote.** Claude Code "drive Jarvis"
   end-to-end doc + verification; remote/VPS SSH-tunnel path; optional live
   streams (`missions watch`).
