@@ -7445,6 +7445,8 @@
     "deleted": "Este archivo se eliminó del disco. Al guardar se vuelve a crear.",
     "preview": "Vista previa",
     "show_source": "Ver código",
+    "follow_mode": "Modo continuo",
+    "follow_mode_description": "Leer este archivo en varias columnas que continúan una tras otra",
     "media_failed": "Este archivo no se puede mostrar aquí.",
     "document_note": "Texto leído de este documento. Ábrelo en este equipo para editarlo.",
     "truncated": "Solo se muestra el comienzo del archivo.",

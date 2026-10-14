@@ -7445,6 +7445,8 @@
     "deleted": "此文件已在磁盘上被删除。保存会重新创建它。",
     "preview": "预览",
     "show_source": "显示源码",
+    "follow_mode": "跟随模式",
+    "follow_mode_description": "在多个相互衔接的列中阅读此文件",
     "media_failed": "此文件无法在这里显示。",
     "document_note": "这是从文档中读取的文本。要编辑，请在这台电脑上打开它。",
     "truncated": "只显示了文件的开头部分。",
