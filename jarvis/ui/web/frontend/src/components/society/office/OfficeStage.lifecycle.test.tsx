@@ -33,7 +33,7 @@ vi.mock("./useDeskChats", () => ({
 }));
 vi.mock("./useDprBudget", () => ({ useDprBudget: () => 1 }));
 // The agents floor is built from the teams; the stage waits for the first answer about them.
-vi.mock("@/lib/societyChatGroups", () => ({ useSocietyChatGroups: () => ({ data: [], isSuccess: true, isError: false }) }));
+vi.mock("@/lib/societyChatGroups", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/societyChatGroups")>()), useSocietyChatGroups: () => ({ data: [], isSuccess: true, isError: false, failureCount: 0 }) }));
 vi.mock("@react-three/fiber", () => ({
   advance: () => undefined,
   Canvas: ({ children, frameloop }: { children: ReactNode; frameloop: string }) => {

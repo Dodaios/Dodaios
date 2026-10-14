@@ -30,6 +30,8 @@ export interface AgentCardOverlayProps {
   onAddAgentToGroup?: (agentId: string, groupId: string) => void;
   /** True while the roster is still loading; the rail says so. */
   rosterLoading?: boolean;
+  /** True until the teams have answered; the rail holds its list back until then. */
+  teamsPending?: boolean;
   /** True while rows come from the sample roster rather than society.db. */
   sample?: boolean;
   /** A row in the rail was clicked: the card swaps to that agent. */
@@ -51,6 +53,7 @@ export function AgentCardOverlay({
   onGroupAgents,
   onAddAgentToGroup,
   rosterLoading = false,
+  teamsPending = false,
   sample = false,
   onSelectAgent,
   onCreate,
@@ -99,6 +102,7 @@ export function AgentCardOverlay({
               onGroupAgents={onGroupAgents}
               onAddAgentToGroup={onAddAgentToGroup}
               loading={rosterLoading}
+              teamsPending={teamsPending}
               sample={sample}
               activeAgentId={agent.agentId}
               onOpen={(id) => { if (id !== agent.agentId) onSelectAgent?.(id); }}
