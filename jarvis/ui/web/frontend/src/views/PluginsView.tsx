@@ -563,7 +563,6 @@ function loopbackRedirectUri(plugin: Plugin): string | undefined {
   return `http://127.0.0.1:${port}${path}`;
 }
 
-export type StatusFilterId = "all" | "connected" | "not_connected" | "attention";
 
 /** Section order for the store, straight from the catalog. Any category the
  *  backend serves that the order does not mention is appended, so a new
@@ -636,21 +635,6 @@ export function searchPlugins(plugins: Plugin[], query: string): Plugin[] {
  *  category. */
 export function sortPluginsByName(a: Plugin, b: Plugin): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-}
-
-/** "attention" groups needs_reauth and error: both mean the same thing to the
- *  user — this plugin is listed but cannot be called until they act. */
-export function matchesStatus(plugin: Plugin, status: StatusFilterId): boolean {
-  switch (status) {
-    case "connected":
-      return plugin.status === "connected";
-    case "not_connected":
-      return plugin.status === "not_connected";
-    case "attention":
-      return plugin.status === "needs_reauth" || plugin.status === "error";
-    default:
-      return true;
-  }
 }
 
 /** The order the directory lists its category sections in. A category the
@@ -1197,39 +1181,31 @@ export function PluginsView({
       setSelectedId(null);
       setSectionId(null);
       setManaging(false);
+      setQuery("");
     },
   };
 
-  // ---- Own HTTP APIs and the community marketplace -------------------------
-  if (view === "custom-apis") {
-    return shell(<Suspense fallback={<p>{translate("custom_apis.loading")}</p>}>
-      <CustomApisView onBack={() => setView("list")} />
-    </Suspense>);
-  }
-
-  if (view === "community") {
-    return shell(
-      <>
-        <Breadcrumbs crumbs={[directoryCrumb, { label: translate("plugins_view.add_community") }]} />
-        <div className="mt-6">
-          <CommunityTab onInstalled={(name) => void handleFreshInstall(name)} />
-        </div>
-      </>,
-    );
-  }
-
   // ---- Plugin page ---------------------------------------------------------
+  // Checked before the community and API pages: the sidebar opens a plugin
+  // from wherever the directory currently is.
   if (selectedId) {
     // The crumb between the directory and the plugin is the list the plugin
     // belongs to — the installed list while managing, otherwise its section —
     // so the path reads the same however the page was reached.
     const home = selectedPlugin ? homeSectionId(selectedPlugin) : null;
     const origin: Crumb | null = managing
-      ? { label: translate("plugins_view.manage_title"), onClick: () => setSelectedId(null) }
+      ? {
+          label: translate("plugins_view.manage_title"),
+          onClick: () => {
+            setView("list");
+            setSelectedId(null);
+          },
+        }
       : home
         ? {
             label: sectionTitle(home),
             onClick: () => {
+              setView("list");
               setSectionId(home);
               setQuery("");
               setSelectedId(null);
@@ -1257,6 +1233,24 @@ export function PluginsView({
             {isLoading ? translate("plugins_view.loading") : translate("plugins_view.not_found")}
           </p>
         )}
+      </>,
+    );
+  }
+
+  // ---- Own HTTP APIs and the community marketplace -------------------------
+  if (view === "custom-apis") {
+    return shell(<Suspense fallback={<p>{translate("custom_apis.loading")}</p>}>
+      <CustomApisView onBack={() => setView("list")} />
+    </Suspense>);
+  }
+
+  if (view === "community") {
+    return shell(
+      <>
+        <Breadcrumbs crumbs={[directoryCrumb, { label: translate("plugins_view.add_community") }]} />
+        <div className="mt-6">
+          <CommunityTab onInstalled={(name) => void handleFreshInstall(name)} />
+        </div>
       </>,
     );
   }
@@ -1300,7 +1294,7 @@ export function PluginsView({
 }
 
 // ---------------------------------------------------------------------------
-// Status vocabulary shared by the table and the detail page
+// Status vocabulary shared by the directory and the plugin page
 // ---------------------------------------------------------------------------
 
 function statusTone(status: PluginStatus): "ok" | "off" | "warn" | "error" {
