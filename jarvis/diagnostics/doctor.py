@@ -166,9 +166,9 @@ def check_harness_config(config: Any) -> list[DoctorFinding]:
     ):
         findings.append(DoctorFinding(
             "harness-config", "warn",
-            "[harness.jarvis_agent].enabled = true, but no Jarvis-Agent "
+            "[harness.jarvis_agent].enabled = true, but no Dodaios-Agent "
             "worker harness is registered - the block is inert",
-            hint=("Set [harness.jarvis_agent].enabled = false. Heavy Jarvis-Agent "
+            hint=("Set [harness.jarvis_agent].enabled = false. Heavy Dodaios-Agent "
                   "work runs through spawn_worker regardless."),
         ))
 

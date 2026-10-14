@@ -649,7 +649,9 @@ class Roster:
                 FailureReason.TIER_NOT_ALLOWED, "the lead always runs on this computer"
             )
         if tier_value is Tier.LEAD and str(fields.get("runtime") or "jarvis") != "jarvis":
-            raise RosterError(FailureReason.TIER_NOT_ALLOWED, "the lead always runs on Jarvis")
+            raise RosterError(
+                FailureReason.TIER_NOT_ALLOWED, "the lead always runs on the app's own brain"
+            )
         _check_runtime_placement(fields.get("runtime"), fields.get("computer_id"))
         if tier_value is Tier.LEAD and "approval_mode" in fields:
             raise RosterError(

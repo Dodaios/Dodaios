@@ -1,11 +1,11 @@
-# Personal Jarvis — Terms of Use & Disclaimer (v1.1)
+# Dodaios — Terms of Use & Disclaimer (v1.1)
 
-Personal Jarvis is free, open-source software provided "as is", without warranty of any
-kind. By using it you agree:
+Dodaios (called Personal Jarvis until October 2026) is free, open-source software provided
+"as is", without warranty of any kind. By using it you agree:
 
 1. **Your responsibility.** You alone are responsible for how you configure and use this
    software and for complying with the laws that apply to you.
-2. **Activation word / trademarks.** Personal Jarvis is the software project's name;
+2. **Activation word / trademarks.** Dodaios is the software project's name;
    the assistant name and activation word you choose are your own configuration.
    You choose your own activation word and are solely
    responsible for ensuring it does not infringe any trademark or other rights. We provide

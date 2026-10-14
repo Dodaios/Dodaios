@@ -881,7 +881,7 @@ _HYBRID_ROLE_DIRECTIVE = (
     "instead of calling anything. Never tell the user you lack a tool, an "
     "API, access, or permission for something in their world, and never "
     "propose manual workarounds instead of acting: call the function (again, "
-    "with the user's correction folded in). The Jarvis-Agent spawn function "
+    "with the user's correction folded in). The Dodaios-Agent spawn function "
     "is EXPLICIT-REQUEST ONLY: call it when the user themselves asks for an "
     "agent, a subagent, spawning, delegating, or background work — or has "
     "just said yes to your offer to start one; never on your own initiative, "
@@ -2119,7 +2119,7 @@ _TOOL_ROLE_DIRECTIVE = (
     "computer. When the user asks you to DO something — create a file, write "
     "code, research, start background work, open a view, change a setting, "
     "control the computer — call the matching function instead of claiming "
-    "you cannot act. The Jarvis-Agent spawn function is EXPLICIT-REQUEST "
+    "you cannot act. The Dodaios-Agent spawn function is EXPLICIT-REQUEST "
     "ONLY: call it when the user themselves asks for an agent, a subagent, "
     "spawning, delegating, or background work — or has just said yes to your "
     "offer to start one. Never start it on your own initiative during "
@@ -4797,7 +4797,7 @@ class RealtimeVoiceSession:
         self._announcement_context_signatures = self._announcement_context_signatures[-16:]
 
         label = (
-            "Trusted Jarvis-Agent mission result"
+            "Trusted Dodaios-Agent mission result"
             if kind == "subagent"
             else "Trusted background completion"
         )

@@ -48,11 +48,11 @@ WAKE_WORD_LEGAL_REFERENCES: list[dict[str, str]] = [
 _TERMS_PATH = Path(__file__).resolve().parents[2] / "docs" / "legal" / "TERMS.md"
 
 _TERMS_FALLBACK = (
-    f"Personal Jarvis — Terms of Use & Disclaimer (v{CURRENT_TERMS_VERSION})\n\n"
+    f"Dodaios — Terms of Use & Disclaimer (v{CURRENT_TERMS_VERSION})\n\n"
     'This software is provided free and open-source, "as is", without warranty. '
     "You are solely responsible for how you use it, including your choice of activation "
     "word and compliance with applicable trademark law. Not affiliated with any rights "
-    "holder. Personal Jarvis is the software project's name, separate from the "
+    "holder. Dodaios is the software project's name, separate from the "
     "assistant name and activation word you choose. Working data is stored on the "
     "computer or server running the app; remote and connected features send data to "
     "their configured services. The shipped Google and Slack sign-in clients use the "

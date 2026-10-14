@@ -33,7 +33,7 @@ class IdentityError(RuntimeError):
 
 def _comment() -> str:
     host = platform.node().strip() or "desktop"
-    return f"personal-jarvis@{host}"
+    return f"dodaios@{host}"
 
 
 def private_key() -> asyncssh.SSHKey:
