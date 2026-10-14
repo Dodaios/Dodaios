@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-from .prompts import MAX_QUOTE
+from .prompts import quote as _quote
+from .prompts import quotes
 from .signals import BLOCK, PLAN_BLOCK, STEP_BLOCK
 
 __all__ = [
@@ -47,14 +48,6 @@ def _frame(name: str, team: list[tuple[str, str]], cwd: str, step: str) -> str:
         "assumption and go on. Put your whole contribution in your final message, because only "
         f"that message reaches the thread.\n\n{step}"
     )
-
-
-def _quote(label: str, text: str) -> str:
-    # A member's text must not close its own block and speak outside of it.
-    body = (text or "").replace(f"</{label}>", "").strip()
-    if len(body) > MAX_QUOTE:
-        body = body[:MAX_QUOTE].rstrip() + "\n[shortened]"
-    return f"<{label}>\n{body}\n</{label}>"
 
 
 def _notes(notes: list[str]) -> str:
@@ -159,10 +152,12 @@ def write_plan(
             "the point and give the reason in one line, and write the complete plan again."
         )
         parts.append(_quote("your last proposal", plan_text(previous)))
-        parts += [
-            _quote(f"objections by {member}", "\n".join(f"- {item}" for item in items))
-            for member, items in objections.items()
-        ]
+        parts += quotes(
+            [
+                (f"objections by {member}", "\n".join(f"- {item}" for item in items))
+                for member, items in objections.items()
+            ]
+        )
     if unreadable:
         step += (
             f"\n\nYour last reply had no plan the coordinator could read: {unreadable} Write "
@@ -247,9 +242,9 @@ def build_step(
             "it, or show with evidence why it is not a defect. Fix minor findings where that is "
             "cheap, and go through the findings one by one in your report."
         )
-        parts += [
-            _quote(f"findings by {member}", _findings(items)) for member, items in findings.items()
-        ]
+        parts += quotes(
+            [(f"findings by {member}", _findings(items)) for member, items in findings.items()]
+        )
     return (
         _frame(name, team, cwd, step)
         + f"\n\nThe task:\n{task.strip()}"
@@ -388,7 +383,7 @@ def final_fix(
         "findings where that is cheap. Verify again. Finish with a report that goes through "
         "the findings one by one and says what you did."
     )
-    parts = [
-        _quote(f"findings by {member}", _findings(items)) for member, items in findings.items()
-    ]
+    parts = quotes(
+        [(f"findings by {member}", _findings(items)) for member, items in findings.items()]
+    )
     return _frame(name, team, cwd, step) + _material(parts) + _notes(notes)
