@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatMarkdown, mediaKind, normalizeMediaMarkup, safeMediaUrl } from "./ChatMarkdown";
 
@@ -25,6 +25,18 @@ describe("chat visual fences", () => {
     expect((await screen.findByTestId("inline-html-frame")).getAttribute("srcdoc")).toContain(code);
     rerender(<ChatMarkdown text={text + marker} />);
     expect(screen.getByTestId("inline-html-frame").getAttribute("srcdoc")).toContain(code);
+  });
+
+  it("gives fenced code its language and a copy button", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<ChatMarkdown text={["Here:", "", "```python", "print('hi')", "```"].join("\n")} />);
+
+    expect(screen.getByText("python")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Copy code" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("print('hi')"));
+    expect(await screen.findByRole("button", { name: "Code copied" })).toBeTruthy();
   });
 
   it("keeps JSON results and explicit text as code", () => {
