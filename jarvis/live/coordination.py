@@ -27,6 +27,16 @@ WORK_STATUS_RULE: Final[str] = (
 )
 
 
+#: For the model that executes tools: what goes on screen instead of into speech.
+ON_SCREEN_RULE: Final[str] = (
+    "When an answer has more structure than a sentence carries (a table, code, a diff, "
+    "several links or steps), call show_on_screen with it as Markdown and say only the "
+    "takeaway and that the details are on screen. To take the user somewhere in the app "
+    "use navigate: a section, a named agent's chat, a conversation by its title, or a "
+    "coding workspace. "
+)
+
+
 def conversation_rules(executor: str) -> str:
     """The speaking model's rules; ``executor`` is what carries out work for it."""
     return (
@@ -59,4 +69,4 @@ def conversation_rules(executor: str) -> str:
     )
 
 
-__all__ = ["WORK_STATUS_RULE", "conversation_rules"]
+__all__ = ["ON_SCREEN_RULE", "WORK_STATUS_RULE", "conversation_rules"]
