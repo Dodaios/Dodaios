@@ -212,5 +212,6 @@ it("asks the backend to hold a follow-up until its read lands", async () => {
   await act(() => vi.advanceTimersByTimeAsync(400));
   expect(fetcher).toHaveBeenCalledTimes(2);
   expect(String(fetcher.mock.calls[0][0])).not.toContain("wait=");
+  expect(String(fetcher.mock.calls[0][0])).toContain("instant=1");
   expect(String(fetcher.mock.calls[1][0])).toContain("wait=4");
 });

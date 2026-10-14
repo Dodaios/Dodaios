@@ -196,13 +196,21 @@ def session_github_status(
     wait: float = Query(
         0, ge=0, le=5, description="Seconds to wait for a read already running to finish"
     ),
+    instant: bool = Query(
+        False, description="Answer from the last read at once; the caller asks again"
+    ),
 ) -> dict:
     """GitHub state for the branch each pane works in, as last read.
 
-    Answers at once from the last read (see ``github_status.board``);
-    ``refreshing`` says a newer answer is on its way, and ``wait`` holds the
-    answer until that read lands, for at most that many seconds.
+    With ``instant`` it answers at once from the last read (see
+    ``github_status.board``); ``refreshing`` says a newer answer is on its
+    way, and ``wait`` holds the answer until that read lands, for at most that
+    many seconds. A caller that does not ask for ``instant`` gets the answer
+    once a running read has landed, as before: it neither knows to ask again
+    soon nor shows an empty answer as "still loading".
     """
+    if not instant:
+        wait = _LEGACY_WAIT_S
     registry = get_registry()
     session = registry.get(workspace_id)
     if session is None:
@@ -213,6 +221,11 @@ def session_github_status(
         if other.id != workspace_id and github_status.due(other.id):
             github_status.read_ahead(other.id, _pane_records(other))
     return github_status.board(workspace_id, _pane_records(session), wait=wait)
+
+
+#: How long an answer for a caller that does not ask for ``instant`` waits
+#: for a running read: longer than a cold read of a large workspace takes.
+_LEGACY_WAIT_S = 15
 
 
 def _pane_records(session: Session) -> list[PaneBranchRecord]:

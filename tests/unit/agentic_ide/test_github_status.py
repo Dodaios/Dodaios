@@ -419,14 +419,17 @@ def test_route_uses_pane_cwd_and_excludes_remote_computers(monkeypatch):
     )
     monkeypatch.setattr(status, "due", lambda key: True)
     monkeypatch.setattr(status, "read_ahead", lambda key, records: ahead.append(key))
-    assert routes.session_github_status("w", wait=2) == {"panes": {}}
+    assert routes.session_github_status("w", wait=2, instant=True) == {"panes": {}}
     assert calls[0][1] == 2
+    # A caller that does not know `instant` gets the answer once the read lands.
+    routes.session_github_status("w", wait=0, instant=False)
+    assert calls[1][1] == routes._LEGACY_WAIT_S
     calls[:] = [records for records, _ in calls]
     assert [record.pane for record in calls[0]] == ["t1"]
     assert calls[0][0].folder == "fork-folder"
     assert calls[0][0].created_branch == "owned"
     # The tab behind is read ahead of its first visit; the one in front is not.
-    assert ahead == ["behind"]
+    assert set(ahead) == {"behind"}
     with pytest.raises(HTTPException) as error:
         routes.session_github_status("missing")
     assert error.value.status_code == 404
