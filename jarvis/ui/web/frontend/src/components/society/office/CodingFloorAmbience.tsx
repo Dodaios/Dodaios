@@ -1,9 +1,9 @@
 /**
  * The coding floor's ambience between the rooms: tree planters closing the
- * cross aisles at the windows, a low library of walnut bookcases with reading
- * lamps along the west glass, planter troughs along the east glass, slim
- * linear pendants floating over every bench with warm pools of light below,
- * and one warm fill light for the whole floor.
+ * cross aisles at the windows; along the glass, beside every neighbourhood, a
+ * phone booth in the team's colour and a planter trough; down the main street
+ * a grove of tall trees ringed by oak benches; slim white pendants over every
+ * long table with soft pools of light below; and one warm fill light.
  *
  * Every repeated part is one instanced mesh, so the whole dressing costs a
  * handful of draw calls. The solid pieces come from `codingAmbience`, which
@@ -14,14 +14,14 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
-  AdditiveBlending, Color, Euler, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3,
+  AdditiveBlending, Color, Euler, Group, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Quaternion, Vector3,
   type BufferGeometry, type Material,
 } from "three";
 import { cachedCanvasTexture } from "./canvasMaterials";
-import { codingAmbience, LIBRARY_H, TROUGH_H, type AmbienceItem } from "./codingAmbience";
+import { BOOTH, codingAmbience, GROVE_H, TROUGH_H, type AmbienceItem } from "./codingAmbience";
 import { GEO, MAT, matte } from "./OfficeFurniture";
 import type { Department, OfficeLayout } from "./officeLayout";
-import { CODING_SCENE } from "./officePalette";
+import { CODING_SCENE, codingTeam } from "./officePalette";
 
 // ---------------------------------------------------------------------------
 // Instancing
@@ -64,21 +64,20 @@ export function Instances({ geometry, material, items, cast = true }: {
 // ---------------------------------------------------------------------------
 
 const AMB = {
-  clay: matte("#b9694b", { roughness: 0.75 }),
-  cream: matte("#efe7da", { roughness: 0.6 }),
-  walnut: matte(CODING_SCENE.walnut.slat, { roughness: 0.6 }),
-  walnutDark: matte(CODING_SCENE.walnut.gap, { roughness: 0.7 }),
-  brass: matte(CODING_SCENE.brass, { roughness: 0.3, metalness: 0.55 }),
-  shade: matte("#fff1d6", { emissive: "#ffd79a", emissiveIntensity: 0.9, roughness: 0.6 }),
-  /** White, so each instance's colour is the book's colour. */
-  book: matte("#ffffff", { roughness: 0.8 }),
+  /** Planters in pale fibre-cement with a white-oak rim. */
+  planter: matte("#e4e1db", { roughness: 0.8 }),
+  rim: matte(CODING_SCENE.oak.planks[0], { roughness: 0.55 }),
+  oak: matte(CODING_SCENE.oak.planks[3], { roughness: 0.55 }),
+  oakDark: matte(CODING_SCENE.oak.seam, { roughness: 0.6 }),
+  steel: matte("#2a2c30", { roughness: 0.4, metalness: 0.5 }),
+  glass: new MeshStandardMaterial({ color: "#dfeff5", transparent: true, opacity: 0.22, roughness: 0.05, depthWrite: false }),
+  /** White, so each instance's colour is the team's felt. */
+  felt: matte("#ffffff", { roughness: 0.95 }),
+  shade: matte("#fff1d6", { emissive: "#ffe2b8", emissiveIntensity: 0.8, roughness: 0.6 }),
   olive: matte("#6f8a58", { flatShading: true }),
   pendant: matte(CODING_SCENE.pendant.body, { roughness: 0.4, metalness: 0.4 }),
   pendantGlow: matte(CODING_SCENE.pendant.glow, { emissive: CODING_SCENE.pendant.glow, emissiveIntensity: 2, toneMapped: false }),
 };
-
-/** Book spines: muted cloth and paper tones, warm like an old library. */
-const SPINES = ["#8c3b2b", "#c8553d", "#e0b25c", "#3e5c76", "#5e7d5a", "#e9e0cf", "#2f2a26", "#b08a5a", "#7a5a8c", "#d9c7a4"];
 
 /** Deterministic pseudo-random numbers per seed, so the dressing never changes between loads. */
 function lcg(seed: number): () => number {
@@ -106,7 +105,7 @@ const CROWN: readonly [number, number, number, number, 0 | 1 | 2 | 3][] = [
 ];
 const LEAVES = [MAT.leaf, MAT.leafDark, MAT.leafLight, AMB.olive];
 
-/** A tall tree in a square clay planter with a cream rim, filling its TREE_BOX footprint. */
+/** A tall tree in a square fibre-cement planter with an oak rim, filling its TREE_BOX footprint. */
 function Trees({ items }: { items: readonly AmbienceItem[] }) {
   const parts = useMemo(() => {
     const planter: Placement[] = [], rim: Placement[] = [], soil: Placement[] = [], trunk: Placement[] = [];
@@ -128,8 +127,8 @@ function Trees({ items }: { items: readonly AmbienceItem[] }) {
   }, [items]);
   return (
     <group>
-      <Instances geometry={GEO.box} material={AMB.clay} items={parts.planter} />
-      <Instances geometry={GEO.box} material={AMB.cream} items={parts.rim} />
+      <Instances geometry={GEO.box} material={AMB.planter} items={parts.planter} />
+      <Instances geometry={GEO.box} material={AMB.rim} items={parts.rim} />
       <Instances geometry={GEO.box} material={MAT.soil} items={parts.soil} cast={false} />
       <Instances geometry={GEO.cyl} material={MAT.trunk} items={parts.trunk} />
       {parts.leaves.map((list, i) => <Instances key={i} geometry={GEO.blob} material={LEAVES[i]} items={list} />)}
@@ -138,89 +137,106 @@ function Trees({ items }: { items: readonly AmbienceItem[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Library along the west glass
+// Phone booths along the glass
 // ---------------------------------------------------------------------------
 
 /**
- * Low walnut bookcases facing into the office: a carcass with two shelves of
- * books, and on top a reading lamp, vases and small plants.
+ * A phone booth: a steel frame with glass walls, its back and floor lined in
+ * the team's felt, a small bench seat and a lamp under the roof. The open
+ * front faces into the office.
  */
-function Library({ items }: { items: readonly AmbienceItem[] }) {
+function Booths({ items }: { items: readonly AmbienceItem[] }) {
   const parts = useMemo(() => {
-    const carcass: Placement[] = [], back: Placement[] = [], books: Placement[] = [];
-    const lampBrass: Placement[] = [], lampShade: Placement[] = [], vases: Placement[] = [], sprigs: Placement[] = [];
-    items.forEach((item, index) => {
-      const rand = lcg(seedOf(item.id));
-      const x0 = item.minX, x1 = item.maxX, depth = x1 - x0, cx = (x0 + x1) / 2;
-      const len = item.maxZ - item.minZ, cz = (item.minZ + item.maxZ) / 2;
-      // Back panel against the glass, then two ends, the plinth, one shelf and the top.
-      back.push({ position: [x0 + 0.015, LIBRARY_H / 2, cz], scale: [0.03, LIBRARY_H, len] });
-      for (const z of [item.minZ + 0.02, item.maxZ - 0.02]) carcass.push({ position: [cx, LIBRARY_H / 2, z], scale: [depth, LIBRARY_H, 0.04] });
-      carcass.push({ position: [cx, 0.05, cz], scale: [depth, 0.1, len] });
-      carcass.push({ position: [cx, 0.54, cz], scale: [depth - 0.02, 0.03, len - 0.06] });
-      carcass.push({ position: [cx, LIBRARY_H - 0.02, cz], scale: [depth + 0.02, 0.04, len + 0.02] });
-      // A vertical divider every ~0.8 m.
-      const bays = Math.max(1, Math.round(len / 0.8));
-      for (let b = 1; b < bays; b += 1) carcass.push({ position: [cx, LIBRARY_H / 2, item.minZ + (len * b) / bays], scale: [depth - 0.02, LIBRARY_H - 0.1, 0.025] });
-      // Books on both shelves: runs of upright spines, now and then a gap or a small stack lying flat.
-      for (const [floor, top] of [[0.1, 0.525], [0.555, LIBRARY_H - 0.04]] as const) {
-        let z = item.minZ + 0.06;
-        while (z < item.maxZ - 0.1) {
-          const roll = rand();
-          if (roll < 0.07) { z += 0.12 + rand() * 0.1; continue; }
-          if (roll < 0.14) {
-            // A stack lying flat.
-            let y = floor;
-            for (let k = 0; k < 3; k += 1) {
-              const t = 0.035 + rand() * 0.02;
-              books.push({ position: [cx + 0.01, y + t / 2, z + 0.11], scale: [0.2, t, 0.22 - k * 0.02], color: SPINES[Math.floor(rand() * SPINES.length)] });
-              y += t;
-            }
-            z += 0.26;
-            continue;
-          }
-          const w = 0.03 + rand() * 0.035, h = Math.min(top - floor - 0.03, 0.24 + rand() * 0.14);
-          const lean = rand() < 0.06 ? 0.18 : 0;
-          books.push({
-            position: [cx + 0.01, floor + h / 2, z + w / 2], scale: [0.2 + rand() * 0.04, h, w], rotation: [lean, 0, 0],
-            color: SPINES[Math.floor(rand() * SPINES.length)],
-          });
-          z += w + 0.004;
-        }
+    const frame: Placement[] = [], glass: Placement[] = [], felt: Placement[] = [], seat: Placement[] = [], lamp: Placement[] = [];
+    for (const item of items) {
+      const cx = (item.minX + item.maxX) / 2, cz = (item.minZ + item.maxZ) / 2;
+      const d = item.maxX - item.minX, len = item.maxZ - item.minZ, h = BOOTH.h;
+      // Which way is the back wall: away from the office.
+      const back = item.facing === "east" ? -1 : 1;
+      const colour = codingTeam(item.tint ?? 0).felt;
+      frame.push({ position: [cx, h - 0.04, cz], scale: [d, 0.08, len] });
+      frame.push({ position: [cx, 0.03, cz], scale: [d, 0.06, len] });
+      for (const [dx, dz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]] as const) {
+        frame.push({ position: [cx + dx * (d / 2 - 0.025), h / 2, cz + dz * (len / 2 - 0.025)], scale: [0.05, h, 0.05] });
       }
-      // On top: a brass reading lamp on every other case, vases and small plants.
-      const topY = LIBRARY_H;
-      if (index % 2 === 0) {
-        const lz = item.minZ + len * 0.22;
-        lampBrass.push({ position: [cx, topY + 0.01, lz], scale: [0.08, 0.02, 0.08] });
-        lampBrass.push({ position: [cx, topY + 0.2, lz], scale: [0.008, 0.38, 0.008] });
-        lampShade.push({ position: [cx, topY + 0.42, lz], scale: [0.11, 0.14, 0.11] });
-      }
-      vases.push({ position: [cx, topY + 0.1, item.minZ + len * 0.55], scale: [0.05, 0.2, 0.05] });
-      vases.push({ position: [cx - 0.02, topY + 0.07, item.minZ + len * 0.8], scale: [0.07, 0.14, 0.07] });
-      sprigs.push({ position: [cx - 0.02, topY + 0.2, item.minZ + len * 0.8], scale: [0.12, 0.1, 0.12] });
-      sprigs.push({ position: [cx, topY + 0.23, item.minZ + len * 0.55], scale: [0.06, 0.08, 0.06] });
-    });
-    return { carcass, back, books, lampBrass, lampShade, vases, sprigs };
+      // Glass on the two short sides, felt on the back.
+      for (const dz of [-1, 1]) glass.push({ position: [cx, h / 2, cz + dz * (len / 2 - 0.02)], scale: [d - 0.06, h - 0.14, 0.02] });
+      felt.push({ position: [cx + back * (d / 2 - 0.03), h / 2, cz], scale: [0.04, h - 0.14, len - 0.08], color: colour });
+      felt.push({ position: [cx, 0.065, cz], scale: [d - 0.08, 0.01, len - 0.08], color: colour });
+      seat.push({ position: [cx + back * (d / 2 - 0.25), 0.44, cz], scale: [0.4, 0.08, len - 0.2] });
+      seat.push({ position: [cx + back * (d / 2 - 0.25), 0.22, cz], scale: [0.36, 0.38, len - 0.3] });
+      lamp.push({ position: [cx, h - 0.1, cz], scale: [0.18, 0.03, 0.18] });
+    }
+    return { frame, glass, felt, seat, lamp };
   }, [items]);
   return (
     <group>
-      <Instances geometry={GEO.box} material={AMB.walnut} items={parts.carcass} />
-      <Instances geometry={GEO.box} material={AMB.walnutDark} items={parts.back} />
-      <Instances geometry={GEO.box} material={AMB.book} items={parts.books} />
-      <Instances geometry={GEO.cyl} material={AMB.brass} items={parts.lampBrass} />
-      <Instances geometry={GEO.potCyl} material={AMB.shade} items={parts.lampShade} cast={false} />
-      <Instances geometry={GEO.cyl} material={AMB.cream} items={parts.vases} />
-      <Instances geometry={GEO.blob} material={MAT.leaf} items={parts.sprigs} />
+      <Instances geometry={GEO.box} material={AMB.steel} items={parts.frame} />
+      <Instances geometry={GEO.box} material={AMB.glass} items={parts.glass} cast={false} />
+      <Instances geometry={GEO.box} material={AMB.felt} items={parts.felt} />
+      <Instances geometry={GEO.box} material={AMB.oak} items={parts.seat} />
+      <Instances geometry={GEO.cyl} material={AMB.shade} items={parts.lamp} cast={false} />
     </group>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Planter troughs along the east glass
+// Groves down the main street
 // ---------------------------------------------------------------------------
 
-/** Long cream troughs on a walnut plinth, planted with low foliage, kept low so they hide nothing. */
+/** A grove's crown in its own space (x, y, z, radius, leaf tone): broad and high, like a street tree. */
+const GROVE_CROWN: readonly [number, number, number, number, 0 | 1 | 2 | 3][] = [
+  [0, 3.5, 0, 0.95, 0], [0.7, 3.2, 0.2, 0.7, 1], [-0.65, 3.3, -0.25, 0.72, 2], [0.15, 4.0, 0.3, 0.65, 3],
+  [-0.25, 3.0, 0.6, 0.6, 1], [0.4, 3.6, -0.6, 0.62, 2], [-0.6, 3.8, 0.35, 0.55, 0], [0.55, 2.9, -0.35, 0.5, 3],
+];
+
+/**
+ * A grove: a round planter of pale fibre-cement ringed by an oak bench, a tall
+ * tree in it whose crown spreads over the street, and low planting at its foot.
+ */
+function Groves({ items }: { items: readonly AmbienceItem[] }) {
+  const parts = useMemo(() => {
+    const planter: Placement[] = [], rim: Placement[] = [], soil: Placement[] = [], bench: Placement[] = [], trunk: Placement[] = [];
+    const leaves: Placement[][] = LEAVES.map(() => []);
+    for (const item of items) {
+      const x = (item.minX + item.maxX) / 2, z = (item.minZ + item.maxZ) / 2, r = (item.maxX - item.minX) / 2;
+      const rand = lcg(seedOf(item.id));
+      bench.push({ position: [x, 0.2, z], scale: [r, 0.4, r] });
+      bench.push({ position: [x, 0.43, z], scale: [r + 0.02, 0.05, r + 0.02] });
+      planter.push({ position: [x, 0.36, z], scale: [r - 0.42, 0.72, r - 0.42] });
+      rim.push({ position: [x, 0.73, z], scale: [r - 0.4, 0.03, r - 0.4] });
+      soil.push({ position: [x, 0.745, z], scale: [r - 0.5, 0.01, r - 0.5] });
+      trunk.push({ position: [x, 1.9, z], scale: [0.09, 2.4, 0.09], rotation: [0.03, 0, -0.04] });
+      const turn = rand() * Math.PI * 2, s = 0.92 + rand() * 0.14;
+      for (const [cx, cy, cz, cr, tone] of GROVE_CROWN) {
+        const lx = cx * Math.cos(turn) - cz * Math.sin(turn), lz = cx * Math.sin(turn) + cz * Math.cos(turn);
+        leaves[tone].push({ position: [x + lx * s, cy * s * (GROVE_H / 4.4), z + lz * s], scale: [cr * s, cr * s * 0.85, cr * s] });
+      }
+      // Low planting round the trunk.
+      for (let k = 0; k < 6; k += 1) {
+        const a = (k / 6) * Math.PI * 2 + rand(), d = (r - 0.6) * (0.5 + rand() * 0.4);
+        leaves[k % LEAVES.length].push({ position: [x + Math.cos(a) * d, 0.84, z + Math.sin(a) * d], scale: [0.18, 0.14, 0.18] });
+      }
+    }
+    return { planter, rim, soil, bench, trunk, leaves };
+  }, [items]);
+  return (
+    <group>
+      <Instances geometry={GEO.cyl} material={AMB.oak} items={parts.bench} />
+      <Instances geometry={GEO.cyl} material={AMB.planter} items={parts.planter} />
+      <Instances geometry={GEO.cyl} material={AMB.rim} items={parts.rim} />
+      <Instances geometry={GEO.cyl} material={MAT.soil} items={parts.soil} cast={false} />
+      <Instances geometry={GEO.cyl} material={MAT.trunk} items={parts.trunk} />
+      {parts.leaves.map((list, i) => <Instances key={i} geometry={GEO.blob} material={LEAVES[i]} items={list} />)}
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Planter troughs along the glass
+// ---------------------------------------------------------------------------
+
+/** Long fibre-cement troughs on an oak plinth, planted with low foliage, kept low so they hide nothing. */
 function Troughs({ items }: { items: readonly AmbienceItem[] }) {
   const parts = useMemo(() => {
     const body: Placement[] = [], plinth: Placement[] = [], soil: Placement[] = [];
@@ -241,8 +257,8 @@ function Troughs({ items }: { items: readonly AmbienceItem[] }) {
   }, [items]);
   return (
     <group>
-      <Instances geometry={GEO.box} material={AMB.walnut} items={parts.plinth} />
-      <Instances geometry={GEO.box} material={AMB.cream} items={parts.body} />
+      <Instances geometry={GEO.box} material={AMB.oak} items={parts.plinth} />
+      <Instances geometry={GEO.box} material={AMB.planter} items={parts.body} />
       <Instances geometry={GEO.box} material={MAT.soil} items={parts.soil} cast={false} />
       {parts.leaves.map((list, i) => <Instances key={i} geometry={GEO.blob} material={LEAVES[i]} items={list} />)}
     </group>
@@ -337,8 +353,9 @@ export function CodingFloorAmbience({ layout }: { layout: OfficeLayout }) {
   const items = useMemo(() => codingAmbience(layout), [layout]);
   const byKind = useMemo(() => ({
     tree: items.filter((i) => i.kind === "tree"),
-    library: items.filter((i) => i.kind === "library"),
+    booth: items.filter((i) => i.kind === "booth"),
     trough: items.filter((i) => i.kind === "trough"),
+    grove: items.filter((i) => i.kind === "grove"),
   }), [items]);
   const { minX, maxZ } = layout.bounds;
   return (
@@ -346,8 +363,9 @@ export function CodingFloorAmbience({ layout }: { layout: OfficeLayout }) {
       {/* Warm late-afternoon fill from the south-west, no shadows: the one extra light the floor pays for. */}
       <directionalLight position={[minX - 12, 12, maxZ + 6]} intensity={0.4} color="#ffc68a" />
       <Trees items={byKind.tree} />
-      <Library items={byKind.library} />
+      <Booths items={byKind.booth} />
       <Troughs items={byKind.trough} />
+      <Groves items={byKind.grove} />
       <Pendants departments={layout.departments} />
     </group>
   );
