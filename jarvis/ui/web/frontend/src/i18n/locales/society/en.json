@@ -1556,6 +1556,8 @@
       "spawn_screen_new": "NEW AGENT",
       "department_n": "DEPARTMENT {number}",
       "studio_n": "STUDIO {number}",
+      "bay_n": "BAY {number}",
+      "bay_free": "Free bay",
       "coffee_menu": "MENU",
       "status_spend": "SPEND",
       "status_days": "{days}D",

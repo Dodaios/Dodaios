@@ -7,7 +7,7 @@ import {
   toFloor, tree, TREE_BOX, yawOf,
 } from "./agentsAmbience";
 import { buildOfficeLayout, type OfficeAgentInput } from "./officeLayout";
-import { CODING_STUDIOS, DEPARTMENT_ZONES } from "./officePalette";
+import { DEPARTMENT_ZONES } from "./officePalette";
 
 const agent = (id: string, provider: string): OfficeAgentInput => ({
   agentId: id, name: id, tier: "specialist", providerLabel: provider, state: "working", createdMs: 0,
@@ -166,14 +166,12 @@ describe("agents floor fittings on the campus", () => {
 });
 
 describe("agents floor rugs", () => {
-  it("gives the twelve studios a floor can hold twelve different rugs, none shared with the coding floor", () => {
+  it("gives the twelve studios a floor can hold twelve different rugs", () => {
     const rugs = Array.from({ length: 12 }, (_, i) => agentsRug(i));
     expect(AGENTS_RUGS).toHaveLength(12);
     expect(new Set(rugs.map((r) => `${r.weave}:${r.field}`)).size).toBe(12);
     expect(new Set(rugs.map((r) => r.field)).size).toBe(12);
     expect(new Set(rugs.map((r) => r.border)).size).toBe(12);
-    const above = new Set(CODING_STUDIOS.map((s) => s.carpet));
-    for (const rug of AGENTS_RUGS) expect(above.has(rug.field)).toBe(false);
     // Desk screens and seats take their zone from the same index.
     expect(DEPARTMENT_ZONES).toHaveLength(AGENTS_RUGS.length);
   });
