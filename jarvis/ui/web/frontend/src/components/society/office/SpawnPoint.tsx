@@ -46,7 +46,7 @@ interface SpawnLook {
 }
 
 /**
- * Downstairs the agents' Scandinavian oak, sage and bronze; upstairs the coding floor's walnut, plum and amber.
+ * Downstairs the agents' Scandinavian oak, sage and bronze; upstairs the coding floor's Foundry steel, gold and code cyan.
  * The arcade floor has no spawn point; its entry only keeps the table complete (neon violet and cyan).
  */
 export const SPAWN_LOOKS: Record<OfficeFloor, SpawnLook> = {
@@ -56,9 +56,9 @@ export const SPAWN_LOOKS: Record<OfficeFloor, SpawnLook> = {
     pad: "#e9e3d8", speck: ["#ddd5c7", "#f3efe7", "#cfc6b6"], padEdge: "#a8865a", padBand: "#9fae93",
   },
   coding: {
-    body: "#5d3d28", plinth: "#2e1d13", metal: "#d8ae52", bezel: "#1d1b1a", glow: "#ffc27a",
-    screenTop: "#271b40", screenBottom: "#0f0a1d", text: "#fff1de", accent: "#f3b16b", accentDeep: "#241a3b",
-    pad: "#2e2638", speck: ["#3b3246", "#251f2e", "#c9a24a"], padEdge: "#c9a24a", padBand: "#f3b16b",
+    body: "#2a2e36", plinth: "#16181d", metal: "#d8ae52", bezel: "#0f1115", glow: "#5fe6ff",
+    screenTop: "#0f2433", screenBottom: "#070d14", text: "#e8fbff", accent: "#5fe6ff", accentDeep: "#0b1a24",
+    pad: "#1c1f25", speck: ["#262a31", "#14161a", "#5fe6ff"], padEdge: "#d8ae52", padBand: "#5fe6ff",
   },
   arcade: {
     body: "#2a2348", plinth: "#15112a", metal: "#9b8cff", bezel: "#0e0c1f", glow: "#7df9ff",
@@ -634,10 +634,13 @@ export function SpawnFittings({ terminal, arrival, floor, newcomers, animate }: 
 
   return (
     <>
-      <group position={[terminal.x, SPAWN.beaconY, terminal.z]}>
-        <group ref={gyroA}><mesh geometry={gyroGeometry[0]} material={m.glow} /></group>
-        <group ref={gyroB}><mesh geometry={gyroGeometry[1]} material={m.glow} /></group>
-      </group>
+      {/* Upstairs the Core hangs over the terminal (FoundryCore) and takes the beacon's place. */}
+      {floor !== "coding" && (
+        <group position={[terminal.x, SPAWN.beaconY, terminal.z]}>
+          <group ref={gyroA}><mesh geometry={gyroGeometry[0]} material={m.glow} /></group>
+          <group ref={gyroB}><mesh geometry={gyroGeometry[1]} material={m.glow} /></group>
+        </group>
+      )}
       <group position={[arrival.x, 0, arrival.z]}>
         <mesh ref={beam} geometry={beamGeometry} material={beams.beam} visible={false} renderOrder={2} />
         <mesh ref={burst} geometry={burstGeometry} material={beams.burst} position={[0, 0.03, 0]} visible={false} renderOrder={2} />

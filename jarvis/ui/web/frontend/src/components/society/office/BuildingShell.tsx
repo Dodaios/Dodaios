@@ -16,7 +16,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group, MeshStandardMaterial } from "three";
-import { Instances, type Placement } from "./CodingFloorAmbience";
+import { Instances, type Placement } from "./Instances";
 import { Box, GEO, matte, Railing } from "./OfficeFurniture";
 import type { OfficeLayout, Rect } from "./officeLayout";
 import { SingularityCity } from "./SingularityCity";
