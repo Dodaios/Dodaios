@@ -201,7 +201,7 @@ export async function fetchWikiSearch(
  * write outcome, journal backlog). Unlike the other fetchers here, this one
  * swallows both HTTP-level and network-level failures and returns `null`
  * instead of throwing — it is polled on a timer by `WikiHealthStrip`
- * (`WikiView.tsx`), and a transient network blip during polling must not
+ * (`MemoryView.tsx`), and a transient network blip during polling must not
  * surface as an unhandled rejection. Callers treat `null` as "unknown", the
  * same way the status strip treats a not-yet-resolved health check.
  */
