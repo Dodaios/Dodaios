@@ -37,6 +37,14 @@ ON_SCREEN_RULE: Final[str] = (
 )
 
 
+#: For the model that executes tools: talking with one of the user's agents.
+TEAM_TALK_RULE: Final[str] = (
+    "When the user wants to talk with or ask one of their named agents, use ask_agent: "
+    "it waits for the answer, which you then say as that agent's words. Keep relaying "
+    "while the user addresses that agent, and answer yourself again when they say so. "
+)
+
+
 def conversation_rules(executor: str) -> str:
     """The speaking model's rules; ``executor`` is what carries out work for it."""
     return (
@@ -69,4 +77,4 @@ def conversation_rules(executor: str) -> str:
     )
 
 
-__all__ = ["ON_SCREEN_RULE", "WORK_STATUS_RULE", "conversation_rules"]
+__all__ = ["ON_SCREEN_RULE", "TEAM_TALK_RULE", "WORK_STATUS_RULE", "conversation_rules"]
