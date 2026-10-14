@@ -1056,6 +1056,52 @@ def _describe_claude(account: AgentAccount) -> AccountSnapshot:
     )
 
 
+def stale_login_marker(platform: Platform, account_id: str | None) -> float | None:
+    """The expiry of a login that its CLI will renew on its next start, else ``None``.
+
+    Claude Code keeps an access token and a refresh token in its config dir and
+    swaps the refresh token for a new pair the first time it runs after the
+    access token has expired. Every process on that directory races for one
+    lock to do it, and a process that cannot get the lock within a few seconds
+    gives up and tells the user to sign in again. A restored workspace starts a
+    dozen of those processes at once on the morning after the token expired
+    overnight, so most of them lost that race and showed the sign-in message
+    (2026-10-14: "logged out of every coding account after a reboot").
+
+    The returned value identifies WHICH stale login this is, so a caller that
+    already waited for this exact renewal once does not wait for it again.
+    Only the Claude reader can tell a stale-but-renewable login apart; every
+    other platform answers ``None``. Never raises, never returns a token.
+    """
+    if platform != "claude":
+        return None
+    from jarvis.claude_credentials import claude_login_in
+
+    snapshot = claude_login_in(config_dir_for(platform, account_id))
+    if snapshot.status != "expired" or not snapshot.refresh_token_present:
+        return None
+    return snapshot.expires_s
+
+
+def login_renewed_since(platform: Platform, account_id: str | None, marker: float) -> bool:
+    """Whether the stale login named by *marker* has been replaced by a live one.
+
+    Deliberately not "is :func:`stale_login_marker` ``None`` now": a credentials
+    file read while the CLI is rewriting it parses as absent, and taking that
+    for a renewal would release every waiting pane into the very race the
+    wait exists to avoid. Only a live token, or a different stale one (the user
+    signed in again in between), counts. Never raises.
+    """
+    if platform != "claude":
+        return True
+    from jarvis.claude_credentials import claude_login_in
+
+    snapshot = claude_login_in(config_dir_for(platform, account_id))
+    if snapshot.status == "valid":
+        return True
+    return snapshot.status == "expired" and snapshot.expires_s != marker
+
+
 def _describe_codex(account: AgentAccount) -> AccountSnapshot:
     from jarvis.codex_auth import codex_login_in
 
@@ -1294,6 +1340,7 @@ __all__ = [
     "inherit_default_mode",
     "list_accounts",
     "login_command",
+    "login_renewed_since",
     "mode_file_name",
     "native_dir",
     "platforms",
@@ -1303,5 +1350,6 @@ __all__ = [
     "set_auto_switch",
     "snapshots",
     "spawn_env",
+    "stale_login_marker",
     "start_login",
 ]

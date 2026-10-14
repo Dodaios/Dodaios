@@ -9610,7 +9610,10 @@
       "challenge": "Gegenprüfung",
       "converge": "Masterplan",
       "build": "Bauen",
-      "review": "Review"
+      "review": "Review",
+      "planning": "Plan",
+      "steps": "Schritte",
+      "final": "Schlussprüfung"
     },
     "kind": {
       "draft": "Eigener Plan",
@@ -9619,7 +9622,11 @@
       "vote": "Abstimmung",
       "build": "Baubericht",
       "review": "Review",
-      "fix": "Antwort auf das Review"
+      "fix": "Antwort auf das Review",
+      "plan_version": "Plan",
+      "plan_review": "Planprüfung",
+      "step_build": "Schritt",
+      "step_review": "Schrittprüfung"
     },
     "vote": {
       "agree": "stimmt zu",
@@ -9651,7 +9658,9 @@
       "stalled": "{note} hat den Zug nicht beendet. Mit Fortsetzen wird erneut gefragt.",
       "member_failed": "{note}. Ohne dieses Mitglied bleibt kein Team übrig. Mit Fortsetzen wird erneut gefragt.",
       "not_enough_members": "Es sind weniger als zwei Mitglieder übrig. Das Team kann nicht weitermachen.",
-      "error": "Der Team-Thread ist fehlgeschlagen: {note}"
+      "error": "Der Team-Thread ist fehlgeschlagen: {note}",
+      "plan_unreadable": "Der Planer hat keinen lesbaren Plan geschrieben ({note}). Mit Fortsetzen wird erneut gefragt.",
+      "step_disagreement": "Schritt {number} ist nach {rounds} Review-Runden noch nicht freigegeben."
     },
     "notice": {
       "same_family": "Alle Mitglieder laufen auf derselben Modellfamilie, ihre blinden Flecken überschneiden sich. Eine zweite Familie findet mehr.",
@@ -9670,19 +9679,29 @@
       "limit_turns": "Das Zuglimit ist erreicht.",
       "limit_cost": "Das Kostenlimit ist erreicht.",
       "stalled": "{note} hat den Zug nicht beendet.",
-      "not_enough_members": "Es sind weniger als zwei Mitglieder übrig."
+      "not_enough_members": "Es sind weniger als zwei Mitglieder übrig.",
+      "plan_version_agreed": "Planversion {version} in Runde {rounds} vereinbart: {count} Schritte.",
+      "plan_version_accepted_by_user": "Du hast Planversion {version} so übernommen: {count} Schritte.",
+      "plan_revision": "{member} bittet bei Schritt {number} um einen überarbeiteten Plan.",
+      "step_accepted": "Schritt {number} abgenommen: {title}",
+      "step_accepted_by_user": "Du hast Schritt {number} so übernommen: {title}",
+      "role_changed": "{member} übernimmt als {role}.",
+      "steps_done": "Alle {count} Schritte sind abgenommen. Die Schlussprüfung beginnt."
     },
     "summary": {
       "done": "Fertig. Plan in Runde {plan} vereinbart, Änderung in Review-Runde {review} freigegeben. Die Prüfer haben {count} Befunde gemeldet, davon {blocking} blockierend.",
       "accepted_by_user": "Du hast die Arbeit mit offenen Befunden angenommen. Die Prüfer haben {count} Befunde gemeldet, davon {blocking} blockierend.",
-      "open_points": "Offene Punkte"
+      "open_points": "Offene Punkte",
+      "planned_done": "Fertig. {count} Schritte nach Planversion {version} umgesetzt und abgenommen, in {rounds} Umsetzungsrunden. Die Prüfer haben {findings} Befunde gemeldet, davon {blocking} blockierend.",
+      "planned_accepted": "Du hast die Arbeit mit offenen Befunden angenommen. {count} Schritte nach Planversion {version}; die Prüfer haben {findings} Befunde gemeldet, davon {blocking} blockierend."
     },
     "issues": {
       "title": "Vom Team gefunden: {count} ({open} offen)",
       "resolved": "gelöst",
       "open": "offen",
       "plan": "Plan",
-      "review": "Review"
+      "review": "Review",
+      "step": "Schritt {number}"
     },
     "draft": {
       "title": "Was soll das Team in {project} bauen?",
@@ -9693,7 +9712,12 @@
       "add": "Mitglied hinzufügen",
       "placeholder": "Beschreibe die Aufgabe für das Team",
       "start": "Team starten",
-      "bounds": "Hält an und fragt dich nach 90 Minuten, 40 Zügen oder drei Runden ohne Einigung."
+      "bounds": "Hält an und fragt dich nach 90 Minuten, 40 Zügen oder drei Runden ohne Einigung.",
+      "mode": "Wie das Team arbeitet",
+      "body_planned": "Ein Mitglied schreibt einen Plan aus kleinen Schritten, ein anderes prüft ihn. Der Umsetzer baut einen Schritt nach dem anderen, und jeder Schritt wird an seinem Ziel geprüft, bevor der nächste beginnt. Ein blockierter Schritt geht zurück an den Planer. Du kannst jederzeit eingreifen.",
+      "role_of": "Rolle von Mitglied {number}",
+      "roles_invalid": "Wähle genau einen Planer und einen Umsetzer.",
+      "bounds_planned": "Hält an und fragt dich nach 90 Minuten, 40 Zügen, drei Planrunden ohne Einigung oder drei Review-Runden an einem Schritt."
     },
     "meter_time": "{minutes} von {max_minutes} Min.",
     "meter_turns": "{turns} von {max_turns} Zügen",
@@ -9712,7 +9736,46 @@
       "voter": "Stimmt ab, sobald der Plan da ist",
       "builder": "Baut den Plan",
       "reviewer": "Prüft, sobald gebaut ist",
-      "answers": "Antwortet auf das Review"
+      "answers": "Antwortet auf das Review",
+      "writes_plan": "Schreibt den Plan",
+      "reviews_plan": "Prüft den Plan, sobald er da ist",
+      "builds_step": "Setzt diesen Schritt um",
+      "reviews_step": "Prüft, sobald der Schritt umgesetzt ist",
+      "final_reviewer": "Prüft die gesamte Änderung"
+    },
+    "accept_step": "Diesen Schritt so übernehmen",
+    "mode": {
+      "peers": "Gleichrangig",
+      "planner_builder": "Planer und Umsetzer"
+    },
+    "member_role": {
+      "planner": "Planer",
+      "builder": "Umsetzer",
+      "reviewer": "Prüfer"
+    },
+    "step_status": {
+      "open": "offen",
+      "building": "in Arbeit",
+      "in_review": "in Prüfung",
+      "changes": "Änderungen verlangt",
+      "accepted": "abgenommen"
+    },
+    "plan": {
+      "title": "Plan v{version}",
+      "progress": "{done} von {total} abgenommen",
+      "proposed": "vorgeschlagen, in Prüfung",
+      "writing": "Der Planer schreibt den Plan.",
+      "done_when": "Fertig, wenn",
+      "revision": "{member} hat bei Schritt {number} um eine Überarbeitung gebeten",
+      "toggle": "Plan ein- oder ausblenden",
+      "open_findings": "mit offenen Befunden abgenommen",
+      "version_tag": "Plan v{version}",
+      "unreadable": "nicht lesbar",
+      "steps_count": "{count} Schritte",
+      "blocked": "blockiert",
+      "done": "fertig",
+      "plan_change": "Planänderung: {text}",
+      "step": "Schritt {number}"
     }
   }
 }

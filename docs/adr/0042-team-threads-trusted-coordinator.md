@@ -58,3 +58,40 @@ together in one visible thread, bounded and interruptible.
   the build across parallel builders needs a worktree per builder and a merge
   step, and is left for a later change.
 - The engine is built on first use; nothing is added to the boot path (AP-26).
+
+## Amendment 2026-10-14: the planner-and-builder mode
+
+**Context.** Peers who all plan and then vote suit a task where several
+approaches compete. For a task with a clear owner, a person wants one model to
+plan, one to build and another to check both, with feedback until the work is
+done and a plan that stays visible while it changes.
+
+**Decision.**
+
+1. **A second mode on the same coordinator** (`plan_mode.py`, mixed into
+   `TeamThreads`), stored per thread (`mode`, default `peers`; older databases
+   are migrated as peers). The order of work stays fixed in trusted Python:
+   plan with plan review, then one step at a time with step review, then a
+   final review. Roles (planner, builder, reviewer) are picked at the start;
+   exactly one planner and one builder, so every plan and every step is
+   checked by a member who did not write it.
+2. **The plan is typed and versioned in the thread's own entries**, not in an
+   external tracker or file: each version is an entry holding its steps
+   (title, goal, `done_when`). The planner ends with a `team-plan` block and
+   the builder with a `team-step` block, read as conservatively as the
+   verdicts: an unreadable plan is never a plan, a step without a status is
+   still reviewed against its check.
+3. **Revision instead of improvisation.** A blocked step or a requested plan
+   change goes back to the planner and through review again before building
+   continues. Accepted steps carry over by title; the planner reopens one
+   explicitly.
+4. **Every bound and every person action carries over:** step rounds have
+   their own `step_disagreement` stop and accept, plan rounds count per
+   version, and an unreadable plan stops with `plan_unreadable` after one
+   retry.
+
+**Consequences.** This mode costs fewer turns than the peers' blind planning for
+a small task and keeps a reviewer on every step, but it has one planner's
+view: the blind plans and challenge of the peers mode are not part of it.
+Members still share one working tree and build one after another.
+
