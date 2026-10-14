@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-C0UN_SJt.js
-import{j as s}from"./index-BOnNxRri.js";import{P as n}from"./PageHeader-Decbp-_P.js";import"./WorkTrace-Ee-Ke00a.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-|||||||| parent of eb6165d0bf (build(ui): rebuild the bundle for the coding floor campus):jarvis/ui/web/dist/assets/ChatsView-NYchkJcO.js
-import{j as s}from"./index-BXc9J8ya.js";import{P as n}from"./PageHeader-DG8eanHg.js";import"./WorkTrace-iSphEtry.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-========
-import{j as s}from"./index-Diit2BJY.js";import{P as n}from"./PageHeader-iTNKztrx.js";import"./WorkTrace-CF8aNiUm.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
->>>>>>>> eb6165d0bf (build(ui): rebuild the bundle for the coding floor campus):jarvis/ui/web/dist/assets/ChatsView-CeKU_325.js

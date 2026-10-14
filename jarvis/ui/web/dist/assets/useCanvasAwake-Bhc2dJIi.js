@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/useCanvasAwake-Bhc2dJIi.js
-import{r as e}from"./index-BOnNxRri.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
-|||||||| parent of eb6165d0bf (build(ui): rebuild the bundle for the coding floor campus):jarvis/ui/web/dist/assets/useCanvasAwake-BA8LtOoj.js
-import{r as e}from"./index-BXc9J8ya.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
-========
-import{r as e}from"./index-Diit2BJY.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
->>>>>>>> eb6165d0bf (build(ui): rebuild the bundle for the coding floor campus):jarvis/ui/web/dist/assets/useCanvasAwake-BWXlRuWK.js
