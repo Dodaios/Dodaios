@@ -130,15 +130,16 @@ class AskAgentTool:
             while reply is None and _now() < deadline:
                 await asyncio.sleep(_POLL_S)
                 reply = await result_for(runtime.store, request)
+            if reply is None:
+                # An answer that landed while the wait ended was not announced:
+                # read once more before calling it pending.
+                reply = await result_for(runtime.store, request)
         finally:
             # Also after a failed or uncertain send: a reply that still comes
-            # is then announced like any other.
+            # is then announced like any other. An answer read here is said by
+            # this call, so its delivery stays quiet even if it runs later.
             for request_id in marked:
-                runtime.stop_awaiting_inline(request_id)
-        if reply is None:
-            # An answer that landed while the wait ended was not announced:
-            # read once more before calling it pending.
-            reply = await result_for(runtime.store, request)
+                runtime.stop_awaiting_inline(request_id, answered=reply is not None)
         if reply is None:
             return ToolResult(
                 success=True,

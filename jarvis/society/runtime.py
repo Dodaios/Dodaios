@@ -71,6 +71,8 @@ class _UsablePlugins:
 #: and says that reply itself (``jarvis.plugins.tool.ask_agent``).
 #: The value is an empty list that receives the id of the ONE question it
 #: marks; a task that inherits the context finds the list already used.
+#: How many answers said inside a call are remembered until their delivery runs.
+_ANSWERED_INLINE_MAX: Final[int] = 256
 reply_awaited_inline: ContextVar[list[str] | None] = ContextVar(
     "reply_awaited_inline", default=None
 )
@@ -197,6 +199,10 @@ class SocietyRuntime:
         #: Requests whose reply a caller is waiting for and will speak itself;
         #: their answer is not announced a second time (``reply_awaited_inline``).
         self._awaited_inline: set[str] = set()
+        #: Requests whose answer a caller already received and said. The runtime
+        #: may deliver that answer only after the caller stopped waiting; this
+        #: keeps that late delivery quiet (in insertion order, bounded).
+        self._answered_inline: dict[str, None] = {}
         #: The Quest Board: the person's jobs, routed to one taker, read back off the board.
         self.quests = Quests(self)
         from .team_lead import TeamLeads
@@ -409,6 +415,10 @@ class SocietyRuntime:
     ) -> None:
         from jarvis.core.delegation import result_announcement
 
+        # Read before the first await: the asker may stop waiting meanwhile.
+        said_inline = request.event_id in self._awaited_inline or (
+            self._answered_inline.pop(request.event_id, False) is None
+        )
         event = result_announcement(
             source="society.lead", request_id=request.event_id,
             name=self.display_name(target),
@@ -435,9 +445,9 @@ class SocietyRuntime:
                     })
             except Exception:  # A chat failure must not suppress the voice result.
                 log.warning("society: result notice delivery failed", exc_info=True)
-        if request.event_id in self._awaited_inline:
-            # The asker is waiting on this very answer and says it itself; the
-            # chat notice above keeps the durable copy.
+        if said_inline or request.event_id in self._awaited_inline:
+            # The asker is waiting on this very answer, or already has it, and
+            # says it itself; the chat notice above keeps the durable copy.
             return
         surface = request.payload.get("reply_surface")
         if surface == "voice" or (surface is None and request.trace_id.startswith("voice:")):
@@ -449,9 +459,18 @@ class SocietyRuntime:
                 except Exception:  # The durable board and chat still retain the report.
                     log.warning("society: result announcement failed", exc_info=True)
 
-    def stop_awaiting_inline(self, request_id: str) -> None:
-        """The caller stopped waiting: a later reply is announced as usual."""
+    def stop_awaiting_inline(self, request_id: str, *, answered: bool = False) -> None:
+        """The caller stopped waiting.
+
+        ``answered``: it has the answer and said it, so that answer's delivery
+        stays quiet even when it runs later. Otherwise a later reply is
+        announced as usual.
+        """
         self._awaited_inline.discard(request_id)
+        if answered:
+            self._answered_inline[request_id] = None
+            while len(self._answered_inline) > _ANSWERED_INLINE_MAX:
+                self._answered_inline.pop(next(iter(self._answered_inline)))
 
     async def _deliver_pending(self) -> None:
         """Recover committed messages and retry busy chats without opening sockets."""
