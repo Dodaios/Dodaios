@@ -27,7 +27,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { AdditiveBlending, BufferGeometry, Float32BufferAttribute, Group, MeshBasicMaterial, MeshStandardMaterial, RepeatWrapping, RingGeometry } from "three";
 import { cachedCanvasTexture } from "./canvasMaterials";
-import { Instances, type Placement } from "./CodingFloorAmbience";
+import { Instances, type Placement } from "./Instances";
 import { Box, GEO, matte, Railing } from "./OfficeFurniture";
 import type { OfficeLayout, Rect } from "./officeLayout";
 

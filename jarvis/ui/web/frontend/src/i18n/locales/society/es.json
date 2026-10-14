@@ -1556,6 +1556,8 @@
       "spawn_screen_new": "NUEVO AGENTE",
       "department_n": "DEPARTAMENTO {number}",
       "studio_n": "ESTUDIO {number}",
+      "bay_n": "BAHÍA {number}",
+      "bay_free": "Bahía libre",
       "coffee_menu": "MENÚ",
       "status_spend": "GASTOS",
       "status_days": "{days} D",

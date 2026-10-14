@@ -1556,6 +1556,8 @@
       "spawn_screen_new": "NEUER AGENT",
       "department_n": "ABTEILUNG {number}",
       "studio_n": "STUDIO {number}",
+      "bay_n": "DOCK {number}",
+      "bay_free": "Freies Dock",
       "coffee_menu": "KARTE",
       "status_spend": "KOSTEN",
       "status_days": "{days} T",

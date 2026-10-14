@@ -19,7 +19,7 @@ import { BENCH_H, PLANTER_H, type AgentsAmbienceItem } from "./agentsAmbience";
 import { FACADE } from "./BuildingShell";
 import { AGENTS_SCENE } from "./AgentsFloorLook";
 import { CampusFittings } from "./CampusFittings";
-import { benchesOf, Instances, type Placement } from "./CodingFloorAmbience";
+import { Instances, type Placement } from "./Instances";
 import { GEO, MAT, matte } from "./OfficeFurniture";
 import type { Department, OfficeLayout } from "./officeLayout";
 
@@ -272,6 +272,29 @@ function pool(): MeshBasicMaterial {
   return poolMaterial;
 }
 const POOL_GEOMETRY = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+
+interface Bench { x: number; z: number; length: number }
+
+/** One bench per pair of desk rows: its centre and length from the desks it holds. */
+export function benchesOf(departments: readonly Pick<Department, "id" | "desks">[]): Bench[] {
+  const out: Bench[] = [];
+  for (const dept of departments) {
+    const groups = new Map<string, { xs: number[]; zs: number[] }>();
+    for (const desk of dept.desks) {
+      // Desk ids are "<dept>:<bench>:<facing>:<col>".
+      const key = desk.id.split(":").slice(0, -2).join(":");
+      const group = groups.get(key) ?? { xs: [], zs: [] };
+      group.xs.push(desk.x);
+      group.zs.push(desk.z);
+      groups.set(key, group);
+    }
+    for (const { xs, zs } of groups.values()) {
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      out.push({ x: (minX + maxX) / 2, z: zs.reduce((s, v) => s + v, 0) / zs.length, length: maxX - minX + 1.2 });
+    }
+  }
+  return out;
+}
 
 /** The housing of every pendant on the floor: its middle, its length along x, its height and its width. Pure. */
 export function pendantHousings(departments: readonly Pick<Department, "id" | "desks">[]): { x: number; y: number; z: number; length: number; h: number; w: number }[] {

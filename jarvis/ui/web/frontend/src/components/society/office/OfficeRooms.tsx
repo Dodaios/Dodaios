@@ -4,12 +4,13 @@
  * Pattern textures and sign textures are drawn once and cached.
  */
 import { useEffect, useMemo } from "react";
-import { BoxGeometry, DoubleSide, MeshStandardMaterial, RepeatWrapping, type BufferGeometry, type Texture } from "three";
+import { BoxGeometry, DoubleSide, MeshBasicMaterial, MeshStandardMaterial, RepeatWrapping, type BufferGeometry, type Texture } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { Box, MAT, Rounded } from "./OfficeFurniture";
+import { Box, GEO, MAT, Rounded } from "./OfficeFurniture";
+import { FOUNDRY, glowColour } from "./foundryPalette";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import { ARCH, archPosts, type Door, type Room, type RoomKind, type WallSegment } from "./officeLayout";
-import { CAMPUS_ROOM_FLOORS, OFFICE, ROOM_FLOOR_COLOURS } from "./officePalette";
+import { CAMPUS_ROOM_FLOORS, FOUNDRY_ROOM_FLOORS, OFFICE, ROOM_FLOOR_COLOURS } from "./officePalette";
 
 // ---------------------------------------------------------------------------
 // Floors
@@ -30,9 +31,15 @@ const PATTERN_METRES: Record<RoomKind, number> = { lead: 2.6, team: 2, wardrobe:
 
 interface FloorTones { base: string; accents: readonly string[] }
 const CAMPUS_FLOORS: Partial<Record<RoomKind, FloorTones>> = CAMPUS_ROOM_FLOORS;
-/** A room kind's floor tones: the agents floor's rooms wear the campus's finishes, every other floor its own. */
-function floorTones(kind: RoomKind, campus: boolean): FloorTones {
-  return (campus ? CAMPUS_FLOORS[kind] : undefined) ?? ROOM_FLOOR_COLOURS[kind];
+const FOUNDRY_FLOORS: Partial<Record<RoomKind, FloorTones>> = FOUNDRY_ROOM_FLOORS;
+
+/** Which floor's materials the rooms take: the plain office's, the agents campus's or the coding floor's Foundry deck. */
+export type RoomLook = "office" | "campus" | "foundry";
+
+/** A room kind's floor tones: the agents floor's rooms wear the campus's finishes, the coding floor's the deck's. */
+function floorTones(kind: RoomKind, look: RoomLook): FloorTones {
+  const own = look === "campus" ? CAMPUS_FLOORS[kind] : look === "foundry" ? FOUNDRY_FLOORS[kind] : undefined;
+  return own ?? ROOM_FLOOR_COLOURS[kind];
 }
 
 function drawFloor(kind: RoomKind, { base, accents }: FloorTones, ctx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -151,8 +158,10 @@ function drawFloor(kind: RoomKind, { base, accents }: FloorTones, ctx: CanvasRen
         ctx.fillStyle = accents[Math.floor(rand() * accents.length)];
         ctx.fillRect(tx * size, ty * size, size, size);
         if (kind === "reception") {
+          // Flecks in the stone; on a dark stone (the Foundry deck's) light flecks stay faint, or they read as noise.
+          const light = parseInt(base.slice(1, 3), 16) < 96 ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.18)";
           for (let i = 0; i < 90; i += 1) {
-            ctx.fillStyle = rand() > 0.5 ? "rgba(255,255,255,0.18)" : "rgba(120,110,95,0.12)";
+            ctx.fillStyle = rand() > 0.5 ? light : "rgba(120,110,95,0.12)";
             ctx.fillRect(tx * size + rand() * size, ty * size + rand() * size, 3, 3);
           }
         }
@@ -166,8 +175,8 @@ function drawFloor(kind: RoomKind, { base, accents }: FloorTones, ctx: CanvasRen
   }
 }
 
-function floorTexture(kind: RoomKind, campus: boolean): Texture | null {
-  const tones = floorTones(kind, campus);
+function floorTexture(kind: RoomKind, look: RoomLook): Texture | null {
+  const tones = floorTones(kind, look);
   const texture = cachedCanvasTexture(`floor:${kind}:${tones.base}`, 256, 256, (ctx, w, h) => drawFloor(kind, tones, ctx, w, h));
   if (texture) {
     texture.wrapS = texture.wrapT = RepeatWrapping;
@@ -176,19 +185,23 @@ function floorTexture(kind: RoomKind, campus: boolean): Texture | null {
   return texture;
 }
 
-function RoomFloor({ room, campus }: { room: Room; campus: boolean }) {
+function RoomFloor({ room, look }: { room: Room; look: RoomLook }) {
   const w = room.maxX - room.minX;
   const d = room.maxZ - room.minZ;
   const material = useMemo(() => {
-    const base = floorTexture(room.kind, campus);
+    const base = floorTexture(room.kind, look);
     let map: Texture | null = null;
     if (base) {
       map = base.clone();
       map.repeat.set(w / PATTERN_METRES[room.kind], d / PATTERN_METRES[room.kind]);
       map.needsUpdate = true;
     }
-    return new MeshStandardMaterial({ color: map ? "#ffffff" : floorTones(room.kind, campus).base, map, roughness: 0.85 });
-  }, [room.kind, campus, w, d]);
+    // The deck's rooms are polished: a little sheen, so the studio environment shows in them.
+    const foundry = look === "foundry";
+    return new MeshStandardMaterial({
+      color: map ? "#ffffff" : floorTones(room.kind, look).base, map, roughness: foundry ? 0.55 : 0.85, metalness: foundry ? 0.2 : 0,
+    });
+  }, [room.kind, look, w, d]);
   // The clone and its material belong to this room; the cached base texture stays.
   useEffect(() => () => { material.map?.dispose(); material.dispose(); }, [material]);
   return (
@@ -201,10 +214,12 @@ function RoomFloor({ room, campus }: { room: Room; campus: boolean }) {
 
 /**
  * A floor overlay per room: a plank chevron (lead), slate felt (team), terrazzo (wardrobe), pale stone (reception),
- * light oak (break). `campus`: the agents floor, whose rooms take the campus's own oak, limestone and felt.
+ * light oak (break). `campus`: the agents floor, whose rooms take the campus's own oak, limestone and felt;
+ * `foundry`: the coding floor, whose rooms take the deck's dark stone, smoked walnut and slate.
  */
-export function RoomFloors({ rooms, campus = false }: { rooms: Room[]; campus?: boolean }) {
-  return <group>{rooms.map((room) => <RoomFloor key={room.id} room={room} campus={campus} />)}</group>;
+export function RoomFloors({ rooms, campus = false, foundry = false }: { rooms: Room[]; campus?: boolean; foundry?: boolean }) {
+  const look: RoomLook = foundry ? "foundry" : campus ? "campus" : "office";
+  return <group>{rooms.map((room) => <RoomFloor key={room.id} room={room} look={look} />)}</group>;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +248,16 @@ function boxAt(size: [number, number, number], position: [number, number, number
  * whatever its length: the whole frame is one merged geometry, the two
  * frosted bands another.
  */
-function GlassWall({ wall }: { wall: WallSegment }) {
+const FOUNDRY_WALL = {
+  frame: new MeshStandardMaterial({ color: FOUNDRY.steel, roughness: 0.4, metalness: 0.65 }),
+  glass: new MeshStandardMaterial({
+    color: "#8fd4ff", transparent: true, opacity: 0.1, roughness: 0.05, metalness: 0.2, side: DoubleSide, depthWrite: false,
+  }),
+  /** On the deck the frosted band is a strip of code light. */
+  band: new MeshBasicMaterial({ color: glowColour(FOUNDRY.code, 1.1), toneMapped: false }),
+};
+
+function GlassWall({ wall, foundry }: { wall: WallSegment; foundry: boolean }) {
   const length = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
   const angle = Math.atan2(wall.z2 - wall.z1, wall.x2 - wall.x1);
   const parts = useMemo(() => {
@@ -255,19 +279,24 @@ function GlassWall({ wall }: { wall: WallSegment }) {
   return (
     // The camera rig finds a wall run by this tag and lowers it while it stands between camera and character.
     <group position={[(wall.x1 + wall.x2) / 2, 0, (wall.z1 + wall.z2) / 2]} rotation={[0, -angle, 0]} userData={{ officeWall: wall }}>
-      {parts.frame && <mesh geometry={parts.frame} material={MAT.railing} castShadow receiveShadow />}
+      {parts.frame && <mesh geometry={parts.frame} material={foundry ? FOUNDRY_WALL.frame : MAT.railing} castShadow receiveShadow />}
       <Box size={[length, WALL_HEIGHT - BASE_HEIGHT - 0.04, 0.02]} position={[0, (WALL_HEIGHT + BASE_HEIGHT - 0.04) / 2, 0]}
-        material={MAT.glass} cast={false} />
-      {parts.frost && <mesh geometry={parts.frost} material={frostMaterial} />}
+        material={foundry ? FOUNDRY_WALL.glass : MAT.glass} cast={false} />
+      {foundry
+        ? <>
+          <mesh geometry={GEO.box} material={FOUNDRY_WALL.band} position={[0, FROST.stripeY, 0]} scale={[length, 0.02, 0.026]} />
+          <mesh geometry={GEO.box} material={FOUNDRY_WALL.band} position={[0, BASE_HEIGHT - 0.02, 0]} scale={[length, 0.015, 0.07]} />
+        </>
+        : parts.frost && <mesh geometry={parts.frost} material={frostMaterial} />}
     </group>
   );
 }
 
 /** Glass walls, 2.1 m high, along every wall segment of the layout. */
-export function RoomWalls({ walls }: { walls: WallSegment[] }) {
+export function RoomWalls({ walls, foundry = false }: { walls: WallSegment[]; foundry?: boolean }) {
   return (
     <group>
-      {walls.map((wall) => <GlassWall key={`${wall.room}:${wall.x1}:${wall.z1}:${wall.x2}:${wall.z2}`} wall={wall} />)}
+      {walls.map((wall) => <GlassWall key={`${wall.room}:${wall.x1}:${wall.z1}:${wall.x2}:${wall.z2}`} wall={wall} foundry={foundry} />)}
     </group>
   );
 }
