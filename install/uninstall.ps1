@@ -55,7 +55,7 @@ function Stop-JarvisProcesses([string]$Root) {
     foreach ($p in $Procs) {
         try { Wait-Process -Id $p.Id -Timeout 10 -ErrorAction SilentlyContinue } catch {}
     }
-    Write-Ok "Stopped the running Jarvis app ($($Procs.Count) process(es))."
+    Write-Ok "Stopped the running Dodaios app ($($Procs.Count) process(es))."
 }
 
 # Standalone fallback projections of jarvis/core/branding.py. These remain
@@ -69,7 +69,7 @@ $WindowsAppUserModelId = 'PersonalJarvis.PersonalJarvis'
 $InstallDir = if ($env:DODAIOS_INSTALL_DIR) { $env:DODAIOS_INSTALL_DIR } elseif ($env:JARVIS_INSTALL_DIR) { $env:JARVIS_INSTALL_DIR } else { Join-Path $env:USERPROFILE $DefaultInstallDirName }
 $VenvPython = Join-Path $InstallDir '.venv\Scripts\python.exe'
 
-Write-Step 'Uninstall Personal Jarvis'
+Write-Step 'Uninstall Dodaios'
 Write-Note $InstallDir
 
 $DryRun    = $args -contains '--dry-run'
@@ -133,10 +133,10 @@ if (-not $DryRun) {
     }
     if (-not $Deleted -and (Test-Path -LiteralPath $InstallDir)) {
         Write-Err "Could not fully remove $InstallDir - a program is still using files inside it."
-        Write-Note 'Close every Jarvis window (including the tray icon near the clock) and any terminal opened inside that folder, then run this uninstaller again.'
+        Write-Note 'Close every Dodaios window (including the tray icon near the clock) and any terminal opened inside that folder, then run this uninstaller again.'
         Write-Note 'Signing out of Windows and back in also releases leftover file locks.'
         exit 3
     }
     Write-Ok "Removed $InstallDir"
-    Write-Step 'Done. Personal Jarvis has been uninstalled.'
+    Write-Step 'Done. Dodaios has been uninstalled.'
 }

@@ -1,11 +1,11 @@
-# jarvisctl — Jarvis Control CLI
+# jarvisctl — Dodaios Control CLI
 
-`jarvisctl` drives a **running** Personal Jarvis instance from the terminal,
+`jarvisctl` drives a **running** Dodaios instance from the terminal,
 the way `gcloud` drives Google Cloud. It is a thin HTTP client over the REST
 API and works on Windows, macOS, and Linux.
 
 ## Install
-It ships with Jarvis. Activate the console script once:
+It ships with Dodaios. Activate the console script once:
 ```bash
 pip install -e . --no-deps
 jarvisctl version

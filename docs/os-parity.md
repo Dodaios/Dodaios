@@ -776,7 +776,7 @@ manual login uses the same streamed surface rather than an OS-specific window.
 Windows native and a real python:3.11-slim browser render probe passed locally.
 The browser-runtime CI passed real installation and browser contracts on
 Linux x64/ARM64, Windows x64/ARM64, and macOS Intel/Apple Silicon
-([run](https://github.com/PersonalJarvis/PersonalJarvis/actions/runs/34451340158)).
+([run](https://github.com/Dodaios/Dodaios/actions/runs/34451340158)).
 Windows ARM uses the managed x64 helper under emulation. Desktop UI validation
 was performed in Chrome on Windows; UI checks on other hosts are not implied.
 The normal Linux installer and container build provision browser system
