@@ -88,6 +88,19 @@ describe("SideChatTab", () => {
     expect(input.value).toBe("");
   });
 
+  it("stops an answer that is still coming on Escape", () => {
+    const { cancel } = seed([USER, turn([], "running")]);
+    render(<SideChatTab />);
+    fireEvent.keyDown(screen.getByTestId("side-chat-input"), { key: "Escape" });
+    expect(cancel).toHaveBeenCalledWith("side-chat-escape");
+  });
+
+  it("puts the cursor in the box when the chat opens", () => {
+    seed([]);
+    render(<SideChatTab />);
+    expect(document.activeElement).toBe(screen.getByTestId("side-chat-input"));
+  });
+
   it("puts a message that never left back into the box", async () => {
     seed([], { send: vi.fn(async () => "failed" as const) });
     render(<SideChatTab />);
