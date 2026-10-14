@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-BBrz0oMO.js
 import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-DGorR-oB.js";import{C as I}from"./TraceTimeline-BfAj8O85.js";import{L as U}from"./lock-DlSnDYmm.js";import{C as W}from"./code-xml-DnXctL0N.js";import{C as X}from"./chevron-right-D1rqymgD.js";/**
+|||||||| parent of 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/CodingThreadLink-DK3C4CPH.js
+import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-BWXOQOWw.js";import{C as I}from"./TraceTimeline-D5yHNd2I.js";import{L as U}from"./lock-DjECp4TE.js";import{C as W}from"./code-xml-DLjWpgQ2.js";import{C as X}from"./chevron-right-z0c7HAfy.js";/**
+========
+import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-CDm9PLYo.js";import{C as I}from"./TraceTimeline-CekTM9Zf.js";import{L as U}from"./lock-B1l3GQPk.js";import{C as W}from"./code-xml-BEVziHux.js";import{C as X}from"./chevron-right-DovoCAG4.js";/**
+>>>>>>>> 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/CodingThreadLink-DVWqSSvj.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/file-text-K9Vy6dWv.js
 import{c as e}from"./index-DGorR-oB.js";/**
+|||||||| parent of 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/file-text-CkUd8xUB.js
+import{c as e}from"./index-BWXOQOWw.js";/**
+========
+import{c as e}from"./index-CDm9PLYo.js";/**
+>>>>>>>> 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/file-text-CCAED-aB.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

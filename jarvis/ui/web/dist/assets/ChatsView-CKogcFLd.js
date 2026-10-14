@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ChatsView-CKogcFLd.js
 import{j as s}from"./index-DGorR-oB.js";import{P as n}from"./PageHeader-CPTbV8TQ.js";import"./WorkTrace-B6FW385i.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+|||||||| parent of 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/ChatsView-Bl9MpnTZ.js
+import{j as s}from"./index-BWXOQOWw.js";import{P as n}from"./PageHeader-B3XgzB0k.js";import"./WorkTrace-BrwU6vHq.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-CDm9PLYo.js";import{P as n}from"./PageHeader-xYKM2fY4.js";import"./WorkTrace-qNtAz31l.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> 3629ce49e2 (feat(verse): the city in the singularity outside the agents floor):jarvis/ui/web/dist/assets/ChatsView-DDidzgNX.js
