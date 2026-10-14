@@ -22,7 +22,7 @@ import { RosterRail } from "@/components/society/roster/RosterRail";
 import { useModelMenuData } from "@/components/society/chat/useModelMenuData";
 import { ChatGroupPanel } from "@/components/society/chat/ChatGroupPanel";
 import { useSocietyChatStore } from "@/components/society/chat/AgentChatPanel";
-import { createSocietyChatGroup, updateSocietyChatGroup, useSocietyChatGroups } from "@/lib/societyChatGroups";
+import { chatGroupsKnown, createSocietyChatGroup, updateSocietyChatGroup, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { CanvasActivity } from "@/hooks/useCanvasAwake";
 import { forgetLastAgentId, rememberLastAgentId, storedLastAgentId } from "./lastAgent";
 
@@ -57,6 +57,7 @@ export function SocietyView() {
   const sample = roster.data?.sample ?? true;
   const groupsQuery = useSocietyChatGroups(!sample);
   const groups = useMemo(() => groupsQuery.data ?? [], [groupsQuery.data]);
+  const teamsPending = !sample && !chatGroupsKnown(groupsQuery);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const openGroup = groups.find((group) => group.group_id === openGroupId) ?? null;
   const [openAgentId, setOpenAgentId] = useState<string | null>(storedLastAgentId);
@@ -238,13 +239,13 @@ export function SocietyView() {
             onCreateAgent={createAgent} onDeleted={() => setOpenGroupId(null)}
             onGroupAgents={groupAgents} onAddAgentToGroup={addAgentToGroup} />
         ) : openAgent ? (
-          <AgentCardOverlay embedded agent={openAgent} roster={agents} rosterLoading={roster.isLoading}
+          <AgentCardOverlay embedded agent={openAgent} roster={agents} rosterLoading={roster.isLoading} teamsPending={teamsPending}
             groups={groups} onSelectGroup={selectGroup}
             onGroupAgents={sample ? undefined : groupAgents} onAddAgentToGroup={sample ? undefined : addAgentToGroup}
             sample={sample} onSelectAgent={selectAgent} onCreate={createAgent}
             onClose={() => setOpenAgentId(null)} />
         ) : (
-          <RosterRail agents={agents} loading={roster.isLoading} sample={sample}
+          <RosterRail agents={agents} loading={roster.isLoading} teamsPending={teamsPending} sample={sample}
             groups={groups} onOpenGroup={selectGroup}
             onGroupAgents={sample ? undefined : groupAgents} onAddAgentToGroup={sample ? undefined : addAgentToGroup}
             activeAgentId={null} onOpen={selectAgent} onCreate={createAgent} side="left"

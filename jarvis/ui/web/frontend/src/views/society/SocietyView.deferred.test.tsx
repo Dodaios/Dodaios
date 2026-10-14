@@ -8,7 +8,7 @@ const quick = vi.hoisted(() => ({ create: vi.fn(async () => ({ agentId: "lead" }
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useLocaleChunk: () => true }));
 vi.mock("@/lib/mapFullscreen", () => ({ setMapFullscreen: async () => undefined }));
 vi.mock("@/components/society/chat/useModelMenuData", () => ({ useModelMenuData: () => undefined }));
-vi.mock("@/lib/societyChatGroups", () => ({ useSocietyChatGroups: () => ({ data: [] }) }));
+vi.mock("@/lib/societyChatGroups", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/societyChatGroups")>()), useSocietyChatGroups: () => ({ data: [], isSuccess: true, isError: false, failureCount: 0 }) }));
 vi.mock("@/components/society/chat/ChatGroupPanel", () => ({ ChatGroupPanel: () => null }));
 vi.mock("@/components/society/chat/AgentChatPanel", () => ({ useSocietyChatStore: { getState: () => ({ disconnect: () => undefined }) } }));
 vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => quick.create,
