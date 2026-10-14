@@ -637,7 +637,13 @@ street of team rooms round an atrium, with commons people use in between.
   stands on it: a chrome and gold starship authored in Blender
   (`art/studies/sky-pad-courier-study/source/build_courier.py`, three levels
   of detail exported as glTF into `src/assets/society/courier/`), scaled to
-  about 19 m beside the 1.3 m figures. The bridge and the deck are walkable
+  about 22 m beside the 1.3 m figures and centred on the deck. A lens hull
+  with a crisp blade edge and needle points, chrome back and charcoal belly
+  split by a gold edge trim, inlaid panel seams and belly vents, a bridge
+  with a framed visor, slim pods with flush gold bands, recessed glowing
+  nozzles and stabilisers round long tail spikes, swept wings, keel and
+  dorsal fins, gold nose pinstripes and red, green and strobing white
+  navigation lights. The bridge and the deck are walkable
   (the navigation grid reaches beyond `layout.floor` for them, an idle wander
   never does), the courier is solid, and the full map, the minimap and the
   overview frame the pad too.
@@ -645,10 +651,14 @@ street of team rooms round an atrium, with commons people use in between.
   E there, or a click on the ship once the person stands there, boards it (a
   click from afar walks over first, as at the elevator). The flight
   (`courierFlight.ts`) is a rigid body with thrust, lift, pitch, yaw and roll:
-  *arcade* assist (the default) flies where the nose points, banks into
-  turns and levels itself; *simulation* is Newtonian with momentum and
-  drift. Cruise 70 m/s, boost to 150 m/s on a charge that drains and
-  refills, brake. Every tower, the Dodaios tower with its floor, the pad, the
+  *arcade* assist (the default) is made for fun: it flies where the nose
+  points, turns fast, climbs and dives as steeply as the pilot likes, its
+  lift thrusters push straight up or down at up to 30 m/s whatever the
+  attitude, and it banks into turns and levels its wings (never its nose);
+  *simulation* is Newtonian with momentum and drift. Cruise 85 m/s, boost
+  to 170 m/s on a charge that drains and refills, brake. A click into the
+  view captures the mouse as a stick that springs back to the middle
+  (sideways turns, forwards and back pitches; Escape lets it go). Every tower, the Dodaios tower with its floor, the pad, the
   street level and the singularity's core are solid (`courierWorld.ts`):
   the ship bounces off in sub-steps no longer than 1.5 m (no tunnelling at
   full boost), its shield flashes and the camera shakes. Past the city's
@@ -675,8 +685,8 @@ street of team rooms round an atrium, with commons people use in between.
   | Action | Keys | Gamepad |
   | --- | --- | --- |
   | Throttle up / down | W / S | right / left trigger |
-  | Turn left / right | A / D | left stick x |
-  | Nose up / down | ↓ / ↑ | left stick y |
+  | Turn left / right | A / D (or the mouse) | left stick x |
+  | Nose up / down | ↑ / ↓ (or the mouse) | left stick y |
   | Roll left / right | Q / E, ← / → | right stick x |
   | Rise / sink | Space / C or Ctrl | right stick y |
   | Boost / brake | Shift / X | A / B |
