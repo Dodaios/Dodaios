@@ -428,6 +428,13 @@ label,
   font-weight: var(--shiki-dark-font-weight) !important;
   text-decoration: var(--shiki-dark-text-decoration) !important;
 }
+/* Inside the app's code block the frame is the background. The dark theme's
+   own ground (github-dark's near-black) would otherwise paint a second, darker
+   box behind every line inside the card. */
+.dark .code-block-body .shiki,
+.dark .code-block-body .shiki span {
+  background-color: transparent !important;
+}
 
 /* xterm.js viewport scrollbar — PLAIN (non-@layer) CSS on purpose. Tailwind
    tree-shakes `@layer utilities` by class usage, and `.xterm-viewport` is
