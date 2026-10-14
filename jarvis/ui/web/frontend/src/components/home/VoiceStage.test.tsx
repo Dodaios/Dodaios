@@ -1,4 +1,11 @@
-import { act, cleanup, fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -234,4 +241,35 @@ describe("VoiceStage helpers", () => {
     expect(greetingKey(13)).toBe("home.greeting_afternoon");
     expect(greetingKey(21)).toBe("home.greeting_evening");
   });
+});
+
+describe("VoiceStage content shown on screen", () => {
+  afterEach(() => {
+    cleanup();
+    useHomeStore.getState().resetTranscript();
+  });
+
+  it("draws a card with its heading and renders the table instead of raw Markdown", async () => {
+    const card: TranscriptLine = {
+      id: "shown-1",
+      who: "assistant",
+      text: "Changed files",
+      ts: 2,
+      kind: "shown",
+      markdown: "| file | lines |\n|---|---|\n| app.py | 12 |",
+    };
+    useHomeStore.setState({
+      transcript: [said("user", "which files changed", 1), card, said("assistant", "Two files.", 3)],
+    });
+    render();
+    const shown = screen.getByTestId("transcript-shown");
+    expect(shown.textContent).toContain("Changed files");
+    // The content is readable at once, as text, while the renderer loads.
+    expect(shown.textContent).toContain("app.py");
+    await waitFor(() => expect(shown.querySelector("table")).not.toBeNull(), { timeout: 15_000 });
+    expect(shown.textContent).toContain("app.py");
+    expect(shown.textContent).not.toContain("|---|");
+    // The spoken lines around it stay ordinary lines.
+    expect(screen.getAllByTestId("transcript-line")).toHaveLength(2);
+  }, 20_000);
 });
