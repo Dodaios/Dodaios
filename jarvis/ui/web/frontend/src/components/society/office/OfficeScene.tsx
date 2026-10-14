@@ -3,14 +3,13 @@
  * singularity (the coding floor in a starry violet night of its own) behind
  * frameless glass, walled rooms in the north and south and the desks in
  * between — and everybody in it. The agents floor is a team campus (a studio
- * per team round an atrium, boulevards, planted courts), the coding floor has
- * a department per IDE workspace; each dresses its plan in its own look
- * (AgentsFloorLook / CodingFloorLook). The Level Hall's floor wears the
+ * per team round an atrium, boulevards, planted courts), the coding floor is
+ * the Foundry deck, a bay per IDE workspace round the Core; each dresses its
+ * plan in its own look (AgentsFloorLook / the Foundry* files). The Level Hall's floor wears the
  * agents floor's materials. The arcade floor has a plan and a look of its own
  * (ArcadeHall); the person, the elevator and the camera work the same there.
  */
 import { useLayoutEffect, useMemo } from "react";
-import { Stars } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { Color } from "three";
 import { useT } from "@/i18n";
@@ -18,8 +17,16 @@ import type { SocietyAgent } from "../data";
 import type { ToyLook } from "./toyFigureModel";
 import { DeskInstances } from "./DeskInstances";
 import { DeskDressing } from "./DeskDressing";
-import { CodingSlab, CodingStudio } from "./CodingFloorLook";
-import { CodingFloorAmbience } from "./CodingFloorAmbience";
+import { FoundryBay, FoundryRails, FoundrySlab } from "./FoundryDeck";
+import { FoundryAmbience } from "./FoundryAmbience";
+import { FoundryComposer, FoundryEnvironment } from "./FoundryComposer";
+import { FoundryConsoles } from "./FoundryConsoles";
+import { FoundryCore } from "./FoundryCore";
+import { foundryFrame } from "./foundryLayout";
+import { FoundryLife } from "./FoundryLife";
+import { FOUNDRY } from "./foundryPalette";
+import { FoundryPulses } from "./FoundryPulses";
+import { FoundrySky } from "./FoundrySky";
 import { AGENTS_SCENE, AgentsDepartment, agentsRug, AgentsSlab } from "./AgentsFloorLook";
 import { AgentsFloorAmbience } from "./AgentsFloorAmbience";
 import { CampusGround } from "./CampusGround";
@@ -34,6 +41,7 @@ import { GigiFlyer } from "./GigiFlyer";
 import { useEventStore } from "@/store/events";
 import type { DeskChat } from "./useDeskChats";
 import { FurniturePiece, MeetingChairs } from "./OfficeProps";
+import { FoundryLook } from "./foundryLook";
 import { TeamBoardFace } from "./TeamBoardFace";
 import { TeamRoomFittings } from "./TeamRoomDecor";
 import { BreakLoungeFittings } from "./BreakLounge";
@@ -52,7 +60,6 @@ import { PlayerBubble } from "./OfficeBubbles";
 import { OfficeCameraRig } from "./OfficeCameraRig";
 import { allDesks, leadDesks, type FurnitureKind, type OfficeLayout, type Point } from "./officeLayout";
 import { isWalkable, nearestWalkable, type NavGrid } from "./officeNav";
-import { CODING_SCENE } from "./officePalette";
 import { officeSession, player as playerBody, useOfficeStore, type OfficeFloor, type Selection } from "./officeStore";
 import { arrivalPose } from "./officeFloors";
 import { ProgressionLayer } from "../progression/ProgressionLayer";
@@ -101,6 +108,8 @@ export interface OfficeSceneProps {
   newcomers: ReadonlySet<string>;
   awake: boolean;
   reduced: boolean;
+  /** The small stage in the IDE's side panel: no post-processing there. */
+  compact?: boolean;
   overview: number;
   player: { look: ToyLook; name: string };
   selection: Selection | null;
@@ -178,7 +187,7 @@ const STATION_PROP_KINDS: ReadonlySet<FurnitureKind> = new Set<FurnitureKind>([
 ]);
 
 /** Everything that dresses the agents and coding floors: slab, rooms, departments, desks, monitors, furniture. */
-function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awake, reduced, chats, onOpenScreen, desks, onFloorClick }: OfficeSceneProps & {
+function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awake, reduced, compact, chats, onOpenScreen, desks, onFloorClick }: OfficeSceneProps & {
   desks: ReturnType<typeof allDesks>;
   onFloorClick: (event: ThreeEvent<MouseEvent>) => void;
 }) {
@@ -193,8 +202,11 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
   const teamRoom = layout.rooms.find((r) => r.kind === "team");
   const breakRoom = layout.rooms.find((r) => r.kind === "break");
   const coding = floor === "coding";
-  // The coding floor floats in a violet night of its own, so a glance tells the floors apart; the others stand in the city's haze.
-  const space = coding ? CODING_SCENE.space : CITY_BACKDROP;
+  // The coding floor is the Foundry deck: a station floating in a nebula, so a glance tells the floors apart; the others stand in the city's haze.
+  const space = coding ? FOUNDRY.fog : CITY_BACKDROP;
+  const foundry = useMemo(() => (coding ? foundryFrame(layout) : null), [coding, layout]);
+  const working = useMemo(() => [...occupants.values()].filter((o) => o.dot === "working").length, [occupants]);
+  const animate = awake && !reduced;
   const background = useMemo(() => new Color(space), [space]);
   const { minX, maxX, minZ, maxZ } = layout.bounds;
   const span = Math.max(maxX - minX, maxZ - minZ);
@@ -218,29 +230,39 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ].join("|"), [layout, roomLabels.join(";"), t]);
   return (
-    <>
+    <FoundryLook.Provider value={coding}>
       <primitive attach="background" object={background} />
       <fog attach="fog" args={[space, span * 2.2, span * 4.5]} />
-      {/* The city's sky has its own stars, above a horizon the camera never shows; the coding floor's night is all stars. */}
-      {coding && <Stars radius={span * 3} depth={span} count={2500} factor={4} saturation={0} fade speed={reduced ? 0 : 0.3} />}
-      <hemisphereLight args={coding ? [CODING_SCENE.sky, CODING_SCENE.ground, 0.95] : [AGENTS_SCENE.sky, AGENTS_SCENE.ground, 0.95]} />
-      <ambientLight intensity={0.25} />
+      {/* The city's sky has its own stars; the coding floor has its nebula. */}
+      {coding && <FoundrySky centre={[(minX + maxX) / 2, (minZ + maxZ) / 2]} animate={animate} />}
+      <hemisphereLight args={coding ? [FOUNDRY.sky, FOUNDRY.ground, 0.6] : [AGENTS_SCENE.sky, AGENTS_SCENE.ground, 0.95]} />
+      <ambientLight intensity={coding ? 0.16 : 0.25} />
       {/* The campus is twice as long as the other floors: its sun keeps the same shadow detail with a larger map. */}
-      <directionalLight key={shadowMap} position={[maxX + 10, 26, maxZ + 6]} intensity={1.55} color="#fff7ec" castShadow
+      <directionalLight key={shadowMap} position={[maxX + 10, 26, maxZ + 6]} intensity={coding ? 1.25 : 1.55} color={coding ? "#eef1ff" : "#fff7ec"} castShadow
         shadow-mapSize={[shadowMap, shadowMap]} shadow-bias={-0.0004} shadow-normalBias={0.03}
         shadow-camera-left={-span * 0.7} shadow-camera-right={span * 0.7}
         shadow-camera-top={span * 0.7} shadow-camera-bottom={-span * 0.7} shadow-camera-far={Math.max(120, span * 2 + 40)} />
-      {coding ? <CodingSlab layout={layout} onFloorClick={onFloorClick} /> : <AgentsSlab layout={layout} onFloorClick={onFloorClick} />}
-      {coding ? <CodingFloorAmbience layout={layout} /> : <AgentsFloorAmbience layout={layout} />}
+      {coding ? <FoundrySlab layout={layout} frame={foundry} onFloorClick={onFloorClick} /> : <AgentsSlab layout={layout} onFloorClick={onFloorClick} />}
+      {coding ? <FoundryAmbience layout={layout} animate={animate} /> : <AgentsFloorAmbience layout={layout} />}
+      {coding && <>
+        <FoundryEnvironment />
+        {!compact && <FoundryComposer />}
+        <FoundryLife layout={layout} animate={animate} />
+        {foundry && <>
+          <FoundryRails frame={foundry} />
+          <FoundryCore at={foundry.core} working={working} animate={animate} />
+          <FoundryPulses frame={foundry} departments={layout.departments} animate={animate} />
+        </>}
+      </>}
       {/* The agents floor and the Level Hall are floors of a building: window walls, the tower below, the city outside. */}
       {!coding && <BuildingShell layout={layout} reduced={reduced} />}
-      <RoomFloors rooms={layout.rooms} campus={!coding} />
-      <RoomWalls walls={layout.walls} />
+      <RoomFloors rooms={layout.rooms} campus={!coding} foundry={coding} />
+      <RoomWalls walls={layout.walls} foundry={coding} />
       {!batch && signs}
       {coding
         ? <>
-          {layout.departments.map((dept) => <CodingStudio key={dept.id} dept={dept} agents={agents} />)}
-          <DeskDressing desks={benchDesks} departments={layout.departments} />
+          {layout.departments.map((dept) => <FoundryBay key={dept.id} dept={dept} animate={animate} />)}
+          <FoundryConsoles departments={layout.departments} occupants={occupants} animate={animate} />
         </>
         : <>
           {/* The campus ground (boulevards, atrium, free plot, planted courts); the Level Hall's floor has none. */}
@@ -276,6 +298,6 @@ function OfficeFloorDressing({ floor, occupants, layout, agents, newcomers, awak
       {levelStage && <LevelHallFittings stage={levelStage} guide={levelGuide} />}
       {lobbyLamp && <LobbyFittings lamp={lobbyLamp} />}
       {spawnTerminal && <SpawnFittings terminal={spawnTerminal} arrival={layout.arrival} floor={floor} newcomers={newcomers} animate={awake && !reduced} />}
-    </>
+    </FoundryLook.Provider>
   );
 }
