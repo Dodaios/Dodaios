@@ -45,7 +45,10 @@ log = logging.getLogger(__name__)
 __all__ = ["MAX_MEMBERS", "MIN_MEMBERS", "Limits", "SeatPick", "TeamError", "TeamThreads"]
 
 MIN_MEMBERS: Final[int] = 2
-MAX_MEMBERS: Final[int] = 4
+#: A swarm: more members than this cost more than another review catches.
+MAX_MEMBERS: Final[int] = 8
+#: Model turns each member brings to a team's default turn bound.
+_TURNS_PER_MEMBER: Final[int] = 10
 _MAX_TASK: Final[int] = 40_000
 _MAX_TEXT: Final[int] = 60_000
 
@@ -89,6 +92,9 @@ class SeatPick:
     effort: str = ""
     name: str = ""
     family: str = ""
+    #: The model's short display name, where the person picked the model;
+    #: it follows the seat's name ("Anthropic Claude · Opus 5.5").
+    model_label: str = ""
     #: A model the account lists. Tried once when the seat's own default is
     #: refused on the member's first turn, so a CLI configured for a model the
     #: signed-in account may not use does not cost the team a member.
@@ -111,8 +117,13 @@ class Limits:
     max_cost_usd: float = 0.0
 
     @classmethod
-    def of(cls, raw: dict[str, Any] | None) -> Limits:
-        base = cls()
+    def for_team(cls, members: int) -> Limits:
+        """The default bounds of a team this size: a bigger team takes more turns per step."""
+        return cls(max_turns=max(cls().max_turns, _TURNS_PER_MEMBER * members))
+
+    @classmethod
+    def of(cls, raw: dict[str, Any] | None, *, members: int = 0) -> Limits:
+        base = cls.for_team(members)
         raw = raw or {}
 
         def whole(key: str, low: int, high: int) -> int:
@@ -228,7 +239,7 @@ class TeamThreads(PlannedWork):
                 task=task,
                 cwd=str(folder),
                 lang=self._language(task),
-                limits=asdict(Limits.of(limits)),
+                limits=asdict(Limits.of(limits, members=len(seats))),
                 members=members,
                 mode=mode,
                 work=work,
@@ -1301,8 +1312,18 @@ def _roles_of(mode: str, roles: list[str] | None, count: int) -> list[str]:
 
 
 def _unique_names(seats: list[SeatPick]) -> list[str]:
-    """Each member's display name; two seats of one kind are told apart by number."""
-    base = [(seat.name or seat.model or seat.provider).strip() or seat.provider for seat in seats]
+    """Each member's display name, unique in the team.
+
+    A member is named after its seat, and a model the person picked follows
+    the name ("Anthropic Claude · Opus 5.5"), so two members on one seat with
+    different models read apart. Members that still share a name are told
+    apart by number ("Anthropic Claude 1", "Anthropic Claude 2").
+    """
+    base = []
+    for seat in seats:
+        name = (seat.name or seat.model or seat.provider).strip() or seat.provider
+        label = seat.model_label.strip()
+        base.append(f"{name} · {label}" if label and not name.endswith(label) else name)
     counts: dict[str, int] = {}
     names = []
     for name in base:

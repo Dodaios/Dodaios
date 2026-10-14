@@ -17,7 +17,7 @@ import { buildBoard, type StepBand } from "./board";
  * when its newest exchange belongs to the step the team is in (or ended in),
  * or the step before it (what the current step works from), and `past`
  * otherwise. The layout is fixed per team size, so nothing moves
- * while the team works.
+ * while the team works; a swarm of five to eight sits on a ring.
  */
 
 export const YOU = "you";
@@ -77,6 +77,24 @@ const SPOTS: Record<number, [number, number][]> = {
   3: [[-230, 190], [230, 190], [0, 410]],
   4: [[-340, 190], [340, 190], [-170, 430], [170, 430]],
 };
+
+/**
+ * Member centres for a swarm (five members and more): evenly spread on an
+ * oval whose top is the person, member 1 on the person's left and on round
+ * the ring, so every pair of members has a line of its own that crosses the
+ * middle rather than another member. The oval grows with the team; no two
+ * boxes come closer than about 80 px.
+ */
+export function memberSpots(count: number): [number, number][] {
+  if (count <= 4) return SPOTS[Math.max(1, count)];
+  const rx = 200 + 40 * count;
+  const ry = 100 + 35 * count;
+  return Array.from({ length: count }, (_, index): [number, number] => {
+    const angle = ((index + 1) * 2 * Math.PI) / (count + 1);
+    // `|| 0`: the bottom of the ring is x 0, not -0.
+    return [Math.round(-rx * Math.sin(angle)) || 0, Math.round(ry - ry * Math.cos(angle))];
+  });
+}
 
 export const edgeId = (from: string, to: string) => `${from}->${to}`;
 
@@ -275,10 +293,10 @@ export function buildGraph(thread: TeamThread): TeamGraph {
         ? "current" : "past";
   }
 
-  const spots = SPOTS[Math.min(4, Math.max(1, members.length))] ?? SPOTS[4];
+  const spots = memberSpots(members.length);
   const nodes: GraphNode[] = [
     { id: YOU, kind: "you", x: 0, y: 0, ...YOU_NODE },
-    ...members.slice(0, 4).map((member, index): GraphNode => ({
+    ...members.map((member, index): GraphNode => ({
       id: member.member_id, kind: "member", member, x: spots[index][0], y: spots[index][1], ...MEMBER_NODE,
     })),
   ];
@@ -376,16 +394,30 @@ export function exchangeLabel(exchange: Exchange, t: Translate, lang: string): s
 
 /**
  * Member names as the room shows them: without the model the server appended
- * ("Anthropic Claude · claude-sonnet-5-5" reads "Anthropic Claude"; the model
- * has its own line); two members that would then share a name keep theirs.
+ * ("Anthropic Claude · Sonnet 5.5" reads "Anthropic Claude"; the model has its
+ * own line); members that would then share a name (two Claude Code members on
+ * different models) keep theirs, so every member reads apart everywhere.
  */
 export function withShortNames(thread: TeamThread): TeamThread {
   const short = thread.members.map((member) => {
-    const suffix = member.model ? ` · ${member.model}` : "";
-    return suffix && member.name.endsWith(suffix) ? member.name.slice(0, -suffix.length).trim() : member.name;
+    const cut = member.model ? member.name.lastIndexOf(" · ") : -1;
+    return cut > 0 ? member.name.slice(0, cut).trim() : member.name;
   });
   const shared = (name: string) => short.filter((other) => other === name).length > 1;
   const names = thread.members.map((member, index) => (short[index] && !shared(short[index]) ? short[index] : member.name));
   if (names.every((name, index) => name === thread.members[index].name)) return thread;
   return { ...thread, members: thread.members.map((member, index) => ({ ...member, name: names[index] })) };
+}
+
+/**
+ * A member's name as a head that may be shortened and a tail that tells it
+ * apart and must stay readable: "Anthropic Claude" + " · Opus 5.5", or
+ * "Anthropic Claude" + " 2". A name without either is all head.
+ */
+export function nameParts(name: string): { head: string; tail: string } {
+  const cut = name.indexOf(" · ");
+  if (cut > 0) return { head: name.slice(0, cut), tail: name.slice(cut) };
+  const number = /\s\d+$/.exec(name);
+  if (number) return { head: name.slice(0, number.index), tail: number[0] };
+  return { head: name, tail: "" };
 }
