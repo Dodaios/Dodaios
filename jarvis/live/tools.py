@@ -57,8 +57,14 @@ _APPROVAL_LOCALES = ("de", "en", "es", "pt")
 _RECENT_SEGMENTS = 4
 _REQUEST_TEXT_CHARS = 1200
 # Declared before every other tool so the size budget never drops them.
+# The conversation rules (``coordination.py``) name show_on_screen and
+# ask_agent: a model that is not given a tool it was told to use says it does
+# not exist (live 2026-10-14, a busy catalog sorted it past the budget).
 _PRIORITY_TOOLS = frozenset(
-    {"workspace-orchestrate", "workspace-git", "find-app-action", "run-app-action"}
+    {
+        "workspace-orchestrate", "workspace-git", "find-app-action", "run-app-action",
+        "show_on_screen", "ask_agent",
+    }
 )
 # Declared under its canonical name in every mode (see ``declarations``).
 _DIRECT_TOOLS = frozenset({"computer", "take_appshot"})
@@ -269,7 +275,8 @@ class LiveTools:
                 "git state, the missions that have not ended, and the agent team. "
                 "needs_you names what is waiting for the user. Use it when the user asks "
                 "what is running, how far something is, what came out of it or who needs "
-                "them. scope call returns only this call's tasks. Pass cancel with a "
+                "them. Leave scope out for that; scope call is only for a question about "
+                "this call's own tasks and leaves the rest out. Pass cancel with a "
                 "task_id only when the user asks to stop that task.",
                 {
                     "cancel": {"type": "string"},
