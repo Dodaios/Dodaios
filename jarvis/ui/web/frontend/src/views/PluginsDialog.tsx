@@ -69,7 +69,7 @@ export function PluginsDialog({ onClose, area = "plugins", onAreaChange, standal
   return (
     <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-scrim/65 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="fixed inset-x-0 bottom-0 top-8 z-40 jarvis-nav-surface" />
         <Dialog.Content
           data-testid="plugin-catalog-dialog"
           ref={content}
@@ -118,7 +118,9 @@ export function PluginsDialog({ onClose, area = "plugins", onAreaChange, standal
             const local = document.activeElement?.closest("[data-escape-local]");
             if (inner || local) event.preventDefault();
           }}
-          className="fixed left-1/2 top-1/2 z-40 flex h-[min(88dvh,860px)] w-[min(1180px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-popover text-foreground shadow-float outline-none [&_[aria-modal=true]]:overflow-y-auto"
+          // The whole window below the title bar, like Settings: the section is a
+          // place to work in, not a box over the previous one.
+          className="jarvis-nav-surface fixed inset-x-0 bottom-0 top-8 z-40 flex flex-col overflow-hidden text-foreground outline-none [&_[aria-modal=true]]:overflow-y-auto"
         >
           <Dialog.Title className="sr-only">{t("plugins_view.title")}</Dialog.Title>
           {frame}
