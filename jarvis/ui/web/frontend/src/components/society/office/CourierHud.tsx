@@ -35,6 +35,7 @@ export function CourierHud() {
   const helpOpen = useCourier((s) => s.helpOpen);
   const settingsOpen = useCourier((s) => s.settingsOpen);
   const bindings = useCourier((s) => s.bindings);
+  const mouseLocked = useCourier((s) => s.mouseLocked);
   const store = useCourier.getState;
   const kmh = Math.round(telemetry.speed * 3.6);
   const boostShare = Math.min(1, telemetry.speed / FLIGHT.boost);
@@ -69,7 +70,9 @@ export function CourierHud() {
           <button type="button" className="office-chip" aria-pressed={helpOpen} onClick={() => store().set({ helpOpen: !helpOpen })}>{t("society.office.flight_help")}</button>
           <button type="button" className="office-chip" onClick={() => store().set({ settingsOpen: true })}>{t("society.office.flight_settings")}</button>
         </div>
-        {telemetry.landed && <p className="office-hint">{t("society.office.flight_landed_hint").replace("{0}", keysOf("exit"))}</p>}
+        {telemetry.landed
+          ? <p className="office-hint">{t("society.office.flight_landed_hint").replace("{0}", keysOf("exit"))}</p>
+          : <p className="office-hint">{t(mouseLocked ? "society.office.flight_mouse_on" : "society.office.flight_mouse_hint")}</p>}
       </div>
       {helpOpen && !settingsOpen && (
         <div className="courier-help office-card" data-office-ui>
