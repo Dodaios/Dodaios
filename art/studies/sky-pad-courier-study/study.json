@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "study": "sky-pad-courier-study",
+  "brief": "brief.md",
+  "assets": [
+    {
+      "id": "courier-lod0",
+      "kind": "prop",
+      "source": "source/courier.blend",
+      "collection": "CourierLOD0",
+      "export": "exports/courier-lod0.glb"
+    },
+    {
+      "id": "courier-lod1",
+      "kind": "prop",
+      "source": "source/courier.blend",
+      "collection": "CourierLOD1",
+      "export": "exports/courier-lod1.glb"
+    },
+    {
+      "id": "courier-lod2",
+      "kind": "prop",
+      "source": "source/courier.blend",
+      "collection": "CourierLOD2",
+      "export": "exports/courier-lod2.glb"
+    }
+  ],
+  "runtime_evidence": [
+    "evidence/blender-preview.png",
+    "evidence/chase-over-the-tower.jpg",
+    "evidence/cockpit-over-the-city.jpg"
+  ],
+  "technical_report": "evidence/technical-report.md",
+  "approval": {
+    "status": "pending",
+    "record": "review.md",
+    "evidence_sha256": ""
+  }
+}
