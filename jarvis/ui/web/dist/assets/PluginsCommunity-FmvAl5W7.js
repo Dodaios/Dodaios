@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-FmvAl5W7.js
 import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-BOnNxRri.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-igJ64rK0.js";import{S as re,C as oe}from"./store-DDQqu5d2.js";/**
+|||||||| parent of 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/PluginsCommunity-BElcuve4.js
+import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-BXc9J8ya.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-DoBGa-_0.js";import{S as re,C as oe}from"./store-DZ_0DPS5.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-DoZVlDrf.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-CYSVlQTX.js";import{S as re,C as oe}from"./store-Dh4S6tPG.js";/**
+>>>>>>>> 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/PluginsCommunity-D8N8o2ra.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

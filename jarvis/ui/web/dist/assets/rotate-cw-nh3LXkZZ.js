@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/rotate-cw-nh3LXkZZ.js
 import{c as t}from"./index-BOnNxRri.js";/**
+|||||||| parent of 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/rotate-cw-dO8CxhHh.js
+import{c as t}from"./index-BXc9J8ya.js";/**
+========
+import{c as t}from"./index-DoZVlDrf.js";/**
+>>>>>>>> 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/rotate-cw-emGRXSpM.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

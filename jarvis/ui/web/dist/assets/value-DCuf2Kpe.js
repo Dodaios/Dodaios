@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/value-DCuf2Kpe.js
 import{gw as U,cq as C}from"./index-BOnNxRri.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+|||||||| parent of 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/value-CZmZkMOR.js
+import{gw as U,cq as C}from"./index-BXc9J8ya.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+========
+import{gw as U,cq as C}from"./index-DoZVlDrf.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+>>>>>>>> 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/value-B1gep10k.js
  * @license React
  * use-sync-external-store-shim.production.js
  *

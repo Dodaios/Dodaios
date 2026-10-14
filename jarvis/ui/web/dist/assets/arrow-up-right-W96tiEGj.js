@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/arrow-up-right-W96tiEGj.js
 import{c as t}from"./index-BOnNxRri.js";/**
+|||||||| parent of 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/arrow-up-right-BOTB4gRZ.js
+import{c as t}from"./index-BXc9J8ya.js";/**
+========
+import{c as t}from"./index-DoZVlDrf.js";/**
+>>>>>>>> 6fe6ab37ef (build(ui): rebuild the bundle for member picking and swarms):jarvis/ui/web/dist/assets/arrow-up-right-BfguK8Bv.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
