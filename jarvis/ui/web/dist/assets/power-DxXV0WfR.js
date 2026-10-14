@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/power-on-VUafh.js
+import{c as o}from"./index-d-cHwcY3.js";/**
+========
+import{c as o}from"./index-Drg7LP5a.js";/**
+>>>>>>>> e0f8e2449240eda268a0ed232305f4599956ff6d:jarvis/ui/web/dist/assets/power-DxXV0WfR.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const a=o("Power",[["path",{d:"M12 2v10",key:"mnfbl"}],["path",{d:"M18.4 6.6a9 9 0 1 1-12.77.04",key:"obofu9"}]]);export{a as P};
