@@ -67,7 +67,7 @@ export function ExtensionsSidebar({
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground",
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+            <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
             <span className="truncate">{t(labelKey)}</span>
           </button>
         ))}
