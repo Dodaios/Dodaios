@@ -12,6 +12,7 @@ import { localeForUiLanguage } from "@/components/runs/format";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
+import { ChatThought } from "./ChatThought";
 import { buildThreadRows, isFailed, thoughtGist, type ThreadRow, type WorkGroup, type WorkItem } from "./threadWork";
 import { SubagentCard } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
@@ -609,9 +610,9 @@ export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: Th
 }
 
 /** "Working for 12s" with the ticking clock in place of the duration. */
-function WorkingFor({ since, labelKey = "thread_turn.working_for" }: { since: number; labelKey?: string }) {
+function WorkingFor({ since }: { since: number }) {
   const t = useT();
-  const [before, after = ""] = t(labelKey).split("{duration}");
+  const [before, after = ""] = t("thread_turn.working_for").split("{duration}");
   return <>{before}<Elapsed since={since} />{after}</>;
 }
 
@@ -633,10 +634,11 @@ export interface ThreadTurnProps {
   /** A quiet note on a finished turn's closing line: tokens, cost. */
   receipt?: ReactNode;
   /**
-   * How the turn's status lines read. A coding thread counts work ("Working
-   * for 12s", "Worked for 40s"); a plain chat has thoughts and an answer, so
-   * it says "Thinking for 3s" until its first line shows and "Thought for
-   * 3s" on the fold, and puts no duration under an answer.
+   * How the turn reads. A coding thread counts its work ("Working for 12s",
+   * "Worked for 40s"). A plain chat has a thought and an answer: the thought
+   * streams under a shimmering "Thinking" and folds into "Thought for 3s"
+   * once the answer begins (`ChatThought`), and no duration sits under the
+   * answer.
    */
   tone?: "work" | "chat";
 }
@@ -674,18 +676,12 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const duration = turn.durationMs != null ? traceDuration(turn.durationMs) : "";
   const timed = (key: string) => duration ? fill(t(`thread_turn.${key}_after`), { duration }) : t(`thread_turn.${key}`);
   const workedFor = duration ? fill(t("thread_turn.worked_for"), { duration }) : "";
-  const chat = tone === "chat";
-  // A chat's fold holds thoughts alone, so it is timed by the thinking, not the whole turn.
-  const thoughtMs = chat ? turn.blocks.reduce((sum, block) => sum + (block.kind === "reasoning" ? block.durationMs ?? 0 : 0), 0) : 0;
-  const thoughtFor = thoughtMs > 0 ? fill(t("work_trace.thought_for"), { duration: traceDuration(thoughtMs) }) : t("work_trace.thought");
-  // A chat's rows are its sign of life; the ticking line only covers the wait before the first one.
-  const quiet = chat && rows.length > 0;
   const foldLabel = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
-      : chat ? thoughtFor : workedFor || t("thread_turn.worked");
+      : workedFor || t("thread_turn.worked");
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
-      : answer ? (chat ? "" : workedFor) : timed("no_answer");
+      : answer ? workedFor : timed("no_answer");
   const renderRow = (row: ThreadRow) => {
     if (row.kind === "work") return <WorkGroupView key={row.id} group={row} running={running} />;
     if (row.kind === "thought") return <ThoughtView key={row.id} text={row.text} />;
@@ -701,6 +697,24 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     const pending = pendingLabel(row.block, t);
     return pending ? <WorkRow key={row.id} icon={pending.icon} label={pending.text} live /> : null;
   };
+  if (tone === "chat") {
+    // A plain chat: its thought, its answer, and a quiet closing line.
+    const textRows = rows.filter((row) => row.kind === "text");
+    const ending = turn.status === "cancelled" ? timed("stopped")
+      : turn.status === "error" ? timed("failed")
+        : !answer ? timed("no_answer") : "";
+    return <CallMedia.Provider value={pictures.byCall}><div className="min-w-0 space-y-1.5" data-testid="thread-turn" data-status={turn.status}>
+      <ChatThought turn={turn} answering={textRows.length > 0} />
+      {textRows.map(renderRow)}
+      {!running && <>
+        {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turn.error}</p>}
+        <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground" data-testid="thread-turn-closing">
+          {ending && <span>{ending}</span>}
+          {answer && <CopyButton text={answer} label={t("thread_turn.copy_answer")} />}
+        </div>
+      </>}
+    </div></CallMedia.Provider>;
+  }
   const extraNodes = extraRows.map((extra) => <div key={`extra:${extra.key}`} className="min-w-0">{extra.node}</div>);
   // A running turn's streaming answer is its tail; extra steps go above it.
   const shown = folded ? tail : rows;
@@ -726,8 +740,8 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {!folded && extraNodes}
     {shown.slice(extraAt).map(renderRow)}
     {running
-      ? !quiet && <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
-        <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} labelKey={chat ? "work_trace.thinking_for" : undefined} />
+      ? <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
+        <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
           {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
       </div>
       : <>
