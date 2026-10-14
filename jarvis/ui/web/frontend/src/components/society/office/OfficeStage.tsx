@@ -611,7 +611,7 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
                 onPointerMissed={() => select(null)}>
                 <OfficeFrameDriver enabled={awake && compact} />
                 <OfficeScene floor={floor} occupants={occupants} ready={ready} layout={layout} grid={grid} walkers={walkers} agents={agents} newcomers={newcomers}
-                  awake={awake} reduced={reduced} compact={compact} overview={overview} player={{ look: playerToyLook, name: playerName }}
+                  awake={awake} reduced={reduced} overview={overview} player={{ look: playerToyLook, name: playerName }}
                   selection={selection} nearby={nearby} chats={chats} onOpenScreen={openScreen}
                   elevatorCall={{ lit: picking || !!ride, picking, onPress: pressCall }} />
               </Canvas>

@@ -10,9 +10,7 @@
  * transforms, clamping, bearings, grid labels and hit-testing are unit-tested
  * and the drawing takes any 2D context (an offscreen layer or a test recorder).
  */
-import { CHECKPOINT_GOLD, DEPARTMENT_TINTS, FOUNDRY_ROOM_FLOORS, ROOM_FLOOR_COLOURS } from "./officePalette";
-import { CORE_RING, foundryFrame } from "./foundryLayout";
-import { baySignal, FOUNDRY } from "./foundryPalette";
+import { CHECKPOINT_GOLD, DEPARTMENT_TINTS, ROOM_FLOOR_COLOURS } from "./officePalette";
 import {
   FURNITURE_SIZE, allDesks, deskRect, footprint, roomAt,
   type CampusZoneKind, type CheckpointKind, type FurnitureKind, type OfficeLayout, type Point, type Rect, type RoomKind,
@@ -355,11 +353,6 @@ export const MAP_PAINT = {
   oak: "#d9bf97",
   sofa: "#bdb6aa",
   counter: "#f6f3ee",
-  // Coding floor (Foundry deck): a bay's plate, the concourse, a console and its edge.
-  bay: "#1a1d23",
-  concourse: "#33373f",
-  console: "#454b56",
-  consoleEdge: "#14161a",
   checkpoint: CHECKPOINT_GOLD.face,
   checkpointDeep: CHECKPOINT_GOLD.faceDeep,
   checkpointIcon: CHECKPOINT_GOLD.icon,
@@ -456,41 +449,6 @@ function seeded(seed: number): () => number {
   };
 }
 
-/** The coding floor's ground on the map: the concourse, every bay's data rail and the Core's ring. */
-function drawFoundryGround(ctx: Ctx, layout: OfficeLayout, t: MapTransform): void {
-  const frame = foundryFrame(layout);
-  if (!frame) return;
-  ctx.fillStyle = MAP_PAINT.concourse;
-  rectPath(ctx, t, frame.concourse);
-  ctx.fill();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = Math.max(1, Math.min(2, t.scale * 0.1));
-  for (const rail of frame.rails) {
-    ctx.strokeStyle = baySignal(rail.tint);
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    rail.points.forEach((p, i) => {
-      const m = worldToMap(t, p);
-      if (i === 0) ctx.moveTo(m.x, m.y); else ctx.lineTo(m.x, m.y);
-    });
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  const c = worldToMap(t, frame.core);
-  ctx.strokeStyle = FOUNDRY.gold;
-  ctx.lineWidth = Math.max(1, t.scale * 0.16);
-  ctx.beginPath();
-  ctx.arc(c.x, c.y, (CORE_RING.outer - 0.12) * t.scale, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = FOUNDRY.code;
-  ctx.beginPath();
-  ctx.arc(c.x, c.y, Math.max(1.5, CORE_RING.inner * 0.55 * t.scale), 0, Math.PI * 2);
-  ctx.fill();
-  ctx.lineCap = "butt";
-  ctx.lineJoin = "miter";
-}
-
 /**
  * The painted floor: night sky with stars, slab and railing, warm planks,
  * department carpets, rooms, furniture, desks and crisp walls. `area` is the
@@ -526,18 +484,14 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // The coding floor is the Foundry deck: dark steel, bays outlined in their signal colours, rails to the Core.
-  const foundry = layout.variant === "coding";
-  ctx.fillStyle = foundry ? FOUNDRY.deck.base : MAP_PAINT.floor;
+  ctx.fillStyle = MAP_PAINT.floor;
   rectPath(ctx, t, layout.floor, 0.4);
   ctx.fill();
-  ctx.strokeStyle = foundry ? FOUNDRY.gold : MAP_PAINT.railing;
+  ctx.strokeStyle = MAP_PAINT.railing;
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  if (foundry) {
-    drawFoundryGround(ctx, layout, t);
-  } else if (t.scale >= 4) {
+  if (t.scale >= 4) {
     // Faint plank seams, every 0.9 m, running east-west.
     ctx.save();
     rectPath(ctx, t, layout.floor, 0.4);
@@ -601,16 +555,6 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
   // Department carpets and rooms: painted areas with soft darker outlines.
   ctx.lineWidth = Math.max(1, Math.min(2, t.scale * 0.12));
   for (const dept of layout.departments) {
-    if (foundry) {
-      // A bay: a dark plate inside a light strip in its signal colour.
-      rectPath(ctx, t, dept, 0.1);
-      ctx.fillStyle = MAP_PAINT.bay;
-      ctx.fill();
-      ctx.strokeStyle = baySignal(dept.tint);
-      ctx.lineWidth = Math.max(1, Math.min(2.5, t.scale * 0.14));
-      ctx.stroke();
-      continue;
-    }
     const tint = DEPARTMENT_TINTS[dept.tint % DEPARTMENT_TINTS.length];
     rectPath(ctx, t, dept, 0.5);
     ctx.globalAlpha = 0.85;
@@ -620,10 +564,8 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
     ctx.strokeStyle = shade(tint, -0.3);
     ctx.stroke();
   }
-  ctx.lineWidth = Math.max(1, Math.min(2, t.scale * 0.12));
   for (const room of layout.rooms) {
-    const own: Partial<Record<string, { base: string }>> = FOUNDRY_ROOM_FLOORS;
-    const base = (foundry ? own[room.kind]?.base : undefined) ?? ROOM_FLOOR_COLOURS[room.kind].base;
+    const base = ROOM_FLOOR_COLOURS[room.kind].base;
     rectPath(ctx, t, room, room.walled ? 0.15 : 0.5);
     ctx.globalAlpha = 0.92;
     ctx.fillStyle = base;
@@ -708,9 +650,9 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
     const deskW = (rect.maxX - rect.minX) * t.scale;
     const deskD = (rect.maxZ - rect.minZ) * t.scale;
     roundRectPath(ctx, c.x - deskW / 2, c.y - deskD / 2, deskW, deskD, Math.min(2, deskD * 0.2));
-    ctx.fillStyle = foundry ? MAP_PAINT.console : MAP_PAINT.deskTop;
+    ctx.fillStyle = MAP_PAINT.deskTop;
     ctx.fill();
-    ctx.strokeStyle = foundry ? MAP_PAINT.consoleEdge : MAP_PAINT.deskEdge;
+    ctx.strokeStyle = MAP_PAINT.deskEdge;
     ctx.lineWidth = 0.8;
     ctx.stroke();
     if (t.scale >= 5) {
