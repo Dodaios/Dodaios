@@ -68,7 +68,7 @@ const isBroken = (plugin: Plugin): boolean =>
   plugin.status === "needs_reauth" || plugin.status === "error";
 
 /** The catalog grid: one column on a narrow pane, two once both fit. */
-const GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-x-6 gap-y-0.5";
+const GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,340px),1fr))] gap-x-6 gap-y-0.5";
 
 export interface PluginRowHandlers {
   onOpen: (id: string) => void;
@@ -96,10 +96,10 @@ export interface Crumb {
 
 export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
   return (
-    <nav aria-label={translate("plugins_view.breadcrumb")} className="flex min-w-0 items-center gap-1 text-sm">
+    <nav aria-label={translate("plugins_view.breadcrumb")} className="flex min-w-0 items-center gap-1.5 text-base">
       {crumbs.map((crumb, index) => (
         <span key={`${index}-${crumb.label}`} className="flex min-w-0 items-center gap-1">
-          {index > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground-faint" aria-hidden />}
+          {index > 0 && <ChevronRight className="h-4 w-4 shrink-0 text-foreground-faint" aria-hidden />}
           {crumb.onClick ? (
             <button
               type="button"
@@ -138,7 +138,7 @@ function OriginMark({ plugin }: { plugin: Plugin }) {
 }
 
 const ACTION_BUTTON =
-  "grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60";
+  "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 /** The trailing control of a row. One state at a time, first match wins:
  *  connecting, connected (menu), broken (reconnect + menu), otherwise the "+"
@@ -160,7 +160,7 @@ function RowAction({
     return (
       <button type="button" disabled aria-busy className={ACTION_BUTTON}
         aria-label={fill(translate("plugins_view.connecting_plugin"), { plugin: plugin.name })}>
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />
       </button>
     );
   }
@@ -171,7 +171,7 @@ function RowAction({
         disabled={Boolean(plugin.unavailableReason)}
         aria-label={fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}
         title={unavailableReasonText(plugin) ?? translate("plugins_view.connect")}>
-        <Plus className="h-4 w-4" aria-hidden />
+        <Plus className="h-[18px] w-[18px]" aria-hidden />
       </button>
     );
   }
@@ -214,14 +214,14 @@ function RowAction({
     <span className="flex shrink-0 items-center gap-0.5">
       {connected ? (
         <span role="img" aria-label={translate("plugins_view.status_connected")} title={pluginStatusLabel(plugin)}
-          className="grid h-7 w-6 place-items-center text-success">
-          <Check className="h-4 w-4" aria-hidden />
+          className="grid h-9 w-7 place-items-center text-success">
+          <Check className="h-[18px] w-[18px]" aria-hidden />
         </span>
       ) : (
         <button type="button" onClick={() => void run()} className={cn(ACTION_BUTTON, "text-warning hover:text-warning")}
           aria-label={fill(translate("plugins_view.reconnect_named"), { plugin: plugin.name })}
           title={translate("plugins_view.reconnect")}>
-          <RotateCw className="h-4 w-4" aria-hidden />
+          <RotateCw className="h-[18px] w-[18px]" aria-hidden />
         </button>
       )}
       <ActionMenu
@@ -232,7 +232,7 @@ function RowAction({
             aria-label={fill(translate("plugins_view.more_actions_named"), { plugin: plugin.name })}
             title={translate("plugins_view.more_actions")}
             className={cn(ACTION_BUTTON, open && "bg-surface-raised text-foreground-strong")}>
-            <MoreHorizontal className="h-4 w-4" aria-hidden />
+            <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
           </button>
         )}
       />
@@ -253,22 +253,22 @@ export function PluginRow({
   const { busy, run } = useConnectLock(() => onConnect(plugin));
   const detailsId = useId();
   return (
-    <li className="flex min-h-14 items-center gap-1 rounded-xl pr-1.5 transition-colors hover:bg-secondary focus-within:bg-secondary">
+    <li className="flex min-h-[72px] items-center gap-1 rounded-2xl pr-2 transition-colors hover:bg-secondary focus-within:bg-secondary">
       <button
         type="button"
         onClick={() => onOpen(plugin.id)}
         aria-label={plugin.name}
         aria-describedby={detailsId}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-w-0 flex-1 items-center gap-4 rounded-2xl px-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <BrandTile plugin={plugin} size="row" />
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-base font-medium text-foreground-strong">{plugin.name}</span>
+            <span className="truncate text-lg font-medium text-foreground-strong">{plugin.name}</span>
             <OriginMark plugin={plugin} />
           </span>
           <span id={detailsId} className="block">
-            <span className="block truncate text-sm text-muted-foreground" title={plugin.description}>
+            <span className="block truncate text-base text-muted-foreground" title={plugin.description}>
               {plugin.description}
             </span>
             {plugin.unavailableReason && (
@@ -283,7 +283,7 @@ export function PluginRow({
           </span>
         </span>
         {showStatus && (
-          <span className="hidden shrink-0 text-sm text-muted-foreground sm:block">{pluginStatusLabel(plugin)}</span>
+          <span className="hidden shrink-0 text-base text-muted-foreground sm:block">{pluginStatusLabel(plugin)}</span>
         )}
       </button>
       <RowAction plugin={plugin} busy={busy} run={run} onOpen={onOpen} onDisconnect={onDisconnect} onRemove={onRemove} />
@@ -317,8 +317,8 @@ function BrowseSkeleton() {
       <span className="h-3 w-20 rounded bg-secondary motion-safe:animate-pulse" aria-hidden />
       <div className={GRID} aria-hidden>
         {widths.map((width, index) => (
-          <div key={index} className="flex min-h-14 items-center gap-3 px-2 py-2 motion-safe:animate-pulse">
-            <span className="h-9 w-9 shrink-0 rounded-lg bg-secondary" />
+          <div key={index} className="flex min-h-[72px] items-center gap-4 px-3 py-3 motion-safe:animate-pulse">
+            <span className="h-12 w-12 shrink-0 rounded-xl bg-secondary" />
             <span className="flex min-w-0 flex-1 flex-col gap-2">
               <span className={cn("h-3 rounded bg-secondary", width)} />
               <span className="h-3 w-3/5 rounded bg-secondary" />
@@ -339,16 +339,16 @@ function SectionBlock({ section, onOpenSection, handlers }: {
 }) {
   const title = sectionTitle(section.id);
   return (
-    <section aria-label={title} className="flex flex-col gap-3">
-      <h3 className="px-2">
+    <section aria-label={title} className="flex flex-col gap-4">
+      <h3 className="px-3">
         <button
           type="button"
           onClick={() => onOpenSection(section.id)}
           aria-label={fill(translate("plugins_view.open_section"), { section: title })}
-          className="group/heading inline-flex items-center gap-1 rounded-sm text-title font-semibold text-foreground-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group/heading inline-flex items-center gap-1.5 rounded-sm text-xl font-semibold text-foreground-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {title}
-          <ChevronRight className="h-4 w-4 text-foreground-faint transition-transform group-hover/heading:text-muted-foreground motion-safe:group-hover/heading:translate-x-0.5" aria-hidden />
+          <ChevronRight className="h-5 w-5 text-foreground-faint transition-transform group-hover/heading:text-muted-foreground motion-safe:group-hover/heading:translate-x-0.5" aria-hidden />
         </button>
       </h3>
       <PluginGrid plugins={section.plugins} handlers={handlers} />
@@ -460,21 +460,21 @@ export function PluginBrowse({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       {(managing || openSection) && (
         <Breadcrumbs crumbs={[{ label: translate("plugins_view.title"), onClick: leave }, { label: title }]} />
       )}
 
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-foreground-strong">{title}</h2>
-          {subtitle && <p className="mt-1 text-base text-muted-foreground">{subtitle}</p>}
+          <h2 className="text-2xl font-semibold text-foreground-strong">{title}</h2>
+          {subtitle && <p className="mt-1.5 text-lg text-muted-foreground">{subtitle}</p>}
         </div>
         {/* A basis instead of a bare flex-1: on a narrow pane the controls
             wrap under the title rather than squeezing the search shut. */}
-        <div className="flex min-w-0 flex-[1_1_18rem] items-center justify-end gap-1">
-          <label className="flex h-8 min-w-0 max-w-56 flex-1 items-center gap-2 rounded-full border border-border bg-background px-3 text-muted-foreground focus-within:border-border-strong">
-            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        <div className="flex min-w-0 flex-[1_1_22rem] items-center justify-end gap-1.5">
+          <label className="flex h-10 min-w-0 max-w-72 flex-1 items-center gap-2.5 rounded-full border border-border bg-background px-3 text-muted-foreground focus-within:border-border-strong">
+            <Search className="h-4 w-4 shrink-0" aria-hidden />
             <input
               type="search"
               value={query}
@@ -484,7 +484,7 @@ export function PluginBrowse({
               onKeyDown={(event) => { if (event.key === "Escape" && searching) onQuery(""); }}
               placeholder={translate("plugins_view.search_placeholder")}
               aria-label={translate("plugins_view.search_placeholder")}
-              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-faint [&::-webkit-search-cancel-button]:hidden"
+              className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-foreground-faint [&::-webkit-search-cancel-button]:hidden"
             />
             {searching && (
               <button type="button" onClick={() => onQuery("")} aria-label={translate("plugins_view.clear_filters")}
@@ -493,12 +493,12 @@ export function PluginBrowse({
               </button>
             )}
           </label>
-          <IconButton label={translate("plugins_view.refresh")} onClick={onRefresh} busy={refreshing}>
-            <RefreshCw className="h-4 w-4" />
+          <IconButton label={translate("plugins_view.refresh")} onClick={onRefresh} busy={refreshing} className="h-10 w-10">
+            <RefreshCw className="h-[18px] w-[18px]" />
           </IconButton>
           {!managing && (
-            <IconButton label={translate("plugins_view.manage")} onClick={() => { onSection(null); onQuery(""); onManage(true); }}>
-              <Settings2 className="h-4 w-4" />
+            <IconButton label={translate("plugins_view.manage")} onClick={() => { onSection(null); onQuery(""); onManage(true); }} className="h-10 w-10">
+              <Settings2 className="h-[18px] w-[18px]" />
             </IconButton>
           )}
           <ActionMenu
@@ -523,7 +523,7 @@ export function PluginBrowse({
               aria-selected={scope === id}
               onClick={() => onScope(id)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "rounded-full px-4 py-2 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 scope === id
                   ? "bg-secondary text-foreground-strong"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -555,8 +555,8 @@ export function PluginBrowse({
           ))}
           {sections.length === 0 && (
             <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
-              <p className="text-base font-medium text-foreground-strong">{translate("plugins_view.yours_empty_title")}</p>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{translate("plugins_view.yours_empty_body")}</p>
+              <p className="text-lg font-medium text-foreground-strong">{translate("plugins_view.yours_empty_title")}</p>
+              <p className="mx-auto mt-1.5 max-w-md text-base text-muted-foreground">{translate("plugins_view.yours_empty_body")}</p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <button type="button" onClick={() => onAdd("connector")}
                   className="inline-flex h-8 items-center gap-1.5 rounded-md bg-secondary px-3 text-sm font-medium text-foreground hover:bg-surface-raised">
@@ -575,13 +575,13 @@ export function PluginBrowse({
       {!loading && !error && !home && (
         <>
           {searching && (
-            <p className="px-2 text-sm text-muted-foreground" aria-live="polite">
+            <p className="px-3 text-base text-muted-foreground" aria-live="polite">
               {fill(translate("plugins_view.matches"), { n: results.length })}
             </p>
           )}
           <PluginGrid plugins={results} label={title} single={managing} showStatus={managing} handlers={handlers} />
           {results.length === 0 && (
-            <div className="py-10 text-center text-sm text-muted-foreground">
+            <div className="py-12 text-center text-base text-muted-foreground">
               <p>{translate(managing && !searching ? "plugins_view.installed_empty" : "plugins_view.no_hits")}</p>
               {searching && (
                 <button type="button" onClick={leave} className="mt-3 underline underline-offset-4 hover:text-foreground">
