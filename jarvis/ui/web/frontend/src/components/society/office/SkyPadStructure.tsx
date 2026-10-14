@@ -5,7 +5,7 @@
  * the steel that holds it all out from the tower. The deck and the bridge take
  * clicks like the floor, so the person can walk out by pointing.
  */
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { CylinderGeometry, MeshBasicMaterial, MeshStandardMaterial, RingGeometry, type Mesh } from "three";
 import { cachedCanvasTexture } from "./canvasMaterials";
@@ -108,6 +108,7 @@ export function SkyPadStructure({ pad, bounds, reduced, onFloorClick }: {
     m.transparent = true;
     return m;
   }, []);
+  useEffect(() => () => { deckGeometry.dispose(); glowGeometry.dispose(); glowMaterial.dispose(); }, [deckGeometry, glowGeometry, glowMaterial]);
   const bridgeX0 = bounds.maxX, bridgeX1 = x - r + 0.6;
   const bridgeLength = bridgeX1 - bridgeX0, bridgeMid = (bridgeX0 + bridgeX1) / 2;
   const masts = [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4].map((a) => [x + Math.cos(a) * (r - 0.9), z + Math.sin(a) * (r - 0.9)] as const);
@@ -131,12 +132,12 @@ export function SkyPadStructure({ pad, bounds, reduced, onFloorClick }: {
       <mesh ref={glow} geometry={glowGeometry} material={glowMaterial} position={[x, 0.012, z]} />
       {runs.map(([from, to], i) => <Railing key={i} from={from} to={to} height={0.9} />)}
 
-      {/* Four light masts round the rim. */}
+      {/* Four light masts round the rim: glowing lamps, no light sources (a light per mast would cost every lit
+          material of the floor a recompile on arrival and a share of every pixel). */}
       {masts.map(([mx, mz], i) => (
         <group key={i} position={[mx, 0, mz]}>
           <mesh geometry={GEO.cyl} material={STEEL} position={[0, 1.6, 0]} scale={[0.09, 3.2, 0.09]} />
           <mesh geometry={GEO.box} material={LAMP} position={[0, 3.25, 0]} scale={[0.36, 0.14, 0.36]} />
-          <pointLight position={[0, 3.0, 0]} color="#ffe8c4" intensity={6} distance={14} decay={2} />
         </group>
       ))}
 

@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/agentAccountsApi-Dw4oPDI3.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/agentAccountsApi-Dw4oPDI3.js
 import{c as i,f as s,t as r}from"./index-BInK4GAV.js";/**
 |||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/agentAccountsApi-Xp-_XIXv.js
 import{c as i,f as s,t as r}from"./index-DQk7_9KE.js";/**
 ========
 import{c as i,f as s,t as r}from"./index-C15BLjuo.js";/**
 >>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/agentAccountsApi-BCcw9mCx.js
+|||||||| parent of 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/agentAccountsApi-BCcw9mCx.js
+import{c as i,f as s,t as r}from"./index-C15BLjuo.js";/**
+========
+import{c as i,f as s,t as r}from"./index-BDL4G1GM.js";/**
+>>>>>>>> 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/agentAccountsApi-BXAEDdqb.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-dDqN09HN.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-dDqN09HN.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-CGeNZYPE.js";import{c as n,j as a,e as o}from"./index-BInK4GAV.js";import{T as c}from"./terminal-CtFsLPug.js";import{C as I}from"./credit-card-B1pvRlm6.js";import{G as S}from"./git-branch-C_sMBjNP.js";import{R as W}from"./rocket-BkKyb2VE.js";import{C as $}from"./cloud-LsALuNxK.js";/**
 |||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/CliLogo-fYOZw7z8.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-CpOnzXCm.js";import{c as n,j as a,e as o}from"./index-DQk7_9KE.js";import{T as c}from"./terminal-BxeqrfWf.js";import{C as I}from"./credit-card-BcZ-BKfN.js";import{G as S}from"./git-branch-CdTMINIH.js";import{R as W}from"./rocket-Crtv7SV0.js";import{C as $}from"./cloud-C30xrem6.js";/**
 ========
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-DJyEXjtQ.js";import{c as n,j as a,e as o}from"./index-C15BLjuo.js";import{T as c}from"./terminal-xLU8o7Ph.js";import{C as I}from"./credit-card-BSwDyFkN.js";import{G as S}from"./git-branch-Dpvw0iBD.js";import{R as W}from"./rocket-VuRcDFMc.js";import{C as $}from"./cloud-BBR_4Elh.js";/**
 >>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/CliLogo-CaALw-X7.js
+|||||||| parent of 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/CliLogo-CaALw-X7.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-DJyEXjtQ.js";import{c as n,j as a,e as o}from"./index-C15BLjuo.js";import{T as c}from"./terminal-xLU8o7Ph.js";import{C as I}from"./credit-card-BSwDyFkN.js";import{G as S}from"./git-branch-Dpvw0iBD.js";import{R as W}from"./rocket-VuRcDFMc.js";import{C as $}from"./cloud-BBR_4Elh.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-D_VKOJJq.js";import{c as n,j as a,e as o}from"./index-BDL4G1GM.js";import{T as c}from"./terminal-CDGVUt_T.js";import{C as I}from"./credit-card-DOYASJmH.js";import{G as S}from"./git-branch-BReRQFcF.js";import{R as W}from"./rocket-Y1akrbC1.js";import{C as $}from"./cloud-BG_Jit1M.js";/**
+>>>>>>>> 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/CliLogo-DfuUa6fd.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

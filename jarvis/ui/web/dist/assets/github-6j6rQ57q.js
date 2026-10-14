@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/github-6j6rQ57q.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/github-6j6rQ57q.js
 import{c}from"./index-BInK4GAV.js";/**
 |||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/github-r2uJ0szU.js
 import{c}from"./index-DQk7_9KE.js";/**
 ========
 import{c}from"./index-C15BLjuo.js";/**
 >>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/github-DAmnASsT.js
+|||||||| parent of 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/github-DAmnASsT.js
+import{c}from"./index-C15BLjuo.js";/**
+========
+import{c}from"./index-BDL4G1GM.js";/**
+>>>>>>>> 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/github-Q9mEJ4Ik.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

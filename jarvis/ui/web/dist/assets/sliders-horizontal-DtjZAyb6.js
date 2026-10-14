@@ -1,10 +1,16 @@
 <<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-DtjZAyb6.js
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-DtjZAyb6.js
 import{c as y}from"./index-BInK4GAV.js";/**
 |||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/sliders-horizontal-DsZ6HVUP.js
 import{c as y}from"./index-DQk7_9KE.js";/**
 ========
 import{c as y}from"./index-C15BLjuo.js";/**
 >>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/sliders-horizontal-Cf9UF6S9.js
+|||||||| parent of 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/sliders-horizontal-Cf9UF6S9.js
+import{c as y}from"./index-C15BLjuo.js";/**
+========
+import{c as y}from"./index-BDL4G1GM.js";/**
+>>>>>>>> 2a761d75cf (fix(verse): address the review of the sky pad and the courier):jarvis/ui/web/dist/assets/sliders-horizontal-D98awBCe.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

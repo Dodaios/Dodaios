@@ -17,9 +17,12 @@ export interface Box3D { minX: number; maxX: number; minY: number; maxY: number;
 
 export interface CourierWorld {
   boxes: Box3D[];
-  /** Cell size of the spatial hash and the boxes in each cell (indices into `boxes`). */
+  /** Cell size of the spatial hash and the boxes in each cell (indices into `boxes`), keyed by `cellKey`. */
   cell: number;
-  hash: Map<string, number[]>;
+  hash: Map<number, number[]>;
+  /** Per box, the query that last looked at it: a box in several cells is tested once per query, with no set. */
+  stamp: Int32Array;
+  query: number;
   /** Spheres that cannot be entered (the singularity's core). */
   spheres: { x: number; y: number; z: number; r: number }[];
   ground: number;
@@ -35,11 +38,16 @@ export interface Contact { nx: number; ny: number; nz: number; depth: number }
 const OFFICE_HEIGHT = 4.2;
 const HASH_CELL = 40;
 
+/** One number per hash cell (the city spans far less than ±50 000 cells). */
+function cellKey(i: number, j: number): number {
+  return (i + 50_000) * 100_000 + (j + 50_000);
+}
+
 function addBox(world: CourierWorld, box: Box3D) {
   const index = world.boxes.push(box) - 1;
   for (let i = Math.floor(box.minX / world.cell); i <= Math.floor(box.maxX / world.cell); i += 1) {
     for (let j = Math.floor(box.minZ / world.cell); j <= Math.floor(box.maxZ / world.cell); j += 1) {
-      const key = `${i},${j}`;
+      const key = cellKey(i, j);
       const list = world.hash.get(key);
       if (list) list.push(index); else world.hash.set(key, [index]);
     }
@@ -48,7 +56,7 @@ function addBox(world: CourierWorld, box: Box3D) {
 
 export function buildCourierWorld(plan: CityPlan, bounds: Rect, skyPad?: SkyPad): CourierWorld {
   const world: CourierWorld = {
-    boxes: [], cell: HASH_CELL, hash: new Map(), spheres: [], ground: GROUND_Y,
+    boxes: [], cell: HASH_CELL, hash: new Map(), stamp: new Int32Array(0), query: 0, spheres: [], ground: GROUND_Y,
     centre: plan.centre, border: 760, ceiling: 420,
   };
   for (const t of plan.towers) {
@@ -66,37 +74,48 @@ export function buildCourierWorld(plan: CityPlan, bounds: Rect, skyPad?: SkyPad)
     addBox(world, { minX: pad.x - inner, maxX: pad.x + inner, minY: -SKY_PAD.thickness, maxY: 0, minZ: pad.z - inner, maxZ: pad.z + inner });
   }
   world.spheres.push({ ...plan.singularity, r: SINGULARITY.core * 1.15 });
+  world.stamp = new Int32Array(world.boxes.length);
   return world;
 }
 
-/** The deepest contact of a sphere with the world, or null when it is free. */
+/** The one contact `sphereContact` hands out; callers read it before the next query. */
+const CONTACT: Contact = { nx: 0, ny: 0, nz: 0, depth: 0 };
+
+/**
+ * The deepest contact of a sphere with the world, or null when it is free. Runs a few dozen times a frame in
+ * flight, so it allocates nothing: the result is a shared object, valid until the next call.
+ */
 export function sphereContact(world: CourierWorld, x: number, y: number, z: number, r: number): Contact | null {
-  let best: Contact | null = null;
+  let found = false;
   const consider = (nx: number, ny: number, nz: number, depth: number) => {
-    if (depth > 0 && (!best || depth > best.depth)) best = { nx, ny, nz, depth };
+    if (depth > 0 && (!found || depth > CONTACT.depth)) { CONTACT.nx = nx; CONTACT.ny = ny; CONTACT.nz = nz; CONTACT.depth = depth; found = true; }
   };
   // Street level.
   consider(0, 1, 0, world.ground + r - y);
-  const seen = new Set<number>();
+  const query = ++world.query;
   for (let i = Math.floor((x - r) / world.cell); i <= Math.floor((x + r) / world.cell); i += 1) {
     for (let j = Math.floor((z - r) / world.cell); j <= Math.floor((z + r) / world.cell); j += 1) {
-      for (const index of world.hash.get(`${i},${j}`) ?? []) {
-        if (seen.has(index)) continue;
-        seen.add(index);
+      const list = world.hash.get(cellKey(i, j));
+      if (!list) continue;
+      for (const index of list) {
+        if (world.stamp[index] === query) continue;
+        world.stamp[index] = query;
         const b = world.boxes[index];
         const px = Math.max(b.minX, Math.min(x, b.maxX)), py = Math.max(b.minY, Math.min(y, b.maxY)), pz = Math.max(b.minZ, Math.min(z, b.maxZ));
         const dx = x - px, dy = y - py, dz = z - pz;
         const d = Math.hypot(dx, dy, dz);
         if (d > 1e-6) {
           if (d < r) consider(dx / d, dy / d, dz / d, r - d);
-        } else {
-          // The centre is inside the box: out through the nearest face.
-          const faces: [number, number, number, number][] = [
-            [-1, 0, 0, x - b.minX], [1, 0, 0, b.maxX - x], [0, -1, 0, y - b.minY], [0, 1, 0, b.maxY - y], [0, 0, -1, z - b.minZ], [0, 0, 1, b.maxZ - z],
-          ];
-          const [nx, ny, nz, gap] = faces.reduce((m, f) => (f[3] < m[3] ? f : m));
-          consider(nx, ny, nz, gap + r);
+          continue;
         }
+        // The centre is inside the box: out through the nearest face.
+        let nx = -1, ny = 0, nz = 0, gap = x - b.minX;
+        if (b.maxX - x < gap) { nx = 1; ny = 0; nz = 0; gap = b.maxX - x; }
+        if (y - b.minY < gap) { nx = 0; ny = -1; nz = 0; gap = y - b.minY; }
+        if (b.maxY - y < gap) { nx = 0; ny = 1; nz = 0; gap = b.maxY - y; }
+        if (z - b.minZ < gap) { nx = 0; ny = 0; nz = -1; gap = z - b.minZ; }
+        if (b.maxZ - z < gap) { nx = 0; ny = 0; nz = 1; gap = b.maxZ - z; }
+        consider(nx, ny, nz, gap + r);
       }
     }
   }
@@ -104,23 +123,23 @@ export function sphereContact(world: CourierWorld, x: number, y: number, z: numb
     const dx = x - s.x, dy = y - s.y, dz = z - s.z, d = Math.hypot(dx, dy, dz) || 1e-6;
     consider(dx / d, dy / d, dz / d, s.r + r - d);
   }
-  return best;
+  return found ? CONTACT : null;
 }
 
 /** How far along a ray (origin, unit direction) the first box lies, up to `max`; `max` when nothing is hit. */
 export function rayDistance(world: CourierWorld, o: { x: number; y: number; z: number }, d: { x: number; y: number; z: number }, max: number): number {
   let best = max;
   if (d.y < -1e-6) best = Math.min(best, (world.ground - o.y) / d.y);
-  const seen = new Set<number>();
+  const query = ++world.query;
   const steps = Math.ceil(max / world.cell) + 1;
   for (let s = 0; s <= steps; s += 1) {
     const t = Math.min(max, s * world.cell);
     const cx = Math.floor((o.x + d.x * t) / world.cell), cz = Math.floor((o.z + d.z * t) / world.cell);
     for (let i = cx - 1; i <= cx + 1; i += 1) {
       for (let j = cz - 1; j <= cz + 1; j += 1) {
-        for (const index of world.hash.get(`${i},${j}`) ?? []) {
-          if (seen.has(index)) continue;
-          seen.add(index);
+        for (const index of world.hash.get(cellKey(i, j)) ?? []) {
+          if (world.stamp[index] === query) continue;
+          world.stamp[index] = query;
           const hit = rayBox(world.boxes[index], o, d);
           if (hit !== null && hit < best) best = hit;
         }
