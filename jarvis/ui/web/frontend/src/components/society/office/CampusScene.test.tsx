@@ -7,11 +7,13 @@ import { AgentsDepartment, AgentsSlab } from "./AgentsFloorLook";
 import { AgentsFloorAmbience } from "./AgentsFloorAmbience";
 import { BuildingShell, FACADE } from "./BuildingShell";
 import { CampusGround } from "./CampusGround";
+import { GROUND_Y } from "./cityPlan";
 import { DeskDressing } from "./DeskDressing";
 import { DeskInstances } from "./DeskInstances";
 import { buildHallLayout } from "./hallFloorLayout";
 import { buildOfficeLayout, type OfficeAgentInput, type OfficeLayout, type OfficeTeamInput } from "./officeLayout";
 import { FurniturePiece, MeetingChairs } from "./OfficeProps";
+import { SingularityCity } from "./SingularityCity";
 import { StaticBatch } from "./StaticBatch";
 import { ToyFigure } from "./ToyFigure";
 import { loadProfile, playerLook } from "./playerProfile";
@@ -227,6 +229,30 @@ describe("campus scene", () => {
     expect(walls).toBe(4);
     // The home view looks from the south-east: the north and the west wall stand, the other two sides show the balustrade.
     expect(visible).toHaveLength(2);
+  });
+
+  it("draws the city outside in a couple of dozen draw calls, none of them in the shadow pass, its towers on the street level far below", async () => {
+    const layout = buildOfficeLayout(staff(5));
+    const city = await mount(<SingularityCity bounds={layout.bounds} />);
+    city.updateMatrixWorld(true);
+    let draws = 0, instances = 0;
+    city.traverse((child) => {
+      const mesh = child as Mesh;
+      if (!(mesh as { isMesh?: boolean; isPoints?: boolean }).isMesh && !(child as { isPoints?: boolean }).isPoints) return;
+      draws += 1;
+      expect(mesh.castShadow, child.type).toBe(false);
+      expect(mesh.receiveShadow, child.type).toBe(false);
+      if ((child as InstancedMesh).isInstancedMesh) instances += (child as InstancedMesh).count;
+    });
+    expect(draws).toBeLessThanOrEqual(24);
+    // Hundreds of towers, every one of them instanced.
+    expect(instances).toBeGreaterThan(400);
+    // The tower classes stand on the street level, far under the floor.
+    city.traverse((child) => {
+      if (!child.userData.cityTowers) return;
+      const box = new Box3().setFromObject(child);
+      expect(box.min.y).toBeCloseTo(GROUND_Y, 0);
+    });
   });
 
   it("tags every room wall run for the camera's cutaway", async () => {

@@ -39,7 +39,7 @@ never moves an agent, starts work or invents activity (world-behaviour-manual
 | Furniture | A contemporary workplace built from rounded primitives: light-oak bench desks on black steel T-legs with a white pedestal and a felt privacy screen, slim monitors on arms, ergonomic chairs with a mesh back on a five-star base, open oak-and-steel shelving, low modular sofas on slim legs, tall charcoal planters with full crowns. Department back walls are fluted acoustic felt with a charcoal name plate in white type and oak ledges with small plants. |
 | Materials | Mostly matte; black steel and chrome arms carry a little metalness. Light microcement floor, a rounded felt rug per department whose colour also dyes that department's felt screens and seat fabric (`DEPARTMENT_ZONES`). Rooms: slate felt (team), terrazzo (wardrobe), pale stone (reception), light oak (break room). Glass walls and the outer balustrade have slim black frames. |
 | Light | Cool sky / neutral ground hemisphere light plus one soft, slightly warm directional sun with PCF shadows. Always bright enough to read, never moody. |
-| Setting | The agents floor and the Level Hall are floors of a tower in a city at night: a window wall on the far sides, the tower's body below, lit towers outside (§5h). The coding floor still floats in its own violet night behind glass railings. |
+| Setting | The agents floor and the Level Hall are floors of a tower in the city in the singularity: a window wall on the far sides, the tower's glass body falling away below, a megacity and the singularity outside (§5h). The coding floor still floats in its own violet night behind glass railings. |
 | Camera | Perspective, 35° FOV, three-quarter view from the south-east about 40° below the horizon. Orbit, pan and zoom within limits (20°–72° polar, from 2.5 m out to wherever the overview needs: 140 m at least, more on a large campus). The overview frames the whole floor (§5i). |
 | Labels | From across the floor an agent is one small state dot. The dark translucent plate (hexagon badge with the initial or the lead's star, name, rank chip, state dot and activity) fades in over the dot when the camera or the person is near, when the pointer or keyboard focus rests on the agent, or when it is selected (§5g). Scale is clamped by distance. |
 | State language | Green = working (pulsing floor ring, code on the monitor), amber = waiting for the person, grey = idle (smiley monitor) or paused (dark monitor). |
@@ -599,15 +599,33 @@ street of team rooms round an atrium, with commons people use in between.
   window wall with steel mullions and a ceiling edge. The floor is shown like
   a cut-open model: a side's window wall stands only while the camera is on
   the opposite side of the floor; the other sides keep the glass balustrade.
-  Outside lies a city at night that stays a backdrop: a few dozen unlit
-  towers a shade lighter than the deep navy sky, the first 62 m from the
-  building, every roof at least 24 m below the floor and the nearest ones
-  lowest. About one window in twenty is dimly lit, from one small tiling
-  texture; a tower sinks into the sky's colour towards its foot and with its
-  distance, the scene's sun never reaches it, and the faintest glow lies
-  over the streets where detail would be. Apart from the sparse windows
-  nothing outside is brighter than a dark navy (#1a2233). The office is
-  always the brightest and most detailed thing on screen.
+  Outside lies the city in the singularity (`SingularityCity.tsx`, plan in
+  `cityPlan.ts`, shaders in `cityShaders.ts`): a megacity 330 m below the
+  floor, seen from high above. Several hundred glass towers of four kinds
+  (block, setback, tapering prism, spire) stand on a 36 m street grid; their
+  windows are drawn in world metres, lit in office runs that switch now and
+  then, and fade to their average glow once a window is smaller than a
+  pixel or two. Some towers carry gold, cyan or white light seams with
+  pulses climbing them, a lit crown, a lit parapet or a landing ring; tall
+  roofs carry aviation lights. The streets glow with kerb lamps, avenues
+  carry a cyan centre line and traffic both ways, and flying traffic circles
+  the tower in seven lanes high over the rooftops. Beams of light rise from
+  the tallest far roofs; mist drifts between the roofs. Off to the north
+  hovers the singularity: a black core with its photon ring, a turning
+  accretion disc, polar jets and three gold orbital rings, inside a crater
+  ringed by eighteen gold-crowned spires. The building's own tower is the
+  same glass with gold seams.
+  The floor stays the subject: an empty plaza of 70 m round the slab, every
+  roof within 330 m at least 70 m below the floor (about 170 m below beside
+  the plaza), and every tower under a traffic lane kept below it; at the
+  camera's flattest angle the far towers form a skyline at the horizon.
+  Everything outside is self-lit (the scene's sun never reaches it) and
+  sinks with distance into the sky's own colour; the scene's background and
+  fog take the haze's colour, and the coding floor alone keeps the starry
+  night. The whole city is about twenty draw calls, nothing casts or
+  receives a shadow, traffic is computed on the GPU, and with reduced motion
+  its clock stands still. Measured 2026-10-14 on an RTX 5070 Ti at
+  2560 × 1217 px: the city adds about 0.4 ms per frame in the overview.
 - **One material language** from the studios to the last room: light plank
   oak, limestone and felt on the floor; light oak for timber; dark steel for
   metal, with bronze as the one accent; steel-framed clear glass with a
@@ -905,6 +923,14 @@ by a rebuilt floor plan is put on the nearest free ground.
   free plot) is covered by unit tests for the plan (the stand and its
   standing place, the arch at the desk, 1.2 m or more to walk along both
   windows) and was then checked in a browser by the orchestrator.
+- City (2026-10-14): `cityPlan.test.ts` holds the plan for a hall-sized, a
+  typical and a large floor: deterministic, the plaza empty, every roof
+  within the roof limit, no two towers on one spot, the crater clear with
+  its ring of spires and the disc and rings inside it, every lane below the
+  floor, outside the plaza and above the roofs under it.
+  `CampusScene.test.tsx` mounts the city without a GPU (draw calls, no
+  shadows, towers on the street level). Checked in Chrome against the dev
+  build: overview, walking view and the flattest angle.
 - Floors (2026-10-12): `progression/verseFloors.test.ts` reads
   `VERSE_FLOORS` from jarvis/progression/service.py and holds it equal to the
   client's `METERED_FLOORS` and the elevator's `OFFICE_FLOORS`; a world

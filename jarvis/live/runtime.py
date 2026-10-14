@@ -125,7 +125,12 @@ async def show_content(session_id: str, *, title: str, markdown: str) -> bool:
         return False
     try:
         await on_session_loop(session, show, title=title, markdown=markdown)
-    except RuntimeError:  # the call ended between the lookup and the delivery
+    except RuntimeError as exc:
+        # The call ended between the lookup and the delivery. The caller shows
+        # the content without a call record instead.
+        import logging
+
+        logging.getLogger(__name__).info("Live call %s could not show content: %s", session_id, exc)
         return False
     return True
 

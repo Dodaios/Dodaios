@@ -22,6 +22,7 @@ import inspect
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AsyncExitStack
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
@@ -64,6 +65,15 @@ class _UsablePlugins:
     catalog_ids: frozenset[str]
     ids: frozenset[str]
     read_at: float
+
+
+#: Set by a caller that waits for the reply to the message it is about to send
+#: and says that reply itself (``jarvis.plugins.tool.ask_agent``).
+#: The value is an empty list that receives the id of the ONE question it
+#: marks; a task that inherits the context finds the list already used.
+reply_awaited_inline: ContextVar[list[str] | None] = ContextVar(
+    "reply_awaited_inline", default=None
+)
 
 
 class SocietyRuntimeClosed(RuntimeError):
@@ -184,6 +194,9 @@ class SocietyRuntime:
             self._data_dir / "society-conversations.db", defer_open=True
         )
         self._review_lock = asyncio.Lock()
+        #: Requests whose reply a caller is waiting for and will speak itself;
+        #: their answer is not announced a second time (``reply_awaited_inline``).
+        self._awaited_inline: set[str] = set()
         #: The Quest Board: the person's jobs, routed to one taker, read back off the board.
         self.quests = Quests(self)
         from .team_lead import TeamLeads
@@ -422,6 +435,10 @@ class SocietyRuntime:
                     })
             except Exception:  # A chat failure must not suppress the voice result.
                 log.warning("society: result notice delivery failed", exc_info=True)
+        if request.event_id in self._awaited_inline:
+            # The asker is waiting on this very answer and says it itself; the
+            # chat notice above keeps the durable copy.
+            return
         surface = request.payload.get("reply_surface")
         if surface == "voice" or (surface is None and request.trace_id.startswith("voice:")):
             if self._publish_event is not None:
@@ -431,6 +448,10 @@ class SocietyRuntime:
                         await value
                 except Exception:  # The durable board and chat still retain the report.
                     log.warning("society: result announcement failed", exc_info=True)
+
+    def stop_awaiting_inline(self, request_id: str) -> None:
+        """The caller stopped waiting: a later reply is announced as usual."""
+        self._awaited_inline.discard(request_id)
 
     async def _deliver_pending(self) -> None:
         """Recover committed messages and retry busy chats without opening sockets."""
@@ -1285,16 +1306,30 @@ class SocietyRuntime:
         turn = current_chat_turn.get()
         if turn is not None and turn.direct_user:
             body["reply_session_id"] = turn.session_id
-        envelope = await self.store.append_and_publish(
-            SocietyEnvelope(
-                msg_type=msg_type,
-                from_agent=from_agent,
-                to_agent=to_agent,
-                trace_id=trace_id or f"chat:{uuid4().hex}",
-                payload=body,
-                parent_event_id=parent_event_id,
-            )
+        outgoing = SocietyEnvelope(
+            msg_type=msg_type,
+            from_agent=from_agent,
+            to_agent=to_agent,
+            trace_id=trace_id or f"chat:{uuid4().hex}",
+            payload=body,
+            parent_event_id=parent_event_id,
         )
+        marked = reply_awaited_inline.get()
+        if (
+            marked is not None
+            and not marked
+            and from_agent == self.lead_id
+            and msg_type is MsgType.QUERY
+        ):
+            # Marked before it is stored: no reply can arrive ahead of the mark.
+            marked.append(outgoing.event_id)
+            self._awaited_inline.add(outgoing.event_id)
+        try:
+            envelope = await self.store.append_and_publish(outgoing)
+        except BaseException:
+            # Never sent: nothing may stay marked for a reply that cannot come.
+            self._awaited_inline.discard(outgoing.event_id)
+            raise
         from .delegation_wait import track_request
 
         await track_request(self, envelope)
