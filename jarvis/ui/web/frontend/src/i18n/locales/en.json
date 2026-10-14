@@ -8971,7 +8971,8 @@
       "open_aria": "Open GitHub {destination}: {identity}",
       "open_title": "Open {destination}",
       "refresh_failed": "GitHub status could not be refreshed.",
-      "refreshing": "Refreshing GitHub status…"
+      "refreshing": "Refreshing GitHub status…",
+      "loading": "Reading the GitHub status…"
     },
     "dock": {
       "swap": "Swap positions",
@@ -9580,7 +9581,6 @@
     "message": "Step in: every member reads this with its next turn",
     "message_decide": "Decide the open points; the team goes one more round with your answer",
     "send": "Send",
-    "open_member": "Open the thread of {member}",
     "round": "round {round}",
     "files_changed": "{count} files changed",
     "state": {
@@ -9627,11 +9627,7 @@
       "minor": "Minor"
     },
     "member": {
-      "working": "working",
-      "waiting": "waits for you",
-      "left": "left",
-      "builder": "Builds the plan",
-      "idle": "waiting"
+      "working": "working"
     },
     "reason": {
       "user": "You paused this team thread.",
@@ -9703,32 +9699,15 @@
       "body_planned": "One member writes a plan of small steps and another reviews it. The builder builds one step at a time, and each step is checked against its goal before the next one starts. A blocked step goes back to the planner. You can step in at any time.",
       "role_of": "Role of member {number}",
       "roles_invalid": "Pick exactly one planner and one builder.",
-      "bounds_planned": "Stops and asks you after 90 minutes, 40 turns, three plan rounds without agreement or three review rounds on one step."
+      "bounds_planned": "Stops and asks you after 90 minutes, 40 turns, three plan rounds without agreement or three review rounds on one step.",
+      "cancel": "Back"
     },
     "meter_time": "{minutes} of {max_minutes} min",
     "meter_turns": "{turns} of {max_turns} turns",
-    "band_count": "{done} of {total}",
     "no_report": "No report was written.",
-    "findings_count": "{count} findings",
-    "objections_count": "{count} objections",
     "close_reader": "Close",
-    "live_tokens": "{count} tokens",
     "live_starting": "Starting…",
     "live_thinking": "Thinking",
-    "role": {
-      "plans": "Writes its own plan",
-      "challenges": "Challenges the other plans",
-      "author": "Writes the master plan",
-      "voter": "Votes once the plan is there",
-      "builder": "Builds the plan",
-      "reviewer": "Reviews once the build is there",
-      "answers": "Answers the review",
-      "writes_plan": "Writes the plan",
-      "reviews_plan": "Reviews the plan once it is there",
-      "builds_step": "Builds this step",
-      "reviews_step": "Reviews once the step is built",
-      "final_reviewer": "Reviews the whole change"
-    },
     "accept_step": "Accept this step as it is",
     "mode": {
       "peers": "Peers",
@@ -9762,6 +9741,53 @@
       "done": "done",
       "plan_change": "Plan change: {text}",
       "step": "Step {number}"
+    },
+    "room": {
+      "back": "Back to the team",
+      "back_named": "Back to the team: {title}",
+      "you": "You",
+      "needs_you": "needs you",
+      "left": "Left the team",
+      "left_because": "Left: {reason}",
+      "waits": "Waits for you",
+      "idle": "Waiting for its turn",
+      "finished": "Finished",
+      "canvas": "How the team works together",
+      "exchange_open": "Show what went across: {label}",
+      "story": "Story",
+      "chats": "Chats",
+      "follow": "Follow",
+      "follow_hint": "Show whoever is working right now",
+      "brief": "From the team",
+      "chat_empty": "{member} has not had a turn yet.",
+      "open_full": "Full thread",
+      "answer_in_thread": "Answer in its thread",
+      "exchange_count_one": "{count} exchange",
+      "exchange_count_other": "{count} exchanges",
+      "members_count": "{count} members",
+      "to_all": "everyone"
+    },
+    "graph": {
+      "task": "Task",
+      "message": "Your message",
+      "own_plan": "Own plan",
+      "critique": "Critique",
+      "master_plan": "Master plan",
+      "agrees": "Agrees",
+      "objects": "Objects",
+      "change": "Change",
+      "fix": "Fix",
+      "approves": "Approves",
+      "changes": "Changes requested",
+      "plan_change": "Asks for a plan change",
+      "files_one": "{count} file",
+      "files_other": "{count} files",
+      "findings_one": "{count} finding",
+      "findings_other": "{count} findings",
+      "blocking_one": "{count} blocking",
+      "blocking_other": "{count} blocking",
+      "objections_one": "{count} objection",
+      "objections_other": "{count} objections"
     }
   }
 }
