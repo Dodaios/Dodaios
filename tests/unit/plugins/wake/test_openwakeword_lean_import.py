@@ -143,3 +143,24 @@ def test_missing_runtime_still_degrades_through_the_loader(monkeypatch) -> None:
 def test_stand_in_training_helper_fails_loudly() -> None:
     with pytest.raises(RuntimeError, match="verifier training"):
         _train_custom_verifier_unavailable()
+
+
+@needs_openwakeword
+def test_concurrent_loaders_get_the_same_class() -> None:
+    """The boot prefetch and the provider may load at once; both get one Model."""
+    script = (
+        "import sys, threading\n"
+        "from jarvis.plugins.wake.openwakeword_provider import (\n"
+        "    load_openwakeword_model_class,\n"
+        ")\n"
+        "found = []\n"
+        "threads = [threading.Thread(target=lambda: found.append(\n"
+        "    load_openwakeword_model_class())) for _ in range(4)]\n"
+        "[t.start() for t in threads]\n"
+        "[t.join(120) for t in threads]\n"
+        "assert len(found) == 4 and len(set(found)) == 1, found\n"
+        "assert 'sklearn' not in sys.modules\n"
+        "print('OK')\n"
+    )
+    res = _run_fresh(script)
+    assert res.returncode == 0, f"stdout={res.stdout}\nstderr={res.stderr}"

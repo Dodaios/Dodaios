@@ -17,6 +17,7 @@ import asyncio
 import contextlib
 import logging
 import sys
+import threading
 import time
 import types
 from collections.abc import AsyncIterator, Iterator
@@ -30,6 +31,9 @@ log = logging.getLogger("jarvis.wake")
 
 
 _OWW_TRAINING_MODULE = "openwakeword.custom_verifier_model"
+#: The boot prefetch thread and the provider both load the runtime; one at a
+#: time, so a fallback never purges modules another caller is importing.
+_OWW_IMPORT_LOCK = threading.Lock()
 
 
 def _train_custom_verifier_unavailable(*_args: object, **_kwargs: object) -> None:
@@ -75,18 +79,19 @@ def load_openwakeword_model_class() -> type:
     openWakeWord layout costs the saving, never the wake word. A runtime that
     is genuinely absent raises its ``ImportError`` from that second attempt.
     """
-    before = set(sys.modules)
-    try:
-        with _inference_only_openwakeword_import():
+    with _OWW_IMPORT_LOCK:
+        before = set(sys.modules)
+        try:
+            with _inference_only_openwakeword_import():
+                from openwakeword.model import Model
+        except Exception as exc:  # noqa: BLE001 — retried in full right below
+            log.debug("Lean openWakeWord import failed (%s); retrying in full", exc)
+            # Drop only what this attempt left half-imported.
+            for name in set(sys.modules) - before:
+                if name == "openwakeword" or name.startswith("openwakeword."):
+                    del sys.modules[name]
             from openwakeword.model import Model
-    except Exception as exc:  # noqa: BLE001 — retried in full right below
-        log.debug("Lean openWakeWord import failed (%s); retrying in full", exc)
-        # Drop only what this attempt left half-imported.
-        for name in set(sys.modules) - before:
-            if name == "openwakeword" or name.startswith("openwakeword."):
-                del sys.modules[name]
-        from openwakeword.model import Model
-    return Model
+        return Model
 
 
 OWW_SAMPLE_RATE = 16_000
