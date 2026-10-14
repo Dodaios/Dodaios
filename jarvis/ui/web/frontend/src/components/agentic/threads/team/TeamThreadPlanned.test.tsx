@@ -142,8 +142,9 @@ it("shows a planner-and-builder team as a room: roles on the canvas, the plan a 
   mount("t1", thread);
 
   // The real canvas: each member with its role, the reviewer at work.
-  const canvas = await screen.findByTestId("team-canvas");
-  await waitFor(() => expect(within(canvas).getByTestId("team-node-m1")).toBeTruthy());
+  // The canvas and its graph library load lazily; a busy machine takes a while.
+  const canvas = await screen.findByTestId("team-canvas", {}, { timeout: 8000 });
+  await waitFor(() => expect(within(canvas).getByTestId("team-node-m1")).toBeTruthy(), { timeout: 8000 });
   expect(within(screen.getByTestId("team-node-m1")).getByTestId("team-role-planner")).toBeTruthy();
   expect(within(screen.getByTestId("team-node-m2")).getByTestId("team-role-builder")).toBeTruthy();
   expect(screen.getByTestId("team-node-m3").dataset.state).toBe("working");
@@ -182,7 +183,7 @@ it("shows a planner-and-builder team as a room: roles on the canvas, the plan a 
   const plan = within(readable).getByTestId("team-entry-plan");
   expect(plan.textContent).toContain("Use it in the uploader");
   expect(plan.textContent).toContain("pytest tests/test_config.py passes");
-});
+}, 20_000);
 
 it("asks the person about a step the reviewer never approves, and can take it as it is", async () => {
   const stuck: TeamThread = {

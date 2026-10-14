@@ -97,5 +97,8 @@ export function plainCommand(text: string): string {
   const match = /^(?:"[^"]*?|[^"\s]*?)(?:powershell|pwsh|bash|sh|cmd)(?:\.exe)?"?\s+(?:-NoProfile\s+)?(?:-Command|-lc|-c|\/c)\s+([\s\S]+)$/i.exec(text.trim());
   if (!match) return text;
   const inner = match[1].trim();
-  return inner.length > 1 && /^["']/.test(inner) && inner.endsWith(inner[0]) ? inner.slice(1, -1) : inner;
+  const quote = /^["']/.exec(inner)?.[0];
+  if (!quote) return inner;
+  // A long call is cut short with an ellipsis, so its closing quote may be gone.
+  return inner.slice(1).replace(new RegExp(`${quote}(…?)$`), "$1");
 }

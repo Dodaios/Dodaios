@@ -9777,7 +9777,8 @@
       "answer_in_thread": "Responder no thread",
       "exchange_count_one": "{count} troca",
       "exchange_count_other": "{count} trocas",
-      "members_count": "{count} membros"
+      "members_count": "{count} membros",
+      "to_all": "todos"
     },
     "graph": {
       "task": "Tarefa",

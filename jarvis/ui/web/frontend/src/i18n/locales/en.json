@@ -9777,7 +9777,8 @@
       "answer_in_thread": "Answer in its thread",
       "exchange_count_one": "{count} exchange",
       "exchange_count_other": "{count} exchanges",
-      "members_count": "{count} members"
+      "members_count": "{count} members",
+      "to_all": "everyone"
     },
     "graph": {
       "task": "Task",

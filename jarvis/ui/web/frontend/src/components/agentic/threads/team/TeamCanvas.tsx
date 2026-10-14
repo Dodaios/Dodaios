@@ -16,14 +16,14 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { ShieldAlert, UserRound, Users } from "lucide-react";
+import { ArrowLeftRight, ShieldAlert, UserRound, Users } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { plural } from "@/components/agentchat/traceEntries";
 import { fill, useT } from "@/i18n";
 import type { TeamMember, TeamThread } from "@/lib/teamThreadsApi";
 import { cn } from "@/lib/utils";
 import { clock, useMemberStatus } from "./memberLive";
-import { exchangeLabel, latestExchange, YOU, type EdgeTier, type Exchange, type GraphEdge, type GraphNode, type TeamGraph } from "./teamGraph";
+import { canvasLines, exchangeLabel, latestExchange, YOU, type EdgeTier, type Exchange, type GraphEdge, type GraphNode, type TeamGraph } from "./teamGraph";
 
 /**
  * The team room's canvas: the members and the person as nodes, every handoff
@@ -53,6 +53,10 @@ interface YouData extends Record<string, unknown> {
 
 interface LineData extends Record<string, unknown> {
   line: GraphEdge;
+  /** Both directions as one two-way line. */
+  both: boolean;
+  tier: EdgeTier;
+  count: number;
   from: GraphNode;
   to: GraphNode;
   label: string;
@@ -98,7 +102,7 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberData>
       <span className={cn("min-w-0 flex-1 truncate", status.call && "font-mono text-[11px]")}>{status.text}</span>
       {status.tone === "working" && status.seconds > 0 && <span className="shrink-0 tabular-nums text-muted-foreground">{clock(status.seconds)}</span>}
     </span>
-    {member.model && <span className="truncate pl-8 font-mono text-[10px] text-muted-foreground">{member.model}</span>}
+    {member.model && !member.name.includes(member.model) && <span className="truncate pl-8 font-mono text-[10px] text-muted-foreground">{member.model}</span>}
     </button>
     <Handle type="source" position={Position.Bottom} className={hidden} isConnectable={false} />
   </div>;
@@ -139,14 +143,16 @@ const BOW = 34;
  * A line's path and where its label sits. The person's lines carry their label
  * near the member they reach, clear of the lines between the members.
  */
-export function linePath(from: GraphNode, to: GraphNode) {
+export function linePath(from: GraphNode, to: GraphNode, both = false) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
-  const control = { x: (from.x + to.x) / 2 - (dy / length) * BOW, y: (from.y + to.y) / 2 + (dx / length) * BOW };
-  const start = exit(from, control, 4);
+  const bow = both ? 0 : BOW;
+  const control = { x: (from.x + to.x) / 2 - (dy / length) * bow, y: (from.y + to.y) / 2 + (dx / length) * bow };
+  const start = exit(from, control, both ? 9 : 4);
   const end = exit(to, control, 9);
-  const at = from.kind === "you" ? 0.74 : 0.5;
+  // Two two-way lines crossing in the middle keep their labels apart.
+  const at = from.kind === "you" ? 0.74 : both ? 0.4 : 0.5;
   const point = (a: number, b: number, c: number) => (1 - at) * (1 - at) * a + 2 * (1 - at) * at * b + at * at * c;
   const label = { x: point(start.x, control.x, end.x), y: point(start.y, control.y, end.y) };
   return { path: `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`, label };
@@ -163,31 +169,33 @@ const LineEdge = memo(function LineEdge({ id, data }: EdgeProps<Edge<LineData>>)
   const t = useT();
   const lang = t("trace_report.locale");
   if (!data) return null;
-  const { line, from, to, label, selected, hovered, faded, onOpen } = data;
-  const { path, label: at } = linePath(from, to);
-  const tier = selected ? "selected" : line.tier;
+  const { line, both, count, from, to, label, selected, hovered, faded, onOpen } = data;
+  const { path, label: at } = linePath(from, to, both);
+  const tier = selected ? "selected" : data.tier;
   const exchange = latestExchange(line);
-  const showLabel = selected || hovered || line.tier !== "past";
+  const showLabel = selected || hovered || data.tier !== "past";
   return <>
     <BaseEdge id={id} path={path} interactionWidth={18}
       className={cn("fill-none", STROKE[tier], faded && "opacity-40")}
+      markerStart={both ? `url(#team-arrow-${tier})` : undefined}
       markerEnd={`url(#team-arrow-${tier})`} />
     {showLabel && label && <EdgeLabelRenderer>
-      <button type="button" onClick={() => onOpen(line.id)} data-testid={`team-edge-${line.id}`} data-tier={line.tier}
+      <button type="button" onClick={() => onOpen(line.id)} data-testid={`team-edge-${line.id}`} data-tier={data.tier}
         aria-label={fill(t("team_threads.room.exchange_open"), { label })}
         style={{ transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` }}
         className={cn(
           "nodrag nopan pointer-events-auto absolute flex max-w-[200px] items-center gap-1.5 rounded-md border bg-card px-1.5 py-0.5 text-[11px] leading-4 shadow-sm",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          selected ? "border-accent text-foreground" : line.tier === "live" ? "border-accent/50 text-foreground"
-            : line.tier === "current" ? "border-border-strong text-foreground" : "border-border text-muted-foreground",
+          selected ? "border-accent text-foreground" : data.tier === "live" ? "border-accent/50 text-foreground"
+            : data.tier === "current" ? "border-border-strong text-foreground" : "border-border text-muted-foreground",
           faded && "opacity-60",
         )}>
         {exchange && exchange.tone !== "neutral" && <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full",
           exchange.tone === "positive" ? "bg-success" : "bg-warning")} />}
+        {both && <ArrowLeftRight aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
         <span className="truncate">{label}</span>
-        {line.exchanges.length > 1 && <span className="shrink-0 tabular-nums text-muted-foreground"
-          title={fill(t(`team_threads.room.exchange_count_${plural(lang, line.exchanges.length)}`), { count: line.exchanges.length })}>×{line.exchanges.length}</span>}
+        {count > 1 && <span className="shrink-0 tabular-nums text-muted-foreground"
+          title={fill(t(`team_threads.room.exchange_count_${plural(lang, count)}`), { count })}>×{count}</span>}
       </button>
     </EdgeLabelRenderer>}
   </>;
@@ -245,22 +253,23 @@ function Canvas({ thread, graph, agentOf, selectedNode, selectedEdge, onOpenNode
       } satisfies MemberData,
     }), [graph.nodes, thread.state, selectedNode, onOpenNode, agentOf, over]);
 
-  const edges = useMemo<Edge[]>(() => graph.edges.flatMap((line) => {
+  const edges = useMemo<Edge[]>(() => canvasLines(graph).flatMap(({ line, partner, tier, count }) => {
     const from = byId.get(line.from);
     const to = byId.get(line.to);
     if (!from || !to) return [];
     const exchange = latestExchange(line) as Exchange;
     const faded = [from, to].some((node) => node.member?.state === "left");
+    const selected = selectedEdge === line.id || (partner !== null && selectedEdge === partner.id);
     return [{
       id: line.id, source: line.from, target: line.to, type: "line", selectable: false, focusable: false,
       // Live lines draw last, on top of the others.
-      zIndex: line.id === selectedEdge ? 3 : line.tier === "live" ? 2 : line.tier === "current" ? 1 : 0,
+      zIndex: selected ? 3 : tier === "live" ? 2 : tier === "current" ? 1 : 0,
       data: {
-        line, from, to, label: exchangeLabel(exchange, t, lang), selected: line.id === selectedEdge,
+        line, both: partner !== null, tier, count, from, to, label: exchangeLabel(exchange, t, lang), selected,
         hovered: hovered === line.id, faded, onOpen: onOpenEdge,
       } satisfies LineData,
     }];
-  }), [graph.edges, byId, selectedEdge, hovered, onOpenEdge, t, lang]);
+  }), [graph, byId, selectedEdge, hovered, onOpenEdge, t, lang]);
 
   // The whole team stays in the frame when the frame or the team changes size.
   const count = graph.nodes.length;

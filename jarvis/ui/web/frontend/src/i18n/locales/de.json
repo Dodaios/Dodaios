@@ -9777,7 +9777,8 @@
       "answer_in_thread": "Im Thread antworten",
       "exchange_count_one": "{count} Übergabe",
       "exchange_count_other": "{count} Übergaben",
-      "members_count": "{count} Mitglieder"
+      "members_count": "{count} Mitglieder",
+      "to_all": "alle"
     },
     "graph": {
       "task": "Aufgabe",

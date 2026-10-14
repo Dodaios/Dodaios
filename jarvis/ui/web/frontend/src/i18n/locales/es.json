@@ -9777,7 +9777,8 @@
       "answer_in_thread": "Responder en su hilo",
       "exchange_count_one": "{count} intercambio",
       "exchange_count_other": "{count} intercambios",
-      "members_count": "{count} miembros"
+      "members_count": "{count} miembros",
+      "to_all": "todos"
     },
     "graph": {
       "task": "Tarea",

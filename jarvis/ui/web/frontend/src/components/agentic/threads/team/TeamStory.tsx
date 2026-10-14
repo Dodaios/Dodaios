@@ -279,15 +279,20 @@ export function TeamStory({ thread, graph, names }: { thread: TeamThread; graph:
   useLayoutEffect(follow, [follow, thread.entries.length, thread.state]);
   const rows = useMemo(() => storyRows(thread, t), [thread, t]);
   const recipients = useMemo(() => {
-    const map = new Map<number, string[]>();
+    const ids = new Map<number, { from: string; to: string[] }>();
     for (const line of graph.edges) {
+      if (line.from === "you") continue;
       for (const exchange of line.exchanges) {
-        if (line.from === "you") continue;
-        map.set(exchange.seq, [...(map.get(exchange.seq) ?? []), names.name(line.to)]);
+        const found = ids.get(exchange.seq) ?? { from: line.from, to: [] };
+        found.to.push(line.to);
+        ids.set(exchange.seq, found);
       }
     }
-    return map;
-  }, [graph.edges, names]);
+    // What went to every other member reads "everyone", not a list of names.
+    const others = (from: string) => thread.members.filter((member) => member.member_id !== from && member.state === "active").length;
+    return new Map([...ids].map(([seq, { from, to }]) => [seq,
+      to.length > 1 && to.length >= others(from) ? [t("team_threads.room.to_all")] : to.map((id) => names.name(id))]));
+  }, [graph.edges, names, thread.members, t]);
   const over = thread.state === "done" || thread.state === "stopped" || thread.state === "failed";
   const working = thread.members.filter((member) => member.state === "active" && (member.working || member.waiting));
   const unresolved = thread.issues.filter((issue) => !issue.resolved).length;

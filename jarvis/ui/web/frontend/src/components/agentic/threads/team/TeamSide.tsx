@@ -182,7 +182,7 @@ function MemberChat({ member, thread, names, folder, onOpenFull }: {
         <span className="flex items-baseline gap-2">
           <span className="truncate text-sm font-medium text-foreground">{member.name}</span>
           {member.role && <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t(`team_threads.member_role.${member.role}`)}</span>}
-          {member.model && <span className="truncate font-mono text-[11px] text-muted-foreground">{member.model}</span>}
+          {member.model && !member.name.includes(member.model) && <span className="truncate font-mono text-[11px] text-muted-foreground">{member.model}</span>}
         </span>
         <span className={cn("block truncate text-xs", status.tone === "waiting" ? "text-warning" : status.tone === "working" ? "text-foreground" : "text-muted-foreground")}>
           {status.text}
