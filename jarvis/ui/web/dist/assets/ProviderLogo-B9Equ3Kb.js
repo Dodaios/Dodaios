@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/ProviderLogo-B9Equ3Kb.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-BOnNxRri.js";import{S as U}from"./server-BTq6S7nC.js";/**
+|||||||| parent of 0e9faf7f5f (fix(society): stop the atrium steps' end cheeks from flickering):jarvis/ui/web/dist/assets/ProviderLogo-DGOPNvVU.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-BXc9J8ya.js";import{S as U}from"./server-mEjPyoWy.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-DO8VortY.js";import{S as U}from"./server-BREA4Lbz.js";/**
+>>>>>>>> 0e9faf7f5f (fix(society): stop the atrium steps' end cheeks from flickering):jarvis/ui/web/dist/assets/ProviderLogo-DzJ6svrO.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CliLogo-BZXw-LNf.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-ASWVo5l1.js";import{c as n,j as a,e as o}from"./index-BOnNxRri.js";import{T as c}from"./terminal-BQsmYWq7.js";import{C as I}from"./credit-card-CLqujQxY.js";import{G as S}from"./git-branch-TmZqWP4X.js";import{R as W}from"./rocket-6Y3FVBOQ.js";import{C as $}from"./cloud-3jtEV3Vd.js";/**
+|||||||| parent of 0e9faf7f5f (fix(society): stop the atrium steps' end cheeks from flickering):jarvis/ui/web/dist/assets/CliLogo-D1pExPb9.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-CE9xkqWj.js";import{c as n,j as a,e as o}from"./index-BXc9J8ya.js";import{T as c}from"./terminal-Ct-VffIo.js";import{C as I}from"./credit-card-Cxpyvd7r.js";import{G as S}from"./git-branch-HzTSGvdT.js";import{R as W}from"./rocket-qhcEe5Om.js";import{C as $}from"./cloud-hSBLN4XL.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BE31_DmI.js";import{c as n,j as a,e as o}from"./index-DO8VortY.js";import{T as c}from"./terminal-D9ECK8GL.js";import{C as I}from"./credit-card-D9Dj4b6k.js";import{G as S}from"./git-branch-ByAyh0G3.js";import{R as W}from"./rocket-MCziGXBx.js";import{C as $}from"./cloud-CVgDUd-F.js";/**
+>>>>>>>> 0e9faf7f5f (fix(society): stop the atrium steps' end cheeks from flickering):jarvis/ui/web/dist/assets/CliLogo-BykGaI08.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/locate-fixed-OOoSScZz.js
 import{c as e}from"./index-BOnNxRri.js";/**
+|||||||| parent of 0e9faf7f5f (fix(society): stop the atrium steps' end cheeks from flickering):jarvis/ui/web/dist/assets/locate-fixed-oPO_-6fY.js
+import{c as e}from"./index-BXc9J8ya.js";/**
+========
+import{c as e}from"./index-DO8VortY.js";/**
+>>>>>>>> 0e9faf7f5f (fix(society): stop the atrium steps' end cheeks from flickering):jarvis/ui/web/dist/assets/locate-fixed-CXN_Pl9m.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
