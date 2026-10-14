@@ -19,6 +19,7 @@ from jarvis.core.runtime_refs import get_supervisor_tool_gateway
 from jarvis.core.tool_budget import VOICE_TOOL_BUDGET_S
 from jarvis.cu.direct import COMPUTER_CONTROL_RULES
 from jarvis.live.coordination import (
+    NAMED_TOOLS,
     ON_SCREEN_RULE,
     TEAM_TALK_RULE,
     WORK_STATUS_RULE,
@@ -54,18 +55,15 @@ _SESSION_TOOLS = frozenset({
 # or ``[voice].realtime_tool_declaration_budget_tokens``, the smaller wins), at
 # most this many catalog tools are declared directly; every other tool stays
 # reachable through discover_tools/call_tool. A small local model pays a full
-# LLM round per discovery step, so the frequent tools come first. The tools the
-# conversation rules name by name (show_on_screen, ask_agent) stay direct: a
-# small model that does not see a named tool declares it missing instead of
-# discovering it.
+# LLM round per discovery step, so the frequent tools come first. Every tool the
+# conversation rules call by name comes before them: a small model that does
+# not see a named tool declares it missing instead of discovering it.
 _DIRECT_TOOL_LIMIT = 12
 _DIRECT_TOOL_PREFERENCE = (
-    "workspace-orchestrate",
+    *(name for name in NAMED_TOOLS if name not in _SESSION_TOOLS),
     "find-app-action",
     "run-app-action",
     "search_web",
-    "show_on_screen",
-    "ask_agent",
     "open_app",
     "take_appshot",
     "screen_snapshot",
@@ -87,12 +85,28 @@ def _declared_name(declaration: dict) -> str:
     return str(declaration.get("description", "")).split(": ", 1)[0]
 
 
-def _fit_declarations(declarations: list[dict], budget_chars: int) -> tuple[dict, ...]:
-    """Session built-ins plus a curated direct set that fits ``budget_chars``."""
+def _fit_declarations(
+    declarations: list[dict],
+    budget_chars: int,
+    *,
+    fillers: frozenset[str] | None = None,
+) -> tuple[dict, ...]:
+    """Session built-ins plus a curated direct set that fits ``budget_chars``.
+
+    Slots the preferred tools leave free go to other catalog tools; with
+    ``fillers`` only to those, so a tool with an effect of its own (restarting
+    the app) is never one of a small model's few direct tools by catalog order
+    alone. It stays reachable through discover_tools.
+    """
     session = [d for d in declarations if d.get("name") in _SESSION_TOOLS]
     rank = {name: index for index, name in enumerate(_DIRECT_TOOL_PREFERENCE)}
     catalog = sorted(
-        (d for d in declarations if d.get("name") not in _SESSION_TOOLS),
+        (
+            d
+            for d in declarations
+            if d.get("name") not in _SESSION_TOOLS
+            and (fillers is None or _declared_name(d) in rank or _declared_name(d) in fillers)
+        ),
         key=lambda d: rank.get(_declared_name(d), len(rank)),
     )
     used = sum(len(json.dumps(d)) for d in session)
@@ -288,7 +302,12 @@ class NativeLiveVoiceSession(LiveVoiceSession):
         budget = self._declaration_budget_tokens()
         if budget <= 0:
             return tuple(declarations)
-        fitted = _fit_declarations(declarations, budget * 4)
+        safe = frozenset(
+            descriptor.name
+            for descriptor in self._tools.catalog()
+            if str(getattr(descriptor, "risk_tier", "")) == "safe"
+        )
+        fitted = _fit_declarations(declarations, budget * 4, fillers=safe)
         # AP-30: a trimmed tool set looks exactly like a complete one.
         log.info(
             "Native voice declares %d of %d tools under a %d-token budget for %s; "

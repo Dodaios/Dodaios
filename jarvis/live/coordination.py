@@ -15,15 +15,14 @@ WORK_STATUS_RULE: Final[str] = (
     "done or who is waiting for them, call task_status once: it is one board of this "
     "call's background tasks, every open coding agent with its workspace's git state, "
     "the missions that have not ended and the agent team. For one workspace's agents "
-    "or its branch alone, workspace-orchestrate status with that workspace is enough. "
+    "alone, workspace-orchestrate with action status and that workspace is enough. "
     "Say the takeaway in a sentence or two and name who "
     "needs the user; never read out lists, diffs or code. When the user wants to "
     "hear when an agent they started themselves is done, call workspace-orchestrate "
-    "watch for it; a "
-    "task you sent is reported back on its own. "
-    "A workspace's repository is workspace-git: its changed files, its worktrees, a new "
-    "worktree when the user asks for one, putting one away or bringing it back, commit, "
-    "push and pull request. "
+    "with action watch for it; a task you sent is reported back on its own. "
+    "A workspace's repository is workspace-git, with op state for its branch and "
+    "changed files: also its worktrees, a new worktree when the user asks for one, "
+    "putting one away or bringing it back, commit, push and pull request. "
 )
 
 
@@ -42,6 +41,19 @@ TEAM_TALK_RULE: Final[str] = (
     "When the user wants to talk with or ask one of their named agents, use ask_agent: "
     "it waits for the answer, which you then say as that agent's words. Keep relaying "
     "while the user addresses that agent, and answer yourself again when they say so. "
+)
+
+
+#: Every tool the rules above call by name. A model that is told to use a tool it
+#: was not given says the tool does not exist, so these are always declared
+#: directly, also under a small model's declaration budget.
+NAMED_TOOLS: Final[tuple[str, ...]] = (
+    "task_status",
+    "workspace-orchestrate",
+    "workspace-git",
+    "show_on_screen",
+    "navigate",
+    "ask_agent",
 )
 
 
@@ -77,4 +89,10 @@ def conversation_rules(executor: str) -> str:
     )
 
 
-__all__ = ["ON_SCREEN_RULE", "TEAM_TALK_RULE", "WORK_STATUS_RULE", "conversation_rules"]
+__all__ = [
+    "NAMED_TOOLS",
+    "ON_SCREEN_RULE",
+    "TEAM_TALK_RULE",
+    "WORK_STATUS_RULE",
+    "conversation_rules",
+]

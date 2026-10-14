@@ -8,6 +8,7 @@
  * search on a full floor costs well under a few milliseconds.
  */
 import type { OfficeLayout, Point, Rect } from "./officeLayout";
+import { onSkyPad, skyPadExtent } from "./skyPad";
 
 /** Half the shoulder width of a walking figure, in metres. */
 export const WALKER_RADIUS = 0.28;
@@ -22,6 +23,11 @@ export interface NavGrid {
   originZ: number;
   /** 1 = blocked, 0 = walkable; index = row * cols + col. */
   blocked: Uint8Array;
+  /**
+   * The floor inside the railing. The grid may reach beyond it (the sky pad); an idle wander stays on the floor.
+   * Absent on grids built by hand in tests.
+   */
+  home?: Rect;
 }
 
 /** A snapped approach may end at most this far from a blocked target. */
@@ -33,19 +39,24 @@ const SQRT2 = Math.SQRT2;
 export function buildNavGrid(layout: OfficeLayout, opts: { cell?: number; radius?: number } = {}): NavGrid {
   const cell = opts.cell ?? 0.2;
   const radius = opts.radius ?? WALKER_RADIUS;
-  const { floor } = layout;
-  const cols = Math.max(1, Math.ceil((floor.maxX - floor.minX) / cell));
-  const rows = Math.max(1, Math.ceil((floor.maxZ - floor.minZ) / cell));
-  const originX = floor.minX;
-  const originZ = floor.minZ;
+  const { floor, skyPad } = layout;
+  // The grid covers the floor and, on the agents floor, the bridge and the pad outside the east windows.
+  const extent = skyPad ? skyPadExtent(skyPad) : floor;
+  const minX = Math.min(floor.minX, extent.minX), maxX = Math.max(floor.maxX, extent.maxX);
+  const minZ = Math.min(floor.minZ, extent.minZ), maxZ = Math.max(floor.maxZ, extent.maxZ);
+  const cols = Math.max(1, Math.ceil((maxX - minX) / cell));
+  const rows = Math.max(1, Math.ceil((maxZ - minZ) / cell));
+  const originX = minX;
+  const originZ = minZ;
   const blocked = new Uint8Array(cols * rows);
 
-  // Cells whose centre lies outside the walkable floor.
+  // Cells whose centre lies outside the walkable floor (and off the pad).
   for (let r = 0; r < rows; r += 1) {
     const cz = originZ + (r + 0.5) * cell;
     for (let c = 0; c < cols; c += 1) {
       const cx = originX + (c + 0.5) * cell;
-      if (cx < floor.minX || cx > floor.maxX || cz < floor.minZ || cz > floor.maxZ) blocked[r * cols + c] = 1;
+      const onFloor = cx >= floor.minX && cx <= floor.maxX && cz >= floor.minZ && cz <= floor.maxZ;
+      if (!onFloor && !(skyPad && onSkyPad(skyPad, { x: cx, z: cz }))) blocked[r * cols + c] = 1;
     }
   }
   // Cells whose centre lies inside an inflated obstacle.
@@ -59,7 +70,7 @@ export function buildNavGrid(layout: OfficeLayout, opts: { cell?: number; radius
       for (let c = c0; c <= c1; c += 1) blocked[r * cols + c] = 1;
     }
   }
-  return { cell, cols, rows, originX, originZ, blocked };
+  return { cell, cols, rows, originX, originZ, blocked, home: floor };
 }
 
 function colOf(grid: NavGrid, x: number): number {
@@ -376,7 +387,7 @@ export function findPath(grid: NavGrid, from: Point, to: Point): Point[] | null 
 }
 
 /** A uniformly drawn walkable cell centre (inside `within` when given), or null after a bounded number of tries. */
-export function randomWalkablePoint(grid: NavGrid, rng: () => number, within?: Rect): Point | null {
+export function randomWalkablePoint(grid: NavGrid, rng: () => number, within: Rect | undefined = grid.home): Point | null {
   const minX = Math.max(grid.originX, within?.minX ?? -Infinity);
   const maxX = Math.min(grid.originX + grid.cols * grid.cell, within?.maxX ?? Infinity);
   const minZ = Math.max(grid.originZ, within?.minZ ?? -Infinity);
