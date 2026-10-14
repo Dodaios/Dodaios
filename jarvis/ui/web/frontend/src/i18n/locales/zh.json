@@ -9610,7 +9610,10 @@
       "challenge": "相互质询",
       "converge": "总方案",
       "build": "实现",
-      "review": "评审"
+      "review": "评审",
+      "planning": "方案",
+      "steps": "步骤",
+      "final": "最终评审"
     },
     "kind": {
       "draft": "个人方案",
@@ -9619,7 +9622,11 @@
       "vote": "表决",
       "build": "实现报告",
       "review": "评审",
-      "fix": "对评审的答复"
+      "fix": "对评审的答复",
+      "plan_version": "方案",
+      "plan_review": "方案评审",
+      "step_build": "步骤",
+      "step_review": "步骤评审"
     },
     "vote": {
       "agree": "同意",
@@ -9651,7 +9658,9 @@
       "stalled": "{note} 未完成本轮。继续将重新询问。",
       "member_failed": "{note}。缺少该成员就无法组成团队。继续将重新询问。",
       "not_enough_members": "剩余成员不足两位，团队无法继续。",
-      "error": "团队会话失败：{note}"
+      "error": "团队会话失败：{note}",
+      "plan_unreadable": "规划者没有写出可读取的方案（{note}）。继续将重新询问。",
+      "step_disagreement": "经过 {rounds} 轮评审，步骤 {number} 仍未通过。"
     },
     "notice": {
       "same_family": "所有成员使用同一模型系列，盲点会重叠。加入第二个系列能发现更多问题。",
@@ -9670,19 +9679,29 @@
       "limit_turns": "已达到轮数上限。",
       "limit_cost": "已达到费用上限。",
       "stalled": "{note} 未完成本轮。",
-      "not_enough_members": "剩余成员不足两位。"
+      "not_enough_members": "剩余成员不足两位。",
+      "plan_version_agreed": "方案第 {version} 版在第 {rounds} 轮达成一致：共 {count} 个步骤。",
+      "plan_version_accepted_by_user": "你已按现状采用方案第 {version} 版：共 {count} 个步骤。",
+      "plan_revision": "{member} 在步骤 {number} 请求修订方案。",
+      "step_accepted": "步骤 {number} 已通过：{title}",
+      "step_accepted_by_user": "你已按现状接受步骤 {number}：{title}",
+      "role_changed": "{member} 接任{role}。",
+      "steps_done": "全部 {count} 个步骤均已通过，开始最终评审。"
     },
     "summary": {
       "done": "已完成。方案在第 {plan} 轮达成一致，更改在第 {review} 轮评审通过。评审者提出 {count} 项发现，其中 {blocking} 项为阻塞。",
       "accepted_by_user": "你已接受带有未决发现的成果。评审者提出 {count} 项发现，其中 {blocking} 项为阻塞。",
-      "open_points": "未决事项"
+      "open_points": "未决事项",
+      "planned_done": "已完成。按方案第 {version} 版实现并通过了 {count} 个步骤，共 {rounds} 轮实现。评审者提出 {findings} 项发现，其中 {blocking} 项为阻塞。",
+      "planned_accepted": "你已接受带有未决发现的成果。按方案第 {version} 版共 {count} 个步骤；评审者提出 {findings} 项发现，其中 {blocking} 项为阻塞。"
     },
     "issues": {
       "title": "团队发现的问题：{count}（{open} 项未决）",
       "resolved": "已解决",
       "open": "未决",
       "plan": "方案",
-      "review": "评审"
+      "review": "评审",
+      "step": "步骤 {number}"
     },
     "draft": {
       "title": "团队要在 {project} 中构建什么？",
@@ -9693,7 +9712,12 @@
       "add": "添加成员",
       "placeholder": "描述交给团队的任务",
       "start": "启动团队",
-      "bounds": "在 90 分钟、40 轮或三轮未达成一致后停止并询问你。"
+      "bounds": "在 90 分钟、40 轮或三轮未达成一致后停止并询问你。",
+      "mode": "团队工作方式",
+      "body_planned": "一位成员撰写由小步骤组成的方案，另一位评审它。实现者一次实现一个步骤，每个步骤都会按其目标检查通过后再开始下一个。受阻的步骤会退回给规划者。你可以随时介入。",
+      "role_of": "成员 {number} 的角色",
+      "roles_invalid": "请恰好选择一位规划者和一位实现者。",
+      "bounds_planned": "在 90 分钟、40 轮、三轮方案未达成一致或同一步骤三轮评审后停止并询问你。"
     },
     "meter_time": "{minutes} / {max_minutes} 分钟",
     "meter_turns": "{turns} / {max_turns} 轮",
@@ -9712,7 +9736,46 @@
       "voter": "方案完成后表决",
       "builder": "实现方案",
       "reviewer": "实现完成后评审",
-      "answers": "答复评审"
+      "answers": "答复评审",
+      "writes_plan": "撰写方案",
+      "reviews_plan": "方案完成后评审",
+      "builds_step": "实现此步骤",
+      "reviews_step": "步骤实现后评审",
+      "final_reviewer": "评审整体更改"
+    },
+    "accept_step": "按现状接受此步骤",
+    "mode": {
+      "peers": "平等协作",
+      "planner_builder": "规划与实现"
+    },
+    "member_role": {
+      "planner": "规划者",
+      "builder": "实现者",
+      "reviewer": "评审者"
+    },
+    "step_status": {
+      "open": "未开始",
+      "building": "实现中",
+      "in_review": "评审中",
+      "changes": "需要修改",
+      "accepted": "已通过"
+    },
+    "plan": {
+      "title": "方案 v{version}",
+      "progress": "已通过 {done} / {total}",
+      "proposed": "已提出，评审中",
+      "writing": "规划者正在撰写方案。",
+      "done_when": "完成标准",
+      "revision": "{member} 在步骤 {number} 请求修订",
+      "toggle": "显示或隐藏方案",
+      "open_findings": "带未决发现通过",
+      "version_tag": "方案 v{version}",
+      "unreadable": "无法读取",
+      "steps_count": "{count} 个步骤",
+      "blocked": "受阻",
+      "done": "完成",
+      "plan_change": "方案变更：{text}",
+      "step": "步骤 {number}"
     }
   }
 }
