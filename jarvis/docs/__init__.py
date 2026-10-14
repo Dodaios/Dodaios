@@ -2,7 +2,7 @@
 
 Reads Markdown files from the documentation roots returned by
 ``jarvis.core.paths.default_doc_roots()`` (canonically ``docs/``). Parses YAML
-front matter (see ``jarvis/skills/builtin/jarvis-doc-author/`` for the schema),
+front matter (see ``jarvis/skills/builtin/dodaios-doc-author/`` for the schema),
 indexes full text via SQLite FTS5, and provides a REST API for the ``DocsView``
 of the UI.
 
