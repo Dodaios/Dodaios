@@ -8,6 +8,7 @@ import {
   prepareBody,
   pruneEmptySections,
   relativeAge,
+  stripComments,
   stripLeadingTitle,
   visibleAgents,
 } from "@/lib/memoryModel";
@@ -40,6 +41,11 @@ describe("memoryModel", () => {
   it("keeps a heading whose only content sits in a sub-section", () => {
     const body = "## Work\n### Projects\n- Magenta\n";
     expect(pruneEmptySections(body)).toBe(body);
+  });
+
+  it("removes nested and unclosed comment openers completely", () => {
+    expect(stripComments("a <!<!-- x -->-- y --> b")).toBe("a  b");
+    expect(stripComments("text <!-- never closed")).toBe("text  never closed");
   });
 
   it("flattens Markdown for a one-line preview", () => {
