@@ -7,9 +7,10 @@
  * Frame: the ship's nose is its local -z, its top +y, its right +x (as the
  * exported model). Speeds are metres per second at the Verse's scale.
  *
- * - Arcade assist (the default): the ship flies where it points. Its velocity
- *   is pulled towards the nose times the throttle's speed, it banks into turns
- *   and levels itself when the stick is let go.
+ * - Arcade assist (the default): made for fun. The ship flies where it points,
+ *   turns fast, climbs and dives as steeply as the pilot likes, and its lift
+ *   thrusters push straight up or down whatever its attitude. It banks into
+ *   turns and levels its wings (never its nose) when the stick is let go.
  * - Simulation: Newtonian. Thrust accelerates along the nose, the ship keeps
  *   its momentum and drifts; only light rotational dampers help.
  */
@@ -59,19 +60,20 @@ export interface FlightState {
 }
 
 export const FLIGHT = {
-  cruise: 70,
-  boost: 150,
+  cruise: 85,
+  boost: 170,
   /** Thrust along the nose (m/s²) in simulation, and the boost's factor on it. */
   thrust: 24,
   boostFactor: 2.4,
-  lift: 14,
+  /** Vertical thrust: arcade climbs and sinks at up to this speed (m/s); simulation accelerates with it. */
+  lift: 30,
   /** Body rate at full stick (rad/s): pitch, yaw, roll. */
-  rates: [1.1, 0.75, 1.9] as const,
+  rates: [1.9, 1.3, 2.8] as const,
   /** How fast arcade pulls the velocity onto the nose (1/s), and the simulation's linear drag. */
-  grip: 1.7,
+  grip: 2.6,
   drag: 0.025,
   /** The throttle lever's travel per second at full input. */
-  leverRate: 0.6,
+  leverRate: 1.1,
   /** Boost charge spent and regained per second. */
   boostDrain: 0.22,
   boostRecharge: 0.12,
@@ -139,9 +141,7 @@ export function stepFlight(s: FlightState, raw: FlightInput, dt: number, assist:
     const bank = Math.asin(Math.max(-1, Math.min(1, _r.y)));
     const wanted = -input.yaw * 0.5;
     if (!input.roll) target.z += (wanted - bank) * 2.2;
-    // Level the nose a little when no pitch is held, so the horizon comes back.
-    if (!input.pitch) target.x += -Math.asin(Math.max(-1, Math.min(1, _f.y))) * 0.6;
-    s.w.lerp(target, 1 - Math.exp(-8 * dt));
+    s.w.lerp(target, 1 - Math.exp(-10 * dt));
   } else {
     s.w.addScaledVector(_a.copy(target).sub(s.w), 1 - Math.exp(-3 * dt));
   }
@@ -152,7 +152,9 @@ export function stepFlight(s: FlightState, raw: FlightInput, dt: number, assist:
   // Translation.
   const top = boosting ? FLIGHT.boost : FLIGHT.cruise;
   if (assist === "arcade") {
-    const want = _t.copy(_f).multiplyScalar(s.throttle * top).addScaledVector(_u, input.lift * FLIGHT.lift);
+    // Lift thrusters push along the world's up, so Space always climbs and the sink key always sinks.
+    const want = _t.copy(_f).multiplyScalar(s.throttle * top);
+    want.y += input.lift * FLIGHT.lift;
     s.v.lerp(want, 1 - Math.exp(-FLIGHT.grip * (boosting ? 1.4 : 1) * dt));
   } else {
     s.v.addScaledVector(_f, s.throttle * FLIGHT.thrust * (boosting ? FLIGHT.boostFactor : 1) * dt);
