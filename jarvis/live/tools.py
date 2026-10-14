@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from jarvis.brain.cu_gate import CU_VEHICLE_TOOL_NAMES
 from jarvis.control.cancel import CancelToken
 from jarvis.core.protocols import SupervisorToolGateway, SupervisorToolRequest
+from jarvis.live.coordination import NAMED_TOOLS
 from jarvis.live.state import LiveLedger
 from jarvis.live.tasks import BackgroundTask, TaskBoard
 from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
@@ -56,16 +57,11 @@ _GO_AHEAD_WORDS = frozenset(
 _APPROVAL_LOCALES = ("de", "en", "es", "pt")
 _RECENT_SEGMENTS = 4
 _REQUEST_TEXT_CHARS = 1200
-# Declared before every other tool so the size budget never drops them.
-# The conversation rules (``coordination.py``) name show_on_screen and
-# ask_agent: a model that is not given a tool it was told to use says it does
-# not exist (live 2026-10-14, a busy catalog sorted it past the budget).
-_PRIORITY_TOOLS = frozenset(
-    {
-        "workspace-orchestrate", "workspace-git", "find-app-action", "run-app-action",
-        "show_on_screen", "ask_agent",
-    }
-)
+# Declared before every other tool so the size budget never drops them: the
+# app-steering tools and every tool the conversation rules name. A model that
+# is not given a tool it was told to use says it does not exist (live
+# 2026-10-14, a busy catalog sorted show_on_screen past the budget).
+_PRIORITY_TOOLS = frozenset({"find-app-action", "run-app-action", *NAMED_TOOLS})
 # Declared under its canonical name in every mode (see ``declarations``).
 _DIRECT_TOOLS = frozenset({"computer", "take_appshot"})
 # One screen, one mouse: these never run side by side, and a result that
@@ -125,6 +121,27 @@ def function(name: str, description: str, properties: dict, required: list[str])
             "additionalProperties": False,
         },
     }
+
+
+def _accepted_arguments(schema: Any) -> str:
+    """One sentence naming a tool's top-level arguments, for a rejected call.
+
+    The validation message alone names what was wrong, not what is right; a
+    small model then repeats the same call (live 2026-10-14: three identical
+    rejected calls in one turn).
+    """
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    if not isinstance(properties, dict) or not properties:
+        return ""
+    required = set(schema.get("required") or ())
+    parts = []
+    for name, spec in properties.items():
+        part = f"{name} (required)" if name in required else str(name)
+        values = spec.get("enum") if isinstance(spec, dict) else None
+        if isinstance(values, list) and values:
+            part += ": one of " + ", ".join(str(value) for value in values[:20])
+        parts.append(part)
+    return ("Accepted arguments: " + "; ".join(parts))[:600] + ". "
 
 
 def _board_section(section: str, output: Any) -> Any:
@@ -324,7 +341,7 @@ class LiveTools:
         for descriptor in ordered:
             if descriptor.name in _DIRECT_TOOLS:
                 continue
-            alias = "jarvis_" + hashlib.sha256(descriptor.name.encode()).hexdigest()[:20]
+            alias = self._alias(descriptor.name)
             definition = {
                 "type": "function",
                 "name": alias,
@@ -338,6 +355,21 @@ class LiveTools:
             self._names[alias] = descriptor.name
             definitions.append(definition)
         return definitions
+
+    def _alias(self, name: str) -> str:
+        """The function name a catalog tool is declared under: readable and unique.
+
+        Every provider accepts letters, digits and underscores up to 64
+        characters. The tool's own name stays legible in it: behind opaque
+        hashes a small model confused app-restart with show_on_screen (live
+        2026-10-14). A name that would collide or not fit keeps a hash suffix.
+        """
+        readable = "jarvis_" + re.sub(r"[^A-Za-z0-9_]", "_", name)
+        owner = self._names.get(readable)
+        if len(readable) <= 64 and owner in (None, name):
+            return readable
+        digest = hashlib.sha256(name.encode()).hexdigest()[:20]
+        return readable[:43] + "_" + digest
 
     async def execute(
         self, call_id: str, name: str, args: dict, revision: int,
@@ -805,7 +837,11 @@ class LiveTools:
                 "success": False,
                 "executed": False,
                 "retryable": True,
-                "error": f"Invalid {field}: {exc.message[:300]}. Correct it and call again.",
+                "error": (
+                    f"Invalid {field}: {exc.message[:300]}. "
+                    f"{_accepted_arguments(descriptor.input_schema)}"
+                    "Correct it and call again."
+                ),
             }
         trace = uuid4()
         from jarvis.core.model_selection import ModelSelection, use_operation_model

@@ -512,9 +512,13 @@ export function skyMaterial(uniforms: CityUniforms): ShaderMaterial {
       vec3 dir = normalize(vWorld - cameraPosition);
       vec3 col = skyAt(dir);
       // Faint stars above the horizon only.
-      vec2 cellS = floor(vec2(atan(dir.z, dir.x) * 220.0, dir.y * 220.0));
-      float star = step(0.9965, hash12(cellS)) * smoothstep(0.02, 0.2, dir.y);
-      col += vec3(star) * 0.5;
+      // A star is a small dot inside some of the cells of a grid over the sky, never the whole cell.
+      vec2 sky = vec2(atan(dir.z, dir.x) * 220.0, dir.y * 220.0);
+      vec2 cellS = floor(sky);
+      vec2 inCell = fract(sky) - 0.5 - (vec2(hash12(cellS + 3.1), hash12(cellS + 7.7)) - 0.5) * 0.6;
+      float dot_ = 1.0 - smoothstep(0.04, 0.12, length(inCell));
+      float star = step(0.9965, hash12(cellS)) * dot_ * smoothstep(0.02, 0.2, dir.y) * (0.4 + 0.6 * hash12(cellS + 1.3));
+      col += vec3(star) * 0.9;
       gl_FragColor = vec4(col, 1.0);
       ${OUTPUT}
     }

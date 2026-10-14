@@ -10,6 +10,7 @@
  * transforms, clamping, bearings, grid labels and hit-testing are unit-tested
  * and the drawing takes any 2D context (an offscreen layer or a test recorder).
  */
+import type { SkyPad } from "./skyPad";
 import { CHECKPOINT_GOLD, DEPARTMENT_TINTS, ROOM_FLOOR_COLOURS } from "./officePalette";
 import {
   FURNITURE_SIZE, allDesks, deskRect, footprint, roomAt,
@@ -393,9 +394,9 @@ export const STATE_RING: Record<MinimapAgentState, string> = {
 };
 
 /** Checkpoint icon per checkpoint kind, for the maps' gold badges. */
-export const CHECKPOINT_ICON_KEYS: Record<CheckpointKind, "spawn" | "plus" | "list" | "team" | "shirt" | "star" | "coffee" | "elevator" | "target" | "sparkle" | "trophy"> = {
+export const CHECKPOINT_ICON_KEYS: Record<CheckpointKind, "spawn" | "plus" | "list" | "team" | "shirt" | "star" | "coffee" | "elevator" | "target" | "sparkle" | "trophy" | "ship"> = {
   spawn: "spawn", launch: "spawn", create: "plus", manage: "list", team: "team", wardrobe: "shirt", lead: "star", break: "coffee", elevator: "elevator", mission: "target",
-  studio: "sparkle", levels: "trophy",
+  studio: "sparkle", levels: "trophy", ship: "ship",
 };
 
 /** Stroke-only icons in a 24 × 24 box. */
@@ -410,6 +411,7 @@ const ICON_PATHS: Record<(typeof CHECKPOINT_ICON_KEYS)[CheckpointKind], string> 
   elevator: "M5 3h14v18H5zM9 10l3-3 3 3M9 14l3 3 3-3",
   target: "M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18zM12 8a4 4 0 1 1 0 8a4 4 0 1 1 0-8zM12 1v4M12 19v4M1 12h4M19 12h4",
   sparkle: "M10 3l1.6 5.4L17 10l-5.4 1.6L10 17l-1.6-5.4L3 10l5.4-1.6zM18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z",
+  ship: "M12 2.5c3 2.6 4.4 6.4 4.4 10.4v4.6l-4.4 2.5-4.4-2.5v-4.6c0-4 1.4-7.8 4.4-10.4zM7.6 14l-3.1 3v3l3.1-1.5M16.4 14l3.1 3v3l-3.1-1.5M12 9.5h.01",
   trophy: "M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4.5a2.5 2.5 0 0 0 2.6 3.6M17 6h2.5a2.5 2.5 0 0 1-2.6 3.6M12 14v3M8 20h8M9.5 17h5",
 };
 
@@ -483,6 +485,7 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
   ctx.strokeStyle = MAP_PAINT.slabEdge;
   ctx.lineWidth = 1.5;
   ctx.stroke();
+  if (layout.skyPad) drawSkyPad(ctx, layout.skyPad, t);
 
   ctx.fillStyle = MAP_PAINT.floor;
   rectPath(ctx, t, layout.floor, 0.4);
@@ -880,4 +883,34 @@ export function drawMapLabel(ctx: Ctx, text: string, x: number, y: number, px: n
   ctx.strokeText(text, x, y);
   ctx.fillStyle = MAP_PAINT.label;
   ctx.fillText(text, x, y);
+}
+
+/** The sky pad outside the east windows: its bridge, the deck with its gold landing circle, and the courier on it. */
+function drawSkyPad(ctx: CanvasRenderingContext2D, pad: SkyPad, t: MapTransform): void {
+  const deck = worldToMap(t, pad.pad), r = pad.pad.r * t.scale;
+  ctx.fillStyle = MAP_PAINT.slab;
+  const a = worldToMap(t, { x: pad.bridge.minX, z: pad.gap.minZ }), b = worldToMap(t, { x: pad.pad.x, z: pad.gap.maxZ });
+  ctx.fillRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+  ctx.beginPath();
+  ctx.arc(deck.x, deck.y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = MAP_PAINT.slabEdge;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.strokeStyle = CHECKPOINT_GOLD.rim;
+  ctx.lineWidth = Math.max(1, t.scale * 0.25);
+  ctx.beginPath();
+  ctx.arc(deck.x, deck.y, r * 0.78, 0, Math.PI * 2);
+  ctx.stroke();
+  // The courier: a slim lozenge along its heading (north).
+  const nose = worldToMap(t, { x: pad.ship.x, z: pad.shipRect.minZ + 0.6 }), tail = worldToMap(t, { x: pad.ship.x, z: pad.shipRect.maxZ - 0.6 });
+  const half = ((pad.shipRect.maxX - pad.shipRect.minX) / 4) * t.scale;
+  ctx.fillStyle = "#d7dce4";
+  ctx.beginPath();
+  ctx.moveTo(nose.x, nose.y);
+  ctx.lineTo(nose.x + half, (nose.y + tail.y) / 2);
+  ctx.lineTo(tail.x, tail.y);
+  ctx.lineTo(nose.x - half, (nose.y + tail.y) / 2);
+  ctx.closePath();
+  ctx.fill();
 }

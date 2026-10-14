@@ -29,6 +29,8 @@ import { seatOf, wallRect, type OfficeLayout, type WallSegment } from "./officeL
 import { cutawayStep, cutawayWalls, wallKey } from "./wallCutaway";
 import { useLeadSeat } from "./leadSeat";
 import { cameraView, officeSession, player, useOfficeStore } from "./officeStore";
+import { courierSession } from "./courierStore";
+import { boundsWithPad } from "./skyPad";
 import "./officeCameraRig.css";
 
 /** Where the camera starts: close behind the character, south-east, looking down. */
@@ -70,7 +72,9 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
   const reduced = useReducedMotion() ?? false;
   // The wheel may back away far enough to frame this floor whole, however large it is.
   const aspect = size.width / Math.max(1, size.height);
-  const limits = useMemo(() => cameraLimitsFor(layout.bounds, aspect), [layout.bounds, aspect]);
+  // The camera frames the slab and the sky pad beside it.
+  const viewBounds = useMemo(() => boundsWithPad(layout.bounds, layout.skyPad), [layout.bounds, layout.skyPad]);
+  const limits = useMemo(() => cameraLimitsFor(viewBounds, aspect), [viewBounds, aspect]);
   const lastFocus = useRef(0);
   const lastZoom = useRef(0);
   // Following resumed far from the character: glide over instead of snapping across the floor.
@@ -81,7 +85,7 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
   const beforeOverview = useRef<number | null>(null);
   // A remembered view is only restored where it still makes sense on this floor plan.
   const wallRects = useMemo(() => layout.walls.map(wallRect), [layout.walls]);
-  const settle = (pose: CameraPose) => settleView(pose, layout.bounds, wallRects);
+  const settle = (pose: CameraPose) => settleView(pose, viewBounds, wallRects);
   const backOff = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(backOff.current), []);
   const dive = useRef<{ fromEye: Vector3; toEye: Vector3; fromTarget: Vector3; toTarget: Vector3; t: number } | null>(null);
@@ -214,7 +218,7 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
     if (!active || overview === 0) return;
     // Seated in first person the glide would keep the camera in the chair: stand up first.
     if (seated.current.blend > 0 || (layout.command && useLeadSeat.getState().seated === layout.command.id)) leaveFirstPerson();
-    const home = campusOverview(layout.bounds, size.width / Math.max(1, size.height));
+    const home = campusOverview(viewBounds, size.width / Math.max(1, size.height));
     // "Follow me" comes back to the view the person walked in, not to a view from across the campus.
     if (controls.current) beforeOverview.current ??= camera.position.distanceTo(controls.current.target);
     flight.current = null;
@@ -344,9 +348,10 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
     };
   }, [active, limits]);
 
+  const wasFlying = useRef(false);
   // The near plane follows the zoom, or coplanar layers (oak over slab) fight in bands when zoomed out.
   useFrame(() => {
-    if (!active) return;
+    if (!active || courierSession.flying) return;
     const c = controls.current;
     const lens = camera as PerspectiveCamera;
     if (!c || !lens.isPerspectiveCamera) return;
@@ -360,6 +365,15 @@ export function OfficeCameraRig({ layout, overview }: { layout: OfficeLayout; ov
     if (!active) return;
     const c = controls.current;
     if (!c) return;
+    // The courier flies the camera itself; on stepping out the orbit picks up behind the person beside the ship.
+    if (courierSession.flying) { c.enabled = false; wasFlying.current = true; return; }
+    if (wasFlying.current) {
+      wasFlying.current = false;
+      c.enabled = true;
+      c.target.set(player.x, 0.9, player.z);
+      camera.position.set(player.x - 9, 8, player.z + 9);
+      c.update();
+    }
     // Publish the view for the minimap: where the camera stands and which way it looks.
     const lens = camera as unknown as { fov: number; aspect: number };
     cameraView.x = camera.position.x; cameraView.z = camera.position.z;

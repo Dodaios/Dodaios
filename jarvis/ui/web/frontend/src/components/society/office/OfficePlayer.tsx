@@ -33,6 +33,7 @@ import { useProgression } from "../progression/progressionStore";
 import { PERSON_SUBJECT } from "../progression/progressionApi";
 import { LevelChip } from "../progression/LevelHud";
 import { useDressedFigure } from "../progression/regalia/dress";
+import { useCourier } from "./courierStore";
 
 /** The person's pace: a brisk walk, and a sprint on Shift (m/s). */
 export const PLAYER_WALK_SPEED = 2.0;
@@ -156,7 +157,9 @@ export function OfficePlayer({ layout, grid, look, name, awake, reduced }: {
   const hasBone = useOfficeDog((s) => s.hasBone);
   // Seated at Mission Control the camera is the character's eyes: its own figure would block the view.
   const firstPerson = useLeadSeat((s) => !!layout.command && s.seated === layout.command.id);
-  const { pressed, run, jumpHeld } = useMoveKeys(awake, interact, onJump);
+  // In the courier the keys fly the ship and the character rides inside it, out of sight.
+  const flying = useCourier((s) => s.flying);
+  const { pressed, run, jumpHeld } = useMoveKeys(awake && !flying, interact, onJump);
   // A level-up of the person's own: the character hops for joy and waves while it stands.
   useEffect(() => useProgression.subscribe((state, prev) => {
     if (state.cheerUntil > prev.cheerUntil && !reduced) pressJump(jump);
@@ -178,6 +181,8 @@ export function OfficePlayer({ layout, grid, look, name, awake, reduced }: {
   }, [grid, layout.spawn, awake]);
 
   useFrame((_, rawDt) => {
+    // Aboard the courier the character goes nowhere: it steps out again beside the hatch (SkyCourier).
+    if (flying) { if (nearbyRef.current) { nearbyRef.current = null; useOfficeStore.getState().setNearby(null); } return; }
     const dt = Math.min(rawDt, 0.1);
     const store = useOfficeStore.getState();
     // Sitting on the lead's chair: hold the seat until the person moves, walks
@@ -300,7 +305,7 @@ export function OfficePlayer({ layout, grid, look, name, awake, reduced }: {
   return (
     <>
     <RouteMarker animate={awake && !reduced} />
-    <group ref={group} visible={!firstPerson}>
+    <group ref={group} visible={!firstPerson && !flying}>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <ringGeometry args={[0.42, 0.52, 40]} />
         <meshBasicMaterial color="#f5b83d" transparent opacity={0.8} side={DoubleSide} depthWrite={false} />
