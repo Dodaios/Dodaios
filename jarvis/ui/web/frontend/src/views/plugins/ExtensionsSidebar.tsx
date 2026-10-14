@@ -20,7 +20,7 @@ const AREAS = [
 ] as const;
 
 const ITEM =
-  "flex min-w-0 items-center gap-2.5 rounded-lg px-2 text-left text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex min-w-0 items-center gap-3 rounded-lg px-2.5 text-left text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function ExtensionsSidebar({
   area,
@@ -48,11 +48,11 @@ export function ExtensionsSidebar({
   };
 
   return (
-    <aside className="flex shrink-0 flex-col border-b border-border bg-sidebar md:w-[232px] md:border-b-0 md:border-r">
-      <h2 className="hidden px-4 pb-2 pt-4 text-base font-semibold text-foreground-strong md:block">
+    <aside className="flex shrink-0 flex-col border-b border-border bg-sidebar md:w-[320px] xl:w-[400px] md:border-b-0 md:border-r">
+      <h2 className="hidden px-5 pb-3 pt-5 text-xl font-semibold text-foreground-strong md:block">
         {t("plugins_view.frame_title")}
       </h2>
-      <nav aria-label={t("nav.extensions")} className="flex gap-1 p-2 md:flex-col md:gap-0.5 md:py-0">
+      <nav aria-label={t("nav.extensions")} className="flex gap-1 p-2 md:flex-col md:gap-1 md:px-3 md:py-0">
         {AREAS.map(({ id, labelKey, Icon }) => (
           <button
             key={id}
@@ -61,21 +61,21 @@ export function ExtensionsSidebar({
             aria-current={area === id && !selectedPluginId ? "page" : undefined}
             className={cn(
               ITEM,
-              "h-8",
+              "h-10",
               area === id && !selectedPluginId
                 ? "bg-secondary font-medium text-foreground-strong"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground",
             )}
           >
-            <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            <Icon className="h-5 w-5 shrink-0" aria-hidden />
             <span className="truncate">{t(labelKey)}</span>
           </button>
         ))}
       </nav>
 
       <div className="hidden min-h-0 flex-1 flex-col md:flex">
-        <div className="flex h-8 items-center justify-between pl-4 pr-2 pt-5">
-          <h3 className="text-sm text-muted-foreground">{t("plugins_view.installed_heading")}</h3>
+        <div className="flex h-9 items-center justify-between pl-5 pr-3 pt-6">
+          <h3 className="text-base text-muted-foreground">{t("plugins_view.installed_heading")}</h3>
           <button
             type="button"
             onClick={() => (searching ? closeSearch() : setSearching(true))}
@@ -88,7 +88,7 @@ export function ExtensionsSidebar({
           </button>
         </div>
         {searching && (
-          <div className="px-2 pt-3">
+          <div className="px-3 pt-3">
             <input
               type="search"
               autoFocus
@@ -99,12 +99,12 @@ export function ExtensionsSidebar({
               onKeyDown={(event) => { if (event.key === "Escape") closeSearch(); }}
               placeholder={t("plugins_view.installed_search")}
               aria-label={t("plugins_view.installed_search")}
-              className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-sm text-foreground outline-none placeholder:text-foreground-faint focus:border-border-strong [&::-webkit-search-cancel-button]:hidden"
+              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-base text-foreground outline-none placeholder:text-foreground-faint focus:border-border-strong [&::-webkit-search-cancel-button]:hidden"
             />
           </div>
         )}
-        <ScrollArea className="mt-2 min-h-0 flex-1">
-          <ul aria-label={t("plugins_view.installed_heading")} className="flex flex-col gap-0.5 px-2 pb-3">
+        <ScrollArea className="mt-3 min-h-0 flex-1">
+          <ul aria-label={t("plugins_view.installed_heading")} className="flex flex-col gap-0.5 px-3 pb-4">
             {shown.map((plugin) => {
               const broken = plugin.status === "needs_reauth" || plugin.status === "error";
               const active = area === "plugins" && selectedPluginId === plugin.id;
@@ -116,7 +116,7 @@ export function ExtensionsSidebar({
                     aria-current={active ? "page" : undefined}
                     className={cn(
                       ITEM,
-                      "h-8 w-full",
+                      "h-10 w-full",
                       active
                         ? "bg-secondary font-medium text-foreground-strong"
                         : "text-foreground hover:bg-secondary",
@@ -134,7 +134,7 @@ export function ExtensionsSidebar({
             })}
           </ul>
           {shown.length === 0 && (
-            <div className="px-4 pb-3 text-sm text-muted-foreground">
+            <div className="px-5 pb-4 text-base text-muted-foreground">
               {isLoading ? (
                 <p role="status">{t("plugins_view.loading")}</p>
               ) : error ? (
