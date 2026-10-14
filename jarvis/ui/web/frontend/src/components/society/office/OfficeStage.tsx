@@ -605,7 +605,7 @@ export function OfficeStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpen
         {webgl ? (
           <RenderBoundary key={generation} fallbackText={t("society.office.no_graphics")}>
             <Suspense fallback={<div className="office-fallback" role="status">{t("society.office.loading")}</div>}>
-              <Canvas shadows="percentage" camera={{ fov: CAMERA_FOV, near: 0.2, far: 800, position: [30, 30, 30] }} dpr={dpr}
+              <Canvas shadows="percentage" camera={{ fov: CAMERA_FOV, near: 0.2, far: 1400, position: [30, 30, 30] }} dpr={dpr}
                 gl={{ antialias: true, alpha: true, preserveDrawingBuffer: import.meta.env.DEV }}
                 frameloop={!awake ? "never" : compact ? "demand" : "always"}
                 onPointerMissed={() => select(null)}>
