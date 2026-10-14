@@ -1,0 +1,5 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/select-KDTSnwQz.js
+import{r as b,j as l}from"./index-DMCpdMLR.js";import{C as u}from"./combobox-DrIGNXsb.js";function C({value:o,options:r,onValueChange:s,ariaLabel:t,placeholder:e,disabled:a=!1,className:n,id:m,ariaDescribedBy:p,testId:i,searchPlaceholder:x,emptyLabel:c}){const f=b.useMemo(()=>[{id:"options",options:[...r]}],[r]);return l.jsx(u,{value:o,groups:f,onChange:s,ariaLabel:t,fallbackLabel:e??o,searchPlaceholder:x,emptyLabel:c,disabled:a,className:n,id:m,ariaDescribedBy:p,testId:i})}export{C as B};
+========
+import{r as b,j as l}from"./index-CxR_TKP1.js";import{C as u}from"./combobox-jjPG9VaX.js";function C({value:o,options:r,onValueChange:s,ariaLabel:t,placeholder:e,disabled:a=!1,className:n,id:m,ariaDescribedBy:p,testId:i,searchPlaceholder:x,emptyLabel:c}){const f=b.useMemo(()=>[{id:"options",options:[...r]}],[r]);return l.jsx(u,{value:o,groups:f,onChange:s,ariaLabel:t,fallbackLabel:e??o,searchPlaceholder:x,emptyLabel:c,disabled:a,className:n,id:m,ariaDescribedBy:p,testId:i})}export{C as B};
+>>>>>>>> dfa2534d54347adae865b516f0e59e70136f6532:jarvis/ui/web/dist/assets/select-DyZBba9y.js
