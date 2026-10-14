@@ -88,7 +88,7 @@ _open_ui_when_ready() {
     # than leaving a poller behind for another minute.
     kill -0 "${parent}" 2>/dev/null || return 1
     if _probe "${url}/api/health"; then
-      _open_url "${url}" || echo "Personal Jarvis is running at ${url}" >&2
+      _open_url "${url}" || echo "Dodaios is running at ${url}" >&2
       return 0
     fi
     sleep 1

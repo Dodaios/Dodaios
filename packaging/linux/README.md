@@ -118,7 +118,7 @@ also how the build machine runs `appimagetool` itself.
 * **AppImage** carries its `.desktop` entry and icon inside itself, which is
   what AppImageLauncher and `appimaged` read when they offer to "integrate"
   the file. Without one of those tools an AppImage is just a file you run -
-  that is how the format works, and Personal Jarvis does not fight it.
+  that is how the format works, and Dodaios does not fight it.
 
 The app itself registers **nothing** when it is a frozen build:
 `jarvis/setup/desktop_integration.py` and the writers in

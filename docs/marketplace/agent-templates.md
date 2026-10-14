@@ -1,7 +1,7 @@
 # Agent templates — sharing an agent through the marketplace
 
 **Status:** shipped 2026-10-03 ·
-**Registry side:** `PersonalJarvis/marketplace` (`scripts/validate.py` →
+**Registry side:** `Dodaios/marketplace` (`scripts/validate.py` →
 `validate_agent`, `scripts/intake.py`, workflow `intake.yml`) ·
 **App side:** `jarvis/society/agent_template.py`
 
@@ -17,7 +17,7 @@ anything without asking on somebody else's machine.
 Agent card ─ Share ─► Share sheet ──────────────► Publish (signed in with GitHub)
                        │ template built + scrubbed      │
                        │ by the server                   ▼
-                       │                         issue on PersonalJarvis/marketplace
+                       │                         issue on Dodaios/marketplace
                        │ "Ask <agent>"                   │  (opened AS the user)
                        └► chat message → agent           ▼
                           society_share_template    intake.yml: publisher = issue author,
@@ -105,7 +105,7 @@ now needs no server of ours at all:
 - The marketplace GitHub App (`publish_github_client_id`) signs the user in
   with the **device flow** — no client secret in the binary.
 - Its user token opens an **issue** on `publish_registry_repo`
-  (default `PersonalJarvis/marketplace`). A GitHub App user token can do that
+  (default `Dodaios/marketplace`). A GitHub App user token can do that
   on a public repository where the App is installed **with the Issues
   permission** — the same mechanism giscus and utterances use for comments.
 - The registry's `intake.yml` runs on `issues` events from the default

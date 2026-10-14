@@ -157,30 +157,23 @@ OzU7NTht4paA4paAG1swbSAgICAgG1swbRtbMzg7NTsxMDBt4paAG1swbSAgICAbWzBt
             # Best-effort decoration only - never let the mascot block an install.
         }
     }
-    # Wordmark glyphs are machine-generated (figlet ANSI Shadow, the full
-    # PERSONAL JARVIS - maintainer request 2026-07-16) and live inside this
-    # here-string, where non-ASCII is syntactically inert. Do not hand-edit --
-    # that is how the historical Harvis typo crept in. The 12 rows carry ONE
-    # continuous vertical gradient (hi -> brand -> deep) so both words read
-    # as a single forged-gold wordmark.
+    # Wordmark glyphs are machine-generated (figlet ANSI Shadow, DODAIOS) and
+    # live inside this here-string, where non-ASCII is syntactically inert. Do
+    # not hand-edit -- that is how the historical Harvis typo crept in. The 6
+    # rows carry ONE continuous vertical gradient (hi -> brand -> deep) so the
+    # word reads as a single forged-gold wordmark.
     $art = @"
 
-$GoldHi██████╗ ███████╗██████╗ ███████╗ ██████╗ ███╗   ██╗ █████╗ ██╗$Rst
-$GoldHi██╔══██╗██╔════╝██╔══██╗██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║$Rst
-$GoldHi██████╔╝█████╗  ██████╔╝███████╗██║   ██║██╔██╗ ██║███████║██║$Rst
-$GoldHi██╔═══╝ ██╔══╝  ██╔══██╗╚════██║██║   ██║██║╚██╗██║██╔══██║██║$Rst
-$Gold██║     ███████╗██║  ██║███████║╚██████╔╝██║ ╚████║██║  ██║███████╗$Rst
-$Gold╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝$Rst
-$Gold                ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗$Rst
-$Gold                ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝$Rst
-$GoldDeep                ██║███████║██████╔╝██║   ██║██║███████╗$Rst
-$GoldDeep           ██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║$Rst
-$GoldDeep           ╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║$Rst
-$GoldDeep            ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝$Rst
+$GoldHi       ██████╗  ██████╗ ██████╗  █████╗ ██╗ ██████╗ ███████╗$Rst
+$GoldHi       ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██║██╔═══██╗██╔════╝$Rst
+$Gold       ██║  ██║██║   ██║██║  ██║███████║██║██║   ██║███████╗$Rst
+$Gold       ██║  ██║██║   ██║██║  ██║██╔══██║██║██║   ██║╚════██║$Rst
+$GoldDeep       ██████╔╝╚██████╔╝██████╔╝██║  ██║██║╚██████╔╝███████║$Rst
+$GoldDeep       ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚══════╝$Rst
 
 $Dim     talk to your computer · installs the full profile · launches when done$Rst
 
-$Dim┌$Rst  ${Gold}Personal Jarvis installer$Rst
+$Dim┌$Rst  ${Gold}Dodaios installer$Rst
 "@
     Write-Host $art
 }
@@ -395,7 +388,7 @@ function Request-PrerequisiteConsent {
         return $false
     }
     Write-Note "Missing required software: $($Missing -join ', ')."
-    Write-Note 'Jarvis can install it with WinGet, wait for completion, and continue this same run.'
+    Write-Note 'Dodaios can install it with WinGet, wait for completion, and continue this same run.'
     Write-Note 'Continuing also accepts the package and WinGet source agreements for these packages.'
     try {
         $answer = Read-Host '  Install the missing prerequisites now? [Y/n]'
@@ -439,7 +432,7 @@ function Invoke-MissingPrerequisiteInstall {
     param($State)
     $wingetCheck = Test-Tool 'winget'
     if (-not $wingetCheck.Found) {
-        Write-Err 'WinGet is not available, so Jarvis cannot install the prerequisites automatically.'
+        Write-Err 'WinGet is not available, so Dodaios cannot install the prerequisites automatically.'
         return $false
     }
     $installOk = $true
@@ -552,7 +545,7 @@ if ($ExtraArgs -contains '--headless') {
     if ($nodeOk) {
         Write-Ok "Node.js $($nodeCheck.Version)"
     } else {
-        Write-Note 'Node.js 18+ not found - continuing, Jarvis runs fine without it.'
+        Write-Note 'Node.js 18+ not found - continuing, Dodaios runs fine without it.'
         Write-Note 'It only powers the optional coding-agent worker (Claude Code / Codex).'
         Write-Note 'Install the LTS build any time from https://nodejs.org/ and add the'
         Write-Note 'worker later in-app.'
@@ -560,7 +553,7 @@ if ($ExtraArgs -contains '--headless') {
 }
 
 # ----------------------------------------------------------------- clone / update
-Write-Phase '2/6' 'Fetching Personal Jarvis'
+Write-Phase '2/6' 'Fetching Dodaios'
 Write-Note $InstallDir
 
 # On an interactive console, git paints its own "Receiving objects: NN%"
@@ -817,10 +810,10 @@ function Stop-RunningApp {
             }
             # Give the OS a beat to release file handles before files change.
             Start-Sleep -Milliseconds 500
-            Write-Note 'stopped the running Jarvis app for the update'
+            Write-Note 'stopped the running Dodaios app for the update'
         }
     } catch {
-        Write-Note 'could not check for a running Jarvis app - continuing'
+        Write-Note 'could not check for a running Dodaios app - continuing'
     }
     if ($StartedInsideApp) {
         Write-Err 'this installer was started from inside the running app.'
