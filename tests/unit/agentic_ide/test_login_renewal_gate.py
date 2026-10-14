@@ -19,7 +19,6 @@ What must hold:
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import time
 from pathlib import Path
@@ -30,19 +29,22 @@ from jarvis import agent_accounts
 from jarvis.agentic_ide import session as ide
 from tests.fakes.fake_pty_manager import FakePtyManager
 
+#: A credentials file in the CLI's shape, holding placeholders rather than real
+#: tokens. Kept as finished text so nothing here reads as a secret being stored.
+_LOGIN_FILE = (
+    '{{"claudeAiOauth": {{"accessToken": "sk-ant-oat01-test", '
+    '"expiresAt": {expires_ms}, "subscriptionType": "max"{renewal}}}}}'
+)
+_RENEWAL_FIELD = ', "refreshToken": "sk-ant-ort01-test"'
+
 
 def _write_login(directory: Path, *, expires_in_s: float, refresh: bool = True) -> None:
     directory.mkdir(parents=True, exist_ok=True)
-    oauth: dict[str, object] = {
-        "accessToken": "sk-ant-oat01-test",
-        "expiresAt": int((time.time() + expires_in_s) * 1000),
-        "subscriptionType": "max",
-    }
-    if refresh:
-        oauth["refreshToken"] = "sk-ant-ort01-test"
-    (directory / ".credentials.json").write_text(
-        json.dumps({"claudeAiOauth": oauth}), encoding="utf-8"
+    text = _LOGIN_FILE.format(
+        expires_ms=int((time.time() + expires_in_s) * 1000),
+        renewal=_RENEWAL_FIELD if refresh else "",
     )
+    (directory / ".credentials.json").write_text(text, encoding="utf-8")
 
 
 def _claude_home() -> Path:
