@@ -1,15 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUp, ArrowUpRight, History, Square, SquarePen, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { ArrowUp, History, Square, SquarePen, Trash2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import type { TurnItem } from "@/components/agentchat/reduce";
 import { joinProviderOptions } from "@/store/agentChat";
-import { useIdeChatStore } from "@/store/ideChat";
 import { AgentModelPicker, EffortPicker } from "@/components/agentic/threads/ThreadPickers";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "@/components/agentic/threads/ThreadPopover";
 import { ThreadTimeline } from "@/components/agentic/threads/ThreadTimeline";
 import { shortAge } from "@/components/agentic/threads/threadModel";
-import { SendToTerminal } from "./SendToTerminal";
 import { useSideChatStore } from "./sideChatStore";
 
 const DRAFT_KEY = "jarvis.agenticIde.sideChat.message.v1";
@@ -38,17 +35,13 @@ const ICON_BTN =
   "hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
   "disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent";
 
-/** The three ways in an empty chat offers; each opens a message for the person to finish. */
-const STARTERS = ["prompt", "plan", "explain"] as const;
-
 /**
- * The side panel's Chat surface: a plain conversation with the model you pick,
- * beside the terminals.
+ * The side panel's Chat surface: a plain AI chat with the model you pick.
  *
- * It is a chat and not a coding agent: no seat on its surface has tools. The
- * model knows the workspace folder from notes in its system prompt, streams
- * its answer, and shows its thinking folded behind one line. Any answer can be
- * sent to a terminal, which is how a prompt drafted here reaches an agent.
+ * Ask anything, read the answer. It is not a coding agent and knows nothing
+ * about the workspace: no seat on its surface has tools, and the model is told
+ * only how to answer. Answers stream, and a model's thinking folds behind one
+ * line once it is done.
  */
 export function SideChatTab() {
   const t = useT();
@@ -63,7 +56,6 @@ export function SideChatTab() {
   const busy = useSideChatStore((state) => state.busy);
   const lastError = useSideChatStore((state) => state.lastError);
   const catalogError = useSideChatStore((state) => state.catalogError);
-  const folder = useIdeChatStore((state) => state.workspace?.path ?? "");
 
   const [message, setMessageState] = useState(storedMessage);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -80,12 +72,6 @@ export function SideChatTab() {
     if (!store.catalog || store.catalogStale) void store.loadCatalog();
     void store.loadSessions();
   }, []);
-
-  // A new chat talks about the workspace on screen. A chat that has started
-  // keeps the folder it was started in: reopening it never re-points it.
-  useEffect(() => {
-    if (!activeSessionId && folder && folder !== draft.cwd) void useSideChatStore.getState().setDraft({ cwd: folder });
-  }, [activeSessionId, folder, draft.cwd]);
 
   // The box grows with what is typed, up to a share of the panel.
   useLayoutEffect(() => {
@@ -121,22 +107,10 @@ export function SideChatTab() {
     void send();
   };
 
-  const startWith = (text: string) => {
-    setMessage(text);
-    const box = input.current;
-    if (!box) return;
-    box.focus();
-    // After the text is in: the caret goes where the person continues writing.
-    window.requestAnimationFrame(() => box.setSelectionRange(text.length, text.length));
-  };
-
   const newChat = () => {
     useSideChatStore.getState().newChat();
     input.current?.focus();
   };
-
-  // Stable, so a streaming turn does not redraw every earlier answer's controls.
-  const turnActions = useCallback((_turn: TurnItem, answer: string): ReactNode => <SendToTerminal text={answer} />, []);
 
   const earlier = useMemo(
     () => [...sessions].sort((a, b) => b.updated_ms - a.updated_ms).slice(0, HISTORY_ROWS),
@@ -177,21 +151,10 @@ export function SideChatTab() {
       </header>
 
       {started
-        ? <ThreadTimeline items={timeline.items} sessionId={activeSessionId} bottomInset={0} folder={folder} tone="chat" turnActions={turnActions} />
-        : <div className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-4 pb-4 pt-6 scrollbar-jarvis" data-testid="side-chat-empty">
-          <h2 className="text-lg font-medium text-foreground-strong">{t("ide_side_panel.chat.empty_title")}</h2>
-          <p className="mt-1.5 max-w-sm text-sm leading-6 text-muted-foreground">{t("ide_side_panel.chat.empty_hint")}</p>
-          <div className="mt-5 flex flex-col">
-            {STARTERS.map((key) => <button key={key} type="button" data-testid={`side-chat-starter-${key}`}
-              onClick={() => startWith(t(`ide_side_panel.chat.starter_${key}_text`))}
-              className="group flex items-center gap-3 border-t border-border/60 py-2.5 text-left transition-colors last:border-b hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm text-foreground">{t(`ide_side_panel.chat.starter_${key}_title`)}</span>
-                <span className="block truncate text-xs text-muted-foreground">{t(`ide_side_panel.chat.starter_${key}_hint`)}</span>
-              </span>
-              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden />
-            </button>)}
-          </div>
+        ? <ThreadTimeline items={timeline.items} sessionId={activeSessionId} bottomInset={0} tone="chat" />
+        : <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center" data-testid="side-chat-empty">
+          <h2 className="text-xl font-medium text-foreground-strong">{t("ide_side_panel.chat.empty_title")}</h2>
+          <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">{t("ide_side_panel.chat.empty_hint")}</p>
         </div>}
 
       <div className="shrink-0 px-3 pb-3 pt-1">
