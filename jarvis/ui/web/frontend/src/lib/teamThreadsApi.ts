@@ -5,20 +5,38 @@ import { nextPollIn } from "@/lib/societyChatGroups";
  * Team threads: one task carried by several coding agents as peers
  * (`jarvis/agent_chat/team`, REST under `/api/team-threads`).
  *
- * The three lists below are the TypeScript twins of `STATES`, `PHASES` and
- * `ENTRY_KINDS` in `jarvis/agent_chat/team/store.py`;
+ * The lists below are the TypeScript twins of `STATES`, `PHASES`,
+ * `ENTRY_KINDS`, `MODES`, `ROLES` and `STEP_STATUSES` in
+ * `jarvis/agent_chat/team/store.py`;
  * `tests/unit/agent_chat/test_team_thread_parity.py` keeps them in step.
  */
 export const TEAM_THREAD_STATES = ["running", "paused", "needs_input", "done", "stopped", "failed"] as const;
 export type TeamThreadState = (typeof TEAM_THREAD_STATES)[number];
 
-export const TEAM_THREAD_PHASES = ["draft", "challenge", "converge", "build", "review", "done"] as const;
+export const TEAM_THREAD_PHASES = [
+  "draft", "challenge", "converge", "build", "review", "planning", "steps", "final", "done",
+] as const;
 export type TeamThreadPhase = (typeof TEAM_THREAD_PHASES)[number];
 
+/** The steps each mode works through, in order (both end in "done"). */
+export const PEER_PHASES = ["draft", "challenge", "converge", "build", "review"] as const satisfies readonly TeamThreadPhase[];
+export const PLANNED_PHASES = ["planning", "steps", "final"] as const satisfies readonly TeamThreadPhase[];
+
 export const TEAM_THREAD_ENTRY_KINDS = [
-  "user", "draft", "critique", "plan", "vote", "build", "review", "fix", "notice", "summary",
+  "user", "draft", "critique", "plan", "vote", "build", "review", "fix",
+  "plan_version", "plan_review", "step_build", "step_review", "notice", "summary",
 ] as const;
 export type TeamThreadEntryKind = (typeof TEAM_THREAD_ENTRY_KINDS)[number];
+
+/** Peers plan, build and review together; or one plans, one builds, the others review. */
+export const TEAM_THREAD_MODES = ["peers", "planner_builder"] as const;
+export type TeamThreadMode = (typeof TEAM_THREAD_MODES)[number];
+
+export const TEAM_THREAD_ROLES = ["planner", "builder", "reviewer"] as const;
+export type TeamRole = (typeof TEAM_THREAD_ROLES)[number];
+
+export const TEAM_PLAN_STEP_STATUSES = ["open", "building", "in_review", "changes", "accepted"] as const;
+export type TeamPlanStepStatus = (typeof TEAM_PLAN_STEP_STATUSES)[number];
 
 export interface TeamSeat {
   provider: string;
@@ -37,6 +55,8 @@ export interface TeamSeatPick {
   provider: string;
   model?: string;
   effort?: string;
+  /** Planner and builder mode only; left out = by position (plans, builds, reviews). */
+  role?: TeamRole;
 }
 
 export interface TeamSeats {
@@ -61,6 +81,8 @@ export interface TeamMember {
   since_ms: number;
   /** Its running turn waits for the person (an approval card in its thread). */
   waiting: boolean;
+  /** Planner and builder mode: what the member does; "" for peers. */
+  role: TeamRole | "";
 }
 
 export interface TeamFinding {
@@ -74,6 +96,13 @@ export interface TeamOpenPoint {
   member_id: string;
   name: string;
   items: string[];
+}
+
+/** One step of a plan as the planner wrote it. */
+export interface TeamPlanStepText {
+  title: string;
+  goal: string;
+  done_when: string;
 }
 
 export interface TeamEntry {
@@ -95,6 +124,16 @@ export interface TeamEntry {
     /** A build or a fix. */
     files?: string[];
     stat?: string;
+    /** A plan version: readable or not, its steps, the accepted steps it carries over. */
+    valid?: boolean;
+    steps?: TeamPlanStepText[];
+    carried?: number[];
+    version?: number;
+    /** A step build or step review: which step of which plan version. */
+    number?: number;
+    title?: string;
+    status?: "done" | "blocked";
+    plan_change?: string;
     /** A notice. */
     code?: string;
     member_id?: string;
@@ -105,6 +144,9 @@ export interface TeamEntry {
     rounds?: number;
     by?: string;
     after?: string;
+    count?: number;
+    role?: TeamRole;
+    mode?: TeamThreadMode;
     /** A summary. */
     outcome?: string;
     open?: TeamOpenPoint[];
@@ -113,14 +155,43 @@ export interface TeamEntry {
     builder?: string;
     finding_count?: number;
     blocking?: number;
+    step_count?: number;
+    step_rounds?: number;
+    open_steps?: number;
   };
+}
+
+/** One step of the living plan and where it stands. */
+export interface TeamPlanStep extends TeamPlanStepText {
+  number: number;
+  status: TeamPlanStepStatus;
+  /** Who holds the step right now: its builder, or the reviewers still to read it. */
+  holders: string[];
+  /** Build rounds so far (a fix after a review is a round). */
+  rounds: number;
+  /** The person accepted it with findings still open. */
+  open_findings: boolean;
+}
+
+/** The planner's living plan: its newest version, proposed or agreed. */
+export interface TeamPlan {
+  version: number;
+  seq: number;
+  agreed: boolean;
+  author: string;
+  versions: number;
+  /** The builder's open request for a new version. */
+  revision: { step: number; title: string; status: string; note: string; plan_change: string; by: string } | null;
+  steps: TeamPlanStep[];
 }
 
 /** Something a member caught in another member's plan or work. */
 export interface TeamIssue extends TeamFinding {
   seq: number;
-  stage: "plan" | "review";
+  stage: "plan" | "step" | "review";
   round: number;
+  /** The plan step a step finding is about. */
+  number?: number;
   by: string;
   resolved: boolean;
 }
@@ -139,6 +210,7 @@ export interface TeamThread {
   title: string;
   task: string;
   cwd: string;
+  mode: TeamThreadMode;
   state: TeamThreadState;
   phase: TeamThreadPhase;
   /** Why it waits, paused or failed: a short code the view puts into words. */
@@ -146,9 +218,12 @@ export interface TeamThread {
   note: string;
   limits: TeamLimits;
   usage: { elapsed_ms: number; turns: number; cost_usd: number; cost_partial: boolean };
-  rounds: { plan: number; review: number };
+  /** Planner and builder mode adds the current step and the bands' round keys. */
+  rounds: { plan: number; review: number; step?: number; plan_round?: number; final?: number };
   builder: string;
   members: TeamMember[];
+  /** The living plan; null for peers. */
+  plan: TeamPlan | null;
   entries: TeamEntry[];
   issues: TeamIssue[];
   created_ms: number;
@@ -159,6 +234,7 @@ export interface TeamThreadRow {
   team_id: string;
   title: string;
   cwd: string;
+  mode: TeamThreadMode;
   state: TeamThreadState;
   phase: TeamThreadPhase;
   reason: string;
@@ -241,6 +317,7 @@ export function startTeamThread(input: {
   cwd: string;
   seats: TeamSeatPick[];
   limits?: Partial<TeamLimits>;
+  mode?: TeamThreadMode;
 }) {
   return json<TeamThread>(base, post(input));
 }

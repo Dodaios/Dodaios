@@ -471,6 +471,18 @@ COLD_START_LIMIT = max(2, (os.cpu_count() or 4) // 4)
 COLD_START_SETTLE_S = 1.2
 COLD_START_HOLD_MAX_S = 15.0
 
+# How long the other panes of one login wait while the first one renews it.
+#
+# A coding CLI whose access token expired renews it on its next start, and every
+# process on that login races for one lock to do so. Claude Code gives up after
+# about eight seconds and prints "sign in again with /login" — so a restored
+# workspace of a dozen panes, started the morning after the token expired
+# overnight, came back looking logged out everywhere (2026-10-14). One pane goes
+# first; the rest start once the credentials file holds a live token again, or
+# once this ceiling runs out, after which they start as they did before.
+LOGIN_RENEWAL_WAIT_S = 45.0
+LOGIN_RENEWAL_POLL_S = 0.5
+
 # How long the nudged window size is held before it is put back (see
 # ``_nudge_repaint``). A PTY carries one size, not a queue of them: set twice
 # within the same event-loop tick, the agent may only ever observe the second
@@ -2127,6 +2139,13 @@ class Registry:
         # limit; separate accounts get separate gates, and CLIs with no limit
         # never touch this path.
         self._agent_cold_starts: dict[tuple[str, str], asyncio.Semaphore] = {}
+        # One lock per login directory while its expired token is being renewed
+        # (see LOGIN_RENEWAL_WAIT_S), and the stale expiry each directory was
+        # already waited on once — a renewal that never came is not waited for
+        # a second time by every pane behind it.
+        self._login_renewals: dict[str, asyncio.Lock] = {}
+        self._login_renewal_waited: dict[str, float] = {}
+        self._login_renewal_holds: set[asyncio.Task[None]] = set()
         # The tasks holding a cold-start slot open until a pane's input line
         # appears (see ``_cold_start_slot``). asyncio keeps only weak
         # references to tasks; without this set a hold could be collected
@@ -4001,6 +4020,95 @@ class Registry:
         await gate.acquire()
         return gate
 
+    async def _login_renewal_turn(self, term: Terminal) -> Callable[[bool], None] | None:
+        """Wait while another pane renews this pane's expired login.
+
+        ``None`` when the login is live, or when this pane's CLI has no login a
+        reader can judge: the pane starts at once, exactly as before. Otherwise
+        the pane queues on its login directory's lock. The first one through
+        becomes the renewer — the returned callback, called with whether its
+        spawn succeeded, keeps the lock until the credentials file holds a live
+        token again (bounded by LOGIN_RENEWAL_WAIT_S). The panes behind it find
+        the login fresh once they get the lock and start without holding it.
+
+        Before the slots, not inside them: a pane queued here occupies no
+        cold-start slot another login's pane could use.
+        """
+        if term.computer_id or not has_accounts(term.agent):
+            return None
+        from jarvis import agent_accounts
+
+        agent = cast("agent_accounts.Platform", term.agent)
+
+        def _probe() -> tuple[str, float | None]:
+            directory = agent_accounts.config_dir_for(agent, term.account)
+            stale = agent_accounts.stale_login_marker(agent, term.account)
+            return os.path.normcase(str(directory)), stale
+
+        key, stale = await asyncio.to_thread(_probe)
+        if stale is None or self._login_renewal_waited.get(key) == stale:
+            return None
+        lock = self._login_renewals.setdefault(key, asyncio.Lock())
+        await lock.acquire()
+        try:
+            _key, stale = await asyncio.to_thread(_probe)
+        except BaseException:
+            lock.release()
+            raise
+        if stale is None or self._login_renewal_waited.get(key) == stale:
+            lock.release()
+            return None
+        renewing = stale
+
+        def _finish(started: bool) -> None:
+            if not started:
+                # Nothing is renewing anything; the next pane in line tries.
+                lock.release()
+                return
+
+            async def _hold() -> None:
+                try:
+                    loop = asyncio.get_running_loop()
+                    deadline = loop.time() + LOGIN_RENEWAL_WAIT_S
+                    while loop.time() < deadline:
+                        await asyncio.sleep(LOGIN_RENEWAL_POLL_S)
+                        if term.status != "live":
+                            # The renewer is gone; the next pane in line tries.
+                            return
+                        if await asyncio.to_thread(
+                            agent_accounts.login_renewed_since, agent, term.account, renewing
+                        ):
+                            return
+                    # The CLI did not renew it in time. Starting the others is
+                    # still right; waiting for this renewal again is not.
+                    self._login_renewal_waited[key] = renewing
+                    logger.warning(
+                        "Agentic IDE: {} did not renew its expired {} login within "
+                        "{:.0f}s; starting the remaining panes anyway",
+                        term.name,
+                        term.display_name,
+                        LOGIN_RENEWAL_WAIT_S,
+                    )
+                except Exception:  # noqa: BLE001 - a probe failure must not strand the queue
+                    logger.opt(exception=True).warning(
+                        "Agentic IDE: checking {}'s login renewal failed; releasing the panes "
+                        "behind it",
+                        term.name,
+                    )
+                finally:
+                    lock.release()
+
+            task = asyncio.get_running_loop().create_task(_hold(), name="login-renewal-hold")
+            self._login_renewal_holds.add(task)
+            task.add_done_callback(self._login_renewal_holds.discard)
+
+        logger.info(
+            "Agentic IDE: {} renews the expired {} login before the other panes on it start",
+            term.name,
+            term.display_name,
+        )
+        return _finish
+
     async def attach(
         self,
         key: str,
@@ -4577,9 +4685,13 @@ class Registry:
             "RESUMED" if term.resumed else "fresh",
             " ".join(argv),
         )
-        agent_start_gate = await self._acquire_agent_cold_start(term)
+        # First of all the gates: a pane waiting for another pane to renew their
+        # shared login must hold none of the slots below while it waits.
+        login_renewal = await self._login_renewal_turn(term)
+        agent_start_gate = None
         spawn_succeeded = False
         try:
+            agent_start_gate = await self._acquire_agent_cold_start(term)
             # One of a few starts at a time (see COLD_START_LIMIT), and the
             # slot stays taken until this pane's input line appears.
             async with self._cold_start_slot(
@@ -4638,6 +4750,8 @@ class Registry:
         finally:
             if not spawn_succeeded and agent_start_gate is not None:
                 agent_start_gate.release()
+            if login_renewal is not None:
+                login_renewal(spawn_succeeded)
 
         term.pty_id = pty_session.terminal_id
         # The size the child was actually born with — `spawn` was handed these

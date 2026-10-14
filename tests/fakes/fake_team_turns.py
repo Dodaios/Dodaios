@@ -32,8 +32,39 @@ def changes(issue: str, *, severity: str = "blocking", where: str = "app.py:3") 
     )
 
 
+def plan(*titles: str, reopen: tuple[int, ...] = ()) -> str:
+    """A planner's reply: a few words and the plan's typed block."""
+    steps = ", ".join(
+        f'{{"title": "{title}", "goal": "Do {title}", "done_when": "{title} works"}}'
+        for title in titles
+    )
+    extra = f', "reopen": [{", ".join(str(n) for n in reopen)}]' if reopen else ""
+    return f'Here is the plan.\n```team-plan\n{{"steps": [{steps}]{extra}}}\n```'
+
+
+def step_report(number: int, status: str = "done", *, note: str = "", plan_change: str = "") -> str:
+    return (
+        f"Built step {number}.\n```team-step\n"
+        f'{{"step": {number}, "status": "{status}", "note": "{note}", '
+        f'"plan_change": "{plan_change}"}}\n```'
+    )
+
+
 def step_of(prompt: str) -> str:
     """Which step a coordinator prompt asks for."""
+    # The planner-and-builder mode names each step in one line of its own.
+    if "Your step: write the plan" in prompt or "Your step: revise the plan" in prompt:
+        return "plan_version"
+    if "Your step: review the plan" in prompt:
+        return "plan_review"
+    if "Your step: build step" in prompt:
+        return "step_build"
+    if "Your step: review step" in prompt:
+        return "step_review"
+    if "Your step: final review" in prompt:
+        return "review"
+    if "Your step: answer the final review" in prompt:
+        return "fix"
     if "Step 1 of 5" in prompt:
         return "draft"
     if "Step 2 of 5" in prompt:
@@ -132,10 +163,14 @@ class FakeTurns:
 
 def default_reply(provider: str, step: str) -> str:
     """A team where everybody agrees at once."""
-    if step == "vote":
+    if step in ("vote", "plan_review"):
         return f"Fine by {provider}.\n{AGREE}"
-    if step == "review":
+    if step in ("review", "step_review"):
         return f"{provider} read the change.\n{APPROVE}"
+    if step == "plan_version":
+        return plan("Add the setting", "Use it in the uploader")
+    if step == "step_build":
+        return step_report(1)
     return f"{step} by {provider}"
 
 
