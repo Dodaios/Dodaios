@@ -11,6 +11,7 @@ vi.mock("@/hooks/useAssistantNameSeed", () => ({
   useAssistantNameSeed: () => undefined,
 }));
 vi.mock("@/hooks/useCodingMode", () => ({ useCodingMode: () => undefined }));
+vi.mock("@/hooks/useSocietyWarmup", () => ({ useSocietyWarmup: () => undefined }));
 vi.mock("@/hooks/useResizablePane", () => ({
   useResizablePane: () => ({
     size: 280,
