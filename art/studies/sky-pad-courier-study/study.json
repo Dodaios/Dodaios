@@ -27,8 +27,8 @@
   ],
   "runtime_evidence": [
     "evidence/blender-preview.png",
-    "evidence/chase-over-the-tower.jpg",
-    "evidence/cockpit-over-the-city.jpg"
+    "evidence/blender-rear.png",
+    "evidence/chase-over-the-tower.jpg"
   ],
   "technical_report": "evidence/technical-report.md",
   "approval": {

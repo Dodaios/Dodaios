@@ -1236,7 +1236,8 @@
         "ctl_fly_camera": "Cambiar cámara",
         "ctl_fly_land": "Aterrizar en la plataforma",
         "ctl_fly_leave": "Bajar (aterrizada)",
-        "ctl_fly_settings": "Ajustes de vuelo y teclas"
+        "ctl_fly_settings": "Ajustes de vuelo y teclas",
+        "ctl_fly_mouse": "Pilotar con el ratón (clic en la vista)"
       },
       "coding_title": "Planta de código",
       "coding_empty": "No hay ningún agente de código en marcha. Inicia uno en el IDE y ocupará un escritorio aquí.",
@@ -1625,7 +1626,9 @@
       "flight_action_camera": "Cambiar cámara",
       "flight_action_land": "Aterrizar en la plataforma",
       "flight_action_exit": "Bajar (aterrizada)",
-      "flight_action_help": "Mostrar controles"
+      "flight_action_help": "Mostrar controles",
+      "flight_mouse_hint": "Haz clic en la vista para pilotar con el ratón.",
+      "flight_mouse_on": "Ratón activo: muévelo para girar y cabecear. Esc lo suelta."
     },
     "arcade": {
       "play_prompt": "Jugar a {0}",

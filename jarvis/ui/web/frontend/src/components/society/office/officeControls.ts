@@ -48,6 +48,7 @@ export const OFFICE_CONTROLS: readonly OfficeControl[] = [
   { id: "fly_throttle", group: "fly", keys: [["W", "S"]], agentsOnly: true },
   { id: "fly_turn", group: "fly", keys: [["A", "D"]], agentsOnly: true },
   { id: "fly_pitch", group: "fly", keys: [["ArrowUp", "ArrowDown"]], agentsOnly: true },
+  { id: "fly_mouse", group: "fly", keys: [["mouse:click"]], agentsOnly: true },
   { id: "fly_roll", group: "fly", keys: [["Q", "E"], ["ArrowLeft", "ArrowRight"]], agentsOnly: true },
   { id: "fly_lift", group: "fly", keys: [["Space", "C"]], agentsOnly: true },
   { id: "fly_boost", group: "fly", keys: [["Shift"]], agentsOnly: true },
