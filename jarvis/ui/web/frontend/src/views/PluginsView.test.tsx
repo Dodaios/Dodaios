@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   matchesNamePrefix,
   matchesQuery,
-  matchesStatus,
   PatConnectDialog,
   PkceConnectDialog,
   sortPluginsByName,
@@ -209,11 +208,11 @@ describe("PluginsView states connection in connection words", () => {
     await screen.findByRole("button", { name: "GitHub" });
     expect(screen.getByRole("button", { name: "Vercel" })).toBeDefined();
     // The untouched row offers a connection, the connected row names it.
-    expect(screen.getByRole("button", { name: "Connect plugin" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /^Connect / })).toBeDefined();
     expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
     // Disconnecting sits behind the row's menu, never one stray click away.
     expect(screen.queryByRole("menuitem", { name: "Disconnect" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("button", { name: /^More actions for / }));
     expect(screen.getByRole("menuitem", { name: "Disconnect" })).toBeDefined();
     // No install wording on connection controls: "Added" read as
     // done-before-authed.
@@ -233,7 +232,7 @@ describe("plugin row click-lock", () => {
       () => new Promise<void>((resolve) => { release = resolve; }),
     );
     renderRow("not_connected", onConnect);
-    const btn = screen.getByRole("button", { name: "Connect plugin" });
+    const btn = screen.getByRole("button", { name: /^Connect / });
 
     fireEvent.click(btn);
     fireEvent.click(btn); // second click while the first is still pending
@@ -243,13 +242,13 @@ describe("plugin row click-lock", () => {
     expect(onConnect).toHaveBeenCalledTimes(1);
     const busy = await screen.findByRole("button", { name: "Connecting Row Plugin" });
     expect((busy as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Connect / })).toBeNull();
 
     await act(async () => {
       release();
     });
     expect(
-      (screen.getByRole("button", { name: "Connect plugin" }) as HTMLButtonElement).disabled,
+      (screen.getByRole("button", { name: /^Connect / }) as HTMLButtonElement).disabled,
     ).toBe(false);
   });
 
@@ -258,9 +257,9 @@ describe("plugin row click-lock", () => {
     renderRow("not_connected", onConnect);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Connect plugin" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Connect / }));
     });
-    const btn = screen.getByRole("button", { name: "Connect plugin" });
+    const btn = screen.getByRole("button", { name: /^Connect / });
     expect((btn as HTMLButtonElement).disabled).toBe(false);
     await act(async () => {
       fireEvent.click(btn);
@@ -273,11 +272,27 @@ describe("plugin row click-lock", () => {
 // A revoked / expired plugin (status needs_reauth) must NOT look like a never-
 // connected one. It surfaces a distinct "Reconnect" affordance that re-runs the
 // same connect flow — the one-click repair for a dead token.
+describe("plugin row names", () => {
+  it("names its controls after the plugin and reads its text as the description", () => {
+    renderRow("not_connected", () => {});
+    const row = screen.getByRole("button", { name: "Row Plugin" });
+    const details = document.getElementById(row.getAttribute("aria-describedby") ?? "");
+    expect(details?.textContent).toBe("d");
+    expect(screen.getByRole("button", { name: "Connect Row Plugin" })).toBeDefined();
+  });
+
+  it("names the reconnect and menu controls of a broken row after the plugin", () => {
+    renderRow("needs_reauth", () => {});
+    expect(screen.getByRole("button", { name: "Reconnect Row Plugin" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "More actions for Row Plugin" })).toBeDefined();
+  });
+});
+
 describe("plugin row reconnect state", () => {
   it("renders a Reconnect button for needs_reauth that triggers onConnect", async () => {
     const onConnect = vi.fn(() => Promise.resolve());
     renderRow("needs_reauth", onConnect);
-    const btn = screen.getByRole("button", { name: "Reconnect plugin" });
+    const btn = screen.getByRole("button", { name: /^Reconnect / });
     expect(btn).toBeDefined();
     await act(async () => {
       fireEvent.click(btn);
@@ -287,15 +302,15 @@ describe("plugin row reconnect state", () => {
 
   it("never shows a plain Connect button or a Connected mark for needs_reauth", () => {
     renderRow("needs_reauth", () => {});
-    expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Connect / })).toBeNull();
     expect(screen.queryByRole("img", { name: "Connected" })).toBeNull();
   });
 
   it("keeps Disconnect for a connected plugin behind the row menu", () => {
     const onDisconnect = vi.fn();
     renderRow("connected", () => {}, onDisconnect);
-    expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByRole("button", { name: /^Connect / })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^More actions for / }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Disconnect" }));
     expect(onDisconnect).toHaveBeenCalledWith("row_plugin");
   });
@@ -536,11 +551,11 @@ describe("PluginsView opens the PKCE pre-connect dialog", () => {
     // button only exists once the catalog row has actually rendered.
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Connect plugin" }),
+        screen.getByRole("button", { name: /^Connect / }),
       ).toBeDefined(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Connect plugin" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Connect / }));
 
     await waitFor(() =>
       expect(screen.getByRole("dialog")).toBeDefined(),
@@ -617,11 +632,11 @@ describe("PluginsView publishes OAuth success immediately", () => {
 
     renderPluginsView();
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Connect plugin" })).toBeDefined(),
+      expect(screen.getByRole("button", { name: /^Connect / })).toBeDefined(),
     );
     // A provisioned browser flow opens the provider at once — no intermediate
     // setup form. (Unprovisioned flows still show the pre-connect dialog.)
-    fireEvent.click(screen.getByRole("button", { name: "Connect plugin" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Connect / }));
 
     await screen.findByText("Gmail connected");
     expect(
@@ -693,9 +708,9 @@ describe("PluginsView publishes OAuth success immediately", () => {
 
     renderPluginsView();
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Connect plugin" })).toBeDefined(),
+      expect(screen.getByRole("button", { name: /^Connect / })).toBeDefined(),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Connect plugin" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Connect / }));
 
     // The pending dialog names the exact address the provider must call
     // back — previously it spun silently when the provider never did.
@@ -785,7 +800,7 @@ describe("PluginsView publishes every supported connection path immediately", ()
     });
 
     renderPluginsView();
-    fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Connect / }));
     fireEvent.change(await screen.findByPlaceholderText("Token"), {
       target: { value: "test-token" },
     });
@@ -817,7 +832,7 @@ describe("PluginsView publishes every supported connection path immediately", ()
     );
 
     renderPluginsView();
-    fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Connect / }));
 
     await screen.findByText("DCR Service connected");
     expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
@@ -850,7 +865,7 @@ describe("PluginsView publishes every supported connection path immediately", ()
     );
 
     renderPluginsView();
-    fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Connect / }));
 
     await screen.findByText("Device Service connected");
     expect(screen.getByRole("img", { name: "Connected" })).toBeDefined();
@@ -895,15 +910,15 @@ describe("PluginsView keeps revoked plugins visible", () => {
     // The directory says which connection broke before anything else.
     await screen.findByText("Gmail needs reconnecting");
     // Its row is a Reconnect, never a plain "+" as if it was never connected.
-    expect(screen.getByRole("button", { name: "Reconnect plugin" })).toBeDefined();
-    expect(screen.queryByRole("button", { name: "Connect plugin" })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Reconnect / })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /^Connect / })).toBeNull();
 
     // The installed list still carries it — a dead token does not drop the
     // plugin back among the never-connected ones.
     fireEvent.click(screen.getByRole("button", { name: "Manage installed plugins" }));
     await screen.findByText("Reconnect needed");
     expect(screen.getByRole("button", { name: "Gmail" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Reconnect plugin" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /^Reconnect / })).toBeDefined();
   });
 });
 
@@ -1172,45 +1187,6 @@ describe("plugin prefix search lists G-starting plugins A-Z", () => {
   });
 });
 
-describe("plugin status filter", () => {
-  const withStatus = (status: Plugin["status"]): Plugin => ({
-    id: "p",
-    name: "P",
-    description: "d",
-    category: "Developer",
-    logoSlug: "p",
-    authMode: "pat_paste",
-    authConfig: { mode: "pat_paste" },
-    status,
-    longevity: "permanent",
-    oauthClientConfigured: false,
-    fromMarketplace: false,
-    selfUploaded: false,
-  });
-
-  it("lets everything through on 'all'", () => {
-    for (const s of ["connected", "not_connected", "needs_reauth", "error"] as const) {
-      expect(matchesStatus(withStatus(s), "all")).toBe(true);
-    }
-  });
-
-  it("separates connected from not connected", () => {
-    expect(matchesStatus(withStatus("connected"), "connected")).toBe(true);
-    expect(matchesStatus(withStatus("not_connected"), "connected")).toBe(false);
-    expect(matchesStatus(withStatus("not_connected"), "not_connected")).toBe(true);
-    expect(matchesStatus(withStatus("connected"), "not_connected")).toBe(false);
-  });
-
-  it("groups needs_reauth and error under 'attention'", () => {
-    // Both mean the same thing to the user: listed, but not callable until
-    // they act. A connected plugin must not appear in that bucket.
-    expect(matchesStatus(withStatus("needs_reauth"), "attention")).toBe(true);
-    expect(matchesStatus(withStatus("error"), "attention")).toBe(true);
-    expect(matchesStatus(withStatus("connected"), "attention")).toBe(false);
-    expect(matchesStatus(withStatus("not_connected"), "attention")).toBe(false);
-  });
-});
-
 describe("PluginsView search and scope controls", () => {
   const search = () => screen.getByRole("searchbox", { name: "Search plugins…" });
 
@@ -1364,5 +1340,55 @@ describe("PluginsView search and scope controls", () => {
       "Developer",
     ]);
     expect(screen.queryByText("Coming soon")).toBeNull();
+  });
+});
+
+describe("PluginsView breadcrumbs", () => {
+  it("returns to the directory home from a plugin opened in search results", async () => {
+    installCatalogFetchMock();
+    renderPluginsView();
+
+    await screen.findByRole("button", { name: "GitHub" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search plugins…" }), {
+      target: { value: "deploy" },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Vercel" }));
+    const crumbs = within(await screen.findByRole("navigation", { name: "Breadcrumb" }));
+    fireEvent.click(crumbs.getByRole("button", { name: "Plugins" }));
+
+    // The crumb says "Plugins" and leads to the directory, not back into the search.
+    await screen.findByRole("tablist", { name: "Plugin directory" });
+    expect((screen.getByRole("searchbox", { name: "Search plugins…" }) as HTMLInputElement).value).toBe("");
+    expect(screen.getByRole("button", { name: "GitHub" })).toBeDefined();
+  });
+
+  it("closes a section whose last plugin went away while it was open", async () => {
+    const added = {
+      id: "acme",
+      display_name: "Acme",
+      description: "Own connector",
+      category: "Custom",
+      logo_slug: "acme",
+      auth: { mode: "hosted_mcp_open" },
+      status: "not_connected",
+      source: "local",
+    };
+    let reads = 0;
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = vi.fn(async () => {
+      reads += 1;
+      const plugins = reads === 1 ? [...CATALOG.plugins, added] : CATALOG.plugins;
+      return { ok: true, status: 200, json: async () => ({ ...CATALOG, plugins }) };
+    }) as unknown as typeof fetch;
+    renderPluginsView();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Yours" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show all of Added by you" }));
+    await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+    // The connector is removed elsewhere; the next catalog read no longer has it.
+    fireEvent.click(screen.getByRole("button", { name: "Refresh catalog" }));
+    await screen.findByRole("tablist", { name: "Plugin directory" });
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
+    expect(screen.getByText("Nothing added yet")).toBeDefined();
   });
 });

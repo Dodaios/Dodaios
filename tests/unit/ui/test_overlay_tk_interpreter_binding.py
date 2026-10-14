@@ -41,7 +41,7 @@ class _Renderer:
 
 
 def test_jarvisbar_frame_binds_photo_to_its_overlay_root(monkeypatch) -> None:
-    from jarvis.ui.jarvisbar.overlay import JarvisBarOverlay
+    from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
 
     root = _Root()
     canvas = _Canvas()
