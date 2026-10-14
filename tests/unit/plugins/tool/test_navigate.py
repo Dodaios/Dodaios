@@ -129,3 +129,82 @@ def test_known_sections_match_frontend_section_ids() -> None:
     ts_ids = set(re.findall(r'"([a-z0-9_-]+)"', block.group(1)))
     assert ts_ids, "no ids parsed from SECTION_IDS"
     assert NavigateTool.known_sections() == ts_ids
+
+
+# --- one thing inside a section ---------------------------------------------------
+
+
+def _targets(bus: RecordingBus, **lookups) -> NavigateTool:
+    async def chat(spoken: str) -> dict:
+        return lookups.get("chat", {"status": "unavailable"})
+
+    async def workspace(spoken: str) -> dict:
+        return lookups.get("workspace", {"status": "unavailable"})
+
+    return NavigateTool(
+        bus=bus,
+        find_agent=lambda spoken: lookups.get("agent", {"status": "unavailable"}),
+        find_chat=chat,
+        show_workspace=workspace,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_named_agent_opens_that_agents_chat(bus: RecordingBus) -> None:
+    tool = _targets(bus, agent={"status": "found", "id": "agent-7", "name": "Scout"})
+    res = await tool.execute({"agent": "  scout "}, None)
+    assert res.success and res.output["agent"] == "Scout"
+    (event,) = bus.events
+    assert isinstance(event, NavigateSidebar)
+    assert (event.section, event.target, event.target_id) == ("chats", "agent", "agent-7")
+
+
+@pytest.mark.asyncio
+async def test_a_conversation_title_opens_that_conversation(bus: RecordingBus) -> None:
+    tool = _targets(bus, chat={"status": "found", "id": "s-1", "name": "Trip to Lisbon"})
+    res = await tool.execute({"chat": "trip to lisbon"}, None)
+    assert res.success
+    (event,) = bus.events
+    assert (event.section, event.target, event.target_id) == ("chats", "chat", "s-1")
+
+
+@pytest.mark.asyncio
+async def test_a_workspace_is_shown_in_the_coding_section(bus: RecordingBus) -> None:
+    tool = _targets(bus, workspace={"status": "found", "id": "", "name": "Installer"})
+    res = await tool.execute({"workspace": "installer"}, None)
+    assert res.success and res.output["workspace"] == "Installer"
+    (event,) = bus.events
+    assert (event.section, event.target, event.target_id) == ("agentic-ide", "", "")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("lookup", "says"),
+    [
+        ({"status": "ask", "candidates": ["Scout", "Scout 2"]}, "More than one agent"),
+        ({"status": "unknown", "available": ["Archivist"]}, "Known: Archivist"),
+        ({"status": "unavailable"}, "cannot open a agent right now"),
+    ],
+)
+async def test_an_unresolved_target_moves_nothing_and_says_why(
+    bus: RecordingBus, lookup: dict, says: str
+) -> None:
+    res = await _targets(bus, agent=lookup).execute({"agent": "scout"}, None)
+    assert res.success is False and says in res.error
+    assert bus.events == []
+
+
+@pytest.mark.asyncio
+async def test_two_destinations_at_once_are_refused(bus: RecordingBus) -> None:
+    tool = _targets(bus, agent={"status": "found", "id": "a", "name": "Scout"})
+    for args in ({"agent": "scout", "section": "settings"}, {"agent": "scout", "chat": "x"}):
+        res = await tool.execute(args, None)
+        assert res.success is False and "one destination" in res.error
+    assert bus.events == []
+
+
+@pytest.mark.asyncio
+async def test_a_plain_section_switch_carries_no_target(tool: NavigateTool, bus) -> None:
+    await tool.execute({"section": "settings"}, None)
+    (event,) = bus.events
+    assert (event.target, event.target_id) == ("", "")
