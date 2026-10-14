@@ -102,6 +102,12 @@ export function SideChatTab() {
   }, [message, running, setMessage]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Escape stops an answer that is still coming.
+    if (event.key === "Escape" && running) {
+      event.preventDefault();
+      void useSideChatStore.getState().cancel("side-chat-escape");
+      return;
+    }
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
     void send();
@@ -160,7 +166,7 @@ export function SideChatTab() {
       <div className="shrink-0 px-3 pb-3 pt-1">
         {error && <p role="alert" data-testid="side-chat-error" className="mb-2 px-1 text-xs text-destructive">{error}</p>}
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong">
-          <textarea ref={input} value={message} rows={2}
+          <textarea ref={input} value={message} rows={2} autoFocus
             onChange={(event) => setMessage(event.target.value)} onKeyDown={onKeyDown}
             aria-label={t("ide_side_panel.chat.input_aria")} placeholder={t("ide_side_panel.chat.placeholder")}
             data-testid="side-chat-input"
