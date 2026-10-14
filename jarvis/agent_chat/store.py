@@ -106,7 +106,9 @@ _PREVIEW_MAX_CHARS = 120
 #: session list. ``"society"`` is an agent's one canonical chat (session id
 #: ``society:<agent_id>``, see ``jarvis/society/chat_binding.py``): Jarvis'
 #: brain runner with the agent's own hands, listed only inside the society.
-SURFACES: Final[tuple[str, ...]] = ("jarvis", "agent", "local-models", "society")
+#: ``"side"`` is the Agentic IDE's side chat: a plain conversation with no
+#: tools on any seat, listed only in the IDE's side panel.
+SURFACES: Final[tuple[str, ...]] = ("jarvis", "agent", "local-models", "society", "side")
 DEFAULT_SURFACE: Final[str] = "agent"
 
 
