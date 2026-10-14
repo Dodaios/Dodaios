@@ -75,69 +75,63 @@ export const DEPARTMENT_ZONES = [
 export const DEPARTMENT_TINTS = DEPARTMENT_ZONES.map((z) => z.rug);
 
 /**
- * The coding floor's own look, so the two floors of the tower never read as
- * copies: light-oak herringbone where the agents floor has wide planks,
- * walnut studio walls with brass lettering, a terrazzo medallion at the
- * floor's centre, and a studio style per workspace department.
+ * The coding floor's own look: a tech campus floor. Polished pale concrete is
+ * the ground, a terrazzo main street runs down the middle, and every team
+ * neighbourhood is an island of white oak with long shared tables, a living
+ * moss wall carrying its name, and phone booths in its colour along the
+ * glass. The agents floor below keeps its wide oak planks and limestone.
  */
 export const CODING_SCENE = {
-  slabEdge: "#2b2233",
-  rim: "#f3b16b",
-  sky: "#fff1de",
-  ground: "#5e4c44",
-  /** Herringbone oak: the seam between blocks and the block tones. */
-  oak: { seam: "#b09778", planks: ["#dcc7a8", "#d5bf9d", "#e2cfb2", "#d0b796", "#e6d5ba", "#d9c3a2"] },
-  /** The polished concrete band along the windows, and its brass inlay. */
-  concrete: { base: "#cfc6ba", cloud: ["#c6bcaf", "#d8d0c5", "#c9c0b4"], brass: "#c9a24a" },
-  /** Walnut slat walls behind each studio, with brass lettering. */
-  walnut: { slat: "#5d3d28", gap: "#2e1d13", cap: "#1f1a17" },
-  brass: "#d8ae52",
-  /** Linear pendants over the desks: body, lit underside and the pool of light below. */
-  pendant: { body: "#1d1b1a", glow: "#ffd9a0", pool: "#ffcf8f" },
+  slabEdge: "#2b2a28",
+  rim: "#ffe2bd",
+  /** Daylight from a pale sky, a warm bounce off the oak. */
+  sky: "#f6f4ef",
+  ground: "#8a8076",
+  /** Polished concrete: base, soft clouds of tone, and the saw-cut joints. */
+  concrete: { base: "#d9d6d0", cloud: ["#d2cec7", "#e0ddd8", "#cfcbc4"], joint: "#b9b4ac" },
+  /** The terrazzo main street, its chips, and the brass strip along its edges. */
+  terrazzo: { base: "#ece7de", chips: ["#cfc5b5", "#b3a690", "#ddd2bf", "#93887a", "#c2a97e", "#7f8f86"] },
+  /** White oak: the neighbourhoods' floor and the long tables. */
+  oak: { seam: "#c4ad8c", planks: ["#e8dac2", "#e2d2b6", "#ecdfc9", "#ddcbad", "#efe4d0", "#e4d5bb"] },
+  /** The living walls: moss tones, fern tones, and the white-oak frame. */
+  moss: { base: "#4f6b3a", tones: ["#5d7b42", "#46613a", "#6e8a4b", "#3d5532", "#7a9655"], fern: "#86a85c", frame: "#d9c7a8" },
+  /** The long tables' spine, legs and screens. */
+  table: { top: "#e6d6ba", edge: "#cdb894", leg: "#2a2c30", spine: "#3a3d42", screen: "#eceae5" },
+  brass: "#c9a24a",
+  /** Linear pendants over the tables: body, lit underside and the pool of light below. */
+  pendant: { body: "#f2f1ee", glow: "#fff1dc", pool: "#fff0d6" },
   /** The town square round the spawn terminal: the terrazzo medallion and its chips. */
-  plaza: { terrazzo: "#ebe4d8", chips: ["#cbc0ae", "#a99b86", "#dccfb8", "#8d806d", "#b99f72"] },
+  plaza: { terrazzo: "#efe9df", chips: ["#cbc0ae", "#a99b86", "#dccfb8", "#8d806d", "#b99f72"] },
   /** The desk's busy light: working, waiting for the person, failed, idle. */
   busy: { working: "#3ccf6e", waiting: "#ffb020", error: "#ff4d4d", idle: "#6b6f76" },
 } as const;
 
-export type CarpetPattern = "grid" | "stripes" | "checker" | "dots" | "diagonal" | "zigzag";
-
-export interface StudioStyle {
-  pattern: CarpetPattern;
-  /** Carpet base, its pattern tone, and the rug border. */
-  carpet: string;
-  weave: string;
-  border: string;
-  /** The studio's accent: the kick band along its walnut wall. */
-  slat: string;
-  /** Desk top, cabinet, leg, chair base and seat. */
-  deskTop: string;
-  deskBody: string;
-  deskLeg: string;
-  chair: string;
-  seat: string;
+/** A team neighbourhood's colour: the phone booths, chair seats and the stripe under its name. */
+export interface TeamColours {
+  /** The team's colour itself. */
+  accent: string;
+  /** A soft felt in that colour: booth interiors and seat fabric. */
+  felt: string;
 }
 
 /**
- * One studio per workspace department, cycled; every one differs in pattern
- * and colours. The patterns are woven tone-on-tone and the furniture stays in
- * the office's contemporary kit (oak or walnut tops, black or white steel,
- * graphite chairs), so a studio reads as a team's corner, not a theme park.
+ * One colour per neighbourhood, cycled by the department's tint index: clear,
+ * friendly colours a company would paint its team areas in, each distinct
+ * from the others and from the status colours of the busy lights.
  */
-export const CODING_STUDIOS: readonly StudioStyle[] = [
-  { pattern: "grid", carpet: "#4a403a", weave: "#544841", border: "#c77b58", slat: "#c77b58",
-    deskTop: "#c9ab81", deskBody: "#2b2f36", deskLeg: "#1f2226", chair: "#1d2025", seat: "#3aa99a" },
-  { pattern: "stripes", carpet: "#b3bda2", weave: "#a9b398", border: "#7f9471", slat: "#7f9471",
-    deskTop: "#dcc39d", deskBody: "#f3f2ef", deskLeg: "#1f2226", chair: "#1d2025", seat: "#6f8b77" },
-  { pattern: "checker", carpet: "#dcbfae", weave: "#d4b5a3", border: "#bf7a5e", slat: "#bf7a5e",
-    deskTop: "#f2f0ec", deskBody: "#f3f2ef", deskLeg: "#1f2226", chair: "#1d2025", seat: "#b0705b" },
-  { pattern: "dots", carpet: "#cbbfc6", weave: "#c0b3bb", border: "#8f7a8a", slat: "#8f7a8a",
-    deskTop: "#dcc39d", deskBody: "#e9e7ef", deskLeg: "#e9e7ef", chair: "#2b2f36", seat: "#766e96" },
-  { pattern: "diagonal", carpet: "#b9c3c9", weave: "#afb9c0", border: "#6f8694", slat: "#6f8694",
-    deskTop: "#c9ab81", deskBody: "#f3f2ef", deskLeg: "#1f2226", chair: "#1d2025", seat: "#5f7894" },
-  { pattern: "zigzag", carpet: "#dccaa6", weave: "#d3c09a", border: "#b8955e", slat: "#b8955e",
-    deskTop: "#8a6446", deskBody: "#2b2f36", deskLeg: "#1f2226", chair: "#1d2025", seat: "#c79a3a" },
+export const CODING_TEAMS: readonly TeamColours[] = [
+  { accent: "#3f7fd9", felt: "#6f9ee0" },
+  { accent: "#e36a4f", felt: "#e99079" },
+  { accent: "#e2b33c", felt: "#e8c56c" },
+  { accent: "#2f9e8f", felt: "#62b5a9" },
+  { accent: "#8a63c9", felt: "#a68bd6" },
+  { accent: "#d1557f", felt: "#dc7f9e" },
 ];
+
+export function codingTeam(index: number): TeamColours {
+  const n = CODING_TEAMS.length;
+  return CODING_TEAMS[((index % n) + n) % n];
+}
 
 /** Colours of the room props (lobby, team room, wardrobe, break room). */
 export const PROP_COLOURS = {

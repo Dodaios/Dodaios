@@ -959,26 +959,34 @@ by a rebuilt floor plan is put on the nearest free ground.
 - `__officeCamera.cut()` — the walls lowered right now; `.walls()` how many
   wall objects are tagged; `.limits()` this floor's zoom limits.
 
-## 5j. Coding floor in the tower (2026-10-14)
+## 5j. Coding floor as a tech campus floor (2026-10-14)
 
-A sci-fi rebuild of the coding floor (a "Foundry deck" with a reactor, drones,
-sky beams and a nebula) was shipped and rejected the same day as too far from
-an office. The maintainer asked for a professional, high-end company office.
-The floor now keeps the studio look of §5b and moves into the tower:
+Two looks were rejected on the same day: a sci-fi "Foundry deck" (reactor,
+drones, sky beams) as no office at all, and the studio look of §5b moved into
+the tower as "as boring as before". The maintainer asked for a floor built the
+way large technology companies build theirs. The floor plan stays (rooms,
+stations, desk slots, the 6.4 m concourse); everything on it is new:
 
-- **The tower** (`BuildingShell`): window walls, the balustrade and the city
-  outside, like the agents floor and the Level Hall; the violet void and its
-  railing are gone. All working floors share the city's backdrop.
-- **Floor**: light-oak herringbone (lighter and more neutral than before),
-  the concrete band with its brass inlay along the windows.
-- **Concourse and town square**: the centre aisle is a 6.4 m concourse
-  (`CONCOURSE`); round the spawn terminal a terrazzo medallion with brass
-  rings and a compass of fine brass lines under a soft pool of light
-  (`CodingPlaza.tsx`). Flat, so navigation is unchanged.
-- **Busy lights** (`DeskBusyLights.tsx`): a small frosted lamp on a brass foot
-  on every occupied desk, lit in the pane's state (green working, amber
-  blinking when it waits for the person, red failed, grey idle). It stays on
-  the desk while the agent walks away.
+- **Zones by material** (`CodingFloorLook.tsx`): polished pale concrete with
+  saw-cut joints is the ground; the concourse is a terrazzo main street with
+  brass strips; every workspace is a team neighbourhood on an island of
+  white-oak planks.
+- **Team neighbourhoods**: a living moss wall in a white-oak frame on the
+  north edge carries the team's name on an oak header with a stripe of the
+  team's colour (`CODING_TEAMS`), over a planter with trailing plants.
+- **Long shared tables** (`CodingTables.tsx`): each bench of desk slots is one
+  continuous white-oak table on dark steel A-frames with a low felt screen in
+  the team's colour down its spine; every seat keeps its monitor (the live
+  terminal is drawn where it was), keyboard and a task chair in the team's felt.
+- **Along the glass** (`codingAmbience.ts`): per outer neighbourhood a glass
+  phone booth lined in the team's felt and a planter trough, either side of the
+  window spot; tree planters at the cross aisles.
+- **Main street**: a grove in the middle of every row — a tall tree in a round
+  planter ringed by an oak bench — and the terrazzo medallion round the spawn
+  terminal (`CodingPlaza.tsx`).
+- **Busy lights** (`DeskBusyLights.tsx`): a lamp on every occupied desk in the
+  pane's state (green working, amber blinking when it waits, red failed, grey idle).
+- The floor stands in the tower like the agents floor (`BuildingShell`).
 
 ## 6. Plan
 
