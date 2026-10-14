@@ -55,34 +55,50 @@ before the build must not change files; the coordinator compares snapshots
 around them and reports a change in the thread with the files' names, so a
 cache that a check left behind can be told from an edit.
 
-## The shared thread
+## The team room
 
-The thread is a board on one page: a lane per member, a band per step.
+A team thread opens as a room: the team on a canvas, their chats beside it,
+the task, state, steps and bounds above. Below about 980 pixels of width the
+canvas sits above the chats.
 
-- **Lanes.** Each member has a column. Its head stays in view while the board
-  scrolls and says what the member does right now: working, waiting for the
-  person, waiting for its turn, or gone (with the reason).
-- **Bands.** Each step is a row across the lanes: the own plans side by side,
-  a master plan beside the votes on it, a build beside its reviews. A further
-  master-plan or review round is a band of its own. What belongs to nobody's
-  lane (the person's messages, notices, the outcome) spans the board between
-  the bands.
-- **Live.** A member whose turn runs shows its newest steps as they happen:
-  the files it reads, the commands it runs, the edits it makes, its own words,
-  with the time and tokens spent so far. The board listens to a member's
-  thread only while that member works.
-- **Cards.** A filed contribution is a card with its first lines, its verdict
-  and, for a review, its blocking finding. A click opens the whole text under
-  its band, starting at its top; nothing is navigated to.
-- **Caught by the team** lists every objection and finding with who raised it,
-  where, and whether it is resolved.
-- The header shows the five steps as one line, and time and turns as bars
-  against their limits, with the cost where a seat reports one. That amount is
-  the list price the coding agents report; a subscription seat is not billed
-  per turn.
-- Each member is still an ordinary thread underneath. A click on a lane's head
-  opens it with every tool call and diff; the thread list shows the team once
-  and keeps the members out of it.
+- **Canvas.** Each member is a node with its model's mark, its name, its role
+  (planner and builder) and its state in one line: what it is doing right now
+  (the file it reads, the command it runs, with the time), waiting for the
+  person, waiting for its turn, finished, or gone with the reason. The person
+  is a node too. The layout is fixed per team size and fitted to the frame,
+  so nothing moves while the team works; it can be zoomed and moved.
+- **Lines.** Every line is a real handoff the coordinator made, never
+  decoration: the task and the person's messages to every member, a plan to
+  the members who read it, a vote or a plan review back to its author, a build
+  to its reviewers, findings back to the builder, a blocked step to the
+  planner. A line's label says what went across last ("Master plan, round 2",
+  "3 findings, 1 blocking", "Change, 4 files", "Agrees"), with a count when
+  more went that way. A line a member is working on right now flows; the lines
+  of the current step and the step before it are drawn with their labels;
+  older lines stay as faint traces whose label shows on hover.
+- **Chats.** The side column has a tab per member with that member's own
+  conversation as it streams in: its turns, tool calls, diffs and words. What
+  the coordinator handed the member is folded to its first line. **Follow**
+  (on by default) shows whoever is working; picking a tab or a node turns it
+  off. A member's thread is read from its own socket, one per member however
+  many places show it, opened through the app's connect budget.
+- **Exchanges.** A click on a line shows everything the two members exchanged,
+  both ways, in order, the newest unfolded. Escape or the close button returns
+  to the chat.
+- **Story.** The shared story is a tab: every contribution as one line (who,
+  what, the verdict, to whom, a two-line gist) under a heading per step, the
+  person's messages, notices and the outcome where they happened, and at the
+  end what the team caught in each other's work, with who raised it, where,
+  and whether it is resolved. A click unfolds a contribution in place.
+- **Header.** The steps as one line, time and turns against their limits, the
+  cost where a seat reports one (the list price the coding agents report; a
+  subscription seat is not billed per turn), and for planner and builder the
+  plan's progress, which opens the plan.
+- **Ways back.** Nothing in the room navigates away except **Full thread** on
+  a member's chat (or **Answer in its thread** when the member waits for an
+  approval there). That thread shows **Back to the team** at its top, the team
+  stays marked in the thread list meanwhile, and the room comes back on the
+  same chat. The start form has **Back** to what was open before it.
 
 ## Stepping in
 
@@ -162,13 +178,13 @@ A plan the coordinator cannot read (no block, broken JSON, a step without
 `done_when`) is never taken for a plan: the planner is asked once more with
 the reason, then the thread waits for the person.
 
-The board puts the plan on top: the current version (marked while it is
-still proposed), each step with its state (open, building, in review,
-changes requested, accepted) and who holds it, and an open revision request.
-Below it, a plan round is a band with the plan beside its reviews; each step
-of the plan is a band with its builds in the builder's lane and the reviews
-beside them, fixes stacked under them; the final review is a band of its
-own. Lane heads show each member's role.
+The room's **Plan** tab shows the current version (marked while it is still
+proposed), each step with its state (open, building, in review, changes
+requested, accepted) and who holds it, and an open revision request. In the
+story, a plan round, each step of the plan and the final review have a
+heading of their own; the canvas shows each member's role, the plan going to
+its readers, each step going to its reviewer and a blocked step going back to
+the planner.
 
 Bounds are those of the table above, with two differences: plan rounds count
 per version (a revision starts again at one), and review rounds count per

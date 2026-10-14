@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, FolderPlus } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, FolderPlus } from "lucide-react";
 import { prepareGit } from "@/lib/gitApi";
+import { useTeamThreads } from "@/lib/teamThreadsApi";
 import type { AgentChatSession } from "@/lib/agentChatApi";
 import { useEventStore } from "@/store/events";
-import { translate, useT } from "@/i18n";
+import { fill, translate, useT } from "@/i18n";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore } from "@/store/ideThreads";
 import { useThreadTerminalsStore } from "@/store/threadTerminals";
@@ -241,6 +242,7 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
     return <TeamThreadView key={selection.team} team={selection.team} project={project} onScreen={onScreen} />;
   }
 
+  const memberOf = selection.fromTeam || session?.team_id || "";
   const threadKey = selection.sessionId ?? `draft:${project.id}`;
   const [buildBefore, buildAfter = ""] = t("ide_threads.build_in").split("{project}");
   const empty = isDraft && timeline.items.length === 0;
@@ -249,6 +251,7 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
     base={base} onBase={setBase} locked={running} />;
 
   return <div className="relative flex h-full min-h-0 flex-col" data-testid="thread-view">
+    {memberOf && <BackToTeam teamId={memberOf} projectId={project.id} />}
     {empty
       ? <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5 pb-10">
         <h2 className="text-center text-2xl font-normal tracking-tight text-foreground sm:text-3xl">
@@ -283,5 +286,22 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
           </div>
         </div>
       </OpenSubagent.Provider>}
+  </div>;
+}
+
+/**
+ * A team member's own thread leads back to its team: the members are kept out
+ * of the thread list, so without this line the team could not be reached
+ * from here again.
+ */
+function BackToTeam({ teamId, projectId }: { teamId: string; projectId: string }) {
+  const t = useT();
+  const title = useTeamThreads().data?.find((row) => row.team_id === teamId)?.title ?? "";
+  return <div className="flex h-9 shrink-0 items-center border-b border-border px-3" data-testid="thread-back-to-team">
+    <button type="button" onClick={() => useIdeThreadsStore.getState().openTeam(teamId, projectId)}
+      className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <ArrowLeft aria-hidden className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate">{title ? fill(t("team_threads.room.back_named"), { title }) : t("team_threads.room.back")}</span>
+    </button>
   </div>;
 }
