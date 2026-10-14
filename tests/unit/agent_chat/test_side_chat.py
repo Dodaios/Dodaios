@@ -3,7 +3,8 @@
 Pinned here: the surface seats only what can answer without tools, an API
 seat's request carries no tool and the surface's own system prompt, a
 tool-free CLI keeps its conversation for the next message and hears the
-instructions once, and the model is told about the workspace folder.
+instructions whenever it starts one, and the model is told nothing about the
+workspace: this is a plain AI chat.
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ from jarvis.agent_chat.service import AgentChatService
 from jarvis.agent_chat.store import AgentChatStore
 from jarvis.agent_chat.surface_kits import kit_for
 from jarvis.agentic_ide import side_chat
-from jarvis.agentic_ide.prompt_blueprint import GOAL_NOT_IMPLEMENTATION_RULE
 from jarvis.core.protocols import BrainDelta, BrainRequest
 
 
@@ -89,7 +89,7 @@ async def test_an_api_seat_gets_no_tools_and_the_surfaces_own_system_prompt(
     (tmp_path / "frontend").mkdir()
     # A model that asks for a tool anyway is not handed one.
     brain.script = [
-        BrainDelta(content="The frontend lives in frontend/."),
+        BrainDelta(content="Paris."),
         BrainDelta(tool_call={"id": "c1", "name": "Read", "input": {"file_path": "x"}}),
     ]
     store = AgentChatStore(":memory:")
@@ -98,15 +98,15 @@ async def test_an_api_seat_gets_no_tools_and_the_surfaces_own_system_prompt(
         session = svc.create_session(provider="fakeprov", cwd=str(tmp_path), surface="side")
         queue = svc.subscribe(session.session_id)
 
-        await svc.send(session.session_id, "where is the frontend?")
+        await svc.send(session.session_id, "what is the capital of France?")
         events = await _until_finished(queue)
 
         request = brain.seen[0]
         assert request.tools == ()
-        assert "You are Testo" in request.system and "no tools here" in request.system
-        assert GOAL_NOT_IMPLEMENTATION_RULE in request.system
-        assert str(tmp_path) in request.system and "frontend" in request.system
-        assert request.messages[-1].content == "where is the frontend?"
+        assert "You are Testo" in request.system and "no tools in this chat" in request.system
+        # A plain chat: nothing about the folder the session happens to sit in.
+        assert str(tmp_path) not in request.system and "frontend" not in request.system
+        assert request.messages[-1].content == "what is the capital of France?"
         kinds = [event["kind"] for event in events]
         assert "tool_call" not in kinds and "approval_required" not in kinds
         assert events[-1]["payload"]["status"] == "done"
@@ -208,32 +208,15 @@ def test_a_plain_chat_on_a_cli_that_could_still_write_runs_read_only() -> None:
     )
 
 
-async def test_the_workspace_notes_describe_the_sessions_folder(tmp_path: Path) -> None:
+async def test_the_chat_is_told_how_to_answer_and_nothing_about_a_workspace(
+    tmp_path: Path,
+) -> None:
     (tmp_path / ".git").mkdir()
-    (tmp_path / ".git" / "HEAD").write_text("ref: refs/heads/feature/chat\n", encoding="utf-8")
     (tmp_path / "src").mkdir()
 
-    prompt = await side_chat.system_prompt(SimpleNamespace(cwd=str(tmp_path)), "hello", "Testo")
+    prompt = await side_chat.system_prompt(SimpleNamespace(cwd=str(tmp_path)), "hi", "Testo")
 
-    assert "WORKSPACE" in prompt
-    assert str(tmp_path) in prompt and "feature/chat" in prompt and "src" in prompt
-
-
-async def test_a_session_without_a_folder_has_no_workspace_notes(tmp_path: Path) -> None:
-    for cwd in ("", str(tmp_path / "gone")):
-        prompt = await side_chat.system_prompt(SimpleNamespace(cwd=cwd), "hello", "Testo")
-        assert "WORKSPACE" not in prompt
-        assert "You are Testo" in prompt
-
-
-async def test_unreadable_notes_cost_the_notes_never_the_turn(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def _unreadable(*_args: object) -> str:
-        raise OSError("disk went away")
-
-    monkeypatch.setattr(side_chat, "workspace_notes", _unreadable)
-
-    prompt = await side_chat.system_prompt(SimpleNamespace(cwd=str(tmp_path)), "hello", "Testo")
-
-    assert "WORKSPACE" not in prompt and "You are Testo" in prompt
+    assert prompt.startswith("You are Testo, an AI assistant in a chat.")
+    assert "no tools in this chat" in prompt
+    assert str(tmp_path) not in prompt and "src" not in prompt
+    assert prompt == await side_chat.system_prompt(SimpleNamespace(cwd=""), "other", "Testo")

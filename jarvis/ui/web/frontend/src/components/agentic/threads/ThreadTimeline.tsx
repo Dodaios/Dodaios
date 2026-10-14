@@ -639,8 +639,6 @@ export interface ThreadTurnProps {
    * 3s" on the fold, and puts no duration under an answer.
    */
   tone?: "work" | "chat";
-  /** Controls after the answer's copy button (a chat's "send to a terminal"). */
-  actions?: (turn: TurnItem, answer: string) => ReactNode;
 }
 
 /**
@@ -648,7 +646,7 @@ export interface ThreadTurnProps {
  * threads and every agent chat draw their turns with it, so a turn looks and
  * behaves the same wherever it is read — streaming, finished or reloaded.
  */
-export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt, tone = "work", actions }: ThreadTurnProps) {
+export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt, tone = "work" }: ThreadTurnProps) {
   const t = useT();
   const lang = t("trace_report.locale");
   const running = turn.status === "running";
@@ -743,7 +741,6 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
             {receipt}
           </span>}
           {answer && <CopyButton text={answer} label={t("thread_turn.copy_answer")} />}
-          {answer && actions?.(turn, answer)}
         </div>
       </>}
   </div></CallMedia.Provider>;
@@ -754,9 +751,9 @@ function ErrorLine({ text }: { text: string }) {
 }
 
 /** One item of the conversation, drawn by its kind. */
-function ItemView({ item, tone, actions }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone" | "actions">) {
+function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone">) {
   if (item.type === "user") return <UserBubble item={item} />;
-  if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} actions={actions} />;
+  if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} />;
   if (item.type === "error") return <ErrorLine text={item.text} />;
   if (item.type === "notice") {
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
@@ -772,12 +769,10 @@ function ItemView({ item, tone, actions }: { item: TimelineItem } & Pick<ThreadT
  * the bottom and stays put once they scroll up to read; a button brings them
  * back down.
  */
-export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead, tone, turnActions }: {
+export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead, tone }: {
   items: TimelineItem[]; sessionId: string | null; bottomInset: number;
   /** How every turn's status lines read (see `ThreadTurnProps.tone`). */
   tone?: ThreadTurnProps["tone"];
-  /** Controls after each answer's copy button; keep the function stable. */
-  turnActions?: ThreadTurnProps["actions"];
   /** The thread's project folder; changed files list relative to it. */
   folder?: string;
   /** What reads above the conversation — an opened sub-agent's header and task. */
@@ -822,7 +817,7 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="h-full overflow-y-auto scrollbar-jarvis">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {items.map((item) => <ItemView key={item.id} item={item} tone={tone} actions={turnActions} />)}
+        {items.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
       </div>
     </div>
     {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}

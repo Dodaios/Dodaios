@@ -119,9 +119,8 @@ class SurfaceKit:
     #: so every CLI can ask and have its plan approved, not only Claude Code.
     turn_prompts: bool = False
     #: A plain conversation: no tool on any seat. The builder writes the whole
-    #: system prompt (who is talking, what it knows about the workspace); an
-    #: API seat gets it as its system prompt, a CLI seat at the head of the
-    #: conversation's first message. The picker lists only the seats that can
+    #: system prompt; an API seat gets it as its system prompt, a CLI seat at
+    #: the head of every conversation it starts. The picker lists only the seats that can
     #: answer without tools (``catalog.rows_for``).
     plain_chat: PlainChatBuilder | None = None
 
@@ -231,7 +230,7 @@ def _society_history_start(session: Any) -> int:
 
 
 async def _side_chat(session: Any, user_text: str, assistant_name: str) -> str:
-    """The IDE side chat's system prompt, workspace notes included (lazy, AP-26)."""
+    """The IDE side chat's system prompt (lazy, AP-26)."""
     from jarvis.agentic_ide.side_chat import system_prompt
 
     return await system_prompt(session, user_text, assistant_name)
@@ -320,11 +319,10 @@ _KITS: Final[dict[str, SurfaceKit]] = {
         history_start=_society_history_start,
         workspace_dir=_chat_workspace,
     ),
-    # The Agentic IDE's side chat: a plain conversation beside the terminals.
-    # No tools, no approvals, no folder access - the model answers from the
-    # conversation and the workspace notes in its system prompt. Subscription
-    # CLIs may answer too, run tool-free, so a person without an API key still
-    # has a chat.
+    # The Agentic IDE's side chat: a plain AI chat beside the terminals. No
+    # tools, no approvals, no workspace - the model answers from the
+    # conversation alone. Subscription CLIs may answer too, run tool-free, so a
+    # person without an API key still has a chat.
     "side": SurfaceKit(
         surface="side",
         cli_seats=True,
