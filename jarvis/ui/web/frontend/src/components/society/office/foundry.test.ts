@@ -119,6 +119,8 @@ describe("Foundry deck life", () => {
     expect(freshOutput([pane("a", 10), pane("b", 6)], seen, false)).toEqual(["pane:w:h-b"]);
     expect(freshOutput([pane("a", 11), pane("b", 6), pane("c", 3)], seen, false)).toEqual(["pane:w:h-a"]);
     expect(freshOutput([pane("a", null)], seen, false)).toEqual([]);
+    // Closed panes are forgotten: the record never outgrows the roster.
+    expect([...seen.keys()]).toEqual([]);
   });
 
   it("finds each seated pane's bay", () => {

@@ -43,13 +43,17 @@ export function freshOutput(
   seen: Map<string, number>, first: boolean,
 ): string[] {
   const fresh: string[] = [];
+  const present = new Set<string>();
   for (const pane of panes) {
     if (pane.last_output_at == null) continue;
     const id = paneAgentId(pane);
+    present.add(id);
     const before = seen.get(id);
     seen.set(id, pane.last_output_at);
     if (!first && before !== undefined && pane.last_output_at > before) fresh.push(id);
   }
+  // Forget panes that closed, so the record never outgrows the roster.
+  for (const id of [...seen.keys()]) if (!present.has(id)) seen.delete(id);
   return fresh;
 }
 
@@ -107,7 +111,12 @@ export function FoundryPulses({ frame, departments, animate }: { frame: FoundryF
   useEffect(() => () => { materials.body.dispose(); materials.trail.dispose(); }, [materials]);
   const body = useRef<InstancedMesh>(null);
   const trail = useRef<InstancedMesh>(null);
-  const tmp = useMemo(() => ({ m: new Matrix4(), q: new Quaternion(), p: new Vector3(), s: new Vector3(), up: new Vector3(0, 1, 0), x: new Vector3(1, 0, 0) }), []);
+  const tmp = useMemo(() => ({
+    m: new Matrix4(), q: new Quaternion(), p: new Vector3(), s: new Vector3(), up: new Vector3(0, 1, 0),
+    // The trail's plane lies flat: a quarter turn about x, applied before the packet's heading.
+    flat: new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.PI / 2),
+  }), []);
+  const shown = useRef(0);
   useLayoutEffect(() => {
     for (const mesh of [body.current, trail.current]) if (mesh) mesh.count = 0;
   }, []);
@@ -126,7 +135,11 @@ export function FoundryPulses({ frame, departments, animate }: { frame: FoundryF
     }
     const b = body.current, tr = trail.current;
     if (!b || !tr) return;
-    list.forEach((packet, i) => {
+    // Nothing on the rails and nothing drawn last frame: no upload.
+    if (list.length === 0 && shown.current === 0) return;
+    shown.current = list.length;
+    for (let i = 0; i < list.length; i += 1) {
+      const packet = list[i];
       const at = pointAlong(packet.rail, packet.s);
       const yaw = Math.atan2(-at.dz, at.dx);
       tmp.q.setFromAxisAngle(tmp.up, yaw);
@@ -134,10 +147,10 @@ export function FoundryPulses({ frame, departments, animate }: { frame: FoundryF
       b.setColorAt(i, packet.colour);
       // The trail lies flat on the floor behind the packet.
       const back = 1.1;
-      tmp.q.setFromAxisAngle(tmp.up, yaw).multiply(new Quaternion().setFromAxisAngle(tmp.x, -Math.PI / 2));
+      tmp.q.setFromAxisAngle(tmp.up, yaw).multiply(tmp.flat);
       tr.setMatrixAt(i, tmp.m.compose(tmp.p.set(at.x - at.dx * back / 2, 0.02, at.z - at.dz * back / 2), tmp.q, tmp.s.set(back + 0.3, 0.32, 1)));
       tr.setColorAt(i, packet.colour);
-    });
+    }
     b.count = list.length;
     tr.count = list.length;
     b.instanceMatrix.needsUpdate = true;

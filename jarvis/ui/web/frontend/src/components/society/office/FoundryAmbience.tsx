@@ -182,10 +182,15 @@ function CoolantLines({ items }: { items: readonly AmbienceItem[] }) {
 
 /** The deck's dressing along the glass, and its two fill lights. */
 export function FoundryAmbience({ layout, animate }: { layout: OfficeLayout; animate: boolean }) {
-  const items = useMemo(() => codingAmbience({ departments: layout.departments, rooms: layout.rooms }), [layout]);
-  const domes = items.filter((i) => i.kind === "tree");
-  const racks = items.filter((i) => i.kind === "library");
-  const lines = items.filter((i) => i.kind === "trough");
+  // One list per kind, kept while the plan stands: each piece below memoises its placements on it.
+  const { domes, racks, lines } = useMemo(() => {
+    const items = codingAmbience({ departments: layout.departments, rooms: layout.rooms });
+    return {
+      domes: items.filter((i) => i.kind === "tree"),
+      racks: items.filter((i) => i.kind === "library"),
+      lines: items.filter((i) => i.kind === "trough"),
+    };
+  }, [layout]);
   const { minX, maxX, minZ, maxZ } = layout.bounds;
   return (
     <group>

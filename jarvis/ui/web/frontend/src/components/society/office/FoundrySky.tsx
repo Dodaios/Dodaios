@@ -11,6 +11,8 @@ import { AdditiveBlending, BackSide, Color, DoubleSide, ShaderMaterial, Vector3 
 import { FOUNDRY } from "./foundryPalette";
 
 const SKY_RADIUS = 520;
+/** Render order of the planet (the sky follows it): after every opaque part of the deck. */
+const SKY_ORDER = 1000;
 
 const SKY_VERTEX = /* glsl */ `
   varying vec3 vDir;
@@ -119,12 +121,12 @@ const RING_FRAGMENT = /* glsl */ `
     float lanes = 0.55 + 0.45 * sin(r * 90.0) * sin(r * 23.0 + 1.3);
     float gap = smoothstep(0.42, 0.45, r) * (1.0 - smoothstep(0.49, 0.52, r));
     float edge = smoothstep(0.0, 0.06, r) * (1.0 - smoothstep(0.9, 1.0, r));
-    float a = edge * lanes * (1.0 - gap * 0.85) * 1.25;
-    gl_FragColor = vec4(uRing * (0.6 + lanes * 0.5), a);
+    float a = edge * lanes * (1.0 - gap * 0.85) * 0.32;
+    gl_FragColor = vec4(uRing * (0.45 + lanes * 0.35), a);
   }
 `;
 
-const RING = { inner: 1.35, outer: 2.25 } as const;
+const RING = { inner: 1.4, outer: 2.05 } as const;
 /** The planet's radius: far out to the west, it fills a corner of the view, not the whole of it. */
 const PLANET_R = 78;
 
@@ -164,12 +166,13 @@ export function FoundrySky({ centre, animate }: { centre: [number, number]; anim
   const [cx, cz] = centre;
   return (
     <group>
-      <mesh material={materials.sky} renderOrder={-10} frustumCulled={false}>
+      {/* Sky and planet draw after the deck, so the depth test skips every pixel the deck already covers. */}
+      <mesh material={materials.sky} renderOrder={SKY_ORDER + 1} frustumCulled={false}>
         <sphereGeometry args={[SKY_RADIUS, 48, 24]} />
       </mesh>
       {/* Far below the deck's north end, off to the right: the camera sees it beside the deck, not behind all of it. */}
       <group position={[cx - 5, -190, cz - 330]} rotation={[0.32, 0.6, -0.18]}>
-        <mesh material={materials.planet} renderOrder={-9}>
+        <mesh material={materials.planet} renderOrder={SKY_ORDER}>
           <sphereGeometry args={[PLANET_R, 64, 32]} />
         </mesh>
         <mesh material={materials.ring} rotation={[-Math.PI / 2 + 0.22, 0, 0]} renderOrder={-8}>

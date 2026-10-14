@@ -169,7 +169,7 @@ const DECK_MAT = {
   steelDark: matte(FOUNDRY.steelDark, { roughness: 0.55, metalness: 0.5 }),
   gold: matte(FOUNDRY.gold, { roughness: 0.3, metalness: 0.85 }),
   glass: new MeshStandardMaterial({ color: "#9fd8ff", transparent: true, opacity: 0.12, roughness: 0.05, metalness: 0.2, side: DoubleSide, depthWrite: false }),
-  edgeLight: glow(FOUNDRY.code, 1.3),
+  edgeLight: glow(FOUNDRY.code, 1.15),
   porthole: glow("#ffd9a0", 1.25),
   trim: glow(FOUNDRY.gold, 1.05),
 };
@@ -268,11 +268,11 @@ export function FoundrySlab({ layout, frame, onFloorClick }: {
 const railMaterials = new Map<number, MeshBasicMaterial>();
 function railMaterial(tint: number): MeshBasicMaterial {
   let m = railMaterials.get(tint);
-  if (!m) { m = glow(baySignal(tint), 1.25); railMaterials.set(tint, m); }
+  if (!m) { m = glow(baySignal(tint), 1.1); railMaterials.set(tint, m); }
   return m;
 }
 
-const RAIL_W = 0.085;
+const RAIL_W = 0.06;
 
 /** One rail as flat glowing strips, a via pad where it leaves its bay and a joint at every turn. */
 function RailTrace({ rail }: { rail: Rail }) {
@@ -393,7 +393,7 @@ function useBayKit(dept: Department, label: string, caption: string): BayKit {
     if (texture) texture.colorSpace = SRGBColorSpace;
     const tinted = new Color(colour);
     return {
-      strip: glow(colour, 1.35),
+      strip: glow(colour, 1.15),
       plate: new MeshStandardMaterial({
         color: plateMap ? new Color("#ffffff").lerp(tinted, 0.2) : "#16181d", map: plateMap, roughness: 0.5, metalness: 0.4,
         emissive: tinted, emissiveMap: plateMap, emissiveIntensity: plateMap ? 0.08 : 0,

@@ -103,6 +103,9 @@ function deskMatrix(desk: DeskSlot, local: [number, number, number], scale: [num
   return world.multiply(new Matrix4().compose(new Vector3(...local), new Quaternion(), new Vector3(...scale)));
 }
 
+/** A moment at which every blinking or breathing signal is lit: the still frame under reduced motion. */
+const REST_T = 0.1;
+
 /** The status a desk's light shows. */
 export type DeskSignal = AgentDotKind | "free";
 
@@ -136,7 +139,8 @@ function PartInstances({ part, infos, animate }: { part: Part; infos: readonly D
       mesh.setMatrixAt(i, deskMatrix(info.desk, part.position, part.scale));
       if (part.tint === "edge") mesh.setColorAt(i, colour.copy(info.bay).multiplyScalar(info.signal === "free" ? 0.25 : 0.8));
       if (part.tint === "seat") mesh.setColorAt(i, info.seat);
-      if (part.tint === "signal") mesh.setColorAt(i, signalColour(info.signal, info.bay, 0, colour));
+      // At rest (reduced motion) the light holds a lit phase: an asking desk must not sit at its dark blink.
+      if (part.tint === "signal") mesh.setColorAt(i, signalColour(info.signal, info.bay, REST_T, colour));
     });
     mesh.count = infos.length;
     mesh.instanceMatrix.needsUpdate = true;
@@ -223,8 +227,9 @@ function NodeTowers({ departments, animate }: { departments: readonly Department
   if (rects.length === 0) return null;
   return (
     <group>
-      <instancedMesh ref={ref} args={[GEO.box, material, rects.length]} castShadow receiveShadow frustumCulled={false} />
-      <instancedMesh ref={caps} args={[GEO.box, CMAT.gold, rects.length]} frustumCulled={false} />
+      {/* Remount when the count changes: an instanced mesh cannot grow in place. */}
+      <instancedMesh key={rects.length} ref={ref} args={[GEO.box, material, rects.length]} castShadow receiveShadow frustumCulled={false} />
+      <instancedMesh key={`cap${rects.length}`} ref={caps} args={[GEO.box, CMAT.gold, rects.length]} frustumCulled={false} />
     </group>
   );
 }
