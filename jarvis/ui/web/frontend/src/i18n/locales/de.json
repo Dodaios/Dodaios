@@ -9561,7 +9561,6 @@
     "delete_confirm": "Mit den Threads der Mitglieder löschen?",
     "steps": "Schritte",
     "members": "Team",
-    "usage": "{minutes} von {max_minutes} Min. · {turns} von {max_turns} Zügen",
     "cost_partial": "Einige Mitglieder laufen auf einem Platz, der keinen Preis meldet. Der Betrag ist daher unvollständig.",
     "cost_hint": "Betrag zum Listenpreis, wie ihn die Coding-Agents melden. Ein Abo-Platz wird nicht pro Zug abgerechnet.",
     "accept_plan": "Diesen Plan nehmen",
@@ -9613,7 +9612,8 @@
       "working": "arbeitet",
       "waiting": "wartet auf dich",
       "left": "ausgeschieden",
-      "builder": "Baut den Plan"
+      "builder": "Baut den Plan",
+      "idle": "wartet"
     },
     "reason": {
       "user": "Du hast diesen Team-Thread pausiert.",
@@ -9669,6 +9669,25 @@
       "placeholder": "Beschreibe die Aufgabe für das Team",
       "start": "Team starten",
       "bounds": "Hält an und fragt dich nach 90 Minuten, 40 Zügen oder drei Runden ohne Einigung."
+    },
+    "meter_time": "{minutes} von {max_minutes} Min.",
+    "meter_turns": "{turns} von {max_turns} Zügen",
+    "band_count": "{done} von {total}",
+    "no_report": "Es wurde kein Bericht geschrieben.",
+    "findings_count": "{count} Befunde",
+    "objections_count": "{count} Einwände",
+    "close_reader": "Schließen",
+    "live_tokens": "{count} Tokens",
+    "live_starting": "Startet…",
+    "live_thinking": "Denkt nach",
+    "role": {
+      "plans": "Schreibt den eigenen Plan",
+      "challenges": "Prüft die anderen Pläne",
+      "author": "Schreibt den Masterplan",
+      "voter": "Stimmt ab, sobald der Plan da ist",
+      "builder": "Baut den Plan",
+      "reviewer": "Prüft, sobald gebaut ist",
+      "answers": "Antwortet auf das Review"
     }
   }
 }
