@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TimelineItem, TurnBlock, TurnItem, TurnStatus } from "@/components/agentchat/reduce";
+import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 import { SideChatTab } from "./SideChatTab";
 import { useSideChatStore } from "./sideChatStore";
@@ -48,6 +49,7 @@ function seed(items: TimelineItem[], extra: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   localStorage.clear();
+  useEventStore.setState({ dictating: false });
   useIdeChatStore.setState({ workspace: null });
 });
 
@@ -134,5 +136,32 @@ describe("SideChatTab", () => {
     render(<SideChatTab />);
     fireEvent.change(screen.getByTestId("side-chat-input"), { target: { value: "next question" } });
     expect(screen.getByTestId("side-chat-stop")).toBeTruthy();
+  });
+
+  it("offers the dictation mic beside Send", () => {
+    seed([]);
+    render(<SideChatTab />);
+    expect(screen.getByRole("button", { name: "Dictate" })).toBeTruthy();
+  });
+
+  it("puts dictated words into the box, after what was typed", () => {
+    seed([]);
+    render(<SideChatTab />);
+    const input = screen.getByTestId("side-chat-input") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "Question:" } });
+
+    act(() => {
+      const seq = useEventStore.getState().dictationCommitSeq + 1;
+      useEventStore.setState({ dictationCommitText: "why is the sky blue", dictationCommitSeq: seq });
+    });
+
+    expect(input.value).toBe("Question: why is the sky blue");
+  });
+
+  it("can send while dictating, before anything is in the box", () => {
+    seed([]);
+    useEventStore.setState({ dictating: true });
+    render(<SideChatTab />);
+    expect((screen.getByTestId("side-chat-send") as HTMLButtonElement).disabled).toBe(false);
   });
 });
