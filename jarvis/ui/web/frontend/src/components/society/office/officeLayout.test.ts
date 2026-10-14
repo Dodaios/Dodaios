@@ -134,7 +134,7 @@ describe("office layout", () => {
     expect(plain.variant).toBe("agents");
     expect(plain.rooms.map((r) => r.kind)).toEqual(["lead", "team", "wardrobe", "reception", "break"]);
     // The spawn point creates agents, the reception desk is the one directory and help station; the hall has its own floor.
-    expect(plain.checkpoints.map((c) => c.id)).toEqual(["spawn", "manage", "team", "wardrobe", "lead", "break", "elevator"]);
+    expect(plain.checkpoints.map((c) => c.id)).toEqual(["spawn", "manage", "team", "wardrobe", "lead", "break", "elevator", "ship"]);
     for (const kind of ["levelWall", "studioStage", "rewardPedestal", "levelGuide", "agentTotem"] as const) {
       expect(plain.furniture.some((f) => f.kind === kind), kind).toBe(false);
     }

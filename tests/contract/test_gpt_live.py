@@ -2,12 +2,14 @@
 
 import asyncio
 import json
+import re
 from types import SimpleNamespace
 
 import pytest
 
 from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
 from jarvis.live.config import LiveConfig
+from jarvis.live.coordination import NAMED_TOOLS
 from jarvis.live.session import LiveVoiceSession
 from jarvis.live.state import LiveLedger, TranscriptFragment
 from jarvis.live.tools import LiveTools
@@ -331,6 +333,71 @@ async def test_a_schema_violation_tells_the_model_what_to_fix(ledger):
     assert result["success"] is False
     assert result["executed"] is False and result["retryable"] is True
     assert "text" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_a_rejected_call_names_the_arguments_the_tool_accepts(ledger):
+    # A small model sent {"status": "all"} three times in a row (live 2026-10-14).
+    class Orchestrate(Gateway):
+        def catalog(self):
+            schema = {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "action": {"type": "string", "enum": ["status", "watch"]},
+                    "workspace": {"type": "string"},
+                },
+                "required": ["action"],
+            }
+            return (SupervisorToolDescriptor("workspace-orchestrate", "Panes", schema, "safe"),)
+
+    runtime = LiveTools(Orchestrate(), ledger, "s", language="en", backend_model="")
+    request = {"name": "workspace-orchestrate", "arguments_json": '{"status": "all"}'}
+    result = await runtime.execute("bad", "call_tool", request, 0)
+    assert result["executed"] is False and result["retryable"] is True
+    assert "Accepted arguments: action (required): one of status, watch; workspace." in (
+        result["error"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_catalog_tools_are_declared_under_readable_unique_names(ledger):
+    # Behind opaque hashes a small model confused app-restart with show_on_screen.
+    long_name = "plugin." + "x" * 80
+
+    class Named(Gateway):
+        def catalog(self):
+            return tuple(
+                SupervisorToolDescriptor(name, f"Does {name}", {"type": "object"}, "safe")
+                for name in ("app-restart", "app_restart", "show_on_screen", long_name)
+            )
+
+    runtime = LiveTools(Named(), ledger, "s", language="en", backend_model="")
+    names = {
+        runtime._names[d["name"]]: d["name"]
+        for d in runtime.declarations()
+        if d["name"] in runtime._names
+    }
+    assert names["show_on_screen"] == "jarvis_show_on_screen"
+    assert names["app-restart"] == "jarvis_app_restart"
+    # The second spelling of the same readable name keeps its own alias.
+    assert names["app_restart"].startswith("jarvis_app_restart_")
+    assert len(names[long_name]) <= 64
+    assert all(re.fullmatch(r"[A-Za-z0-9_]{1,64}", alias) for alias in names.values())
+    assert len(set(names.values())) == 4
+    # The same aliases on every declaration of the session.
+    aliases = set(names.values())
+    again = {runtime._names[d["name"]] for d in runtime.declarations() if d["name"] in aliases}
+    assert again == set(names)
+
+
+def test_an_argument_hint_is_left_out_for_a_schema_without_properties():
+    from jarvis.live.tools import _accepted_arguments
+
+    assert _accepted_arguments({"type": "object"}) == ""
+    assert _accepted_arguments(None) == ""
+    long = {"properties": {f"field_{index}": {"type": "string"} for index in range(200)}}
+    assert len(_accepted_arguments(long)) <= 602
 
 
 @pytest.mark.asyncio
@@ -1144,17 +1211,17 @@ def test_steering_tools_are_declared_before_the_size_budget_runs_out(ledger, fil
             )
             steering = tuple(
                 SupervisorToolDescriptor(name, "Steers the call", {"type": "object"}, "monitor")
-                for name in (
-                    "workspace-orchestrate", "workspace-git", "show_on_screen", "ask_agent",
-                )
+                for name in (*NAMED_TOOLS, "find-app-action", "run-app-action")
+                if name != "task_status"
             )
             return (*filler, *steering)
 
     runtime = LiveTools(Crowded(), ledger, "s", language="en", backend_model="")
-    declared = {runtime._names.get(d["name"]) for d in runtime.declarations()}
+    declarations = runtime.declarations()
+    declared = {runtime._names.get(d["name"], d["name"]) for d in declarations}
     # The conversation rules name these tools; a model that is not given a
     # named tool tells the user it does not exist.
-    assert {"workspace-orchestrate", "workspace-git", "show_on_screen", "ask_agent"} <= declared
+    assert {*NAMED_TOOLS, "find-app-action", "run-app-action"} <= declared
 
 
 @pytest.mark.asyncio
