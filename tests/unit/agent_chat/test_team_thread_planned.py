@@ -355,7 +355,11 @@ async def test_a_plan_change_after_a_done_step_comes_after_its_review(tmp_path: 
 
 
 async def test_the_planner_can_reopen_an_accepted_step(tmp_path: Path) -> None:
+    workspace = FakeWorkspace()
+
     def script(provider: str, step: str, nth: int):
+        if step == "step_build":
+            workspace.touch()
         if step == "step_build" and nth == 1:
             return step_report(2, "blocked", note="Step 1 used the wrong file.")
         if step == "plan_version" and nth == 1:
@@ -363,13 +367,18 @@ async def test_the_planner_can_reopen_an_accepted_step(tmp_path: Path) -> None:
         return None
 
     turns = FakeTurns(script)
-    snap = await _run(_engine(turns), tmp_path)
+    engine = _engine(turns, workspace=workspace)
+    snap = await _run(engine, tmp_path)
 
     assert snap["state"] == "done"
     second = [e for e in snap["entries"] if e["kind"] == "plan_version"][1]
     assert second["payload"]["carried"] == []
     builds = [e["payload"] for e in snap["entries"] if e["kind"] == "step_build"]
     assert [(b["version"], b["number"]) for b in builds] == [(1, 1), (1, 2), (2, 1), (2, 2)]
+    # The reopened step is reviewed against the tree it restarted from, not its first one;
+    # the blocked step keeps the tree of its first try.
+    bases = engine._store.get(snap["team_id"])["work"]["step_base"]  # noqa: SLF001
+    assert bases == {"add the setting": "tree-2", "use it in the uploader": "tree-1"}
 
 
 async def test_findings_of_the_final_review_go_back_to_the_builder(tmp_path: Path) -> None:
