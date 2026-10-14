@@ -14,6 +14,7 @@ import { buildHallLayout } from "./hallFloorLayout";
 import { buildOfficeLayout, type OfficeAgentInput, type OfficeLayout, type OfficeTeamInput } from "./officeLayout";
 import { FurniturePiece, MeetingChairs } from "./OfficeProps";
 import { SingularityCity } from "./SingularityCity";
+import { SkyPadStructure } from "./SkyPadStructure";
 import { StaticBatch } from "./StaticBatch";
 import { ToyFigure } from "./ToyFigure";
 import { loadProfile, playerLook } from "./playerProfile";
@@ -215,10 +216,12 @@ describe("campus scene", () => {
     let walls = 0;
     shell.traverse((child) => {
       const box = new Box3().setFromObject(child);
-      // A window wall's group: as tall as the façade, on the slab, as long as one of its sides.
-      if (child.type !== "Group" || child.children.length !== 5) return;
-      if (Math.abs(box.max.y - (FACADE.h + 0.1)) > 0.01) return;
+      // A window wall's group: tagged, as tall as the façade, on the slab, as long as one of its sides.
+      if (!child.userData.windowWall) return;
+      expect(Math.abs(box.max.y - (FACADE.h + 0.1))).toBeLessThan(0.01);
       walls += 1;
+      // The east wall has the doorway to the sky pad's bridge: its glass stands in two runs.
+      if (Math.abs((box.min.x + box.max.x) / 2 - maxX) < 0.5) expect(child.children.length).toBe(2 + 3);
       expect(inside(child)).toBe(false);
       expect(box.min.x).toBeGreaterThanOrEqual(minX - 0.01);
       expect(box.max.x).toBeLessThanOrEqual(maxX + 0.01);
@@ -253,6 +256,21 @@ describe("campus scene", () => {
       const box = new Box3().setFromObject(child);
       expect(box.min.y).toBeCloseTo(GROUND_Y, 0);
     });
+  });
+
+  it("builds the sky pad outside the slab's east edge, its deck at floor level, nothing of it inside the floor", async () => {
+    const layout = buildOfficeLayout(staff(5));
+    const pad = layout.skyPad!;
+    const group = await mount(<SkyPadStructure pad={pad} bounds={layout.bounds} reduced onFloorClick={() => undefined} />);
+    group.updateMatrixWorld(true);
+    const box = new Box3().setFromObject(group);
+    expect(box.min.x).toBeGreaterThanOrEqual(layout.bounds.maxX - 0.7);
+    expect(box.max.x).toBeLessThanOrEqual(pad.pad.x + pad.pad.r + 0.5);
+    // The rails and the light masts stand on the deck; nothing rises higher than a mast.
+    expect(box.max.y).toBeLessThan(3.6);
+    let clickable = 0;
+    group.traverse((child) => { if ((child as Mesh).isMesh && (child as unknown as { __r3f?: { handlers?: { onClick?: unknown } } }).__r3f?.handlers?.onClick) clickable += 1; });
+    expect(clickable).toBe(2);
   });
 
   it("tags every room wall run for the camera's cutaway", async () => {

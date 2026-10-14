@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/useCanvasAwake-C-C41t4I.js
 import{r as e}from"./index-BInK4GAV.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+|||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/useCanvasAwake-D8oqJFQX.js
+import{r as e}from"./index-DQk7_9KE.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+========
+import{r as e}from"./index-C15BLjuo.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+>>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/useCanvasAwake-D94Iyeb4.js

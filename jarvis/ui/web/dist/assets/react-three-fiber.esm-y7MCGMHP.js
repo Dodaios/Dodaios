@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/react-three-fiber.esm-y7MCGMHP.js
 import{aj as Mu,J as Fa,G as Da,ae as Ua,ak as Yl,al as Ha,am as Aa,an as Ba,ao as Qa,o as Wa,ap as Va,aq as Ga,ar as Xa,V as jn,r as Lu,as as Kl,at as Ya,au as Ka,av as Ja}from"./three.module-DEPN4Egk.js";import{r as B,gw as qa,cq as Za,j as je}from"./index-BInK4GAV.js";var Jl={exports:{}},Lt={};/**
+|||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/react-three-fiber.esm-BEStfl8G.js
+import{aj as Mu,J as Fa,G as Da,ae as Ua,ak as Yl,al as Ha,am as Aa,an as Ba,ao as Qa,o as Wa,ap as Va,aq as Ga,ar as Xa,V as jn,r as Lu,as as Kl,at as Ya,au as Ka,av as Ja}from"./three.module-DEPN4Egk.js";import{r as B,gw as qa,cq as Za,j as je}from"./index-DQk7_9KE.js";var Jl={exports:{}},Lt={};/**
+========
+import{ak as Mu,J as Fa,G as Da,a0 as Ua,al as Yl,am as Ha,an as Aa,ao as Ba,ap as Qa,o as Wa,aq as Va,ar as Ga,as as Xa,V as jn,r as Lu,at as Kl,au as Ya,av as Ka,aw as Ja}from"./three.module-C5Zqm_YN.js";import{r as B,gw as qa,cq as Za,j as je}from"./index-C15BLjuo.js";var Jl={exports:{}},Lt={};/**
+>>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/react-three-fiber.esm-BSikCdnh.js
  * @license React
  * react-reconciler-constants.production.min.js
  *

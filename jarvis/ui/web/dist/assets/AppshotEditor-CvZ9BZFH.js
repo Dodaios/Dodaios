@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-CvZ9BZFH.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BInK4GAV.js";import{S as sr}from"./switch-B7bz8U0E.js";import{Q as D}from"./tooltip-sddR9zlt.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-DgqzzzC_.js";import{C as Tn}from"./check-DMXY5irt.js";import{C as En}from"./columns-2-ook3ewha.js";/**
+|||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/AppshotEditor-BxRz3Wkf.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-DQk7_9KE.js";import{S as sr}from"./switch-3pDhaKem.js";import{Q as D}from"./tooltip-ChYSD5zt.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-Be6n9g_u.js";import{C as Tn}from"./check-DnbADtqG.js";import{C as En}from"./columns-2-02LqR-7K.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-C15BLjuo.js";import{S as sr}from"./switch-DpQ1Zc4r.js";import{Q as D}from"./tooltip-DhFOYrRs.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-MYbu3iOc.js";import{C as Tn}from"./check-CpfrpIC3.js";import{C as En}from"./columns-2-bbJH_EFB.js";/**
+>>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/AppshotEditor-CBkzYshz.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

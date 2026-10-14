@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-CzHv_hQy.js
 import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-BInK4GAV.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-DMXY5irt.js";import{S as re,C as oe}from"./store-DOOY999x.js";/**
+|||||||| parent of 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/PluginsCommunity-D925taic.js
+import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-DQk7_9KE.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-DnbADtqG.js";import{S as re,C as oe}from"./store-W5m21uM_.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-C15BLjuo.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-CpfrpIC3.js";import{S as re,C as oe}from"./store-BMozOfA0.js";/**
+>>>>>>>> 1f059635a9 (feat(verse): a sky pad off the agents floor and a courier to fly over the city):jarvis/ui/web/dist/assets/PluginsCommunity-CFlU5E2T.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
