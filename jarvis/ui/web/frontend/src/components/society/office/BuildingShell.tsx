@@ -20,6 +20,7 @@ import { Instances, type Placement } from "./CodingFloorAmbience";
 import { Box, GEO, matte, Railing } from "./OfficeFurniture";
 import type { OfficeLayout, Rect } from "./officeLayout";
 import { SingularityCity } from "./SingularityCity";
+import type { SkyPad } from "./skyPad";
 
 /** The window wall: its height, the mullion pitch, and how far the ceiling edge reaches into the floor. */
 export const FACADE = { h: 3.4, pitch: 2.9, soffit: 1.1 } as const;
@@ -34,18 +35,28 @@ const SHELL = {
 
 type Side = "north" | "south" | "west" | "east";
 
-/** One side's window wall, in its own frame: it runs along +x, the floor lies towards +z. */
-function WindowWall({ length }: { length: number }) {
+/**
+ * One side's window wall, in its own frame: it runs along +x, the floor lies towards +z. An `opening` (a range of
+ * x) is a doorway the full height of the glass: sill and glass stop at its jambs, the head runs on over it.
+ */
+function WindowWall({ length, opening }: { length: number; opening?: readonly [number, number] }) {
   const mullions = useMemo<Placement[]>(() => {
     const count = Math.max(2, Math.round(length / FACADE.pitch) + 1);
-    return Array.from({ length: count }, (_, i) => ({
-      position: [-length / 2 + (length * i) / (count - 1), FACADE.h / 2, 0] as [number, number, number], scale: [0.07, FACADE.h, 0.12] as [number, number, number],
-    }));
-  }, [length]);
+    const at = Array.from({ length: count }, (_, i) => -length / 2 + (length * i) / (count - 1))
+      .filter((x) => !opening || x < opening[0] - 0.3 || x > opening[1] + 0.3);
+    if (opening) at.push(opening[0], opening[1]);
+    return at.map((x) => ({ position: [x, FACADE.h / 2, 0] as [number, number, number], scale: [0.07, FACADE.h, 0.12] as [number, number, number] }));
+  }, [length, opening]);
+  // The runs of sill and glass: the whole length, or the two stretches either side of the doorway.
+  const runs: [number, number][] = opening ? [[-length / 2, opening[0]], [opening[1], length / 2]] : [[-length / 2, length / 2]];
   return (
-    <group>
-      <Box size={[length, 0.22, 0.14]} position={[0, 0.11, 0]} material={SHELL.steel} cast={false} />
-      <Box size={[length, FACADE.h - 0.5, 0.03]} position={[0, 0.22 + (FACADE.h - 0.5) / 2, 0]} material={SHELL.glass} cast={false} />
+    <group userData={{ windowWall: true }}>
+      {runs.map(([a, b]) => (
+        <group key={a}>
+          <Box size={[b - a, 0.22, 0.14]} position={[(a + b) / 2, 0.11, 0]} material={SHELL.steel} cast={false} />
+          <Box size={[b - a, FACADE.h - 0.5, 0.03]} position={[(a + b) / 2, 0.22 + (FACADE.h - 0.5) / 2, 0]} material={SHELL.glass} cast={false} />
+        </group>
+      ))}
       <Box size={[length, 0.28, 0.2]} position={[0, FACADE.h - 0.14, 0]} material={SHELL.steel} cast={false} />
       {/* The ceiling's edge: a pale band running into the floor from the head of the wall. */}
       <Box size={[length, 0.1, FACADE.soffit]} position={[0, FACADE.h + 0.05, FACADE.soffit / 2 - 0.1]} material={SHELL.soffit} cast={false} />
@@ -58,7 +69,7 @@ function WindowWall({ length }: { length: number }) {
  * The floor's four edges. Each has a window wall and a balustrade; the wall
  * shows on the sides the camera looks towards, the balustrade on the others.
  */
-function Edges({ bounds }: { bounds: Rect }) {
+function Edges({ bounds, skyPad }: { bounds: Rect; skyPad?: SkyPad }) {
   const { minX, maxX, minZ, maxZ } = bounds;
   const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2, w = maxX - minX, d = maxZ - minZ;
   const walls = useRef<Partial<Record<Side, Group | null>>>({});
@@ -85,15 +96,24 @@ function Edges({ bounds }: { bounds: Rect }) {
     { side: "west", position: [minX + inset, 0, cz], rotationY: Math.PI / 2, length: d - inset * 2, from: [minX + rail, maxZ - rail], to: [minX + rail, minZ + rail] },
     { side: "east", position: [maxX - inset, 0, cz], rotationY: -Math.PI / 2, length: d - inset * 2, from: [maxX - rail, minZ + rail], to: [maxX - rail, maxZ - rail] },
   ];
+  // The bridge to the sky pad leaves through the east side: a doorway in its wall (the east wall's +x is world +z)
+  // and a gap in its balustrade.
+  const gap = skyPad?.gap;
+  const eastOpening = useMemo(() => (gap ? [gap.minZ - cz, gap.maxZ - cz] as const : undefined), [gap, cz]);
   return (
     <group>
       {sides.map(({ side, position, rotationY, length, from, to }) => (
         <group key={side}>
           <group ref={(g) => { walls.current[side] = g; }} position={position} rotation={[0, rotationY, 0]} visible={shown.current[side]}>
-            <WindowWall length={length} />
+            <WindowWall length={length} opening={side === "east" ? eastOpening : undefined} />
           </group>
           <group ref={(g) => { rails.current[side] = g; }} visible={!shown.current[side]}>
-            <Railing from={from} to={to} />
+            {side === "east" && gap
+              ? <>
+                <Railing from={from} to={[to[0], gap.minZ]} />
+                <Railing from={[from[0], gap.maxZ]} to={to} />
+              </>
+              : <Railing from={from} to={to} />}
           </group>
         </group>
       ))}
@@ -105,7 +125,7 @@ export function BuildingShell({ layout, reduced = false }: { layout: OfficeLayou
   return (
     <group>
       <SingularityCity bounds={layout.bounds} reduced={reduced} />
-      <Edges bounds={layout.bounds} />
+      <Edges bounds={layout.bounds} skyPad={layout.skyPad} />
     </group>
   );
 }

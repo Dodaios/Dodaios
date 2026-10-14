@@ -11,7 +11,7 @@
 import { FURNITURE_SIZE, type Checkpoint, type Furniture, type FurnitureKind, type OfficeLayout, type Point } from "./officeLayout";
 import type { Selection } from "./officeStore";
 
-export type StationIcon = "spawn" | "launch" | "reception" | "team" | "wardrobe" | "lead" | "break" | "elevator" | "mission" | "studio" | "levels";
+export type StationIcon = "spawn" | "launch" | "reception" | "team" | "wardrobe" | "lead" | "break" | "elevator" | "mission" | "studio" | "levels" | "ship";
 
 /** A box in world space: centre, size (x-extent × height × z-extent before rotation) and rotation about +y. */
 export interface StationBox { x: number; y: number; z: number; w: number; h: number; d: number; rotationY: number }
@@ -59,7 +59,7 @@ const STATION_PROPS: Readonly<Record<string, readonly FurnitureKind[]>> = {
 
 const STATION_ICONS: Readonly<Record<string, StationIcon>> = {
   spawn: "spawn", launch: "launch", manage: "reception", team: "team", wardrobe: "wardrobe", lead: "lead", break: "break",
-  elevator: "elevator", mission: "mission", studio: "studio", levels: "levels",
+  elevator: "elevator", mission: "mission", studio: "studio", levels: "levels", ship: "ship",
 };
 
 /** A flat piece (a stage, a pad) still needs something a pointer can hit. */
@@ -67,6 +67,9 @@ const MIN_HIT_HEIGHT = 0.12;
 /** The lead desk's click target is its visitor-side front panel, so the monitors and the chair keep their own clicks. */
 const DESK_FRONT = { h: 0.74, d: 0.1, gap: 0.04 } as const;
 const DEFAULT_LEAD_DESK = { w: 2.4, d: 1.05 } as const;
+/** The scene group of the courier on its pad (the ship station's object). */
+export const COURIER_GROUP = "courier";
+
 /** How far in front of a studio board the person stands, and how far around that spot E reaches. */
 export const BOARD_STAND_M = 1.05;
 export const BOARD_REACH_M = 1.25;
@@ -128,6 +131,18 @@ function checkpointStation(layout: OfficeLayout, checkpoint: Checkpoint): Statio
           w: size.w, h: DESK_FRONT.h, d: DESK_FRONT.d, rotationY: 0,
         };
       }),
+    };
+  }
+  if (checkpoint.id === "ship" && layout.skyPad) {
+    // The courier itself is the station: its scene group lights up and its body takes the click.
+    const { shipRect } = layout.skyPad;
+    return {
+      ...base,
+      objects: [COURIER_GROUP],
+      hits: [{
+        x: (shipRect.minX + shipRect.maxX) / 2, y: 2, z: (shipRect.minZ + shipRect.maxZ) / 2,
+        w: shipRect.maxX - shipRect.minX, h: 4, d: shipRect.maxZ - shipRect.minZ, rotationY: 0,
+      }],
     };
   }
   const prop = propFor(layout, checkpoint);
