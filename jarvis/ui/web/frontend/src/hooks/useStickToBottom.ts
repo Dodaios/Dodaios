@@ -163,7 +163,17 @@ export function useStickToBottom() {
     return () => ro.disconnect();
   }, [rootEl, contentEl]);
 
-  return { rootRef, contentRef, atEnd, jumpToEnd, follow };
+  /**
+   * The reader picked a place themselves (opened something to read in the
+   * middle of the page): stop following until they are back at the end. Call
+   * it BEFORE the content grows, or the growth still counts as new output.
+   */
+  const release = useCallback(() => {
+    stickRef.current = false;
+    setAtEnd(false);
+  }, []);
+
+  return { rootRef, contentRef, atEnd, jumpToEnd, follow, release };
 }
 
 /**
