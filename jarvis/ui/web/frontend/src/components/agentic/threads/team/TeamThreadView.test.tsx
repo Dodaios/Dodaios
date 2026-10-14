@@ -37,6 +37,7 @@ const project = { id: "p1", name: "Shop", path: "/work/shop", workspaces: [] } a
 const member = (id: string, name: string, extra: Partial<TeamThread["members"][number]> = {}) => ({
   member_id: id, name, provider: name.toLowerCase(), model: "", effort: "", family: name.toLowerCase(),
   session_id: `session-${id}`, state: "active" as const, left_reason: "", working: false, since_ms: 0, waiting: false,
+  role: "" as TeamThread["members"][number]["role"],
   ...extra,
 });
 
@@ -44,7 +45,7 @@ const entry = (seq: number, kind: string, author: string, payload: object, phase
   ({ seq, ts_ms: seq, kind, author, phase, round, payload }) as TeamThread["entries"][number];
 
 const thread: TeamThread = {
-  team_id: "t1", title: "Add a retry", task: "Add a retry", cwd: "/work/shop",
+  team_id: "t1", title: "Add a retry", task: "Add a retry", cwd: "/work/shop", mode: "peers", plan: null,
   state: "needs_input", phase: "review", reason: "review_disagreement", note: "",
   limits: { max_minutes: 90, max_turns: 40, plan_rounds: 3, review_rounds: 3, turn_minutes: 30, max_cost_usd: 0 },
   usage: { elapsed_ms: 12 * 60_000, turns: 14, cost_usd: 0, cost_partial: true },
