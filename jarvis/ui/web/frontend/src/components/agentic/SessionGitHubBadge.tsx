@@ -4,7 +4,7 @@ import { fill, useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { GitHubIcon, type GitHubIconName } from "./GitHubIcon";
 import { PANE_BRAND, PANE_CHROME, themeFor, type TerminalAppearance } from "./terminalThemes";
-import { useSessionGitHubPane, type SessionGitHubStatus } from "./useSessionGitHub";
+import { FRESH_MS, useSessionGitHubPane, type SessionGitHubStatus } from "./useSessionGitHub";
 
 const PR: Record<SessionGitHubStatus["state"], [GitHubIconName, string]> = {
   branch: ["git-branch", "ide_panes.github.state_branch"],
@@ -39,7 +39,7 @@ function describe(status: SessionGitHubStatus, t: (key: string) => string, pendi
   const identity = `${status.repo} · ${status.branch}`;
   // An old answer that a newer one is being read for keeps its state and
   // spins; it turns "unavailable" only when nothing newer is on its way.
-  const unavailable = !status.available || (!pending && Date.now() / 1000 - status.fetched_at > 60);
+  const unavailable = !status.available || (!pending && Date.now() - status.fetched_at * 1000 > FRESH_MS);
   if (!status.published) {
     // Nothing on GitHub to open yet: the pane still says which branch its work is on.
     return {

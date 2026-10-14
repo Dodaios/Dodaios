@@ -191,23 +191,28 @@ def workspace_overview(
 
 
 @router.get("/session-status", summary="Current GitHub branch, pull request and CI status per pane")
-def session_github_status(workspace_id: str = Query(..., min_length=1)) -> dict:
+def session_github_status(
+    workspace_id: str = Query(..., min_length=1),
+    wait: float = Query(
+        0, ge=0, le=5, description="Seconds to wait for a read already running to finish"
+    ),
+) -> dict:
     """GitHub state for the branch each pane works in, as last read.
 
-    Answers at once and never waits for the read itself (see
-    ``github_status.board``); ``refreshing`` says a newer answer is on its way.
+    Answers at once from the last read (see ``github_status.board``);
+    ``refreshing`` says a newer answer is on its way, and ``wait`` holds the
+    answer until that read lands, for at most that many seconds.
     """
     registry = get_registry()
     session = registry.get(workspace_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Workspace not found.")
-    answer = github_status.board(workspace_id, _pane_records(session))
-    # The tabs behind this one are read once ahead of their first visit, so a
-    # header there has its branch the moment someone switches to it.
+    # The tabs behind this one are read ahead, and kept recent while this one
+    # is shown, so a header there has its branch the moment someone switches.
     for other in registry.sessions:
-        if other.id != workspace_id and not github_status.known(other.id):
+        if other.id != workspace_id and github_status.due(other.id):
             github_status.read_ahead(other.id, _pane_records(other))
-    return answer
+    return github_status.board(workspace_id, _pane_records(session), wait=wait)
 
 
 def _pane_records(session: Session) -> list[PaneBranchRecord]:

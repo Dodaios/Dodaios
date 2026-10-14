@@ -13,6 +13,8 @@ const value: SessionGitHubStatus = {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  // GitHub's answer is as recent as the test's clock.
+  value.fetched_at = Date.now() / 1000;
   resetConnectBudgetForTests();
   vi.spyOn(Math, "random").mockReturnValue(0.5);
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
@@ -127,7 +129,7 @@ it("keeps an old answer on screen and spins until the backend confirms it", asyn
   await act(() => vi.advanceTimersByTimeAsync(200));
   first.unmount();
   await act(() => vi.advanceTimersByTimeAsync(120_000));
-  const merged = { ...value, state: "merged" as const };
+  const merged = { ...value, state: "merged" as const, fetched_at: Date.now() / 1000 };
   fetcher
     .mockResolvedValueOnce(answer({ panes: { t1: value }, refreshing: true, age: 125, waiting: [] }))
     .mockResolvedValue(answer({ panes: { t1: merged }, refreshing: false, age: 0, waiting: [] }));
@@ -191,4 +193,24 @@ it("asks at once when a pane joins a workspace that is already being polled", as
   renderHook(() => useSessionGitHubPane("w", "t2"));
   await act(() => vi.advanceTimersByTimeAsync(200));
   expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
+it("spins when GitHub's own answer is old, even on a board read moments ago", async () => {
+  const stale = { ...value, fetched_at: Date.now() / 1000 - 300 };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(answer({ panes: { t1: stale }, refreshing: true, age: 1, waiting: [] })));
+  const hook = renderHook(() => useSessionGitHubPane("w", "t1"));
+  await act(() => vi.advanceTimersByTimeAsync(200));
+  expect(hook.result.current).toEqual({ status: stale, pending: true });
+});
+
+it("asks the backend to hold a follow-up until its read lands", async () => {
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(answer({ panes: {}, refreshing: true, age: null, waiting: ["t1"] }))
+    .mockResolvedValue(answer({ panes: { t1: value }, refreshing: false, age: 0, waiting: [] }));
+  vi.stubGlobal("fetch", fetcher);
+  renderHook(() => useSessionGitHubPane("w", "t1"));
+  await act(() => vi.advanceTimersByTimeAsync(400));
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(String(fetcher.mock.calls[0][0])).not.toContain("wait=");
+  expect(String(fetcher.mock.calls[1][0])).toContain("wait=4");
 });

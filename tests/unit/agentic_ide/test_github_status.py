@@ -413,11 +413,15 @@ def test_route_uses_pane_cwd_and_excludes_remote_computers(monkeypatch):
     )
     ahead = []
     monkeypatch.setattr(
-        status, "board", lambda key, records: calls.append(records) or {"panes": {}}
+        status,
+        "board",
+        lambda key, records, wait: calls.append((records, wait)) or {"panes": {}},
     )
-    monkeypatch.setattr(status, "known", lambda key: False)
+    monkeypatch.setattr(status, "due", lambda key: True)
     monkeypatch.setattr(status, "read_ahead", lambda key, records: ahead.append(key))
-    assert routes.session_github_status("w") == {"panes": {}}
+    assert routes.session_github_status("w", wait=2) == {"panes": {}}
+    assert calls[0][1] == 2
+    calls[:] = [records for records, _ in calls]
     assert [record.pane for record in calls[0]] == ["t1"]
     assert calls[0][0].folder == "fork-folder"
     assert calls[0][0].created_branch == "owned"
@@ -442,11 +446,13 @@ def boards(monkeypatch):
     gate = SimpleNamespace(
         release=__import__("threading").Event(),
         reads=[],
+        ttls=[],
         answer=lambda records: {record.pane: {"branch": record.history_id} for record in records},
     )
 
-    def statuses(records):
+    def statuses(records, live_ttl=status._LIVE_TTL):
         gate.reads.append([record.pane for record in records])
+        gate.ttls.append(live_ttl)
         assert gate.release.wait(5)
         return gate.answer(records)
 
@@ -554,7 +560,7 @@ def test_tabs_behind_are_read_once_one_after_another_after_the_front(boards):
     status.read_ahead("a", _records("t1"))
     status.read_ahead("b", _records("t1"))
     status.read_ahead("a", _records("t1"))
-    assert status.known("a") and status.known("b")
+    assert not status.due("a") and not status.due("b")
     # The read for the tab in front runs alone; the reads ahead wait for it.
     time.sleep(0.05)
     assert len(boards.reads) == 1
@@ -592,3 +598,45 @@ def test_one_pane_that_cannot_be_read_does_not_cost_the_others_their_status(monk
     panes = status.statuses(records)
     assert panes["broken"] is None
     assert panes["t1"]["number"] == 6
+
+
+def test_a_tab_behind_is_kept_recent_with_a_slower_github_rhythm(boards):
+    boards.release.set()
+    status.read_ahead("behind", _records("t1"))
+    _settle(lambda: not status._ahead_running)
+    assert boards.ttls == [status._WARM_GITHUB_TTL]
+    # Recent: not read again.
+    assert not status.due("behind")
+    status.read_ahead("behind", _records("t1"))
+    assert len(boards.reads) == 1
+    # Once older than the warm interval, it is read again ahead of a visit.
+    status._boards["behind"].read_at -= status._WARM_S
+    status._boards["behind"].tried_at -= status._WARM_S
+    assert status.due("behind")
+    status.read_ahead("behind", _records("t1"))
+    _settle(lambda: len(boards.reads) == 2 and not status._ahead_running)
+    # The tab in front still asks GitHub on its own, quicker rhythm.
+    status.board("front", _records("t1"))
+    _settle(lambda: len(boards.reads) == 3 and not status._front_reads)
+    assert boards.ttls[-1] == status._LIVE_TTL
+
+
+def test_a_request_that_waits_gets_the_read_the_moment_it_lands(boards):
+    status.board("w", _records("t1"))
+    threading = __import__("threading")
+    threading.Timer(0.2, boards.release.set).start()
+    started = time.monotonic()
+    answer = status.board("w", _records("t1"), wait=3)
+    assert time.monotonic() - started < 2
+    assert not answer["refreshing"] and answer["panes"] == {"t1": {"branch": "h-t1"}}
+
+
+def test_a_wait_is_bounded_when_the_read_is_slow(boards, monkeypatch):
+    monkeypatch.setattr(status, "_MAX_WAIT_S", 0.2)
+    status.board("w", _records("t1"))
+    started = time.monotonic()
+    answer = status.board("w", _records("t1"), wait=5)
+    assert 0.15 < time.monotonic() - started < 2
+    assert answer["refreshing"] and answer["waiting"] == ["t1"]
+    boards.release.set()
+    _settle(lambda: not status._front_reads)
