@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Brain, Check, ChevronDown, ChevronRight, FileText, FolderOpen, Globe, Hammer, Loader2, MessageSquareText, Pause,
-  Pencil, Play, Search, Send, ShieldAlert, Square, Terminal, Trash2, Users, Wrench, X,
+  Brain, Check, ChevronDown, ChevronRight, Eye, FileText, FolderOpen, Globe, Hammer, ListChecks, Loader2, MessageSquareText,
+  Pause, Pencil, Play, Search, Send, ShieldAlert, Square, Terminal, Trash2, Users, Wrench, X,
 } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
@@ -11,7 +11,8 @@ import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { fill, useT } from "@/i18n";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import {
-  TEAM_THREAD_PHASES,
+  PEER_PHASES,
+  PLANNED_PHASES,
   TEAM_THREADS_KEY,
   commandTeamThread,
   deleteTeamThread,
@@ -23,6 +24,8 @@ import {
   type TeamEntry,
   type TeamFinding,
   type TeamMember,
+  type TeamPlan,
+  type TeamRole,
   type TeamThread,
 } from "@/lib/teamThreadsApi";
 import { cn } from "@/lib/utils";
@@ -30,6 +33,7 @@ import { useEventStore } from "@/store/events";
 import { TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
 import { buildBoard, gist, stepsDone, type BandCell, type StepBand } from "./board";
 import { liveLines, liveTokens, useMemberTurn, type LiveLine } from "./memberLive";
+import { PlanPanel } from "./PlanPanel";
 import { TeamThreadDraft } from "./TeamThreadDraft";
 
 /** The board's width: wide enough for four lanes, never wider than reads well. */
@@ -116,8 +120,9 @@ function OpenTeamThread({ teamId, project, onScreen }: { teamId: string; project
   const over = thread.state === "done" || thread.state === "stopped" || thread.state === "failed";
   const waiting = thread.state === "needs_input" || thread.state === "paused";
   const disagreement = thread.state === "needs_input"
-    && (thread.reason === "plan_disagreement" || thread.reason === "review_disagreement");
+    && (thread.reason === "plan_disagreement" || thread.reason === "review_disagreement" || thread.reason === "step_disagreement");
   const count = thread.members.length;
+  const planned = thread.mode === "planner_builder";
 
   return <div className="flex h-full min-h-0 flex-col" data-testid="team-thread-view">
     <header className="shrink-0 border-b border-border px-5 pb-3 pt-3">
@@ -142,6 +147,7 @@ function OpenTeamThread({ teamId, project, onScreen }: { teamId: string; project
           <StepRail thread={thread} />
           <Meters thread={thread} />
         </div>
+        {planned && <PlanPanel thread={thread} names={names} />}
       </div>
     </header>
 
@@ -151,12 +157,12 @@ function OpenTeamThread({ teamId, project, onScreen }: { teamId: string; project
           {/* Who sits in which lane stays in view while the work scrolls under it. */}
           <ul className="sticky top-0 z-10 grid gap-3 bg-background pb-2 pt-4" style={lanes(count)} aria-label={t("team_threads.members")}>
             {thread.members.map((member) => <LaneHead key={member.member_id} member={member}
-              agent={agentOf.get(member.provider) ?? ""} builder={thread.builder === member.member_id} over={over}
+              agent={agentOf.get(member.provider) ?? ""} builder={!planned && thread.builder === member.member_id} over={over}
               onOpen={() => useIdeThreadsStore.getState().openThread(member.session_id, project.id)} />)}
           </ul>
           {bands.map((band) => band.type === "note"
             ? <Note key={band.key} entry={band.entry} names={names} />
-            : <Band key={band.key} band={band} names={names} onOpen={release} />)}
+            : <Band key={band.key} band={band} names={names} plan={thread.plan} onOpen={release} />)}
           {thread.issues.length > 0 && <Issues thread={thread} names={names} />}
         </div>
       </div>
@@ -171,10 +177,12 @@ function OpenTeamThread({ teamId, project, onScreen }: { teamId: string; project
           <span className="min-w-0 flex-1">
             {fill(t(`team_threads.reason.${thread.reason || "user"}`), {
               note: thread.note, rounds: thread.reason === "plan_disagreement" ? thread.rounds.plan : thread.rounds.review,
+              number: thread.rounds.step ?? 0,
             })}
           </span>
           {disagreement && <TextButton onClick={() => command("accept")} disabled={busy}>
-            {t(thread.reason === "plan_disagreement" ? "team_threads.accept_plan" : "team_threads.accept_work")}
+            {t(thread.reason === "plan_disagreement" ? "team_threads.accept_plan"
+              : thread.reason === "step_disagreement" ? "team_threads.accept_step" : "team_threads.accept_work")}
           </TextButton>}
           <TextButton onClick={() => command("resume")} disabled={busy} primary>
             <Play aria-hidden className="h-3.5 w-3.5" />
@@ -245,8 +253,9 @@ function StepRail({ thread }: { thread: TeamThread }) {
   const t = useT();
   const done = stepsDone(thread);
   const active = thread.state === "running";
+  const phases: readonly string[] = thread.mode === "planner_builder" ? PLANNED_PHASES : PEER_PHASES;
   return <ol className="flex min-w-0 flex-1 items-center" aria-label={t("team_threads.steps")}>
-    {TEAM_THREAD_PHASES.slice(0, 5).map((phase, index) => {
+    {phases.map((phase, index) => {
       const isDone = index < done;
       const now = index === done;
       return <li key={phase} aria-current={now ? "step" : undefined} className="flex min-w-0 flex-1 items-center last:flex-none">
@@ -261,7 +270,7 @@ function StepRail({ thread }: { thread: TeamThread }) {
         <span className={cn("ml-1.5 truncate text-xs", isDone || now ? "text-foreground" : "text-muted-foreground", now && "font-medium")}>
           {t(`team_threads.phase.${phase}`)}
         </span>
-        {index < 4 && <span aria-hidden className={cn("mx-2 h-px min-w-3 flex-1", isDone ? "bg-success" : "bg-border")} />}
+        {index < phases.length - 1 && <span aria-hidden className={cn("mx-2 h-px min-w-3 flex-1", isDone ? "bg-success" : "bg-border")} />}
       </li>;
     })}
   </ol>;
@@ -315,6 +324,7 @@ function LaneHead({ member, agent, builder, over, onOpen }: { member: TeamMember
         <span className="flex items-center gap-1.5">
           <span className={cn("truncate text-sm font-medium text-foreground", left && "line-through")}>{member.name}</span>
           {builder && !left && <Hammer aria-label={t("team_threads.member.builder")} className="h-3 w-3 shrink-0 text-muted-foreground" />}
+          {member.role && <RoleChip role={member.role} />}
         </span>
         <span className={cn("flex items-center gap-1.5 truncate text-xs",
           member.waiting ? "text-warning" : member.working && !left ? "text-accent" : "text-muted-foreground")}>
@@ -329,7 +339,7 @@ function LaneHead({ member, agent, builder, over, onOpen }: { member: TeamMember
 
 /* ------------------------------------------------------------------- bands */
 
-function Band({ band, names, onOpen }: { band: StepBand; names: Map<string, string>; onOpen: () => void }) {
+function Band({ band, names, plan, onOpen }: { band: StepBand; names: Map<string, string>; plan: TeamPlan | null; onOpen: () => void }) {
   const t = useT();
   // The contribution whose whole text is open under this band.
   const [reading, setReading] = useState<number | null>(null);
@@ -338,12 +348,13 @@ function Band({ band, names, onOpen }: { band: StepBand; names: Map<string, stri
   const filed = band.cells.filter((cell) => cell.entries.length > 0).length;
   const part = band.cells.filter((cell) => cell.role !== "none" || cell.entries.length > 0).length;
   return <section className="flex flex-col gap-2" data-testid={`team-band-${band.key}`} aria-label={t(`team_threads.phase.${band.step}`)}>
-    <header className="flex items-center gap-2 text-xs">
-      <span className={cn("font-medium uppercase tracking-wide", band.current ? "text-foreground" : "text-muted-foreground")}>
-        {t(`team_threads.phase.${band.step}`)}
+    <header className="flex min-w-0 items-center gap-2 text-xs">
+      <span className={cn("shrink-0 font-medium uppercase tracking-wide", band.current ? "text-foreground" : "text-muted-foreground")}>
+        {band.step === "step" ? fill(t("team_threads.plan.step"), { number: band.number ?? 0 }) : t(`team_threads.phase.${band.step}`)}
       </span>
-      {band.round > 1 && <span className="rounded-full border border-border px-1.5 py-px text-muted-foreground">{fill(t("team_threads.round"), { round: band.round })}</span>}
-      <span aria-hidden className="h-px flex-1 bg-border" />
+      {band.step === "step" ? <StepBandHead band={band} plan={plan} />
+        : band.round > 1 && band.step !== "planning" && <span className="rounded-full border border-border px-1.5 py-px text-muted-foreground">{fill(t("team_threads.round"), { round: band.round })}</span>}
+      <span aria-hidden className="h-px min-w-4 flex-1 bg-border" />
       <span className="tabular-nums text-muted-foreground">{fill(t("team_threads.band_count"), { done: filed, total: part })}</span>
     </header>
     <div className="grid items-start gap-3" style={lanes(band.cells.length)}>
@@ -374,14 +385,25 @@ function Cell({ cell, band, reading, onRead }: { cell: BandCell; band: StepBand;
 function EntryCard({ entry, open, onRead }: { entry: TeamEntry; open: boolean; onRead: () => void }) {
   const t = useT();
   const payload = entry.payload;
-  const verdict = entry.kind === "vote"
+  const votes = entry.kind === "vote" || entry.kind === "plan_review";
+  const reviews = entry.kind === "review" || entry.kind === "step_review";
+  const unreadable = entry.kind === "plan_version" && payload.valid === false;
+  const blocked = entry.kind === "step_build" && payload.status === "blocked";
+  const verdict = votes
     ? t(payload.agree ? "team_threads.vote.agree" : "team_threads.vote.object")
-    : entry.kind === "review" ? t(payload.approve ? "team_threads.review.approve" : "team_threads.review.changes") : "";
-  const positive = entry.kind === "vote" ? payload.agree : entry.kind === "review" ? payload.approve : undefined;
-  const points = entry.kind === "vote" ? payload.objections ?? [] : [];
+    : reviews ? t(payload.approve ? "team_threads.review.approve" : "team_threads.review.changes")
+      : unreadable ? t("team_threads.plan.unreadable")
+        : entry.kind === "plan_version" ? fill(t("team_threads.plan.version_tag"), { version: payload.version ?? 1 })
+          : entry.kind === "step_build" ? t(blocked ? "team_threads.plan.blocked" : "team_threads.plan.done") : "";
+  const positive = votes ? payload.agree : reviews ? payload.approve
+    : entry.kind === "plan_version" ? !unreadable : entry.kind === "step_build" ? !blocked : undefined;
+  const points = votes ? payload.objections ?? [] : [];
   const findings = payload.findings ?? [];
   const files = payload.files ?? [];
-  const lead = points[0] ?? findings.find((finding) => finding.severity === "blocking")?.issue ?? findings[0]?.issue ?? "";
+  const lead = points[0] ?? findings.find((finding) => finding.severity === "blocking")?.issue ?? findings[0]?.issue
+    ?? (unreadable ? payload.error : blocked ? payload.note
+      : payload.plan_change ? fill(t("team_threads.plan.plan_change"), { text: payload.plan_change }) : "") ?? "";
+  const planSteps = entry.kind === "plan_version" ? payload.steps ?? [] : [];
   return <button type="button" onClick={onRead} aria-expanded={open} data-testid={`team-entry-${entry.kind}`}
     className={cn(
       "flex w-full min-w-0 flex-col gap-1.5 rounded-xl border bg-card px-3 py-2.5 text-left transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -391,6 +413,9 @@ function EntryCard({ entry, open, onRead }: { entry: TeamEntry; open: boolean; o
       <span className="font-medium text-foreground">{t(`team_threads.kind.${entry.kind}`)}</span>
       {verdict && <span className={cn("rounded-full border px-1.5 py-px",
         positive ? "border-success/40 text-success" : "border-warning/40 text-warning")}>{verdict}</span>}
+      {entry.kind === "step_build" && entry.round > 1 && <span className="rounded-full border border-border px-1.5 py-px text-muted-foreground">
+        {fill(t("team_threads.round"), { round: entry.round })}
+      </span>}
       <span className="ml-auto text-muted-foreground">
         {open ? <ChevronDown aria-hidden className="h-3.5 w-3.5" /> : <ChevronRight aria-hidden className="h-3.5 w-3.5" />}
       </span>
@@ -398,7 +423,8 @@ function EntryCard({ entry, open, onRead }: { entry: TeamEntry; open: boolean; o
     {lead
       ? <span className="line-clamp-3 text-xs text-foreground [overflow-wrap:anywhere]">{lead}</span>
       : <span className="line-clamp-4 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{gist(payload.text ?? "") || t("team_threads.no_report")}</span>}
-    {(files.length > 0 || findings.length > 1 || points.length > 1) && <span className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+    {(files.length > 0 || findings.length > 1 || points.length > 1 || planSteps.length > 0) && <span className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+      {planSteps.length > 0 && <span>{fill(t("team_threads.plan.steps_count"), { count: planSteps.length })}</span>}
       {files.length > 0 && <span title={payload.stat}>{fill(t("team_threads.files_changed"), { count: files.length })}</span>}
       {findings.length > 1 && <span>{fill(t("team_threads.findings_count"), { count: findings.length })}</span>}
       {points.length > 1 && <span>{fill(t("team_threads.objections_count"), { count: points.length })}</span>}
@@ -410,7 +436,7 @@ function EntryCard({ entry, open, onRead }: { entry: TeamEntry; open: boolean; o
 function Reader({ entry, name, onClose }: { entry: TeamEntry; name: string; onClose: () => void }) {
   const t = useT();
   const payload = entry.payload;
-  const points = entry.kind === "vote" ? payload.objections ?? [] : [];
+  const points = entry.kind === "vote" || entry.kind === "plan_review" ? payload.objections ?? [] : [];
   const box = useRef<HTMLElement | null>(null);
   // Reading starts at the top: the board follows its newest entry, and a long
   // text opened at the end of the page would otherwise show its last lines.
@@ -431,6 +457,17 @@ function Reader({ entry, name, onClose }: { entry: TeamEntry; name: string; onCl
       {points.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foreground">
         {points.map((point, index) => <li key={index}>{point}</li>)}
       </ul>}
+      {entry.kind === "plan_version" && payload.valid === false && payload.error && <p className="mt-2 text-sm text-warning">{payload.error}</p>}
+      {(payload.steps ?? []).length > 0 && <ol className="mt-3 flex flex-col gap-1.5" data-testid="team-reader-plan">
+        {(payload.steps ?? []).map((step, index) => <li key={index} className="rounded-lg border border-border px-3 py-2 text-sm">
+          <p className="font-medium text-foreground"><span className="mr-1.5 tabular-nums text-muted-foreground">{index + 1}</span>{step.title}</p>
+          {step.goal && <p className="mt-0.5 text-foreground/80 [overflow-wrap:anywhere]">{step.goal}</p>}
+          <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{t("team_threads.plan.done_when")}: {step.done_when}</p>
+        </li>)}
+      </ol>}
+      {entry.kind === "step_build" && (payload.note || payload.plan_change) && <p className="mt-3 text-sm text-foreground [overflow-wrap:anywhere]">
+        {[payload.note, payload.plan_change && fill(t("team_threads.plan.plan_change"), { text: payload.plan_change })].filter(Boolean).join(" · ")}
+      </p>}
       {(payload.findings ?? []).length > 0 && <ul className="mt-3 flex flex-col gap-1.5">
         {(payload.findings ?? []).map((finding, index) => <FindingRow key={index} finding={finding} />)}
       </ul>}
@@ -439,6 +476,38 @@ function Reader({ entry, name, onClose }: { entry: TeamEntry; name: string; onCl
       </p>}
     </div>
   </article>;
+}
+
+const ROLE_GLYPH: Record<TeamRole, typeof Hammer> = { planner: ListChecks, builder: Hammer, reviewer: Eye };
+
+/** What a member does in the planner-and-builder mode, beside its name. */
+function RoleChip({ role }: { role: TeamRole }) {
+  const t = useT();
+  const Glyph = ROLE_GLYPH[role];
+  return <span className="flex shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-px text-[10px] font-medium text-muted-foreground"
+    data-testid={`team-role-${role}`}>
+    <Glyph aria-hidden className="h-2.5 w-2.5" />
+    {t(`team_threads.member_role.${role}`)}
+  </span>;
+}
+
+/** The band of one plan step: its title, and where it stands in the plan on the board. */
+function StepBandHead({ band, plan }: { band: StepBand; plan: TeamPlan | null }) {
+  const t = useT();
+  const step = plan && band.version === plan.version ? plan.steps.find((item) => item.number === band.number) : undefined;
+  return <>
+    <span className={cn("min-w-0 truncate normal-case", band.current ? "text-foreground" : "text-muted-foreground")} title={band.title}>{band.title}</span>
+    {step
+      ? <span className={cn("shrink-0 rounded-full border px-1.5 py-px",
+        step.status === "accepted" ? (step.open_findings ? "border-warning/40 text-warning" : "border-success/40 text-success")
+          : step.status === "changes" ? "border-warning/40 text-warning"
+            : step.status === "open" ? "border-border text-muted-foreground" : "border-accent/40 text-accent")}>
+        {t(`team_threads.step_status.${step.status}`)}
+      </span>
+      : plan && band.version ? <span className="shrink-0 rounded-full border border-border px-1.5 py-px text-muted-foreground">
+        {fill(t("team_threads.plan.version_tag"), { version: band.version })}
+      </span> : null}
+  </>;
 }
 
 /* -------------------------------------------------------------------- live */
@@ -516,6 +585,8 @@ function Note({ entry, names }: { entry: TeamEntry; names: Map<string, string> }
       error: payload.error ?? "", note: payload.note ?? "", rounds: payload.rounds ?? 0,
       step: payload.step ? t(`team_threads.kind.${payload.step}`) : "",
       files: (payload.files ?? []).join(", "), model: payload.model ?? "",
+      number: payload.number ?? 0, version: payload.version ?? 0, count: payload.count ?? 0, title: payload.title ?? "",
+      role: payload.role ? t(`team_threads.member_role.${payload.role}`) : "",
     })}
   </p>;
 }
@@ -547,13 +618,18 @@ function Summary({ entry, names }: { entry: TeamEntry; names: Map<string, string
   return <section data-testid={`team-summary-${outcome}`}
     className={cn("rounded-xl border px-4 py-3 text-sm", finished ? "border-success/40 bg-success/10" : "border-warning/40 bg-warning/10")}>
     <p className="font-medium text-foreground">
-      {finished
-        ? fill(t(`team_threads.summary.${outcome}`), {
-          plan: payload.plan_rounds ?? 1, review: payload.review_rounds ?? 1,
-          count: payload.finding_count ?? 0, blocking: payload.blocking ?? 0,
-          builder: names.get(payload.builder ?? "") ?? "",
+      {finished && payload.mode === "planner_builder"
+        ? fill(t(outcome === "done" ? "team_threads.summary.planned_done" : "team_threads.summary.planned_accepted"), {
+          count: payload.step_count ?? 0, version: payload.version ?? 1, rounds: payload.step_rounds ?? 0,
+          findings: payload.finding_count ?? 0, blocking: payload.blocking ?? 0,
         })
-        : fill(t(`team_threads.reason.${outcome}`), { rounds: payload.rounds ?? 0, note: "" })}
+        : finished
+          ? fill(t(`team_threads.summary.${outcome}`), {
+            plan: payload.plan_rounds ?? 1, review: payload.review_rounds ?? 1,
+            count: payload.finding_count ?? 0, blocking: payload.blocking ?? 0,
+            builder: names.get(payload.builder ?? "") ?? "",
+          })
+          : fill(t(`team_threads.reason.${outcome}`), { rounds: payload.rounds ?? 0, note: "", number: payload.number ?? 0 })}
     </p>
     {finished && (payload.files ?? []).length > 0 && <p className="mt-1 text-xs text-muted-foreground" title={payload.stat}>
       {fill(t("team_threads.files_changed"), { count: (payload.files ?? []).length })}
@@ -583,7 +659,7 @@ function Issues({ thread, names }: { thread: TeamThread; names: Map<string, stri
     </button>
     {open && <ul className="grid gap-1.5 md:grid-cols-2">
       {thread.issues.map((issue, index) => <FindingRow key={`${issue.seq}-${index}`} finding={issue} resolved={issue.resolved}
-        by={`${names.get(issue.by) ?? issue.by} · ${t(`team_threads.issues.${issue.stage}`)}`} />)}
+        by={`${names.get(issue.by) ?? issue.by} · ${fill(t(`team_threads.issues.${issue.stage}`), { number: issue.number ?? 0 })}`} />)}
     </ul>}
   </section>;
 }
