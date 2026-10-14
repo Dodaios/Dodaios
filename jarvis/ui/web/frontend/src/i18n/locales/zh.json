@@ -1564,6 +1564,8 @@
     "copy_link_hint_paste": "或复制此链接并粘贴到浏览器的地址栏中。",
     "plugin_connected": "{plugin} 已连接",
     "connect_named": "连接 {plugin}",
+    "reconnect_named": "重新连接 {plugin}",
+    "more_actions_named": "{plugin} 的更多操作",
     "device_flow": "设备码登录",
     "device_step1": "第 1 步——复制此代码",
     "device_step2": "第 2 步——在 {plugin} 中粘贴",

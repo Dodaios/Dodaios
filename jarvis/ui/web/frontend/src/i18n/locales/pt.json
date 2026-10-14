@@ -1564,6 +1564,8 @@
     "copy_link_hint_paste": "Ou copia esta ligação e cola-a na barra de endereço do teu browser.",
     "plugin_connected": "{plugin} ligado",
     "connect_named": "Ligar {plugin}",
+    "reconnect_named": "Voltar a ligar {plugin}",
+    "more_actions_named": "Mais ações para {plugin}",
     "device_flow": "Código de dispositivo",
     "device_step1": "Passo 1 — copia este código",
     "device_step2": "Passo 2 — cola-o em {plugin}",
