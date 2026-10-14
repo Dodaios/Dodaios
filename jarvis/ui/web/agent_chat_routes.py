@@ -83,17 +83,19 @@ log = logging.getLogger(__name__)
 
 #: The Pydantic twin of ``jarvis.agent_chat.store.SURFACES`` (AP-4; the parity
 #: test in tests/unit/agent_chat/test_agent_chat_surface_parity.py pins it).
-SurfaceName = Literal["jarvis", "agent", "local-models", "society"]
+SurfaceName = Literal["jarvis", "agent", "local-models", "society", "side"]
 
 #: The same names, as data — a multipart form field cannot be typed by a
 #: ``Literal`` without turning an unknown surface into a 422 on a file the
 #: person just dropped.
-SURFACE_NAMES: frozenset[str] = frozenset({"jarvis", "agent", "local-models", "society"})
+SURFACE_NAMES: frozenset[str] = frozenset(
+    {"jarvis", "agent", "local-models", "society", "side"}
+)
 
 #: Surfaces that never appear in an unfiltered session list: an agent's
-#: canonical chat belongs to its model card, not to the IDE's or the front
-#: page's history.
-HIDDEN_SURFACES: frozenset[str] = frozenset({"society"})
+#: canonical chat belongs to its model card, and the IDE's side chat to its
+#: side panel, not to the IDE's threads or the front page's history.
+HIDDEN_SURFACES: frozenset[str] = frozenset({"society", "side"})
 
 router = APIRouter(prefix="/api/agent-chat", tags=["agent-chat"])
 
@@ -492,6 +494,7 @@ def _catalog_rows(
     # own: other surfaces keep every seat.
     prefs = agent_provider_prefs.load()
     agents = surface == agent_provider_prefs.AGENT_SURFACE
+    plain = kit_for(surface).plain
     rows: list[dict[str, Any]] = []
     for row in rows_for(surface):
         d = row.to_dict()
@@ -521,7 +524,8 @@ def _catalog_rows(
         # Which characters open the composer's typeahead on this seat —
         # decided here, from the runner, so the box never offers a "/" list
         # to a seat that would read it as plain text.
-        d["typeahead"] = list(typeahead.triggers_for(runner, surface))
+        # A plain chat has nothing to complete against: no commands, no files.
+        d["typeahead"] = [] if plain else list(typeahead.triggers_for(runner, surface))
         if agents:
             d["enabled"] = prefs.enabled(row.id)
         d["hidden_models"] = list(prefs.hidden(row.id))

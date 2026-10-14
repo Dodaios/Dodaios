@@ -609,9 +609,9 @@ export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: Th
 }
 
 /** "Working for 12s" with the ticking clock in place of the duration. */
-function WorkingFor({ since }: { since: number }) {
+function WorkingFor({ since, labelKey = "thread_turn.working_for" }: { since: number; labelKey?: string }) {
   const t = useT();
-  const [before, after = ""] = t("thread_turn.working_for").split("{duration}");
+  const [before, after = ""] = t(labelKey).split("{duration}");
   return <>{before}<Elapsed since={since} />{after}</>;
 }
 
@@ -632,6 +632,13 @@ export interface ThreadTurnProps {
   extras?: { key: string; node: ReactNode }[];
   /** A quiet note on a finished turn's closing line: tokens, cost. */
   receipt?: ReactNode;
+  /**
+   * How the turn's status lines read. A coding thread counts work ("Working
+   * for 12s", "Worked for 40s"); a plain chat has thoughts and an answer, so
+   * it says "Thinking for 3s" until its first line shows and "Thought for
+   * 3s" on the fold, and puts no duration under an answer.
+   */
+  tone?: "work" | "chat";
 }
 
 /**
@@ -639,7 +646,7 @@ export interface ThreadTurnProps {
  * threads and every agent chat draw their turns with it, so a turn looks and
  * behaves the same wherever it is read — streaming, finished or reloaded.
  */
-export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt }: ThreadTurnProps) {
+export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt, tone = "work" }: ThreadTurnProps) {
   const t = useT();
   const lang = t("trace_report.locale");
   const running = turn.status === "running";
@@ -667,12 +674,18 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const duration = turn.durationMs != null ? traceDuration(turn.durationMs) : "";
   const timed = (key: string) => duration ? fill(t(`thread_turn.${key}_after`), { duration }) : t(`thread_turn.${key}`);
   const workedFor = duration ? fill(t("thread_turn.worked_for"), { duration }) : "";
+  const chat = tone === "chat";
+  // A chat's fold holds thoughts alone, so it is timed by the thinking, not the whole turn.
+  const thoughtMs = chat ? turn.blocks.reduce((sum, block) => sum + (block.kind === "reasoning" ? block.durationMs ?? 0 : 0), 0) : 0;
+  const thoughtFor = thoughtMs > 0 ? fill(t("work_trace.thought_for"), { duration: traceDuration(thoughtMs) }) : t("work_trace.thought");
+  // A chat's rows are its sign of life; the ticking line only covers the wait before the first one.
+  const quiet = chat && rows.length > 0;
   const foldLabel = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
-      : workedFor || t("thread_turn.worked");
+      : chat ? thoughtFor : workedFor || t("thread_turn.worked");
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
-      : answer ? workedFor : timed("no_answer");
+      : answer ? (chat ? "" : workedFor) : timed("no_answer");
   const renderRow = (row: ThreadRow) => {
     if (row.kind === "work") return <WorkGroupView key={row.id} group={row} running={running} />;
     if (row.kind === "thought") return <ThoughtView key={row.id} text={row.text} />;
@@ -713,8 +726,8 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {!folded && extraNodes}
     {shown.slice(extraAt).map(renderRow)}
     {running
-      ? <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
-        <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
+      ? !quiet && <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
+        <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} labelKey={chat ? "work_trace.thinking_for" : undefined} />
           {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
       </div>
       : <>
@@ -738,9 +751,9 @@ function ErrorLine({ text }: { text: string }) {
 }
 
 /** One item of the conversation, drawn by its kind. */
-function ItemView({ item }: { item: TimelineItem }) {
+function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone">) {
   if (item.type === "user") return <UserBubble item={item} />;
-  if (item.type === "turn") return <ThreadTurn turn={item} />;
+  if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} />;
   if (item.type === "error") return <ErrorLine text={item.text} />;
   if (item.type === "notice") {
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
@@ -756,8 +769,10 @@ function ItemView({ item }: { item: TimelineItem }) {
  * the bottom and stays put once they scroll up to read; a button brings them
  * back down.
  */
-export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead }: {
+export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead, tone }: {
   items: TimelineItem[]; sessionId: string | null; bottomInset: number;
+  /** How every turn's status lines read (see `ThreadTurnProps.tone`). */
+  tone?: ThreadTurnProps["tone"];
   /** The thread's project folder; changed files list relative to it. */
   folder?: string;
   /** What reads above the conversation — an opened sub-agent's header and task. */
@@ -802,7 +817,7 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="h-full overflow-y-auto scrollbar-jarvis">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {items.map((item) => <ItemView key={item.id} item={item} />)}
+        {items.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
       </div>
     </div>
     {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}
