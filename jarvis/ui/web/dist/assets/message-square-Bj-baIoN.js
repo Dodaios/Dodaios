@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/message-square-Bj-baIoN.js
 import{c as e}from"./index-tUamXeDX.js";/**
+|||||||| parent of 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/message-square-DKs1bxCW.js
+import{c as e}from"./index-DXH8dYeo.js";/**
+========
+import{c as e}from"./index-DDbcWeXw.js";/**
+>>>>>>>> 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/message-square-Bp4Swhgy.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

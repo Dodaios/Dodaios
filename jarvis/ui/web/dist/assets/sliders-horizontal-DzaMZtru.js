@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/sliders-horizontal-DzaMZtru.js
 import{c as y}from"./index-tUamXeDX.js";/**
+|||||||| parent of 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/sliders-horizontal-BGk2HTFq.js
+import{c as y}from"./index-DXH8dYeo.js";/**
+========
+import{c as y}from"./index-DDbcWeXw.js";/**
+>>>>>>>> 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/sliders-horizontal-jnMZAOnm.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

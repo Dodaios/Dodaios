@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/AppshotEditor-CfaSdrqG.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-tUamXeDX.js";import{S as sr}from"./switch-CGhH4Y6s.js";import{Q as D}from"./tooltip-CTrMWPo6.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BzcVoHZ6.js";import{C as Tn}from"./check-l6uI7gCj.js";import{C as En}from"./columns-2-D3MKAZAq.js";/**
+|||||||| parent of 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/AppshotEditor-CFB4_s06.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-DXH8dYeo.js";import{S as sr}from"./switch-Ci415xYr.js";import{Q as D}from"./tooltip-CpME0L_f.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-CwgN6hKx.js";import{C as Tn}from"./check-BCqNQGqe.js";import{C as En}from"./columns-2-Csncm71Y.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-DDbcWeXw.js";import{S as sr}from"./switch-DNfwJwKT.js";import{Q as D}from"./tooltip-shy6COMR.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-B8oCvWZC.js";import{C as Tn}from"./check-n7dJuprU.js";import{C as En}from"./columns-2-gHUvYMdI.js";/**
+>>>>>>>> 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/AppshotEditor-C7783xxG.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

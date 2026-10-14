@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/PluginsCommunity-BLhAoGHv.js
 import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-tUamXeDX.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-l6uI7gCj.js";import{S as re,C as oe}from"./store-BiREMA9n.js";/**
+|||||||| parent of 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/PluginsCommunity-BvyJaLAz.js
+import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-DXH8dYeo.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-BCqNQGqe.js";import{S as re,C as oe}from"./store-BZAqscgW.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cp as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,ce as A,q as ee,S as te,L as $,cv as U,cw as P,x as ne}from"./index-DDbcWeXw.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-n7dJuprU.js";import{S as re,C as oe}from"./store-DNS4wy8m.js";/**
+>>>>>>>> 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/PluginsCommunity-mjWyR6fQ.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

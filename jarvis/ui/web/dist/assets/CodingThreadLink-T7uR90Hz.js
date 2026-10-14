@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/CodingThreadLink-T7uR90Hz.js
 import{c as P,r as i,j as e,u as C,bn as A,X as O,bU as q,bV as B,e as g,bo as D,bW as H,d as F}from"./index-tUamXeDX.js";import{C as I}from"./TraceTimeline-DXVkT8Xv.js";import{L as U}from"./lock-CLVo4SUL.js";import{C as W}from"./code-xml-CCyCkpU1.js";import{C as X}from"./chevron-right-B7H8OtIj.js";/**
+|||||||| parent of 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/CodingThreadLink-kdSa9crM.js
+import{c as P,r as i,j as e,u as C,bm as A,X as O,bU as q,bV as B,e as g,bn as D,bW as H,d as F}from"./index-DXH8dYeo.js";import{C as I}from"./TraceTimeline-C-hLS2db.js";import{L as U}from"./lock-BUrXGDoW.js";import{C as W}from"./code-xml-mOfAwEfl.js";import{C as X}from"./chevron-right-B-ecIKSu.js";/**
+========
+import{c as P,r as i,j as e,u as C,bm as A,X as O,bU as q,bV as B,e as g,bn as D,bW as H,d as F}from"./index-DDbcWeXw.js";import{C as I}from"./TraceTimeline-BcTIDGUx.js";import{L as U}from"./lock-L-CKHPvq.js";import{C as W}from"./code-xml-BwzU8ZU-.js";import{C as X}from"./chevron-right-BnBZj4h7.js";/**
+>>>>>>>> 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/CodingThreadLink-C3Sr-1cO.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

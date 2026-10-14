@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/wand-sparkles-CFuTnJGv.js
 import{c as a}from"./index-tUamXeDX.js";/**
+|||||||| parent of 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/wand-sparkles-CfUNnQol.js
+import{c as a}from"./index-DXH8dYeo.js";/**
+========
+import{c as a}from"./index-DDbcWeXw.js";/**
+>>>>>>>> 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/wand-sparkles-C1CsGv_7.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

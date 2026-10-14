@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:jarvis/ui/web/dist/assets/activity-w3QI9uQP.js
 import{c as t}from"./index-tUamXeDX.js";/**
+|||||||| parent of 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/activity-DpGPvbMo.js
+import{c as t}from"./index-DXH8dYeo.js";/**
+========
+import{c as t}from"./index-DDbcWeXw.js";/**
+>>>>>>>> 3e46cae71f (build(ui): rebuild the bundle for the planner-and-builder mode):jarvis/ui/web/dist/assets/activity-DirXkKA3.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
