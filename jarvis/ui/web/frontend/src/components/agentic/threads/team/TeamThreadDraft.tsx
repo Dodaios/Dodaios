@@ -179,29 +179,34 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
               const number = index + 1;
               const models = seat?.model_options ?? [];
               const efforts = effortsOf(seat, pick.model ?? "");
-              return <li key={index} className="flex flex-wrap items-center gap-1.5 px-2 py-1.5" data-testid={`team-draft-member-${index}`}>
+              // One column per setting, so the rows line up whatever each seat offers.
+              return <li key={index} data-testid={`team-draft-member-${index}`} className={cn(
+                "flex flex-wrap items-center gap-1.5 px-2 py-1.5 sm:grid",
+                planned ? "sm:grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1fr)_9rem_8rem_auto]" : "sm:grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1fr)_9rem_auto]",
+              )}>
                 <span aria-hidden className="w-5 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">{number}</span>
                 <Combobox ariaLabel={fill(t("team_threads.draft.member_n"), { number })} testId={`team-draft-select-${index}`}
                   value={pick.provider} onChange={(value) => setSeat(index, value)} groups={seatGroups(false)}
                   fallbackLabel={seat?.label ?? pick.provider} searchPlaceholder={t("team_threads.draft.search")}
-                  className="w-auto min-w-[10.5rem] flex-1 basis-40" />
+                  className="min-w-[10rem] flex-1 basis-40 sm:min-w-0" />
                 <BrandedSelect ariaLabel={fill(t("team_threads.draft.model_of"), { number })} testId={`team-draft-model-${index}`}
                   value={pick.model ?? ""} onValueChange={(value) => setModel(index, value)}
                   disabled={models.length === 0}
-                  className="w-auto min-w-[10rem] flex-1 basis-40"
+                  className="min-w-[10rem] flex-1 basis-40 sm:min-w-0"
                   options={[
                     { value: "", label: t("team_threads.draft.model_default") },
                     // A model picked before the list was known stays visible as it is.
                     ...(pick.model && !models.some((option) => option.id === pick.model) ? [{ value: pick.model, label: pick.model }] : []),
                     ...models.map((option) => ({ value: option.id, label: option.label })),
                   ]} />
-                {efforts.length > 0 && <BrandedSelect ariaLabel={fill(t("team_threads.draft.effort_of"), { number })}
+                {efforts.length > 0 ? <BrandedSelect ariaLabel={fill(t("team_threads.draft.effort_of"), { number })}
                   testId={`team-draft-effort-${index}`} value={pick.effort ?? ""} onValueChange={(value) => setEffort(index, value)}
-                  className="w-auto min-w-[7.5rem]"
-                  options={[{ value: "", label: t("team_threads.draft.effort_default") }, ...efforts.map((level) => ({ value: level, label: level }))]} />}
+                  className="min-w-[7.5rem] sm:min-w-0"
+                  options={[{ value: "", label: t("team_threads.draft.effort_default") }, ...efforts.map((level) => ({ value: level, label: level }))]} />
+                  : <span aria-hidden className="hidden sm:block" />}
                 {planned && <BrandedSelect ariaLabel={fill(t("team_threads.draft.role_of"), { number })}
                   testId={`team-draft-role-${index}`} value={pick.role} onValueChange={(value) => setRole(index, value as TeamRole)}
-                  className="w-auto min-w-[7.5rem]"
+                  className="min-w-[7.5rem] sm:min-w-0"
                   options={TEAM_THREAD_ROLES.map((role) => ({ value: role, label: t(`team_threads.member_role.${role}`) }))} />}
                 <button type="button" disabled={team.length <= min} onClick={() => remove(index)}
                   aria-label={fill(t("team_threads.draft.remove_named"), { target: `${number} · ${seat?.label ?? pick.provider}` })}
