@@ -220,3 +220,45 @@ async def test_the_chat_is_told_how_to_answer_and_nothing_about_a_workspace(
     assert "no tools in this chat" in prompt
     assert str(tmp_path) not in prompt and "src" not in prompt
     assert prompt == await side_chat.system_prompt(SimpleNamespace(cwd=""), "other", "Testo")
+
+
+def test_a_plain_chat_ignores_a_folder_that_no_longer_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A client that still remembers a deleted folder must not lose the chat."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from jarvis.ui.web.agent_chat_routes import router
+
+    store = AgentChatStore(":memory:")
+    try:
+        app = FastAPI()
+        app.include_router(router)
+        app.state.agent_chat = AgentChatService(store, default_cwd=lambda: str(tmp_path))
+        client = TestClient(app)
+        gone = str(tmp_path / "deleted-worktree")
+
+        created = client.post(
+            "/api/agent-chat/sessions",
+            json={"provider": "openai", "surface": "side", "cwd": gone},
+        )
+        assert created.status_code == 201, created.text
+        session_id = created.json()["session_id"]
+        assert created.json()["cwd"] != gone
+
+        patched = client.patch(f"/api/agent-chat/sessions/{session_id}", json={"cwd": gone})
+        assert patched.status_code == 200, patched.text
+        assert patched.json()["cwd"] != gone
+
+        catalog = client.get("/api/agent-chat/catalog", params={"surface": "side", "cwd": gone})
+        assert catalog.status_code == 200, catalog.text
+
+        # Every other surface still refuses a folder that is not there.
+        refused = client.post(
+            "/api/agent-chat/sessions",
+            json={"provider": "openai", "surface": "agent", "cwd": gone},
+        )
+        assert refused.status_code == 400
+    finally:
+        store.close()
