@@ -33,7 +33,9 @@ export function CreatureModel({ creature, sizeM }: { creature: CreatureLook; siz
     return { mesh, geometry, material };
   }, [seed, palette, eyes, sizeM]);
   useEffect(() => () => {
-    resources.mesh.dispose();
+    // `dispose={null}` below makes R3F overwrite the mesh's own `dispose` with null
+    // (so R3F leaves our resources alone); the prototype's method still frees the mesh.
+    InstancedMesh.prototype.dispose.call(resources.mesh);
     resources.geometry.dispose();
     resources.material.dispose();
   }, [resources]);
