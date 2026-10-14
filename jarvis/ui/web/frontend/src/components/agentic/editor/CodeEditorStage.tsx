@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Code2,
   Columns2,
+  Columns3,
   Copy,
   Eye,
   ExternalLink,
@@ -145,6 +146,15 @@ export function CodeEditorStage({
     });
   const toggleRenderedRef = useRef(toggleRendered);
   toggleRenderedRef.current = toggleRendered;
+  // Tabs read in follow mode: the file continues over several columns.
+  const [following, setFollowing] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleFollowing = (key: string) =>
+    setFollowing((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const menuAnchor = useRef<HTMLElement | null>(null);
   const pushToast = useEventStore((state) => state.pushToast);
 
@@ -528,6 +538,16 @@ export function CodeEditorStage({
               wide
             />
           )}
+          {shownTab.mode === "edit" && shownFile?.status === "ready" && !rendered.has(shownTab.key) && (
+            <ActionButton
+              onClick={() => toggleFollowing(shownTab.key)}
+              icon={<Columns3 className="h-3.5 w-3.5" aria-hidden />}
+              label={t("code_editor.follow_mode")}
+              description={t("code_editor.follow_mode_description")}
+              pressed={following.has(shownTab.key)}
+              testId="code-editor-follow"
+            />
+          )}
           {/* A text comparison only means something for a text file. */}
           {(shownTab.mode === "diff" || shownFile?.status === "ready") && (
             <ActionButton
@@ -577,6 +597,7 @@ export function CodeEditorStage({
             <EditorSurface
               tab={shownTab}
               rendered={rendered.has(shownTab.key)}
+              follow={following.has(shownTab.key)}
               focused={group.focused}
               secondary={groups.length > 1}
               onOpenExternally={openExternally}
@@ -747,6 +768,9 @@ function ActionButton({
   hint,
   iconOnly = false,
   wide = false,
+  pressed,
+  testId,
+  description,
 }: {
   onClick: () => void;
   icon: ReactNode;
@@ -755,14 +779,24 @@ function ActionButton({
   iconOnly?: boolean;
   /** Keep the label visible at every window width. */
   wide?: boolean;
+  /** A switch: on or off, shown by its colour. */
+  pressed?: boolean;
+  testId?: string;
+  /** A sentence for the tooltip in place of the label. */
+  description?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={hint ? `${label} (${hint})` : label}
+      title={description ?? (hint ? `${label} (${hint})` : label)}
       aria-label={label}
-      className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-pressed={pressed}
+      data-testid={testId}
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        pressed && "bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary",
+      )}
     >
       {icon}
       {!iconOnly && <span className={wide ? "inline" : "hidden xl:inline"}>{label}</span>}
