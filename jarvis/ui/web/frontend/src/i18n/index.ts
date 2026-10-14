@@ -121,7 +121,8 @@ export type LocaleChunk =
   | "onboarding"
   | "appshot_editor"
   | "providers"
-  | "pane_review";
+  | "pane_review"
+  | "memory";
 
 const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknown>>> = {
   marketplace: {
@@ -183,6 +184,14 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     es: () => import("./locales/pane_review/es.json"),
     zh: () => import("./locales/pane_review/zh.json"),
     pt: () => import("./locales/pane_review/pt.json"),
+  },
+  // The Memory section (the vault reader, map and editor).
+  memory: {
+    en: () => import("./locales/memory/en.json"),
+    de: () => import("./locales/memory/de.json"),
+    es: () => import("./locales/memory/es.json"),
+    zh: () => import("./locales/memory/zh.json"),
+    pt: () => import("./locales/memory/pt.json"),
   },
 };
 
