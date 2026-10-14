@@ -79,6 +79,75 @@ async def test_the_answer_comes_back_in_the_same_call_and_is_not_announced_twice
     assert not [e for e in spoken if isinstance(e, AnnouncementRequested)]
 
 
+async def test_an_answer_the_call_already_said_is_not_announced_after_it(team):
+    # Seen on macOS: the call read the stored answer and lifted its mark before
+    # the runtime delivered that answer, so the voice heard it a second time.
+    rt, spoken = team
+    scout = await rt.roster.resolve("Scout")
+    request = await rt.say(
+        from_agent=rt.lead_id, to_agent=scout.agent_id, text="Which VPS?",
+        msg_type=MsgType.QUERY, payload={"reply_surface": "voice"},
+    )
+    rt._awaited_inline.add(request.event_id)
+    rt.stop_awaiting_inline(request.event_id, answered=True)
+    assert rt._awaited_inline == set()
+
+    async def announced() -> list:
+        await asyncio.sleep(0.05)
+        return [e for e in spoken if isinstance(e, AnnouncementRequested)]
+
+    await rt._deliver_lead_result(scout, request, status="done", summary="Hetzner.",
+                                  kind="society_message")
+    assert await announced() == []
+    # Used up by that delivery: a later result for the same request is spoken.
+    assert rt._answered_inline == {}
+    await rt._deliver_lead_result(scout, request, status="done", summary="Changed my mind.",
+                                  kind="society_message")
+    assert len(await announced()) == 1
+
+
+async def test_a_wait_that_ran_out_leaves_the_answer_to_be_announced(team):
+    rt, _spoken = team
+    scout = await rt.roster.resolve("Scout")
+    request = await rt.say(
+        from_agent=rt.lead_id, to_agent=scout.agent_id, text="Status?", msg_type=MsgType.QUERY
+    )
+    rt._awaited_inline.add(request.event_id)
+    rt.stop_awaiting_inline(request.event_id)
+    assert rt._awaited_inline == set() and rt._answered_inline == {}
+
+
+def test_the_record_of_answers_said_in_a_call_stays_bounded(tmp_path):
+    from jarvis.society import runtime as society_runtime
+
+    rt = SocietyRuntime(tmp_path, chat_service=lambda: None, cfg=lambda: None)
+    for index in range(society_runtime._ANSWERED_INLINE_MAX + 50):
+        rt.stop_awaiting_inline(f"request-{index}", answered=True)
+    assert len(rt._answered_inline) == society_runtime._ANSWERED_INLINE_MAX
+    assert "request-0" not in rt._answered_inline
+
+
+async def test_the_tool_tells_the_runtime_whether_it_has_the_answer(team, monkeypatch):
+    rt, _spoken = team
+    lifted: list[bool] = []
+    lift = rt.stop_awaiting_inline
+
+    def record(request_id: str, *, answered: bool = False) -> None:
+        lifted.append(answered)
+        lift(request_id, answered=answered)
+
+    monkeypatch.setattr(rt, "stop_awaiting_inline", record)
+    tool = AskAgentTool(runtime_resolver=lambda: rt)
+    asking = asyncio.create_task(tool.execute({"agent": "Scout", "question": "Ready?"}, _ctx()))
+    await _answer(rt, "Yes.")
+    assert (await asyncio.wait_for(asking, 10)).output["answered"] is True
+    clock = iter([0.0, 0.0])
+    monkeypatch.setattr(ask_agent, "_now", lambda: next(clock, 1000.0))
+    late = await tool.execute({"agent": "Scout", "question": "And now?"}, _ctx())
+    assert late.output["answered"] is False
+    assert lifted == [True, False]
+
+
 async def test_a_late_answer_is_handed_to_the_conversation_instead(team, monkeypatch):
     rt, spoken = team
     # The wait runs out at once: only this tool's clock jumps, not the loop's.
