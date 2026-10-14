@@ -118,6 +118,8 @@ export interface TeamEntry {
     /** A vote. */
     agree?: boolean;
     objections?: string[];
+    /** The plan a vote or a plan review is on, by its entry's seq. */
+    plan_seq?: number;
     /** A review. */
     approve?: boolean;
     findings?: TeamFinding[];
