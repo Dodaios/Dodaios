@@ -76,9 +76,9 @@ const GEOM = {
   ringA: new TorusGeometry(1.3, 0.075, 12, 96),
   ringB: new TorusGeometry(1.65, 0.05, 10, 112),
   ringC: new TorusGeometry(2.05, 0.03, 8, 128),
-  crown: new TorusGeometry(2.25, 0.11, 10, 64),
+  crown: new TorusGeometry(1.9, 0.1, 10, 64),
   crownLow: new TorusGeometry(1.7, 0.09, 10, 64),
-  crownBand: new TorusGeometry(2.25, 0.05, 8, 64),
+  crownBand: new TorusGeometry(1.9, 0.045, 8, 64),
   column: new CylinderGeometry(0.42, 0.42, COLUMN_H, 24, 1, true),
   columnWide: new CylinderGeometry(1.0, 1.0, COLUMN_H, 24, 1, true),
   mote: new IcosahedronGeometry(0.045, 0),
@@ -87,7 +87,7 @@ const GEOM = {
 const MAT = {
   gold: matte(FOUNDRY.gold, { roughness: 0.25, metalness: 0.9 }),
   steel: matte(FOUNDRY.steel, { roughness: 0.4, metalness: 0.7 }),
-  heart: new MeshBasicMaterial({ color: new Color(FOUNDRY.plasma.heart).multiplyScalar(1.6), toneMapped: false }),
+  heart: new MeshBasicMaterial({ color: new Color(FOUNDRY.plasma.heart).multiplyScalar(1.25), toneMapped: false }),
   shell: new MeshBasicMaterial({
     color: new Color(FOUNDRY.plasma.inner).multiplyScalar(1.2), wireframe: true, transparent: true, opacity: 0.55,
     blending: AdditiveBlending, depthWrite: false, toneMapped: false,
@@ -110,15 +110,15 @@ export function FoundryCore({ at, working, animate }: { at: Point; working: numb
     if (flow) { flow.wrapS = flow.wrapT = RepeatWrapping; flow.repeat.set(1, 8); flow.needsUpdate = true; }
     return {
       flow: new MeshBasicMaterial({
-        map: flow, color: new Color(FOUNDRY.plasma.inner).multiplyScalar(0.55), transparent: true, depthWrite: false,
+        map: flow, color: new Color(FOUNDRY.plasma.inner).multiplyScalar(0.4), transparent: true, depthWrite: false,
         blending: AdditiveBlending, toneMapped: false, side: DoubleSide,
       }),
       halo: new MeshBasicMaterial({
-        map: halo, color: new Color(FOUNDRY.plasma.inner).multiplyScalar(0.8), transparent: true, depthWrite: false,
+        map: halo, color: new Color(FOUNDRY.plasma.inner).multiplyScalar(0.5), transparent: true, depthWrite: false,
         blending: AdditiveBlending, toneMapped: false,
       }),
       column: new MeshBasicMaterial({
-        map: column, color: new Color(FOUNDRY.plasma.inner).multiplyScalar(0.38), transparent: true, depthWrite: false,
+        map: column, color: new Color(FOUNDRY.plasma.inner).multiplyScalar(0.28), transparent: true, depthWrite: false,
         blending: AdditiveBlending, toneMapped: false, side: DoubleSide,
       }),
       columnWide: new MeshBasicMaterial({
@@ -204,8 +204,8 @@ export function FoundryCore({ at, working, animate }: { at: Point; working: numb
           <mesh geometry={GEOM.crownBand} material={MAT.gold} rotation={[Math.PI / 2, 0, 0]} position={[0, 0.14, 0]} />
           {FINS.map((angle) => (
             <group key={angle} rotation={[0, angle + Math.PI / 10, 0]}>
-              <mesh geometry={GEO.box} material={MAT.fin} position={[2.15, -0.45, 0]} scale={[0.09, 0.9, 0.36]} rotation={[0, 0, -0.3]} castShadow />
-              <mesh geometry={GEO.box} material={MAT.finLight} position={[2.05, -0.5, 0]} scale={[0.012, 0.6, 0.04]} rotation={[0, 0, -0.3]} />
+              <mesh geometry={GEO.box} material={MAT.fin} position={[1.82, -0.42, 0]} scale={[0.08, 0.8, 0.3]} rotation={[0, 0, -0.3]} castShadow />
+              <mesh geometry={GEO.box} material={MAT.finLight} position={[1.73, -0.47, 0]} scale={[0.012, 0.55, 0.04]} rotation={[0, 0, -0.3]} />
             </group>
           ))}
         </group>

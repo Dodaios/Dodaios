@@ -8,7 +8,7 @@
  * navigation walks around exactly that footprint. Geometries, materials and
  * canvas textures are module-level singletons shared by every copy.
  */
-import { createContext, memo, useContext } from "react";
+import { memo } from "react";
 import { useT } from "@/i18n";
 import { CylinderGeometry, MeshStandardMaterial, SphereGeometry } from "three";
 import { canvasMaterial } from "./canvasMaterials";
@@ -29,13 +29,7 @@ import { Bookshelf, Box, Couch, GEO, MAT, matte, Plant, Rounded, Rug } from "./O
 import { FURNITURE_SIZE, type Furniture, type FurnitureKind } from "./officeLayout";
 import { PROP_COLOURS as P } from "./officePalette";
 import { FOUNDRY } from "./foundryPalette";
-
-/**
- * The coding floor's Foundry deck: the lobby pieces every floor shares (the
- * reception counter, the elevator) swap their wood and white for the deck's
- * steel and gold there.
- */
-export const FoundryLook = createContext(false);
+import { useFoundryLook } from "./foundryLook";
 
 /** The surfaces of the shared lobby pieces, per look. */
 const LOBBY_SURFACES = {
@@ -50,7 +44,7 @@ const LOBBY_SURFACES = {
 };
 
 function useLobbySurfaces() {
-  return LOBBY_SURFACES[useContext(FoundryLook) ? "foundry" : "office"];
+  return LOBBY_SURFACES[useFoundryLook() ? "foundry" : "office"];
 }
 
 type Vec3 = [number, number, number];

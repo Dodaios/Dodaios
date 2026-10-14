@@ -3,8 +3,11 @@
   "study": "coding-floor-foundry",
   "brief": "brief.md",
   "assets": [],
-  "runtime_evidence": [],
-  "technical_report": "",
+  "runtime_evidence": [
+    "evidence/runtime-overview.jpg",
+    "evidence/runtime-core-and-bays.jpg"
+  ],
+  "technical_report": "evidence/technical-report.md",
   "approval": {
     "status": "pending",
     "record": "review.md",
