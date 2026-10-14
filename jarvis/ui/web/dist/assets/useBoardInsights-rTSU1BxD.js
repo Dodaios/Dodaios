@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:jarvis/ui/web/dist/assets/useBoardInsights-B7Vi3Ku9.js
-import{W as s}from"./index-CJdyCEF0.js";async function t(){const r=await fetch("/api/board/insights");if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}const e={queryKey:["board","insights"],queryFn:t,refetchInterval:3e4,staleTime:15e3};function o(){return s(e)}export{o as u};
-========
-import{W as s}from"./index-BOnNxRri.js";async function t(){const r=await fetch("/api/board/insights");if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}const e={queryKey:["board","insights"],queryFn:t,refetchInterval:3e4,staleTime:15e3};function o(){return s(e)}export{o as u};
->>>>>>>> 16a5357fd4ca8fae24d5b3ccc93a7e4098259bee:jarvis/ui/web/dist/assets/useBoardInsights-rTSU1BxD.js
