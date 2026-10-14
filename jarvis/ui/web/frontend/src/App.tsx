@@ -9,6 +9,7 @@ import { useAssistantNameSeed } from "@/hooks/useAssistantNameSeed";
 import { useCodingMode } from "@/hooks/useCodingMode";
 import { useFileDropGuard } from "@/hooks/useFileDropGuard";
 import { useSectionUrlMemory } from "@/hooks/useSectionUrlMemory";
+import { useSocietyWarmup } from "@/hooks/useSocietyWarmup";
 import {
   Sidebar,
   SIDEBAR_DEFAULT_WIDTH,
@@ -186,6 +187,8 @@ export default function App() {
    * reload carries over. See hooks/useSectionUrlMemory.
    */
   useSectionUrlMemory();
+  // The Agents section opens with its roster and teams already loaded.
+  useSocietyWarmup();
 
   /*
    * Remember which field the user is typing in, app-wide.
