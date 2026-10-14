@@ -7445,6 +7445,8 @@
     "deleted": "Diese Datei wurde auf der Festplatte gelöscht. Speichern legt sie neu an.",
     "preview": "Vorschau",
     "show_source": "Quelltext zeigen",
+    "follow_mode": "Follow-Modus",
+    "follow_mode_description": "Diese Datei über mehrere Spalten lesen, die aneinander anschließen",
     "media_failed": "Diese Datei lässt sich hier nicht anzeigen.",
     "document_note": "Aus diesem Dokument gelesener Text. Zum Bearbeiten auf diesem Computer öffnen.",
     "truncated": "Nur der Anfang der Datei wird gezeigt.",
