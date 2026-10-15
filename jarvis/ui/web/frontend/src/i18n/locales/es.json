@@ -5678,7 +5678,15 @@
       "close": "Cerrar la burbuja de voz",
       "mute": "Silenciar la voz de {0} en esta sesión",
       "unmute": "Reactivar la voz de {0}",
-      "start_failed": "No se pudo empezar a escuchar — puede que ya haya una conversación en curso.",
+      "start_failed": "No se pudo iniciar la voz. Inténtalo de nuevo.",
+      "start_refused": {
+        "busy": "Ya hay una conversación de voz abierta. Cuelga primero y vuelve a empezar.",
+        "muted": "La voz está silenciada. Actívala para iniciar una conversación.",
+        "dictation": "Un dictado está usando el micrófono. Termínalo y vuelve a empezar.",
+        "microphone_in_use": "Otra llamada de voz está usando el micrófono. Termínala y vuelve a empezar.",
+        "microphone": "El micrófono no está disponible. Permite el acceso al micrófono en los ajustes del sistema e inténtalo de nuevo.",
+        "unavailable": "La voz no está lista en este momento. Reinicia la aplicación e inténtalo de nuevo."
+      },
       "notice_jump": "Ir a {0}",
       "notice_dismiss": "Ocultar este aviso"
     },
