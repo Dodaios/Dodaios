@@ -28,3 +28,10 @@
 .courier-binding { display:flex; justify-content:space-between; align-items:center; gap:10px; }
 .courier-binding span { color:hsl(var(--muted-foreground)); }
 @media (max-width:600px) { .courier-hud { bottom:10px; gap:8px; } .courier-help { display:none; } }
+/* Mouse aim: a ring where the pilot aims, a small dot where the nose points (both placed by the scene). */
+.courier-aim, .courier-nose { position:absolute; z-index:39; pointer-events:none; opacity:0; transform:translate(-50%, -50%); }
+.courier-aim { width:34px; height:34px; border-radius:50%; border:2px solid hsl(var(--primary) / .9); box-shadow:0 0 0 1px hsl(var(--background) / .6); }
+.courier-aim::before, .courier-aim::after { content:""; position:absolute; left:50%; top:50%; background:hsl(var(--primary) / .9); transform:translate(-50%, -50%); }
+.courier-aim::before { width:2px; height:8px; }
+.courier-aim::after { width:8px; height:2px; }
+.courier-nose { width:10px; height:10px; border-radius:50%; background:hsl(var(--foreground) / .85); box-shadow:0 0 0 2px hsl(var(--background) / .6); }

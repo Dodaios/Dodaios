@@ -36,12 +36,16 @@ export function CourierHud() {
   const settingsOpen = useCourier((s) => s.settingsOpen);
   const bindings = useCourier((s) => s.bindings);
   const mouseLocked = useCourier((s) => s.mouseLocked);
+  const cursorAim = useCourier((s) => s.cursorAim);
   const store = useCourier.getState;
   const kmh = Math.round(telemetry.speed * 3.6);
   const boostShare = Math.min(1, telemetry.speed / FLIGHT.boost);
   const keysOf = (action: FlightAction) => keysLabel(bindings[action]);
   return (
     <>
+      {/* Placed by the scene each frame: where the pilot aims, and where the nose points. */}
+      <div id="courier-aim" className="courier-aim" aria-hidden />
+      <div id="courier-nose" className="courier-nose" aria-hidden />
       <div className="courier-hud office-card" data-office-ui role="group" aria-label={t("society.office.flight_hud")}>
         <div className="courier-speed" aria-live="off">
           <strong>{kmh}</strong><span>km/h</span>
@@ -72,7 +76,7 @@ export function CourierHud() {
         </div>
         {telemetry.landed
           ? <p className="office-hint">{t("society.office.flight_landed_hint").replace("{0}", keysOf("exit"))}</p>
-          : <p className="office-hint">{t(mouseLocked ? "society.office.flight_mouse_on" : "society.office.flight_mouse_hint")}</p>}
+          : <p className="office-hint">{t(mouseLocked ? "society.office.flight_mouse_on" : cursorAim ? "society.office.flight_mouse_cursor" : "society.office.flight_mouse_hint")}</p>}
       </div>
       {helpOpen && !settingsOpen && (
         <div className="courier-help office-card" data-office-ui>

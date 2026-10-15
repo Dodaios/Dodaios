@@ -1628,7 +1628,8 @@
       "flight_action_exit": "Sair (aterrada)",
       "flight_action_help": "Mostrar controlos",
       "flight_mouse_hint": "Clique na vista para pilotar com o rato.",
-      "flight_mouse_on": "Rato ativo: mova para virar e arfar. Esc liberta-o."
+      "flight_mouse_on": "Mira com o rato: o rato move o anel e a nave voa até lá sozinha. Esc liberta-o.",
+      "flight_mouse_cursor": "Controlo pelo cursor: afaste-o do centro para virar; se ficar lá, continua a virar."
     },
     "arcade": {
       "play_prompt": "Jogar {0}",

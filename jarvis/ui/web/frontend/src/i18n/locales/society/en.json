@@ -1628,7 +1628,8 @@
       "flight_action_exit": "Step out (landed)",
       "flight_action_help": "Show the controls",
       "flight_mouse_hint": "Click the view to steer with the mouse.",
-      "flight_mouse_on": "Mouse steering on: move to turn and pitch. Esc lets go."
+      "flight_mouse_on": "Mouse aim on: the mouse moves the ring, the ship flies there by itself. Esc lets go.",
+      "flight_mouse_cursor": "Cursor steering: move the cursor away from the middle to turn; resting there keeps turning."
     },
     "arcade": {
       "play_prompt": "Play {0}",
