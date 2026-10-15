@@ -65,6 +65,8 @@ interface CourierState extends CourierPrefs {
   settingsOpen: boolean;
   /** The mouse is captured for steering. */
   mouseLocked: boolean;
+  /** The view refused to capture the mouse, so the visible cursor steers instead: its offset from the middle turns the aim. */
+  cursorAim: boolean;
   telemetry: CourierTelemetry;
   /** Bumped when the pilot asks for the landing assist, or to step out, from the HUD (the keys act in the scene). */
   landRequest: number;
@@ -73,7 +75,7 @@ interface CourierState extends CourierPrefs {
   disembark: () => void;
   setPrefs: (patch: Partial<CourierPrefs>) => void;
   setBindings: (bindings: FlightBindings) => void;
-  set: (patch: Partial<Pick<CourierState, "helpOpen" | "settingsOpen" | "telemetry" | "mouseLocked">>) => void;
+  set: (patch: Partial<Pick<CourierState, "helpOpen" | "settingsOpen" | "telemetry" | "mouseLocked" | "cursorAim">>) => void;
   requestLanding: () => void;
   requestExit: () => void;
   setReady: (ready: boolean) => void;
@@ -89,6 +91,7 @@ export const useCourier = create<CourierState>((set, get) => ({
   helpOpen: false,
   settingsOpen: false,
   mouseLocked: false,
+  cursorAim: false,
   telemetry: IDLE,
   landRequest: 0,
   exitRequest: 0,

@@ -657,8 +657,14 @@ street of team rooms round an atrium, with commons people use in between.
   attitude, and it banks into turns and levels its wings (never its nose);
   *simulation* is Newtonian with momentum and drift. Cruise 85 m/s, boost
   to 170 m/s on a charge that drains and refills, brake. A click into the
-  view captures the mouse as a stick that springs back to the middle
-  (sideways turns, forwards and back pitches; Escape lets it go). Every tower, the Dodaios tower with its floor, the pad, the
+  view captures the mouse for *mouse aim*: moving it moves a ring (where the
+  pilot aims), a dot marks where the nose points, and the ship keeps
+  turning onto the ring by itself whether or not the mouse is still moving;
+  the chase camera looks along the aim, and the turn and pitch keys move the
+  ring too (Escape lets the mouse go). Where the host refuses to capture the
+  mouse (an unfocused window, an embedded view), the visible cursor steers
+  instead: its distance from the middle of the view sets how fast the ring
+  turns, and a cursor resting off the middle keeps turning. Every tower, the Dodaios tower with its floor, the pad, the
   street level and the singularity's core are solid (`courierWorld.ts`):
   the ship bounces off in sub-steps no longer than 1.5 m (no tunnelling at
   full boost), its shield flashes and the camera shakes. Past the city's
@@ -685,8 +691,8 @@ street of team rooms round an atrium, with commons people use in between.
   | Action | Keys | Gamepad |
   | --- | --- | --- |
   | Throttle up / down | W / S | right / left trigger |
-  | Turn left / right | A / D (or the mouse) | left stick x |
-  | Nose up / down | ↑ / ↓ (or the mouse) | left stick y |
+  | Turn left / right | A / D (or the mouse aim) | left stick x |
+  | Nose up / down | ↑ / ↓ (or the mouse aim) | left stick y |
   | Roll left / right | Q / E, ← / → | right stick x |
   | Rise / sink | Space / C or Ctrl | right stick y |
   | Boost / brake | Shift / X | A / B |
