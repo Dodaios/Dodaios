@@ -651,6 +651,25 @@ label,
        and warning; merged is the one GitHub state the set had no hue for. */
     --gh-merged: 262 69% 58%; /* #8250DF — GitHub light */
 
+    /* File states in the Git tab's source control list and graph: the letter
+       beside a file (M A D R U !) and its name take the hue of its state. */
+    --git-modified: 37 96% 28%; /* #895503 */
+    --git-added: 82 82% 27%; /* #587C0C */
+    --git-untracked: 120 100% 22%; /* #007100 */
+    --git-deleted: 0 92% 35%; /* #AD0707 */
+    --git-renamed: 120 100% 22%; /* #007100 */
+    --git-conflict: 0 92% 35%; /* #AD0707 */
+    --git-ignored: 240 1% 56%; /* #8E8E90 */
+    /* The commit graph's lane colours, one per lane, cycling. */
+    --git-lane-0: 43 100% 36%;
+    --git-lane-1: 331 69% 45%;
+    --git-lane-2: 31 100% 30%;
+    --git-lane-3: 175 51% 37%;
+    --git-lane-4: 268 72% 56%;
+    --git-lane-5: 214 82% 51%;
+    --git-lane-6: 146 50% 36%;
+    --git-lane-7: 38 100% 33%;
+
     --radius: 0.75rem;
 
     /* --- Effect channels (see the note above) ---------------------------- */
@@ -837,6 +856,21 @@ label,
     --diff-del: 350 96% 71%; /* #FC6B83 */
     --diff-del-bg: 336 100% 36%; /* #B80049, read at 20 % */
     --gh-merged: 262 89% 72%; /* #A371F7 — GitHub dark; see :root */
+    --git-modified: 36 59% 72%; /* #E2C08D — see :root */
+    --git-added: 130 28% 61%; /* #81B88B */
+    --git-untracked: 140 45% 62%; /* #73C991 */
+    --git-deleted: 9 56% 50%; /* #C74E39 */
+    --git-renamed: 140 45% 62%; /* #73C991 */
+    --git-conflict: 358 70% 65%; /* #E4676B */
+    --git-ignored: 0 0% 55%; /* #8C8C8C */
+    --git-lane-0: 41 100% 50%;
+    --git-lane-1: 331 72% 51%;
+    --git-lane-2: 31 63% 47%;
+    --git-lane-3: 175 47% 47%;
+    --git-lane-4: 270 100% 71%;
+    --git-lane-5: 212 100% 61%;
+    --git-lane-6: 140 45% 62%;
+    --git-lane-7: 36 59% 72%;
 
     --accent-rgb: 61 139 255;
     --scrim-rgb: 0 0 0;
@@ -3032,5 +3066,15 @@ body {
   }
   .team-canvas .react-flow__node {
     cursor: default;
+  }
+}
+
+/* The Git tab's progress line while a git command runs. */
+@keyframes scm-progress {
+  from {
+    left: -33%;
+  }
+  to {
+    left: 100%;
   }
 }
