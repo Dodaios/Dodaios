@@ -749,6 +749,20 @@ def _launcher_arguments() -> str:
     return " ".join(("-m", _LAUNCHER_MODULE, *_LAUNCHER_ARGS))
 
 
+def _same_file_path(actual: str, expected: Path) -> bool:
+    """Whether two spellings name the same file, short (8.3) names included.
+
+    A shortcut stores the long path; ``sys.executable`` can carry a short one
+    (``ADMINI~1`` for ``Administrator``), and ``abspath`` keeps it short.
+    Compared as text they never matched, so every launch rewrote the shortcut.
+    """
+    if not actual:
+        return False
+    return os.path.normcase(os.path.realpath(actual)) == os.path.normcase(
+        os.path.realpath(expected)
+    )
+
+
 def _shortcut_matches_install(
     lnk: Path,
     *,
@@ -784,18 +798,11 @@ def _shortcut_matches_install(
         icon_raw = (sc.IconLocation or "").rsplit(",", 1)[0].strip().strip('"')
         target_raw = (sc.TargetPath or "").strip().strip('"')
 
-        def _same_path(actual: str, expected: Path) -> bool:
-            if not actual:
-                return False
-            return os.path.normcase(os.path.abspath(actual)) == os.path.normcase(
-                os.path.abspath(expected)
-            )
-
         return (
             Path(icon_raw).is_file()
             and Path(target_raw).is_file()
-            and _same_path(icon_raw, expected_icon)
-            and _same_path(target_raw, expected_target)
+            and _same_file_path(icon_raw, expected_icon)
+            and _same_file_path(target_raw, expected_target)
             and (sc.Arguments or "").strip() == expected_arguments
         )
     except Exception as exc:  # noqa: BLE001
