@@ -247,6 +247,11 @@ class WebServer:
         # unchanged. See docs/superpowers/specs/2026-05-11-pre-thinking-ack-
         # flash-brain-design.md §4.
         self.bus.subscribe(AnnouncementRequested, self._forward_preamble_to_chat)
+        # An owed result reaches a live call through the speech pipeline; an
+        # install without one (headless, browser voice only) hands it over here.
+        from jarvis.live.announcements import deliver_to_live_call
+
+        self.bus.subscribe(AnnouncementRequested, deliver_to_live_call)
         from jarvis.core import runtime_refs
         from jarvis.missions.tool_approvals import (
             MissionToolApprovalCoordinator,
