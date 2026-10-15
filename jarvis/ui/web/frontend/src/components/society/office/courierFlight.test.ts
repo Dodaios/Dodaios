@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
 import { GROUND_Y, planCity } from "./cityPlan";
-import { addMouse, DEFAULT_BINDINGS, flightInput, keyLabel, loadBindings, rebind, saveBindings } from "./courierControls";
+import { aimDirection, aimFromForward, cursorTurn, DEFAULT_BINDINGS, flightInput, keyLabel, loadBindings, moveAim, rebind, saveBindings, steerTowards } from "./courierControls";
 import { engageAutopilot, FLIGHT, forwardOf, NO_INPUT, parkedState, stepFlight, type FlightInput, type FlightState } from "./courierFlight";
 import { buildCourierWorld, rayDistance, sphereContact } from "./courierWorld";
 import { buildOfficeLayout } from "./officeLayout";
@@ -212,18 +212,37 @@ describe("the courier's controls", () => {
     expect(flightInput(new Set(), DEFAULT_BINDINGS, { axes: [0.1, -0.1, 0, 0], buttons: [] }, false).yaw).toBe(0);
   });
 
-  it("turns the mouse into a stick: up lifts the nose, down dips it, sideways turns", () => {
-    const up = addMouse({ ...NO_INPUT }, { x: 0, y: -20 }, false);
-    expect(up.pitch).toBeGreaterThan(0.3);
-    expect(addMouse({ ...NO_INPUT }, { x: 0, y: 20 }, false).pitch).toBeLessThan(-0.3);
-    expect(addMouse({ ...NO_INPUT }, { x: 0, y: -20 }, true).pitch).toBeLessThan(-0.3);
-    expect(addMouse({ ...NO_INPUT }, { x: 30, y: 0 }, false).yaw).toBeGreaterThan(0.3);
-    // And a mouse moved up for a moment really brings the nose up in flight.
+  it("aims with the mouse: the ship turns to the aim and keeps flying there after the mouse stops", () => {
     const s = parkedState(home);
     fly(s, { lift: 1 }, 2);
     fly(s, { throttle: 1 }, 2);
-    for (let i = 0; i < 40; i += 1) stepFlight(s, addMouse({ ...NO_INPUT }, { x: 0, y: -30 }, false), 1 / 60, "arcade", world, home);
-    expect(forwardOf(s.q).y).toBeGreaterThan(0.4);
+    const aim = aimFromForward(forwardOf(s.q));
+    // One short flick of the mouse up and to the right, then nothing more.
+    moveAim(aim, 260, -180, false);
+    const target = aimDirection(aim);
+    for (let i = 0; i < 60 * 3; i += 1) stepFlight(s, steerTowards({ ...NO_INPUT }, s.q, target), 1 / 60, "arcade", world, home);
+    // The nose came round onto the aim by itself: up and to the right.
+    expect(forwardOf(s.q).angleTo(target)).toBeLessThan(0.12);
+    expect(forwardOf(s.q).y).toBeGreaterThan(0.3);
+    // And the velocity followed it.
+    expect(s.v.clone().normalize().angleTo(target)).toBeLessThan(0.25);
+    // Inverted pitch aims the other way.
+    expect(moveAim({ yaw: 0, pitch: 0 }, 0, -100, true).pitch).toBeLessThan(0);
+  });
+
+  it("steers with the cursor when the mouse cannot be captured: a resting cursor off the middle keeps turning", () => {
+    // In the still zone nothing turns.
+    expect(cursorTurn({ yaw: 0, pitch: 0 }, 0.05, -0.05, 1)).toEqual({ yaw: 0, pitch: 0 });
+    // Right of the middle turns right (yaw falls), above it pitches up, and each frame adds the same again.
+    const aim = { yaw: 0, pitch: 0 };
+    for (let i = 0; i < 30; i += 1) cursorTurn(aim, 0.6, 0.4, 1 / 60);
+    const half = { ...aim };
+    for (let i = 0; i < 30; i += 1) cursorTurn(aim, 0.6, 0.4, 1 / 60);
+    expect(half.yaw).toBeLessThan(0);
+    expect(half.pitch).toBeGreaterThan(0);
+    expect(aim.yaw).toBeCloseTo(half.yaw * 2, 6);
+    // Further out turns faster.
+    expect(Math.abs(cursorTurn({ yaw: 0, pitch: 0 }, 1, 0, 1).yaw)).toBeGreaterThan(Math.abs(cursorTurn({ yaw: 0, pitch: 0 }, 0.5, 0, 1).yaw));
   });
 
   it("rebinds a key to one action and remembers it", () => {
