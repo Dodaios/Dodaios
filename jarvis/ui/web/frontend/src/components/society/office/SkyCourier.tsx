@@ -27,7 +27,7 @@ import courierFar from "@/assets/society/courier/courier-lod2.glb";
 import { planCity } from "./cityPlan";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import { CourierEngineSound } from "./courierAudio";
-import { addMouse, FLIGHT_ACTIONS, flightInput, PAD_PRESSES, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
+import { aimDirection, aimFromForward, cursorTurn, FLIGHT_ACTIONS, flightInput, moveAim, PAD_PRESSES, steerTowards, type MouseAim, PRESS_ACTIONS, type FlightAction, type PadState } from "./courierControls";
 import { engageAutopilot, FLIGHT, forwardOf, heightOverDeck, NO_INPUT, parkedState, stepFlight, type FlightState } from "./courierFlight";
 import { courierSession, useCourier } from "./courierStore";
 import { buildCourierWorld, rayDistance } from "./courierWorld";
@@ -363,8 +363,11 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
   // The keys and the sound belong to a flight on screen: another section or a hidden window gets its keys back.
   const live = flying && awake;
   const held = useRef(new Set<string>());
-  /** Mouse movement while the pointer is captured: a virtual stick that springs back to the middle. */
-  const mouse = useRef({ x: 0, y: 0 });
+  /** Where the pilot aims while the mouse is captured; the ship turns towards it by itself. */
+  const aim = useRef<MouseAim>({ yaw: 0, pitch: 0 });
+  const aimDir = useMemo(() => new Vector3(), []);
+  /** The cursor's place in the view (-1..1, +y up) while cursor steering is on and it is over the view. */
+  const cursor = useRef<{ x: number; y: number } | null>(null);
   const padPressed = useRef(new Set<number>());
   const sound = useRef<CourierEngineSound | null>(null);
   const camPos = useRef(new Vector3());
@@ -454,22 +457,44 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
     const blur = () => held.current.clear();
     // A click into the view captures the mouse for steering; Escape (the browser's own) lets it go again.
     const canvas = gl.domElement;
+    // Some hosts refuse to capture the mouse (an unfocused window, an embedded view): then the cursor steers.
+    const refused = (error: unknown) => {
+      console.warn("mouse capture refused, steering with the cursor", error);
+      if (!useCourier.getState().cursorAim) Object.assign(aim.current, aimFromForward(forwardOf(state.current.q)));
+      useCourier.getState().set({ cursorAim: true });
+    };
     const capture = () => {
       if (document.pointerLockElement === canvas || useCourier.getState().settingsOpen) return;
+      if (!canvas.requestPointerLock) { refused(new Error("pointer lock unsupported")); return; }
       try {
-        const pending = canvas.requestPointerLock?.() as unknown as Promise<void> | undefined;
-        pending?.catch?.((error: unknown) => console.warn("mouse steering unavailable", error));
+        const pending = canvas.requestPointerLock() as unknown as Promise<void> | undefined;
+        pending?.catch?.(refused);
       } catch (error) {
-        console.warn("mouse steering unavailable", error);
+        refused(error);
       }
     };
+    const point = (event: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return;
+      cursor.current = { x: ((event.clientX - r.left) / r.width) * 2 - 1, y: 1 - ((event.clientY - r.top) / r.height) * 2 };
+    };
+    const leave = () => { cursor.current = null; };
     const move = (event: MouseEvent) => {
       if (document.pointerLockElement !== canvas) return;
-      mouse.current.x += event.movementX;
-      mouse.current.y += event.movementY;
+      const s = state.current;
+      // Moving the mouse during the landing assist takes the ship back, aiming from where it points now.
+      if (s.autopilot) { s.autopilot = null; Object.assign(aim.current, aimFromForward(forwardOf(s.q))); }
+      moveAim(aim.current, event.movementX, event.movementY, useCourier.getState().invertPitch);
     };
-    const lockChange = () => useCourier.getState().set({ mouseLocked: document.pointerLockElement === canvas });
+    const lockChange = () => {
+      const locked = document.pointerLockElement === canvas;
+      // The aim starts where the nose points.
+      if (locked) Object.assign(aim.current, aimFromForward(forwardOf(state.current.q)));
+      useCourier.getState().set(locked ? { mouseLocked: true, cursorAim: false } : { mouseLocked: false });
+    };
     canvas.addEventListener("click", capture);
+    canvas.addEventListener("pointermove", point);
+    canvas.addEventListener("pointerleave", leave);
     window.addEventListener("mousemove", move);
     document.addEventListener("pointerlockchange", lockChange);
     window.addEventListener("keydown", down, true);
@@ -478,11 +503,13 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
     pressHandler.current = press;
     return () => {
       canvas.removeEventListener("click", capture);
+      canvas.removeEventListener("pointermove", point);
+      canvas.removeEventListener("pointerleave", leave);
       window.removeEventListener("mousemove", move);
       document.removeEventListener("pointerlockchange", lockChange);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
-      mouse.current.x = 0; mouse.current.y = 0;
-      useCourier.getState().set({ mouseLocked: false });
+      cursor.current = null;
+      useCourier.getState().set({ mouseLocked: false, cursorAim: false });
       window.removeEventListener("keydown", down, true);
       window.removeEventListener("keyup", up, true);
       window.removeEventListener("blur", blur);
@@ -532,11 +559,17 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
         }
       }
       const input = store.settingsOpen ? { ...NO_INPUT } : flightInput(held.current, store.bindings, gamepad, store.invertPitch);
-      // The mouse adds to the keys: sideways turns, up lifts the nose, down dips it.
-      const m = mouse.current;
-      addMouse(input, m, store.invertPitch);
-      const springBack = Math.exp(-10 * dt);
-      m.x *= springBack; m.y *= springBack;
+      if (store.mouseLocked || store.cursorAim) {
+        // Mouse aim: the turn and pitch keys move the aim too, and the ship flies to wherever it points.
+        const a = aim.current;
+        if (s.landed || s.autopilot) Object.assign(a, aimFromForward(forwardOf(s.q)));
+        else {
+          if (!store.mouseLocked && cursor.current && !store.settingsOpen) cursorTurn(a, cursor.current.x, cursor.current.y, dt);
+          moveAim(a, input.yaw * 600 * dt, -input.pitch * 450 * dt, false);
+          input.yaw = 0; input.pitch = 0;
+          steerTowards(input, s.q, aimDirection(a, aimDir));
+        }
+      }
       stepFlight(s, input, dt, store.assist, world, home);
       if (s.impact > lastImpact.current + 6 && sound.current) sound.current.impact(s.impact);
       lastImpact.current = s.impact;
@@ -594,8 +627,9 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       // The chase camera starts from here when the pilot switches back.
       camPos.current.copy(camera.position);
     } else {
-      // Behind the tail and above it, looking past the nose.
-      const want = _v.a.copy(s.p).addScaledVector(f, -CHASE.back).add(_v.b.set(0, CHASE.up, 0));
+      // Behind the tail and above it, looking past the nose; with mouse aim, looking where the pilot aims.
+      const look = (store.mouseLocked || store.cursorAim) && !s.landed && !s.autopilot ? aimDirection(aim.current, aimDir) : f;
+      const want = _v.a.copy(s.p).addScaledVector(look, -CHASE.back).add(_v.b.set(0, CHASE.up, 0));
       // Never through a tower: pull in to just short of whatever stands between the ship and the camera.
       const from = _v.b.copy(s.p).add(_v.c.set(0, 2, 0));
       const dir = _v.c.copy(want).sub(from);
@@ -606,8 +640,9 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
       camPos.current.lerp(want, 1 - Math.exp(-CHASE.stiffness * dt));
       camera.position.copy(camPos.current);
       camera.up.set(0, 1, 0);
-      camera.lookAt(_v.b.copy(s.p).addScaledVector(f, CHASE.lookAhead).addScaledVector(u, 1.5));
+      camera.lookAt(_v.b.copy(s.p).addScaledVector(look, CHASE.lookAhead).addScaledVector(u, 1.5));
     }
+    placeMarkers();
     // The listener's own speed, for the Doppler shift: measured before any shake.
     camVel.current.copy(camera.position).sub(camPrev.current).divideScalar(Math.max(dt, 1e-3));
     camPrev.current.copy(camera.position);
@@ -619,6 +654,22 @@ function Courier({ layout, pad, reduced, awake }: { layout: OfficeLayout; pad: S
     camera.near = 0.3;
     camera.far = 1400;
     camera.updateProjectionMatrix();
+  }
+
+  /** The aim reticle and the nose marker on the HUD: where the pilot aims, and where the nose points now. */
+  function placeMarkers() {
+    const s = state.current, store = useCourier.getState();
+    const show = (store.mouseLocked || store.cursorAim) && !s.landed && !s.autopilot;
+    camera.updateMatrixWorld();
+    for (const [id, dir] of [["courier-aim", show ? aimDirection(aim.current, aimDir) : null], ["courier-nose", show ? forwardOf(s.q, _v.c) : null]] as const) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      if (!dir) { el.style.opacity = "0"; continue; }
+      const ndc = _v.a.copy(s.p).addScaledVector(dir, 220).project(camera);
+      el.style.opacity = ndc.z < 1 ? "1" : "0";
+      el.style.left = `${((ndc.x + 1) / 2) * 100}%`;
+      el.style.top = `${((1 - ndc.y) / 2) * 100}%`;
+    }
   }
 
   function updateTrails(dt: number) {

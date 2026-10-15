@@ -1628,7 +1628,8 @@
       "flight_action_exit": "下船（已降落）",
       "flight_action_help": "显示操作",
       "flight_mouse_hint": "点击画面即可用鼠标操控。",
-      "flight_mouse_on": "鼠标操控已开启：移动鼠标转向和俯仰，按 Esc 释放。"
+      "flight_mouse_on": "鼠标瞄准已开启：鼠标移动圆环，飞船会自动飞向那里。按 Esc 释放。",
+      "flight_mouse_cursor": "光标操控：将光标移离画面中心即可转向；停在那里会持续转向。"
     },
     "arcade": {
       "play_prompt": "玩 {0}",

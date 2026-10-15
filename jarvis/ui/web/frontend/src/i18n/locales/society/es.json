@@ -1628,7 +1628,8 @@
       "flight_action_exit": "Bajar (aterrizada)",
       "flight_action_help": "Mostrar controles",
       "flight_mouse_hint": "Haz clic en la vista para pilotar con el ratón.",
-      "flight_mouse_on": "Ratón activo: muévelo para girar y cabecear. Esc lo suelta."
+      "flight_mouse_on": "Apuntado con ratón: el ratón mueve el anillo y la nave vuela hacia él sola. Esc lo suelta.",
+      "flight_mouse_cursor": "Control con el cursor: aléjalo del centro para girar; si se queda ahí, sigue girando."
     },
     "arcade": {
       "play_prompt": "Jugar a {0}",

@@ -3,6 +3,7 @@
  * pilot's own rebinding (kept in this browser), and how held keys and a
  * gamepad become one FlightInput. Pure and tested.
  */
+import { Quaternion, Vector3 } from "three";
 import type { FlightInput } from "./courierFlight";
 
 export const FLIGHT_ACTIONS = [
@@ -117,16 +118,61 @@ export function flightInput(held: ReadonlySet<string>, bindings: FlightBindings,
 /** Gamepad buttons that fire a press action: X lands, Y switches the camera, Back the assist, Start leaves the ship. */
 export const PAD_PRESSES: readonly [number, FlightAction][] = [[2, "land"], [3, "camera"], [8, "assist"], [9, "exit"]];
 
-/** Stick travel per pixel of captured mouse movement. */
-export const MOUSE_GAIN = 0.02;
+/**
+ * Mouse aim. With the mouse captured, moving it moves where the pilot aims (a direction in the world, shown as a
+ * reticle), and the ship keeps turning towards that aim by itself until its nose is on it, whether or not the
+ * mouse is still moving. Yaw 0 looks along -z and grows towards -x; pitch is up from the horizon.
+ */
+export interface MouseAim { yaw: number; pitch: number }
+
+/** Radians of aim per pixel of mouse movement, and the steepest aim up or down. */
+export const AIM_PER_PIXEL = 0.0024;
+const AIM_PITCH_LIMIT = 1.4;
+/** How hard the ship steers towards the aim: stick per radian of error. */
+const AIM_GAIN = 2.6;
+
+export function aimFromForward(forward: Vector3): MouseAim {
+  return { yaw: Math.atan2(-forward.x, -forward.z), pitch: Math.asin(Math.max(-1, Math.min(1, forward.y))) };
+}
+
+export function aimDirection(aim: MouseAim, out = new Vector3()): Vector3 {
+  const c = Math.cos(aim.pitch);
+  return out.set(-Math.sin(aim.yaw) * c, Math.sin(aim.pitch), -Math.cos(aim.yaw) * c);
+}
+
+/** Move the aim by a mouse movement (pixels, browser axes: +y is down): up aims higher, right aims right. */
+export function moveAim(aim: MouseAim, dx: number, dy: number, invertPitch: boolean): MouseAim {
+  aim.yaw -= dx * AIM_PER_PIXEL;
+  aim.pitch = Math.max(-AIM_PITCH_LIMIT, Math.min(AIM_PITCH_LIMIT, aim.pitch + (invertPitch ? dy : -dy) * AIM_PER_PIXEL));
+  return aim;
+}
+
+/** Turn rate of the aim with the cursor at the edge of the view, and the still zone around its middle. */
+const CURSOR_TURN_RATE = 1.8;
+const CURSOR_DEAD_ZONE = 0.08;
 
 /**
- * Captured mouse movement (pixels, browser axes: +y is down) added to an input: moving the mouse sideways turns,
- * moving it up lifts the nose and down dips it (the other way round with inverted pitch).
+ * Cursor steering, for when the view cannot capture the mouse: the cursor's place in the view (-1..1 from the middle,
+ * +y up) turns the aim at a rate that grows towards the edge, and keeps turning while the cursor rests there.
  */
-export function addMouse(input: FlightInput, mouse: { x: number; y: number }, invertPitch: boolean): FlightInput {
+export function cursorTurn(aim: MouseAim, x: number, y: number, dt: number): MouseAim {
+  const shape = (v: number) => {
+    const m = Math.max(0, Math.min(1, (Math.abs(v) - CURSOR_DEAD_ZONE) / (1 - CURSOR_DEAD_ZONE)));
+    return Math.sign(v) * m * m;
+  };
+  aim.yaw -= shape(x) * CURSOR_TURN_RATE * dt;
+  aim.pitch = Math.max(-AIM_PITCH_LIMIT, Math.min(AIM_PITCH_LIMIT, aim.pitch + shape(y) * CURSOR_TURN_RATE * dt));
+  return aim;
+}
+
+const _local = new Vector3();
+const _inverse = new Quaternion();
+
+/** The pitch and yaw that turn a ship of orientation q towards direction dir, added to the input. */
+export function steerTowards(input: FlightInput, q: Quaternion, dir: Vector3): FlightInput {
+  const local = _local.copy(dir).applyQuaternion(_inverse.copy(q).invert());
   const clamp = (v: number) => Math.max(-1, Math.min(1, v));
-  input.yaw = clamp(input.yaw + mouse.x * MOUSE_GAIN);
-  input.pitch = clamp(input.pitch + (invertPitch ? mouse.y : -mouse.y) * MOUSE_GAIN);
+  input.yaw = clamp(input.yaw + Math.atan2(local.x, -local.z) * AIM_GAIN);
+  input.pitch = clamp(input.pitch + Math.atan2(local.y, Math.hypot(local.x, local.z)) * AIM_GAIN);
   return input;
 }

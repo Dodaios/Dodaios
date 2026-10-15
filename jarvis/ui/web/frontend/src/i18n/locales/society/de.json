@@ -1628,7 +1628,8 @@
       "flight_action_exit": "Aussteigen (gelandet)",
       "flight_action_help": "Steuerung zeigen",
       "flight_mouse_hint": "Ins Bild klicken, um mit der Maus zu steuern.",
-      "flight_mouse_on": "Maussteuerung an: bewegen zum Drehen und Nicken. Esc gibt sie frei."
+      "flight_mouse_on": "Mauszielen an: Die Maus bewegt den Ring, das Schiff fliegt selbst dorthin. Esc gibt sie frei.",
+      "flight_mouse_cursor": "Zeigersteuerung: Zeiger von der Bildmitte wegbewegen zum Drehen; bleibt er dort, dreht das Schiff weiter."
     },
     "arcade": {
       "play_prompt": "{0} spielen",
