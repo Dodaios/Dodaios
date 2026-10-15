@@ -9,7 +9,7 @@
  * A second hand-written list anywhere would be the classic drift trap (AP-4):
  * a section added here would silently never appear on the deck.
  */
-import { KeyRound, type LucideIcon } from "lucide-react";
+import { CalendarCheck, KeyRound, type LucideIcon } from "lucide-react";
 import {
   AgentsIcon,
   ArtifactsIcon,
@@ -118,7 +118,11 @@ export const NAV_GROUP_META: readonly NavGroupMeta[] = [
 // (AP-4): a section added here would silently never appear on the deck.
 export const NAV_GROUPS: NavItem[][] = [
   // 0) The front page — Voice or Chat, named after the face the switch picked.
-  [{ id: "chats", labelKey: "nav.chats", icon: ChatIcon }],
+  // Today sits beside the front page: the person's own task list.
+  [
+    { id: "chats", labelKey: "nav.chats", icon: ChatIcon },
+    { id: "today", labelKey: "nav.today", icon: CalendarCheck, fallbackLabel: "Today" },
+  ],
   // 1) Workspace — what the user builds with and reads back.
   [
     { id: "agents", labelKey: "nav.agents", icon: AgentsIcon },

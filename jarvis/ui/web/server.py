@@ -570,6 +570,7 @@ class WebServer:
         from .tasks_routes import router as tasks_router
         from .team_thread_routes import router as team_thread_router
         from .telephony_routes import router as telephony_router
+        from .today_routes import router as today_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
         from .update_routes import router as update_router
@@ -650,6 +651,8 @@ class WebServer:
         app.include_router(self_mod_router)
         app.include_router(routine_hooks_router)
         app.include_router(tasks_router)
+        # The person's own task list (jarvis/today); separate from agent tasks.
+        app.include_router(today_router)
         app.include_router(skills_router)
         app.include_router(docs_router)
         app.include_router(cli_router)

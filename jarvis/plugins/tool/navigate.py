@@ -27,6 +27,8 @@ from jarvis.core.protocols import ToolResult
 KNOWN: frozenset[str] = frozenset(
     {
         "chats",
+        # Today: the person's own task list.
+        "today",
         "agents",
         "skills",
         "plugins",
@@ -126,6 +128,17 @@ _ALIASES: dict[str, str] = {
     "terminal grid": "agentic-ide",
     "coding clis": "agentic-ide",
     "chat": "chats",
+    # The person's own task list. "aufgaben"/"tasks" keep landing on the
+    # agents' routines below; these words are unambiguous.
+    "heute": "today",  # i18n-allow: input vocab
+    "todo": "today",
+    "todos": "today",
+    "to-do": "today",
+    "to do": "today",
+    "to-do list": "today",
+    "todo list": "today",
+    "aufgabenliste": "today",  # i18n-allow: input vocab
+    "hoy": "today",  # i18n-allow: input vocab
     "skill": "skills",
     "fähigkeiten": "skills",
     "faehigkeiten": "skills",
