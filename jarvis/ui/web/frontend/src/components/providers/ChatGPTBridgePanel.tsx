@@ -97,6 +97,12 @@ export function ChatGPTBridgePanel() {
             {t("chatgpt_bridge.login")}
           </Button>
         )}
+        {status === "ready" && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void run("login")}>
+            <LogIn className="h-3.5 w-3.5" />
+            {t("chatgpt_bridge.relogin")}
+          </Button>
+        )}
         {(status === "offline" || status === "failed") && (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => void run("restart")}>
             <RotateCw className="h-3.5 w-3.5" />

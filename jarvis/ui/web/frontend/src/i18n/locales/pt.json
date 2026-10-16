@@ -9807,7 +9807,7 @@
     }
   },
   "chatgpt_bridge": {
-    "title": "Ponte do ChatGPT",
+    "title": "ChatGPT (Web)",
     "ready": "Pronto",
     "login_required": "Início de sessão necessário",
     "offline": "Offline",
@@ -9818,6 +9818,7 @@
     "not_configured": "Não configurado",
     "login": "Iniciar sessão no ChatGPT",
     "login_hint": "Abre-se uma janela de navegador própria. Inicie sessão e feche-a; o Dodaios continua sozinho.",
-    "restart": "Reiniciar ponte"
+    "restart": "Reiniciar ponte",
+    "relogin": "Entrar novamente"
   }
 }

@@ -9807,7 +9807,7 @@
     }
   },
   "chatgpt_bridge": {
-    "title": "ChatGPT 桥接",
+    "title": "ChatGPT（网页）",
     "ready": "就绪",
     "login_required": "需要登录",
     "offline": "离线",
@@ -9818,6 +9818,7 @@
     "not_configured": "未设置",
     "login": "登录 ChatGPT",
     "login_hint": "将打开一个独立的浏览器窗口。登录后关闭它，Dodaios 会自动继续。",
-    "restart": "重启桥接"
+    "restart": "重启桥接",
+    "relogin": "重新登录"
   }
 }

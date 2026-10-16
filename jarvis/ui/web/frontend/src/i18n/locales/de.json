@@ -9807,7 +9807,7 @@
     }
   },
   "chatgpt_bridge": {
-    "title": "ChatGPT-Bridge",
+    "title": "ChatGPT (Web)",
     "ready": "Bereit",
     "login_required": "Login erforderlich",
     "offline": "Offline",
@@ -9818,6 +9818,7 @@
     "not_configured": "Nicht eingerichtet",
     "login": "Bei ChatGPT anmelden",
     "login_hint": "Ein eigenes Browserfenster öffnet sich. Melde dich an und schließe es danach; Dodaios macht selbst weiter.",
-    "restart": "Bridge neu starten"
+    "restart": "Bridge neu starten",
+    "relogin": "Neu anmelden"
   }
 }
