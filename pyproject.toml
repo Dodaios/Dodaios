@@ -620,6 +620,7 @@ ollama = "jarvis.plugins.brain.ollama:OllamaBrain"
 local-openai = "jarvis.plugins.brain.local_openai:LocalOpenAIBrain"
 # The user's ChatGPT subscription through the local ChatGPT web bridge: keyless.
 chatgpt-web = "jarvis.plugins.brain.chatgpt_web:ChatGPTWebBrain"
+chatgpt-plan = "jarvis.plugins.brain.chatgpt_plan:ChatGPTPlanBrain"
 
 [project.entry-points."jarvis.harness"]
 python-script = "jarvis.plugins.harness.python_script:PythonScriptHarness"

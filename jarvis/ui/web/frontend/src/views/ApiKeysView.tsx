@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ChatGPTBridgePanel } from "@/components/providers/ChatGPTBridgePanel";
+import { ChatGPTPlanPanel } from "@/components/providers/ChatGPTPlanPanel";
 import { LiveProfile } from "@/components/providers/LiveProfile";
 import { Button } from "@/components/ui/button";
 import { AgentsTab } from "@/views/apikeys/AgentsTab";
@@ -123,9 +124,10 @@ export function ApiKeysView() {
       >
         <div key={tab} role="tabpanel" id="apikeys-panel" aria-labelledby={`apikeys-tab-${tab}`} className="profile-rise w-full">
           {tab === "voice" && <VoiceTab data={families} onSaved={refetch} />}
-          {/* The normal chat runs on the ChatGPT web bridge: its status and sign-in. */}
+          {/* The normal chat runs on the ChatGPT plan (Sign in with ChatGPT); the web bridge stays as the legacy fallback. */}
           {tab === "agents" && (
-            <div className="mx-auto mb-6 w-full max-w-3xl">
+            <div className="mx-auto mb-6 w-full max-w-3xl space-y-3">
+              <ChatGPTPlanPanel />
               <ChatGPTBridgePanel />
             </div>
           )}

@@ -9806,6 +9806,28 @@
       "objections_other": "{count} objections"
     }
   },
+  "chatgpt_plan": {
+    "title": "ChatGPT plan",
+    "connected": "Connected",
+    "not_signed_in": "Not signed in",
+    "plan_disabled": "Plan access disabled",
+    "error": "Error",
+    "account": "Account",
+    "plan_enabled": "Plan access enabled",
+    "hint": "Sign in once in your browser; Dodaios then runs chats on your ChatGPT plan.",
+    "pending": "Finish the sign-in in your browser.",
+    "denied": "The sign-in was cancelled.",
+    "model": "Model",
+    "model_default": "Default",
+    "using": "Using ChatGPT plan",
+    "manage_usage": "Manage usage",
+    "continue": "Continue with ChatGPT",
+    "reauth": "Reauthorize",
+    "logout": "Sign out",
+    "notice_title": "You're using your ChatGPT plan",
+    "notice_body": "Chats in Dodaios now count toward your ChatGPT plan's usage limits. You can check usage or sign out at any time.",
+    "notice_ok": "Got it"
+  },
   "chatgpt_bridge": {
     "title": "ChatGPT (Web)",
     "ready": "Ready",

@@ -123,6 +123,7 @@ _BRAIN_BY_PROVIDER: dict[str, tuple[str, str]] = {
     "ollama": ("jarvis.plugins.brain.ollama", "OllamaBrain"),
     "local-openai": ("jarvis.plugins.brain.local_openai", "LocalOpenAIBrain"),
     "chatgpt-web": ("jarvis.plugins.brain.chatgpt_web", "ChatGPTWebBrain"),
+    "chatgpt-plan": ("jarvis.plugins.brain.chatgpt_plan", "ChatGPTPlanBrain"),
 }
 
 # A free OpenRouter model id — the LAST-RESORT default for the gateway provider

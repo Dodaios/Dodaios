@@ -1675,6 +1675,9 @@ async def _tier_section_health(
     if spec.id == "chatgpt-web":
         # Keyless, but usable only while its bridge is up and signed in.
         return await _chatgpt_web_health()
+    if spec.id == "chatgpt-plan":
+        # Keyless, but usable only after Sign in with ChatGPT granted plan access.
+        return await _chatgpt_plan_health()
     # Local providers have no key to be invalid — but "no key needed" is NOT the
     # same as "usable", and reading it that way is how an on-device card comes to
     # claim it works on a machine where its engine and weights were never
@@ -1773,6 +1776,8 @@ async def provider_health(cfg: Any, provider_id: str) -> SectionHealth:
     """
     if provider_id == "chatgpt-web":
         return await _chatgpt_web_health()
+    if provider_id == "chatgpt-plan":
+        return await _chatgpt_plan_health()
     spec = get_spec(provider_id)
     if spec is None:
         return SectionHealth(
@@ -1806,6 +1811,24 @@ async def _chatgpt_web_health() -> SectionHealth:
         detail=state.detail,
         subject_id="chatgpt-web",
     )
+
+
+async def _chatgpt_plan_health() -> SectionHealth:
+    """The ChatGPT plan sign-in from local state only (no network, no turn)."""
+    from jarvis.plugins.brain.chatgpt_plan_auth import auth  # noqa: PLC0415
+
+    status = await asyncio.to_thread(auth().status)
+    if status["error"]:
+        state, reason = _section_health.ERROR, str(status["error"])
+        detail = "Sign in with ChatGPT failed"
+    elif not status["signed_in"]:
+        state, reason, detail = _section_health.NEEDS_SETUP, "not_signed_in", "Sign in with ChatGPT"
+    elif not status["plan_enabled"]:
+        state, reason = _section_health.NEEDS_SETUP, "plan_scope_missing"
+        detail = "Plan access not granted"
+    else:
+        state, reason, detail = _section_health.OK, "connected", "Using ChatGPT plan"
+    return SectionHealth(status=state, reason=reason, detail=detail, subject_id="chatgpt-plan")
 
 
 def _worker_usable(provider: str) -> bool:
@@ -4167,6 +4190,99 @@ async def chatgpt_web_restart() -> dict[str, Any]:
     from jarvis.plugins.brain.chatgpt_web_bridge import supervisor  # noqa: PLC0415
 
     return _chatgpt_web_payload(await asyncio.to_thread(supervisor.restart))
+
+
+_PLAN_USER_CODES: Final = frozenset(
+    {"not_signed_in", "reauthorization_required", "plan_scope_missing", "invalid_client"}
+)
+
+
+class PlanModelBody(BaseModel):
+    slug: str
+
+
+def _plan_http_error(exc: Any) -> HTTPException:
+    """A sign-in/catalog failure as a 409 (needs the user) or 502 (upstream)."""
+    user_side = exc.code in _PLAN_USER_CODES
+    return HTTPException(status_code=409 if user_side else 502, detail=str(exc))
+
+
+@router.get("/chatgpt-plan/status")
+async def chatgpt_plan_status() -> dict[str, Any]:
+    """Account, plan access and chosen model; never a token."""
+    from jarvis.plugins.brain.chatgpt_plan_auth import auth  # noqa: PLC0415
+
+    return await asyncio.to_thread(auth().status)
+
+
+async def _chatgpt_plan_start(*, reauth: bool) -> dict[str, Any]:
+    from jarvis.plugins.brain.chatgpt_plan_auth import ChatGPTPlanError, auth  # noqa: PLC0415
+
+    plan = auth()
+    try:
+        url = await asyncio.to_thread(lambda: plan.start_login(reauth=reauth))
+    except (ChatGPTPlanError, OSError) as exc:
+        log.warning("chatgpt-plan: sign-in could not start (%s)", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="The sign-in could not start.") from exc
+    return {**await asyncio.to_thread(plan.status), "url": url}
+
+
+@router.post("/chatgpt-plan/login")
+async def chatgpt_plan_login() -> dict[str, Any]:
+    """Open Sign in with ChatGPT in the user's browser."""
+    return await _chatgpt_plan_start(reauth=False)
+
+
+@router.post("/chatgpt-plan/reauth")
+async def chatgpt_plan_reauth() -> dict[str, Any]:
+    """Reauthorize the registered client for the same account."""
+    return await _chatgpt_plan_start(reauth=True)
+
+
+@router.post("/chatgpt-plan/logout")
+async def chatgpt_plan_logout() -> dict[str, Any]:
+    from jarvis.plugins.brain.chatgpt_plan_auth import auth  # noqa: PLC0415
+
+    plan = auth()
+    revoked = await asyncio.to_thread(plan.logout)
+    return {**await asyncio.to_thread(plan.status), "revoked": revoked}
+
+
+@router.get("/chatgpt-plan/models")
+async def chatgpt_plan_models() -> dict[str, Any]:
+    from jarvis.plugins.brain.chatgpt_plan_auth import ChatGPTPlanError, auth  # noqa: PLC0415
+
+    try:
+        return {"models": await asyncio.to_thread(auth().models)}
+    except ChatGPTPlanError as exc:
+        raise _plan_http_error(exc) from exc
+
+
+@router.post("/chatgpt-plan/model")
+async def chatgpt_plan_model(body: PlanModelBody) -> dict[str, Any]:
+    """Pick the turn model; only a slug the account's catalog lists."""
+    from jarvis.plugins.brain.chatgpt_plan_auth import ChatGPTPlanError, auth  # noqa: PLC0415
+
+    slug = body.slug
+    plan = auth()
+    try:
+        listed = {m["slug"] for m in await asyncio.to_thread(plan.models)}
+    except ChatGPTPlanError as exc:
+        raise _plan_http_error(exc) from exc
+    if slug not in listed:
+        raise HTTPException(status_code=422, detail="That model is not in your plan's list.")
+    await asyncio.to_thread(lambda: plan.update_meta(model=slug))
+    return await asyncio.to_thread(plan.status)
+
+
+@router.post("/chatgpt-plan/notice")
+async def chatgpt_plan_notice() -> dict[str, Any]:
+    """Remember that the first-use notice was acknowledged."""
+    from jarvis.plugins.brain.chatgpt_plan_auth import auth  # noqa: PLC0415
+
+    plan = auth()
+    await asyncio.to_thread(lambda: plan.update_meta(notice_seen=True))
+    return await asyncio.to_thread(plan.status)
 
 
 @router.get("/codex/status")

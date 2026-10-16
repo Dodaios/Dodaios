@@ -651,6 +651,19 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         supports_base_url=True,
         default_base_url="http://127.0.0.1:17852",
     ),
+    ProviderSpec(
+        id="chatgpt-plan",
+        label="ChatGPT plan",
+        tier="brain",
+        auth_mode="none",
+        secret_keys=(),
+        dashboard_url="https://chatgpt.com/settings/usage",
+        credential_help=(
+            "Chats run on your ChatGPT plan through Sign in with ChatGPT. No API "
+            "key: choose Continue with ChatGPT on the Agents tab once. Nothing "
+            "falls back to a paid API."
+        ),
+    ),
     # ── TTS ───────────────────────────────────────────────────────────────
     # Voice-Output cards render in this tuple order. OpenRouter leads (one key
     # reaches many vetted speech models); Inworld sits last as a premium

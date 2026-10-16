@@ -403,6 +403,8 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         "ollama": "",
         "local-openai": "",
         "chatgpt-web": "chatgpt-web/medium",
+        # The plan's own catalog decides: empty = the first model it lists.
+        "chatgpt-plan": "",
     },
     "deep": {
         # Frontier 2026-Q2 — deep brain (user mandate 2026-04-29:
@@ -429,6 +431,8 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         "ollama": "",
         "local-openai": "",
         "chatgpt-web": "chatgpt-web/medium",
+        # The plan's own catalog decides: empty = the first model it lists.
+        "chatgpt-plan": "",
     },
 }
 

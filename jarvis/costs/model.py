@@ -135,6 +135,8 @@ SUBSCRIPTION_PROVIDERS: frozenset[str] = frozenset(
         "claude-subscription",
         # The ChatGPT web bridge answers on the user's ChatGPT plan.
         "chatgpt-web",
+        # Sign in with ChatGPT: inference billed to the user's ChatGPT plan.
+        "chatgpt-plan",
     }
 )
 

@@ -150,6 +150,15 @@ async def test_every_catalog_provider_health_is_bound_to_its_exact_id(
 
     monkeypatch.setattr(chatgpt_web_bridge, "supervisor", _ReadyBridge())
 
+    # The ChatGPT plan card reads the local sign-in store; same reasoning.
+    from jarvis.plugins.brain import chatgpt_plan_auth
+
+    class _SignedInPlan:
+        def status(self):
+            return {"signed_in": True, "plan_enabled": True, "error": ""}
+
+    monkeypatch.setattr(chatgpt_plan_auth, "_auth", _SignedInPlan())
+
     modality = ledger.modality_for_tier(spec.tier)
     if modality is not None:
         ledger.get_ledger().record(spec.id, modality, provider_test.OK)

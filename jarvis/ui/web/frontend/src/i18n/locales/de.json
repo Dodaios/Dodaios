@@ -9806,6 +9806,28 @@
       "objections_other": "{count} Einwände"
     }
   },
+  "chatgpt_plan": {
+    "title": "ChatGPT-Abo",
+    "connected": "Verbunden",
+    "not_signed_in": "Nicht angemeldet",
+    "plan_disabled": "Abo-Zugriff aus",
+    "error": "Fehler",
+    "account": "Konto",
+    "plan_enabled": "Abo-Zugriff aktiv",
+    "hint": "Melde dich einmal im Browser an; danach laufen Chats über dein ChatGPT-Abo.",
+    "pending": "Schließe die Anmeldung im Browser ab.",
+    "denied": "Die Anmeldung wurde abgebrochen.",
+    "model": "Modell",
+    "model_default": "Standard",
+    "using": "Nutzt ChatGPT-Abo",
+    "manage_usage": "Nutzung verwalten",
+    "continue": "Weiter mit ChatGPT",
+    "reauth": "Neu autorisieren",
+    "logout": "Abmelden",
+    "notice_title": "Du nutzt dein ChatGPT-Abo",
+    "notice_body": "Chats in Dodaios zählen jetzt zu den Nutzungslimits deines ChatGPT-Abos. Nutzung prüfen oder abmelden geht jederzeit.",
+    "notice_ok": "Verstanden"
+  },
   "chatgpt_bridge": {
     "title": "ChatGPT (Web)",
     "ready": "Bereit",

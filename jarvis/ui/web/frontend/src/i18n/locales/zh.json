@@ -9806,6 +9806,28 @@
       "objections_other": "{count} 条异议"
     }
   },
+  "chatgpt_plan": {
+    "title": "ChatGPT 套餐",
+    "connected": "已连接",
+    "not_signed_in": "未登录",
+    "plan_disabled": "套餐访问已关闭",
+    "error": "错误",
+    "account": "账户",
+    "plan_enabled": "套餐访问已开启",
+    "hint": "在浏览器中登录一次；之后聊天将使用你的 ChatGPT 套餐。",
+    "pending": "请在浏览器中完成登录。",
+    "denied": "登录已取消。",
+    "model": "模型",
+    "model_default": "默认",
+    "using": "正在使用 ChatGPT 套餐",
+    "manage_usage": "管理用量",
+    "continue": "使用 ChatGPT 继续",
+    "reauth": "重新授权",
+    "logout": "退出登录",
+    "notice_title": "你正在使用 ChatGPT 套餐",
+    "notice_body": "Dodaios 中的聊天现在计入你的 ChatGPT 套餐用量限制。你可以随时查看用量或退出登录。",
+    "notice_ok": "知道了"
+  },
   "chatgpt_bridge": {
     "title": "ChatGPT（网页）",
     "ready": "就绪",

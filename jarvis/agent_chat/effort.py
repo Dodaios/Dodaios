@@ -79,6 +79,7 @@ _LADDERS: Final[dict[str, tuple[tuple[str, ...], str]]] = {
     "ollama": (("", "none", "low", "medium", "high", "max"), ""),
     "local-openai": (("", "none", "low", "medium", "high"), ""),
     "chatgpt-web": (("",), ""),
+    "chatgpt-plan": (("",), ""),
 }
 
 _FALLBACK_LADDER: Final[tuple[tuple[str, ...], str]] = (("", "low", "medium", "high"), "")

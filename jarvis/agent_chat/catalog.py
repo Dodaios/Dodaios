@@ -393,6 +393,14 @@ PROVIDER_ROWS: Final[tuple[ProviderRow, ...]] = (
         models_source="live",
         keyless=True,
     ),
+    ProviderRow(
+        id="chatgpt-plan",
+        label="ChatGPT plan",
+        family="chatgpt-plan",
+        runner="api",
+        models_source="live",
+        keyless=True,
+    ),
 )
 
 _BY_ID: Final[dict[str, ProviderRow]] = {row.id: row for row in PROVIDER_ROWS}
