@@ -133,7 +133,7 @@ def bridge_token(s: BridgeSettings | None = None) -> str | None:
         return None
     try:
         data = json.loads((s.home / "config.json").read_text(encoding="utf-8-sig"))
-    except FileNotFoundError:  # no PID file means nothing was started
+    except FileNotFoundError:  # an unconfigured bridge has no token yet
         return None
     except (OSError, ValueError) as exc:
         log.warning("chatgpt-web: bridge config.json unreadable: %s", type(exc).__name__)
