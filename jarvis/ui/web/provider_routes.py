@@ -1768,6 +1768,8 @@ async def provider_health(cfg: Any, provider_id: str) -> SectionHealth:
     An unknown id is ``unknown`` rather than an error: a caller listing rows
     must not lose its whole answer to one name this module has never heard of.
     """
+    if provider_id == "chatgpt-web":
+        return await _chatgpt_web_health()
     spec = get_spec(provider_id)
     if spec is None:
         return SectionHealth(
@@ -1778,6 +1780,28 @@ async def provider_health(cfg: Any, provider_id: str) -> SectionHealth:
         )
     return await _tier_section_health(
         cfg, spec, modality=_health_ledger.modality_for_tier(spec.tier)
+    )
+
+
+_CHATGPT_WEB_SECTION_STATUS: Final[dict[str, str]] = {
+    "ready": _section_health.OK,
+    "starting": _section_health.UNKNOWN,
+    "login_required": _section_health.NEEDS_SETUP,
+    "not_configured": _section_health.NEEDS_SETUP,
+    "not_installed": _section_health.NEEDS_SETUP,
+}
+
+
+async def _chatgpt_web_health() -> SectionHealth:
+    """The ChatGPT web bridge's state from its own loopback probe (no turn sent)."""
+    from jarvis.plugins.brain.chatgpt_web_bridge import supervisor  # noqa: PLC0415
+
+    state = await asyncio.to_thread(supervisor.status)
+    return SectionHealth(
+        status=_CHATGPT_WEB_SECTION_STATUS.get(state.status, _section_health.ERROR),
+        reason=state.status,
+        detail=state.detail,
+        subject_id="chatgpt-web",
     )
 
 

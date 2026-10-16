@@ -636,6 +636,21 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         ),
         supports_base_url=True,
     ),
+    ProviderSpec(
+        id="chatgpt-web",
+        label="ChatGPT (subscription)",
+        tier="brain",
+        auth_mode="none",
+        secret_keys=(),
+        dashboard_url=None,
+        credential_help=(
+            "Chats run in your own ChatGPT subscription through a local bridge "
+            "on 127.0.0.1. No API key: sign in once in the bridge's browser "
+            "window. Nothing falls back to a paid API."
+        ),
+        supports_base_url=True,
+        default_base_url="http://127.0.0.1:17852",
+    ),
     # ── TTS ───────────────────────────────────────────────────────────────
     # Voice-Output cards render in this tuple order. OpenRouter leads (one key
     # reaches many vetted speech models); Inworld sits last as a premium

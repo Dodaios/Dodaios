@@ -65,6 +65,7 @@ BRAIN_BY_PROVIDER: Final[dict[str, tuple[str, str]]] = {
     "vertex": ("jarvis.plugins.brain.vertex", "VertexBrain"),
     "ollama": ("jarvis.plugins.brain.ollama", "OllamaBrain"),
     "local-openai": ("jarvis.plugins.brain.local_openai", "LocalOpenAIBrain"),
+    "chatgpt-web": ("jarvis.plugins.brain.chatgpt_web", "ChatGPTWebBrain"),
 }
 
 MAX_ROUNDS: Final[int] = 40
