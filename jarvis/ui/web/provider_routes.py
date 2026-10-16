@@ -4162,7 +4162,7 @@ async def chatgpt_web_login() -> dict[str, Any]:
     return _chatgpt_web_payload(await asyncio.to_thread(supervisor.login))
 
 
-@router.post("/chatgpt-web/restart")
+@router.post("/chatgpt-web/restart", openapi_extra={"x-jarvis-dangerous": True})
 async def chatgpt_web_restart() -> dict[str, Any]:
     from jarvis.plugins.brain.chatgpt_web_bridge import supervisor  # noqa: PLC0415
 
