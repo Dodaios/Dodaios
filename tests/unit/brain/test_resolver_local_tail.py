@@ -93,3 +93,26 @@ def test_local_fallback_default_is_unchanged() -> None:
     """Existing installs keep their configured local_fallback default — the
     local tail is ADDITIVE, never a silent default flip."""
     assert JarvisConfig().brain.local_fallback == "claude-api"
+
+
+def test_account_login_cards_never_join_the_local_tail() -> None:
+    """A keyless card that signs in to a cloud account is no local runtime:
+    the zero-key tail never chains onto it, and it bills as a subscription."""
+    from jarvis.ui.web.provider_spec import PROVIDERS, provider_billing
+
+    account_cards = {s.id for s in PROVIDERS if s.account_login}
+    assert account_cards
+
+    providers = {p for p, _ in resolver._resolve_chain(JarvisConfig())}
+
+    assert providers.isdisjoint(account_cards)
+    for spec in PROVIDERS:
+        if spec.account_login:
+            assert provider_billing(spec) == "subscription"
+
+
+def test_chatgpt_web_is_never_an_automatic_background_seat() -> None:
+    """A signed-in web session still never answers background work on its own."""
+    from jarvis.plugins.brain.chatgpt_web import ChatGPTWebBrain
+
+    assert ChatGPTWebBrain.subscription_connected() is False

@@ -37,9 +37,12 @@ def _keyless_cards(tier: str) -> list[ProviderSpec]:
 
     "Keyless" is the card's own auth mode — the same definition the brain
     resolver uses for its local tail and the model-probe budget uses for its
-    load allowance, never a provider name (AP-21).
+    load allowance, never a provider name (AP-21). An ``account_login`` card
+    needs no key but signs in to a cloud plan, so a local install cannot use it.
     """
-    return [s for s in PROVIDERS if s.tier == tier and s.auth_mode == "none"]
+    return [
+        s for s in PROVIDERS if s.tier == tier and s.auth_mode == "none" and not s.account_login
+    ]
 
 
 @pytest.mark.parametrize("tier", TIERS_A_LOCAL_INSTALL_NEEDS)
@@ -90,7 +93,7 @@ def test_a_self_hosted_card_says_where_its_server_lives() -> None:
     from jarvis.speech.local_models import get_local_provider
 
     for spec in PROVIDERS:
-        if spec.auth_mode != "none":
+        if spec.auth_mode != "none" or spec.account_login:
             continue
         runs_in_process = get_local_provider(spec.id) is not None
         assert runs_in_process or spec.supports_base_url or _inherits_an_address(spec), (

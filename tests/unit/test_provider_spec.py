@@ -79,14 +79,17 @@ def test_codex_spec_is_separate_from_openai_api_key() -> None:
 
 
 def test_none_specs_never_require_credentials() -> None:
-    """auth_mode "none" bills as "local" and must never DEMAND a credential.
-    OPTIONAL secret slots are allowed (local-openai's vLLM --api-key case) —
-    is_credential_present reports none-cards as configured either way."""
+    """auth_mode "none" must never DEMAND a credential. It bills as "local",
+    except an account_login card, which runs on a signed-in plan and bills as
+    "subscription". OPTIONAL secret slots are allowed (local-openai's vLLM
+    --api-key case) — is_credential_present reports none-cards as configured
+    either way."""
     from jarvis.ui.web.provider_spec import provider_billing
 
     for spec in PROVIDERS:
         if spec.auth_mode == "none":
-            assert provider_billing(spec) == "local"
+            expected = "subscription" if spec.account_login else "local"
+            assert provider_billing(spec) == expected
             assert spec.login_cli is None
 
 

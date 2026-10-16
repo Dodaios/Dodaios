@@ -161,6 +161,13 @@ class ChatGPTWebBrain:
         if not self._model.startswith("chatgpt-web/"):
             self._model = DEFAULT_MODEL
 
+    @staticmethod
+    def subscription_connected() -> bool:
+        """Never a background seat: each turn is a message in the user's own
+        ChatGPT web conversation, so only a turn the user sends may use it.
+        A provider the user selects explicitly does not ask this probe."""
+        return False
+
     def can_call_tools(self) -> bool:
         return False
 

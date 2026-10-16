@@ -791,14 +791,15 @@ def _local_tail(
     declares ``auth_mode == "none"`` in ``jarvis.ui.web.provider_spec`` —
     never a hardcoded name list (AP-21/22). Card order is preserved.
     OAuth-subscription brains (codex/antigravity) declare their own auth
-    modes and can never leak in here.
+    modes, and keyless ``account_login`` cards (the ChatGPT plan and bridge)
+    run on a cloud account, so neither can leak in here.
     """
     from jarvis.ui.web.provider_spec import PROVIDERS
 
     available = set(_get_registry().available())
     tail: list[tuple[str, str | None]] = []
     for spec in PROVIDERS:
-        if spec.tier != "brain" or spec.auth_mode != "none":
+        if spec.tier != "brain" or spec.auth_mode != "none" or spec.account_login:
             continue
         if spec.id in exclude or spec.id not in available:
             continue

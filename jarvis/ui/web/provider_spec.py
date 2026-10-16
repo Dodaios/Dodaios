@@ -114,6 +114,11 @@ class ProviderSpec:
     # API/CLI switch — keeps working. A release gate for transports that
     # shipped visibly before they were reliable, not a removal.
     hidden: bool = False
+    # Keyless because it runs on a signed-in account, not on this machine
+    # (the ChatGPT plan and its bridge). Such a card bills as a subscription
+    # and never counts as a local runtime: it stays out of the resolver's
+    # keyless local tail and the airgapped local set.
+    account_login: bool = False
 
 
 def provider_billing(spec: ProviderSpec) -> Billing:
@@ -126,13 +131,14 @@ def provider_billing(spec: ProviderSpec) -> Billing:
       one with no key slot → ``"subscription"``. The distinction is the presence
       of ``secret_keys``, not the provider name — so adding a key slot to either
       flips it without touching this function.
-    * ``none`` → ``"local"`` — no credential, runs on-device.
+    * ``none`` → ``"local"`` — no credential, runs on-device; an
+      ``account_login`` card → ``"subscription"`` (it runs on a signed-in plan).
     * everything else (``api_key``) → ``"api"`` — pay per token on an API account.
     """
     if spec.auth_mode in ("antigravity", "codex", "claude_cli", "grok_build"):
         return "subscription_or_api" if spec.secret_keys else "subscription"
     if spec.auth_mode == "none":
-        return "local"
+        return "subscription" if spec.account_login else "local"
     return "api"
 
 
@@ -650,6 +656,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         ),
         supports_base_url=True,
         default_base_url="http://127.0.0.1:17852",
+        account_login=True,
     ),
     ProviderSpec(
         id="chatgpt-plan",
@@ -663,6 +670,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "key: choose Continue with ChatGPT on the Agents tab once. Nothing "
             "falls back to a paid API."
         ),
+        account_login=True,
     ),
     # ── TTS ───────────────────────────────────────────────────────────────
     # Voice-Output cards render in this tuple order. OpenRouter leads (one key
