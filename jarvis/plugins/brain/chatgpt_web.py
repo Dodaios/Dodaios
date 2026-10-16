@@ -88,7 +88,7 @@ def parse_route_decision(reply: str) -> RouteDecision:
         return RouteDecision("self", reply)
     try:
         data = json.loads(candidate)
-    except ValueError:
+    except ValueError:  # not JSON: the reply is prose, answered by self
         return RouteDecision("self", reply)
     if not isinstance(data, dict):
         return RouteDecision("self", reply)
@@ -211,7 +211,7 @@ class ChatGPTWebBrain:
                         raw = await resp.aread()
                         try:
                             payload = json.loads(raw)
-                        except ValueError:
+                        except ValueError:  # a non-JSON error body still maps by status code
                             payload = None
                         raise _error_from_body(resp.status_code, payload)
                     async for delta in self._events(resp):

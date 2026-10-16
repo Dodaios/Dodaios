@@ -133,7 +133,7 @@ def bridge_token(s: BridgeSettings | None = None) -> str | None:
         return None
     try:
         data = json.loads((s.home / "config.json").read_text(encoding="utf-8-sig"))
-    except FileNotFoundError:
+    except FileNotFoundError:  # no PID file means nothing was started
         return None
     except (OSError, ValueError) as exc:
         log.warning("chatgpt-web: bridge config.json unreadable: %s", type(exc).__name__)
@@ -167,7 +167,7 @@ class BridgeSupervisor:
             return None
         try:
             return int(pid_file.read_text(encoding="utf-8").strip())
-        except FileNotFoundError:
+        except FileNotFoundError:  # no PID file means nothing was started
             return None
         except (OSError, ValueError) as exc:
             log.warning("chatgpt-web: stale pid file ignored: %s", exc)
@@ -182,7 +182,7 @@ class BridgeSupervisor:
         try:
             proc = psutil.Process(pid)
             return proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE
-        except psutil.Error:
+        except psutil.Error:  # a vanished or foreign PID is not our bridge
             return False
 
     # ---- status ------------------------------------------------------------
