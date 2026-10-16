@@ -94,6 +94,30 @@ SEMANTIC_MAX_HITS = 3
 _TOKEN_RE = re.compile(r"[^\w\s]|\s+", re.UNICODE)
 
 
+def _is_identifier_part(tok: str) -> bool:
+    return tok[0].isupper() or tok.isdigit()
+
+
+def _identifier_runs(raw_tokens: list[str]) -> list[str]:
+    """Multi-token names such as "Project X 2" or "ACME Portal", hyphen-joined.
+
+    A run is two or more adjacent capitalized or numeric tokens of which at
+    least one is an initialism or a number — the part the length floor would
+    otherwise drop, leaving a name unsearchable by the words that make it
+    unique. The hyphenated form reaches FTS5 as one phrase.
+    """
+    runs: list[str] = []
+    current: list[str] = []
+    for tok in [*raw_tokens, ""]:
+        if tok and _is_identifier_part(tok):
+            current.append(tok)
+            continue
+        if len(current) >= 2 and any(t.isdigit() or t.isupper() for t in current):
+            runs.append("-".join(current))
+        current = []
+    return runs
+
+
 def _extract_keywords(
     text: str,
     *,
@@ -115,8 +139,15 @@ def _extract_keywords(
        enough capitalized ones. All-lowercase STT output simply keeps
        source order.
     5. Return up to ``max_keywords`` tokens, capitalized ones first.
+
+    Identifier runs (see :func:`_identifier_runs`) come before everything
+    else and replace the tokens they consist of.
     """
     raw_tokens = _TOKEN_RE.sub(" ", text).split()
+    identifiers = _identifier_runs(raw_tokens)
+    in_identifier = {
+        part.lower() for ident in identifiers for part in ident.split("-")
+    }
 
     # Filter by length and stopwords. The stopword register is PRE-FOLDED
     # ("fuer", "ueber"), so the token must be folded the  # i18n-allow: folded stopword forms
@@ -124,14 +155,14 @@ def _extract_keywords(
     # umlaut spelling through as a junk keyword.  # i18n-allow: folded stopword forms
     candidates: list[str] = []
     for tok in raw_tokens:
-        if len(tok) < min_length:
+        if len(tok) < min_length or tok.lower() in in_identifier:
             continue
         if fold_text(tok) in STOPWORDS:
             continue
         candidates.append(tok)
 
     if not candidates:
-        return []
+        return identifiers[:max_keywords]
 
     # Prefer proper nouns (capitalized, not first word of utterance)
     first_word = raw_tokens[0] if raw_tokens else ""
@@ -144,7 +175,7 @@ def _extract_keywords(
     # Merge: proper nouns first, then others; deduplicate (preserve order)
     seen: set[str] = set()
     ordered: list[str] = []
-    for t in proper_nouns + others:
+    for t in identifiers + proper_nouns + others:
         key = t.lower()
         if key not in seen:
             seen.add(key)

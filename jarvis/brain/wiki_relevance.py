@@ -278,6 +278,16 @@ def _covers(haystack: str, term: str) -> bool:
     return term in haystack
 
 
+def _phrase_form(text: str) -> str:
+    """Folded text with every non-alphanumeric run as one space, padded."""
+    return f" {' '.join(re.findall(r'[a-z0-9]+', _fold(text)))} "
+
+
+def _identifiers(query: str) -> tuple[str, ...]:
+    """Hyphen-joined identifier runs from the keyword extractor, phrase form."""
+    return tuple(_phrase_form(tok) for tok in query.split() if "-" in tok.strip("-"))
+
+
 def relevant_hits(
     hits: list[Any],
     query: str,
@@ -304,6 +314,11 @@ def relevant_hits(
     no body snippet at all. Judging such a hit on title+snippet alone would
     discard precisely the hits aliases exist to produce.
 
+    A hit containing a whole multi-token identifier from the query ("Project
+    X 2", hyphen-joined by the keyword extractor) passes coverage outright:
+    the name is the most specific thing the question says, and a page that
+    carries it is on topic whatever language the rest of the question is in.
+
     Hits are expected to expose ``title``, ``snippet`` and ``score``; anything
     missing an attribute is treated as empty/zero rather than raising, so a
     future hit type cannot break the voice path.
@@ -318,6 +333,7 @@ def relevant_hits(
     best = max(scores) if scores else 0.0
     floor = best * min_relative_score if best > 0 else 0.0
     needed = max(1, round(len(terms) * min_coverage))
+    identifiers = _identifiers(query)
 
     kept: list[Any] = []
     for hit, score in zip(hits, scores, strict=False):
@@ -329,6 +345,8 @@ def relevant_hits(
             f"{getattr(hit, 'frontmatter', '') or ''}"
         )
         if sum(1 for term in terms if _covers(haystack, term)) >= needed:
+            kept.append(hit)
+        elif identifiers and any(i in _phrase_form(haystack) for i in identifiers):
             kept.append(hit)
     return kept
 

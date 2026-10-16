@@ -249,4 +249,12 @@ STOPWORDS: frozenset[str] = frozenset({
     "unas", "los", "las", "del", "con", "sin", "sobre", "entre", "desde",
     "hasta", "muy", "mas", "menos", "tambien", "llama", "llamaba", "paso",
     "pasado", "realmente", "necesito", "necesitas", "quizas",
+    # Memory self-reference and answer-format instructions — "according to
+    # my memory ... answer in one word" names where to look and how to
+    # reply, never the page. Left in, they took the keyword slots and the
+    # coverage denominator from the words that do name it.
+    "laut", "gemaess", "gedaechtnis", "antworte", "antworten", "antwort",
+    "wort", "worten", "satz",
+    "according", "memory", "answer", "reply", "word", "words", "sentence",
+    "segun", "memoria", "responde", "respuesta", "palabra", "palabras", "frase",
 })
