@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 219,
+  "count": 220,
   "forks": 78,
-  "placed": 45,
-  "stated": 57,
-  "generatedAt": "2026-10-16T01:30:54.350Z",
+  "placed": 46,
+  "stated": 58,
+  "generatedAt": "2026-10-16T06:06:51.178Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -73,6 +73,13 @@
       "lat": 51.085,
       "lon": -114.082,
       "label": "Calgary",
+      "country": "Canada",
+      "count": 1
+    },
+    {
+      "lat": 60.324,
+      "lon": -101.911,
+      "label": "Canada",
       "country": "Canada",
       "count": 1
     },
