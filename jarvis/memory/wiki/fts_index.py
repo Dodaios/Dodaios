@@ -409,6 +409,11 @@ def _parse_page_data(
             fm_parts.append(" ".join(str(item) for item in v if item is not None))
         else:
             fm_parts.append(str(v))
+    # The filename stem is searchable too: a page is often asked for by its
+    # file name, whose words need not appear in the H1. The boot reconcile
+    # rebuilds the whole index, so existing databases pick this up on restart.
+    if abs_path.stem != title:
+        fm_parts.append(re.sub(r"[-_.]+", " ", abs_path.stem))
     frontmatter_flat = " ".join(fm_parts)
 
     rel_path = _relative_posix(vault_root, abs_path)
