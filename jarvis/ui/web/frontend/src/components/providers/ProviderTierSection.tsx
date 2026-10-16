@@ -6,6 +6,7 @@ import { BrainModelSelector } from "@/components/BrainModelSelector";
 import { OpenRouterTtsControls } from "@/components/OpenRouterTtsVoicePicker";
 import { RealtimeOptionsControl } from "@/components/RealtimeOptionsControl";
 import { putVoiceMode } from "@/lib/voiceEngineMode";
+import { ChatGPTBridgePanel } from "@/components/providers/ChatGPTBridgePanel";
 import { LocalVoicePanel } from "@/components/providers/LocalVoicePanel";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { useRowGestures } from "@/components/providers/rowGestures";
@@ -1007,6 +1008,8 @@ export function ProviderCard({
               <AuthWidget descriptor={descriptor} onChanged={onChanged} onSavedActivate={handleSavedActivate} />
             </div>
           ) : <AuthWidget descriptor={descriptor} onChanged={onChanged} onSavedActivate={handleSavedActivate} />)}
+
+          {descriptor.id === "chatgpt-web" && <ChatGPTBridgePanel />}
 
           {configuration}
 

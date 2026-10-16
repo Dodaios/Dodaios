@@ -9805,5 +9805,20 @@
       "objections_one": "{count} objection",
       "objections_other": "{count} objections"
     }
+  },
+  "chatgpt_bridge": {
+    "title": "ChatGPT (Web)",
+    "ready": "Ready",
+    "login_required": "Sign-in required",
+    "offline": "Offline",
+    "session_invalid": "Session invalid",
+    "starting": "Starting",
+    "failed": "Error",
+    "not_installed": "Not installed",
+    "not_configured": "Not set up",
+    "login": "Sign in to ChatGPT",
+    "login_hint": "A separate browser window opens. Sign in, then close it; Dodaios continues on its own.",
+    "restart": "Restart bridge",
+    "relogin": "Sign in again"
   }
 }

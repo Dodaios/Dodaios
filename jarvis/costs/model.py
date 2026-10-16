@@ -133,6 +133,8 @@ SUBSCRIPTION_PROVIDERS: frozenset[str] = frozenset(
         "codex-subscription-realtime",
         "codex-subscription",
         "claude-subscription",
+        # The ChatGPT web bridge answers on the user's ChatGPT plan.
+        "chatgpt-web",
     }
 )
 

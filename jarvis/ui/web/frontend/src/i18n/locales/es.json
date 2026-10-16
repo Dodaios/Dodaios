@@ -9805,5 +9805,20 @@
       "objections_one": "{count} objeción",
       "objections_other": "{count} objeciones"
     }
+  },
+  "chatgpt_bridge": {
+    "title": "ChatGPT (Web)",
+    "ready": "Listo",
+    "login_required": "Inicio de sesión necesario",
+    "offline": "Sin conexión",
+    "session_invalid": "Sesión no válida",
+    "starting": "Iniciando",
+    "failed": "Error",
+    "not_installed": "No instalado",
+    "not_configured": "Sin configurar",
+    "login": "Iniciar sesión en ChatGPT",
+    "login_hint": "Se abre una ventana de navegador aparte. Inicia sesión y ciérrala; Dodaios continúa solo.",
+    "restart": "Reiniciar puente",
+    "relogin": "Volver a iniciar sesión"
   }
 }

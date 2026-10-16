@@ -795,6 +795,14 @@ def _build_provider_catalog() -> dict[str, CatalogSpec]:
         ),
         live=False,
     )
+    # ChatGPT web — the chat on the user's ChatGPT subscription through the
+    # local bridge; the bridge serves one fixed model id, so curated only.
+    cat["chatgpt-web"] = CatalogSpec(
+        "brain",
+        "model",
+        tuple(_curated([("chatgpt-web/medium", "ChatGPT (subscription)")])),
+        live=False,
+    )
     # Antigravity — subagent model catalog for the official agy/gemini CLI
     # (OAuth login); no /v1/models over OAuth, so curated only. Flash first =
     # the fast default; Pro is the deep option. Both are valid gemini-CLI ids.

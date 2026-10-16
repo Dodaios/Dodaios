@@ -140,6 +140,15 @@ async def test_every_catalog_provider_health_is_bound_to_its_exact_id(
         "_local_runtime_payload",
         lambda _spec: {"ready": True, "detail": "installed"},
     )
+    # The ChatGPT web card asks its local bridge process; the binding under
+    # test must not depend on whether this machine runs one.
+    from jarvis.plugins.brain import chatgpt_web_bridge
+
+    class _ReadyBridge:
+        def status(self):
+            return chatgpt_web_bridge.BridgeState("ready", "ready")
+
+    monkeypatch.setattr(chatgpt_web_bridge, "supervisor", _ReadyBridge())
 
     modality = ledger.modality_for_tier(spec.tier)
     if modality is not None:

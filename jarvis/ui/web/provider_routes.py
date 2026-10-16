@@ -1672,6 +1672,9 @@ async def _tier_section_health(
             detail="No active provider selected",
             subject_id=None,
         )
+    if spec.id == "chatgpt-web":
+        # Keyless, but usable only while its bridge is up and signed in.
+        return await _chatgpt_web_health()
     # Local providers have no key to be invalid — but "no key needed" is NOT the
     # same as "usable", and reading it that way is how an on-device card comes to
     # claim it works on a machine where its engine and weights were never
@@ -1768,6 +1771,8 @@ async def provider_health(cfg: Any, provider_id: str) -> SectionHealth:
     An unknown id is ``unknown`` rather than an error: a caller listing rows
     must not lose its whole answer to one name this module has never heard of.
     """
+    if provider_id == "chatgpt-web":
+        return await _chatgpt_web_health()
     spec = get_spec(provider_id)
     if spec is None:
         return SectionHealth(
@@ -1778,6 +1783,28 @@ async def provider_health(cfg: Any, provider_id: str) -> SectionHealth:
         )
     return await _tier_section_health(
         cfg, spec, modality=_health_ledger.modality_for_tier(spec.tier)
+    )
+
+
+_CHATGPT_WEB_SECTION_STATUS: Final[dict[str, str]] = {
+    "ready": _section_health.OK,
+    "starting": _section_health.UNKNOWN,
+    "login_required": _section_health.NEEDS_SETUP,
+    "not_configured": _section_health.NEEDS_SETUP,
+    "not_installed": _section_health.NEEDS_SETUP,
+}
+
+
+async def _chatgpt_web_health() -> SectionHealth:
+    """The ChatGPT web bridge's state from its own loopback probe (no turn sent)."""
+    from jarvis.plugins.brain.chatgpt_web_bridge import supervisor  # noqa: PLC0415
+
+    state = await asyncio.to_thread(supervisor.status)
+    return SectionHealth(
+        status=_CHATGPT_WEB_SECTION_STATUS.get(state.status, _section_health.ERROR),
+        reason=state.status,
+        detail=state.detail,
+        subject_id="chatgpt-web",
     )
 
 
@@ -4107,6 +4134,39 @@ async def realtime_voice_preview(
         media_type="audio/wav",
         headers={"Cache-Control": "no-store"},
     )
+
+
+def _chatgpt_web_payload(state: Any) -> dict[str, Any]:
+    return {"status": state.status, "detail": state.detail}
+
+
+@router.get("/chatgpt-web/status")
+async def chatgpt_web_status() -> dict[str, Any]:
+    """Bridge state; an installed bridge that is down is started (bounded)."""
+    from jarvis.plugins.brain.chatgpt_web_bridge import supervisor  # noqa: PLC0415
+
+    state = await asyncio.to_thread(supervisor.status)
+    if state.status == "offline":
+        state = await asyncio.to_thread(supervisor.start)
+    return _chatgpt_web_payload(state)
+
+
+@router.post("/chatgpt-web/login")
+async def chatgpt_web_login() -> dict[str, Any]:
+    """Open the bridge's own browser profile for the one-time ChatGPT sign-in."""
+    from jarvis.plugins.brain.chatgpt_web_bridge import supervisor  # noqa: PLC0415
+
+    state = await asyncio.to_thread(supervisor.ensure_running)
+    if state.status in ("not_installed", "not_configured", "failed"):
+        raise HTTPException(status_code=409, detail=state.detail)
+    return _chatgpt_web_payload(await asyncio.to_thread(supervisor.login))
+
+
+@router.post("/chatgpt-web/restart", openapi_extra={"x-jarvis-dangerous": True})
+async def chatgpt_web_restart() -> dict[str, Any]:
+    from jarvis.plugins.brain.chatgpt_web_bridge import supervisor  # noqa: PLC0415
+
+    return _chatgpt_web_payload(await asyncio.to_thread(supervisor.restart))
 
 
 @router.get("/codex/status")
