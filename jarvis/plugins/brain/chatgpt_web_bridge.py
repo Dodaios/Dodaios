@@ -187,6 +187,21 @@ class BridgeSupervisor:
 
     # ---- status ------------------------------------------------------------
 
+    @staticmethod
+    def login_saved(s: BridgeSettings) -> bool:
+        """The bridge's own verified-login marker; ``serve`` exits without it."""
+        if s.home is None:
+            return False
+        marker = s.home / "browser" / "storage-state.json.verified.json"
+        try:
+            data = json.loads(marker.read_text(encoding="utf-8"))
+        except FileNotFoundError:  # never signed in
+            return False
+        except (OSError, ValueError) as exc:
+            log.warning("chatgpt-web: login marker unreadable: %s", type(exc).__name__)
+            return False
+        return isinstance(data, dict) and data.get("authenticated") is True
+
     def mark_session_invalid(self) -> None:
         self._session_invalid = True
 
@@ -208,6 +223,8 @@ class BridgeSupervisor:
             log.debug("chatgpt-web: healthz failed: %s", type(exc).__name__)
             if self._pid_alive(self._read_pid(s)) and self._within_grace():
                 return BridgeState("starting", "The ChatGPT bridge is starting.")
+            if not self.login_saved(s):
+                return BridgeState("login_required", "Sign in to ChatGPT in the bridge browser.")
             if self._exhausted():
                 return BridgeState("failed", "The ChatGPT bridge keeps stopping; restarts paused.")
             return BridgeState("offline", "The ChatGPT bridge is not running.")
