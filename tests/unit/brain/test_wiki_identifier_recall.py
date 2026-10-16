@@ -156,3 +156,43 @@ async def test_update_and_delete_reach_the_index(vault) -> None:
 async def test_word_only_in_the_filename_is_found(vault) -> None:
     root, conn = vault
     assert "fifteen minutes" in await _ask(root, conn, "What does my Kestrel runbook say?")
+
+
+LONG_PAGE = (
+    "# Vega Loom 4 bootstrap\n"
+    "Vega Loom 4 is the second iteration of the loom tooling.\n"
+    + "".join(f"Setup step {n}: copy the template folder and check the paths.\n" for n in range(12))
+    + "Vega Loom 4 code is preferred in Kotlin across all modules.\n"
+)
+
+
+@pytest.fixture
+def long_vault(vault) -> tuple[Path, sqlite3.Connection]:
+    root, conn = vault
+    page = root / "Vega-Loom-4-Bootstrap.md"
+    page.write_text(LONG_PAGE, encoding="utf-8")
+    fts_index.upsert_page(conn, root, page)
+    return root, conn
+
+
+def test_excerpt_carries_the_deep_matching_line(long_vault) -> None:
+    root, conn = long_vault
+    hits = VaultSearch(root, conn=conn).search("Vega-Loom-4 Programmiersprache", k=5)
+    assert hits and hits[0].path.name == "Vega-Loom-4-Bootstrap.md"
+    snippet = hits[0].snippet
+    assert "Kotlin" in snippet
+    assert "Setup step" not in snippet
+    assert len(snippet) <= 600
+
+
+@pytest.mark.asyncio
+async def test_injection_carries_the_answer_line_not_the_page_start(long_vault) -> None:
+    root, conn = long_vault
+    result = await _ask(
+        root,
+        conn,
+        "Welche Programmiersprache ist laut Gedächtnis "  # i18n-allow: German test input
+        "für Vega Loom 4 bevorzugt?",  # i18n-allow: German test input
+    )
+    assert "Kotlin" in result
+    assert "Setup step" not in result

@@ -64,8 +64,8 @@ class SearchHit:
     path:
         Absolute path of the matched markdown file inside the vault.
     snippet:
-        Up to ~200 characters around the first match in the body, as
-        produced by SQLite's ``snippet()`` function.  Empty string when
+        The body lines that carry query terms, up to ``_EXCERPT_CHARS``
+        (see :func:`_matching_excerpt`).  Empty string when
         the match was only in the frontmatter column.
     score:
         Float in [0.0, 1.0].  Higher is better.  Monotonic within a
@@ -236,7 +236,6 @@ class VaultSearch:
             SELECT
                 path,
                 title,
-                snippet(wiki_fts, 3, '', '', '…', 32) AS snippet,
                 body,
                 bm25(wiki_fts, 0.0, 3.0, 2.0, 1.0, 0.0) AS bm25_score,
                 frontmatter
@@ -256,15 +255,12 @@ class VaultSearch:
         ]
         hits: list[SearchHit] = []
         for row in cursor:
-            rel_path_str, title, snippet, body, bm25_raw, frontmatter = row
+            rel_path_str, title, body, bm25_raw, frontmatter = row
             abs_path = self._root / rel_path_str
             score = _normalise_bm25(bm25_raw)
-            # SQLite's snippet() returns the body column text even when the
-            # match was only in the frontmatter column. Mirror the legacy
-            # contract: snippet is empty for frontmatter-only matches.
-            body_lc = (body or "").lower()
-            if not any(t.strip('"') and t.strip('"') in body_lc for t in bare_tokens):
-                snippet = ""
+            # The excerpt is built from the body lines that carry query terms,
+            # so it is empty for a frontmatter-only match (legacy contract).
+            snippet = _matching_excerpt(body, bare_tokens)
             hits.append(
                 SearchHit(
                     title=title or abs_path.stem,
@@ -330,6 +326,73 @@ def _build_match_expr(tokens: list[str]) -> str:
         if len(cleaned) >= _PREFIX_MIN_LEN:
             parts.append(f'"{cleaned}"*')
     return " OR ".join(parts)
+
+
+#: How much matching body text ``SearchHit.snippet`` carries per hit.
+_EXCERPT_CHARS = 480
+
+_NON_WORD_RE = re.compile(r"[\W_]+")
+
+
+def _words(text: str) -> list[str]:
+    return [w for w in _NON_WORD_RE.split(text.lower()) if w]
+
+
+def _line_matches(line_words: list[str], term: list[str]) -> bool:
+    """True when ``term`` occurs in the line: a single word as a prefix of a
+    line word, a multi-word identifier ("ak-matrix-2") as a word sequence."""
+    if len(term) == 1:
+        return any(w.startswith(term[0]) for w in line_words)
+    n = len(term)
+    return any(line_words[i : i + n] == term for i in range(len(line_words) - n + 1))
+
+
+def _matching_excerpt(body: str | None, tokens: list[str], limit: int = _EXCERPT_CHARS) -> str:
+    """The body lines that carry query terms, best lines first, within ``limit``.
+
+    FTS5's ``snippet()`` returns ONE window, the first among equally good
+    ones, so a page that names its subject in the intro and states the fact
+    further down handed the reader the intro only. Every matching line is a
+    candidate instead; lines with more distinct terms win the budget, ties go
+    to the earlier line, and the chosen lines are emitted in page order. A
+    matching heading carries the line below it, since a heading alone names
+    a section without saying anything. Returns "" when no body line matches
+    (a frontmatter-only hit).
+    """
+    if not body:
+        return ""
+    terms = [t for t in {tuple(_words(tok)) for tok in tokens} if t]
+    if not terms:
+        return ""
+    lines = [
+        s for s in (line.strip() for line in body.splitlines()) if s and not s.startswith("---")
+    ]
+    scored: list[tuple[int, int, str]] = []
+    absorbed = -1
+    for idx, stripped in enumerate(lines):
+        if idx == absorbed:
+            continue
+        line_words = _words(stripped)
+        matched = sum(1 for term in terms if _line_matches(line_words, list(term)))
+        if not matched:
+            continue
+        if stripped.startswith("#") and idx + 1 < len(lines) and not lines[idx + 1].startswith("#"):
+            nxt = lines[idx + 1]
+            matched = max(
+                matched, sum(1 for term in terms if _line_matches(_words(nxt), list(term)))
+            )
+            stripped, absorbed = f"{stripped} {nxt}", idx + 1
+        scored.append((-matched, idx, stripped))
+    chosen: list[tuple[int, str]] = []
+    used = 0
+    for _neg, idx, text in sorted(scored):
+        if used + len(text) > limit:
+            if not chosen:
+                chosen.append((idx, text[:limit].rstrip() + "…"))
+            continue
+        chosen.append((idx, text))
+        used += len(text)
+    return " … ".join(text for _idx, text in sorted(chosen))
 
 
 #: How much leading body text ``SearchHit.preview`` carries.
