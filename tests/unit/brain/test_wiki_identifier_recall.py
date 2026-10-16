@@ -24,6 +24,21 @@ from jarvis.memory.wiki.search import VaultSearch
 
 BASE_PROMPT = "You are Personal Jarvis."
 
+DE_META_QUESTION = (
+    "Laut meinem Gedächtnis: antworte mit einem Wort, "  # i18n-allow: German test input
+    "welche Sprache nutzt Lisbon?"  # i18n-allow: German test input
+)
+DE_IDENTIFIER_QUESTION = (
+    "Welche Programmiersprache bevorzuge ich "  # i18n-allow: German test input
+    "laut Gedächtnis für QX Orion 7?"  # i18n-allow: German test input
+)
+DE_META_WORDS = {
+    "gedächtnis",
+    "antworte",
+    "wort",
+    "laut",
+}  # i18n-allow: German user input under test
+
 PAGES = {
     "QX-Orion-7-Setup.md": (
         "---\ntype: project\n---\n# QX Orion 7 setup\n"
@@ -61,9 +76,7 @@ async def _ask(root: Path, conn: sqlite3.Connection, text: str) -> str:
 
 
 def test_identifier_run_survives_the_length_floor() -> None:
-    keywords = _extract_keywords(
-        "Which language does my QX Orion 7 project use?", min_length=3
-    )
+    keywords = _extract_keywords("Which language does my QX Orion 7 project use?", min_length=3)
     assert keywords[0] == "QX-Orion-7"
     assert "Orion" not in keywords
 
@@ -73,11 +86,11 @@ def test_a_single_capitalized_word_is_no_identifier() -> None:
 
 
 def test_meta_words_take_no_keyword_slot() -> None:
-    keywords = _extract_keywords(  # i18n-allow: German user input under test
-        "Laut meinem Gedächtnis: antworte mit einem Wort, welche Sprache nutzt Lisbon?",
+    keywords = _extract_keywords(
+        DE_META_QUESTION,
         min_length=3,
     )
-    assert {k.lower() for k in keywords}.isdisjoint({"gedächtnis", "antworte", "wort", "laut"})
+    assert {k.lower() for k in keywords}.isdisjoint(DE_META_WORDS)
 
 
 def test_identifier_in_hit_passes_coverage() -> None:
@@ -99,9 +112,7 @@ def test_identifier_must_match_whole() -> None:
 @pytest.mark.asyncio
 async def test_exact_identifier_question_in_another_language(vault) -> None:
     root, conn = vault
-    result = await _ask(  # i18n-allow: German user input under test
-        root, conn, "Welche Programmiersprache bevorzuge ich laut Gedächtnis für QX Orion 7?"
-    )
+    result = await _ask(root, conn, DE_IDENTIFIER_QUESTION)
     assert "Rust" in result
 
 
