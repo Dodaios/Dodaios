@@ -33,7 +33,7 @@ DE_IDENTIFIER_QUESTION = (
     "laut Gedächtnis für QX Orion 7?"  # i18n-allow: German test input
 )
 DE_META_WORDS = {
-    "gedächtnis",
+    "gedächtnis",  # i18n-allow: German test input
     "antworte",
     "wort",
     "laut",
