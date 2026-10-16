@@ -58,7 +58,9 @@ def resolve_bio_brain(config: JarvisConfig, *, bus: EventBus | None = None) -> B
         RuntimeError: key-only install whose frontier chain is exhausted
             (``resolve_frontier_brain``'s own contract).
     """
-    policy = background_policy.background_providers(_brain_provider_ids())
+    policy = background_policy.background_providers(
+        _brain_provider_ids(), primary=config.brain.primary
+    )
     if not policy.subscription_mode:
         return brain_resolver.resolve_frontier_brain(config, bus=bus)
 

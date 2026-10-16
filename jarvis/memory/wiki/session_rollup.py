@@ -451,7 +451,10 @@ class SessionRollupWorker:
 
         def _billing_gate() -> dict[str, Any] | None:
             guard.check_ready(self._config)
-            decision = background_providers([provider_name])
+            decision = background_providers(
+                [provider_name],
+                primary=getattr(getattr(self._config, "brain", None), "primary", None),
+            )
             if not decision.permits(provider_name):
                 raise BackgroundDeferred(decision.reason)
             guard.reserve_call(self._config, label="session-rollup")

@@ -256,7 +256,8 @@ def background_wiki_decision(
         if credential_filter
         else set(available)
     )
-    return background_providers(sorted(ready))
+    primary = getattr(getattr(config, "brain", None), "primary", None)
+    return background_providers(sorted(ready), primary=primary)
 
 
 def background_wiki_providers(

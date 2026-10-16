@@ -130,6 +130,30 @@ def keyless_local(provider: str) -> bool:
     return _billing(provider) == "local"
 
 
+def seat_bound(primary: str | None) -> bool:
+    """Whether *primary* is a plan seat no other account may stand in for.
+
+    A ``subscription`` card (a signed-in plan, no key slot) answers work on
+    the user's own plan. When it fails, the work fails or waits: another
+    subscription CLI or a stored API key never takes over on its own. Only
+    keyless local runtimes may follow it. A provider the user picks
+    explicitly is not affected.
+    """
+    return bool(primary) and _billing(str(primary)) == "subscription"
+
+
+def seat_successors(primary: str | None, candidates: Iterable[str]) -> list[str]:
+    """*candidates* (in order) that may answer after *primary* without asking.
+
+    Unchanged unless :func:`seat_bound`; then only *primary* and keyless local
+    runtimes remain.
+    """
+    ordered = [name for name in candidates if name]
+    if not seat_bound(primary):
+        return ordered
+    return [name for name in ordered if name == primary or keyless_local(name)]
+
+
 def _registry_probe(provider: str) -> bool | None:
     """Ask the provider class whether its subscription login is usable.
 
@@ -196,15 +220,19 @@ def subscription_mode(candidates: Iterable[str] = ()) -> bool:
     return any(ts >= cutoff for ts in _read_markers().values())
 
 
-def background_providers(candidates: Iterable[str]) -> BackgroundProviders:
+def background_providers(
+    candidates: Iterable[str], *, primary: str | None = None
+) -> BackgroundProviders:
     """Filter *candidates* (in order) to the ones background work may bill.
 
     Subscription mode keeps a subscription only while its login is not known
     to be signed out (a ``subscription_or_api`` card only while signed in, since
     signed out it would spend its key slot) plus keyless local runtimes. Without
-    a subscription the candidates pass through unchanged.
+    a subscription the candidates pass through unchanged. A plan-seat *primary*
+    (:func:`seat_bound`) narrows them to itself and keyless local runtimes.
     """
     ordered = list(dict.fromkeys(name for name in candidates if name))
+    ordered = seat_successors(primary, ordered)
     if not subscription_mode(ordered):
         return BackgroundProviders(False, tuple(ordered), "no subscription connected")
     allowed: list[str] = []
@@ -236,6 +264,8 @@ __all__ = [
     "background_providers",
     "forget",
     "keyless_local",
+    "seat_bound",
+    "seat_successors",
     "login_state",
     "note_connected",
     "subscription_capable",

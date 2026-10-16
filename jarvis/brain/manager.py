@@ -11015,6 +11015,21 @@ class BrainManager:
             preferred = m_deep if level in ("deep", "code") else m_fast
             chain.append((name, preferred or m_fast or m_deep))
 
+        # A plan-seat talker (signed-in subscription, no key slot) is never
+        # led or replaced by another account: no tool lead, deep_brain or
+        # configured/cross-provider fallback. Only keyless local runtimes may
+        # follow it; a tool turn it cannot serve runs without tools instead.
+        # A seat with no configured model still answers on the plan's default.
+        from jarvis.brain.background_policy import seat_bound, seat_successors
+
+        allowed = set(seat_successors(active, [name for name, _ in chain]))
+        chain = [entry for entry in chain if entry[0] in allowed]
+        if seat_bound(active) and all(name != active for name, _ in chain):
+            chain.insert(0, (active, None))
+        if tool_lead is not None and tool_lead[0] not in allowed:
+            tool_lead = None
+            self._router_lead_key = None
+
         # Deduplicate (first instance wins) + filter dead providers.
         # Dead = provider already failed with "no API key" in this session.
         # Skip it so the voice turn does not run 8x sequentially against

@@ -665,6 +665,18 @@ def _resolve_chain(config: JarvisConfig) -> list[tuple[str, str | None]]:
         seen.add(entry)
         deduped.append(entry)
 
+    # A plan-seat primary (a signed-in subscription card without a key slot)
+    # is never stood in for by another account: the worker tier's fallbacks,
+    # local_fallback and the keyed families (Codex, OpenRouter, OpenAI, Claude)
+    # leave the chain, so a failing plan fails or waits instead of billing
+    # elsewhere. Keyless local runtimes and the power-user override remain.
+    from jarvis.brain.background_policy import seat_successors
+
+    allowed = set(seat_successors(primary, [provider for provider, _ in deduped]))
+    deduped = [
+        entry for entry in deduped if entry[0] in allowed or entry == override_entry
+    ]
+
     # A keyless claude-api entry (the legacy default) must not short-circuit the
     # resolve ahead of the user's real key: ClaudeAPIBrain instantiates without a
     # key and only 401s at call time. Drop claude-api entries ONLY when no usable
