@@ -155,7 +155,7 @@ class ChatGPTPlanBrain:
         """Signed in with plan scope: background work may run on this seat."""
         try:
             return auth().connected()
-        except ChatGPTPlanError:
+        except ChatGPTPlanError:  # an unreadable store reads as not connected; auth() logs why
             return False
 
     def can_call_tools(self) -> bool:

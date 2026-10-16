@@ -138,7 +138,7 @@ def file_lock(path: Path, timeout: float = LOCK_TIMEOUT_S) -> Iterator[None]:
 
                     fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
-            except OSError:
+            except OSError:  # lock held by another process: wait and retry until the deadline
                 if time.monotonic() >= deadline:
                     raise ChatGPTPlanError(
                         "lock_timeout", "The ChatGPT sign-in store is busy."
@@ -182,7 +182,7 @@ class Store:
     def read(self) -> dict[str, Any]:
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
+        except FileNotFoundError:  # no store yet simply means signed out
             return {}
         except (OSError, ValueError):
             log.warning("chatgpt-plan: the account file is unreadable; treating it as signed out")
@@ -238,7 +238,7 @@ def _sleep(seconds: float) -> None:
 def _error_code(resp: httpx.Response) -> str:
     try:
         body = resp.json()
-    except ValueError:
+    except ValueError:  # a non-JSON error body carries no code; the caller maps by status
         return ""
     if not isinstance(body, dict):
         return ""
@@ -256,7 +256,7 @@ def _post_form(client: httpx.Client, url: str, data: dict[str, str]) -> httpx.Re
             _sleep(delay)
         try:
             resp = client.post(url, data=data, timeout=HTTP_TIMEOUT)
-        except httpx.HTTPError as exc:
+        except httpx.HTTPError as exc:  # kept in last and raised once retries run out
             last = exc
             continue
         if resp.status_code < 500:
