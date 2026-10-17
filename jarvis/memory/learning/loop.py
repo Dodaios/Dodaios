@@ -38,7 +38,7 @@ from typing import Any, Final
 
 from jarvis.memory.learning.notebook import JarvisNotebook
 from jarvis.memory.learning.review import Proposal, Turn, build_prompt, excerpt, validate
-from jarvis.memory.learning.signals import has_signal
+from jarvis.memory.learning.signals import claims_saved, has_signal
 
 log = logging.getLogger(__name__)
 
@@ -243,6 +243,10 @@ class JarvisLearningLoop:
         # A self-contained request is saved right here; only a bare "remember
         # that" still needs the model to see what "that" was.
         signal = request == "" or (request is None and has_signal(turn.user))
+        # "Noted" without a write is a false promise: review the turn right away
+        # so the reviewer either keeps the fact or it stays unsaved.
+        claimed = request is None and "remember" not in turn.tools and claims_saved(turn.assistant)
+        signal = signal or claimed
         conversation.turns.append(turn)
         conversation.signals.append(signal)
         del conversation.turns[:-_KEEP_TURNS]
@@ -256,6 +260,8 @@ class JarvisLearningLoop:
             self._spawn(self._remember(turn.user, request), name="jarvis-learning-remember")
         if request == "":
             self._schedule(key, reason="remember request", force=True)
+        elif claimed:
+            self._schedule(key, reason="save claimed", force=True)
         elif conversation.unreviewed >= self._every:
             self._schedule(key, reason=f"{conversation.unreviewed} turns")
         else:

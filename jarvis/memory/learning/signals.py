@@ -22,12 +22,13 @@ _PEOPLE_AND_THINGS_EN = (
     "name|wife|husband|partner|girlfriend|boyfriend|son|daughter|kids?|children|mother|mom"
     "|father|dad|brother|sister|friend|boss|team|company|job|work|office|home|birthday"
     "|address|car|dog|cat|project|goal|plan|deadline|launch|trip|wedding|exam|appointment"
+    "|(?:test |customer |member )?id|customer number|member number"
 )
 _PEOPLE_AND_THINGS_DE = (  # i18n-allow: input vocabulary
     "name|frau|mann|freundin|freund|sohn|tochter|kinder?|mutter|mama|vater|papa"  # i18n-allow
     "|bruder|schwester|chef|chefin|team|firma|job|arbeit|büro|zuhause|geburtstag"  # i18n-allow
     "|adresse|auto|hund|katze|projekt|ziel|plan|deadline|launch|reise|hochzeit"  # i18n-allow
-    "|prüfung|termin"  # i18n-allow
+    "|prüfung|termin|\\w*kennung|kundennummer|mitgliedsnummer"  # i18n-allow
 )
 _PEOPLE_AND_THINGS_ES = (  # i18n-allow: input vocabulary
     "nombre|esposa|esposo|pareja|hijo|hija|madre|padre|hermano|hermana|jefe|equipo"  # i18n-allow
@@ -87,6 +88,20 @@ _SIGNALS: Final[tuple[re.Pattern[str], ...]] = tuple(
         r"|estou a preparar|estou a trabalhar em|vou mudar-me)\b",  # i18n-allow
     )
 )
+
+
+#: The assistant said it kept something: a review must then back that claim.
+_SAVE_CLAIM: Final[re.Pattern[str]] = re.compile(
+    r"\b(?:notiert|vermerkt|gespeichert|merke ich mir|ich merke mir|noted|saved"  # i18n-allow
+    r"|i'll remember|anotado|guardado|apuntado|registad[oa]|tomei nota"  # i18n-allow
+    r"|memorizad[oa])\b",  # i18n-allow
+    re.IGNORECASE,
+)
+
+
+def claims_saved(answer: str) -> bool:
+    """True when ``answer`` tells the user something was noted or saved."""
+    return bool(_SAVE_CLAIM.search(answer or ""))
 
 
 def has_signal(text: str) -> bool:

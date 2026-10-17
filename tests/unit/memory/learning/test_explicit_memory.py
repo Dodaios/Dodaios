@@ -279,3 +279,65 @@ def test_voice_calls_get_the_remember_tool_and_workers_do_not() -> None:
 
     assert "remember" in {d.name for d in gateway.voice_catalog()}
     assert "remember" not in {d.name for d in gateway.catalog()}
+
+
+# ── a stated test id and a "noted" reply ───────────────────────────────────
+
+_TEST_ID = "Meine Testkennung für Dodaios lautet BLAUERFALKE27"  # i18n-allow
+
+
+async def test_an_explicit_test_id_survives_into_a_new_chat(tmp_path: Path) -> None:
+    book = JarvisNotebook(tmp_path / "vault", budgets={"user": 600, "memory": 600})
+    loop = JarvisLearningLoop(book, _no_review, idle_review_seconds=0)
+
+    said = f"Merk dir: {_TEST_ID}."  # i18n-allow
+    loop.record("chat:a", Turn(user=said, assistant="Okay.", channel="chat"))
+    await _drain(loop)
+
+    # A new chat after a restart reads the same files with no chat history.
+    fresh = JarvisNotebook(tmp_path / "vault", budgets={"user": 600, "memory": 600})
+    assert any("BLAUERFALKE27" in entry.text for entry in fresh.entries()["memory"])
+
+
+def test_a_stated_test_id_is_a_review_signal() -> None:
+    from jarvis.memory.learning.signals import has_signal
+
+    assert has_signal(_TEST_ID)
+    assert has_signal("My customer number is 4711")
+    assert not has_signal("Meine Güte, ist das heiß heute")  # i18n-allow
+
+
+async def test_a_noted_reply_is_reviewed_at_once(book: JarvisNotebook) -> None:
+    seen: list[str] = []
+
+    async def reviewer(prompt: str) -> list[dict[str, Any]]:
+        seen.append(prompt)
+        return [
+            {
+                "target": "memory",
+                "operation": "add",
+                "text": "The user's Dodaios test id is BLAUERFALKE27.",
+                "evidence": "Code BLAUERFALKE27",
+                "importance": 6,
+            }
+        ]
+
+    loop = JarvisLearningLoop(book, reviewer, review_every_turns=50, idle_review_seconds=0)
+    said = "Ich nutze Dodaios gern. Code BLAUERFALKE27 bitte."  # i18n-allow
+    loop.record("chat:a", Turn(user=said, assistant="Notiert.", channel="chat"))  # i18n-allow
+    await _drain(loop)
+
+    assert seen, "a save claim must trigger a review"
+    assert any("BLAUERFALKE27" in entry.text for entry in _memory(book))
+
+
+async def test_without_a_claim_or_signal_nothing_is_kept(book: JarvisNotebook) -> None:
+    async def reviewer(prompt: str) -> list[dict[str, Any]]:
+        raise AssertionError("no review without a signal")
+
+    loop = JarvisLearningLoop(book, reviewer, review_every_turns=1, idle_review_seconds=0)
+    said = "Wie spät ist es gerade?"  # i18n-allow
+    loop.record("chat:a", Turn(user=said, assistant="Es ist 14 Uhr.", channel="chat"))  # i18n-allow
+    await _drain(loop)
+
+    assert _memory(book) == []
