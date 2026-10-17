@@ -218,3 +218,79 @@ async def test_disabled_channel_opens_nothing(tmp_path: Path) -> None:
     await channel.start()
     await channel.stop()
     assert not (tmp_path / "gateway-cert.pem").exists()
+
+
+async def _paired(store: DeviceStore, client: httpx.AsyncClient) -> dict[str, str]:
+    paired = await client.post(
+        "/api/m/pair", json={"code": store.issue_code(300), "device_name": "Pixel"}
+    )
+    return {"Authorization": f"Bearer {paired.json()['token']}"}
+
+
+async def test_api_history_and_tasks(tmp_path: Path) -> None:
+    store = DeviceStore(tmp_path)
+    async with _client(_app(store)) as client:
+        assert (await client.get("/api/m/tasks")).status_code == 401
+        auth = await _paired(store, client)
+        await client.post("/api/m/message", json={"text": "hi"}, headers=auth)
+        items = (await client.get("/api/m/history", headers=auth)).json()["items"]
+        assert [(i["role"], i["text"]) for i in items] == [("user", "hi"), ("jarvis", "echo:hi")]
+
+        task = (
+            await client.post("/api/m/tasks", json={"text": " Milch  holen "}, headers=auth)
+        ).json()
+        assert task["text"] == "Milch holen" and task["done"] is False
+        done = await client.post(f"/api/m/tasks/{task['id']}", json={"done": True}, headers=auth)
+        assert done.json()["done"] is True
+        assert (
+            await client.post("/api/m/tasks/nope", json={"done": True}, headers=auth)
+        ).status_code == 404
+        assert (await client.delete(f"/api/m/tasks/{task['id']}", headers=auth)).json() == {
+            "ok": True
+        }
+        assert (await client.get("/api/m/tasks", headers=auth)).json() == {"items": []}
+
+
+async def test_api_files_round_trip(tmp_path: Path) -> None:
+    store = DeviceStore(tmp_path)
+    async with _client(_app(store)) as client:
+        auth = await _paired(store, client)
+        up = await client.post(
+            "/api/m/files", params={"name": "../../evil.txt"}, content=b"abc", headers=auth
+        )
+        assert up.json() == {"name": "evil.txt", "size": 3}
+        device_id = auth["Authorization"].split()[1].split(".")[0]
+        to_phone = tmp_path / "devices" / device_id / "to_phone"
+        to_phone.mkdir(parents=True, exist_ok=True)
+        (to_phone / "plan.pdf").write_bytes(b"pdf")
+
+        listed = (await client.get("/api/m/files", headers=auth)).json()["items"]
+        assert {(f["dir"], f["name"]) for f in listed} == {
+            ("from_phone", "evil.txt"),
+            ("to_phone", "plan.pdf"),
+        }
+        got = await client.get("/api/m/files/to_phone/plan.pdf", headers=auth)
+        assert got.content == b"pdf"
+        assert (
+            await client.get("/api/m/files/to_phone/..%2Fhistory.jsonl", headers=auth)
+        ).status_code == 404
+        assert (await client.get("/api/m/files/etc/plan.pdf", headers=auth)).status_code == 404
+        assert not (tmp_path / "evil.txt").exists()
+
+
+async def test_inbox_receives_channel_messages(tmp_path: Path) -> None:
+    from jarvis.channels.base import ChannelMessage
+
+    cfg = MobileGatewayConfig(data_dir=str(tmp_path))
+    channel = MobileChannel(EventBus(), cfg)
+    result = channel.store.pair(channel.store.issue_code(300), "p")
+    assert result is not None
+    sid = device_session_id(result.device_id)
+    await channel.send_message(ChannelMessage(session_id=sid, kind="text", content="Erinnerung"))
+    await channel.send_message(ChannelMessage(session_id=sid, kind="text", content="Zweite"))
+    auth = {"Authorization": f"Bearer {result.device_id}.{result.token}"}
+    async with _client(_app(channel.store)) as client:
+        items = (await client.get("/api/m/inbox", headers=auth)).json()["items"]
+        assert [(i["id"], i["text"]) for i in items] == [(1, "Erinnerung"), (2, "Zweite")]
+        later = (await client.get("/api/m/inbox", params={"after": 1}, headers=auth)).json()
+        assert [i["text"] for i in later["items"]] == ["Zweite"]

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true">
+        <layer-list>
+            <item><shape><solid android:color="@color/hud_panel_hi" /></shape></item>
+            <item android:gravity="top" android:height="2dp">
+                <shape><solid android:color="@color/hud_cyan" /></shape>
+            </item>
+        </layer-list>
+    </item>
+    <item><shape><solid android:color="@color/hud_bg" /></shape></item>
+</selector>

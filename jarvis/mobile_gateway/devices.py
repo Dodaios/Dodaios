@@ -57,6 +57,7 @@ class _State:
 
 class DeviceStore:
     def __init__(self, data_dir: Path) -> None:
+        self.data_dir = data_dir
         self._path = data_dir / DEVICES_NAME
         self._lock = threading.Lock()
         self._failed_pairings = 0

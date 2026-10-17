@@ -13,16 +13,19 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .devices import Device, DeviceStore
 from .ratelimit import RateLimiter
+from .store import FILE_DIRS, MAX_TASK_CHARS, DeviceData
 
 access_log = logging.getLogger("jarvis.mobile_gateway.access")
 
 API_VERSION = 1
 _MAX_BODY_BYTES = 64 * 1024
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+_UPLOAD_PATH = "/api/m/files"
 
 #: ``(text, device) -> reply`` — ``None`` when no reply came in time.
 SendMessage = Callable[[str, Device], Awaitable[str | None]]
@@ -37,6 +40,14 @@ class MessageRequest(BaseModel):
     text: str = Field(min_length=1)
 
 
+class TaskRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TASK_CHARS)
+
+
+class TaskUpdate(BaseModel):
+    done: bool
+
+
 def _client(request: Request) -> str:
     return request.client.host if request.client else "?"
 
@@ -47,10 +58,12 @@ def create_app(
     limiter: RateLimiter,
     send_message: SendMessage,
     max_message_chars: int,
+    data: DeviceData | None = None,
     server_name: str = "Dodaios",
 ) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     started_at = time.time()
+    files_data = data if data is not None else DeviceData(store.data_dir)
 
     @app.middleware("http")
     async def guard(request: Request, call_next: Callable[[Request], Awaitable[Any]]) -> Any:
@@ -58,7 +71,11 @@ def create_app(
         begin = time.monotonic()
         if not limiter.allow(client):
             response: Any = JSONResponse({"error": "rate_limited"}, status_code=429)
-        elif int(request.headers.get("content-length") or 0) > _MAX_BODY_BYTES:
+        elif int(request.headers.get("content-length") or 0) > (
+            MAX_UPLOAD_BYTES
+            if request.method == "POST" and request.url.path == _UPLOAD_PATH
+            else _MAX_BODY_BYTES
+        ):
             response = JSONResponse({"error": "too_large"}, status_code=413)
         else:
             response = await call_next(request)
@@ -121,9 +138,92 @@ def create_app(
             raise HTTPException(status_code=422, detail="empty")
         if len(text) > max_message_chars:
             raise HTTPException(status_code=413, detail="too_long")
+        files_data.add_history(dev.device_id, "user", text)
         reply = await send_message(text, dev)
         if reply is None:
             raise HTTPException(status_code=504, detail="no_reply")
+        files_data.add_history(dev.device_id, "jarvis", reply)
         return {"reply": reply}
+
+    @app.get("/api/m/history")
+    async def history(
+        limit: int = 50,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        return {"items": files_data.history(dev.device_id, max(1, limit))}
+
+    @app.get("/api/m/inbox")
+    async def inbox(
+        after: int = 0,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        return {"items": files_data.inbox(dev.device_id, after)}
+
+    @app.get("/api/m/tasks")
+    async def list_tasks(
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        return {"items": files_data.tasks(dev.device_id)}
+
+    @app.post("/api/m/tasks")
+    async def add_task(
+        body: TaskRequest,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        text = " ".join(body.text.split())
+        if not text:
+            raise HTTPException(status_code=422, detail="empty")
+        return files_data.add_task(dev.device_id, text)
+
+    @app.post("/api/m/tasks/{task_id}")
+    async def update_task(
+        task_id: str,
+        body: TaskUpdate,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        task = files_data.update_task(dev.device_id, task_id, done=body.done)
+        if task is None:
+            raise HTTPException(status_code=404, detail="not_found")
+        return task
+
+    @app.delete("/api/m/tasks/{task_id}")
+    async def delete_task(
+        task_id: str,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        if not files_data.delete_task(dev.device_id, task_id):
+            raise HTTPException(status_code=404, detail="not_found")
+        return {"ok": True}
+
+    @app.get("/api/m/files")
+    async def list_files(
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        return {"items": files_data.files(dev.device_id)}
+
+    @app.post(_UPLOAD_PATH)
+    async def upload(
+        request: Request,
+        name: str,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        body = await request.body()
+        if len(body) > MAX_UPLOAD_BYTES:  # a chunked body carries no content-length
+            raise HTTPException(status_code=413, detail="too_large")
+        if not body:
+            raise HTTPException(status_code=422, detail="empty")
+        saved = files_data.save_upload(dev.device_id, name, body)
+        return {"name": saved, "size": len(body)}
+
+    @app.get("/api/m/files/{which}/{name}")
+    async def download(
+        which: str,
+        name: str,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> FileResponse:
+        found = files_data.find_file(dev.device_id, which, name) if which in FILE_DIRS else None
+        if found is None:
+            raise HTTPException(status_code=404, detail="not_found")
+        return FileResponse(found, filename=found.name)
 
     return app

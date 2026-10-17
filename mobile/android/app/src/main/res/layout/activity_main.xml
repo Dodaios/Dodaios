@@ -1,93 +1,190 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:background="@color/hud_bg"
+    android:orientation="vertical">
 
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp">
 
-        <TextView
-            android:id="@+id/status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingBottom="12dp"
-            android:textSize="16sp" />
+        <de.dodaios.mobile.RingIndicatorView
+            android:id="@+id/reactor"
+            android:layout_width="64dp"
+            android:layout_height="64dp" />
 
-        <!-- Shown while not paired -->
         <LinearLayout
-            android:id="@+id/pairPanel"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
             android:orientation="vertical">
 
-            <Button
-                android:id="@+id/scan"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/scan" />
-
-            <EditText
-                android:id="@+id/payload"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/paste_hint"
-                android:importantForAutofill="no"
-                android:inputType="textMultiLine|textNoSuggestions" />
-
-            <Button
-                android:id="@+id/pair"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/pair" />
-        </LinearLayout>
-
-        <!-- Shown once paired -->
-        <LinearLayout
-            android:id="@+id/chatPanel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <Button
-                android:id="@+id/refresh"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/refresh" />
-
-            <EditText
-                android:id="@+id/message"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/message_hint"
-                android:importantForAutofill="no"
-                android:inputType="textMultiLine|textCapSentences" />
-
-            <Button
-                android:id="@+id/send"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/send" />
-
             <TextView
-                android:id="@+id/reply"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="12dp"
-                android:textIsSelectable="true"
-                android:textSize="16sp" />
-
-            <Button
-                android:id="@+id/unpair"
-                style="?android:attr/borderlessButtonStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="@string/unpair" />
+                android:letterSpacing="0.3"
+                android:shadowColor="@color/hud_cyan"
+                android:shadowRadius="12"
+                android:text="@string/hud_title"
+                android:textColor="@color/hud_cyan"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/hud_text_dim"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/refresh"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/hud_button"
+            android:gravity="center"
+            android:text="⟳"
+            android:textColor="@color/hud_cyan"
+            android:textSize="20sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/hud_cyan_dim" />
+
+    <!-- Pairing -->
+    <LinearLayout
+        android:id="@+id/pairPanel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.15"
+            android:text="@string/pair_heading"
+            android:textColor="@color/hud_gold"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/pair_hint"
+            android:textColor="@color/hud_text" />
+
+        <Button
+            android:id="@+id/scan"
+            style="@style/Hud.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/scan" />
+
+        <EditText
+            android:id="@+id/payload"
+            style="@style/Hud.Input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="@string/payload_hint"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textNoSuggestions"
+            android:minLines="3" />
+
+        <Button
+            android:id="@+id/pair"
+            style="@style/Hud.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/pair" />
+    </LinearLayout>
+
+    <!-- Main -->
+    <LinearLayout
+        android:id="@+id/mainPanel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/sectionTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.2"
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="4dp"
+            android:textColor="@color/hud_gold"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <ScrollView
+            android:id="@+id/scroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:id="@+id/list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp" />
+        </ScrollView>
+
+        <LinearLayout
+            android:id="@+id/inputRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="10dp">
+
+            <EditText
+                android:id="@+id/input"
+                style="@style/Hud.Input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="4" />
+
+            <Button
+                android:id="@+id/action"
+                style="@style/Hud.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/tabChat" style="@style/Hud.Tab" android:text="@string/tab_chat" />
+            <TextView android:id="@+id/tabTasks" style="@style/Hud.Tab" android:text="@string/tab_tasks" />
+            <TextView android:id="@+id/tabInbox" style="@style/Hud.Tab" android:text="@string/tab_inbox" />
+            <TextView android:id="@+id/tabFiles" style="@style/Hud.Tab" android:text="@string/tab_files" />
         </LinearLayout>
     </LinearLayout>
-</ScrollView>
+</LinearLayout>

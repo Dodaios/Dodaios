@@ -1,6 +1,7 @@
 package de.dodaios.mobile
 
 import java.io.IOException
+import java.io.OutputStream
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.cert.CertificateException
@@ -13,6 +14,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 
 class GatewayException(message: String) : IOException(message)
@@ -61,12 +63,51 @@ class GatewayClient(private val host: String, private val port: Int, fingerprint
     fun message(token: String, text: String): String =
         call(post("message", JSONObject().put("text", text), token)).getString("reply")
 
-    private fun url(path: String): HttpUrl = HttpUrl.Builder()
-        .scheme("https")
-        .host(host)
-        .port(port)
-        .addPathSegments("api/m/$path")
-        .build()
+    fun history(token: String): JSONArray = call(get("history?limit=100", token)).getJSONArray("items")
+
+    fun inbox(token: String, after: Long): JSONArray = call(get("inbox?after=$after", token)).getJSONArray("items")
+
+    fun tasks(token: String): JSONArray = call(get("tasks", token)).getJSONArray("items")
+
+    fun addTask(token: String, text: String): JSONObject = call(post("tasks", JSONObject().put("text", text), token))
+
+    fun setTask(token: String, id: String, done: Boolean): JSONObject =
+        call(post("tasks/$id", JSONObject().put("done", done), token))
+
+    fun deleteTask(token: String, id: String) {
+        call(Request.Builder().url(url("tasks/$id")).delete().header("Authorization", "Bearer $token").build())
+    }
+
+    fun files(token: String): JSONArray = call(get("files", token)).getJSONArray("items")
+
+    fun upload(token: String, name: String, data: ByteArray): JSONObject {
+        val target = url("files").newBuilder().addQueryParameter("name", name).build()
+        return call(
+            Request.Builder().url(target).post(data.toRequestBody(BINARY))
+                .header("Authorization", "Bearer $token").build(),
+        )
+    }
+
+    /** Streams one file into [out]. */
+    fun download(token: String, which: String, name: String, out: OutputStream) {
+        val target = url("files").newBuilder().addPathSegment(which).addPathSegment(name).build()
+        val request = Request.Builder().url(target).header("Authorization", "Bearer $token").build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw GatewayException(describe(response.code))
+            response.body?.byteStream()?.copyTo(out) ?: throw GatewayException("Leere Antwort")
+        }
+    }
+
+    private fun url(path: String): HttpUrl {
+        val (segments, query) = path.split("?", limit = 2).let { it[0] to it.getOrNull(1) }
+        return HttpUrl.Builder()
+            .scheme("https")
+            .host(host)
+            .port(port)
+            .addPathSegments("api/m/$segments")
+            .query(query)
+            .build()
+    }
 
     private fun get(path: String, token: String): Request =
         Request.Builder().url(url(path)).header("Authorization", "Bearer $token").build()
@@ -90,7 +131,9 @@ class GatewayClient(private val host: String, private val port: Int, fingerprint
     private fun describe(code: Int): String = when (code) {
         401 -> "Gerät nicht (mehr) gekoppelt"
         403 -> "Kopplungscode ungültig oder abgelaufen"
-        413 -> "Nachricht zu lang"
+        404 -> "Nicht gefunden"
+        413 -> "Datei oder Nachricht zu groß"
+        422 -> "Ungültige Eingabe"
         429 -> "Zu viele Anfragen, kurz warten"
         504 -> "Jarvis hat nicht rechtzeitig geantwortet"
         else -> "Serverfehler $code"
@@ -98,6 +141,7 @@ class GatewayClient(private val host: String, private val port: Int, fingerprint
 
     private companion object {
         val JSON = "application/json; charset=utf-8".toMediaType()
+        val BINARY = "application/octet-stream".toMediaType()
 
         fun sha256(bytes: ByteArray): String =
             MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }

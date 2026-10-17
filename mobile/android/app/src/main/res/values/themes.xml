@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Hud" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/hud_bg</item>
+        <item name="android:statusBarColor">@color/hud_bg</item>
+        <item name="android:navigationBarColor">@color/hud_bg</item>
+        <item name="colorPrimary">@color/hud_cyan</item>
+        <item name="colorAccent">@color/hud_cyan</item>
+        <item name="android:textColorPrimary">@color/hud_text</item>
+        <item name="android:textColorHint">@color/hud_text_dim</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+
+    <style name="Hud.Button" parent="Widget.AppCompat.Button.Borderless">
+        <item name="android:background">@drawable/hud_button</item>
+        <item name="android:textColor">@color/hud_cyan</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.12</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+    </style>
+
+    <style name="Hud.Input" parent="">
+        <item name="android:background">@drawable/hud_input</item>
+        <item name="android:textColor">@color/hud_text</item>
+        <item name="android:textColorHint">@color/hud_text_dim</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="Hud.Tab" parent="">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/hud_tab</item>
+        <item name="android:textColor">@color/hud_text_dim</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.1</item>
+    </style>
+</resources>

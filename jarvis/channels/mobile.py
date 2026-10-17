@@ -29,6 +29,7 @@ from jarvis.core.events import Event, ResponseGenerated
 from jarvis.mobile_gateway.app import access_log, create_app
 from jarvis.mobile_gateway.devices import Device, DeviceStore
 from jarvis.mobile_gateway.ratelimit import RateLimiter
+from jarvis.mobile_gateway.store import DeviceData
 from jarvis.mobile_gateway.tls import ensure_certificate
 
 log = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class MobileChannel:
         self._cfg = config if config is not None else MobileGatewayConfig()
         self._data_dir = Path(self._cfg.data_dir)
         self._store = DeviceStore(self._data_dir)
+        self._data = DeviceData(self._data_dir)
         self._inbox: asyncio.Queue[ChannelMessage] = asyncio.Queue()
         self._waiting: dict[UUID, asyncio.Future[str]] = {}
         self._sessions: dict[str, ChannelSession] = {}
@@ -114,6 +116,7 @@ class MobileChannel:
             limiter=RateLimiter(self._cfg.requests_per_minute),
             send_message=self.submit,
             max_message_chars=self._cfg.max_message_chars,
+            data=self._data,
         )
         config = uvicorn.Config(
             app,
@@ -226,8 +229,15 @@ class MobileChannel:
             future.set_result(event.text)
 
     async def send_message(self, msg: ChannelMessage) -> None:
-        """No push path yet: the phone receives replies on its own request."""
-        log.debug("MobileChannel.send_message dropped (no push yet): %s", msg.session_id)
+        """Queue a message from Jarvis in the phone's inbox; the app polls it."""
+        text = msg.content if isinstance(msg.content, str) else ""
+        if not text.strip():
+            return
+        for dev in self._store.devices():
+            if not dev.revoked and device_session_id(dev.device_id) == msg.session_id:
+                self._data.push_inbox(dev.device_id, text)
+                return
+        log.debug("MobileChannel.send_message: no paired device for %s", msg.session_id)
 
     async def broadcast_event(self, event: Event) -> None:
         """No-op: replies are routed by ``trace_id``."""
