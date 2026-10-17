@@ -40,7 +40,7 @@
         <item name="android:background">@drawable/hud_tab</item>
         <item name="android:textColor">@color/hud_text_dim</item>
         <item name="android:fontFamily">monospace</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:textSize">10sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.1</item>
     </style>

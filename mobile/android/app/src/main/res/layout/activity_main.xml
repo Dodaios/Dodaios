@@ -185,6 +185,7 @@
             <TextView android:id="@+id/tabTasks" style="@style/Hud.Tab" android:text="@string/tab_tasks" />
             <TextView android:id="@+id/tabInbox" style="@style/Hud.Tab" android:text="@string/tab_inbox" />
             <TextView android:id="@+id/tabFiles" style="@style/Hud.Tab" android:text="@string/tab_files" />
+            <TextView android:id="@+id/tabProjects" style="@style/Hud.Tab" android:text="@string/tab_projects" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

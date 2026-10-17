@@ -38,7 +38,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
-    private enum class Tab { CHAT, TASKS, INBOX, FILES }
+    private enum class Tab { CHAT, TASKS, INBOX, FILES, PROJECTS }
 
     private lateinit var store: SecureStore
     private var pairing: Pairing? = null
@@ -92,6 +92,7 @@ class MainActivity : AppCompatActivity() {
             Tab.TASKS to findViewById(R.id.tabTasks),
             Tab.INBOX to findViewById(R.id.tabInbox),
             Tab.FILES to findViewById(R.id.tabFiles),
+            Tab.PROJECTS to findViewById(R.id.tabProjects),
         )
         tabs.forEach { (t, view) -> view.setOnClickListener { select(t) } }
 
@@ -158,8 +159,9 @@ class MainActivity : AppCompatActivity() {
             Tab.TASKS -> "// AUFGABEN"
             Tab.INBOX -> "// NACHRICHTEN VON JARVIS"
             Tab.FILES -> "// DATEITRANSFER"
+            Tab.PROJECTS -> "// PROJEKTSTATUS"
         }
-        inputRow.visibility = if (t == Tab.INBOX) View.GONE else View.VISIBLE
+        inputRow.visibility = if (t == Tab.INBOX || t == Tab.PROJECTS) View.GONE else View.VISIBLE
         input.visibility = if (t == Tab.FILES) View.GONE else View.VISIBLE
         input.hint = if (t == Tab.TASKS) "Neue Aufgabe" else "Nachricht an Jarvis"
         action.text = when (t) {
@@ -180,7 +182,7 @@ class MainActivity : AppCompatActivity() {
         Tab.CHAT -> send()
         Tab.TASKS -> addTask()
         Tab.FILES -> picker.launch("*/*")
-        Tab.INBOX -> Unit
+        Tab.INBOX, Tab.PROJECTS -> Unit
     }
 
     // -- networking helpers ---------------------------------------------
@@ -253,6 +255,7 @@ class MainActivity : AppCompatActivity() {
             Tab.TASKS -> request({ c, t -> c.tasks(t) }) { renderTasks(it) }
             Tab.INBOX -> request({ c, t -> c.inbox(t, 0) }) { renderInbox(it) }
             Tab.FILES -> request({ c, t -> c.files(t) }) { renderFiles(it) }
+            Tab.PROJECTS -> request({ c, t -> c.projects(t) }) { renderProjects(it) }
         }
     }
 
@@ -403,6 +406,49 @@ class MainActivity : AppCompatActivity() {
             addRow(card)
         }
         markInboxRead(items)
+    }
+
+    private fun renderProjects(items: JSONArray) {
+        list.removeAllViews()
+        if (items.length() == 0) placeholder("Keine Missionen auf dem PC.")
+        for (i in 0 until items.length()) {
+            val item = items.getJSONObject(i)
+            val active = item.optBoolean("active")
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundResource(R.drawable.hud_panel)
+                setPadding(dp(12), dp(10), dp(12), dp(12))
+            }
+            card.addView(
+                TextView(this).apply {
+                    text = "${stateLabel(item.optString("state"))}  ·  ${formatTime(item.optLong("updated_ms") / 1000)}"
+                    textSize = 10f
+                    setTextColor(getColor(if (active) R.color.hud_cyan else R.color.hud_gold))
+                },
+            )
+            card.addView(
+                TextView(this).apply {
+                    text = item.optString("title")
+                    textSize = 15f
+                    setTextIsSelectable(true)
+                    setTextColor(getColor(R.color.hud_text))
+                },
+            )
+            addRow(card)
+        }
+    }
+
+    private fun stateLabel(state: String): String = when (state) {
+        "PENDING" -> "WARTET"
+        "RUNNING" -> "LÄUFT"
+        "CRITIQUING" -> "WIRD GEPRÜFT"
+        "LOOPING" -> "NEUER ANLAUF"
+        "WAITING_CAPACITY" -> "WARTET AUF KAPAZITÄT"
+        "APPROVED" -> "FERTIG"
+        "FAILED" -> "FEHLGESCHLAGEN"
+        "CANCELLED" -> "ABGEBROCHEN"
+        "TIMED_OUT" -> "ZEIT ÜBERSCHRITTEN"
+        else -> state
     }
 
     private fun markInboxRead(items: JSONArray? = null) {

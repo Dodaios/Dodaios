@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .devices import Device, DeviceStore
+from .projects import ProjectReader
 from .ratelimit import RateLimiter
 from .store import FILE_DIRS, MAX_TASK_CHARS, DeviceData
 
@@ -59,6 +60,7 @@ def create_app(
     send_message: SendMessage,
     max_message_chars: int,
     data: DeviceData | None = None,
+    projects: ProjectReader | None = None,
     server_name: str = "Dodaios",
 ) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -194,6 +196,14 @@ def create_app(
         if not files_data.delete_task(dev.device_id, task_id):
             raise HTTPException(status_code=404, detail="not_found")
         return {"ok": True}
+
+    @app.get("/api/m/projects")
+    async def list_projects(
+        limit: int = 50,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        items = projects.missions(limit) if projects is not None else []
+        return {"items": items, "active": sum(1 for item in items if item["active"])}
 
     @app.get("/api/m/files")
     async def list_files(

@@ -78,6 +78,8 @@ class GatewayClient(private val host: String, private val port: Int, fingerprint
         call(Request.Builder().url(url("tasks/$id")).delete().header("Authorization", "Bearer $token").build())
     }
 
+    fun projects(token: String): JSONArray = call(get("projects", token)).getJSONArray("items")
+
     fun files(token: String): JSONArray = call(get("files", token)).getJSONArray("items")
 
     fun upload(token: String, name: String, data: ByteArray): JSONObject {

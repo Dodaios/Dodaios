@@ -294,3 +294,51 @@ async def test_inbox_receives_channel_messages(tmp_path: Path) -> None:
         assert [(i["id"], i["text"]) for i in items] == [(1, "Erinnerung"), (2, "Zweite")]
         later = (await client.get("/api/m/inbox", params={"after": 1}, headers=auth)).json()
         assert [i["text"] for i in later["items"]] == ["Zweite"]
+
+
+def _missions_db(path: Path) -> Path:
+    import sqlite3
+
+    db = path / "missions.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE missions (id TEXT PRIMARY KEY, prompt TEXT, state TEXT, "
+            "created_ms INTEGER, updated_ms INTEGER, cost_usd REAL)"
+        )
+        conn.executemany(
+            "INSERT INTO missions VALUES (?, ?, ?, ?, ?, ?)",
+            [("a", "Old  job", "APPROVED", 1, 10, 0.5), ("b", "New job", "RUNNING", 2, 20, 0.0)],
+        )
+    return db
+
+
+def test_project_reader_lists_newest_first_and_never_writes(tmp_path: Path) -> None:
+    from jarvis.mobile_gateway.projects import ProjectReader
+
+    db = _missions_db(tmp_path)
+    before = db.read_bytes()
+    items = ProjectReader(db).missions()
+    assert [(i["id"], i["title"], i["active"]) for i in items] == [
+        ("b", "New job", True),
+        ("a", "Old job", False),
+    ]
+    assert db.read_bytes() == before
+    assert ProjectReader(tmp_path / "missing.db").missions() == []
+
+
+async def test_api_projects(tmp_path: Path) -> None:
+    from jarvis.mobile_gateway.projects import ProjectReader
+
+    store = DeviceStore(tmp_path)
+    app = create_app(
+        store=store,
+        limiter=RateLimiter(1000),
+        send_message=_echo,
+        max_message_chars=50,
+        projects=ProjectReader(_missions_db(tmp_path)),
+    )
+    async with _client(app) as client:
+        assert (await client.get("/api/m/projects")).status_code == 401
+        auth = await _paired(store, client)
+        body = (await client.get("/api/m/projects", headers=auth)).json()
+        assert body["active"] == 1 and len(body["items"]) == 2

@@ -28,6 +28,7 @@ from jarvis.core.config import MobileGatewayConfig
 from jarvis.core.events import Event, ResponseGenerated
 from jarvis.mobile_gateway.app import access_log, create_app
 from jarvis.mobile_gateway.devices import Device, DeviceStore
+from jarvis.mobile_gateway.projects import ProjectReader
 from jarvis.mobile_gateway.ratelimit import RateLimiter
 from jarvis.mobile_gateway.store import DeviceData
 from jarvis.mobile_gateway.tls import ensure_certificate
@@ -117,6 +118,7 @@ class MobileChannel:
             send_message=self.submit,
             max_message_chars=self._cfg.max_message_chars,
             data=self._data,
+            projects=ProjectReader(_missions_db()),
         )
         config = uvicorn.Config(
             app,
@@ -241,6 +243,12 @@ class MobileChannel:
 
     async def broadcast_event(self, event: Event) -> None:
         """No-op: replies are routed by ``trace_id``."""
+
+
+def _missions_db() -> Path:
+    from jarvis.core.config import DATA_DIR
+
+    return Path(DATA_DIR) / "missions.db"
 
 
 def _embedded_server(config: Any) -> Any:
