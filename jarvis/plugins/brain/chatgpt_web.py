@@ -122,15 +122,16 @@ def _text_of(msg: BrainMessage) -> str:
 def _input_items(req: BrainRequest) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     if req.system:
-        items.append({"role": "system", "content": req.system})
+        items.append({"type": "message", "role": "system", "content": req.system})
     for msg in req.messages:
         if msg.role == "tool":
             # No tools on this bridge; a stale tool result is context text.
-            items.append({"role": "user", "content": f"[tool result]\n{_text_of(msg)}"})
+            note = f"[tool result]\n{_text_of(msg)}"
+            items.append({"type": "message", "role": "user", "content": note})
             continue
         text = _text_of(msg)
         if text:
-            items.append({"role": msg.role, "content": text})
+            items.append({"type": "message", "role": msg.role, "content": text})
     return items
 
 
@@ -198,7 +199,7 @@ class ChatGPTWebBrain:
         from jarvis.core.chat_turn import current_chat_turn  # noqa: PLC0415
 
         root, token = await asyncio.to_thread(self._prepare)
-        turn = current_chat_turn()
+        turn = current_chat_turn.get()
         body = {"model": self._model, "input": _input_items(req), "stream": True}
         headers = {
             "Authorization": f"Bearer {token}",
@@ -247,6 +248,9 @@ class ChatGPTWebBrain:
 
     async def _events(self, resp: httpx.Response) -> AsyncIterator[BrainDelta]:
         event = ""
+        # The bridge's own status notes arrive as "commentary" messages; only
+        # the model's answer is shown to the user.
+        commentary: set[str] = set()
         async for line in resp.aiter_lines():
             if line.startswith("event:"):
                 event = line[6:].strip()
@@ -262,7 +266,13 @@ class ChatGPTWebBrain:
                 log.debug("chatgpt-web: skipped an unparsable SSE line")
                 continue
             kind = str(payload.get("type") or event)
-            if kind == "response.output_text.delta":
+            if kind == "response.output_item.added":
+                item = payload.get("item")
+                if isinstance(item, dict) and item.get("phase") == "commentary":
+                    commentary.add(str(item.get("id")))
+            elif kind == "response.output_text.delta":
+                if str(payload.get("item_id")) in commentary:
+                    continue
                 text = payload.get("delta")
                 if isinstance(text, str) and text:
                     yield BrainDelta(content=text)

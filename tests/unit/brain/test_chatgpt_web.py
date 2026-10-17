@@ -93,3 +93,27 @@ def test_sse_failure_is_typed() -> None:
     with pytest.raises(ChatGPTWebError) as info:
         asyncio.run(_collect(body))
     assert info.value.code == "failed"
+
+
+def test_input_items_are_typed_messages() -> None:
+    # The bridge only replays a turn whose latest user item is type "message".
+    from jarvis.core.protocols import BrainMessage, BrainRequest
+
+    req = BrainRequest(system="sys", messages=[BrainMessage(role="user", content="Hallo")])
+    items = chatgpt_web._input_items(req)
+    assert [i["type"] for i in items] == ["message", "message"]
+    assert items[-1]["role"] == "user"
+
+
+def test_sse_commentary_notes_are_not_shown() -> None:
+    body = (
+        b'data: {"type":"response.output_item.added","item":'
+        b'{"type":"message","id":"msg_c","phase":"commentary"}}\n\n'
+        b'data: {"type":"response.output_text.delta","item_id":"msg_c","delta":"note"}\n\n'
+        b'data: {"type":"response.output_item.added","item":'
+        b'{"type":"message","id":"msg_a","phase":"final_answer"}}\n\n'
+        b'data: {"type":"response.output_text.delta","item_id":"msg_a","delta":"Hallo"}\n\n'
+        b'data: {"type":"response.completed"}\n\n'
+    )
+    deltas = asyncio.run(_collect(body))
+    assert "".join(d.content or "" for d in deltas) == "Hallo"
