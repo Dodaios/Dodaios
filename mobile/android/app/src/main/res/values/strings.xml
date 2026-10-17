@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dodaios</string>
+    <string name="scan">QR-Code scannen</string>
+    <string name="paste_hint">…oder Kopplungsdaten einfügen</string>
+    <string name="pair">Koppeln</string>
+    <string name="refresh">Status abrufen</string>
+    <string name="send">Senden</string>
+    <string name="message_hint">Nachricht an Jarvis</string>
+    <string name="unpair">Entkoppeln</string>
+</resources>

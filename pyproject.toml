@@ -640,6 +640,8 @@ telegram = "jarvis.channels.telegram:TelegramChannel"
 # optional [channels] extra; token via Credential Manager (key "discord_bot_token"
 # / ENV DISCORD_BOT_TOKEN). Enable [Message Content Intent] in the bot settings.
 discord = "jarvis.channels.discord:DiscordChannel"
+# Paired phone app: narrow TLS gateway on its own port (off by default).
+mobile = "jarvis.channels.mobile:MobileChannel"
 
 [project.entry-points."jarvis.realtime"]
 # Provider-neutral speech-to-speech plugins. Every adapter loads lazily; the

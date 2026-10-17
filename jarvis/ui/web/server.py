@@ -3782,6 +3782,7 @@ class WebServer:
         # Telegram/Discord configs from integrations.* (branch-portable via getattr)
         tg_cfg = None
         dc_cfg = None
+        mobile_cfg = None
         integrations = getattr(self.cfg, "integrations", None)
         from jarvis.core.instance import current_instance
 
@@ -3798,11 +3799,13 @@ class WebServer:
         elif integrations is not None:
             tg_cfg = getattr(integrations, "telegram", None)
             dc_cfg = getattr(integrations, "discord", None)
+            mobile_cfg = getattr(integrations, "mobile", None)
 
         manager, registry = await bootstrap_channels(
             bus=self.bus,
             telegram_config=tg_cfg,
             discord_config=dc_cfg,
+            mobile_config=mobile_cfg,
             friends_db_path=friends_db,
             auto_start=True,
         )

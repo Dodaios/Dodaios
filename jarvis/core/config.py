@@ -2544,12 +2544,37 @@ class DiscordConfig(BaseModel):
     pair_on_first_dm: bool = True
 
 
+class MobileGatewayConfig(BaseModel):
+    """The phone app's own gateway: a narrow TLS API on a public port.
+
+    Separate from the web UI, which stays loopback-only. A phone pairs once
+    with a five-minute code from ``python -m jarvis.mobile_gateway pair``
+    and then authenticates with its own device key; only a SHA-256 hash of
+    that key is stored (``data/mobile_gateway/devices.json``). The TLS
+    certificate is self-signed and pinned by the app.
+
+    ``enabled = false`` keeps the port closed.
+    """
+
+    enabled: bool = False
+    host: str = "::"
+    port: int = Field(default=8443, ge=1, le=65535)
+    # Address put into the pairing QR code; empty = detect the PC's global IPv6.
+    public_host: str = ""
+    data_dir: str = "data/mobile_gateway"
+    pairing_ttl_s: float = Field(default=300.0, gt=0)
+    reply_timeout_s: float = Field(default=90.0, gt=0)
+    requests_per_minute: int = Field(default=60, ge=1)
+    max_message_chars: int = Field(default=4000, ge=1)
+
+
 class IntegrationsConfig(BaseModel):
     """External service integrations (Telegram, Discord, WhatsApp, Twilio, ...)."""
 
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
     discord: DiscordConfig = Field(default_factory=DiscordConfig)
     twilio: TwilioConfig = Field(default_factory=TwilioConfig)
+    mobile: MobileGatewayConfig = Field(default_factory=MobileGatewayConfig)
 
 
 CHANNEL_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {

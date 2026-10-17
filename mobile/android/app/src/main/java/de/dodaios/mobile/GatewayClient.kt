@@ -1,0 +1,105 @@
+package de.dodaios.mobile
+
+import java.io.IOException
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.security.cert.CertificateException
+import java.security.cert.X509Certificate
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
+import okhttp3.HttpUrl
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+
+class GatewayException(message: String) : IOException(message)
+
+/**
+ * Talks to the PC's mobile gateway. Only the one self-signed certificate whose
+ * SHA-256 came in the pairing QR code is accepted; anything else fails the handshake.
+ */
+class GatewayClient(private val host: String, private val port: Int, fingerprint: String) {
+    private val pin = fingerprint.lowercase()
+
+    private val trustManager = object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {
+            throw CertificateException("client certificates are not used")
+        }
+
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+            val leaf = chain.firstOrNull() ?: throw CertificateException("no certificate")
+            if (sha256(leaf.encoded) != pin) throw CertificateException("certificate does not match pairing")
+        }
+
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+    }
+
+    private val http: OkHttpClient = OkHttpClient.Builder()
+        .sslSocketFactory(
+            SSLContext.getInstance("TLS").apply { init(null, arrayOf(trustManager), SecureRandom()) }.socketFactory,
+            trustManager,
+        )
+        // The certificate carries no name for a home IPv6 that may change; the pin is the identity check.
+        .hostnameVerifier { _, session ->
+            val leaf = session.peerCertificates.firstOrNull() as? X509Certificate
+            leaf != null && sha256(leaf.encoded) == pin
+        }
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .build()
+
+    fun pair(code: String, deviceName: String): String {
+        val body = JSONObject().put("code", code).put("device_name", deviceName)
+        return call(post("pair", body, token = null)).getString("token")
+    }
+
+    fun status(token: String): JSONObject = call(get("status", token))
+
+    fun message(token: String, text: String): String =
+        call(post("message", JSONObject().put("text", text), token)).getString("reply")
+
+    private fun url(path: String): HttpUrl = HttpUrl.Builder()
+        .scheme("https")
+        .host(host)
+        .port(port)
+        .addPathSegments("api/m/$path")
+        .build()
+
+    private fun get(path: String, token: String): Request =
+        Request.Builder().url(url(path)).header("Authorization", "Bearer $token").build()
+
+    private fun post(path: String, body: JSONObject, token: String?): Request {
+        val builder = Request.Builder()
+            .url(url(path))
+            .post(body.toString().toRequestBody(JSON))
+        if (token != null) builder.header("Authorization", "Bearer $token")
+        return builder.build()
+    }
+
+    private fun call(request: Request): JSONObject {
+        http.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw GatewayException(describe(response.code))
+            return JSONObject(text)
+        }
+    }
+
+    private fun describe(code: Int): String = when (code) {
+        401 -> "Gerät nicht (mehr) gekoppelt"
+        403 -> "Kopplungscode ungültig oder abgelaufen"
+        413 -> "Nachricht zu lang"
+        429 -> "Zu viele Anfragen, kurz warten"
+        504 -> "Jarvis hat nicht rechtzeitig geantwortet"
+        else -> "Serverfehler $code"
+    }
+
+    private companion object {
+        val JSON = "application/json; charset=utf-8".toMediaType()
+
+        fun sha256(bytes: ByteArray): String =
+            MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+    }
+}
