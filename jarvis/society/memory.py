@@ -142,11 +142,20 @@ def atomic_write(path: Path, text: str) -> None:
 
 def resolve_society_vault(cfg: Any) -> Path:
     """The vault the agents write into: the configured root wins, the last
-    resolution the app made is the fallback for a config without one."""
+    resolution the app made is the fallback for a config without one.
+
+    ``[wiki_integration].vault_root`` is the field every wiki consumer reads;
+    without it here the agents' books followed whichever root was resolved
+    last, so the learned notebook could land in a different vault than recall.
+    """
     from jarvis.memory.wiki.vault_root import last_resolution, resolve_vault_root
 
     raw = None
-    for holder in (getattr(cfg, "wiki", None), getattr(cfg, "memory", None)):
+    for holder in (
+        getattr(cfg, "wiki_integration", None),
+        getattr(cfg, "wiki", None),
+        getattr(cfg, "memory", None),
+    ):
         raw = getattr(holder, "vault_root", None)
         if raw:
             break
