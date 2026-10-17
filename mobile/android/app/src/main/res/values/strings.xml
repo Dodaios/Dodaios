@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Dodaios</string>
+    <string name="app_name">Jarvis</string>
     <string name="hud_title">J.A.R.V.I.S.</string>
     <string name="pair_heading">GERÄT KOPPELN</string>
     <string name="pair_hint">Am PC den Kopplungs-QR-Code öffnen und scannen. Der Code gilt 5 Minuten.</string>
