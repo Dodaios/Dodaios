@@ -12,4 +12,6 @@
     <string name="tab_inbox">NACHRICHTEN</string>
     <string name="tab_files">DATEIEN</string>
     <string name="tab_projects">PROJEKTE</string>
+    <string name="call">ANRUFEN</string>
+    <string name="hang_up">AUFLEGEN</string>
 </resources>

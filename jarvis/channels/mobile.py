@@ -27,6 +27,7 @@ from jarvis.core.bus import EventBus
 from jarvis.core.config import MobileGatewayConfig
 from jarvis.core.events import Event, ResponseGenerated
 from jarvis.mobile_gateway.app import access_log, create_app
+from jarvis.mobile_gateway.call import local_voice
 from jarvis.mobile_gateway.devices import Device, DeviceStore
 from jarvis.mobile_gateway.projects import ProjectReader
 from jarvis.mobile_gateway.ratelimit import RateLimiter
@@ -119,6 +120,7 @@ class MobileChannel:
             max_message_chars=self._cfg.max_message_chars,
             data=self._data,
             projects=ProjectReader(_missions_db()),
+            voice=local_voice(),
         )
         config = uvicorn.Config(
             app,

@@ -7,15 +7,17 @@ rate-limited per client address and written to the access log.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from .call import OpenUpstream, UpstreamUnavailable, relay
 from .devices import Device, DeviceStore
 from .projects import ProjectReader
 from .ratelimit import RateLimiter
@@ -61,6 +63,7 @@ def create_app(
     max_message_chars: int,
     data: DeviceData | None = None,
     projects: ProjectReader | None = None,
+    voice: OpenUpstream | None = None,
     server_name: str = "Dodaios",
 ) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -99,6 +102,36 @@ def create_app(
             raise HTTPException(status_code=401, detail="unauthorized")
         request.state.device_id = found.device_id
         return found
+
+    @app.websocket("/api/m/call")
+    async def call(ws: WebSocket) -> None:
+        client = ws.client.host if ws.client else "?"
+        scheme, _, credential = ws.headers.get("authorization", "").partition(" ")
+        found = store.authenticate(credential.strip()) if scheme.lower() == "bearer" else None
+        device_id = found.device_id if found is not None else "-"
+        if not limiter.allow(client) or found is None:
+            access_log.info("%s WS /api/m/call rejected device=%s", client, device_id)
+            await ws.close(code=4401)
+            return
+        await ws.accept()
+        begin = time.monotonic()
+        outcome = "ended"
+        try:
+            if voice is None:
+                raise UpstreamUnavailable("voice disabled")
+            async with voice() as upstream:
+                await relay(ws, upstream)
+        except Exception:  # noqa: BLE001 - any upstream failure ends the call cleanly
+            outcome = "failed"
+        with contextlib.suppress(Exception):
+            await ws.close(code=1000 if outcome == "ended" else 1011)
+        access_log.info(
+            "%s WS /api/m/call %s %.0fs device=%s",
+            client,
+            outcome,
+            time.monotonic() - begin,
+            device_id,
+        )
 
     @app.get("/api/m/health")
     async def health() -> dict[str, Any]:

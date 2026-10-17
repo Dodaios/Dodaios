@@ -342,3 +342,81 @@ async def test_api_projects(tmp_path: Path) -> None:
         auth = await _paired(store, client)
         body = (await client.get("/api/m/projects", headers=auth)).json()
         assert body["active"] == 1 and len(body["items"]) == 2
+
+
+class _FakeVoice:
+    """Stands in for the PC's /ws/audio: answers each frame and records it."""
+
+    def __init__(self) -> None:
+        self.received: list[str | bytes] = []
+        self._out: asyncio.Queue[str | bytes | None] = asyncio.Queue()
+
+    async def __aenter__(self) -> _FakeVoice:
+        await self._out.put(json.dumps({"type": "audio_ready"}))
+        return self
+
+    async def __aexit__(self, *_exc: object) -> None:
+        return None
+
+    async def send(self, message: str | bytes) -> None:
+        self.received.append(message)
+        if isinstance(message, bytes):
+            await self._out.put(b"\x01\x00" * 4)
+
+    def __aiter__(self) -> _FakeVoice:
+        return self
+
+    async def __anext__(self) -> str | bytes:
+        item = await self._out.get()
+        if item is None:
+            raise StopAsyncIteration
+        return item
+
+
+def test_api_call_relays_audio_both_ways(tmp_path: Path) -> None:
+    from starlette.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    store = DeviceStore(tmp_path)
+    fake = _FakeVoice()
+    app = create_app(
+        store=store,
+        limiter=RateLimiter(1000),
+        send_message=_echo,
+        max_message_chars=50,
+        voice=lambda: fake,
+    )
+    with TestClient(app) as client:
+        with pytest.raises(WebSocketDisconnect), client.websocket_connect("/api/m/call"):
+            pass
+        token = client.post(
+            "/api/m/pair", json={"code": store.issue_code(300), "device_name": "Pixel"}
+        ).json()["token"]
+        with client.websocket_connect(
+            "/api/m/call", headers={"Authorization": f"Bearer {token}"}
+        ) as ws:
+            assert json.loads(ws.receive_text()) == {"type": "audio_ready"}
+            ws.send_text(json.dumps({"type": "audio_start", "sample_rate": 16000}))
+            ws.send_bytes(b"\x00\x00" * 160)
+            assert ws.receive_bytes() == b"\x01\x00" * 4
+    assert fake.received[0] == json.dumps({"type": "audio_start", "sample_rate": 16000})
+    assert fake.received[1] == b"\x00\x00" * 160
+
+
+def test_api_call_without_voice_closes(tmp_path: Path) -> None:
+    from starlette.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    store = DeviceStore(tmp_path)
+    with TestClient(_app(store)) as client:
+        token = client.post(
+            "/api/m/pair", json={"code": store.issue_code(300), "device_name": "Pixel"}
+        ).json()["token"]
+        with (
+            client.websocket_connect(
+                "/api/m/call", headers={"Authorization": f"Bearer {token}"}
+            ) as ws,
+            pytest.raises(WebSocketDisconnect) as closed,
+        ):
+            ws.receive_text()
+        assert closed.value.code == 1011

@@ -14,6 +14,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -79,6 +81,11 @@ class GatewayClient(private val host: String, private val port: Int, fingerprint
     }
 
     fun projects(token: String): JSONArray = call(get("projects", token)).getJSONArray("items")
+
+    /** Opens a voice call to Jarvis; audio and events arrive on [listener]. */
+    fun call(token: String, listener: WebSocketListener): WebSocket =
+        http.newBuilder().readTimeout(0, TimeUnit.SECONDS).pingInterval(20, TimeUnit.SECONDS).build()
+            .newWebSocket(get("call", token), listener)
 
     fun files(token: String): JSONArray = call(get("files", token)).getJSONArray("items")
 

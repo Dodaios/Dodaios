@@ -105,6 +105,9 @@ class MainActivity : AppCompatActivity() {
             )
         }
         findViewById<Button>(R.id.pair).setOnClickListener { pair(payload.text.toString()) }
+        findViewById<View>(R.id.call).setOnClickListener {
+            if (pairing != null) startActivity(android.content.Intent(this, CallActivity::class.java))
+        }
         findViewById<View>(R.id.refresh).setOnClickListener {
             refreshStatus()
             load()
