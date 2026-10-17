@@ -372,12 +372,17 @@ def _resolve_wiki_vault_root(config: Any) -> Path:
     resolved to ``None`` and a user's ``[wiki_integration].vault_root``
     was silently ignored on the voice path.
     """
+    from jarvis.memory.wiki.external_sources import guard_write, register_from_config
     from jarvis.memory.wiki.vault_root import resolve_vault_root
 
+    register_from_config(config)
     raw = getattr(getattr(config, "wiki_integration", None), "vault_root", None)
     if raw is not None and str(raw).strip() == "":
         raw = None
-    return resolve_vault_root(raw).path
+    path = resolve_vault_root(raw).path
+    # The active vault is the one writer target; it must not be a source.
+    guard_write(path)
+    return path
 
 
 def _load_tools_for_tier(
@@ -1346,7 +1351,9 @@ def _phase2_full_brain(
                 # / wiki_routes. The hardcoded project path is the last-resort
                 # fallback only (see _resolve_wiki_vault_root).
                 vault_path = _resolve_wiki_vault_root(config)
-                search = VaultSearch(vault_path)
+                from jarvis.memory.wiki.external_sources import registered
+
+                search = VaultSearch(vault_path, external_sources=registered())
                 # Warm the lazy SQLite connection off the critical path
                 # (AP-26): the first per-turn search otherwise pays the
                 # open+schema check against its own latency budget.
@@ -1400,11 +1407,10 @@ def _phase2_full_brain(
 
 def _legacy_full_brain(bus: Any | None = None) -> Any:
     """Legacy BrainManager path (before tiered routing) — only via JARVIS_BRAIN=legacy."""
-    from jarvis.core.entry_points import entry_points
-
     from jarvis.brain.manager import BrainManager
     from jarvis.core import config as cfg
     from jarvis.core.bus import EventBus
+    from jarvis.core.entry_points import entry_points
     from jarvis.memory import (
         CORE_MEMORY_FILENAME,
         CoreMemory,

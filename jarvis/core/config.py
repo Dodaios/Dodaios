@@ -3160,6 +3160,9 @@ class WikiIntegrationConfig(BaseModel):
 
     enabled: bool = True
     vault_root: Path = Path("wiki/obsidian-vault")
+    # Read-only folders recall searches next to vault_root: path strings or
+    # { name, path } tables. Never written — see memory/wiki/external_sources.
+    external_sources: list[Any] = Field(default_factory=list)
     subscribe_idle: bool = True  # listen for IdleEntered
     fallback_to_direct_ingest: bool = True  # when scheduler is missing
 

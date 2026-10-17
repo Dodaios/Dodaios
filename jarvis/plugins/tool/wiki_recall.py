@@ -166,14 +166,17 @@ def _build_search_instance() -> VaultSearch:
     process CWD.  Falls back to the resolver's default vault location when
     the config field is absent, logging a single WARNING in that case.
     """
+    from jarvis.memory.wiki.external_sources import register_from_config
     from jarvis.memory.wiki.search import VaultSearch
     from jarvis.memory.wiki.vault_root import resolve_vault_root
 
     raw: str | Path | None = None
+    sources: tuple = ()
     try:
         from jarvis.core import config as cfg
 
         loaded = cfg.load_config()
+        sources = register_from_config(loaded)
         # Agent A defines wiki_integration.vault_root; it may not exist yet.
         wiki_cfg = getattr(loaded, "wiki_integration", None)
         if wiki_cfg is not None:
@@ -189,4 +192,4 @@ def _build_search_instance() -> VaultSearch:
             resolved,
         )
 
-    return VaultSearch(resolved)
+    return VaultSearch(resolved, external_sources=sources)

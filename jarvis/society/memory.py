@@ -148,8 +148,10 @@ def resolve_society_vault(cfg: Any) -> Path:
     without it here the agents' books followed whichever root was resolved
     last, so the learned notebook could land in a different vault than recall.
     """
+    from jarvis.memory.wiki.external_sources import guard_write, register_from_config
     from jarvis.memory.wiki.vault_root import last_resolution, resolve_vault_root
 
+    register_from_config(cfg)
     raw = None
     for holder in (
         getattr(cfg, "wiki_integration", None),
@@ -160,11 +162,13 @@ def resolve_society_vault(cfg: Any) -> Path:
         if raw:
             break
     if raw:
-        return resolve_vault_root(raw).path
-    known = last_resolution()
-    if known is not None:
-        return known.path
-    return resolve_vault_root(None).path
+        path = resolve_vault_root(raw).path
+    else:
+        known = last_resolution()
+        path = known.path if known is not None else resolve_vault_root(None).path
+    # The agents' books are writes: never into a read-only external source.
+    guard_write(path)
+    return path
 
 
 def _parse(raw: str) -> tuple[dict[str, str], str]:

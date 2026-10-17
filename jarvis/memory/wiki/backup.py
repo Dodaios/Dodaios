@@ -119,6 +119,10 @@ class BackupManager:
                 f"vault root does not exist or is not a directory: {self._vault_root}"
             )
 
+        from .external_sources import guard_write
+
+        guard_write(self._vault_root)
+        guard_write(self._backup_dir)
         self._backup_dir.mkdir(parents=True, exist_ok=True)
         ts = (now or _dt.datetime.now()).strftime(BACKUP_TS_FORMAT)
         target = self._backup_dir / f"wiki-{ts}.tar.gz"

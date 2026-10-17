@@ -35,8 +35,17 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+from .external_sources import (
+    CANONICAL_SOURCE,
+    SOURCE_TYPE_CANONICAL,
+    SOURCE_TYPE_EXTERNAL,
+    ExternalSource,
+    index_db_path,
+)
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +91,12 @@ class SearchHit:
         the match occurred.  Gives frontmatter-only hits something to show;
         ``snippet`` keeps its legacy "empty unless the body matched"
         contract.
+    source:
+        Which vault the page came from: ``"dodaios"`` for the active vault,
+        the configured name for a read-only external source.
+    source_type:
+        ``"canonical"`` (active vault, writable) or ``"external"``
+        (read-only source, see :mod:`jarvis.memory.wiki.external_sources`).
     """
 
     title: str
@@ -90,6 +105,8 @@ class SearchHit:
     score: float
     frontmatter: str = ""
     preview: str = ""
+    source: str = CANONICAL_SOURCE
+    source_type: str = SOURCE_TYPE_CANONICAL
 
 
 class VaultSearch:
@@ -110,6 +127,11 @@ class VaultSearch:
         ``data/jarvis.db`` and owned by this instance.
     db_path:
         Override the default DB path.  Ignored when ``conn`` is provided.
+    external_sources:
+        Read-only sources searched next to the vault. Opt-in per instance:
+        only recall paths pass them, never a consumer that writes back what
+        it found. Each source has its own index under ``data/``, rebuilt
+        once per instance on first search; the source itself is only read.
     """
 
     def __init__(
@@ -118,11 +140,14 @@ class VaultSearch:
         *,
         conn: sqlite3.Connection | None = None,
         db_path: Path | None = None,
+        external_sources: Sequence[ExternalSource] = (),
     ) -> None:
         self._root = vault_root
         self._conn: sqlite3.Connection | None = conn
         self._owns_conn: bool = conn is None
         self._db_path: Path | None = db_path
+        self._external = tuple(external_sources)
+        self._external_conns: dict[str, sqlite3.Connection] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -162,14 +187,21 @@ class VaultSearch:
             return []
 
         try:
-            return self._run_query(conn, match_expr, k)
+            hits = self._run_query(conn, match_expr, k)
         except sqlite3.OperationalError as exc:
             # Table may not exist yet (index not built) — degrade gracefully.
             log.debug("VaultSearch: FTS query failed (%s) — returning []", exc)
-            return []
+            hits = []
         except Exception as exc:  # noqa: BLE001
             log.warning("VaultSearch: unexpected error during search: %s", exc)
-            return []
+            hits = []
+        if not self._external:
+            return hits
+        for source in self._external:
+            hits.extend(self._search_external(source, match_expr, k))
+        # Stable sort: on equal score the active vault keeps its place first.
+        hits.sort(key=lambda hit: hit.score, reverse=True)
+        return hits[:k]
 
     def warm_up(self) -> None:
         """Open the connection and run one throwaway FTS query.
@@ -201,6 +233,12 @@ class VaultSearch:
             except Exception:  # noqa: BLE001
                 pass
             self._conn = None
+        for ext_conn in self._external_conns.values():
+            try:
+                ext_conn.close()
+            except Exception as exc:  # noqa: BLE001
+                log.debug("VaultSearch: closing external index failed: %s", exc)
+        self._external_conns.clear()
 
     # ------------------------------------------------------------------
     # Internals
@@ -221,9 +259,46 @@ class VaultSearch:
             log.debug("VaultSearch: fts_index not available — schema not ensured")
         return self._conn
 
-    def _run_query(
-        self, conn: sqlite3.Connection, match_expr: str, k: int
+    def _search_external(
+        self, source: ExternalSource, match_expr: str, k: int
     ) -> list[SearchHit]:
+        """Hits from one read-only source; any failure only drops its hits."""
+        try:
+            conn = self._external_conns.get(source.name)
+            if conn is None:
+                import jarvis.memory.wiki.fts_index as _fts
+
+                db_path = index_db_path(source)
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                conn = sqlite3.connect(str(db_path), check_same_thread=False)
+                if source.path.is_dir():
+                    _fts.rebuild_index(source.path, conn)
+                else:
+                    _fts.ensure_schema(conn)
+                self._external_conns[source.name] = conn
+            return self._run_query(
+                conn,
+                match_expr,
+                k,
+                root=source.path,
+                source=source.name,
+                source_type=SOURCE_TYPE_EXTERNAL,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("VaultSearch: external source %r skipped: %s", source.name, exc)
+            return []
+
+    def _run_query(
+        self,
+        conn: sqlite3.Connection,
+        match_expr: str,
+        k: int,
+        *,
+        root: Path | None = None,
+        source: str = CANONICAL_SOURCE,
+        source_type: str = SOURCE_TYPE_CANONICAL,
+    ) -> list[SearchHit]:
+        root = self._root if root is None else root
         # BM25 weights are positional over EVERY column, including the
         # UNINDEXED ones. ``wiki_fts`` is
         # ``(path UNINDEXED, title, frontmatter, body, mtime UNINDEXED)`` —
@@ -256,7 +331,7 @@ class VaultSearch:
         hits: list[SearchHit] = []
         for row in cursor:
             rel_path_str, title, body, bm25_raw, frontmatter = row
-            abs_path = self._root / rel_path_str
+            abs_path = root / rel_path_str
             score = _normalise_bm25(bm25_raw)
             # The excerpt is built from the body lines that carry query terms,
             # so it is empty for a frontmatter-only match (legacy contract).
@@ -269,13 +344,15 @@ class VaultSearch:
                     score=round(score, 4),
                     frontmatter=frontmatter or "",
                     preview=_leading_text(body),
+                    source=source,
+                    source_type=source_type,
                 )
             )
         log.debug(
             "VaultSearch: %d hits for match=%r, vault=%s",
             len(hits),
             match_expr,
-            self._root,
+            root,
         )
         return hits
 

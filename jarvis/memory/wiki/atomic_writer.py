@@ -55,6 +55,7 @@ from .backup import (
     BackupError,
     BackupManager,
 )
+from .external_sources import guard_write
 from .protocols import PageRepository, PageUpdate, WriteResult
 from .secret_guard import find_secrets
 from .telemetry import telemetry
@@ -209,6 +210,15 @@ class AtomicWriter:
                     f"unknown PageUpdate.operation: {upd.operation!r} "
                     f"(allowed: {sorted(ALLOWED_OPERATIONS)})"
                 )
+
+        # ----- Step 0: read-only external sources ------------------------
+        # Before the snapshot: a denied batch must not even leave a backup.
+        guard_write(self._vault_root)
+        guard_write(self._backup_dir)
+        for upd in updates:
+            guard_write(upd.target_path)
+            if upd.rename_from is not None:
+                guard_write(upd.rename_from)
 
         # ----- Step 1: 30s concurrent-edit lock --------------------------
         pending: list[_PendingWrite] = []
@@ -724,6 +734,9 @@ class AtomicWriter:
             return
 
         # create / update / rename all write the new body to the target.
+        guard_write(pend.target_path)
+        if pend.rename_from_path is not None:
+            guard_write(pend.rename_from_path)
         pend.target_path.parent.mkdir(parents=True, exist_ok=True)
         self._write_text_atomic(pend.target_path, pend.update.new_body)
 
@@ -744,6 +757,7 @@ class AtomicWriter:
     def _do_archive(self, pend: _PendingWrite) -> None:
         """Move the target into the ``_archive`` directory."""
         source = pend.target_path
+        guard_write(source)
         if not source.exists():
             # Nothing to archive — silently no-op so the call stays
             # idempotent.
@@ -756,6 +770,7 @@ class AtomicWriter:
 
     def _write_text_atomic(self, target: Path, content: str) -> None:
         """Tempfile + fsync + os.replace, mirroring self_mod/writer.py."""
+        guard_write(target)
         parent = target.parent
         fd, tmp_name = tempfile.mkstemp(
             suffix=".tmp",
