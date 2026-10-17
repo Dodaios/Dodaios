@@ -71,6 +71,8 @@ _NOISE_VALUES: frozenset[str] = frozenset({
     # not a name).
     "só", "apenas", "mais", "depois", "agora", "já", "logo", "por",  # i18n-allow
     "favor", "tu", "você", "voce",  # i18n-allow
+    # Arabic copula and negations: "اسمي مش ..." names nothing.
+    "هو", "ليس", "مش", "مو",  # i18n-allow
 })
 
 # Spoken language name -> the code USER.md stores in identity.primary_language
@@ -93,6 +95,11 @@ _LANGUAGE_CODES: dict[str, str] = {
     "espanhol": "es", "francês": "fr", "frances": "fr", "italiano": "it",  # i18n-allow
     "neerlandês": "nl", "holandês": "nl", "polaco": "pl", "turco": "tr",  # i18n-allow
     "russo": "ru",  # i18n-allow
+    # Arabic, and the other languages' names as an Arabic speaker says them.
+    "arabisch": "ar", "arabic": "ar", "árabe": "ar",  # i18n-allow
+    "العربية": "ar", "عربي": "ar", "بالعربية": "ar", "بالعربي": "ar",  # i18n-allow
+    "الإنجليزية": "en", "الانجليزية": "en", "انجليزي": "en", "بالانجليزي": "en",  # i18n-allow
+    "الألمانية": "de", "ألماني": "de", "الماني": "de", "بالألماني": "de",  # i18n-allow
 }
 
 _LANG_ALTERNATION = "|".join(sorted(map(re.escape, _LANGUAGE_CODES), key=len, reverse=True))
@@ -130,7 +137,7 @@ def _usable_scalar(raw: str, *, limit: int = _MAX_VALUE_CHARS) -> str | None:
     value = _clean(raw)
     if not value or len(value) > limit:
         return None
-    if "?" in value:
+    if "?" in value or "\u061f" in value:  # the Arabic question mark too
         return None
     if value.casefold() in _NOISE_VALUES:
         return None
@@ -183,6 +190,7 @@ _NAME_PATTERNS = (
     _p(r"\bi'?m called\s+(.+)"),
     _p(r"\bchamo-me\s+(.+)"),  # i18n-allow
     _p(r"\b(?:o\s+)?meu nome [ée]\s+(.+)"),  # i18n-allow
+    _p(r"(?:^|\s)(?:أنا\s+)?اسمي\s+(?:هو\s+)?(.+)"),  # i18n-allow
 )
 
 _ADDRESS_PATTERNS = (
@@ -227,6 +235,11 @@ _PRIMARY_LANGUAGE_PATTERNS = (
     _p(rf"\bfala\s+(?:em\s+)?({_LANG_ALTERNATION})\s+comigo\b"),  # i18n-allow
     _p(rf"\bfala\s+comigo\s+em\s+({_LANG_ALTERNATION})\b"),  # i18n-allow
     _p(rf"\bvamos falar\s+(?:em\s+)?({_LANG_ALTERNATION})\b"),  # i18n-allow
+    _p(rf"(?:^|\s)لغتي\s+(?:هي\s+)?({_LANG_ALTERNATION})\b"),  # i18n-allow
+    _p(
+        r"(?:^|\s)(?:بتحكي|تحكي|احكي|تكلم|اتكلم|كلمني)\s+(?:معي\s+)?"  # i18n-allow
+        rf"({_LANG_ALTERNATION})\b"
+    ),
 )
 
 # --- communication ----------------------------------------------------

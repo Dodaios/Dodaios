@@ -7,16 +7,23 @@ import re
 from typing import Any
 
 _REMEMBER = re.compile(
-    r"^\s*(?:(?:please|bitte|por favor)[, ]+)?"  # i18n-allow: input vocabulary
+    r"^\s*(?:(?:please|bitte|por favor|من فضلك|لو سمحت|الله يخليك)[,، ]+)?"  # i18n-allow
     r"(?:(?:can|could) you (?:please )?)?"
     r"(?:remember|(?:merk|merke)\s+dir(?:\s+bitte)?|"  # i18n-allow
     r"(?:speichere|speicher)\s+(?:dir\s+)?(?:bitte\s+)?|recuerda(?:\s+que)?|"  # i18n-allow
-    r"lembra-te(?:\s+de)?(?:\s+que)?|memoriza(?:\s+que)?)"  # i18n-allow: input vocabulary
-    r"[\s,:]+(?P<content>.+?)\s*$",
+    r"lembra-te(?:\s+de)?(?:\s+que)?|memoriza(?:\s+que)?|"  # i18n-allow: input vocabulary
+    # Arabic, standard and Levantine; the "that" particle is part of the verb.
+    r"(?:(?:بدي\s*(?:ياك|اياك)|بديك|أريدك\s+أن|اريدك\s+ان)\s+)?"  # i18n-allow
+    r"(?:(?:تذكّ?ر|تتذكّ?ر|اتذكّ?ر|افتكر|اتفكر|خليك\s+متذكر)"  # i18n-allow
+    r"(?:\s+(?:أن|إن|ان|أنه|إنه|انه|انو|إنو))?"  # i18n-allow
+    # "Save" also means saving a file: only "save THAT ..." is a memory request.
+    r"|(?:احفظ|إحفظ)\s+(?:أن|إن|ان|أنه|إنه|انه|انو|إنو)))"  # i18n-allow
+    r"[\s,،:]+(?P<content>.+?)\s*$",
     re.IGNORECASE | re.DOTALL,
 )
 _REFERENCE_ONLY = re.compile(
-    r"^(?:this|that|it|das|dies|dieses|es|esto|eso|isto|isso|disto|disso)"  # i18n-allow
+    r"^(?:this|that|it|das|dies|dieses|es|esto|eso|isto|isso|disto|disso"  # i18n-allow
+    r"|هذا|هذه|هاد|هاي|هيك|ذلك|هالشي)"  # i18n-allow
     r"(?:\s+(?:please|bitte|por favor))?[.!]*$",  # i18n-allow
     re.IGNORECASE,
 )
@@ -39,7 +46,7 @@ _NEGATED = re.compile(
     re.IGNORECASE,
 )
 #: One spoken or typed sentence: the request may sit anywhere in a longer turn.
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+_SENTENCE_END = re.compile(r"(?<=[.!?\u061f])\s+")
 
 
 def _request_in(sentence: str) -> str | None:

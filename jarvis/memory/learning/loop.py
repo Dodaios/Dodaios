@@ -562,12 +562,15 @@ def start_learning(config: Any, bus: Any) -> JarvisLearningLoop | None:
 
     _connect_write_feedback(bus)
     cfg = config.memory.learning
-    if not cfg.enabled:
-        notebook_module.set_active(None)
-        return None
     if _loop is not None:
         return _loop
+    # Reading what is already written never depends on the reviewer: the
+    # notebook goes active first, so a disabled or failing loop still leaves
+    # the learned files in every prompt.
     book = notebook_module.notebook_from_config(config)
+    notebook_module.set_active(book)
+    if not cfg.enabled:
+        return None
     _loop = JarvisLearningLoop(
         book,
         ModelReviewer(config),
@@ -582,7 +585,6 @@ def start_learning(config: Any, bus: Any) -> JarvisLearningLoop | None:
         ),
     )
     _loop.start(bus)
-    notebook_module.set_active(book)
     return _loop
 
 

@@ -68,6 +68,15 @@ POSITIVE: tuple[tuple[str, str, str, object], ...] = (
     ("Sê breve.", "communication", "verbosity", "short"),  # i18n-allow
     ("Trata-me por tu.", "communication", "formality", "casual"),  # i18n-allow
     ("Odeio quando as pessoas são vagas.", "values", "pet_peeves", None),  # i18n-allow
+    # Arabic
+    ("اسمي أحمد", "identity", "name", "أحمد"),  # i18n-allow
+    ("أنا اسمي أحمد", "identity", "name", "أحمد"),  # i18n-allow
+    ("اسمي هو Ruben", "identity", "name", "Ruben"),  # i18n-allow
+    ("لغتي العربية", "identity", "primary_language", "ar"),  # i18n-allow
+    ("بتحكي معي عربي", "identity", "primary_language", "ar"),  # i18n-allow
+    ("كلمني بالانجليزي", "identity", "primary_language", "en"),  # i18n-allow
+    ("Sprich bitte Arabisch mit mir.", "identity", "primary_language", "ar"),  # i18n-allow
+    ("Let's speak Arabic.", "identity", "primary_language", "ar"),
 )
 
 
@@ -118,6 +127,12 @@ NEGATIVE: tuple[str, ...] = (
     "Chama-me mais tarde.",  # i18n-allow
     "Abre o navegador.",  # i18n-allow
     "Qual é o meu fuso horário?",  # i18n-allow
+    "ما اسمي؟",  # i18n-allow
+    "اسمي مش أحمد",  # i18n-allow
+    "شو اسمك؟",  # i18n-allow
+    "أخي اسمه أحمد",  # i18n-allow
+    "هذا الكتاب عربي قديم",  # i18n-allow
+    "ترجم هذا النص إلى العربية",  # i18n-allow
 )
 
 
@@ -272,3 +287,30 @@ def test_one_unwritable_fact_does_not_lose_the_others(tmp_path: Path) -> None:
 
     assert [(f.cluster, f.field) for f in written] == [("identity", "name")]
     assert UserProfile.load(tmp_path / "USER.md").meta["identity"]["name"] == "Ruben"
+
+
+def test_one_name_in_two_languages_stays_one_identity_fact(tmp_path: Path) -> None:
+    profile = _profile(tmp_path)
+    asyncio.run(capture_from_utterance(profile, "My name is Ahmad."))
+    asyncio.run(capture_from_utterance(profile, "Ich heiße Ahmad."))
+    asyncio.run(capture_from_utterance(profile, "اسمي Ahmad"))  # i18n-allow
+
+    text = (tmp_path / "USER.md").read_text(encoding="utf-8")
+    assert UserProfile.load(tmp_path / "USER.md").name == "Ahmad"
+    assert text.count("name: Ahmad") == 1
+
+
+def test_capturing_a_name_writes_only_the_workspace_profile(tmp_path: Path) -> None:
+    # The assistant's own notebook (society USER.md) is a separate book the
+    # reviewer keeps; profile capture must never mirror into it.
+    from jarvis.memory.learning.notebook import JarvisNotebook
+
+    book = JarvisNotebook(tmp_path / "vault", budgets={"user": 600, "memory": 600})
+    book.paths()
+    before = {p.name: p.read_text(encoding="utf-8") for p in book.folder.glob("*.md")}
+
+    asyncio.run(capture_from_utterance(_profile(tmp_path), "My name is Ahmad."))
+
+    after = {p.name: p.read_text(encoding="utf-8") for p in book.folder.glob("*.md")}
+    assert after == before
+    assert book.entries()["user"] == []

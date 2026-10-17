@@ -6,7 +6,8 @@ user talks about themselves, states a preference, corrects the assistant, or
 names a plan or goal is ever shown to the reviewer. Missing an odd phrasing
 is acceptable; paying for every turn is not.
 
-The patterns cover the shipped input languages (English, German, Spanish).
+The patterns cover the shipped input languages (English, German, Spanish,
+Portuguese, Arabic).
 """
 
 from __future__ import annotations
@@ -53,6 +54,12 @@ _SIGNALS: Final[tuple[re.Pattern[str], ...]] = tuple(
         r"\b(?:eu sou|chamo-me|trabalho (?:em|na|no|como|numa|num)|vivo em|moro em"  # i18n-allow
         r"|tenho (?:um|uma|dois|duas))\b",  # i18n-allow
         rf"\b(?:meu|minha|meus|minhas) (?:{_PEOPLE_AND_THINGS_PT})\b",  # i18n-allow
+        # Arabic: self-statements, possessives, standing wishes, corrections.
+        r"(?:^|\s)(?:أنا|انا|اسمي|لغتي|عندي|بشتغل|أعمل|اعمل|أسكن|اسكن|ساكن"  # i18n-allow
+        r"|تذكر|تذكّر|افتكر|احفظ|من الآن|من هلق|دائما|دائماً|أبدا|أبداً"  # i18n-allow
+        r"|بحب|أحب|احب|بكره|أكره|اكره|أفضل|افضل|غلط|نسيت|قلتلك|قلت لك"  # i18n-allow
+        r"|مشروعي|شغلي|عملي|زوجتي|زوجي|ابني|بنتي|أمي|امي|أبوي|ابي"  # i18n-allow
+        r"|أخي|اخي|أختي|اختي)(?:\s|$)",  # i18n-allow
         # Preferences and standing wishes.
         r"\bi (?:prefer|like|love|hate|don't like|do not like|can't stand|want you to)\b",
         r"\b(?:call me|please always|please never|from now on|remember)\b",
