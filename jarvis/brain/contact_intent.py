@@ -124,9 +124,11 @@ _MEMORY_VERB_RE = re.compile(
     r"\b("
     r"merk(e|t)?\s+(es\s+)?dir"  # merk dir / merke dir / merk es dir
     r"|notier\w*\s+dir"  # notier dir / notiere dir
-    r"|behalt\w*"  # behalte (im Hinterkopf/Kopf)
-    r"|halt\w*\b[^?]{0,30}\bfest\b"  # halt … fest
-    r"|schreib\w*\b[^?]{0,30}\bauf\b"  # schreib … auf
+    r"|behalt\w*\b[^?]{0,20}\b(im\s+(hinter)?kopf|in\s+erinnerung)\b"  # behalte im Hinterkopf
+    # The separable particle must close the clause, so "schreib das auf
+    # Englisch" (a translation) is not read as "write it down".
+    r"|halt\w*\b[^?]{0,30}\bfest\b(?=\s*(?:$|[,.:;!]|dass\b))"  # halt … fest
+    r"|schreib\w*\b[^?]{0,30}\bauf\b(?=\s*(?:$|[,.:;!]|dass\b))"  # schreib … auf
     r"|vermerk\w*"  # vermerke
     r"|remember\s+(that|this|to)|note\s+(that|down)|keep\s+in\s+mind"
     r"|recuerda\w*|apunta\w*|anota\w*"  # ES recordar/apuntar/anotar

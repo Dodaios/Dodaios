@@ -109,6 +109,24 @@ def test_memory_save_intent_needs_a_remember_cue_and_substance():
     assert detect_memory_save_intent("Merk.") is False  # no real content
 
 
+def test_memory_save_intent_ignores_translation_requests():
+    # "schreib … auf Englisch" is a translation, not "write it down".
+    for text in (
+        "Schreib mir das auf Englisch",  # i18n-allow
+        "Schreib den Satz auf Türkisch: Ich liebe dich",  # i18n-allow
+        "Übersetze: ich behalte das Auto",  # i18n-allow
+        "Halte dich an den Text fest und übersetze",  # i18n-allow
+    ):
+        assert detect_memory_save_intent(text) is False, text
+    # The real separable-verb cues still fire.
+    for text in (
+        "Schreib dir auf, dass ich morgen Zahnarzt habe",  # i18n-allow
+        "Schreib dir das auf: mein Auto ist blau",  # i18n-allow
+        "Halte fest, dass Lisa Katzen mag",  # i18n-allow
+    ):
+        assert detect_memory_save_intent(text) is True, text
+
+
 # --- routing: contact data vs general fact -----------------------------------
 
 
