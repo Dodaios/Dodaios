@@ -402,7 +402,7 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # empty means "the plugin discovers the first installed model".
         "ollama": "",
         "local-openai": "",
-        "chatgpt-web": "chatgpt-web/medium",
+        "chatgpt-web": "chatgpt-web/instant",
         # The plan's own catalog decides: empty = the first model it lists.
         "chatgpt-plan": "",
     },
@@ -430,7 +430,7 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # Local providers: empty = plugin-side discovery (see router tier).
         "ollama": "",
         "local-openai": "",
-        "chatgpt-web": "chatgpt-web/medium",
+        "chatgpt-web": "chatgpt-web/instant",
         # The plan's own catalog decides: empty = the first model it lists.
         "chatgpt-plan": "",
     },

@@ -43,7 +43,7 @@ from .chatgpt_web_bridge import (
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "chatgpt-web/medium"
+DEFAULT_MODEL = "chatgpt-web/instant"
 CLIENT_TIMEOUT = httpx.Timeout(connect=3.0, read=300.0, write=30.0, pool=10.0)
 _UNSAFE_ID_CHARS = re.compile(r"[^A-Za-z0-9_.:-]")
 # Every turn is typed into the ChatGPT web composer, so prompt size is answer
