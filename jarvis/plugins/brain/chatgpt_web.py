@@ -46,6 +46,12 @@ log = logging.getLogger(__name__)
 DEFAULT_MODEL = "chatgpt-web/medium"
 CLIENT_TIMEOUT = httpx.Timeout(connect=3.0, read=300.0, write=30.0, pool=10.0)
 _UNSAFE_ID_CHARS = re.compile(r"[^A-Za-z0-9_.:-]")
+# Every turn is typed into the ChatGPT web composer, so prompt size is answer
+# latency. The full Jarvis prompt (~59k characters) is mostly tool guidance
+# this text-only brain cannot use: keep the persona head and recent turns.
+MAX_SYSTEM_CHARS = 8_000
+MAX_HISTORY_MESSAGES = 12
+MAX_MESSAGE_CHARS = 4_000
 
 
 def conversation_id(session_id: str | None) -> str:
@@ -119,17 +125,23 @@ def _text_of(msg: BrainMessage) -> str:
     return "\n".join(parts)
 
 
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[:limit].rstrip() + "\n[…]"
+
+
 def _input_items(req: BrainRequest) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     if req.system:
-        items.append({"type": "message", "role": "system", "content": req.system})
-    for msg in req.messages:
+        items.append(
+            {"type": "message", "role": "system", "content": _clip(req.system, MAX_SYSTEM_CHARS)}
+        )
+    for msg in req.messages[-MAX_HISTORY_MESSAGES:]:
         if msg.role == "tool":
             # No tools on this bridge; a stale tool result is context text.
-            note = f"[tool result]\n{_text_of(msg)}"
+            note = f"[tool result]\n{_clip(_text_of(msg), MAX_MESSAGE_CHARS)}"
             items.append({"type": "message", "role": "user", "content": note})
             continue
-        text = _text_of(msg)
+        text = _clip(_text_of(msg), MAX_MESSAGE_CHARS)
         if text:
             items.append({"type": "message", "role": msg.role, "content": text})
     return items
