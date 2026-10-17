@@ -420,3 +420,63 @@ def test_api_call_without_voice_closes(tmp_path: Path) -> None:
         ):
             ws.receive_text()
         assert closed.value.code == 1011
+
+
+def test_ring_board_delivers_waits_and_expires() -> None:
+    from jarvis.mobile_gateway.ring import RingBoard
+
+    async def scenario() -> None:
+        board = RingBoard()
+        assert await board.wait("d1", 0.01) is None
+        waiter = asyncio.create_task(board.wait("d1", 5.0))
+        await asyncio.sleep(0)
+        board.ring("d1", "Frage?")
+        got = await waiter
+        assert got is not None and got.text == "Frage?"
+        assert board.take("d1") is None
+        stale = RingBoard(ttl_s=-1.0)
+        stale.ring("d1", "alt")
+        assert stale.take("d1") is None
+
+    asyncio.run(scenario())
+
+
+def test_api_ring_returns_pending_ring(tmp_path: Path) -> None:
+    from jarvis.mobile_gateway.ring import RingBoard
+
+    async def scenario() -> None:
+        store = DeviceStore(tmp_path)
+        board = RingBoard()
+        app = create_app(
+            store=store,
+            limiter=RateLimiter(1000),
+            send_message=_echo,
+            max_message_chars=50,
+            rings=board,
+        )
+        async with _client(app) as client:
+            assert (await client.get("/api/m/ring")).status_code == 401
+            paired = await client.post(
+                "/api/m/pair", json={"code": store.issue_code(300), "device_name": "Pixel"}
+            )
+            auth = {"Authorization": f"Bearer {paired.json()['token']}"}
+            assert (await client.get("/api/m/ring?wait=0", headers=auth)).json() == {"ring": None}
+            board.ring(store.devices()[0].device_id, "Jarvis fragt")
+            ring = (await client.get("/api/m/ring?wait=0", headers=auth)).json()["ring"]
+            assert ring["text"] == "Jarvis fragt"
+
+    asyncio.run(scenario())
+
+
+def test_approval_request_rings_paired_phones(tmp_path: Path) -> None:
+    from jarvis.core.events import ActionApprovalRequired
+
+    async def scenario() -> None:
+        channel = MobileChannel(EventBus(), MobileGatewayConfig(data_dir=str(tmp_path)))
+        pairing = channel.store.pair(channel.store.issue_code(300), "Pixel")
+        assert pairing is not None
+        await channel._on_bus_event(ActionApprovalRequired(tool_name="send_mail"))
+        ring = channel.rings.take(pairing.device_id)
+        assert ring is not None and "send_mail" in ring.text
+
+    asyncio.run(scenario())

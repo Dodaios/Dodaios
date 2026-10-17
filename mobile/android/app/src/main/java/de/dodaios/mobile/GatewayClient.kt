@@ -87,6 +87,10 @@ class GatewayClient(private val host: String, private val port: Int, fingerprint
         http.newBuilder().readTimeout(0, TimeUnit.SECONDS).pingInterval(20, TimeUnit.SECONDS).build()
             .newWebSocket(get("call", token), listener)
 
+    /** Waits up to [waitSeconds] for Jarvis to ring this phone; the ring or null. */
+    fun ring(token: String, waitSeconds: Int = 25): JSONObject? =
+        call(get("ring?wait=$waitSeconds", token)).optJSONObject("ring")
+
     fun files(token: String): JSONArray = call(get("files", token)).getJSONArray("items")
 
     fun upload(token: String, name: String, data: ByteArray): JSONObject {

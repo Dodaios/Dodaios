@@ -14,4 +14,10 @@
     <string name="tab_projects">PROJEKTE</string>
     <string name="call">ANRUFEN</string>
     <string name="hang_up">AUFLEGEN</string>
+    <string name="accept">ANNEHMEN</string>
+    <string name="decline">ABLEHNEN</string>
+    <string name="incoming">JARVIS RUFT AN</string>
+    <string name="ring_channel">Anrufe von Jarvis</string>
+    <string name="watch_channel">Erreichbarkeit</string>
+    <string name="watch_text">Jarvis kann dich anrufen.</string>
 </resources>

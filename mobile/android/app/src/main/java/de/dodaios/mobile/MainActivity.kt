@@ -67,6 +67,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val notify = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { upload(it) }
     }
@@ -148,6 +150,12 @@ class MainActivity : AppCompatActivity() {
     private fun showMain() {
         pairPanel.visibility = View.GONE
         mainPanel.visibility = View.VISIBLE
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        RingService.start(this)
         select(tab)
     }
 
@@ -237,6 +245,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Am PC lässt sich das Gerät zusätzlich mit 'revoke' widerrufen.")
             .setPositiveButton("Entkoppeln") { _, _ ->
                 store.clear()
+                RingService.stop(this)
                 pairing = null
                 showPairing("Entkoppelt.")
             }

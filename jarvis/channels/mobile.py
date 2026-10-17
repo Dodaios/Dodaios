@@ -25,12 +25,13 @@ from jarvis.channels.base import ChannelMessage, ChannelSession
 from jarvis.channels.manager import ChannelContext, ChannelStartError
 from jarvis.core.bus import EventBus
 from jarvis.core.config import MobileGatewayConfig
-from jarvis.core.events import Event, ResponseGenerated
+from jarvis.core.events import ActionApprovalRequired, Event, ResponseGenerated
 from jarvis.mobile_gateway.app import access_log, create_app
 from jarvis.mobile_gateway.call import local_voice
 from jarvis.mobile_gateway.devices import Device, DeviceStore
 from jarvis.mobile_gateway.projects import ProjectReader
 from jarvis.mobile_gateway.ratelimit import RateLimiter
+from jarvis.mobile_gateway.ring import RingBoard
 from jarvis.mobile_gateway.store import DeviceData
 from jarvis.mobile_gateway.tls import ensure_certificate
 
@@ -70,6 +71,7 @@ class MobileChannel:
         self._data_dir = Path(self._cfg.data_dir)
         self._store = DeviceStore(self._data_dir)
         self._data = DeviceData(self._data_dir)
+        self._rings = RingBoard()
         self._inbox: asyncio.Queue[ChannelMessage] = asyncio.Queue()
         self._waiting: dict[UUID, asyncio.Future[str]] = {}
         self._sessions: dict[str, ChannelSession] = {}
@@ -121,6 +123,7 @@ class MobileChannel:
             data=self._data,
             projects=ProjectReader(_missions_db()),
             voice=local_voice(),
+            rings=self._rings,
         )
         config = uvicorn.Config(
             app,
@@ -225,7 +228,25 @@ class MobileChannel:
     # Outbound
     # ------------------------------------------------------------------
 
+    @property
+    def rings(self) -> RingBoard:
+        return self._rings
+
+    def ring_all(self, text: str) -> int:
+        """Ring every paired phone and leave ``text`` in its inbox; returns how many."""
+        count = 0
+        for dev in self._store.devices():
+            if dev.revoked:
+                continue
+            self._rings.ring(dev.device_id, text)
+            self._data.push_inbox(dev.device_id, text)
+            count += 1
+        return count
+
     async def _on_bus_event(self, event: Event) -> None:
+        if isinstance(event, ActionApprovalRequired):
+            self.ring_all(f"Jarvis braucht deine Freigabe: {event.tool_name or 'Aktion'}")
+            return
         if not isinstance(event, ResponseGenerated):
             return
         future = self._waiting.get(getattr(event, "trace_id", None))  # type: ignore[arg-type]

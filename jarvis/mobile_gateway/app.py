@@ -21,6 +21,7 @@ from .call import OpenUpstream, UpstreamUnavailable, relay
 from .devices import Device, DeviceStore
 from .projects import ProjectReader
 from .ratelimit import RateLimiter
+from .ring import RingBoard
 from .store import FILE_DIRS, MAX_TASK_CHARS, DeviceData
 
 access_log = logging.getLogger("jarvis.mobile_gateway.access")
@@ -64,6 +65,7 @@ def create_app(
     data: DeviceData | None = None,
     projects: ProjectReader | None = None,
     voice: OpenUpstream | None = None,
+    rings: RingBoard | None = None,
     server_name: str = "Dodaios",
 ) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -186,6 +188,16 @@ def create_app(
         dev: Device = Depends(device),  # noqa: B008
     ) -> dict[str, Any]:
         return {"items": files_data.history(dev.device_id, max(1, limit))}
+
+    @app.get("/api/m/ring")
+    async def ring(
+        wait: float = 25.0,
+        dev: Device = Depends(device),  # noqa: B008
+    ) -> dict[str, Any]:
+        found = (
+            None if rings is None else await rings.wait(dev.device_id, min(max(wait, 0.0), 50.0))
+        )
+        return {"ring": None if found is None else found.to_payload()}
 
     @app.get("/api/m/inbox")
     async def inbox(
