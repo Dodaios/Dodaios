@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 227,
+  "count": 228,
   "forks": 82,
-  "placed": 46,
-  "stated": 58,
-  "generatedAt": "2026-10-17T06:27:20.768Z",
+  "placed": 47,
+  "stated": 59,
+  "generatedAt": "2026-10-17T06:47:38.402Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -102,6 +102,13 @@
       "lon": -87.752,
       "label": "Chicago",
       "country": "United States",
+      "count": 1
+    },
+    {
+      "lat": 55.967,
+      "lon": 9.018,
+      "label": "Denmark",
+      "country": "Denmark",
       "count": 1
     },
     {
