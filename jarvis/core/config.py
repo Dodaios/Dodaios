@@ -1597,6 +1597,11 @@ class BrainConfig(BaseModel):
     primary: str = "claude-api"
     # For deep/code intents an API-key provider can be preferred.
     deep_brain: str | None = None
+    # When the deep_brain leads a deep turn. "always": every deep/code turn,
+    # including the capable-model default for unrecognised text. "explicit":
+    # only a turn with a reasoning or coding keyword; everything else stays on
+    # the (usually faster) active provider. Read by BrainManager._build_fallback_chain.
+    deep_brain_escalation: Literal["always", "explicit"] = "always"
     routing_provider: str = "claude-api"
     routing_model: str = "claude-sonnet-4-6"
     local_fallback: str = "claude-api"

@@ -140,3 +140,29 @@ async def test_runtime_switch_preserves_explicit_split() -> None:
 
     assert mgr.active_provider == "openai"
     assert mgr._config.brain.deep_brain == "claude-api"
+
+
+def _split_mgr(escalation: str) -> BrainManager:
+    cfg = _cfg(primary="gemini", provider="gemini", fallback_provider="claude-api")
+    cfg.brain.deep_brain_escalation = escalation
+    return BrainManager.from_tier_config("router", cfg, EventBus())
+
+
+def test_explicit_escalation_keeps_capable_default_on_active() -> None:
+    # "explicit": an unrecognised turn stays on the fast active provider.
+    mgr = _split_mgr("explicit")
+    mgr._turn_route_reason = "capable-default"
+    assert mgr._build_fallback_chain("deep")[0][0] == "gemini"
+
+
+@pytest.mark.parametrize("reason,level", [("deep-keyword", "deep"), ("code-keyword", "code")])
+def test_explicit_escalation_hands_keyword_turns_to_deep_brain(reason: str, level: str) -> None:
+    mgr = _split_mgr("explicit")
+    mgr._turn_route_reason = reason
+    assert mgr._build_fallback_chain(level)[0][0] == "claude-api"
+
+
+def test_always_escalation_keeps_the_old_order() -> None:
+    mgr = _split_mgr("always")
+    mgr._turn_route_reason = "capable-default"
+    assert mgr._build_fallback_chain("deep")[0][0] == "claude-api"

@@ -10955,11 +10955,18 @@ class BrainManager:
         # deep/code intents, or the chosen brain would never actually answer a hard
         # question despite being selected (it would silently fall through to the
         # deep_brain). Other active brains keep the deep_brain routing unchanged.
+        # "explicit" escalation: an unrecognised turn ("capable-default") stays on
+        # the active provider; only a reasoning/coding keyword hands it over.
+        explicit_only = (
+            getattr(self._config.brain, "deep_brain_escalation", "always") == "explicit"
+        )
+        weak_signal = getattr(self, "_turn_route_reason", "") == "capable-default"
         if (
             level in ("deep", "code")
             and deep_brain
             and deep_brain != active
             and active != "codex"
+            and not (explicit_only and weak_signal)
             and deep_brain in self._registry.available()
         ):
             preferred_deep = self._deep_model(deep_brain) or self._fast_model(deep_brain)
@@ -11988,6 +11995,7 @@ class BrainManager:
         # Reset _router_lead_key here too so a monkeypatched _build_fallback_chain
         # (tests / callers that replace it) never leaves a stale fall-through marker.
         self._router_lead_key = None
+        self._turn_route_reason = decision.reason
         self._turn_substantive = not is_smalltalk_turn
         self._turn_needs_tools = (not is_smalltalk_turn) and self._turn_has_action_intent(
             user_text
