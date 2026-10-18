@@ -154,6 +154,11 @@ _DEEP_PATTERNS = [
     r"\bthink hard\b", r"\bdeep think\b", r"\bdeeply\b",
     r"\bsummariz\w*", r"\boptimiz\w*", r"\bimprove\w*",
     r"\bplan\b.*\?", r"\bwhy\b.*\?",
+    # Lookup / verification work that needs a search, not a one-line fact
+    r"\bpr[üu]f\w*", r"\bschau\w* nach\b", r"\bnachschau\w*",  # i18n-allow
+    r"\bsuch\w*", r"\bfind\w* heraus\b", r"\bherausfind\w*",  # i18n-allow
+    r"\bgithub\b", r"\bstack ?overflow\b", r"\bim internet\b",  # i18n-allow
+    r"\bcheck (if|whether)\b", r"\blook up\b", r"\bsearch\w*", r"\bfind out\b",
 ]
 
 # Coding tasks are routed to the Jarvis-Agent heavy worker.

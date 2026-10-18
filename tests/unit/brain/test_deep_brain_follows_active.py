@@ -166,3 +166,36 @@ def test_always_escalation_keeps_the_old_order() -> None:
     mgr = _split_mgr("always")
     mgr._turn_route_reason = "capable-default"
     assert mgr._build_fallback_chain("deep")[0][0] == "claude-api"
+
+
+def _chat_pick_chain(mgr: BrainManager, provider: str, level: str) -> list:
+    from jarvis.brain.manager import _TURN_OVERRIDE
+    from jarvis.brain.turn_override import TurnOverride
+
+    token = _TURN_OVERRIDE.set(TurnOverride(provider=provider, model="pick-model"))
+    try:
+        return mgr._build_fallback_chain(level)
+    finally:
+        _TURN_OVERRIDE.reset(token)
+
+
+def test_chat_pick_of_primary_escalates_keyword_turns() -> None:
+    mgr = _split_mgr("explicit")
+    mgr._turn_route_reason = "deep-keyword"
+    chain = _chat_pick_chain(mgr, "gemini", "deep")
+    assert [p for p, _ in chain] == ["claude-api", "gemini"]
+    assert chain[1] == ("gemini", "pick-model")
+
+
+@pytest.mark.parametrize(
+    "escalation,reason,provider",
+    [
+        ("explicit", "capable-default", "gemini"),
+        ("always", "deep-keyword", "gemini"),
+        ("explicit", "deep-keyword", "openai"),
+    ],
+)
+def test_chat_pick_stays_exact_otherwise(escalation: str, reason: str, provider: str) -> None:
+    mgr = _split_mgr(escalation)
+    mgr._turn_route_reason = reason
+    assert _chat_pick_chain(mgr, provider, "deep") == [(provider, "pick-model")]

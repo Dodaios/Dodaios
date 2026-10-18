@@ -44,6 +44,8 @@ def test_fast_intents(text):
     "warum zeigt mein Build einen N+1 Query-Fehler trotz eager-loading?",  # i18n-allow
     "think hard about the tradeoffs",
     "analyze this architecture",
+    "prüfe ob dieser Fehler irgendjemand in GitHub gelöst hat",  # i18n-allow
+    "check whether anyone fixed this on stack overflow",
 ])
 def test_deep_intents(text):
     d = classify(text)

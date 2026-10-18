@@ -10885,8 +10885,30 @@ class BrainManager:
         A person who chose a model in the chat gets that model or an honest
         error — never a silent cross-provider fallback. A tool-incapable pick
         does not authorize another provider to lead or bill this turn.
+
+        One exception the person configured themselves: with
+        ``deep_brain_escalation = "explicit"``, a pick of the default brain
+        (``brain.primary``) hands a turn with a reasoning or coding keyword to
+        the ``deep_brain`` first; the pick stays as its fallback.
         """
         pick: tuple[str, str | None] = (override.provider, override.model)
+        brain_cfg = self._config.brain
+        deep_brain = brain_cfg.deep_brain
+        if (
+            getattr(brain_cfg, "deep_brain_escalation", "always") == "explicit"
+            and level in ("deep", "code")
+            and getattr(self, "_turn_route_reason", "") in ("deep-keyword", "code-keyword")
+            and override.provider == brain_cfg.primary
+            and deep_brain
+            and deep_brain != override.provider
+            and deep_brain in self._registry.available()
+        ):
+            escalated = self._deep_model(deep_brain) or self._fast_model(deep_brain)
+            log.info(
+                "Chat pick %s escalates a %s turn to deep_brain %s.",
+                override.provider, level, deep_brain,
+            )
+            return [(deep_brain, escalated), pick]
         return [pick]
 
     def _build_fallback_chain(self, level: str) -> list[tuple[str, str | None]]:
