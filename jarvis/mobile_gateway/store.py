@@ -55,7 +55,7 @@ class DeviceData:
         try:
             with path.open(encoding="utf-8") as fh:
                 lines = deque(fh, maxlen=limit)
-        except FileNotFoundError:
+        except FileNotFoundError:  # nothing stored yet
             return []
         out: list[dict[str, Any]] = []
         for line in lines:
@@ -96,7 +96,7 @@ class DeviceData:
     def _load_tasks(self, device_id: str) -> list[dict[str, Any]]:
         try:
             raw = json.loads((self._dir(device_id) / "tasks.json").read_text(encoding="utf-8"))
-        except FileNotFoundError:
+        except FileNotFoundError:  # nothing stored yet
             return []
         return [t for t in raw if isinstance(t, dict)] if isinstance(raw, list) else []
 

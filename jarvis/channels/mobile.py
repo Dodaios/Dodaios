@@ -201,7 +201,7 @@ class MobileChannel:
         try:
             await self._inbox.put(msg)
             return await asyncio.wait_for(future, timeout=self._cfg.reply_timeout_s)
-        except TimeoutError:
+        except TimeoutError:  # no ring answer in time: the caller treats None as unanswered
             return None
         finally:
             self._waiting.pop(msg.trace_id, None)

@@ -56,7 +56,7 @@ class RingBoard:
             return ring
         try:
             await asyncio.wait_for(self._signal(device_id).wait(), timeout=timeout_s)
-        except TimeoutError:
+        except TimeoutError:  # the phone did not answer; None means unanswered
             return None
         return self.take(device_id)
 

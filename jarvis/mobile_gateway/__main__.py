@@ -45,12 +45,12 @@ def detect_public_ipv6() -> str:
             timeout=20,
             check=False,
         ).stdout
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError):  # no ipconfig: pair then asks for public_host
         return ""
     for line in out.splitlines():
         try:
             addr = ipaddress.IPv6Address(line.strip().split("%")[0])
-        except ValueError:
+        except ValueError:  # not an address token; keep scanning
             continue
         if addr.is_global:
             return str(addr)
@@ -76,7 +76,7 @@ def _cmd_pair(cfg: MobileGatewayConfig) -> int:
     print(f"Paste into the app manually:\n{payload}")
     try:
         import segno
-    except ImportError:
+    except ImportError:  # segno is optional; the text payload above still pairs
         print("(QR image unavailable: 'pip install segno')")
         return 0
     png = data_dir / "pairing-qr.png"

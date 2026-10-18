@@ -6,9 +6,12 @@ write to it; a missing or locked file yields an empty list.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 MAX_PROMPT_CHARS = 300
 
@@ -33,7 +36,8 @@ class ProjectReader:
                     "FROM missions ORDER BY updated_ms DESC LIMIT ?",
                     (max(1, min(limit, 200)),),
                 ).fetchall()
-        except sqlite3.Error:
+        except sqlite3.Error as exc:
+            logger.warning("mobile gateway: mission list unavailable, showing none: %s", exc)
             return []
         return [
             {

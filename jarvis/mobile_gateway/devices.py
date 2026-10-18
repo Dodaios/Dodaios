@@ -68,7 +68,7 @@ class DeviceStore:
     def _load(self) -> _State:
         try:
             raw: dict[str, Any] = json.loads(self._path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
+        except FileNotFoundError:  # first run: no device file yet
             return _State()
         devices = {d["device_id"]: Device(**d) for d in raw.get("devices", []) if "device_id" in d}
         pending = {str(k): float(v) for k, v in raw.get("pending", {}).items()}
