@@ -65,23 +65,23 @@ def _cmd_pair(cfg: MobileGatewayConfig) -> int:
     data_dir = Path(cfg.data_dir)
     host = cfg.public_host or detect_public_ipv6()
     if not host:
-        print("Keine globale IPv6-Adresse gefunden. Setze [integrations.mobile] public_host.")
+        print("No global IPv6 address found. Set [integrations.mobile] public_host.")
         return 1
     cert, _ = ensure_certificate(data_dir)
     code = DeviceStore(data_dir).issue_code(cfg.pairing_ttl_s)
     payload = pairing_payload(host, cfg.port, fingerprint(cert), code)
     minutes = int(cfg.pairing_ttl_s // 60)
-    print(f"Kopplungscode: {code}  (gültig {minutes} Minuten, einmalig)")
-    print(f"Adresse: [{host}]:{cfg.port}")
-    print(f"Manuell in der App einfügen:\n{payload}")
+    print(f"Pairing code: {code}  (valid {minutes} minutes, single use)")
+    print(f"Address: [{host}]:{cfg.port}")
+    print(f"Paste into the app manually:\n{payload}")
     try:
         import segno
     except ImportError:
-        print("(QR-Bild nicht verfügbar: 'pip install segno')")
+        print("(QR image unavailable: 'pip install segno')")
         return 0
     png = data_dir / "pairing-qr.png"
     segno.make(payload, error="m").save(str(png), scale=10, border=4)
-    print(f"QR-Code: {png}")
+    print(f"QR code: {png}")
     if sys.platform == "win32":
         os.startfile(png)  # noqa: S606 — opens the image viewer for the user
     return 0
@@ -90,23 +90,23 @@ def _cmd_pair(cfg: MobileGatewayConfig) -> int:
 def _cmd_devices(cfg: MobileGatewayConfig) -> int:
     devices = DeviceStore(Path(cfg.data_dir)).devices()
     if not devices:
-        print("Keine gekoppelten Geräte.")
+        print("No paired devices.")
     for d in devices:
-        state = "widerrufen" if d.revoked else "aktiv"
+        state = "revoked" if d.revoked else "active"
         print(f"{d.device_id}  {d.name:<24} {state}")
     return 0
 
 
 def _cmd_revoke(cfg: MobileGatewayConfig, device_id: str) -> int:
     if DeviceStore(Path(cfg.data_dir)).revoke(device_id):
-        print(f"Gerät {device_id} widerrufen.")
+        print(f"Device {device_id} revoked.")
         return 0
-    print(f"Kein aktives Gerät {device_id}.")
+    print(f"No active device {device_id}.")
     return 1
 
 
 def _cmd_firewall(cfg: MobileGatewayConfig) -> int:
-    print("In einer Administrator-PowerShell ausführen:")
+    print("Run in an administrator PowerShell:")
     print(
         f'New-NetFirewallRule -DisplayName "Dodaios Mobile Gateway" -Direction Inbound '
         f"-Protocol TCP -LocalPort {cfg.port} -Action Allow -Profile Any"
