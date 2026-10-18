@@ -6597,6 +6597,7 @@
       "coding_thread_author": "Geschrieben von {0}",
       "message_not_sent": "Nicht gesendet: {0}",
       "background_running": "Läuft im Hintergrund weiter: {0}. Das Ergebnis kommt hierher.",
+      "answered_by": "Bearbeitet von {0}",
       "background_result": "Ergebnis zu deinem Auftrag von vorhin",
       "background_result_lost": "Das Ergebnis zu diesem Auftrag konnte nicht zurückgeholt werden: {0}",
       "context_rollover": "Frischer Arbeitskontext – Gedächtnis und letzte Nachrichten übernommen",

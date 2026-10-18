@@ -6597,6 +6597,7 @@
       "coding_thread_author": "Escrito por {0}",
       "message_not_sent": "Não enviada: {0}",
       "background_running": "Continua em segundo plano: {0}. O resultado chega aqui.",
+      "answered_by": "Atendido por {0}",
       "background_result": "Resultado do teu pedido anterior",
       "background_result_lost": "Não foi possível recuperar o resultado deste pedido: {0}",
       "context_rollover": "Novo contexto de trabalho — memória e mensagens recentes transitadas",

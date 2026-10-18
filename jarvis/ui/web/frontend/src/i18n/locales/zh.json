@@ -6597,6 +6597,7 @@
       "coding_thread_author": "由 {0} 撰写",
       "message_not_sent": "未发送：{0}",
       "background_running": "在后台继续运行：{0}。结果会发到这里。",
+      "answered_by": "由 {0} 处理",
       "background_result": "之前请求的结果",
       "background_result_lost": "无法取回这个请求的结果：{0}",
       "context_rollover": "已换用新的工作上下文——记忆和最近的消息已带过来",

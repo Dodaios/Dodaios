@@ -289,6 +289,8 @@ export interface TurnItem {
    * its seat to the next message and the result arrives in a turn of its own.
    */
   background?: string[];
+  /** The provider and model that actually replied; an escalation can differ from the pick. */
+  answeredBy?: { provider: string; model: string };
 }
 
 export interface ErrorItem {
@@ -1254,6 +1256,14 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         error: str(p.error, "") || null,
         ...(Array.isArray(p.background) && p.background.length > 0
           ? { background: (p.background as unknown[]).map((name) => str(name)) }
+          : {}),
+        ...(p.answered_by && typeof p.answered_by === "object" && str((p.answered_by as Record<string, unknown>).provider)
+          ? {
+              answeredBy: {
+                provider: str((p.answered_by as Record<string, unknown>).provider),
+                model: str((p.answered_by as Record<string, unknown>).model),
+              },
+            }
           : {}),
       }));
       return {

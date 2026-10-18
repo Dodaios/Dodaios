@@ -19,6 +19,15 @@ function ev(kind: string, payload: Record<string, unknown>, persisted = true): A
 }
 
 describe("agent-chat reduce", () => {
+  it("records which provider actually answered a turn", () => {
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "esc", provider: "gemini" }),
+      ev("turn_finished", { turn_id: "esc", status: "done", answered_by: { provider: "chatgpt-web", model: "gpt-5" } }),
+    ]);
+    const turn = timeline.items.find((item) => item.type === "turn") as TurnItem;
+    expect(turn.answeredBy).toEqual({ provider: "chatgpt-web", model: "gpt-5" });
+  });
+
   it.each(["done", "error", "cancelled"])("preserves the first %s completion through live delivery and replay", (status) => {
     const start = ev("turn_started", { turn_id: "settled" });
     const answer = ev("assistant_text", { turn_id: "settled", text: "Fix committed locally." });

@@ -430,17 +430,22 @@ async def run_brain_turn(
     mirror = _StepMirror(emit, turn_id, handle.bus, handle.trace_id)
     ref = approval_ref(session.session_id)
 
-    async def finish(status: str, usage: dict[str, Any], error: str | None = None) -> None:
-        await emit(
-            "turn_finished",
-            {
-                "turn_id": turn_id,
-                "status": status,
-                "duration_ms": int((time.monotonic() - started) * 1000),
-                "usage": usage,
-                "error": error,
-            },
-        )
+    async def finish(
+        status: str,
+        usage: dict[str, Any],
+        error: str | None = None,
+        answered_by: dict[str, str] | None = None,
+    ) -> None:
+        payload: dict[str, Any] = {
+            "turn_id": turn_id,
+            "status": status,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+            "usage": usage,
+            "error": error,
+        }
+        if answered_by:
+            payload["answered_by"] = answered_by
+        await emit("turn_finished", payload)
 
     brain = brain_manager()
     if brain is None or not callable(getattr(brain, "generate", None)):
@@ -591,7 +596,13 @@ async def run_brain_turn(
         if override.receipt.guard_failure:
             status = "error"
             error = override.receipt.failure_reason or "guarded_response"
-    await finish(status, override.receipt.usage(), error)
+    # The chat pick in ``turn_started`` is a request; an escalation can hand
+    # the turn to another provider, so the receipt names who really answered.
+    receipt = override.receipt
+    answered_by = (
+        {"provider": receipt.provider, "model": receipt.model} if receipt.provider else None
+    )
+    await finish(status, receipt.usage(), error, answered_by)
 
 
 async def _generate(

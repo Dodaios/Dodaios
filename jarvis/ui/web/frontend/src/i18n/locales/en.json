@@ -6597,6 +6597,7 @@
       "coding_thread_author": "Written by {0}",
       "message_not_sent": "Not sent: {0}",
       "background_running": "Keeps running in the background: {0}. The result arrives here.",
+      "answered_by": "Handled by {0}",
       "background_result": "Result for your earlier request",
       "background_result_lost": "The result for this request could not be brought back: {0}",
       "context_rollover": "Fresh working context — memory and recent messages carried over",

@@ -259,6 +259,7 @@ export function AgentTimeline({
         turn={item}
         assistantName={assistantName}
         providerLabel={providerLabel(item.provider)}
+        answeredByLabel={item.answeredBy ? providerLabel(item.answeredBy.provider) : ""}
         onDecide={onDecide}
         bubbles={bubbles}
         traceLook={traceLook}
@@ -308,8 +309,8 @@ function stampLabel(at: Date, now: Date): string {
 
 const NO_MESSAGES = new Map<string, TraceMessage[]>();
 
-const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, messages }: {
-  turn: TurnItem; assistantName: string; providerLabel: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;
+const Turn = memo(function Turn({ turn, assistantName, providerLabel, answeredByLabel = "", onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, messages }: {
+  turn: TurnItem; assistantName: string; providerLabel: string; answeredByLabel?: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;
   /** Agent messages that arrived while this turn worked. */
   messages?: TraceMessage[];
 }) {
@@ -331,6 +332,14 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, 
     {turn.background && turn.background.length > 0 ? (
       <p className="text-xs text-muted-foreground" data-testid="turn-background">
         {t("society.chat.background_running").replace("{0}", turn.background.join(", "))}
+      </p>
+    ) : null}
+    {turn.answeredBy && answeredByLabel ? (
+      <p className="text-xs text-muted-foreground" data-testid="turn-answered-by">
+        {t("society.chat.answered_by").replace(
+          "{0}",
+          `${answeredByLabel}${turn.answeredBy.model ? ` · ${turn.answeredBy.model}` : ""}`,
+        )}
       </p>
     ) : null}
   </div>;
