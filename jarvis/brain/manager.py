@@ -3250,6 +3250,12 @@ class BrainManager:
             )
         ):
             deep_provider = effective_provider
+        # An explicit brain.deep_brain (default None) on a tier without its own
+        # fallback is the user's deliberate deep split: keep it instead of
+        # collapsing deep turns onto the active provider.
+        explicit_deep = (getattr(config.brain, "deep_brain", None) or "").strip()
+        if not tier_cfg.fallback_provider and explicit_deep and explicit_deep != effective_provider:
+            deep_provider = explicit_deep
         local_config.brain.deep_brain = deep_provider
 
         # Tier model resolver:

@@ -28,9 +28,19 @@ def _all_test_providers_have_credentials(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
-def _cfg(*, primary: str, provider: str, fallback_provider: str | None):
+def _cfg(
+    *,
+    primary: str,
+    provider: str | None,
+    fallback_provider: str | None,
+    deep_brain: str | None = None,
+):
     cfg = load_config()
     cfg.brain.primary = primary
+    cfg.brain.deep_brain = deep_brain
+    if provider is None:
+        cfg.brain.router = None
+        return cfg
     cfg.brain.router = BrainTierConfig(
         provider=provider,
         fallback_provider=fallback_provider,
@@ -199,3 +209,13 @@ def test_chat_pick_stays_exact_otherwise(escalation: str, reason: str, provider:
     mgr = _split_mgr(escalation)
     mgr._turn_route_reason = reason
     assert _chat_pick_chain(mgr, provider, "deep") == [(provider, "pick-model")]
+
+
+def test_explicit_deep_brain_survives_without_router_block() -> None:
+    # No [brain.router] block, brain.deep_brain set explicitly: the synthesized
+    # tier has no fallback, and boot must keep the user's deep pick rather than
+    # collapse it onto the active provider.
+    cfg = _cfg(primary="gemini", provider=None, fallback_provider=None, deep_brain="openai")
+    mgr = BrainManager.from_tier_config("router", cfg, EventBus(), provider_override="gemini")
+    assert mgr.active_provider == "gemini"
+    assert mgr._config.brain.deep_brain == "openai"
