@@ -116,7 +116,7 @@ Pause, resume, delete or run-now one agent routine on user request.
 Switch the ACTIVE main brain (LLM) provider, e.g. from openai to claude-api. Reversible; validated against the provider catalog and stored credentials.
 
 - **Endpoint:** `POST /api/brain/switch`
-- **Arguments:** `provider` (one of: chatgpt-plan, chatgpt-web, claude-api, gemini, grok, local-openai, nvidia, ollama, openai, openrouter, vertex; required); `persist` (boolean; optional)
+- **Arguments:** `provider` (one of: chatgpt-plan, chatgpt-web, claude-api, gemini, grok, groq, local-openai, nvidia, ollama, openai, openrouter, vertex; required); `persist` (boolean; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `apikeys`
 - **Voice example (EN):** "switch the brain provider to claude"
@@ -166,7 +166,7 @@ Select the Ollama brain and speech model for the managed local realtime server, 
 Switch the dedicated Computer-Use planner provider (screen control), decoupled from the main brain.
 
 - **Endpoint:** `POST /api/computer-use/switch`
-- **Arguments:** `provider` (one of: antigravity, chatgpt-plan, chatgpt-web, claude-api, claude-cli, codex, gemini, grok, grok-build, local-openai, nvidia, ollama, openai, openrouter, vertex; required); `persist` (boolean; optional)
+- **Arguments:** `provider` (one of: antigravity, chatgpt-plan, chatgpt-web, claude-api, claude-cli, codex, gemini, grok, grok-build, groq, local-openai, nvidia, ollama, openai, openrouter, vertex; required); `persist` (boolean; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `apikeys`
 - **Voice example (EN):** "switch the computer use provider to gemini"
@@ -176,7 +176,7 @@ Switch the dedicated Computer-Use planner provider (screen control), decoupled f
 Switch the provider used for new missions (e.g. codex to openai). The next mission uses the new provider.
 
 - **Endpoint:** `POST /api/jarvis-agent/switch`
-- **Arguments:** `provider` (one of: antigravity, chatgpt-plan, chatgpt-web, claude-api, claude-cli, codex, gemini, grok, grok-build, local-openai, nvidia, ollama, openai, openrouter, vertex; required); `persist` (boolean; optional)
+- **Arguments:** `provider` (one of: antigravity, chatgpt-plan, chatgpt-web, claude-api, claude-cli, codex, gemini, grok, grok-build, groq, local-openai, nvidia, ollama, openai, openrouter, vertex; required); `persist` (boolean; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "switch the agent provider to openai"
@@ -196,7 +196,7 @@ List all configured providers and which ones are active.
 Test connectivity and authentication for one provider.
 
 - **Endpoint:** `POST /api/providers/{provider_id}/test`
-- **Arguments:** `provider_id` (one of: antigravity, cartesia, chatgpt-plan, chatgpt-web, claude-api, claude-cli, codex, elevenlabs, faster-whisper, gemini, gemini-api, gemini-flash-tts, gemini-live, gemini-polish, grok, grok-build, grok-voice, groq-api, groq-polish, inworld, local-openai, local-realtime, local-voice, nemotron-local, nvidia, ollama, ollama-polish, openai, openai-api, openai-live, openai-live-subscription, openai-polish, openrouter, openrouter-polish, openrouter-stt, openrouter-tts, piper-local, vertex, vertex-live, vertex-stt, vertex-tts; required)
+- **Arguments:** `provider_id` (one of: antigravity, cartesia, chatgpt-plan, chatgpt-web, claude-api, claude-cli, codex, elevenlabs, faster-whisper, gemini, gemini-api, gemini-flash-tts, gemini-live, gemini-polish, grok, grok-build, grok-voice, groq, groq-api, groq-polish, inworld, local-openai, local-realtime, local-voice, nemotron-local, nvidia, ollama, ollama-polish, openai, openai-api, openai-live, openai-live-subscription, openai-polish, openrouter, openrouter-polish, openrouter-stt, openrouter-tts, piper-local, vertex, vertex-live, vertex-stt, vertex-tts; required)
 - **Requires confirmation:** no
 - **Desktop UI section:** `apikeys`
 - **Voice example (EN):** "test the openai provider"
