@@ -67,6 +67,7 @@ CATALOG_PROVIDERS: tuple[str, ...] = (
     "openrouter",
     "grok",
     "nvidia",
+    "groq",
     # Keyless local providers (2026-07-25): their "catalog" is the live list of
     # models the user's own server holds — ollama via the native /api/tags,
     # local-openai via the standard /v1/models.
@@ -127,6 +128,8 @@ _ENDPOINTS: dict[str, _CatalogEndpoint] = {
     # list), so ``bearer_opt`` like OpenRouter — the picker fills in before a key
     # is entered, and the key is attached when present.
     "nvidia": _CatalogEndpoint("https://integrate.api.nvidia.com/v1", "/models", "bearer_opt"),
+    # Groq speaks the OpenAI-compatible ``data[].id`` shape; its roster needs the key.
+    "groq": _CatalogEndpoint("https://api.groq.com/openai/v1", "/models", "bearer"),
     # Ollama: server-root convention (the plugin appends /v1 / /api itself);
     # vendor default resolves dynamically (OLLAMA_HOST → localhost:11434).
     "ollama": _CatalogEndpoint(None, "/api/tags", "none"),
@@ -300,6 +303,17 @@ CURATED_MODELS: dict[str, list[ModelInfo]] = {
             ("qwen/qwen3.5-397b-a17b", "Qwen3.5 397B A17B"),
             ("meta/llama-4-maverick-17b-128e-instruct", "Llama 4 Maverick"),
             ("mistralai/mistral-large-3-675b-instruct-2512", "Mistral Large 3"),
+        ]
+    ),
+    # Groq — offline fallback; a valid key supersedes it with the live roster.
+    "groq": _curated(
+        [
+            ("openai/gpt-oss-120b", "GPT-OSS 120B"),
+            ("openai/gpt-oss-20b", "GPT-OSS 20B"),
+            ("moonshotai/kimi-k2-instruct-0905", "Kimi K2"),
+            ("qwen/qwen3-32b", "Qwen3 32B"),
+            ("llama-3.3-70b-versatile", "Llama 3.3 70B"),
+            ("llama-3.1-8b-instant", "Llama 3.1 8B Instant"),
         ]
     ),
 }

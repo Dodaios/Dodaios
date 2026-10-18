@@ -242,6 +242,7 @@ PROVIDER_ALIASES = {
     "nvidia": "nvidia",
     "nim": "nvidia",
     "nemotron": "nvidia",
+    "groq": "groq",
 }
 
 SUBAGENT_ONLY_BRAIN_PROVIDERS: frozenset[str] = frozenset(
@@ -255,6 +256,7 @@ _MAIN_BRAIN_FALLBACK_PROVIDER_ORDER: tuple[str, ...] = (
     "openrouter",
     "grok",
     "nvidia",
+    "groq",
 )
 
 # Human-readable display names for each brain provider id. Used to tell the
@@ -275,6 +277,7 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "openrouter": "OpenRouter",
     "grok": "xAI Grok",
     "nvidia": "NVIDIA NIM",
+    "groq": "Groq",
     "gemini": "Google Gemini",
     "antigravity": "Google Antigravity (Gemini)",
     "grok-build": "Grok Build (xAI subscription)",
@@ -331,6 +334,7 @@ _SECRET_KEY_TO_BRAIN: dict[str, str] = {
     "grok_api_key": "grok",
     "xai_api_key": "grok",
     "nvidia_api_key": "nvidia",
+    "groq_api_key": "groq",
 }
 
 # ──────────────────────────────────────────────────────────────────
@@ -397,6 +401,9 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # generation — 12B of 120B activate per token, so it answers faster than
         # the dense model it replaces. Verified against integrate.api.nvidia.com.
         "nvidia": "nvidia/nemotron-3-super-120b-a12b",
+        # Groq router pick: OpenAI's small open-weight model on Groq's LPUs —
+        # very low time-to-first-token for voice turns.
+        "groq": "openai/gpt-oss-20b",
         "mistral": "mistral-small-3.1",
         # Local providers: no server-side catalog is knowable ahead of time —
         # empty means "the plugin discovers the first installed model".
@@ -426,6 +433,7 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # Nemotron 3 Ultra (verified against integrate.api.nvidia.com), which
         # the OpenRouter tiers above already name.
         "nvidia": "nvidia/nemotron-3-ultra-550b-a55b",
+        "groq": "openai/gpt-oss-120b",
         "mistral": "mistral-large-3",
         # Local providers: empty = plugin-side discovery (see router tier).
         "ollama": "",
@@ -2241,6 +2249,7 @@ _SUBAGENT_VOICE_TO_CANONICAL: dict[str, str] = {
     "openrouter": "openrouter",
     "grok": "grok",
     "nvidia": "nvidia", "nim": "nvidia", "nemotron": "nvidia",
+    "groq": "groq",
     "antigravity": "antigravity",
     "grok-build": "grok-build",
     "grok build": "grok-build",
@@ -2250,7 +2259,7 @@ _SUBAGENT_VOICE_TO_CANONICAL: dict[str, str] = {
 _SUBAGENT_DISPLAY: dict[str, str] = {
     "openai": "OpenAI", "openai-codex": "Codex", "claude-api": "Claude",
     "gemini": "Gemini", "openrouter": "OpenRouter", "grok": "xAI Grok",
-    "nvidia": "NVIDIA NIM",
+    "nvidia": "NVIDIA NIM", "groq": "Groq",
     "antigravity": "Antigravity",
     "grok-build": "Grok Build",
 }
@@ -3571,6 +3580,7 @@ class BrainManager:
             "openrouter",
             "grok",
             "nvidia",
+            "groq",
             *self._registry.available(),
         ]
         seen: set[str] = set()
@@ -10824,7 +10834,7 @@ class BrainManager:
         db = self._config.brain.deep_brain
         if db:
             order.append(db)
-        order += ["gemini", "claude-api", "openai", "openrouter", "grok", "nvidia"]
+        order += ["gemini", "claude-api", "openai", "openrouter", "grok", "nvidia", "groq"]
         from jarvis.brain.voice_key import bills_voice_key
 
         # The realtime voice key leads a turn only when no other provider can
@@ -11004,6 +11014,7 @@ class BrainManager:
             "openai",
             "grok",                 # xAI Grok
             "nvidia",               # NVIDIA NIM (free dev tier)
+            "groq",                 # Groq (free tier, fast)
         ]
         for name in cross_order:
             if name == active:
@@ -14526,6 +14537,7 @@ _PROVIDER_SETUP_HINTS: dict[str, str] = {
     "openrouter": "OPENROUTER_API_KEY setzen",
     "grok": "Set XAI_API_KEY (key from console.x.ai)",
     "nvidia": "Set NVIDIA_API_KEY (nvapi- key from build.nvidia.com)",
+    "groq": "Set GROQ_API_KEY (gsk_ key from console.groq.com)",
     "ollama-local": "Ollama-Server starten (localhost:11434)",
     "ollama-cloud": "Ollama-Cloud-Token setzen",
 }

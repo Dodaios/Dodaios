@@ -167,8 +167,7 @@ PROVIDER_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
         ("openai_api_key", "OPENAI_API_KEY"),
     ),
     "openrouter": (("openrouter_api_key", "OPENROUTER_API_KEY"),),
-    # Groq remains a speech-to-text credential family even though it is not a
-    # selectable brain provider.
+    # Groq: one key for speech-to-text and the OpenAI-compatible brain.
     "groq": (("groq_api_key", "GROQ_API_KEY"),),
     # NVIDIA NIM (OpenAI-compatible). Only the build.nvidia.com key (nvapi-),
     # not the legacy NGC key. One key, many NVIDIA-hosted models.
@@ -265,6 +264,10 @@ JARVIS_AGENT_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
     "nvidia": (
         ("jarvis_agent_nvidia_api_key", "JARVIS_AGENT_NVIDIA_API_KEY"),
         *PROVIDER_SECRET_CANDIDATES["nvidia"],
+    ),
+    "groq": (
+        ("jarvis_agent_groq_api_key", "JARVIS_AGENT_GROQ_API_KEY"),
+        *PROVIDER_SECRET_CANDIDATES["groq"],
     ),
     "vertex": (
         ("jarvis_agent_vertex_api_key", "JARVIS_AGENT_VERTEX_API_KEY"),

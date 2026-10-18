@@ -71,10 +71,9 @@ class _ToolStream:
         return _chunks()
 
 
-def test_grok_is_registered_while_groq_is_stt_only() -> None:
+def test_grok_is_registered_separately_from_groq() -> None:
     registry = BrainProviderRegistry()
     assert "grok" in registry.available()
-    assert "groq" not in registry.available()
     assert isinstance(registry.instantiate("grok"), GrokBrain)
 
     grok = get_spec("grok")
@@ -84,7 +83,10 @@ def test_grok_is_registered_while_groq_is_stt_only() -> None:
     assert grok.secret_keys == ("grok_api_key",)
     assert groq_stt is not None and groq_stt.tier == "stt"
     assert groq_stt.secret_keys == ("groq_api_key",)
-    assert get_spec("groq") is None
+    # Groq is its own brain (same key as Groq STT), never an alias of Grok.
+    groq_brain = get_spec("groq")
+    assert groq_brain is not None and groq_brain.label == "Groq"
+    assert groq_brain.secret_keys == ("groq_api_key",)
 
 
 def test_grok_credential_and_auto_activation_mapping() -> None:
@@ -144,7 +146,6 @@ def test_grok_has_authenticated_live_model_catalog() -> None:
     assert spec is not None and spec.tier == "brain" and spec.live is True
     assert spec.curated and spec.curated[0].id == DEFAULT_MODEL
     assert "grok" in CATALOG_PROVIDERS
-    assert "groq" not in CATALOG_PROVIDERS
     # Endpoint table entries resolve through resolve_provider_endpoint since
     # 2026-07-25; with no override the composed URL is byte-identical
     # (pinned by tests/unit/brain/test_model_catalog_local.py).

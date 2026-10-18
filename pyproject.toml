@@ -598,6 +598,7 @@ openrouter-tts = "jarvis.plugins.tts.openrouter_tts:OpenRouterTTS"
 claude-api = "jarvis.plugins.brain.claude_api:ClaudeAPIBrain"
 openrouter = "jarvis.plugins.brain.openrouter:OpenRouterBrain"
 nvidia = "jarvis.plugins.brain.nvidia:NvidiaBrain"
+groq = "jarvis.plugins.brain.groq:GroqBrain"
 openai = "jarvis.plugins.brain.openai:OpenAIBrain"
 gemini = "jarvis.plugins.brain.gemini:GeminiBrain"
 # Google Cloud Vertex AI — the same Gemini models on Google's enterprise

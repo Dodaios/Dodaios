@@ -45,6 +45,8 @@ class TestTierDefaultsCatalog:
                 # is the only broadly available tool-capable model and serves
                 # both tiers deliberately (see TIER_DEFAULTS_BY_PROVIDER).
                 continue
+            if provider == "groq":
+                continue  # gpt-oss-20b: Groq's fast tier carries no size tag
             assert any(tag in model.lower() for tag in ("haiku", "flash", "mini", "fast", "chat", "small")), \
                 f"{provider}: {model} does not look like a fast tier"
 
@@ -58,6 +60,8 @@ class TestTierDefaultsCatalog:
                 continue  # deliberate free-model default; not a frontier slug
             if provider == "grok":
                 continue  # grok-4.3 serves both tiers — see the router-tier note above
+            if provider == "groq":
+                continue  # gpt-oss-120b: Groq's largest open model, no frontier tag
             assert any(tag in model.lower() for tag in
                        ("fable", "opus", "pro", "large", "reasoner", "gpt-4", "gpt-5",
                         "nemotron", "ultra")), \

@@ -719,6 +719,7 @@ class TestListModels:
             "openrouter",
             "grok",
             "nvidia",
+            "groq",
             # Keyless local providers (2026-07-25): live catalog = the models
             # the user's own server holds (/api/tags resp. /v1/models).
             "ollama",
