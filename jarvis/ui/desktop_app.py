@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 # The main window's title doubles as its focus handle
 # (``_bring_window_to_front_by_title``) and follows the *instance*: the dev app
-# is "Dodaios Dev", so neither instance ever raises the other's window.
+# is "Jarvis Dev", so neither instance ever raises the other's window.
 WINDOW_TITLE = current_instance().display_name
 
 # True while the WebView shows the app's own document — booted or still

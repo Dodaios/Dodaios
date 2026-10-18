@@ -66,7 +66,7 @@ DEV_PORT_OFFSET = 100
 #: Icon file (in ``assets/icons``) each instance shows on taskbar, dock and tray.
 DEFAULT_ICON_FILE_NAME = "jarvis.ico"
 DEV_ICON_FILE_NAME = "jarvis-dev.ico"
-#: Short label appended to the product name ("Dodaios Dev").
+#: Short label appended to the product name ("Jarvis Dev").
 DEV_LABEL = "Dev"
 
 KNOWN_INSTANCE_NAMES = (DEFAULT_INSTANCE_NAME, DEV_INSTANCE_NAME)
@@ -134,7 +134,7 @@ class InstanceIdentity:
 
     @property
     def display_name(self) -> str:
-        """Window title / taskbar name: ``"Dodaios"`` or ``"… Dev"``. Display text only."""
+        """Window title / taskbar name: ``"Jarvis"`` or ``"… Dev"``. Display text only."""
         return PRODUCT_NAME if self.is_default else f"{PRODUCT_NAME} {self.label}"
 
     @property

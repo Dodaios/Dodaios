@@ -1,4 +1,4 @@
-# Dodaios CLI — Command Reference
+# Jarvis CLI — Command Reference
 
 _Generated from the curated command tree by `scripts/ci/gen_cli_reference.py` — do not edit by hand. Every mounted REST endpoint is additionally reachable via `dodaios api <tag> <op>`._
 

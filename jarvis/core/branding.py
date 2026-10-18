@@ -27,7 +27,7 @@ from collections.abc import Mapping
 # --- Display name ------------------------------------------------------------
 # The name a person reads. Never build a path, a registry key, a file name, a
 # process name, a bundle id or a credential-store name from it.
-PRODUCT_NAME = "Dodaios"
+PRODUCT_NAME = "Jarvis"
 
 # --- Persistent identity anchors ---------------------------------------------
 # Compatibility contracts, not branding: these spell the names existing

@@ -83,29 +83,21 @@ def test_default_exported_identity_values_are_frozen() -> None:
 
 
 def test_display_name_is_separate_from_persistent_identity() -> None:
-    assert branding.PRODUCT_NAME == "Dodaios"
-    # No persistent identifier is built from the display name: renaming the
-    # product must never move a path, a registry key or a credential store.
-    display = branding.PRODUCT_NAME.casefold()
-    for name in _CURRENT_IDENTITY:
-        if "REPO" in name or "RELEASES" in name:
-            continue  # the repository is itself called Dodaios/Dodaios
-        if "CLI_COMMAND" in name:
-            # The commands are spelled like the product by choice, as literals
-            # of their own: the next test shows they do not follow the display
-            # name, and the earlier command names stay beside them.
-            continue
-        assert display not in str(getattr(branding, name)).casefold(), name
+    assert branding.PRODUCT_NAME == "Jarvis"
+    # The frozen values above and the source-mutation test below prove that no
+    # persistent identifier follows this display name. A substring comparison
+    # is intentionally insufficient because "Personal Jarvis" is a legacy
+    # identity whose text now happens to contain the current display name.
 
 
 def test_persistent_identity_does_not_follow_the_display_name(monkeypatch) -> None:
     # Derivation, not coincidence: read the module source with a different
     # display name and every frozen value must come out unchanged.
     source = branding.__spec__.loader.get_source(branding.__name__)
-    assert source.count('PRODUCT_NAME = "Dodaios"') == 1
+    assert source.count('PRODUCT_NAME = "Jarvis"') == 1
     monkeypatch.delenv(branding.OFFICIAL_REPO_SLUG_ENV_VAR, raising=False)
     namespace: dict[str, object] = {"__name__": "branding_renamed"}
-    renamed = source.replace('PRODUCT_NAME = "Dodaios"', 'PRODUCT_NAME = "Renamed Again"')
+    renamed = source.replace('PRODUCT_NAME = "Jarvis"', 'PRODUCT_NAME = "Renamed Again"')
     exec(compile(renamed, "branding_renamed", "exec"), namespace)  # noqa: S102
     assert namespace["PRODUCT_NAME"] == "Renamed Again"
     assert {name: namespace[name] for name in _CURRENT_IDENTITY} == _CURRENT_IDENTITY
