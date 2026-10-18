@@ -178,8 +178,10 @@ def test_callback_capable_engine_yields_incremental_audio(
         sample_rate = 22_050
 
         def generate(self, _text, _speaker, _speed, *, callback):
-            callback(np.full(100, 0.1, dtype=np.float32), 0.5)
-            callback(np.full(100, 0.2, dtype=np.float32), 1.0)
+            # Like the real engine: a callback returning 0 stops generation.
+            for value in (0.1, 0.2):
+                if not callback(np.full(100, value, dtype=np.float32), 0.5):
+                    break
             return _FakeAudio(seconds=0.0)
 
     monkeypatch.setattr(
