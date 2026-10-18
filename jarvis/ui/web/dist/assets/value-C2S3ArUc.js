@@ -1,0 +1,17 @@
+import{gr as U,co as C}from"./index-CNEScuow.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+ * @license React
+ * use-sync-external-store-shim.production.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */var W;function $(){if(W)return x;W=1;var r=U();function e(i,a){return i===a&&(i!==0||1/i===1/a)||i!==i&&a!==a}var n=typeof Object.is=="function"?Object.is:e,u=r.useState,t=r.useEffect,s=r.useLayoutEffect,o=r.useDebugValue;function y(i,a){var c=a(),l=u({inst:{value:c,getSnapshot:a}}),f=l[0].inst,S=l[1];return s(function(){f.value=c,f.getSnapshot=a,h(f)&&S({inst:f})},[i,c,a]),t(function(){return h(f)&&S({inst:f}),i(function(){h(f)&&S({inst:f})})},[i]),o(c),c}function h(i){var a=i.getSnapshot;i=i.value;try{var c=a();return!n(i,c)}catch{return!0}}function v(i,a){return a()}var d=typeof window>"u"||typeof window.document>"u"||typeof window.document.createElement>"u"?v:y;return x.useSyncExternalStore=r.useSyncExternalStore!==void 0?r.useSyncExternalStore:d,x}var N;function B(){return N||(N=1,j.exports=$()),j.exports}/**
+ * @license React
+ * use-sync-external-store-shim/with-selector.production.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */var z;function F(){if(z)return R;z=1;var r=U(),e=B();function n(v,d){return v===d&&(v!==0||1/v===1/d)||v!==v&&d!==d}var u=typeof Object.is=="function"?Object.is:n,t=e.useSyncExternalStore,s=r.useRef,o=r.useEffect,y=r.useMemo,h=r.useDebugValue;return R.useSyncExternalStoreWithSelector=function(v,d,i,a,c){var l=s(null);if(l.current===null){var f={hasValue:!1,value:null};l.current=f}else f=l.current;l=y(function(){function V(m){if(!A){if(A=!0,E=m,m=a(m),c!==void 0&&f.hasValue){var p=f.value;if(c(p,m))return w=p}return w=m}if(p=w,u(E,m))return p;var _=a(m);return c!==void 0&&c(p,_)?(E=m,p):(E=m,w=_)}var A=!1,E,w,D=i===void 0?null:i;return[function(){return V(d())},D===null?void 0:function(){return V(D())}]},[d,i,a,c]);var S=t(v,l[0],l[1]);return o(function(){f.hasValue=!0,f.value=S},[S]),h(S),S},R}var I;function T(){return I||(I=1,g.exports=F()),g.exports}var H=T();const b=C(H);function J(r,e){e||(e=[]);var n=r?Math.min(e.length,r.length):0,u=e.slice(),t;return function(s){for(t=0;t<n;++t)u[t]=r[t]*(1-s)+e[t]*s;return u}}function K(r){return ArrayBuffer.isView(r)&&!(r instanceof DataView)}function P(r,e){var n=e?e.length:0,u=r?Math.min(n,r.length):0,t=new Array(u),s=new Array(n),o;for(o=0;o<u;++o)t[o]=k(r[o],e[o]);for(;o<n;++o)s[o]=e[o];return function(y){for(o=0;o<u;++o)s[o]=t[o](y);return s}}function Q(r,e){var n=new Date;return r=+r,e=+e,function(u){return n.setTime(r*(1-u)+e*u),n}}function X(r,e){var n={},u={},t;(r===null||typeof r!="object")&&(r={}),(e===null||typeof e!="object")&&(e={});for(t in e)t in r?n[t]=k(r[t],e[t]):u[t]=e[t];return function(s){for(t in n)u[t]=n[t](s);return u}}function k(r,e){var n=typeof e,u;return e==null||n==="boolean"?G(e):(n==="number"?q:n==="string"?(u=M(e))?(e=u,O):L:e instanceof M?O:e instanceof Date?Q:K(e)?J:Array.isArray(e)?P:typeof e.valueOf!="function"&&typeof e.toString!="function"||isNaN(e)?X:q)(r,e)}export{k as i,b as u,H as w};
