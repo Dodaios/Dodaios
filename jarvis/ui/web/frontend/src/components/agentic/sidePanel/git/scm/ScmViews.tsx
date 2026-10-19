@@ -1,6 +1,6 @@
 import { useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+import { Codicon } from "./Codicon";
 
 export interface ViewSpec {
   id: string;
@@ -59,8 +59,8 @@ export function ScmViews({ views, onWeights }: { views: ViewSpec[]; onWeights: (
             key={view.id}
             data-testid={`scm-view-${view.id}`}
             data-open={view.open || undefined}
-            className={cn("group/view relative flex min-h-0 flex-col", index > 0 && "border-t border-border/60")}
-            style={view.open ? { flex: `${view.weight} 1 0px`, minHeight: HEADER + MIN_BODY } : { flex: "0 0 auto" }}
+            className="scm-view relative flex min-h-0 flex-col"
+            style={{ ...(view.open ? { flex: `${view.weight} 1 0px`, minHeight: HEADER + MIN_BODY } : { flex: "0 0 auto" }), borderTop: index > 0 ? "1px solid var(--scm-border)" : undefined }}
           >
             {sashAbove && (
               <div
@@ -68,21 +68,23 @@ export function ScmViews({ views, onWeights }: { views: ViewSpec[]; onWeights: (
                 aria-orientation="horizontal"
                 data-testid={`scm-sash-${view.id}`}
                 onPointerDown={(event) => startDrag(event, sashAbove, view.id)}
-                className="absolute inset-x-0 -top-[3px] z-10 h-[6px] cursor-row-resize hover:bg-accent/40"
+                className="absolute inset-x-0 -top-[3px] z-10 h-[6px] cursor-row-resize transition-colors delay-150 hover:bg-[var(--scm-focus)]"
               />
             )}
-            <div className="flex shrink-0 items-center pr-1" style={{ height: HEADER }}>
+            <div className="flex shrink-0 items-center pr-[8px]" style={{ height: HEADER }}>
               <button
                 type="button"
                 data-testid={`scm-view-toggle-${view.id}`}
                 aria-expanded={view.open}
                 onClick={view.onToggle}
-                className="flex h-full min-w-0 flex-1 items-center gap-0.5 pl-0.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                className="flex h-full min-w-0 flex-1 items-center pl-[2px] text-left focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-[var(--scm-focus)]"
               >
-                {view.open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
-                <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground/80">{view.title}</span>
+                <Codicon name={view.open ? "chevron-down" : "chevron-right"} className="mr-[2px]" />
+                <span className="truncate text-[13px]" style={{ color: "var(--scm-title-fg)" }}>
+                  {view.title}
+                </span>
               </button>
-              {view.open && view.actions && <span className="hidden shrink-0 items-center group-hover/view:flex group-focus-within/view:flex">{view.actions}</span>}
+              {view.open && view.actions && <span className="scm-view-actions shrink-0 items-center gap-[2px]">{view.actions}</span>}
             </div>
             {view.open && (
               <div ref={(element) => (bodies.current[view.id] = element)} className="min-h-0 flex-1 overflow-hidden">

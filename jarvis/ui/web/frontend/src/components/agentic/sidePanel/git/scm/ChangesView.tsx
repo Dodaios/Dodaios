@@ -1,19 +1,4 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  CloudUpload,
-  FileText,
-  GitBranch,
-  Minus,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Undo2,
-} from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { isMacClient } from "@/lib/embeddedDesktop";
 import { cn } from "@/lib/utils";
@@ -39,15 +24,15 @@ import {
   type SortKey,
   type ViewMode,
 } from "./scmModel";
+import { Codicon, Twistie } from "./Codicon";
 import { ScmMenu, menuPointFor, type MenuItem } from "./ScmMenu";
 import type { CommitOptions, ScmCommands } from "./useScm";
 import type { DiffSource } from "./DiffDialog";
 
 export const ROW_HEIGHT = 22;
+/** Each tree level steps in by 8 px. */
+const INDENT = 8;
 const OVERSCAN = 12;
-
-export const ICON_BUTTON =
-  "inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40 disabled:hover:bg-transparent";
 
 export function IconButton({
   label,
@@ -75,7 +60,7 @@ export function IconButton({
           event.stopPropagation();
           onClick(event);
         }}
-        className={cn(ICON_BUTTON, className)}
+        className={cn("scm-action", className)}
       >
         {children}
       </button>
@@ -125,6 +110,7 @@ const FileRow = memo(function FileRow({
     <div
       role="treeitem"
       aria-selected={selected}
+      data-focused={focused || undefined}
       data-testid="scm-file"
       data-path={file.path}
       data-group={group}
@@ -132,41 +118,38 @@ const FileRow = memo(function FileRow({
       onClick={(event) => onPointer(row, event)}
       onDoubleClick={(event) => onPointer(row, event)}
       onContextMenu={(event) => onContext(row, event)}
-      style={{ height: ROW_HEIGHT, paddingLeft: 8 + row.depth * 12 }}
-      className={cn(
-        "group/row flex cursor-pointer select-none items-center gap-1.5 pr-1.5 text-[13px]",
-        selected ? "bg-accent/15" : "hover:bg-secondary/70",
-        focused && "outline outline-1 -outline-offset-1 outline-accent/70",
-      )}
+      style={{ height: ROW_HEIGHT, paddingLeft: (row.depth + 1) * INDENT }}
+      className="scm-row flex cursor-pointer select-none items-center"
     >
-      <FileTypeIcon path={file.path} className="h-4 w-4" />
-      <QuickTooltip content={tip} side="bottom" className="flex min-w-0 flex-1 items-baseline gap-1.5">
+      <Twistie visible={false} />
+      <FileTypeIcon path={file.path} className="mr-[6px] h-4 w-4" />
+      <QuickTooltip content={tip} side="bottom" className="flex min-w-0 flex-1 items-baseline overflow-hidden whitespace-nowrap">
         <span className={cn("truncate", tone, deleted && "line-through")}>{baseName(file.path)}</span>
-        {description && <span className="min-w-0 truncate text-[11.5px] text-muted-foreground/80">{description}</span>}
+        {description && <span className="ml-[0.5em] min-w-0 truncate text-[0.9em] opacity-70">{description}</span>}
       </QuickTooltip>
-      <span className={cn("hidden shrink-0 items-center group-hover/row:flex", (selected || focused) && "flex")}>
+      <span className="scm-actions shrink-0 items-center gap-[2px] pl-1">
         {file.letter !== "D" && (
           <IconButton label={t("ide_side_panel.git.scm.open_file")} testId="scm-open-file" onClick={() => onOpenFile(row)}>
-            <FileText className="h-3.5 w-3.5" aria-hidden />
+            <Codicon name="go-to-file" />
           </IconButton>
         )}
         {group === "changes" && (
           <IconButton label={t("ide_side_panel.git.scm.discard_changes")} testId="scm-discard" onClick={() => onDiscard(row)}>
-            <Undo2 className="h-3.5 w-3.5" aria-hidden />
+            <Codicon name="discard" />
           </IconButton>
         )}
         {group === "staged" ? (
           <IconButton label={t("ide_side_panel.git.scm.unstage_changes")} testId="scm-unstage" onClick={() => onUnstage(row)}>
-            <Minus className="h-3.5 w-3.5" aria-hidden />
+            <Codicon name="remove" />
           </IconButton>
         ) : (
           <IconButton label={t("ide_side_panel.git.scm.stage_changes")} testId="scm-stage" onClick={() => onStage(row)}>
-            <Plus className="h-3.5 w-3.5" aria-hidden />
+            <Codicon name="add" />
           </IconButton>
         )}
       </span>
       <QuickTooltip content={state} side="bottom" className="inline-flex shrink-0">
-        <span data-testid="scm-letter" className={cn("w-3.5 text-center font-mono text-[12px] font-semibold", tone)}>
+        <span data-testid="scm-letter" className={cn("ml-[5px] mr-[12px] w-4 text-center text-[12px] font-semibold opacity-90", tone)}>
           {file.letter}
         </span>
       </QuickTooltip>
@@ -176,11 +159,13 @@ const FileRow = memo(function FileRow({
 
 function GroupRow({
   row,
+  focused,
   onToggle,
   onContext,
   children,
 }: {
   row: Extract<Row, { kind: "group" }>;
+  focused: boolean;
   onToggle: () => void;
   onContext: (event: MouseEvent) => void;
   children: ReactNode;
@@ -190,16 +175,17 @@ function GroupRow({
     <div
       role="treeitem"
       aria-expanded={row.open}
+      data-focused={focused || undefined}
       data-testid={`scm-group-${row.group}`}
       onClick={onToggle}
       onContextMenu={onContext}
-      style={{ height: ROW_HEIGHT }}
-      className="group/row flex cursor-pointer select-none items-center gap-1 pl-1 pr-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground/90 hover:bg-secondary/70"
+      style={{ height: ROW_HEIGHT, paddingLeft: INDENT }}
+      className="scm-row flex cursor-pointer select-none items-center pr-[12px]"
     >
-      {row.open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
-      <span className="min-w-0 flex-1 truncate normal-case tracking-normal text-[12.5px] font-medium">{t(`ide_side_panel.git.scm.group.${row.group}`)}</span>
-      <span className="hidden shrink-0 items-center group-hover/row:flex">{children}</span>
-      <span data-testid="scm-group-count" className="ml-1 min-w-[18px] shrink-0 rounded-full bg-secondary px-1.5 text-center text-[11px] font-medium normal-case tabular-nums text-foreground/80">
+      <Twistie open={row.open} />
+      <span className="min-w-0 flex-1 truncate">{t(`ide_side_panel.git.scm.group.${row.group}`)}</span>
+      <span className="scm-actions shrink-0 items-center gap-[2px] pr-1">{children}</span>
+      <span data-testid="scm-group-count" className="scm-badge ml-1 shrink-0 tabular-nums">
         {row.count}
       </span>
     </div>
@@ -277,7 +263,11 @@ export function ChangesView({
     const element = textarea.current;
     if (!element) return;
     element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, 10 * 18 + 10)}px`;
+    // scrollHeight leaves out the 1 px border on each side.
+    const wanted = element.scrollHeight + 2;
+    const limit = 10 * 18 + 12;
+    element.style.height = `${Math.min(wanted, limit)}px`;
+    element.style.overflowY = wanted > limit ? "auto" : "hidden";
   }, [message, textarea]);
 
   const measure = useCallback(() => {
@@ -523,24 +513,25 @@ export function ChangesView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div ref={scroller} data-testid="scm-changes-scroller" onScroll={measure} className="min-h-0 flex-1 overflow-y-auto">
-        <div data-testid="scm-repo-row" className="group/repo flex h-[22px] items-center gap-1 pl-1 pr-1.5 text-[12.5px] hover:bg-secondary/50">
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="min-w-0 truncate font-medium text-foreground">{repoName}</span>
+        <div data-testid="scm-repo-row" className="scm-row flex h-[22px] items-center pr-[8px]">
+          <Twistie open />
+          <Codicon name="repo" className="mr-[6px]" />
+          <span className="min-w-0 shrink truncate">{repoName}</span>
           <QuickTooltip content={t("ide_side_panel.git.scm.checkout_tip")} side="bottom" className="inline-flex min-w-0">
             <button
               type="button"
               data-testid="scm-branch"
               onClick={() => void commands.checkoutTo()}
-              className="inline-flex min-w-0 items-center gap-1 rounded px-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className="ml-[0.5em] inline-flex min-w-0 items-center gap-[3px] text-[0.9em] opacity-70 hover:opacity-100"
             >
-              <GitBranch className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <Codicon name="git-branch" className="!text-[14px]" />
               <span className="truncate">
                 {branchLabel}
                 {dirty ? "*" : ""}
               </span>
             </button>
           </QuickTooltip>
-          <span className="ml-auto flex shrink-0 items-center">
+          <span className="ml-auto flex shrink-0 items-center gap-[2px] pl-1">
             {status.remotes.length > 0 && (
               <QuickTooltip content={syncLabel} side="bottom" className="inline-flex">
                 <button
@@ -549,52 +540,53 @@ export function ChangesView({
                   aria-label={syncLabel}
                   disabled={busy !== ""}
                   onClick={() => void commands.sync()}
-                  className="inline-flex h-[22px] items-center gap-0.5 rounded px-1 text-[11.5px] tabular-nums text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
+                  className="scm-action !w-auto gap-[2px] px-[3px] text-[12px] tabular-nums"
                 >
                   {!status.upstream ? (
-                    <CloudUpload className="h-3.5 w-3.5" aria-hidden />
+                    <Codicon name="cloud-upload" />
                   ) : status.ahead || status.behind ? (
                     <>
                       {status.behind > 0 && (
                         <>
                           {status.behind}
-                          <ArrowDown className="h-3 w-3" aria-hidden />
+                          <Codicon name="arrow-down" className="!text-[14px]" />
                         </>
                       )}
                       {status.ahead > 0 && (
                         <>
                           {status.ahead}
-                          <ArrowUp className="h-3 w-3" aria-hidden />
+                          <Codicon name="arrow-up" className="!text-[14px]" />
                         </>
                       )}
                     </>
                   ) : (
-                    <RefreshCw className={cn("h-3.5 w-3.5", busy === "sync" && "animate-spin motion-reduce:animate-none")} aria-hidden />
+                    <Codicon name="sync" spin={busy === "sync"} />
                   )}
                 </button>
               </QuickTooltip>
             )}
             <IconButton label={fill(t("ide_side_panel.git.scm.commit_tip"), { branch: branchLabel })} testId="scm-commit-icon" disabled={busy !== ""} onClick={() => void runCommit({ kind: "commit" })}>
-              <Check className="h-3.5 w-3.5" aria-hidden />
+              <Codicon name="check" />
             </IconButton>
             <IconButton label={t("ide_side_panel.git.scm.refresh")} testId="scm-refresh" onClick={onRefresh}>
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+              <Codicon name="refresh" />
             </IconButton>
             <IconButton
               label={t("ide_side_panel.git.scm.more_actions")}
               testId="scm-more"
               onClick={(event) => setMenu({ items: moreMenu(), ...menuPointFor(event.currentTarget) })}
             >
-              <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+              <Codicon name="ellipsis" />
             </IconButton>
           </span>
         </div>
 
-        <div className="space-y-1.5 px-2 pb-2 pt-1.5">
+        <div className="pb-[6px] pl-[20px] pr-[12px] pt-[3px]">
           {status.operation && status.operation !== "bisect" && (
-            <div data-testid="scm-operation" className="flex items-center gap-2 rounded border border-[hsl(var(--git-modified))]/40 bg-[hsl(var(--git-modified))]/10 px-2 py-1 text-[11.5px] text-foreground">
+            <div data-testid="scm-operation" className="mb-[6px] flex items-start gap-2 rounded-sm border border-[var(--scm-modified)] px-[6px] py-[2px] text-[12px] leading-[18px]">
+              <Codicon name="git-merge" className="mt-[1px]" />
               <span className="min-w-0 flex-1">{t(`ide_side_panel.git.scm.operation.${status.operation}`)}</span>
-              <button type="button" data-testid="scm-abort" onClick={() => void commands.operation("abort")} className="shrink-0 text-accent hover:underline">
+              <button type="button" data-testid="scm-abort" onClick={() => void commands.operation("abort")} className="shrink-0 text-[var(--scm-focus)] hover:underline">
                 {t("ide_side_panel.git.scm.abort")}
               </button>
             </div>
@@ -616,18 +608,20 @@ export function ChangesView({
                   if (busy === "") void runCommit({ kind: "commit" });
                 }
               }}
-              className={cn(
-                "block w-full resize-none rounded-sm border bg-background px-2 py-[5px] text-[13px] leading-[18px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none",
-                messageError ? "border-destructive" : "border-border focus:border-accent",
-              )}
+              style={messageError ? { borderColor: "var(--scm-error-border)", outlineColor: "var(--scm-error-border)" } : undefined}
+              className="scm-input block min-h-[26px] w-full resize-none px-[6px] py-[2px] text-[13px] leading-[20px]"
             />
             {messageError && (
-              <p data-testid="scm-message-error" className="mt-0.5 rounded-sm bg-destructive/90 px-2 py-0.5 text-[11.5px] text-destructive-foreground">
+              <p
+                data-testid="scm-message-error"
+                className="border border-t-0 px-[6px] py-[2px] text-[12px] leading-[17px]"
+                style={{ background: "var(--scm-error-bg)", borderColor: "var(--scm-error-border)" }}
+              >
                 {messageError}
               </p>
             )}
           </div>
-          <div className="flex h-[26px]">
+          <div className="mt-[6px] flex h-[26px]">
             <button
               type="button"
               data-testid="scm-primary"
@@ -635,31 +629,31 @@ export function ChangesView({
               disabled={busy !== "" || (action.kind === "commit" && !action.enabled)}
               onClick={runPrimary}
               className={cn(
-                "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 bg-primary px-2 text-[12.5px] font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-                action.kind === "commit" ? "rounded-l-sm" : "rounded-sm",
+                "scm-button inline-flex min-w-0 flex-1 items-center justify-center gap-[4px] px-[4px] text-[13px] leading-[18px]",
+                action.kind === "commit" ? "rounded-l-[2px]" : "rounded-[2px]",
               )}
             >
               {action.kind === "commit" && (
                 <>
-                  <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <Codicon name="check" />
                   <span className="truncate">{t("ide_side_panel.git.scm.commit")}</span>
                 </>
               )}
               {action.kind === "continue" && (
                 <>
-                  <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <Codicon name="check" />
                   <span className="truncate">{t("ide_side_panel.git.scm.continue")}</span>
                 </>
               )}
               {action.kind === "publish" && (
                 <>
-                  <CloudUpload className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <Codicon name="cloud-upload" />
                   <span className="truncate">{t("ide_side_panel.git.scm.publish_branch")}</span>
                 </>
               )}
               {action.kind === "sync" && (
                 <>
-                  <RefreshCw className={cn("h-3.5 w-3.5 shrink-0", busy === "sync" && "animate-spin motion-reduce:animate-none")} aria-hidden />
+                  <Codicon name="sync" spin={busy === "sync"} />
                   <span className="truncate">{t("ide_side_panel.git.scm.sync_changes")}</span>
                   <span className="shrink-0 tabular-nums">
                     {action.behind > 0 && `${action.behind}↓ `}
@@ -669,21 +663,35 @@ export function ChangesView({
               )}
             </button>
             {action.kind === "commit" && (
-              <button
-                type="button"
-                data-testid="scm-primary-more"
-                aria-label={t("ide_side_panel.git.scm.commit_options")}
-                disabled={busy !== "" || !action.enabled}
-                onClick={(event) => setMenu({ items: commitMenu(), ...menuPointFor(event.currentTarget) })}
-                className="inline-flex w-[26px] shrink-0 items-center justify-center rounded-r-sm border-l border-primary-foreground/25 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-              </button>
+              <>
+                <span aria-hidden className="scm-button w-px shrink-0 py-[4px]" style={{ opacity: busy !== "" || !action.enabled ? 0.4 : 1 }}>
+                  <span className="block h-full w-px" style={{ background: "var(--scm-button-separator)" }} />
+                </span>
+                <button
+                  type="button"
+                  data-testid="scm-primary-more"
+                  aria-label={t("ide_side_panel.git.scm.commit_options")}
+                  disabled={busy !== "" || !action.enabled}
+                  onClick={(event) => setMenu({ items: commitMenu(), ...menuPointFor(event.currentTarget) })}
+                  className="scm-button inline-flex w-[26px] shrink-0 items-center justify-center rounded-r-[2px]"
+                >
+                  <Codicon name="chevron-down" />
+                </button>
+              </>
             )}
           </div>
         </div>
 
-        <div ref={listTop} role="tree" aria-label={t("ide_side_panel.git.scm.changes_aria")} aria-multiselectable tabIndex={0} onKeyDown={onListKey} className="relative outline-none" style={{ height: rows.length * ROW_HEIGHT }}>
+        <div
+          ref={listTop}
+          role="tree"
+          aria-label={t("ide_side_panel.git.scm.changes_aria")}
+          aria-multiselectable
+          tabIndex={0}
+          onKeyDown={onListKey}
+          className="scm-list relative outline-none"
+          style={{ height: rows.length * ROW_HEIGHT }}
+        >
           <div style={{ position: "absolute", top: first * ROW_HEIGHT, left: 0, right: 0 }}>
             {rows.slice(first, last).map((row) => {
               if (row.kind === "file") {
@@ -709,31 +717,30 @@ export function ChangesView({
                     key={row.key}
                     role="treeitem"
                     aria-expanded={row.open}
+                    aria-selected={selection.has(row.key)}
+                    data-focused={focusKey === row.key || undefined}
                     data-testid="scm-folder"
                     onClick={(event) => onPointer(row, event)}
                     onContextMenu={(event) => onContext(row, event)}
-                    style={{ height: ROW_HEIGHT, paddingLeft: row.depth * 12 - 4 }}
-                    className={cn(
-                      "group/row flex cursor-pointer select-none items-center gap-1 pr-1.5 text-[13px] text-foreground",
-                      selection.has(row.key) ? "bg-accent/15" : "hover:bg-secondary/70",
-                      focusKey === row.key && "outline outline-1 -outline-offset-1 outline-accent/70",
-                    )}
+                    style={{ height: ROW_HEIGHT, paddingLeft: (row.depth + 1) * INDENT }}
+                    className="scm-row flex cursor-pointer select-none items-center pr-[12px]"
                   >
-                    {row.open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
+                    <Twistie open={row.open} />
+                    <Codicon name={row.open ? "folder-opened" : "folder"} className="mr-[6px]" />
                     <span className="min-w-0 flex-1 truncate">{row.label}</span>
-                    <span className="hidden shrink-0 items-center group-hover/row:flex">
+                    <span className="scm-actions shrink-0 items-center gap-[2px]">
                       {row.group === "changes" && (
                         <IconButton label={t("ide_side_panel.git.scm.discard_changes")} testId="scm-folder-discard" onClick={() => discardRow(row)}>
-                          <Undo2 className="h-3.5 w-3.5" aria-hidden />
+                          <Codicon name="discard" />
                         </IconButton>
                       )}
                       {row.group === "staged" ? (
                         <IconButton label={t("ide_side_panel.git.scm.unstage_changes")} testId="scm-folder-unstage" onClick={() => unstageRow(row)}>
-                          <Minus className="h-3.5 w-3.5" aria-hidden />
+                          <Codicon name="remove" />
                         </IconButton>
                       ) : (
                         <IconButton label={t("ide_side_panel.git.scm.stage_changes")} testId="scm-folder-stage" onClick={() => stageRow(row)}>
-                          <Plus className="h-3.5 w-3.5" aria-hidden />
+                          <Codicon name="add" />
                         </IconButton>
                       )}
                     </span>
@@ -741,25 +748,25 @@ export function ChangesView({
                 );
               }
               return (
-                <GroupRow key={row.key} row={row} onToggle={() => toggle(row.key)} onContext={(event) => onContext(row, event)}>
+                <GroupRow key={row.key} row={row} focused={focusKey === row.key} onToggle={() => toggle(row.key)} onContext={(event) => onContext(row, event)}>
                   {row.group === "staged" && (
                     <IconButton label={t("ide_side_panel.git.scm.unstage_all")} testId="scm-unstage-all" onClick={() => void commands.unstageAll()}>
-                      <Minus className="h-3.5 w-3.5" aria-hidden />
+                      <Codicon name="remove" />
                     </IconButton>
                   )}
                   {row.group === "changes" && row.count > 0 && (
                     <>
                       <IconButton label={t("ide_side_panel.git.scm.discard_all")} testId="scm-discard-all" onClick={() => void commands.discardAll()}>
-                        <Undo2 className="h-3.5 w-3.5" aria-hidden />
+                        <Codicon name="discard" />
                       </IconButton>
                       <IconButton label={t("ide_side_panel.git.scm.stage_all")} testId="scm-stage-all" onClick={() => void commands.stage(status.changes.map((file) => file.path))}>
-                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                        <Codicon name="add" />
                       </IconButton>
                     </>
                   )}
                   {row.group === "merge" && (
                     <IconButton label={t("ide_side_panel.git.scm.stage_all_merge")} testId="scm-stage-all-merge" onClick={() => void commands.stage(status.merge.map((file) => file.path))}>
-                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                      <Codicon name="add" />
                     </IconButton>
                   )}
                 </GroupRow>
@@ -767,7 +774,7 @@ export function ChangesView({
             })}
           </div>
         </div>
-        {status.truncated && <p className="px-3 py-1.5 text-[11px] text-muted-foreground">{t("ide_side_panel.git.scm.truncated")}</p>}
+        {status.truncated && <p className="px-[20px] py-[4px] text-[12px] opacity-70">{t("ide_side_panel.git.scm.truncated")}</p>}
       </div>
       {menu && <ScmMenu items={menu.items} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
     </div>

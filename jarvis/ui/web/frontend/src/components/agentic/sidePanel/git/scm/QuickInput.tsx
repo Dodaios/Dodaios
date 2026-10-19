@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { cn } from "@/lib/utils";
 
 export interface QuickPickItem<T> {
   label: string;
@@ -78,7 +77,8 @@ function Widget({ request, onDone }: { request: Request; onDone: (value: unknown
       role="dialog"
       aria-modal="true"
       data-testid="scm-quick-input"
-      className="absolute inset-x-2 top-1 z-[60] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-float"
+      className="scm-portal absolute inset-x-[8px] top-[4px] z-[60] overflow-hidden rounded-[6px]"
+      style={{ background: "var(--scm-menu-bg)", color: "var(--scm-menu-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 0 8px 2px rgba(0, 0, 0, 0.36)" }}
       onKeyDown={(event) => {
         if (event.key === "Escape") onDone(undefined);
         else if (event.key === "Enter") accept();
@@ -89,7 +89,7 @@ function Widget({ request, onDone }: { request: Request; onDone: (value: unknown
         event.stopPropagation();
       }}
     >
-      <div className="p-1.5">
+      <div className="px-[6px] pb-[6px] pt-[6px]">
         <input
           ref={input}
           data-testid="scm-quick-input-box"
@@ -102,25 +102,22 @@ function Widget({ request, onDone }: { request: Request; onDone: (value: unknown
             // A click inside the widget keeps it; anywhere else cancels, as Escape does.
             if (!event.currentTarget.closest("[data-testid=scm-quick-input]")?.contains(event.relatedTarget as Node | null)) onDone(undefined);
           }}
-          className={cn(
-            "h-7 w-full rounded border bg-background px-2 text-[12.5px] text-foreground outline-none focus:border-accent",
-            error ? "border-destructive" : "border-border",
-          )}
+          className="scm-input h-[26px] w-full px-[6px] text-[13px]"
+          style={error ? { borderColor: "var(--scm-error-border)", outlineColor: "var(--scm-error-border)" } : undefined}
         />
         {request.mode === "input" && (
-          <p data-testid="scm-quick-input-prompt" className={cn("px-1 pt-1.5 text-[11.5px]", error ? "text-destructive" : "text-muted-foreground")}>
+          <p data-testid="scm-quick-input-prompt" className="px-[4px] pt-[6px] text-[12px] leading-[18px]" style={error ? { color: "var(--scm-deleted)" } : { opacity: 0.8 }}>
             {error || request.prompt}
           </p>
         )}
       </div>
       {request.mode === "pick" && (
-        <div ref={list} role="listbox" className="max-h-[min(50vh,360px)] overflow-y-auto pb-1">
+        <div ref={list} role="listbox" className="max-h-[min(50vh,440px)] overflow-y-auto pb-[6px]">
           {shown.map((item, index) => (
             <div key={`${item.label}-${index}`}>
               {item.group && (index === 0 || shown[index - 1].group !== item.group) && (
-                <div className="flex items-center gap-2 px-3 pb-0.5 pt-1.5 text-[10.5px] uppercase tracking-wide text-muted-foreground">
-                  <span>{item.group}</span>
-                  <span className="h-px flex-1 bg-border" />
+                <div className="mx-[6px] flex h-[22px] items-center justify-end border-t px-[6px] text-[11px]" style={{ borderColor: "var(--scm-menu-separator)", color: "var(--scm-desc-fg)" }}>
+                  {item.group}
                 </div>
               )}
               <button
@@ -133,16 +130,14 @@ function Widget({ request, onDone }: { request: Request; onDone: (value: unknown
                 onMouseMove={() => setActive(index)}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => onDone(item.value)}
-                className={cn(
-                  "flex w-full min-w-0 items-center gap-2 px-3 py-[3px] text-left text-[12.5px]",
-                  index === active ? "bg-accent text-accent-foreground" : "text-foreground",
-                )}
+                style={index === active ? { background: "var(--scm-menu-selection)", color: "var(--scm-menu-selection-fg)" } : undefined}
+                className="mx-[6px] flex h-[22px] w-[calc(100%-12px)] min-w-0 items-center gap-[6px] rounded-[3px] px-[6px] text-left text-[13px]"
               >
                 {item.icon && <span className="flex h-4 w-4 shrink-0 items-center justify-center">{item.icon}</span>}
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-baseline gap-2">
                     <span className="truncate">{item.label}</span>
-                    {item.description && <span className="min-w-0 truncate text-[11.5px] opacity-70">{item.description}</span>}
+                    {item.description && <span className="min-w-0 truncate text-[0.9em] opacity-70">{item.description}</span>}
                   </span>
                   {item.detail && <span className="block truncate text-[11px] opacity-60">{item.detail}</span>}
                 </span>

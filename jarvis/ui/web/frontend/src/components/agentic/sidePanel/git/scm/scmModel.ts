@@ -12,26 +12,9 @@ export type SortKey = "path" | "name" | "status";
 
 // ------------------------------------------------------------------ letters
 
-/** The text colour of a file's name and letter, from the `--git-*` theme tokens. */
+/** The class that colours a file's name and letter (`scm-tone-*` in scm.css). */
 export function letterTone(letter: ScmLetter): string {
-  switch (letter) {
-    case "M":
-    case "T":
-      return "text-[hsl(var(--git-modified))]";
-    case "A":
-      return "text-[hsl(var(--git-added))]";
-    case "U":
-      return "text-[hsl(var(--git-untracked))]";
-    case "D":
-      return "text-[hsl(var(--git-deleted))]";
-    case "R":
-    case "C":
-      return "text-[hsl(var(--git-renamed))]";
-    case "!":
-      return "text-[hsl(var(--git-conflict))]";
-    default:
-      return "text-[hsl(var(--git-ignored))]";
-  }
+  return `scm-tone-${letter}`;
 }
 
 /** The i18n key of a file state's tooltip word ("Modified", "Index Added", …). */
@@ -302,6 +285,7 @@ export function layoutGraph(commits: GraphCommit[]): GraphRow[] {
   return rows;
 }
 
-/** One of eight lane colours, the same lane always the same one. */
-export const LANE_COLORS = 8;
-export const laneColor = (lane: number) => `hsl(var(--git-lane-${lane % LANE_COLORS}))`;
+/** One of five lane colours, the same lane always the same one. */
+export const LANE_COLORS = 5;
+/** The first lane carries the checked-out branch and takes its ref colour; the others cycle. */
+export const laneColor = (lane: number) => (lane === 0 ? "var(--scm-ref-local)" : `var(--scm-lane-${(lane - 1) % LANE_COLORS})`);

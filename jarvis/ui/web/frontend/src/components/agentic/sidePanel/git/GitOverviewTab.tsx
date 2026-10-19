@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, CloudDownload, GitBranch, ListTree, List, Loader2, LocateFixed, RefreshCw } from "lucide-react";
 import { useT } from "@/i18n";
 import { prepareGit } from "@/lib/gitApi";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 import { RepositoryOverview, RestartToConnectCard } from "./RepositoryOverview";
 import { ChangesView, IconButton, viewSortMenu, type ListSettings } from "./scm/ChangesView";
+import { Codicon } from "./scm/Codicon";
+import "./scm/scm.css";
 import { DiffDialog, type DiffSource } from "./scm/DiffDialog";
 import { GraphView } from "./scm/GraphView";
 import { useQuickInput } from "./scm/QuickInput";
@@ -265,26 +266,26 @@ export function GitOverviewTab() {
       error?.code === "unavailable" ? (
         <RestartToConnectCard />
       ) : error ? (
-        <p data-testid="scm-error" className="px-4 py-4 text-center text-xs text-destructive">
+        <p data-testid="scm-error" className="px-[20px] py-[8px] text-[13px]" style={{ color: "var(--scm-deleted)" }}>
           {error.message}
         </p>
       ) : (
         <div className="flex justify-center py-4">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground motion-reduce:animate-none" aria-hidden />
+          <Codicon name="loading" spin />
         </div>
       );
   } else if (!status.available) {
     changesBody = (
-      <div data-testid="scm-unavailable" className="space-y-3 px-4 py-4 text-[12.5px] text-muted-foreground">
+      <div data-testid="scm-unavailable" className="space-y-[12px] px-[20px] py-[10px] text-[13px] leading-[1.4em]">
         <p>{t("ide_side_panel.git.scm.no_repository")}</p>
         <button
           type="button"
           data-testid="scm-init"
           disabled={initializing || !workspace.path}
           onClick={() => void initRepository()}
-          className="inline-flex h-[26px] w-full items-center justify-center gap-1.5 rounded-sm bg-primary px-3 text-[12.5px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="scm-button inline-flex h-[26px] w-full items-center justify-center gap-[4px] rounded-[2px] px-[4px] text-[13px]"
         >
-          {initializing && <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}
+          {initializing && <Codicon name="loading" spin />}
           {t("ide_side_panel.git.scm.init_repository")}
         </button>
       </div>
@@ -313,12 +314,19 @@ export function GitOverviewTab() {
 
   const repository = status?.available;
   return (
-    <section data-testid="ide-git-tab" aria-label={t("ide_side_panel.git.aria")} className="relative flex h-full min-h-0 flex-col">
-      <div className="flex h-[30px] shrink-0 items-center px-3">
-        <span className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("ide_side_panel.git.scm.title")}</span>
+    <section data-testid="ide-git-tab" aria-label={t("ide_side_panel.git.aria")} className="scm-root relative flex h-full min-h-0 flex-col">
+      <div className="flex h-[35px] shrink-0 items-center pl-[20px] pr-[8px]">
+        <span className="min-w-0 flex-1 truncate text-[13px]" style={{ color: "var(--scm-title-fg)" }}>
+          {t("ide_side_panel.git.scm.title")}
+        </span>
+        {repository && (
+          <IconButton label={t("ide_side_panel.git.scm.more_actions")} testId="scm-title-more" onClick={(event) => setMenu({ items: moreMenu(), ...menuPointFor(event.currentTarget) })}>
+            <Codicon name="ellipsis" />
+          </IconButton>
+        )}
       </div>
       <div className="relative h-[2px] shrink-0 overflow-hidden" aria-hidden>
-        {busy && <div data-testid="scm-progress" className="absolute inset-y-0 w-1/3 animate-[scm-progress_1.2s_linear_infinite] bg-accent motion-reduce:animate-none" />}
+        {busy && <div data-testid="scm-progress" className="scm-progress" />}
       </div>
       <ScmViews
         onWeights={(next) => setWeights((current) => ({ ...current, ...next }))}
@@ -335,7 +343,7 @@ export function GitOverviewTab() {
                 testId="scm-view-mode"
                 onClick={() => setSettings((current) => ({ ...current, mode: current.mode === "list" ? "tree" : "list" }))}
               >
-                {settings.mode === "list" ? <ListTree className="h-3.5 w-3.5" aria-hidden /> : <List className="h-3.5 w-3.5" aria-hidden />}
+                <Codicon name={settings.mode === "list" ? "list-tree" : "list-flat"} />
               </IconButton>
             ) : undefined,
             body: changesBody,
@@ -348,36 +356,40 @@ export function GitOverviewTab() {
             weight: weights.graph ?? 1,
             actions: repository ? (
               <>
+                <span className="mr-[4px] inline-flex min-w-0 items-center gap-[3px] text-[12px] opacity-80">
+                  <Codicon name="repo" />
+                  <span className="max-w-[110px] truncate">{repoName}</span>
+                </span>
                 <button
                   type="button"
                   data-testid="scm-graph-scope"
                   onClick={(event) => setMenu({ items: scopeMenu(), ...menuPointFor(event.currentTarget) })}
-                  className="inline-flex h-[22px] items-center gap-1 rounded px-1 text-[11.5px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  className="scm-action !w-auto gap-[3px] px-[3px] text-[12px]"
                 >
-                  <GitBranch className="h-3.5 w-3.5" aria-hidden />
+                  <Codicon name="git-branch" />
                   {t(`ide_side_panel.git.scm.scope.${scope}`)}
                 </button>
                 <IconButton label={t("ide_side_panel.git.scm.go_to_current")} testId="scm-graph-head" onClick={() => setGoHead((value) => value + 1)}>
-                  <LocateFixed className="h-3.5 w-3.5" aria-hidden />
+                  <Codicon name="target" />
                 </IconButton>
                 <IconButton label={t("ide_side_panel.git.scm.fetch")} testId="scm-graph-fetch" disabled={busy !== ""} onClick={() => void commands.fetch()}>
-                  <CloudDownload className="h-3.5 w-3.5" aria-hidden />
+                  <Codicon name="repo-fetch" />
                 </IconButton>
                 <IconButton label={t("ide_side_panel.git.scm.pull")} testId="scm-graph-pull" disabled={busy !== ""} onClick={() => void commands.pull()}>
-                  <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />
+                  <Codicon name="repo-pull" />
                 </IconButton>
                 <IconButton label={t("ide_side_panel.git.scm.push")} testId="scm-graph-push" disabled={busy !== ""} onClick={() => void commands.push()}>
-                  <ArrowUpFromLine className="h-3.5 w-3.5" aria-hidden />
+                  <Codicon name="repo-push" />
                 </IconButton>
                 <IconButton label={t("ide_side_panel.git.scm.refresh")} testId="scm-graph-refresh" onClick={onChanged}>
-                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                  <Codicon name="refresh" />
                 </IconButton>
               </>
             ) : undefined,
             body: repository ? (
               <GraphView workspaceId={workspace.id} revision={revision} scope={scope} commands={commands} onDiff={setDiff} targetHead={goHead} />
             ) : (
-              <p className="px-3 py-3 text-[12px] text-muted-foreground">{t("ide_side_panel.git.scm.no_commits")}</p>
+              <p className="px-[20px] py-[4px] text-[13px] opacity-70">{t("ide_side_panel.git.scm.no_commits")}</p>
             ),
           },
           {

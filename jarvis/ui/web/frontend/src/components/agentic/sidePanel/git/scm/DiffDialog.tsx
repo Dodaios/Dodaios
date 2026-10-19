@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, X } from "lucide-react";
+import { Codicon } from "./Codicon";
 import { useT } from "@/i18n";
 
 const MonacoDiff = lazy(() => import("./MonacoDiff"));
@@ -40,7 +40,8 @@ export function DiffDialog({ source, onClose }: { source: DiffSource; onClose: (
   return createPortal(
     <div
       role="presentation"
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-background/60 p-6"
+      className="scm-portal fixed inset-0 z-[110] flex items-center justify-center p-6"
+      style={{ background: "rgba(0, 0, 0, 0.3)" }}
       onPointerDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
@@ -48,34 +49,35 @@ export function DiffDialog({ source, onClose }: { source: DiffSource; onClose: (
         aria-modal="true"
         aria-label={source.title}
         data-testid="scm-diff-dialog"
-        className="flex h-full max-h-[86vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-border bg-background shadow-float"
+        className="flex h-full max-h-[86vh] w-full max-w-6xl flex-col overflow-hidden rounded-[6px]"
+        style={{ background: "var(--scm-bg)", color: "var(--scm-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 0 8px 2px rgba(0, 0, 0, 0.36)" }}
       >
-        <header className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-          <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-foreground">{source.title}</span>
+        <header className="flex h-[35px] shrink-0 items-center gap-[6px] px-[10px]" style={{ borderBottom: "1px solid var(--scm-border)" }}>
+          <span className="min-w-0 flex-1 truncate text-[13px]">{source.title}</span>
           <button
             type="button"
             aria-label={t("ide_side_panel.git.scm.close")}
             data-testid="scm-diff-close"
             onClick={onClose}
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="scm-action"
           >
-            <X className="h-4 w-4" aria-hidden />
+            <Codicon name="close" />
           </button>
         </header>
         <div className="relative min-h-0 flex-1">
           {!state ? (
             <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground motion-reduce:animate-none" aria-hidden />
+              <Codicon name="loading" spin />
             </div>
           ) : "error" in state ? (
-            <p className="p-6 text-center text-xs text-destructive">{state.error}</p>
+            <p className="p-6 text-center text-[13px]" style={{ color: "var(--scm-deleted)" }}>{state.error}</p>
           ) : state.binary ? (
-            <p className="p-6 text-center text-xs text-muted-foreground">{t("ide_side_panel.git.scm.binary")}</p>
+            <p className="p-6 text-center text-[13px] opacity-70">{t("ide_side_panel.git.scm.binary")}</p>
           ) : (
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground motion-reduce:animate-none" aria-hidden />
+                  <Codicon name="loading" spin />
                 </div>
               }
             >

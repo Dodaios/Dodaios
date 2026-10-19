@@ -4,7 +4,7 @@ import { Cloud, GitBranch, Plus, Tag } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { GitApiError } from "@/lib/gitApi";
 import { useEventStore } from "@/store/events";
-import { cn } from "@/lib/utils";
+import { Codicon } from "./Codicon";
 import { scmApi, type ScmRef, type ScmStatus } from "./scmApi";
 import type { QuickInput, QuickPickItem } from "./QuickInput";
 
@@ -79,7 +79,8 @@ function ChoiceDialog({ choice, onDone }: { choice: Choice; onDone: (id: string 
   return createPortal(
     <div
       role="presentation"
-      className="fixed inset-0 z-[115] flex items-center justify-center bg-background/60 p-4"
+      className="scm-portal fixed inset-0 z-[115] flex items-start justify-center p-4 pt-[12vh]"
+      style={{ background: "rgba(0, 0, 0, 0.3)" }}
       onPointerDown={(event) => event.target === event.currentTarget && onDone(undefined)}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -93,13 +94,19 @@ function ChoiceDialog({ choice, onDone }: { choice: Choice; onDone: (id: string 
         aria-modal="true"
         aria-labelledby="scm-choice-title"
         data-testid="scm-choice"
-        className="w-full max-w-md rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-float"
+        className="flex w-full max-w-[460px] flex-col rounded-[6px] px-[20px] pb-[18px] pt-[20px]"
+        style={{ background: "var(--scm-menu-bg)", color: "var(--scm-menu-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 0 8px 2px rgba(0, 0, 0, 0.36)" }}
       >
-        <h2 id="scm-choice-title" className="whitespace-pre-line break-words text-sm font-semibold text-foreground">
-          {choice.title}
-        </h2>
-        {choice.body && <p className="mt-1.5 whitespace-pre-line break-words text-xs leading-relaxed text-muted-foreground">{choice.body}</p>}
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <div className="flex gap-[12px]">
+          <Codicon name="warning" className="!text-[24px] !leading-[24px]" />
+          <div className="min-w-0 flex-1">
+            <h2 id="scm-choice-title" className="whitespace-pre-line break-words text-[13px] font-semibold leading-[20px]">
+              {choice.title}
+            </h2>
+            {choice.body && <p className="mt-[6px] whitespace-pre-line break-words text-[13px] leading-[20px] opacity-90">{choice.body}</p>}
+          </div>
+        </div>
+        <div className="mt-[20px] flex flex-wrap justify-end gap-[8px]">
           {choice.buttons.map((button, index) => (
             <button
               key={button.id}
@@ -107,14 +114,8 @@ function ChoiceDialog({ choice, onDone }: { choice: Choice; onDone: (id: string 
               type="button"
               data-testid={`scm-choice-${button.id}`}
               onClick={() => onDone(button.id)}
-              className={cn(
-                "inline-flex h-8 items-center rounded-md px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                button.destructive
-                  ? "bg-destructive text-destructive-foreground hover:opacity-90"
-                  : button.primary
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "border border-border text-foreground hover:bg-secondary",
-              )}
+              style={index === 0 ? undefined : { background: "var(--scm-input-bg)", color: "var(--scm-fg)", border: "1px solid var(--scm-input-border)" }}
+              className={index === 0 ? "scm-button inline-flex h-[26px] min-w-[80px] items-center justify-center rounded-[2px] px-[12px] text-[13px]" : "inline-flex h-[26px] min-w-[80px] items-center justify-center rounded-[2px] px-[12px] text-[13px] hover:opacity-90"}
             >
               {button.label}
             </button>
@@ -123,7 +124,8 @@ function ChoiceDialog({ choice, onDone }: { choice: Choice; onDone: (id: string 
             type="button"
             data-testid="scm-choice-cancel"
             onClick={() => onDone(undefined)}
-            className="h-8 rounded-md px-3 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={{ background: "var(--scm-input-bg)", color: "var(--scm-fg)", border: "1px solid var(--scm-input-border)" }}
+            className="inline-flex h-[26px] min-w-[80px] items-center justify-center rounded-[2px] px-[12px] text-[13px] hover:opacity-90"
           >
             {t("ide_side_panel.git.confirm.cancel")}
           </button>
