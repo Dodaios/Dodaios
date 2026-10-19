@@ -78,14 +78,14 @@ def test_report_lands_in_deliverable_subtree(tmp_path: Path) -> None:
     assert rel[3] == "files"
 
 
-def test_report_is_found_by_build_deliverable_summary(tmp_path: Path) -> None:
+def test_report_is_found_by_build_deliverable_summary(tmp_path: Path, language="de") -> None:
     """End-to-end: after materialising, the readback summary names the report."""
     _task_dir(tmp_path)
     out = materialize_answer_document(
         tmp_path, answers=[_LONG_ANSWER], prompt="relocate to SF"
     )
     assert out is not None
-    summary = build_deliverable_summary(tmp_path)
+    summary = build_deliverable_summary(tmp_path, language="de")
     assert out.name in summary
     assert "Artefakt" in summary  # i18n-allow: DE readback
 

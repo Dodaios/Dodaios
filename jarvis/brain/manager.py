@@ -2420,6 +2420,37 @@ def _takes_pending_appshot(source_layer: str | None) -> bool:
     return not layer.startswith(_AUTOMATED_LAYER_PREFIXES)
 
 
+def _current_turn_language(owner: object) -> str:
+    """This turn's language: the context's own, else the last one set."""
+    return TURN_LANGUAGE.get() or getattr(owner, "_turn_detected_lang", "")
+
+
+def _turn_phrase_language(owner: object, user_text: str) -> str:
+    """The de/en/es/pt language of a system phrase for *user_text*.
+
+    One resolver for every canned phrase: the pin, else the language
+    ``generate()`` resolved for this turn (which already applied stickiness,
+    the chat's own history and ``language_text`` — so an internal English
+    "continue" prompt does not make the error phrases English), else the text
+    within the running conversation, else English. ``generate()`` only
+    receives text (the pipeline resolves the STT tag separately), hence
+    ``"unknown"`` as the tag. Reads the manager's fields with ``getattr`` so
+    lightweight stand-ins work too.
+    """
+    pin = getattr(owner, "_reply_language", "")
+    if pin in _REPLY_LANG_NAMES:
+        return pin
+    turn = TURN_LANGUAGE.get()
+    if turn:
+        return phrase_locale(turn) if is_known_language(turn) else DEFAULT_LOCALE
+    return resolve_output_language(
+        pin,
+        "unknown",
+        user_text,
+        conversation_language=getattr(owner, "_conversation_language", ""),
+    )
+
+
 class BrainManager:
     """Top-level orchestrator with intent router and smart fallback."""
 
@@ -3576,7 +3607,7 @@ class BrainManager:
         if is_voice_control_utterance(user_text):
             return None
         bus = self._bus
-        language = self._phrase_language(user_text)
+        language = _turn_phrase_language(self, user_text)
         # Fire at most once per turn even if the provider chain retries the
         # tool-use loop (a provider that emits tool_calls then errors would
         # otherwise re-announce on the fallback provider's re-run).
@@ -3780,16 +3811,11 @@ class BrainManager:
         """
         lang = self._reply_language
         if lang not in _REPLY_LANG_NAMES:
-            turn = self._current_turn_language()
+            turn = _current_turn_language(self)
             lang = turn if is_known_language(turn) else getattr(
                 self, "_conversation_language", ""
             )
         return lang if lang in _REPLY_LANG_NAMES else DEFAULT_LOCALE
-
-    def _current_turn_language(self) -> str:
-        """This turn's language: the context's own, else the last one set."""
-        turn = TURN_LANGUAGE.get()
-        return turn or getattr(self, "_turn_detected_lang", "")
 
     def _next_provider_down_phrase(self, cause: str | None = None) -> str:
         """Localized 'I can't reach my model' apology + advance the rotation.
@@ -3881,7 +3907,7 @@ class BrainManager:
         # single-language conversation.
         # Any recognised language pins, not only the four with translated
         # phrases: a Turkish conversation is answered in Turkish.
-        turn_name = language_name(self._current_turn_language())
+        turn_name = language_name(_current_turn_language(self))
         if turn_name is not None:
             return self._mandatory_lang_directive(turn_name)
         return (
@@ -3903,30 +3929,11 @@ class BrainManager:
         German. A pinned reply language wins; ``auto`` follows the
         conversation; anything else is English.
         """
-        return i18n_catalog.pick(_ACTION_FAILED_PHRASES, self._phrase_language(user_text))
+        return i18n_catalog.pick(_ACTION_FAILED_PHRASES, _turn_phrase_language(self, user_text))
 
     def _phrase_language(self, user_text: str) -> str:
-        """The de/en/es/pt language of a system phrase for *user_text*.
-
-        One resolver for every canned phrase: the pin, else the language
-        ``generate()`` resolved for this turn (which already applied
-        stickiness, the chat's own history and ``language_text`` — so an
-        internal English "continue" prompt does not make the error phrases
-        English), else the text within the running conversation, else
-        English. ``generate()`` only receives text (the pipeline resolves the
-        STT tag separately), hence ``"unknown"`` as the tag.
-        """
-        if self._reply_language in _REPLY_LANG_NAMES:
-            return self._reply_language
-        turn = TURN_LANGUAGE.get()
-        if turn:
-            return phrase_locale(turn) if is_known_language(turn) else DEFAULT_LOCALE
-        return resolve_output_language(
-            self._reply_language,
-            "unknown",
-            user_text,
-            conversation_language=getattr(self, "_conversation_language", ""),
-        )
+        """The de/en/es/pt language of a system phrase for *user_text*."""
+        return _turn_phrase_language(self, user_text)
 
     def _direct_ack_language(self, user_text: str) -> str:
         """Resolve ``de``/``en``/``es`` for a DIRECT fast-path acknowledgement.
@@ -3937,7 +3944,7 @@ class BrainManager:
         path runs off the LLM, so this is the only place the turn language can
         be applied to the spoken acknowledgement.
         """
-        return self._phrase_language(user_text)
+        return _turn_phrase_language(self, user_text)
 
     def _localize_direct_ack(
         self, call: LocalToolCall, raw_output: str, lang: str
@@ -5188,7 +5195,7 @@ class BrainManager:
                 # no calendar access (OF-15). Resolved here with the same
                 # arguments the honesty phrase later uses, so one turn cannot
                 # speak two languages.
-                language=self._phrase_language(user_text),
+                language=_turn_phrase_language(self, user_text),
             )
         except Exception:  # noqa: BLE001
             log.debug("evidence gate degraded to PASS", exc_info=True)
@@ -7071,7 +7078,7 @@ class BrainManager:
 
         if not is_inventory_question(user_text):
             return None
-        out_lang = self._phrase_language(user_text)
+        out_lang = _turn_phrase_language(self, user_text)
         unavailable = {
             "de": "Ich kann die Agentenliste gerade nicht abrufen.",  # i18n-allow
             "en": "I cannot retrieve the agent roster right now.",
@@ -7187,7 +7194,7 @@ class BrainManager:
         if ide_intent.spawn_vehicle_outranks_workspace(user_text, names=candidates):
             return None
 
-        out_lang = self._phrase_language(user_text)
+        out_lang = _turn_phrase_language(self, user_text)
 
         # A clarified pane is briefed with the ORIGINAL utterance — the sentence
         # that actually carried the work — not with the "yes" that confirmed it.
@@ -7858,7 +7865,7 @@ class BrainManager:
         if request is None:
             return None
 
-        out_lang = self._phrase_language(user_text)
+        out_lang = _turn_phrase_language(self, user_text)
         registry = get_registry()
         session = registry.session
         if session is None:
@@ -7938,7 +7945,7 @@ class BrainManager:
         if request is None:
             return None
 
-        out_lang = self._phrase_language(user_text)
+        out_lang = _turn_phrase_language(self, user_text)
         from jarvis.voice.action_phrases import action_phrase
 
         # The name did not clearly reach one CLI. ASK — this is the maintainer's
@@ -9769,7 +9776,7 @@ class BrainManager:
                 )
             pending_map.pop(confirm_key, None)
 
-        locale = self._phrase_language(user_text)
+        locale = _turn_phrase_language(self, user_text)
         outcome = await screen_context_for_turn(
             user_text,
             locale=locale,
@@ -9833,7 +9840,7 @@ class BrainManager:
         except (ValueError, TypeError):
             log.warning("voice-confirm: bad trace_id %r — not arming", trace_raw)
             return
-        lang = self._phrase_language(user_text)
+        lang = _turn_phrase_language(self, user_text)
         self._pending_voice_confirm = _PendingVoiceConfirm(
             trace_id=tid, lang=lang, tool_name=str(descriptor.get("tool_name", "")),
         )
@@ -9949,7 +9956,7 @@ class BrainManager:
         """
         # getattr: lightweight managers built without __init__ (fakes, early
         # boot paths) carry no turn state yet — that simply means "none known".
-        return self._phrase_language(user_text or "")
+        return _turn_phrase_language(self, user_text or "")
 
     def _spawn_ack_language(self, user_text: str) -> str:
         """Resolve the language for the spoken spawn acknowledgement.
@@ -10069,7 +10076,7 @@ class BrainManager:
         # the force-spawn path too (the tool-use loop does this for brain
         # function-calls; this caller must do it itself or ctx.config is empty
         # and the language silently falls back — Runtime Output Language).
-        out_lang = self._phrase_language(user_text)
+        out_lang = _turn_phrase_language(self, user_text)
         result = await self._tool_executor.execute(
             tool,
             args,
@@ -10146,7 +10153,7 @@ class BrainManager:
         # Same authoritative-language stamping as the force-spawn path: without
         # a config snapshot ctx.config is empty and spawn_worker's language
         # falls back instead of honoring the resolver (Runtime Output Language).
-        out_lang = self._phrase_language(user_text)
+        out_lang = _turn_phrase_language(self, user_text)
         result = await self._tool_executor.execute(
             tool, args, user_utterance=user_text,
             config_snapshot={"output_language": out_lang},
@@ -12305,7 +12312,7 @@ class BrainManager:
                 no_vision_provider_reply,
             )
 
-            language = self._phrase_language(user_text)
+            language = _turn_phrase_language(self, user_text)
             response_text = no_vision_provider_reply(language)
             await self._record_response_side_effects(
                 user_text=user_text,
@@ -12357,7 +12364,7 @@ class BrainManager:
         # ("de" here, DEFAULT_LOCALE there), so an undetectable turn could speak
         # a German evidence fallback followed by an English honesty phrase in the
         # same breath. All locales are equal — the shared DEFAULT_LOCALE decides.
-        honesty_lang = self._phrase_language(user_text)
+        honesty_lang = _turn_phrase_language(self, user_text)
 
         # Evidence-gate enforcement (live repro 2026-06-17, session 296abc82):
         # the gate MANDATED a tool this turn, but neither the normal tool loop
