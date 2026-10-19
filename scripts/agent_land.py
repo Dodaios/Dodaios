@@ -39,7 +39,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.ci import agent_integrate  # noqa: E402
+from scripts.ci import agent_integrate, merge_freeze  # noqa: E402
 from scripts.ci.select_tests import SMOKE  # noqa: E402
 
 PY = sys.executable
@@ -86,6 +86,11 @@ def queue_when_green(branch: str, runner=run) -> bool:
     if not wants_queue(pull_request):
         print("Draft or opted out: not asking GitHub to queue it.")
         return False
+    freeze = active_freeze(pull_request, runner)
+    if freeze is not None:
+        print(f"Not requesting auto-merge: {merge_freeze.describe(freeze)}.")
+        print("Run this script again once the freeze is lifted.")
+        return False
     asked = runner(["gh", "pr", "merge", branch, "--auto", "--squash"])
     if asked.returncode != 0:
         print("GitHub did not accept auto-merge; the merge train lands it when green.")
@@ -93,6 +98,32 @@ def queue_when_green(branch: str, runner=run) -> bool:
         return False
     print(f"PR #{pull_request.get('number')} joins the merge queue by itself once CI is green.")
     return True
+
+
+def active_freeze(pull_request: dict, runner=run) -> merge_freeze.Freeze | None:
+    """The merge freeze another pull request holds on main, if any (never blocking)."""
+    repo = runner(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"])
+    if repo.returncode != 0 or not repo.stdout.strip():
+        return None
+
+    def gh_json(args: list[str]) -> object:
+        out = runner(["gh", *args])
+        try:
+            return json.loads(out.stdout or "null") if out.returncode == 0 else None
+        except ValueError:
+            return None
+
+    number = pull_request.get("number")
+    return merge_freeze.active_freeze(
+        repo.stdout.strip(), gh_json, exempt=int(number) if number else None
+    )
+
+
+def report_gate() -> None:
+    """Print what the agent done gate says now, so the next step is in view."""
+    step("next: the agent done gate")
+    gate = run([PY, "scripts/agent_done_gate.py"])
+    print((gate.stdout + gate.stderr).strip() or "The gate gave no answer.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -227,12 +258,14 @@ def main(argv: list[str] | None = None) -> int:
     if existing.returncode == 0 and existing.stdout.strip():
         print(f"PR #{existing.stdout.strip()} updated.")
         queue_when_green(branch)
+        report_gate()
         return 0
     created = run(["gh", "pr", "create", "--fill", "--base", "main", "--label", "auto-merge"])
     print(created.stdout + created.stderr)
     if created.returncode != 0:
         return 7
     queue_when_green(branch)
+    report_gate()
     return 0
 
 
