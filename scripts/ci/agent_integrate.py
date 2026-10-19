@@ -64,11 +64,6 @@ FRONTEND = "dodaios/ui/web/frontend"
 # (glob, regenerator key). Main's copy is taken, then the key regenerates it.
 GENERATED: tuple[tuple[str, str], ...] = (
     ("dodaios/ui/web/dist/*", "frontend-build"),
-    # AGENTS.md and .agents/ are hand-written sources, never taken from main.
-    (".claude/agents/*", "mirrors"),
-    (".claude/commands/*", "mirrors"),
-    (".claude/skills/*", "mirrors"),
-    (".codex/agents/*", "mirrors"),
     ("docs/jarvis-cli-reference.md", "reference-docs"),
     ("docs/commands-reference.md", "reference-docs"),
     (f"{FRONTEND}/package-lock.json", "npm-lock"),
@@ -220,10 +215,6 @@ def regenerate(keys: set[str], cwd: Path) -> list[str]:
     failures: list[str] = []
     py = sys.executable
     commands: dict[str, list[list[str]]] = {
-        "mirrors": [
-            [py, "scripts/ci/sync_agents_dir.py"],
-            [py, "scripts/ci/sync_codex_agents.py"],
-        ],
         "reference-docs": [
             [py, "scripts/ci/gen_cli_reference.py"],
             [py, "scripts/ci/gen_commands_reference.py"],
@@ -246,7 +237,7 @@ def regenerate(keys: set[str], cwd: Path) -> list[str]:
     npm = shutil.which("npm") or "npm"
     commands["npm-lock"] = [[npm, "install", "--package-lock-only", "--ignore-scripts"]]
     commands["frontend-build"] = [[npm, "ci"], [npm, "run", "build"]]
-    order = ["npm-lock", "uv-lock", "requirements", "mirrors", "reference-docs", "frontend-build"]
+    order = ["npm-lock", "uv-lock", "requirements", "reference-docs", "frontend-build"]
     # The merge train regenerates inside a separate worktree per pull request
     # while the editable install points at the main checkout; putting the
     # worktree first on PYTHONPATH makes `import dodaios` read the merged code.

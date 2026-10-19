@@ -7229,7 +7229,13 @@
     "hide_changes": "Änderungen ausblenden",
     "more_files_one": "{count} weitere Datei zeigen",
     "more_files_other": "{count} weitere Dateien zeigen",
-    "collapse_files": "Dateien einklappen"
+    "collapse_files": "Dateien einklappen",
+    "errors": {
+      "mandated_tool_unfulfilled": "Der nötige Schritt ist nicht gelaufen, deshalb konnte ich nicht verlässlich antworten. Bitte versuch es noch einmal.",
+      "unbacked_action_claim": "Ich konnte nicht bestätigen, dass die Aktion wirklich passiert ist, deshalb habe ich es nicht behauptet. Bitte versuch es noch einmal.",
+      "guarded_response": "Die Antwort wurde zurückgehalten, weil sie sich nicht prüfen ließ. Bitte versuch es noch einmal.",
+      "delegation_continuation_limit": "Die delegierte Arbeit hat zu viele Runden gebraucht und wurde gestoppt. Bitte frag noch einmal."
+    }
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",
@@ -8250,6 +8256,14 @@
         "session_empty": "Diese Session hat noch keine Datei geändert, oder ihr Agent führt kein Protokoll seiner Änderungen.",
         "session_committed": "committet",
         "session_generated": "{n} generierte Dateien ausgeblendet",
+        "follow_main": "App immer auf dem neuesten main halten",
+        "follow_main_on": "Diese App hält sich selbst auf dem neuesten main.",
+        "follow_busy_update": "Aktualisiere auf den neuesten main…",
+        "follow_busy_install": "Installiere Pakete für das Update…",
+        "follow_busy_build": "Baue die neue Oberfläche…",
+        "follow_restart_pending": "Neuer Code ist da; die App startet neu, sobald keine Mission und kein Anruf läuft.",
+        "follow_updated": "Aktualisiert {when}: {subject}",
+        "follow_click_off": "Klicken, um main nicht mehr zu folgen.",
         "session_diff_badge": "Änderungen von {pane}"
       }
     },

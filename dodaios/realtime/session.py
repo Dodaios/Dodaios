@@ -1047,19 +1047,7 @@ _HISTORY_LOST_INSTRUCTION = (
     "words and treat them as the start of the conversation."
 )
 _OUTPUT_LANGUAGE_FAILURE: dict[str, str] = i18n_catalog.table("realtime.output_language_failure")
-_PUBLIC_FACT_UNCERTAINTY: dict[str, str] = {
-    "de": (  # i18n-allow
-        "Ich konnte das gerade nicht zuverlässig mit einer öffentlichen "  # i18n-allow
-        "Quelle prüfen."  # i18n-allow
-    ),
-    "en": "I couldn't verify that reliably with a public source just now.",
-    "es": (  # i18n-allow
-        "No pude verificarlo de forma fiable con una fuente pública ahora mismo."
-    ),
-    "pt": (  # i18n-allow
-        "Não consegui confirmar isso com fiabilidade numa fonte pública agora."
-    ),
-}
+_PUBLIC_FACT_UNCERTAINTY: dict[str, str] = i18n_catalog.table("realtime.public_fact_uncertainty")
 # When a delegated Brain reply ends in a question (clarify or confirmation),
 # the user's short elliptical answer ("the readme one", "yes the second")
 # matches no planner category on its own. Only answers up to this token count
@@ -1682,32 +1670,9 @@ def _surface_fallback_readback_prompt(text: str, *, language: str) -> str:
 # the outcome, and remain a complete stand-alone sentence — the transcript
 # validator accepts exactly this closed set.
 # i18n-allow: quoted German forensic phrase above; pools below are product output
-_DELEGATE_BRIDGE_TEXTS: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: localized runtime progress output
-        "Ich bin noch dran.",  # i18n-allow: localized runtime progress output
-        "Einen Moment noch, bitte.",  # i18n-allow: localized runtime output
-        "Dauert noch einen kleinen Moment.",  # i18n-allow: localized output
-        "Bin gleich so weit.",  # i18n-allow: localized runtime progress output
-    ),
-    "en": (
-        "I'm still working on it.",
-        "One moment, almost there.",
-        "Still on it, give me a moment.",
-        "Hang on, this is taking a moment.",
-    ),
-    "es": (  # i18n-allow: localized runtime progress output
-        "Sigo trabajando en ello.",
-        "Un momento, ya casi está.",
-        "Sigo en ello, un momento.",
-        "Dame un momento más.",
-    ),
-    "pt": (  # i18n-allow: localized runtime progress output
-        "Ainda estou a tratar disso.",
-        "Só um momento, está quase.",
-        "Continuo nisso, dá-me um momento.",
-        "Dá-me só mais um momento.",
-    ),
-}
+_DELEGATE_BRIDGE_TEXTS: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
+    "realtime.delegate_bridge_texts"
+)
 
 
 #: Why the call is ending when NO voice engine could be opened. Carries every
@@ -1773,28 +1738,9 @@ def _pick_delegate_bridge_text(language: str) -> str:
 #: stopped, because a silent cancellation is indistinguishable from a session
 #: that simply ignored them — which is the failure this whole path exists to
 #: end. Same locale coverage as every other runtime pool (AGENTS.md §1).
-_INTERRUPT_ACK_TEXTS: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: localized runtime voice output
-        "Okay, ich habe das gestoppt.",  # i18n-allow
-        "Alles klar, ich breche das ab.",  # i18n-allow
-        "Okay, ich lasse das.",  # i18n-allow
-    ),
-    "en": (
-        "Okay, I stopped that.",
-        "Alright, cancelling that.",
-        "Okay, dropping that.",
-    ),
-    "es": (  # i18n-allow: localized runtime voice output
-        "Vale, lo he detenido.",
-        "De acuerdo, lo cancelo.",
-        "Vale, lo dejo.",
-    ),
-    "pt": (  # i18n-allow: localized runtime voice output
-        "Ok, parei isso.",
-        "Está bem, vou cancelar isso.",
-        "Ok, deixo isso.",
-    ),
-}
+_INTERRUPT_ACK_TEXTS: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
+    "realtime.interrupt_ack_texts"
+)
 
 
 def _pick_interrupt_ack_text(language: str) -> str:
