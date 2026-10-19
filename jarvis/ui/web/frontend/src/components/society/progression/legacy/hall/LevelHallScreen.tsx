@@ -21,15 +21,15 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
-import { useCompanionPet } from "../../companion/companionPetStore";
-import type { SocietyAgent } from "../../data";
-import type { ToyLook } from "../../office/toyFigureModel";
+import { useCompanionPet } from "../../../companion/companionPetStore";
+import type { SocietyAgent } from "../../../data";
+import type { ToyLook } from "../../../office/toyFigureModel";
 import { levelFraction, rewardRoad } from "../cosmetics";
 import { RANK_INFO, rankAt, rankOf } from "../levelCatalog";
 import { RankInsignia } from "../insignia/RankInsignia";
 import { LevelChip, XpBar } from "../LevelHud";
 import { RewardTileTone } from "../RewardIcon";
-import { useLevelSound } from "../levelSounds";
+import { useLevelSound } from "../../levelSounds";
 import { agentSubject, PERSON_SUBJECT, petSubject, type RewardRow, type XpRuleRow } from "../progressionApi";
 import { HALL_TABS, useProgression, type HallTab } from "../progressionStore";
 import { groupRules, nextTitle, quickWins, upcomingLevelCosts, xpToReach } from "./hallModel";
@@ -37,10 +37,10 @@ import { LevelHero, RewardCard, RuleRow, Section, TabIcon, type HallWho } from "
 import { RanksTab } from "./RanksTab";
 import { RewardsTab } from "./RewardsTab";
 import { StudioTab } from "./StudioTab";
-import { AgentSymbol } from "../../AgentSymbol";
-import { CompanionMark } from "../../companion/CompanionMark";
-import { accessoryItem } from "../../companion/accessories";
-import { resolveCompanion } from "../../companion/appearance";
+import { AgentSymbol } from "../../../AgentSymbol";
+import { CompanionMark } from "../../../companion/CompanionMark";
+import { accessoryItem } from "../../../companion/accessories";
+import { resolveCompanion } from "../../../companion/appearance";
 import "./hall.css";
 
 const NO_LOOKS: Readonly<Record<string, number>> = {};

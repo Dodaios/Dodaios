@@ -58,7 +58,7 @@ import { isWalkable, nearestWalkable, type NavGrid } from "./officeNav";
 import { CODING_SCENE } from "./officePalette";
 import { officeSession, player as playerBody, useOfficeStore, type OfficeFloor, type Selection } from "./officeStore";
 import { arrivalPose } from "./officeFloors";
-import { ProgressionLayer } from "../progression/ProgressionLayer";
+import { ProgressionLayer } from "../progression/legacy/ProgressionLayer";
 
 /** The person's character as a mover for Gigi to follow (the body object itself, mutated every frame). */
 const PLAYER_OWNER = { current: playerBody };

@@ -15,7 +15,8 @@
           "field_armor": "Feldpanzerung",
           "command_coat": "Kommandomantel",
           "dress_whites": "Galauniform",
-          "admiral_coat": "Admiralsmantel"
+          "admiral_coat": "Admiralsmantel",
+          "auto": "Bester verfügbarer"
         }
       }
     }

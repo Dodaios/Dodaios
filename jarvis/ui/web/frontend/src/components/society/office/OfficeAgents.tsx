@@ -48,15 +48,15 @@ import { officeTalkChat, useOfficeTalk } from "./officeTalk";
 import { deliverySpot, ERRAND_SPEED, useErrandFeed, useGigiErrands } from "./gigiErrands";
 import { isPaneAgentId, plateTitle } from "./codingFloor";
 import { agentLogoAsset } from "@/components/agentic/AgentMark";
-import { LevelChip } from "../progression/LevelHud";
+import { LevelChip } from "../progression/legacy/LevelHud";
 import { plateDetail, type PlateDetail } from "./namePlate";
 import type { Camera } from "three";
 import { useThree } from "@react-three/fiber";
 import { joinPlates, plateSeating, reportPlate, type ScreenRect } from "./plateCrowd";
 import { isSpeaking, lastSpokeBy, SPOKE_LINGER_MS } from "./teamwork";
-import { agentSubject, petSubject } from "../progression/progressionApi";
-import { useProgression } from "../progression/progressionStore";
-import { useDressedFigure } from "../progression/regalia/dress";
+import { agentSubject, petSubject } from "../progression/legacy/progressionApi";
+import { useProgression } from "../progression/legacy/progressionStore";
+import { useDressedFigure } from "../progression/legacy/regalia/dress";
 
 /** The agent's symbol walks behind it as a little pet, about a fifth of its height. */
 export const PET_SIZE_M = 0.26;

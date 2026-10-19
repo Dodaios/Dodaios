@@ -3,10 +3,11 @@
 The service listens to the core ``EventBus`` for the handful of events that
 mean "something was achieved" (a finished Jarvis turn, a finished agent task,
 a completed quest) and maps each to one or two rules of
-:mod:`jarvis.progression.rules`. The Verse reports its own small world
-actions (petting the dog, an arcade round) through
+:mod:`jarvis.progression.rules`. The ship reports its own small world
+actions (a deck discovered, a holodeck round, a warp jump) through
 :meth:`ProgressionService.report_action`; the server still applies every
-cooldown and cap, so a client can never award itself XP.
+cooldown and cap and checks every reference, so a client can never award
+itself XP.
 
 Every handler is an observer: a failure is logged and swallowed, never
 raised into the bus (AP-18), and the database is opened on the first award,
@@ -17,12 +18,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from .rules import (
+    DESTINATION_IDS,
     LEAD_AGENT_ID,
     PERSON_ID,
     RULES_BY_SOURCE,
@@ -39,8 +42,8 @@ from .store import Award, ProgressionStore
 
 log = logging.getLogger(__name__)
 
-#: The floors of the Verse a ``floor_discovered`` report may name.
-VERSE_FLOORS = frozenset({"agents", "coding", "arcade", "hall"})
+#: The decks of the ship a ``deck_discovered`` report may name.
+VERSE_DECKS = frozenset({"bridge", "ops", "engineering", "holodeck", "honors"})
 
 
 class UnknownAction(ValueError):
@@ -56,7 +59,8 @@ class ProgressionService:
         pet_id: Callable[[], str] | None = None,
         clock: Callable[[], int] | None = None,
     ) -> None:
-        self.store = ProgressionStore(db_path, clock=clock)
+        self._clock = clock or (lambda: int(time.time() * 1000))
+        self.store = ProgressionStore(db_path, clock=self._clock)
         self._bus = bus
         self._pet_id = pet_id or (lambda: "gigi")
         self._attached = False
@@ -170,16 +174,22 @@ class ProgressionService:
     # ------------------------------------------------------------ world actions
 
     async def report_action(self, action: str, *, ref: str = "") -> Award | None:
-        """A small action inside the Verse, reported by the client."""
+        """A small action aboard the ship, reported by the client."""
         if action not in WORLD_ACTIONS:
             raise UnknownAction(action)
         rule = RULES_BY_SOURCE[action]
         if action == "daily_visit":
             # The server's own calendar day, whatever the client sent.
             ref = datetime.now().astimezone().date().isoformat()
-        elif action == "floor_discovered":
-            if ref not in VERSE_FLOORS:
-                raise UnknownAction(f"floor_discovered:{ref}")
+        elif action == "deck_discovered":
+            if ref not in VERSE_DECKS:
+                raise UnknownAction(f"deck_discovered:{ref}")
+        elif action == "warp_jump":
+            if ref not in DESTINATION_IDS:
+                raise UnknownAction(f"warp_jump:{ref}")
+            # Jumps repeat (the cooldown and cap meter them); the ledger keeps
+            # where each one went, made unique so it never reads as a replay.
+            ref = f"{ref}@{self._clock()}"
         else:
             ref = ""
         subject = PERSON_ID if rule.kind == "person" else pet_subject(self.current_pet())

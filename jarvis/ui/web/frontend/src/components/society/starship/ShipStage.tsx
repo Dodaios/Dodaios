@@ -19,6 +19,8 @@ import { chatGroupsKnown, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { useQuickCreateAgent, useSocietyRoster, type SocietyAgent } from "../data";
 import { isCreateCancelled } from "../create/createAgentStore";
 import { resolveCompanion } from "../companion/appearance";
+import { useSyncCompanionPet } from "../companion/companionPetStore";
+import { AgentSwatch } from "../AgentSwatch";
 import { creatureFromShape } from "../companion/creature";
 import { growsCreature, useCreatureDefault } from "../companion/creatureDefault";
 import { useDeskChats } from "../office/useDeskChats";
@@ -26,6 +28,9 @@ import { useTeamRounds } from "../office/useTeamRounds";
 import { useTeamwork } from "../office/teamwork";
 import { useProgression } from "../progression/progressionStore";
 import { useProgressionSync } from "../progression/useProgressionSync";
+import { suitFor } from "../progression/cosmetics";
+import { ServiceRecord } from "./levels/ServiceRecord";
+import { PromotionLayer } from "./levels/PromotionCeremony";
 import { reportWorldAction } from "../progression/progressionApi";
 import type { WorldAction } from "../progression/levelCatalog";
 import { useCodingFloorOccupants } from "../office/codingFloor";
@@ -44,6 +49,7 @@ import { SpaceBackdrop } from "./space/SpaceBackdrop";
 import { destinationById } from "./space/destinations";
 import { CrewLayer, crewPoses, type CrewView } from "./life/CrewLayer";
 import { CaptainFigure, typesText, walkCaptainTo } from "./life/Captain";
+import { ShipPet } from "./life/ShipPet";
 import type { RoundView } from "./life/crewLife";
 import { FaceAtlas, type FaceLook } from "./crew/faceAtlas";
 import { faceMaterial } from "./crew/figure";
@@ -129,6 +135,8 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
   const population = module?.population ?? "agents";
 
   const roster = useSocietyRoster(awake);
+  // The captain's companion is the pet chosen in My Pets.
+  useSyncCompanionPet();
   const coding = useCodingFloorOccupants(awake && population === "panes");
   const panes = coding.occupants;
   useRosterRefresh(awake && population === "agents");
@@ -156,7 +164,10 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
   const grid = useMemo(() => (plan ? buildNavGrid(plan) : null), [plan]);
 
   // Levels.
-  useProgressionSync(awake, population === "agents" ? "agents" : "coding");
+  useProgressionSync(awake, deck);
+  const record = useProgression((s) => s.record);
+  const suitChoice = useProgression((s) => s.suit);
+  const rewards = useProgression((s) => s.snapshot?.rewards);
   const subjects = useProgression((s) => s.subjects);
   const levelOf = useCallback((agentId: string) => subjects[`agent:${agentId}`]?.level ?? 1, [subjects]);
   const captainLevel = subjects.person?.level ?? 1;
@@ -209,7 +220,10 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
     return () => clearTimeout(timer);
   }, [gathering]);
 
-  const look = useShip((st) => st.captainLook);
+  const chosenLook = useShip((st) => st.captainLook);
+  // The cut of the suit is the level system's: the finest open one, or the one the captain chose.
+  const look = useMemo(() => ({ ...chosenLook, cut: suitFor(rewards ?? [], captainLevel, suitChoice)?.replace(/^suit_/, "") ?? null }),
+    [chosenLook, rewards, captainLevel, suitChoice]);
   const destinationId = useShip((s) => s.destination);
   const destination = useMemo(() => destinationById(destinationId), [destinationId]);
 
@@ -279,7 +293,8 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
         say(t("ship.station.mess.called").replace("{count}", String(free.length)));
         return;
       }
-      case "quartermaster": say(t("ship.station.quartermaster.soon")); return;
+      case "rankWall": useProgression.getState().openRecord("ranks"); return;
+      case "honorCase": useProgression.getState().openRecord("rewards"); return;
       default: return;
     }
   }, [plan, module, actions, createAgent, onOpenGroup, onOpenLedger, crew, say, t]);
@@ -395,6 +410,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
                     onPick={(id) => useShip.getState().select({ kind: "agent", id })}
                     onHover={(id) => useShip.getState().hover(id ? { kind: "agent", id } : null)} />
                   <CaptainFigure plan={plan} grid={grid} look={look} pips={captainRank.pips} awake={awake} reduced={reduced} keyHost={hostRef} />
+                  <ShipPet grid={grid} reduced={reduced} />
                   <StationProximity plan={plan} />
                   <CameraRig plan={plan} compact={compact} />
                   <PlateDriver />
@@ -422,7 +438,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
               )}
             </section>
             {!compact && (
-              <button type="button" className="ship-panel ship-rank" onClick={() => say(t("ship.rank.record_soon"))}>
+              <button type="button" className="ship-panel ship-rank" onClick={() => useProgression.getState().openRecord("record")}>
                 <RankBadge pips={captainRank.pips} gold={captainRank.gold} />
                 <span>
                   <span className="ship-rank-title">{t(`ship.rank.${captainRank.id}`)}</span>
@@ -449,7 +465,9 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
               <section className="ship-panel ship-agent" aria-label={selectedAgent.name}>
                 <button type="button" className="ship-tool ship-close" aria-label={t("ship.close")} onClick={() => useShip.getState().select(null)}>✕</button>
                 <div className="ship-agent-head">
-                  <span className="ship-agent-face" style={{ borderColor: selectedAgent.accent }} />
+                  <span className="ship-agent-face" style={{ borderColor: selectedAgent.accent }}>
+                    {byId.get(selectedAgent.agentId) && <AgentSwatch agent={{ ...(byId.get(selectedAgent.agentId) as SocietyAgent), state: undefined }} size={38} />}
+                  </span>
                   <div>
                     <div className="ship-agent-name">{selectedAgent.name}</div>
                     <div className="ship-agent-meta">
@@ -494,6 +512,8 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
           {panel && module?.Panel && plan.stations.some((s) => s.id === panel) && (
             <module.Panel plan={plan} station={plan.stations.find((s) => s.id === panel) as Station} actions={actions} agents={byId} panes={panes} />
           )}
+          {record && <ServiceRecord initialTab={record} onClose={() => useProgression.getState().openRecord(null)} />}
+          <PromotionLayer />
           <div className="ship-doors" data-shut={doors}><i /><i /></div>
         </>
       )}

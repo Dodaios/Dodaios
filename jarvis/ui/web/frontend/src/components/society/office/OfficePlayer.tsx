@@ -29,10 +29,10 @@ import { TreatBone } from "./dogProps";
 import { isRunning, useOfficeSettings } from "./officeSettings";
 import { nearestInteractable } from "./stations";
 import { jumpSquash, newJump, pressJump, stepJump } from "./officeJump";
-import { useProgression } from "../progression/progressionStore";
-import { PERSON_SUBJECT } from "../progression/progressionApi";
-import { LevelChip } from "../progression/LevelHud";
-import { useDressedFigure } from "../progression/regalia/dress";
+import { useProgression } from "../progression/legacy/progressionStore";
+import { PERSON_SUBJECT } from "../progression/legacy/progressionApi";
+import { LevelChip } from "../progression/legacy/LevelHud";
+import { useDressedFigure } from "../progression/legacy/regalia/dress";
 import { useCourier } from "./courierStore";
 
 /** The person's pace: a brisk walk, and a sprint on Shift (m/s). */

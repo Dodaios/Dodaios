@@ -28,7 +28,8 @@ const KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "A
 export function CaptainFigure(props: {
   plan: DeckPlan;
   grid: NavGrid;
-  look: CaptainLook;
+  /** Colours from the quartermaster, the cut from the level system. */
+  look: CaptainLook & { cut: string | null };
   pips: number;
   awake: boolean;
   reduced: boolean;

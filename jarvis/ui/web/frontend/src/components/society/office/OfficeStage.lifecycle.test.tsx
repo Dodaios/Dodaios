@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest";
 import { CanvasActivity } from "@/hooks/useCanvasAwake";
 import { useOfficeStore } from "./officeStore";
-import { useProgression } from "../progression/progressionStore";
+import { useProgression } from "../progression/legacy/progressionStore";
 import { OfficeStage } from "./OfficeStage";
 
 const state = vi.hoisted(() => ({
@@ -73,12 +73,12 @@ vi.mock("./OfficeMinimap", () => ({ OfficeMinimap: () => {
   useEffect(() => { state.maps += 1; return () => { state.maps -= 1; }; }, []);
   return null;
 } }));
-vi.mock("../progression/useProgressionSync", () => ({ useProgressionSync: () => {
+vi.mock("../progression/legacy/useProgressionSync", () => ({ useProgressionSync: () => {
   useEffect(() => { state.visits += 1; return () => { state.visits -= 1; }; }, []);
 } }));
-vi.mock("../progression/LevelHud", () => ({ LevelHud: () => null, LevelToasts: () => null }));
-vi.mock("../progression/LevelUpBanner", () => ({ LevelUpBanner: () => null }));
-vi.mock("../progression/hall/LevelHallScreen", () => ({ LevelHallScreen: () => null }));
+vi.mock("../progression/legacy/LevelHud", () => ({ LevelHud: () => null, LevelToasts: () => null }));
+vi.mock("../progression/legacy/LevelUpBanner", () => ({ LevelUpBanner: () => null }));
+vi.mock("../progression/legacy/hall/LevelHallScreen", () => ({ LevelHallScreen: () => null }));
 
 afterEach(() => {
   cleanup();

@@ -6,8 +6,8 @@
  * here, so every surface shows the same pieces.
  */
 import { useMemo } from "react";
-import type { FigureRegalia } from "../../office/ToyFigure";
-import { TOY, type ToyLook, type UniformStyle } from "../../office/toyFigureModel";
+import type { FigureRegalia } from "../../../office/ToyFigure";
+import { TOY, type ToyLook, type UniformStyle } from "../../../office/toyFigureModel";
 import { equippedFor, type Loadout } from "../cosmetics";
 import { RANK_INFO, rankAt, type RankId, type RewardId } from "../levelCatalog";
 import { rankArt } from "../insignia/rankArt";

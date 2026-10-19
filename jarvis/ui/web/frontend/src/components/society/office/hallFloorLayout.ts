@@ -22,7 +22,7 @@
  * Takes no input: the hall is the same for everyone; what it shows comes from
  * the level state at render time.
  */
-import { REWARD_IDS } from "../progression/levelCatalog";
+import { REWARD_IDS } from "../progression/legacy/levelCatalog";
 import {
   FLOOR_EDGE, footprint, FURNITURE_SIZE, RAIL_CLEARANCE, wallRect, wallsOf,
   type Checkpoint, type Furniture, type FurnitureKind, type OfficeLayout, type Rect, type Room, type Spot,

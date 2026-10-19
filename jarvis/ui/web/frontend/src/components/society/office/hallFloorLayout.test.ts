@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REWARD_IDS } from "../progression/levelCatalog";
+import { REWARD_IDS } from "../progression/legacy/levelCatalog";
 import { arrivalPose } from "./officeFloors";
 import { buildHallLayout, LEVEL_HALL } from "./hallFloorLayout";
 import { buildOfficeLayout, FURNITURE_SIZE, footprint } from "./officeLayout";

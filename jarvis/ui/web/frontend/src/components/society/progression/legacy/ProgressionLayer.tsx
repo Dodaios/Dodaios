@@ -7,9 +7,9 @@
  */
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { OFFICE_FIGURE_HEIGHT_M } from "../office/OfficeAgents";
-import { player } from "../office/officeStore";
-import { agentPositions, petBody } from "../office/walkerRegistry";
+import { OFFICE_FIGURE_HEIGHT_M } from "../../office/OfficeAgents";
+import { player } from "../../office/officeStore";
+import { agentPositions, petBody } from "../../office/walkerRegistry";
 import { LevelUpBurst, XpPopup, type FlairSource } from "./effects/LevelUpBurst";
 import { isRankId, rankAt } from "./levelCatalog";
 import { PERSON_SUBJECT, petSubject, reportWorldAction } from "./progressionApi";
