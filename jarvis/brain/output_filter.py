@@ -6,7 +6,7 @@ filler openers. Regex-only, NO LLM calls (latency-fatal, mandate § "DO NOT").
 
 API:
     from jarvis.brain.output_filter import scrub_for_voice
-    result = scrub_for_voice(text, language="de")
+    result = scrub_for_voice(text, language="en")
     result.cleaned        # scrubbed text, ready for TTS
     result.actions        # ["removed_tool_json", "rephrased_echo", ...]
     result.fallback_used  # True when the entire text was replaced by a standard phrase
@@ -32,6 +32,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.speech.hangup import END_CALL_SIGNAL
 
 # Mandate: user-concept words are sacred — NEVER scrubbed as jargon.
@@ -80,15 +81,7 @@ assert not (set(WHITELIST_WORDS) & set(JARGON_WORDS)), (
 # Echo/filler patterns only in the first N characters. Mandate failure-mode 6.
 OPENER_BUDGET = 60
 
-FALLBACK_PHRASES: dict[str, str] = {
-    "de": "Es trat ein Fehler auf.",  # i18n-allow: spoken German fallback phrase (runtime voice output)
-    "en": "An error occurred.",
-    # Runtime-output-language doctrine: every spoken phrase table carries all
-    # supported locales (de/en/es/pt) so a Spanish-pinned user never falls back to
-    # German. Used by the stacktrace, raw-dump, and post-scrub-residue guards.
-    "es": "Se produjo un error.",
-    "pt": "Ocorreu um erro.",
-}
+FALLBACK_PHRASES: dict[str, str] = i18n_catalog.table("output_filter.fallback")
 
 
 # ---------------------------------------------------------------------------
@@ -670,7 +663,7 @@ def _is_prose_mentioning_code(text: str) -> bool:
 
 
 def scrub_for_voice(
-    text: str, *, language: str = "de", ack_mode: bool = False
+    text: str, *, language: str = "en", ack_mode: bool = False
 ) -> ScrubResult:
     """Cleans up brain output for TTS synthesis.
 
@@ -697,7 +690,7 @@ def scrub_for_voice(
     # 1. Stacktrace: early return with the standard phrase. Mandate: "cut
     #    out entirely, replaced by the German fallback phrase".
     if STACKTRACE_RE.search(text):
-        fallback = FALLBACK_PHRASES.get(language, FALLBACK_PHRASES["de"])
+        fallback = i18n_catalog.pick(FALLBACK_PHRASES, language)
         return ScrubResult(
             cleaned=fallback,
             actions=["replaced_stacktrace"],
@@ -711,7 +704,7 @@ def scrub_for_voice(
     #     future — can ever speak/show a raw {'…': …} dump again (live bug
     #     2026-06-22: the whole dispatch_to_harness result reached a CU readback).
     if RAW_REPR_OPENER_RE.match(text) and REPR_SIGNATURE_RE.search(text):
-        fallback = FALLBACK_PHRASES.get(language, FALLBACK_PHRASES["de"])
+        fallback = i18n_catalog.pick(FALLBACK_PHRASES, language)
         return ScrubResult(
             cleaned=fallback,
             actions=["replaced_raw_repr"],
@@ -728,7 +721,7 @@ def scrub_for_voice(
     #     by plain words is an ANSWER that mentions a command, not a command —
     #     the developer asked how to read $env:PATH and must get the answer.
     if SHELL_COMMAND_RE.search(text) and not _is_prose_mentioning_code(text):
-        fallback = FALLBACK_PHRASES.get(language, FALLBACK_PHRASES["de"])
+        fallback = i18n_catalog.pick(FALLBACK_PHRASES, language)
         return ScrubResult(
             cleaned=fallback,
             actions=["replaced_shell_command"],
@@ -796,9 +789,7 @@ def scrub_for_voice(
     #     the scheme, the path nor the domain ever reaches TTS. Fail-closed
     #     defense; the real fix is the search_web answer_instruction that tells
     #     the brain to synthesize.
-    placeholder = SOURCE_LINK_PLACEHOLDER.get(
-        language, SOURCE_LINK_PLACEHOLDER["de"]
-    )
+    placeholder = i18n_catalog.pick(SOURCE_LINK_PLACEHOLDER, language)
     new = MORE_RESULTS_RE.sub("", out)
     new = URL_RE.sub(placeholder, new)
     new = BARE_WWW_RE.sub(placeholder, new)
@@ -929,7 +920,7 @@ def scrub_for_voice(
     if actions:
         meaningful = sum(1 for c in out if c.isalnum())
         if meaningful < MIN_MEANINGFUL_CHARS:
-            fallback = FALLBACK_PHRASES.get(language, FALLBACK_PHRASES["de"])
+            fallback = i18n_catalog.pick(FALLBACK_PHRASES, language)
             return ScrubResult(
                 cleaned=fallback,
                 actions=actions + ["replaced_with_fallback_residue"],

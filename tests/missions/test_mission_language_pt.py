@@ -49,7 +49,7 @@ def test_dispatch_payload_accepts_portuguese() -> None:
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [("pt", "pt"), ("ES", "es"), ("fr", "de"), (None, "de"), ("", "de")],
+    [("pt", "pt"), ("ES", "es"), ("fr", "en"), (None, "en"), ("", "en")],
 )
 def test_coerce_mission_language(value: object, expected: str) -> None:
     assert coerce_mission_language(value) == expected

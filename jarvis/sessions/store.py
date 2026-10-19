@@ -201,7 +201,7 @@ class SessionStore:
         session_id: str,
         started_ms: int,
         wake_keyword: str = "",
-        language: str = "de",
+        language: str = "en",
         voice_mode: str = VOICE_MODE_UNKNOWN,
     ) -> None:
         """Create, or (on a recorder re-init) idempotently re-upsert.

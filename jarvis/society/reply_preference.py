@@ -6,6 +6,7 @@ import logging
 import re
 
 from jarvis.core.turn_language import detect_language_request, resolve_output_language
+from jarvis.i18n import LANGUAGE_NAMES, SUPPORTED_LOCALES
 
 from .notebook import Entry
 from .working_rules import PREFIX
@@ -13,7 +14,7 @@ from .working_rules import PREFIX
 _DURABLE = re.compile(
     r"\b(?:always|from now on|immer|ab jetzt|siempre|a partir de ahora)\b", re.I  # i18n-allow
 )  # i18n-allow
-_NAMES = {"en": "English", "de": "German", "es": "Spanish", "pt": "European Portuguese"}
+_NAMES = LANGUAGE_NAMES
 log = logging.getLogger(__name__)
 
 
@@ -58,5 +59,9 @@ async def resolve_agent_reply_language(session_id: str, text: str, fallback: str
     configured = getattr(getattr(runtime.config(), "brain", None), "reply_language", "auto")
     # Explicit settings retain their precedence. A current language request
     # overrides an older agent preference without mutating the shared config.
-    pin = configured if configured in _NAMES else requested or preference
+    pin = configured if configured in SUPPORTED_LOCALES else requested or preference
+    if pin in _NAMES and pin not in SUPPORTED_LOCALES:
+        # A language without translated phrases (Turkish, ...): the agent
+        # still answers in it.
+        return pin
     return resolve_output_language(pin, "unknown", text)

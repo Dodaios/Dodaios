@@ -305,19 +305,13 @@ cadeia vazia. Sem markdown, sem comentários, sem texto de acompanhamento."""
 def _normalise_language(value: str | None) -> str:
     """Reduce any language hint to 'de', 'en', 'es' or 'pt'.
 
-    Unknown / empty / None falls back to German because the user's
-    primary chat language is German and STT defaults to DE on ambiguity.
+    Unknown / empty / None falls back to English (``DEFAULT_LOCALE``), the
+    one fallback language of every system phrase.
     """
-    if not value:
-        return "de"
-    lower = value.lower()
-    if lower.startswith("en"):
-        return "en"
-    if lower.startswith("es"):
-        return "es"
-    if lower.startswith("pt"):
-        return "pt"
-    return "de"
+    from jarvis.core.turn_language import normalize_language_tag
+    from jarvis.i18n import phrase_locale
+
+    return phrase_locale(normalize_language_tag(value))
 
 
 def get_persona_prompt(language: str | None) -> str:
@@ -329,4 +323,6 @@ def get_persona_prompt(language: str | None) -> str:
         return PERSONA_PROMPT_ES
     if lang == "pt":
         return PERSONA_PROMPT_PT
-    return PERSONA_PROMPT_DE
+    if lang == "de":
+        return PERSONA_PROMPT_DE
+    return PERSONA_PROMPT_EN

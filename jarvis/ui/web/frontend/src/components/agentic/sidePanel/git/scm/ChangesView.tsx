@@ -28,6 +28,7 @@ import { Codicon, Twistie } from "./Codicon";
 import { ScmMenu, menuPointFor, type MenuItem } from "./ScmMenu";
 import type { CommitOptions, ScmCommands } from "./useScm";
 import type { DiffSource } from "./DiffDialog";
+import { SessionChanges, type SessionPick } from "./SessionChanges";
 
 export const ROW_HEIGHT = 22;
 /** Each tree level steps in by 8 px. */
@@ -212,6 +213,9 @@ export function ChangesView({
   onDiff,
   onRefresh,
   moreMenu,
+  session = null,
+  revision = "",
+  onClearSession,
 }: {
   workspaceId: string;
   repoName: string;
@@ -228,6 +232,11 @@ export function ChangesView({
   onDiff: (source: DiffSource) => void;
   onRefresh: () => void;
   moreMenu: () => MenuItem[];
+  /** Narrow the list to one agent session's own files; null = every change. */
+  session?: SessionPick | null;
+  /** Bumped when the repository changed (the session list reads again). */
+  revision?: string;
+  onClearSession?: () => void;
 }) {
   const t = useT();
   const pushToast = useEventStore((state) => state.pushToast);
@@ -236,6 +245,8 @@ export function ChangesView({
   const [anchor, setAnchor] = useState("");
   const [focusKey, setFocusKey] = useState("");
   const [menu, setMenu] = useState<{ items: MenuItem[]; x: number; y: number } | null>(null);
+  // The repository row folds the commit box and every list under it away.
+  const [repoOpen, setRepoOpen] = useState(true);
   const textarea = messageRef;
   const scroller = useRef<HTMLDivElement>(null);
   const listTop = useRef<HTMLDivElement>(null);
@@ -513,15 +524,24 @@ export function ChangesView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div ref={scroller} data-testid="scm-changes-scroller" onScroll={measure} className="min-h-0 flex-1 overflow-y-auto">
-        <div data-testid="scm-repo-row" className="scm-row flex h-[22px] items-center pr-[8px]">
-          <Twistie open />
+        <div
+          data-testid="scm-repo-row"
+          role="treeitem"
+          aria-expanded={repoOpen}
+          onClick={() => setRepoOpen((value) => !value)}
+          className="scm-row flex h-[22px] cursor-pointer select-none items-center pr-[8px]"
+        >
+          <Twistie open={repoOpen} />
           <Codicon name="repo" className="mr-[6px]" />
           <span className="min-w-0 shrink truncate">{repoName}</span>
           <QuickTooltip content={t("ide_side_panel.git.scm.checkout_tip")} side="bottom" className="inline-flex min-w-0">
             <button
               type="button"
               data-testid="scm-branch"
-              onClick={() => void commands.checkoutTo()}
+              onClick={(event) => {
+                event.stopPropagation();
+                void commands.checkoutTo();
+              }}
               className="ml-[0.5em] inline-flex min-w-0 items-center gap-[3px] text-[0.9em] opacity-70 hover:opacity-100"
             >
               <Codicon name="git-branch" className="!text-[14px]" />
@@ -539,7 +559,10 @@ export function ChangesView({
                   data-testid="scm-sync"
                   aria-label={syncLabel}
                   disabled={busy !== ""}
-                  onClick={() => void commands.sync()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void commands.sync();
+                  }}
                   className="scm-action !w-auto gap-[2px] px-[3px] text-[12px] tabular-nums"
                 >
                   {!status.upstream ? (
@@ -581,6 +604,7 @@ export function ChangesView({
           </span>
         </div>
 
+        {repoOpen && (
         <div className="pb-[6px] pl-[20px] pr-[12px] pt-[3px]">
           {status.operation && status.operation !== "bisect" && (
             <div data-testid="scm-operation" className="mb-[6px] flex items-start gap-2 rounded-sm border border-[var(--scm-modified)] px-[6px] py-[2px] text-[12px] leading-[18px]">
@@ -682,6 +706,21 @@ export function ChangesView({
           </div>
         </div>
 
+        )}
+
+        {repoOpen && session && (
+          <SessionChanges
+            workspaceId={workspaceId}
+            session={session}
+            status={status}
+            commands={commands}
+            revision={revision}
+            onDiff={onDiff}
+            onClear={() => onClearSession?.()}
+          />
+        )}
+
+        {repoOpen && !session && (
         <div
           ref={listTop}
           role="tree"
@@ -774,6 +813,7 @@ export function ChangesView({
             })}
           </div>
         </div>
+        )}
         {status.truncated && <p className="px-[20px] py-[4px] text-[12px] opacity-70">{t("ide_side_panel.git.scm.truncated")}</p>}
       </div>
       {menu && <ScmMenu items={menu.items} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}

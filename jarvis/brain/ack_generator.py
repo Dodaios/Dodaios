@@ -204,21 +204,15 @@ def _normalize_language(language: str | None) -> str:
 
     The caller resolves the authoritative turn language through the ONE
     resolver (jarvis/core/turn_language.py) and passes a concrete code, so
-    'es'/'pt' must survive here — collapsing them to 'de' would flip a Spanish turn's
-    ack to German (a runtime-output-language doctrine violation). Anything
-    unrecognised falls back to 'de' as the module's last resort; the real
-    default-locale decision already happened upstream.
+    'es'/'pt' must survive here — collapsing them to another language would
+    flip a Spanish turn's ack (a runtime-output-language doctrine violation).
+    Anything unrecognised falls back to English (``DEFAULT_LOCALE``), the one
+    fallback language of every system phrase.
     """
-    if not language:
-        return "de"
-    low = language.lower()
-    if low.startswith("en"):
-        return "en"
-    if low.startswith("es"):
-        return "es"
-    if low.startswith("pt"):
-        return "pt"
-    return "de"
+    from jarvis.core.turn_language import normalize_language_tag
+    from jarvis.i18n import phrase_locale
+
+    return phrase_locale(normalize_language_tag(language))
 
 
 def _trim_to_words(text: str, max_chars: int) -> str:
@@ -802,7 +796,7 @@ def generate_ack(
     tool_name: str,
     tool_args: Mapping[str, Any] | None = None,
     *,
-    language: str = "de",
+    language: str = "en",
     picker: AckPhrasePicker | None = None,
 ) -> str | None:
     """Render a short, task-specific ack string for the given tool call.
@@ -916,7 +910,7 @@ def describe_tool_action(
     return "working on the request"
 
 
-def final_summary_marker(language: str = "de") -> str:
+def final_summary_marker(language: str = "en") -> str:
     """Return the short completion phrase ('Erledigt.' / 'Done.')."""
     return _FINAL_MARKERS[_normalize_language(language)]
 
