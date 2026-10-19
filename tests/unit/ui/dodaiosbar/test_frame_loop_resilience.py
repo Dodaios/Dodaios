@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import time
 
-from jarvis.ui.dodaiosbar.overlay import (
+from dodaios.ui.dodaiosbar.overlay import (
     FRAME_STALL_THRESHOLD_NS,
     MIN_FRAME_DELAY_MS,
     TARGET_FRAME_MS,

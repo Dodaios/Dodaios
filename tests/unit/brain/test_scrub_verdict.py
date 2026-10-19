@@ -4,7 +4,7 @@ The guard in ``scrub_for_voice`` returns the canned error phrase whenever a
 filter fired and almost nothing survived. Non-streaming voice call sites need
 to know WHY it fired: harmless prose removal (stay silent) or a scrubbed
 machine leak (speak the error phrase). The classification itself is reused from
-``jarvis.realtime.scrub_gate`` so both the streaming and the non-streaming
+``dodaios.realtime.scrub_gate`` so both the streaming and the non-streaming
 verdict cannot drift apart — these tests pin the reuse against real
 ``scrub_for_voice`` output, not against a hand-built ``ScrubResult``.
 """
@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.output_filter import FALLBACK_PHRASES, ScrubResult, scrub_for_voice
-from jarvis.brain.scrub_verdict import is_harmless_scrub_residue
+from dodaios.brain.output_filter import FALLBACK_PHRASES, ScrubResult, scrub_for_voice
+from dodaios.brain.scrub_verdict import is_harmless_scrub_residue
 
 HARMLESS = [
     ("Tolle Frage!", "de"),  # i18n-allow: German filler opener under test

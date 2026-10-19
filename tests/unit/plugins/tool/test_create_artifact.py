@@ -17,13 +17,13 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.events import (
+from dodaios.core.events import (
     JarvisAgentAnnouncement,
     JarvisAgentBackgroundCompleted,
     NavigateSidebar,
 )
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.create_artifact import CreateArtifactTool
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.create_artifact import CreateArtifactTool
 
 
 class _FakeBus:
@@ -117,7 +117,7 @@ class _FakeExecutor:
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     async def execute(self, tool: Any, args: dict[str, Any], **_: Any) -> Any:
-        from jarvis.core.protocols import ToolResult
+        from dodaios.core.protocols import ToolResult
 
         self.calls.append((tool.name, dict(args)))
         if tool.name == "google_calendar":

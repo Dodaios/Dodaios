@@ -1,4 +1,4 @@
-"""Tests for ``jarvis.brain.mission_command_gate.match_mission_command``.
+"""Tests for ``dodaios.brain.mission_command_gate.match_mission_command``.
 
 AD-12 + AP-OC5 (see ``docs/openclaw-bridge.md``):
 - Status phrases must be recognized, spawn suppressed.
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.mission_command_gate import (
+from dodaios.brain.mission_command_gate import (
     MissionCommandMatch,
     match_mission_command,
 )

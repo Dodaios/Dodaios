@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.capabilities import (
+from dodaios.society.capabilities import (
     NEVER_GRANTED,
     CapabilityKind,
     build_catalog,

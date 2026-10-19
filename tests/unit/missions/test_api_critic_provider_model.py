@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.missions.critic import runner
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.missions.critic import runner
 
 _FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
@@ -23,10 +23,10 @@ def test_cross_family_critic_uses_provider_pick(
 ) -> None:
     config = JarvisConfig()
     config.brain.providers["openrouter"] = BrainProviderConfig(model=_FREE)
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: config)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: config)
     # Only the OpenRouter key is present at runtime.
     monkeypatch.setattr(
-        "jarvis.core.config.get_provider_secret",
+        "dodaios.core.config.get_provider_secret",
         lambda p: "sk-test" if p == "openrouter" else None,
     )
 
@@ -43,7 +43,7 @@ def test_same_provider_critic_keeps_primary_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.core.config.get_provider_secret",
+        "dodaios.core.config.get_provider_secret",
         lambda p: "sk-test" if p == "openrouter" else None,
     )
     prov, model = runner._resolve_api_critic_provider("openrouter", _FREE)
@@ -63,9 +63,9 @@ def test_nvidia_only_funded_family_is_picked_by_critic(
     config.brain.providers["nvidia"] = BrainProviderConfig(
         model="nvidia/nemotron-nano-9b-v2:free"
     )
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: config)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: config)
     monkeypatch.setattr(
-        "jarvis.core.config.get_provider_secret",
+        "dodaios.core.config.get_provider_secret",
         lambda p: "nvapi-test" if p == "nvidia" else None,
     )
 

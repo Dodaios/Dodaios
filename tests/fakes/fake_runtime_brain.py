@@ -1,6 +1,6 @@
 """Scripted gateway provider for real runtime transport checks, never inference."""
 
-from jarvis.core.protocols import BrainDelta
+from dodaios.core.protocols import BrainDelta
 
 
 class ReplayRuntimeBrain:

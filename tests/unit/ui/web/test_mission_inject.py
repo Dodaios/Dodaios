@@ -1,7 +1,7 @@
 """Unit tests for the mission-inject directive composer."""
 from __future__ import annotations
 
-from jarvis.ui.web.mission_inject import MISSION_INJECT_CAP, compose_mission_inject_text
+from dodaios.ui.web.mission_inject import MISSION_INJECT_CAP, compose_mission_inject_text
 
 
 def test_compose_uses_utterance_status_and_summary() -> None:

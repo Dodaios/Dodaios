@@ -20,10 +20,10 @@ from typing import Any
 
 import pytest
 
-import jarvis.core.branding as branding
-from jarvis.marketplace import agent_plugins_loader as loader
-from jarvis.marketplace import catalog_data, community_install, publish
-from jarvis.marketplace.agent_plugins_loader import (
+import dodaios.core.branding as branding
+from dodaios.marketplace import agent_plugins_loader as loader
+from dodaios.marketplace import catalog_data, community_install, publish
+from dodaios.marketplace.agent_plugins_loader import (
     AgentPluginError,
     convert_manifest,
     extension_of,
@@ -103,7 +103,7 @@ def test_the_auth_contract_gate_restates_the_namespaces() -> None:
 
 def test_the_frontend_restates_the_namespaces() -> None:
     """The Publish form cannot import the package; its copy is pinned here."""
-    source = (_ROOT / "jarvis/ui/web/frontend/src/lib/extensionNamespace.ts").read_text(
+    source = (_ROOT / "dodaios/ui/web/frontend/src/lib/extensionNamespace.ts").read_text(
         encoding="utf-8"
     )
     current = re.search('EXTENSION_NAMESPACE = "([^"]+)"', source)
@@ -189,7 +189,7 @@ def test_a_manifest_without_a_block_of_ours_has_none(extensions: Any) -> None:
 
 
 def _first_party_manifests() -> list[Path]:
-    root = _ROOT / "jarvis" / "marketplace"
+    root = _ROOT / "dodaios" / "marketplace"
     return sorted([*root.glob("plugins/*/plugin.json"), *root.glob("drafts/*/plugin.json")])
 
 

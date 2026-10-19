@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from jarvis.missions.stream_evidence import (
+from dodaios.missions.stream_evidence import (
     extract_stream_evidence,
     extract_verified_commands,
     extract_verified_external_actions,
@@ -298,7 +298,7 @@ def test_codex_mcp_completion_normalizes_to_verified_external_action() -> None:
 
 
 # --- readonly_answer: the read-only success signal -------------------------
-from jarvis.missions.stream_evidence import readonly_answer, summarize_answers  # noqa: E402
+from dodaios.missions.stream_evidence import readonly_answer, summarize_answers  # noqa: E402
 
 _GH_STREAM = _stream([
     {"type": "assistant", "message": {"content": [
@@ -376,7 +376,7 @@ def test_summarize_answers_word_boundary_without_punctuation() -> None:
 # IS the spoken answer — but the relaxation must key off the REQUEST shape,
 # never the worker's claim, so the anti-hallucination veto still fires for a
 # do-task that produced nothing.
-from jarvis.missions.stream_evidence import (  # noqa: E402
+from dodaios.missions.stream_evidence import (  # noqa: E402
     informational_file_answer,
     is_clarification_only_answer,
     is_informational_request,
@@ -717,7 +717,7 @@ def test_informational_file_answer_none_when_code_mixed_in() -> None:
 # stream-side half of the fix: surface the paths the worker actually wrote with
 # a real, non-errored Write/Edit tool_use so the Kontrollierer can verify them
 # on disk and present them to the Critic as ground truth.
-from jarvis.missions.stream_evidence import extract_write_targets  # noqa: E402
+from dodaios.missions.stream_evidence import extract_write_targets  # noqa: E402
 
 
 def test_extract_write_targets_returns_successful_write_path() -> None:
@@ -851,7 +851,7 @@ def test_readonly_answer_returns_answer_for_external_only_diff() -> None:
 # as an empty diff. Anti-hearsay discipline: SAME rules as
 # extract_verified_commands (id required; non-errored result required).
 # ---------------------------------------------------------------------------
-from jarvis.missions.stream_evidence import extract_verified_desktop_actions  # noqa: E402
+from dodaios.missions.stream_evidence import extract_verified_desktop_actions  # noqa: E402
 
 
 def test_extract_verified_desktop_actions_credits_silent_launch() -> None:

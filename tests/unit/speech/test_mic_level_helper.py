@@ -9,10 +9,10 @@ propagates (carrying the permission layer's answer) and the CLI reports it.
 import numpy as np
 import pytest
 
-from jarvis.audio.capture import MicrophoneAccessError
-from jarvis.platform.permission_service import PermissionOutcome
-from jarvis.platform.permissions import PermissionId
-from jarvis.speech import diagnose
+from dodaios.audio.capture import MicrophoneAccessError
+from dodaios.platform.permission_service import PermissionOutcome
+from dodaios.platform.permissions import PermissionId
+from dodaios.speech import diagnose
 from tests.fakes.fake_permission_service import make_result
 
 

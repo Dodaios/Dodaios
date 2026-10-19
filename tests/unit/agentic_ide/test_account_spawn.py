@@ -20,11 +20,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import agent_accounts
-from jarvis.agentic_ide import layout_tree
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry, SessionError
-from jarvis.workspace import agents as workspace_agents
+from dodaios import agent_accounts
+from dodaios.agentic_ide import layout_tree
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry, SessionError
+from dodaios.workspace import agents as workspace_agents
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -428,7 +428,7 @@ async def test_a_pane_pre_trusts_the_folder_in_its_own_account_directory(
     "do you trust this directory?" dialog — and a dialog nobody can answer from
     voice or the prompt bar is an agent that never starts.
     """
-    from jarvis.workspace import trust
+    from dodaios.workspace import trust
 
     seen: list[tuple[str, list[str], dict[str, list[Path]] | None]] = []
 
@@ -458,8 +458,8 @@ async def test_the_trust_seeding_and_the_setup_run_under_one_lock(
     the first one landed and drops it — a lost trust entry is a dialog the user
     has to click, a lost merge is a pane without its connectors.
     """
-    from jarvis import agent_config_parity
-    from jarvis.workspace import trust
+    from dodaios import agent_config_parity
+    from dodaios.workspace import trust
 
     real_lock = agent_config_parity.setup_lock
     events: list[str] = []
@@ -535,7 +535,7 @@ async def test_a_pane_on_the_builtin_login_is_not_pre_trusted_twice(
     registry: Registry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Nothing was redirected, so the workspace open already covered it."""
-    from jarvis.workspace import trust
+    from dodaios.workspace import trust
 
     seen: list[dict[str, list[Path]] | None] = []
 
@@ -575,7 +575,7 @@ async def test_a_pane_looks_for_its_conversation_in_its_own_account(
     registry: Registry, tmp_path: Path
 ) -> None:
     """The silent-amnesia bug: the right handle, searched in the wrong folder."""
-    from jarvis.agentic_ide.agent_sessions import ResumeHandle, has_conversation
+    from dodaios.agentic_ide.agent_sessions import ResumeHandle, has_conversation
 
     second = agent_accounts.create_account("claude", "Second seat")
     handle = ResumeHandle(
@@ -598,7 +598,7 @@ async def test_a_remembered_pane_carries_its_account_through_the_store() -> None
     changed shape before and will again, while "this pane ran on that seat" is
     the fact the reopen depends on.
     """
-    from jarvis.agentic_ide import resume_store
+    from dodaios.agentic_ide import resume_store
 
     second = agent_accounts.create_account("codex", "Second plan")
     pane = resume_store.SnapshotTerminal(
@@ -614,7 +614,7 @@ async def test_a_remembered_pane_carries_its_account_through_the_store() -> None
 
 async def test_an_older_snapshot_without_an_account_still_reopens() -> None:
     """A build that predates the switcher must keep resuming."""
-    from jarvis.agentic_ide import resume_store
+    from dodaios.agentic_ide import resume_store
 
     restored = resume_store.SnapshotTerminal.from_dict(
         {"key": "alex", "name": "Alex", "agent": "claude", "column": 0, "slot": 0}

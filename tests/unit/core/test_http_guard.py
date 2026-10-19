@@ -11,7 +11,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.core.http_guard import (
+from dodaios.core.http_guard import (
     BlockedDestination,
     InsecureRedirect,
     https_only,

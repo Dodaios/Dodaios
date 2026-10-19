@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import writer
+from dodaios.agentic_ide import writer
 
 
 def _cfg(choice: str) -> SimpleNamespace:

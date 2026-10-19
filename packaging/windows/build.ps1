@@ -6,7 +6,7 @@
 .DESCRIPTION
     One command from a clean checkout to a shippable installer:
 
-        1. build the React frontend when jarvis/ui/web/dist is missing,
+        1. build the React frontend when dodaios/ui/web/dist is missing,
         2. freeze the app with PyInstaller (jarvis.spec, onedir),
         3. wrap dist/Jarvis in an Inno Setup wizard.
 
@@ -21,7 +21,7 @@
     whatever `python` resolves to.
 
 .PARAMETER SkipFrontend
-    Never run npm, even when jarvis/ui/web/dist is missing. For a CI job that
+    Never run npm, even when dodaios/ui/web/dist is missing. For a CI job that
     built the bundle in an earlier step.
 
 .PARAMETER SkipPyInstaller
@@ -76,8 +76,8 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $SpecFile = Join-Path $RepoRoot "jarvis.spec"
 $BundleDir = Join-Path $RepoRoot "dist\Jarvis"
 $InstallerDir = Join-Path $RepoRoot "dist\installers"
-$FrontendDir = Join-Path $RepoRoot "jarvis\ui\web\frontend"
-$FrontendDist = Join-Path $RepoRoot "jarvis\ui\web\dist"
+$FrontendDir = Join-Path $RepoRoot "dodaios\ui\web\frontend"
+$FrontendDist = Join-Path $RepoRoot "dodaios\ui\web\dist"
 $IssFile = Join-Path $PSScriptRoot "PersonalJarvis.iss"
 $IconFile = Join-Path $RepoRoot "assets\icons\jarvis.ico"
 
@@ -87,10 +87,10 @@ if (-not (Test-Path $IssFile)) { Stop-WithError "PersonalJarvis.iss not found at
 # --- Version ---------------------------------------------------------------
 # Single source of truth. A hand-typed version here would drift from the tag
 # the release workflow verifies against.
-$InitFile = Join-Path $RepoRoot "jarvis\__init__.py"
+$InitFile = Join-Path $RepoRoot "dodaios\__init__.py"
 $InitText = Get-Content -Raw -Encoding UTF8 $InitFile
 $VersionMatch = [regex]::Match($InitText, '__version__\s*=\s*"([^"]+)"')
-if (-not $VersionMatch.Success) { Stop-WithError "jarvis/__init__.py does not define __version__" }
+if (-not $VersionMatch.Success) { Stop-WithError "dodaios/__init__.py does not define __version__" }
 $AppVersion = $VersionMatch.Groups[1].Value
 Write-Step "Personal Jarvis $AppVersion"
 
@@ -105,7 +105,7 @@ Write-Step "interpreter: $Python"
 if (Test-Path (Join-Path $FrontendDist "index.html")) {
     Write-Step "1/3 frontend bundle already present - skipping npm"
 } elseif ($SkipFrontend) {
-    Stop-WithError "jarvis/ui/web/dist is missing and -SkipFrontend was passed"
+    Stop-WithError "dodaios/ui/web/dist is missing and -SkipFrontend was passed"
 } else {
     Write-Step "1/3 building the frontend"
     if (-not (Test-Path (Join-Path $FrontendDir "node_modules"))) {
@@ -113,7 +113,7 @@ if (Test-Path (Join-Path $FrontendDist "index.html")) {
     }
     Invoke-Checked -Executable "npm" -Arguments @("run", "build") -WorkingDirectory $FrontendDir -What "npm run build"
     if (-not (Test-Path (Join-Path $FrontendDist "index.html"))) {
-        Stop-WithError "npm run build did not produce jarvis/ui/web/dist/index.html"
+        Stop-WithError "npm run build did not produce dodaios/ui/web/dist/index.html"
     }
 }
 

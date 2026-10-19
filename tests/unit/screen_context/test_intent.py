@@ -4,7 +4,7 @@ The cases below are the behaviour contract, not a sample. Two of them are
 regressions waiting to happen and are pinned deliberately:
 
 * a look-verb inside an idiom ("looks like", "mal sehen", "a ver si") must not
-  capture — this is the failure mode ``jarvis/brain/cu_gate.py`` hit in
+  capture — this is the failure mode ``dodaios/brain/cu_gate.py`` hit in
   production with product names, and the same masking approach is used here;
 * a plain content question must produce neither a capture nor a question,
   because a feature that interrupts to ask "shall I look?" on every third turn
@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.screen_context.intent import (
+from dodaios.screen_context.intent import (
     SUPPORTED_CLARIFY_LOCALES,
     clarifying_question,
     classify,
     requests_screen_operation,
 )
-from jarvis.screen_context.models import VisualIntent
+from dodaios.screen_context.models import VisualIntent
 
 
 @pytest.mark.parametrize(
@@ -146,7 +146,7 @@ def test_german_separable_verbs_are_desktop_operations(utterance: str) -> None:
 
     Anchoring action verbs on the clause-initial token saw only the bare stem
     ("mach"), so an unambiguous command read as a pure look while
-    ``jarvis/brain/cu_gate.py`` already read the same sentence as an action.
+    ``dodaios/brain/cu_gate.py`` already read the same sentence as an action.
     """
     assert requests_screen_operation(utterance)
     assert classify(utterance).intent is VisualIntent.NONE

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
+from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
 
 
 class _FakeMcpState:

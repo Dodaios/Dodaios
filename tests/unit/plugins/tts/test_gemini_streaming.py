@@ -29,7 +29,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.tts.gemini_flash_tts import GeminiFlashTTS
+from dodaios.plugins.tts.gemini_flash_tts import GeminiFlashTTS
 
 # Verbatim 429 captured live 2026-05-14 (same fixture as the sibling-bridge tests).
 _GOOGLE_429_MESSAGE = (
@@ -378,7 +378,7 @@ async def test_transient_stream_error_does_not_bridge_to_the_sibling() -> None:
 def test_factory_wires_tts_streaming_flag() -> None:
     """``[tts].streaming = true`` must reach the provider (the key existed in
     jarvis.toml but was never forwarded — dead config)."""
-    from jarvis.plugins.tts import _build_provider
+    from dodaios.plugins.tts import _build_provider
 
     cfg = SimpleNamespace(
         provider="gemini-flash-tts", model="", voice_de="Charon",

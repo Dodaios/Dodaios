@@ -22,9 +22,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool import search_web
-from jarvis.plugins.tool.search_backends import SearchOutcome
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool import search_web
+from dodaios.plugins.tool.search_backends import SearchOutcome
 
 _CTX = ExecutionContext(
     trace_id=uuid4(),

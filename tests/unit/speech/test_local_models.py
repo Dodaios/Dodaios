@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.speech import local_models
+from dodaios.speech import local_models
 
 
 @pytest.fixture(autouse=True)

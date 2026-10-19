@@ -2,8 +2,8 @@
 
 import pytest
 
-from jarvis.dictation.merge import merge_transcripts
-from jarvis.dictation.segment import quality_windows
+from dodaios.dictation.merge import merge_transcripts
+from dodaios.dictation.segment import quality_windows
 
 BYTES_PER_SECOND = 16_000 * 2
 

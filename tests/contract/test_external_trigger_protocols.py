@@ -12,8 +12,8 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.tasks import external_auth
-from jarvis.tasks.schema import TriggerWebhook
+from dodaios.tasks import external_auth
+from dodaios.tasks.schema import TriggerWebhook
 
 
 @pytest.mark.parametrize("provider", ["github", "linear", "slack", "stripe"])

@@ -5,8 +5,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.clipboard_routes as clipboard_routes
-from jarvis.ui.web.clipboard_routes import router as clipboard_router
+import dodaios.ui.web.clipboard_routes as clipboard_routes
+from dodaios.ui.web.clipboard_routes import router as clipboard_router
 
 
 def _client(*, native: bool) -> TestClient:

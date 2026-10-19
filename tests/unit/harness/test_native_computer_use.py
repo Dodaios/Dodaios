@@ -21,7 +21,7 @@ import pytest
 
 
 def test_click_at_maps_to_click() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action("click_at", {"x": 300, "y": 400}) == [
         {"action": "click", "x": 300, "y": 400}
@@ -29,7 +29,7 @@ def test_click_at_maps_to_click() -> None:
 
 
 def test_key_combination_splits_into_keys_list() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action("key_combination", {"keys": "ctrl+c"}) == [
         {"action": "key", "keys": ["ctrl", "c"]}
@@ -37,7 +37,7 @@ def test_key_combination_splits_into_keys_list() -> None:
 
 
 def test_key_combination_single_key_lowercased() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action("key_combination", {"keys": "Enter"}) == [
         {"action": "key", "keys": ["enter"]}
@@ -45,7 +45,7 @@ def test_key_combination_single_key_lowercased() -> None:
 
 
 def test_scroll_document_maps_to_scroll() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action("scroll_document", {"direction": "down"}) == [
         {"action": "scroll", "direction": "down"}
@@ -53,7 +53,7 @@ def test_scroll_document_maps_to_scroll() -> None:
 
 
 def test_scroll_at_carries_coords_and_magnitude() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action(
         "scroll_at", {"x": 500, "y": 500, "direction": "up", "magnitude": 5}
@@ -61,7 +61,7 @@ def test_scroll_at_carries_coords_and_magnitude() -> None:
 
 
 def test_type_text_at_expands_to_click_then_type() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action(
         "type_text_at", {"x": 100, "y": 200, "text": "hello"}
@@ -72,7 +72,7 @@ def test_type_text_at_expands_to_click_then_type() -> None:
 
 
 def test_type_text_at_with_press_enter_appends_enter_key() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     actions = map_native_action(
         "type_text_at", {"x": 10, "y": 20, "text": "query", "press_enter": True}
@@ -82,7 +82,7 @@ def test_type_text_at_with_press_enter_appends_enter_key() -> None:
 
 
 def test_type_text_at_with_clear_inserts_select_all_delete() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     actions = map_native_action(
         "type_text_at",
@@ -95,7 +95,7 @@ def test_type_text_at_with_clear_inserts_select_all_delete() -> None:
 
 
 def test_wait_5_seconds_maps_to_wait() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action("wait_5_seconds", {}) == [
         {"action": "wait", "ms": 5000}
@@ -103,7 +103,7 @@ def test_wait_5_seconds_maps_to_wait() -> None:
 
 
 def test_open_web_browser_maps_to_open_app_chrome() -> None:
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action("open_web_browser", {}) == [
         {"action": "open_app", "name": "chrome"}
@@ -123,7 +123,7 @@ def test_open_web_browser_maps_to_open_app_chrome() -> None:
 def test_unsupported_actions_map_to_empty(name: str, args: dict[str, Any]) -> None:
     """Actions the loop vocabulary cannot express map to [] so decide() falls
     back to the hand-rolled engine for that step rather than guessing."""
-    from jarvis.harness.native_computer_use import map_native_action
+    from dodaios.harness.native_computer_use import map_native_action
 
     assert map_native_action(name, args) == []
 
@@ -153,19 +153,19 @@ class _Cfg:
 
 
 def test_from_config_returns_none_when_disabled() -> None:
-    from jarvis.harness.native_computer_use import GeminiNativeCU
+    from dodaios.harness.native_computer_use import GeminiNativeCU
 
     assert GeminiNativeCU.from_config(_Cfg(prefer_native=False)) is None
 
 
 def test_from_config_returns_none_when_provider_not_gemini() -> None:
-    from jarvis.harness.native_computer_use import GeminiNativeCU
+    from dodaios.harness.native_computer_use import GeminiNativeCU
 
     assert GeminiNativeCU.from_config(_Cfg(prefer_native=True, primary="grok")) is None
 
 
 def test_from_config_builds_engine_when_enabled_and_gemini() -> None:
-    from jarvis.harness.native_computer_use import GeminiNativeCU
+    from dodaios.harness.native_computer_use import GeminiNativeCU
 
     eng = GeminiNativeCU.from_config(_Cfg(prefer_native=True, primary="gemini"))
     assert eng is not None
@@ -208,7 +208,7 @@ class _FakeClient:
 
 
 async def test_decide_maps_click_function_call() -> None:
-    from jarvis.harness.native_computer_use import GeminiNativeCU
+    from dodaios.harness.native_computer_use import GeminiNativeCU
 
     fc = _FakeFunctionCall("click_at", {"x": 250, "y": 750})
     fake = _FakeClient(_FakeResponse([_FakePart(fc)]))
@@ -221,7 +221,7 @@ async def test_decide_maps_click_function_call() -> None:
 
 
 async def test_decide_returns_none_on_client_error() -> None:
-    from jarvis.harness.native_computer_use import GeminiNativeCU
+    from dodaios.harness.native_computer_use import GeminiNativeCU
 
     class _BoomClient:
         def generate(self, **_: Any) -> Any:
@@ -235,7 +235,7 @@ async def test_decide_returns_none_on_client_error() -> None:
 
 
 async def test_decide_returns_none_when_no_function_call() -> None:
-    from jarvis.harness.native_computer_use import GeminiNativeCU
+    from dodaios.harness.native_computer_use import GeminiNativeCU
 
     fake = _FakeClient(_FakeResponse([_FakePart(None)]))
     eng = GeminiNativeCU(model="gemini-3-flash-preview", client=fake)
@@ -274,15 +274,15 @@ class _Obs:
 async def test_decide_native_batch_is_noop_when_disabled() -> None:
     """ctx.native_cu is None (the default) -> the seam returns None so the loop
     runs the hand-rolled path unchanged. This is the zero-regression guarantee."""
-    from jarvis.harness.screenshot_only_loop import _decide_native_batch
+    from dodaios.harness.screenshot_only_loop import _decide_native_batch
 
     result = await _decide_native_batch(_SeamCtx(native=None), _Obs(), "goal", [], 1)
     assert result is None
 
 
 async def test_decide_native_batch_uses_and_validates_native_actions(monkeypatch: Any) -> None:
-    import jarvis.brain.router as router
-    from jarvis.harness import screenshot_only_loop as loop
+    import dodaios.brain.router as router
+    from dodaios.harness import screenshot_only_loop as loop
 
     async def _fake_reader(_obs: Any) -> tuple[str, str]:
         return ("image/png", "iVBORw0KGgo=")  # valid base64 (PNG header)
@@ -304,8 +304,8 @@ async def test_decide_native_batch_uses_and_validates_native_actions(monkeypatch
 async def test_decide_native_batch_falls_back_on_invalid_native_action(monkeypatch: Any) -> None:
     """A mapping bug that yields a malformed action must NOT reach the executor;
     the seam validates and returns None so the hand-rolled path takes over."""
-    import jarvis.brain.router as router
-    from jarvis.harness import screenshot_only_loop as loop
+    import dodaios.brain.router as router
+    from dodaios.harness import screenshot_only_loop as loop
 
     async def _fake_reader(_obs: Any) -> tuple[str, str]:
         return ("image/png", "iVBORw0KGgo=")

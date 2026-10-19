@@ -7,8 +7,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from jarvis.agentic_ide import session
-from jarvis.ui.web import workspace_routes as routes
+from dodaios.agentic_ide import session
+from dodaios.ui.web import workspace_routes as routes
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 

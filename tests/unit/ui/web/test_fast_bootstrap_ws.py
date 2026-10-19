@@ -10,7 +10,7 @@ import logging
 import pytest
 import websockets
 
-from jarvis.ui.web.fast_bootstrap import FastBootstrap
+from dodaios.ui.web.fast_bootstrap import FastBootstrap
 
 _TOKEN = "fast-bootstrap-websocket-session"  # noqa: S105
 

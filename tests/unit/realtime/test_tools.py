@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.realtime.tools import RealtimeToolBridge
-from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.realtime.tools import RealtimeToolBridge
+from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
 
 class FakeTool:
@@ -166,7 +166,7 @@ async def test_vertex_toolset_prefix_resolves_to_the_declared_tool():
     in this session.", and the model spoke that error. The prefix is a
     transport artifact; the declared tool must still run.
     """
-    from jarvis.realtime.tools import canonical_tool_wire_name
+    from dodaios.realtime.tools import canonical_tool_wire_name
 
     assert canonical_tool_wire_name("default:run_shell") == "run_shell"
     assert canonical_tool_wire_name("open_app") == "open_app"
@@ -383,7 +383,7 @@ def _spawn_bridge():
 
 @pytest.fixture(autouse=True)
 def _fresh_spawn_offer_window():
-    from jarvis.brain.spawn_gate import OFFER_WINDOW
+    from dodaios.brain.spawn_gate import OFFER_WINDOW
 
     OFFER_WINDOW.disarm()
     yield

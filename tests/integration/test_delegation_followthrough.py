@@ -5,13 +5,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.runner_api import messages_from_events
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested, DelegationResultReady
-from jarvis.plugins.tool.delegate_to_agent import DelegateToAgentTool
-from jarvis.society.events import MsgType
-from jarvis.speech.pipeline import TurnTakingState
-from jarvis.ui.web.server import WebServer
+from dodaios.agent_chat.runner_api import messages_from_events
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested, DelegationResultReady
+from dodaios.plugins.tool.delegate_to_agent import DelegateToAgentTool
+from dodaios.society.events import MsgType
+from dodaios.speech.pipeline import TurnTakingState
+from dodaios.ui.web.server import WebServer
 from tests.contract import test_society_communication as communication
 from tests.unit.speech.test_realtime_announcement_bridge import _pipeline
 
@@ -27,7 +27,7 @@ async def test_two_delegations_return_after_completion_without_blocking_conversa
     bus = EventBus()
     bus.subscribe(AnnouncementRequested, pipeline._on_announcement)
     runtime._publish_event = bus.publish
-    monkeypatch.setattr("jarvis.core.delegation.BATCH_WINDOW_S", 0.005)
+    monkeypatch.setattr("dodaios.core.delegation.BATCH_WINDOW_S", 0.005)
     tool = DelegateToAgentTool(runtime_resolver=lambda: runtime)
     receipts = []
     for agent in ("Scout", "Archivist"):

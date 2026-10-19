@@ -1,4 +1,4 @@
-"""The process-wide TLS context httpx transports share (jarvis.core.shared_tls)."""
+"""The process-wide TLS context httpx transports share (dodaios.core.shared_tls)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 import httpx
 import pytest
 
-from jarvis.core import shared_tls
+from dodaios.core import shared_tls
 
 
 class _FakeTransport:
@@ -110,7 +110,7 @@ def test_install_skips_an_httpx_without_create_ssl_context() -> None:
 
 
 def test_real_httpx_is_patched_once_jarvis_is_imported() -> None:
-    import jarvis  # noqa: F401 — the import installs the patch
+    import dodaios  # noqa: F401 — the import installs the patch
 
     assert getattr(httpx.HTTPTransport.__init__, shared_tls._PATCHED_MARK, False)
     assert getattr(httpx.AsyncHTTPTransport.__init__, shared_tls._PATCHED_MARK, False)

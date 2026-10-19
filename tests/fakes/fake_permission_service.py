@@ -2,7 +2,7 @@
 
 Per AGENTS.md the project uses real fakes, never ``unittest.mock``. A consumer
 (audio capture, dictation, the computer-use actuator, a hotkey backend) asks the
-permission layer through the ``jarvis.core.protocols.PermissionGate`` hook; this
+permission layer through the ``dodaios.core.protocols.PermissionGate`` hook; this
 fake answers it with a scripted outcome per permission, no OS, no bus and no
 threads, and records every call so the test can assert what the consumer asked.
 
@@ -42,13 +42,13 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from jarvis.platform.permission_service import (
+from dodaios.platform.permission_service import (
     EnsureResult,
     PermissionOutcome,
     agent_detail_for,
     user_detail_for,
 )
-from jarvis.platform.permissions import PANE_FAMILY, PermissionId, PermissionState
+from dodaios.platform.permissions import PANE_FAMILY, PermissionId, PermissionState
 
 _STATE_OF_OUTCOME: dict[PermissionOutcome, PermissionState] = {
     PermissionOutcome.GRANTED: PermissionState.GRANTED,

@@ -20,7 +20,7 @@ The real-binary check (``scripts/spikes/agent_runtimes_gateway_e2e.py
     python scripts/ci/agent_runtime_suite.py --pin hermes   # install pin -> $GITHUB_OUTPUT
     python scripts/ci/agent_runtime_suite.py --bump openclaw --version 2026.9.8
 
-The pin comes from ``jarvis/agent_runtimes/runtime-versions.json``:
+The pin comes from ``dodaios/agent_runtimes/runtime-versions.json``:
 ``{"hermes": {"tested": "0.21.5", "commit": "<sha>"}, "openclaw": {"tested":
 "2026.9.8"}}``. Hermes is pinned by ``commit`` (its installers take
 ``--commit`` / ``-Commit``; a version string alone cannot select a release),
@@ -40,33 +40,33 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = REPO_ROOT / "jarvis" / "agent_runtimes" / "runtime-versions.json"
+MANIFEST = REPO_ROOT / "dodaios" / "agent_runtimes" / "runtime-versions.json"
 RUNTIMES: tuple[str, ...] = ("hermes", "openclaw")
 _VERSION = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+-]{0,63}")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 
 #: Code whose change can break an agent on Hermes or OpenClaw.
 PREFIXES: tuple[str, ...] = (
-    "jarvis/agent_runtimes/",
+    "dodaios/agent_runtimes/",
     "tests/unit/agent_runtimes/",
     "scripts/spikes/agent_runtimes_",
 )
 FILES: frozenset[str] = frozenset(
     {
-        "jarvis/agent_chat/runner_acp.py",
-        "jarvis/agent_chat/runner_cli.py",
-        "jarvis/agent_chat/service.py",
-        "jarvis/agent_chat/send_queue.py",
-        "jarvis/agent_chat/control.py",
-        "jarvis/agent_chat/task_recovery.py",
-        "jarvis/agent_chat/catalog.py",
-        "jarvis/society/chat_binding.py",
-        "jarvis/society/roster.py",
-        "jarvis/society/routine_runner.py",
-        "jarvis/society/seat_brain.py",
-        "jarvis/ui/web/agent_runtime_routes.py",
-        "jarvis/ui/web/runtime_gateway_routes.py",
-        "jarvis/ui/web/society_routes.py",
+        "dodaios/agent_chat/runner_acp.py",
+        "dodaios/agent_chat/runner_cli.py",
+        "dodaios/agent_chat/service.py",
+        "dodaios/agent_chat/send_queue.py",
+        "dodaios/agent_chat/control.py",
+        "dodaios/agent_chat/task_recovery.py",
+        "dodaios/agent_chat/catalog.py",
+        "dodaios/society/chat_binding.py",
+        "dodaios/society/roster.py",
+        "dodaios/society/routine_runner.py",
+        "dodaios/society/seat_brain.py",
+        "dodaios/ui/web/agent_runtime_routes.py",
+        "dodaios/ui/web/runtime_gateway_routes.py",
+        "dodaios/ui/web/society_routes.py",
         "tests/fakes/fake_acp_agent.py",
         "tests/fakes/fake_runtime_brain.py",
         "scripts/ci/agent_runtime_suite.py",
@@ -212,7 +212,7 @@ def _hermes_commit(upstream: str = "") -> str:
 def report(runtime: str) -> dict[str, str]:
     """What the canary just proved: the installed version (and Hermes' commit)."""
     sys.path.insert(0, str(REPO_ROOT))
-    from jarvis.agent_runtimes import driver
+    from dodaios.agent_runtimes import driver
 
     target = driver(runtime)
     status = target.detect(refresh=True)

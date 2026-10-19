@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import httpx
 
-from jarvis.plugins.tool.spotify_rest import SpotifyRestTool
+from dodaios.plugins.tool.spotify_rest import SpotifyRestTool
 
 _TRACK = {
     "name": "Paranoid Android",

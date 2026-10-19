@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import background_service as bg
+from dodaios.core import background_service as bg
 
 
 @pytest.fixture(autouse=True)
@@ -84,7 +84,7 @@ def test_keep_running_defaults_on() -> None:
 
 
 def test_config_defaults() -> None:
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     cfg = JarvisConfig()
     assert cfg.background.keep_agents_running is True
@@ -141,7 +141,7 @@ def test_source_command_runs_the_headless_launcher_as_service() -> None:
     argv = bg.service_command(after_pid=42, executable="/usr/bin/python3", frozen=False)
     assert argv[1:] == [
         "-m",
-        "jarvis.ui.web.launcher",
+        "dodaios.ui.web.launcher",
         "--headless",
         bg.SERVICE_FLAG,
         bg.AFTER_PID_FLAG,
@@ -161,7 +161,7 @@ def test_frozen_command_reenters_the_executable() -> None:
 
 
 def test_after_pid_is_parsed() -> None:
-    from jarvis.ui.web import launcher
+    from dodaios.ui.web import launcher
 
     assert launcher._parse_args([bg.SERVICE_FLAG, bg.AFTER_PID_FLAG, "9"]).after_pid == 9
 
@@ -207,7 +207,7 @@ def test_dev_instance_never_hands_off(monkeypatch, spawned) -> None:
 
 
 def test_desktop_skips_the_hand_off_on_restart(monkeypatch) -> None:
-    from jarvis.ui.desktop_app import DesktopApp
+    from dodaios.ui.desktop_app import DesktopApp
 
     seen: list[object] = []
     monkeypatch.setattr(bg, "hand_off_on_quit", lambda state, cfg: seen.append(state))
@@ -299,8 +299,8 @@ def test_service_that_never_lets_go_is_stopped() -> None:
 
 
 def test_service_steps_aside_for_an_opening_desktop(monkeypatch) -> None:
-    from jarvis.ui import desktop_log
-    from jarvis.ui.web import launcher
+    from dodaios.ui import desktop_log
+    from dodaios.ui.web import launcher
 
     monkeypatch.setattr(desktop_log, "_install_desktop_log_sink", lambda _path: None)
     monkeypatch.setenv("JARVIS_VOICE", "1")
@@ -311,8 +311,8 @@ def test_service_steps_aside_for_an_opening_desktop(monkeypatch) -> None:
 
 
 def test_service_never_evicts_a_running_app(monkeypatch) -> None:
-    from jarvis.ui import desktop_app, desktop_log
-    from jarvis.ui.web import launcher
+    from dodaios.ui import desktop_app, desktop_log
+    from dodaios.ui.web import launcher
 
     monkeypatch.setattr(desktop_log, "_install_desktop_log_sink", lambda _path: None)
     monkeypatch.setenv("JARVIS_VOICE", "1")
@@ -328,14 +328,14 @@ def test_service_never_evicts_a_running_app(monkeypatch) -> None:
 
 
 def test_background_service_flag_implies_headless() -> None:
-    from jarvis.ui.web import launcher
+    from dodaios.ui.web import launcher
 
     args = launcher._parse_args([bg.SERVICE_FLAG])
     assert args.background_service is True
 
 
 def _run_watch(state, **kwargs) -> bool:
-    from jarvis.ui.web import launcher
+    from dodaios.ui.web import launcher
 
     async def scenario() -> bool:
         stop = asyncio.Event()
@@ -364,7 +364,7 @@ def test_watch_keeps_running_while_there_is_work() -> None:
 
 
 def test_scheduler_reports_pending_work() -> None:
-    from jarvis.tasks.scheduler import TaskScheduler
+    from dodaios.tasks.scheduler import TaskScheduler
 
     scheduler = TaskScheduler.__new__(TaskScheduler)
     scheduler._known = {"a", "b"}
@@ -395,7 +395,7 @@ def _autostart_cfg(*, background_only: bool) -> SimpleNamespace:
 
 
 def test_login_entry_starts_only_the_service_when_asked(monkeypatch) -> None:
-    from jarvis.autostart.command import LAUNCHER_MODULE, resolve_launch_spec
+    from dodaios.autostart.command import LAUNCHER_MODULE, resolve_launch_spec
 
     monkeypatch.setattr(sys, "platform", "linux")
     assert resolve_launch_spec(_autostart_cfg(background_only=False)).args == (
@@ -410,8 +410,8 @@ def test_login_entry_starts_only_the_service_when_asked(monkeypatch) -> None:
 
 
 def test_macos_login_entry_passes_the_flag_through_launchservices(monkeypatch, tmp_path) -> None:
-    import jarvis.setup.macos_app_bundle as bundle_module
-    from jarvis.autostart.command import resolve_launch_spec
+    import dodaios.setup.macos_app_bundle as bundle_module
+    from dodaios.autostart.command import resolve_launch_spec
 
     bundle = tmp_path / "Personal Jarvis.app"
     monkeypatch.setattr(sys, "platform", "darwin")
@@ -430,8 +430,8 @@ def test_settings_route_reports_and_persists(monkeypatch) -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.core import config_writer
-    from jarvis.ui.web import settings_routes
+    from dodaios.core import config_writer
+    from dodaios.ui.web import settings_routes
 
     writes: list[tuple[str, bool]] = []
     monkeypatch.setattr(
@@ -464,8 +464,8 @@ def test_service_age_constants_are_sane() -> None:
 
 
 def test_service_is_findable_the_moment_it_holds_the_lock(monkeypatch) -> None:
-    from jarvis.ui import desktop_app, desktop_log
-    from jarvis.ui.web import launcher
+    from dodaios.ui import desktop_app, desktop_log
+    from dodaios.ui.web import launcher
 
     monkeypatch.setattr(desktop_log, "_install_desktop_log_sink", lambda _path: None)
     monkeypatch.setenv("JARVIS_VOICE", "1")
@@ -477,7 +477,7 @@ def test_service_is_findable_the_moment_it_holds_the_lock(monkeypatch) -> None:
 
 
 def test_hand_back_lets_running_routines_finish_first() -> None:
-    from jarvis.ui.web import launcher
+    from dodaios.ui.web import launcher
 
     class _Draining:
         def __init__(self) -> None:
@@ -494,7 +494,7 @@ def test_hand_back_lets_running_routines_finish_first() -> None:
 
 
 def test_drain_is_bounded() -> None:
-    from jarvis.ui.web import launcher
+    from dodaios.ui.web import launcher
 
     state = _state(running=1)
 
@@ -525,7 +525,7 @@ def test_tray_quit_all_skips_the_hand_off(monkeypatch) -> None:
     monkeypatch.setitem(
         sys.modules, "pystray", SimpleNamespace(Menu=_FakeMenu, MenuItem=_FakeMenuItem)
     )
-    from jarvis.ui.tray import JarvisTray, TrayCommand
+    from dodaios.ui.tray import JarvisTray, TrayCommand
 
     seen: list[str] = []
     tray = JarvisTray(on_command=lambda cmd: seen.append(cmd.action))

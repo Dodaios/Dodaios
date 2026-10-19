@@ -115,7 +115,7 @@ Suspected cause hierarchy:
 
 ### 2.1 Code State (target vs. actual)
 
-| Point | Target (mandate phase 3 / ADR-0011) | Actual (`jarvis/brain/factory.py:34-54`) |
+| Point | Target (mandate phase 3 / ADR-0011) | Actual (`dodaios/brain/factory.py:34-54`) |
 |---|---|---|
 | ROUTER_TOOLS | **EXACTLY four**: `run-shell`, `screen-snapshot`, `multi-spawn`, `spawn-sub-jarvis` | **six**: + `dispatch-to-harness` (re-introduced), + `dispatch-with-review` (Phase 8.4) |
 | Plus self-mod tools | (not in the mandate) | **three**: `list_mutable_settings`, `get_config_value`, `set_config_value` (Phase 7.3, self-mod authoring main-Jarvis only) |
@@ -202,14 +202,14 @@ BrainManager.generate (manager.py:869)
 
 ### 4.1 `BrainPlausibilityConfig` Is Configured
 
-`jarvis/core/config.py` (lines ~125-135, found via grep):
+`dodaios/core/config.py` (lines ~125-135, found via grep):
 ```
 BrainPlausibilityConfig
   …
   stale_wake_seconds: float = 30.0
 ```
 
-`jarvis/brain/plausibility.py` exists (`Glob` hit) — the mandate-phase-4 implementation is evidently live. Not tested in today's probe path, because the probe runs text-only (no STT, no Whisper confidence).
+`dodaios/brain/plausibility.py` exists (`Glob` hit) — the mandate-phase-4 implementation is evidently live. Not tested in today's probe path, because the probe runs text-only (no STT, no Whisper confidence).
 
 ### 4.2 Whitelist Patterns in `jarvis.toml` (line 282 ff.)
 
@@ -221,7 +221,7 @@ From the grep hit (`jarvis.toml:282-307`):
 
 ### 4.3 Tools with `risk_tier="ask"` (statically not directly findable)
 
-Grep `risk_tier\s*[:=]\s*['\"](ask|monitor)['\"]` in `jarvis/plugins/` yields **no hits** — tools presumably declare their tier as a `ClassVar` with a different pattern (e.g., `risk_tier: ClassVar[RiskTier] = "ask"`) or via a `dataclass` field. This is a **research gap** that must be filled in for Phase 4 (plausibility). Candidates per master plan §22 + ADR-0008 + mandate-phase-4 examples:
+Grep `risk_tier\s*[:=]\s*['\"](ask|monitor)['\"]` in `dodaios/plugins/` yields **no hits** — tools presumably declare their tier as a `ClassVar` with a different pattern (e.g., `risk_tier: ClassVar[RiskTier] = "ask"`) or via a `dataclass` field. This is a **research gap** that must be filled in for Phase 4 (plausibility). Candidates per master plan §22 + ADR-0008 + mandate-phase-4 examples:
 - `dispatch-to-harness` (can spawn arbitrary code)
 - `multi-spawn` (parallel harness spawns)
 - `run-shell` (shell execution)
@@ -282,17 +282,17 @@ Both documents address the same bug (every Hello command spawns a subprocess), b
 
 | Aspect | `JARVIS_REFACTOR_PLAN.md` §4.2 | Code reality |
 |---|---|---|
-| File | "New file: `jarvis/brain/sub_jarvis.py`" | `jarvis/sub_jarvis/manager.py` (its own top-level module) |
+| File | "New file: `dodaios/brain/sub_jarvis.py`" | `dodaios/sub_jarvis/manager.py` (its own top-level module) |
 | Class | `SubJarvisSpawner.spawn(task, context, timeout_s=600)` | `SubJarvisManager.run(SubJarvisTask)` |
 | Tool set | a list of 4 strings (`["openclaw", "codex", "browser-use", "computer-use"]`) | 15+ tools (`SUB_TOOLS` in `factory.py:61-70`) |
 
-→ **`JARVIS_REFACTOR_PLAN.md` is outdated.** The code reality matches master plan §22 (a dedicated `jarvis/sub_jarvis/` module).
+→ **`JARVIS_REFACTOR_PLAN.md` is outdated.** The code reality matches master plan §22 (a dedicated `dodaios/sub_jarvis/` module).
 
 #### 5.2.3 Conflict 3 — Jarvis-Agent persona file
 
 | Aspect | `JARVIS_REFACTOR_PLAN.md` §4.4 | Code reality |
 |---|---|---|
-| Persona source | `jarvis/brain/SUB_JARVIS_PERSONA.md` (external) | `factory.py:SUB_JARVIS_SYSTEM_PROMPT` (inline constant) |
+| Persona source | `dodaios/brain/SUB_JARVIS_PERSONA.md` (external) | `factory.py:SUB_JARVIS_SYSTEM_PROMPT` (inline constant) |
 
 → The code inline is legitimate (the Jarvis-Agent prompt is extended at runtime with vision hints, plan-pipeline hints, etc.). The **`JARVIS_REFACTOR_PLAN.md` proposal** is to be deviated from.
 
@@ -352,21 +352,21 @@ C) **Full mandate:** you decide the mandate should run despite the formal pass. 
 
 | # | File | Status |
 |---|---|---|
-| 1 | `jarvis/brain/JARVIS_PERSONA.md` | ✅ read in full (155 lines) |
-| 2 | `jarvis/brain/manager.py` `_build_system_prompt`, `__call__`, `_should_force_sub_jarvis`, `_force_spawn_sub_jarvis` | ✅ section read (file too large for a full read, targeted offsets) |
-| 3 | `jarvis/brain/factory.py` `build_default_brain`, `ROUTER_TOOLS`, `SUB_TOOLS` | ✅ full (666 lines) |
-| 4 | `jarvis/sub_jarvis/manager.py` `run`, depth guard, announcement bridge | ✅ full (435 lines) |
-| 5 | `jarvis/speech/persona.py` phrase catalog, `PhrasePicker` | ✅ full (70 lines, all pools empty) |
-| 6 | `jarvis/speech/pipeline.py` TTS paths, hangup, `_handle_utterance`, `_on_announcement`, `_speak`, `_on_background_completed`, `_on_spawn_announcement` | ✅ section read (file too large for a full read) |
+| 1 | `dodaios/brain/JARVIS_PERSONA.md` | ✅ read in full (155 lines) |
+| 2 | `dodaios/brain/manager.py` `_build_system_prompt`, `__call__`, `_should_force_sub_jarvis`, `_force_spawn_sub_jarvis` | ✅ section read (file too large for a full read, targeted offsets) |
+| 3 | `dodaios/brain/factory.py` `build_default_brain`, `ROUTER_TOOLS`, `SUB_TOOLS` | ✅ full (666 lines) |
+| 4 | `dodaios/sub_jarvis/manager.py` `run`, depth guard, announcement bridge | ✅ full (435 lines) |
+| 5 | `dodaios/speech/persona.py` phrase catalog, `PhrasePicker` | ✅ full (70 lines, all pools empty) |
+| 6 | `dodaios/speech/pipeline.py` TTS paths, hangup, `_handle_utterance`, `_on_announcement`, `_speak`, `_on_background_completed`, `_on_spawn_announcement` | ✅ section read (file too large for a full read) |
 | 7 | `scripts/voice_e2e_probe.py` 13 scenarios, `ANTI_PATTERNS` | ✅ full (271 lines) |
-| 8 | `jarvis/safety/risk_tier.py` evaluator, TierDecision | ✅ full (137 lines) |
-| 9 | `jarvis/vision/engine.py` `observe`, auto-mode heuristic | ✅ full (260 lines) |
+| 8 | `dodaios/safety/risk_tier.py` evaluator, TierDecision | ✅ full (137 lines) |
+| 9 | `dodaios/vision/engine.py` `observe`, auto-mode heuristic | ✅ full (260 lines) |
 | 10 | `Aufgaben/JARVIS_REFACTOR_PLAN.md` (≡ <USER_HOME>/ path nonexistent) | ✅ full (469 lines) |
 | 11 | `docs/adr/0010-output-filter-pattern-based.md` + `0011-router-pure-dispatcher.md` | ✅ full (two ADRs, ~70 lines each) |
 
 **Additionally read for the conflict analysis:**
 - `<USER_HOME>\.claude\plans\also-er-muss-auch-lexical-pond.md` §22 (l. 1602-1644)  <!-- i18n-allow -->
-- `jarvis/core/config.py` `BrainRoutingConfig` (l. 138-195)
+- `dodaios/core/config.py` `BrainRoutingConfig` (l. 138-195)
 - `docs/persona-refactor-results.md` (for the before state of 2026-04-25)
 
 **Probe output:**

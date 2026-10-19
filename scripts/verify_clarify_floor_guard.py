@@ -35,9 +35,9 @@ try:
 except Exception:  # noqa: BLE001 — best effort; older streams lack reconfigure
     pass
 
-from jarvis.speech.completion import REASON_TRAILING_ELLIPSIS, is_incomplete
-from jarvis.speech.continuation_buffer import ContinuationBuffer
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.speech.completion import REASON_TRAILING_ELLIPSIS, is_incomplete
+from dodaios.speech.continuation_buffer import ContinuationBuffer
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 # The real transcript pair from the incident.
 TURN0 = "Was ist die größte Search-Engine der Welt und mit wie viel Prozent liegt sie im..."  # noqa: E501 - i18n-allow: real German voice transcript under test

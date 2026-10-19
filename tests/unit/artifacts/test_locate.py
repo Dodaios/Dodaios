@@ -10,7 +10,7 @@ import os
 import time
 from pathlib import Path
 
-from jarvis.artifacts.locate import locate_artifact
+from dodaios.artifacts.locate import locate_artifact
 
 
 def _page(root: Path, run: str, name: str, title: str, *, age_s: float = 0.0) -> Path:

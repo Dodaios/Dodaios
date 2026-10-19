@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.docs.loader import (
+from dodaios.docs.loader import (
     _slugify,
     _split_frontmatter,
     discover_docs,
     parse_doc,
 )
-from jarvis.docs.schema import DocDiataxis, DocStatus
+from dodaios.docs.schema import DocDiataxis, DocStatus
 
 
 VALID_DOC_MD = """---

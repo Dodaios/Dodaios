@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.vision.role_map import CANONICAL_UIA_ROLES, normalize_role
+from dodaios.vision.role_map import CANONICAL_UIA_ROLES, normalize_role
 
 # Representative macOS AX roles and their expected canonical UIA role.
 _AX_EXPECTED = {

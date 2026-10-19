@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.skills import autofire_policy as policy
-from jarvis.skills.guards import (
+from dodaios.skills import autofire_policy as policy
+from dodaios.skills.guards import (
     VETO_AUTO_FIRE_NEVER,
     VETO_BAND_BELOW_FLOOR,
     VETO_DISPATCHING_CLASS,
     VETO_REASONS,
 )
-from jarvis.skills.match_eval import BAND_FIRE, BAND_NARROW, BAND_NONE
+from dodaios.skills.match_eval import BAND_FIRE, BAND_NARROW, BAND_NONE
 
 
 class _FakeRiskPolicy:
@@ -261,7 +261,7 @@ def test_class_vocabulary_is_closed() -> None:
 
 def test_the_real_cloud_debug_skill_can_never_auto_fire() -> None:
     """End-to-end against the shape as it actually ships."""
-    from jarvis.skills.schema import SkillFrontmatter
+    from dodaios.skills.schema import SkillFrontmatter
 
     frontmatter = SkillFrontmatter(
         name="cloud-debug",

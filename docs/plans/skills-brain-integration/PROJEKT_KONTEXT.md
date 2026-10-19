@@ -14,7 +14,7 @@ The skill system (Phase 1c) is fully built (`SkillRegistry`, `TriggerMatcher`, `
 
 ## Solution (hybrid Anthropic pattern)
 
-1. **TriggerMatcher production wiring** as a pre-brain hook in `jarvis/speech/pipeline.py` — deterministic voice/hotkey/cron direct paths without a brain round-trip (Skills-1).
+1. **TriggerMatcher production wiring** as a pre-brain hook in `dodaios/speech/pipeline.py` — deterministic voice/hotkey/cron direct paths without a brain round-trip (Skills-1).
 2. **Skill list in the system prompt** as a `## VERFÜGBARE SKILLS` (available skills) section with name + description + risk-tier tag (Skills-2). <!-- i18n-allow -->
 3. **`run_skill` meta-tool** in `ROUTER_TOOLS` — the brain decides semantically via the description (Skills-3).
 4. **Skill-body injection (progressive disclosure)** — on a `run_skill` call, the body is injected into the brain as an ephemeral system message for **that turn** (no cache mix).
@@ -22,13 +22,13 @@ The skill system (Phase 1c) is fully built (`SkillRegistry`, `TriggerMatcher`, `
 
 ## Affected surfaces
 
-- `jarvis/speech/pipeline.py` (pre-brain hook)
-- `jarvis/brain/factory.py` (`ROUTER_TOOLS`, `_load_tools_for_tier`)
-- `jarvis/brain/manager.py` (`_build_system_prompt`)
-- `jarvis/skills/trigger_matcher.py` (state-filter bonus fix)
-- `jarvis/plugins/tool/run_skill.py` (NEW)
-- `jarvis/skills/skill_context.py` (NEW, singleton holder)
-- `jarvis/core/events.py` (2 new events)
+- `dodaios/speech/pipeline.py` (pre-brain hook)
+- `dodaios/brain/factory.py` (`ROUTER_TOOLS`, `_load_tools_for_tier`)
+- `dodaios/brain/manager.py` (`_build_system_prompt`)
+- `dodaios/skills/trigger_matcher.py` (state-filter bonus fix)
+- `dodaios/plugins/tool/run_skill.py` (NEW)
+- `dodaios/skills/skill_context.py` (NEW, singleton holder)
+- `dodaios/core/events.py` (2 new events)
 - `pyproject.toml` (entry-point)
 - `docs/adr/0011-router-pure-dispatcher.md` (amendment)
 - `docs/adr/0012-skills-brain-integration.md` (NEW)

@@ -12,13 +12,13 @@ import io
 import pytest
 from PIL import Image
 
-from jarvis.appshot import region
-from jarvis.appshot import service as appshot_service
-from jarvis.appshot.markup import Hide, Markup, apply_to_bytes, apply_to_rgb, parse_markup
-from jarvis.appshot.picker import ACTION_DONE, EVENT_MARKING, encode
-from jarvis.appshot.picker import markup_model as mm
-from jarvis.screen_context.models import CaptureTarget, ScreenContext, TargetKind, TargetReason
-from jarvis.screen_context.service import CaptureOutcome
+from dodaios.appshot import region
+from dodaios.appshot import service as appshot_service
+from dodaios.appshot.markup import Hide, Markup, apply_to_bytes, apply_to_rgb, parse_markup
+from dodaios.appshot.picker import ACTION_DONE, EVENT_MARKING, encode
+from dodaios.appshot.picker import markup_model as mm
+from dodaios.screen_context.models import CaptureTarget, ScreenContext, TargetKind, TargetReason
+from dodaios.screen_context.service import CaptureOutcome
 
 SCREEN = {"x": 0.0, "y": 0.0, "w": 1920.0, "h": 1080.0, "dpr": 1.0}
 
@@ -203,7 +203,7 @@ def test_the_picker_offers_the_full_editors_tools_keys_and_presets() -> None:
     from pathlib import Path
 
     model = (
-        Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src/lib/appshotEditorModel.ts"
+        Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/lib/appshotEditorModel.ts"
     ).read_text(encoding="utf-8")
     keys = dict(re.findall(r'\{ tool: "(\w+)", key: "(\w)" \}', model))
     keys.pop("crop")  # the picker's area handles are its crop
@@ -382,7 +382,7 @@ class Capture:
     async def capture(
         self, *, verdict=None, trace_id=None, region=None, master=False, frozen=None
     ):
-        from jarvis.appshot.effect import shutter_markup
+        from dodaios.appshot.effect import shutter_markup
 
         self.markup_at_shutter.append(shutter_markup.get())
         context = ScreenContext(
@@ -401,8 +401,8 @@ class Capture:
 
 @pytest.fixture
 def flow(monkeypatch):
-    import jarvis.screen_context.turn as turn
-    from jarvis.appshot.store import get_store
+    import dodaios.screen_context.turn as turn
+    from dodaios.appshot.store import get_store
 
     capture = Capture()
     picks: list = []
@@ -457,8 +457,8 @@ async def test_an_unmarked_area_stays_untouched(flow) -> None:
 
 async def test_copy_save_and_edit_run_after_delivery(flow, monkeypatch, tmp_path) -> None:
     _capture, picks, _asked = flow
-    from jarvis.appshot import card_actions, editor_window
-    from jarvis.platform import clipboard_image
+    from dodaios.appshot import card_actions, editor_window
+    from dodaios.platform import clipboard_image
 
     copied: list[bytes] = []
     opened: list[str] = []
@@ -491,9 +491,9 @@ async def test_the_corner_card_shows_the_markings(flow, monkeypatch) -> None:
     """The card in the corner is cut at the shutter: it must show the box too."""
     import asyncio
 
-    import jarvis.core.config as core_config
-    from jarvis.appshot import effect
-    from jarvis.cu.indicator import controller as indicator
+    import dodaios.core.config as core_config
+    from dodaios.appshot import effect
+    from dodaios.cu.indicator import controller as indicator
 
     capture, picks, _asked = flow
 

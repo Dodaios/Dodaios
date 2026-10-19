@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import agent_accounts
-from jarvis.agent_accounts import AccountError
+from dodaios import agent_accounts
+from dodaios.agent_accounts import AccountError
 
 
 @pytest.fixture(autouse=True)

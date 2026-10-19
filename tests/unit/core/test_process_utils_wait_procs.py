@@ -7,7 +7,7 @@ import errno
 import psutil
 import pytest
 
-from jarvis.core import process_utils
+from dodaios.core import process_utils
 
 
 class FakeProc:

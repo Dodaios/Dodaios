@@ -21,9 +21,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import VoiceBootStatus, VoiceSessionEnded
-from jarvis.ui import desktop_app as da
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.core.events import VoiceBootStatus, VoiceSessionEnded
+from dodaios.ui import desktop_app as da
+from dodaios.ui.desktop_app import DesktopApp
 
 
 class _FakeBus:
@@ -64,8 +64,8 @@ def fast_warm(monkeypatch):
 
 @pytest.fixture
 def recorder(monkeypatch):
-    import jarvis.core.config as config_mod
-    import jarvis.realtime.factory as factory_mod
+    import dodaios.core.config as config_mod
+    import dodaios.realtime.factory as factory_mod
 
     rec = _WarmRecorder()
     monkeypatch.setattr(factory_mod, "realtime_warm_selected_transports", rec)
@@ -75,7 +75,7 @@ def recorder(monkeypatch):
 
 @pytest.fixture
 def prespawn_recorder(monkeypatch):
-    import jarvis.realtime.factory as factory_mod
+    import dodaios.realtime.factory as factory_mod
 
     rec = _WarmRecorder()
     monkeypatch.setattr(factory_mod, "realtime_prespawn_transports", rec)
@@ -189,8 +189,8 @@ async def test_a_failed_warm_is_reported_and_the_worker_survives(
     fast_warm, monkeypatch, caplog
 ):
     """AP-30: a failed warm says so, and does not kill the re-arm for the session."""
-    import jarvis.core.config as config_mod
-    import jarvis.realtime.factory as factory_mod
+    import dodaios.core.config as config_mod
+    import dodaios.realtime.factory as factory_mod
 
     rec = _WarmRecorder(fail_times=1)
     monkeypatch.setattr(factory_mod, "realtime_warm_selected_transports", rec)

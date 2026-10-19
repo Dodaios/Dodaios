@@ -30,10 +30,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted, DictationTranscript
-from jarvis.dictation.insert import InsertResult, insert_text
-from jarvis.speech.pipeline import SpeechPipeline, _is_silence_hallucination
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted, DictationTranscript
+from dodaios.dictation.insert import InsertResult, insert_text
+from dodaios.speech.pipeline import SpeechPipeline, _is_silence_hallucination
 
 # 16 kHz mono int16 — the capture contract every dictation records under.
 BYTES_PER_SECOND = 16_000 * 2
@@ -296,7 +296,7 @@ async def test_a_tag_outside_the_supported_set_is_kept_rather_than_coerced() -> 
     now recognises it as another language and answers "unknown" for the four.
     """
     french = "Le rapport est sur la table, avec les notes de la réunion."
-    from jarvis.core.turn_language import detect_conversation_language, detect_text_language
+    from dodaios.core.turn_language import detect_conversation_language, detect_text_language
 
     assert detect_text_language(french) == "unknown"
     assert detect_conversation_language(french) == "fr"
@@ -407,7 +407,7 @@ async def test_duration_is_the_length_of_the_audio_not_of_the_wait(
     statistics sidecar divides the word count by, so it silently under-reported
     the user's words per minute and stretched every streak built on it.
     """
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     pcm = b"\x00\x01" * 32_000  # 64 000 bytes = exactly 2.0 s
     monkeypatch.setattr(
@@ -433,7 +433,7 @@ async def test_a_recording_that_captured_nothing_reports_no_duration(
 ) -> None:
     """No audio means no dictation. Reporting the seconds the machinery spent
     failing would put a duration on a row that holds no speech."""
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     monkeypatch.setattr(
         pipeline_mod, "MicrophoneCapture", lambda **_kw: _FakeMic(b"")

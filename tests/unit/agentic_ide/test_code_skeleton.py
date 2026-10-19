@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.agentic_ide.code_skeleton import (
+from dodaios.agentic_ide.code_skeleton import (
     MAX_CHARS_PER_FILE,
     skeleton_for,
     skeletons,

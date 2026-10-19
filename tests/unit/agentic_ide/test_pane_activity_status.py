@@ -25,11 +25,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import activity as activity_mod
-from jarvis.agentic_ide import notifications
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.activity import RESIZE_SHADOW_S, STAMP_FRESH_S, observed
-from jarvis.agentic_ide.session import PLAIN_TERMINAL, Registry
+from dodaios.agentic_ide import activity as activity_mod
+from dodaios.agentic_ide import notifications
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.activity import RESIZE_SHADOW_S, STAMP_FRESH_S, observed
+from dodaios.agentic_ide.session import PLAIN_TERMINAL, Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 # Screens copied off the real products, exactly as the notification tests use

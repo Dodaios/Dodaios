@@ -13,7 +13,7 @@
 - **All 8 brain provider plugins** are discovered via `importlib.metadata`
 - **All 5 Phase-2 tools** are discovered and match their risk tier
 - **FTS5 + BM25 + WAL mode** works, trigger sync between `messages` and `messages_fts` verified
-- **No Phase-1b files touched** (jarvis/audio, jarvis/speech, jarvis/plugins/stt|tts|wake, jarvis/trigger/hotkey, jarvis/__main__.py, jarvis/ui/tray.py all unchanged)
+- **No Phase-1b files touched** (dodaios/audio, dodaios/speech, dodaios/plugins/stt|tts|wake, dodaios/trigger/hotkey, dodaios/__main__.py, dodaios/ui/tray.py all unchanged)
 
 **Result**: Phase 2 is **COMPLETE** and ready for the one-line swap in `__main__.py:474` (GeminiTestBrain → BrainManager) once Phase 1b is finished.
 
@@ -23,8 +23,8 @@
 
 | ID | Check | Status |
 |---|---|---|
-| `ac_imports` | `from jarvis.brain.manager import BrainManager; from jarvis.memory import RecallStore, CoreMemory; from jarvis.safety import ToolExecutor, RiskTierEvaluator` | ✅ PASS |
-| `ac_brain_plugins_8` | `python -m jarvis --plugins` lists claude-subscription, claude-api, openrouter, openai, gemini, grok, ollama-cloud, ollama-local | ✅ PASS |
+| `ac_imports` | `from dodaios.brain.manager import BrainManager; from dodaios.memory import RecallStore, CoreMemory; from dodaios.safety import ToolExecutor, RiskTierEvaluator` | ✅ PASS |
+| `ac_brain_plugins_8` | `python -m dodaios --plugins` lists claude-subscription, claude-api, openrouter, openai, gemini, grok, ollama-cloud, ollama-local | ✅ PASS |
 | `ac_tool_plugins_5` | Lists open-app, type-text, run-shell, search-web, remember | ✅ PASS |
 | `ac_fts5_schema` | `CREATE VIRTUAL TABLE messages_fts USING fts5(...)` in `data/jarvis.db` | ✅ PASS |
 | `ac_core_memory_file` | `CoreMemory.load()` produces a valid `data/core_memory.json` | ✅ PASS |
@@ -40,9 +40,9 @@
 | `ac_provider_switch` | `pytest tests/integration/test_provider_switch.py` | ✅ PASS (4 tests) |
 | `ac_safety_blacklist` | `pytest tests/integration/test_safety_blacklist.py` | ✅ PASS (2 tests) |
 | `ac_memory_recall` | `pytest tests/integration/test_memory_recall.py` | ✅ PASS (2 tests) |
-| `ac_launcher_snapshot` | `python -m jarvis.brain.launcher --snapshot --no-memory` | ✅ PASS |
-| `ac_launcher_list_providers` | `python -m jarvis.brain.launcher --list-providers` | ✅ PASS |
-| `ac_launcher_echo` (live) | `python -m jarvis.brain.launcher --provider ollama-local --prompt "..."` | ⏸ SKIPPED (needs a local Ollama server + model) |
+| `ac_launcher_snapshot` | `python -m dodaios.brain.launcher --snapshot --no-memory` | ✅ PASS |
+| `ac_launcher_list_providers` | `python -m dodaios.brain.launcher --list-providers` | ✅ PASS |
+| `ac_launcher_echo` (live) | `python -m dodaios.brain.launcher --provider ollama-local --prompt "..."` | ⏸ SKIPPED (needs a local Ollama server + model) |
 
 **Note**: `ac_launcher_echo` as a live test was replaced by static AC variants. The real live test can be run manually when the user has an Ollama server or API key ready.
 
@@ -76,20 +76,20 @@
 
 ## Files Delivered
 
-### jarvis/memory/
+### dodaios/memory/
 - `__init__.py` (exports)
 - `schema.sql` (WAL + FTS5 + triggers)
 - `recall.py` (RecallStore with aiosqlite, 200 LOC)
 - `core_memory.py` (JSON persistence + system-prompt-block rendering, 135 LOC)
 - `message_recorder.py` (bus subscriber, 42 LOC)
 
-### jarvis/safety/
+### dodaios/safety/
 - `__init__.py` (exports)
 - `risk_tier.py` (fnmatch-based evaluator with Blacklist>Whitelist>Default, 95 LOC)
 - `approval.py` (dual-channel approval with asyncio.Future + timeout, 80 LOC)
 - `tool_executor.py` (evaluate→approve→execute→log pipeline, 110 LOC)
 
-### jarvis/brain/
+### dodaios/brain/
 - `__init__.py` (exports)
 - `iteration_budget.py` (turns+tokens tracking, 40 LOC)
 - `cache_heartbeat.py` (asyncio task with stop signal, 60 LOC)
@@ -100,7 +100,7 @@
 - `manager.py` (BrainManager: pipeline adapter, switch, fallback chain, 230 LOC)
 - `launcher.py` (standalone CLI, 145 LOC)
 
-### jarvis/plugins/brain/
+### dodaios/plugins/brain/
 - `_anthropic_base.py` (shared Anthropic logic, 135 LOC)
 - `_openai_base.py` (shared OpenAI-compatible logic, 145 LOC)
 - `_ollama_base.py` (shared Ollama logic, 100 LOC)
@@ -113,7 +113,7 @@
 - `ollama_local.py` (38 LOC)
 - `ollama_cloud.py` (45 LOC)
 
-### jarvis/plugins/tool/
+### dodaios/plugins/tool/
 - `open_app.py` (45 LOC — os.startfile + subprocess fallback)
 - `type_text.py` (35 LOC — pyautogui with graceful missing-dep)
 - `run_shell.py` (60 LOC — asyncio.create_subprocess_exec, shell=False)
@@ -147,9 +147,9 @@
 5. **Live provider test not run**
    I have no API keys in this session's keyring. The user can test manually:
    ```bash
-   python -m jarvis.brain.launcher --provider ollama-local --prompt "Hallo"
-   python -m jarvis.brain.launcher --provider claude-api --prompt "Was ist 2+2?"
-   python -m jarvis.brain.launcher --provider gemini --prompt "Hallo"
+   python -m dodaios.brain.launcher --provider ollama-local --prompt "Hallo"
+   python -m dodaios.brain.launcher --provider claude-api --prompt "Was ist 2+2?"
+   python -m dodaios.brain.launcher --provider gemini --prompt "Hallo"
    ```
 
 6. **ChromaDB / archival memory not in Phase 2**
@@ -165,8 +165,8 @@
 The Phase-1b dev needs to change exactly **one line** to wire in the BrainManager:
 
 ```python
-# jarvis/__main__.py:~474  (before: GeminiTestBrain)
-from jarvis.brain.manager import BrainManager
+# dodaios/__main__.py:~474  (before: GeminiTestBrain)
+from dodaios.brain.manager import BrainManager
 # ... in setup before the pipeline:
 brain_manager = BrainManager(config=config, bus=bus, core_memory=..., ...)
 # and pass as:

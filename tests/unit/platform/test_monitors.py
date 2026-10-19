@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.platform import monitors as mon
+from dodaios.platform import monitors as mon
 
 # mss-style: monitors[0] = virtual bounding box, [1:] = physical screens.
 _VIRTUAL = {"left": -2560, "top": 0, "width": 6400, "height": 2160}

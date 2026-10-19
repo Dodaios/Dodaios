@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import ollama_runtime
+from dodaios.brain import ollama_runtime
 
 
 @pytest.fixture(autouse=True)
@@ -137,7 +137,7 @@ def test_start_spawns_detached_and_waits_for_the_port(monkeypatch) -> None:
     ok, detail = ollama_runtime.start_server()
     assert ok is True
     assert spawned[0]["argv"] == ["/usr/bin/ollama", "serve"]
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     assert spawned[0]["creationflags"] == NO_WINDOW_CREATIONFLAGS  # AP-1
 

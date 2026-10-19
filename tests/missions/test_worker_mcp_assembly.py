@@ -16,8 +16,8 @@ to exporting on a fault (never silently strips a mission's MCPs).
 
 from __future__ import annotations
 
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
-from jarvis.missions.init import _assemble_worker_mcp_servers
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.missions.init import _assemble_worker_mcp_servers
 
 
 def test_assembles_connected_plugins() -> None:
@@ -135,7 +135,7 @@ def test_kill_switch_off_restores_full_export() -> None:
 def test_relevance_fault_falls_back_to_export(monkeypatch) -> None:  # noqa: ANN001
     # A fault inside the relevance step must NEVER strip a mission's MCPs — the
     # server is exported (degrade to the old full-export behaviour).
-    import jarvis.marketplace.plugin_relevance as pr
+    import dodaios.marketplace.plugin_relevance as pr
 
     def _boom(*_a, **_k):  # noqa: ANN002, ANN003
         raise RuntimeError("relevance engine exploded")
@@ -158,7 +158,7 @@ def test_live_registry_inspection_fault_falls_back_to_full_export(
     monkeypatch,
 ) -> None:  # noqa: ANN001
     """A swallowed registry fault must not look like valid empty evidence."""
-    import jarvis.core.runtime_refs as runtime_refs
+    import dodaios.core.runtime_refs as runtime_refs
 
     def _boom():
         raise RuntimeError("live registry unavailable")

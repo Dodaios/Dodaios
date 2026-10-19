@@ -1,17 +1,17 @@
-"""Unit tests for jarvis.core.capabilities and jarvis.core.capabilities_seed."""
+"""Unit tests for dodaios.core.capabilities and dodaios.core.capabilities_seed."""
 from __future__ import annotations
 
 import threading
 
 import pytest
 
-from jarvis.core.capabilities import (
+from dodaios.core.capabilities import (
     Capability,
     CapabilityRegistry,
     _normalize,
     get_registry,
 )
-from jarvis.core.capabilities_seed import _SEED_CAPABILITIES, seed_registry
+from dodaios.core.capabilities_seed import _SEED_CAPABILITIES, seed_registry
 
 # ---------------------------------------------------------------------------
 # Helpers

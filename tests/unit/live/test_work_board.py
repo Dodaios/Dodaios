@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 from tests.fakes.fake_native_voice import FakeToolGateway
 
 _AGENTS = {

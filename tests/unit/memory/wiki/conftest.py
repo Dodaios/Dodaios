@@ -157,7 +157,7 @@ def _reset_provider_failure_memory():
     Tests that script failing providers must not demote those providers
     for every later test in the session.
     """
-    from jarvis.memory.wiki.provider_chain import reset_provider_failure_memory
+    from dodaios.memory.wiki.provider_chain import reset_provider_failure_memory
 
     reset_provider_failure_memory()
     yield

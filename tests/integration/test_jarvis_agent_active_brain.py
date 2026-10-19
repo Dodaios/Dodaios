@@ -9,17 +9,17 @@ showed "Google Gemini · active brain" while heavy work ran on Claude.
 
 These tests pin the active brain to the subagent provider so the displayed
 brain never drifts from the worker that runs (mirrors the routing source in
-jarvis/missions/init.py::_worker_factory).
+dodaios/missions/init.py::_worker_factory).
 """
 from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainTierConfig, load_config
-from jarvis.missions.worker_runtime.provider_map import canonical_worker_provider
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainTierConfig, load_config
+from dodaios.missions.worker_runtime.provider_map import canonical_worker_provider
+from dodaios.ui.web.server import WebServer
 
 # --- pure helper: canonical subagent (display) provider -------------------
 
@@ -108,8 +108,8 @@ def test_subagent_switch_persists_and_applies_to_next_mission(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A persisted switch is live for the next mission without an app restart."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     # Key present for every provider in this test.
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda p: "fake-key")
@@ -134,7 +134,7 @@ def test_subagent_switch_persists_and_applies_to_next_mission(
 
 
 def test_subagent_switch_404_unknown_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda p: "fake-key")
     cfg = load_config()
@@ -144,8 +144,8 @@ def test_subagent_switch_404_unknown_provider(monkeypatch: pytest.MonkeyPatch) -
 
 def test_subagent_switch_409_when_no_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """A provider without a stored key cannot be activated (409, no silent ok)."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda p: None)
     persisted: list[str] = []
@@ -161,8 +161,8 @@ def test_realtime_only_key_unlocks_same_family_jarvis_agent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A user's only OpenAI key must keep the same-family Agent usable."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(
         cfg_mod,
@@ -187,8 +187,8 @@ def test_realtime_only_key_unlocks_same_family_jarvis_agent(
 def test_dedicated_jarvis_agent_key_unlocks_provider_without_brain_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(
         cfg_mod,
@@ -221,8 +221,8 @@ def test_dedicated_jarvis_agent_key_unlocks_provider_without_brain_key(
 
 def test_subagent_switch_updates_status_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     """After a switch, /api/jarvis-agent/status reflects the new active provider."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda p: "fake-key")
     monkeypatch.setattr(config_writer, "set_worker_provider", lambda name, **kwargs: None)
@@ -250,7 +250,7 @@ class _FakeCodex:
     connected_value = True
 
     def status(self):  # noqa: ANN201
-        from jarvis.codex_auth import CodexAuthStatus
+        from dodaios.codex_auth import CodexAuthStatus
 
         return CodexAuthStatus(
             installed=True, connected=type(self).connected_value, mode="chatgpt"
@@ -260,8 +260,8 @@ class _FakeCodex:
 def _patch_codex(monkeypatch: pytest.MonkeyPatch, *, connected: bool) -> None:
     """Stub CodexAuthService in both the route + the status endpoint paths."""
     _FakeCodex.connected_value = connected
-    monkeypatch.setattr("jarvis.ui.web.provider_routes.CodexAuthService", _FakeCodex)
-    monkeypatch.setattr("jarvis.codex_auth.CodexAuthService", _FakeCodex)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes.CodexAuthService", _FakeCodex)
+    monkeypatch.setattr("dodaios.codex_auth.CodexAuthService", _FakeCodex)
 
 
 def test_jarvis_agent_status_includes_codex_row(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -286,8 +286,8 @@ def test_codex_subagent_active_when_selected(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_subagent_switch_accepts_codex_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
     """ChatGPT-subscription (OAuth) connected, no API key -> codex selectable."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(
         cfg_mod,
@@ -310,8 +310,8 @@ def test_subagent_switch_accepts_codex_oauth(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_subagent_switch_codex_api_key_only(monkeypatch: pytest.MonkeyPatch) -> None:
     """No OAuth, but a saved Codex API key is enough to select the subagent."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(
         cfg_mod, "get_secret",
@@ -331,8 +331,8 @@ def test_subagent_switch_codex_api_key_only(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_subagent_switch_chatgpt_alias_normalizes(monkeypatch: pytest.MonkeyPatch) -> None:
     """The 'chatgpt' alias resolves to the canonical 'openai-codex' slug."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda _p: None)
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *_a, **_k: None)
@@ -351,8 +351,8 @@ def test_subagent_switch_409_codex_when_not_connected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Neither OAuth nor API key -> 409, nothing persisted."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda _p: None)
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *_a, **_k: None)
@@ -375,7 +375,7 @@ def test_subagent_switch_409_codex_when_not_connected(
 
 def test_claude_api_row_key_set_via_max_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
     """No API key anywhere, but a live Claude Max OAuth login -> row unlocked."""
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *_a, **_k: None)
     _patch_claude_oauth(monkeypatch, "valid")
@@ -388,10 +388,10 @@ def _patch_claude_oauth(monkeypatch: pytest.MonkeyPatch, status: str) -> None:
     """Stub both modern CLI status and the legacy bearer-file fallback."""
     from types import SimpleNamespace
 
-    from jarvis.claude_auth import ClaudeAuthService, ClaudeAuthStatus
+    from dodaios.claude_auth import ClaudeAuthService, ClaudeAuthStatus
 
     monkeypatch.setattr(
-        "jarvis.claude_credentials.freshest_claude_oauth",
+        "dodaios.claude_credentials.freshest_claude_oauth",
         lambda **_k: SimpleNamespace(status=status),
     )
     monkeypatch.setattr(
@@ -406,7 +406,7 @@ def _patch_claude_oauth(monkeypatch: pytest.MonkeyPatch, status: str) -> None:
 
 
 def test_claude_api_row_locked_without_key_or_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *_a, **_k: None)
     _patch_claude_oauth(monkeypatch, "absent")
@@ -421,7 +421,7 @@ def test_claude_api_row_stays_configured_on_a_stale_oauth_token(
     """An EXPIRED-in-place access token is a login that `claude` refreshes on
     its next run — the card must stay selectable instead of telling a
     logged-in Max user "not connected" (Windows test-machine 2026-07-18)."""
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *_a, **_k: None)
     _patch_claude_oauth(monkeypatch, "expired")
@@ -434,12 +434,12 @@ def test_claude_api_row_stays_configured_on_a_stale_oauth_token(
 
 def test_subagent_switch_accepts_claude_max_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
     """OAuth login present, no API key -> claude-api selectable as subagent."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda _p: None)
     monkeypatch.setattr(
-        "jarvis.missions.isolation.env.read_live_claude_oauth_token",
+        "dodaios.missions.isolation.env.read_live_claude_oauth_token",
         lambda: "sk-ant-oat-live",
     )
     calls: list[str] = []
@@ -463,17 +463,17 @@ def test_subagent_switch_accepts_native_claude_subscription(
     can use that account through its customization-free safe mode, while no
     ``~/.claude/.credentials.json`` bearer exists for Jarvis to copy.
     """
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
-    from jarvis.claude_auth import ClaudeAuthStatus
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
+    from dodaios.claude_auth import ClaudeAuthStatus
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda _p: None)
     monkeypatch.setattr(
-        "jarvis.missions.isolation.env.read_live_claude_oauth_token",
+        "dodaios.missions.isolation.env.read_live_claude_oauth_token",
         lambda: None,
     )
     monkeypatch.setattr(
-        "jarvis.claude_auth.usable_native_claude_subscription",
+        "dodaios.claude_auth.usable_native_claude_subscription",
         lambda: ClaudeAuthStatus(
             installed=True,
             connected=True,
@@ -502,15 +502,15 @@ def test_subagent_switch_accepts_native_claude_subscription(
 def test_subagent_switch_409_claude_api_no_key_no_oauth(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda _p: None)
     monkeypatch.setattr(
-        "jarvis.missions.isolation.env.read_live_claude_oauth_token", lambda: None
+        "dodaios.missions.isolation.env.read_live_claude_oauth_token", lambda: None
     )
     monkeypatch.setattr(
-        "jarvis.claude_auth.usable_native_claude_subscription",
+        "dodaios.claude_auth.usable_native_claude_subscription",
         lambda: None,
     )
     persisted: list[str] = []
@@ -536,7 +536,7 @@ class _FakeGoogleCli:
         pass
 
     def status(self):  # noqa: ANN201
-        from jarvis.google_cli.auth_service import GoogleCliAuthStatus
+        from dodaios.google_cli.auth_service import GoogleCliAuthStatus
 
         return GoogleCliAuthStatus(
             installed=type(self).installed_value,
@@ -557,7 +557,7 @@ def _patch_antigravity(
     _FakeGoogleCli.connected_value = connected
     _FakeGoogleCli.installed_value = installed
     monkeypatch.setattr(
-        "jarvis.google_cli.auth_service.GoogleCliAuthService", _FakeGoogleCli
+        "dodaios.google_cli.auth_service.GoogleCliAuthService", _FakeGoogleCli
     )
 
 
@@ -573,7 +573,7 @@ def test_jarvis_agent_status_includes_antigravity_row(monkeypatch: pytest.Monkey
 def test_antigravity_row_key_set_reflects_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
     """With NO Gemini API key, the row is unlocked iff the Google OAuth login is
     connected. (The Gemini-key path is covered separately below.)"""
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *_a, **_k: None)
     _patch_antigravity(monkeypatch, connected=True)
@@ -598,8 +598,8 @@ def test_antigravity_subagent_active_when_selected(monkeypatch: pytest.MonkeyPat
 
 def test_subagent_switch_accepts_antigravity(monkeypatch: pytest.MonkeyPatch) -> None:
     """Google OAuth connected, no API key -> antigravity selectable as subagent."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda _p: None)
     _patch_antigravity(monkeypatch, connected=True)
@@ -619,8 +619,8 @@ def test_subagent_switch_409_antigravity_when_not_connected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Not signed in with Google AND no Gemini key -> 409, nothing persisted."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda _p: None)
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *_a, **_k: None)
@@ -643,7 +643,7 @@ def test_antigravity_row_key_set_via_gemini_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No OAuth login, but a Gemini API key is set -> the row unlocks (API billing)."""
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     _patch_antigravity(monkeypatch, connected=False)
     monkeypatch.setattr(
@@ -660,7 +660,7 @@ def test_antigravity_row_stays_locked_with_key_but_no_cli(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A Gemini key configures Gemini, but cannot install a missing CLI."""
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     _patch_antigravity(monkeypatch, connected=False, installed=False)
     monkeypatch.setattr(
@@ -692,8 +692,8 @@ def test_subagent_switch_accepts_antigravity_via_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No OAuth, but a Gemini API key -> antigravity selectable (per-token billing)."""
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(
         cfg_mod,
@@ -716,8 +716,8 @@ def test_subagent_switch_accepts_antigravity_via_api_key(
 def test_jarvis_agent_switch_rejects_antigravity_key_without_cli(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.core.config as cfg_mod
-    import jarvis.core.config_writer as config_writer
+    import dodaios.core.config as cfg_mod
+    import dodaios.core.config_writer as config_writer
 
     monkeypatch.setattr(
         cfg_mod,

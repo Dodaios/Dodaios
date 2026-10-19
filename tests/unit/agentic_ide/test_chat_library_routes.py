@@ -14,8 +14,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import library
-from jarvis.ui.web.chat_library_routes import router
+from dodaios.agentic_ide import library
+from dodaios.ui.web.chat_library_routes import router
 
 
 @pytest.fixture
@@ -266,7 +266,7 @@ def test_invalid_project_order_is_rejected_without_mutation(
 def test_reveal_opens_the_stored_project_folder(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.platform import open_path
+    from dodaios.platform import open_path
 
     opened: list[Path] = []
     monkeypatch.setattr(open_path, "open_file", lambda path: opened.append(path) or True)
@@ -291,8 +291,8 @@ def test_reveal_refuses_an_unknown_project(client: TestClient) -> None:
 def test_launchers_list_only_what_is_available(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.agentic_ide import project_links
-    from jarvis.ui.web import outputs_routes
+    from dodaios.agentic_ide import project_links
+    from dodaios.ui.web import outputs_routes
 
     monkeypatch.setattr(
         outputs_routes,
@@ -320,8 +320,8 @@ def test_launchers_list_only_what_is_available(
 def test_launchers_offer_another_editor_only_without_vs_code_and_cursor(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.agentic_ide import project_links
-    from jarvis.ui.web import outputs_routes
+    from dodaios.agentic_ide import project_links
+    from dodaios.ui.web import outputs_routes
 
     monkeypatch.setattr(
         outputs_routes,
@@ -369,7 +369,7 @@ def test_open_in_remote_needs_a_remote(client: TestClient, tmp_path: Path) -> No
 def test_editors_resolve_from_their_standard_install_folder_on_windows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.ui.web import outputs_routes
+    from dodaios.ui.web import outputs_routes
 
     monkeypatch.setattr(outputs_routes, "detect_platform", lambda: "win32")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
@@ -385,7 +385,7 @@ def test_editors_resolve_from_their_standard_install_folder_on_windows(
 def test_cursor_appimage_counts_as_installed_on_linux(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.ui.web import outputs_routes
+    from dodaios.ui.web import outputs_routes
 
     monkeypatch.setattr(outputs_routes, "detect_platform", lambda: "linux")
     monkeypatch.setattr(outputs_routes.Path, "home", lambda: tmp_path)

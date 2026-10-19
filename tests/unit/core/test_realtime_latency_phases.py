@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from jarvis.core.events import LatencyPhase, LatencySpan
+from dodaios.core.events import LatencyPhase, LatencySpan
 
 
 def test_realtime_phases_exist_and_are_accepted_by_the_span_guard():

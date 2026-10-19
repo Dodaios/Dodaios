@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.progression.rules import (
+from dodaios.progression.rules import (
     LOOK_UNLOCKS,
     MAX_LEVEL,
     RANKS,

@@ -6,11 +6,11 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.voice_mirror import VoiceChatMirror
-from jarvis.core.bus import EventBus
-from jarvis.core.events import VoiceTurnCompleted
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.voice_mirror import VoiceChatMirror
+from dodaios.core.bus import EventBus
+from dodaios.core.events import VoiceTurnCompleted
 
 
 def _service(cwd: Path) -> AgentChatService:
@@ -220,7 +220,7 @@ def test_voice_chat_history_is_the_bound_chats_prose(tmp_path: Path) -> None:
 def test_binding_rejects_unknown_and_foreign_surface_chats(tmp_path: Path) -> None:
     import pytest
 
-    from jarvis.agent_chat.service import NoSuchSession
+    from dodaios.agent_chat.service import NoSuchSession
 
     svc = _service(tmp_path)
     coding = svc.create_session(provider="openai", model="m", effort="low", surface="agent")
@@ -257,7 +257,7 @@ def test_a_chat_opened_by_a_call_keeps_the_persons_chat_model(tmp_path: Path) ->
 
 
 def test_a_continued_voice_chat_is_not_copied_into_a_typed_chat(tmp_path: Path) -> None:
-    from jarvis.sessions.continuation import continue_voice_session, continued_voice_session
+    from dodaios.sessions.continuation import continue_voice_session, continued_voice_session
 
     async def scenario() -> None:
         svc = _service(tmp_path)

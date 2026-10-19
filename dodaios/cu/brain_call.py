@@ -1,0 +1,472 @@
+"""Provider-agnostic vision-brain dispatch for Computer-Use v2.
+
+A lean re-implementation of the legacy engine's battle-tested dispatch
+behavior, without importing the monolith:
+
+* FakeBrain test shim (``manager.complete_text``) first.
+* Candidate order = ``BrainManager._build_fallback_chain("fast")`` with the
+  per-provider CU model override — never a provider name hardcode (AP-21/22).
+* Health/vision filtering via :class:`ComputerUsePlannerSelector` (skips
+  dead/cooldown/blind providers) plus the stale-dead-flag last resort.
+* The prompt is built PER CANDIDATE via a callback, because the coordinate
+  convention (0-1000 grid vs image pixels) depends on which provider the
+  call actually lands on — a mid-mission cross-family fallback must not be
+  parsed in the wrong space.
+
+Raises :class:`CUNoVisionProviderError` when the whole chain is exhausted —
+the engine maps it to exit 3 ("check your keys/credit"), keeping the honest
+credential readback the legacy engine had.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
+from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock
+from dodaios.costs.ledger import usage_context
+
+logger = logging.getLogger(__name__)
+
+
+class CUBrainCallError(RuntimeError):
+    """The model call failed structurally (no provider produced text)."""
+
+
+class CUNoVisionProviderError(CUBrainCallError):
+    """Every candidate was keyless/dead/blind — an account fact, exit 3."""
+
+
+@dataclass(frozen=True)
+class BrainReply:
+    """One successful model reply plus its provenance."""
+
+    text: str
+    provider: str
+    model: str | None
+
+
+#: Builds (system_prompt, user_message) for the provider the call lands on.
+PromptBuilder = Callable[[str, Any], tuple[str, str]]
+
+#: Last (provider, model) pair whose vision calls were logged as serving.
+#: Change-triggered: one INFO line per identity switch instead of one per
+#: step, so the log names the brain that ACTUALLY steps without flooding.
+_serving_logged: tuple[str, str | None] | None = None
+
+#: Pause before the single in-place retry of a transient provider failure —
+#: long enough for a capacity spike to pass, short enough that the user does
+#: not perceive a stall on top of the failed call.
+_TRANSIENT_RETRY_DELAY_S = 0.6
+
+#: (provider, model) pairs that already proved they cannot finish their JSON
+#: inside the small per-call cap. Process-global on purpose: the truncation is
+#: a property of the MODEL (thinking-by-default, or a gateway with no reasoning
+#: knob), not of one mission — see :func:`_starting_tokens`.
+_NEEDS_HEADROOM: set[tuple[str, str | None]] = set()
+
+
+def _headroom_tokens(max_tokens: int) -> int:
+    """The ceiling a truncated candidate is (re-)tried with."""
+    return max(2048, max_tokens * 4)
+
+
+def _starting_tokens(
+    provider: str, model: str | None, max_tokens: int, *, early_stop_json: bool,
+) -> int:
+    """The cap the FIRST attempt uses for this candidate.
+
+    A model that hit the cap once will hit it again on the very next step, so
+    re-discovering it per step costs a wasted round-trip every single time —
+    live 2026-08-10: EVERY Gemini step logged "hit the 320-token cap …
+    retrying once with 2048" and spent ~3 s of a ~9 s decision on the reply
+    that was thrown away. Once seen, start at the headroom directly. Safe only
+    with the early-stop aggregator, which cuts the stream at the JSON boundary
+    — so the raised ceiling costs nothing when the reply is short.
+    """
+    if early_stop_json and (provider, model) in _NEEDS_HEADROOM:
+        return _headroom_tokens(max_tokens)
+    return max_tokens
+
+
+def _reset_headroom_memory_for_tests() -> None:
+    """Clear the learned per-model headroom — test-isolation hook only."""
+    _NEEDS_HEADROOM.clear()
+
+
+def _log_serving(provider: str, model: str | None) -> None:
+    """Log the serving brain identity once per change (the ground truth)."""
+    global _serving_logged
+    if (provider, model) != _serving_logged:
+        logger.info(
+            "[cu] vision calls served by %s(%s)",
+            provider, model or "provider default",
+        )
+        _serving_logged = (provider, model)
+
+
+def _explicit_cu_pin(manager: Any, provider: str) -> str | None:
+    """The user's RAW Tool Model pin for ``provider``, or ``None``.
+
+    Reads the CANONICAL ``tool_model`` field first, then the legacy
+    ``cu_model`` — both are the user's explicit word and must never be
+    second-guessed by the speed tune. Reading only ``cu_model`` here was a
+    live defect (2026-07-16): the Tool Model tab persists ``tool_model``
+    only, so after a restart the selection stopped counting as a pin and
+    the speed tune silently swapped the user's chosen model for the fast
+    vision sibling — the selection then applied to realtime delegation but
+    not to Computer-Use.
+
+    Deliberately NOT ``manager._cu_model`` — that resolver falls back to the
+    main model / tier default and therefore never returns ``None``, which
+    cannot distinguish "the user pinned this for CU" from "nothing pinned".
+    """
+    try:
+        provider_cfg = getattr(manager, "_provider_cfg", None)
+        cfg = provider_cfg(provider) if callable(provider_cfg) else None
+        pin = getattr(cfg, "tool_model", None) or getattr(cfg, "cu_model", None)
+        return str(pin) if pin else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _speed_tune_chain(
+    chain: list[tuple[str, str | None]],
+    *,
+    pinned: set[str] = frozenset(),  # type: ignore[assignment]
+) -> list[tuple[str, str | None]]:
+    """Per candidate: keep an explicit CU pin verbatim; otherwise put the
+    provider's FAST vision-capable model on the mission steps.
+
+    Two problems, one move (both live-measured 2026-07-02):
+
+    * A KNOWN-blind configured model (OpenRouter DeepSeek pin) knocked the
+      whole provider out of the chain although the same key unlocks vision
+      models (AP-22) — it must be swapped regardless.
+    * A flagship configured model made every step THINK for seconds
+      (think=60.8s of a 75.8s mission on Opus over OpenRouter). Computer-Use
+      issues one small vision call per step — the fast class (flash/haiku/
+      mini) answers in a fraction of the time at no relevant quality loss
+      for "click/type/verify" decisions.
+
+    Providers whose catalog exposes no modality data (direct Gemini/Claude
+    endpoints) return no pick and stay untouched — their configured fast-tier
+    model already IS the fast class. Never raises; any lookup problem keeps
+    the original pair.
+    """
+    try:
+        from dodaios.brain.model_catalog import (  # noqa: PLC0415
+            is_fast_class_model,
+            model_capabilities,
+            pick_fast_vision_model,
+            provider_has_modality_data,
+        )
+    except Exception:  # noqa: BLE001
+        return chain
+    tuned: list[tuple[str, str | None]] = []
+    for provider, model in chain:
+        if provider in pinned:
+            tuned.append((provider, model))
+            continue
+        try:
+            caps = model_capabilities(provider, model) if model else {}
+            blind = caps.get("vision") is False
+            if not blind and is_fast_class_model(model):
+                # The configured model is already the fast class (and not
+                # known-blind) — keep the user's choice untouched.
+                tuned.append((provider, model))
+                continue
+            alt = pick_fast_vision_model(provider)
+            if alt is None and not provider_has_modality_data(provider):
+                # Direct provider endpoints expose no modality metadata, so
+                # the empty catalog pick means "no data", not "no vision
+                # model" — fall back to the provider's curated router-tier
+                # (fast) default. Keeps "steps run on the fast class" true
+                # for EVERY key, not only catalog-backed gateways. When the
+                # catalog HAS data and found nothing, there is genuinely no
+                # vision model to offer — no blind guessing.
+                try:
+                    from dodaios.brain.manager import (  # noqa: PLC0415
+                        get_tier_default_model,
+                    )
+
+                    candidate = get_tier_default_model("router", provider)
+                    if candidate and model_capabilities(
+                        provider, candidate,
+                    ).get("vision") is not False:
+                        alt = candidate
+                except Exception:  # noqa: BLE001
+                    alt = None
+            if alt and alt != model and (blind or model):
+                # DEBUG, not INFO: this fires for EVERY unpinned chain
+                # CANDIDATE on every step — including providers that never
+                # serve a single call. Logged at INFO it reads as "this model
+                # is stepping" (live forensic 2026-07-15: the nvidia
+                # candidate line was mistaken for the serving brain and
+                # produced a false "text-only model drove Computer-Use"
+                # diagnosis). The change-triggered "served by" log below is
+                # the ground truth for what actually steps.
+                if blind:
+                    logger.debug(
+                        "[cu] chain candidate %s: model %s cannot see the "
+                        "screen — candidate swapped to the vision-capable %s",
+                        provider, model, alt,
+                    )
+                else:
+                    logger.debug(
+                        "[cu] chain candidate %s: %s swapped for the fast "
+                        "vision sibling %s (pin a Tool Model in Settings to "
+                        "override)",
+                        provider, model, alt,
+                    )
+                tuned.append((provider, alt))
+                continue
+            if blind:
+                # Known-blind and no vision sibling — the selector's
+                # blind-skip will drop it; nothing better to offer.
+                logger.info(
+                    "[cu] %s model %s cannot see the screen and no vision "
+                    "sibling is known", provider, model,
+                )
+        except Exception:  # noqa: BLE001 — tuning is best-effort
+            logger.debug("[cu] speed-tune failed for %s", provider, exc_info=True)
+        tuned.append((provider, model))
+    return tuned
+
+
+async def call_vision_brain(
+    manager: Any,
+    *,
+    build_prompt: PromptBuilder,
+    images: list[ImageBlock],
+    max_tokens: int = 256,
+    early_stop_json: bool = False,
+) -> BrainReply:
+    """Dispatch one screenshot-grounded call through the provider chain."""
+    # FakeBrain test shim: single-call managers used across the test suite.
+    complete_text = getattr(manager, "complete_text", None)
+    if complete_text is not None:
+        system, user = build_prompt("fake", manager)
+        result = await complete_text(system=system, user=user)
+        return BrainReply(text=str(result), provider="fake", model=None)
+
+    if not hasattr(manager, "_get_brain"):
+        raise CUBrainCallError(
+            "BrainManager exposes neither complete_text nor _get_brain — "
+            "CU v2 cannot dispatch",
+        )
+
+    from dodaios.brain.streaming import (  # noqa: PLC0415
+        aggregate,
+        aggregate_first_json,
+        has_complete_json_action,
+        is_length_truncated,
+    )
+    from dodaios.harness.computer_use_planner import (  # noqa: PLC0415
+        ComputerUsePlannerSelector,
+        is_transient_provider_error,
+        iter_last_resort_vision,
+    )
+
+    agg = aggregate_first_json if early_stop_json else aggregate
+
+    chain: list[tuple[str, str | None]] = []
+    build_chain = getattr(manager, "_build_fallback_chain", None)
+    if callable(build_chain):
+        try:
+            chain = list(build_chain("fast") or [])
+        except Exception:  # noqa: BLE001
+            logger.debug("[cu] fallback-chain build failed", exc_info=True)
+    if not chain and getattr(manager, "active_provider", None):
+        chain = [(manager.active_provider, None)]
+    if not chain:
+        raise CUBrainCallError("BrainManager fallback chain is empty")
+
+    # Dedicated GLOBAL Computer-Use provider (decoupled from brain.primary).
+    # When the user has picked one ([brain.computer_use].provider), hoist it
+    # to the HEAD of the chain so it is tried first; everything downstream —
+    # the cu_model pin loop below, the speed tune, and the vision/health gate
+    # in ComputerUsePlannerSelector — still applies to it, so a blind/dead
+    # pick degrades through the rest of the chain instead of bricking CU
+    # (AP-21/22). CU-ONLY: never touches ``_build_fallback_chain`` itself,
+    # whose "fast" level is shared with normal voice/chat turns.
+    cu_provider_fn = getattr(manager, "_cu_provider", None)
+    if callable(cu_provider_fn):
+        try:
+            cu_provider = cu_provider_fn()
+        except Exception:  # noqa: BLE001 — resolver must never break dispatch
+            cu_provider = ""
+        if cu_provider:
+            chain = [(p, m) for p, m in chain if p != cu_provider]
+            chain.insert(0, (cu_provider, None))
+
+    # Per-provider CU model override (Settings can pin a dedicated CU model).
+    # A PIN is the user's explicit word and is never second-guessed; every
+    # unpinned candidate is speed-tuned below. CRITICAL: pin detection reads
+    # the RAW config field — ``manager._cu_model`` resolves cu_model -> main
+    # model -> tier default and therefore ALWAYS returns something, which made
+    # every provider look pinned and silently disabled the speed tune (live
+    # forensic 2026-07-02 15:53: think=53.6s AFTER the tune shipped).
+    cu_model = getattr(manager, "_cu_model", None)
+    pinned_providers: set[str] = set()
+    if callable(cu_model):
+        resolved_chain: list[tuple[str, str | None]] = []
+        for provider, model in chain:
+            pin = _explicit_cu_pin(manager, provider)
+            if pin:
+                pinned_providers.add(provider)
+                resolved_chain.append((provider, pin))
+                continue
+            try:
+                resolved_chain.append((provider, cu_model(provider) or model))
+            except Exception:  # noqa: BLE001
+                resolved_chain.append((provider, model))
+        chain = resolved_chain
+
+    images_attached = bool(images)
+    if images_attached:
+        chain = _speed_tune_chain(chain, pinned=pinned_providers)
+    selector = ComputerUsePlannerSelector(manager=manager, chain=chain)
+    attempted = 0
+
+    async def _try(provider: str, model: str | None, brain: Any) -> BrainReply | None:
+        system, user = build_prompt(provider, brain)
+
+        async def _once(tokens: int) -> Any:
+            req = BrainRequest(
+                messages=(BrainMessage(
+                    role="user", content=user, images=tuple(images),
+                ),),
+                system=system,
+                temperature=0.0,
+                max_tokens=tokens,
+                stream=True,
+                # CU calls are small deterministic JSON decisions — internal
+                # "thinking" only burns the output budget (2026-07-16: every
+                # step died "unterminated JSON", thoughts=304 of 320).
+                reasoning_effort="none",
+            )
+            with usage_context("computer-use"):
+                _stream = brain.complete(req)
+            return await agg(_stream)
+
+        start_tokens = _starting_tokens(
+            provider, model, max_tokens, early_stop_json=early_stop_json,
+        )
+        result = await _once(start_tokens)
+        text = (result.text or "").strip()
+        retry_tokens = _headroom_tokens(max_tokens)
+        if (
+            early_stop_json
+            and text
+            and start_tokens < retry_tokens
+            and not has_complete_json_action(text)
+            and is_length_truncated(result.finish_reason, text)
+        ):
+            # The model hit the output-token cap before finishing its JSON —
+            # typically a thinking-by-default model whose thoughts consumed
+            # the budget despite the reasoning hint (or a provider without a
+            # thinking knob at all). ONE retry with real headroom; the
+            # early-stop aggregator still cuts the stream at the JSON
+            # boundary, so the extra ceiling costs nothing on success. The
+            # candidate is remembered so the NEXT step starts at the headroom
+            # instead of paying for this discovery again.
+            _NEEDS_HEADROOM.add((provider, model))
+            logger.info(
+                "[cu] %s(%s) reply hit the %d-token cap before completing "
+                "its JSON — retrying once with %d (and starting there from "
+                "now on)",
+                provider, model, start_tokens, retry_tokens,
+            )
+            result = await _once(retry_tokens)
+            text = (result.text or "").strip()
+        if not text:
+            selector.record_empty(provider, model)
+            return None
+        return BrainReply(text=text, provider=provider, model=model)
+
+    async def _try_with_transient_retry(
+        provider: str, model: str | None, brain: Any,
+    ) -> BrainReply | None:
+        """``_try`` plus ONE in-place retry for a capacity/infra blip.
+
+        Falling straight through to the next provider on a 503 is what left a
+        mission blind while its only funded vision brain was merely busy (live
+        2026-08-10 18:39: Gemini answered "experiencing high demand", CU moved
+        on to two out-of-credit providers and told the user it could not see
+        the screen). Credential and quota failures are excluded by
+        ``is_transient_provider_error`` — those must still fall through
+        immediately so the honest "check your keys/credit" readback survives.
+        """
+        try:
+            return await _try(provider, model, brain)
+        except Exception as exc:  # noqa: BLE001
+            if not is_transient_provider_error(exc):
+                raise
+            logger.info(
+                "[cu] %s(%s) hit a transient failure (%s) — one retry before "
+                "falling through to the next provider",
+                provider, model, str(exc)[:160],
+            )
+        await asyncio.sleep(_TRANSIENT_RETRY_DELAY_S)
+        return await _try(provider, model, brain)
+
+    for idx, provider, model, brain in selector.iter_candidates(
+        images_attached=images_attached,
+    ):
+        attempted += 1
+        try:
+            reply = await _try_with_transient_retry(provider, model, brain)
+        except Exception as exc:  # noqa: BLE001
+            selector.record_failure(provider, model, exc)
+            logger.warning("[cu] brain provider %s(%s) failed: %s", provider, model, exc)
+            continue
+        if reply is not None:
+            if idx > 0:
+                logger.info(
+                    "[cu] fallback hit: %s(%s) after %d skipped provider(s)",
+                    provider, model, idx,
+                )
+            _log_serving(provider, model)
+            selector.record_success(provider, model)
+            return reply
+
+    # Stale-dead-flag resilience: retry every REGISTERED vision provider once,
+    # IGNORING transient dead/cooldown flags — BUT only when the normal pass
+    # dispatched NOTHING (``attempted == 0``). That is the one case this rescue
+    # exists for: every vision brain was filtered OUT of the chain (a stale
+    # dead-flag on CU's only eyes, live 2026-06-21). When real vision providers
+    # WERE dispatched and each failed for real (``attempted > 0``), the chain is
+    # genuinely exhausted, not wrongly filtered — resurrecting a provider here
+    # only drags in a brain whose usable path is BLIND (live forensic
+    # 2026-07-23: every real vision provider 400/401'd, the last resort reached
+    # codex whose API key was 429'd so it answered from the image-dropping CLI,
+    # burned ~68 s producing unparseable prose, and surfaced the misleading
+    # exit-2 "couldn't get a valid screen-control response" instead of the
+    # honest exit-3 "no eyes — check your keys/credit"). Skipping it here lets
+    # the CUNoVisionProviderError below carry that honest, actionable readback.
+    if images_attached and attempted == 0:
+        already = set(chain) | {(e.provider, e.model) for e in selector.errors}
+        for provider, model, brain in iter_last_resort_vision(
+            manager, already_tried=already,
+        ):
+            try:
+                reply = await _try(provider, model, brain)
+            except Exception as exc:  # noqa: BLE001
+                selector.record_failure(provider, model, exc)
+                continue
+            if reply is not None:
+                logger.warning(
+                    "[cu] LAST-RESORT vision brain %s(%s) reached — normal "
+                    "chain had no vision provider (stale dead-flag?)",
+                    provider, model,
+                )
+                _log_serving(provider, model)
+                selector.record_success(provider, model)
+                return reply
+
+    raise CUNoVisionProviderError(
+        selector.error_message(images_attached=images_attached, attempted=attempted),
+    )

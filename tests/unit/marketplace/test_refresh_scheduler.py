@@ -13,8 +13,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from jarvis.marketplace import refresh_scheduler
-from jarvis.marketplace.refresh_scheduler import (
+from dodaios.marketplace import refresh_scheduler
+from dodaios.marketplace.refresh_scheduler import (
     FAILED,
     REFRESHED,
     REVOKED,
@@ -23,7 +23,7 @@ from jarvis.marketplace.refresh_scheduler import (
     refresh_due_tokens,
     refresh_plugin_token,
 )
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 
 
 def _store() -> TokenStore:

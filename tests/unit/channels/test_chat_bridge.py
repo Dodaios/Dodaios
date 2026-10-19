@@ -6,10 +6,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.channels.base import ChannelMessage, ChannelSession
-from jarvis.channels.chat_bridge import ChannelChatBridge
-from jarvis.core.bus import EventBus
-from jarvis.core.events import Event, MessageSent
+from dodaios.channels.base import ChannelMessage, ChannelSession
+from dodaios.channels.chat_bridge import ChannelChatBridge
+from dodaios.core.bus import EventBus
+from dodaios.core.events import Event, MessageSent
 
 
 class _QueueChannel:
