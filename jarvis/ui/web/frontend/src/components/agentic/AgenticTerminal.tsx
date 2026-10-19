@@ -59,6 +59,7 @@ import {
   BookOpenText,
   Check,
   FileDiff,
+  FolderGit2,
   GripVertical,
   Loader2,
   Maximize2,
@@ -159,6 +160,8 @@ import { PromptReceipt } from "./PromptReceipt";
 import { PromptHistoryButton } from "./PromptHistoryButton";
 import { PaneConversationDialog } from "./PaneConversationDialog";
 import { PaneChangesDialog } from "./PaneChangesDialog";
+import { useGitSessionStore } from "@/store/gitSession";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { prefetchPaneChanges } from "./paneChangesApi";
 import { WorkspaceTerminalHeader } from "./WorkspaceTerminalHeader";
 import { usePaneContextMenu } from "./usePaneContextMenu";
@@ -2890,6 +2893,14 @@ export function AgenticTerminal({
   // A pane whose agent runs on another computer changes files THERE, which
   // this machine's git cannot read — so only a local pane offers the review.
   const reviewChanges = workspaceId && !computerName ? () => setChangesOpen(true) : undefined;
+  // The Git tab, narrowed to what this pane's agent session changed.
+  const showInGit =
+    workspaceId && !computerName
+      ? () => {
+          useGitSessionStore.getState().show(workspaceId, name);
+          useIdeSidePanelStore.getState().openTab("git");
+        }
+      : undefined;
   const prefetchReview = workspaceId && !computerName
     ? () => {
       void loadLocaleChunk("pane_review");
@@ -2923,6 +2934,7 @@ export function AgenticTerminal({
     onOpenChat,
     onReviewChanges: reviewChanges,
     onReviewChangesPrefetch: prefetchReview,
+    onShowInGit: showInGit,
     onRestart,
     onFork,
     branch,
@@ -3236,6 +3248,7 @@ function PaneHeader({
   onOpenChat,
   onReviewChanges,
   onReviewChangesPrefetch,
+  onShowInGit,
 }: {
   workspaceId?: string;
   githubStatusEnabled: boolean;
@@ -3273,6 +3286,8 @@ function PaneHeader({
   onReviewChanges?: () => void;
   /** Starts reading the review the moment the pointer reaches its button. */
   onReviewChangesPrefetch?: () => void;
+  /** Opens the Git tab showing only what this pane's agent session changed. */
+  onShowInGit?: () => void;
 }) {
   const t = useT();
   const light = appearance === "light";
@@ -3804,6 +3819,15 @@ function PaneHeader({
             onHover={onReviewChangesPrefetch}
           >
             <FileDiff className="h-3.5 w-3.5" aria-hidden="true" />
+          </PaneAction>
+        )}
+        {onShowInGit && (
+          <PaneAction
+            label={fill(t("agentic_grid.pane.show_in_git"), { pane: name })}
+            testId={`pane-show-in-git-${name}`}
+            onClick={onShowInGit}
+          >
+            <FolderGit2 className="h-3.5 w-3.5" aria-hidden="true" />
           </PaneAction>
         )}
         <PaneAction

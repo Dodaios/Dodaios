@@ -160,6 +160,8 @@ export const scmApi = {
   commit: (workspace_id: string, commit: string) => get<CommitDetails>("/commit", { workspace_id, commit }),
   commitFile: (workspace_id: string, commit: string, path: string, original = "") =>
     get<CommitFileDiff>("/commit/file", { workspace_id, commit, path, original }),
+  sessionFile: (workspace_id: string, pane: string, path: string, base: string) =>
+    get<{ path: string; before: string | null; after: string | null; binary: boolean }>("/session-file", { workspace_id, pane, path, base }),
   stashes: (workspace_id: string) => get<{ stashes: Stash[] }>("/stashes", { workspace_id }),
 
   stage: (workspace_id: string, paths: string[]) => post("/stage", { workspace_id, paths }),
