@@ -10,7 +10,7 @@
 #   2. the Start-menu launcher and Installed Apps registration
 #   3. the login-autostart entry (a logon scheduled task / Startup shortcut)
 #   4. the API keys saved in the OS keychain (Windows Credential Manager, service
-#      "personal-jarvis")
+#      "dodaios", and "personal-jarvis" from before the rename)
 #
 # Heavy logic lives in `python -m dodaios --uninstall` (cross-platform, tested).
 # This bootstrap runs that for the autostart + keys (it asks for confirmation),

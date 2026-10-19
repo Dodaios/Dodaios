@@ -10,9 +10,10 @@ gets the first:
 3. **A login-autostart entry** next to it (a Windows logon task / a macOS
    ``LaunchAgent`` / a Linux XDG ``.desktop``) — survives a folder delete and
    then points at nothing.
-4. **API keys in the OS keyring** (service ``personal-jarvis`` — Windows
-   Credential Manager / macOS Keychain / Linux Secret Service) — survive a
-   folder delete, so a fresh install would show them as "already set".
+4. **API keys in the OS keyring** (service ``dodaios``, and ``personal-jarvis``
+   from before the rename — Windows Credential Manager / macOS Keychain / Linux
+   Secret Service) — survive a folder delete, so a fresh install would show
+   them as "already set".
 
 This module removes all four (with an explicit confirmation, a ``--dry-run``
 preview and per-item ``--keep-*`` opt-outs) so "download → test → wipe → re-test"
@@ -101,6 +102,11 @@ def _looks_like_jarvis_install(path: Path) -> bool:
         return False
 
 
+def _credential_services() -> tuple[str, ...]:
+    """The current credential service and every one an earlier version used."""
+    return (cfg.KEYRING_SERVICE, *cfg.LEGACY_KEYRING_SERVICES)
+
+
 def _macos_keychain_item_present(key: str) -> bool | None:
     """Attributes-only macOS Keychain lookup — never decrypts, never prompts.
 
@@ -109,19 +115,23 @@ def _macos_keychain_item_present(key: str) -> bool | None:
     ``security find-generic-password`` WITHOUT ``-w`` returns only the item's
     attributes, which needs no access to the secret — so probing all secret
     slots stays silent. Returns ``None`` when the probe cannot answer (not
-    macOS, or ``security`` unavailable) so the caller falls back."""
+    macOS, or ``security`` unavailable) so the caller falls back. Every
+    credential service counts, the legacy ones included."""
     if sys.platform != "darwin":
         return None
-    try:
-        res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
-            ["security", "find-generic-password", "-s", cfg.KEYRING_SERVICE, "-a", key],
-            capture_output=True,
-            timeout=15,
-            check=False,
-        )
-    except Exception:  # noqa: BLE001 — probe unavailable → generic fallback
-        return None
-    return res.returncode == 0
+    for service in _credential_services():
+        try:
+            res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
+                ["security", "find-generic-password", "-s", service, "-a", key],
+                capture_output=True,
+                timeout=15,
+                check=False,
+            )
+        except Exception:  # noqa: BLE001 — probe unavailable → generic fallback
+            return None
+        if res.returncode == 0:
+            return True
+    return False
 
 
 def _macos_delete_keychain_items(key: str) -> bool:
@@ -132,23 +142,24 @@ def _macos_delete_keychain_items(key: str) -> bool:
     dozens of per-item Keychain password dialogs. Duplicate service+account
     items can exist across keychains and ``security`` deletes one match per
     call — loop with a small safety cap. Returns True when at least one item
-    was removed."""
+    was removed. Runs under every credential service, the legacy ones too."""
     if sys.platform != "darwin":
         return False
     gone_any = False
-    for _ in range(8):
-        try:
-            res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
-                ["security", "delete-generic-password", "-s", cfg.KEYRING_SERVICE, "-a", key],
-                capture_output=True,
-                timeout=15,
-                check=False,
-            )
-        except Exception:  # noqa: BLE001 — best effort; delete_secret still runs
-            break
-        if res.returncode != 0:
-            break
-        gone_any = True
+    for service in _credential_services():
+        for _ in range(8):
+            try:
+                res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
+                    ["security", "delete-generic-password", "-s", service, "-a", key],
+                    capture_output=True,
+                    timeout=15,
+                    check=False,
+                )
+            except Exception:  # noqa: BLE001 — best effort; delete_secret still runs
+                break
+            if res.returncode != 0:
+                break
+            gone_any = True
     return gone_any
 
 
@@ -158,9 +169,28 @@ def _file_fallback_copy_present(key: str) -> bool:
     Saved there when the OS store was declined or locked; reading it never
     prompts on any OS."""
     try:
-        return cfg._FileCredStore().get(cfg.KEYRING_SERVICE, key) is not None
+        store = cfg._FileCredStore()
+        return any(store.get(service, key) is not None for service in _credential_services())
     except Exception:  # noqa: BLE001 — unreadable fallback counts as absent
         return False
+
+
+def _uninstall_key_candidates() -> list[str]:
+    """Every credential name worth probing: the wizard's first, then the rest.
+
+    ``dodaios.core.secret_slots`` adds the fixed slots and the names computed
+    at runtime that can be listed (computers, CLIs, plugin tokens, ...).
+    """
+    names = [spec.key for spec in SECRETS]
+    try:
+        from dodaios.core.secret_slots import all_secret_keys
+
+        names.extend(sorted(all_secret_keys()))
+    except Exception as exc:  # noqa: BLE001 — the wizard's slots are still probed
+        _console.print(
+            f"    [muted]→ some saved-key names could not be listed: {escape(str(exc))}[/]"
+        )
+    return list(dict.fromkeys(names))
 
 
 def _keyring_keys_present() -> list[str]:
@@ -180,22 +210,26 @@ def _keyring_keys_present() -> list[str]:
         import keyring
 
         def probe(key: str) -> str | None:
-            return keyring.get_password(cfg.KEYRING_SERVICE, key)
+            for service in _credential_services():
+                value = keyring.get_password(service, key)
+                if value:
+                    return value
+            return None
     except Exception:  # noqa: BLE001 — no keyring module → fall back to the getter
 
         def probe(key: str) -> str | None:
             return cfg.get_secret(key)
 
     present: list[str] = []
-    for spec in SECRETS:
+    for key in _uninstall_key_candidates():
         try:
-            stored = _macos_keychain_item_present(spec.key)
+            stored = _macos_keychain_item_present(key)
             if stored is None:
-                stored = bool(probe(spec.key))
-            else:
-                stored = stored or _file_fallback_copy_present(spec.key)
-            if stored:
-                present.append(spec.key)
+                stored = bool(probe(key))
+            # A copy in the 0600 file store (a declined or locked OS store)
+            # counts on every OS.
+            if stored or _file_fallback_copy_present(key):
+                present.append(key)
         except Exception:  # noqa: BLE001, S112 — a single unreadable slot must not abort
             continue
     return present
@@ -454,11 +488,30 @@ def _remove_keys(keys: list[str]) -> int:
         # already gone this path reads nothing on macOS and stays silent.
         if cfg.delete_secret(key) or macos_gone:
             deleted += 1
+    _remove_credential_bookkeeping()
     if deleted:
         _console.print(f"    [ok]→ removed {deleted} saved key(s) from the keychain.[/]")
     elif keys:
         _console.print("    [muted]→ no keychain keys were removed.[/]")
     return deleted
+
+
+def _remove_credential_bookkeeping() -> None:
+    """Remove the entries the app keeps beside the keys themselves.
+
+    The migration marker (``__migrated_from__<legacy>``) under the current
+    service, and on macOS the one vault item per service that holds every key
+    (deleting it also takes keys whose names could not be listed). Deleting
+    never reads a secret, so no Keychain dialog appears.
+    """
+    from dodaios.core.identity_migration import keyring_marker_key
+    from dodaios.core.keychain_bundle import VAULT_ACCOUNT
+
+    for legacy in cfg.LEGACY_KEYRING_SERVICES:
+        marker = keyring_marker_key(legacy)
+        _macos_delete_keychain_items(marker)
+        cfg.delete_secret(marker)
+    _macos_delete_keychain_items(VAULT_ACCOUNT)
 
 
 def _running_inside(path: Path) -> bool:
