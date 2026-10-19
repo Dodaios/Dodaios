@@ -15,7 +15,13 @@ would lose its framing for good the first time a resume failed.
 
 from __future__ import annotations
 
+import base64
+import json
+import logging
+from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 #: Room for what was said before, newest kept. A fresh CLI conversation needs
 #: the thread of the chat, not every word of it.
@@ -72,4 +78,128 @@ def permission_mode(handle: Any, runner: str, mode: str) -> str:
     return READ_ONLY_MODE.get(runner, mode)
 
 
-__all__ = ["cli_prompt", "opening", "permission_mode", "transcript"]
+# ------------------------------------------------------------------ pictures
+#
+# A plain chat hands an attached picture to the model it is talking to, not
+# only a description of it. The description comes from a separate vision
+# provider, and when that one has no quota left the picture would reach the
+# chat as a filename. The chat's own model sees it instead: Claude Code as an
+# image block in its stream-json message, Codex through ``--image``, an API
+# seat as an image on the user message.
+
+#: Pictures every one of those accepts inline. Anything else stays a file.
+INLINE_TYPES: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+#: More than this in one message is a folder, not a question about a picture.
+MAX_IMAGES = 8
+#: Per picture, under the smallest provider limit; larger ones are scaled down.
+MAX_IMAGE_BYTES = 3_500_000
+
+#: Told to the model when the pictures ride along, so a note saying a picture
+#: "could not be described" does not read as "you cannot see it".
+IMAGES_NOTE = (
+    "The images among these attachments are also attached to this message "
+    "itself; look at them directly."
+)
+
+
+def image_paths(cwd: str | Path, attachments: list[Any] | None) -> list[Path]:
+    """The attached pictures as files inside ``cwd``, at most :data:`MAX_IMAGES`.
+
+    The references are request data, so each one must resolve INSIDE the
+    chat's folder and name a picture type; anything else is left out.
+    """
+    from dodaios.agentic_ide import drops
+
+    if not cwd:
+        return []
+    out: list[Path] = []
+    for item in attachments or []:
+        if getattr(item, "kind", "") != "image":
+            continue
+        relative = drops.dereference(str(getattr(item, "reference", "") or ""))
+        if not relative:
+            continue
+        inside = drops.within_workspace(str(Path(cwd) / relative), cwd)
+        if inside is None:
+            continue
+        path = Path(cwd) / inside
+        if path.suffix.lower() not in INLINE_TYPES or not path.is_file() or path in out:
+            continue
+        out.append(path)
+        if len(out) >= MAX_IMAGES:
+            break
+    return out
+
+
+def encoded(path: str | Path) -> tuple[str, str] | None:
+    """``(mime, base64)`` of one picture, scaled under the budget; None if unreadable."""
+    from dodaios.vision.image_budget import cap_image_b64
+
+    source = Path(path)
+    mime = INLINE_TYPES.get(source.suffix.lower())
+    if mime is None:
+        return None
+    try:
+        data = source.read_bytes()
+    except OSError as exc:
+        # The picture still goes as its description; only the inline copy is skipped.
+        log.info("plain chat: %s not attached inline (%s)", source.name, exc)
+        return None
+    return cap_image_b64(mime, base64.b64encode(data).decode("ascii"), MAX_IMAGE_BYTES)
+
+
+def claude_message_with_images(stdin_text: str, images: list[tuple[str, str]]) -> str:
+    """Claude Code's stream-json user message with the pictures in front of the text."""
+    if not images:
+        return stdin_text
+    message = json.loads(stdin_text)
+    content = message["message"]["content"]
+    blocks: list[dict[str, Any]] = [
+        {"type": "image", "source": {"type": "base64", "media_type": mime, "data": data}}
+        for mime, data in images
+    ]
+    if isinstance(content, list):
+        blocks += content
+    else:
+        blocks.append({"type": "text", "text": str(content)})
+    message["message"]["content"] = blocks
+    return json.dumps(message, ensure_ascii=False) + "\n"
+
+
+def attach_images(plan: Any, runner: str, paths: list[Path]) -> bool:
+    """Hand ``paths`` to a planned CLI turn natively. False when the runner cannot take them."""
+    if not paths:
+        return False
+    if runner == "claude-cli" and plan.shape == "claude" and plan.stdin_text:
+        images = [pair for pair in (encoded(path) for path in paths) if pair is not None]
+        if not images:
+            return False
+        plan.stdin_text = claude_message_with_images(plan.stdin_text, images)
+        return True
+    if runner == "codex-cli" and "-" in plan.argv:
+        # In front of the stdin prompt marker; flags added after planning (the
+        # tool switches) may follow it. ``--image=`` takes exactly one value,
+        # where ``--image <FILE>...`` would swallow the ``-`` as a picture.
+        at = len(plan.argv) - 1 - plan.argv[::-1].index("-")
+        plan.argv[at:at] = [f"--image={path}" for path in paths]
+        return True
+    return False
+
+
+__all__ = [
+    "IMAGES_NOTE",
+    "attach_images",
+    "claude_message_with_images",
+    "cli_prompt",
+    "encoded",
+    "image_paths",
+    "opening",
+    "permission_mode",
+    "transcript",
+]
