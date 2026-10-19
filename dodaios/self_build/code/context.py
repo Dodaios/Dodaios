@@ -62,6 +62,8 @@ class Context:
     _viewer: tuple[int, Any] | None = field(default=None, repr=False)
     #: Builds an undo asked to stop; the build stops at its next step.
     stopping: set[str] = field(default_factory=set)
+    #: When each project's brief was last checked against its checkout.
+    brief_checked: dict[str, float] = field(default_factory=dict)
 
     @property
     def ledger(self) -> Any:
