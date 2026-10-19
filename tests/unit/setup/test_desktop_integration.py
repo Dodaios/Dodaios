@@ -128,7 +128,7 @@ def test_macos_managed_install_gets_real_app_bundle(
 
     assert report.ok is True
     assert report.artifacts == ("applications_bundle",)
-    assert (apps / "Personal Jarvis.app" / "Contents" / "Info.plist").is_file()
+    assert (apps / "Dodaios.app" / "Contents" / "Info.plist").is_file()
 
 
 def test_macos_bundle_failure_warning_carries_recorded_reason(

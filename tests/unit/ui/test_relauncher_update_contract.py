@@ -1124,3 +1124,34 @@ def test_the_guard_notices_a_module_that_was_not_loaded_in_time(tmp_path: Path) 
         "dodaios.core.process_utils" in outcome["late"]
     )
     assert outcome["dialogs"] == []
+
+
+def test_an_updater_that_knows_only_the_earlier_bundle_name_restarts_the_renamed_app(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
+) -> None:
+    """The crossing of the bundle rename, from the side of the release before it.
+
+    That release's helper knows the bundle as ``Personal Jarvis.app``. This
+    tree's installer renamed it in place under the bundle id it always had,
+    and this tree's contract says so: the helper must open the renamed bundle.
+    """
+    import dodaios.setup.macos_app_bundle as bundle_module
+    from dodaios.core.branding import LEGACY_MACOS_APP_DIR_NAMES, MACOS_BUNDLE_ID
+
+    contract = read_update_contract(REPO)
+    assert contract.macos_app_dir_name == relauncher.MACOS_APP_DIR_NAME
+    assert contract.macos_bundle_id == MACOS_BUNDLE_ID
+    earlier = LEGACY_MACOS_APP_DIR_NAMES[0]
+    known = tmp_path / "Applications" / earlier
+    renamed = _app_bundle(known.with_name(contract.macos_app_dir_name), MACOS_BUNDLE_ID)
+    monkeypatch.setattr(relauncher, "MACOS_APP_DIR_NAME", earlier)  # the older helper
+    monkeypatch.setattr(relauncher.sys, "platform", "darwin")
+    monkeypatch.setattr(relauncher.Path, "home", lambda: tmp_path / "home")
+    monkeypatch.setattr(bundle_module, "macos_app_bundle_path", lambda: known)
+
+    assert relauncher.build_launch_command("python3", contract=contract) == [
+        "/usr/bin/open",
+        "-W",
+        "-a",
+        str(renamed),
+    ]

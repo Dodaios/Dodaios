@@ -42,7 +42,7 @@ from dodaios.core.branding import (
     CONTROL_KEY_PREFIX as KEY_PREFIX,
 )
 from dodaios.core.branding import (
-    MACOS_APP_NAME as _MACOS_APP_NAME,
+    MACOS_APP_DIR_NAMES as _MACOS_APP_DIR_NAMES,
 )
 from dodaios.core.branding import (
     MACOS_BUNDLE_ID as _MACOS_BUNDLE_ID,
@@ -187,9 +187,11 @@ def _macos_app_identity_token() -> str | None:
         executable = Path(str(bundle.executablePath() or "")).resolve()
         # Both install locations are canonical: the installer prefers
         # /Applications and falls back to ~/Applications (BUG-161, BUG-216).
+        # So is the bundle's earlier name, until the rename has reached it.
         expected = {
-            (root / f"{_MACOS_APP_NAME}.app").resolve()
+            (root / name).resolve()
             for root in (Path("/Applications"), Path.home() / "Applications")
+            for name in _MACOS_APP_DIR_NAMES
         }
         executable_root = bundle_path / "Contents" / "MacOS"
         if (

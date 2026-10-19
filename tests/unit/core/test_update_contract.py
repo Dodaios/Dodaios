@@ -46,16 +46,36 @@ def _document(**overrides: object) -> str:
 # The tracked contract describes this tree
 # --------------------------------------------------------------------------- #
 def test_the_tracked_contract_is_the_default_contract() -> None:
-    """A release without the file must behave exactly like this one."""
+    """A release without the file must behave exactly like this one.
+
+    Except for the rollback hook: it belongs to the release that ships it, and
+    a tree that states none has nothing to undo.
+    """
     payload = json.loads((REPO / CONTRACT_PATH).read_text(encoding="utf-8"))
     assert payload.pop("schema") == CONTRACT_SCHEMA
+    hook = payload.pop("rollback_hook")
     stated = {
         key: list(value) if isinstance(value, tuple) else value
         for key, value in asdict(DEFAULT_CONTRACT).items()
         if value is not None
     }
     assert payload == stated
-    assert read_update_contract(REPO) == DEFAULT_CONTRACT
+    assert read_update_contract(REPO) == replace(DEFAULT_CONTRACT, rollback_hook=hook)
+
+
+def test_the_rollback_hook_is_a_file_this_tree_tracks() -> None:
+    # The updater runs only a tracked file; a hook it skips undoes nothing.
+    hook = read_update_contract(REPO).rollback_hook
+    assert hook is not None
+    assert (REPO / hook).is_file()
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", hook],
+        cwd=REPO,
+        capture_output=True,
+        check=False,
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+    assert tracked.returncode == 0, f"{hook} is not tracked"
 
 
 def test_the_contract_points_at_files_this_tree_really_has() -> None:
@@ -84,11 +104,14 @@ def test_a_package_move_publishes_a_contract_this_reader_follows() -> None:
 
     published = codemod.Rewriter(package, moved, layout).transform(CONTRACT_PATH, shipped)
 
+    hook = read_update_contract(REPO).rollback_hook
+    assert hook is not None and hook.startswith(f"{package}/")
     assert parse_update_contract(published.decode("utf-8")) == replace(
         read_update_contract(REPO),
         ui_bundle_dir=f"{moved}/ui/web/dist",
         launcher_module=f"{moved}.ui.web.launcher",
         version_file=f"{moved}/__init__.py",
+        rollback_hook=f"{moved}/{hook.removeprefix(f'{package}/')}",
     )
 
 
@@ -326,6 +349,9 @@ def test_a_file_that_is_not_utf8_is_not_a_contract(tmp_path: Path) -> None:
 # release that moved its files means every update rolls back.
 # The contract this tree ships: the earlier single name for the updaters that
 # read only ``config_file``, and every name for the ones that read the list.
+# The macOS bundle has its current name (the installer renames it in place,
+# under the bundle id it always had), and a failed update gives it back the
+# name the revision it falls back to knows.
 SHIPPED_DOCUMENT = """{
   "schema": 1,
   "ui_bundle_dir": "dodaios/ui/web/dist",
@@ -333,8 +359,9 @@ SHIPPED_DOCUMENT = """{
   "version_file": "dodaios/__init__.py",
   "config_file": "jarvis.toml",
   "config_files": ["jarvis.toml", "dodaios.toml"],
-  "macos_app_dir_name": "Personal Jarvis.app",
-  "macos_bundle_id": "com.personal-jarvis.desktop"
+  "macos_app_dir_name": "Dodaios.app",
+  "macos_bundle_id": "com.personal-jarvis.desktop",
+  "rollback_hook": "dodaios/setup/update_rollback.py"
 }
 """
 
@@ -369,9 +396,9 @@ SCHEMA_1_GOLDEN = [
             version_file="dodaios/__init__.py",
             config_file="jarvis.toml",
             config_files=("jarvis.toml", "dodaios.toml"),
-            macos_app_dir_name="Personal Jarvis.app",
+            macos_app_dir_name="Dodaios.app",
             macos_bundle_id="com.personal-jarvis.desktop",
-            rollback_hook=None,
+            rollback_hook="dodaios/setup/update_rollback.py",
         ),
     ),
     (
