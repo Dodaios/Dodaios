@@ -343,7 +343,8 @@
     "voice_language": "语言",
     "voice_api_keys": "API 密钥",
     "shortcuts": "键盘快捷键",
-    "pets": "我的宠物"
+    "pets": "我的宠物",
+    "self_build": "为你构建"
   },
   "assistant_view": {
     "header_named": "你在 {0} 中的助手，用“{1}”唤醒。",
@@ -3170,7 +3171,8 @@
       "music": "音乐",
       "keybinds": "键盘快捷键",
       "more": "更多",
-      "overlay_taskbar": "悬浮层与任务栏"
+      "overlay_taskbar": "悬浮层与任务栏",
+      "self_build": "自主构建"
     },
     "languages_group_title": "语言",
     "sections": {
@@ -3515,7 +3517,43 @@
       "system_now_dark": "正在跟随系统，当前为深色。",
       "system_now_light": "正在跟随系统，当前为浅色。"
     },
-    "invalid_setting": "设置无效"
+    "invalid_setting": "设置无效",
+    "self_build": {
+      "title": "自主构建",
+      "description": "{name} 主动为你构建东西时可以走多远。",
+      "open_view": "打开“为你构建”",
+      "enabled_title": "主动构建",
+      "enabled_description": "留意你反复在做的事，并构建能替你完成它的东西。关闭：不留意也不构建任何东西。",
+      "autonomy_title": "每种类型的范围",
+      "autonomy_description": "关闭：从不。建议：先用卡片询问。试用：构建、检查并上线，一键撤销。完全：与试用相同，被使用过的试用会自动保留。",
+      "levels": {
+        "off": "关闭",
+        "suggest": "建议",
+        "trial": "试用",
+        "full": "完全"
+      },
+      "kinds": {
+        "memory": "记忆",
+        "skill": "技能",
+        "routine": "例程",
+        "agent": "智能体",
+        "code": "代码更改"
+      },
+      "limits_title": "限制",
+      "limits_description": "无论如何决定，循环都不会超过的硬性上限。",
+      "limits": {
+        "max_builds_per_day": "每天构建数",
+        "max_open_trials": "同时进行的试用",
+        "max_agents_per_week": "每周新智能体",
+        "max_code_runs_per_day": "每天代码运行数",
+        "trial_days": "试用时长（天）",
+        "trial_uses": "试用时长（次）",
+        "max_rejections": "被拒绝这么多次后不再提议",
+        "silent_days": "最初的安静天数"
+      },
+      "save_error": "无法保存：{detail}",
+      "unavailable": "无法加载这些设置。"
+    }
   },
   "telephony_view": {
     "title": "电话（实验性）",
@@ -10078,5 +10116,10 @@
       "objections_one": "{count} 条异议",
       "objections_other": "{count} 条异议"
     }
+  },
+  "self_build_badge": {
+    "label": "由 {name} 构建",
+    "title": "{name} 主动构建了它。打开它的构建记录。",
+    "trial": "试用中"
   }
 }

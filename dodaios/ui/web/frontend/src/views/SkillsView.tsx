@@ -37,6 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MarketplaceBadge } from "@/components/MarketplaceBadge";
+import { BuiltByBadge } from "@/components/selfBuild/BuiltByBadge";
 import { Switch } from "@/components/ui/switch";
 import { BrandedSelect } from "@/components/ui/select";
 import {
@@ -633,6 +634,7 @@ function SkillRow({
           {skill.origin?.source === "marketplace" && (
             <MarketplaceBadge compact publisher={skill.origin.publisher} />
           )}
+          <BuiltByBadge compact type="skill" id={skill.name} />
           {skill.triggers.map((tr, i) => {
             const Icon = TRIGGER_ICON[tr.type];
             return <Icon key={i} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={tr.type} />;
@@ -1059,6 +1061,7 @@ function SkillDetailPage({
               {data.origin?.source === "marketplace" && (
                 <MarketplaceBadge compact publisher={data.origin.publisher} />
               )}
+              <BuiltByBadge type="skill" id={data.name} />
             </span>
           }
           actions={
