@@ -141,9 +141,7 @@ def _same_program(actual: str, expected: str) -> bool:
     if same_path(actual, expected, windows=True):
         return True
     actual_dir, actual_name = ntpath.split(ntpath.normpath(actual)) if actual else ("", "")
-    expected_dir, expected_name = (
-        ntpath.split(ntpath.normpath(expected)) if expected else ("", "")
-    )
+    expected_dir, expected_name = ntpath.split(ntpath.normpath(expected)) if expected else ("", "")
     return (
         bool(actual_dir)
         and same_path(actual_dir, expected_dir, windows=True)
