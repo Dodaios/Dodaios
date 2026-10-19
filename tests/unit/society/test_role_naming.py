@@ -70,8 +70,12 @@ async def test_first_three_turns_keep_naming_guidance_until_identity_is_saved(wo
             identity,
             "vendor-session" if turn > 1 else None,
         )
-        assert AGENT_NAMING_GUIDANCE in prompt
-        assert "society_propose_change" in prompt
+        if turn == 1:
+            assert AGENT_NAMING_GUIDANCE in prompt
+            assert "society_propose_change" in prompt
+        else:
+            # The vendor conversation already holds it; an unchanged refresh is not resent.
+            assert AGENT_NAMING_GUIDANCE not in prompt
         assert (await rt.roster.get(agent.agent_id)).name == "New Agent"
     result = await _choose(rt, agent, "Discord-Mod")
     assert result.success
