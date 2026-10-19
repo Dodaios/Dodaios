@@ -21,7 +21,7 @@ from pathlib import Path
 
 from dodaios.core.branding import (
     DESKTOP_OUTPUT_MIRROR_DIR_NAME,
-    DISTRIBUTION_NAME,
+    DISTRIBUTION_NAMES,
     LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES,
 )
 from dodaios.core.identity_boot import resolve_named_dir, resolve_pair, user_data_dir_pair
@@ -162,14 +162,17 @@ def default_doc_roots() -> list[Path]:
     except (KeyError, TypeError, ValueError):
         pass
 
+    # A wheel under the earlier distribution name installs under that
+    # ``share/<name>``; the current name wins where both exist.
     seen_prefixes: set[Path] = set()
     for prefix in data_prefixes:
         if prefix in seen_prefixes:
             continue
         seen_prefixes.add(prefix)
-        installed_docs = prefix / "share" / DISTRIBUTION_NAME / "docs"
-        if installed_docs.exists():
-            return [installed_docs]
+        for distribution in DISTRIBUTION_NAMES:
+            installed_docs = prefix / "share" / distribution / "docs"
+            if installed_docs.exists():
+                return [installed_docs]
 
     # Fail closed if the packaged reader library is missing. Falling back to
     # the engineering archive could expose plans, audits, or local diagnostics.
