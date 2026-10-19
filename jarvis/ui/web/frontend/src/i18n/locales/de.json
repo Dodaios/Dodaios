@@ -7229,7 +7229,13 @@
     "hide_changes": "Änderungen ausblenden",
     "more_files_one": "{count} weitere Datei zeigen",
     "more_files_other": "{count} weitere Dateien zeigen",
-    "collapse_files": "Dateien einklappen"
+    "collapse_files": "Dateien einklappen",
+    "errors": {
+      "mandated_tool_unfulfilled": "Der nötige Schritt ist nicht gelaufen, deshalb konnte ich nicht verlässlich antworten. Bitte versuch es noch einmal.",
+      "unbacked_action_claim": "Ich konnte nicht bestätigen, dass die Aktion wirklich passiert ist, deshalb habe ich es nicht behauptet. Bitte versuch es noch einmal.",
+      "guarded_response": "Die Antwort wurde zurückgehalten, weil sie sich nicht prüfen ließ. Bitte versuch es noch einmal.",
+      "delegation_continuation_limit": "Die delegierte Arbeit hat zu viele Runden gebraucht und wurde gestoppt. Bitte frag noch einmal."
+    }
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",

@@ -62,7 +62,103 @@
     "mid_answer_error": "Ich habe die Zwischenschritte ausgeführt, aber beim Formulieren der Antwort gab es einen Fehler. Frag mich bitte gleich noch einmal.",
     "action_failed": "Ich habe die Aktion erkannt, konnte sie aber nicht ausführen.",
     "lang_switch_confirm": "Erledigt — ich antworte ab jetzt auf Deutsch.",
-    "lang_switch_confirm_auto": "Erledigt — ich passe meine Sprache ab jetzt automatisch deiner an."
+    "lang_switch_confirm_auto": "Erledigt — ich passe meine Sprache ab jetzt automatisch deiner an.",
+    "ack": {
+      "final_markers": "Erledigt.",
+      "generic_ack": [
+        "Okay, einen Moment.",
+        "Einen Augenblick bitte.",
+        "Kurzen Moment, ich bin dran.",
+        "Geht klar, Sekunde.",
+        "Ich kümmere mich drum."
+      ],
+      "shell_ack": [
+        "Einen Moment, ich schaue nach.",
+        "Ich prüfe das kurz.",
+        "Sekunde, ich sehe nach.",
+        "Ich werfe kurz einen Blick drauf.",
+        "Moment, ich schaue mir das an."
+      ],
+      "cli_service_ack": [
+        "Ich schaue kurz auf {service} nach.",
+        "Einen Moment, ich frage {service} ab.",
+        "Ich werfe einen Blick in {service}.",
+        "Sekunde, ich schaue in {service} nach.",
+        "Ich hole das eben aus {service}."
+      ],
+      "harness_ack": [
+        "Verstanden, ich kümmere mich darum.",
+        "Geht klar, das übernehme ich.",
+        "Alles klar, ich bin dran.",
+        "Okay, ich setze mich dran.",
+        "Mach ich, einen Moment."
+      ],
+      "search_topic_ack": [
+        "Okay, ich schaue mir {topic} an.",
+        "Ich suche kurz nach {topic}.",
+        "Moment, ich recherchiere zu {topic}.",
+        "Ich schaue, was ich zu {topic} finde."
+      ],
+      "search_generic_ack": [
+        "Okay, ich recherchiere kurz.",
+        "Ich suche das eben raus.",
+        "Moment, ich schaue mich um.",
+        "Einen Moment, ich sammle die Fakten."
+      ],
+      "multi_spawn_ack": [
+        "Okay, ich erledige {n} Sachen parallel.",
+        "Ich nehme mir die {n} Aufgaben gleichzeitig vor.",
+        "{n} Dinge parallel — läuft."
+      ],
+      "open_app_ack": [
+        "Okay, ich öffne {app}.",
+        "Moment, {app} kommt.",
+        "Ich starte {app}."
+      ],
+      "run_skill_ack": [
+        "Okay, ich starte {skill}.",
+        "Moment, {skill} läuft gleich.",
+        "Ich lasse {skill} laufen."
+      ],
+      "gmail_read_ack": [
+        "Okay, ich schaue in deine Mails.",
+        "Moment, ich öffne dein Postfach.",
+        "Ich sehe kurz in deinen Mails nach.",
+        "Ich werfe einen Blick in dein Postfach."
+      ],
+      "calendar_ack": [
+        "Okay, ich schaue in deinen Kalender.",
+        "Moment, ich prüfe deine Termine.",
+        "Ich sehe in deinem Kalender nach.",
+        "Kurzer Blick in deinen Kalender."
+      ],
+      "remember_ack": [
+        "Okay, ich merke mir das.",
+        "Geht klar, das behalte ich.",
+        "Ich schreibe es mir auf."
+      ],
+      "verify_ack": [
+        "Okay, ich prüfe das.",
+        "Moment, ich teste das kurz.",
+        "Ich checke das eben."
+      ],
+      "server_ack": [
+        "Okay, ich starte den Server.",
+        "Moment, der Server fährt hoch.",
+        "Ich fahre den Server hoch."
+      ],
+      "set_config_ack": [
+        "Okay, ich ändere das.",
+        "Moment, ich stelle das um.",
+        "Ich passe das an."
+      ]
+    },
+    "action_honesty": {
+      "action_not_started_phrases": "Ich habe dafür gerade keine Aktion gestartet und deshalb noch kein Ergebnis. Bitte sag es noch einmal."
+    },
+    "local_action_gate": {
+      "unsupported_response": "Das kann ich noch nicht. Mir fehlt dafür ein Werkzeug — wenn du mir verrätst welches MCP oder welche Integration zuständig wäre, kann ich's lernen."
+    }
   },
   "tool_loop": {
     "anti_silence": "Das kann ich gerade nicht ausführen — mir fehlt dafür das passende Werkzeug.",
@@ -110,7 +206,38 @@
       },
       "empty_summary": "Aufgabe erledigt.",
       "unknown_reason": "unbekannter Fehler",
-      "no_tool_call": "Konnte ich nicht ausführen — kein Tool-Aufruf."
+      "no_tool_call": "Konnte ich nicht ausführen — kein Tool-Aufruf.",
+      "capacity_wait_phrases": {
+        "provider_quota": "{provider}-Kapazität momentan ausgeschöpft.",
+        "provider_auth": "Die {provider}-Anmeldung ist abgelaufen.",
+        "provider_unavailable": "{provider} ist momentan nicht nutzbar.",
+        "paid_cap_reached": "Die Kostengrenze dieser Mission für {provider} ist erreicht.",
+        "paid_daily_cap_reached": "Das Tageslimit für automatische {provider}-Nutzung ist erreicht.",
+        "paid_consent_revoked": "Die automatische {provider}-Nutzung wurde ausgeschaltet.",
+        "saved": "Der bisherige Stand wurde gesichert.",
+        "progress": "{done} von {total} Teilschritten erledigt, {open} offen.",
+        "progress_single": "Die Aufgabe selbst ist noch offen.",
+        "file": "1 Datei gespeichert.",
+        "files": "{files} Dateien gespeichert.",
+        "wait": "Die Mission wartet, bis wieder Kapazität verfügbar ist.",
+        "wait_auth": "Die Mission wartet, bis du dich wieder anmeldest.",
+        "paid": "Kostenpflichtige API-Nutzung nur mit deiner ausdrücklichen Freigabe unter Artefakte."
+      },
+      "provider_fallback_name": "KI-Anbieter",
+      "default_target": "diese Aktion"
+    },
+    "deliverable": {
+      "deliverable_templates": {
+        "one": "Fertig. {name} habe ich als Artefakt hinterlegt.",
+        "few": "Fertig. {count} Dateien als Artefakte hinterlegt: {joined}.",
+        "many": "Fertig. {count} Dateien als Artefakte hinterlegt."
+      },
+      "mission_completed_phrases": "Mission abgeschlossen.",
+      "delivered_templates": {
+        "one": "Fertig. {name} habe ich als Artefakt hinterlegt.",
+        "few": "Fertig. {count} Dateien als Artefakte hinterlegt: {joined}.",
+        "many": "Fertig. {count} Dateien als Artefakte hinterlegt."
+      }
     }
   },
   "realtime": {
@@ -123,6 +250,25 @@
       "no_credits": "Das Guthaben für die Sprachverbindung ist aufgebraucht. Lade es beim Anbieter auf, dann klappt es wieder.",
       "not_offered": "Dein Konto bietet diese Sprachverbindung gerade nicht an. Prüfe den Tarif oder wähle ein anderes Konto.",
       "dropped": "Die Sprachverbindung ist abgebrochen."
+    },
+    "public_fact_uncertainty": "Ich konnte das gerade nicht zuverlässig mit einer öffentlichen Quelle prüfen.",
+    "delegate_bridge_texts": [
+      "Ich bin noch dran.",
+      "Einen Moment noch, bitte.",
+      "Dauert noch einen kleinen Moment.",
+      "Bin gleich so weit."
+    ],
+    "interrupt_ack_texts": [
+      "Okay, ich habe das gestoppt.",
+      "Alles klar, ich breche das ab.",
+      "Okay, ich lasse das."
+    ],
+    "local_voice": {
+      "refusals": {
+        "not_set_up": "Die lokale Stimme ist auf diesem Gerät noch nicht eingerichtet. Starte die Einrichtung in den Einstellungen auf der Karte Lokale Stimme.",
+        "loading": "Die lokale Stimme lädt noch ({percent} %). Die Karte Lokale Stimme in den Einstellungen zeigt den Fortschritt.",
+        "failed": "Die lokale Stimme konnte nicht starten. Die Karte Lokale Stimme in den Einstellungen zeigt den Grund."
+      }
     }
   },
   "self_mod": {
@@ -132,5 +278,238 @@
       "rollback": "der Rollback selbst ist fehlgeschlagen — manueller Restore nötig",
       "unexpected": "unerwarteter Fehler beim Ändern der Einstellung"
     }
+  },
+  "voice": {
+    "action": {
+      "phrases": {
+        "cu_done": "Erledigt.",
+        "lookup_unspoken": "Ich habe die Infos, konnte sie aber gerade nicht vorlesen. Soll ich es nochmal versuchen?",
+        "lookup_empty": "Dazu habe ich nichts gefunden.",
+        "cu_done_detail": "Erledigt. {detail}",
+        "cu_failed": "Das am Bildschirm hat nicht geklappt.",
+        "cu_failed_reason": "Das am Bildschirm hat nicht geklappt: {error}",
+        "cu_crashed": "Beim Erledigen am Bildschirm ist leider etwas schiefgegangen.",
+        "cu_exit_gave_up": "Ich habe es am Bildschirm versucht, aber nicht hinbekommen.",
+        "cu_exit_no_view": "Ich konnte den Bildschirm nicht richtig sehen und habe abgebrochen.",
+        "cu_exit_confused": "Ich konnte keine gueltige Bildschirm-Antwort bekommen und habe gestoppt.",
+        "cu_exit_no_provider": "Ich habe gerade kein KI-Modell, das den Bildschirm sehen kann. Bitte pruefe deine API-Schluessel oder dein Guthaben in den Einstellungen.",
+        "cu_exit_too_many_steps": "Es hat am Bildschirm zu viele Schritte gebraucht, ich habe aufgehoert.",
+        "cu_exit_action_failed": "Eine Aktion am Bildschirm ist fehlgeschlagen, ich habe abgebrochen.",
+        "cu_exit_cancelled": "Die Aktion am Bildschirm wurde abgebrochen.",
+        "cu_exit_needs_elevation": "Ich habe auf die Administrator-Bestaetigung gewartet, aber es kam keine, also habe ich gestoppt.",
+        "cu_blocked_permission": "Ich musste anhalten: Dodaios braucht die Berechtigung {permission}. Erlaube sie unter {pane}. Versuche es danach noch einmal.",
+        "cu_blocked_restart_hint": "Ich musste anhalten: Die Berechtigung {permission} wirkt womöglich erst, nachdem Dodaios beendet und neu geöffnet wurde. Starte die App neu und versuche es dann noch einmal.",
+        "cu_blocked_unavailable": "Ich musste anhalten: Dodaios kann in dieser Sitzung nicht nach der Berechtigung {permission} fragen.",
+        "cu_blocked_waiting": "Ich musste anhalten, weil macOS gerade nach der Berechtigung {permission} fragt. Beantworte den Dialog und versuche es dann noch einmal.",
+        "cu_blocked_dialog": "Ich musste anhalten, weil auf dem Mac ein Systemdialog offen ist. Beantworte ihn selbst und versuche es dann noch einmal.",
+        "cu_blocked_restricted": "Ich musste anhalten: Eine nötige Berechtigung ist auf diesem Mac durch ein Profil oder eine Kindersicherung gesperrt. Das lässt sich in der App nicht ändern.",
+        "cu_blocked_generic": "Ich musste anhalten, weil macOS eine Berechtigung für Dodaios braucht. Erlaube sie in den Systemeinstellungen unter Datenschutz & Sicherheit und versuche es dann noch einmal.",
+        "cu_timeout": "Das am Bildschirm hat zu lange gedauert (ueber {secs} Sekunden) und wurde abgebrochen.",
+        "open_app_launched": "Gestartet: {app}",
+        "open_app_launched_raised": "Gestartet und nach vorn geholt: {app}",
+        "open_app_not_found": "Anwendung '{app}' nicht gefunden.",
+        "cu_not_wired": "Die Bildschirmsteuerung ist auf diesem Rechner aus. Schalte sie in der Konfiguration mit computer_use.enabled ein und starte mich einmal neu.",
+        "cu_dispatch_ack": "Mach ich. Ich erledige das direkt am Bildschirm und sage Bescheid, sobald es fertig ist.",
+        "cu_awaiting_elevation": "Das verlangt gerade Administrator-Rechte. Bitte bestaetige die Sicherheitsabfrage einmal, dann mache ich weiter.",
+        "cu_awaiting_human": "Dieser Schritt braucht dich, bitte melde dich an oder loese die Bestaetigung, dann mache ich weiter.",
+        "cost_cooldown": "Cost-Cooldown aktiv, das Tagesbudget ist erschoepft. Neue Anfragen werden erst nach dem Cooldown-Ende bearbeitet.",
+        "task_budget": "Task-Budget fuer diese Konversation ueberschritten.",
+        "daily_budget": "Tagesbudget ueberschritten.",
+        "tool_failed": "{tool} fehlgeschlagen.",
+        "action_failed_generic": "Das hat gerade nicht geklappt.",
+        "stale_repeat_clarify": "Das hatte ich gerade schon beantwortet. Was genau möchtest du wissen?",
+        "action_failed_reason": "Das hat nicht geklappt: {reason}",
+        "delegate_no_brain": "Keins meiner Modelle hat auf diese Anfrage geantwortet.",
+        "delegate_no_result": "Ich habe dazu kein belastbares Ergebnis zurückbekommen.",
+        "delegate_failed_internal": "Dabei ist intern etwas schiefgelaufen, ich habe sicher abgebrochen.",
+        "actions_unavailable": "Aktionen gehen gerade nicht, aber wir können weiter reden.",
+        "actions_not_requested": "Ich habe dafür nichts ausgeführt. Sag mir, was ich tun soll.",
+        "skill_loaded_not_run": "Ich habe die Anleitung dafür geladen, aber noch nichts ausgeführt.",
+        "action_timeout": "Das hat zu lange gedauert, also habe ich abgebrochen.",
+        "spawn_failed_generic": "Ich konnte den Hintergrund-Helfer gerade nicht starten.",
+        "spawn_failed_reason": "Ich konnte den Hintergrund-Helfer nicht starten: {reason}",
+        "spawn_no_runner": "Ich kann die Aufgabe gerade nicht starten. Starte mich bitte neu.",
+        "artifact_building": "Ich baue „{title}“ im Hintergrund und sage Bescheid, sobald es fertig ist.",
+        "artifact_revising": "Ich überarbeite „{title}“ im Hintergrund und sage Bescheid, sobald es fertig ist.",
+        "workflow_trigger_failed": "Die Routine {name} konnte nicht starten. Ich versuche es zum nächsten geplanten Zeitpunkt wieder.",
+        "workflow_scheduler_stalled": "Deine geplanten Routinen laufen gerade nicht. Ich versuche es weiter.",
+        "workflow_step_failed": "Die Routine {name} ist bei {step} hängen geblieben, also habe ich sie angehalten.",
+        "workflow_step_failed_reason": "Die Routine {name} ist bei {step} hängen geblieben, also habe ich sie angehalten. Der Grund: {reason}",
+        "workflow_step_ordinal": "Schritt {n}",
+        "workflow_unnamed": "ohne Namen",
+        "wiki_saving": "Ich schreibe das jetzt ins Wiki.",
+        "wiki_saved": "Im Wiki gespeichert.",
+        "wiki_saved_detail": "Im Wiki gespeichert: {detail}.",
+        "wiki_save_failed": "Das Speichern im Wiki hat nicht geklappt.",
+        "wiki_save_failed_reason": "Das Speichern im Wiki hat nicht geklappt: {reason}",
+        "wiki_nothing_to_save": "Mir ist nicht klar, was ich ins Wiki schreiben soll. Sag es mir bitte noch einmal mit Inhalt.",
+        "ide_prompt_sent": "Ist bei {terminal}.",
+        "ide_prompt_sent_files": "Ist bei {terminal}, mit {count} Dateien dazu.",
+        "ide_prompt_sent_one_file": "Ist bei {terminal}, samt {file}.",
+        "ide_terminal_not_running": "{terminal} läuft gerade nicht ({status}). Ich habe nichts geschickt.",
+        "ide_prompt_sent_many": "Ist bei {names}.",
+        "ide_prompt_sent_partial": "Ist bei {names}. Zu {failed} bin ich nicht durchgekommen.",
+        "ide_prompt_sent_nobody": "Ich bin zu {failed} nicht durchgekommen, es läuft nichts.",
+        "ide_prompt_typed_not_started": "Bei {names} steht der Text nur im Eingabefeld.",
+        "ide_names_pair": "{head} und {last}",
+        "ide_terminals_spawned_one": "{names} ist offen.",
+        "ide_terminals_spawned": "{count} neue Terminals: {names}.",
+        "ide_terminals_briefing_queued": "Ich übergebe ihnen die Aufgabe, sobald die Terminals bereit sind.",
+        "ide_terminals_closed": "{count} Terminals geschlossen: {names}.",
+        "ide_terminals_none_to_close": "Es sind keine passenden Terminals offen.",
+        "ide_terminals_spawned_capped": "Nur {count} ließen sich öffnen: {names}.",
+        "ide_terminals_open_failed": "Ich konnte kein Terminal öffnen.",
+        "ide_terminal_kind_unclear": "Ich habe {spoken} verstanden. Meintest du {first} oder {second}?",
+        "ide_terminal_kind_unclear_one": "Ich habe {spoken} verstanden. Meintest du {first}?",
+        "ide_terminal_kind_unknown": "Für {name} gibt es keine Terminal-Art. Verfügbar: {available}.",
+        "ide_terminals_opened_workspace": "Ich habe {folder} geöffnet: {names}.",
+        "ide_terminal_clarify_one": "Ich habe {spoken} verstanden. Meinst du {name}?",
+        "ide_terminal_clarify_many": "Ich habe {spoken} verstanden. Meinst du {names}?",
+        "ide_prompt_already_delivered": "{name} hat den Auftrag um {time} bekommen. Ich schicke ihn nicht doppelt.",
+        "join_or": " oder ",
+        "join_and": " und ",
+        "ide_terminal_clarify_also": "Ich habe außerdem {spoken} verstanden. Meinst du {names}?",
+        "ide_terminal_who_else": "Ich konnte nur {names} zuordnen. Wer sollte noch ran?",
+        "ide_terminals_nowhere": "Es ist kein Workspace offen und ich habe keinen letzten. Wähle einen Ordner in der Agentic IDE."
+      },
+      "permission_cause_templates": "Dodaios hat die Berechtigung {name} gerade nicht.",
+      "permission_cause_names": {
+        "microphone": "Mikrofon",
+        "accessibility": "Bedienungshilfen",
+        "screen_recording": "Bildschirmaufnahme",
+        "input_monitoring": "Eingabeüberwachung",
+        "automation": "Automatisierung",
+        "event_posting": "Bedienungshilfen"
+      }
+    },
+    "tool_confirmation": {
+      "tool_questions": {
+        "gmail": "Soll ich die E-Mail wirklich senden? Sag ja oder nein.",
+        "gmail_rest": "Soll ich die E-Mail wirklich senden? Sag ja oder nein.",
+        "call-contact": "Soll ich den Anruf wirklich starten? Sag ja oder nein."
+      },
+      "generic_question": "Soll ich das wirklich ausführen? Sag ja oder nein.",
+      "impact_questions": {
+        "destructive": "Achtung, dieser Befehl würde etwas löschen ({commands}). Soll ich ihn wirklich ausführen? Sag ja oder nein.",
+        "modify": "Dieser Befehl würde etwas auf dem Computer verändern ({commands}). Soll ich ihn ausführen? Sag ja oder nein.",
+        "read": "Dieser Befehl liest nur Daten ({commands}). Soll ich ihn ausführen? Sag ja oder nein."
+      },
+      "outcome": {
+        "done": "Erledigt.",
+        "vetoed": "Okay, lass ich.",
+        "timeout": "Hab keine Antwort gehört, ich lass es.",
+        "failed": "Das hat nicht geklappt.",
+        "unclear": "Sag bitte einfach ja oder nein.",
+        "unavailable": "Dafür brauche ich deine Freigabe, und hier kann sie niemand geben. Ich habe es nicht gemacht."
+      }
+    },
+    "echo_confirmation": {
+      "value_words": {
+        "on": "an",
+        "off": "aus",
+        "empty": "leer"
+      },
+      "echo_templates": "Verstanden — {label} wechselt von {old} zu {new}. Bestätigen?",
+      "echo_templates_sensitive": "Verstanden — {label} auf einen neuen Wert. Bestätigen?",
+      "outcome_words": {
+        "new_value": "der neue Wert",
+        "old_value": "der vorherige Wert",
+        "validation_failed": "Validierung schlug fehl",
+        "unknown_error": "unbekannter Fehler"
+      },
+      "outcome_templates": {
+        "safe_applied": "Geht klar — {label} jetzt {new}.",
+        "applied": "Erledigt — {label} ist jetzt {new}.",
+        "applied_restart": "Erledigt — {label} ist jetzt {new}. Bitte einmal Dodaios neustarten, damit's wirkt.",
+        "validate_failed": "Geht nicht — {err}. Setting bleibt {old}.",
+        "rollback": "Konnte nicht gespeichert werden, hab den vorherigen Zustand wiederhergestellt. {err}",
+        "vetoed": "Okay, lass ich.",
+        "timeout": "Hab keine Antwort gehört, brech ich ab. Setting bleibt {old}."
+      }
+    },
+    "parked_results": {
+      "anchor_pools": [
+        "Zu deiner Anfrage von vorhin – {topic}: {result}",
+        "Noch zu vorhin, {topic}: {result}",
+        "Das Ergebnis zu {topic}: {result}"
+      ],
+      "anchor_pools_no_topic": [
+        "Zu deiner Anfrage von vorhin: {result}",
+        "Noch zu vorhin: {result}"
+      ]
+    },
+    "config_readback": {
+      "phrases": {
+        "applied": "Erledigt — {label} ist jetzt {value}.",
+        "applied_restart": "Erledigt — {label} ist jetzt {value}. Starte Dodaios einmal neu, damit es wirkt.",
+        "refused": "Das ändere ich nicht per Stimme — das bitte bewusst in den Einstellungen.",
+        "unknown_setting": "Das ist keine Einstellung, die ich ändern kann.",
+        "invalid_value": "Das geht so nicht — die Einstellung bleibt unverändert.",
+        "rollback": "Konnte ich nicht speichern, ich habe den vorherigen Stand wiederhergestellt."
+      }
+    }
+  },
+  "tools": {
+    "delegate": {
+      "ack": "{name} ist dran, ich sage Bescheid.",
+      "quiet_ack": "{name} ist dran.",
+      "error_ack": "{name} ist dran; ich melde mich bei Hindernissen.",
+      "queued": "Aufgabe für {name} erfasst; Start noch nicht bestätigt.",
+      "no_agent": "Ich kenne keinen Agenten namens {target}.",
+      "ask_agent": "Meinst du {names}?",
+      "or": " oder ",
+      "available": "Verfügbar sind: {names}.",
+      "no_fit": "Keiner deiner Agenten passt zu dieser Aufgabe.",
+      "refused": "{name} kann das gerade nicht übernehmen: {reason}.",
+      "not_ready": "Die Agenten sind noch nicht bereit.",
+      "status_idle": "{name} hat gerade nichts zu tun.",
+      "status_working": "{name} arbeitet gerade: {text}",
+      "status_last": "{name}: zuletzt {kind}, {text}",
+      "roster": "Deine Agenten: {names}.",
+      "empty_roster": "Du hast noch keine Team-Agenten."
+    },
+    "dispatch_review": {
+      "voice_holding_phrases": "Lass mich kurz an der Aufgabe arbeiten.",
+      "voice_outcome_templates": {
+        "success": "Erledigt — {summary}",
+        "cap_fired": "Mein bestes Ergebnis liegt vor, mit einer Einschränkung: {top_issue}",
+        "fail": "Das funktioniert so nicht — {summary}",
+        "precheck_fail": "Die Aufgabe ist zu kurz oder unklar — versuch's nochmal mit mehr Kontext."
+      },
+      "voice_fallback_fillers": {
+        "success": "fertig",
+        "cap_fired": "kleine Restbedenken",
+        "fail": "Architektur-Defekt"
+      }
+    }
+  },
+  "telephony": {
+    "default_greetings": "Guten Tag, wie kann ich helfen?",
+    "named_greetings": "Hier ist {name}. Wie kann ich helfen?",
+    "fallback_phrases": "Entschuldigung, das habe ich nicht verstanden. Bitte wiederhole es."
+  },
+  "cu": {
+    "indicator": {
+      "esc_hints": "Esc zum Abbrechen"
+    }
+  },
+  "clis": {
+    "capability": {
+      "refusal_hints": {
+        "installed": " Die {name} ist installiert, aber noch nicht verbunden — sag Bescheid, dann richten wir das ein.",
+        "catalog": " Im CLI-Katalog gibt es dafür die {name} — ich kann sie mit dir einrichten."
+      }
+    }
+  },
+  "ui": {
+    "desktop": {
+      "conductor_news_phrases": {
+        "failing": "Der geplante Job {name} schlägt gerade fehl.",
+        "recovered": "Der geplante Job {name} läuft wieder."
+      }
+    }
+  },
+  "harness": {
+    "step_progress": "Schritt {done} von {total} erledigt."
   }
 }
