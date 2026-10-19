@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.realtime.session import RealtimeVoiceSession
 from tests.unit.state.test_chats_routes import _client, _make_app
 
 from .test_session import FakeProvider, _cfg
@@ -19,7 +19,7 @@ from .test_session import FakeProvider, _cfg
 
 def desktop_facade(brain: BrainManager) -> Any:
     """Exercise the actual nested desktop facade without starting native UI/audio."""
-    source = Path(__file__).resolve().parents[3] / "jarvis/ui/desktop_app.py"
+    source = Path(__file__).resolve().parents[3] / "dodaios/ui/desktop_app.py"
     tree = ast.parse(source.read_text(encoding="utf-8-sig"))
     facade = next(
         node

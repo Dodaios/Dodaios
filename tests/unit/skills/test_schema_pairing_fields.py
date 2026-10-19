@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from jarvis.skills.schema import SkillFrontmatter
+from dodaios.skills.schema import SkillFrontmatter
 
 
 def test_pairing_fields_default_empty():

@@ -12,8 +12,8 @@ import sys
 
 import pytest
 
-from jarvis.admin.executor import AdminExecutor
-from jarvis.admin.schema import (
+from dodaios.admin.executor import AdminExecutor
+from dodaios.admin.schema import (
     InstallWingetOp,
     ReadRegistryOp,
     StartServiceOp,

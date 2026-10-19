@@ -1,6 +1,6 @@
 """Drop feedback survives the shared-strip replacement."""
 
-from jarvis.ui.dodaiosbar import renderer as R
+from dodaios.ui.dodaiosbar import renderer as R
 
 
 def test_drop_feedback_is_visible_and_distinct():

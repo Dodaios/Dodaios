@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.memory.learning import compact
-from jarvis.memory.learning.review import ModelReviewer
+from dodaios.memory.learning import compact
+from dodaios.memory.learning.review import ModelReviewer
 from tests.fakes.fake_seat_registry import RecordingRegistry
 
 ALL = ["openai", "gemini", "claude-api", "claude-cli", "codex", "antigravity", "ollama"]
@@ -24,8 +24,8 @@ CHANGES = '{"changes": []}'
 
 @pytest.fixture
 def registry(monkeypatch) -> RecordingRegistry:
-    from jarvis.brain import resolver
-    from jarvis.core import config, runtime_refs
+    from dodaios.brain import resolver
+    from dodaios.core import config, runtime_refs
 
     reg = RecordingRegistry(ALL, replies={name: CHANGES for name in ALL})
     monkeypatch.setattr(resolver, "_get_registry", lambda: reg)
@@ -76,7 +76,7 @@ async def test_a_subscription_selection_reviews_on_that_subscription(registry):
 async def test_the_claude_slot_follows_the_front_page_chat(
     registry, monkeypatch, signed_in, expected
 ):
-    from jarvis.core import task_agent
+    from dodaios.core import task_agent
 
     monkeypatch.setattr(task_agent, "_claude_subscription_ready", lambda: signed_in)
     await ModelReviewer(_config(worker="claude-api", model="claude-sonnet-5-5"))("{}")
@@ -102,7 +102,7 @@ async def test_a_failing_seat_asks_no_other_provider(registry, caplog):
 
 
 async def test_no_seat_means_no_call(registry, monkeypatch):
-    from jarvis.local_models import assistant_session
+    from dodaios.local_models import assistant_session
 
     tier = SimpleNamespace(provider="", model="", ready=False, reason="no agent is connected")
     monkeypatch.setattr(assistant_session, "agents_tier", lambda cfg: tier)

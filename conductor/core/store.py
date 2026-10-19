@@ -1,6 +1,6 @@
 """ConductorStore — aiosqlite persistence.
 
-Pattern identical to ``jarvis.workflows.store``: lazy init via ``init()``,
+Pattern identical to ``dodaios.workflows.store``: lazy init via ``init()``,
 context-manager support, additive schema via ``executescript``.
 
 Default DB path: ``~/.conductor/conductor.sqlite`` — deliberately

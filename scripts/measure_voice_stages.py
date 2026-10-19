@@ -32,7 +32,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from jarvis.core.config import load_config  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
 
 PROBE_SENTENCE = "Es ist gerade kurz nach sieben Uhr abends, Chef."  # i18n-allow: sample TTS voice output text used to benchmark the voice pipeline stages
 PROBE_QUESTION_PCM_RATE = 24_000  # Gemini TTS output rate
@@ -65,7 +65,7 @@ async def main(runs: int) -> int:
     print(f"runs per stage: {runs} (run 1 = cold start incl. client init)\n")
 
     # --- TTS: time-to-first-chunk is what gates audible output -----------
-    from jarvis.plugins.tts import build_tts_from_config
+    from dodaios.plugins.tts import build_tts_from_config
 
     tts = build_tts_from_config(cfg.tts)
     print(f"TTS [{type(tts).__name__}]  text={PROBE_SENTENCE!r}")
@@ -85,7 +85,7 @@ async def main(runs: int) -> int:
         return 1
 
     # --- STT: final-utterance transcription (the blocking pipeline stage) -
-    from jarvis.plugins.stt import build_stt_from_config
+    from dodaios.plugins.stt import build_stt_from_config
 
     stt = build_stt_from_config(cfg.stt)
     print(f"\nSTT [{type(stt).__name__}]  input={len(probe_pcm) / 1024:.0f} KB PCM")

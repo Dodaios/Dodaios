@@ -24,11 +24,11 @@ if exist "scripts\check-working-tree.ps1" (
 
 if "%1"=="--debug" (
     set JARVIS_DEBUG=1
-    python -m jarvis.ui.web.launcher --instance dev
+    python -m dodaios.ui.web.launcher --instance dev
 ) else if "%1"=="--headless" (
-    python -m jarvis.ui.web.launcher --instance dev --headless
+    python -m dodaios.ui.web.launcher --instance dev --headless
 ) else (
-    start "" pythonw -m jarvis.ui.web.launcher --instance dev
+    start "" pythonw -m dodaios.ui.web.launcher --instance dev
 )
 
 endlocal

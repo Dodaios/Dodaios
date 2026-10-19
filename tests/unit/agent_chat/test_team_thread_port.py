@@ -7,9 +7,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat.service import SessionBusy
-from jarvis.agent_chat.team import port as team_port
-from jarvis.agent_chat.team.port import ChatTurns
+from dodaios.agent_chat.service import SessionBusy
+from dodaios.agent_chat.team import port as team_port
+from dodaios.agent_chat.team.port import ChatTurns
 
 
 class ScriptedStore:

@@ -15,7 +15,7 @@
       1. Git worktree assertion
       2. Editable install repins to the current checkout -- primary
          checkout ONLY; a linked worktree leaves the shared pin alone
-      3. import jarvis resolves from under the current worktree
+      3. import dodaios resolves from under the current worktree
       4. Stale __editable__*.pth scan (user site-packages)
       5. Summary line + exit code
 
@@ -156,7 +156,7 @@ try {
 # ---------------------------------------------------------------------------
 # Check 3: Import path assertion.
 #
-# python -c "import jarvis; print(jarvis.__file__)" must report a path
+# python -c "import dodaios; print(dodaios.__file__)" must report a path
 # that lives under $WorktreeRoot. If the editable-install pin has
 # drifted to a stale clone, this is where the drift surfaces -- the
 # loud one that BUG-014 needed.
@@ -172,14 +172,14 @@ $savedPythonPath = $env:PYTHONPATH
 Push-Location $WorktreeRoot
 try {
     if ($IsLinkedWorktree) { $env:PYTHONPATH = $WorktreeRoot }
-    $pyOut  = python -c "import jarvis; print(jarvis.__file__)" 2>$null
+    $pyOut  = python -c "import dodaios; print(dodaios.__file__)" 2>$null
     $pyExit = $LASTEXITCODE
 } finally {
     $env:PYTHONPATH = $savedPythonPath
     Pop-Location
 }
 if ($pyExit -ne 0 -or [string]::IsNullOrWhiteSpace($pyOut)) {
-    Write-Check "RED" "Cannot import jarvis package (python exit $pyExit)"
+    Write-Check "RED" "Cannot import dodaios package (python exit $pyExit)"
 } else {
     $importedPath = (($pyOut -join "") -as [string]).Trim()
     try {

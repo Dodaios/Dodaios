@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.plugins.wake.openwakeword_provider import (
+from dodaios.plugins.wake.openwakeword_provider import (
     OWW_FRAME_SAMPLES,
     OpenWakeWordProvider,
     WakeGainNormalizer,

@@ -11,7 +11,7 @@ single authoritative output-language decision still reaches the CLI model.
 """
 from __future__ import annotations
 
-from jarvis.plugins.brain.cli_prompt_context import (
+from dodaios.plugins.brain.cli_prompt_context import (
     extract_reply_language_directive,
     render_cli_standing_instructions,
 )
@@ -45,7 +45,7 @@ def _empty_state_block() -> str:
 def test_render_structured_prompt_keeps_system_and_user_verbatim() -> None:
     from types import SimpleNamespace
 
-    from jarvis.plugins.brain.cli_prompt_context import render_structured_prompt
+    from dodaios.plugins.brain.cli_prompt_context import render_structured_prompt
 
     req = SimpleNamespace(
         system="Return ONLY a single JSON array.",

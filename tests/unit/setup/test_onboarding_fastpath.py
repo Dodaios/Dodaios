@@ -2,8 +2,8 @@
 import json
 from pathlib import Path
 
-from jarvis.setup import onboarding_fastpath as fp
-from jarvis.setup import state as st
+from dodaios.setup import onboarding_fastpath as fp
+from dodaios.setup import state as st
 
 
 def _collector():
@@ -155,8 +155,8 @@ def test_fastpath_module_is_import_light() -> None:
     import sys
 
     code = (
-        "import sys; import jarvis.setup.onboarding_fastpath; "
-        "banned = [m for m in ('fastapi', 'pydantic', 'jarvis.core.config') "
+        "import sys; import dodaios.setup.onboarding_fastpath; "
+        "banned = [m for m in ('fastapi', 'pydantic', 'dodaios.core.config') "
         "if m in sys.modules]; "
         "sys.exit(1 if banned else 0)"
     )

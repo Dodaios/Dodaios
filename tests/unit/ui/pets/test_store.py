@@ -12,11 +12,11 @@ import pytest
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
-from jarvis.ui.pets import store as store_module
-from jarvis.ui.pets.loader import load_pet
-from jarvis.ui.pets.manifest import USER_ID_RE, PetManifestError
-from jarvis.ui.pets.states import PET_FORMAT
-from jarvis.ui.pets.store import PetStore
+from dodaios.ui.pets import store as store_module
+from dodaios.ui.pets.loader import load_pet
+from dodaios.ui.pets.manifest import USER_ID_RE, PetManifestError
+from dodaios.ui.pets.states import PET_FORMAT
+from dodaios.ui.pets.store import PetStore
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

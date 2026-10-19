@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.setup.obsidian.register_vault`` (Phase B9.3).
+"""Unit tests for ``dodaios.setup.obsidian.register_vault`` (Phase B9.3).
 
 Pure-Python tests that NEVER touch the real ``%APPDATA%``; every JSON
 write happens under pytest's ``tmp_path``. Each test simulates a single
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup import obsidian as mod
-from jarvis.setup.obsidian import (
+from dodaios.setup import obsidian as mod
+from dodaios.setup.obsidian import (
     RegisterResult,
     register_vault,
 )

@@ -141,7 +141,7 @@ Import rules:
    definition and check its name, description, triggers, instructions, and any
    requested capabilities. The desktop can display and edit a draft but cannot
    promote it; after review, a trusted operator activates it with
-   `python -m jarvis.skills.cli --promote <skill-slug>`, which checks the
+   `python -m dodaios.skills.cli --promote <skill-slug>`, which checks the
    content before changing it to **Active**. Refresh Skills before testing it.
 
 The form refuses a skill with no real instructions and a name that collides
@@ -185,7 +185,7 @@ The curated command group does not edit or delete skills.
 draft, use the separate local promotion command:
 
 ```bash
-python -m jarvis.skills.cli --promote <skill-slug>
+python -m dodaios.skills.cli --promote <skill-slug>
 ```
 
 The promotion command checks the body for blocked code patterns, changes the

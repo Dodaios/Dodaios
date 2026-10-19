@@ -10,7 +10,7 @@ rejected candidate so the next real wake triggers immediately.
 """
 from __future__ import annotations
 
-from jarvis.plugins.wake.openwakeword_provider import OpenWakeWordProvider
+from dodaios.plugins.wake.openwakeword_provider import OpenWakeWordProvider
 
 ONE_S_NS = 1_000_000_000
 

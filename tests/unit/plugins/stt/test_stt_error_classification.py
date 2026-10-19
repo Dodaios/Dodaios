@@ -1,8 +1,8 @@
 """A failing cloud STT must be CLASSIFIABLE, and a hanging one must be BOUNDED.
 
-The retry ladder in ``jarvis.speech.pipeline`` decides "retry this / give up on
+The retry ladder in ``dodaios.speech.pipeline`` decides "retry this / give up on
 this" from the HTTP status behind a failed transcription, and how long to wait
-from the server's ``Retry-After``. Before ``jarvis.plugins.stt.errors`` existed
+from the server's ``Retry-After``. Before ``dodaios.plugins.stt.errors`` existed
 it could only read those off an ``httpx.HTTPStatusError`` — which exactly ONE of
 the four cloud plugins raised. For the other three the ladder was dead code: the
 first 429 ended the turn, silently, for every downloader whose key is not a Groq
@@ -33,17 +33,17 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.plugins.stt.errors import (
+from dodaios.plugins.stt.errors import (
     STTHTTPError,
     http_error_from_response,
     parse_retry_after,
     status_from_exception,
 )
-from jarvis.plugins.stt.gemini_api import GeminiSTT
-from jarvis.plugins.stt.groq_api import GroqWhisperAPI
-from jarvis.plugins.stt.openai_api import OpenAIWhisperAPI
-from jarvis.plugins.stt.openrouter_stt import OpenRouterSTT
-from jarvis.speech.pipeline import (
+from dodaios.plugins.stt.gemini_api import GeminiSTT
+from dodaios.plugins.stt.groq_api import GroqWhisperAPI
+from dodaios.plugins.stt.openai_api import OpenAIWhisperAPI
+from dodaios.plugins.stt.openrouter_stt import OpenRouterSTT
+from dodaios.speech.pipeline import (
     _is_transient_stt_error,
     _stt_error_status,
     _stt_retry_delay,
@@ -143,7 +143,7 @@ def _raise_from_gemini(status: int, headers: dict[str, str] | None = None) -> Ba
 #: Every cloud STT plugin, by provider id. The behaviour these share is a
 #: CAPABILITY — "the pipeline can read a status off my failure" — not a type
 #: (AP-21). Groq reaches it through ``httpx.HTTPStatusError`` because that
-#: plugin may not import ``jarvis.*`` at all, not even lazily (AGENTS.md §5,
+#: plugin may not import ``dodaios.*`` at all, not even lazily (AGENTS.md §5,
 #: pinned by tests/contract/test_stt_protocol.py); the other three reach it
 #: through the shared ``STTHTTPError``. Both satisfy the consumer, which is the
 #: only thing that decides whether a user's turn survives a 429.
@@ -210,7 +210,7 @@ def test_the_typed_error_is_still_a_runtime_error(provider_id: str) -> None:
 def test_groq_keeps_raising_the_httpx_error_it_always_raised() -> None:
     """Groq's exemption is intentional — pin it so nobody "unifies" it.
 
-    That plugin is under a total ``jarvis.*``-import ban (it re-implements even
+    That plugin is under a total ``dodaios.*``-import ban (it re-implements even
     the keyring read for that reason), so it cannot reach the shared error type.
     It never needed it: its failure was already the one the pipeline could read,
     which is exactly why the retry ladder worked here and nowhere else.
@@ -386,8 +386,8 @@ def test_the_factory_forwards_a_configured_timeout(monkeypatch: pytest.MonkeyPat
     Nothing else can bound a Gemini call: the pipeline's ``wait_for`` stops
     WAITING for the worker thread, it cannot stop the request inside it.
     """
-    import jarvis.plugins.stt as stt_pkg
-    from jarvis.core import config as cfg
+    import dodaios.plugins.stt as stt_pkg
+    from dodaios.core import config as cfg
 
     built: dict[str, Any] = {}
 
@@ -437,8 +437,8 @@ def test_a_provider_that_refuses_the_optional_kwargs_still_builds(
     would have failed the retry too and dead-ended on an engine the base install
     does not ship.
     """
-    import jarvis.plugins.stt as stt_pkg
-    from jarvis.core import config as cfg
+    import dodaios.plugins.stt as stt_pkg
+    from dodaios.core import config as cfg
 
     accepted: dict[str, Any] = {}
 

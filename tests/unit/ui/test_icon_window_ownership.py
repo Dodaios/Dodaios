@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui import icon_utils
+from dodaios.ui import icon_utils
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only window identity")

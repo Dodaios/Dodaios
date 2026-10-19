@@ -7,10 +7,10 @@ main model -> the router-tier default.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager, get_tier_default_model
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, BrainTierConfig, load_config
-from jarvis.harness import screenshot_only_loop as sol
+from dodaios.brain.manager import BrainManager, get_tier_default_model
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, BrainTierConfig, load_config
+from dodaios.harness import screenshot_only_loop as sol
 
 # --- config field -----------------------------------------------------------
 

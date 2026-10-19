@@ -278,7 +278,7 @@ and the install-time consent dialog — none of which the login replaces.
 
 The app must not reuse the website's cookie. It uses the **device flow** on
 the same GitHub App — the handler already exists at
-`jarvis/marketplace/auth/oauth_device.py` (start, poll, refresh, all four
+`dodaios/marketplace/auth/oauth_device.py` (start, poll, refresh, all four
 GitHub error codes), which is why enabling device flow in §1 matters.
 
 Flow: app shows the user code → user approves in a browser → token lands in

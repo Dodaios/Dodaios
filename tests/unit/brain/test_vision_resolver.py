@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import resolver
+from dodaios.brain import resolver
 
 
 class _Blind:

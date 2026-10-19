@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from jarvis.core.protocols import ExecutionContext, ToolResult
+from dodaios.core.protocols import ExecutionContext, ToolResult
 
 
 class FakePermissionTool:

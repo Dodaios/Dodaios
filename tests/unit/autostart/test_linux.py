@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.autostart.linux import LinuxAutostart
-from jarvis.autostart.protocol import LaunchSpec
-from jarvis.core.desktop_entry import escape_value
+from dodaios.autostart.linux import LinuxAutostart
+from dodaios.autostart.protocol import LaunchSpec
+from dodaios.core.desktop_entry import escape_value
 
 
 def _spec(
@@ -17,7 +17,7 @@ def _spec(
 ) -> LaunchSpec:
     return LaunchSpec(
         program=program,
-        args=("-m", "jarvis.ui.web.launcher"),
+        args=("-m", "dodaios.ui.web.launcher"),
         working_dir=working_dir,
         minimized=True,
     )
@@ -32,7 +32,7 @@ def test_install_writes_desktop_entry(monkeypatch, tmp_path: Path) -> None:
     assert entry.exists()
     text = entry.read_text(encoding="utf-8")
     assert "[Desktop Entry]" in text
-    assert "Exec=/usr/bin/python3 -m jarvis.ui.web.launcher" in text
+    assert "Exec=/usr/bin/python3 -m dodaios.ui.web.launcher" in text
     assert "X-GNOME-Autostart-enabled=true" in text
     assert status.installed is True
     assert status.matches_spec is True
@@ -41,7 +41,7 @@ def test_install_writes_desktop_entry(monkeypatch, tmp_path: Path) -> None:
 def test_install_brands_entry_with_icon_and_wmclass(monkeypatch, tmp_path: Path) -> None:
     """The .desktop must carry an Icon= (the bundled PNG) and a StartupWMClass so
     the app menu / taskbar shows Jarvis, not the generic python3 interpreter icon."""
-    from jarvis.assets import bundled_app_icon_png
+    from dodaios.assets import bundled_app_icon_png
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     LinuxAutostart().install(_spec())
@@ -73,7 +73,7 @@ def test_program_with_spaces_is_quoted(monkeypatch, tmp_path: Path) -> None:
     spec = _spec(program="/opt/My Apps/python3")
     mgr.install(spec)
     text = (tmp_path / "autostart" / "personal-jarvis.desktop").read_text(encoding="utf-8")
-    assert 'Exec="/opt/My Apps/python3" -m jarvis.ui.web.launcher' in text
+    assert 'Exec="/opt/My Apps/python3" -m dodaios.ui.web.launcher' in text
     # And the round-trip still matches.
     assert mgr.status(spec).matches_spec is True
 
@@ -117,7 +117,7 @@ def test_percent_in_the_install_path_is_written_as_a_double_percent(
     spec = _spec(program="/opt/100%pure/python3", working_dir="/srv/50%off")
     status = mgr.install(spec)
 
-    assert "Exec=/opt/100%%pure/python3 -m jarvis.ui.web.launcher" in _entry_text(
+    assert "Exec=/opt/100%%pure/python3 -m dodaios.ui.web.launcher" in _entry_text(
         tmp_path
     )
     assert status.matches_spec is True

@@ -11,8 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.plugins.tool.screen_snapshot import ScreenSnapshotTool
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.plugins.tool.screen_snapshot import ScreenSnapshotTool
 
 
 def _have_mss() -> bool:

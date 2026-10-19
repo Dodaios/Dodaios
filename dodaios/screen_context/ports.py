@@ -1,0 +1,675 @@
+"""The one platform seam for Screen Context (Windows / macOS / Linux / next).
+
+Five ``Protocol``s, a per-OS implementation behind a factory, and a logged null
+fallback for each. Adding a fourth platform means writing new classes and
+extending the factories — nothing above this module changes, and nothing above
+this module imports a platform package.
+
+The contract every port obeys, without exception:
+
+1. **Never raise into the caller.** A native API that is missing, denied or
+   wedged returns the port's "unavailable" value. The single exception is
+   :class:`CaptureUnavailable`, raised only by :meth:`SurfaceCapturer.grab`,
+   because "I produced no pixels" cannot be expressed as a picture.
+2. **Unavailable is not empty.** A port that cannot answer returns ``None`` or
+   raises, so the service can record a
+   :class:`~dodaios.screen_context.models.Degradation`. Returning ``""`` or an
+   empty list would let a caller narrate a blank screen as fact (AP-30).
+3. **No module-scope platform import.** ``ctypes.windll``, ``Quartz``,
+   ``pynput``, ``mss`` and ``PIL`` are imported inside method bodies, so
+   ``import dodaios.screen_context.ports`` stays clean on ``python:3.11-slim``
+   (HN-7, mirroring ``dodaios.platform.mouse``).
+
+Nothing here initializes at import time (AP-26): the factories are called on
+the first capture, not at boot.
+"""
+from __future__ import annotations
+
+import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal, Protocol, runtime_checkable
+
+from dodaios.screen_context.models import WindowFacts
+
+log = logging.getLogger(__name__)
+
+#: A point in virtual-desktop coordinates, in the platform's input units.
+Point = tuple[int, int]
+#: ``(left, top, width, height)``.
+Rect = tuple[int, int, int, int]
+
+
+@contextmanager
+def _input_space() -> Iterator[None]:
+    """Pin native geometry and capture to one OS coordinate convention."""
+    try:
+        from dodaios.core.win32_dpi import ensure_dpi_awareness  # noqa: PLC0415
+
+        ensure_dpi_awareness()
+    except Exception:  # noqa: BLE001 - non-Windows/minimal hosts are valid
+        log.debug("DPI-awareness probe unavailable", exc_info=True)
+    try:
+        from dodaios.cu.geometry import input_space  # noqa: PLC0415
+    except Exception:  # noqa: BLE001 - base/headless install
+        yield
+        return
+    with input_space():
+        yield
+
+
+def _is_wayland() -> bool:
+    try:
+        from dodaios.platform.probes import is_wayland  # noqa: PLC0415
+
+        return bool(is_wayland())
+    except Exception:  # noqa: BLE001 - an absent probe is not Wayland evidence
+        return False
+
+
+class CaptureUnavailable(RuntimeError):
+    """No pixels could be produced, with a user-facing reason.
+
+    Carries an English, actionable message: this text is shown to the user and
+    read by the model, so "capture failed" is never acceptable — it must name
+    the cause and, where one exists, the setting that fixes it.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class CapturePermissionIssue:
+    """Structured platform remediation returned before any pixels are read."""
+
+    code: Literal["capture_permission", "wayland_portal"]
+    message: str
+
+
+# --------------------------------------------------------------------------
+# Cursor
+# --------------------------------------------------------------------------
+
+
+@runtime_checkable
+class CursorLocator(Protocol):
+    """Where the mouse pointer is, right now."""
+
+    name: str
+
+    def position(self) -> Point | None:
+        """Cursor ``(x, y)``, or ``None`` when unreadable. Never raises."""
+        ...
+
+
+class PlatformCursorLocator:
+    """Delegates to the existing cross-platform cursor seam.
+
+    ``dodaios.platform.mouse`` already resolves Windows ``GetCursorPos`` /
+    pynput / a null fallback and never raises, so this adapter is a thin
+    rename rather than a second implementation — two cursor backends would
+    drift.
+    """
+
+    name = "platform-cursor"
+
+    def __init__(self) -> None:
+        self._backend = None
+
+    def position(self) -> Point | None:
+        try:
+            if self._backend is None:
+                from dodaios.platform.mouse import make_cursor_backend  # noqa: PLC0415
+
+                self._backend = make_cursor_backend()
+            with _input_space():
+                return self._backend.position()
+        except Exception:  # noqa: BLE001 — the seam must never raise
+            log.debug("cursor position probe failed", exc_info=True)
+            return None
+
+
+# --------------------------------------------------------------------------
+# Bar position (fallback target when the cursor is unreadable)
+# --------------------------------------------------------------------------
+
+
+@runtime_checkable
+class BarLocator(Protocol):
+    """Where the on-screen bar sits — the documented cursor fallback."""
+
+    name: str
+
+    def position(self) -> Point | None:
+        ...
+
+
+class PersistedBarLocator:
+    """Reads the bar's last persisted position.
+
+    The bar runs in its own process (or its own Qt/Tk thread) and exposes no
+    in-process handle, but it persists its position on every move — so the
+    persisted value is the cheapest correct answer and needs no IPC on the
+    voice path. A bar that has never been moved has no persisted position;
+    that is a ``None``, and the service falls through to the primary monitor.
+    """
+
+    name = "persisted-bar"
+
+    def position(self) -> Point | None:
+        try:
+            from dodaios.core.config_writer import DEFAULT_CONFIG_FILE  # noqa: PLC0415
+            from dodaios.ui.dodaiosbar import interaction  # noqa: PLC0415
+
+            return interaction.load_jarvisbar_position(Path(DEFAULT_CONFIG_FILE))
+        except Exception:  # noqa: BLE001 — the seam must never raise
+            log.debug("bar position probe failed", exc_info=True)
+            return None
+
+
+# --------------------------------------------------------------------------
+# Displays
+# --------------------------------------------------------------------------
+
+
+@runtime_checkable
+class DisplayEnumerator(Protocol):
+    """The monitor layout, and which monitor holds a given point."""
+
+    name: str
+
+    def monitors(self) -> list[dict]:
+        """mss-shaped list: ``[0]`` virtual bounds, ``[1:]`` physical screens.
+
+        Returns ``[]`` when no display is addressable (headless, Wayland).
+        """
+        ...
+
+
+class MssDisplayEnumerator:
+    """Enumerates displays via ``mss`` — the same source every other capture
+    path in the tree uses, so monitor identities line up across features."""
+
+    name = "mss-displays"
+
+    def monitors(self) -> list[dict]:
+        if _is_wayland():
+            log.info(
+                "display enumeration unavailable: Wayland requires a portal "
+                "capture backend"
+            )
+            return []
+        try:
+            import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+
+            with _input_space(), mss.mss() as sct:
+                return [dict(m) for m in sct.monitors]
+        except Exception:  # noqa: BLE001 — no display / no mss / X error
+            log.debug("display enumeration failed", exc_info=True)
+            return []
+
+
+# --------------------------------------------------------------------------
+# Windows
+# --------------------------------------------------------------------------
+
+
+@runtime_checkable
+class WindowProbe(Protocol):
+    """What application is in front, and where its window is."""
+
+    name: str
+
+    def foreground(self) -> WindowFacts | None:
+        """Facts about the focused window, or ``None`` when unreadable."""
+        ...
+
+    def visible_windows(self) -> tuple[WindowFacts, ...] | None:
+        """Visible top-level windows, or ``None`` when unverifiable."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class WindowSnapshot:
+    """Facts and native identity sampled from one foreground-window read."""
+
+    facts: WindowFacts
+    handle: int | None = None
+
+
+class PlatformWindowProbe:
+    """Delegates to ``dodaios.platform.window_state``.
+
+    That module already resolves Win32 / Quartz+AX / xdotool behind one API
+    with per-OS fallbacks. The frame rect is preferred over the plain window
+    rect because it is the visible extent the user sees (DWM shadows excluded
+    on Windows), which is what a capture should match.
+
+    ``WindowInfo`` carries no process name, so the application name is resolved
+    from the pid when the platform filled one in. That lookup is best-effort and
+    optional on purpose: the app name feeds the denylist and the model's
+    context, and a missing one degrades to matching on the title alone rather
+    than to a hard failure.
+    """
+
+    name = "platform-window"
+
+    def foreground_snapshot(self) -> WindowSnapshot | None:
+        """Sample facts, frame and native handle atomically.
+
+        Reads the app window, not the raw foreground: a click on the Jarvis
+        bar or the mascot makes that overlay the foreground window, and an
+        appshot of it is a picture of the mascot (BUG-228).
+        """
+        try:
+            from dodaios.platform import window_state as ws  # noqa: PLC0415
+
+            with _input_space():
+                win = ws.foreground_app_window()
+                if win is None:
+                    return None
+                rect = ws.window_frame_rect(win) or ws.window_rect(win)
+                pid = int(getattr(win, "pid", 0) or 0)
+                handle = getattr(win, "handle", None)
+                return WindowSnapshot(
+                    facts=WindowFacts(
+                        app_name=_app_name_for_pid(pid),
+                        title=str(getattr(win, "title", "") or ""),
+                        pid=pid,
+                        frame_rect=rect,
+                    ),
+                    handle=int(handle) if handle is not None else None,
+                )
+        except Exception:  # noqa: BLE001 — the seam must never raise
+            log.debug("foreground window probe failed", exc_info=True)
+            return None
+
+    def foreground(self) -> WindowFacts | None:
+        snapshot = self.foreground_snapshot()
+        return snapshot.facts if snapshot is not None else None
+
+    def foreground_handle(self) -> int | None:
+        """The native window handle of the focused window, when the OS gives one.
+
+        Kept separate from :meth:`foreground` because a handle is only useful to
+        the capturer, and threading it through ``WindowFacts`` would put a
+        platform-specific integer into the model-facing data.
+        """
+        try:
+            snapshot = self.foreground_snapshot()
+            return snapshot.handle if snapshot is not None else None
+        except Exception:  # noqa: BLE001
+            log.debug("foreground handle probe failed", exc_info=True)
+            return None
+
+    def visible_windows(self) -> tuple[WindowFacts, ...] | None:
+        """Visible windows for monitor-wide privacy checks.
+
+        A window with unknown geometry is deliberately retained. The service
+        treats a denylist match with no rect as intersecting every monitor;
+        false refusal is safer than photographing a protected surface.
+        """
+        if _is_wayland():
+            return None
+        try:
+            from dodaios.platform import window_state as ws  # noqa: PLC0415
+
+            with _input_space():
+                windows = ws.list_windows()
+                if not windows:
+                    return None
+                facts: list[WindowFacts] = []
+                for window in windows:
+                    if bool(getattr(window, "minimized", False)):
+                        continue
+                    pid = int(getattr(window, "pid", 0) or 0)
+                    facts.append(
+                        WindowFacts(
+                            app_name=_app_name_for_pid(pid),
+                            title=str(getattr(window, "title", "") or ""),
+                            pid=pid,
+                            frame_rect=(
+                                ws.window_frame_rect(window)
+                                or ws.window_rect(window)
+                            ),
+                        )
+                    )
+                return tuple(facts)
+        except Exception:  # noqa: BLE001 - privacy verification fails closed above
+            log.warning("visible-window privacy probe failed", exc_info=True)
+            return None
+
+
+def _app_name_for_pid(pid: int) -> str:
+    """Best-effort process name for ``pid``; ``""`` when it cannot be resolved.
+
+    Not every platform path fills a pid in (only the macOS foreground probe does
+    today), and ``psutil`` may be absent on a minimal install — both degrade to
+    the empty string, which the denylist treats as "match on title only".
+    """
+    if pid <= 0:
+        return ""
+    try:
+        import psutil  # noqa: PLC0415
+
+        return str(psutil.Process(pid).name() or "")
+    except Exception:  # noqa: BLE001 — no psutil, dead pid, access denied
+        log.debug("process name lookup failed for pid %s", pid, exc_info=True)
+        return ""
+
+
+# --------------------------------------------------------------------------
+# Capture
+# --------------------------------------------------------------------------
+
+
+@runtime_checkable
+class SurfaceCapturer(Protocol):
+    """Grabs a rectangle of the screen, once.
+
+    Returns RAW RGB — encoding happens after redaction, so black boxes are
+    burned into the pixels rather than layered over a already-encoded image
+    that still contains the secret underneath.
+    """
+
+    name: str
+
+    def grab(
+        self, bbox: Rect, *, window_handle: int | None = None
+    ) -> tuple[tuple[int, int], bytes]:
+        """``((width, height), rgb_bytes)``.
+
+        Raises :class:`CaptureUnavailable` — with an actionable English
+        message — when no pixels can be produced.
+        """
+        ...
+
+
+def _refuse_while_confirmation_pending() -> None:
+    """A native window capture timed out while macOS may be asking the user.
+
+    PENDING, never DENIED: when the live state says granted the caller's own
+    window-only refusal applies; when it does not (a request is still in flight)
+    the capture failed because macOS may be asking, so say that instead.
+    Silent: nothing is asked here.
+    """
+    try:
+        from dodaios.platform import screen_access, window_capture  # noqa: PLC0415
+
+        if window_capture.last_grab_failure() != "pending_confirmation":
+            return
+        if not screen_access.screen_recording_blocked():
+            return
+        message = screen_access.refusal_pending().user_detail
+    except Exception:  # noqa: BLE001 — classifying a timeout never breaks the capture
+        log.debug("pending-confirmation check failed", exc_info=True)
+        return
+    raise CaptureUnavailable(message)
+
+
+class NativeSurfaceCapturer:
+    """Native per-window capture where the OS offers it, rect grab otherwise.
+
+    Window-scoped requests use a native window-only backend where available.
+    On Windows, failure of that backend is a privacy refusal: composing the
+    same rectangle from the desktop could photograph an overlapping app.
+    """
+
+    name = "native-capture"
+
+    def grab(
+        self, bbox: Rect, *, window_handle: int | None = None
+    ) -> tuple[tuple[int, int], bytes]:
+        left, top, width, height = (int(v) for v in bbox)
+        if width <= 0 or height <= 0:
+            raise CaptureUnavailable(
+                "The area to capture had no size — the window may have been "
+                "closed or minimized between the request and the capture."
+            )
+
+        if window_handle is not None:
+            native = None
+            try:
+                from dodaios.cu.indicator.capture_guard import (  # noqa: PLC0415
+                    indicator_suppressed,
+                )
+                from dodaios.platform.window_capture import (  # noqa: PLC0415
+                    clear_grab_failure,
+                    grab_window,
+                )
+
+                clear_grab_failure()
+                with indicator_suppressed(), _input_space():
+                    native = grab_window(
+                        int(window_handle),
+                        {"left": left, "top": top, "width": width, "height": height},
+                    )
+                if native is not None:
+                    return native
+            except Exception:  # noqa: BLE001 — the refusal below is the outcome
+                log.debug("native window capture failed", exc_info=True)
+            _refuse_while_confirmation_pending()
+            # A window handle means "this window ALONE" (the privacy path: a
+            # denylisted window overlaps the rectangle). A desktop-rectangle
+            # grab would photograph exactly that window, so it is refused on
+            # every OS — Linux has no window-only capture at all.
+            raise CaptureUnavailable(
+                "The window could not be captured on its own, and a "
+                "desktop-rectangle fallback was refused because another window "
+                "overlaps it. Bring the window to the foreground or move the "
+                "other window away and retry; some protected or GPU-rendered "
+                "windows do not support window-only capture."
+            )
+
+        try:
+            if _is_wayland():
+                raise CaptureUnavailable(
+                    "Screen capture does not work in a Wayland session yet. "
+                    "Sign in with an X11 session (\"GNOME on Xorg\" or "
+                    "\"Plasma (X11)\" on the login screen)."
+                )
+            import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+        except ImportError as exc:
+            raise CaptureUnavailable(
+                "Screen capture is not available because the 'mss' package is "
+                "missing from this installation."
+            ) from exc
+
+        try:
+            from dodaios.cu.indicator.capture_guard import (  # noqa: PLC0415
+                indicator_suppressed,
+            )
+
+            with indicator_suppressed(), _input_space(), mss.mss() as sct:
+                raw = sct.grab(
+                    {"left": left, "top": top, "width": width, "height": height}
+                )
+            return ((int(raw.size[0]), int(raw.size[1])), bytes(raw.rgb))
+        except Exception as exc:  # noqa: BLE001 — GDI/X/Quartz errors vary widely
+            raise CaptureUnavailable(
+                f"The screen could not be captured right now ({exc}). This is "
+                "usually a locked screen, a sleeping display, or a resolution "
+                "change in progress."
+            ) from exc
+
+
+# --------------------------------------------------------------------------
+# UI text
+# --------------------------------------------------------------------------
+
+
+@runtime_checkable
+class UiTextReader(Protocol):
+    """Reads visible UI text from the platform's accessibility layer."""
+
+    name: str
+
+    async def read(self, *, window_title_filter: str | None = None):
+        """Returns an ``Observation``-shaped object, or ``None`` if unreadable.
+
+        ``None`` (not an empty node list) is the signal that the accessibility
+        layer itself is unavailable — the caller must be able to tell that
+        apart from a window that genuinely has no text.
+        """
+        ...
+
+
+class AccessibilityTextReader:
+    """Delegates to ``dodaios.vision.tree_factory.make_ui_tree_source()``.
+
+    That factory already picks UIA (Windows) / AXUIElement (macOS) / AT-SPI
+    (Linux) / a null source, which is exactly the per-OS accessibility seam
+    this feature needs. The null source returns an Observation with no nodes;
+    this adapter maps that to ``None`` so "no accessibility on this host" and
+    "this window has no text" stay distinguishable.
+    """
+
+    name = "accessibility-text"
+
+    def __init__(self) -> None:
+        self._source = None
+
+    async def read(self, *, window_title_filter: str | None = None):
+        try:
+            if self._source is None:
+                from dodaios.vision.tree_factory import (  # noqa: PLC0415
+                    make_ui_tree_source,
+                )
+
+                self._source = make_ui_tree_source()
+            if type(self._source).__name__ == "NullUITreeSource":
+                return None
+            return await self._source.observe(window_title_filter=window_title_filter)
+        except Exception:  # noqa: BLE001 — UIA/AX/AT-SPI raise a wide variety
+            log.debug("accessibility text read failed", exc_info=True)
+            return None
+
+
+# --------------------------------------------------------------------------
+# Permission probe
+# --------------------------------------------------------------------------
+
+
+def capture_permission_error(*, deep: bool = True) -> CapturePermissionIssue | None:
+    """``None`` when capture is permitted, else an actionable English message.
+
+    SILENT: it reads the state and never asks macOS, so ``GET
+    /api/screen-context/status`` and every other status probe may call it freely.
+    ``deep=False`` (the status route) also skips the window-title oracle, which
+    enumerates the on-screen windows: only a capture a person started pays that.
+    The capture a person starts asks through the permission service first
+    (``ScreenContextService.capture``); this only describes why a capture would
+    not be allowed right now. Deliberately not cached beyond the permission
+    service's sub-second read cache: macOS can revoke a TCC grant while Jarvis
+    runs, and a stale "granted" would produce a wallpaper-only capture that looks
+    like a successful screenshot of an empty desktop.
+    """
+    if _is_wayland():
+        return CapturePermissionIssue(
+            code="wayland_portal",
+            message=(
+                "Screen capture does not work in a Wayland session yet. Sign in "
+                "with an X11 session (\"GNOME on Xorg\" or \"Plasma (X11)\" on "
+                "the login screen), then ask again."
+            ),
+        )
+    try:
+        from dodaios.platform import screen_access  # noqa: PLC0415
+
+        state = screen_access.screen_recording_state(deep=deep)
+        if screen_access.state_allows_capture(state):
+            return None
+        return CapturePermissionIssue(
+            code="capture_permission",
+            message=screen_access.refusal_for_state(state).user_detail,
+        )
+    except Exception:  # noqa: BLE001 — an unavailable probe must not block Windows/Linux
+        log.debug("screen-recording permission probe failed", exc_info=True)
+        return None
+
+
+def accessibility_permission_error() -> str | None:
+    """``None`` when UI text may be read, else an actionable English message.
+
+    Reading UI text is background work: it never asks for Accessibility and the
+    status route never prompts. A missing grant only drops the on-screen text;
+    the screen image stays available.
+    """
+    try:
+        from dodaios.platform.permission_service import user_detail_for  # noqa: PLC0415
+        from dodaios.platform.permissions import PermissionId, PermissionState  # noqa: PLC0415
+        from dodaios.platform.screen_access import permission_gate  # noqa: PLC0415
+
+        state = permission_gate().check(PermissionId.ACCESSIBILITY)
+        if state in (PermissionState.GRANTED, PermissionState.NOT_REQUIRED):
+            return None
+        reason = {
+            PermissionState.DENIED: "denied",
+            PermissionState.RESTRICTED: "restricted",
+            PermissionState.UNAVAILABLE: "unavailable",
+        }.get(state, "needs_settings")
+        return (
+            "Visible UI text could not be read. "
+            f"{user_detail_for(PermissionId.ACCESSIBILITY, reason)} "
+            "The screen image is still available."
+        )
+    except Exception:  # noqa: BLE001
+        log.debug("accessibility permission probe failed", exc_info=True)
+        return None
+
+
+# --------------------------------------------------------------------------
+# Factories — the ONE place a fourth platform is wired in
+# --------------------------------------------------------------------------
+
+
+def make_cursor_locator() -> CursorLocator:
+    return PlatformCursorLocator()
+
+
+def make_bar_locator() -> BarLocator:
+    return PersistedBarLocator()
+
+
+def make_display_enumerator() -> DisplayEnumerator:
+    return MssDisplayEnumerator()
+
+
+def make_window_probe() -> WindowProbe:
+    return PlatformWindowProbe()
+
+
+def make_surface_capturer() -> SurfaceCapturer:
+    return NativeSurfaceCapturer()
+
+
+def make_ui_text_reader() -> UiTextReader:
+    return AccessibilityTextReader()
+
+
+__all__ = [
+    "AccessibilityTextReader",
+    "BarLocator",
+    "CaptureUnavailable",
+    "CursorLocator",
+    "DisplayEnumerator",
+    "MssDisplayEnumerator",
+    "NativeSurfaceCapturer",
+    "PersistedBarLocator",
+    "PlatformCursorLocator",
+    "PlatformWindowProbe",
+    "Point",
+    "Rect",
+    "SurfaceCapturer",
+    "UiTextReader",
+    "WindowProbe",
+    "WindowSnapshot",
+    "accessibility_permission_error",
+    "capture_permission_error",
+    "make_bar_locator",
+    "make_cursor_locator",
+    "make_display_enumerator",
+    "make_surface_capturer",
+    "make_ui_text_reader",
+    "make_window_probe",
+]

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.cli.review_gc import (
+from dodaios.cli.review_gc import (
     main,
     parse_duration,
     run_gc,

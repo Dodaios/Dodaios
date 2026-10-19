@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.runs.routes import router as runs_router
-from jarvis.sessions.store import SessionStore
+from dodaios.runs.routes import router as runs_router
+from dodaios.sessions.store import SessionStore
 
 
 def _app(tmp_path, with_store=True):

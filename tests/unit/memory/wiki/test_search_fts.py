@@ -1,6 +1,6 @@
 """FTS5-backed VaultSearch tests.
 
-These tests require ``jarvis.memory.wiki.fts_index`` (the peer module).
+These tests require ``dodaios.memory.wiki.fts_index`` (the peer module).
 When that module is not yet importable every test is skipped via
 ``pytest.importorskip`` so the suite stays green during parallel development.
 
@@ -20,11 +20,11 @@ from pathlib import Path
 import pytest
 
 fts_index = pytest.importorskip(
-    "jarvis.memory.wiki.fts_index",
+    "dodaios.memory.wiki.fts_index",
     reason="fts_index peer module not yet available",
 )
 
-from jarvis.memory.wiki.search import VaultSearch  # noqa: E402
+from dodaios.memory.wiki.search import VaultSearch  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

@@ -4,9 +4,9 @@ The model rationale (ActionProposed.rationale) is captured for free and must be
 attached to the route step; rule-based steps (approval/denial/tier/brain/
 fallback) get a deterministic, human-readable explanation built from CAPTURED
 facts — never fabricated. The already-captured tool command/output is surfaced."""
-from jarvis.runs.analyzer import attach_tool_io, build_decision_path
-from jarvis.runs.model import ToolCall
-from jarvis.sessions.models import VoiceEventRow
+from dodaios.runs.analyzer import attach_tool_io, build_decision_path
+from dodaios.runs.model import ToolCall
+from dodaios.sessions.models import VoiceEventRow
 
 
 def _ev(kind, ts_ms=0, **payload):

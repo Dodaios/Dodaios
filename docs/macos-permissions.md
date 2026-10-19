@@ -55,13 +55,13 @@ for a gate that stops macOS from asking.
 | 2026-07-14 | `0eebcc051` | BUG-060: first real `.app` bundle. Stated reason: a bundle gives TCC an identity, so the microphone dialog names the app instead of "whichever terminal started the process". | Technically required (stable code identity). |
 | 2026-07-14 | `86f99bf4a` | BUG-058: first fail-closed gate, a preflight before the keyboard event tap. The register entry itself says no log confirmed the crash theory. | Hypothesis. BUG-077 (2026-07-17, `3b924a249`) later found the real crash was a keyboard-layout API called off the main thread, and the preflight "gated the tap correctly" but was not what prevented a crash. |
 | 2026-07-15 | `29f488e60` | Computer-use input and capture probe the permission before every action. | Start of the per-action wall. |
-| 2026-07-15 | `562232023` | One commit creates the whole up-front stack: `SystemPermissionPort` with `runtime_access_granted()` = stable identity AND live grant, a feature-readiness table, request routes, Settings panel, an onboarding step whose Continue was disabled until all five permissions were granted, a 2.5 s polling hook, the microphone gate (re-checked every 0.25 s in the read loop) and the voice-activation gate. Empty commit body, no co-author trailer. | **The inversion.** In-code reason (`jarvis/ui/desktop_app.py`, lines 2381-2382 at that commit, since removed): "macOS must never discover microphone permission by opening the device: that would throw an unmanaged TCC prompt before the guided onboarding step." That is a UX preference about where the prompt appears. |
+| 2026-07-15 | `562232023` | One commit creates the whole up-front stack: `SystemPermissionPort` with `runtime_access_granted()` = stable identity AND live grant, a feature-readiness table, request routes, Settings panel, an onboarding step whose Continue was disabled until all five permissions were granted, a 2.5 s polling hook, the microphone gate (re-checked every 0.25 s in the read loop) and the voice-activation gate. Empty commit body, no co-author trailer. | **The inversion.** In-code reason (`dodaios/ui/desktop_app.py`, lines 2381-2382 at that commit, since removed): "macOS must never discover microphone permission by opening the device: that would throw an unmanaged TCC prompt before the guided onboarding step." That is a UX preference about where the prompt appears. |
 | 2026-07-15 | `f0d4f77ee` | Five minutes later, a commit titled as an architecture, bug-register, CLI and release-notes refresh, with an empty body, rewrites the live sign-off checklist (`LIVE-SIGNOFF-CHECKLIST.md`): row AX-2 changes from "falls back to the pixel path and still clicks (AD-13)" to "refuses to inject input. No pixel-click bypass"; new rows TCC-2 ("no dialog appears merely from installing, booting, or opening the page") and TCC-4 ("fails closed before touching the protected API"). | Where *degrade* became *refuse*. The message does not mention it. AD-13 and HN-5 stay in the frozen file unchanged. |
 | 2026-07-17 | `4a53eb424` | App-wide amber banner. Commit body: "A missing TCC grant (microphone, screen recording, accessibility, ...) silently kills wake word, voice, and Computer-Use; until now only the Settings panel and onboarding knew." | [I] (our inference, not stated in the commit): the silent death was produced by the gate (it never opened the microphone, so macOS never showed its dialog). The banner treats the symptom. |
 | 2026-07-17 | `9728bf57a`, `e2e5651dc` | Dead Allow buttons for Input Monitoring: a tri-state `IOHIDCheckAccess` probe added. Ducking `prewarm()` asks for Automation when the feature is switched on. | The first, narrow just-in-time behaviour in the history. |
 | 2026-07-18 | `5ea2fcc83` | BUG-083, first live finding (an Intel Mac, macOS 15.7): ad-hoc signature pins grants to a per-build hash; System Settings ignores deep-link anchors while already running (the app now quits it first); frozen Screen Recording preflight. | Real constraints, found three days after the wall shipped. |
 | 2026-07-18 | `b25e63520` | "Ask again" (`POST /{id}/reset`, `tccutil reset` for the app's own id); onboarding permissions step moved last. | Recovery action, legitimate. |
-| 2026-07-20 .. 08-03 | `b0f9ff2e2`, `b66cb179a` | Per-action probes measured as a cost. `b66cb179a` says its per-keystroke probe inside the event-tap callback made the shortcuts "go intermittently dead"; its mechanism (a callback that overruns its deadline gets the tap disabled by macOS) is the commit author's hypothesis, unverified; `jarvis/trigger/backends/quartz.py` carries a comment in the same spirit [code]. | Bugs caused by the gate. |
+| 2026-07-20 .. 08-03 | `b0f9ff2e2`, `b66cb179a` | Per-action probes measured as a cost. `b66cb179a` says its per-keystroke probe inside the event-tap callback made the shortcuts "go intermittently dead"; its mechanism (a callback that overruns its deadline gets the tap disabled by macOS) is the commit author's hypothesis, unverified; `dodaios/trigger/backends/quartz.py` carries a comment in the same spirit [code]. | Bugs caused by the gate. |
 | 2026-08-20 / 08-21 | `7d75c6fbc`, `d377bffe8`, `96ebffcc0` | BUG-159 and BUG-161: "Every start warned that permissions were not enabled" while they were on; the app rejected `/Applications` as a tampering signal although "TCC pins a grant to the bundle id and its signature, never to a path". | The gate itself is the bug. |
 | 2026-09-16 | `b7d92746e` | Per-user self-signed certificate: the identity is bundle id plus certificate, not a per-build hash. Reported verified on macOS 15.7.4 in the BUG-217 register entry (a live Mac session; not re-verified for this branch) [commit `b7d92746e`, register]. | The structural fix for BUG-083/159/161. Technically required. |
 | 2026-09-16 | `5e3d07db3`, `4af1cc766` | Automation row with a consent file and hidden launch of Music and Spotify; "Set up everything" wizard with auto-restart ("Six buttons and a restart to find, per permission, is how 'the permissions are extremely annoying' reads from the user's side"). | The wizard automates the up-front flow instead of removing the need for it. |
@@ -229,7 +229,7 @@ launchd, the app must be registered through `SMAppService` or the plist needs
 
 - Launched from Finder or as a login item: the app bundle is the client; children (the Python
   backend, `osascript`, `screencapture`) are **expected, not guaranteed** to be attributed to it [I].
-- Launched from a terminal (`python -m jarvis`, the CLI, a dev run): the terminal is responsible,
+- Launched from a terminal (`python -m dodaios`, the CLI, a dev run): the terminal is responsible,
   the dialog names it, and the grant lands on it. A "granted" state seen in a dev run says nothing
   about the shipped app [D, C].
 - The `.dmg` app (`ai.personaljarvis.desktop`) and the managed app (`com.personal-jarvis.desktop`)
@@ -274,14 +274,14 @@ detailed statement.
 
 | Layer | Module | Role |
 |---|---|---|
-| Port (OS adapter) | `jarvis/platform/permissions.py`, `SystemPermissionPort` | Live, uncached, non-prompting `state` reads (shallow by default); `request_native` (returns `dialog_shown`, `no_dialog`, `timed_out` or `unavailable`, never evidence of a grant); `usage_string_present`; `outside_installed_app`; `open_pane`; `reset_row` (own bundle id only). It decides nothing about whether a feature may run. Keeps `ACCEPTED_BUNDLE_IDS`, `AUTOMATION_TARGETS`, `PANE_FAMILY`, `REQUEST_CLASS` and the module-loader seams for fakes, plus `remove_leftover_state_files` (4.13). |
-| Service | `jarvis/platform/permission_service.py`, `PermissionService` | The just-in-time layer: `check`, `ensure`, `ensure_all`, `ensure_async`, `ensure_all_async`, `outstanding`, `add_listener`, `open_settings`, `report_failed_use`, `report_use_ok`, `note_reset`, `note_app_activated`, `refresh_episodes`, `invalidate`, `check_deep`, `app_info`, `can_request`, `attach_bus`. No framework import at module scope, no I/O at import (AP-26); off macOS `ensure` returns NOT_REQUIRED before the port is asked anything. Resolves the port per call, so test stubs apply. |
-| Protocol | `jarvis/core/protocols.py`, `PermissionGate` | `check`, `ensure`, `ensure_async`, `ensure_all`, `open_settings`. Consumers receive the gate through an injectable hook with a default resolver to the service singleton; `tests/fakes/fake_permission_service.py` injects there. `force_ask`, `report_failed_use`, `report_use_ok`, `note_reset` and `add_listener` are service-only; consumers reach them by capability lookup. |
-| Consumers | audio, speech pipeline, desktop app gates, computer use, screen capture (`jarvis/platform/screen_access.py`) and context, dictation insert, window control, ducking, hotkeys | Low-level helpers only `check()` and degrade silently; interactive `ensure` exists only at entry points that carry a user gesture (4.6). |
-| Routes | `jarvis/ui/web/permissions_routes.py` | Passive snapshot v2 and single-row GETs; `POST /{id}/request`, `/open-settings`, `/reset` (4.9). The toast calls `request` and `open-settings`; the CI probe, the CLI and agents read the snapshot. `/reset` has no UI caller any more and still refuses scripts. |
-| CLI | `jarvis/cli_ctl/commands/permissions.py` | `jarvis permissions status`, `request`, `open-settings` (all through the routes) and `reset`, which runs `/usr/bin/tccutil` locally and never uses the route (4.16). |
-| Events | `jarvis/core/events.py` | `PermissionNeeded`, `PermissionResolved` over the existing `/ws` wildcard forwarder (4.9). |
-| Frontend | `jarvis/ui/web/frontend/src` (the frontend paths on this page are relative to it) | One toast (4.10): the event twin `lib/permissionEvents.ts`, the planner and state `lib/permissionToast.ts`, the app's existing toast layer and store (`components/ToastLayer.tsx`, `store/events.ts`) and the `permissions.toast.*` strings. Nothing else renders a permission. |
+| Port (OS adapter) | `dodaios/platform/permissions.py`, `SystemPermissionPort` | Live, uncached, non-prompting `state` reads (shallow by default); `request_native` (returns `dialog_shown`, `no_dialog`, `timed_out` or `unavailable`, never evidence of a grant); `usage_string_present`; `outside_installed_app`; `open_pane`; `reset_row` (own bundle id only). It decides nothing about whether a feature may run. Keeps `ACCEPTED_BUNDLE_IDS`, `AUTOMATION_TARGETS`, `PANE_FAMILY`, `REQUEST_CLASS` and the module-loader seams for fakes, plus `remove_leftover_state_files` (4.13). |
+| Service | `dodaios/platform/permission_service.py`, `PermissionService` | The just-in-time layer: `check`, `ensure`, `ensure_all`, `ensure_async`, `ensure_all_async`, `outstanding`, `add_listener`, `open_settings`, `report_failed_use`, `report_use_ok`, `note_reset`, `note_app_activated`, `refresh_episodes`, `invalidate`, `check_deep`, `app_info`, `can_request`, `attach_bus`. No framework import at module scope, no I/O at import (AP-26); off macOS `ensure` returns NOT_REQUIRED before the port is asked anything. Resolves the port per call, so test stubs apply. |
+| Protocol | `dodaios/core/protocols.py`, `PermissionGate` | `check`, `ensure`, `ensure_async`, `ensure_all`, `open_settings`. Consumers receive the gate through an injectable hook with a default resolver to the service singleton; `tests/fakes/fake_permission_service.py` injects there. `force_ask`, `report_failed_use`, `report_use_ok`, `note_reset` and `add_listener` are service-only; consumers reach them by capability lookup. |
+| Consumers | audio, speech pipeline, desktop app gates, computer use, screen capture (`dodaios/platform/screen_access.py`) and context, dictation insert, window control, ducking, hotkeys | Low-level helpers only `check()` and degrade silently; interactive `ensure` exists only at entry points that carry a user gesture (4.6). |
+| Routes | `dodaios/ui/web/permissions_routes.py` | Passive snapshot v2 and single-row GETs; `POST /{id}/request`, `/open-settings`, `/reset` (4.9). The toast calls `request` and `open-settings`; the CI probe, the CLI and agents read the snapshot. `/reset` has no UI caller any more and still refuses scripts. |
+| CLI | `dodaios/cli_ctl/commands/permissions.py` | `jarvis permissions status`, `request`, `open-settings` (all through the routes) and `reset`, which runs `/usr/bin/tccutil` locally and never uses the route (4.16). |
+| Events | `dodaios/core/events.py` | `PermissionNeeded`, `PermissionResolved` over the existing `/ws` wildcard forwarder (4.9). |
+| Frontend | `dodaios/ui/web/frontend/src` (the frontend paths on this page are relative to it) | One toast (4.10): the event twin `lib/permissionEvents.ts`, the planner and state `lib/permissionToast.ts`, the app's existing toast layer and store (`components/ToastLayer.tsx`, `store/events.ts`) and the `permissions.toast.*` strings. Nothing else renders a permission. |
 
 ### 4.4 Service contract
 
@@ -337,7 +337,7 @@ callers pass neither argument and behave as before:
   one producer of that reason: a consumer calls it after a real capture or tap failure while the
   state reads granted (or after the user returned from Settings and the preflight is still
   negative). Never an automatic restart (`_RESTART_HINT_FAMILIES` in
-  `jarvis/platform/permission_service.py`).
+  `dodaios/platform/permission_service.py`).
 - **Automation: `needs_settings`**, episode origin `background` by default. A send to ONE player
   (`target`, a bundle id from `AUTOMATION_TARGETS`; anything else is refused with UNAVAILABLE, opens
   no episode and is never echoed) was refused with `-1743` although the probe read GRANTED. It is
@@ -359,16 +359,16 @@ callers pass neither argument and behave as before:
 
 It has three callers, all exercised only against fakes:
 
-- Input Monitoring: `jarvis/trigger/backends/quartz.py` (`report_if_deaf`), once per tap when the
+- Input Monitoring: `dodaios/trigger/backends/quartz.py` (`report_if_deaf`), once per tap when the
   tap runs, the grant is visible, no raw event arrived, Secure Event Input is off and key activity
   was seen. A raw event arriving later ends the episode again (`note_reset`).
-- Screen Recording: `jarvis/platform/screen_access.py` (`_unusable_grant_refusal`, reached from
+- Screen Recording: `dodaios/platform/screen_access.py` (`_unusable_grant_refusal`, reached from
   `verify_frame_is_real`), when the state reads granted yet other apps' windows show no readable
   title. Only a user-started capture reports; a background capture stays quiet. A later frame whose
   window list shows a readable title ends the episode (`_clear_failed_use`, through `note_reset`).
-  `jarvis/cu/capture.py` deliberately does not report for a native-capture timeout while the grant
+  `dodaios/cu/capture.py` deliberately does not report for a native-capture timeout while the grant
   reads live, because nothing failed for good there.
-- Automation: `jarvis/audio/ducking/macos.py` (`mute_others`, a voice session start), when the
+- Automation: `dodaios/audio/ducking/macos.py` (`mute_others`, a voice session start), when the
   duck script to a player whose probe read GRANTED fails with `-1743`. The player is skipped for
   that session (the other player still ducks), and the ducker reports with `reason="needs_settings"`
   and `origin="background"` on the player's bounded call slot (never longer than the probe timeout:
@@ -445,26 +445,26 @@ caller uses `check()` or `wait_s=0`.
 
 | Site | Context | Behaviour |
 |---|---|---|
-| `jarvis/audio/capture.py`, `MicrophoneCapture` | async | One `ensure_async` at open (`permission_feature`, `interactive`). No per-frame or 0.25 s probes. The watchdog's existing 1 s tick calls `check(MICROPHONE)`; a revoke raises `MicrophoneAccessError` (carries the `EnsureResult`). **Digital-silence guard:** 5 s of exact zeros while the OS says granted triggers one re-check and one `PermissionNeeded` ("access is probably denied or muted"); unverified on a Mac. Restarts are non-interactive. |
-| `jarvis/ui/desktop_app.py` gates, `jarvis/speech/pipeline.py` | loop | Two silent predicates: background capture (wake word, barge-in) needs a live GRANTED; a user gesture (push-to-talk, a voice session, dictation) needs "not denied", because the gesture itself asks. The wake loop parks on a reload event set by `PermissionResolved(microphone)`, never a 2 s churn. First press: `ensure("microphone", wait_s=0)`. |
-| `jarvis/ui/web/settings_routes.py` | route | Wake switch on: blocking `ensure(wait_s=0)` from the sync handler (a worker thread); the response carries `permission:{outcome, reason, can_open_settings}`. Wake self-test: `ensure_async(wait_s=60)`. GET mic-level uses `check` only. Mute-music PUT asks only when switching on with a player running. `PUT /api/settings/keybinds` asks for Input Monitoring after the save (4.5): blocking `ensure(wait_s=0)`, macOS only, only for a bound combo and only while the key tap is not listening; `GET /api/settings/keybinds` never asks. |
-| `jarvis/cu/actuate/base.py` | tool body, worker | `ensure_all([ACCESSIBILITY], wait_s=0)` after the executor authorised the call; non-granted raises `PermissionNeededError`, whose text starts `[permission_needed:accessibility] `. `ToolResult` is unchanged. |
-| `jarvis/cu/engine.py` `_dispatch_tool` | worker | Keeps a **silent** Screen Recording gate before every engine action (the AP-3 choke point and the blind-input guard), never interactive there; maps the `[permission_needed:` prefix to a terminal `blocked_permission` mission state with a user Retry, not a model retry loop. **System-consent guard:** while a macOS consent window is frontmost (`jarvis/cu/system_dialogs.py`, an owner-name list that is itself unverified) nothing is dispatched. |
-| `jarvis/cu/capture.py`, `jarvis/platform/screen_access.py`, `screen_snapshot`, screen context (`jarvis/screen_context/service.py`) | mixed | Helpers `check()` and degrade; gesture entries (`require_screen_recording[_async]`, `wait_s=0`) ask. A screen-context capture is always a user gesture, so its silent probe is followed by one `require_screen_recording_async`; the status route only runs the silent probe. `verify_frame_is_real` runs a pixel sanity check after the grab while the state claims GRANTED (other apps' windows on screen with no readable title refuses with honest text, flat frame or not) and reports the failed use (4.4). GET status routes never prompt. |
-| `jarvis/vision/ax_tree.py`, `element_at_point.py` | worker | AX reads: `check()` and degrade, never a toast. |
-| `jarvis/platform/window_state.py` | worker | `ensure(ACCESSIBILITY, feature="window_control", wait_s=0)`; refusal text starts with the `[permission_needed:accessibility]` prefix. |
-| `jarvis/dictation/insert.py` | worker | First paste: `ensure(ACCESSIBILITY, feature="dictation_insert", wait_s=0)`; `clipboard_only` is a success state (the text is one paste away); `paste_sent` is the honest middle for the first paste after an in-process grant; never sends Return while a dialog could be frontmost. |
-| `jarvis/audio/ducking/macos.py` | worker | Switching on is the only asking path (`prewarm`, off every lock); `mute_others` is non-interactive: it skips and opens a `background` episode. A duck script refused with `-1743` although the read said GRANTED skips that player for the session and calls `report_failed_use(AUTOMATION, target=<player>, reason="needs_settings", origin="background")`; the next send that lands calls `report_use_ok` (only for a player that was reported; a gate without the methods gets a plain non-interactive `ensure`). The controller lock is never held across an ask, and every service call made while it is held is bounded by the probe timeout on the player's own call slot. |
-| `jarvis/trigger/hotkey.py`, `trigger/backends/quartz.py` | loop, tap thread | Requirement is Input Monitoring only. Boot start is silent. `HotkeyTrigger` registers a grant listener that re-arms the backend off the loop (`asyncio.to_thread`). The tap callback never calls `ensure` and takes no service lock; it reads a cached verdict. A raw-callback counter feeds `deaf_tap_suspected`, and `report_if_deaf` (worker thread) turns that into one `report_failed_use` per tap (4.4). |
+| `dodaios/audio/capture.py`, `MicrophoneCapture` | async | One `ensure_async` at open (`permission_feature`, `interactive`). No per-frame or 0.25 s probes. The watchdog's existing 1 s tick calls `check(MICROPHONE)`; a revoke raises `MicrophoneAccessError` (carries the `EnsureResult`). **Digital-silence guard:** 5 s of exact zeros while the OS says granted triggers one re-check and one `PermissionNeeded` ("access is probably denied or muted"); unverified on a Mac. Restarts are non-interactive. |
+| `dodaios/ui/desktop_app.py` gates, `dodaios/speech/pipeline.py` | loop | Two silent predicates: background capture (wake word, barge-in) needs a live GRANTED; a user gesture (push-to-talk, a voice session, dictation) needs "not denied", because the gesture itself asks. The wake loop parks on a reload event set by `PermissionResolved(microphone)`, never a 2 s churn. First press: `ensure("microphone", wait_s=0)`. |
+| `dodaios/ui/web/settings_routes.py` | route | Wake switch on: blocking `ensure(wait_s=0)` from the sync handler (a worker thread); the response carries `permission:{outcome, reason, can_open_settings}`. Wake self-test: `ensure_async(wait_s=60)`. GET mic-level uses `check` only. Mute-music PUT asks only when switching on with a player running. `PUT /api/settings/keybinds` asks for Input Monitoring after the save (4.5): blocking `ensure(wait_s=0)`, macOS only, only for a bound combo and only while the key tap is not listening; `GET /api/settings/keybinds` never asks. |
+| `dodaios/cu/actuate/base.py` | tool body, worker | `ensure_all([ACCESSIBILITY], wait_s=0)` after the executor authorised the call; non-granted raises `PermissionNeededError`, whose text starts `[permission_needed:accessibility] `. `ToolResult` is unchanged. |
+| `dodaios/cu/engine.py` `_dispatch_tool` | worker | Keeps a **silent** Screen Recording gate before every engine action (the AP-3 choke point and the blind-input guard), never interactive there; maps the `[permission_needed:` prefix to a terminal `blocked_permission` mission state with a user Retry, not a model retry loop. **System-consent guard:** while a macOS consent window is frontmost (`dodaios/cu/system_dialogs.py`, an owner-name list that is itself unverified) nothing is dispatched. |
+| `dodaios/cu/capture.py`, `dodaios/platform/screen_access.py`, `screen_snapshot`, screen context (`dodaios/screen_context/service.py`) | mixed | Helpers `check()` and degrade; gesture entries (`require_screen_recording[_async]`, `wait_s=0`) ask. A screen-context capture is always a user gesture, so its silent probe is followed by one `require_screen_recording_async`; the status route only runs the silent probe. `verify_frame_is_real` runs a pixel sanity check after the grab while the state claims GRANTED (other apps' windows on screen with no readable title refuses with honest text, flat frame or not) and reports the failed use (4.4). GET status routes never prompt. |
+| `dodaios/vision/ax_tree.py`, `element_at_point.py` | worker | AX reads: `check()` and degrade, never a toast. |
+| `dodaios/platform/window_state.py` | worker | `ensure(ACCESSIBILITY, feature="window_control", wait_s=0)`; refusal text starts with the `[permission_needed:accessibility]` prefix. |
+| `dodaios/dictation/insert.py` | worker | First paste: `ensure(ACCESSIBILITY, feature="dictation_insert", wait_s=0)`; `clipboard_only` is a success state (the text is one paste away); `paste_sent` is the honest middle for the first paste after an in-process grant; never sends Return while a dialog could be frontmost. |
+| `dodaios/audio/ducking/macos.py` | worker | Switching on is the only asking path (`prewarm`, off every lock); `mute_others` is non-interactive: it skips and opens a `background` episode. A duck script refused with `-1743` although the read said GRANTED skips that player for the session and calls `report_failed_use(AUTOMATION, target=<player>, reason="needs_settings", origin="background")`; the next send that lands calls `report_use_ok` (only for a player that was reported; a gate without the methods gets a plain non-interactive `ensure`). The controller lock is never held across an ask, and every service call made while it is held is bounded by the probe timeout on the player's own call slot. |
+| `dodaios/trigger/hotkey.py`, `trigger/backends/quartz.py` | loop, tap thread | Requirement is Input Monitoring only. Boot start is silent. `HotkeyTrigger` registers a grant listener that re-arms the backend off the loop (`asyncio.to_thread`). The tap callback never calls `ensure` and takes no service lock; it reads a cached verdict. A raw-callback counter feeds `deaf_tap_suspected`, and `report_if_deaf` (worker thread) turns that into one `report_failed_use` per tap (4.4). |
 
 ### 4.7 Boot rule
 
 With every permission `not_determined` (including `wake_word_enabled=True`), launch makes **no
 OS dialog, no input-stream open, no event-tap creation and no capture call**; an upgrader with
 every grant present sees zero toasts and zero requests. The service singleton is lazy; boot order:
-construct (no I/O), then `attach_bus(bus, loop)` in `jarvis/ui/desktop_app.py` right after the
+construct (no I/O), then `attach_bus(bus, loop)` in `dodaios/ui/desktop_app.py` right after the
 `WebServer` constructor (before the speech task can ask for the microphone) and again as the first
-line of `WebServer.start()` in `jarvis/ui/web/server.py`; the call only stores two references. `scripts/ci/check_boot_budget.py` runs after touching startup. Tests that
+line of `WebServer.start()` in `dodaios/ui/web/server.py`; the call only stores two references. `scripts/ci/check_boot_budget.py` runs after touching startup. Tests that
 pin it: `tests/unit/speech/test_voice_permission_jit.py` (boot with all `not_determined`, boot of
 an upgrader, boot on a non-macOS host) and `tests/unit/ui/test_desktop_macos_permission_gate.py`.
 
@@ -506,8 +506,8 @@ an upgrader, boot on a non-macOS host) and `tests/unit/ui/test_desktop_macos_per
 
 ### 4.9 Events and snapshot v2
 
-Events (frozen dataclasses in `jarvis/core/events.py`, AP-4 parity: Python tuples regex-read
-against the TypeScript twin `jarvis/ui/web/frontend/src/lib/permissionEvents.ts`):
+Events (frozen dataclasses in `dodaios/core/events.py`, AP-4 parity: Python tuples regex-read
+against the TypeScript twin `dodaios/ui/web/frontend/src/lib/permissionEvents.ts`):
 
 - `PERMISSION_FEATURES`: `voice`, `dictation`, `wake_word`, `computer_use`, `screen_context`,
   `appshot`, `window_control`, `dictation_insert`, `global_shortcuts`, `audio_ducking`,
@@ -642,7 +642,7 @@ never reports. Outside the embedded Mac window the browser's own sentence stays.
 
 **Kept unchanged** (they are the other feedback layers, not permission chrome): the native bar and orb
 text for a refused dictation (`ui/orb/bus_bridge.py`, en/de/es), the spoken computer-use readbacks
-(`jarvis/voice/action_phrases.py`, regex-only, AP-11), the `DictationRefused` and
+(`dodaios/voice/action_phrases.py`, regex-only, AP-11), the `DictationRefused` and
 `ErrorOccurred(ui.web.dictation)` handling that resets the recording pill, and the
 `permissions.restart_failed`, `topbar.restart_missions_running` and `sidebar.realtime_microphone_*`
 strings. The sidebar "Mic blocked" line and the voice-warming banner's blocked line are gone with the rest.
@@ -671,15 +671,15 @@ asked of the user. Build and appearance results are not recorded on this page (7
 Stable signed identity (BUG-060, 217, 223); live uncached state reads; the own-bundle `tccutil
 reset` (the route from the installed app, the local `jarvis permissions reset` for the person, 4.16;
 and the one reset the managed installer runs when a rebuild changed
-the bundle's signing identity, `_reset_after_identity_change` in `jarvis/setup/macos_app_bundle.py`;
+the bundle's signing identity, `_reset_after_identity_change` in `dodaios/setup/macos_app_bundle.py`;
 the explanatory marker it used to leave is gone); the restart *hint* (never a forced restart); the honest
 wallpaper-only and zero-audio checks; the CI probe of the built app (`scripts/ci/check_frozen_macos_app.py`);
-acceptance of both bundle ids (`ACCEPTED_BUNDLE_IDS` in `jarvis/platform/permissions.py`) for the
+acceptance of both bundle ids (`ACCEPTED_BUNDLE_IDS` in `dodaios/platform/permissions.py`) for the
 reset gate and the outside-app logic.
 
 ### 4.12 Packaging
 
-- **One usage-string table:** `jarvis/core/macos_privacy_strings.py`, stdlib-only, loaded by path
+- **One usage-string table:** `dodaios/core/macos_privacy_strings.py`, stdlib-only, loaded by path
   from `jarvis.spec` and from the managed bundle's `Info.plist` writer, so the two apps cannot
   drift. Keys: microphone, screen capture (parity, effect unverified), Apple events, Desktop,
   Documents, Downloads, removable volumes, network volumes, local network. A parity test and the
@@ -695,7 +695,7 @@ reset gate and the outside-app logic.
   `packaging/macos/build.sh` runs on the finished `.app` BEFORE it signs it (the files are part of
   the code seal, so one added later would break the signature and the notarization); the
   languages are declared by `jarvis.spec`. The managed bundle writes the same files when it lays
-  out the bundle (`jarvis/setup/macos_app_bundle.py`). `scripts/ci/check_frozen_macos_app.py` asserts
+  out the bundle (`dodaios/setup/macos_app_bundle.py`). `scripts/ci/check_frozen_macos_app.py` asserts
   the two plist keys and that each `.strings` file equals the table. The bundle format version is
   **not** bumped (a bump would rebuild every installed bundle, and an ad-hoc rebuild is a new
   identity that re-asks every permission): an installed managed bundle carries the new strings after
@@ -721,7 +721,7 @@ reset gate and the outside-app logic.
 Consumer-visible: the banner and its dismissal store, the wizard and its polling, the onboarding
 permissions step, the readiness aggregate in the snapshot (`features`), `wanted`, `active`,
 `identity_reset`, the global `restart_required` and `foreground`; then, in the UI reset of
-2026-10-02, the whole custom permission UI (4.10) and, on the backend, `jarvis/trigger/
+2026-10-02, the whole custom permission UI (4.10) and, on the backend, `dodaios/trigger/
 shortcuts_status.py` with the `shortcuts_status` field of `GET /api/settings/keybinds` and
 `HotkeyTrigger.deaf_tap_suspected()` (the shortcut status note was their only reader; the
 backend-level `deaf_tap_suspected` that feeds `report_if_deaf` stays). The routes and snapshot v2
@@ -732,9 +732,9 @@ aggregation, and (BUG-159 fix f) `_reset_or_explain`.
 **State of the port (checked by grep, 2026-10-02):** the old members `FEATURE_REQUIREMENTS`,
 `active_features`, `runtime_access_granted` and `runtime_feature_ready`, the legacy `snapshot()` /
 `request()`, `identity_reset_*` and `automation_consent_path` are deleted from
-`jarvis/platform/permissions.py` and from `jarvis/platform/probes.py` (`screen_recording_granted`).
+`dodaios/platform/permissions.py` and from `dodaios/platform/probes.py` (`screen_recording_granted`).
 `tests/unit/platform/test_no_legacy_permission_api.py` fails if any of those names returns to
-`jarvis/`, `scripts/` or `.github/`. The macOS CI step that asserted the old behaviour was replaced
+`dodaios/`, `scripts/` or `.github/`. The macOS CI step that asserted the old behaviour was replaced
 by "Verify headless permission asks fail closed" (the name is historical): it replaces the three
 native request seams with tripwires, then asserts that outside an installed bundle `ensure`
 requests nothing (`asked` is false) and that nothing but a granted state reads as granted. Two more
@@ -766,7 +766,7 @@ stored onboarding step `permissions` are ignored or mapped to `voice`, and never
 ### 4.15 Global hotkeys: stage S0 now, a Carbon backend later
 
 **Facts [code]:** on macOS global shortcuts use `QuartzHotkeyBackend`, a listen-only event tap
-(`jarvis/trigger/backends/quartz.py`); pynput is the Linux X11 backend. Before this change the
+(`dodaios/trigger/backends/quartz.py`); pynput is the Linux X11 backend. Before this change the
 tap required both Accessibility and Input Monitoring, which is stricter than Apple's rule
 (listen-only needs Input Monitoring only [A, WWDC19 session 701]).
 
@@ -776,8 +776,8 @@ save of a shortcut; the first status note was deleted again, 4.10); stale texts 
 `received_any_event()` liveness signal. A restart hint appears only when the preflight is true and
 no raw event arrived after the user typed (an explicit "still not working" report would need its
 own route and UI and does not exist); never an automatic restart. The Appshot both-Option gesture is **not** an Input Monitoring row: its
-permission need is unverified (`jarvis/appshot/gesture.py` records that it is unverified whether the
-`CGEventSourceKeyState` Option-key read needs Input Monitoring; `jarvis/trigger/hotkey.py` notes that
+permission need is unverified (`dodaios/appshot/gesture.py` records that it is unverified whether the
+`CGEventSourceKeyState` Option-key read needs Input Monitoring; `dodaios/trigger/hotkey.py` notes that
 the sibling `CGEventSourceFlagsState` read needs no event tap and no Accessibility grant, and says
 nothing about Input Monitoring; neither read was measured on a Mac); nothing in the app asks or says anything about it.
 
@@ -906,7 +906,7 @@ real `tccutil` accepts each service name and really removes the entry is unverif
 | A10 | There is no persisted "asked" memory; the once-per-process and cooldown rules are in memory. |
 | A11 | The PROMPT-ONCE shape (the dialog only offers "Open System Settings") is community-observed, not Apple-documented. |
 | A12 | The timing figures (15 s "blocked" after a PROMPT-ONCE request, 130 s DIALOG ceiling, 10 s oracle cadence, 120 s and 600 s cooldowns, the 5 s zero-audio window) are our own choices, not Apple's. |
-| A13 | The list of system consent window owner names in `jarvis/cu/system_dialogs.py` is unverified; a miss leaves the other layers (prohibitive agent text, the grant itself) in force. |
+| A13 | The list of system consent window owner names in `dodaios/cu/system_dialogs.py` is unverified; a miss leaves the other layers (prohibitive agent text, the grant itself) in force. |
 | A14 | An `osascript` child is attributed to the app for Automation (the ducking sender); unverified. Apple documents `-1743` only as an error code; its behaviour after a grant on a real Mac is unverified. A `-1743` after a GRANTED read is reported as one background `needs_settings` episode naming the player (`report_failed_use`, 4.4) and ends only when a later send lands (`report_use_ok`). |
 | A15 | `tccutil reset` for the system-wide services (`ScreenCapture`, `Accessibility`, `ListenEvent`, `PostEvent`) may need elevated rights or may toggle rather than delete [D thread 788454]; `jarvis permissions reset` for them is unverified (the route additionally verifies the state after a reset; the local command only reports the exit status of `tccutil`). |
 | A16 | Keeping `NSScreenCaptureUsageDescription` is harmless; whether macOS uses it is unverified in both directions. |
@@ -921,12 +921,12 @@ Everything below is **unverified on a physical Mac**. "Closes with" refers to ro
 
 | # | Risk or open point | Why it matters | What the code does today | Closes with |
 |---|---|---|---|---|
-| R1 | **WKWebView `getUserMedia` double dialog.** In the embedded window, `getUserMedia` reaches the same microphone permission; WebKit's own media-capture decision (`WKUIDelegate`) is additional. No handler exists in `jarvis/`. | A user may see two prompts, or WebKit may deny after TCC allowed. | Since the UI reset the app no longer asks before `getUserMedia`: macOS asks when the web view first opens the microphone, and a refusal in the embedded Mac window shows a desktop-worded sentence under the realtime control and is reported once, from the person's own press, to the service (feature `browser_voice`), which opens a user-origin episode so the one toast ("Open System Settings") takes over. The delegate grant is a tracked open item (A5). | M-MIC-3 |
+| R1 | **WKWebView `getUserMedia` double dialog.** In the embedded window, `getUserMedia` reaches the same microphone permission; WebKit's own media-capture decision (`WKUIDelegate`) is additional. No handler exists in `dodaios/`. | A user may see two prompts, or WebKit may deny after TCC allowed. | Since the UI reset the app no longer asks before `getUserMedia`: macOS asks when the web view first opens the microphone, and a refusal in the embedded Mac window shows a desktop-worded sentence under the realtime control and is reported once, from the person's own press, to the service (feature `browser_voice`), which opens a user-origin episode so the one toast ("Open System Settings") takes over. The delegate grant is a tracked open item (A5). | M-MIC-3 |
 | R2 | **macOS 27 pane naming.** The Accessibility pane is reported renamed; whether the `Privacy_Accessibility` anchor still resolves is unknown. `NSWorkspace.openURL` returns success even when the wrong pane opens. | The "Open System Settings" button could land on the wrong page. | The toast sentence names no pane; the app quits a running System Settings before opening a pane, unless this process last opened the same pane (an approximation: the user may have navigated since). | M-AX-4 |
 | R3 | **Screen Recording restart conflict.** Reports conflict on whether a running process sees the grant. | Wrong either way: a forced restart annoys, no restart leaves a dead feature. | Re-probe (shallow preflight, then the window-title oracle), try a real capture, offer "Quit and reopen" only after a real failure. | M-SR-4 |
 | R4 | **Accessibility re-prompt and attribution.** The prompt call may show again while untrusted [C]; a Ventura toggle bug returned wrong values [C]. | Nagging or a false "granted". | Rate-limited to once per 10 minutes per process; the paste after an in-process grant reports `paste_sent`. | M-AX-2, M-AX-3 |
 | R5 | **Attribution of child processes.** DTS says the algorithm is undocumented; helper binaries have been separate TCC clients in other products. | The ducker's `osascript`, `screencapture`, ffmpeg or agent CLIs may need their own grant, or may be attributed to Terminal in a dev run. | Expected, not guaranteed. A `-1743` from the ducker's `osascript` after a granted read is reported as a background `needs_settings` episode that names the player (4.4, 4.9). No in-app text about attribution exists (there is no permission page); saying that a grant applies to Dodaios and the tools it starts only as far as macOS attributes them stays a documentation point (the user guide). | M-DEV-1, M-AUTO-3 |
-| R6 | **Appshot both-Option need.** Unverified whether the `CGEventSourceKeyState` Option-key read needs Input Monitoring (`jarvis/appshot/gesture.py`); `jarvis/trigger/hotkey.py` notes that the sibling `CGEventSourceFlagsState` read needs no event tap and no Accessibility grant, and says nothing about Input Monitoring; neither read was measured on a Mac. | It is the default Appshot shortcut and has no gesture that "enables" it. | Not an Input Monitoring row; nothing asks or says anything about it. The runner spike can read it, but runners cannot prove the permission outcome for a real user. | M-HK-5 |
+| R6 | **Appshot both-Option need.** Unverified whether the `CGEventSourceKeyState` Option-key read needs Input Monitoring (`dodaios/appshot/gesture.py`); `dodaios/trigger/hotkey.py` notes that the sibling `CGEventSourceFlagsState` read needs no event tap and no Accessibility grant, and says nothing about Input Monitoring; neither read was measured on a Mac. | It is the default Appshot shortcut and has no gesture that "enables" it. | Not an Input Monitoring row; nothing asks or says anything about it. The runner spike can read it, but runners cannot prove the permission outcome for a real user. | M-HK-5 |
 | R7 | **Autostart notice.** The LaunchAgent runs `/usr/bin/open` without `AssociatedBundleIdentifiers`, so Login Items shows the program or organisation name, and macOS posts its own "Background Items Added" notice [A for attribution, C for the notice]. | Looks like an unexplained permission prompt. | Autostart stays default-on (A1); documented as a product decision. | M-LOGIN-1 |
 | R8 | **Hardened-runtime entitlements never ran on a notarized build.** | A missing `audio-input` entitlement silently suppresses the microphone prompt [C, D]. | The probe asserts `codesign -d --entitlements :-` on a signed build; every runner build so far was ad-hoc signed. | M-SIGN-1 |
 | R9 | **Keyboard-layout and input-source collision.** The default dictation toggle chord equals a macOS input-source shortcut when several input sources exist [I]. | A dead shortcut that is not a permission problem. | Not changed. | M-HK-4 |
@@ -938,7 +938,7 @@ Everything below is **unverified on a physical Mac**. "Closes with" refers to ro
 
 Follow-ups, not part of this change: the Carbon backend (4.15), macOS Call/Hangup defaults, the
 `WKUIDelegate` media-capture grant, `AssociatedBundleIdentifiers` for the LaunchAgent, a
-`Capabilities.ax_permission_granted` cleanup (the probe still exists in `jarvis/platform/probes.py`
+`Capabilities.ax_permission_granted` cleanup (the probe still exists in `dodaios/platform/probes.py`
 and feeds the capability record), a `report_failed_use` path for Accessibility input (4.4; the
 Automation path for ducking exists), and any per-turn computer-use permission message (cut from v1: the one toast plus the mission's `blocked_permission` ending; a deck journal
 line by trace id was never built). Also open: a window-focus caller for the `?activated=1` hint (4.9), and a surface for a deaf
@@ -963,7 +963,7 @@ built. Each row is a check that fakes and Linux gates cannot make.
   provider.
 - **Where things are (UI strings from `en.json`):** there is **no** permissions page and no
   **Privacy** entry in Settings. The dictation keys are on **Voice > Shortcuts** ("Push to talk",
-  "Hands-free"); read them there and write them down: the defaults in `jarvis/core/config.py` are
+  "Hands-free"); read them there and write them down: the defaults in `dodaios/core/config.py` are
   `ctrl+right_alt+j` (hold to talk) and `ctrl+right_alt+space` (press to start, press again to
   stop); on a Mac keyboard record what the page shows for the right-hand Alt key. Saving a
   shortcut is possible on **Voice > Shortcuts**, on the **Keyboard shortcuts** page and under
@@ -978,7 +978,7 @@ built. Each row is a check that fakes and Linux gates cannot make.
 
 ### 7.1 Setup, identities and reset commands
 
-- Bundle ids used by the repo (`jarvis/core/branding.py`, `ACCEPTED_BUNDLE_IDS`):
+- Bundle ids used by the repo (`dodaios/core/branding.py`, `ACCEPTED_BUNDLE_IDS`):
   - `.dmg` app: **`ai.personaljarvis.desktop`**;
   - managed source-install app: **`com.personal-jarvis.desktop`**.
 - Each is a separate TCC client with separate grants. Test each one; always reset the id of the
@@ -1028,7 +1028,7 @@ Single services, used by the rows in 7.3 (`<id>` is the bundle id under test):
 | M-FRESH-2 | Fresh install (managed app) | Same loop for `com.personal-jarvis.desktop`; install with the one-line installer (7.0) | Same as M-FRESH-1, including the voice-step microphone dialog | | |
 | M-FRESH-3 | Boot with the wake word on and nothing granted | Enable the wake word in a previous run, quit the app, run the microphone reset for the app under test, start the app | No dialog at launch; no input stream opened; no toast (the wake loop only parks); record whether anything is visible. After pressing the dictation button the dialog appears. Separately deny the microphone and restart: exactly one toast "The wake word cannot listen: microphone access is off for Dodaios." with **Open System Settings**, once per app session | | |
 | M-UPG-1 | Upgrader with all grants present | Grant everything, then update or restart the app | Zero toasts, zero requests, features work at once | | |
-| M-DEV-1 | Terminal-launched dev run (outside the installed app) | `python -m jarvis` (or the dev launcher) from a terminal | The outside-app path: no native request without the confirmation. After a user-started use, the toast says Dodaios is not running as an installed app and offers **Ask macOS now**; pressing it asks macOS, whose dialog names the terminal app as the grantee. A "granted" state here proves nothing about the installed app | | |
+| M-DEV-1 | Terminal-launched dev run (outside the installed app) | `python -m dodaios` (or the dev launcher) from a terminal | The outside-app path: no native request without the confirmation. After a user-started use, the toast says Dodaios is not running as an installed app and offers **Ask macOS now**; pressing it asks macOS, whose dialog names the terminal app as the grantee. A "granted" state here proves nothing about the installed app | | |
 | M-APP-1 | `.dmg` app versus managed app | Grant the microphone to one, start the other | The other app is not granted and asks on its own first use | | |
 | M-ARCH-1 | Intel and Apple Silicon | Repeat M-FRESH-1 and the microphone and Screen Recording rows on one Mac of each architecture | Same behaviour; record any difference | | |
 | M-UI-1 | Light and dark appearance of the toast | Trigger a blocked episode (deny the microphone, press **Dictate** again) in light and in dark mode, and over a terminal pane | One toast in the top-right column: the app's normal toast look (nothing different from, say, a "saved" toast except its button), one sentence, the button **Open System Settings**; legible and on theme tokens in both modes, does not cover the terminal controls, does not take focus from the dictation target, stays about 20 s, closes on the X and on the button. Record how it looks in the real WebView | | |

@@ -1,4 +1,4 @@
-"""``jarvis.core.frozen`` — the install-kind probe, exercised by patching ``sys``."""
+"""``dodaios.core.frozen`` — the install-kind probe, exercised by patching ``sys``."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import frozen
+from dodaios.core import frozen
 
 
 def test_not_frozen_in_a_plain_interpreter() -> None:

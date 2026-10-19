@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.marketplace.auth import HostedMcpDcrHandler, PkceLoopbackHandler
-from jarvis.marketplace.catalog import HostedMcpOAuthDcrAuth, OAuthPkceLoopbackAuth
-from jarvis.marketplace.connect_helpers import (
+from dodaios.marketplace.auth import HostedMcpDcrHandler, PkceLoopbackHandler
+from dodaios.marketplace.catalog import HostedMcpOAuthDcrAuth, OAuthPkceLoopbackAuth
+from dodaios.marketplace.connect_helpers import (
     build_handler_from_catalog,
     connected_plugin_ids,
     is_placeholder_client_id,
     resolve_pkce_client,
 )
-from jarvis.marketplace.publisher_clients import SHIPPED_PUBLIC_CLIENT_IDS
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.marketplace.publisher_clients import SHIPPED_PUBLIC_CLIENT_IDS
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 
 
 class _Spec:
@@ -38,7 +38,7 @@ class _Catalog:
 
 def test_connected_plugin_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog",
+        "dodaios.marketplace.catalog_data.load_catalog",
         lambda: _Catalog([_Spec("notion"), _Spec("linear"), _Spec("github")]),
     )
     store = TokenStore(InMemoryBackend())
@@ -49,7 +49,7 @@ def test_connected_plugin_ids(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_build_handler_unknown_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog", lambda: _Catalog([])
+        "dodaios.marketplace.catalog_data.load_catalog", lambda: _Catalog([])
     )
     assert build_handler_from_catalog("nope") is None
 
@@ -58,7 +58,7 @@ def test_build_handler_pat_paste_returns_none(monkeypatch: pytest.MonkeyPatch) -
     # A spec whose auth is not an OAuth handler (e.g. pat_paste) has no
     # refreshable handler.
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog",
+        "dodaios.marketplace.catalog_data.load_catalog",
         lambda: _Catalog([_Spec("vercel", auth=object())]),
     )
     assert build_handler_from_catalog("vercel") is None
@@ -73,7 +73,7 @@ def test_build_handler_dcr_returns_dcr_handler(
         mcp_url="https://mcp.notion.test",
     )
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog",
+        "dodaios.marketplace.catalog_data.load_catalog",
         lambda: _Catalog([_Spec("notion", auth=auth)]),
     )
     handler = build_handler_from_catalog("notion")
@@ -119,7 +119,7 @@ def test_gmail_handler_uses_google_secret_over_catalog_placeholder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog",
+        "dodaios.marketplace.catalog_data.load_catalog",
         lambda: _Catalog([_Spec("gmail", auth=_gmail_auth())]),
     )
 
@@ -129,7 +129,7 @@ def test_gmail_handler_uses_google_secret_over_catalog_placeholder(
             "google_oauth_client_secret": "GOCSPX-realsecret",
         }.get(key)
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", fake_secret)
+    monkeypatch.setattr("dodaios.core.config.get_secret", fake_secret)
 
     handler = build_handler_from_catalog("gmail")
     assert isinstance(handler, PkceLoopbackHandler)
@@ -143,11 +143,11 @@ def test_gmail_handler_uses_shipped_client_and_broker_when_no_secret(
     # No secret configured -> the shipped Google client wins over the catalog
     # value, carries no secret, and routes its token calls through the broker.
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog",
+        "dodaios.marketplace.catalog_data.load_catalog",
         lambda: _Catalog([_Spec("gmail", auth=_gmail_auth())]),
     )
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret", lambda key, env_fallback=None: None
+        "dodaios.core.config.get_secret", lambda key, env_fallback=None: None
     )
 
     handler = build_handler_from_catalog("gmail")
@@ -167,11 +167,11 @@ def test_gmail_handler_falls_back_to_catalog_without_a_shipped_client(
     real_in_catalog = "catalog-456.apps.googleusercontent.com"
     monkeypatch.delitem(SHIPPED_PUBLIC_CLIENT_IDS, "google")
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog",
+        "dodaios.marketplace.catalog_data.load_catalog",
         lambda: _Catalog([_Spec("gmail", auth=_gmail_auth(client_id=real_in_catalog))]),
     )
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret", lambda key, env_fallback=None: None
+        "dodaios.core.config.get_secret", lambda key, env_fallback=None: None
     )
 
     handler = build_handler_from_catalog("gmail")
@@ -195,11 +195,11 @@ def test_non_google_pkce_ignores_google_secret(
     )
     monkeypatch.delitem(SHIPPED_PUBLIC_CLIENT_IDS, "slack")
     monkeypatch.setattr(
-        "jarvis.marketplace.catalog_data.load_catalog",
+        "dodaios.marketplace.catalog_data.load_catalog",
         lambda: _Catalog([_Spec("slack", auth=slack_auth)]),
     )
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: "google-leak.id"
         if "google" in key
         else None,
@@ -217,7 +217,7 @@ def test_resolve_pkce_client_google_prefers_secret(
     # scheduler, so the operator's real Google client is used at connect-time
     # AND refresh-time — a placeholder catalog client is overridden in both.
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: {
             "google_oauth_client_id": "rid.apps.googleusercontent.com",
             "google_oauth_client_secret": "GOCSPX-x",
@@ -234,7 +234,7 @@ def test_resolve_pkce_client_unmapped_passthrough(
     # A PKCE plugin with no own-client family mapping returns the catalog values
     # unchanged and never reads a secret (defensive: no accidental hijack).
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: "should-not-be-used",
     )
     cid, csec = resolve_pkce_client("some_future_pkce", "cat.id", "cat.secret")
@@ -249,7 +249,7 @@ def test_resolve_pkce_client_slack_prefers_secret(
     # secrets, exactly like the Google family — so a downloader can run their own
     # production Slack app instead of the maintainer's catalog client.
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: {
             "slack_oauth_client_id": "111.222",
             "slack_oauth_client_secret": "slack-sec",
@@ -264,7 +264,7 @@ def test_resolve_pkce_client_asana_prefers_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: {
             "asana_oauth_client_id": "asana-rid",
             "asana_oauth_client_secret": "asana-sec",
@@ -281,7 +281,7 @@ def test_resolve_pkce_client_slack_uses_shipped_client_when_no_secret(
     # No slack_oauth secret set -> the shipped Slack app, with no secret (its
     # broker holds it), beats the catalog value.
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret", lambda key, env_fallback=None: None
+        "dodaios.core.config.get_secret", lambda key, env_fallback=None: None
     )
     cid, csec = resolve_pkce_client("slack", "slack.real.id", "slack.real.secret")
     assert cid == SHIPPED_PUBLIC_CLIENT_IDS["slack"]
@@ -293,7 +293,7 @@ def test_resolve_pkce_client_slack_falls_back_to_catalog_without_shipped_client(
 ) -> None:
     monkeypatch.delitem(SHIPPED_PUBLIC_CLIENT_IDS, "slack")
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret", lambda key, env_fallback=None: None
+        "dodaios.core.config.get_secret", lambda key, env_fallback=None: None
     )
     cid, csec = resolve_pkce_client("slack", "slack.real.id", "slack.real.secret")
     assert cid == "slack.real.id"

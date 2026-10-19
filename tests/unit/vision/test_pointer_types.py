@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.vision.pointer_types import PointerElement
+from dodaios.vision.pointer_types import PointerElement
 
 
 def test_labeled_when_name_present() -> None:

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import tomllib
 
-from jarvis.core import config_writer
-from jarvis.core.config import DuckingConfig, JarvisConfig
+from dodaios.core import config_writer
+from dodaios.core.config import DuckingConfig, JarvisConfig
 
 
 def test_ducking_config_defaults():

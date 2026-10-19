@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import ollama_names as names
+from dodaios.brain import ollama_names as names
 
 
 @pytest.mark.parametrize(

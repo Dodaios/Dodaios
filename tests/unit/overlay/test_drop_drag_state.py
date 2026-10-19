@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.overlay.drop_target import NullDropTarget, OnDragState, TkDnDDropTarget
+from dodaios.overlay.drop_target import NullDropTarget, OnDragState, TkDnDDropTarget
 
 
 class _FakeEvent:

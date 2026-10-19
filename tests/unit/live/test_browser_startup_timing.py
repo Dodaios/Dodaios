@@ -3,13 +3,13 @@
 import re
 from pathlib import Path
 
-from jarvis.live.timing import BROWSER_PHASES, StartupTimings
+from dodaios.live.timing import BROWSER_PHASES, StartupTimings
 
 
 def test_frontend_startup_milestones_are_accepted_without_clock_conversion():
     source = (
         Path(__file__).resolve().parents[3]
-        / "jarvis/ui/web/frontend/src/lib/realtimeAudio.ts"
+        / "dodaios/ui/web/frontend/src/lib/realtimeAudio.ts"
     ).read_text(encoding="utf-8")
     phases = set(re.findall(
         r'\b(?:markStartup|markLocalStartup|onStartupPhase)(?:\?\.)?\(\s*"([^"]+)"',

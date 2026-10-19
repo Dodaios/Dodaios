@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.harness import screenshot_only_loop as sol
-from jarvis.platform import monitors as mon
-from jarvis.platform import window_state as ws
+from dodaios.harness import screenshot_only_loop as sol
+from dodaios.platform import monitors as mon
+from dodaios.platform import window_state as ws
 
 # The harness conftest autouse-stubs sol._ensure_target_on_primary to a no-op so
 # loop tests never move a real window. THIS file tests the real function, so we

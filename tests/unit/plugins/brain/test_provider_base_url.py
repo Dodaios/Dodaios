@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import jarvis.core.config as cfg
-from jarvis.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
+import dodaios.core.config as cfg
+from dodaios.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
 from tests.fakes.provider_config import install_provider_config
 
 
@@ -48,7 +48,7 @@ def test_openrouter_uses_override(monkeypatch):
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _override("openrouter", "https://proxy/p/openrouter/v1", monkeypatch)
-    from jarvis.plugins.brain.openrouter import OpenRouterBrain
+    from dodaios.plugins.brain.openrouter import OpenRouterBrain
 
     OpenRouterBrain()._ensure_client()
     assert _FakeOpenAI.last_kwargs["base_url"] == "https://proxy/p/openrouter/v1"
@@ -60,7 +60,7 @@ def test_openrouter_default_without_override(monkeypatch):
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _no_override(monkeypatch)
-    from jarvis.plugins.brain.openrouter import OpenRouterBrain
+    from dodaios.plugins.brain.openrouter import OpenRouterBrain
 
     OpenRouterBrain()._ensure_client()
     assert _FakeOpenAI.last_kwargs["base_url"] == "https://openrouter.ai/api/v1"
@@ -72,7 +72,7 @@ def test_nvidia_uses_override(monkeypatch):
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _override("nvidia", "https://proxy/p/nvidia/v1", monkeypatch)
-    from jarvis.plugins.brain.nvidia import NvidiaBrain
+    from dodaios.plugins.brain.nvidia import NvidiaBrain
 
     NvidiaBrain()._ensure_client()
     assert _FakeOpenAI.last_kwargs["base_url"] == "https://proxy/p/nvidia/v1"
@@ -84,7 +84,7 @@ def test_nvidia_default_without_override(monkeypatch):
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _no_override(monkeypatch)
-    from jarvis.plugins.brain.nvidia import NvidiaBrain
+    from dodaios.plugins.brain.nvidia import NvidiaBrain
 
     NvidiaBrain()._ensure_client()
     # No override → the vendor default NIM endpoint (mirrors OpenRouter).
@@ -99,11 +99,11 @@ def test_nvidia_uses_a_generous_read_timeout_not_the_voice_path_one(monkeypatch)
     ``connect`` stays short so a genuinely dead host still fast-fails."""
     import openai
 
-    from jarvis.plugins.brain._openai_base import CLIENT_TIMEOUT as SHARED
+    from dodaios.plugins.brain._openai_base import CLIENT_TIMEOUT as SHARED
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _no_override(monkeypatch)
-    from jarvis.plugins.brain.nvidia import NvidiaBrain
+    from dodaios.plugins.brain.nvidia import NvidiaBrain
 
     NvidiaBrain()._ensure_client()
     timeout = _FakeOpenAI.last_kwargs["timeout"]
@@ -118,7 +118,7 @@ def test_openai_uses_override(monkeypatch):
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _override("openai", "https://proxy/p/openai/v1", monkeypatch)
-    from jarvis.plugins.brain.openai import OpenAIBrain
+    from dodaios.plugins.brain.openai import OpenAIBrain
 
     OpenAIBrain()._ensure_client()
     assert _FakeOpenAI.last_kwargs["base_url"] == "https://proxy/p/openai/v1"
@@ -129,7 +129,7 @@ def test_openai_no_override_omits_base_url(monkeypatch):
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _no_override(monkeypatch)
-    from jarvis.plugins.brain.openai import OpenAIBrain
+    from dodaios.plugins.brain.openai import OpenAIBrain
 
     OpenAIBrain()._ensure_client()
     # No override + no vendor default → base_url omitted so the SDK uses its own default.
@@ -142,7 +142,7 @@ def test_claude_api_uses_override(monkeypatch):
 
     monkeypatch.setattr(anthropic, "AsyncAnthropic", _FakeAnthropic)
     _override("claude-api", "https://proxy/p/claude-api", monkeypatch)
-    from jarvis.plugins.brain.claude_api import ClaudeAPIBrain
+    from dodaios.plugins.brain.claude_api import ClaudeAPIBrain
 
     ClaudeAPIBrain()._ensure_client()
     assert _FakeAnthropic.last_kwargs["base_url"] == "https://proxy/p/claude-api"
@@ -154,7 +154,7 @@ def test_claude_api_no_override_omits_base_url(monkeypatch):
 
     monkeypatch.setattr(anthropic, "AsyncAnthropic", _FakeAnthropic)
     _no_override(monkeypatch)
-    from jarvis.plugins.brain.claude_api import ClaudeAPIBrain
+    from dodaios.plugins.brain.claude_api import ClaudeAPIBrain
 
     ClaudeAPIBrain()._ensure_client()
     assert "base_url" not in _FakeAnthropic.last_kwargs
@@ -166,7 +166,7 @@ def test_gemini_uses_override(monkeypatch):
 
     monkeypatch.setattr(genai, "Client", _FakeGenaiClient)
     _override("gemini", "https://proxy/p/gemini", monkeypatch)
-    from jarvis.plugins.brain.gemini import GeminiBrain
+    from dodaios.plugins.brain.gemini import GeminiBrain
 
     GeminiBrain()._ensure_client()
     http_opts = _FakeGenaiClient.last_kwargs.get("http_options")
@@ -182,7 +182,7 @@ def test_gemini_no_override_omits_http_options(monkeypatch):
 
     monkeypatch.setattr(genai, "Client", _FakeGenaiClient)
     _no_override(monkeypatch)
-    from jarvis.plugins.brain.gemini import GeminiBrain
+    from dodaios.plugins.brain.gemini import GeminiBrain
 
     GeminiBrain()._ensure_client()
     # No override → no endpoint rewrite. The builder still hands every client

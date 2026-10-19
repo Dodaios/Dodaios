@@ -9,8 +9,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.config import load_config
+from dodaios.brain.manager import BrainManager
+from dodaios.core.config import load_config
 
 
 def _make_obs(tmp_path) -> SimpleNamespace:

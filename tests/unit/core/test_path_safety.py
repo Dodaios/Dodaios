@@ -1,4 +1,4 @@
-"""Tests for jarvis.core.path_safety containment helpers."""
+"""Tests for dodaios.core.path_safety containment helpers."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.path_safety import UnsafePathError, contained_path, is_safe_name, safe_child
+from dodaios.core.path_safety import UnsafePathError, contained_path, is_safe_name, safe_child
 
 
 @pytest.mark.parametrize("name", ["a.md", "u0123abcd.webp", "My File-1_x.json", "figure-ab12.glb"])

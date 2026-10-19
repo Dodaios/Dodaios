@@ -7,11 +7,11 @@ blind. Windows / macOS / Linux-X11 are unaffected (is_wayland() is False).
 """
 from __future__ import annotations
 
-from jarvis.harness import screenshot_only_loop as sol
+from dodaios.harness import screenshot_only_loop as sol
 
 
 def test_block_message_on_wayland(monkeypatch):
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: True)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: True)
     msg = sol._wayland_block_message()
     assert msg is not None
     assert "wayland" in msg.lower()
@@ -19,7 +19,7 @@ def test_block_message_on_wayland(monkeypatch):
 
 
 def test_no_block_off_wayland(monkeypatch):
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: False)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: False)
     assert sol._wayland_block_message() is None
 
 
@@ -27,5 +27,5 @@ def test_block_message_never_raises(monkeypatch):
     def _boom() -> bool:
         raise RuntimeError("probe failed")
 
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", _boom)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", _boom)
     assert sol._wayland_block_message() is None  # a probe error must not block

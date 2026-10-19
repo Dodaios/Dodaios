@@ -1,0 +1,4455 @@
+"""FastAPI + WebSocket server for the desktop UI (Phase 1a).
+
+Responsibilities:
+- REST endpoints for health, config read-only, plugin discovery, debug.
+- WebSocket `/ws` with welcome frame, bus forwarding, input validation.
+- Optional static mount for the React build under `dist/` (production mode).
+
+Explicitly NOT here:
+- Channel-adapter logic (in `dodaios/channels/web.py`).
+- The React build itself (Agent 5).
+- Single-instance focus logic (only a placeholder endpoint).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import math
+import os
+import time
+from collections.abc import Callable
+from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.routing import APIRoute
+from fastapi.staticfiles import StaticFiles
+from loguru import logger
+from pydantic import BaseModel, ValidationError
+from starlette.routing import Match
+from starlette.types import Scope
+
+from dodaios import __version__
+from dodaios.core.branding import CONFIG_FILE_NAME
+from dodaios.core.bus import EventBus, get_default_bus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import (
+    AnnouncementRequested,
+    ErrorOccurred,
+    Event,
+    MessageSent,
+    SystemStarted,
+    TerminalClosed,
+    TerminalCommandExecuted,
+    TerminalOutput,
+    TerminalSpawned,
+    VoiceBootStatus,
+)
+from dodaios.core.registry import list_all_plugins
+from dodaios.terminal import PtyManager, discover_shells, get_shell
+
+from .fast_bootstrap import ASSET_SUFFIXES
+from .schema import (
+    WSAudioLevel,
+    WSCommand,
+    WSMessageIn,
+    WSWelcome,
+    event_to_ws_envelope,
+)
+from .spa_build import build_is_complete, holding_page_html, recover_conflicted_index
+from .surface_security import SurfaceSecurity, set_browser_login_required
+
+if TYPE_CHECKING:
+    import uvicorn
+
+WEB_DIR = Path(__file__).resolve().parent
+DIST_DIR = WEB_DIR / "dist"
+INDEX_FILE = DIST_DIR / "index.html"
+ASSETS_DIR = DIST_DIR / "assets"
+
+# Max time a single WS push to one browser client may take. A healthy
+# localhost ``send_json`` is sub-50 ms; exceeding this means the client is
+# stalled or half-open (TCP not yet torn down, send buffer full). Because the
+# WS forwarder is a bus *wildcard* subscriber, an unbounded send would freeze
+# the whole event bus and stall the voice / Computer-Use dispatch paths
+# (BUG-CU-STALL, AP-18). On timeout we drop the client so the bus is not
+# re-throttled every event; the browser reconnects on its own.
+_WS_SEND_TIMEOUT_S = 3.0
+# Level samples are disposable animation data. If the socket is busy, discard
+# a sample instead of letting a visual update queue behind functional frames.
+_WS_LEVEL_SEND_TIMEOUT_S = 0.25
+# Society joins its watchers (2 s), then browser owners (17 s). Leave another
+# 3 s for stores and containment cleanup before reporting an incomplete stop.
+_SOCIETY_SHUTDOWN_TIMEOUT_S = 22.0
+
+# How long the realtime transport warm is held back after boot. Warming can
+# spawn a provider's app-server and verify a live account, so it must not
+# compete with the wake-model load and the brain/MCP build for CPU and disk
+# (AP-26). A few seconds still lands it long before a realistic first wake
+# word, which is the entire point of warming.
+REALTIME_WARM_BOOT_DELAY_S = 5.0
+
+# Shared with the desktop shell's warm worker (``dodaios/ui/desktop_app.py``).
+# Both surfaces schedule onto ONE event loop in a desktop boot, so the task
+# name is what keeps that boot from warming the same transports twice.
+REALTIME_WARM_TASK_NAME = "realtime-transport-warm"
+_REGISTRY_BOOTSTRAP_STOP_TIMEOUT_S = 5.0
+
+
+def _is_backend_path(path: str) -> bool:
+    """Paths the SPA catch-all must never claim: the API and the sockets."""
+    return path == "/api" or path.startswith(("/api/", "/ws"))
+
+
+class _SpaFallbackRoute(APIRoute):
+    """The SPA catch-all, invisible to API and socket paths.
+
+    A plain ``GET /{full_path:path}`` partially matches EVERY path, so the
+    router answered an unknown ``POST /api/...`` with 405 and ``Allow: GET`` —
+    pointing a client at a GET that does not exist — and a bare ``GET /api``
+    with the SPA's HTML. Declining backend paths lets the router answer
+    honestly: 404 for a route that does not exist, 405 only for a real route
+    asked with the wrong method.
+    """
+
+    def matches(self, scope: Scope) -> tuple[Match, Scope]:
+        if scope.get("type") == "http" and _is_backend_path(scope.get("path", "")):
+            return Match.NONE, {}
+        return super().matches(scope)
+
+
+class MemoryFactBody(BaseModel):
+    """Body of ``POST``/``DELETE /api/memory/facts``.
+
+    Typed so a non-string ``fact`` is a 422 at the boundary instead of an
+    ``AttributeError`` (500) inside the handler.
+    """
+
+    fact: str
+    category: str = "general"
+
+
+def _is_backend_path(path: str) -> bool:
+    """Paths the SPA catch-all must never claim: the API and the sockets."""
+    return path == "/api" or path.startswith(("/api/", "/ws"))
+
+
+class _SpaFallbackRoute(APIRoute):
+    """The SPA catch-all, invisible to API and socket paths.
+
+    A plain ``GET /{full_path:path}`` partially matches EVERY path, so the
+    router answered an unknown ``POST /api/...`` with 405 and ``Allow: GET`` —
+    pointing a client at a GET that does not exist — and a bare ``GET /api``
+    with the SPA's HTML. Declining backend paths lets the router answer
+    honestly: 404 for a route that does not exist, 405 only for a real route
+    asked with the wrong method.
+    """
+
+    def matches(self, scope: Scope) -> tuple[Match, Scope]:
+        if scope.get("type") == "http" and _is_backend_path(scope.get("path", "")):
+            return Match.NONE, {}
+        return super().matches(scope)
+
+
+class WebServer:
+    """In-process uvicorn + FastAPI, run by the orchestrator loop."""
+
+    def __init__(
+        self, cfg: JarvisConfig, bus: EventBus | None = None, *,
+        defer_feature_routes: bool = False,
+    ) -> None:
+        self._defer_feature_routes = defer_feature_routes
+        self.cfg = cfg
+        # Deferred boot work belongs to this server instance. Explicit handles
+        # let stop() drain it before pytest/asyncio tears the event loop down.
+        self._anyio_pool_warm_task: asyncio.Task[None] | None = None
+        self._deferred_reload_task: asyncio.Task[None] | None = None
+        self.bus = bus if bus is not None else get_default_bus()
+        self._clients: dict[str, WebSocket] = {}
+        self._client_send_locks: dict[str, asyncio.Lock] = {}
+        self._mic_level_sessions: set[str] = set()
+        self._mic_level_unsub: Callable[[], None] | None = None
+        self._mic_level_latest = 0.0
+        # The assistant's own voice, from dodaios.audio.level_tap. It rides the
+        # SAME frame and the same coalescing as the microphone: two directions
+        # of one conversation, one ~30 Hz channel, so adding it costs no extra
+        # WebSocket traffic.
+        self._tts_level_latest = 0.0
+        self._tts_level_unsub: Callable[[], None] | None = None
+        self._mic_level_revision = 0
+        self._mic_level_task: asyncio.Task[None] | None = None
+        self._server: uvicorn.Server | None = None
+        self._serve_task: asyncio.Task[None] | None = None
+        # PTY manager for the desktop-app terminal view. Sessions are
+        # global per server instance — they survive WS reconnects, but
+        # not a server shutdown (see stop()).
+        self._pty = PtyManager()
+        # Per-terminal line buffer for audit events.
+        self._pty_input_buffers: dict[str, str] = {}
+        self._pty_shell_ids: dict[str, str] = {}
+        # Skill registry: watched on user_skills_dir() after first-run bootstrap.
+        # The watcher starts in ``start()`` once the event loop is running.
+        self._skill_registry: Any | None = None
+        # Doc registry: watched on default_doc_roots(); its derived FTS5 index
+        # is process-local. Watcher also starts in ``start()``.
+        self._doc_registry: Any | None = None
+        self._cli_registry: Any | None = None
+        self._plugin_registry: Any | None = None
+        self._cli_bootstrap_task: asyncio.Task[None] | None = None
+        self._plugin_bootstrap_task: asyncio.Task[None] | None = None
+        # Marketplace OAuth refresh belongs to the shared WebServer lifecycle,
+        # not to one launcher. The actual scheduler is created with call_soon
+        # at the end of start(), after the serving/readiness path has returned;
+        # the pending handle also makes repeated start() calls idempotent.
+        self._refresh_scheduler: Any | None = None
+        self._refresh_scheduler_start_handle: asyncio.Handle | None = None
+        # Local models self-check (badge only): started next to the refresh
+        # scheduler, i.e. after the serving path returned — never on boot.
+        self._local_models_health_monitor: Any | None = None
+        # Local server autostart: one task a few seconds after the serving
+        # path returned; starts nothing unless local models are in use.
+        self._local_models_autostart_task: asyncio.Task[None] | None = None
+        self._refresh_registry_tasks: set[asyncio.Task[Any]] = set()
+        self._refresh_scheduler_stopping = False
+        # Realtime transport pre-warm — scheduled at the end of start() so the
+        # headless/browser-only boot path gets the same warm the desktop shell
+        # runs. Cancelled in stop().
+        self._realtime_warm_task: asyncio.Task[None] | None = None
+        # Board stack is populated in _setup_board() (in the _build_app path).
+        self._board_aggregator: Any | None = None
+        self._board_aggregator_task: asyncio.Task[None] | None = None
+        self._board_evaluator: Any | None = None
+        self._bio_scheduler: Any | None = None
+        self._bio_generator: Any | None = None
+        # Voice-session recorder — runs alongside the EventBus, populated in
+        # _init_session_stack(). None while the recorder is disabled.
+        self._session_recorder: Any | None = None
+        # Phase-5 task stack (tasks view). _init_task_stack() populates
+        # all three; without wiring /api/tasks returns 503 (see BUG-007).
+        self._task_store: Any | None = None
+        self._task_scheduler: Any | None = None
+        self._task_runner: Any | None = None
+        self._task_scheduler_task: asyncio.Task[None] | None = None
+        self._task_cancel_token: Any | None = None
+        # Phase B5 wiki write-wiring handle — shutdown() called in stop().
+        self._wiki_integration_handle: Any | None = None
+        # Phase B3 wiki live-reload watchdog handle — shutdown() called in stop().
+        self._wiki_watcher: Any | None = None
+        self._channel_chat_bridge: Any | None = None
+        # Pre-Thinking-Ack (Flash-Brain) bridge: translate AnnouncementRequested
+        # events with kind="preamble" into MessageSent(role="preamble") so the
+        # chat view in the desktop UI can render them as muted pre-ack bubbles.
+        # Other kinds (completion / info / None — used by MissionAnnouncer and
+        # other producers) flow through the existing wildcard WS forward
+        # unchanged. See docs/superpowers/specs/2026-05-11-pre-thinking-ack-
+        # flash-brain-design.md §4.
+        self.bus.subscribe(AnnouncementRequested, self._forward_preamble_to_chat)
+        # An owed result reaches a live call through the speech pipeline; an
+        # install without one (headless, browser voice only) hands it over here.
+        from dodaios.live.announcements import deliver_to_live_call
+
+        self.bus.subscribe(AnnouncementRequested, deliver_to_live_call)
+        from dodaios.core import runtime_refs
+        from dodaios.missions.tool_approvals import (
+            MissionToolApprovalCoordinator,
+            MissionToolAutoApprover,
+        )
+
+        self._mission_tool_approvals = MissionToolApprovalCoordinator(self.bus)
+        # Mission-scoped tool pre-authorization (ADR-0031): answers the
+        # approval gate for tools a mission's broker grant pre-authorizes
+        # ([phase6.safety].auto_approve_tool_families), full audit chain
+        # preserved. Registered in runtime_refs because the WorkerToolBroker
+        # lives below the web layer (same pattern as the supervisor gateway).
+        self._mission_tool_auto_approver = MissionToolAutoApprover(self.bus)
+        runtime_refs.set_mission_tool_auto_approver(self._mission_tool_auto_approver)
+        self.app: FastAPI = self._build_app()
+        self.app.state.refresh_scheduler = None
+        from dodaios.ui.deferred_setup import DeferredSetup
+
+        self._feature_setup = DeferredSetup(
+            lambda: self._finish_app_setup(self.app), ready=not defer_feature_routes
+        )
+        if not defer_feature_routes:
+            self._publish_app()
+
+    async def _forward_delegation_to_chat(self, event: Any) -> None:
+        """Persist a result in its originating chat without starting another model turn."""
+        service = getattr(self.app.state, "agent_chat", None)
+        if service is None:
+            return
+        session = service.store.get_session(event.session_id)
+        if session is None or session.surface != "jarvis":
+            return
+        await service.post_notice(event.session_id, {
+            "kind": "coding_result", "agent_name": event.agent_name,
+            "assignment_id": event.request_id, "status": event.status,
+            "text": event.text, "report": event.report,
+        })
+
+    async def _forward_preamble_to_chat(self, event: AnnouncementRequested) -> None:
+        """Bridge AnnouncementRequested(kind="preamble") → MessageSent.
+
+        The chat WebSocket's wildcard forward already ships every bus event
+        to the frontend, but the chat history view only renders MessageSent
+        envelopes. Flash-Brain pre-ack output is published as
+        AnnouncementRequested(kind="preamble") so the TTS pipeline picks it
+        up; this handler additionally publishes a MessageSent(role="preamble",
+        text=event.text) so the chat history shows the same line as a muted
+        pre-ack bubble.
+
+        Other kinds (completion / info / None) are intentionally untouched —
+        MissionAnnouncer and other producers rely on the existing flow.
+        """
+        if event.kind != "preamble":
+            return
+        text = (event.text or "").strip()
+        if not text:
+            return
+        await self.bus.publish(
+            MessageSent(
+                thread_id="preamble",
+                role="preamble",
+                text=text,
+                source_layer="ui.web.preamble_bridge",
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # App-Factory
+    # ------------------------------------------------------------------
+
+    def _build_app(self) -> FastAPI:
+        app = FastAPI(
+            title="Dodaios — Admin/UI API",
+            version=__version__,
+            # Swagger UI on ``/api/_swagger`` — the semantic ``/api/docs``
+            # path belongs to the doc-browser router (see docs_routes.py).
+            docs_url="/api/_swagger",
+            openapi_url="/api/openapi.json",
+        )
+
+        # CORS only for the Vite dev server — production serves the frontend
+        # from dist/ and needs no cross-origin requests.
+        vite_dev_url = self.cfg.ui.vite_dev_url if self.cfg.ui.dev_mode else None
+        if vite_dev_url:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=[vite_dev_url],
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+
+        twilio_cfg = getattr(getattr(self.cfg, "integrations", None), "twilio", None)
+        public_urls = tuple(
+            value
+            for value in (
+                getattr(twilio_cfg, "public_base_url", ""),
+                getattr(
+                    getattr(self.cfg, "marketplace", None),
+                    "public_callback_base_url",
+                    "",
+                ),
+            )
+            if value
+        )
+        # The security boundary must wrap every router and both HTTP and WS.
+        # It is added after CORS so Starlette places it outside the CORS layer:
+        # hostile Host/Origin values never reach route code or preflight logic.
+        # Seed the browser-lock flag from the loaded config so the boundary's
+        # lazy raw-TOML read never disagrees with what the app actually loaded
+        # (JARVIS_CONFIG overrides, in-memory test configs, wizard defaults).
+        _browser_lock_on = bool(
+            getattr(getattr(self.cfg, "ui", None), "require_browser_login", False)
+        )
+        set_browser_login_required(_browser_lock_on)
+        if not _browser_lock_on:
+            logger.info(
+                "Browser lock is off (the default): loopback requests are served "
+                "without a credential. Anything relaying this port to a network "
+                "re-exposes the instance — turn on 'Ask for the key in the "
+                "browser' before forwarding it."
+            )
+        app.add_middleware(
+            SurfaceSecurity,
+            vite_dev_url=vite_dev_url,
+            public_urls=public_urls,
+        )
+
+        self._register_rest_routes(app)
+        self._register_ws_route(app)
+
+        # Registries constructed here defer their blocking disk scan
+        # (``reload_sync`` — globbing + FTS indexing, ~hundreds of ms) off the
+        # boot critical path. The scans run after uvicorn is listening (see
+        # ``start()``); nothing at BOOT_READY needs the skill/doc lists (the
+        # brain builds its own skill context; the Skills view tolerates an empty
+        # registry, while Docs can trigger its own shared on-demand load). Each
+        # entry is (label, registry).
+        self._pending_reloads: list[tuple[str, Any]] = []
+
+        # Skill-registry setup: bootstrap (copy builtin skills) + create the
+        # registry. reload_sync() is deferred (see _pending_reloads). The
+        # watchdog watcher is only activated in ``start()``.
+        self._setup_skill_registry(app)
+
+        # Doc registry: curated reader-guide discovery under ``docs/product/``,
+        # FTS5 index. The watchdog is likewise only activated in ``start()``.
+        self._setup_doc_registry(app)
+
+        # CLI-tool registry — holds the catalog + prober + auth + usage log in
+        # the same state object shared by the REST routes and the brain launcher.
+        self._setup_cli_registry(app)
+
+        # Plugin-Tool-Registry — wired marketplace plugins as live brain tools.
+        self._setup_plugin_registry(app)
+
+        # Make the config available to the routes (e.g. admin-pass check in
+        # skills_routes). Other routes will use it too going forward.
+        app.state.config = self.cfg
+        app.state.bus = self.bus
+
+        # Voice boot-readiness mirror. WS events are one-shot, so a tab that
+        # connects after warm-up finished would never see VoiceBootStatus.
+        # Persist the latest state on this (long-lived) server instance for
+        # GET /api/voice/status to read — deliberately NOT on app.state, whose
+        # ASGI lifecycle could outrace the bus subscriber on shutdown.
+        #
+        # When the local voice stack is disabled (JARVIS_VOICE=0 — headless,
+        # VPS, browser-mic-only), there is nothing to warm up and the pipeline
+        # never emits VoiceBootStatus, so seed ready=True. Otherwise the
+        # frontend's "starting up" banner would hang forever even though the
+        # user can already type (and use browser voice). A real voice pipeline
+        # starts at ready=False (warmup_start) and flips True via the subscriber
+        # below, so this seed only ever sticks when voice is genuinely off.
+        _voice_disabled = os.environ.get("JARVIS_VOICE", "").strip().lower() in (
+            "0",
+            "off",
+            "false",
+        )
+        self._voice_ready = _voice_disabled
+
+        # Synchronous routes run on anyio's thread pool, which grows ON the
+        # loop and shrinks after ten idle seconds — a start that blocked the
+        # loop for 15 s on 2026-08-27 (BUG-189). Workers stay resident from
+        # here on; a handful is brought up once voice reports ready, below.
+        from dodaios.core.loop_executor import keep_anyio_workers_alive
+
+        keep_anyio_workers_alive()
+        self._anyio_pool_warmed = False
+
+        async def _track_voice_ready(event: VoiceBootStatus) -> None:
+            # A bus subscriber must never raise (AP-18); setting a plain
+            # instance bool cannot fail, and the warm-up below only schedules.
+            self._voice_ready = event.voice_usable
+            if event.ready:
+                self._schedule_anyio_pool_warm()
+
+        self.bus.subscribe(VoiceBootStatus, _track_voice_ready)
+
+        if not self._defer_feature_routes:
+            self._finish_app_setup(app)
+
+        return app
+
+    def _finish_app_setup(self, app: FastAPI) -> None:
+        """Install optional surfaces before any consumer receives this app.
+
+        Desktop defers this work behind local voice warmup. Headless and other
+        callers retain eager construction. The shared bus, skill registry and
+        voice-status subscriber already exist before this method runs.
+        """
+        # Sub-agent registry (dashboard feature) — subscribes to the bus immediately.
+        try:
+            from dodaios.agents import JarvisAgentRegistry
+
+            sub_agent_registry = JarvisAgentRegistry(bus=self.bus)
+            sub_agent_registry.attach()
+            app.state.sub_agent_registry = sub_agent_registry
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning("JarvisAgentRegistry setup failed")
+            app.state.sub_agent_registry = None
+
+        # Wire in the MCP, tool, provider, profile, task, skills, CLI, and
+        # sub-agents routes — lazy import avoids cycles.
+        from dodaios.runs.routes import router as runs_router
+        from dodaios.runs.runs_ws import router as runs_ws_router
+
+        from .agent_accounts_routes import router as agent_accounts_router
+        from .agent_chat_routes import router as agent_chat_router
+        from .agent_mcp_routes import router as agent_mcp_router
+        from .agent_runtime_routes import router as agent_runtime_router
+        from .agentic_ide_git_routes import router as agentic_ide_git_router
+        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
+        from .agentic_ide_routes import router as agentic_ide_router
+        from .antigravity_routes import router as antigravity_router
+        from .app_actions_routes import router as app_actions_router
+        from .appshot_routes import router as appshot_router
+        from .board_routes import (
+            board_router as board_meta_router,
+        )
+        from .board_routes import (
+            router as board_router,
+        )
+        from .browser_profile_routes import router as browser_profile_router
+        from .chat_library_routes import router as chat_library_router
+        from .chats_routes import router as chats_router
+        from .claude_routes import router as claude_router
+        from .cli_routes import router as cli_router
+        from .clipboard_routes import router as clipboard_router
+        from .commands_routes import router as commands_router
+        from .computer_use_routes import router as computer_use_router
+        from .computers_routes import router as computers_router
+        from .server_pairing_routes import router as server_pairing_router
+        from .contacts_routes import router as contacts_router
+        from .control_routes import router as control_router
+        from .costs_routes import router as costs_router
+        from .custom_api_routes import router as custom_api_router
+        from .deck_routes import router as deck_router
+        from .desktop_routes import router as desktop_router
+        from .diagnostics_routes import router as diagnostics_router
+        from .dictation_routes import router as dictation_router
+        from .dictionary_routes import router as dictionary_router
+        from .docs_routes import router as docs_router
+        from .downloads_routes import router as downloads_router
+        from .drop_routes import router as drop_router
+        from .federation_proxy_routes import router as federation_proxy_router
+        from .feedback_routes import router as feedback_router
+        from .friends_routes import router as friends_router
+        from .frontier_routes import router as frontier_router
+        from .grok_build_routes import router as grok_build_router
+        from .ide_skills_routes import router as ide_skills_router
+        from .jarvisx_routes import router as jarvisx_router
+        from .live_routes import router as live_router
+        from .local_models_assistant_routes import (
+            router as local_models_assistant_router,
+        )
+        from .local_models_routes import router as local_models_router
+        from .local_voice_routes import router as local_voice_router
+        from .marketplace_publish_routes import router as marketplace_publish_router
+        from .marketplace_routes import router as marketplace_router
+        from .mcp_routes import router as mcp_router
+        from .memory_vault_routes import router as memory_vault_router
+        from .mission_billing_routes import router as mission_billing_router
+        from .missions_auth import router as missions_auth_router
+        from .missions_pty_routes import router as missions_pty_router
+        from .missions_routes import router as missions_router
+        from .missions_ws_routes import (
+            ConnectionManager as _MissionsConnMgr,
+        )
+        from .missions_ws_routes import (
+            router as missions_ws_router,
+        )
+        from .onboarding_routes import router as onboarding_router
+        from .outputs_routes import router as outputs_router
+        from .permissions_routes import router as permissions_router
+        from .pets_routes import router as pets_router
+        from .preview_routes import router as preview_router
+        from .profile_routes import router as profile_router
+        from .provider_routes import router as provider_router
+        from .review_routes import router as review_router
+        from .routine_hooks_routes import router as routine_hooks_router
+        from .runtime_gateway_routes import router as runtime_gateway_router
+        from .screen_context_routes import router as screen_context_router
+        from .self_mod_routes import router as self_mod_router
+        from .sessions_routes import router as sessions_router
+        from .settings_routes import router as settings_router
+        from .setup_report_routes import router as setup_report_router
+        from .setup_routes import router as setup_router
+        from .skills_routes import router as skills_router
+        from .socials_routes import router as socials_router
+        from .society_browser_routes import router as society_browser_router
+        from .society_figure_routes import router as society_figure_router
+        from .society_routes import router as society_router
+        from .soul_routes import router as soul_router
+        from .starter_plan_routes import router as starter_plan_router
+        from .sub_agents_routes import router as sub_agents_router
+        from .tasks_routes import router as tasks_router
+        from .team_thread_routes import router as team_thread_router
+        from .telephony_routes import router as telephony_router
+        from .tool_model_routes import router as tool_model_router
+        from .tools_routes import router as tools_router
+        from .update_routes import router as update_router
+        from .voice_call_routes import router as voice_call_router
+        from .wiki_routes import router as wiki_router
+        from .wiki_ws import router as wiki_ws_router
+        from .workflows_routes import router as workflows_router
+        from .workspace_clis_routes import router as workspace_clis_router
+        from .workspace_routes import router as workspace_router
+
+        # Conductor is an external package in the same monorepo. Import
+        # defensively — anyone who checks out the repo without conductor would
+        # otherwise get an ImportError here at server boot.
+        try:
+            from conductor.api import router as conductor_router
+        except ImportError as exc:
+            logger.warning("Conductor module not available: {} — Conductor view stays empty", exc)
+            conductor_router = None
+        app.include_router(mcp_router)
+        # Connect-flow for the Agent MCP surface: what it offers, which
+        # clients this box has, and writing the entry into their config.
+        app.include_router(agent_mcp_router)
+        app.include_router(tools_router)
+        app.include_router(tool_model_router)
+        # Jarvis' OWN tools, offered outwards over MCP so an agent-chat session
+        # drives Jarvis instead of a bare workspace. Key-gated like the rest of
+        # the Control API; mounted raw because the transport streams.
+        from dodaios.ui.web.mcp_server_routes import build_mcp_asgi_app
+
+        # ONE mount, two surfaces, dispatched inside on the rest of the path:
+        # "" is Jarvis' own tools, "/agents" is the agent ecosystem. A second
+        # Starlette mount on the longer path would never match a request
+        # without a trailing slash — see mcp_server_routes._surface_for.
+        app.mount("/api/control/mcp", build_mcp_asgi_app())
+        # Event-loop diagnostics (read-only) — names the owner of an AP-20
+        # cancellation busy-loop from inside the loop; see diagnostics_routes.
+        app.include_router(diagnostics_router)
+        app.include_router(provider_router)
+        # Local voice card (setup, status, self-test) — ADR-0037.
+        app.include_router(local_voice_router)
+        app.include_router(live_router)
+        from dodaios.agent_chat.tasks import run_subscription_task
+        from dodaios.core.task_agent import register_runner
+
+        register_runner(run_subscription_task)
+        # Local models section: inventory / unload / delete behind the
+        # pull-capable card (same capability gate as the pull routes).
+        app.include_router(local_models_router)
+        # The section's setup assistant — same capability gate, its own chat
+        # surface on the Agents tier.
+        app.include_router(local_models_assistant_router)
+        app.include_router(antigravity_router)
+        app.include_router(claude_router)
+        app.include_router(grok_build_router)
+        # Several subscriptions per coding CLI, switchable without a logout.
+        app.include_router(agent_accounts_router)
+        app.include_router(control_router)
+        # Detachable views: the desktop shell (when attached) spawns/closes
+        # solo windows; headless hosts answer honestly with a fallback URL.
+        app.include_router(desktop_router)
+        app.include_router(profile_router)
+        app.include_router(settings_router)
+        app.include_router(soul_router)
+        app.include_router(permissions_router)
+        # In-app updater (GET status / POST apply). Managed-install only — see
+        # dodaios/ui/web/update_routes.py; refuses to self-reset a dev checkout.
+        app.include_router(update_router)
+        # Share-safe cross-device setup report (read-only) — names why THIS
+        # install behaves differently from another device (AGENTS.md §3 triage).
+        app.include_router(setup_report_router)
+        # Starter plans + the one-time "all set" readiness note.
+        app.include_router(starter_plan_router)
+        # Frontier auto-switch modal API (GET pending / POST ack) + Self-Mod
+        # read/restore API. Both were the last route modules left unmounted; the
+        # 404 on /api/frontier/pending silently broke the desktop auto-switch
+        # modal too, not just the `jarvis frontier` CLI command.
+        app.include_router(frontier_router)
+        app.include_router(self_mod_router)
+        app.include_router(routine_hooks_router)
+        app.include_router(tasks_router)
+        app.include_router(skills_router)
+        app.include_router(docs_router)
+        app.include_router(cli_router)
+        # Spend & Tokens — a read model over sessions/missions/agent-chat.
+        app.include_router(costs_router)
+        # Command Registry — the one machine-readable catalog of app commands
+        # (consumed by the app-command brain tool, the UI, CLI, and docs gen).
+        app.include_router(commands_router)
+        app.include_router(friends_router)
+        app.include_router(marketplace_router)
+        app.include_router(custom_api_router)
+        app.include_router(marketplace_publish_router)
+        app.state.friend_registry = None
+        app.state.channel_manager = None
+        app.state.channel_chat_bridge = None
+        # Twilio telephony voice agent (webhook + media WS + REST status/config).
+        # Degrades gracefully when the `twilio` extra is not installed (AD-T8).
+        app.include_router(telephony_router)
+        from dodaios.telephony.status import TelephonyManager
+
+        app.state.telephony_manager = TelephonyManager()
+        # Browser-microphone voice bridge (B2): /ws/audio — the headless/VPS
+        # voice path via the browser's own mic/speaker, no sounddevice. Always
+        # mounted; checked at connect time: realtime mode always serves it,
+        # pipeline mode while [browser_voice].enabled is on (the default).
+        from dodaios.browser_voice.route import router as browser_voice_router
+
+        app.include_router(browser_voice_router)
+        app.include_router(sub_agents_router)
+        app.include_router(outputs_router)
+        app.include_router(downloads_router)
+        app.include_router(clipboard_router)
+        # Socials section — project social-media links (pure file store, no Brain dep).
+        app.include_router(socials_router)
+        # In-app feedback / bug-report form → Discord webhook.
+        app.include_router(feedback_router)
+        # "Make It Yours" multi-agent workspace (/api/workspace/*).
+        # Provides agent detection, workspace launch planning, and PTY WebSocket
+        # for in-app Claude Code / Codex terminals (xterm panes, not OS windows).
+        app.include_router(workspace_router)
+        app.include_router(workspace_clis_router)
+        # Agentic IDE (/api/agentic-ide/*) — a chosen folder plus named terminals
+        # running Claude Code / Codex, addressable by voice ("what is Mika
+        # doing?") and promptable from Jarvis. Reuses the same PTY stack as the
+        # workspace above; adds the folder picker, call-signs, transcripts, and
+        # the focused coding mode.
+        # Before the IDE router, so its /{…} paths never shadow /git/….
+        app.include_router(agentic_ide_scm_router)
+        app.include_router(agentic_ide_git_router)
+        app.state.team_threads = None
+        app.include_router(team_thread_router)
+        # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
+        app.include_router(ide_skills_router)
+        app.include_router(agentic_ide_router)
+        # The pane-activity sweep has no bus of its own (the registry is a plain
+        # holder by design); this is the one place that holds one, so the sweep
+        # is told where a changed reading goes. A reference, not work — nothing
+        # runs until a workspace is opened (AP-26).
+        from dodaios.agentic_ide import notifications as ide_notifications
+
+        ide_notifications.set_publisher(self.bus.publish)
+        # The project/chat library behind the chat surface's sidebar. Pure file
+        # store, no Brain and no session dependency — it lists on a fresh
+        # install with no keys and answers headless.
+        app.include_router(chat_library_router)
+        # Contacts section — user-curated address book (pure file store, no Brain dep).
+        app.include_router(contacts_router)
+        # Settings -> Computers: the user's own servers and local VMs over SSH.
+        app.include_router(server_pairing_router)
+        app.include_router(computers_router)
+        # Desktop pets — the `pet` overlay style's pets, look and visibility.
+        app.include_router(pets_router)
+        app.include_router(dictionary_router)
+        # Dictation mode — hold to speak, text lands in the focused field.
+        # Mounted so every action is also `jarvis api dictation <op>`, which is
+        # the documented Wayland path (no app-owned global shortcuts there).
+        app.include_router(dictation_router)
+        # The voice orb's click — call / hangup without speaking the wake word.
+        app.include_router(voice_call_router)
+        app.include_router(workflows_router)
+        if conductor_router is not None:
+            app.include_router(conductor_router)
+        app.include_router(preview_router)
+        app.include_router(board_router)
+        app.include_router(board_meta_router)
+        app.include_router(federation_proxy_router)
+        # Phase 8.5 — review-pipeline read-only UI (Plan §6.5).
+        app.include_router(review_router)
+        # One-shot, intent-driven screen look. Answers honestly (not 503) on a
+        # machine with no display, so `jarvis api screen-context status` is a
+        # valid capability probe everywhere.
+        app.include_router(screen_context_router)
+        # Appshots: the front window as conversation context, on a shortcut,
+        # a button or a spoken request. Captures through Screen Context.
+        app.include_router(app_actions_router)
+        app.include_router(appshot_router)
+        app.include_router(jarvisx_router)
+        # The mission deck's pictures: the last Screen-Context capture (one
+        # frame, in memory, TTL) and Computer-Use frames by content hash.
+        app.include_router(deck_router)
+        # Voice-session transcription view (sidebar -> "Transcription").
+        # Returns 503 as long as app.state.session_store isn't set.
+        app.include_router(sessions_router)
+        # Run Inspector — forensic lens over the same voice sessions. Read-only;
+        # 503 until app.state.session_store is set, like sessions_router.
+        app.include_router(runs_router)
+        app.include_router(runs_ws_router)
+        # Chats conversation manager — unified text+voice history, resume +
+        # "Speak in this conversation". Reuses chat_store + session_store +
+        # brain + speech_pipeline from app.state (graceful 503s when absent).
+        app.include_router(chats_router)
+        # Agent chat — the typed front-page chat as an agent session on the
+        # agent-tier providers (dodaios/agent_chat). The service is built on
+        # first use by the routes (store = data/agent_chat.db) so nothing
+        # opens on the boot path (AP-26); stop() cancels running turns.
+        app.state.agent_chat = None
+        app.state.agent_chat_factory = self._build_agent_chat_service
+        app.include_router(agent_chat_router)
+        from .agent_server_routes import router as agent_server_router
+
+        app.include_router(agent_server_router)
+        # Agent society (dodaios/society) — the roster, the typed board, the
+        # scheduler and the mission bridge. Built on the first /api/society
+        # call from the factory (store = data/society.db); nothing opens on
+        # the boot path (AP-26).
+        app.state.society = None
+        app.state.society_factory = self._build_society_runtime
+        # The router-tier voice tools reach the same runtime through the
+        # brain factory's lazy resolver (AD-OC1).
+        from dodaios.brain.factory import set_society_factory
+
+        set_society_factory(self._build_society_runtime)
+        app.include_router(society_router)
+        app.include_router(agent_runtime_router)
+        app.include_router(runtime_gateway_router)
+        from .mars_routes import router as mars_router
+
+        app.include_router(mars_router)
+        app.include_router(society_browser_router)
+        app.include_router(browser_profile_router)
+        app.include_router(society_figure_router)
+        app.include_router(drop_router)
+        # The Jarvis Verse level system (dodaios/progression): a bus listener
+        # that pays XP for real achievements. Constructing it opens nothing;
+        # start() subscribes it and the ledger opens on the first award.
+        from dodaios.progression import ProgressionService
+
+        from .progression_routes import router as progression_router
+
+        progression_data_dir = Path(
+            getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data"
+        )
+        self._progression = ProgressionService(
+            progression_data_dir / "progression.db",
+            bus=self.bus,
+            pet_id=lambda: str(getattr(getattr(self.cfg, "ui", None), "pet_id", "") or ""),
+        )
+        app.state.progression = self._progression
+        app.include_router(progression_router)
+        # Default: no recorder wired up — _init_session_stack() in start()
+        # sets this once it succeeds.
+        app.state.session_store = None
+        # Phase-6 mission stack — token issuance is behind SurfaceSecurity;
+        # mission WS and PTY then perform their narrower hello-frame auth too.
+        app.include_router(missions_auth_router)
+        app.include_router(missions_router)
+        # Paid-API fallback switch for missions (Settings; never voice/agents).
+        app.include_router(mission_billing_router)
+        app.include_router(missions_ws_router)
+        app.include_router(missions_pty_router)
+        # Computer-Use run control (deep-dive 2026-07-15, H-09): start/list/
+        # inspect/cancel desktop goals — auto-exposed as `jarvis api
+        # computer-use <op>` by the dynamic CLI layer.
+        app.include_router(computer_use_router)
+        # Phase B9 — Obsidian Setup Wizard (detect install + register vault).
+        app.include_router(setup_router)
+        # First-time onboarding guide (/api/onboarding/*).
+        app.include_router(onboarding_router)
+        # Phase B3 — Wiki view (read-only REST API over the Obsidian vault).
+        app.include_router(wiki_router)
+        # Path-addressed Memory section API (index, reader, map, edits).
+        app.include_router(memory_vault_router)
+        # Phase B3 — Desktop wiki view live-reload WS endpoint.
+        # Forwards WikiPageChanged events from the shared EventBus to
+        # subscribed UI clients. WikiWatcher is started in start().
+        app.include_router(wiki_ws_router)
+        # ConnectionManager singleton for the global event stream. Attached
+        # to MissionBus.subscribe_all() in start().
+        app.state.missions_ws_manager = _MissionsConnMgr()
+        # MissionManager + Kontrollierer are wired lazily in start()
+        # (they need a running event loop for aiosqlite). Default is None,
+        # so the REST routes return 503 instead of crashing.
+        app.state.mission_manager = None
+        app.state.kontrollierer = None
+        app.state.mission_tool_approvals = self._mission_tool_approvals
+
+        # Board aggregator (personal-mastery dashboard) — the aggregator is
+        # run as a background task in start(); the store is read-only and
+        # available immediately.
+        self._setup_board(app)
+
+        # Preview registry — subscribed to PreviewServerStarted/Closed events.
+        try:
+            from dodaios.preview.registry import PreviewRegistry
+
+            preview_registry = PreviewRegistry(bus=self.bus)
+            preview_registry.attach()
+            app.state.preview_registry = preview_registry
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning("PreviewRegistry setup failed")
+            app.state.preview_registry = None
+
+        # The SPA catch-all must remain after every API router.
+        self._register_static_or_spa(app)
+
+    def _publish_app(self) -> None:
+        # Deferred construction runs in a thread, but publication belongs to
+        # the owner loop after prepare() checks its stopping fence. A late
+        # builder must never publish an app whose teardown has already begun.
+        from dodaios.core import runtime_refs
+
+        runtime_refs.set_web_app(self.app)
+
+    async def prepare_app(self) -> None:
+        """Complete the route graph before ASGI publication or service startup."""
+        await self._feature_setup.prepare()
+        self._publish_app()
+
+    #: Breathing room between "voice is ready" and bringing anyio's workers
+    #: up. Ready is the end of the heavy boot work, not of the box's — the
+    #: wake models have just loaded and the frontend is still mounting.
+    _ANYIO_WARM_DELAY_S = 5.0
+
+    def _schedule_anyio_pool_warm(self) -> None:
+        """Bring a few anyio workers up, once, at the first calm moment.
+
+        Every start happens on the loop (anyio leaves no other way), so the
+        one place to pay for it is right after boot, before the first click —
+        never on the boot path itself (AP-26). Idempotent: the ready event
+        can arrive more than once (warm-up, then the watchdog).
+        """
+        if self._anyio_pool_warmed:
+            return
+        self._anyio_pool_warmed = True
+
+        async def _warm() -> None:
+            from dodaios.core.loop_executor import warm_anyio_worker_pool
+
+            try:
+                await asyncio.sleep(self._ANYIO_WARM_DELAY_S)
+                resident = await warm_anyio_worker_pool()
+            except Exception as exc:  # noqa: BLE001 — a pool that grows lazily is
+                # yesterday's behaviour, not a boot failure
+                logger.opt(exception=exc).debug("anyio pool warm-up did not complete")
+                return
+            logger.info("anyio worker pool warmed: {} thread(s) resident", resident)
+
+        self._anyio_pool_warm_task = asyncio.create_task(
+            _warm(), name="anyio-pool-warm"
+        )
+
+    async def _voice_ready_watchdog(self, deadline_s: float = 45.0) -> None:
+        """Release boot waiters after a failed warm-up without promising speech.
+
+        The startup banner + "STARTING…" status flip to listening ONLY when a
+        ``VoiceBootStatus(ready=True)`` arrives (mirrored by /api/voice/status).
+        The pipeline emits it at the end of warm-up — but if construction crashes
+        or an un-timed model download/load wedges warm-up, that event is never
+        published and the banner sticks forever even though the user can already
+        type (permanent "Getting ready to listen"). This backstop fires once,
+        well past a healthy cold boot (voice-usable budget ≤ 20 s, AP-26), and
+        releases boot waiters. A genuine ready flips ``_voice_ready`` first, in
+        which case this is a silent no-op. ``detail="watchdog_timeout"`` marks the
+        signal as a degraded release (voice may be offline until restart), not a
+        real "you can speak now".
+        """
+        try:
+            await asyncio.sleep(deadline_s)
+        except asyncio.CancelledError:
+            return
+        if self._voice_ready:
+            return
+        logger.warning(
+            "Voice-ready watchdog fired after {:.0f}s — the speech pipeline never "
+            "signalled ready (a construction crash or a wedged warm-up load). "
+            "Releasing boot waiters; voice remains unavailable until the pipeline "
+            "confirms listening.",
+            deadline_s,
+        )
+        # Set the endpoint mirror first so /api/voice/status is correct even if
+        # the bus publish below fails; the WS event then updates live tabs.
+        self._voice_ready = False
+        try:
+            await self.bus.publish(VoiceBootStatus(ready=True, detail="watchdog_timeout"))
+        except Exception as exc:  # noqa: BLE001 — mirror already set; never crash
+            logger.debug("watchdog VoiceBootStatus publish failed: %s", exc)
+
+    def _setup_board(self, app: FastAPI) -> None:
+        """Initialize the board store + aggregator + evaluator + BioGenerator.
+
+        The store is read-only and ready immediately (creates an empty DB
+        on the first query, so the UI mount doesn't hit a 500). The
+        aggregator runs in ``start()`` as a background task; the evaluator
+        and the BioScheduler subscribe to the bus there.
+        """
+        try:
+            from dodaios.board.aggregator import BoardAggregator
+            from dodaios.board.bio_brain import BIO_TIMEOUT_S, resolve_bio_brain
+            from dodaios.board.evaluator import AchievementEvaluator
+            from dodaios.board.insights import BoardInsights
+            from dodaios.board.insights import default_sources as insight_sources
+            from dodaios.board.profile import BioGenerator, BioStore
+            from dodaios.board.scheduler import BioScheduler
+            from dodaios.board.store import BoardStore
+            from dodaios.core.paths import board_db_path, user_data_dir, user_logs_dir
+
+            db_path = board_db_path()
+            jsonl_dir = user_logs_dir()
+            jsonl_dir.mkdir(parents=True, exist_ok=True)
+
+            # The board's rich source is the durable voice-session store
+            # (sessions.db), not the flight-recorder JSONL (which is empty on
+            # most installs). Resolved exactly like bootstrap_sessions does —
+            # a bare CWD-relative path would silently starve the board of its
+            # source whenever the app starts from a different directory.
+            sessions_db_path = self._resolve_sessions_db_path()
+
+            aggregator = BoardAggregator(
+                jsonl_dir=jsonl_dir,
+                db_path=db_path,
+                sessions_db_path=sessions_db_path,
+            )
+            store = BoardStore(db_path=db_path)
+            insights = BoardInsights(
+                insight_sources(
+                    data_dir=Path(self.cfg.memory.data_dir),
+                    sessions_db=sessions_db_path,
+                    board_db=db_path,
+                )
+            )
+            evaluator = AchievementEvaluator(db_path=db_path, bus=self.bus)
+            bio_store = BioStore(db_path=db_path)
+
+            # Optional data-source paths (missions, self-mod).
+            # If the file/DB doesn't exist, the block just silently drops out
+            # of the prompt — no error. Paths come from ``user_data_dir()``,
+            # not relative strings, so an app restart in a different CWD
+            # doesn't starve the generator of its data.
+            data_root = user_data_dir() / "data"
+            recall_db = data_root / "memory.db"
+            missions_db = data_root / "missions.db"
+            self_mod_log = data_root / "self_mod.log"
+
+            bio_cfg = self.cfg.board.bio
+            cfg = self.cfg
+
+            def _bio_brain_resolver() -> Any:
+                # Lazy: capture cfg + bus from the closure, so a later
+                # provider switch via the UI takes effect immediately
+                # (the resolver invalidates its cache via ConfigReloaded).
+                # Background billing rule: subscription or local model once a
+                # subscription is connected, never a per-token key.
+                return resolve_bio_brain(cfg, bus=self.bus)
+
+            bio_generator = BioGenerator(
+                brain_resolver=_bio_brain_resolver,
+                store=store,
+                bio_store=bio_store,
+                jsonl_dir=jsonl_dir,
+                recall_db_path=recall_db,
+                missions_db_path=missions_db,
+                self_mod_log_path=self_mod_log,
+                temperature=bio_cfg.temperature,
+                max_tokens=bio_cfg.max_tokens,
+                timeout_s=BIO_TIMEOUT_S,
+            )
+            # Hook-driven: rewrites the bio on unlocked achievements, never on
+            # a timer or at boot.
+            scheduler = BioScheduler(
+                generator=bio_generator,
+                bio_store=bio_store,
+                bus=self.bus,
+            )
+
+            self._board_aggregator = aggregator
+            self._board_aggregator_task: asyncio.Task[None] | None = None
+            self._board_evaluator = evaluator
+            self._bio_scheduler = scheduler
+            self._bio_generator = bio_generator
+            app.state.board_aggregator = aggregator
+            app.state.board_store = store
+            app.state.board_insights = insights
+            app.state.achievement_evaluator = evaluator
+            app.state.bio_generator = bio_generator
+            app.state.bio_store = bio_store
+            logger.info(
+                "Board ready (jsonl={}, db={}, achievements={})",
+                jsonl_dir,
+                db_path,
+                len(evaluator.list_all()),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning("Board setup failed — /board returns empty")
+            self._board_aggregator = None
+            self._board_aggregator_task = None
+            self._board_evaluator = None
+            self._bio_scheduler = None
+            self._bio_generator = None
+            app.state.board_aggregator = None
+            app.state.board_store = None
+            app.state.board_insights = None
+            app.state.achievement_evaluator = None
+            app.state.bio_generator = None
+            app.state.bio_store = None
+
+    def _setup_skill_registry(self, app: FastAPI) -> None:
+        """First-run bootstrap + attach the SkillRegistry to ``app.state``.
+
+        Failure cases (e.g. a read-only filesystem in the test runner) are
+        not fatal — the UI then shows "No skills" instead of crashing.
+        """
+        try:
+            from dodaios.skills.bootstrap import ensure_user_skills_dir
+            from dodaios.skills.prefs import load_state_overrides
+            from dodaios.skills.registry import SkillRegistry
+
+            skills_root = ensure_user_skills_dir()
+            registry = SkillRegistry(
+                root=skills_root,
+                bus=self.bus,
+                state_prefs_loader=load_state_overrides,
+            )
+            self._skill_registry = registry
+            app.state.skill_registry = registry
+            # reload_sync() (disk glob + parse) is deferred off the boot critical
+            # path — run after uvicorn is listening (start()).
+            self._pending_reloads.append(("SkillRegistry", registry))
+            logger.info("SkillRegistry created (scan deferred) from {}", skills_root)
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "SkillRegistry setup failed — Skills view stays empty"
+            )
+            app.state.skill_registry = None
+
+    def _setup_doc_registry(self, app: FastAPI) -> None:
+        """Bring up the doc registry + populate the FTS5 index initially.
+
+        Roots = ``default_doc_roots()`` (see ``dodaios/core/paths.py``).
+        The derived FTS index is process-local and rebuilt on every start. A
+        shared on-disk WAL made unrelated dev worktrees and overlapping restart
+        processes block the Docs view indefinitely on Windows.
+
+        Failure cases (unreadable roots, unavailable FTS5 support) are not
+        fatal — the UI surfaces a retryable load error instead of crashing.
+        """
+        try:
+            from dodaios.core.paths import default_doc_roots
+            from dodaios.docs.registry import DocRegistry
+
+            roots = default_doc_roots()
+            registry = DocRegistry(
+                roots=roots,
+                index_db=None,
+                bus=self.bus,
+            )
+            self._doc_registry = registry
+            app.state.doc_registry = registry
+            # The initial Markdown scan + FTS index build is deferred off the
+            # boot critical path and runs after uvicorn is listening (start()).
+            self._pending_reloads.append(("DocRegistry", registry))
+            logger.info("DocRegistry created (scan deferred) for {} roots", len(roots))
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning("DocRegistry setup failed — Docs view stays empty")
+            app.state.doc_registry = None
+
+    def _setup_cli_registry(self, app: FastAPI) -> None:
+        """Set up the ``CliToolRegistry`` and run the catalog probe asynchronously.
+
+        The constructor creates the registry without probing (non-blocking).
+        An asyncio task is scheduled in ``start()`` that runs ``bootstrap()`` —
+        until then the endpoints return ``status=checking`` for all entries.
+
+        Failure cases: read-only FS or DB lock → no crash, just an empty registry.
+        """
+        try:
+            from dodaios.clis.registry import CliToolRegistry
+            from dodaios.clis.shared import set_active_registry
+
+            registry = CliToolRegistry(bus=self.bus)
+            self._cli_registry = registry
+            app.state.cli_registry = registry
+            # Shared state: from here on, CliToolLoader and make_cli_patterns_fn
+            # see the same instance — the LLM gets the real connected CLIs as
+            # tools, not an empty catalog copy.
+            set_active_registry(registry)
+            logger.info(
+                "CliToolRegistry created ({} catalog entries, bootstrap pending)",
+                len(registry.catalog().all()),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "CliToolRegistry setup failed — CLIs view stays empty"
+            )
+            app.state.cli_registry = None
+
+    def _setup_plugin_registry(self, app: FastAPI) -> None:
+        """Construct the PluginToolRegistry (non-blocking) and publish it.
+
+        Mirror of _setup_cli_registry: the bootstrap (which opens an MCPClient
+        per connected plugin) is scheduled as a background task in start(). The
+        shared handle lets the plugin-tools loader + the marketplace routes see
+        the SAME instance on the SAME bus.
+        """
+        try:
+            from dodaios.marketplace.plugin_registry import PluginToolRegistry
+            from dodaios.marketplace.plugin_shared import set_active_plugin_registry
+
+            registry = PluginToolRegistry(bus=self.bus)
+            self._plugin_registry = registry
+            app.state.plugin_registry = registry
+            set_active_plugin_registry(registry)
+            logger.info("PluginToolRegistry created (bootstrap pending)")
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "PluginToolRegistry setup failed — plugins stay worker-only"
+            )
+            app.state.plugin_registry = None
+            self._plugin_registry = None
+
+    # ------------------------------------------------------------------
+    # REST
+    # ------------------------------------------------------------------
+
+    def _register_rest_routes(self, app: FastAPI) -> None:
+        from dodaios.core.instance import current_instance as _ci
+
+        def _instance_name() -> str:
+            return _ci().name
+
+        cfg = self.cfg
+        bus = self.bus
+
+        @app.get("/api/health")
+        async def health() -> dict[str, Any]:
+            # ``instance`` lets the frontend badge a dev window as such
+            # (``dodaios.core.instance``): "default" or "dev".
+            return {"ok": True, "version": __version__, "instance": _instance_name()}
+
+        @app.post("/api/ui/shell-painted", status_code=204, response_model=None)
+        async def shell_painted() -> Response:
+            # FastBootstrap consumes this acknowledgement during warm-up. A
+            # browser can paint after the full FastAPI app has already taken
+            # over, so the live app must accept the same POST as an idempotent
+            # no-op instead of returning FastAPI's 405 Method Not Allowed.
+            return Response(status_code=204)
+
+        @app.get("/api/config")
+        async def get_config() -> dict[str, Any]:
+            # Read-only snapshot — secrets are, by design, never in the config.
+            return cfg.model_dump()
+
+        @app.get("/api/plugins")
+        async def get_plugins() -> dict[str, list[str]]:
+            try:
+                return list_all_plugins()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("Plugin discovery failed")
+                return {}
+
+        @app.post("/api/debug/emit-test-event")
+        async def emit_test_event() -> dict[str, Any]:
+            evt = SystemStarted(version=__version__, source_layer="ui.web.debug")
+            await bus.publish(evt)
+            return {
+                "ok": True,
+                "event": "SystemStarted",
+                "trace_id": str(evt.trace_id),
+            }
+
+        @app.post("/api/window/focus")
+        async def window_focus() -> dict[str, Any]:
+            # Placeholder until the desktop shell replaces this with a real
+            # raise. Headless / VPS has no window: ok=False so a later
+            # desktop launch does not treat this ACK as "I brought a window
+            # forward" and silently exit (BUG-182).
+            return {"ok": False, "focused": False, "reason": "no_window"}
+
+        @app.get("/api/brain/status")
+        async def brain_status() -> dict[str, Any]:
+            """Returns the currently active brain provider + model.
+
+            The frontend uses this on mount to initialize the sidebar footer
+            correctly (instead of assuming the hardcoded "claude-api"
+            default). Live switches still arrive via the WS event
+            ``BrainProviderChanged``.
+            """
+            brain = getattr(app.state, "brain", None)
+            # BrainManager exposes `active_provider`. MockBrain only has `name`.
+            # Fast-boot deferral: the heavy BrainManager build runs in a
+            # background thread, so `app.state.brain` is None for the first
+            # ~850 ms while uvicorn already serves. In that window fall back to
+            # the configured primary provider — it already names the brain that
+            # WILL become active — instead of "unknown", which would freeze the
+            # sidebar footer on a bare "—" until a manual provider switch (the
+            # mount-fetch is one-shot and nothing re-fetches once the build
+            # finishes).
+            provider = (
+                getattr(brain, "active_provider", None)
+                or getattr(brain, "name", None)
+                or cfg.brain.primary
+                or "unknown"
+            )
+            prov_cfg = cfg.brain.providers.get(provider)
+            model = getattr(prov_cfg, "model", None) if prov_cfg else None
+            return {"provider": provider, "model": model or "unknown"}
+
+        @app.get("/api/voice/status")
+        async def voice_status() -> dict[str, Any]:
+            """Return the current voice boot-readiness flag.
+
+            The frontend reads this on mount to initialize the "voice starting"
+            badge correctly — the ``VoiceBootStatus`` WS event is one-shot, so a
+            late-connecting UI would miss it. The value is maintained by the bus
+            subscriber in ``_build_app`` on the server instance.
+            """
+            return {"ready": bool(getattr(self, "_voice_ready", False))}
+
+        async def _jarvis_agent_status_snapshot() -> dict[str, Any]:
+            """Jarvis-Agent bridge status for the settings view (Wave 3).
+
+            Read-only snapshot:
+
+            * ``configured``       — is the ``[harness.jarvis_agent]`` block
+              (legacy alias: ``[harness.openclaw]``) present in jarvis.toml?
+            * ``enabled``          — bridge toggle from the block
+            * ``binary_path``      — configured path
+            * ``binary_detected``  — resolver result (PATH + .cmd/.ps1/.exe)
+            * ``version_pin``      — AD-21 pin (None when the block is missing)
+            * ``brain_primary``    — active SUBAGENT provider
+              (``[brain.sub_jarvis].provider``); falls back to ``brain.primary``
+              only when no subagent provider is set. NOT the router
+              brain — the subagent runs the heavy tasks.
+            * ``provider_slug``    — worker slug of the active subagent
+              provider per AD-6 (claude-api->claude-cli)
+            * ``model_resolved``   — override from config OR the frontier-deep
+              model of the active subagent provider
+            * ``mapping``          — the full slug-mapping table
+
+            Contract: docs/jarvis-agents-bridge.md §4.3 wizard/setup extension.
+            The endpoint returns NO secrets — only a boolean for whether a key is set.
+            """
+            import shutil
+
+            from .agent_status import subscription_statuses
+
+            codex_bin = getattr(getattr(cfg, "codex", None), "binary_path", "") or None
+            auth_statuses = await subscription_statuses(codex_bin)
+
+            oc_cfg = cfg.harness.jarvis_agent
+            router_primary = (cfg.brain.primary or "").lower()
+
+            try:
+                from dodaios.missions.worker_runtime.provider_map import (
+                    MAPPINGS,
+                    canonical_worker_provider,
+                    to_worker_slug,
+                )
+            except Exception:  # noqa: BLE001
+                MAPPINGS = ()  # type: ignore[assignment]
+                to_worker_slug = None  # type: ignore[assignment]
+                canonical_worker_provider = None  # type: ignore[assignment]
+
+            # The HEAVY-TASK subagent runs on ``[brain.worker].provider`` —
+            # NOT on ``brain.primary`` (that is only the lightweight router
+            # brain). Mark the brain that ACTUALLY executes heavy tasks as
+            # active; fall back to the router brain only when no subagent
+            # provider is configured (worker then uses its default chain).
+            # Mirrors dodaios/missions/init.py::_worker_factory so the displayed
+            # brain never drifts from the worker that runs. (Bug 2026-05-28:
+            # the UI showed Gemini active while heavy work ran on Claude.)
+            sub_cfg = getattr(cfg.brain, "worker", None)
+            sub_raw = getattr(sub_cfg, "provider", None) if sub_cfg is not None else None
+            sub_provider = (
+                canonical_worker_provider(sub_raw)
+                if canonical_worker_provider is not None
+                else None
+            )
+            primary = sub_provider or router_primary
+
+            # Model: an explicit ``[brain.sub_jarvis].model`` wins; else the
+            # active provider's deep_model (frontier) from
+            # ``[brain.providers.<provider>]``.
+            sub_model_override = getattr(sub_cfg, "model", None) if sub_cfg is not None else None
+            prov_cfg = cfg.brain.providers.get(primary)
+            primary_deep_model = (sub_model_override or "").strip() or (
+                getattr(prov_cfg, "deep_model", None) or getattr(prov_cfg, "model", None)
+                if prov_cfg
+                else None
+            )
+
+            provider_slug: str | None = None
+            if to_worker_slug is not None:
+                try:
+                    provider_slug = to_worker_slug(primary)
+                except Exception:  # noqa: BLE001
+                    provider_slug = None
+
+            model_resolved: str | None = None
+            if oc_cfg is not None and oc_cfg.model:
+                model_resolved = oc_cfg.model
+            elif provider_slug and primary_deep_model:
+                model_resolved = f"{provider_slug}/{primary_deep_model}"
+
+            binary_path = oc_cfg.binary_path if oc_cfg is not None else "openclaw"
+
+            def _detect_binary() -> str | None:
+                """Resolve the bridge binary — up to four full PATH scans."""
+                found = shutil.which(binary_path)
+                if found:
+                    return found
+                for ext in (".cmd", ".ps1", ".exe"):
+                    cand = shutil.which(binary_path + ext)
+                    if cand:
+                        return cand
+                return None
+
+            # Off the loop: a PATH scan walks every directory on PATH, and on a
+            # long Windows PATH that is the slowest thing this route does. Left
+            # inline it froze every other section for as long as it took.
+            binary_detected: str | None = await asyncio.to_thread(_detect_binary)
+
+            from dodaios.brain.assistant_name import agent_brand
+            from dodaios.core.config import (
+                get_jarvis_agent_secret,
+                get_provider_secret,
+                get_secret,
+                jarvis_agent_secret_slot,
+            )
+            from dodaios.ui.web.provider_spec import get_spec
+
+            # Display brand follows the wake-word-derived assistant name.
+            brand = agent_brand(cfg)
+
+            def _key_flags(
+                slot: tuple[str, str] | None, provider: str
+            ) -> tuple[bool, bool]:
+                """Whether a dedicated and/or a shared credential exists."""
+                try:
+                    dedicated = bool(slot and get_secret(slot[0], env_fallback=slot[1]))
+                    shared = bool(get_provider_secret(provider))
+                except Exception:  # noqa: BLE001 — one unreadable store hides no other row
+                    return False, False
+                return dedicated, shared
+
+            mapping_rows = []
+            for mapping in MAPPINGS:
+                slot = jarvis_agent_secret_slot(mapping.jarvis)
+                secret_key = slot[0] if slot else None
+                # Off the loop: each of these reads the OS credential store,
+                # which blocks for as long as that store feels like taking.
+                dedicated_key_set, shared_key_set = await asyncio.to_thread(
+                    _key_flags, slot, mapping.jarvis
+                )
+                api_key_set = dedicated_key_set or shared_key_set
+                oauth_connected = False
+                oauth_stale = False
+                # Claude subscription auth is owned by the CLI. Its status
+                # command covers platform-native stores such as macOS Keychain;
+                # the legacy bearer-file check only preserves the recoverable
+                # expired state for older Linux/Windows installs.
+                if mapping.jarvis == "claude-api":
+                    try:
+                        from dodaios.claude_credentials import (
+                            freshest_claude_oauth,
+                        )
+
+                        auth_status = auth_statuses["claude"]
+                        oauth_connected = bool(
+                            auth_status.connected and auth_status.mode == "subscription"
+                        )
+                        snapshot_status = freshest_claude_oauth().status
+                        oauth_stale = not oauth_connected and snapshot_status == "expired"
+                    except Exception:  # noqa: BLE001
+                        oauth_connected = False
+                        oauth_stale = False
+                spec = get_spec(mapping.jarvis)
+                # A keyless local provider has nothing to save, so every
+                # credential question below has to answer differently for it.
+                # Without this the card demanded "save a dedicated ollama key
+                # on this card", offered a field for a key that does not exist,
+                # and refused activation — a local-only install could pick no
+                # worker at all. Read off the card's own auth mode, never a
+                # provider name (AP-21).
+                keyless = bool(spec and spec.auth_mode == "none")
+                # claude-api is dual-billed like Codex/Antigravity: the Claude Max
+                # subscription (claude CLI OAuth login) OR an Anthropic API key.
+                # Every other MAPPINGS provider bills per token on an API account.
+                row_billing = (
+                    "local"
+                    if keyless
+                    else "subscription_or_api"
+                    if mapping.jarvis == "claude-api"
+                    else "api"
+                )
+                credential_source = (
+                    "dedicated"
+                    if dedicated_key_set
+                    else "legacy_shared"
+                    if shared_key_set
+                    else "oauth"
+                    if oauth_connected or oauth_stale
+                    else "none"
+                )
+                mapping_rows.append(
+                    {
+                        "jarvis": mapping.jarvis,
+                        "worker_slug": mapping.worker_slug,
+                        "env_var": mapping.env_var,
+                        "env_fallback": mapping.env_fallback,
+                        # Readiness, not credential presence: a keyless card is
+                        # ready the moment it exists, and gating it on a key it
+                        # never has locked it out of the picker entirely.
+                        "key_set": (
+                            True if keyless else api_key_set or oauth_connected or oauth_stale
+                        ),
+                        "api_key_set": api_key_set,
+                        "dedicated_key_set": dedicated_key_set,
+                        "shared_key_set": shared_key_set,
+                        "oauth_connected": oauth_connected,
+                        "oauth_stale": oauth_stale,
+                        "credential_source": "none" if keyless else credential_source,
+                        # No key field on a card with no key slot.
+                        "secret_key": None if keyless else secret_key,
+                        "keyless": keyless,
+                        # The card's own name, so the picker stops showing raw
+                        # ids like "local-openai" next to "xAI Grok".
+                        "label": spec.label if spec else mapping.jarvis,
+                        "dashboard_url": spec.dashboard_url if spec else None,
+                        "credential_help": (
+                            f"Runs on your own hardware — no key, nothing leaves "
+                            f"this machine. Configure its server on the "
+                            f"{spec.label} card under Brain."
+                            if keyless and spec
+                            else f"Dedicated {brand} key for {spec.label}. "
+                            "It is not used by Brain or Realtime."
+                            if spec
+                            else f"Dedicated {brand} API key."
+                        ),
+                        "is_active_brain": mapping.jarvis == primary,
+                        "billing": row_billing,
+                    }
+                )
+
+            # Codex is a DIRECT worker (CodexDirectWorker) with no worker slug,
+            # so it is not in MAPPINGS. Surface it as an explicit selectable
+            # subagent row. Backed by the ChatGPT subscription (OAuth) OR an
+            # OpenAI API key — "key_set" is true when either is present.
+            try:
+                codex_status = auth_statuses["codex"]
+                codex_connected = codex_status.connected
+                codex_installed = codex_status.installed
+            except Exception:  # noqa: BLE001
+                codex_connected = False
+                codex_installed = False
+            try:
+                codex_key = bool(
+                    get_secret(
+                        "codex_openai_api_key",
+                        env_fallback="CODEX_OPENAI_API_KEY",
+                    )
+                )
+            except Exception:  # noqa: BLE001
+                codex_key = False
+            mapping_rows.append(
+                {
+                    "jarvis": "openai-codex",
+                    "openclaw": "codex-cli (direct)",
+                    "env_var": "ChatGPT-OAuth",
+                    "env_fallback": "OPENAI_API_KEY",
+                    "key_set": codex_connected or (codex_installed and codex_key),
+                    "api_key_set": codex_key,
+                    "dedicated_key_set": codex_key,
+                    "shared_key_set": False,
+                    "oauth_connected": codex_connected,
+                    "credential_source": (
+                        "oauth" if codex_connected else "dedicated" if codex_key else "none"
+                    ),
+                    "secret_key": "codex_openai_api_key",
+                    "dashboard_url": "https://platform.openai.com/api-keys",
+                    # Framed as the ALTERNATIVE to the ChatGPT login — the old
+                    # wording made the subscription card look like it required
+                    # an OpenAI API key (user report 2026-07-17).
+                    "credential_help": (
+                        "No ChatGPT login? Paste an OpenAI API key instead — "
+                        "Codex then bills per token. Not used by Brain or "
+                        "Realtime."
+                    ),
+                    "is_active_brain": primary == "openai-codex",
+                    # ChatGPT subscription OAuth OR an OpenAI API key.
+                    "billing": "subscription_or_api",
+                }
+            )
+
+            # Antigravity is a DIRECT worker (GoogleCliWorker over the official
+            # agy/Gemini CLI) with no worker slug, so it is not in MAPPINGS —
+            # the Google sibling of Codex. Dual billing, mirror of Codex: the
+            # installed Google CLI plus either its subscription OAuth login or
+            # a Gemini API key (per token). A key cannot replace the executable.
+            antigravity_status = None
+            try:
+                from dodaios.google_cli.auth_service import (
+                    antigravity_provider_ready,
+                )
+
+                antigravity_status = auth_statuses["google"]
+                antigravity_connected = (
+                    antigravity_status.connected and antigravity_status.mode == "oauth-personal"
+                )
+            except Exception:  # noqa: BLE001
+                antigravity_connected = False
+            try:
+                antigravity_key = bool(get_jarvis_agent_secret("gemini"))
+            except Exception:  # noqa: BLE001
+                antigravity_key = False
+            antigravity_ready = (
+                antigravity_provider_ready(
+                    antigravity_status,
+                    api_key_present=antigravity_key,
+                )
+                if antigravity_status is not None
+                else False
+            )
+            mapping_rows.append(
+                {
+                    "jarvis": "antigravity",
+                    "openclaw": "agy-cli (direct)",
+                    "env_var": "Google-OAuth",
+                    "env_fallback": "GEMINI_API_KEY",
+                    # The worker DRIVES the agy/Gemini CLI — a Gemini API key
+                    # alone, with no CLI on the machine, must never render the
+                    # card "Ready" (Windows test-machine report 2026-07-18:
+                    # Antigravity showed Ready although never installed, then
+                    # every run died at spawn). Mirrors the Codex row's
+                    # installed-gate below.
+                    "key_set": antigravity_ready,
+                    "api_key_set": antigravity_key,
+                    "dedicated_key_set": False,
+                    "shared_key_set": False,
+                    "oauth_connected": antigravity_connected,
+                    "credential_source": (
+                        "oauth"
+                        if antigravity_connected
+                        else "gemini_agent_key"
+                        if antigravity_key
+                        else "none"
+                    ),
+                    "secret_key": None,
+                    "dashboard_url": None,
+                    "credential_help": None,
+                    "is_active_brain": primary == "antigravity",
+                    # Google subscription OAuth OR a Gemini API key.
+                    "billing": "subscription_or_api",
+                }
+            )
+
+            # Grok Build is a DIRECT worker (GrokBuildDirectWorker over the
+            # official grok CLI) with no worker slug, so it is not in MAPPINGS.
+            # SuperGrok / X Premium+ subscription only — the xAI API-key path
+            # stays on the separate ``grok`` card.
+            grok_build_status = None
+            try:
+                from dodaios.grok_build_auth import (
+                    grok_build_provider_ready,
+                )
+
+                grok_build_status = auth_statuses["grok"]
+                grok_build_connected = (
+                    grok_build_status.connected and grok_build_status.mode == "subscription"
+                )
+            except Exception:  # noqa: BLE001
+                # A probe that cannot answer means "not connected" on this
+                # overview row, which is the safe reading and one the user can
+                # see. The Agents tab runs the same check and reports the real
+                # cause there; this row must never take the whole page down.
+                grok_build_connected = False
+            grok_build_ready = (
+                grok_build_provider_ready(grok_build_status)
+                if grok_build_status is not None
+                else False
+            )
+            mapping_rows.append(
+                {
+                    "jarvis": "grok-build",
+                    "openclaw": "grok-cli (direct)",
+                    "env_var": "SuperGrok-OAuth",
+                    "env_fallback": None,
+                    "key_set": grok_build_ready,
+                    "api_key_set": False,
+                    "dedicated_key_set": False,
+                    "shared_key_set": False,
+                    "oauth_connected": grok_build_connected,
+                    "credential_source": "oauth" if grok_build_connected else "none",
+                    "secret_key": None,
+                    "dashboard_url": None,
+                    "credential_help": None,
+                    "is_active_brain": primary == "grok-build",
+                    "billing": "subscription",
+                    "label": "Grok Build",
+                }
+            )
+
+            return {
+                "configured": oc_cfg is not None,
+                "enabled": bool(oc_cfg.enabled) if oc_cfg else False,
+                "binary_path": binary_path,
+                "binary_detected": binary_detected,
+                "version_pin": oc_cfg.version if oc_cfg else None,
+                "time_cap_min": oc_cfg.time_cap_min if oc_cfg else None,
+                "concurrency": oc_cfg.concurrency if oc_cfg else None,
+                "state_dir_root": oc_cfg.state_dir_root if oc_cfg else None,
+                "brain_primary": primary,
+                "provider_slug": provider_slug,
+                "model_override": oc_cfg.model if oc_cfg else None,
+                # The dedicated subagent LLM pin ([brain.sub_jarvis].model);
+                # empty/None means "provider's deep model" (model_resolved).
+                "sub_model_override": sub_model_override,
+                "model_resolved": model_resolved,
+                "mapping": mapping_rows,
+            }
+
+        pending_agent_status: asyncio.Task[dict[str, Any]] | None = None
+
+        @app.get("/api/jarvis-agent/status")
+        async def jarvis_agent_status() -> dict[str, Any]:
+            """Read bridge configuration and provider credential readiness without secrets."""
+            nonlocal pending_agent_status
+            from .agent_status import observe_status_result
+
+            # Several windows ask together. Share only unfinished work so a new
+            # read after a login or config change still gets a fresh snapshot.
+            if pending_agent_status is None or pending_agent_status.done():
+                pending_agent_status = asyncio.create_task(_jarvis_agent_status_snapshot())
+                pending_agent_status.add_done_callback(observe_status_result)
+            return await asyncio.shield(pending_agent_status)
+
+        @app.get("/api/memory/facts")
+        async def get_memory_facts() -> dict[str, Any]:
+            """Returns the core memory (persona, user facts, preferences).
+
+            The frontend shows this in the notes view, so the user can see
+            what Jarvis has remembered. core_memory.json is automatically
+            injected into the system prompt on the next brain call — so this
+            view is a read-only mirror of the persistent memory state.
+            """
+            from dodaios.core.config import DATA_DIR
+            from dodaios.memory import CORE_MEMORY_FILENAME, CoreMemory
+
+            from .error_text import LOG_HINT
+
+            try:
+                mem = CoreMemory.load(DATA_DIR / CORE_MEMORY_FILENAME)
+                return {"ok": True, "data": mem.all()}
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("Memory read error")
+                return {"ok": False, "error": "memory read failed. " + LOG_HINT, "data": {}}
+
+        @app.post("/api/memory/facts")
+        async def add_memory_fact(payload: MemoryFactBody) -> dict[str, Any]:
+            """User-driven add from the UI."""
+            from dodaios.core.config import DATA_DIR
+            from dodaios.memory import CORE_MEMORY_FILENAME, CoreMemory
+
+            from .error_text import LOG_HINT
+
+            fact = payload.fact.strip()
+            category = payload.category.strip() or "general"
+            if not fact:
+                return {"ok": False, "error": "fact is missing"}
+            try:
+                mem = CoreMemory.load(DATA_DIR / CORE_MEMORY_FILENAME)
+                mem.add_fact(fact, category=category)
+                return {"ok": True, "data": mem.all()}
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("Memory write error")
+                return {"ok": False, "error": "memory write failed. " + LOG_HINT}
+
+        @app.delete("/api/memory/facts")
+        async def delete_memory_fact(payload: MemoryFactBody) -> dict[str, Any]:
+            """User-driven remove from the UI."""
+            from dodaios.core.config import DATA_DIR
+            from dodaios.memory import CORE_MEMORY_FILENAME, CoreMemory
+
+            from .error_text import LOG_HINT
+
+            fact = payload.fact.strip()
+            category = payload.category.strip() or "general"
+            if not fact:
+                return {"ok": False, "error": "fact is missing"}
+            try:
+                mem = CoreMemory.load(DATA_DIR / CORE_MEMORY_FILENAME)
+                ok = mem.remove_fact(fact, category=category)
+                return {"ok": ok, "data": mem.all()}
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("Memory delete error")
+                return {"ok": False, "error": "memory delete failed. " + LOG_HINT}
+
+        @app.get("/api/terminal/shells")
+        async def terminal_shells() -> dict[str, Any]:
+            """Returns all shells installed on this system.
+
+            The frontend uses this to populate the shell dropdown with only
+            available options — no "command not found" on spawn.
+            """
+            return {"shells": [{"id": s.id, "label": s.label} for s in discover_shells()]}
+
+    # ------------------------------------------------------------------
+    # WebSocket
+    # ------------------------------------------------------------------
+
+    def _register_ws_route(self, app: FastAPI) -> None:
+        @app.websocket("/ws")
+        async def ws_endpoint(ws: WebSocket) -> None:
+            await self._handle_ws(ws)
+
+    async def _handle_ws(self, ws: WebSocket) -> None:
+        await ws.accept()
+        session_id = str(uuid4())
+        send_lock = asyncio.Lock()
+        self._clients[session_id] = ws
+        self._client_send_locks[session_id] = send_lock
+
+        welcome = WSWelcome(session_id=session_id, version=__version__)
+
+        def _drop_stalled_client() -> None:
+            """Detach this WS client so a wedged socket cannot keep blocking
+            the event bus (AP-18). The receive loop's ``finally`` does the
+            same cleanup; doing it here too is idempotent and stops the bleed
+            immediately instead of waiting for the OS TCP timeout."""
+            self._remove_ws_client(session_id)
+            try:
+                self.bus._wildcard_subscribers.remove(_forward)  # type: ignore[attr-defined]
+            except ValueError:
+                pass
+
+        async def _forward(event: Event) -> None:
+            if session_id not in self._clients:
+                return
+            try:
+                envelope = event_to_ws_envelope(event)
+                async with send_lock:
+                    # Bounded send: a stalled/half-open client must NEVER block
+                    # the bus (BUG-CU-STALL). On timeout we drop the client.
+                    await asyncio.wait_for(ws.send_json(envelope), timeout=_WS_SEND_TIMEOUT_S)
+            except WebSocketDisconnect:
+                _drop_stalled_client()
+            except TimeoutError:
+                logger.warning(
+                    "WS client dropped — send stalled >{}s (a wedged tab must "
+                    "never freeze the event bus) session_id={} event={}",
+                    _WS_SEND_TIMEOUT_S,
+                    session_id,
+                    type(event).__name__,
+                )
+                _drop_stalled_client()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning(
+                    "WS forward failed",
+                    session_id=session_id,
+                    event=type(event).__name__,
+                )
+
+        self.bus.subscribe_all(_forward)
+
+        try:
+            async with send_lock:
+                await ws.send_json(welcome.model_dump())
+            # Welcome must remain the first frame. Register this session only
+            # after it has arrived, then lazily tap the already-open native mic.
+            self._mic_level_sessions.add(session_id)
+            self._ensure_mic_level_bridge()
+
+            while True:
+                try:
+                    raw = await ws.receive_json()
+                except WebSocketDisconnect:
+                    break
+                except RuntimeError as exc:
+                    # The socket is gone — e.g. starlette raises
+                    # RuntimeError('WebSocket is not connected ...') after an
+                    # unclean client disconnect instead of WebSocketDisconnect.
+                    # `continue` here re-calls receive_json on the dead socket
+                    # forever: a ~9 MB/s traceback log-storm that wedges the
+                    # event loop and triggers a self-restart cancelling every
+                    # in-flight mission (live incident 2026-06-14). Treat it as
+                    # a disconnect and leave the loop.
+                    logger.opt(exception=exc).warning(
+                        "WS receive aborted; closing connection",
+                        session_id=session_id,
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    # A failed receive leaves the socket state uncertain. Treat
+                    # every read error as terminal so a dead socket can never
+                    # spin in this loop (AP-20).
+                    logger.opt(exception=exc).warning(
+                        "WS receive failed; closing connection",
+                        session_id=session_id,
+                    )
+                    try:
+                        await self.bus.publish(
+                            ErrorOccurred(
+                                layer="ui.web.ws",
+                                error_type=type(exc).__name__,
+                                message=str(exc),
+                                recoverable=False,
+                                source_layer="ui.web.ws",
+                            )
+                        )
+                    except Exception as publish_exc:  # noqa: BLE001
+                        logger.opt(exception=publish_exc).warning(
+                            "WS receive failure could not be published",
+                            session_id=session_id,
+                        )
+                    break
+
+                await self._route_incoming(session_id, raw, send_lock)
+
+        except WebSocketDisconnect:
+            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).error(
+                "WS handler aborted",
+                session_id=session_id,
+            )
+            await self.bus.publish(
+                ErrorOccurred(
+                    layer="ui.web.ws",
+                    error_type=type(exc).__name__,
+                    message=str(exc),
+                    recoverable=False,
+                    source_layer="ui.web.ws",
+                )
+            )
+        finally:
+            # Unsubscribe to avoid a memory leak.
+            try:
+                self.bus._wildcard_subscribers.remove(_forward)  # type: ignore[attr-defined]
+            except ValueError:
+                pass
+            self._remove_ws_client(session_id)
+            try:
+                await ws.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug(
+                    "WebSocket was already closed", session_id=session_id
+                )
+
+    def _ensure_mic_level_bridge(self) -> None:
+        """Tap both voice levels while a web UI is connected.
+
+        The microphone and the assistant's own output. ``level_tap`` only
+        computes its RMS while something is subscribed, so a web client
+        connecting is what turns that measurement on — and disconnecting turns
+        it back off.
+        """
+        if self._mic_level_unsub is not None or not self._mic_level_sessions:
+            return
+
+        # Lazy import keeps audio modules off the web server's startup path.
+        from dodaios.audio import level_tap, mic_level
+
+        loop = asyncio.get_running_loop()
+
+        def _receive(level: float) -> None:
+            try:
+                loop.call_soon_threadsafe(self._queue_mic_level, float(level))
+            except RuntimeError as exc:
+                # Shutdown can close the event loop between the audio callback
+                # and this handoff. The subscriber is removed during teardown.
+                logger.opt(exception=exc).debug("Microphone level loop is closed")
+
+        def _receive_tts(level: float) -> None:
+            try:
+                loop.call_soon_threadsafe(self._queue_tts_level, float(level))
+            except RuntimeError as exc:
+                logger.opt(exception=exc).debug("Output level loop is closed")
+
+        self._mic_level_unsub = mic_level.subscribe(_receive)
+        self._tts_level_unsub = level_tap.subscribe(_receive_tts)
+
+    def _stop_mic_level_bridge(self) -> None:
+        unsubscribe = self._mic_level_unsub
+        self._mic_level_unsub = None
+        unsubscribe_tts = self._tts_level_unsub
+        self._tts_level_unsub = None
+        self._mic_level_latest = 0.0
+        self._tts_level_latest = 0.0
+        self._mic_level_revision += 1
+        if unsubscribe is not None:
+            unsubscribe()
+        if unsubscribe_tts is not None:
+            unsubscribe_tts()
+
+        task = self._mic_level_task
+        if task is not None and task is not asyncio.current_task() and not task.done():
+            task.cancel()
+        self._mic_level_task = None
+
+    def _remove_ws_client(self, session_id: str) -> WebSocket | None:
+        ws = self._clients.pop(session_id, None)
+        self._client_send_locks.pop(session_id, None)
+        self._mic_level_sessions.discard(session_id)
+        if not self._mic_level_sessions:
+            self._stop_mic_level_bridge()
+        return ws
+
+    def _queue_mic_level(self, level: float) -> None:
+        """Coalesce audio-thread samples into at most one pending send task."""
+        if not self._mic_level_sessions:
+            return
+        self._mic_level_latest = min(1.0, max(0.0, level)) if math.isfinite(level) else 0.0
+        self._mic_level_revision += 1
+        if self._mic_level_task is None or self._mic_level_task.done():
+            self._mic_level_task = asyncio.create_task(self._drain_mic_levels())
+
+    def _queue_tts_level(self, level: float) -> None:
+        """Same coalescing as the microphone, for the assistant's own voice."""
+        if not self._mic_level_sessions:
+            return
+        self._tts_level_latest = min(1.0, max(0.0, level)) if math.isfinite(level) else 0.0
+        self._mic_level_revision += 1
+        if self._mic_level_task is None or self._mic_level_task.done():
+            self._mic_level_task = asyncio.create_task(self._drain_mic_levels())
+
+    async def _drain_mic_levels(self) -> None:
+        """Send only the freshest level; functional WS traffic has priority."""
+        sent_revision = -1
+        try:
+            while self._mic_level_sessions and sent_revision != self._mic_level_revision:
+                sent_revision = self._mic_level_revision
+                frame = WSAudioLevel(
+                    input=self._mic_level_latest,
+                    output=self._tts_level_latest,
+                ).model_dump()
+                await asyncio.gather(
+                    *(
+                        self._send_mic_level(session_id, frame)
+                        for session_id in tuple(self._mic_level_sessions)
+                    )
+                )
+        finally:
+            if self._mic_level_task is asyncio.current_task():
+                self._mic_level_task = None
+
+    async def _send_mic_level(self, session_id: str, frame: dict[str, Any]) -> None:
+        ws = self._clients.get(session_id)
+        send_lock = self._client_send_locks.get(session_id)
+        if ws is None or send_lock is None:
+            return
+
+        async def _send() -> None:
+            async with send_lock:
+                if self._clients.get(session_id) is ws:
+                    await ws.send_json(frame)
+
+        try:
+            await asyncio.wait_for(_send(), timeout=_WS_LEVEL_SEND_TIMEOUT_S)
+        except TimeoutError:
+            # This sample is already stale; the next one will replace it.
+            return
+        except WebSocketDisconnect:
+            self._remove_ws_client(session_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).debug("Microphone level send failed", session_id=session_id)
+            stale_ws = self._remove_ws_client(session_id)
+            if stale_ws is not None:
+                try:
+                    await stale_ws.close()
+                except Exception as close_exc:  # noqa: BLE001
+                    logger.opt(exception=close_exc).debug(
+                        "Microphone level socket close failed",
+                        session_id=session_id,
+                    )
+
+    async def _route_incoming(
+        self,
+        session_id: str,
+        raw: Any,
+        send_lock: asyncio.Lock,
+    ) -> None:
+        """Validates and dispatches an incoming WS frame."""
+        if not isinstance(raw, dict):
+            await self.bus.publish(
+                ErrorOccurred(
+                    layer="ui.web.ws",
+                    error_type="InvalidFrame",
+                    message=f"Expected dict, got {type(raw).__name__}",
+                    recoverable=True,
+                    source_layer="ui.web.ws",
+                )
+            )
+            return
+
+        frame_type = raw.get("type")
+        try:
+            if frame_type == "message":
+                msg = WSMessageIn.model_validate(raw)
+                thread_id = (msg.metadata or {}).get("thread_id", session_id)
+                await self.bus.publish(
+                    MessageSent(
+                        thread_id=thread_id,
+                        role="user",
+                        text=msg.content,
+                        source_layer="ui.web.ws",
+                    )
+                )
+            elif frame_type == "command":
+                cmd = WSCommand.model_validate(raw)
+                await self._handle_command(session_id, cmd, send_lock)
+            else:
+                await self.bus.publish(
+                    ErrorOccurred(
+                        layer="ui.web.ws",
+                        error_type="UnknownFrameType",
+                        message=f"type={frame_type!r}",
+                        recoverable=True,
+                        source_layer="ui.web.ws",
+                    )
+                )
+        except ValidationError as exc:
+            logger.warning("WS frame validation error", errors=exc.errors())
+            await self.bus.publish(
+                ErrorOccurred(
+                    layer="ui.web.ws",
+                    error_type="ValidationError",
+                    message=str(exc),
+                    recoverable=True,
+                    source_layer="ui.web.ws",
+                )
+            )
+        except WebSocketDisconnect:
+            # A reply frame (pong, terminal.spawned) hit a closed socket — that
+            # is the receive loop's business, not a failed command.
+            raise
+        except Exception as exc:  # noqa: BLE001 — one bad frame must not end the session
+            # A handler failing on one frame (a malformed terminal.resize, a
+            # PTY write error) used to escape into _handle_ws, which closed the
+            # whole UI event socket. Report it and keep the connection.
+            action = raw.get("action") if frame_type == "command" else None
+            logger.opt(exception=exc).warning(
+                "WS frame handler failed", frame_type=frame_type, action=action
+            )
+            await self.bus.publish(
+                ErrorOccurred(
+                    layer="ui.web.ws",
+                    error_type="CommandFailed" if frame_type == "command" else "FrameFailed",
+                    message=f"{action or frame_type} failed: {type(exc).__name__}",
+                    recoverable=True,
+                    source_layer="ui.web.ws",
+                )
+            )
+
+    async def _handle_command(
+        self,
+        session_id: str,
+        cmd: WSCommand,
+        send_lock: asyncio.Lock,
+    ) -> None:
+        if cmd.action == "ping":
+            ws = self._clients.get(session_id)
+            if ws is not None:
+                async with send_lock:
+                    await ws.send_json({"type": "pong", "payload": cmd.payload})
+        elif cmd.action == "test_event":
+            await self.bus.publish(SystemStarted(version=__version__, source_layer="ui.web.ws.cmd"))
+        elif cmd.action == "terminal.spawn":
+            await self._handle_terminal_spawn(session_id, cmd.payload, send_lock)
+        elif cmd.action == "terminal.input":
+            await self._handle_terminal_input(cmd.payload)
+        elif cmd.action == "terminal.resize":
+            self._handle_terminal_resize(cmd.payload)
+        elif cmd.action == "terminal.close":
+            self._handle_terminal_close(cmd.payload)
+        elif cmd.action == "stt_dictate":
+            await self._handle_dictation(cmd.payload)
+        elif cmd.action == "mission.inject":
+            await self._handle_mission_inject(session_id, cmd.payload)
+        # provider_switch/set_state now run over REST (POST /api/brain/switch
+        # or POST /api/secrets/{key}). Duplicate code paths removed here.
+
+    async def _handle_mission_inject(self, session_id: str, payload: dict[str, Any]) -> None:
+        """Drag-drop a mission card → inject it into the live conversation.
+
+        Composes a bounded, human-readable user turn from the card's own data
+        and publishes it as a normal ``MessageSent``. The existing brain
+        dispatcher then answers it (spoken on voice, shown in chat) and the
+        text lands in ``BrainManager._history`` so follow-ups stay in context.
+        A distinct ``source_layer`` marks the turn for traceability AND is the
+        signal the router uses to exempt a recap from force-spawn — a dropped
+        card is DISCUSSED inline, never re-dispatched as a new mission. The
+        brain dispatcher still runs the turn (only ``"chat"``/``"brain:mock"``
+        are skipped), so it answers exactly like a typed message.
+        """
+        from dodaios.ui.web.mission_inject import (
+            MISSION_INJECT_SOURCE_LAYER,
+            compose_mission_inject_text,
+        )
+
+        text = compose_mission_inject_text(payload)
+        if not text:
+            logger.debug("mission.inject: empty/unparseable payload — ignored")
+            return
+        thread_id = str(payload.get("thread_id") or session_id)
+        await self.bus.publish(
+            MessageSent(
+                thread_id=thread_id,
+                role="user",
+                text=text,
+                source_layer=MISSION_INJECT_SOURCE_LAYER,
+            )
+        )
+
+    async def _handle_dictation(self, payload: dict[str, Any]) -> None:
+        """Start/stop chat mic-dictation on the live SpeechPipeline.
+
+        Transcribe-only: the pipeline streams ``DictationTranscript`` events
+        (forwarded to the browser by the wildcard subscriber) straight into the
+        chat input — it never reaches the brain. Resolves the pipeline via
+        ``runtime_refs``; if there is none (headless / voice disabled) it emits a
+        recoverable error + a toast instead of crashing (cloud-first no-op).
+        """
+        from dodaios.core.runtime_refs import get_speech_pipeline
+
+        mode = str(payload.get("mode", "start"))
+        # "chat" (default) fills the composer; "insert" is dictation mode —
+        # the transcript is pasted into the focused field of whatever app is in
+        # front. The chat mic button never sends "insert".
+        target = "insert" if str(payload.get("target", "chat")) == "insert" else "chat"
+        pipeline = get_speech_pipeline()
+        if pipeline is None:
+            # Headless / voice disabled — no server mic. Recoverable, not fatal:
+            # surface it as an ErrorOccurred (the frontend already handles that
+            # event) and return. Cloud-first no-op.
+            await self.bus.publish(
+                ErrorOccurred(
+                    layer="ui.web.dictation",
+                    error_type="DictationUnavailable",
+                    message="Dictation needs a server microphone (not available in this mode).",
+                    recoverable=True,
+                    source_layer="ui.web.ws",
+                )
+            )
+            return
+        try:
+            if mode == "stop":
+                pipeline.stop_dictation()
+            else:
+                started = pipeline.start_dictation(target=target, source="ws")
+                if not started:
+                    await self.bus.publish(
+                        ErrorOccurred(
+                            layer="ui.web.dictation",
+                            error_type="DictationBusy",
+                            message="Mic is busy — can't start dictation right now.",
+                            recoverable=True,
+                            source_layer="ui.web.ws",
+                        )
+                    )
+        except Exception as exc:  # noqa: BLE001 — never crash the WS loop
+            logger.warning("dictation command failed", error=str(exc))
+
+    # ------------------------------------------------------------------
+    # Terminal-Command-Handler
+    # ------------------------------------------------------------------
+
+    async def _handle_terminal_spawn(
+        self,
+        session_id: str,
+        payload: dict[str, Any],
+        send_lock: asyncio.Lock,
+    ) -> None:
+        shell_id = str(payload.get("shell", "pwsh"))
+        cols = int(payload.get("cols", 120) or 120)
+        rows = int(payload.get("rows", 30) or 30)
+        cwd = payload.get("cwd")
+        cwd_str = str(cwd) if cwd else None
+
+        shell = get_shell(shell_id)
+        if shell is None:
+            await self.bus.publish(
+                ErrorOccurred(
+                    layer="ui.web.terminal",
+                    error_type="ShellNotFound",
+                    message=f"Shell {shell_id!r} not installed",
+                    recoverable=True,
+                    source_layer="ui.web.terminal",
+                )
+            )
+            return
+
+        bus = self.bus
+
+        async def _on_output(terminal_id: str, data: str) -> None:
+            await bus.publish(
+                TerminalOutput(
+                    terminal_id=terminal_id,
+                    data=data,
+                    source_layer="ui.web.terminal",
+                )
+            )
+
+        async def _on_closed(terminal_id: str, exit_code: int) -> None:
+            self._pty_input_buffers.pop(terminal_id, None)
+            self._pty_shell_ids.pop(terminal_id, None)
+            await bus.publish(
+                TerminalClosed(
+                    terminal_id=terminal_id,
+                    exit_code=exit_code,
+                    source_layer="ui.web.terminal",
+                )
+            )
+
+        try:
+            session = await self._pty.spawn(
+                shell_argv=shell.argv,
+                shell_id=shell.id,
+                cwd=cwd_str,
+                cols=cols,
+                rows=rows,
+                on_output=_on_output,
+                on_closed=_on_closed,
+            )
+        except RuntimeError as exc:
+            await self.bus.publish(
+                ErrorOccurred(
+                    layer="ui.web.terminal",
+                    error_type="PtySpawnFailed",
+                    message=str(exc),
+                    recoverable=True,
+                    source_layer="ui.web.terminal",
+                )
+            )
+            return
+
+        self._pty_input_buffers[session.terminal_id] = ""
+        self._pty_shell_ids[session.terminal_id] = shell.id
+
+        await self.bus.publish(
+            TerminalSpawned(
+                terminal_id=session.terminal_id,
+                shell_id=shell.id,
+                pid=session.pid,
+                source_layer="ui.web.terminal",
+            )
+        )
+        # Direct response frame with terminal_id, so the frontend can
+        # unambiguously match up multiple parallel spawn requests.
+        ws = self._clients.get(session_id)
+        if ws is not None:
+            async with send_lock:
+                await ws.send_json(
+                    {
+                        "type": "terminal.spawned",
+                        "payload": {
+                            "terminal_id": session.terminal_id,
+                            "shell_id": shell.id,
+                            "pid": session.pid,
+                        },
+                    }
+                )
+
+    async def _handle_terminal_input(self, payload: dict[str, Any]) -> None:
+        terminal_id = str(payload.get("terminal_id", ""))
+        data = str(payload.get("data", ""))
+        if not terminal_id or not data:
+            return
+        if not self._pty.write(terminal_id, data):
+            return
+        # Audit log: maintain the line buffer, emit a command on \r/\n.
+        buf = self._pty_input_buffers.get(terminal_id, "")
+        for ch in data:
+            if ch in ("\r", "\n"):
+                line = buf.strip()
+                if line:
+                    await self.bus.publish(
+                        TerminalCommandExecuted(
+                            terminal_id=terminal_id,
+                            shell_id=self._pty_shell_ids.get(terminal_id, ""),
+                            command=line,
+                            source_layer="ui.web.terminal.audit",
+                        )
+                    )
+                buf = ""
+            elif ch in ("\x7f", "\b"):
+                # Backspace — remove the last character from the buffer
+                buf = buf[:-1]
+            elif ch >= " ":
+                buf += ch
+            # We ignore other control chars (Ctrl-C etc.) in the buffer.
+        # Memory cap for extremely long pasted lines.
+        if len(buf) > 4096:
+            buf = buf[-4096:]
+        self._pty_input_buffers[terminal_id] = buf
+
+    def _handle_terminal_resize(self, payload: dict[str, Any]) -> None:
+        terminal_id = str(payload.get("terminal_id", ""))
+        cols = int(payload.get("cols", 0) or 0)
+        rows = int(payload.get("rows", 0) or 0)
+        if terminal_id and cols > 0 and rows > 0:
+            self._pty.resize(terminal_id, cols, rows)
+
+    def _handle_terminal_close(self, payload: dict[str, Any]) -> None:
+        terminal_id = str(payload.get("terminal_id", ""))
+        if terminal_id:
+            self._pty.close(terminal_id)
+
+    # ------------------------------------------------------------------
+    # Static / SPA
+    # ------------------------------------------------------------------
+
+    def _register_static_or_spa(self, app: FastAPI) -> None:
+        if self.cfg.ui.dev_mode:
+            return
+
+        if ASSETS_DIR.is_dir():
+            app.mount(
+                "/assets",
+                StaticFiles(directory=str(ASSETS_DIR)),
+                name="assets",
+            )
+
+        @app.get("/", include_in_schema=False, response_model=None)
+        async def _spa_root() -> FileResponse | HTMLResponse:
+            # Off the loop: deciding between the index and the holding page
+            # reads index.html and stats every asset it references. On a disk
+            # that is busy paging in a cold boot that took long enough to show
+            # up in a loop-stall stack (2026-08-26, BUG-189).
+            return await asyncio.to_thread(self._spa_index_response)
+
+        async def _spa_fallback(
+            full_path: str,
+        ) -> FileResponse | HTMLResponse | JSONResponse:
+            # API and socket paths never reach this handler: _SpaFallbackRoute
+            # declines them, so the router answers 404 / 405 itself.
+            try:
+                target = (DIST_DIR / full_path).resolve()
+                dist_root = DIST_DIR.resolve()
+                if target.is_file() and dist_root in target.parents:
+                    return FileResponse(str(target))
+            except (OSError, ValueError):
+                pass
+            # A missing asset (image/script/font) gets an honest 404, never the
+            # SPA index: an <img> that receives HTML with a 200 renders as a
+            # permanently broken image — the browser treats the load as a
+            # success and never retries (sidebar-logo regression, 2026-07-18).
+            if PurePosixPath(full_path).suffix.lower() in ASSET_SUFFIXES:
+                return JSONResponse({"detail": "Not Found"}, status_code=404)
+            return await asyncio.to_thread(self._spa_index_response)
+
+        app.router.add_api_route(
+            "/{full_path:path}",
+            _spa_fallback,
+            methods=["GET"],
+            include_in_schema=False,
+            response_model=None,
+            route_class_override=_SpaFallbackRoute,
+        )
+
+    def _spa_index_response(self) -> FileResponse | HTMLResponse:
+        # An index.html whose own entry bundle is not on disk is worse than no
+        # index.html at all: the window paints the boot splash, the module
+        # script 404s, and nothing further runs — no React, no bundle watch, no
+        # preload recovery — so the only thing left is the 20-second blank-window
+        # watchdog. A rebuild deletes dist/assets while leaving the previous
+        # index.html in place for about two seconds (measured 2026-08-22), and
+        # every window that loads during those two seconds is stuck there. The
+        # holding page below says what is happening and comes back on its own.
+        # See dodaios/ui/web/spa_build.py.
+        if INDEX_FILE.is_file() and build_is_complete(INDEX_FILE, DIST_DIR):
+            return FileResponse(
+                str(INDEX_FILE),
+                headers={
+                    "Cache-Control": "no-store, max-age=0",
+                    "Pragma": "no-cache",
+                },
+            )
+        recovered = recover_conflicted_index(INDEX_FILE, DIST_DIR)
+        if recovered is not None:
+            return HTMLResponse(
+                content=recovered,
+                headers={
+                    "Cache-Control": "no-store, max-age=0",
+                    "Pragma": "no-cache",
+                },
+            )
+        return self._spa_placeholder_response()
+
+    @staticmethod
+    def _spa_placeholder_response() -> HTMLResponse:
+        """The boot splash, while dist/ is between two builds.
+
+        It is deliberately the SAME splash the window opens with — same ground,
+        same ring, same assistant name — because a rebuild is not a different
+        program taking over the window. Resolving the theme is left to a two-line
+        inline script reading the very key `frontend/index.html` reads, which
+        also takes a synchronous `load_config()` off the one event loop that is
+        simultaneously serving every asset of the build that is landing.
+
+        It waits for a COMPLETE build instead of reloading on a timer: the page
+        polls the entry document and reloads only once the answer is no longer
+        itself. A blind `<meta http-equiv="refresh">` reloads into the same
+        half-written dist over and over, which is the flicker rather than the
+        cure.
+        """
+        return HTMLResponse(
+            content=holding_page_html(),
+            status_code=200,
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Pragma": "no-cache",
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def _schedule_marketplace_refresh_scheduler(self) -> None:
+        """Start marketplace token refresh after the current boot turn.
+
+        Both desktop and headless launch through :meth:`start`. Deferring the
+        small amount of catalog/keyring setup until the loop gets control back
+        keeps it off the readiness-critical path, while the stored handle makes
+        the operation exactly-once even if start is invoked again before the
+        callback runs.
+        """
+        if self._refresh_scheduler is not None or self._refresh_scheduler_start_handle is not None:
+            return
+        self._refresh_scheduler_stopping = False
+        loop = asyncio.get_running_loop()
+        self._refresh_scheduler_start_handle = loop.call_soon(
+            self._start_marketplace_refresh_scheduler
+        )
+
+    def _start_local_models_health_monitor(self) -> None:
+        """The Local models self-check task (best-effort, exactly once, off the boot path)."""
+        if self._local_models_health_monitor is not None:
+            return
+        try:
+            from dodaios.local_models.health_monitor import HealthMonitor
+
+            monitor = HealthMonitor(lambda: self.cfg)
+            monitor.start()
+        except Exception as exc:  # noqa: BLE001 -- a badge must never block boot
+            logger.opt(exception=exc).warning("Local models health monitor did not start.")
+            return
+        self._local_models_health_monitor = monitor
+
+    async def _stop_local_models_health_monitor(self) -> None:
+        monitor = self._local_models_health_monitor
+        self._local_models_health_monitor = None
+        if monitor is not None:
+            try:
+                await monitor.stop()
+            except Exception as exc:  # noqa: BLE001 -- shutdown stays best-effort
+                logger.opt(exception=exc).debug("Local models health monitor stop failed.")
+
+    def _schedule_local_models_autostart(self) -> None:
+        """Start the local model server with Jarvis when it is wanted and in use.
+
+        Best-effort, exactly once, off the boot path: the task sleeps a few
+        seconds first, then decides from the config (autostart on AND a role
+        or the active brain uses the server) and starts/warms accordingly.
+        """
+        if self._local_models_autostart_task is not None:
+            return
+        try:
+            from dodaios.local_models.autostart import schedule
+
+            self._local_models_autostart_task = schedule(lambda: self.cfg)
+        except Exception as exc:  # noqa: BLE001 -- a convenience must never block boot
+            logger.opt(exception=exc).warning("Local models autostart did not schedule.")
+
+    async def _stop_local_models_autostart(self) -> None:
+        task = self._local_models_autostart_task
+        self._local_models_autostart_task = None
+        if task is None or task.done():
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:  # noqa: BLE001 -- shutdown stays best-effort
+            logger.opt(exception=exc).debug("Local models autostart stop failed.")
+
+    def _start_marketplace_refresh_scheduler(self) -> None:
+        """Create the periodic OAuth refresh task (best-effort, exactly once)."""
+        self._refresh_scheduler_start_handle = None
+        if self._refresh_scheduler is not None:
+            return
+        try:
+            from dodaios.marketplace.connect_helpers import (
+                build_handler_from_catalog,
+                connected_plugin_ids,
+            )
+            from dodaios.marketplace.refresh_scheduler import RefreshScheduler
+            from dodaios.marketplace.token_store import TokenStore
+
+            token_store = TokenStore()
+
+            def _refresh_live_session(plugin_id: str) -> None:
+                registry = self._plugin_registry
+                if registry is None or self._refresh_scheduler_stopping:
+                    return
+                task = asyncio.create_task(
+                    registry.refresh_credentials(plugin_id),
+                    name=f"plugin-refresh:{plugin_id}",
+                )
+                self._refresh_registry_tasks.add(task)
+
+                def _consume_refresh_result(done: asyncio.Task[Any]) -> None:
+                    self._refresh_registry_tasks.discard(done)
+                    if done.cancelled():
+                        return
+                    try:
+                        done.result()
+                    except Exception as exc:  # noqa: BLE001 -- background isolation
+                        logger.opt(exception=exc).warning(
+                            "Marketplace live-session refresh failed for {}.",
+                            plugin_id,
+                        )
+
+                task.add_done_callback(_consume_refresh_result)
+
+            scheduler = RefreshScheduler(
+                plugin_ids_fn=lambda: connected_plugin_ids(token_store),
+                store=token_store,
+                build_handler=build_handler_from_catalog,
+                on_refreshed=_refresh_live_session,
+            )
+            scheduler.start()
+        except Exception as exc:  # noqa: BLE001 -- refresh must never block boot
+            logger.opt(exception=exc).warning(
+                "Marketplace refresh scheduler did not start; connected OAuth plugins may expire."
+            )
+            return
+
+        self._refresh_scheduler = scheduler
+        self.app.state.refresh_scheduler = scheduler
+        logger.info(
+            "Marketplace refresh scheduler started; connected OAuth tokens "
+            "will be renewed in the background."
+        )
+
+    def _schedule_appshot_shortcut(self) -> None:
+        """Arm the global appshot shortcut once the wake model has loaded.
+
+        Off the boot path (AP-26): the key reader and the hotkey backend load
+        native libraries. Headless hosts arm nothing and say so in the log.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.debug("Appshot shortcut not scheduled — no running event loop.")
+            return
+
+        async def _arm() -> None:
+            from dodaios.appshot.hotkey import start_appshot_shortcut
+            from dodaios.core import runtime_refs as _rr
+
+            await _rr.await_wake_model_ready(timeout=12.0)
+            try:
+                await start_appshot_shortcut(self.bus)
+            except Exception as exc:  # noqa: BLE001 - voice/chat work without it
+                logger.opt(exception=exc).warning("Appshot shortcut could not start")
+
+        self._appshot_shortcut_task = loop.create_task(_arm(), name="appshot-shortcut")
+
+    def _schedule_realtime_transport_warm(self) -> None:
+        """Pre-open the selected realtime transports off the boot path.
+
+        ``run.bat --headless`` and every browser-only install boot through this
+        server and never through the desktop shell, so without this hook they
+        paid the realtime provider's whole cold start inside the user's first
+        call — for a subscription transport a spawned app-server plus a live
+        account check. Every OS reaches it the same way; nothing here is
+        desktop- or Windows-specific.
+
+        Exactly-once by construction: the desktop shell starts its own warm
+        worker under :data:`REALTIME_WARM_TASK_NAME` before it awaits
+        :meth:`start`, and both run on the same loop, so an already-live task
+        of that name means this boot is already covered. Whether warming is
+        appropriate at all stays the factory's decision — it skips itself when
+        realtime is not the configured voice mode and warms only explicitly
+        selected providers.
+        """
+        existing = self._realtime_warm_task
+        if existing is not None and not existing.done():
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No loop (a synchronous start in a test harness): nothing to warm
+            # onto, and boot must not care.
+            logger.debug("Realtime transport warm not scheduled — no running event loop.")
+            return
+        for task in asyncio.all_tasks(loop):
+            if task.get_name() == REALTIME_WARM_TASK_NAME and not task.done():
+                logger.debug(
+                    "Realtime transport warm already running on this loop — "
+                    "not scheduling a second one."
+                )
+                return
+        self._realtime_warm_task = loop.create_task(
+            self._warm_realtime_transports(), name=REALTIME_WARM_TASK_NAME
+        )
+
+    async def _warm_realtime_transports(self) -> None:
+        """Warm the explicitly selected realtime transports once, after boot.
+
+        Advisory by contract and never silent (AP-30): a failure here changes
+        nothing except that the first call pays the cold start it pays today,
+        and it says so at warning level.
+        """
+        try:
+            # Spawn-only prestart BEFORE the boot delay: the managed local
+            # server loads its models for 45-90 s in a SEPARATE process, so
+            # firing its spawn first costs the boot nothing and moves local
+            # voice readiness forward by the whole delay. The full warm below
+            # keeps its delay — it is what spawns app-servers and verifies
+            # accounts inside THIS process.
+            from dodaios.realtime.factory import realtime_prespawn_transports
+
+            await realtime_prespawn_transports(self.cfg)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- prespawn is advisory, never fatal
+            logger.opt(exception=exc).debug(
+                "Realtime transport prespawn failed — the regular warm below "
+                "still covers the start."
+            )
+        try:
+            await asyncio.sleep(REALTIME_WARM_BOOT_DELAY_S)
+            from dodaios.realtime.factory import realtime_warm_selected_transports
+
+            await realtime_warm_selected_transports(self.cfg)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- warming is advisory, never fatal
+            logger.opt(exception=exc).warning(
+                "Realtime transport warm failed — the first realtime call will "
+                "pay the provider's cold start."
+            )
+
+    async def _stop_marketplace_refresh_scheduler(self) -> None:
+        """Cancel a pending start and stop the live refresh task, if any."""
+        self._refresh_scheduler_stopping = True
+        handle = self._refresh_scheduler_start_handle
+        self._refresh_scheduler_start_handle = None
+        if handle is not None:
+            handle.cancel()
+
+        scheduler = self._refresh_scheduler
+        self._refresh_scheduler = None
+        self.app.state.refresh_scheduler = None
+        if scheduler is not None:
+            try:
+                await scheduler.stop()
+            except Exception as exc:  # noqa: BLE001 -- shutdown stays best-effort
+                logger.opt(exception=exc).warning("Marketplace refresh scheduler stop failed.")
+
+        # A successful token refresh may already have queued a live MCP-session
+        # rebuild. Drain those tasks before PluginToolRegistry.stop(); otherwise
+        # a late task can reconnect a client after registry shutdown and leak it.
+        pending = list(self._refresh_registry_tasks)
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        self._refresh_registry_tasks.clear()
+
+    async def start(
+        self,
+        host: str = "127.0.0.1",
+        port: int | None = None,
+        *,
+        start_serving: bool = True,
+    ) -> None:
+        """Run the boot init chain. When ``start_serving`` is False the uvicorn
+        server is NOT started — the caller already serves this app's ASGI
+        callable (the fast-boot bootstrap in launcher.py serves a holding app on
+        the port and delegates to ``self.app`` once this init chain completes).
+        """
+        # Just-in-time permissions: the service publishes PermissionNeeded /
+        # PermissionResolved through this bus, from any thread, onto this loop.
+        # FIRST, so a consumer that asks while the rest of start() runs is heard.
+        # It stores two references and probes nothing (AP-26); the desktop app
+        # already did the same right after the ctor, before the speech task.
+        from dodaios.platform.permission_service import attach_bus as _attach_permission_bus
+
+        _attach_permission_bus(self.bus, asyncio.get_running_loop())
+
+        await self.prepare_app()
+        import uvicorn
+
+        # Boot profiling (opt-in via JARVIS_BOOT_PROFILE=1; zero behavior change
+        # otherwise). Emits one machine-readable ``[BOOT_PROFILE] <phase>=<ms>``
+        # line per phase to stdout so the boot-timing harness
+        # (scripts/measure_boot.py) can attribute cold-start cost without an LLM
+        # or a log-level change. NEVER on the voice critical path.
+        _boot_profile = os.environ.get("JARVIS_BOOT_PROFILE") == "1"
+        _boot_last = time.perf_counter()
+
+        def _boot_mark(_name: str) -> None:
+            nonlocal _boot_last
+            _now = time.perf_counter()
+            if _boot_profile:
+                print(
+                    f"[BOOT_PROFILE] {_name}={(_now - _boot_last) * 1000.0:.1f}",
+                    flush=True,
+                )
+            _boot_last = _now
+
+        # Cloud-first fail-closed: never expose a non-loopback bind without a
+        # Control API key — the key, not the bind address, is the boundary.
+        from dodaios.core import control_key as _control_key
+        from dodaios.ui.web.control_auth import assert_bind_safe
+
+        resolved_port = port if port is not None else self.cfg.ui.admin_api_port
+        # Desktop bootstrap already owns the listener. CLI agents still need
+        # its address to mount Jarvis' scoped tools, including Browser-Use.
+        from dodaios.core import runtime_refs as _runtime_refs
+
+        _runtime_refs.set_api_base_url(f"http://127.0.0.1:{resolved_port}")
+        # Announce each change of the passive provider-health record on the bus;
+        # the existing /ws fan-out carries it to every open window, whose status
+        # dots then re-read (no poll, no extra socket — AP-33). Registering is
+        # cheap: nothing is read or started until the first outcome arrives.
+        from dodaios.brain.provider_health_ledger import publish_changes_to
+
+        publish_changes_to(self.bus, asyncio.get_running_loop())
+        if start_serving:
+            assert_bind_safe(host, _control_key.get_control_key())
+            config = uvicorn.Config(
+                app=self.app,
+                host=host,
+                port=resolved_port,
+                log_level=self.cfg.telemetry.log_level.lower(),
+                lifespan="on",
+                loop="asyncio",
+            )
+            server = uvicorn.Server(config)
+            self._server = server
+            self._serve_task = asyncio.create_task(server.serve())
+
+            deadline = asyncio.get_running_loop().time() + 5.0
+            while not server.started:
+                if asyncio.get_running_loop().time() > deadline:
+                    raise TimeoutError(
+                        f"uvicorn server on {host}:{resolved_port} not ready within 5s"
+                    )
+                if self._serve_task.done():
+                    exc = self._serve_task.exception()
+                    if exc is not None:
+                        raise exc
+                    raise RuntimeError("uvicorn.Server.serve() exited before 'started'")
+                await asyncio.sleep(0.05)
+        else:
+            # Bootstrap fast-boot path: a separate server already serves on the
+            # port and delegates to self.app once this init chain finishes.
+            self._server = None
+            self._serve_task = None
+
+        _boot_mark("uvicorn_serve")
+
+        # Voice-ready UI backstop (permanent "starting up" bug): the frontend's
+        # startup banner + top-left "STARTING…" status clear ONLY on a
+        # VoiceBootStatus(ready=True). If the speech pipeline crashes during
+        # construction or an un-timed model load wedges warm-up, that event never
+        # fires and the UI hangs forever. Arm a watchdog that force-releases the UI
+        # after a generous deadline — but only when voice is meant to warm up
+        # (else _voice_ready is already seeded True and there is nothing to wait
+        # for, e.g. JARVIS_VOICE=0 / headless).
+        if not self._voice_ready:
+            self._voice_ready_watchdog_task = asyncio.create_task(
+                self._voice_ready_watchdog(), name="voice-ready-watchdog"
+            )
+        else:
+            # Voice is off, so no ready event will ever arrive to trigger
+            # this; the end of the deferred phase is the calm moment instead.
+            self._schedule_anyio_pool_warm()
+
+        # Phase-6 mission stack — MissionManager with a DB path derived from
+        # the config's memory data_dir (same folder as data/jarvis.db, its
+        # own file data/missions.db). Recovery runs in start().
+        try:
+            await self._init_mission_stack()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "MissionManager init failed — /api/missions returns 503"
+            )
+        _boot_mark("mission_stack")
+
+        # Screenshot retention: auto-delete old Vision / Flight-Recorder blobs
+        # (data/flight_recorder/blobs/) after the configured window. Runs a
+        # one-shot boot sweep plus a periodic background task.
+        try:
+            await self._init_screenshot_retention()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "Screenshot retention init failed — blobs will not be auto-pruned"
+            )
+        _boot_mark("screenshot_retention")
+
+        # Flight-recorder audit log: attach the wildcard JSONL event recorder so
+        # there is a replayable audit trail of what Jarvis did (every event,
+        # incl. every Computer-Use action). It was defined but never wired at
+        # boot, so telemetry.flight_recorder=true logged nothing (audit #14).
+        try:
+            await self._init_flight_recorder()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "Flight recorder init failed — the audit log will be inactive"
+            )
+        _boot_mark("flight_recorder")
+
+        # Phase B5 wiki write-wiring — SessionRollupWorker + WikiCurator.
+        # Subscribes to IdleEntered; gracefully disabled when wiki_integration
+        # is not configured or enabled is False.
+        try:
+            await self._init_wiki_integration()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "WikiIntegration init failed — wiki write-wiring inactive"
+            )
+            try:
+                from dodaios.memory.wiki.health import health as _wiki_health
+
+                _wiki_health.record_bootstrap(False, error=str(exc))
+            except Exception:  # noqa: BLE001 — health recording must never break boot
+                logger.debug("wiki health.record_bootstrap(False) failed", exc_info=True)
+        _boot_mark("wiki_integration")
+
+        # Jarvis' own self-learning loop: two bus subscriptions, nothing else
+        # at boot. Reviews run later in the background (dodaios/memory/learning).
+        try:
+            from dodaios.memory.learning.loop import start_learning
+
+            start_learning(self.cfg, self.bus)
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "Jarvis learning loop init failed — Jarvis will not learn this run"
+            )
+
+        # Reconcile the derived FTS5 index after readiness. This repairs stale
+        # rows after a vault switch without extending the startup critical path.
+        try:
+            self._init_wiki_boot_index(background=True)
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "WikiBootIndex-Init failed — vault search may return no hits "
+                "until the first page write or a manual reindex"
+            )
+        _boot_mark("wiki_boot_index")
+
+        # Phase B3 wiki live-reload — start the WikiWatcher so file
+        # changes in the vault publish WikiPageChanged events that the
+        # /api/wiki/live WS endpoint forwards to the desktop tab.
+        try:
+            self._init_wiki_watcher()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "WikiWatcher init failed — desktop wiki live-reload inactive"
+            )
+        _boot_mark("wiki_watcher")
+
+        # Voice-session recorder + store for the transcription view.
+        # Sub-setup: runs sync (SQLite-WAL, no async loop needed), but is
+        # run in start() so the EventBus is guaranteed to be alive.
+        try:
+            self._init_session_stack()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "SessionRecorder init failed — /api/sessions returns 503"
+            )
+        _boot_mark("session_stack")
+
+        # Phase-5 task stack (tasks view). TaskStore lives additively in
+        # data/jarvis.db (ADR-0003); the scheduler runs as an asyncio loop
+        # terminated by the CancelToken in stop().
+        try:
+            await self._init_task_stack()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning("TaskStack init failed — /api/tasks returns 503")
+        _boot_mark("task_stack")
+
+        # Start the skill hot-reload watcher once the loop is stable.
+        if self._skill_registry is not None:
+            try:
+                self._skill_registry.start_watcher(asyncio.get_running_loop())
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning(
+                    "SkillRegistry watcher start failed — no hot-reload"
+                )
+
+        # Doc hot-reload watcher, likewise. watchdog observes its own
+        # observer thread per root.
+        if self._doc_registry is not None:
+            try:
+                self._doc_registry.start_watcher(asyncio.get_running_loop())
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning(
+                    "DocRegistry watcher start failed — no hot-reload"
+                )
+
+        # These owners must settle before shutdown closes their registries.
+        self._schedule_registry_bootstraps()
+
+        # Board aggregator as a never-ending task. run_forever() does an
+        # on-startup run first and then sleeps 6h (Plan §5-A Decision #2).
+        if self._board_aggregator is not None:
+            self._board_aggregator_task = asyncio.create_task(
+                self._board_aggregator.run_forever(interval_s=6 * 3600),
+                name="board-aggregator",
+            )
+
+        # Achievement evaluator on the bus. Phase B.
+        if self._board_evaluator is not None:
+            try:
+                self._board_evaluator.attach()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("AchievementEvaluator.attach() failed")
+
+        # Level system on the bus: pays XP for finished turns, tasks and quests.
+        progression = getattr(self, "_progression", None)
+        if progression is not None:
+            try:
+                progression.attach()
+            except Exception as exc:  # noqa: BLE001 - levels are optional, the app is not
+                logger.opt(exception=exc).warning("ProgressionService.attach() failed")
+
+        # Bio scheduler — subscribes to achievement unlocks only. It starts no
+        # task and generates nothing here; the brain is resolved per
+        # generation, when a board event actually asks for one.
+        if self._bio_scheduler is not None:
+            try:
+                self._bio_scheduler.start()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("BioScheduler.start() failed")
+
+        # Friends-Stack: FriendRegistry + ChannelManager. Started as a BACKGROUND
+        # task so a slow Telegram/Discord network connect (bot login / getUpdates
+        # handshake — observed ~4 s, and a 409 retry storm on a restart overlap)
+        # does not delay backend-ready and, with it, the speech warm-up. Channels
+        # are background transports — nothing user-visible needs them live before
+        # voice; /api/friends + /api/socials 503 until the stack is up (the route
+        # guards already handle the brief app.state.channel_manager=None window).
+        async def _init_channel_stack_guarded() -> None:
+            try:
+                await self._init_channel_stack()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning(
+                    "ChannelStack init failed — /api/friends returns 503"
+                )
+
+        self._channel_stack_task = asyncio.create_task(
+            _init_channel_stack_guarded(), name="channel-bootstrap"
+        )
+
+        # Run the deferred registry disk scans (skill + doc reload_sync) off the
+        # boot critical path. Each is a blocking glob + FTS index build (~hundreds
+        # of ms) that nothing at BOOT_READY needs — the views tolerate an empty
+        # registry until the scan lands. Run in a worker thread so the scan never
+        # stalls the event loop; sequential so two SQLite writers don't contend.
+        if self._pending_reloads:
+            pending = list(self._pending_reloads)
+            self._pending_reloads.clear()
+            # Docs are user-facing and can be opened immediately after the
+            # shell appears. Keep the scans sequential, but put Docs ahead of
+            # the authoring-only skill catalog once the wake gate releases.
+            pending.sort(key=lambda item: item[0] != "DocRegistry")
+
+            async def _run_deferred_reloads() -> None:
+                # Yield until the wake model is loaded before these blocking disk
+                # scans start their worker thread —
+                # otherwise they steal CPU/disk from the custom-wake base/cpu
+                # model load and can extend its time. NO-OP on headless / voice-off
+                # (returns immediately); bounded so a stuck wake load never blocks
+                # the scans. The Docs view can request the same load immediately.
+                from dodaios.core import runtime_refs as _rr
+
+                await _rr.await_wake_model_ready(timeout=12.0)
+                for label, registry in pending:
+                    try:
+                        if label == "DocRegistry":
+                            # Shares the on-demand route lock: if the user
+                            # already opened Docs this becomes an instant no-op.
+                            await registry.ensure_loaded()
+                        else:
+                            await asyncio.to_thread(registry.reload_sync)
+                        logger.info(
+                            "{} deferred scan complete ({} entries)",
+                            label,
+                            len(registry.list()),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.opt(exception=exc).warning(
+                            "{} deferred reload failed — view stays empty", label
+                        )
+
+            self._deferred_reload_task = asyncio.create_task(
+                _run_deferred_reloads(), name="deferred-registry-reload"
+            )
+
+        _boot_mark("watchers_and_background")
+        # Schedule last: callers regain control and publish the ready app before
+        # catalog/keyring reads or refresh network calls can begin. This shared
+        # hook covers normal desktop, headless, and direct WebServer starts.
+        self._schedule_marketplace_refresh_scheduler()
+        self._start_local_models_health_monitor()
+        self._schedule_local_models_autostart()
+        # Same reasoning, and the same three boot paths: a headless or
+        # browser-only install has no desktop shell to warm the realtime
+        # transport for it.
+        self._schedule_realtime_transport_warm()
+        self._schedule_appshot_shortcut()
+        # Browser provisioning includes a Chromium probe and may need Linux
+        # system libraries. Leave it to explicit browser use/setup; boot and
+        # shell-paint acknowledgements must keep headless installations usable.
+        # Existing Mars work recovers with zero clients. The deferred helper
+        # performs its existence probe and runtime composition after boot yields.
+        from .mars_routes import schedule_mars_resume
+
+        data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
+        schedule_mars_resume(self.app.state, data_dir)
+
+    async def _init_screenshot_retention(self) -> None:
+        """Auto-delete captured screenshot blobs older than the configured
+        window (default 10 days).
+
+        Jarvis captures screenshots into ``data/flight_recorder/blobs/`` for
+        in-session context (Vision system + Flight-Recorder event blobs); they
+        are throwaway afterwards and otherwise grow without bound (observed:
+        ~91k files / ~38 GB). Runs a one-shot sweep at boot plus a periodic
+        background task. ``flight_recorder_retention_days = 0`` disables it.
+        """
+        from dodaios.telemetry.retention import (
+            DEFAULT_RETENTION_INTERVAL_SECONDS,
+            retention_task,
+            sweep_old_blobs,
+        )
+
+        retention_days = self.cfg.telemetry.flight_recorder_retention_days
+        if retention_days <= 0:
+            logger.info(
+                "Screenshot retention disabled (flight_recorder_retention_days={})",
+                retention_days,
+            )
+            return
+
+        # Relative path on purpose — it must match what the writers actually
+        # use, NOT cfg.memory.data_dir. The production writer is the Vision
+        # ScreenshotSource (dodaios/vision/engine.py constructs it with no
+        # blob_dir → falls back to the relative _DEFAULT_BLOB_DIR in
+        # dodaios/vision/screenshot.py = data/flight_recorder/blobs). It ignores
+        # cfg.memory.data_dir, so deriving from that key would make the sweep a
+        # silent no-op whenever data_dir is overridden. Same process → same cwd
+        # → same directory as the writer.
+        flight_recorder_dir = Path("data") / "flight_recorder"
+
+        # The one-shot boot sweep is pure cleanup of old blobs — nothing
+        # downstream consumes its stats (they are only logged). Awaiting it sat
+        # on the boot path before the voice pipeline could start. Fold it into
+        # the front of the (already background) retention task so _init returns
+        # immediately; the same task reference is still cancelled on shutdown.
+        async def _boot_sweep_then_retain() -> None:
+            try:
+                stats = await sweep_old_blobs(
+                    flight_recorder_dir=flight_recorder_dir,
+                    retention_days=retention_days,
+                )
+                if stats["removed"] > 0:
+                    logger.info(
+                        "Screenshot retention boot sweep: removed={} freed={:.1f} MB (cutoff={}d)",
+                        stats["removed"],
+                        stats["bytes_freed"] / (1024 * 1024),
+                        retention_days,
+                    )
+                else:
+                    logger.debug(
+                        "Screenshot retention boot sweep: nothing older than {}d",
+                        retention_days,
+                    )
+            except Exception:  # noqa: BLE001 — cleanup never blocks/breaks boot
+                logger.warning("Screenshot retention boot sweep failed", exc_info=True)
+            await retention_task(
+                flight_recorder_dir=flight_recorder_dir,
+                retention_days=retention_days,
+                interval_seconds=DEFAULT_RETENTION_INTERVAL_SECONDS,
+            )
+
+        self._screenshot_retention_task = asyncio.create_task(_boot_sweep_then_retain())
+
+    async def _init_flight_recorder(self) -> None:
+        """Attach the flight-recorder audit log to the EventBus (ADR-0007).
+
+        Writes every event as a JSONL line under ``data/flight_recorder/`` — a
+        replayable audit trail of what Jarvis did, including every Computer-Use
+        action. Gated on ``telemetry.flight_recorder`` (default on); the recorder
+        is held on ``app.state`` for later flush/close on shutdown. The recorder
+        auto-flushes every second, and oversized event blobs land under
+        ``blobs/`` which the screenshot-retention task already prunes.
+        """
+        from dodaios.telemetry.recorder import attach_flight_recorder
+
+        rec = attach_flight_recorder(
+            self.bus,
+            enabled=self.cfg.telemetry.flight_recorder,
+            data_dir=Path("data") / "flight_recorder",
+        )
+        if rec is None:
+            logger.info("Flight recorder disabled (telemetry.flight_recorder=false)")
+            return
+        self._flight_recorder = rec
+        self.app.state.flight_recorder = rec
+        logger.info("Flight recorder attached — events -> data/flight_recorder/*.jsonl")
+
+    async def _init_mission_stack(self) -> None:
+        """Phase-6 production wiring: bootstrap_missions() returns the
+        complete stack (manager, Kontrollierer, budget, voice listener,
+        cleanup task), including safety hooks and the WS-manager bus bridge.
+        """
+        from dodaios.missions.init import bootstrap_missions
+
+        data_dir = Path(self.cfg.memory.data_dir)
+        # Startup wiring runs before this stack accepts work.
+        data_dir.mkdir(parents=True, exist_ok=True)  # noqa: ASYNC240
+        db_path = data_dir / "missions.db"
+
+        # Isolation root: <repo_parent>/jarvis-agent-outputs/ (preferred; falls back
+        # to <repo_parent>/sub-agents-outputs/ if only the old dir exists — see
+        # resolve_outputs_root). The repo root is 4 levels above dodaios/ui/web/server.py:
+        # server.py -> web -> ui -> jarvis -> repo.
+        repo_root = WEB_DIR.parent.parent.parent
+        # Test/benchmark isolation seam: an explicit JARVIS_ISOLATION_ROOT
+        # redirects the mission worktree container (and, with it, the startup
+        # cleanup sweep) away from the SHARED production outputs dir.
+        # Unset in production → unchanged behavior. Critical because
+        # ``startup_sweep`` is filesystem-driven (removes any entry older than
+        # cleanup_days by mtime, not DB-gated): without this seam an isolated
+        # headless boot (e.g. scripts/measure_boot.py) would sweep real mission
+        # outputs older than 14 days.
+        from dodaios.missions.isolation.worktree import (
+            resolve_outputs_root,
+            resolve_readable_outputs_roots,
+        )
+
+        _iso_override = os.environ.get("JARVIS_ISOLATION_ROOT")
+        if _iso_override:
+            isolation_root = Path(_iso_override)
+        else:
+            isolation_root = resolve_outputs_root(repo_root)
+
+        # Fail-closed primary-instance gate: POSITIVE proof is required.
+        # Only the launcher process, after confirming it holds the
+        # single-instance lock, sets JARVIS_PRIMARY_INSTANCE="1".
+        # Any other caller — smoke scripts, eval harnesses, --no-lock parallel
+        # sessions, or anything that simply does not set the variable — gets
+        # _is_primary=False and will NOT run the crash_recovery sweep.
+        # This prevents side-processes from sweeping the desktop app's live
+        # missions to FAILED('crash_recovery') (the 98-of-286 false-failure
+        # bucket, forensic 2026-05-31, missions 019e7095 / 019e6fea).
+        _is_primary = os.environ.get("JARVIS_PRIMARY_INSTANCE") == "1"
+        result = await bootstrap_missions(
+            db_path=db_path,
+            isolation_root=isolation_root,
+            repo_root=repo_root,
+            recover_missions=_is_primary,
+            tts_speak_fn=None,  # TTS wiring comes from DesktopApp once voice is live
+            brain_caller=None,  # The decomposer runs in heuristic-only mode
+            # Welle-4 Y: pass the speech bus through for MissionAnnouncer, so
+            # mission-completion events land as AnnouncementRequested on the
+            # global bus — pipeline._on_announcement subscribes there.
+            speech_bus=self.bus,
+            # Defaults from jarvis.toml [phase6.*] (all overridable via cfg later)
+            safety_enabled=True,
+            # User mandate 2026-05-31 ("no budget at all", frontier-quality-
+            # over-cost): the per-mission/daily cost cap is DISABLED so a long,
+            # high-quality Opus mission is never aborted mid-work for cost. The
+            # per_mission_usd/daily_usd values below are inert while disabled.
+            budget_enabled=False,
+            per_mission_usd=5.0,
+            daily_usd=50.0,
+            cleanup_days=14,
+            cleanup_startup_sweep=True,
+            cleanup_daily=False,
+            max_workers=5,
+        )
+
+        self.app.state.mission_manager = result["manager"]
+        self.app.state.kontrollierer = result["kontrollierer"]
+        self.app.state.missions_budget = result["budget"]
+        self.app.state.mission_announcer = result["mission_announcer"]
+        # Mission-Bus -> global-bus bridge that re-publishes terminal missions
+        # as MissionCompleted so the Tasks scheduler can drive When-Then rules.
+        self.app.state.mission_event_bridge = result["mission_event_bridge"]
+        # outputs_routes.py uses this to render the Outputs view; it would
+        # otherwise have to re-derive the same WEB_DIR.parent.parent.parent
+        # walk and would silently drift if the launcher layout changes.
+        self.app.state.outputs_root = isolation_root
+        self.app.state.outputs_roots = resolve_readable_outputs_roots(repo_root)
+        self._missions_voice_listener = result["voice_listener"]
+        self._missions_cleanup_task = result["cleanup_task"]
+
+        # Welle-4 wiring: the spawn_worker tool in the brain needs both the
+        # MissionManager AND the Kontrollierer. The brain is built in
+        # DesktopApp._start_speech_and_orb via build_default_brain() — the
+        # singleton setters make both available there (lazy resolve via
+        # _resolve_mission_manager / _resolve_kontrollierer).
+        # Without the Kontrollierer setter, the voice path would dispatch a
+        # mission but nothing would trigger run_mission — the mission would
+        # stay PENDING and the user would hear no answer (BUG-016).
+        try:
+            from dodaios.brain.factory import (
+                set_kontrollierer,
+                set_mission_manager,
+                set_worker_bootstrap_failed,
+            )
+
+            set_mission_manager(result["manager"])
+            set_kontrollierer(result["kontrollierer"])
+            set_worker_bootstrap_failed(False)
+            self.app.state.worker_available = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "set_mission_manager/kontrollierer wiring failed — "
+                "spawn_worker is disabled for this run: %s",
+                exc,
+            )
+            # Surface the failure for both downstream readers:
+            #  - `self.app.state.worker_available` lets REST routes and
+            #    UI components show an explicit "worker unavailable" hint
+            #    instead of permanently rendering "loading" / "pending".
+            #  - the factory-level singleton lets the Brain's spawn_worker
+            #    tool short-circuit at execute()-time with an honest
+            #    "could not be initialized" message instead of the
+            #    transient "not ready yet" the in-progress path returns.
+            self.app.state.worker_available = False
+            try:
+                from dodaios.brain.factory import set_worker_bootstrap_failed
+
+                set_worker_bootstrap_failed(True)
+            except Exception as inner_exc:  # noqa: BLE001
+                logger.warning(
+                    "set_worker_bootstrap_failed wiring failed: %s",
+                    inner_exc,
+                )
+
+        # WS bridge: the Phase-4 ConnectionManager is subscribed to the bus.
+        ws_mgr = getattr(self.app.state, "missions_ws_manager", None)
+        if ws_mgr is not None:
+            result["manager"].bus.subscribe_all(ws_mgr.fanout)
+
+        # Welle-4 follow-up: bridge MissionBus -> SubAgentRegistry so the
+        # Sub-Agents board lights up. The legacy publishers for
+        # JarvisAgentTaskStarted/Completed were removed in the migration; without
+        # this hook the dashboard stays empty even while missions are flowing.
+        registry = getattr(self.app.state, "sub_agent_registry", None)
+        if registry is not None:
+            registry.attach_mission_bus(result["manager"].bus)
+
+        recovered = result["recovered_mission_ids"]
+        sweep = result["sweep_stats"]
+        logger.info(
+            "Phase-6 stack online (db={}, recovered={}, sweep={}/{}/{} scanned/removed/errors)",
+            db_path,
+            len(recovered),
+            sweep["scanned"],
+            sweep["removed"],
+            sweep["errors"],
+        )
+
+        # Periodic recovery re-sweep (2026-06-10, mission 019eb25c): boot
+        # recovery runs ONCE and — correctly — skips a mission whose owner still
+        # looks live (active-guard). But that guard is boot-only: when the owning
+        # instance dies AFTER boot, the orphan stays non-terminal (e.g.
+        # CRITIQUING) in the DB and UI forever ("missions never find an end").
+        # This timer re-runs the SAME conservative, active-guarded sweep so an
+        # orphan is finalized on the next tick once it crosses the unchanged
+        # staleness threshold. Gated on the same primary-instance flag as boot
+        # recovery — a secondary/--no-lock instance must never sweep a primary's
+        # live missions. Cancelled on shutdown (see start()'s cleanup path).
+        if _is_primary:
+            from dodaios.missions.recovery import periodic_recovery_sweep
+
+            self._missions_resweep_task = asyncio.create_task(
+                periodic_recovery_sweep(result["manager"].store),
+                name="mission-recovery-resweep",
+            )
+
+            # Missions parked in WAITING_CAPACITY resume from their checkpoint
+            # once their own subscription has capacity again — never on another
+            # provider or a paid key (dodaios/missions/capacity.py). Primary
+            # instance only, like the sweep: two instances must not both
+            # resume one mission.
+            from dodaios.missions.capacity import capacity_resume_loop
+
+            self._missions_resume_task = asyncio.create_task(
+                capacity_resume_loop(result["kontrollierer"].resume_waiting_missions),
+                name="mission-capacity-resume",
+            )
+
+    async def _init_wiki_integration(self) -> None:
+        """Phase B5 wiki write-wiring: bootstrap SessionRollupWorker + WikiCurator.
+
+        Subscribes to ``IdleEntered``; writes session digests into the
+        Obsidian vault at session end.  No-op when
+        ``cfg.wiki_integration.enabled`` is False.
+        """
+        from dodaios.memory.wiki.integration import bootstrap_wiki_integration
+        from dodaios.memory.wiki.page import MarkdownPageRepository
+
+        wiki_cfg = self.cfg.wiki_integration
+        if not wiki_cfg.enabled:
+            logger.info("wiki_integration: disabled — skipping bootstrap")
+            try:
+                from dodaios.memory.wiki.health import health as _wiki_health
+
+                _wiki_health.record_bootstrap(False, error="disabled in config")
+            except Exception:  # noqa: BLE001 — health recording must never break boot
+                logger.debug("wiki health.record_bootstrap(disabled) failed", exc_info=True)
+            return
+
+        repo = MarkdownPageRepository()
+        from dodaios.memory.wiki.vault_root import resolve_vault_root
+
+        vault_root = resolve_vault_root(wiki_cfg.vault_root).path
+
+        def _wiki_scheduler_factory(*, curator):  # noqa: ANN001, ANN202
+            """Build the CuratorScheduler (cooldown + VaultLock, Wave-2 B4).
+
+            Gates the Stage-2 consolidation drain; the consolidator itself is
+            attached later via ``scheduler.attach_consolidator``.
+            """
+            from dodaios.memory.wiki.lock import VaultLock
+            from dodaios.memory.wiki.scheduler import CuratorScheduler
+
+            sched_cfg = self.cfg.wiki_scheduler
+            lock_path = Path(sched_cfg.lock_path)
+            if not lock_path.is_absolute():
+                lock_path = Path.cwd() / lock_path
+            return CuratorScheduler(
+                curator=curator,
+                lock=VaultLock(
+                    lock_path,
+                    stale_after_seconds=int(sched_cfg.lock_stale_after_seconds),
+                ),
+                config=sched_cfg,
+            )
+
+        handle = await bootstrap_wiki_integration(
+            bus=self.bus,
+            repo=repo,
+            vault_root=vault_root,
+            config=wiki_cfg,
+            brain_caller=None,  # curator uses BrainProviderRegistry internally
+            scheduler_factory=_wiki_scheduler_factory,
+        )
+        self._wiki_integration_handle = handle
+        logger.info("wiki_integration: bootstrap_wiki_integration succeeded")
+        # No periodic re-review of voice sessions: the six-hourly auto-backfill
+        # was removed on 2026-09-30 together with the per-turn and end-of-call
+        # extraction (it billed paid keys while nobody was at the PC). The
+        # manual POST /api/wiki/backfill is the explicit control.
+        try:
+            from dodaios.memory.wiki.health import health as _wiki_health
+
+            _wiki_health.record_bootstrap(True)
+        except Exception:  # noqa: BLE001 — health recording must never break boot
+            logger.debug("wiki health.record_bootstrap(True) failed", exc_info=True)
+
+    def _init_wiki_boot_index(self, *, background: bool = False) -> None:
+        """Rebuild the derived FTS view against the active vault.
+
+        Production uses a daemon thread after app readiness (AP-26). Tests and
+        explicit callers may keep the synchronous default for deterministic
+        verification.
+        """
+        import sqlite3
+        import threading
+
+        from dodaios.memory.wiki.db_path import resolve_wiki_db_path
+        from dodaios.memory.wiki.fts_index import rebuild_index
+
+        def _resume_semantic_search() -> None:
+            # Semantic search, when the user switched it on: its own thread
+            # loads the model and encodes only the pages that changed. Called
+            # on every way out of this function, so the switch always learns
+            # an honest state, also when there is no vault to search.
+            try:
+                from dodaios.memory.wiki import semantic_setup
+
+                semantic_setup.resume(self.cfg)
+            except Exception:  # noqa: BLE001 - the word search stands on its own
+                logger.opt(exception=True).warning(
+                    "wiki_boot_index: semantic search could not be resumed"
+                )
+
+        wiki_cfg = self.cfg.wiki_integration
+        if not wiki_cfg.enabled:
+            _resume_semantic_search()
+            return
+
+        from dodaios.memory.wiki.vault_root import resolve_vault_root
+
+        vault_root = resolve_vault_root(wiki_cfg.vault_root).path
+        if not vault_root.is_dir():
+            logger.info("wiki_boot_index: vault missing — skipping ({})", vault_root)
+            _resume_semantic_search()
+            return
+
+        db_path = resolve_wiki_db_path(self.cfg.memory.data_dir)
+
+        def _reconcile() -> None:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(str(db_path), check_same_thread=False)
+            try:
+                indexed = rebuild_index(vault_root, conn)
+                logger.info(
+                    "wiki_boot_index: reconciled {} page(s) from {} into {}",
+                    indexed,
+                    vault_root,
+                    db_path,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning(
+                    "wiki_boot_index: background reconciliation failed"
+                )
+                try:
+                    from dodaios.memory.wiki.health import health as _wiki_health
+
+                    _wiki_health.record_chain_failure(f"wiki index reconciliation failed: {exc}")
+                except Exception:  # noqa: BLE001
+                    logger.debug("wiki index health recording failed", exc_info=True)
+            finally:
+                conn.close()
+            # Behind the word index, so it never competes with start-up (AP-26).
+            _resume_semantic_search()
+
+        if background:
+            thread = threading.Thread(
+                target=_reconcile,
+                name="jarvis-wiki-index-reconcile",
+                daemon=True,
+            )
+            thread.start()
+            self._wiki_index_thread = thread
+            return
+        _reconcile()
+
+    def _init_wiki_watcher(self) -> None:
+        """Phase B3 — start the WikiWatcher for desktop live-reload.
+
+        Watches the configured vault root and publishes WikiPageChanged
+        events on the shared bus. Failures are logged but never raised;
+        the desktop app must boot when the vault is empty or watchdog
+        cannot start an observer.
+        """
+        from dodaios.memory.wiki.db_path import resolve_wiki_db_path
+        from dodaios.memory.wiki.vault_root import resolve_vault_root
+        from dodaios.memory.wiki.watcher import WikiWatcher
+
+        wiki_cfg = self.cfg.wiki_integration
+        if not wiki_cfg.enabled:
+            logger.info("wiki_watcher: wiki_integration disabled — skipping")
+            return
+
+        vault_root = resolve_vault_root(wiki_cfg.vault_root).path
+        db_path = resolve_wiki_db_path(self.cfg.memory.data_dir)
+
+        watcher = WikiWatcher(
+            vault_root=vault_root,
+            bus=self.bus,
+            db_path=db_path,
+        )
+        try:
+            started = watcher.start()
+        except FileNotFoundError as exc:
+            logger.warning("wiki_watcher: vault missing: {}", exc)
+            return
+        except PermissionError as exc:
+            logger.warning("wiki_watcher: permission denied: {}", exc)
+            return
+
+        if not started:
+            logger.info("wiki_watcher: did not start — live-reload inactive")
+            return
+
+        self._wiki_watcher = watcher
+        self.app.state.wiki_watcher = watcher
+        logger.info("wiki_watcher: started for vault {}", vault_root)
+
+    async def _init_task_stack(self) -> None:
+        """Phase-5 task-queue wiring (BUG-007).
+
+        Builds the TaskStore + TaskRunner + TaskScheduler, runs the
+        startup cleanup for ``running`` tasks (app exit), and starts
+        the scheduler loop as a background task.
+
+        The runner is wired with the brain so agentic (``agent``) tasks run a
+        tool-restricted turn unattended (read-only/monitor-tier plugins pass;
+        ask-tier still gates). ``speak``/``harness_dispatch`` actions still
+        have no TTS/harness here — those remain follow-up wiring. The UI is
+        live regardless (list + cancel + detail timeline) since the routes
+        only touch store + scheduler.
+        """
+        from dodaios.control.cancel import CancelToken
+        from dodaios.tasks.approval_bridge import TaskAutoApprover
+        from dodaios.tasks.runner import TaskRunner
+        from dodaios.tasks.scheduler import TaskScheduler
+        from dodaios.tasks.store import TaskStore
+
+        data_dir = Path(self.cfg.memory.data_dir)
+        # Startup wiring runs before this stack accepts work.
+        data_dir.mkdir(parents=True, exist_ok=True)  # noqa: ASYNC240
+        # Tasks share the DB with memory (ADR-0003) — an additive schema.
+        db_path = data_dir / "jarvis.db"
+
+        store = TaskStore(db_path)
+        await store.init()
+
+        # Crash recovery: all running -> interrupted, plus an error log entry.
+        recovered = await store.cleanup_interrupted()
+        if recovered:
+            logger.info(
+                "TaskStack: cleaned up {} interrupted tasks from the previous run",
+                recovered,
+            )
+        retired = await store.retire_catalogue_tasks()
+        if retired:
+            logger.info(
+                "TaskStack: cancelled {} schedules from the retired automations catalogue",
+                retired,
+            )
+
+        # Wire the brain so agentic (`agent`) tasks can run a tool-restricted
+        # turn unattended. app.state.brain is set before server.start() (see
+        # launcher.py); a headless Mock-Brain without run_task falls back to
+        # None → agent tasks fail cleanly instead of crashing.
+        brain = getattr(self.app.state, "brain", None)
+        agent_brain = brain if (brain is not None and hasattr(brain, "run_task")) else None
+        # Unattended pre-authorization: agent tasks whose plugins were toggled
+        # write/full auto-approve those ask-tier calls for their own turn.
+        auto_approver = TaskAutoApprover(self.bus)
+
+        # Harness dispatch (deep-dive 2026-07-15, H-02): the UI offers
+        # scheduled Computer-Use actions (taskSpec.ts thenKind "computer_use"
+        # -> harness_dispatch), but this runner shipped without a
+        # HarnessManager, so every such task failed at runtime with
+        # "HarnessManager not configured". The manager is cheap to construct
+        # (entry-point class scan; instances build lazily on first dispatch).
+        from dodaios.harness.manager import HarnessManager
+
+        def workflow_services():
+            return (
+                getattr(self.app.state, "workflow_store", None),
+                getattr(self.app.state, "workflow_runner", None),
+            )
+
+        runner = TaskRunner(
+            store=store,
+            bus=self.bus,
+            harness_manager=HarnessManager(bus=self.bus),
+            agent_brain=agent_brain,
+            auto_approver=auto_approver,
+            result_sink=self._society_routine_result,
+            owned_agent_runner=self._run_society_routine,
+            owned_action_guard=self._guard_society_routine_action,
+            workflow_services=workflow_services,
+        )
+        scheduler = TaskScheduler(
+            store=store, bus=self.bus, runner=runner, workflow_services=workflow_services,
+        )
+        scheduler.bind_bus()
+        await scheduler.hydrate()
+
+        cancel_token = CancelToken()
+        scheduler_task = asyncio.create_task(
+            scheduler.run(cancel_token), name="task-scheduler-loop"
+        )
+
+        self._task_store = store
+        self._task_runner = runner
+        self._task_scheduler = scheduler
+        self._task_cancel_token = cancel_token
+        self._task_scheduler_task = scheduler_task
+
+        # Routes read from app.state — see tasks_routes.py:28
+        self.app.state.task_store = store
+        self.app.state.task_scheduler = scheduler
+        self.app.state.task_runner = runner
+
+        logger.info(
+            "TaskStack live (db={}, recovered={}, hydrated={} scheduled)",
+            db_path,
+            recovered,
+            len(scheduler._heap),
+        )
+
+    def _read_sessions_toml_section(self) -> dict:
+        """The raw ``[sessions]`` section from jarvis.toml (may be empty).
+
+        That section is NOT in the Pydantic tree (see assumption A-2 in the
+        Phase-7 bootstrap), hence tomllib directly.
+        """
+        toml_path = Path(CONFIG_FILE_NAME)
+        if not toml_path.exists():
+            return {}
+        try:
+            import tomllib
+
+            with toml_path.open("rb") as fh:
+                raw = tomllib.load(fh)
+            return raw.get("sessions", {}) or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "Could not read the [sessions] section from jarvis.toml — using defaults"
+            )
+            return {}
+
+    def _resolve_sessions_db_path(self) -> Path:
+        """Absolute path to sessions.db, shared by recorder and board.
+
+        The default lives in ``cfg.memory.data_dir`` itself — the directory
+        every other SQLite store of this app uses (chats, missions, friends) —
+        so a second instance of the app (``dodaios.core.instance``, which points
+        ``memory.data_dir`` at ``data-dev/``) keeps its sessions apart from the
+        default app's. An explicit relative ``[sessions].db_path`` is anchored
+        at the data-dir parent (the repo root, as before), an absolute one is
+        taken as is; neither depends on the process CWD. The shipped default
+        string ``"data/sessions.db"`` (present in every jarvis.toml) IS the
+        default and follows the data dir like an absent key.
+        """
+        section = self._read_sessions_toml_section()
+        raw = section.get("db_path")
+        if not raw or Path(str(raw)) == Path("data/sessions.db"):
+            return Path(self.cfg.memory.data_dir) / "sessions.db"
+        db_path = Path(str(raw))
+        if not db_path.is_absolute():
+            db_path = Path(self.cfg.memory.data_dir).parent / db_path
+        return db_path
+
+    def _init_session_stack(self) -> None:
+        """Voice-session recorder + store for the transcription view.
+
+        Bootstrap analogous to ``_init_mission_stack``, but sync — the store
+        uses sqlite3 + threading.Lock (see ``dodaios/sessions/store.py``).
+        """
+        from dodaios.sessions.init import bootstrap_sessions
+
+        # Defaults match jarvis.toml [sessions] (enabled=true,
+        # data/sessions.db, retention 30d). User can override via TOML.
+        section = self._read_sessions_toml_section()
+        enabled = bool(section.get("enabled", True))
+        try:
+            retention_days = int(section.get("retention_days", 30))
+        except (TypeError, ValueError):
+            retention_days = 30
+
+        if not enabled:
+            logger.info("Voice-session recorder disabled via [sessions].enabled=false")
+            return
+
+        db_path = self._resolve_sessions_db_path()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        result = bootstrap_sessions(
+            bus=self.bus,
+            db_path=db_path,
+            enabled=True,
+            retention_days=retention_days,
+        )
+        self.app.state.session_store = result["store"]
+        self._session_recorder = result["recorder"]
+        logger.info("Session recorder online (db={}, retention={}d)", db_path, retention_days)
+        # Spoken turns also appear in the Jarvis agent chat (Voice | Chat):
+        # the mirror files each completed voice turn into the newest
+        # jarvis-surface session without answering it. Best-effort — the
+        # voice path stays untouched when the chat is unavailable.
+        try:
+            from dodaios.agent_chat.voice_mirror import VoiceChatMirror
+
+            from .agent_chat_routes import _service_from_state
+
+            state = self.app.state
+
+            def _mirror_service() -> Any:
+                try:
+                    return _service_from_state(state)
+                except Exception:  # noqa: BLE001 — mirroring stays best-effort
+                    return None
+
+            self._voice_chat_mirror = VoiceChatMirror(_mirror_service)
+            self._voice_chat_mirror.attach(self.bus)
+        except Exception as exc:  # noqa: BLE001 — never break boot for the mirror
+            logger.debug("Voice chat mirror init failed: {}", exc)
+
+    async def _init_channel_stack(self) -> None:
+        """Bootstraps FriendRegistry + ChannelManager + starts all channels.
+
+        The Friends UI works even without Telegram (FriendRegistry is always
+        there). TelegramChannel lands in ``start_errors`` when the token is
+        missing, without blocking the other channels.
+        """
+        from dodaios.channels.bootstrap import bootstrap_channels
+        from dodaios.channels.chat_bridge import ChannelChatBridge
+
+        # data_dir might not exist on every branch under cfg.memory;
+        # fall back to ./data so the code stays branch-portable.
+        data_dir = Path("data")
+        try:
+            mem_dir = getattr(self.cfg, "memory", None)
+            if mem_dir is not None and getattr(mem_dir, "data_dir", None):
+                data_dir = Path(mem_dir.data_dir)
+        except Exception:  # noqa: BLE001, S110 — portable data-dir fallback
+            pass
+        data_dir.mkdir(parents=True, exist_ok=True)
+        friends_db = data_dir / "friends.db"
+
+        # Telegram/Discord configs from integrations.* (branch-portable via getattr)
+        tg_cfg = None
+        dc_cfg = None
+        integrations = getattr(self.cfg, "integrations", None)
+        from dodaios.core.instance import current_instance
+
+        if not current_instance().owns_ambient_duties:
+            # A second (dev) instance of the app must not poll the same bot
+            # tokens as the live one — Telegram answers a second getUpdates
+            # poller with 409 and both would answer the user's friends. The
+            # Friends registry still comes up; only the channels stay off.
+            logger.info(
+                "Friends-Stack: chat channels stay off in instance '{}' "
+                "(they belong to the default app)",
+                current_instance().name,
+            )
+        elif integrations is not None:
+            tg_cfg = getattr(integrations, "telegram", None)
+            dc_cfg = getattr(integrations, "discord", None)
+
+        manager, registry = await bootstrap_channels(
+            bus=self.bus,
+            telegram_config=tg_cfg,
+            discord_config=dc_cfg,
+            friends_db_path=friends_db,
+            auto_start=True,
+        )
+        self.app.state.friend_registry = registry
+        self.app.state.channel_manager = manager
+        bridge = ChannelChatBridge(bus=self.bus, manager=manager)
+        bridge.start()
+        self._channel_chat_bridge = bridge
+        self.app.state.channel_chat_bridge = bridge
+
+        if "telegram" in manager.started():
+            logger.info("Friends-Stack live: Telegram-Channel aktiv")
+        else:
+            errs = manager.start_errors().get("telegram")
+            if errs:
+                logger.info("Friends-Stack live: Telegram-Channel disabled ({})", errs)
+            else:
+                logger.info("Friends-Stack live: Telegram-Channel disabled (config off)")
+
+    async def _society_routine_result(self, tags: tuple[str, ...], text: str, status: str) -> None:
+        """A routine tagged ``agent:<id>`` reports its result into that agent's
+        own chat (the ecosystem card promises it). Tasks never import the
+        society; this is the one seam. Every failure is logged, never raised
+        into the task."""
+        from dodaios.society.routines import agent_id_from_tags
+        from dodaios.society.runtime import current_runtime
+
+        agent_id = agent_id_from_tags(tags)
+        if agent_id is None:
+            return
+        try:
+            runtime = current_runtime()
+            if runtime is None:
+                factory = getattr(self.app.state, "society_factory", None)
+                if factory is None:
+                    return
+                runtime = self.app.state.society or factory()
+                self.app.state.society = runtime
+                await runtime.ensure_started()
+            agent = await runtime.roster.get(agent_id)
+            if agent is None:
+                logger.info("routine result for unknown society agent {}", agent_id)
+                return
+            await runtime.post_chat_notice(
+                agent,
+                {
+                    "kind": "society_result",
+                    "status": status,
+                    "text": text[:4000],
+                    "agent_id": agent.agent_id,
+                    "agent_name": agent.name,
+                    "source": "routine",
+                },
+            )
+        except Exception:  # noqa: BLE001 — the task already recorded its result; delivery is best effort
+            logger.warning("society: routine result not delivered to {}", agent_id, exc_info=True)
+
+    async def _guard_society_routine_action(self, tags: tuple[str, ...]) -> None:
+        from dodaios.society.routine_runner import guard_owned_routine
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        if runtime is None:
+            runtime = self._build_society_runtime()
+            self.app.state.society = runtime
+            await runtime.ensure_started()
+        await guard_owned_routine(runtime, tags)
+
+    async def _run_society_routine(
+        self, task_id: str, tags: tuple[str, ...], prompt: str, cancel: Any
+    ) -> str | None:
+        from dodaios.society.routine_runner import run_owned_routine
+        from dodaios.society.routines import agent_id_from_tags
+        from dodaios.society.runtime import current_runtime
+
+        if agent_id_from_tags(tags) is None:
+            return None
+        runtime = current_runtime()
+        if runtime is None:
+            runtime = self._build_society_runtime()
+            self.app.state.society = runtime
+            await runtime.ensure_started()
+        return await run_owned_routine(runtime, task_id, tags, prompt, cancel)
+
+    def _build_society_runtime(self) -> Any:
+        """Build the agent-society runtime on first use (see society_routes).
+
+        Every collaborator is a getter over ``app.state`` so the runtime
+        follows the live mission manager, budget tracker, brain tool surface
+        and skill registry — whichever of them exists at call time.
+        """
+        from dodaios.society.runtime import SocietyRuntime, SocietyRuntimeClosed
+
+        state = self.app.state
+        if getattr(state, "society_stopping", False):
+            raise SocietyRuntimeClosed("society runtime stopped")
+        data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
+
+        if getattr(state, "society", None) is not None:
+            return state.society
+
+        def _manager() -> Any | None:
+            return getattr(state, "mission_manager", None)
+
+        def _mission_bus() -> Any | None:
+            manager = getattr(state, "mission_manager", None)
+            return getattr(manager, "bus", None) if manager is not None else None
+
+        def _budget() -> Any | None:
+            return getattr(state, "missions_budget", None)
+
+        def _tools() -> Any | None:
+            brain = getattr(state, "brain", None)
+            tools = getattr(brain, "_tools", None)
+            return tools if tools is not None and hasattr(tools, "items") else None
+
+        def _skills() -> Any | None:
+            registry = getattr(state, "skill_registry", None)
+            if registry is None:
+                return None
+            lister = getattr(registry, "all", None) or getattr(registry, "list", None)
+            try:
+                return list(lister()) if callable(lister) else None
+            except Exception:  # noqa: BLE001 — the catalog then shows no skills
+                return None
+
+        from dodaios.society.chat_binding import make_deliver_hook
+
+        from .agent_chat_routes import _service_from_state
+
+        # Board messages addressed to an agent wake its canonical chat on the
+        # agent-chat service (built lazily by its own factory).
+        deliver = make_deliver_hook(
+            lambda: _service_from_state(state),
+            lambda: self.cfg,
+        )
+        def _society_plugin_state() -> tuple[list[str], set[str]]:
+            from dodaios.marketplace.catalog_data import load_catalog
+            from dodaios.marketplace.connect_helpers import usable_plugin_ids
+
+            return [spec.id for spec in load_catalog().plugins], usable_plugin_ids()
+
+        state.society = SocietyRuntime(
+            data_dir,
+            mission_manager=_manager,
+            mission_bus=_mission_bus,
+            budget_tracker=_budget,
+            brain_tools=_tools,
+            skills=_skills,
+            deliver=deliver,
+            chat_service=lambda: _service_from_state(state),
+            cfg=lambda: self.cfg,
+            # The island learns of a figure's new place through the app bus the
+            # WebSocket forwards (SocietyCheckpointChanged).
+            plugin_state=_society_plugin_state,
+            event_publish=self.bus.publish,
+            app_bus=self.bus,
+            task_services=lambda: (
+                getattr(state, "task_store", None), getattr(state, "task_scheduler", None)
+            ),
+        )
+        def browser_brain(agent: Any) -> Any:
+            from dodaios.agent_chat.browser_model import browser_model_for_agent
+
+            return browser_model_for_agent(self.cfg, agent)
+
+        state.society.browser.live.model_resolver = browser_brain
+        state.society.browser.live.executor = lambda: getattr(
+            getattr(state, "brain", None), "_tool_executor", None
+        )
+        return state.society
+
+    def _build_agent_chat_service(self) -> Any:
+        """Build the agent-chat service on first use (see agent_chat_routes)."""
+        from dodaios.agent_chat.service import AgentChatService
+        from dodaios.agent_chat.store import AgentChatStore
+        from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
+
+        data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
+        store = AgentChatStore(data_dir / "agent_chat.db")
+
+        def _name() -> str:
+            try:
+                return resolve_assistant_name(self.cfg)
+            except Exception:  # noqa: BLE001 — the name is cosmetic
+                return DEFAULT_ASSISTANT_NAME
+
+        from dodaios.core.events import DelegationResultReady
+
+        # Install on first chat use, keeping result tracking off the boot path.
+        self.bus.unsubscribe(DelegationResultReady, self._forward_delegation_to_chat)
+        self.bus.subscribe(DelegationResultReady, self._forward_delegation_to_chat)
+        return AgentChatService(store, assistant_name=_name, bus=lambda: self.bus)
+
+    def _schedule_registry_bootstraps(self) -> None:
+        """Start registry discovery after composition without delaying readiness."""
+        async def bootstrap(registry: Any, label: str) -> None:
+            try:
+                await registry.bootstrap()
+            except Exception as exc:  # noqa: BLE001 -- other registries remain usable
+                logger.opt(exception=exc).warning("{} registry bootstrap failed", label)
+
+        for registry, attribute, label in (
+            (self._cli_registry, "_cli_bootstrap_task", "cli"),
+            (self._plugin_registry, "_plugin_bootstrap_task", "plugin"),
+        ):
+            existing = getattr(self, attribute, None)
+            if registry is not None and (existing is None or existing.done()):
+                setattr(self, attribute, asyncio.create_task(
+                    bootstrap(registry, label), name=f"{label}-registry-bootstrap",
+                ))
+
+    async def _stop_registry_bootstraps(self) -> bool:
+        """Cancel both owners before awaiting either one's resource cleanup."""
+        owners = {
+            attribute: task
+            for attribute in ("_cli_bootstrap_task", "_plugin_bootstrap_task")
+            if (task := getattr(self, attribute, None)) is not None
+        }
+        for task in owners.values():
+            if not task.done() and not task.cancelling():
+                task.cancel()
+        if not owners:
+            return True
+        done, pending = await asyncio.wait(
+            set(owners.values()), timeout=_REGISTRY_BOOTSTRAP_STOP_TIMEOUT_S,
+        )
+        for attribute, task in owners.items():
+            if task in done:
+                if not task.cancelled() and (error := task.exception()) is not None:
+                    logger.warning("Registry bootstrap stopped with {}", type(error).__name__)
+                setattr(self, attribute, None)
+        if pending:
+            logger.warning("{} registry bootstrap owner(s) still stopping", len(pending))
+        return not pending
+
+    async def stop(self) -> None:
+        from dodaios.core import runtime_refs
+
+        appshot_task = getattr(self, "_appshot_shortcut_task", None)
+        if appshot_task is not None:
+            appshot_task.cancel()
+            await asyncio.gather(appshot_task, return_exceptions=True)
+            self._appshot_shortcut_task = None
+        try:
+            from dodaios.appshot.hotkey import stop_appshot_shortcut
+
+            await stop_appshot_shortcut()
+        except Exception:
+            logger.opt(exception=True).warning("Appshot helpers failed to stop")
+
+        if runtime_refs.get_web_app() is self.app:
+            runtime_refs.set_web_app(None)
+        # A cancelled setup waiter cannot stop its worker thread. Join it
+        # before closing board/stores/subscriptions that it may still create.
+        try:
+            await self._feature_setup.stop()
+        except Exception as exc:  # noqa: BLE001 -- close partial setup too
+            logger.opt(exception=exc).warning("Application feature setup failed during shutdown")
+        # Fence lazy creation even when no Society owner exists yet. The shared
+        # brain factory and HTTP surface can still be called while shutdown awaits.
+        self.app.state.society_stopping = True
+        from .mars_routes import stop_mars_station
+
+        # Fence station creation before any other shutdown await can interleave
+        # with a pending boot recovery or first HTTP request.
+        mars_shutdown_failure: str | None = None
+        try:
+            await stop_mars_station(self.app.state)
+        except Exception as exc:  # noqa: BLE001 -- independent resources must still shut down
+            # The helper retains its stop latch and pending owner references.
+            # Keep only the type: cleanup failures can contain private payloads.
+            mars_shutdown_failure = type(exc).__name__
+            logger.warning("Mars station cleanup incomplete ({})", mars_shutdown_failure)
+        registry_bootstraps_stopped = await self._stop_registry_bootstraps()
+        # A short-lived server can stop before these delayed boot helpers run.
+        # Own and drain them here instead of leaving asyncio.run()/pytest to
+        # discover them during loop teardown. Stop the deferred registry reload
+        # before its registries are closed below so shutdown cannot race a scan.
+        for attr in ("_anyio_pool_warm_task", "_deferred_reload_task"):
+            task = getattr(self, attr, None)
+            setattr(self, attr, None)
+            if task is not None and not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+        society = getattr(self.app.state, "society", None)
+        society_shutdown_failure: str | None = None
+        if society is not None:
+            try:
+                # The runtime owns delivery tasks, subscriptions and SQLite as
+                # well as the browser. Leaving its store open prevents exit.
+                await asyncio.wait_for(society.close(), timeout=_SOCIETY_SHUTDOWN_TIMEOUT_S)
+            except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
+                society_shutdown_failure = type(exc).__name__
+                logger.warning("Society runtime cleanup incomplete ({})", society_shutdown_failure)
+        self._mic_level_sessions.clear()
+        self._stop_mic_level_bridge()
+
+        try:
+            from dodaios.memory.learning.loop import stop_learning
+
+            await stop_learning()
+        except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
+            logger.opt(exception=exc).debug("Jarvis learning loop stop failed")
+
+        team_threads = getattr(self.app.state, "team_threads", None)
+        if team_threads is not None:
+            # Before the chat turns end: a coordinator that sees its members'
+            # turns cancelled under it would read that as members failing.
+            try:
+                await team_threads.close()
+            except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
+                logger.opt(exception=exc).debug("team threads close failed")
+
+        agent_chat = getattr(self.app.state, "agent_chat", None)
+        if agent_chat is not None:
+            try:
+                await agent_chat.cancel_all()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("agent chat cancel_all failed")
+
+        # Stop token refresh before the plugin registry so an in-flight refresh
+        # cannot enqueue a live-session rebuild while that registry is closing.
+        await self._stop_marketplace_refresh_scheduler()
+        await self._stop_local_models_health_monitor()
+        await self._stop_local_models_autostart()
+
+        # Stop the skill watcher, otherwise the watchdog thread stays behind
+        # as a zombie and prevents the process from exiting.
+        if self._skill_registry is not None:
+            try:
+                self._skill_registry.stop_watcher()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("SkillRegistry watcher stop failed")
+
+        # Close the doc watcher + FTS5 connection.
+        if self._doc_registry is not None:
+            try:
+                self._doc_registry.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("DocRegistry close failed")
+
+        # Unset the shared CLI registry — otherwise the module singleton keeps
+        # a reference to a "dead" registry when the server restarts.
+        try:
+            from dodaios.clis.shared import set_active_registry
+
+            set_active_registry(None)
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).debug("CLI shared-registry cleanup failed: {}", exc)
+
+        # Symmetric teardown for the plugin registry: unset the module singleton
+        # AND stop the registry so each connected plugin's MCPClient (with its
+        # AsyncExitStack / subprocess) is closed cleanly. Without this, an
+        # in-process restart (--no-lock parallel dev, test teardown) would leave
+        # a stale shared handle and leaked MCP sessions.
+        # A timed-out bootstrap may still hold the registry lock while cleaning
+        # up. Keep both references for a later stop attempt; closing it now can
+        # block indefinitely on that same lock.
+        if (
+            self._plugin_registry is not None
+            and getattr(self, "_plugin_bootstrap_task", None) is None
+        ):
+            try:
+                from dodaios.marketplace.plugin_shared import set_active_plugin_registry
+
+                set_active_plugin_registry(None)
+                await self._plugin_registry.stop()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("PluginToolRegistry cleanup failed: {}", exc)
+            self._plugin_registry = None
+            self.app.state.plugin_registry = None
+
+        # Cleanly stop the board-aggregator task before uvicorn goes down. The
+        # run_forever() loop catches CancelledError itself and re-raises it.
+        if self._board_aggregator_task is not None:
+            self._board_aggregator_task.cancel()
+            try:
+                await asyncio.wait_for(self._board_aggregator_task, timeout=2.0)
+            except (TimeoutError, asyncio.CancelledError):
+                pass
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("Board-aggregator shutdown error")
+            self._board_aggregator_task = None
+        # Voice-ready backstop watchdog: usually already finished (it fires once
+        # and returns), but cancel it if a shutdown lands inside its deadline so
+        # it is never orphaned as a pending task at loop close.
+        _watchdog_task = getattr(self, "_voice_ready_watchdog_task", None)
+        if _watchdog_task is not None:
+            _watchdog_task.cancel()
+            try:
+                await asyncio.wait_for(_watchdog_task, timeout=2.0)
+            except (TimeoutError, asyncio.CancelledError):
+                pass
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("voice-ready watchdog shutdown: {}", exc)
+            self._voice_ready_watchdog_task = None
+        # Realtime transport warm: usually finished long before a shutdown, but
+        # a stop inside its boot delay must not orphan it at loop close.
+        _warm_task = self._realtime_warm_task
+        self._realtime_warm_task = None
+        if _warm_task is not None and not _warm_task.done():
+            _warm_task.cancel()
+            try:
+                await asyncio.wait_for(_warm_task, timeout=2.0)
+            except (TimeoutError, asyncio.CancelledError):
+                pass
+            except Exception as exc:  # noqa: BLE001 -- shutdown stays best-effort
+                logger.opt(exception=exc).debug("Realtime transport warm shutdown: {}", exc)
+        if self._bio_scheduler is not None:
+            try:
+                await self._bio_scheduler.stop()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("BioScheduler.stop(): {}", exc)
+        progression = getattr(self, "_progression", None)
+        if progression is not None:
+            try:
+                progression.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("ProgressionService.close(): {}", exc)
+        if self._board_evaluator is not None:
+            try:
+                self._board_evaluator.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("AchievementEvaluator.close(): {}", exc)
+        if self._board_aggregator is not None:
+            try:
+                self._board_aggregator.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("Board-Aggregator close(): {}", exc)
+
+        # Phase B5 wiki write-wiring: unsubscribe + drain in-flight rollup task.
+        wiki_handle = getattr(self, "_wiki_integration_handle", None)
+        if wiki_handle is not None:
+            try:
+                await wiki_handle.shutdown()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("WikiIntegration.shutdown() failed")
+            self._wiki_integration_handle = None
+
+        # Phase B3 wiki live-reload: stop the watchdog observer cleanly
+        # before uvicorn unwinds. The bus is still alive at this point
+        # so any final debounce-fired events can publish without raising.
+        wiki_watcher = getattr(self, "_wiki_watcher", None)
+        if wiki_watcher is not None:
+            try:
+                await wiki_watcher.shutdown()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("WikiWatcher.shutdown() failed")
+            self._wiki_watcher = None
+
+        # Terminate PTY sessions before uvicorn goes down — prevents reader
+        # threads from trying to write into a closed loop.
+        try:
+            self._pty.close_all()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning("PTY cleanup failed")
+
+        # Cleanly shut down the Phase-6 mission stack — closing the
+        # connection closes the SQLite DB. Cancel the periodic recovery
+        # re-sweep + cleanup task BEFORE the store closes (otherwise the
+        # re-sweep ticks against a closed connection).
+        resweep_task = getattr(self, "_missions_resweep_task", None)
+        if resweep_task is not None:
+            resweep_task.cancel()
+            try:
+                await asyncio.wait_for(resweep_task, timeout=2.0)
+            except (TimeoutError, asyncio.CancelledError):
+                pass
+            self._missions_resweep_task = None
+
+        # The resume timer stops here; a mission it already resumed runs in its
+        # own task and is finalized by cancel_all_running below.
+        resume_task = getattr(self, "_missions_resume_task", None)
+        if resume_task is not None:
+            resume_task.cancel()
+            try:
+                await asyncio.wait_for(resume_task, timeout=2.0)
+            except (TimeoutError, asyncio.CancelledError):  # expected while stopping the timer
+                pass
+            self._missions_resume_task = None
+
+        cleanup_task = getattr(self, "_missions_cleanup_task", None)
+        if cleanup_task is not None:
+            cleanup_task.cancel()
+            try:
+                await asyncio.wait_for(cleanup_task, timeout=2.0)
+            except (TimeoutError, asyncio.CancelledError):
+                pass
+            self._missions_cleanup_task = None
+
+        # Screenshot-retention background task (opt-in via retention_days > 0).
+        screenshot_task = getattr(self, "_screenshot_retention_task", None)
+        if screenshot_task is not None:
+            screenshot_task.cancel()
+            try:
+                await asyncio.wait_for(screenshot_task, timeout=2.0)
+            except asyncio.CancelledError:
+                pass
+            except TimeoutError:
+                logger.warning("retention_task: did not stop within 2s — may be blocking on I/O")
+            self._screenshot_retention_task = None
+
+        # Flush + close the flight-recorder audit log so the last buffered events
+        # reach disk before shutdown (it otherwise auto-flushes every ~1s).
+        recorder = getattr(self, "_flight_recorder", None)
+        if recorder is not None:
+            try:
+                await recorder.flush()
+                await recorder.close()
+            except Exception as exc:  # noqa: BLE001 — shutdown best-effort
+                logger.opt(exception=exc).debug("Flight recorder close: {}", exc)
+            self._flight_recorder = None
+
+        # Finalize in-flight missions BEFORE the store closes: a restart used
+        # to kill the process with missions still running, leaving them
+        # non-terminal until the recovery re-sweep buried them 30 min later as
+        # opaque crash_recovery/ERROR cards (live missions 019eb27f/019eb288,
+        # 2026-06-10 19:24). cancel_all_running flips each to an honest
+        # CANCELLED('app_shutdown') and awaits the dying run tasks briefly.
+        kontrollierer = getattr(self.app.state, "kontrollierer", None)
+        cancel_all = getattr(kontrollierer, "cancel_all_running", None)
+        if cancel_all is not None:
+            try:
+                await cancel_all(reason="app_shutdown")
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("In-flight mission finalize on shutdown failed")
+
+        try:
+            await self._mission_tool_approvals.deny_all(reason="app_shutdown")
+        except Exception as exc:  # noqa: BLE001 - shutdown remains best-effort
+            logger.opt(exception=exc).warning("Pending mission tool approval cleanup failed")
+
+        mission_manager = getattr(self.app.state, "mission_manager", None)
+        if mission_manager is not None:
+            try:
+                await mission_manager.stop()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("MissionManager.stop() failed")
+            self.app.state.mission_manager = None
+            self.app.state.kontrollierer = None
+
+        # Shut down the Phase-5 task stack: cancel the scheduler loop, wait
+        # for running runner tasks (max 2s), close the store.
+        if self._task_scheduler is not None and self._task_cancel_token is not None:
+            try:
+                self._task_cancel_token.cancel("server_shutdown")
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("Task-CancelToken.cancel(): {}", exc)
+        if self._task_scheduler_task is not None:
+            self._task_scheduler_task.cancel()
+            try:
+                await asyncio.wait_for(self._task_scheduler_task, timeout=2.0)
+            except (TimeoutError, asyncio.CancelledError):
+                pass
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("TaskScheduler loop shutdown error: {}", exc)
+            self._task_scheduler_task = None
+        if self._task_scheduler is not None:
+            try:
+                await self._task_scheduler.shutdown()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).debug("TaskScheduler.shutdown(): {}", exc)
+        if self._task_store is not None:
+            try:
+                await self._task_store.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("TaskStore.close() failed")
+        self._task_scheduler = None
+        self._task_store = None
+        self._task_runner = None
+        self._task_cancel_token = None
+        self.app.state.task_store = None
+        self.app.state.task_scheduler = None
+        self.app.state.task_runner = None
+
+        # Detach the voice-session recorder from the bus + close the DB connection.
+        recorder = getattr(self, "_session_recorder", None)
+        store = getattr(self.app.state, "session_store", None)
+        if recorder is not None or store is not None:
+            try:
+                from dodaios.sessions.init import shutdown_sessions
+
+                shutdown_sessions({"store": store, "recorder": recorder})
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("SessionRecorder shutdown failed")
+            self._session_recorder = None
+            self.app.state.session_store = None
+
+        channel_manager = getattr(self.app.state, "channel_manager", None)
+        friend_registry = getattr(self.app.state, "friend_registry", None)
+        channel_bridge = getattr(self, "_channel_chat_bridge", None)
+        if channel_bridge is not None:
+            try:
+                await channel_bridge.stop()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("ChannelChatBridge shutdown failed")
+            self._channel_chat_bridge = None
+            self.app.state.channel_chat_bridge = None
+        if channel_manager is not None or friend_registry is not None:
+            try:
+                from dodaios.channels.bootstrap import shutdown_channels
+
+                if channel_manager is not None and friend_registry is not None:
+                    await shutdown_channels(channel_manager, friend_registry)
+                elif channel_manager is not None:
+                    await channel_manager.stop_all()
+                elif friend_registry is not None:
+                    await friend_registry.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning("ChannelStack shutdown failed")
+            self.app.state.channel_manager = None
+            self.app.state.friend_registry = None
+
+        if self._server is not None:
+            self._server.should_exit = True
+            if self._serve_task is not None:
+                try:
+                    await asyncio.wait_for(self._serve_task, timeout=5.0)
+                except TimeoutError:
+                    logger.warning("uvicorn shutdown timeout — force-cancel")
+                    self._serve_task.cancel()
+        self._server = None
+        self._serve_task = None
+
+        # Browser/desktop realtime owners must release their ephemeral threads
+        # before their shared process is reaped. Keep this unconditional: a
+        # failed startup can complete the Codex handshake before uvicorn marks
+        # itself running, and that process still needs bounded teardown.
+        try:
+            from dodaios.codex_app_server import close_shared_codex_app_servers
+
+            await close_shared_codex_app_servers()
+        except Exception as exc:  # noqa: BLE001 - shutdown continues best-effort
+            logger.opt(exception=exc).warning("Codex subscription app-server cleanup failed")
+
+        if mars_shutdown_failure is not None:
+            # Report incomplete Mars cleanup only after unrelated browser, chat,
+            # plugin, watcher, terminal and server resources have been released.
+            raise RuntimeError(f"mars_station_shutdown_incomplete ({mars_shutdown_failure})")
+        if society_shutdown_failure is not None:
+            raise RuntimeError(f"society_runtime_shutdown_incomplete ({society_shutdown_failure})")
+        if not registry_bootstraps_stopped:
+            raise RuntimeError("registry_bootstrap_shutdown_incomplete")
+
+    @property
+    def running(self) -> bool:
+        return self._server is not None and self._server.started

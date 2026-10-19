@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide.session import Terminal, announce_prompt
+from dodaios.agentic_ide.session import Terminal, announce_prompt
 
 
 def pane(**kwargs: object) -> Terminal:

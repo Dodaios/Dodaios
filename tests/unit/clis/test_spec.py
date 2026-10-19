@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from jarvis.clis.spec import CliSpec, CliSpecModel
+from dodaios.clis.spec import CliSpec, CliSpecModel
 
 
 def _minimal_payload(**overrides) -> dict:
@@ -156,7 +156,7 @@ def test_capabilities_reject_empty_lists() -> None:
 def test_seed_catalog_entries_all_validate() -> None:
     """Every shipped seed entry must validate — regression guard against a
     bad edit to ``seed_catalog.json``."""
-    from jarvis.clis.catalog import CliCatalog
+    from dodaios.clis.catalog import CliCatalog
 
     catalog = CliCatalog()
     seeds = catalog.seed_names()

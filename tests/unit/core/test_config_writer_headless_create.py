@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import tomllib
 
-from jarvis.core import config_writer as cw
+from dodaios.core import config_writer as cw
 
 
 def test_set_telegram_enabled_creates_missing_config(tmp_path):

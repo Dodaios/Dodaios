@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render every built-in pet x state x frame for a visual check.
 
-Frames go through the REAL runtime path: :func:`jarvis.ui.pets.loader.load_pet`
-decodes the committed sheet and :func:`~jarvis.ui.pets.loader.to_color_key`
+Frames go through the REAL runtime path: :func:`dodaios.ui.pets.loader.load_pet`
+decodes the committed sheet and :func:`~dodaios.ui.pets.loader.to_color_key`
 scales it onto the overlay's colour key, which is then replaced by a dark
 (``#1e1e1e``) and a light (``#f2f2f2``) desktop colour. One PNG per background.
 
@@ -27,7 +27,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont  # noqa: E402
 
-from jarvis.ui.pets.loader import (  # noqa: E402
+from dodaios.ui.pets.loader import (  # noqa: E402
     COLOR_KEY,
     PetPack,
     builtin_root,
@@ -35,7 +35,7 @@ from jarvis.ui.pets.loader import (  # noqa: E402
     load_pet,
     to_color_key,
 )
-from jarvis.ui.pets.states import MAX_FRAMES_PER_STATE, PET_STATES  # noqa: E402
+from dodaios.ui.pets.states import MAX_FRAMES_PER_STATE, PET_STATES  # noqa: E402
 
 BACKGROUNDS: dict[str, tuple[int, int, int]] = {
     "dark": (0x1E, 0x1E, 0x1E),

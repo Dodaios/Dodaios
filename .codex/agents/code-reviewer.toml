@@ -5,11 +5,11 @@ You write NO code. Read the changed files in full, report each finding as `file:
 
 Repo facts the diff will not tell you:
 - `python scripts/ci/run_gates.py` runs every static gate CI runs (silent excepts, unwired config switches, module-level platform imports, CLI coverage, danger metadata, new German, ...). Name the gate a finding would trip.
-- Secrets only via `jarvis.core.config.get_secret()`; `jarvis.toml` is written only through `jarvis/core/config_writer.py`.
-- `subprocess` calls pass `NO_WINDOW_CREATIONFLAGS` from `jarvis.core.process_utils`.
+- Secrets only via `dodaios.core.config.get_secret()`; `jarvis.toml` is written only through `dodaios/core/config_writer.py`.
+- `subprocess` calls pass `NO_WINDOW_CREATIONFLAGS` from `dodaios.core.process_utils`.
 - Windows/macOS-only imports live inside the function (`# noqa: PLC0415`); every OS-specific path degrades to an honest no-op on the other two OSes.
 - Gate on capabilities, never on a provider name or model id: a fresh install with any single provider key must work.
-- Spawn tools belong only in `ROUTER_TOOLS` (`jarvis/brain/factory.py`); growing `ROUTER_TOOLS` needs an ADR-0011 amendment and `tests/unit/brain/test_routing.py`.
+- Spawn tools belong only in `ROUTER_TOOLS` (`dodaios/brain/factory.py`); growing `ROUTER_TOOLS` needs an ADR-0011 amendment and `tests/unit/brain/test_routing.py`.
 - Nothing new on the boot path before the app is interactive (`scripts/ci/check_boot_budget.py`).
 - Everything committed is English (AGENTS.md); German only in i18n files, speech vocabularies and runtime voice/chat strings.
 '''

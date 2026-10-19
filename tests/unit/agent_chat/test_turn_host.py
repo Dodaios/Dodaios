@@ -11,12 +11,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import runner_api, turn_host, turn_host_client
-from jarvis.agent_chat.runner_cli import resume_hosted_cli_turn
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agentic_ide import host_mode
-from jarvis.terminal.pty_host_client import _handshake
+from dodaios.agent_chat import runner_api, turn_host, turn_host_client
+from dodaios.agent_chat.runner_cli import resume_hosted_cli_turn
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agentic_ide import host_mode
+from dodaios.terminal.pty_host_client import _handshake
 
 TOKEN = "test-token"  # noqa: S105 - a fixture value
 
@@ -509,9 +509,9 @@ async def test_an_approval_the_old_app_never_answered_opens_again_after_a_restar
 def test_a_frozen_build_starts_the_turn_host_from_its_own_executable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core import frozen
-    from jarvis.terminal import pty_host_client
-    from jarvis.ui import relauncher
+    from dodaios.core import frozen
+    from dodaios.terminal import pty_host_client
+    from dodaios.ui import relauncher
 
     started: list[list[str]] = []
     monkeypatch.setattr(frozen, "is_frozen", lambda: True)
@@ -543,14 +543,14 @@ def test_the_app_executable_routes_the_turn_host_flag_without_booting_the_app(
 ) -> None:
     import subprocess
 
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     env = {k: v for k, v in __import__("os").environ.items() if k != turn_host.TOKEN_ENV}
     done = subprocess.run(  # noqa: S603 - our own interpreter, fixed arguments
         [
             sys.executable,
             "-m",
-            "jarvis",
+            "dodaios",
             "--turn-host",
             "--state",
             str(tmp_path / "s.json"),
@@ -573,7 +573,7 @@ async def test_the_app_start_builds_the_chat_service_only_when_the_host_holds_tu
 ) -> None:
     from types import SimpleNamespace
 
-    from jarvis.ui.web import agent_chat_routes
+    from dodaios.ui.web import agent_chat_routes
 
     monkeypatch.setattr(agent_chat_routes, "_REATTACH_DELAY_S", 0.0)
     built: list[str] = []
@@ -600,7 +600,7 @@ async def test_the_app_start_builds_the_chat_service_only_when_the_host_holds_tu
 def test_the_app_start_does_nothing_outside_a_real_app_process() -> None:
     from types import SimpleNamespace
 
-    from jarvis.ui.web import agent_chat_routes
+    from dodaios.ui.web import agent_chat_routes
 
     host_mode.reset()
     assert agent_chat_routes.schedule_turn_reattach(SimpleNamespace()) is None
@@ -645,7 +645,7 @@ def test_concurrent_first_requests_build_only_one_chat_service() -> None:
     from threading import Barrier
     from types import SimpleNamespace
 
-    from jarvis.ui.web.agent_chat_routes import _service_from_state
+    from dodaios.ui.web.agent_chat_routes import _service_from_state
 
     entrants = Barrier(3)
     built = []
@@ -751,7 +751,7 @@ async def test_failed_attach_can_retry_without_leaving_a_dead_reader(tmp_path, m
 
 
 async def test_duplicate_recovery_publishes_one_success_and_no_late_timeout(tmp_path):
-    from jarvis.agent_chat.turn_host_client import TurnHandedOver
+    from dodaios.agent_chat.turn_host_client import TurnHandedOver
 
     host, task, port = await _start_host(tmp_path)
     client = await _client(port)
