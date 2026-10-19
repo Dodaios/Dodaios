@@ -10,7 +10,7 @@ Privacy page) was deleted and replaced by one toast; see "Amendment: the UI is r
 at the end. The rule, the service and the events are unchanged.
 **Date:** 2026-10-02
 **Reference:** AP-35 (`AGENTS.md`); `docs/macos-permissions.md` (full design, evidence,
-risk register and the manual Mac checklist); BUG-225 (`docs/BUGS.md`); supersedes
+risk register and the manual Mac checklist); BUG-225; supersedes
 the permission behaviour described in BUG-159, BUG-161, BUG-217, BUG-222, BUG-223
 and BUG-224; revives frozen decision AD-13 of the cross-platform plan.
 

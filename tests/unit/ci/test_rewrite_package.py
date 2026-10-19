@@ -217,7 +217,6 @@ FILES: dict[str, str] = {
     ".gitignore": "/jarvis.toml\njarvis/ui/web/frontend/node_modules/\n.jarvis-managed-install\n",
     "docs/guide.md": _GUIDE,
     "CHANGELOG.md": _HISTORY,
-    "docs/BUGS.md": _HISTORY,
     "docs/supply-chain/wave3.md": _HISTORY,
     "docs/superpowers/plans/plan.md": _HISTORY,
     "tests/test_core.py": _TEST_MODULE,
@@ -477,7 +476,7 @@ def test_every_frozen_file_keeps_its_content(frozen):
 
 def test_history_and_generated_files_are_moved_but_not_rewritten(repo):
     codemod.apply(repo, OLD, NEW)
-    for name in ("CHANGELOG.md", "docs/BUGS.md", "docs/supply-chain/wave3.md"):
+    for name in ("CHANGELOG.md", "docs/supply-chain/wave3.md"):
         assert _read(repo, name) == _HISTORY, name
     assert _read(repo, "docs/superpowers/plans/plan.md") == _HISTORY
     assert _read(repo, "dodaios/ui/web/dist/index.html") == FILES["jarvis/ui/web/dist/index.html"]

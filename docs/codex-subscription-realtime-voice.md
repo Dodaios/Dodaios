@@ -70,8 +70,8 @@ into a dead Realtime mode. Other providers' selections are never touched.
 The complete engineering record of the adapter — runtime design, failure
 assessments with measurements, the client-managed handoff contract, the
 credential/process boundaries, and the live-confirmed v3 protocol dump —
-lives in this file's git history (see the version before this removal)
-and in `docs/BUGS.md`. The generation-side lessons remain valid for any
+lives in this file's git history (see the version before this removal).
+The generation-side lessons remain valid for any
 future external-login realtime provider:
 
 - A status surface must never convert a transient `busy` into "ready" or
