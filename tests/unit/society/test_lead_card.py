@@ -83,10 +83,8 @@ async def rt(tmp_path: Path):
 
 
 async def test_a_created_agent_is_on_the_next_card(rt: SocietyRuntime):
-    before = lead_card_section(lead_name="George")
-    assert before.startswith(CARD_TITLE)
-    assert "No other agents yet" in before
-    assert "Gmail agent" not in before
+    # No agent, no team, no open terminal: the lead gets no card at all.
+    assert lead_card_section(lead_name="George") == ""
 
     await rt.roster.create(
         name="Gmail agent",
@@ -96,10 +94,11 @@ async def test_a_created_agent_is_on_the_next_card(rt: SocietyRuntime):
     )
 
     after = lead_card_section(lead_name="George")
+    assert after.startswith(CARD_TITLE)
     assert "- Gmail agent — Mailbox · specialist · idle · hands: gmail" in after
     assert 'brief: "Handle my mail. Never delete anything."' in after
-    assert "No other agents yet" not in after
     assert "You are George, the lead" in after
+    assert "Roster epoch: " in after
 
 
 async def test_the_card_is_byte_stable_between_roster_changes(rt: SocietyRuntime):
@@ -169,13 +168,13 @@ def test_render_lists_hands_by_grant_mode():
     )
 
 
-def test_the_rule_block_names_the_tools_and_buries_the_old_system():
-    card = render_lead_card([], [], lead_name="George")
+def test_the_rule_block_names_the_tools():
+    card = render_lead_card([], [], lead_name="George", terminals=["T1"])
     assert "delegate_to_agent" in card
     assert "society_status" in card
-    assert "never from the retired sub-agent or mission-worker system" in card
-    assert "spawn_worker is only for heavy background work" in card
+    assert "message_agent, never gmail" in card
     assert "Agentic IDE" in card and "are NOT agents of this society" in card
+    assert "## Communicating with teammates" not in card
     # Seat inheritance is told once, in the society-create-agent description.
     assert "society-create-routine, never a skill" in card
 

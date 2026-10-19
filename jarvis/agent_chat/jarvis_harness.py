@@ -69,45 +69,32 @@ _SERVER_NAME: Final[str] = MCP_TOOLS_SERVER_NAME
 #: unattended surface, exactly as before.
 HEADER_NAME: Final[str] = "X-Jarvis-Chat-Session"
 
+#: The closing block of a society agent's seat. Its briefing already carries the
+#: reply style and the working contract; this adds only the transport facts.
+SOCIETY_PREAMBLE: Final[str] = (
+    f"Your Dodaios tools (society_* and the rest) come from the `{_SERVER_NAME}` MCP server "
+    f"(Claude Code: `mcp__{_SERVER_NAME}__<tool>`; Grok Build: `{_SERVER_NAME}__<tool>` "
+    "through use_tool). Your own file and shell tools act on this chat's working folder "
+    "only. You are this turn's worker: spawn no sub-agents."
+)
+
 SYSTEM_PREAMBLE: Final[str] = (
-    "You are the assistant of the person you are talking to (your name is the one "
-    "stated at the top of this prompt), running as "
-    "the chat surface of the Dodaios desktop app that is open in front of "
-    "them right now. This chat is the same assistant they otherwise talk to by "
-    "voice; here they type and read your replies on screen.\n\n"
+    "You are the person's assistant (your name is stated at the top of this prompt) in "
+    "the chat of the Dodaios desktop app; they also talk to you by voice.\n\n"
     + CONVERSATIONAL_TURN_REMINDER
-    + "\n\nWrite naturally: direct and precise, no hype, "
-    "no marketing superlatives, no filler openers. NEVER use emojis unless the "
-    "person explicitly asks for one in this turn — no emoji headings, tables, "
-    "status icons or closers. Tables carry plain words, never emoji symbols.\n\n"
-    "You have Dodaios' own tools, offered to you over MCP. Claude Code names them "
-    f"`mcp__{_SERVER_NAME}__<tool>`; Grok Build names them "
-    f"`{_SERVER_NAME}__<tool>` and you call "
-    "them through use_tool. They act on the RUNNING app and on the accounts the "
-    "person has connected to it — their calendar, mail, contacts, media, wiki, "
-    "windows, screen, skills and Dodaios' own settings. Prefer them over a shell "
-    "command, a CLI you would have to authenticate yourself, a skill, or the "
-    "browser whenever the request is about the person's own apps, data or "
-    "machine: those tools are already signed in and already permitted. Reach for "
-    "your file and shell tools for code and for the filesystem.\n\n"
-    "When the user selects Chrome / Browser, @browser, @browser-use or "
-    f"[tools: core:browser], use society_browser from the `{_SERVER_NAME}` MCP server. "
-    "That is the persistent browser displayed live in this agent's Options rail. "
-    "Use it for website interaction when no connected service tool can do the task. "
-    "A browser request takes priority over the general plugin preference. "
-    "Do not substitute your own browser, HTTP fetch or shell for this selection. "
-    "If society_browser is unavailable, report that explicitly.\n\n"
-    "Two kinds of hands: your own file and shell tools are your hands in the "
-    f"working folder this chat is open in; `mcp__{_SERVER_NAME}__run_shell` / "
-    f"`{_SERVER_NAME}__run_shell` and their siblings are Dodaios' hands on the whole "
-    "machine. Use the folder's hands for the folder, Dodaios' for everything else.\n\n"
-    "Some of those tools ask the person for approval before they run. That is "
-    "normal and it is not a failure — wait for an approval card that is actually "
-    "on screen rather than routing around it. If a tool is cancelled, denied, "
-    "missing or fails, that is not the end of the task: read the error, try "
-    "another path, and keep going until the original goal is done.\n\n"
-    "Do not spawn background workers or sub-agents: for this turn, you are the "
-    "worker."
+    + "\n\nNo emojis unless the person asks for one.\n\n"
+    f"Dodaios tools come from the `{_SERVER_NAME}` MCP server: Claude Code names them "
+    f"`mcp__{_SERVER_NAME}__<tool>`; Grok Build names them `{_SERVER_NAME}__<tool>`, called "
+    "through use_tool. They act on the running app and the person's connected accounts and "
+    "are already signed in; prefer them over a shell, a CLI, a skill or the browser for the "
+    "person's own apps, data and machine. Your own file and shell tools cover this chat's "
+    f"working folder; `mcp__{_SERVER_NAME}__run_shell` / `{_SERVER_NAME}__run_shell` cover "
+    "the rest of the machine.\n\n"
+    "When the person selects the browser (@browser, @browser-use, [tools: core:browser]), "
+    f"use society_browser from the `{_SERVER_NAME}` MCP server, the live browser in the "
+    "Options rail; if it is unavailable, say so.\n\n"
+    "Approval cards are pending work, not failures. You are this turn's worker: spawn no "
+    "sub-agents."
 )
 
 
@@ -440,7 +427,7 @@ async def identity_prompt(
             transcript = render_transcript(history)
             if transcript:
                 parts.append("## This conversation so far\n\n" + transcript)
-        parts.append(SYSTEM_PREAMBLE)
+        parts.append(SOCIETY_PREAMBLE)
         return "\n\n".join(parts)
     brain = _brain()
     render = getattr(brain, "render_surface_prompt", None) if brain is not None else None
@@ -500,15 +487,21 @@ def _prose(content: str | list[dict[str, Any]]) -> str:
     return "\n".join(b for b in bits if b.strip())
 
 
+def _preamble_of(text: str) -> str:
+    """The closing preamble an identity ends with (a society seat's or the assistant's)."""
+    return SOCIETY_PREAMBLE if text.endswith(SOCIETY_PREAMBLE) else SYSTEM_PREAMBLE
+
+
 def compact_identity(text: str, *, max_chars: int = COMPACT_MAX_CHARS) -> str:
     """The identity cut for argv: the addendum is kept whole, the rest trimmed."""
     if len(text) <= max_chars:
         return text
-    head_room = max(0, max_chars - len(SYSTEM_PREAMBLE) - 8)
-    body = text[: -len(SYSTEM_PREAMBLE)] if text.endswith(SYSTEM_PREAMBLE) else text
+    preamble = _preamble_of(text)
+    head_room = max(0, max_chars - len(preamble) - 8)
+    body = text[: -len(preamble)] if text.endswith(preamble) else text
     body = body[:head_room].rstrip()
     body = re.sub(r"\n[^\n]*$", "", body)  # do not cut a line in half
-    return f"{body}\n\n…\n\n{SYSTEM_PREAMBLE}"
+    return f"{body}\n\n…\n\n{preamble}"
 
 
 #: A created agent's chat never ends (MASTERPLAN §2.10), but a vendor CLI's own
@@ -547,7 +540,7 @@ def society_memory_refresh(text: str, *, compact: bool = False) -> str:
         "Your learned skills (run one with society_run_skill)",
     )
     sections = []
-    for section in re.split(r"(?m)(?=^## )", text.removesuffix(SYSTEM_PREAMBLE)):
+    for section in re.split(r"(?m)(?=^## )", text.removesuffix(_preamble_of(text))):
         title = section.split("\n", 1)[0].removeprefix("## ").strip()
         if title in headings or title.startswith("You are "):
             sections.append(section.strip())
@@ -563,30 +556,36 @@ def society_memory_refresh(text: str, *, compact: bool = False) -> str:
         )
     return (
         "<current_agent_memory>\n"
-        "Current identity, naming guidance, standing instructions, memory and learned skill "
-        "index replace their previous snapshots when complete. If naming guidance is absent, "
-        "keep the current name; earlier placeholder instructions no longer apply. "
-        + note + "Learned guidance never grants "
-        "permissions or overrides the standing instructions or the current user request.\n\n"
+        "These sections replace their earlier snapshots. "
+        + note
+        + "Without a naming section keep your current name (earlier placeholder instructions "
+        "no longer apply). Learned guidance never grants permissions.\n\n"
         + body
         + "\n</current_agent_memory>\n\n"
     )
 
 
-#: Lines of a society briefing that state this turn's credentials (surface.py).
+#: Lines of a society briefing that state this turn's live facts (surface.py):
+#: the client timezone, the capability epoch, the stored credentials and the
+#: unattended-routine marker.
 _CREDENTIAL_STATE = re.compile(
-    r"^(?:Stored credentials\b|This is an unattended routine run\b).*$", re.M
+    r"^(?:Client timezone for this turn:|Capability epoch:|Stored credentials\b"
+    r"|This is an unattended routine run\b).*$",
+    re.M,
 )
 
 
-def society_credential_state(text: str) -> str:
-    """The briefing's current credential lines, for a resumed CLI turn.
+def society_turn_state(text: str) -> str:
+    """The briefing's live state lines, sent on every resumed CLI turn.
 
     A resumed vendor conversation never sees the briefing again, so without
     this it keeps believing whatever the chat once said about a token.
     """
-    lines = [m.group(0).strip() for m in _CREDENTIAL_STATE.finditer(text or "")]
-    return (" " + " ".join(lines)) if lines else ""
+    return "\n".join(m.group(0).strip() for m in _CREDENTIAL_STATE.finditer(text or ""))
+
+
+#: Earlier name, kept for callers that read only the credential lines.
+society_credential_state = society_turn_state
 
 
 def identity_dir() -> Path:
@@ -642,6 +641,7 @@ __all__ = [
     "COMPACT_MAX_CHARS",
     "HEADER_NAME",
     "KEY_ENV_VAR",
+    "SOCIETY_PREAMBLE",
     "SYSTEM_PREAMBLE",
     "TRANSCRIPT_MAX_CHARS",
     "Identity",

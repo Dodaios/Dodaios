@@ -324,6 +324,7 @@ def test_version_parsing_reads_both_numbering_schemes():
 def test_the_persona_defers_to_the_jarvis_identity():
     text = persona_text("Hermit")
     assert "Hermit" in text and "<jarvis_identity>" in text
+    assert "`dodaios` MCP server" in text
 
 
 # --------------------------------------------------------------- model map

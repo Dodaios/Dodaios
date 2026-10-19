@@ -92,6 +92,17 @@ def test_the_compact_cut_keeps_the_addendum_whole():
     assert "…" in compact
 
 
+async def test_a_society_seat_closes_with_the_society_preamble_kept_whole():
+    text = await jarvis_harness.identity_prompt(
+        user_text="hi", history=[], resume=None, prompt_override="## You are Scout\n" * 2000
+    )
+    assert text.endswith(jarvis_harness.SOCIETY_PREAMBLE)
+    assert "same assistant" not in text and "by voice" not in text
+    compact = jarvis_harness.compact_identity(text, max_chars=4000)
+    assert len(compact) <= 4100
+    assert compact.endswith(jarvis_harness.SOCIETY_PREAMBLE)
+
+
 def test_the_identity_file_lives_in_the_app_data_dir_and_is_removed(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(jarvis_harness, "identity_dir", lambda: tmp_path / "identity")
     path = jarvis_harness.write_identity_file("who I am", turn_id="turn-1")

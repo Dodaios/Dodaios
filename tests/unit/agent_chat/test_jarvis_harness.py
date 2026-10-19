@@ -198,6 +198,10 @@ def test_the_preamble_names_the_prefix_the_tools_actually_get():
     assert "from the `dodaios` MCP server" in jarvis_harness.SYSTEM_PREAMBLE
     # The model is told one name: the one the tools are mounted under.
     assert "jarvis__" not in jarvis_harness.SYSTEM_PREAMBLE
+    society = jarvis_harness.SOCIETY_PREAMBLE
+    assert "`mcp__dodaios__<tool>`" in society and "`dodaios__<tool>`" in society
+    assert "from the `dodaios` MCP server" in society
+    assert "jarvis__" not in society
 
 
 def test_every_cli_shape_mounts_the_server_under_the_one_name(monkeypatch):
