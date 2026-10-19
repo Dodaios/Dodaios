@@ -113,7 +113,7 @@ def _frozen() -> bool:
 
 
 def _enclosing_macos_app(executable: str) -> Path | None:
-    """``/Applications/Personal Jarvis.app`` for an executable inside it."""
+    """The ``.app`` bundle an executable sits in, whatever it is called."""
     for parent in Path(executable).resolve().parents:
         if parent.suffix == ".app":
             return parent

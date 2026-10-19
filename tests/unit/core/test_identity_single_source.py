@@ -301,6 +301,15 @@ def test_the_shell_uninstaller_restates_the_macos_identifiers(
     assert f'\n{variable}="{expected}"\n' in _read("install/uninstall.sh")
 
 
+def test_the_shell_uninstaller_restates_both_bundle_names() -> None:
+    script = _read("install/uninstall.sh")
+    assert f'\nMACOS_APP_DIR_NAME="{branding.MACOS_APP_DIR_NAME}"\n' in script
+    assert branding.LEGACY_MACOS_APP_DIR_NAMES == ("Personal Jarvis.app",)
+    legacy = branding.LEGACY_MACOS_APP_DIR_NAMES[0]
+    assert f'\nLEGACY_MACOS_APP_DIR_NAME="{legacy}"\n' in script
+    assert 'for app_dir_name in "$MACOS_APP_DIR_NAME" "$LEGACY_MACOS_APP_DIR_NAME"; do' in script
+
+
 def test_the_shell_uninstaller_names_every_credential_service() -> None:
     script = _read("install/uninstall.sh")
     assert f'\nKEYRING_SERVICE_NAME="{branding.KEYRING_SERVICE_NAME}"\n' in script
@@ -630,8 +639,10 @@ def _current_names() -> list[IdentityName]:
 # scripts now, and the first test sees them among the current names. So did
 # the data directory and the config file, the install directory, the
 # Windows identity (the windowed executable, its per-user folder, the
-# shortcut) and the Linux desktop entry: current names now, with their earlier
-# values in LEGACY_* tuples.
+# shortcut), the Linux desktop entry and the macOS bundle's name: current names
+# now, with their earlier values in LEGACY_* tuples. The macOS bundle ids below
+# are planned only: a new id starts every privacy grant over, so they wait for
+# their own migration.
 _PLANNED_NAMES: tuple[IdentityName, ...] = (
     IdentityName("macos-bundle-id", "managed", "planned", "com.dodaios.desktop"),
     IdentityName("macos-bundle-id", "dmg", "planned", "ai.dodaios.desktop"),
@@ -679,6 +690,12 @@ def test_the_windows_identity_moved_with_its_earlier_names_in_the_table() -> Non
     data = next(n for n in names if n.role == "data" and n.namespace == "localappdata-dir")
     clash = IdentityName("localappdata-dir", "launcher", "planned", data.value)
     assert len(_collisions([*names, clash])) == 1
+
+
+def test_the_macos_bundle_name_moved_with_its_earlier_name_in_the_table() -> None:
+    names = _current_names()
+    bundle = {(n.generation, n.value) for n in names if n.namespace == "applications-dir"}
+    assert bundle == {("current", "Dodaios.app"), ("legacy", "Personal Jarvis.app")}
 
 
 def test_the_planned_names_collide_with_nothing_an_installation_carries() -> None:
