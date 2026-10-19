@@ -109,6 +109,10 @@ def test_image_name_is_the_exe_file_name() -> None:
     ("..\\..\\Windows", False),
     ("a/b", False),
     ("", False),
+    ("Default\n", False),
+    (".", False),
+    ("Profile 1.", False),
+    (" Default", False),
 ])
 def test_profile_dir_names(value: str, ok: bool) -> None:
     assert cp.is_profile_dir(value) is ok

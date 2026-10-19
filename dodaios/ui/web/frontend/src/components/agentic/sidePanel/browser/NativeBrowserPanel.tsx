@@ -78,6 +78,8 @@ export function NativeBrowserPanel({
     setLaunching(true);
     setFailure(null);
     const result = await launchNativeBrowser(next, startUrl);
+    // A newer pick replaced this one; its own answer decides what shows.
+    if (result.reason === "superseded") return;
     setLaunching(false);
     if (!result.ok) setFailure(result.reason || "launch_failed");
     queryClient.setQueryData(NATIVE_BROWSER_STATUS_QUERY, (old: NativeBrowserStatus | undefined) =>
