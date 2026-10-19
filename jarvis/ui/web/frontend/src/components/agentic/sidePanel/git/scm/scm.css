@@ -1,0 +1,272 @@
+/*
+ * The Git tab's source control surface: its own colour table for the light
+ * and the dark appearance, the system UI font at 13 px, 22 px rows and the
+ * codicon glyphs. Every value the components use comes from a --scm-* token.
+ */
+@import "@vscode/codicons/dist/codicon.css";
+
+/* The code editor ships an older copy of the same font under the same name;
+   this surface draws its glyphs from its own copy. */
+@font-face {
+  font-family: "scm-codicon";
+  font-display: block;
+  src: url("@vscode/codicons/dist/codicon.ttf") format("truetype");
+}
+
+.scm-root,
+.scm-portal {
+  --scm-bg: #f8f8f8;
+  --scm-fg: #3b3b3b;
+  --scm-title-fg: #3b3b3b;
+  --scm-desc-fg: #717171;
+  --scm-border: #e5e5e5;
+  --scm-input-bg: #ffffff;
+  --scm-input-border: #cecece;
+  --scm-input-placeholder: #767676;
+  --scm-focus: #005fb8;
+  --scm-button-bg: #005fb8;
+  --scm-button-hover: #0258a8;
+  --scm-button-fg: #ffffff;
+  --scm-button-separator: rgba(255, 255, 255, 0.4);
+  --scm-badge-bg: #005fb8;
+  --scm-badge-fg: #ffffff;
+  --scm-hover: #f2f2f2;
+  --scm-selection: #e8e8e8;
+  --scm-selection-focus: #e8e8e8;
+  --scm-toolbar-hover: rgba(184, 184, 184, 0.31);
+  --scm-icon: #3b3b3b;
+  --scm-progress: #005fb8;
+  --scm-menu-bg: #ffffff;
+  --scm-menu-fg: #3b3b3b;
+  --scm-menu-border: #cecece;
+  --scm-menu-selection: #005fb8;
+  --scm-menu-selection-fg: #ffffff;
+  --scm-menu-separator: #cecece;
+  --scm-error-bg: #f2dede;
+  --scm-error-border: #be1100;
+  --scm-modified: #895503;
+  --scm-added: #587c0c;
+  --scm-untracked: #007100;
+  --scm-deleted: #ad0707;
+  --scm-renamed: #007100;
+  --scm-conflict: #ad0707;
+  --scm-ignored: #8e8e90;
+  --scm-ref-local: #005fb8;
+  --scm-ref-remote: #652d90;
+  --scm-ref-base: #ea5c00;
+  --scm-ref-fg: #ffffff;
+  --scm-lane-0: #ffb000;
+  --scm-lane-1: #dc267f;
+  --scm-lane-2: #994f00;
+  --scm-lane-3: #40b0a6;
+  --scm-lane-4: #b66dff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif;
+  font-size: 13px;
+  line-height: 22px;
+  color: var(--scm-fg);
+  background: var(--scm-bg);
+}
+
+.dark .scm-root,
+.dark .scm-portal {
+  --scm-bg: #181818;
+  --scm-fg: #cccccc;
+  --scm-title-fg: #cccccc;
+  --scm-desc-fg: #9d9d9d;
+  --scm-border: #2b2b2b;
+  --scm-input-bg: #313131;
+  --scm-input-border: #3c3c3c;
+  --scm-input-placeholder: #989898;
+  --scm-focus: #0078d4;
+  --scm-button-bg: #0078d4;
+  --scm-button-hover: #026ec1;
+  --scm-button-fg: #ffffff;
+  --scm-badge-bg: #0078d4;
+  --scm-badge-fg: #ffffff;
+  --scm-hover: #2a2d2e;
+  --scm-selection: #37373d;
+  --scm-selection-focus: #04395e;
+  --scm-toolbar-hover: rgba(90, 93, 94, 0.31);
+  --scm-icon: #cccccc;
+  --scm-progress: #0078d4;
+  --scm-menu-bg: #1f1f1f;
+  --scm-menu-fg: #cccccc;
+  --scm-menu-border: #454545;
+  --scm-menu-selection: #0078d4;
+  --scm-menu-separator: #454545;
+  --scm-error-bg: #5a1d1d;
+  --scm-error-border: #be1100;
+  --scm-modified: #e2c08d;
+  --scm-added: #81b88b;
+  --scm-untracked: #73c991;
+  --scm-deleted: #c74e39;
+  --scm-renamed: #73c991;
+  --scm-conflict: #e4676b;
+  --scm-ignored: #8c8c8c;
+  --scm-ref-local: #0078d4;
+  --scm-ref-remote: #b180d7;
+  --scm-ref-base: #ea5c00;
+}
+
+/* Menus and dialogs are portalled to <body>; they carry the class themselves. */
+.scm-portal {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif;
+  font-size: 13px;
+}
+
+.scm-root .codicon,
+.scm-portal .codicon {
+  font-family: "scm-codicon" !important;
+  font-size: 16px;
+  line-height: 16px;
+}
+
+.scm-row:hover {
+  background: var(--scm-hover);
+}
+.scm-row[aria-selected="true"] {
+  background: var(--scm-selection);
+}
+.scm-list:focus-within .scm-row[aria-selected="true"] {
+  background: var(--scm-selection-focus);
+}
+.scm-list:focus .scm-row[data-focused="true"] {
+  outline: 1px solid var(--scm-focus);
+  outline-offset: -1px;
+}
+
+/* Row actions show on hover, on the focused row and on a selected one. */
+.scm-row .scm-actions {
+  display: none;
+}
+.scm-row:hover .scm-actions,
+.scm-row[aria-selected="true"] .scm-actions,
+.scm-row[data-focused="true"] .scm-actions {
+  display: flex;
+}
+
+/* View-header actions show while the pointer or the keyboard is in the view. */
+.scm-view .scm-view-actions {
+  display: none;
+}
+.scm-view:hover .scm-view-actions,
+.scm-view:focus-within .scm-view-actions {
+  display: flex;
+}
+
+.scm-action {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--scm-icon);
+  background: transparent;
+  flex-shrink: 0;
+}
+.scm-action:hover {
+  background: var(--scm-toolbar-hover);
+}
+.scm-action:disabled {
+  opacity: 0.4;
+  background: transparent;
+}
+.scm-action:focus-visible {
+  outline: 1px solid var(--scm-focus);
+  outline-offset: -1px;
+}
+
+.scm-input {
+  background: var(--scm-input-bg);
+  border: 1px solid var(--scm-input-border);
+  color: var(--scm-fg);
+  border-radius: 2px;
+}
+.scm-input::placeholder {
+  color: var(--scm-input-placeholder);
+}
+.scm-input:focus {
+  outline: 1px solid var(--scm-focus);
+  outline-offset: -1px;
+  border-color: var(--scm-focus);
+}
+
+.scm-button {
+  background: var(--scm-button-bg);
+  color: var(--scm-button-fg);
+}
+.scm-button:hover:not(:disabled) {
+  background: var(--scm-button-hover);
+}
+.scm-button:disabled {
+  opacity: 0.4;
+}
+.scm-button:focus-visible {
+  outline: 1px solid var(--scm-focus);
+  outline-offset: 2px;
+}
+
+.scm-badge {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  padding: 3px 6px;
+  border-radius: 11px;
+  font-size: 11px;
+  line-height: 12px;
+  font-weight: 400;
+  text-align: center;
+  box-sizing: border-box;
+  background: var(--scm-badge-bg);
+  color: var(--scm-badge-fg);
+}
+
+.scm-progress {
+  position: absolute;
+  top: 0;
+  height: 2px;
+  width: 2%;
+  background: var(--scm-progress);
+  animation: scm-progress 4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scm-progress {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
+}
+@keyframes scm-progress {
+  from {
+    transform: translateX(0) scaleX(1);
+    left: 0;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.scm-tone-M,
+.scm-tone-T {
+  color: var(--scm-modified);
+}
+.scm-tone-A {
+  color: var(--scm-added);
+}
+.scm-tone-U {
+  color: var(--scm-untracked);
+}
+.scm-tone-D {
+  color: var(--scm-deleted);
+}
+.scm-tone-R,
+.scm-tone-C {
+  color: var(--scm-renamed);
+}
+.scm-tone-\! {
+  color: var(--scm-conflict);
+}
+.scm-tone-I {
+  color: var(--scm-ignored);
+}
