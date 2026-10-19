@@ -16,7 +16,6 @@ from __future__ import annotations
 import hashlib
 import io
 import logging
-import os
 import shutil
 import tempfile
 import zipfile
@@ -120,14 +119,10 @@ def resolve_wake_language(cfg: Any) -> str:
 
 
 def _models_root(data_dir: str | None) -> Path:
-    """Keep the runtime layout, independent of the caller's working directory."""
-    base = data_dir or os.environ.get("JARVIS__MEMORY__DATA_DIR")
-    if not base:
-        from jarvis.core.instance import resolve_data_dir
-        from jarvis.core.paths import repo_root
+    """Use the same data root as runtime wake-plan selection."""
+    from jarvis.speech.wake_constants import _vosk_models_root
 
-        base = str(resolve_data_dir(repo_root()))
-    return Path(base) / "wake_models" / "vosk"
+    return _vosk_models_root(data_dir)
 
 
 def _is_model_dir(cand: Path) -> bool:

@@ -7,7 +7,8 @@ import pytest
 
 from jarvis.core import paths
 from jarvis.setup import model_report, prefetch
-from jarvis.speech import wake_model_fetch
+from jarvis.speech import wake_constants, wake_model_fetch
+from jarvis.speech.wake_phrase import resolve_wake_plan
 
 
 @pytest.fixture
@@ -66,6 +67,19 @@ def test_presence_and_prefetch_keep_data_directory_precedence(
     )
     assert downloads == []
     assert not (foreign / "data").exists()
+    if source != "explicit":
+        assert wake_constants.resolve_vosk_model_path("en") == str(expected)
+        assert wake_constants.resolve_vosk_model_paths("en") == [str(expected)]
+        plan = resolve_wake_plan(
+            SimpleNamespace(phrase="Hey Nova", engine="auto", custom_model_path=""),
+            local_whisper_available=False,
+            language="en",
+            vosk_available=True,
+        )
+        assert plan.engine == "vosk_kws"
+        assert plan.vosk_model_path == str(expected)
+        assert plan.vosk_model_paths == (str(expected),)
+        assert plan.wake_available
 
 
 @pytest.mark.parametrize("full_profile", [False, True])
@@ -102,6 +116,16 @@ def test_foreign_cwd_model_does_not_hide_missing_install_model(
     monkeypatch.chdir(tmp_path)
 
     assert not wake_model_fetch.vosk_model_present("en")
+    assert wake_constants.resolve_vosk_model_path("en") is None
+    assert wake_constants.resolve_vosk_model_paths("en") == []
+    plan = resolve_wake_plan(
+        SimpleNamespace(phrase="Hey Nova", engine="auto", custom_model_path=""),
+        local_whisper_available=False,
+        language="en",
+        vosk_available=True,
+    )
+    assert plan.engine == "none"
+    assert not plan.wake_available
     assert not (install_root / "data").exists()
 
 
