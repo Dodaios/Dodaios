@@ -1,4 +1,4 @@
-; Inno Setup script for the Personal Jarvis Windows installer.
+; Inno Setup script for the Dodaios Windows installer (formerly Personal Jarvis).
 ;
 ; Shape of the install, and why:
 ;   * PER-USER (PrivilegesRequired=lowest, {localappdata}\Programs). Exactly how
@@ -12,13 +12,19 @@
 ;     file with /SILENT /SUPPRESSMSGBOXES /CLOSEAPPLICATIONS /RELAUNCH=1
 ;     /WAITPID=<pid> /LOG=<file>, so Setup first waits for the old app to exit
 ;     (InitializeSetup), Restart Manager closes anything still holding a file,
-;     the files are replaced, and the second [Run] entry starts Personal
-;     Jarvis again.
+;     the files are replaced, and the second [Run] entry starts Dodaios
+;     again.
 ;     (/RESTARTAPPLICATIONS would only restart apps registered with
 ;     RegisterApplicationRestart, which this one is not.)
 ;   * The uninstaller removes the program directory ONLY. Settings, memory,
 ;     skills and logs live in %LOCALAPPDATA%\Dodaios and are deliberately kept, so
 ;     an uninstall/reinstall cycle does not destroy the user's data.
+;   * The product was called Personal Jarvis. An upgrade keeps the install
+;     directory (Inno reuses it by AppId), names the Start-menu group and the
+;     shortcuts Dodaios, and deletes the shortcuts the earlier name left behind
+;     ([InstallDelete]). The bundle still ships PersonalJarvis.exe beside
+;     DodaiosApp.exe, so a pinned taskbar button or a logon task aimed at the
+;     old file keeps working.
 ;
 ; Compile through packaging/windows/build.ps1, which passes the version:
 ;   ISCC.exe /DAppVersion=1.5.3 /DSourceDir=<dist\Jarvis> /DOutputDir=<out> ...
@@ -37,15 +43,24 @@
 #endif
 ; NEVER change this default. It is the identity Windows upgrades against. Only
 ; the installer end-to-end test overrides it (/DAppGuid=...), so its throwaway
-; install can never touch, upgrade or uninstall a real Personal Jarvis.
+; install can never touch, upgrade or uninstall a real Dodaios install.
 #ifndef AppGuid
   #define AppGuid "7F1C4E42-2E5B-4F0A-9E1B-1A7B6C0D5E88"
 #endif
 
-#define AppName "Personal Jarvis"
-#define AppPublisher "Personal Jarvis"
+#define AppName "Dodaios"
+#define AppPublisher "Dodaios"
 #define AppUrl "https://github.com/Dodaios/Dodaios"
-#define GuiExeName "PersonalJarvis.exe"
+#define GuiExeName "DodaiosApp.exe"
+; The windowed launcher's earlier name. The bundle ships it too (jarvis.spec).
+#define LegacyGuiExeName "PersonalJarvis.exe"
+; The product's earlier name: the Start-menu group and the shortcuts an
+; earlier release created are spelled this way.
+#define LegacyAppName "Personal Jarvis"
+; TODO(signpath): the SignPath artifact configuration pins the setup file's
+; product name (docs/code-signing-policy.md). It keeps the earlier value until
+; the maintainer updates that configuration; then set it to the AppName.
+#define SignedProductName "Personal Jarvis"
 #define CliExeName "dodaios.exe"
 ; The command's earlier name. The bundle ships it beside CliExeName, in the
 ; same folder the PATH task adds, so both names work in a terminal.
@@ -59,6 +74,9 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 VersionInfoVersion={#AppVersion}
+; Pinned rather than derived from AppName: see SignedProductName above.
+VersionInfoProductName={#SignedProductName}
+VersionInfoDescription={#SignedProductName} Setup
 AppPublisher={#AppPublisher}
 AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}
@@ -69,6 +87,8 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
+; An upgrade from Personal Jarvis would otherwise keep the old group name.
+UsePreviousGroup=no
 DisableProgramGroupPage=yes
 AllowNoIcons=yes
 
@@ -105,6 +125,15 @@ Name: "addtopath"; Description: "Add the ""dodaios"" command to PATH (lets you r
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+; The Start-menu group and the Desktop shortcut of the earlier product name.
+; The group's own shortcuts are this installer's; the Desktop one is removed
+; only when it starts this installation, never a shortcut of another install.
+Type: files; Name: "{autoprograms}\{#LegacyAppName}\{#LegacyAppName}.lnk"
+Type: files; Name: "{autoprograms}\{#LegacyAppName}\Uninstall {#LegacyAppName}.lnk"
+Type: dirifempty; Name: "{autoprograms}\{#LegacyAppName}"
+Type: files; Name: "{userdesktop}\{#LegacyAppName}.lnk"; Check: LegacyShortcutStartsThisApp('{userdesktop}\{#LegacyAppName}.lnk')
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#GuiExeName}"; WorkingDir: "{app}"
@@ -288,6 +317,27 @@ begin
   else
     RegWriteExpandStringValue(HKCU, EnvironmentKey, 'Path', Rebuilt);
   BroadcastEnvironmentChange;
+end;
+
+{ True when the shortcut at LinkPath (constants allowed) starts a program of
+  this installation, so deleting it never takes another install's launcher. }
+function LegacyShortcutStartsThisApp(const LinkPath: string): Boolean;
+var
+  Shell, Link: Variant;
+  Target, AppDir: string;
+begin
+  Result := False;
+  if not FileExists(ExpandConstant(LinkPath)) then
+    Exit;
+  try
+    Shell := CreateOleObject('WScript.Shell');
+    Link := Shell.CreateShortcut(ExpandConstant(LinkPath));
+    Target := Link.TargetPath;
+  except
+    Exit;
+  end;
+  AppDir := Lowercase(AddBackslash(ExpandConstant('{app}')));
+  Result := Pos(AppDir, Lowercase(Target)) = 1;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

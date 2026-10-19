@@ -111,11 +111,18 @@ def test_the_frozen_runtime_hook_restates_the_directory_names(name: str, expecte
 def test_the_frozen_runtime_hook_restates_the_lock_files_and_launcher_names() -> None:
     hook_path = "packaging/pyinstaller_rthook_frozen.py"
     assert _load_runtime_hook()._PRIMARY_LOCK_FILES == identity_boot.PRIMARY_LOCK_FILES
-    # Every executable that is the desktop app may migrate; nothing else.
+    # Every executable that is the desktop app may migrate, under its current
+    # and its earlier names; nothing else.
+    windows_names = (
+        branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
+        *branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    )
     gui_names = {
         branding.MACOS_EXECUTABLE_NAME,
-        branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME.removesuffix(".exe"),
+        *branding.LEGACY_MACOS_EXECUTABLE_NAMES,
+        *(name.removesuffix(".exe") for name in windows_names),
         _module_constant("jarvis.spec", "GUI_EXE_NAME"),
+        *_module_constant("jarvis.spec", "LEGACY_GUI_EXE_NAMES"),
     }
     assert set(_module_constant(hook_path, "_GUI_EXE_NAMES")) == gui_names
     # The bundle seeds a first-run config from the file jarvis.spec ships.
@@ -133,6 +140,14 @@ def test_the_pyinstaller_spec_restates_the_bundle_names() -> None:
         f'{_module_constant("jarvis.spec", "GUI_EXE_NAME")}.exe'
         == branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME
     )
+    # The windowed launcher ships under its earlier name too: pins, logon tasks
+    # and shortcuts of earlier releases start that file.
+    legacy_gui = _module_constant("jarvis.spec", "LEGACY_GUI_EXE_NAMES")
+    assert legacy_gui == branding.LEGACY_MACOS_EXECUTABLE_NAMES
+    assert tuple(f"{name}.exe" for name in legacy_gui) == (
+        branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES
+    )
+    assert "*legacy_gui_exes," in _read("jarvis.spec")
     assert _module_constant("jarvis.spec", "CLI_EXE_NAME") == branding.CLI_COMMAND_NAME
     # The frozen build keeps the command's first earlier name beside the new one.
     legacy_exes = _module_constant("jarvis.spec", "LEGACY_CLI_EXE_NAMES")
@@ -301,6 +316,9 @@ def test_the_shell_uninstaller_names_every_credential_service() -> None:
         ("CliExeName", f"{branding.CLI_COMMAND_NAME}.exe"),
         ("LegacyCliExeName", f"{branding.LEGACY_CLI_COMMAND_NAMES[0]}.exe"),
         ("UserDataDirDisplay", rf"%LOCALAPPDATA%\{branding.WINDOWS_USER_DATA_DIR_NAME}"),
+        ("AppPublisher", branding.LAUNCHER_ENTRY_NAME),
+        ("LegacyAppName", branding.LEGACY_LAUNCHER_ENTRY_NAMES[0]),
+        ("LegacyGuiExeName", branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES[0]),
     ],
 )
 def test_the_windows_installer_script_restates_the_names(definition: str, expected: str) -> None:
@@ -309,16 +327,39 @@ def test_the_windows_installer_script_restates_the_names(definition: str, expect
     )
 
 
+def test_the_windows_installer_retires_the_earlier_shortcuts_and_keeps_its_identity() -> None:
+    script = _read("packaging/windows/PersonalJarvis.iss")
+    # Windows upgrades by AppId: a new one would install a second product.
+    assert '#define AppGuid "7F1C4E42-2E5B-4F0A-9E1B-1A7B6C0D5E88"' in script
+    # The shortcuts an earlier release created under the earlier name go; the
+    # Desktop one only where it starts this installation.
+    install_delete = script.split("\n[InstallDelete]\n", 1)[1].split("\n[", 1)[0]
+    assert r'"{autoprograms}\{#LegacyAppName}\{#LegacyAppName}.lnk"' in install_delete
+    assert "Check: LegacyShortcutStartsThisApp(" in install_delete
+    assert "UsePreviousGroup=no" in script
+    # The setup's product name is what the SignPath artifact configuration
+    # checks (docs/code-signing-policy.md): it stays until that pin moves.
+    assert "VersionInfoProductName={#SignedProductName}" in script
+    policy = _read("docs/code-signing-policy.md")
+    signed = re.search(r'#define SignedProductName "([^"]+)"', script)
+    assert signed is not None and f'product-name="{signed.group(1)}"' in policy
+
+
 def test_the_packaging_scripts_restate_the_names() -> None:
     windows = _read("packaging/windows/build.ps1")
     frozen_cli_names = (branding.CLI_COMMAND_NAME, branding.LEGACY_CLI_COMMAND_NAMES[0])
     required = (
         branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
+        *branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
         *(f"{name}.exe" for name in frozen_cli_names),
     )
     assert "@(" + ", ".join(f'"{name}"' for name in required) + ")" in windows
     quoted = " ".join(f'"{name}"' for name in frozen_cli_names)
     assert f"\nCLI_EXE_NAMES=({quoted})\n" in _read("packaging/linux/build.sh")
+    # The AppImage links its launcher to the windowed executable, current name first.
+    gui = (branding.MACOS_EXECUTABLE_NAME, *branding.LEGACY_MACOS_EXECUTABLE_NAMES)
+    quoted_gui = " ".join(f'"{name}"' for name in gui)
+    assert f'\nGUI_EXE_CANDIDATES=({quoted_gui} "Jarvis")\n' in _read("packaging/linux/build.sh")
     assert f"for cli_name in {' '.join(frozen_cli_names)}; do" in _read(
         "packaging/macos/build.sh"
     )
@@ -577,13 +618,10 @@ def _current_names() -> list[IdentityName]:
 # and the first test below covers them without this table. The commands
 # ``dodaios`` and ``dodaiosctl`` already made that move: they are console
 # scripts now, and the first test sees them among the current names. So did
-# the data directory and the config file: current names now, with their
-# earlier values in LEGACY_* tuples, and so did the install directory.
+# the data directory and the config file, the install directory, and the
+# Windows identity (the windowed executable, its per-user folder, the
+# shortcut): current names now, with their earlier values in LEGACY_* tuples.
 _PLANNED_NAMES: tuple[IdentityName, ...] = (
-    IdentityName("executable", "gui-exe", "planned", "DodaiosApp"),
-    # The launcher folder sits beside the data directory, so it cannot take
-    # the plain product name the data directory has now.
-    IdentityName("localappdata-dir", "launcher", "planned", "DodaiosApp"),
     IdentityName("macos-bundle-id", "managed", "planned", "com.dodaios.desktop"),
     IdentityName("macos-bundle-id", "dmg", "planned", "ai.dodaios.desktop"),
 )
@@ -602,18 +640,34 @@ def test_no_two_current_or_legacy_names_collide() -> None:
     assert _collisions(names) == []
 
 
-def test_the_planned_launcher_name_stays_clear_of_the_commands_that_exist() -> None:
-    # The planned windowed executable shares a folder with the console
-    # scripts. The commands are real now, so this is the pair that would
-    # collide if the launcher were ever named like the command.
-    planned_gui = [name for name in _PLANNED_NAMES if name.role == "gui-exe"]
-    assert planned_gui, "the planned launcher name left the table"
+def test_the_launcher_names_stay_clear_of_the_commands_that_exist() -> None:
+    # The windowed executable shares a folder with the console scripts, under
+    # its current name and its earlier one (the frozen build ships both).
+    gui = [name for name in _current_names() if name.role == "gui-exe"]
+    assert {(name.generation, name.value) for name in gui} >= {
+        ("current", "DodaiosApp"),
+        ("legacy", "PersonalJarvis"),
+    }
     commands = {name.casefold() for name in _console_scripts()}
-    for name in planned_gui:
+    for name in gui:
         assert name.value.casefold() not in commands
     # And the check has teeth: a launcher spelled like the command is caught.
     clash = IdentityName("executable", "gui-exe", "planned", branding.CLI_COMMAND_NAME.title())
     assert len(_collisions([*_current_names(), clash])) == 1
+
+
+def test_the_windows_identity_moved_with_its_earlier_names_in_the_table() -> None:
+    names = _current_names()
+    found = {(n.namespace, n.role, n.generation, n.value) for n in names}
+    assert ("localappdata-dir", "launcher", "current", "DodaiosApp") in found
+    assert ("localappdata-dir", "launcher", "legacy", "PersonalJarvis") in found
+    assert ("start-menu", "app", "current", "Dodaios.lnk") in found
+    assert ("start-menu", "app", "legacy", "Personal Jarvis.lnk") in found
+    # The launcher folder sits beside the data directory, so it cannot take
+    # the plain product name the data directory has.
+    data = next(n for n in names if n.role == "data" and n.namespace == "localappdata-dir")
+    clash = IdentityName("localappdata-dir", "launcher", "planned", data.value)
+    assert len(_collisions([*names, clash])) == 1
 
 
 def test_the_planned_names_collide_with_nothing_an_installation_carries() -> None:

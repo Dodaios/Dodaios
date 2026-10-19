@@ -12,6 +12,9 @@ import pytest
 
 from dodaios.core import instance as inst
 from dodaios.core.branding import (
+    LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    LEGACY_WINDOWS_MUTEX_NAMES,
+    LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
     PRODUCT_NAME,
     WINDOWS_APP_USER_MODEL_ID,
     WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
@@ -79,6 +82,11 @@ def test_default_identity_is_the_stable_branding() -> None:
     assert d.windows_mutex_name == WINDOWS_MUTEX_NAME
     assert d.windows_shortcut_file_name == WINDOWS_SHORTCUT_FILE_NAME
     assert d.windows_branded_launcher_file_name == WINDOWS_BRANDED_LAUNCHER_FILE_NAME
+    assert d.legacy_windows_mutex_names == LEGACY_WINDOWS_MUTEX_NAMES
+    assert d.legacy_windows_shortcut_file_names == LEGACY_WINDOWS_SHORTCUT_FILE_NAMES
+    assert (
+        d.legacy_windows_branded_launcher_file_names == LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES
+    )
     assert d.data_dir_name == "data"
     assert d.port_offset == 0 and d.port(47821) == 47821
     assert d.icon_file_name == inst.DEFAULT_ICON_FILE_NAME
@@ -95,8 +103,15 @@ def test_dev_identity_differs_on_every_colliding_surface() -> None:
     # the display name.
     assert d.persistent_name == "Personal Jarvis"
     assert v.persistent_name == "Personal Jarvis Dev"
-    assert v.windows_shortcut_file_name == "Personal Jarvis Dev.lnk"
-    assert v.windows_branded_launcher_file_name == "PersonalJarvisDev.exe"
+    # The Windows names follow their own current branding values, and each
+    # keeps the name an earlier release registered the same instance under.
+    assert v.windows_launcher_entry_name == "Dodaios Dev"
+    assert v.windows_shortcut_file_name == "Dodaios Dev.lnk"
+    assert v.legacy_windows_shortcut_file_names == ("Personal Jarvis Dev.lnk",)
+    assert v.windows_branded_launcher_file_name == "DodaiosAppDev.exe"
+    assert v.legacy_windows_branded_launcher_file_names == ("PersonalJarvisDev.exe",)
+    assert v.windows_mutex_name == "Global" + chr(92) + "Dodaios_v1_dev"
+    assert v.legacy_windows_mutex_names == ("Global" + chr(92) + "PersonalJarvis_v1_dev",)
     assert v.linux_desktop_entry_file_name == "personal-jarvis-dev.desktop"
     for attr in (
         "display_name",

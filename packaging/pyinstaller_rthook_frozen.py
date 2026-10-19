@@ -59,12 +59,17 @@ _FALLBACK_USER_DATA_DIR_NAME = ".dodaios-data"
 _LEGACY_FALLBACK_USER_DATA_DIR_NAMES = (".jarvis",)
 _CONFIG_FILE_NAME = "dodaios.toml"
 _LEGACY_CONFIG_FILE_NAMES = ("jarvis.toml",)
-# The executables that are the desktop app itself (jarvis.spec GUI_EXE_NAME,
-# current and earlier names). Only one of them migrates the data directory.
-_GUI_EXE_NAMES = ("PersonalJarvis",)
+# The executables that are the desktop app itself (jarvis.spec GUI_EXE_NAME and
+# LEGACY_GUI_EXE_NAMES). Only one of them migrates the data directory.
+_GUI_EXE_NAMES = ("DodaiosApp", "PersonalJarvis")
 # Single-instance mutexes of a running desktop app, every instance and every
 # name (dodaios.core.identity_boot.primary_mutex_names).
-_MUTEX_NAMES = ("Global\\PersonalJarvis_v1", "Global\\PersonalJarvis_v1_dev")
+_MUTEX_NAMES = (
+    "Global\\Dodaios_v1",
+    "Global\\Dodaios_v1_dev",
+    "Global\\PersonalJarvis_v1",
+    "Global\\PersonalJarvis_v1_dev",
+)
 # Lock files a running primary holds in the data directory
 # (dodaios.core.identity_boot.PRIMARY_LOCK_FILES).
 _PRIMARY_LOCK_FILES = ("instance.lock", os.path.join("data", "jarvis.lock"))
