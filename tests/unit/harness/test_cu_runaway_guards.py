@@ -237,7 +237,9 @@ async def test_progress_announcements_opt_in() -> None:
     announcements = [e for e in bus.published
                      if isinstance(e, AnnouncementRequested)]
     assert len(announcements) == 1
-    assert "Schritt 1" in announcements[0].text
+    # No conversation language on the task: the English fallback.
+    assert announcements[0].text == "Step 1 of 2 done."
+    assert announcements[0].language == "en"
 
 
 # ---------------------------------------------------------------------------

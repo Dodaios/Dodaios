@@ -259,7 +259,6 @@ an agent can pick them up automatically.
 
 When you add a REST route for a new feature, it becomes CLI-reachable
 automatically via the dynamic layer — provided the router is **mounted**. The
-`generate-cli-command` skill is the "definition of done" checklist; the
 `scripts/ci/check_cli_coverage.py` gate fails CI/pre-push if a route module is
 defined but never mounted (an unreachable feature). Run
 `scripts/ci/gen_cli_reference.py` to refresh the reference after adding commands.

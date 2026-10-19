@@ -21,6 +21,7 @@ empty string (AD-OE6 zero-silent-drop), never a per-layer hardcoded constant.
 from __future__ import annotations
 
 from dodaios.core.turn_language import DEFAULT_LOCALE, normalize_language_tag
+from dodaios.i18n import catalog as i18n_catalog
 
 _PHRASE_LANGS: frozenset[str] = frozenset({"de", "en", "es", "pt"})
 
@@ -38,71 +39,20 @@ def _phrase_lang(language: str | None) -> str:
 
 # Tool-specific questions keyed by tool name → {lang: question}. A tool that is
 # not mapped here falls back to the generic question below.
-_TOOL_QUESTIONS: dict[str, dict[str, str]] = {
-    "gmail": {
-        "de": "Soll ich die E-Mail wirklich senden? Sag ja oder nein.",
-        "en": "Do you really want me to send the email? Say yes or no.",
-        "es": "¿Quieres que envíe el correo de verdad? Di sí o no.",
-        "pt": "Queres mesmo que envie o email? Diz sim ou não.",
-    },
-    "gmail_rest": {
-        "de": "Soll ich die E-Mail wirklich senden? Sag ja oder nein.",
-        "en": "Do you really want me to send the email? Say yes or no.",
-        "es": "¿Quieres que envíe el correo de verdad? Di sí o no.",
-        "pt": "Queres mesmo que envie o email? Diz sim ou não.",
-    },
-    "call-contact": {
-        "de": "Soll ich den Anruf wirklich starten? Sag ja oder nein.",
-        "en": "Do you really want me to place the call? Say yes or no.",
-        "es": "¿Quieres que haga la llamada de verdad? Di sí o no.",
-        "pt": "Queres mesmo que faça a chamada? Diz sim ou não.",
-    },
-}
+_TOOL_QUESTIONS: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "voice.tool_confirmation.tool_questions"
+)
 
-_GENERIC_QUESTION: dict[str, str] = {
-    "de": "Soll ich das wirklich ausführen? Sag ja oder nein.",
-    "en": "Do you really want me to do that? Say yes or no.",
-    "es": "¿Quieres que lo haga de verdad? Di sí o no.",
-    "pt": "Queres mesmo que faça isso? Diz sim ou não.",
-}
+_GENERIC_QUESTION: dict[str, str] = i18n_catalog.table("voice.tool_confirmation.generic_question")
 
 
 # Impact-aware questions for shell commands (explain layer, 2026-08-08): a
 # non-technical user hears WHAT the command would do, not just "run that?".
 # ``{commands}`` is DATA (the classified command words, e.g. "rm"), not
 # re-localized phrasing — same doctrine as the failed-outcome detail below.
-_IMPACT_QUESTIONS: dict[str, dict[str, str]] = {
-    "destructive": {
-        "de": ("Achtung, dieser Befehl würde etwas löschen ({commands}). "
-               "Soll ich ihn wirklich ausführen? Sag ja oder nein."),
-        "en": ("Careful, this command would delete something ({commands}). "
-               "Do you really want me to run it? Say yes or no."),
-        "es": ("Cuidado, este comando borraría algo ({commands}). "
-               "¿Quieres que lo ejecute de verdad? Di sí o no."),
-        "pt": ("Cuidado, este comando apagaria algo ({commands}). "
-               "Queres mesmo que o execute? Diz sim ou não."),
-    },
-    "modify": {
-        "de": ("Dieser Befehl würde etwas auf dem Computer verändern "
-               "({commands}). Soll ich ihn ausführen? Sag ja oder nein."),
-        "en": ("This command would change something on the computer "
-               "({commands}). Do you want me to run it? Say yes or no."),
-        "es": ("Este comando cambiaría algo en el equipo ({commands}). "
-               "¿Quieres que lo ejecute? Di sí o no."),
-        "pt": ("Este comando alteraria algo no computador ({commands}). "
-               "Queres que o execute? Diz sim ou não."),
-    },
-    "read": {
-        "de": ("Dieser Befehl liest nur Daten ({commands}). "
-               "Soll ich ihn ausführen? Sag ja oder nein."),
-        "en": ("This command only reads data ({commands}). "
-               "Do you want me to run it? Say yes or no."),
-        "es": ("Este comando solo lee datos ({commands}). "
-               "¿Quieres que lo ejecute? Di sí o no."),
-        "pt": ("Este comando só lê dados ({commands}). "
-               "Queres que o execute? Diz sim ou não."),
-    },
-}
+_IMPACT_QUESTIONS: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "voice.tool_confirmation.impact_questions"
+)
 
 _IMPACT_COMMANDS_MAX_CHARS = 60
 
@@ -141,52 +91,7 @@ def format_tool_confirmation(
 # Outcome phrasing (spoken on turn N+1 after the user answers).
 # ----------------------------------------------------------------------
 
-_OUTCOME: dict[str, dict[str, str]] = {
-    "done": {
-        "de": "Erledigt.",
-        "en": "Done.",
-        "es": "Listo.",
-        "pt": "Feito.",
-    },
-    "vetoed": {
-        "de": "Okay, lass ich.",
-        "en": "Okay, leaving it.",
-        "es": "Vale, lo dejo.",
-        "pt": "Ok, deixo estar.",
-    },
-    "timeout": {
-        "de": "Hab keine Antwort gehört, ich lass es.",
-        "en": "No answer heard, leaving it.",
-        "es": "No te he oído, lo dejo.",
-        "pt": "Não ouvi resposta, deixo estar.",
-    },
-    "failed": {
-        "de": "Das hat nicht geklappt.",
-        "en": "That didn't work.",
-        "es": "Eso no funcionó.",
-        "pt": "Isso não funcionou.",
-    },
-    "unclear": {
-        "de": "Sag bitte einfach ja oder nein.",
-        "en": "Please just say yes or no.",
-        "es": "Di simplemente sí o no, por favor.",
-        "pt": "Diz só sim ou não, por favor.",
-    },
-    # Nobody could be asked at all — an unattended run (a scheduled workflow,
-    # a cron job, a one-shot CLI call) reached a consequential tool. Says why
-    # nothing happened without claiming a refusal that never took place
-    # (audit GT-12). Read from a run log far more often than spoken.
-    "unavailable": {
-        "de": "Dafür brauche ich deine Freigabe, und hier kann sie niemand geben. "
-              "Ich habe es nicht gemacht.",
-        "en": "That needs your approval, and nobody here can give it. "
-              "So I did not do it.",
-        "es": "Eso necesita tu aprobación y aquí nadie puede darla. "
-              "Así que no lo hice.",
-        "pt": "Isso precisa da tua aprovação e aqui ninguém a pode dar. "
-              "Por isso não o fiz.",
-    },
-}
+_OUTCOME: dict[str, dict[str, str]] = i18n_catalog.nested_table("voice.tool_confirmation.outcome")
 
 
 _FAILED_DETAIL_MAX_CHARS = 160
