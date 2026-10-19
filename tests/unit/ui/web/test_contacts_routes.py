@@ -27,6 +27,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from dodaios.core.branding import WINDOWS_USER_DATA_DIR_NAME
+
 
 @pytest.fixture(autouse=True)
 def _isolate_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -208,7 +210,7 @@ def test_changes_persist_across_fresh_app(client: TestClient) -> None:
 
 def test_store_file_is_written_under_data_dir(client: TestClient, tmp_path: Path) -> None:
     created = _make(client, name="On Disk")
-    md = tmp_path / "Jarvis" / "data" / "contacts" / f"{created['slug']}.md"
+    md = tmp_path / WINDOWS_USER_DATA_DIR_NAME / "data" / "contacts" / f"{created['slug']}.md"
     assert md.is_file()
 
 
