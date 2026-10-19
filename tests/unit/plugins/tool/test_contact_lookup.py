@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.tool.contact_lookup import ContactLookupTool
+from dodaios.plugins.tool.contact_lookup import ContactLookupTool
 
 
 # --------------------------------------------------------------------------- #

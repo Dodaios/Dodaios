@@ -2,8 +2,8 @@
 host actually has a key for (AP-22), never a keyless mute provider."""
 from __future__ import annotations
 
-import jarvis.core.config as cfg
-import jarvis.plugins.tts as tts_pkg
+import dodaios.core.config as cfg
+import dodaios.plugins.tts as tts_pkg
 
 
 def _keys(*env_names: str):

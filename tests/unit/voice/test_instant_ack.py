@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from jarvis.brain.turn_planner import plan_turn
-from jarvis.voice.instant_ack import (
+from dodaios.brain.turn_planner import plan_turn
+from dodaios.voice.instant_ack import (
     _POOLS,
     IMMEDIATE_DELAY_S,
     SHORT_GRACE_S,
@@ -312,7 +312,7 @@ class _Bus:
 @pytest.mark.asyncio
 async def test_chat_instant_ack_publishes_a_preamble_bubble(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.voice.instant_ack._POOLS",
+        "dodaios.voice.instant_ack._POOLS",
         {
             **_POOLS,
             WorkClass.RESEARCH: {
@@ -341,7 +341,7 @@ async def test_chat_instant_ack_publishes_a_preamble_bubble(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_chat_instant_ack_is_silent_when_cancelled_before_the_grace(monkeypatch):
-    monkeypatch.setattr("jarvis.voice.instant_ack.SHORT_GRACE_S", 0.2)
+    monkeypatch.setattr("dodaios.voice.instant_ack.SHORT_GRACE_S", 0.2)
     bus = _Bus()
     task = start_chat_instant_ack(
         bus, text="What's in my notes about Albel?", thread_id="t-1", language="en"

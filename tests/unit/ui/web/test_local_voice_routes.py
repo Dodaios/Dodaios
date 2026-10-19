@@ -1,4 +1,4 @@
-"""Routes behind the Local voice card (``jarvis/ui/web/local_voice_routes.py``).
+"""Routes behind the Local voice card (``dodaios/ui/web/local_voice_routes.py``).
 
 Pins: the status read never starts anything, the self-test refuses honestly
 before setup, settings land in ``[voice_engine]`` through the config writer and
@@ -13,13 +13,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.brain import ollama_pull
-from jarvis.core import config_writer
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.plugins.realtime.local_voice import LocalVoiceProvider
-from jarvis.realtime import local_voice_setup as setup
-from jarvis.ui.web.local_voice_routes import router
+from dodaios.brain import ollama_pull
+from dodaios.core import config_writer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.plugins.realtime.local_voice import LocalVoiceProvider
+from dodaios.realtime import local_voice_setup as setup
+from dodaios.ui.web.local_voice_routes import router
 
 
 @pytest.fixture
@@ -101,7 +101,7 @@ def test_an_unknown_voice_is_rejected(client: TestClient) -> None:
 def test_the_provider_list_carries_the_voice_engine_probe(
     home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.ui.web.server import WebServer
+    from dodaios.ui.web.server import WebServer
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     cfg = JarvisConfig()

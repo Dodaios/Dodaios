@@ -19,13 +19,13 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import AudioChunk
-from jarvis.harness.computer_use_context import (
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import AudioChunk
+from dodaios.harness.computer_use_context import (
     cu_mission_active,
     register_active_cu_token,
 )
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 from tests.fakes.voice_session import open_classic_voice_session
 
 
@@ -113,8 +113,8 @@ async def test_active_session_survives_idle_windows_while_cu_runs(
     window hangs up with the normal idle reason."""
     import asyncio
 
-    from jarvis.sessions.constants import HANGUP_IDLE_TIMEOUT
-    from jarvis.speech import pipeline as pipeline_mod
+    from dodaios.sessions.constants import HANGUP_IDLE_TIMEOUT
+    from dodaios.speech import pipeline as pipeline_mod
 
     pipe = _pipeline(EventBus())
     pipe._idle_timeout_s = 0.05  # tiny idle window so the test is fast
@@ -165,7 +165,7 @@ async def test_finish_after_response_stays_listening_during_cu_mission() -> None
     semantically complete — the pipeline must stay LISTENING so the
     progress/failure announcements land in a live session (and the idle
     branch in ``_active_session`` uses the same probe to not hang up)."""
-    from jarvis.speech.pipeline import TurnTakingState
+    from dodaios.speech.pipeline import TurnTakingState
 
     pipe = _pipeline(EventBus())
     pipe._continue_listening_after_response = False  # single-turn mode
@@ -201,9 +201,9 @@ async def test_session_survives_idle_window_after_mission_readback(
     """
     import asyncio
 
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.sessions.constants import HANGUP_IDLE_TIMEOUT
-    from jarvis.speech import pipeline as pipeline_mod
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.sessions.constants import HANGUP_IDLE_TIMEOUT
+    from dodaios.speech import pipeline as pipeline_mod
 
     pipe = _pipeline(EventBus())
     pipe._idle_timeout_s = 0.05          # tiny idle window so the test is fast

@@ -8,10 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.live import session as module
-from jarvis.live.config import LiveConfig
-from jarvis.live.timing import StartupTimings
-from jarvis.plugins.realtime._live_transport import startup_http_trace
+from dodaios.live import session as module
+from dodaios.live.config import LiveConfig
+from dodaios.live.timing import StartupTimings
+from dodaios.plugins.realtime._live_transport import startup_http_trace
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 
 A frameless, always-on-top, **click-through** window spanning the whole
 virtual desktop. While Computer-Use acts, the real OS cursor glides to each
-target (see ``jarvis/control/cursor_motion.py``) and this window paints a gold
+target (see ``dodaios/control/cursor_motion.py``) and this window paints a gold
 halo that tracks it plus an expanding click pulse where it clicks — the same
 "you can watch what it does" affordance as the Claude-in-Chrome cursor.
 
@@ -31,7 +31,7 @@ import sys
 import threading
 import time
 
-from jarvis.overlay.virtual_cursor import pulse_state, set_virtual_cursor
+from dodaios.overlay.virtual_cursor import pulse_state, set_virtual_cursor
 
 logger = logging.getLogger(__name__)
 

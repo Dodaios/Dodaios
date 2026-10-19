@@ -12,8 +12,8 @@ import asyncio
 
 import pytest
 
-from jarvis.trigger.backends import global_hotkeys
-from jarvis.trigger.hotkey import HotkeyTrigger, _is_bare_ctrl_alt_chord
+from dodaios.trigger.backends import global_hotkeys
+from dodaios.trigger.hotkey import HotkeyTrigger, _is_bare_ctrl_alt_chord
 
 
 def _trigger(combo: str) -> HotkeyTrigger:

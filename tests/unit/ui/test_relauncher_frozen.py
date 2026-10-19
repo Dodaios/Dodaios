@@ -3,7 +3,7 @@
 A PyInstaller build has no ``python -m``: its executable IS the app, and its
 argument parser rejects ``-m``. Before these paths existed, every Restart and
 every update restart of a native install spawned ``PersonalJarvis -m
-jarvis.ui.relauncher …``, which exited at once with a usage error — the app
+dodaios.ui.relauncher …``, which exited at once with a usage error — the app
 quit and never came back, on every OS.
 
 Everything here injects the platform, so the Windows, macOS and Linux shapes
@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.ui.relauncher as relauncher
-from jarvis.ui.relauncher import (
+import dodaios.ui.relauncher as relauncher
+from dodaios.ui.relauncher import (
     RELAUNCHER_FLAG,
     build_launch_command,
     frozen_self_command,
@@ -40,7 +40,7 @@ def test_source_install_runs_the_helper_through_python_m() -> None:
     assert argv == [
         "/usr/bin/python3",
         "-m",
-        "jarvis.ui.relauncher",
+        "dodaios.ui.relauncher",
         "42",
         "/repo",
         "--port",
@@ -145,7 +145,7 @@ def test_build_launch_command_never_uses_python_m_when_frozen(
 
 def test_desktop_restart_builds_its_helper_through_relauncher_command() -> None:
     """The one place that spawns the helper must not hand-roll ``-m`` again."""
-    from jarvis.ui.desktop_app import DesktopApp
+    from dodaios.ui.desktop_app import DesktopApp
 
     source = inspect.getsource(DesktopApp._schedule_restart)
     assert "relauncher_command(" in source
@@ -162,7 +162,7 @@ def test_entry_point_dispatches_the_relauncher_flag() -> None:
     argparse would ALSO exit 2, but only argparse prints a usage line.
     """
     result = subprocess.run(
-        [sys.executable, "-m", "jarvis", RELAUNCHER_FLAG, "not-a-pid", str(REPO_ROOT)],
+        [sys.executable, "-m", "dodaios", RELAUNCHER_FLAG, "not-a-pid", str(REPO_ROOT)],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

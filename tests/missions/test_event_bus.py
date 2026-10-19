@@ -5,9 +5,9 @@ import asyncio
 
 import pytest
 
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.events import EventEnvelope, MissionDispatched, now_ms
-from jarvis.missions.ids import uuid7_str
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.events import EventEnvelope, MissionDispatched, now_ms
+from dodaios.missions.ids import uuid7_str
 
 
 def _envelope(prompt: str = "x") -> EventEnvelope:
@@ -116,9 +116,9 @@ async def test_wildcard_handler_error_does_not_break_publish() -> None:
 async def test_wedged_wildcard_handler_does_not_block_publish(monkeypatch) -> None:
     """Regression: a never-returning wildcard handler must not wedge `publish`
     forever — the publishing mission's concurrency-limiting semaphore slot
-    would never be freed. Mirrors `jarvis.core.bus.EventBus`'s
+    would never be freed. Mirrors `dodaios.core.bus.EventBus`'s
     `_WILDCARD_HANDLER_TIMEOUT_S` guard (AP-18, BUG-CU-STALL)."""
-    import jarvis.missions.event_bus as event_bus_mod
+    import dodaios.missions.event_bus as event_bus_mod
 
     monkeypatch.setattr(event_bus_mod, "_WILDCARD_HANDLER_TIMEOUT_S", 0.05)
     bus = MissionBus()

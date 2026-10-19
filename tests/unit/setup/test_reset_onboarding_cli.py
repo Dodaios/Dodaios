@@ -1,5 +1,5 @@
-from jarvis import __main__ as m
-from jarvis.setup import state as st
+from dodaios import __main__ as m
+from dodaios.setup import state as st
 
 
 def test_reset_onboarding_clears_markers_and_keeps_foreign(tmp_path, monkeypatch):

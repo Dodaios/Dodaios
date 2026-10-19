@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.marketplace.install_standard import install_block
+from dodaios.marketplace.install_standard import install_block
 
 
 def test_plugin_block_contains_the_three_surfaces() -> None:

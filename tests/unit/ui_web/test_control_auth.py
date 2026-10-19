@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from jarvis.core import control_key as ck
-from jarvis.ui.web import control_auth as ca
+from dodaios.core import control_key as ck
+from dodaios.ui.web import control_auth as ca
 
 
 class _FakeClient:
@@ -97,7 +97,7 @@ async def test_session_guard_allows_remote_with_valid_key(stored_key) -> None:
 
 
 async def test_session_guard_accepts_registered_ui_session(stored_key) -> None:
-    from jarvis.ui.web.missions_auth import register_token, revoke_token
+    from dodaios.ui.web.missions_auth import register_token, revoke_token
 
     token = "ui-session-token"  # noqa: S105
     register_token(token)
@@ -111,14 +111,14 @@ async def test_session_guard_grants_loopback_when_browser_lock_off(stored_key) -
     # Browser lock OFF (the product default): the loopback UI has no session
     # cookie, yet must reach the key panel — otherwise the user could never
     # see the key needed to turn the lock ON.
-    from jarvis.ui.web.surface_security import set_browser_login_required
+    from dodaios.ui.web.surface_security import set_browser_login_required
 
     set_browser_login_required(False)
     await ca.require_control_key_or_session(_FakeRequest(host="127.0.0.1"))
 
 
 async def test_session_guard_still_denies_remote_when_browser_lock_off(stored_key) -> None:
-    from jarvis.ui.web.surface_security import set_browser_login_required
+    from dodaios.ui.web.surface_security import set_browser_login_required
 
     set_browser_login_required(False)
     with pytest.raises(HTTPException):

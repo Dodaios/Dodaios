@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import claude_credentials as cc
+from dodaios import claude_credentials as cc
 
 # Test fixtures, not real credentials.
 _TEST_OAT = "sk-ant-oat01-test-token"  # noqa: S105 — test fixture, not a real token

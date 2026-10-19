@@ -7,9 +7,9 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from jarvis.dodaiosx import paths
-from jarvis.dodaiosx.recorder import Recorder
-from jarvis.dodaiosx.store import Item, ItemStore
+from dodaios.dodaiosx import paths
+from dodaios.dodaiosx.recorder import Recorder
+from dodaios.dodaiosx.store import Item, ItemStore
 
 
 def _item(tmp_path: Path, item_id: str, *, kind: str = "image") -> Item:

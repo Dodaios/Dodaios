@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.audio.chime import (
+from dodaios.audio.chime import (
     CHIME_PCM,
     CHIME_SAMPLE_RATE,
     DISCONNECT_PCM,

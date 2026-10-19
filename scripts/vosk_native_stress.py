@@ -1,7 +1,7 @@
 """Native-concurrency stress for libvosk — the BUG-151 repro and acceptance test.
 
 Exercises ONE shared ``vosk.Model`` from several threads the way the wake
-engine does (``jarvis/plugins/wake/vosk_kws_provider.py``): short-lived
+engine does (``dodaios/plugins/wake/vosk_kws_provider.py``): short-lived
 recognizers that are built, fed a little audio, finalised and dropped, next
 to a long-running streaming decoder. On vosk 0.3.44 / Windows 11 (2026-08-19)
 the ``churn`` mode dies with an access violation within 5-50 s; ``steady``
@@ -36,7 +36,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import vosk  # noqa: E402
 
-from jarvis.speech.wake_constants import resolve_vosk_model_paths  # noqa: E402
+from dodaios.speech.wake_constants import resolve_vosk_model_paths  # noqa: E402
 
 SR = 16_000
 MODE = sys.argv[1] if len(sys.argv) > 1 else "churn"

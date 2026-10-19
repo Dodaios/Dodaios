@@ -49,7 +49,7 @@ with the filter extension). Both runs against the same provider stack
 | **Before** (pre-Phase-3) | **presumed 5/5** ("Hallo", "Wie geht's", "Was ist die Hauptstadt von Frankreich", "Danke", "Auf Wiedersehen" → 6 of 10 probe outputs empty, presumably from a reflexive LLM tool-choice spawn) |  <!-- i18n-allow -->
 | **After** (post-Phase-3) | **0/5** — deterministically verified by `tests/unit/brain/test_routing.py::test_smalltalk_dispatches_zero_spawn_calls` |
 
-**Caveat on "before":** The pre-Phase-3 spawn count could not be measured directly via `psutil`, because the full voice path on the `router-permanent-vision` branch is not startable due to the `jarvis.clis.risk_integration` branch bug (see failure modes below). The evidence is therefore indirect: the 6 empty probe outputs on smalltalk inputs correlate with the ROUTER prompt instruction "when in doubt, SPAWN," which reflexively produced `spawn_sub_jarvis` as a tool call.
+**Caveat on "before":** The pre-Phase-3 spawn count could not be measured directly via `psutil`, because the full voice path on the `router-permanent-vision` branch is not startable due to the `dodaios.clis.risk_integration` branch bug (see failure modes below). The evidence is therefore indirect: the 6 empty probe outputs on smalltalk inputs correlate with the ROUTER prompt instruction "when in doubt, SPAWN," which reflexively produced `spawn_sub_jarvis` as a tool call.
 
 **The "after" evidence is hard:** Phase-3 tests (`test_smalltalk_does_not_force_spawn` × 5 + `test_smalltalk_dispatches_zero_spawn_calls` × 5) show that the deterministic force-spawn heuristic **never** triggers on the five mandate smalltalk inputs — regardless of what the LLM "would want." Plus the ROUTER-DISCIPLINE prompt explicitly instructs the brain to answer smalltalk directly.
 
@@ -134,13 +134,13 @@ The mandate listed 8 known failure modes. I hit all but 5+8, plus the following 
 
 ### F-9: Branch-state drift (persona prework on `main`, not on the refactor branch)
 
-`jarvis/brain/persona_loader.py`, `scripts/voice_e2e_probe.py`, and the "RESPONSE ARCHITECTURE" section in JARVIS_PERSONA.md live only on `main` (commit `9c186ab8`). At the time of the mandate, they were not present on `router-permanent-vision`.
+`dodaios/brain/persona_loader.py`, `scripts/voice_e2e_probe.py`, and the "RESPONSE ARCHITECTURE" section in JARVIS_PERSONA.md live only on `main` (commit `9c186ab8`). At the time of the mandate, they were not present on `router-permanent-vision`.
 
 **Consequence:** The hangup contract stays MISS, because JARVIS_PERSONA.md is never loaded into the prompt. Persona pattern discipline (1–10) does not work fully in the prompt.
 
 **Workaround:** Probe script ported from `main:9c186ab8` (`scripts/voice_e2e_probe.py` commit `e3602ec2`), `persona_loader` import made defensive (try/except).
 
-### F-10: `jarvis.clis.risk_integration` missing on HEAD
+### F-10: `dodaios.clis.risk_integration` missing on HEAD
 
 `factory.py:_phase2_full_brain` references the module; on `router-permanent-vision` it is not present. The full voice path fails with `ModuleNotFoundError` at bootstrap.
 
@@ -154,7 +154,7 @@ The brain partly produced `<function_calls>` (Anthropic-internal tool-use markup
 
 ### F-12: Working-tree contamination on commit
 
-`git add <explicit-paths>` repeatedly pulled in additional untracked files (`jarvis/clis/auth.py`, `jarvis/ui/web/cli_routes.py`, …) automatically. The cause was not finally clarified — no hook, no `.gitattributes` anomaly.
+`git add <explicit-paths>` repeatedly pulled in additional untracked files (`dodaios/clis/auth.py`, `dodaios/ui/web/cli_routes.py`, …) automatically. The cause was not finally clarified — no hook, no `.gitattributes` anomaly.
 
 **Workaround:** Two resets per commit (`reset --soft HEAD~1`, `reset HEAD`) and `git add -- <path>` with an explicit `--` separator. Not elegant, but it works.
 
@@ -172,7 +172,7 @@ The mandate explicitly names "lies, schreibe, baue, installiere, öffne." <!-- i
 
 ### F-15: pywinauto missing → latency probe not representative
 
-`jarvis/vision/uia_tree.py` has a fallback path on `ModuleNotFoundError: pywinauto`. The probe returned p95 = 1.4 ms — formally green against the mandate threshold of 250 ms, but not representative for production.
+`dodaios/vision/uia_tree.py` has a fallback path on `ModuleNotFoundError: pywinauto`. The probe returned p95 = 1.4 ms — formally green against the mandate threshold of 250 ms, but not representative for production.
 
 **Resolution:** Phase 5 implemented anyway (formally green), but the module docstring + commit message document the caveat. The built-in 250 ms timeout protects the production case.
 
@@ -191,7 +191,7 @@ Source: mandate § "Definition of Done."
 | # | Item | Status | Rationale |
 |---|---|---|---|
 | 1 | `pytest -v` passes, no regressions vs. the pre-refactor baseline | ☑ | 89 Phase-1–5 tests green; 8 pre-existing failures forensically verified on `e94a17aa` (BOM/Conductor/Skill/Router-Policy/Vision-Config). The stop condition "> 5" does not apply. |
-| 2 | `python -m jarvis` starts without error | ☐ | Branch bug F-10 (`jarvis.clis.risk_integration` missing). Not caused by the refactor. Precondition: stash pop or a targeted module fix. |
+| 2 | `python -m dodaios` starts without error | ☐ | Branch bug F-10 (`dodaios.clis.risk_integration` missing). Not caused by the refactor. Precondition: stash pop or a targeted module fix. |
 | 3 | `voice_e2e_probe`: 0 anti-pattern hits | ☑ | Probe v2 shows 0 hits (1 before with `möglicherweise`). |  <!-- i18n-allow -->
 | 4 | `voice_e2e_probe`: name ratio ≤ 33 % | ☑ | 15 % in probe v2. |
 | 5 | `voice_e2e_probe`: hangup contract green | ☐ | Branch bug F-9 (persona_loader missing). JARVIS_PERSONA.md does not reach the prompt. |
@@ -201,12 +201,12 @@ Source: mandate § "Definition of Done."
 | 9 | `test_plausibility.py` green (5 cases) | ☑ | 12/12 (5 mandate cases + 3 Failure-Mode-3 + 4 edge cases). |
 | 10 | Manual voice test: 5 smalltalk → 0 `openclaw` subprocesses | ☐ | Branch bug F-10 blocks the voice-pipeline start. **Indirect evidence** through `test_smalltalk_dispatches_zero_spawn_calls` × 5 = 0/0 spawn calls deterministically. |
 | 11 | `docs/persona-refactor-results.md` with before/after | ☑ | This file. |
-| 12 | Output-filter path logged in the FlightRecorder (pre+post scrub) | ◐ | Filter `actions` are logged via `log.info` (logger `jarvis.speech.pipeline`). A FlightRecorder subscription was explicitly not built in, but is covered by the wildcard-subscriber pattern (master plan §10). |
+| 12 | Output-filter path logged in the FlightRecorder (pre+post scrub) | ◐ | Filter `actions` are logged via `log.info` (logger `dodaios.speech.pipeline`). A FlightRecorder subscription was explicitly not built in, but is covered by the wildcard-subscriber pattern (master plan §10). |
 | 13 | CLAUDE.md has a "Router-Discipline" + "Output-Filter" section | ☑ | Phase 6 (this task). |
 | 14 | Vision anticipation default-OFF, opt-in documented in the README | ☑ | `[vision].context_hint_on_spawn = false` in jarvis.toml; ENV `JARVIS_VISION_CONTEXT=1` as an alternative. The README status section mentions "Phase 5 opt-in." |
 | 15 | Manual voice acceptance passed | ☐ | `docs/voice-acceptance-brief.md` (Phase 6) is prepared. The test is with Alex. Precondition: F-10 fix. |
 
-**Summary:** 9 ☑, 3 ◐, 3 ☐. The three hard ☐ (items 2, 5, 10, 15) all hang on the same branch bug F-10 — as soon as `jarvis.clis.risk_integration` is available (stash pop or a targeted fix), 2/5/10/15 become testable.
+**Summary:** 9 ☑, 3 ◐, 3 ☐. The three hard ☐ (items 2, 5, 10, 15) all hang on the same branch bug F-10 — as soon as `dodaios.clis.risk_integration` is available (stash pop or a targeted fix), 2/5/10/15 become testable.
 
 Item 12 (FlightRecorder logging) is ◐, because filter actions go into the logger output, but no explicit `BrainResponseGenerated` event with pre/post-scrub text is emitted. The mandate wording is very narrow — pragmatically, logging via `log.info` is sufficient for debug + telemetry.
 
@@ -350,7 +350,7 @@ State 2026-04-28 after this session's eight commits.
 | # | Item | Status | Evidence |
 |---|---|---|---|
 | 1 | `pytest -v` passes | ☑ | 160/160 in `tests/unit/brain/`. The whole suite is still blocked by pre-existing F-10 + branch state (24 fail / 13 errors from other modules, NOT caused by the refactor). |
-| 2 | `python -m jarvis` starts without error | ☐ | F-10 still open. **Note:** two working-tree hunks (claude-opus-4-7 snapshot-ID fix + Agent2 token tracking) remained unstaged — separate commits by the Phase-8-hook owner. |
+| 2 | `python -m dodaios` starts without error | ☐ | F-10 still open. **Note:** two working-tree hunks (claude-opus-4-7 snapshot-ID fix + Agent2 token tracking) remained unstaged — separate commits by the Phase-8-hook owner. |
 | 3 | `voice_e2e_probe`: 0 anti-pattern hits | ☑ | Final probe 19:17 — `Anti-Pattern-Treffer: 0`. |
 | 4 | `voice_e2e_probe`: name ratio ≤ 33 % | ☐ | 44 % — a new trade-off of the persona_loader reactivation. JARVIS_PERSONA.md explicitly says "Always address him as Alex"; the brain follows. Do NOT rewrite JARVIS_PERSONA.md (mandate prohibition) → accepted consequence. |
 | 5 | `voice_e2e_probe`: hangup contract green | ☑ | **F-9 FIXED.** Final probe: `Hangup-Contract DE: OK`. |
@@ -414,7 +414,7 @@ Implications:
 
 | Mandate requirement | Status | Evidence |
 |---|---|---|
-| `jarvis/brain/vision_context.py` with ENV+config gating | ✅ | `vision_context.py:42-49` (`is_enabled()`) |
+| `dodaios/brain/vision_context.py` with ENV+config gating | ✅ | `vision_context.py:42-49` (`is_enabled()`) |
 | Default OFF | ✅ | `test_is_enabled_default_off` |
 | 250-ms timeout | ✅ | `vision_context.py:78` (`timeout_s = config.timeout_s if config else 0.25`) + `test_timeout_returns_none` |
 | 3 mandate tests (VS Code, browser, disabled) | ✅ | `test_vscode_foreground_yields_hint`, `test_browser_foreground_yields_hint`, `test_vision_context_disabled_returns_none` |
@@ -519,7 +519,7 @@ Mandate wording from `Jarvis-Behavior/persona-delegation-mandate.md` § "Definit
 | # | Item | Status | Evidence |
 |---|---|---|---|
 | 1 | `pytest -v` passes, no regressions vs. the pre-refactor baseline | ☑ | `tests/unit/brain` 160/160 green; the whole suite is still blocked by pre-existing F-10 + parallel branch bugs (24 fail / 13 errors from *other* modules, not caused by the refactor) |
-| 2 | `python -m jarvis` starts without error | ☐ | F-10 still open (`jarvis.clis.risk_integration` missing) — **Phase-8-hook owner**, not refactor scope |
+| 2 | `python -m dodaios` starts without error | ☐ | F-10 still open (`dodaios.clis.risk_integration` missing) — **Phase-8-hook owner**, not refactor scope |
 | 3 | `voice_e2e_probe`: 0 anti-pattern hits | ☑ | Final probe 19:17 (see 12.3) |
 | 4 | `voice_e2e_probe`: name ratio ≤ 33 % | ☐ | 44 % — accepted consequence of the persona_loader reactivation; do NOT rewrite JARVIS_PERSONA.md (mandate prohibition "What you should NOT do") |
 | 5 | `voice_e2e_probe`: hangup contract green | ☑ | Final probe: `Hangup-Contract DE: OK`. Previously MISS, fixed via persona_loader reactivation |
@@ -562,7 +562,7 @@ f7d751a7 feat(filter): phase 1 extension 3 — filler-self-reference in opener  
 
 **What you have to do now:**
 
-1. **Fix F-10** (stash pop or a module restore of `jarvis.clis.risk_integration`) — unlocks `python -m jarvis` + manual voice acceptance.
+1. **Fix F-10** (stash pop or a module restore of `dodaios.clis.risk_integration`) — unlocks `python -m dodaios` + manual voice acceptance.
 2. **Voice acceptance** with `docs/voice-acceptance-brief.md` (12 turns ~10 min).
 3. **Working-tree hunks in `manager.py`** (claude-opus-4-7 snapshot-ID fix + Agent2 token tracking) — either commit them yourself or leave them to the Phase-8-hook owner — they are not from this persona-refactor session.
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.plugins.stt.fwhisper import (
+from dodaios.plugins.stt.fwhisper import (
     FasterWhisperProvider,
     _multilingual_equivalent,
 )

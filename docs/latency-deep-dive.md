@@ -28,20 +28,20 @@ The token footprint presumably breaks down roughly into:
 
 ### 1.2 Pipeline architecture weakness: the aggregation pattern
 
-`jarvis/speech/pipeline.py:1335`:
+`dodaios/speech/pipeline.py:1335`:
 ```python
 response = await self._brain_with_ack(text, lang)   # wartet auf ENTIRE String
 …
 await self._speak(response, language=lang)          # TTS auf ENTIRE String
 ```
 
-`jarvis/brain/manager.py:1310`:
+`dodaios/brain/manager.py:1310`:
 ```python
 async def __call__(self, text: str) -> str:
     return await self.generate(text)    # aggregiert Stream zu str
 ```
 
-`jarvis/brain/manager.py:1345` (in `summarize`):
+`dodaios/brain/manager.py:1345` (in `summarize`):
 ```python
 agg = await aggregate(brain.complete(req))   # kompletter Stream → ein str
 ```
@@ -142,7 +142,7 @@ Weighted below by **latency effect × quality risk × effort**. Quality risk = 0
 ### Stage 2 — Mid-term (2–3 weeks)
 
 5. **E1: Frontier registry with auto-update**
-   - New file `jarvis/brain/frontier_registry.py` + `data/frontier-models.json` (per-provider list of the current frontier IDs with a last-checked date).
+   - New file `dodaios/brain/frontier_registry.py` + `data/frontier-models.json` (per-provider list of the current frontier IDs with a last-checked date).
    - At bootstrap: optional `--frontier-check` or a weekly skill that checks against Anthropic `/v1/models`, Google `aiplatform.list_models()`, OpenAI `/v1/models` and reconciles against a signed source (e.g. our own GitHub Pages YAML `frontier.yaml`).
    - In `jarvis.toml`, tags are used instead of fixed model IDs: `model = "@frontier-fast"`, `deep_model = "@frontier-deep"`.
    - Resolution in the BrainManager via the registry.
@@ -189,7 +189,7 @@ Weighted below by **latency effect × quality risk × effort**. Quality risk = 0
                      │ load at boot
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  jarvis/brain/frontier_registry.py                              │
+│  dodaios/brain/frontier_registry.py                              │
 │  - resolve("@frontier-deep", provider="anthropic")              │
 │      -> "claude-opus-4-7"                                       │
 │  - check_for_updates() -> diff against curated source           │

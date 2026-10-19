@@ -2,9 +2,9 @@
 
 Layers under test:
 
-1. ``jarvis/realtime/local_voice_setup.py`` — ``PHASES``, ``MACHINE_CLASSES``,
+1. ``dodaios/realtime/local_voice_setup.py`` — ``PHASES``, ``MACHINE_CLASSES``,
    ``LATENCY_BASES``, ``SETUP_STAGES`` (source of truth).
-2. ``jarvis/core/config.py`` — ``VOICE_ENGINE_VOICES`` (the Pydantic config).
+2. ``dodaios/core/config.py`` — ``VOICE_ENGINE_VOICES`` (the Pydantic config).
 3. ``src/lib/localVoice.ts`` — the ``LOCAL_VOICE_*`` const tuples the card uses.
 4. ``src/i18n/locales/{en,de,es}.json`` — one label per value the card renders.
 """
@@ -17,11 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.config import VOICE_ENGINE_VOICES
-from jarvis.realtime import local_voice_setup as setup
+from dodaios.core.config import VOICE_ENGINE_VOICES
+from dodaios.realtime import local_voice_setup as setup
 
 REPO = Path(__file__).resolve().parents[3]
-FRONTEND = REPO / "jarvis" / "ui" / "web" / "frontend" / "src"
+FRONTEND = REPO / "dodaios" / "ui" / "web" / "frontend" / "src"
 TS = FRONTEND / "lib" / "localVoice.ts"
 LOCALES = FRONTEND / "i18n" / "locales"
 

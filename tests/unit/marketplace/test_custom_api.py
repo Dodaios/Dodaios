@@ -9,12 +9,12 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.marketplace.catalog import PluginCatalog
-from jarvis.marketplace.custom_api import ApiDefinition, CustomApiStore
-from jarvis.marketplace.custom_api_runtime import CustomApiRuntime
-from jarvis.marketplace.plugin_registry import PluginToolRegistry
-from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
+from dodaios.core.protocols import ExecutionContext
+from dodaios.marketplace.catalog import PluginCatalog
+from dodaios.marketplace.custom_api import ApiDefinition, CustomApiStore
+from dodaios.marketplace.custom_api_runtime import CustomApiRuntime
+from dodaios.marketplace.plugin_registry import PluginToolRegistry
+from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ async def test_native_request_mapping_audio_artifact_and_no_boot_probe(store, tm
     assert result.artifacts[0].endswith(".mp3")
     assert "/api/outputs/" in result.output["download_url"]
     assert "/tasks/api/artifacts/files/speak.mp3/download" in result.output["download_url"]
-    from jarvis.missions.standalone_run import read_marker
+    from dodaios.missions.standalone_run import read_marker
 
     assert await asyncio.to_thread(read_marker, Path(result.artifacts[0]).parents[4])
     await runtime.stop()
@@ -185,7 +185,7 @@ def test_key_scope_fails_closed_after_an_interrupted_definition_write(store, mon
     def fail_replace(*args):
         raise OSError("simulated interrupted disk write")
 
-    monkeypatch.setattr("jarvis.marketplace.custom_api.os.replace", fail_replace)
+    monkeypatch.setattr("dodaios.marketplace.custom_api.os.replace", fail_replace)
     with pytest.raises(OSError):
         store.save(changed, "different-service-key")
     assert store.get(spec.id) == spec
@@ -198,7 +198,7 @@ def test_key_scope_fails_closed_after_an_interrupted_definition_write(store, mon
 async def test_generated_file_is_downloadable_from_the_outputs_api(store, tmp_path, monkeypatch):
     from fastapi import FastAPI
 
-    from jarvis.ui.web.outputs_routes import router
+    from dodaios.ui.web.outputs_routes import router
 
     root = tmp_path / "outputs"
     monkeypatch.setenv("JARVIS_ISOLATION_ROOT", str(root))
@@ -316,9 +316,9 @@ async def test_private_hosts_and_invalid_arguments_never_reach_transport(store):
 
 @pytest.mark.asyncio
 async def test_shared_registry_loader_and_society_grants(store):
-    from jarvis.marketplace.plugin_loader import PluginToolLoader
-    from jarvis.marketplace.plugin_shared import set_active_plugin_registry
-    from jarvis.society.capabilities import build_catalog, select_tools
+    from dodaios.marketplace.plugin_loader import PluginToolLoader
+    from dodaios.marketplace.plugin_shared import set_active_plugin_registry
+    from dodaios.society.capabilities import build_catalog, select_tools
 
     store.save(definition(), "test-secret-key")
     runtime = CustomApiRuntime(store)
@@ -345,11 +345,11 @@ async def test_shared_registry_loader_and_society_grants(store):
 async def test_composer_groups_api_actions_and_missions_receive_relevant_tools(store):
     from types import SimpleNamespace
 
-    from jarvis.agent_chat.tool_catalog import build_catalog, resolve_choices, selection_tools
-    from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-    from jarvis.core import runtime_refs
-    from jarvis.missions.init import _custom_api_worker_tools
-    from jarvis.missions.workers.worker_tool_broker import worker_tool_name_allowed
+    from dodaios.agent_chat.tool_catalog import build_catalog, resolve_choices, selection_tools
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+    from dodaios.core import runtime_refs
+    from dodaios.missions.init import _custom_api_worker_tools
+    from dodaios.missions.workers.worker_tool_broker import worker_tool_name_allowed
 
     store.save(definition(name="ElevenLabs"), "test-secret-key")
     runtime = CustomApiRuntime(store)

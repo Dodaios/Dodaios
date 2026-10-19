@@ -1,5 +1,5 @@
 """[brain.evidence_domains] config model defaults + override (AD-CLI5)."""
-from jarvis.core.config import BrainConfig, EvidenceDomainsConfig
+from dodaios.core.config import BrainConfig, EvidenceDomainsConfig
 
 
 def test_defaults_ship_seven_domains_enabled():

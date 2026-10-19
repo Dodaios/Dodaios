@@ -14,10 +14,10 @@ from __future__ import annotations
 import types
 from uuid import uuid4
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.platform.window_state import WindowInfo
-from jarvis.plugins.tool import open_app as oa
-from jarvis.plugins.tool.open_app import OpenAppTool
+from dodaios.core.protocols import ExecutionContext
+from dodaios.platform.window_state import WindowInfo
+from dodaios.plugins.tool import open_app as oa
+from dodaios.plugins.tool.open_app import OpenAppTool
 
 
 def _ctx() -> ExecutionContext:

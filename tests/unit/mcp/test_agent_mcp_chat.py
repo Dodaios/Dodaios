@@ -16,10 +16,10 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core import runtime_refs
-from jarvis.mcp.agents import tools as agent_tools
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core import runtime_refs
+from dodaios.mcp.agents import tools as agent_tools
+from dodaios.society.runtime import SocietyRuntime
 
 
 class FakeChatService:

@@ -6,8 +6,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.ui.web.settings_routes import router
+from dodaios.speech.pipeline import SpeechPipeline
+from dodaios.ui.web.settings_routes import router
 
 
 class Player:
@@ -22,7 +22,7 @@ class Player:
 
 
 def test_api_native_toggle_and_volume_share_one_state(monkeypatch):
-    from jarvis.core import runtime_refs
+    from dodaios.core import runtime_refs
     from ui.orb.controls import toggle_speaker_mute
 
     pipeline = SpeechPipeline.__new__(SpeechPipeline)
@@ -55,7 +55,7 @@ def test_api_native_toggle_and_volume_share_one_state(monkeypatch):
 
 
 def test_unavailable_pipeline_does_not_claim_success(monkeypatch):
-    from jarvis.core import runtime_refs
+    from dodaios.core import runtime_refs
 
     monkeypatch.setattr(runtime_refs, "get_speech_pipeline", lambda: None)
     app = FastAPI()

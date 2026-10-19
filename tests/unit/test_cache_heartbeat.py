@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from jarvis.brain import CacheHeartbeat
+from dodaios.brain import CacheHeartbeat
 
 
 @pytest.mark.asyncio

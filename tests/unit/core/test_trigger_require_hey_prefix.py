@@ -7,7 +7,7 @@ check; this flag defaults to True so the bug is fixed out of the box.
 """
 from __future__ import annotations
 
-from jarvis.core.config import TriggerConfig
+from dodaios.core.config import TriggerConfig
 
 
 def test_require_hey_prefix_defaults_true() -> None:

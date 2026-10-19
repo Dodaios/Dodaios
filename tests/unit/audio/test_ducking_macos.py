@@ -12,9 +12,9 @@ import time
 
 import pytest
 
-from jarvis.audio.ducking import macos
-from jarvis.audio.ducking.macos import _MASTER_TOKEN, MacOSScriptDucker
-from jarvis.platform.permissions import PermissionId
+from dodaios.audio.ducking import macos
+from dodaios.audio.ducking.macos import _MASTER_TOKEN, MacOSScriptDucker
+from dodaios.platform.permissions import PermissionId
 from tests.fakes.fake_permission_service import FakePermissionService
 
 _MUSIC = "com.apple.Music"
@@ -504,7 +504,7 @@ def test_a_report_that_raises_is_logged_and_never_breaks_the_session(caplog):
         ["osascript"], 1, stdout="", stderr="Not authorized to send Apple events (-1743)"
     )
     d = _ducker(FakeRunner({_MUSIC: refused, _SPOTIFY: "70"}), access_gate=BrokenGate())
-    with caplog.at_level("DEBUG", logger="jarvis.audio.ducking"):
+    with caplog.at_level("DEBUG", logger="dodaios.audio.ducking"):
         assert d.mute_others(own_pid=1, never=frozenset()) == [2]
     messages = [record.getMessage() for record in caplog.records]
     assert any("bounded" in m and "failed" in m for m in messages)

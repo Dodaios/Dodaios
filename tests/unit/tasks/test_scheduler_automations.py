@@ -17,16 +17,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import (
+from dodaios.core.bus import EventBus
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import (
     TaskNotFound,
     TaskScheduler,
     TaskStateConflict,
     next_every_due_ns,
     parse_iso_timestamp_to_ns,
 )
-from jarvis.tasks.schema import (
+from dodaios.tasks.schema import (
     AgentAction,
     SpeakAction,
     TaskSpec,
@@ -34,7 +34,7 @@ from jarvis.tasks.schema import (
     TriggerEvery,
     TriggerOnEvent,
 )
-from jarvis.tasks.store import TaskStore
+from dodaios.tasks.store import TaskStore
 
 
 class FakeBrain:

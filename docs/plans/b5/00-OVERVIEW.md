@@ -55,10 +55,10 @@ The whole stack runs on top of B0 (foundation), B1 (WikiCurator + supporting inf
 
 | Code | Name | Owns | One-sentence mission |
 |------|------|------|----------------------|
-| **A** | `write-wiring` | `jarvis/memory/wiki/integration.py` (new) + bootstrap hooks | Subscribe `IdleEntered`, drive `SessionRollupWorker` → `CuratorScheduler`, wire into `jarvis/ui/web/server.py` startup. |
-| **B** | `recall-tool` | `jarvis/memory/wiki/search.py` + `jarvis/plugins/tool/wiki_recall.py` | Provide a `VaultSearch` engine (file-walking + frontmatter-aware grep) and a `wiki-recall` Router tool that exposes it to the brain. |
-| **C** | `context-injection` | `jarvis/brain/wiki_context.py` (new) + hook in `manager.py` | Before each brain call, extract 1–3 keywords from user text, run `VaultSearch`, and prepend up to ~1500 chars of matched snippets to the system prompt. Latency-bounded. |
-| **D** | `scheduler` | `jarvis/memory/wiki/scheduler.py` + `jarvis/memory/wiki/lock.py` (new) | Coordinate when the Curator actually runs: post-session trigger, optional periodic, file-based lock to prevent two parallel curator runs. |
+| **A** | `write-wiring` | `dodaios/memory/wiki/integration.py` (new) + bootstrap hooks | Subscribe `IdleEntered`, drive `SessionRollupWorker` → `CuratorScheduler`, wire into `dodaios/ui/web/server.py` startup. |
+| **B** | `recall-tool` | `dodaios/memory/wiki/search.py` + `dodaios/plugins/tool/wiki_recall.py` | Provide a `VaultSearch` engine (file-walking + frontmatter-aware grep) and a `wiki-recall` Router tool that exposes it to the brain. |
+| **C** | `context-injection` | `dodaios/brain/wiki_context.py` (new) + hook in `manager.py` | Before each brain call, extract 1–3 keywords from user text, run `VaultSearch`, and prepend up to ~1500 chars of matched snippets to the system prompt. Latency-bounded. |
+| **D** | `scheduler` | `dodaios/memory/wiki/scheduler.py` + `dodaios/memory/wiki/lock.py` (new) | Coordinate when the Curator actually runs: post-session trigger, optional periodic, file-based lock to prevent two parallel curator runs. |
 
 Agents work in **parallel** from the same baseline branch (see §6). The Wave-2 step is owned by the review agent (me), not by the four agents.
 
@@ -71,7 +71,7 @@ These signatures are **non-negotiable**. Any agent that deviates breaks the merg
 ### 3.1 `VaultSearch` (owned by Agent B, consumed by Agent C)
 
 ```python
-# jarvis/memory/wiki/search.py
+# dodaios/memory/wiki/search.py
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -93,16 +93,16 @@ class VaultSearch:
         Returns [] (never raises) when vault_root is missing or empty."""
 ```
 
-### 3.2 `bootstrap_wiki_integration` (owned by Agent A, called by `jarvis/ui/web/server.py`)
+### 3.2 `bootstrap_wiki_integration` (owned by Agent A, called by `dodaios/ui/web/server.py`)
 
 ```python
-# jarvis/memory/wiki/integration.py
+# dodaios/memory/wiki/integration.py
 
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from jarvis.core.bus import EventBus
-from jarvis.core.config import WikiIntegrationConfig
-from jarvis.memory.wiki.protocols import PageRepository
+from dodaios.core.bus import EventBus
+from dodaios.core.config import WikiIntegrationConfig
+from dodaios.memory.wiki.protocols import PageRepository
 
 class WikiIntegrationHandle:
     async def shutdown(self) -> None: ...
@@ -123,12 +123,12 @@ async def bootstrap_wiki_integration(
 ### 3.3 `CuratorScheduler` (owned by Agent D, called by Agent A in Wave 2)
 
 ```python
-# jarvis/memory/wiki/scheduler.py
+# dodaios/memory/wiki/scheduler.py
 
 from enum import Enum
 from dataclasses import dataclass
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.lock import VaultLock
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.lock import VaultLock
 
 class TriggerSource(str, Enum):
     SESSION_END = "session_end"
@@ -161,7 +161,7 @@ class CuratorScheduler:
 ### 3.4 `WikiRecallTool` (owned by Agent B, called by the brain via `ROUTER_TOOLS`)
 
 ```python
-# jarvis/plugins/tool/wiki_recall.py
+# dodaios/plugins/tool/wiki_recall.py
 
 class WikiRecallTool:
     name: str = "wiki-recall"
@@ -192,7 +192,7 @@ class WikiRecallTool:
 ### 3.5 `WikiContextInjector` (owned by Agent C, called from `BrainManager.generate`)
 
 ```python
-# jarvis/brain/wiki_context.py
+# dodaios/brain/wiki_context.py
 
 class WikiContextInjector:
     def __init__(
@@ -340,7 +340,7 @@ After all four agents commit and report, the review agent:
    ```
 
 6. Runs the live voice demo:
-   - Launch desktop app: `Start-Process pythonw -ArgumentList "-m","jarvis.ui.web.launcher"`
+   - Launch desktop app: `Start-Process pythonw -ArgumentList "-m","dodaios.ui.web.launcher"`
    - Say: "Hey Jarvis, schreib in dein Wiki: Alex wurde 1985 geboren."  <!-- i18n-allow: live voice-demo utterance, real speech input example -->
    - Wait for `IdleEntered` (~2 minutes) or trigger `flush_session()` manually via the existing CLI.
    - Verify a new note appears under `wiki/obsidian-vault/10-notes/` mentioning Alex + 1985.

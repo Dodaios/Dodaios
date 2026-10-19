@@ -10,14 +10,14 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from jarvis.core.self_mod import (
+from dodaios.core.self_mod import (
     FORBIDDEN_PATTERNS,
     AllowlistViolationError,
     MutableSpec,
     SecretAccessError,
     SelfModRegistry,
 )
-from jarvis.core.self_mod.schema_introspect import resolve_model_for_path
+from dodaios.core.self_mod.schema_introspect import resolve_model_for_path
 
 # The 13 CURATED paths — since Wave 1.1 the mutable set is derived from the
 # whole JarvisConfig schema, but these keep their human-judgement overrides
@@ -294,7 +294,7 @@ class TestNoConfigFileIO:
 class TestAllowlistFieldParity:
     """Every allowlist entry must point at a real Pydantic field.
 
-    Self-mod resolves ``pydantic_model_name`` via ``getattr(jarvis.core.config,
+    Self-mod resolves ``pydantic_model_name`` via ``getattr(dodaios.core.config,
     name)`` and writes ``field_name``. A typo in either (e.g. ``reply_lang``
     instead of ``reply_language``) makes pre-validate fail at runtime for a
     write the user explicitly asked for. This guard catches the drift at test

@@ -13,7 +13,7 @@ import time
 from collections.abc import Iterable
 from uuid import uuid4
 
-from jarvis.core.protocols import CancelToken, Observation, UIANode
+from dodaios.core.protocols import CancelToken, Observation, UIANode
 
 
 class FakeVisionSource:

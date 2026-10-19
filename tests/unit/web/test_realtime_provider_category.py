@@ -11,11 +11,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config as cfg_mod
-from jarvis.core import config_writer
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.provider_routes import router
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.core import config as cfg_mod
+from dodaios.core import config_writer
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.provider_routes import router
+from dodaios.ui.web.provider_spec import get_spec
 
 
 def _only_vertex_key(key: str, *_a, **_kw) -> str | None:
@@ -221,14 +221,14 @@ def test_realtime_switch_unknown_provider_is_404(monkeypatch):
 
 
 def test_section_health_includes_realtime_key(monkeypatch):
-    from jarvis.brain import provider_test as _pt
+    from dodaios.brain import provider_test as _pt
 
     async def _fake_run(spec, cfg, **kwargs):
         from types import SimpleNamespace
 
         return SimpleNamespace(status="ok", detail="")
 
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     monkeypatch.setattr(_pt, "run_provider_test", _fake_run)
     monkeypatch.setattr(cfg_mod, "get_secret", _only_vertex_key)
@@ -250,7 +250,7 @@ def test_section_health_includes_realtime_key(monkeypatch):
 
 
 def test_section_health_realtime_needs_setup_without_key(monkeypatch):
-    from jarvis.brain import provider_test as _pt
+    from dodaios.brain import provider_test as _pt
 
     async def _fake_run(spec, cfg, **kwargs):
         from types import SimpleNamespace
@@ -370,7 +370,7 @@ def test_get_realtime_options_removed_grok_is_unknown(monkeypatch) -> None:
 def test_get_realtime_options_reflects_pinned_selection(monkeypatch):
     monkeypatch.setattr(cfg_mod, "get_secret", _only_vertex_key)
     app = _app()
-    from jarvis.core.config import BrainProviderConfig
+    from dodaios.core.config import BrainProviderConfig
 
     app.state.config.brain.providers["vertex-live"] = BrainProviderConfig(
         model="gemini-live-2.5-flash-native-audio", voice="Charon"

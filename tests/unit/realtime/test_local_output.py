@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 
-from jarvis.core.events import SpeechSpoken
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import (
+from dodaios.core.events import SpeechSpoken
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import (
     _HISTORY_LOST_INSTRUCTION,
     RealtimeVoiceSession,
     _session_instructions,

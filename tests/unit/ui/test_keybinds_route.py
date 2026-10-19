@@ -19,10 +19,10 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.config import TriggerConfig
-from jarvis.core.config_writer import KEYBIND_ACTIONS, KEYBIND_TOML_KEY
-from jarvis.trigger.hotkey import validate_hotkey
-from jarvis.ui.web.settings_routes import router
+from dodaios.core.config import TriggerConfig
+from dodaios.core.config_writer import KEYBIND_ACTIONS, KEYBIND_TOML_KEY
+from dodaios.trigger.hotkey import validate_hotkey
+from dodaios.ui.web.settings_routes import router
 
 
 def _client(**trig) -> TestClient:
@@ -125,7 +125,7 @@ def test_suggestions_exclude_combos_that_would_be_rejected() -> None:
 
 
 def test_suggestions_are_valid_on_every_supported_platform() -> None:
-    from jarvis.ui.web.settings_routes import _KEYBIND_SUGGESTIONS
+    from dodaios.ui.web.settings_routes import _KEYBIND_SUGGESTIONS
 
     assert len(_KEYBIND_SUGGESTIONS) >= 6
     for suggestion in _KEYBIND_SUGGESTIONS:
@@ -277,7 +277,7 @@ def test_put_rejects_a_super_spelling_of_a_bound_win_shortcut() -> None:
 def test_suggestions_are_filtered_on_the_normalized_collision_rule(monkeypatch) -> None:
     """A quick-pick that merely SPELLS a bound chord differently is still a
     guaranteed 400 on click, so it must not be offered."""
-    from jarvis.ui.web import settings_routes
+    from dodaios.ui.web import settings_routes
 
     monkeypatch.setattr(
         settings_routes, "_KEYBIND_SUGGESTIONS", ["ctrl+left_alt+j", "ctrl+shift+j"]
@@ -294,7 +294,7 @@ def test_suggestions_are_filtered_on_the_normalized_collision_rule(monkeypatch) 
 
 def _patch_mouse_probe(monkeypatch, supported: bool, reason: str = "") -> None:
     """Pin the capability probe so the assertions do not depend on the host."""
-    from jarvis.trigger import hotkey as hotkey_mod
+    from dodaios.trigger import hotkey as hotkey_mod
 
     monkeypatch.setattr(hotkey_mod, "mouse_hotkeys_available", lambda *a, **k: (supported, reason))
 
@@ -322,7 +322,7 @@ def test_get_reports_an_honest_english_reason_when_mouse_is_unsupported(
 
 def test_get_names_a_known_mouse_reason_with_its_code(monkeypatch) -> None:
     """A probe sentence the UI can translate travels with its stable code."""
-    from jarvis.trigger.hotkey import MOUSE_HOTKEY_REASONS
+    from dodaios.trigger.hotkey import MOUSE_HOTKEY_REASONS
 
     _patch_mouse_probe(monkeypatch, False, MOUSE_HOTKEY_REASONS["wayland"])
     body = _client().get("/api/settings/keybinds").json()
@@ -521,7 +521,7 @@ def test_put_live_applies_to_running_pipeline() -> None:
 
 def test_put_live_apply_failure_still_persists(monkeypatch) -> None:
     """A live-apply hiccup must NOT fail the save — it falls back to restart."""
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(config_writer, "set_keybind", lambda *a, **k: None)
 
@@ -543,7 +543,7 @@ def test_put_live_apply_failure_still_persists(monkeypatch) -> None:
 
 
 def test_put_persist_calls_config_writer(monkeypatch) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     captured: dict = {}
 
@@ -631,7 +631,7 @@ def test_get_reflects_cleared_keybind() -> None:
 def test_held_route_serves_the_capability_probe(monkeypatch) -> None:
     """The recorder polls this; a missing ``available`` field would hang a
     Mac user whose WebView swallowed the modifier keyup (GitHub #98)."""
-    from jarvis.trigger import hotkey as hotkey_mod
+    from dodaios.trigger import hotkey as hotkey_mod
 
     monkeypatch.setattr(
         hotkey_mod,
@@ -645,7 +645,7 @@ def test_held_route_serves_the_capability_probe(monkeypatch) -> None:
 
 
 def test_held_route_is_honest_when_the_host_cannot_tell(monkeypatch) -> None:
-    from jarvis.trigger import hotkey as hotkey_mod
+    from dodaios.trigger import hotkey as hotkey_mod
 
     monkeypatch.setattr(
         hotkey_mod,

@@ -15,8 +15,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.speech import stt_dictionary as sd
-from jarvis.speech.stt_dictionary import (
+from dodaios.speech import stt_dictionary as sd
+from dodaios.speech.stt_dictionary import (
     DictionaryCorrectingSTT,
     DictionaryStore,
     TranscriptCorrector,
@@ -511,7 +511,7 @@ class TestWrapper:
     async def test_frozen_dataclass_transcript_supported(
         self, store: DictionaryStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from jarvis.core.protocols import Transcript
+        from dodaios.core.protocols import Transcript
 
         monkeypatch.setattr(sd, "_RELOAD_CHECK_INTERVAL_S", 0.0)
         store.add("GitHub", ["Gitter"])

@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat.native_control import NativeClaudeGoal, NativeCodexGoal, disable_cli_tools
-from jarvis.agent_chat.runner_api import TurnHandle
-from jarvis.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.native_control import NativeClaudeGoal, NativeCodexGoal, disable_cli_tools
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.store import AgentChatStore
 
 
 class RpcFixture:
@@ -68,10 +68,10 @@ class RpcFixture:
 def test_native_goal_preserves_final_output_and_maps_real_wire_statuses(
     monkeypatch: Any, tmp_path: Path, platform: str, native_status: str, expected: str
 ) -> None:
-    from jarvis.agent_chat import runner_cli
+    from dodaios.agent_chat import runner_cli
 
     monkeypatch.setattr("platform.system", lambda: platform)
-    monkeypatch.setattr("jarvis.agent_chat.native_control.GoalRpc", RpcFixture)
+    monkeypatch.setattr("dodaios.agent_chat.native_control.GoalRpc", RpcFixture)
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "_account_env", lambda _: {})
 
@@ -142,8 +142,8 @@ def test_verifier_removes_mcp_secrets_and_all_execution_tools(runner: str) -> No
 
 
 def test_claude_native_goal_owns_the_loop_and_clears_native_state(monkeypatch: Any) -> None:
-    from jarvis.agent_chat.control import ChatControls
-    from jarvis.agent_chat.control_types import CommandRequest, GoalVerdict
+    from dodaios.agent_chat.control import ChatControls
+    from dodaios.agent_chat.control_types import CommandRequest, GoalVerdict
     from tests.unit.agent_chat.test_controls import FakeService, seat
 
     cleared = []
@@ -161,7 +161,7 @@ def test_claude_native_goal_owns_the_loop_and_clears_native_state(monkeypatch: A
 
     monkeypatch.setattr(NativeClaudeGoal, "available", available)
     monkeypatch.setattr(NativeClaudeGoal, "_clear", clear)
-    monkeypatch.setattr("jarvis.agent_chat.control_eval.evaluate_goal", verify)
+    monkeypatch.setattr("dodaios.agent_chat.control_eval.evaluate_goal", verify)
 
     async def scenario() -> None:
         service = FakeService()

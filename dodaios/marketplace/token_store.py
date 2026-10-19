@@ -1,0 +1,612 @@
+"""Token storage for connected marketplace plugins.
+
+Tokens persist as a JSON blob in Windows Credential Manager via the
+existing `dodaios.core.config.{get,set,delete}_secret` helpers. The
+keyring key follows the convention `plugin_{plugin_id}_tokens`, so a
+single plugin maps to a single *logical* entry — the JSON fields are
+never split across keys.
+
+The blob *bytes*, however, may be split across several keyring entries by
+`ChunkedBackend` (see below). The Windows Credential Manager caps one entry
+at 2560 bytes (1280 UTF-16 chars) and fails with WinError 1783 ("CredWrite:
+the stub received bad data") above it. A long Google/Gmail or Linear OAuth
+token blob exceeds that, so the connect flow's final `TokenStore.save` raised
+"keyring set failed" and the plugin never became connected. `ChunkedBackend`
+transparently spreads an oversized blob over `<key>__0..N` entries and
+reassembles it on read — do NOT "simplify" this back to a single set().
+
+The `TokenStore` accepts a pluggable `TokenBackend` so unit tests can
+use `InMemoryBackend` instead of touching the real Credential Manager.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from functools import wraps
+from typing import Any, Protocol
+
+from dodaios.marketplace.credential_lock import storage_lock
+
+
+def _transaction(method):
+    """Keep a logical token operation indivisible, including legacy chunks."""
+
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with storage_lock(shared=self.shared_credentials):
+            return method(self, *args, **kwargs)
+
+    return wrapped
+
+
+# Stable reason codes for a connection the refresh path could not heal. These
+# four strings are the ONLY thing ever persisted about a failure: a provider's
+# raw error body can echo a token back at us, so it must never reach storage or
+# the UI. Each code is matched from our own marker list, never from provider text.
+REAUTH_PROVIDER_REJECTED = "provider_rejected"
+"""The grant itself is gone — expired, revoked, or withdrawn by the provider."""
+REAUTH_CLIENT_REJECTED = "client_rejected"
+"""The OAuth client the grant belongs to was refused or no longer exists."""
+REAUTH_CLIENT_MISSING = "client_missing"
+"""Stored before we persisted the issuing client_id; unrefreshable by design."""
+REAUTH_REFRESH_MISSING = "refresh_missing"
+"""The access token expired and the provider issued no refresh token."""
+REAUTH_ROTATION_LOST = "rotation_lost"
+"""A rotated refresh token could not be stored. NEVER retried — see below."""
+
+
+def _parse_utc(raw: object) -> datetime | None:
+    """Parse an ISO timestamp from storage, tolerating a naive one as UTC."""
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        # Malformed stored timestamp is treated as absent, not fatal.
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+@dataclass(frozen=True, slots=True)
+class Tokens:
+    """A plugin's auth state at a point in time. Immutable by design."""
+
+    access: str
+    refresh: str | None = None
+    expires_at: datetime | None = None
+    extra: dict[str, str] = field(default_factory=dict)
+    # Set when the refresh scheduler hit an unrecoverable refresh (revoked /
+    # un-healable). The entry is KEPT (never deleted) so the plugin stays
+    # visible with a "Reconnect" affordance instead of silently disappearing.
+    needs_reauth: bool = False
+    # WHY it needs reauth, and since when. Without these the flag is a bare
+    # yes/no: "Google withdrew the grant" and "the network blipped once" look
+    # identical to the user days later, once the log line has rotated away.
+    # One of the REAUTH_* codes above, or None on a healthy token.
+    reauth_reason: str | None = None
+    reauth_at: datetime | None = None
+    # Last automatic self-heal probe. Separate from `reauth_at` so retrying
+    # never overwrites when the connection actually died — that timestamp is
+    # the one the user is shown.
+    reauth_retry_at: datetime | None = None
+
+    def is_near_expiry(self, threshold_seconds: int = 600) -> bool:
+        if self.expires_at is None:
+            return False
+        return (self.expires_at - datetime.now(UTC)) < timedelta(seconds=threshold_seconds)
+
+    def to_json(self) -> str:
+        payload: dict[str, Any] = {
+            "access": self.access,
+            "refresh": self.refresh,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "extra": dict(self.extra),
+            "needs_reauth": self.needs_reauth,
+            "reauth_reason": self.reauth_reason,
+            "reauth_at": self.reauth_at.isoformat() if self.reauth_at else None,
+            "reauth_retry_at": (self.reauth_retry_at.isoformat() if self.reauth_retry_at else None),
+        }
+        return json.dumps(payload, separators=(",", ":"))
+
+    @classmethod
+    def from_json(cls, raw: str) -> Tokens:
+        data = json.loads(raw)
+        expires_raw = data.get("expires_at")
+        expires_at: datetime | None = None
+        if expires_raw is not None:
+            expires_at = datetime.fromisoformat(expires_raw)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=UTC)
+        reason = data.get("reauth_reason")
+        return cls(
+            access=data["access"],
+            refresh=data.get("refresh"),
+            expires_at=expires_at,
+            extra=dict(data.get("extra") or {}),
+            needs_reauth=bool(data.get("needs_reauth", False)),
+            # A token written before these fields existed simply has no reason.
+            # It stays flagged and still self-heals — an unknown cause is not a
+            # reason to strand it, only to say "unknown" honestly in the UI.
+            reauth_reason=reason if isinstance(reason, str) and reason else None,
+            reauth_at=_parse_utc(data.get("reauth_at")),
+            reauth_retry_at=_parse_utc(data.get("reauth_retry_at")),
+        )
+
+
+class TokenBackend(Protocol):
+    def get(self, key: str) -> str | None: ...
+    def set(self, key: str, value: str) -> None: ...
+    def delete(self, key: str) -> None: ...
+
+
+class KeyringBackend:
+    """Default backend: Windows Credential Manager via `keyring`.
+
+    Delegates to the existing `dodaios.core.config` helpers so the keyring
+    service name (`personal-jarvis`) and ENV-fallback semantics stay in
+    one place. We deliberately do NOT pass `env_fallback` for plugin
+    tokens — they must be configured through the Marketplace UI, not
+    through environment variables (that would bypass the audit + lifecycle).
+    """
+
+    shared_credentials = True
+
+    def get(self, key: str) -> str | None:
+        from dodaios.core.config import get_secret
+
+        return get_secret(key, env_fallback=None)
+
+    def set(self, key: str, value: str) -> None:
+        from dodaios.core.config import set_secret
+
+        if not set_secret(key, value):
+            raise RuntimeError(f"keyring set failed for {key!r}")
+
+    def delete(self, key: str) -> None:
+        from dodaios.core.config import delete_secret
+
+        # Explicit disconnect is fail-closed. ``get_secret`` may degrade a
+        # locked platform keyring to an empty file fallback, so a later read is
+        # not proof that the OS credential was removed. ``delete_secret`` is
+        # the authoritative cross-backend verification result.
+        if not delete_secret(key):
+            raise RuntimeError(f"keyring delete could not be verified for {key!r}")
+
+    def delete_best_effort(self, key: str) -> None:
+        """Delete housekeeping data without masking an already-successful save."""
+        from dodaios.core.config import delete_secret
+
+        delete_secret(key)
+
+
+_CHUNK_SENTINEL = "\x00JCHUNKS\x00"  # primary-key header for a chunked value: sentinel + <count>
+_BANK_SENTINEL = "\x00JCH2\x00"
+_CLEANUP_EXTENT_SUFFIX = "__extent"  # non-secret exclusive chunk cleanup extent
+# Historical production values used 1000-character chunks. A one-mebibyte
+# logical token budget is orders of magnitude above every catalog OAuth token
+# shape while keeping the one-time legacy-disconnect sweep finite.
+_HISTORIC_CHUNK_SIZE = 1000
+_LEGACY_TOKEN_SCAN_BUDGET_CHARS = 1024 * 1024
+_LEGACY_SPARSE_SCAN_SLOTS = (
+    _LEGACY_TOKEN_SCAN_BUDGET_CHARS + _HISTORIC_CHUNK_SIZE - 1
+) // _HISTORIC_CHUNK_SIZE
+
+
+class ChunkedBackend:
+    """Wrap a size-limited `TokenBackend` so a value larger than the backend's
+    per-entry cap is split across several entries and reassembled on read.
+
+    The Windows Credential Manager rejects a blob over ~1280 chars (2560 bytes
+    UTF-16) with WinError 1783, which made `keyring.set_password` raise for long
+    Google/Linear OAuth tokens — the connect flow then failed at the final save
+    and the plugin never connected.
+
+    Legacy layout: the primary key holds either a bare value (small or pre-chunking
+    legacy) or a sentinel header ``\\x00JCHUNKS\\x00<n>``; the n pieces live in
+    ``<key>__0 .. <key>__{n-1}``. A token blob is JSON and always starts with
+    ``{``, so a legacy plain value is never mistaken for a header — reads stay
+    backward-compatible with already-stored short tokens (Discord/Telegram).
+    New writes alternate two banks and publish their manifest only after all
+    chunks exist. Transactions serialize readers with cleanup across processes.
+    A non-secret ``<key>__extent`` sidecar retains the maximum cleanup extent
+    only when interrupted or best-effort deletion may have left old chunks.
+    """
+
+    # Stay well under the observed 1280-char Credential-Manager limit so a few
+    # non-ASCII chars (extra UTF-16 bytes) can't push a single chunk over.
+    DEFAULT_CHUNK_SIZE = _HISTORIC_CHUNK_SIZE
+
+    def __init__(self, backend: TokenBackend, chunk_size: int = DEFAULT_CHUNK_SIZE) -> None:
+        if chunk_size < 1:
+            raise ValueError("chunk_size must be positive")
+        self._backend = backend
+        self._chunk_size = chunk_size
+
+    @property
+    def shared_credentials(self) -> bool:
+        return bool(getattr(self._backend, "shared_credentials", False))
+
+    @staticmethod
+    def _bank_manifest(head: str) -> tuple[int, int]:
+        try:
+            bank, count = map(int, head[len(_BANK_SENTINEL) :].split(":"))
+        except ValueError:
+            raise RuntimeError("Invalid token storage manifest") from None
+        if bank not in (0, 1) or not 1 <= count <= _LEGACY_TOKEN_SCAN_BUDGET_CHARS:
+            raise RuntimeError("Invalid token storage manifest")
+        return bank, count
+
+    @staticmethod
+    def _bank_key(key: str, bank: int, index: int) -> str:
+        return f"{key}__b{bank}_{index}"
+
+    def _clear_bank(self, key: str, bank: int, *, strict: bool) -> bool:
+        extent_key = f"{key}__b{bank}_extent"
+        try:
+            count = int(self._backend.get(extent_key) or 0)
+            if not 0 <= count <= _LEGACY_TOKEN_SCAN_BUDGET_CHARS:
+                raise RuntimeError("Invalid token storage extent")
+            for index in range(count):
+                part = self._bank_key(key, bank, index)
+                self._delete_entry(part, strict=strict)
+                if self._backend.get(part) is not None:
+                    raise RuntimeError("Token storage cleanup incomplete")
+            if count:
+                self._delete_entry(extent_key, strict=strict)
+                if self._backend.get(extent_key) is not None:
+                    raise RuntimeError("Token storage cleanup incomplete")
+            return True
+        except Exception:
+            if strict:
+                raise
+            # The extent remains durable so a later write/disconnect retries.
+            return False
+
+    def _delete_entry(self, key: str, *, strict: bool) -> None:
+        if not strict:
+            best_effort = getattr(self._backend, "delete_best_effort", None)
+            if callable(best_effort):
+                best_effort(key)
+                return
+        self._backend.delete(key)
+
+    @staticmethod
+    def _overflow_key(key: str, index: int) -> str:
+        return f"{key}__{index}"
+
+    @staticmethod
+    def _cleanup_extent_key(key: str) -> str:
+        return f"{key}{_CLEANUP_EXTENT_SUFFIX}"
+
+    @staticmethod
+    def _manifest_count(key: str, head: str) -> int:
+        try:
+            count = int(head[len(_CHUNK_SENTINEL) :])
+        except ValueError as exc:
+            raise RuntimeError(f"invalid chunk manifest for {key!r}") from exc
+        if count < 1:
+            raise RuntimeError(f"invalid chunk manifest for {key!r}")
+        return count
+
+    def _cleanup_extent(self, key: str) -> int:
+        raw = self._backend.get(self._cleanup_extent_key(key))
+        if raw is None:
+            return 0
+        try:
+            extent = int(raw)
+        except ValueError as exc:
+            raise RuntimeError(f"invalid cleanup extent for {key!r}") from exc
+        if extent < 1:
+            raise RuntimeError(f"invalid cleanup extent for {key!r}")
+        return extent
+
+    def _persist_cleanup_extent(self, key: str, extent: int) -> None:
+        current = self._cleanup_extent(key)
+        if current >= extent:
+            return
+        extent_key = self._cleanup_extent_key(key)
+        value = str(extent)
+        self._backend.set(extent_key, value)
+        if self._backend.get(extent_key) != value:
+            raise RuntimeError(f"could not persist cleanup extent for {key!r}")
+
+    def _clear_cleanup_extent_best_effort(self, key: str) -> None:
+        try:
+            self._delete_entry(self._cleanup_extent_key(key), strict=False)
+        except Exception:  # noqa: BLE001 - save already succeeded
+            return
+
+    def _clear_cleanup_extent_verified(self, key: str) -> None:
+        extent_key = self._cleanup_extent_key(key)
+        self._delete_entry(extent_key, strict=True)
+        if self._backend.get(extent_key) is not None:
+            raise RuntimeError(f"could not delete cleanup extent for {key!r}")
+
+    def _clear_overflow(self, key: str, *, start_index: int = 0) -> bool:
+        """Best-effort delete contiguous ``<key>__i`` overflow pieces.
+
+        This helper runs after a successful save, so it explicitly selects a
+        backend's best-effort deletion path instead of strict disconnect
+        semantics. A backend may therefore leave a chunk readable after the
+        attempt. Stop at that first retained chunk instead of probing an
+        unbounded sequence of generated keys, and report whether every
+        discovered chunk was removed. Explicit deletion uses the persisted
+        cleanup extent below so gaps cannot hide later chunks.
+        """
+        i = start_index
+        while True:
+            chunk_key = self._overflow_key(key, i)
+            try:
+                piece = self._backend.get(chunk_key)
+            except Exception:  # noqa: BLE001 - keep save-time cleanup best-effort
+                return False
+            if piece is None:
+                return True
+            try:
+                self._persist_cleanup_extent(key, i + 1)
+            except Exception:  # noqa: BLE001 - keep save-time cleanup best-effort
+                return False
+            try:
+                self._delete_entry(chunk_key, strict=False)
+                retained = self._backend.get(chunk_key)
+            except Exception:  # noqa: BLE001 - keep save-time cleanup best-effort
+                return False
+            if retained is not None:
+                return False
+            i += 1
+
+    def _clear_indexed_overflow(
+        self,
+        key: str,
+        count: int,
+        *,
+        start_index: int = 0,
+        strict: bool = False,
+    ) -> bool:
+        """Attempt and verify every chunk named by a manifest or extent."""
+        cleared = True
+        for i in range(start_index, count):
+            chunk_key = self._overflow_key(key, i)
+            try:
+                piece = self._backend.get(chunk_key)
+            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+                cleared = False
+                continue
+            if piece is None:
+                continue
+            try:
+                self._delete_entry(chunk_key, strict=strict)
+            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+                cleared = False
+                continue
+            try:
+                retained = self._backend.get(chunk_key)
+            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+                cleared = False
+                continue
+            if retained is not None:
+                cleared = False
+        return cleared
+
+    def _clear_sparse_legacy_overflow(self, key: str) -> bool:
+        """Bounded sweep for pre-manifest orphan chunks during disconnect.
+
+        Old cleanup could remove ``__0`` and lose the primary header before a
+        later deletion silently failed. With neither header nor extent there is
+        no exact upper bound left, so explicit legacy disconnect scans the full
+        one-mebibyte compatibility budget instead of stopping at the first gap.
+        Every discovered index is first recorded in the new durable extent.
+        """
+        cleared = True
+        for i in range(_LEGACY_SPARSE_SCAN_SLOTS):
+            chunk_key = self._overflow_key(key, i)
+            try:
+                piece = self._backend.get(chunk_key)
+            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+                cleared = False
+                continue
+            if piece is None:
+                continue
+            try:
+                self._persist_cleanup_extent(key, i + 1)
+            except Exception:  # noqa: BLE001 - retain an untracked fragment
+                cleared = False
+                continue
+            try:
+                self._delete_entry(chunk_key, strict=True)
+                retained = self._backend.get(chunk_key)
+            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+                cleared = False
+                continue
+            if retained is not None:
+                cleared = False
+        return cleared
+
+    @_transaction
+    def get(self, key: str) -> str | None:
+        head = self._backend.get(key)
+        if head is not None and head.startswith(_BANK_SENTINEL):
+            bank, count = self._bank_manifest(head)
+            parts = [self._backend.get(self._bank_key(key, bank, i)) for i in range(count)]
+            if any(piece is None for piece in parts):
+                raise RuntimeError("Incomplete token storage generation")
+            return "".join(parts)
+        if head is None or not head.startswith(_CHUNK_SENTINEL):
+            return head  # missing, small, or legacy-plain value
+        count = self._manifest_count(key, head)
+        parts: list[str] = []
+        for i in range(count):
+            piece = self._backend.get(self._overflow_key(key, i))
+            if piece is None:
+                raise RuntimeError(f"missing chunk {i}/{count} for {key!r}")
+            parts.append(piece)
+        return "".join(parts)
+
+    @_transaction
+    def set(self, key: str, value: str) -> None:
+        """Write an inactive bank, then atomically publish its small manifest.
+
+        The active bank is never overwritten. Even a process crash before the
+        manifest swap leaves the last complete token readable. Extents are
+        persisted before chunks, so interrupted writes remain removable.
+        """
+        old_head = self._backend.get(key)
+        old_active_count = (
+            self._manifest_count(key, old_head)
+            if old_head is not None and old_head.startswith(_CHUNK_SENTINEL)
+            else 0
+        )
+        prior_cleanup_extent = self._cleanup_extent(key)
+        prior_extent = max(old_active_count, prior_cleanup_extent)
+
+        if len(value) <= self._chunk_size:
+            if prior_extent:
+                # Persist the old maximum before replacing its primary header.
+                # A partial cleanup can then be completed after a restart.
+                self._persist_cleanup_extent(key, prior_extent)
+            # Fits in one entry: no chunks of its own. Write it first, then
+            # drop any old overflow pieces a previous larger value left.
+            self._backend.set(key, value)
+            for bank in (0, 1):
+                self._clear_bank(key, bank, strict=False)
+            if prior_extent:
+                cleanup_complete = self._clear_indexed_overflow(key, prior_extent)
+            else:
+                cleanup_complete = self._clear_overflow(key)
+            if cleanup_complete:
+                self._clear_cleanup_extent_best_effort(key)
+            return
+
+        chunks = [value[i : i + self._chunk_size] for i in range(0, len(value), self._chunk_size)]
+        old_bank = (
+            self._bank_manifest(old_head)[0]
+            if old_head is not None and old_head.startswith(_BANK_SENTINEL)
+            else None
+        )
+        bank = 1 - old_bank if old_bank is not None else 0
+        self._clear_bank(key, bank, strict=True)
+        if prior_extent:
+            self._persist_cleanup_extent(key, prior_extent)
+        extent_key = f"{key}__b{bank}_extent"
+        self._backend.set(extent_key, str(len(chunks)))
+        if self._backend.get(extent_key) != str(len(chunks)):
+            raise RuntimeError("Could not persist token storage extent")
+        head = f"{_BANK_SENTINEL}{bank}:{len(chunks)}"
+        try:
+            for i, piece in enumerate(chunks):
+                self._backend.set(self._bank_key(key, bank, i), piece)
+            self._backend.set(key, head)
+        except Exception:
+            if self._backend.get(key) != head:
+                self._clear_bank(key, bank, strict=False)
+            raise
+        self._clear_bank(key, 1 - bank, strict=False)
+        cleanup_complete = self._clear_indexed_overflow(key, prior_extent)
+        if cleanup_complete:
+            self._clear_cleanup_extent_best_effort(key)
+
+    @_transaction
+    def delete(self, key: str) -> None:
+        for bank in (0, 1):
+            self._clear_bank(key, bank, strict=True)
+        # Snapshot the manifest before touching any pieces. A previous partial
+        # delete may already have left gaps, so an active chunked value must use
+        # its exact persisted count rather than stop at the first missing index.
+        head = self._backend.get(key)
+        persisted_cleanup_extent = self._cleanup_extent(key)
+        active_count = 0
+        if head is not None and head.startswith(_CHUNK_SENTINEL):
+            active_count = self._manifest_count(key, head)
+        if persisted_cleanup_extent:
+            cleanup_extent = max(active_count, persisted_cleanup_extent)
+            overflow_cleared = self._clear_indexed_overflow(key, cleanup_extent, strict=True)
+        else:
+            # A pre-sidecar header records only its active prefix; an older
+            # failed shrink may have left sparse chunks beyond that count.
+            # Expensive only for explicit disconnect of this legacy shape.
+            overflow_cleared = self._clear_sparse_legacy_overflow(key)
+        if not overflow_cleared:
+            raise RuntimeError(f"could not delete every overflow chunk for {key!r}")
+        # The extent is the durable retry manifest for small values and old
+        # chunks beyond a newer header. Remove it only after every named chunk
+        # is verified absent, then remove the primary value/header.
+        self._clear_cleanup_extent_verified(key)
+        self._delete_entry(key, strict=True)
+
+
+class InMemoryBackend:
+    """Test backend. Holds tokens in a process-local dict."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, str] = {}
+
+    def get(self, key: str) -> str | None:
+        return self._store.get(key)
+
+    def set(self, key: str, value: str) -> None:
+        self._store[key] = value
+
+    def delete(self, key: str) -> None:
+        self._store.pop(key, None)
+
+
+def _keyring_key(plugin_id: str) -> str:
+    if not plugin_id or "/" in plugin_id or " " in plugin_id:
+        raise ValueError(f"invalid plugin_id: {plugin_id!r}")
+    return f"plugin_{plugin_id}_tokens"
+
+
+class TokenStore:
+    """Per-plugin token persistence.
+
+    One keyring entry per plugin_id, holding the JSON-serialized `Tokens`.
+    """
+
+    def __init__(self, backend: TokenBackend | None = None) -> None:
+        # The real Credential-Manager backend caps an entry at ~1280 chars, so
+        # wrap it in ChunkedBackend; long OAuth tokens would otherwise fail to
+        # save. An explicitly-injected backend (tests) is used as-is.
+        self._backend: TokenBackend = (
+            backend if backend is not None else ChunkedBackend(KeyringBackend())
+        )
+
+    def save(self, plugin_id: str, tokens: Tokens) -> None:
+        self._backend.set(_keyring_key(plugin_id), tokens.to_json())
+
+    @property
+    def shared_credentials(self) -> bool:
+        return bool(getattr(self._backend, "shared_credentials", False))
+
+    @_transaction
+    def compare_and_save(self, plugin_id: str, expected: Tokens, updated: Tokens) -> bool:
+        """Do not replace a reconnect/disconnect that won a concurrent race."""
+        current = self.load(plugin_id)
+        if current == updated:
+            return True  # A previous write committed before reporting failure.
+        if current != expected:
+            return False
+        self.save(plugin_id, updated)
+        return True
+
+    def load(self, plugin_id: str) -> Tokens | None:
+        raw = self._backend.get(_keyring_key(plugin_id))
+        if raw is None:
+            return None
+        try:
+            return Tokens.from_json(raw)
+        except (ValueError, KeyError) as exc:
+            raise RuntimeError(f"corrupted token blob for plugin {plugin_id!r}: {exc}") from exc
+
+    def delete(self, plugin_id: str) -> None:
+        key = _keyring_key(plugin_id)
+        try:
+            self._backend.delete(key)
+            remaining = self._backend.get(key)
+        except Exception as exc:
+            raise RuntimeError(
+                f"token deletion could not be verified for plugin {plugin_id!r}"
+            ) from exc
+        if remaining is not None:
+            raise RuntimeError(f"token deletion failed for plugin {plugin_id!r}")

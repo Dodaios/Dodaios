@@ -2,7 +2,7 @@
 
 ``call-contact`` is the integrator's headline glue: it consumes BOTH frozen
 contracts — Contract 1 (``ContactStore.find_by_alias`` -> phone) and Contract 2
-(``jarvis.telephony.outbound.place_call`` -> places a real outbound call and
+(``dodaios.telephony.outbound.place_call`` -> places a real outbound call and
 speaks an opening). Both are stubbed here so B is testable before Chunk A/C land.
 
 Risk tier ``ask``: dialing a real person is consequential, so the
@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.plugins.tool.call_contact as call_contact_mod
-from jarvis.plugins.tool.call_contact import CallContactTool
+import dodaios.plugins.tool.call_contact as call_contact_mod
+from dodaios.plugins.tool.call_contact import CallContactTool
 
 
 # --------------------------------------------------------------------------- #
@@ -266,7 +266,7 @@ def test_default_call_config_resolves_when_twilio_is_configured(monkeypatch) -> 
     """A fake config shaped like the real ``JarvisConfig`` (Twilio under
     ``integrations.twilio``, field ``phone_number``) must resolve a full call
     config — no longer a false "not set up"."""
-    import jarvis.core.config as real_cfg
+    import dodaios.core.config as real_cfg
 
     fake_config = _FakeJarvisConfig()
     monkeypatch.setattr(real_cfg, "load_config", lambda: fake_config)
@@ -291,7 +291,7 @@ def test_default_call_config_reads_secret_via_the_real_credential_key(monkeypatc
     key (see config.py TwilioConfig docstring + telephony_routes.py
     ``_AUTH_TOKEN_KEY``), not under the ENV var name. Resolution must use that
     real key so a token saved via the Telephony UI/wizard is actually found."""
-    import jarvis.core.config as real_cfg
+    import dodaios.core.config as real_cfg
 
     fake_config = _FakeJarvisConfig()
     monkeypatch.setattr(real_cfg, "load_config", lambda: fake_config)
@@ -313,7 +313,7 @@ def test_default_call_config_returns_none_when_twilio_genuinely_unconfigured(mon
     """A real config shape with Twilio present but not filled in (no phone
     number, no secret) must still degrade to ``None`` — the honest no-op case
     is preserved, not just "any config object is truthy"."""
-    import jarvis.core.config as real_cfg
+    import dodaios.core.config as real_cfg
 
     fake_config = _FakeJarvisConfig()
     fake_config.integrations.twilio.phone_number = ""
@@ -330,7 +330,7 @@ def test_default_call_config_returns_none_when_twilio_disabled(monkeypatch) -> N
     disabled integration with 409; the resolver must not be more permissive and
     let a real call go out on an "off" switch, gated only by the ask-tier
     confirm."""
-    import jarvis.core.config as real_cfg
+    import dodaios.core.config as real_cfg
 
     fake_config = _FakeJarvisConfig()
     fake_config.integrations.twilio.enabled = False  # everything else stays filled

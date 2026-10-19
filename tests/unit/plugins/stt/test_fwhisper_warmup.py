@@ -17,8 +17,8 @@ turbo/cuda hot-swap, so the swapped-in model is warm too).
 """
 from __future__ import annotations
 
-from jarvis.plugins.stt import fwhisper
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
+from dodaios.plugins.stt import fwhisper
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
 
 
 class _FakeInfo:

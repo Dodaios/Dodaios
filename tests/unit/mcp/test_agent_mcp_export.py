@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.mcp.agents import export
+from dodaios.mcp.agents import export
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def test_every_target_has_a_path_on_every_os(fake_home: Path) -> None:
 
 def test_stdio_entry_launches_the_bridge_and_holds_no_key(fake_home: Path) -> None:
     entry = export.stdio_entry()
-    assert entry["args"] == ["-m", "jarvis.mcp.agents.bridge"]
+    assert entry["args"] == ["-m", "dodaios.mcp.agents.bridge"]
     assert entry["command"], "the entry must name an interpreter"
     # AP-12: a key in a config file is a key in a backup.
     assert "JARVIS_CONTROL_KEY" not in entry["env"]
@@ -157,7 +157,7 @@ def test_an_earlier_entry_from_another_interpreter_or_port_is_still_ours(fake_ho
     """Ownership follows the target (the bridge module), not the exact command line."""
     earlier = {
         "command": "/opt/old-venv/bin/python",
-        "args": ["-I", "-m", "jarvis.mcp.agents.bridge"],
+        "args": ["-I", "-m", "dodaios.mcp.agents.bridge"],
         "env": {"JARVIS_API_URL": "http://127.0.0.1:50000"},
     }
     path = _write_cursor(fake_home, {"jarvis-agents": earlier})
@@ -171,7 +171,7 @@ def test_an_earlier_entry_from_another_interpreter_or_port_is_still_ours(fake_ho
     [
         {"command": "node", "args": ["my-own-agents-server.js"]},
         {"type": "http", "url": "https://example.test/mcp"},
-        {"command": "python", "args": ["-m", "jarvis.mcp.server"]},
+        {"command": "python", "args": ["-m", "dodaios.mcp.server"]},
         "not even an object",
     ],
 )
@@ -209,9 +209,9 @@ def test_an_untouched_registration_under_the_earlier_name_keeps_its_target(
     launches a module that exists and calls a path that is served."""
     import importlib.util
 
-    from jarvis.mcp.agents.bridge import SURFACE_PATH
+    from dodaios.mcp.agents.bridge import SURFACE_PATH
 
     earlier = export.entry_for(transport="stdio")
-    assert earlier["args"] == ["-m", "jarvis.mcp.agents.bridge"]
-    assert importlib.util.find_spec("jarvis.mcp.agents.bridge") is not None
+    assert earlier["args"] == ["-m", "dodaios.mcp.agents.bridge"]
+    assert importlib.util.find_spec("dodaios.mcp.agents.bridge") is not None
     assert export.entry_for(transport="http")["url"].endswith(SURFACE_PATH)

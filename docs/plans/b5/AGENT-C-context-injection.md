@@ -24,28 +24,28 @@ Latency is sacred here. The voice path budget is ~1.5 s p95 for the whole turn. 
 ## 3. Files you may touch
 
 Create:
-- `jarvis/brain/wiki_context.py`
+- `dodaios/brain/wiki_context.py`
 - `tests/unit/brain/test_wiki_context.py`
 - `tests/integration/test_brain_with_wiki_context.py`
 
 Modify:
-- `jarvis/brain/manager.py` — add a single hook just before the brain call inside `BrainManager.generate()`. Locate by searching for the comment line that precedes the actual provider call (it varies by manager version; do not assume a line number). The hook is one `await injector.maybe_inject(...)` call, gated by a constructor-injected optional `WikiContextInjector`.
-- `jarvis/brain/factory.py` — construct the injector once during brain build-up and pass it into `BrainManager`. Only at `tier == "router"`; do not pass it for any sub-tier.
-- `jarvis/core/config.py` — add a small `WikiContextConfig` Pydantic model nested under `wiki_integration` (Agent A defines `WikiIntegrationConfig`; you only add this nested field if missing — see §5 below for assumption-handling).
+- `dodaios/brain/manager.py` — add a single hook just before the brain call inside `BrainManager.generate()`. Locate by searching for the comment line that precedes the actual provider call (it varies by manager version; do not assume a line number). The hook is one `await injector.maybe_inject(...)` call, gated by a constructor-injected optional `WikiContextInjector`.
+- `dodaios/brain/factory.py` — construct the injector once during brain build-up and pass it into `BrainManager`. Only at `tier == "router"`; do not pass it for any sub-tier.
+- `dodaios/core/config.py` — add a small `WikiContextConfig` Pydantic model nested under `wiki_integration` (Agent A defines `WikiIntegrationConfig`; you only add this nested field if missing — see §5 below for assumption-handling).
 
 ## 4. Files you must NOT touch (Taboo)
 
-- All wiki backing modules: `jarvis/memory/wiki/curator.py`, `session_rollup.py`, `search.py` (Agent B), `integration.py` (Agent A), `scheduler.py`, `lock.py` (Agent D), and the entire B1+B7 surface (`atomic_writer.py`, `backup.py`, `vault_index.py`, etc.).
-- `jarvis/plugins/tool/wiki_recall.py` — Agent B.
-- Anything in `jarvis/speech/`, `jarvis/skills/`, `jarvis/missions/`, `jarvis/audio/`, `jarvis/vision/`.
-- `jarvis/brain/router.py`, `jarvis/brain/output_filter.py` — out of scope.
+- All wiki backing modules: `dodaios/memory/wiki/curator.py`, `session_rollup.py`, `search.py` (Agent B), `integration.py` (Agent A), `scheduler.py`, `lock.py` (Agent D), and the entire B1+B7 surface (`atomic_writer.py`, `backup.py`, `vault_index.py`, etc.).
+- `dodaios/plugins/tool/wiki_recall.py` — Agent B.
+- Anything in `dodaios/speech/`, `dodaios/skills/`, `dodaios/missions/`, `dodaios/audio/`, `dodaios/vision/`.
+- `dodaios/brain/router.py`, `dodaios/brain/output_filter.py` — out of scope.
 
 ## 5. Interfaces you must provide
 
 Signature is locked in overview §3.5. Full implementation contract:
 
 ```python
-# jarvis/brain/wiki_context.py
+# dodaios/brain/wiki_context.py
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from jarvis.memory.wiki.search import VaultSearch
+    from dodaios.memory.wiki.search import VaultSearch
 
 log = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ If extraction yields zero tokens, short-circuit and return the unchanged prompt.
 
 ### Configuration
 
-Add to `jarvis/core/config.py` under `WikiIntegrationConfig` (Agent A's model — if it does not exist yet in your worktree, **add a separate top-level `WikiContextConfig`** in the same file and document it as your plausible-assumption fallback):
+Add to `dodaios/core/config.py` under `WikiIntegrationConfig` (Agent A's model — if it does not exist yet in your worktree, **add a separate top-level `WikiContextConfig`** in the same file and document it as your plausible-assumption fallback):
 
 ```python
 class WikiContextConfig(BaseModel):
@@ -128,11 +128,11 @@ class WikiContextConfig(BaseModel):
 
 | What | Where | How |
 |------|-------|-----|
-| `VaultSearch` | `jarvis/memory/wiki/search.py` (Agent B) | Construct via factory; if module not present, instantiate the injector with `search=None`. |
-| `BrainManager` | `jarvis/brain/manager.py` | Modify the existing `generate()` method to call the injector right before the provider call. |
-| Factory | `jarvis/brain/factory.py` | Construct the injector once during `_build_router_brain` (locate by name). |
+| `VaultSearch` | `dodaios/memory/wiki/search.py` (Agent B) | Construct via factory; if module not present, instantiate the injector with `search=None`. |
+| `BrainManager` | `dodaios/brain/manager.py` | Modify the existing `generate()` method to call the injector right before the provider call. |
+| Factory | `dodaios/brain/factory.py` | Construct the injector once during `_build_router_brain` (locate by name). |
 
-If `jarvis.memory.wiki.search` doesn't import (Agent B's branch not merged), the factory passes `search=None` and the injector silently does nothing. This is the **fallback** that lets Agent C ship before Agent B in Wave 2.
+If `dodaios.memory.wiki.search` doesn't import (Agent B's branch not merged), the factory passes `search=None` and the injector silently does nothing. This is the **fallback** that lets Agent C ship before Agent B in Wave 2.
 
 ## 7. Anti-patterns specific to your scope
 

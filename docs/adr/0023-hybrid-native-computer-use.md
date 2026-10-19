@@ -5,7 +5,7 @@
 
 ## Context
 
-The Computer-Use loop (`jarvis/harness/screenshot_only_loop.py`, POAV) decides each
+The Computer-Use loop (`dodaios/harness/screenshot_only_loop.py`, POAV) decides each
 step with a **hand-rolled** vision+JSON prompt: it sends a screenshot + goal to the
 active brain (`gemini-3.5-flash`) and parses a JSON action. Google ships a **native
 `computer_use` tool** (models `gemini-3-flash-preview` and
@@ -32,7 +32,7 @@ Add the native engine as a **per-step alternative** to the hand-rolled decision,
 gated behind `[computer_use].prefer_native` (default **False**), provider-restricted
 to Gemini, with a hand-rolled fallback on ANY failure.
 
-- **Adapter:** `jarvis/harness/native_computer_use.py`.
+- **Adapter:** `dodaios/harness/native_computer_use.py`.
   - `map_native_action(name, args) -> list[dict]` — pure mapping of a Gemini CU
     `FunctionCall` to the loop's action vocabulary. Unsupported actions map to `[]`.
   - `GeminiNativeCU.from_config(cfg)` — returns an engine only when
@@ -44,7 +44,7 @@ to Gemini, with a hand-rolled fallback on ANY failure.
   hand-rolled `_call_brain` + `_parse_actions`. Native results are re-validated via
   `_validate_action_dict` (defense-in-depth) and, when present, used; otherwise the
   loop runs the hand-rolled path unchanged.
-- **Context wiring:** `ComputerUseContext.native_cu` (built in `jarvis/brain/factory.py`).
+- **Context wiring:** `ComputerUseContext.native_cu` (built in `dodaios/brain/factory.py`).
 - **App launch stays deterministic:** `open_app` remains the loop's launch primitive;
   native CU handles in-app grounding (click/type/scroll/key).
 

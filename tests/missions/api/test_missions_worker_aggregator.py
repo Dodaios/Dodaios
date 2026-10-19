@@ -9,7 +9,7 @@ Pure helper tests without FastAPI / DB I/O. Covers:
 """
 from __future__ import annotations
 
-from jarvis.missions.events import (
+from dodaios.missions.events import (
     CriticVerdictReady,
     EventEnvelope,
     MissionApproved,
@@ -19,7 +19,7 @@ from jarvis.missions.events import (
     WorkerSpawned,
     now_ms,
 )
-from jarvis.ui.web.missions_worker import extract_worker_missions
+from dodaios.ui.web.missions_worker import extract_worker_missions
 
 
 def _envelope(payload, *, mission_id: str = "mid-1", worker_id: str | None = None, ts: int | None = None) -> EventEnvelope:

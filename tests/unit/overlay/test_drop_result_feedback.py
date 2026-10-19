@@ -14,9 +14,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.overlay import drop_bridge
-from jarvis.ui.dodaiosbar import renderer
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.overlay import drop_bridge
+from dodaios.ui.dodaiosbar import renderer
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 @pytest.fixture(autouse=True)

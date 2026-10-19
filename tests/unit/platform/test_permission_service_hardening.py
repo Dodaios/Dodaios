@@ -24,14 +24,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import PERMISSION_NEEDED_REASONS
-from jarvis.platform import permission_service as service_module
-from jarvis.platform.permission_service import (
+from dodaios.core.events import PERMISSION_NEEDED_REASONS
+from dodaios.platform import permission_service as service_module
+from dodaios.platform.permission_service import (
     PermissionOutcome,
     PermissionService,
     user_detail_for,
 )
-from jarvis.platform.permissions import AUTOMATION_TARGETS, PermissionId, PermissionState
+from dodaios.platform.permissions import AUTOMATION_TARGETS, PermissionId, PermissionState
 from tests.fakes.fake_tcc import CallKind, DialogPolicy, FakeTCC, TccService, install_port
 from tests.unit.platform.test_permission_service import (  # noqa: F401 - fixtures
     Env,

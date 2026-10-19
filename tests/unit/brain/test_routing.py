@@ -21,12 +21,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import ResponseGenerated
-from jarvis.core.protocols import ToolResult
-from jarvis.ui.web.mission_inject import MISSION_INJECT_SOURCE_LAYER
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import ResponseGenerated
+from dodaios.core.protocols import ToolResult
+from dodaios.ui.web.mission_inject import MISSION_INJECT_SOURCE_LAYER
 
 
 @pytest.fixture(autouse=True)
@@ -41,8 +41,8 @@ def _hermetic_capability_registry():
     heuristic on an UNSEEDED registry; tests that need a capability register
     it themselves (see the snapshot pattern further down).
     """
-    from jarvis.core.capabilities import get_registry
-    from jarvis.skills.skill_context import (
+    from dodaios.core.capabilities import get_registry
+    from dodaios.skills.skill_context import (
         set_skill_context,
         try_get_skill_context,
     )
@@ -486,7 +486,7 @@ def _live_manager_with_toml() -> tuple[BrainManager, _RecordingExecutor]:
     """
     from pathlib import Path
 
-    from jarvis.core.config import load_config
+    from dodaios.core.config import load_config
 
     repo_root = Path(__file__).resolve().parents[3]
     cfg_path = repo_root / "jarvis.toml"
@@ -538,7 +538,7 @@ def test_live_toml_force_spawn_for_subagent_phrases(utterance: str) -> None:
 # force-spawn guard returned False whenever brain.primary was not in
 # {claude-api, gemini}. But the heavy worker is selected from
 # [brain.sub_jarvis].provider and runs INDEPENDENTLY of brain.primary
-# (jarvis/missions/init.py::_select_subagent_worker_kind). Coupling force-spawn
+# (dodaios/missions/init.py::_select_subagent_worker_kind). Coupling force-spawn
 # to the TALKER provider silenced every action request the moment the user
 # switched brain.primary to grok / openai / codex — re-introducing the
 # "Das kann ich nicht ausführen" refusal via the LLM fallback path.
@@ -553,7 +553,7 @@ def _manager_with_worker_provider(
 ) -> tuple[BrainManager, _RecordingExecutor]:
     """Manager with the talker (brain.primary) and the heavy-worker
     ([brain.worker].provider) providers set independently."""
-    from jarvis.core.config import BrainTierConfig
+    from dodaios.core.config import BrainTierConfig
 
     executor = _RecordingExecutor()
     config = JarvisConfig()
@@ -635,8 +635,8 @@ def test_open_app_intent_does_not_force_spawn_with_seeded_registry(
 ) -> None:
     """Defense-in-depth: even with a seeded registry (where a conjugated open
     verb resolves no capability), an open-app command must NOT force-spawn."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -671,8 +671,8 @@ def test_mcp_covered_request_does_not_force_spawn(utterance: str) -> None:
     verbs were extracted from the English tool description only, while the
     generic CLI verb "gucken" tripped ``has_action_intent`` — together the
     exact ``_is_generic_subagent_work`` spawn predicate."""
-    from jarvis.core.capabilities import Capability, get_registry
-    from jarvis.mcp.adapter import _objects_from_tool_name, _verbs_from_description
+    from dodaios.core.capabilities import Capability, get_registry
+    from dodaios.mcp.adapter import _objects_from_tool_name, _verbs_from_description
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -718,7 +718,7 @@ def test_cli_tools_in_router_tools() -> None:
     filters entry-points against ROUTER_TOOLS. Without this line the brain
     never sees any ``cli_<name>`` tool (the original root cause).
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "cli-tools" in ROUTER_TOOLS
 
@@ -733,7 +733,7 @@ def test_computer_use_in_router_tools() -> None:
     indirection was never described as desktop control, so the model refused or
     invented a tool for "öffne ein Terminal".
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "computer-use" in ROUTER_TOOLS
 
@@ -743,7 +743,7 @@ def test_gmail_and_vercel_native_tools_in_router_tools() -> None:
     router-visible directly — neither has a usable MCP server, so without this
     a connected Gmail/Vercel is not callable by voice/chat (the original bug
     this whole pairing effort fixed). Read-only/ask-gated, never a spawn."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "gmail" in ROUTER_TOOLS
     assert "vercel" in ROUTER_TOOLS
@@ -759,21 +759,21 @@ def test_navigate_in_router_tools() -> None:
     safe-gated action, never a spawn, so it never enters a worker tool-set
     (AP-5/AP-14). See ADR-0011 amendment "Navigate tool".
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "navigate" in ROUTER_TOOLS
 
 
 def test_plugin_tools_in_router_set():
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
     assert "plugin-tools" in ROUTER_TOOLS
 
 
 def test_plugin_tools_is_router_only_not_a_spawn():
     """plugin-tools is a direct safe-gated loader; it must never become a
     spawn-style tool in a worker set (AP-5/AP-14, D9 recursion guard)."""
-    import jarvis.brain.factory as factory_mod
-    from jarvis.brain.factory import ROUTER_TOOLS
+    import dodaios.brain.factory as factory_mod
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "plugin-tools" in ROUTER_TOOLS
     # Welle 4 deleted the Sub-Jarvis tier; no worker tool-set may resurrect.
@@ -790,7 +790,7 @@ def test_mcp_tools_in_router_tools() -> None:
     safe/risk-gated action, **never a spawn**, so it never enters a worker
     tool-set (AP-5/AP-14). See ADR-0011 amendment "MCP-Tools Virtual Loader".
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "mcp-tools" in ROUTER_TOOLS
 
@@ -798,8 +798,8 @@ def test_mcp_tools_in_router_tools() -> None:
 def test_mcp_tools_is_router_only_not_a_spawn() -> None:
     """mcp-tools is a direct safe-gated loader; it must never become a
     spawn-style tool in a worker set (AP-5/AP-14, D9 recursion guard)."""
-    import jarvis.brain.factory as factory_mod
-    from jarvis.brain.factory import ROUTER_TOOLS
+    import dodaios.brain.factory as factory_mod
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "mcp-tools" in ROUTER_TOOLS
     # Welle 4 deleted the Sub-Jarvis tier; no worker tool-set may resurrect.
@@ -817,7 +817,7 @@ def test_factory_wires_mcp_tool_into_router_set() -> None:
     brain. A missing entry-point, a missing ROUTER_TOOLS membership, or a broken
     loader would silently drop the tool here.
     """
-    from jarvis.core import capabilities, runtime_refs
+    from dodaios.core import capabilities, runtime_refs
 
     class _FakeSpec:
         name = "notebooklm-mcp"
@@ -834,7 +834,7 @@ def test_factory_wires_mcp_tool_into_router_set() -> None:
 
     runtime_refs.set_mcp_registry(_FakeRegistry())
     try:
-        from jarvis.brain.factory import _load_tools_for_tier
+        from dodaios.brain.factory import _load_tools_for_tier
 
         tools = _load_tools_for_tier(
             "router",
@@ -856,7 +856,7 @@ def test_factory_wires_mcp_tool_into_router_set() -> None:
 
 
 def test_router_prompt_mentions_plugin_inline_reads():
-    from jarvis.brain.router import SYSTEM_PROMPT
+    from dodaios.brain.router import SYSTEM_PROMPT
 
     low = SYSTEM_PROMPT.lower()
     assert "plugin" in low
@@ -902,7 +902,7 @@ def test_factory_wires_computer_use_tool_into_router_set() -> None:
     branch in ``_load_tools_for_tier`` (either would silently drop the tool from
     the router schema and re-introduce the refusal bug).
     """
-    from jarvis.brain.factory import _load_tools_for_tier
+    from dodaios.brain.factory import _load_tools_for_tier
 
     tools = _load_tools_for_tier(
         "router",
@@ -920,7 +920,7 @@ def test_factory_wires_computer_use_tool_into_router_set() -> None:
 
 def test_inspect_pointer_in_router_tools() -> None:
     """``inspect-pointer`` (AI Pointer pull path) must live in ROUTER_TOOLS."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "inspect-pointer" in ROUTER_TOOLS
 
@@ -931,7 +931,7 @@ def test_factory_wires_inspect_pointer_into_router_set() -> None:
     A missing entry-point or a stray construction branch would silently drop the
     AI-Pointer tool from the router schema.
     """
-    from jarvis.brain.factory import _load_tools_for_tier
+    from dodaios.brain.factory import _load_tools_for_tier
 
     tools = _load_tools_for_tier(
         "router",
@@ -952,7 +952,7 @@ def test_factory_wires_navigate_into_router_set() -> None:
     """End-to-end wiring for the navigate tool: entry-point + ROUTER_TOOLS +
     bus construction. A missing entry-point or construction branch would
     silently drop UI navigation from the router schema."""
-    from jarvis.brain.factory import _load_tools_for_tier
+    from dodaios.brain.factory import _load_tools_for_tier
 
     tools = _load_tools_for_tier(
         "router",
@@ -976,8 +976,8 @@ def test_factory_wires_registry_command_tools_into_router_set() -> None:
     tool failed live — the LLM called `provider-test` as a tool name). A
     missing entry-point line or a failing registry import would silently drop
     every command from the router schema."""
-    from jarvis.brain.factory import _load_tools_for_tier
-    from jarvis.commands.registry import get_registry
+    from dodaios.brain.factory import _load_tools_for_tier
+    from dodaios.commands.registry import get_registry
 
     tools = _load_tools_for_tier(
         "router",
@@ -1004,9 +1004,9 @@ def test_factory_native_tool_wins_registry_name_collision_in_any_entrypoint_orde
     """Native tools deterministically outrank same-named virtual commands."""
     import importlib.metadata
 
-    from jarvis.brain.factory import _load_tools_for_tier
-    from jarvis.plugins.tool.app_command import AppCommandTool
-    from jarvis.plugins.tool.wiki_ingest import WikiIngestTool
+    from dodaios.brain.factory import _load_tools_for_tier
+    from dodaios.plugins.tool.app_command import AppCommandTool
+    from dodaios.plugins.tool.wiki_ingest import WikiIngestTool
 
     class FakeEntryPoint:
         def __init__(self, name, target):
@@ -1044,7 +1044,7 @@ def test_factory_native_tool_wins_registry_name_collision_in_any_entrypoint_orde
 
 def test_inspect_pointer_is_not_a_spawn_in_local_action_set() -> None:
     """The AI-Pointer tool is a router-tier read, never in the worker fast-path."""
-    from jarvis.brain.factory import _load_local_action_tools
+    from dodaios.brain.factory import _load_local_action_tools
 
     local_tools = _load_local_action_tools(
         bus=EventBus(),
@@ -1062,7 +1062,7 @@ def test_computer_use_tool_is_not_a_spawn_in_local_action_set() -> None:
     deterministic, LLM-invisible path. computer-use is router-tier only; placing
     a router dispatch tool in the worker set risks D9 recursion (AP-5/AP-14).
     """
-    from jarvis.brain.factory import _load_local_action_tools
+    from dodaios.brain.factory import _load_local_action_tools
 
     local_tools = _load_local_action_tools(
         bus=EventBus(),
@@ -1075,7 +1075,7 @@ def test_computer_use_tool_is_not_a_spawn_in_local_action_set() -> None:
 
 def test_router_tools_stays_frozenset() -> None:
     """ROUTER_TOOLS must remain a frozenset (latency/immutability contract)."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert isinstance(ROUTER_TOOLS, frozenset)
 
@@ -1090,7 +1090,7 @@ def test_dispatch_to_harness_not_in_router_tools() -> None:
     work is ``computer-use``. The tool class still exists for the INTERNAL
     local-action fast path, but it must never be router-selectable again.
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "dispatch-to-harness" not in ROUTER_TOOLS
 
@@ -1129,7 +1129,7 @@ def test_no_spawn_tool_leaked_into_worker_set() -> None:
     loader (``cli-tools``) is a router-only virtual loader and must likewise
     never appear there.
     """
-    from jarvis.brain.factory import _load_local_action_tools
+    from dodaios.brain.factory import _load_local_action_tools
 
     cfg = JarvisConfig()
     local_tools = _load_local_action_tools(
@@ -1166,21 +1166,21 @@ def test_spawn_worker_in_router_tools() -> None:
     Mission-Manager-Ebene durchgesetzt (Worker hat keinen Spawn-Tool-
     Zugriff).
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "spawn-worker" in ROUTER_TOOLS
 
 
 def test_multi_spawn_not_in_router_tools() -> None:
     """The dead legacy fan-out tool must not compete with spawn-worker."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "multi-spawn" not in ROUTER_TOOLS
 
 
 def test_dispatch_with_review_not_in_router_tools() -> None:
     """Review belongs to the canonical Mission Manager lifecycle."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "dispatch-with-review" not in ROUTER_TOOLS
 
@@ -1250,8 +1250,8 @@ def test_opinion_advice_questions_do_not_force_spawn(utterance: str) -> None:
     verb (live bug 2026-06-19, emigration turn). Reproduces the real strict-mode
     path with a seeded registry, where has_action_intent fires and
     _is_generic_subagent_work would otherwise force-spawn."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -1291,7 +1291,7 @@ def test_opinion_advice_questions_do_not_force_spawn(utterance: str) -> None:
 )
 def test_opinion_advice_predicate_recognises_questions(utterance: str) -> None:
     """The predicate flags opinion/advice/decision questions across de/en/es."""
-    from jarvis.brain.manager import _is_opinion_advice_question
+    from dodaios.brain.manager import _is_opinion_advice_question
 
     assert _is_opinion_advice_question(utterance) is True, (
         f"opinion/advice question {utterance!r} not recognised"
@@ -1310,7 +1310,7 @@ def test_opinion_advice_predicate_recognises_questions(utterance: str) -> None:
 )
 def test_opinion_advice_predicate_ignores_commands(utterance: str) -> None:
     """Genuine action commands are NOT opinion questions — they still spawn."""
-    from jarvis.brain.manager import _is_opinion_advice_question
+    from dodaios.brain.manager import _is_opinion_advice_question
 
     assert _is_opinion_advice_question(utterance) is False, (
         f"action command {utterance!r} wrongly matched the opinion-question guard"
@@ -1334,8 +1334,8 @@ def test_question_form_never_reaches_generic_work_spawn(utterance: str) -> None:
     bug 2026-07-16, voice session 11:49: a plain knowledge question dispatched
     a full worker). Explicit triggers and artifact builds are checked before
     this stand-down and still spawn."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -1359,8 +1359,8 @@ def test_declarative_info_request_never_force_spawns() -> None:
     generic-work path spawned. Maintainer mandate from the same day: agents
     start ONLY on an explicit ask. Strict mode is now explicit-only, so this
     turn must stay inline; adding an explicit trigger must still spawn."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -1391,8 +1391,8 @@ def test_declarative_info_request_never_force_spawns() -> None:
 def test_explicit_trigger_question_still_spawns() -> None:
     """Naming the vehicle stays unambiguous even in question form — the AD-S9
     hoist runs BEFORE the question-form stand-down (user mandate 2026-06-15)."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -1423,8 +1423,8 @@ def test_filler_particle_halt_does_not_force_spawn(utterance: str) -> None:
     pure statement carrying it (and no real action verb) must NOT force-spawn a
     worker. Live bug 2026-06-19: 'halt' tripped has_action_intent ->
     _is_generic_subagent_work in the strict-mode force-spawn gate."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -1477,7 +1477,7 @@ def test_filler_particle_halt_does_not_force_spawn(utterance: str) -> None:
 def test_spawn_decline_predicate_recognises_declines(utterance: str) -> None:
     """The predicate flags explicit 'do not spawn / talk to me directly' across
     de/en/es so the negation-blind trigger hoist cannot override the user."""
-    from jarvis.brain.manager import _is_spawn_decline
+    from dodaios.brain.manager import _is_spawn_decline
 
     assert _is_spawn_decline(utterance) is True, (
         f"spawn decline {utterance!r} not recognised"
@@ -1504,7 +1504,7 @@ def test_spawn_decline_predicate_recognises_declines(utterance: str) -> None:
 def test_spawn_decline_predicate_ignores_requests(utterance: str) -> None:
     """A genuine spawn request (or a plain command) is NOT a decline — it must
     still be allowed to spawn."""
-    from jarvis.brain.manager import _is_spawn_decline
+    from dodaios.brain.manager import _is_spawn_decline
 
     assert _is_spawn_decline(utterance) is False, (
         f"spawn request {utterance!r} wrongly matched the decline guard"
@@ -1524,8 +1524,8 @@ def test_spawn_decline_overrides_explicit_trigger_hoist(utterance: str) -> None:
     """A turn that NAMES the vehicle ('Subagent'/'spawn') but NEGATES it must
     NOT force-spawn — the decline guard overrides the explicit-trigger hoist.
     Reproduces the live strict-mode path with a seeded registry."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -1545,9 +1545,9 @@ def test_explicit_trigger_with_coaching_framing_still_spawns() -> None:
     NAMES the vehicle ('Spawne einen Subagenten') AND carries a coaching framing
     still force-spawns as asked — the user's explicit request wins. Pins the
     ordering invariant (review MINOR-3)."""
-    from jarvis.brain.manager import _is_spawn_decline
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.brain.manager import _is_spawn_decline
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     utterance = "Spawne einen Subagenten, der mir hilft, besser zu fragen."
     assert _is_spawn_decline(utterance) is False, (
@@ -1602,7 +1602,7 @@ def test_explicit_trigger_with_coaching_framing_still_spawns() -> None:
 def test_conversational_coaching_predicate_recognises(utterance: str) -> None:
     """The predicate flags 'help me get better at a conversational / cognitive
     skill' coaching requests across de/en."""
-    from jarvis.brain.manager import _is_conversational_coaching
+    from dodaios.brain.manager import _is_conversational_coaching
 
     assert _is_conversational_coaching(utterance) is True, (
         f"coaching request {utterance!r} not recognised"
@@ -1622,7 +1622,7 @@ def test_conversational_coaching_predicate_recognises(utterance: str) -> None:
 def test_conversational_coaching_predicate_ignores_real_work(utterance: str) -> None:
     """A 'help me' request whose object is a concrete artifact / action is real
     work — it must NOT match the coaching guard."""
-    from jarvis.brain.manager import _is_conversational_coaching
+    from dodaios.brain.manager import _is_conversational_coaching
 
     assert _is_conversational_coaching(utterance) is False, (
         f"real-work request {utterance!r} wrongly matched the coaching guard"
@@ -1642,8 +1642,8 @@ def test_conversational_coaching_does_not_force_spawn(utterance: str) -> None:
     """Conversational coaching is talk, not work — answered inline even when the
     coaching object collides with an action verb ('fragen' -> 'frag'/'frage').
     Reproduces the real strict-mode path with a seeded registry."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     snapshot = dict(reg._caps)  # noqa: SLF001 — test fixture state restore
@@ -1782,7 +1782,7 @@ async def test_local_computer_use_respects_cost_cooldown(wired_computer_use) -> 
 
 def test_factory_local_action_tools_include_scripted_primitives() -> None:
     """Factory must load every tool name emitted by scripted local plans."""
-    from jarvis.brain.factory import _load_local_action_tools
+    from dodaios.brain.factory import _load_local_action_tools
 
     cfg = JarvisConfig()
     tools = _load_local_action_tools(
@@ -1832,7 +1832,7 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
     spawn action. Every extension requires an ADR-0011 amendment plus updates
     to this exact-set guard and ``test_recursive_tools_only_in_router``.
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     expected = frozenset(
         {
@@ -1992,7 +1992,7 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # ambient. The tool is removed from the surface on every turn whose
             # utterance does not explicitly ask for an artifact
             # (BrainManager._hide_artifact_tool_without_request over
-            # jarvis/brain/artifact_gate.py), because the mandate is that an
+            # dodaios/brain/artifact_gate.py), because the mandate is that an
             # artifact is asked for, never volunteered.
             "create-artifact",
             # Agent society voice tools (2026-09-02): ONE typed ASSIGN to a
@@ -2026,7 +2026,7 @@ def test_society_voice_tools_in_router_tools() -> None:
     """``delegate-to-agent`` and ``society-status`` must live in ROUTER_TOOLS
     (2026-09-02): the router reaches the agent society only through these
     two names. Neither spawns - the society scheduler owns dispatch."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "delegate-to-agent" in ROUTER_TOOLS
     assert "society-status" in ROUTER_TOOLS
@@ -2042,7 +2042,7 @@ def test_search_web_in_router_tools() -> None:
     over-spawning the user reported. See ADR-0011 amendment "Inline web
     search".
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "search-web" in ROUTER_TOOLS
 
@@ -2057,7 +2057,7 @@ def test_update_profile_in_router_tools() -> None:
     entry-point in the frozenset the loader drops the tool and the brain has no
     way to persist a stated personal fact (the matrix re-freezes).
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "update-profile" in ROUTER_TOOLS
 
@@ -2070,14 +2070,14 @@ def test_gmail_marketplace_tool_in_router_tools() -> None:
     active voice brain drops the tool while the Plugins UI shows Gmail
     connected.
     """
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "gmail" in ROUTER_TOOLS
 
 
 def test_factory_wires_gmail_tool_into_router_set() -> None:
     """End-to-end wiring: entry-point + ROUTER_TOOLS expose ``gmail``."""
-    from jarvis.brain.factory import _load_tools_for_tier
+    from dodaios.brain.factory import _load_tools_for_tier
 
     tools = _load_tools_for_tier(
         "router",
@@ -2101,7 +2101,7 @@ def test_factory_wires_update_profile_tool_into_router_set() -> None:
     missing construction branch in ``_load_tools_for_tier`` — either would
     silently drop the tool and re-introduce the frozen-matrix bug.
     """
-    from jarvis.brain.factory import _load_tools_for_tier
+    from dodaios.brain.factory import _load_tools_for_tier
 
     tools = _load_tools_for_tier(
         "router",
@@ -2242,7 +2242,7 @@ def test_whisper_fp_buckets_are_disjoint() -> None:
     """Compile-time invariant: every seed lives in exactly one bucket.
     The module-level assert catches duplicates at import; this test
     locks it for the test runner."""
-    from jarvis.brain.manager import (
+    from dodaios.brain.manager import (
         _WHISPER_FP_EXACT_ONLY,
         _WHISPER_FP_PREFIX_OK,
     )
@@ -2255,7 +2255,7 @@ def test_whisper_fp_combined_union_matches_legacy_alias() -> None:
     """The legacy `_WHISPER_FALSE_POSITIVE_SEEDS` alias must equal the
     union of both buckets so external introspection (telemetry, eval)
     sees the complete catalogue."""
-    from jarvis.brain.manager import (
+    from dodaios.brain.manager import (
         _WHISPER_FALSE_POSITIVE_SEEDS,
         _WHISPER_FP_EXACT_ONLY,
         _WHISPER_FP_PREFIX_OK,
@@ -2282,7 +2282,7 @@ def test_check_unsupported_intent_returns_none_when_module_absent(monkeypatch) -
     real_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name == "jarvis.core.capabilities" or name.startswith("jarvis.core.capabilities."):
+        if name == "dodaios.core.capabilities" or name.startswith("dodaios.core.capabilities."):
             raise ImportError("simulated: capabilities module not deployed")
         return real_import(name, *args, **kwargs)
 
@@ -2312,11 +2312,11 @@ def test_check_unsupported_intent_returns_none_for_smalltalk() -> None:
         resolve_intent=lambda _t: None,
         render_for_prompt=lambda lang="de": "",
     )
-    mock_module = types.ModuleType("jarvis.core.capabilities")
+    mock_module = types.ModuleType("dodaios.core.capabilities")
     mock_module.get_registry = lambda: mock_reg  # type: ignore[attr-defined]
 
-    original = sys.modules.get("jarvis.core.capabilities")
-    sys.modules["jarvis.core.capabilities"] = mock_module
+    original = sys.modules.get("dodaios.core.capabilities")
+    sys.modules["dodaios.core.capabilities"] = mock_module
     try:
         manager, _executor = _manager_with_spawn()
         # These are clearly smalltalk — must not trigger refusal.
@@ -2327,9 +2327,9 @@ def test_check_unsupported_intent_returns_none_for_smalltalk() -> None:
             )
     finally:
         if original is not None:
-            sys.modules["jarvis.core.capabilities"] = original
+            sys.modules["dodaios.core.capabilities"] = original
         else:
-            sys.modules.pop("jarvis.core.capabilities", None)
+            sys.modules.pop("dodaios.core.capabilities", None)
 
 
 def test_check_unsupported_intent_fires_for_unregistered_action() -> None:
@@ -2347,9 +2347,9 @@ def test_check_unsupported_intent_fires_for_unregistered_action() -> None:
         resolve_intent=lambda _t: None,
         render_for_prompt=lambda lang="de": "",
     )
-    original = sys.modules.get("jarvis.core.capabilities")
+    original = sys.modules.get("dodaios.core.capabilities")
     # Delegating mock, not a bare ModuleType — see _capabilities_mock_module.
-    sys.modules["jarvis.core.capabilities"] = _capabilities_mock_module(mock_reg)
+    sys.modules["dodaios.core.capabilities"] = _capabilities_mock_module(mock_reg)
     try:
         manager, _executor = _manager_with_spawn()
         result = manager._check_unsupported_intent(
@@ -2365,9 +2365,9 @@ def test_check_unsupported_intent_fires_for_unregistered_action() -> None:
         )
     finally:
         if original is not None:
-            sys.modules["jarvis.core.capabilities"] = original
+            sys.modules["dodaios.core.capabilities"] = original
         else:
-            sys.modules.pop("jarvis.core.capabilities", None)
+            sys.modules.pop("dodaios.core.capabilities", None)
 
 
 def test_check_unsupported_intent_passes_through_when_capability_resolves() -> None:
@@ -2383,20 +2383,20 @@ def test_check_unsupported_intent_passes_through_when_capability_resolves() -> N
         resolve_intent=lambda _t: fake_capability,
         render_for_prompt=lambda lang="de": "- tool.open-app: opens an application",
     )
-    mock_module = types.ModuleType("jarvis.core.capabilities")
+    mock_module = types.ModuleType("dodaios.core.capabilities")
     mock_module.get_registry = lambda: mock_reg  # type: ignore[attr-defined]
 
-    original = sys.modules.get("jarvis.core.capabilities")
-    sys.modules["jarvis.core.capabilities"] = mock_module
+    original = sys.modules.get("dodaios.core.capabilities")
+    sys.modules["dodaios.core.capabilities"] = mock_module
     try:
         manager, _executor = _manager_with_spawn()
         result = manager._check_unsupported_intent("Öffne Chrome")
         assert result is None, "_check_unsupported_intent must return None when capability resolves"
     finally:
         if original is not None:
-            sys.modules["jarvis.core.capabilities"] = original
+            sys.modules["dodaios.core.capabilities"] = original
         else:
-            sys.modules.pop("jarvis.core.capabilities", None)
+            sys.modules.pop("dodaios.core.capabilities", None)
 
 
 def test_check_unsupported_intent_returns_none_when_registry_empty() -> None:
@@ -2423,11 +2423,11 @@ def test_check_unsupported_intent_returns_none_when_registry_empty() -> None:
         resolve_intent=lambda _t: None,
         render_for_prompt=lambda lang="de": "",
     )
-    mock_module = types.ModuleType("jarvis.core.capabilities")
+    mock_module = types.ModuleType("dodaios.core.capabilities")
     mock_module.get_registry = lambda: mock_reg  # type: ignore[attr-defined]
 
-    original = sys.modules.get("jarvis.core.capabilities")
-    sys.modules["jarvis.core.capabilities"] = mock_module
+    original = sys.modules.get("dodaios.core.capabilities")
+    sys.modules["dodaios.core.capabilities"] = mock_module
     try:
         manager, _executor = _manager_with_spawn()
         result = manager._check_unsupported_intent(
@@ -2439,9 +2439,9 @@ def test_check_unsupported_intent_returns_none_when_registry_empty() -> None:
         )
     finally:
         if original is not None:
-            sys.modules["jarvis.core.capabilities"] = original
+            sys.modules["dodaios.core.capabilities"] = original
         else:
-            sys.modules.pop("jarvis.core.capabilities", None)
+            sys.modules.pop("dodaios.core.capabilities", None)
 
 
 # ---------------------------------------------------------------------------
@@ -2459,13 +2459,13 @@ def test_check_unsupported_intent_returns_none_when_registry_empty() -> None:
 
 
 def _capabilities_mock_module(mock_reg):
-    """A ``jarvis.core.capabilities`` stand-in that overrides ONLY
+    """A ``dodaios.core.capabilities`` stand-in that overrides ONLY
     ``get_registry`` and delegates every other attribute to the real module.
 
     A bare ``ModuleType`` shadows the real module completely, so the first
     LAZY importer of anything else from it fails inside the code under test:
-    ``_check_unsupported_intent`` imports ``jarvis.brain.evidence_gate``, whose
-    module body does ``from jarvis.core.capabilities import _normalize``. Under
+    ``_check_unsupported_intent`` imports ``dodaios.brain.evidence_gate``, whose
+    module body does ``from dodaios.core.capabilities import _normalize``. Under
     a bare mock that raises ImportError, which the method's broad ``except``
     turns into ``return None`` — every refusal silently became "supported" and
     the guard tests failed with no visible reason. Whether it fired at all
@@ -2475,8 +2475,8 @@ def _capabilities_mock_module(mock_reg):
     import importlib
     import types
 
-    real = importlib.import_module("jarvis.core.capabilities")
-    module = types.ModuleType("jarvis.core.capabilities")
+    real = importlib.import_module("dodaios.core.capabilities")
+    module = types.ModuleType("dodaios.core.capabilities")
     module.get_registry = lambda: mock_reg  # type: ignore[attr-defined]
     # PEP 562: only consulted for attributes the mock does not define itself.
     module.__getattr__ = lambda name: getattr(real, name)  # type: ignore[attr-defined]
@@ -2501,7 +2501,7 @@ def _strict_manager_with_mock_registry(
         resolve_intent=lambda _t: (object() if resolves else None),
         render_for_prompt=lambda lang="de": "",
     )
-    sys.modules["jarvis.core.capabilities"] = _capabilities_mock_module(mock_reg)
+    sys.modules["dodaios.core.capabilities"] = _capabilities_mock_module(mock_reg)
     manager, _executor = _manager_with_spawn(force_spawn_mode="strict")
     return manager
 
@@ -2510,11 +2510,11 @@ def test_generic_work_stays_inline_in_strict_mode() -> None:
     """A generic work task (build/analyse/fix) WITHOUT an explicit delegation
     trigger must NOT force-spawn in STRICT mode (maintainer mandate 2026-07-21:
     agents start only on an explicit ask — the router LLM answers inline or
-    OFFERS delegation via jarvis.brain.spawn_gate). Reverses the 2026-06-01
+    OFFERS delegation via dodaios.brain.spawn_gate). Reverses the 2026-06-01
     native-spawn contract; note "analysier"/"fix"/"implementier" still spawn
     the moment the user adds a vehicle/trigger word ("spawn", "Subagent",
     "deep dive", the depth markers, …)."""
-    original = __import__("sys").modules.get("jarvis.core.capabilities")
+    original = __import__("sys").modules.get("dodaios.core.capabilities")
     try:
         manager = _strict_manager_with_mock_registry()
         for utterance in (
@@ -2528,15 +2528,15 @@ def test_generic_work_stays_inline_in_strict_mode() -> None:
             )
     finally:
         if original is not None:
-            __import__("sys").modules["jarvis.core.capabilities"] = original
+            __import__("sys").modules["dodaios.core.capabilities"] = original
         else:
-            __import__("sys").modules.pop("jarvis.core.capabilities", None)
+            __import__("sys").modules.pop("dodaios.core.capabilities", None)
 
 
 def test_generic_work_not_refused_as_unsupported() -> None:
     """The same generic work task must NOT be refused with 'kann ich noch
     nicht' — the sub-agent is its universal capability."""
-    original = __import__("sys").modules.get("jarvis.core.capabilities")
+    original = __import__("sys").modules.get("dodaios.core.capabilities")
     try:
         manager = _strict_manager_with_mock_registry()
         result = manager._check_unsupported_intent(
@@ -2547,16 +2547,16 @@ def test_generic_work_not_refused_as_unsupported() -> None:
         )
     finally:
         if original is not None:
-            __import__("sys").modules["jarvis.core.capabilities"] = original
+            __import__("sys").modules["dodaios.core.capabilities"] = original
         else:
-            __import__("sys").modules.pop("jarvis.core.capabilities", None)
+            __import__("sys").modules.pop("dodaios.core.capabilities", None)
 
 
 def test_external_integration_without_capability_stays_unsupported() -> None:
     """A SPECIFIC external integration (email/calendar/spotify) with no
     registered capability must STILL be refused and must NOT spawn — a generic
     worker cannot fulfil it. Preserves the anti-hallucination contract."""
-    original = __import__("sys").modules.get("jarvis.core.capabilities")
+    original = __import__("sys").modules.get("dodaios.core.capabilities")
     try:
         manager = _strict_manager_with_mock_registry()
         for utterance in (
@@ -2572,9 +2572,9 @@ def test_external_integration_without_capability_stays_unsupported() -> None:
             )
     finally:
         if original is not None:
-            __import__("sys").modules["jarvis.core.capabilities"] = original
+            __import__("sys").modules["dodaios.core.capabilities"] = original
         else:
-            __import__("sys").modules.pop("jarvis.core.capabilities", None)
+            __import__("sys").modules.pop("dodaios.core.capabilities", None)
 
 
 def test_coding_task_mentioning_integration_is_not_refused() -> None:
@@ -2585,7 +2585,7 @@ def test_coding_task_mentioning_integration_is_not_refused() -> None:
     (code-review MAJOR, 2026-06-01). Since 2026-07-21 it no longer FORCE-spawns
     either (strict mode is explicit-only) — the router LLM handles it inline or
     offers delegation."""
-    original = __import__("sys").modules.get("jarvis.core.capabilities")
+    original = __import__("sys").modules.get("dodaios.core.capabilities")
     try:
         manager = _strict_manager_with_mock_registry()
         for utterance in (
@@ -2603,16 +2603,16 @@ def test_coding_task_mentioning_integration_is_not_refused() -> None:
             )
     finally:
         if original is not None:
-            __import__("sys").modules["jarvis.core.capabilities"] = original
+            __import__("sys").modules["dodaios.core.capabilities"] = original
         else:
-            __import__("sys").modules.pop("jarvis.core.capabilities", None)
+            __import__("sys").modules.pop("dodaios.core.capabilities", None)
 
 
 def test_is_generic_subagent_work_false_on_empty_registry() -> None:
     """An empty/unseeded registry must NOT let _is_generic_subagent_work spawn —
     otherwise a boot before seed_registry() would spawn-storm (mirrors the
     _check_unsupported_intent empty-registry guard)."""
-    original = __import__("sys").modules.get("jarvis.core.capabilities")
+    original = __import__("sys").modules.get("dodaios.core.capabilities")
     try:
         manager = _strict_manager_with_mock_registry(populated=False)
         assert not manager._is_generic_subagent_work("baue mir ein Skript"), (
@@ -2620,9 +2620,9 @@ def test_is_generic_subagent_work_false_on_empty_registry() -> None:
         )
     finally:
         if original is not None:
-            __import__("sys").modules["jarvis.core.capabilities"] = original
+            __import__("sys").modules["dodaios.core.capabilities"] = original
         else:
-            __import__("sys").modules.pop("jarvis.core.capabilities", None)
+            __import__("sys").modules.pop("dodaios.core.capabilities", None)
 
 
 def test_github_work_is_not_treated_as_external_integration() -> None:
@@ -2630,7 +2630,7 @@ def test_github_work_is_not_treated_as_external_integration() -> None:
     'commit and push' / 'open a PR' task must never be refused. Since
     2026-07-21 it no longer FORCE-spawns without an explicit delegation trigger
     (strict mode is explicit-only)."""
-    original = __import__("sys").modules.get("jarvis.core.capabilities")
+    original = __import__("sys").modules.get("dodaios.core.capabilities")
     try:
         manager = _strict_manager_with_mock_registry()
         utterance = "committe die Aenderungen und mach einen GitHub Pull Request"
@@ -2638,9 +2638,9 @@ def test_github_work_is_not_treated_as_external_integration() -> None:
         assert not manager._should_force_spawn(utterance)
     finally:
         if original is not None:
-            __import__("sys").modules["jarvis.core.capabilities"] = original
+            __import__("sys").modules["dodaios.core.capabilities"] = original
         else:
-            __import__("sys").modules.pop("jarvis.core.capabilities", None)
+            __import__("sys").modules.pop("dodaios.core.capabilities", None)
 
 
 class _FakeProfileForPrompt:
@@ -2797,8 +2797,8 @@ def test_system_prompt_always_contains_tool_routing_rules() -> None:
     registry on every brain build), so they never shipped. They are
     unconditional now — including with a fully populated registry.
     """
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     seed_registry(get_registry())
     manager, _executor = _manager_with_spawn()
@@ -2814,7 +2814,7 @@ def test_delegated_voice_budget_survives_a_multi_step_task() -> None:
     The bounds stay ceilings — this pins that they are large enough for a
     genuinely progressing turn and small enough to still end a runaway one.
     """
-    from jarvis.brain.manager import _DELEGATE_DEADLINE_S, _DELEGATE_MAX_TURNS
+    from dodaios.brain.manager import _DELEGATE_DEADLINE_S, _DELEGATE_MAX_TURNS
 
     assert _DELEGATE_MAX_TURNS >= 12
     assert 30.0 <= _DELEGATE_DEADLINE_S <= 60.0
@@ -2835,7 +2835,7 @@ def test_ack_brain_persona_de_forbids_action_promise_phrases(
 ) -> None:
     """PERSONA_PROMPT_DE must explicitly list each action-promise phrase as
     forbidden so the ack-brain cannot emit fake confirmations."""
-    from jarvis.brain.ack_brain.persona_prompt import PERSONA_PROMPT_DE
+    from dodaios.brain.ack_brain.persona_prompt import PERSONA_PROMPT_DE
 
     assert forbidden_phrase in PERSONA_PROMPT_DE, (
         f"PERSONA_PROMPT_DE must list forbidden action-promise phrase: {forbidden_phrase!r}"
@@ -2856,7 +2856,7 @@ def test_ack_brain_persona_en_forbids_action_promise_phrases(
 ) -> None:
     """PERSONA_PROMPT_EN must explicitly list each action-promise phrase as
     forbidden so the ack-brain cannot emit fake confirmations."""
-    from jarvis.brain.ack_brain.persona_prompt import PERSONA_PROMPT_EN
+    from dodaios.brain.ack_brain.persona_prompt import PERSONA_PROMPT_EN
 
     assert forbidden_phrase in PERSONA_PROMPT_EN, (
         f"PERSONA_PROMPT_EN must list forbidden action-promise phrase: {forbidden_phrase!r}"
@@ -2879,7 +2879,7 @@ def test_contact_tools_in_router_tools() -> None:
     """The three contact tools must live in ROUTER_TOOLS — the loader filters
     entry-points against this frozenset, so a missing entry silently drops the
     tool from the router schema."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "contact-lookup" in ROUTER_TOOLS
     assert "contact-upsert" in ROUTER_TOOLS
@@ -2890,7 +2890,7 @@ def test_contact_tools_not_in_local_action_set() -> None:
     """Contact tools are router-tier reads/writes/actions, never in the
     deterministic local-action worker fast-path (D9 recursion guard,
     AP-5/AP-14)."""
-    from jarvis.brain.factory import _load_local_action_tools
+    from dodaios.brain.factory import _load_local_action_tools
 
     local_tools = _load_local_action_tools(
         bus=EventBus(),
@@ -2906,7 +2906,7 @@ def test_factory_wires_contact_tools_into_router_set() -> None:
     branch connect, with the contracted risk tiers. A missing entry-point
     registration (pip install -e .) or construction branch would silently drop
     the tool from the router schema."""
-    from jarvis.brain.factory import _load_tools_for_tier
+    from dodaios.brain.factory import _load_tools_for_tier
 
     tools = _load_tools_for_tier(
         "router",
@@ -2930,8 +2930,8 @@ def test_capability_seed_registers_contact_capabilities() -> None:
     """The contact tools must be registered as capabilities so the gate routes
     a named-person action to them instead of refusing/spawning. resolve_intent
     must map a call/mail/save-by-name utterance to the contact surface."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     seed_registry(reg)
@@ -2947,8 +2947,8 @@ def test_contact_capabilities_do_not_resolve_external_hard_negatives() -> None:
     """Adding contact capabilities must NOT make the canonical hard-negatives
     resolve — they must stay UNSUPPORTED (resolve_intent None) so the
     anti-hallucination contract (test_capability_coupling_e2e) is preserved."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     seed_registry(reg)
@@ -2975,8 +2975,8 @@ def test_contact_capabilities_do_not_resolve_external_hard_negatives() -> None:
 def _strict_manager_with_seeded_registry() -> BrainManager:
     """A strict-mode manager (production default) over the REAL seeded
     registry — exactly the production gate path for these utterances."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     seed_registry(get_registry())
     manager, _executor = _manager_with_spawn(force_spawn_mode="strict")
@@ -3032,8 +3032,8 @@ def test_call_by_name_resolves_to_call_contact_capability(utterance: str) -> Non
     """The call-by-name surface resolves to the call-contact capability (not a
     generic worker), which is exactly what flips _is_generic_subagent_work from
     spawn to no-spawn."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     reg = get_registry()
     seed_registry(reg)
@@ -3130,8 +3130,8 @@ def _seeded_strict_manager_with_local_actions() -> tuple[BrainManager, _Recordin
     """Strict-mode manager over the REAL seeded registry, with spawn_worker AND
     the local-action tools wired — the exact production gate path for the
     end-to-end ``generate()`` mandate tests."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     seed_registry(get_registry())
     executor = _RecordingExecutor()
@@ -3187,8 +3187,8 @@ async def test_explicit_subagent_outranks_navigation_fast_path() -> None:
     subagent trigger ('Spawne einen Subagenten UND zeig mir die Socials') must
     dispatch spawn_worker — the deterministic navigation fast-path must stand
     down for an explicit trigger (mirrors AD-S9: the named vehicle wins)."""
-    from jarvis.core.capabilities import get_registry
-    from jarvis.core.capabilities_seed import seed_registry
+    from dodaios.core.capabilities import get_registry
+    from dodaios.core.capabilities_seed import seed_registry
 
     seed_registry(get_registry())
     executor = _RecordingExecutor()
@@ -3237,7 +3237,7 @@ def test_heavy_research_never_force_spawns_without_explicit_trigger() -> None:
     markers, …). Supersedes Option A (2026-06-15), which offloaded
     artifact-building research implicitly. The classifiers themselves stay
     intact (pinned here) — the router LLM uses the inline path or OFFERS
-    delegation via jarvis.brain.spawn_gate."""
+    delegation via dodaios.brain.spawn_gate."""
     manager, _ = _manager_with_spawn(force_spawn_mode="strict")
     # Answer-only heavy research -> INLINE (unchanged since Option A).
     answer_only = _HEAVY_RESEARCH_SHOULD_SPAWN[0]
@@ -3330,7 +3330,7 @@ MISSION_INJECT_SOURCE = MISSION_INJECT_SOURCE_LAYER
 def test_mission_inject_source_layer_parity() -> None:
     """Anti-drift: the producer's source_layer must be in the router's exempt
     set, else a recap silently force-spawns again (multi-layer string drift)."""
-    from jarvis.brain.manager import _NON_SPAWN_SOURCE_LAYERS
+    from dodaios.brain.manager import _NON_SPAWN_SOURCE_LAYERS
 
     assert MISSION_INJECT_SOURCE_LAYER in _NON_SPAWN_SOURCE_LAYERS
 
@@ -3339,8 +3339,8 @@ def test_drop_source_layer_parity() -> None:
     """Anti-drift: a dropped file/content directive (ui.drop) must be exempt
     from force-spawn — it is reacted to inline, never auto-dispatched as a
     worker (parity with mission_inject; AP-5/AP-14, anti-doom-loop)."""
-    from jarvis.brain.drop_context import DROP_SOURCE_LAYER
-    from jarvis.brain.manager import _NON_SPAWN_SOURCE_LAYERS
+    from dodaios.brain.drop_context import DROP_SOURCE_LAYER
+    from dodaios.brain.manager import _NON_SPAWN_SOURCE_LAYERS
 
     assert DROP_SOURCE_LAYER in _NON_SPAWN_SOURCE_LAYERS
 
@@ -3348,7 +3348,7 @@ def test_drop_source_layer_parity() -> None:
 def test_dropped_file_directive_is_never_force_spawned() -> None:
     """A drop directive carrying an action verb must still be discussed inline
     when stamped with the ui.drop source marker."""
-    from jarvis.brain.drop_context import DROP_SOURCE_LAYER
+    from dodaios.brain.drop_context import DROP_SOURCE_LAYER
 
     manager, _ = _manager_with_spawn(force_spawn_mode="permissive")
     directive = "Open this file and fix the bug you find in it."
@@ -3363,7 +3363,7 @@ def test_dropped_file_directive_is_never_force_spawned() -> None:
 
 def test_dropped_mission_recap_is_never_force_spawned() -> None:
     """A mission.inject recap directive must not trip the force-spawn heuristic."""
-    from jarvis.ui.web.mission_inject import compose_mission_inject_text
+    from dodaios.ui.web.mission_inject import compose_mission_inject_text
 
     manager, _ = _manager_with_spawn()
     # A dropped card whose own text carries a spawn trigger — the verbatim title
@@ -3390,7 +3390,7 @@ def test_dropped_mission_recap_is_never_force_spawned() -> None:
 @pytest.mark.asyncio
 async def test_force_spawn_worker_skips_dropped_mission_recap() -> None:
     """The deterministic dispatch path must not spawn a worker for a recap."""
-    from jarvis.ui.web.mission_inject import compose_mission_inject_text
+    from dodaios.ui.web.mission_inject import compose_mission_inject_text
 
     manager, executor = _manager_with_spawn()
     recap = compose_mission_inject_text(
@@ -3742,7 +3742,7 @@ def _manager_with_ide_tools() -> BrainManager:
 
 
 def test_no_workspace_hides_pane_tools_keeps_status_and_resume(monkeypatch) -> None:
-    import jarvis.agentic_ide.session as ide_session
+    import dodaios.agentic_ide.session as ide_session
 
     class _NoWorkspaceRegistry:
         session = None
@@ -3759,7 +3759,7 @@ def test_no_workspace_hides_pane_tools_keeps_status_and_resume(monkeypatch) -> N
 
 
 def test_open_workspace_keeps_every_pane_tool(monkeypatch) -> None:
-    import jarvis.agentic_ide.session as ide_session
+    import dodaios.agentic_ide.session as ide_session
 
     class _OpenWorkspaceRegistry:
         session = object()
@@ -3805,7 +3805,7 @@ def _unresolving_registry_module():
         resolve_intent=lambda _t: None,
         render_for_prompt=lambda lang="de": "",
     )
-    module = types.ModuleType("jarvis.core.capabilities")
+    module = types.ModuleType("dodaios.core.capabilities")
     module.get_registry = lambda: mock_reg  # type: ignore[attr-defined]
     return module
 
@@ -3814,8 +3814,8 @@ def test_unsupported_refusal_fires_when_no_tool_covers_the_request() -> None:
     """Nothing on the surface serves mail — the honest refusal is correct."""
     import sys
 
-    original = sys.modules.get("jarvis.core.capabilities")
-    sys.modules["jarvis.core.capabilities"] = _unresolving_registry_module()
+    original = sys.modules.get("dodaios.core.capabilities")
+    sys.modules["dodaios.core.capabilities"] = _unresolving_registry_module()
     try:
         manager, _executor = _manager_with_spawn()
         result = manager._check_unsupported_intent(
@@ -3824,9 +3824,9 @@ def test_unsupported_refusal_fires_when_no_tool_covers_the_request() -> None:
         assert result is not None and "kann ich noch nicht" in result
     finally:
         if original is not None:
-            sys.modules["jarvis.core.capabilities"] = original
+            sys.modules["dodaios.core.capabilities"] = original
         else:
-            sys.modules.pop("jarvis.core.capabilities", None)
+            sys.modules.pop("dodaios.core.capabilities", None)
 
 
 def test_unsupported_refusal_stands_down_for_a_freshly_connected_tool() -> None:
@@ -3839,8 +3839,8 @@ def test_unsupported_refusal_stands_down_for_a_freshly_connected_tool() -> None:
     """
     import sys
 
-    original = sys.modules.get("jarvis.core.capabilities")
-    sys.modules["jarvis.core.capabilities"] = _unresolving_registry_module()
+    original = sys.modules.get("dodaios.core.capabilities")
+    sys.modules["dodaios.core.capabilities"] = _unresolving_registry_module()
     try:
         manager, _executor = _manager_with_spawn()
         utterance = "Schick bitte eine E-Mail an Beispielkontakt"
@@ -3854,9 +3854,9 @@ def test_unsupported_refusal_stands_down_for_a_freshly_connected_tool() -> None:
         )
     finally:
         if original is not None:
-            sys.modules["jarvis.core.capabilities"] = original
+            sys.modules["dodaios.core.capabilities"] = original
         else:
-            sys.modules.pop("jarvis.core.capabilities", None)
+            sys.modules.pop("dodaios.core.capabilities", None)
 
 
 def test_live_tool_names_reads_both_surfaces_fresh() -> None:
@@ -3873,8 +3873,8 @@ def test_live_tool_names_reads_both_surfaces_fresh() -> None:
 
 
 def test_internal_message_tool_is_router_only():
-    from jarvis.brain.factory import ROUTER_TOOLS
-    from jarvis.society.capabilities import NEVER_GRANTED
+    from dodaios.brain.factory import ROUTER_TOOLS
+    from dodaios.society.capabilities import NEVER_GRANTED
 
     assert "message-agent" in ROUTER_TOOLS
     assert "message_agent" in NEVER_GRANTED
