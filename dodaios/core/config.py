@@ -4671,6 +4671,38 @@ class VoiceEngineConfig(BaseModel):
         return cleaned or ["de", "en"]
 
 
+class SelfBuildConfig(BaseModel):
+    """``[self_build]`` — the self-building loop (docs/self-build.md).
+
+    Dodaios notices what the person keeps doing and builds what would take it
+    off them: a memory, a skill, a routine, an agent or a code change. Each
+    kind has its own autonomy level: ``off``, ``suggest`` (a card, nothing is
+    built before the person accepts), ``trial`` (built, checked and live with
+    one-click undo) or ``full`` (as trial, and the trial ends by measure).
+    Every key is read by ``dodaios.self_build.policy`` (AP-31).
+    """
+
+    model_config = {"extra": "allow"}
+
+    enabled: bool = True
+    #: The first days after the loop first ran only record build cases.
+    silent_days: int = Field(default=7, ge=0, le=90)
+    memory: Literal["off", "suggest", "trial", "full"] = "trial"
+    skill: Literal["off", "suggest", "trial", "full"] = "suggest"
+    routine: Literal["off", "suggest", "trial", "full"] = "suggest"
+    agent: Literal["off", "suggest", "trial", "full"] = "suggest"
+    code: Literal["off", "suggest", "trial", "full"] = "suggest"
+    #: A trial ends after this many days or this many uses, whichever is first.
+    trial_days: int = Field(default=14, ge=1, le=90)
+    trial_uses: int = Field(default=10, ge=1, le=1_000)
+    max_builds_per_day: int = Field(default=3, ge=0, le=50)
+    max_agents_per_week: int = Field(default=1, ge=0, le=10)
+    max_open_trials: int = Field(default=5, ge=0, le=50)
+    max_code_runs_per_day: int = Field(default=1, ge=0, le=20)
+    #: A need the person rejected or undid this often is not offered again.
+    max_rejections: int = Field(default=2, ge=1, le=20)
+
+
 class JarvisConfig(BaseModel):
     """Root config model."""
 
@@ -4690,6 +4722,7 @@ class JarvisConfig(BaseModel):
     # Google key routing (AI Studio vs Vertex express) — see GoogleAuthConfig.
     google: GoogleAuthConfig = Field(default_factory=GoogleAuthConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    self_build: SelfBuildConfig = Field(default_factory=SelfBuildConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
     harness: HarnessConfig = Field(default_factory=HarnessConfig)
