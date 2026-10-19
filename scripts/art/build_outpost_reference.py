@@ -2212,7 +2212,7 @@ class Author:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--definition", type=Path, default=ROOT / "jarvis/society/mars/definition.json"
+        "--definition", type=Path, default=ROOT / "dodaios/society/mars/definition.json"
     )
     parser.add_argument("--study", type=Path, default=STUDY)
     parser.add_argument("--validate-export", type=Path)

@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import TIER_DEFAULTS_BY_PROVIDER
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.brain.manager import TIER_DEFAULTS_BY_PROVIDER
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 _SWITCHABLE_BRAIN_IDS = [
     spec.id for spec in PROVIDERS if spec.tier == "brain" and spec.brain_switchable

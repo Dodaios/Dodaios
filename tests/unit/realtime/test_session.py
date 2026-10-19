@@ -2,10 +2,10 @@ import asyncio
 
 import pytest
 
-from jarvis.brain.output_filter import scrub_for_voice
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.core.events import (
+from dodaios.brain.output_filter import scrub_for_voice
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.core.events import (
     AnnouncementRequested,
     LatencyPhase,
     LatencySpan,
@@ -14,9 +14,9 @@ from jarvis.core.events import (
     VoiceTurnCompleted,
     VoiceTurnStarted,
 )
-from jarvis.core.protocols import AudioChunk, ToolResult
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.core.protocols import AudioChunk, ToolResult
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 
 class FakeSession:
@@ -542,7 +542,7 @@ async def test_capability_probe_failure_crosses_to_next_provider_family():
 
 @pytest.mark.asyncio
 async def test_handshake_timeout_preserves_budget_for_next_family(monkeypatch):
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     # 2.0 s total, i.e. ~1.0 s per family. The budget is split evenly, so at
     # the old 0.2 s the first family's share was 0.1 s and ordinary scheduling
@@ -970,7 +970,7 @@ async def test_repeated_barge_in_interrupts_active_provider_only_once():
 
 @pytest.mark.asyncio
 async def test_audio_send_timeout_marks_realtime_session_failed(monkeypatch):
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_AUDIO_SEND_TIMEOUT_S", 0.02)
     sess = RealtimeVoiceSession(
@@ -1387,7 +1387,7 @@ async def test_latency_and_voice_events_share_one_fresh_trace_per_turn():
 @pytest.mark.asyncio
 async def test_missing_turn_complete_latency_phase_cannot_fail_voice_turn(monkeypatch):
     """A stale telemetry enum must never close an otherwise healthy session."""
-    import jarvis.telemetry.latency as latency_module
+    import dodaios.telemetry.latency as latency_module
 
     class LegacyLatencyPhase:
         REALTIME_INPUT_COMMITTED = LatencyPhase.REALTIME_INPUT_COMMITTED
@@ -1434,7 +1434,7 @@ async def test_missing_turn_complete_latency_phase_cannot_fail_voice_turn(monkey
 @pytest.mark.asyncio
 async def test_broken_latency_tracker_cannot_fail_voice_turn(monkeypatch):
     """Optional tracker initialization must fail open for the voice session."""
-    import jarvis.telemetry.latency as latency_module
+    import dodaios.telemetry.latency as latency_module
 
     class BrokenLatencyTracker:
         def __init__(self, *_args, **_kwargs):
@@ -1632,7 +1632,7 @@ async def test_hijacked_external_update_turn_completes_on_the_user_track():
     the new utterance), turn completion must publish the user track exactly
     once instead of re-publishing the answer under the readback kind.
     """
-    from jarvis.realtime.session import (
+    from dodaios.realtime.session import (
         _DelegateTurnState,
         _ExternalUpdateState,
     )
@@ -1821,7 +1821,7 @@ async def test_untranscribed_tool_call_is_rejected_without_execution():
 
 @pytest.mark.asyncio
 async def test_untranscribed_tool_call_times_out_and_unblocks_provider(monkeypatch):
-    monkeypatch.setattr("jarvis.realtime.session._TOOL_TRANSCRIPT_WAIT_S", 0.01)
+    monkeypatch.setattr("dodaios.realtime.session._TOOL_TRANSCRIPT_WAIT_S", 0.01)
     bridge = FakeToolBridge()
     provider = FakeProvider(
         [
@@ -2602,7 +2602,7 @@ async def test_local_public_fact_uses_exactly_one_supervisor_search(
             self.started_by_user = []
 
         async def run_task(self, **kwargs):
-            from jarvis.core.protocols import current_started_by_user
+            from dodaios.core.protocols import current_started_by_user
 
             self.run_task_calls.append(kwargs)
             self.started_by_user.append(current_started_by_user.get())
@@ -3793,7 +3793,7 @@ async def test_end_mid_delegate_delivers_exactly_once_without_rerunning_action()
 
 @pytest.mark.asyncio
 async def test_failed_surface_claim_recovers_once_in_originating_language():
-    from jarvis.realtime.session import _DelegateTurnState
+    from dodaios.realtime.session import _DelegateTurnState
 
     async def _failed_surface_send(_message):
         raise RuntimeError("surface disconnected")
@@ -4047,11 +4047,11 @@ _RESEARCH_RESULT = "Tomorrow you have the standup and a lunch meeting."
 def _pin_instant_ack(monkeypatch, line):
     """Pin both the class pool pick and the legacy progress pick to ``line``."""
     monkeypatch.setattr(
-        "jarvis.realtime.session.pick_instant_ack_text",
+        "dodaios.realtime.session.pick_instant_ack_text",
         lambda work_class, language, *, agent_brand="": line,
     )
     monkeypatch.setattr(
-        "jarvis.realtime.session._pick_delegate_bridge_text",
+        "dodaios.realtime.session._pick_delegate_bridge_text",
         lambda language: line,
     )
 
@@ -4061,7 +4061,7 @@ async def test_slow_deterministic_delegate_speaks_a_bridge_line(monkeypatch):
     """BUG-051 / instant ack: a delegated research turn gets its first sign of
     life immediately -- a closed-pool line naming the kind of work."""
     # The research class fires at 0 s; the legacy delay is only the cap.
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
     # Pin the varied pool pick to the line the fake session speaks.
     _pin_instant_ack(monkeypatch, "I'm still working on it.")
     gate = asyncio.Event()
@@ -4136,8 +4136,8 @@ async def test_action_delegate_speaks_a_contextual_line(monkeypatch):
     """Instant ack for an ACTION: the live model composes a request-specific
     line ("I'm writing this to your wiki.") that the structural validator
     accepts; a stock filler is never ordered for actions."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
-    monkeypatch.setattr("jarvis.realtime.session._INSTANT_ACK_GRACE_S", 0.05)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
+    monkeypatch.setattr("dodaios.realtime.session._INSTANT_ACK_GRACE_S", 0.05)
     gate = asyncio.Event()
     bridge_sent = asyncio.Event()
     result_delivered = asyncio.Event()
@@ -4246,16 +4246,16 @@ async def test_long_delegate_gets_one_grounded_progress_line_after_the_ack(monke
     """Instant ack, then — when the work outlasts it — ONE progress line that
     names the tool actually running (search_web -> the search pool), then the
     result. Never a second ack, never a third line."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
-    monkeypatch.setattr("jarvis.realtime.session.PROGRESS_AFTER_S", 0.15)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
+    monkeypatch.setattr("dodaios.realtime.session.PROGRESS_AFTER_S", 0.15)
     _pin_instant_ack(monkeypatch, "I'm still working on it.")
     monkeypatch.setattr(
-        "jarvis.realtime.session.pick_progress_text",
+        "dodaios.realtime.session.pick_progress_text",
         lambda activity, language: "Still searching."
         if activity.value == "search"
         else "I'm still working on it.",
     )
-    from jarvis.core.events import ActionProposed
+    from dodaios.core.events import ActionProposed
 
     gate = asyncio.Event()
     orders_sent = [asyncio.Event(), asyncio.Event()]
@@ -4301,8 +4301,8 @@ async def test_contextual_action_line_that_claims_a_result_is_dropped(monkeypatc
     """A contextual ACTION ack is trusted only through the structural validator:
     a result claim ("Your wiki is updated.") never reaches the speaker, and the
     grounded result still arrives."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
-    monkeypatch.setattr("jarvis.realtime.session._INSTANT_ACK_GRACE_S", 0.05)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 6.0)
+    monkeypatch.setattr("dodaios.realtime.session._INSTANT_ACK_GRACE_S", 0.05)
     gate = asyncio.Event()
     bridge_sent = asyncio.Event()
     result_delivered = asyncio.Event()
@@ -4393,9 +4393,9 @@ class _FakeAckComposer:
 @pytest.mark.asyncio
 async def test_capability_limited_provider_acknowledges_delegate_early(monkeypatch):
     """A capability-limited provider streams its pooled acknowledgement early."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 60.0)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 60.0)
     monkeypatch.setattr(
-        "jarvis.realtime.session._CAPABILITY_LIMITED_DELEGATE_BRIDGE_DELAY_S",
+        "dodaios.realtime.session._CAPABILITY_LIMITED_DELEGATE_BRIDGE_DELAY_S",
         0.01,
     )
     _pin_instant_ack(monkeypatch, "I'm still working on it.")
@@ -4433,12 +4433,12 @@ async def test_verbatim_transport_action_ack_comes_from_the_flash_composer(monke
     """On a verbatim-speech transport an ACTION ack is composed by the Brain's
     flash composer (bounded) and validated; the user hears the request's own
     subject, never a stock line."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 60.0)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 60.0)
     monkeypatch.setattr(
-        "jarvis.realtime.session._CAPABILITY_LIMITED_DELEGATE_BRIDGE_DELAY_S",
+        "dodaios.realtime.session._CAPABILITY_LIMITED_DELEGATE_BRIDGE_DELAY_S",
         0.01,
     )
-    monkeypatch.setattr("jarvis.realtime.session._INSTANT_ACK_GRACE_S", 0.01)
+    monkeypatch.setattr("dodaios.realtime.session._INSTANT_ACK_GRACE_S", 0.01)
     _pin_instant_ack(monkeypatch, "I'm still working on it.")
 
     speech_requested = asyncio.Event()
@@ -4475,12 +4475,12 @@ async def test_verbatim_transport_action_without_composer_stays_silent(monkeypat
     The maintainer's rule: an action ack must reference the request. A
     verbatim transport without a composing model therefore says nothing and
     lets the result speak (the pooled classes are unaffected)."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 60.0)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 60.0)
     monkeypatch.setattr(
-        "jarvis.realtime.session._CAPABILITY_LIMITED_DELEGATE_BRIDGE_DELAY_S",
+        "dodaios.realtime.session._CAPABILITY_LIMITED_DELEGATE_BRIDGE_DELAY_S",
         0.01,
     )
-    monkeypatch.setattr("jarvis.realtime.session._INSTANT_ACK_GRACE_S", 0.01)
+    monkeypatch.setattr("dodaios.realtime.session._INSTANT_ACK_GRACE_S", 0.01)
     _pin_instant_ack(monkeypatch, "I'm still working on it.")
 
     speech_requested = asyncio.Event()
@@ -4512,7 +4512,7 @@ async def test_varied_bridge_line_passes_validation_and_is_persisted(monkeypatch
     validator accepts exactly the closed localized pool.
     """  # i18n-allow: quoted German forensic phrase
     varied_line = "One moment, almost there."
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.05)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.05)
     _pin_instant_ack(monkeypatch, varied_line)
     gate = asyncio.Event()
     bridge_sent = asyncio.Event()
@@ -4609,7 +4609,7 @@ async def test_blocked_action_promise_still_dispatches_after_boundary_timeout(
     the interrupt may delay the dispatch but never veto it.
     """
     monkeypatch.setattr(
-        "jarvis.realtime.session._DELEGATE_INPUT_BOUNDARY_WAIT_S", 0.05
+        "dodaios.realtime.session._DELEGATE_INPUT_BOUNDARY_WAIT_S", 0.05
     )
     released = asyncio.Event()
     brain = FakeBrain(replies=("Switched to the right server.",))
@@ -4704,7 +4704,7 @@ async def test_in_flight_native_tool_cancels_empty_turn_brain_recovery(
     """Live 2026-08-19 17:13 turn 3: youtube_music was already running when
     the empty-turn watchdog expired and started a second Brain dispatch.
     An in-flight native call is evidence; do not recover over it."""
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_DELEGATE_READBACK_WAIT_S", 0.2)
 
@@ -4761,7 +4761,7 @@ async def test_in_flight_native_tool_cancels_empty_turn_brain_recovery(
 @pytest.mark.asyncio
 async def test_fast_deterministic_delegate_needs_no_bridge_line(monkeypatch):
     """A result faster than the bridge delay keeps the turn chatter-free."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.15)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.15)
     result_delivered = asyncio.Event()
 
     class _FastSession(FakeSession):
@@ -4863,7 +4863,7 @@ class _PreemptedDelegateBridgeProvider(FakeProvider):
 @pytest.mark.asyncio
 async def test_ready_result_preempts_active_realtime_bridge(monkeypatch):
     """A finished result must not queue behind an in-flight interim response."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.01)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.01)
     gate = asyncio.Event()
     bridge_sent = asyncio.Event()
     interrupted = asyncio.Event()
@@ -4900,7 +4900,7 @@ async def test_ready_result_preempts_active_realtime_bridge(monkeypatch):
 @pytest.mark.asyncio
 async def test_nonconforming_realtime_bridge_audio_is_never_released(monkeypatch):
     """A hostile bridge cannot turn an ungrounded claim into spoken output."""
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.01)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_BRIDGE_DELAY_S", 0.01)
     gate = asyncio.Event()
     bridge_sent = asyncio.Event()
     bridge_finished = asyncio.Event()
@@ -5138,7 +5138,7 @@ async def test_empty_turn_reask_survives_the_interrupt_settle_window(monkeypatch
     heard nothing. The watchdog owns that silence; native audio that still
     comes must be spoken.
     """  # i18n-allow: quoted live utterance
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_INTERRUPTION_CONFIRM_WINDOW_S", 0.05)
     monkeypatch.setattr(session_module, "_INTERRUPTION_SETTLE_POLL_S", 0.02)
@@ -5220,7 +5220,7 @@ async def test_empty_turn_reask_reply_survives_speaker_drain(monkeypatch):
     expected provider silence committed the earlier empty interrupt and the
     user heard half a sentence.
     """
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_INTERRUPTION_CONFIRM_WINDOW_S", 0.05)
     user_text = "Hello there."
@@ -5340,7 +5340,7 @@ async def test_direct_mode_recovers_provider_turn_that_has_no_output(monkeypatch
     boundary, then nothing). The watchdog — not that second boundary —
     starts the Brain chain, exactly once.
     """
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_DELEGATE_READBACK_WAIT_S", 0.1)
     user_text = "Tell me a joke about penguins."
@@ -5404,7 +5404,7 @@ async def test_direct_mode_recovers_provider_turn_that_has_no_output(monkeypatch
 @pytest.mark.asyncio
 async def test_mute_reask_falls_back_to_brain_after_the_readback_budget(monkeypatch):
     """A re-ask the provider never answers at all is not the end of the turn."""
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_DELEGATE_READBACK_WAIT_S", 0.1)
     user_text = "Tell me a joke about penguins."
@@ -5592,7 +5592,7 @@ async def test_empty_recovery_response_uses_surface_tts_without_rerunning_brain(
     twice: at the shipped 2.5 s this test could not fit inside its own 2 s
     deadline, so it failed on the clock rather than on the behaviour.
     """
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_READBACK_WAIT_S", 0.2)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_READBACK_WAIT_S", 0.2)
     user_text = "Tell me a joke about penguins."
     recovered_reply = "We could build a tiny game together."
     brain = FakeBrain(replies=(recovered_reply,))
@@ -5763,7 +5763,7 @@ async def test_delegate_directive_orders_a_function_call_for_private_memory():
 @pytest.mark.asyncio
 async def test_gate_miss_lets_the_model_reach_the_wiki_through_jarvis_action():
     """A vague follow-up the planner cannot classify must still reach the brain."""
-    from jarvis.brain.turn_planner import plan_turn
+    from dodaios.brain.turn_planner import plan_turn
 
     utterance = "Und was ist damit?"  # i18n-allow: German speech-input fixture
     assert plan_turn(utterance).requires_orchestrator is False
@@ -5802,7 +5802,7 @@ async def test_gate_miss_lets_the_model_reach_the_wiki_through_jarvis_action():
 @pytest.mark.asyncio
 async def test_native_knowledge_turn_rejects_unnecessary_jarvis_action():
     """A realtime model cannot spend Tool Model quota on public knowledge."""
-    from jarvis.brain.turn_planner import plan_turn
+    from dodaios.brain.turn_planner import plan_turn
 
     utterance = "Where does Aliko Dangote live?"
     assert plan_turn(utterance).requires_orchestrator is False
@@ -5862,7 +5862,7 @@ async def test_native_conversation_turn_rejects_unnecessary_jarvis_action(
     the planner already marks them native, but Gemini Live still called
     ``jarvis_action`` and the hop ran a full generate (5–18 s of silence).
     """
-    from jarvis.brain.turn_planner import plan_turn
+    from dodaios.brain.turn_planner import plan_turn
 
     assert plan_turn(utterance).requires_orchestrator is False
 
@@ -6056,7 +6056,7 @@ async def test_native_realtime_promise_without_tool_recovers_via_orchestrator():
 @pytest.mark.asyncio
 async def test_direct_realtime_promise_without_tool_fails_closed_honestly():
     """Direct-tool mode cannot silently leave an announced action pending."""
-    from jarvis.brain.action_honesty import action_not_started_phrase
+    from dodaios.brain.action_honesty import action_not_started_phrase
 
     provider = FakeProvider(
         [
@@ -6404,7 +6404,7 @@ async def test_delegate_empty_brain_result_cannot_claim_action_success():
 
 @pytest.mark.asyncio
 async def test_delegate_timeout_cancels_brain_and_cannot_publish_late(monkeypatch):
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_TIMEOUT_S", 0.01)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_TIMEOUT_S", 0.01)
     bus = FakeBus()
     brain = FakeBrain(gate=asyncio.Event(), bus=bus)
     provider = ToolResultGatedProvider(
@@ -6551,7 +6551,7 @@ async def test_turn_complete_waits_for_slow_delegate_task_on_same_turn():
 
 @pytest.mark.asyncio
 async def test_delegate_timeout_sends_honest_failure(monkeypatch):
-    monkeypatch.setattr("jarvis.realtime.session._DELEGATE_TIMEOUT_S", 0.05)
+    monkeypatch.setattr("dodaios.realtime.session._DELEGATE_TIMEOUT_S", 0.05)
     gate = asyncio.Event()  # never set -- the brain turn hangs
     brain = FakeBrain(gate=gate)
     provider = FakeProvider(
@@ -6625,7 +6625,7 @@ async def test_delegate_confirm_roundtrip():
 
 @pytest.mark.asyncio
 async def test_delegate_untranscribed_tool_call_rejected(monkeypatch):
-    monkeypatch.setattr("jarvis.realtime.session._TOOL_TRANSCRIPT_WAIT_S", 0.01)
+    monkeypatch.setattr("dodaios.realtime.session._TOOL_TRANSCRIPT_WAIT_S", 0.01)
     brain = FakeBrain()
     provider = FakeProvider(
         [
@@ -6917,7 +6917,7 @@ def test_active_provider_selection_falls_back_to_adapter_default_voice():
 def test_progress_line_carries_the_active_voice_hint():
     """Native-tool 'still on it' lines ride error_spoken; without the session
     voice they spoke Charon (live 2026-08-19 17:46)."""
-    from jarvis.sessions.constants import SPOKEN_KIND_PROGRESS
+    from dodaios.sessions.constants import SPOKEN_KIND_PROGRESS
 
     sess = RealtimeVoiceSession(
         session_id="progress-voice-hint",
@@ -6946,8 +6946,8 @@ def test_session_instructions_place_preferences_between_persona_and_directives(
 ):
     """The user's standing-instructions block must sit right after the persona
     and before the operational directives, so it frames the whole spoken output."""
-    from jarvis.brain import persona_loader
-    from jarvis.realtime import session as session_mod
+    from dodaios.brain import persona_loader
+    from dodaios.realtime import session as session_mod
 
     monkeypatch.setattr(
         persona_loader,
@@ -6971,9 +6971,9 @@ def test_session_instructions_never_teach_native_voice_pipeline_control_tokens(
     monkeypatch,
 ):
     """The classic TTS sentinel is neither speakable nor valid in realtime."""
-    from jarvis.brain import persona_loader
-    from jarvis.realtime import session as session_mod
-    from jarvis.speech.hangup import END_CALL_SIGNAL
+    from dodaios.brain import persona_loader
+    from dodaios.realtime import session as session_mod
+    from dodaios.speech.hangup import END_CALL_SIGNAL
 
     monkeypatch.setattr(
         persona_loader,
@@ -7003,8 +7003,8 @@ def test_session_instructions_anchor_clock_and_stale_knowledge_guard(monkeypatch
     'planned for 2025' presented as the current state in July 2026)."""
     from datetime import datetime
 
-    from jarvis.brain import persona_loader
-    from jarvis.realtime import session as session_mod
+    from dodaios.brain import persona_loader
+    from dodaios.realtime import session as session_mod
 
     monkeypatch.setattr(
         persona_loader,
@@ -7026,8 +7026,8 @@ def test_session_instructions_carry_the_precision_guard(monkeypatch):
     exact and resting categorical feasibility verdicts on them (live
     2026-07-21 11:36: an invented runway length produced a confident,
     wrong 'cannot land there')."""
-    from jarvis.brain import persona_loader
-    from jarvis.realtime import session as session_mod
+    from dodaios.brain import persona_loader
+    from dodaios.realtime import session as session_mod
 
     monkeypatch.setattr(
         persona_loader,
@@ -7045,8 +7045,8 @@ def test_session_instructions_carry_the_precision_guard(monkeypatch):
 
 
 def test_preferences_block_renders_the_user_file_with_the_realtime_cap(monkeypatch):
-    from jarvis.brain import agent_instructions
-    from jarvis.realtime import session as session_mod
+    from dodaios.brain import agent_instructions
+    from dodaios.realtime import session as session_mod
 
     seen = {}
 
@@ -7063,8 +7063,8 @@ def test_preferences_block_renders_the_user_file_with_the_realtime_cap(monkeypat
 
 
 def test_preferences_block_degrades_to_empty_on_a_read_fault(monkeypatch):
-    from jarvis.brain import agent_instructions
-    from jarvis.realtime import session as session_mod
+    from dodaios.brain import agent_instructions
+    from dodaios.realtime import session as session_mod
 
     def broken_render(config, *, max_chars=None):
         raise RuntimeError("disk on fire")
@@ -7082,8 +7082,8 @@ async def test_open_carries_user_agent_instructions_into_session_instructions(
     instructions. It previously reached only the classic deep brain, so voice
     preferences (tone, dialect, address) applied on delegated turns but were
     silently ignored on every direct realtime reply."""
-    from jarvis.brain import agent_instructions
-    from jarvis.core import config as core_config
+    from dodaios.brain import agent_instructions
+    from dodaios.core import config as core_config
 
     monkeypatch.setattr(core_config, "DATA_DIR", tmp_path)
     cfg = _cfg()
@@ -7120,7 +7120,7 @@ async def test_open_carries_user_agent_instructions_into_session_instructions(
 
 @pytest.mark.asyncio
 async def test_presence_check_vocabulary_matches_probes_only():
-    from jarvis.realtime.session import _is_presence_check
+    from dodaios.realtime.session import _is_presence_check
 
     # i18n-allow: German/Spanish speech-input fixtures (matching data)
     assert _is_presence_check("Ja, hallo.")
@@ -7154,7 +7154,7 @@ async def test_presence_check_during_pending_action_gets_status_line_not_provide
     computed. The orchestrator must own that turn: progress line through the
     surface TTS, no provider response, no second brain dispatch.
     """
-    from jarvis.realtime.session import _DELEGATE_BRIDGE_TEXTS
+    from dodaios.realtime.session import _DELEGATE_BRIDGE_TEXTS
 
     gate = asyncio.Event()  # never set: the delegated action outlives the test
     brain = FakeBrain(gate=gate)
@@ -7251,7 +7251,7 @@ async def test_session_end_names_the_delegated_request_it_retains(caplog):
 
     await sess.handle_control({"type": "audio_start", "sample_rate": 16_000})
     await sess.wait_finished()
-    with caplog.at_level(_logging.INFO, logger="jarvis.realtime.session"):
+    with caplog.at_level(_logging.INFO, logger="dodaios.realtime.session"):
         await sess.end(reason="hotkey")
 
     lost = [
@@ -7284,7 +7284,7 @@ async def test_hangup_abandons_a_coding_brief_that_is_still_being_written(
     abandoning it leaves the pane untouched — unlike a sent mail or a spawned
     mission, which is why the retention above stays the rule for everything else.
     """
-    from jarvis.agentic_ide import fanout as ide_fanout
+    from dodaios.agentic_ide import fanout as ide_fanout
 
     reasons: list[str] = []
     monkeypatch.setattr(
@@ -7302,7 +7302,7 @@ async def test_hangup_abandons_a_coding_brief_that_is_still_being_written(
 
 async def test_a_handover_keeps_the_coding_brief_alive(monkeypatch):
     """desktop_fallback is not a hangup: the same call continues elsewhere."""
-    from jarvis.agentic_ide import fanout as ide_fanout
+    from dodaios.agentic_ide import fanout as ide_fanout
 
     called: list[str] = []
     monkeypatch.setattr(
@@ -7717,7 +7717,7 @@ async def test_live_resource_exhausted_crosses_family_without_retrying():
 @pytest.mark.asyncio
 async def test_audio_send_timeout_rebuilds_without_ending_the_call(monkeypatch):
     """A write-only stall and a later stale timeout preserve the live call."""
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     class _ObservedWriteStalledSession(WriteStalledSession):
         def __init__(self):
@@ -7822,7 +7822,7 @@ async def test_transport_death_without_capability_keeps_terminal_semantics():
 async def test_transport_rebuild_storm_fails_honestly():
     """A flapping transport must not reconnect-storm: after the rolling
     budget is spent, the session fails terminally with one honest error."""
-    from jarvis.realtime import session as session_mod
+    from dodaios.realtime import session as session_mod
 
     provider = RebuildingProvider([lambda: DyingSession([])])
     jsons = []
@@ -7853,7 +7853,7 @@ async def test_second_rapid_rebuild_drops_the_poisoned_history_seed():
     died again, three rebuilds burned the whole recovery budget in ~1.5 s,
     and the call hung up with reason=error mid-sentence. The second rapid
     death in the window must retry WITHOUT the seed: amnesiac but alive."""
-    from jarvis.core.protocols import BrainMessage
+    from dodaios.core.protocols import BrainMessage
 
     provider = RebuildingProvider(
         [
@@ -8256,8 +8256,8 @@ def test_the_socket_courtesy_never_outlasts_what_waits_for_the_microphone():
     not. Pinned as a RELATIONSHIP, because the bug was the two numbers being
     equal, not either number itself.
     """
-    from jarvis.realtime.session import _PROVIDER_CLOSE_BOUND_S
-    from jarvis.speech.pipeline import _DICTATION_HANDOVER_TIMEOUT_S
+    from dodaios.realtime.session import _PROVIDER_CLOSE_BOUND_S
+    from dodaios.speech.pipeline import _DICTATION_HANDOVER_TIMEOUT_S
 
     assert _PROVIDER_CLOSE_BOUND_S * 2 <= _DICTATION_HANDOVER_TIMEOUT_S
 
@@ -8730,7 +8730,7 @@ async def test_a_silent_provider_turn_is_closed_locally_and_said_out_loud(
     microphone shut until the user kills it. The watchdog is the independent
     backstop: it never trusts the transport to report its own death.
     """
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_TURN_STALL_TIMEOUT_S", 0.2)
     monkeypatch.setattr(session_module, "_TURN_STALL_POLL_S", 0.02)
@@ -8770,7 +8770,7 @@ async def test_the_stall_watchdog_never_fires_between_turns(monkeypatch):
     """AP-19 / BUG-032: a watchdog that outlives its unit of work aborts the
     NEXT one. This one is armed per turn and cancelled at every boundary, so
     an idle session between turns must stay completely quiet."""
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_TURN_STALL_TIMEOUT_S", 0.15)
     monkeypatch.setattr(session_module, "_TURN_STALL_POLL_S", 0.02)
@@ -9315,7 +9315,7 @@ async def test_session_instructions_carry_the_one_speaker_discipline():
     while rules delivered via the session/developer-context channel (the ack
     ban, the language pin) were honored.
     """
-    from jarvis.realtime.session import _session_instructions
+    from dodaios.realtime.session import _session_instructions
 
     text = _session_instructions("de")
     assert "ONE voice" in text

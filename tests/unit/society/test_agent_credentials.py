@@ -11,17 +11,17 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agent_chat.credential_requests import (
+from dodaios.agent_chat.credential_requests import (
     MAX_REQUESTS_PER_TURN,
     CredentialSpec,
     TooManyCredentialRequests,
 )
-from jarvis.agent_chat.service import AgentChatService, _Running
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society import credentials
-from jarvis.society.credential_tool import CREDENTIAL_TOOL_NAME, RequestCredentialTool
-from jarvis.society.credentials import CredentialError, CredentialVault, validate_env_name
-from jarvis.society.shell import ShellResult
+from dodaios.agent_chat.service import AgentChatService, _Running
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society import credentials
+from dodaios.society.credential_tool import CREDENTIAL_TOOL_NAME, RequestCredentialTool
+from dodaios.society.credentials import CredentialError, CredentialVault, validate_env_name
+from dodaios.society.shell import ShellResult
 from tests.fakes.fake_secret_store import FakeSecretStore
 
 SECRET = "ghp_" + "s3cr3t" * 6
@@ -248,7 +248,7 @@ async def test_a_turn_runs_out_of_fields_and_needs_a_turn(tmp_path: Path) -> Non
 async def test_a_printed_value_is_masked_in_the_chat_log(tmp_path: Path, vault) -> None:
     vault.store("ada", "GITHUB_TOKEN", SECRET)
     svc, sid, task = await _service_with_turn(tmp_path)
-    from jarvis.agent_chat.events import make_event
+    from dodaios.agent_chat.events import make_event
 
     await svc._emit(
         sid,
@@ -318,9 +318,9 @@ async def test_checking_a_pending_field_returns_without_waiting(tmp_path: Path, 
 async def test_followup_finishes_before_the_token_is_saved(
     tmp_path: Path, vault, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.agent_chat import service as service_module
-    from jarvis.agent_chat.events import make_event
-    from jarvis.agent_chat.send_queue import send_or_queue
+    from dodaios.agent_chat import service as service_module
+    from dodaios.agent_chat.events import make_event
+    from dodaios.agent_chat.send_queue import send_or_queue
 
     svc = AgentChatService(AgentChatStore(":memory:"), assistant_name=lambda: "Testo")
     session = svc.store.create_session(
@@ -383,7 +383,7 @@ async def test_routines_and_bad_requests_never_open_a_field(vault) -> None:
 
 
 def test_the_tool_is_offered_outside_routines(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.society import surface
+    from dodaios.society import surface
 
     browser = SimpleNamespace(is_installed=lambda: False, live=SimpleNamespace(model_resolver=None))
     rt = SimpleNamespace(browser=browser, chat_service=lambda: None)
@@ -414,8 +414,8 @@ class _EnvBackend:
 async def test_society_shell_sets_the_variable_and_masks_its_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.society.agent_tools import ShellTool
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.agent_tools import ShellTool
+    from dodaios.society.runtime import SocietyRuntime
 
     rt = SocietyRuntime(tmp_path / "society", seed_starter_team=False)
     await rt.ensure_started()
@@ -439,7 +439,7 @@ async def test_society_shell_sets_the_variable_and_masks_its_output(
 async def test_the_briefing_names_stored_credentials_and_says_when_there_are_none(
     tmp_path: Path, vault, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.society.surface import _credential_line
+    from dodaios.society.surface import _credential_line
 
     monkeypatch.setattr(credentials, "vault_for", lambda _data_dir: vault)
     rt = SimpleNamespace(data_dir=tmp_path)
@@ -452,7 +452,7 @@ async def test_the_briefing_names_stored_credentials_and_says_when_there_are_non
 
 
 async def test_a_question_card_never_asks_for_the_secret_itself() -> None:
-    from jarvis.society.ask_tool import AskUserTool
+    from dodaios.society.ask_tool import AskUserTool
 
     rt = SimpleNamespace(chat_service=lambda: None)
     tool = AskUserTool(rt, "ada", session_id=SID)

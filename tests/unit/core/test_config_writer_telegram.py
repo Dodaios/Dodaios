@@ -8,7 +8,7 @@ import tomllib
 
 import pytest
 
-from jarvis.core.config_writer import (
+from dodaios.core.config_writer import (
     add_telegram_allowed_user_id,
     set_telegram_enabled,
     set_telegram_pairing,

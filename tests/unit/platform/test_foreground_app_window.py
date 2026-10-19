@@ -6,8 +6,8 @@ exercised on a real desktop, not in CI.
 """
 from __future__ import annotations
 
-from jarvis.platform import window_state as ws
-from jarvis.platform.window_state import WindowInfo
+from dodaios.platform import window_state as ws
+from dodaios.platform.window_state import WindowInfo
 
 # Z-order, top to bottom, as measured live: mascot overlay, bar overlay, the
 # taskbar (a topmost tool window), a minimized window, the editor, the wallpaper.

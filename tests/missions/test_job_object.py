@@ -13,8 +13,8 @@ import time
 
 import pytest
 
-from jarvis.missions.isolation import job_object as job_module
-from jarvis.missions.isolation.job_object import (
+from dodaios.missions.isolation import job_object as job_module
+from dodaios.missions.isolation.job_object import (
     AlwaysOpenJobObject,
     WindowsJobObject,
 )

@@ -1,0 +1,68 @@
+// === F-FRIENDS [F4] · feature/friends-section · ruben-2026-05-01 ===
+import { Activity } from "lucide-react";
+import { uiLocale } from "@/lib/boardInsights";
+
+/**
+ * Display component for a SINGLE outgoing StatusUpdate.
+ *
+ * In phase F4 this component is only the UI library — in F5 it gets wired
+ * to a WebSocket stream that shows the last N updates per friend.
+ *
+ * Kept in schema lockstep with ``dodaios.friends.schemas.StatusUpdate``:
+ *   - event_type, timestamp_ns, fields, profile_used.
+ */
+export interface StatusUpdateView {
+  event_type: string;
+  timestamp_ns: number;
+  fields: Record<string, unknown>;
+  profile_used: "minimal" | "standard" | "detailed";
+}
+
+const PROFILE_BADGE_CLASS: Record<StatusUpdateView["profile_used"], string> = {
+  minimal: "border-muted-foreground/40 bg-muted/30 text-muted-foreground",
+  standard: "border-primary/40 bg-primary/10 text-primary",
+  detailed: "border-foreground/40 bg-foreground/10 text-foreground",
+};
+
+function formatTimestamp(ns: number): string {
+  if (!ns) return "-";
+  const ms = Math.floor(ns / 1_000_000);
+  const date = new Date(ms);
+  return date.toLocaleTimeString(uiLocale());
+}
+
+export function LiveStatusCard({ update }: { update: StatusUpdateView }) {
+  const fieldEntries = Object.entries(update.fields);
+  return (
+    <div className="rounded-lg border border-border bg-card/40 p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Activity className="h-3.5 w-3.5 text-primary" />
+          <span className="font-display text-xs font-semibold text-foreground">
+            {update.event_type}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full border px-1.5 py-0.5 text-micro uppercase tracking-wider ${PROFILE_BADGE_CLASS[update.profile_used]}`}
+          >
+            {update.profile_used}
+          </span>
+          <span className="text-micro text-muted-foreground">
+            {formatTimestamp(update.timestamp_ns)}
+          </span>
+        </div>
+      </div>
+      {fieldEntries.length > 0 && (
+        <dl className="mt-2 space-y-0.5 text-xs">
+          {fieldEntries.map(([key, value]) => (
+            <div key={key} className="flex gap-2">
+              <dt className="text-muted-foreground">{key}:</dt>
+              <dd className="truncate text-foreground/90">{String(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}

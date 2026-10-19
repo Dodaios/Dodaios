@@ -28,7 +28,7 @@ computer; no second model is called for it.
 ## Decision
 
 1. **One tool, owned by the session's model.** Live sessions get `computer`
-   (`jarvis/plugins/tool/computer.py`, logic in `jarvis/cu/direct.py`). One call
+   (`dodaios/plugins/tool/computer.py`, logic in `dodaios/cu/direct.py`). One call
    carries up to eight steps — `screenshot`, `click`, `double_click`,
    `right_click`, `middle_click`, `move`, `drag`, `scroll`, `type`, `key`,
    `wait` — and always answers with a fresh screenshot, its `frame_id`, whether

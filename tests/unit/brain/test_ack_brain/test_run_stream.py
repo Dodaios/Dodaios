@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from jarvis.brain.ack_brain import AckGenerator, CircuitBreaker
-from jarvis.brain.ack_brain.config import AckBrainConfig
+from dodaios.brain.ack_brain import AckGenerator, CircuitBreaker
+from dodaios.brain.ack_brain.config import AckBrainConfig
 
 
 def _gen(provider: object) -> AckGenerator:

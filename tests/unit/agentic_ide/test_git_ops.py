@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import folders, git_ops
-from jarvis.agentic_ide.git_ops import GitError
+from dodaios.agentic_ide import folders, git_ops
+from dodaios.agentic_ide.git_ops import GitError
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
@@ -234,7 +234,7 @@ def test_no_git_installed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
 async def test_workspace_may_open_in_a_worktree_of_its_project(
     monkeypatch: pytest.MonkeyPatch, repo: Path
 ) -> None:
-    from jarvis.agentic_ide import library, session
+    from dodaios.agentic_ide import library, session
     from tests.fakes.fake_pty_manager import FakePtyManager
 
     monkeypatch.setattr(session, "agent_argv", lambda agent: (f"/usr/bin/{agent}",))
@@ -249,7 +249,7 @@ async def test_workspace_may_open_in_a_worktree_of_its_project(
 def test_routes_report_git_errors_with_a_code(repo: Path) -> None:
     from fastapi import HTTPException
 
-    from jarvis.ui.web import agentic_ide_git_routes as routes
+    from dodaios.ui.web import agentic_ide_git_routes as routes
 
     made = routes.prepare_checkout(
         routes.PrepareRequest(folder=str(repo), mode="new_worktree", branch="agent/api")

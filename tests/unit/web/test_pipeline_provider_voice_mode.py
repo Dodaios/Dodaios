@@ -7,10 +7,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web import provider_routes
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web import provider_routes
+from dodaios.ui.web.server import WebServer
 
 
 class _LivePipeline:
@@ -41,10 +41,10 @@ def test_local_tts_selection_preserves_realtime_mode(
     built = SimpleNamespace(name="piper-local")
 
     monkeypatch.setattr(provider_routes, "_is_credential_present", lambda _spec: True)
-    monkeypatch.setattr("jarvis.brain.app_control.local_readiness_error", lambda _spec: None)
-    monkeypatch.setattr("jarvis.core.config_writer.set_tts_provider", provider_writes.append)
-    monkeypatch.setattr("jarvis.core.config_writer.set_voice_mode", mode_writes.append)
-    monkeypatch.setattr("jarvis.plugins.tts.build_tts_from_config", lambda _cfg: built)
+    monkeypatch.setattr("dodaios.brain.app_control.local_readiness_error", lambda _spec: None)
+    monkeypatch.setattr("dodaios.core.config_writer.set_tts_provider", provider_writes.append)
+    monkeypatch.setattr("dodaios.core.config_writer.set_voice_mode", mode_writes.append)
+    monkeypatch.setattr("dodaios.plugins.tts.build_tts_from_config", lambda _cfg: built)
 
     with TestClient(server.app) as client:
         response = client.post(

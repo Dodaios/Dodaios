@@ -1,7 +1,7 @@
 """WebRTC VAD is the middle tier of the endpointing fallback chain.
 
 End-of-speech detection degrades Silero ONNX -> WebRTC VAD -> energy floor
-(``jarvis/audio/vad.py``). These tests pin the middle tier: when the ONNX
+(``dodaios/audio/vad.py``). These tests pin the middle tier: when the ONNX
 runtime is unavailable but ``webrtcvad`` (ships in ``[local-voice]``/``[full]``)
 is importable, the endpointer must use it instead of dropping straight to the
 portable energy floor — and every degrade step must happen mid-run without an
@@ -21,12 +21,12 @@ from types import ModuleType
 import numpy as np
 import pytest
 
-from jarvis.audio.vad import (
+from dodaios.audio.vad import (
     _WEBRTC_AGGRESSIVENESS,
     _WEBRTC_FRAME_SAMPLES,
     SileroEndpointer,
 )
-from jarvis.core.protocols import AudioChunk
+from dodaios.core.protocols import AudioChunk
 
 _EXPECTED_BUF_BYTES = _WEBRTC_FRAME_SAMPLES * 2  # int16 mono -> 960 bytes
 

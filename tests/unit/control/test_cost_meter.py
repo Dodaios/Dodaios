@@ -8,21 +8,21 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.control import (
+from dodaios.control import (
     BudgetConfig,
     CancelScope,
     CostMeter,
     KillSwitch,
     ModelPrice,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     BudgetExceeded,
     BudgetWarning,
     CooldownEnded,
     CooldownStarted,
 )
-from jarvis.core.protocols import CostRecord
+from dodaios.core.protocols import CostRecord
 
 
 def _make_config(**overrides) -> BudgetConfig:
@@ -66,7 +66,7 @@ def _record(trace_id, usd: float, provider="claude-api", model="test-model") -> 
 # ---------------------------------------------------------------------
 
 def test_protocol_structural_match(tmp_path):
-    from jarvis.core.protocols import CostMeter as CostMeterProto
+    from dodaios.core.protocols import CostMeter as CostMeterProto
     meter = _make_meter(tmp_path, _make_config())
     assert isinstance(meter, CostMeterProto)
 

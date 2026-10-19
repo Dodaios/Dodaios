@@ -19,7 +19,7 @@ import types
 
 import pytest
 
-from jarvis.platform import macos_input_source as mis
+from dodaios.platform import macos_input_source as mis
 
 FAKE_CONTEXT = (44, b"layout-bytes")
 

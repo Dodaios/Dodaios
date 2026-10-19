@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from jarvis.docs.schema import Doc, DocDiataxis, DocFrontmatter, DocStatus
+from dodaios.docs.schema import Doc, DocDiataxis, DocFrontmatter, DocStatus
 
 # ----------------------------------------------------------------------
 # DocFrontmatter — Happy-Path

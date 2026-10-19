@@ -24,7 +24,7 @@ import time
 
 import pytest
 
-import jarvis.realtime.webrtc_transport as webrtc_transport
+import dodaios.realtime.webrtc_transport as webrtc_transport
 
 pytest.importorskip("aiortc", reason="the in-process WebRTC endpoint needs aiortc")
 pytest.importorskip("av", reason="the in-process WebRTC endpoint needs PyAV")

@@ -29,7 +29,7 @@ import httpx
 from board_backend.config import Settings
 from board_backend.crypto import canonical_json, generate_keypair, sign
 from board_backend.main import create_app
-from jarvis.board.aggregator import BoardAggregator
+from dodaios.board.aggregator import BoardAggregator
 
 
 # ----------------------------------------------------------------------

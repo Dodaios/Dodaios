@@ -1,4 +1,4 @@
-"""CPU-first device-selection policy (``jarvis.core.device``).
+"""CPU-first device-selection policy (``dodaios.core.device``).
 
 Pins the cloud-first contract of ADR-0024: the default is always CPU, a GPU is
 adopted only on an EXPLICIT request with a VERIFIED capability, and a known-bad
@@ -11,7 +11,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from jarvis.core.device import CPU, DeviceResolution, resolve_device
+from dodaios.core.device import CPU, DeviceResolution, resolve_device
 
 
 @pytest.mark.parametrize("value", ["cpu", "CPU", " cpu "])

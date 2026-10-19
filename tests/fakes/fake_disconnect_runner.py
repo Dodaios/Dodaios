@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.agent_chat.events import make_event
+from dodaios.agent_chat.events import make_event
 
 
 class ApprovalRunner:

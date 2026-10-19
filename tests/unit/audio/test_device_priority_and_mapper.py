@@ -7,7 +7,7 @@ Two guarantees pinned here:
    German-only substring let the mapper through on
    English/French/… Windows and the resolver could route to the OS-default sink
    that ``auto-headset`` exists to bypass. They are now skipped STRUCTURALLY
-   (``jarvis.audio.device_select.is_legacy_primary_mapper``) — the first
+   (``dodaios.audio.device_select.is_legacy_primary_mapper``) — the first
    direction-matching device of an MME/DirectSound host API — regardless of the
    translated name.
 
@@ -22,9 +22,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.audio.capture as cap
-import jarvis.audio.player as pl
-from jarvis.audio.device_select import is_legacy_primary_mapper
+import dodaios.audio.capture as cap
+import dodaios.audio.player as pl
+from dodaios.audio.device_select import is_legacy_primary_mapper
 
 
 @pytest.fixture(autouse=True)

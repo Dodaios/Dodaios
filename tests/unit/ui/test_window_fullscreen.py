@@ -6,8 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.desktop_routes import router
-from jarvis.ui.window_fullscreen import set_window_fullscreen
+from dodaios.ui.web.desktop_routes import router
+from dodaios.ui.window_fullscreen import set_window_fullscreen
 
 
 class Window:

@@ -1,6 +1,6 @@
 """Event bus — the in-process async fan-out backbone.
 
-Mirrors `jarvis/core/bus.py`: a lightweight pub/sub where every event is fanned
+Mirrors `dodaios/core/bus.py`: a lightweight pub/sub where every event is fanned
 out to all interested handlers. Key properties:
 
 - **No broker, no network**: the in-process EventBus IS the queue (AD-OE2 /

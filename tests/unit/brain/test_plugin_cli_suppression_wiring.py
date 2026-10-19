@@ -1,9 +1,9 @@
 """BrainManager hides plugin tools whose CLI is connected (req 4 fallback)."""
 from types import SimpleNamespace
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 def _mgr() -> BrainManager:

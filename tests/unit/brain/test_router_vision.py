@@ -21,18 +21,18 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from jarvis.brain import router as router_mod
-from jarvis.brain.router import SYSTEM_PROMPT, RouterBrain
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.brain import router as router_mod
+from dodaios.brain.router import SYSTEM_PROMPT, RouterBrain
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainProviderConfig,
     BrainRouterPolicyConfig,
     BrainTierConfig,
     JarvisConfig,
 )
-from jarvis.core.events import VisionInjected
-from jarvis.core.protocols import (
+from dodaios.core.events import VisionInjected
+from dodaios.core.protocols import (
     BrainDelta,
     BrainRequest,
     ExecutionContext,
@@ -79,7 +79,7 @@ class _FakeBrain:
 def _no_screen_context(monkeypatch: pytest.MonkeyPatch):
     """Keep Screen Context out of this file, deterministically.
 
-    ``RouterBrain.handle`` consults ``jarvis.screen_context`` before the
+    ``RouterBrain.handle`` consults ``dodaios.screen_context`` before the
     permanent-vision path and takes precedence when the user explicitly asked
     Jarvis to LOOK — which several of the utterances in this file do. Without
     this fixture the outcome would depend on whether the machine running the
@@ -91,13 +91,13 @@ def _no_screen_context(monkeypatch: pytest.MonkeyPatch):
     Context is neutralised here. Its own precedence is covered by
     ``test_router_screen_context.py``.
     """
-    from jarvis.screen_context.turn import TurnScreenContext
+    from dodaios.screen_context.turn import TurnScreenContext
 
     async def _none(*_args: Any, **_kwargs: Any) -> TurnScreenContext:
         return TurnScreenContext(status="none")
 
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.screen_context_for_turn", _none
+        "dodaios.screen_context.turn.screen_context_for_turn", _none
     )
     return None
 
@@ -394,7 +394,7 @@ async def test_router_continues_on_vision_failure(caplog: pytest.LogCaptureFixtu
     # The utterance must carry a visual marker so the attach-on-reference gate
     # enters the vision path at all — otherwise the screenshot is skipped (by
     # design) and the failure under test never fires.
-    with caplog.at_level(logging.WARNING, logger="jarvis.brain.router"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.brain.router"):
         deltas = [d async for d in router.handle("was siehst du hier")]
 
     assert len(recorder.calls) == 1

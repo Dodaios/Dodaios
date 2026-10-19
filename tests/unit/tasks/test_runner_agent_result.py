@@ -10,12 +10,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.control.cancel import CancelToken
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested, TaskCompleted
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.schema import AgentAction, PluginGrant, TaskSpec, TriggerAfterDelay
-from jarvis.tasks.store import TaskStore
+from dodaios.control.cancel import CancelToken
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested, TaskCompleted
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.schema import AgentAction, PluginGrant, TaskSpec, TriggerAfterDelay
+from dodaios.tasks.store import TaskStore
 
 
 class FakeAgentBrain:

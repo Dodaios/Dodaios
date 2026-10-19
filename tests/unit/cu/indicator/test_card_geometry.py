@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from jarvis.cu.indicator import renderer  # noqa: E402
+from dodaios.cu.indicator import renderer  # noqa: E402
 
 
 def test_a_thin_strip_still_lands_as_a_full_card() -> None:

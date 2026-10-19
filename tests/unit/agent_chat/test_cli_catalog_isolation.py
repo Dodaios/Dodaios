@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import cli_catalog as catalog
-from jarvis.agent_chat import runner_cli as rc
+from dodaios.agent_chat import cli_catalog as catalog
+from dodaios.agent_chat import runner_cli as rc
 
 
 def test_catalog_identity_changes_on_update_login_config_and_workspace(tmp_path):
@@ -62,8 +62,8 @@ def test_cache_separates_accounts_refreshes_unknown_models_and_bounds_failures(m
 
 
 async def test_catalog_route_uses_session_seat_and_keeps_empty_results(monkeypatch, tmp_path):
-    from jarvis import agent_accounts
-    from jarvis.ui.web import agent_chat_routes as routes
+    from dodaios import agent_accounts
+    from dodaios.ui.web import agent_chat_routes as routes
 
     session = SimpleNamespace(surface="agent", account_id="seat-two", cwd=str(tmp_path))
     service = SimpleNamespace(
@@ -89,7 +89,7 @@ async def test_catalog_route_uses_session_seat_and_keeps_empty_results(monkeypat
 
 
 def test_empty_live_catalog_never_reintroduces_bundled_models():
-    from jarvis.workspace.launch_picks import offered_models
+    from dodaios.workspace.launch_picks import offered_models
 
     assert offered_models("codex", {"codex-cli": []}) == []
 
@@ -120,7 +120,7 @@ async def test_future_codex_effort_is_kept(monkeypatch, tmp_path):
 
 
 def test_removed_pinned_account_never_falls_back_to_another_subscription(monkeypatch):
-    from jarvis import agent_accounts
+    from dodaios import agent_accounts
 
     monkeypatch.setattr(agent_accounts, "resolve", lambda account: None)
     with rc.cli_catalog_scope(account_id="removed"):
@@ -129,7 +129,7 @@ def test_removed_pinned_account_never_falls_back_to_another_subscription(monkeyp
 
 
 def test_account_environment_is_frozen_for_discovery_and_spawn(monkeypatch):
-    from jarvis import agent_accounts
+    from dodaios import agent_accounts
 
     selected = ["one"]
     monkeypatch.setattr(agent_accounts, "resolve", lambda account_id: None)

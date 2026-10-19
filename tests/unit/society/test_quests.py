@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.capabilities import CapabilityKind, CapabilityRow
-from jarvis.society.events import MsgType, QuestState, SocietyEnvelope, Tier
-from jarvis.society.quests import GENERALIST, choose_taker, quest_title
-from jarvis.society.roster import AgentRecord
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.capabilities import CapabilityKind, CapabilityRow
+from dodaios.society.events import MsgType, QuestState, SocietyEnvelope, Tier
+from dodaios.society.quests import GENERALIST, choose_taker, quest_title
+from dodaios.society.roster import AgentRecord
+from dodaios.society.runtime import SocietyRuntime
 
 
 def _cap(cap_id: str, label: str, *, connected: bool = True) -> CapabilityRow:

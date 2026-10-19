@@ -25,8 +25,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import config as cfg
-from jarvis.core import google_genai as gg
+from dodaios.core import config as cfg
+from dodaios.core import google_genai as gg
 
 
 @pytest.fixture(autouse=True)
@@ -467,7 +467,7 @@ def test_the_project_client_fails_fast_on_a_remembered_miss(
         gg.build_vertex_client("")
     assert stub_genai.calls == [], "no client may be built without a credential"
 
-    from jarvis.brain.manager import _DEAD_LIST_KINDS, _classify_provider_error
+    from dodaios.brain.manager import _DEAD_LIST_KINDS, _classify_provider_error
 
     try:
         gg.build_vertex_client("")

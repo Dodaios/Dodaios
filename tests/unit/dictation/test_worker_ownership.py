@@ -11,9 +11,9 @@ import weakref
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.dictation.local_final import LocalFinalSTT
-from jarvis.dictation.local_preview import LocalPreviewTranscriber, _WorkerModel
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.dictation.local_final import LocalFinalSTT
+from dodaios.dictation.local_preview import LocalPreviewTranscriber, _WorkerModel
 
 
 class Process:

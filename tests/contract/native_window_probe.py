@@ -15,7 +15,7 @@ from pathlib import Path
 async def capture_styles() -> None:
     """Report capture support for individual window styles on a CI desktop."""
     root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(root / "jarvis" / "society" / "browser"))
+    sys.path.insert(0, str(root / "dodaios" / "society" / "browser"))
     from native_window import NativeWindow
     from playwright.async_api import async_playwright
 
@@ -92,7 +92,7 @@ async def capture_styles() -> None:
 
 async def main() -> None:
     root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(root / "jarvis" / "society" / "browser"))
+    sys.path.insert(0, str(root / "dodaios" / "society" / "browser"))
     from native_window import NativeWindow
     from playwright.async_api import async_playwright
 
@@ -114,7 +114,7 @@ async def main() -> None:
             native = NativeWindow(int(pid))
             assert await asyncio.to_thread(native.ready.wait, 5)
             native.park()
-            badge = await asyncio.to_thread(native.brand, str(root / "jarvis/assets/icons/jarvis.ico"))
+            badge = await asyncio.to_thread(native.brand, str(root / "dodaios/assets/icons/jarvis.ico"))
             await asyncio.sleep(0.5)
             u = native.user32
             u.EnumChildWindows.argtypes = [wintypes.HWND, native.callback_type, wintypes.LPARAM]

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from jarvis.audio import level_tap
+from dodaios.audio import level_tap
 
 
 class _DummyLock:
@@ -30,7 +30,7 @@ class _FakeStream:
 
 
 def _make_player():
-    from jarvis.audio import player as P
+    from dodaios.audio import player as P
 
     pl = P.AudioPlayer.__new__(P.AudioPlayer)  # bypass device init
     pl._bus = None

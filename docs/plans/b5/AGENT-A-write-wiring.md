@@ -17,35 +17,35 @@ After you ship: starting the desktop app launches a background subscription on `
 1. **All tests in `tests/unit/memory/wiki/test_integration.py` (new, by you) pass.**
 2. **Pre-flight unit-test suite stays at its baseline failure count** — see §6 of the overview.
 3. **Live voice demo (executed by the review agent in Wave 2):** speaking "Hey Jarvis, merk dir bitte: Alex wurde 1985 geboren" <!-- i18n-allow: live voice-demo utterance, real speech input example --> and waiting for idle produces a new page under `wiki/obsidian-vault/` containing the phrase "1985". This succeeds even when Agent D's work is **not yet merged**, by falling back to direct `WikiCurator.ingest` calls.
-4. **No regression in `python -m jarvis.ui.web.launcher --headless`** — the desktop app boots cleanly.
+4. **No regression in `python -m dodaios.ui.web.launcher --headless`** — the desktop app boots cleanly.
 
 ---
 
 ## 3. Files you may touch
 
 Create:
-- `jarvis/memory/wiki/integration.py`
+- `dodaios/memory/wiki/integration.py`
 - `tests/unit/memory/wiki/test_integration.py`
 - `tests/integration/memory/wiki/test_session_to_wiki_e2e.py` (smoke)
 
 Modify:
-- `jarvis/memory/wiki/__init__.py` — export `bootstrap_wiki_integration`, `WikiIntegrationHandle`.
-- `jarvis/core/config.py` — add `WikiIntegrationConfig` Pydantic model (see §5 below) and wire it into `JarvisConfig` under a new top-level field `wiki_integration`.
-- `jarvis/ui/web/server.py` — call `await bootstrap_wiki_integration(...)` inside the existing app-start hook; store the handle on `app.state`; call `await handle.shutdown()` from the existing shutdown hook.
+- `dodaios/memory/wiki/__init__.py` — export `bootstrap_wiki_integration`, `WikiIntegrationHandle`.
+- `dodaios/core/config.py` — add `WikiIntegrationConfig` Pydantic model (see §5 below) and wire it into `JarvisConfig` under a new top-level field `wiki_integration`.
+- `dodaios/ui/web/server.py` — call `await bootstrap_wiki_integration(...)` inside the existing app-start hook; store the handle on `app.state`; call `await handle.shutdown()` from the existing shutdown hook.
 - `jarvis.toml` — append a `[wiki_integration]` section with documented defaults.
 
 ## 4. Files you must NOT touch (Taboo)
 
-- `jarvis/memory/wiki/curator.py`, `curator_llm.py`, `session_rollup.py`, `atomic_writer.py`, `backup.py`, `vault_index.py`, `log_writer.py`, `page.py`, `prompt.py`, `wikilink.py`, `protocols.py`, `cli.py` — **all of B1+B7 is read-only for you.** If you find a bug there, document it in the report, do not fix it.
-- `jarvis/memory/wiki/search.py` — Agent B's territory.
-- `jarvis/memory/wiki/scheduler.py`, `lock.py` — Agent D's territory; expect they may not exist yet.
-- `jarvis/plugins/tool/wiki_recall.py` — Agent B.
-- `jarvis/brain/wiki_context.py`, `jarvis/brain/manager.py`, `jarvis/brain/factory.py` — Agent C / Agent B.
-- Anything in `jarvis/speech/`, `jarvis/skills/`, `jarvis/missions/`, `jarvis/audio/`, `jarvis/vision/` — out of scope.
+- `dodaios/memory/wiki/curator.py`, `curator_llm.py`, `session_rollup.py`, `atomic_writer.py`, `backup.py`, `vault_index.py`, `log_writer.py`, `page.py`, `prompt.py`, `wikilink.py`, `protocols.py`, `cli.py` — **all of B1+B7 is read-only for you.** If you find a bug there, document it in the report, do not fix it.
+- `dodaios/memory/wiki/search.py` — Agent B's territory.
+- `dodaios/memory/wiki/scheduler.py`, `lock.py` — Agent D's territory; expect they may not exist yet.
+- `dodaios/plugins/tool/wiki_recall.py` — Agent B.
+- `dodaios/brain/wiki_context.py`, `dodaios/brain/manager.py`, `dodaios/brain/factory.py` — Agent C / Agent B.
+- Anything in `dodaios/speech/`, `dodaios/skills/`, `dodaios/missions/`, `dodaios/audio/`, `dodaios/vision/` — out of scope.
 
 ## 5. Configuration model
 
-Add to `jarvis/core/config.py`:
+Add to `dodaios/core/config.py`:
 
 ```python
 class WikiIntegrationConfig(BaseModel):
@@ -76,7 +76,7 @@ fallback_to_direct_ingest = true
 The exact signature is locked in overview §3.2. Below is the full implementation contract.
 
 ```python
-# jarvis/memory/wiki/integration.py
+# dodaios/memory/wiki/integration.py
 
 from __future__ import annotations
 
@@ -88,10 +88,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import WikiIntegrationConfig
-    from jarvis.memory.wiki.protocols import PageRepository
-    from jarvis.memory.wiki.scheduler import CuratorScheduler
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import WikiIntegrationConfig
+    from dodaios.memory.wiki.protocols import PageRepository
+    from dodaios.memory.wiki.scheduler import CuratorScheduler
 
 log = logging.getLogger(__name__)
 
@@ -130,18 +130,18 @@ Existing — do not redefine:
 
 | What | Where (exact path) | How you use it |
 |------|--------------------|----------------|
-| `SessionRollupWorker` class | `jarvis/memory/wiki/session_rollup.py` | Construct in bootstrap, call `.start()` and `.stop()`. It already subscribes itself to `IdleEntered` if given a bus — you just give it the bus. |
-| `WikiCurator` class | `jarvis/memory/wiki/curator.py` | `await curator.ingest(text=…, source=…)`. Source string convention: `"session:<short-id>"`. |
-| `PageRepository` protocol | `jarvis/memory/wiki/protocols.py` | Construct concrete repo via existing factory in `jarvis/memory/wiki/__init__.py`. |
-| `IdleEntered` event | `jarvis/core/events.py` | Subscribe via `bus.subscribe(IdleEntered, handler)`; unsubscribe in shutdown. |
-| `BrainProviderRegistry` | `jarvis/brain/provider_registry.py` | If `brain_caller` is None, construct a default via the registry using `cfg.brain.primary`. |
+| `SessionRollupWorker` class | `dodaios/memory/wiki/session_rollup.py` | Construct in bootstrap, call `.start()` and `.stop()`. It already subscribes itself to `IdleEntered` if given a bus — you just give it the bus. |
+| `WikiCurator` class | `dodaios/memory/wiki/curator.py` | `await curator.ingest(text=…, source=…)`. Source string convention: `"session:<short-id>"`. |
+| `PageRepository` protocol | `dodaios/memory/wiki/protocols.py` | Construct concrete repo via existing factory in `dodaios/memory/wiki/__init__.py`. |
+| `IdleEntered` event | `dodaios/core/events.py` | Subscribe via `bus.subscribe(IdleEntered, handler)`; unsubscribe in shutdown. |
+| `BrainProviderRegistry` | `dodaios/brain/provider_registry.py` | If `brain_caller` is None, construct a default via the registry using `cfg.brain.primary`. |
 
 Optional, may not exist yet:
 
 | What | Where | Behaviour if missing |
 |------|-------|----------------------|
-| `CuratorScheduler` | `jarvis/memory/wiki/scheduler.py` (Agent D) | If `scheduler_factory is None`: bypass it, call curator directly. Log a single `INFO` line "scheduler not wired, using direct ingest". |
-| `VaultLock` | `jarvis/memory/wiki/lock.py` (Agent D) | Not touched by you. |
+| `CuratorScheduler` | `dodaios/memory/wiki/scheduler.py` (Agent D) | If `scheduler_factory is None`: bypass it, call curator directly. Log a single `INFO` line "scheduler not wired, using direct ingest". |
+| `VaultLock` | `dodaios/memory/wiki/lock.py` (Agent D) | Not touched by you. |
 
 ## 8. Anti-patterns specific to your scope
 
@@ -180,7 +180,7 @@ python -m pytest tests/integration/memory/wiki/test_session_to_wiki_e2e.py -v
 # Expected: PASSED
 
 # 4. Desktop app boots without your new code crashing it
-python -m jarvis.ui.web.launcher --headless &
+python -m dodaios.ui.web.launcher --headless &
 Start-Sleep -Seconds 8
 Stop-Process -Name pythonw -Force -ErrorAction SilentlyContinue
 Get-Content data/jarvis_desktop.log -Tail 30

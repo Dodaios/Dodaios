@@ -15,7 +15,7 @@ it is fixated on the screenshot.
 
 ### Root cause (verified, file:line)
 
-- `jarvis/brain/vision_gate.py:44` — `should_attach_screenshot()` returns `True`
+- `dodaios/brain/vision_gate.py:44` — `should_attach_screenshot()` returns `True`
   for **every non-smalltalk turn** unconditionally. A content question like
   "was haben wir besprochen?" is not smalltalk → image is always attached.
 - The image rides on the current turn's user message only (`dispatcher.py:106`),
@@ -43,7 +43,7 @@ skip → router hallucinates a blank desktop).
 
 ### Wave 1 — Invert the heuristic (skip-by-default)
 
-`jarvis/brain/vision_gate.py::should_attach_screenshot()`:
+`dodaios/brain/vision_gate.py::should_attach_screenshot()`:
 
 - **Today:** attach UNLESS (is_smalltalk AND no visual marker) → almost always attach.
 - **New:** attach ONLY IF the utterance carries a clear screen reference.
@@ -75,7 +75,7 @@ skip → router hallucinates a blank desktop).
 
 ### Wave 2 — Image-as-a-tool (the safety net)
 
-`jarvis/brain/tool_use_loop.py:510` currently discards a tool's image artifacts
+`dodaios/brain/tool_use_loop.py:510` currently discards a tool's image artifacts
 (serializes only `{success, output, error}`). Fix:
 
 - After a tool returns image artifacts (e.g. the existing `screenshot` /
@@ -107,10 +107,10 @@ pull the image itself — no per-turn image tax, no blank-desktop hallucination.
 
 ## Files touched
 
-- `jarvis/brain/vision_gate.py` (Wave 1 — logic + markers)
+- `dodaios/brain/vision_gate.py` (Wave 1 — logic + markers)
 - `tests/integration/test_conditional_vision.py` + `tests/unit/brain/test_vision_gate.py` (Wave 1)
-- `jarvis/brain/tool_use_loop.py` (Wave 2 — artifact→image wiring)
-- `jarvis/brain/router.py` (Wave 2 — one prompt line) + `jarvis/brain/factory.py` (verify tool in ROUTER_TOOLS)
+- `dodaios/brain/tool_use_loop.py` (Wave 2 — artifact→image wiring)
+- `dodaios/brain/router.py` (Wave 2 — one prompt line) + `dodaios/brain/factory.py` (verify tool in ROUTER_TOOLS)
 - `tests/unit/brain/test_tool_use_loop_image_feedback.py` (Wave 2)
 
 ## Verification

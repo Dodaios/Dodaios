@@ -1,8 +1,8 @@
 """Unit tests for BrainManager.drop_last_turn (continuation recombine, Unit C)."""
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.protocols import BrainMessage
+from dodaios.brain.manager import BrainManager
+from dodaios.core.protocols import BrainMessage
 
 
 def _mgr_with_history(messages):

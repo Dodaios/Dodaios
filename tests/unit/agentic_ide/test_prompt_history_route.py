@@ -8,9 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import prompt_history
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry
+from dodaios.agentic_ide import prompt_history
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -20,7 +20,7 @@ def registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Registry:
     monkeypatch.setattr(prompt_history, "_store_dir", lambda: tmp_path / "prompt-history")
     reg = Registry(pty_manager=FakePtyManager())
     monkeypatch.setattr(session_mod, "get_registry", lambda: reg)
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.ui.web import agentic_ide_routes
 
     monkeypatch.setattr(agentic_ide_routes, "get_registry", lambda: reg)
     return reg
@@ -28,7 +28,7 @@ def registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Registry:
 
 @pytest.fixture
 def client(registry: Registry) -> TestClient:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -121,7 +121,7 @@ async def test_a_pane_with_no_prompts_has_an_honest_empty_history(
 def test_history_id_round_trips_through_the_metadata_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.agentic_ide import resume_store
+    from dodaios.agentic_ide import resume_store
 
     monkeypatch.setattr(resume_store, "_store_path", lambda: tmp_path / "session.json")
     pane = resume_store.SnapshotTerminal(

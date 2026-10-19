@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from jarvis.plugins.tts.inworld_tts import (
+from dodaios.plugins.tts.inworld_tts import (
     INWORLD_TTS_SAMPLE_RATE,
     InworldTTS,
     _normalize_language,
@@ -45,7 +45,7 @@ class _Resp:
 @pytest.fixture
 def patched_secret():
     with patch(
-        "jarvis.plugins.tts.inworld_tts.cfg.get_secret",
+        "dodaios.plugins.tts.inworld_tts.cfg.get_secret",
         return_value="d29ya3NwYWNlLWtleTpzZWNyZXQ=",  # a base64-looking test key
     ):
         yield
@@ -161,7 +161,7 @@ async def test_401_triggers_cooldown_and_falls_back(tts: InworldTTS):
     tts._client = mock_client
 
     async def fake_fallback(text: str, lang: str | None):
-        from jarvis.core.protocols import AudioChunk
+        from dodaios.core.protocols import AudioChunk
 
         yield AudioChunk(pcm=b"FB", sample_rate=24_000, timestamp_ns=0, channels=1)
 
@@ -175,12 +175,12 @@ async def test_401_triggers_cooldown_and_falls_back(tts: InworldTTS):
 @pytest.mark.asyncio
 async def test_missing_key_falls_back_without_raising():
     with patch(
-        "jarvis.plugins.tts.inworld_tts.cfg.get_secret", return_value=None
+        "dodaios.plugins.tts.inworld_tts.cfg.get_secret", return_value=None
     ):
         tts = InworldTTS()
 
         async def fake_fallback(text: str, lang: str | None):
-            from jarvis.core.protocols import AudioChunk
+            from dodaios.core.protocols import AudioChunk
 
             yield AudioChunk(pcm=b"FB", sample_rate=24_000, timestamp_ns=0, channels=1)
 

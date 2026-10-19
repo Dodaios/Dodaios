@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.clis.prober import _apply_parse_strategy
+from dodaios.clis.prober import _apply_parse_strategy
 
 # --- exit-code short-circuit (applies to all but json_array_nonempty_or_error) ---
 
@@ -173,7 +173,7 @@ def test_resolve_executable_returns_full_path_for_python() -> None:
     import os
     import sys
 
-    from jarvis.core.process_utils import resolve_executable
+    from dodaios.core.process_utils import resolve_executable
 
     binary = os.path.basename(sys.executable)  # python.exe / python
     resolved = resolve_executable(binary)

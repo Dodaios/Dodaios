@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from jarvis.ui.web import skills_routes as routes
+from dodaios.ui.web import skills_routes as routes
 
 _NO_STATE = (
     "---\n"
@@ -146,7 +146,7 @@ async def test_import_accepts_a_skill_written_for_another_agent(
 ) -> None:
     """A SKILL.md in the open Agent Skills format imports — and stays a draft.
 
-    The portable adapter (jarvis/skills/portable.py) is what makes the first
+    The portable adapter (dodaios/skills/portable.py) is what makes the first
     half work; the second half is the guard above it: the adapter must not
     drop the stamped ``state: draft`` and thereby promote the file into the
     active pool.

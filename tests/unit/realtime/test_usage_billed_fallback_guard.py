@@ -24,14 +24,14 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.browser_voice.route as route_mod
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.browser_voice.route import (
+import dodaios.browser_voice.route as route_mod
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.browser_voice.route import (
     _USAGE_FALLBACK_DISABLED_DETAIL,
     browser_voice_ws,
 )
-from jarvis.sessions.constants import HANGUP_ERROR
-from jarvis.ui.web.missions_auth import register_token, revoke_token
+from dodaios.sessions.constants import HANGUP_ERROR
+from dodaios.ui.web.missions_auth import register_token, revoke_token
 from tests.unit.browser_voice.test_route import (
     _VALID_TOKEN,
     _FakeWS,
@@ -60,7 +60,7 @@ def _realtime_transport_sees_no_host_credentials(monkeypatch):
     would hand these desktop calls to the browser while CI never does.
     """
     monkeypatch.setattr(
-        "jarvis.realtime.factory.get_secret_any", lambda _candidates: None
+        "dodaios.realtime.factory.get_secret_any", lambda _candidates: None
     )
 
 
@@ -105,11 +105,11 @@ async def test_desktop_unbuildable_realtime_stops_instead_of_billing_api(
     """
     pipe = _pipe()
     monkeypatch.setattr(
-        "jarvis.realtime.factory.realtime_implicit_usage_fallback_allowed",
+        "dodaios.realtime.factory.realtime_implicit_usage_fallback_allowed",
         lambda _cfg: fallback_allowed,
     )
     monkeypatch.setattr(
-        "jarvis.realtime.factory.build_realtime_session",
+        "dodaios.realtime.factory.build_realtime_session",
         lambda **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -147,10 +147,10 @@ async def test_desktop_failed_handshake_stops_instead_of_billing_api(
     # Deliberately the OPPOSITE of the session's own answer: whichever value the
     # surface honours, it must be the one the built session carries.
     monkeypatch.setattr(
-        "jarvis.realtime.factory.realtime_implicit_usage_fallback_allowed",
+        "dodaios.realtime.factory.realtime_implicit_usage_fallback_allowed",
         lambda _cfg: not fallback_allowed,
     )
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
         pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic()
     )

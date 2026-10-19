@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.workers.codex_direct_worker import (
+from dodaios.missions.workers.codex_direct_worker import (
     _CLAUDE_MODEL_ALIASES,
     _build_codex_direct_cmd,
     _normalize_model_for_codex,

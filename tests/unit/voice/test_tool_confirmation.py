@@ -1,4 +1,4 @@
-"""Tests for ``jarvis.voice.tool_confirmation`` — the generic, channel-agnostic
+"""Tests for ``dodaios.voice.tool_confirmation`` — the generic, channel-agnostic
 voice/text confirmation phrasing for an ``ask``-tier tool that is being run
 through the two-turn confirmation flow.
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.voice.tool_confirmation import (
+from dodaios.voice.tool_confirmation import (
     format_confirm_outcome,
     format_tool_confirmation,
 )

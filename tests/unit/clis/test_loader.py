@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.clis.shared as shared
-from jarvis.clis.loader import CliToolLoader
-from jarvis.clis.registry import CliToolRegistry
-from jarvis.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
-from jarvis.clis.usage_log import UsageLog
+import dodaios.clis.shared as shared
+from dodaios.clis.loader import CliToolLoader
+from dodaios.clis.registry import CliToolRegistry
+from dodaios.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
+from dodaios.clis.usage_log import UsageLog
 
 
 @pytest.fixture(autouse=True)
@@ -37,7 +37,7 @@ def _isolate_global_capability_registry():
     ``cli.*`` capabilities into the global singleton, which would leak into
     later test files in the same process (observed: routing-heuristic tests
     changed verdicts once real CLI capabilities were visible)."""
-    import jarvis.core.capabilities as cap_mod
+    import dodaios.core.capabilities as cap_mod
 
     previous = cap_mod._registry_instance
     cap_mod._registry_instance = None

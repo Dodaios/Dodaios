@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.config as cfg_mod
-from jarvis.core.protocols import BrainDelta
-from jarvis.missions.critic.runner import (
+import dodaios.core.config as cfg_mod
+from dodaios.core.protocols import BrainDelta
+from dodaios.missions.critic.runner import (
     REQUIRED_AXES,
     CriticAxis,
     CriticRunner,
@@ -91,7 +91,7 @@ def test_api_critic_none_when_even_locals_are_excluded(monkeypatch):
 
 def test_api_critic_resolver_can_exclude_a_failed_family(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.missions.init._api_key_family_viable",
+        "dodaios.missions.init._api_key_family_viable",
         lambda provider: provider in {"openrouter", "gemini"},
     )
 
@@ -127,7 +127,7 @@ async def test_api_critic_uses_scoped_jarvis_agent_key(
         }.get(key),
     )
     monkeypatch.setattr(
-        "jarvis.brain.provider_registry.BrainProviderRegistry.get_class",
+        "dodaios.brain.provider_registry.BrainProviderRegistry.get_class",
         lambda self, provider: _Brain,
     )
 
@@ -152,18 +152,18 @@ async def test_critic_walks_to_next_api_family_after_invalid_verdict(
     # A key-only install: on a machine with a connected subscription the
     # capacity policy would park the critic instead of walking API families.
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._critic_subscription_only", lambda _p: False
+        "dodaios.missions.critic.runner._critic_subscription_only", lambda _p: False
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("antigravity", None),
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._claude_cli_critic_viable",
+        "dodaios.missions.critic.runner._claude_cli_critic_viable",
         lambda: False,
     )
     monkeypatch.setattr(
-        "jarvis.missions.init._api_key_family_viable",
+        "dodaios.missions.init._api_key_family_viable",
         lambda provider: provider in {"openrouter", "gemini"},
     )
     attempted: list[str] = []

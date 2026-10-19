@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from jarvis.brain import background_policy as policy
+from dodaios.brain import background_policy as policy
 
 
 @pytest.fixture(autouse=True)

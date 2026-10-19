@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser import manual_chrome as chrome
+from dodaios.society.browser import manual_chrome as chrome
 
 
 @pytest.fixture

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_chat import agent_provider_prefs as prefs_mod
-from jarvis.agent_chat import service
+from dodaios.agent_chat import agent_provider_prefs as prefs_mod
+from dodaios.agent_chat import service
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +62,7 @@ def test_claude_on_its_key_changes_the_agents_surface_only(monkeypatch: pytest.M
 
 
 def test_hidden_models_reach_every_surface_but_the_switch_only_the_agents() -> None:
-    from jarvis.ui.web.agent_chat_routes import _catalog_rows
+    from dodaios.ui.web.agent_chat_routes import _catalog_rows
 
     surfaces = ("agent", "jarvis", "society")
     before = {s: {r["id"]: r["curated_models"] for r in _catalog_rows(s, {})} for s in surfaces}
@@ -84,7 +84,7 @@ def test_hidden_models_reach_every_surface_but_the_switch_only_the_agents() -> N
 
 
 def test_coding_panes_leave_hidden_models_out_but_still_launch_on_them() -> None:
-    from jarvis.workspace import launch_picks
+    from dodaios.workspace import launch_picks
 
     every = [m["id"] for m in launch_picks.offered("claude")["models"]]
     assert "opusplan" in every
@@ -101,7 +101,7 @@ def test_the_page_route_merges_and_refuses_unknown_ids() -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.ui.web.society_routes import router
+    from dodaios.ui.web.society_routes import router
 
     app = FastAPI()
     app.include_router(router)

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.workspace import agents as registry
-from jarvis.workspace import custom_clis
+from dodaios.workspace import agents as registry
+from dodaios.workspace import custom_clis
 
 
 @pytest.fixture(autouse=True)
@@ -242,7 +242,7 @@ async def test_detection_never_runs_a_strangers_binary(
 
     class RecordingProber:
         async def probe_all(self, specs):  # noqa: ANN001, ANN202
-            from jarvis.clis.spec import CliStatus
+            from dodaios.clis.spec import CliStatus
 
             probed.extend(spec.name for spec in specs)
             return {spec.name: CliStatus(installed=False, version=None) for spec in specs}
@@ -267,7 +267,7 @@ async def test_a_missing_binary_is_reported_honestly(
 
     class QuietProber:
         async def probe_all(self, specs):  # noqa: ANN001, ANN202
-            from jarvis.clis.spec import CliStatus
+            from dodaios.clis.spec import CliStatus
 
             return {spec.name: CliStatus(installed=False, version=None) for spec in specs}
 
@@ -421,7 +421,7 @@ def test_a_cli_added_while_running_is_spawnable_by_name() -> None:
     The spawn parser compiles every spoken name into its patterns; an entry
     added after it was imported used to be invisible to voice until a restart.
     """
-    from jarvis.agentic_ide import intent
+    from dodaios.agentic_ide import intent
 
     before = intent.detect_spawn("open five warpdrive terminals")
     assert before is None or all(group.agent != "warpdrive" for group in before.groups)

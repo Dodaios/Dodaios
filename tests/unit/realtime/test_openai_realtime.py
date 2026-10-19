@@ -9,10 +9,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.model_catalog import REALTIME_MODELS
-from jarvis.plugins.realtime import openai_realtime
-from jarvis.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
-from jarvis.realtime.protocol import RealtimeSessionConfig
+from dodaios.brain.model_catalog import REALTIME_MODELS
+from dodaios.plugins.realtime import openai_realtime
+from dodaios.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
+from dodaios.realtime.protocol import RealtimeSessionConfig
 
 
 class _FakeConn:

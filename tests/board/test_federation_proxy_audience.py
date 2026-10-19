@@ -24,7 +24,7 @@ from board_backend.crypto import generate_keypair  # noqa: E402
 from board_backend.main import create_app  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 
-from jarvis.ui.web import federation_proxy_routes as proxy  # noqa: E402
+from dodaios.ui.web import federation_proxy_routes as proxy  # noqa: E402
 
 _BACKEND = "http://backend"
 _ADMIN = "test-admin"  # noqa: S105 - fixture value for a throwaway in-memory backend

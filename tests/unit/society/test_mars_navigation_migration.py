@@ -6,11 +6,11 @@ import copy
 
 import pytest
 
-from jarvis.society.mars.models import StationError
-from jarvis.society.mars.navigation import NavigationGraph
-from jarvis.society.mars.navigation_models import MoveCommand, NavigationState
-from jarvis.society.mars.navigation_service import MarsNavigationService
-from jarvis.society.mars.navigation_store import MarsNavigationStore
+from dodaios.society.mars.models import StationError
+from dodaios.society.mars.navigation import NavigationGraph
+from dodaios.society.mars.navigation_models import MoveCommand, NavigationState
+from dodaios.society.mars.navigation_service import MarsNavigationService
+from dodaios.society.mars.navigation_store import MarsNavigationStore
 
 
 def source():

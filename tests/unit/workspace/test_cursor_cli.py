@@ -8,15 +8,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.workspace import cursor_cli
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.workspace import cursor_cli
 
 
 @pytest.fixture(autouse=True)
 def clear_cache(monkeypatch):
     clear = cursor_cli._supports_cursor_cli.cache_clear
     clear()
-    monkeypatch.setattr("jarvis.core.path_augment.ensure_cli_paths", lambda: None)
+    monkeypatch.setattr("dodaios.core.path_augment.ensure_cli_paths", lambda: None)
     yield
     clear()
 
@@ -74,9 +74,9 @@ def test_a_shadowing_agent_does_not_hide_cursor_later_on_path(monkeypatch, tmp_p
 
 
 async def test_missing_cursor_agrees_across_picker_pane_and_recheck(monkeypatch):
-    from jarvis.agent_chat import runner_cli
-    from jarvis.agentic_ide.session import agent_argv
-    from jarvis.workspace.agents import recheck_agent
+    from dodaios.agent_chat import runner_cli
+    from dodaios.agentic_ide.session import agent_argv
+    from dodaios.workspace.agents import recheck_agent
 
     monkeypatch.setattr(cursor_cli, "resolve_cursor_binary", lambda: None)
     assert not runner_cli.cli_installed("cursor-cli")

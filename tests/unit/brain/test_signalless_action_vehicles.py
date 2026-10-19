@@ -19,8 +19,8 @@ import re
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.harness import cu_run_registry
+from dodaios.brain.manager import BrainManager
+from dodaios.harness import cu_run_registry
 
 _NEVER = re.compile(r"(?!)")  # matches nothing — no explicit heavy-work vehicle
 

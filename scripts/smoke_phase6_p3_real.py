@@ -35,8 +35,8 @@ if sys.stdout.encoding != "utf-8":
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jarvis.missions.critic.runner import CriticRunner  # noqa: E402
-from jarvis.missions.critic.verdict import CriticVerdict  # noqa: E402
+from dodaios.missions.critic.runner import CriticRunner  # noqa: E402
+from dodaios.missions.critic.verdict import CriticVerdict  # noqa: E402
 
 OK = "[OK]"
 FAIL = "[FAIL]"

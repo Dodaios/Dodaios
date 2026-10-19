@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.ack_generator import (
+from dodaios.brain.ack_generator import (
     ACK_SKIP_TOOLS,
     _CALENDAR_ACK,
     _CLI_SERVICE_ACK,

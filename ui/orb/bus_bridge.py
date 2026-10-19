@@ -36,7 +36,7 @@ import sys
 import time
 from typing import TYPE_CHECKING, Any
 
-from jarvis.core.events import (
+from dodaios.core.events import (
     ActionExecuted,
     ActionProposed,
     AudioOutFirst,
@@ -75,8 +75,8 @@ from jarvis.core.events import (
     WakeCandidateDetected,
     WakeWordDetected,
 )
-from jarvis.dictation.outcomes import was_delivered
-from jarvis.sessions.constants import (
+from dodaios.dictation.outcomes import was_delivered
+from dodaios.sessions.constants import (
     HANGUP_ERROR,
     SPOKEN_KIND_ACTION_DONE,
     SPOKEN_KIND_COMPLETION,
@@ -84,13 +84,13 @@ from jarvis.sessions.constants import (
     SPOKEN_KIND_TIMEOUT,
     SPOKEN_KIND_UNAVAILABLE,
 )
-from jarvis.ui.pets import notices as pet_notices
-from jarvis.ui.pets.actions import action_for_tool
-from jarvis.ui.pets.status_line import StatusFeed, condense, parse_reasoning_summary
+from dodaios.ui.pets import notices as pet_notices
+from dodaios.ui.pets.actions import action_for_tool
+from dodaios.ui.pets.status_line import StatusFeed, condense, parse_reasoning_summary
 from ui.orb.animations import IDLE_ANIMATION_POOL
 
 if TYPE_CHECKING:
-    from jarvis.core.bus import EventBus
+    from dodaios.core.bus import EventBus
     from ui.orb.overlay import OrbOverlay
 
 
@@ -209,8 +209,8 @@ def _microphone_refusal_kind(detail: str) -> str:
     unreadable service means "undecided" (the table is the safe default for the bar).
     """
     try:
-        from jarvis.platform.permission_service import user_detail_for
-        from jarvis.platform.permissions import PermissionId
+        from dodaios.platform.permission_service import user_detail_for
+        from dodaios.platform.permissions import PermissionId
 
         mic = PermissionId.MICROPHONE
         if detail in {user_detail_for(mic, "restricted"), user_detail_for(mic, "unavailable")}:
@@ -427,7 +427,7 @@ def _humanize_tool_name(tool_name: str) -> str:
 
 
 # NOTE 2026-05-27 (bubble-pendulum Ep.3): the STT pipeline accumulates probe
-# tails into a complete snapshot itself (jarvis/speech/pipeline.py:409
+# tails into a complete snapshot itself (dodaios/speech/pipeline.py:409
 # ``_merge_partial_transcript`` over ``_probe_live_text``) and every
 # TranscriptionUpdate carries that snapshot. The Desktop App's
 # TranscriptionView wires the same event into the store 1:1 via
@@ -701,7 +701,7 @@ class OrbBusBridge:
             self._bus.subscribe(ToolCallStarted, self._on_tool_call_started)
             self._bus.subscribe(JarvisAgentTaskStarted, self._on_agent_task_started)
             self._bus.subscribe(JarvisAgentTaskCompleted, self._on_agent_task_completed)
-            # The pet's done cards (jarvis.ui.pets.notices): Jarvis answered a
+            # The pet's done cards (dodaios.ui.pets.notices): Jarvis answered a
             # typed chat, or a job Jarvis started came back. Nothing else.
             self._bus.subscribe(JarvisChatTurnFinished, self._on_chat_turn_finished)
             self._bus.subscribe(DelegationResultReady, self._on_delegation_result)
@@ -743,11 +743,11 @@ class OrbBusBridge:
             if show_window_setter is not None:
                 show_window_setter(self._publish_show_window)
             # Live mic loudness → equalizer bars during LISTENING. The VAD frame
-            # loop feeds jarvis.audio.mic_level from the audio already captured
+            # loop feeds dodaios.audio.mic_level from the audio already captured
             # for STT — no second mic stream. One subscription for the bridge's
             # whole life; it forwards to whichever surface is current.
             try:
-                from jarvis.audio import mic_level
+                from dodaios.audio import mic_level
 
                 self._mic_level_unsub = mic_level.subscribe(self._on_mic_level)
             except Exception as exc:  # noqa: BLE001
@@ -759,7 +759,7 @@ class OrbBusBridge:
             # load-bearing for cross-process speaking animation, while the
             # recency timestamp still prevents the mic from clobbering it.
             try:
-                from jarvis.audio import level_tap
+                from dodaios.audio import level_tap
 
                 self._tts_recency_unsub = level_tap.subscribe(self._note_tts_level)
             except Exception as exc:  # noqa: BLE001
@@ -829,8 +829,8 @@ class OrbBusBridge:
         if not callable(setter):
             return
         try:
-            from jarvis.core.runtime_refs import get_speech_pipeline
-            from jarvis.dictation.prompt_mode import (
+            from dodaios.core.runtime_refs import get_speech_pipeline
+            from dodaios.dictation.prompt_mode import (
                 prompt_mode_configured,
                 prompt_mode_paused,
             )
@@ -886,7 +886,7 @@ class OrbBusBridge:
         to read; ``_on_voice_boot_status`` runs this again once it is.
         """
         try:
-            from jarvis.core.runtime_refs import get_speech_pipeline
+            from dodaios.core.runtime_refs import get_speech_pipeline
 
             pipeline = get_speech_pipeline()
         except Exception:  # noqa: BLE001 — a seed must never break the bridge
@@ -913,7 +913,7 @@ class OrbBusBridge:
         if self._language is not None:
             return self._language
         try:
-            from jarvis.core.runtime_refs import get_speech_pipeline
+            from dodaios.core.runtime_refs import get_speech_pipeline
 
             config = getattr(get_speech_pipeline(), "_config", None)
             language = str(getattr(getattr(config, "ui", None), "language", "") or "")
@@ -2448,7 +2448,7 @@ class OrbBusBridge:
         swing the instant the bar appears — the bar must only ever show what
         the user says AFTER it is visible."""
         try:
-            from jarvis.audio import mic_level
+            from dodaios.audio import mic_level
 
             mic_level.clear()
         except Exception:  # noqa: BLE001 — visual hygiene must never break the bus
@@ -2468,7 +2468,7 @@ class OrbBusBridge:
         the same normalized value through it and retain the recency guard that
         suppresses simultaneous silent-mic updates.
         """
-        from jarvis.audio import level_tap
+        from dodaios.audio import level_tap
 
         # reset_playing publishes an explicit zero after clearing the audible
         # window. Give the microphone back immediately on that edge; silence
@@ -2484,7 +2484,7 @@ class OrbBusBridge:
     def _on_mic_level(self, level: float) -> None:
         """Forward the live mic loudness to the active surface's bars.
 
-        The level comes from ``jarvis.audio.mic_level`` (the VAD feeds it from
+        The level comes from ``dodaios.audio.mic_level`` (the VAD feeds it from
         the audio already captured for STT — no second stream). It is forwarded
         only when (a) NO TTS output is currently playing — Jarvis's voice owns
         the bars while it speaks, and the state label is unreliable because

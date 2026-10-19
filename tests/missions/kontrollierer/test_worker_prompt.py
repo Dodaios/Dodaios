@@ -13,7 +13,7 @@ every worker, every iteration, every decomposition path) via
 """
 from __future__ import annotations
 
-from jarvis.missions.kontrollierer.worker_prompt import (
+from dodaios.missions.kontrollierer.worker_prompt import (
     ARTIFACT_LANGUAGE_DIRECTIVE,
     OUTPUT_SHAPE_DIRECTIVE,
     SUPERVISOR_BOUNDARY_DIRECTIVE,
@@ -166,7 +166,7 @@ def test_compose_without_prior_block_has_no_dangling_separator() -> None:
 
 
 def test_every_worker_is_asked_to_close_with_outcome_status_and_open_decisions():
-    from jarvis.missions.kontrollierer.worker_prompt import FINAL_REPORT_DIRECTIVE
+    from dodaios.missions.kontrollierer.worker_prompt import FINAL_REPORT_DIRECTIVE
 
     for prior in ("", "PRIOR FEEDBACK: tighten the layout"):
         out = compose_worker_prompt(prior, "Build the report page")
