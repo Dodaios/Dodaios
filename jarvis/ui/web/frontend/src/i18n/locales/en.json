@@ -9204,6 +9204,21 @@
       "refreshing": "Refreshing GitHub status…",
       "loading": "Reading the GitHub status…"
     },
+    "done_gate": {
+      "label_done": "landed",
+      "label_wait": "waiting",
+      "label_fix": "fix",
+      "label_stuck": "stuck",
+      "title_done": "Done gate: the work has landed",
+      "title_wait": "Done gate: waiting before this agent may stop",
+      "title_fix": "Done gate: something needs fixing before this agent may stop",
+      "title_stuck": "Done gate: stuck, a person has to look",
+      "next": "Next: {next}",
+      "pull_request": "Pull request #{number}",
+      "checked": "Checked at {time}",
+      "matched_folder": "Matched by this pane's folder or branch, not its own session",
+      "aria": "{pane}: done gate {state}"
+    },
     "dock": {
       "swap": "Swap positions",
       "left": "Place on the left",

@@ -9204,6 +9204,21 @@
       "refreshing": "正在刷新 GitHub 状态…",
       "loading": "正在读取 GitHub 状态…"
     },
+    "done_gate": {
+      "label_done": "已合入",
+      "label_wait": "等待中",
+      "label_fix": "需修复",
+      "label_stuck": "卡住",
+      "title_done": "完成检查：工作已合入",
+      "title_wait": "完成检查：等待中，此代理暂不能停止",
+      "title_fix": "完成检查：需要先修复问题，此代理才能停止",
+      "title_stuck": "完成检查：卡住了，需要人工查看",
+      "next": "下一步：{next}",
+      "pull_request": "拉取请求 #{number}",
+      "checked": "检查于 {time}",
+      "matched_folder": "按此窗格的文件夹或分支匹配，而非其自身会话",
+      "aria": "{pane}：完成检查 {state}"
+    },
     "dock": {
       "swap": "交换位置",
       "left": "放在左侧",
