@@ -13,10 +13,10 @@ import re
 import typing
 from pathlib import Path
 
-from jarvis.telephony.constants import CALL_STATUSES, CallStatusLiteral
+from dodaios.telephony.constants import CALL_STATUSES, CallStatusLiteral
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_EVENTS_TS = _REPO_ROOT / "jarvis" / "ui" / "web" / "frontend" / "src" / "store" / "events.ts"
+_EVENTS_TS = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src" / "store" / "events.ts"
 
 
 def test_literal_matches_source_tuple():

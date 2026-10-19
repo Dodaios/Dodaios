@@ -1,8 +1,8 @@
 import pytest
 
-from jarvis.marketplace.catalog import PluginCatalog, PluginSpec
-from jarvis.marketplace.plugin_registry import PluginToolRegistry
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.marketplace.catalog import PluginCatalog, PluginSpec
+from dodaios.marketplace.plugin_registry import PluginToolRegistry
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 
 
 def _calendar_plugin() -> PluginSpec:
@@ -22,7 +22,7 @@ def _calendar_plugin() -> PluginSpec:
 
 
 class _FakeClient:
-    """Stands in for jarvis.mcp.MCPClient — no network."""
+    """Stands in for dodaios.mcp.MCPClient — no network."""
     def __init__(self, spec, env_overrides=None):
         self.spec = spec
         self._tools = [{"name": "list_events", "description": "List events", "inputSchema": {}}]

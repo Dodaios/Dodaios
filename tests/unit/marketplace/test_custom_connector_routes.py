@@ -14,11 +14,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.marketplace import catalog_data, custom_connector
-from jarvis.marketplace.custom_connector import ConnectorError, ConnectorProbe
-from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
-from jarvis.marketplace.usage_cards import loader as cards_loader
-from jarvis.ui.web import marketplace_routes as routes
+from dodaios.marketplace import catalog_data, custom_connector
+from dodaios.marketplace.custom_connector import ConnectorError, ConnectorProbe
+from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
+from dodaios.marketplace.usage_cards import loader as cards_loader
+from dodaios.ui.web import marketplace_routes as routes
 
 URL = "https://mcp.acme.example/mcp"
 

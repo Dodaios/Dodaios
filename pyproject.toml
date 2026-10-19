@@ -22,7 +22,7 @@ license-files = [
     "third_party/*/LICENSE",
     "third_party/*/NOTICE*",
     "third_party/*/ThirdPartyNotices.txt",
-    "jarvis/ui/web/frontend/src/assets/octicons-LICENSE.txt",
+    "dodaios/ui/web/frontend/src/assets/octicons-LICENSE.txt",
 ]
 authors = [{ name = "Ruben Lütke" }]  # i18n-allow: maintainer proper name (umlaut)
 keywords = [
@@ -68,7 +68,7 @@ dependencies = [
     "google-genai>=1.0",
     # Async client and web-stack security fixes from AnyIO 4.14.2 onward.
     "anyio>=4.14.2",
-    # Lazy-imported by jarvis/brain/structured_output_parser.py to recover
+    # Lazy-imported by dodaios/brain/structured_output_parser.py to recover
     # malformed vision JSON; without it the repair path silently degrades on
     # every fresh install (found 2026-07-18, was never declared).
     "json-repair>=0.30",
@@ -123,19 +123,19 @@ dependencies = [
     "numpy>=1.26,<2.2; python_version < '3.14' and (sys_platform != 'win32' or platform_machine != 'ARM64')",
     "numpy>=2.3.5,<2.4; python_version >= '3.14' or (sys_platform == 'win32' and platform_machine == 'ARM64')",
     "scipy>=1.14",
-    # Browser voice reuses jarvis.telephony.audio's streaming resampler even
+    # Browser voice reuses dodaios.telephony.audio's streaming resampler even
     # when Twilio is not installed. Python 3.13 removed stdlib audioop, so the
     # backport belongs in BASE rather than only in the [telephony] extra.
     "audioop-lts; python_version>='3.13'",
     # Wake-word runtime — BASE, not opt-in. The word-agnostic openWakeWord
     # backbones (melspectrogram, embedding) ship in every wheel
-    # (jarvis/assets/wakeword/) so a user-trained custom wake model loads
+    # (dodaios/assets/wakeword/) so a user-trained custom wake model loads
     # offline; NO named wake model ships (design 2026-07-07). openwakeword +
     # CPU onnxruntime are tiny (~15 MB), torch-free and platform-universal
     # (onnxruntime ships CPU wheels for win/mac/manylinux; the lockfile guard
     # bans only torch/ctranslate2/faster-whisper/onnxruntime-GPU, not CPU
     # onnxruntime). The VAD already runs Silero via onnxruntime
-    # (jarvis/audio/vad.py), so base carrying it is proven. Both are
+    # (dodaios/audio/vad.py), so base carrying it is proven. Both are
     # lazy-imported in openwakeword_provider.py.
     # openWakeWord 0.6 hard-depends on tflite-runtime on Linux. Its wheels stop
     # at CPython 3.11, and the ARM64 wheel requires a newer glibc than the
@@ -161,7 +161,7 @@ dependencies = [
     # fetched into data/wake_models/vosk/<lang>/, NOT bundled. The advertised
     # full installer caches every onboarding language; headless/base setup keeps
     # only its configured language.
-    # Lazy-imported in vosk_kws_provider.py; base `import jarvis` stays clean.
+    # Lazy-imported in vosk_kws_provider.py; base `import dodaios` stays clean.
     # CAP below 0.3.45: that release ships NO macOS wheel (linux/win only), so a
     # floor above 0.3.44 bricks every Mac install (AP-23; caught by the CI
     # fresh-install smoke's macOS leg 2026-07-07). 0.3.44 is the newest release
@@ -170,17 +170,17 @@ dependencies = [
     # The default VAD runs the bundled Silero ONNX model through base CPU
     # onnxruntime. WebRTC VAD and the local Whisper path (faster-whisper) stay
     # in the [local-voice] extra per the cloud-first doctrine (CLAUDE.md). All
-    # optional engines are lazy-imported, so the base `import jarvis` stays
+    # optional engines are lazy-imported, so the base `import dodaios` stays
     # clean without them.
     # Local STT removed 2026-05-18 — Groq Whisper API is the new default.
     # google-cloud-texttospeech was removed: no runtime module imports it, and
     # its unused gRPC stack prevented compiler-free Windows ARM64 installs.
     "elevenlabs>=1.5",  # cloud TTS (pure-Python HTTP SDK) — safe in base
-    # chromadb removed 2026-06-28: it had ZERO importers in jarvis/ (vestige of the
+    # chromadb removed 2026-06-28: it had ZERO importers in dodaios/ (vestige of the
     # soft-disabled legacy curator), pulled a large transitive tree, and carried a
     # critical advisory with no fixed release. The Wiki is the live memory tier.
     # sentence-transformers was removed 2026-07-01 for the same reason (ZERO
-    # importers in jarvis/) — it only dragged in torch + a large transformers/HF
+    # importers in dodaios/) — it only dragged in torch + a large transformers/HF
     # tree. It is gone from [local-voice] too, not relocated.
     # Desktop-only packages (global-hotkeys, pywinauto, pywin32, pystray,
     # pywebview, pywinpty, win10toast-click, pyautogui, mss) live in the [desktop]
@@ -211,15 +211,15 @@ dependencies = [
     # Ceiling <2: mcp 2.0.0 removes the low-level Server decorator API
     # (@server.list_tools / @server.call_tool become constructor parameters)
     # and stops auto-wrapping return values, which breaks
-    # jarvis/missions/workers/broker_stdio.py at import time. Lift the
+    # dodaios/missions/workers/broker_stdio.py at import time. Lift the
     # ceiling only together with a deliberate 2.x migration of that adapter.
     "mcp>=1.28.1,<2",
     "rich>=13.9",
-    # jarvisctl control CLI (jarvis/cli_ctl/): Typer command surface + platformdirs
+    # jarvisctl control CLI (dodaios/cli_ctl/): Typer command surface + platformdirs
     # for cross-platform per-user config/cache dirs. Pure-Python, VPS-safe.
     "typer>=0.12",
     "platformdirs>=4",
-    # click is imported directly by jarvis/cli_ctl (__main__.py + dynamic.py). It
+    # click is imported directly by dodaios/cli_ctl (__main__.py + dynamic.py). It
     # used to arrive transitively via typer, but modern typer no longer guarantees
     # it, so declare it explicitly — otherwise the jarvisctl CLI fails to import on
     # a clean install.
@@ -252,7 +252,7 @@ dependencies = [
     # === F-FRIENDS [F0+F1] · feature/friends-section · ruben-2026-04-30 ===
     # Phase F0 — async SQLite for FriendRegistry (previously transitive via chromadb).
     "aiosqlite>=0.21",
-    # Document text extraction (jarvis/documents/extract.py) and the Agentic
+    # Document text extraction (dodaios/documents/extract.py) and the Agentic
     # IDE's drop analysis: pypdf is the one non-stdlib parser those need, and
     # it is a pure-Python universal wheel. Lazy-imported, with honest
     # per-file degradation when absent.
@@ -309,7 +309,7 @@ telephony = [
 ]
 # Chat-channel bot libraries. Cloud-first doctrine (CLAUDE.md, RULE #1): the
 # base install must boot on a headless Linux VPS without these, so discord.py is
-# an OPTIONAL extra. `jarvis.channels.discord` lazy-imports it and degrades to a
+# an OPTIONAL extra. `dodaios.channels.discord` lazy-imports it and degrades to a
 # clear English ChannelStartError when absent. (python-telegram-bot is a
 # grandfathered base dependency above; new channel libs go here instead.)
 # Discord runs fine headless on a VPS, so this is intentionally NOT in [desktop].
@@ -334,7 +334,7 @@ desktop = [
     # Windows Core Audio session control. comtypes is pycaw's COM backend.
     "pycaw>=20240210; sys_platform == 'win32'",
     "comtypes>=1.2; sys_platform == 'win32'",
-    # OS media session (jarvis/platform/media_session.py): read "now playing"
+    # OS media session (dodaios/platform/media_session.py): read "now playing"
     # and steer play/pause/next of the browser or the YouTube Music app through
     # WinRT GlobalSystemMediaTransportControlsSessionManager. PyWinRT ships one
     # wheel per namespace; the four below are exactly what the module touches.
@@ -359,7 +359,7 @@ desktop = [
     # no-op when they are absent.
     "pyautogui>=0.9.54",
     "mss>=10.0",
-    # Computer-Use screen indicator (jarvis/cu/indicator): the yellow glow
+    # Computer-Use screen indicator (dodaios/cu/indicator): the yellow glow
     # border + "Esc to cancel" pill rendered by a small PySide6 sidecar
     # process. Essentials only (QtCore/QtGui/QtWidgets — no WebEngine).
     # Imported ONLY inside the sidecar; the controller probes for it and
@@ -377,7 +377,7 @@ desktop = [
     "SoundCard>=0.4.6; sys_platform == 'win32' or sys_platform == 'linux'",
     # Drag-drop ONTO the floating overlay (bar/mascot): the cross-platform tkdnd
     # Tcl extension, with bundled binaries for Windows / macOS / Linux. Registered
-    # onto the live Tk root in place (jarvis/overlay/drop_target.py). All-platform
+    # onto the live Tk root in place (dodaios/overlay/drop_target.py). All-platform
     # desktop dep; absent → the overlay drop degrades to a logged no-op while the
     # in-app web dock (POST /api/chat/drop) still carries the feature everywhere.
     # PIN ==0.4.2 (verified on real Windows/macOS-arm64/Linux GitHub runners,
@@ -415,7 +415,7 @@ desktop-macos = [
     # The managed-install app bundle keeps a native Mach-O launcher: a shell
     # CFBundleExecutable that execs external Python has no stable TCC
     # identity. The launcher is compiled at install time from the in-repo
-    # stub (jarvis/setup/macos_stub_launcher.c, shipped as package data) with
+    # stub (dodaios/setup/macos_stub_launcher.c, shipped as package data) with
     # the Xcode Command Line Tools' clang, keeping the interpreter inside the
     # app process while source/dependencies remain in the managed checkout —
     # py2app is no longer a dependency, and the stub also links against
@@ -431,21 +431,21 @@ desktop-macos = [
 # Local (offline) voice engines. Optional per the cloud-first doctrine
 # (CLAUDE.md §3): this extra ships with the advertised [full] profile (design
 # 2026-07-07) and remains individually opt-in for base installs. Every package
-# here is lazy-imported in its provider, so the base `import jarvis` and the
+# here is lazy-imported in its provider, so the base `import dodaios` and the
 # headless server boot without them.
 #
 # None of Jarvis's runtime paths require torch. VAD runs the bundled Silero ONNX
-# model (jarvis/assets/vad/silero_vad.onnx) through base CPU onnxruntime, STT uses
+# model (dodaios/assets/vad/silero_vad.onnx) through base CPU onnxruntime, STT uses
 # ctranslate2 (faster-whisper), and wake uses onnxruntime/TFLite. The redundant
 # `silero-vad` package was removed from every profile because its loader pulled
 # torch even though Jarvis never used that loader. Both [local-voice] and [full]
 # must remain torch-free and must not require a GPU.
-# `sentence-transformers` was removed 2026-07-01: it had ZERO importers in jarvis/
+# `sentence-transformers` was removed 2026-07-01: it had ZERO importers in dodaios/
 # (an embedding vestige) yet dragged in torch + a large transformers/HF tree.
 # openwakeword + onnxruntime moved to BASE 2026-07-04 (torch-free, ~15 MB) so the
 # always-on neural wake fires out-of-the-box on any machine — they are NO LONGER
 # here. The Silero VAD *model* moved to BASE too (2026-07-04): it is bundled as an
-# ~2.2 MB MIT asset under jarvis/assets/vad/ and run torch-free via onnxruntime, so
+# ~2.2 MB MIT asset under dodaios/assets/vad/ and run torch-free via onnxruntime, so
 # end-of-speech detection also works out-of-the-box. A partial checkout without
 # that required asset fails honestly instead of pulling a second model package.
 # This extra therefore covers only alternate local paths: WebRTC VAD and
@@ -475,7 +475,7 @@ local-voice = [
     # LOAD-BEARING, not hygiene: multilingual Nemotron needs the prompt_index
     # encoder input added in that release, and an older wheel loads the same
     # files and then transcribes every language as English. Kept in step with
-    # jarvis/speech/local_models.py::SHERPA_ONNX_PACKAGE, which the in-app
+    # dodaios/speech/local_models.py::SHERPA_ONNX_PACKAGE, which the in-app
     # installer asks pip for.
     # Upstream publishes no Windows ARM64 wheel. The providers already expose
     # an honest unavailable state when the optional runtime is absent.
@@ -486,14 +486,14 @@ local-voice = [
 # [full] on purpose — ~700 MB that only a CUDA desktop can use, and [full] stays
 # portable to every cell of the install matrix. Without it the recognizer
 # self-heals onto the CPU and the provider card says so (and offers this install
-# from inside the app). Mirrored by jarvis/plugins/stt/fwhisper.py::
+# from inside the app). Mirrored by dodaios/plugins/stt/fwhisper.py::
 # GPU_LIBRARY_PACKAGES, which the in-app installer asks pip for; a test pins the
 # two together. macOS has no CUDA, hence the marker.
 cuda = [
     "nvidia-cublas-cu12>=12.4,<13; sys_platform != 'darwin'",
     "nvidia-cudnn-cu12>=9,<10; sys_platform != 'darwin'",
 ]
-# Objective TTS evaluation suite (jarvis/speech/tts_eval): round-trip ASR WER via
+# Objective TTS evaluation suite (dodaios/speech/tts_eval): round-trip ASR WER via
 # faster-whisper (CPU). onnxruntime + numpy are already in base; the DNSMOS MOS
 # and speaker-drift backends attach their own models at runtime. Opt-in dev/CI
 # tooling — never on the voice hot path, never in the base install (faster-whisper
@@ -512,25 +512,25 @@ tts-eval = [
 # Never add a command that spells the branded launcher ignoring case (a
 # `personaljarvis` alias today): Windows paths ignore case, and the venv's
 # Scripts folder already holds `PersonalJarvis.exe`.
-dodaios = "jarvis.__main__:main"
-jarvis = "jarvis.__main__:main"
-personal-jarvis = "jarvis.__main__:main"
+dodaios = "dodaios.__main__:main"
+jarvis = "dodaios.__main__:main"
+personal-jarvis = "dodaios.__main__:main"
 # Phase 8.5 — Review-Pipeline-Run-GC (Plan §6.5).
-jarvis-review-gc = "jarvis.cli.review_gc:main"
+jarvis-review-gc = "dodaios.cli.review_gc:main"
 # Phase 8.6 — Review-Pipeline-Eval-Harness (Plan §6.6).
-jarvis-review-eval = "jarvis.cli.review_eval:main"
+jarvis-review-eval = "dodaios.cli.review_eval:main"
 # dodaiosctl — control CLI for a running Dodaios instance. `jarvisctl` and
 # `jctl` are its earlier names and stay.
-dodaiosctl = "jarvis.cli_ctl.__main__:main"
-jarvisctl = "jarvis.cli_ctl.__main__:main"
-jctl = "jarvis.cli_ctl.__main__:main"
+dodaiosctl = "dodaios.cli_ctl.__main__:main"
+jarvisctl = "dodaios.cli_ctl.__main__:main"
+jctl = "dodaios.cli_ctl.__main__:main"
 
 # Plugin entry points — all slots are already declared.
 # New plugins are discovered without any core changes.
 #
 # A slot has two names: `dodaios.<slot>` (what a new plugin registers under)
 # and `jarvis.<slot>` (what every plugin published earlier registers under).
-# The app reads both in one scan, for good (jarvis/core/entry_points.py).
+# The app reads both in one scan, for good (dodaios/core/entry_points.py).
 #
 # The first-party plugins below stay in the `jarvis.<slot>` tables on purpose:
 # an install's entry points are frozen into its `*.dist-info` when the
@@ -541,7 +541,7 @@ jctl = "jarvis.cli_ctl.__main__:main"
 # exactly once in each case.
 
 [project.entry-points."jarvis.wakeword"]
-openwakeword = "jarvis.plugins.wake.openwakeword_provider:OpenWakeWordProvider"
+openwakeword = "dodaios.plugins.wake.openwakeword_provider:OpenWakeWordProvider"
 
 [project.entry-points."jarvis.turn"]
 # Phase L turn-detection providers are not implemented yet — slot kept for forward
@@ -551,92 +551,92 @@ openwakeword = "jarvis.plugins.wake.openwakeword_provider:OpenWakeWordProvider"
 # Local, keyless on-device transcription (faster-whisper / CTranslate2, torch-free).
 # Registered so the provider list, the activation gate and the runtime resolve it
 # the same way they resolve a cloud provider; whether it can actually RUN is a
-# separate question answered by jarvis.speech.local_models (engine installed +
+# separate question answered by dodaios.speech.local_models (engine installed +
 # checkpoint downloaded), never assumed from the entry-point's presence.
-faster-whisper = "jarvis.plugins.stt.fwhisper:FasterWhisperProvider"
+faster-whisper = "dodaios.plugins.stt.fwhisper:FasterWhisperProvider"
 # Local streaming transcription (NVIDIA Nemotron 3.5 via sherpa-onnx / ONNX
 # Runtime). Multilingual and CPU-only; same readiness rule as above.
-nemotron-local = "jarvis.plugins.stt.nemotron_local:NemotronLocalSTT"
-groq-api = "jarvis.plugins.stt.groq_api:GroqWhisperAPI"
+nemotron-local = "dodaios.plugins.stt.nemotron_local:NemotronLocalSTT"
+groq-api = "dodaios.plugins.stt.groq_api:GroqWhisperAPI"
 # OpenRouter cloud transcription — reuses the shared openrouter_api_key.
-openrouter-stt = "jarvis.plugins.stt.openrouter_stt:OpenRouterSTT"
+openrouter-stt = "dodaios.plugins.stt.openrouter_stt:OpenRouterSTT"
 # OpenAI Whisper cloud transcription — reuses the shared openai_api_key.
-openai-api = "jarvis.plugins.stt.openai_api:OpenAIWhisperAPI"
+openai-api = "dodaios.plugins.stt.openai_api:OpenAIWhisperAPI"
 # Gemini cloud transcription (google-genai inline audio) — reuses the shared
 # Gemini AI-Studio key; the Gemini-only downloader gets voice input with no
 # second credential.
-gemini-api = "jarvis.plugins.stt.gemini_api:GeminiSTT"
+gemini-api = "dodaios.plugins.stt.gemini_api:GeminiSTT"
 # Deepgram Nova-3 cloud transcription. Batch REST, not the WebSocket streaming
 # lane: nothing in the speech pipeline consumes interim transcripts yet, so a
 # socket would add complexity and deliver no lower latency. Uses its own
 # deepgram_api_key, which the setup wizard already knows how to store.
-deepgram-api = "jarvis.plugins.stt.deepgram_api:DeepgramSTT"
+deepgram-api = "dodaios.plugins.stt.deepgram_api:DeepgramSTT"
 # Same recognizer on Google Cloud Vertex AI — reuses the shared Vertex
 # credential, so setting Vertex up once serves brain, voice input and voice out.
-vertex-stt = "jarvis.plugins.stt.gemini_api:VertexSTT"
+vertex-stt = "dodaios.plugins.stt.gemini_api:VertexSTT"
 
 [project.entry-points."jarvis.tts"]
 # Local, keyless neural speech (Piper VITS voices via sherpa-onnx / ONNX
 # Runtime). The voices are plain ONNX files, deliberately NOT loaded through the
 # piper1-gpl library. Native sherpa builds can still include GPL-licensed
 # phonemization components; redistribution must account for their own terms.
-piper-local = "jarvis.plugins.tts.piper_local:PiperLocalTTS"
-inworld = "jarvis.plugins.tts.inworld_tts:InworldTTS"
-elevenlabs = "jarvis.plugins.tts.elevenlabs_tts:ElevenLabsTTS"
-gemini-flash-tts = "jarvis.plugins.tts.gemini_flash_tts:GeminiFlashTTS"
+piper-local = "dodaios.plugins.tts.piper_local:PiperLocalTTS"
+inworld = "dodaios.plugins.tts.inworld_tts:InworldTTS"
+elevenlabs = "dodaios.plugins.tts.elevenlabs_tts:ElevenLabsTTS"
+gemini-flash-tts = "dodaios.plugins.tts.gemini_flash_tts:GeminiFlashTTS"
 # Same voices on Google Cloud Vertex AI. Worth its own card beyond billing:
 # the AI-Studio TTS preview model is hard-capped at 100 requests/day, which a
 # production voice cannot live inside — a Cloud project has no preview cap.
-vertex-tts = "jarvis.plugins.tts.gemini_flash_tts:VertexTTS"
-grok-voice = "jarvis.plugins.tts.grok_voice_tts:GrokVoiceTTS"
+vertex-tts = "dodaios.plugins.tts.gemini_flash_tts:VertexTTS"
+grok-voice = "dodaios.plugins.tts.grok_voice_tts:GrokVoiceTTS"
 # Phase L.4 — Streaming TTS with low time to first byte.
-cartesia = "jarvis.plugins.tts.cartesia_tts:CartesiaTTS"
+cartesia = "dodaios.plugins.tts.cartesia_tts:CartesiaTTS"
 # OpenRouter cloud speech synthesis — reuses the shared openrouter_api_key.
-openrouter-tts = "jarvis.plugins.tts.openrouter_tts:OpenRouterTTS"
+openrouter-tts = "dodaios.plugins.tts.openrouter_tts:OpenRouterTTS"
 
 [project.entry-points."jarvis.brain"]
-claude-api = "jarvis.plugins.brain.claude_api:ClaudeAPIBrain"
-openrouter = "jarvis.plugins.brain.openrouter:OpenRouterBrain"
-nvidia = "jarvis.plugins.brain.nvidia:NvidiaBrain"
-openai = "jarvis.plugins.brain.openai:OpenAIBrain"
-gemini = "jarvis.plugins.brain.gemini:GeminiBrain"
+claude-api = "dodaios.plugins.brain.claude_api:ClaudeAPIBrain"
+openrouter = "dodaios.plugins.brain.openrouter:OpenRouterBrain"
+nvidia = "dodaios.plugins.brain.nvidia:NvidiaBrain"
+openai = "dodaios.plugins.brain.openai:OpenAIBrain"
+gemini = "dodaios.plugins.brain.gemini:GeminiBrain"
 # Google Cloud Vertex AI — the same Gemini models on Google's enterprise
 # endpoint, billed against a Cloud project instead of an AI Studio account.
 # A family of its own (not a Gemini routing detail) because the two accounts
 # bill separately and an install may hold both credentials at once.
-vertex = "jarvis.plugins.brain.vertex:VertexBrain"
-codex = "jarvis.plugins.brain.codex:CodexBrain"
-antigravity = "jarvis.plugins.brain.antigravity:AntigravityBrain"
+vertex = "dodaios.plugins.brain.vertex:VertexBrain"
+codex = "dodaios.plugins.brain.codex:CodexBrain"
+antigravity = "dodaios.plugins.brain.antigravity:AntigravityBrain"
 # Anthropic subscription (Claude CLI, print mode). Sibling of codex/antigravity:
 # spends a plan login instead of a per-token key. Too slow to start (~10-12 s)
 # for a voice tier; it serves callers whose OUTPUT is the product.
-claude-cli = "jarvis.plugins.brain.claude_cli:ClaudeCliBrain"
-grok = "jarvis.plugins.brain.grok:GrokBrain"
+claude-cli = "dodaios.plugins.brain.claude_cli:ClaudeCliBrain"
+grok = "dodaios.plugins.brain.grok:GrokBrain"
 # Keyless LOCAL providers (2026-07-25, local-first mandate): both talk to
 # self-hosted servers and are deliberately absent from
 # PROVIDER_SECRET_CANDIDATES. local-openai covers HuggingFace transformers
 # serve, llama.cpp llama-server, vLLM, and LM Studio with one adapter.
-ollama = "jarvis.plugins.brain.ollama:OllamaBrain"
-local-openai = "jarvis.plugins.brain.local_openai:LocalOpenAIBrain"
+ollama = "dodaios.plugins.brain.ollama:OllamaBrain"
+local-openai = "dodaios.plugins.brain.local_openai:LocalOpenAIBrain"
 
 [project.entry-points."jarvis.harness"]
-python-script = "jarvis.plugins.harness.python_script:PythonScriptHarness"
+python-script = "dodaios.plugins.harness.python_script:PythonScriptHarness"
 # Phase 5 — in-process screenshot/click/keyboard computer-use loop (ADR-0008).
-screenshot = "jarvis.plugins.harness.computer_use:ComputerUseHarness"
+screenshot = "dodaios.plugins.harness.computer_use:ComputerUseHarness"
 
 [project.entry-points."jarvis.channel"]
 # Transport adapter between the UI layer and the orchestrator (Plan §17.3).
 # Web channel is the first; Telegram/WhatsApp follow in Phase 8+.
-web = "jarvis.channels.web:WebChannel"
+web = "dodaios.channels.web:WebChannel"
 # === F-FRIENDS [F1] · feature/friends-section · ruben-2026-04-30 ===
 # Phase F1 — bidirectional Telegram bot channel (long polling).
 # Token via Credential Manager (Key "telegram_bot_token" / ENV TELEGRAM_BOT_TOKEN).
-telegram = "jarvis.channels.telegram:TelegramChannel"
+telegram = "dodaios.channels.telegram:TelegramChannel"
 # Bidirectional Discord bot channel (gateway). Mirrors Telegram: a DM/guild
 # message is bridged into the normal Jarvis chat path. discord.py lives in the
 # optional [channels] extra; token via Credential Manager (key "discord_bot_token"
 # / ENV DISCORD_BOT_TOKEN). Enable [Message Content Intent] in the bot settings.
-discord = "jarvis.channels.discord:DiscordChannel"
+discord = "dodaios.channels.discord:DiscordChannel"
 
 [project.entry-points."jarvis.realtime"]
 # Provider-neutral speech-to-speech plugins. Every adapter loads lazily; the
@@ -646,49 +646,49 @@ discord = "jarvis.channels.discord:DiscordChannel"
 # tool events, and never held a dependable call. The ChatGPT plan keeps voice
 # through the stable classic-pipeline composition (voice.profile =
 # "codex-subscription-voice"), which uses the audited app-server TEXT protocol.
-openai-realtime = "jarvis.plugins.realtime.openai_realtime:OpenAIRealtimeProvider"
-openai-live = "jarvis.plugins.realtime.openai_live:OpenAILiveProvider"
-openai-live-subscription = "jarvis.plugins.realtime.openai_subscription_live:OpenAISubscriptionLiveProvider"
-gemini-live = "jarvis.plugins.realtime.gemini_live:GeminiLiveProvider"
+openai-realtime = "dodaios.plugins.realtime.openai_realtime:OpenAIRealtimeProvider"
+openai-live = "dodaios.plugins.realtime.openai_live:OpenAILiveProvider"
+openai-live-subscription = "dodaios.plugins.realtime.openai_subscription_live:OpenAISubscriptionLiveProvider"
+gemini-live = "dodaios.plugins.realtime.gemini_live:GeminiLiveProvider"
 # Same duplex socket on Google Cloud Vertex AI. A DISTINCT credential family:
 # a Cloud project and an AI Studio account fail independently, so crossing
 # between them on a terminal auth/billing error is a real fallback (AP-22).
-vertex-live = "jarvis.plugins.realtime.gemini_live:VertexLiveProvider"
+vertex-live = "dodaios.plugins.realtime.gemini_live:VertexLiveProvider"
 # Self-hosted endpoint speaking the same realtime protocol — the local option
 # this tier lacked entirely. Keyless; only ever used when explicitly selected
 # with a server URL configured.
-local-realtime = "jarvis.plugins.realtime.openai_realtime:LocalRealtimeProvider"
+local-realtime = "dodaios.plugins.realtime.openai_realtime:LocalRealtimeProvider"
 # The Jarvis-owned local voice engine (ADR-0037): a child worker in its own
 # environment, set up from the Local voice card. Keyless, never an ambient
 # fallback; replaces local-realtime at cutover (P5).
-local-voice = "jarvis.plugins.realtime.local_voice:LocalVoiceProvider"
+local-voice = "dodaios.plugins.realtime.local_voice:LocalVoiceProvider"
 
 [project.entry-points."jarvis.tool"]
-live-screen-snapshot = "jarvis.plugins.tool.live_screen:LiveScreenTool"
-open-app = "jarvis.plugins.tool.open_app:OpenAppTool"
-type-text = "jarvis.plugins.tool.type_text:TypeTextTool"
-hotkey = "jarvis.plugins.tool.hotkey:HotkeyTool"
-click = "jarvis.plugins.tool.click:ClickTool"
-run-shell = "jarvis.plugins.tool.run_shell:RunShellTool"
-search-web = "jarvis.plugins.tool.search_web:SearchWebTool"
+live-screen-snapshot = "dodaios.plugins.tool.live_screen:LiveScreenTool"
+open-app = "dodaios.plugins.tool.open_app:OpenAppTool"
+type-text = "dodaios.plugins.tool.type_text:TypeTextTool"
+hotkey = "dodaios.plugins.tool.hotkey:HotkeyTool"
+click = "dodaios.plugins.tool.click:ClickTool"
+run-shell = "dodaios.plugins.tool.run_shell:RunShellTool"
+search-web = "dodaios.plugins.tool.search_web:SearchWebTool"
 # Gmail (marketplace plugin, 2026-06-01) — read + send mail via the Gmail REST
 # API using the marketplace-stored OAuth token. Router-tier (persona-mandate
 # set), risk_tier "ask": send is consequential. A direct safe/ask-gated action,
 # never a spawn (AP-5/AP-14). See docs/superpowers/specs/2026-06-01-marketplace-coming-soon-plugins-design.md.
-gmail = "jarvis.plugins.tool.gmail_rest:GmailRestTool"
+gmail = "dodaios.plugins.tool.gmail_rest:GmailRestTool"
 # Vercel (marketplace plugin, 2026-06-07) — read projects/deployments via the
 # Vercel REST API using the marketplace-stored PAT. Native tool because Vercel's
 # catalog entry used the never-implemented rest_wrapper transport (zero tools);
 # router-tier, risk_tier "monitor" (read-only). A direct gated action, never a
 # spawn (AP-5/AP-14). See docs/superpowers/plans/2026-06-07-plugin-skill-pairing-reachability.md.
-vercel = "jarvis.plugins.tool.vercel_rest:VercelRestTool"
+vercel = "dodaios.plugins.tool.vercel_rest:VercelRestTool"
 # Home Assistant (marketplace plugin, 2026-07-25) — list/read entities and call
 # services over the documented REST API. Native rather than MCP on purpose:
 # Home Assistant declined dynamic client registration and its MCP server is
 # scoped to its own Assist pipeline, so it exposes conversation instead of the
 # entity/service surface a voice assistant needs. risk_tier "ask" because a
 # service call physically changes something in the user's home.
-home_assistant = "jarvis.plugins.tool.home_assistant_rest:HomeAssistantRestTool"
+home_assistant = "dodaios.plugins.tool.home_assistant_rest:HomeAssistantRestTool"
 # Google Calendar (marketplace plugin, 2026-06-27) — read/create/update/delete
 # calendar events. The bot logic is a dependency-free Node script
 # (calendar_bot.mjs); this Python entry point is the OAuth bridge that reuses
@@ -696,7 +696,7 @@ home_assistant = "jarvis.plugins.tool.home_assistant_rest:HomeAssistantRestTool"
 # Router-tier, full autonomy: writes are "monitor" (audited, no prompt), never a
 # spawn (AP-5/AP-14). Entry-point name matches the catalog native_tool +
 # token-store key "google_calendar".
-google_calendar = "jarvis.plugins.tool.google_calendar_rest:GoogleCalendarRestTool"
+google_calendar = "dodaios.plugins.tool.google_calendar_rest:GoogleCalendarRestTool"
 # Google Drive (marketplace plugin, 2026-07-23) — list/read/create/share/delete
 # files via the Drive REST API v3 using the marketplace-stored OAuth token.
 # Native tool because Google's hosted Drive MCP (drivemcp.googleapis.com) is a
@@ -705,7 +705,7 @@ google_calendar = "jarvis.plugins.tool.google_calendar_rest:GoogleCalendarRestTo
 # with the same token. Router-tier, per-action risk gating (reads safe, writes
 # monitored, share/delete ask), never a spawn (AP-5/AP-14). Entry-point name
 # matches the catalog native_tool + token-store key "google_drive".
-google_drive = "jarvis.plugins.tool.drive_rest:DriveRestTool"
+google_drive = "dodaios.plugins.tool.drive_rest:DriveRestTool"
 # Spotify (marketplace plugin, 2026-08-17) — play/pause/skip/volume/search over
 # the Spotify Web API using the marketplace-stored OAuth token. Native because
 # Spotify ships NO MCP server and no agent integration at all; the community
@@ -714,18 +714,18 @@ google_drive = "jarvis.plugins.tool.drive_rest:DriveRestTool"
 # (AP-2). Router-tier, risk_tier "monitor" — audible and instantly reversible,
 # so it is audited without prompting. Never a spawn (AP-5/AP-14). Entry-point
 # name matches the catalog native_tool + token-store key "spotify".
-spotify = "jarvis.plugins.tool.spotify_rest:SpotifyRestTool"
+spotify = "dodaios.plugins.tool.spotify_rest:SpotifyRestTool"
 # YouTube Music (marketplace plugin, 2026-08-18) — search/play/like/playlists
 # over the official YouTube Data API v3 (Google publishes NO YouTube Music API;
 # the community "APIs" are reverse-engineered private clients outside YouTube's
 # terms, so they stay out) plus the OS media session for pause/skip/now-playing
-# (jarvis/platform/media_session.py). Playing opens a music.youtube.com deep
+# (dodaios/platform/media_session.py). Playing opens a music.youtube.com deep
 # link in the user's browser — their own account and Premium — because YouTube
 # has no remote-playback API. Router-tier, risk_tier "monitor" (audible,
 # instantly reversible; every write is undoable in the app). Never a spawn
 # (AP-5/AP-14). Entry-point name matches the catalog native_tool + token-store
 # key "youtube_music".
-youtube_music = "jarvis.plugins.tool.youtube_music_rest:YouTubeMusicRestTool"
+youtube_music = "dodaios.plugins.tool.youtube_music_rest:YouTubeMusicRestTool"
 # Slack (marketplace plugin, 2026-10-05) — search/read/post over the Slack Web
 # API with the marketplace-stored user token. Native rather than Slack's hosted
 # MCP server: Slack admits only Marketplace-listed or internal apps to that
@@ -733,49 +733,49 @@ youtube_music = "jarvis.plugins.tool.youtube_music_rest:YouTubeMusicRestTool"
 # Router-tier; reads are "safe", posting keeps "ask" (echo-confirm). Never a
 # spawn (AP-5/AP-14). Entry-point name matches the catalog native_tool +
 # token-store key "slack".
-slack = "jarvis.plugins.tool.slack_rest:SlackRestTool"
-screen-snapshot = "jarvis.plugins.tool.screen_snapshot:ScreenSnapshotTool"
-move-mouse = "jarvis.plugins.tool.move_mouse:MoveMouseTool"
-switch-window = "jarvis.plugins.tool.switch_window:SwitchWindowTool"
-read-visible-ui-state = "jarvis.plugins.tool.read_visible_ui_state:ReadVisibleUIStateTool"
-wait-for-ui-state = "jarvis.plugins.tool.wait_for_ui_state:WaitForUIStateTool"
+slack = "dodaios.plugins.tool.slack_rest:SlackRestTool"
+screen-snapshot = "dodaios.plugins.tool.screen_snapshot:ScreenSnapshotTool"
+move-mouse = "dodaios.plugins.tool.move_mouse:MoveMouseTool"
+switch-window = "dodaios.plugins.tool.switch_window:SwitchWindowTool"
+read-visible-ui-state = "dodaios.plugins.tool.read_visible_ui_state:ReadVisibleUIStateTool"
+wait-for-ui-state = "dodaios.plugins.tool.wait_for_ui_state:WaitForUIStateTool"
 # Multi-step computer-use primitives (Set-of-Marks ReAct loop).
-click-element = "jarvis.plugins.tool.click_element:ClickElementTool"
-scroll = "jarvis.plugins.tool.scroll:ScrollTool"
-wait-for-element = "jarvis.plugins.tool.wait_for_element:WaitForElementTool"
-remember = "jarvis.plugins.tool.remember:RememberTool"
-dispatch-to-harness = "jarvis.plugins.tool.dispatch_to_harness:DispatchToHarnessTool"
+click-element = "dodaios.plugins.tool.click_element:ClickElementTool"
+scroll = "dodaios.plugins.tool.scroll:ScrollTool"
+wait-for-element = "dodaios.plugins.tool.wait_for_element:WaitForElementTool"
+remember = "dodaios.plugins.tool.remember:RememberTool"
+dispatch-to-harness = "dodaios.plugins.tool.dispatch_to_harness:DispatchToHarnessTool"
 # Computer-Use (Wave 1, 2026-05-29) — first-class router tool to drive the live
 # desktop via the in-process computer-use harness. Router-tier only (in
 # ROUTER_TOOLS); a direct safe-gated action, never a spawn (AP-5/AP-14).
-computer-use = "jarvis.plugins.tool.computer_use_tool:ComputerUseTool"
-whoami = "jarvis.plugins.tool.whoami:WhoAmITool"
+computer-use = "dodaios.plugins.tool.computer_use_tool:ComputerUseTool"
+whoami = "dodaios.plugins.tool.whoami:WhoAmITool"
 # Phase 5 — privileged operations through named-pipe IPC to the UAC helper.
-dispatch-to-admin = "jarvis.plugins.tool.dispatch_to_admin:DispatchToAdminTool"
+dispatch-to-admin = "dodaios.plugins.tool.dispatch_to_admin:DispatchToAdminTool"
 # Phase 5.5 — tiered routing (Router Brain -> heavy worker and parallel harnesses).
 # spawn-worker dispatches a Mission-Manager-backed direct Opus worker
 # (ClaudeDirectWorker). Legacy names: spawn-sub-jarvis -> spawn-openclaw (internal
 # name only, never a live entry point) -> spawn-worker.
-multi-spawn = "jarvis.plugins.tool.multi_spawn:MultiSpawnTool"
-spawn-worker = "jarvis.plugins.tool.spawn_worker:SpawnWorkerTool"
+multi-spawn = "dodaios.plugins.tool.multi_spawn:MultiSpawnTool"
+spawn-worker = "dodaios.plugins.tool.spawn_worker:SpawnWorkerTool"
 # Legacy Phase-8.4 review entry point. It is intentionally not model-visible;
 # production review belongs to the Mission Manager lifecycle (ADR-0011).
-dispatch-with-review = "jarvis.plugins.tool.dispatch_with_review:DispatchWithReviewTool"
+dispatch-with-review = "dodaios.plugins.tool.dispatch_with_review:DispatchWithReviewTool"
 # CLI integration: the virtual loader expands to one CliTool instance per
 # connected CLI (cli_gcloud, cli_gh, cli_supabase, and so on).
 # Router-tier only (in ROUTER_TOOLS); the loader resolves the shared,
 # bus-connected CliToolRegistry so the brain and the safety layer see the
 # same connected CLIs. See ADR-0011 amendment "CLI-Integration".
-cli-tools = "jarvis.clis.loader:CliToolLoader"
-plugin-tools = "jarvis.marketplace.plugin_loader:PluginToolLoader"
+cli-tools = "dodaios.clis.loader:CliToolLoader"
+plugin-tools = "dodaios.marketplace.plugin_loader:PluginToolLoader"
 # Router-tier only (in ROUTER_TOOLS); expands to one MCPToolAdapter per tool
 # of each connected and running MCP server. Reads client._tools_cache
 # synchronously — no network I/O, never a spawn (AP-5/AP-14). Live-refresh
 # via BrainToolsChanged when a server connects/disconnects. See ADR-0011
 # amendment "MCP-Tools Virtual Loader".
-mcp-tools = "jarvis.mcp.loader:McpToolLoader"
+mcp-tools = "dodaios.mcp.loader:McpToolLoader"
 # NOTE (2026-05-24): the former ``spawn-cli-worker`` entry point was REMOVED.
-# It pointed at jarvis.plugins.tool.spawn_cli_worker:SpawnCliWorkerTool, a file
+# It pointed at dodaios.plugins.tool.spawn_cli_worker:SpawnCliWorkerTool, a file
 # that never existed (dead entry point). Single-step CLI work is now served
 # directly by the connected ``cli_<name>`` tools (the ``cli-tools`` loader);
 # heavy multi-step CLI work is already covered by ``spawn_worker`` (the
@@ -783,56 +783,56 @@ mcp-tools = "jarvis.mcp.loader:McpToolLoader"
 # redundant surface and a new D9 recursion vector to police, so it was dropped
 # rather than re-implemented.
 # Self-Verification-Tools (Phase 5.5)
-verify-via-curl = "jarvis.plugins.tool.verify_via_curl:VerifyViaCurlTool"
-verify-localhost = "jarvis.plugins.tool.verify_localhost:VerifyLocalhostTool"
-start-preview-server = "jarvis.plugins.tool.start_preview_server:StartPreviewServerTool"
+verify-via-curl = "dodaios.plugins.tool.verify_via_curl:VerifyViaCurlTool"
+verify-localhost = "dodaios.plugins.tool.verify_localhost:VerifyLocalhostTool"
+start-preview-server = "dodaios.plugins.tool.start_preview_server:StartPreviewServerTool"
 # AI Pointer — resolve the element under the mouse cursor via the OS
 # accessibility tree (router-tier, read-only). Pull path for deictic questions.
-inspect-pointer = "jarvis.plugins.tool.inspect_pointer:InspectPointerTool"
+inspect-pointer = "dodaios.plugins.tool.inspect_pointer:InspectPointerTool"
 # UI navigation (2026-06-02) — switch the active sidebar section by voice/chat
 # ("zeig die Socials", "open settings"). Router-tier, risk safe (pure UI move).
 # Publishes NavigateSidebar; the frontend switches the section. Never a spawn
 # (AP-5/AP-14). See ADR-0011 amendment "Navigate tool".
-navigate = "jarvis.plugins.tool.navigate:NavigateTool"
+navigate = "dodaios.plugins.tool.navigate:NavigateTool"
 # On-demand artifact (2026-08-23) — build one self-contained HTML page when
 # the user explicitly asks to SEE something ("visualisier mir das", "mach mir
 # ein Dashboard", "build me an artifact"). Router-tier dispatch to the mission
 # stack (a worker on the strongest model writes the page), risk monitor like
 # spawn-worker; publishes NavigateSidebar. ASK-ONLY — withheld from the tool
-# set on every turn that did not ask (jarvis/brain/artifact_gate.py). Never in
+# set on every turn that did not ask (dodaios/brain/artifact_gate.py). Never in
 # a worker set (AP-5/AP-14).
-create-artifact = "jarvis.plugins.tool.create_artifact:CreateArtifactTool"
+create-artifact = "dodaios.plugins.tool.create_artifact:CreateArtifactTool"
 # Command Registry executor (2026-07-09) — run ONE curated app command
 # (provider switch, wake word, language, volume, missions/tasks, restart)
 # through the SAME REST endpoint the UI uses, in-process via ASGI. Enum-
 # constrained + schema-validated; dangerous commands confirm (risk "ask").
 # Never a spawn (AP-5/AP-14). See ADR-0011 amendment "app-command tool".
-app-command = "jarvis.plugins.tool.app_command:AppCommandTool"
+app-command = "dodaios.plugins.tool.app_command:AppCommandTool"
 # Every app action (2026-09-29): search + run any REST operation of the app
 # under the person's per-action policy. See ADR-0011 amendment "Every app action".
-find-app-action = "jarvis.plugins.tool.app_action:FindAppActionTool"
-run-app-action = "jarvis.plugins.tool.app_action:RunAppActionTool"
+find-app-action = "dodaios.plugins.tool.app_action:FindAppActionTool"
+run-app-action = "dodaios.plugins.tool.app_action:RunAppActionTool"
 # Agent society voice tools (2026-09-02): ONE typed ASSIGN to a named agent
 # with an immediate spoken ack, and a read-only status answer. Router-tier
 # only (ADR-0011 amendment); never in a worker set (AP-5/AP-14).
-delegate-to-agent = "jarvis.plugins.tool.delegate_to_agent:DelegateToAgentTool"
-society-status = "jarvis.plugins.tool.delegate_to_agent:SocietyStatusTool"
-message-agent = "jarvis.plugins.tool.message_agent:LeadMessageAgentTool"
+delegate-to-agent = "dodaios.plugins.tool.delegate_to_agent:DelegateToAgentTool"
+society-status = "dodaios.plugins.tool.delegate_to_agent:SocietyStatusTool"
+message-agent = "dodaios.plugins.tool.message_agent:LeadMessageAgentTool"
 # Skills-Brain-Integration — Brain-callable executor for installed user skills.
-run-skill = "jarvis.plugins.tool.run_skill:RunSkillTool"
+run-skill = "dodaios.plugins.tool.run_skill:RunSkillTool"
 # Phase B5 — long-term wiki recall (router-tier, read-only).
-wiki-recall = "jarvis.plugins.tool.wiki_recall:WikiRecallTool"
+wiki-recall = "dodaios.plugins.tool.wiki_recall:WikiRecallTool"
 # Phase B5 follow-up — full-page reader (router-tier, read-only).
-wiki-page-read = "jarvis.plugins.tool.wiki_page_read:WikiPageReadTool"
+wiki-page-read = "dodaios.plugins.tool.wiki_page_read:WikiPageReadTool"
 # Grounded vault listing (2026-07-14) — deterministic "what is in my wiki"
 # answer in one round (router-tier, read-only).
-wiki-list = "jarvis.plugins.tool.wiki_list:WikiListTool"
+wiki-list = "dodaios.plugins.tool.wiki_list:WikiListTool"
 # Phase B5 follow-up — deterministic ingest tool (router-tier, write).
-wiki-ingest = "jarvis.plugins.tool.wiki_ingest:WikiIngestTool"
+wiki-ingest = "dodaios.plugins.tool.wiki_ingest:WikiIngestTool"
 # Profile-write (2026-05-30) — deterministic writer for the structured USER.md
 # clusters (the Knowledge matrix + per-turn system-prompt source). Router-tier,
 # write, monitor. Closes the gap left by the soft-disabled legacy Curator.
-update-profile = "jarvis.plugins.tool.profile_update:UpdateProfileTool"
+update-profile = "dodaios.plugins.tool.profile_update:UpdateProfileTool"
 # NOTE (2026-07-25): `spawn-skill-author` used to be registered here and was a
 # PHANTOM — a registration that made three docs claim the tool was live while it
 # could never load. It is absent from ROUTER_TOOLS (the only allow-set, so
@@ -849,20 +849,20 @@ update-profile = "jarvis.plugins.tool.profile_update:UpdateProfileTool"
 # create` use, so the AP-15 draft guard is enforced in ONE place (`commit`
 # forces state=draft). Router-tier, monitor, never a spawn (AP-5/AP-14). See
 # ADR-0011 amendment "create-skill router tool".
-create-skill = "jarvis.plugins.tool.create_skill:CreateSkillTool"
+create-skill = "dodaios.plugins.tool.create_skill:CreateSkillTool"
 # App-Control (2026-05-31) — gives the brain a complete overview of the Desktop
 # App and lets it change settings/providers/MCP by voice/chat. Router-tier;
 # direct safe/ask-gated actions, never a spawn (AP-5/AP-14). describe is read-only
 # safe; switch-provider + manage-mcp-server are ask (echo-confirm). Raw secret
 # values are never accepted (AP-2). See ADR-0011 amendment "App-Control Tools" +
 # docs/superpowers/specs/2026-05-31-app-control-tools-design.md.
-describe-app-settings = "jarvis.plugins.tool.describe_app_settings:DescribeAppSettingsTool"
-switch-provider = "jarvis.plugins.tool.switch_provider:SwitchProviderTool"
-manage-mcp-server = "jarvis.plugins.tool.manage_mcp_server:ManageMcpServerTool"
+describe-app-settings = "dodaios.plugins.tool.describe_app_settings:DescribeAppSettingsTool"
+switch-provider = "dodaios.plugins.tool.switch_provider:SwitchProviderTool"
+manage-mcp-server = "dodaios.plugins.tool.manage_mcp_server:ManageMcpServerTool"
 # Masked key preview (2026-05-31, user mandate) — speaks first 3 + last 3 chars of
 # a stored API key ("AIz...xQ2"), never the full value. monitor-tier (logged, no
 # nag). Narrow, safe exception to AP-2; the full-key refusal lives in router.py.
-reveal-key-preview = "jarvis.plugins.tool.reveal_key_preview:RevealKeyPreviewTool"
+reveal-key-preview = "dodaios.plugins.tool.reveal_key_preview:RevealKeyPreviewTool"
 # Chunk B jarvis-contacts (2026-06-02) — three contact-action router tools.
 # contact-lookup (safe, read) resolves a name/alias to e-mail/phone/address;
 # contact-upsert (monitor, deterministic write) saves a contact by voice;
@@ -870,9 +870,9 @@ reveal-key-preview = "jarvis.plugins.tool.reveal_key_preview:RevealKeyPreviewToo
 # engine. Direct safe/monitor/ask-gated actions, never a spawn (AP-5/AP-14); they
 # degrade to a clean no-op when Chunk A's ContactStore / Chunk C's telephony
 # engine is absent. See ADR-0011 amendment "Contacts Tools".
-contact-lookup = "jarvis.plugins.tool.contact_lookup:ContactLookupTool"
-contact-upsert = "jarvis.plugins.tool.contact_upsert:ContactUpsertTool"
-call-contact = "jarvis.plugins.tool.call_contact:CallContactTool"
+contact-lookup = "dodaios.plugins.tool.contact_lookup:ContactLookupTool"
+contact-upsert = "dodaios.plugins.tool.contact_upsert:ContactUpsertTool"
+call-contact = "dodaios.plugins.tool.call_contact:CallContactTool"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -880,7 +880,7 @@ where = ["."]
 # ``jarvis conductor`` commands. Left out, it imported only when the app ran
 # with the checkout as its working directory (run.bat), so the console script,
 # autostart and every wheel install served no Conductor API at all.
-include = ["jarvis*", "conductor*"]
+include = ["dodaios*", "jarvis*", "conductor*"]
 exclude = ["*.__pycache__", "*.__pycache__.*"]
 
 [tool.setuptools.exclude-package-data]
@@ -890,12 +890,12 @@ exclude = ["*.__pycache__", "*.__pycache__.*"]
 [tool.setuptools.package-data]
 # Read via Path(__file__) by conductor.core.store / conductor.core.seed.
 conductor = ["core/schema.sql", "seed/*.yaml"]
-jarvis = [
+dodaios = [
     "ui/web/dist/**/*",
     "ui/web/dist/*",
     "assets/**/*",
     # The original brand marks (+ their LOGOS.md provenance ledgers) the
-    # artifact brief inlines for a worker (jarvis/artifacts/brand_marks.py).
+    # artifact brief inlines for a worker (dodaios/artifacts/brand_marks.py).
     # Read via repo_root() at dispatch time, so a wheel install needs them too.
     "ui/web/frontend/src/assets/providers/*",
     "ui/web/frontend/src/assets/brands/*",
@@ -920,11 +920,11 @@ jarvis = [
     # The Hermes / OpenClaw releases setup installs and accepts
     # (agent_runtimes/versions.py); without it setup falls back to latest.
     "agent_runtimes/runtime-versions.json",
-    # Translated system phrases, one file per language (jarvis/i18n/catalog.py).
+    # Translated system phrases, one file per language (dodaios/i18n/catalog.py).
     "i18n/locales/*.json",
     # Seed catalogs (CLI tools / skills / marketplace plugins) — named
     # explicitly rather than a repo-wide "**/*.json" glob, which would also
-    # sweep in jarvis/ui/web/frontend's SOURCE config (package.json,
+    # sweep in dodaios/ui/web/frontend's SOURCE config (package.json,
     # tsconfig.json, .claude/settings.local.json — never meant to ship).
     "clis/catalog/seed_catalog.json",
     "skills/catalog/seed_catalog.json",
@@ -938,7 +938,7 @@ jarvis = [
     # TEMPLATES_DIR + integration.py's schema.md read).
     "memory/wiki/templates/*.md",
     # Built-in desktop pets and the sprite-sheet template, read at runtime via
-    # Path(__file__) (jarvis/ui/pets/loader.py). Scoped to the two file kinds
+    # Path(__file__) (dodaios/ui/pets/loader.py). Scoped to the two file kinds
     # a pet folder holds.
     "ui/pets/builtin/*/*.json",
     "ui/pets/builtin/*/*.png",
@@ -951,7 +951,7 @@ jarvis = [
     "skills/builtin/**/*.md",
     "skills/builtin/**/*.txt",
     # In-repo C source for the macOS stub launcher, compiled at install time
-    # by jarvis/setup/macos_app_bundle.py (BUG-060 stable TCC identity).
+    # by dodaios/setup/macos_app_bundle.py (BUG-060 stable TCC identity).
     "setup/*.c",
     # Vendored upstream patch + pinned package set for the managed
     # local-realtime server install (realtime/local_server/patching.py and

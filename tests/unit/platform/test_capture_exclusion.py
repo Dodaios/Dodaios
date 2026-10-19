@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import jarvis.platform.capture_exclusion as exclusion
+import dodaios.platform.capture_exclusion as exclusion
 
 
 class _FakeUser32:

@@ -6,11 +6,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.core.bus import EventBus
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.store import TaskStore
-from jarvis.ui.web.society_routes import router
+from dodaios.core.bus import EventBus
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.store import TaskStore
+from dodaios.ui.web.society_routes import router
 
 
 class EditorRuntime:

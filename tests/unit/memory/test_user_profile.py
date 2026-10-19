@@ -1,4 +1,4 @@
-"""Unit tests for `jarvis.memory.user_profile.UserProfile`.
+"""Unit tests for `dodaios.memory.user_profile.UserProfile`.
 
 Covers: get/set, append_list with dedupe, save+reload roundtrip,
 render_for_prompt (name + budget), reload after manual file edits.
@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.user_profile import MAX_PROMPT_CHARS, UserProfile
-from jarvis.memory.workspace import Workspace
+from dodaios.memory.user_profile import MAX_PROMPT_CHARS, UserProfile
+from dodaios.memory.workspace import Workspace
 
 
 # ======================================================================

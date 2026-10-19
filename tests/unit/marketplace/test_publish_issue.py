@@ -9,8 +9,8 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.marketplace import publish
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace import publish
+from dodaios.marketplace.token_store import Tokens
 
 
 class FakeStore:
@@ -142,7 +142,7 @@ async def test_an_expired_sign_in_says_so(monkeypatch: pytest.MonkeyPatch) -> No
 def test_registry_repo_must_look_like_owner_slash_name(monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
 
-    import jarvis.core.config as config
+    import dodaios.core.config as config
 
     for raw, expected in (
         ("PersonalJarvis/marketplace", "PersonalJarvis/marketplace"),

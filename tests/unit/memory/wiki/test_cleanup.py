@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.cleanup`` — the one-time Wave-1 pass.
+"""Unit tests for ``dodaios.memory.wiki.cleanup`` — the one-time Wave-1 pass.
 
 Proves the four removal classes (leak page, live-duplicate, truncated body,
 dangling app links) act correctly, a clean page survives untouched, dry-run
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.cleanup import (
+from dodaios.memory.wiki.cleanup import (
     clean_vault,
     dangling_link_targets,
     is_truncated_body,

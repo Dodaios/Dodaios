@@ -7,7 +7,7 @@ maintainer mandate 2026-07-21 SUPERSEDES that implicit spawn: a background
 agent starts ONLY on an explicit ask (``force_spawn_phrases``: "spawn",
 "Subagent", "deep dive", the depth markers, …). A build command without
 delegation wording is handled by the router LLM, which answers inline or
-OFFERS a background agent (jarvis.brain.spawn_gate) — the user's confirming
+OFFERS a background agent (dodaios.brain.spawn_gate) — the user's confirming
 yes unlocks exactly one spawn.
 
 The artifact DISCRIMINATOR (``_research_wants_artifact``) stays intact — it
@@ -22,9 +22,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeTool:

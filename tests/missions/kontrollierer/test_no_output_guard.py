@@ -18,8 +18,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
+from dodaios.missions.state_machine import MissionState
 
 
 @dataclass

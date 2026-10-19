@@ -13,10 +13,10 @@ import time
 
 import pytest
 
-from jarvis.platform.permission_service import PermissionOutcome
-from jarvis.platform.permissions import PermissionId
-from jarvis.speech import start_refusal
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
+from dodaios.platform.permission_service import PermissionOutcome
+from dodaios.platform.permissions import PermissionId
+from dodaios.speech import start_refusal
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
 from tests.fakes.fake_permission_service import FakePermissionService
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")
@@ -195,7 +195,7 @@ def test_start_names_a_dictation_that_holds_the_microphone() -> None:
 
 
 def test_start_names_a_browser_call_that_owns_the_microphone(monkeypatch) -> None:
-    from jarvis.live import runtime
+    from dodaios.live import runtime
 
     monkeypatch.setattr(runtime, "owns_microphone", lambda **_: True)
     assert _pipe().start_voice_session() == start_refusal.MICROPHONE_IN_USE

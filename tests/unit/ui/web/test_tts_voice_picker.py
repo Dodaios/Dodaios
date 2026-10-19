@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from jarvis.ui.web.provider_routes import _tts_voice_entries
+from dodaios.ui.web.provider_routes import _tts_voice_entries
 
 
 def test_inworld_voices_served():

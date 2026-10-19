@@ -33,7 +33,7 @@ except ModuleNotFoundError:  # pragma: no cover
         allow_module_level=True,
     )
 
-from jarvis.core.events import (  # noqa: E402
+from dodaios.core.events import (  # noqa: E402
     VoiceSessionStarted,
     WakeCandidateDetected,
     WakeWordDetected,
@@ -183,7 +183,7 @@ async def test_rejected_candidate_stops_forwarding_wake_mic_level() -> None:
 async def test_candidate_reveal_clears_wake_word_envelope() -> None:
     """The wake word itself is loud; its decaying level envelope must not render
     as a phantom swing the instant the bar appears (user report 2026-07-21)."""
-    from jarvis.audio import mic_level
+    from dodaios.audio import mic_level
 
     mic_level.reset_for_tests()
     try:

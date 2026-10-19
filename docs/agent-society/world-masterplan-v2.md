@@ -121,7 +121,7 @@ contract, one validator, GLBs in the tree.
 ### 4.1 Kit contract (v1)
 
 ```
-jarvis/ui/web/frontend/src/assets/society/world/
+dodaios/ui/web/frontend/src/assets/society/world/
   kit/          one GLB per module (walls, roofs, doors, signs, props) and per assembled building
   ground/       ground atlas, decal atlas, shore mask
   SOURCES.md    provenance (own .blend, CC0 kits, AI outputs with terms + date)

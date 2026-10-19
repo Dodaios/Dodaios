@@ -5,7 +5,7 @@ import base64
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.oauth_pkce_loopback import (
+from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
     _PendingPkceFlow,

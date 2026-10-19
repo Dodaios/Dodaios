@@ -24,7 +24,7 @@ from tests.fakes.fake_hotkey_backend import FakeHotkeyBackend
 @pytest.fixture()
 def fake_gh():
     """A fresh FakeGlobalHotkeys + a reset refcount, like the backend tests."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
+    import dodaios.trigger.backends.global_hotkeys as ghb
 
     fake = FakeGlobalHotkeys()
     saved = sys.modules.get("global_hotkeys")
@@ -43,7 +43,7 @@ def fake_gh():
 @pytest.fixture()
 def key_state(monkeypatch):
     """Fake ``GetAsyncKeyState`` + a small VK table for the Windows backend."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
+    import dodaios.trigger.backends.global_hotkeys as ghb
 
     down: set[int] = set()
     table = {"control": 0x11, "shift": 0x10, "alt": 0x12, "j": 0x4A, "f9": 0x78}
@@ -58,7 +58,7 @@ def key_state(monkeypatch):
 
 
 def test_windows_backend_reads_the_keyboard_not_its_edges(fake_gh, key_state):
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     backend = GlobalHotkeysBackend()
     backend.register([["control + window", lambda: None, lambda: None]])
@@ -81,7 +81,7 @@ def test_windows_backend_reads_the_keyboard_not_its_edges(fake_gh, key_state):
 
 
 def test_windows_backend_answers_unknown_for_a_token_it_cannot_name(fake_gh, key_state):
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     backend = GlobalHotkeysBackend()
     backend.register([["control + j", lambda: None, lambda: None]])
@@ -93,8 +93,8 @@ def test_windows_backend_answers_unknown_for_a_token_it_cannot_name(fake_gh, key
 
 def test_windows_backend_answers_unknown_when_the_probe_itself_cannot(fake_gh, monkeypatch):
     """No pywin32 → the key probe is None → the answer is None, never False."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    import dodaios.trigger.backends.global_hotkeys as ghb
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     monkeypatch.setattr(ghb, "_virtual_key_for", lambda token: 0x11)
     monkeypatch.setattr(ghb, "_async_key_is_down", lambda vk: None)
@@ -106,7 +106,7 @@ def test_windows_backend_answers_unknown_when_the_probe_itself_cannot(fake_gh, m
 
 def test_windows_backend_that_degraded_answers_unknown(key_state):
     """No package registered (``_gh`` is None) → nothing to read from."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     key_state.update({0x11, 0x4A})
     assert GlobalHotkeysBackend().chord_is_down("control + j") is None
@@ -118,7 +118,7 @@ def test_windows_backend_that_degraded_answers_unknown(key_state):
 
 
 def test_pynput_backend_answers_from_its_held_set_only_while_listening():
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     backend = PynputBackend()
     backend.register([["control + alt + j", lambda: None, lambda: None]])
@@ -139,7 +139,7 @@ def test_pynput_backend_answers_from_its_held_set_only_while_listening():
 
 
 def test_quartz_backend_answers_from_its_held_set_only_while_tapping():
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     backend = QuartzHotkeyBackend()
     backend.register([["control + window", lambda: None, lambda: None]])
@@ -155,7 +155,7 @@ def test_quartz_backend_answers_from_its_held_set_only_while_tapping():
 
 
 def test_noop_backend_never_pretends_to_see_the_keyboard():
-    from jarvis.trigger.backends.noop import NoopBackend
+    from dodaios.trigger.backends.noop import NoopBackend
 
     backend = NoopBackend()
     backend.register([["control + j", lambda: None, lambda: None]])
@@ -178,7 +178,7 @@ async def test_chord_is_down_aggregates_every_combo_of_a_binding(monkeypatch):
     ``False`` and the other ``None`` is still ``False`` (something WAS seen),
     but a binding where nothing was seen stays ``None``.
     """
-    import jarvis.trigger.hotkey as hk
+    import dodaios.trigger.hotkey as hk
 
     fake = FakeHotkeyBackend()
     monkeypatch.setattr(hk, "make_hotkey_backend", lambda: fake)
@@ -197,7 +197,7 @@ async def test_chord_is_down_aggregates_every_combo_of_a_binding(monkeypatch):
 
 
 def test_chord_is_down_without_a_backend_is_unknown():
-    import jarvis.trigger.hotkey as hk
+    import dodaios.trigger.hotkey as hk
 
     trig = hk.HotkeyTrigger({"dictate": ["ctrl+win"]}, push_to_talk={"dictate"})
     assert trig.chord_is_down("dictate") is None  # never entered: no backend
@@ -207,7 +207,7 @@ def test_chord_is_down_without_a_backend_is_unknown():
 async def test_a_backend_without_the_probe_is_unknown_not_up(monkeypatch):
     """An older / third-party backend that lacks ``chord_is_down`` degrades to
     edges-only; it must never read as a released key."""
-    import jarvis.trigger.hotkey as hk
+    import dodaios.trigger.hotkey as hk
 
     class _Legacy(FakeHotkeyBackend):
         chord_is_down = None  # type: ignore[assignment]
@@ -222,7 +222,7 @@ async def test_a_backend_without_the_probe_is_unknown_not_up(monkeypatch):
 def test_a_raising_backend_callback_never_kills_the_poller_thread():
     """The Windows poller calls handlers bare; an exception escaping ours
     would end the thread and every global shortcut with it (BUG-191)."""
-    import jarvis.trigger.hotkey as hk
+    import dodaios.trigger.hotkey as hk
 
     trig = hk.HotkeyTrigger({"dictate": ["ctrl+win"]}, push_to_talk={"dictate"})
 

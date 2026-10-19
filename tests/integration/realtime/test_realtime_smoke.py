@@ -12,7 +12,7 @@ import os
 
 import pytest
 
-from jarvis.core.config import get_provider_secret
+from dodaios.core.config import get_provider_secret
 
 pytestmark = [
     pytest.mark.integration,
@@ -26,7 +26,7 @@ pytestmark = [
 @pytest.mark.asyncio
 async def test_can_open_duplex_session_returns_a_bool():
     """Keyless-safe: the capability probe must never raise, key or no key."""
-    from jarvis.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
+    from dodaios.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
 
     prov = OpenAIRealtimeProvider(api_key=get_provider_secret("openai"))
     assert isinstance(await prov.can_open_duplex_session(), bool)
@@ -34,8 +34,8 @@ async def test_can_open_duplex_session_returns_a_bool():
 
 @pytest.mark.asyncio
 async def test_open_and_close_a_real_session():
-    from jarvis.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
-    from jarvis.realtime.protocol import RealtimeSessionConfig
+    from dodaios.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
+    from dodaios.realtime.protocol import RealtimeSessionConfig
 
     key = get_provider_secret("openai")
     if not key:

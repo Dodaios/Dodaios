@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import ollama_inventory, ollama_roles
-from jarvis.core import config_writer
+from dodaios.brain import ollama_inventory, ollama_roles
+from dodaios.core import config_writer
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 from tests.unit.brain.test_ollama_roles import (  # noqa: F401 — `shortlist` is a fixture
     ROOT,

@@ -20,10 +20,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import load_config
-from jarvis.ui.web.provider_spec import get_spec
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import load_config
+from dodaios.ui.web.provider_spec import get_spec
+from dodaios.ui.web.server import WebServer
 
 #: Every keyless provider the Agents section offers. Derived from the same
 #: mapping table the section renders, so a keyless provider added later is
@@ -31,7 +31,7 @@ from jarvis.ui.web.server import WebServer
 KEYLESS_AGENT_PROVIDERS: tuple[str, ...] = tuple(
     m.jarvis
     for m in __import__(
-        "jarvis.missions.worker_runtime.provider_map", fromlist=["MAPPINGS"]
+        "dodaios.missions.worker_runtime.provider_map", fromlist=["MAPPINGS"]
     ).MAPPINGS
     if (spec := get_spec(m.jarvis)) is not None and spec.auth_mode == "none"
 )

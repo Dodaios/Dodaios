@@ -17,10 +17,10 @@ from typing import Any
 
 import pytest
 
-from jarvis import agent_accounts
-from jarvis.agent_accounts import AccountSnapshot, AgentAccount
-from jarvis.agent_usage import AccountUsage, UsageWindow
-from jarvis.agentic_ide import seat_switch
+from dodaios import agent_accounts
+from dodaios.agent_accounts import AccountSnapshot, AgentAccount
+from dodaios.agent_usage import AccountUsage, UsageWindow
+from dodaios.agentic_ide import seat_switch
 
 
 @pytest.fixture(autouse=True)

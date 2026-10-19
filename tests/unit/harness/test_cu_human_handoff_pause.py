@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.harness import screenshot_only_loop as loop
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.harness import screenshot_only_loop as loop
+from dodaios.voice.action_phrases import action_phrase
 
 
 class _RecordingBus:

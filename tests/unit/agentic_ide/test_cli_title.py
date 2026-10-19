@@ -14,10 +14,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import cli_title, recap_engine
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
-from jarvis.agentic_ide.screen import ScreenBuffer
-from jarvis.agentic_ide.session import Terminal
+from dodaios.agentic_ide import cli_title, recap_engine
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide.screen import ScreenBuffer
+from dodaios.agentic_ide.session import Terminal
 
 
 @pytest.fixture(autouse=True)
@@ -191,10 +191,10 @@ def test_model_recaps_are_off_unless_switched_on(monkeypatch) -> None:
     from types import SimpleNamespace
 
     monkeypatch.setattr(
-        "jarvis.core.config.load_config", lambda: SimpleNamespace(agentic_ide=SimpleNamespace())
+        "dodaios.core.config.load_config", lambda: SimpleNamespace(agentic_ide=SimpleNamespace())
     )
     assert recap_engine._enabled() is False  # noqa: SLF001
 
-    from jarvis.core.config import AgenticIdeConfig
+    from dodaios.core.config import AgenticIdeConfig
 
     assert AgenticIdeConfig().smart_recaps is False

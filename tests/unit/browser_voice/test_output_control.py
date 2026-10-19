@@ -2,9 +2,9 @@
 
 import asyncio
 
-from jarvis.browser_voice.output_control import BrowserOutputControl
-from jarvis.core.bus import EventBus
-from jarvis.core.events import VoiceSpeakerMuteChanged
+from dodaios.browser_voice.output_control import BrowserOutputControl
+from dodaios.core.bus import EventBus
+from dodaios.core.events import VoiceSpeakerMuteChanged
 
 
 class Pipeline:

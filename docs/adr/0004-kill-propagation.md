@@ -27,7 +27,7 @@ An additional complication: per `CLAUDE.md`, the desktop app starts a **second e
 ### Layer 1 — Event (`KillRequested`)
 Published by hotkey / voice intent / tray menu / web-UI button. Wildcard subscriber on **both buses** (UI bus and Brain-Factory bus). The UI-bus subscriber explicitly forwards to the brain bus via `KillSwitch.forward_kill(event, to_bus=brain_bus)`. This addresses the two-bus bug from CLAUDE.md.
 
-**API correction (2026-04-22):** An earlier version of this ADR referred to `brain_manager.forward_kill(event)` — this method does not exist. The production API is `KillSwitch.forward_kill(ev, to_bus=...)` in `jarvis/control/cancel.py`.
+**API correction (2026-04-22):** An earlier version of this ADR referred to `brain_manager.forward_kill(event)` — this method does not exist. The production API is `KillSwitch.forward_kill(ev, to_bus=...)` in `dodaios/control/cancel.py`.
 
 ### Layer 2 — CancelToken (`asyncio.Event`-based)
 ```python

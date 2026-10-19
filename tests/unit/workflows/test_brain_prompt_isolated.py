@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.workflows.runner import WorkflowRunner
-from jarvis.workflows.schema import BrainPromptStep, ManualTrigger, WorkflowDef
-from jarvis.workflows.store import WorkflowStore
+from dodaios.core.bus import EventBus
+from dodaios.workflows.runner import WorkflowRunner
+from dodaios.workflows.schema import BrainPromptStep, ManualTrigger, WorkflowDef
+from dodaios.workflows.store import WorkflowStore
 
 
 @pytest.fixture

@@ -22,14 +22,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.workers import claude_direct_worker as cdw_claude
-from jarvis.missions.workers import codex_direct_worker as cdw
-from jarvis.missions.workers.codex_direct_worker import (
+from dodaios.missions.workers import claude_direct_worker as cdw_claude
+from dodaios.missions.workers import codex_direct_worker as cdw
+from dodaios.missions.workers.codex_direct_worker import (
     CodexDirectWorker,
     _codex_error_is_auth_expired,
     _coerce_codex_error_text,
 )
-from jarvis.missions.workers.provider_chain import _FallbackStep
+from dodaios.missions.workers.provider_chain import _FallbackStep
 
 
 @pytest.fixture(autouse=True)
@@ -37,9 +37,9 @@ def _reset_codex_auth_marker():
     """The codex needs_reauth + the claude/codex quota-cooldown flags are
     process globals — reset all three around every test so a fallback test
     doesn't pollute the rest of the suite."""
-    from jarvis.claude_quota_state import clear_claude_quota_cooldown
-    from jarvis.codex_auth_state import clear_codex_needs_reauth
-    from jarvis.codex_quota_state import clear_codex_quota_cooldown
+    from dodaios.claude_quota_state import clear_claude_quota_cooldown
+    from dodaios.codex_auth_state import clear_codex_needs_reauth
+    from dodaios.codex_quota_state import clear_codex_quota_cooldown
 
     clear_codex_needs_reauth()
     clear_claude_quota_cooldown()
@@ -57,7 +57,7 @@ def _viable_claude_fallback(monkeypatch: pytest.MonkeyPatch):
     The gate (2026-07-07 incident) consults binary presence + auth viability
     before the nested Claude spawn; tests that exercise the fallback must not
     depend on this machine's real ~/.claude state."""
-    from jarvis.missions import init as mi
+    from dodaios.missions import init as mi
 
     monkeypatch.setattr(cdw_claude, "_resolve_claude_binary", lambda: "claude")
     monkeypatch.setattr(mi, "_claude_cli_auth_viable", lambda: True)
@@ -89,7 +89,7 @@ def test_codex_error_is_auth_expired() -> None:
 
 
 def test_codex_error_is_usage_limited() -> None:
-    from jarvis.missions.workers.codex_direct_worker import _codex_error_is_usage_limited
+    from dodaios.missions.workers.codex_direct_worker import _codex_error_is_usage_limited
 
     # The exact 2026-06-09 message (re-authed codex hit its ChatGPT cap).
     assert _codex_error_is_usage_limited(
@@ -285,7 +285,7 @@ async def test_codex_usage_cap_arms_cooldown_and_falls_back_to_claude(
     """A usage-capped codex must arm the quota cooldown (so the worker factory
     skips codex until it self-expires) AND still complete the mission on a
     VIABLE Claude fallback."""
-    from jarvis.codex_quota_state import codex_in_quota_cooldown
+    from dodaios.codex_quota_state import codex_in_quota_cooldown
 
     claude_result_line = (
         b'{"type":"result","subtype":"success","is_error":false,'
@@ -323,8 +323,8 @@ async def test_codex_usage_cap_with_dead_claude_surfaces_error_honestly(
     fallback must NOT spawn the guaranteed-401 Claude worker. It surfaces the
     honest usage-limit error (transient => the orchestrator retries and the
     factory — seeing the armed cooldown — crosses to an API-key family)."""
-    from jarvis.codex_quota_state import codex_in_quota_cooldown
-    from jarvis.missions import init as mi
+    from dodaios.codex_quota_state import codex_in_quota_cooldown
+    from dodaios.missions import init as mi
 
     calls: dict[str, Any] = {"n": 0}
 
@@ -351,8 +351,8 @@ async def test_codex_auth_dead_with_dead_claude_surfaces_error_honestly(
 ) -> None:
     """Same gate on the auth-dead path: dead codex login + dead Claude must not
     ping-pong into a guaranteed-401 nested spawn."""
-    from jarvis.codex_auth_state import codex_needs_reauth
-    from jarvis.missions import init as mi
+    from dodaios.codex_auth_state import codex_needs_reauth
+    from dodaios.missions import init as mi
 
     stdout = (
         b'{"type":"error","message":{"message":"Failed to refresh token. '
@@ -383,7 +383,7 @@ async def test_codex_success_clears_quota_cooldown(
 ) -> None:
     """A codex success proves the cap reset — the cooldown must clear so the
     subscription-first ordering returns to codex immediately."""
-    from jarvis.codex_quota_state import (
+    from dodaios.codex_quota_state import (
         codex_in_quota_cooldown,
         mark_codex_quota_cooldown,
     )
@@ -664,7 +664,7 @@ async def test_claude_quota_limit_arms_cooldown_flag(
 ) -> None:
     """A Claude quota limit arms the session cooldown so the factory can route
     subsequent missions straight to codex (no wasted probe)."""
-    from jarvis.claude_quota_state import claude_in_quota_cooldown
+    from dodaios.claude_quota_state import claude_in_quota_cooldown
 
     claude_limit_line = (
         b'{"type":"result","subtype":"success","is_error":true,'
@@ -707,7 +707,7 @@ async def test_claude_success_clears_cooldown_flag(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A healthy Claude run clears the cooldown (the window recovered)."""
-    from jarvis.claude_quota_state import (
+    from dodaios.claude_quota_state import (
         claude_in_quota_cooldown,
         mark_claude_quota_cooldown,
     )
@@ -741,7 +741,7 @@ async def test_claude_success_clears_cooldown_flag(
 
 
 def test_claude_error_is_model_unavailable() -> None:
-    from jarvis.missions.workers.claude_direct_worker import (
+    from dodaios.missions.workers.claude_direct_worker import (
         _claude_error_is_model_unavailable as f,
     )
 

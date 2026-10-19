@@ -1,6 +1,6 @@
 """A brain-provider registry that records every instance it builds.
 
-Stands in for ``BrainProviderRegistry`` behind ``jarvis.brain.resolver.
+Stands in for ``BrainProviderRegistry`` behind ``dodaios.brain.resolver.
 _get_registry`` so the agent-seat contract can be proven: which provider was
 built, with which model and constructor flags, and what credential override
 and usage tag were live when the seat answered. No network, no subprocess.
@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from jarvis.core.protocols import BrainDelta
+from dodaios.core.protocols import BrainDelta
 
 REVIEW_REPLY = '{"memories": [], "skill": null}'
 
@@ -85,8 +85,8 @@ class _Brain:
         self._model = model or ""
 
     async def complete(self, request: Any):
-        from jarvis.core import config
-        from jarvis.costs.ledger import current_caller
+        from dodaios.core import config
+        from dodaios.costs.ledger import current_caller
 
         overrides = config._PROVIDER_SECRET_OVERRIDES.get()
         self._registry.answered.append(

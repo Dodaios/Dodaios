@@ -65,8 +65,8 @@ jobs:
       # projects carry their own lockfiles and ship nothing.
       scan-args: |-
         -L requirements.txt
-        -L jarvis/voice_engine/requirements-engine.txt
+        -L dodaios/voice_engine/requirements-engine.txt
         -L keyproxy/requirements.txt
         -L scripts/ci/requirements-build.txt
-        -L jarvis/ui/web/frontend/package-lock.json
+        -L dodaios/ui/web/frontend/package-lock.json
       fail-on-vuln: false

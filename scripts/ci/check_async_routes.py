@@ -44,7 +44,7 @@ _BASELINE = Path(__file__).resolve().parent / "async-routes-baseline.json"
 
 #: Where route handlers live. Deliberately narrow: this gate is about the web
 #: surface whose event loop is shared with voice and every other request.
-_GLOB = "jarvis/ui/web/*_routes.py"
+_GLOB = "dodaios/ui/web/*_routes.py"
 
 _ROUTE_VERBS = {
     "get",

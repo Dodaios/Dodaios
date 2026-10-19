@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui import relauncher
+from dodaios.ui import relauncher
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +25,7 @@ def test_desktop_overrides_are_replaced_for_each_launch():
 
 @pytest.mark.parametrize("platform", ["win32", "linux", "darwin"])
 def test_dev_restart_keeps_explicit_overrides_and_active_interpreter(monkeypatch, platform):
-    from jarvis.core import instance
+    from dodaios.core import instance
 
     identity = SimpleNamespace(is_default=False, launcher_args=("--instance", "dev"))
     monkeypatch.setattr(instance, "current_instance", lambda: identity)
@@ -44,8 +44,8 @@ def test_dev_restart_keeps_explicit_overrides_and_active_interpreter(monkeypatch
 
 
 def test_macos_default_keeps_launchservices_and_passes_overrides(monkeypatch, tmp_path):
-    from jarvis.core import instance
-    from jarvis.setup import macos_app_bundle
+    from dodaios.core import instance
+    from dodaios.setup import macos_app_bundle
 
     monkeypatch.setattr(
         instance,
@@ -86,8 +86,8 @@ def test_explicit_port_probe_never_uses_the_configured_instance_port(monkeypatch
 
 
 def test_helper_preserves_overrides_cwd_and_venv_without_repinning(monkeypatch, tmp_path):
-    from jarvis.core import instance
-    from jarvis.ui import desktop_log
+    from dodaios.core import instance
+    from dodaios.ui import desktop_log
 
     monkeypatch.setattr(
         instance,
@@ -135,8 +135,8 @@ def test_invalid_helper_overrides_do_not_start_or_stop_any_process(args):
 def test_desktop_sends_context_to_detached_helper_without_running_it(monkeypatch):
     from loguru import logger
 
-    import jarvis
-    from jarvis.ui import desktop_app
+    import dodaios
+    from dodaios.ui import desktop_app
 
     relauncher.remember_desktop_launch_args(port=47869, dev=True, no_lock=True)
     spawned = []
@@ -162,11 +162,11 @@ def test_desktop_sends_context_to_detached_helper_without_running_it(monkeypatch
     finally:
         logger.remove(sink)
     command, kwargs = spawned[0]
-    root = str(Path(jarvis.__file__).resolve().parent.parent)
+    root = str(Path(dodaios.__file__).resolve().parent.parent)
     assert command == [
         desktop_app.sys.executable,
         "-m",
-        "jarvis.ui.relauncher",
+        "dodaios.ui.relauncher",
         str(desktop_app.os.getpid()),
         root,
         "--port",

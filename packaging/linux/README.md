@@ -19,7 +19,7 @@ python -m pip install pyinstaller
 bash packaging/linux/build.sh
 ```
 
-The script builds the web bundle first when `jarvis/ui/web/dist` is missing
+The script builds the web bundle first when `dodaios/ui/web/dist` is missing
 (needs `npm`), freezes the app, assembles the AppDir, downloads a
 **pinned** `appimagetool` (version and SHA-256 are in the script; a digest
 mismatch aborts the build), and prints the artifact paths on the last lines.
@@ -54,7 +54,7 @@ not a bug, and here is the whole reasoning:
   and removing that exclusion is the realistic route to a native Linux window,
   at roughly +400 MB - a trade worth making deliberately, not by accident.
 
-So the app degrades, and it really does degrade: `jarvis/ui/desktop_app.py`
+So the app degrades, and it really does degrade: `dodaios/ui/desktop_app.py`
 catches pywebview's `WebViewException`, keeps the already-running backend
 serving, and prints where the interface is. Verified in a container against a
 real build:
@@ -80,7 +80,7 @@ future build that does bundle one stops opening the browser tab by itself.
 
 **One rough edge, stated plainly:** the app's own fallback message suggests
 installing `python3-gi` / `gir1.2-webkit2-4.1`. For a frozen build that advice
-does not apply (see above). It lives in `jarvis/ui/desktop_app.py`
+does not apply (see above). It lives in `dodaios/ui/desktop_app.py`
 (`_degrade_to_browser_ui`), which is where a frozen-aware wording belongs.
 
 ## Using it as the CLI
@@ -121,9 +121,9 @@ also how the build machine runs `appimagetool` itself.
   that is how the format works, and Dodaios does not fight it.
 
 The app itself registers **nothing** when it is a frozen build:
-`jarvis/setup/desktop_integration.py` and the writers in
-`jarvis/ui/icon_utils.py` return a logged no-op under
-`jarvis.core.frozen.is_frozen()`. They would otherwise write an entry whose
+`dodaios/setup/desktop_integration.py` and the writers in
+`dodaios/ui/icon_utils.py` return a logged no-op under
+`dodaios.core.frozen.is_frozen()`. They would otherwise write an entry whose
 `Exec=` points at `sys.executable` - which, inside an AppImage, is a path in a
 temporary mount that disappears the moment the app exits.
 

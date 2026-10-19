@@ -55,7 +55,7 @@ Nonce replay protection: the helper keeps an LRU cache of the last 256 nonces an
 + HMAC + nonce + timestamp window provide three independent attack-protection layers.
 + Native on Windows, no extra deps — `pywin32.win32pipe` + `win32security` are enough.
 - Not portable to Linux/Mac. **Not relevant:** Dodaios is Windows-first (CLAUDE.md §Windows specifics).
-- Named-pipe handling with async is fiddlier than HTTP. The wrapper classes `AdminPipeClient`/`AdminPipeServer` in `jarvis/admin/ipc.py` hide that.
+- Named-pipe handling with async is fiddlier than HTTP. The wrapper classes `AdminPipeClient`/`AdminPipeServer` in `dodaios/admin/ipc.py` hide that.
 
 ## Alternatives Considered
 

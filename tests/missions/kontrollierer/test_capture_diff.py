@@ -33,10 +33,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.missions.isolation.worktree import WorktreeManager
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
-from jarvis.missions.worker_runtime.workspace import materialize_worker_contract
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.missions.isolation.worktree import WorktreeManager
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
+from dodaios.missions.worker_runtime.workspace import materialize_worker_contract
 
 # Fixture-side git calls ignore the developer's or runner's global and system
 # config (signing, hooks, templates, autocrlf) and carry their own identity.
@@ -672,7 +672,7 @@ def _commit(cwd: Path, *paths: str, message: str) -> None:
 def test_create_writes_base_sha_sidecar(lean_manager: WorktreeManager) -> None:
     """WorktreeManager.create records the base commit next to (not inside) the
     workspace so the capture can diff against the fork-point."""
-    from jarvis.missions.isolation.worktree import (
+    from dodaios.missions.isolation.worktree import (
         BASE_SHA_SIDECAR,
         read_worktree_base_sha,
     )

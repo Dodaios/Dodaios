@@ -2,9 +2,9 @@
 
 The desktop/headless serve-first boot only stays fast because the
 ``FastBootstrap`` can bind the port and serve the UI shell BEFORE the heavy
-imports (``fastapi``, the brain graph under ``jarvis/brain/``,
-``jarvis.core.config`` with its brain pulls) are paid. If a future change makes
-``jarvis.ui.web.fast_bootstrap`` transitively import any of those, the bind
+imports (``fastapi``, the brain graph under ``dodaios/brain/``,
+``dodaios.core.config`` with its brain pulls) are paid. If a future change makes
+``dodaios.ui.web.fast_bootstrap`` transitively import any of those, the bind
 moves back behind the heavy work and the boot silently regresses — the exact
 "it keeps getting slower as I add features" rot this guards against.
 
@@ -28,7 +28,7 @@ _FORBIDDEN = ("fastapi", f"{PACKAGE_NAME}.brain", f"{PACKAGE_NAME}.core.config")
 def test_fast_bootstrap_import_stays_light() -> None:
     code = (
         "import sys\n"
-        "import jarvis.ui.web.fast_bootstrap  # noqa: F401\n"
+        "import dodaios.ui.web.fast_bootstrap  # noqa: F401\n"
         "bad = [m for m in %r if m in sys.modules]\n"
         "print('LEAKED=' + ','.join(bad))\n"
         "sys.exit(1 if bad else 0)\n"

@@ -136,7 +136,7 @@ def is_public_catalog_mcp(rel: str, text: str) -> bool:
     This exempts the filename only; callers must still scan the original text
     for secret patterns. Personal MCP configuration is never exempted.
     """
-    match = re.fullmatch(r"jarvis/marketplace/plugins/([a-z0-9]+(?:-[a-z0-9]+)*)/mcp\.json", rel)
+    match = re.fullmatch(r"dodaios/marketplace/plugins/([a-z0-9]+(?:-[a-z0-9]+)*)/mcp\.json", rel)
     if match is None:
         return False
     plugin_id = match.group(1)

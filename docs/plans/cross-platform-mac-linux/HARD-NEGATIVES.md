@@ -21,7 +21,7 @@
 - **HN-2 — Never delete, lower, or "simplify" a regression guard that pins a Windows fix.**
   *Why:* The wake-threshold floor-guard, the `-transparentcolor` click-through test, the audio host-API filter test are the only things standing between you and a four-times-recurring bug class. Reverse-patching a test to make a port "pass" drives the root cause back into production (`docs/BUGS.md` Lebensgrundlage clause).
 
-- **HN-3 — Never branch on `sys.platform` inline in a consumer. Read the capability from the shared `jarvis/platform/` module.**
+- **HN-3 — Never branch on `sys.platform` inline in a consumer. Read the capability from the shared `dodaios/platform/` module.**
   *Why:* AD-5 mandates one cached, frozen `Capabilities` source of truth. Re-detecting platform per call-site is exactly the multi-source drift that produced BUG-008 (four episodes) and the Sidebar `isValidSection` drift (Bug UI-1).
 
 ---
@@ -42,7 +42,7 @@
 ## Import cleanliness (the CI gate that must stay green)
 
 - **HN-7 — Never add a module-scope import of a Windows-only package. Lazy + guarded inside the function/branch only.**
-  *Why:* AD-4 + EK-6. The import-cleanliness gate runs `python -c "import jarvis"` on Linux/macOS and fails the matrix if any module-scope `pywin32`/`winreg`/`global_hotkeys`/`pywinpty`/`pywinauto` import exists. Mirror the existing guarded pattern (`pty_manager.py:71`, `ipc.py:99-110`).
+  *Why:* AD-4 + EK-6. The import-cleanliness gate runs `python -c "import dodaios"` on Linux/macOS and fails the matrix if any module-scope `pywin32`/`winreg`/`global_hotkeys`/`pywinpty`/`pywinauto` import exists. Mirror the existing guarded pattern (`pty_manager.py:71`, `ipc.py:99-110`).
 
 - **HN-8 — Never add `pyobjc-*`, `pyatspi`, or `pynput` to the base `dependencies`. Extras only.**
   *Why:* AD-14 + cloud-first doctrine. `pynput`+`ptyprocess` → `[desktop]` (no marker; `ptyprocess` marked `sys_platform != 'win32'`). `pyobjc-framework-{Quartz,ApplicationServices,Accessibility}` → `[desktop-macos]` (`sys_platform == 'darwin'`). The €5-VPS `python:3.11-slim` install must stay clean.
@@ -86,5 +86,5 @@
 - **HN-17 — Every artifact is English; never `git push --force`; never `--no-verify`; never bypass signing.**
   *Why:* CLAUDE.md Output-Language Policy + git policy. Force-push on a shared migration branch destroys parallel-worktree work; `--no-verify` skips the hooks that guard the tree.
 
-- **HN-18 — Every new subprocess on ANY OS passes `creationflags`/equivalent from `jarvis/core/process_utils.py`; the Windows-cursor swap (`SetSystemCursor`) and other no-OS-equivalent power-user bits stay Windows-only no-ops off Windows.**
+- **HN-18 — Every new subprocess on ANY OS passes `creationflags`/equivalent from `dodaios/core/process_utils.py`; the Windows-cursor swap (`SetSystemCursor`) and other no-OS-equivalent power-user bits stay Windows-only no-ops off Windows.**
   *Why:* AP-1 (BUG-012 flicker storm) is Windows-specific but the discipline of routing every subprocess through one helper is universal; AD-11 keeps `SetSystemCursor` Windows-only because there is no cross-platform equivalent — do not fabricate one.

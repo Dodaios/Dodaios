@@ -24,10 +24,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.output_filter import FALLBACK_PHRASES
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import Transcript
+from dodaios.brain.output_filter import FALLBACK_PHRASES
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import Transcript
 from tests.unit.speech.test_announcement_bridge import (
     FakePlayer,
     FakeTTS,

@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import jarvis_harness, runner_cli
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.runner_api import TurnHandle
-from jarvis.agent_chat.task_recovery import ToolRecovery
-from jarvis.core.protocols import ChatTurn, current_chat_turn
+from dodaios.agent_chat import jarvis_harness, runner_cli
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.task_recovery import ToolRecovery
+from dodaios.core.protocols import ChatTurn, current_chat_turn
 
 
 def receipt(tracker, name, output, *, error=False, call_id="c", args=None):
@@ -147,7 +147,7 @@ def turn(monkeypatch):
 
     monkeypatch.setattr(runner_cli, "_surface_identity", briefing)
     monkeypatch.setattr(jarvis_harness, "build_identity", identity)
-    monkeypatch.setattr("jarvis.society.reply_preference.resolve_agent_reply_language", language)
+    monkeypatch.setattr("dodaios.society.reply_preference.resolve_agent_reply_language", language)
     handle = TurnHandle(
         session=session,
         turn_id="t1",

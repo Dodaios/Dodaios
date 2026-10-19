@@ -22,8 +22,8 @@ request.
 """
 from __future__ import annotations
 
-from jarvis.brain.router import SYSTEM_PROMPT
-from jarvis.plugins.tool.search_web import SearchWebTool
+from dodaios.brain.router import SYSTEM_PROMPT
+from dodaios.plugins.tool.search_web import SearchWebTool
 
 
 def test_search_web_description_reserved_for_fresh_facts() -> None:

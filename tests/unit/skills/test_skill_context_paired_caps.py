@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.core.capabilities import get_registry
-from jarvis.skills.plugin_coupling import PAIRED_CAP_PREFIX
-from jarvis.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.core.capabilities import get_registry
+from dodaios.skills.plugin_coupling import PAIRED_CAP_PREFIX
+from dodaios.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 
 class _FakeReg:

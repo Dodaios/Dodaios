@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import drop_analysis
-from jarvis.agentic_ide.drop_analysis import DropAnalysis, analyze
-from jarvis.brain.drop_context import DroppedItem
+from dodaios.agentic_ide import drop_analysis
+from dodaios.agentic_ide.drop_analysis import DropAnalysis, analyze
+from dodaios.brain.drop_context import DroppedItem
 
 
 class _Delta:

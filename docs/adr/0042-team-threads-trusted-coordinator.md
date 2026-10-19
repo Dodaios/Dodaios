@@ -17,14 +17,14 @@ together in one visible thread, bounded and interruptible.
 ## Decision
 
 1. **A coordinator in trusted Python owns the order of work**
-   (`jarvis/agent_chat/team/engine.py`). The steps are fixed: blind plans,
+   (`dodaios/agent_chat/team/engine.py`). The steps are fixed: blind plans,
    challenge, master plan with votes, build, review rounds. The coordinator
    decides whose turn runs and what that member reads; models only write
    contributions. No member gets a tool that starts or messages another
    member, so the rule that no spawn tool enters a worker set (AP-5, AP-14)
    holds unchanged and a team thread can never become an open model loop.
 2. **A member is an ordinary thread session** (agent-chat surface `agent`,
-   `jarvis/agent_chat/runner_cli.py`). Access modes, approval cards, the risk
+   `dodaios/agent_chat/runner_cli.py`). Access modes, approval cards, the risk
    check and subscription logins are exactly those of a thread; the coordinator
    adds no second permission path. The engine reaches sessions through a narrow
    port (`team/port.py`), so tests script the peers without a model.

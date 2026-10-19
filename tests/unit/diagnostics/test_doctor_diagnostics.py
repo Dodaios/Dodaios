@@ -1,4 +1,4 @@
-"""Tests for the completeness self-check (``jarvis/diagnostics/doctor.py``).
+"""Tests for the completeness self-check (``dodaios/diagnostics/doctor.py``).
 
 The doctor is the generalised defence against the phantom-jarvis-agent class of
 bug (2026-06-28): a name advertised to the brain that resolves to no registered
@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.diagnostics import doctor
-from jarvis.diagnostics.doctor import (
+from dodaios.diagnostics import doctor
+from dodaios.diagnostics.doctor import (
     check_brain_provider,
     check_harness_config,
     check_router_tools,
@@ -25,7 +25,7 @@ from jarvis.diagnostics.doctor import (
 @pytest.fixture(autouse=True)
 def _no_live_spotlight(monkeypatch) -> None:
     """The Spotlight check waits on the host's real index; unit tests never do."""
-    from jarvis.setup import macos_search_index
+    from dodaios.setup import macos_search_index
 
     monkeypatch.setattr(macos_search_index, "spotlight_volume_issue", lambda _p: None)
     monkeypatch.setattr(macos_search_index, "wait_until_indexed", lambda _b: True)
@@ -82,7 +82,7 @@ def test_harness_config_flags_unregistered_enabled_adapter() -> None:
 
 def test_harness_config_flags_real_aliased_config() -> None:
     """The real Pydantic alias must not make inert config invisible."""
-    from jarvis.core.config import HarnessConfig
+    from dodaios.core.config import HarnessConfig
 
     config = SimpleNamespace(
         harness=HarnessConfig.model_validate({
@@ -174,9 +174,9 @@ def test_cu_prereqs_flags_missing_xdotool_wmctrl_on_x11(monkeypatch) -> None:
     """A clean X11 box without xdotool/wmctrl gets a fail + install hint."""
     monkeypatch.setattr("sys.platform", "linux")
     monkeypatch.setattr(
-        "jarvis.platform.probes.display_present", lambda: True
+        "dodaios.platform.probes.display_present", lambda: True
     )
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: False)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: False)
     monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
     findings = doctor.check_computer_use_prereqs(_cu_config(enabled=True))
     tool_findings = [f for f in findings if "xdotool" in f.message]
@@ -188,9 +188,9 @@ def test_cu_prereqs_missing_tools_only_warn_when_cu_disabled(monkeypatch) -> Non
     """CU off: the gap is a warn (heads-up), never a hard doctor failure."""
     monkeypatch.setattr("sys.platform", "linux")
     monkeypatch.setattr(
-        "jarvis.platform.probes.display_present", lambda: True
+        "dodaios.platform.probes.display_present", lambda: True
     )
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: False)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: False)
     monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
     findings = doctor.check_computer_use_prereqs(_cu_config(enabled=False))
     tool_findings = [f for f in findings if "xdotool" in f.message]
@@ -201,7 +201,7 @@ def test_cu_prereqs_wayland_and_headless_are_info_not_failure(monkeypatch) -> No
     """Wayland/headless are outside the support envelope BY DESIGN."""
     monkeypatch.setattr("sys.platform", "linux")
     monkeypatch.setattr(
-        "jarvis.platform.probes.display_present", lambda: False
+        "dodaios.platform.probes.display_present", lambda: False
     )
     findings = doctor.check_computer_use_prereqs(_cu_config())
     assert len(findings) == 1
@@ -209,9 +209,9 @@ def test_cu_prereqs_wayland_and_headless_are_info_not_failure(monkeypatch) -> No
     assert "headless" in findings[0].message
 
     monkeypatch.setattr(
-        "jarvis.platform.probes.display_present", lambda: True
+        "dodaios.platform.probes.display_present", lambda: True
     )
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: True)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: True)
     findings = doctor.check_computer_use_prereqs(_cu_config())
     assert len(findings) == 1
     assert findings[0].status == "info"
@@ -222,7 +222,7 @@ def _spotlight_env(monkeypatch, tmp_path, *, issue=None, indexed=None):
     """macOS with an installed bundle and scripted Spotlight probes."""
     import sys
 
-    from jarvis.setup import macos_app_bundle, macos_search_index
+    from dodaios.setup import macos_app_bundle, macos_search_index
 
     bundle = tmp_path / "Personal Jarvis.app"
     bundle.mkdir()
@@ -234,7 +234,7 @@ def _spotlight_env(monkeypatch, tmp_path, *, issue=None, indexed=None):
 
 
 def test_spotlight_check_names_switched_off_indexing_and_its_repair(monkeypatch, tmp_path) -> None:
-    from jarvis.setup.macos_search_index import SpotlightVolumeIssue
+    from dodaios.setup.macos_search_index import SpotlightVolumeIssue
 
     _spotlight_env(
         monkeypatch,

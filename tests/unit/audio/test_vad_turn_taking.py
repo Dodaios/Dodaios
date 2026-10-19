@@ -5,8 +5,8 @@ from collections.abc import AsyncIterator
 import numpy as np
 import pytest
 
-from jarvis.audio.vad import VAD_FRAME_SAMPLES, SileroEndpointer
-from jarvis.core.protocols import AudioChunk
+from dodaios.audio.vad import VAD_FRAME_SAMPLES, SileroEndpointer
+from dodaios.core.protocols import AudioChunk
 
 
 def _pcm_frame(amplitude: float) -> bytes:

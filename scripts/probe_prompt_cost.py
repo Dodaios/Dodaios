@@ -24,8 +24,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 os.chdir(REPO)
 
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.config import load_config  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
 
 UTTERANCE = "Was ist die Hauptstadt von Frankreich?"  # i18n-allow: simulated German user utterance used to probe prompt cost
 RUNS = 3
@@ -49,11 +49,11 @@ def _med(xs: list[float]) -> float:
 
 async def main() -> int:
     cfg = load_config(Path("jarvis.toml"))
-    from jarvis.brain.manager import BrainManager
+    from dodaios.brain.manager import BrainManager
 
     bm = BrainManager(config=cfg, bus=EventBus(), tools={}, tool_executor=None)
     try:
-        from jarvis.brain.router import SYSTEM_PROMPT as ROUTER_SYSTEM_PROMPT
+        from dodaios.brain.router import SYSTEM_PROMPT as ROUTER_SYSTEM_PROMPT
         bm._system_prompt_extra = ROUTER_SYSTEM_PROMPT
     except Exception as exc:  # noqa: BLE001
         print(f"(router prompt inject skipped: {exc})", flush=True)

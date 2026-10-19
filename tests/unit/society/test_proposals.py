@@ -9,16 +9,16 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.society.agent_tools import ProposeChangeTool
-from jarvis.society.events import ApprovalState
-from jarvis.society.proposals import (
+from dodaios.society.agent_tools import ProposeChangeTool
+from dodaios.society.events import ApprovalState
+from dodaios.society.proposals import (
     ProposalRefused,
     capability_for,
     kind_of,
     summarize,
     validate,
 )
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.runtime import SocietyRuntime
 from tests.fakes.fake_agent_chat import FakeChatService
 
 

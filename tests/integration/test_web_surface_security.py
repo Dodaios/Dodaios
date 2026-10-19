@@ -9,12 +9,12 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from jarvis.core import control_key
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.missions_auth import reset_tokens
-from jarvis.ui.web.server import WebServer
-from jarvis.ui.web.surface_security import COOKIE_NAME
+from dodaios.core import control_key
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.missions_auth import reset_tokens
+from dodaios.ui.web.server import WebServer
+from dodaios.ui.web.surface_security import COOKIE_NAME
 
 pytestmark = pytest.mark.no_auto_web_auth
 
@@ -176,7 +176,7 @@ def test_unauthenticated_raw_mcp_config_is_rejected_before_write(
     web_server: WebServer,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.mcp import state as mcp_state
+    from dodaios.mcp import state as mcp_state
 
     save_config = Mock()
     monkeypatch.setattr(mcp_state, "save_config", save_config)

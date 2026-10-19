@@ -24,7 +24,7 @@ import pytest
 
 from packaging.requirements import Requirement
 
-from jarvis.plugins.wake.openwakeword_provider import OpenWakeWordProvider
+from dodaios.plugins.wake.openwakeword_provider import OpenWakeWordProvider
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PYPROJECT = REPO_ROOT / "pyproject.toml"

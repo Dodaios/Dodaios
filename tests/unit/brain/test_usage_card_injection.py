@@ -1,6 +1,6 @@
 """BrainManager._plugin_usage_cards_block builds a prompt segment only for the
 plugins active in the turn (their tools present in the dict)."""
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 class _T:

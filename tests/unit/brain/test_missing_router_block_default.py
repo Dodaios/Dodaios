@@ -14,9 +14,9 @@ selection, so a fresh install boots a working brain regardless of provider.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import load_config
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import load_config
 
 
 def test_missing_router_block_does_not_raise_and_builds() -> None:

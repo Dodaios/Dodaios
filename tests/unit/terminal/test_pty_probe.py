@@ -24,8 +24,8 @@ from collections import deque
 
 import pytest
 
-import jarvis.terminal.pty_manager as pty_mod
-from jarvis.terminal.pty_manager import PtyManager
+import dodaios.terminal.pty_manager as pty_mod
+from dodaios.terminal.pty_manager import PtyManager
 
 
 class ScriptedHandle:

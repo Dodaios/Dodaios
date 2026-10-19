@@ -1,8 +1,8 @@
-"""Unit tests for `jarvis.memory.people.PersonStore`."""
+"""Unit tests for `dodaios.memory.people.PersonStore`."""
 from __future__ import annotations
 
-from jarvis.memory.people import PersonStore
-from jarvis.memory.workspace import Workspace, person_slug
+from dodaios.memory.people import PersonStore
+from dodaios.memory.workspace import Workspace, person_slug
 
 # ======================================================================
 # get_or_create

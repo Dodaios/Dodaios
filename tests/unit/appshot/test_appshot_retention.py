@@ -9,10 +9,10 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
-from jarvis.appshot import library, recording, retention
-from jarvis.appshot.store import Appshot
-from jarvis.core.config import AppshotConfig, JarvisXConfig
-from jarvis.core.config_writer import APPSHOT_SETTING_KEYS, JARVISX_SETTING_KEYS
+from dodaios.appshot import library, recording, retention
+from dodaios.appshot.store import Appshot
+from dodaios.core.config import AppshotConfig, JarvisXConfig
+from dodaios.core.config_writer import APPSHOT_SETTING_KEYS, JARVISX_SETTING_KEYS
 
 
 def _png() -> bytes:

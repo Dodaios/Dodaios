@@ -55,7 +55,7 @@ fail closed to `delegate`, as before).
 In `hybrid` the live model receives **three kinds of functions**:
 
 1. the supervisor tool catalog, **minus the computer-use vehicles**
-   (`jarvis.brain.cu_gate.CU_VEHICLE_TOOL_NAMES`), rendered compactly (§4);
+   (`dodaios.brain.cu_gate.CU_VEHICLE_TOOL_NAMES`), rendered compactly (§4);
 2. `jarvis_action` — narrowed to (a) operating the computer on screen
    (click, type, navigate inside application windows until a multi-step
    desktop task is done), (b) looking at the screen, and (c) any Dodaios
@@ -71,7 +71,7 @@ rule, the several-targets rule and the spoken-reply rendering are unchanged.
 
 ### 2. What stays deterministic (delegate-owned) in `hybrid`
 
-The planner (`jarvis/brain/turn_planner.py`) keeps classifying every final.
+The planner (`dodaios/brain/turn_planner.py`) keeps classifying every final.
 Its `requires_orchestrator` verdict no longer forces a delegation; it becomes
 the turn-mode hint *"this turn needs the user's world — use your functions
 now"*. A delegation is still forced for exactly these classes:

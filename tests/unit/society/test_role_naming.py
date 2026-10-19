@@ -4,13 +4,13 @@ from dataclasses import replace
 
 import pytest
 
-from jarvis.agent_chat.jarvis_harness import COMPACT_MAX_CHARS, Identity
-from jarvis.agent_chat.runner_cli import _with_identity
-from jarvis.core.chat_turn import ChatTurn
-from jarvis.core.protocols import current_chat_turn
-from jarvis.society.agent_tools import ProposeChangeTool
-from jarvis.society.roster import has_placeholder_name
-from jarvis.society.surface import AGENT_NAMING_GUIDANCE, build_briefing
+from dodaios.agent_chat.jarvis_harness import COMPACT_MAX_CHARS, Identity
+from dodaios.agent_chat.runner_cli import _with_identity
+from dodaios.core.chat_turn import ChatTurn
+from dodaios.core.protocols import current_chat_turn
+from dodaios.society.agent_tools import ProposeChangeTool
+from dodaios.society.roster import has_placeholder_name
+from dodaios.society.surface import AGENT_NAMING_GUIDANCE, build_briefing
 from tests.unit.society.test_proposals_apply import world  # noqa: F401
 
 
@@ -146,7 +146,7 @@ async def test_compact_resume_keeps_name_guidance_ahead_of_long_memory(world):  
     rt, _ = world
     agent, _ = await rt.roster.create(description="Research sources.")
     text = build_briefing(agent, [], [], memory="## Your memory\n" + "A fact.\n" * 3000)
-    from jarvis.agent_chat.jarvis_harness import society_memory_refresh
+    from dodaios.agent_chat.jarvis_harness import society_memory_refresh
 
     refreshed = society_memory_refresh(text, compact=True)
     assert AGENT_NAMING_GUIDANCE in refreshed
