@@ -578,7 +578,7 @@ class ChromeEmbed:
         while True:
             try:
                 fn, future = self._tasks.get_nowait()
-            except queue.Empty:
+            except queue.Empty:  # every queued task has run
                 return
             if future.set_running_or_notify_cancel():
                 try:
