@@ -116,8 +116,8 @@ async def test_agents_level_from_finished_work_and_quests(setup):
     assert levels["person"] == (15 + 20, 1)
     up = [e for e in seen if e.subject_id == "agent:scout" and e.level > e.previous_level]
     assert up and up[-1].level == 3
-    assert "decoration_ribbon_bar" in up[-1].unlocked
-    assert up[-1].title == "private_second_class"
+    assert "decoration_service_ribbon" in up[-1].unlocked
+    assert up[-1].title == "crewman"
 
 
 async def test_the_lead_is_the_pet_never_an_agent(setup):
@@ -169,26 +169,72 @@ async def test_a_hired_agent_pays_the_person_once(setup):
 
 async def test_world_actions_are_metered_on_the_server(setup, clock):
     service, _, _, _ = setup
-    assert await service.report_action("dog_petted") is not None
-    assert await service.report_action("dog_petted") is None  # cooldown
-    clock.now += 61_000
-    assert await service.report_action("dog_petted") is not None
+    assert await service.report_action("holodeck_round") is not None
+    assert await service.report_action("holodeck_round") is None  # cooldown
+    clock.now += 46_000
+    assert await service.report_action("holodeck_round") is not None
     assert await service.report_action("daily_visit", ref="anything") is not None
     assert await service.report_action("daily_visit") is None  # once per day
-    assert await service.report_action("floor_discovered", ref="arcade") is not None
-    assert await service.report_action("floor_discovered", ref="arcade") is None
-    # The Level Hall is a floor of its own and pays its first visit like the others.
-    assert await service.report_action("floor_discovered", ref="hall") is not None
-    assert await service.report_action("floor_discovered", ref="hall") is None
+    for deck in ("bridge", "ops", "engineering", "holodeck", "honors"):
+        assert await service.report_action("deck_discovered", ref=deck) is not None, deck
+        assert await service.report_action("deck_discovered", ref=deck) is None, deck
     walked = await service.report_action("walk_together")
     assert walked is not None and walked.subject_id == "pet:ember"
 
 
+async def test_a_warp_jump_repeats_after_its_cooldown_and_keeps_its_destination(setup, clock):
+    service, _, _, _ = setup
+    first = await service.report_action("warp_jump", ref="home")
+    assert first is not None and first.xp == 5 and first.ref.startswith("home@")
+    assert await service.report_action("warp_jump", ref="home") is None  # cooldown
+    clock.now += 601_000
+    again = await service.report_action("warp_jump", ref="home")
+    assert again is not None and again.ref != first.ref
+
+
+async def test_a_warp_jump_only_reaches_destinations_the_rank_has_opened(setup):
+    service, _, _, _ = setup
+    # A new captain (level 1) has only the home orbit; the ice moon opens at level 15.
+    with pytest.raises(UnknownAction):
+        await service.report_action("warp_jump", ref="ice_moon")
+
+
+async def test_the_daily_caps_of_world_actions_hold(setup, clock):
+    service, _, _, _ = setup
+    paid = 0
+    for _ in range(12):
+        award = await service.report_action("team_briefing")
+        paid += award.xp if award else 0
+        clock.now += 601_000
+    assert paid == RULES_BY_SOURCE["team_briefing"].daily_cap
+
+
 async def test_unknown_or_server_only_actions_are_refused(setup):
     service, _, _, _ = setup
-    for action, ref in (("chat_turn", ""), ("cheat", ""), ("floor_discovered", "roof")):
+    refused = (
+        ("chat_turn", ""), ("cheat", ""), ("deck_discovered", "roof"), ("deck_discovered", ""),
+        ("warp_jump", "andromeda"), ("warp_jump", ""),
+        # The office tower's actions are gone.
+        ("floor_discovered", "agents"), ("dog_petted", ""), ("arcade_round", ""),
+    )
+    for action, ref in refused:
         with pytest.raises(UnknownAction):
             await service.report_action(action, ref=ref)
+
+
+async def test_old_ledger_rows_with_retired_sources_still_read(setup):
+    service, _, _, _ = setup
+    await service.award("person", "chat_turn", ref="x")
+    conn = service.store._connection()
+    conn.execute(
+        "INSERT INTO progression_awards"
+        " (subject_id, source, xp, level_before, level_after, ref, ts_ms)"
+        " VALUES ('person', 'dog_petted', 3, 1, 1, '', 1)"
+    )
+    conn.execute("UPDATE progression_subjects SET xp = xp + 3 WHERE subject_id = 'person'")
+    assert {row["source"] for row in service.store.recent()} == {"chat_turn", "dog_petted"}
+    assert service.snapshot()[0]["xp"] == 8
+    assert service.snapshot()[0]["title"] == "cadet"
 
 
 def test_the_store_refuses_a_rule_for_the_wrong_kind(tmp_path: Path):

@@ -90,13 +90,13 @@ def _live_chat(rt: SocietyRuntime, session: SimpleNamespace):
 
 
 async def test_task_execution_contract_survives_long_memory_and_compact_transport(rt):
-    from dodaios.agent_chat.jarvis_harness import SYSTEM_PREAMBLE, compact_identity
+    from dodaios.agent_chat.jarvis_harness import SOCIETY_PREAMBLE, compact_identity
 
     agent, _ = await rt.roster.create(name="Task owner", description="Complete assigned work.")
     briefing = build_briefing(
         agent, [], [], memory="## Your memory\n" + "Historical fact.\n" * 4000
     )
-    compact = compact_identity(briefing + "\n\n" + SYSTEM_PREAMBLE)
+    compact = compact_identity(briefing + "\n\n" + SOCIETY_PREAMBLE)
     assert TASK_EXECUTION_GUIDANCE in compact
     assert KEEP_GOING_ON_TOOL_FAILURE in compact
     assert CREDENTIAL_GUIDANCE in compact
@@ -207,7 +207,6 @@ async def test_tools_and_filter_follow_the_roster_row(rt: SocietyRuntime, tmp_pa
     assert "wiki-recall" in picked
     assert own[WIKI_NOTE_TOOL_NAME].schema["properties"]["kind"]["enum"] == ["note", "memory"]
     assert "shared to propose" not in extra
-    assert "task explicitly calls for the user's wiki" in extra
 
 
 async def test_allowlist_mode_keeps_only_grants(rt: SocietyRuntime, tmp_path: Path):
@@ -252,8 +251,8 @@ async def test_briefing_is_deterministic_and_complete(rt: SocietyRuntime):
     )
     assert "spawn-worker" not in a
     assert f"Capability epoch: {capability_epoch(catalog)}" in a
-    assert "## When a tool fails" in a and KEEP_GOING_ON_TOOL_FAILURE in a
-    assert a.index("## When a tool fails") < a.index("## Standing instructions")
+    assert "## Working contract" in a and KEEP_GOING_ON_TOOL_FAILURE in a
+    assert a.index("## Working contract") < a.index("## Standing instructions")
     assert "## The Dodaios ecosystem" in a and "society_message_agent" in a
     # No wake phrase here, so the lead reads under the neutral assistant name.
     assert "## Teammates\n- Assistant — Lead (lead)\n- Scout — Research scout (orchestrator)" in a
