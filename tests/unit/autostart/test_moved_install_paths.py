@@ -21,7 +21,12 @@ from dodaios.autostart.linux import LinuxAutostart
 from dodaios.autostart.macos import MacOSAutostart
 from dodaios.autostart.paths import same_path
 from dodaios.autostart.protocol import LaunchSpec
-from dodaios.autostart.windows import WindowsAutostart, _TaskInfo
+from dodaios.autostart.windows import TASK_NAME, WindowsAutostart, _TaskInfo
+from dodaios.core.branding import (
+    LEGACY_WINDOWS_AUTOSTART_TASK_NAMES,
+    LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
+)
 from dodaios.core.identity_migration import create_directory_link
 
 ARGS = ("-m", "dodaios.ui.web.launcher")
@@ -63,10 +68,11 @@ def test_same_path_never_matches_a_missing_path_by_identity(tmp_path: Path) -> N
 # --------------------------------------------------------------------------- #
 # Windows: the logon task and the startup shortcut                             #
 # --------------------------------------------------------------------------- #
-def _windows(task: _TaskInfo | None, *, shortcut_present: bool = False):
+def _windows(task: _TaskInfo | None, *, shortcut_present: bool = False, task_name: str = TASK_NAME):
+    """A manager whose only logon task is ``task``, registered as ``task_name``."""
     calls: list[str] = []
     manager = WindowsAutostart(
-        task_probe=lambda: task,
+        task_probe=lambda name: task if name == task_name else None,
         run_elevated=lambda script: calls.append("elevate") or False,
         shortcut_present=lambda: shortcut_present,
         shortcut_matches=lambda spec: False,
@@ -92,6 +98,38 @@ def test_a_task_reached_through_the_earlier_folder_name_is_current(tmp_path: Pat
 
     assert manager.status(spec).matches_spec is True
     # The boot repair (never interactive) leaves it alone: no second entry.
+    manager.install(spec, interactive=False)
+    assert "write_shortcut" not in calls
+    assert "elevate" not in calls
+
+
+def test_a_task_under_its_earlier_name_and_folder_name_is_current(tmp_path: Path) -> None:
+    # Both renames at once: the task an earlier release registered keeps its
+    # earlier name, starts the launcher under its earlier file name and the
+    # module under the earlier package, all through the link left at the
+    # earlier folder name. It still starts this install, so the boot repair
+    # neither asks for elevation nor writes a second entry.
+    current, legacy = _moved_install(tmp_path)
+    scripts = current / ".venv" / "Scripts"
+    (scripts / WINDOWS_BRANDED_LAUNCHER_FILE_NAME).write_bytes(b"")
+    earlier_launcher = LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES[0]
+    (scripts / earlier_launcher).write_bytes(b"")
+    spec = LaunchSpec(
+        program=str(scripts / WINDOWS_BRANDED_LAUNCHER_FILE_NAME),
+        args=ARGS,
+        working_dir=str(current),
+    )
+    task = _TaskInfo(
+        execute=str(legacy / ".venv" / "Scripts" / earlier_launcher),
+        arguments="-m jarvis.ui.web.launcher",
+        working_dir=str(legacy),
+    )
+    earlier_task_name = LEGACY_WINDOWS_AUTOSTART_TASK_NAMES[0]
+    manager, calls = _windows(task, task_name=earlier_task_name)
+
+    status = manager.status(spec)
+    assert status.matches_spec is True
+    assert status.entry_path == f"Task Scheduler\\{earlier_task_name}"
     manager.install(spec, interactive=False)
     assert "write_shortcut" not in calls
     assert "elevate" not in calls
