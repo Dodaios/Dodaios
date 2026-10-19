@@ -1,9 +1,10 @@
 """Single source of truth for the configurable wake-word vocabulary.
 
-Pure stdlib — NO ``jarvis.*`` imports, NO heavy third-party imports — so the
+Pure stdlib at import time — no eager ``jarvis.*`` or third-party imports — so the
 matcher module (``wake_phrase``), the Pydantic config (``core/config.py``), and
 the tests can all import this without dragging in ``faster_whisper``,
-``sounddevice``, or the openWakeWord runtime.
+``sounddevice``, or the openWakeWord runtime. Vosk path lookup loads only the
+stdlib-backed directory helpers, lazily.
 
 Why this module exists:
 - ``WAKE_ENGINES`` is the SoT for the five-layer enum (Python ↔ TOML ↔ Pydantic
@@ -14,6 +15,7 @@ Why this module exists:
   engine chain in ``wake_phrase.resolve_wake_plan`` (user-trained custom .onnx
   -> any-word Vosk KWS -> local-Whisper transcript match -> honest degrade).
 """
+
 from __future__ import annotations
 
 import os
@@ -31,9 +33,7 @@ from pathlib import Path
 #:                   Vosk model directory — see ``resolve_vosk_model_path``).
 #: ``stt_match``   — local-Whisper transcript match (any phrase, needs whisper).
 #: ``custom_onnx`` — a user-supplied/trained .onnx model (CPU, any phrase).
-WAKE_ENGINES: tuple[str, ...] = (
-    "auto", "openwakeword", "vosk_kws", "stt_match", "custom_onnx"
-)
+WAKE_ENGINES: tuple[str, ...] = ("auto", "openwakeword", "vosk_kws", "stt_match", "custom_onnx")
 
 DEFAULT_WAKE_PHRASE = ""  # empty = neutral pre-onboarding default; user must opt in
 
@@ -52,9 +52,9 @@ STT_HALLUCINATION_RE = re.compile(
     r"im\s+auftrag\s+des|"
     r"untertitel\s+(von|der|im\s+auftrag)|"  # i18n-allow: German Whisper-noise STT vocabulary
     r"untertitelung\s+des\s+(zdf|wdr|ndr|swr|br|ard|arte)"
-    r"(\s+(fuer|für|fur)\s+funk)?(\s*,?\s*\d{4})?|"  # i18n-allow: German Whisper-noise STT vocabulary
+    r"(\s+(fuer|für|fur)\s+funk)?(\s*,?\s*\d{4})?|"  # i18n-allow: Whisper-noise STT vocabulary
     r"(eine\s+)?(sendung|produktion|redaktion|programm)\s+"
-    r"(des|der|von)\s+(zdf|wdr|ndr|swr|br|ard|arte)"  # i18n-allow: German Whisper-noise STT vocabulary
+    r"(des|der|von)\s+(zdf|wdr|ndr|swr|br|ard|arte)"  # i18n-allow: Whisper-noise STT vocabulary
     r"(\s*,?\s*\d{4})?|"
     r"(zdf|wdr|ndr|swr|br|ard|arte)\s+"
     r"(fernsehen|mediagroup|rundfunk)(\s*,?\s*\d{4})?|"
@@ -231,15 +231,20 @@ def sound_fold(token: str) -> str:
 # Vosk model directory resolution (vosk_kws engine)
 # ---------------------------------------------------------------------------
 
-def _vosk_models_root() -> Path:
+
+def _vosk_models_root(data_dir: str | None = None) -> Path:
     """Per-install Vosk model store: ``<data>/wake_models/vosk/<lang>/``.
 
-    Honours the same data-dir env seam the rest of the app uses. Models are
-    fetched once at setup for the configured language (a ~45 MB small model
-    per language — too heavy to bundle for every locale) and are fully
-    offline afterwards.
+    Explicit fetch paths and the memory-data override take precedence over the
+    runtime data directory. Verification, prefetch and wake-plan selection all
+    use this resolver so they agree even outside the install directory.
     """
-    base = os.environ.get("JARVIS__MEMORY__DATA_DIR") or "data"
+    base = data_dir or os.environ.get("JARVIS__MEMORY__DATA_DIR")
+    if not base:
+        from jarvis.core.instance import resolve_data_dir
+        from jarvis.core.paths import repo_root
+
+        base = str(resolve_data_dir(repo_root()))
     return Path(base) / "wake_models" / "vosk"
 
 
