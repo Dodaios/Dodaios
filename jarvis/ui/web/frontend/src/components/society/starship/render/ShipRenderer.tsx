@@ -85,6 +85,18 @@ export function PostFx({ quality }: { quality: Quality }) {
     composer.setSize(size.width, size.height);
   }, [composer, size.width, size.height, gl]);
   useEffect(() => () => { composer.renderTarget1.dispose(); composer.renderTarget2.dispose(); for (const p of composer.passes) (p as { dispose?: () => void }).dispose?.(); }, [composer]);
-  useFrame((_, dt) => { composer.render(dt); }, 1);
+  useFrame((_, dt) => {
+    if (!import.meta.env.DEV) { composer.render(dt); return; }
+    // Development: what one frame costs, for runtime checks (`window.__shipStats`).
+    gl.info.autoReset = false;
+    gl.info.reset();
+    const t0 = performance.now();
+    composer.render(dt);
+    const ms = performance.now() - t0;
+    const stats = ((window as unknown as { __shipStats?: { ms: number; calls: number; triangles: number } }).__shipStats ??= { ms: 0, calls: 0, triangles: 0 });
+    stats.ms = stats.ms * 0.9 + ms * 0.1;
+    stats.calls = gl.info.render.calls;
+    stats.triangles = gl.info.render.triangles;
+  }, 1);
   return null;
 }

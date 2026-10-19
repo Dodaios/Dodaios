@@ -100,19 +100,33 @@ export function faceLookOf(agent: Pick<SocietyAgent, "agentId" | "figure">, crea
   return creature ? { kind: "creature", creature } : { kind: "shape", shape: look.shape, color: look.color };
 }
 
-/** Agents that joined while the ship was open walk in from the transporter. */
-function useNewcomers(ids: readonly string[], ready: boolean): ReadonlySet<string> {
-  const known = useRef<Set<string> | null>(null);
-  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+/** How long a newcomer counts as one (it walks from the transporter, the pad glows). */
+const NEWCOMER_MS = 12_000;
+
+/**
+ * Crew that joined while the ship was open, per deck: they beam in at the
+ * transporter and walk to their place. The first crew a deck shows is simply
+ * aboard, so riding to a deck never makes its whole crew arrive.
+ */
+function useNewcomers(deck: DeckId, ids: readonly string[], ready: boolean): ReadonlySet<string> {
+  const known = useRef(new Map<DeckId, Set<string>>());
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [fresh, setFresh] = useState<{ deck: DeckId; ids: ReadonlySet<string> }>({ deck, ids: new Set() });
   useEffect(() => {
     if (!ready) return;
-    if (!known.current) { known.current = new Set(ids); return; }
-    const added = ids.filter((id) => !known.current?.has(id));
-    for (const id of ids) known.current.add(id);
-    if (added.length) setFresh((prev) => new Set([...prev, ...added]));
-  }, [ids, ready]);
-  return fresh;
+    const seen = known.current.get(deck);
+    if (!seen) { known.current.set(deck, new Set(ids)); return; }
+    const added = ids.filter((id) => !seen.has(id));
+    for (const id of ids) seen.add(id);
+    if (added.length === 0) return;
+    setFresh((prev) => ({ deck, ids: new Set([...(prev.deck === deck ? prev.ids : []), ...added]) }));
+    // Not cleared by the next change of `ids` (the roster refreshes every few seconds): only by unmounting.
+    timers.current.push(setTimeout(() => setFresh((prev) => (prev.deck === deck ? { deck, ids: new Set([...prev.ids].filter((id) => !added.includes(id))) } : prev)), NEWCOMER_MS));
+  }, [deck, ids, ready]);
+  useEffect(() => () => { for (const t of timers.current) clearTimeout(t); }, []);
+  return fresh.deck === deck ? fresh.ids : EMPTY_SET;
 }
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGroup, initialDeck, compact = false, active: onScreen = true }: ShipStageProps) {
   const t = useT();
@@ -193,7 +207,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
       accent: d?.colour ?? "#8aa4c8", pips: rank.pips, gold: rank.gold, lead: !!d && d.leadId === c.agentId,
     };
   }), [crewInputs, plan, byId, divisionOf, levelOf, creaturesByDefault]);
-  const newcomers = useNewcomers(useMemo(() => crew.map((c) => c.agentId), [crew]), ready && population !== "none");
+  const newcomers = useNewcomers(deck, useMemo(() => crew.map((c) => c.agentId), [crew]), ready && population !== "none" && !!plan);
 
   // Team rounds feed the holo-tables and the gatherings.
   const watchTeams = useMemo(() => (plan?.divisions ?? []).map((d) => ({ teamId: d.teamId, members: d.members })) as never, [plan]);
