@@ -334,6 +334,12 @@ describe("GitOverviewTab — one agent session", () => {
     await screen.findByText("app.py");
     act(() => useGitSessionStore.getState().show("w1", "T2"));
     expect((await screen.findAllByTestId("scm-session-file")).length).toBe(2);
+    // The ask is used up: the tab opened again later starts on every change.
+    expect(useGitSessionStore.getState().request).toBeNull();
+    cleanup();
+    render(<GitOverviewTab />);
+    expect(await screen.findByText("app.py")).toBeTruthy();
+    expect(screen.queryByTestId("scm-session")).toBeNull();
   });
 });
 
