@@ -5,9 +5,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import VisionInjected
-from jarvis.safety.vision_telemetry import VisionTelemetryCollector
+from dodaios.core.bus import EventBus
+from dodaios.core.events import VisionInjected
+from dodaios.safety.vision_telemetry import VisionTelemetryCollector
 
 
 @pytest.mark.asyncio

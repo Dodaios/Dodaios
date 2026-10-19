@@ -18,10 +18,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.marketplace import catalog_data, community_source
-from jarvis.marketplace.agent_plugins_loader import EXTENSION_NAMESPACE
-from jarvis.ui.web import marketplace_routes
-from jarvis.ui.web.marketplace_routes import router
+from dodaios.marketplace import catalog_data, community_source
+from dodaios.marketplace.agent_plugins_loader import EXTENSION_NAMESPACE
+from dodaios.ui.web import marketplace_routes
+from dodaios.ui.web.marketplace_routes import router
 
 SKILL_TEXT = "---\nname: three-point-check\n---\n\nSummarize in three bullets.\n"
 
@@ -91,7 +91,7 @@ def community_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(community_source, "_CACHE_PATH", cache)
     monkeypatch.setattr(community_source, "index_url", lambda: "https://reg.example/index.json")
     monkeypatch.setattr(catalog_data, "_DEFAULT_CATALOG_PATH", tmp_path / "plugin_catalog.json")
-    monkeypatch.setattr("jarvis.core.paths.user_skills_dir", lambda: tmp_path / "skills")
+    monkeypatch.setattr("dodaios.core.paths.user_skills_dir", lambda: tmp_path / "skills")
     # Module-global by design (one process-wide download cache) — so a test
     # must never inherit another test's fetch.
     marketplace_routes._content_cache.clear()

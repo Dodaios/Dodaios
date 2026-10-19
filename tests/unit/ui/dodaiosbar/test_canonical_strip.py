@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.dodaiosbar import interaction, renderer
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
-from jarvis.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
+from dodaios.ui.dodaiosbar import interaction, renderer
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
 from ui.orb import controls
 
 

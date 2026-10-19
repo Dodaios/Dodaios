@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import device, recents
-from jarvis.agentic_ide.folders import search_folders
+from dodaios.agentic_ide import device, recents
+from dodaios.agentic_ide.folders import search_folders
 
 
 @pytest.fixture

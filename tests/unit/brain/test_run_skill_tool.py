@@ -16,15 +16,15 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.plugins.tool.run_skill import RunSkillTool
-from jarvis.skills.schema import (
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.plugins.tool.run_skill import RunSkillTool
+from dodaios.skills.schema import (
     Skill,
     SkillFrontmatter,
     SkillLifecycleState,
     SkillRiskPolicy,
 )
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 # ----------------------------------------------------------------------
 # Fakes
@@ -383,7 +383,7 @@ class _ResolvingRegistry(_FakeRegistry):
     """
 
     def resolve(self, name: str) -> Skill:
-        from jarvis.skills.relevance import skill_name_tokens
+        from dodaios.skills.relevance import skill_name_tokens
 
         key = str(name or "").strip()
         if key in self._skills:
@@ -493,7 +493,7 @@ def _music_registry() -> _FakeRegistry:
 async def test_a_music_skill_load_follows_the_only_connected_service(monkeypatch) -> None:
     """Live 2026-08-22 18:16: the model asked for ``plugin-spotify`` on a box
     where only YouTube Music was connected, and held Spotify's how-to."""
-    from jarvis.core import music_service as ms
+    from dodaios.core import music_service as ms
 
     monkeypatch.setattr(ms, "connected_music_services", lambda: ("youtube_music",))
     monkeypatch.setattr(ms, "preferred_music_service", lambda: "auto")
@@ -510,7 +510,7 @@ async def test_a_music_skill_load_follows_the_only_connected_service(monkeypatch
 @pytest.mark.asyncio
 async def test_a_named_music_service_is_kept(monkeypatch) -> None:
     """The user said Spotify: that wins even when YouTube Music is connected too."""
-    from jarvis.core import music_service as ms
+    from dodaios.core import music_service as ms
 
     monkeypatch.setattr(
         ms, "connected_music_services", lambda: ("spotify", "youtube_music")
@@ -534,7 +534,7 @@ async def test_a_named_music_service_is_kept(monkeypatch) -> None:
 async def test_a_music_skill_stays_when_nothing_is_connected(monkeypatch) -> None:
     """Nothing to route to: the skill the model named is loaded as before, and
     its own instructions tell the user the service is not connected."""
-    from jarvis.core import music_service as ms
+    from dodaios.core import music_service as ms
 
     monkeypatch.setattr(ms, "connected_music_services", lambda: ())
     monkeypatch.setattr(ms, "preferred_music_service", lambda: "auto")

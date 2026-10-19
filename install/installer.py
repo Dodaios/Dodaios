@@ -53,7 +53,7 @@ _SOURCE_ROOT = Path(__file__).resolve().parent.parent
 if str(_SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(_SOURCE_ROOT))
 
-from jarvis.core.branding import (  # noqa: E402 - bootstrap source path above
+from dodaios.core.branding import (  # noqa: E402 - bootstrap source path above
     CLI_COMMAND_NAME,
     LAUNCHER_ENTRY_NAME,
     MACOS_APP_NAME,
@@ -266,7 +266,7 @@ def step_preflight() -> None:
 def write_managed_marker(*, with_desktop: bool) -> None:
     """Mark this checkout as an installer-managed copy.
 
-    The in-app "Update Now" button (jarvis/ui/web/update_routes.py) only appears,
+    The in-app "Update Now" button (dodaios/ui/web/update_routes.py) only appears,
     and only ever runs ``git reset --hard``, when this marker is present AND the
     checkout's ``origin`` is the official public repo. A maintainer's dev tree or
     a manual clone never gets this marker, so neither can be self-reset — this is
@@ -436,7 +436,7 @@ def step_models(*, full_profile: bool, dry_run: bool) -> None:
     phase("5/6", "Voice models")
     note("downloading everything the voice pipeline needs, so the first")
     note("launch is ready immediately - nothing is fetched at startup")
-    cmd = [str(venv_python()), "-m", "jarvis", "--prefetch"]
+    cmd = [str(venv_python()), "-m", "dodaios", "--prefetch"]
     if full_profile:
         # Onboarding has not selected a language yet. Cache every supported
         # wake language so English, German, and Spanish are all ready on the
@@ -471,7 +471,7 @@ def verify_models(*, full_profile: bool = False) -> None:
     missing. A probe failure degrades to an honest note, never a failed install.
     """
     probe = (
-        "from jarvis.setup.model_report import "
+        "from dodaios.setup.model_report import "
         "voice_model_report, report_complete, format_report\n"
         f"items = voice_model_report(full_profile={full_profile!r})\n"
         "print('\\n'.join(format_report(items)))\n"
@@ -516,7 +516,7 @@ def step_worker_cli(*, dry_run: bool) -> None:
         console.print("[muted]│    (dry-run) npm i -g @anthropic-ai/claude-code[/]")
         return
     probe = (
-        "from jarvis.setup.dependencies import check_claude_cli, check_npm, install_claude_cli\n"
+        "from dodaios.setup.dependencies import check_claude_cli, check_npm, install_claude_cli\n"
         "import sys\n"
         "if check_claude_cli().present:\n"
         "    print('present'); sys.exit(0)\n"
@@ -563,8 +563,8 @@ def _write_desktop_integration_log(result: object) -> Path | None:
 
 
 _SPOTLIGHT_PROBE = (
-    "from jarvis.setup.macos_app_bundle import macos_app_bundle_path\n"
-    "from jarvis.setup.macos_search_index import wait_until_indexed\n"
+    "from dodaios.setup.macos_app_bundle import macos_app_bundle_path\n"
+    "from dodaios.setup.macos_search_index import wait_until_indexed\n"
     "print(wait_until_indexed(macos_app_bundle_path()))\n"
 )
 
@@ -609,7 +609,7 @@ def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
     argv = [
         str(venv_python()),
         "-m",
-        "jarvis.setup.desktop_integration",
+        "dodaios.setup.desktop_integration",
         "--install-dir",
         str(repo_root()),
         "--json",
@@ -673,11 +673,11 @@ def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
 def step_ui_bundle_check() -> bool:
     """Honest packaging check: the shipped UI build must be present + intact.
 
-    The public snapshot ships a prebuilt ``jarvis/ui/web/dist``; a dev clone
+    The public snapshot ships a prebuilt ``dodaios/ui/web/dist``; a dev clone
     may not have one. Missing or torn builds are the 'old/broken app' symptom,
     so say it out loud instead of letting the first launch look broken.
     """
-    dist = repo_root() / "jarvis" / "ui" / "web" / "dist"
+    dist = repo_root() / "dodaios" / "ui" / "web" / "dist"
     index = dist / "index.html"
     if not index.is_file():
         note("no prebuilt UI found (dev clone?) - the app will serve a minimal page")
@@ -720,12 +720,12 @@ def _resolved_admin_port() -> int:
     the server was serving elsewhere. Falls back to the packaged default if the
     import is somehow unavailable, so this never breaks the launch step."""
     try:
-        from jarvis.ui.web.launcher import _DEFAULT_ADMIN_PORT, _fast_admin_port
+        from dodaios.ui.web.launcher import _DEFAULT_ADMIN_PORT, _fast_admin_port
 
         return _fast_admin_port()
     except Exception:  # noqa: BLE001 — a hint must never block the launch
         try:
-            from jarvis.ui.web.launcher import _DEFAULT_ADMIN_PORT
+            from dodaios.ui.web.launcher import _DEFAULT_ADMIN_PORT
 
             return _DEFAULT_ADMIN_PORT
         except Exception:  # noqa: BLE001
@@ -761,17 +761,17 @@ def _relaunch_command(*, headless: bool) -> str:
     honest line per OS. Mirrors the "Start again" rows in step_summary.
     """
     if headless or is_headless_linux():
-        return f'{venv_python()} -m jarvis.ui.web.launcher --headless'
+        return f'{venv_python()} -m dodaios.ui.web.launcher --headless'
     if sys.platform == "win32":
         return str(repo_root() / "run.bat")
     if sys.platform == "darwin":
         return f'open -a "{MACOS_APP_NAME}"'
-    return f"{venv_python()} -m jarvis.ui.web.launcher"
+    return f"{venv_python()} -m dodaios.ui.web.launcher"
 
 
 def step_launch(*, headless: bool, dry_run: bool) -> None:
     if headless or is_headless_linux():
-        cmd = [str(venv_python()), "-m", "jarvis.ui.web.launcher", "--headless"]
+        cmd = [str(venv_python()), "-m", "dodaios.ui.web.launcher", "--headless"]
         msg = f"the headless server on http://localhost:{_resolved_admin_port()}"
     elif sys.platform == "win32":
         cmd = [str(repo_root() / "run.bat")]
@@ -779,7 +779,7 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
     elif sys.platform == "darwin":
         try:
             _rescan_venv_site_packages()
-            from jarvis.setup.macos_app_bundle import (
+            from dodaios.setup.macos_app_bundle import (
                 macos_app_bundle_is_launchable,
                 macos_app_bundle_path,
                 macos_launch_services_command,
@@ -801,7 +801,7 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
             cmd = macos_launch_services_command(bundle)
             msg = "the Desktop App"
     else:
-        cmd = [str(venv_python()), "-m", "jarvis.ui.web.launcher"]
+        cmd = [str(venv_python()), "-m", "dodaios.ui.web.launcher"]
         msg = "the Desktop App"
 
     # └ closes the connected journey the Stage-1 shell opened with ┌.
@@ -835,10 +835,10 @@ def step_cli_links(*, dry_run: bool) -> None:
 
     The venv's console scripts are linked (macOS/Linux, ``~/.local/bin``) or
     copied (Windows, ``<install>\\bin``) onto the user's PATH — see
-    ``jarvis/setup/cli_path.py``. Never fatal: the app itself works without
+    ``dodaios/setup/cli_path.py``. Never fatal: the app itself works without
     the terminal commands, so a failure here is reported and the install goes on.
     """
-    from jarvis.setup.cli_path import install_commands
+    from dodaios.setup.cli_path import install_commands
 
     try:
         report = install_commands(repo_root(), dry_run=dry_run)
@@ -888,7 +888,7 @@ def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
     elif sys.platform.startswith("linux") and not (headless or is_headless_linux()):
         rows.append(("Start again", f'app menu -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
     else:
-        rows.append(("Start again", ".venv/bin/python -m jarvis.ui.web.launcher", "brand"))
+        rows.append(("Start again", ".venv/bin/python -m dodaios.ui.web.launcher", "brand"))
         rows.append(("", "(in the install folder)", "muted"))
     if not (headless or is_headless_linux()):
         rows.append(("", f"or type {CLI_COMMAND_NAME} in a new terminal", "muted"))
@@ -986,7 +986,7 @@ def main(argv: list[str] | None = None) -> int:
 
     step_models(full_profile=with_desktop, dry_run=args.dry_run)
 
-    browser_cmd = [str(venv_python()), "-m", "jarvis.society.browser.install"]
+    browser_cmd = [str(venv_python()), "-m", "dodaios.society.browser.install"]
     if sys.platform.startswith("linux"):
         browser_cmd.append("--system-deps")
     if not with_desktop or args.headless:
@@ -996,7 +996,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.dry_run:
         note("managed browser: install and verify on first full installation")
     else:
-        browser_cmd = [str(venv_python()), "-m", "jarvis.society.browser.install"]
+        browser_cmd = [str(venv_python()), "-m", "dodaios.society.browser.install"]
         if sys.platform.startswith("linux"):
             browser_cmd.append("--system-deps")
         if args.dry_run:

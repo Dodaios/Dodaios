@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import branding
+from dodaios.core import branding
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_PATH = REPO_ROOT / "jarvis.spec"
@@ -80,11 +80,11 @@ def _exec_spec(
 def spec_root(tmp_path: Path) -> Path:
     """A minimal checkout: the real spec and the files it reads by path."""
     root = tmp_path / "checkout"
-    (root / "jarvis" / "core").mkdir(parents=True)
-    (root / "jarvis" / "__init__.py").write_text('__version__ = "9.9.9"\n', encoding="utf-8")
+    (root / "dodaios" / "core").mkdir(parents=True)
+    (root / "dodaios" / "__init__.py").write_text('__version__ = "9.9.9"\n', encoding="utf-8")
     shutil.copy2(
-        REPO_ROOT / "jarvis" / "core" / "macos_privacy_strings.py",
-        root / "jarvis" / "core" / "macos_privacy_strings.py",
+        REPO_ROOT / "dodaios" / "core" / "macos_privacy_strings.py",
+        root / "dodaios" / "core" / "macos_privacy_strings.py",
     )
     shutil.copy2(SPEC_PATH, root / "jarvis.spec")
     # The notice collector walks every installed distribution, which has

@@ -1,6 +1,6 @@
 """Tests for the in-app feedback REST endpoint (finding 13, AP-23 wave 2).
 
-Contract (see jarvis/ui/web/feedback_routes.py):
+Contract (see dodaios/ui/web/feedback_routes.py):
 - POST /api/feedback -> {"ok": bool, "status": str, "detail": str, "github_url": str|None}
 
 When no Discord webhook is configured (the common case for every downloader —
@@ -21,7 +21,7 @@ GITHUB_ISSUES_URL = "https://github.com/Dodaios/Dodaios/issues"
 
 
 def _client() -> TestClient:
-    from jarvis.ui.web.feedback_routes import router
+    from dodaios.ui.web.feedback_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -46,7 +46,7 @@ def _payload(**overrides: object) -> dict:
 def test_no_webhook_configured_points_to_github_issues(client: TestClient, monkeypatch) -> None:
     """No webhook configured -> honest downloader-facing fallback: a GitHub
     issues URL, not an instruction to set an operator-only credential."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     monkeypatch.setattr(feedback_routes, "get_secret", lambda *a, **k: None)
 
@@ -67,7 +67,7 @@ def test_no_webhook_configured_does_not_instruct_setting_a_credential(
     """The old behavior told the END USER to set a Discord webhook credential
     ('discord_feedback_webhook_url') — meaningless for a downloader who is not
     the project operator. That misdirection must be gone."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     monkeypatch.setattr(feedback_routes, "get_secret", lambda *a, **k: None)
 
@@ -87,7 +87,7 @@ def test_no_webhook_configured_does_not_instruct_setting_a_credential(
 def test_status_not_configured_offers_github_fallback(client: TestClient, monkeypatch) -> None:
     """Fresh install (no webhook) -> configured=False plus everything the
     frontend needs to compose a prefilled GitHub issue instead."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     monkeypatch.setattr(feedback_routes, "get_secret", lambda *a, **k: None)
 
@@ -106,7 +106,7 @@ def test_status_not_configured_offers_github_fallback(client: TestClient, monkey
 def test_status_configured_never_leaks_the_webhook_url(client: TestClient, monkeypatch) -> None:
     """Operator install (webhook present) -> configured=True; the webhook URL
     itself (an operator credential) must never appear in the response."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     webhook_url = "https://discord.com/api/webhooks/123/abc"  # test dummy
     monkeypatch.setattr(feedback_routes, "get_secret", lambda *a, **k: webhook_url)
@@ -123,7 +123,7 @@ def test_empty_screenshot_payload_sends_no_attachment(client: TestClient, monkey
     """A data-URL without a base64 payload decodes to b"" — the dispatch must
     fall back to the plain JSON webhook call instead of attaching an empty
     file to Discord."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     captured: dict = {}
 
@@ -166,7 +166,7 @@ def test_empty_screenshot_payload_sends_no_attachment(client: TestClient, monkey
 def test_app_version_pyproject_fallback_reads_repo_root() -> None:
     """The pyproject.toml fallback must resolve to the real repo root — it
     regressed once by pointing one directory ABOVE it (parents[4])."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     root = Path(feedback_routes.__file__).resolve().parents[3]
     assert (root / "pyproject.toml").is_file()
@@ -185,7 +185,7 @@ def test_app_version_pyproject_fallback_reads_repo_root() -> None:
 
 
 def _template_dir() -> Path:
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     root = Path(feedback_routes.__file__).resolve().parents[3]
     return root / ".github" / "ISSUE_TEMPLATE"
@@ -207,7 +207,7 @@ def test_named_issue_forms_exist_in_the_repo() -> None:
     """A renamed or deleted form would silently dead-end the primary path:
     GitHub answers `?template=<missing>` with the plain blank-issue editor and
     every prefilled field is dropped."""
-    from jarvis.ui.web.feedback_routes import ISSUE_TEMPLATES
+    from dodaios.ui.web.feedback_routes import ISSUE_TEMPLATES
 
     for report_type, filename in ISSUE_TEMPLATES.items():
         if filename is None:
@@ -238,7 +238,7 @@ def test_os_choice_matches_a_dropdown_option_of_the_bug_form() -> None:
     """GitHub drops a dropdown prefill that is not an EXACT option string, so
     the OS silently vanishes from the report if either side drifts."""
     yaml = pytest.importorskip("yaml")
-    from jarvis.ui.web.feedback_routes import _os_choice
+    from dodaios.ui.web.feedback_routes import _os_choice
 
     form = yaml.safe_load((_template_dir() / "bug_report.yml").read_text(encoding="utf-8"))
     options = next(b["attributes"]["options"] for b in form["body"] if b.get("id") == "os")
@@ -250,7 +250,7 @@ def test_os_choice_covers_every_platform(monkeypatch) -> None:
     """Each supported platform maps onto an option — including the headless
     Linux box, which is the distinction triage asks about first."""
     yaml = pytest.importorskip("yaml")
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     form = yaml.safe_load((_template_dir() / "bug_report.yml").read_text(encoding="utf-8"))
     options = next(b["attributes"]["options"] for b in form["body"] if b.get("id") == "os")
@@ -285,7 +285,7 @@ def test_os_choice_covers_every_platform(monkeypatch) -> None:
 def _reset_board_cache():
     """The board cache is process-wide; leaking it across tests would let one
     test's fixture answer another's request."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     feedback_routes._board_cache = None
     feedback_routes._board_cache_at = 0.0
@@ -307,7 +307,7 @@ def _issue(number: int, title: str, *, upvotes: int = 0, comments: int = 0) -> d
 def test_board_drops_pull_requests() -> None:
     """/issues returns pull requests too, and a PR is not something a user
     asked for."""
-    from jarvis.ui.web.feedback_routes import _entries_from_issues
+    from dodaios.ui.web.feedback_routes import _entries_from_issues
 
     raw = [_issue(1, "A real request"), {**_issue(2, "A PR"), "pull_request": {"url": "x"}}]
 
@@ -319,7 +319,7 @@ def test_board_drops_pull_requests() -> None:
 def test_board_ranks_by_upvotes() -> None:
     """The 👍 count is the closest thing the tracker has to a vote, and the
     only reason the list is worth showing."""
-    from jarvis.ui.web.feedback_routes import _entries_from_issues
+    from dodaios.ui.web.feedback_routes import _entries_from_issues
 
     raw = [_issue(1, "meh", upvotes=1), _issue(2, "popular", upvotes=9), _issue(3, "new")]
 
@@ -332,7 +332,7 @@ def test_board_ranks_by_upvotes() -> None:
 def test_board_survives_a_malformed_row() -> None:
     """A row missing the fields the board renders is skipped, not fatal — one
     odd item must never blank the whole list."""
-    from jarvis.ui.web.feedback_routes import _entries_from_issues
+    from dodaios.ui.web.feedback_routes import _entries_from_issues
 
     raw = [{"number": "not-an-int", "title": "broken"}, {}, _issue(7, "fine")]
 
@@ -342,7 +342,7 @@ def test_board_survives_a_malformed_row() -> None:
 def test_board_caches_between_requests(client: TestClient, monkeypatch) -> None:
     """Several desktop windows share one backend; without the cache each open
     window would spend its own pair of requests from the same IP budget."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     calls: list[str] = []
 
@@ -368,7 +368,7 @@ def test_board_serves_the_last_good_lists_after_a_failed_refresh(
 ) -> None:
     """A rate limit or a network blip is no reason to tell the user nobody
     ever asked for anything."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     feedback_routes._board_cache = feedback_routes.FeedbackBoard(
         available=True,
@@ -395,7 +395,7 @@ def test_board_unavailable_when_it_never_loaded(client: TestClient, monkeypatch)
     """With no cached copy the board reports unavailable WITH a reason, so the
     frontend hides it instead of rendering an empty list that reads as
     'nobody ever asked for anything'."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     async def _boom(_client: object, _label: str) -> list:
         raise feedback_routes.httpx.ConnectError("no network")
@@ -414,7 +414,7 @@ def test_board_failure_does_not_freeze_out_the_next_retry(
 ) -> None:
     """A failed refresh must not advance the cache timestamp — otherwise one
     blip would serve stale lists for a full TTL."""
-    import jarvis.ui.web.feedback_routes as feedback_routes
+    import dodaios.ui.web.feedback_routes as feedback_routes
 
     state = {"fail": True}
 

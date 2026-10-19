@@ -66,7 +66,7 @@ Two facts drive the whole safety and language design:
 ## 3. Architecture overview (the one reconciled design)
 
 ```
-                       ┌─────────────────────────── jarvis/realtime/ (may import jarvis.*) ───────────────────────────┐
+                       ┌─────────────────────────── dodaios/realtime/ (may import dodaios.*) ───────────────────────────┐
  desktop mic ─┐        │  RealtimeSessionEngine (transport-neutral turn loop)                                          │
  (MicCapture) │        │    audio_source  ─► provider.send_audio                                                        │
               ├─audio─►│    provider events ─► ScrubHoldGate ─► sink.play / send_binary   ◄─ audio out ─┐              │
@@ -76,23 +76,23 @@ Two facts drive the whole safety and language design:
                        │    RealtimeNameMap (MCP slash↔wire) · latency marks · stall guard  │              │              │
                        └───────────────────────────────────────────────────────────────────┼──────────────┘              │
                                                                                             │                             │
-              jarvis/plugins/realtime/ (must NOT import jarvis.*, entry-point group "jarvis.realtime")                    │
+              dodaios/plugins/realtime/ (must NOT import dodaios.*, entry-point group "jarvis.realtime")                    │
                  openai_realtime.py (RealtimeProvider)      gemini_live.py (RealtimeProvider)                             │
 ```
 
 **Home & layering.**
-- `jarvis/realtime/` — the orchestrator package (engine, tool bridge, scrub gate,
-  name map, factory, two surface adapters). It **may** import `jarvis.*`.
-- `jarvis/plugins/realtime/` — the provider plugins, discovered via a **new
+- `dodaios/realtime/` — the orchestrator package (engine, tool bridge, scrub gate,
+  name map, factory, two surface adapters). It **may** import `dodaios.*`.
+- `dodaios/plugins/realtime/` — the provider plugins, discovered via a **new
   `jarvis.realtime` entry-point group**. Per the structural plugin rule they
-  **must not** import `jarvis.*`.
+  **must not** import `dodaios.*`.
 - This mirrors the existing plugin/orchestrator split used by channels, and
-  keeps `jarvis/speech/pipeline.py` and `jarvis/browser_voice/` unchanged except
+  keeps `dodaios/speech/pipeline.py` and `dodaios/browser_voice/` unchanged except
   for a single mode branch each.
 
 **New plugin group + two-tier capability.**
-- Add `"jarvis.realtime"` to `PLUGIN_GROUPS` (`jarvis/core/protocols.py:380`);
-  `jarvis/core/registry.py` is fully generic and needs zero changes.
+- Add `"jarvis.realtime"` to `PLUGIN_GROUPS` (`dodaios/core/protocols.py:380`);
+  `dodaios/core/registry.py` is fully generic and needs zero changes.
 - Provider capability follows the existing two-tier pattern: a **static**
   `supports_realtime: bool` flag (like `supports_tools`/`supports_vision`) plus a
   **runtime** `async can_open_duplex_session() -> bool` probe (like
@@ -103,7 +103,7 @@ Two facts drive the whole safety and language design:
   vocabulary, so "start voice mode" / "modo de voz en vivo" is not falsely
   refused. (SR input vocabulary — multilingual tokens are allowed here.)
 
-**Core contracts** (single source, in `jarvis/realtime/protocol.py`):
+**Core contracts** (single source, in `dodaios/realtime/protocol.py`):
 
 ```python
 RealtimeEventType = Literal[
@@ -156,7 +156,7 @@ the engine (AP-21).
 
 ### 4.1 Safety — the load-bearing audio-HOLD scrub gate
 
-`scrub_for_voice` (`jarvis/brain/output_filter.py:442`) is regex-only (AP-11,
+`scrub_for_voice` (`dodaios/brain/output_filter.py:442`) is regex-only (AP-11,
 ADR-0010) and today runs on text before TTS. A duplex model speaks audio
 directly, so safety is **three layers, in priority order**:
 
@@ -320,34 +320,34 @@ honest and in-app.
 ## 6. Integration points & migration path
 
 **New files** (all additive):
-- `jarvis/realtime/__init__.py`, `protocol.py`, `engine.py`, `scrub_gate.py`,
+- `dodaios/realtime/__init__.py`, `protocol.py`, `engine.py`, `scrub_gate.py`,
   `tool_bridge.py`, `name_map.py`, `factory.py`, `desktop_adapter.py`,
   `browser_adapter.py`
-- `jarvis/plugins/realtime/__init__.py`, `openai_realtime.py`, `gemini_live.py`
-- `jarvis/ui/web/frontend/src/audio/pcm-worklet.ts` (**first-class Phase-1
+- `dodaios/plugins/realtime/__init__.py`, `openai_realtime.py`, `gemini_live.py`
+- `dodaios/ui/web/frontend/src/audio/pcm-worklet.ts` (**first-class Phase-1
   deliverable** — `/ws/audio` is built but frontend-unwired; without it neither
   the browser surface nor the headless-VPS path works)
 - Tests: `tests/unit/realtime/*`, `tests/contract/test_realtime_provider_contract.py`
 
 **Minimal edits to existing files** (mode branch + declarations only):
-- `jarvis/core/protocols.py` — add the Protocols/event union + `"jarvis.realtime"`
+- `dodaios/core/protocols.py` — add the Protocols/event union + `"jarvis.realtime"`
   in `PLUGIN_GROUPS`.
 - `pyproject.toml` — `[project.entry-points."jarvis.realtime"]` (then
   `pip install -e . --no-deps`).
-- `jarvis/core/config.py` — `VoiceConfig.mode`; `BrainConfig.realtime:
+- `dodaios/core/config.py` — `VoiceConfig.mode`; `BrainConfig.realtime:
   BrainTierConfig | None`; remove the dead flag.
-- `jarvis/core/config_writer.py` — `set_voice_mode`.
-- `jarvis/core/capabilities.py` + `capabilities_seed.py` — add `realtime` source +
+- `dodaios/core/config_writer.py` — `set_voice_mode`.
+- `dodaios/core/capabilities.py` + `capabilities_seed.py` — add `realtime` source +
   the seed.
-- `jarvis/core/events.py` — three `LatencyPhase` members.
-- `jarvis/speech/pipeline.py` — `_realtime_session()` sibling selected at the
+- `dodaios/core/events.py` — three `LatencyPhase` members.
+- `dodaios/speech/pipeline.py` — `_realtime_session()` sibling selected at the
   `_state_loop` seam (`:4736`) on `self._config.voice.mode`; local VAD/barge off in
   realtime.
-- `jarvis/speech/watchdog.py:125` — pass `config=config` (the crash-restart root
+- `dodaios/speech/watchdog.py:125` — pass `config=config` (the crash-restart root
   omits it today, so the fork would silently never fire there).
-- `jarvis/browser_voice/route.py:44` — branch `_build_browser_session` on
+- `dodaios/browser_voice/route.py:44` — branch `_build_browser_session` on
   `cfg.voice.mode`; `/ws/audio` route + receive loop untouched.
-- `jarvis/ui/web/settings_routes.py` — the two voice-mode routes.
+- `dodaios/ui/web/settings_routes.py` — the two voice-mode routes.
 - `docs/adr/0011` amendment + a new realtime ADR.
 
 **Migration:** existing `jarvis.toml` needs no change (mode defaults to

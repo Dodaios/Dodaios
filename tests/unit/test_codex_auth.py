@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.codex_auth as codex_auth_module
-from jarvis.codex_auth import CodexAuthService, CodexAuthStatus, _derive_auth
+import dodaios.codex_auth as codex_auth_module
+from dodaios.codex_auth import CodexAuthService, CodexAuthStatus, _derive_auth
 
 
 def _write_auth(home: Path, payload: dict) -> None:
@@ -101,7 +101,7 @@ def test_windows_generic_binary_prefers_the_official_npm_shim(
 
     monkeypatch.setattr(codex_auth_module.sys, "platform", "win32")
     monkeypatch.setattr(codex_auth_module.shutil, "which", which)
-    monkeypatch.setattr("jarvis.core.path_augment.ensure_cli_paths", lambda: [])
+    monkeypatch.setattr("dodaios.core.path_augment.ensure_cli_paths", lambda: [])
 
     assert CodexAuthService()._resolve_binary() == r"C:\npm\codex.cmd"
     assert calls == ["codex.cmd"]
@@ -201,7 +201,7 @@ def test_probe_version_cached_across_status_calls(
     cost — /api/providers used to spawn it 2-4x PER request. It must be probed
     once per binary and cached, so every later status() is a pure auth-file read.
     """
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     codex_mod.clear_version_cache()
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
@@ -237,7 +237,7 @@ def test_probe_version_caches_failure_to_avoid_repeated_timeouts(
 ) -> None:
     """A hanging/absent codex must not pay a 4s subprocess timeout on every
     status() call — the failed probe is cached too."""
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     codex_mod.clear_version_cache()
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
@@ -301,12 +301,12 @@ def test_guarded_login_handoff_runs_real_guardian(
     tmp_path: Path,
 ) -> None:
     """The service and guardian transfer one real cross-process profile lock."""
-    import jarvis.codex_auth as codex_mod
-    from jarvis.core.exclusive_process_lock import (
+    import dodaios.codex_auth as codex_mod
+    from dodaios.core.exclusive_process_lock import (
         ExclusiveProcessLock,
         ExclusiveProcessLockError,
     )
-    from jarvis.core.private_directory import ensure_owner_only_directory
+    from dodaios.core.private_directory import ensure_owner_only_directory
 
     profile = tmp_path / "profile"
     coordination = tmp_path / "coordination"
@@ -368,8 +368,8 @@ def test_guarded_windows_login_closes_job_when_guardian_exits(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as codex_mod
-    import jarvis.core.process_tree as process_tree_module
+    import dodaios.codex_auth as codex_mod
+    import dodaios.core.process_tree as process_tree_module
 
     guardian_exited = threading.Event()
     job_closed = threading.Event()
@@ -477,7 +477,7 @@ def test_start_login_posix_detaches_and_redirects_stdio(
     run in its own session (no zombie, no garbled HTTP stream)."""
     import subprocess as sp
 
-    monkeypatch.setattr("jarvis.codex_auth.sys.platform", "linux")
+    monkeypatch.setattr("dodaios.codex_auth.sys.platform", "linux")
     captured: dict = {}
 
     class _FakeProc:
@@ -488,7 +488,7 @@ def test_start_login_posix_detaches_and_redirects_stdio(
         captured["kwargs"] = kwargs
         return _FakeProc()
 
-    monkeypatch.setattr("jarvis.codex_auth.subprocess.Popen", _fake_popen)
+    monkeypatch.setattr("dodaios.codex_auth.subprocess.Popen", _fake_popen)
     svc = CodexAuthService()
     monkeypatch.setattr(svc, "_resolve_binary", lambda: "codex")
 
@@ -506,7 +506,7 @@ def test_start_login_windows_uses_visible_console(
     """Windows: a fresh visible console for the device URL — stdout NOT to DEVNULL."""
     import subprocess as sp
 
-    monkeypatch.setattr("jarvis.codex_auth.sys.platform", "win32")
+    monkeypatch.setattr("dodaios.codex_auth.sys.platform", "win32")
     captured: dict = {}
 
     class _FakeProc:
@@ -516,7 +516,7 @@ def test_start_login_windows_uses_visible_console(
         captured["kwargs"] = kwargs
         return _FakeProc()
 
-    monkeypatch.setattr("jarvis.codex_auth.subprocess.Popen", _fake_popen)
+    monkeypatch.setattr("dodaios.codex_auth.subprocess.Popen", _fake_popen)
     svc = CodexAuthService()
     monkeypatch.setattr(svc, "_resolve_binary", lambda: "codex")
 
@@ -529,7 +529,7 @@ def test_dedicated_login_pins_file_store_log_dir_and_scrubs_api_keys(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     captured: dict = {}
 
@@ -589,7 +589,7 @@ def test_visible_linux_login_uses_a_waiting_desktop_terminal(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     captured: dict = {}
 
@@ -665,7 +665,7 @@ def test_visible_linux_login_resolves_waiting_terminal_alternative(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     terminal = tmp_path / "gnome-terminal"
     alternative = tmp_path / "x-terminal-emulator"
@@ -717,7 +717,7 @@ def test_visible_macos_login_opens_terminal_and_scrubs_shell_api_keys(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     captured: dict = {}
 
@@ -771,7 +771,7 @@ def test_login_status_accepts_only_exact_pii_free_mode_strings(
     output: str,
     expected: tuple[bool, str],
 ) -> None:
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     captured: dict = {}
 
@@ -836,7 +836,7 @@ def test_linux_login_accepts_every_supported_terminal(
     on kitty/alacritty/foot/wezterm hit a hard "no supported desktop terminal"
     while the Providers card still offered the Connect button.
     """
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     monkeypatch.setattr(codex_mod.sys, "platform", "linux")
     monkeypatch.setattr(
@@ -856,7 +856,7 @@ def test_linux_login_without_any_terminal_is_an_actionable_refusal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No usable terminal must be a named capability gap, not a mystery."""
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     monkeypatch.setattr(codex_mod.sys, "platform", "linux")
     monkeypatch.setattr(codex_mod.shutil, "which", lambda _name: None)
@@ -870,8 +870,8 @@ def test_graphical_linux_without_a_terminal_does_not_invite_a_login(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Pre-click truth: never offer a Connect that is guaranteed to fail."""
-    import jarvis.codex_app_server as transport
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_app_server as transport
+    import dodaios.codex_auth as codex_mod
 
     monkeypatch.setattr(transport.sys, "platform", "linux")
     monkeypatch.setenv("DISPLAY", ":0")
@@ -887,8 +887,8 @@ def test_pure_wayland_login_names_the_manual_browser_handoff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The card must not leave a pure-Wayland user waiting for a window."""
-    import jarvis.codex_app_server as transport
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_app_server as transport
+    import dodaios.codex_auth as codex_mod
 
     monkeypatch.setattr(transport.sys, "platform", "linux")
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
@@ -910,7 +910,7 @@ def test_every_login_terminal_records_why_its_flags_keep_it_in_the_foreground() 
     launcher returns early releases that lock mid-write. That property cannot be
     checked automatically, so every entry has to carry the argument for it.
     """
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     assert codex_mod._LINUX_LOGIN_TERMINALS
     for name, _flags, reason in codex_mod._LINUX_LOGIN_TERMINALS:
@@ -924,7 +924,7 @@ def test_wezterm_always_spawns_its_own_process() -> None:
     That would let ``cleanup_login`` run its post-check and release the profile
     lock while codex was still writing auth.json.
     """
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     flags = dict(
         (name, flags) for name, flags, _reason in codex_mod._LINUX_LOGIN_TERMINALS
@@ -949,13 +949,13 @@ def test_wezterm_always_spawns_its_own_process() -> None:
     ],
 )
 def test_terminal_matching_is_exact_not_prefix(rejected: str) -> None:
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     assert codex_mod._linux_login_terminal_entry(rejected) is None
 
 
 def test_terminal_matching_resolves_known_package_aliases() -> None:
-    import jarvis.codex_auth as codex_mod
+    import dodaios.codex_auth as codex_mod
 
     entry = codex_mod._linux_login_terminal_entry("rxvt-unicode")
     assert entry is not None

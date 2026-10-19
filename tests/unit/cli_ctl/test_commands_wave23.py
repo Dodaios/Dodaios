@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typer.testing import CliRunner
 
-from jarvis.cli_ctl.__main__ import app
+from dodaios.cli_ctl.__main__ import app
 
 runner = CliRunner()
 

@@ -12,9 +12,9 @@ Two production modules and two unit-test files. Plus a copy of
 `protocols.py` (see "Open questions" below).
 
 ```
-jarvis/memory/wiki/atomic_writer.py     ~340 LOC  five-step write pipeline
-jarvis/memory/wiki/backup.py            ~250 LOC  tar.gz snapshot + restore + rotation
-jarvis/memory/wiki/protocols.py         (carbon-copy of Instance A's contract)
+dodaios/memory/wiki/atomic_writer.py     ~340 LOC  five-step write pipeline
+dodaios/memory/wiki/backup.py            ~250 LOC  tar.gz snapshot + restore + rotation
+dodaios/memory/wiki/protocols.py         (carbon-copy of Instance A's contract)
 
 tests/unit/memory/wiki/test_atomic_writer.py   17 tests
 tests/unit/memory/wiki/test_backup.py          16 tests
@@ -27,7 +27,7 @@ tests/unit/memory/wiki/__init__.py             package marker
 ## What `AtomicWriter` does (and what it deliberately does not)
 
 The class implements the binding `AtomicWriter` Protocol from
-`jarvis/memory/wiki/protocols.py`. One `apply(updates, *, repo)` call
+`dodaios/memory/wiki/protocols.py`. One `apply(updates, *, repo)` call
 runs the five-step pipeline documented in
 `docs/phase-b1-wiki-curator/README.md` Part 5 → Instance C:
 
@@ -80,8 +80,8 @@ treated as a programmer bug, not a runtime data issue.
 ## Public API surface
 
 ```python
-from jarvis.memory.wiki.atomic_writer import AtomicWriter, AtomicWriteError
-from jarvis.memory.wiki.backup import BackupManager, BackupError
+from dodaios.memory.wiki.atomic_writer import AtomicWriter, AtomicWriteError
+from dodaios.memory.wiki.backup import BackupManager, BackupError
 
 writer = AtomicWriter(
     vault_root=vault_root,
@@ -167,9 +167,9 @@ a "snapshot before manual edit"-style command later.
 
 ## Things I deliberately did **not** touch
 
-* Anything under `jarvis/memory/wiki/templates/`.
-* `jarvis/memory/wiki/__init__.py` (left as Phase B0 wrote it).
-* Any production code outside `jarvis/memory/wiki/`.
+* Anything under `dodaios/memory/wiki/templates/`.
+* `dodaios/memory/wiki/__init__.py` (left as Phase B0 wrote it).
+* Any production code outside `dodaios/memory/wiki/`.
 * `data/workspace/` (the runtime vault — tests use `tmp_path`).
 * The existing `tests/unit/memory/conftest.py` for the legacy curator.
 

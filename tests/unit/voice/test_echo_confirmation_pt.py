@@ -12,8 +12,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.self_mod.pending import PendingMutation
-from jarvis.voice.echo_confirmation import (
+from dodaios.core.self_mod.pending import PendingMutation
+from dodaios.voice.echo_confirmation import (
     classify_response,
     format_confirmation,
     format_outcome,

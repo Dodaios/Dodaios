@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.activity import observed, record_work_start, stamp
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
-from jarvis.agentic_ide.notifications import ActivityFeed
-from jarvis.agentic_ide.resume_store import SnapshotTerminal
-from jarvis.agentic_ide.work_timing import active_start, recover_start
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.activity import observed, record_work_start, stamp
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide.notifications import ActivityFeed
+from dodaios.agentic_ide.resume_store import SnapshotTerminal
+from dodaios.agentic_ide.work_timing import active_start, recover_start
 from tests.unit.agentic_ide.test_pty_host_adoption import FakeHostedPool
 
 

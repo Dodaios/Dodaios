@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.clis.registry import CliToolRegistry
-from jarvis.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
-from jarvis.clis.usage_log import UsageLog
-from jarvis.core.bus import EventBus
-from jarvis.core.events import BrainToolsChanged, CliStatusChanged
+from dodaios.clis.registry import CliToolRegistry
+from dodaios.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
+from dodaios.clis.usage_log import UsageLog
+from dodaios.core.bus import EventBus
+from dodaios.core.events import BrainToolsChanged, CliStatusChanged
 
 
 class _Recorder:
@@ -248,8 +248,8 @@ async def test_lifecycle_syncs_capability_registry(
     """Connect transition registers cli.<name>; disconnect deregisters it."""
     from dataclasses import replace
 
-    import jarvis.core.capabilities as cap_mod
-    from jarvis.clis.spec import CliCapabilityDecl
+    import dodaios.core.capabilities as cap_mod
+    from dodaios.clis.spec import CliCapabilityDecl
 
     spy = cap_mod.CapabilityRegistry()
     monkeypatch.setattr(cap_mod, "get_registry", lambda: spy)

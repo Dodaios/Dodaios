@@ -10,10 +10,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config_writer
-from jarvis.memory.wiki import fts_index, semantic_model, semantic_search, semantic_setup
-from jarvis.memory.wiki.db_path import resolve_wiki_db_path
-from jarvis.ui.web.wiki_routes import router as wiki_router
+from dodaios.core import config_writer
+from dodaios.memory.wiki import fts_index, semantic_model, semantic_search, semantic_setup
+from dodaios.memory.wiki.db_path import resolve_wiki_db_path
+from dodaios.ui.web.wiki_routes import router as wiki_router
 from tests.fakes.fake_semantic_encoder import FakeSemanticEncoder
 
 
@@ -59,7 +59,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         return real_activate(vault_root, **{**kwargs, "encoder": encoder})
 
     # The search route opens the word index from the default database path.
-    monkeypatch.setattr("jarvis.memory.wiki.search._default_db_path", lambda: db_path)
+    monkeypatch.setattr("dodaios.memory.wiki.search._default_db_path", lambda: db_path)
     monkeypatch.setattr(semantic_model, "runtime_available", lambda: True)
     monkeypatch.setattr(semantic_model, "model_present", lambda _d=None: True)
     monkeypatch.setattr(semantic_search, "activate", activate)
@@ -163,8 +163,8 @@ def test_a_busy_model_does_not_hold_the_word_hits_back(
 ) -> None:
     import time
 
-    from jarvis.memory.wiki.search import SearchHit
-    from jarvis.ui.web import wiki_routes
+    from dodaios.memory.wiki.search import SearchHit
+    from dodaios.ui.web import wiki_routes
 
     client.put("/api/wiki/semantic-search", json={"enabled": True})
     _finish()
@@ -187,7 +187,7 @@ def test_a_busy_model_does_not_hold_the_word_hits_back(
 def test_a_failing_semantic_engine_leaves_the_word_hits_standing(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.ui.web import wiki_routes
+    from dodaios.ui.web import wiki_routes
 
     def broken(*_args: Any, **_kwargs: Any) -> list[Any]:
         raise RuntimeError("native session died")

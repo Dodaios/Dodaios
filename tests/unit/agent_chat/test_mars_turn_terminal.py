@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.store import AgentChatStore
 
 
 class NoHistoryScanStore(AgentChatStore):

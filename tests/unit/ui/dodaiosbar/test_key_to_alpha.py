@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
-from jarvis.ui.dodaiosbar.renderer import COLOR_KEY_RGB, key_to_alpha
+from dodaios.ui.dodaiosbar.renderer import COLOR_KEY_RGB, key_to_alpha
 
 
 def test_key_pixels_become_transparent_and_content_stays_opaque() -> None:
@@ -29,7 +29,7 @@ def test_key_pixels_become_transparent_and_content_stays_opaque() -> None:
 
 
 def test_real_rendered_frame_keys_out_only_the_background() -> None:
-    from jarvis.ui.dodaiosbar.renderer import JarvisBarRenderer
+    from dodaios.ui.dodaiosbar.renderer import JarvisBarRenderer
 
     frame = JarvisBarRenderer(accent="#e7c46e").render(0.5, "listen", 0.8)
     out = np.asarray(key_to_alpha(frame))

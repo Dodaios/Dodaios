@@ -22,5 +22,5 @@ scene.render.resolution_percentage = 100
 scene.render.film_transparent = True
 scene.render.image_settings.file_format = "PNG"
 scene.render.image_settings.color_mode = "RGBA"
-scene.render.filepath = str(ROOT / "jarvis/ui/web/frontend/src/assets/gigi-companion-avatar.png")
+scene.render.filepath = str(ROOT / "dodaios/ui/web/frontend/src/assets/gigi-companion-avatar.png")
 bpy.ops.render.render(write_still=True)

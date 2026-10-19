@@ -15,9 +15,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.audio.devices import AudioDeviceInfo
-from jarvis.ui.web import settings_routes
-from jarvis.ui.web.settings_routes import router
+from dodaios.audio.devices import AudioDeviceInfo
+from dodaios.ui.web import settings_routes
+from dodaios.ui.web.settings_routes import router
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +43,7 @@ def _client(*, output_device="auto-headset", input_device="auto-headset", pipeli
 
 
 def _fake_lists(monkeypatch, outputs, inputs):
-    import jarvis.audio.devices as dv
+    import dodaios.audio.devices as dv
 
     def fresh_options(*, fresh=False):
         assert fresh is True
@@ -97,7 +97,7 @@ def test_get_headless_reports_unavailable(monkeypatch):
 
 def test_put_persists_and_live_applies(monkeypatch):
     persisted: dict[str, str] = {}
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(
         cw,
@@ -131,7 +131,7 @@ def test_put_persists_and_live_applies(monkeypatch):
 
 def test_put_input_only_and_auto_reset(monkeypatch):
     persisted: dict[str, str] = {}
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(
         cw,
@@ -157,7 +157,7 @@ def test_put_input_only_and_auto_reset(monkeypatch):
 def test_put_hotplugged_device_waits_for_safe_next_start(monkeypatch):
     """A fresh-probe-only index must never be applied to the stale live table."""
     persisted: dict[str, str] = {}
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(
         cw,
@@ -197,7 +197,7 @@ def test_put_requires_at_least_one_side():
 
 
 def test_put_survives_persist_failure(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     def boom(*a, **k):
         raise OSError("disk full")

@@ -19,9 +19,9 @@ from collections.abc import AsyncIterator
 import numpy as np
 import pytest
 
-import jarvis.audio.player as player_module
-from jarvis.audio.player import DEFAULT_OUTPUT_BUFFER_S, AudioPlayer
-from jarvis.core.protocols import AudioChunk
+import dodaios.audio.player as player_module
+from dodaios.audio.player import DEFAULT_OUTPUT_BUFFER_S, AudioPlayer
+from dodaios.core.protocols import AudioChunk
 
 #: Worst event-loop stall observed in the 2026-07-27 logs. The reserved buffer
 #: has to outlast it, or the speaker runs dry before the loop comes back.

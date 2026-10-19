@@ -9,7 +9,7 @@ explicit negative boundary for simple/medium requests.
 """
 from __future__ import annotations
 
-from jarvis.plugins.tool.spawn_worker import SpawnWorkerTool
+from dodaios.plugins.tool.spawn_worker import SpawnWorkerTool
 
 
 def test_description_reserves_tool_for_heavy_tasks() -> None:

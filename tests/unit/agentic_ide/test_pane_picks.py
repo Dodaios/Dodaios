@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -132,7 +132,7 @@ async def test_the_picks_survive_a_restart(
     snapshot = pane.to_snapshot()
     assert snapshot.model == "claude-opus-5"
     assert snapshot.permission_mode == "plan"
-    from jarvis.agentic_ide.resume_store import SnapshotTerminal
+    from dodaios.agentic_ide.resume_store import SnapshotTerminal
 
     restored = SnapshotTerminal.from_dict(snapshot.to_dict())
     assert restored is not None
@@ -164,7 +164,7 @@ async def test_the_workspace_says_what_a_pane_runs_on(
 
 async def test_an_older_snapshot_reopens_on_the_cli_default(tmp_path: Path) -> None:
     """A snapshot written before the picks existed still restores."""
-    from jarvis.agentic_ide.resume_store import SnapshotTerminal
+    from dodaios.agentic_ide.resume_store import SnapshotTerminal
 
     restored = SnapshotTerminal.from_dict({"name": "T1", "agent": "claude"})
     assert restored is not None

@@ -11,11 +11,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.appshot import region
-from jarvis.appshot import service as appshot_service
-from jarvis.appshot.hotkey import AppshotShortcut, configured_hotkeys
-from jarvis.appshot.picker import EVENT_SELECTION, decode, encode
-from jarvis.screen_context.models import (
+from dodaios.appshot import region
+from dodaios.appshot import service as appshot_service
+from dodaios.appshot.hotkey import AppshotShortcut, configured_hotkeys
+from dodaios.appshot.picker import EVENT_SELECTION, decode, encode
+from dodaios.screen_context.models import (
     CaptureTarget,
     ScreenContext,
     TargetKind,
@@ -23,9 +23,9 @@ from jarvis.screen_context.models import (
     VisualIntent,
     WindowFacts,
 )
-from jarvis.screen_context.ports import CaptureUnavailable
-from jarvis.screen_context.service import CaptureOutcome
-from jarvis.screen_context.targeting import region_target
+from dodaios.screen_context.ports import CaptureUnavailable
+from dodaios.screen_context.service import CaptureOutcome
+from dodaios.screen_context.targeting import region_target
 
 # mss shape: [0] is the virtual desktop. A 4K laptop panel at 150 % on the
 # left of a 1080p monitor, as Windows reports them in physical pixels.
@@ -178,8 +178,8 @@ class RegionCaptureService:
 
 @pytest.fixture
 def flow(monkeypatch):
-    import jarvis.screen_context.turn as turn
-    from jarvis.appshot.store import get_store
+    import dodaios.screen_context.turn as turn
+    from dodaios.appshot.store import get_store
 
     service = RegionCaptureService()
     picks: list = []
@@ -298,10 +298,10 @@ class _Instance:
 async def _reload_with(
     monkeypatch, hotkey: str, region_hotkey: str, recording_hotkey: str = "",
 ) -> AppshotShortcut:
-    import jarvis.appshot.hotkey as hotkey_module
-    import jarvis.core.config as config_module
-    import jarvis.core.instance as instance_module
-    import jarvis.platform.probes as probes
+    import dodaios.appshot.hotkey as hotkey_module
+    import dodaios.core.config as config_module
+    import dodaios.core.instance as instance_module
+    import dodaios.platform.probes as probes
 
     class Cfg:
         class screen_context:  # noqa: N801
@@ -391,7 +391,7 @@ async def test_a_cancelled_area_pick_publishes_no_refusal(monkeypatch) -> None:
 
 @pytest.fixture
 def client() -> TestClient:
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.ui.web.appshot_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -420,8 +420,8 @@ def test_an_unknown_scope_is_refused(client) -> None:
 
 
 def test_one_key_for_both_shortcuts_is_refused_before_writing(client, monkeypatch) -> None:
-    import jarvis.core.config as config_module
-    import jarvis.core.config_writer as writer
+    import dodaios.core.config as config_module
+    import dodaios.core.config_writer as writer
 
     class Cfg:
         class appshot:  # noqa: N801
@@ -440,8 +440,8 @@ def test_one_key_for_both_shortcuts_is_refused_before_writing(client, monkeypatc
 
 
 def test_a_shortcut_inside_another_is_refused_before_writing(client, monkeypatch) -> None:
-    import jarvis.core.config as config_module
-    import jarvis.core.config_writer as writer
+    import dodaios.core.config as config_module
+    import dodaios.core.config_writer as writer
 
     class Cfg:
         class appshot:  # noqa: N801
@@ -466,7 +466,7 @@ def test_a_shortcut_inside_another_is_refused_before_writing(client, monkeypatch
 
 @pytest.fixture
 def picker_host(monkeypatch):
-    from jarvis.platform import screen_access
+    from dodaios.platform import screen_access
     from tests.fakes.fake_permission_service import FakePermissionService
 
     monkeypatch.setattr(screen_access, "permission_gate", lambda: FakePermissionService())
@@ -491,7 +491,7 @@ async def test_a_crashed_picker_is_reported_not_taken_for_a_cancel(picker_host) 
 
 
 async def test_a_picker_without_a_screen_says_so(picker_host) -> None:
-    from jarvis.appshot.picker import EXIT_NO_GUI
+    from dodaios.appshot.picker import EXIT_NO_GUI
 
     _runs(picker_host, (None, EXIT_NO_GUI, False))
     with pytest.raises(region.RegionUnavailable, match="no usable screen"):
@@ -526,10 +526,10 @@ async def test_a_second_picker_is_refused_while_one_is_open(picker_host) -> None
 async def test_overlapping_reloads_leave_exactly_one_listener(monkeypatch) -> None:
     import asyncio
 
-    import jarvis.appshot.hotkey as hotkey_module
-    import jarvis.core.config as config_module
-    import jarvis.core.instance as instance_module
-    import jarvis.platform.probes as probes
+    import dodaios.appshot.hotkey as hotkey_module
+    import dodaios.core.config as config_module
+    import dodaios.core.instance as instance_module
+    import dodaios.platform.probes as probes
 
     class Cfg:
         class screen_context:  # noqa: N801
@@ -598,7 +598,7 @@ def test_no_monitors_means_no_snap_targets() -> None:
     ],
 )
 def test_two_sided_gestures_fold_to_one_spelling(raw: str, expected: str) -> None:
-    from jarvis.appshot.hotkey import is_gesture, normalize_hotkey
+    from dodaios.appshot.hotkey import is_gesture, normalize_hotkey
 
     assert normalize_hotkey(raw) == expected
     assert is_gesture(expected) == (expected != "ctrl+shift+s")
@@ -621,8 +621,8 @@ class _Clock:
 
 
 def _watcher(monkeypatch, together_s):
-    import jarvis.platform.self_input as self_input
-    from jarvis.appshot.gesture import BothKeysWatcher
+    import dodaios.platform.self_input as self_input
+    from dodaios.appshot.gesture import BothKeysWatcher
 
     monkeypatch.setattr(self_input, "synthetic_input_recent", lambda *a, **k: False)
     keys, clock, fired = _Keys(), _Clock(), []
@@ -667,10 +667,10 @@ def test_alt_keeps_its_any_order_behaviour(monkeypatch) -> None:
 
 
 async def test_two_gestures_arm_two_watchers(monkeypatch) -> None:
-    import jarvis.appshot.gesture as gesture
-    import jarvis.appshot.hotkey as hotkey_module
-    import jarvis.core.config as config_module
-    import jarvis.core.instance as instance_module
+    import dodaios.appshot.gesture as gesture
+    import dodaios.appshot.hotkey as hotkey_module
+    import dodaios.core.config as config_module
+    import dodaios.core.instance as instance_module
 
     class Cfg:
         class screen_context:  # noqa: N801
@@ -713,8 +713,8 @@ async def test_two_gestures_arm_two_watchers(monkeypatch) -> None:
 
 
 def test_a_gesture_passes_the_settings_route(client, monkeypatch) -> None:
-    import jarvis.core.config as config_module
-    import jarvis.core.config_writer as writer
+    import dodaios.core.config as config_module
+    import dodaios.core.config_writer as writer
 
     class Cfg:
         class appshot:  # noqa: N801

@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ImageBlock
-from jarvis.pointer import turn as pturn
-from jarvis.pointer.context import PointerContext
-from jarvis.screen_context.turn import TurnScreenContext
-from jarvis.vision.pointer_types import PointerElement
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ImageBlock
+from dodaios.pointer import turn as pturn
+from dodaios.pointer.context import PointerContext
+from dodaios.screen_context.turn import TurnScreenContext
+from dodaios.vision.pointer_types import PointerElement
 from tests.fakes.fake_capabilities import (
     fake_headless_capabilities,
     fake_windows_capabilities,
@@ -95,7 +95,7 @@ async def test_deictic_utterance_injects_pointer(monkeypatch) -> None:
     monkeypatch.setattr(pturn, "resolve_pointer_context_async", fake_resolve)
     # A desktop with a cursor: a headless CI runner would fast-skip the pointer.
     monkeypatch.setattr(
-        "jarvis.platform.capabilities.detect_capabilities", fake_windows_capabilities
+        "dodaios.platform.capabilities.detect_capabilities", fake_windows_capabilities
     )
 
     manager, rec = _manager()
@@ -156,7 +156,7 @@ async def test_headless_pointer_instruction_requires_a_visual_request(
 ) -> None:
     """A draft must not acquire the missing-cursor refusal on a headless host."""
     monkeypatch.setattr(
-        "jarvis.platform.capabilities.detect_capabilities", fake_headless_capabilities
+        "dodaios.platform.capabilities.detect_capabilities", fake_headless_capabilities
     )
     manager, rec = _manager()
     assert manager._config.pointer.enabled
@@ -237,7 +237,7 @@ async def test_pointer_turn_replaces_fullscreen_with_cursor_crop(monkeypatch) ->
 
     monkeypatch.setattr(pturn, "resolve_pointer_context_async", fake_resolve)
     monkeypatch.setattr(
-        "jarvis.platform.capabilities.detect_capabilities", fake_windows_capabilities
+        "dodaios.platform.capabilities.detect_capabilities", fake_windows_capabilities
     )
 
     manager, rec = _manager(vision_images=(fullscreen,))

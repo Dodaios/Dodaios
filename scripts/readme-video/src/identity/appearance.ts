@@ -1,6 +1,6 @@
 /**
  * Pure identity helpers from:
- * jarvis/ui/web/frontend/src/components/society/companion/appearance.ts
+ * dodaios/ui/web/frontend/src/components/society/companion/appearance.ts
  * Source SHA-256: BE0421843FA0B58F8C8A8705BF03B60C0C01B32DC93BEA2DBC8B2E3F9160F91B.
  * The original constants and helper bodies are retained. Runtime Zod validation
  * is omitted because this renderer only supplies deterministic default fixtures.

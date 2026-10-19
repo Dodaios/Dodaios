@@ -1,4 +1,4 @@
-"""``jarvis.core.installer_update`` — the frozen-install self-update.
+"""``dodaios.core.installer_update`` — the frozen-install self-update.
 
 The whole point of these tests is that the dangerous half of an updater is
 provable offline: which asset a machine picks, whether a mismatching SHA-256
@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.installer_update as iu
-from jarvis.core.installer_update import (
+import dodaios.core.installer_update as iu
+from dodaios.core.installer_update import (
     CHECKSUMS_ASSET_NAME,
     MACOS_OPEN,
     WINDOWS_RELAUNCH_PARAM,
@@ -1034,7 +1034,7 @@ def test_windows_handover_waits_for_this_process_by_default(
 def test_windows_installer_log_lives_in_the_user_log_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core.paths import user_logs_dir
+    from dodaios.core.paths import user_logs_dir
 
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -1290,7 +1290,7 @@ def test_every_blocker_code_is_translated_in_every_locale() -> None:
     back to English mid-sentence for every non-English user."""
     import json
 
-    locales = Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src/i18n/locales"
+    locales = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/i18n/locales"
     files = sorted(locales.glob("*.json"))
     assert files, "no locale files found"
     for locale in files:

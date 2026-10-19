@@ -20,8 +20,8 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException, UploadFile
 
-from jarvis.marketplace.agent_plugins_loader import EXTENSION_NAMESPACE
-from jarvis.ui.web import marketplace_routes as routes
+from dodaios.marketplace.agent_plugins_loader import EXTENSION_NAMESPACE
+from dodaios.ui.web import marketplace_routes as routes
 
 
 def _plugin_json(name: str = "todo-fox") -> dict:
@@ -88,7 +88,7 @@ def installed(monkeypatch: pytest.MonkeyPatch) -> list:
     """Captures what would be written, so nothing touches the real catalog."""
     saved: list = []
     monkeypatch.setattr(
-        "jarvis.marketplace.community_install.install_plugin_spec",
+        "dodaios.marketplace.community_install.install_plugin_spec",
         lambda spec: saved.append(spec),
     )
     monkeypatch.setattr(routes, "_refresh_plugin_in_live_registry", lambda plugin_id: None)
@@ -220,7 +220,7 @@ async def test_a_built_in_plugin_id_is_refused(
     installed: list, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.marketplace.community_install.seed_plugin_ids",
+        "dodaios.marketplace.community_install.seed_plugin_ids",
         lambda: frozenset({"todo-fox"}),
     )
     files, paths = _parts({"plugin.json": _blob(_plugin_json())})

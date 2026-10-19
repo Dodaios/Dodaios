@@ -1,4 +1,4 @@
-"""Unit coverage for ``jarvis.platform.screen_access``: the Screen Recording seam of the
+"""Unit coverage for ``dodaios.platform.screen_access``: the Screen Recording seam of the
 capture consumers. The gate is the scripted ``FakePermissionService`` (or a tiny
 hand-written stub where a method the Protocol lacks matters); the macOS behaviour
 itself is covered with ``FakeTCC`` in ``tests/unit/cu/test_capture_permissions.py``.
@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.platform import screen_access
-from jarvis.platform.permissions import PermissionId, PermissionState
-from jarvis.platform.screen_access import (
+from dodaios.platform import screen_access
+from dodaios.platform.permissions import PermissionId, PermissionState
+from dodaios.platform.screen_access import (
     ScreenCaptureRefused,
     frame_is_blank,
     refusal_for_state,
@@ -319,7 +319,7 @@ def test_a_frame_is_accepted_when_the_window_list_does_not_contradict_the_grant(
 
 def _restart_hint_result():
     """What the service answers a failed-use report with: NEEDS_SETTINGS / restart_hint."""
-    from jarvis.platform.permission_service import (
+    from dodaios.platform.permission_service import (
         EnsureResult,
         PermissionOutcome,
         agent_detail_for,

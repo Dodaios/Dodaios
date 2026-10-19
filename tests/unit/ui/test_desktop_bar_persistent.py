@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.ui.desktop_app import DesktopApp
 
 
 class FakeBar:

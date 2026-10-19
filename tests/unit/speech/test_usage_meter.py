@@ -11,8 +11,8 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.usage_meter import (
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.usage_meter import (
     SpeechUsage,
     meter_stt,
     meter_tts,

@@ -33,8 +33,8 @@ if sys.stdout.encoding != "utf-8":
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jarvis.missions.init import bootstrap_missions  # noqa: E402
-from jarvis.missions.state_machine import MissionState  # noqa: E402
+from dodaios.missions.init import bootstrap_missions  # noqa: E402
+from dodaios.missions.state_machine import MissionState  # noqa: E402
 
 OK = "[OK]"
 FAIL = "[FAIL]"
@@ -104,7 +104,7 @@ async def verify(rounds_target: int, max_attempts: int) -> int:
 
         # Echo the exact bug condition we are exercising.
         try:
-            from jarvis.core.config import load_config
+            from dodaios.core.config import load_config
 
             cfg = load_config()
             sub = getattr(cfg.brain, "sub_jarvis", None)
@@ -133,7 +133,7 @@ async def verify(rounds_target: int, max_attempts: int) -> int:
                         print(f"{FAIL} The fix is NOT live in this interpreter — aborting.")
                         return 1
         finally:
-            from jarvis.missions.init import shutdown_missions
+            from dodaios.missions.init import shutdown_missions
 
             await shutdown_missions(result)
 

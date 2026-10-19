@@ -11,27 +11,27 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.events import ActionApprovalRequired, ActionApproved, ActionDenied
-from jarvis.core.protocols import ToolResult
-from jarvis.mcp.client import MCPClient
-from jarvis.mcp.registry import MCPServerSpec
-from jarvis.missions.init import _connected_native_worker_tools
-from jarvis.missions.workers import broker_stdio
-from jarvis.missions.workers.capabilities import WorkerCapabilityInventory
-from jarvis.missions.workers.codex_direct_worker import _build_codex_direct_cmd
-from jarvis.missions.workers.gemini_worker import _build_isolated_gemini_env
-from jarvis.missions.workers.worker_tool_broker import (
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.events import ActionApprovalRequired, ActionApproved, ActionDenied
+from dodaios.core.protocols import ToolResult
+from dodaios.mcp.client import MCPClient
+from dodaios.mcp.registry import MCPServerSpec
+from dodaios.missions.init import _connected_native_worker_tools
+from dodaios.missions.workers import broker_stdio
+from dodaios.missions.workers.capabilities import WorkerCapabilityInventory
+from dodaios.missions.workers.codex_direct_worker import _build_codex_direct_cmd
+from dodaios.missions.workers.gemini_worker import _build_isolated_gemini_env
+from dodaios.missions.workers.worker_tool_broker import (
     _BROKER,
     BROKER_EXECUTION_TIMEOUT_S,
     BROKER_TOKEN_ENV,
     BROKER_URL_ENV,
     worker_tool_name_allowed,
 )
-from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
 
 def test_broker_timeout_leaves_room_after_the_approval_window() -> None:
@@ -162,7 +162,7 @@ async def test_binding_is_filtered_and_executes_only_through_supervisor() -> Non
 
 
 async def test_cold_server_start_does_not_expire_a_new_worker_grant(monkeypatch) -> None:
-    from jarvis.missions.workers import worker_tool_broker as broker_module
+    from dodaios.missions.workers import worker_tool_broker as broker_module
 
     _wire_manager(_Executor())
     now = [100.0]
@@ -408,7 +408,7 @@ async def test_stdio_mcp_adapter_lists_and_calls_the_scoped_tools() -> None:
             install_command=[
                 sys.executable,
                 "-m",
-                "jarvis.missions.workers.broker_stdio",
+                "dodaios.missions.workers.broker_stdio",
             ],
         ),
         env_overrides={
@@ -439,7 +439,7 @@ async def test_missing_supervisor_degrades_to_no_grant() -> None:
 def test_native_connector_discovery_is_relevance_and_credential_aware(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.marketplace import catalog_data, plugin_relevance, token_store
+    from dodaios.marketplace import catalog_data, plugin_relevance, token_store
 
     plugins = [
         SimpleNamespace(id="gmail", native_tool="gmail", description="Email"),

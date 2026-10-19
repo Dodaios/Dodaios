@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
-from jarvis.speech.rolling_whisper_wake import RollingWhisperWake
-from jarvis.speech.wake_phrase import compile_wake_matcher
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
+from dodaios.speech.rolling_whisper_wake import RollingWhisperWake
+from dodaios.speech.wake_phrase import compile_wake_matcher
 
 
 def test_final_stt_has_no_example_prompt_that_can_be_hallucinated() -> None:

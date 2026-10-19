@@ -17,7 +17,7 @@ import sys
 
 import pytest
 
-from jarvis.plugins.stt import fwhisper
+from dodaios.plugins.stt import fwhisper
 
 
 @pytest.fixture(autouse=True)

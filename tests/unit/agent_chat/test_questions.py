@@ -9,16 +9,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat.questions import (
+from dodaios.agent_chat.questions import (
     MAX_ASKS_PER_TURN,
     MAX_QUESTIONS,
     TooManyQuestions,
     answer_from,
     parse_questions,
 )
-from jarvis.agent_chat.service import AgentChatService, _Running
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.ask_tool import ASK_USER_TOOL_NAME, AskUserTool
+from dodaios.agent_chat.service import AgentChatService, _Running
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.ask_tool import ASK_USER_TOOL_NAME, AskUserTool
 
 _DB: dict[str, Any] = {
     "question": "Which database should the project use?",
@@ -279,7 +279,7 @@ def test_tool_rejects_an_invalid_question() -> None:
 
 
 def test_routine_chats_are_not_offered_the_tool(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.society import surface
+    from dodaios.society import surface
 
     browser = SimpleNamespace(is_installed=lambda: False, live=SimpleNamespace(model_resolver=None))
     rt = SimpleNamespace(browser=browser, chat_service=lambda: None)

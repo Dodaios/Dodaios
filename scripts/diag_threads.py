@@ -17,8 +17,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 os.chdir(REPO)
 
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.config import load_config  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
 
 cfg = load_config(Path("jarvis.toml"))
 
@@ -36,7 +36,7 @@ def _dump(label: str) -> None:
 
 
 t0 = time.perf_counter()
-from jarvis.brain.factory import build_default_brain  # noqa: E402
+from dodaios.brain.factory import build_default_brain  # noqa: E402
 
 bus = EventBus()
 brain = build_default_brain(tier="router", bus=bus)
@@ -44,9 +44,9 @@ print(f"brain built in {time.perf_counter() - t0:.1f}s", flush=True)
 _dump("after build_default_brain")
 
 t1 = time.perf_counter()
-from jarvis.plugins.tts import build_tts_from_config  # noqa: E402
-from jarvis.speech.pipeline import SpeechPipeline  # noqa: E402
-from jarvis.state.supervisor import Supervisor  # noqa: E402
+from dodaios.plugins.tts import build_tts_from_config  # noqa: E402
+from dodaios.speech.pipeline import SpeechPipeline  # noqa: E402
+from dodaios.state.supervisor import Supervisor  # noqa: E402
 
 tts = build_tts_from_config(cfg.tts)
 pipe = SpeechPipeline(

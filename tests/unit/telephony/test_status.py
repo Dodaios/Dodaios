@@ -7,7 +7,7 @@ import time
 import pytest
 from pydantic import ValidationError
 
-from jarvis.telephony.status import CallRecord, TelephonyManager
+from dodaios.telephony.status import CallRecord, TelephonyManager
 
 
 def test_call_record_rejects_unknown_status():

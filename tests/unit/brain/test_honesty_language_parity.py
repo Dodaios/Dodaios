@@ -15,9 +15,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.core.turn_language import DEFAULT_LOCALE
+from dodaios.core.turn_language import DEFAULT_LOCALE
 
-_MANAGER = Path(__file__).resolve().parents[3] / "jarvis" / "brain" / "manager.py"
+_MANAGER = Path(__file__).resolve().parents[3] / "dodaios" / "brain" / "manager.py"
 _RESOLVE_CALL_RE = re.compile(
     r"resolve_output_language\((?:[^()]|\([^()]*\))*\)", re.DOTALL
 )

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.board.aggregator import BoardAggregator
+from dodaios.board.aggregator import BoardAggregator
 
 
 # ----------------------------------------------------------------------

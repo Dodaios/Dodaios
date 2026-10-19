@@ -14,7 +14,7 @@ import asyncio
 
 import pytest
 
-from jarvis.marketplace.hosted_callback import (
+from dodaios.marketplace.hosted_callback import (
     _PENDING,
     HostedCallbackServer,
     deliver_callback,
@@ -22,7 +22,7 @@ from jarvis.marketplace.hosted_callback import (
     make_callback_server,
     set_public_callback_base_url,
 )
-from jarvis.marketplace.oauth_callback_server import (
+from dodaios.marketplace.oauth_callback_server import (
     CallbackResult,
     CallbackTimeoutError,
     OAuthCallbackServer,

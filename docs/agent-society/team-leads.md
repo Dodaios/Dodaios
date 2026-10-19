@@ -8,9 +8,9 @@ back, sends rework or re-assigns, and reports when the goal is done. The
 person steps in only for what is theirs: answering a question the lead cannot
 decide, continuing a paused goal, or stopping one.
 
-Code: `jarvis/society/team_lead.py` (the engine), `jarvis/society/team_tools.py`
+Code: `dodaios/society/team_lead.py` (the engine), `dodaios/society/team_tools.py`
 (the lead's tools), `/api/society/chat-groups/{id}/…` in
-`jarvis/ui/web/society_routes.py`, and the lead's view in
+`dodaios/ui/web/society_routes.py`, and the lead's view in
 `src/components/society/chat/TeamLeadView.tsx` (the chat) with
 `TeamLeadPanel.tsx` (the team beside it).
 

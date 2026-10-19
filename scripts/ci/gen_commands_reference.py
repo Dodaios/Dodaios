@@ -1,6 +1,6 @@
 """Generate docs/commands-reference.md from the Command Registry.
 
-Walks ``jarvis/commands/registry.py`` (the one machine-readable catalog of
+Walks ``dodaios/commands/registry.py`` (the one machine-readable catalog of
 user-facing app commands) and emits a markdown reference: what each command
 does, its arguments, whether it requires confirmation, where it lives in the
 desktop UI, an English voice example, and the backing REST endpoint. Personal
@@ -23,7 +23,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO))
 
-from jarvis.commands.registry import get_registry  # noqa: E402
+from dodaios.commands.registry import get_registry  # noqa: E402
 
 _OUT = _REPO / "docs" / "commands-reference.md"
 

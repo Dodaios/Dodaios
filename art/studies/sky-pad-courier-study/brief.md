@@ -34,7 +34,7 @@ from its own canopy.
   sections in Blender 5.0 and saves `source/courier.blend`; the three
   collections `CourierLOD0..2` (about 39 k, 17 k and 7 k triangles) are
   exported by `scripts/art/export_study.py` into `exports/` and copied to
-  `jarvis/ui/web/frontend/src/assets/society/courier/`.
+  `dodaios/ui/web/frontend/src/assets/society/courier/`.
 - Named nodes the runtime drives: `Gear_Nose`, `Gear_Left`, `Gear_Right`
   (retracted by moving them up 1.9 m) and the `EngineGlow` material.
 - Materials are PBR (chrome, gold, graphite, canopy glass, emissive glow and

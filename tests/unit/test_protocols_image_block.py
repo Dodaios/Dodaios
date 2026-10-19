@@ -13,7 +13,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, ImageBlock
+from dodaios.core.protocols import BrainMessage, ImageBlock
 
 
 def test_brain_message_default_no_images() -> None:

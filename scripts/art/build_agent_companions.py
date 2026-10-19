@@ -26,8 +26,8 @@ from companion_bodies import EYE_X, EYE_Y, FACETED, Surface, build_body, frame  
 
 ROOT = Path(__file__).resolve().parents[2]
 STUDY = ROOT / "art/studies/agent-symbol-companions"
-CATALOG = ROOT / "jarvis/ui/web/frontend/src/components/society/companion/accessories.json"
-RUNTIME_COPY = ROOT / "jarvis/ui/web/frontend/src/assets/society/companions/companions.glb"
+CATALOG = ROOT / "dodaios/ui/web/frontend/src/components/society/companion/accessories.json"
+RUNTIME_COPY = ROOT / "dodaios/ui/web/frontend/src/assets/society/companions/companions.glb"
 # Eye radii in symbol units (x, y) and their thickness in metres.
 EYE_SIZE = {"Dots": (2.2, 2.3), "Lines": (1.3, 3.2)}
 EYE_THICKNESS_M = 0.024

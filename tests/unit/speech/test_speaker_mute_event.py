@@ -12,11 +12,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.events import PetVisibilityToggleRequested, VoiceSpeakerMuteChanged
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.events import PetVisibilityToggleRequested, VoiceSpeakerMuteChanged
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 @dataclass

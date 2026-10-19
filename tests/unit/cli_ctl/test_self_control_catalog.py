@@ -11,9 +11,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jarvis.clis.spec import CliSpecModel
+from dodaios.clis.spec import CliSpecModel
 
-CATALOG = Path("jarvis/clis/catalog/seed_catalog.json")
+CATALOG = Path("dodaios/clis/catalog/seed_catalog.json")
 
 
 def _entries() -> list[dict]:

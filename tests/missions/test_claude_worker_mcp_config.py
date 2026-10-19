@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jarvis.missions.workers.claude_direct_worker import _build_mcp_config_args
+from dodaios.missions.workers.claude_direct_worker import _build_mcp_config_args
 
 
 def test_no_servers_still_produces_a_strict_empty_config(tmp_path: Path) -> None:

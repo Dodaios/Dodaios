@@ -19,10 +19,10 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.browser_voice.route import browser_voice_enabled
-from jarvis.core import config as cfg_mod
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.settings_routes import router
+from dodaios.browser_voice.route import browser_voice_enabled
+from dodaios.core import config as cfg_mod
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.settings_routes import router
 
 
 def test_gate_on_by_default_in_pipeline_mode():
@@ -77,7 +77,7 @@ def _app(mode="pipeline", key="sk-x", monkeypatch=None):
 
 
 def test_get_voice_mode(monkeypatch):
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
 
     def openai_only(candidates):
         keys = {c[0] for c in candidates}
@@ -104,8 +104,8 @@ def test_get_voice_mode(monkeypatch):
 
 
 def test_get_voice_mode_reports_browser_offer_capability(monkeypatch):
-    import jarvis.realtime.factory as rf
-    from jarvis.ui.web import settings_routes
+    import dodaios.realtime.factory as rf
+    from dodaios.ui.web import settings_routes
 
     # An offer-requiring transport without browser audio. Fixed here, because
     # without a pin the answer follows the host's real credentials.
@@ -141,8 +141,8 @@ def test_get_voice_mode_reports_browser_offer_capability(monkeypatch):
 
 
 def test_get_voice_mode_reports_stable_subscription_profile(monkeypatch):
-    from jarvis.platform import capabilities
-    from jarvis.ui.web import provider_routes
+    from dodaios.platform import capabilities
+    from dodaios.ui.web import provider_routes
 
     monkeypatch.setattr(
         provider_routes,
@@ -178,7 +178,7 @@ def test_get_voice_mode_reports_stable_subscription_profile(monkeypatch):
 def test_get_voice_mode_cross_family_gemini_only(monkeypatch):
     """Feature A2: realtime_available must NOT be OpenAI-only — a user with
     only a Gemini key gets realtime_available=true, active_provider=gemini-live."""
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
 
     def only_gemini(candidates: tuple[tuple[str, str | None], ...]) -> str | None:
         keys = {c[0] for c in candidates}
@@ -199,7 +199,7 @@ def test_get_voice_mode_reports_browser_audio_of_the_automatic_provider(monkeypa
     """Issue #399: a Gemini-only install with no pinned realtime provider
     reported ``active_provider: gemini-live`` next to ``browser_audio: false``
     although Gemini Live declares browser audio."""
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
 
     def only_gemini(candidates):
         keys = {c[0] for c in candidates}
@@ -214,7 +214,7 @@ def test_get_voice_mode_reports_browser_audio_of_the_automatic_provider(monkeypa
 def test_get_voice_mode_reports_pinned_realtime_model(monkeypatch):
     """A model pinned in [brain.providers.<id>].model outranks the catalog
     default in the sidebar display fields."""
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
 
     def only_gemini(candidates):
         keys = {c[0] for c in candidates}
@@ -235,7 +235,7 @@ def test_get_voice_mode_reports_pinned_realtime_model(monkeypatch):
 
 
 def test_get_voice_mode_no_realtime_key_anywhere(monkeypatch):
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
     monkeypatch.setattr(rf, "get_secret_any", lambda _candidates: None)
     client = TestClient(_app(mode="pipeline"))
     r = client.get("/api/settings/voice-mode")
@@ -260,7 +260,7 @@ def test_put_voice_mode_invalid_is_400():
 def test_put_voice_mode_realtime_without_key_is_400(monkeypatch):
     """A3: PUT-guard rejects selecting realtime when no family has a key —
     prevents pinning the boot default to an unreachable engine."""
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
     monkeypatch.setattr(rf, "get_secret_any", lambda _candidates: None)
     client = TestClient(_app())
     r = client.put("/api/settings/voice-mode", json={"mode": "realtime", "persist": False})
@@ -268,14 +268,14 @@ def test_put_voice_mode_realtime_without_key_is_400(monkeypatch):
 
 
 def test_put_voice_mode_updates_live_and_persists(monkeypatch):
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
     persisted = {"called": False}
     monkeypatch.setattr(rf, "get_secret_any", lambda _candidates: "sk-x")
 
     def fake_set(mode, **kw):
         persisted["called"] = True
 
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
     monkeypatch.setattr(cw, "set_voice_mode", fake_set)
     app = _app()
     client = TestClient(app)
@@ -292,10 +292,10 @@ def test_put_voice_mode_updates_live_and_persists(monkeypatch):
 
 
 def test_put_voice_mode_restarts_an_incompatible_active_session(monkeypatch):
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
 
     monkeypatch.setattr(rf, "get_secret_any", lambda _candidates: "sk-x")
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_voice_mode", lambda _mode, **_kw: None)
 
@@ -321,7 +321,7 @@ def test_put_voice_mode_restarts_an_incompatible_active_session(monkeypatch):
 
 
 def test_get_voice_mode_reports_effective_active_engine(monkeypatch):
-    import jarvis.realtime.factory as rf
+    import dodaios.realtime.factory as rf
 
     monkeypatch.setattr(rf, "get_secret_any", lambda _candidates: "sk-x")
     app = _app(mode="realtime")

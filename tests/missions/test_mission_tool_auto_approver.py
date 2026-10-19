@@ -17,20 +17,20 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.config import Phase6SafetyConfig, SafetyConfig
-from jarvis.core.events import ActionApprovalRequired, ActionApproved
-from jarvis.core.protocols import (
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.config import Phase6SafetyConfig, SafetyConfig
+from dodaios.core.events import ActionApprovalRequired, ActionApproved
+from dodaios.core.protocols import (
     ExecutionContext,
     SupervisorToolDescriptor,
     SupervisorToolRequest,
     ToolResult,
 )
-from jarvis.missions.tool_approvals import MissionToolAutoApprover
-from jarvis.missions.workers.capabilities import WorkerCapabilityInventory
-from jarvis.missions.workers.worker_tool_broker import _BROKER
-from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+from dodaios.missions.tool_approvals import MissionToolAutoApprover
+from dodaios.missions.workers.capabilities import WorkerCapabilityInventory
+from dodaios.missions.workers.worker_tool_broker import _BROKER
+from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
 
 async def _collect_approvals(bus: EventBus) -> list[ActionApproved]:
@@ -330,7 +330,7 @@ async def test_broker_grant_arms_intersection_and_disarms_on_close(
             )
         )
     )
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda *a, **k: cfg)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda *a, **k: cfg)
 
     inventory = WorkerCapabilityInventory.build(
         native_tool_names=("external-action", "other-tool"),
@@ -365,7 +365,7 @@ async def test_broker_arm_is_empty_when_feature_disabled(
             )
         )
     )
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda *a, **k: cfg)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda *a, **k: cfg)
 
     inventory = WorkerCapabilityInventory.build(
         native_tool_names=("external-action",),

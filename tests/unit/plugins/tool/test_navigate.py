@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.events import NavigateSidebar
-from jarvis.plugins.tool.navigate import NavigateTool
+from dodaios.core.events import NavigateSidebar
+from dodaios.plugins.tool.navigate import NavigateTool
 
 
 class RecordingBus:
@@ -119,7 +119,7 @@ def test_known_sections_match_frontend_section_ids() -> None:
     """Drift guard: the tool's sections must equal the frontend SECTION_IDS."""
     events_ts = (
         Path(__file__).resolve().parents[4]
-        / "jarvis/ui/web/frontend/src/store/events.ts"
+        / "dodaios/ui/web/frontend/src/store/events.ts"
     )
     text = events_ts.read_text(encoding="utf-8")
     block = re.search(r"SECTION_IDS\s*=\s*\[(.*?)\]\s*as const", text, re.DOTALL)

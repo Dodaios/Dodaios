@@ -12,12 +12,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.board import bio_brain
-from jarvis.board.profile import BioGenerator, BioStore
-from jarvis.board.store import BoardStore
-from jarvis.brain import background_policy as policy
-from jarvis.brain import resolver
-from jarvis.core.config import JarvisConfig
+from dodaios.board import bio_brain
+from dodaios.board.profile import BioGenerator, BioStore
+from dodaios.board.store import BoardStore
+from dodaios.brain import background_policy as policy
+from dodaios.brain import resolver
+from dodaios.core.config import JarvisConfig
 
 
 class _Brain:

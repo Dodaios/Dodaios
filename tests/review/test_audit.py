@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.review.audit import (
+from dodaios.core.review.audit import (
     AuditPhase,
     AuditRecord,
     AuditStatus,

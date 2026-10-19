@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.setup import state, wizard
-from jarvis.setup.onboarding_meta import CURRENT_TERMS_VERSION
+from dodaios.setup import state, wizard
+from dodaios.setup.onboarding_meta import CURRENT_TERMS_VERSION
 
 
 def test_finalize_declined_terms_raises_and_skips_completion(monkeypatch) -> None:

@@ -16,12 +16,12 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.events import ActionApprovalRequired, ActionApproved, ActionProposed
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
-from jarvis.tasks.approval_bridge import TaskAutoApprover
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.events import ActionApprovalRequired, ActionApproved, ActionProposed
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+from dodaios.tasks.approval_bridge import TaskAutoApprover
 
 pytestmark = pytest.mark.phase5
 

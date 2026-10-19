@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 const root = fileURLToPath(new URL("..", import.meta.url));
-const frontend = path.resolve(root, "../../jarvis/ui/web/frontend");
+const frontend = path.resolve(root, "../../dodaios/ui/web/frontend");
 const source = readFileSync(path.join(frontend, "src/index.css"), "utf8");
 // Let webpack resolve packaged fonts. Inlining them with Tailwind would leave
 // their relative font URLs pointing into the generated stylesheet directory.

@@ -9,11 +9,11 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.marketplace.bundled_rest_client import BundledRestMcpClient
-from jarvis.marketplace.catalog_data import _PACKAGE_SEED_PATH, load_catalog
-from jarvis.marketplace.token_store import Tokens
-from jarvis.plugins.tool.connected_operations import OPERATIONS
-from jarvis.plugins.tool.connected_server import ConnectedRestClient
+from dodaios.marketplace.bundled_rest_client import BundledRestMcpClient
+from dodaios.marketplace.catalog_data import _PACKAGE_SEED_PATH, load_catalog
+from dodaios.marketplace.token_store import Tokens
+from dodaios.plugins.tool.connected_operations import OPERATIONS
+from dodaios.plugins.tool.connected_server import ConnectedRestClient
 
 CASES = [
     (
@@ -233,7 +233,7 @@ def test_new_packages_and_seed_match():
         assert "access_token" not in json.dumps(mcp)
         assert package["name"] in mcp["mcpServers"]
         assert (
-            Path(__file__).parents[2] / "jarvis/skills/builtin" / f"plugin-{pid}" / "SKILL.md"
+            Path(__file__).parents[2] / "dodaios/skills/builtin" / f"plugin-{pid}" / "SKILL.md"
         ).exists()
 
 
@@ -241,7 +241,7 @@ def test_new_packages_and_seed_match():
 def test_amd_absence_degrades_without_importing_native_libraries(monkeypatch, platform):
     import sys
 
-    from jarvis.marketplace import amd_mcp
+    from dodaios.marketplace import amd_mcp
 
     monkeypatch.setattr(sys, "platform", platform)
     monkeypatch.setattr(amd_mcp.shutil, "which", lambda _: None)
@@ -250,8 +250,8 @@ def test_amd_absence_degrades_without_importing_native_libraries(monkeypatch, pl
 
 
 def test_amd_reads_only_fixed_json_commands(monkeypatch, tmp_path):
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-    from jarvis.marketplace import amd_mcp
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.marketplace import amd_mcp
 
     calls = []
     monkeypatch.setattr(amd_mcp.sys, "platform", "linux")

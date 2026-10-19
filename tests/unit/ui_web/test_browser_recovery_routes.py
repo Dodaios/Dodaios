@@ -6,9 +6,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.society.browser import recovery
-from jarvis.ui.web.society_browser_routes import router
-from jarvis.ui.web.surface_security import COOKIE_NAME, SurfaceSecurity
+from dodaios.society.browser import recovery
+from dodaios.ui.web.society_browser_routes import router
+from dodaios.ui.web.surface_security import COOKIE_NAME, SurfaceSecurity
 from tests.fakes.fake_browser_profiles import ProfileRoster, already_started
 
 pytestmark = pytest.mark.no_auto_web_auth

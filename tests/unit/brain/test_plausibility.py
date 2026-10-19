@@ -1,4 +1,4 @@
-"""Tests for ``jarvis.brain.plausibility.check_plausibility`` (phase 4).
+"""Tests for ``dodaios.brain.plausibility.check_plausibility`` (phase 4).
 
 Persona mandate phase 4: before every tool execution with ``risk_tier ∈
 {ask, monitor}``, the plausibility guard checks two signals:
@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.plausibility import (
+from dodaios.brain.plausibility import (
     PlausibilityDecision,
     check_plausibility,
 )
-from jarvis.core.protocols import Transcript
+from dodaios.core.protocols import Transcript
 
 
 def _t(confidence: float | None) -> Transcript:
@@ -170,7 +170,7 @@ def test_no_transcript_treated_as_zero_confidence() -> None:
 
 def test_custom_confidence_threshold() -> None:
     """A threshold of 0.8 (instead of the default 0.5) makes 0.6 low_confidence."""
-    from jarvis.core.config import BrainPlausibilityConfig
+    from dodaios.core.config import BrainPlausibilityConfig
 
     cfg = BrainPlausibilityConfig(confidence_threshold=0.8)
     decision = check_plausibility(
@@ -186,7 +186,7 @@ def test_custom_confidence_threshold() -> None:
 
 def test_custom_stale_wake_seconds() -> None:
     """``stale_wake_seconds=10`` makes 15s stale, which triggers log-only at monitor."""
-    from jarvis.core.config import BrainPlausibilityConfig
+    from dodaios.core.config import BrainPlausibilityConfig
 
     cfg = BrainPlausibilityConfig(stale_wake_seconds=10.0)
     decision = check_plausibility(

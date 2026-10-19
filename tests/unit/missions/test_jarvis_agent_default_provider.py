@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import jarvis.core.config as cfg_mod
+import dodaios.core.config as cfg_mod
 
 
 def _stub_config(monkeypatch, *, sub_provider, primary):
@@ -26,14 +26,14 @@ def _stub_config(monkeypatch, *, sub_provider, primary):
 
 def test_unset_subagent_provider_defaults_to_brain_primary(monkeypatch):
     _stub_config(monkeypatch, sub_provider=None, primary="openrouter")
-    from jarvis.missions.init import _live_subagent_provider
+    from dodaios.missions.init import _live_subagent_provider
 
     assert _live_subagent_provider(None) == "openrouter"
 
 
 def test_explicit_subagent_provider_still_wins(monkeypatch):
     _stub_config(monkeypatch, sub_provider="antigravity", primary="openrouter")
-    from jarvis.missions.init import _live_subagent_provider
+    from dodaios.missions.init import _live_subagent_provider
 
     assert _live_subagent_provider(None) == "antigravity"
 
@@ -41,7 +41,7 @@ def test_explicit_subagent_provider_still_wins(monkeypatch):
 def test_defaulted_provider_routes_to_a_non_claude_worker_kind():
     # Once defaulted to the active provider, the worker kind must be that
     # provider's own worker, not the legacy "subjarvis" (= ClaudeDirectWorker).
-    from jarvis.missions.init import _select_subagent_worker_kind
+    from dodaios.missions.init import _select_subagent_worker_kind
 
     assert _select_subagent_worker_kind("openrouter", "") == "api_agent"
     assert _select_subagent_worker_kind("openai", "") == "api_agent"

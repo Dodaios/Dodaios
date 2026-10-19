@@ -69,7 +69,7 @@ this should close before that happens.
 
 The app writes `io.github.dodaios` and reads that namespace and its earlier
 name `io.github.personaljarvis` alike
-(`jarvis/marketplace/agent_plugins_loader.py`: `EXTENSION_NAMESPACES`,
+(`dodaios/marketplace/agent_plugins_loader.py`: `EXTENSION_NAMESPACES`,
 `extension_of`). The registry does not yet:
 
 | Registry file | Today | Effect of a manifest that uses only `io.github.dodaios` |
@@ -144,7 +144,7 @@ Number 17 needs no shared data at all: measure the bytes of the exact JSON
 the App is about to commit — pretty-printed, publisher fields included —
 rather than the payload as received.
 
-## Closed in `jarvis/marketplace/publish.py` (2026-08-15)
+## Closed in `dodaios/marketplace/publish.py` (2026-08-15)
 
 | # | Fix |
 |---|---|
