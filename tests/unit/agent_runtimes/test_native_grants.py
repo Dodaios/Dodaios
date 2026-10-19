@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.runner_acp import _denied_native
+from dodaios.agent_chat.runner_acp import _denied_native
 
 
 @pytest.mark.parametrize(

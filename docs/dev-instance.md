@@ -10,7 +10,7 @@ working on the app from inside the app.
 | | **Dodaios** (default instance) | **Dodaios Dev** (dev instance) |
 |---|---|---|
 | Purpose | The app you live in: voice, hotkeys, channels, the Agentic-IDE sessions you vibe-code from. Never restarted for a code change. | A second window you restart as often as you like to look at the current working tree. |
-| Start | `run.bat` / `./run.sh`, the Start-Menu / Desktop shortcut, autostart | `run-dev.bat` / `./run-dev.sh`, the **Personal Jarvis Dev** shortcut, or `python -m jarvis.ui.web.launcher --instance dev` |
+| Start | `run.bat` / `./run.sh`, the Start-Menu / Desktop shortcut, autostart | `run-dev.bat` / `./run-dev.sh`, the **Personal Jarvis Dev** shortcut, or `python -m dodaios.ui.web.launcher --instance dev` |
 | Frontend | The built bundle; a rebuilt bundle is picked up by the window itself (`bundleWatch`) | Same built bundle, same pick-up — so UI changes show up in BOTH without a restart |
 | Backend (Python) changes | Only after a restart — which you now do on the dev app | Restart from the tray / in-app Restart / the launcher as usual |
 | Data directory | `data/` | `data-dev/` (created on first start, seeded once with `setup_state.json`, `identity_card.json`, `core_memory.json` and a snapshot of `chats.db`) |
@@ -35,13 +35,13 @@ Only `default` and `dev` are known names; anything else fails the boot with a
 sentence, because a typo must not start a second *default* app that fights the
 live one over its lock and port.
 
-`jarvis/core/instance.py` is the one place that knows what differs; everything
-else asks it (`current_instance()`): `jarvis.core.config.DATA_DIR`,
-`load_config` (port offsets, `memory.data_dir`), `jarvis.ui.icon_utils` (AUMID,
-shortcut, branded exe, icon), `jarvis.ui.desktop_app.WINDOW_TITLE`, the tray,
-`jarvis.setup.state`, the Agentic-IDE resume store, `SpeechPipeline` (wake word,
+`dodaios/core/instance.py` is the one place that knows what differs; everything
+else asks it (`current_instance()`): `dodaios.core.config.DATA_DIR`,
+`load_config` (port offsets, `memory.data_dir`), `dodaios.ui.icon_utils` (AUMID,
+shortcut, branded exe, icon), `dodaios.ui.desktop_app.WINDOW_TITLE`, the tray,
+`dodaios.setup.state`, the Agentic-IDE resume store, `SpeechPipeline` (wake word,
 hotkeys), the Friends stack (channels), the launcher (autostart), and
-`jarvis.ui.desktop_app.boot_overlay_style` + the overlay-style settings route
+`dodaios.ui.desktop_app.boot_overlay_style` + the overlay-style settings route
 (on-screen overlay).
 
 ## Shortcuts
@@ -56,7 +56,7 @@ AppUserModelID). The first dev start also writes the Start-Menu entry
 taskbar button is named and iconed from the first launch.
 
 The dev icon is rendered by `scripts/make_app_icon.py` into both icon homes
-(`jarvis/assets/icons/` ships with the package, `assets/icons/` is the
+(`dodaios/assets/icons/` ships with the package, `assets/icons/` is the
 build-tool copy).
 
 ## Known sharing

@@ -35,13 +35,13 @@ submit form ──► PR (one submissions/<name>.json) ──► CI checks ─�
 
 | Piece | Where |
 |---|---|
-| Manifest → `PluginSpec` converter (the "loader wave") | `jarvis/marketplace/agent_plugins_loader.py` |
-| Index fetch + TTL cache (`data/marketplace_index.json`) | `jarvis/marketplace/community_source.py` |
-| Install/uninstall persistence (`data/plugin_catalog.json`) | `jarvis/marketplace/community_install.py` |
-| Usage cards second root (`data/usage_cards/`) | `jarvis/marketplace/usage_cards/loader.py` |
-| REST: `GET/POST /api/marketplace/community…` | `jarvis/ui/web/marketplace_routes.py` |
+| Manifest → `PluginSpec` converter (the "loader wave") | `dodaios/marketplace/agent_plugins_loader.py` |
+| Index fetch + TTL cache (`data/marketplace_index.json`) | `dodaios/marketplace/community_source.py` |
+| Install/uninstall persistence (`data/plugin_catalog.json`) | `dodaios/marketplace/community_install.py` |
+| Usage cards second root (`data/usage_cards/`) | `dodaios/marketplace/usage_cards/loader.py` |
+| REST: `GET/POST /api/marketplace/community…` | `dodaios/ui/web/marketplace_routes.py` |
 | Community section UI + consent dialog | `frontend/src/views/PluginsCommunity.tsx` |
-| Community skills in the Skill Finder pool | `jarvis/skills/finder.py` |
+| Community skills in the Skill Finder pool | `dodaios/skills/finder.py` |
 | Source URL override / kill switch | `jarvis.toml` → `[marketplace].community_index_url` (empty = off) |
 
 An installed community plugin is a normal catalog entry with
@@ -76,7 +76,7 @@ the TTL-gated refresh.
    MCP URL (where requests and the token go) or the stdio argv (what runs
    locally) BEFORE install. Community entries are badged "not reviewed".
 5. **Environment isolation**: a connected community plugin's stdio process
-   starts WITHOUT the app's environment (`jarvis/mcp/env_isolation.py`) — it
+   starts WITHOUT the app's environment (`dodaios/mcp/env_isolation.py`) — it
    gets what a process needs to run and reach the network, plus its own
    token. A child process otherwise inherits every exported credential on the
    machine, which is one `os.environ` read away from code the user only ever

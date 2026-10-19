@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.dictation.stats import (
+from dodaios.dictation.stats import (
     DictationStats,
     current_streak,
     local_day,
@@ -207,7 +207,7 @@ def test_the_streak_is_built_from_the_recorded_days(stats: DictationStats) -> No
 
 def test_summarize_entries_labels_itself_as_a_window() -> None:
     """An install without the sidecar must not present 30 days as a lifetime."""
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.history import DictationEntry
 
     now = datetime.now(UTC).isoformat()
     entries = [
@@ -225,7 +225,7 @@ def test_summarize_entries_labels_itself_as_a_window() -> None:
 
 
 def test_summarize_entries_skips_wordless_rows() -> None:
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.history import DictationEntry
 
     entry = DictationEntry(
         id="a", created_at=datetime.now(UTC).isoformat(), raw_text="", text="",
@@ -292,7 +292,7 @@ def test_entries_written_before_word_count_existed_still_count() -> None:
     seven real dictations — the single most visible number in the section,
     wrong for every existing install.
     """
-    from jarvis.dictation.stats import summarize_entries
+    from dodaios.dictation.stats import summarize_entries
 
     class _Row:
         def __init__(self, text: str, word_count: int, created_at: str) -> None:

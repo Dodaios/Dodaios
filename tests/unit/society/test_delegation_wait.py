@@ -4,11 +4,11 @@ from dataclasses import replace
 
 import pytest
 
-from jarvis.core.delegated_work import collect_delegated_work
-from jarvis.core.protocols import ChatTurn, current_chat_turn
-from jarvis.society.delegation_wait import result_for
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.core.delegated_work import collect_delegated_work
+from dodaios.core.protocols import ChatTurn, current_chat_turn
+from dodaios.society.delegation_wait import result_for
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.runtime import SocietyRuntime
 from tests.unit.society.test_lead_card import FakeChat
 
 

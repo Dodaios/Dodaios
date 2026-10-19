@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 class _FakeRefreshScheduler:
@@ -37,7 +37,7 @@ def _reset_fake_scheduler() -> None:
 async def test_refresh_scheduler_is_deferred_and_started_exactly_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.marketplace import connect_helpers, refresh_scheduler
+    from dodaios.marketplace import connect_helpers, refresh_scheduler
 
     monkeypatch.setattr(refresh_scheduler, "RefreshScheduler", _FakeRefreshScheduler)
     monkeypatch.setattr(connect_helpers, "connected_plugin_ids", lambda _store: [])
@@ -82,7 +82,7 @@ async def test_stop_cancels_a_deferred_scheduler_start() -> None:
 async def test_stop_cancels_queued_live_session_refresh(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.marketplace import connect_helpers, refresh_scheduler
+    from dodaios.marketplace import connect_helpers, refresh_scheduler
 
     monkeypatch.setattr(refresh_scheduler, "RefreshScheduler", _FakeRefreshScheduler)
     monkeypatch.setattr(connect_helpers, "connected_plugin_ids", lambda _store: [])

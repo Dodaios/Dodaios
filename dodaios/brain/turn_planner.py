@@ -1,0 +1,1260 @@
+"""Shared local turn planner for Pipeline and Realtime.
+
+The realtime transport must not maintain a second, narrower vocabulary for
+deciding whether Jarvis needs private, local, current, or connected evidence.
+This module provides one deterministic decision that is safe to call on the
+voice hot path: no model call, disk access, or network access is performed.
+"""
+
+from __future__ import annotations
+
+import re
+import unicodedata
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Any
+
+from dodaios.screen_context.intent import classify as classify_screen_context
+from dodaios.screen_context.models import VisualIntent
+
+
+class TurnPath(StrEnum):
+    """Execution surface selected for one user turn."""
+
+    NATIVE_REALTIME = "native_realtime"
+    ORCHESTRATOR = "orchestrator"
+
+
+class TurnReason(StrEnum):
+    """Stable reasons why a turn needs the Jarvis orchestrator."""
+
+    ACTION = "action"
+    CAPABILITY = "capability"
+    CONNECTED_DATA = "connected_data"
+    CURRENT_DATA = "current_data"
+    LOCAL_STATE = "local_state"
+    MISSION = "mission"
+    PRIVATE_DATA = "private_data"
+    PUBLIC_FACT = "public_fact"
+    SCREEN_CONTEXT = "screen_context"
+    SKILL = "skill"
+    SOCIETY = "society"
+    UNCERTAIN = "uncertain"
+    WORKSPACE = "workspace"
+
+
+class GroundingFailurePolicy(StrEnum):
+    """Required behavior when public-fact evidence cannot be obtained."""
+
+    HONEST_UNCERTAINTY = "honest_uncertainty"
+
+
+PUBLIC_FACT_GROUNDING_CAPABILITY = "search_web"
+PUBLIC_FACT_GROUNDING_TIMEOUT_S = 2.5
+
+
+@dataclass(frozen=True)
+class TurnPlan:
+    """Provider-neutral plan consumed by Pipeline and Realtime."""
+
+    path: TurnPath
+    reasons: frozenset[TurnReason] = frozenset()
+    required_capabilities: tuple[str, ...] = ()
+    requires_evidence: bool = False
+    requires_public_fact_grounding: bool = False
+    public_fact_grounding_timeout_s: float | None = None
+    public_fact_grounding_attempt_limit: int = 0
+    grounding_failure_policy: GroundingFailurePolicy | None = None
+
+    @property
+    def requires_orchestrator(self) -> bool:
+        return self.path is TurnPath.ORCHESTRATOR
+
+
+_LOOKUP_SHAPE_RE = re.compile(
+    r"\b(?:what|when|where|why|which|who|how many|how is|show|read|list|find|"
+    r"lookup|check|summarize|search|do i have|is there|are there|"
+    r"was|wann|wo|woran|warum|wieso|weshalb|welch\w*|wer|wie viele|"
+    r"wie ist|wie lautet|wie heisst|"
+    r"zeig\w*|lies|lese|list\w*|"
+    r"find\w*|such\w*|pruef\w*|fass\w*|habe ich|hab ich|gibt es|"
+    r"que|cuando|donde|cual\w*|quien|cuantos|muestra|lee|lista|"
+    r"busca|revisa|resume|tengo|hay)\b|"  # i18n-allow: multilingual speech-input matching data
+    # Indirect questions. Spoken language wraps a lookup in a statement —
+    # "ich möchte fragen, ob mein PC überlastet ist" carries no question word
+    # and no question mark, so every question-word rule above missed it and
+    # the whole sentence scored NO reason at all (live 2026-08-20 15:35: the
+    # user asked twice about his own machine and got "actions don't work right
+    # now" both times). The idiom is what makes it a lookup, not the
+    # punctuation.  # i18n-allow: quoted German utterance
+    r"\b(?:moechte|will|wollte|wuerde gern\w*)\s+(?:mal\s+)?"  # i18n-allow: speech input
+    r"(?:kurz\s+)?(?:fragen|wissen)\b|"  # i18n-allow: speech input
+    r"\bfrage mich\b|\bsag mir\b|\bweisst du\b|"  # i18n-allow: speech input
+    r"\b(?:schau|guck|sieh|pruef)\w*\s+(?:mal\s+)?(?:nach|ob)\b|"  # i18n-allow: speech input
+    r"\bwondering (?:if|whether)\b|\btell me (?:if|whether)\b|"
+    r"\bdo you know (?:if|whether)\b|\blet me know\b|"
+    r"\bme pregunto si\b|\bdime si\b|\bsabes si\b"  # i18n-allow: speech input
+)
+# "what is this/that ..." is deictic (the user points at something live),
+# not a request for a definition — it must stay eligible for delegation.
+_DEFINITION_RE = re.compile(
+    r"\b(?:what is (?!this|that|these|those)(?:a|an|the)?|what are|"
+    r"what does .{0,40} mean|explain|"
+    r"was ist (?:ein|eine|der|die|das)?|"  # i18n-allow: speech input
+    r"was sind|was bedeutet|erklaer\w*|"  # i18n-allow: speech input
+    r"que es|que son|explica)\b"  # i18n-allow: multilingual speech-input matching data
+)
+_INSTRUCTIONAL_RE = re.compile(
+    r"\b(?:how (?:do|can|would) (?:i|you)|how to|"
+    r"what can (?:you|jarvis) do|what (?:you|jarvis) can do|"
+    r"what are (?:your|jarvis(?:'s)?) capabilities|"
+    r"wie (?:kann|koennte|wuerde) (?:ich|man)|"  # i18n-allow: speech input
+    r"wie (?:kannst|koenntest|wuerdest) du|"  # i18n-allow: speech input
+    r"wie (?:koennen|koennten|wuerden) sie|"  # i18n-allow: speech input
+    r"was kannst du|was kann jarvis|"  # i18n-allow: speech input
+    r"welche faehigkeiten (?:hast du|hat jarvis)|"  # i18n-allow: speech input
+    r"como (?:puedo|puedes|podria|podrias|se puede)|como hacer|"
+    r"que puedes hacer|que puede hacer jarvis|"  # i18n-allow: speech input
+    r"cuales son tus capacidades)\b"  # i18n-allow: speech input
+    # i18n-allow: multilingual speech-input matching data
+)
+# The bare German dative "mir" ("to me") is deliberately NOT ownership
+# (removed 2026-08-19): it is the object of telling and explaining — "sag
+# mir", "erklaer mir", "es tut mir leid", "kannst du mir helfen" — and as a
+# possessive signal it delegated plain conversation ("Hallo, sprich mal mit
+# mir" 3.2 s, a relativity question 5.9 s, live 2026-08-18). Real private
+# data keeps its possessive ("meine Termine", "mein Wiki") or its recall
+# idiom (_RECALL_RE).  # i18n-allow: names the German tokens under discussion
+_OWNERSHIP_RE = re.compile(
+    r"\b(?:my|mine|our|we|about me|remember me|"
+    r"mein\w*|unser\w*|wir|ueber mich|uber mich|erinner\w* mich|"  # i18n-allow: speech input
+    r"mi|mis|mio|nuestr\w*|sobre mi|recuerd\w* de mi)\b"  # i18n-allow: speech input
+)
+# Explicit recall of the user's own past ("weisst du noch", "wann war ich",
+# "was war nochmal ...") — the one personal-data shape that carries NO
+# possessive, so the ownership+lookup rule above never saw it and the turn
+# was answered natively by a model that cannot know the answer (recall audit
+# 2026-08-04). Built from the curated STRONG subset of the memory gate's
+# recollection vocabulary: those phrases are unambiguous enough to be worth a
+# delegation round trip, while broad members of the full recollection set
+# ("habe ich") are not. The vocabulary is pre-folded in the same ae/oe/ue
+# convention `_normalize` produces.  # i18n-allow: names quoted German recall idioms
+_RECALL_RE: re.Pattern[str] | None
+try:
+    from dodaios.brain.wiki_relevance_vocab import STRONG_RECALL_PHRASES
+
+    _RECALL_RE = re.compile(
+        r"\b(?:"
+        + "|".join(
+            re.escape(phrase)
+            for phrase in sorted(set(STRONG_RECALL_PHRASES), key=len, reverse=True)
+        )
+        + r")\b"
+    )
+except Exception:  # noqa: BLE001 — planner must import even if the vocab moves
+    _RECALL_RE = None
+# Colloquial temporal particles (German "gerade", "eben", "vorhin",
+# "soeben") are deliberately NOT in this vocabulary: in spoken language they
+# are discourse fillers, not freshness claims, and treating them as
+# current-data markers force-delegated plain world-knowledge questions
+# ("Wo wohnt der gerade?") through the router brain and its web searches
+# (live incident 2026-07-16 11:24, 16 s of silence ending in an error).
+# Genuinely current topics keep their strong markers below (weather, news,
+# today, now, status, ...).  # i18n-allow: names the retired German filler tokens
+_CURRENT_RE = re.compile(
+    r"\b(?:current|currently|latest|today|tonight|tomorrow|now|recent|"
+    r"news|weather|status|available|online|"
+    r"aktuell\w*|neueste\w*|heute|morgen|jetzt|kuerzlich|nachrichten|"
+    r"wetter|status|verfuegbar|online|"  # i18n-allow: speech input
+    r"actual\w*|ultimo\w*|hoy|manana|ahora|reciente\w*|noticias|"
+    r"clima|tiempo|estado|disponible)\b"  # i18n-allow: multilingual speech-input matching data
+)
+
+# Factual question/request shapes are deliberately narrower than the general
+# lookup vocabulary. This boundary is used only when a provider declares that
+# its unaided public-fact recall is not a trustworthy source. It must not turn
+# advice, how-to requests, private data, or connected data into web searches.
+_PUBLIC_FACT_QUESTION_RE = re.compile(
+    r"^[\s¿¡]*(?:(?:hey|hello|hi|hallo|hola|okay|ok|jarvis|please|bitte|"
+    r"por favor)[\s,]+){0,3}(?:"
+    r"who\b|where\b|when\b|which\b|"
+    r"what\s+(?:is|are|was|were|did|does|has|have)\b|"
+    r"what\s+year\b|in\s+(?:what|which)\s+year\b|"
+    r"how\s+(?:many|much|old|long|high|fast|large|big|tall|far)\b|"
+    r"wer\b|wo\b|wann\b|welch\w*\b|"
+    r"was\s+(?:ist|sind|war|waren|hat|haben|macht|machte)\b|"  # i18n-allow
+    r"in\s+welch\w*\s+jahr\b|"
+    r"wie\s+(?:viel\w*|alt\w*|lang\w*|hoch\w*|schnell\w*|"
+    r"gross\w*|weit\w*)\b|"  # i18n-allow: speech input
+    r"quien\b|donde\b|cuando\b|cual\w*\b|cuant\w*\b|"
+    r"(?:en\s+)?que\s+ano\b|"
+    r"que\s+(?:es|son|fue|eran|hizo|hace|tiene|tienen)\b"
+    r")"  # i18n-allow: multilingual speech-input matching data
+)
+_PUBLIC_FACT_REQUEST_RE = re.compile(
+    r"^[\s¿¡]*(?:(?:hey|hello|hi|hallo|hola|okay|ok|jarvis|please|bitte|"
+    r"por favor)[\s,]+){0,3}(?:"
+    r"tell me|give me|look up|search(?: for)?|check|find|"
+    r"sag mir|nenne mir|such\w*|pruef\w*|find\w*|"
+    r"dime|busca|revisa|encuentra"
+    r")\b"  # i18n-allow: multilingual speech-input matching data
+)
+
+# Concrete local-world evidence that can look like a public fact request.
+# These shapes belong to filesystem/process/settings tools, never search_web.
+# Phrases stay qualified because a bare "process" or "file" can itself be the
+# subject of an evergreen definition.
+_LOCAL_EVIDENCE_RE = re.compile(
+    r"\b(?:"
+    r"(?:on|from|inside|under)\s+(?:this|that|my|the)\s+"
+    r"(?:computer|machine|device|disk|filesystem|file|folder|directory)|"
+    r"(?:in|inside)\s+(?:this|that|my|the)\s+(?:file|folder|directory)|"
+    r"(?:executable|file|folder|directory|path).{0,32}\b(?:on disk|locally)\b|"
+    r"local\s+(?:config(?:uration)?|settings?|file|folder|directory|process|service)|"
+    r"config(?:uration)?\s+file|(?:running|local)\s+(?:process|service)|"
+    r"(?:process|service).{0,32}\b(?:port|pid|machine|computer)\b|"
+    r"environment\s+variable|registry\s+key|system\s+setting|"
+    r"(?:current|jarvis|app|system|my|the)\s+settings?|settings?\s+file|"
+    r"(?:readme|pyproject|package\.json|jarvis\.toml)\b|"
+    r"(?:auf|von|in)\s+(?:diesem|meinem|dem)\s+"  # i18n-allow: speech input
+    r"(?:computer|rechner|geraet|datei|ordner|verzeichnis)|"
+    r"(?:datei|ordner|verzeichnis|pfad|prozess|dienst).{0,32}\b"
+    r"(?:lokal|port|pid|rechner)\b|"
+    r"umgebungsvariable|systemeinstellung|"
+    r"(?:en|dentro de)\s+(?:este|esta|mi|el|la)\s+"
+    r"(?:equipo|ordenador|dispositivo|archivo|carpeta|directorio)|"
+    r"(?:archivo|carpeta|directorio|ruta|proceso|servicio).{0,32}\b"
+    r"(?:local|puerto|pid|equipo)\b|variable\s+de\s+entorno"
+    r")"  # i18n-allow: multilingual speech-input matching data
+)
+_LOCAL_STATE_RE = re.compile(
+    r"\b(?:wiki|mcp\w*|cli\w*|tool\w*|plugin\w*|connector\w*|"
+    r"integration\w*|setting\w*|configuration\w*|api[\s-]?key\w*|"
+    r"jarvis|installed\w*|connected\w*|capabilit\w*|activity history|"
+    # Asking the assistant what it is working on queries its own mission /
+    # activity state; the idiom anchors it here instead of leaning on the
+    # temporal filler ("gerade") that used to co-trigger it.  # i18n-allow
+    r"what are you working on|woran arbeitest du|"  # i18n-allow: speech input
+    r"en que estas trabajando|"  # i18n-allow: speech input
+    r"werkzeug\w*|einstellung\w*|konfiguration\w*|"  # i18n-allow: speech input
+    r"installiert\w*|verbunden\w*|faehigkeit\w*|"  # i18n-allow: speech input
+    r"aktivitaetsverlauf|"  # i18n-allow: speech input
+    r"herramient\w*|ajuste\w*|configuracion\w*|integracion\w*|"
+    r"instalad\w*|conectad\w*|capacidad\w*)\b"  # i18n-allow: speech input
+)
+_CONNECTED_DOMAIN_RE = re.compile(
+    r"\b(?:gmail|email|e-mail|mailboxes?|inboxes?|calendars?|sap|salesforce|"
+    r"github|gitlab|drive|notion|slack|discord|telegram|whatsapp|"
+    r"repositor(?:y|ies)|pull requests?|deployments?|cloud billing|contact\w*|"
+    r"postfach|posteingang|kalender|termin\w*|kontakt\w*|abrechnung\w*|"
+    r"correo|bandeja|calendario|cita\w*|contacto\w*|"
+    r"spotify|youtube\s+music|yt\s*music|ytmusic|playlist\w*)\b"  # i18n-allow: speech input
+)
+# A now-playing question is the user's connected player, not public-song
+# trivia and not smalltalk. Live 2026-08-19 17:46: "Welches Lied" while a
+# track was playing. Bare "song"/"lied" stay out of _CONNECTED_DOMAIN_RE
+# so "Which song won Eurovision?" remains a public fact.
+_MUSIC_NOW_PLAYING_RE = re.compile(
+    r"(?:"
+    r"welches\s+lied|"  # i18n-allow: spoken-input vocabulary
+    r"welche\s+musik|"  # i18n-allow: spoken-input vocabulary
+    r"was\s+(?:fuer\s+(?:ein\s+)?)?(?:lied|song|musik)\s+(?:ist|laeuft|spielt)|"  # i18n-allow
+    r"what\s+song\s+is\s+(?:this|that|it)|"
+    r"which\s+song\s+is\s+(?:this|that|it)|"
+    r"what(?:'s|\s+is)\s+playing|"
+    r"que\s+cancion\s+es|"  # i18n-allow: spoken-input vocabulary
+    r"now\s+playing"
+    r")"
+)
+# App/runtime nouns that are too common for the bare-mention LOCAL_STATE rule
+# — they count only combined with a lookup, action, or ownership signal,
+# mirroring the connected-domain condition. The bare English "task" is
+# excluded on purpose: the English past-tense "was" doubles as the German
+# question word in the lookup vocabulary ("that was a hard task" would
+# delegate); real task requests carry my/list/cancel/which anyway.
+_APP_STATE_RE = re.compile(
+    r"\b(?:provider\w*|voice mode|wake[\s-]?word\w*|volume|microphone\w*|"
+    r"audio device\w*|screen\w*|cursor\w*|pointing|"
+    r"stimme\w*|lautstaerke\w*|mikrofon\w*|aufgabe\w*|bildschirm\w*|"  # i18n-allow: speech input
+    r"mauszeiger\w*|weckwort\w*|"  # i18n-allow: speech input
+    r"proveedor\w*|microfono\w*|tarea\w*|pantalla|volumen)\b"  # i18n-allow: speech input
+)
+# The health of the machine Jarvis runs on. Only the local system can answer
+# "is my PC overloaded" — the live model's own knowledge cannot, and before
+# this vocabulary existed such a turn scored NO reason, so it was neither
+# routed to the orchestrator nor allowed to read the machine (live 2026-08-20
+# 15:35). Gated like the app-state nouns above (lookup, action, or ownership)
+# because "computer" and "battery" are ordinary words. "Temperatur" stays out
+# on purpose — it belongs to the weather far more often than to a
+# processor.  # i18n-allow: names the German token left out
+_MACHINE_STATE_RE = re.compile(
+    r"\b(?:cpu\w*|gpu\w*|ram|processor\w*|hard\s?(?:disk|drive)|"
+    r"memory usage|batter(?:y|ies)|"
+    r"pc|computer\w*|laptop\w*|notebook\w*|macbook\w*|desktop machine|"
+    r"prozessor\w*|arbeitsspeicher|festplatte\w*|"  # i18n-allow: speech input
+    r"akku\w*|batterie\w*|luefter|rechner\w*|"  # i18n-allow: speech input
+    # "lagt"/"ruckelt" describe a machine AND a game or a video, and the ASR
+    # homophone "es legt" is a plain remark — so they stay in the GATED half:
+    # they count when the sentence also points at the user or asks something
+    # ("warum ruckelt mein PC"), never on their own.  # i18n-allow: names the German tokens
+    r"lagt|laggt|ruckelt|"  # i18n-allow: speech input
+    r"procesador\w*|memoria|disco duro|bateria|ordenador\w*|"  # i18n-allow: speech input
+    r"ventilador)\b"  # i18n-allow: speech input
+)
+# The SYMPTOM half of the same question, and the reason it needs its own rule:
+# "Ist der Rechner überlastet?" is a yes/no question — no question word, no
+# possessive — so the gating condition above never fires and the sentence
+# scored nothing. A symptom word IS the question; nothing but the local system
+# can answer it. Bare mention, exactly like the other strong-evidence
+# vocabularies. Over-matching a metaphor ("die Diskussion ist überhitzt") costs
+# one delegation; under-matching loses the answer.  # i18n-allow: quoted German utterances
+_MACHINE_SYMPTOM_RE = re.compile(
+    r"\b(?:overheat\w*|overload\w*|disk\s?space|fan speed|uptime|"
+    r"ueberhitz\w*|ueberlast\w*|auslastung|speicherplatz|"  # i18n-allow: speech input
+    r"sobrecalent\w*|sobrecarg\w*|espacio en disco)\b"  # i18n-allow: speech input
+)
+# A person's contact detail is never a definition question, so this rule is
+# deliberately NOT gated on the definition shape ("What is Anna's number?").
+_CONTACT_DETAIL_RE = re.compile(
+    r"\b(?:phone number|mobile number|email address|e-mail address|"
+    r"birthday|home address|"
+    r"telefonnummer|handynummer|rufnummer|mail-adresse|e-mail-adresse|"  # i18n-allow: speech input
+    r"geburtstag|anschrift|"  # i18n-allow: speech input
+    r"numero de telefono|direccion|cumpleanos)\b"  # i18n-allow: speech input
+)
+_MISSION_RE = re.compile(
+    r"\b(?:jarvis[\s-]?agent\w*|agent\w*|mission\w*|worker\w*|"
+    r"background task\w*|subagent\w*|sub-agent\w*|"
+    r"hintergrund\w*|agente\w*|mision\w*)\b"  # i18n-allow: multilingual speech-input matching data
+)
+_SKILL_RE = re.compile(
+    r"\b(?:skill\w*|macro\w*|faehigkeit\w*|makro\w*|habilidad\w*)\b"  # i18n-allow: speech input
+)
+# Over-matching costs only latency (the orchestrator still answers
+# conversationally); under-matching loses the user's action — so common
+# assistant verbs (media, reminders/notes, settings switches, calendar,
+# on/off) are included even where a noun reading exists ("playlist",
+# "agenda", "activity"). Guarded stems exclude the frequent non-action
+# words ("merkwürdig", "tragisch", "legal").  # i18n-allow: names the excluded German tokens
+_ACTION_FALLBACK_RE = re.compile(
+    r"\b(?:open|close|start|stop|create|write|save|add|change|set|restart|"
+    r"install|connect|delete|move|send|run|build|research|call|click|type|"
+    r"upload|download|book|buy|post|reply|switch\w*|turn\w*|play\w*|"
+    r"paus\w*|resume|remember|notes?|schedule|remind\w*|cancel\w*|"
+    r"update\w*|rename|enable|disable|mute|record|activ\w*|deactiv\w*|"
+    r"use|test\w*|speak|louder|quieter|"
+    r"oeffn\w*|schliess\w*|start\w*|stopp\w*|erstell\w*|schreib\w*|"
+    r"speicher\w*|aender\w*|installier\w*|verbind\w*|loesch\w*|"
+    r"verschieb\w*|schick\w*|send\w*|fuehr\w*|bau\w*|ruf\w*|klick\w*|"
+    r"tipp\w*|buch\w*|kauf\w*|antwort\w*|wechsel\w*|wechsl\w*|schalt\w*|"
+    r"stell\w*|spiel\w*|merk(?!wuerdig)\w*|notier\w*|trag(?!isch|oedi)\w*|"
+    r"leg(?:e|st|t|en)?\b|anleg\w*|setz\w*|pausier\w*|aktivier\w*|deaktivier\w*|"
+    r"erinner\w*|dreh\w*|mach\w*|nutz\w*|benutz\w*|verwend\w*|"
+    # German prefixed verbs ("anmachen", "einschalten", "ausstellen",
+    # "aufdrehen"): the bare stems above never see them, because the prefix
+    # sits before the stem inside one word.  # i18n-allow: names the German verb forms
+    r"(?:an|aus|ein|auf|zu|um|ab)(?:mach|schalt|stell|dreh)\w*|"
+    r"sprich\w*|sprech\w*|brich|brech\w*|abbrech\w*|lauter|leiser|"  # i18n-allow: speech input
+    r"abre\w*|cierra\w*|inicia\w*|crea\w*|escrib\w*|guarda\w*|"
+    r"cambia\w*|instala\w*|conecta\w*|elimina\w*|envia\w*|"
+    r"ejecuta\w*|llama\w*|haz\w*|recuerd\w*|anot\w*|apunt\w*|pon\w*|"
+    r"reproduc\w*|reanud\w*|apag\w*|enciend\w*|agend\w*|"
+    r"reserv\w*|usa\w*|habla\w*|prueba\w*)\b"  # i18n-allow: multilingual speech-input matching data
+)
+# --- Conversational-turn suppressors (live forensic 2026-07-17 08:36/08:47) --
+# A realtime delegation costs 12-34 s of silence (router-brain full generation
+# + live-model re-rendering), so WEAK evidence signals must not force it on
+# plain conversation. These suppressors remove only the weak reasons (action
+# fallback verb, bare possessive pronoun, temporal marker, the trailing "?"
+# uncertainty rule); strong evidence (Wiki/settings/tools, connected domains,
+# contact details, missions, skills, capability matches, context inheritance)
+# always still delegates.
+#
+# First-person modal deliberation: the USER is weighing their own next step
+# ("Kann ich dagegen rechtlich was machen?",  # i18n-allow: forensic quote
+# "Soll ich es einfach kaufen?",  # i18n-allow: forensic quote
+# "Muss ich alle Verträge ändern?").  # i18n-allow: forensic quote
+# The answer is advice, not an action — the quoted verbs
+# ("machen", "kaufen", "ändern") must not read as a command  # i18n-allow
+# to Jarvis.
+_DELIBERATION_RE = re.compile(
+    r"\b(?:kann|koennt\w*|soll\w*|muss|muesst\w*|darf|duerft\w*) ich\b|"  # i18n-allow: speech input
+    r"\bich (?:kann|koennte|soll|sollte|muss|muesste|darf|duerfte)\b|"  # i18n-allow: speech input
+    r"\b(?:should|shall|can|could|must|may|might) i\b|"
+    r"\b(?:debo|deberia|puedo|podria)\b"  # i18n-allow: multilingual speech-input matching data
+)
+# Explicit tasking of the assistant overrides the deliberation reading:
+# "Kannst du ...", "Ich möchte, dass du ...", "please open ...".  # i18n-allow
+_ASSISTANT_TASKING_RE = re.compile(
+    r"\b(?:kannst|koenntest|wuerdest|willst|magst|sollst) du\b|"  # i18n-allow: speech input
+    r"\bdass du\b|\bdu (?:mir|mal|bitte|kurz|jetzt)\b|\bbitte\b|"  # i18n-allow: speech input
+    r"\b(?:can|could|would|will) you\b|\bplease\b|"
+    r"\bpuedes\b|\bpodrias\b|\bpor favor\b"  # i18n-allow: multilingual speech-input matching data
+)
+# Opinion/advice questions directed at the assistant's judgment: the user
+# wants a recommendation or a view, never stored evidence ("Was willst du
+# mir empfehlen?", "wo glaubst du kann ich am besten ...").  # i18n-allow
+_OPINION_RE = re.compile(
+    r"\b(?:glaubst|denkst|meinst|findest|haeltst|raetst) du\b|"  # i18n-allow: speech input
+    r"\bempfiehl\w*\b|\bempfehl\w*\b|\bdeiner meinung\b|"  # i18n-allow: speech input
+    r"\bdo you think\b|\bwhat do you think\b|\byour opinion\b|"
+    r"\bwould you recommend\b|\bwhat (?:do|would) you recommend\b|"
+    r"\bcrees que\b|\bque (?:opinas|piensas)\b|\brecomiend\w*\b|"
+    r"\brecomendar\w*\b"  # i18n-allow: multilingual speech-input matching data
+)
+# Why-questions ask for an explanation or a rant partner, not a data fetch;
+# a bare possessive inside one ("Wieso kriegen meine Mitarbeiter frei?") is
+# the user's life, not their stored data. Context inheritance for follow-ups
+# ("Warum ist es fehlgeschlagen?") runs separately, untouched.  # i18n-allow
+_WHY_RE = re.compile(
+    # i18n-allow: multilingual speech-input matching data
+    r"\b(?:wieso|warum|weshalb|why|por que)\b"
+)
+# Smalltalk about the assistant's (future) day: "Was machst du morgen?".
+# Its span is removed before the weak action/current scans so "machst" and
+# "morgen" cannot delegate; "Woran arbeitest du?" (mission status) is a
+# separate LOCAL_STATE idiom and stays.  # i18n-allow: quoted German utterance
+# "Talk to me" is a request for conversation, not an order to act: the verb
+# ("sprich", "red", "talk", "speak") is the assistant's ordinary job. Only
+# the filler-padded idiom is stripped; "Sprich Englisch mit mir" (a language
+# switch) keeps its object between verb and pronoun and still delegates.
+# Live 2026-08-18 18:41: "Hallo, sprich mal mit mir." paid a 3.2 s
+# delegation to be told "Ich bin da."  # i18n-allow: quoted German utterances
+_TALK_TO_ME_RE = re.compile(
+    # i18n-allow: multilingual speech-input matching data
+    r"\b(?:sprich|sprech\w*|red(?:e|et)?|unterhalt(?:e|et)? dich|quatsch\w*|"
+    r"plauder\w*)(?:\s+(?:doch|mal|bitte|kurz|einfach|jetzt|ruhig|gern(?:e)?))*"
+    r"\s+mit mir\b|"
+    r"\b(?:talk|speak|chat)(?:\s+(?:to|with))?\s+(?:to|with)?\s*me\b|"
+    r"\bhabla(?:me)?\s+conmigo\b|\bcharla\s+conmigo\b"
+)
+# Wellbeing / presence chat: "Wie geht's dir heute?", "How are you doing
+# today?" carry a time word that reads as a freshness marker and, with the
+# question mark, force-delegated the greeting (current_data + uncertain).
+# The idiom span — including its trailing today/now — is removed before the
+# weak scans; a real freshness topic ("wie ist das Wetter heute") never
+# matches it.  # i18n-allow: quoted German utterance
+_WELLBEING_RE = re.compile(
+    # i18n-allow: multilingual speech-input matching data
+    r"\bwie geht(?:'?s| es)(?: dir| ihnen| euch)?"
+    r"(?:\s+(?:denn|so|gerade|heute|jetzt|momentan|eigentlich))*\b|"
+    r"\bhow are you(?: doing| feeling)?(?:\s+(?:today|now|right now))?\b|"
+    r"\bhow(?:'s| is) it going(?:\s+(?:today|now))?\b|"
+    r"\bwhat(?:'s| is) up(?:\s+(?:today|now))?\b|"
+    r"\b(?:que tal|como estas)(?:\s+(?:hoy|ahora))?\b"
+)
+_ASSISTANT_DAYPLAN_RE = re.compile(
+    # i18n-allow: multilingual speech-input matching data
+    r"\bwas machst du\b"
+    r"(?:[^.?!]{0,24}?\b(?:heute|morgen|jetzt|gerade|so)\b)?|"
+    r"\bwas hast du [^.?!]{0,20}\bvor\b|"
+    r"\bwhat are you (?:doing|up to)\b"
+    r"(?:[^.?!]{0,24}?\b(?:today|tomorrow|now)\b)?|"
+    r"\bque (?:haces|estas haciendo)\b"
+    r"(?:[^.?!]{0,24}?\b(?:hoy|manana|ahora)\b)?"
+)
+
+# German ASR commonly collapses the English loanword "laggt" into "legt" and
+# the game noun "Spiel" shares its spelling with the imperative "spiel".  Both
+# are weak action matches, but inside a declarative subject phrase or a noun
+# phrase they describe the conversation/game instead of asking Jarvis to act.
+# Strip only those weak spans; an explicit command elsewhere in the utterance
+# still routes through the orchestrator.
+_GERMAN_NONCOMMAND_ACTION_SPAN_RE = re.compile(
+    r"\b(?:es|das)\s+leg(?:t|te)\b|"
+    r"\b(?:im|am|beim|vom|zum|das|ein|eine|dieses|"  # i18n-allow: German speech-input matching data
+    r"mein|dein|sein|ihr|unser|euer)\s+"  # i18n-allow: German speech-input matching data
+    r"spiel(?:s|e|en)?\b"  # i18n-allow: German speech-input matching data
+)
+# Calendar trivia: asking which day/weekday/date it is (today/tomorrow/...)
+# is answerable by the realtime model itself — the session instructions carry
+# the current local date — yet the time word ("morgen", "tomorrow") used to
+# read as a CURRENT_DATA freshness marker and force a 12-34 s delegation
+# (live complaint 2026-07-21: "Was ist morgen für ein Tag?"  # i18n-allow: quoted utterance
+# delegated twice). Like the dayplan idiom, the matched span is removed
+# before the weak scans; a real freshness topic (weather, news, schedule)
+# never matches these shapes and keeps delegating.
+_DATE_TRIVIA_RE = re.compile(
+    # i18n-allow: multilingual speech-input matching data
+    r"\bwas (?:ist|wird|war) (?:heute|morgen|uebermorgen|gestern)"  # i18n-allow: speech input
+    r"[^.?!]{0,24}?\b(?:tag|wochentag|datum)\b|"  # i18n-allow: speech input
+    r"\bwas (?:heute|morgen|uebermorgen|gestern)[^.?!]{0,24}?"  # i18n-allow: speech input
+    r"\b(?:tag|wochentag|datum)\b[^.?!]{0,12}?\b(?:ist|wird|war)\b|"  # i18n-allow
+    r"\b(?:welcher|welchen|was fuer ein\w*) (?:tag|wochentag)\b"  # i18n-allow: speech input
+    r"[^.?!]{0,16}?\b(?:ist|haben wir|war)\b(?:[^.?!]{0,16}?"  # i18n-allow: speech input
+    r"\b(?:heute|morgen|uebermorgen|gestern)\b)?|"  # i18n-allow: speech input
+    r"\bwelches datum\b(?:[^.?!]{0,12}?\bhaben wir\b)?|"  # i18n-allow: speech input
+    r"\bder wievielte\b(?:[^.?!]{0,16}?"
+    r"\b(?:heute|morgen|uebermorgen|gestern)\b)?|"
+    r"\bwhat day (?:is|was)(?: it)?(?: (?:today|tomorrow|yesterday))?\b|"
+    r"\bwhat (?:day|date) (?:today|tomorrow|yesterday) (?:is|was)\b|"
+    r"\bwhat is (?:today|tomorrow|yesterday)(?:'s)? (?:day|date|for day)\b|"
+    r"\bwhat(?:'s| is) the (?:date|day)\b(?: (?:today|tomorrow)\b)?|"
+    r"\bque dia es (?:hoy|manana)\b|\ba que fecha estamos\b"
+)
+
+_FOLLOW_UP_REFERENCE_RE = re.compile(
+    r"\b(?:that|there|those|them|inside|what else|findings?|results?|"
+    r"what (?:did|have) (?:you|it) (?:find|found)|found out|"
+    r"da|darin|drin|dort|dazu|davon|darueber|was noch|"  # i18n-allow
+    r"rausgefunden|herausgefunden|ergebnis(?:se)?|recherche|"  # i18n-allow
+    r"eso|esto|ahi|alli|dentro|que mas|resultados?|hallazgos?)\b|"  # i18n-allow
+    r"\b(?:what\s+does\s+it|what(?:'s|\s+is)\s+in\s+it|in\s+it|"
+    r"what(?:'s|\s+is)\s+(?:it|this|that)\s+about|"
+    r"where\s+(?:is|did)\s+it|why\s+(?:did|does|is|was)\s+(?:it|this|that)|"
+    r"wo\s+(?:liegt|ist)\s+es|woran\s+liegt\s+es|"  # i18n-allow: German speech-input matching data
+    r"(?:warum|wieso|weshalb).{0,30}\b(?:es|das)\b|"  # i18n-allow: speech input
+    r"um\s+was\s+geht(?:\s+es|['’]?s)?|"
+    r"worum\s+geht(?:\s+es|['’]?s)?)\b"  # i18n-allow
+)
+_CONTEXT_MAX_CHARS = 2_000
+
+
+# German umlaut characters must become their transliterated digraphs
+# (a-umlaut -> ae, o-umlaut -> oe, u-umlaut -> ue; casefold already yields
+# "ss" for the sharp s) because every German vocabulary entry above is
+# written in that form ("loesch", "aender", "fuehr"). A plain NFKD
+# combining-strip would produce the OTHER ascii form ("losche", "andere"),
+# which silently disables the entire German action/lookup vocabulary
+# against real STT output.
+_UMLAUT_TRANSLITERATION = str.maketrans(
+    {"ä": "ae", "ö": "oe", "ü": "ue"}  # i18n-allow: umlaut mapping data
+)
+
+
+def _normalize(text: str) -> str:
+    folded = str(text or "").casefold().translate(_UMLAUT_TRANSLITERATION)
+    decomposed = unicodedata.normalize("NFKD", folded)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
+def _tokens_from_capability(capability: Any) -> set[str]:
+    tokens: set[str] = set()
+    for value in (
+        getattr(capability, "id", ""),
+        *tuple(getattr(capability, "objects", ()) or ()),
+    ):
+        normalized = _normalize(str(value)).replace("_", " ").replace("/", " ")
+        for token in re.split(r"[^a-z0-9-]+", normalized):
+            if len(token) >= 3:
+                tokens.add(token)
+    return tokens
+
+
+def _matched_capabilities(
+    text: str,
+    *,
+    capability_registry: Any | None,
+    tool_names: Iterable[str],
+    require_lookup_shape: bool = True,
+    contextual_identity_only: bool = False,
+) -> tuple[str, ...]:
+    matched: set[str] = set()
+    capabilities: Sequence[Any] = ()
+    if capability_registry is not None:
+        try:
+            resolved = capability_registry.resolve_intent(text)
+            if resolved is not None:
+                matched.add(str(getattr(resolved, "id", "")))
+            capabilities = capability_registry.all()
+        except Exception:  # noqa: BLE001 - planner must fail safely
+            capabilities = ()
+
+    normalized = _normalize(text)
+    if not require_lookup_shape or _LOOKUP_SHAPE_RE.search(normalized):
+        for capability in capabilities:
+            tokens = _tokens_from_capability(capability)
+            if any(re.search(r"\b" + re.escape(token) + r"\b", normalized) for token in tokens):
+                matched.add(str(getattr(capability, "id", "")))
+        for name in tool_names:
+            normalized_name = _normalize(name).replace("_", " ").replace("/", " ")
+            if contextual_identity_only:
+                raw_name = _normalize(str(name)).replace("_", " ")
+                namespace, separator, _ = raw_name.partition("/")
+                identity = namespace if separator else raw_name
+                identity = re.sub(
+                    r"^(?:(?:cli|mcp|plugin|server)[\s._-]+)+",
+                    "",
+                    identity,
+                )
+                identity = re.sub(
+                    r"(?:[\s._-]+(?:cli|mcp|plugin|server))+$",
+                    "",
+                    identity,
+                )
+                identity_tokens = [
+                    token
+                    for token in re.split(r"[^a-z0-9]+", identity)
+                    if len(token) >= 3 and token not in {"cli", "mcp", "plugin", "server"}
+                ]
+                if not identity_tokens:
+                    continue
+                identity_pattern = r"\b" + r"\s+".join(
+                    re.escape(token) for token in identity_tokens
+                ) + r"\b"
+                if re.search(identity_pattern, normalized):
+                    matched.add(str(name))
+                continue
+            tokens = [
+                token
+                for token in re.split(r"[^a-z0-9-]+", normalized_name)
+                if len(token) >= 3
+            ]
+            if any(
+                re.search(r"\b" + re.escape(token) + r"\b", normalized)
+                for token in tokens
+            ):
+                matched.add(str(name))
+    return tuple(sorted(item for item in matched if item))
+
+
+def _is_workspace_turn(text: str, workspace_names: Sequence[str]) -> bool:
+    """Whether this turn is about a terminal of the open coding workspace.
+
+    The realtime half of the 2026-07-27 miss. Asked "was hat Dana gemacht", the
+    live model answered that it did not know any person called Dana — correctly,
+    from its own knowledge, because nothing had ever told it that a coding agent
+    named Dana was running two feet away. No vocabulary rule could have caught
+    that turn: it carries no lookup verb, no action, no possessive and no
+    connected domain, so the planner routed it natively and the pane was never
+    consulted. The CALL-SIGN is the evidence, and it is evidence the static
+    vocabularies below structurally cannot hold, because the names are chosen
+    per workspace at runtime.
+
+    The verdict is delegated to the workspace's OWN detectors rather than
+    re-derived here — the same rule that decides which pane gets the work has to
+    decide whether the orchestrator is needed for it, or the planner would
+    delegate turns the workspace then declines (and worse, the reverse). Both
+    are pure regex over the utterance, no IO and no LLM, so this keeps the
+    module's promise on the voice hot path.
+
+    Two shapes qualify:
+
+    1. a pane is named — addressed, or asked about ("was hat Dana gemacht");
+    2. a pane is ALMOST named — the clarify path has a question to ask, and it
+       can only ask it from the orchestrator.
+    """
+    names = [str(name) for name in workspace_names if str(name or "").strip()]
+    if not names or not str(text or "").strip():
+        return False
+    try:
+        from dodaios.agentic_ide.intent import detect
+
+        if detect(text, names=names) is not None:
+            return True
+    except Exception:  # noqa: BLE001 - optional surface, never breaks planning
+        return False
+    try:
+        from dodaios.agentic_ide.clarify import detect_clarification
+
+        return detect_clarification(text, names=names) is not None
+    except Exception:  # noqa: BLE001 - optional surface, never breaks planning
+        return False
+
+
+# The society shapes no roster is needed for: asking who is on the team, or
+# handing work to "an agent" / "the team" in DE / EN / ES. Recall over
+# precision within the shape, tight on the shape itself: "agent" alone (the
+# noun in a news sentence, "travel agent") does not qualify — a question
+# about the agents or an order to an agent does.  # i18n-allow: trigger vocabulary
+_SOCIETY_TEAM_RE = re.compile(
+    r"(?:\b(?:welche|was fuer|was für|wie viele|wieviele|which|what|how many|que|qué|"
+    r"cuantos|cuántos|cuales|cuáles)\b[^.?!]{0,40}\b(?:agents?|agenten|agentes?)\b)"
+    r"|(?:\b(?:agents?|agenten|agentes?)\b[^.?!]{0,30}\b(?:hast du|habe ich|gibt es|"
+    r"zur verfuegung|zur verfügung|verfuegbar|verfügbar|do you have|do i have|are there|"
+    r"available|on the team|im team|tienes|tengo|hay|disponibles?)\b)"
+    r"|(?:\b(?:delegier\w*|uebergib|übergib|gib das|gib es|schick das|schick es|"
+    r"delegate|hand (?:this|that|it)|give (?:this|that|it)|pass (?:this|that|it)|"
+    r"delega|pasa(?:le)?|dale)\b[^.?!]{0,30}\b(?:agents?|agenten|agentes?|team|equipo)\b)"
+    r"|(?:\b(?:lass|let|deja)\b[^.?!]{0,20}\b(?:einen?|den|the|an|a|al|un)\s+"
+    r"(?:agent\w*|agente)\b)",
+    re.IGNORECASE,
+)
+
+
+def _is_society_turn(text: str, agent_names: Sequence[str]) -> bool:
+    """Whether this turn names one of the user's agents or asks about the team.
+
+    The society half of the workspace lesson. Asked "welche Agents hast du",
+    the live model answered from the retired sub-agent system, and "Gmail
+    agent, check my inbox" was routed natively because "Gmail agent" is a
+    name the user typed into the Agents section — no static vocabulary can
+    hold it. The roster is the evidence, and a named agent is as strong as a
+    named pane: the orchestrator holds the team card and the delegate tool.
+
+    Two shapes qualify: (1) a roster name appears in the turn, as whole words;
+    (2) the turn asks about the agents or hands work to an agent / the team
+    (``_SOCIETY_TEAM_RE``). Pure text work, no IO and no LLM.
+    """
+    raw = str(text or "")
+    if not raw.strip():
+        return False
+    from dodaios.society.intent import is_inventory_question, is_team_management_request
+
+    if is_inventory_question(raw) or is_team_management_request(raw):
+        return True
+    folded = _normalize(raw)
+    for name in agent_names:
+        needle = _normalize(str(name or "")).strip()
+        if len(needle) < 3:
+            continue
+        if re.search(rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])", folded):
+            return True
+    return bool(_SOCIETY_TEAM_RE.search(folded))
+
+
+def _is_workspace_retry(
+    text: str, context: Sequence[str], workspace_names: Sequence[str]
+) -> bool:
+    """Whether this turn says a pane briefing did not happen, or asks to retry.
+
+    A correction of the form "you never prompted it" names no pane, carries no
+    instruction and matches no vocabulary here — so the planner routed it
+    natively, the live model answered alone, and it apologised for a failure it
+    could not see and promised a delivery it could not make (BUG-121, voice
+    session 2026-07-29 17:04). The user said it twice; the second time only
+    worked by luck, because the model happened to call the action tool by
+    itself.
+
+    The sentence is only meaningful against the turn before it, so that is where
+    the evidence comes from: the complaint shape from the workspace's own
+    detector, the subject from a prior turn that WAS about a pane. Both halves
+    are required — a bare "try again" after a weather question is not workspace
+    work. Pure regex over in-memory text, no IO and no LLM. The failing live
+    sentences are pinned verbatim in
+    ``tests/unit/brain/test_agentic_ide_undelivered_retry.py``.
+    """
+    if not workspace_names or not str(text or "").strip():
+        return False
+    try:
+        from dodaios.agentic_ide.intent import reports_undelivered
+
+        if not reports_undelivered(text):
+            return False
+    except Exception:  # noqa: BLE001 - optional surface, never breaks planning
+        return False
+    context_text = " ".join(str(item or "") for item in context).strip()
+    if not context_text:
+        return False
+    if len(context_text) > _CONTEXT_MAX_CHARS:
+        context_text = context_text[-_CONTEXT_MAX_CHARS:]
+    return _is_workspace_turn(context_text, workspace_names)
+
+
+def is_contextual_follow_up(text: str, context: Sequence[str]) -> bool:
+    """Return whether ``text`` explicitly refers to the bounded prior context."""
+    normalized = _normalize(text).strip()
+    context_text = " ".join(str(item or "") for item in context).strip()
+    if len(context_text) > _CONTEXT_MAX_CHARS:
+        context_text = context_text[-_CONTEXT_MAX_CHARS:]
+    return bool(
+        _normalize(context_text)
+        and _LOOKUP_SHAPE_RE.search(normalized)
+        and _FOLLOW_UP_REFERENCE_RE.search(normalized)
+        and not _INSTRUCTIONAL_RE.search(normalized)
+    )
+
+
+# Recall-shaped openers ("do you remember", "weisst du noch") read as ACTION to
+# the planner (``remember`` is a save verb) although the user is asking, not
+# ordering. Kept next to the lookup regex so ``is_lookup_shape`` covers both.
+_RECALL_QUESTION_RE = re.compile(
+    r"(?:do you (?:remember|know|recall)|weisst du(?: noch)?|"  # i18n-allow: speech input
+    r"erinnerst du dich|kennst du|te acuerdas|recuerdas|sabes)"  # i18n-allow: speech input
+)
+
+
+def is_lookup_shape(text: str) -> bool:
+    """Return whether ``text`` is phrased as a lookup / question, not an order.
+
+    A form classifier only (deterministic, hot-path safe): a trailing question
+    mark, a lookup opener ("what", "wann", "zeig", ...) or a recall opener
+    ("weisst du noch", "do you remember"). Callers use it to tell "read my
+    notes" from "write to my notes" when both carry the same planner reasons.
+    """
+    normalized = _normalize(text).strip()
+    if not normalized:
+        return False
+    if normalized.endswith("?"):
+        return True
+    return bool(
+        _LOOKUP_SHAPE_RE.search(normalized) or _RECALL_QUESTION_RE.search(normalized)
+    )
+
+
+def is_action_order(text: str) -> bool:
+    """Whether ``text`` orders an action: an action verb outside the
+    conversational idioms.
+
+    The execute-side guard for native realtime tool calls (ADR-0035) uses it:
+    an ``ask``-tier tool may run only on a turn that orders something. Pure
+    regex over the idiom-stripped utterance — the same weak-scan text
+    ``plan_turn`` feeds its action detector.
+    """
+    normalized = _normalize(text).strip()
+    if not normalized:
+        return False
+    weak_scan_text = _ASSISTANT_DAYPLAN_RE.sub(" ", normalized)
+    weak_scan_text = _DATE_TRIVIA_RE.sub(" ", weak_scan_text)
+    weak_scan_text = _GERMAN_NONCOMMAND_ACTION_SPAN_RE.sub(" ", weak_scan_text)
+    weak_scan_text = _TALK_TO_ME_RE.sub(" ", weak_scan_text)
+    weak_scan_text = _WELLBEING_RE.sub(" ", weak_scan_text)
+    return bool(_ACTION_FALLBACK_RE.search(weak_scan_text))
+
+
+def is_assistant_tasking(text: str) -> bool:
+    """Whether ``text`` explicitly tasks the assistant ("kannst du", "please",
+    "dass du") — weaker than an action verb, stronger than a bare question."""
+    normalized = _normalize(text).strip()
+    return bool(normalized and _ASSISTANT_TASKING_RE.search(normalized))
+
+
+def is_public_fact_question(text: str) -> bool:
+    """Return whether ``text`` asks for a concrete public-world fact.
+
+    This is a form classifier, not a freshness or provider decision. Callers
+    must still exclude private, connected, local-state, and action evidence.
+    Keeping it deterministic makes it safe on the voice hot path.
+    """
+    normalized = _normalize(text).strip()
+    if (
+        not normalized
+        or _INSTRUCTIONAL_RE.search(normalized)
+        or _LOCAL_EVIDENCE_RE.search(normalized)
+        or _APP_STATE_RE.search(normalized)
+        or _OWNERSHIP_RE.search(normalized)
+        or _CONNECTED_DOMAIN_RE.search(normalized)
+        or _MUSIC_NOW_PLAYING_RE.search(normalized)
+        or _CONTACT_DETAIL_RE.search(normalized)
+    ):
+        return False
+    return bool(
+        _PUBLIC_FACT_QUESTION_RE.search(normalized)
+        or _PUBLIC_FACT_REQUEST_RE.search(normalized)
+    )
+
+
+def plan_turn(
+    text: str,
+    *,
+    capability_registry: Any | None = None,
+    tool_names: Iterable[str] = (),
+    evidence_domains: Mapping[str, Sequence[str]] | None = None,
+    context: Sequence[str] = (),
+    skill_index: Any | None = None,
+    workspace_names: Sequence[str] = (),
+    requires_public_fact_grounding: bool = False,
+    agent_names: Sequence[str] = (),
+) -> TurnPlan:
+    """Return the conservative shared execution plan for ``text``.
+
+    Uncertainty is resolved toward the orchestrator because it can still
+    answer conversationally, while a native realtime model cannot recover
+    private or connected evidence it never received.
+
+    ``skill_index`` is an optional ``dodaios.skills.relevance.SkillMatchIndex``
+    — a frozen bag of dicts and frozensets exposing ``.rank()``, holding
+    no registry reference, no paths and no file handles. Passing it in (rather
+    than importing the skill package here) is what keeps this module's promise
+    of no model call, no disk access and no network structurally true, and
+    avoids dragging ``dodaios.skills``' eager package init into every early
+    import of the planner (AP-26).
+
+    Without it the planner falls back to its static vocabulary, which for skills
+    means the three literal trigger words in _SKILL_RE above — i.e. it has no idea
+    what is actually installed, so "starte die Morgenroutine" produced no skill
+    reason at all.
+
+    ``workspace_names`` is the live Agentic-IDE call-signs
+    (``agentic_ide.session.running_call_signs``). Like the skill index it is
+    passed IN rather than looked up, so this module keeps holding no registry
+    reference; see ``_is_workspace_turn`` for why a runtime-chosen name can
+    never be covered by the static vocabularies.
+
+    ``requires_public_fact_grounding`` is a provider capability, never a
+    provider-name check. When true, concrete public-fact turns take the same
+    one-shot ``search_web`` evidence path used for explicitly fresh facts.
+    Hosted providers keep the default false and retain the native evergreen
+    fast path.
+
+    ``agent_names`` is the live roster of the user's agent society
+    (``society.lead_card.society_agent_names``), passed in for the same
+    reason as the call-signs: an agent is named by the user at creation
+    time, so no static vocabulary can hold "Gmail agent"; see
+    ``_is_society_turn``.
+    """  # i18n-allow: names the German trigger words the static branch matches
+    normalized = _normalize(text).strip()
+    if not normalized:
+        return TurnPlan(path=TurnPath.NATIVE_REALTIME)
+
+    from dodaios.society.intent import is_inventory_question
+
+    if is_inventory_question(text):
+        return TurnPlan(
+            path=TurnPath.ORCHESTRATOR,
+            reasons=frozenset({TurnReason.SOCIETY}),
+            required_capabilities=("society_status",),
+            requires_evidence=True,
+        )
+
+    reasons: set[TurnReason] = set()
+    # Same standing as a named pane, for the same reason: "what is the Gmail
+    # agent doing" reads as third-party smalltalk to every suppressor below,
+    # and only the orchestrator holds the roster that can answer it.
+    if _is_society_turn(text, agent_names):
+        reasons.add(TurnReason.SOCIETY)
+    screen_context_intent = classify_screen_context(text).intent
+    if screen_context_intent is not VisualIntent.NONE:
+        # The native realtime model cannot see a one-shot image that only the
+        # supervisor can capture and attach. Ambiguity also belongs here: the
+        # supervisor owns the privacy-preserving clarification state.
+        reasons.add(TurnReason.SCREEN_CONTEXT)
+    # Checked before the suppressors and never dampened by them: a named pane
+    # is as strong as evidence gets, and the reason it must not be weakened is
+    # that its most ordinary phrasings are exactly the shapes the suppressors
+    # target: a question about what a pane has done reads as third-party
+    # smalltalk, and a modal asking whether a pane should do something reads as
+    # first-person deliberation. Both would be talked back down into a native
+    # answer the model cannot give.
+    workspace_turn = _is_workspace_turn(text, workspace_names) or _is_workspace_retry(
+        text, context, workspace_names
+    )
+    if workspace_turn:
+        reasons.add(TurnReason.WORKSPACE)
+    definition = bool(_DEFINITION_RE.search(normalized))
+    instructional = bool(_INSTRUCTIONAL_RE.search(normalized))
+    # An instructional form asks for an explanation, even when the sentence
+    # also contains words that resemble an action, private ownership, or a
+    # current-time marker. For example, "How would you help me use ...?" must
+    # not execute the referenced action or fetch private/current evidence.
+    # Return early so none of the conservative evidence heuristics below can
+    # turn an advice question into an orchestrator-owned action.
+    #
+    # A named pane is the exception: "how do I get Dana to run the tests" asks
+    # about THIS workspace, and only the orchestrator can see what Dana is.
+    if instructional and not workspace_turn:
+        return TurnPlan(path=TurnPath.NATIVE_REALTIME)
+    required = () if definition or instructional else _matched_capabilities(
+        text,
+        capability_registry=capability_registry,
+        tool_names=tool_names,
+    )
+    if required:
+        reasons.add(TurnReason.CAPABILITY)
+
+    # Weak conversational suppressors: see the block comment above their
+    # vocabularies. Each one dampens ONLY the weak signals computed below;
+    # every strong evidence category further down is deliberately untouched,
+    # and the realtime model keeps the action tool declared either way, so a
+    # suppressed turn can still act when the model insists.
+    deliberative = bool(_DELIBERATION_RE.search(normalized)) and not bool(
+        _ASSISTANT_TASKING_RE.search(normalized)
+    )
+    opinion = bool(_OPINION_RE.search(normalized))
+    why_question = bool(_WHY_RE.search(normalized))
+    # Remove the assistant-dayplan and calendar-trivia idiom spans so their
+    # own words ("machst", "morgen", "tomorrow") cannot feed the weak
+    # action/current scans below.
+    # i18n-allow: names the German idiom tokens under suppression
+    weak_scan_text = _ASSISTANT_DAYPLAN_RE.sub(" ", normalized)
+    weak_scan_text = _DATE_TRIVIA_RE.sub(" ", weak_scan_text)
+    weak_scan_text = _GERMAN_NONCOMMAND_ACTION_SPAN_RE.sub(" ", weak_scan_text)
+    weak_scan_text = _TALK_TO_ME_RE.sub(" ", weak_scan_text)
+    weak_scan_text = _WELLBEING_RE.sub(" ", weak_scan_text)
+
+    action_intent = bool(_ACTION_FALLBACK_RE.search(weak_scan_text))
+    if capability_registry is not None:
+        # The registry sweep reads the SAME idiom-stripped text as the
+        # fallback regex: a verb inside a suppressed idiom ("sprich mal mit
+        # mir", "was machst du heute") is not an order either way.  # i18n-allow
+        try:
+            action_intent = action_intent or bool(
+                capability_registry.has_action_intent(weak_scan_text)
+            )
+        except Exception:  # noqa: BLE001,S110 - local fallback remains available
+            pass
+
+    lookup = bool(_LOOKUP_SHAPE_RE.search(normalized))
+    # Ownership scans the idiom-stripped text: the only possessive-shaped
+    # token inside a stripped span is the "haben wir" of "Welches Datum
+    # haben wir?" — calendar trivia, not the user's data.  # i18n-allow
+    private = bool(_OWNERSHIP_RE.search(weak_scan_text))
+
+    if action_intent and not instructional and not (deliberative or opinion):
+        reasons.add(TurnReason.ACTION)
+    if (
+        private
+        and (lookup or action_intent)
+        and not (deliberative or opinion or why_question)
+    ):
+        reasons.add(TurnReason.PRIVATE_DATA)
+    # Recall of the user's own past is STRONG evidence, deliberately outside
+    # the suppressors: "wann war ich zuletzt beim Zahnarzt?" reads as
+    # first-person smalltalk to every weak heuristic, yet only the
+    # orchestrator (Wiki memory) can answer
+    # it.  # i18n-allow: quoted German recall utterance
+    if _RECALL_RE is not None and _RECALL_RE.search(normalized):
+        reasons.add(TurnReason.PRIVATE_DATA)
+    if _LOCAL_STATE_RE.search(normalized) and not definition:
+        reasons.add(TurnReason.LOCAL_STATE)
+    if _LOCAL_EVIDENCE_RE.search(normalized) and (lookup or action_intent):
+        reasons.add(TurnReason.LOCAL_STATE)
+    if (
+        _CONNECTED_DOMAIN_RE.search(normalized)
+        and not definition
+        and (lookup or action_intent or private)
+    ):
+        reasons.add(TurnReason.CONNECTED_DATA)
+    if _MUSIC_NOW_PLAYING_RE.search(normalized) and not definition:
+        reasons.add(TurnReason.CONNECTED_DATA)
+    if (
+        _APP_STATE_RE.search(normalized)
+        and not definition
+        and (lookup or action_intent or private)
+    ):
+        reasons.add(TurnReason.LOCAL_STATE)
+    if (
+        _MACHINE_STATE_RE.search(normalized)
+        and not definition
+        and (lookup or action_intent or private)
+    ):
+        reasons.add(TurnReason.LOCAL_STATE)
+    if _MACHINE_SYMPTOM_RE.search(normalized) and not definition:
+        reasons.add(TurnReason.LOCAL_STATE)
+    # Deliberately not gated on the definition shape: "What is Anna's
+    # phone number?" is a contact lookup, never a definition.
+    if _CONTACT_DETAIL_RE.search(normalized) and (lookup or action_intent):
+        reasons.add(TurnReason.CONNECTED_DATA)
+    # Inside a deliberation/opinion turn a time word ("jetzt", "morgen") is
+    # part of the user's story, not a freshness request — and the model can
+    # still call the action tool itself when it truly needs live data.
+    # i18n-allow: names the German filler tokens under suppression
+    if (
+        _CURRENT_RE.search(weak_scan_text)
+        and (lookup or normalized.endswith("?"))
+        and not (deliberative or opinion)
+    ):
+        reasons.add(TurnReason.CURRENT_DATA)
+    if _MISSION_RE.search(normalized) and not definition:
+        reasons.add(TurnReason.MISSION)
+    if _SKILL_RE.search(normalized) and not definition:
+        reasons.add(TurnReason.SKILL)
+    elif skill_index is not None and not definition:
+        # Content-aware skill detection: ask the deterministic index whether an
+        # INSTALLED skill actually owns this utterance. Pure CPU, no IO. Only a
+        # FIRE-band hit counts — a NARROW candidate is a suggestion for the
+        # orchestrator's prompt, not a reason to pay a delegation.
+        #
+        # The band is derived here from the index's own corpus-relative
+        # threshold rather than asked of the index, because the band vocabulary
+        # lives in dodaios.skills.match_eval and having the scorer know about it
+        # would close an import cycle. The scorer ranks; callers decide.
+        try:
+            ranking = skill_index.rank(text, limit=1)
+            winner = ranking.top
+            if winner is not None and winner.score >= ranking.fire_threshold:
+                # A FIRE-band hit makes this a SKILL turn even when two
+                # installed skills tie for it. Requiring a clear winner here
+                # conflated two different questions — "is this about a skill?"
+                # and "which one?" — and answered the first with the second.
+                # Live 2026-08-20: an authored near-duplicate of the builtin
+                # morning routine put both at FIRE band, killed the clear
+                # winner, and so removed TurnReason.SKILL from every
+                # "Morgenroutine" turn. Installing a second skill silently
+                # disabled routing for the first one.
+                reasons.add(TurnReason.SKILL)
+                if ranking.clear_winner:
+                    # Only a clear winner may PIN the skill. Ambiguity travels
+                    # to the orchestrator, which has the trigger channel and
+                    # the user to disambiguate with; the planner does not.
+                    required = tuple(sorted({*required, f"skill:{winner.name}"}))
+        except Exception:  # noqa: BLE001
+            # Silent by design: this module has no logger and must stay free of
+            # side effects, and a scorer fault simply means the static
+            # vocabulary decides, exactly as before the index existed.
+            reasons.discard(TurnReason.SKILL)
+
+    # Realtime follow-ups routinely omit the evidence domain and ASR may garble
+    # the possessive itself. Inherit only when the current lookup contains an
+    # explicit discourse reference; an unrelated standalone question must never
+    # be captured merely because an older turn mentioned a Wiki or connector.
+    context_text = " ".join(str(item or "") for item in context).strip()
+    if len(context_text) > _CONTEXT_MAX_CHARS:
+        context_text = context_text[-_CONTEXT_MAX_CHARS:]
+    context_normalized = _normalize(context_text)
+    contextual_follow_up = is_contextual_follow_up(text, context)
+    if contextual_follow_up:
+        inherited = False
+        if _LOCAL_STATE_RE.search(context_normalized):
+            reasons.add(TurnReason.LOCAL_STATE)
+            inherited = True
+        if _CONNECTED_DOMAIN_RE.search(context_normalized):
+            reasons.add(TurnReason.CONNECTED_DATA)
+            inherited = True
+        if _OWNERSHIP_RE.search(context_normalized):
+            reasons.add(TurnReason.PRIVATE_DATA)
+            inherited = True
+        if _CURRENT_RE.search(context_normalized):
+            reasons.add(TurnReason.CURRENT_DATA)
+            inherited = True
+        if _MISSION_RE.search(context_normalized):
+            reasons.add(TurnReason.MISSION)
+            inherited = True
+        if _SKILL_RE.search(context_normalized):
+            reasons.add(TurnReason.SKILL)
+            inherited = True
+
+        contextual_required = _matched_capabilities(
+            context_text,
+            capability_registry=capability_registry,
+            tool_names=tool_names,
+            require_lookup_shape=False,
+            contextual_identity_only=True,
+        )
+        if contextual_required:
+            required = tuple(sorted(set(required) | set(contextual_required)))
+            reasons.add(TurnReason.CAPABILITY)
+            reasons.add(TurnReason.CONNECTED_DATA)
+            inherited = True
+
+        if evidence_domains:
+            for keywords in evidence_domains.values():
+                if any(
+                    re.search(
+                        r"\b" + re.escape(_normalize(keyword)) + r"\b",
+                        context_normalized,
+                    )
+                    for keyword in keywords
+                ):
+                    reasons.add(TurnReason.CONNECTED_DATA)
+                    inherited = True
+                    break
+        if inherited:
+            reasons.add(TurnReason.UNCERTAIN)
+
+    evidence_domain_hit = False
+    if evidence_domains and lookup and not definition:
+        for keywords in evidence_domains.values():
+            if any(
+                re.search(r"\b" + re.escape(_normalize(keyword)) + r"\b", normalized)
+                for keyword in keywords
+            ):
+                reasons.add(TurnReason.CONNECTED_DATA)
+                evidence_domain_hit = True
+                break
+
+    # A lookup that names a live capability/tool but no stronger category is
+    # still connected evidence. This catches arbitrary future MCP objects.
+    if required and lookup and not definition:
+        reasons.add(TurnReason.CONNECTED_DATA)
+
+    # Questions that clearly request fresh or private evidence but are phrased
+    # outside the known lookup vocabulary fail toward the orchestrator — except
+    # deliberation/opinion/why turns, where the possessive or time word is part
+    # of the user's story, not an evidence request.
+    if (
+        (private or _CURRENT_RE.search(weak_scan_text))
+        and normalized.endswith("?")
+        and not definition
+        and not (deliberative or opinion or why_question)
+    ):
+        reasons.add(TurnReason.UNCERTAIN)
+
+    # Public fact grounding is an evidence contract, not another research
+    # router. Explicitly fresh public facts always ground. Evergreen facts do
+    # so only when the active model declares that requirement. Connected and
+    # private lookups retain their own tools and must never leak into web
+    # search. Set de-duplication gives the execution layer exactly one required
+    # search capability even if the live tool catalog matched it too.
+    public_fact_shape = is_public_fact_question(text)
+    non_public_evidence = reasons & {
+        TurnReason.LOCAL_STATE,
+        TurnReason.MISSION,
+        TurnReason.PRIVATE_DATA,
+        TurnReason.SCREEN_CONTEXT,
+        TurnReason.SKILL,
+        TurnReason.WORKSPACE,
+    }
+    if TurnReason.ACTION in reasons and not public_fact_shape:
+        non_public_evidence.add(TurnReason.ACTION)
+    required_without_public_search = {
+        item for item in required if item != PUBLIC_FACT_GROUNDING_CAPABILITY
+    }
+    if TurnReason.CAPABILITY in reasons and required_without_public_search:
+        non_public_evidence.add(TurnReason.CAPABILITY)
+    # An evidence-domain keyword ("steht morgen … an" → calendar) IS connected
+    # evidence: without it here, "Was ist morgen? Steht morgen irgendwas an?"
+    # was graded a fresh PUBLIC fact and web-searched (live 2026-08-18
+    # 19:32: "Ich konnte das gerade nicht zuverlässig prüfen").  # i18n-allow: live quotes
+    if TurnReason.CONNECTED_DATA in reasons and (
+        required_without_public_search
+        or evidence_domain_hit
+        or _CONNECTED_DOMAIN_RE.search(normalized)
+        or _MUSIC_NOW_PLAYING_RE.search(normalized)
+        or _CONTACT_DETAIL_RE.search(normalized)
+        or private
+    ):
+        non_public_evidence.add(TurnReason.CONNECTED_DATA)
+    fresh_public_fact = (
+        TurnReason.CURRENT_DATA in reasons
+        and (public_fact_shape or lookup)
+        and not non_public_evidence
+    )
+    ground_public_fact = fresh_public_fact or (
+        bool(requires_public_fact_grounding)
+        and public_fact_shape
+        and not non_public_evidence
+    )
+    if ground_public_fact:
+        reasons.add(TurnReason.PUBLIC_FACT)
+        required = tuple(sorted({*required, PUBLIC_FACT_GROUNDING_CAPABILITY}))
+
+    if not reasons:
+        return TurnPlan(path=TurnPath.NATIVE_REALTIME)
+    return TurnPlan(
+        path=TurnPath.ORCHESTRATOR,
+        reasons=frozenset(reasons),
+        required_capabilities=required,
+        requires_evidence=bool(
+            reasons
+            & {
+                TurnReason.CAPABILITY,
+                TurnReason.CONNECTED_DATA,
+                TurnReason.CURRENT_DATA,
+                TurnReason.LOCAL_STATE,
+                TurnReason.PRIVATE_DATA,
+                TurnReason.PUBLIC_FACT,
+                TurnReason.SCREEN_CONTEXT,
+                # What the pane actually printed is evidence the live model
+                # never holds; answering "what has Dana done" without it is
+                # exactly the guess this whole path exists to prevent.
+                TurnReason.WORKSPACE,
+            }
+        ),
+        requires_public_fact_grounding=ground_public_fact,
+        public_fact_grounding_timeout_s=(
+            PUBLIC_FACT_GROUNDING_TIMEOUT_S if ground_public_fact else None
+        ),
+        public_fact_grounding_attempt_limit=1 if ground_public_fact else 0,
+        grounding_failure_policy=(
+            GroundingFailurePolicy.HONEST_UNCERTAINTY
+            if ground_public_fact
+            else None
+        ),
+    )
+
+
+__all__ = [
+    "GroundingFailurePolicy",
+    "PUBLIC_FACT_GROUNDING_CAPABILITY",
+    "PUBLIC_FACT_GROUNDING_TIMEOUT_S",
+    "TurnPath",
+    "TurnPlan",
+    "TurnReason",
+    "is_action_order",
+    "is_assistant_tasking",
+    "is_contextual_follow_up",
+    "is_public_fact_question",
+    "plan_turn",
+]

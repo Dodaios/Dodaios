@@ -9,7 +9,7 @@ clicks are also broken). The primary is identified by its (0,0) origin instead.
 """
 from __future__ import annotations
 
-from jarvis.vision.screenshot import select_capture_monitor
+from dodaios.vision.screenshot import select_capture_monitor
 
 
 def _mon(left: int, top: int, w: int, h: int, **extra) -> dict:
@@ -34,7 +34,7 @@ def test_foreground_fallback_uses_true_primary(monkeypatch) -> None:
     # the foreground strategy returns `primary` — the (0,0) main monitor.
     # The follow probe itself is cross-platform now (one window_state seam).
     monkeypatch.setattr(
-        "jarvis.platform.window_state.foreground_window", lambda: None,
+        "dodaios.platform.window_state.foreground_window", lambda: None,
     )
     assert select_capture_monitor(_MONITORS, strategy="foreground") is _MAIN
 
@@ -42,14 +42,14 @@ def test_foreground_fallback_uses_true_primary(monkeypatch) -> None:
 def test_foreground_strategy_follows_the_window_monitor(monkeypatch) -> None:
     # The window sits on the LEFT secondary monitor — the capture must follow
     # it there on every platform, not pin the primary.
-    from jarvis.platform.window_state import WindowInfo
+    from dodaios.platform.window_state import WindowInfo
 
     monkeypatch.setattr(
-        "jarvis.platform.window_state.foreground_window",
+        "dodaios.platform.window_state.foreground_window",
         lambda: WindowInfo(title="App", handle=7),
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.window_frame_rect",
+        "dodaios.platform.window_state.window_frame_rect",
         lambda w: (-2000, 100, 800, 600),
     )
     assert select_capture_monitor(_MONITORS, strategy="foreground") is _LEFT
@@ -58,7 +58,7 @@ def test_foreground_strategy_follows_the_window_monitor(monkeypatch) -> None:
 def test_foreground_uses_largest_overlap_when_window_center_is_in_gap(
     monkeypatch,
 ) -> None:
-    from jarvis.platform.window_state import WindowInfo
+    from dodaios.platform.window_state import WindowInfo
 
     # L-shaped layout: the window center is in dead space, but most of the
     # window is on the left display.
@@ -66,11 +66,11 @@ def test_foreground_uses_largest_overlap_when_window_center_is_in_gap(
     left = _mon(0, 800, 1000, 1000)
     upper = _mon(1000, 0, 1200, 800)
     monkeypatch.setattr(
-        "jarvis.platform.window_state.foreground_window",
+        "dodaios.platform.window_state.foreground_window",
         lambda: WindowInfo(title="App", handle=9),
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.window_frame_rect",
+        "dodaios.platform.window_state.window_frame_rect",
         lambda _window: (700, 600, 800, 600),
     )
 

@@ -13,8 +13,8 @@ import threading
 import types
 from pathlib import Path
 
-from jarvis.ui import tray as tray_mod
-from jarvis.ui.tray import JarvisTray
+from dodaios.ui import tray as tray_mod
+from dodaios.ui.tray import JarvisTray
 
 
 def test_tray_start_is_noop_without_display(monkeypatch, caplog) -> None:

@@ -2,8 +2,8 @@
 so a vision provider can see it on the brain's next iteration."""
 from __future__ import annotations
 
-from jarvis.brain.tool_use_loop import _images_from_artifacts
-from jarvis.core.protocols import ImageBlock
+from dodaios.brain.tool_use_loop import _images_from_artifacts
+from dodaios.core.protocols import ImageBlock
 
 
 def test_image_artifact_becomes_image_block() -> None:

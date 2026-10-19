@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.harness.computer_use_context import ComputerUseContext
-from jarvis.harness.screenshot_only_loop import (
+from dodaios.harness.computer_use_context import ComputerUseContext
+from dodaios.harness.screenshot_only_loop import (
     _VALID_ACTIONS,
     CULoopError,
     _execute_action,
@@ -23,7 +23,7 @@ from jarvis.harness.screenshot_only_loop import (
     _validate_action_dict,
     _window_awareness_line,
 )
-from jarvis.platform.window_state import WindowInfo
+from dodaios.platform.window_state import WindowInfo
 
 
 def _ctx() -> ComputerUseContext:
@@ -67,7 +67,7 @@ def test_validate_action_dict_switch_window_requires_name():
 
 async def test_execute_switch_window_focuses(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.platform.window_state.focus_window", lambda t: (True, f"focused:{t}")
+        "dodaios.platform.window_state.focus_window", lambda t: (True, f"focused:{t}")
     )
     ok, msg = await _execute_action(
         {"action": "switch_window", "name": "OBS"}, _ctx(), trace_id=None, user_goal="x"
@@ -78,7 +78,7 @@ async def test_execute_switch_window_focuses(monkeypatch):
 
 async def test_execute_switch_window_reports_not_found(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.platform.window_state.focus_window", lambda t: (False, "no window")
+        "dodaios.platform.window_state.focus_window", lambda t: (False, "no window")
     )
     ok, msg = await _execute_action(
         {"action": "switch_window", "name": "Ghost"}, _ctx(), trace_id=None, user_goal="x"
@@ -98,11 +98,11 @@ async def test_execute_switch_window_empty_name_fails(monkeypatch):
 
 def test_awareness_line_lists_open_windows(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.platform.window_state.list_windows",
+        "dodaios.platform.window_state.list_windows",
         lambda: [WindowInfo("OBS 30", minimized=True), WindowInfo("Google Chrome")],
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.get_foreground_title", lambda: "Google Chrome"
+        "dodaios.platform.window_state.get_foreground_title", lambda: "Google Chrome"
     )
     line = _window_awareness_line(_ctx())
     assert "OBS 30 (minimized)" in line
@@ -111,7 +111,7 @@ def test_awareness_line_lists_open_windows(monkeypatch):
 
 
 def test_awareness_line_empty_when_no_windows(monkeypatch):
-    monkeypatch.setattr("jarvis.platform.window_state.list_windows", lambda: [])
+    monkeypatch.setattr("dodaios.platform.window_state.list_windows", lambda: [])
     assert _window_awareness_line(_ctx()) == ""
 
 
@@ -119,13 +119,13 @@ def test_awareness_line_never_raises(monkeypatch):
     def boom():
         raise RuntimeError("enum blew up")
 
-    monkeypatch.setattr("jarvis.platform.window_state.list_windows", boom)
+    monkeypatch.setattr("dodaios.platform.window_state.list_windows", boom)
     assert _window_awareness_line(_ctx()) == ""
 
 
 def test_awareness_line_respects_disable_flag(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.platform.window_state.list_windows", lambda: [WindowInfo("X")]
+        "dodaios.platform.window_state.list_windows", lambda: [WindowInfo("X")]
     )
     ctx = _ctx()
     ctx.window_awareness = False
@@ -134,8 +134,8 @@ def test_awareness_line_respects_disable_flag(monkeypatch):
 
 def test_awareness_line_dedupes_and_caps(monkeypatch):
     many = [WindowInfo(f"App {i}") for i in range(50)] + [WindowInfo("App 0")]
-    monkeypatch.setattr("jarvis.platform.window_state.list_windows", lambda: many)
-    monkeypatch.setattr("jarvis.platform.window_state.get_foreground_title", lambda: "")
+    monkeypatch.setattr("dodaios.platform.window_state.list_windows", lambda: many)
+    monkeypatch.setattr("dodaios.platform.window_state.get_foreground_title", lambda: "")
     line = _window_awareness_line(_ctx())
     # capped well below 51 entries; "App 0" appears once despite the duplicate
     assert line.count("App 0") == 1
@@ -204,7 +204,7 @@ async def test_execute_switch_window_falls_back_to_inline_without_tool(monkeypat
     # No switch_window tool wired -> graceful inline focus fallback (preserves the
     # module's degradation contract; the executor path is production-only).
     monkeypatch.setattr(
-        "jarvis.platform.window_state.focus_window", lambda t: (True, f"inline:{t}")
+        "dodaios.platform.window_state.focus_window", lambda t: (True, f"inline:{t}")
     )
     ok, msg = await _execute_action(
         {"action": "switch_window", "name": "OBS"}, _ctx(),  # _ctx() has tools={}
@@ -251,7 +251,7 @@ async def test_execute_drag_falls_back_to_inline_without_tool(monkeypatch):
     # No drag tool wired -> inline _perform_drag fallback (degradation contract).
     calls: list[tuple] = []
     monkeypatch.setattr(
-        "jarvis.harness.screenshot_only_loop._perform_drag",
+        "dodaios.harness.screenshot_only_loop._perform_drag",
         lambda x1, y1, x2, y2, d: calls.append((x1, y1, x2, y2)),
     )
     ok, _msg = await _execute_action(

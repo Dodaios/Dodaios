@@ -31,7 +31,7 @@ Three filter strategies were up for debate:
 
 ## Decision
 
-**Pattern-based filter in `jarvis/brain/output_filter.py`.** Regex-only, no LLM call, with the following order of operations:
+**Pattern-based filter in `dodaios/brain/output_filter.py`.** Regex-only, no LLM call, with the following order of operations:
 
 ```
 1. Stack trace -> standard phrase ("Error occurred"), fallback_used=True
@@ -122,7 +122,7 @@ Hyphen compounds (`Browser-Provider`, `Brain-Provider`) are preserved by lookbeh
 
 ## References
 
-- Implementation: `jarvis/brain/output_filter.py`, integration `jarvis/speech/pipeline.py` path #1 (line 1330) + #2 (line 647).
+- Implementation: `dodaios/brain/output_filter.py`, integration `dodaios/speech/pipeline.py` path #1 (line 1330) + #2 (line 647).
 - Tests: `tests/unit/brain/test_output_filter.py` (31 cases after the 2026-04-28 extension).
 - Persona mandate: `Jarvis-Behavior/persona-delegation-mandate.md` §"Phase 1 — Output-Filter".
 - Research: `docs/persona-research.md` Section 1.3 (drift classification per output) + Section 3 (TTS bypass paths).

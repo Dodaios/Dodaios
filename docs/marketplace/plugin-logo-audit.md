@@ -8,7 +8,7 @@ The live compiled SVG map omitted all 22 added connectors as well as Stripe and 
 
 ## All 46 plugins
 
-The table records the state observed before correction and the local artwork now selected. Full source/license provenance is maintained in [the brand ledger](../../jarvis/ui/web/frontend/src/assets/brands/LOGOS.md).
+The table records the state observed before correction and the local artwork now selected. Full source/license provenance is maintained in [the brand ledger](../../dodaios/ui/web/frontend/src/assets/brands/LOGOS.md).
 
 | Plugin | Before correction in desktop | Original asset supplied locally |
 |---|---|---|

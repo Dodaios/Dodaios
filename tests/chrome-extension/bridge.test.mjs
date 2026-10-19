@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {inspectPage} from "../../jarvis/assets/chrome-extension/page.mjs";
+import {inspectPage} from "../../dodaios/assets/chrome-extension/page.mjs";
 
 const store = {}, calls = [], tabs = new Map();
 let nextTab = 40, idleState = "active", onTarget = null;
@@ -42,7 +42,7 @@ globalThis.chrome = {
   runtime: {id: "test-extension", getURL: (path) => `chrome-extension://test-extension/${path}`, onMessage: event(), onStartup: event()},
   alarms: {onAlarm: event(), create: async () => {}, clear: async () => {}},
 };
-const {dispatch} = await import("../../jarvis/assets/chrome-extension/background.mjs");
+const {dispatch} = await import("../../dodaios/assets/chrome-extension/background.mjs");
 
 async function session(domains = ["example.com"]) {
   const id = nextTab.toString(16).padStart(32, "0");

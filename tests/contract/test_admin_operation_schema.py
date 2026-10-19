@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from jarvis.admin import (
+from dodaios.admin import (
     ADMIN_OPERATION_TYPES,
     DESTRUCTIVE_OPS,
     AdminOperation,

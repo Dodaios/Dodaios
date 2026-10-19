@@ -30,16 +30,16 @@ from typing import Any
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted
-from jarvis.dictation.insert import InsertResult
-from jarvis.dictation.outcomes import (
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted
+from dodaios.dictation.insert import InsertResult
+from dodaios.dictation.outcomes import (
     DICTATION_OUTCOMES,
     RECOVERABLE_OUTCOMES,
     is_recoverable,
 )
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def _pipeline(

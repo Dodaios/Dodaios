@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
-from jarvis.agentic_ide.names import default_names
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide.names import default_names
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 #: A workspace well past the sixteen panes that used to be the ceiling. There

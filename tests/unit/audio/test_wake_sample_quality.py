@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from jarvis.audio.wake_sample_quality import (
+from dodaios.audio.wake_sample_quality import (
     CLIP_RATIO_LIMIT,
     CLIP_RUN_LIMIT,
     LEVEL_TOO_QUIET_DBFS,

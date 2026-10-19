@@ -60,7 +60,7 @@ ImportError: cannot import name 'ClientSession' from 'mcp'
 **Root cause**: `tests/integration/` is missing `__init__.py`, but `tests/integration/mcp/` has one.
 Pytest therefore imports `tests/integration/mcp/` as the top-level module `mcp` and shadows the
 installed MCP SDK (`<USER_HOME>\AppData\Roaming\Python\Python311\site-packages\mcp`).
-`jarvis.mcp.client.start()` does `from mcp import ClientSession` and then gets the test package
+`dodaios.mcp.client.start()` does `from mcp import ClientSession` and then gets the test package
 instead of the SDK.
 
 ### tests/integration/ NEW (8 tests)
@@ -98,7 +98,7 @@ see `registry.py:94`). Functionally identical, tests green.
 **All 5 failures have the same cause**: a missing `tests/integration/__init__.py`.
 Pytest takes the nearest init-bearing folder (`tests/integration/mcp/`) as the package root
 and imports it as the top-level `mcp`. This displaces the pip-installed
-`mcp` (Anthropic MCP SDK) in `sys.modules`, which makes `jarvis/mcp/client.py:56` (`from mcp import ClientSession`)
+`mcp` (Anthropic MCP SDK) in `sys.modules`, which makes `dodaios/mcp/client.py:56` (`from mcp import ClientSession`)
 fail.
 
 **Hypothesis** (not auto-executed — report-only mode):
@@ -121,7 +121,7 @@ The `graceful-fallback` test covers the state realistically.
 
 ## Handoff to Orchestrator
 
-Report-only. No code changes in `jarvis/*` or to existing tests.
+Report-only. No code changes in `dodaios/*` or to existing tests.
 Newly created:
 - `tests/integration/test_phase1c_e2e.py` (6 tests, all PASS)
 - `tests/integration/test_skill_trigger_e2e.py` (2 tests, all PASS)

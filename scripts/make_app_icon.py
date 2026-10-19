@@ -30,7 +30,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 LOGO_SVG = ROOT / "assets" / "brand" / "dodaios-logo.svg"
-FRONTEND = ROOT / "jarvis" / "ui" / "web" / "frontend"
+FRONTEND = ROOT / "dodaios" / "ui" / "web" / "frontend"
 LOGO_TS = FRONTEND / "src" / "components" / "brand" / "jarvisLogoPath.ts"
 VIEWBOX = 256.0
 
@@ -202,7 +202,7 @@ def main() -> None:
 
     write_png(ROOT / "assets" / "icons" / "jarvis-1024.png", render_tile(MASTER))
     for path in (
-        ROOT / "jarvis" / "assets" / "icons" / "jarvis.png",
+        ROOT / "dodaios" / "assets" / "icons" / "jarvis.png",
         ROOT / "assets" / "icons" / "jarvis-gigi-256.png",
         public / "jarvis-gigi-256.png",
         public / "jarvis-logo.png",
@@ -214,7 +214,7 @@ def main() -> None:
         write_png(path, tile_256)
     write_png(public / "jarvis-mark-256.png", render_mark(256))
     for path in (
-        ROOT / "jarvis" / "assets" / "icons" / "jarvis.ico",
+        ROOT / "dodaios" / "assets" / "icons" / "jarvis.ico",
         ROOT / "assets" / "icons" / "jarvis.ico",
         public / "jarvis.ico",
         public / "jarvis-gigi.ico",
@@ -225,9 +225,9 @@ def main() -> None:
     dev_members = [render_dev_tile(s) for s in sorted(ICO_SIZES, reverse=True)]
     dev_png = render_dev_tile(256)
     write_png(ROOT / "assets" / "icons" / "jarvis-dev.png", dev_png)
-    write_png(ROOT / "jarvis" / "assets" / "icons" / "jarvis-dev.png", dev_png)
+    write_png(ROOT / "dodaios" / "assets" / "icons" / "jarvis-dev.png", dev_png)
     for path in (
-        ROOT / "jarvis" / "assets" / "icons" / "jarvis-dev.ico",
+        ROOT / "dodaios" / "assets" / "icons" / "jarvis-dev.ico",
         ROOT / "assets" / "icons" / "jarvis-dev.ico",
     ):
         write_ico(path, dev_members)

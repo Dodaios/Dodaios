@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 def _wants_artifact(text: str) -> bool:

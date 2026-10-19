@@ -11,10 +11,10 @@ import pytest
 from click.testing import CliRunner
 from fastapi import FastAPI
 
-from jarvis.cli_ctl.dynamic import build_api_group
-from jarvis.society.mars.navigation_models import RideState
-from jarvis.society.mars.navigation_store import _SCHEMA
-from jarvis.ui.web.mars_routes import router
+from dodaios.cli_ctl.dynamic import build_api_group
+from dodaios.society.mars.navigation_models import RideState
+from dodaios.society.mars.navigation_store import _SCHEMA
+from dodaios.ui.web.mars_routes import router
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -39,14 +39,14 @@ def test_ride_state_vocabulary_matches_every_boundary():
     app.include_router(router)
     assert set(app.openapi()["components"]["schemas"]["RideState"]["enum"]) == states
     source = (
-        ROOT / "jarvis/ui/web/frontend/src/components/society/mars/navigationApi.ts"
+        ROOT / "dodaios/ui/web/frontend/src/components/society/mars/navigationApi.ts"
     ).read_text("utf-8")
     declaration = re.search(r"RIDE_STATES = \[(.*?)\] as const", source)
     assert declaration is not None
     assert set(re.findall(r'"([a-z_]+)"', declaration.group(1))) == states
     for locale in ("en", "de", "es"):
         messages = json.loads(
-            (ROOT / f"jarvis/ui/web/frontend/src/i18n/locales/society/{locale}.json").read_text(
+            (ROOT / f"dodaios/ui/web/frontend/src/i18n/locales/society/{locale}.json").read_text(
                 "utf-8"
             )
         )["society"]["mars"]

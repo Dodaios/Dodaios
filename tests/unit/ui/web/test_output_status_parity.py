@@ -6,13 +6,13 @@ import re
 from pathlib import Path
 from typing import get_args
 
-from jarvis.ui.web.outputs_routes import OUTPUT_STATUSES, OutputStatus
+from dodaios.ui.web.outputs_routes import OUTPUT_STATUSES, OutputStatus
 
 
 def test_output_status_python_and_typescript_vocabularies_match() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     hook_source = (
-        repo_root / "jarvis/ui/web/frontend/src/hooks/useOutputs.ts"
+        repo_root / "dodaios/ui/web/frontend/src/hooks/useOutputs.ts"
     ).read_text(encoding="utf-8")
     match = re.search(
         r"export const OUTPUT_STATUSES = \[(?P<body>.*?)\] as const;",

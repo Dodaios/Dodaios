@@ -5,7 +5,7 @@ import types
 
 import pytest
 
-from jarvis.plugins.tool import click as click_mod
+from dodaios.plugins.tool import click as click_mod
 
 
 def test_windows_glide_refuses_button_down_after_foreground_switch(
@@ -37,10 +37,10 @@ def test_windows_glide_refuses_button_down_after_foreground_switch(
         lambda: types.SimpleNamespace(show_click=lambda *_args, **_kwargs: None),
     )
     monkeypatch.setattr(
-        "jarvis.cu.actuate.windows.WindowsActuator",
+        "dodaios.cu.actuate.windows.WindowsActuator",
         _Actuator,
     )
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
 
     with pytest.raises(OSError, match="foreground window changed"):
         click_mod._click_windows(

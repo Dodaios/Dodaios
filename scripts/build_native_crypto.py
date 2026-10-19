@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 from scripts.prepare_browser_wheelhouse import unbundled_libraries  # noqa: E402
 
 

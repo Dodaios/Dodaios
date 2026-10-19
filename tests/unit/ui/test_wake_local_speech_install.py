@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.settings_routes as sr
+import dodaios.ui.web.settings_routes as sr
 
 
 def _client() -> TestClient:
@@ -43,7 +43,7 @@ def test_already_installed_returns_done_without_pip(monkeypatch) -> None:
     monkeypatch.setattr(sr, "_local_speech_ready", lambda: True)
     called = []
     monkeypatch.setattr(
-        "jarvis.setup.dependencies.install_pip_package",
+        "dodaios.setup.dependencies.install_pip_package",
         lambda *a, **k: called.append(a) or (True, "x"),
     )
 
@@ -73,7 +73,7 @@ def test_fresh_install_runs_pip_and_status_flips_to_done(monkeypatch) -> None:
         models.append(name)
         ready["model"] = True
 
-    monkeypatch.setattr("jarvis.setup.dependencies.install_pip_package", fake_install)
+    monkeypatch.setattr("dodaios.setup.dependencies.install_pip_package", fake_install)
     monkeypatch.setattr(sr, "_download_local_wake_model", fake_download)
     monkeypatch.setattr(sr.threading, "Thread", _SyncThread)
 
@@ -96,7 +96,7 @@ def test_pip_failure_is_reported_as_error(monkeypatch) -> None:
     def fake_install(pkg, **_kw):
         return False, "pip exited 1: no matching wheel for this platform"
 
-    monkeypatch.setattr("jarvis.setup.dependencies.install_pip_package", fake_install)
+    monkeypatch.setattr("dodaios.setup.dependencies.install_pip_package", fake_install)
     monkeypatch.setattr(sr.threading, "Thread", _SyncThread)
 
     client = _client()
@@ -137,7 +137,7 @@ def test_done_state_without_readable_model_becomes_retryable_error(monkeypatch) 
 
 
 def test_available_pack_reapplies_current_wake_plan_live(monkeypatch) -> None:
-    from jarvis.core.config import WakeWordConfig
+    from dodaios.core.config import WakeWordConfig
 
     _reset_state()
     monkeypatch.setattr(sr, "_local_speech_ready", lambda: True)
@@ -185,7 +185,7 @@ def test_install_is_wheel_only_for_end_users(monkeypatch) -> None:
         kwargs.append(kw)
         return True, "ok"
 
-    monkeypatch.setattr("jarvis.setup.dependencies.install_pip_package", fake_install)
+    monkeypatch.setattr("dodaios.setup.dependencies.install_pip_package", fake_install)
     monkeypatch.setattr(sr.threading, "Thread", _SyncThread)
     _client().post("/api/settings/wake-word/enable-local-speech")
     assert kwargs and kwargs[0].get("only_binary") is True
@@ -202,7 +202,7 @@ def test_existing_engine_still_downloads_missing_wake_checkpoint(monkeypatch) ->
     models: list[str] = []
 
     monkeypatch.setattr(
-        "jarvis.setup.dependencies.install_pip_package",
+        "dodaios.setup.dependencies.install_pip_package",
         lambda pkg, **_kw: pip_calls.append(pkg) or (True, "unexpected"),
     )
 

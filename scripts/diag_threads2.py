@@ -15,8 +15,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 os.chdir(REPO)
 
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.config import load_config  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
 
 cfg = load_config(Path("jarvis.toml"))
 
@@ -32,7 +32,7 @@ def _dump(label: str) -> None:
 
 
 async def main() -> None:
-    from jarvis.plugins.tts import build_tts_from_config
+    from dodaios.plugins.tts import build_tts_from_config
     tts = build_tts_from_config(cfg.tts)
     t0 = time.perf_counter()
     try:
@@ -43,7 +43,7 @@ async def main() -> None:
         print(f"TTS call failed: {exc}", flush=True)
     _dump("after real TTS call (Vertex/gRPC)")
 
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     brain = build_default_brain(tier="router", bus=EventBus())
     t1 = time.perf_counter()
     try:

@@ -20,9 +20,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.iteration_budget import IterationBudget
-from jarvis.brain.tool_use_loop import ToolUseLoop
-from jarvis.core.protocols import BrainDelta, BrainRequest, ToolResult
+from dodaios.brain.iteration_budget import IterationBudget
+from dodaios.brain.tool_use_loop import ToolUseLoop
+from dodaios.core.protocols import BrainDelta, BrainRequest, ToolResult
 
 
 class _ListTool:

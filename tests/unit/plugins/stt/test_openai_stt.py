@@ -18,7 +18,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.plugins.stt.openai_api import (
+from dodaios.plugins.stt.openai_api import (
     DEFAULT_MODEL,
     OpenAIWhisperAPI,
     Transcript,
@@ -143,7 +143,7 @@ def test_stream_transcribe_yields_single_final() -> None:
 def test_missing_key_raises_clear_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """With no injected key AND no configured credential, a clear English error
     is raised so the STT factory degrades to the local floor (AP-22)."""
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     monkeypatch.setattr(
         cfg,

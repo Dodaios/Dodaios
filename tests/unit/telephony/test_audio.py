@@ -7,7 +7,7 @@ import struct
 
 import pytest
 
-from jarvis.telephony.audio import (
+from dodaios.telephony.audio import (
     STT_SAMPLE_RATE,
     TTS_SAMPLE_RATE,
     TWILIO_FRAME_BYTES,

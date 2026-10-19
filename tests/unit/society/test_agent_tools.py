@@ -8,10 +8,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.society.agent_tools import MessageAgentTool, WikiNoteTool
-from jarvis.society.capabilities import NEVER_GRANTED, build_catalog
-from jarvis.society.events import MsgType
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.agent_tools import MessageAgentTool, WikiNoteTool
+from dodaios.society.capabilities import NEVER_GRANTED, build_catalog
+from dodaios.society.events import MsgType
+from dodaios.society.runtime import SocietyRuntime
 
 
 @pytest.fixture

@@ -21,8 +21,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide.remote import _APPLY
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.agentic_ide.remote import _APPLY
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 def _bash() -> str | None:

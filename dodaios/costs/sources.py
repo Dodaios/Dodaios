@@ -1,0 +1,777 @@
+"""Readers that turn each store's own shape into :class:`CostEntry` rows.
+
+Every reader is defensive by design: a missing file, an older schema without
+the column it wants, or a corrupt row must degrade to "this source
+contributed nothing" and never to a failed request. A fresh install has none
+of these databases yet, and the section still has to open.
+
+Read-only, always: connections are opened in SQLite's immutable URI mode where
+possible so a live voice turn writing to the same file is never blocked.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import sqlite3
+from collections.abc import Iterator
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from .ledger import DB_NAME as LEDGER_DB_NAME
+from .ledger import first_call_ms, read_usage
+from .model import (
+    MISSION_SUBSCRIPTION_CLIS,
+    OPENAI_CONVENTION_RUNNERS,
+    ROLE_AGENT,
+    ROLE_BACKGROUND,
+    ROLE_PIPELINE,
+    ROLE_REALTIME,
+    ROLE_STT,
+    ROLE_TOOL,
+    ROLE_TTS,
+    ROLE_WORKER,
+    RUNTIME_CALLER,
+    RUNTIME_RUNNERS,
+    SUBSCRIPTION_RUNNERS,
+    SURFACE_AGENT_CHAT,
+    SURFACE_AGENTIC_IDE,
+    SURFACE_BACKGROUND,
+    SURFACE_JARVIS_VOICE,
+    SURFACE_MISSION,
+    SURFACE_VOICE,
+    CostEntry,
+    price_entry,
+)
+
+log = logging.getLogger(__name__)
+
+_LABEL_MAX = 90
+
+# A realtime provider reports its usage under this finish reason. It is the
+# one reliable marker that separates audio spend from the text model a turn
+# delegated to — both land in the same event stream.
+_REALTIME_FINISH = "realtime_usage"
+
+# Voice tiers that are not realtime run the classic pipeline.
+_REALTIME_TIER = "realtime"
+
+
+@dataclass(frozen=True, slots=True)
+class CostSources:
+    """Where the read model looks. Absent files are simply skipped."""
+
+    sessions_db: Path | None = None
+    missions_db: Path | None = None
+    agent_chat_db: Path | None = None
+    #: Where :mod:`dodaios.costs.cli_usage_index` keeps its index. A source
+    #: like any other, so a caller that did not ask for coding-CLI spend —
+    #: a test with its own fixtures, above all — does not silently get this
+    #: machine's.
+    cli_index_dir: Path | None = None
+    #: The usage ledger every metered provider writes to.
+    ledger_db: Path | None = None
+
+    def existing(self) -> list[Path]:
+        candidates = [self.sessions_db, self.missions_db, self.agent_chat_db, self.ledger_db]
+        if self.cli_index_dir is not None:
+            # The index is a source like the others: a refresh that adds
+            # thousands of CLI turns must invalidate a cached report.
+            from .cli_usage_index import DB_NAME
+
+            candidates.append(self.cli_index_dir / DB_NAME)
+        return [p for p in candidates if p and p.exists()]
+
+    def newest_mtime(self) -> float:
+        """Latest mtime across the sources — the cache key for a report."""
+        stamps = []
+        for p in self.existing():
+            try:
+                stamps.append(p.stat().st_mtime)
+            except OSError as exc:  # pragma: no cover — race with a prune
+                log.debug("cost source %s not stat-able: %s", p, exc)
+        return max(stamps, default=0.0)
+
+
+def default_sources(data_dir: Path | None = None) -> CostSources:
+    """Resolve the stores from the configured data directory.
+
+    The data dir — not the process CWD — decides, so a second instance
+    (``JARVIS_INSTANCE=dev``, which points ``memory.data_dir`` at ``data-dev/``)
+    reports its own spend rather than the default app's.
+    """
+    root = data_dir
+    if root is None:
+        from dodaios.core import config as cfg
+
+        root = Path(cfg.DATA_DIR)
+    root = Path(root)
+    return CostSources(
+        sessions_db=root / "sessions.db",
+        missions_db=root / "missions.db",
+        agent_chat_db=root / "agent_chat.db",
+        cli_index_dir=root,
+        ledger_db=root / LEDGER_DB_NAME,
+    )
+
+
+# ---------------------------------------------------------------------------
+# SQLite helpers
+# ---------------------------------------------------------------------------
+
+
+def _connect(path: Path | None) -> sqlite3.Connection | None:
+    """Open a read-only connection, or ``None`` when the file is unusable."""
+    if path is None or not path.exists():
+        return None
+    try:
+        conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=2.0)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.Error as exc:
+        log.warning("cost read model: %s not readable (%s)", path, exc)
+        return None
+
+
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1", (name,)
+    ).fetchone()
+    return row is not None
+
+
+def _clip(text: object, limit: int = _LABEL_MAX) -> str:
+    s = " ".join(str(text or "").split())
+    return s if len(s) <= limit else s[: limit - 1] + "…"
+
+
+def _int(value: object) -> int:
+    try:
+        return int(value or 0)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        # Silence is right: one malformed cell in a historic row means that
+        # counter is 0, not that the section fails to open. The row still
+        # carries its provider, model and timestamp.
+        return 0
+
+
+def _float(value: object) -> float:
+    try:
+        return float(value or 0.0)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        # Silence is right for the same reason as _int: a broken price cell
+        # falls back to 0.0 and is then re-derived from the rate tables.
+        return 0.0
+
+
+# ---------------------------------------------------------------------------
+# Voice — sessions.db
+# ---------------------------------------------------------------------------
+
+
+def _voice_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterator[CostEntry]:
+    """Voice spend, at the finest granularity the store offers.
+
+    ``voice_events`` records one ``BrainTurnCompleted`` per model call, which
+    is what makes the realtime/tool split visible: a single realtime turn that
+    delegates a tool call emits one event with ``realtime_usage`` (the audio
+    model) and one with a normal finish reason (the text model that ran the
+    tool). ``voice_turns`` only keeps the turn's winning provider, so it is
+    used for the turn context — and as the fallback for turns recorded before
+    the event stream existed.
+    """
+    conn = _connect(path)
+    if conn is None:
+        return
+    try:
+        if not _has_table(conn, "voice_turns"):
+            return
+        turns: dict[str, dict[str, object]] = {}
+        for row in conn.execute(
+            "SELECT id, session_id, started_ms, tier, provider, model, "
+            "       tokens_in, tokens_out, cost_usd, user_text "
+            "FROM voice_turns WHERE started_ms BETWEEN ? AND ?",
+            (since_ms, until_ms),
+        ):
+            turns[str(row["id"])] = dict(row)
+
+        covered: set[str] = set()
+        if _has_table(conn, "voice_events"):
+            for row in conn.execute(
+                "SELECT turn_id, session_id, ts_ms, payload_json FROM voice_events "
+                "WHERE kind = 'BrainTurnCompleted' AND ts_ms BETWEEN ? AND ?",
+                (since_ms, until_ms),
+            ):
+                try:
+                    payload = json.loads(row["payload_json"] or "{}")
+                except (TypeError, ValueError) as exc:
+                    log.debug("cost read model: unparsable voice event payload (%s)", exc)
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                turn_id = str(row["turn_id"] or "")
+                turn = turns.get(turn_id)
+                if turn is not None:
+                    covered.add(turn_id)
+                finish = str(payload.get("finish_reason") or "")
+                tier = str((turn or {}).get("tier") or "")
+                yield _voice_entry(
+                    ts_ms=_int(row["ts_ms"]),
+                    role=_voice_role(finish, tier),
+                    provider=str(payload.get("provider") or ""),
+                    model=str(payload.get("model") or ""),
+                    tokens_in=_int(payload.get("tokens_in")),
+                    tokens_out=_int(payload.get("tokens_out")),
+                    tokens_cached=_int(payload.get("tokens_cached")),
+                    recorded_usd=_float(payload.get("cost_usd")),
+                    ref_id=str(row["session_id"] or ""),
+                    label=_clip((turn or {}).get("user_text")),
+                )
+
+        for turn_id, turn in turns.items():
+            if turn_id in covered:
+                continue
+            tokens = _int(turn.get("tokens_in")) + _int(turn.get("tokens_out"))
+            if tokens <= 0 and _float(turn.get("cost_usd")) <= 0:
+                continue
+            tier = str(turn.get("tier") or "")
+            yield _voice_entry(
+                ts_ms=_int(turn.get("started_ms")),
+                role=ROLE_REALTIME if tier == _REALTIME_TIER else ROLE_PIPELINE,
+                provider=str(turn.get("provider") or ""),
+                model=str(turn.get("model") or ""),
+                tokens_in=_int(turn.get("tokens_in")),
+                tokens_out=_int(turn.get("tokens_out")),
+                recorded_usd=_float(turn.get("cost_usd")),
+                ref_id=str(turn.get("session_id") or ""),
+                label=_clip(turn.get("user_text")),
+            )
+    except sqlite3.Error as exc:
+        log.warning("cost read model: voice source failed (%s)", exc)
+    finally:
+        conn.close()
+
+
+def _voice_role(finish_reason: str, tier: str) -> str:
+    """Which model in the turn spent this.
+
+    Audio usage names itself. Anything else inside a realtime turn is the
+    delegated tool model; outside one it is the pipeline brain.
+    """
+    if finish_reason == _REALTIME_FINISH:
+        return ROLE_REALTIME
+    return ROLE_TOOL if tier == _REALTIME_TIER else ROLE_PIPELINE
+
+
+def _voice_entry(
+    *,
+    ts_ms: int,
+    role: str,
+    provider: str,
+    model: str,
+    tokens_in: int,
+    tokens_out: int,
+    recorded_usd: float,
+    ref_id: str,
+    label: str,
+    tokens_cached: int = 0,
+) -> CostEntry:
+    cost, source = price_entry(
+        provider=provider,
+        model=model,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        recorded_usd=recorded_usd,
+        tokens_cached=tokens_cached,
+    )
+    return CostEntry(
+        ts_ms=ts_ms,
+        surface=SURFACE_VOICE,
+        role=role,
+        provider=provider or "unknown",
+        model=model,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        tokens_cached=tokens_cached,
+        cost_usd=cost,
+        price_source=source,
+        ref_id=ref_id,
+        label=label,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Agent chat — agent_chat.db
+# ---------------------------------------------------------------------------
+
+# Every runner names its usage differently; these are the buckets each key
+# belongs in. Cache CREATION is billed like input (at a premium), cache READS
+# are the cheap bucket — they are kept apart so the UI can show both.
+_AGENT_IN_KEYS = (
+    "input_tokens",
+    "prompt_tokens",
+    "cache_creation_input_tokens",
+    "cache_write_input_tokens",
+)
+_AGENT_OUT_KEYS = ("output_tokens", "completion_tokens")
+
+# Reasoning is a BREAKDOWN of the output count, not a sibling of it — both
+# Anthropic and OpenAI report it inside ``output_tokens_details``. Summing it
+# alongside counted those tokens twice. It stands in only when a runner reports
+# no primary output count at all.
+_AGENT_OUT_DETAIL_KEYS = ("reasoning_output_tokens", "thinking_tokens")
+
+_AGENT_CACHED_KEYS = (
+    "cache_read_input_tokens",
+    "cached_input_tokens",
+    "cache_read_tokens",
+    # What the in-process API runner and the brain plugins call it.
+    "cache_hit_tokens",
+)
+
+
+def _agent_chat_entries(
+    path: Path | None, since_ms: int, until_ms: int, runtime_metered_from: int | None = None
+) -> Iterator[CostEntry]:
+    """One entry per finished agent-chat turn (Claude Code, Codex, …).
+
+    A Hermes / OpenClaw turn from ``runtime_metered_from`` on is skipped: the
+    model gateway wrote each of its calls to the ledger, which bills it.
+    """
+    conn = _connect(path)
+    if conn is None:
+        return
+    try:
+        if not _has_table(conn, "agent_chat_events"):
+            return
+        sessions: dict[str, sqlite3.Row] = {}
+        if _has_table(conn, "agent_chat_sessions"):
+            for row in conn.execute(
+                "SELECT session_id, title, provider, model FROM agent_chat_sessions"
+            ):
+                sessions[str(row["session_id"])] = row
+
+        # ``turn_started`` is where the runner is named, and it is the only
+        # place that says whether a monthly seat or an API key answered: the
+        # ``claude-api`` row means either, decided at call time. It also holds
+        # the model AS IT WAS, which the session row does not — that one moves
+        # with the picker and would re-label every past turn.
+        #
+        # Unfiltered by time on purpose: a turn that started before the window
+        # and finished inside it still needs its own runner.
+        starts: dict[str, dict[str, str]] = {}
+        for row in conn.execute(
+            "SELECT payload FROM agent_chat_events WHERE kind = 'turn_started'"
+        ):
+            try:
+                started = json.loads(row["payload"] or "{}")
+            except (TypeError, ValueError) as exc:
+                log.debug("cost read model: unparsable turn_started (%s)", exc)
+                continue
+            if not isinstance(started, dict):
+                continue
+            turn_id = str(started.get("turn_id") or "")
+            if turn_id:
+                starts[turn_id] = {
+                    "runner": str(started.get("runner") or ""),
+                    "provider": str(started.get("provider") or ""),
+                    "model": str(started.get("model") or ""),
+                }
+
+        for row in conn.execute(
+            "SELECT session_id, ts_ms, payload FROM agent_chat_events "
+            "WHERE kind = 'turn_finished' AND ts_ms BETWEEN ? AND ?",
+            (since_ms, until_ms),
+        ):
+            try:
+                payload = json.loads(row["payload"] or "{}")
+            except (TypeError, ValueError) as exc:
+                log.debug("cost read model: unparsable agent chat payload (%s)", exc)
+                continue
+            if not isinstance(payload, dict):
+                continue
+            usage = payload.get("usage")
+            usage = usage if isinstance(usage, dict) else {}
+            tokens_in = sum(_int(usage.get(k)) for k in _AGENT_IN_KEYS)
+            tokens_out = sum(_int(usage.get(k)) for k in _AGENT_OUT_KEYS)
+            if tokens_out <= 0:
+                tokens_out = sum(_int(usage.get(k)) for k in _AGENT_OUT_DETAIL_KEYS)
+            tokens_cached = sum(_int(usage.get(k)) for k in _AGENT_CACHED_KEYS)
+            recorded = _float(payload.get("cost_usd"))
+            if tokens_in + tokens_out + tokens_cached <= 0 and recorded <= 0:
+                continue
+            session = sessions.get(str(row["session_id"] or ""))
+            start = starts.get(str(payload.get("turn_id") or ""), {})
+            if (
+                runtime_metered_from is not None
+                and start.get("runner", "") in RUNTIME_RUNNERS
+                and _int(row["ts_ms"]) >= runtime_metered_from
+            ):
+                continue
+            if start.get("runner", "") in OPENAI_CONVENTION_RUNNERS:
+                # Same asymmetry the CLI index documents: the OpenAI usage
+                # object counts cache hits INSIDE input_tokens. Summing both
+                # billed every cached token twice. Never applied to Claude or
+                # agy, which report the two disjoint.
+                tokens_in = max(0, tokens_in - tokens_cached)
+            session_provider = str(session["provider"] if session is not None else "")
+            provider = start.get("provider") or session_provider or "agent-cli"
+            model = start.get("model") or str(session["model"] if session is not None else "")
+            cost, source = price_entry(
+                provider=provider,
+                model=model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                recorded_usd=recorded,
+                subscription=start.get("runner", "") in SUBSCRIPTION_RUNNERS,
+                tokens_cached=tokens_cached,
+            )
+            yield CostEntry(
+                ts_ms=_int(row["ts_ms"]),
+                surface=SURFACE_AGENT_CHAT,
+                role=ROLE_AGENT,
+                provider=provider,
+                model=model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                tokens_cached=tokens_cached,
+                cost_usd=cost,
+                price_source=source,
+                ref_id=str(row["session_id"] or ""),
+                label=_clip(session["title"] if session is not None else ""),
+            )
+    except sqlite3.Error as exc:
+        log.warning("cost read model: agent chat source failed (%s)", exc)
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Missions — missions.db
+# ---------------------------------------------------------------------------
+
+
+def _mission_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterator[CostEntry]:
+    """Autonomous worker spend, per draft the worker delivered.
+
+    ``WorkerDraftReady`` carries the worker's own ``tokens_used`` / ``cost_usd``
+    and NOTHING about who did the work: the CLI and the model live on the
+    ``WorkerSpawned`` event of the same ``worker_id``, so the two are joined
+    here. Without the join every draft was a nameless "mission-worker" with
+    no rate (64 unpriced drafts, 2026-08-25), and a Claude Code seat's own
+    API-equivalent quote passed as money that moved.
+
+    ``tokens_used`` is not always tokens: the Claude worker reports its TURN
+    count there (1-31 per draft against a three-figure cost). A row whose
+    recorded cost could not possibly come from that many tokens is emitted
+    cost-only rather than writing a turn count into a token column.
+    """
+    conn = _connect(path)
+    if conn is None:
+        return
+    try:
+        if not _has_table(conn, "mission_events") or not _has_table(conn, "missions"):
+            return
+        prompts: dict[str, str] = {
+            str(r["id"]): _clip(r["prompt"])
+            for r in conn.execute("SELECT id, prompt FROM missions")
+        }
+        spawned: dict[str, tuple[str, str]] = {}
+        for r in conn.execute(
+            "SELECT worker_id, payload_json FROM mission_events WHERE event_type = 'WorkerSpawned'"
+        ):
+            try:
+                meta = json.loads(r["payload_json"] or "{}")
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(meta, dict):
+                continue
+            raw_step = meta.get("step")
+            step: dict[str, Any] = raw_step if isinstance(raw_step, dict) else {}
+            cli = str(meta.get("cli") or step.get("worker_cli") or "")
+            model = str(meta.get("model") or step.get("model") or "")
+            spawned[str(r["worker_id"] or "")] = (cli, model)
+        for row in conn.execute(
+            "SELECT mission_id, worker_id, ts_ms, payload_json FROM mission_events "
+            "WHERE event_type = 'WorkerDraftReady' AND ts_ms BETWEEN ? AND ?",
+            (since_ms, until_ms),
+        ):
+            try:
+                payload = json.loads(row["payload_json"] or "{}")
+            except (TypeError, ValueError) as exc:
+                log.debug("cost read model: unparsable mission payload (%s)", exc)
+                continue
+            if not isinstance(payload, dict):
+                continue
+            tokens = _int(payload.get("tokens_used"))
+            recorded = _float(payload.get("cost_usd"))
+            if tokens <= 0 and recorded <= 0:
+                continue
+            cli, spawned_model = spawned.get(str(row["worker_id"] or ""), ("", ""))
+            provider = str(payload.get("provider") or (f"{cli}-cli" if cli else "mission-worker"))
+            model = str(payload.get("model") or spawned_model)
+            # A turn count masquerading as tokens: no model call costs more
+            # than a cent per token. Keep the money, drop the fake quantity.
+            if recorded > 0 and tokens > 0 and recorded / tokens > 0.01:
+                tokens = 0
+            cost, source = price_entry(
+                provider=provider,
+                model=model,
+                tokens_in=tokens,
+                tokens_out=0,
+                recorded_usd=recorded,
+                subscription=cli in MISSION_SUBSCRIPTION_CLIS,
+            )
+            mission_id = str(row["mission_id"] or "")
+            yield CostEntry(
+                ts_ms=_int(row["ts_ms"]),
+                surface=SURFACE_MISSION,
+                role=ROLE_WORKER,
+                provider=provider,
+                model=model,
+                # The worker reports a single total; splitting it into a made-up
+                # in/out ratio would be a lie, so it counts as input.
+                tokens_in=tokens,
+                tokens_out=0,
+                tokens_cached=0,
+                cost_usd=cost,
+                price_source=source,
+                ref_id=mission_id,
+                label=prompts.get(mission_id, ""),
+            )
+    except sqlite3.Error as exc:
+        log.warning("cost read model: mission source failed (%s)", exc)
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Public
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Speech — sessions.db, but nothing like the token path above
+# ---------------------------------------------------------------------------
+
+
+def _speech_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterator[CostEntry]:
+    """What a turn spent on hearing and on speaking.
+
+    These rows carry no tokens and never will: an STT provider bills per audio
+    second and a TTS provider per character. Writing those quantities into the
+    token columns would make them add up with the brain's tokens, which is a
+    different unit and a wrong number. They stay zero, the cost is real, and
+    the quantity that WAS billed goes into the label so the line item can say
+    what was actually bought.
+    """
+    conn = _connect(path)
+    if conn is None:
+        return
+    try:
+        if not _has_table(conn, "voice_events"):
+            return
+        for row in conn.execute(
+            "SELECT session_id, ts_ms, payload_json FROM voice_events "
+            "WHERE kind = 'SpeechUsageRecorded' AND ts_ms BETWEEN ? AND ?",
+            (since_ms, until_ms),
+        ):
+            try:
+                payload = json.loads(row["payload_json"] or "{}")
+            except (TypeError, ValueError) as exc:
+                log.debug("cost read model: unparsable speech payload (%s)", exc)
+                continue
+            if not isinstance(payload, dict):
+                continue
+            stage = str(payload.get("stage") or "")
+            if stage not in (ROLE_STT, ROLE_TTS):
+                continue
+            chars = _int(payload.get("chars"))
+            audio_ms = _float(payload.get("audio_ms"))
+            if chars <= 0 and audio_ms <= 0:
+                continue
+            source = str(payload.get("price_source") or "unknown")
+            yield CostEntry(
+                ts_ms=_int(row["ts_ms"]),
+                surface=SURFACE_JARVIS_VOICE,
+                role=stage,
+                provider=str(payload.get("provider") or "speech"),
+                model=str(payload.get("voice") or ""),
+                tokens_in=0,
+                tokens_out=0,
+                tokens_cached=0,
+                cost_usd=_float(payload.get("cost_usd")),
+                # The meter priced it against the vendor's own unit; re-deriving
+                # it here from a token rate would be nonsense.
+                price_source=source,  # type: ignore[arg-type]
+                ref_id=str(row["session_id"] or ""),
+                label=_speech_label(stage, chars, audio_ms),
+                chars=chars,
+                audio_ms=int(audio_ms),
+            )
+    except sqlite3.Error as exc:
+        log.warning("cost read model: speech source failed (%s)", exc)
+    finally:
+        conn.close()
+
+
+def _speech_label(stage: str, chars: int, audio_ms: float) -> str:
+    """The quantity that was billed, in the unit it was billed in."""
+    if stage == ROLE_TTS and chars > 0:
+        return f"{chars:,} characters spoken".replace(",", " ")
+    if audio_ms > 0:
+        return f"{audio_ms / 1000:.1f} s heard"
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Coding CLIs — the index, not the transcripts
+# ---------------------------------------------------------------------------
+
+#: The finest grain the section ever draws. See :func:`_cli_entries`.
+_CLI_READ_BUCKET_MS = 60 * 60 * 1000
+
+
+def _cli_entries(
+    data_dir: Path | None, since_ms: int, until_ms: int, bucket_ms: int
+) -> Iterator[CostEntry]:
+    """Coding agents run through a vendor CLI.
+
+    Their transcripts are gigabytes and live outside this app, so nothing is
+    parsed here: :mod:`dodaios.costs.cli_usage_index` reads each file once in
+    the background and this walks the small table it leaves behind.
+
+    A CLI on a monthly seat is quoted at what the same work would have cost
+    through the API and labelled ``subscription``; one on the user's own key
+    (OpenCode) carries the price it recorded, which is money that moved.
+
+    ``bucket_ms`` is an upper bound, never the grain itself. The report's own
+    grain must not decide how many rows a day HAS: read day-wide and a
+    session collapses into one row, read hour-wide and the same session
+    becomes several — so the daily ledger and the day report behind it
+    counted the same day differently (113 vs 204 calls, 2026-08-25). Reading
+    always at the finest grain the section ever draws keeps every count the
+    same number wherever it appears; rolling those rows up into days is what
+    :func:`dodaios.costs.aggregate.build_report` does anyway.
+    """
+    if data_dir is None:
+        return
+    bucket_ms = min(int(bucket_ms), _CLI_READ_BUCKET_MS)
+    try:
+        from .cli_usage_index import rollups as indexed_rollups
+    except ImportError as exc:  # pragma: no cover — the module ships with us
+        log.warning("cost read model: cli index unavailable (%s)", exc)
+        return
+    try:
+        turns = list(
+            indexed_rollups(
+                data_dir=data_dir,
+                since_ms=since_ms,
+                until_ms=until_ms,
+                bucket_ms=bucket_ms,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — a broken index must not 500 the page
+        log.warning("cost read model: cli index read failed (%s)", exc)
+        return
+    for turn in turns:
+        if turn.tokens_in + turn.tokens_out + turn.tokens_cached <= 0:
+            continue
+        # ``claude-cli`` / ``codex-cli`` already carry their vendor in the
+        # name, which is all the logo lookup needs — no translation table.
+        provider = turn.agent
+        # Seat-driven CLIs are quoted at the API-equivalent; a bring-your-own-
+        # key CLI (OpenCode) recorded what its key was actually billed, and a
+        # free model there stays free rather than becoming a gap.
+        cost, source = price_entry(
+            provider=provider,
+            model=turn.model,
+            tokens_in=turn.tokens_in,
+            tokens_out=turn.tokens_out,
+            recorded_usd=turn.cost_usd,
+            subscription=provider in SUBSCRIPTION_RUNNERS,
+            tokens_cached=turn.tokens_cached,
+        )
+        yield CostEntry(
+            ts_ms=turn.ts_ms,
+            surface=SURFACE_AGENTIC_IDE,
+            role=ROLE_AGENT,
+            provider=provider,
+            model=turn.model,
+            tokens_in=turn.tokens_in,
+            tokens_out=turn.tokens_out,
+            tokens_cached=turn.tokens_cached,
+            cost_usd=cost,
+            price_source=source,
+            ref_id=turn.session_id,
+            label=_clip(turn.label or turn.cwd),
+        )
+
+
+# Callers whose spend a richer source already reports. Their ledger rows are
+# the audit trail, not a second bill: a voice turn is on BrainTurnCompleted
+# with its role split, a chat turn on turn_finished, a mission worker on its
+# draft.
+COVERED_ELSEWHERE: frozenset[str] = frozenset({"voice-turn", "agent-chat", "mission-worker"})
+
+
+def _ledger_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterator[CostEntry]:
+    """Every model call no surface claims, as the ledger recorded it."""
+    if path is None:
+        return
+    for row in read_usage(path, since_ms, until_ms):
+        if row.caller in COVERED_ELSEWHERE:
+            continue
+        cost, source = price_entry(
+            provider=row.provider,
+            model=row.model,
+            tokens_in=row.tokens_in,
+            tokens_out=row.tokens_out,
+            recorded_usd=row.cost_usd,
+            tokens_cached=row.tokens_cached,
+        )
+        # A Hermes / OpenClaw agent's model call is agent work, not background.
+        runtime = row.caller == RUNTIME_CALLER
+        yield CostEntry(
+            ts_ms=row.ts_ms,
+            surface=SURFACE_AGENT_CHAT if runtime else SURFACE_BACKGROUND,
+            role=ROLE_AGENT if runtime else ROLE_BACKGROUND,
+            provider=row.provider or "unknown",
+            model=row.model,
+            tokens_in=row.tokens_in,
+            tokens_out=row.tokens_out,
+            tokens_cached=row.tokens_cached,
+            cost_usd=cost,
+            price_source=source,
+            ref_id="",
+            label=_clip(
+                row.label or ("Hermes / OpenClaw agent" if runtime else row.caller)
+                or "background"
+            ),
+        )
+
+
+def collect_entries(
+    sources: CostSources,
+    *,
+    since_ms: int = 0,
+    until_ms: int = 2**62,
+    bucket_ms: int = 86_400_000,
+) -> list[CostEntry]:
+    """Every priced line item across all sources, newest last."""
+    entries: list[CostEntry] = []
+    entries.extend(_voice_entries(sources.sessions_db, since_ms, until_ms))
+    runtime_metered_from = (
+        first_call_ms(sources.ledger_db, RUNTIME_CALLER) if sources.ledger_db else None
+    )
+    entries.extend(
+        _agent_chat_entries(sources.agent_chat_db, since_ms, until_ms, runtime_metered_from)
+    )
+    entries.extend(_mission_entries(sources.missions_db, since_ms, until_ms))
+    entries.extend(_speech_entries(sources.sessions_db, since_ms, until_ms))
+    entries.extend(
+        _cli_entries(sources.cli_index_dir, since_ms, until_ms, bucket_ms)
+    )
+    entries.extend(_ledger_entries(sources.ledger_db, since_ms, until_ms))
+    entries.sort(key=lambda e: e.ts_ms)
+    return entries

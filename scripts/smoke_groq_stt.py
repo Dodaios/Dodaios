@@ -22,7 +22,7 @@ import numpy as np
 # Ensure we hit the editable-install path
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
-from jarvis.plugins.stt.groq_api import GroqWhisperAPI  # noqa: E402
+from dodaios.plugins.stt.groq_api import GroqWhisperAPI  # noqa: E402
 
 
 @dataclass

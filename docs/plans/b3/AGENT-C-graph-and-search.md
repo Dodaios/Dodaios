@@ -10,11 +10,11 @@ The visual contract is `<USER_HOME>\Desktop\b3-wiki-view-mockup.html`. Graph nod
 
 | File | Status | Purpose |
 |---|---|---|
-| `jarvis/ui/web/frontend/src/components/wiki/WikiGraph.tsx` | **NEW** | Force-directed 2D graph of wikilink connections |
-| `jarvis/ui/web/frontend/src/components/wiki/WikiSearch.tsx` | **NEW** | Ctrl-K search bar with dropdown results |
-| `jarvis/ui/web/frontend/src/lib/wikiGraph.ts` | **NEW** | Pure-function helpers: data normalisation, node colour map |
-| `jarvis/ui/web/frontend/src/components/wiki/WikiGraph.test.tsx` | **NEW** | Component test |
-| `jarvis/ui/web/frontend/src/components/wiki/WikiSearch.test.tsx` | **NEW** | Component test |
+| `dodaios/ui/web/frontend/src/components/wiki/WikiGraph.tsx` | **NEW** | Force-directed 2D graph of wikilink connections |
+| `dodaios/ui/web/frontend/src/components/wiki/WikiSearch.tsx` | **NEW** | Ctrl-K search bar with dropdown results |
+| `dodaios/ui/web/frontend/src/lib/wikiGraph.ts` | **NEW** | Pure-function helpers: data normalisation, node colour map |
+| `dodaios/ui/web/frontend/src/components/wiki/WikiGraph.test.tsx` | **NEW** | Component test |
+| `dodaios/ui/web/frontend/src/components/wiki/WikiSearch.test.tsx` | **NEW** | Component test |
 
 No backend, no other component files. If you find yourself editing `WikiView.tsx` (B's), `wiki_routes.py` (A's), or anywhere outside `frontend/src/components/wiki/` and `frontend/src/lib/` — stop.
 
@@ -151,7 +151,7 @@ Use `cmdk`'s `<Command.Dialog>` for the modal. It handles keyboard nav out of th
 ### 6.2 Build gate
 
 ```powershell
-cd jarvis/ui/web/frontend
+cd dodaios/ui/web/frontend
 npm install               # picks up the two new deps
 npm run build             # graph chunk should be ~150 KB after splitting
 npx tsc --noEmit -p .     # zero TS errors

@@ -22,9 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.capabilities import _reset_registry_for_tests, get_registry
-from jarvis.skills.plugin_coupling import PAIRED_CAP_PREFIX
-from jarvis.skills.registry import SkillRegistry
+from dodaios.core.capabilities import _reset_registry_for_tests, get_registry
+from dodaios.skills.plugin_coupling import PAIRED_CAP_PREFIX
+from dodaios.skills.registry import SkillRegistry
 
 
 @pytest.fixture

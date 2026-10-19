@@ -4,13 +4,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser.bridge import brain_messages
-from jarvis.society.capabilities import (
+from dodaios.society.browser.bridge import brain_messages
+from dodaios.society.capabilities import (
     build_catalog,
     capability_id_for_tool,
     tool_name_for_capability,
 )
-from jarvis.ui.web.society_browser_routes import validate_control
+from dodaios.ui.web.society_browser_routes import validate_control
 
 
 def test_browser_capability_roundtrip():
@@ -28,7 +28,7 @@ def test_browser_capability_roundtrip():
 def test_native_window_probe_degrades_without_native_dependencies(monkeypatch, platform):
     import importlib.util
 
-    from jarvis.society.browser import native_window
+    from dodaios.society.browser import native_window
 
     monkeypatch.setattr(native_window.sys, "platform", platform)
     monkeypatch.setattr(importlib.util, "find_spec", lambda _: None)
@@ -36,7 +36,7 @@ def test_native_window_probe_degrades_without_native_dependencies(monkeypatch, p
 
 
 def test_add_menu_names_the_browser_as_chrome():
-    from jarvis.agent_chat.tool_catalog import build_catalog, keyword_rank
+    from dodaios.agent_chat.tool_catalog import build_catalog, keyword_rank
 
     rows = build_catalog(
         {"society_browser": SimpleNamespace(description="Browse websites", risk_tier="monitor")}
@@ -50,7 +50,7 @@ def test_add_menu_names_the_browser_as_chrome():
 async def test_cold_browser_start_emits_progress_until_subscription_ready():
     import asyncio
 
-    from jarvis.ui.web.society_browser_routes import _subscribe_with_progress
+    from dodaios.ui.web.society_browser_routes import _subscribe_with_progress
 
     ready = asyncio.Event()
     messages = []
@@ -75,7 +75,7 @@ async def test_cold_browser_start_emits_progress_until_subscription_ready():
 async def test_starting_viewer_transport_failure_cancels_subscription():
     import asyncio
 
-    from jarvis.ui.web.society_browser_routes import _subscribe_with_progress
+    from dodaios.ui.web.society_browser_routes import _subscribe_with_progress
 
     cancelled = asyncio.Event()
     sends = 0
@@ -100,8 +100,8 @@ async def test_starting_viewer_transport_failure_cancels_subscription():
 
 
 async def test_stopped_browser_turn_cannot_retry_but_new_user_turn_can(tmp_path):
-    from jarvis.society.browser.bridge import execute_live
-    from jarvis.society.browser.live import LiveSessions
+    from dodaios.society.browser.bridge import execute_live
+    from dodaios.society.browser.live import LiveSessions
 
     live = LiveSessions(tmp_path)
     live.stop_turn("agent", "denied-turn")
@@ -117,7 +117,7 @@ async def test_stopped_browser_turn_cannot_retry_but_new_user_turn_can(tmp_path)
 async def test_stop_button_also_stops_the_owning_chat(monkeypatch, chat_id):
     import asyncio
 
-    from jarvis.ui.web import society_browser_routes as routes
+    from dodaios.ui.web import society_browser_routes as routes
 
     seen = []
     lock = asyncio.Lock()
@@ -154,7 +154,7 @@ async def test_stop_button_also_stops_the_owning_chat(monkeypatch, chat_id):
 async def test_agent_cancel_releases_the_browser_without_stopping_the_chat(monkeypatch):
     import asyncio
 
-    from jarvis.ui.web import society_browser_routes as routes
+    from dodaios.ui.web import society_browser_routes as routes
 
     seen = []
     lock = asyncio.Lock()
@@ -190,7 +190,7 @@ async def test_agent_cancel_releases_the_browser_without_stopping_the_chat(monke
 async def test_open_probe_reports_a_running_browser_without_launching_one(monkeypatch):
     import asyncio
 
-    from jarvis.ui.web import society_browser_routes as routes
+    from dodaios.ui.web import society_browser_routes as routes
 
     ensured = []
     busy = asyncio.Lock()
@@ -239,7 +239,7 @@ async def test_open_probe_reports_a_running_browser_without_launching_one(monkey
 async def test_desktop_fetch_stop_still_ends_the_chat(monkeypatch):
     import asyncio
 
-    from jarvis.ui.web import society_browser_routes as routes
+    from dodaios.ui.web import society_browser_routes as routes
 
     seen = []
     lock = asyncio.Lock()
@@ -275,7 +275,7 @@ async def test_desktop_fetch_stop_still_ends_the_chat(monkeypatch):
 async def test_same_chat_replaces_an_abandoned_browser_run():
     import asyncio
 
-    from jarvis.society.browser.live import claim_browser
+    from dodaios.society.browser.live import claim_browser
 
     lock = asyncio.Lock()
     started = asyncio.Event()
@@ -310,7 +310,7 @@ async def test_same_chat_replaces_an_abandoned_browser_run():
 async def test_another_chat_and_manual_control_stay_busy():
     import asyncio
 
-    from jarvis.society.browser.live import claim_browser
+    from dodaios.society.browser.live import claim_browser
 
     lock = asyncio.Lock()
     await lock.acquire()
@@ -333,7 +333,7 @@ async def test_another_chat_and_manual_control_stay_busy():
 async def test_pending_approval_is_not_replaced():
     import asyncio
 
-    from jarvis.society.browser.live import claim_browser
+    from dodaios.society.browser.live import claim_browser
 
     lock = asyncio.Lock()
     await lock.acquire()
@@ -359,7 +359,7 @@ async def test_pending_approval_is_not_replaced():
 
 
 async def test_bare_cancel_does_not_mark_the_turn_stopped(tmp_path):
-    from jarvis.society.browser.live import LiveSessions
+    from dodaios.society.browser.live import LiveSessions
 
     live = LiveSessions(tmp_path)
     called = []
@@ -396,7 +396,7 @@ async def test_browser_denial_stops_only_its_planner_before_releasing_reply(
 ):
     import asyncio
 
-    from jarvis.ui.web import society_routes as routes
+    from dodaios.ui.web import society_routes as routes
 
     seen = []
     lock = asyncio.Lock()
@@ -438,10 +438,10 @@ async def test_browser_denial_stops_only_its_planner_before_releasing_reply(
 
 
 async def test_jarvis_chat_uses_the_lead_browser_with_its_selected_model(tmp_path, monkeypatch):
-    from jarvis.agent_chat.surface_kits import kit_for
-    from jarvis.agent_chat.tool_catalog import build_catalog, resolve_choices
-    from jarvis.core.protocols import ToolResult
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.agent_chat.surface_kits import kit_for
+    from dodaios.agent_chat.tool_catalog import build_catalog, resolve_choices
+    from dodaios.core.protocols import ToolResult
+    from dodaios.society.runtime import SocietyRuntime
 
     runtime = SocietyRuntime(tmp_path, seed_starter_team=False)
     await runtime.ensure_started()
@@ -451,7 +451,7 @@ async def test_jarvis_chat_uses_the_lead_browser_with_its_selected_model(tmp_pat
         seen.append((caller.agent_id, caller.provider, caller.model))
         return ToolResult(True, {"ok": True}, None)
 
-    monkeypatch.setattr("jarvis.society.browser.bridge.execute_live", execute)
+    monkeypatch.setattr("dodaios.society.browser.bridge.execute_live", execute)
     try:
         original = await runtime.roster.get(runtime.lead_id)
         session = SimpleNamespace(
@@ -476,10 +476,10 @@ async def test_jarvis_chat_uses_the_lead_browser_with_its_selected_model(tmp_pat
 
 
 async def test_upload_rejects_files_outside_the_agent_workspace(tmp_path, monkeypatch):
-    from jarvis.society.browser.bridge import execute_live
-    from jarvis.society.browser.live import LiveSessions
+    from dodaios.society.browser.bridge import execute_live
+    from dodaios.society.browser.live import LiveSessions
 
-    monkeypatch.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _: None)
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _: None)
     live = LiveSessions(tmp_path)
     live.executor = object()
     live.model_resolver = lambda _: SimpleNamespace(complete=lambda *_: None)
@@ -527,7 +527,7 @@ def test_browser_multimodal_messages_preserve_images():
 
 
 async def test_slow_viewer_keeps_approval_and_only_latest_pixels():
-    from jarvis.society.browser.live import LiveUpdates
+    from dodaios.society.browser.live import LiveUpdates
 
     buffer = LiveUpdates()
     buffer.put_nowait({"kind": "approval", "id": "one"})
@@ -538,7 +538,7 @@ async def test_slow_viewer_keeps_approval_and_only_latest_pixels():
 
 
 async def test_slow_viewer_does_not_clear_a_newer_approval():
-    from jarvis.society.browser.live import LiveUpdates
+    from dodaios.society.browser.live import LiveUpdates
 
     buffer = LiveUpdates()
     buffer.put_nowait({"kind": "approval", "id": "old"})
@@ -549,7 +549,7 @@ async def test_slow_viewer_does_not_clear_a_newer_approval():
 
 
 def test_browser_children_do_not_inherit_provider_credentials(monkeypatch, tmp_path):
-    from jarvis.society.browser.install import worker_env
+    from dodaios.society.browser.install import worker_env
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
     monkeypatch.setenv("EXAMPLE_ACCESS_TOKEN", "test-placeholder")
@@ -567,7 +567,7 @@ def test_browser_children_do_not_inherit_provider_credentials(monkeypatch, tmp_p
 
 
 def test_managed_python_uses_windows_emulation_only_where_needed():
-    from jarvis.society.browser.install import managed_python_request
+    from dodaios.society.browser.install import managed_python_request
 
     assert managed_python_request("win32", "ARM64") == "cpython-3.12-windows-x86_64-none"
     assert managed_python_request("win32", "AMD64") == "3.12"
@@ -581,7 +581,7 @@ async def test_viewer_disconnect_cancels_pending_takeover(monkeypatch, burst):
 
     from starlette.websockets import WebSocketDisconnect
 
-    from jarvis.ui.web import society_browser_routes as routes
+    from dodaios.ui.web import society_browser_routes as routes
 
     started = asyncio.Event()
     cancelled = asyncio.Event()
@@ -653,8 +653,8 @@ async def test_viewer_disconnect_cancels_pending_takeover(monkeypatch, burst):
 
 
 async def test_busy_shared_profile_names_its_holder_to_the_viewer(monkeypatch):
-    from jarvis.society.browser.live import BrowserProfileBusy
-    from jarvis.ui.web import society_browser_routes as routes
+    from dodaios.society.browser.live import BrowserProfileBusy
+    from dodaios.ui.web import society_browser_routes as routes
 
     sent: list[dict] = []
 
@@ -696,7 +696,7 @@ async def test_hover_motion_coalesces_and_never_delays_or_drops_clicks(monkeypat
 
     from starlette.websockets import WebSocketDisconnect
 
-    from jarvis.ui.web import society_browser_routes as routes
+    from dodaios.ui.web import society_browser_routes as routes
 
     clicked = asyncio.Event()
     # Every message is read before the first motion's round trip ends, so the
@@ -774,9 +774,9 @@ async def test_hover_motion_coalesces_and_never_delays_or_drops_clicks(monkeypat
 async def test_text_only_model_retries_with_dom_and_keeps_images_disabled(
     tmp_path, monkeypatch, detail
 ):
-    from jarvis.core.protocols import BrainDelta
-    from jarvis.society.browser.bridge import execute_live
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.core.protocols import BrainDelta
+    from dodaios.society.browser.bridge import execute_live
+    from dodaios.society.runtime import SocietyRuntime
 
     seen = []
 
@@ -790,7 +790,7 @@ async def test_text_only_model_retries_with_dom_and_keeps_images_disabled(
                 raise RuntimeError(detail)
             yield BrainDelta(content='{"action": [{"done": {"success": true}}]}')
 
-    monkeypatch.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _: None)
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _: None)
     rt = SocietyRuntime(tmp_path, seed_starter_team=False)
     await rt.ensure_started()
     rt.browser.live.model_resolver = lambda _: TextBrain()
@@ -830,8 +830,8 @@ async def test_text_only_model_retries_with_dom_and_keeps_images_disabled(
 async def test_completed_chat_cancels_only_its_pending_browser(tmp_path, monkeypatch):
     import asyncio
 
-    from jarvis.society.browser.tool import stop_chat_browser
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.browser.tool import stop_chat_browser
+    from dodaios.society.runtime import SocietyRuntime
 
     rt = SocietyRuntime(tmp_path, seed_starter_team=False)
     await rt.ensure_started()
@@ -862,8 +862,8 @@ async def test_completed_chat_cancels_only_its_pending_browser(tmp_path, monkeyp
 async def test_chat_only_model_has_actionable_browser_failure_without_paid_fallback(
     tmp_path, monkeypatch
 ):
-    from jarvis.society.browser.bridge import execute_live
-    from jarvis.society.browser.live import LiveSessions
+    from dodaios.society.browser.bridge import execute_live
+    from dodaios.society.browser.live import LiveSessions
 
     live = LiveSessions(tmp_path)
     live.executor = object()
@@ -874,7 +874,7 @@ async def test_chat_only_model_has_actionable_browser_failure_without_paid_fallb
         raise KeyError("No inference implementation")
 
     live.model_resolver = unavailable
-    monkeypatch.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _: None)
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _: None)
     result = await execute_live(
         SimpleNamespace(data_dir=tmp_path),
         SimpleNamespace(agent_id="test", provider="chat-only"),

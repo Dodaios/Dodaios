@@ -13,20 +13,20 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.tool_context import register_turn, unregister_turn
-from jarvis.agent_chat.turn_completion import TurnCompletion
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ChatTurn, current_chat_turn
-from jarvis.mcp.jarvis_tools_server import build_server
-from jarvis.society.routine_runner import run_owned_routine
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.surface import tools_for_cli_session
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.store import TaskStore
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.tool_context import register_turn, unregister_turn
+from dodaios.agent_chat.turn_completion import TurnCompletion
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ChatTurn, current_chat_turn
+from dodaios.mcp.jarvis_tools_server import build_server
+from dodaios.society.routine_runner import run_owned_routine
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.surface import tools_for_cli_session
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.store import TaskStore
 from tests.fakes.fake_agent_chat import FakeChatService
 from tests.unit.society.test_cli_routines import ExecutingFake, call
 
@@ -36,8 +36,8 @@ async def world(request, tmp_path, monkeypatch):
     w = SimpleNamespace(runtime_name=request.param)
     w.clock = SimpleNamespace(now_ns=time.time_ns())
     clock = SimpleNamespace(time_ns=lambda: w.clock.now_ns, monotonic=time.monotonic)
-    monkeypatch.setattr("jarvis.tasks.store.time", clock)
-    monkeypatch.setattr("jarvis.tasks.scheduler.time", clock)
+    monkeypatch.setattr("dodaios.tasks.store.time", clock)
+    monkeypatch.setattr("dodaios.tasks.scheduler.time", clock)
     w.store = AgentChatStore(tmp_path / "chat.db")
     service = FakeChatService(w.store)
     cfg = SimpleNamespace(memory=SimpleNamespace(data_dir=str(tmp_path)))

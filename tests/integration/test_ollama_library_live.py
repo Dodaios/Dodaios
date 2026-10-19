@@ -21,7 +21,7 @@ import os
 import httpx
 import pytest
 
-from jarvis.brain.ollama_library import _tags_path, parse_search_html, parse_tags_html
+from dodaios.brain.ollama_library import _tags_path, parse_search_html, parse_tags_html
 
 pytestmark = [
     pytest.mark.integration,

@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.cu import conventions as conv
-from jarvis.cu.ledger import ActionLedger, action_key
-from jarvis.cu.verify import (
+from dodaios.cu import conventions as conv
+from dodaios.cu.ledger import ActionLedger, action_key
+from dodaios.cu.verify import (
     click_point_in_focused_element,
     clickable_labels,
     crop_raw,
@@ -312,7 +312,7 @@ async def test_ui_snapshot_guard_rejects_foreground_switch(monkeypatch):
 
     checks = iter((True, False))
     monkeypatch.setattr(
-        "jarvis.cu.verify._get_ui_tree_source",
+        "dodaios.cu.verify._get_ui_tree_source",
         lambda: _Source(),
     )
 
@@ -323,7 +323,7 @@ async def test_ui_snapshot_guard_rejects_foreground_switch(monkeypatch):
 
 
 def test_snap_point_to_element_smallest_containing_rect_wins():
-    from jarvis.cu.verify import snap_point_to_element
+    from dodaios.cu.verify import snap_point_to_element
 
     clickables = [
         ("Panel", "Button", (0, 0, 800, 600)),      # container-sized: capped
@@ -344,7 +344,7 @@ def test_snap_point_to_element_smallest_containing_rect_wins():
 
 
 def test_clickable_rects_keeps_nameless_elements_and_valid_bounds():
-    from jarvis.cu.verify import clickable_rects
+    from dodaios.cu.verify import clickable_rects
 
     nodes = (
         _node(role="Button", name="", enabled=True, bounds=(10, 10, 30, 20)),

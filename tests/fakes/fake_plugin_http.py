@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.token_store import Tokens
 
 
 class RotatingPluginHandler:

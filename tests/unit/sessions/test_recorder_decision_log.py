@@ -2,8 +2,8 @@
 voice_events. Guards that the recorder whitelist carries the brain rationale
 (ActionProposed.rationale) and the tool output preview (ActionExecuted.output_preview)
 so they survive into the persisted event stream."""
-from jarvis.core.events import ActionExecuted, ActionProposed
-from jarvis.sessions.recorder import _payload_for
+from dodaios.core.events import ActionExecuted, ActionProposed
+from dodaios.sessions.recorder import _payload_for
 
 
 def test_payload_carries_rationale_from_action_proposed():

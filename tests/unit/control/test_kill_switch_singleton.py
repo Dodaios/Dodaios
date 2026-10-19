@@ -12,10 +12,10 @@ import asyncio
 
 import pytest
 
-from jarvis.control import CancelScope, KillSwitch, get_kill_switch
-from jarvis.control import cancel as cancel_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.events import KillRequested
+from dodaios.control import CancelScope, KillSwitch, get_kill_switch
+from dodaios.control import cancel as cancel_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.events import KillRequested
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +70,7 @@ async def test_factory_injects_the_singleton_into_the_cu_context():
     Exercised structurally (no full factory boot): the context accepts the
     singleton and the harness-visible field is non-None.
     """
-    from jarvis.harness.computer_use_context import ComputerUseContext
+    from dodaios.harness.computer_use_context import ComputerUseContext
 
     ks = get_kill_switch()
     ctx = ComputerUseContext(

@@ -22,9 +22,9 @@ from typing import Any
 
 import pytest
 
-import jarvis.plugins.brain.openrouter as openrouter_mod
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
-from jarvis.plugins.brain.openrouter import OpenRouterBrain
+import dodaios.plugins.brain.openrouter as openrouter_mod
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+from dodaios.plugins.brain.openrouter import OpenRouterBrain
 
 
 def _req(reasoning_effort: Any = None) -> BrainRequest:

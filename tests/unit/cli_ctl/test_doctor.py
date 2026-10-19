@@ -11,9 +11,9 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
-from jarvis.cli_ctl import discovery, doctor
-from jarvis.cli_ctl.client import ApiError
-from jarvis.cli_ctl.dynamic import build_api_group
+from dodaios.cli_ctl import discovery, doctor
+from dodaios.cli_ctl.client import ApiError
+from dodaios.cli_ctl.dynamic import build_api_group
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +111,7 @@ def test_dynamic_api_layer_fails_clean_with_diagnosis(monkeypatch) -> None:
 
 
 def test_client_transport_error_carries_base_url() -> None:
-    from jarvis.cli_ctl.client import JarvisClient
+    from dodaios.cli_ctl.client import JarvisClient
 
     def handler(request):
         raise httpx.ConnectError("down")

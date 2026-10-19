@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
-_FIGURES = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src" / "assets" / "society" / "figures"
+_FIGURES = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src" / "assets" / "society" / "figures"
 _CONTRACT = _REPO / "scripts" / "figures" / "contract.json"
 _TOOLS = _REPO / "scripts" / "figures" / "glb_tools.py"
 

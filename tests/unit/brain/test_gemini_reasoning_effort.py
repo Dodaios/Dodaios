@@ -31,8 +31,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, BrainRequest
-from jarvis.plugins.brain.gemini import (
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.plugins.brain.gemini import (
     _REJECTED_THINKING_BUDGETS,
     _REJECTED_THINKING_LEVELS,
     GeminiBrain,

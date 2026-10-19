@@ -13,7 +13,7 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 class _SlowVision:

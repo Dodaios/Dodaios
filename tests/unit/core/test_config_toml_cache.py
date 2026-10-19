@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import config as config_module
-from jarvis.core.config import _load_toml, clear_config_cache
+from dodaios.core import config as config_module
+from dodaios.core.config import _load_toml, clear_config_cache
 
 
 @pytest.fixture(autouse=True)
@@ -150,7 +150,7 @@ def test_two_files_do_not_share_an_entry(tmp_path):
 
 def test_writer_invalidates_the_cache(tmp_path):
     """A write through ``config_writer`` is visible to the next read."""
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     target = tmp_path / "jarvis.toml"
     _write(target, '[brain]\nprimary = "gemini"\n')
@@ -170,7 +170,7 @@ def test_load_config_reflects_an_edit(tmp_path, monkeypatch):
     claiming to assert the cache, and it would pass whether or not the cache
     ever invalidated.
     """
-    from jarvis.core.config import load_config
+    from dodaios.core.config import load_config
 
     monkeypatch.delenv("JARVIS__BRAIN__PRIMARY", raising=False)
 
@@ -186,7 +186,7 @@ def test_load_config_reflects_an_edit(tmp_path, monkeypatch):
 
 def test_legacy_structured_stt_env_cannot_brick_config_load(tmp_path, monkeypatch):
     """A stale PowerShell object string must not replace the models table."""
-    from jarvis.core.config import load_config
+    from dodaios.core.config import load_config
 
     monkeypatch.setenv(
         "JARVIS__STT__MODELS",
@@ -208,7 +208,7 @@ def test_schema_blocks_legacy_mapping_env_when_toml_table_is_absent(
     tmp_path, monkeypatch
 ):
     """Minimal configs still get their structured shape from Pydantic."""
-    from jarvis.core.config import load_config
+    from dodaios.core.config import load_config
 
     monkeypatch.setenv("JARVIS__STT__MODELS", "@{provider=model}")
     target = tmp_path / "jarvis.toml"

@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.sessions import chat_titles
-from jarvis.sessions.chat_titles import (
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.sessions import chat_titles
+from dodaios.sessions.chat_titles import (
     ChatTitler,
     TitleBook,
     TitleRequest,
