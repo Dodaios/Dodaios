@@ -27,7 +27,7 @@ def test_both_live_models_carry_the_product_brief():
     assert PRODUCT_BRIEF in wire["delegation"]["responses"]["instructions"]
     assert "Agentic IDE" in PRODUCT_BRIEF and "product_help" in PRODUCT_BRIEF
     # Small enough to ride along in every call without a real cost.
-    assert len(PRODUCT_BRIEF) < 2600
+    assert len(PRODUCT_BRIEF) < 800
 
 
 def test_voice_catalog_offers_product_help_but_workers_do_not_get_it():

@@ -350,17 +350,10 @@ def distill_identity_card(
     return "\n".join(lines)
 
 
-#: Framing for the always-present block. Two jobs: say that this is background
-#: about the person (not a topic), and grant explicit permission to say nothing
-#: about it — the standing mandate of this whole surface.
+#: Framing for the always-present block: background about the person, used
+#: only where it improves an answer and never recited.
 IDENTITY_BLOCK_HEADER = (
-    "## About the user (ambient personal knowledge — background, never a topic)\n"
-    "Standing facts about the person you are speaking with, distilled from "
-    "their own notes. Let them shape an answer only where they genuinely make "
-    "it better — a recommendation, a plan, a decision that depends on who is "
-    "asking. Never read this block out, never mention that you have it, and "
-    "never volunteer a personal detail the question did not ask for: silence "
-    "beats a personal fact nobody asked for."
+    "## About the user (background: use it only where it improves the answer; never recite it)"
 )
 
 

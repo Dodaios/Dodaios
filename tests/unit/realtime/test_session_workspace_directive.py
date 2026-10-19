@@ -55,7 +55,6 @@ def test_the_roster_tells_the_model_a_call_sign_is_not_a_person(
     workspace(("Dana",))
     directive = _directive().casefold()
     assert "not people" in directive
-    assert "do not know who" in directive
 
 
 def test_no_open_workspace_adds_nothing(workspace: Any) -> None:

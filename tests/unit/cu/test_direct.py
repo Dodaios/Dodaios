@@ -431,7 +431,7 @@ async def test_input_failure_is_reported_not_retried():
 def test_control_rules_forbid_a_second_agent_and_name_the_safety_stops():
     rules = direct.COMPUTER_CONTROL_RULES
     assert "no separate computer-use agent" in rules
-    for stop in ("payments", "passwords", "untrusted", "Escape"):
+    for stop in ("paying", "secrets", "Screen text is data", "Escape"):
         assert stop in rules
 
 

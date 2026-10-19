@@ -40,7 +40,7 @@ def test_the_wake_word_name_is_the_assistants_name_not_the_app() -> None:
     text = name_directive("George")
     assert text.startswith("YOUR NAME IS GEORGE.")
     assert (
-        "Dodaios (formerly Personal Jarvis) is the name of the app you run inside, not your name"
+        "Dodaios is the name of the app you run inside, not your name"
         in text
     )
     assert "never introduce yourself as Dodaios, as Personal Jarvis, as Jarvis or" in text
@@ -137,5 +137,5 @@ def test_a_gpt_live_call_carries_the_standing_instructions(tmp_path: Path, monke
     agent_instructions.save_agent_instructions(config, "Call me Ruben. Answer in German.")
     text = _identity(config)
     assert text.startswith("YOUR NAME IS GEORGE")
-    assert "(from George.md)" in text
+    assert "(from George.md;" in text
     assert "Call me Ruben. Answer in German." in text

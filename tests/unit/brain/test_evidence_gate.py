@@ -36,7 +36,7 @@ def test_calendar_question_with_cli_requires_tool():
     v = _gate("Was steht heute noch an?", tool_map={"calendar": "cli_gam"})
     assert v.kind == "require_tool"
     assert v.tool_name == "cli_gam"
-    assert "cli_gam" in v.directive and "NEVER invent" in v.directive
+    assert "cli_gam" in v.directive and "answer only from its result" in v.directive
 
 
 def test_umlaut_form_matches():
@@ -66,7 +66,7 @@ def test_cloud_billing_question_with_gcloud_requires_tool():
         )
         assert v.kind == "require_tool", utterance
         assert v.tool_name == "cli_gcloud", utterance
-        assert "NEVER invent" in v.directive
+        assert "answer only from its result" in v.directive
 
 
 def test_derived_payments_keyword_forces_cli_stripe():

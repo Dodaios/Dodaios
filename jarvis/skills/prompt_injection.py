@@ -170,29 +170,12 @@ def render_available_skills_section(
 
     header = "## AVAILABLE SKILLS\n"
     intro = (
-        "These are the user's installed skills — saved preferences for HOW "
-        "recurring tasks should be done. BEFORE you answer from scratch or "
-        "spawn a worker, check this list. If the request plausibly matches a "
-        "skill's description / when-to-use — even loosely, even in new wording "
-        "that is not the exact trigger phrase — you MUST call the `run-skill` "
-        "tool with that skill's name FIRST, then follow the returned "
-        "instructions with your other tools. A matched skill always beats "
-        "answering on your own and always beats spawning a worker; that is "
-        "exactly why the user installed it. When unsure whether a skill "
-        "applies, prefer calling it — a wrong skill is cheap to skip, a missed "
-        "skill defeats its purpose. Do NOT, however, fire a skill for a plain "
-        "question that merely mentions its topic (\"what is Gmail?\" is not the "
-        "gmail skill; \"read my new mail\" is):\n"
+        "Installed skills: when a request matches one, even loosely, call `run-skill` "
+        "with its name first and follow what it returns. To make a new skill: "
+        "`create-skill`.\n"
     )
     body = "\n".join(bullets)
-    outro = (
-        "\n\nIf several skills could match, pick the most specific one. "
-        "Draft/disabled skills are rejected by the tool automatically. "
-        "When the user asks you to CREATE a new skill "
-        "(\"erstell mir einen Skill, der …\", "  # i18n-allow: quoted phrase
-        "\"create a skill that …\"), call the `create-skill` tool with their "
-        "full description — never `run-skill`, and never a worker."
-    )
+    outro = ""
     return f"{header}\n{intro}\n{body}{outro}"
 
 
@@ -233,11 +216,8 @@ def render_skill_candidate_hint(entries: Sequence[tuple[str, str]]) -> str:
     if not lines:
         return ""
     return (
-        "[Skill candidates] The user's request scored against these "
-        "installed skills. If one genuinely fits, call the `run-skill` tool "
-        "with that name FIRST and follow the returned instructions. If none "
-        "fits, ignore this block entirely and answer normally — these are "
-        "ranked suggestions, not a verdict.\n" + "\n".join(lines)
+        "[Skill candidates] ranked suggestions, not a verdict: if one fits, call "
+        "run-skill with its name first; otherwise ignore this list.\n" + "\n".join(lines)
     )
 
 
@@ -324,17 +304,10 @@ def render_realtime_skills_directive(
     # User-authored skills first — same attention argument as the brain listing.
     entries.sort(key=lambda e: (e[3], e[0]))
 
-    header = "[Installed skills — the user's saved way of doing these tasks]\n"
+    header = "[Installed skills]\n"
     rule = (
-        "\nEach line says what a skill is for and when it applies. Match on "
-        "MEANING, not on wording: the user will not repeat these words, so a "
-        "request that asks for the same outcome is a match even when it shares "
-        "no vocabulary with the line. To run one, call the run-skill tool with "
-        "the name EXACTLY as spelled above — copy it character for character, "
-        "never re-word it and never invent one that is not listed. If the user "
-        "names a skill that is not on this list, say so instead of guessing. A "
-        "matching skill always beats answering from scratch. A plain question "
-        "that merely mentions the topic is not a match."
+        "\nMatch on MEANING: run one with run-skill and its exact listed name when the "
+        "request asks for that outcome; a question that only mentions the topic is no match."
     )
 
     def _finish(block: str) -> str:

@@ -68,9 +68,8 @@ def test_identity_directive_names_provider_and_model() -> None:
     d = _provider_identity_directive("grok", "grok-4.3", "Jarvis")
     assert "Grok" in d
     assert "grok-4.3" in d
-    # Must instruct against guessing / defaulting to Gemini.
-    assert "Gemini" in d  # named as the forbidden default
-    assert "never" in d.lower() or "not" in d.lower()
+    # Must instruct against guessing.
+    assert "never guess" in d.lower()
 
 
 # --------------------------------------------------------------------------
@@ -84,10 +83,8 @@ def test_active_grok_identity_in_system_prompt() -> None:
     prompt = m._build_system_prompt()
     assert "Grok" in prompt
     assert "grok-4.3" in prompt
-    # The anti-hallucination instruction is present (generic anti-guess rule,
-    # with the known "Gemini" failure named as the forbidden exemplar).
+    # The anti-hallucination instruction is present.
     assert "never guess" in prompt.lower()
-    assert "Gemini" in prompt
 
 
 def test_active_codex_identity_says_gpt() -> None:
@@ -103,7 +100,7 @@ def test_no_identity_block_when_unset() -> None:
     m._active_turn_identity = None
     prompt = m._build_system_prompt()
     # No authoritative model block, and crucially no spurious provider claim.
-    assert "ACTIVE BRAIN MODEL" not in prompt
+    assert "running on the brain provider" not in prompt
 
 
 def test_grok_active_does_not_claim_to_be_gemini() -> None:
