@@ -118,8 +118,8 @@ feature actually used).
   pre-existing shared-tree issues with no plan file involved (provider-test
   NoneType, navigate section-id parity, wiki session-rollup links).
 - **Headless Linux (real run, `python:3.11-slim` container, git-archived
-  tree):** BASE `pip install -e .` OK → `import jarvis` OK →
-  `python -m jarvis --check` exit 0 → all 229 focused tests of the six fixes
+  tree):** BASE `pip install -e .` OK → `import dodaios` OK →
+  `python -m dodaios --check` exit 0 → all 229 focused tests of the six fixes
   pass. The §3 headless contract holds.
 - **macOS (no hardware available):** the plan's whole diff contains zero
   OS-specific constructs (verified by pattern scan: no win32/ctypes/

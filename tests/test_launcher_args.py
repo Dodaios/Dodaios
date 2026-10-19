@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.web.launcher import _parse_args
+from dodaios.ui.web.launcher import _parse_args
 
 
 def test_defaults():
@@ -52,8 +52,8 @@ def test_combined_flags():
 
 
 def test_second_desktop_start_focuses_existing_instance(monkeypatch):
-    from jarvis.ui import desktop_app
-    from jarvis.ui.web import launcher
+    from dodaios.ui import desktop_app
+    from dodaios.ui.web import launcher
 
     focused = {"called": False}
 

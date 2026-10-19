@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import file_index, work_split
+from dodaios.agentic_ide import file_index, work_split
 
 
 @dataclass
@@ -52,7 +52,7 @@ def _splitter_available(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture()
 def workspace(tmp_path: Path) -> _Session:
-    for sub in ("jarvis/plugins/wake", "jarvis/ui/web", "docs", "tests/unit"):
+    for sub in ("dodaios/plugins/wake", "dodaios/ui/web", "docs", "tests/unit"):
         (tmp_path / sub).mkdir(parents=True)
         (tmp_path / sub / "module.py").write_text("x", encoding="utf-8")
     file_index.reset_cache()
@@ -71,9 +71,9 @@ def _answer(monkeypatch: pytest.MonkeyPatch, payload: str) -> None:
 VALID_THREE = """
 [
   {"area": "wake pipeline", "task": "audit the wake detectors end to end",
-   "files": ["jarvis/plugins/wake/module.py"], "done_when": "every path traced"},
+   "files": ["dodaios/plugins/wake/module.py"], "done_when": "every path traced"},
   {"area": "web UI", "task": "audit the web surface for cross-platform gaps",
-   "files": ["jarvis/ui/web/module.py"], "done_when": "all three OSes checked"},
+   "files": ["dodaios/ui/web/module.py"], "done_when": "all three OSes checked"},
   {"area": "docs", "task": "check the docs against the code",
    "files": ["docs/module.py"], "done_when": "drift listed"}
 ]
@@ -195,7 +195,7 @@ async def test_the_deterministic_split_uses_real_directories(
     monkeypatch.setattr(work_split, "_resolve_splitter", lambda: (None, ""))
     result = await work_split.split("analyse it", session=workspace, count=3)
     areas = " ".join(a.area for a in result.assignments)
-    # The fixture workspace has jarvis/, docs/ and tests/ — the split must name
+    # The fixture workspace has dodaios/, docs/ and tests/ — the split must name
     # parts of THIS repository, never invented ones.
     assert "jarvis" in areas or "docs" in areas or "tests" in areas
 

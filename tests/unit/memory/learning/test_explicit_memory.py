@@ -15,18 +15,18 @@ from typing import Any
 
 import pytest
 
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.loop import JarvisLearningLoop
-from jarvis.memory.learning.notebook import (
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.loop import JarvisLearningLoop
+from dodaios.memory.learning.notebook import (
     EXPLICIT_IMPORTANCE,
     EXPLICIT_ORIGIN,
     REMEMBER_DIRECTIVE,
     JarvisNotebook,
     memory_block,
 )
-from jarvis.memory.learning.review import Turn
-from jarvis.plugins.tool.remember import RememberTool
-from jarvis.society.memory_intent import requested_memory
+from dodaios.memory.learning.review import Turn
+from dodaios.plugins.tool.remember import RememberTool
+from dodaios.society.memory_intent import requested_memory
 
 
 @pytest.fixture
@@ -176,8 +176,8 @@ def test_the_memory_block_states_the_contract_and_the_notes(book: JarvisNotebook
 
 
 def test_a_gpt_live_call_carries_the_memory(book: JarvisNotebook) -> None:
-    from jarvis.live.config import LiveConfig
-    from jarvis.live.session import _memory as live_memory
+    from dodaios.live.config import LiveConfig
+    from dodaios.live.session import _memory as live_memory
 
     notebook_module.set_active(book)
     book.keep_explicit("The user's dog is called Bruno.")
@@ -211,8 +211,8 @@ async def test_the_remember_tool_saves_into_memory_md(book: JarvisNotebook) -> N
 async def test_without_a_notebook_the_tool_falls_back_to_core_memory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.memory import CORE_MEMORY_FILENAME, CoreMemory
-    from jarvis.plugins.tool import remember
+    from dodaios.memory import CORE_MEMORY_FILENAME, CoreMemory
+    from dodaios.plugins.tool import remember
 
     monkeypatch.setattr(remember, "DATA_DIR", tmp_path)
 
@@ -272,7 +272,7 @@ async def test_a_turn_that_used_the_tool_is_not_saved_again(book: JarvisNotebook
 
 
 def test_voice_calls_get_the_remember_tool_and_workers_do_not() -> None:
-    from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
 
     manager = SimpleNamespace(_tools={}, _config=SimpleNamespace(computer_use=None))
     gateway = BrainSupervisorToolGateway(manager)

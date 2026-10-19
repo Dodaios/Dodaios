@@ -3,7 +3,7 @@
 **Date**: 2026-04-21
 **Plan reference**: §17.2, §9-Phase-4
 
-> **Historical:** this note documents the original Phase-4 `dispatch_to_harness` mechanism, since superseded. The `openclaw` harness plugin it describes no longer exists (`jarvis/plugins/harness/` has no `openclaw.py` today); heavy work now runs through `spawn-worker` → Mission Manager. The exact `openclaw agent ...` CLI syntax quoted below still describes the real external `openclaw` binary.
+> **Historical:** this note documents the original Phase-4 `dispatch_to_harness` mechanism, since superseded. The `openclaw` harness plugin it describes no longer exists (`dodaios/plugins/harness/` has no `openclaw.py` today); heavy work now runs through `spawn-worker` → Mission Manager. The exact `openclaw agent ...` CLI syntax quoted below still describes the real external `openclaw` binary.
 
 ---
 
@@ -50,26 +50,26 @@ Real Jarvis-Agent (openclaw) CLI call against your subscription: ✅ pong.
 ## New Files
 
 ```
-jarvis/harness/
+dodaios/harness/
   __init__.py                                 # exports HarnessManager, SubprocessHarness
   base.py            (220 LOC)                # SubprocessHarness base + stream pumping
   manager.py         (155 LOC)                # discovery, health, dispatch, parallel
 
-jarvis/plugins/harness/
+dodaios/plugins/harness/
   openclaw.py (removed) (100 LOC)          # was: the external openclaw agent --output-format stream-json
   codex.py            (55 LOC)                # codex exec --json
   python_script.py    (35 LOC)                # python -c / python file.py
-  mcp_remote.py      (110 LOC)                # wraps jarvis/mcp/client.py as a harness
+  mcp_remote.py      (110 LOC)                # wraps dodaios/mcp/client.py as a harness
   open_interpreter.py (45 LOC, stub)          # health=False while package is missing
 
-jarvis/plugins/tool/
+dodaios/plugins/tool/
   dispatch_to_harness.py (180 LOC)            # tool — single + parallel + trim
 
-jarvis/mcp/
+dodaios/mcp/
   server.py          (180 LOC)                # FastMCP server, 5 tools + 2 resources
 
-jarvis/core/config.py  (+ HarnessConfig, MCPServerConfig)
-jarvis/brain/factory.py (+ dispatch-to-harness in the active_tools filter)
+dodaios/core/config.py  (+ HarnessConfig, MCPServerConfig)
+dodaios/brain/factory.py (+ dispatch-to-harness in the active_tools filter)
 
 tests/
   fixtures/harness/fake_harness.py
@@ -94,12 +94,12 @@ tests/
 
 Start:
 ```bash
-python -m jarvis.mcp.server --transport stdio
+python -m dodaios.mcp.server --transport stdio
 ```
 
 Register in the Jarvis-Agent CLI:
 ```bash
-claude mcp add jarvis python -m jarvis.mcp.server
+claude mcp add jarvis python -m dodaios.mcp.server
 ```
 
 Exposed capabilities:
@@ -125,7 +125,7 @@ commands = [
 
 ## Voice Integration (already active)
 
-Because `BrainManager` already has the `dispatch_to_harness` tool in its tools registry and the voice pipeline is cleanly connected via `jarvis/brain/factory.py`, the next voice call is enough:
+Because `BrainManager` already has the `dispatch_to_harness` tool in its tools registry and the voice pipeline is cleanly connected via `dodaios/brain/factory.py`, the next voice call is enough:
 
 **User**: *"Jarvis, lass Python ausrechnen wie viel 2 hoch 64 ist"*
 **Brain**: calls dispatch_to_harness(harness="python-script", prompt="print(2**64)")

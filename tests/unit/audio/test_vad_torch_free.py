@@ -20,7 +20,7 @@ import sys
 
 import numpy as np
 
-from jarvis.audio.vad import SileroEndpointer
+from dodaios.audio.vad import SileroEndpointer
 
 
 def _bare_endpointer() -> SileroEndpointer:
@@ -55,7 +55,7 @@ def test_vad_path_imports_no_torch() -> None:
     """
     script = (
         "import sys, numpy as np;\n"
-        "from jarvis.audio.vad import SileroEndpointer;\n"
+        "from dodaios.audio.vad import SileroEndpointer;\n"
         "ep = SileroEndpointer.__new__(SileroEndpointer);\n"
         "ep._session = None; ep._vad_state = None; ep._vad_context = None;\n"
         "ep._prob(np.zeros(512, dtype=np.float32));\n"

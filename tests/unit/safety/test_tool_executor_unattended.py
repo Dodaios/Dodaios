@@ -24,19 +24,19 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.events import (
     ActionApprovalRequired,
     ActionApproved,
     ActionDenied,
     ActionExecuted,
 )
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.approval_surface import CONVERSATIONAL, INTERACTIVE, UNATTENDED
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import (
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.approval_surface import CONVERSATIONAL, INTERACTIVE, UNATTENDED
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import (
     APPROVAL_DENIED_PREFIX,
     APPROVAL_TIMEOUT_PREFIX,
     APPROVAL_UNAVAILABLE_OUTCOME,

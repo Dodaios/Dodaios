@@ -2,8 +2,8 @@
 import json
 from http.cookies import SimpleCookie
 
-from jarvis.ui.web.fast_bootstrap import FastBootstrap
-from jarvis.ui.web.surface_security import COOKIE_NAME
+from dodaios.ui.web.fast_bootstrap import FastBootstrap
+from dodaios.ui.web.surface_security import COOKIE_NAME
 
 _TOKEN = "fast-bootstrap-onboarding-session"  # noqa: S105
 
@@ -54,7 +54,7 @@ async def _exchange(boot: FastBootstrap) -> str:
 
 
 async def test_onboarding_state_answers_while_warming(tmp_path, monkeypatch) -> None:
-    from jarvis.setup import onboarding_fastpath as fp
+    from dodaios.setup import onboarding_fastpath as fp
 
     monkeypatch.setattr(fp, "_STATE_PATH_OVERRIDE", tmp_path / "setup_state.json")
     boot = FastBootstrap(dist_dir=tmp_path / "no-dist", session_token=_TOKEN)
@@ -70,8 +70,8 @@ async def test_onboarding_state_answers_while_warming(tmp_path, monkeypatch) -> 
 
 
 async def test_onboarding_complete_persists_while_warming(tmp_path, monkeypatch) -> None:
-    from jarvis.setup import onboarding_fastpath as fp
-    from jarvis.setup import state as st
+    from dodaios.setup import onboarding_fastpath as fp
+    from dodaios.setup import state as st
 
     monkeypatch.setattr(fp, "_STATE_PATH_OVERRIDE", tmp_path / "setup_state.json")
     boot = FastBootstrap(dist_dir=tmp_path / "no-dist", session_token=_TOKEN)
@@ -102,7 +102,7 @@ async def test_other_api_routes_still_held(tmp_path) -> None:
 
 async def test_real_app_owns_onboarding_after_set_app(tmp_path, monkeypatch) -> None:
     """Once set_app runs, delegation wins — the fast path must not shadow it."""
-    from jarvis.setup import onboarding_fastpath as fp
+    from dodaios.setup import onboarding_fastpath as fp
 
     monkeypatch.setattr(fp, "_STATE_PATH_OVERRIDE", tmp_path / "setup_state.json")
     seen: list[str] = []

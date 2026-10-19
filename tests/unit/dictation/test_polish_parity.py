@@ -7,7 +7,7 @@ layers when the wording pass landed, and neither had a guard:
 
 **The polish status** — how the optional wording pass ended for one dictation.
 
-1. ``jarvis.dictation.polish.POLISH_STATUSES`` is the single source of truth.
+1. ``dodaios.dictation.polish.POLISH_STATUSES`` is the single source of truth.
 2. It travels: on ``DictationCompleted.polish_status``, in the ``status`` field
    of ``POST /api/dictation/polish/test``, and in the history row the speech
    pipeline writes. Every one of those hops is a plain ``str`` / ``dict`` — no
@@ -25,7 +25,7 @@ layers when the wording pass landed, and neither had a guard:
 to. The polish pass added ``dictation`` as a fifth tier, so this vocabulary now
 crosses five layers too:
 
-1. ``jarvis.ui.web.provider_spec.Tier`` (the Python ``Literal``),
+1. ``dodaios.ui.web.provider_spec.Tier`` (the Python ``Literal``),
 2. ``_SECTION_HEALTH_KEYS`` in ``provider_routes`` (the REST rollup's sections),
 3. the ``ProviderTier`` union in ``useProviders.ts``,
 4. the category map in ``ProviderTierSection.tsx`` (its i18n keys),
@@ -48,12 +48,12 @@ import re
 from pathlib import Path
 from typing import get_args
 
-from jarvis.dictation.polish import POLISH_STATUSES
-from jarvis.ui.web.provider_routes import _SECTION_HEALTH_KEYS
-from jarvis.ui.web.provider_spec import PROVIDERS, Tier
+from dodaios.dictation.polish import POLISH_STATUSES
+from dodaios.ui.web.provider_routes import _SECTION_HEALTH_KEYS
+from dodaios.ui.web.provider_spec import PROVIDERS, Tier
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_FRONTEND = _REPO_ROOT / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _DICTATION_TS = _FRONTEND / "hooks" / "useDictation.ts"
 _PROVIDERS_TS = _FRONTEND / "hooks" / "useProviders.ts"
 _HISTORY_GROUP_TSX = _FRONTEND / "views" / "voice" / "DictationHistoryGroup.tsx"
@@ -195,15 +195,15 @@ def test_local_only_reached_every_layer() -> None:
     each of the three locales — before the UI can render anything but a raw
     identifier at the user.
     """
-    assert "local_only" in POLISH_STATUSES, "jarvis/dictation/polish.py"
+    assert "local_only" in POLISH_STATUSES, "dodaios/dictation/polish.py"
     assert "local_only" in _ts_const_array(_DICTATION_TS, "POLISH_STATUSES"), (
-        'jarvis/ui/web/frontend/src/hooks/useDictation.ts: add "local_only" to '
+        'dodaios/ui/web/frontend/src/hooks/useDictation.ts: add "local_only" to '
         "POLISH_STATUSES"
     )
     for name in SUPPORTED_LOCALES:
         table = _locale(name).get("dictation", {}).get("polish_status", {})
         assert str(table.get("local_only", "")).strip(), (
-            f"jarvis/ui/web/frontend/src/i18n/locales/{name}.json: add "
+            f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
             "dictation.polish_status.local_only"
         )
 
@@ -216,15 +216,15 @@ def test_translated_reached_every_layer() -> None:
     the LANGUAGE, so a history row that cannot name it leaves the user looking
     at English under a heading that says these are the words they said.
     """
-    assert "translated" in POLISH_STATUSES, "jarvis/dictation/polish.py"
+    assert "translated" in POLISH_STATUSES, "dodaios/dictation/polish.py"
     assert "translated" in _ts_const_array(_DICTATION_TS, "POLISH_STATUSES"), (
-        'jarvis/ui/web/frontend/src/hooks/useDictation.ts: add "translated" to '
+        'dodaios/ui/web/frontend/src/hooks/useDictation.ts: add "translated" to '
         "POLISH_STATUSES"
     )
     for name in SUPPORTED_LOCALES:
         table = _locale(name).get("dictation", {}).get("polish_status", {})
         assert str(table.get("translated", "")).strip(), (
-            f"jarvis/ui/web/frontend/src/i18n/locales/{name}.json: add "
+            f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
             "dictation.polish_status.translated"
         )
 
@@ -238,14 +238,14 @@ def test_every_translation_target_has_an_english_name_for_the_prompt() -> None:
     survive that. The fallback exists so a dictation never fails on a lookup;
     this test is what stops it becoming the normal path.
     """
-    from jarvis.core.config import TRANSLATION_TARGETS
-    from jarvis.dictation.translate_prompt import LANGUAGE_ENGLISH_NAMES
+    from dodaios.core.config import TRANSLATION_TARGETS
+    from dodaios.dictation.translate_prompt import LANGUAGE_ENGLISH_NAMES
 
     assert TRANSLATION_TARGETS, "TRANSLATION_TARGETS is empty"
     assert LANGUAGE_ENGLISH_NAMES, "LANGUAGE_ENGLISH_NAMES is empty"
     missing = set(TRANSLATION_TARGETS) - set(LANGUAGE_ENGLISH_NAMES)
     assert not missing, (
-        "jarvis/dictation/translate_prompt.py: add an English name for "
+        "dodaios/dictation/translate_prompt.py: add an English name for "
         f"{sorted(missing)}"
     )
     # And the other direction, so the table cannot accumulate dead rows for
@@ -260,7 +260,7 @@ def test_no_translation_target_is_the_auto_placeholder() -> None:
     Offering it would put an entry in the dropdown that resolves to "translate
     nothing" — a switch whose value is ignored (AP-31).
     """
-    from jarvis.core.config import TRANSLATION_TARGETS
+    from dodaios.core.config import TRANSLATION_TARGETS
 
     assert "auto" not in TRANSLATION_TARGETS
 
@@ -275,7 +275,7 @@ def test_the_translate_card_says_what_happens_when_no_model_answers() -> None:
     for name in SUPPORTED_LOCALES:
         translate = _locale(name).get("voice", {}).get("translate", {})
         assert isinstance(translate, dict) and translate, (
-            f"jarvis/ui/web/frontend/src/i18n/locales/{name}.json: add "
+            f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
             "voice.translate"
         )
         for key in (
@@ -315,7 +315,7 @@ def test_the_language_tab_says_the_transcript_leaves_the_machine() -> None:
         assert isinstance(polish, dict) and polish, f"{name}.json: voice.polish"
         sends = polish.get("sends_text")
         assert isinstance(sends, str) and sends.strip(), (
-            f"jarvis/ui/web/frontend/src/i18n/locales/{name}.json: add "
+            f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
             "voice.polish.sends_text"
         )
         # Long enough to be a real sentence rather than a placeholder, short
@@ -430,17 +430,17 @@ def test_the_dictation_tier_reached_every_layer() -> None:
     That is precisely why it is easy to half-land — nothing breaks when it is
     only half there, it just renders identifiers at the user.
     """
-    assert "dictation" in get_args(Tier), "jarvis/ui/web/provider_spec.py"
+    assert "dictation" in get_args(Tier), "dodaios/ui/web/provider_spec.py"
     assert "dictation" in _ts_union(_PROVIDERS_TS, "ProviderTier"), (
-        "jarvis/ui/web/frontend/src/hooks/useProviders.ts: ProviderTier"
+        "dodaios/ui/web/frontend/src/hooks/useProviders.ts: ProviderTier"
     )
     assert "dictation" in _SECTION_HEALTH_KEYS, (
-        "jarvis/ui/web/provider_routes.py: _SECTION_HEALTH_KEYS"
+        "dodaios/ui/web/provider_routes.py: _SECTION_HEALTH_KEYS"
     )
     for name in SUPPORTED_LOCALES:
         table = _locale(name).get("apikeys_view", {})
         for key in ("tier_dictation", "tab_dictation", "cat_dictation_desc"):
             assert str(table.get(key, "")).strip(), (
-                f"jarvis/ui/web/frontend/src/i18n/locales/{name}.json: add "
+                f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
                 f"apikeys_view.{key}"
             )

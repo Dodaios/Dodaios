@@ -5,7 +5,7 @@ platform ports green in CI, but four behaviors *cannot* be proven on a headless
 runner (AD-3): a real AX/AT-SPI accessibility tree captured from a live app, the
 Orb's actual transparency, global-hotkey *capture* (keys arriving from the OS),
 and an elevation prompt. This script brackets the human-in-the-loop step for each
-of the six ports: it constructs the relevant seam via its ``jarvis.platform``
+of the six ports: it constructs the relevant seam via its ``dodaios.platform``
 factory, runs the part of the action it *can* run on the current OS, and prints
 exactly what a human operator should observe to record a verdict in
 ``docs/plans/cross-platform-mac-linux/SIGNOFF-LOG.md``.
@@ -243,9 +243,9 @@ def _print_catalog() -> None:
 
 
 def _host_header(feature: str) -> str:
-    """One-line host/platform banner; imports jarvis.platform lazily."""
-    from jarvis.platform import detect_platform
-    from jarvis.platform.capabilities import detect_capabilities
+    """One-line host/platform banner; imports dodaios.platform lazily."""
+    from dodaios.platform import detect_platform
+    from dodaios.platform.capabilities import detect_capabilities
 
     plat = detect_platform()
     caps = detect_capabilities()
@@ -276,8 +276,8 @@ def _needs_real_desktop(feature: str) -> None:
 
 def _probe_terminal() -> None:
     """Terminal (CI-provable): spawn the OS shell and echo round-trip."""
-    from jarvis.terminal.backend import make_pty_backend
-    from jarvis.terminal.shells import discover_shells
+    from dodaios.terminal.backend import make_pty_backend
+    from dodaios.terminal.shells import discover_shells
 
     backend = make_pty_backend()
     print(f"make_pty_backend() -> {type(backend).__name__}")
@@ -335,7 +335,7 @@ def _probe_terminal() -> None:
 
 def _probe_applaunch() -> None:
     """App-launch (CI-provable resolution): resolve names + reject a fake."""
-    from jarvis.plugins.tool.app_resolver import resolve_app_launch_target
+    from dodaios.plugins.tool.app_resolver import resolve_app_launch_target
 
     samples = ["calculator", "terminal", "code", "Flibbertyglop-nonexistent-app"]
     print("resolve_app_launch_target() on representative names:")
@@ -352,7 +352,7 @@ def _probe_applaunch() -> None:
 
 def _probe_ax() -> None:
     """UI-element-click (live-gated): construct the source, describe the sign-off."""
-    from jarvis.vision.tree_factory import make_ui_tree_source
+    from dodaios.vision.tree_factory import make_ui_tree_source
 
     source = make_ui_tree_source()
     print(f"make_ui_tree_source() -> {type(source).__name__}")
@@ -382,7 +382,7 @@ def _probe_ax() -> None:
 
 def _probe_orb() -> None:
     """Orb (live-gated): construct the surface, describe the transparency sign-off."""
-    from jarvis.overlay.surface import make_overlay_surface
+    from dodaios.overlay.surface import make_overlay_surface
 
     surface = make_overlay_surface()
     cls = type(surface).__name__
@@ -413,7 +413,7 @@ def _probe_orb() -> None:
 
 def _probe_hotkey() -> None:
     """Hotkey (live-gated): construct the backend, describe the capture sign-off."""
-    from jarvis.trigger.backends import make_hotkey_backend
+    from dodaios.trigger.backends import make_hotkey_backend
 
     backend = make_hotkey_backend()
     cls = type(backend).__name__
@@ -443,8 +443,8 @@ def _probe_hotkey() -> None:
 
 def _probe_admin() -> None:
     """Admin/elevation (live-gated): construct the seams, describe the prompt sign-off."""
-    from jarvis.admin.elevator import make_elevator
-    from jarvis.admin.transport import make_admin_transport
+    from dodaios.admin.elevator import make_elevator
+    from dodaios.admin.transport import make_admin_transport
 
     elevator = make_elevator()
     transport = make_admin_transport()

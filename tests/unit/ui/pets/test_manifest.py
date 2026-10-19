@@ -6,7 +6,7 @@ import copy
 
 import pytest
 
-from jarvis.ui.pets.manifest import (
+from dodaios.ui.pets.manifest import (
     MAX_DESCRIPTION_CHARS,
     MAX_NAME_CHARS,
     AnimationSpec,
@@ -16,7 +16,7 @@ from jarvis.ui.pets.manifest import (
     check_sheet_size,
     parse_manifest,
 )
-from jarvis.ui.pets.states import PET_FORMAT, PET_STATES, STATE_FALLBACKS
+from dodaios.ui.pets.states import PET_FORMAT, PET_STATES, STATE_FALLBACKS
 
 USER_ID = "u0123456789abcdef"
 

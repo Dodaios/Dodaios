@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.codex_app_server as transport
-from jarvis.codex_app_server import (
+import dodaios.codex_app_server as transport
+from dodaios.codex_app_server import (
     CodexAppServerCapability,
     CodexAppServerClient,
     CodexAppServerRPCError,
@@ -567,7 +567,7 @@ async def test_login_survives_a_transient_rpc_failure_in_warm_audit_priming(
     client._warm_audit_process = None
     client._warm_audit_at = 0.0
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.codex_app_server"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.codex_app_server"):
         await client.require_chatgpt_login()
 
     assert client.running is True
@@ -611,7 +611,7 @@ async def test_login_survives_a_subscription_refusal_in_warm_audit_priming(
     client._warm_audit_process = None
     client._warm_audit_at = 0.0
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.codex_app_server"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.codex_app_server"):
         await client.require_chatgpt_login()
 
     assert client.running is True
@@ -661,7 +661,7 @@ async def test_realtime_start_drops_initial_items_for_an_untrusted_binary(
     await client.ensure_started()
     client._trusted_binary_version = transport._LEGACY_CODEX_VERSION
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.codex_app_server"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.codex_app_server"):
         await client.realtime_start(
             "thread-1",
             version="v3",

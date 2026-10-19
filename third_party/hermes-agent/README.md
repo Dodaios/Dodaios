@@ -12,6 +12,6 @@ is not taken from upstream.
 
 | Jarvis file | Upstream source |
 | --- | --- |
-| `jarvis/society/conversation.py` (`SUMMARY_SYSTEM`) | `agent/context_compressor.py` (structured summary sections) |
-| `jarvis/society/review.py` (`_LEARNING_RULES`) | `agent/background_review.py` (skill-update order, "do not capture" list) |
-| `jarvis/society/skill_lifecycle.py` | `agent/curator.py` (`apply_automatic_transitions`), `tools/skill_usage.py` |
+| `dodaios/society/conversation.py` (`SUMMARY_SYSTEM`) | `agent/context_compressor.py` (structured summary sections) |
+| `dodaios/society/review.py` (`_LEARNING_RULES`) | `agent/background_review.py` (skill-update order, "do not capture" list) |
+| `dodaios/society/skill_lifecycle.py` | `agent/curator.py` (`apply_automatic_transitions`), `tools/skill_usage.py` |

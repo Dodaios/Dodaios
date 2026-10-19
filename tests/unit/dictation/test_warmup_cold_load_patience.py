@@ -20,8 +20,8 @@ import asyncio
 
 import pytest
 
-from jarvis.speech import pipeline as pipe
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech import pipeline as pipe
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _LocalProvider:
@@ -112,7 +112,7 @@ async def test_an_endless_build_eventually_gives_up() -> None:
 
 
 async def test_expired_join_does_not_spawn_a_second_native_build(monkeypatch):
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.speech.pipeline import SpeechPipeline
 
     provider = _LocalProvider()
     task = asyncio.create_task(asyncio.sleep(30))

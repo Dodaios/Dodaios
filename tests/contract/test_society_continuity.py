@@ -8,14 +8,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import runner_brain
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.protocols import ChatTurn, current_chat_turn
-from jarvis.society.agent_tools import ProposeChangeTool
-from jarvis.society.conversation import ConversationArchive, prepare_history
-from jarvis.society.conversation_tool import ConversationRecallTool
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat import runner_brain
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.protocols import ChatTurn, current_chat_turn
+from dodaios.society.agent_tools import ProposeChangeTool
+from dodaios.society.conversation import ConversationArchive, prepare_history
+from dodaios.society.conversation_tool import ConversationRecallTool
+from dodaios.society.runtime import SocietyRuntime
 from tests.fakes.fake_brain_manager import FakeBrainManager
 from tests.fakes.fake_society_review import MemoryExecutor, SummaryProvider
 
@@ -32,7 +32,7 @@ async def world(tmp_path, monkeypatch):
     await rt.roster.create(
         name="Mailbox", title="Gmail agent", description="Prepare drafts only.", provider="openai"
     )
-    from jarvis.society.chat_binding import ensure_session
+    from dodaios.society.chat_binding import ensure_session
 
     session = ensure_session(svc, cfg, await rt.roster.get("mailbox"))
     fake = FakeBrainManager()
@@ -67,7 +67,7 @@ async def test_new_memory_and_correction_survive_reopening(world):
     )
     head = rt.memory.head(agent)
     assert "Prepare drafts in plain text." in head and "prepare drafts only" not in head
-    from jarvis.society.memory import SocietyMemory
+    from dodaios.society.memory import SocietyMemory
 
     reopened = SocietyMemory(rt)
     assert "Prepare drafts in plain text." in reopened.head(agent)
@@ -201,7 +201,7 @@ async def test_direct_chat_completion_is_reviewed_once(world):
 
 
 async def test_review_memory_requires_grounded_evidence_and_executor(world, monkeypatch):
-    from jarvis.society import review_cadence
+    from dodaios.society import review_cadence
 
     # Review every turn of the person here; the review window has its own tests.
     monkeypatch.setattr(review_cadence, "REVIEW_EVERY_USER_TURNS", 1)
@@ -231,8 +231,8 @@ async def test_review_memory_requires_grounded_evidence_and_executor(world, monk
 
 
 async def test_routine_uses_current_rules_and_memory(world):
-    from jarvis.society.routine_runner import run_owned_routine
-    from jarvis.society.routines import build_task_spec
+    from dodaios.society.routine_runner import run_owned_routine
+    from dodaios.society.routines import build_task_spec
 
     rt, svc, session, brain = world
     agent = await rt.roster.get("mailbox")
@@ -270,11 +270,11 @@ async def test_routine_uses_current_rules_and_memory(world):
 
 
 async def test_routine_update_preserves_id_and_pause_state(tmp_path):
-    from jarvis.core.bus import EventBus
-    from jarvis.tasks.runner import TaskRunner
-    from jarvis.tasks.scheduler import TaskScheduler
-    from jarvis.tasks.schema import AgentAction, TaskSpec, TriggerEvery
-    from jarvis.tasks.store import TaskStore
+    from dodaios.core.bus import EventBus
+    from dodaios.tasks.runner import TaskRunner
+    from dodaios.tasks.scheduler import TaskScheduler
+    from dodaios.tasks.schema import AgentAction, TaskSpec, TriggerEvery
+    from dodaios.tasks.store import TaskStore
 
     store = TaskStore(tmp_path / "tasks.db")
     await store.init()
@@ -303,7 +303,7 @@ async def test_routine_update_preserves_id_and_pause_state(tmp_path):
 
 
 async def test_learned_skill_is_revised_in_place_with_backup(world):
-    from jarvis.society.learning import LearningPass
+    from dodaios.society.learning import LearningPass
     from tests.unit.society.test_learning import DIGEST, FakeCreator
 
     rt, _, _, _ = world
@@ -360,8 +360,8 @@ def test_routine_creation_uses_the_configuration_tool_not_a_github_read_mandate(
 
 
 def test_live_capabilities_include_filtered_turn_tools():
-    from jarvis.brain.manager import _TURN_OVERRIDE, BrainManager
-    from jarvis.brain.turn_override import TurnOverride
+    from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
+    from dodaios.brain.turn_override import TurnOverride
 
     manager = BrainManager.__new__(BrainManager)
     manager._tools = {"gmail": SimpleNamespace(name="gmail")}

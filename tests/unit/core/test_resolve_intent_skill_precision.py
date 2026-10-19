@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from jarvis.core.capabilities import CapabilityRegistry
-from jarvis.core.capabilities_seed import seed_registry
-from jarvis.skills.plugin_coupling import register_paired_capabilities
-from jarvis.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
+from dodaios.core.capabilities import CapabilityRegistry
+from dodaios.core.capabilities_seed import seed_registry
+from dodaios.skills.plugin_coupling import register_paired_capabilities
+from dodaios.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
 
 
 def _reg_with_gmail() -> CapabilityRegistry:

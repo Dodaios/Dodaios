@@ -13,11 +13,11 @@ import time
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.config import DictationConfig, TriggerConfig
-from jarvis.core.config_writer import KEYBIND_ACTIONS, KEYBIND_TOML_KEY
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
-from jarvis.trigger.hotkey import validate_hotkey
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.config import DictationConfig, TriggerConfig
+from dodaios.core.config_writer import KEYBIND_ACTIONS, KEYBIND_TOML_KEY
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.trigger.hotkey import validate_hotkey
 
 # --------------------------------------------------------------------------
 # Registry wiring

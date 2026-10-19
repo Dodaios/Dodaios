@@ -3,7 +3,7 @@
 A hard task must not be cut off just for taking many steps, so the defaults
 are generous (100) and the ceiling is high (1000). A genuinely stuck session
 is stopped early by the loop's no-progress and repeated-failure guards, not by
-a tight step count -- see ``jarvis/harness/screenshot_only_loop.py``.
+a tight step count -- see ``dodaios/harness/screenshot_only_loop.py``.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from jarvis.core.config import ComputerUseConfig
+from dodaios.core.config import ComputerUseConfig
 
 
 def test_step_budget_default_is_generous():

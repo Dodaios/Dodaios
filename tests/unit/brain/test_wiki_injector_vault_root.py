@@ -1,7 +1,7 @@
 """Regression: the router-tier WikiContextInjector must honour the
 configured [wiki_integration].vault_root.
 
-Bug: jarvis.brain.factory previously read config.memory.vault_root, a
+Bug: dodaios.brain.factory previously read config.memory.vault_root, a
 field that never existed on MemoryConfig, so the value was always None
 and a user's configured vault root was silently ignored on the voice
 path. These tests pin the resolution to config.wiki_integration.vault_root
@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.brain.factory import _resolve_wiki_vault_root
-from jarvis.core import config as cfg
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.factory import _resolve_wiki_vault_root
+from dodaios.core import config as cfg
+from dodaios.core.config import JarvisConfig
 
 
 def test_custom_vault_root_is_honoured(tmp_path: Path) -> None:

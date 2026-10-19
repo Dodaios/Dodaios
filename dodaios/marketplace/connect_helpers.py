@@ -1,0 +1,241 @@
+"""Catalog-backed helpers shared by the connect flow and the refresh scheduler.
+
+Maps a catalog plugin id to its :class:`AuthHandler` (mirrors the dispatch in
+``marketplace_routes.connect_start``) and lists currently-connected plugins.
+Kept separate from the FastAPI route module so the refresh scheduler can build
+handlers without importing the web layer.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dodaios.marketplace.auth import AuthHandler, PkceLoopbackConfig
+    from dodaios.marketplace.catalog import OAuthPkceLoopbackAuth
+    from dodaios.marketplace.token_store import TokenStore
+
+log = logging.getLogger(__name__)
+
+
+# Catalog client_id values that are unfilled placeholders, not real OAuth
+# clients. The public catalog can't ship the maintainer's Google client, so
+# gmail/google_drive carry a REPLACE_WITH_... marker until the operator supplies
+# a real client via the `google_oauth_client_id` secret. Sending a placeholder
+# to a token endpoint yields `invalid_client: "The OAuth client was not found."`.
+_PLACEHOLDER_MARKERS: tuple[str, ...] = (
+    "replace_with",
+    "your_client_id",
+    "your-client-id",
+    "<",
+    "changeme",
+    "todo",
+)
+
+# Bring-your-own OAuth client: map each PKCE plugin to the secret "family" whose
+# `<family>_oauth_client_id` / `<family>_oauth_client_secret` secrets override the
+# catalog client. This lets every downloader run their OWN production OAuth app
+# (the only way to stop a provider revoking refresh tokens — e.g. Google drops a
+# "Testing"-mode app's refresh token after 7 days) without editing the tracked
+# catalog or exporting env vars. gmail/drive/calendar share ONE Google client
+# (per the catalog hint "shares the Google client with Drive"); slack and asana
+# each get their own. DCR plugins (notion/linear/cloudflare) register their client
+# dynamically and are intentionally absent — they have no static client to supply.
+#
+# The catalog's `oauth_client_family` field is now authoritative; this table is
+# the compatibility fallback for a user's `data/` override written before that
+# field existed. Do NOT add new plugins here — put the family in the catalog
+# entry, which is the whole point of moving it there.
+_OAUTH_CLIENT_FAMILY: dict[str, str] = {
+    "gmail": "google",
+    "google_drive": "google",
+    "google_calendar": "google",
+    "slack": "slack",
+    "asana": "asana",
+}
+
+
+def oauth_client_family(plugin_id: str) -> str | None:
+    """Return the BYO-OAuth-client secret family for a plugin, or ``None``.
+
+    Shared secrets belong only to package-owned identities and exact OAuth
+    endpoints. Community metadata and custom endpoints cannot claim a family.
+    The connect, refresh and grant-sharing paths use this same boundary.
+    """
+    try:
+        from dodaios.marketplace.catalog_data import load_catalog, load_seed_catalog
+
+        spec = load_catalog().by_id(plugin_id)
+        trusted = load_seed_catalog().by_id(plugin_id)
+    except Exception:  # noqa: BLE001 - a broken catalog must not break refresh
+        log.warning("OAuth family resolution unavailable for %s", plugin_id)
+        return None
+    if spec is None or trusted is None or getattr(spec, "source", None) != "seed":
+        return None
+    for field in ("mode", "authorization_url", "token_url", "device_url", "verify_url"):
+        if getattr(spec.auth, field, None) != getattr(trusted.auth, field, None):
+            return None
+    family = trusted.oauth_client_family or _OAUTH_CLIENT_FAMILY.get(plugin_id)
+    if spec.oauth_client_family not in (None, family):
+        return None
+    return family
+
+
+def is_placeholder_client_id(value: str | None) -> bool:
+    """True when an OAuth client_id is empty or an unfilled catalog placeholder."""
+    if value is None:
+        return True
+    v = value.strip()
+    if not v:
+        return True
+    low = v.lower()
+    return any(marker in low for marker in _PLACEHOLDER_MARKERS)
+
+
+def resolve_pkce_client(
+    plugin_id: str, catalog_client_id: str, catalog_client_secret: str | None
+) -> tuple[str, str | None]:
+    """Resolve the effective (client_id, client_secret) for a PKCE plugin.
+
+    Precedence: expert ``<family>_oauth_client_*`` secret override first, then
+    the publisher-provisioned shared client (``publisher_<family>_oauth_*`` —
+    the standard path, set once by the project), then the catalog value, so a
+    downloader can still supply their OWN production OAuth client without
+    editing the tracked catalog (which gets re-synced from the seed) or
+    exporting env vars. The Google family (gmail/drive/calendar) shares one
+    `google_oauth_*` pair; slack and asana each have their own. A plugin with
+    no family mapping keeps its real catalog client untouched. An unset/empty
+    secret never displaces the catalog value (``or`` fallback), so a
+    placeholder catalog client still builds a handler and the scheduler can
+    honestly flag needs_reauth.
+    """
+    from dodaios.marketplace.publisher_clients import resolve_publisher_client
+
+    client_id, client_secret, _source = resolve_publisher_client(
+        plugin_id, catalog_client_id, catalog_client_secret
+    )
+    return client_id, client_secret
+
+
+def build_pkce_config(plugin_id: str, auth: OAuthPkceLoopbackAuth) -> PkceLoopbackConfig:
+    """The one PKCE handler config used by connect AND refresh.
+
+    Resolves the effective client and, for a shipped client whose provider
+    demands a secret, its token broker — so a connect and the refresh
+    scheduler can never disagree about where tokens are exchanged.
+    """
+    from dodaios.marketplace.auth import PkceLoopbackConfig
+    from dodaios.marketplace.publisher_clients import broker_family_for_client
+
+    client_id, client_secret = resolve_pkce_client(plugin_id, auth.client_id, auth.client_secret)
+    # Only the shipped client WITHOUT a secret goes through a broker — exactly
+    # the pair ``resolve_client`` yields at its shipped-client step. A client
+    # that carries its own secret (expert override, publisher secret) always
+    # talks to the provider directly.
+    broker = None if client_secret else broker_family_for_client(client_id)
+    return PkceLoopbackConfig(
+        plugin_id=plugin_id,
+        authorization_url=auth.authorization_url,
+        token_url=auth.token_url,
+        refresh_url=auth.refresh_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        callback_port=auth.callback_port or 0,
+        scopes=list(auth.scopes),
+        scope_separator=auth.scope_separator,
+        # Slack-specific: PKCE-enabled apps must use user_scope= per
+        # docs.slack.dev/authentication/using-pkce. When the catalog marks a
+        # plugin user-scopes-only, route the param.
+        scope_param_name="user_scope" if auth.user_scopes_only else "scope",
+        callback_path=auth.callback_path,
+        resource=auth.resource,
+        offline_access=auth.offline_access,
+        client_auth_method=auth.client_auth_method,
+        token_broker=broker,
+    )
+
+
+def build_handler_from_catalog(plugin_id: str) -> AuthHandler | None:
+    """Return the AuthHandler for a catalog plugin, or ``None`` if the plugin
+    is unknown or uses a non-refreshable auth mode (e.g. ``pat_paste``)."""
+    from dodaios.marketplace.auth import (
+        DcrConfig,
+        DeviceFlowConfig,
+        DeviceFlowHandler,
+        HostedMcpDcrHandler,
+        PkceLoopbackHandler,
+    )
+    from dodaios.marketplace.catalog import (
+        HostedMcpOAuthDcrAuth,
+        InstanceBrowserAuth,
+        OAuthDeviceFlowAuth,
+        OAuthPkceLoopbackAuth,
+    )
+    from dodaios.marketplace.catalog_data import load_catalog
+
+    spec = load_catalog().by_id(plugin_id)
+    if spec is None:
+        return None
+    auth = spec.auth
+    if isinstance(auth, InstanceBrowserAuth):
+        from dodaios.marketplace.auth.home_assistant import HomeAssistantHandler
+
+        return HomeAssistantHandler()
+    if isinstance(auth, HostedMcpOAuthDcrAuth):
+        return HostedMcpDcrHandler(DcrConfig(plugin_id=plugin_id, discovery_url=auth.discovery_url))
+    if isinstance(auth, OAuthDeviceFlowAuth):
+        client_id, _ = resolve_pkce_client(plugin_id, auth.client_id, None)
+        return DeviceFlowHandler(
+            DeviceFlowConfig(
+                plugin_id=plugin_id,
+                device_url=auth.device_url,
+                verify_url=auth.verify_url,
+                token_url=auth.token_url,
+                client_id=client_id,
+                scopes=list(auth.scopes),
+            )
+        )
+    if isinstance(auth, OAuthPkceLoopbackAuth):
+        return PkceLoopbackHandler(build_pkce_config(plugin_id, auth))
+    return None  # pat_paste / allowlist — no refreshable OAuth handler
+
+
+def connected_plugin_ids(store: TokenStore) -> list[str]:
+    """Catalog plugin ids that currently have tokens stored."""
+    from dodaios.marketplace.catalog_data import load_catalog
+
+    ids: list[str] = []
+    for spec in load_catalog().plugins:
+        try:
+            if store.load(spec.id) is not None:
+                ids.append(spec.id)
+        except RuntimeError:
+            # Corrupted blob — treat as not-connected for scheduling purposes.
+            continue
+    return ids
+
+
+def usable_plugin_ids(store: TokenStore | None = None) -> set[str]:
+    """Catalog plugin ids a tool can use right now.
+
+    Connected means a stored token that needs no re-auth, or a plugin whose
+    auth mode is ``none``. One unreadable credential disables only its row.
+    """
+    from dodaios.marketplace.catalog_data import load_catalog
+    from dodaios.marketplace.token_store import TokenStore as _TokenStore
+
+    store = store or _TokenStore()
+    usable: set[str] = set()
+    for spec in load_catalog().plugins:
+        if getattr(spec.auth, "mode", "") == "none":
+            usable.add(spec.id)
+            continue
+        try:
+            tokens = store.load(spec.id)
+        except Exception:  # noqa: BLE001 — a broken credential blob only hides this plugin
+            log.warning("could not read connection state for %s", spec.id, exc_info=True)
+            continue
+        if tokens is not None and not tokens.needs_reauth:
+            usable.add(spec.id)
+    return usable

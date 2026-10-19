@@ -28,13 +28,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jarvis.brain.ack_generator import (
+from dodaios.brain.ack_generator import (
     ACK_SKIP_TOOLS,
     generate_ack,
     is_voice_control_utterance,
 )
-from jarvis.core.events import AnnouncementRequested
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.events import AnnouncementRequested
+from dodaios.speech.pipeline import SpeechPipeline
 from tests.unit.brain.test_ack_brain.conftest import (
     FakeAckProvider,
     build_ack_generator_with_fake,
@@ -65,7 +65,7 @@ def _make_pipeline_stub(
     """Build a SimpleNamespace with the attribute surface
     :func:`_spawn_flash_brain_ack` and :func:`_on_announcement` read.
     """
-    from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+    from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
     bus = _StubPublishBus()
 

@@ -13,13 +13,13 @@ Two production modules + one config extension + 46 unit tests:
 
 | File | Lines | Purpose |
 |---|---|---|
-| `jarvis/memory/wiki/curator_llm.py` | ~330 | `WikiCuratorLLM` — provider-agnostic LLM curator. Resolves provider via `[memory.wiki.curator]` → `brain.primary` fallback; wraps the brain call in `asyncio.wait_for(timeout_s)`; never raises; produces `list[PageUpdate]`. |
-| `jarvis/memory/wiki/prompt.py` | ~290 | `build_system_prompt`, `build_user_prompt`, `compute_vault_summary`, `select_top_slugs`. Pure functions. Schema is fed verbatim into the system prompt — Python never reinterprets it. |
-| `jarvis/core/config.py` (edit) | +33 | New Pydantic models `WikiCuratorConfig` + `WikiMemoryConfig`; hooked into `MemoryConfig.wiki`. |
+| `dodaios/memory/wiki/curator_llm.py` | ~330 | `WikiCuratorLLM` — provider-agnostic LLM curator. Resolves provider via `[memory.wiki.curator]` → `brain.primary` fallback; wraps the brain call in `asyncio.wait_for(timeout_s)`; never raises; produces `list[PageUpdate]`. |
+| `dodaios/memory/wiki/prompt.py` | ~290 | `build_system_prompt`, `build_user_prompt`, `compute_vault_summary`, `select_top_slugs`. Pure functions. Schema is fed verbatim into the system prompt — Python never reinterprets it. |
+| `dodaios/core/config.py` (edit) | +33 | New Pydantic models `WikiCuratorConfig` + `WikiMemoryConfig`; hooked into `MemoryConfig.wiki`. |
 | `jarvis.toml` (edit) | +11 | New `[memory.wiki.curator]` block with provider/model defaults left blank for the documented fallback. |
 | `tests/unit/memory/wiki/test_curator_llm.py` | ~470 | 26 test cases: parse-coverage, provider-resolution, timeout, brain-exception, missing-schema, unavailable-provider, caching, request-shape, default-registry, fallback resolution. |
 | `tests/unit/memory/wiki/test_prompt.py` | ~250 | 20 test cases: keyword-overlap ranking, vault-summary, system-prompt schema-verbatim, user-prompt rendering, full pipeline smoke. |
-| `jarvis/memory/wiki/protocols.py` | ~140 | **Briefing-§4 verbatim** — see *Drift Notes* below. |
+| `dodaios/memory/wiki/protocols.py` | ~140 | **Briefing-§4 verbatim** — see *Drift Notes* below. |
 
 ---
 
@@ -30,7 +30,7 @@ Two production modules + one config extension + 46 unit tests:
 3. Instantiate the brain via `BrainProviderRegistry.instantiate(provider, model=model)`.
 4. Cache the brain instance for the lifetime of the `WikiCuratorLLM`.
 
-Pattern mirrors `jarvis/awareness/verdichter.py` — same lazy-instantiate-on-first-call, same `asyncio.to_thread` for the registry call to keep the event loop free.
+Pattern mirrors `dodaios/awareness/verdichter.py` — same lazy-instantiate-on-first-call, same `asyncio.to_thread` for the registry call to keep the event loop free.
 
 The default `jarvis.toml` block ships with both fields blank, so the curator follows the user's voice-switch ("Jarvis, wechsel auf Gemini" → `brain.primary = "gemini"` → curator switches with it). Pinning is opt-in: drop a model name into the config to override.
 
@@ -71,7 +71,7 @@ The directory existed (other instances put test files there) but the package mar
 
 ### 4. Brief mentioned `BrainProviderRegistry.get_provider` — the real API is `instantiate`
 
-The Briefing § 5 → Instance D wording says "patch `BrainProviderRegistry.get_provider`". The real method is `instantiate(name, **kwargs)` (verified at `jarvis/brain/provider_registry.py:45`). Tests patch / fake the real method. No production-code workaround needed.
+The Briefing § 5 → Instance D wording says "patch `BrainProviderRegistry.get_provider`". The real method is `instantiate(name, **kwargs)` (verified at `dodaios/brain/provider_registry.py:45`). Tests patch / fake the real method. No production-code workaround needed.
 
 ### 5. Output contract block hardened beyond the brief
 

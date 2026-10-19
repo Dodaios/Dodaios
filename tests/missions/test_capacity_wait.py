@@ -18,22 +18,22 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions import capacity
-from jarvis.missions import init as mi
-from jarvis.missions.capacity import (
+from dodaios.missions import capacity
+from dodaios.missions import init as mi
+from dodaios.missions.capacity import (
     CHECKPOINT_NAME,
     WorkerCapacityUnavailable,
     pinned_to_subscription,
 )
-from jarvis.missions.events import MissionWaitingCapacity
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.recovery import startup_recover
-from jarvis.missions.state_machine import MissionState, is_terminal, transition
-from jarvis.missions.voice.readback import MAX_VOICE_CHARS, render_capacity_wait
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.codex_direct_worker import CodexDirectWorker
+from dodaios.missions.events import MissionWaitingCapacity
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.recovery import startup_recover
+from dodaios.missions.state_machine import MissionState, is_terminal, transition
+from dodaios.missions.voice.readback import MAX_VOICE_CHARS, render_capacity_wait
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.codex_direct_worker import CodexDirectWorker
 from tests.fakes.fake_mission_runtime import (
     ApprovingCritic,
     FakeMissionWorker,
@@ -78,7 +78,7 @@ def test_key_only_install_is_not_pinned() -> None:
 
 
 def test_connected_subscription_pins_every_worker() -> None:
-    from jarvis.brain import background_policy
+    from dodaios.brain import background_policy
 
     background_policy.note_connected("claude-cli")
     assert pinned_to_subscription(login_probe=lambda: False) is True
@@ -88,7 +88,7 @@ def test_unreadable_signal_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None
     def _boom(*_a: object, **_k: object) -> bool:
         raise OSError("marker unreadable")
 
-    monkeypatch.setattr("jarvis.brain.background_policy.subscription_mode", _boom)
+    monkeypatch.setattr("dodaios.brain.background_policy.subscription_mode", _boom)
     assert pinned_to_subscription(login_probe=lambda: False) is True
 
 
@@ -105,12 +105,12 @@ def test_installed_but_logged_out_claude_cli_does_not_pin(
     """Finding 1: a key-only user with Claude Code installed but never logged
     in is NOT a subscription install — never parked forever."""
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
         lambda: "/usr/local/bin/claude",
     )
     monkeypatch.setattr(mi, "_claude_subscription_login_state", lambda: None)
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._codex_oauth_available", lambda: False
+        "dodaios.missions.workers.codex_direct_worker._codex_oauth_available", lambda: False
     )
     monkeypatch.setattr(mi, "_positive_subscription_login", _REAL_LOGIN_PROBE)
     assert mi.install_is_pinned() is False
@@ -125,7 +125,7 @@ def _set_claude_world(
     monkeypatch: pytest.MonkeyPatch, *, cooldown: bool = False
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.claude_quota_state.claude_in_quota_cooldown", lambda **_k: cooldown
+        "dodaios.claude_quota_state.claude_in_quota_cooldown", lambda **_k: cooldown
     )
 
 
@@ -178,11 +178,11 @@ def test_pinned_codex_without_capacity_raises(
     monkeypatch: pytest.MonkeyPatch, oauth: bool, reauth: bool, capped: bool, reason: str
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._codex_oauth_available", lambda: oauth
+        "dodaios.missions.workers.codex_direct_worker._codex_oauth_available", lambda: oauth
     )
-    monkeypatch.setattr("jarvis.codex_auth_state.codex_needs_reauth", lambda: reauth)
+    monkeypatch.setattr("dodaios.codex_auth_state.codex_needs_reauth", lambda: reauth)
     monkeypatch.setattr(
-        "jarvis.codex_quota_state.codex_in_quota_cooldown", lambda **_k: capped
+        "dodaios.codex_quota_state.codex_in_quota_cooldown", lambda **_k: capped
     )
     with pytest.raises(WorkerCapacityUnavailable) as exc:
         mi._pinned_codex_worker(None)
@@ -194,11 +194,11 @@ def test_pinned_codex_runs_codex_without_backend_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._codex_oauth_available", lambda: True
+        "dodaios.missions.workers.codex_direct_worker._codex_oauth_available", lambda: True
     )
-    monkeypatch.setattr("jarvis.codex_auth_state.codex_needs_reauth", lambda: False)
+    monkeypatch.setattr("dodaios.codex_auth_state.codex_needs_reauth", lambda: False)
     monkeypatch.setattr(
-        "jarvis.codex_quota_state.codex_in_quota_cooldown", lambda **_k: False
+        "dodaios.codex_quota_state.codex_in_quota_cooldown", lambda **_k: False
     )
     worker = mi._pinned_codex_worker(None)
     assert isinstance(worker, CodexDirectWorker)
@@ -215,21 +215,21 @@ class _Subscriptions:
         self.codex_cooldown = False
         mp = monkeypatch
         mp.setattr(
-            "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+            "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
             lambda: "/usr/local/bin/claude",
         )
         mp.setattr(mi, "_claude_subscription_login_state", lambda: self.claude_login)
         mp.setattr(
-            "jarvis.claude_quota_state.claude_in_quota_cooldown",
+            "dodaios.claude_quota_state.claude_in_quota_cooldown",
             lambda **_k: self.claude_cooldown,
         )
         mp.setattr(
-            "jarvis.missions.workers.codex_direct_worker._codex_oauth_available",
+            "dodaios.missions.workers.codex_direct_worker._codex_oauth_available",
             lambda: self.codex_oauth,
         )
-        mp.setattr("jarvis.codex_auth_state.codex_needs_reauth", lambda: False)
+        mp.setattr("dodaios.codex_auth_state.codex_needs_reauth", lambda: False)
         mp.setattr(
-            "jarvis.codex_quota_state.codex_in_quota_cooldown",
+            "dodaios.codex_quota_state.codex_in_quota_cooldown",
             lambda **_k: self.codex_cooldown,
         )
 
@@ -309,11 +309,11 @@ def test_last_resort_skips_metered_keys_when_not_allowed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
         lambda: None,
     )
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._codex_oauth_available",
+        "dodaios.missions.workers.codex_direct_worker._codex_oauth_available",
         lambda: False,
     )
     monkeypatch.setattr(mi, "_api_key_family_viable", lambda _p: True)
@@ -512,7 +512,7 @@ async def test_recovery_never_sweeps_a_parked_mission(
 
 
 def test_cleanup_keeps_a_checkpointed_mission(tmp_path: Path) -> None:
-    from jarvis.missions.cleanup import _holds_deliverables
+    from dodaios.missions.cleanup import _holds_deliverables
 
     entry = tmp_path / "mission_019f0000-0000"
     entry.mkdir()
@@ -558,7 +558,7 @@ def test_readback_keeps_the_options_under_the_length_cap() -> None:
 @pytest.mark.parametrize("lang", ["de", "en"])
 @pytest.mark.parametrize("reason", ["paid_daily_cap_reached", "paid_consent_revoked"])
 def test_readback_names_the_new_paid_reasons(lang: str, reason: str) -> None:
-    from jarvis.missions.voice.readback import CAPACITY_WAIT_PHRASES
+    from dodaios.missions.voice.readback import CAPACITY_WAIT_PHRASES
 
     text = render_capacity_wait(
         reason=reason,

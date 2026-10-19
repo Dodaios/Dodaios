@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.loader import discover_skills, parse_skill
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.loader import discover_skills, parse_skill
+from dodaios.skills.schema import SkillLifecycleState
 
 
 VALID_SKILL_MD = """---

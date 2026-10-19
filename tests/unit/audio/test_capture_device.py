@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.audio import capture
+from dodaios.audio import capture
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +48,7 @@ def test_auto_headset_prefers_mme_for_same_microphone_name(monkeypatch) -> None:
     """When the same mic exposes itself under both WASAPI and MME, MME wins.
 
     Reason (2026-04-26 forensics, see ``_HOSTAPI_PREFERENCE`` docstring in
-    ``jarvis/audio/capture.py``): WASAPI on a Logitech PRO X silently
+    ``dodaios/audio/capture.py``): WASAPI on a Logitech PRO X silently
     killed the wake loop because the 48 kHz native rate did not survive
     PortAudio's blocking open at 16 kHz. MME / DirectSound resample
     transparently, so the resolver deliberately ranks them ahead of
@@ -104,7 +104,7 @@ def test_explicit_name_resolves_to_index(monkeypatch) -> None:
     its PortAudio index at open time — names are the stable identifier across
     reboots; raw name strings handed to PortAudio are ambiguous across host
     APIs (the pre-2026-07 pass-through contract)."""
-    from jarvis.audio import devices as dv
+    from dodaios.audio import devices as dv
 
     devices = [
         {

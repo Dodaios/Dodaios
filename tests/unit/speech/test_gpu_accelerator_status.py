@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.plugins.stt.fwhisper import GPU_LIBRARY_PACKAGES
-from jarvis.speech import local_install, local_models
-from jarvis.speech.local_models import accelerator_status
+from dodaios.plugins.stt.fwhisper import GPU_LIBRARY_PACKAGES
+from dodaios.speech import local_install, local_models
+from dodaios.speech.local_models import accelerator_status
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -50,8 +50,8 @@ def test_cuda_extra_stays_out_of_the_full_profile() -> None:
 
 
 def _force(monkeypatch: pytest.MonkeyPatch, *, libraries: bool, verified: bool | None) -> None:
-    import jarvis.plugins.stt as stt_pkg
-    import jarvis.plugins.stt.fwhisper as fwhisper
+    import dodaios.plugins.stt as stt_pkg
+    import dodaios.plugins.stt.fwhisper as fwhisper
 
     monkeypatch.setattr(fwhisper, "cuda_runtime_libraries_present", lambda: libraries)
     monkeypatch.setattr(stt_pkg, "wake_gpu_probe_cached", lambda: verified)
@@ -122,9 +122,9 @@ def _fresh_run() -> None:
 
 
 def test_install_runs_pip_for_every_package_and_verifies(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.plugins.stt as stt_pkg
-    import jarvis.plugins.stt.fwhisper as fwhisper
-    import jarvis.setup.dependencies as deps
+    import dodaios.plugins.stt as stt_pkg
+    import dodaios.plugins.stt.fwhisper as fwhisper
+    import dodaios.setup.dependencies as deps
 
     _fresh_run()
     installed: list[str] = []
@@ -150,8 +150,8 @@ def test_install_runs_pip_for_every_package_and_verifies(monkeypatch: pytest.Mon
 
 
 def test_a_failed_pip_run_is_an_honest_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.plugins.stt.fwhisper as fwhisper
-    import jarvis.setup.dependencies as deps
+    import dodaios.plugins.stt.fwhisper as fwhisper
+    import dodaios.setup.dependencies as deps
 
     _fresh_run()
     monkeypatch.setattr(deps, "install_pip_package", lambda *_a, **_kw: (False, "no wheel"))
@@ -168,8 +168,8 @@ def test_a_failed_pip_run_is_an_honest_error(monkeypatch: pytest.MonkeyPatch) ->
 def test_a_finished_install_without_libraries_is_not_a_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.plugins.stt.fwhisper as fwhisper
-    import jarvis.setup.dependencies as deps
+    import dodaios.plugins.stt.fwhisper as fwhisper
+    import dodaios.setup.dependencies as deps
 
     _fresh_run()
     monkeypatch.setattr(deps, "install_pip_package", lambda *_a, **_kw: (True, "ok"))

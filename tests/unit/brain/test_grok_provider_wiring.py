@@ -7,26 +7,26 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _SECRET_KEY_TO_BRAIN,
     PROVIDER_ALIASES,
     TIER_DEFAULTS_BY_PROVIDER,
     get_tier_default_model,
 )
-from jarvis.brain.model_catalog import _ENDPOINTS, CATALOG_PROVIDERS, catalog_spec
-from jarvis.brain.provider_registry import BrainProviderRegistry
-from jarvis.core import config as cfg
-from jarvis.core.protocols import BrainMessage, BrainRequest, ImageBlock
-from jarvis.missions.critic.runner import _API_CRITIC_PROVIDERS
-from jarvis.missions.init import _API_AGENT_SLUGS, _select_subagent_worker_kind
-from jarvis.missions.worker_runtime.provider_map import env_vars_for, to_worker_slug
-from jarvis.missions.workers.api_agent_worker import (
+from dodaios.brain.model_catalog import _ENDPOINTS, CATALOG_PROVIDERS, catalog_spec
+from dodaios.brain.provider_registry import BrainProviderRegistry
+from dodaios.core import config as cfg
+from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock
+from dodaios.missions.critic.runner import _API_CRITIC_PROVIDERS
+from dodaios.missions.init import _API_AGENT_SLUGS, _select_subagent_worker_kind
+from dodaios.missions.worker_runtime.provider_map import env_vars_for, to_worker_slug
+from dodaios.missions.workers.api_agent_worker import (
     _BRAIN_BY_PROVIDER,
     _DEFAULT_MODEL,
     supports_api_agent_worker,
 )
-from jarvis.plugins.brain.grok import BASE_URL, DEFAULT_MODEL, GrokBrain
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.plugins.brain.grok import BASE_URL, DEFAULT_MODEL, GrokBrain
+from dodaios.ui.web.provider_spec import get_spec
 
 
 class _FakeOpenAI:
@@ -110,11 +110,11 @@ def test_grok_defaults_are_universal_and_tool_capable() -> None:
 
 def test_grok_4_7_is_offered_and_leads_grok_build() -> None:
     """Grok 4.7 is the Grok Build default; the API fallback still leads with 4.3."""
-    from jarvis.agent_chat.catalog import api_seat, provider_row
-    from jarvis.brain.cost import PRICING_USD_PER_MTOK
-    from jarvis.brain.model_catalog import CURATED_MODELS, GROK_BUILD_MODELS
-    from jarvis.missions.workers.grok_build_direct_worker import _DEFAULT_GROK_BUILD_MODEL
-    from jarvis.workspace import launch_picks
+    from dodaios.agent_chat.catalog import api_seat, provider_row
+    from dodaios.brain.cost import PRICING_USD_PER_MTOK
+    from dodaios.brain.model_catalog import CURATED_MODELS, GROK_BUILD_MODELS
+    from dodaios.missions.workers.grok_build_direct_worker import _DEFAULT_GROK_BUILD_MODEL
+    from dodaios.workspace import launch_picks
 
     build_ids = [mid for mid, _label in GROK_BUILD_MODELS]
     spec = catalog_spec("grok-build")
@@ -263,7 +263,7 @@ def test_grok_runs_in_process_for_worker_and_critic() -> None:
     assert _select_subagent_worker_kind("grok", "foreign-model") == "api_agent"
     assert supports_api_agent_worker("grok") is True
     assert _BRAIN_BY_PROVIDER["grok"] == (
-        "jarvis.plugins.brain.grok",
+        "dodaios.plugins.brain.grok",
         "GrokBrain",
     )
     assert _DEFAULT_MODEL["grok"] == DEFAULT_MODEL

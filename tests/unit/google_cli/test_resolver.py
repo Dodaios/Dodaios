@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from jarvis.google_cli.resolver import GoogleCli, resolve_google_cli
+from dodaios.google_cli.resolver import GoogleCli, resolve_google_cli
 
 
 def test_prefers_agy_when_on_path():
@@ -53,7 +53,7 @@ def test_none_when_nothing_available():
 def test_default_npm_bundle_finds_known_root(tmp_path):
     """The default bundle finder probes known npm-global roots WITHOUT calling
     npm (on Windows ``npm`` is a .cmd that subprocess can't run directly)."""
-    from jarvis.google_cli.resolver import _default_npm_bundle
+    from dodaios.google_cli.resolver import _default_npm_bundle
 
     root = tmp_path / "node_modules"
     bundle = root / "@google" / "gemini-cli" / "bundle" / "gemini.js"
@@ -64,7 +64,7 @@ def test_default_npm_bundle_finds_known_root(tmp_path):
 
 
 def test_default_npm_bundle_none_when_absent(tmp_path):
-    from jarvis.google_cli.resolver import _default_npm_bundle
+    from dodaios.google_cli.resolver import _default_npm_bundle
 
     assert _default_npm_bundle(roots=[str(tmp_path)], which=lambda n: None) is None
 
@@ -91,7 +91,7 @@ def test_prefers_agy_via_native_location_when_not_on_path(tmp_path):
 
 
 def test_default_agy_path_finds_native_binary(tmp_path):
-    from jarvis.google_cli.resolver import _default_agy_path
+    from dodaios.google_cli.resolver import _default_agy_path
 
     links = tmp_path / "WinGet" / "Links"
     links.mkdir(parents=True)
@@ -101,7 +101,7 @@ def test_default_agy_path_finds_native_binary(tmp_path):
 
 
 def test_agy_roots_include_official_windows_location(tmp_path, monkeypatch):
-    from jarvis.google_cli.resolver import _agy_install_roots
+    from dodaios.google_cli.resolver import _agy_install_roots
 
     local = tmp_path / "LocalAppData"
     monkeypatch.setenv("LOCALAPPDATA", str(local))

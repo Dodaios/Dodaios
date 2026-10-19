@@ -29,15 +29,15 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import agent_sessions, drops
-from jarvis.agentic_ide.fleet_actions import (
+from dodaios.agentic_ide import agent_sessions, drops
+from dodaios.agentic_ide.fleet_actions import (
     COLOUR_PROBE_WAIT_S,
     STARTUP_QUIET_S,
     STARTUP_WINDOW_S,
     _ready_for_prompt,
 )
-from jarvis.agentic_ide.terminal_input import TerminalQueryWatch
-from jarvis.workspace import agents as workspace_agents
+from dodaios.agentic_ide.terminal_input import TerminalQueryWatch
+from dodaios.workspace import agents as workspace_agents
 
 # --------------------------------------------------------------- the registry
 
@@ -70,7 +70,7 @@ def test_a_product_name_can_never_become_a_pane_call_sign() -> None:
     reserved = workspace_agents.reserved_call_signs()
     for spoken in ("kimi", "opencode", "glm", "claude", "codex", "grok", "agy", "antigravity"):
         assert spoken in reserved
-    from jarvis.agentic_ide import names
+    from dodaios.agentic_ide import names
 
     # Panes are numbered (T1, T2, …), so no product name can be handed out as
     # one — and saying a product name resolves to no pane at all.
@@ -520,9 +520,9 @@ def test_a_glm_pane_without_a_key_refuses_to_open(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The wrong-vendor trap: a half-set environment answers, and bills, elsewhere."""
-    from jarvis.agentic_ide import session as ide_session
+    from dodaios.agentic_ide import session as ide_session
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: None)
     with pytest.raises(ide_session.SessionError):
         ide_session.agent_spawn_overlay("glm")
 
@@ -530,9 +530,9 @@ def test_a_glm_pane_without_a_key_refuses_to_open(
 def test_a_configured_glm_pane_carries_the_endpoint_and_hides_a_stray_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.agentic_ide import session as ide_session
+    from dodaios.agentic_ide import session as ide_session
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: "tok")  # noqa: S105
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: "tok")  # noqa: S105
     overlay = ide_session.agent_spawn_overlay("glm")
     assert overlay["ANTHROPIC_BASE_URL"].startswith("http")
     assert overlay["ANTHROPIC_AUTH_TOKEN"] == "tok"  # noqa: S105
@@ -547,7 +547,7 @@ def test_a_configured_glm_pane_carries_the_endpoint_and_hides_a_stray_key(
 
 def _stub_pane(agent: str) -> Any:
     """The smallest object the spawn path reads — no PTY, no registry."""
-    from jarvis.agentic_ide.session import Terminal
+    from dodaios.agentic_ide.session import Terminal
 
     return Terminal(
         key=agent,
@@ -571,10 +571,10 @@ def test_the_environment_reaches_a_pane_through_the_real_spawn_path(
     Anthropic login, answered perfectly, and billed the wrong vendor. This test
     exists so that gap cannot reopen.
     """
-    from jarvis.agentic_ide import session as ide_session
+    from dodaios.agentic_ide import session as ide_session
 
     registry = ide_session.Registry()
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: "tok")  # noqa: S105
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: "tok")  # noqa: S105
 
     env = registry._prepare_spawn(_stub_pane("glm"), str(tmp_path))
     assert env is not None, "the GLM pane launched with no environment at all"
@@ -609,10 +609,10 @@ def test_an_unconfigured_glm_pane_refuses_on_the_real_spawn_path(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Refusing is the safety property; it has to hold where panes actually open."""
-    from jarvis.agentic_ide import session as ide_session
+    from dodaios.agentic_ide import session as ide_session
 
     registry = ide_session.Registry()
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: None)
     with pytest.raises(ide_session.SessionError):
         registry._prepare_spawn(_stub_pane("glm"), str(tmp_path))
 
@@ -631,14 +631,14 @@ async def test_a_refused_glm_pane_says_so_instead_of_claiming_to_be_starting(
     the one line naming the actual fix (the API key) living in a socket frame
     that the pane painted over a second later.
     """
-    from jarvis.agentic_ide import recap as ide_recap
-    from jarvis.agentic_ide import session as ide_session
+    from dodaios.agentic_ide import recap as ide_recap
+    from dodaios.agentic_ide import session as ide_session
 
     # The borrowed binary need not be installed for this: what is under test is
     # what happens AFTER argv resolves, and hard-coding an install would make the
     # test pass or fail on the machine rather than on the code.
     monkeypatch.setattr(ide_session, "agent_argv", lambda _agent: ("noop",))
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: None)
 
     registry = ide_session.Registry()
     session = await registry.start(str(tmp_path), [{"agent": "glm"}])
@@ -665,7 +665,7 @@ async def test_a_refused_glm_pane_says_so_instead_of_claiming_to_be_starting(
 def test_the_glm_environment_factory_reports_not_configured_without_a_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: None)
     assert workspace_agents.glm_spawn_env() is None
 
 
@@ -673,7 +673,7 @@ def test_the_glm_environment_pins_no_model_the_user_did_not_choose(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Vendor docs disagree on the ids, so a guessed default fails at request time."""
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: "tok")  # noqa: S105
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: "tok")  # noqa: S105
     env = workspace_agents.glm_spawn_env()
     assert env is not None
     assert env["ANTHROPIC_AUTH_TOKEN"] == "tok"  # noqa: S105
@@ -918,7 +918,7 @@ def test_a_pane_whose_interface_is_elsewhere_is_never_typed_into() -> None:
     watching nothing happen, so every surface that types — the prompt bar, the
     voice fan-out, the CLI — asks this one function first.
     """
-    from jarvis.agentic_ide.session import accepts_prompts
+    from dodaios.agentic_ide.session import accepts_prompts
 
     assert accepts_prompts("deepseek-harness") is False
     # Not a blanket "new CLIs are silent": the terminal agents still take one,
@@ -988,7 +988,7 @@ def test_antigravity_never_follows_a_session_id_out_of_its_home(
 
 
 def test_antigravity_is_spawnable_by_voice_in_both_languages() -> None:
-    from jarvis.agentic_ide import intent
+    from dodaios.agentic_ide import intent
 
     for utterance in (
         "open an antigravity",
@@ -1003,7 +1003,7 @@ def test_antigravity_is_spawnable_by_voice_in_both_languages() -> None:
 
 def test_the_harness_is_spawnable_by_voice_in_both_languages() -> None:
     """An unmatched product word drops the whole spawn group it appeared in."""
-    from jarvis.agentic_ide import intent
+    from dodaios.agentic_ide import intent
 
     for utterance in (
         "open a deepseek harness",

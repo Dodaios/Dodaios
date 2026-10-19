@@ -25,7 +25,7 @@ the affected voice queries and preserves a draft when a key becomes available.
 
 ## Execution and media
 
-The `jarvis/live` package separates the provider connection, transcript stream,
+The `dodaios/live` package separates the provider connection, transcript stream,
 tool receipts and execution. GPT-Live uses WebRTC media plus a server-side
 control connection, or a primary WebSocket for server audio integrations.
 Browser/WebView capture owns echo cancellation; the voice engine does not mute

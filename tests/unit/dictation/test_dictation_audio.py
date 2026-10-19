@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.dictation.audio import (
+from dodaios.dictation.audio import (
     CHANNELS,
     MAX_AUDIO_BYTES,
     SAMPLE_RATE,

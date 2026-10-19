@@ -6,8 +6,8 @@ import sys
 
 import pytest
 
-from jarvis.ui import macos_editor_keys
-from jarvis.ui.macos_editor_keys import install_macos_editor_keys, page_owns_shortcut
+from dodaios.ui import macos_editor_keys
+from dodaios.ui.macos_editor_keys import install_macos_editor_keys, page_owns_shortcut
 
 
 def test_only_command_w_is_routed_to_the_page() -> None:

@@ -15,13 +15,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.terminal.pty_host_client import (
+from dodaios.terminal.pty_host_client import (
     HostConnectionError,
     HostedInfo,
     RemotePtyManager,
     RemoteSession,
 )
-from jarvis.terminal.pty_manager import MAX_PENDING_CHARS, UNKNOWN_EXIT_CODE
+from dodaios.terminal.pty_manager import MAX_PENDING_CHARS, UNKNOWN_EXIT_CODE
 
 WAIT_S = 5.0
 
@@ -456,7 +456,7 @@ async def test_a_refused_spawn_raises(host: FakeHost) -> None:
 
 # ------------------------------------------------ alive vs gone, never guessed
 def test_a_state_file_only_counts_for_a_live_pty_host() -> None:
-    from jarvis.terminal import pty_host_client as client
+    from dodaios.terminal import pty_host_client as client
 
     assert client.host_is_alive(None) is False
     # This test process is alive but is not a PTY host (a reused pid).
@@ -467,7 +467,7 @@ def test_a_state_file_only_counts_for_a_live_pty_host() -> None:
 async def test_a_live_host_that_does_not_answer_raises_and_starts_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.terminal import pty_host_client as client
+    from dodaios.terminal import pty_host_client as client
 
     started: list[str] = []
     monkeypatch.setattr(client, "host_available", lambda: True)
@@ -491,7 +491,7 @@ async def test_a_live_host_that_does_not_answer_raises_and_starts_nothing(
 
 
 async def test_a_dead_host_is_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.terminal import pty_host_client as client
+    from dodaios.terminal import pty_host_client as client
 
     started: list[str] = []
     monkeypatch.setattr(client, "host_available", lambda: True)

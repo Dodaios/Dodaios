@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.plugins.stt as stt_pkg
-from jarvis.core.config import STTConfig
-from jarvis.plugins.stt import build_wake_whisper
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
+import dodaios.plugins.stt as stt_pkg
+from dodaios.core.config import STTConfig
+from dodaios.plugins.stt import build_wake_whisper
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
 
 
 @pytest.fixture(autouse=True)
@@ -210,7 +210,7 @@ def test_build_wake_whisper_default_has_no_prompt_bias() -> None:
 # first.
 import json  # noqa: E402
 
-from jarvis.plugins.stt import _wake_cuda_available, _wake_cuda_cache_path  # noqa: E402
+from dodaios.plugins.stt import _wake_cuda_available, _wake_cuda_cache_path  # noqa: E402
 
 
 def test_wake_cuda_cache_path_honours_data_dir_env(tmp_path, monkeypatch) -> None:

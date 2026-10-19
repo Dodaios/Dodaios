@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import codex_login_guard
-from jarvis.core.exclusive_process_lock import ExclusiveProcessLock
-from jarvis.core.private_directory import ensure_owner_only_directory
+from dodaios import codex_login_guard
+from dodaios.core.exclusive_process_lock import ExclusiveProcessLock
+from dodaios.core.private_directory import ensure_owner_only_directory
 
 
 def _guardian_path() -> Path:
@@ -38,7 +38,7 @@ def _environment(profile: Path) -> dict[str, str]:
 
 def _held_liveness(directory: Path, name: str = "parent.alive") -> tuple[Path, int]:
     """A parent-liveness file this test process holds, as Jarvis would."""
-    from jarvis.codex_auth import _hold_parent_liveness_lock
+    from dodaios.codex_auth import _hold_parent_liveness_lock
 
     path = directory / name
     return path, _hold_parent_liveness_lock(path)
@@ -279,7 +279,7 @@ def test_guardian_normalizes_windows_environment_names_and_rejects_aliases(
 
 
 def test_parent_liveness_probe_reads_a_held_lock_as_alive(tmp_path: Path) -> None:
-    from jarvis.codex_auth import _hold_parent_liveness_lock
+    from dodaios.codex_auth import _hold_parent_liveness_lock
 
     path = tmp_path / "parent.alive"
     fd = _hold_parent_liveness_lock(path)

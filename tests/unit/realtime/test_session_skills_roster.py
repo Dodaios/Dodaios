@@ -24,10 +24,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.realtime import session as session_module
-from jarvis.skills import relevance
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.realtime import session as session_module
+from dodaios.skills import relevance
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 
 class _StubRunner:

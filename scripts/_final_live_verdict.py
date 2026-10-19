@@ -23,8 +23,8 @@ from pathlib import Path
 PROJECT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT))
 
-from jarvis.missions.init import bootstrap_missions
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.init import bootstrap_missions
+from dodaios.missions.state_machine import MissionState
 
 PROMPT = (
     "Write a one-line file named verdict.txt with the single word OK. "

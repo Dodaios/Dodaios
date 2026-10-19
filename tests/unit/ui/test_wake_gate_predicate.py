@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.ui.desktop_app import detector_gates_the_backend
+from dodaios.ui.desktop_app import detector_gates_the_backend
 
 
 def _pipeline(detector: Any, *, enabled: bool = True) -> SimpleNamespace:

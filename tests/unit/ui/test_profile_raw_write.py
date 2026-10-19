@@ -1,6 +1,6 @@
 """Tests for PUT /api/profile/raw — hand-editing USER.md from the desktop UI.
 
-Contract (see jarvis/ui/web/profile_routes.py::put_raw):
+Contract (see dodaios/ui/web/profile_routes.py::put_raw):
 - writes the text verbatim and atomically (no re-render through frontmatter)
 - reloads the in-memory UserProfile so GET /api/profile reflects the edit
 - optimistic-concurrency: a stale ``mtime_ms`` is rejected with 409
@@ -15,8 +15,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.memory.user_profile import UserProfile
-from jarvis.ui.web.profile_routes import router
+from dodaios.memory.user_profile import UserProfile
+from dodaios.ui.web.profile_routes import router
 
 INITIAL = """\
 ---

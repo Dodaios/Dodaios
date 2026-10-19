@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import main_follow
-from jarvis.core.main_follow import DIST, MainFollower
+from dodaios.core import main_follow
+from dodaios.core.main_follow import DIST, MainFollower
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
@@ -43,7 +43,7 @@ def setup(tmp_path: Path) -> tuple[Path, Path]:
     _git(tmp_path, "init", "-q", "--bare", "-b", "main", str(remote))
     app = tmp_path / "app"
     _git(tmp_path, "clone", "-q", str(remote), str(app))
-    _write(app, "jarvis/core/a.py", "A = 1\n")
+    _write(app, "dodaios/core/a.py", "A = 1\n")
     _write(app, f"{DIST}/index.html", "<html>v1</html>\n")
     _write(app, "README.md", "readme\n")
     _git(app, "add", ".")
@@ -87,16 +87,16 @@ class Recorder:
 
 def test_does_nothing_unless_enabled(setup: tuple[Path, Path]) -> None:
     app, other = setup
-    _land(other, {"jarvis/core/a.py": "A = 2\n"}, "feat: two")
+    _land(other, {"dodaios/core/a.py": "A = 2\n"}, "feat: two")
     status = Recorder().follower(app, enabled=False).tick()
     assert not status.enabled and not status.eligible
-    assert (app / "jarvis/core/a.py").read_text(encoding="utf-8") == "A = 1\n"
+    assert (app / "dodaios/core/a.py").read_text(encoding="utf-8") == "A = 1\n"
 
 
 def test_a_branch_other_than_main_is_never_moved(setup: tuple[Path, Path]) -> None:
     app, other = setup
     _git(app, "switch", "-q", "-c", "feature")
-    _land(other, {"jarvis/core/a.py": "A = 2\n"}, "feat: two")
+    _land(other, {"dodaios/core/a.py": "A = 2\n"}, "feat: two")
     status = Recorder().follower(app).tick()
     assert not status.eligible and "feature" in status.reason
     assert _git(app, "rev-parse", "--abbrev-ref", "HEAD") == "feature"
@@ -104,11 +104,11 @@ def test_a_branch_other_than_main_is_never_moved(setup: tuple[Path, Path]) -> No
 
 def test_fast_forwards_and_restarts_for_python_once_idle(setup: tuple[Path, Path]) -> None:
     app, other = setup
-    _land(other, {"jarvis/core/a.py": "A = 2\n"}, "feat: two")
+    _land(other, {"dodaios/core/a.py": "A = 2\n"}, "feat: two")
     recorder = Recorder(idle=False)
     follower = recorder.follower(app)
     status = follower.tick()
-    assert (app / "jarvis/core/a.py").read_text(encoding="utf-8") == "A = 2\n"
+    assert (app / "dodaios/core/a.py").read_text(encoding="utf-8") == "A = 2\n"
     assert status.last_subject == "feat: two" and status.restart_pending
     assert recorder.restarts == 0 and recorder.builds == []
     # Busy: the restart waits. Idle: the next round restarts.
@@ -128,8 +128,8 @@ def test_a_frontend_change_rebuilds_and_a_local_bundle_never_blocks(
     _land(
         other,
         {
-            "jarvis/ui/web/frontend/src/App.tsx": "export {};\n",
-            "jarvis/ui/web/frontend/package-lock.json": "{}\n",
+            "dodaios/ui/web/frontend/src/App.tsx": "export {};\n",
+            "dodaios/ui/web/frontend/package-lock.json": "{}\n",
             f"{DIST}/index.html": "<html>v2</html>\n",
         },
         "feat(ui): new view",
@@ -157,9 +157,9 @@ def test_a_local_edit_the_update_would_overwrite_blocks_it(setup: tuple[Path, Pa
 def test_an_unrelated_local_edit_rides_along(setup: tuple[Path, Path]) -> None:
     app, other = setup
     _write(app, "README.md", "my local notes\n")
-    _land(other, {"jarvis/core/b.py": "B = 1\n"}, "feat: b")
+    _land(other, {"dodaios/core/b.py": "B = 1\n"}, "feat: b")
     status = Recorder().follower(app).tick()
-    assert (app / "jarvis/core/b.py").exists() and status.blocked_by == []
+    assert (app / "dodaios/core/b.py").exists() and status.blocked_by == []
     assert (app / "README.md").read_text(encoding="utf-8") == "my local notes\n"
 
 
@@ -168,7 +168,7 @@ def test_local_commits_on_main_are_left_alone(setup: tuple[Path, Path]) -> None:
     _write(app, "local.txt", "x\n")
     _git(app, "add", ".")
     _git(app, "commit", "-q", "-m", "local only")
-    _land(other, {"jarvis/core/a.py": "A = 2\n"}, "feat: two")
+    _land(other, {"dodaios/core/a.py": "A = 2\n"}, "feat: two")
     head = _git(app, "rev-parse", "HEAD")
     status = Recorder().follower(app).tick()
     assert _git(app, "rev-parse", "HEAD") == head
@@ -177,7 +177,7 @@ def test_local_commits_on_main_are_left_alone(setup: tuple[Path, Path]) -> None:
 
 def test_a_checkout_inside_another_is_not_followed(setup: tuple[Path, Path]) -> None:
     app, _ = setup
-    status = Recorder().follower(app / "jarvis").tick()
+    status = Recorder().follower(app / "dodaios").tick()
     assert not status.eligible
 
 
@@ -186,7 +186,7 @@ def test_only_the_instance_with_ambient_duties_starts_one(monkeypatch: pytest.Mo
         owns_ambient_duties = False
 
     monkeypatch.setattr(main_follow, "_follower", None)
-    monkeypatch.setattr("jarvis.core.instance.current_instance", lambda: Dev())
+    monkeypatch.setattr("dodaios.core.instance.current_instance", lambda: Dev())
     started = main_follow.start_follower(
         enabled=lambda: True, idle=lambda: True, restart=lambda: True
     )

@@ -18,7 +18,7 @@ Per [game-art-pipeline.md](game-art-pipeline.md) §3 this runtime scene is the
 reference for the office direction. Do not roll its style out to other asset
 families or replace figures before the maintainer approves it.
 
-Code: `jarvis/ui/web/frontend/src/components/society/office/`.
+Code: `dodaios/ui/web/frontend/src/components/society/office/`.
 
 ## 1. Why an office
 
@@ -1055,7 +1055,7 @@ stations, desk slots, the 6.4 m concourse); everything on it is new:
   shadows, towers on the street level). Checked in Chrome against the dev
   build: overview, walking view and the flattest angle.
 - Floors (2026-10-12): `progression/verseFloors.test.ts` reads
-  `VERSE_FLOORS` from jarvis/progression/service.py and holds it equal to the
+  `VERSE_FLOORS` from dodaios/progression/service.py and holds it equal to the
   client's `METERED_FLOORS` and the elevator's `OFFICE_FLOORS`; a world
   action the server refuses is logged (`reportWorldAction`).
 - Team life and movement (2026-10-12), unit and component tests; a browser

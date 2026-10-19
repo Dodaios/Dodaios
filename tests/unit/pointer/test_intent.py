@@ -12,7 +12,7 @@ from time import perf_counter
 
 import pytest
 
-from jarvis.pointer.intent import is_pointing_intent
+from dodaios.pointer.intent import is_pointing_intent
 
 
 @pytest.mark.parametrize(

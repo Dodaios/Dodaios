@@ -13,7 +13,7 @@ import asyncio
 
 import pytest
 
-from jarvis.realtime.session import _DELEGATE_READBACK_WAIT_S, RealtimeVoiceSession
+from dodaios.realtime.session import _DELEGATE_READBACK_WAIT_S, RealtimeVoiceSession
 
 from .test_session import FakeProvider, _cfg
 
@@ -57,6 +57,6 @@ async def test_hosted_providers_keep_the_measured_floor():
 
 
 def test_local_card_declares_a_realistic_readback_budget() -> None:
-    from jarvis.plugins.realtime.openai_realtime import LocalRealtimeProvider
+    from dodaios.plugins.realtime.openai_realtime import LocalRealtimeProvider
 
     assert LocalRealtimeProvider.readback_render_budget_s > _DELEGATE_READBACK_WAIT_S

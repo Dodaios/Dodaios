@@ -17,15 +17,15 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.brain.background_policy import BackgroundDeferred
-from jarvis.control.cancel import CancelToken
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import current_started_by_user
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.schema import AgentAction, TaskSpec, TriggerAfterDelay, TriggerEvery
-from jarvis.tasks.store import TaskStore
-from jarvis.ui.web import tasks_routes, workflows_routes
+from dodaios.brain.background_policy import BackgroundDeferred
+from dodaios.control.cancel import CancelToken
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import current_started_by_user
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.schema import AgentAction, TaskSpec, TriggerAfterDelay, TriggerEvery
+from dodaios.tasks.store import TaskStore
+from dodaios.ui.web import tasks_routes, workflows_routes
 
 
 class DeferringBrain:

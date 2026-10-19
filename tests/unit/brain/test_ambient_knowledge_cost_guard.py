@@ -27,9 +27,9 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.brain import identity_card as ic
-from jarvis.brain.wiki_context import WikiContextInjector
-from jarvis.brain.wiki_relevance import should_consult_memory
+from dodaios.brain import identity_card as ic
+from dodaios.brain.wiki_context import WikiContextInjector
+from dodaios.brain.wiki_relevance import should_consult_memory
 
 BASE_PROMPT = "You are the assistant."
 
@@ -165,14 +165,14 @@ def test_no_client_library_is_reachable_from_the_ambient_modules() -> None:
         r"\b(?:anthropic|openai|google\.generativeai|genai|litellm|"
         r"httpx|requests|aiohttp|urllib\.request)\b"
     )
-    import jarvis.brain.identity_card
-    import jarvis.brain.wiki_relevance
-    import jarvis.brain.wiki_relevance_vocab
+    import dodaios.brain.identity_card
+    import dodaios.brain.wiki_relevance
+    import dodaios.brain.wiki_relevance_vocab
 
     for module in (
-        jarvis.brain.identity_card,
-        jarvis.brain.wiki_relevance,
-        jarvis.brain.wiki_relevance_vocab,
+        dodaios.brain.identity_card,
+        dodaios.brain.wiki_relevance,
+        dodaios.brain.wiki_relevance_vocab,
     ):
         source = Path(module.__file__ or "").read_text(encoding="utf-8")
         assert not forbidden.search(source), f"{module.__name__} reaches a client library"
@@ -203,7 +203,7 @@ def test_the_configured_cap_can_only_lower_the_budget(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_the_per_turn_wiki_block_keeps_its_char_cap() -> None:
     """The retrieved half of ambient knowledge stays inside ``max_chars``."""
-    from jarvis.brain.wiki_relevance import frame_context_block
+    from dodaios.brain.wiki_relevance import frame_context_block
 
     long_snippet = "hiking near the coast " * 200
     search = SpyVaultSearch(

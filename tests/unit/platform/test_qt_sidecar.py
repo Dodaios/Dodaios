@@ -9,7 +9,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from jarvis.platform import qt_sidecar
+from dodaios.platform import qt_sidecar
 
 
 @pytest.fixture

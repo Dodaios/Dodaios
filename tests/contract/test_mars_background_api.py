@@ -10,8 +10,8 @@ from typing import get_args, get_type_hints
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.desktop_background import BackgroundStatus
-from jarvis.ui.web.desktop_routes import router
+from dodaios.ui.desktop_background import BackgroundStatus
+from dodaios.ui.web.desktop_routes import router
 
 
 class FakeDesktop:
@@ -66,7 +66,7 @@ def test_headless_reports_existing_background_owner_without_claiming_a_window():
 def test_background_mode_python_typescript_parity():
     source = (
         Path(__file__).resolve().parents[2]
-        / "jarvis/ui/web/frontend/src/components/society/mars/MarsBackgroundControl.tsx"
+        / "dodaios/ui/web/frontend/src/components/society/mars/MarsBackgroundControl.tsx"
     ).read_text(encoding="utf-8")
     block = re.search(r"BACKGROUND_MODES\s*=\s*\[([^]]+)\]", source)
     assert block

@@ -8,7 +8,7 @@ into a 0..65535 coordinate; these guard that math.
 """
 from __future__ import annotations
 
-from jarvis.plugins.tool.click import _normalize_virtualdesk
+from dodaios.plugins.tool.click import _normalize_virtualdesk
 
 # The reported two-monitor rig: left monitor at X<0 (-2560..0), main 4K at 0..3840.
 _VX, _VY, _VW, _VH = -2560, 0, 6400, 2160

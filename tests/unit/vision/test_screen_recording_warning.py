@@ -16,11 +16,11 @@ import types
 
 import pytest
 
-from jarvis.platform import screen_access
-from jarvis.platform.permission_service import get_permission_service
-from jarvis.platform.permissions import PermissionId, PermissionState
-from jarvis.platform.screen_access import ScreenCaptureRefused
-from jarvis.vision import screenshot
+from dodaios.platform import screen_access
+from dodaios.platform.permission_service import get_permission_service
+from dodaios.platform.permissions import PermissionId, PermissionState
+from dodaios.platform.screen_access import ScreenCaptureRefused
+from dodaios.vision import screenshot
 from tests.fakes.fake_screen_pixels import textured_pixels, wallpaper_pixels
 from tests.fakes.fake_tcc import FakeTCC, TccService, install_port, make_non_darwin_port
 

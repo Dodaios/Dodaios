@@ -1,6 +1,6 @@
 """The pet's thought bubble: what Jarvis is thinking, above the pet's head.
 
-Drawn in the pets' own pixel-art language (``jarvis/ui/pets/builtin``): a
+Drawn in the pets' own pixel-art language (``dodaios/ui/pets/builtin``): a
 puffy white cloud with a dark one-pixel outline, a shaded bottom row and a
 highlight in the corner, plus two small puffs trailing down to the pet's head
 — a comic thought bubble at the pet's pixel size, so it reads as part of the

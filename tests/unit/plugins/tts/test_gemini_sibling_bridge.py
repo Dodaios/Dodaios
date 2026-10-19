@@ -23,7 +23,7 @@ import time
 
 import pytest
 
-from jarvis.plugins.tts.gemini_flash_tts import (
+from dodaios.plugins.tts.gemini_flash_tts import (
     GeminiFlashTTS,
     _parse_quota_cap,
     _parse_retry_delay,

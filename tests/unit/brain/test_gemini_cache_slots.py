@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.brain.gemini import _MAX_CACHE_SLOTS, GeminiBrain
+from dodaios.plugins.brain.gemini import _MAX_CACHE_SLOTS, GeminiBrain
 
 _BIG = "X" * (4096 * 4 + 100)  # clears the _MIN_CACHE_TOKENS floor
 
@@ -114,7 +114,7 @@ async def test_a_failed_create_is_not_retried_on_every_call(monkeypatch) -> None
     Each attempt cost ~0.7 s before the direct path even started. A failure is
     remembered for ``_CACHE_CREATE_RETRY_AFTER_S`` and only then retried.
     """
-    from jarvis.plugins.brain import gemini as gemini_module
+    from dodaios.plugins.brain import gemini as gemini_module
 
     provider = GeminiBrain(model="gemini-3.5-flash")
     caches = _RefusingCaches()

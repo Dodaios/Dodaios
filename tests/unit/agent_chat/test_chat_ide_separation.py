@@ -3,10 +3,10 @@
 Jarvis has two typed surfaces that both run a coding CLI, and they mean
 different things:
 
-* the **front-page chat** (``jarvis.agent_chat``) is Jarvis with a keyboard.
+* the **front-page chat** (``dodaios.agent_chat``) is Jarvis with a keyboard.
   It gets Jarvis' own tools over MCP, so a sentence there can open an app,
   read the calendar or switch the brain provider.
-* the **Agentic-IDE panes** (``jarvis.agentic_ide``) are coding agents in a
+* the **Agentic-IDE panes** (``dodaios.agentic_ide``) are coding agents in a
   workspace. Each pane is a real PTY on the person's own subscription seat,
   with the CLI's own tools and nothing else — the terminal experience, in a
   window.
@@ -25,11 +25,11 @@ from pathlib import Path
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[3]
-_IDE = _ROOT / "jarvis" / "agentic_ide"
+_IDE = _ROOT / "dodaios" / "agentic_ide"
 
-#: The chat-only modules. Nothing under ``jarvis/agentic_ide`` may reach these:
+#: The chat-only modules. Nothing under ``dodaios/agentic_ide`` may reach these:
 #: they are what hands a session Jarvis' own tools.
-_CHAT_ONLY = ("jarvis.agent_chat.jarvis_harness", "jarvis.agent_chat.runner_cli")
+_CHAT_ONLY = ("dodaios.agent_chat.jarvis_harness", "dodaios.agent_chat.runner_cli")
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -57,9 +57,9 @@ def test_the_ide_never_reaches_into_the_chat_runner():
 
 
 def test_only_the_chat_package_hands_out_jarvis_tools():
-    """The MCP config has exactly one home: nothing outside jarvis/agent_chat builds it."""
+    """The MCP config has exactly one home: nothing outside dodaios/agent_chat builds it."""
     callers: list[str] = []
-    for module in sorted((_ROOT / "jarvis").rglob("*.py")):
+    for module in sorted((_ROOT / "dodaios").rglob("*.py")):
         if module.parent.name == "agent_chat":
             continue
         text = module.read_text(encoding="utf-8", errors="replace")
@@ -80,7 +80,7 @@ def test_the_chat_child_environment_is_a_copy_never_the_process_environment():
     """The control key must reach the chat's child and nothing else on the box."""
     import os
 
-    from jarvis.agent_chat import jarvis_harness
+    from dodaios.agent_chat import jarvis_harness
 
     before = os.environ.get(jarvis_harness.KEY_ENV_VAR)
     child: dict[str, str] = {}
@@ -90,7 +90,7 @@ def test_the_chat_child_environment_is_a_copy_never_the_process_environment():
 
 def test_the_ide_panes_and_the_chat_do_not_share_a_spawn_function():
     """One shared argv builder is how two surfaces silently become one."""
-    from jarvis.agent_chat import runner_cli
+    from dodaios.agent_chat import runner_cli
 
     ide_session = _IDE / "session.py"
     if not ide_session.is_file():

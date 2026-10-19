@@ -8,8 +8,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.docs.registry import DocRegistry
-from jarvis.ui.web.docs_routes import router as docs_router
+from dodaios.docs.registry import DocRegistry
+from dodaios.ui.web.docs_routes import router as docs_router
 
 CONCEPT_MD = """---
 title: "Concept: Router-Discipline"
@@ -285,7 +285,7 @@ def test_open_doc_in_editor(
     doc_root: Path,
 ) -> None:
     """Patch the cross-platform launcher and verify path resolution."""
-    from jarvis.platform import open_path
+    from dodaios.platform import open_path
 
     calls: list[Path] = []
 

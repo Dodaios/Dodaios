@@ -319,7 +319,7 @@
     </div>
     <div class="hero-meta">
       <div><span class="k">Branch</span><span class="v">(archived)</span></div>
-      <div><span class="k">File</span><span class="v">jarvis/audio/player.py</span></div>
+      <div><span class="k">File</span><span class="v">dodaios/audio/player.py</span></div>
       <div><span class="k">Diff</span><span class="v">+67 / -27 lines</span></div>
       <div><span class="k">Tests</span><span class="v">8 passed (3 lock + 5 persistent-stream)</span></div>
       <div><span class="k">Smoke</span><span class="v">live 3-sentence playback OK</span></div>
@@ -357,7 +357,7 @@
     <div class="agent-grid">
       <div class="agent-card" data-rank="1">
         <h3>AudioPlayer time-stretch</h3>
-        <p class="agent-id">A-01 · scope: jarvis/audio/player.py</p>
+        <p class="agent-id">A-01 · scope: dodaios/audio/player.py</p>
         <p class="verdict"><strong>Primary:</strong> <code>asyncio.Lock</code> from commit <code>33d51c5f</code> serialises calls, but each <code>play_chunks</code> still tears down its OutputStream in <code>finally</code>. With streaming-TTS calling once per sentence, every sentence triggers <code>scipy.signal.resample_poly</code> polyphase FIR edge ringing.</p>
         <span class="conf high">Confidence · High</span>
       </div>
@@ -369,7 +369,7 @@
       </div>
       <div class="agent-card" data-rank="3">
         <h3>Speech pipeline flow</h3>
-        <p class="agent-id">A-03 · scope: jarvis/speech/pipeline.py</p>
+        <p class="agent-id">A-03 · scope: dodaios/speech/pipeline.py</p>
         <p class="verdict"><strong>Primary:</strong> <code>AudioPlayer.stop()</code> only calls <code>sd.stop()</code> — a no-op against the OutputStream opened by <code>play_chunks</code>. Barge-in / interrupt paths fail silently. Combined with per-sentence stream churn, double trouble.</p>
         <span class="conf medhigh">Confidence · Medium-High</span>
       </div>
@@ -420,7 +420,7 @@
   <section>
     <div class="section-head">
       <h2>The fix · three surgical edits</h2>
-      <span class="marker">§ jarvis/audio/player.py · +67 / -27</span>
+      <span class="marker">§ dodaios/audio/player.py · +67 / -27</span>
     </div>
     <p>
       The fix is surprisingly small — no pipeline changes, no API breakage, no model swap. The original architecture
@@ -624,7 +624,7 @@ PASS — patch verified end-to-end</pre>
 
     <div class="followup">
       <span class="tag">FU · install-freshness check</span>
-      Agent 4's evidence (zero "OutputStream opened" lines despite the fix being on disk since 23:09:14) suggests the running Jarvis loaded the OLD bytecode. The classic BUG-006 four-layer trap. Confirmed disk-side: <code>jarvis.audio.player.__file__</code> resolves to the active tree, mtime is current, <code>hasattr(AudioPlayer(), '_active_stream')</code> is True. The user simply needs to restart from this tree to pick up Welle-1+2 fixes.
+      Agent 4's evidence (zero "OutputStream opened" lines despite the fix being on disk since 23:09:14) suggests the running Jarvis loaded the OLD bytecode. The classic BUG-006 four-layer trap. Confirmed disk-side: <code>dodaios.audio.player.__file__</code> resolves to the active tree, mtime is current, <code>hasattr(AudioPlayer(), '_active_stream')</code> is True. The user simply needs to restart from this tree to pick up Welle-1+2 fixes.
     </div>
 
     <h3 style="margin-top:36px; font-weight:500; color:var(--heading); letter-spacing:-0.01em;">Welle-2 verification</h3>
@@ -666,7 +666,7 @@ PASS — patch verified end-to-end</pre>
 
   <footer>
     <span>PERSONAL JARVIS · TTS-AUDIO-2026-05-16 · WELLE 1 + 2</span>
-    <span>jarvis/audio/player.py · 12 tests · 10 agents</span>
+    <span>dodaios/audio/player.py · 12 tests · 10 agents</span>
   </footer>
 
 </main>

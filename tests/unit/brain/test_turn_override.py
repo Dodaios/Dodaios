@@ -3,7 +3,7 @@
 The typed chat picks provider / model / effort per chat. The first attempt at
 that (2026-08-24, reverted) switched the manager's active brain for the pick,
 so the voice changed provider as a side effect. These tests pin the contract
-of the replacement (``jarvis/brain/turn_override.py``): the chain is exactly
+of the replacement (``dodaios/brain/turn_override.py``): the chain is exactly
 the pick, the pick runs on its own cached instance, the effort and tool
 context reach the request, and every piece of manager state a voice turn
 reads is untouched afterwards.
@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import _TURN_OVERRIDE, BrainManager
-from jarvis.brain.turn_override import TurnOverride, TurnReceipt
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
+from dodaios.brain.turn_override import TurnOverride, TurnReceipt
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
 from tests.fixtures.brain.fake_brain import FakeBrain
 
 TALKER = "openrouter"
@@ -175,7 +175,7 @@ class _RejectedKeyBrain(FakeBrain):
 async def test_an_override_turn_never_writes_the_brain_tabs_health(seat: str) -> None:
     """A chat runs on its own credential scope and model: its bad key must not
     paint the Brain tab red, and its good key must not erase a real bad_key."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     mgr = _manager()
     ledger.get_ledger().record(PICK, ledger.MODALITY_BRAIN, "bad_key")  # the voice's truth
@@ -195,7 +195,7 @@ async def test_an_override_turn_never_writes_the_brain_tabs_health(seat: str) ->
 
 @pytest.mark.asyncio
 async def test_a_voice_turn_feeds_the_brain_tabs_health() -> None:
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     mgr = _manager()
     chain = mgr._build_fallback_chain("fast")
@@ -212,7 +212,7 @@ async def test_a_voice_turn_feeds_the_brain_tabs_health() -> None:
 @pytest.mark.asyncio
 async def test_a_tool_incapable_pick_never_calls_or_announces_a_helper() -> None:
     """The selected seat answers without billing or announcing another provider."""
-    from jarvis.core.events import BrainProviderSwitched
+    from dodaios.core.events import BrainProviderSwitched
 
     mgr = _manager()
     scoped, unscoped = _seed(mgr, scoped_text="PICK_ANSWER")
@@ -405,7 +405,7 @@ async def test_fictional_draft_with_prohibited_actions_needs_no_shell_call() -> 
 
 def _prompt_manager() -> BrainManager:
     """A manager with ``__init__`` bypassed — only what ``_build_system_prompt`` reads."""
-    from jarvis.core.config import load_config
+    from dodaios.core.config import load_config
 
     m = BrainManager.__new__(BrainManager)
     m._soul = None

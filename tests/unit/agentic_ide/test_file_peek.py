@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.agentic_ide.file_peek import peek, plan_for
-from jarvis.agentic_ide.task_kind import KIND_IMPLEMENT, KIND_INVESTIGATE, KIND_NEUTRAL
+from dodaios.agentic_ide.file_peek import peek, plan_for
+from dodaios.agentic_ide.task_kind import KIND_IMPLEMENT, KIND_INVESTIGATE, KIND_NEUTRAL
 
 
 def _write(root: Path, rel: str, text: str) -> None:

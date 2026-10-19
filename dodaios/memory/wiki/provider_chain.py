@@ -1,0 +1,789 @@
+"""Key-aware provider fallback for wiki-tier LLM calls (extractor + curator).
+
+Why this exists
+---------------
+The main ``BrainManager`` survives a dead / throttled / keyless provider by
+looping over a key-aware fallback CHAIN (``manager._build_fallback_chain``): it
+tries the next provider on any failure and only gives up when none is reachable.
+The wiki extractor (stage 1) and curator (stage 2) did NOT — each resolved to a
+SINGLE provider (``cfg.provider`` or ``brain.primary``) and, on any error,
+returned an empty list with only a WARNING.
+
+Live forensic 2026-06-30: the user's openrouter key was over its total limit
+(403), gemini was out of prepaid credit (429) AND claude-api auth was rejected
+(401) at various moments. Whenever the wiki's single resolved provider was the
+one erroring, the whole pipeline silently no-op'd — nothing journaled, nothing
+written — even though the main voice brain limped along via its own fallback
+chain and a working provider existed. The wiki looked dead while the user had
+credit. This module gives the wiki the SAME resilience, plus an HONEST signal
+when the whole chain is exhausted (AP-22 single-provider brick / AP-23
+maintainer-config coupling).
+
+Which providers may join a chain is not only a question of credentials. Wiki
+calls run with nobody waiting on them, so :func:`build_background_wiki_chain`
+admits only what background work may bill
+(:mod:`dodaios.brain.background_policy`): once a subscription is connected,
+subscriptions and keyless local models — and an empty set means the caller
+waits, never that it falls back to a key.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+import logging
+import re
+import threading
+import time
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import Any
+
+from dodaios.brain.background_policy import (
+    BackgroundDeferred,
+    BackgroundProviders,
+    background_providers,
+    subscription_capable,
+)
+from dodaios.core.redact import safe_preview
+from dodaios.costs.ledger import usage_context
+from dodaios.memory.wiki.telemetry import telemetry
+
+log = logging.getLogger(__name__)
+
+# How long a provider that just hard-failed (transport error, timeout, or
+# unusable structured output) is demoted to the END of the chain instead of
+# being retried first. Live 2026-07-18: three dead chain rungs (codex 429,
+# antigravity malformed JSON, claude-api 401) were re-tried on EVERY wiki
+# call, taxing each extraction with 10-15 s of doomed round-trips before a
+# healthy provider answered. Demotion — never removal — keeps the AP-22
+# honesty contract: when every healthy provider fails, the cooled ones are
+# still tried before the chain gives up.
+_PROVIDER_COOLDOWN_S = 900.0
+
+# (lane scope, provider name) -> (monotonic failure timestamp, short reason).
+# Modality-specific failures must not demote a provider for ordinary text work.
+_provider_failures: dict[tuple[str, str], tuple[float, str]] = {}
+
+
+def _note_provider_failure(provider: str, reason: str, *, scope: str = "wiki") -> None:
+    _provider_failures[(scope, provider)] = (time.monotonic(), reason)
+
+
+def _in_cooldown(provider: str, *, scope: str = "wiki") -> bool:
+    key = (scope, provider)
+    entry = _provider_failures.get(key)
+    if entry is None:
+        return False
+    if time.monotonic() - entry[0] >= _PROVIDER_COOLDOWN_S:
+        del _provider_failures[key]
+        return False
+    return True
+
+
+def reset_provider_failure_memory() -> None:
+    """Forget every recorded provider failure (tests + explicit recovery)."""
+    _provider_failures.clear()
+
+
+def _record_chain_recovery(label: str) -> None:
+    """Clear the sticky health chain-failure record on any usable outcome."""
+    try:
+        from dodaios.memory.wiki.health import health
+
+        health.record_chain_success()
+    except Exception:  # noqa: BLE001 — health recording must never break the pipeline
+        log.debug("%s: health record_chain_success failed", label, exc_info=True)
+
+
+def _order_by_cooldown(
+    chain: list[tuple[str, str | None]],
+    *,
+    scope: str = "wiki",
+) -> tuple[list[tuple[str, str | None]], list[str]]:
+    """Healthy providers first, recently-failed ones demoted to the end.
+
+    Returns the reordered chain plus the demoted provider names (for the
+    one honest log line). Relative order inside each group is preserved.
+    """
+    healthy: list[tuple[str, str | None]] = []
+    cooled: list[tuple[str, str | None]] = []
+    for entry in chain:
+        (cooled if _in_cooldown(entry[0], scope=scope) else healthy).append(entry)
+    return healthy + cooled, [provider for provider, _model in cooled]
+
+
+# Known-safe, content-free failure diagnoses that may ride along with the
+# exception class name in logs and the health surface. Fail-closed allowlist:
+# anything the regex does not recognise stays a bare class name, so raw SDK
+# text (URLs with keys, personal paths, response bodies) can never leak into
+# a persisted record. Added 2026-07-21: the status bar said "codex
+# RuntimeError" while the actual story was "did not answer within 90s".
+_SAFE_DIAGNOSIS_RE = re.compile(
+    r"did not answer within [0-9.]+\s*s|timed? ?out|"
+    r"not (?:installed|logged in|found)|no answer|empty answer|"
+    r"returned no answer|could not be launched|unavailable|"
+    r"rate.?limit(?:ed)?|quota|insufficient credit",
+    re.IGNORECASE,
+)
+
+
+def _exception_summary(exc: Exception) -> str:
+    """Return diagnostic class/status metadata without persisting raw SDK text."""
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+    name = type(exc).__name__
+    try:
+        code = int(status) if status is not None else None
+    except (TypeError, ValueError):
+        code = None
+    summary = f"{name} HTTP {code}" if code is not None else name
+    diagnosis = _SAFE_DIAGNOSIS_RE.search(str(exc))
+    return f"{summary} ({diagnosis.group(0)})" if diagnosis else summary
+
+#: How long a subscription-login probe stands before it is asked again. The
+#: probe shells out to a vendor CLI's status command — seconds of subprocess
+#: per provider, and every wiki batch asks about all of them. A login does not
+#: change second to second, so a short memo removes almost all of that while
+#: still noticing a sign-in within one refresh.
+_LOGIN_PROBE_TTL_S = 30.0
+
+_login_probe_lock = threading.Lock()
+_login_probe_cache: dict[str, tuple[float, bool | None]] = {}
+
+
+def subscription_login_ready(provider: str, *, registry: Any = None) -> bool | None:
+    """Subscription-login readiness; ``None`` means no such capability.
+
+    Subscription-backed brains advertise a ``subscription_connected`` class
+    capability. Resolving it through the provider registry keeps the chain open
+    to future CLIs without another vendor-name branch (AP-21). A failed probe
+    stays unknown rather than false so one status-service fault cannot empty an
+    otherwise usable fallback chain.
+
+    The answer is memoised for :data:`_LOGIN_PROBE_TTL_S`: the probe costs a
+    subprocess per provider, and the callers ask for every provider on every
+    batch, which turned a background job into seconds of blocked work.
+    """
+    now = time.monotonic()
+    with _login_probe_lock:
+        cached = _login_probe_cache.get(provider)
+        if cached is not None and (now - cached[0]) < _LOGIN_PROBE_TTL_S:
+            return cached[1]
+    try:
+        if registry is None:
+            from dodaios.brain.provider_registry import BrainProviderRegistry
+
+            registry = BrainProviderRegistry()
+        provider_class = registry.get_class(provider)
+        probe = getattr(provider_class, "subscription_connected", None)
+        if not callable(probe):
+            result: bool | None = None
+        else:
+            result = bool(probe())
+    except Exception:  # noqa: BLE001 - a probe failure must never empty the chain
+        return None
+    with _login_probe_lock:
+        _login_probe_cache[provider] = (time.monotonic(), result)
+    return result
+
+
+def credential_ready_wiki_providers(
+    *,
+    available: set[str] | frozenset[str],
+    config: Any,
+) -> set[str]:
+    """Return registered providers that have a portable credential path.
+
+    API providers are checked through the core endpoint resolver, which already
+    implements team-proxy credentials plus keyring, environment, ``.env``, and
+    the headless local-file fallback. Providers without a core API-key mapping
+    remain eligible when their subscription-CLI login probe does not say
+    otherwise (OAuth/local providers with no probe stay fail-open); a provider
+    WITH a key mapping is also admitted when its CLI login is connected, so a
+    keyless Codex-subscription user keeps the wiki working.
+    """
+    from dodaios.brain.provider_registry import BrainProviderRegistry
+    from dodaios.core.config import (
+        PROVIDER_SECRET_CANDIDATES,
+        resolve_provider_endpoint,
+    )
+
+    ready: set[str] = set()
+    registry = BrainProviderRegistry()
+    for provider in available:
+        cli_ready = subscription_login_ready(provider, registry=registry)
+        if provider not in PROVIDER_SECRET_CANDIDATES:
+            if cli_ready is False:
+                continue
+            ready.add(provider)
+            continue
+        try:
+            endpoint = resolve_provider_endpoint(provider, config=config)
+            has_key = bool(endpoint.credential)
+        except Exception:  # noqa: BLE001 - one credential probe cannot hide others
+            log.debug(
+                "wiki provider credential probe failed for %s", provider,
+                exc_info=True,
+            )
+            has_key = False
+        if has_key or cli_ready is True:
+            ready.add(provider)
+    return ready
+
+
+def background_wiki_decision(
+    *,
+    available: set[str] | frozenset[str],
+    config: Any,
+    credential_filter: bool = True,
+) -> BackgroundProviders:
+    """The background billing verdict over the wiki's credential-ready providers.
+
+    Delegates to :func:`dodaios.brain.background_policy.background_providers`,
+    the one rule for work nobody is waiting on: once a subscription is
+    connected (sticky for 30 days) only subscriptions and keyless local models
+    may bill, and an empty allowed set means WAIT, never "use a key". An
+    install that never connected a subscription keeps its keys, so a
+    single-key download still has a working wiki (AP-21/AP-22).
+
+    ``credential_filter=False`` skips the credential probe (tests inject a
+    scripted registry); the billing rule itself always applies.
+    """
+    ready = (
+        credential_ready_wiki_providers(available=available, config=config)
+        if credential_filter
+        else set(available)
+    )
+    return background_providers(sorted(ready))
+
+
+def background_wiki_providers(
+    *,
+    available: set[str] | frozenset[str],
+    config: Any,
+) -> set[str]:
+    """Providers wiki background work may bill right now (see the decision above).
+
+    Before 2026-09-30 this admitted every stored key whenever no login probe
+    answered ``True`` at that moment — so an expired OAuth token, a crashed
+    CLI probe or a spent plan silently moved memory curation onto paid keys
+    (~300 wiki calls on keys in 30 days). It now returns exactly the policy's
+    allowed set; an empty set in subscription mode means the caller waits.
+    """
+    return set(background_wiki_decision(available=available, config=config).allowed)
+
+
+def subscription_provider_options(
+    decision: BackgroundProviders,
+    registry: Any,
+) -> dict[str, dict[str, Any]]:
+    """Constructor options that pin allowed subscriptions to their login.
+
+    A dual-billed provider (a subscription login plus an API-key slot, e.g.
+    the ChatGPT-subscription card) decides per call which one it spends; a
+    login that drops between the policy check and the call would otherwise
+    fall through to the key. In subscription mode every allowed provider whose
+    constructor accepts ``prefer_subscription`` gets it, so it fails instead
+    of billing its key. Capability probe on the constructor, never a provider
+    name (AP-21).
+    """
+    if not decision.subscription_mode:
+        return {}
+    options: dict[str, dict[str, Any]] = {}
+    for name in decision.allowed:
+        if not subscription_capable(name):
+            continue
+        get_class = getattr(registry, "get_class", None)
+        if not callable(get_class):
+            continue
+        try:
+            parameters = inspect.signature(get_class(name)).parameters
+        except Exception:  # noqa: BLE001 - an unknown constructor gets no pin
+            log.debug(
+                "wiki background chain: cannot inspect %s for prefer_subscription",
+                name,
+                exc_info=True,
+            )
+            continue
+        if "prefer_subscription" in parameters:
+            options[name] = {"prefer_subscription": True}
+    return options
+
+
+@dataclass(frozen=True, slots=True)
+class WikiBackgroundChain:
+    """An ordered provider chain that background wiki work may bill."""
+
+    chain: list[tuple[str, str | None]]
+    subscription_mode: bool
+    provider_options: dict[str, dict[str, Any]]
+
+
+def build_background_wiki_chain(
+    *,
+    registry: Any,
+    config: Any,
+    primary: str,
+    model_override: str,
+    credential_filter: bool = True,
+) -> WikiBackgroundChain:
+    """Build the chain for one background wiki call, or raise to make it wait.
+
+    Raises :class:`BackgroundDeferred` when the install is in subscription
+    mode and no subscription (or keyless local model) can take the work right
+    now: the caller keeps its work pending and retries later. In key mode an
+    empty chain is returned as before, so the caller's honest chain-failure
+    path still reports "no provider configured".
+    """
+    available = set(registry.available())
+    decision = background_wiki_decision(
+        available=available,
+        config=config,
+        credential_filter=credential_filter,
+    )
+    chain = build_wiki_provider_chain(
+        primary=primary,
+        model_override=model_override,
+        available=available,
+        credential_ready=set(decision.allowed),
+    )
+    if decision.subscription_mode and not chain:
+        raise BackgroundDeferred(decision.reason)
+    return WikiBackgroundChain(
+        chain=chain,
+        subscription_mode=decision.subscription_mode,
+        provider_options=subscription_provider_options(decision, registry),
+    )
+
+
+def build_wiki_provider_chain(
+    *,
+    primary: str,
+    model_override: str,
+    available: set[str] | frozenset[str],
+    credential_ready: set[str] | frozenset[str] | None = None,
+) -> list[tuple[str, str | None]]:
+    """Ordered, de-duplicated ``(provider, model)`` attempts for a wiki LLM call.
+
+    ``primary`` (``cfg.provider`` or ``brain.primary``) leads when credential
+    ready, then every other registered and credential-ready provider follows in
+    stable order. There is no provider-name allowlist: a newly registered Brain
+    provider automatically becomes a wiki fallback. An explicit
+    ``model_override`` applies only to ``primary``; each fallback resolves its
+    own cheap router-tier model or lets its plugin choose a default.
+    """
+    from dodaios.memory.wiki.curator_llm import _cheap_model_for
+
+    chain: list[tuple[str, str | None]] = []
+    seen: set[str] = set()
+    override = (model_override or "").strip()
+    eligible = set(available)
+    if credential_ready is not None:
+        eligible.intersection_update(credential_ready)
+    for name in (primary, *sorted(eligible)):
+        if not name or name in seen or name not in eligible:
+            continue
+        seen.add(name)
+        model = override if (name == primary and override) else _cheap_model_for(name)
+        chain.append((name, model or None))
+    return chain
+
+
+async def complete_with_fallback(
+    *,
+    registry: Any,
+    chain: list[tuple[str, str | None]],
+    request: Any,
+    timeout_s: float,
+    label: str,
+    aggregate: Callable[[Any], Any],
+    validate: Callable[[Any], str | None] | None = None,
+    allow_last_rejection: Callable[[str], bool] | None = None,
+    allow_lone_rejection: Callable[[str], bool] | None = None,
+    content_verdict: Callable[[str], bool] | None = None,
+    provider_options: Mapping[str, Mapping[str, Any]] | None = None,
+    record_health: bool = True,
+    failure_scope: str = "wiki",
+    before_attempt: Callable[[str], None] | None = None,
+    record_chain_failure: bool = True,
+) -> tuple[Any, str] | None:
+    """Try each ``(provider, model)`` until one returns an aggregated response.
+
+    Returns ``(agg, provider_name)`` on the first usable success, or ``None``
+    when the whole chain fails. ``validate`` can reject a transport-successful
+    response with a short reason; the next provider is then tried before the
+    caller gives up on malformed or truncated structured output.
+
+    ``allow_last_rejection`` marks CONTENT-verdict rejections ("nothing
+    usable in this turn") that may end the chain: two agreeing providers are
+    consensus and stop immediately. ``allow_lone_rejection`` (default: same
+    set) additionally decides whether a SINGLE such verdict — with no second
+    opinion available — is accepted as final; a reason outside it stays a
+    retryable failure, so one weak provider can never be terminal proof that
+    a transcript held no facts.
+
+    ``content_verdict`` classifies a ``validate`` rejection as a deterministic
+    CURATION verdict on WELL-FORMED output (e.g. "companion page missing",
+    "update removes existing content") as opposed to a broken RESPONSE
+    (truncated / unparseable JSON) or a transport failure. A provider hitting a
+    content verdict is HEALTHY — it answered; only the judged decision violated
+    a curation rule. Such a rejection therefore (1) does NOT cool the provider
+    down and (2) does NOT paint the red 'Chain failure' banner: a banner is a
+    PROVIDER-health signal, and one un-consolidatable candidate is not provider
+    damage. The caller's own bounded retry/park handles the candidate quietly.
+    Live 2026-07-23: a single mis-kinded 'cloudflare-plugin' activity candidate
+    demanded a companion page no provider produced, wedging the chain and
+    listing all 8 providers as broken on every journal trigger.
+
+    ``record_health=False`` isolates an optional side lane from the normal Wiki
+    health strip. Media enrichment uses the same provider machinery,
+    but an unreadable picture neither means normal Markdown capture is broken
+    nor has authority to clear a real capture failure after a later success.
+    ``failure_scope`` likewise isolates the short provider cooldown: an image-
+    specific 400 must not demote that same provider for ordinary text curation.
+
+    ``before_attempt(provider)`` runs before each provider is instantiated.
+    Background callers pass the runaway guard's call counter here, so every
+    attempt — second opinions and split-and-retry halves included — counts
+    against the daily cap. It may raise
+    :class:`~dodaios.brain.background_policy.BackgroundDeferred`; that
+    propagates unchanged (nothing was spent, the work waits) instead of being
+    treated as a provider failure.
+
+    ``record_chain_failure=False`` keeps a total chain failure off the red
+    health banner while successes still clear it: a subscription-mode caller
+    records a "waiting for your subscription" state instead, because waiting
+    is the designed behaviour there, not a broken wiki.
+    """
+    from dodaios.memory.wiki.curator_llm import instantiate_curator_brain
+
+    # Per-provider failure reasons, collected as we go — feeds both the
+    # final log line's diagnostic detail and the health-surface chain-failure
+    # record (spec A5) so "openai 401; gemini 429" is visible, not just a
+    # generic "ALL N failed" count.
+    failure_summaries: list[str] = []
+    # Healthy providers whose WELL-FORMED answer only failed a curation rule.
+    # Kept out of ``failure_summaries`` so they never cool a provider down or
+    # reach the chain-failure banner (see ``content_verdict`` above).
+    content_rejections: list[str] = []
+    allowed_rejection_fallback: tuple[Any, str, str] | None = None
+    shared_pipeline_failure = False
+
+    ordered, demoted = _order_by_cooldown(chain, scope=failure_scope)
+    if demoted and ordered != chain:
+        log.info(
+            "%s: demoting recently-failed provider(s) to the end of the "
+            "chain: %s",
+            label,
+            ", ".join(demoted),
+        )
+
+    for index, (provider, model) in enumerate(ordered):
+        if before_attempt is not None:
+            # Outside every provider try-block on purpose: a runaway-guard
+            # deferral is not a provider failure and must reach the caller.
+            before_attempt(provider)
+        try:
+            brain = instantiate_curator_brain(
+                registry,
+                provider,
+                model,
+                cli_timeout_s=timeout_s,
+                provider_options=(provider_options or {}).get(provider),
+            )
+        except Exception as exc:  # noqa: BLE001 — a bad provider must not abort the chain
+            detail = _exception_summary(exc)
+            log.warning(
+                "%s: could not instantiate %s (%s) — trying next provider",
+                label,
+                provider,
+                detail,
+            )
+            failure_summaries.append(f"{provider} instantiate failed: {detail}")
+            _note_provider_failure(provider, detail, scope=failure_scope)
+            continue
+        if brain is None:
+            failure_summaries.append(f"{provider} unavailable")
+            continue
+        try:
+            with usage_context("wiki"):
+                stream = brain.complete(request)
+        except Exception as exc:  # noqa: BLE001 — synchronous provider failure
+            detail = _exception_summary(exc)
+            log.warning(
+                "%s: provider %s failed before streaming (%s) — trying next provider",
+                label,
+                provider,
+                detail,
+            )
+            failure_summaries.append(f"{provider} {detail}")
+            _note_provider_failure(provider, detail, scope=failure_scope)
+            continue
+        try:
+            # Calling the caller-owned adapter is deliberately separate from
+            # awaiting it. A synchronous exception here is a shared pipeline
+            # contract bug, not six independent provider failures. Stop once,
+            # keep every provider healthy, and report the local stage honestly.
+            pending_aggregate = aggregate(stream)
+        except Exception as exc:  # noqa: BLE001 — local adapter fault
+            detail = _exception_summary(exc)
+            log.error(
+                "%s: response aggregation setup failed (%s) — stopping the "
+                "provider chain because the shared adapter is broken",
+                label,
+                detail,
+            )
+            failure_summaries.append(f"{label} aggregation setup failed: {detail}")
+            shared_pipeline_failure = True
+            break
+        try:
+            agg = await asyncio.wait_for(pending_aggregate, timeout=timeout_s)
+            # Transport-level success: the provider is reachable again.
+            # A validation rejection below re-records it as failed.
+            _provider_failures.pop((failure_scope, provider), None)
+            if validate is not None:
+                try:
+                    rejection = validate(agg)
+                    if rejection is not None and not isinstance(rejection, str):
+                        raise TypeError(
+                            "response validators must return a rejection string or None"
+                        )
+                except Exception as exc:  # noqa: BLE001 - local validator fault
+                    detail = _exception_summary(exc)
+                    log.error(
+                        "%s: response validator failed (%s) — stopping the "
+                        "provider chain because the shared validator is broken",
+                        label,
+                        detail,
+                    )
+                    failure_summaries.append(f"{label} response validation failed: {detail}")
+                    shared_pipeline_failure = True
+                    break
+                if rejection:
+                    safe_rejection = safe_preview(rejection, max_chars=240)
+                    allowed = (
+                        allow_last_rejection is not None
+                        and allow_last_rejection(rejection)
+                    )
+                    last_in_chain = index == len(ordered) - 1
+                    if allowed:
+                        # An allowed rejection is a CONTENT verdict ("this
+                        # turn holds nothing usable"), not provider damage:
+                        # it never cools the provider down. Keep a
+                        # semantically safe fallback while asking the
+                        # remaining providers for one *valid structured*
+                        # second opinion; a second allowed answer is
+                        # agreement and ends the chain.
+                        if allowed_rejection_fallback is not None:
+                            log.info(
+                                "%s: accepting provider %s output after a "
+                                "second provider agreed (%s)",
+                                label,
+                                provider,
+                                safe_rejection,
+                            )
+                            if record_health:
+                                _record_chain_recovery(label)
+                            return agg, provider
+                        # If every later provider fails, their failure must not
+                        # erase this valid bounded answer.
+                        allowed_rejection_fallback = (agg, provider, rejection)
+                        if last_in_chain:
+                            lone_ok = (
+                                allow_lone_rejection is None
+                                or allow_lone_rejection(rejection)
+                            )
+                            if lone_ok:
+                                log.info(
+                                    "%s: accepting final provider %s output "
+                                    "after bounded second-opinion attempts "
+                                    "(%s)",
+                                    label,
+                                    provider,
+                                    safe_rejection,
+                                )
+                                if record_health:
+                                    _record_chain_recovery(label)
+                                return agg, provider
+                            # A lone verdict this caller does not trust as
+                            # final stays a retryable failure — one weak
+                            # provider must never be terminal proof.
+                            failure_summaries.append(
+                                f"{provider} unusable output: {safe_rejection}"
+                            )
+                            allowed_rejection_fallback = None
+                            continue
+                        log.info(
+                            "%s: provider %s returned a valid but empty/"
+                            "ungrounded result (%s) - asking one more "
+                            "provider for a second opinion",
+                            label,
+                            provider,
+                            safe_rejection,
+                        )
+                        continue
+                    if content_verdict is not None and content_verdict(rejection):
+                        # Well-formed answer, curation rule violated: the
+                        # provider is healthy. Record it for the log, but never
+                        # cool it down or count it as chain damage — that is
+                        # what wedged the chain and lit the banner for one
+                        # un-consolidatable candidate.
+                        content_rejections.append(
+                            f"{provider} rejected content: {safe_rejection}"
+                        )
+                        log.info(
+                            "%s: provider %s answered but its decision failed a "
+                            "curation rule (%s) - trying next provider",
+                            label,
+                            provider,
+                            safe_rejection,
+                        )
+                        try:
+                            telemetry.inc("wiki_provider_output_rejected")
+                        except Exception:  # noqa: BLE001 - telemetry cannot break fallback
+                            log.debug(
+                                "%s: output-rejection telemetry failed",
+                                label,
+                                exc_info=True,
+                            )
+                        continue
+                    log.warning(
+                        "%s: provider %s returned unusable output (%s) - "
+                        "trying next provider",
+                        label,
+                        provider,
+                        safe_rejection,
+                    )
+                    failure_summaries.append(
+                        f"{provider} unusable output: {safe_rejection}"
+                    )
+                    _note_provider_failure(
+                        provider, safe_rejection, scope=failure_scope
+                    )
+                    try:
+                        telemetry.inc("wiki_provider_output_rejected")
+                    except Exception:  # noqa: BLE001 - telemetry cannot break fallback
+                        log.debug(
+                            "%s: output-rejection telemetry failed",
+                            label,
+                            exc_info=True,
+                        )
+                    continue
+            if record_health:
+                _record_chain_recovery(label)
+            return agg, provider
+        except TimeoutError:
+            log.warning(
+                "%s: provider %s timed out after %.1fs — trying next provider",
+                label,
+                provider,
+                timeout_s,
+            )
+            failure_summaries.append(f"{provider} timeout ({timeout_s:.1f}s)")
+            _note_provider_failure(provider, "timeout", scope=failure_scope)
+            continue
+        except Exception as exc:  # noqa: BLE001 — try the next family, never dead-end on one
+            detail = _exception_summary(exc)
+            log.warning(
+                "%s: provider %s failed (%s) — trying next provider",
+                label,
+                provider,
+                detail,
+            )
+            failure_summaries.append(f"{provider} {detail}")
+            _note_provider_failure(provider, detail, scope=failure_scope)
+            continue
+
+    if allowed_rejection_fallback is not None:
+        agg, provider, rejection = allowed_rejection_fallback
+        safe_rejection = safe_preview(rejection, max_chars=240)
+        if allow_lone_rejection is None or allow_lone_rejection(rejection):
+            log.info(
+                "%s: accepting provider %s output after later second-opinion "
+                "attempts failed (%s)",
+                label,
+                provider,
+                safe_rejection,
+            )
+            if record_health:
+                _record_chain_recovery(label)
+            return agg, provider
+        # A lone content verdict this caller does not trust as final: the
+        # chain ends as a retryable failure instead of terminal proof.
+        failure_summaries.append(f"{provider} unusable output: {safe_rejection}")
+
+    # A red 'Chain failure' banner is a PROVIDER-health signal ("the wiki
+    # pipeline could not reach a working model"). If ANY provider answered
+    # healthily and was rejected only on curation content, the pipeline is not
+    # bricked — a normal fact would have been written — so this is one
+    # un-consolidatable candidate, not provider damage. Suppress the banner
+    # (the caller's bounded park retires the candidate quietly) even when other
+    # rungs were genuinely dead: their 401/timeout is a separate, constant
+    # state surfaced on the API-keys health tab, not a reason to relabel a
+    # working chain as failed. Only a chain with NO healthy answer at all
+    # (below) is a real chain failure.
+    if content_rejections:
+        detail = "; ".join(content_rejections)
+        if failure_summaries:
+            detail += f" | dead rungs (not banner-worthy): {'; '.join(failure_summaries)}"
+        log.info(
+            "%s: chain wrote nothing, but at least one provider answered and was "
+            "rejected only on content (%s). Providers healthy — no chain-failure "
+            "recorded.",
+            label,
+            safe_preview(detail, max_chars=800),
+        )
+        return None
+
+    if shared_pipeline_failure:
+        log.error(
+            "%s: the shared response pipeline failed — nothing was written. "
+            "Provider health was left unchanged.",
+            label,
+        )
+    else:
+        log.error(
+            "%s: ALL %d wiki provider(s) failed or returned unusable output — "
+            "nothing was written. Check provider health and structured-output logs.",
+            label,
+            len(chain),
+        )
+    try:
+        telemetry.inc(
+            "wiki_provider_pipeline_failed"
+            if shared_pipeline_failure
+            else "wiki_all_providers_failed"
+        )
+    except Exception:  # noqa: BLE001 — telemetry must never break the pipeline
+        log.debug("%s: telemetry inc failed", label, exc_info=True)
+    if record_health and record_chain_failure:
+        try:
+            from dodaios.memory.wiki.health import health
+
+            health.record_chain_failure(
+                safe_preview(
+                    "; ".join(failure_summaries)
+                    if failure_summaries
+                    else f"{label}: empty provider chain",
+                    max_chars=800,
+                )
+            )
+        except Exception:  # noqa: BLE001 — health recording must never break the pipeline
+            log.debug("%s: health record_chain_failure failed", label, exc_info=True)
+    return None
+
+
+__all__ = [
+    "WikiBackgroundChain",
+    "background_wiki_decision",
+    "background_wiki_providers",
+    "build_background_wiki_chain",
+    "build_wiki_provider_chain",
+    "complete_with_fallback",
+    "credential_ready_wiki_providers",
+    "reset_provider_failure_memory",
+    "subscription_login_ready",
+    "subscription_provider_options",
+]

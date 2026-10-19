@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.speech.pipeline import _gather_timed
+from dodaios.speech.pipeline import _gather_timed
 
 
 async def test_gather_timed_records_each_task_duration() -> None:

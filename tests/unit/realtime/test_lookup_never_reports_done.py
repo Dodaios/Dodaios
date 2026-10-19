@@ -31,8 +31,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.realtime.session import RealtimeVoiceSession, _lookup_facts
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.realtime.session import RealtimeVoiceSession, _lookup_facts
+from dodaios.voice.action_phrases import action_phrase
 
 SEARCH_HITS = [
     {
