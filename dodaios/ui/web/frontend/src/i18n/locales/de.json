@@ -343,7 +343,8 @@
     "voice_language": "Sprache",
     "voice_api_keys": "API-Keys",
     "shortcuts": "Tastenkürzel",
-    "pets": "Meine Pets"
+    "pets": "Meine Pets",
+    "self_build": "Für dich gebaut"
   },
   "assistant_view": {
     "header_named": "Dein Assistent in {0}, geweckt mit „{1}“.",
@@ -3170,7 +3171,8 @@
       "music": "Musik",
       "keybinds": "Tastenkürzel",
       "more": "Weiteres",
-      "overlay_taskbar": "Overlay & Taskleiste"
+      "overlay_taskbar": "Overlay & Taskleiste",
+      "self_build": "Selbstbau"
     },
     "languages_group_title": "Sprachen",
     "sections": {
@@ -3515,7 +3517,43 @@
       "system_now_dark": "Folgt Ihrem System, das derzeit dunkel ist.",
       "system_now_light": "Folgt Ihrem System, das derzeit hell ist."
     },
-    "invalid_setting": "Ungültige Einstellung"
+    "invalid_setting": "Ungültige Einstellung",
+    "self_build": {
+      "title": "Selbstbau",
+      "description": "Wie weit {name} gehen darf, wenn es von sich aus Dinge für dich baut.",
+      "open_view": "„Für dich gebaut“ öffnen",
+      "enabled_title": "Von sich aus bauen",
+      "enabled_description": "Bemerken, was du immer wieder tust, und bauen, was es dir abnimmt. Aus: Nichts wird bemerkt oder gebaut.",
+      "autonomy_title": "Wie weit, je Art",
+      "autonomy_description": "Aus: nie. Vorschlagen: Eine Karte fragt zuerst. Probe: gebaut, geprüft und live, mit Rückgängig per Klick. Voll: wie Probe, und eine genutzte Probe wird von selbst behalten.",
+      "levels": {
+        "off": "Aus",
+        "suggest": "Vorschlagen",
+        "trial": "Probe",
+        "full": "Voll"
+      },
+      "kinds": {
+        "memory": "Erinnerungen",
+        "skill": "Skills",
+        "routine": "Routinen",
+        "agent": "Agenten",
+        "code": "Code-Änderungen"
+      },
+      "limits_title": "Grenzen",
+      "limits_description": "Feste Obergrenzen, die die Schleife nie überschreitet, egal was sie entscheidet.",
+      "limits": {
+        "max_builds_per_day": "Bauten pro Tag",
+        "max_open_trials": "Gleichzeitige Proben",
+        "max_agents_per_week": "Neue Agenten pro Woche",
+        "max_code_runs_per_day": "Code-Läufe pro Tag",
+        "trial_days": "Probedauer in Tagen",
+        "trial_uses": "Probedauer in Nutzungen",
+        "max_rejections": "Nach so vielen Absagen nicht mehr anbieten",
+        "silent_days": "Ruhige erste Tage"
+      },
+      "save_error": "Speichern fehlgeschlagen: {detail}",
+      "unavailable": "Diese Einstellungen konnten nicht geladen werden."
+    }
   },
   "telephony_view": {
     "title": "Telefonie (experimentell)",
@@ -10078,5 +10116,10 @@
       "objections_one": "{count} Einwand",
       "objections_other": "{count} Einwände"
     }
+  },
+  "self_build_badge": {
+    "label": "Gebaut von {name}",
+    "title": "{name} hat das von sich aus gebaut. Zum Bau öffnen.",
+    "trial": "auf Probe"
   }
 }
