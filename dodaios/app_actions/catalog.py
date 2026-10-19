@@ -21,12 +21,15 @@ _METHODS: Final[tuple[str, ...]] = ("get", "post", "put", "patch", "delete")
 #: action policy itself — Jarvis never edits its own permissions — the
 #: main-brain switch, which only the person may flip (the provider lock), and
 #: consent to spend money: the missions' paid-API fallback switch and a
-#: mission's paid-use approval (dodaios/missions/capacity.py).
+#: mission's paid-use approval (dodaios/missions/capacity.py) — and how far the
+#: self-building loop may go: its settings, its kill switch, and accepting or
+#: keeping a build (docs/self-build.md, rule 3; undo and reads stay reachable).
 _EXCLUDED: Final[re.Pattern[str]] = re.compile(
     r"(secret|api-?keys?|/keys?(/|$)|install-key|host-key|use-key|token|password|"
     r"credential|oauth|/auth(/|$)|login|pairing|/callback|/hooks/|openapi|/ws$|"
     r"^/api/control/|^/api/self-mod|^/api/app-actions|^/api/brain/switch$|"
-    r"^/api/mission-billing|/capacity-decision$)",
+    r"^/api/mission-billing|/capacity-decision$|"
+    r"^/api/self-build/(settings|pause)$|^/api/self-build/[^/]+/(accept|keep)$)",
     re.IGNORECASE,
 )
 
