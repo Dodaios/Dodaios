@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.core.config as cfg_mod
-from jarvis.brain import resolver
-from jarvis.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
+import dodaios.core.config as cfg_mod
+from dodaios.brain import resolver
+from dodaios.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
 
 
 @pytest.fixture(autouse=True)
@@ -20,7 +20,7 @@ def _hermetic(monkeypatch):
     """No real keys, no OAuth rescue, fresh resolver cache."""
     resolver._reset_for_tests()
     monkeypatch.setattr(cfg_mod, "get_provider_secret", lambda pid: None)
-    import jarvis.brain.manager as manager
+    import dodaios.brain.manager as manager
 
     monkeypatch.setattr(manager, "_keyless_provider_is_rescued_by_oauth", lambda pid: False)
     yield

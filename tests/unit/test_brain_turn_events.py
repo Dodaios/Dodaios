@@ -12,7 +12,7 @@ actually delivered data.
 """
 from __future__ import annotations
 
-from jarvis.core.events import BrainTurnCompleted, BrainTurnStarted
+from dodaios.core.events import BrainTurnCompleted, BrainTurnStarted
 
 
 def test_brain_turn_completed_has_provider_field() -> None:

@@ -15,17 +15,17 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import file_index
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.agentic_ide import file_index
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
     """A miniature project with the shapes that actually cause trouble."""
-    (tmp_path / "jarvis" / "plugins" / "wake").mkdir(parents=True)
-    (tmp_path / "jarvis" / "plugins" / "wake" / "vosk_kws_provider.py").write_text("x")
-    (tmp_path / "jarvis" / "core").mkdir(parents=True)
-    (tmp_path / "jarvis" / "core" / "turn_language.py").write_text("x")
+    (tmp_path / "dodaios" / "plugins" / "wake").mkdir(parents=True)
+    (tmp_path / "dodaios" / "plugins" / "wake" / "vosk_kws_provider.py").write_text("x")
+    (tmp_path / "dodaios" / "core").mkdir(parents=True)
+    (tmp_path / "dodaios" / "core" / "turn_language.py").write_text("x")
     (tmp_path / "frontend" / "src").mkdir(parents=True)
     (tmp_path / "frontend" / "src" / "terminalThemes.ts").write_text("x")
     (tmp_path / "tests" / "unit").mkdir(parents=True)
@@ -33,9 +33,9 @@ def repo(tmp_path: Path) -> Path:
     # Noise that must never be indexed.
     (tmp_path / "node_modules" / "pkg").mkdir(parents=True)
     (tmp_path / "node_modules" / "pkg" / "turn_language.py").write_text("x")
-    (tmp_path / ".claude" / "worktrees" / "old" / "jarvis" / "core").mkdir(parents=True)
+    (tmp_path / ".claude" / "worktrees" / "old" / "dodaios" / "core").mkdir(parents=True)
     (
-        tmp_path / ".claude" / "worktrees" / "old" / "jarvis" / "core" / "turn_language.py"
+        tmp_path / ".claude" / "worktrees" / "old" / "dodaios" / "core" / "turn_language.py"
     ).write_text("x")
     (tmp_path / "logo.png").write_bytes(b"\x89PNG")
     return tmp_path
@@ -44,7 +44,7 @@ def repo(tmp_path: Path) -> Path:
 def test_spoken_words_resolve_to_the_real_file(repo: Path) -> None:
     index = file_index.build_index(repo)
     hits = index.suggest("schau dir den vosk wake provider an", limit=3)
-    assert hits[0] == "jarvis/plugins/wake/vosk_kws_provider.py"
+    assert hits[0] == "dodaios/plugins/wake/vosk_kws_provider.py"
 
 
 def test_a_plural_still_matches_its_file(repo: Path) -> None:
@@ -60,7 +60,7 @@ def test_stale_repo_copies_are_never_indexed(repo: Path) -> None:
     paths = [entry.rel for entry in index.entries]
     assert not any("worktrees" in p for p in paths)
     assert not any("node_modules" in p for p in paths)
-    assert "jarvis/core/turn_language.py" in paths
+    assert "dodaios/core/turn_language.py" in paths
 
 
 def test_binaries_are_skipped(repo: Path) -> None:
@@ -73,7 +73,7 @@ def test_implementation_outranks_its_test_unless_tests_are_asked_for(
 ) -> None:
     index = file_index.build_index(repo)
     code_first = index.suggest("fix the turn language resolver", limit=2)
-    assert code_first[0] == "jarvis/core/turn_language.py"
+    assert code_first[0] == "dodaios/core/turn_language.py"
 
     asked = index.suggest("fix the turn language test", limit=2)
     assert "tests/unit/test_turn_language.py" in asked
@@ -86,7 +86,7 @@ def test_conversational_scaffolding_matches_nothing(repo: Path) -> None:
 
 def test_render_map_puts_the_named_file_in_its_directory(repo: Path) -> None:
     mapped = file_index.build_index(repo).render_map("schau dir den vosk wake provider an")
-    assert "jarvis/plugins/wake/" in mapped
+    assert "dodaios/plugins/wake/" in mapped
     assert "vosk_kws_provider.py" in mapped
 
 
@@ -99,7 +99,7 @@ def test_render_map_still_shows_the_tree_when_words_match_nothing(
     index = file_index.build_index(repo)
     assert index.suggest("it takes too long after I speak") == []
     mapped = index.render_map("it takes too long after I speak")
-    assert "jarvis/plugins/wake/" in mapped
+    assert "dodaios/plugins/wake/" in mapped
     assert "vosk_kws_provider.py" in mapped
 
 
@@ -140,66 +140,66 @@ def test_a_compound_product_name_finds_its_own_package(tmp_path: Path):
 
     Those never met, so the package was unreachable by the name people write.
     """
-    (tmp_path / "jarvis" / "agentchat").mkdir(parents=True)
-    (tmp_path / "jarvis" / "agentchat" / "pipeline.py").write_text("x")
-    (tmp_path / "jarvis" / "agentchat" / "search.py").write_text("x")
+    (tmp_path / "dodaios" / "agentchat").mkdir(parents=True)
+    (tmp_path / "dodaios" / "agentchat" / "pipeline.py").write_text("x")
+    (tmp_path / "dodaios" / "agentchat" / "search.py").write_text("x")
     (tmp_path / "docs" / "reports").mkdir(parents=True)
     (tmp_path / "docs" / "reports" / "realtime-wiki-deep-dive-2026-07-12.html").write_text("x")
 
     index = file_index.build_index(str(tmp_path))
     hits = index.suggest("deep dive of the AgentChat system", limit=5)
 
-    assert any(h.startswith("jarvis/agentchat/") for h in hits), hits
+    assert any(h.startswith("dodaios/agentchat/") for h in hits), hits
 
 
 def test_the_lowercase_spelling_still_works(tmp_path: Path):
-    (tmp_path / "jarvis" / "agentchat").mkdir(parents=True)
-    (tmp_path / "jarvis" / "agentchat" / "pipeline.py").write_text("x")
+    (tmp_path / "dodaios" / "agentchat").mkdir(parents=True)
+    (tmp_path / "dodaios" / "agentchat" / "pipeline.py").write_text("x")
 
     hits = file_index.build_index(str(tmp_path)).suggest("the agentchat pipeline", limit=5)
 
-    assert "jarvis/agentchat/pipeline.py" in hits
+    assert "dodaios/agentchat/pipeline.py" in hits
 
 
 def test_source_outranks_a_report_that_merely_shares_the_words(tmp_path: Path):
     """A report named after the topic beat the implementation of it."""
-    (tmp_path / "jarvis" / "agentchat").mkdir(parents=True)
-    (tmp_path / "jarvis" / "agentchat" / "pipeline.py").write_text("x")
+    (tmp_path / "dodaios" / "agentchat").mkdir(parents=True)
+    (tmp_path / "dodaios" / "agentchat" / "pipeline.py").write_text("x")
     (tmp_path / "docs" / "reports").mkdir(parents=True)
     (tmp_path / "docs" / "reports" / "agentchat-deep-dive.html").write_text("x")
     (tmp_path / "docs" / "reports" / "agentchat-deep-dive.artifact.json").write_text("{}")
 
     hits = file_index.build_index(str(tmp_path)).suggest("deep dive of agentchat", limit=3)
 
-    assert hits[0].startswith("jarvis/"), hits
+    assert hits[0].startswith("dodaios/"), hits
 
 
 def test_naming_a_package_pulls_in_its_siblings(tmp_path: Path):
     """ "Review the agentchat ranking" should reach the neighbouring modules,
     not only the one file whose stem happens to match."""
-    pkg = tmp_path / "jarvis" / "agentchat"
+    pkg = tmp_path / "dodaios" / "agentchat"
     pkg.mkdir(parents=True)
     for name in ("pipeline.py", "rerank.py", "embeddings.py", "store.py"):
         (pkg / name).write_text("x")
-    (tmp_path / "jarvis" / "speech").mkdir(parents=True)
-    (tmp_path / "jarvis" / "speech" / "pipeline.py").write_text("x")
+    (tmp_path / "dodaios" / "speech").mkdir(parents=True)
+    (tmp_path / "dodaios" / "speech" / "pipeline.py").write_text("x")
 
     hits = file_index.build_index(str(tmp_path)).suggest("review the agentchat ranking", limit=4)
 
-    in_package = [h for h in hits if h.startswith("jarvis/agentchat/")]
+    in_package = [h for h in hits if h.startswith("dodaios/agentchat/")]
     assert len(in_package) >= 2, hits
     # The same-named file in an unrelated package must not crowd them out —
     # being absent entirely is the better outcome, so only its ORDER is pinned.
-    if "jarvis/speech/pipeline.py" in hits:
-        assert hits.index("jarvis/agentchat/pipeline.py") < hits.index("jarvis/speech/pipeline.py")
+    if "dodaios/speech/pipeline.py" in hits:
+        assert hits.index("dodaios/agentchat/pipeline.py") < hits.index("dodaios/speech/pipeline.py")
 
 
 def test_a_documentation_request_still_reaches_documentation(tmp_path: Path):
     """Down-weighting reports must not make docs unreachable when asked for."""
     (tmp_path / "docs").mkdir(parents=True)
     (tmp_path / "docs" / "architecture-overview.md").write_text("x")
-    (tmp_path / "jarvis").mkdir(parents=True)
-    (tmp_path / "jarvis" / "architecture.py").write_text("x")
+    (tmp_path / "dodaios").mkdir(parents=True)
+    (tmp_path / "dodaios" / "architecture.py").write_text("x")
 
     hits = file_index.build_index(str(tmp_path)).suggest("update the architecture docs", limit=3)
 

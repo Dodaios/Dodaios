@@ -8,13 +8,13 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import VisionInjected
-from jarvis.core.protocols import BrainDelta, BrainRequest, Observation
-from jarvis.screen_context.turn import TurnScreenContext
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import VisionInjected
+from dodaios.core.protocols import BrainDelta, BrainRequest, Observation
+from dodaios.screen_context.turn import TurnScreenContext
 
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
@@ -177,7 +177,7 @@ async def test_brain_manager_continues_on_vision_failure(caplog) -> None:
     # Non-smalltalk utterance so the Wave-1 conditional-vision gate keeps the
     # screenshot and actually exercises the vision-failure path (smalltalk like
     # "hallo" is now skipped before the provider is ever called).
-    with caplog.at_level("ERROR", logger="jarvis.brain.manager"):
+    with caplog.at_level("ERROR", logger="dodaios.brain.manager"):
         await manager.generate("was siehst du", use_history=False)
 
     assert recorder.calls[0]["images"] == ()

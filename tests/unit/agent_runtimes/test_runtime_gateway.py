@@ -17,10 +17,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_runtimes import gateway
-from jarvis.live.subscription_reasoning import SubscriptionReasoningError
-from jarvis.ui.web.runtime_gateway_routes import router
-from jarvis.ui.web.surface_security import SurfaceSecurity
+from dodaios.agent_runtimes import gateway
+from dodaios.live.subscription_reasoning import SubscriptionReasoningError
+from dodaios.ui.web.runtime_gateway_routes import router
+from dodaios.ui.web.surface_security import SurfaceSecurity
 
 _EVENTS = [
     {"type": "response.created", "response": {"id": "r1"}},
@@ -183,7 +183,7 @@ class _ProviderError(Exception):
 @pytest.fixture
 def brain(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Stands in for the provider plugin behind ``gateway._deltas``."""
-    from jarvis.core.protocols import BrainDelta
+    from dodaios.core.protocols import BrainDelta
 
     state: dict[str, Any] = {"requests": [], "fail": None, "fail_late": None}
 
@@ -455,7 +455,7 @@ def test_a_failure_mid_stream_is_an_error_chunk(brain, guarded) -> None:
 
 
 async def test_a_closed_stream_releases_the_provider_generator(monkeypatch):
-    from jarvis.core.protocols import BrainDelta
+    from dodaios.core.protocols import BrainDelta
 
     closed = []
 
@@ -484,7 +484,7 @@ def test_each_shape_answers_only_its_own_providers(brain, guarded) -> None:
 
 def test_api_key_models_come_from_jarvis_catalog(guarded) -> None:
     gateway.reset()
-    from jarvis.agent_chat.catalog import provider_row
+    from dodaios.agent_chat.catalog import provider_row
 
     with_catalog = next(
         name
@@ -506,9 +506,9 @@ def test_a_streamed_answer_ends_cleanly_with_the_real_key_and_cost_context(
     The streamed response is read by another task than the one that opened
     it; the plugin's own task keeps them from failing at the end
     (live 2026-10-06: every Ollama answer ended in an error chunk)."""
-    import jarvis.agent_chat.runner_api as runner_api
-    import jarvis.core.config as config
-    from jarvis.core.protocols import BrainDelta
+    import dodaios.agent_chat.runner_api as runner_api
+    import dodaios.core.config as config
+    from dodaios.core.protocols import BrainDelta
 
     class Brain:
         async def complete(self, request: Any) -> AsyncIterator[BrainDelta]:
@@ -611,10 +611,10 @@ def test_a_subscription_overflow_mid_stream_keeps_its_code(fake, guarded, monkey
 
 
 async def test_an_expired_claude_login_says_how_to_renew_it(monkeypatch) -> None:
-    import jarvis.agent_runtimes.model_map as model_map
-    import jarvis.core.config as config
-    from jarvis.agent_runtimes.provider_errors import ProviderRefusal
-    from jarvis.core.protocols import BrainMessage, BrainRequest
+    import dodaios.agent_runtimes.model_map as model_map
+    import dodaios.core.config as config
+    from dodaios.agent_runtimes.provider_errors import ProviderRefusal
+    from dodaios.core.protocols import BrainMessage, BrainRequest
 
     monkeypatch.setattr(model_map, "login_route", lambda provider, account: (True, None))
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: None)
@@ -628,7 +628,7 @@ async def test_an_expired_claude_login_says_how_to_renew_it(monkeypatch) -> None
 
 
 async def test_a_request_the_subscription_client_refuses_is_a_400_not_a_retry():
-    from jarvis.live.subscription_reasoning import SubscriptionReasoning
+    from dodaios.live.subscription_reasoning import SubscriptionReasoning
 
     async def credentials(**kwargs):
         raise AssertionError("refused before any credential is read")
@@ -646,7 +646,7 @@ async def test_a_request_the_subscription_client_refuses_is_a_400_not_a_retry():
 def test_the_prompt_size_includes_cached_tokens(brain, guarded, monkeypatch, stream) -> None:
     """Hermes compresses from ``prompt_tokens``; the plugins report only the
     uncached share as ``input_tokens``. A long tool loop is mostly cache."""
-    from jarvis.core.protocols import BrainDelta
+    from dodaios.core.protocols import BrainDelta
 
     async def deltas(grant, model, request):
         yield BrainDelta(content="ok", finish_reason="stop")
@@ -705,7 +705,7 @@ def test_a_tool_call_cut_off_by_the_output_limit_stays_length(
     tool call it would run with broken input."""
     from types import SimpleNamespace
 
-    from jarvis.plugins.brain import _openai_base
+    from dodaios.plugins.brain import _openai_base
 
     class Completions:
         async def create(self, **kwargs: Any) -> Any:
@@ -747,11 +747,11 @@ def test_provider_stop_reasons_become_chat_completions_ones(raw, expected) -> No
 
 
 def test_every_gateway_call_lands_in_the_cost_ledger(monkeypatch, guarded, tmp_path) -> None:
-    import jarvis.agent_chat.runner_api as runner_api
-    import jarvis.core.config as config
-    from jarvis.agent_runtimes.model_limits import ModelLimits
-    from jarvis.core.protocols import BrainDelta
-    from jarvis.costs import ledger
+    import dodaios.agent_chat.runner_api as runner_api
+    import dodaios.core.config as config
+    from dodaios.agent_runtimes.model_limits import ModelLimits
+    from dodaios.core.protocols import BrainDelta
+    from dodaios.costs import ledger
 
     class Brain:
         _model = "gpt-5.2"
@@ -792,7 +792,7 @@ def test_every_gateway_call_lands_in_the_cost_ledger(monkeypatch, guarded, tmp_p
 
 
 def test_a_token_only_speaks_for_the_models_its_route_registered(brain, guarded) -> None:
-    from jarvis.agent_runtimes.model_limits import ModelLimits
+    from dodaios.agent_runtimes.model_limits import ModelLimits
 
     token = gateway.grant_token("agent-1", "openai")
     gateway.register_model(token, "gpt-5.2", ModelLimits())
@@ -804,7 +804,7 @@ def test_a_token_only_speaks_for_the_models_its_route_registered(brain, guarded)
 
 
 def test_an_ollama_tag_and_its_latest_alias_are_one_model(brain, guarded) -> None:
-    from jarvis.agent_runtimes.model_limits import ModelLimits
+    from dodaios.agent_runtimes.model_limits import ModelLimits
 
     token = gateway.grant_token("agent-1", "ollama")
     gateway.register_model(token, "qwen3.5:latest", ModelLimits())
@@ -847,7 +847,7 @@ def test_old_session_grants_are_forgotten_but_never_a_running_turn(monkeypatch) 
 )
 async def test_a_runtime_thinking_level_snaps_to_one_the_model_offers(requested, offered,
                                                                       expected) -> None:
-    from jarvis.live.subscription_reasoning import SubscriptionReasoning
+    from dodaios.live.subscription_reasoning import SubscriptionReasoning
 
     async def credentials(**kwargs):
         raise AssertionError("no catalog request is needed")
@@ -875,9 +875,9 @@ def test_a_developer_message_also_moves_into_the_instructions() -> None:
 
 
 def test_vertex_runs_on_a_cloud_project_without_a_key(monkeypatch) -> None:
-    import jarvis.agent_runtimes.model_map as model_map
-    import jarvis.core.config as config
-    from jarvis.core.config import override_provider_secrets
+    import dodaios.agent_runtimes.model_map as model_map
+    import dodaios.core.config as config
+    from dodaios.core.config import override_provider_secrets
 
     cfg = SimpleNamespace(brain=SimpleNamespace(providers={}))
     assert "vertex" in model_map.supported_providers()

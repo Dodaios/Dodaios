@@ -33,10 +33,10 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.harness.screenshot_only_loop as loop_mod
-from jarvis.core.protocols import HarnessResult, HarnessTask, Observation
-from jarvis.harness.computer_use_context import ComputerUseContext
-from jarvis.harness.screenshot_only_loop import (
+import dodaios.harness.screenshot_only_loop as loop_mod
+from dodaios.core.protocols import HarnessResult, HarnessTask, Observation
+from dodaios.harness.computer_use_context import ComputerUseContext
+from dodaios.harness.screenshot_only_loop import (
     _READ_DISCIPLINE_BLOCK,
     _READ_VERIFIER_SYSTEM_PROMPT,
     _goal_needs_reading,

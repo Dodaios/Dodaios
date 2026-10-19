@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import intent
-from jarvis.agentic_ide.session import MAX_PANES_PER_REQUEST
+from dodaios.agentic_ide import intent
+from dodaios.agentic_ide.session import MAX_PANES_PER_REQUEST
 
 NAMES = ["Alex", "Blake", "Casey", "Dana"]
 

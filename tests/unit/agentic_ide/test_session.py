@@ -15,9 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import recents, resume_store
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry, SessionError, sanitize_prompt
+from dodaios.agentic_ide import recents, resume_store
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry, SessionError, sanitize_prompt
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -664,7 +664,7 @@ async def test_a_pane_under_the_crash_guard_is_lifted_off_it(
     — every later measurement of that same tile would be refused for keeping
     "the last honest geometry", which here is a broken one. The pane would stay
     silent and the status badge would go on reading that silence as a finished
-    job (:mod:`jarvis.agentic_ide.activity`).
+    job (:mod:`dodaios.agentic_ide.activity`).
 
     "Under the guard" is a fact about the PTY, so it is staged on the PTY's own
     geometry. Staging it on the transcript instead would prove nothing: that is

@@ -12,8 +12,8 @@ import sys
 
 import pytest
 
-from jarvis.admin import elevator as elevator_mod
-from jarvis.admin.elevator import (
+from dodaios.admin import elevator as elevator_mod
+from dodaios.admin.elevator import (
     Elevator,
     ElevationResult,
     MacAuthElevator,
@@ -41,7 +41,7 @@ def test_factory_selects_uac_on_windows():
 
 def test_factory_returns_null_when_no_elevation_capability(monkeypatch):
     """``not has_elevation`` -> NullElevator, regardless of OS."""
-    from jarvis.platform.capabilities import Capabilities
+    from dodaios.platform.capabilities import Capabilities
 
     fake_caps = Capabilities(
         platform="linux", has_hotkey=False, has_ax_tree=False,
@@ -54,7 +54,7 @@ def test_factory_returns_null_when_no_elevation_capability(monkeypatch):
 
 
 def test_factory_selects_polkit_when_pkexec_present(monkeypatch):
-    from jarvis.platform.capabilities import Capabilities
+    from dodaios.platform.capabilities import Capabilities
 
     caps = Capabilities(
         platform="linux", has_hotkey=False, has_ax_tree=False,
@@ -72,7 +72,7 @@ def test_factory_selects_polkit_when_pkexec_present(monkeypatch):
 
 
 def test_factory_falls_back_to_sudo_when_no_pkexec(monkeypatch):
-    from jarvis.platform.capabilities import Capabilities
+    from dodaios.platform.capabilities import Capabilities
 
     caps = Capabilities(
         platform="linux", has_hotkey=False, has_ax_tree=False,
@@ -90,7 +90,7 @@ def test_factory_falls_back_to_sudo_when_no_pkexec(monkeypatch):
 
 
 def test_factory_returns_null_on_linux_with_neither(monkeypatch):
-    from jarvis.platform.capabilities import Capabilities
+    from dodaios.platform.capabilities import Capabilities
 
     caps = Capabilities(
         platform="linux", has_hotkey=False, has_ax_tree=False,
@@ -105,7 +105,7 @@ def test_factory_returns_null_on_linux_with_neither(monkeypatch):
 
 
 def test_factory_selects_macauth_on_darwin(monkeypatch):
-    from jarvis.platform.capabilities import Capabilities
+    from dodaios.platform.capabilities import Capabilities
 
     caps = Capabilities(
         platform="darwin", has_hotkey=False, has_ax_tree=False,

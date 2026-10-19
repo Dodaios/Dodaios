@@ -33,19 +33,19 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ListeningStarted,
     VoiceSessionEnded,
     VoiceSessionStarted,
 )
-from jarvis.core.protocols import AudioChunk
-from jarvis.sessions.formatter import format_session_markdown
-from jarvis.sessions.models import SessionDetail
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.protocols import AudioChunk
+from dodaios.sessions.formatter import format_session_markdown
+from dodaios.sessions.models import SessionDetail
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
+from dodaios.speech.pipeline import SpeechPipeline
 
 # UTF-8 stdout (Windows cp1252 default) so the "·" separator prints cleanly.
 try:

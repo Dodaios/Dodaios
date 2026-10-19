@@ -20,15 +20,15 @@
 
 | ID | Anti-Pattern | Source | Fix |
 |---|---|---|---|
-| AP-A1 | Higher layer imports a lower one directly instead of via a Protocol | AGENTS.md §Architecture | Protocol in `jarvis/core/protocols.py`, runtime_checkable, isinstance without inheritance |
-| AP-A2 | Lateral layer calls directly instead of via `EventBus` | AGENTS.md §Event-Bus-Patterns | Typed Event in `jarvis/core/events.py`, frozen DataClass with `trace_id`, via `bus.publish()` |
-| AP-A3 | Plugin class imports from `jarvis.*` | AGENTS.md §Plugin-System | Structural compatibility is enough — no inheritance requirement |
-| AP-A4 | Hardcoded API key or secret in code/config/commit | AGENTS.md §Secrets | Exclusively `jarvis.core.config.get_secret(key, env_fallback)` |
+| AP-A1 | Higher layer imports a lower one directly instead of via a Protocol | AGENTS.md §Architecture | Protocol in `dodaios/core/protocols.py`, runtime_checkable, isinstance without inheritance |
+| AP-A2 | Lateral layer calls directly instead of via `EventBus` | AGENTS.md §Event-Bus-Patterns | Typed Event in `dodaios/core/events.py`, frozen DataClass with `trace_id`, via `bus.publish()` |
+| AP-A3 | Plugin class imports from `dodaios.*` | AGENTS.md §Plugin-System | Structural compatibility is enough — no inheritance requirement |
+| AP-A4 | Hardcoded API key or secret in code/config/commit | AGENTS.md §Secrets | Exclusively `dodaios.core.config.get_secret(key, env_fallback)` |
 | AP-A5 | Sync code path parallel to stream path ("sync or stream?") | AGENTS.md §Streaming | All provider APIs are `AsyncIterator`, non-streaming yields one element |
 | AP-A6 | Brain client (Claude/OpenAI/...) hardcoded instead of via `BrainManager` | AGENTS.md §Brain-Provider-Strategy | Multi-provider switch via `BrainManager`, voice switch supported |
 | AP-A7 | Event subscriber error propagates → blocks pipeline | AGENTS.md §Event-Bus-Patterns | `_safe_dispatch` swallows the error + logs; never without try/except |
 | AP-A8 | Awareness code in the voice critical path | AGENTS.md §Awareness-Layer Hard Rule | `awareness-snapshot` stays a state read, no Brain/IO in the critical path |
-| AP-A9 | Tool-use loop without risk-tier check | AGENTS.md §Risk-Tier-System | `jarvis/safety/tool_executor.py` is the mandatory path |
+| AP-A9 | Tool-use loop without risk-tier check | AGENTS.md §Risk-Tier-System | `dodaios/safety/tool_executor.py` is the mandatory path |
 | AP-A10 | Confirmation fatigue: every tool asks for confirmation | AGENTS.md §Risk-Tier-System | Respect `[safety.whitelist]` patterns — whitelisted patterns run without prompting |
 
 ---
@@ -130,7 +130,7 @@ From `JARVIS_AWARENESS_PLAN.md` §10 (full there):
 
 This is where false positives land that reviewers repeatedly flag incorrectly as AP:
 
-- **`jarvis/vision/screenshot.py:_ensure_dpi_awareness` lazy-imports `ctypes`** — not AP-A4 (hardcoded), this is the correct DPI-awareness pattern for Win32 (see `win32-specialist` mandatory reading).
+- **`dodaios/vision/screenshot.py:_ensure_dpi_awareness` lazy-imports `ctypes`** — not AP-A4 (hardcoded), this is the correct DPI-awareness pattern for Win32 (see `win32-specialist` mandatory reading).
 - **`pipeline.py:_on_announcement` calls `synthesize` directly** — not AP-A2 (lateral-direct), this is the deliberate bus bypass for Jarvis-Agent/skill announcements, used by the Jarvis-Agents bridge for `summary_de` voice readback (AGENTS.md §Output-Filter).
 - **`output_filter.py` regex-only without LLM** — not an AP-V4-style lazy filter, latency mandate (AGENTS.md §Output-Filter).
 - **`build_default_brain()` creates its own `EventBus`** — a known open item, not an AP, until the two-bus bridge refactor happens (AGENTS.md §Desktop-App open items).

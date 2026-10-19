@@ -11,7 +11,7 @@ import sys
 
 import pytest
 
-from jarvis.mcp.env_isolation import isolated_environment
+from dodaios.mcp.env_isolation import isolated_environment
 
 # The shapes a real machine actually leaks: exported provider keys, a token a
 # shell profile set, and the credential helpers a developer accumulates.
@@ -70,8 +70,8 @@ def test_the_client_actually_honours_the_flag(machine: None) -> None:
     every community plugin, and the credentials still leak if the one place
     that builds the child's environment ignores both.
     """
-    from jarvis.mcp.client import MCPClient
-    from jarvis.mcp.registry import MCPServerSpec
+    from dodaios.mcp.client import MCPClient
+    from dodaios.mcp.registry import MCPServerSpec
 
     def build(isolate: bool) -> dict[str, str]:
         spec = MCPServerSpec(

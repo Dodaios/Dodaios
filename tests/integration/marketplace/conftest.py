@@ -6,7 +6,7 @@ snapshot + restore around every test so it never leaks into other modules.
 """
 import pytest
 
-from jarvis.core.capabilities import get_registry
+from dodaios.core.capabilities import get_registry
 
 
 @pytest.fixture(autouse=True)

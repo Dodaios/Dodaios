@@ -51,7 +51,7 @@ def test_bom_files_are_readable_by_the_gate():
     gate = _load_gate()
     bom_files = [
         path
-        for path in (_REPO / "jarvis").rglob("*.py")
+        for path in (_REPO / "dodaios").rglob("*.py")
         if "__pycache__" not in path.parts
         and path.read_bytes()[:3] == b"\xef\xbb\xbf"
     ]

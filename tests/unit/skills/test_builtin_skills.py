@@ -10,12 +10,12 @@ import re
 import pytest
 
 # If parallel B1 work isn't finished yet: graceful skip.
-pytest.importorskip("jarvis.skills.schema")
-pytest.importorskip("jarvis.skills.loader")
+pytest.importorskip("dodaios.skills.schema")
+pytest.importorskip("dodaios.skills.loader")
 
-from jarvis.skills.builtin import BUILTIN_SKILL_NAMES, builtin_skill_path
-from jarvis.skills.loader import parse_skill
-from jarvis.skills.schema import SkillFrontmatter, SkillLifecycleState
+from dodaios.skills.builtin import BUILTIN_SKILL_NAMES, builtin_skill_path
+from dodaios.skills.loader import parse_skill
+from dodaios.skills.schema import SkillFrontmatter, SkillLifecycleState
 
 
 @pytest.mark.parametrize("name", list(BUILTIN_SKILL_NAMES))
@@ -91,7 +91,7 @@ def test_expected_builtin_count() -> None:
     """The base skills (Phase 1c + skill-creator + control-api) plus the paired
     plugin skills. Computed from the components so adding a plugin does not rot
     this guard; only a missing base skill or a duplicate trips it."""
-    from jarvis.skills.builtin import _PLUGIN_PAIRED_SKILLS
+    from dodaios.skills.builtin import _PLUGIN_PAIRED_SKILLS
 
     base = {
         "deep-work-mode",
@@ -118,7 +118,7 @@ def test_every_bundled_plugin_skill_is_shipped() -> None:
     disk but was missing from the list, so a connected Google Calendar was
     answered with the deterministic "no calendar access" refusal.
     """
-    from jarvis.skills.builtin import BUILTIN_SKILLS_DIR
+    from dodaios.skills.builtin import BUILTIN_SKILLS_DIR
 
     # EVERY bundled directory, not just ``plugin-*``. The defect is the dead
     # bundle, and it does not care about the prefix: ``dodaios-doc-author``

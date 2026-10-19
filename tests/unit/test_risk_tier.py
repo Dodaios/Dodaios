@@ -5,12 +5,12 @@ import logging
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     SafetyBlacklistConfig,
     SafetyConfig,
     SafetyWhitelistConfig,
 )
-from jarvis.safety.risk_tier import ActionBlocked, RiskTierEvaluator
+from dodaios.safety.risk_tier import ActionBlocked, RiskTierEvaluator
 
 
 class _StubTool:

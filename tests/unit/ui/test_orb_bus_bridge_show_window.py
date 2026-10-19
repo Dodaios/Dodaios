@@ -88,8 +88,8 @@ async def test_set_surface_reinjects_show_window_callback() -> None:
 async def test_show_window_callback_publishes_show_window_request() -> None:
     """The injected callback must publish ``ShowWindowRequested`` on the real
     bus with a non-empty forensic ``source``."""
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import ShowWindowRequested
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import ShowWindowRequested
 
     bus = EventBus()
     seen: list[ShowWindowRequested] = []

@@ -15,9 +15,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agentic_ide import activity, delegation_wait, task_state
-from jarvis.agentic_ide import session as session_module
-from jarvis.agentic_ide.session import (
+from dodaios.agentic_ide import activity, delegation_wait, task_state
+from dodaios.agentic_ide import session as session_module
+from dodaios.agentic_ide.session import (
     AgentBusyError,
     Registry,
     Session,

@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.dodaiosbar import renderer
-from jarvis.ui.dodaiosbar.overlay import (
+from dodaios.ui.dodaiosbar import renderer
+from dodaios.ui.dodaiosbar.overlay import (
     _IDLE_SETTLE_TICKS,
     MIN_FRAME_DELAY_MS,
     TARGET_FRAME_MS,
@@ -294,7 +294,7 @@ def test_adaptive_pacing_shortens_the_next_delay_after_a_slow_tick(monkeypatch):
     than a full extra TARGET_FRAME_MS later — otherwise a single slow render
     compounds into an even longer visible gap (the old fixed-16ms behavior)."""
     clock = [1000.0]
-    monkeypatch.setattr("jarvis.ui.dodaiosbar.overlay.time.perf_counter", lambda: clock[0])
+    monkeypatch.setattr("dodaios.ui.dodaiosbar.overlay.time.perf_counter", lambda: clock[0])
     slow_cost_s = (TARGET_FRAME_MS + 25) / 1000.0  # well past the target
     bar, root, _canvas = _bare_bar(_SlowRenderer(clock, slow_cost_s), mode="think")
 
@@ -311,7 +311,7 @@ def test_adaptive_pacing_keeps_the_full_target_delay_for_a_fast_tick(monkeypatch
     """A negligible-cost tick must schedule (at, or very near) the full
     TARGET_FRAME_MS — the adaptive math must not change normal-case behavior."""
     clock = [1000.0]
-    monkeypatch.setattr("jarvis.ui.dodaiosbar.overlay.time.perf_counter", lambda: clock[0])
+    monkeypatch.setattr("dodaios.ui.dodaiosbar.overlay.time.perf_counter", lambda: clock[0])
     bar, root, _canvas = _bare_bar(_CountingRenderer(), mode="think")
 
     bar._schedule_frame()
@@ -377,7 +377,7 @@ def test_sound_arriving_after_a_silent_settle_renders_immediately(monkeypatch):
 def test_playback_keeps_a_silent_speak_bar_rendering(monkeypatch):
     """TTS playback is the player's authoritative signal (the level tap only
     fires at buffer-write time) — while it is active the bar never settles."""
-    from jarvis.audio import level_tap
+    from dodaios.audio import level_tap
 
     renderer_obj = _CountingRenderer()
     bar, _root, _canvas = _bare_bar(renderer_obj, mode="speak")

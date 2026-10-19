@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.screen_context.models import (
+from dodaios.screen_context.models import (
     DegradationCode,
     TargetKind,
     TargetReason,
     VisualIntent,
     WindowFacts,
 )
-from jarvis.screen_context.ports import CaptureUnavailable
-from jarvis.screen_context.targeting import monitor_for_point, resolve_target
+from dodaios.screen_context.ports import CaptureUnavailable
+from dodaios.screen_context.targeting import monitor_for_point, resolve_target
 
 # A realistic asymmetric layout: primary at the origin, a second screen to its
 # LEFT (negative virtual X) — the arrangement that breaks naive "monitors[1]"

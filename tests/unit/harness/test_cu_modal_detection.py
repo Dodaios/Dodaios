@@ -8,7 +8,7 @@ with a lone OK button (or a large control set) must not trip it.
 """
 from __future__ import annotations
 
-from jarvis.harness import screenshot_only_loop as sol
+from dodaios.harness import screenshot_only_loop as sol
 
 
 # --- positives ---------------------------------------------------------------

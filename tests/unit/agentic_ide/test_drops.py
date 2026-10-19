@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import drops
+from dodaios.agentic_ide import drops
 
 
 @pytest.fixture()

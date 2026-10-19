@@ -18,9 +18,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry
+from dodaios.ui.web import agentic_ide_routes as routes
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -40,7 +40,7 @@ def _isolated_stores(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     A test that opens a workspace must not rewrite the user's own recent-folder
     list — it happened, and every entry in the live app became a pytest path.
     """
-    from jarvis.agentic_ide import recents, resume_store
+    from dodaios.agentic_ide import recents, resume_store
 
     store = tmp_path / "store"
     store.mkdir()

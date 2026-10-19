@@ -36,9 +36,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.dictation import polish
-from jarvis.dictation.polish import polish_transcript
-from jarvis.dictation.polish_client import POLISH_FAMILIES, PolishFamily
+from dodaios.dictation import polish
+from dodaios.dictation.polish import polish_transcript
+from dodaios.dictation.polish_client import POLISH_FAMILIES, PolishFamily
 
 # The deadline is a difference of clock readings, so an exact budget can come
 # back a few ULPs away from its value (1.2000000000007 <= 1.2 fails).

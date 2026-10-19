@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.core.config as core_config
-from jarvis.brain import persona_loader
-from jarvis.brain.manager import BrainManager
-from jarvis.core.config import load_config
+import dodaios.core.config as core_config
+from dodaios.brain import persona_loader
+from dodaios.brain.manager import BrainManager
+from dodaios.core.config import load_config
 
 
 def _manager() -> BrainManager:

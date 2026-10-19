@@ -11,7 +11,7 @@ import base64
 import io
 import os
 
-from jarvis.vision.image_budget import cap_image_b64
+from dodaios.vision.image_budget import cap_image_b64
 
 
 def _png_b64(width: int, height: int) -> tuple[str, str]:

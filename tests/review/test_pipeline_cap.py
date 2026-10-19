@@ -13,10 +13,10 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from jarvis.core.review.audit import ReviewAudit
-from jarvis.core.review.pipeline import ReviewPipeline
-from jarvis.core.review.state import PipelineOutcome, RunState
-from jarvis.core.review.verdict import (
+from dodaios.core.review.audit import ReviewAudit
+from dodaios.core.review.pipeline import ReviewPipeline
+from dodaios.core.review.state import PipelineOutcome, RunState
+from dodaios.core.review.verdict import (
     ReviewIssue,
     ReviewStatus,
     ReviewVerdict,

@@ -12,11 +12,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.memory.learning import compact
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.loop import JarvisLearningLoop
-from jarvis.memory.learning.notebook import JarvisNotebook
-from jarvis.memory.learning.review import Turn
+from dodaios.memory.learning import compact
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.loop import JarvisLearningLoop
+from dodaios.memory.learning.notebook import JarvisNotebook
+from dodaios.memory.learning.review import Turn
 
 
 class Scripted:

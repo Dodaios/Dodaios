@@ -16,12 +16,12 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.branding import (
+from dodaios.core.branding import (
     DEFAULT_OFFICIAL_REPO_SLUG,
     LEGACY_OFFICIAL_REPO_SLUGS,
     OFFICIAL_REPO_GIT_URL,
 )
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 REPO = Path(__file__).resolve().parents[3]
 INSTALL_SH = REPO / "install" / "install.sh"

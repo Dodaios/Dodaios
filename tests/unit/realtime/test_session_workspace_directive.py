@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import session as ide_session
-from jarvis.realtime import session as session_module
+from dodaios.agentic_ide import session as ide_session
+from dodaios.realtime import session as session_module
 
 
 @pytest.fixture

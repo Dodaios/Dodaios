@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from jarvis.screen_context.redaction import _UNSAFE_CUSTOM_REGEX_RE, validate_pattern_source
+from dodaios.screen_context.redaction import _UNSAFE_CUSTOM_REGEX_RE, validate_pattern_source
 
 
 @pytest.mark.parametrize(

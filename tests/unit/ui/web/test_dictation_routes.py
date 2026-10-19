@@ -35,7 +35,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.dictation_routes import router as dictation_router
+from dodaios.ui.web.dictation_routes import router as dictation_router
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +47,7 @@ def _sandbox_user_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def app() -> FastAPI:
     """A bare app carrying a real config, so no route sees a stand-in model."""
-    from jarvis.core.config import DictationConfig, TriggerConfig
+    from dodaios.core.config import DictationConfig, TriggerConfig
 
     application = FastAPI()
     application.include_router(dictation_router)
@@ -97,7 +97,7 @@ def _install_pipeline(monkeypatch: pytest.MonkeyPatch, stt: Any) -> Any:
     """Make ``_pipeline()`` return a pipeline exposing ``stt``."""
     pipeline = SimpleNamespace(_utterance_stt=stt)
     monkeypatch.setattr(
-        "jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline
+        "dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline
     )
     return pipeline
 
@@ -108,7 +108,7 @@ def _install_pipeline(monkeypatch: pytest.MonkeyPatch, stt: Any) -> Any:
 
 
 def _history() -> Any:
-    from jarvis.dictation.history import DictationHistory
+    from dodaios.dictation.history import DictationHistory
 
     return DictationHistory()
 
@@ -131,7 +131,7 @@ def _add(**fields: Any) -> Any:
 
 def _add_failed_with_audio(text: str = "") -> Any:
     """A dictation that produced nothing, with its audio sidecar kept."""
-    from jarvis.dictation.audio import save_dictation_audio
+    from dodaios.dictation.audio import save_dictation_audio
 
     history = _history()
     entry = _add(raw_text=text, text=text, outcome="failed", error="provider 401")
@@ -152,7 +152,7 @@ def _add_failed_with_audio(text: str = "") -> Any:
 
 
 def test_settings_report_every_persisted_key(client: TestClient) -> None:
-    from jarvis.core.config_writer import DICTATION_SETTING_KEYS
+    from dodaios.core.config_writer import DICTATION_SETTING_KEYS
 
     body = client.get("/api/dictation/settings").json()
 
@@ -169,7 +169,7 @@ def test_settings_offer_a_language_list_the_dropdown_can_render(
     client: TestClient,
 ) -> None:
     """A missing ``choices`` entry is an empty dropdown, not a crash — hence a test."""
-    from jarvis.core.config import DICTATION_LANGUAGES
+    from dodaios.core.config import DICTATION_LANGUAGES
 
     choices = client.get("/api/dictation/settings").json()["choices"]
 
@@ -206,7 +206,7 @@ def test_put_settings_persists_the_new_keys(
 ) -> None:
     written: list[tuple[str, Any]] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_dictation_setting",
+        "dodaios.core.config_writer.set_dictation_setting",
         lambda key, value: written.append((key, value)),
     )
 
@@ -231,7 +231,7 @@ def test_settings_offer_the_curated_paste_chords_plus_a_custom_option(
     client: TestClient,
 ) -> None:
     """The dropdown keeps its known-good chords; the recorder is the extra."""
-    from jarvis.dictation.insert import PASTE_CHORDS
+    from dodaios.dictation.insert import PASTE_CHORDS
 
     body = client.get("/api/dictation/settings").json()
 
@@ -311,7 +311,7 @@ def test_status_reports_the_paste_last_shortcut(app: FastAPI) -> None:
 @pytest.fixture
 def _delivers(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Make ``insert_text`` succeed and record what it was handed."""
-    from jarvis.dictation import insert as insert_mod
+    from dodaios.dictation import insert as insert_mod
 
     delivered: list[str] = []
 
@@ -402,7 +402,7 @@ def test_paste_last_says_why_when_insertion_is_impossible(
     sentence, never a silent no-op and never a 500. The clipboard is not a
     fallback here — a normal paste restores the previous content — so the text
     also travels in the body for a CLI or SSH user."""
-    from jarvis.dictation import insert as insert_mod
+    from dodaios.dictation import insert as insert_mod
 
     _add(text="my words")
     monkeypatch.setattr(
@@ -415,10 +415,10 @@ def test_paste_last_says_why_when_insertion_is_impossible(
         ),
     )
     monkeypatch.setattr(
-        "jarvis.platform.clipboard.write_text", lambda text: True, raising=False
+        "dodaios.platform.clipboard.write_text", lambda text: True, raising=False
     )
     monkeypatch.setattr(
-        "jarvis.platform.clipboard.read_text", lambda: "", raising=False
+        "dodaios.platform.clipboard.read_text", lambda: "", raising=False
     )
 
     body = client.post("/api/dictation/paste-last", json={}).json()

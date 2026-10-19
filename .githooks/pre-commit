@@ -82,7 +82,7 @@ if [ -f "$lang" ]; then
 fi
 
 # --- DIST CONSISTENCY gate (FAIL-CLOSED on a confirmed broken bundle) ---------
-# The shipped frontend bundle (jarvis/ui/web/dist/) must be self-consistent IN
+# The shipped frontend bundle (dodaios/ui/web/dist/) must be self-consistent IN
 # GIT: a commit that rewrites dist/index.html to freshly-hashed chunks while
 # the chunks themselves stay untracked works on the builder's machine (files
 # are on disk) but boots every clone to a blank spinner (cloud review
@@ -98,7 +98,7 @@ if [ -f "$dist_gate" ]; then
         echo "pre-commit BLOCKED: DIST CONSISTENCY gate — inconsistent frontend bundle."
         echo "  Either the staged dist/index.html (or a chunk it loads) references files"
         echo "  that are NOT staged — stage the ENTIRE rebuilt bundle as one set:"
-        echo "    git add jarvis/ui/web/dist/index.html jarvis/ui/web/dist/assets/"
+        echo "    git add dodaios/ui/web/dist/index.html dodaios/ui/web/dist/assets/"
         echo "  — or orphaned chunks of earlier builds are staged — untrack them with:"
         echo "    python $dist_gate --staged --prune"
         echo "  Bypass once with:  git commit --no-verify"

@@ -9,13 +9,13 @@ When the user DID pin a model, their pick must win over any default. Live forens
 """
 from __future__ import annotations
 
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
 
 _FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 
 def test_tier_defaults_openrouter_not_paid_anthropic() -> None:
-    from jarvis.brain.manager import TIER_DEFAULTS_BY_PROVIDER
+    from dodaios.brain.manager import TIER_DEFAULTS_BY_PROVIDER
 
     for tier in ("router", "deep"):
         got = TIER_DEFAULTS_BY_PROVIDER[tier]["openrouter"]
@@ -25,7 +25,7 @@ def test_tier_defaults_openrouter_not_paid_anthropic() -> None:
 
 
 def test_openrouter_plugin_default_model_not_paid_anthropic() -> None:
-    from jarvis.plugins.brain.openrouter import DEFAULT_MODEL
+    from dodaios.plugins.brain.openrouter import DEFAULT_MODEL
 
     assert "anthropic/claude" not in DEFAULT_MODEL, (
         f"OpenRouterBrain.DEFAULT_MODEL is a paid Anthropic id: {DEFAULT_MODEL!r}"
@@ -33,7 +33,7 @@ def test_openrouter_plugin_default_model_not_paid_anthropic() -> None:
 
 
 def test_curator_cheap_fallback_openrouter_not_paid_anthropic() -> None:
-    from jarvis.memory.wiki.curator_llm import _CHEAP_MODEL_FALLBACK
+    from dodaios.memory.wiki.curator_llm import _CHEAP_MODEL_FALLBACK
 
     got = _CHEAP_MODEL_FALLBACK["openrouter"]
     assert "anthropic/claude" not in got, (
@@ -44,7 +44,7 @@ def test_curator_cheap_fallback_openrouter_not_paid_anthropic() -> None:
 def test_frontier_resolver_chain_honors_openrouter_pick() -> None:
     """resolve_frontier_brain (skill creation, board/bio) must run the user's
     picked OpenRouter model, not the hardcoded deep TIER default."""
-    from jarvis.brain.resolver import _resolve_chain
+    from dodaios.brain.resolver import _resolve_chain
 
     config = JarvisConfig()
     config.brain.primary = "openrouter"

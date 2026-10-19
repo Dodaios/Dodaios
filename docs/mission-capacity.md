@@ -2,15 +2,15 @@
 
 How a mission behaves when the provider it runs on has no capacity left (a
 spent usage window, an expired login, a provider that cannot run), and when it
-may spend money on an API key. Code: `jarvis/missions/capacity.py`; worker
-choice: `jarvis/missions/init.py`; orchestration:
-`jarvis/missions/kontrollierer/orchestrator.py`; critic:
-`jarvis/missions/critic/runner.py`.
+may spend money on an API key. Code: `dodaios/missions/capacity.py`; worker
+choice: `dodaios/missions/init.py`; orchestration:
+`dodaios/missions/kontrollierer/orchestrator.py`; critic:
+`dodaios/missions/critic/runner.py`.
 
 ## Who is affected
 
 A **subscription install** is one that connected a subscription recently (the
-sticky signal of `jarvis/brain/background_policy.py`) or has a usable
+sticky signal of `dodaios/brain/background_policy.py`) or has a usable
 subscription login right now (the `claude` CLI login, codex over the ChatGPT
 login). A CLI that is merely installed does not count.
 
@@ -96,6 +96,6 @@ the mission reaches a terminal state.
 Both billing routes sit behind the global `SurfaceSecurity` boundary like every
 `/api` route: a credential is required, and a browser write needs a trusted
 `Origin`. The setting can never be changed by voice, chat or an agent: the
-config path is in `jarvis/core/self_mod/forbidden.py`, and both the billing
+config path is in `dodaios/core/self_mod/forbidden.py`, and both the billing
 routes and the capacity decision are excluded from the brain's app-action
-catalog (`jarvis/app_actions/catalog.py`).
+catalog (`dodaios/app_actions/catalog.py`).

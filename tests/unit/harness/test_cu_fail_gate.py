@@ -25,9 +25,9 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.harness.screenshot_only_loop as loop_mod
-from jarvis.core.protocols import HarnessResult, HarnessTask, Observation
-from jarvis.harness.computer_use_context import ComputerUseContext
+import dodaios.harness.screenshot_only_loop as loop_mod
+from dodaios.core.protocols import HarnessResult, HarnessTask, Observation
+from dodaios.harness.computer_use_context import ComputerUseContext
 
 # ---------------------------------------------------------------------------
 # Fakes (compact, self-contained mirror of tests/unit/harness/test_cu_loop_robustness.py)
@@ -174,7 +174,7 @@ async def run_loop(ctx: ComputerUseContext, goal: str) -> list[HarnessResult]:
     return chunks
 
 
-from jarvis.harness.screenshot_only_loop import _run_screenshot_loop  # noqa: E402
+from dodaios.harness.screenshot_only_loop import _run_screenshot_loop  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

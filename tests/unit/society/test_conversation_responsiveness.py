@@ -7,8 +7,8 @@ import threading
 
 import pytest
 
-from jarvis.society.conversation import ConversationArchive
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.conversation import ConversationArchive
+from dodaios.society.runtime import SocietyRuntime
 
 
 def test_deferred_archive_does_not_touch_storage_until_used(tmp_path):

@@ -11,7 +11,7 @@ import os
 
 import pytest
 
-import jarvis.core.branding as branding
+import dodaios.core.branding as branding
 
 _CURRENT_IDENTITY = {
     "PERSISTENT_PRODUCT_NAME": "Personal Jarvis",

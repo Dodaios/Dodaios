@@ -15,9 +15,9 @@ import re
 import numpy as np
 import pytest
 
-from jarvis.core.protocols import AudioChunk, Transcript
-from jarvis.speech.rolling_whisper_wake import RollingWhisperWake
-from jarvis.speech.wake_phrase import compile_wake_matcher
+from dodaios.core.protocols import AudioChunk, Transcript
+from dodaios.speech.rolling_whisper_wake import RollingWhisperWake
+from dodaios.speech.wake_phrase import compile_wake_matcher
 
 
 def _const_chunk(value: int, n: int = 1600) -> AudioChunk:

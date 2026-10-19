@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.cli import app_update
-from jarvis.cli.app_update import (
+from dodaios.cli import app_update
+from dodaios.cli.app_update import (
     EXIT_APP_RUNNING,
     EXIT_FAILED,
     EXIT_NOT_UPDATABLE,
@@ -19,8 +19,8 @@ from jarvis.cli.app_update import (
     PROBE_FLAG,
     run_update,
 )
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.ui.relauncher import UPDATE_RESULT_FILENAME
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.ui.relauncher import UPDATE_RESULT_FILENAME
 
 
 class FakeChildren:
@@ -205,7 +205,7 @@ def test_last_json_skips_log_lines():
 
 
 def test_jarvis_main_routes_update(monkeypatch):
-    import jarvis.__main__ as entry
+    import dodaios.__main__ as entry
 
     seen: list[bool] = []
     monkeypatch.setattr(
@@ -224,9 +224,9 @@ import json
 import sys
 from pathlib import Path
 
-from jarvis.cli import app_update
-from jarvis.cli.app_update import FINALIZE_FLAG, PROBE_FLAG
-from jarvis.core.branding import LEGACY_PACKAGE_NAMES
+from dodaios.cli import app_update
+from dodaios.cli.app_update import FINALIZE_FLAG, PROBE_FLAG
+from dodaios.core.branding import LEGACY_PACKAGE_NAMES
 
 root = Path(sys.argv[1])
 outcome = json.loads(sys.argv[2])

@@ -15,10 +15,10 @@ import uuid
 
 import pytest
 
-from jarvis.admin.executor import AdminExecutor
-from jarvis.admin.ipc import AdminPipeClient, AdminPipeServer
-from jarvis.admin.schema import ReadRegistryOp
-from jarvis.admin.transport import (
+from dodaios.admin.executor import AdminExecutor
+from dodaios.admin.ipc import AdminPipeClient, AdminPipeServer
+from dodaios.admin.schema import ReadRegistryOp
+from dodaios.admin.transport import (
     AdminTransport,
     NamedPipeTransport,
     make_admin_transport,

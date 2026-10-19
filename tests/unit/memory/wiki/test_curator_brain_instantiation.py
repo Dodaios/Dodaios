@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.memory.wiki.curator_llm import instantiate_curator_brain
+from dodaios.memory.wiki.curator_llm import instantiate_curator_brain
 
 
 class FakeRegistry:

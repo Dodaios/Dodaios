@@ -22,7 +22,7 @@ Fix:
 """
 from __future__ import annotations
 
-from jarvis.audio.player import AudioPlayer
+from dodaios.audio.player import AudioPlayer
 
 
 def _make_player(device: int | str | None = None) -> AudioPlayer:
@@ -46,7 +46,7 @@ def test_cache_key_includes_device(monkeypatch) -> None:
     """A successful open on device=3 must NOT shortcut a later open on
     device=7 — the cascade must run fresh for the new device.
     """
-    import jarvis.audio.player as player_mod
+    import dodaios.audio.player as player_mod
 
     open_log: list[tuple] = []
 
@@ -133,7 +133,7 @@ def test_a_remembered_refusal_is_skipped_on_the_next_walk(monkeypatch) -> None:
     cascade walk and PortAudio refused it with -9997 each time — one warning
     per walk and the open-latency of a doomed attempt. A remembered refusal
     is skipped outright."""
-    import jarvis.audio.player as player_mod
+    import dodaios.audio.player as player_mod
 
     open_log: list[tuple] = []
 
@@ -176,7 +176,7 @@ def test_all_rates_refused_before_still_walks_everything(monkeypatch) -> None:
     """The filter must never starve the cascade: a device whose remembered
     refusals cover every candidate gets the full walk again (hot-swap edge —
     the same index can come back as a different physical device)."""
-    import jarvis.audio.player as player_mod
+    import dodaios.audio.player as player_mod
 
     open_log: list[tuple] = []
 
@@ -254,7 +254,7 @@ def test_set_device_with_auto_headset_string_resolves(monkeypatch) -> None:
     ``_resolve_output_device`` — set_device shouldn't store the literal
     string.
     """
-    import jarvis.audio.player as player_mod
+    import dodaios.audio.player as player_mod
 
     # _resolve_output_device now takes an optional priority arg (user
     # device-name preference); the stub accepts and ignores it.

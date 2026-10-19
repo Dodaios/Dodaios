@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.society.routine_intent import requests_recurring_work, wants_agent_routine
+from dodaios.society.routine_intent import requests_recurring_work, wants_agent_routine
 
 ROUTINE_REQUESTS = [
     "Erstelle einen Agenten, der mir jeden Tag um 8 Uhr ein Morgenbriefing gibt",  # i18n-allow

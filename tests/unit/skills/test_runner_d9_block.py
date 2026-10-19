@@ -3,8 +3,8 @@
 A skill body that embeds ``TOOL: run-skill {...}`` must NOT trigger another
 ``run-skill`` invocation through the runner. The structural guard is that
 ``SkillRunner`` is constructed without a ``tool_registry`` reference at every
-production-construction site (``jarvis/ui/desktop_app.py``,
-``jarvis/skills/cli.py``, the test fixtures); the runner therefore cannot
+production-construction site (``dodaios/ui/desktop_app.py``,
+``dodaios/skills/cli.py``, the test fixtures); the runner therefore cannot
 resolve the ``run-skill`` tool name and fails-closed at
 ``SkillRunner._resolve_tool``.
 
@@ -20,9 +20,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.skills.runner import SkillRunner
-from jarvis.skills.schema import (
+from dodaios.core.bus import EventBus
+from dodaios.skills.runner import SkillRunner
+from dodaios.skills.schema import (
     Skill,
     SkillFailed,
     SkillFrontmatter,

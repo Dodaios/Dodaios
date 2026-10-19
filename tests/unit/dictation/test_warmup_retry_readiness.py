@@ -5,8 +5,8 @@ import threading
 
 import pytest
 
-from jarvis.dictation.local_final import LocalEngineUnavailable, LocalFinalSTT
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.dictation.local_final import LocalEngineUnavailable, LocalFinalSTT
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class RecoveringProvider:
@@ -51,7 +51,7 @@ async def test_retired_engine_is_warmed_again_after_previous_success():
 
 
 async def test_second_press_during_abandoned_cold_load_does_not_kill_new_worker(monkeypatch):
-    import jarvis.dictation.local_preview as preview
+    import dodaios.dictation.local_preview as preview
 
     started, release = threading.Event(), threading.Event()
 

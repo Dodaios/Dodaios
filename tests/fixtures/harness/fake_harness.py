@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from jarvis.core.protocols import HarnessResult, HarnessTask
+from dodaios.core.protocols import HarnessResult, HarnessTask
 
 
 class FakeHarness:

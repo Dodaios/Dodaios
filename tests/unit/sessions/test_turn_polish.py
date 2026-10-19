@@ -27,11 +27,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import TranscriptPolished
-from jarvis.dictation.polish import PolishOutcome
-from jarvis.sessions.recorder import _SessionState, _TurnState
-from jarvis.sessions.store import SessionStore
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.events import TranscriptPolished
+from dodaios.dictation.polish import PolishOutcome
+from dodaios.sessions.recorder import _SessionState, _TurnState
+from dodaios.sessions.store import SessionStore
+from dodaios.speech.pipeline import SpeechPipeline
 
 RAW = "so we should probably move the meeting to the morning and tell the team"
 POLISHED = "So we should probably move the meeting to the morning and tell the team."
@@ -86,7 +86,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         seen.append({"text": text, **kwargs})
         return PolishOutcome(text=POLISHED, status="applied", provider="groq")
 
-    monkeypatch.setattr("jarvis.dictation.polish.polish_transcript", _fake)
+    monkeypatch.setattr("dodaios.dictation.polish.polish_transcript", _fake)
     return seen
 
 
@@ -165,7 +165,7 @@ async def test_the_call_returns_before_the_pass_does() -> None:
         return PolishOutcome(text=POLISHED, status="applied")
 
     pipeline = _FakePipeline()
-    import jarvis.dictation.polish as polish_mod
+    import dodaios.dictation.polish as polish_mod
 
     original = polish_mod.polish_transcript
     polish_mod.polish_transcript = _slow  # type: ignore[assignment]
@@ -189,7 +189,7 @@ async def test_only_a_real_rewrite_is_published(
     async def _fake(text: str, **kwargs: Any) -> PolishOutcome:
         return PolishOutcome(text=text, status=status)
 
-    monkeypatch.setattr("jarvis.dictation.polish.polish_transcript", _fake)
+    monkeypatch.setattr("dodaios.dictation.polish.polish_transcript", _fake)
     pipeline = _FakePipeline()
 
     pipeline.spawn(RAW)
@@ -204,7 +204,7 @@ async def test_a_failing_pass_never_reaches_the_turn(
     async def _boom(text: str, **kwargs: Any) -> PolishOutcome:
         raise RuntimeError("provider exploded")
 
-    monkeypatch.setattr("jarvis.dictation.polish.polish_transcript", _boom)
+    monkeypatch.setattr("dodaios.dictation.polish.polish_transcript", _boom)
     pipeline = _FakePipeline()
 
     pipeline.spawn(RAW)
@@ -275,7 +275,7 @@ class _RecordingStore:
 
 
 def _recorder(store: Any, *, current: Any = None, last: Any = None) -> Any:
-    from jarvis.sessions.recorder import SessionRecorder
+    from dodaios.sessions.recorder import SessionRecorder
 
     recorder = SessionRecorder(store)
     state = _SessionState(session_id="s1", started_ms=0, language="en")

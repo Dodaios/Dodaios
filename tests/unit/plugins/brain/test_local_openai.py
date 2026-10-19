@@ -14,9 +14,9 @@ from typing import Any
 import httpx
 import pytest
 
-import jarvis.core.config as cfg
-from jarvis.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
-from jarvis.plugins.brain.local_openai import LocalOpenAIBrain
+import dodaios.core.config as cfg
+from dodaios.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
+from dodaios.plugins.brain.local_openai import LocalOpenAIBrain
 from tests.fakes.provider_config import install_provider_config
 
 
@@ -176,7 +176,7 @@ def test_vision_stays_blind_when_the_server_declares_nothing(monkeypatch) -> Non
     """The common case: an OpenAI-compatible server publishes no modality
     fields, so the honest answer is "cannot see" — a confident description of a
     picture nobody looked at is the failure worth being conservative about."""
-    import jarvis.brain.model_catalog as mc
+    import dodaios.brain.model_catalog as mc
 
     monkeypatch.setattr(
         mc, "model_capabilities", lambda provider, model: {"vision": None, "tools": None}
@@ -187,7 +187,7 @@ def test_vision_stays_blind_when_the_server_declares_nothing(monkeypatch) -> Non
 def test_vision_believes_a_server_that_declares_image_input(monkeypatch) -> None:
     """Some servers DO publish ``architecture.input_modalities``; a user who
     runs a multimodal model there should not have to move to another card."""
-    import jarvis.brain.model_catalog as mc
+    import dodaios.brain.model_catalog as mc
 
     monkeypatch.setattr(
         mc, "model_capabilities", lambda provider, model: {"vision": True, "tools": True}
@@ -212,7 +212,7 @@ def test_capability_flags_and_cost() -> None:
 def test_wizard_whitelists_the_optional_secret() -> None:
     """Saving the optional key from the app requires the wizard slot to exist
     (ALLOWED_SECRET_KEYS is derived from it)."""
-    from jarvis.setup.wizard import SECRETS
+    from dodaios.setup.wizard import SECRETS
 
     spec = next(s for s in SECRETS if s.key == "local_openai_api_key")
     assert spec.env_fallback == "LOCAL_OPENAI_API_KEY"
@@ -231,7 +231,7 @@ class _Stream:
 
     @classmethod
     async def stream(cls, client: Any, model: str, req: Any, **kwargs: Any):
-        from jarvis.core.protocols import BrainDelta
+        from dodaios.core.protocols import BrainDelta
 
         cls.calls.append(model)
         if cls.error is not None:
@@ -246,8 +246,8 @@ def served(monkeypatch):
     """A brain wired to a fake stream and a server whose window the test sets."""
     import openai
 
-    from jarvis.brain import local_context
-    from jarvis.plugins.brain import local_openai as plugin
+    from dodaios.brain import local_context
+    from dodaios.plugins.brain import local_openai as plugin
 
     local_context.reset_registry()
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
@@ -273,7 +273,7 @@ def served(monkeypatch):
 
 
 def _request(chars: int = 20):
-    from jarvis.core.protocols import BrainMessage, BrainRequest
+    from dodaios.core.protocols import BrainMessage, BrainRequest
 
     return BrainRequest(messages=(BrainMessage(role="user", content="x" * chars),))
 
@@ -283,7 +283,7 @@ async def _drain(brain: LocalOpenAIBrain, req: Any) -> list[Any]:
 
 
 async def test_the_servers_own_window_becomes_the_budget(served) -> None:
-    from jarvis.brain.local_context import ServerWindow
+    from dodaios.brain.local_context import ServerWindow
 
     served["before"] = ServerWindow(8_192, "llama.cpp")
     brain = LocalOpenAIBrain(model="qwen")
@@ -295,7 +295,7 @@ async def test_the_servers_own_window_becomes_the_budget(served) -> None:
 
 
 async def test_a_request_the_loaded_window_cannot_hold_is_never_sent(served) -> None:
-    from jarvis.brain.local_context import LocalContextError, ServerWindow
+    from dodaios.brain.local_context import LocalContextError, ServerWindow
 
     served["before"] = ServerWindow(4_096, "lm-studio")
     with pytest.raises(LocalContextError) as err:
@@ -309,7 +309,7 @@ async def test_a_model_loaded_by_the_request_is_checked_before_the_answer(served
     """LM Studio loads on demand: before the request the window is unknown,
     after the first token the server states it. A prompt it cut short must not
     reach the caller as an answer."""
-    from jarvis.brain.local_context import LocalContextError, ServerWindow
+    from dodaios.brain.local_context import LocalContextError, ServerWindow
 
     served["after"] = ServerWindow(4_096, "lm-studio")
     handed_on: list[Any] = []
@@ -321,7 +321,7 @@ async def test_a_model_loaded_by_the_request_is_checked_before_the_answer(served
 
 
 async def test_a_server_refusal_names_the_setting(served) -> None:
-    from jarvis.brain.local_context import LocalContextError
+    from dodaios.brain.local_context import LocalContextError
 
     _Stream.error = RuntimeError(
         "Error code: 400 - the request exceeds the available context size"
@@ -369,7 +369,7 @@ async def test_a_later_full_read_clears_the_suspicion(served) -> None:
 async def test_the_window_is_settled_before_the_first_turn_is_budgeted(served) -> None:
     """Tools are fitted before complete(). A brain that only learned its
     window there would have its first turn refused whole, not trimmed."""
-    from jarvis.brain.local_context import ServerWindow
+    from dodaios.brain.local_context import ServerWindow
 
     served["before"] = ServerWindow(8_192, "llama.cpp")
     brain = LocalOpenAIBrain(model="qwen")
@@ -381,7 +381,7 @@ async def test_the_window_is_settled_before_the_first_turn_is_budgeted(served) -
 async def test_a_refusal_does_not_claim_a_prompt_larger_than_the_window(served) -> None:
     """vLLM counts prompt plus reply. The sentence must not say the prompt
     needs less than the window and then call the window too small."""
-    from jarvis.brain.local_context import LocalContextError, ServerWindow
+    from dodaios.brain.local_context import LocalContextError, ServerWindow
 
     served["before"] = ServerWindow(8_192, "vllm")
     _Stream.error = RuntimeError("This model's maximum context length is 8192 tokens")

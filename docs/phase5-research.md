@@ -24,20 +24,20 @@ Proposal: after successful completion, the master plan gets a new §21 "Phase 5 
 
 **Directly pluggable, no code change needed:**
 
-- `jarvis/core/protocols.py` — the `Harness` protocol with the `allow_computer_use: bool` field is **already provided for** → the new `computer-use` harness is a pure plugin.
-- `jarvis/harness/base.py`, `manager.py` — `HarnessManager` dispatches via entry points, no core change.
-- `jarvis/safety/risk_tier.py` — fnmatch whitelist/blacklist with `Blacklist > Whitelist > Default` semantics works for Admin-Helper ops if we whitelist patterns like `admin_op install_winget *`.
-- `jarvis/safety/approval.py` — `ApprovalWorkflow` with timeout covers the "destructive ops need a prompt" requirement (§6.2 in the mandate).
-- `jarvis/brain/rate_limit_tracker.py` — circuit-breaker pattern. Extend it for a cost budget (per-day cooldown) instead of a second tracker.
-- `jarvis/core/bus.py` + `events.py` — `frozen=True` events, `subscribe_all` for the Flight-Recorder, `trace_id: UUID` carried through.
-- `jarvis/trigger/hotkey.py` — `global_hotkeys` lib, multi-binding support already in the code, just not yet used in the TOML → Ctrl+Alt+Shift+K as a second binding.
-- `jarvis/memory/recall.py` — SQLite with WAL + FTS5. The Task-Queue uses the same DB, new tables `tasks`, `task_steps`.
-- `jarvis/setup/wizard.py` — the `SECRETS` list is the only place for new Credential Manager entries. The HMAC key must go in here.
-- `jarvis/ui/web/` — the router pattern (`mcp_routes.py`, `tools_routes.py`, …) is copyable for `tasks_routes.py`.
-- `jarvis/ui/web/frontend/src/` — sidebar + `SectionId` enum + view-per-tab pattern → `TasksView.tsx` builds like `SkillsView.tsx`.
-- `jarvis/skills/trigger_matcher.py` — `croniter` is present, but only bound to skills. For the Task-Queue a lightweight one suffices (not APScheduler).
-- `jarvis/mcp/server.py` — shows how a dedicated process entry point is built (interesting for the helper pattern).
-- `jarvis/ui/tray.py` — the `_command_queue` pattern, the new "Notfall-Stop" (Emergency-Stop) entry is ~15 LOC.
+- `dodaios/core/protocols.py` — the `Harness` protocol with the `allow_computer_use: bool` field is **already provided for** → the new `computer-use` harness is a pure plugin.
+- `dodaios/harness/base.py`, `manager.py` — `HarnessManager` dispatches via entry points, no core change.
+- `dodaios/safety/risk_tier.py` — fnmatch whitelist/blacklist with `Blacklist > Whitelist > Default` semantics works for Admin-Helper ops if we whitelist patterns like `admin_op install_winget *`.
+- `dodaios/safety/approval.py` — `ApprovalWorkflow` with timeout covers the "destructive ops need a prompt" requirement (§6.2 in the mandate).
+- `dodaios/brain/rate_limit_tracker.py` — circuit-breaker pattern. Extend it for a cost budget (per-day cooldown) instead of a second tracker.
+- `dodaios/core/bus.py` + `events.py` — `frozen=True` events, `subscribe_all` for the Flight-Recorder, `trace_id: UUID` carried through.
+- `dodaios/trigger/hotkey.py` — `global_hotkeys` lib, multi-binding support already in the code, just not yet used in the TOML → Ctrl+Alt+Shift+K as a second binding.
+- `dodaios/memory/recall.py` — SQLite with WAL + FTS5. The Task-Queue uses the same DB, new tables `tasks`, `task_steps`.
+- `dodaios/setup/wizard.py` — the `SECRETS` list is the only place for new Credential Manager entries. The HMAC key must go in here.
+- `dodaios/ui/web/` — the router pattern (`mcp_routes.py`, `tools_routes.py`, …) is copyable for `tasks_routes.py`.
+- `dodaios/ui/web/frontend/src/` — sidebar + `SectionId` enum + view-per-tab pattern → `TasksView.tsx` builds like `SkillsView.tsx`.
+- `dodaios/skills/trigger_matcher.py` — `croniter` is present, but only bound to skills. For the Task-Queue a lightweight one suffices (not APScheduler).
+- `dodaios/mcp/server.py` — shows how a dedicated process entry point is built (interesting for the helper pattern).
+- `dodaios/ui/tray.py` — the `_command_queue` pattern, the new "Notfall-Stop" (Emergency-Stop) entry is ~15 LOC.
 - **Dependencies:** `pywinauto`, `pyautogui`, `mss`, `pywin32`, `global-hotkeys`, `pillow`, `tomlkit`, `fastapi`, `aiosqlite`, `pydantic>=2.9`, `croniter` — **all already in `pyproject.toml`**.
 
 **Do not use, even though it exists:**
@@ -49,14 +49,14 @@ Proposal: after successful completion, the master plan gets a new §21 "Phase 5 
 
 | Area | Modules | LOC estimate |
 |---|---|---|
-| **Cancel infrastructure** | `jarvis/control/cancel.py` (CancelToken, CancelScope) | ~80 |
-| **Cost-Breaker** | `jarvis/control/cost.py` (CostMeter, BudgetConfig) | ~120 |
-| **Vision** | `jarvis/vision/{engine,screenshot,uia_tree,cache,pruning}.py` | ~500 |
-| **Computer-Use harness** | `jarvis/plugins/harness/computer_use.py` + `jarvis/harness/computer_use_loop.py` (Plan-Observe-Act-Verify) | ~400 |
-| **Admin-Helper** | `jarvis/admin/{client,schema,ipc}.py` + `jarvis_admin_helper.py` (separate entry) | ~500 |
-| **Task-Queue** | `jarvis/tasks/{store,scheduler,runner,schema.sql}.py` | ~400 |
-| **Kill-Switch** | `jarvis/control/kill_switch.py` + voice intent + tray and hotkey integration | ~150 |
-| **Flight-Recorder replay** | `jarvis/telemetry/{recorder,replay}.py` + CLI | ~200 |
+| **Cancel infrastructure** | `dodaios/control/cancel.py` (CancelToken, CancelScope) | ~80 |
+| **Cost-Breaker** | `dodaios/control/cost.py` (CostMeter, BudgetConfig) | ~120 |
+| **Vision** | `dodaios/vision/{engine,screenshot,uia_tree,cache,pruning}.py` | ~500 |
+| **Computer-Use harness** | `dodaios/plugins/harness/computer_use.py` + `dodaios/harness/computer_use_loop.py` (Plan-Observe-Act-Verify) | ~400 |
+| **Admin-Helper** | `dodaios/admin/{client,schema,ipc}.py` + `jarvis_admin_helper.py` (separate entry) | ~500 |
+| **Task-Queue** | `dodaios/tasks/{store,scheduler,runner,schema.sql}.py` | ~400 |
+| **Kill-Switch** | `dodaios/control/kill_switch.py` + voice intent + tray and hotkey integration | ~150 |
+| **Flight-Recorder replay** | `dodaios/telemetry/{recorder,replay}.py` + CLI | ~200 |
 | **UI** | `ui/web/tasks_routes.py`, `frontend/.../TasksView.tsx`, `KillSwitchBanner.tsx` | ~300 |
 | **Protocols + contract tests + fakes** | `protocols.py` extension, 3 fakes, 3 contract-test files | ~300 |
 | **Integration** | `pyproject.toml`, `jarvis.toml`, `wizard.py`, `__main__.py`, `CLAUDE.md`, `README.md` | ~150 |

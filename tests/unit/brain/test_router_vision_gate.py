@@ -10,8 +10,8 @@ Computer-Use even when the per-turn injection is off.
 """
 from __future__ import annotations
 
-from jarvis.brain.factory import _needs_vision_engine, _per_turn_vision_active
-from jarvis.core.config import RouterVisionConfig
+from dodaios.brain.factory import _needs_vision_engine, _per_turn_vision_active
+from dodaios.core.config import RouterVisionConfig
 
 
 def test_router_vision_disabled_by_default() -> None:

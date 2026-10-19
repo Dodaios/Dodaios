@@ -5,9 +5,9 @@ import asyncio
 
 import pytest
 
-from jarvis.control import CancelScope, CancelToken, KillSwitch
-from jarvis.core.bus import EventBus
-from jarvis.core.events import KillAcknowledged, KillRequested
+from dodaios.control import CancelScope, CancelToken, KillSwitch
+from dodaios.core.bus import EventBus
+from dodaios.core.events import KillAcknowledged, KillRequested
 
 # ---------------------------------------------------------------------
 # CancelToken
@@ -41,7 +41,7 @@ async def test_wait_until_cancelled_unblocks():
 
 @pytest.mark.asyncio
 async def test_protocol_structural_match():
-    from jarvis.core.protocols import CancelToken as TokenProto
+    from dodaios.core.protocols import CancelToken as TokenProto
     assert isinstance(CancelToken(), TokenProto)
 
 

@@ -209,7 +209,7 @@ tray is invisible at that moment and would require a context switch
 ("where did that notification go?") to find. The dialog appears in
 the same surface the user is already looking at.
 
-**CLI wizard (`python -m jarvis --wizard --obsidian`).** Rejected.
+**CLI wizard (`python -m dodaios --wizard --obsidian`).** Rejected.
 B9 is a UX-first feature for a non-coder user. Hiding the
 onboarding behind a CLI command defeats the purpose: the user would
 need to know the CLI flag exists, open a terminal, and run a
@@ -255,11 +255,11 @@ the extra probe is one filesystem stat on first paint.
 - `docs/obsidian-setup.md` — the user-facing companion document
   shipped alongside this ADR. ADR-0015 covers the engineering
   contract; `obsidian-setup.md` covers the user walkthrough.
-- `jarvis/setup/obsidian.py` — implementation. `detect_obsidian`,
+- `dodaios/setup/obsidian.py` — implementation. `detect_obsidian`,
   `read_obsidian_vaults`, `is_vault_registered`, `register_vault`.
-- `jarvis/setup/state.py` — first-run flag store.
-- `jarvis/ui/web/setup_routes.py` — REST surface. Four routes,
+- `dodaios/setup/state.py` — first-run flag store.
+- `dodaios/ui/web/setup_routes.py` — REST surface. Four routes,
   all 200-OK-on-error per the contract above.
-- `jarvis/ui/web/frontend/src/components/wiki/ObsidianStatus.tsx`,
+- `dodaios/ui/web/frontend/src/components/wiki/ObsidianStatus.tsx`,
   `ObsidianSetupDialog.tsx`, `views/WikiView.tsx` — frontend
   surface. The first-run probe lives in `WikiView.tsx`.

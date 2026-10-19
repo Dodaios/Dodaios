@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.realtime.readback_check import swapped_call_signs
+from dodaios.realtime.readback_check import swapped_call_signs
 
 ROSTER = ["T1", "T2", "T3", "T4", "T6", "T8"]
 
@@ -84,7 +84,7 @@ class TestItFailsOpen:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A fault in the check must never invent a spoken correction."""
-        from jarvis.agentic_ide import names
+        from dodaios.agentic_ide import names
 
         def _boom(*_args: object, **_kwargs: object) -> str:
             raise RuntimeError("canonicaliser is down")
@@ -125,7 +125,7 @@ class TestTheSessionWiring:
         )
 
     async def test_a_swapped_readback_is_published(self) -> None:
-        from jarvis.realtime.session import RealtimeVoiceSession
+        from dodaios.realtime.session import RealtimeVoiceSession
 
         published: list[tuple[str, str]] = []
         session = self._session(("T1", "T5"), published)
@@ -142,7 +142,7 @@ class TestTheSessionWiring:
         assert "T1" in message
 
     async def test_a_faithful_readback_publishes_nothing(self) -> None:
-        from jarvis.realtime.session import RealtimeVoiceSession
+        from dodaios.realtime.session import RealtimeVoiceSession
 
         published: list[tuple[str, str]] = []
         session = self._session(("T1", "T5"), published)
@@ -154,7 +154,7 @@ class TestTheSessionWiring:
 
     async def test_a_broken_session_never_raises(self) -> None:
         """The observation must not be able to end a live call."""
-        from jarvis.realtime.session import RealtimeVoiceSession
+        from dodaios.realtime.session import RealtimeVoiceSession
 
         class _Exploding:
             session_id = "test-session"

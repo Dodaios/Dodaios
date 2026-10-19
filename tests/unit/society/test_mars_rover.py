@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from jarvis.society.mars.models import StationError
-from jarvis.society.mars.navigation_models import (
+from dodaios.society.mars.models import StationError
+from dodaios.society.mars.navigation_models import (
     MoveCommand,
     NavigationState,
     RideState,
@@ -15,8 +15,8 @@ from jarvis.society.mars.navigation_models import (
     RoverReserveCommand,
     RoverTravelCommand,
 )
-from jarvis.society.mars.navigation_service import MarsNavigationService
-from jarvis.society.mars.navigation_store import MarsNavigationStore
+from dodaios.society.mars.navigation_service import MarsNavigationService
+from dodaios.society.mars.navigation_store import MarsNavigationStore
 
 
 class Clock:
@@ -341,7 +341,7 @@ async def test_static_road_obstruction_refuses_travel_before_displacement(runtim
 def test_public_pedestrian_request_still_rejects_rover():
     from pydantic import ValidationError
 
-    from jarvis.society.mars.navigation_models import PedestrianMoveCommand
+    from dodaios.society.mars.navigation_models import PedestrianMoveCommand
 
     with pytest.raises(ValidationError):
         PedestrianMoveCommand.model_validate_json(

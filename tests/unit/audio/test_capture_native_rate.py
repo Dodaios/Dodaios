@@ -7,7 +7,7 @@ import asyncio
 import numpy as np
 import pytest
 
-from jarvis.audio import capture
+from dodaios.audio import capture
 
 
 @pytest.mark.asyncio

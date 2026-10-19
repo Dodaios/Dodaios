@@ -13,8 +13,8 @@ import keyring
 import keyring.backend
 import pytest
 
-import jarvis.core.config as cfg
-from jarvis.marketplace.token_store import Tokens, TokenStore
+import dodaios.core.config as cfg
+from dodaios.marketplace.token_store import Tokens, TokenStore
 
 
 @pytest.fixture(autouse=True)

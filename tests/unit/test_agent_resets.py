@@ -10,8 +10,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis import agent_resets
-from jarvis.agent_accounts import AgentAccount
+from dodaios import agent_resets
+from dodaios.agent_accounts import AgentAccount
 from tests.fakes.fake_reset_rpc import FakeResetRpc
 
 
@@ -38,7 +38,7 @@ def payload(count=2, details=None):
 
 @pytest.fixture
 def rpc(monkeypatch):
-    from jarvis.agent_chat import native_control, runner_cli
+    from dodaios.agent_chat import native_control, runner_cli
 
     fake = FakeResetRpc(payload())
     monkeypatch.setattr(native_control, "GoalRpc", fake.factory)
@@ -182,7 +182,7 @@ async def test_unsupported_providers_do_not_invent_inventory(account, rpc, provi
 
 
 def test_routes_validate_confirmation_and_account_and_mark_cli_dangerous(account, rpc, monkeypatch):
-    from jarvis.ui.web import agent_accounts_routes as routes
+    from dodaios.ui.web import agent_accounts_routes as routes
 
     monkeypatch.setattr(
         routes.agent_accounts, "resolve", lambda value: account if value == account.id else None
@@ -209,12 +209,12 @@ def test_routes_validate_confirmation_and_account_and_mark_cli_dangerous(account
 
 
 def test_frontend_reset_contract_matches_serialized_inventory_and_request(account):
-    from jarvis.ui.web.agent_accounts_routes import ResetConsumeRequest
+    from dodaios.ui.web.agent_accounts_routes import ResetConsumeRequest
 
     source = (
         (
             Path(__file__).resolve().parents[2]
-            / "jarvis/ui/web/frontend/src/lib/agentResetsApi.ts"
+            / "dodaios/ui/web/frontend/src/lib/agentResetsApi.ts"
         )
         .resolve()
         .read_text(encoding="utf-8")
