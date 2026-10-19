@@ -106,7 +106,7 @@ All `Brain`, `STT`, `TTS`, `Harness` provider methods return `AsyncIterator[...]
 
 ### Secrets
 
-Access via `dodaios.core.config.get_secret(key, env_fallback)` only. Hierarchy: OS credential store (keyring, service `personal-jarvis`) → ENV → `.env` (dev fallback) → local-file fallback (`config._ensure_keyring_backend`, 0600 JSON, headless hosts with no Secret Service). The wizard (`dodaios/setup/wizard.py`) populates the store. **Never** put API keys in code, `jarvis.toml`, commits, or `.claude/` files. Voice/chat must never accept secrets (AP-2 — STT log leak vector).
+Access via `dodaios.core.config.get_secret(key, env_fallback)` only. Hierarchy: OS credential store (keyring, service `dodaios`, with the earlier `personal-jarvis` read as a fallback) → ENV → `.env` (dev fallback) → local-file fallback (`config._ensure_keyring_backend`, 0600 JSON, headless hosts with no Secret Service). The wizard (`dodaios/setup/wizard.py`) populates the store. **Never** put API keys in code, `jarvis.toml`, commits, or `.claude/` files. Voice/chat must never accept secrets (AP-2 — STT log leak vector).
 
 ### Brain providers + ack-brain
 

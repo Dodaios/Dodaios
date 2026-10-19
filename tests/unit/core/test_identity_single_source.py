@@ -66,10 +66,16 @@ def _module_constant(relative_path: str, name: str) -> object:
     "relative_path",
     ["dodaios/plugins/stt/deepgram_api.py", "dodaios/plugins/stt/groq_api.py"],
 )
-def test_a_plugin_reads_keys_from_the_hosts_keyring_service(relative_path: str) -> None:
+def test_a_plugin_reads_keys_from_the_hosts_keyring_services(relative_path: str) -> None:
     assert _module_constant(relative_path, "_KEYRING_SERVICE") == branding.KEYRING_SERVICE_NAME
-    # The named constant is the only spelling: no second literal beside it.
-    assert _read(relative_path).count(f'"{branding.KEYRING_SERVICE_NAME}"') == 1
+    assert (
+        _module_constant(relative_path, "_LEGACY_KEYRING_SERVICES")
+        == branding.LEGACY_KEYRING_SERVICE_NAMES
+    )
+    # The named constants are the only spellings: no second literal beside them.
+    source = _read(relative_path)
+    for service in (branding.KEYRING_SERVICE_NAME, *branding.LEGACY_KEYRING_SERVICE_NAMES):
+        assert source.count(f'"{service}"') == 1, service
 
 
 @pytest.mark.parametrize(
@@ -179,8 +185,12 @@ def _shipped_python_files() -> list[Path]:
 
 def test_no_module_restates_an_identity_value() -> None:
     values = _distinctive_identity_values()
-    assert branding.KEYRING_SERVICE_NAME in values
+    assert branding.LEGACY_KEYRING_SERVICE_NAMES[0] in values
     assert branding.MACOS_BUNDLE_ID in values
+    # The current credential service is the bare product word, which is also
+    # the package, the command and the MCP server name: a literal equal to it
+    # is no evidence of a copy. Store calls are checked for it by the next test.
+    assert branding.KEYRING_SERVICE_NAME not in values
     offenders: list[str] = []
     for path in _shipped_python_files():
         relative = path.relative_to(_ROOT).as_posix()
@@ -196,6 +206,39 @@ def test_no_module_restates_an_identity_value() -> None:
                     f"branding.{values[node.value]}"
                 )
     assert not offenders, "import the constant from dodaios.core.branding:\n" + "\n".join(offenders)
+
+
+_STORE_CALLS = frozenset({"get_password", "set_password", "delete_password", "peek_password"})
+
+
+def _store_calls_naming_a_service(source: str, services: frozenset[str]) -> list[int]:
+    """Lines where a credential-store call spells one of ``services`` as a literal."""
+    lines: list[int] = []
+    for node in ast.walk(ast.parse(source)):
+        if not (isinstance(node, ast.Call) and node.args):
+            continue
+        callee = node.func.attr if isinstance(node.func, ast.Attribute) else None
+        first = node.args[0]
+        if callee in _STORE_CALLS and isinstance(first, ast.Constant) and first.value in services:
+            lines.append(node.lineno)
+    return lines
+
+
+def test_no_credential_store_call_spells_a_service_name() -> None:
+    services = frozenset({branding.KEYRING_SERVICE_NAME, *branding.LEGACY_KEYRING_SERVICE_NAMES})
+    offenders: list[str] = []
+    for path in _shipped_python_files():
+        relative = path.relative_to(_ROOT).as_posix()
+        if relative in _RESTATEMENTS_ALLOWED:
+            continue
+        source = path.read_text(encoding="utf-8-sig")
+        offenders += [
+            f"{relative}:{line}" for line in _store_calls_naming_a_service(source, services)
+        ]
+    assert not offenders, "use dodaios.core.config.KEYRING_SERVICE: " + ", ".join(offenders)
+    # And the check has teeth.
+    probe = f'keyring.get_password("{branding.KEYRING_SERVICE_NAME}", "slot")'
+    assert _store_calls_naming_a_service(probe, services) == [1]
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +273,13 @@ def test_the_shell_uninstaller_restates_the_macos_identifiers(
     variable: str, expected: str
 ) -> None:
     assert f'\n{variable}="{expected}"\n' in _read("install/uninstall.sh")
+
+
+def test_the_shell_uninstaller_names_every_credential_service() -> None:
+    script = _read("install/uninstall.sh")
+    assert f'\nKEYRING_SERVICE_NAME="{branding.KEYRING_SERVICE_NAME}"\n' in script
+    legacy = " ".join(branding.LEGACY_KEYRING_SERVICE_NAMES)
+    assert f'\nLEGACY_KEYRING_SERVICE_NAMES="{legacy}"\n' in script
 
 
 @pytest.mark.parametrize(
@@ -526,7 +576,6 @@ _PLANNED_NAMES: tuple[IdentityName, ...] = (
     IdentityName("localappdata-dir", "launcher", "planned", "DodaiosApp"),
     IdentityName("macos-bundle-id", "managed", "planned", "com.dodaios.desktop"),
     IdentityName("macos-bundle-id", "dmg", "planned", "ai.dodaios.desktop"),
-    IdentityName("keyring-service", "app", "planned", "dodaios"),
 )
 
 

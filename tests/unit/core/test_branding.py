@@ -30,7 +30,8 @@ _CURRENT_IDENTITY = {
     "CLI_COMMAND_NAMES": ("dodaios", "dodaiosctl", "jarvis", "personal-jarvis", "jarvisctl"),
     "SHELL_PROFILE_MARKER": "# Personal Jarvis: command-line tools (jarvis, personal-jarvis)",
     "FISH_CONF_FILE_NAME": "personal-jarvis.fish",
-    "KEYRING_SERVICE_NAME": "personal-jarvis",
+    "KEYRING_SERVICE_NAME": "dodaios",
+    "LEGACY_KEYRING_SERVICE_NAMES": ("personal-jarvis",),
     "CONTROL_KEY_PREFIX": "jctl_",
     "SESSION_COOKIE_NAME": "jarvis_session",
     "MANAGED_INSTALL_MARKER": ".jarvis-managed-install",
@@ -120,7 +121,11 @@ def test_display_name_is_separate_from_persistent_identity() -> None:
     for name in _CURRENT_IDENTITY:
         if "REPO" in name or "RELEASES" in name:
             continue  # the repository is itself called Dodaios/Dodaios
-        if "CLI_COMMAND" in name or name in _MIGRATED_TO_THE_PRODUCT_NAME:
+        if (
+            "CLI_COMMAND" in name
+            or name in _MIGRATED_TO_THE_PRODUCT_NAME
+            or name == "KEYRING_SERVICE_NAME"
+        ):
             # Spelled like the product by choice, as literals of their own: the
             # next test shows they do not follow the display name, and each
             # keeps its earlier names beside it, found by the migration that

@@ -53,6 +53,16 @@ LAUNCHER_ENTRY_NAME = PERSISTENT_PRODUCT_NAME
 CONFIG_FILE_NAME = "dodaios.toml"
 LEGACY_CONFIG_FILE_NAMES = ("jarvis.toml",)
 KEYRING_SERVICE_NAME = PERSISTENT_SLUG
+# The credential-store service every key is filed under (Windows Credential
+# Manager, macOS Keychain, Secret Service, the 0600 file fallback). Spelled as
+# a literal of its own, like the commands: it does not follow the display name.
+KEYRING_SERVICE_NAME = "dodaios"
+# Services earlier versions filed keys under. ``dodaios.core.config`` reads
+# them as a fallback and deletes from them too, and a background job copies
+# their entries once (``dodaios.core.identity_credentials``). Nothing deletes
+# a legacy entry except an explicit delete of that key: it is the way back for
+# a downgrade.
+LEGACY_KEYRING_SERVICE_NAMES = (PERSISTENT_SLUG,)
 CONTROL_KEY_PREFIX = "jctl_"
 SESSION_COOKIE_NAME = "jarvis_session"
 MANAGED_INSTALL_MARKER = ".jarvis-managed-install"
@@ -238,6 +248,7 @@ __all__ = [
     "FISH_CONF_FILE_NAME",
     "KEYRING_SERVICE_NAME",
     "LAUNCHER_ENTRY_NAME",
+    "LEGACY_KEYRING_SERVICE_NAMES",
     "LINUX_APP_NAME",
     "LINUX_DESKTOP_ENTRY_FILE_NAME",
     "LINUX_WM_CLASS",
