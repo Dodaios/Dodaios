@@ -187,9 +187,18 @@ LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES = (PERSISTENT_COMPACT_NAME,)
 WINDOWS_BRANDED_LAUNCH_ENV_VAR = "JARVIS_BRANDED_LAUNCH"
 
 # The bundle name: ``/Applications/<name>.app``, and the name macOS lists the
-# app under in Launchpad and in System Settings > Privacy & Security.
-MACOS_APP_NAME = PERSISTENT_PRODUCT_NAME
+# app under in Finder, Launchpad and System Settings > Privacy & Security. A
+# bundle of ours under an earlier name is renamed once, in place
+# (``dodaios.setup.macos_app_bundle``); a rename keeps its signature, and with
+# it every privacy grant, because those name the bundle id and the signing
+# requirement, never the path. The bundle ids, the login item's label and the
+# signing identity below did NOT move: a new one starts the grants over.
+MACOS_APP_NAME = "Dodaios"
+LEGACY_MACOS_APP_NAMES = (PERSISTENT_PRODUCT_NAME,)
 MACOS_APP_DIR_NAME = f"{MACOS_APP_NAME}.app"
+LEGACY_MACOS_APP_DIR_NAMES = tuple(f"{name}.app" for name in LEGACY_MACOS_APP_NAMES)
+# Every name a bundle of ours may carry in an Applications folder, current first.
+MACOS_APP_DIR_NAMES = (MACOS_APP_DIR_NAME, *LEGACY_MACOS_APP_DIR_NAMES)
 # ``Contents/MacOS/<name>``: the same program as the Windows GUI executable
 # (``jarvis.spec`` builds both under one name). A bundle's designated
 # requirement names its bundle id and certificate, not this file, so the
@@ -205,7 +214,8 @@ MACOS_DMG_BUNDLE_ID = f"ai.{PERSISTENT_COMPACT_NAME.lower()}.desktop"
 MACOS_AUTOSTART_LABEL = f"com.{PERSISTENT_SLUG}.autostart"
 # Common name of the per-user self-signed code-signing certificate the
 # installer creates so the app bundle keeps one TCC identity across rebuilds.
-MACOS_SIGNING_IDENTITY_LABEL = f"{MACOS_APP_NAME} Local Signing"
+# Kept on purpose: the certificate already in a user's keychain carries it.
+MACOS_SIGNING_IDENTITY_LABEL = f"{PERSISTENT_PRODUCT_NAME} Local Signing"
 
 # The Linux desktop entry: the name the app menu lists, the entry's file name
 # (in ``applications`` and in ``autostart``) and the window class the running
@@ -297,6 +307,8 @@ __all__ = [
     "LEGACY_FALLBACK_USER_DATA_DIR_NAMES",
     "LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES",
     "LEGACY_LAUNCHER_ENTRY_NAMES",
+    "LEGACY_MACOS_APP_DIR_NAMES",
+    "LEGACY_MACOS_APP_NAMES",
     "LEGACY_MACOS_EXECUTABLE_NAMES",
     "LEGACY_WINDOWS_AUTOSTART_DESCRIPTIONS",
     "LEGACY_WINDOWS_AUTOSTART_TASK_NAMES",
@@ -327,6 +339,7 @@ __all__ = [
     "LEGACY_MARKETPLACE_EXTENSION_NAMESPACES",
     "MARKETPLACE_EXTENSION_NAMESPACE",
     "MACOS_APP_DIR_NAME",
+    "MACOS_APP_DIR_NAMES",
     "MACOS_APP_NAME",
     "MACOS_AUTOSTART_LABEL",
     "MACOS_BUNDLE_ID",

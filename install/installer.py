@@ -652,6 +652,31 @@ def _note_stalled_spotlight() -> None:
     note("To repair the macOS search index, run:  sudo mdutil -E /")
 
 
+def step_macos_bundle_name(*, dry_run: bool) -> None:
+    """Give the macOS app bundle its current name, before anything looks for it.
+
+    The updater of the release before this one starts the app again from the
+    bundle name ``install/update-contract.json`` states, so the bundle must
+    carry that name once this installer is done, with or without the desktop
+    profile. One rename in place, only for this install's own bundle; the
+    privacy grants stay with it (``rename_legacy_macos_app_bundles``).
+    """
+    if sys.platform != "darwin":
+        return
+    if dry_run:
+        console.print("[muted]│    (dry-run) rename the macOS app to its current name[/]")
+        return
+    try:
+        from dodaios.setup.macos_app_bundle import rename_legacy_macos_app_bundles
+
+        renamed = rename_legacy_macos_app_bundles()
+    except Exception as exc:  # noqa: BLE001 - the desktop step repairs it again
+        note(f"could not rename the macOS app: {rich_escape(str(exc))}")
+        return
+    for bundle in renamed:
+        ok(f"macOS app renamed to {bundle.name} (its permissions stay)")
+
+
 def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
     """Register the managed install with the current desktop shell."""
     if not enabled:
@@ -1069,6 +1094,7 @@ def main(argv: list[str] | None = None) -> int:
     phase("6/6", "Finish & launch")
     step_cli_links(dry_run=args.dry_run)
     step_worker_cli(dry_run=args.dry_run)
+    step_macos_bundle_name(dry_run=args.dry_run)
     if not step_desktop_integration(enabled=with_desktop, dry_run=args.dry_run):
         sys.exit(4)
     if not step_ui_bundle_check() and not args.dry_run:
