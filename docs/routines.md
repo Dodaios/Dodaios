@@ -18,6 +18,37 @@ editor has a Model section (provider, model, effort, account) with a "follow
 the agent" choice that clears the pin so the routine tracks the owner's live
 seat again. Title, prompt or schedule edits keep the pinned seat untouched.
 
+### Unattended runs and API keys
+
+Background work follows one billing rule (`dodaios/brain/background_policy.py`):
+once a subscription is connected (a subscription login seen within the last
+30 days), work nobody started by hand never bills a per-token API key. For
+routines this means:
+
+- **Scheduled, triggered and webhook runs** on a seat that answers through an
+  API key are skipped while a subscription is connected. The run starts no
+  model turn and opens no routine chat; the Runs tab records it as skipped
+  with the reason, the owner's chat gets one line saying why, and a recurring
+  routine fires again at its next occurrence (a one-shot routine ends as
+  failed with that reason; a webhook delivery is marked failed and is not
+  replayed automatically). The routine is not moved to another seat: pick a
+  subscription or local model for it to keep it running unattended.
+- **Run now** is the person's own start: it runs on the routine's seat as
+  chosen, key included.
+- **Subscription and local seats** run as before.
+- **An install that never connected a subscription** keeps billing the seat it
+  picked, so a single-key setup still runs its routines.
+
+Routines an agent set up on its own (autonomous follow-ups) are stricter: they
+wait for a subscription or local seat whenever their seat would bill a key.
+
+The same rule covers an agent's unattended memory work (the post-turn review
+and skill learning, `dodaios/society/seat_brain.py`): with a subscription
+connected, an agent whose chat bills a key does not review on that key. The
+review stays pending under its bounded retries and the agent's knowledge
+status (`last_review.reason`) says why; an explicit "remember that" request is
+still saved without a model call.
+
 ## Configuring routines by chat
 
 Examples of supported requests:
