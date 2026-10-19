@@ -56,7 +56,7 @@ async def test_shared_startup_does_not_provision_optional_browser(monkeypatch, t
         "_schedule_anyio_pool_warm", "_schedule_registry_bootstraps",
         "_schedule_marketplace_refresh_scheduler", "_start_local_models_health_monitor",
         "_schedule_local_models_autostart", "_schedule_realtime_transport_warm",
-        "_schedule_appshot_shortcut",
+        "_schedule_appshot_shortcut", "_schedule_credential_migration",
     ):
         monkeypatch.setattr(server, name, lambda **kwargs: None)
     for name in (
