@@ -28,7 +28,9 @@ export function RendererSetup({ quality }: { quality: Quality }) {
   }, [gl, quality]);
   useEffect(() => {
     const pmrem = new PMREMGenerator(gl);
-    const env: Texture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const room = new RoomEnvironment();
+    const env: Texture = pmrem.fromScene(room, 0.04).texture;
+    room.dispose();
     scene.environment = env;
     scene.environmentIntensity = 0.55;
     return () => { scene.environment = null; env.dispose(); pmrem.dispose(); };

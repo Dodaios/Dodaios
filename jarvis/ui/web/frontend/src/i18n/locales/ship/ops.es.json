@@ -18,6 +18,19 @@
           "admiral_coat": "Abrigo de almirante",
           "auto": "El mejor disponible"
         }
+      },
+      "division": {
+        "eyebrow": "División",
+        "lead": "Líder",
+        "empty": "Aquí aún no se sienta nadie.",
+        "open_chat": "Abrir el chat del equipo",
+        "open_agents": "Abrir la lista de agentes",
+        "briefing": "Convocar una reunión",
+        "end_briefing": "Terminar la reunión",
+        "briefing_called": "{count} de {team} vienen a la mesa.",
+        "briefing_over": "Fin de la reunión: todos vuelven.",
+        "nobody_free": "Ahora mismo todos en esta división están trabajando.",
+        "note": "Una reunión solo reúne al equipo en su mesa de la nave; no se envía nada al equipo y nadie empieza a trabajar."
       }
     }
   }

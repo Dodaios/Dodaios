@@ -140,7 +140,8 @@ export function CameraRig({ plan, compact }: { plan: DeckPlan; compact: boolean 
     if (captain.moving && !useShip.getState().follow) useShip.getState().setFollow(true);
     if (goal.current) {
       const g = goal.current;
-      orbit.target = { x: orbit.target.x + (g.target.x - orbit.target.x) * k, z: orbit.target.z + (g.target.z - orbit.target.z) * k };
+      orbit.target.x += (g.target.x - orbit.target.x) * k;
+      orbit.target.z += (g.target.z - orbit.target.z) * k;
       orbit.targetY += (g.targetY - orbit.targetY) * k;
       orbit.dist += (g.dist - orbit.dist) * k;
       orbit.pitch += (g.pitch - orbit.pitch) * k;
@@ -149,21 +150,24 @@ export function CameraRig({ plan, compact }: { plan: DeckPlan; compact: boolean 
       orbit.yaw += dy * k;
       if (Math.abs(g.dist - orbit.dist) < 0.05 && Math.hypot(g.target.x - orbit.target.x, g.target.z - orbit.target.z) < 0.05) goal.current = null;
     } else if (follow) {
-      orbit.target = { x: orbit.target.x + (captain.x - orbit.target.x) * k, z: orbit.target.z + (captain.z - orbit.target.z) * k };
+      orbit.target.x += (captain.x - orbit.target.x) * k;
+      orbit.target.z += (captain.z - orbit.target.z) * k;
       orbit.targetY += (1.1 - orbit.targetY) * k;
       if (orbit.dist > 40) orbit.dist += (userDist.current - orbit.dist) * k * 0.5;
     }
     cameraPosition(orbit, tmp);
     camera.position.copy(tmp);
     // The cut-away looks from the camera at the captain (or, while panning, at what the camera looks at).
-    CUTAWAY.uCutCam.value = [tmp.x, tmp.z];
-    CUTAWAY.uCutFocus.value = useShip.getState().follow ? [captain.x, captain.z] : [orbit.target.x, orbit.target.z];
+    const cam = CUTAWAY.uCutCam.value, focus = CUTAWAY.uCutFocus.value;
+    cam[0] = tmp.x; cam[1] = tmp.z;
+    const following = useShip.getState().follow;
+    focus[0] = following ? captain.x : orbit.target.x; focus[1] = following ? captain.z : orbit.target.z;
     CUTAWAY.uCutInner.value = orbit.dist < 34 ? 1 : 0;
     camera.lookAt(orbit.target.x, orbit.targetY, orbit.target.z);
-    const cam = camera as PerspectiveCamera;
+    const persp = camera as PerspectiveCamera;
     // The near plane follows the distance, against depth fighting at the overview.
     const near = Math.min(2, Math.max(0.08, orbit.dist * 0.02));
-    if (Math.abs(cam.near - near) > 0.01) { cam.near = near; cam.updateProjectionMatrix(); }
+    if (Math.abs(persp.near - near) > 0.01) { persp.near = near; persp.updateProjectionMatrix(); }
   });
   return null;
 }

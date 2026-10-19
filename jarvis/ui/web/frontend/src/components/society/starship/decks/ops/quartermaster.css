@@ -21,3 +21,14 @@
 .qm-cut:disabled { cursor: default; opacity: 0.5; }
 .qm-cut:focus-visible { outline: 2px solid var(--ship-cyan); outline-offset: 1px; }
 .qm-note { margin: 4px 0 0; font-size: 12px; line-height: 1.45; color: var(--ship-muted); }
+
+/* A division's holo-table panel. */
+.div-members { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.div-members li { display: grid; grid-template-columns: 34px 1fr auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--ship-line); }
+.div-face { grid-row: span 2; width: 34px; height: 34px; border-radius: 8px; background: #050a10; display: grid; place-items: center; border: 1px solid var(--ship-line); }
+.div-name { font-weight: 500; font-size: 13px; }
+.div-lead { margin-left: 6px; color: var(--ship-gold); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+.div-state { font-size: 11.5px; color: var(--ship-muted); display: inline-flex; align-items: center; gap: 6px; justify-self: end; }
+.div-rank { grid-column: 2; color: var(--ship-muted); font-size: 11px; }
+.div-empty { color: var(--ship-muted); font-size: 12.5px; padding: 8px 0; }
+.div-actions { display: flex; gap: 8px; flex-wrap: wrap; }

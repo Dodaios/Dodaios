@@ -82,6 +82,13 @@ export function ConsoleScreens({ plan, content, onScreen, kinds = CONSOLE_KINDS 
     return m;
   }, [consoles, atlas, material]);
   useEffect(() => () => { mesh?.geometry.dispose(); }, [mesh]);
+  // Cells of consoles a rebuilt plan no longer has go back to the atlas.
+  const held = useRef(new Set<string>());
+  useEffect(() => {
+    const now = new Set(consoles.map((p) => p.id));
+    for (const id of held.current) if (!now.has(id)) atlas.release(id);
+    held.current = now;
+  }, [consoles, atlas]);
   useEffect(() => () => { material.dispose(); atlas.texture.dispose(); }, [material, atlas]);
   const contentRef = useRef(content);
   contentRef.current = content;
@@ -139,6 +146,7 @@ export function HoloTables({ plan, label, memberState, reduced }: {
     return { division: d, group: g, ico, beam, text, dots };
   }), [plan, label]);
   useEffect(() => () => {
+    for (const e of emblems) e.dots.dispose();
     for (const e of emblems) e.group.traverse((o) => {
       const m = o as Mesh;
       m.geometry?.dispose();
@@ -149,12 +157,13 @@ export function HoloTables({ plan, label, memberState, reduced }: {
   }, [emblems]);
   const tmp = useMemo(() => new Object3D(), []);
   const c = useMemo(() => new Color(), []);
+  const at = useMemo(() => new Vector3(), []);
   useFrame(({ camera, clock }) => {
     const t = reduced ? 0 : clock.elapsedTime;
     for (const e of emblems) {
       e.ico.rotation.set(t * 0.3, t * 0.5, 0);
       (e.beam.material as ShaderMaterial).uniforms.uTime.value = t;
-      e.text.lookAt(camera.position.x, e.text.getWorldPosition(new Vector3()).y, camera.position.z);
+      e.text.lookAt(camera.position.x, e.text.getWorldPosition(at).y, camera.position.z);
       const n = e.division.members.length;
       e.division.members.forEach((id, i) => {
         const a = (i / Math.max(1, n)) * Math.PI * 2 + t * 0.4;
@@ -232,7 +241,7 @@ export function SlidingDoors({ plan, bodies }: { plan: DeckPlan; bodies: () => I
     m.raycast = () => undefined;
     return m;
   }, [doors]);
-  useEffect(() => () => { mesh.geometry.dispose(); glow.geometry.dispose(); }, [mesh, glow]);
+  useEffect(() => () => { mesh.geometry.dispose(); glow.geometry.dispose(); mesh.dispose(); glow.dispose(); }, [mesh, glow]);
   const open = useRef<number[]>([]);
   const tmp = useMemo(() => new Object3D(), []);
   const colour = useMemo(() => new Color(), []);

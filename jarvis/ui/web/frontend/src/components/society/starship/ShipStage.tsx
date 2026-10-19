@@ -139,12 +139,18 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
   const webgl = useWebglSupported();
   const [quality] = useState<Quality>(() => (typeof navigator !== "undefined" && (navigator.hardwareConcurrency ?? 8) < 4 ? "low" : "high"));
 
+  // The deck store is shared by every mounted stage (the Agents view and the IDE tab): each host remembers
+  // its own deck and takes it back when it comes on screen; the IDE tab always opens on engineering.
+  const hostDeck = useRef<DeckId | null>(initialDeck ?? null);
   useEffect(() => {
-    if (initialDeck && useShip.getState().deck !== initialDeck) useShip.getState().setDeck(initialDeck);
-    // Once per mount.
+    if (!awake) return;
+    const want = initialDeck ?? hostDeck.current;
+    if (want && useShip.getState().deck !== want) useShip.getState().setDeck(want);
+    // On waking only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [awake]);
   const deck = useShip((s) => s.deck);
+  useEffect(() => { if (awake && !initialDeck) hostDeck.current = deck; }, [awake, deck, initialDeck]);
   const module = deckModule(deck) ?? deckModule("ops");
   const population = module?.population ?? "agents";
 
@@ -172,7 +178,11 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
   const teamsKey = teams.map((tm) => `${tm.id}|${tm.name}|${tm.createdMs}|${tm.leadId ?? ""}|${tm.members.join("+")}`).join(",");
   const paneKey = population === "panes" ? panes.map((o) => `${o.agent.agentId}|${o.pane.workspace_id}`).join(",") : "";
   const seatingKey = `${paneKey}${deck}:${crewInputs.map((c) => `${c.agentId}|${c.tier}|${c.createdMs}`).join(",")}#${teamsKey}`;
-  const plan = useMemo<DeckPlan | null>(() => module ? module.build({ crew: crewInputs, teams, panes }) : null,
+  const plan = useMemo<DeckPlan | null>(() => {
+    if (!module) return null;
+    try { return module.build({ crew: crewInputs, teams, panes }); }
+    catch (error) { console.warn("Deck plan failed", error); return null; }
+  },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [seatingKey]);
   const grid = useMemo(() => (plan ? buildNavGrid(plan) : null), [plan]);
@@ -243,15 +253,19 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
 
   // Interaction.
   const selection = useShip((s) => s.selection);
+  const following = useShip((s) => s.follow);
   const nearby = useShip((s) => s.nearby);
   const hovered = useShip((s) => s.hovered);
   const [lift, setLift] = useState(false);
   const [doors, setDoors] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => { for (const timer of timers.current) clearTimeout(timer); }, []);
+  const later = useCallback((fn: () => void, ms: number) => { timers.current.push(setTimeout(fn, ms)); }, []);
   const say = useCallback((text: string) => {
     setNotice(text);
-    setTimeout(() => setNotice((n) => (n === text ? null : n)), 4200);
-  }, []);
+    later(() => setNotice((n) => (n === text ? null : n)), 4200);
+  }, [later]);
   const quickCreate = useQuickCreateAgent();
   const creating = useRef(false);
   const createAgent = useCallback(() => {
@@ -282,7 +296,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
     reportAction: (action, ref = "") => { void reportWorldAction(action as WorldAction, ref); },
   }), [t, say, openAgent, createAgent, onOpenLedger, onOpenGroup]);
 
-  const useStation = useCallback((station: Station) => {
+  const activateStation = useCallback((station: Station) => {
     if (!plan) return;
     const far = Math.hypot(captain.x - station.x, captain.z - station.z) > station.radius + 0.6;
     if (module?.useStation?.(station, plan, actions, far)) return;
@@ -323,25 +337,25 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
       if (activeEl && activeEl !== document.body && !host?.contains(activeEl)) return;
       if (e.code === "KeyE" && plan) {
         const s = plan.stations.find((st) => st.id === useShip.getState().nearby);
-        if (s) { e.preventDefault(); useStation(s); }
+        if (s) { e.preventDefault(); activateStation(s); }
       } else if (e.code === "KeyO") useShip.getState().overview();
       else if (e.code === "KeyF") useShip.getState().setFollow(true);
       else if (e.code === "Escape") { setLift(false); setPanel(null); useShip.getState().select(null); }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [awake, plan, useStation]);
+  }, [awake, plan, activateStation]);
 
   const rideTo = useCallback((to: DeckId) => {
     setLift(false);
     if (to === deck) return;
     if (reduced) { useShip.getState().setDeck(to); return; }
     setDoors(true);
-    setTimeout(() => {
+    later(() => {
       useShip.getState().setDeck(to);
-      setTimeout(() => setDoors(false), 650);
+      later(() => setDoors(false), 650);
     }, 600);
-  }, [deck, reduced]);
+  }, [deck, reduced, later]);
   rideRef.current = rideTo;
 
   const counts = useMemo(() => {
@@ -416,7 +430,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
                   <RoomSigns plan={plan} text={roomText} />
                   <SlidingDoors plan={plan} bodies={bodies} />
                   {plan.props.some((p) => p.kind === "transporter") && <TransporterBeam at={plan.arrival} active={newcomers.size > 0} reduced={reduced} />}
-                  <StationTargets plan={plan} onStation={useStation} onHover={(s) => useShip.getState().hover(s ? { kind: "station", id: s.id } : null)} />
+                  <StationTargets plan={plan} onStation={activateStation} onHover={(s) => useShip.getState().hover(s ? { kind: "station", id: s.id } : null)} />
                   <StationHalo plan={plan} id={promptStation?.id ?? null} />
                   {module?.Scene && <module.Scene plan={plan} reduced={reduced} quality={quality} awake={awake} agents={byId} panes={panes} actions={actions} />}
                   <CrewLayer plan={plan} grid={grid} crew={crew} rounds={rounds} called={called} atlas={atlas} faceMaterial={faceMat}
@@ -424,7 +438,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
                     onPick={(id) => useShip.getState().select({ kind: "agent", id })}
                     onHover={(id) => useShip.getState().hover(id ? { kind: "agent", id } : null)} />
                   <CaptainFigure plan={plan} grid={grid} look={look} pips={captainRank.pips} awake={awake} reduced={reduced} keyHost={hostRef} />
-                  <ShipPet grid={grid} reduced={reduced} />
+                  <ShipPet grid={grid} reduced={reduced} onWalked={() => actions.reportAction("walk_together")} />
                   <StationProximity plan={plan} />
                   <CameraRig plan={plan} compact={compact} />
                   <PlateDriver />
@@ -462,13 +476,13 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
               </button>
             )}
             <nav className="ship-panel ship-tools" aria-label={t("ship.tools.label")}>
-              <button type="button" className="ship-tool" aria-pressed={useShip.getState().follow} title={t("ship.tools.follow")} aria-label={t("ship.tools.follow")} onClick={() => useShip.getState().setFollow(true)}><Crosshair size={17} /></button>
+              <button type="button" className="ship-tool" aria-pressed={following} title={t("ship.tools.follow")} aria-label={t("ship.tools.follow")} onClick={() => useShip.getState().setFollow(true)}><Crosshair size={17} /></button>
               <button type="button" className="ship-tool" title={t("ship.tools.overview")} aria-label={t("ship.tools.overview")} onClick={() => useShip.getState().overview()}><MapIcon size={17} /></button>
               <button type="button" className="ship-tool" title={t("ship.tools.lift")} aria-label={t("ship.tools.lift")} onClick={() => setLift(true)}><ArrowUpDown size={17} /></button>
               <button type="button" className="ship-tool" title={t("ship.tools.help")} aria-label={t("ship.tools.help")} onClick={() => say(t("ship.help"))}><CircleHelp size={17} /></button>
             </nav>
             {promptStation && !lift && !panel && (
-              <button type="button" className="ship-panel ship-prompt" onClick={() => useStation(promptStation)}>
+              <button type="button" className="ship-panel ship-prompt" onClick={() => activateStation(promptStation)}>
                 <span className="ship-key">{hovered?.kind === "station" && hovered.id === promptStation.id && nearby !== promptStation.id ? t("ship.click") : "E"}</span>
                 <span>{stationText(promptStation).action}</span>
                 <small>{stationText(promptStation).name}</small>
@@ -526,8 +540,8 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
           {panel && module?.Panel && plan.stations.some((s) => s.id === panel) && (
             <module.Panel plan={plan} station={plan.stations.find((s) => s.id === panel) as Station} actions={actions} agents={byId} panes={panes} />
           )}
-          {record && <ServiceRecord initialTab={record} onClose={() => useProgression.getState().openRecord(null)} />}
-          <PromotionLayer />
+          {awake && record && <ServiceRecord initialTab={record} onClose={() => useProgression.getState().openRecord(null)} />}
+          {awake && <PromotionLayer />}
           <div className="ship-doors" data-shut={doors}><i /><i /></div>
         </>
       )}
