@@ -28,6 +28,26 @@ export interface CaptainBody {
 export const captain: CaptainBody = { x: 0, z: 0, yaw: Math.PI, path: [], moving: false, speed: 0, seated: null };
 
 const DECK_KEY = "dodaios.ship.deck.v1";
+const LOOK_KEY = "dodaios.ship.captain.v1";
+
+/** The captain's suit, chosen at the quartermaster and kept per browser profile. */
+export interface CaptainLook {
+  suit: string;
+  trim: string;
+  visor: string;
+  /** A suit unlocked by rank (the level system's `suit` rewards); null = the duty suit. */
+  cut: string | null;
+}
+
+export const DEFAULT_LOOK: CaptainLook = { suit: "#2c3340", trim: "#d9a441", visor: "#d6a440", cut: null };
+
+function loadLook(): CaptainLook {
+  try {
+    const raw = localStorage.getItem(LOOK_KEY);
+    if (raw) return { ...DEFAULT_LOOK, ...(JSON.parse(raw) as Partial<CaptainLook>) };
+  } catch { /* storage unavailable or damaged */ }
+  return DEFAULT_LOOK;
+}
 
 function loadDeck(): DeckId {
   try {
@@ -63,6 +83,8 @@ interface ShipState {
   /** 0..1 while the ship jumps to a new destination. */
   warpingTo: DestinationId | null;
   gathering: Gathering | null;
+  captainLook: CaptainLook;
+  setCaptainLook: (look: CaptainLook) => void;
   setDeck: (deck: DeckId) => void;
   select: (selection: Selection | null) => void;
   setNearby: (id: string | null) => void;
@@ -89,6 +111,11 @@ export const useShip = create<ShipState>((set, get) => ({
   destination: loadDestination(),
   warpingTo: null,
   gathering: null,
+  captainLook: loadLook(),
+  setCaptainLook: (captainLook) => {
+    try { localStorage.setItem(LOOK_KEY, JSON.stringify(captainLook)); } catch { /* storage unavailable */ }
+    set({ captainLook });
+  },
   setDeck: (deck) => {
     try { localStorage.setItem(DECK_KEY, deck); } catch { /* storage unavailable */ }
     set({ deck, arrivals: get().arrivals + 1, selection: null, nearby: null, hovered: null, gathering: null, follow: true });

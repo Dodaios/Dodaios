@@ -22,9 +22,12 @@ function wallFaces(wall: Wall): number[] {
 
 /** Wall consoles, conduits and hatches between the ribs. */
 function dressWalls(plan: DeckPlan, batch: GeoBatch): void {
+  const bare = plan.rooms.filter((r) => r.kind === "holodeck");
   for (const wall of plan.walls) {
     const faces = wallFaces(wall);
     if (faces.length === 0) continue;
+    const mx = (wall.a.x + wall.b.x) / 2, mz = (wall.a.z + wall.b.z) / 2;
+    if (bare.some((r) => mx >= r.rect.x0 - 0.5 && mx <= r.rect.x1 + 0.5 && mz >= r.rect.z0 - 0.5 && mz <= r.rect.z1 + 0.5)) continue;
     const dx = wall.b.x - wall.a.x, dz = wall.b.z - wall.a.z;
     const len = Math.hypot(dx, dz);
     if (len < RIB * 1.5) continue;
@@ -72,7 +75,9 @@ function dressFloor(plan: DeckPlan, batch: GeoBatch): void {
     if (room.kind === "corridor") runner(root, room);
     if (room.kind === "lift") emblem(root, room);
   }
+  // The horseshoe rings belong to the operations deck's divisions (engineering's bays draw their own).
   for (const d of plan.divisions) {
+    if (plan.rooms.find((r) => r.id === d.room)?.kind !== "division") continue;
     const consoles = plan.props.filter((p) => p.kind === "console" && plan.places.some((pl) => pl.division === d.room && Math.hypot(pl.x - p.x, pl.z - p.z) < 1.2));
     const r = consoles.length ? Math.max(...consoles.map((p) => Math.hypot(p.x - d.centre.x, p.z - d.centre.z))) + 0.75 : 3.6;
     root.geo("structure", annulus(r - 0.06, r, 0, Math.PI * 2, 96), SHIP.charcoal, { x: d.centre.x, y: 0.008, z: d.centre.z });

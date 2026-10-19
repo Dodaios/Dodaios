@@ -11,7 +11,7 @@ import { CrewFigure } from "../crew/figure";
 import { findPath, isFree, nearestFree, type NavGrid } from "../nav/shipNav";
 import type { DeckPlan, Vec2 } from "../plan/types";
 import { orbit } from "../render/CameraRig";
-import { captain, useShip } from "../shipStore";
+import { captain, useShip, type CaptainLook } from "../shipStore";
 import { stepAlong, turnTowards, wrapAngle } from "./motion";
 
 export const WALK = 2.0;
@@ -24,12 +24,11 @@ export function typesText(target: EventTarget | null): boolean {
 
 const KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"]);
 
-export interface CaptainLookChoice { suit: string; trim: string; visor: string }
 
 export function CaptainFigure(props: {
   plan: DeckPlan;
   grid: NavGrid;
-  look: CaptainLookChoice;
+  look: CaptainLook;
   pips: number;
   awake: boolean;
   reduced: boolean;

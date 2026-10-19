@@ -106,10 +106,13 @@ export function androidParts(look: AndroidLook): Part[] {
   return parts;
 }
 
-export interface CaptainLook { suit: string; trim: string; visor: string; pips: number }
+/** `cut` is a suit unlocked by rank: null (the duty suit), field_armor, command_coat, dress_whites, admiral_coat. */
+export interface CaptainLook { suit: string; trim: string; visor: string; pips: number; cut?: string | null }
 
 export function captainParts(look: CaptainLook): Part[] {
-  const s = look.suit, t = look.trim;
+  const cut = look.cut ?? null;
+  // Dress whites recolour the suit; the trim stays the captain's choice.
+  const s = cut === "dress_whites" ? "#e6e6e3" : look.suit, t = look.trim;
   const parts: Part[] = [
     block("hips", 0.32, 0.15, 0.2, s, [0, -0.05, 0]),
     block("hips", 0.33, 0.04, 0.21, t, [0, 0.01, 0]),
@@ -142,6 +145,22 @@ export function captainParts(look: CaptainLook): Part[] {
     block("footL", 0.1, 0.07, 0.23, "#1b1e24", [0, -0.02, 0.045]), block("footR", 0.1, 0.07, 0.23, "#1b1e24", [0, -0.02, 0.045]),
   ];
   for (let k = 0; k < Math.min(4, look.pips); k += 1) parts.push(ball("chest", 0.014, "#f0c060", [-0.06 - k * 0.034, 0.41, 0.11], [1, 1, 0.5], 8));
+  if (cut === "field_armor") {
+    // Armour plates over the suit: chest, shoulders and knees.
+    parts.push(ball("chest", 1, "#4a5363", [0, 0.3, 0.06], [0.19, 0.17, 0.11], 14));
+    parts.push(ball("chest", 0.105, "#4a5363", [0.23, 0.38, 0], [1, 0.7, 1.1]), ball("chest", 0.105, "#4a5363", [-0.23, 0.38, 0], [1, 0.7, 1.1]));
+    parts.push(ball("shinL", 0.07, "#4a5363", [0, -0.02, 0.03], [1, 1, 0.7]), ball("shinR", 0.07, "#4a5363", [0, -0.02, 0.03], [1, 1, 0.7]));
+  } else if (cut === "command_coat" || cut === "admiral_coat") {
+    // A coat skirt from the waist; the admiral's reaches the knees and carries gold epaulettes.
+    const long = cut === "admiral_coat";
+    const coat = cut === "admiral_coat" ? "#1a2030" : s;
+    const g = new CylinderGeometry(0.17, long ? 0.25 : 0.21, long ? 0.62 : 0.36, 18, 1, true);
+    parts.push(part("hips", g, coat, [0, long ? -0.29 : -0.16, -0.005]));
+    parts.push(block("chest", 0.012, 0.42, 0.01, t, [0.05, 0.22, 0.14]));
+    if (long) parts.push(block("chest", 0.13, 0.025, 0.11, t, [0.22, 0.44, -0.01]), block("chest", 0.13, 0.025, 0.11, t, [-0.22, 0.44, -0.01]));
+  } else if (cut === "dress_whites") {
+    parts.push(block("chest", 0.22, 0.03, 0.02, t, [0, 0.4, 0.13]), block("hips", 0.33, 0.05, 0.21, t, [0, 0.0, 0]));
+  }
   return parts;
 }
 
@@ -175,10 +194,14 @@ export function figureMaterial(): MeshStandardMaterial {
   return bodyMaterial;
 }
 
-let visorMaterial: MeshStandardMaterial | null = null;
-function visorMat(): MeshStandardMaterial {
-  if (!visorMaterial) visorMaterial = new MeshStandardMaterial({ color: "#d6a440", roughness: 0.12, metalness: 1, envMapIntensity: 1.8, emissive: new Color("#3a2608") });
-  return visorMaterial;
+const visorMaterials = new Map<string, MeshStandardMaterial>();
+function visorMat(colour: string): MeshStandardMaterial {
+  let m = visorMaterials.get(colour);
+  if (!m) {
+    m = new MeshStandardMaterial({ color: colour, roughness: 0.12, metalness: 1, envMapIntensity: 1.8, emissive: new Color(colour).multiplyScalar(0.12) });
+    visorMaterials.set(colour, m);
+  }
+  return m;
 }
 
 /** The face display: the front of the head, uv-mapped to one atlas cell. */
@@ -259,7 +282,7 @@ export class CrewFigure {
       // Built in the head bone's own frame, so it turns with the head.
       bones.head.add(this.face);
     } else if (opts.kind === "captain") {
-      this.face = new Mesh(faceGeometry([0, 0, 1, 1], true), visorMat());
+      this.face = new Mesh(faceGeometry([0, 0, 1, 1], true), visorMat(opts.captain?.visor ?? "#d6a440"));
       this.face.castShadow = false;
       bones.head.add(this.face);
     } else {

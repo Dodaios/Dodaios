@@ -52,7 +52,9 @@ export function screenMatrix(p: Prop): Matrix4 {
  * The console screens: one merged mesh over one atlas. `content(prop)` says
  * what each shows; `onScreen` takes a click on one (the console's owner).
  */
-export function ConsoleScreens({ plan, content, onScreen, kinds = ["console"] }: {
+const CONSOLE_KINDS: readonly Prop["kind"][] = ["console"];
+
+export function ConsoleScreens({ plan, content, onScreen, kinds = CONSOLE_KINDS }: {
   plan: DeckPlan;
   content: (prop: Prop) => ScreenContent;
   onScreen?: (prop: Prop) => void;

@@ -130,7 +130,7 @@ function holoGrid(): Texture {
   const [c, ctx] = canvas(256);
   ctx.fillStyle = "#050607"; ctx.fillRect(0, 0, 256, 256);
   ctx.fillStyle = "#e3b341";
-  ctx.fillRect(0, 0, 256, 3); ctx.fillRect(0, 0, 3, 256);
+  ctx.fillRect(0, 0, 256, 2); ctx.fillRect(0, 0, 2, 256);
   return tiled(c, 1.0);
 }
 
@@ -175,7 +175,7 @@ function buildMaterials(): Map<Finish, Material> {
   map.set("glow", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(1.9, 1.9, 1.9) }));
   map.set("glowSoft", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(0.95, 0.95, 0.95) }));
   map.set("screen", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(1.0, 1.0, 1.0) }));
-  map.set("holoFloor", new MeshStandardMaterial({ vertexColors: true, map: holoGrid(), emissiveMap: holoGrid(), emissive: new Color(1.4, 1.1, 0.4), roughness: 0.4, metalness: 0.3 }));
+  map.set("holoFloor", new MeshStandardMaterial({ vertexColors: true, map: holoGrid(), emissiveMap: holoGrid(), emissive: new Color(0.62, 0.46, 0.16), roughness: 0.4, metalness: 0.3 }));
   map.set("pool", new MeshBasicMaterial({ vertexColors: true, map: radial(), transparent: true, blending: AdditiveBlending, depthWrite: false }));
   for (const [finish, m] of map) withCutaway(m, finish === "glass" ? 0 : 0.14, finish === "glass" ? 0.2 : 0);
   return map;

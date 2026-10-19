@@ -217,10 +217,22 @@ export function buildStructure(plan: DeckPlan): GeoBatch {
   }
 
   // ── walls ──────────────────────────────────────────────────────────
+  const holoRooms = plan.rooms.filter((r) => r.kind === "holodeck");
   for (const wall of plan.walls) {
     const { frame, len } = along(batch, wall);
     if (len < 0.05) continue;
     const t = wall.t;
+    const mx = (wall.a.x + wall.b.x) / 2, mz = (wall.a.z + wall.b.z) / 2;
+    const holo = holoRooms.some((r) => mx >= r.rect.x0 - 0.5 && mx <= r.rect.x1 + 0.5 && mz >= r.rect.z0 - 0.5 && mz <= r.rect.z1 + 0.5);
+    if (holo && (wall.kind === "hull" || wall.kind === "bulkhead")) {
+      // The holodeck's chamber: black walls with the floor's gold grid running up them.
+      frame.geo("structure", wallBox(len, WALL_H, t), "#08090b");
+      for (let k = 1; k < 3; k += 1) frame.box("glowSoft", len, 0.02, t + 0.02, "#7a5f22", { y: k * 0.9 });
+      const n = Math.max(1, Math.round(len));
+      for (let k = 0; k <= n; k += 1) frame.box("glowSoft", 0.02, WALL_H, t + 0.02, "#7a5f22", { x: -len / 2 + (len * k) / n });
+      frame.box("structure", len, 0.1, t + 0.06, SHIP.charcoal, { y: WALL_H });
+      continue;
+    }
     if (wall.kind === "hull" || wall.kind === "bulkhead") {
       const hull = wall.kind === "hull";
       // A dark base band, ceramic panels above it, and the cap.
