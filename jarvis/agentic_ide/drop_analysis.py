@@ -81,32 +81,13 @@ BY_VISION = "vision"
 BY_EXTRACTION = "extraction"
 BY_NONE = "none"
 
-# What the describing model is asked for. Written for the reader it actually
-# has: a coding agent that will act on this description and cannot see the
-# picture. Hence "quote text verbatim" — a paraphrased error message cannot be
-# grepped for, and grepping for it is the first thing the agent will want to do.
+# The reader is a coding agent that cannot see the picture and will grep for
+# the quoted strings.
 _VISION_SYSTEM = """\
-You describe an image for a coding agent that cannot see it. The user dropped \
-this image into a coding session, so the description IS the agent's only view \
-of it. Be specific and complete; a vague description wastes the agent's turn.
-
-Cover, in whatever order suits the image:
-- What the image is: a UI screenshot, a terminal, an error dialog, a diagram, \
-a photo, a design mockup.
-- Every piece of readable text, QUOTED VERBATIM — error messages, stack \
-traces, file paths, line numbers, labels, button text, code. Exact wording \
-matters more than anything else here, because the agent will search the \
-repository for these strings.
-- The layout, when the image shows an interface: what sits where, how elements \
-are arranged and aligned, spacing, sizing, colours, and anything visibly \
-broken — overlapping, cut off, misaligned, overflowing, or unreadable.
-- The state it shows: what appears selected, focused, disabled, loading, \
-errored, or empty.
-
-Write plain prose and short lists. Describe only what is visible: do not guess \
-at the cause, do not propose a fix, and do not describe anything the image \
-does not show.\
-"""
+You describe an image for a coding agent that cannot see it; your text is its \
+only view. Say what the image is, quote all readable text verbatim (errors, \
+paths, line numbers, labels, code), and describe the layout and the visible \
+state, including anything broken. Only what is visible: no causes, no fixes."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,10 +188,7 @@ async def _describe_image(brain, item: DroppedItem) -> str:  # noqa: ANN001 - Br
         messages=(
             BrainMessage(
                 role="user",
-                content=(
-                    f"Describe this image ({item.name}) for the coding agent, "
-                    "following your instructions."
-                ),
+                content=f"Image: {item.name}",
                 images=(ImageBlock(mime=mime, data_b64=data_b64),),
             ),
         ),
