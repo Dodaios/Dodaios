@@ -394,11 +394,16 @@ class TestLanguageCoverage:
         ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
         assert ack in _SHELL_ACK["en"]
 
-    @pytest.mark.parametrize("hint", ["de", "DE", "de-DE", "german", "deutsch", "fr", ""])
-    def test_non_english_hints_default_to_de(self, hint: str) -> None:
-        # Project default is German; unrecognized hints fall to de.
+    @pytest.mark.parametrize("hint", ["de", "DE", "de-DE", "german", "deutsch"])
+    def test_german_hints_resolve_to_de(self, hint: str) -> None:
         ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
         assert ack in _SHELL_ACK["de"]
+
+    @pytest.mark.parametrize("hint", ["fr", "tr", ""])
+    def test_unknown_hints_default_to_en(self, hint: str) -> None:
+        # Every system phrase falls back to English (DEFAULT_LOCALE), never German.
+        ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
+        assert ack in _SHELL_ACK["en"]
 
     def test_spanish_hint_resolves_to_es(self) -> None:
         ack = generate_ack("run_shell", {}, language="es", picker=_fresh())
@@ -409,9 +414,9 @@ class TestLanguageCoverage:
         ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
         assert ack in _SHELL_ACK["pt"]
 
-    def test_none_language_defaults_to_de(self) -> None:
+    def test_none_language_defaults_to_en(self) -> None:
         ack = generate_ack("run_shell", {}, language=None, picker=_fresh())  # type: ignore[arg-type]
-        assert ack in _SHELL_ACK["de"]
+        assert ack in _SHELL_ACK["en"]
 
 
 class TestGermanDiacritics:
@@ -472,8 +477,8 @@ class TestFinalSummaryMarker:
     def test_english(self) -> None:
         assert final_summary_marker("en") == "Done."
 
-    def test_unknown_language_defaults_to_de(self) -> None:
-        assert final_summary_marker("fr") == "Erledigt."  # i18n-allow: German completion marker under test
+    def test_unknown_language_defaults_to_en(self) -> None:
+        assert final_summary_marker("fr") == "Done."
 
 
 class TestShouldPrependMarker:
