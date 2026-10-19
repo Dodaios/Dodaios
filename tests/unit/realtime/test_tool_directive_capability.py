@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import jarvis.realtime.session as session_mod
+import dodaios.realtime.session as session_mod
 
 
 def _bare_session(provider: object) -> session_mod.RealtimeVoiceSession:

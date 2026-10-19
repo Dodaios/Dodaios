@@ -11,15 +11,15 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from jarvis.appshot import library, media_library, recording
-from jarvis.appshot.store import Appshot
+from dodaios.appshot import library, media_library, recording
+from dodaios.appshot.store import Appshot
 
 ID = "a" * 32
 
 
 @pytest.fixture
 def client():
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.ui.web.appshot_routes import router
 
     app = FastAPI()
     app.include_router(router)

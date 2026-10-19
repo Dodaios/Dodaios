@@ -2,7 +2,7 @@
 
 import pytest
 
-from jarvis.society.browser.pointer import PointerTracker
+from dodaios.society.browser.pointer import PointerTracker
 
 
 async def test_pointer_tracks_real_click_and_keeps_click_when_mouse_moves():
@@ -59,7 +59,7 @@ async def test_native_upgrade_waits_for_the_active_browser_task(tmp_path):
     import asyncio
     import os
     from types import SimpleNamespace
-    from jarvis.society.browser.live import LiveSessions
+    from dodaios.society.browser.live import LiveSessions
 
     if os.name != "nt":
         pytest.skip("Windows native-session upgrade")

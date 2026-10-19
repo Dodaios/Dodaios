@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.stt import wake_whisper_is_consumed
+from dodaios.plugins.stt import wake_whisper_is_consumed
 
 
 def _cfg(

@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-from jarvis.core import process_utils
+from dodaios.core import process_utils
 
 
 @pytest.fixture(autouse=True)

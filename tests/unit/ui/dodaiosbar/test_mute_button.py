@@ -9,8 +9,8 @@ authoritative ``VoiceMuteChanged`` is reconciled via ``set_muted``.
 
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar import renderer as R
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar import renderer as R
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 from ui.orb.controls import pet_strip_layout
 
 
@@ -35,7 +35,7 @@ def _mic_x() -> int:
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: fake)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: fake)
 
 
 def test_mic_click_fires_toggle_and_optimistically_mutes(monkeypatch):

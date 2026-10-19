@@ -24,7 +24,7 @@ These cost real bugs. Nothing catches them but you.
 
 - **Restore trap.** A fix works in tests and changes nothing after restart:
   live Python imports from elsewhere. New worktree → `pwsh scripts/preflight.ps1`,
-  then `python -c "import jarvis; print(jarvis.__file__)"`. (AP-8) Never
+  then `python -c "import dodaios; print(dodaios.__file__)"`. (AP-8) Never
   `pip install -e` from a linked worktree: that pin is the user's desktop app,
   and their next restart boots your branch with an empty `data/`. (BUG-219)
 - **`main` takes no local commits.** Local `main` mirrors `origin/main` and
@@ -43,13 +43,13 @@ These cost real bugs. Nothing catches them but you.
   to it (`/ws`, `jarvis` CLI, Telegram) bill their own keys: five scripted
   test turns once cost $6.82 on a deep model. Send one turn, on a subscription
   or `tests/fakes/`, never a loop against a paid provider.
-- **`jarvis.toml` only through `jarvis/core/config_writer.py`** — lock, tempfile,
+- **`jarvis.toml` only through `dodaios/core/config_writer.py`** — lock, tempfile,
   BOM-safe. A raw write leaves the backend unbootable. (AP-7)
 - **Never share a native inference engine** (ctranslate2, ONNX) between callers.
   It wedges permanently and a timeout does NOT recover it: non-blocking
   per-instance lock + `recover()` that rebuilds a fresh model. (AP-24)
 - **Every `subprocess` passes `NO_WINDOW_CREATIONFLAGS`** from
-  `jarvis.core.process_utils`, and stdout is UTF-8 (Windows defaults cp1252). (AP-1)
+  `dodaios.core.process_utils`, and stdout is UTF-8 (Windows defaults cp1252). (AP-1)
 - **Don't "clean up" the `openclaw` strings.** The external binary name and the
   read-time back-compat aliases are load-bearing; retired codenames stay dead
   everywhere else.
@@ -61,7 +61,7 @@ These cost real bugs. Nothing catches them but you.
   an app bug: N panes x M windows x 2 instances firing on one
   `visibilitychange` empties the OS ephemeral-port pool and NOTHING on the
   machine can connect for two minutes. Frontend goes through
-  `lib/connectBudget.ts`; a poll reuses a client from `jarvis/core/http_pool.py`.
+  `lib/connectBudget.ts`; a poll reuses a client from `dodaios/core/http_pool.py`.
   (AP-33)
 - **No invisible browsers.** UI checks, screenshots and scraping run in a tab of
   the user's real Chrome: never a headless/private Chrome, Playwright, Puppeteer
@@ -73,7 +73,7 @@ These cost real bugs. Nothing catches them but you.
 - **Never gate a CI check on `isinstance` against an unpinned library.** Green
   locally, red in CI on the next release. Discriminate by capability. (AP-28)
 - **The desktop app is a WebView** — no F5, no console, no dev tools. A frontend
-  fix is `npm run build` in `jarvis/ui/web/frontend/` and nothing else; open
+  fix is `npm run build` in `dodaios/ui/web/frontend/` and nothing else; open
   windows reload themselves (`src/lib/bundleWatch.ts`). Never end a frontend
   change by asking for a restart.
 - **Check your project memory before larger decisions** where your CLI keeps
@@ -96,7 +96,7 @@ the install base, and "works on my machine" is the defect. (AP-23)
 - **Nothing the user did not start may bill a key on its own.** Health dots
   come from real calls, never a paid probe. Once a subscription is connected,
   background work runs only on subscriptions or local models
-  (`jarvis/brain/background_policy.py`); a failing subscription makes it WAIT,
+  (`dodaios/brain/background_policy.py`); a failing subscription makes it WAIT,
   never fall back to an API key. An agent's own memory updates run on that
   agent's seat. Idle once burned 5 EUR in three hours on wiki calls.
 - **Every OS**, including a headless `python:3.11-slim` with no GPU, audio or
@@ -104,14 +104,14 @@ the install base, and "works on my machine" is the defect. (AP-23)
   marker or lazy import — whichever fits.
 - **Credentials are recoverable IN-APP** (keyring → ENV → file). Never make
   someone hand-edit `jarvis.toml` or export a variable.
-- **Enumerate providers from the CODE** (`jarvis/core/config.py`,
-  `jarvis/realtime/factory.py`), never from this box's `jarvis.toml`.
+- **Enumerate providers from the CODE** (`dodaios/core/config.py`,
+  `dodaios/realtime/factory.py`), never from this box's `jarvis.toml`.
 - **Everything committed is ENGLISH** — code, comments, docstrings, logs, commit
   messages. German only on the closed product surface: runtime voice/chat output,
   i18n files, speech-input vocabulary, and tests quoting them
   (`scripts/ci/german-allowlist.txt`, inline `i18n-allow`). Translate legacy
   German in files you touch. Runtime output language is decided ONCE per turn by
-  `jarvis/core/turn_language.py`; no layer re-derives it, all locales are equal.
+  `dodaios/core/turn_language.py`; no layer re-derives it, all locales are equal.
 
 **Public product descriptions.** Treat tracked documentation, source comments,
 docstrings, test descriptions, video copy, and commit/PR/release text as public.
@@ -148,9 +148,9 @@ or bypass branch protection to look green.
 
 ## 3. Architecture you must respect
 
-Higher layers reach lower ones only through `jarvis/core/protocols.py`; lateral
+Higher layers reach lower ones only through `dodaios/core/protocols.py`; lateral
 traffic is `frozen=True` events on `EventBus` carrying `trace_id`. Plugins live
-under `jarvis/plugins/<group>/`, register via entry-points, import no `jarvis.*`
+under `dodaios/plugins/<group>/`, register via entry-points, import no `dodaios.*`
 (then `pip install -e . --no-deps`). Brain/STT/TTS/Harness are streaming-first.
 Secrets only via `get_secret` — never in code, `jarvis.toml`, or a commit, and
 voice/chat must never accept one (AP-2). Signing private keys live only in
@@ -185,7 +185,7 @@ wake upgrade only on the out-of-process inference probe, never on CUDA presence
 transcript content (AP-27); a WebGL scene releases its context and survives
 losing it (AP-32); a reconnect pays the jittered connect budget (AP-33, §1); a macOS
 feature asks the OS at first use, from a user gesture, through
-`jarvis/platform/permission_service.py` — no preflight refuses before the OS was
+`dodaios/platform/permission_service.py` — no preflight refuses before the OS was
 asked, nothing is asked at launch, nothing acts without a live grant, an agent
 never answers a system dialog (AP-35; `docs/macos-permissions.md`, ADR-0038).
 Detail and history for any of them: `docs/BUGS.md`.

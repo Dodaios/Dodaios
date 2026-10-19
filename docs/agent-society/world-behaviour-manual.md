@@ -48,12 +48,12 @@ same way — never as free strings.
 core`) says where the hand came from; a WORK family (`comms | desktop | web`) says what the agent
 is doing. Work wins, decided by the tool name before its registry kind, because the island shows
 what an agent DOES and not how it is plumbed: a mail is a trip to the Signal Office whether it
-leaves through a plugin, an MCP server or a CLI seat. `jarvis/society/checkpoints.py` holds the
+leaves through a plugin, an MCP server or a CLI seat. `dodaios/society/checkpoints.py` holds the
 one table (`_WORK_FAMILY`), and `HubDrawer.tsx` lists the same tools in each hall's drawer.
 
 ## 3. Derivation — who decides the place (trusted Python, no LLM)
 
-The **society bridge** (`jarvis/society/bridge.py`, M1) derives `checkpoint` from events it already
+The **society bridge** (`dodaios/society/bridge.py`, M1) derives `checkpoint` from events it already
 sees. Rules, in priority order; the first that matches wins:
 
 1. `state == paused` → `home`.
@@ -66,7 +66,7 @@ sees. Rules, in priority order; the first that matches wins:
    only when a different family has dominated for **≥ 20 s** — hysteresis, so a figure never
    ping-pongs between shops. An agent on a keyless (local) provider that has not called a tool
    yet stands at the Boiler House: its own model thinking IS the work.
-6. A memory touch in the last 60 s → `archive` (the Memory House). **Built:** `jarvis/society/checkpoints.py` derives `paused → idle`, `gate`, `meeting`, `gallery`, `archive`, `hub:cli`, `hub:models`, `hub:plugins | hub:skills | hub:mcp | hub:comms | hub:desktop | hub:web` (dominant family of the last 8 tool calls, 20 s hysteresis), `desk`, `idle` and publishes `SocietyCheckpointChanged`. "A worker runs under the agent's identity" means EITHER a scheduler run (`ASSIGN`) OR a turn typed into the agent's card: the society surface reports every turn start (`note_turn_started`), and the engine watches that turn's `tool_call` / `turn_finished` events. `hub:workshop` is still open — core file and shell work sends the figure to the Workshop through `desk`.
+6. A memory touch in the last 60 s → `archive` (the Memory House). **Built:** `dodaios/society/checkpoints.py` derives `paused → idle`, `gate`, `meeting`, `gallery`, `archive`, `hub:cli`, `hub:models`, `hub:plugins | hub:skills | hub:mcp | hub:comms | hub:desktop | hub:web` (dominant family of the last 8 tool calls, 20 s hysteresis), `desk`, `idle` and publishes `SocietyCheckpointChanged`. "A worker runs under the agent's identity" means EITHER a scheduler run (`ASSIGN`) OR a turn typed into the agent's card: the society surface reports every turn start (`note_turn_started`), and the engine watches that turn's `tool_call` / `turn_finished` events. `hub:workshop` is still open — core file and shell work sends the figure to the Workshop through `desk`.
 7. Being created / avatar change → `foundry`.
 8. Otherwise → `wander`.
 

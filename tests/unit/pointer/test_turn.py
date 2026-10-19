@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.protocols import ImageBlock
-from jarvis.pointer.context import PointerContext
-from jarvis.pointer.turn import resolve_turn_pointer
-from jarvis.vision.pointer_types import PointerElement
+from dodaios.core.protocols import ImageBlock
+from dodaios.pointer.context import PointerContext
+from dodaios.pointer.turn import resolve_turn_pointer
+from dodaios.vision.pointer_types import PointerElement
 from tests.fakes.fake_capabilities import (
     fake_linux_capabilities,
     fake_macos_capabilities,
@@ -89,8 +89,8 @@ async def test_resolver_error_is_swallowed() -> None:
 
 
 async def test_headless_host_fast_skips_before_thread_dispatch(monkeypatch) -> None:
-    import jarvis.platform.capabilities as caps_mod
-    import jarvis.pointer.turn as turn_mod
+    import dodaios.platform.capabilities as caps_mod
+    import dodaios.pointer.turn as turn_mod
     from tests.fakes.fake_capabilities import fake_headless_capabilities
 
     called = {"resolver": False}
@@ -116,8 +116,8 @@ async def test_headless_host_fast_skips_before_thread_dispatch(monkeypatch) -> N
 async def test_crop_radius_forwarded_to_default_resolver(
     monkeypatch, desktop_capabilities
 ) -> None:
-    import jarvis.platform.capabilities as caps_mod
-    import jarvis.pointer.turn as turn_mod
+    import dodaios.platform.capabilities as caps_mod
+    import dodaios.pointer.turn as turn_mod
 
     seen: dict[str, object] = {}
 

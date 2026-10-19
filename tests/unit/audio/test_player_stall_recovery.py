@@ -14,8 +14,8 @@ from collections.abc import AsyncIterator
 import numpy as np
 import pytest
 
-from jarvis.audio.player import AudioPlayer
-from jarvis.core.protocols import AudioChunk
+from dodaios.audio.player import AudioPlayer
+from dodaios.core.protocols import AudioChunk
 
 
 class _FakeStream:

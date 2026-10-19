@@ -25,11 +25,11 @@ LANE_JOBS = {"agent-runtimes-unit", "agent-runtimes-headless", "agent-runtimes-e
 @pytest.mark.parametrize(
     "path",
     [
-        "jarvis/agent_runtimes/gateway.py",
-        "jarvis\\agent_runtimes\\hermes.py",
-        "jarvis/agent_chat/runner_acp.py",
-        "jarvis/society/chat_binding.py",
-        "jarvis/ui/web/society_routes.py",
+        "dodaios/agent_runtimes/gateway.py",
+        "dodaios\\agent_runtimes\\hermes.py",
+        "dodaios/agent_chat/runner_acp.py",
+        "dodaios/society/chat_binding.py",
+        "dodaios/ui/web/society_routes.py",
         "tests/fakes/fake_acp_agent.py",
         "scripts/spikes/agent_runtimes_gateway_e2e.py",
         "requirements.txt",
@@ -40,7 +40,7 @@ def test_runtime_paths_turn_the_lane_on(path):
 
 
 def test_an_unrelated_change_leaves_the_lane_off():
-    assert classify_changes.classify(["jarvis/appshot/region.py"])["agent_runtimes"] is False
+    assert classify_changes.classify(["dodaios/appshot/region.py"])["agent_runtimes"] is False
 
 
 def test_a_pipeline_change_runs_the_lane_too():
@@ -87,7 +87,7 @@ def test_a_runtime_change_selects_the_chat_and_society_chain():
         *[f"tests/unit/other/test_{i}.py" for i in range(40)],
     ]
     mode, chosen = select_tests.select(
-        ["jarvis/agent_runtimes/manager.py"], tests, dict.fromkeys(tests, "")
+        ["dodaios/agent_runtimes/manager.py"], tests, dict.fromkeys(tests, "")
     )
     assert mode == "selected"
     assert set(tests[:3]) <= set(chosen)
@@ -233,7 +233,7 @@ def test_the_runtime_pins_ship_in_the_wheel_and_the_frozen_app():
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert "agent_runtimes/runtime-versions.json" in (
-        pyproject["tool"]["setuptools"]["package-data"]["jarvis"]
+        pyproject["tool"]["setuptools"]["package-data"]["dodaios"]
     )
     spec = (ROOT / "jarvis.spec").read_text(encoding="utf-8")
-    assert '"jarvis/agent_runtimes/runtime-versions.json"), "jarvis/agent_runtimes")' in spec
+    assert '"dodaios/agent_runtimes/runtime-versions.json"), "dodaios/agent_runtimes")' in spec

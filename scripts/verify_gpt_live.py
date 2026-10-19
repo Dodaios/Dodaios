@@ -13,13 +13,13 @@ from types import SimpleNamespace
 
 
 async def verify(model: str, provider_name: str = "openai", reconnect: bool = False) -> dict:
-    from jarvis.core.config import get_secret_any
-    from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
-    from jarvis.core.runtime_refs import set_supervisor_tool_gateway
-    from jarvis.live import session as live_session
-    from jarvis.live.config import LiveConfig
-    from jarvis.plugins.realtime.gemini_live import GeminiLiveProvider
-    from jarvis.plugins.realtime.openai_live import OpenAILiveProvider
+    from dodaios.core.config import get_secret_any
+    from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
+    from dodaios.core.runtime_refs import set_supervisor_tool_gateway
+    from dodaios.live import session as live_session
+    from dodaios.live.config import LiveConfig
+    from dodaios.plugins.realtime.gemini_live import GeminiLiveProvider
+    from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
 
     provider_class = OpenAILiveProvider if provider_name == "openai" else GeminiLiveProvider
 
@@ -102,7 +102,7 @@ async def verify(model: str, provider_name: str = "openai", reconnect: bool = Fa
         )
         session_class = live_session.LiveVoiceSession
         if provider_name != "openai":
-            from jarvis.live import native
+            from dodaios.live import native
 
             native.user_data_dir = lambda: Path(folder)
             session_class = native.NativeLiveVoiceSession

@@ -17,9 +17,9 @@ from typing import Any
 
 import numpy as np
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.protocols import Transcript
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.config import DictationConfig
+from dodaios.core.protocols import Transcript
+from dodaios.speech.pipeline import SpeechPipeline
 
 RATE = 16_000
 BYTES_PER_S = RATE * 2

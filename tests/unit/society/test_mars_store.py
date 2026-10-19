@@ -9,14 +9,14 @@ import aiosqlite
 import pytest
 from pydantic import ValidationError
 
-from jarvis.society.mars.models import (
+from dodaios.society.mars.models import (
     CommandState,
     ExecutionReceipt,
     StationCommand,
     StationError,
 )
-from jarvis.society.mars.navigation_store import MarsNavigationStore
-from jarvis.society.mars.store import MarsStore
+from dodaios.society.mars.navigation_store import MarsNavigationStore
+from dodaios.society.mars.store import MarsStore
 
 
 @pytest.fixture

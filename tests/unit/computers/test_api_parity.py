@@ -14,9 +14,9 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from jarvis.computers.models import Computer, ComputerFacts, ComputerHealth, ComputerRoute
+from dodaios.computers.models import Computer, ComputerFacts, ComputerHealth, ComputerRoute
 
-TS_FILE = Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src/lib/computersApi.ts"
+TS_FILE = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/lib/computersApi.ts"
 
 
 def _ts_fields(interface: str) -> set[str]:

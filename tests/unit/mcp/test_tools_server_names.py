@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.branding as branding
-from jarvis.core import mcp_names
+import dodaios.core.branding as branding
+from dodaios.core import mcp_names
 
 _ROOT = Path(__file__).resolve().parents[3]
 
@@ -55,7 +55,7 @@ def test_anything_else_is_not_the_apps_own_tool(name: str) -> None:
 
 
 def test_the_frontend_restates_the_server_names() -> None:
-    source = (_ROOT / "jarvis/ui/web/frontend/src/lib/branding.ts").read_text(encoding="utf-8")
+    source = (_ROOT / "dodaios/ui/web/frontend/src/lib/branding.ts").read_text(encoding="utf-8")
     match = re.search(r"MCP_TOOLS_SERVER_NAMES[^=]*=\s*(\[[^\]]*\])", source)
     assert match is not None
     assert tuple(json.loads(match.group(1))) == mcp_names.TOOLS_SERVER_NAMES
@@ -64,7 +64,7 @@ def test_the_frontend_restates_the_server_names() -> None:
 def test_no_shipped_module_spells_the_server_name_into_a_tool_prefix() -> None:
     """A literal prefix knows one name; the helper knows every name."""
     offenders: list[str] = []
-    for path in (_ROOT / "jarvis").rglob("*.py"):
+    for path in (_ROOT / "dodaios").rglob("*.py"):
         if "node_modules" in path.parts:
             continue
         source = path.read_text(encoding="utf-8-sig")
@@ -79,7 +79,7 @@ def test_no_shipped_module_spells_the_server_name_into_a_tool_prefix() -> None:
                 continue
             if _SPELLED_OUT.search(node.value):
                 offenders.append(f"{relative}:{node.lineno}: {node.value[:60]!r}")
-    assert not offenders, "use jarvis.core.mcp_names / branding:\n" + "\n".join(offenders)
+    assert not offenders, "use dodaios.core.mcp_names / branding:\n" + "\n".join(offenders)
 
 
 _SPELLED_OUT = re.compile(r"mcp__(?:jarvis|dodaios)__|mcp_servers\.(?:jarvis|dodaios)\b")
@@ -104,7 +104,7 @@ def _docstring_nodes(tree: ast.AST) -> set[tuple[int, int]]:
 @SERVERS
 def test_a_runtimes_own_spelling_is_normalised(server: str) -> None:
     """Hermes, OpenClaw and Grok each spell the same tool their own way."""
-    from jarvis.agent_runtimes.acp import normalize_tool_name
+    from dodaios.agent_runtimes.acp import normalize_tool_name
 
     expected = f"mcp__{server}__society_memory_recall"
     for spelled in (
@@ -121,15 +121,15 @@ def test_a_runtimes_own_spelling_is_normalised(server: str) -> None:
 @SERVERS
 def test_a_normalised_runtime_call_reaches_the_family_it_belongs_to(server: str) -> None:
     """The two readers compose: what the runtime reports is what the island shows."""
-    from jarvis.agent_runtimes.acp import normalize_tool_name
-    from jarvis.society.checkpoints import family_of_tool
+    from dodaios.agent_runtimes.acp import normalize_tool_name
+    from dodaios.society.checkpoints import family_of_tool
 
     assert family_of_tool(normalize_tool_name(f"{server}__gmail"), cli_seat=True) == "comms"
 
 
 @SERVERS
 def test_the_society_classifies_a_call_by_the_tool_behind_the_server(server: str) -> None:
-    from jarvis.society.checkpoints import family_of_tool
+    from dodaios.society.checkpoints import family_of_tool
 
     assert family_of_tool(f"mcp__{server}__google_drive", cli_seat=True) == "plugin"
     assert family_of_tool(f"mcp__{server}__society_run_skill", cli_seat=True) == "skill"
@@ -144,7 +144,7 @@ def test_a_resumed_hermes_conversation_drops_its_pinned_tool_list(
     tmp_path: Path, server: str, hashed: bool
 ) -> None:
     """Without this a conversation resumed after the rename keeps offering dead tools."""
-    from jarvis.agent_runtimes.tool_snapshot import refresh_tool_search_cache
+    from dodaios.agent_runtimes.tool_snapshot import refresh_tool_search_cache
 
     name = f"mcp__{server}__society_ask_user"
     snapshot = (
@@ -167,7 +167,7 @@ def test_a_resumed_hermes_conversation_drops_its_pinned_tool_list(
 
 
 def test_a_hermes_tool_list_without_the_apps_tools_is_kept(tmp_path: Path) -> None:
-    from jarvis.agent_runtimes.tool_snapshot import refresh_tool_search_cache
+    from dodaios.agent_runtimes.tool_snapshot import refresh_tool_search_cache
 
     pin = json.dumps(["mcp__github__create_issue", "terminal"])
     with sqlite3.connect(tmp_path / "state.db") as db:
@@ -187,7 +187,7 @@ def test_a_hermes_tool_list_without_the_apps_tools_is_kept(tmp_path: Path) -> No
 
 @SERVERS
 def test_an_approval_is_matched_on_the_bare_tool(server: str) -> None:
-    from jarvis.agent_chat.approval_bridge import _bare
+    from dodaios.agent_chat.approval_bridge import _bare
 
     assert _bare(f"mcp__{server}__open-app") == "open-app"
 
@@ -199,8 +199,8 @@ def test_an_agents_ask_rule_still_gates_the_tool(
     """A permission rule must not fall away because the server was renamed."""
     from types import SimpleNamespace
 
-    from jarvis.society import surface
-    from jarvis.society.capabilities import capability_id_for_tool
+    from dodaios.society import surface
+    from dodaios.society.capabilities import capability_id_for_tool
 
     capability = capability_id_for_tool("gmail")
     assert capability is not None
@@ -219,7 +219,7 @@ def test_an_agents_ask_rule_still_gates_the_tool(
 
 @SERVERS
 def test_the_pet_reads_the_action_behind_the_server(server: str) -> None:
-    from jarvis.ui.pets.actions import action_for_tool
+    from dodaios.ui.pets.actions import action_for_tool
 
     assert action_for_tool(f"mcp__{server}__web_search") == "searching"
     assert action_for_tool(f"mcp__{server}__open-app") == "working"
@@ -229,14 +229,14 @@ def test_the_pet_reads_the_action_behind_the_server(server: str) -> None:
 def test_the_tools_listing_marks_the_call_as_mcp(server: str) -> None:
     from types import SimpleNamespace
 
-    from jarvis.ui.web.tools_routes import _tool_to_dict
+    from dodaios.ui.web.tools_routes import _tool_to_dict
 
     assert _tool_to_dict(f"mcp__{server}__gmail", SimpleNamespace())["source"] == "mcp"
 
 
 @SERVERS
 def test_the_realtime_budget_files_the_call_under_mcp(server: str) -> None:
-    from jarvis.realtime.tools import _BUDGET_DROP_FAMILIES
+    from dodaios.realtime.tools import _BUDGET_DROP_FAMILIES
 
     name = f"mcp__{server}__gmail"
     families = [family for family, pattern in _BUDGET_DROP_FAMILIES if pattern.search(name)]
@@ -245,7 +245,7 @@ def test_the_realtime_budget_files_the_call_under_mcp(server: str) -> None:
 
 @SERVERS
 def test_mission_evidence_names_a_codex_call_after_its_server(server: str) -> None:
-    from jarvis.missions import stream_evidence
+    from dodaios.missions import stream_evidence
 
     stream = json.dumps(
         {

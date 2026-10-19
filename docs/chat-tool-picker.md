@@ -34,7 +34,7 @@ operations and active skills are discovered at runtime, so a hardcoded list
 would go stale immediately. The shipped inventory below is a source snapshot;
 not every entry is necessarily loaded on every installation.
 
-Original service marks are reused from `jarvis/ui/web/frontend/src/assets/brands/`
+Original service marks are reused from `dodaios/ui/web/frontend/src/assets/brands/`
 with their existing `LOGOS.md` provenance ledger, including full-color Gmail.
 Unknown brands receive a category glyph and text. No logo network request is
 needed to open the picker.

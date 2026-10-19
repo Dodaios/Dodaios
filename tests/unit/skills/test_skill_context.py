@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.skills.skill_context import (
+from dodaios.skills.skill_context import (
     SkillContext,
     get_skill_context,
     set_skill_context,

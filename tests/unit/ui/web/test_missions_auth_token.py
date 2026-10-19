@@ -1,7 +1,7 @@
 """Unit tests for process-local authenticated session tokens."""
 from __future__ import annotations
 
-from jarvis.ui.web.missions_auth import (
+from dodaios.ui.web.missions_auth import (
     issue_token,
     register_token,
     reset_tokens,

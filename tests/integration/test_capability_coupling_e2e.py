@@ -26,9 +26,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.local_action_gate import LocalActionMode, match_local_action
-from jarvis.core.capabilities import CapabilityRegistry
-from jarvis.core.capabilities_seed import seed_registry
+from dodaios.brain.local_action_gate import LocalActionMode, match_local_action
+from dodaios.core.capabilities import CapabilityRegistry
+from dodaios.core.capabilities_seed import seed_registry
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +40,7 @@ def seeded_registry():
     """A fresh base install with no connected plugins, independent of prior tests."""
     reg = CapabilityRegistry()
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr("jarvis.core.capabilities._registry_instance", reg)
+        patch.setattr("dodaios.core.capabilities._registry_instance", reg)
         seed_registry(reg)
         yield reg
 

@@ -12,11 +12,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import MissionCompleted
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.schema import SpeakAction, TaskSpec, TriggerOnEvent
-from jarvis.tasks.store import TaskStore
+from dodaios.core.bus import EventBus
+from dodaios.core.events import MissionCompleted
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.schema import SpeakAction, TaskSpec, TriggerOnEvent
+from dodaios.tasks.store import TaskStore
 
 
 class CapturingRunner:

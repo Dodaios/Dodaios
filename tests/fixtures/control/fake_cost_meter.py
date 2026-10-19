@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from uuid import UUID
 
-from jarvis.core.protocols import CostRecord
+from dodaios.core.protocols import CostRecord
 
 
 class FakeCostMeter:

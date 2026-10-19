@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.api_family_quota_state as qs
+import dodaios.api_family_quota_state as qs
 
 
 @pytest.fixture(autouse=True)

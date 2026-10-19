@@ -16,8 +16,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from jarvis.appshot import card_actions, editor_window
-from jarvis.appshot.store import Appshot, AppshotStore
+from dodaios.appshot import card_actions, editor_window
+from dodaios.appshot.store import Appshot, AppshotStore
 
 
 def _png(width: int = 40, height: int = 30) -> bytes:
@@ -89,7 +89,7 @@ async def test_a_shell_that_cannot_open_a_window_falls_back() -> None:
 
 
 def test_the_route_reports_where_the_editor_opened(opener) -> None:
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.ui.web.appshot_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -112,7 +112,7 @@ def test_card_rest_time_follows_the_setting(seconds: int, expected: int) -> None
 def test_card_seconds_is_validated_and_defaults_to_six() -> None:
     from pydantic import ValidationError
 
-    from jarvis.core.config import AppshotConfig
+    from dodaios.core.config import AppshotConfig
 
     assert AppshotConfig().card_seconds == 6
     assert AppshotConfig(card_seconds=0).card_seconds == 0
@@ -145,8 +145,8 @@ def test_save_writes_a_fresh_file_each_time(tmp_path) -> None:
 
 
 async def test_copy_from_the_card_uses_the_native_clipboard(monkeypatch) -> None:
-    from jarvis.appshot import store as store_module
-    from jarvis.platform import clipboard_image
+    from dodaios.appshot import store as store_module
+    from dodaios.platform import clipboard_image
 
     store = AppshotStore()
     store.remember(_shot(), keep_s=60)
@@ -154,7 +154,7 @@ async def test_copy_from_the_card_uses_the_native_clipboard(monkeypatch) -> None
     copied: list[bytes] = []
     monkeypatch.setattr(clipboard_image, "write_png", lambda png: copied.append(png) or True)
     monkeypatch.setattr(
-        "jarvis.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
+        "dodaios.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
     )
 
     assert await card_actions.run_card_action("copy") == "Copied"
@@ -173,8 +173,8 @@ async def test_copy_text_puts_the_on_screen_text_on_the_clipboard(
 ) -> None:
     import dataclasses
 
-    from jarvis.appshot import store as store_module
-    from jarvis.platform import clipboard
+    from dodaios.appshot import store as store_module
+    from dodaios.platform import clipboard
 
     store = AppshotStore()
     store.remember(dataclasses.replace(_shot(), ui_text=ui_text), keep_s=60)
@@ -182,7 +182,7 @@ async def test_copy_text_puts_the_on_screen_text_on_the_clipboard(
     copied: list[str] = []
     monkeypatch.setattr(clipboard, "write_text", lambda text: copied.append(text) or True)
     monkeypatch.setattr(
-        "jarvis.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
+        "dodaios.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
     )
 
     assert await card_actions.run_card_action("copy_text") == status
@@ -190,17 +190,17 @@ async def test_copy_text_puts_the_on_screen_text_on_the_clipboard(
 
 
 def test_the_sidecar_hands_every_card_action_to_the_main_process() -> None:
-    from jarvis.cu.indicator import protocol
+    from dodaios.cu.indicator import protocol
 
     assert {"copy", "save", "copy_text"} == protocol.CARD_ACTIONS
 
 
 async def test_a_card_action_without_a_held_appshot_says_so(monkeypatch) -> None:
-    from jarvis.appshot import store as store_module
+    from dodaios.appshot import store as store_module
 
     monkeypatch.setattr(store_module, "_STORE", AppshotStore())
     monkeypatch.setattr(
-        "jarvis.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
+        "dodaios.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
     )
     assert await card_actions.run_card_action("save") == "No longer kept"
 
@@ -217,8 +217,8 @@ def _config(target: str = "auto") -> SimpleNamespace:
 
 @pytest.fixture
 def held(monkeypatch):
-    from jarvis.appshot import service
-    from jarvis.appshot import store as store_module
+    from dodaios.appshot import service
+    from dodaios.appshot import store as store_module
 
     store = AppshotStore()
     monkeypatch.setattr(store_module, "_STORE", store)
@@ -231,12 +231,12 @@ def held(monkeypatch):
         return state["call"]
 
     monkeypatch.setattr(service, "_load_config", lambda: state["config"])
-    monkeypatch.setattr("jarvis.appshot.delivery.deliver_to_live", fake_live)
+    monkeypatch.setattr("dodaios.appshot.delivery.deliver_to_live", fake_live)
     return store, state
 
 
 async def test_an_edit_goes_with_the_next_message_and_says_it_was_edited(held) -> None:
-    from jarvis.appshot.service import EDIT_NOTE, deliver_edit
+    from dodaios.appshot.service import EDIT_NOTE, deliver_edit
 
     store, _state = held
     shot = _shot(delivered_to="message")
@@ -249,7 +249,7 @@ async def test_an_edit_goes_with_the_next_message_and_says_it_was_edited(held) -
 
 
 async def test_an_edit_reaches_a_running_call_even_after_the_original_did(held) -> None:
-    from jarvis.appshot.service import deliver_edit
+    from dodaios.appshot.service import deliver_edit
 
     store, state = held
     state["call"] = True
@@ -264,7 +264,7 @@ async def test_an_edit_reaches_a_running_call_even_after_the_original_did(held) 
 
 
 async def test_an_edit_of_an_already_sent_appshot_waits_for_the_next_message(held) -> None:
-    from jarvis.appshot.service import deliver_edit
+    from dodaios.appshot.service import deliver_edit
 
     store, _state = held
     shot = _shot(delivered_to="turn")
@@ -275,7 +275,7 @@ async def test_an_edit_of_an_already_sent_appshot_waits_for_the_next_message(hel
 
 
 async def test_a_voice_only_target_without_a_call_keeps_the_edit_to_itself(held) -> None:
-    from jarvis.appshot.service import deliver_edit
+    from dodaios.appshot.service import deliver_edit
 
     store, state = held
     state["config"] = _config("voice")
@@ -287,7 +287,7 @@ async def test_a_voice_only_target_without_a_call_keeps_the_edit_to_itself(held)
 
 
 async def test_editing_twice_does_not_stack_the_note(held) -> None:
-    from jarvis.appshot.service import EDIT_NOTE, deliver_edit
+    from dodaios.appshot.service import EDIT_NOTE, deliver_edit
 
     store, _state = held
     shot = _shot()
@@ -304,7 +304,7 @@ async def test_editing_twice_does_not_stack_the_note(held) -> None:
 
 
 def test_the_card_commands_and_events_are_known() -> None:
-    from jarvis.cu.indicator import protocol
+    from dodaios.cu.indicator import protocol
 
     assert protocol.CMD_CARD in protocol.ALL_COMMANDS
     assert protocol.CMD_CARD_STATUS in protocol.ALL_COMMANDS

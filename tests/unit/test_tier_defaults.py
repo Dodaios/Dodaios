@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     TIER_DEFAULTS_BY_PROVIDER,
     _resolve_tier_model,
     get_tier_default_model,
@@ -23,8 +23,8 @@ class TestTierDefaultsCatalog:
         # 2026-04-29 update: GPT-5.5 has no -mini variant released; OpenAI
         # itself says "GPT-5.5 has per-token latency like GPT-5.4". The fast-tier
         # heuristic therefore also accepts frontier main models.
-        # See the TIER_DEFAULTS_BY_PROVIDER doc in jarvis/brain/manager.py.
-        from jarvis.brain.app_control import LOCAL_PROVIDERS
+        # See the TIER_DEFAULTS_BY_PROVIDER doc in dodaios/brain/manager.py.
+        from dodaios.brain.app_control import LOCAL_PROVIDERS
 
         for provider, model in TIER_DEFAULTS_BY_PROVIDER["router"].items():
             if provider in LOCAL_PROVIDERS:
@@ -49,7 +49,7 @@ class TestTierDefaultsCatalog:
                 f"{provider}: {model} does not look like a fast tier"
 
     def test_sub_models_look_frontier(self):
-        from jarvis.brain.app_control import LOCAL_PROVIDERS
+        from dodaios.brain.app_control import LOCAL_PROVIDERS
 
         for provider, model in TIER_DEFAULTS_BY_PROVIDER["deep"].items():
             if provider in LOCAL_PROVIDERS:
@@ -77,7 +77,7 @@ class TestTierDefaultsCatalog:
         assert "deep" in TIER_DEFAULTS_BY_PROVIDER
 
     def test_no_empty_model_strings(self):
-        from jarvis.brain.app_control import LOCAL_PROVIDERS
+        from dodaios.brain.app_control import LOCAL_PROVIDERS
 
         for tier, providers in TIER_DEFAULTS_BY_PROVIDER.items():
             for provider, model in providers.items():
@@ -137,11 +137,11 @@ class TestPluginDefaultParity:
     """
 
     def test_gemini_plugin_default_matches_router_tier_default(self):
-        from jarvis.plugins.brain.gemini import DEFAULT_MODEL
+        from dodaios.plugins.brain.gemini import DEFAULT_MODEL
 
         assert DEFAULT_MODEL == get_tier_default_model("router", "gemini")
 
     def test_openai_plugin_default_matches_router_tier_default(self):
-        from jarvis.plugins.brain.openai import DEFAULT_MODEL
+        from dodaios.plugins.brain.openai import DEFAULT_MODEL
 
         assert DEFAULT_MODEL == get_tier_default_model("router", "openai")

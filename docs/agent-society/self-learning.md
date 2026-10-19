@@ -5,7 +5,7 @@
 A created agent has one endless chat (MASTERPLAN §2.10), so its learning is
 paced and kept tidy instead of firing after every answer:
 
-- **Review windows** (`jarvis/society/review_cadence.py`). The person's turns
+- **Review windows** (`dodaios/society/review_cadence.py`). The person's turns
   collect in a window per chat. The window is reviewed as a whole when the
   person gives a clear learning signal (an explicit "remember", a lasting
   language choice, a correction or frustration, detected without a model),
@@ -13,18 +13,18 @@ paced and kept tidy instead of firing after every answer:
   window is older than 12 hours. There is no timer: an idle agent costs
   nothing. Turns started by Jarvis, teammates or routines keep their per-turn
   review. Board messages in the window never count as the person's words.
-- **Better review rules** (`jarvis/society/review.py`, `_LEARNING_RULES`). A
+- **Better review rules** (`dodaios/society/review.py`, `_LEARNING_RULES`). A
   correction is the strongest signal; a lesson is one rule plus one clause of
   why; skills are improved before new ones are made, and a new skill covers a
   class of work. Environment failures the person can fix, "tool X does not
   work" claims, transient errors, one-off narratives and unresolved failures
   are never captured. Unattended reviews remove an entry only on the person's
   own retraction.
-- **Notebook limits** (`jarvis/society/memory_books.py`, `HARD_LIMITS`, twice
+- **Notebook limits** (`dodaios/society/memory_books.py`, `HARD_LIMITS`, twice
   the prompt budget). Past it, an agent or its review must consolidate
   (replace or remove) before adding; the review is told how full each notebook
   is. The person's own explicit requests are never refused.
-- **Skill lifecycle** (`jarvis/society/skill_lifecycle.py`). Each private skill
+- **Skill lifecycle** (`dodaios/society/skill_lifecycle.py`). Each private skill
   has a usage record. Unused for 14 days it is `stale`, for 30 days
   `archived`: left out of the briefing, never deleted, active again once it is
   run or rewritten. The briefing lists at most 12 skills, most recently used
@@ -36,16 +36,16 @@ The seat rule below is unchanged: reviews and skill authoring run only on the
 agent's own seat.
 
 > **Status (2026-09-30):** the experience journal described below
-> (`jarvis/society/experience.py`, `learning/LEARNING.md`, the lead's voice
+> (`dodaios/society/experience.py`, `learning/LEARNING.md`, the lead's voice
 > learning snapshot and `tests/contract/test_agent_learning_loop.py`) is not
 > in the current tree; a history reconciliation merge removed it. Society
 > agents learn through their `USER.md`/`MEMORY.md` notebooks and the turn
-> review in `jarvis/society/review.py`. Jarvis' own learning is
+> review in `dodaios/society/review.py`. Jarvis' own learning is
 > `docs/jarvis-learning.md`.
 >
 > **Seat rule (2026-09-30):** an agent's turn review and skill learning run
 > on exactly that agent's seat — the provider, model and auth mode its chat
-> uses (`jarvis/society/seat_brain.py`). No other provider, subscription or
+> uses (`dodaios/society/seat_brain.py`). No other provider, subscription or
 > key is asked. A review whose seat keeps failing costs at most four seat
 > calls in total, spaced by a jittered backoff, and is then dropped (status
 > `dropped`) with one log line. The attempt count and next due time are

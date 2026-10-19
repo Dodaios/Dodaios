@@ -511,7 +511,7 @@
 
     <article class="bug" data-sev="CRITICAL">
       <div class="bug-head"><span class="bug-id">BUG-B-1</span><span class="bug-title">Force-spawn heuristic disabled for Grok — every action verb misroutes</span><span class="bug-sev">CRITICAL</span></div>
-      <div class="bug-loc">jarvis/brain/manager.py:966-971 · _should_force_openclaw</div>
+      <div class="bug-loc">dodaios/brain/manager.py:966-971 · _should_force_openclaw</div>
       <div class="bug-body">
         <strong>Symptom.</strong> When <code>brain.primary</code> is <code>grok</code>, <code>openai</code>, <code>openrouter</code>, or any non-Anthropic / non-Gemini provider, the deterministic spawn heuristic returns <code>False</code> unconditionally. Every utterance with an action verb (<code>schreib</code>, <code>baue</code>, <code>öffne</code>) bypasses the OpenClaw spawn path and falls through to LLM tool-choice — exactly the silent failure surface the heuristic was designed to prevent.  <!-- i18n-allow --><br><br>
         <strong>Root cause.</strong> A guard <code>if primary not in ("claude-api", "gemini"): return False</code> was added as a Gemini-403 workaround but never widened. The user's <em>actual</em> primary today is <code>grok</code> (per <code>MEMORY.md</code> BUG-017), so the guard kills the heuristic for the most common provider.<br><br>
@@ -522,7 +522,7 @@
 
     <article class="bug" data-sev="CRITICAL">
       <div class="bug-head"><span class="bug-id">BUG-Z-1</span><span class="bug-title">Whitelist matcher bypassable via LLM-controlled argument-key ordering</span><span class="bug-sev">CRITICAL</span></div>
-      <div class="bug-loc">jarvis/safety/risk_tier.py:48-61 · _serialize_args</div>
+      <div class="bug-loc">dodaios/safety/risk_tier.py:48-61 · _serialize_args</div>
       <div class="bug-body">
         <strong>Symptom.</strong> The whitelist match string is <code>f"{tool.name} {value1} {value2} …"</code> — keys dropped, values joined in dict insertion order. A tool call like <code>run-shell(prefix="ls", command="rm -rf /")</code> serializes to <code>"run-shell ls rm -rf /"</code>, matches <code>"run-shell ls *"</code> → tier downgraded to <code>safe</code> with <code>approved_by="whitelist"</code> → executes without confirmation and skips plausibility.<br><br>
         <strong>Root cause.</strong> Two-fold: keys are stripped from the matcher, and ordering follows attacker-controllable dict insertion. The whitelist also unconditionally downgrades to <code>safe</code> regardless of the tool's declared tier.<br><br>
@@ -533,7 +533,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-S-2</span><span class="bug-title">Voice death when <code>_fanout</code> task dies — heartbeat reports it, nothing acts</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/speech/pipeline.py:1437-1448, 1517-1519 · _run_parallel_wake</div>
+      <div class="bug-loc">dodaios/speech/pipeline.py:1437-1448, 1517-1519 · _run_parallel_wake</div>
       <div class="bug-body">
         <strong>Symptom.</strong> "Hey Jarvis" silently stops working after some uptime. The 10-second heartbeat correctly logs <code>fanout=DEAD oww=alive whisper=alive</code> — but <code>asyncio.wait(detector_tasks)</code> deliberately excludes the fanout task, both detector queues stop receiving chunks, and the function never returns. Same silent-failure class as BUG-014 / BUG-016.<br><br>
         <strong>Root cause.</strong> No try/except around <code>mic.stream()</code> iteration in <code>_fanout</code>, and the surrounding wait set does not include the fanout task. Heartbeat detects but cannot self-heal.<br><br>
@@ -544,7 +544,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-P-10</span><span class="bug-title">Gemini context-cache TTL-expiry wedge — root-cause comment exists, fix never coded</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/plugins/brain/gemini.py:292-384</div>
+      <div class="bug-loc">dodaios/plugins/brain/gemini.py:292-384</div>
       <div class="bug-body">
         <strong>Symptom.</strong> One hour after Jarvis boot, the first voice turn hangs for forty seconds and ends with no audible reply. The Gemini server-side cache TTL expired; the client still sends the dead cache name; Gemini returns 403 <code>CachedContent not found</code>; BrainManager logs the provider as failed without invalidating <code>self._cached_content_name</code>; the next turn re-uses the dead name and re-fails.<br><br>
         <strong>Root cause.</strong> An in-file ninety-line comment block from 2026-05-11 documents the exact failure and prescribes the retry pattern — <code>try / except PermissionDenied with "CachedContent not found" / set self._cached_content_name = None / re-add system_instruction + tools / single retry</code>. The fix was never implemented.<br><br>
@@ -555,7 +555,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-X-2</span><span class="bug-title">Cancelled missions keep spawning workers and burning budget</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/missions/kontrollierer/orchestrator.py:251-465, 859-875</div>
+      <div class="bug-loc">dodaios/missions/kontrollierer/orchestrator.py:251-465, 859-875</div>
       <div class="bug-body">
         <strong>Symptom.</strong> A <code>POST /api/missions/{id}/cancel</code> transitions the mission header to <code>CANCELLED</code> but the iteration loop has no <code>state == CANCELLED</code> early-exit. <code>_safe_transition</code> swallows <code>IllegalStateTransition</code> at debug level. The worker is spawned, the critic runs, <code>budget.assert_under_limit</code> still increments. There is no <code>CancelToken</code> threaded into iterations.<br><br>
         <strong>Root cause.</strong> Cancel is a header mutation only; no propagation into the running iteration body.<br><br>
@@ -566,7 +566,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-W-2</span><span class="bug-title">SessionRollupWorker never auto-fires — ADR-0014 "loud regression" silently broken</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/memory/wiki/session_rollup.py:329-348</div>
+      <div class="bug-loc">dodaios/memory/wiki/session_rollup.py:329-348</div>
       <div class="bug-body">
         <strong>Symptom.</strong> <code>IdleDetector</code> emits <code>IdleEntered</code> exactly once at the active→idle transition with <code>idle_since_ns ≈ now − 5min</code>. The worker compares <code>(now − idle_since_ns) ≥ 120min</code> — always false. The 120-minute auto-rollup never triggers; the <code>session_rollups_succeeded</code> / <code>_failed</code> counters stay at zero forever; the long-term memory tier silently does not exist.<br><br>
         <strong>Root cause.</strong> <code>IdleEntered</code> fires once at the boundary, not repeatedly during idle. Threshold semantics assume re-fire that never comes.<br><br>
@@ -577,7 +577,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-A-1</span><span class="bug-title"><code>AudioPlayer.stop()</code> is a no-op — barge-in completely broken</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/audio/player.py:491-493</div>
+      <div class="bug-loc">dodaios/audio/player.py:491-493</div>
       <div class="bug-body">
         <strong>Symptom.</strong> Every barge-in / interrupt / announcement-priority path calls <code>self._player.stop()</code> expecting playback to abort. The implementation is <code>sd.stop()</code>, which by PortAudio contract only stops <code>sd.play</code>/<code>sd.rec</code>/<code>sd.playrec</code> — never persistent <code>sd.OutputStream</code>s, which is what the player uses. Jarvis keeps talking over the user; the code thinks it stopped.<br><br>
         <strong>Root cause.</strong> The stream is a closure-local in <code>play_chunks</code> and unreachable from <code>stop()</code>. The wrong API was wired.<br><br>
@@ -588,7 +588,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-Y-1</span><span class="bug-title">Phase-7 self-mod surface — built but never wired</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/ui/web/server.py · jarvis/ui/web/self_mod_routes.py:39 · frontend/src/views/SelfModView.tsx</div>
+      <div class="bug-loc">dodaios/ui/web/server.py · dodaios/ui/web/self_mod_routes.py:39 · frontend/src/views/SelfModView.tsx</div>
       <div class="bug-body">
         <strong>Symptom.</strong> A REST router is defined under <code>/api/self-mod</code> and a React <code>SelfModView</code> ships in the frontend tree — but <code>server.py</code> never calls <code>include_router</code>, <code>app.state.self_mod_writer</code>/<code>_audit</code> are never assigned, and no layout/nav imports <code>SelfModView</code>. The entire Phase-7 audit / restore / mutable-listing surface returns 404.<br><br>
         <strong>Fix direction.</strong> Wire the router in <code>server.py</code>, populate <code>app.state</code> with the self-mod stack at bootstrap, register the view in the sidebar.
@@ -598,7 +598,7 @@
 
     <article class="bug" data-sev="CRITICAL">
       <div class="bug-head"><span class="bug-id">BUG-K-2</span><span class="bug-title">Voice / chat skill-direct-trigger path bypasses all risk-tier enforcement</span><span class="bug-sev">CRITICAL</span></div>
-      <div class="bug-loc">jarvis/speech/pipeline.py:910-918 · jarvis/ui/desktop_app.py:672-680, 1091-1095 · jarvis/skills/runner.py:177-193</div>
+      <div class="bug-loc">dodaios/speech/pipeline.py:910-918 · dodaios/ui/desktop_app.py:672-680, 1091-1095 · dodaios/skills/runner.py:177-193</div>
       <div class="bug-body">
         <strong>Symptom.</strong> The direct-trigger code path calls <code>SkillRunner.run()</code> directly, not through <code>RunSkillTool.execute</code>. <code>SkillRunner._check_risk</code> returns <code>(True, "no-enforcer")</code> when its <code>safety_enforcer</code> is <code>None</code> — and at the only construction site, no enforcer is injected. A SKILL with <code>risk_policy.default_tier: block</code> still runs when triggered by voice.<br><br>
         <strong>Fix direction.</strong> Inject the same <code>RiskTierEvaluator</code> that <code>RunSkillTool</code> uses into <code>SkillRunner</code> at construction. Make <code>safety_enforcer=None</code> raise rather than silently allow.
@@ -608,7 +608,7 @@
 
     <article class="bug" data-sev="CRITICAL">
       <div class="bug-head"><span class="bug-id">BUG-K-10</span><span class="bug-title">D9 recursion protection bypassed — <code>run-skill</code> can fork-bomb itself</span><span class="bug-sev">CRITICAL</span></div>
-      <div class="bug-loc">jarvis/ui/desktop_app.py:1078-1093 · jarvis/plugins/tool/run_skill.py:23-28</div>
+      <div class="bug-loc">dodaios/ui/desktop_app.py:1078-1093 · dodaios/plugins/tool/run_skill.py:23-28</div>
       <div class="bug-body">
         <strong>Symptom.</strong> The <code>RunSkillTool</code> docstring promises <em>"D9 Recursion-Protection: SkillRunner is constructed without a tool_registry reference everywhere"</em>. Production code does the opposite — discovers every no-arg-constructible <code>jarvis.tool</code> entry-point and stuffs all into <code>skill_tool_registry</code>, including <code>RunSkillTool</code> itself. A SKILL body containing <code>TOOL: run-skill {"skill_name": "self"}</code> resolves and re-enters; no recursion-depth guard exists.<br><br>
         <strong>Fix direction.</strong> Explicitly remove <code>run-skill</code> from the <code>skill_tool_registry</code> dict at build time. Add a <code>_depth</code> counter to <code>SkillRunner</code> and refuse to nest deeper than two.
@@ -621,14 +621,14 @@
       <div class="bug-loc">.audit-tmp/google_stt.py · pyproject.toml:110-117</div>
       <div class="bug-body">
         <strong>Symptom.</strong> Memory note <code>project_google_stt_plugin.md</code> claims "wired up 2026-05-15, 14 unit tests passing". Reality: the file lives outside the package tree, is not in <code>tool.setuptools.packages.find</code>, and has no <code>[project.entry-points."jarvis.stt"]</code> row. <code>entry_points(group='jarvis.stt')</code> cannot find it; setting <code>[stt].provider = "google-stt"</code> raises at the factory.<br><br>
-        <strong>Fix direction.</strong> Move the file under <code>jarvis/plugins/stt/google_stt.py</code>, register the entry-point in <code>pyproject.toml</code>, re-run <code>pip install -e . --no-deps</code>.
+        <strong>Fix direction.</strong> Move the file under <code>dodaios/plugins/stt/google_stt.py</code>, register the entry-point in <code>pyproject.toml</code>, re-run <code>pip install -e . --no-deps</code>.
         <div class="recap">A cloud-speech plugin is fully written and tested in a staging folder. The build system is not told it exists, so selecting it in the settings just fails. The notes file says it's "in production"; the project tree disagrees.</div>
       </div>
     </article>
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-D-10</span><span class="bug-title">STT factory references six Pydantic <code>STTConfig.google_*</code> fields that don't exist</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">.audit-tmp/stt_factory.py:74-86 · jarvis/core/config.py:90-95</div>
+      <div class="bug-loc">.audit-tmp/stt_factory.py:74-86 · dodaios/core/config.py:90-95</div>
       <div class="bug-body">
         <strong>Symptom.</strong> Setting <code>[stt].provider = "google-stt"</code> and reaching the factory raises <code>AttributeError: 'STTConfig' object has no attribute 'google_credentials_path'</code>. <code>STTConfig</code> has no <code>model_config = ConfigDict(extra="allow")</code>, so even loading the TOML with the new keys fails Pydantic validation upstream.<br><br>
         <strong>Fix direction.</strong> Add the six <code>google_*</code> fields to <code>STTConfig</code> with sensible defaults (empty strings or fallback values), then re-validate the factory.
@@ -648,7 +648,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-X-3</span><span class="bug-title">Job-Object assign race — worker grandchildren escape kill-on-close</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/missions/workers/subjarvis_worker.py:529-542 · gemini_worker.py:314-327 · jarvis/missions/isolation/job_object.py:118-136</div>
+      <div class="bug-loc">dodaios/missions/workers/subjarvis_worker.py:529-542 · gemini_worker.py:314-327 · dodaios/missions/isolation/job_object.py:118-136</div>
       <div class="bug-body">
         <strong>Symptom.</strong> The pattern <code>create_subprocess_exec → set last_pid → job.assign(pid)</code> leaves a window between process creation and Job Object assignment where the worker can already fork. Job Object membership is inherited at creation time, not retroactive — grandchildren escape. ADR-0009 §5 zombie-risk invariant violated.<br><br>
         <strong>Fix direction.</strong> Start the subprocess <code>CREATE_SUSPENDED</code>, assign to the Job, then <code>ResumeThread</code>. Standard Windows pattern.
@@ -658,7 +658,7 @@
 
     <article class="bug" data-sev="BLOCKER">
       <div class="bug-head"><span class="bug-id">BUG-X-7</span><span class="bug-title">Mission announcer poisons its own cache — silent mute per mission</span><span class="bug-sev">BLOCKER</span></div>
-      <div class="bug-loc">jarvis/missions/voice/announcer.py:194-217 · listener.py:157-185</div>
+      <div class="bug-loc">dodaios/missions/voice/announcer.py:194-217 · listener.py:157-185</div>
       <div class="bug-body">
         <strong>Symptom.</strong> When a non-<code>MissionDispatched</code> event arrives at the announcer before the dispatch row is persisted, <code>_resolve_voice_meta</code> caches <code>(False, default_lang)</code> for that <code>mission_id</code> permanently. The mission is silent for the rest of the process lifetime even though it succeeds. BUG-016 recurrence pattern, sibling component.<br><br>
         <strong>Fix direction.</strong> Copy the listener's <code>"do not cache when unresolved"</code> branch into the announcer (don't insert the negative result).

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser.live import LiveSession, LiveSessions, LiveUpdates
+from dodaios.society.browser.live import LiveSession, LiveSessions, LiveUpdates
 from tests.fakes.fake_browser_profiles import ProfileSession
 
 
@@ -177,7 +177,7 @@ async def test_watching_one_agent_never_blocks_another_agents_task(tmp_path, mon
 
 
 async def test_a_running_task_keeps_the_profile_and_names_its_agent(tmp_path, monkeypatch):
-    from jarvis.society.browser.live import BrowserProfileBusy
+    from dodaios.society.browser.live import BrowserProfileBusy
 
     live = manager(tmp_path, monkeypatch)
     pid = live.profiles.create("Shared", "managed", [])["id"]

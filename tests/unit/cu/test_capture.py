@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("PIL", reason="pillow required for capture tests")
 
-from jarvis.cu.capture import (
+from dodaios.cu.capture import (
     DEFAULT_STABILITY_INTERVAL_S,
     Frame,
     capture_stable_frame,
@@ -14,7 +14,7 @@ from jarvis.cu.capture import (
     grab_region,
     grab_visual_probe,
 )
-from jarvis.cu.geometry import MonitorInfo
+from dodaios.cu.geometry import MonitorInfo
 
 
 def _solid(size: tuple[int, int], rgb: tuple[int, int, int]) -> tuple[tuple[int, int], bytes]:
@@ -259,7 +259,7 @@ def test_visual_probe_baseline_keeps_global_and_local_evidence(monkeypatch):
 def test_visual_probe_local_ignores_bgrx_padding(monkeypatch):
     import mss
 
-    from jarvis.cu.verify import regions_equal
+    from dodaios.cu.verify import regions_equal
 
     padding = iter((0, 255))
 
@@ -387,7 +387,7 @@ def test_blob_written_when_dir_given(tmp_path):
 
 
 def test_thumb_identity_ignores_caret_noise_but_sees_real_change():
-    from jarvis.cu.capture import screen_thumb, thumbs_similar
+    from dodaios.cu.capture import screen_thumb, thumbs_similar
 
     base = _solid((192, 108), (30, 30, 30))
     # A caret-sized change: a small bright block on the dark frame.

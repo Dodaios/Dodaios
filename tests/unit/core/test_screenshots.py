@@ -1,6 +1,6 @@
 """Tests for the development-screenshot folder + 10-day retention sweep.
 
-Covers ``jarvis/core/screenshots.py``: the canonical ``screenshots/`` directory,
+Covers ``dodaios/core/screenshots.py``: the canonical ``screenshots/`` directory,
 the stray-root-capture consolidation (self-healing — agents that drop captures
 in the repo root get them swept into place), and the mtime-based retention prune.
 
@@ -14,7 +14,7 @@ import os
 import time
 from pathlib import Path
 
-from jarvis.core import screenshots as sc
+from dodaios.core import screenshots as sc
 
 
 def _touch(p: Path, *, age_days: float) -> None:

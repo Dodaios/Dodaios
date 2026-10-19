@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jarvis.core import config_writer
+from dodaios.core import config_writer
 
 
 def test_tool_model_selection_writes_canonical_fields_and_mirrors(

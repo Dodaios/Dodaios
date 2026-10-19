@@ -10,7 +10,7 @@ outcomes shut alternate screen paths:
 """
 from __future__ import annotations
 
-from jarvis.screen_context.models import (
+from dodaios.screen_context.models import (
     CaptureTarget,
     Degradation,
     DegradationCode,
@@ -24,8 +24,8 @@ from jarvis.screen_context.models import (
     VisualIntent,
     WindowFacts,
 )
-from jarvis.screen_context.service import CaptureOutcome
-from jarvis.screen_context.turn import screen_context_for_turn
+from dodaios.screen_context.service import CaptureOutcome
+from dodaios.screen_context.turn import screen_context_for_turn
 
 
 class FakeService:

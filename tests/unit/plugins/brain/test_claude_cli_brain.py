@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, BrainRequest
-from jarvis.plugins.brain.claude_cli import ClaudeCliBrain
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.plugins.brain.claude_cli import ClaudeCliBrain
 
 
 def _req(system: str = "CONTRACT", user: str = "payload") -> BrainRequest:
@@ -84,7 +84,7 @@ def test_subscription_probe_never_raises(monkeypatch: pytest.MonkeyPatch) -> Non
     def _explode() -> object:
         raise OSError("no keychain on this host")
 
-    monkeypatch.setattr("jarvis.claude_auth.ClaudeAuthService", lambda *a, **k: _explode())
+    monkeypatch.setattr("dodaios.claude_auth.ClaudeAuthService", lambda *a, **k: _explode())
     assert ClaudeCliBrain.subscription_connected() is False
 
 
@@ -94,7 +94,7 @@ def test_api_key_login_does_not_masquerade_as_a_subscription(
     from types import SimpleNamespace
 
     monkeypatch.setattr(
-        "jarvis.claude_auth.ClaudeAuthService",
+        "dodaios.claude_auth.ClaudeAuthService",
         lambda: SimpleNamespace(status=lambda: SimpleNamespace(connected=True, mode="api_key")),
     )
     assert ClaudeCliBrain.subscription_connected() is False
@@ -104,7 +104,7 @@ async def test_complete_raises_a_clear_error_when_the_cli_is_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A headless host with no CLI gets an actionable message, never a hang."""
-    monkeypatch.setattr("jarvis.plugins.brain.claude_cli._resolve_claude_binary", lambda: None)
+    monkeypatch.setattr("dodaios.plugins.brain.claude_cli._resolve_claude_binary", lambda: None)
     brain = ClaudeCliBrain(structured_prompts=True)
     with pytest.raises(RuntimeError, match="Claude CLI"):
         async for _delta in brain.complete(_req()):
@@ -146,7 +146,7 @@ def test_an_older_cli_never_sees_a_flag_it_would_die_on() -> None:
 
 def test_the_callers_reasoning_effort_is_forwarded() -> None:
     """A graded effort is forwarded; an older CLI never sees the flag."""
-    from jarvis.core.protocols import BrainMessage, BrainRequest
+    from dodaios.core.protocols import BrainMessage, BrainRequest
 
     req = BrainRequest(
         messages=(BrainMessage(role="user", content="payload"),),
@@ -164,7 +164,7 @@ def test_the_callers_reasoning_effort_is_forwarded() -> None:
 def test_none_maps_to_the_lowest_cli_effort() -> None:
     """The composer asks for no thinking. The CLI has no off switch, so
     ``low`` is the cheapest level it will run — same as Antigravity."""
-    from jarvis.core.protocols import BrainMessage, BrainRequest
+    from dodaios.core.protocols import BrainMessage, BrainRequest
 
     req = BrainRequest(
         messages=(BrainMessage(role="user", content="payload"),),
@@ -193,7 +193,7 @@ def test_the_flag_probe_reads_the_clis_own_help(
     statement of what it accepts."""
     from types import SimpleNamespace
 
-    from jarvis.plugins.brain import claude_cli
+    from dodaios.plugins.brain import claude_cli
 
     claude_cli.reset_flag_probe_cache()
     monkeypatch.setattr(claude_cli, "_resolve_claude_binary", lambda: "claude")
@@ -216,7 +216,7 @@ def test_a_failed_probe_degrades_to_the_minimal_invocation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No probe answer means no gated flag — slower, never broken."""
-    from jarvis.plugins.brain import claude_cli
+    from dodaios.plugins.brain import claude_cli
 
     def _boom(*_args: object, **_kwargs: object) -> object:
         raise OSError("no spawn on this host")
@@ -238,7 +238,7 @@ def test_a_contract_too_long_for_one_command_line_travels_on_stdin() -> None:
     The budget is per platform (Linux caps one argument at 128 KiB, not the
     whole line at 32 KiB), so the contract is sized against this host's budget
     rather than a Windows-only constant."""
-    from jarvis.plugins.brain import claude_cli
+    from dodaios.plugins.brain import claude_cli
 
     budget = claude_cli._ARGV_BUDGET  # noqa: SLF001
     brain = ClaudeCliBrain(structured_prompts=True)

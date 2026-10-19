@@ -12,13 +12,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.missions.events import MISSION_ERROR_CLASSES
+from dodaios.missions.events import MISSION_ERROR_CLASSES
 
 _REPO = Path(__file__).resolve().parents[2]
 
 
 def _ts_error_classes() -> set[str]:
-    ts = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src" / "types" / "missions.ts"
+    ts = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src" / "types" / "missions.ts"
     text = ts.read_text(encoding="utf-8")
     m = re.search(r"export type MissionErrorClass\s*=([^;]+);", text)
     assert m, "MissionErrorClass union not found in missions.ts"
@@ -39,7 +39,7 @@ def test_expected_tokens_present() -> None:
 
 def test_new_event_fields_default_none() -> None:
     """Old stored events (no new fields) must keep validating."""
-    from jarvis.missions.events import MissionFailed, WorkerKilled
+    from dodaios.missions.events import MissionFailed, WorkerKilled
 
     mf = MissionFailed(reason="task_error", last_state="CRITIQUING")
     assert mf.error_class is None and mf.error_detail is None

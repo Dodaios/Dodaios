@@ -5,8 +5,8 @@ from contextlib import nullcontext
 
 import pytest
 
-from jarvis.platform.window_state import WindowInfo
-from jarvis.screen_context import ports
+from dodaios.platform.window_state import WindowInfo
+from dodaios.screen_context import ports
 
 
 def test_wayland_display_enumeration_fails_closed(
@@ -48,13 +48,13 @@ def test_window_capture_never_falls_back_to_desktop_rect(
     Linux has no window-only capture, so before this it photographed the
     denylisted window through the desktop-rectangle fallback.
     """
-    monkeypatch.setattr("jarvis.platform.window_capture.detect_platform", lambda: platform)
+    monkeypatch.setattr("dodaios.platform.window_capture.detect_platform", lambda: platform)
     monkeypatch.setattr(ports, "_input_space", nullcontext)
     monkeypatch.setattr(
-        "jarvis.cu.indicator.capture_guard.indicator_suppressed",
+        "dodaios.cu.indicator.capture_guard.indicator_suppressed",
         nullcontext,
     )
-    monkeypatch.setattr("jarvis.platform.window_capture.grab_window", lambda *_a, **_k: None)
+    monkeypatch.setattr("dodaios.platform.window_capture.grab_window", lambda *_a, **_k: None)
 
     with pytest.raises(ports.CaptureUnavailable, match="refused"):
         ports.NativeSurfaceCapturer().grab(
@@ -68,15 +68,15 @@ def test_visible_windows_retains_untitled_password_manager_candidate(
 ) -> None:
     monkeypatch.setattr(ports, "_is_wayland", lambda: False)
     monkeypatch.setattr(
-        "jarvis.platform.window_state.list_windows",
+        "dodaios.platform.window_state.list_windows",
         lambda: [WindowInfo(title="", handle=7, pid=303)],
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.window_frame_rect",
+        "dodaios.platform.window_state.window_frame_rect",
         lambda _window: (0, 0, 500, 500),
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.window_rect",
+        "dodaios.platform.window_state.window_rect",
         lambda _window: None,
     )
     monkeypatch.setattr(ports, "_app_name_for_pid", lambda _pid: "1Password.exe")
@@ -95,15 +95,15 @@ def test_foreground_snapshot_reads_the_app_window_not_an_overlay(
     """BUG-228: a click on the mascot must not make it the appshot's window."""
     monkeypatch.setattr(ports, "_input_space", nullcontext)
     monkeypatch.setattr(
-        "jarvis.platform.window_state.foreground_window",
+        "dodaios.platform.window_state.foreground_window",
         lambda: WindowInfo(title="JarvisOrb", handle=1, pid=11),
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.foreground_app_window",
+        "dodaios.platform.window_state.foreground_app_window",
         lambda: WindowInfo(title="Editor", handle=2, pid=22),
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.window_frame_rect",
+        "dodaios.platform.window_state.window_frame_rect",
         lambda _window: (0, 0, 1200, 800),
     )
     monkeypatch.setattr(ports, "_app_name_for_pid", lambda _pid: "Code.exe")

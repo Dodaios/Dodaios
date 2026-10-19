@@ -9,17 +9,17 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.society.browser.llm import LLMUnavailable, llm_spec_for
-from jarvis.society.browser.session import (
+from dodaios.society.browser.llm import LLMUnavailable, llm_spec_for
+from dodaios.society.browser.session import (
     BrowserJobs,
     BrowserUnavailable,
     profile_dir,
     profile_has_logins,
 )
-from jarvis.society.browser.tool import BrowserTool, task_needs_approval
-from jarvis.society.events import MsgType
-from jarvis.society.failure_reasons import FailureReason
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.browser.tool import BrowserTool, task_needs_approval
+from dodaios.society.events import MsgType
+from dodaios.society.failure_reasons import FailureReason
+from dodaios.society.runtime import SocietyRuntime
 
 CTX = SimpleNamespace(trace_id=uuid4(), user_utterance="", config={}, memory_read=None)
 
@@ -167,7 +167,7 @@ async def test_login_session_closes_on_done(rt, tmp_path, fake_runner):
 async def test_tool_runs_and_writes_digests(rt, tmp_path, fake_runner, monkeypatch):
     jobs = _jobs(tmp_path, fake_runner)
     monkeypatch.setattr(
-        "jarvis.society.browser.tool.llm_spec_for",
+        "dodaios.society.browser.tool.llm_spec_for",
         lambda provider, model="", **kw: llm_spec_for(provider, model, secret=lambda p: "k"),
     )
     tool = BrowserTool(rt, "scout", jobs)
@@ -222,7 +222,7 @@ async def test_browser_does_not_queue_after_tool_executor_approval(
 ):
     """The fake browser job runs after the chat approved the same tool call."""
     monkeypatch.setattr(
-        "jarvis.society.browser.tool.llm_spec_for",
+        "dodaios.society.browser.tool.llm_spec_for",
         lambda provider, model="", **kw: llm_spec_for(provider, model, secret=lambda p: "k"),
     )
     await rt.roster.update("scout", {"approval_mode": "ask"})
@@ -234,7 +234,7 @@ async def test_browser_does_not_queue_after_tool_executor_approval(
 
 
 async def test_briefing_and_surface_reflect_the_browser(rt, tmp_path, fake_runner):
-    from jarvis.society.surface import society_system_extra, society_tools
+    from dodaios.society.surface import society_system_extra, society_tools
 
     session = SimpleNamespace(
         session_id="society:scout", cwd=str(tmp_path / "ws"), permission_mode="ask"

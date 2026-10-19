@@ -9,11 +9,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.events import AnnouncementRequested
-from jarvis.plugins.tool import ask_agent
-from jarvis.plugins.tool.ask_agent import AskAgentTool
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.core.events import AnnouncementRequested
+from dodaios.plugins.tool import ask_agent
+from dodaios.plugins.tool.ask_agent import AskAgentTool
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.runtime import SocietyRuntime
 from tests.unit.plugins.tool.test_delegate_to_agent import FakeChat
 
 
@@ -118,7 +118,7 @@ async def test_a_wait_that_ran_out_leaves_the_answer_to_be_announced(team):
 
 
 def test_the_record_of_answers_said_in_a_call_stays_bounded(tmp_path):
-    from jarvis.society import runtime as society_runtime
+    from dodaios.society import runtime as society_runtime
 
     rt = SocietyRuntime(tmp_path, chat_service=lambda: None, cfg=lambda: None)
     for index in range(society_runtime._ANSWERED_INLINE_MAX + 50):
@@ -188,7 +188,7 @@ async def test_an_unknown_agent_or_a_missing_team_is_refused_without_waiting(tea
 
 
 def test_the_wait_is_bounded_and_the_tool_is_offered_only_with_a_team():
-    from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
 
     wait = AskAgentTool.schema["properties"]["wait_seconds"]
     assert (wait["minimum"], wait["maximum"]) == (5, ask_agent.MAX_WAIT_S)
@@ -226,7 +226,7 @@ async def test_a_send_that_reports_failure_leaves_nothing_marked(team, monkeypat
 
 
 async def test_only_the_one_question_is_marked_never_later_traffic(team):
-    from jarvis.society.runtime import reply_awaited_inline
+    from dodaios.society.runtime import reply_awaited_inline
 
     rt, _spoken = team
     scout = await rt.roster.resolve("Scout")

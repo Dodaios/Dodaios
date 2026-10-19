@@ -12,14 +12,14 @@ from typing import get_args
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.brain.provider_test import PROVIDER_TEST_STATUSES, ProviderTestResult
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.brain.provider_test import PROVIDER_TEST_STATUSES, ProviderTestResult
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 def test_response_status_literal_matches_ssot() -> None:
-    from jarvis.ui.web.provider_routes import ProviderTestStatusLiteral
+    from dodaios.ui.web.provider_routes import ProviderTestStatusLiteral
 
     assert set(get_args(ProviderTestStatusLiteral)) == set(PROVIDER_TEST_STATUSES)
 
@@ -39,7 +39,7 @@ def test_test_endpoint_serializes_result(server: WebServer, monkeypatch: pytest.
             provider=spec.id, status="bad_key", detail="invalid x-api-key", latency_ms=12.0,
         )
 
-    monkeypatch.setattr("jarvis.brain.provider_test.run_provider_test", fake_run)
+    monkeypatch.setattr("dodaios.brain.provider_test.run_provider_test", fake_run)
 
     with TestClient(server.app) as client:
         resp = client.post("/api/providers/claude-api/test")
@@ -65,7 +65,7 @@ def test_test_endpoint_unreachable_marks_integration_not_ok(
     async def fake_run(spec, cfg, **kwargs):
         return ProviderTestResult(provider=spec.id, status="unreachable", detail="timeout")
 
-    monkeypatch.setattr("jarvis.brain.provider_test.run_provider_test", fake_run)
+    monkeypatch.setattr("dodaios.brain.provider_test.run_provider_test", fake_run)
 
     with TestClient(server.app) as client:
         body = client.post("/api/providers/gemini/test").json()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 
-from jarvis.ui.tray import JarvisTray
+from dodaios.ui.tray import JarvisTray
 
 
 class Icon:
@@ -101,7 +101,7 @@ def test_native_presence_recovers_only_after_fresh_positive_ack():
 def test_native_query_marshals_own_hwnd_and_requires_successful_nonempty_rect():
     from types import SimpleNamespace
 
-    from jarvis.ui.desktop_background import _query_notification_icon_rect
+    from dodaios.ui.desktop_background import _query_notification_icon_rect
 
     class Query:
         result = 0
@@ -132,14 +132,14 @@ def test_native_query_marshals_own_hwnd_and_requires_successful_nonempty_rect():
 def test_nonwindows_tray_presence_is_honestly_unavailable(monkeypatch):
     from types import SimpleNamespace
 
-    from jarvis.ui import desktop_background
+    from dodaios.ui import desktop_background
 
     monkeypatch.setattr(desktop_background, "os", SimpleNamespace(name="posix"))
     assert not desktop_background.native_tray_present(SimpleNamespace(_hwnd=123))
 
 
 def test_hung_native_query_has_one_worker_and_bounded_caller_wait():
-    from jarvis.ui.desktop_background import TrayPresenceProbe
+    from dodaios.ui.desktop_background import TrayPresenceProbe
 
     release = threading.Event()
     entered = threading.Event()

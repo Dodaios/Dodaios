@@ -7,12 +7,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
-from jarvis.live.config import LiveConfig
-from jarvis.live.coordination import NAMED_TOOLS
-from jarvis.live.session import LiveVoiceSession
-from jarvis.live.state import LiveLedger, TranscriptFragment
-from jarvis.live.tools import LiveTools
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.live.config import LiveConfig
+from dodaios.live.coordination import NAMED_TOOLS
+from dodaios.live.session import LiveVoiceSession
+from dodaios.live.state import LiveLedger, TranscriptFragment
+from dodaios.live.tools import LiveTools
 
 
 class Gateway:
@@ -150,7 +150,7 @@ async def test_empty_completion_snapshot_keeps_collected_calls(ledger):
 
 
 def test_profile_migration_backup(tmp_path, monkeypatch):
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     path = tmp_path / "jarvis.toml"
     original = '[brain.realtime]\nprovider = "openai-realtime"\n[voice]\nmode = "realtime"\n'
@@ -170,14 +170,14 @@ def test_config_matches_frontend_interface():
     import re
     from pathlib import Path
 
-    source = Path("jarvis/ui/web/frontend/src/components/providers/LiveProfile.tsx").read_text()
+    source = Path("dodaios/ui/web/frontend/src/components/providers/LiveProfile.tsx").read_text()
     body = source.split("export interface LiveProfileValue {", 1)[1].split("}", 1)[0]
     assert set(re.findall(r"(\w+)\??:", body)) == set(LiveConfig.model_fields)
 
 
 @pytest.mark.asyncio
 async def test_operation_model_does_not_change_other_tasks():
-    from jarvis.core.model_selection import ModelSelection, operation_model, use_operation_model
+    from dodaios.core.model_selection import ModelSelection, operation_model, use_operation_model
 
     async def work(name):
         with use_operation_model(ModelSelection("openai", name)):
@@ -190,7 +190,7 @@ async def test_operation_model_does_not_change_other_tasks():
 
 @pytest.mark.asyncio
 async def test_approval_requires_new_unambiguous_confirmation(ledger):
-    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
     class ApprovalGateway(Gateway):
         async def execute(self, name, args, request):
@@ -218,7 +218,7 @@ async def test_approval_requires_new_unambiguous_confirmation(ledger):
 
 class _ApprovalGateway(Gateway):
     async def execute(self, name, args, request):
-        from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+        from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
         self.calls.append((name, args, request))
         return ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)
@@ -429,7 +429,7 @@ async def test_a_number_written_as_text_is_read_as_the_number(ledger):
 
 
 def test_an_argument_hint_is_left_out_for_a_schema_without_properties():
-    from jarvis.live.tools import _accepted_arguments
+    from dodaios.live.tools import _accepted_arguments
 
     assert _accepted_arguments({"type": "object"}) == ""
     assert _accepted_arguments(None) == ""
@@ -505,10 +505,10 @@ def test_browser_voice_request_actions_have_frontend_consumers():
     from pathlib import Path
     from typing import get_args, get_type_hints
 
-    from jarvis.core.events import BrowserVoiceRequested
+    from dodaios.core.events import BrowserVoiceRequested
 
     source = Path(
-        "jarvis/ui/web/frontend/src/components/voice/BrowserRealtimeControl.tsx"
+        "dodaios/ui/web/frontend/src/components/voice/BrowserRealtimeControl.tsx"
     ).read_text()
     for action in get_args(get_type_hints(BrowserVoiceRequested)["action"]):
         assert f'action === "{action}"' in source
@@ -537,7 +537,7 @@ async def test_closing_voice_does_not_cancel_started_work(ledger):
 
 def test_native_declarations_are_accepted_by_google_sdk(ledger):
     types = pytest.importorskip("google.genai.types")
-    from jarvis.plugins.realtime.gemini_live import _sanitize_declarations
+    from dodaios.plugins.realtime.gemini_live import _sanitize_declarations
 
     tools = LiveTools(Gateway(), ledger, "s", language="en", backend_model="")
     declarations = tuple({k: v for k, v in d.items() if k != "type"} for d in tools.declarations())
@@ -546,9 +546,9 @@ def test_native_declarations_are_accepted_by_google_sdk(ledger):
 
 @pytest.mark.asyncio
 async def test_local_manual_response_does_not_block_receiving_audio(ledger):
-    from jarvis.core.protocols import AudioChunk
-    from jarvis.live.native import NativeLiveVoiceSession
-    from jarvis.realtime.protocol import RealtimeEvent
+    from dodaios.core.protocols import AudioChunk
+    from dodaios.live.native import NativeLiveVoiceSession
+    from dodaios.realtime.protocol import RealtimeEvent
 
     received, release = asyncio.Event(), asyncio.Event()
 
@@ -592,8 +592,8 @@ async def test_local_manual_response_does_not_block_receiving_audio(ledger):
 
 @pytest.mark.asyncio
 async def test_browser_audio_keeps_wake_capture_until_the_browser_takes_over(monkeypatch):
-    from jarvis.realtime import factory
-    from jarvis.speech.pipeline import SpeechPipeline, _SessionInputBuffer
+    from dodaios.realtime import factory
+    from dodaios.speech.pipeline import SpeechPipeline, _SessionInputBuffer
 
     original = _SessionInputBuffer(capture=object())
     pipeline = SpeechPipeline.__new__(SpeechPipeline)
@@ -610,7 +610,7 @@ async def test_browser_audio_keeps_wake_capture_until_the_browser_takes_over(mon
     async with pipeline._capture_first_session_input() as buffer:
         assert not original._closed
         assert buffer is original
-        from jarvis.live import startup
+        from dodaios.live import startup
 
         startup.offer("wake-capture", buffer)
         await startup.take("wake-capture", None)
@@ -634,8 +634,8 @@ def test_tool_text_is_redacted_without_corrupting_image_bytes():
 
 
 def test_disabled_computer_use_does_not_expose_its_primitives(monkeypatch):
-    from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-    from jarvis.harness import computer_use_context
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+    from dodaios.harness import computer_use_context
 
     tool = SimpleNamespace(
         execute=lambda *args: None,
@@ -661,7 +661,7 @@ def test_disabled_computer_use_does_not_expose_its_primitives(monkeypatch):
 
 
 def test_recovery_history_is_bounded_and_keeps_user_text_as_data():
-    from jarvis.live.recovery import seed_messages
+    from dodaios.live.recovery import seed_messages
 
     fragments = [
         {"role": "user" if i % 2 else "assistant", "delta": "x" * 1000} for i in range(200)
@@ -674,8 +674,8 @@ def test_recovery_history_is_bounded_and_keeps_user_text_as_data():
 
 @pytest.mark.asyncio
 async def test_recovery_preserves_context_and_waits_for_new_input(ledger, monkeypatch):
-    import jarvis.live.session as module
-    from jarvis.live import recovery
+    import dodaios.live.session as module
+    from dodaios.live import recovery
 
     async def permit():
         return None
@@ -816,7 +816,7 @@ async def test_late_transcript_cannot_reopen_tool_execution_after_close(ledger):
 
 @pytest.mark.asyncio
 async def test_cancelled_work_stays_cancelled_when_a_new_request_arrives(ledger):
-    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
     started, release = asyncio.Event(), asyncio.Event()
 
@@ -870,8 +870,8 @@ async def test_cancelled_generation_cannot_act_after_new_input(ledger, name):
 
 @pytest.mark.asyncio
 async def test_task_keeps_starting_agent_after_settings_change():
-    from jarvis.brain.manager import BrainManager
-    from jarvis.core.model_selection import operation_model
+    from dodaios.brain.manager import BrainManager
+    from dodaios.core.model_selection import operation_model
 
     worker = SimpleNamespace(provider="openai-api", model="original", reasoning_effort="medium")
     config = SimpleNamespace(brain=SimpleNamespace(worker=worker))
@@ -901,9 +901,9 @@ async def test_task_keeps_starting_agent_after_settings_change():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("terminal", ["session.started", "error", "session.closed"])
 async def test_provider_test_uses_continuous_contract_and_closes_session(monkeypatch, terminal):
-    from jarvis.brain.provider_test import _default_realtime_probe
-    from jarvis.core import config, registry
-    from jarvis.live import recovery
+    from dodaios.brain.provider_test import _default_realtime_probe
+    from dodaios.core import config, registry
+    from dodaios.live import recovery
 
     opened, sent, closed = [], [], []
 
@@ -953,15 +953,15 @@ def test_live_profile_capability_reaches_api_and_frontend(monkeypatch):
     from pathlib import Path
     from typing import get_args, get_type_hints
 
-    from jarvis.ui.web import provider_routes as routes
-    from jarvis.ui.web.provider_spec import ProviderSpec, get_spec
+    from dodaios.ui.web import provider_routes as routes
+    from dodaios.ui.web.provider_spec import ProviderSpec, get_spec
 
     monkeypatch.setattr(routes, "_is_credential_present", lambda *args: False)
     monkeypatch.setattr(routes.cfg_mod, "get_secret", lambda *args, **kwargs: None)
     spec = get_spec("openai-live")
     payload = routes._spec_to_payload(spec, active_brain=None, active_tts=None, active_stt=None)
     assert payload["configuration_surface"] == "live"
-    source = Path("jarvis/ui/web/frontend/src/hooks/useProviders.ts").read_text(encoding="utf-8")
+    source = Path("dodaios/ui/web/frontend/src/hooks/useProviders.ts").read_text(encoding="utf-8")
     union = " | ".join(
         f'"{value}"' for value in get_args(get_type_hints(ProviderSpec)["configuration_surface"])
     )
@@ -972,8 +972,8 @@ def test_browser_audio_does_not_wait_for_a_legacy_desktop_offer(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.realtime import factory
-    from jarvis.ui.web import settings_routes
+    from dodaios.realtime import factory
+    from dodaios.ui.web import settings_routes
 
     monkeypatch.setattr(factory, "realtime_browser_audio", lambda cfg: True)
     monkeypatch.setattr(settings_routes, "_realtime_available_provider", lambda cfg: "openai-live")
@@ -995,7 +995,7 @@ def test_browser_audio_does_not_wait_for_a_legacy_desktop_offer(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_sdp_keeps_its_terminal_crlf_through_validation_and_broker():
-    from jarvis.realtime.offer_broker import (
+    from dodaios.realtime.offer_broker import (
         RealtimeTransportOfferBroker,
         validate_webrtc_offer_sdp,
     )
@@ -1284,7 +1284,7 @@ async def test_a_read_is_not_discarded_when_the_user_kept_talking(ledger):
     [("Mhm.", False), (" hm", False), ("Ähm", False), (" Ja", True), ("stop", True)],  # i18n-allow
 )
 def test_only_words_beyond_a_backchannel_count_as_new_input(fragment, counts):
-    from jarvis.live.session import _says_something
+    from dodaios.live.session import _says_something
 
     assert _says_something(fragment) is counts
 

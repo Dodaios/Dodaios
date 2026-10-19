@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from jarvis.realtime.audio import StreamingPcm16Resampler
+from dodaios.realtime.audio import StreamingPcm16Resampler
 
 
 def _tone(sample_rate: int, duration_s: float = 0.1) -> bytes:

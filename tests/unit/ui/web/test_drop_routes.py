@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.drop_routes import router as drop_router
+from dodaios.ui.web.drop_routes import router as drop_router
 
 
 class _FakeBrain:

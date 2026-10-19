@@ -61,7 +61,7 @@ change one, change both, and keep both pinned by their tests.
 
 ## What the app does with a portable skill
 
-`jarvis/skills/portable.py` is the second reading of a `SKILL.md`, tried only
+`dodaios/skills/portable.py` is the second reading of a `SKILL.md`, tried only
 after the strict schema rejected it. Strict when writing, tolerant when
 reading: the authoring and creator services still validate against the full
 schema, so a typo in a hand-written skill is caught where it is made.
@@ -93,7 +93,7 @@ before anything is downloaded, because the text IS the skill.
 
 ## Feed contract
 
-`CommunitySkillEntry` in `jarvis/marketplace/community_source.py` reads two
+`CommunitySkillEntry` in `dodaios/marketplace/community_source.py` reads two
 fields, both optional, both tolerated when absent or unknown:
 
 ```jsonc

@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.tool.verify_localhost import VerifyLocalhostTool
+from dodaios.plugins.tool.verify_localhost import VerifyLocalhostTool
 
 
 @dataclass
@@ -90,7 +90,7 @@ async def test_http_call_is_offloaded_via_to_thread(
         return await real_to_thread(func, *args, **kwargs)
 
     monkeypatch.setattr(
-        "jarvis.plugins.tool.verify_localhost.asyncio.to_thread",
+        "dodaios.plugins.tool.verify_localhost.asyncio.to_thread",
         _recording_to_thread,
     )
     monkeypatch.setattr(
@@ -181,7 +181,7 @@ def _install_fake_mss(monkeypatch: pytest.MonkeyPatch, pixels, saved: list[str])
 async def test_screenshot_is_taken_when_the_grant_is_live(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.platform import screen_access
+    from dodaios.platform import screen_access
     from tests.fakes.fake_screen_pixels import textured_pixels
     from tests.fakes.fake_tcc import FakeTCC, TccService, install_port
 
@@ -205,7 +205,7 @@ async def test_a_wallpaper_screenshot_is_never_evidence_even_when_the_state_says
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The grab is pixel-checked: a photographic wallpaper is not a screenshot."""
-    from jarvis.platform import screen_access
+    from dodaios.platform import screen_access
     from tests.fakes.fake_screen_pixels import photo_wallpaper_pixels
     from tests.fakes.fake_tcc import FakeTCC, TccService, install_port
 

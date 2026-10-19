@@ -1,9 +1,9 @@
-from jarvis.runs.analyzer import (
+from dodaios.runs.analyzer import (
     classify_latency, build_latency, build_decision_path,
     build_errors, build_extras, build_analytics,
 )
-from jarvis.runs.model import RunTurn, LatencyEntry, TurnExtras
-from jarvis.sessions.models import VoiceEventRow
+from dodaios.runs.model import RunTurn, LatencyEntry, TurnExtras
+from dodaios.sessions.models import VoiceEventRow
 
 
 def _ev(kind, ts_ms=0, **payload):

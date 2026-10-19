@@ -7,7 +7,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from jarvis.platform import window_state
+from dodaios.platform import window_state
 
 
 def _fake_xlib(monkeypatch: pytest.MonkeyPatch, extents: list[int] | None) -> list[str]:

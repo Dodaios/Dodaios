@@ -1,8 +1,8 @@
 """Deterministic fixed-buffer budget for the classic voice path."""
 from __future__ import annotations
 
-from jarvis.audio.capture import BLOCKSIZE, SAMPLE_RATE
-from jarvis.audio.player import TTS_FIRST_WRITE_BUFFER_MS
+from dodaios.audio.capture import BLOCKSIZE, SAMPLE_RATE
+from dodaios.audio.player import TTS_FIRST_WRITE_BUFFER_MS
 
 _LEGACY_CAPTURE_BLOCK_MS = 100.0
 _LEGACY_FIRST_WRITE_MS = 120.0

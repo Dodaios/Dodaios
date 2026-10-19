@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {actionShape, allowedUrl, domains, pairingCode, retryDelay, serverOrigin} from "../../jarvis/assets/chrome-extension/policy.mjs";
+import {actionShape, allowedUrl, domains, pairingCode, retryDelay, serverOrigin} from "../../dodaios/assets/chrome-extension/policy.mjs";
 
 test("pairing stays on a literal loopback origin without credential or path smuggling", () => {
   assert.equal(serverOrigin("http://127.0.0.1:8765"), "http://127.0.0.1:8765");
@@ -44,7 +44,7 @@ test("reconnect delays have jitter and bounded exponential backoff", () => {
 });
 
 test("extension does not export cookies or expose a public message bridge", async () => {
-  const manifest = JSON.parse(await readFile(new URL("../../jarvis/assets/chrome-extension/manifest.json", import.meta.url), "utf8"));
+  const manifest = JSON.parse(await readFile(new URL("../../dodaios/assets/chrome-extension/manifest.json", import.meta.url), "utf8"));
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.permissions.includes("cookies"), false);
   assert.equal(manifest.externally_connectable, undefined);

@@ -1,6 +1,6 @@
 """The real Chrome window gets the agent arrow, and can hide it again."""
 
-from jarvis.society.browser.page_cursor import ARM_SOURCE, CURSOR_SCRIPT, arm_cursor, install_cursor
+from dodaios.society.browser.page_cursor import ARM_SOURCE, CURSOR_SCRIPT, arm_cursor, install_cursor
 
 
 class Frame:

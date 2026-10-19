@@ -11,9 +11,9 @@ import httpx
 import numpy as np
 import pytest
 
-from jarvis.core.paths import repo_root
-from jarvis.memory.wiki import semantic_model
-from jarvis.memory.wiki.semantic_model import ModelFile, SemanticEncoder
+from dodaios.core.paths import repo_root
+from dodaios.memory.wiki import semantic_model
+from dodaios.memory.wiki.semantic_model import ModelFile, SemanticEncoder
 
 FILES = {"tokenizer.json": b"vocabulary", "onnx/model_quantized.onnx": b"weights" * 100}
 
@@ -64,7 +64,7 @@ def _serve(monkeypatch: pytest.MonkeyPatch, served: dict[str, bytes]) -> list[st
 def test_python_and_browser_use_the_same_model_revision() -> None:
     source = (
         repo_root()
-        / "jarvis/ui/web/frontend/src/components/agentic/sidePanel/agentSearch.ts"
+        / "dodaios/ui/web/frontend/src/components/agentic/sidePanel/agentSearch.ts"
     ).read_text(encoding="utf-8")
     model = re.search(r'AGENT_SEARCH_MODEL = "([^"]+)"', source)
     revision = re.search(r'AGENT_SEARCH_REVISION = "([^"]+)"', source)

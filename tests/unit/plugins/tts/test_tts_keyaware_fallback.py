@@ -13,8 +13,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-import jarvis.core.config as cfg
-import jarvis.plugins.tts as tts_pkg
+import dodaios.core.config as cfg
+import dodaios.plugins.tts as tts_pkg
 
 
 def _keys(*env_names: str):

@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.marketplace import community_source
+from dodaios.marketplace import community_source
 
 
 def _index_payload(revision: int = 1) -> dict[str, Any]:
@@ -157,7 +157,7 @@ async def test_malformed_index_body_rejected(cache_path: Path) -> None:
 
 
 def test_config_default_points_at_registry_pages() -> None:
-    from jarvis.core.config import MarketplaceConfig
+    from dodaios.core.config import MarketplaceConfig
 
     assert MarketplaceConfig().community_index_url.startswith("https://")
     assert MarketplaceConfig().community_index_url.endswith("/index.json")

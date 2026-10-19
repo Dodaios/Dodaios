@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.admin.client import AdminClient, DestructiveRequiresApproval
-from jarvis.admin.schema import (
+from dodaios.admin.client import AdminClient, DestructiveRequiresApproval
+from dodaios.admin.schema import (
     ADMIN_OPERATION_TYPES,
     DESTRUCTIVE_OPS,
     AddFirewallRuleOp,
@@ -25,9 +25,9 @@ from jarvis.admin.schema import (
     WriteProtectedPathOp,
     WriteRegistryHklmOp,
 )
-from jarvis.control.cancel import CancelToken
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.control.cancel import CancelToken
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     AdminOperationCompleted,
     AdminOperationRejected,
     AdminOperationRequested,
@@ -73,7 +73,7 @@ def _representative(op_type: str) -> AdminOperation:
         case "read_registry":
             return ReadRegistryOp(hive="HKCU", key_path="Environment")
         case "write_registry_hkcu":
-            from jarvis.admin.schema import WriteRegistryHkcuOp
+            from dodaios.admin.schema import WriteRegistryHkcuOp
             return WriteRegistryHkcuOp(
                 key_path="Software\\Jarvis", value_name="Test",
                 value_type="REG_SZ", value_data="x",
@@ -84,7 +84,7 @@ def _representative(op_type: str) -> AdminOperation:
                 value_type="REG_SZ", value_data="x",
             )
         case "add_scheduled_task":
-            from jarvis.admin.schema import AddScheduledTaskOp
+            from dodaios.admin.schema import AddScheduledTaskOp
             return AddScheduledTaskOp(task_name="Foo", schedule_xml="<xml/>")
         case "remove_scheduled_task":
             return RemoveScheduledTaskOp(task_name="Foo")
@@ -94,29 +94,29 @@ def _representative(op_type: str) -> AdminOperation:
             )
         # --- cross-platform (Linux) ops ---
         case "apt_install":
-            from jarvis.admin.schema_unix import AptInstallOp
+            from dodaios.admin.schema_unix import AptInstallOp
             return AptInstallOp(package="git")
         case "apt_remove":
-            from jarvis.admin.schema_unix import AptRemoveOp
+            from dodaios.admin.schema_unix import AptRemoveOp
             return AptRemoveOp(package="git")
         case "systemctl":
-            from jarvis.admin.schema_unix import SystemctlOp
+            from dodaios.admin.schema_unix import SystemctlOp
             return SystemctlOp(action="restart", unit="nginx.service")
         case "ufw_rule":
-            from jarvis.admin.schema_unix import UfwRuleOp
+            from dodaios.admin.schema_unix import UfwRuleOp
             return UfwRuleOp(action="allow", port=8080, proto="tcp")
         case "ufw_remove":
-            from jarvis.admin.schema_unix import UfwRemoveOp
+            from dodaios.admin.schema_unix import UfwRemoveOp
             return UfwRemoveOp(action="allow", port=8080, proto="tcp")
         # --- cross-platform (macOS) ops ---
         case "brew_install":
-            from jarvis.admin.schema_unix import BrewInstallOp
+            from dodaios.admin.schema_unix import BrewInstallOp
             return BrewInstallOp(formula="wget")
         case "brew_remove":
-            from jarvis.admin.schema_unix import BrewRemoveOp
+            from dodaios.admin.schema_unix import BrewRemoveOp
             return BrewRemoveOp(formula="wget")
         case "launchctl":
-            from jarvis.admin.schema_unix import LaunchctlOp
+            from dodaios.admin.schema_unix import LaunchctlOp
             return LaunchctlOp(action="unload", label="com.apple.Spotlight")
         case _:
             raise ValueError(f"Unknown op type: {op_type}")

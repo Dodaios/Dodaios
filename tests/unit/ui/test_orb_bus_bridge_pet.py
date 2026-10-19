@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ActionExecuted,
     ActionProposed,
     AnnouncementRequested,
