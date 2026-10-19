@@ -1,0 +1,129 @@
+"""REST routes for the self-building ledger ("Built for you").
+
+Endpoints (all under ``/api/self-build``)::
+
+    GET    ""               Every build, newest change first, plus the loop's status
+    GET    /digest          What happened in the last ``hours`` (the daily card)
+    POST   /pause           The kill switch: ``{"paused": true}`` stops observing and building
+    GET    /{build_id}      One build with its history and what it cost
+    POST   /{build_id}/accept  Build a proposed build
+    POST   /{build_id}/keep    Keep a build on trial (or restore an archived one)
+    POST   /{build_id}/undo    Remove what the build created, or reject the proposal
+
+The ledger is opened at boot (``dodaios.self_build.service.start``).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel
+
+from dodaios.self_build import (
+    Kind,
+    NoBuilder,
+    SelfBuild,
+    State,
+    TransitionError,
+    UndoUnavailable,
+)
+from dodaios.self_build import current as current_service
+from dodaios.self_build.cost import spent
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/self-build", tags=["self-build"])
+
+
+class PauseBody(BaseModel):
+    paused: bool
+
+
+class NoteBody(BaseModel):
+    note: str = ""
+
+
+def _service(request: Request) -> SelfBuild:
+    service = getattr(request.app.state, "self_build", None) or current_service()
+    if service is None:
+        raise HTTPException(status_code=503, detail="self-build ledger is not running")
+    return service
+
+
+def _parse(values: list[str] | None, enum: Any) -> list[Any] | None:
+    if not values:
+        return None
+    try:
+        return [enum(v) for v in values]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("")
+async def list_builds(
+    request: Request,
+    state: Annotated[list[str] | None, Query()] = None,
+    kind: Annotated[list[str] | None, Query()] = None,
+    limit: int = Query(default=200, ge=1, le=500),
+) -> dict[str, Any]:
+    service = _service(request)
+    states = _parse(state, State)
+    kinds = _parse(kind, Kind)
+    rows = await asyncio.to_thread(service.ledger.list, states=states, kinds=kinds, limit=limit)
+    status = await asyncio.to_thread(service.status)
+    return {"builds": [r.to_json() for r in rows], "status": status}
+
+
+@router.get("/digest")
+async def digest(request: Request, hours: int = Query(default=24, ge=1, le=24 * 30)) -> Any:
+    from dodaios.self_build.ledger import now_ms
+
+    service = _service(request)
+    return await asyncio.to_thread(service.digest, now_ms() - hours * 3_600_000)
+
+
+@router.post("/pause")
+async def pause(request: Request, body: PauseBody) -> dict[str, Any]:
+    service = _service(request)
+    await asyncio.to_thread(service.set_paused, body.paused)
+    return await asyncio.to_thread(service.status)
+
+
+@router.get("/{build_id}")
+async def get_build(request: Request, build_id: str) -> dict[str, Any]:
+    service = _service(request)
+    record = await asyncio.to_thread(service.ledger.get, build_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="no such build")
+    history = await asyncio.to_thread(service.ledger.history, build_id)
+    cost = await asyncio.to_thread(spent, record)
+    return {"build": record.to_json(), "history": history, "cost": cost}
+
+
+async def _act(coro: Any) -> dict[str, Any]:
+    try:
+        record = await coro
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="no such build") from exc
+    except (TransitionError, NoBuilder, UndoUnavailable) as exc:
+        raise HTTPException(status_code=409, detail=f"{type(exc).__name__}: {exc}") from exc
+    return {"build": record.to_json()}
+
+
+@router.post("/{build_id}/accept")
+async def accept(request: Request, build_id: str) -> dict[str, Any]:
+    return await _act(_service(request).accept(build_id))
+
+
+@router.post("/{build_id}/keep")
+async def keep(request: Request, build_id: str) -> dict[str, Any]:
+    return await _act(_service(request).keep(build_id))
+
+
+@router.post("/{build_id}/undo")
+async def undo(request: Request, build_id: str, body: NoteBody | None = None) -> dict[str, Any]:
+    note = body.note if body is not None else ""
+    return await _act(_service(request).undo_build(build_id, note))
