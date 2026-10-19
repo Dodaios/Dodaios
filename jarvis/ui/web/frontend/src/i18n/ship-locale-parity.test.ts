@@ -31,6 +31,12 @@ describe("ship locale parity", () => {
     }
   });
 
+  it("never uses {name} for anything but the assistant (the resolver fills it with the assistant's name)", () => {
+    for (const f of readdirSync(DIR).filter((n) => n.endsWith(".json") && !n.startsWith("levels."))) {
+      expect(readFileSync(join(DIR, f), "utf8"), f).not.toContain("{name}");
+    }
+  });
+
   it("keeps German umlauts real", () => {
     const text = readdirSync(DIR).filter((f) => f.endsWith("de.json")).map((f) => readFileSync(join(DIR, f), "utf8")).join("\n");
     expect(text).not.toMatch(/\b(fuer|ueber|Schliessen|Bruecke|zurueck|oeffnen)\b/);

@@ -45,16 +45,16 @@
       "helm": {
         "eyebrow": "Timón",
         "title": "Fijar un rumbo",
-        "holding": "En posición en {name}",
+        "holding": "En posición en {place}",
         "captain_level": "Nivel de capitán {n}",
         "opens": "Nivel {n}",
         "here": "Aquí",
         "open": "Abierto",
         "locked": "Bloqueado",
-        "locked_say": "{name} se abre con el nivel de capitán {n}.",
-        "already": "La nave ya está en {name}.",
-        "engaged": "Rumbo fijado a {name}. Adelante.",
-        "warping": "Saltando a {name}…",
+        "locked_say": "{place} se abre con el nivel de capitán {n}.",
+        "already": "La nave ya está en {place}.",
+        "engaged": "Rumbo fijado a {place}. Adelante.",
+        "warping": "Saltando a {place}…",
         "hint": "Las flechas eligen, Intro salta, Escape cierra."
       },
       "destination": {

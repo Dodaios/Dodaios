@@ -45,16 +45,16 @@
       "helm": {
         "eyebrow": "Steuer",
         "title": "Kurs setzen",
-        "holding": "Position bei {name}",
+        "holding": "Position bei {place}",
         "captain_level": "Captain-Level {n}",
         "opens": "Level {n}",
         "here": "Hier",
         "open": "Offen",
         "locked": "Gesperrt",
-        "locked_say": "{name} öffnet sich ab Captain-Level {n}.",
-        "already": "Das Schiff ist bereits bei {name}.",
-        "engaged": "Kurs auf {name} gesetzt. Energie.",
-        "warping": "Sprung nach {name} …",
+        "locked_say": "{place} öffnet sich ab Captain-Level {n}.",
+        "already": "Das Schiff ist bereits bei {place}.",
+        "engaged": "Kurs auf {place} gesetzt. Energie.",
+        "warping": "Sprung nach {place} …",
         "hint": "Pfeiltasten wählen, Enter springt, Escape schließt."
       },
       "destination": {

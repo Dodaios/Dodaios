@@ -100,7 +100,7 @@ export function EngineeringPanel({ actions, panes }: DeckPanelProps) {
   const setLine = (index: number, line: LaunchLine) => {
     if (alive.current) setLines((prev) => { const next = [...prev]; next[index] = line; return next; });
   };
-  const fill = (key: string, name: string) => t(key).replace("{name}", name);
+  const fill = (key: string, name: string) => t(key).replace("{pane}", name);
 
   /** Wait for one new pane, then hand it the task. */
   const settle = async (i: number, name: string, wsId: string, brief: string) => {

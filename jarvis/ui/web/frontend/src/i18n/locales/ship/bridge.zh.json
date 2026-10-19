@@ -45,16 +45,16 @@
       "helm": {
         "eyebrow": "舵手",
         "title": "设定航向",
-        "holding": "停泊于 {name}",
+        "holding": "停泊于 {place}",
         "captain_level": "舰长等级 {n}",
         "opens": "等级 {n}",
         "here": "当前",
         "open": "已开放",
         "locked": "未解锁",
-        "locked_say": "{name} 在舰长等级 {n} 时开放。",
-        "already": "飞船已经在 {name}。",
-        "engaged": "航向已设定：{name}。启动。",
-        "warping": "正在跃迁至 {name}……",
+        "locked_say": "{place} 在舰长等级 {n} 时开放。",
+        "already": "飞船已经在 {place}。",
+        "engaged": "航向已设定：{place}。启动。",
+        "warping": "正在跃迁至 {place}……",
         "hint": "方向键选择，Enter 跃迁，Escape 关闭。"
       },
       "destination": {

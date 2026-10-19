@@ -49,10 +49,10 @@ function HelmPanel({ actions }: DeckPanelProps) {
   const name = (d: Destination) => t(`ship.bridge.destination.${d.id}.name`);
   const choose = (d: Destination) => {
     if (warping) return;
-    if (d.id === here.id) { actions.say(t("ship.bridge.helm.already").replace("{name}", name(d))); return; }
-    if (d.level > level) { actions.say(t("ship.bridge.helm.locked_say").replace("{name}", name(d)).replace("{n}", String(d.level))); return; }
+    if (d.id === here.id) { actions.say(t("ship.bridge.helm.already").replace("{place}", name(d))); return; }
+    if (d.level > level) { actions.say(t("ship.bridge.helm.locked_say").replace("{place}", name(d)).replace("{n}", String(d.level))); return; }
     actions.closePanel();
-    if (engageWarp(d.id, reduced, actions)) actions.say(t("ship.bridge.helm.engaged").replace("{name}", name(d)));
+    if (engageWarp(d.id, reduced, actions)) actions.say(t("ship.bridge.helm.engaged").replace("{place}", name(d)));
   };
 
   const onKey = (e: KeyboardEvent<HTMLElement>) => {
@@ -84,14 +84,14 @@ function HelmPanel({ actions }: DeckPanelProps) {
             <div className="ship-eyebrow">{t("ship.bridge.helm.eyebrow")}</div>
             <h2 id={titleId}>{t("ship.bridge.helm.title")}</h2>
             <p>
-              {t("ship.bridge.helm.holding").replace("{name}", name(here))}
+              {t("ship.bridge.helm.holding").replace("{place}", name(here))}
               <span aria-hidden="true"> · </span>
               {t("ship.bridge.helm.captain_level").replace("{n}", String(level))}
             </p>
           </div>
           <button type="button" className="ship-tool bridge-helm-close" aria-label={t("ship.close")} onClick={() => actions.closePanel()}>✕</button>
         </header>
-        {warping && <div className="bridge-helm-warping" role="status">{t("ship.bridge.helm.warping").replace("{name}", name(destinationById(warping)))}</div>}
+        {warping && <div className="bridge-helm-warping" role="status">{t("ship.bridge.helm.warping").replace("{place}", name(destinationById(warping)))}</div>}
         <div ref={list} className="bridge-helm-list">
           {DESTINATIONS.map((d) => {
             const current = d.id === here.id;
