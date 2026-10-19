@@ -510,8 +510,9 @@ tts-eval = [
 # are the command's earlier names: the same entry point, kept so that scripts,
 # shell history and other tools that call them keep working.
 # Never add a command that spells the branded launcher ignoring case (a
-# `personaljarvis` alias today): Windows paths ignore case, and the venv's
-# Scripts folder already holds `PersonalJarvis.exe`.
+# `dodaiosapp` or `personaljarvis` alias): Windows paths ignore case, and the
+# venv's Scripts folder holds `DodaiosApp.exe` (and `PersonalJarvis.exe` from
+# earlier releases).
 dodaios = "dodaios.__main__:main"
 jarvis = "dodaios.__main__:main"
 personal-jarvis = "dodaios.__main__:main"
