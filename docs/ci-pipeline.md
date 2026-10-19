@@ -302,6 +302,40 @@ GitHub adds the pull request to the merge queue itself and the `merge_group`
 run starts normally. A pull request opened another way gets the same with
 that one command. Drafts and the opt-out labels are left alone.
 
+**Watchdog.** A coding agent's session can end before its pull request
+lands. Every tick the train also looks for pull requests that stopped moving
+(`scripts/ci/agent_integrate.py`, `watch_verdict` and `stale_sweep`):
+
+- `stuck`: CI green for 30 min but neither in the merge queue nor set to
+  auto-merge; CI red for 60 min with no new commit; or a conflict the train
+  could not resolve (next to `needs-rebase`). The label comes with one
+  comment per head commit that names the next step ("Request auto-merge:
+  `gh pr merge <n> --auto --squash`", "Fix the failing checks: …"); a hidden
+  marker in that comment keeps later ticks quiet. The label goes as soon as
+  the pull request moves (new head, queued, auto-merge requested, or updated
+  by the train). With the merge bot token a green pull request is simply
+  enqueued, so it only gets the label when the queue refuses it.
+- `stale`: an agent pull request, drafts included, with no commit of its own
+  for 7 days (the train's merges of main do not count) gets the label and
+  the comment "No activity for 7 days; this closes in 7 more days unless
+  labelled `keep`." It is closed after 14 days without a commit, and never
+  before the label has been on it for a full week. `keep`, `needs-human`,
+  `merge-freeze` and the opt-out labels exempt a pull request; Dependabot's
+  are never touched. A new commit lifts the label.
+
+**Merge freeze.** A change that rewrites much of the tree (a package move)
+needs main to stand still until it lands. Its author labels it
+`merge-freeze` (`scripts/ci/merge_freeze.py`). While that label is younger
+than 2 h the train enqueues and merges no other pull request; branch updates,
+approvals and reruns go on. An older label no longer holds main, so a dead
+session cannot freeze it for good; the train says so once on that pull
+request.
+
+The train creates its labels (`stuck`, `stale`, `keep`, `merge-freeze`) the
+first time it sets one. A dry run (the workflow's `dry_run` input, or
+`agent_integrate.py train --dry-run`) lists every label, comment and close it
+would make and makes none.
+
 **Rollback.** If the queue stalls, disable the "main merge queue" ruleset
 (Settings → Rules → Rulesets, or `gh api -X PUT
 repos/<owner>/<repo>/rulesets/<id> -f enforcement=disabled`). The train sees

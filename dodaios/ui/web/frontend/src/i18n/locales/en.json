@@ -7544,7 +7544,22 @@
       "address": "Address",
       "open_external": "Open in your browser",
       "empty_title": "Enter an address above",
-      "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser."
+      "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser.",
+      "native": {
+        "opening": "Opening {browser}…",
+        "opening_hint": "Your own browser opens here, signed in with the profile you picked.",
+        "closed_title": "The browser window was closed",
+        "popped_title": "The browser is in its own window now",
+        "reopen": "Show it here again",
+        "error_title": "Your browser could not be shown here",
+        "error_missing": "Install Chrome, Edge or Brave to see it here.",
+        "error_generic": "Try again, or use the built-in view for local previews.",
+        "retry": "Try again",
+        "builtin": "Use the built-in view",
+        "use_native": "Show my browser",
+        "pop_out": "Open in its own window",
+        "profile": "Browser profile"
+      }
     },
     "all_open": "Every tab is already open",
     "close_tab": "Close tab",
@@ -8271,7 +8286,8 @@
         "follow_busy_build": "Building the new interface…",
         "follow_restart_pending": "New code is in; the app restarts as soon as no mission or call is running.",
         "follow_updated": "Updated {when}: {subject}",
-        "follow_click_off": "Click to stop following main."
+        "follow_click_off": "Click to stop following main.",
+        "session_diff_badge": "Changes by {pane}"
       }
     },
     "skills": {
@@ -9225,6 +9241,21 @@
       "refresh_failed": "GitHub status could not be refreshed.",
       "refreshing": "Refreshing GitHub status…",
       "loading": "Reading the GitHub status…"
+    },
+    "done_gate": {
+      "label_done": "landed",
+      "label_wait": "waiting",
+      "label_fix": "fix",
+      "label_stuck": "stuck",
+      "title_done": "Done gate: the work has landed",
+      "title_wait": "Done gate: waiting before this agent may stop",
+      "title_fix": "Done gate: something needs fixing before this agent may stop",
+      "title_stuck": "Done gate: stuck, a person has to look",
+      "next": "Next: {next}",
+      "pull_request": "Pull request #{number}",
+      "checked": "Checked at {time}",
+      "matched_folder": "Matched by this pane's folder or branch, not its own session",
+      "aria": "{pane}: done gate {state}"
     },
     "dock": {
       "swap": "Swap positions",
