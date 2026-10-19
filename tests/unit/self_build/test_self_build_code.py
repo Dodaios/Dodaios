@@ -664,3 +664,97 @@ def test_seat_never_uses_a_cli_that_would_bill_a_key(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(background_policy, "login_state", lambda provider: None)
     assert seat.choose({"claude": True})[0] is None
     assert seat.choose({"claude": False})[0] is None
+
+
+# ------------------------------------------------------------------ the thread runner
+
+
+class FakeChat:
+    """The agent-chat service surface the thread runner uses."""
+
+    def __init__(self, events: list[dict[str, Any]]) -> None:
+        self.script = events
+        self.events: list[dict[str, Any]] = []
+        self.sessions: list[dict[str, Any]] = []
+        self.cancelled: list[str] = []
+        self.store = SimpleNamespace(list_events=lambda sid, tail=None: list(self.events))
+
+    def create_session(self, **kwargs: Any) -> Any:
+        self.sessions.append(kwargs)
+        return SimpleNamespace(session_id="s1")
+
+    async def send(self, sid: str, text: str, *, author: dict[str, str]) -> str:
+        self.sent = (text, author)
+        self.events = [
+            {"kind": e["kind"], "payload": {"turn_id": "t1", **e["payload"]}} for e in self.script
+        ]
+        return "t1"
+
+    def is_running(self, sid: str) -> bool:
+        return any(e["kind"] == "question_required" for e in self.events) and not self.cancelled
+
+    async def cancel(self, sid: str) -> bool:
+        self.cancelled.append(sid)
+        return True
+
+
+def test_thread_runner_opens_a_full_access_thread_in_the_worktree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dodaios.self_build.code.runner import ThreadRunner
+
+    monkeypatch.setattr(
+        "dodaios.agent_chat.service.resolve_runner", lambda provider, surface="agent": "claude-cli"
+    )
+    chat = FakeChat(
+        [
+            {"kind": "assistant_text", "payload": {"text": "Added mul()."}},
+            {"kind": "turn_finished", "payload": {"status": "done"}},
+        ]
+    )
+    seen: list[str] = []
+
+    async def note(sid: str) -> None:
+        seen.append(sid)
+
+    result = asyncio.run(
+        ThreadRunner(lambda: chat).run(
+            provider="claude-api",
+            folder="/w",
+            prompt="do it",
+            title="#1 x",
+            timeout_s=60,
+            should_stop=lambda: False,
+            on_session=note,
+        )
+    )
+    assert result.ok and result.summary == "Added mul()." and seen == ["s1"]
+    [opened] = chat.sessions
+    assert opened["cwd"] == "/w" and opened["surface"] == "agent"
+    assert opened["permission_mode"]  # the runner's bypass mode, never empty
+    assert chat.sent[1]["name"] == "Dodaios"
+
+
+def test_thread_runner_stops_at_a_question(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dodaios.self_build.code.runner import ThreadRunner
+
+    monkeypatch.setattr(
+        "dodaios.agent_chat.service.resolve_runner", lambda provider, surface="agent": "claude-cli"
+    )
+    chat = FakeChat(
+        [
+            {"kind": "question_required", "payload": {"question_id": "q1", "questions": []}},
+        ]
+    )
+    result = asyncio.run(
+        ThreadRunner(lambda: chat).run(
+            provider="claude-api",
+            folder="/w",
+            prompt="do it",
+            title="t",
+            timeout_s=60,
+            should_stop=lambda: False,
+        )
+    )
+    assert not result.ok and "question" in result.error
+    assert chat.cancelled == ["s1"]  # the waiting turn is ended, not left open
