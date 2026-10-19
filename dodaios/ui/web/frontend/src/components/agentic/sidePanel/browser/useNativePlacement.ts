@@ -54,6 +54,8 @@ export function measurePanel(panel: HTMLElement | null, owner: string): PanelPla
   };
 }
 
+const HEARTBEAT_MS = 1000;
+
 function samePlacement(a: PanelPlacement | null, b: PanelPlacement): boolean {
   if (!a || a.visible !== b.visible || a.dpr !== b.dpr) return false;
   if (!a.rect || !b.rect) return a.rect === b.rect;
@@ -89,14 +91,18 @@ export function useNativePlacement(
     let disposed = false;
     sent.current = null; // a new generation (window taken, profile switched) resends
 
+    let lastSentAt = 0;
     const send = (placement: PanelPlacement) => {
       if (inFlight.current) {
         queued.current = placement;
         return;
       }
       inFlight.current = true;
-      sent.current = placement;
-      void placeNativeBrowser(placement).finally(() => {
+      lastSentAt = Date.now();
+      void placeNativeBrowser(placement).then((result) => {
+        // Remember it only once the backend took it: a lost hide is sent again.
+        sent.current = result.ok ? placement : null;
+      }).finally(() => {
         inFlight.current = false;
         const next = queued.current;
         queued.current = null;
@@ -108,7 +114,10 @@ export function useNativePlacement(
       if (disposed) return;
       const placement = measurePanel(panel.current, owner);
       setVisible(placement.visible);
-      if (!samePlacement(sent.current, placement)) send(placement);
+      // A shown window is confirmed every second; the backend hides it when the
+      // confirmations stop (the page reloaded or crashed without cleaning up).
+      const heartbeat = placement.visible && Date.now() - lastSentAt > HEARTBEAT_MS;
+      if (heartbeat || !samePlacement(sent.current, placement)) send(placement);
     };
 
     let frame = 0;
@@ -146,9 +155,16 @@ export function useNativePlacement(
     };
   }, [panel, owner, generation]);
 
-  // Leaving the page (tab closed, workspace removed) hides the window.
-  useEffect(() => () => {
-    void placeNativeBrowser({ owner, visible: false, rect: null, dpr: window.devicePixelRatio || 1 });
+  // Leaving the page (tab closed, workspace removed, reload) hides the window.
+  useEffect(() => {
+    const hide = () => {
+      void placeNativeBrowser({ owner, visible: false, rect: null, dpr: window.devicePixelRatio || 1 });
+    };
+    window.addEventListener("pagehide", hide);
+    return () => {
+      window.removeEventListener("pagehide", hide);
+      hide();
+    };
   }, [owner]);
 
   return visible;

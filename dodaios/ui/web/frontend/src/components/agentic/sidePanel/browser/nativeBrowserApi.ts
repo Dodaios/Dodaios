@@ -55,6 +55,8 @@ async function call(path: string, body?: unknown): Promise<NativeBrowserStatus> 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      // A hide sent while the page unloads must still arrive.
+      keepalive: true,
     });
     if (!response.ok) return UNAVAILABLE;
     return { browsers: [], reason: "", ...(await response.json()) } as NativeBrowserStatus;

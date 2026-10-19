@@ -233,7 +233,11 @@ _PROFILE_DIR = re.compile(r"^[A-Za-z0-9 _.-]{1,64}$")
 
 def is_profile_dir(value: str) -> bool:
     """Whether ``value`` can be a profile folder name (no paths, no switches)."""
-    return bool(_PROFILE_DIR.match(value)) and ".." not in value and not value.startswith("-")
+    return (
+        bool(_PROFILE_DIR.fullmatch(value))
+        and not value.startswith(("-", ".", " "))
+        and not value.endswith((".", " "))
+    )
 
 
 def safe_start_url(url: str | None) -> str:

@@ -88,7 +88,8 @@ async def ide_browser_status(request: Request) -> dict[str, Any]:
     return {**state, "ok": True, "available": True, "browsers": browsers}
 
 
-@router.post("/launch", operation_id="launch")
+# Opening and closing the user's own browser windows: the CLI asks for --yes.
+@router.post("/launch", operation_id="launch", openapi_extra={"x-jarvis-dangerous": True})
 async def ide_browser_launch(body: LaunchBody, request: Request) -> dict[str, Any]:
     """Open a window of the chosen browser and profile inside the app window."""
     from dodaios.ui.browser_embed import get_embed
@@ -119,7 +120,7 @@ async def ide_browser_place(body: PlaceBody, request: Request) -> dict[str, Any]
         return {**embed.status(), "ok": False, "reason": "place_failed"}
 
 
-@router.post("/release", operation_id="release")
+@router.post("/release", operation_id="release", openapi_extra={"x-jarvis-dangerous": True})
 async def ide_browser_release(body: ReleaseBody) -> dict[str, Any]:
     """Close the panel's browser window, or hand it back as a normal browser window."""
     from dodaios.ui.browser_embed import get_embed

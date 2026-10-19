@@ -57,8 +57,10 @@ from dodaios.ui.browser_profiles import (
     is_profile_dir,
     new_token,
     panel_to_client_rect,
+    read_profiles,
     real_local_app_data,
     safe_start_url,
+    user_data_dir,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,6 +75,8 @@ LAUNCH_TIMEOUT_S = 25.0
 WATCH_INTERVAL_MS = 200
 #: How long a caller waits for the native thread before giving up.
 CALL_TIMEOUT_S = 5.0
+#: How long a visible placement holds without the page confirming it.
+LEASE_S = 3.0
 
 _WINDOW_CLASS = "Chrome_WidgetWin_1"
 _CONTAINER_CLASS = "DodaiosBrowserPanelHost"
@@ -93,6 +97,7 @@ WS_MAXIMIZEBOX = 0x00010000
 WS_CLIPSIBLINGS = 0x04000000
 WS_CLIPCHILDREN = 0x02000000
 WS_EX_APPWINDOW = 0x00040000
+WS_EX_NOPARENTNOTIFY = 0x00000004
 SWP_NOSIZE = 0x0001
 SWP_NOMOVE = 0x0002
 SWP_NOZORDER = 0x0004
@@ -180,6 +185,7 @@ class _Api:
         sig(u.IsWindow, B, H)
         sig(u.IsWindowVisible, B, H)
         sig(u.IsIconic, B, H)
+        sig(u.IsHungAppWindow, B, H)
         sig(u.IsZoomed, B, H)
         sig(u.ShowWindow, B, H, INT)
         sig(u.ShowWindowAsync, B, H, INT)
@@ -283,7 +289,12 @@ class ChromeEmbed:
         self._reason = ""
         self._browser = ""
         self._profile = ""
-        self._launch_lock = threading.Lock()
+        self._generation = 0
+        self._closing = False
+        #: The page re-sends a visible placement about every second; without
+        #: one for a while (the page reloaded or crashed without saying so)
+        #: the window hides instead of staying over whatever loads next.
+        self._lease_until = 0.0
 
     # -- public API -----------------------------------------------------------
 
@@ -293,8 +304,6 @@ class ChromeEmbed:
 
     def status(self) -> dict[str, Any]:
         with self._lock:
-            if self._chrome and self._api and not self._api.user32.IsWindow(self._chrome):
-                self._lost("closed")
             return {
                 "available": self.supported(),
                 "state": self._state,
@@ -308,26 +317,32 @@ class ChromeEmbed:
         """Open a new window of ``browser_id`` with ``profile`` and take it into ``host``.
 
         A window already shown for the same browser and profile is kept (the
-        page only asked again). A different profile closes the old window first.
+        page only asked again) and moves to ``host``. A different profile closes
+        the old window first. A newer launch supersedes one still waiting for
+        its window: the older one closes the window it opened.
         """
         if not self.supported():
             return self._fail("unsupported")
         spec = browser_by_id(browser_id)
         if spec is None:
             return self._fail("unknown_browser")
-        if not is_profile_dir(profile):
+        if not is_profile_dir(profile) or not self._profile_exists(spec, profile):
             return self._fail("bad_profile")
         exe = find_browser_exe(spec)
         if exe is None:
             return self._fail("browser_missing")
-        if not self._launch_lock.acquire(timeout=0.1):
-            return {**self.status(), "ok": False, "reason": "busy"}
+        with self._lock:
+            if self._closing:
+                return self._fail("shutting_down")
+            self._generation += 1
+            generation = self._generation
+            same = (self._browser, self._profile) == (spec.id, profile)
+            alive = bool(self._chrome and self._api and self._api.user32.IsWindow(self._chrome))
         try:
-            with self._lock:
-                same = (self._browser, self._profile) == (spec.id, profile)
-                if self._chrome and same and self._api and self._api.user32.IsWindow(self._chrome):
-                    return {**self.status(), "ok": True}
-            if self._chrome:
+            if alive and same:
+                self._call(lambda: self._ensure_container(host))
+                return {**self.status(), "ok": True}
+            if alive:
                 self.release(close=True)
             self._ensure_thread()
             with self._lock:
@@ -336,11 +351,17 @@ class ChromeEmbed:
             token = new_token()
             if not self._start_browser(exe, profile, handoff_url(token, safe_start_url(url))):
                 return self._fail("launch_failed")
-            hwnd = self._wait_for_window(spec, token)
+            hwnd = self._wait_for_window(spec, token, generation)
             if not hwnd:
+                if not self._current(generation):
+                    return {**self.status(), "ok": False, "reason": "superseded"}
                 return self._fail("window_not_found")
+            if not self._current(generation):
+                # A newer launch or the app's shutdown came first.
+                self._load_api().user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+                return {**self.status(), "ok": False, "reason": "superseded"}
             try:
-                self._call(lambda: self._take(hwnd, host))
+                self._call(lambda: self._take(hwnd, host, generation))
             except Exception:
                 # A window we opened but could not take must not stay behind.
                 self._load_api().user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
@@ -349,8 +370,18 @@ class ChromeEmbed:
         except Exception as exc:  # noqa: BLE001 - reported to the page, logged here
             logger.warning("Browser panel launch failed: %s", exc, exc_info=True)
             return self._fail("launch_failed")
-        finally:
-            self._launch_lock.release()
+
+    def _current(self, generation: int) -> bool:
+        with self._lock:
+            return generation == self._generation and not self._closing
+
+    @staticmethod
+    def _profile_exists(spec: BrowserSpec, profile: str) -> bool:
+        """Only a profile the browser lists may be opened; a typo would create a new one."""
+        profiles, _ = read_profiles(user_data_dir(spec))
+        if not profiles:
+            return profile == "Default"
+        return any(p.directory == profile for p in profiles)
 
     def place(
         self,
@@ -396,21 +427,29 @@ class ChromeEmbed:
         if host and self._host == host and self._chrome:
             # Called from the closing window's UI thread, which does not pump
             # messages while it waits: keep the wait short.
-            self.release(close=True, timeout=2.0)
+            hwnd = self._chrome
+            result = self.release(close=True, timeout=2.0)
+            if not result.get("ok") and hwnd and self._api is not None:
+                # At least ask the browser to close the window itself.
+                self._api.user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
 
     def shutdown(self) -> None:
         """Close the browser window and stop the native thread. Idempotent."""
-        if self._thread is None:
+        with self._lock:
+            self._closing = True
+            self._generation += 1  # a launch still waiting closes what it finds
+            thread = self._thread
+        if thread is None:
             return
         try:
-            self.release(close=True)
-            self._call(self._destroy_container)
+            self.release(close=True, timeout=2.0)
+            self._call(self._destroy_container, 2.0)
         except Exception:  # noqa: BLE001
             logger.debug("Browser panel shutdown was not clean", exc_info=True)
         api = self._api
         if api is not None and self._thread_id:
             api.user32.PostThreadMessageW(self._thread_id, WM_QUIT, 0, 0)
-        self._thread = None
+        thread.join(1.0)
 
     # -- launching (caller thread) ----------------------------------------------
 
@@ -449,10 +488,10 @@ class ChromeEmbed:
                 logger.info("Browser start with flags %#x failed: %s", flags, exc)
         return False
 
-    def _wait_for_window(self, spec: BrowserSpec, token: str) -> int:
+    def _wait_for_window(self, spec: BrowserSpec, token: str, generation: int) -> int:
         api = self._load_api()
         deadline = time.monotonic() + LAUNCH_TIMEOUT_S
-        while time.monotonic() < deadline:
+        while time.monotonic() < deadline and self._current(generation):
             hwnd = self._find_window(api, spec, token)
             if hwnd:
                 return hwnd
@@ -486,6 +525,8 @@ class ChromeEmbed:
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 return
+            if self._closing:
+                raise RuntimeError("browser panel is shutting down")
             ready = threading.Event()
             self._thread = threading.Thread(
                 target=self._loop, args=(ready,), name="browser-panel-embed", daemon=True,
@@ -566,7 +607,8 @@ class ChromeEmbed:
                 self._host = host
             return self._container
         self._container = int(user32.CreateWindowExW(
-            0, _CONTAINER_CLASS, None, WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+            WS_EX_NOPARENTNOTIFY, _CONTAINER_CLASS, None,
+            WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
             0, 0, 0, 0, host, None, api.kernel32.GetModuleHandleW(None), None,
         ) or 0)
         if not self._container:
@@ -582,7 +624,9 @@ class ChromeEmbed:
 
     # -- native work (runs on the embed thread) --------------------------------
 
-    def _take(self, hwnd: int, host: int) -> None:
+    def _take(self, hwnd: int, host: int, generation: int) -> None:
+        if not self._current(generation):
+            raise RuntimeError("superseded")
         api = self._load_api()
         user32 = api.user32
         container = self._ensure_container(host)
@@ -615,6 +659,7 @@ class ChromeEmbed:
             else:
                 self._owner = request.owner
                 self._visible = True
+                self._lease_until = time.monotonic() + LEASE_S
         if not request.visible or not request.host:
             self._show_container(False)
             return
@@ -712,6 +757,12 @@ class ChromeEmbed:
             return
         api = self._load_api()
         user32 = api.user32
+        if self._visible and time.monotonic() > self._lease_until:
+            with self._lock:
+                self._visible = False
+            self._show_container(False)
+        if user32.IsHungAppWindow(hwnd):
+            return  # never wait on a browser that does not answer
         try:
             if not user32.IsWindow(hwnd) or int(user32.GetParent(hwnd) or 0) != self._container:
                 with self._lock:
@@ -746,6 +797,13 @@ class ChromeEmbed:
             self._lost("released" if not close else "idle")
         self._show_container(False)
         if not hwnd or not user32.IsWindow(hwnd):
+            return
+        if user32.IsHungAppWindow(hwnd):
+            # Every call below would wait on the frozen browser. Ask it to close
+            # once it recovers; otherwise it goes down with the app window.
+            logger.warning("Browser panel window does not answer; not handing it back")
+            if close:
+                user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
             return
         if close:
             user32.ShowWindow(hwnd, SW_HIDE)
