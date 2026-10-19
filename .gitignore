@@ -203,6 +203,9 @@ Desktop.ini
 !.claude/agents/
 !.claude/commands/
 !.claude/skills/
+# The project hooks (the agent done gate and the repo checks) are shared too;
+# personal hooks and permissions belong in .claude/settings.local.json.
+!.claude/settings.json
 # ...except the security-github skill: RETIRED 2026-08-05. It orchestrated the
 # depersonalized public-release push — a staging build, a parallel clone, a
 # frontend build, and a sub-agent that read every tracked file hunting for
