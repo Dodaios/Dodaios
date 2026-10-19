@@ -150,7 +150,7 @@ def real_local_app_data() -> str | None:
             return path.value
         finally:
             ctypes.WinDLL("ole32").CoTaskMemFree(path)
-    except (OSError, AttributeError, ValueError):
+    except (OSError, AttributeError, ValueError):  # no shell folder API: callers use %LOCALAPPDATA%
         return None
 
 
@@ -178,7 +178,7 @@ def read_profiles(user_data: Path | None) -> tuple[list[BrowserProfile], str | N
         return [], None
     try:
         state = json.loads((user_data / "Local State").read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    except FileNotFoundError:  # a browser that never ran has no profile list yet
         return [], None
     except (OSError, ValueError) as exc:
         logger.warning("Could not read the browser profile list: %s", type(exc).__name__)
