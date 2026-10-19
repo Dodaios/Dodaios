@@ -57,6 +57,7 @@ dodaios/ui/web/.frontend-*
 # time to opt a checkout into in-app self-update. Must NEVER be committed — a
 # manual clone or a dev tree must not look like a managed install (else the
 # in-app updater could git-reset --hard it). See dodaios/ui/web/update_routes.py.
+.dodaios-managed-install
 .jarvis-managed-install
 # Atomic in-app update handoff/result files. They are local lifecycle state and
 # must never make a source checkout look like an update is pending.

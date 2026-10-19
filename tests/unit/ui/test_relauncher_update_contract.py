@@ -310,10 +310,11 @@ def test_macos_restart_never_opens_another_app_for_want_of_the_right_one(
 # --------------------------------------------------------------------------- #
 # Rollback hook
 # --------------------------------------------------------------------------- #
-def _pending(root: Path) -> tuple[str, str]:
+def _pending(root: Path, marker: str | None = relauncher.MANAGED_MARKER) -> tuple[str, str]:
     previous, target = "a" * 40, "b" * 40
     (root / ".git").mkdir()
-    (root / relauncher.MANAGED_MARKER).write_text("{}\n", encoding="utf-8")
+    if marker is not None:
+        (root / marker).write_text("{}\n", encoding="utf-8")
     (root / relauncher.PENDING_UPDATE_FILENAME).write_text(
         json.dumps(
             {
@@ -387,7 +388,10 @@ class _FakeCheckout:
 def _finalize_with(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **options: object
 ) -> tuple[_FakeCheckout, bool, str, str]:
-    previous, target = _pending(tmp_path)
+    previous, target = _pending(
+        tmp_path,
+        options.pop("marker", relauncher.MANAGED_MARKER),  # type: ignore[arg-type]
+    )
     checkout = _FakeCheckout(
         tmp_path,
         target=target,
@@ -402,6 +406,29 @@ def _finalize_with(
     monkeypatch.setattr(relauncher, "_managed_python", lambda _root: "python")
     ok = relauncher.finalize_pending_update(tmp_path)
     return checkout, ok, previous, target
+
+
+@pytest.mark.parametrize("marker", relauncher.MANAGED_MARKERS)
+def test_a_checkout_marked_under_any_name_is_updated(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, marker: str
+) -> None:
+    # An install made before the rename and updated in-app since carries
+    # only the earlier name.
+    checkout, ok, _previous, target = _finalize_with(
+        monkeypatch, tmp_path, install_fails=False, marker=marker
+    )
+    assert ok is True
+    assert checkout.calls[0] == ["git", "reset", "--hard", target]
+
+
+def test_an_unmarked_checkout_is_never_reset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout, ok, _previous, _target = _finalize_with(
+        monkeypatch, tmp_path, install_fails=False, marker=None
+    )
+    assert ok is False
+    assert checkout.calls == []
 
 
 def test_a_successful_update_never_runs_the_rollback_hook(

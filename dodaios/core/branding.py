@@ -64,8 +64,19 @@ KEYRING_SERVICE_NAME = "dodaios"
 LEGACY_KEYRING_SERVICE_NAMES = (PERSISTENT_SLUG,)
 CONTROL_KEY_PREFIX = "jctl_"
 SESSION_COOKIE_NAME = "jarvis_session"
-MANAGED_INSTALL_MARKER = ".jarvis-managed-install"
-DEFAULT_INSTALL_DIR_NAME = f".{PERSISTENT_SLUG}"
+# The file the one-line installer writes into the checkout it manages. Its
+# presence (together with the official origin) is what lets the in-app updater
+# reset the checkout. The installer writes every name, so an updater of any
+# version recognises the checkout; every reader accepts any of them.
+MANAGED_INSTALL_MARKER = ".dodaios-managed-install"
+LEGACY_MANAGED_INSTALL_MARKERS = (".jarvis-managed-install",)
+MANAGED_INSTALL_MARKERS = (MANAGED_INSTALL_MARKER, *LEGACY_MANAGED_INSTALL_MARKERS)
+# The one-line installer's checkout in the home directory. An install under an
+# earlier name keeps it while it is a real directory; an update run moves it by
+# one rename and leaves a link behind (``install/install.sh``,
+# ``install/install.ps1``, through ``dodaios.core.identity_migration``).
+DEFAULT_INSTALL_DIR_NAME = ".dodaios"
+LEGACY_DEFAULT_INSTALL_DIR_NAMES = (f".{PERSISTENT_SLUG}",)
 # The Python distribution name (``pip install <name>``) and with it the
 # ``share/<name>`` directory a wheel installs its data files under.
 DISTRIBUTION_NAME = PERSISTENT_SLUG
@@ -228,6 +239,8 @@ __all__ = [
     "CONTROL_KEY_PREFIX",
     "DEFAULT_OFFICIAL_REPO_SLUG",
     "DEFAULT_INSTALL_DIR_NAME",
+    "LEGACY_DEFAULT_INSTALL_DIR_NAMES",
+    "LEGACY_MANAGED_INSTALL_MARKERS",
     "DELIVERABLES_DIR_NAME",
     "LEGACY_CLI_COMMAND_NAMES",
     "LEGACY_CONFIG_FILE_NAMES",
@@ -261,6 +274,7 @@ __all__ = [
     "MACOS_EXECUTABLE_NAME",
     "MACOS_SIGNING_IDENTITY_LABEL",
     "MANAGED_INSTALL_MARKER",
+    "MANAGED_INSTALL_MARKERS",
     "MCP_AGENTS_SERVER_NAME",
     "MCP_TOOLS_SERVER_NAME",
     "LEGACY_MCP_AGENTS_SERVER_NAMES",
