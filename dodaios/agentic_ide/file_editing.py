@@ -41,6 +41,7 @@ from dodaios.core.path_safety import UnsafePathError, contained_path
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 from .folders import _SKIP_DIRS
+from .system_trash import move_to_trash
 
 log = logging.getLogger(__name__)
 
@@ -565,21 +566,14 @@ class TrashUnavailable(EditError):
 def _move_to_trash(target: Path) -> bool:
     """Send ``target`` to the system trash; False when this machine has none.
 
-    ``send2trash`` covers the Windows Recycle Bin, the macOS Trash and the
-    freedesktop trash on Linux. It is optional: a headless server without it
-    (or without a trash folder) gets an honest "permanent delete?" question
-    from the editor instead of a silent permanent delete.
+    A machine without a trash (a headless server) gets an honest "permanent
+    delete?" question from the editor instead of a silent permanent delete.
     """
     try:
-        from send2trash import send2trash  # type: ignore[import-not-found]
-    except ImportError:  # no trash support: the editor asks before a permanent delete
-        return False
-    try:
-        send2trash(str(target))
+        return move_to_trash(target)
     except OSError as exc:
         logger.info("Editor delete: system trash refused {}: {}", target.name, exc)
         return False
-    return True
 
 
 def delete_entry(root: str | os.PathLike[str], path: str, *, permanent: bool = False) -> bool:
