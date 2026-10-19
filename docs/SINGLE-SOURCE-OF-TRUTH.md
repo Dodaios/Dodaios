@@ -50,7 +50,7 @@ Consequences that shape the whole codebase:
 - **Compute-device selection is CPU-first (ADR-0024).** The default device is always
   `cpu`; a GPU is used only when a component is *explicitly* asked for one via config
   **and** a capability verdict confirms it is usable. One central policy —
-  `jarvis/core/device.py::resolve_device` — expresses this: `auto`/empty/unknown resolve
+  `dodaios/core/device.py::resolve_device` — expresses this: `auto`/empty/unknown resolve
   to CPU, an explicit `device = "cuda"` is the honored opt-in, and a known-bad GPU
   degrades to CPU with a logged warning. The capability verdict is *injected*, so the
   always-on wake path keeps its strict out-of-process inference gate (AP-25) while the
@@ -88,8 +88,8 @@ L0 OS/Hardware     Win32, CUDA, Mic/Speakers, global-hotkeys
 ```
 
 **The strict dependency rule.** Higher layers reach lower layers **only through protocols**
-(`jarvis/core/protocols.py`). Lateral communication happens **only** via typed events on the
-`EventBus` (`jarvis/core/bus.py`). This keeps the layers swappable and testable in isolation,
+(`dodaios/core/protocols.py`). Lateral communication happens **only** via typed events on the
+`EventBus` (`dodaios/core/bus.py`). This keeps the layers swappable and testable in isolation,
 and it is what lets the same orchestration core run on a Windows desktop or a headless VPS —
 only the bottom layers (L0–L2) change.
 
@@ -113,10 +113,10 @@ the first sentence while the rest is still being generated.
 
 ## 4. The Plugin System
 
-Plugins live under `jarvis/plugins/<group>/<name>.py` and register via `pyproject.toml`
+Plugins live under `dodaios/plugins/<group>/<name>.py` and register via `pyproject.toml`
 entry-points (`[project.entry-points."dodaios.<group>"]`). The system is **structural, not
 nominal**: a plugin must satisfy the *shape* of a protocol, but **must not import from
-`jarvis.*`** inside the plugin module. This keeps plugins decoupled and independently
+`dodaios.*`** inside the plugin module. This keeps plugins decoupled and independently
 distributable.
 
 The plugin groups: `dodaios.wakeword`, `dodaios.stt`, `dodaios.tts`, `dodaios.brain`,
@@ -252,7 +252,7 @@ Latency budgets are SLO-gated and regressions fail CI: p95 wake→ACK < 1.2 s, i
 ## 11. Cross-Platform Desktop Features (the six ports)
 
 Six features that were historically Windows-only are now cross-platform behind a shared
-capability seam (`jarvis/platform/`): a `detect_platform()` probe plus a cached frozen
+capability seam (`dodaios/platform/`): a `detect_platform()` probe plus a cached frozen
 `Capabilities` snapshot. Each feature = one Protocol + one per-OS implementation + a
 `sys.platform` factory + a graceful logged null-fallback.
 
@@ -280,7 +280,7 @@ the *defense* is core project knowledge.
 1. **Four-layer restore trap** (BUG-006 → -014 → -015). A fix "works in tests" but the live
    app behaves unchanged after restart, because the change landed in a worktree / stale
    frontend build / RAM bundle / an editable-install pinned to a deleted clone.
-   *Defense:* `pwsh scripts/preflight.ps1` + `python -c "import jarvis; print(jarvis.__file__)"`.
+   *Defense:* `pwsh scripts/preflight.ps1` + `python -c "import dodaios; print(dodaios.__file__)"`.
 
 2. **Multi-layer enum drift** (BUG-008, four episodes). A vocabulary string (e.g. a mission
    status or hangup reason) added in only one of its five layers (Python ↔ SQL ↔ Pydantic ↔
@@ -294,7 +294,7 @@ the *defense* is core project knowledge.
 
 4. **Subprocess console flicker** (BUG-012). A `subprocess` call missing
    `NO_WINDOW_CREATIONFLAGS` causes a flicker storm under `pythonw.exe`. *Defense:* every new
-   subprocess call imports the flag from `jarvis.core.process_utils`.
+   subprocess call imports the flag from `dodaios.core.process_utils`.
 
 5. **Audio host-API blocking-write trap** (BUG-014). The auto-resolver picks WDM-KS, whose
    blocking write API crashes PortAudio, producing silent TTS. *Defense:* a forbidden-host-API

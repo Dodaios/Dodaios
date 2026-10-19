@@ -4,7 +4,7 @@
 > dual-backend, AD-9 terminal `ptyprocess`, AD-14 dependency grouping, AD-15
 > platform-conditional `KNOWN_APPS`). This wave depends on **Wave 0** being
 > merged and its CI matrix green (AD-4) — every seam factory reads
-> `jarvis.platform.capabilities.detect_capabilities()`.
+> `dodaios.platform.capabilities.detect_capabilities()`.
 
 ---
 
@@ -30,10 +30,10 @@ on all three OS legs (EK-4), the terminal via a real PTY.
 
 ### 1.1 — Terminal: `PtyBackend` protocol + `UnixPtyBackend` (ptyprocess)
 
-- **Create:** `jarvis/terminal/backend.py` (the `PtyBackend` `Protocol` + a
+- **Create:** `dodaios/terminal/backend.py` (the `PtyBackend` `Protocol` + a
   `WinptyBackend` thin wrapper + `UnixPtyBackend` + a `make_pty_backend()`
   factory), `tests/fakes/fake_pty_backend.py`, `tests/unit/terminal/test_unix_pty.py`.
-- **Modify:** `jarvis/terminal/pty_manager.py` — replace the inline
+- **Modify:** `dodaios/terminal/pty_manager.py` — replace the inline
   `from winpty import PtyProcess` at `pty_manager.py:71` and the five direct
   `proc.*` calls (`proc.write` `:127`, `proc.setwinsize` `:138`,
   `proc.terminate(force=True)` `:173`, `proc.read(4096)` `:193`,
@@ -67,13 +67,13 @@ on all three OS legs (EK-4), the terminal via a real PTY.
   - `pytest tests/unit/terminal/test_unix_pty.py -v` green (spawns a real
     `bash -c "echo hi"` via `ptyprocess`, asserts the bytes round-trip and
     `exitstatus == 0`).
-  - `python -c "from jarvis.terminal.backend import make_pty_backend; print(type(make_pty_backend()).__name__)"` prints `UnixPtyBackend` on Linux/macOS, `WinptyBackend` on Windows.
+  - `python -c "from dodaios.terminal.backend import make_pty_backend; print(type(make_pty_backend()).__name__)"` prints `UnixPtyBackend` on Linux/macOS, `WinptyBackend` on Windows.
   - `pytest tests/unit/terminal/ -v` green on all three OS legs (no `skip_ci` marker — terminal is fully CI-provable per AD-9).
-  - `ruff check jarvis/terminal/ && mypy jarvis/terminal/` clean.
+  - `ruff check dodaios/terminal/ && mypy dodaios/terminal/` clean.
 
 ### 1.2 — Terminal: Unix shell discovery in `shells.py`
 
-- **Modify:** `jarvis/terminal/shells.py` (add a Unix branch to `discover_shells()`
+- **Modify:** `dodaios/terminal/shells.py` (add a Unix branch to `discover_shells()`
   at `:71-78`; keep the four Windows factories `_powershell_7` `:23`,
   `_windows_powershell` `:35`, `_cmd` `:48`, `_git_bash` `:55` untouched per AD-7).
 - **Create:** `tests/unit/terminal/test_unix_shells.py`.
@@ -92,14 +92,14 @@ on all three OS legs (EK-4), the terminal via a real PTY.
   - `pytest tests/unit/terminal/test_unix_shells.py -v` green (monkeypatches
     `$SHELL`, a fake `/etc/shells`, and `shutil.which`; asserts dedup + order +
     `argv == (path, "-i")`).
-  - `python -c "from jarvis.terminal.shells import discover_shells; print([s.id for s in discover_shells()])"` lists at least `bash` on a CI Linux runner.
-  - `python -c "import ast; m=ast.parse(open('jarvis/terminal/shells.py').read()); assert all(not (getattr(n,'module',None)=='winreg') for n in ast.walk(m))"` exits 0 (no Windows-only module-scope import introduced).
+  - `python -c "from dodaios.terminal.shells import discover_shells; print([s.id for s in discover_shells()])"` lists at least `bash` on a CI Linux runner.
+  - `python -c "import ast; m=ast.parse(open('dodaios/terminal/shells.py').read()); assert all(not (getattr(n,'module',None)=='winreg') for n in ast.walk(m))"` exits 0 (no Windows-only module-scope import introduced).
 
 ### 1.3 — App-launch: cross-platform `resolve_app_launch_target` + platform `KNOWN_APPS`
 
-- **Modify:** `jarvis/plugins/tool/app_resolver.py` (add `sys.platform` branches to
+- **Modify:** `dodaios/plugins/tool/app_resolver.py` (add `sys.platform` branches to
   `resolve_app_launch_target` `:88`; `winreg` is already lazy-guarded at `:24-27`,
-  keep it), `jarvis/plugins/tool/open_app.py` (make `KNOWN_APPS` `:23` and the
+  keep it), `dodaios/plugins/tool/open_app.py` (make `KNOWN_APPS` `:23` and the
   launch call `:137-156` platform-conditional).
 - **Create:** `tests/unit/plugins/tool/test_app_resolver_unix.py`.
 - **Approach:**
@@ -133,18 +133,18 @@ on all three OS legs (EK-4), the terminal via a real PTY.
     (monkeypatches `detect_platform`→`darwin`/`linux`, asserts `safari`→`open_a`,
     a PATH tool→`executable`, an unknown name→`xdg_open`/raw, and that a URL still
     short-circuits to the shell verb).
-  - `python -c "from jarvis.plugins.tool.open_app import KNOWN_APPS; assert 'safari' in KNOWN_APPS or 'firefox' in KNOWN_APPS"` exits 0 on a non-Windows box.
+  - `python -c "from dodaios.plugins.tool.open_app import KNOWN_APPS; assert 'safari' in KNOWN_APPS or 'firefox' in KNOWN_APPS"` exits 0 on a non-Windows box.
   - `pytest tests/unit/plugins/tool/ -k app -v` green on all three OS legs (resolution logic only; an actual launch is a live check, not asserted in CI).
-  - `ruff check jarvis/plugins/tool/ && mypy jarvis/plugins/tool/app_resolver.py` clean.
+  - `ruff check dodaios/plugins/tool/ && mypy dodaios/plugins/tool/app_resolver.py` clean.
 
 ### 1.4 — Hotkey: `HotkeyBackend` protocol + per-OS backends (pynput / global-hotkeys / noop)
 
-- **Create:** `jarvis/trigger/backends/__init__.py` (the `HotkeyBackend` `Protocol`
-  + `make_hotkey_backend()` factory), `jarvis/trigger/backends/global_hotkeys.py`
-  (wraps the existing Windows `_KEY_MAP`/refcount logic), `jarvis/trigger/backends/pynput.py`,
-  `jarvis/trigger/backends/noop.py`, `tests/fakes/fake_hotkey_backend.py`,
+- **Create:** `dodaios/trigger/backends/__init__.py` (the `HotkeyBackend` `Protocol`
+  + `make_hotkey_backend()` factory), `dodaios/trigger/backends/global_hotkeys.py`
+  (wraps the existing Windows `_KEY_MAP`/refcount logic), `dodaios/trigger/backends/pynput.py`,
+  `dodaios/trigger/backends/noop.py`, `tests/fakes/fake_hotkey_backend.py`,
   `tests/unit/trigger/test_hotkey_backends.py`.
-- **Modify:** `jarvis/trigger/hotkey.py` — extract the `global_hotkeys` calls
+- **Modify:** `dodaios/trigger/hotkey.py` — extract the `global_hotkeys` calls
   (`import global_hotkeys` `:241`, `gh.remove_hotkeys`/`gh.register_hotkeys`
   `:279`/`:288`, `_start_checker_once`/`_stop_checker_once` `:301`/`:313`,
   `_normalize_combo` `:104` + `_KEY_MAP` `:50`, the refcount guard `:69-101`)
@@ -186,8 +186,8 @@ on all three OS legs (EK-4), the terminal via a real PTY.
     selection per platform, the Windows refcount 0↔1 boundary, and that the noop
     backend logs-once-then-no-ops without raising).
   - `pytest tests/unit/trigger/test_hotkey.py -v` (existing 48-case suite) stays green — the degrade contract and PTT edges are unchanged.
-  - `python -c "from jarvis.trigger.backends import make_hotkey_backend; print(type(make_hotkey_backend()).__name__)"` prints `PynputBackend` or `NoopBackend` on Linux (never raises, never `GlobalHotkeysBackend`).
-  - `python -c "import ast; m=ast.parse(open('jarvis/trigger/hotkey.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='global_hotkeys' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (the module-scope `global_hotkeys` import moved into the backend; lazy import inside a function is still allowed there).
+  - `python -c "from dodaios.trigger.backends import make_hotkey_backend; print(type(make_hotkey_backend()).__name__)"` prints `PynputBackend` or `NoopBackend` on Linux (never raises, never `GlobalHotkeysBackend`).
+  - `python -c "import ast; m=ast.parse(open('dodaios/trigger/hotkey.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='global_hotkeys' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (the module-scope `global_hotkeys` import moved into the backend; lazy import inside a function is still allowed there).
 
 ### 1.5 — Dependency grouping for `[desktop]` (ptyprocess + pynput)
 
@@ -212,23 +212,23 @@ on all three OS legs (EK-4), the terminal via a real PTY.
 
 Three independent worktrees, one feature each — no shared files:
 
-- **Worktree A — Terminal:** 1.1 + 1.2 (`jarvis/terminal/`).
-- **Worktree B — App-launch:** 1.3 (`jarvis/plugins/tool/{app_resolver,open_app}.py`).
-- **Worktree C — Hotkey:** 1.4 (`jarvis/trigger/`).
+- **Worktree A — Terminal:** 1.1 + 1.2 (`dodaios/terminal/`).
+- **Worktree B — App-launch:** 1.3 (`dodaios/plugins/tool/{app_resolver,open_app}.py`).
+- **Worktree C — Hotkey:** 1.4 (`dodaios/trigger/`).
 
 Sub-task **1.5** (pyproject extras) is a one-line additive edit touched by both
 Worktree A (`ptyprocess`) and Worktree C (`pynput`); to avoid a merge conflict on
 `pyproject.toml`, land 1.5 as a tiny standalone PR **first** (or assign it to
 Worktree A and have C rebase). Each worktree runs `pwsh scripts/preflight.ps1`
-before coding (AD-UF23 / BUG-006/014) and confirms `python -c "import jarvis;
-print(jarvis.__file__)"` points at the worktree clone.
+before coding (AD-UF23 / BUG-006/014) and confirms `python -c "import dodaios;
+print(dodaios.__file__)"` points at the worktree clone.
 
 ## EK acceptance gate
 
 This wave satisfies **EK-4** (Terminal + App-launch resolution + Hotkey logic
 CI-verified on the ubuntu+macos runners, terminal via a real PTY) and advances
 **EK-2** (three of the six features now have a per-OS implementation behind their
-seam, selected by the `jarvis/platform/` factory, degrading to a logged no-op
+seam, selected by the `dodaios/platform/` factory, degrading to a logged no-op
 when the capability is absent) and **EK-3** (each new seam ships a
 `tests/fakes/` fake — `fake_pty_backend.py`, `fake_hotkey_backend.py` — and
 unit tests, no `unittest.mock`).
@@ -236,7 +236,7 @@ unit tests, no `unittest.mock`).
 ## Dependencies on prior waves
 
 **Wave 0 only.** All three seam factories call
-`jarvis.platform.capabilities.detect_capabilities()` (`has_pty`, `has_hotkey`,
-`is_wayland`) and `jarvis.platform.detect_platform()`, both built in Wave 0
+`dodaios.platform.capabilities.detect_capabilities()` (`has_pty`, `has_hotkey`,
+`is_wayland`) and `dodaios.platform.detect_platform()`, both built in Wave 0
 (sub-tasks 0.1/0.2). No code from this wave may merge until Wave 0's CI matrix
 (0.3) is green (AD-4). No dependency on Wave 2/3/4.

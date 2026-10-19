@@ -22,8 +22,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException, UploadFile
 
-from jarvis.skills.registry import SkillRegistry
-from jarvis.ui.web import skills_routes as routes
+from dodaios.skills.registry import SkillRegistry
+from dodaios.ui.web import skills_routes as routes
 
 _SKILL_MD = (
     "---\n"

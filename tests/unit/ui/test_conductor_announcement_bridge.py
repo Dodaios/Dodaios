@@ -22,9 +22,9 @@ from typing import Any
 import pytest
 
 from conductor import NEWS_EVENT
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.ui.desktop_app import _make_conductor_announcer
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.ui.desktop_app import _make_conductor_announcer
 
 
 class _Heard:
@@ -120,7 +120,7 @@ async def test_a_pin_beats_the_conversation_language() -> None:
 async def test_the_announcement_survives_a_hangup() -> None:
     """A job that breaks at 03:00 has to reach a user with no session open, so
     it must carry a readback kind (the pipeline's ``_READBACK_KINDS``)."""
-    from jarvis.speech.pipeline import _READBACK_KINDS
+    from dodaios.speech.pipeline import _READBACK_KINDS
 
     bus = EventBus()
     heard = _Heard(bus)
@@ -186,7 +186,7 @@ async def test_an_unreadable_brain_still_gets_the_news_out() -> None:
 
 @pytest.mark.parametrize("language", ["de", "en", "es", "pt"])
 def test_every_supported_locale_has_both_sentences(language: str) -> None:
-    from jarvis.ui.desktop_app import _conductor_news_sentence
+    from dodaios.ui.desktop_app import _conductor_news_sentence
 
     for kind in ("failing", "recovered"):
         text = _conductor_news_sentence(kind, "Nightly Backup", language)

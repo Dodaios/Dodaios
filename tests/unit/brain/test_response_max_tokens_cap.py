@@ -19,10 +19,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.dispatcher import BrainDispatcher
-from jarvis.brain.tool_use_loop import ToolUseLoop
-from jarvis.core.config import BrainConfig
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest, ToolResult
+from dodaios.brain.dispatcher import BrainDispatcher
+from dodaios.brain.tool_use_loop import ToolUseLoop
+from dodaios.core.config import BrainConfig
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest, ToolResult
 
 
 class _RecordingBrain:

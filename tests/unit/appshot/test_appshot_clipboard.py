@@ -12,9 +12,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from jarvis.appshot import service
-from jarvis.appshot.store import Appshot
-from jarvis.platform import clipboard_image
+from dodaios.appshot import service
+from dodaios.appshot.store import Appshot
+from dodaios.platform import clipboard_image
 
 
 def _png() -> bytes:
@@ -112,8 +112,8 @@ async def test_the_lossless_picture_is_what_gets_copied(
 
 
 def test_copy_to_clipboard_defaults_on_and_is_a_settings_key() -> None:
-    from jarvis.core.config import AppshotConfig
-    from jarvis.core.config_writer import APPSHOT_SETTING_KEYS
+    from dodaios.core.config import AppshotConfig
+    from dodaios.core.config_writer import APPSHOT_SETTING_KEYS
 
     assert AppshotConfig().copy_to_clipboard is True
     assert "copy_to_clipboard" in APPSHOT_SETTING_KEYS
@@ -122,8 +122,8 @@ def test_copy_to_clipboard_defaults_on_and_is_a_settings_key() -> None:
 def test_the_settings_route_reads_and_writes_the_switch(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    from jarvis.core import config_writer
-    from jarvis.ui.web import appshot_routes
+    from dodaios.core import config_writer
+    from dodaios.ui.web import appshot_routes
 
     written: list[dict] = []
     monkeypatch.setattr(

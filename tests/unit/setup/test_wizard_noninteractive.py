@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from jarvis.setup.wizard import _is_noninteractive, run
+from dodaios.setup.wizard import _is_noninteractive, run
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ class TestRunNoninteractive:
 
         with (
             patch.object(builtins, "input", side_effect=_input_must_not_be_called),
-            patch("jarvis.setup.wizard.cfg.mark_setup_complete", mark_complete),
+            patch("dodaios.setup.wizard.cfg.mark_setup_complete", mark_complete),
         ):
             rc = run()
 

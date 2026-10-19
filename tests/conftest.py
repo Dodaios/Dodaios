@@ -14,7 +14,7 @@ if str(_REPO_ROOT) not in sys.path:
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 
-from jarvis.core.bus import EventBus, reset_default_bus  # noqa: E402
+from dodaios.core.bus import EventBus, reset_default_bus  # noqa: E402
 
 
 def pytest_configure(config) -> None:  # noqa: ANN001
@@ -34,18 +34,18 @@ def _society_runtime_isolated():
     tool-set assertions fail depending on test order. The brain's registered
     society factory is restored for the same reason.
     """
-    runtime_module = sys.modules.get("jarvis.society.runtime")
+    runtime_module = sys.modules.get("dodaios.society.runtime")
     runtime_before = runtime_module.current_runtime() if runtime_module is not None else None
     # Some suites stub these modules in sys.modules; only a real list is tracked.
-    ref = getattr(sys.modules.get("jarvis.brain.factory"), "_SOCIETY_FACTORY_REF", None)
+    ref = getattr(sys.modules.get("dodaios.brain.factory"), "_SOCIETY_FACTORY_REF", None)
     # Not imported yet means the import-time state: no factory registered.
     factory_before = list(ref) if isinstance(ref, list) else []
     yield
-    runtime_module = sys.modules.get("jarvis.society.runtime")
+    runtime_module = sys.modules.get("dodaios.society.runtime")
     restore = getattr(runtime_module, "set_current_runtime", None)
     if callable(restore) and runtime_module.current_runtime() is not runtime_before:
         restore(runtime_before)
-    ref = getattr(sys.modules.get("jarvis.brain.factory"), "_SOCIETY_FACTORY_REF", None)
+    ref = getattr(sys.modules.get("dodaios.brain.factory"), "_SOCIETY_FACTORY_REF", None)
     if isinstance(ref, list) and ref != factory_before:
         ref[:] = factory_before
 
@@ -64,8 +64,8 @@ def _authenticated_test_clients(request, monkeypatch):  # noqa: ANN001
 
     from fastapi.testclient import TestClient
 
-    from jarvis.ui.web.missions_auth import register_token, revoke_token
-    from jarvis.ui.web.surface_security import COOKIE_NAME
+    from dodaios.ui.web.missions_auth import register_token, revoke_token
+    from dodaios.ui.web.surface_security import COOKIE_NAME
 
     token = "jarvis-pytest-browser-session"  # noqa: S105
     monkeypatch.setenv("JARVIS_TRUSTED_HOSTS", "testserver,test")
@@ -99,7 +99,7 @@ def _browser_lock_pinned_on():
     machine's real ``jarvis.toml``. Tests that exercise the open-access mode
     flip the flag explicitly and rely on this fixture's teardown reset.
     """
-    from jarvis.ui.web.surface_security import (
+    from dodaios.ui.web.surface_security import (
         reset_browser_login_required,
         set_browser_login_required,
     )
@@ -132,7 +132,7 @@ def _agentic_ide_history_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     protects the developer's data; the rule itself is verified against the real
     temp directory in ``test_recents_scratch_folders.py``.
     """
-    from jarvis.agentic_ide import recents, resume_store
+    from dodaios.agentic_ide import recents, resume_store
 
     root = tmp_path_factory.mktemp("agentic-ide-history")
     monkeypatch.setattr(recents, "_store_path", lambda: root / "recents.json")
@@ -160,7 +160,7 @@ def _agent_trust_configs_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     imported the function by name are covered and ``test_trust.py`` still
     exercises the real writer against its own temporary home.
     """
-    from jarvis.workspace import trust
+    from dodaios.workspace import trust
 
     fake_home = tmp_path_factory.mktemp("agent-trust-home")
     base = tmp_path_factory.getbasetemp().resolve()
@@ -199,9 +199,9 @@ def _macos_shell_registration_in_tmp(tmp_path_factory, monkeypatch):  # noqa: AN
     history redirect above: the leak comes in through whichever suite nobody
     thought of. Suites that test these calls themselves patch on top of this.
     """
-    import jarvis.autostart.macos as autostart_macos
-    import jarvis.setup.macos_app_bundle as mab
-    import jarvis.setup.macos_search_index as search_index
+    import dodaios.autostart.macos as autostart_macos
+    import dodaios.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_search_index as search_index
 
     agents = tmp_path_factory.mktemp("launch-agents")
     monkeypatch.setattr(autostart_macos, "_agents_dir", lambda: agents)
@@ -211,7 +211,7 @@ def _macos_shell_registration_in_tmp(tmp_path_factory, monkeypatch):  # noqa: AN
     monkeypatch.setattr(mab, "_LSREGISTER", str(agents / "no-lsregister"))
     monkeypatch.setattr(search_index, "_MDIMPORT", str(agents / "no-mdimport"))
     # ``defaults write com.apple.dock`` + ``killall Dock`` on a developer's Mac.
-    import jarvis.setup.macos_dock as macos_dock
+    import dodaios.setup.macos_dock as macos_dock
 
     monkeypatch.setattr(macos_dock, "_DEFAULTS", str(agents / "no-defaults"))
     monkeypatch.setattr(macos_dock, "_KILLALL", str(agents / "no-killall"))
@@ -220,7 +220,7 @@ def _macos_shell_registration_in_tmp(tmp_path_factory, monkeypatch):  # noqa: AN
     # names the two files an earlier build left behind is the one-time cleanup on
     # the darwin install path, and a suite that reaches it must not delete the
     # developer's real copies.
-    import jarvis.platform.permissions as permissions
+    import dodaios.platform.permissions as permissions
 
     monkeypatch.setattr(permissions, "_leftover_state_dir", lambda: agents)
     # The rebuild fingerprint is written into the data directory whenever a darwin
@@ -234,7 +234,7 @@ def _pricing_feed_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     """Keep cost tracking's provider-feed refresh off the network and off the
     developer's real ``data/model_catalog_cache.json``.
 
-    ``jarvis.brain.cost.ensure_pricing_for`` prices a model the static table
+    ``dodaios.brain.cost.ensure_pricing_for`` prices a model the static table
     does not know by refreshing the OpenRouter feed ONCE per process — a real
     HTTP round-trip that would also rewrite the real cache file. Every suite
     that runs a brain turn with a made-up model id ("fake-model") would trigger
@@ -246,7 +246,7 @@ def _pricing_feed_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     import json
     import time
 
-    from jarvis.brain import cost
+    from dodaios.brain import cost
 
     root = tmp_path_factory.mktemp("pricing-feed")
     path = root / "model_catalog_cache.json"
@@ -273,7 +273,7 @@ def _background_policy_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     route test would erase the developer's real marker. Tests that need a
     login script it through ``_probe_override``.
     """
-    from jarvis.brain import background_policy
+    from dodaios.brain import background_policy
 
     root = tmp_path_factory.mktemp("background-policy")
     monkeypatch.setattr(background_policy, "_marker_path", lambda: root / "subscription_seen.json")
@@ -287,7 +287,7 @@ def _background_policy_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
 def _mission_paid_ledger_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     """Keep the missions' rolling paid-use ledger off the developer's real data
     directory: it records real spend and gates automatic paid API use."""
-    from jarvis.missions import capacity
+    from dodaios.missions import capacity
 
     root = tmp_path_factory.mktemp("mission-paid-ledger")
     monkeypatch.setattr(
@@ -302,7 +302,7 @@ def _app_action_state_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     """Every registry-command or app-action call records its outcome for the
     Jarvis-actions page; keep that, and the per-action policy, off the
     developer's real ``data/state``."""
-    from jarvis.app_actions import history, policy
+    from dodaios.app_actions import history, policy
 
     root = tmp_path_factory.mktemp("app-actions")
     monkeypatch.setattr(policy, "policy_path", lambda: root / "policy.json")
@@ -317,7 +317,7 @@ def _provider_health_ledger_in_tmp(tmp_path_factory):  # noqa: ANN001
     """Every real brain/speech/realtime call records its outcome for the
     status dots; keep that record off the developer's real ``data/state`` and
     start every test with an empty one."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     root = tmp_path_factory.mktemp("provider-health")
     ledger.set_ledger(ledger.ProviderHealthLedger(root / ledger.LEDGER_FILE_NAME))
@@ -333,7 +333,7 @@ def _short_pane_delivery_waits(monkeypatch):  # noqa: ANN001
     Tests that exercise those windows set their own values."""
     import sys
 
-    session = sys.modules.get("jarvis.agentic_ide.session")
+    session = sys.modules.get("dodaios.agentic_ide.session")
     if session is not None:
         monkeypatch.setattr(session, "_FIRST_PROMPT_COMPOSER_WAIT_S", 0.05, raising=False)
         monkeypatch.setattr(session, "_LATE_ARRIVAL_WINDOW_S", 0.05, raising=False)
@@ -351,7 +351,7 @@ def _reset_bus():
 def _reset_config_caches():
     """Start every test with a cold config cache.
 
-    ``jarvis.core.config`` remembers the parsed TOML and the routing decision
+    ``dodaios.core.config`` remembers the parsed TOML and the routing decision
     derived from it, both keyed on the config FILE's identity — which is what
     makes them safe in production and unsafe across tests: a suite that swaps
     the config by monkeypatching ``load_config`` changes nothing about any file,
@@ -362,7 +362,7 @@ def _reset_config_caches():
     previous test's data — which is silent, order-dependent, and exactly what
     caught three model-catalog tests when the routing cache was introduced.
     """
-    from jarvis.core.config import clear_config_cache
+    from dodaios.core.config import clear_config_cache
 
     clear_config_cache()
     yield
@@ -373,14 +373,14 @@ def _reset_config_caches():
 def _reset_entry_point_cache():
     """Start every test with a cold entry-point catalogue.
 
-    Same reasoning as the config caches above: ``jarvis.core.entry_points``
+    Same reasoning as the config caches above: ``dodaios.core.entry_points``
     remembers the installed plugin catalogue for the life of the process, which
     is safe in production (a new entry-point needs a restart anyway) and unsafe
     across tests — a suite that monkeypatches ``importlib.metadata.entry_points``
     to fake a plugin set would otherwise be answered from whatever an earlier
     test happened to read from the real installation.
     """
-    from jarvis.core.entry_points import invalidate
+    from dodaios.core.entry_points import invalidate
 
     invalidate()
     yield
@@ -391,7 +391,7 @@ def _reset_entry_point_cache():
 def _reset_permission_service():
     """Start and end every test with a cold permission service.
 
-    ``jarvis.platform.permission_service`` keeps open episodes, listeners and a
+    ``dodaios.platform.permission_service`` keeps open episodes, listeners and a
     bus handle for the life of the process. That is right in production and wrong
     across tests: an episode one test opened would answer the next test's
     ``ensure()`` with ``asked=False``, and a listener would outlive the loop it
@@ -401,12 +401,12 @@ def _reset_permission_service():
     that never touched the service must not pay for it (or load it on a base
     install), and a module that is not loaded has nothing to reset.
     """
-    module = sys.modules.get("jarvis.platform.permission_service")
+    module = sys.modules.get("dodaios.platform.permission_service")
     if module is not None:
         module._reset_for_tests()
     yield
     # Re-read: the test itself may have been the first to import the module.
-    module = sys.modules.get("jarvis.platform.permission_service")
+    module = sys.modules.get("dodaios.platform.permission_service")
     if module is not None:
         module._reset_for_tests()
 
@@ -423,7 +423,7 @@ def prefixed_environment_restored():
     """Put every ``JARVIS_*`` / ``DODAIOS_*`` variable back after the test.
 
     For a test that runs the new-prefix adoption on the real process
-    environment (``jarvis.core.env_prefix``, or the frozen runtime hook that
+    environment (``dodaios.core.env_prefix``, or the frozen runtime hook that
     carries a copy of it): the adoption writes the ``JARVIS_`` name of every
     ``DODAIOS_`` variable, and ``monkeypatch`` only takes back the names the
     test itself set.

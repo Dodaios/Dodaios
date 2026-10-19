@@ -11,23 +11,23 @@ import pytest
 from fastapi import FastAPI
 from pydantic import ValidationError
 
-from jarvis.core.bus import EventBus
-from jarvis.tasks import webhook_auth
-from jarvis.tasks.hook_inbox import MAX_PAYLOAD_BYTES, encode_payload, matches
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.schema import (
+from dodaios.core.bus import EventBus
+from dodaios.tasks import webhook_auth
+from dodaios.tasks.hook_inbox import MAX_PAYLOAD_BYTES, encode_payload, matches
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.schema import (
     AgentAction,
     TaskSpec,
     TriggerEventHook,
     TriggerOnEvent,
     TriggerWebhook,
 )
-from jarvis.tasks.store import TaskStore
-from jarvis.ui.web.control_auth import require_control_key_or_session
-from jarvis.ui.web.routine_hooks_routes import router as hooks_router
-from jarvis.ui.web.surface_security import SurfaceSecurity
-from jarvis.ui.web.tasks_routes import router
+from dodaios.tasks.store import TaskStore
+from dodaios.ui.web.control_auth import require_control_key_or_session
+from dodaios.ui.web.routine_hooks_routes import router as hooks_router
+from dodaios.ui.web.surface_security import SurfaceSecurity
+from dodaios.ui.web.tasks_routes import router
 
 
 class Brain:

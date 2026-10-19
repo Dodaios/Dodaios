@@ -8,15 +8,15 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.society.events import MsgType
-from jarvis.society.learning import (
+from dodaios.society.events import MsgType
+from dodaios.society.learning import (
     AgentSkills,
     LearningPass,
     RunLearnedSkillTool,
     TurnDigest,
     should_learn,
 )
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.runtime import SocietyRuntime
 
 CTX = SimpleNamespace(trace_id=uuid4(), user_utterance="", config={}, memory_read=None)
 
@@ -128,7 +128,7 @@ async def test_learned_skill_stays_a_private_draft(rt: SocietyRuntime, tmp_path:
     memory = tmp_path / "vault" / "society" / "tuber" / "MEMORY.md"
     assert memory.is_file() and "thumbnail-style" in memory.read_text(encoding="utf-8")
     # The global user skills dir is untouched until promotion.
-    from jarvis.skills.bootstrap import ensure_user_skills_dir
+    from dodaios.skills.bootstrap import ensure_user_skills_dir
 
     assert not any(p.name.startswith("tuber-") for p in ensure_user_skills_dir().iterdir())
 
@@ -145,7 +145,7 @@ async def test_run_learned_skill_tool_and_briefing(rt: SocietyRuntime, tmp_path:
     missing = await tool.execute({"skill": "nope"}, CTX)
     assert missing.success is False and "thumbnail-style" in missing.output["known"]
 
-    from jarvis.society.surface import society_system_extra
+    from dodaios.society.surface import society_system_extra
 
     session = SimpleNamespace(
         session_id="society:tuber", cwd=str(tmp_path / "ws"), permission_mode="ask"
@@ -167,7 +167,7 @@ async def test_daily_cap_and_creator_failure(rt: SocietyRuntime):
 
 
 async def test_promote_copies_as_draft(rt: SocietyRuntime, tmp_path: Path, monkeypatch):
-    import jarvis.skills.bootstrap as bootstrap
+    import dodaios.skills.bootstrap as bootstrap
 
     user_dir = tmp_path / "user-skills"
     user_dir.mkdir()
@@ -188,8 +188,8 @@ async def test_watch_turn_feeds_the_learner(tmp_path: Path):
     """The end of a chat-run assignment digests the turn and learns off-path."""
     import asyncio
 
-    from jarvis.agent_chat.store import AgentChatStore
-    from jarvis.society.events import SocietyEnvelope
+    from dodaios.agent_chat.store import AgentChatStore
+    from dodaios.society.events import SocietyEnvelope
     from tests.unit.society.test_chat_binding import FakeTurnService
 
     svc = FakeTurnService(AgentChatStore(tmp_path / "agent_chat.db"))

@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.core import config as cfg
-from jarvis.core.instance import DEV_PORT_OFFSET, INSTANCE_ENV_VAR
-from jarvis.state.chat_store import default_chats_db_path
+from dodaios.core import config as cfg
+from dodaios.core.instance import DEV_PORT_OFFSET, INSTANCE_ENV_VAR
+from dodaios.state.chat_store import default_chats_db_path
 
 
 def _toml(tmp_path: Path, body: str) -> Path:

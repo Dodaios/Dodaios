@@ -6,7 +6,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from jarvis.missions.critic.verdict import (
+from dodaios.missions.critic.verdict import (
     CRITIC_JSON_SCHEMA,
     LOW_CONFIDENCE_THRESHOLD,
     REQUIRED_AXES,

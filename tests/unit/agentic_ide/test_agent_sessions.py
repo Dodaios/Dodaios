@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import agent_sessions as sessions
+from dodaios.agentic_ide import agent_sessions as sessions
 
 
 def _epoch(iso: str) -> float:
@@ -290,7 +290,7 @@ def test_a_folder_matches_itself_however_it_was_spelled(tmp_path: Path) -> None:
     Windows the drive letter's case can differ too, and there a mismatch would
     silently hide a pane's own conversation from it.
     """
-    from jarvis.agentic_ide.agent_sessions import _same_folder
+    from dodaios.agentic_ide.agent_sessions import _same_folder
 
     native = str(tmp_path)
     assert _same_folder(native, native)
@@ -304,7 +304,7 @@ def test_case_differences_only_matter_where_the_system_says_so(
     tmp_path: Path,
 ) -> None:
     """Windows treats paths case-insensitively; POSIX does not. Follow the host."""
-    from jarvis.agentic_ide.agent_sessions import _same_folder
+    from dodaios.agentic_ide.agent_sessions import _same_folder
 
     swapped = str(tmp_path).upper()
     expected = os.path.normcase(swapped) == os.path.normcase(str(tmp_path))
@@ -315,7 +315,7 @@ def test_each_cli_home_follows_its_own_environment_variable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A managed install can move either history; both must be followed."""
-    from jarvis.agentic_ide.agent_sessions import _claude_home, _codex_home
+    from dodaios.agentic_ide.agent_sessions import _claude_home, _codex_home
 
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude-elsewhere"))
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-elsewhere"))

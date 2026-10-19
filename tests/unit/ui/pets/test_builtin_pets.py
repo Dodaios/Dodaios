@@ -11,12 +11,12 @@ from types import ModuleType
 import pytest
 from PIL import Image
 
-from jarvis.ui.pets.loader import COLOR_KEY, builtin_root, list_pets, load_pet
-from jarvis.ui.pets.states import DEFAULT_PET_ID, PET_STATES
+from dodaios.ui.pets.loader import COLOR_KEY, builtin_root, list_pets, load_pet
+from dodaios.ui.pets.states import DEFAULT_PET_ID, PET_STATES
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 BUILD_SCRIPT = REPO_ROOT / "scripts" / "pets" / "build_pets.py"
-PACKAGE_DIR = REPO_ROOT / "jarvis" / "ui" / "pets"
+PACKAGE_DIR = REPO_ROOT / "dodaios" / "ui" / "pets"
 EXPECTED_PETS = ("gigi", "miso", "brew", "bolt", "mochi", "shelly", "ember", "cocoa")
 
 

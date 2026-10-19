@@ -26,9 +26,9 @@ class ProviderCallRecorder:
         self.calls.append((seam, str(name)))
 
     def install(self, monkeypatch: Any) -> ProviderCallRecorder:
-        from jarvis.brain import healthcheck, provider_registry, provider_test
-        from jarvis.dictation import polish_probe
-        from jarvis.ui.web import provider_routes
+        from dodaios.brain import healthcheck, provider_registry, provider_test
+        from dodaios.dictation import polish_probe
+        from dodaios.ui.web import provider_routes
 
         recorder = self
 

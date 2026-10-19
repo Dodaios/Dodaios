@@ -1,6 +1,6 @@
 """Parity guard: curated capabilities blocks stay valid (anti-drift, AD-CLI9)."""
-from jarvis.clis.capability_provider import DOMAIN_VOCAB
-from jarvis.clis.catalog import CliCatalog
+from dodaios.clis.capability_provider import DOMAIN_VOCAB
+from dodaios.clis.catalog import CliCatalog
 
 CURATED = {
     "gws", "gh", "glab", "gcloud", "az", "aws", "wrangler", "vercel",
@@ -41,8 +41,8 @@ def test_gcloud_vocabulary_resolves_cost_and_overview_phrasings():
     force-spawned a sub-agent mission because the gcloud capability vocabulary
     missed 'gucken', 'Kosten', and 'Google CLI'. These phrasings must resolve
     inline now."""
-    from jarvis.clis.capability_provider import capability_for_spec
-    from jarvis.core.capabilities import CapabilityRegistry
+    from dodaios.clis.capability_provider import capability_for_spec
+    from dodaios.core.capabilities import CapabilityRegistry
 
     cap = capability_for_spec(_seed_specs()["gcloud"])
     assert cap is not None

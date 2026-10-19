@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.secret_guard`` (AP-2).
+"""Unit tests for ``dodaios.memory.wiki.secret_guard`` (AP-2).
 
 The guard is a pure, regex-only function: a body that contains a
 credential shape (API key, bearer token, password, JWT, PEM, long
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.memory.wiki.secret_guard import contains_secret, find_secrets
+from dodaios.memory.wiki.secret_guard import contains_secret, find_secrets
 
 # Assembled at runtime: the guard under test sees the complete PEM header, while
 # the repository's own secret scan never finds a key block in this file.

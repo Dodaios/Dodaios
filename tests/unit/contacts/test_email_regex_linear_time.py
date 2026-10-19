@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from jarvis.contacts.store import _EMAIL_RE
+from dodaios.contacts.store import _EMAIL_RE
 
 
 @pytest.mark.parametrize(

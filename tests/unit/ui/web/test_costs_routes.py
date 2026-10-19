@@ -51,7 +51,7 @@ def _seed(data_dir: Path) -> None:
 
 
 def _client(data_dir: Path) -> TestClient:
-    from jarvis.ui.web.costs_routes import router
+    from dodaios.ui.web.costs_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -71,7 +71,7 @@ def _no_background_cli_scan(monkeypatch: pytest.MonkeyPatch) -> None:
     load stopped sharing a cache entry and the cache test failed on any
     machine with transcripts. The scanner has its own tests in tests/unit/costs.
     """
-    from jarvis.ui.web import costs_routes
+    from dodaios.ui.web import costs_routes
 
     monkeypatch.setattr(costs_routes._refresher, "nudge", lambda data_dir: None)  # noqa: SLF001
 
@@ -285,7 +285,7 @@ def test_one_page_load_reads_the_stores_once(
     cache could not hit. The section then re-read every store four times per
     page and again on every poll — the section's whole cost, paid four times.
     """
-    from jarvis.ui.web import costs_routes
+    from dodaios.ui.web import costs_routes
 
     reads = 0
     real = costs_routes.collect_entries

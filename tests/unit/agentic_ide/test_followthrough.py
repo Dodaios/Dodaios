@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import followthrough as ft
-from jarvis.core.events import AnnouncementRequested, DelegationResultReady
+from dodaios.agentic_ide import followthrough as ft
+from dodaios.core.events import AnnouncementRequested, DelegationResultReady
 
 
 def _finished(prompt, report, *, at=101):
@@ -29,7 +29,7 @@ def pane(monkeypatch):
         transcript=SimpleNamespace(tail=lambda n: ["Which repository should I change?"]),
     )
     monkeypatch.setattr(ft, "_events", lambda t: list(turns))
-    from jarvis.agentic_ide import task_state
+    from dodaios.agentic_ide import task_state
 
     async def completed(_term):
         return task_state.Evidence("completed")
@@ -94,7 +94,7 @@ async def test_question_does_not_consume_later_completion(pane, monkeypatch):
     pending = await arm(pane)
     term, turns = pane
     events = []
-    from jarvis.agentic_ide import activity
+    from dodaios.agentic_ide import activity
 
     monkeypatch.setattr(activity, "shows_question", lambda _term: True)
     await ft.publish_result("needs_input", term, pending, events.append)
@@ -137,7 +137,7 @@ async def test_fast_job_finishing_between_sweeps_still_returns_its_fresh_answer(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("state", ["working", "asking", "unknown", "stopped"])
 async def test_silence_and_interim_text_do_not_announce_completion(pane, monkeypatch, state):
-    from jarvis.agentic_ide import task_state
+    from dodaios.agentic_ide import task_state
 
     pending = await arm(pane)
     term, turns = pane
@@ -155,7 +155,7 @@ async def test_silence_and_interim_text_do_not_announce_completion(pane, monkeyp
 
 @pytest.mark.asyncio
 async def test_auto_resume_during_report_read_does_not_publish_stale_completion(pane, monkeypatch):
-    from jarvis.agentic_ide import task_state
+    from dodaios.agentic_ide import task_state
 
     pending = await arm(pane)
     calls = []
@@ -172,7 +172,7 @@ async def test_auto_resume_during_report_read_does_not_publish_stale_completion(
 
 @pytest.mark.asyncio
 async def test_confirmed_stop_has_distinct_wording_and_no_completion_claim(pane, monkeypatch):
-    from jarvis.agentic_ide import task_state
+    from dodaios.agentic_ide import task_state
 
     pending = await arm(pane)
 
@@ -189,7 +189,7 @@ async def test_confirmed_stop_has_distinct_wording_and_no_completion_claim(pane,
 
 @pytest.mark.asyncio
 async def test_submission_change_during_final_probe_cannot_consume_result(pane, monkeypatch):
-    from jarvis.agentic_ide import task_state
+    from dodaios.agentic_ide import task_state
 
     pending = await arm(pane)
     term, turns = pane

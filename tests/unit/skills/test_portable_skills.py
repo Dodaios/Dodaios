@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.skills.loader import parse_skill
-from jarvis.skills.portable import adapt_portable_frontmatter
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.loader import parse_skill
+from dodaios.skills.portable import adapt_portable_frontmatter
+from dodaios.skills.schema import SkillLifecycleState
 
 # What a Claude Code skill actually looks like: two keys Jarvis knows and two
 # it does not.

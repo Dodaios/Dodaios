@@ -10,9 +10,9 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel
 
-from jarvis.core.self_mod.registry import FORBIDDEN_PATTERNS, SelfModRegistry
-from jarvis.core.self_mod.schema import MutableSpec
-from jarvis.core.self_mod.schema_introspect import (
+from dodaios.core.self_mod.registry import FORBIDDEN_PATTERNS, SelfModRegistry
+from dodaios.core.self_mod.schema import MutableSpec
+from dodaios.core.self_mod.schema_introspect import (
     SpecOverride,
     describe_field,
     introspect_mutable_specs,

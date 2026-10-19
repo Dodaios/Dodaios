@@ -70,10 +70,10 @@ _PIPELINE_PREFIXES = (".github/workflows/", ".github/actions/", "scripts/ci/")
 # any name the directory has had is read as this spelling first, so renaming
 # the directory can never turn a lane off: neither for the commit that moves
 # it nor for a branch that still carries the other layout.
-_PACKAGE_PREFIX = "jarvis/"
+_PACKAGE_PREFIX = "dodaios/"
 _PACKAGE_NAMES = ("jarvis", "dodaios")
 
-_FRONTEND_PREFIXES = ("jarvis/ui/web/frontend/",)
+_FRONTEND_PREFIXES = ("dodaios/ui/web/frontend/",)
 _FRONTEND_FILES = {"scripts/ci/check_frontend_bundle_budget.py"}
 
 _DEPS_FILES = {
@@ -83,62 +83,62 @@ _DEPS_FILES = {
     "uv.lock",
     "packaging/native-crypto.json",
     "packaging/native-crypto-uv.toml",
-    "jarvis/assets/browser/pyproject.toml",
-    "jarvis/assets/browser/requirements.in",
-    "jarvis/assets/browser/requirements.lock",
+    "dodaios/assets/browser/pyproject.toml",
+    "dodaios/assets/browser/requirements.in",
+    "dodaios/assets/browser/requirements.lock",
     "scripts/native_crypto_index.py",
     "scripts/pip_install.py",
     "scripts/build_native_crypto.py",
     "tests/contract/test_native_crypto.py",
     "tests/contract/test_native_ssh.py",
-    "jarvis/computers/ssh_packet_guard.py",
+    "dodaios/computers/ssh_packet_guard.py",
 }
 
 _REALTIME_PREFIXES = (
-    "jarvis/realtime/",
-    "jarvis/plugins/realtime/",
-    "jarvis/audio/",
-    "jarvis/speech/",
-    "jarvis/live/",
-    "jarvis/core/",
+    "dodaios/realtime/",
+    "dodaios/plugins/realtime/",
+    "dodaios/audio/",
+    "dodaios/speech/",
+    "dodaios/live/",
+    "dodaios/core/",
     "tests/contract/test_realtime",
     "tests/contract/test_gpt_live",
 )
 _REALTIME_FILES = {"scripts/realtime_reliability_gate.py"} | _DEPS_FILES
 
-_CLI_PREFIXES = ("jarvis/cli_ctl/", "jarvis/commands/", "tests/unit/cli_ctl/")
+_CLI_PREFIXES = ("dodaios/cli_ctl/", "dodaios/commands/", "tests/unit/cli_ctl/")
 
 _DRAGDROP_FILES = {
-    "jarvis/overlay/drop_target.py",
-    "jarvis/overlay/drop_bridge.py",
+    "dodaios/overlay/drop_target.py",
+    "dodaios/overlay/drop_bridge.py",
     "scripts/crossplatform/verify_drop_target.py",
 }
 
 _BROWSER_PREFIXES = (
-    "jarvis/society/browser/",
+    "dodaios/society/browser/",
     "tests/contract/test_browser",
     "tests/unit/society/test_browser",
 )
 _BROWSER_FILES = {
-    "jarvis/ui/web/society_browser_routes.py",
-    "jarvis/ui/web/mcp_server_routes.py",
-    "jarvis/agent_chat/runner_cli.py",
-    "jarvis/brain/tool_gateway.py",
-    "jarvis/society/approvals.py",
+    "dodaios/ui/web/society_browser_routes.py",
+    "dodaios/ui/web/mcp_server_routes.py",
+    "dodaios/agent_chat/runner_cli.py",
+    "dodaios/brain/tool_gateway.py",
+    "dodaios/society/approvals.py",
 }
 
 # Native macOS surface: permissions, bundle, autostart, Computer-Use. The old
-# standalone workflow also matched all of tests/** and jarvis/ui/**, which put
+# standalone workflow also matched all of tests/** and dodaios/ui/**, which put
 # three 45-minute macOS jobs behind nearly every PR; the lane keeps the
 # platform code and the exact test files that job runs.
 #
 # The just-in-time permission service is called from many consumers, so the
 # lane also covers every directory that asks for, or acts on, a macOS
-# permission: capture and speech (jarvis/audio/), computer use (jarvis/cu/),
-# screenshots (jarvis/vision/, jarvis/screen_context/), dictation
-# (jarvis/dictation/), global shortcuts (jarvis/trigger/, which includes
-# jarvis/trigger/backends/) and the permission port, the service and window
-# control (jarvis/platform/: permissions.py, permission_service.py,
+# permission: capture and speech (dodaios/audio/), computer use (dodaios/cu/),
+# screenshots (dodaios/vision/, dodaios/screen_context/), dictation
+# (dodaios/dictation/), global shortcuts (dodaios/trigger/, which includes
+# dodaios/trigger/backends/) and the permission port, the service and window
+# control (dodaios/platform/: permissions.py, permission_service.py,
 # window_state.py). Packaging is covered too: the spec, packaging/macos/ and the
 # single usage-string table both bundles load. The tool plugins that capture or
 # type (screenshot, type_text, verify_localhost), the appshot gesture, the speech
@@ -146,18 +146,18 @@ _BROWSER_FILES = {
 # are consumers too and are listed by file.
 _MACOS_PREFIXES = (
     "install/",
-    "jarvis/admin/",
-    "jarvis/appshot/",
-    "jarvis/audio/",
-    "jarvis/autostart/",
-    "jarvis/cu/",
-    "jarvis/dictation/",
-    "jarvis/platform/",
-    "jarvis/screen_context/",
-    "jarvis/setup/",
-    "jarvis/trigger/",
-    "jarvis/vision/",
-    "jarvis/ui/desktop",
+    "dodaios/admin/",
+    "dodaios/appshot/",
+    "dodaios/audio/",
+    "dodaios/autostart/",
+    "dodaios/cu/",
+    "dodaios/dictation/",
+    "dodaios/platform/",
+    "dodaios/screen_context/",
+    "dodaios/setup/",
+    "dodaios/trigger/",
+    "dodaios/vision/",
+    "dodaios/ui/desktop",
     "packaging/macos/",
     "tests/unit/platform/",
     "tests/unit/audio/",
@@ -173,21 +173,21 @@ _MACOS_FILES = {
     "uv.lock",
     ".githooks/pre-push",
     "jarvis.spec",
-    "jarvis/core/macos_privacy_strings.py",
-    "jarvis/core/branding.py",
-    "jarvis/core/events.py",
-    "jarvis/core/protocols.py",
-    "jarvis/cli_ctl/commands/permissions.py",
-    "jarvis/plugins/harness/computer_use.py",
-    "jarvis/plugins/tool/screen_snapshot.py",
-    "jarvis/plugins/tool/type_text.py",
-    "jarvis/plugins/tool/verify_localhost.py",
-    "jarvis/speech/diagnose.py",
-    "jarvis/speech/pipeline.py",
-    "jarvis/tasks/event_catalog.py",
-    "jarvis/ui/web/permissions_routes.py",
-    "jarvis/ui/web/screen_context_routes.py",
-    "jarvis/ui/web/settings_routes.py",
+    "dodaios/core/macos_privacy_strings.py",
+    "dodaios/core/branding.py",
+    "dodaios/core/events.py",
+    "dodaios/core/protocols.py",
+    "dodaios/cli_ctl/commands/permissions.py",
+    "dodaios/plugins/harness/computer_use.py",
+    "dodaios/plugins/tool/screen_snapshot.py",
+    "dodaios/plugins/tool/type_text.py",
+    "dodaios/plugins/tool/verify_localhost.py",
+    "dodaios/speech/diagnose.py",
+    "dodaios/speech/pipeline.py",
+    "dodaios/tasks/event_catalog.py",
+    "dodaios/ui/web/permissions_routes.py",
+    "dodaios/ui/web/screen_context_routes.py",
+    "dodaios/ui/web/settings_routes.py",
     "tests/contract/test_permission_service_contract.py",
     "tests/fakes/fake_permission_service.py",
     "tests/fakes/fake_tcc.py",
@@ -204,10 +204,10 @@ _INSTALLER_PREFIXES = ("install/",)
 _INSTALLER_FILES = {
     "pyproject.toml",
     "requirements.txt",
-    "jarvis/__main__.py",
-    "jarvis/setup/prefetch.py",
-    "jarvis/setup/model_report.py",
-    "jarvis/speech/wake_model_fetch.py",
+    "dodaios/__main__.py",
+    "dodaios/setup/prefetch.py",
+    "dodaios/setup/model_report.py",
+    "dodaios/speech/wake_model_fetch.py",
     "tests/unit/install/test_install_sh_stage1.py",
     ".github/workflows/sign-installer.yml",
 }
@@ -216,10 +216,10 @@ _INSTALLER_FILES = {
 # helper that finishes it, and the installer scripts it hands over to. Each
 # OS replaces a running app differently, so this lane runs on all three.
 _UPDATER_PREFIXES = (
-    "jarvis/core/installer_update",
-    "jarvis/core/frozen",
-    "jarvis/ui/relauncher",
-    "jarvis/ui/web/update_routes",
+    "dodaios/core/installer_update",
+    "dodaios/core/frozen",
+    "dodaios/ui/relauncher",
+    "dodaios/ui/web/update_routes",
     "packaging/",
     "tests/fakes/fake_installer_update",
     "tests/integration/test_update_",
@@ -231,10 +231,10 @@ _UPDATER_PREFIXES = (
     "tests/unit/web/test_update_",
 )
 _UPDATER_FILES = {
-    "jarvis/__main__.py",
-    "jarvis/ui/desktop_app.py",
-    "jarvis/ui/web/launcher.py",
-    "jarvis/ui/web/settings_routes.py",
+    "dodaios/__main__.py",
+    "dodaios/ui/desktop_app.py",
+    "dodaios/ui/web/launcher.py",
+    "dodaios/ui/web/settings_routes.py",
     ".github/workflows/desktop-installers.yml",
 } | _DEPS_FILES
 
@@ -292,7 +292,7 @@ def classify(paths: Iterable[str], *, full: bool = False, proven: bool = False) 
         "deps": _any(changed, (), _DEPS_FILES),
         "realtime": _any(changed, _REALTIME_PREFIXES, _REALTIME_FILES),
         "cli": _any(changed, _CLI_PREFIXES)
-        or any(p.startswith("jarvis/ui/web/") and p.endswith("_routes.py") for p in changed),
+        or any(p.startswith("dodaios/ui/web/") and p.endswith("_routes.py") for p in changed),
         "dragdrop": _any(changed, (), _DRAGDROP_FILES),
         "browser": _any(changed, _BROWSER_PREFIXES, _BROWSER_FILES),
         "macos_desktop": _any(changed, _MACOS_PREFIXES, _MACOS_FILES),

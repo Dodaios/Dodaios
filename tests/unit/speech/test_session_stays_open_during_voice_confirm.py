@@ -15,9 +15,9 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 
 @dataclass

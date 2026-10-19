@@ -475,13 +475,13 @@ jobs:
           python scripts/skill_relevance_calibrate.py
       - name: ruff lint (report-only backlog)
         continue-on-error: true
-        run: python -m ruff check jarvis/
+        run: python -m ruff check dodaios/
       - name: ruff format (report-only backlog)
         continue-on-error: true
-        run: python -m ruff format --check jarvis/
+        run: python -m ruff format --check dodaios/
       - name: mypy (report-only backlog)
         continue-on-error: true
-        run: python -m mypy jarvis/
+        run: python -m mypy dodaios/
 
   tests-linux:
     needs: detect
@@ -779,7 +779,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: jarvis/ui/web/frontend
+        working-directory: dodaios/ui/web/frontend
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -788,7 +788,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: jarvis/ui/web/frontend/package-lock.json
+          cache-dependency-path: dodaios/ui/web/frontend/package-lock.json
       - run: npm ci
       - name: Unit tests (one shard)
         if: startsWith(matrix.part, 'test ')
@@ -821,7 +821,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      # --no-deps proves jarvis.cli_ctl imports and renders --help with only its
+      # --no-deps proves dodaios.cli_ctl imports and renders --help with only its
       # own light runtime deps: no torch, audio or GUI stack.
       - name: Light install from uv.lock
         uses: ./.github/actions/install-locked
@@ -831,8 +831,8 @@ jobs:
       - name: Import/--help smoke
         shell: bash
         run: |
-          python -c "import jarvis.cli_ctl.__main__"
-          python -m jarvis.cli_ctl --help
+          python -c "import dodaios.cli_ctl.__main__"
+          python -m dodaios.cli_ctl --help
       - name: Base install from uv.lock
         uses: ./.github/actions/install-locked
         with:
@@ -1183,7 +1183,7 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest pytest-asyncio
       - name: The runtime package imports without any optional stack
-        run: python -c "import jarvis.agent_runtimes.gateway, jarvis.agent_runtimes.manager, jarvis.agent_chat.runner_acp"
+        run: python -c "import dodaios.agent_runtimes.gateway, dodaios.agent_runtimes.manager, dodaios.agent_chat.runner_acp"
       - name: Runtime suite
         run: python scripts/ci/agent_runtime_suite.py --headless
       # The container has no curl: the app's own Hermes setup must stop with a
@@ -1193,7 +1193,7 @@ jobs:
 
   # The REAL runtimes, installed the way the desktop app installs them: the
   # app's own setup job (manager.wait_ready) at the pinned release from
-  # jarvis/agent_runtimes/runtime-versions.json, with a desktop app's PATH,
+  # dodaios/agent_runtimes/runtime-versions.json, with a desktop app's PATH,
   # never npm or a manual installer. Then two turns per model-gateway protocol
   # against scripted providers, the fake-model driver check with turn-1
   # budgets, the runtime unit tests on the same machine, and proof that the
@@ -1235,7 +1235,7 @@ jobs:
             ~/.cache/uv
             ~/Library/Caches/uv
             ~/AppData/Local/uv/cache
-          key: agent-runtimes-${{ matrix.runtime }}-${{ runner.os }}-${{ hashFiles('jarvis/agent_runtimes/runtime-versions.json') }}
+          key: agent-runtimes-${{ matrix.runtime }}-${{ runner.os }}-${{ hashFiles('dodaios/agent_runtimes/runtime-versions.json') }}
       - name: Set up through the app, drive it, prove nothing else changed
         run: python scripts/ci/agent_runtime_e2e.py ${{ matrix.runtime }}
       - name: Keep the setup and runtime logs of a failed run

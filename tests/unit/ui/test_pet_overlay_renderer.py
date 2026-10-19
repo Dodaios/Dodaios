@@ -14,8 +14,8 @@ from dataclasses import dataclass
 import pytest
 from PIL import Image
 
-from jarvis.ui.pets.state_machine import PetStateMachine
-from jarvis.ui.pets.states import PET_STATES, SLEEP_AFTER_SECONDS
+from dodaios.ui.pets.state_machine import PetStateMachine
+from dodaios.ui.pets.states import PET_STATES, SLEEP_AFTER_SECONDS
 from ui.orb import controls as orb_controls
 from ui.orb import pet_renderer as pr
 

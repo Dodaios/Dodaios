@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.voice_engine import protocol as p
-from jarvis.voice_engine import runtime
-from jarvis.voice_engine.worker import Worker
+from dodaios.voice_engine import protocol as p
+from dodaios.voice_engine import runtime
+from dodaios.voice_engine.worker import Worker
 
 
 class Transport:

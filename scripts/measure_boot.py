@@ -10,8 +10,8 @@ start. ``GET /api/health`` returns ``{"ok": true}`` the moment uvicorn listens â
 BEFORE those steps finish â€” so it is not an honest "fully ready" marker. This
 harness instead anchors on the ``BOOT_READY_MS=<n>`` sentinel that the launcher
 prints once the backend is actually serving and every subsystem the first real
-request needs is ready or cleanly deferred (see ``jarvis/ui/web/launcher.py`` and
-the ``[BOOT_PROFILE]`` marks in ``jarvis/ui/web/server.py``, both gated behind
+request needs is ready or cleanly deferred (see ``dodaios/ui/web/launcher.py`` and
+the ``[BOOT_PROFILE]`` marks in ``dodaios/ui/web/server.py``, both gated behind
 ``JARVIS_BOOT_PROFILE=1`` so production stdout is unchanged).
 
 Isolation contract (NEVER touches the running production instance)
@@ -76,7 +76,7 @@ DEFAULT_PAGES = 80
 # Canonical no-window flag (AP-1) with a safe fallback if jarvis is not importable
 # in the harness interpreter.
 try:
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 except Exception:  # noqa: BLE001
     NO_WINDOW_CREATIONFLAGS = (
         subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0  # type: ignore[attr-defined]
@@ -187,7 +187,7 @@ def run_one(python: str, timeout: float) -> dict:
     cmd = [
         python,
         "-m",
-        "jarvis.ui.web.launcher",
+        "dodaios.ui.web.launcher",
         "--headless",
         "--no-lock",
         "--port",

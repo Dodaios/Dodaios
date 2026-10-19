@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.computers.ssh import authorize_key_command
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.computers.ssh import authorize_key_command
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 SH = shutil.which("sh")
 pytestmark = pytest.mark.skipif(SH is None, reason="needs a POSIX shell")

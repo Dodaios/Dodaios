@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 async def test_open_route_remembers_the_user_selected_folder(

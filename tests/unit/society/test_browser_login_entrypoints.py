@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser.live import LiveUpdates
-from jarvis.society.browser.session import BrowserJobs, BrowserUnavailable
+from dodaios.society.browser.live import LiveUpdates
+from dodaios.society.browser.session import BrowserJobs, BrowserUnavailable
 from tests.fakes.fake_browser_profiles import LoginControlSession, LoginLive
 
 

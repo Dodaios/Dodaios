@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from jarvis.audio.capture import _StreamingPcm16Resampler
+from dodaios.audio.capture import _StreamingPcm16Resampler
 
 
 def _tone(freq_hz: float, rate: int, seconds: float, amplitude: float = 0.5) -> bytes:

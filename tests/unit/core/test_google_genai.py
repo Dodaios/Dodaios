@@ -17,7 +17,7 @@ import asyncio
 import httpx
 import pytest
 
-from jarvis.core import google_genai as gg
+from dodaios.core import google_genai as gg
 
 
 @pytest.fixture(autouse=True)
@@ -186,7 +186,7 @@ def test_vertex_mode_always_leaves_aiza_untouched(monkeypatch):
 
 
 def test_google_config_defaults_to_auto():
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     assert JarvisConfig().google.vertex_mode == "auto"
 

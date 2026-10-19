@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 async def main():
-    sys.path.insert(0, str(ROOT / "jarvis/society/browser"))
+    sys.path.insert(0, str(ROOT / "dodaios/society/browser"))
     output = sys.stdout
     import live_runner
 

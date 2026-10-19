@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 
-from jarvis.ui.web.server import WebServer
+from dodaios.ui.web.server import WebServer
 
 
 class RecordingProcessTree:

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 import pytest
 
-from jarvis.cu.indicator import capture_guard
+from dodaios.cu.indicator import capture_guard
 
 
 @pytest.fixture(autouse=True)

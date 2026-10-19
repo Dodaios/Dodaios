@@ -41,8 +41,8 @@ def _load(name: str, relpath: str):
 
 
 def main() -> int:
-    dt = _load("dt_verify", "jarvis/overlay/drop_target.py")
-    db = _load("db_verify", "jarvis/overlay/drop_bridge.py")
+    dt = _load("dt_verify", "dodaios/overlay/drop_target.py")
+    db = _load("db_verify", "dodaios/overlay/drop_bridge.py")
 
     print(f"platform: {sys.platform}  python: {sys.version.split()[0]}")
 

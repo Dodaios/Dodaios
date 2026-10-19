@@ -18,21 +18,21 @@ from typing import Any
 
 import pytest
 
-from jarvis.claude_quota_state import claude_in_quota_cooldown, clear_claude_quota_cooldown
-from jarvis.missions.capacity import (
+from dodaios.claude_quota_state import claude_in_quota_cooldown, clear_claude_quota_cooldown
+from dodaios.missions.capacity import (
     PAID_MISSION_CAP_USD,
     CriticCapacityUnavailable,
     PaidOffer,
     WorkerCapacityUnavailable,
     read_checkpoint,
 )
-from jarvis.missions.critic.runner import CriticRunner
-from jarvis.missions.critic.verdict import REQUIRED_AXES, CriticAxis, CriticVerdict
-from jarvis.missions.events import MissionFailed, MissionPaidUsage, MissionWaitingCapacity
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.critic.runner import CriticRunner
+from dodaios.missions.critic.verdict import REQUIRED_AXES, CriticAxis, CriticVerdict
+from dodaios.missions.events import MissionFailed, MissionPaidUsage, MissionWaitingCapacity
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
 from tests.fakes.fake_mission_runtime import (
     FakeMissionWorker,
     FakePaidOption,
@@ -53,17 +53,17 @@ def _fresh_cooldowns():
 def _pin(monkeypatch: pytest.MonkeyPatch, *, codex_login: bool = False) -> None:
     """A Claude-subscription install: the claude CLI is present and logged in;
     codex is logged in only when asked."""
-    monkeypatch.setattr("jarvis.missions.init.install_is_pinned", lambda: True)
+    monkeypatch.setattr("dodaios.missions.init.install_is_pinned", lambda: True)
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
         lambda: "/usr/local/bin/claude",
     )
-    monkeypatch.setattr("jarvis.missions.init._claude_subscription_login_state", lambda: True)
+    monkeypatch.setattr("dodaios.missions.init._claude_subscription_login_state", lambda: True)
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._codex_oauth_available",
+        "dodaios.missions.workers.codex_direct_worker._codex_oauth_available",
         lambda: codex_login,
     )
-    monkeypatch.setattr("jarvis.codex_auth_state.codex_needs_reauth", lambda: False)
+    monkeypatch.setattr("dodaios.codex_auth_state.codex_needs_reauth", lambda: False)
 
 
 def _no_paid_critic(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,7 +72,7 @@ def _no_paid_critic(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(CriticRunner, "_invoke_via_api_critic", _forbidden)
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_api_critic_provider",
+        "dodaios.missions.critic.runner._resolve_api_critic_provider",
         lambda *a, **k: ("openrouter", "some/model"),
     )
 
@@ -113,7 +113,7 @@ async def test_dead_claude_login_parks_instead_of_crossing_families(
     _patch_direct(monkeypatch, stdout="")
     _pin(monkeypatch)
     _no_paid_critic(monkeypatch)
-    monkeypatch.setattr("jarvis.missions.critic.runner._claude_cli_critic_viable", lambda: False)
+    monkeypatch.setattr("dodaios.missions.critic.runner._claude_cli_critic_viable", lambda: False)
 
     with pytest.raises(CriticCapacityUnavailable) as exc:
         await _review(tmp_path)
@@ -125,11 +125,11 @@ async def test_spent_codex_critic_without_another_subscription_parks(
 ) -> None:
     _pin(monkeypatch, codex_login=True)
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("chatgpt", ""),
     )
-    monkeypatch.setattr("jarvis.codex_quota_state.codex_in_quota_cooldown", lambda **_k: True)
-    monkeypatch.setattr("jarvis.missions.critic.runner._claude_cli_critic_viable", lambda: False)
+    monkeypatch.setattr("dodaios.codex_quota_state.codex_in_quota_cooldown", lambda **_k: True)
+    monkeypatch.setattr("dodaios.missions.critic.runner._claude_cli_critic_viable", lambda: False)
 
     async def _no_claude(self: Any, **_k: Any) -> None:
         raise AssertionError("a logged-out Claude critic must not run")
@@ -161,11 +161,11 @@ async def test_spent_codex_critic_grades_on_the_claude_subscription(
     """Subscription to subscription is free: the restored codex -> Claude path."""
     _pin(monkeypatch, codex_login=True)
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("chatgpt", ""),
     )
-    monkeypatch.setattr("jarvis.codex_quota_state.codex_in_quota_cooldown", lambda **_k: True)
-    monkeypatch.setattr("jarvis.missions.critic.runner._claude_cli_critic_viable", lambda: True)
+    monkeypatch.setattr("dodaios.codex_quota_state.codex_in_quota_cooldown", lambda **_k: True)
+    monkeypatch.setattr("dodaios.missions.critic.runner._claude_cli_critic_viable", lambda: True)
     graded: list[str] = []
 
     async def _claude(self: Any, **_k: Any) -> CriticVerdict:
@@ -184,7 +184,7 @@ async def test_spent_claude_critic_grades_on_the_codex_subscription(
 ) -> None:
     _patch_direct(monkeypatch, stdout=SESSION_LIMIT, returncode=1)
     _pin(monkeypatch, codex_login=True)
-    monkeypatch.setattr("jarvis.codex_quota_state.codex_in_quota_cooldown", lambda **_k: False)
+    monkeypatch.setattr("dodaios.codex_quota_state.codex_in_quota_cooldown", lambda **_k: False)
     _no_paid_critic(monkeypatch)
     seen: dict[str, Any] = {}
 
@@ -226,7 +226,7 @@ async def test_spent_claude_critic_grades_on_the_codex_subscription(
 def test_only_anchored_vendor_notices_are_capacity_signals(
     text: str, expected: str | None
 ) -> None:
-    from jarvis.missions.critic.runner import _capacity_signal
+    from dodaios.missions.critic.runner import _capacity_signal
 
     signal = _capacity_signal(text)
     assert (signal[0] if signal else None) == expected
@@ -235,7 +235,7 @@ def test_only_anchored_vendor_notices_are_capacity_signals(
 async def test_a_transient_overload_arms_no_quota_cooldown(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from jarvis.missions.critic.verdict import CriticSchemaInvalid
+    from dodaios.missions.critic.verdict import CriticSchemaInvalid
 
     _patch_direct(
         monkeypatch,
@@ -258,16 +258,16 @@ async def test_capacity_signals_belong_to_one_call(
     the signal is returned per call, never kept on the shared runner."""
     import asyncio
 
-    from jarvis.missions.critic.runner import _note_capacity_signal
-    from jarvis.missions.critic.verdict import CriticSchemaInvalid
+    from dodaios.missions.critic.runner import _note_capacity_signal
+    from dodaios.missions.critic.verdict import CriticSchemaInvalid
 
     _pin(monkeypatch)
     _no_paid_critic(monkeypatch)
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("claude-api", "claude-sonnet-4-6"),
     )
-    monkeypatch.setattr("jarvis.missions.critic.runner._claude_cli_critic_viable", lambda: True)
+    monkeypatch.setattr("dodaios.missions.critic.runner._claude_cli_critic_viable", lambda: True)
     a_noted, b_started = asyncio.Event(), asyncio.Event()
 
     async def _claude(self: Any, *, prompt: str, capacity_signals: Any = None, **_k: Any):
@@ -281,7 +281,7 @@ async def test_capacity_signals_belong_to_one_call(
         return None  # B: garbage output, not a capacity problem
 
     monkeypatch.setattr(CriticRunner, "_invoke_via_claude_direct", _claude)
-    monkeypatch.setattr("jarvis.claude_quota_state.claude_in_quota_cooldown", lambda **_k: False)
+    monkeypatch.setattr("dodaios.claude_quota_state.claude_in_quota_cooldown", lambda **_k: False)
     runner = CriticRunner()
 
     async def review(tag: str) -> Any:
@@ -307,7 +307,7 @@ async def test_a_long_review_that_mentions_quotas_is_not_a_capacity_signal(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Only a short limit notice counts; a review about rate limiting does not."""
-    from jarvis.missions.critic.verdict import CriticSchemaInvalid
+    from dodaios.missions.critic.verdict import CriticSchemaInvalid
 
     review_prose = "The patch adds a rate limit and a quota check. " * 30
     _patch_direct(monkeypatch, stdout=review_prose)
@@ -418,7 +418,7 @@ async def test_spent_critic_parks_delivered_work_and_resume_only_reviews(
 async def test_capacity_waits_never_count_toward_failing_the_review(
     manager: MissionManager, tmp_path: Path, delivered: None
 ) -> None:
-    from jarvis.missions.capacity import MAX_REVIEW_RETRIES
+    from dodaios.missions.capacity import MAX_REVIEW_RETRIES
 
     factory = CountingFactory()
     spent = [CriticCapacityUnavailable("provider_quota", "claude")] * (MAX_REVIEW_RETRIES + 2)

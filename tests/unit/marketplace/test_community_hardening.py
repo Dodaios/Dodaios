@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.marketplace.community_source import CommunityIndex
-from jarvis.skills.finder import SkillCandidate, SkillFinder
+from dodaios.marketplace.community_source import CommunityIndex
+from dodaios.skills.finder import SkillCandidate, SkillFinder
 
 
 def _dir_is_empty(path: Path) -> bool:
@@ -70,7 +70,7 @@ def test_index_nulls_non_https_raw_urls() -> None:
 async def test_finder_install_rejects_unsafe_names(
     name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("jarvis.skills.finder.user_skills_dir", lambda: tmp_path)
+    monkeypatch.setattr("dodaios.skills.finder.user_skills_dir", lambda: tmp_path)
     with pytest.raises(RuntimeError, match="slug|outside"):
         await SkillFinder().install(_candidate(name, "https://x.example/SKILL.md"))
     assert _dir_is_empty(tmp_path)
@@ -88,14 +88,14 @@ async def test_finder_install_rejects_unsafe_names(
 async def test_finder_install_rejects_non_https_urls(
     raw_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("jarvis.skills.finder.user_skills_dir", lambda: tmp_path)
+    monkeypatch.setattr("dodaios.skills.finder.user_skills_dir", lambda: tmp_path)
     with pytest.raises(RuntimeError, match="non-https"):
         await SkillFinder().install(_candidate("fine-name", raw_url))
     assert _dir_is_empty(tmp_path)
 
 
 def test_env_placeholder_braces_must_match() -> None:
-    from jarvis.marketplace.agent_plugins_loader import _ENV_PLACEHOLDER_RE
+    from dodaios.marketplace.agent_plugins_loader import _ENV_PLACEHOLDER_RE
 
     assert _ENV_PLACEHOLDER_RE.fullmatch("$plugin_todo_fox_access_token")
     assert _ENV_PLACEHOLDER_RE.fullmatch("${plugin_todo-fox_access_token}")

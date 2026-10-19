@@ -17,7 +17,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.plugins.stt.groq_api import GroqWhisperAPI
+from dodaios.plugins.stt.groq_api import GroqWhisperAPI
 
 _JSON_OK = {
     "text": "hello",

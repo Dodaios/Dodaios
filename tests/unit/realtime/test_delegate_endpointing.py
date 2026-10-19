@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.turn_planner import TurnPath, TurnPlan, TurnReason
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.brain.turn_planner import TurnPath, TurnPlan, TurnReason
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 
 class _DelayedBrain:
@@ -294,7 +294,7 @@ class _AutoResponseProvider:
 
 
 def _shorten_delegate_waits(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_DELEGATE_INPUT_BOUNDARY_WAIT_S", 0.05)
     monkeypatch.setattr(session_module, "_DELEGATE_NATIVE_BOUNDARY_WAIT_S", 0.05)

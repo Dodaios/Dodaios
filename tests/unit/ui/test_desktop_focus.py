@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.ui.desktop_app import _force_foreground_hwnd, _window_answers
+from dodaios.ui.desktop_app import _force_foreground_hwnd, _window_answers
 
 
 class _Kernel32:

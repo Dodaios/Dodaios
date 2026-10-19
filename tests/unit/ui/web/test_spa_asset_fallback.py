@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.server as server_mod
+import dodaios.ui.web.server as server_mod
 
 
 def _client(tmp_path, monkeypatch) -> tuple[TestClient, object]:

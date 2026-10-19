@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _CLI_FAILURE_PHRASES,
     _NAVIGATION_ACK,
     _NOTHING_FOUND_PHRASE,
@@ -70,7 +70,7 @@ def test_spoken_reply_language_agrees_with_the_turn_resolver(
     pin: str, conversation: str, text: str
 ) -> None:
     """Canned phrases and the router resolve ONE language per turn (AGENTS.md)."""
-    from jarvis.core.turn_language import DEFAULT_LOCALE, resolve_output_language
+    from dodaios.core.turn_language import DEFAULT_LOCALE, resolve_output_language
 
     m = _manager(pin)
     m._conversation_language = conversation

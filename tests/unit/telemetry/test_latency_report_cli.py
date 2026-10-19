@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.tools import latency_report
+from dodaios.tools import latency_report
 
 
 def _write_rows(path: Path, rows: list[dict]) -> None:

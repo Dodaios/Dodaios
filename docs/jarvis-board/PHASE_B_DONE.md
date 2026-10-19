@@ -9,7 +9,7 @@
 ## 1. Implemented achievements and event triggers
 
 10 achievements (Plan §4 requires >=5 — delivered: 7 Mastery + 3 Reflection).
-All are defined in `jarvis/board/achievements.py` as `AchievementSpec`;
+All are defined in `dodaios/board/achievements.py` as `AchievementSpec`;
 evaluator callbacks read the corresponding live event and write
 via `INSERT OR IGNORE` into the `achievements` table.
 
