@@ -65,7 +65,6 @@ LEGACY_CLI_EXE_NAMES = ("jarvis",)
 # rename still carries the earlier one.
 DISTRIBUTION_NAMES = ('dodaios', 'personal-jarvis')
 
-MACOS_APP_NAME = "Personal Jarvis.app"
 # The bundle name (``dodaios.core.branding.MACOS_APP_DIR_NAME``). Its bundle id
 # below did not move with it: the privacy grants of every installed copy name
 # that id, and the in-app updater installs a renamed bundle beside the old one.
