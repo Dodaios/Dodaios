@@ -276,7 +276,7 @@ async def watch_topology(
         requested = True
         try:
             await asyncio.wait_for(_probe_request.wait(), timeout=poll_s)
-        except TimeoutError:
+        except TimeoutError:  # the poll interval elapsed: a timed probe, not an error
             requested = False
         if requested:
             # An early request still honours the floor between probes.
