@@ -8255,7 +8255,15 @@
         "stage_session": "Offene Änderungen der Session bereitstellen",
         "session_empty": "Diese Session hat noch keine Datei geändert, oder ihr Agent führt kein Protokoll seiner Änderungen.",
         "session_committed": "committet",
-        "session_generated": "{n} generierte Dateien ausgeblendet"
+        "session_generated": "{n} generierte Dateien ausgeblendet",
+        "follow_main": "App immer auf dem neuesten main halten",
+        "follow_main_on": "Diese App hält sich selbst auf dem neuesten main.",
+        "follow_busy_update": "Aktualisiere auf den neuesten main…",
+        "follow_busy_install": "Installiere Pakete für das Update…",
+        "follow_busy_build": "Baue die neue Oberfläche…",
+        "follow_restart_pending": "Neuer Code ist da; die App startet neu, sobald keine Mission und kein Anruf läuft.",
+        "follow_updated": "Aktualisiert {when}: {subject}",
+        "follow_click_off": "Klicken, um main nicht mehr zu folgen."
       }
     },
     "skills": {
