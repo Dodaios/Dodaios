@@ -151,7 +151,9 @@ if ($SkipPyInstaller) {
         -WorkingDirectory $RepoRoot -What "pyinstaller"
 }
 
-foreach ($required in @("PersonalJarvis.exe", "dodaios.exe", "jarvis.exe")) {
+# The windowed launcher under its current and its earlier name, then the CLI
+# under both of its names (jarvis.spec).
+foreach ($required in @("DodaiosApp.exe", "PersonalJarvis.exe", "dodaios.exe", "jarvis.exe")) {
     $candidate = Join-Path $BundleDir $required
     if (-not (Test-Path $candidate)) {
         Stop-WithError "the frozen bundle is missing $required (expected at $candidate)"

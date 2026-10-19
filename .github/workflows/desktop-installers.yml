@@ -142,7 +142,7 @@ jobs:
         run: pwsh packaging/windows/build.ps1
 
       - name: Verify frozen browser provisioning and restart
-        run: python scripts/ci/check_frozen_browser.py --executable dist/Jarvis/PersonalJarvis.exe --output frozen-browser-proof
+        run: python scripts/ci/check_frozen_browser.py --executable dist/Jarvis/DodaiosApp.exe --output frozen-browser-proof
 
       - name: Preserve frozen browser evidence
         if: always()
@@ -381,7 +381,7 @@ jobs:
           mkdir -p "$mount_point"
           hdiutil attach "dist/installers/PersonalJarvis-macOS-${{ matrix.arch }}.dmg" -readonly -nobrowse -mountpoint "$mount_point"
           trap 'hdiutil detach "$mount_point"' EXIT
-          python scripts/ci/check_frozen_browser.py --executable "$mount_point/Personal Jarvis.app/Contents/MacOS/PersonalJarvis" --output frozen-browser-proof
+          python scripts/ci/check_frozen_browser.py --executable "$mount_point/Personal Jarvis.app/Contents/MacOS/DodaiosApp" --output frozen-browser-proof
 
       - name: Preserve frozen browser evidence
         if: always()
