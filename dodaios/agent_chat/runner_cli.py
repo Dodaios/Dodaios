@@ -56,6 +56,7 @@ the active subscription seat is the one that answers.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -92,12 +93,7 @@ from dodaios.agent_chat.questions import (
 from dodaios.agent_chat.runner_api import TurnHandle
 from dodaios.agent_chat.tool_context import register_turn, unregister_turn
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from dodaios.core.response_style import (
-    AGENT_QUESTION_GUIDANCE,
-    CREDENTIAL_GUIDANCE,
-    KEEP_GOING_ON_TOOL_FAILURE,
-    TASK_EXECUTION_GUIDANCE,
-)
+from dodaios.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
 
 log = logging.getLogger(__name__)
 
@@ -1407,6 +1403,17 @@ def plan_cursor(
     return CliPlan(argv, env, None, "cursor", resume)
 
 
+#: society session id -> (digest of the memory refresh last sent, resumed turns since).
+#: In-process only: a restart sends the refresh once more.
+_REFRESH_SENT: dict[str, tuple[str, int]] = {}
+#: A vendor may compact its own history; resend an unchanged refresh this often.
+_REFRESH_EVERY: Final[int] = 20
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _with_identity(
     prompt: str,
     identity: jarvis_harness.Identity | None,
@@ -1417,47 +1424,34 @@ def _with_identity(
     """The prompt with the identity in front of it — on a fresh conversation.
 
     A resumed conversation carries the identity from its first turn; repeating
-    fifty thousand characters of it every turn would cost the subscription's
-    context for nothing. The block is fenced so the model can tell the head
-    from the person's words.
+    it every turn would grow the vendor's history for nothing. A society seat
+    gets its memory refresh only when it changed (or every ``_REFRESH_EVERY``
+    turns) and its live state lines on every turn. The blocks are fenced so the
+    model can tell the head from the person's words.
     """
     if identity is None:
         return prompt
-    if resume and identity.session_id.startswith("society:"):
-        prompt = jarvis_harness.society_memory_refresh(identity.text, compact=compact) + prompt
-    if resume:
-        if identity.session_id.startswith("society:"):
-            from dodaios.core.response_style import CONVERSATIONAL_TURN_REMINDER
-
-            # A resumed vendor conversation may remember an old, incomplete
-            # tool catalog. Refresh the execution contract without repeating
-            # the large identity/history block on every turn.
-            return (
-                "<jarvis_turn_context>\n"
-                "You are a Society agent in the running Dodaios app. "
-                "Your current tools are available through the jarvis MCP server. "
-                "For recurring-work requests, inspect society_routines, then call "
-                "society_propose_change with kind=routine, mode=apply and an exact "
-                "request_quote from the current user message. Brief confirmations "
-                "refer to the agreed task. Read back the saved routine with "
-                "society_routines before reporting it active. Do not substitute "
-                "a plan, memory note, shell command or workspace file for scheduling. "
-                "Use existing connected-account information; ask only for essential "
-                "missing information. "
-                + TASK_EXECUTION_GUIDANCE + "\n"
-                + AGENT_QUESTION_GUIDANCE + "\n"
-                + KEEP_GOING_ON_TOOL_FAILURE
-                + " Existing permission rules still apply.\n"
-                + CREDENTIAL_GUIDANCE
-                + jarvis_harness.society_credential_state(identity.text)
-                + "\n"
-                + CONVERSATIONAL_TURN_REMINDER
-                + "\n</jarvis_turn_context>\n\n"
-                + prompt
-            )
+    society = identity.session_id.startswith("society:")
+    if not resume:
+        if society:
+            refresh = jarvis_harness.society_memory_refresh(identity.text, compact=compact)
+            _REFRESH_SENT[identity.session_id] = (_digest(refresh), 0)
+        text = identity.compact if compact else identity.text
+        return f"<jarvis_identity>\n{text}\n</jarvis_identity>\n\n{prompt}"
+    if not society:
         return prompt
-    text = identity.compact if compact else identity.text
-    return f"<jarvis_identity>\n{text}\n</jarvis_identity>\n\n{prompt}"
+    refresh = jarvis_harness.society_memory_refresh(identity.text, compact=compact)
+    digest = _digest(refresh)
+    sent, turns = _REFRESH_SENT.get(identity.session_id, ("", 0))
+    if sent == digest and turns + 1 < _REFRESH_EVERY:
+        head, turns = "", turns + 1
+    else:
+        head, turns = refresh, 0
+    _REFRESH_SENT[identity.session_id] = (digest, turns)
+    state = jarvis_harness.society_turn_state(identity.text)
+    if state:
+        head += f"<jarvis_turn_context>\n{state}\n</jarvis_turn_context>\n\n"
+    return head + prompt
 
 
 _PLANNERS: Final[dict[str, Any]] = {

@@ -1,10 +1,31 @@
 import { useRef, useState, type FormEvent } from "react";
-import { ExternalLink, Globe, RotateCw } from "lucide-react";
+import { AppWindow, ExternalLink, Globe, RotateCw } from "lucide-react";
 import { useT } from "@/i18n";
+import { hasEmbeddedDesktopBridge } from "@/lib/embeddedDesktop";
 import { openExternalUrl } from "@/lib/openExternal";
 import { normalizeBrowserAddress } from "./browserAddress";
+import { NativeBrowserPanel } from "./NativeBrowserPanel";
+import { useNativeBrowserStatus } from "./nativeBrowserApi";
 
 const URL_KEY = "jarvis.agenticIde.browserUrl.v1";
+const BUILTIN_KEY = "jarvis.agenticIde.browserBuiltin.v1";
+
+function storedBuiltin(): boolean {
+  try {
+    return localStorage.getItem(BUILTIN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function persistBuiltin(value: boolean): void {
+  try {
+    if (value) localStorage.setItem(BUILTIN_KEY, "1");
+    else localStorage.removeItem(BUILTIN_KEY);
+  } catch {
+    /* a convenience only */
+  }
+}
 
 function storedUrl(): string {
   try {
@@ -28,14 +49,46 @@ const TOOL_BTN =
   "disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent";
 
 /**
- * The side panel's Browser surface: an address bar over an embedded page.
+ * The side panel's Browser surface.
+ *
+ * On the Windows desktop app it shows the user's own browser (Chrome, Edge or
+ * Brave) with their profile and sign-ins: see `NativeBrowserPanel`. Everywhere
+ * else, or when the reader picks it, it is the built-in page view below.
+ */
+export function BrowserTab() {
+  // Fixed for the page's lifetime, so the branch never swaps hooks.
+  return hasEmbeddedDesktopBridge() ? <DesktopBrowserTab /> : <FrameBrowser />;
+}
+
+function DesktopBrowserTab() {
+  const [builtin, setBuiltin] = useState(storedBuiltin);
+  const status = useNativeBrowserStatus(true, !builtin);
+  const native = status.data?.available ? status.data : null;
+
+  const chooseBuiltin = (value: boolean) => {
+    persistBuiltin(value);
+    setBuiltin(value);
+  };
+
+  if (!builtin && status.isPending) {
+    return <div data-testid="ide-browser-tab" className="h-full" />;
+  }
+  if (native && !builtin) {
+    return <NativeBrowserPanel status={native} startUrl={storedUrl() || null}
+      onUseBuiltin={() => chooseBuiltin(true)} />;
+  }
+  return <FrameBrowser onUseNative={native ? () => chooseBuiltin(false) : undefined} />;
+}
+
+/**
+ * The built-in page view: an address bar over an embedded page.
  *
  * Built for local previews (a dev server on localhost) and plain pages. Many
  * public sites forbid being shown inside another app; for those the "open in
  * your browser" button hands the address to the system browser. The frame may
  * not navigate the app itself (no `allow-top-navigation`).
  */
-export function BrowserTab() {
+function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
   const t = useT();
   const [url, setUrl] = useState(storedUrl);
   const [draft, setDraft] = useState(url);
@@ -74,6 +127,13 @@ export function BrowserTab() {
           data-testid="ide-browser-address"
           className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
+        {onUseNative && (
+          <button type="button" onClick={onUseNative}
+            aria-label={t("ide_side_panel.browser.native.use_native")} title={t("ide_side_panel.browser.native.use_native")}
+            data-testid="ide-browser-use-native" className={TOOL_BTN}>
+            <AppWindow className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        )}
         <button type="button" onClick={() => void openExternalUrl(url)} disabled={!url}
           aria-label={t("ide_side_panel.browser.open_external")} title={t("ide_side_panel.browser.open_external")}
           data-testid="ide-browser-external" className={TOOL_BTN}>
