@@ -17,6 +17,7 @@ translate it, and add the code to ``SUPPORTED_LOCALES`` in
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from functools import cache
 from pathlib import Path
@@ -25,6 +26,7 @@ from typing import Any, TypeVar
 from jarvis.i18n.locales import DEFAULT_LOCALE, SUPPORTED_LOCALES, phrase_locale
 
 _LOCALES_DIR = Path(__file__).with_name("locales")
+log = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
 
@@ -35,6 +37,8 @@ def _catalog(code: str) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
+        # A language without a catalog reads English through the caller.
+        log.warning("i18n: no phrase catalog for %r at %s; using English", code, path)
         return {}
     return _flatten(data)
 
