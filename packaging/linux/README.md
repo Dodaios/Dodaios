@@ -4,7 +4,7 @@
 
 | Artifact | Path | What it is |
 |---|---|---|
-| `PersonalJarvis-Linux-x86_64.AppImage` | `dist/installers/` | One executable file. No Python, no pip, no root. Download, `chmod +x`, run. |
+| `Dodaios-Linux-x86_64.AppImage` (also published as `PersonalJarvis-Linux-x86_64.AppImage`) | `dist/installers/` | One executable file. No Python, no pip, no root. Download, `chmod +x`, run. |
 | `personal-jarvis_<version>_amd64.deb` | `dist/installers/` | The same tree as a normal Debian package named `dodaios`: `apt install ./personal-jarvis_*.deb` registers the app in the menu and puts `dodaios` on `PATH`. Built only when `dpkg-deb` is present. |
 
 Both are produced from one PyInstaller `onedir` freeze and one AppDir, so a bug
@@ -96,17 +96,17 @@ does not apply (see above). It lives in `dodaios/ui/desktop_app.py`
 command-line tool:
 
 ```bash
-chmod +x PersonalJarvis-Linux-x86_64.AppImage
-./PersonalJarvis-Linux-x86_64.AppImage --version
-./PersonalJarvis-Linux-x86_64.AppImage serve       # headless API + browser UI
-./PersonalJarvis-Linux-x86_64.AppImage --doctor
+chmod +x Dodaios-Linux-x86_64.AppImage
+./Dodaios-Linux-x86_64.AppImage --version
+./Dodaios-Linux-x86_64.AppImage serve       # headless API + browser UI
+./Dodaios-Linux-x86_64.AppImage --doctor
 ```
 
 To type `dodaios` instead, link it once:
 
 ```bash
 mkdir -p ~/.local/bin
-ln -sf "$PWD/PersonalJarvis-Linux-x86_64.AppImage" ~/.local/bin/dodaios
+ln -sf "$PWD/Dodaios-Linux-x86_64.AppImage" ~/.local/bin/dodaios
 ```
 
 The Debian package does this for you: it installs `/usr/bin/dodaios` (the
@@ -138,7 +138,7 @@ temporary mount that disappears the moment the app exits.
 ## Updates
 
 The in-app updater replaces the running AppImage in place: it downloads the new
-`PersonalJarvis-Linux-x86_64.AppImage` from the GitHub Release, verifies it
+`Dodaios-Linux-x86_64.AppImage` (or, from an older release, `PersonalJarvis-Linux-x86_64.AppImage`) from the GitHub Release, verifies it
 against `installers-SHA256SUMS.txt` from the same release, atomically replaces
 the file `$APPIMAGE` points at, restores the executable bit and relaunches.
 A `.deb` install updates through the package, not through the app.
