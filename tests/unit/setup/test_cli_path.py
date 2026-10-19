@@ -434,4 +434,5 @@ def test_a_posix_link_through_the_earlier_folder_name_is_pointed_at_the_folder(
     )
 
     assert "dodaios" in report.linked
-    assert os.readlink(old) == str(venv_bin / "dodaios")
+    # Windows reports a link target with its long-path prefix; compare the place.
+    assert os.path.samefile(os.readlink(old), venv_bin / "dodaios")
