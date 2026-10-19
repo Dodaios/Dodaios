@@ -796,6 +796,16 @@ def check(
             break
     if budget and session:
         verdict = apply_budget(ctx, verdict, state)
+    # Read by the desktop app (pane status) without asking GitHub again.
+    state["last"] = {
+        "verdict": verdict.verdict,
+        "reason": verdict.reason,
+        "next": verdict.next,
+        "pr": verdict.pr,
+        "branch": verdict.branch,
+        "cwd": str(ctx.cwd),
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
     save_state(ctx, session, state)
     return verdict
 
