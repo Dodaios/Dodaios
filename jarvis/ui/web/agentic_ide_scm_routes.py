@@ -489,3 +489,26 @@ def stash_drop(body: StashDropBody) -> dict:
     except GitError as exc:
         raise _fail(exc) from exc
     return _ok()
+
+
+@router.get("/session-file", summary="Both sides of one file an agent session changed")
+def session_file(
+    workspace_id: str = Query(..., min_length=1),
+    pane: str = Query(..., min_length=1),
+    path: str = Query(..., min_length=1),
+    base: str = Query(..., min_length=7, max_length=64),
+) -> dict:
+    """The file at the commit before the session's first change, and as it is now.
+
+    The pane's own worktree is read when it has one, like its review list.
+    """
+    session = get_registry().get(workspace_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+    term = next((entry for entry in session.terminals if entry.name == pane), None)
+    if term is None:
+        raise HTTPException(status_code=404, detail="Terminal not found.")
+    try:
+        return scm.session_file_diff(term.folder or session.folder, path, base)
+    except GitError as exc:
+        raise _fail(exc) from exc

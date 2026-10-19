@@ -321,3 +321,23 @@ def test_status_parser_reads_conflicts_and_branch_headers() -> None:
     assert _letters(status.staged) == {"both sides.txt": "M", "new name.txt": "R"}
     assert status.staged[1].original == "old name.txt"
     assert _letters(status.changes) == {"gone.txt": "D", "both sides.txt": "M", "fresh.txt": "U"}
+
+
+def test_session_file_diff_reads_the_base_and_the_disk(repo: Path) -> None:
+    base = _git(repo, "rev-parse", "HEAD")
+    # Bytes, so the disk side has the same line ending on every OS.
+    (repo / "app.py").write_bytes(b"print('agent')\n")
+    scm.commit(repo, "feat: agent work", all_changes=True)
+    (repo / "added.py").write_bytes(b"x = 1\n")
+    (repo / "old.txt").unlink()
+
+    changed = scm.session_file_diff(repo, "app.py", base)
+    assert changed["before"] == "print('hi')\n" and changed["after"] == "print('agent')\n"
+    added = scm.session_file_diff(repo, "added.py", base)
+    assert added["before"] is None and added["after"] == "x = 1\n"
+    gone = scm.session_file_diff(repo, "old.txt", base)
+    assert gone["before"] == "old\n" and gone["after"] is None
+    with pytest.raises(GitError):
+        scm.session_file_diff(repo, "../outside.txt", base)
+    with pytest.raises(GitError):
+        scm.session_file_diff(repo, "app.py", "not-a-commit")

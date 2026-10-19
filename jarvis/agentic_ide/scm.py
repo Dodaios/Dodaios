@@ -1150,3 +1150,34 @@ def commit_file_diff(
         "after": after,
         "binary": binary_before or binary_after,
     }
+
+
+def session_file_diff(folder: str | Path, path: str, base: str) -> dict[str, Any]:
+    """One file an agent session changed: its text at ``base`` and on disk now.
+
+    ``path`` is relative to the session's folder (the workspace, or the pane's
+    own worktree); ``base`` is the commit before the session's first change.
+    """
+    from jarvis.agentic_ide import git_changes
+
+    root = Path(folder).expanduser()
+    try:
+        rel = git_changes.normalize_workspace_path(root, path)
+        before = git_changes.head_text(root, rel, base)
+    except ValueError as exc:
+        raise GitError(str(exc), code="invalid") from exc
+    target = root / rel
+    after: str | None = None
+    binary = False
+    if target.is_file():
+        if target.stat().st_size > MAX_DIFF_TEXT_BYTES:
+            binary = True
+        else:
+            data = target.read_bytes()
+            if b"\0" in data:
+                binary = True
+            else:
+                after = data.decode("utf-8", errors="replace").removeprefix("\ufeff")
+    if before is not None and "\0" in before:
+        binary = True
+    return {"path": rel, "before": before, "after": after, "binary": binary}
