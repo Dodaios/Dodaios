@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import { PerspectiveCamera, Vector3 } from "three";
 import type { DeckPlan, Vec2 } from "../plan/types";
 import { captain, useShip } from "../shipStore";
+import { CUTAWAY } from "./kit/cutaway";
 
 export const CAMERA_FOV = 38;
 export const MIN_PITCH = 0.42;
@@ -154,6 +155,10 @@ export function CameraRig({ plan, compact }: { plan: DeckPlan; compact: boolean 
     }
     cameraPosition(orbit, tmp);
     camera.position.copy(tmp);
+    // The cut-away looks from the camera at the captain (or, while panning, at what the camera looks at).
+    CUTAWAY.uCutCam.value = [tmp.x, tmp.z];
+    CUTAWAY.uCutFocus.value = useShip.getState().follow ? [captain.x, captain.z] : [orbit.target.x, orbit.target.z];
+    CUTAWAY.uCutInner.value = orbit.dist < 34 ? 1 : 0;
     camera.lookAt(orbit.target.x, orbit.targetY, orbit.target.z);
     const cam = camera as PerspectiveCamera;
     // The near plane follows the distance, against depth fighting at the overview.

@@ -11,12 +11,21 @@ import {
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export type Finish =
-  | "panel" | "structure" | "metal" | "deck" | "carpet" | "grate" | "ceramic" | "glass" | "glow" | "glowSoft" | "screen" | "fabric" | "holoFloor";
+  | "panel" | "structure" | "metal" | "deck" | "carpet" | "grate" | "ceramic" | "glass" | "glow" | "glowSoft" | "screen" | "fabric" | "holoFloor"
+  /** A soft pool of light on the floor under a ceiling fitting (additive, radial). */
+  | "pool";
 
 const tmpColor = new Color();
 
+/**
+ * A wall line a part belongs to, for the cutaway (render/kit/cutaway.ts):
+ * `kind` 1 = the hull (drops while the camera is outside it), 2 = an inner
+ * wall (drops while it stands between the camera and the captain).
+ */
+export interface CutLine { ax: number; az: number; bx: number; bz: number; kind: 1 | 2 }
+
 /** Bake a colour attribute into a non-indexed copy of `geo`. */
-function prepared(geo: BufferGeometry, color: ColorRepresentation): BufferGeometry {
+function prepared(geo: BufferGeometry, color: ColorRepresentation, cut?: CutLine): BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo.clone();
   geo.dispose();
   for (const name of Object.keys(g.attributes)) if (name !== "position" && name !== "normal" && name !== "uv") g.deleteAttribute(name);
@@ -26,6 +35,11 @@ function prepared(geo: BufferGeometry, color: ColorRepresentation): BufferGeomet
   tmpColor.set(color).convertSRGBToLinear();
   for (let i = 0; i < n; i += 1) { colors[i * 3] = tmpColor.r; colors[i * 3 + 1] = tmpColor.g; colors[i * 3 + 2] = tmpColor.b; }
   g.setAttribute("color", new BufferAttribute(colors, 3));
+  // Every part carries the cutaway attributes (zero = never cut), so all of a finish merge together.
+  const ab = new Float32Array(n * 4), kind = new Float32Array(n);
+  if (cut) for (let i = 0; i < n; i += 1) { ab[i * 4] = cut.ax; ab[i * 4 + 1] = cut.az; ab[i * 4 + 2] = cut.bx; ab[i * 4 + 3] = cut.bz; kind[i] = cut.kind; }
+  g.setAttribute("cutAB", new BufferAttribute(ab, 4));
+  g.setAttribute("cutKind", new BufferAttribute(kind, 1));
   g.clearGroups();
   return g;
 }
@@ -54,8 +68,8 @@ export class GeoBatch {
   private readonly parts = new Map<Finish, BufferGeometry[]>();
   private readonly castShadow = new Map<Finish, boolean>();
 
-  add(finish: Finish, geo: BufferGeometry, color: ColorRepresentation, at: Matrix4): this {
-    const g = prepared(geo, color);
+  add(finish: Finish, geo: BufferGeometry, color: ColorRepresentation, at: Matrix4, cut?: CutLine): this {
+    const g = prepared(geo, color, cut);
     g.applyMatrix4(at);
     const list = this.parts.get(finish) ?? [];
     list.push(g);
@@ -63,8 +77,8 @@ export class GeoBatch {
     return this;
   }
 
-  /** A frame to place parts in: `frame.box(...)` lands relative to `at`. */
-  frame(at: Matrix4): Frame { return new Frame(this, at); }
+  /** A frame to place parts in: `frame.box(...)` lands relative to `at`; `cut` ties them to a wall line. */
+  frame(at: Matrix4, cut?: CutLine): Frame { return new Frame(this, at, cut); }
 
   merged(): { finish: Finish; geometry: BufferGeometry }[] {
     const out: { finish: Finish; geometry: BufferGeometry }[] = [];
@@ -82,10 +96,10 @@ export class GeoBatch {
 }
 
 export class Frame {
-  constructor(private readonly batch: GeoBatch, private readonly at: Matrix4) {}
+  constructor(private readonly batch: GeoBatch, private readonly at: Matrix4, private readonly cut?: CutLine) {}
 
   private put(finish: Finish, geo: BufferGeometry, color: ColorRepresentation, p: Placement): this {
-    this.batch.add(finish, geo, color, this.at.clone().multiply(matrixOf(p)));
+    this.batch.add(finish, geo, color, this.at.clone().multiply(matrixOf(p)), this.cut);
     return this;
   }
 
@@ -145,7 +159,7 @@ export class Frame {
 
   /** A child frame placed relative to this one. */
   child(p: Placement): Frame {
-    return new Frame(this.batch, this.at.clone().multiply(matrixOf(p)));
+    return new Frame(this.batch, this.at.clone().multiply(matrixOf(p)), this.cut);
   }
 }
 

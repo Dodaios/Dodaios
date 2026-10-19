@@ -5,10 +5,11 @@
  * carpet and the holodeck grid.
  */
 import {
-  CanvasTexture, Color, DoubleSide, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, RepeatWrapping,
+  AdditiveBlending, CanvasTexture, Color, DoubleSide, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, RepeatWrapping,
   SRGBColorSpace, type Material, type Texture,
 } from "three";
 import type { Finish } from "./geo";
+import { withCutaway } from "./cutaway";
 
 function canvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement("canvas");
@@ -64,11 +65,11 @@ function deckPlates(): { map: Texture; rough: Texture } {
     }
   }
   // Seams.
-  ctx.fillStyle = "#15171b";
-  for (let k = 0; k <= 2; k += 1) { ctx.fillRect(k * plate - 2, 0, 4, 512); ctx.fillRect(0, k * plate - 2, 512, 4); }
+  ctx.fillStyle = "#24272d";
+  for (let k = 0; k <= 2; k += 1) { ctx.fillRect(k * plate - 1.5, 0, 3, 512); ctx.fillRect(0, k * plate - 1.5, 512, 3); }
   rctx.fillStyle = "#ffffff";
   for (let k = 0; k <= 2; k += 1) { rctx.fillRect(k * plate - 2, 0, 4, 512); rctx.fillRect(0, k * plate - 2, 512, 4); }
-  return { map: tiled(c, 2.4), rough: tiled(rc, 2.4, false) };
+  return { map: tiled(c, 4.8), rough: tiled(rc, 4.8, false) };
 }
 
 /** Wall panels: 1.2 m wide, a horizontal seam at waist height and another near the top. */
@@ -133,6 +134,19 @@ function holoGrid(): Texture {
   return tiled(c, 1.0);
 }
 
+function radial(): Texture {
+  const [c, ctx] = canvas(128);
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.45)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  return t;
+}
+
 let cache: Map<Finish, Material> | null = null;
 
 export function finishMaterial(finish: Finish): Material {
@@ -158,19 +172,21 @@ function buildMaterials(): Map<Finish, Material> {
     envMapIntensity: 1.4, side: DoubleSide, depthWrite: false,
   }));
   // Light sources: unlit, above 1 so the bloom pass picks them up.
-  map.set("glow", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(2.4, 2.4, 2.4) }));
-  map.set("glowSoft", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(1.1, 1.1, 1.1) }));
+  map.set("glow", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(1.9, 1.9, 1.9) }));
+  map.set("glowSoft", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(0.95, 0.95, 0.95) }));
   map.set("screen", new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(1.0, 1.0, 1.0) }));
   map.set("holoFloor", new MeshStandardMaterial({ vertexColors: true, map: holoGrid(), emissiveMap: holoGrid(), emissive: new Color(1.4, 1.1, 0.4), roughness: 0.4, metalness: 0.3 }));
+  map.set("pool", new MeshBasicMaterial({ vertexColors: true, map: radial(), transparent: true, blending: AdditiveBlending, depthWrite: false }));
+  for (const [finish, m] of map) withCutaway(m, finish === "glass" ? 0 : 0.14, finish === "glass" ? 0.2 : 0);
   return map;
 }
 
 /** True for finishes that throw a shadow. */
 export function castsShadow(finish: Finish): boolean {
-  return finish !== "glow" && finish !== "glowSoft" && finish !== "glass" && finish !== "screen" && finish !== "deck"
+  return finish !== "glow" && finish !== "glowSoft" && finish !== "glass" && finish !== "screen" && finish !== "deck" && finish !== "pool"
     && finish !== "carpet" && finish !== "grate" && finish !== "ceramic" && finish !== "holoFloor";
 }
 
 export function receivesShadow(finish: Finish): boolean {
-  return finish !== "glow" && finish !== "glowSoft" && finish !== "screen" && finish !== "glass";
+  return finish !== "glow" && finish !== "glowSoft" && finish !== "screen" && finish !== "glass" && finish !== "pool";
 }
