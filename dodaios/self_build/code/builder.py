@@ -1,21 +1,25 @@
 """Build one code case: worktree, plan, coding run, judge, pull request.
 
-Called by the loop for a ``Kind.CODE`` record in ``building``. Each step
-records what it made in the ledger before the next one starts, so an undo (or
-a restart) at any point knows exactly what exists:
+Called by the loop for a ``Kind.CODE`` record in ``building``. Before each step
+the record's undo payload names what the step is about to create, and after
+it what was created, so an undo, a pause or a restart at any point knows
+exactly what exists:
 
 1. a fresh worktree and branch (``dodaios/issue-<n>-...``) from the remote
-   default branch, inside the repository (``<repo>/.worktrees/``);
+   default branch, inside the repository (``<repo>/.worktrees/``); a branch of
+   that name that already exists here or on GitHub stops the build;
 2. at most one cheap planning call; ``large`` stops here;
 3. a headless coding thread on a subscription CLI in that worktree;
 4. the judge: nothing protected was touched, the tests pass;
-5. push the branch and open a pull request that closes the issue, draft unless
-   the person opted the repository in to landing. The record moves to
+5. push the branch (only when ``origin`` fetches from and pushes to the
+   repository) and open a pull request that closes the issue, draft unless the
+   person opted the repository in to landing. The record moves to
    ``proving``; ``watch`` waits for CI.
 
-A failure at any step records the lesson in the repository's profile, removes
-what the run created and moves the record to ``failed``. No pull request is
-left behind by a failed build.
+A failure records the lesson in the repository's profile, removes what the
+run created and moves the record to ``failed``. A pause puts the case back in
+the queue instead (nothing is lost); an undo leaves the state to the undo.
+No pull request is left behind by a failed build.
 """
 
 from __future__ import annotations
@@ -41,32 +45,67 @@ _FOOTER: Final[str] = (
     "Built by Dodaios on its own initiative from issue #{number} (self-build `{build_id}`). "
     'Undo it in Dodaios under "Built for you", or close this pull request.'
 )
+#: Untracked output a test run leaves behind, never the person's work.
+_JUNK: Final[tuple[str, ...]] = (
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "node_modules",
+    ".coverage",
+)
+#: A failure note with this prefix means the case never ran; intake may offer it again.
+NOT_RUN: Final[str] = "not run: "
 
 
 class BuildError(RuntimeError):
     """A step failed; the message is the lesson the profile keeps."""
 
 
+class Stopped(BuildError):
+    """The build was undone (``requeue=False``) or the loop paused (``requeue=True``)."""
+
+    def __init__(self, message: str, *, requeue: bool) -> None:
+        super().__init__(message)
+        self.requeue = requeue
+
+
 # ------------------------------------------------------------------ git steps
 
 
 def make_worktree(folder: str, branch: str, base_branch: str) -> dict[str, str]:
-    """A fresh worktree on ``branch`` from ``origin/<base_branch>``."""
+    """A fresh worktree on a NEW ``branch`` from ``origin/<base_branch>``."""
     from dodaios.agentic_ide import git_ops
 
     root = Path(folder)
+    if gitcmd.git(["show-ref", "--verify", "--quiet", f"refs/heads/{branch}"], root).ok:
+        raise BuildError(f"the branch {branch} already exists here")
+    remote = gitcmd.git(
+        ["ls-remote", "--exit-code", "--heads", "origin", branch],
+        root,
+        timeout=gitcmd.NETWORK_TIMEOUT_S,
+    )
+    if remote.ok:
+        raise BuildError(f"the branch {branch} already exists on GitHub")
+    if remote.code != 2:  # 2 = no such branch; anything else = origin unreachable
+        raise BuildError("origin could not be reached")
     fetch = gitcmd.git(["fetch", "origin", base_branch], root, timeout=gitcmd.NETWORK_TIMEOUT_S)
-    base = f"origin/{base_branch}" if fetch.ok else base_branch
-    base_sha = gitcmd.out(["rev-parse", f"{base}^{{commit}}"], root)
+    if not fetch.ok:
+        raise BuildError(f"the default branch {base_branch} could not be fetched")
+    base_sha = gitcmd.out(["rev-parse", f"origin/{base_branch}^{{commit}}"], root)
     if not base_sha:
         raise BuildError(f"the default branch {base_branch} could not be read")
     try:
         prepared = git_ops.prepare(root, "new_worktree", branch=branch, base=base_sha)
     except git_ops.GitError as exc:  # re-raised as the build's lesson
         raise BuildError(f"no worktree: {exc}") from exc
-    if not prepared.created:
-        raise BuildError(f"the branch {branch} already exists")
     return {"worktree": prepared.folder, "base_sha": base_sha, "base": base_branch}
+
+
+def planned_worktree(folder: str, branch: str) -> str:
+    from dodaios.agentic_ide import git_ops
+
+    return str(git_ops.worktree_path(Path(folder), branch))
 
 
 def collect(worktree: str, branch: str, base_sha: str, message: str) -> list[str]:
@@ -87,16 +126,15 @@ def collect(worktree: str, branch: str, base_sha: str, message: str) -> list[str
 
 
 def push(worktree: str, branch: str, repo: str) -> str:
-    """Push the branch to ``origin`` after checking origin IS ``repo``. Returns the head sha."""
-    from dodaios.agentic_ide.github_link import remote_repository
-
+    """Push the branch after checking ``origin`` fetches from and pushes to ``repo``."""
     root = Path(worktree)
-    if remote_repository(root).lower() != repo.lower():
-        raise BuildError(f"origin does not point at {repo}")
+    for direction in (False, True):
+        if gitcmd.origin_repo(root, push=direction).lower() != repo.lower():
+            raise BuildError(f"origin does not point at {repo}")
     if not branch.startswith(BRANCH_PREFIX):
         raise BuildError("refusing to push a branch the loop did not create")
     result = gitcmd.git(
-        ["push", "--set-upstream", "origin", f"{branch}:{branch}"],
+        ["push", "--set-upstream", "origin", f"refs/heads/{branch}:refs/heads/{branch}"],
         root,
         timeout=gitcmd.NETWORK_TIMEOUT_S,
     )
@@ -105,27 +143,55 @@ def push(worktree: str, branch: str, repo: str) -> str:
     return gitcmd.out(["rev-parse", "HEAD"], root)
 
 
-def remove_local(folder: str, worktree: str, branch: str) -> None:
-    """Remove the loop's worktree and local branch (only a ``dodaios/`` branch)."""
+def remove_local(
+    folder: str, worktree: str, branch: str, *, head: str = "", force: bool = False
+) -> bool:
+    """Remove the loop's worktree and local branch. Returns False when it kept them.
+
+    Only a ``dodaios/`` branch. Kept when the branch moved past ``head`` (the
+    person added commits) or, without ``force``, when the worktree holds
+    uncommitted changes. ``force`` is for a run that is still the loop's own.
+    """
     if not branch.startswith(BRANCH_PREFIX):
-        return
+        return False
     root = Path(folder)
+    tip = gitcmd.out(["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], root)
+    if head and tip and tip != head:
+        logger.info("self-build code: kept {}: it has commits the loop did not make", branch)
+        return False
     if worktree and Path(worktree).exists():
-        gitcmd.git(["worktree", "remove", "--force", worktree], root)
+        if not force and _unsaved(worktree):
+            logger.info("self-build code: kept {}: it has uncommitted changes", worktree)
+            return False
+        gitcmd.git(["worktree", "remove", *(["--force"] if force else []), worktree], root)
     gitcmd.git(["worktree", "prune"], root)
-    gitcmd.git(["branch", "-D", branch], root)
+    if tip:
+        gitcmd.git(["branch", "-D", branch], root)
+    return True
 
 
-def remove_remote(folder: str, branch: str) -> None:
-    if not branch.startswith(BRANCH_PREFIX):
+def _unsaved(worktree: str) -> list[str]:
+    """Changes in the worktree someone would miss (caches and builds do not count)."""
+    lines = gitcmd.out(["status", "--porcelain"], worktree).splitlines()
+    return [line for line in lines if not any(junk in line for junk in _JUNK)]
+
+
+def remove_remote(folder: str, branch: str, head: str) -> None:
+    """Delete the pushed branch, only while it still points at the loop's ``head``."""
+    if not branch.startswith(BRANCH_PREFIX) or not head:
         return
     result = gitcmd.git(
-        ["push", "origin", "--delete", branch], Path(folder), timeout=gitcmd.NETWORK_TIMEOUT_S
+        [
+            "push",
+            f"--force-with-lease=refs/heads/{branch}:{head}",
+            "origin",
+            f":refs/heads/{branch}",
+        ],
+        Path(folder),
+        timeout=gitcmd.NETWORK_TIMEOUT_S,
     )
     if not result.ok and "remote ref does not exist" not in result.err:
-        logger.warning(
-            "self-build code: remote branch {} not deleted: {}", branch, result.tail(200)
-        )
+        logger.info("self-build code: kept the remote branch {}: {}", branch, result.tail(200))
 
 
 # ------------------------------------------------------------------ prompt
@@ -177,8 +243,8 @@ def compose_prompt(
         "- Follow the repository's own instruction files shown in the brief.",
         "- Do not touch CI config (.github and the like), deployment, secrets, .env files or "
         "the instruction files (AGENTS.md, CLAUDE.md). A change that does is thrown away.",
-        "- Do not push, open pull requests, comment on GitHub or switch branches; Dodaios "
-        "checks your work and does that.",
+        "- Do not push, open pull requests, comment on GitHub, change git remotes or switch "
+        "branches; Dodaios checks your work and does that.",
         "- Run the tests before you finish; they must pass: " + "; ".join(tests) + ".",
         "- Commit your work on this branch with a clear message.",
         "- If the issue cannot be done safely, change nothing and say why in one paragraph.",
@@ -211,8 +277,8 @@ def pr_body(
 # ------------------------------------------------------------------ the build
 
 
-def target(ctx: Context, record: BuildRecord) -> tuple[str, Issue, str]:
-    """``(repo, issue, folder)`` for a code record, from the intake store."""
+def target(ctx: Context, record: BuildRecord) -> tuple[str, Issue, dict[str, Any]]:
+    """``(repo, issue, intake data)`` for a code record, from the intake store."""
     parsed = parse_signature(record.signature)
     if parsed is None:
         raise BuildError(f"not a code signature: {record.signature}")
@@ -221,49 +287,89 @@ def target(ctx: Context, record: BuildRecord) -> tuple[str, Issue, str]:
     if seen is None or not seen["issue"].get("folder"):
         raise BuildError("the issue is no longer known; it was not seen in the last poll")
     data = seen["issue"]
-    return repo, Issue.from_json(data), str(data["folder"])
+    return repo, Issue.from_json(data), data
 
 
-async def _fail(ctx: Context, record: BuildRecord, lesson: str, *, repo: str = "") -> None:
+def checkpoint(ctx: Context, record: BuildRecord) -> None:
+    """Raise :class:`Stopped` once the build was undone or the loop paused."""
+    if record.id in ctx.stopping or not ctx.still(record, State.BUILDING):
+        raise Stopped("stopped: the build was undone", requeue=False)
+    if _paused(ctx):
+        raise Stopped("stopped: the self-building loop was paused", requeue=True)
+
+
+async def _record(
+    ctx: Context, record: BuildRecord, stage: str, undo: dict[str, Any], **extra: Any
+) -> None:
+    artefact = {
+        "type": "branch",
+        "repo": undo["repo"],
+        "branch": undo["branch"],
+        "stage": stage,
+        **extra,
+    }
+    await asyncio.to_thread(ctx.ledger.attach_artefact, record.id, artefact, dict(undo))
+
+
+async def _fail(ctx: Context, record: BuildRecord, error: BuildError, *, repo: str) -> None:
     from .watch import cleanup
 
-    lesson = lesson.strip()[:400] or "the build failed"
-    logger.info("self-build code: {} failed: {}", record.signature, lesson)
+    lesson = str(error).strip()[:400] or "the build failed"
     current = await asyncio.to_thread(ctx.ledger.get, record.id)
     if current is not None and current.undo:
-        await cleanup(ctx, current, close_pull=True)
+        try:
+            await cleanup(ctx, current, close_pull=True, force=True)
+        except Exception:  # noqa: BLE001 - logged; what is left is listed in the record
+            logger.opt(exception=True).warning("self-build code: cleanup of {} failed", record.id)
+    if isinstance(error, Stopped):
+        if error.requeue and ctx.still(record, State.BUILDING):
+            await asyncio.to_thread(ctx.ledger.attach_artefact, record.id, {}, {})
+            logger.info("self-build code: {} paused; it waits in the queue", record.signature)
+        return  # an undo owns the record's state
+    logger.info("self-build code: {} failed: {}", record.signature, lesson)
     if repo:
         parsed = parse_signature(record.signature)
-        number = parsed[1] if parsed else 0
         await asyncio.to_thread(
-            ctx.store.add_to_profile, repo, "lessons", {"number": number, "lesson": lesson}
+            ctx.store.add_to_profile,
+            repo,
+            "lessons",
+            {"number": parsed[1] if parsed else 0, "lesson": lesson},
         )
     if ctx.still(record, State.BUILDING, State.PROVING):
         await asyncio.to_thread(ctx.ledger.set_state, record.id, State.FAILED, lesson)
 
 
-async def build(ctx: Context, record: BuildRecord, *, provider: str) -> None:
-    """Run one build to ``proving`` (pull request open) or ``failed``."""
+async def _guarded(ctx: Context, record: BuildRecord, step: Any) -> None:
     repo = ""
     try:
-        repo, issue, folder = target(ctx, record)
-        await _build(ctx, record, repo=repo, issue=issue, folder=folder, provider=provider)
-    except BuildError as exc:  # _fail logs it, keeps the lesson and fails the record
-        await _fail(ctx, record, str(exc), repo=repo)
+        repo, issue, data = target(ctx, record)
+        await step(repo, issue, data)
+    except BuildError as exc:  # _fail logs it, keeps the lesson and settles the record
+        await _fail(ctx, record, exc, repo=repo)
     except Exception as exc:  # noqa: BLE001 - an unexpected error fails this build only
         logger.opt(exception=exc).warning("self-build code: build {} crashed", record.id)
-        await _fail(ctx, record, f"unexpected error: {type(exc).__name__}", repo=repo)
+        await _fail(ctx, record, BuildError(f"unexpected error: {type(exc).__name__}"), repo=repo)
+
+
+async def build(ctx: Context, record: BuildRecord, *, provider: str) -> None:
+    """Run one build to ``proving`` (pull request open), ``failed``, or back to the queue."""
+
+    async def step(repo: str, issue: Issue, data: dict[str, Any]) -> None:
+        await _build(ctx, record, repo=repo, issue=issue, data=data, provider=provider)
+
+    await _guarded(ctx, record, step)
 
 
 async def resume(ctx: Context, record: BuildRecord, result: RunResult | None) -> None:
     """Carry on a build whose coding run ended while the app was not running."""
-    repo = ""
-    try:
-        repo, issue, folder = target(ctx, record)
+
+    async def step(repo: str, issue: Issue, data: dict[str, Any]) -> None:
         if result is None or not result.ok:
             error = (result.error if result else "") or "no answer"
             raise BuildError(f"the coding run did not finish: {error}")
-        brief, _ = await asyncio.to_thread(brief_mod.refresh, ctx.store, folder, repo=repo)
+        brief, _ = await asyncio.to_thread(
+            brief_mod.refresh, ctx.store, str(data["folder"]), repo=repo
+        )
         await finish(
             ctx,
             record,
@@ -275,86 +381,82 @@ async def resume(ctx: Context, record: BuildRecord, result: RunResult | None) ->
             setup=brief.setup_commands,
             plan=Plan(),
         )
-    except BuildError as exc:  # _fail logs it, keeps the lesson and fails the record
-        await _fail(ctx, record, str(exc), repo=repo)
-    except Exception as exc:  # noqa: BLE001 - an unexpected error fails this build only
-        logger.opt(exception=exc).warning("self-build code: resume {} crashed", record.id)
-        await _fail(ctx, record, f"unexpected error: {type(exc).__name__}", repo=repo)
+
+    await _guarded(ctx, record, step)
 
 
 async def _build(
-    ctx: Context, record: BuildRecord, *, repo: str, issue: Issue, folder: str, provider: str
+    ctx: Context,
+    record: BuildRecord,
+    *,
+    repo: str,
+    issue: Issue,
+    data: dict[str, Any],
+    provider: str,
 ) -> None:
-    ledger = ctx.ledger
+    folder = str(data["folder"])
     brief, _ = await asyncio.to_thread(brief_mod.refresh, ctx.store, folder, repo=repo)
     tests = brief.test_commands
     if not tests:
         raise BuildError("no test command in this repository")
-    base = brief.default_branch or "main"
+    # GitHub's own default branch, read at intake; the local guess only as a fallback.
+    base = str(data.get("base") or "") or brief.default_branch or "main"
     branch = branch_name(issue.number, issue.title)
-    made = await asyncio.to_thread(make_worktree, folder, branch, base)
-    worktree = made["worktree"]
     undo: dict[str, Any] = {
         "repo": repo,
         "folder": folder,
-        "worktree": worktree,
         "branch": branch,
-        "base_sha": made["base_sha"],
-        "base": made["base"],
+        "base": base,
+        "worktree": planned_worktree(folder, branch),
     }
-    record = await asyncio.to_thread(
-        ledger.attach_artefact,
-        record.id,
-        {"type": "branch", "repo": repo, "branch": branch, "stage": "worktree"},
-        undo,
-    )
-    if not ctx.still(record, State.BUILDING):
-        raise BuildError("stopped before the run")
+    await _record(ctx, record, "worktree", undo)
+    checkpoint(ctx, record)
+    made = await asyncio.to_thread(make_worktree, folder, branch, base)
+    undo.update(made, created=True)
+    await _record(ctx, record, "worktree", undo)
+    checkpoint(ctx, record)
 
     plan = Plan()
     if ctx.plan is not None:
         plan = await ctx.plan(record.id, issue, brief.render())
         if plan.size == "large":
             raise BuildError("estimated as large work, not for an unattended agent")
+    checkpoint(ctx, record)
 
     from . import commands
 
-    shown_tests = [commands.shown(cmd) for cmd in tests]
     prompt = compose_prompt(
         issue=issue,
         repo=repo,
-        worktree=worktree,
+        worktree=undo["worktree"],
         branch=branch,
         base=base,
         brief_text=brief.render(),
         plan=plan,
-        tests=shown_tests,
+        tests=[commands.shown(cmd) for cmd in tests],
     )
 
     async def remember_session(session_id: str) -> None:
         undo["session_id"] = session_id
-        await asyncio.to_thread(
-            ledger.attach_artefact,
-            record.id,
-            {
-                "type": "branch",
-                "repo": repo,
-                "branch": branch,
-                "stage": "coding",
-                "thread": session_id,
-            },
-            dict(undo),
-        )
+        await _record(ctx, record, "coding", undo, thread=session_id)
+
+    def should_stop() -> bool:
+        try:
+            checkpoint(ctx, record)
+        except Stopped:  # the answer to "should the run stop?", not an error
+            return True
+        return False
 
     result = await ctx.runner.run(
         provider=provider,
-        folder=worktree,
+        folder=undo["worktree"],
         prompt=prompt,
         title=f"#{issue.number} {issue.title}",
         timeout_s=ctx.run_timeout_s,
-        should_stop=lambda: not ctx.still(record, State.BUILDING) or _paused(ctx),
+        should_stop=should_stop,
         on_session=remember_session,
     )
+    checkpoint(ctx, record)
     if not result.ok:
         raise BuildError(f"the coding run did not finish: {result.error or 'no answer'}")
     await finish(
@@ -400,27 +502,23 @@ async def finish(
             ledger.attach_proof, record.id, passed=False, judge="tests", detail=detail
         )
         raise BuildError("the tests failed: " + detail.splitlines()[0][:200])
-    if not ctx.still(record, State.BUILDING) or _paused(ctx):
-        raise BuildError("stopped before the pull request")
+    checkpoint(ctx, record)
 
     api = ctx.github()
     if api is None:
         raise BuildError("GitHub is not connected")
-    head = await asyncio.to_thread(push, worktree, branch, repo)
-    undo["pushed"] = True
-    undo["head"] = head
-    await asyncio.to_thread(
-        ledger.attach_artefact,
-        record.id,
-        {"type": "branch", "repo": repo, "branch": branch, "stage": "pushed"},
-        dict(undo),
-    )
+    undo["head"] = gitcmd.out(["rev-parse", "HEAD"], worktree)
+    undo["pushed"] = True  # before the push: an undo meanwhile still deletes it
+    await _record(ctx, record, "pushing", undo)
+    undo["head"] = await asyncio.to_thread(push, worktree, branch, repo)
+    await _record(ctx, record, "pushed", undo)
+    checkpoint(ctx, record)
     draft = repo.lower() not in land_repos(ctx.config())
     pull = await asyncio.to_thread(
         api.create_pull,
         repo,
         head=branch,
-        base=str(undo.get("base") or "") or _base_of(ctx, undo),
+        base=str(undo["base"]),
         title=issue.title.strip()[:120] or f"Fix #{issue.number}",
         body=pr_body(
             issue=issue,
@@ -445,14 +543,10 @@ async def finish(
         "opened_ms": now_ms(),
     }
     await asyncio.to_thread(ledger.attach_artefact, record.id, artefact, dict(undo))
+    checkpoint(ctx, record)
     await asyncio.to_thread(
         ledger.set_state, record.id, State.PROVING, "pull request opened; waiting for CI"
     )
-
-
-def _base_of(ctx: Context, undo: dict[str, Any]) -> str:
-    loaded = brief_mod.load(ctx.store, str(undo["folder"]))
-    return (loaded.default_branch if loaded else "") or "main"
 
 
 def _paused(ctx: Context) -> bool:

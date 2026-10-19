@@ -31,7 +31,7 @@ from . import builder, intake, planner, seat
 from .context import Context
 from .github import GitHub, GitHubApi
 from .idle import person_idle
-from .runner import ThreadRunner
+from .runner import RunResult, ThreadRunner
 from .store import DB_NAME, CodeStore
 from .watch import cleanup, watch
 
@@ -42,6 +42,10 @@ STALE_BUILDING_MS: Final[int] = 3 * 86_400_000
 #: Archived builds' pull requests are still watched this long (a late merge).
 WATCH_ARCHIVED_MS: Final[int] = 30 * 86_400_000
 _GITHUB_TTL_S: Final[float] = 600.0
+#: How long an undo waits for a running build to reach its next step.
+UNDO_WAIT_S: Final[float] = 20.0
+#: A coding run found still working after a restart gets this much past its limit.
+RESUME_GRACE_S: Final[float] = 600.0
 
 
 class CodeLoop:
@@ -99,15 +103,23 @@ class CodeLoop:
         self.kick()
 
     async def undo(self, record: BuildRecord) -> None:
-        """Close the loop's pull request and delete its branch and worktree."""
-        if self._building_id == record.id and self._building and not self._building.done():
-            self._building.cancel()
-            try:
-                await self._building
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001 - it is being undone
-                logger.debug("self-build code: build {} stopped for undo", record.id)
-        current = await asyncio.to_thread(self.ctx.ledger.get, record.id) or record
-        await cleanup(self.ctx, current, close_pull=True)
+        """Close the loop's pull request and delete its branch and worktree.
+
+        A build still running is asked to stop (it stops at its next step and
+        removes what it made after this point itself); nothing is cancelled
+        mid-step, so no half-done git or GitHub call is lost track of.
+        """
+        ctx = self.ctx
+        ctx.stopping.add(record.id)
+        task = self._building if self._building_id == record.id else None
+        if task is not None and not task.done():
+            session_id = str(record.undo.get("session_id") or "")
+            stop = getattr(ctx.runner, "stop", None)
+            if session_id and stop is not None:
+                await stop(session_id)
+            await asyncio.wait({task}, timeout=UNDO_WAIT_S)
+        current = await asyncio.to_thread(ctx.ledger.get, record.id) or record
+        await cleanup(ctx, current, close_pull=True, force=current.state == State.BUILDING)
 
     # ------------------------------------------------------------ one pass
 
@@ -161,19 +173,35 @@ class CodeLoop:
         if not waiting:
             return "nothing to build"
         record = min(waiting, key=lambda r: r.created_ms)
+        if record.artefact.get("type") == "pull_request":
+            # The app stopped right after opening the pull request: CI decides now.
+            await asyncio.to_thread(
+                ctx.ledger.set_state, record.id, State.PROVING, "pull request opened"
+            )
+            return f"proving {record.signature}"
         stage = str(record.artefact.get("stage") or "")
         if stage == "coding":
             return await self._resume(record)
         if stage:
             # The app stopped between steps: start this case over from nothing.
-            await cleanup(ctx, record, close_pull=True)
+            try:
+                await cleanup(ctx, record, close_pull=True, force=True)
+            except Exception as exc:  # noqa: BLE001 - logged, and the case stops blocking the queue
+                logger.opt(exception=exc).warning("self-build code: {} not cleaned", record.id)
+                await asyncio.to_thread(
+                    ctx.ledger.set_state,
+                    record.id,
+                    State.FAILED,
+                    f"an interrupted run could not be cleaned up: {exc}",
+                )
+                return "failed cleanup"
             record = await asyncio.to_thread(ctx.ledger.attach_artefact, record.id, {}, {})
         if now_ms() - record.updated_ms > STALE_BUILDING_MS:
             await asyncio.to_thread(
                 ctx.ledger.set_state,
                 record.id,
                 State.FAILED,
-                "no idle time on a subscription coding CLI for three days",
+                builder.NOT_RUN + "no idle time on a subscription coding CLI for three days",
             )
             return "stale"
         if not await asyncio.to_thread(ctx.idle):
@@ -185,11 +213,17 @@ class CodeLoop:
         return f"building {record.signature} on {chosen.label}"
 
     async def _resume(self, record: BuildRecord) -> str:
+        ctx = self.ctx
         session_id = str(record.undo.get("session_id") or "")
-        result = await self.ctx.runner.outcome(session_id) if session_id else None
+        result = await ctx.runner.outcome(session_id) if session_id else None
         if session_id and result is None:
-            return "coding run still working"
-        self._start(record, builder.resume(self.ctx, record, result))
+            if now_ms() - record.updated_ms < (ctx.run_timeout_s + RESUME_GRACE_S) * 1000:
+                return "coding run still working"
+            stop = getattr(ctx.runner, "stop", None)
+            if stop is not None:
+                await stop(session_id)
+            result = RunResult(False, error="did not finish in time", session_id=session_id)
+        self._start(record, builder.resume(ctx, record, result))
         return f"resuming {record.signature}"
 
     def _start(self, record: BuildRecord, coro: Any) -> None:

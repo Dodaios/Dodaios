@@ -39,15 +39,24 @@ CI_TIMEOUT_MS: Final[int] = 24 * 3_600_000
 _RED: Final[frozenset[str]] = frozenset({"FAILURE", "ERROR"})
 
 
-async def cleanup(ctx: Context, record: BuildRecord, *, close_pull: bool) -> None:
+async def cleanup(
+    ctx: Context, record: BuildRecord, *, close_pull: bool, force: bool = False
+) -> None:
     """Remove the loop's own artefacts for ``record``: its open pull request (when
-    ``close_pull``), its remote branch, its worktree and local branch."""
+    ``close_pull``), its remote branch, its worktree and local branch.
+
+    Branches are deleted only while they still point at the commit the loop
+    pushed, so work the person added on top is never lost. ``force`` is for a
+    run that is still the loop's own (``building``): its worktree goes even
+    with uncommitted changes.
+    """
     from .builder import remove_local, remove_remote
 
     undo = dict(record.undo)
     branch = str(undo.get("branch") or "")
     folder = str(undo.get("folder") or "")
-    if not branch.startswith(BRANCH_PREFIX) or not folder:
+    # Only a branch this build made itself: a name that already existed is not ours.
+    if not branch.startswith(BRANCH_PREFIX) or not folder or not undo.get("created"):
         return
     session_id = str(undo.get("session_id") or "")
     if session_id:
@@ -61,9 +70,12 @@ async def cleanup(ctx: Context, record: BuildRecord, *, close_pull: bool) -> Non
             raise RuntimeError("the pull request is merged; revert it in the repository")
         if state.state == "OPEN":
             await asyncio.to_thread(api.close_pull, str(undo["pr_id"]))
+    head = str(undo.get("head") or "")
     if undo.get("pushed"):
-        await asyncio.to_thread(remove_remote, folder, branch)
-    await asyncio.to_thread(remove_local, folder, str(undo.get("worktree") or ""), branch)
+        await asyncio.to_thread(remove_remote, folder, branch, head)
+    await asyncio.to_thread(
+        remove_local, folder, str(undo.get("worktree") or ""), branch, head=head, force=force
+    )
 
 
 async def _stop_thread(ctx: Context, session_id: str) -> None:

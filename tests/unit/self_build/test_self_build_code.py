@@ -495,31 +495,131 @@ def test_busy_person_or_no_subscription_waits(world: World) -> None:
     assert world.service.ledger.get(record.id).state == State.BUILDING
 
 
+def _slow_run(world: World) -> asyncio.Event:
+    """Make the fake agent work until it is stopped (or the event is set)."""
+    released = asyncio.Event()
+
+    async def slow(**kwargs: Any) -> RunResult:
+        await kwargs["on_session"]("thread-9")
+        while not released.is_set() and not kwargs["should_stop"]():  # noqa: ASYNC110 - polls should_stop too
+            await asyncio.sleep(0.02)
+        return RunResult(False, error="stopped", session_id="thread-9")
+
+    async def stop(session_id: str) -> None:
+        world.runner.stopped.append(session_id)
+        released.set()
+
+    world.runner.run = slow  # type: ignore[method-assign]
+    world.runner.stop = stop  # type: ignore[method-assign]
+    return released
+
+
+async def _until_coding(world: World, build_id: str) -> None:
+    for _ in range(200):
+        if world.service.ledger.get(build_id).undo.get("session_id"):
+            return
+        await asyncio.sleep(0.02)
+    raise AssertionError("the run never started")
+
+
 def test_undo_while_coding_stops_the_run(world: World) -> None:
     world.idle[0] = False
     world.tick()
     [record] = world.records()
-
-    async def slow(**kwargs: Any) -> RunResult:
-        await kwargs["on_session"]("thread-9")
-        await asyncio.sleep(30)
-        return RunResult(True)
-
-    world.runner.run = slow  # type: ignore[method-assign]
     world.idle[0] = True
 
     async def go() -> Any:
+        _slow_run(world)
         await world.loop.tick()
-        for _ in range(100):
-            if world.service.ledger.get(record.id).undo.get("session_id"):
-                break
-            await asyncio.sleep(0.05)
-        return await world.service.undo_build(record.id)
+        await _until_coding(world, record.id)
+        undone = await world.service.undo_build(record.id)
+        await world.loop._building
+        return undone
 
     undone = asyncio.run(go())
     assert undone.state == State.UNDONE
-    assert world.runner.stopped == ["thread-9"]
+    assert world.service.ledger.get(record.id).state == State.UNDONE
+    assert "thread-9" in world.runner.stopped
     assert not Path(undone.undo["worktree"]).exists()
+    assert world.github.pulls == {}
+    # An undone issue is not offered again.
+    world.tick()
+    assert len(world.records()) == 1
+
+
+def test_pause_mid_run_puts_the_case_back_in_the_queue(world: World) -> None:
+    world.idle[0] = False
+    world.tick()
+    [record] = world.records()
+    world.idle[0] = True
+
+    async def go() -> None:
+        _slow_run(world)
+        await world.loop.tick()
+        await _until_coding(world, record.id)
+        policy.set_paused(world.service.ledger, True)
+        await world.loop._building
+
+    asyncio.run(go())
+    record = world.service.ledger.get(record.id)
+    assert record.state == State.BUILDING
+    assert record.artefact == {} and record.undo == {}
+    assert world.remote_branches() == ["main"]
+    assert world.loop.ctx.store.profile("me/proj")["lessons"] == []
+    # After the pause the case is built from scratch.
+    policy.set_paused(world.service.ledger, False)
+    world.runner = FakeRunner()
+    world.loop.ctx.runner = world.runner
+    world.tick()
+    assert world.service.ledger.get(record.id).state == State.PROVING
+
+
+def test_undo_keeps_a_branch_the_person_added_commits_to(world: World) -> None:
+    world.tick()
+    [record] = world.records()
+    branch = record.undo["branch"]
+    worktree = Path(record.undo["worktree"])
+    (worktree / "extra.py").write_text("x = 1\n", encoding="utf-8")
+    git(worktree, "add", "extra.py")
+    git(worktree, "commit", "-m", "person's own work")
+    git(worktree, "push", "origin", branch)
+    undone = asyncio.run(world.service.undo_build(record.id))
+    assert undone.state == State.UNDONE
+    assert world.github.pulls[100]["state"] == "CLOSED"
+    assert branch in world.remote_branches()  # their commit lives on
+    assert worktree.exists()
+
+
+def test_existing_branch_stops_the_build(world: World) -> None:
+    branch = branch_name(1, "Add a mul function")
+    git(world.work, "branch", branch)
+    world.tick()
+    [record] = world.records()
+    assert record.state == State.FAILED
+    assert "already exists" in record.note
+    assert branch in git(world.work, "branch", "--list", branch)  # the person's branch stays
+
+
+def test_pull_request_targets_githubs_default_branch(world: World) -> None:
+    git(world.work, "checkout", "-b", "feature")
+    git(world.work, "push", "-u", "origin", "feature")
+    git(world.work, "remote", "set-head", "origin", "feature")
+    world.tick()
+    assert world.github.pulls[100]["base"] == "main"
+
+
+def test_stale_case_may_be_offered_again(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    from dodaios.self_build.code import loop as loop_mod
+
+    world.idle[0] = False
+    world.tick()
+    monkeypatch.setattr(loop_mod, "STALE_BUILDING_MS", -1)
+    world.tick()
+    [record] = world.records()
+    assert record.state == State.FAILED and record.note.startswith("not run: ")
+    world.loop.ctx.store.set_poll("me/proj", 0)
+    world.tick()
+    assert len(world.records()) == 2
 
 
 # ------------------------------------------------------------------ parts

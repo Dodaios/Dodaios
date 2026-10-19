@@ -60,6 +60,8 @@ class Context:
     run_timeout_s: float = 45 * 60.0
     dodaios_root: Path | None = None
     _viewer: tuple[int, Any] | None = field(default=None, repr=False)
+    #: Builds an undo asked to stop; the build stops at its next step.
+    stopping: set[str] = field(default_factory=set)
 
     @property
     def ledger(self) -> Any:
