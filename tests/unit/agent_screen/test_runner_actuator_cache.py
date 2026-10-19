@@ -11,18 +11,18 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.cu.actuate as actuate
-import jarvis.cu.capture as cu_capture
-from jarvis.cu.actuate import ActuationUnavailable, PermissionNeededError
+import dodaios.cu.actuate as actuate
+import dodaios.cu.capture as cu_capture
+from dodaios.cu.actuate import ActuationUnavailable, PermissionNeededError
 
 
 @pytest.fixture
 def screen_server_cls(monkeypatch: pytest.MonkeyPatch):
-    """``ScreenServer``, importable even while ``jarvis.agent_screen.port`` is stale.
+    """``ScreenServer``, importable even while ``dodaios.agent_screen.port`` is stale.
 
-    ``jarvis/agent_screen/port.py`` imports ``RawCapture`` and ``raw_pixels`` from
-    ``jarvis.cu.capture``, names that module no longer exports (they are private
-    since e982c073c), so importing ANY ``jarvis.agent_screen`` module fails on the
+    ``dodaios/agent_screen/port.py`` imports ``RawCapture`` and ``raw_pixels`` from
+    ``dodaios.cu.capture``, names that module no longer exports (they are private
+    since e982c073c), so importing ANY ``dodaios.agent_screen`` module fails on the
     base commit. The runner under test never touches them; supplying the names here
     keeps this test about the actuator cache. Remove the shim once ``port.py`` is
     fixed.
@@ -30,7 +30,7 @@ def screen_server_cls(monkeypatch: pytest.MonkeyPatch):
     for name in ("RawCapture", "raw_pixels"):
         if not hasattr(cu_capture, name):
             monkeypatch.setattr(cu_capture, name, object, raising=False)
-    from jarvis.agent_screen.runner.server import ScreenServer  # noqa: PLC0415
+    from dodaios.agent_screen.runner.server import ScreenServer  # noqa: PLC0415
 
     return ScreenServer
 
@@ -113,7 +113,7 @@ def test_real_unavailability_stays_cached(
 def test_a_failing_import_is_cached_with_the_real_import_error(
     monkeypatch: pytest.MonkeyPatch, screen_server_cls
 ) -> None:
-    # A missing name makes ``from jarvis.cu.actuate import ...`` raise ImportError
+    # A missing name makes ``from dodaios.cu.actuate import ...`` raise ImportError
     # before ``PermissionNeededError`` is bound: the error must not turn into an
     # UnboundLocalError, and it is cached like any other unavailability.
     monkeypatch.delattr(actuate, "get_actuator")

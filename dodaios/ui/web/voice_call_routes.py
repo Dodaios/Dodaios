@@ -1,0 +1,169 @@
+"""REST API for the voice orb — start or end a conversation without speaking.
+
+Endpoints (mounted by the WebServer in ``_build_app()``):
+
+    GET  /api/voice/state   → is a speech pipeline running, what it is doing,
+                              and whether the browser should hold the call.
+    POST /api/voice/call    → arm a wake-style voice session (the click-shaped
+                              wake word — same path as the call hotkey).
+    POST /api/voice/hangup  → hard-stop the voice channel (same contract as the
+                              hangup hotkey).
+
+The click path is deliberately the SAME one the call hotkey and the chats
+"Speak in this conversation" button take — ``SpeechPipeline.request_voice_session``
+— so a click on the orb can never behave differently from the wake word beyond
+skipping the audio trigger. Under the CLI-first contract these routes also make
+the orb's actions scriptable as ``jarvis api voice <op>``.
+
+No Brain dependency; on a headless install (no microphone, voice disabled) the
+state endpoint answers honestly and the actions 503 instead of 500-ing.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, Field
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/voice", tags=["voice"])
+
+
+class BrowserStartupFailure(BaseModel):
+    """A bounded correlation token; no microphone data or failure text."""
+
+    model_config = ConfigDict(extra="forbid")
+    request_id: str = Field(
+        min_length=36, max_length=36,
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    )
+
+
+@router.post("/startup-failed")
+async def voice_startup_failed(body: BrowserStartupFailure) -> dict[str, bool]:
+    """Release a pending wake request when browser audio could not start."""
+    from dodaios.live.runtime import browser_startup_failed
+
+    return {"acknowledged": browser_startup_failed(body.request_id)}
+
+
+def _pipeline() -> Any:
+    """The live SpeechPipeline, or ``None`` (headless / voice disabled)."""
+    try:
+        from dodaios.core.runtime_refs import get_speech_pipeline
+
+        return get_speech_pipeline()
+    except Exception:  # noqa: BLE001 — a missing runtime ref is "no pipeline"
+        return None
+
+
+def _browser_call(request: Request, pipeline: Any) -> bool:
+    """Whether the browser that presses Start should hold the call itself.
+
+    True only on a host that will never run a speech pipeline of its own — no
+    pipeline AND no desktop shell (a desktop app that is still booting has no
+    pipeline yet, and a browser-held call there would be a second microphone
+    owner) — and whose ``/ws/audio`` would accept the call. Without a config
+    attached to the app the answer is False: it cannot be read, so it is not
+    offered.
+    """
+    if pipeline is not None:
+        return False
+    state = request.app.state
+    if bool(getattr(state, "native_file_actions", False)):
+        return False
+    cfg = getattr(state, "config", None) or getattr(state, "cfg", None)
+    if cfg is None:
+        return False
+    from dodaios.browser_voice.route import browser_voice_enabled
+
+    return browser_voice_enabled(cfg)
+
+
+@router.get("/state")
+async def voice_state(request: Request) -> dict[str, Any]:
+    """Whether voice is available here, and what the pipeline is doing now.
+
+    ``voice_state`` is the fine-grained state every voice surface renders
+    (idle / connecting / listening / thinking / speaking / paused / error) —
+    the same value ``SystemStateChanged`` carries, read straight from the
+    supervisor. It exists because that event is a one-shot signal: a client
+    that mounts, reconnects or survives a backend restart after the last
+    transition never sees it and keeps whatever it heard last. A window that
+    was showing LISTENING when the socket dropped went on claiming the user
+    was being heard for the rest of its life (field report 2026-08-25). This
+    is the REST mirror those surfaces reconcile against.
+
+    Clamped to ``idle`` whenever the pipeline is not ACTIVE: a fine-grained
+    state without a running session is unearned detail, never the truth. A
+    running session whose supervisor cannot be read answers ``unknown`` rather
+    than a guess — the caller leaves a live call alone on anything but ``idle``.
+
+    ``browser_call`` tells a browser on a host without a speech pipeline (a
+    VPS, ``jarvis serve``) to hold the call itself over ``/ws/audio`` instead
+    of asking this host to arm a microphone it does not have (issue #399).
+    """
+    from dodaios.live.runtime import active
+
+    pipeline = _pipeline()
+    browser_call = _browser_call(request, pipeline)
+    sessions = active()
+    if sessions:
+        phase = getattr(sessions[0], "phase", "listening")
+        if phase not in {"speaking", "thinking", "listening"}:
+            phase = "speaking" if sessions[0].playback_active else "listening"
+        return {
+            "available": True,
+            "state": "active",
+            "voice_state": phase,
+            "browser_call": browser_call,
+        }
+    if pipeline is None:
+        return {
+            "available": False,
+            "state": "unavailable",
+            "voice_state": "idle",
+            "browser_call": browser_call,
+        }
+    state = str(getattr(getattr(pipeline, "_state", None), "name", "unknown")).lower()
+    supervisor = getattr(pipeline, "_supervisor", None)
+    supervisor_state = str(getattr(supervisor, "state", "") or "").lower() or "unknown"
+    return {
+        "available": True,
+        "state": state,
+        "voice_state": supervisor_state if state == "active" else "idle",
+        "browser_call": browser_call,
+    }
+
+
+@router.post("/call")
+async def voice_call() -> dict[str, Any]:
+    """Start a voice conversation — functionally the wake word, by click.
+
+    ``armed`` is ``False`` when the pipeline refused — that is an answer, not
+    an error — and ``reason`` then names why, from
+    ``dodaios.speech.start_refusal``, so the control can say what actually
+    stopped the start. ``reason`` is ``""`` when the call was armed.
+    """
+    pipeline = _pipeline()
+    if pipeline is None or not hasattr(pipeline, "start_voice_session"):
+        raise HTTPException(status_code=503, detail="voice-pipeline-unavailable")
+    reason = str(pipeline.start_voice_session() or "")
+    return {"armed": not reason, "reason": reason}
+
+
+@router.post("/hangup")
+async def voice_hangup() -> dict[str, Any]:
+    """End the running voice conversation — the hangup key's contract."""
+    from dodaios.live.runtime import active, close_all
+
+    if active():
+        await close_all()
+        return {"stopped": True}
+    pipeline = _pipeline()
+    if pipeline is None or not hasattr(pipeline, "request_voice_hangup"):
+        raise HTTPException(status_code=503, detail="voice-pipeline-unavailable")
+    return {"stopped": bool(pipeline.request_voice_hangup())}

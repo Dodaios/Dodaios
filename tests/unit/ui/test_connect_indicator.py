@@ -18,9 +18,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from jarvis.core.events import SystemStateChanged, VoiceSessionStarted
-from jarvis.ui.dodaiosbar import interaction, modes, renderer
-from jarvis.ui.pets.state_machine import PetStateMachine
+from dodaios.core.events import SystemStateChanged, VoiceSessionStarted
+from dodaios.ui.dodaiosbar import interaction, modes, renderer
+from dodaios.ui.pets.state_machine import PetStateMachine
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) in sys.path:

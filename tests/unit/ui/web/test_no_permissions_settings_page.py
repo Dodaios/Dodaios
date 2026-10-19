@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-_FRONTEND = Path(__file__).resolve().parents[4] / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = Path(__file__).resolve().parents[4] / "dodaios" / "ui" / "web" / "frontend" / "src"
 _LOCALES = ("en", "de", "es")
 _FORBIDDEN_SECTION_IDS = {"permissions", "privacy"}
 _DELETED_PAGE_FILES = (

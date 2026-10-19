@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.model_catalog import ModelCatalog, catalog_spec
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.brain.model_catalog import ModelCatalog, catalog_spec
+from dodaios.ui.web.provider_spec import get_spec
 
 
 @pytest.mark.parametrize("provider_id", ["openrouter", "openrouter-tts", "openrouter-stt"])

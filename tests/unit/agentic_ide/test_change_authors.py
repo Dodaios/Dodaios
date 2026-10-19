@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import change_authors
-from jarvis.agentic_ide.change_authors import PaneRecord
+from dodaios.agentic_ide import change_authors
+from dodaios.agentic_ide.change_authors import PaneRecord
 
 
 @pytest.fixture(autouse=True)

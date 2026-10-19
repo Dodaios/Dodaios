@@ -1,0 +1,148 @@
+"""Non-interactive safety gate for mutating CLI commands.
+
+The Jarvis CLI is a thin client over the REST API and therefore inherits every
+server-side guardrail (risk tiers, the atomic config-write pipeline, audit). But
+an external coding agent issuing mutations non-interactively is a new risk
+surface, so the CLI adds defense in depth on the client side:
+
+* **read** (``GET``): never gated.
+* **mutating** (``POST`` / ``PUT`` / ``PATCH`` / ``DELETE``): require confirmation.
+  In an interactive TTY the user is prompted; when piped/non-interactive the
+  command **fails closed** unless ``--yes`` / ``-y`` (or ``JARVIS_CLI_ASSUME_YES``)
+  is set.
+* **dangerous** (every ``DELETE`` plus an explicit path denylist — restart,
+  place an outbound call, dispatch a mission, …): always require an explicit ``--yes``; an
+  interactive ``[y/N]`` prompt alone does not authorize them.
+
+``--dry-run`` short-circuits any command: it prints the exact request that would
+be sent (method, path, body, whether auth is attached) and sends nothing. This is
+the safe introspection path for an agent.
+
+Three signals mark a request destructive, strictest wins: every ``DELETE``
+(method alone), the small path denylist below (legacy floor), and the
+server-declared ``x-jarvis-dangerous`` OpenAPI flag that the dynamic layer
+reads per operation and passes in as ``dangerous=True`` (authoritative for
+new routes; enforced repo-wide by ``scripts/ci/check_danger_metadata.py``).
+A flag can only ADD strictness — nothing downgrades the denylist.
+"""
+from __future__ import annotations
+
+import os
+
+import typer
+
+from dodaios.cli_ctl import render
+
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+# Substrings that mark a route as destructive/consequential regardless of method.
+# Kept deliberately small and explicit; extend as curated commands are added.
+_DANGEROUS_MARKERS: tuple[str, ...] = (
+    "/restart",
+    "/outbound",
+    "/dispatch",
+    "/rerun",
+    "/kill",
+    "/cancel",
+    "/config/set",
+    "/secret",
+)
+
+_TRUE = {"1", "true", "yes", "on"}
+
+
+def is_mutating(method: str) -> bool:
+    return method.upper() in _MUTATING_METHODS
+
+
+def is_dangerous(method: str, path: str) -> bool:
+    if method.upper() == "DELETE":
+        return True
+    low = path.lower()
+    route = low.split("?", 1)[0]
+    segments = tuple(segment for segment in route.split("/") if segment)
+    legacy_contact_call = (
+        len(segments) == 4
+        and segments[:2] == ("api", "contacts")
+        and segments[-1] == "call"
+    )
+    return any(marker in low for marker in _DANGEROUS_MARKERS) or legacy_contact_call
+
+
+def _assume_yes_env() -> bool:
+    return os.environ.get("JARVIS_CLI_ASSUME_YES", "").strip().lower() in _TRUE
+
+
+def require_yes_for_local_action(description: str, *, assume_yes: bool) -> None:
+    """Fail closed unless ``--yes`` (or ``JARVIS_CLI_ASSUME_YES``) authorizes a local action.
+
+    For a curated command that changes this machine directly instead of sending a
+    request (``permissions reset`` runs ``tccutil``): the same rule as a
+    destructive request, so an agent that follows ``--help`` meets the same gate.
+    """
+    if assume_yes or _assume_yes_env():
+        return
+    render.error(
+        f"{description} changes this machine directly; re-run with --yes "
+        "(or set JARVIS_CLI_ASSUME_YES=1) to authorize it, or --dry-run to "
+        "preview exactly what would run."
+    )
+    raise typer.Exit(code=1)
+
+
+def _print_preview(
+    method: str, path: str, body: object, auth_attached: bool, *, as_json: bool
+) -> None:
+    preview = {
+        "dry_run": True,
+        "method": method,
+        "path": path,
+        "auth": "bearer" if auth_attached else None,
+        "body": body,
+    }
+    render.emit(preview, as_json=as_json)
+
+
+def gate_request(
+    method: str,
+    path: str,
+    *,
+    body: object = None,
+    assume_yes: bool = False,
+    dry_run: bool = False,
+    dangerous: bool | None = None,
+    auth_attached: bool = True,
+    as_json: bool = False,
+) -> bool:
+    """Decide whether a request may proceed.
+
+    Returns True when the caller should send the request, False when it was a
+    dry run (already printed — caller must NOT send). Raises ``typer.Exit`` when
+    a destructive request is attempted without ``--yes``.
+
+    Reads (GET) and reversible, server-audited mutations proceed without
+    friction — the CLI is agent-first. Only *destructive* requests are gated:
+    every ``DELETE`` plus the path denylist (or an explicit ``dangerous=True``
+    from a curated command) requires ``--yes`` / ``JARVIS_CLI_ASSUME_YES``; a
+    prompt is intentionally not an accepted substitute.
+    """
+    method_u = method.upper()
+    if dry_run:
+        _print_preview(method_u, path, body, auth_attached, as_json=as_json)
+        return False
+    if not is_mutating(method_u):
+        return True
+
+    effective_dangerous = is_dangerous(method_u, path) if dangerous is None else dangerous
+    if not effective_dangerous:
+        return True  # reversible mutation: proceed (audited server-side)
+
+    if assume_yes or _assume_yes_env():
+        return True
+
+    render.error(
+        f"{method_u} {path} is a destructive operation; re-run with --yes "
+        "(or set JARVIS_CLI_ASSUME_YES=1) to authorize it, or --dry-run to "
+        "preview the exact request without sending it."
+    )
+    raise typer.Exit(code=1)

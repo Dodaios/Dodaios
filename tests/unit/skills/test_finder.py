@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from jarvis.skills.finder import (
+from dodaios.skills.finder import (
     SearchFilters,
     SkillCandidate,
     SkillFinder,
@@ -186,7 +186,7 @@ def test_score_heuristic_keine_treffer(sample_entries):  # i18n-allow: identifie
 
 @pytest.mark.asyncio
 async def test_search_ohne_brain_rankt_heuristisch(monkeypatch, sample_entries):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -200,7 +200,7 @@ async def test_search_ohne_brain_rankt_heuristisch(monkeypatch, sample_entries):
 
 @pytest.mark.asyncio
 async def test_search_mit_trust_filter(monkeypatch, sample_entries):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -218,7 +218,7 @@ async def test_search_query_without_text_match_returns_empty(
 ):
     """A query that matches no entry text must NOT fall back to a page of
     filter-only hits ("Trust match (official) · Score 0.03")."""
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -236,7 +236,7 @@ async def test_search_query_without_text_match_returns_empty(
 async def test_search_drops_filter_only_entries_when_query_matches_some(
     monkeypatch, sample_entries
 ):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -251,7 +251,7 @@ async def test_search_drops_filter_only_entries_when_query_matches_some(
 async def test_search_tag_match_is_case_insensitive_and_names_the_tag(
     monkeypatch, sample_entries
 ):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -267,7 +267,7 @@ async def test_search_tag_match_is_case_insensitive_and_names_the_tag(
 async def test_search_empty_query_browses_by_filters_only(
     monkeypatch, sample_entries
 ):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -282,7 +282,7 @@ async def test_search_empty_query_browses_by_filters_only(
 async def test_search_punctuation_only_query_returns_empty(
     monkeypatch, sample_entries
 ):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -307,7 +307,7 @@ class _FakeBrain:
 
 @pytest.mark.asyncio
 async def test_search_nutzt_brain_ranking(monkeypatch, sample_entries):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -332,7 +332,7 @@ async def test_brain_cannot_resurrect_non_matching_entries(
 ):
     """The brain re-ranks textual matches only — a high brain score for an
     entry the query text rejected must not bring it back."""
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -356,7 +356,7 @@ async def test_search_faellt_auf_heuristik_bei_brain_fehler(  # i18n-allow: iden
 ):
     """If the brain returns invalid JSON, the finder must still return
     results — graceful degradation instead of a crash."""
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -374,7 +374,7 @@ async def test_search_faellt_auf_heuristik_bei_brain_fehler(  # i18n-allow: iden
 async def test_search_brain_exception_faellt_auf_heuristik(
     monkeypatch, sample_entries
 ):
-    from jarvis.skills import catalog
+    from dodaios.skills import catalog
 
     monkeypatch.setattr(catalog, "load_catalog", lambda: sample_entries)
 
@@ -410,7 +410,7 @@ def test_candidate_from_entry_to_dict(sample_entries):
 async def test_install_ohne_raw_url_raised(tmp_path, monkeypatch):
     """A candidate without raw_url must produce a clear error."""
     monkeypatch.setattr(
-        "jarvis.skills.finder.user_skills_dir", lambda: tmp_path
+        "dodaios.skills.finder.user_skills_dir", lambda: tmp_path
     )
     cand = SkillCandidate(
         name="no-download",

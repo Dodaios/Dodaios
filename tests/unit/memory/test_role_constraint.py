@@ -16,13 +16,13 @@ This file follows the five-layer anti-drift pattern documented in
 ``HangupReason`` in ``tests/unit/sessions/test_hangup_reason_parity.py``.
 The layers checked:
 
-1. **Python tuple** — ``jarvis.memory.constants.ALLOWED_ROLES``
-2. **typing.Literal** — ``jarvis.memory.constants.MessageRole``
+1. **Python tuple** — ``dodaios.memory.constants.ALLOWED_ROLES``
+2. **typing.Literal** — ``dodaios.memory.constants.MessageRole``
 3. **Recorder allowlist** — ``message_recorder._RECALL_ALLOWED_ROLES``
-4. **SQL CHECK constraint** — ``jarvis/memory/schema.sql`` + the
-   forward migration ``jarvis/memory/migrations/0003_expand_role_check.sql``
+4. **SQL CHECK constraint** — ``dodaios/memory/schema.sql`` + the
+   forward migration ``dodaios/memory/migrations/0003_expand_role_check.sql``
 5. **SQL doc-comment** — the ``messages`` table comment in
-   ``jarvis/memory/schema.sql``
+   ``dodaios/memory/schema.sql``
 
 Plus a behavioural pair:
 
@@ -44,23 +44,23 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory import constants
-from jarvis.memory.constants import (
+from dodaios.memory import constants
+from dodaios.memory.constants import (
     ALLOWED_ROLES,
     ALLOWED_ROLES_FROZENSET,
     MessageRole,
 )
-from jarvis.memory.message_recorder import _RECALL_ALLOWED_ROLES
-from jarvis.memory.migration_runner import (
+from dodaios.memory.message_recorder import _RECALL_ALLOWED_ROLES
+from dodaios.memory.migration_runner import (
     MIGRATIONS_DIR,
     run_migrations_sync,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_SQL_PATH = REPO_ROOT / "jarvis" / "memory" / "schema.sql"
+SCHEMA_SQL_PATH = REPO_ROOT / "dodaios" / "memory" / "schema.sql"
 MIGRATION_SQL_PATH = (
     REPO_ROOT
-    / "jarvis"
+    / "dodaios"
     / "memory"
     / "migrations"
     / "0003_expand_role_check.sql"

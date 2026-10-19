@@ -7,7 +7,7 @@ agent card reads routines with) and i18n (``tasks_view.state.*`` in every
 locale). A value missing from any one layer is a silent defect: a CHECK
 violation on pause, a blank badge, or an untranslated key.
 
-Source of truth: ``TASK_STATES`` in ``jarvis/tasks/schema.py``.
+Source of truth: ``TASK_STATES`` in ``dodaios/tasks/schema.py``.
 """
 from __future__ import annotations
 
@@ -17,12 +17,12 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.tasks import store as store_mod
-from jarvis.tasks.schema import TASK_STATES, TERMINAL_STATES, TaskState
+from dodaios.tasks import store as store_mod
+from dodaios.tasks.schema import TASK_STATES, TERMINAL_STATES, TaskState
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-FRONTEND = REPO_ROOT / "jarvis/ui/web/frontend/src"
-SCHEMA_SQL = REPO_ROOT / "jarvis/tasks/schema.sql"
+FRONTEND = REPO_ROOT / "dodaios/ui/web/frontend/src"
+SCHEMA_SQL = REPO_ROOT / "dodaios/tasks/schema.sql"
 MODEL_TS = FRONTEND / "lib/tasksApi.ts"
 LOCALES = FRONTEND / "i18n/locales"
 

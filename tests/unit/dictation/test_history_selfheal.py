@@ -25,7 +25,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.dictation.history import DictationHistory
+from dodaios.dictation.history import DictationHistory
 
 
 def _row(row_id: str, **fields: Any) -> dict[str, Any]:

@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.cu_gate import (
+from dodaios.brain.cu_gate import (
     CU_BLOCKED_MODEL_FEEDBACK,
     CU_VEHICLE_TOOL_NAMES,
     llm_computer_use_allowed,
 )
-from jarvis.harness import cu_run_registry
+from dodaios.harness import cu_run_registry
 
 
 @pytest.fixture(autouse=True)
@@ -206,7 +206,7 @@ def test_explicit_action_outranks_the_look_vocabulary(utterance: str) -> None:
 
 def test_visual_intent_probe_failure_keeps_desktop_automation_working() -> None:
     """A classifier defect must degrade to the old behaviour, never brick CU."""
-    import jarvis.screen_context.intent as intent_module
+    import dodaios.screen_context.intent as intent_module
 
     def _boom(*_args: object, **_kwargs: object) -> bool:
         raise RuntimeError("classifier exploded")

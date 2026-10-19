@@ -4,11 +4,11 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.brain.model_catalog import ModelInfo
-from jarvis.core import config_writer
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web import tool_model_routes
-from jarvis.ui.web.provider_routes import _brain_model_info
+from dodaios.brain.model_catalog import ModelInfo
+from dodaios.core import config_writer
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web import tool_model_routes
+from dodaios.ui.web.provider_routes import _brain_model_info
 
 
 class _Brain:
@@ -98,7 +98,7 @@ def test_put_persists_canonical_selection_and_updates_live(
 def test_a_new_tool_model_starts_with_a_clean_health_record(monkeypatch) -> None:
     """The Tool Model dot reads the passive record: the old model's 404 says
     nothing about the new pin, but a rejected KEY still does."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     app, _brain = _app()
     monkeypatch.setattr(tool_model_routes, "is_credential_present", lambda _s: True)

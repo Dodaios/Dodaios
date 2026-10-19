@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import (
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import (
     Registry,
     coding_mode_active,
     coding_mode_event,
@@ -108,7 +108,7 @@ async def test_event_reaches_the_ui_as_a_ws_envelope(
     wired: Registry, tmp_path: Path
 ) -> None:
     """The frontend keys off `event_name`; a rename would silently kill the badge."""
-    from jarvis.ui.web.schema import event_to_ws_envelope
+    from dodaios.ui.web.schema import event_to_ws_envelope
 
     await wired.start(str(tmp_path), [{"agent": "claude"}])
     wired.set_focus_mode(True)

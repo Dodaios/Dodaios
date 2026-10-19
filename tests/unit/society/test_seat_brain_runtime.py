@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import service
-from jarvis.agent_runtimes import model_map
-from jarvis.society import seat_brain
+from dodaios.agent_chat import service
+from dodaios.agent_runtimes import model_map
+from dodaios.society import seat_brain
 
 
 def _agent(runtime: str = "hermes", account_id: str = "") -> SimpleNamespace:

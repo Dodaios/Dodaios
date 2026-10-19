@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.voice.echo_confirmation import classify_response
+from dodaios.voice.echo_confirmation import classify_response
 
 
 @pytest.mark.parametrize(

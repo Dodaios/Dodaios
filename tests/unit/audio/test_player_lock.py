@@ -24,8 +24,8 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.audio.player import AudioPlayer
-from jarvis.core.protocols import AudioChunk
+from dodaios.audio.player import AudioPlayer
+from dodaios.core.protocols import AudioChunk
 
 
 async def _one_chunk(pcm: bytes) -> AsyncIterator[AudioChunk]:
@@ -287,7 +287,7 @@ async def test_failed_native_abort_poison_closes_player_until_worker_exits(
     monkeypatch.setattr(player, "_write_samples", wedged_write)
     monkeypatch.setattr(player, "_close_output_stream", lambda _stream: False)
     monkeypatch.setattr(
-        "jarvis.audio.player._ONE_SHOT_CANCEL_JOIN_TIMEOUT_S", 0.01
+        "dodaios.audio.player._ONE_SHOT_CANCEL_JOIN_TIMEOUT_S", 0.01
     )
 
     task = asyncio.create_task(player.play_pcm(b"\x01\x00" * 100))
@@ -334,7 +334,7 @@ async def test_cancel_during_native_open_is_bounded_and_fail_closed(
     monkeypatch.setattr(player, "_open_output_stream", wedged_open)
     monkeypatch.setattr(player, "_close_output_stream", closed.append)
     monkeypatch.setattr(
-        "jarvis.audio.player._ONE_SHOT_CANCEL_JOIN_TIMEOUT_S", 0.01
+        "dodaios.audio.player._ONE_SHOT_CANCEL_JOIN_TIMEOUT_S", 0.01
     )
 
     task = asyncio.create_task(player.play_pcm(b"\x01\x00" * 100))
@@ -436,7 +436,7 @@ async def test_real_play_chunks_holds_lock_while_streaming(monkeypatch) -> None:
             return None
         return await real_to_thread(func, *args, **kw)
 
-    monkeypatch.setattr("jarvis.audio.player.asyncio.to_thread", slow_to_thread)
+    monkeypatch.setattr("dodaios.audio.player.asyncio.to_thread", slow_to_thread)
 
     # Two real play_chunks invocations in parallel.
     await asyncio.gather(
@@ -486,7 +486,7 @@ async def test_play_chunks_does_not_hold_lock_while_awaiting_first_chunk(
             return None
         return await real_to_thread(func, *args, **kw)
 
-    monkeypatch.setattr("jarvis.audio.player.asyncio.to_thread", rec_to_thread)
+    monkeypatch.setattr("dodaios.audio.player.asyncio.to_thread", rec_to_thread)
 
     gate = asyncio.Event()
     # The "answer" produces no audio until the gate opens.
@@ -537,7 +537,7 @@ async def test_play_chunks_should_play_predicate_drops_stale_playback(
             return None
         return await real_to_thread(func, *args, **kw)
 
-    monkeypatch.setattr("jarvis.audio.player.asyncio.to_thread", rec_to_thread)
+    monkeypatch.setattr("dodaios.audio.player.asyncio.to_thread", rec_to_thread)
 
     # Stale: should_play() is False → no audio written.
     await player.play_chunks(

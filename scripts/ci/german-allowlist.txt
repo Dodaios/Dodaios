@@ -6,13 +6,13 @@
 # One pattern per line; "#" starts a comment; blank lines ignored.
 
 # --- Deliberately German persona / soul prompts (load-bearing, not translated) ---
-jarvis/brain/JARVIS_PERSONA.md
-jarvis/brain/ack_brain/persona_prompt.py
-jarvis/brain/ack_brain/spawn_announcement.py
-jarvis/brain/persona_loader.py
-jarvis/brain/router.py
-jarvis/memory/soul.py
-jarvis/speech/persona.py
+dodaios/brain/JARVIS_PERSONA.md
+dodaios/brain/ack_brain/persona_prompt.py
+dodaios/brain/ack_brain/spawn_announcement.py
+dodaios/brain/persona_loader.py
+dodaios/brain/router.py
+dodaios/memory/soul.py
+dodaios/speech/persona.py
 
 # --- Spawn-announcement tests: German voice fixtures + pool phrases are the
 #     content under test (bilingual DE+EN voice product) ---
@@ -21,12 +21,12 @@ tests/unit/plugins/tool/test_spawn_worker_ack.py
 
 # --- Instant acknowledgment (2026-08-17): the closed de/en/es voice pools, the
 #     multilingual intent/result matchers, and the fixtures that pin them ---
-jarvis/voice/instant_ack.py
+dodaios/voice/instant_ack.py
 tests/unit/voice/test_instant_ack.py
 
 # --- Parked results (ADR-0034, 2026-08-18): the closed de/en/es wait-query
 #     vocabulary, the re-anchoring pools, and the fixtures that pin them ---
-jarvis/voice/parked_results.py
+dodaios/voice/parked_results.py
 tests/unit/voice/test_parked_results.py
 
 # --- Smalltalk-head/action-tail guard: the verbatim German voice utterances
@@ -53,18 +53,18 @@ tests/unit/ci/test_check_no_new_german.py
 # --- Built-in skill manifests: voice triggers and quoted example phrases are
 #     bilingual by design (DE+EN voice product) — the German there is content,
 #     not an untranslated artifact. ---
-jarvis/skills/builtin/*/SKILL.md
+dodaios/skills/builtin/*/SKILL.md
 
 # --- Historical session logs (internal memory, not an outward-facing artifact) ---
 wiki/obsidian-vault/*
 # --- German speech-recognition intent data (bilingual assistant; the German
 #     phrases ARE the recognizer's input vocabulary, not outward-facing text) ---
-jarvis/pointer/*
-jarvis/brain/navigation_intent.py
-jarvis/brain/local_action_gate.py
-jarvis/plugins/tool/navigate.py
-jarvis/plugins/tool/inspect_pointer.py
-jarvis/plugins/tool/contact_lookup.py
+dodaios/pointer/*
+dodaios/brain/navigation_intent.py
+dodaios/brain/local_action_gate.py
+dodaios/plugins/tool/navigate.py
+dodaios/plugins/tool/inspect_pointer.py
+dodaios/plugins/tool/contact_lookup.py
 
 # --- Codex live-probe speech fixtures: the German nonce sentences the
 #     headless realtime harness SPEAKS at ChatGPT-Live (speech-input data for
@@ -105,7 +105,7 @@ docs/phantom-worker-aborted-deep-dive/*
 
 # --- Bilingual skill trigger matcher: the German filler/politeness words ARE
 #     the recognizer's input vocabulary (same rationale as navigate.py) ---
-jarvis/skills/trigger_matcher.py
+dodaios/skills/trigger_matcher.py
 tests/unit/skills/test_trigger_matcher.py
 
 # --- Internal design/plan docs that quote German voice phrases to specify the
@@ -118,7 +118,7 @@ docs/superpowers/specs/2026-06-07-move-taskbar-into-settings-design.md
 #     ("Du:" / "Jarvis:" speaker labels, German header) that a user copies in
 #     their own conversation language — runtime output, not product UI. Its test
 #     necessarily quotes German voice utterances + umlauts to prove the render. ---
-jarvis/sessions/formatter.py
+dodaios/sessions/formatter.py
 tests/unit/sessions/test_formatter.py
 
 # --- Forensic voice-bug deep-dive: an internal diagnosis doc that necessarily
@@ -142,7 +142,7 @@ tests/unit/brain/test_local_action_gate.py
 #     voice request under repair (inline i18n-allow impossible in docstrings,
 #     same rationale as rolling_whisper_wake.py). Its tests are German voice
 #     fixtures — content under test ---
-jarvis/brain/local_outcome_gate.py
+dodaios/brain/local_outcome_gate.py
 tests/unit/brain/test_local_outcome_gate.py
 tests/unit/brain/test_image_turn_tool_override.py
 
@@ -160,15 +160,15 @@ tests/unit/voice/test_action_phrases.py
 # --- Voice-intent detection regexes: these classifiers MUST contain German
 #     tokens to match German voice utterances (same rationale as router.py).
 #     The German is matching data, not an untranslated artifact ---
-jarvis/brain/local_action_gate.py
-jarvis/missions/stream_evidence.py
+dodaios/brain/local_action_gate.py
+dodaios/missions/stream_evidence.py
 
 # --- Personal-memory relevance gate, VOCABULARY ONLY (reason 3: the German
 #     tokens a classifier must literally contain to match German utterances).
-#     Deliberately split from jarvis/brain/wiki_relevance.py so the LOGIC file
+#     Deliberately split from dodaios/brain/wiki_relevance.py so the LOGIC file
 #     stays fully checked — only the token tuples are exempt, and any future
 #     German prose in the gate itself is still caught ---
-jarvis/brain/wiki_relevance_vocab.py
+dodaios/brain/wiki_relevance_vocab.py
 
 # --- Relevance-gate tests: the German/Spanish utterances and vault fixtures
 #     ARE the content under test (reason 4) — the tallest-tower regression
@@ -197,13 +197,13 @@ docs/superpowers/specs/2026-06-15-cu-fail-gate-completion-enforcement-design.md
 #     the per-turn DE/EN/ES ack localizer (test_local_action_ack_language.py) and
 #     the plausibility-gate markers ("Misshearing"/"nicht gefunden") are matched
 #     by its own tests. Same rationale as navigate.py / contact_lookup.py. ---
-jarvis/plugins/tool/open_app.py
+dodaios/plugins/tool/open_app.py
 tests/unit/plugins/tool/test_open_app_plausibility.py
 
 # --- Spawn-worker meta-strip: the leading-connector regex MUST contain German
 #     relative pronouns (der/die/das/dass) to strip them from German voice
 #     prompts — matching data, not an artifact (same rationale as router.py) ---
-jarvis/plugins/tool/spawn_worker.py
+dodaios/plugins/tool/spawn_worker.py
 tests/unit/plugins/tool/test_spawn_worker_mission_prompt.py
 
 # --- Voice turn-taking / endpoint tests: German dictation + command fixtures are
@@ -244,7 +244,7 @@ tests/unit/runs/test_tools_outcome.py
 tests/unit/speech/test_idle_keeps_session_during_cu.py
 tests/unit/brain/test_ack_brain/test_run_stream.py
 tests/unit/brain/test_cli_capability_routing.py
-jarvis/ui/web/frontend/src/components/runs/__tests__/toolTable.test.tsx
+dodaios/ui/web/frontend/src/components/runs/__tests__/toolTable.test.tsx
 
 # --- Voice-confirm + scheduled-tasks + runtime-es landing (2026-06-18..19):
 #     German fixtures are the content under test for the bilingual confirm flow,
@@ -262,13 +262,13 @@ tests/unit/voice/test_echo_confirmation_es.py
 
 # --- Voice tool-confirmation phrase table: the "de" entries are the SPOKEN
 #     German confirmation prompts (de/en/es runtime output, same rationale as
-#     jarvis/voice/action_phrases.py) ---
-jarvis/voice/tool_confirmation.py
+#     dodaios/voice/action_phrases.py) ---
+dodaios/voice/tool_confirmation.py
 
 # --- Explicit-intent vocabulary: German speech-input stems ("lösch",
 #     "entfern", ...) that mark a destruction the user asked for HIMSELF —
 #     de/en/es, same speech-input-vocabulary rationale as the wake words ---
-jarvis/safety/explicit_intent.py
+dodaios/safety/explicit_intent.py
 tests/unit/safety/test_explicit_intent.py
 tests/unit/safety/test_workspace_send_intent.py
 
@@ -278,8 +278,8 @@ tests/unit/safety/test_workspace_send_intent.py
 #     data, same rationale as navigation_intent.py / local_action_gate.py above.
 #     (Whole-file scope mirrors the existing core-file entries; a future pass can
 #     narrow to inline i18n-allow markers when the tree is not contested.) ---
-jarvis/brain/manager.py
-jarvis/core/config.py
+dodaios/brain/manager.py
+dodaios/core/config.py
 
 # --- CU informational/read-goal classifier tests: the German voice utterances
 #     ("öffne discord und sag mir was abgeht", "zeig mir die neuesten
@@ -294,15 +294,15 @@ tests/unit/harness/test_cu_read_informational_goal.py
 #     German tag-question utterances under classification ("…, oder?"); the
 #     provider-test classifier carries German error-substring matching data
 #     ("kein … gefunden") and a German headless-mode HTTP detail. Same rationale
-#     as the jarvis/brain/manager.py + jarvis/core/config.py entries above:
+#     as the dodaios/brain/manager.py + dodaios/core/config.py entries above:
 #     whole-file scope mirrors those core-file entries for the (currently
 #     contested) shared tree; a future pass can narrow to inline i18n-allow
 #     markers / English rewrites when the tree is not being edited in parallel.
 #     The test files are German voice fixtures (content under test). ---
-jarvis/speech/pipeline.py
-jarvis/speech/completion.py
-jarvis/speech/continuation_buffer.py
-jarvis/brain/provider_test.py
+dodaios/speech/pipeline.py
+dodaios/speech/completion.py
+dodaios/speech/continuation_buffer.py
+dodaios/brain/provider_test.py
 tests/unit/speech/test_continuation_drain.py
 tests/unit/speech/test_completion_detection.py
 tests/unit/speech/test_spawn_watchdog.py
@@ -325,9 +325,9 @@ docs/prompts/*
 docs/superpowers/plans/2026-06-17-jarvisctl-control-cli.md
 docs/superpowers/plans/2026-06-17-run-inspector-debug-section.md
 docs/superpowers/plans/2026-06-18-voice-turn-split-and-cu-ack-leak.md
-jarvis/clis/capability_provider.py
-jarvis/missions/kontrollierer/deliverable.py
-jarvis/ui/web/frontend/src/components/sessions/TurnCard.test.tsx
+dodaios/clis/capability_provider.py
+dodaios/missions/kontrollierer/deliverable.py
+dodaios/ui/web/frontend/src/components/sessions/TurnCard.test.tsx
 tests/unit/clis/test_capability_provider.py
 tests/unit/sessions/test_recorder_posthangup_readback.py
 tests/unit/speech/test_subagent_readback.py
@@ -338,20 +338,20 @@ tests/unit/ui/test_tray.py
 #     kept as a reversible fallback ([computer_use].engine = "june13"). Its German
 #     comments/strings are faithful captured history, not new artifacts — exempt
 #     as a frozen reference, same spirit as the forensic deep-dive docs. ---
-jarvis/harness/screenshot_only_loop_june13.py
-jarvis/harness/screenshot_only_loop_stable.py
+dodaios/harness/screenshot_only_loop_june13.py
+dodaios/harness/screenshot_only_loop_stable.py
 
 # --- German drain (2026-07-01): product-surface files where an inline i18n-allow
 #     marker is impossible (multiline prompt strings / JSON / YAML front-matter /
 #     verbatim forensic code-blocks). Each is one of the four allowed buckets. ---
 # German runtime self-observation system prompt (bucket 1, multiline string)
-jarvis/board/prompts.py
+dodaios/board/prompts.py
 # German user-utterance examples in the wiki-extraction prompt (bucket 3, multiline string)
-jarvis/memory/wiki/prompt.py
+dodaios/memory/wiki/prompt.py
 # German false-completion detection examples in the critic prompt (bucket 3/4, multiline string)
-jarvis/missions/critic/prompts.py
+dodaios/missions/critic/prompts.py
 # German voice-intent vocabulary in the skill/intent catalog (bucket 3, JSON)
-jarvis/clis/catalog/seed_catalog.json
+dodaios/clis/catalog/seed_catalog.json
 # German user-request fixtures fed to the review-quality eval (bucket 4, JSON)
 tests/eval/review_quality/queries.json
 # desired-state config: German file name + verbatim forensic reason quotes (config data, JSON)
@@ -375,7 +375,7 @@ tests/unit/brain/test_output_filter.py
 # built frontend bundle (gitignored source, injected at release): minified vendor
 # code + compiled i18n incl. the German locale (bucket 2); the UI source is gated
 # separately, so the prose detector must not run on the generated bundle.
-jarvis/ui/web/dist/*
+dodaios/ui/web/dist/*
 
 # --- Rolling-Whisper wake echo/silence gates (2026-07-02): the German strings
 #     ("Hey Nico wie spät ist es", "Hey Fable …") are verbatim Whisper
@@ -387,7 +387,7 @@ tests/unit/speech/test_rolling_whisper_wake_silence_ghost.py
 # ('Ja.', 'Das ist ein Problem.') inside English docstrings documenting the
 # ghost-activation forensics — inline i18n-allow impossible inside a docstring
 # (bucket 4, forensic; same rationale as the docstring/prompt files above)
-jarvis/speech/rolling_whisper_wake.py
+dodaios/speech/rolling_whisper_wake.py
 
 # --- Interim-ack redesign spec (2026-07-06): quotes the German spoken ack
 #     phrases (product surface, reason 1) it specifies, incl. the broken
@@ -396,7 +396,7 @@ docs/superpowers/specs/2026-07-06-interim-ack-redesign-design.md
 
 # --- TTS evaluation corpus: the German sentences ARE the evaluation data the
 #     speech synthesis is scored on (product-surface test fixtures, reason 4) ---
-jarvis/speech/tts_eval/corpus.py
+dodaios/speech/tts_eval/corpus.py
 
 # --- Skill-routing golden set: every `text:` value is a simulated user
 #     utterance, i.e. the speech input the matcher is scored on. The file has
@@ -416,10 +416,10 @@ tests/fixtures/skill_routing/golden.yaml
 #     table plus English prose ABOUT the tables; a future entry is by
 #     construction another vocabulary token, so this is not a "narrow it later"
 #     exemption. Every OTHER agentic_ide module stays English-checked. ---
-jarvis/agentic_ide/clarify.py
-jarvis/agentic_ide/intent.py
-jarvis/agentic_ide/file_index.py
-jarvis/agentic_ide/prompt_composer.py
+dodaios/agentic_ide/clarify.py
+dodaios/agentic_ide/intent.py
+dodaios/agentic_ide/file_index.py
+dodaios/agentic_ide/prompt_composer.py
 
 # --- Their tests: every German string is a simulated user utterance fed to the
 #     classifiers above — the speech input the matcher is scored on, i.e. the
@@ -440,7 +440,7 @@ tests/unit/brain/test_agentic_ide_clarify_fast_path.py
 #     scripts/ci/gen_commands_reference.py, so an inline i18n-allow is
 #     impossible: the next regeneration would drop it. Nobody hand-writes prose
 #     here, so this is not a "narrow it later" exemption — the SOURCE
-#     (jarvis/commands/registry.py) stays English-checked, which is where a real
+#     (dodaios/commands/registry.py) stays English-checked, which is where a real
 #     German leak would have to be fixed. ---
 docs/commands-reference.md
 
@@ -451,13 +451,13 @@ docs/commands-reference.md
 #     impossible inside a docstring (reason 3, same rationale as
 #     navigation_intent.py / local_action_gate.py). Its hide-wiring test feeds
 #     German voice fixtures — content under test (reason 4). ---
-jarvis/brain/artifact_gate.py
+dodaios/brain/artifact_gate.py
 tests/unit/brain/test_artifact_tool_hide.py
 
 # --- Dictation Prompt Mode (2026-08-27): the worked de/en example pair in the
 #     system prompt and the closed thanks pool are product output, plus the
 #     fixtures that pin them ---
-jarvis/dictation/prompt_mode.py
+dodaios/dictation/prompt_mode.py
 tests/unit/dictation/test_prompt_mode.py
 
 # --- Profile capture (2026-08-29): the DE/EN self-statements the deterministic
@@ -467,20 +467,20 @@ tests/unit/memory/test_profile_capture.py
 
 # --- Agent society (2026-09-01): the focus alias table maps the words people
 #     write in agent descriptions (de/en) onto capability ids ---
-jarvis/society/focus.py
+dodaios/society/focus.py
 
 # --- macOS permission-dialog localisation (2026-10): the German and Spanish
 #     Info.plist usage strings live in the single usage-string table next to
 #     the English ones; macOS shows them in its own permission dialogs on a
 #     German or Spanish system (closed product surface: InfoPlist
 #     localisations). The InfoPlist.strings files are generated from it. ---
-jarvis/core/macos_privacy_strings.py
+dodaios/core/macos_privacy_strings.py
 # --- Local voice engine bench (2026-10-01): the German speech-input corpus the
 #     P0 bench renders, transcribes and sends to the local LLM (ADR-0037) ---
-jarvis/voice_engine/bench/corpus/de.json
+dodaios/voice_engine/bench/corpus/de.json
 
 # --- Chat history titles (2026-10-02): the closed de/en/es greeting, small-talk
 #     and polite lead-in vocabulary the rules strip from spoken openings, and the
 #     real transcripts that pin it ---
-jarvis/sessions/chat_titles.py
+dodaios/sessions/chat_titles.py
 tests/unit/sessions/test_chat_titles.py

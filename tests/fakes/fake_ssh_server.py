@@ -7,7 +7,7 @@ canned Linux reading, and echoes every other command. Nothing on disk, no
 system ``sshd`` — the tests exercise the actual SSH handshake, host-key pinning
 and key installation end to end on every OS.
 
-Like a real server it is handed scripts the way ``jarvis.computers.remote_os``
+Like a real server it is handed scripts the way ``dodaios.computers.remote_os``
 sends them: on stdin to ``/bin/sh -s`` / ``/bin/bash -s``, or as a launcher
 file uploaded over SFTP and run with ``/bin/sh <file>`` (needs ``sftp_root``).
 Handlers and :attr:`FakeSshState.commands` see the SCRIPT, not the runner.
@@ -23,7 +23,7 @@ from typing import Any
 
 import asyncssh
 
-from jarvis.computers.probe import PROBE_SCRIPT
+from dodaios.computers.probe import PROBE_SCRIPT
 
 LINUX_PROBE_OUTPUT = """@@hostname
 srv-test

@@ -1,0 +1,77 @@
+"""xAI Grok brain over its OpenAI-compatible API."""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import AsyncIterator
+from typing import Any
+
+from dodaios.core import config as cfg
+from dodaios.core.protocols import BrainDelta, BrainRequest
+
+from ._openai_base import CLIENT_TIMEOUT, stream_complete
+
+BASE_URL = "https://api.x.ai/v1"
+DEFAULT_MODEL = "grok-4.3"
+
+
+class GrokBrain:
+    """Tool-capable Grok brain backed by the user's xAI API key."""
+
+    name: str = "grok"
+    context_window: int = 1_000_000
+    # xAI refuses the whole request above this many tools ("Maximum tools
+    # limit reached. 378 tools have been provided but the maximum is 350",
+    # live 2026-09-29); the manager trims the surface to it.
+    max_tools: int = 350
+    supports_tools: bool = True
+    # xAI's OpenAI-compatible chat API accepts ``image_url`` data URIs on
+    # grok-4.x. A False here made Screen Context / Computer-Use skip a live
+    # key and tell the user to "connect a vision-capable provider" even
+    # though the card in API Keys was green (architecture-overview: the
+    # 2026-06-21 CU "no vision" incident).
+    supports_vision: bool = True
+
+    def __init__(self, model: str | None = None) -> None:
+        self._model = model or DEFAULT_MODEL
+        self._client: Any = None
+
+    def can_call_tools(self) -> bool:
+        return self.supports_tools
+
+    def _ensure_client(self) -> Any:
+        if self._client is None:
+            ep = cfg.resolve_provider_endpoint("grok", vendor_default_base_url=BASE_URL)
+            if not ep.credential:
+                raise RuntimeError(
+                    "No xAI API key found "
+                    "(grok_api_key / xai_api_key / GROK_API_KEY / XAI_API_KEY)."
+                )
+            from openai import AsyncOpenAI
+
+            self._client = AsyncOpenAI(
+                api_key=ep.credential,
+                base_url=ep.base_url,
+                timeout=CLIENT_TIMEOUT,
+                max_retries=0,
+            )
+        return self._client
+
+    async def complete(self, req: BrainRequest) -> AsyncIterator[BrainDelta]:
+        client = self._client
+        if client is None:
+            # First use imports the SDK — seconds on a cold disk, and never on
+            # the event loop (BUG-189; see claude_api.py for the measurement).
+            client = await asyncio.to_thread(self._ensure_client)
+        async for delta in stream_complete(
+            client,
+            self._model,
+            req,
+            supports_vision=self.supports_vision,
+        ):
+            yield delta
+
+    def estimate_cost(self, req: BrainRequest) -> float:
+        """Estimate Grok 4.3 cost from xAI's published token pricing."""
+        in_tokens = sum(len(str(m.content)) for m in req.messages) // 4
+        return (in_tokens * 1.25 + req.max_tokens * 2.50) / 1_000_000

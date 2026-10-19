@@ -30,15 +30,15 @@ import re
 
 import pytest
 
-from jarvis.skills import eval_harness
-from jarvis.skills.eval_harness import (
+from dodaios.skills import eval_harness
+from dodaios.skills.eval_harness import (
     BASELINE_PATH,
     builtin_registry,
     format_report,
     load_golden,
     run_eval,
 )
-from jarvis.skills.match_eval import MATCH_BANDS, MATCH_SOURCES
+from dodaios.skills.match_eval import MATCH_BANDS, MATCH_SOURCES
 
 #: Known gaps are reported but not scored. Bounded so the field cannot become
 #: a place to bury failures — past this many, fix the skills instead.
@@ -187,7 +187,7 @@ def test_the_eval_detects_a_broken_matcher(monkeypatch: pytest.MonkeyPatch) -> N
     Cripple the scorer so it can never rank anything, and assert the suite
     NOTICES. This is the only test here that tests the test.
     """
-    from jarvis.skills import relevance
+    from dodaios.skills import relevance
 
     class _DeadIndex:
         names = ()

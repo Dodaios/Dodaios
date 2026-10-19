@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import _queue_iter
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import _queue_iter
 
 _CHUNK_BYTES = 1600 * 2  # 100 ms of 16 kHz mono int16
 
@@ -114,8 +114,8 @@ class _Detector:
 
 
 def test_catchup_budget_resolves_seconds_to_capture_blocks() -> None:
-    from jarvis.audio.capture import capture_chunks_for_duration
-    from jarvis.speech.pipeline import _wake_catchup_budget
+    from dodaios.audio.capture import capture_chunks_for_duration
+    from dodaios.speech.pipeline import _wake_catchup_budget
 
     coalesce, depth = _wake_catchup_budget(
         _Detector(coalesce_catchup_s=1.0, intake_backlog_s=3.0)
@@ -126,8 +126,8 @@ def test_catchup_budget_resolves_seconds_to_capture_blocks() -> None:
 
 
 def test_catchup_budget_defaults_without_the_capability() -> None:
-    from jarvis.audio.capture import REALTIME_QUEUE_CHUNKS
-    from jarvis.speech.pipeline import _wake_catchup_budget
+    from dodaios.audio.capture import REALTIME_QUEUE_CHUNKS
+    from dodaios.speech.pipeline import _wake_catchup_budget
 
     assert _wake_catchup_budget(_Detector()) == (1, REALTIME_QUEUE_CHUNKS)
     # A deeper backlog WITHOUT batching is refused: a detector that cannot
@@ -145,8 +145,8 @@ def test_catchup_budget_defaults_without_the_capability() -> None:
 
 
 def test_catchup_budget_ignores_garbage_values() -> None:
-    from jarvis.audio.capture import REALTIME_QUEUE_CHUNKS
-    from jarvis.speech.pipeline import _wake_catchup_budget
+    from dodaios.audio.capture import REALTIME_QUEUE_CHUNKS
+    from dodaios.speech.pipeline import _wake_catchup_budget
 
     assert _wake_catchup_budget(
         _Detector(coalesce_catchup_s="soon", intake_backlog_s=None)
@@ -160,9 +160,9 @@ def test_catchup_budget_ignores_garbage_values() -> None:
 
 def test_vosk_provider_declares_both_budgets() -> None:
     """The live detector is the reason the resolver exists; pin the wiring."""
-    from jarvis.audio.capture import REALTIME_QUEUE_CHUNKS
-    from jarvis.plugins.wake.vosk_kws_provider import VoskKwsProvider
-    from jarvis.speech.pipeline import _wake_catchup_budget
+    from dodaios.audio.capture import REALTIME_QUEUE_CHUNKS
+    from dodaios.plugins.wake.vosk_kws_provider import VoskKwsProvider
+    from dodaios.speech.pipeline import _wake_catchup_budget
 
     coalesce, depth = _wake_catchup_budget(VoskKwsProvider)
     assert coalesce > 1

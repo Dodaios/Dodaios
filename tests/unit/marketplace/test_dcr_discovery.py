@@ -13,7 +13,7 @@ unaffected.
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.oauth_dcr import (
+from dodaios.marketplace.auth.oauth_dcr import (
     DcrConfig,
     HostedMcpDcrHandler,
     _well_known_candidates,

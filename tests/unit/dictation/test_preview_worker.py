@@ -14,9 +14,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-import jarvis.dictation.local_preview as local_preview_mod
-from jarvis.dictation.local_preview import LocalPreviewTranscriber, _WorkerModel
-from jarvis.dictation.preview_worker import read_message, serve, write_message
+import dodaios.dictation.local_preview as local_preview_mod
+from dodaios.dictation.local_preview import LocalPreviewTranscriber, _WorkerModel
+from dodaios.dictation.preview_worker import read_message, serve, write_message
 
 
 def _messages_from(buffer: bytes) -> list[dict[str, Any]]:
@@ -160,7 +160,7 @@ def test_worker_failure_never_loads_native_code_in_the_parent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A failed decorative preview must not import inference into the parent."""
-    from jarvis.plugins.stt import fwhisper
+    from dodaios.plugins.stt import fwhisper
 
     built: list[tuple[str, str]] = []
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from jarvis.setup.wizard import SECRETS, step_api_keys
+from dodaios.setup.wizard import SECRETS, step_api_keys
 
 _OAUTH_CLIENT_KEYS = frozenset(
     {
@@ -43,7 +43,7 @@ def test_oauth_client_slots_are_optional_and_not_prompted() -> None:
 def test_oauth_client_keys_are_api_writable() -> None:
     # ALLOWED_SECRET_KEYS is derived from SECRETS, so the POST /api/secrets/{key}
     # route accepts the new keys (200) instead of rejecting them (404).
-    from jarvis.ui.web.provider_routes import ALLOWED_SECRET_KEYS
+    from dodaios.ui.web.provider_routes import ALLOWED_SECRET_KEYS
 
     assert _OAUTH_CLIENT_KEYS <= ALLOWED_SECRET_KEYS
 
@@ -59,12 +59,12 @@ def test_step_api_keys_skips_non_prompt_slots() -> None:
         return ""  # user skips every prompt
 
     with (
-        patch("jarvis.setup.wizard._ask", side_effect=_record),
-        patch("jarvis.setup.wizard.cfg.get_secret", return_value=None),
-        patch("jarvis.setup.wizard._println"),
+        patch("dodaios.setup.wizard._ask", side_effect=_record),
+        patch("dodaios.setup.wizard.cfg.get_secret", return_value=None),
+        patch("dodaios.setup.wizard._println"),
         # Hermetic: a REAL local Ollama on the test host would add the
         # local-brain offer prompt — this test counts key prompts only.
-        patch("jarvis.setup.wizard._ollama_reachable", return_value=False),
+        patch("dodaios.setup.wizard._ollama_reachable", return_value=False),
     ):
         step_api_keys()
 

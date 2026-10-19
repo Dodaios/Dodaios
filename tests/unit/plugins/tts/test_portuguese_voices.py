@@ -9,16 +9,16 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.core.config as cfg
-import jarvis.plugins.tts as tts_pkg
-from jarvis.core.config import TTSConfig
-from jarvis.plugins.tts import curated_catalog as cc
-from jarvis.plugins.tts.cartesia_tts import DEFAULT_VOICE_ID_PT, CartesiaTTS
-from jarvis.plugins.tts.cartesia_tts import _normalize_language as cartesia_lang
-from jarvis.plugins.tts.gemini_flash_tts import _sapi5_voice_preferences
-from jarvis.plugins.tts.grok_voice_tts import _normalize_language as grok_lang
-from jarvis.plugins.tts.inworld_tts import DEFAULT_VOICE_PT, InworldTTS
-from jarvis.plugins.tts.inworld_tts import _normalize_language as inworld_lang
+import dodaios.core.config as cfg
+import dodaios.plugins.tts as tts_pkg
+from dodaios.core.config import TTSConfig
+from dodaios.plugins.tts import curated_catalog as cc
+from dodaios.plugins.tts.cartesia_tts import DEFAULT_VOICE_ID_PT, CartesiaTTS
+from dodaios.plugins.tts.cartesia_tts import _normalize_language as cartesia_lang
+from dodaios.plugins.tts.gemini_flash_tts import _sapi5_voice_preferences
+from dodaios.plugins.tts.grok_voice_tts import _normalize_language as grok_lang
+from dodaios.plugins.tts.inworld_tts import DEFAULT_VOICE_PT, InworldTTS
+from dodaios.plugins.tts.inworld_tts import _normalize_language as inworld_lang
 
 
 def _keys(*env_names: str):
@@ -128,7 +128,7 @@ def test_inworld_curates_a_european_portuguese_voice() -> None:
 
 
 def test_piper_ships_a_european_portuguese_default_voice() -> None:
-    from jarvis.speech.local_models import PIPER_DEFAULT_VOICES, SHERPA_BUNDLES
+    from dodaios.speech.local_models import PIPER_DEFAULT_VOICES, SHERPA_BUNDLES
 
     bundle = SHERPA_BUNDLES["vits-piper-pt_PT-tugao-medium"]
     assert bundle.language == "pt"
@@ -142,7 +142,7 @@ def test_piper_download_size_covers_every_default_voice() -> None:
     """Four ~67 MB voices (de/en/es/pt): the card and the docs say 270 MB."""
     from pathlib import Path
 
-    from jarvis.speech.local_models import PIPER_DEFAULT_VOICES, get_local_provider
+    from dodaios.speech.local_models import PIPER_DEFAULT_VOICES, get_local_provider
 
     entry = get_local_provider("piper-local")
     assert entry is not None
@@ -157,8 +157,8 @@ def test_piper_download_size_covers_every_default_voice() -> None:
 
 
 def test_piper_voice_is_on_the_writer_allowlist_and_picker() -> None:
-    from jarvis.brain.model_catalog import TTS_CATALOG
-    from jarvis.core.config_writer import _VOICES_FOR_PROVIDER
+    from dodaios.brain.model_catalog import TTS_CATALOG
+    from dodaios.core.config_writer import _VOICES_FOR_PROVIDER
 
     assert "vits-piper-pt_PT-tugao-medium" in _VOICES_FOR_PROVIDER["piper-local"]
     _field, models = TTS_CATALOG["piper-local"]

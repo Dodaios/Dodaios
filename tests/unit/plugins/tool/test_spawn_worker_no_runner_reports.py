@@ -14,11 +14,11 @@ import asyncio
 from typing import Any
 from uuid import uuid4
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import JarvisAgentBackgroundCompleted
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.spawn_worker import SpawnWorkerTool
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.core.bus import EventBus
+from dodaios.core.events import JarvisAgentBackgroundCompleted
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.spawn_worker import SpawnWorkerTool
+from dodaios.voice.action_phrases import action_phrase
 
 
 class _FakeMissionManager:

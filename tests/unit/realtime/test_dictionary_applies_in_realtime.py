@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.realtime import session as session_module
-from jarvis.speech import stt_dictionary
+from dodaios.realtime import session as session_module
+from dodaios.speech import stt_dictionary
 
 
 @pytest.fixture

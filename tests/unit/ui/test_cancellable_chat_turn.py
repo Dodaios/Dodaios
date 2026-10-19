@@ -16,8 +16,8 @@ import asyncio
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.ui.desktop_app import _CHAT_TURN_ABORTED, _await_cancellable_chat_turn
+from dodaios.core import runtime_refs
+from dodaios.ui.desktop_app import _CHAT_TURN_ABORTED, _await_cancellable_chat_turn
 
 
 @pytest.fixture(autouse=True)

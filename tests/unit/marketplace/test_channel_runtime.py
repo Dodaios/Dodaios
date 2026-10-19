@@ -9,7 +9,7 @@ import types
 
 import pytest
 
-from jarvis.marketplace import channel_runtime as cr
+from dodaios.marketplace import channel_runtime as cr
 
 
 class _Ctx:

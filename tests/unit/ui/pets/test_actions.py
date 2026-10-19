@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.pets.actions import action_for_tool
-from jarvis.ui.pets.states import ACTION_STATES
+from dodaios.ui.pets.actions import action_for_tool
+from dodaios.ui.pets.states import ACTION_STATES
 
 
 @pytest.mark.parametrize(

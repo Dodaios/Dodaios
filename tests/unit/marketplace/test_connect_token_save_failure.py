@@ -14,9 +14,9 @@ import asyncio
 import pytest
 from fastapi import BackgroundTasks
 
-from jarvis.marketplace.auth.base import AuthSession, FlowResult
-from jarvis.marketplace.token_store import Tokens
-from jarvis.ui.web import marketplace_routes as mr
+from dodaios.marketplace.auth.base import AuthSession, FlowResult
+from dodaios.marketplace.token_store import Tokens
+from dodaios.ui.web import marketplace_routes as mr
 
 
 class _Catalog:
@@ -83,7 +83,7 @@ async def _start_and_drain(
     spec = _pkce_spec("real-client-id.apps.example")
     monkeypatch.setattr(mr, "load_catalog", lambda: _Catalog([spec]))
     monkeypatch.setattr(
-        "jarvis.marketplace.connect_helpers.resolve_pkce_client",
+        "dodaios.marketplace.connect_helpers.resolve_pkce_client",
         lambda pid, cid, csec: ("real-client-id.apps.example", None),
     )
     monkeypatch.setattr(mr, "PkceLoopbackHandler", _StubPkceHandler)
@@ -169,7 +169,7 @@ async def test_cancelled_reconnect_does_not_replace_needs_reauth_grant(
 
     monkeypatch.setattr(mr, "load_catalog", lambda: _Catalog([spec]))
     monkeypatch.setattr(
-        "jarvis.marketplace.connect_helpers.resolve_pkce_client",
+        "dodaios.marketplace.connect_helpers.resolve_pkce_client",
         lambda pid, cid, csec: ("real-client-id.apps.example", None),
     )
     monkeypatch.setattr(mr, "PkceLoopbackHandler", _DelayedPkceHandler)

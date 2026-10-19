@@ -1,6 +1,6 @@
 """Offscreen smoke test: the indicator sidecar boots, acks, and exits.
 
-Runs the real ``python -m jarvis.cu.indicator`` subprocess on Qt's
+Runs the real ``python -m dodaios.cu.indicator`` subprocess on Qt's
 offscreen platform plugin so it works on CI boxes without a display.
 Auto-skips when PySide6 is not installed (base install / headless floor).
 """
@@ -14,8 +14,8 @@ import sys
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.cu.indicator import protocol
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.cu.indicator import protocol
 
 pytestmark = pytest.mark.skipif(
     importlib.util.find_spec("PySide6") is None,
@@ -28,7 +28,7 @@ def test_sidecar_show_quit_round_trip() -> None:
     env["QT_QPA_PLATFORM"] = "offscreen"
     env.pop("JARVIS_CU_INDICATOR_AUTOSHOW", None)
     proc = subprocess.Popen(
-        [sys.executable, "-m", "jarvis.cu.indicator"],
+        [sys.executable, "-m", "dodaios.cu.indicator"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -61,7 +61,7 @@ def test_sidecar_exits_cleanly_on_stdin_eof() -> None:
     env = os.environ.copy()
     env["QT_QPA_PLATFORM"] = "offscreen"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "jarvis.cu.indicator"],
+        [sys.executable, "-m", "dodaios.cu.indicator"],
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -83,7 +83,7 @@ def test_macos_tool_window_stays_visible_while_sidecar_is_inactive() -> None:
         [
             "from PySide6.QtCore import Qt",
             "from PySide6.QtWidgets import QApplication",
-            "from jarvis.cu.indicator import renderer",
+            "from dodaios.cu.indicator import renderer",
             "app = QApplication(['cu-indicator-attribute-test'])",
             "renderer.sys.platform = 'darwin'",
             "win = renderer._GlowWindow(",

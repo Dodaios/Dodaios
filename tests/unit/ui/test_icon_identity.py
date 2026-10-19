@@ -1,4 +1,4 @@
-"""Taskbar identity (name) tests for ``jarvis.ui.icon_utils``.
+"""Taskbar identity (name) tests for ``dodaios.ui.icon_utils``.
 
 The taskbar *icon* was already fixed (class-icon override). This covers the
 independent *name* layer. Setting the AppUserModelID only groups the taskbar
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.icon_utils import (
+from dodaios.ui.icon_utils import (
     APP_DISPLAY_NAME,
     APP_USER_MODEL_ID,
     START_MENU_SHORTCUT_NAME,
@@ -86,12 +86,12 @@ def test_project_icon_path_always_exists() -> None:
 
 def test_project_icon_path_prefers_bundled_in_package_copy() -> None:
     """The primary resolution is the in-package copy, so it ships with any install."""
-    from jarvis.assets import bundled_app_icon
+    from dodaios.assets import bundled_app_icon
 
     bundled = bundled_app_icon()
     assert bundled is not None and bundled.is_file()
-    # The in-package copy lives under jarvis/assets/icons/, NOT the repo root.
-    assert bundled.as_posix().endswith("jarvis/assets/icons/jarvis.ico")
+    # The in-package copy lives under dodaios/assets/icons/, NOT the repo root.
+    assert bundled.as_posix().endswith("dodaios/assets/icons/jarvis.ico")
     # project_icon_path() returns exactly that bundled copy when present.
     assert project_icon_path() == bundled
 
@@ -103,17 +103,17 @@ def test_bundled_icon_is_byte_identical_to_repo_root_copy() -> None:
     PyInstaller spec and ``scripts/install_shortcuts.py``. Keeping the two copies
     byte-identical means updating the brand icon in one place without the runtime
     and the installer drifting apart. If this fails, re-copy the repo-root icon
-    into ``jarvis/assets/icons/``.
+    into ``dodaios/assets/icons/``.
     """
     repo_root = Path(__file__).resolve().parents[3] / "assets" / "icons" / "jarvis.ico"
     if not repo_root.is_file():
         pytest.skip("repo-root icon copy absent (slim checkout)")
-    from jarvis.assets import bundled_app_icon
+    from dodaios.assets import bundled_app_icon
 
     bundled = bundled_app_icon()
     assert bundled is not None
     assert bundled.read_bytes() == repo_root.read_bytes(), (
-        "jarvis/assets/icons/jarvis.ico drifted from assets/icons/jarvis.ico — "
+        "dodaios/assets/icons/jarvis.ico drifted from assets/icons/jarvis.ico — "
         "re-copy the repo-root icon into the package"
     )
 
@@ -122,7 +122,7 @@ def test_bundled_ico_carries_taskbar_sizes() -> None:
     """A 16-px-only ICO looks like a blur in the taskbar and Start menu."""
     from PIL import Image
 
-    from jarvis.assets import bundled_app_icon
+    from dodaios.assets import bundled_app_icon
 
     ico = bundled_app_icon()
     assert ico is not None and ico.is_file()
@@ -136,7 +136,7 @@ def test_bundled_app_icon_png_is_paper_rounded_tile() -> None:
     """Desktop PNG is the white rounded tile with transparent corners."""
     from PIL import Image
 
-    from jarvis.assets import bundled_app_icon_png
+    from dodaios.assets import bundled_app_icon_png
 
     png = bundled_app_icon_png()
     assert png is not None and png.is_file()
@@ -155,11 +155,11 @@ def test_bundled_app_icon_png_exists_for_linux() -> None:
     on every OS / CI runner. Without it the Linux autostart/menu entry — and the
     running window's taskbar button — falls back to the generic python3 icon.
     """
-    from jarvis.assets import bundled_app_icon_png
+    from dodaios.assets import bundled_app_icon_png
 
     png = bundled_app_icon_png()
     assert png is not None and png.is_file()
-    assert png.as_posix().endswith("jarvis/assets/icons/jarvis.png")
+    assert png.as_posix().endswith("dodaios/assets/icons/jarvis.png")
 
 
 def test_app_display_name_is_personal_jarvis() -> None:

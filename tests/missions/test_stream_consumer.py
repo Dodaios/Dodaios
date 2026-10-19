@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.workers.stream_consumer import (
+from dodaios.missions.workers.stream_consumer import (
     ClaudeApiRetry,
     ClaudeAssistantMessage,
     ClaudeResult,

@@ -1,4 +1,4 @@
-"""REST contract of the desktop pets (``jarvis/ui/web/pets_routes.py``, docs/pets.md).
+"""REST contract of the desktop pets (``dodaios/ui/web/pets_routes.py``, docs/pets.md).
 
 Everything runs against the real pet engine and the real TOML writers, pointed
 at a tmp directory: one hand-built "built-in" pet under a tmp built-in root,
@@ -19,14 +19,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from jarvis.core import config as config_module
-from jarvis.core.config import UIConfig
-from jarvis.core.events import PetChanged
-from jarvis.ui.pets import loader
-from jarvis.ui.pets import store as store_module
-from jarvis.ui.pets.manifest import MAX_SHEET_BYTES
-from jarvis.ui.pets.states import DEFAULT_PET_ID, PET_STATES
-from jarvis.ui.web.pets_routes import MAX_REQUEST_BYTES, router
+from dodaios.core import config as config_module
+from dodaios.core.config import UIConfig
+from dodaios.core.events import PetChanged
+from dodaios.ui.pets import loader
+from dodaios.ui.pets import store as store_module
+from dodaios.ui.pets.manifest import MAX_SHEET_BYTES
+from dodaios.ui.pets.states import DEFAULT_PET_ID, PET_STATES
+from dodaios.ui.web.pets_routes import MAX_REQUEST_BYTES, router
 
 FRAME = 32
 

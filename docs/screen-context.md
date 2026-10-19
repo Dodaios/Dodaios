@@ -44,7 +44,7 @@ Everything about that sentence is a constraint:
 - Continuous screen understanding / ambient awareness. That is a different
   feature with a different consent model, and it is explicitly out of scope.
 - Driving the desktop. Acting on the screen is Computer-Use
-  (`jarvis/cu/`, gated by `jarvis/brain/cu_gate.py`); Screen Context only
+  (`dodaios/cu/`, gated by `dodaios/brain/cu_gate.py`); Screen Context only
   *reads*, once, and never moves a cursor or presses a key.
 - OCR as a primary text source. OCR is a supplement, off the critical path,
   used only where accessibility text is unavailable or empty.
@@ -57,13 +57,13 @@ them.
 
 | Reused | What it gives us |
 |---|---|
-| `jarvis/platform/mouse.py` | Cursor position, per-OS, `None` on headless/Wayland. |
-| `jarvis/platform/monitors.py` | `work_area_at`, primary resolution, virtual bounds. |
-| `jarvis/platform/window_state.py` | Foreground window, title, pid, frame rect. |
-| `jarvis/platform/window_capture.py` | Native per-window capture (Windows Graphics Capture, macOS SCK). |
-| `jarvis/vision/screenshot.py` | `capture_region`, DPI awareness, screen-recording probe. |
-| `jarvis/vision/tree_factory.py` | `make_ui_tree_source()` → UIA / AX / AT-SPI / Null. |
-| `jarvis/platform/permissions.py` | `PermissionId.SCREEN_RECORDING`, `.ACCESSIBILITY`. |
+| `dodaios/platform/mouse.py` | Cursor position, per-OS, `None` on headless/Wayland. |
+| `dodaios/platform/monitors.py` | `work_area_at`, primary resolution, virtual bounds. |
+| `dodaios/platform/window_state.py` | Foreground window, title, pid, frame rect. |
+| `dodaios/platform/window_capture.py` | Native per-window capture (Windows Graphics Capture, macOS SCK). |
+| `dodaios/vision/screenshot.py` | `capture_region`, DPI awareness, screen-recording probe. |
+| `dodaios/vision/tree_factory.py` | `make_ui_tree_source()` → UIA / AX / AT-SPI / Null. |
+| `dodaios/platform/permissions.py` | `PermissionId.SCREEN_RECORDING`, `.ACCESSIBILITY`. |
 
 What is genuinely new: intent classification with an *ambiguous* verdict,
 cursor-first monitor targeting, redaction, and an ephemeral single-use context
@@ -75,9 +75,9 @@ handle.
 
 ### 2.1 Layering
 
-Screen Context sits in its own package, `jarvis/screen_context/`, above the
+Screen Context sits in its own package, `dodaios/screen_context/`, above the
 platform seam and below the brain. It imports platform modules; nothing in
-`jarvis/platform/` imports it. That direction is the 8-layer dependency rule
+`dodaios/platform/` imports it. That direction is the 8-layer dependency rule
 (AGENTS.md §5) and it is what keeps the package testable without a display.
 
 ```
@@ -204,7 +204,7 @@ visual signal succeeded.
 
 **Ambiguity does not capture, and does not silently drop the turn either.**
 `AMBIGUOUS` produces a question, in the resolved output language, through the
-one resolver (`jarvis/core/turn_language.py`) — never a per-layer phrase table
+one resolver (`dodaios/core/turn_language.py`) — never a per-layer phrase table
 (AGENTS.md §1). The user's next turn resolves it; a bare "yes" inside the
 confirmation window promotes the *previous* utterance to `SCREEN`.
 
@@ -260,7 +260,7 @@ two paths are enforced apart in three places, and all three are load-bearing:
 1. **`intent.requests_screen_operation`** — a turn that asks for an on-screen
    action ("click the button on my screen") is *not* a look request, so Screen
    Context stands down and leaves the tools the user asked for in place.
-2. **`jarvis/brain/cu_gate.py`** — the mirror image. Its vocabulary is split
+2. **`dodaios/brain/cu_gate.py`** — the mirror image. Its vocabulary is split
    into ACTION verbs and SURFACE nouns, because a noun names *where*, not *what
    to do*. A turn this module reads as a look request cannot start a desktop
    mission even when it names a surface, and even inside the recent-run
@@ -412,7 +412,7 @@ replay and wrong for this feature; Screen Context therefore does not use
 
 The mission deck shows the picture Jarvis just took, so the person at the
 keyboard sees what was looked at. That is a second copy with its own, narrower
-promise (`jarvis/screen_context/last_frame.py`):
+promise (`dodaios/screen_context/last_frame.py`):
 
 - At most ONE frame, in memory only, replaced by the next capture.
 - Gone after `[screen_context].deck_preview_s` seconds (default 120, the same

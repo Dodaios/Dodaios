@@ -16,11 +16,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted, DictationTranscript
-from jarvis.dictation.insert import InsertResult
-from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.ui.dodaiosbar import interaction, renderer
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted, DictationTranscript
+from dodaios.dictation.insert import InsertResult
+from dodaios.speech.pipeline import SpeechPipeline
+from dodaios.ui.dodaiosbar import interaction, renderer
 
 # --------------------------------------------------------------------------
 # Delivery
@@ -165,7 +165,7 @@ async def test_auto_target_is_resolved_at_DELIVERY_time(
     Resolving "auto" when recording STARTS would send that text to the chat box,
     because Jarvis was in front at the moment the button was clicked.
     """
-    import jarvis.dictation.insert as insert_mod
+    import dodaios.dictation.insert as insert_mod
 
     inserted: list[str] = []
     pipe, events = _pipeline()
@@ -215,7 +215,7 @@ async def test_final_transcript_says_which_route_it_took(
     along, and "auto" must never be what arrives: the UI cannot read a
     foreground window.
     """
-    import jarvis.dictation.insert as insert_mod
+    import dodaios.dictation.insert as insert_mod
 
     def _final(events: list[object]) -> DictationTranscript:
         return [e for e in events if isinstance(e, DictationTranscript) and e.is_final][-1]
@@ -402,8 +402,8 @@ class _FakeHistory:
 @pytest.fixture
 def audio_spy(monkeypatch: pytest.MonkeyPatch):
     """Capture every audio-sidecar call without writing a byte to disk."""
-    import jarvis.dictation.audio as audio_mod
-    import jarvis.dictation.history as history_mod
+    import dodaios.dictation.audio as audio_mod
+    import dodaios.dictation.history as history_mod
 
     saved: list[tuple[str, int]] = []
     pruned: list[dict] = []
@@ -511,7 +511,7 @@ async def test_history_disabled_writes_nothing_at_all(audio_spy) -> None:
 async def test_a_broken_history_write_never_costs_the_transcript(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.dictation.history as history_mod
+    import dodaios.dictation.history as history_mod
 
     class _BoomHistory:
         def __init__(self, *_a, **_k) -> None:
@@ -536,7 +536,7 @@ async def test_a_broken_cleanup_never_loses_the_text(
     def _boom(*_a, **_k):
         raise RuntimeError("rule exploded")
 
-    monkeypatch.setattr("jarvis.dictation.cleanup.clean_transcript", _boom)
+    monkeypatch.setattr("dodaios.dictation.cleanup.clean_transcript", _boom)
     pipe, _events = _pipeline()
     text = await pipe._finish_dictation(
         raw_text="the raw words",
@@ -601,7 +601,7 @@ def _session_pipeline(stt, cfg: DictationConfig):
 async def test_a_language_pin_does_not_lock_a_code_switching_dictation(
     monkeypatch: pytest.MonkeyPatch, audio_spy
 ) -> None:
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     seen: list[dict] = []
 
@@ -624,7 +624,7 @@ async def test_a_language_pin_does_not_lock_a_code_switching_dictation(
 async def test_completion_and_history_carry_stt_quality_telemetry(
     monkeypatch: pytest.MonkeyPatch, audio_spy
 ) -> None:
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     class _MeasuredSTT:
         name = "openai-api"
@@ -675,7 +675,7 @@ async def test_completion_and_history_carry_stt_quality_telemetry(
 async def test_a_language_pin_reaches_the_provider_when_code_switching_is_off(
     monkeypatch: pytest.MonkeyPatch, audio_spy
 ) -> None:
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     seen: list[dict] = []
 
@@ -713,7 +713,7 @@ async def test_auto_asks_the_provider_to_detect_instead_of_staying_silent(
     view could fix it because the dictation view was not the setting in charge
     (live bug 2026-07-28).
     """
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     seen: list[dict] = []
 
@@ -745,7 +745,7 @@ async def test_a_provider_that_cleans_its_own_text_cannot_override_the_filler_sw
     string to the history. Reading the pre-cleaned one would turn "keep my
     filler words" into a setting with no effect and nothing to observe.
     """
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     class _CleaningSTT:
         async def transcribe_pcm(self, pcm: bytes, **_kw):
@@ -773,7 +773,7 @@ async def test_a_provider_without_a_raw_text_field_is_unaffected(
     monkeypatch: pytest.MonkeyPatch, audio_spy
 ) -> None:
     """Every other provider keeps its single ``text`` field and behaves as before."""
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     class _PlainSTT:
         async def transcribe_pcm(self, pcm: bytes, **_kw):
@@ -801,7 +801,7 @@ async def test_a_provider_without_the_language_keyword_still_transcribes(
 ) -> None:
     """The STT contract allows a bare ``transcribe_pcm(pcm)``. A pin must
     degrade to "no pin", never to a failed dictation."""
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     class _LegacySTT:
         def __init__(self) -> None:
@@ -827,7 +827,7 @@ async def test_a_provider_without_the_language_keyword_still_transcribes(
 async def test_a_provider_error_ends_the_session_as_failed(
     monkeypatch: pytest.MonkeyPatch, audio_spy
 ) -> None:
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     class _BrokenSTT:
         async def transcribe_pcm(self, pcm: bytes, **_kw):
@@ -849,7 +849,7 @@ async def test_a_crashed_session_is_recorded_instead_of_vanishing(
 ) -> None:
     """The old handler logged a warning and returned. The worst failure this
     feature has must not also be its most invisible one."""
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     class _BoomMic:
         async def __aenter__(self):
@@ -882,7 +882,7 @@ async def test_a_crash_inside_delivery_does_not_double_publish(
 ) -> None:
     """Re-entering the delivery half would publish a second final transcript
     and could recurse straight back into the same fault."""
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     calls: list[int] = []
 

@@ -14,12 +14,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import runner_api, runner_brain
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import BrainDelta
+from dodaios.agent_chat import runner_api, runner_brain
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import BrainDelta
 from tests.fakes.fake_brain_manager import FakeBrainManager
 
 
@@ -54,7 +54,7 @@ def _jarvis_session(svc: AgentChatService, tmp_path: Path, **over: Any):
 
 @pytest.fixture
 def no_cli(monkeypatch: pytest.MonkeyPatch):
-    from jarvis.agent_chat import service as svc_mod
+    from dodaios.agent_chat import service as svc_mod
 
     monkeypatch.setattr(svc_mod, "_claude_cli_installed", lambda: False)
 
@@ -66,8 +66,8 @@ def no_cli(monkeypatch: pytest.MonkeyPatch):
 async def test_chat_pick_survives_a_different_global_worker(
     tmp_path, monkeypatch, provider, model, expected_runner
 ):
-    from jarvis.agent_chat import service as svc_mod
-    from jarvis.core import runtime_refs, task_agent
+    from dodaios.agent_chat import service as svc_mod
+    from dodaios.core import runtime_refs, task_agent
 
     global_manager = SimpleNamespace(
         _config=SimpleNamespace(brain=SimpleNamespace(worker=SimpleNamespace(
@@ -330,7 +330,7 @@ def test_step_mirror_ignores_another_turns_events():
     async def scenario() -> None:
         import uuid
 
-        from jarvis.core.events import ActionExecuted, ActionProposed
+        from dodaios.core.events import ActionExecuted, ActionProposed
 
         bus = EventBus()
         mine, theirs = uuid.uuid4(), uuid.uuid4()
@@ -362,7 +362,7 @@ async def test_a_continuation_is_briefing_not_the_persons_words(
     """The brain reads a turn's text to decide which coding pane an order
     addresses. A continuation quotes the original order and the agents'
     reports, so as the turn's text it would send that order to the pane again."""
-    from jarvis.agent_chat.delegation_wait import CONTINUE_TURN, continuation_prompt
+    from dodaios.agent_chat.delegation_wait import CONTINUE_TURN, continuation_prompt
 
     fake = FakeBrainManager()
     monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
@@ -392,7 +392,7 @@ async def test_a_continuation_keeps_a_turkish_conversation_turkish(
     """Forensic 2026-10-19: the neutral English continue line flipped a Turkish
     chat to English on every delegated result. The turn is pinned to the
     request's language and the brain reads its language from the request."""
-    from jarvis.agent_chat.delegation_wait import CONTINUE_TURN, continuation_prompt
+    from dodaios.agent_chat.delegation_wait import CONTINUE_TURN, continuation_prompt
 
     fake = FakeBrainManager()
     monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
@@ -432,9 +432,9 @@ async def test_an_ordinary_turn_names_no_separate_request(
 async def test_a_turn_is_briefed_on_requests_still_running_behind_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
 ):
-    from jarvis.agent_chat.delegation_wait import DelegationWait
-    from jarvis.agent_chat.parked_work import ParkedWork
-    from jarvis.core.delegated_work import DelegatedWork
+    from dodaios.agent_chat.delegation_wait import DelegationWait
+    from dodaios.agent_chat.parked_work import ParkedWork
+    from dodaios.core.delegated_work import DelegatedWork
 
     fake = FakeBrainManager()
     monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)

@@ -25,7 +25,7 @@ a live output level arrives the frame is picked from that level (smoothed,
 bucketed — an unchanged level gives an unchanged key, so no repaint). Without a
 level the row plays back and forth at the manifest's rate.
 
-The state itself comes from :class:`jarvis.ui.pets.state_machine.PetStateMachine`,
+The state itself comes from :class:`dodaios.ui.pets.state_machine.PetStateMachine`,
 fed by the overlay from real Jarvis events. Pet ``"none"`` loads no pack: the
 renderer then paints a fully keyed (invisible, click-through) strip-wide line so
 the overlay window keeps a real position for the control strip to hang from.
@@ -43,7 +43,7 @@ from typing import Any
 
 from PIL import Image
 
-from jarvis.ui.pets.states import NO_PET_ID
+from dodaios.ui.pets.states import NO_PET_ID
 from ui.orb import controls as orb_controls
 
 log = logging.getLogger("jarvis.orb")
@@ -245,19 +245,19 @@ def figure_crop(
 
 
 def _default_loader(pet_id: str) -> Any:
-    from jarvis.ui.pets.loader import load_pet_by_id  # noqa: PLC0415 — engine is lazy
+    from dodaios.ui.pets.loader import load_pet_by_id  # noqa: PLC0415 — engine is lazy
 
     return load_pet_by_id(pet_id)
 
 
 def _default_to_color_key(frame: Image.Image, scale: int, key: _ColorKey) -> Image.Image:
-    from jarvis.ui.pets.loader import to_color_key  # noqa: PLC0415
+    from dodaios.ui.pets.loader import to_color_key  # noqa: PLC0415
 
     return to_color_key(frame, scale, key=key)
 
 
 def _default_machine(clock: Callable[[], float]) -> Any:
-    from jarvis.ui.pets.state_machine import PetStateMachine  # noqa: PLC0415
+    from dodaios.ui.pets.state_machine import PetStateMachine  # noqa: PLC0415
 
     return PetStateMachine(clock)
 

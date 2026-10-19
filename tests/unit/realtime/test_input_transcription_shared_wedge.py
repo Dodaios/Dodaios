@@ -26,9 +26,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import STTConfig
-from jarvis.realtime import input_transcription as module
-from jarvis.realtime.input_transcription import LocalInputTranscriber, RecognizerBusy
+from dodaios.core.config import STTConfig
+from dodaios.realtime import input_transcription as module
+from dodaios.realtime.input_transcription import LocalInputTranscriber, RecognizerBusy
 
 RATE = 24_000
 CHUNK_SAMPLES = 480  # 20 ms
@@ -85,10 +85,10 @@ def engine(monkeypatch: pytest.MonkeyPatch) -> _SharedEngine:
     config = type("_Config", (), {"stt": STTConfig(provider="groq-api", language="en")})
 
     monkeypatch.setattr(
-        "jarvis.core.config.load_config", lambda *a, **k: config, raising=True
+        "dodaios.core.config.load_config", lambda *a, **k: config, raising=True
     )
     monkeypatch.setattr(
-        "jarvis.plugins.stt.build_stt_from_config",
+        "dodaios.plugins.stt.build_stt_from_config",
         lambda *a, **k: built,
         raising=True,
     )

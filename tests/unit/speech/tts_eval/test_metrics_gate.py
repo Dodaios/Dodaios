@@ -2,7 +2,7 @@
 is skipped (absent measurement is not a failure)."""
 from __future__ import annotations
 
-from jarvis.speech.tts_eval.harness import MetricResult, Thresholds, gate
+from dodaios.speech.tts_eval.harness import MetricResult, Thresholds, gate
 
 TH = Thresholds()
 

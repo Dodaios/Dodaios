@@ -18,8 +18,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.ui.web.fast_bootstrap import FastBootstrap
-from jarvis.ui.web.surface_security import COOKIE_NAME, SurfaceSecurity
+from dodaios.ui.web.fast_bootstrap import FastBootstrap
+from dodaios.ui.web.surface_security import COOKIE_NAME, SurfaceSecurity
 
 _TOKEN = "fast-bootstrap-test-session"  # noqa: S105
 
@@ -286,7 +286,7 @@ async def test_shell_paint_requires_browser_ack_not_just_js_bytes(tmp_path) -> N
 
 def test_boot_page_acknowledges_after_two_frames() -> None:
     repo_root = Path(__file__).resolve().parents[4]
-    page = repo_root / "jarvis/ui/web/frontend/index.html"
+    page = repo_root / "dodaios/ui/web/frontend/index.html"
     html = page.read_text(encoding="utf-8")
     assert "/api/ui/shell-painted" in html
     assert html.count("requestAnimationFrame") >= 2

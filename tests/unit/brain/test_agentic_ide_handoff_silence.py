@@ -27,15 +27,15 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import prompt_composer
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.prompt_composer import ComposedPrompt
-from jarvis.agentic_ide.session import Registry
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import AnnouncementRequested
-from jarvis.voice.contextual_readback import ReadbackComposer
+from dodaios.agentic_ide import prompt_composer
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.prompt_composer import ComposedPrompt
+from dodaios.agentic_ide.session import Registry
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import AnnouncementRequested
+from dodaios.voice.contextual_readback import ReadbackComposer
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -44,7 +44,7 @@ def _isolated_recents(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Never rewrite the developer's real recent-workspace list from a test."""
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)

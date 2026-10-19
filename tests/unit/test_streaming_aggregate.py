@@ -5,9 +5,9 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.brain import aggregate, tee_text
-from jarvis.brain.streaming import aggregate_first_json
-from jarvis.core.protocols import BrainDelta
+from dodaios.brain import aggregate, tee_text
+from dodaios.brain.streaming import aggregate_first_json
+from dodaios.core.protocols import BrainDelta
 
 
 async def _iter(deltas: list[BrainDelta]) -> AsyncIterator[BrainDelta]:
@@ -149,7 +149,7 @@ def test_has_complete_json_action_caps_scan_on_oversized_text():
     max_tokens), the scan is skipped (returns False -> the full aggregate takes
     over) so a misbehaving provider streaming prose before the JSON cannot make
     the per-delta scan quadratic. A normal-size action still early-stops."""
-    from jarvis.brain.streaming import _has_complete_json_action
+    from dodaios.brain.streaming import _has_complete_json_action
 
     assert _has_complete_json_action('{"action": "done"}') is True
     # A *valid* but absurdly large object (>> any real 256/512-token response):

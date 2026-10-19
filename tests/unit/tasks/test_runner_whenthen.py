@@ -12,16 +12,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import HarnessResult
-from jarvis.tasks.runner import TaskRunner, _safe_format
-from jarvis.tasks.schema import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import HarnessResult
+from dodaios.tasks.runner import TaskRunner, _safe_format
+from dodaios.tasks.schema import (
     HarnessDispatchAction,
     TaskSpec,
     TriggerOnEvent,
 )
-from jarvis.tasks.store import TaskStore
+from dodaios.tasks.store import TaskStore
 
 
 class FakeHarnessManager:

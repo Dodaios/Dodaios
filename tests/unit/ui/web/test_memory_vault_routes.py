@@ -18,15 +18,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.memory.wiki import integration
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.vault_index import VaultIndex
-from jarvis.ui.web.memory_vault_routes import router as memory_router
-from jarvis.ui.web.wiki_routes import invalidate_visible_page_cache
+from dodaios.memory.wiki import integration
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.vault_index import VaultIndex
+from dodaios.ui.web.memory_vault_routes import router as memory_router
+from dodaios.ui.web.wiki_routes import invalidate_visible_page_cache
 
 _OLD = time.time() - 3_600
 

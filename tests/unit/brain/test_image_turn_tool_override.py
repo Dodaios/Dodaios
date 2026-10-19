@@ -18,7 +18,7 @@ German separable verb and hands the turn to Computer-Use with no capture.
 
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 def _mgr(tools: dict, *, required: str = "", is_write: bool = False) -> BrainManager:
@@ -102,9 +102,9 @@ def test_screen_turn_computer_use_boundary_still_holds() -> None:
     gate refuses a pure look request and permits the mixed look-plus-action turn
     the empty surface used to break.
     """
-    from jarvis.brain.cu_gate import llm_computer_use_allowed
-    from jarvis.screen_context.intent import classify
-    from jarvis.screen_context.models import VisualIntent
+    from dodaios.brain.cu_gate import llm_computer_use_allowed
+    from dodaios.screen_context.intent import classify
+    from dodaios.screen_context.models import VisualIntent
 
     # A pure look request captures, and computer_use is refused for it even
     # though the tool now sits in the surface. The mandate's outcome holds.

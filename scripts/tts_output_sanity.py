@@ -9,7 +9,7 @@ Use this when you:
 - Want to know whether Windows TTS (Hedda) can play at all
 
 This script bypasses Gemini entirely and directly uses the native Windows
-SAPI5 fallback from `jarvis/plugins/tts/gemini_flash_tts.py`.
+SAPI5 fallback from `dodaios/plugins/tts/gemini_flash_tts.py`.
 """
 from __future__ import annotations
 
@@ -25,9 +25,9 @@ async def main() -> int:
         except Exception:
             pass
 
-    from jarvis.audio.player import AudioPlayer
-    from jarvis.core.protocols import AudioChunk
-    from jarvis.plugins.tts.gemini_flash_tts import SAPI5_SAMPLE_RATE, _sapi5_synthesize
+    from dodaios.audio.player import AudioPlayer
+    from dodaios.core.protocols import AudioChunk
+    from dodaios.plugins.tts.gemini_flash_tts import SAPI5_SAMPLE_RATE, _sapi5_synthesize
 
     text = (
         "Test eins zwei drei. Wenn du mich hörst, ist dein Audio-Output "  # i18n-allow

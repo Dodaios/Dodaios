@@ -7,10 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.meetings import MEETING_PASS, Meetings, is_pass
-from jarvis.society.rooms import MAX_MEMBERS
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.meetings import MEETING_PASS, Meetings, is_pass
+from dodaios.society.rooms import MAX_MEMBERS
+from dodaios.society.runtime import SocietyRuntime
 from tests.fakes.meeting_chat import MeetingChatFake
 
 
@@ -191,7 +191,7 @@ async def test_agents_can_pass_without_publishing_or_polluting_context(meeting, 
 def test_the_personal_chat_hides_the_same_silence_marker():
     root = Path(__file__).resolve().parents[3]
     source = (
-        root / "jarvis/ui/web/frontend/src/components/agentchat/meetingPass.ts"
+        root / "dodaios/ui/web/frontend/src/components/agentchat/meetingPass.ts"
     ).read_text(encoding="utf-8")
     match = re.search(r'export const MEETING_PASS = "([^"]+)"', source)
     assert match is not None and match.group(1) == MEETING_PASS
@@ -200,7 +200,7 @@ def test_the_personal_chat_hides_the_same_silence_marker():
 def test_the_meeting_view_uses_the_same_member_cap():
     root = Path(__file__).resolve().parents[3]
     source = (
-        root / "jarvis/ui/web/frontend/src/components/society/chat/MeetingChat.tsx"
+        root / "dodaios/ui/web/frontend/src/components/society/chat/MeetingChat.tsx"
     ).read_text(encoding="utf-8")
     match = re.search(r"export const MEETING_MAX_MEMBERS = (\d+);", source)
     assert match is not None and int(match.group(1)) == MAX_MEMBERS
@@ -237,7 +237,7 @@ def test_the_pass_marker_tolerates_stray_punctuation_only():
 async def test_meeting_turns_queue_no_review(meeting):
     import json
 
-    from jarvis.core.protocols import ChatCompletion, ChatTurn
+    from dodaios.core.protocols import ChatCompletion, ChatTurn
 
     rt, svc = meeting
     reviewed = []
@@ -274,7 +274,7 @@ async def test_a_turn_without_reply_text_fails_the_round(meeting):
 
     async def send(session_id, text, **kwargs):
         svc.sent.append((session_id, text, kwargs, "turn-x"))
-        from jarvis.agent_chat.events import make_event
+        from dodaios.agent_chat.events import make_event
 
         svc.store.append_event(
             session_id, make_event("turn_finished", {"turn_id": "turn-x", "status": "done"})

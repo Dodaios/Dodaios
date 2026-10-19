@@ -1,0 +1,3036 @@
+/* The two interface families ship WITH the application. The desktop app is
+   a WebView that regularly starts with no network; a remote font import meant
+   every such launch rendered the whole product in Segoe UI / system fallbacks
+   — a different typeface at a different width on every surface at once, which
+   is one of the two things behind "you cannot recognise the type".
+
+   Inter is the variable build (one file per script subset, every weight);
+   JetBrains Mono ships as static cuts of the weights the scale uses.
+   Vite resolves these bare specifiers and fingerprints the woff2 files into
+   the bundle. Licences: SIL OFL 1.1 — see public/THIRD_PARTY_NOTICES.txt. */
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource/jetbrains-mono/700.css";
+/* The island's display face. `components/society/world/world.css` has asked for
+   it since M3 and silently got Inter, because nothing ever shipped the file;
+   the agent card wants it for real. Two weights, same offline rule. */
+@import "@fontsource/pixelify-sans/400.css";
+@import "@fontsource/pixelify-sans/600.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App-wide scrollbars — PLAIN (non-@layer) CSS on purpose, same reason as the
+   xterm rules below: a `@layer` rule keyed on an element rather than a class
+   is not guaranteed to survive Tailwind's purge.
+   The native WebView2 bar is a light-grey 17 px column with arrow buttons —
+   it reads as somebody else's chrome bolted onto a matte-black app, and it
+   was the single loudest non-theme surface left on screen. This makes every
+   scroll container in the app agree: a thin dark thumb floating on the
+   content, no track, no buttons. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border-strong)) transparent;
+}
+
+/* Selecting text is the app's decision, not the window frame's.
+   PLAIN CSS and `html body` rather than `body`, both deliberately:
+
+   pywebview — every desktop window the app runs in — injects
+   `body {user-select: none; cursor: default}` at load time unless it was
+   created with `text_select=True` (dodaios/ui/desktop_app.py fixes that at the
+   source). That injected <style> lands LAST in the head, so an equally
+   specific `body` rule here would lose to it. `html body` outranks it, which
+   makes this stylesheet the authority whatever shell, version or window the
+   page ends up in — including one that was never updated.
+
+   Everything readable is therefore selectable. Chrome that is pressed rather
+   than read opts out below, so dragging across a toolbar does not paint it
+   blue; a component that needs an exception uses Tailwind's `select-none`,
+   whose class beats both rules. */
+html body {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: auto;
+}
+
+button,
+label,
+[role="button"],
+[role="tab"],
+[role="switch"],
+[role="menuitem"],
+[role="option"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@layer components {
+  /*
+   * Voice-orb state language. The procedural material stays inside the sphere;
+   * these two soft waves make lifecycle changes readable from across the desk.
+   * Every loop uses only transform and opacity, and none rotates, so the active
+   * surface remains calm even when a long prompt is being written.
+   */
+  /* The ring and the state dot follow the APP's accent, not the orb's own
+     ivory-gold material. Two yellows a few degrees apart in one 240 px column
+     is a mismatch the eye reads as sloppiness long before it can name it —
+     the sphere keeps its warm palette because it is a rendered material, and
+     everything drawn around it belongs to the interface. */
+  .agentic-voice-orb-ring {
+    @apply pointer-events-none absolute inset-2 rounded-full border border-primary/40;
+    opacity: 0;
+    transform: scale(0.94);
+    will-change: transform, opacity;
+  }
+
+  .agentic-voice-orb-stage[data-state="listening"] .agentic-voice-orb-ring-a {
+    animation: agentic-orb-wave 1.35s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  .agentic-voice-orb-stage[data-state="thinking"] .agentic-voice-orb-ring-a,
+  .agentic-voice-orb-stage[data-state="thinking"] .agentic-voice-orb-ring-b {
+    animation: agentic-orb-work 1.55s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .agentic-voice-orb-stage[data-state="thinking"] .agentic-voice-orb-ring-b {
+    animation-delay: 0.58s;
+  }
+
+  .agentic-voice-orb-stage[data-state="speaking"] .agentic-voice-orb-ring-a,
+  .agentic-voice-orb-stage[data-state="speaking"] .agentic-voice-orb-ring-b {
+    animation: agentic-orb-wave 0.82s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  .agentic-voice-orb-stage[data-state="speaking"] .agentic-voice-orb-ring-b {
+    animation-delay: 0.31s;
+  }
+
+  .agentic-voice-orb-stage[data-drop-state="over"] .agentic-voice-orb-ring,
+  .agentic-voice-orb-stage[data-drop-state="reading"] .agentic-voice-orb-ring {
+    animation: agentic-orb-drop 1.1s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    border-style: dashed;
+    border-width: 2px;
+  }
+
+  .agentic-voice-state-dot {
+    @apply h-2 w-2 rounded-full bg-muted-foreground/45;
+  }
+
+  .agentic-voice-state-dot[data-state="listening"],
+  .agentic-voice-state-dot[data-state="thinking"],
+  .agentic-voice-state-dot[data-state="speaking"] {
+    background: hsl(var(--primary));
+    animation: agentic-orb-dot 1.25s ease-in-out infinite;
+  }
+
+  .agentic-voice-state-dot[data-state="thinking"] {
+    animation-duration: 0.85s;
+  }
+
+  .agentic-voice-state-dot[data-state="speaking"] {
+    animation-duration: 0.62s;
+  }
+
+  .agentic-voice-state-dot[data-state="error"] {
+    @apply bg-destructive;
+  }
+
+  /*
+   * The live transcript pill under the orb. Presence is animated both ways —
+   * it slides in from the status pill above it, and `data-leaving` (set while
+   * the ghost text fades, see VoiceBubble) plays the same move backwards
+   * before the element unmounts.
+   */
+  .agentic-voice-transcript {
+    animation: agentic-transcript-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .agentic-voice-transcript[data-leaving="true"] {
+    animation: agentic-transcript-out 0.22s ease-out forwards;
+  }
+
+  /* A three-line window over the tail of the sentence. `lh` keeps the crop on
+     an exact line boundary whatever the font metrics resolve to; the fade mask
+     appears only when a line really was cropped (`data-overflowing` is
+     MEASURED in the component, CSS cannot know), so a short sentence keeps a
+     crisp top edge. */
+  .agentic-voice-transcript-window {
+    max-height: 3lh;
+    overflow: hidden;
+  }
+
+  .agentic-voice-transcript-window[data-overflowing="true"] {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1lh);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 1lh);
+  }
+
+  /* inline-block, not inline: transforms do not apply to non-replaced inline
+     boxes, and an atomic box also stops a word from re-wrapping mid-animation. */
+  .agentic-voice-transcript-word {
+    display: inline-block;
+    animation: agentic-transcript-word 0.26s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* The "still writing" caret shown while the recognizer has not committed to
+     the sentence. App accent on purpose — same rule as the ring and the dot:
+     everything drawn around the sphere belongs to the interface. */
+  .agentic-voice-transcript-caret {
+    @apply bg-primary;
+    display: inline-block;
+    width: 2px;
+    height: 0.85em;
+    margin-left: 0.2em;
+    vertical-align: -0.08em;
+    border-radius: 9999px;
+    animation: agentic-transcript-caret 1.05s ease-in-out infinite;
+  }
+
+  @keyframes agentic-orb-wave {
+    0% {
+      opacity: 0.62;
+      transform: scale(0.91);
+    }
+    72%,
+    100% {
+      opacity: 0;
+      transform: scale(1.18);
+    }
+  }
+
+  @keyframes agentic-orb-work {
+    0%,
+    100% {
+      opacity: 0.16;
+      transform: scale3d(0.95, 1.01, 1);
+    }
+    50% {
+      opacity: 0.64;
+      transform: scale3d(1.13, 1.08, 1);
+    }
+  }
+
+  @keyframes agentic-orb-drop {
+    0%,
+    100% {
+      opacity: 0.42;
+      transform: scale(1.01);
+    }
+    50% {
+      opacity: 0.92;
+      transform: scale(1.12);
+    }
+  }
+
+  @keyframes agentic-orb-dot {
+    0%,
+    100% {
+      opacity: 0.45;
+      transform: scale(0.78);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.18);
+    }
+  }
+
+  /* Appshots page demo: the same shutter the desktop overlay plays — a white
+     flash, then the picture shrinks into the corner, rests, and slides out. */
+  .appshot-demo-flash {
+    animation: appshot-demo-flash 4.8s ease-out infinite;
+  }
+
+  .appshot-demo-card {
+    transform-origin: 100% 100%;
+    animation: appshot-demo-card 4.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .appshot-demo-flash,
+    .appshot-demo-card {
+      animation: none;
+      opacity: 0;
+    }
+  }
+
+  @keyframes appshot-demo-flash {
+    0%,
+    6% {
+      opacity: 0;
+    }
+    9% {
+      opacity: 0.85;
+    }
+    22%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes appshot-demo-card {
+    0%,
+    8% {
+      opacity: 0;
+      transform: translate(0, 0) scale(1);
+    }
+    10% {
+      opacity: 1;
+      transform: translate(0, 0) scale(1);
+    }
+    28%,
+    78% {
+      opacity: 1;
+      transform: translate(-6%, -7%) scale(0.34);
+    }
+    90%,
+    100% {
+      opacity: 0;
+      transform: translate(4%, -7%) scale(0.34);
+    }
+  }
+
+  @keyframes agentic-transcript-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.97);
+    }
+  }
+
+  @keyframes agentic-transcript-out {
+    to {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.97);
+    }
+  }
+
+  @keyframes agentic-transcript-word {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+      filter: blur(3px);
+    }
+  }
+
+  @keyframes agentic-transcript-caret {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .agentic-voice-orb-ring,
+    .agentic-voice-state-dot,
+    .agentic-voice-transcript,
+    .agentic-voice-transcript-word,
+    .agentic-voice-transcript-caret {
+      animation: none !important;
+    }
+
+    .agentic-voice-orb-stage[data-state]:not([data-state="idle"])
+      .agentic-voice-orb-ring-a {
+      opacity: 0.45;
+      transform: scale(1.08);
+    }
+  }
+
+  /* ---- the marketplace install command ----------------------------------
+     A shell line has to render character by character: the mono face ligates
+     `--` into a single dash, which turns `uvx --from` into a command nobody
+     can retype from what they see. */
+  .install-cmd {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-variant-ligatures: none;
+    font-feature-settings:
+      "liga" 0,
+      "calt" 0;
+  }
+
+  /* The block cursor at the end of the command — the cue that says "this is a
+     terminal, and it is waiting for you". */
+  .install-caret {
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    margin-left: 0.25em;
+    vertical-align: text-bottom;
+    border-radius: 1px;
+    background: hsl(var(--accent));
+    animation: install-caret-blink 1.05s steps(1, end) infinite;
+  }
+
+  @keyframes install-caret-blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .install-caret {
+      animation: none;
+      opacity: 1;
+    }
+  }
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  /* The transparent border + content-box clip is what makes the thumb read as
+     a floating pill rather than a filled gutter. --border-strong, not
+     --border: a hairline tuned to be barely there makes a thumb nobody can
+     find. */
+  background-color: hsl(var(--border-strong));
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground));
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Shiki dual-theme switch — PLAIN (non-@layer) CSS, same reason as the rules
+   below: `.shiki` markup is produced at runtime from highlighted strings and
+   never appears in the source, so a @layer rule for it would be purged.
+
+   CodeBlock highlights once with both themes; Shiki writes the light colour
+   into `color:` and the dark one into `--shiki-dark` on every span. These two
+   rules are what make the dark half take over. Without them, switching the
+   theme would leave every code block permanently in light colours. */
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+/* Inside the app's code block the frame is the background. The dark theme's
+   own ground (github-dark's near-black) would otherwise paint a second, darker
+   box behind every line inside the card. */
+.dark .code-block-body .shiki,
+.dark .code-block-body .shiki span {
+  background-color: transparent !important;
+}
+
+/* xterm.js viewport scrollbar — PLAIN (non-@layer) CSS on purpose. Tailwind
+   tree-shakes `@layer utilities` by class usage, and `.xterm-viewport` is
+   created by xterm.js at runtime (it never appears in the source), so a rule
+   for it inside a @layer gets PURGED from the build — which is exactly why the
+   embedded "Make It Yours" terminals kept the native light WebView2 scrollbar.
+   Top-level CSS is always emitted. Thin, dark, no arrow buttons. */
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-strong));
+  border-radius: 4px;
+}
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+.xterm-viewport::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Agentic IDE panes intentionally show no scrollbar. Scrolling still works
+   through xterm's wheel handling, while recorded conversation history opens
+   from the book button in the pane header. Keep these rules top-level because
+   xterm creates the viewport at runtime. */
+.agentic-terminal-host .xterm-viewport {
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.agentic-terminal-host .xterm-viewport::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* A chat transcript scrolls like a messenger's: no bar beside the words.
+   The jump-to-latest button stands in for the bar's "you are not at the end".
+   Top-level so the class survives Tailwind's purge like the rules above. */
+.chat-scroller {
+  scrollbar-width: none;
+}
+
+.chat-scroller::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* The icon rail (the deck's dock and the collapsed sidebar) scrolls when the
+   window is shorter than its column of icons, but shows no bar: a 10 px thumb
+   inside a 64 px rail would sit on the icons themselves. Top-level for the
+   same reason as the rules above. */
+.dock-rail-scroller {
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.dock-rail-scroller::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* While a boundary is being dragged, the terminal inside a pane keeps the size
+   it had — a terminal is a grid of whole character cells, and re-cutting that
+   grid means telling the agent to redraw its entire screen, which is far too
+   expensive to do per frame (see AgenticTerminal's `layoutBusy`). So for the
+   length of the gesture the pane is a frame around contents of the old size,
+   and the only question is where the difference shows.
+
+   Anchoring the contents to the BOTTOM is what makes it look right: an agent
+   draws its input box at the bottom of its screen, so the strip of unused
+   ground ends up above the output instead of below the input — a terminal with
+   room over it reads as normal, one with its prompt floating in the middle
+   reads as broken. That was the reported symptom. Dragging the other way trims
+   the oldest rows off the top, which is the direction a terminal grows anyway.
+
+   Only during the drag: the moment it ends the pane refits and the contents
+   fill the frame again. */
+.agentic-terminal-host[data-layout-busy="true"] {
+  display: flex;
+  align-items: flex-end;
+}
+
+.agentic-terminal-host[data-layout-busy="true"] > .xterm {
+  width: 100%;
+}
+
+@layer base {
+  /*
+   * ===========================================================================
+   * Theme tokens — light lives on :root, dark on .dark
+   * ===========================================================================
+   *
+   * The class is put on <html> by two places that must agree: the inline boot
+   * script in index.html (synchronously, before the first paint, so neither
+   * theme flashes the other one) and ThemeProvider (hooks/useTheme.tsx) once
+   * React owns the document. Dark remains the product's default.
+   *
+   * THE RULE FOR EVERY SURFACE IN THIS APP: never write a literal colour.
+   * A component that hardcodes `bg-zinc-900`, `#0a0a0a`, or `rgba(0,0,0,.6)`
+   * looks correct in exactly one theme and is a bug in the other — and because
+   * the app defaults to dark, that bug ships invisible to whoever wrote it.
+   *
+   * THE SECOND RULE: a surface is a NAMED token, never a token multiplied by
+   * an opacity. `bg-card/40` as a resting ground is not "a quieter card", it
+   * is a colour nobody chose, and it changes with whatever happens to be
+   * behind it. Depth is picked from the ladder below, one step at a time.
+   *
+   * These two blocks are the only place a colour is decided. The set covers
+   * flat surfaces and text. Effects — glows, grid lines, scrims, glass,
+   * hatching — cannot use it, because they need colour CHANNELS to build an
+   * rgba() from. That is what the four `*-rgb` triples exist for; each is a
+   * bare `R G B` list meant for `rgb(var(--x) / <alpha>)`.
+   */
+  :root {
+    /* Original app marks sit on the same white brand tile in both themes. */
+    --plugin-icon-surface: 0 0% 100%;
+    /* --- Light: the same system, the value scale inverted ------------------
+       White room, neutral near-black ink — the same zero-saturation system
+       as dark. Every role below has exactly the job its dark twin has; only
+       the brightness swaps. Objects sit ON white and are edged by --border;
+       interaction answers by going DOWN into neutral grey — the role is "the
+       surface that responds", not "the lighter surface".
+
+       The one rule that governs both themes holds here too: lift scales
+       inversely with area. --background paints the room and every full-bleed
+       region; --card may only paint something sized to its content. A surface
+       wider than ~720px never rises above --sidebar. */
+
+    /* --- The surface ladder ---------------------------------------------- */
+    --background: 0 0% 100%; /* #FFFFFF — the room, every full-bleed region */
+    --sidebar: 0 0% 98%; /* #FAFAFA — the rail, standing chrome */
+    --card: 0 0% 100%; /* #FFFFFF — an OBJECT: card, bubble, panel (edged by --border) */
+    --card-foreground: 0 0% 9%;
+    --secondary: 0 0% 96%; /* #F5F5F5 — the LIFT: hover, selected, tile */
+    --secondary-foreground: 0 0% 9%; /* a selected label is ink-strong */
+    --muted: 0 0% 96%; /* = --secondary: the ~65 hover:bg-muted sites read this */
+    --input: 0 0% 96%; /* a field is a lift surface */
+    --popover: 0 0% 100%; /* #FFFFFF — the floating layer, plus .shadow-float */
+    --popover-foreground: 0 0% 9%;
+    --user-bubble: 0 0% 96%; /* #F5F5F5 — the speaker: quiet lift, strong ink */
+    --user-bubble-foreground: 0 0% 9%;
+    /* Front-page chat: the outbound bubble wears the signal hue, and the
+       assistant card's two vivid tiles (Soul = standing instructions,
+       Memory = the wiki) carry their own gradient pair. */
+    --chat-bubble-out: 212 92% 45%;
+    --chat-bubble-out-foreground: 0 0% 100%;
+    /* An agent chat's incoming bubble: a neutral grey lift that sits
+       beside any agent colour the outgoing bubble wears. */
+    --chat-bubble-in: 0 0% 93%; /* #EDEDED */
+    --chat-bubble-in-foreground: 0 0% 9%;
+    --soul-from: 347 83% 52%;
+    --soul-to: 14 92% 56%;
+    --memory-from: 224 86% 52%;
+    --memory-to: 194 92% 48%;
+    --vivid-card-foreground: 0 0% 100%;
+    --surface-raised: 0 0% 93%; /* #EDEDED — pressed/selected rows, code blocks */
+    --border: 0 0% 86%; /* #DBDBDB — hairline */
+    --border-strong: 0 0% 74%; /* #BDBDBD — input borders, focused card, float rim */
+
+    /* --- Ink. Four steps, one job each ------------------------------------
+       The split is what stops a single ink slab from reading as harsh: with
+       no hierarchy behind it, one maximum-contrast value across a whole app
+       has nothing to justify its weight. */
+    --foreground-strong: 0 0% 4%; /* #0A0A0A — headings, headline numbers */
+    --foreground: 0 0% 9%; /* #171717 — body, labels, running text */
+    --muted-foreground: 0 0% 33%; /* #545454 — labels, meta, table heads (7.5:1, the dark twin's 7.9:1) */
+    --faint-foreground: 0 0% 42%; /* #6B6B6B — placeholder + disabled ONLY (5.3:1) */
+    --foreground-faint: 0 0% 42%; /* = --faint-foreground; the Tailwind name */
+    --foreground-secondary: 0 0% 26%; /* #424242 — body on cards, descriptions */
+
+    /* --primary is a FILL, not an ink: buttons, marks, active indicators,
+       focus rings. It never paints running text, a byline or a decorative
+       icon. On paper the fill IS the ink colour — the light scale has no step
+       above `ink` the way the dark one has white above 96% — so --primary and
+       --foreground share a value here, and emphasis in running text is
+       carried by weight and by --foreground-strong instead. 14.3:1 on paper. */
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 100%;
+    /* The chat Send control keeps its white fill in both appearances. */
+    --chat-send-background: 0 0% 100%;
+    --chat-send-foreground: 0 0% 9%;
+    --accent: 212 92% 45%; /* #096CDC — the SIGNAL: links, focus, active, selected, info */
+    --accent-foreground: 0 0% 100%;
+    --ring: 212 92% 45%;
+
+    /* --- Status. Colour has jobs again (v3.1, 2026-09-01) ------------------
+       The all-neutral product read as dead. Cursor's Anysphere theme is the
+       model: neutral greys carrying one desaturated signal hue and a small
+       semantic set — green life, rose fault, amber degraded, cyan info —
+       plus coloured diffs and a coloured run graph. Same meanings in both
+       themes; the lightness is tuned per ground. */
+    --success: 142 72% 29%; /* #15803D — life */
+    --destructive: 0 72% 45%; /* #C52020 — fault */
+    --destructive-foreground: 0 0% 100%;
+    --warning: 32 95% 34%; /* #A95C04 — degraded */
+
+    /* Added / removed code in a chat diff. Green and red were always the
+       weaker half of this signal: a diff already carries + and - in its
+       gutter, so hue was reinforcement, not information. Monochrome the pair
+       says it more directly — an added line comes FORWARD (strong ink on a
+       lifted ground) and a deleted one RECEDES (meta ink, struck through,
+       see .diff-line-del). Strike-through is the move colour cannot make. */
+    --diff-add: 156 100% 22%; /* #007041 */
+    --diff-add-bg: 155 100% 35%; /* #00B068, read at 18 % */
+    --diff-del: 344 78% 42%; /* #BE1744 */
+    --diff-del-bg: 350 100% 69%; /* #FF617B, read at 22 % */
+
+    /* GitHub's "merged" purple, for the IDE Git tab's merged pull requests and
+       merged-into marks. Open, closed and queued reuse success, destructive
+       and warning; merged is the one GitHub state the set had no hue for. */
+    --gh-merged: 262 69% 58%; /* #8250DF — GitHub light */
+
+    --radius: 0.75rem;
+
+    /* --- Effect channels (see the note above) ---------------------------- */
+    /* The accent as raw channels, for glows / grid lines / halos. Now the ink
+       itself: on paper a "glow" means a faint darkening, not a light source,
+       so every grid and halo built from this reads as a pencil rule. */
+    --accent-rgb: 9 108 220;
+    /* What a translucent overlay DARKENS with (backdrops, vignettes, shadows).
+       Warm near-black rather than pure black, so a scrim over paper does not
+       turn grey-blue. */
+    --scrim-rgb: 0 0 0;
+    /* What a translucent overlay LIGHTENS with (hatching, glass rims, sheen).
+       In light mode "highlight" means going darker, so this is the ink colour —
+       the two swap roles between themes, which is exactly the point. */
+    --sheen-rgb: 23 23 23;
+    /* The ground colour of the app shell as channels, for glass pills that
+       must read as "the app, blurred" rather than a grey rectangle. */
+    --shell-rgb: 255 255 255;
+
+    /* --- Stages ----------------------------------------------------------
+       The full-bleed canvases behind the knowledge maps. They are not chrome:
+       a force graph needs its own depth cue, so it gets its own ground, its
+       own centre-of-gravity glow, and its own dot field. Light mode keeps
+       ink-dark stars and ink state cues. */
+    --stage-bg: 0 0% 100%;
+    --stage-dot-rgb: 23 23 23;
+    --stage-dot-strong: 0.28;
+    --stage-dot-soft: 0.16;
+    --stage-wash-rgb: 23 23 23;
+    --stage-wash-strength: 0.08;
+    --stage-vignette-rgb: 23 23 23;
+    --stage-vignette-strength: 0.1;
+
+    /* --- Run-graph node categories (Visualization) -----------------------
+       Eleven family hues used to distinguish what a step in a run did. They
+       are now two values, not eleven, because the glyph on the tile already
+       says which kind of step it is and a graph is read node by node rather
+       than scanned as a field — eleven hues were closer to a rainbow than to
+       a system, and the one thing they never encoded was ORDER.
+
+       What survives is the only distinction worth a value: where a run starts
+       and where it lands are full ink, everything in between is neutral. Only
+       the card's icon tile reads `hsl(var(--viz-*))`. */
+    --viz-trigger: 212 92% 45%;
+    --viz-reasoning: 247 45% 52%;
+    --viz-terminal: 184 67% 27%;
+    --viz-file: 38 100% 32%;
+    --viz-search: 208 100% 35%;
+    --viz-web: 184 67% 27%;
+    --viz-integration: 315 75% 33%;
+    --viz-agent: 330 60% 45%;
+    --viz-tool: 0 0% 40%;
+    --viz-result: 156 100% 22%;
+    --viz-deliverable: 38 100% 32%;
+
+    /* --- The mascot's two marking roles ----------------------------------
+       The ghost was drawn with one hardcoded white for everything, which is
+       only correct for half of it. Its markings fall into two groups that
+       need OPPOSITE behaviour:
+
+         on-body   eyes, mouth, scanlines — these sit on the figure's own
+                   near-black body, so they must stay light in BOTH themes.
+         trim      arms, glitch pixels, outline, halo — these sit OUTSIDE the
+                   silhouette, on the page, so they must contrast with the
+                   PAGE and therefore flip with it. Hardcoded white made them
+                   invisible on paper, which is the "partly wrong" the
+                   maintainer saw.
+
+       Gigi is black-and-white. Eyes stay light on the black body in both
+       themes. Trim (outline, arms) flips with the PAGE so the silhouette
+       reads on paper and on charcoal. */
+    --gigi-on-body: 0 0% 100%; /* white eyes on the black body */
+    --gigi-trim: 0 0% 9%; /* ink — reads on paper */
+
+    /* Legacy aliases. The names outlived the colour — nothing yellow is left
+       in either theme — and no rule reads them any more either; they stay
+       declared until the last call sites that predate the token set are
+       renamed in their own pass, because a rename and a recolour in one
+       commit hides both. */
+    --jarvis-yellow: 23 23 23;
+    --jarvis-yellow-dim: 102 102 102;
+    --jarvis-grid: 0 0% 90%;
+    --info: 212 92% 45%; /* = --accent: one signal hue carries counts and hints too */
+    --info-foreground: 0 0% 100%;
+
+  }
+
+  .dark {
+    /* --- Dark: a black room with lit objects in it -------------------------
+       LIFT SCALES INVERSELY WITH AREA. That single rule is the whole system,
+       and the resolution of two attempts that were both reverted. Lifting
+       every full-bleed region produced opaque grey furniture standing on a
+       black page ("grey slabs"). Refusing to lift anything produced surfaces
+       three byte-values above their ground — below the threshold at which an
+       eye perceives an edge at all ("dead"). Both were searching for one
+       correct value for a variable that should never have been global.
+
+       So --background paints the room and everything that fills it, and lift
+       is spent only on things sized to their content: a bubble, a row, a
+       tile, a composer, a menu. A surface wider than ~720px never rises above
+       --sidebar, whatever class it carries.
+
+       NEUTRAL, COOL BLACK (v4, 2026-09-02). Re-measured against Cursor and
+       Grok: a pure-neutral ladder from a 4 % room, with every step one notch
+       lighter than the one under it, hairlines that read on every surface
+       they enclose, and ink at 98 / 72 / 63 / 45 %. Elevation is the surface
+       colour, never a shadow. One restrained accent (blue) marks links,
+       focus, the active row and selection; green, amber and red are status
+       only. r = g = b everywhere else.
+
+          4 %  background         the room, every full-bleed region
+          6 %  sidebar            the rail, standing chrome (edged)
+          9 %  card               an OBJECT: card, bubble, composer, panel
+         11 %  popover            the floating layer
+         12 %  secondary / input  the LIFT: hover, selected, field, tile
+         15 %  surface-raised     pressed / selected rows, code blocks
+         15 %  border             hairline — visible on room, rail AND card
+         22 %  border-strong      input borders, focused card, floating rim
+         45 %  faint ink          placeholder and disabled only
+         63 %  muted ink          labels, meta, table heads
+         72 %  secondary ink      body on cards, descriptions
+         98 %  foreground         body, labels, running text
+        100 %  foreground-strong  headings, headline numbers
+         98 %  primary            near-white — a fill, never an ink */
+
+    /* --- The surface ladder ---------------------------------------------- */
+    --background: 0 0% 4%; /* #0A0A0A — the room, every full-bleed region */
+    --sidebar: 0 0% 6%; /* #0F0F0F — the rail, one step up, with a visible edge */
+    --card: 0 0% 9%; /* #171717 — an OBJECT: card, bubble, composer, panel */
+    --card-foreground: 0 0% 98%;
+    --secondary: 0 0% 12%; /* #1F1F1F — the LIFT: hover, selected, tile, field */
+    --secondary-foreground: 0 0% 98%; /* a selected label is ink-strong */
+    --muted: 0 0% 12%; /* = --secondary: the ~65 hover:bg-muted sites read this */
+    --input: 0 0% 12%; /* a field is a lift surface */
+    --popover: 0 0% 11%; /* #1C1C1C — the floating layer, plus .shadow-float */
+    --popover-foreground: 0 0% 98%;
+    --user-bubble: 0 0% 16%; /* #292929 — the speaker: a quiet, legible lift */
+    --user-bubble-foreground: 0 0% 98%;
+    --chat-bubble-out: 212 100% 56%;
+    --chat-bubble-out-foreground: 0 0% 100%;
+    --chat-bubble-in: 0 0% 15%; /* #262626 — see :root */
+    --chat-bubble-in-foreground: 0 0% 95%;
+    --soul-from: 347 86% 56%;
+    --soul-to: 14 94% 58%;
+    --memory-from: 226 92% 60%;
+    --memory-to: 194 96% 50%;
+    --vivid-card-foreground: 0 0% 100%;
+
+    /* --- Rims. A rim is LIGHTER than the fill it encloses ------------------
+       On near-black a dark border around a dark fill reads as a wireframe
+       with nothing inside it. Cursor's rims cover 0.2 % of its window — a
+       composer outline and a few dividers, not an edge around every card. */
+    --surface-raised: 0 0% 15%; /* #262626 — pressed/selected rows, code blocks */
+    --border: 0 0% 15%; /* #262626 — a hairline visible on room, rail AND card */
+    --border-strong: 0 0% 22%; /* #383838 — input borders, focused card, float rim */
+
+    /* --- Ink -------------------------------------------------------------- */
+    --foreground-strong: 0 0% 100%; /* #FFFFFF — headings, headline numbers */
+    --foreground: 0 0% 98%; /* #FAFAFA — body, labels, running text */
+    --muted-foreground: 0 0% 63%; /* #A1A1A1 — labels, meta, table heads (7.9:1 on #0A0A0A) */
+    --faint-foreground: 0 0% 48%; /* #7A7A7A — placeholder + disabled ONLY (4.7:1) */
+    --foreground-faint: 0 0% 48%; /* = --faint-foreground; the Tailwind name */
+    --foreground-secondary: 0 0% 72%; /* #B8B8B8 — body on cards, descriptions */
+
+    /* #FFFFFF, and a FILL. It sits one step past --foreground because a
+       near-black ground has headroom above the ink ceiling; the light theme
+       has none above `ink` and keeps the two equal. 19.8:1. */
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 4%; /* the room */
+    --accent: 212 100% 62%; /* #3D8BFF — the SIGNAL: links, focus, active, selected, info */
+    --accent-foreground: 0 0% 100%;
+    --ring: 212 100% 62%;
+    --success: 142 70% 45%; /* #22C35E — life: running, live, passed */
+    --destructive: 0 72% 55%; /* #DF3A3A — fault: failed, blocked, error */
+    --destructive-foreground: 0 0% 100%;
+    --warning: 38 92% 50%; /* #F59E0B — degraded: stale, modified, attention */
+
+    /* Added / removed code — see :root. The added line takes the lift so it
+       comes forward off the card it sits on; the deleted line takes the card
+       itself, i.e. no ground of its own, and recedes through meta ink and the
+       strike-through. It must never be DARKER than the surface under it. */
+    --diff-add: 143 30% 57%; /* #70B489 */
+    --diff-add-bg: 143 43% 44%; /* #3FA266, read at 18 % */
+    --diff-del: 350 96% 71%; /* #FC6B83 */
+    --diff-del-bg: 336 100% 36%; /* #B80049, read at 20 % */
+    --gh-merged: 262 89% 72%; /* #A371F7 — GitHub dark; see :root */
+
+    --accent-rgb: 61 139 255;
+    --scrim-rgb: 0 0 0;
+    --sheen-rgb: 255 255 255;
+    --shell-rgb: 10 10 10; /* the room, as channels */
+
+    --stage-bg: 0 0% 4%;
+    --stage-dot-rgb: 255 255 255;
+    --stage-dot-strong: 0.5;
+    --stage-dot-soft: 0.35;
+    --stage-wash-rgb: 247 247 247;
+    --stage-wash-strength: 0.055;
+    --stage-vignette-rgb: 0 0 0;
+    --stage-vignette-strength: 0.62;
+
+    /* Run-graph node categories — see :root. Ignition and landing take the
+       full accent; every step between them is neutral and leaves the telling
+       to its glyph. */
+    --viz-trigger: 212 100% 62%; /* blue — the run's ignition */
+    --viz-reasoning: 247 90% 80%; /* lavender — thinking */
+    --viz-terminal: 193 43% 67%; /* cyan — shell */
+    --viz-file: 36 76% 67%; /* amber — writes */
+    --viz-search: 212 100% 76%; /* sky — read/grep/glob */
+    --viz-web: 193 43% 67%; /* cyan — fetch/web */
+    --viz-integration: 308 18% 62%; /* mauve — MCP / external */
+    --viz-agent: 317 63% 75%; /* pink — sub-agents */
+    --viz-tool: 0 0% 63%; /* neutral — unrecognised tools */
+    --viz-result: 143 43% 44%; /* green — the run's landing */
+    --viz-deliverable: 36 76% 67%; /* amber — files left behind */
+
+    /* Black-and-white Gigi: white eyes and a white outline on charcoal. */
+    --gigi-on-body: 0 0% 100%;
+    --gigi-trim: 0 0% 100%;
+
+    /* Legacy aliases — see :root. Declared, read by nothing. */
+    --jarvis-yellow: 255 255 255;
+    --jarvis-yellow-dim: 161 161 161;
+    --jarvis-grid: 0 0% 15%;
+
+    /* --- Info. The fourth semantic hue --------------------------------------
+       Cursor's badge / untracked / find-match cyan (#88C0D0). It says "note
+       this" without saying "something is wrong": counts, new items, hints. */
+    --info: 212 100% 62%; /* = --accent: one signal hue carries counts and hints too */
+    --info-foreground: 0 0% 100%;
+
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply bg-background;
+    scroll-behavior: smooth;
+    /* Tells the engine which theme its OWN widgets belong to — form controls,
+       the caret, focus rings, and (on WebView2) the parts of a scrollbar that
+       CSS cannot reach. Without it a light app keeps dark native dropdowns. */
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* The base step of the six-step scale (text-base = 14 / 20). Set on body
+       rather than html so rem-based spacing keeps its 16 px root. */
+    font-size: 14px;
+    line-height: 20px;
+    overflow-x: hidden;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   The three interface families — PLAIN (non-@layer) CSS on purpose.
+
+   Tailwind hoists every `@layer base` rule into its base section, which is
+   emitted BEFORE the utilities. `.font-mono` there therefore lost to
+   Tailwind's own `.font-mono` utility at identical specificity, and
+   JetBrains Mono rendered on NONE of its several hundred call sites — every
+   terminal, path, transcript and code surface in the product silently fell
+   back to Consolas. Unlayered CSS after `@tailwind utilities` wins that tie
+   for good, whatever Tailwind generates.
+
+   Interface AND display = Inter (display is the same family at 600 with
+   tighter tracking — one voice, no second typeface), code = JetBrains Mono.
+   Both ship in the bundle; see the note at the top of this file.
+   ---------------------------------------------------------------------- */
+body {
+  font-family:
+    "Inter Variable",
+    "Inter",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  /* cv11 = single-storey a, cv02-04 = open shapes: the reading cut of Inter.
+     The tracking is Inter's own recommendation for interface sizes (about
+     -1 % at 13-14 px); running prose (`text-reading`) and code reset it to 0
+     through their own declarations. */
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  letter-spacing: -0.01em;
+  text-rendering: optimizeLegibility;
+}
+
+.font-display {
+  font-family: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0;
+}
+
+/* Links in rendered prose take the signal hue. The typography plugin reads
+   these two variables for its `a` rules in both palettes. */
+.prose {
+  --tw-prose-links: hsl(var(--accent));
+  --tw-prose-invert-links: hsl(var(--accent));
+}
+
+/* A docs guide reads from theme tokens only, so the same class list serves
+   light and dark; the plugin's inverted palette is pointed at the same
+   values. Body copy sits one step below heading ink. */
+.docs-prose {
+  --tw-prose-body: hsl(var(--foreground-secondary));
+  --tw-prose-headings: hsl(var(--foreground-strong));
+  --tw-prose-lead: hsl(var(--muted-foreground));
+  --tw-prose-bold: hsl(var(--foreground-strong));
+  --tw-prose-counters: hsl(var(--muted-foreground));
+  --tw-prose-bullets: hsl(var(--foreground-faint));
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-quotes: hsl(var(--foreground-secondary));
+  --tw-prose-quote-borders: hsl(var(--border-strong));
+  --tw-prose-code: hsl(var(--foreground-strong));
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
+  --tw-prose-invert-body: hsl(var(--foreground-secondary));
+  --tw-prose-invert-headings: hsl(var(--foreground-strong));
+  --tw-prose-invert-bold: hsl(var(--foreground-strong));
+  --tw-prose-invert-bullets: hsl(var(--foreground-faint));
+  --tw-prose-invert-hr: hsl(var(--border));
+  --tw-prose-invert-code: hsl(var(--foreground-strong));
+  font-size: 16px;
+  line-height: 28px;
+  letter-spacing: 0;
+}
+
+/* Headings are wrapped in their own anchor (rehype-autolink-headings). The
+   anchor keeps heading ink and reveals a quiet "#" on hover, so a section
+   link can be copied without turning every heading into link colour. */
+.docs-prose :is(h2, h3, h4) > a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+.docs-prose :is(h2, h3, h4) > a::after {
+  content: "#";
+  margin-left: 0.4em;
+  color: hsl(var(--foreground-faint));
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.docs-prose :is(h2, h3, h4):hover > a::after,
+.docs-prose :is(h2, h3, h4) > a:focus-visible::after {
+  opacity: 1;
+}
+
+/* Selecting text answers in the theme's own material, not the engine's
+   default blue — the one saturated slab a black-and-white product used to
+   show every time someone dragged across a sentence. */
+::selection {
+  background: rgb(var(--sheen-rgb) / 0.22);
+  color: hsl(var(--foreground-strong));
+}
+
+@layer components {
+  /*
+   * The named app surfaces.
+   *
+   * Each one is a ROLE, and on the flat ground the app opens with, each is
+   * simply the token for that role — a fill, no alpha, no blur. Depth is a
+   * named token; a token multiplied by an opacity is not a surface.
+   */
+  .jarvis-nav-surface {
+    background: hsl(var(--sidebar));
+  }
+
+  /*
+   * The reading surface under the gray window bar.
+   *
+   * The fill, the stroke and the corner are one box, so the line bends with
+   * the corner instead of staying square while the fill curves under it.
+   * Children are clipped to that same corner.
+   */
+  .jarvis-sheet {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-top: 1px solid hsl(var(--border));
+    border-left: 1px solid hsl(var(--border));
+    border-top-left-radius: 12px;
+    background: hsl(var(--background));
+  }
+
+  .jarvis-shell-surface {
+    background: hsl(var(--background));
+  }
+
+  .jarvis-panel-surface {
+    background: hsl(var(--card));
+  }
+
+  .jarvis-message-surface {
+    background: hsl(var(--card));
+  }
+
+  .jarvis-input-surface {
+    background: hsl(var(--input));
+  }
+
+  /* Outbound chat bubble. Fill-only — the dirty look was inverted cream
+     (`bg-foreground/70`) sitting on near-black. The tokens flip with theme. */
+  .jarvis-user-bubble {
+    background: hsl(var(--user-bubble));
+    color: hsl(var(--user-bubble-foreground));
+  }
+
+  /* The front page's chat bubbles (AgentTimeline `bubbles`). */
+  .jarvis-chat-out {
+    background: hsl(var(--chat-bubble-out));
+    color: hsl(var(--chat-bubble-out-foreground));
+  }
+  .jarvis-chat-out a {
+    color: inherit;
+  }
+
+  /* An agent chat's bubbles: the agent's own reply in neutral grey; the
+     person's bubble is tinted inline with the agent's colour (bubbleTint). */
+  .jarvis-chat-in {
+    background: hsl(var(--chat-bubble-in));
+    color: hsl(var(--chat-bubble-in-foreground));
+  }
+  .jarvis-chat-tinted a {
+    color: inherit;
+  }
+  /* A capability chip in a tinted bubble takes the bubble's ink: a brand
+     hue on an arbitrary agent colour cannot promise contrast. */
+  .jarvis-chat-tinted .tool-identity,
+  .dark .jarvis-chat-tinted .tool-identity {
+    --tool-ink: currentColor;
+    --tool-wash: color-mix(in srgb, currentColor 16%, transparent);
+  }
+
+  /* The assistant card's vivid tiles: a gradient pair plus a soft light
+     bloom in the top corner, so the tile reads as an object, not a swatch. */
+  .jarvis-tile-soul,
+  .jarvis-tile-memory {
+    color: hsl(var(--vivid-card-foreground));
+  }
+  .jarvis-tile-soul {
+    background:
+      radial-gradient(120% 90% at 100% 0%, hsl(var(--vivid-card-foreground) / 0.22), transparent 55%),
+      linear-gradient(140deg, hsl(var(--soul-from)), hsl(var(--soul-to)));
+  }
+  .jarvis-tile-memory {
+    background:
+      radial-gradient(120% 90% at 100% 0%, hsl(var(--vivid-card-foreground) / 0.22), transparent 55%),
+      linear-gradient(140deg, hsl(var(--memory-from)), hsl(var(--memory-to)));
+  }
+
+  /* Selected nav row — the lift surface across the WHOLE row, plus strong ink
+     on the label. Not a hairline, not an inset accent bar, and never drawn on
+     the icon box alone while the row it belongs to stays at ground. */
+  .jarvis-nav-active {
+    background: hsl(var(--secondary));
+    color: hsl(var(--foreground-strong));
+    box-shadow: inset 2px 0 0 hsl(var(--accent));
+  }
+
+  /*
+   * The visualization viewport — a section stage's opposite number.
+   *
+   * A screen made of somebody else's picture — a rendered SVG chart, a framed
+   * HTML page — gets no inherited text shadow and a quiet opaque ground, so a
+   * diagram with a transparent background is judged against one flat colour.
+   *
+   * Chosen by the shell (App.tsx) rather than by the view, for the same reason
+   * the section stage is: it is the surface the section is drawn ON, and a view
+   * that painted its own would keep it in a detached window but lose it the
+   * moment the shell laid something else out around it.
+   */
+  .jarvis-visualization-stage {
+    background: hsl(var(--background));
+    text-shadow: none;
+  }
+
+  /* Subtle grid pattern in the background — gives a dashboard feel without
+     distracting. Drawn in the accent so it reads as the app's own texture;
+     slightly stronger on paper, where a 4 % line simply disappears. */
+  .jarvis-grid {
+    background-image:
+      linear-gradient(rgb(var(--accent-rgb) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--accent-rgb) / 0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+  }
+
+  :root:not(.dark) .jarvis-grid {
+    background-image:
+      linear-gradient(rgb(var(--accent-rgb) / 0.09) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--accent-rgb) / 0.09) 1px, transparent 1px);
+  }
+
+  /* Accent spot glow — used as an absolute-positioned element. A blurred glow
+     is additive light: it works by being BRIGHTER than its ground, which paper
+     already is. On light the same shape becomes a soft ink wash instead. */
+  .jarvis-glow {
+    background: radial-gradient(
+      circle at center,
+      rgb(var(--accent-rgb) / 0.22) 0%,
+      rgb(var(--accent-rgb) / 0.08) 30%,
+      transparent 70%
+    );
+    filter: blur(60px);
+  }
+
+  :root:not(.dark) .jarvis-glow {
+    background: radial-gradient(
+      circle at center,
+      rgb(var(--accent-rgb) / 0.14) 0%,
+      rgb(var(--accent-rgb) / 0.05) 30%,
+      transparent 70%
+    );
+  }
+
+  /*
+   * The Jarvis-Agents operations board sits on its own faint accent field — a
+   * spot glow in the top right plus a 72 px grid — so a board with nothing on
+   * it reads as an instrument on standby rather than a blank panel. Same
+   * construction as .jarvis-grid at the board's own spacing, and stronger on
+   * paper, where a 1.5 % line simply is not there.
+   */
+  .agents-board-stage {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(circle at 78% 0%, rgb(var(--accent-rgb) / 0.08), transparent 30%),
+      linear-gradient(rgb(var(--accent-rgb) / 0.016) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--accent-rgb) / 0.012) 1px, transparent 1px);
+    background-size:
+      auto,
+      72px 72px,
+      72px 72px;
+  }
+
+  :root:not(.dark) .agents-board-stage {
+    background-image:
+      radial-gradient(circle at 78% 0%, rgb(var(--accent-rgb) / 0.07), transparent 30%),
+      linear-gradient(rgb(var(--accent-rgb) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--accent-rgb) / 0.04) 1px, transparent 1px);
+  }
+
+  /* Button base — for CTAs. The 32px accent bloom on hover is gone: a glow is
+     additive light standing in for a fill that should have been there, and on
+     paper it was never visible at all. Hover is one step of the fill, which is
+     the same move every other interactive surface in the app makes. */
+  .btn-primary {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-base font-medium
+           bg-primary text-primary-foreground
+           transition-colors duration-150
+           hover:bg-primary/90
+           active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .btn-ghost {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-base font-medium
+           text-foreground border border-border-strong
+           transition-colors duration-150
+           hover:bg-secondary
+           active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .btn-ghost:hover {
+    border-color: hsl(var(--border-strong));
+    background-color: hsl(var(--secondary));
+  }
+
+  /* A chip is a lift surface with meta ink on it. The 60 % wash it used to
+     carry (plus a backdrop-blur with nothing behind it to blur) was depth
+     expressed as opacity; the border stays because several call sites answer
+     a hover on it. */
+  .chip {
+    @apply inline-flex h-6 items-center gap-1.5 rounded-md border border-border
+           px-2 text-xs font-medium text-muted-foreground;
+    background-color: hsl(var(--secondary));
+  }
+
+  /* The emphasised sibling — "in use", "CHATGPT-LOGIN". Same surface, strong
+     ink instead of meta: a state marker may never be painted in --primary,
+     which on a black ground would make it the loudest mark on the screen. */
+  .chip-yellow {
+    @apply inline-flex h-6 items-center gap-1.5 rounded-md border border-border
+           px-2 text-xs font-medium;
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--foreground-strong));
+  }
+
+  /*
+   * A card has ONE resting value, in both themes: --card, a real fill, and a
+   * hairline only because a card can sit beside another card. The dark
+   * overrides these two carried — a 3.5 % and a 3 % white wash — were the
+   * "whisper" era: three byte-values above the ground, below the threshold at
+   * which an eye perceives an edge. They escaped every correction pass because
+   * @apply inlines its declarations and so hides the class from the converge
+   * selectors that were rewriting everything else.
+   */
+  .card-outline {
+    @apply rounded-lg border border-border transition-colors duration-300;
+    background-color: hsl(var(--card));
+  }
+
+  .card-outline:hover {
+    border-color: hsl(var(--border-strong));
+  }
+
+  /* A headline number stands ON something. The dark override here stripped the
+     border, the background AND the radius, which is why every stat in Spend,
+     Automations and Local models read as a number floating in the void. It is
+     a tile now in both themes: the lift surface, no rim (it has a real fill),
+     one radius. */
+  .jarvis-stat-tile {
+    @apply rounded-md px-4 py-3.5;
+    background-color: hsl(var(--secondary));
+  }
+
+  .jarvis-quiet-panel {
+    @apply overflow-hidden rounded-lg border border-border;
+    background-color: hsl(var(--card));
+  }
+}
+
+@layer utilities {
+  /* Staggered reveal on view mount — one orchestrated page-load moment.
+     Pair with an inline `animationDelay` for the stagger cadence. */
+  @keyframes profile-rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .profile-rise {
+    animation: profile-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .profile-rise {
+      animation: none;
+    }
+  }
+
+  /* Pulse animation for state badges */
+  @keyframes jarvis-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.4);
+    }
+    50% {
+      opacity: 0.85;
+      box-shadow: 0 0 0 8px rgb(var(--accent-rgb) / 0);
+    }
+  }
+  .animate-jarvis-pulse {
+    animation: jarvis-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* ===========================================================
+     Reasoning-trace (chat thinking indicator)
+     A bright band sweeps through the label text; the core orb
+     pulses with two expanding rings; the card glow breathes.
+     =========================================================== */
+  @keyframes thinking-shimmer {
+    0% {
+      background-position: 200% 50%;
+    }
+    100% {
+      background-position: -200% 50%;
+    }
+  }
+  .thinking-shimmer {
+    /* The travelling band is the ACCENT, not a fixed pale tint: on paper a
+       light highlight passing over grey text is lighter than the text it is
+       meant to light up, so the sweep reads as a gap rather than a shine. */
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted-foreground)) 0%,
+      hsl(var(--muted-foreground)) 38%,
+      hsl(var(--primary)) 50%,
+      hsl(var(--muted-foreground)) 62%,
+      hsl(var(--muted-foreground)) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: thinking-shimmer 2.4s linear infinite;
+  }
+  /* A live work-log line: a narrow band of full-contrast text slides across
+     the muted label in steps. Portions adapted from pingdotgg/t3code
+     @ e22c880 (apps/web/src/index.css), MIT License, Copyright (c) 2026
+     T3 Tools Inc. — third_party/t3code/LICENSE. */
+  @keyframes live-tool-shine {
+    from {
+      background-position: -4.5rem 0, 0 0;
+    }
+    to {
+      background-position: calc(100% + 4.5rem) 0, 0 0;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+    .live-tool-shine {
+      color: transparent;
+      background-image:
+        linear-gradient(to right, transparent, hsl(var(--foreground)), transparent),
+        linear-gradient(hsl(var(--muted-foreground)), hsl(var(--muted-foreground)));
+      background-size: 4.5rem 100%, 100% 100%;
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: live-tool-shine 2.2s steps(30) infinite;
+    }
+  }
+  @keyframes thinking-ring {
+    0% {
+      transform: scale(0.6);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(2.4);
+      opacity: 0;
+    }
+  }
+  .thinking-ring {
+    animation: thinking-ring 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  .thinking-core {
+    box-shadow: 0 0 12px 2px rgb(var(--accent-rgb) / 0.45);
+  }
+  @keyframes thinking-breathe {
+    0%,
+    100% {
+      opacity: 0.45;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  .thinking-breathe {
+    animation: thinking-breathe 3.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .thinking-shimmer {
+      animation: none;
+      background: none;
+      color: hsl(var(--muted-foreground));
+    }
+    .thinking-ring,
+    .thinking-breathe {
+      animation: none;
+    }
+  }
+
+  /* Soft float animation for the hero orb */
+  @keyframes jarvis-float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-14px);
+    }
+  }
+  .animate-jarvis-float {
+    animation: jarvis-float 6s ease-in-out infinite;
+  }
+
+  /* Slow spin for subtle rotations */
+  @keyframes jarvis-spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .animate-jarvis-spin-slow {
+    animation: jarvis-spin-slow 40s linear infinite;
+  }
+
+  /* Text gradient for the hero. Monochrome, the old ramp collapsed: its three
+     stops were all derived from --primary, which is now one end of the value
+     scale, so primary -> primary-mixed-with-foreground came out as white on
+     white. The ramp therefore runs the only direction a hueless palette has —
+     full accent DOWN into the muted ink — which reads as a headline catching
+     light on both grounds instead of a flat fill.
+     (Class name kept: renaming it would touch every call site, and a rename
+     buried inside a recolour hides both.) */
+  .text-gradient-yellow {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary)) 45%,
+      hsl(var(--muted-foreground)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Quieter than the app-wide default at the top of this file — for dense
+     lists where even the default pill is one line of noise too many. The
+     app-wide rules already cover track, buttons and corner. */
+  .scrollbar-jarvis::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-jarvis::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    background-clip: content-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+  }
+  .scrollbar-jarvis::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground));
+  }
+
+  /* ===========================================================
+     Gigi mascot animations
+     Idle = continuous floating + micro-breathing on the SVG root.
+     Actions are triggered via .gigi-<action> classes —
+     each class only lives for the duration of the animation.
+     =========================================================== */
+
+  .gigi-container {
+    position: relative;
+    display: inline-block;
+    font-size: 0; /* no baseline gap under the SVG */
+  }
+  .gigi-root {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform-origin: 50% 50%;
+    will-change: transform;
+    animation: gigi-float 5.4s ease-in-out infinite;
+  }
+  .gigi-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    display: block;
+    animation: gigi-breath 3.8s ease-in-out infinite;
+    transform-origin: 50% 50%;
+  }
+
+  .gigi-compact .gigi-root,
+  .gigi-compact .gigi-svg {
+    animation: none;
+  }
+
+  /* Auto-blink (a natural blink every ~7s — parallel to random actions) */
+  .gigi-root .gigi-eyes {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: gigi-auto-blink 7s ease-in-out infinite;
+  }
+  @keyframes gigi-auto-blink {
+    0%,
+    92%,
+    95%,
+    100% {
+      transform: scaleY(1);
+    }
+    93.5% {
+      transform: scaleY(0.08);
+    }
+  }
+
+  /* Pupil drift: subtle eye movement during idle */
+  .gigi-root .gigi-pupils {
+    animation: gigi-pupil-drift 11s ease-in-out infinite;
+    transform-origin: 50% 50%;
+  }
+  @keyframes gigi-pupil-drift {
+    0%,
+    100% {
+      transform: translate(0, 0);
+    }
+    18% {
+      transform: translate(-1.2px, 0);
+    }
+    42% {
+      transform: translate(0.8px, 0.4px);
+    }
+    68% {
+      transform: translate(1.2px, -0.3px);
+    }
+    85% {
+      transform: translate(-0.6px, 0.2px);
+    }
+  }
+
+  /* Mouth: subtle "breathing" */
+  .gigi-root .gigi-mouth {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: gigi-mouth-idle 5.8s ease-in-out infinite;
+  }
+  @keyframes gigi-mouth-idle {
+    0%,
+    100% {
+      transform: scale(1, 1);
+    }
+    50% {
+      transform: scale(0.94, 1.06);
+    }
+  }
+
+  @keyframes gigi-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-3px);
+    }
+  }
+  @keyframes gigi-breath {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.025);
+    }
+  }
+
+  /* --- Action: Blink (eyes close briefly) --- */
+  .gigi-blink .gigi-eyes,
+  .gigi-blink .gigi-pupils,
+  .gigi-blink .gigi-sparkle {
+    animation: gigi-blink 0.3s ease-in-out;
+    transform-origin: 50% 108px;
+  }
+  @keyframes gigi-blink {
+    0%,
+    100% {
+      transform: scaleY(1);
+    }
+    45%,
+    60% {
+      transform: scaleY(0.08);
+    }
+  }
+
+  /* --- Action: Wave (left arm waves) ---
+     Transform-origin is placed on the shoulder (fill-box top-right,
+     because the arm path bbox's top-right is where it connects to the body).
+     Important: set origin/box on the arm unconditionally — not only on
+     .gigi-wave — otherwise the animation runs with the default origin (0,0). */
+  .gigi-root .gigi-arm-left {
+    transform-box: fill-box;
+    transform-origin: 100% 0%;
+  }
+  .gigi-root .gigi-arm-right {
+    transform-box: fill-box;
+    transform-origin: 0% 0%;
+  }
+  .gigi-wave .gigi-arm-left {
+    animation: gigi-wave 1.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes gigi-wave {
+    0% {
+      transform: rotate(0deg);
+    }
+    12% {
+      transform: rotate(-95deg);
+    } /* arm up */
+    22% {
+      transform: rotate(-75deg);
+    } /* wave 1 */
+    32% {
+      transform: rotate(-110deg);
+    }
+    42% {
+      transform: rotate(-75deg);
+    } /* wave 2 */
+    52% {
+      transform: rotate(-110deg);
+    }
+    62% {
+      transform: rotate(-75deg);
+    } /* wave 3 */
+    72% {
+      transform: rotate(-110deg);
+    }
+    82% {
+      transform: rotate(-90deg);
+    } /* wave ends */
+    100% {
+      transform: rotate(0deg);
+    } /* back down */
+  }
+
+  /* --- Action: Spin (whole figure spins) --- */
+  .gigi-spin .gigi-svg {
+    animation: gigi-spin 0.85s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  @keyframes gigi-spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* --- Action: Jump (hop up) --- */
+  .gigi-jump .gigi-svg {
+    animation: gigi-jump 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes gigi-jump {
+    0%,
+    100% {
+      transform: translateY(0) scale(1, 1);
+    }
+    20% {
+      transform: translateY(2px) scale(1.08, 0.92);
+    }
+    55% {
+      transform: translateY(-14px) scale(0.95, 1.05);
+    }
+    80% {
+      transform: translateY(1px) scale(1.05, 0.95);
+    }
+  }
+
+  /* --- Action: Shake (head shaking) --- */
+  .gigi-shake .gigi-svg {
+    animation: gigi-shake 0.55s ease-in-out;
+  }
+  @keyframes gigi-shake {
+    0%,
+    100% {
+      transform: translateX(0) rotate(0deg);
+    }
+    15% {
+      transform: translateX(-4px) rotate(-3deg);
+    }
+    35% {
+      transform: translateX(4px) rotate(3deg);
+    }
+    55% {
+      transform: translateX(-3px) rotate(-2deg);
+    }
+    75% {
+      transform: translateX(3px) rotate(2deg);
+    }
+  }
+
+  /* --- Action: Look-Left / Look-Right (pupils look) --- */
+  .gigi-look-left .gigi-pupils {
+    animation: gigi-look-left 0.85s ease-in-out;
+  }
+  .gigi-look-right .gigi-pupils {
+    animation: gigi-look-right 0.85s ease-in-out;
+  }
+  @keyframes gigi-look-left {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    30%,
+    70% {
+      transform: translateX(-4px);
+    }
+  }
+  @keyframes gigi-look-right {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    30%,
+    70% {
+      transform: translateX(4px);
+    }
+  }
+
+  /* --- Action: Glitch (brief digital disruption) --- */
+  .gigi-glitch .gigi-svg {
+    animation: gigi-glitch 0.42s steps(2, end);
+  }
+  .gigi-glitch .gigi-glitch-left,
+  .gigi-glitch .gigi-glitch-right {
+    animation: gigi-glitch-pixels 0.42s steps(4, end);
+  }
+  @keyframes gigi-glitch {
+    0% {
+      transform: translate(0, 0) skewX(0);
+      filter: none;
+    }
+    20% {
+      transform: translate(-3px, 1px) skewX(-4deg);
+      filter: hue-rotate(-20deg);
+    }
+    40% {
+      transform: translate(3px, -1px) skewX(4deg);
+    }
+    60% {
+      transform: translate(-2px, 0) skewX(-2deg);
+      filter: hue-rotate(20deg);
+    }
+    80% {
+      transform: translate(2px, 1px) skewX(2deg);
+    }
+    100% {
+      transform: translate(0, 0) skewX(0);
+      filter: none;
+    }
+  }
+  @keyframes gigi-glitch-pixels {
+    0%,
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    25% {
+      opacity: 0.3;
+      transform: translateX(-4px);
+    }
+    75% {
+      opacity: 0.8;
+      transform: translateX(4px);
+    }
+  }
+
+  /* --- Voice-state reactions --- */
+  .gigi-voice-listening .gigi-eyes {
+    animation: gigi-ear-prick 1.2s ease-in-out infinite;
+  }
+  @keyframes gigi-ear-prick {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.08);
+    }
+  }
+
+  .gigi-voice-thinking .gigi-svg {
+    animation:
+      gigi-breath 3.8s ease-in-out infinite,
+      gigi-thinking-tilt 2.4s ease-in-out infinite;
+  }
+  @keyframes gigi-thinking-tilt {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(-6deg);
+    }
+  }
+
+  .gigi-voice-speaking .gigi-mouth {
+    animation: gigi-speak 0.35s ease-in-out infinite alternate;
+    transform-origin: 50% 146px;
+  }
+  @keyframes gigi-speak {
+    0% {
+      transform: scaleY(0.7);
+    }
+    100% {
+      transform: scaleY(1.25);
+    }
+  }
+
+  .gigi-voice-error .gigi-svg {
+    animation: gigi-shake 0.5s ease-in-out infinite;
+    filter: hue-rotate(-40deg) saturate(1.4);
+  }
+
+  /* --- Comment bubble --- */
+  .gigi-bubble {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 10px);
+    transform: translateY(-50%);
+    width: max-content;
+    max-width: 220px;
+    padding: 6px 11px;
+    border-radius: 10px;
+    background: hsl(var(--card));
+    border: 1px solid rgb(var(--accent-rgb) / 0.45);
+    box-shadow:
+      0 0 18px rgb(var(--accent-rgb) / 0.18),
+      0 4px 14px rgb(var(--scrim-rgb) / 0.45);
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: hsl(var(--foreground));
+    font-weight: 500;
+    z-index: 50;
+    pointer-events: none;
+    white-space: normal;
+    transform-origin: 0% 50%;
+    animation: gigi-bubble-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .gigi-bubble::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 100%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: rgb(var(--accent-rgb) / 0.45);
+  }
+  .gigi-bubble::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: calc(100% - 1px);
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-right-color: hsl(var(--card));
+  }
+  .gigi-bubble-text {
+    display: inline-block;
+  }
+  .gigi-bubble-listening {
+    left: auto;
+    right: calc(100% + 10px);
+    width: min(300px, calc(100vw - 32px));
+    max-width: min(300px, calc(100vw - 32px));
+    min-height: 86px;
+    max-height: 86px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: flex-end;
+    border-color: rgb(var(--accent-rgb) / 0.72);
+    box-shadow:
+      0 0 24px rgb(var(--accent-rgb) / 0.22),
+      0 8px 22px rgb(var(--scrim-rgb) / 0.55);
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.35;
+    overflow: hidden;
+    white-space: normal;
+    transform-origin: 100% 50%;
+  }
+  .gigi-bubble-listening::before {
+    right: auto;
+    left: 100%;
+    border-right-color: transparent;
+    border-left-color: rgb(var(--accent-rgb) / 0.72);
+  }
+  .gigi-bubble-listening::after {
+    right: auto;
+    left: calc(100% - 1px);
+    border-right-color: transparent;
+    border-left-color: hsl(var(--card));
+  }
+  .gigi-bubble-text-listening {
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    white-space: pre-wrap;
+  }
+  @keyframes gigi-bubble-pop {
+    0% {
+      opacity: 0;
+      transform: translateY(-50%) scale(0.55);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(-50%) scale(1);
+    }
+  }
+
+  /* Reduced-motion friendly: all animations off */
+  @media (prefers-reduced-motion: reduce) {
+    .gigi-container,
+    .gigi-container *,
+    .gigi-root,
+    .gigi-root *,
+    .gigi-svg,
+    .gigi-svg *,
+    .gigi-bubble {
+      animation: none !important;
+    }
+  }
+
+  /* -----------------------------------------------------------
+     The orb moves with the voice (DeckOrb.tsx, JarvisOrb.tsx).
+     `--orb-level` is ONE number, 0..1, on the orb's root — the real
+     microphone while listening, a speech-shaped envelope while the
+     assistant speaks, a heartbeat while it thinks (lib/orbLevel.ts)
+     — smoothed once, written once per frame. Everything below
+     reads it: the sun's size and brightness, the glow, the corona's
+     rays, the rings, the level arc on the bezel. Transform, opacity
+     and a GPU brightness only, so it all moves as one and costs
+     the main thread one style write.
+     ----------------------------------------------------------- */
+  .deck-orb-root {
+    --orb-level: 0;
+  }
+  .deck-orb-glow {
+    background: radial-gradient(
+      circle,
+      rgba(225, 225, 225, 0.5) 0%,
+      rgba(197, 197, 197, 0.28) 38%,
+      rgba(152, 152, 152, 0.1) 58%,
+      rgba(152, 152, 152, 0) 70%
+    );
+    opacity: calc(0.6 + var(--orb-level, 0) * 0.4);
+    transform: translate(-50%, -50%) scale(calc(1 + var(--orb-level, 0) * 0.18));
+    will-change: transform, opacity;
+  }
+  /* at rest the glow breathes slowly — alive, not busy */
+  .deck-orb-glow[data-voice="idle"] {
+    animation: deck-orb-glow-idle 5.5s ease-in-out infinite;
+  }
+  /* the sun itself: bigger and brighter with the voice */
+  .deck-orb-reactor {
+    transform: scale(calc(1 + var(--orb-level, 0) * 0.09));
+    filter: brightness(calc(1 + var(--orb-level, 0) * 0.55));
+    will-change: transform, filter;
+  }
+  /* the corona: slow-turning rays behind the sun, seen only in the voice */
+  .deck-orb-corona {
+    inset: -18%;
+    background: repeating-conic-gradient(
+      from 0deg,
+      hsl(var(--primary) / 0) 0deg 5deg,
+      hsl(var(--primary) / 0.55) 8deg,
+      hsl(var(--primary) / 0) 11deg 20deg
+    );
+    -webkit-mask-image: radial-gradient(circle, transparent 30%, #000 42%, #000 58%, transparent 68%);
+    mask-image: radial-gradient(circle, transparent 30%, #000 42%, #000 58%, transparent 68%);
+    opacity: calc(var(--orb-level, 0) * 0.9);
+    animation: deck-orb-turn 30s linear infinite;
+    will-change: transform, opacity;
+  }
+  /* the level arc on the bezel: two half-circles from the top, drawn as far
+     as the level goes; nothing at 0 */
+  .deck-orb-vu path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: calc(1 - var(--orb-level, 0));
+    opacity: 0.9;
+  }
+  .deck-orb-vu {
+    filter: drop-shadow(0 0 4px hsl(var(--primary) / 0.6));
+  }
+  /* a ripple: one ring from the sun to the bezel per word landing */
+  .deck-orb-ripple {
+    width: 78%;
+    height: 78%;
+    border: 1.5px solid hsl(var(--primary) / 0.85);
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.4);
+    animation: deck-orb-ripple 800ms cubic-bezier(0.1, 0.6, 0.3, 1) forwards;
+    will-change: transform, opacity;
+  }
+  @keyframes deck-orb-ripple {
+    0% {
+      transform: scale(0.92);
+      opacity: 0.75;
+    }
+    100% {
+      transform: scale(1.24);
+      opacity: 0;
+    }
+  }
+  @keyframes deck-orb-glow-idle {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 0.74;
+    }
+  }
+
+  /* -----------------------------------------------------------
+     The standby's big ring turns its inner scale slowly
+     (DeckStandby.tsx). It is a root <svg> of its own, so the CSS
+     rotation is compositor work. The deck orb's reticle used to
+     have scenery of the same kind — two counter-turning orbits, a
+     satellite on the bezel, an idle ping — and lost it with the
+     orb PNG (2026-08-20): the mascot in the middle is the living
+     thing now, the instruments hold still until they measure
+     something.
+     ----------------------------------------------------------- */
+  .deck-ring-orbit {
+    transform-origin: 50% 50%;
+    will-change: transform;
+    /* the same readability halo the still reticle gets from its SVG filter */
+    filter: drop-shadow(0 0 1.2px hsl(var(--background) / 0.85));
+    animation: deck-orb-turn 90s linear infinite reverse;
+  }
+  /* The orb's sweep: one arc that turns while the deck has something
+     running (DeckOrb.tsx). It used to take its angle from an
+     animation-frame loop through React state — sixty renders a second of
+     the whole centre, each one rewriting the arc's `d` inside the halo
+     filter, so the filter rastered again on the CPU at every frame. It was
+     doing that exactly while a person waited for an answer, and on a
+     four-core laptop the deck fell to a frame a second. Same arc, same
+     speed (a turn every 10.8 s), same halo — as a transform the compositor
+     owns, so a busy deck costs the main thread NOTHING now.
+
+     It sits outside the halo filter for that reason: a filtered group is
+     rastered again whenever anything in it moves. */
+  .deck-orb-sweep {
+    transform-box: view-box;
+    transform-origin: 50% 50%;
+    will-change: transform;
+    filter: drop-shadow(0 0 1.2px hsl(var(--background) / 0.85));
+    animation: deck-orb-turn 10.8s linear infinite;
+  }
+  @keyframes deck-orb-turn {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .deck-orb-glow,
+    .deck-orb-corona,
+    .deck-orb-ripple,
+    .deck-orb-sweep,
+    .deck-ring-orbit {
+      animation: none !important;
+    }
+    .deck-orb-corona,
+    .deck-orb-ripple {
+      display: none;
+    }
+  }
+
+  /* ===========================================================
+     Deck standby — the boot sequence and the listening ring
+     (components/deck/DeckStandby.tsx). Everything animated here is
+     a fact moving: the ring's ticks light clockwise while the app
+     comes up, a gate's arc draws in when that gate turns true, the
+     sweep turns only while the wake word is really being listened
+     for, and the ping fires once at the moment the boot is done.
+     Colours are theme tokens (the accent on both grounds). Reduced motion
+     stops all of it — the still picture carries the same facts.
+     =========================================================== */
+  .deck-ring-tick[data-ignite="true"] {
+    /* `both`: the tick's own opacity is inline, and only a filling animation
+       outranks it — so the tick is dark until its turn comes. */
+    animation: deck-ring-ignite 420ms ease-out both;
+  }
+  @keyframes deck-ring-ignite {
+    0% {
+      opacity: 0;
+    }
+    35% {
+      opacity: 1;
+    }
+    100% {
+      opacity: var(--tick-opacity, 0.4);
+    }
+  }
+  .deck-ring-bezel[data-ignite="true"] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: deck-ring-draw 1400ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  }
+  @keyframes deck-ring-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  /* a gate's arc draws in from its start the moment the gate turns true */
+  .deck-gate-arc[data-state="ok"][data-fresh="true"] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: deck-ring-draw 520ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  }
+  /* the sweep: one turn every 14 s — the wake-word listener made visible */
+  .deck-ring-sweep {
+    /* view-box, not fill-box: the sweep is a short arc, and its own box's
+       centre is nowhere near the ring's — it must turn about the ring. */
+    transform-box: view-box;
+    transform-origin: 50% 50%;
+    animation: deck-ring-sweep 14s linear infinite;
+  }
+  @keyframes deck-ring-sweep {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  /* the ping: once, when the boot completes — a ring leaves the orb and dies at the bezel */
+  .deck-ring-ping {
+    transform-box: view-box;
+    transform-origin: 50% 50%;
+    animation: deck-ring-ping 1100ms cubic-bezier(0.1, 0.6, 0.3, 1) forwards;
+  }
+  @keyframes deck-ring-ping {
+    0% {
+      transform: scale(0.35);
+      opacity: 0.85;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 0;
+    }
+  }
+  /* boot console: a line types itself in; the cursor blinks */
+  .deck-boot-line[data-fresh="true"] {
+    overflow: hidden;
+    white-space: nowrap;
+    animation: deck-boot-type 360ms steps(28, end) both;
+  }
+  @keyframes deck-boot-type {
+    from {
+      max-width: 0;
+    }
+    to {
+      max-width: 100%;
+    }
+  }
+  .deck-boot-caret {
+    animation: deck-boot-caret 1s steps(2, end) infinite;
+  }
+  @keyframes deck-boot-caret {
+    50% {
+      opacity: 0;
+    }
+  }
+  /* pending gate: three dots walking */
+  .deck-boot-dots span {
+    animation: deck-boot-dot 1.2s ease-in-out infinite;
+  }
+  .deck-boot-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  .deck-boot-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+  @keyframes deck-boot-dot {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+  /* boot title: letters arrive one after another */
+  .deck-boot-letter {
+    display: inline-block;
+    opacity: 0;
+    animation: deck-boot-letter 320ms ease-out forwards;
+  }
+  @keyframes deck-boot-letter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* ===========================================================
+     The hand-off — the standby's launch and the board's power-on
+     (lib/deckStandby.ts::HANDOFF; DeckStandby, DeckReveal,
+     MissionDeckView). The standby's whole burst lives HERE, keyed
+     on `data-leaving`: the stage flash, the orb's flare, the two
+     shockwaves, the ring's breath-and-burst, the ticks flaring
+     clockwise and the sweep spinning up. CSS on purpose — transform
+     and opacity run on the compositor, so the launch plays even
+     while the main thread is busy mounting the board (the framer
+     beats froze and jumped there, seen 2026-08-19). The timings
+     mirror HANDOFF: flare 0.6 s, wave 0.95 s (+0.14 s echo), ring
+     0.62 s. The accent from the theme tokens on both grounds.
+     =========================================================== */
+  /* the stage flashes with the accent for a blink */
+  .deck-launch-flash {
+    opacity: 0;
+  }
+  [data-leaving="true"] .deck-launch-flash {
+    animation: deck-launch-flash 500ms ease-out both;
+  }
+  @keyframes deck-launch-flash {
+    0% {
+      opacity: 0;
+    }
+    20% {
+      opacity: 0.14;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  /* the ring draws breath, then bursts past the camera, turning */
+  .deck-launch-ring {
+    transform-origin: 50% 50%;
+  }
+  [data-leaving="true"] .deck-launch-ring {
+    animation: deck-launch-ring 620ms cubic-bezier(0.35, 0, 0.15, 1) both;
+    will-change: transform, opacity;
+  }
+  @keyframes deck-launch-ring {
+    0% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    22% {
+      transform: scale(0.95) rotate(-4deg);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.42) rotate(14deg);
+      opacity: 0;
+    }
+  }
+  /* the orb's flare: a burst of light from the centre */
+  .deck-handoff-flare {
+    background: radial-gradient(
+      circle,
+      hsl(var(--primary) / 0.95) 0%,
+      hsl(var(--primary) / 0.55) 28%,
+      hsl(var(--primary) / 0.18) 52%,
+      hsl(var(--primary) / 0) 70%
+    );
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  [data-leaving="true"] .deck-handoff-flare {
+    animation: deck-handoff-flare 600ms ease-out both;
+    will-change: transform, opacity;
+  }
+  @keyframes deck-handoff-flare {
+    0% {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+    18% {
+      opacity: 0.95;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(2.6);
+    }
+  }
+  /* a shockwave: a bright hairline ring with a glow on both sides. Also
+     the orb's landing ring on the board (framer drives that one). */
+  .deck-handoff-wave {
+    border: 2px solid hsl(var(--primary) / 0.95);
+    box-shadow:
+      0 0 14px 2px hsl(var(--primary) / 0.55),
+      inset 0 0 14px 2px hsl(var(--primary) / 0.35);
+  }
+  .deck-handoff-wave-echo {
+    border-width: 1px;
+    box-shadow:
+      0 0 8px 1px hsl(var(--primary) / 0.4),
+      inset 0 0 8px 1px hsl(var(--primary) / 0.25);
+  }
+  /* a wave rests invisible (framer's inline values win for the landing
+     ring) and fires on leaving; `--wave-scale` (set inline from the
+     measured stage) takes it past the far corner */
+  .deck-handoff-wave {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  [data-leaving="true"] .deck-handoff-wave {
+    animation: deck-handoff-wave 950ms cubic-bezier(0.1, 0.7, 0.2, 1) both;
+    will-change: transform, opacity;
+  }
+  [data-leaving="true"] .deck-handoff-wave-echo {
+    animation-name: deck-handoff-wave-echo;
+    animation-delay: 140ms;
+  }
+  @keyframes deck-handoff-wave {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    10% {
+      opacity: 0.9;
+      transform: scale(1.2);
+    }
+    55% {
+      opacity: 0.5;
+      transform: scale(calc(var(--wave-scale, 6) * 0.7));
+    }
+    100% {
+      opacity: 0;
+      transform: scale(var(--wave-scale, 6));
+    }
+  }
+  @keyframes deck-handoff-wave-echo {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    10% {
+      opacity: 0.6;
+      transform: scale(1.1);
+    }
+    55% {
+      opacity: 0.3;
+      transform: scale(calc(var(--wave-scale, 6) * 0.65));
+    }
+    100% {
+      opacity: 0;
+      transform: scale(var(--wave-scale, 6));
+    }
+  }
+  /* the stage is leaving: every tick flares bright, clockwise, in 0.3 s */
+  [data-leaving="true"] .deck-ring-tick {
+    animation: deck-ring-flare 360ms ease-out both;
+    animation-delay: calc(var(--tick-i, 0) * 2.5ms);
+  }
+  @keyframes deck-ring-flare {
+    0% {
+      opacity: var(--tick-opacity, 0.4);
+    }
+    30% {
+      opacity: 1;
+    }
+    100% {
+      opacity: var(--tick-opacity, 0.4);
+    }
+  }
+  /* … the sweep spins up from one turn in 14 s to one in 0.5 s … */
+  [data-leaving="true"] .deck-ring-sweep {
+    animation-duration: 0.5s;
+  }
+  /* … and the gate arcs flash once, thick and bright */
+  [data-leaving="true"] .deck-gate-arc[data-state="ok"] {
+    animation: deck-arc-flash 480ms ease-out both;
+  }
+  @keyframes deck-arc-flash {
+    0% {
+      opacity: 0.95;
+      stroke-width: 2.5;
+    }
+    25% {
+      opacity: 1;
+      stroke-width: 5;
+    }
+    100% {
+      opacity: 0.95;
+      stroke-width: 2.5;
+    }
+  }
+
+  /* the scan bar riding the wipe front when a board card powers on —
+     horizontal for a top-down wipe, vertical for a sideways one */
+  .deck-scan-bar {
+    position: absolute;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+  .deck-scan-bar-h {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary) / 0),
+      hsl(var(--primary) / 0.9) 20%,
+      hsl(var(--primary) / 0.9) 80%,
+      hsl(var(--primary) / 0)
+    );
+    box-shadow: 0 0 10px 1px hsl(var(--primary) / 0.45);
+  }
+  .deck-scan-bar-v {
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(
+      180deg,
+      hsl(var(--primary) / 0),
+      hsl(var(--primary) / 0.9) 20%,
+      hsl(var(--primary) / 0.9) 80%,
+      hsl(var(--primary) / 0)
+    );
+    box-shadow: 0 0 10px 1px hsl(var(--primary) / 0.45);
+  }
+  /* the launch's last beat: one scan down the whole board, brighter */
+  .deck-board-sweep {
+    height: 3px;
+    z-index: 5;
+    box-shadow: 0 0 18px 2px hsl(var(--primary) / 0.55);
+  }
+  /* the targeting frame's corner brackets, before a card fills in */
+  .deck-reveal-bracket {
+    border: 0 solid hsl(var(--primary));
+    filter: drop-shadow(0 0 3px hsl(var(--primary) / 0.6));
+  }
+  .deck-reveal-bracket[data-corner="tl"] {
+    border-top-width: 1.5px;
+    border-left-width: 1.5px;
+  }
+  .deck-reveal-bracket[data-corner="tr"] {
+    border-top-width: 1.5px;
+    border-right-width: 1.5px;
+  }
+  .deck-reveal-bracket[data-corner="bl"] {
+    border-bottom-width: 1.5px;
+    border-left-width: 1.5px;
+  }
+  .deck-reveal-bracket[data-corner="br"] {
+    border-bottom-width: 1.5px;
+    border-right-width: 1.5px;
+  }
+
+  /*
+   * The board as a display case (lib/deckDepth.ts). The board element sets
+   * the perspective; each slot's wrapper carries its depth as custom
+   * properties and ONE transform rule turns them into a plane in front of
+   * (or behind) the back wall, turned toward the centre, swayed by the
+   * pointer (`--deck-px/--deck-py`, written by useDeckParallax) and scaled
+   * back so neighbours never overlap. Cards inside the case are glass slabs
+   * — a ground of the theme's card colour, blurred, with a shadow that
+   * lands on the floor — because a hairline frame alone has no depth to
+   * show. Transform, opacity and filter only: nothing here reaches layout.
+   */
+  .deck-board-3d {
+    perspective: 1400px;
+    perspective-origin: 50% 42%;
+    --deck-px: 0px;
+    --deck-py: 0px;
+  }
+  .deck-slot-3d {
+    transform: translate3d(
+        calc(var(--slot-dx, 0px) + var(--deck-px) * var(--slot-par, 1)),
+        calc(var(--slot-dy, 0px) + var(--deck-py) * var(--slot-par, 1)),
+        var(--slot-z, 0px)
+      )
+      rotateY(var(--slot-ry, 0deg)) scale(var(--slot-scale, 1));
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+  }
+  .deck-board-3d .deck-card {
+    background: hsl(var(--card) / 0.5);
+    backdrop-filter: blur(14px) saturate(1.05);
+    -webkit-backdrop-filter: blur(14px) saturate(1.05);
+    border-radius: 6px;
+    box-shadow:
+      0 18px 34px -18px rgb(var(--scrim-rgb) / 0.55),
+      0 2px 0 -1px hsl(var(--primary) / 0.08) inset;
+  }
+  :root:not(.dark) .deck-board-3d .deck-card {
+    background: hsl(var(--card) / 0.62);
+    box-shadow:
+      0 18px 30px -18px rgb(var(--scrim-rgb) / 0.35),
+      0 1px 0 0 rgb(255 255 255 / 0.5) inset;
+  }
+  /* Cards behind the wall's plane read softer, like things further away. */
+  .deck-slot-far .deck-card {
+    background: hsl(var(--card) / 0.34);
+  }
+  /* The floor: a plane laid flat, receding from the viewer to the wall. */
+  .deck-floor {
+    position: absolute;
+    left: -12%;
+    right: -12%;
+    top: 46%;
+    height: 120%;
+    transform-origin: 50% 0;
+    transform: rotateX(76deg);
+    pointer-events: none;
+    z-index: -1;
+    overflow: hidden;
+    border-radius: 50% / 6%;
+    mask-image: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.85) 14%, rgb(0 0 0 / 0.5) 50%, transparent 92%);
+    -webkit-mask-image: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.85) 14%, rgb(0 0 0 / 0.5) 50%, transparent 92%);
+  }
+  .deck-floor-sheen {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 0%, hsl(var(--primary) / 0.18), transparent 55%),
+      linear-gradient(180deg, hsl(var(--background) / 0.35), hsl(var(--background) / 0.75));
+  }
+  :root:not(.dark) .deck-floor-sheen {
+    background:
+      radial-gradient(ellipse at 50% 0%, hsl(var(--primary) / 0.1), transparent 55%),
+      linear-gradient(180deg, hsl(var(--background) / 0.45), hsl(var(--background) / 0.85));
+  }
+  /* The mascot's ground shadow: it stands on the floor, not in the air. */
+  .deck-orb-ground {
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    bottom: 2%;
+    height: 9%;
+    border-radius: 50%;
+    /* One shadow for both themes: the scrim channel already flips. */
+    background: radial-gradient(
+      ellipse at 50% 50%,
+      rgb(var(--scrim-rgb) / 0.45),
+      transparent 70%
+    );
+    filter: blur(6px);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .deck-slot-3d {
+      transition: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .deck-ring-tick[data-ignite="true"],
+    .deck-ring-bezel[data-ignite="true"],
+    .deck-gate-arc,
+    .deck-ring-sweep,
+    .deck-ring-ping,
+    .deck-boot-line,
+    .deck-boot-caret,
+    .deck-boot-dots span,
+    .deck-boot-letter,
+    [data-leaving="true"] .deck-ring-tick,
+    [data-leaving="true"] .deck-gate-arc,
+    .deck-launch-flash,
+    .deck-launch-ring,
+    .deck-handoff-flare,
+    .deck-handoff-wave {
+      animation: none !important;
+    }
+    .deck-ring-tick[data-ignite="true"] {
+      opacity: var(--tick-opacity, 0.4);
+    }
+    .deck-ring-bezel[data-ignite="true"],
+    .deck-gate-arc[data-state="ok"][data-fresh="true"] {
+      stroke-dasharray: none;
+      stroke-dashoffset: 0;
+    }
+    .deck-boot-letter,
+    .deck-boot-dots span {
+      opacity: 1;
+    }
+    .deck-ring-ping {
+      display: none;
+    }
+  }
+}
+
+@layer components {
+  /* Full-window "toss it to Jarvis" catch layer, mounted only while a mission
+     card is being dragged. A soft vignette pulls the eye toward the dock in the
+     bottom-right; `cursor: copy` (plus the dock's preventDefault) means the OS
+     never shows the no-drop sign during the long travel to the dock. */
+  .jarvis-dock-catch {
+    cursor: copy;
+    background: radial-gradient(
+      460px circle at calc(100% - 3rem) calc(100% - 3rem),
+      rgb(var(--accent-rgb) / 0.1),
+      rgb(var(--accent-rgb) / 0.03) 42%,
+      transparent 72%
+    );
+    animation: dock-catch-in 180ms ease-out;
+  }
+
+  @keyframes dock-catch-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Expanding ring on a successful "absorb". */
+  @keyframes dock-ripple {
+    from {
+      transform: scale(1);
+      opacity: 0.7;
+    }
+    to {
+      transform: scale(2.1);
+      opacity: 0;
+    }
+  }
+
+  /* Gentle glow pulse while the dock is bloomed and waiting for a drop. */
+  @keyframes dock-breathe {
+    0%,
+    100% {
+      box-shadow: 0 0 26px rgb(var(--accent-rgb) / 0.22);
+    }
+    50% {
+      box-shadow: 0 0 42px rgb(var(--accent-rgb) / 0.45);
+    }
+  }
+
+  /* A small, springy bounce of the dock contents the moment a card lands. */
+  @keyframes dock-pop {
+    0% {
+      transform: scale(0.7);
+    }
+    60% {
+      transform: scale(1.18);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .jarvis-dock-catch {
+      animation: none;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * Unfinished material in an intake bar. The texture says "there
+   * is work left here"; the ANIMATION says "and it is moving right now", so
+   * it is applied separately (.uw-hatch-live) and only when the backend
+   * reports the pipeline actually processing. A hatch scrolling over a paused
+   * queue would be the same false reassurance the section was rebuilt to
+   * remove.
+   */
+  .uw-hatch {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgb(var(--sheen-rgb) / 0.14) 0px,
+      rgb(var(--sheen-rgb) / 0.14) 2px,
+      transparent 2px,
+      transparent 6px
+    );
+    background-size: 8.49px 8.49px;
+  }
+
+  .uw-hatch-live {
+    animation: uw-hatch-drift 1.1s linear infinite;
+  }
+
+  /*
+   * The Explore stage — the surface the topic map is drawn on.
+   *
+   * The map used to be a 224 px letterbox above a wall of text, which is the
+   * one arrangement that makes a network unreadable: a force layout needs
+   * area, not width. It now owns the middle of the screen, and these three
+   * layers are what stop that area from reading as an empty black rectangle.
+   * All of it is behind the canvas and none of it carries data — the grid
+   * gives the depth a floating cloud of dots has nothing to sit on, the glow
+   * marks the centre of gravity, the vignette pulls the eye off the edges.
+   */
+  .uw-stage {
+    background-color: hsl(var(--stage-bg));
+    background-image:
+      linear-gradient(rgb(var(--accent-rgb) / 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--accent-rgb) / 0.028) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /*
+   * Live command activity (CommandActivityLayer) — the indeterminate sweep
+   * under a RUNNING shell command. `currentColor` inherits the impact accent
+   * from the card (sky = reads, amber = modifies, red = deletes), so the bar
+   * and the badge can never disagree. Transform-only, like every loop in
+   * this file, and reduced-motion collapses it to a calm static strip.
+   */
+  .command-activity-progress {
+    position: relative;
+    background: currentColor;
+    opacity: 0.14;
+  }
+
+  .command-activity-progress::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      currentColor 45%,
+      currentColor 55%,
+      transparent
+    );
+    transform: translateX(-100%);
+    animation: command-activity-sweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes command-activity-sweep {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .command-activity-progress::after {
+      animation: none;
+      transform: none;
+    }
+  }
+
+  :root:not(.dark) .uw-stage {
+    background-color: transparent;
+    background-image:
+      linear-gradient(rgb(var(--accent-rgb) / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--accent-rgb) / 0.07) 1px, transparent 1px);
+  }
+
+  .uw-stage-glow {
+    background: radial-gradient(
+      circle at 50% 46%,
+      rgb(var(--accent-rgb) / 0.13) 0%,
+      rgb(var(--accent-rgb) / 0.04) 34%,
+      transparent 66%
+    );
+    filter: blur(46px);
+  }
+
+  .uw-stage-vignette {
+    background: radial-gradient(
+      ellipse at 50% 50%,
+      transparent 42%,
+      rgb(var(--stage-vignette-rgb) / var(--stage-vignette-strength)) 100%
+    );
+  }
+
+  /* The WebGL canvas and every layer around it remain clear so the desktop
+     artwork is the single background behind both 3D knowledge maps. */
+  .wiki-space {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .wiki-space-vignette {
+    background: transparent;
+  }
+
+  /* A stage that wraps both projections. Clear its decorative
+     layers only for the spatial view so the flat map keeps its depth cues. */
+  .jarvis-section-stage .uw-stage[data-dimension="3d"] {
+    background: transparent;
+  }
+
+  .jarvis-section-stage
+    .uw-stage[data-dimension="3d"]
+    > :where(.uw-stage-glow, .uw-stage-vignette) {
+    background: transparent;
+    filter: none;
+  }
+
+  /* The floating control pills over the stage (floor slider, legend, counts).
+     Glass rather than a solid card: the map has to stay visible underneath,
+     or the controls become a second letterbox. */
+  .uw-stage-pill {
+    background: rgb(var(--shell-rgb) / 0.66);
+    border: 1px solid hsl(var(--border));
+    backdrop-filter: blur(10px);
+  }
+
+  @keyframes uw-hatch-drift {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 8.49px 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .uw-hatch-live {
+      animation: none;
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   prefers-reduced-motion — the app-wide floor
+
+   The individual reduced-motion rules above (and the matchMedia checks in the
+   orb, the 3-D stage and the waveform) each handle one animation. This block
+   is the floor underneath all of them: whatever a component animates, and
+   whatever gets added later, stops moving here without anyone having to
+   remember the variant.
+
+   Deliberately OUTSIDE @layer, so it lands after every Tailwind utility and
+   after the component rules above. The !important is what makes it a floor
+   rather than another opinion.
+
+   Reduced motion is not "no feedback" — that trade is the reason this cannot
+   be a single blanket `animation: none`:
+
+     * A SPINNER that stops reads as a hang. It keeps turning, just slower and
+       at a constant rate, which is rotation without the jitter that triggers
+       vestibular symptoms.
+     * A PULSING skeleton is a loading state, so it becomes a still, dimmed
+       surface rather than a blank one — the state is still legible, it just
+       stops breathing.
+     * A PING ring exists only to draw the eye by expanding. Frozen mid-expand
+       it is a stray halo, so it is dimmed to a quiet static ring.
+
+   Everything else collapses to its end state in ~1ms, which is what turns a
+   slide or a zoom into an instant state change while React still sees the
+   animation start and finish.
+   ---------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Still says "working", without the fast spin. */
+  .animate-spin {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+    animation-timing-function: linear !important;
+  }
+
+  /* Loading surfaces: visible and quiet, never blank. */
+  .animate-pulse {
+    animation: none !important;
+    opacity: 0.55;
+  }
+
+  /* Attention rings: a static halo instead of a repeating expansion. */
+  .animate-ping {
+    animation: none !important;
+    opacity: 0.35;
+    transform: none !important;
+  }
+}
+
+/*
+ * ===========================================================================
+ * Elevation — two classes, and no third
+ * ===========================================================================
+ *
+ * Depth in this app is carried by FILL. A black shadow on a near-black ground
+ * is mathematically invisible, which is why the product had no working depth
+ * device at all and reached for glows instead. On this ground the device that
+ * works is a lighter fill plus a lighter top edge.
+ *
+ *   .shadow-rim    A card or bubble catching light along its top edge. Not a
+ *                  drop shadow — one hairline of sheen, inside the box.
+ *   .shadow-float  The only real shadow in the product: menus, dialogs,
+ *                  tooltips, anything that has left the plane. The ring is
+ *                  --border-strong, because on near-black the ring is what
+ *                  actually separates the layer; the shadow is the hint.
+ *
+ * Both read in either theme without a variant: --sheen-rgb is white on dark
+ * and ink on light, --scrim-rgb is black on dark and warm charcoal on light,
+ * so "catches light" and "casts shadow" swap sides with the ground the way
+ * they should. Nothing that is not floating gets .shadow-float.
+ *
+ * `tailwind.config.ts` declares the same two under `boxShadow`, which is the
+ * better definition: a generated utility composes with `ring-*` and accepts
+ * variants. These live in the COMPONENTS layer on purpose, so the generated
+ * utility always outranks them and this is only the floor underneath —
+ * `shadow-float` already has ~50 call sites and must never resolve to
+ * nothing. If the two ever disagree, the config is the one to trust.
+ */
+@layer components {
+  .shadow-rim {
+    box-shadow: inset 0 1px 0 rgb(var(--sheen-rgb) / 0.05);
+  }
+
+  .shadow-float {
+    box-shadow:
+      0 12px 32px -8px rgb(var(--scrim-rgb) / 0.55),
+      0 0 0 1px hsl(var(--border-strong));
+  }
+}
+
+/*
+ * One line of a diff in the chat column.
+ *
+ * Classes rather than utilities because the PAIR of tokens is the thing being
+ * applied: ink and ground belong together, and both are redefined per mode.
+ * The ground is faint on purpose — the mark and the ink carry the meaning, and
+ * a solid band per line turns a twenty-line change into a flag.
+ */
+@layer components {
+  .diff-line-add {
+    background-color: hsl(var(--diff-add-bg) / 0.18);
+    color: hsl(var(--diff-add));
+  }
+
+  /* Removed lines keep their ink readable: the rose ground is faint and the
+     rose ink carries the meaning. Cursor draws exactly this pair
+     (diffEditor.removedTextBackground #B80049 at 13-20 %, gutter #E34671). */
+  .diff-line-del {
+    background-color: hsl(var(--diff-del-bg) / 0.2);
+    color: hsl(var(--diff-del));
+  }
+}
+
+/* Team thread board (components/agentic/threads/team): a cell whose member is
+   working right now carries a signal line that travels along its top edge, and
+   the step being worked on breathes. The app's reduced-motion floor stills all
+   of it; the line stays visible. */
+@layer components {
+  .team-live {
+    position: relative;
+  }
+  .team-live::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, hsl(var(--accent)) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: team-live-sweep 1.8s linear infinite;
+  }
+  .team-live-line {
+    animation: team-live-in 0.24s ease-out;
+  }
+  .team-pulse {
+    animation: team-pulse 1.4s ease-in-out infinite;
+  }
+  .team-step-now {
+    animation: team-step-now 1.8s ease-in-out infinite;
+  }
+  @keyframes team-live-sweep {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+  @keyframes team-live-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes team-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes team-step-now {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.45); }
+    50% { box-shadow: 0 0 0 4px hsl(var(--accent) / 0); }
+  }
+  /* A canvas line a member is working on right now flows towards it. */
+  .team-flow {
+    stroke-dasharray: 6 5;
+    animation: team-flow 0.9s linear infinite;
+  }
+  @keyframes team-flow {
+    to { stroke-dashoffset: -11; }
+  }
+  /* The team room's canvas wears the app's theme: its ground, dots and controls. */
+  .team-canvas .react-flow {
+    --xy-background-color: transparent;
+    --xy-background-pattern-dots-color-default: hsl(var(--border-strong) / 0.6);
+    --xy-edge-label-background-color: hsl(var(--card));
+    --xy-controls-button-background-color: hsl(var(--card));
+    --xy-controls-button-background-color-hover: hsl(var(--secondary));
+    --xy-controls-button-color: hsl(var(--muted-foreground));
+    --xy-controls-button-color-hover: hsl(var(--foreground));
+    --xy-controls-button-border-color: hsl(var(--border));
+    --xy-controls-box-shadow: none;
+  }
+  .team-canvas .react-flow__controls {
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .team-canvas .react-flow__node {
+    cursor: default;
+  }
+}

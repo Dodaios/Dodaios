@@ -6,9 +6,9 @@ frontend does not know falls back to a sentence without a cause, and a code
 without a sentence in one language shows a raw key. Both ship silently, so the
 layers are held together here:
 
-1. ``jarvis/speech/start_refusal.py``                 - the Python tuple (source of truth)
-2. ``jarvis/ui/web/frontend/src/lib/voiceStartRefusal.ts`` - ``VOICE_START_REFUSALS``
-3. ``jarvis/ui/web/frontend/src/i18n/locales/*.json`` - one sentence per code and language
+1. ``dodaios/speech/start_refusal.py``                 - the Python tuple (source of truth)
+2. ``dodaios/ui/web/frontend/src/lib/voiceStartRefusal.ts`` - ``VOICE_START_REFUSALS``
+3. ``dodaios/ui/web/frontend/src/i18n/locales/*.json`` - one sentence per code and language
 """
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.speech.start_refusal import VOICE_START_REFUSALS
+from dodaios.speech.start_refusal import VOICE_START_REFUSALS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-FRONTEND_SRC = REPO_ROOT / "jarvis/ui/web/frontend/src"
+FRONTEND_SRC = REPO_ROOT / "dodaios/ui/web/frontend/src"
 REFUSAL_TS = FRONTEND_SRC / "lib/voiceStartRefusal.ts"
 LOCALES = sorted((FRONTEND_SRC / "i18n/locales").glob("*.json"))
 

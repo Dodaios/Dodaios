@@ -1,4 +1,4 @@
-"""Unit tests for jarvis/mcp/client.py — MCPClient lifecycle.
+"""Unit tests for dodaios/mcp/client.py — MCPClient lifecycle.
 
 AP-23 wave-2 finding 10: a stdio MCP server whose launcher binary (typically
 ``npx``/``node``) is absent from PATH must fail with an actionable message
@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.mcp.client import MCPClient, _stdio_launcher_missing_message
-from jarvis.mcp.registry import MCPServerSpec
+from dodaios.mcp.client import MCPClient, _stdio_launcher_missing_message
+from dodaios.mcp.registry import MCPServerSpec
 
 
 def _stdio_spec(command: str = "npx", name: str = "some-plugin") -> MCPServerSpec:
@@ -126,7 +126,7 @@ async def test_stop_times_out_instead_of_hanging_on_a_stalled_transport(
     of a realtime session froze the JarvisBar on "listening" and deafened wake
     until the stalled close gave up.
     """
-    import jarvis.mcp.client as client_mod
+    import dodaios.mcp.client as client_mod
 
     monkeypatch.setattr(client_mod, "_STOP_TIMEOUT_S", 0.05)
 
