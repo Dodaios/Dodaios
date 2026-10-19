@@ -799,6 +799,83 @@ def migrate_directory(
 
 
 # ----------------------------------------------------------------------
+# Is an installation in use?
+# ----------------------------------------------------------------------
+
+# OpenMutexW: SYNCHRONIZE access is enough to learn that the mutex exists.
+_SYNCHRONIZE = 0x00100000
+# ERROR_FILE_NOT_FOUND: no mutex of that name. Every other failure, access
+# denied included, means one exists or cannot be ruled out.
+_WINERROR_NO_SUCH_OBJECT = 2
+
+
+def named_mutex_exists(names: Iterable[str]) -> bool:
+    """True when a Windows named mutex of one of ``names`` exists. Always False elsewhere.
+
+    Opens, never creates: asking must not make this process look like the
+    instance that holds it. A probe that fails for any reason other than "no
+    such mutex" answers True, because the caller only moves directories when
+    nothing can be using them.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes  # noqa: PLC0415 - Windows-only
+        from ctypes import wintypes  # noqa: PLC0415 - Windows-only
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        open_mutex = kernel32.OpenMutexW
+        open_mutex.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+        open_mutex.restype = wintypes.HANDLE
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
+    except (ImportError, OSError, AttributeError) as exc:
+        log.warning("Cannot ask Windows for a running instance (%s); assuming one runs.", exc)
+        return True
+    for name in names:
+        handle = open_mutex(_SYNCHRONIZE, False, name)
+        if handle:
+            close_handle(handle)
+            return True
+        error = ctypes.get_last_error()
+        if error != _WINERROR_NO_SUCH_OBJECT:
+            log.warning(
+                "Mutex %s cannot be probed (Windows error %s); assuming it is held.", name, error
+            )
+            return True
+    return False
+
+
+def lock_file_held(paths: Iterable[PathLike]) -> bool:
+    """True when another process holds the OS lock on one of the existing ``paths``.
+
+    A missing file is skipped and never created. The lock is taken for an
+    instant and dropped again; a file that cannot be opened or locked counts
+    as held.
+    """
+    for path in paths:
+        try:
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+        except (FileNotFoundError, NotADirectoryError):
+            # No lock file, so nothing can hold it.
+            continue
+        except OSError as exc:
+            log.warning("Lock file %s cannot be opened (%s); assuming it is held.", path, exc)
+            return True
+        try:
+            if not _try_lock(fd):
+                return True
+            _unlock(fd)
+        except OSError as exc:
+            log.warning("Lock file %s cannot be probed (%s); assuming it is held.", path, exc)
+            return True
+        finally:
+            os.close(fd)
+    return False
+
+
+# ----------------------------------------------------------------------
 # Keyring migration
 # ----------------------------------------------------------------------
 
@@ -949,7 +1026,9 @@ __all__ = [
     "default_lock_path",
     "inspect_legacy",
     "keyring_marker_key",
+    "lock_file_held",
     "migrate_directory",
     "migrate_keyring",
+    "named_mutex_exists",
     "resolve_directory",
 ]

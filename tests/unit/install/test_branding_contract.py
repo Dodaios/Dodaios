@@ -12,6 +12,7 @@ from dodaios.core.branding import (
     DEFAULT_INSTALL_DIR_NAME,
     DEFAULT_OFFICIAL_REPO_SLUG,
     KEYRING_SERVICE_NAME,
+    LEGACY_CONFIG_FILE_NAMES,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     MACOS_APP_DIR_NAME,
     MACOS_AUTOSTART_LABEL,
@@ -77,11 +78,18 @@ def test_verifier_identity_regexes_are_derived_from_resolved_slug() -> None:
         ("install/install.sh", "CONFIG_FILE_NAME", '"', CONFIG_FILE_NAME),
         (
             "install/install.sh",
+            "LEGACY_CONFIG_FILE_NAME",
+            '"',
+            LEGACY_CONFIG_FILE_NAMES[0],
+        ),
+        (
+            "install/install.sh",
             "MACOS_AUTOSTART_LABEL",
             '"',
             MACOS_AUTOSTART_LABEL,
         ),
         ("install/install.ps1", "$ConfigFileName", "'", CONFIG_FILE_NAME),
+        ("install/install.ps1", "$LegacyConfigFileName", "'", LEGACY_CONFIG_FILE_NAMES[0]),
         (
             "install/uninstall.sh",
             "DEFAULT_INSTALL_DIR_NAME",
