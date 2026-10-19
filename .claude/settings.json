@@ -19,10 +19,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "p=$(printf '%s' \"$CLAUDE_FILE_PATH\" | tr '\\' '/'); case \"$p\" in */.claude/agents/*|*/.claude/commands/*|*/.claude/skills/*|*/.agents/agents/*|*/.agents/commands/*|*/.agents/skills/*) PY=\"$(command -v python 2>/dev/null || command -v python3 2>/dev/null)\"; [ -n \"$PY\" ] && \"$PY\" \"${CLAUDE_PROJECT_DIR:-.}/scripts/ci/sync_agents_dir.py\" --quiet ;; esac"
-          },
-          {
-            "type": "command",
             "command": "case \"$CLAUDE_FILE_PATH\" in */docs/*|docs/*) PY=\"$(command -v python 2>/dev/null || command -v python3 2>/dev/null)\"; [ -n \"$PY\" ] && \"$PY\" \"${CLAUDE_PROJECT_DIR:-.}/scripts/ci/docs_privacy_scan.py\" \"$CLAUDE_FILE_PATH\" ;; esac"
           }
         ]

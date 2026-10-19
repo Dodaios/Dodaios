@@ -10,7 +10,7 @@ its own worktree or clone::
 What it does, in order — and it stops at the first real problem:
 
 1. **Rebase** the branch onto the latest ``<remote>/main``. Generated files
-   (frontend dist, agent mirrors, reference docs, lockfiles) and append-only
+   (frontend dist, reference docs, lockfiles) and append-only
    files (CHANGELOG) are resolved automatically; anything else is listed for
    the agent to resolve (or handed to ``--resolver-cmd``).
 2. **Static gates** — ``scripts/ci/run_gates.py``, the same set CI runs.

@@ -99,7 +99,7 @@ request, merge queue, and again on the push of the same commit).
 | Stage | What it does | Script |
 | --- | --- | --- |
 | `detect` | Picks the tier and the matrices, then classifies the diff into lanes. Fails open: an empty diff, a pipeline change, the nightly run and a manual run turn every lane on. A merge-queue group is classified against the queue base. Only a push the merge queue already proved turns every lane off. | `scripts/ci/plan_run.py`, `scripts/ci/classify_changes.py` |
-| `static gates` | ~20 repository gates (keys, bundle, mirrors, privacy, docs, CLI coverage, ratchets, bash 3.2, no new German) in one job. Every gate reports. | `scripts/ci/run_gates.py` |
+| `static gates` | ~20 repository gates (keys, bundle, AGENTS.md, privacy, docs, CLI coverage, ratchets, bash 3.2, no new German) in one job. Every gate reports. | `scripts/ci/run_gates.py` |
 | `zizmor` / `dependency review` | Workflow security audit on every event (merge queue included, exceptions in `.github/zizmor.yml`); dependency review on pull requests only, failing on an added dependency with a high or critical advisory. `security.yml` keeps the Security-tab uploads. | — |
 | `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`JARVIS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
@@ -252,7 +252,7 @@ merge queue), and hourly as a safety net:
    those already labelled `needs-rebase`: in number order the three oldest
    pull requests, two of them unresolvable, had held every slot for days.
 2. Conflicts resolve by file class: **generated** files (frontend `dist/`,
-   agent mirrors, CLI reference docs, lockfiles, timing caches) take main's
+   CLI reference docs, lockfiles, timing caches) take main's
    copy and are regenerated; **append-only** files (CHANGELOG, allowlists,
    `.gitignore`, `docs/BUGS.md`) are union-merged; **everything else** goes
    to the optional AI resolver (`ANTHROPIC_API_KEY` → Claude Code,

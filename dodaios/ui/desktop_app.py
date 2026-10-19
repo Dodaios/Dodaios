@@ -33,6 +33,7 @@ from filelock import FileLock, Timeout
 from dodaios.core.config import DATA_DIR, JarvisConfig, load_config
 from dodaios.core.instance import current_instance
 from dodaios.core.process_utils import drop_inherited_electron_node_mode, ensure_standard_streams
+from dodaios.i18n import catalog as i18n_catalog
 from dodaios.ui.section_windows import SECTION_WINDOW_TITLES, WINDOW_GROUPS, section_window
 
 if TYPE_CHECKING:
@@ -1711,20 +1712,9 @@ def acquire_single_instance_lock(
 #: in ``AnnouncementRequested.detail``, which the transcript shows and the
 #: voice never speaks. Runtime voice output is the closed product surface, so
 #: these strings stay localized (CLAUDE.md §1).
-_CONDUCTOR_NEWS_PHRASES: dict[str, dict[str, str]] = {
-    "failing": {
-        "de": "Der geplante Job {name} schlägt gerade fehl.",  # i18n-allow
-        "en": "The scheduled job {name} has started failing.",
-        "es": "El trabajo programado {name} está fallando.",
-        "pt": "A tarefa agendada {name} começou a falhar.",  # i18n-allow
-    },
-    "recovered": {
-        "de": "Der geplante Job {name} läuft wieder.",  # i18n-allow
-        "en": "The scheduled job {name} is working again.",
-        "es": "El trabajo programado {name} vuelve a funcionar.",
-        "pt": "A tarefa agendada {name} voltou a funcionar.",  # i18n-allow
-    },
-}
+_CONDUCTOR_NEWS_PHRASES: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "ui.desktop.conductor_news_phrases"
+)
 
 
 def _conductor_news_sentence(kind: str, job_name: str, language: str) -> str:

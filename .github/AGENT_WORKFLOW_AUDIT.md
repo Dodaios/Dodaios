@@ -15,9 +15,9 @@ and warns that a required workflow skipped by a path filter can remain
 
 | Mechanism | Protection | Cost or failure mode | Decision |
 | --- | --- | --- | --- |
-| Commit hook: knowledge mirrors, added German, private keys, withheld paths, staged bundle | Prevents inconsistent agent guidance, privacy leaks, and a broken shipped WebView | Diff-scoped and cheap; CI repeats the irreversible checks | Keep |
+| Commit hook: added German, private keys, withheld paths, staged bundle | Prevents privacy leaks, and a broken shipped WebView | Diff-scoped and cheap; CI repeats the irreversible checks | Keep |
 | Push hook: credentials and private keys | Stops a public leak before network transfer | About two seconds; other whole-tree gates were already removed from this hook | Keep; no full-tree test here |
-| Required `privacy-gate`, `repo-hygiene`, `language-policy` | Secrets, public identity, keys, bundled assets, English policy, agent mirrors | Fast and tied to shipped safety | Keep |
+| Required `privacy-gate`, `repo-hygiene`, `language-policy` | Secrets, public identity, keys, bundled assets, English policy | Fast and tied to shipped safety | Keep |
 | Required `frontend (test + production build)` | Tests, production compilation, entry bundle budget | At audit start, main had 19 stale test failures; merged PR #208 repaired them while preserving independent build and bundle-budget checks | Keep strict; run build even if tests fail so both results appear |
 | Required `test (ubuntu-latest)` | Full Python suite, import check, routing and voice guards | Around two hours; the old minimum-passed floor let new individual failures disappear inside a red baseline or a green count | Make the suite's own failure visible; require an independent fast four-contract job instead |
 | `jarvisctl unit` with nine repository-wide policy scripts before its tests | API metadata, config wiring, silent handlers, async routes, WebGL cleanup, generated references | Existing drift in unrelated route files turns a healthy CLI unit suite red before it runs | Put policy scripts in their own required job; findings in changed files block while unchanged baseline findings remain visible |

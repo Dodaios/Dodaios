@@ -2,8 +2,7 @@
 
 Walks the Typer app (the curated commands only — NOT the dynamic `api` group,
 which needs a live server's OpenAPI) and emits a grouped markdown reference. Run
-after adding/removing commands so the reference never drifts; the
-``generate-cli-command`` skill calls this.
+after adding/removing commands so the reference never drifts.
 
 Modes:
 * (no flag) — regenerate ``docs/jarvis-cli-reference.md`` in place.

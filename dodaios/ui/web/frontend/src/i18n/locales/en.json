@@ -7229,7 +7229,13 @@
     "hide_changes": "Hide changes",
     "more_files_one": "Show {count} more file",
     "more_files_other": "Show {count} more files",
-    "collapse_files": "Collapse files"
+    "collapse_files": "Collapse files",
+    "errors": {
+      "mandated_tool_unfulfilled": "The required step did not run, so I could not answer reliably. Please try again.",
+      "unbacked_action_claim": "I could not confirm that the action really happened, so I did not claim it. Please try again.",
+      "guarded_response": "The answer was held back because it could not be verified. Please try again.",
+      "delegation_continuation_limit": "The delegated work took too many rounds and was stopped. Please ask again."
+    }
   },
   "work_trace": {
     "tool_failed": "A tool action failed",

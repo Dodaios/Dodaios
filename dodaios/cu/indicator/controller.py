@@ -41,6 +41,7 @@ from uuid import UUID
 
 from dodaios.cu.indicator import capture_guard, protocol, self_input
 from dodaios.cu.indicator.win32 import restore_system_cursor
+from dodaios.i18n import catalog as i18n_catalog
 
 log = logging.getLogger(__name__)
 
@@ -52,12 +53,7 @@ _ESC_READY_TIMEOUT_S = 6.0
 # "Esc to cancel" pill copy — ALL supported output locales (repo rule:
 # a phrase table always carries every supported language and resolves its
 # key through the one turn-language resolver).
-_ESC_HINTS: dict[str, str] = {
-    "de": "Esc zum Abbrechen",  # i18n-allow: localized product-surface UI string
-    "en": "Esc to cancel",
-    "es": "Esc para cancelar",  # i18n-allow: localized product-surface UI string
-    "pt": "Esc para cancelar",  # i18n-allow: localized product-surface UI string
-}
+_ESC_HINTS: dict[str, str] = i18n_catalog.table("cu.indicator.esc_hints")
 
 _QUIT_GRACE_S = 1.5
 _BLANK_ACK_TIMEOUT_S = 0.15
