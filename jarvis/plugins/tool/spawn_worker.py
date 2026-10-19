@@ -125,45 +125,6 @@ _LEADING_CONNECTOR_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 
-# Standing quality directive prepended to EVERY dispatched mission prompt.
-# Live incident 2026-05-31 (mission 019e7e04): the user's voice request was
-# VAD-truncated ("... wie soll"), the Gemini-Flash router tier compressed it
-# into a minimal brief ("Erstelle ein sinnvolles HTML-Grundgerüst oder frage
-# den User nach Details"), and the frontier Opus worker faithfully shipped a
-# 12-line `Hallo Welt / Inhalt folgt` stub that passed the (structural-only)
-# critic. The worker is not lazy — it executes the brief it is handed. This
-# directive is the worker-side floor that overrides a lazy/minimal brief from
-# the cheap router tier, independent of which backend (Claude / Gemini /
-# Codex) runs the task: a stub is never an acceptable answer.
-_QUALITY_DIRECTIVE: Final[str] = (
-    "Deliver a complete, polished, production-quality result that fully "
-    'satisfies the request. A skeleton, stub, placeholder, or "content '
-    'follows" / "Inhalt folgt" shell is a FAILURE — never ship one. If a '
-    "detail is unspecified, pick a rich, sensible default and build the "
-    "finished artefact; never downgrade the task to a minimal version, and "
-    'treat any hint (even one that says "Grundgerüst" / "skeleton") as a '
-    "floor, not a ceiling. This raises the quality of exactly what was asked "
-    "— it does not add unrequested features, and it never overrides an explicit "
-    "constraint the user set on the SHAPE or scope of the deliverable (for "
-    'example "a single self-contained HTML file" or "one script"): honoring such '
-    "a constraint is part of satisfying the request, not a downgrade. "
-    # Form-constraint carve-out (2026-06-22, mission 019ef052): the "never
-    # downgrade to a minimal version" floor read a single-file request as a
-    # forbidden minimal version, so a "single HTML file" brief shipped four files
-    # (html+js+css+asset). The floor governs QUALITY, never the user's chosen form.
-    # Honest-impossibility escape (latency 2026-06-14): without this, the "never
-    # downgrade / build the finished artefact" floor pushes the worker to spiral
-    # on a task it cannot actually do (e.g. "book a trip" with no booking tool —
-    # live mission 019ec708 ran 535s producing nothing). The floor applies to
-    # the QUALITY of a doable task, never as a mandate to fake an undoable one.
-    "If the task genuinely cannot be completed with the tools available to you "
-    "(for example it requires a real-world action like booking, purchasing, "
-    "sending, or signing into an external account for which you have no tool), "
-    "do NOT simulate, partially attempt, or keep retrying it — state plainly and "
-    "briefly that you cannot do it and why, then stop."
-)
-
-
 # Trivial/function words carry no topic, so they are ignored when checking
 # whether two utterances describe the SAME turn — a real interpretation keeps a
 # content word (an app name, an object, a verb stem); a bled-in old task shares
@@ -324,28 +285,25 @@ def _build_mission_prompt(
         else:
             body = utterance
     else:
-        parts = [f"Aufgabe: {action}."]
+        parts = [f"Task: {action}."]
         if target:
-            parts.append(f"Zielort/Kontext: {target}.")
+            parts.append(f"Target: {target}.")
         if hints:
-            parts.append("Hinweise: " + "; ".join(hints) + ".")
+            parts.append("Notes: " + "; ".join(hints) + ".")
         if utterance:
-            parts.append(f'Wortlaut des Nutzers: "{utterance}".')
+            parts.append(f'User\'s words (verbatim): "{utterance}".')
         body = "\n".join(parts)
     if body and no_interpretation and hints:
         context_block = "\n".join(f"- {hint}" for hint in hints)
         body = (
             f"{body}\n\nSupporting context from the recent conversation "
-            "(use only to resolve references; the underlying request remains "
-            f"authoritative):\n{context_block}"
+            f"(for resolving references only):\n{context_block}"
         )
     if not body:
         # Nothing to dispatch — keep the empty-in/empty-out contract so the
         # caller's empty-utterance guard still short-circuits cleanly.
         return ""
-    # Prepend the standing quality directive so a lazy/minimal brief from the
-    # router tier cannot downgrade the deliverable to a stub (2026-05-31 fix).
-    return f"{_QUALITY_DIRECTIVE}\n\n{body}"
+    return body
 
 
 class SpawnWorkerTool:
