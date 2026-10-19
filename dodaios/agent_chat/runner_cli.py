@@ -3551,6 +3551,13 @@ async def _run_cli_once(
                 disable_cli_tools(
                     plan, runner, keep_session=bool(getattr(handle, "plain_system", ""))
                 )
+            images = tuple(getattr(handle, "images", ()) or ())
+            if images and getattr(handle, "plain_system", ""):
+                # A plain chat's pictures go to the model itself, not only
+                # their description (``plain_chat`` says why).
+                await asyncio.to_thread(
+                    plain_chat.attach_images, plan, runner, [Path(p) for p in images]
+                )
             if getattr(handle, "gateway_only", False):
                 if runner == "claude-cli":
                     plan.argv += ["--tools", "", "--strict-mcp-config"]
