@@ -165,6 +165,7 @@ import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { prefetchPaneChanges } from "./paneChangesApi";
 import { WorkspaceTerminalHeader } from "./WorkspaceTerminalHeader";
 import { usePaneContextMenu } from "./usePaneContextMenu";
+import { PaneDoneGateBadge } from "./PaneDoneGateBadge";
 import { SessionGitHubBadge } from "./SessionGitHubBadge";
 import { fill, loadLocaleChunk, translate, useT } from "@/i18n";
 
@@ -3767,6 +3768,7 @@ function PaneHeader({
         )}
       </div>
 
+      <PaneDoneGateBadge workspaceId={githubStatusEnabled ? workspaceId : undefined} name={name} appearance={appearance} />
       <SessionGitHubBadge workspaceId={githubStatusEnabled ? workspaceId : undefined} name={name} appearance={appearance} />
       {/* Pane actions appear where the eye already is: on the pane under the
           pointer, on the focused pane, and while one of their menus is open.

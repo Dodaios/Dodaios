@@ -6,6 +6,8 @@ Endpoints (all under ``/api/agentic-ide/git``)::
     GET  /changes             Changed files under a folder, with line counts
     GET  /diff                One file's change against the last commit
     GET  /overview            A workspace's branches with merged-into, PR and CI state
+    GET  /session-status      GitHub branch, pull request and CI status per pane
+    GET  /done-gate           The agent done gate's last verdict per pane (local files only)
     GET  /branch/contents     A branch's own commits and changed files
     GET  /branch/diff         How a branch changed one file
     GET  /branch/editors      Where a branch's checkout can be opened on this computer
@@ -47,6 +49,7 @@ from pydantic import BaseModel, Field
 
 from dodaios.agentic_ide import (
     branch_contents,
+    done_gate_status,
     git_changes,
     git_ops,
     git_overview,
@@ -244,6 +247,30 @@ def _pane_records(session: Session) -> list[PaneBranchRecord]:
         for pane in session.terminals
         if not pane.computer_id
     ]
+
+
+@router.get("/done-gate", summary="The agent done gate's last verdict per pane")
+def pane_done_gate(workspace_id: str = Query(..., min_length=1)) -> dict:
+    """What ``scripts/agent_done_gate.py`` last said about each pane's session.
+
+    Read from the gate's own state files in the repository's git common dir,
+    never from GitHub, so it is cheap enough to ask on every header poll. A
+    pane whose verdict is NONE or HOLD, or that has no record, maps to null.
+    """
+    session = get_registry().get(workspace_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+    records = [
+        done_gate_status.PaneGateRecord(
+            pane=pane.name,
+            folder=pane.cwd(session.folder),
+            session_id=pane.resume.id if pane.resume else "",
+            branch=pane.branch,
+        )
+        for pane in session.terminals
+        if not pane.computer_id
+    ]
+    return {"panes": done_gate_status.board(records)}
 
 
 # The editors a branch's checkout is offered in, when installed.
