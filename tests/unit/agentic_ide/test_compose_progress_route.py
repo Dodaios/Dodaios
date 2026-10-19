@@ -19,11 +19,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import prompt_composer
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.prompt_composer import ComposedPrompt, ComposeNotice
-from jarvis.agentic_ide.session import Registry
-from jarvis.core.events import AgenticIdeComposeProgress
+from dodaios.agentic_ide import prompt_composer
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.prompt_composer import ComposedPrompt, ComposeNotice
+from dodaios.agentic_ide.session import Registry
+from dodaios.core.events import AgenticIdeComposeProgress
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -31,7 +31,7 @@ from tests.fakes.fake_pty_manager import FakePtyManager
 def _isolated_recents(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)
@@ -42,7 +42,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> Registry:
     monkeypatch.setattr(session_mod, "agent_argv", lambda name: (f"/usr/bin/{name}",))
     reg = Registry(pty_manager=FakePtyManager())
     monkeypatch.setattr(session_mod, "get_registry", lambda: reg)
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.ui.web import agentic_ide_routes
 
     monkeypatch.setattr(agentic_ide_routes, "get_registry", lambda: reg)
     return reg
@@ -65,7 +65,7 @@ def bus() -> _Bus:
 
 @pytest.fixture
 def client(registry: Registry, bus: _Bus) -> TestClient:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -157,7 +157,7 @@ async def test_a_missing_bus_costs_the_narration_never_the_brief(
     registry: Registry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Headless embedders without an event bus still get their prompt typed."""
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)  # deliberately: no app.state.bus

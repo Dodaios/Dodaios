@@ -7,10 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.audio.ducking.controller import AudioDuckController
-from jarvis.audio.ducking.protocol import DuckPermissionReport
-from jarvis.core.bus import EventBus
-from jarvis.core.events import VoiceSessionEnded, VoiceSessionStarted
+from dodaios.audio.ducking.controller import AudioDuckController
+from dodaios.audio.ducking.protocol import DuckPermissionReport
+from dodaios.core.bus import EventBus
+from dodaios.core.events import VoiceSessionEnded, VoiceSessionStarted
 
 
 class FakeDucker:

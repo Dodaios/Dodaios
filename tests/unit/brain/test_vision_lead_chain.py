@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 class _Vision:

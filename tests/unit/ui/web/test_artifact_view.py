@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import builtins
 
-from jarvis.ui.web.artifact_view import VIEW_CSP, render_artifact_html
+from dodaios.ui.web.artifact_view import VIEW_CSP, render_artifact_html
 
 
 def test_markdown_renders_heading_to_html():

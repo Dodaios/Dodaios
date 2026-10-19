@@ -1,4 +1,4 @@
-"""Unit tests for jarvis.agents.registry.JarvisAgentRegistry.
+"""Unit tests for dodaios.agents.registry.JarvisAgentRegistry.
 
 Covers:
 - Event ingestion per event type (9 types: JarvisAgentTask*, BrainTurn*, ToolCall*,
@@ -17,9 +17,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agents import AgentNode, JarvisAgentRegistry
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.agents import AgentNode, JarvisAgentRegistry
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     BrainTurnCompleted,
     BrainTurnStarted,
     HarnessCompleted,
@@ -30,7 +30,7 @@ from jarvis.core.events import (
     ToolCallCompleted,
     ToolCallStarted,
 )
-from jarvis.core.protocols import HarnessResult
+from dodaios.core.protocols import HarnessResult
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ async def test_jarvis_agent_task_started_creates_running_node(
     # (a test keyed to the maintainer's own wake word would be the exact
     # anti-pattern this feature exists to prevent).
     monkeypatch.setattr(
-        "jarvis.agents.registry._agent_display_name", lambda: "Nova-Agent"
+        "dodaios.agents.registry._agent_display_name", lambda: "Nova-Agent"
     )
     tid = uuid4()
     await bus.publish(
@@ -359,8 +359,8 @@ async def test_mission_bus_bridge_creates_jarvis_agent_node(
     registry: JarvisAgentRegistry,
 ) -> None:
     """attach_mission_bus: MissionDispatched -> AgentNode of kind=jarvis_agent."""
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionApproved,
         MissionDispatched,
@@ -416,8 +416,8 @@ async def test_mission_bus_bridge_failed_marks_failed(
     registry: JarvisAgentRegistry,
 ) -> None:
     """MissionFailed -> status=failed, error captured."""
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionDispatched,
         MissionFailed,
@@ -458,8 +458,8 @@ async def test_mission_bus_bridge_cancelled_marks_tree_cancelled(
     registry: JarvisAgentRegistry,
 ) -> None:
     """Mission cancellation stays distinct from worker or critic failure."""
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionCancelled,
         MissionDispatched,
@@ -519,8 +519,8 @@ async def test_mission_bus_bridge_is_idempotent(
     registry: JarvisAgentRegistry,
 ) -> None:
     """attach_mission_bus twice must not double-subscribe."""
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import EventEnvelope, MissionDispatched, now_ms
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import EventEnvelope, MissionDispatched, now_ms
 
     mbus = MissionBus()
     registry.attach_mission_bus(mbus)
@@ -551,8 +551,8 @@ async def test_mission_failed_carries_error_detail_and_class(
 ) -> None:
     """node.error must show the human detail (the 401 text), not the raw
     reason token; error_class rides along for the UI message map."""
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionDispatched,
         MissionFailed,
@@ -595,8 +595,8 @@ async def test_mission_failed_carries_error_detail_and_class(
 async def test_mission_failed_without_detail_keeps_reason_fallback(
     registry: JarvisAgentRegistry,
 ) -> None:
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionDispatched,
         MissionFailed,
@@ -635,8 +635,8 @@ async def test_worker_killed_carries_error_detail_and_class(
 ) -> None:
     """WorkerKilled.error_detail becomes node.error verbatim; error_class
     rides along for the UI message map."""
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionDispatched,
         WorkerKilled,
@@ -698,8 +698,8 @@ async def test_worker_killed_carries_error_detail_and_class(
 async def test_worker_killed_without_detail_falls_back_to_reason(
     registry: JarvisAgentRegistry,
 ) -> None:
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionDispatched,
         WorkerKilled,
@@ -758,8 +758,8 @@ async def test_worker_cancel_reason_stays_distinct_from_failure(
     registry: JarvisAgentRegistry,
     reason: str,
 ) -> None:
-    from jarvis.missions.event_bus import MissionBus
-    from jarvis.missions.events import (
+    from dodaios.missions.event_bus import MissionBus
+    from dodaios.missions.events import (
         EventEnvelope,
         MissionDispatched,
         WorkerKilled,

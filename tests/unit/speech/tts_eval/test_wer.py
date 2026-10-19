@@ -1,7 +1,7 @@
 """The pure word-error-rate helper (no ASR model needed)."""
 from __future__ import annotations
 
-from jarvis.speech.tts_eval.metrics import normalize_words, word_error_rate
+from dodaios.speech.tts_eval.metrics import normalize_words, word_error_rate
 
 
 def test_identical_text_is_zero():

@@ -62,7 +62,7 @@ def _macos_microphone_granted() -> bool:
     if sys.platform != "darwin":
         return True
     try:
-        from jarvis.platform.permissions import (  # noqa: PLC0415
+        from dodaios.platform.permissions import (  # noqa: PLC0415
             PermissionId,
             PermissionState,
             SystemPermissionPort,

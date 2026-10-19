@@ -12,16 +12,16 @@ import asyncio
 
 import pytest
 
-from jarvis.core.delegation import result_announcement
-from jarvis.core.events import AnnouncementRequested
-from jarvis.live import runtime as live_runtime
-from jarvis.speech import pipeline as pipeline_mod
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core.delegation import result_announcement
+from dodaios.core.events import AnnouncementRequested
+from dodaios.live import runtime as live_runtime
+from dodaios.speech import pipeline as pipeline_mod
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 from tests.unit.speech.test_realtime_announcement_bridge import _FakePlayer, _FakeTTS
 
 
 class FakeLiveCall:
-    """The parts of ``jarvis.live.session.LiveVoiceSession`` the pipeline uses."""
+    """The parts of ``dodaios.live.session.LiveVoiceSession`` the pipeline uses."""
 
     def __init__(self, session_id: str = "live-1") -> None:
         self.session_id = session_id
@@ -59,7 +59,7 @@ class FakeLiveCall:
 
 @pytest.fixture(autouse=True)
 def quick_batch(monkeypatch):
-    monkeypatch.setattr("jarvis.core.delegation.BATCH_WINDOW_S", 0.005)
+    monkeypatch.setattr("dodaios.core.delegation.BATCH_WINDOW_S", 0.005)
 
 
 @pytest.fixture

@@ -26,21 +26,21 @@ keep stale HTML after frontend rebuilds.
 
 ## Fix
 
-- `jarvis/ui/web/frontend/src/components/ViewErrorBoundary.tsx`
+- `dodaios/ui/web/frontend/src/components/ViewErrorBoundary.tsx`
   - Added a reusable React error boundary.
   - A crashed section now shows a recovery panel instead of blacking out the
     whole app.
 
-- `jarvis/ui/web/frontend/src/components/layout/MainView.tsx`
+- `dodaios/ui/web/frontend/src/components/layout/MainView.tsx`
   - Wrapped sections in `ViewErrorBoundary`.
   - Changed `TerminalView` to lazy-then-persistent mounting: it is created only
     after the Terminal section is opened for the first time, then kept mounted
     to preserve PTY/xterm state.
 
-- `jarvis/ui/web/frontend/src/main.tsx`
+- `dodaios/ui/web/frontend/src/main.tsx`
   - Wrapped the whole app in a root error boundary as a final safety net.
 
-- `jarvis/ui/web/server.py`
+- `dodaios/ui/web/server.py`
   - `index.html` is now served with:
     `Cache-Control: no-store, max-age=0`
   - This prevents WebView2 from reusing stale app shell HTML after rebuilds.
@@ -63,14 +63,14 @@ Do not remove these protections:
 Run:
 
 ```bash
-cd jarvis/ui/web/frontend
+cd dodaios/ui/web/frontend
 npm run build
 ```
 
 Run:
 
 ```bash
-python -m compileall jarvis/ui/web/server.py
+python -m compileall dodaios/ui/web/server.py
 ```
 
 Optional server check:
@@ -78,8 +78,8 @@ Optional server check:
 ```bash
 python - <<'PY'
 from fastapi.testclient import TestClient
-from jarvis.core.config import load_config
-from jarvis.ui.web.server import WebServer
+from dodaios.core.config import load_config
+from dodaios.ui.web.server import WebServer
 
 client = TestClient(WebServer(load_config()).app)
 r = client.get("/")

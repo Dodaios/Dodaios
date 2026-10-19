@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.board.aggregator import BoardAggregator
-from jarvis.board.store import BoardStore
+from dodaios.board.aggregator import BoardAggregator
+from dodaios.board.store import BoardStore
 
 
 def _ms(moment: datetime) -> int:

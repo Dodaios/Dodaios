@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.memory_books import HARD_LIMITS, NotebookFull, edit_book, read_books
-from jarvis.society.review import notebook_capacity
-from jarvis.society.review_cadence import (
+from dodaios.society.memory_books import HARD_LIMITS, NotebookFull, edit_book, read_books
+from dodaios.society.review import notebook_capacity
+from dodaios.society.review_cadence import (
     REVIEW_EVERY_USER_TURNS,
     SKILL_REVIEW_TOOL_STEPS,
     WINDOW_MAX_AGE_MS,
@@ -17,7 +17,7 @@ from jarvis.society.review_cadence import (
     learning_signal,
     window_events,
 )
-from jarvis.society.skill_lifecycle import (
+from dodaios.society.skill_lifecycle import (
     ACTIVE,
     ARCHIVE_AFTER_DAYS,
     ARCHIVED,

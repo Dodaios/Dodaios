@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.interrupt_intent import (
+from dodaios.speech.interrupt_intent import (
     INTERRUPT_NONE,
     INTERRUPT_REDIRECT,
     INTERRUPT_STOP,

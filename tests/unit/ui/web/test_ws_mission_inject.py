@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import MessageSent
-from jarvis.ui.web.schema import WSCommand
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import MessageSent
+from dodaios.ui.web.schema import WSCommand
+from dodaios.ui.web.server import WebServer
 
 
 async def test_mission_inject_publishes_message_sent() -> None:

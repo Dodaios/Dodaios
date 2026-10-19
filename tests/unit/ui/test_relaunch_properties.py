@@ -17,7 +17,7 @@ import sys
 
 import pytest
 
-from jarvis.ui import icon_utils
+from dodaios.ui import icon_utils
 
 
 def test_relaunch_properties_api_is_importable() -> None:
@@ -48,7 +48,7 @@ def test_desktop_icon_setter_reensures_the_start_menu_shortcut() -> None:
     """The icon-setter poll must re-ensure the Start-Menu shortcut once the
     window is up — without it, a shortcut deleted mid-session leaves Windows
     search unable to find "Personal Jarvis" (regression 2026-07-09)."""
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     src = inspect.getsource(desktop_app.DesktopApp._start_icon_setter_thread)
     assert "ensure_start_menu_shortcut" in src

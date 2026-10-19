@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 
 TESTS = [
     "tests/unit/agent_runtimes/test_runtime_configs.py",
@@ -51,17 +51,17 @@ CONTRACTS = (
     "test_provider_error_does_not_fall_back_or_claim_completion",
 )
 SOURCES = [
-    "jarvis/agent_runtimes/openclaw.py", "tests/unit/agent_runtimes/test_runtime_configs.py",
-    "jarvis/agent_chat/background_work.py",
-    "jarvis/agent_chat/turn_completion.py",
-    "jarvis/society/autonomous_routines.py",
-    "jarvis/society/agent_tools.py",
-    "jarvis/society/proposals.py",
-    "jarvis/society/routines.py",
-    "jarvis/society/routine_runner.py",
-    "jarvis/society/surface.py",
-    "jarvis/tasks/runner.py",
-    "jarvis/tasks/scheduler.py",
+    "dodaios/agent_runtimes/openclaw.py", "tests/unit/agent_runtimes/test_runtime_configs.py",
+    "dodaios/agent_chat/background_work.py",
+    "dodaios/agent_chat/turn_completion.py",
+    "dodaios/society/autonomous_routines.py",
+    "dodaios/society/agent_tools.py",
+    "dodaios/society/proposals.py",
+    "dodaios/society/routines.py",
+    "dodaios/society/routine_runner.py",
+    "dodaios/society/surface.py",
+    "dodaios/tasks/runner.py",
+    "dodaios/tasks/scheduler.py",
     "tests/contract/test_agent_autonomy.py",
     "scripts/verify_agent_autonomy.py",
 ]

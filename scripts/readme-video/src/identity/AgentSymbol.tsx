@@ -1,4 +1,4 @@
-/** Source snapshot: jarvis/ui/web/frontend/src/components/society/AgentSymbol.tsx; SHA-256 A15A7F08309EF91AF64D8B59E2C70D373C98F2B029D5A5058B242823EF24828D. Only the local appearance import differs. */
+/** Source snapshot: dodaios/ui/web/frontend/src/components/society/AgentSymbol.tsx; SHA-256 A15A7F08309EF91AF64D8B59E2C70D373C98F2B029D5A5058B242823EF24828D. Only the local appearance import differs. */
 /**
  * Flat bot silhouettes and eye placement adapted from Nous Research's
  * hermes-agent, apps/desktop/src/plugins/hermes-bots/avatar.tsx.

@@ -1,5 +1,5 @@
 """prefetch_all: provisions the per-language Vosk (any-word wake) model too."""
-from jarvis.setup import prefetch
+from dodaios.setup import prefetch
 
 
 def _cfg(language: str | None):

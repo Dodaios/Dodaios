@@ -9,8 +9,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.society_routes import router
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.society_routes import router
 
 
 def _tool(name: str, desc: str) -> SimpleNamespace:

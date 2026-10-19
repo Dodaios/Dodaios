@@ -11,8 +11,8 @@ from typing import Any
 
 import httpx
 
-from jarvis.platform.media_session import MediaSessionCapability, NowPlaying
-from jarvis.plugins.tool.youtube_music_rest import (
+from dodaios.platform.media_session import MediaSessionCapability, NowPlaying
+from dodaios.plugins.tool.youtube_music_rest import (
     HOME_URL,
     YouTubeMusicRestTool,
     match_playlist,
@@ -666,8 +666,8 @@ async def test_play_confirms_the_moment_the_video_is_unpaused():
 
 
 def test_the_player_confirm_fits_under_the_voice_tool_budget():
-    from jarvis.core.tool_budget import VOICE_TOOL_BUDGET_S
-    from jarvis.plugins.tool import youtube_music_rest as mod
+    from dodaios.core.tool_budget import VOICE_TOOL_BUDGET_S
+    from dodaios.plugins.tool import youtube_music_rest as mod
 
     # Search (~0.4 s live) + load + confirm + a show must stay under the budget
     # the live model is released at.
@@ -883,7 +883,7 @@ async def test_execute_routes_and_validates():
 
 def test_activation_link_must_be_a_google_console_host() -> None:
     """The link is shown to the user to click, so its host is parsed, not grepped."""
-    from jarvis.plugins.tool.youtube_music_rest import _is_google_console_url
+    from dodaios.plugins.tool.youtube_music_rest import _is_google_console_url
 
     assert _is_google_console_url(
         "https://console.developers.google.com/apis/api/youtube.googleapis.com/overview"

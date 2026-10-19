@@ -17,7 +17,7 @@ the floor is asserted, not assumed.
 """
 from __future__ import annotations
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     AUTO_LANGUAGE,
     DICTATION_LANGUAGES,
     RECOGNITION_LANGUAGE_CHOICES,
@@ -27,7 +27,7 @@ from jarvis.core.config import (
 
 
 def test_dictation_and_voice_offer_the_same_languages() -> None:
-    from jarvis.ui.web.settings_routes import _STT_LANGUAGES
+    from dodaios.ui.web.settings_routes import _STT_LANGUAGES
 
     assert tuple(DICTATION_LANGUAGES) == tuple(_STT_LANGUAGES), (
         "the two recognition-language lists drifted apart — one microphone, "

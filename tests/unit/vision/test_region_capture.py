@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from jarvis.vision import screenshot as screenshot_module
-from jarvis.vision.screenshot import capture_region, region_bbox_around
+from dodaios.vision import screenshot as screenshot_module
+from dodaios.vision.screenshot import capture_region, region_bbox_around
 
 
 def test_region_bbox_around_centers_and_sizes() -> None:

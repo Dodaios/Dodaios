@@ -25,7 +25,7 @@ problems and propose concrete fixes with `file:line` evidence.
 Area-specific, only when the diff touches it:
 
 - Dodaios-Agents bridge → `docs/jarvis-agents-bridge.md`.
-- Self-mod pipeline → `docs/self_mod.md` and `jarvis/core/self_mod/`.
+- Self-mod pipeline → `docs/self_mod.md` and `dodaios/core/self_mod/`.
 - Wake / STT reliability → `docs/local-wakeword/WAKE-RELIABILITY-DEEPDIVE.md`.
 - Router changes → `docs/adr/0011-router-pure-dispatcher.md`.
 
@@ -36,7 +36,7 @@ is worse than no review.
 ## Review checklist — BLOCKER (merge-stopper)
 
 - ❌ **Protocol drift:** a plugin class does not structurally satisfy its
-  Protocol in `jarvis/core/protocols.py` (missing method, wrong signature, wrong
+  Protocol in `dodaios/core/protocols.py` (missing method, wrong signature, wrong
   return type). Verify by grepping the Protocol definition.
 - ❌ **Spawn tool in a worker tool set** (AP-5 / AP-14): `spawn-worker` and its
   legacy aliases belong in `ROUTER_TOOLS` only. A worker that can spawn spawns
@@ -44,7 +44,7 @@ is worse than no review.
   tools to worker sets. It does **not** ask for a `SUB_TOOLS` set: the sub tier
   was deleted in Wave 4 and AP-14 forbids reintroducing it. Read-only lookups
   (`awareness-recall`, `wiki-recall`, `search-web`) are router-tier **by design**
-  — see the rationale block at the top of `jarvis/brain/factory.py`.
+  — see the rationale block at the top of `dodaios/brain/factory.py`.
 - ❌ **Extending `ROUTER_TOOLS` without amending ADR-0011** and
   `tests/unit/brain/test_routing.py`. The router is a pure dispatcher; every
   addition is an architecture decision.
@@ -55,9 +55,9 @@ is worse than no review.
 - ❌ **Config field nothing reads, or a switch whose value is ignored** (AP-31).
   Gate: `scripts/ci/check_config_switches_wired.py`.
 - ❌ **Platform-only import at module scope** instead of lazily inside the
-  function (pattern: `jarvis/vision/screenshot.py`, with `# noqa: PLC0415`).
+  function (pattern: `dodaios/vision/screenshot.py`, with `# noqa: PLC0415`).
   Breaks the Linux and macOS legs. Gate: `scripts/ci/check_import_clean.py`.
-- ❌ **Secrets in code or config:** `jarvis.core.config.get_secret(key)` is
+- ❌ **Secrets in code or config:** `dodaios.core.config.get_secret(key)` is
   mandatory (AP-12). A hardcoded key or token is a BLOCKER, no exceptions.
 - ❌ **Provider name or model id used as a gate** instead of a capability
   (AP-21), or a tier whose primary and fallback sit in the same provider family
@@ -72,7 +72,7 @@ is worse than no review.
 - ❌ **Hook lifecycle leak:** `SetWinEventHook` without a matching
   `UnhookWinEvent` in `stop()`.
 - ❌ **`subprocess` without `NO_WINDOW_CREATIONFLAGS`** (AP-1) — import it from
-  `jarvis.core.process_utils`.
+  `dodaios.core.process_utils`.
 
 ## Review checklist — MAJOR
 
@@ -86,7 +86,7 @@ is worse than no review.
   by a timeout.
 - **Awareness off the hot path** (AP-9): `awareness-snapshot` is a synchronous
   state read — no brain call, no IO. The compactor
-  (`jarvis/awareness/verdichter.py`) is a direct brain call, never a spawn, and
+  (`dodaios/awareness/verdichter.py`) is a direct brain call, never a spawn, and
   is bounded by `asyncio.wait_for`.
 - **Native inference shared between callers** (AP-24): ctranslate2 / ONNX
   sessions need a non-blocking per-instance lock plus a `recover()` that rebuilds

@@ -12,13 +12,13 @@
 #   3. the login-autostart entry (~/.config/autostart or ~/Library/LaunchAgents)
 #   4. the API keys saved in the OS keychain (service "personal-jarvis")
 #
-# Heavy logic lives in `python -m jarvis --uninstall` (cross-platform, tested).
+# Heavy logic lives in `python -m dodaios --uninstall` (cross-platform, tested).
 # This bootstrap runs that for the autostart + keys (it asks for confirmation),
 # then removes the folder itself from OUTSIDE the venv so nothing is locked.
 
 set -euo pipefail
 
-# Standalone fallback projections of jarvis/core/branding.py. These remain
+# Standalone fallback projections of dodaios/core/branding.py. These remain
 # available even when a broken venv prevents importing the installed package.
 DEFAULT_INSTALL_DIR_NAME=".personal-jarvis"
 MACOS_APP_DIR_NAME="Personal Jarvis.app"
@@ -121,7 +121,7 @@ fi
 #            the venv is not self-deleted while it is still running.
 RC=0
 if [ -x "$VENV_PYTHON" ]; then
-    if "$VENV_PYTHON" -m jarvis --uninstall --keep-folder "$@"; then RC=0; else RC=$?; fi
+    if "$VENV_PYTHON" -m dodaios --uninstall --keep-folder "$@"; then RC=0; else RC=$?; fi
 else
     err "Python environment missing — skipping autostart/key cleanup."
     note "The app registration and folder can still be removed; saved API keys may remain."

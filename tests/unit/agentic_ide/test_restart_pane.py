@@ -15,10 +15,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.orchestration import WorkspaceOrchestrator
-from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-from jarvis.live.state import LiveLedger
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.orchestration import WorkspaceOrchestrator
+from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+from dodaios.live.state import LiveLedger
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 

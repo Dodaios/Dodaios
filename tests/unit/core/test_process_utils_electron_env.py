@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from jarvis.core.process_utils import drop_inherited_electron_node_mode
+from dodaios.core.process_utils import drop_inherited_electron_node_mode
 
 
 def test_drop_removes_the_switch_for_every_later_child(monkeypatch: pytest.MonkeyPatch) -> None:

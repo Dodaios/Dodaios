@@ -12,8 +12,8 @@ longer read by ``resolve_wake_plan``.
 """
 from __future__ import annotations
 
-from jarvis.core.config import TriggerConfig, WakeWordConfig
-from jarvis.speech import wake_constants
+from dodaios.core.config import TriggerConfig, WakeWordConfig
+from dodaios.speech import wake_constants
 
 
 def test_defaults_are_neutral_empty_auto() -> None:
@@ -84,8 +84,8 @@ def test_sensitivity_parses_but_no_longer_drives_the_resolved_wake_plan() -> Non
     # cleanly on the config model (back-compat), but resolve_wake_plan() no
     # longer varies its threshold with it — every path runs its pinned,
     # calibrated-reliable value regardless.
-    from jarvis.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     low = WakeWordConfig(phrase="Computer", sensitivity=0.5)
     high = WakeWordConfig(phrase="Computer", sensitivity=1.0)

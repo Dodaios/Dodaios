@@ -15,9 +15,9 @@ import time
 import numpy as np
 import pytest
 
-import jarvis.audio.topology as topology
-from jarvis.audio.capture import MicrophoneCapture
-from jarvis.audio.player import AudioPlayer
+import dodaios.audio.topology as topology
+from dodaios.audio.capture import MicrophoneCapture
+from dodaios.audio.player import AudioPlayer
 
 
 @pytest.fixture(autouse=True)
@@ -175,7 +175,7 @@ def test_refresh_quiesces_streams_before_reinit(monkeypatch) -> None:
     calls: list[str] = []
     fake_sd = _FakeSd()
     monkeypatch.setitem(sys.modules, "sounddevice", fake_sd)
-    import jarvis.audio.capture as capture_module
+    import dodaios.audio.capture as capture_module
 
     monkeypatch.setattr(
         capture_module,

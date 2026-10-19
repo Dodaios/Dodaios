@@ -14,7 +14,7 @@
 # WHY a denylist and not the file diff: the working↔dist diff conflates two
 # different things — deliberately-withheld files AND files merely newer than the
 # last release. Baking the diff into "always exclude" would freeze out real
-# features (e.g. jarvis/state/*, jarvis/plugins/tts/fallback_tts.py). So those
+# features (e.g. dodaios/state/*, dodaios/plugins/tts/fallback_tts.py). So those
 # are intentionally ABSENT from this list and ship normally.
 
 # --- .claude/ contributor toolchain: SHIP it (like the openclaw repo), minus the
@@ -23,7 +23,7 @@
 # slash-commands, dev skills — exactly what a fork needs to keep developing with
 # the same AI workflow. The reference project openclaw/openclaw (380k+ stars)
 # ships .agents/ + AGENTS.md + CLAUDE.md publicly; this is a professionalism
-# signal, not clutter. NOTHING in the runtime jarvis/ package loads it, so it is
+# signal, not clutter. NOTHING in the runtime dodaios/ package loads it, so it is
 # product-safe. (The single personal path in phase6-adr-update/SKILL.md is
 # depersonalized by the PII scrub, not withheld.)
 #
@@ -61,8 +61,8 @@ docs/supply-chain/wave4-distribution.md
 scripts/_*.py
 
 # --- Dead WhisperBar dev-probe scripts (2026-06-30) -------------------------
-# Standalone desktop-capture probes that still `import jarvis.ui.whisperbar`,
-# a module renamed to jarvis.ui.jarvisbar (whisperbar->jarvisbar rename,
+# Standalone desktop-capture probes that still `import dodaios.ui.whisperbar`,
+# a module renamed to dodaios.ui.jarvisbar (whisperbar->jarvisbar rename,
 # 2026-06-30). The import is dead, so the scripts are broken dev-only probes
 # with no downstream value — and the release verify gate (top-level unresolved
 # import) correctly refuses to ship them. They are not product code; a fork has
@@ -175,19 +175,19 @@ video/**
 
 # --- Standalone side-projects: ship in their OWN repos, not the flagship (2026-06-27) ---
 # Self-contained projects that merely co-live in this monorepo. The runtime
-# jarvis/ package imports NOTHING from them (verified 2026-06-27 — 0 import
+# dodaios/ package imports NOTHING from them (verified 2026-06-27 — 0 import
 # sites). Patterns are ^-anchored, so each hits ONLY the top-level dir, never a
-# same-named subdir (e.g. src/** does not touch jarvis/ui/web/frontend/src/).
+# same-named subdir (e.g. src/** does not touch dodaios/ui/web/frontend/src/).
 #   - skillbook/ : independent decentralized agent-memory research project
 #                  (own CLAUDE.md / ADRs / tests; unrelated to the product)
 #   - keyproxy/  : standalone LLM-key reverse proxy ("zero dependency on jarvis")
 #   - src/       : orphaned duplicate of the web-search skill; the LIVE tool is
-#                  jarvis/plugins/tool/search_web.py (no sys.path/loader points here)
+#                  dodaios/plugins/tool/search_web.py (no sys.path/loader points here)
 # DELIBERATELY KEPT (verified load-bearing, do NOT add): board-backend/
-# (jarvis/board/sync.py + federation_proxy_routes.py import board_backend.crypto),
+# (dodaios/board/sync.py + federation_proxy_routes.py import board_backend.crypto),
 # ui/ (the Orb overlay is imported at runtime), conductor/ (3 import sites).
 # (OS-Level/ was removed from the repo in 2026-07 — the CU screen indicator
-# in jarvis/cu/indicator replaced its edge-glow.)
+# in dodaios/cu/indicator replaced its edge-glow.)
 skillbook/**
 keyproxy/**
 src/**
@@ -195,7 +195,7 @@ src/**
 # --- Internal maintainer demo / perf scripts (2026-06-27) -------------------
 # tools/ holds board_demo.py / board_pentest.py / board_perf.py — internal
 # bring-up & perf probes for the Board, not product code. A fork has no use for
-# them (the product's own tooling lives inside the jarvis/ package).
+# them (the product's own tooling lives inside the dodaios/ package).
 tools/**
 
 # --- Internal QA protocols (2026-06-27) -------------------------------------

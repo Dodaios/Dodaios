@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from jarvis.skills.plugin_coupling import PAIRED_CAP_PREFIX, capability_from_skill
-from jarvis.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
+from dodaios.skills.plugin_coupling import PAIRED_CAP_PREFIX, capability_from_skill
+from dodaios.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
 
 
 def _skill(**fm) -> Skill:
@@ -52,7 +52,7 @@ def test_draft_skill_yields_no_capability():
 
 def test_gmail_objects_do_not_match_email_validation():
     """HARD NEGATIVE: a curated Gmail skill must NOT resolve a coding task."""
-    from jarvis.core.capabilities import CapabilityRegistry
+    from dodaios.core.capabilities import CapabilityRegistry
     sk = _skill(
         name="plugin-gmail", plugin_id="gmail",
         description="Gmail inbox.",

@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import remote
-from jarvis.computers import remote_os
+from dodaios.agentic_ide import remote
+from dodaios.computers import remote_os
 
 
 def _posix_shell() -> str | None:

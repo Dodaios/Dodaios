@@ -10,9 +10,9 @@ import json
 
 import pytest
 
-import jarvis.__main__ as jm
-from jarvis.diagnostics.json_report import FIELDS, STATUSES, dumps, record
-from jarvis.hardware.detection import (
+import dodaios.__main__ as jm
+from dodaios.diagnostics.json_report import FIELDS, STATUSES, dumps, record
+from dodaios.hardware.detection import (
     GPUInfo,
     HardwareReport,
     WhisperRecommendation,
@@ -119,10 +119,10 @@ def test_check_json_keeps_exit_code_zero(monkeypatch, capsys):
 
 
 def test_doctor_json_still_fails_on_a_hard_failure(monkeypatch, capsys):
-    from jarvis.diagnostics.doctor import DoctorFinding
+    from dodaios.diagnostics.doctor import DoctorFinding
 
     monkeypatch.setattr(
-        "jarvis.diagnostics.doctor.run_doctor",
+        "dodaios.diagnostics.doctor.run_doctor",
         lambda config: [DoctorFinding("router-tools", "fail", "phantom tool", "fix it")],
     )
     assert jm.main(["--doctor", "--json"]) == 1
@@ -136,10 +136,10 @@ def test_doctor_json_still_fails_on_a_hard_failure(monkeypatch, capsys):
 
 
 def test_doctor_json_returns_zero_without_failures(monkeypatch, capsys):
-    from jarvis.diagnostics.doctor import DoctorFinding
+    from dodaios.diagnostics.doctor import DoctorFinding
 
     monkeypatch.setattr(
-        "jarvis.diagnostics.doctor.run_doctor",
+        "dodaios.diagnostics.doctor.run_doctor",
         lambda config: [DoctorFinding("brain-provider", "warn", "no key", None)],
     )
     assert jm.main(["--doctor", "--json"]) == 0

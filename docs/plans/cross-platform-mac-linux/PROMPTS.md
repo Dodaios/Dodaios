@@ -36,7 +36,7 @@ You are the migration lead bootstrapping the cross-platform (macOS + Linux) port
 DONE means all of the following are true and demonstrated with command output:
 - The repo is on a fresh integration branch `feat/crossplatform-port` cut from the latest `origin/main`, pushed to origin.
 - `pwsh scripts/preflight.ps1` exits 0 in the repo root.
-- `python -c "import jarvis; print(jarvis.__file__)"` resolves to the live working clone (BUG-006/014 guard).
+- `python -c "import dodaios; print(dodaios.__file__)"` resolves to the live working clone (BUG-006/014 guard).
 - The whole cross-platform plan has been read and an at-a-glance wave/dependency map is reproduced in your final report.
 - No production file has been modified.
 </outcome>
@@ -56,12 +56,12 @@ Run exactly, in the repo root `<USER_HOME>\Desktop\Personal Jarvis`:
 2. `git switch -c feat/crossplatform-port origin/main`
 3. `git push -u origin feat/crossplatform-port`
 4. `pwsh scripts/preflight.ps1`   (must exit 0 — if not, STOP and fix before continuing)
-5. `python -c "import jarvis; print(jarvis.__file__)"`
+5. `python -c "import dodaios; print(dodaios.__file__)"`
 Do NOT create a worktree here — this prompt only stands up the integration branch. Sub-task prompts create their own worktrees.
 </environment-setup>
 
 <scope>
-Create / modify: NOTHING in `jarvis/`. This is a branch + verification step only. (Optional: you may append a one-line note to your own scratch report — never to a plan doc.)
+Create / modify: NOTHING in `dodaios/`. This is a branch + verification step only. (Optional: you may append a one-line note to your own scratch report — never to a plan doc.)
 </scope>
 
 <primary-path>
@@ -80,7 +80,7 @@ Create / modify: NOTHING in `jarvis/`. This is a branch + verification step only
 <acceptance>
 git ls-remote --heads origin feat/crossplatform-port
 pwsh scripts/preflight.ps1
-python -c "import jarvis; print(jarvis.__file__)"
+python -c "import dodaios; print(dodaios.__file__)"
 git status --porcelain
 </acceptance>
 
@@ -117,8 +117,8 @@ You own the shared platform-detection authority for the whole cross-platform por
 
 <outcome>
 DONE means:
-- `jarvis/platform/__init__.py` exposes `detect_platform() -> Literal["win32","darwin","linux"]` that maps sys.platform and NEVER raises (unknown → "linux" + one English warning).
-- `jarvis/platform/capabilities.py` defines `@dataclass(frozen=True, slots=True) Capabilities` with exactly the AD-5 fields: `platform: str`, `has_hotkey: bool`, `has_ax_tree: bool`, `has_overlay: bool`, `has_pty: bool`, `has_elevation: bool`, `display_present: bool`, `is_wayland: bool`, `ax_permission_granted: bool | None` (tri-state; document the None="unknown until first use" case).
+- `dodaios/platform/__init__.py` exposes `detect_platform() -> Literal["win32","darwin","linux"]` that maps sys.platform and NEVER raises (unknown → "linux" + one English warning).
+- `dodaios/platform/capabilities.py` defines `@dataclass(frozen=True, slots=True) Capabilities` with exactly the AD-5 fields: `platform: str`, `has_hotkey: bool`, `has_ax_tree: bool`, `has_overlay: bool`, `has_pty: bool`, `has_elevation: bool`, `display_present: bool`, `is_wayland: bool`, `ax_permission_granted: bool | None` (tri-state; document the None="unknown until first use" case).
 - `detect_capabilities() -> Capabilities` is cached (lru_cache or module `_CACHED`) so `d() is d()`; `reset_capabilities_cache()` exists as a test hook.
 - No module-scope import of `winreg`/`pyobjc`/`pyatspi`/any Windows-only package — all lazy + guarded inside function bodies.
 - All acceptance commands pass.
@@ -128,10 +128,10 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/WELLE-0-foundation.md` §0.1 (this exact sub-task).
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-5 (single capability module) + AD-6 (graceful null-fallback, no branch raises).
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote in your report:
-  - HN-3: "Never branch on sys.platform inline in a consumer. Read the capability from the shared jarvis/platform/ module."
+  - HN-3: "Never branch on sys.platform inline in a consumer. Read the capability from the shared dodaios/platform/ module."
   - HN-4: "No sys.platform factory branch may EVER raise. An unavailable capability logs one clear English message and returns a null/no-op implementation."
   - HN-7: "Never add a module-scope import of a Windows-only package. Lazy + guarded inside the function/branch only."
-- Reference patterns: frozen dataclass style at `jarvis/core/protocols.py:402` (`Observation`); test-reset hook at `jarvis/trigger/hotkey.py:97` (`_reset_checker_state_for_tests`); lazy-guarded import at `jarvis/plugins/tool/app_resolver.py:24`.
+- Reference patterns: frozen dataclass style at `dodaios/core/protocols.py:402` (`Observation`); test-reset hook at `dodaios/trigger/hotkey.py:97` (`_reset_checker_state_for_tests`); lazy-guarded import at `dodaios/plugins/tool/app_resolver.py:24`.
 </required-reading>
 
 <environment-setup>
@@ -139,19 +139,19 @@ DONE means:
 2. Create the worktree for this sub-task:
    `git worktree add -b crossplat/w0-platform-module ../sub-agents-outputs/crossplat-w0-platform feat/crossplatform-port`
 3. From the worktree root: `pip install -e ".[dev]"`
-4. Confirm the live import points at the worktree: `python -c "import jarvis; print(jarvis.__file__)"`
+4. Confirm the live import points at the worktree: `python -c "import dodaios; print(dodaios.__file__)"`
 </environment-setup>
 
 <scope>
-Create: `jarvis/platform/__init__.py`, `jarvis/platform/capabilities.py`, `tests/unit/platform/__init__.py`, `tests/unit/platform/test_capabilities.py`.
-(Probes live in 0.2's `jarvis/platform/probes.py`; you import them from `capabilities.py`. If 0.2 has not landed in this worktree yet, define thin local stub probe functions in `probes.py` and let 0.2's author replace them — coordinate so you do not both author the same probe bodies.)
-Do NOT modify any existing `jarvis/` file.
+Create: `dodaios/platform/__init__.py`, `dodaios/platform/capabilities.py`, `tests/unit/platform/__init__.py`, `tests/unit/platform/test_capabilities.py`.
+(Probes live in 0.2's `dodaios/platform/probes.py`; you import them from `capabilities.py`. If 0.2 has not landed in this worktree yet, define thin local stub probe functions in `probes.py` and let 0.2's author replace them — coordinate so you do not both author the same probe bodies.)
+Do NOT modify any existing `dodaios/` file.
 </scope>
 
 <primary-path>
 1. Write `detect_platform()` in `__init__.py`: `win32`→`win32`, `darwin`→`darwin`, `startswith("linux")`→`linux`, else log + return `linux`.
 2. Write `Capabilities` frozen dataclass mirroring `Observation` style; document the tri-state `ax_permission_granted`.
-3. Write `detect_capabilities()` computing each field from `jarvis.platform.probes`, wrapped in `functools.lru_cache(maxsize=1)`; add `reset_capabilities_cache()` clearing the cache.
+3. Write `detect_capabilities()` computing each field from `dodaios.platform.probes`, wrapped in `functools.lru_cache(maxsize=1)`; add `reset_capabilities_cache()` clearing the cache.
 4. Write `tests/unit/platform/test_capabilities.py`: cache identity, field presence, monkeypatched-probe → Capabilities mapping. Use a `tests/fakes/`-style fake or direct monkeypatch of probe functions — NOT `unittest.mock`.
 </primary-path>
 
@@ -162,11 +162,11 @@ Do NOT modify any existing `jarvis/` file.
 </fallback-paths>
 
 <acceptance>
-python -c "from jarvis.platform import detect_platform; print(detect_platform())"
-python -c "from jarvis.platform.capabilities import detect_capabilities as d; print(d() is d())"
+python -c "from dodaios.platform import detect_platform; print(detect_platform())"
+python -c "from dodaios.platform.capabilities import detect_capabilities as d; print(d() is d())"
 pytest tests/unit/platform/test_capabilities.py -v
-python -c "import ast; m=ast.parse(open('jarvis/platform/capabilities.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('winreg','pyatspi') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
-ruff check jarvis/platform/ && mypy jarvis/platform/
+python -c "import ast; m=ast.parse(open('dodaios/platform/capabilities.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('winreg','pyatspi') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
+ruff check dodaios/platform/ && mypy dodaios/platform/
 </acceptance>
 
 <hard-rules>
@@ -198,7 +198,7 @@ You own the capability probes that answer "what works on this box" — display, 
 
 <outcome>
 DONE means:
-- `jarvis/platform/probes.py` defines one small function per Capabilities field, each returning a plain bool (or `bool | None` for `ax_permission_granted`) and swallowing its own exceptions to a logged False/None.
+- `dodaios/platform/probes.py` defines one small function per Capabilities field, each returning a plain bool (or `bool | None` for `ax_permission_granted`) and swallowing its own exceptions to a logged False/None.
 - Every OS-specific import (`winreg`, `Quartz`, `pyatspi`, `winpty`, `pynput`, `tkinter`, …) is lazy inside the function body via `importlib.util.find_spec` or a guarded import — never at module scope.
 - `tests/fakes/fake_capabilities.py` exists and constructs a valid `Capabilities` for each of win32/darwin/linux (EK-3 fake, no `unittest.mock`).
 - All acceptance commands pass.
@@ -209,18 +209,18 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-5, AD-6, AD-8 (Wayland feeds hotkey), AD-14 (pyatspi is distro-only).
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-7 (no module-scope Windows import) and HN-9 ("Never put pyatspi in a pip extra. It is GObject-Introspection, distro-packaged only").
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-4 (Wayland hotkey) + AP-13 (convenience module-scope import).
-- Pattern: lazy-guarded import at `jarvis/plugins/tool/app_resolver.py:24`.
+- Pattern: lazy-guarded import at `dodaios/plugins/tool/app_resolver.py:24`.
 </required-reading>
 
 <environment-setup>
 1. `pwsh scripts/preflight.ps1`
 2. Use the SAME worktree as 0.1 (platform module is one worktree per WELLE-0 §Parallelism): `git worktree add -b crossplat/w0-platform-module ../sub-agents-outputs/crossplat-w0-platform feat/crossplatform-port` (skip if already created for 0.1).
 3. `pip install -e ".[dev]"`
-4. `python -c "import jarvis; print(jarvis.__file__)"`
+4. `python -c "import dodaios; print(dodaios.__file__)"`
 </environment-setup>
 
 <scope>
-Create: `jarvis/platform/probes.py`, `tests/fakes/fake_capabilities.py`, `tests/unit/platform/test_probes.py`.
+Create: `dodaios/platform/probes.py`, `tests/fakes/fake_capabilities.py`, `tests/unit/platform/test_probes.py`.
 Probe field map (WELLE-0 §0.2): `display_present`, `is_wayland`, `has_pty` (winpty/ptyprocess find_spec), `ax_permission_granted` (macOS lazy `AXIsProcessTrusted()` → None if pyobjc absent), `has_ax_tree` (win:pywinauto / mac:Quartz / linux:pyatspi find_spec), `has_hotkey` (win:global_hotkeys / unix:pynput AND not is_wayland), `has_overlay` (display_present AND tkinter find_spec), `has_elevation` (win:win32pipe / mac:True / linux:pkexec|sudo via shutil.which).
 </scope>
 
@@ -238,10 +238,10 @@ Probe field map (WELLE-0 §0.2): `display_present`, `is_wayland`, `has_pty` (win
 
 <acceptance>
 pytest tests/unit/platform/test_probes.py -v
-python -c "from jarvis.platform.probes import is_wayland; print(is_wayland())"
+python -c "from dodaios.platform.probes import is_wayland; print(is_wayland())"
 python -c "from tests.fakes.fake_capabilities import linux_capabilities, darwin_capabilities, win_capabilities; [c() for c in (linux_capabilities,darwin_capabilities,win_capabilities)]; print('ok')"
-python -c "import ast; m=ast.parse(open('jarvis/platform/probes.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('winreg','pyatspi','Quartz','winpty','global_hotkeys','pywinauto','win32pipe','pynput') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
-ruff check jarvis/platform/ && mypy jarvis/platform/
+python -c "import ast; m=ast.parse(open('dodaios/platform/probes.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('winreg','pyatspi','Quartz','winpty','global_hotkeys','pywinauto','win32pipe','pynput') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
+ruff check dodaios/platform/ && mypy dodaios/platform/
 </acceptance>
 
 <hard-rules>
@@ -275,7 +275,7 @@ You build the highest-leverage missing safety net in the entire project: the Git
 DONE means:
 - `.github/workflows/ci.yml` exists, is syntactically valid, and defines a matrix `os: [ubuntu-latest, macos-latest, windows-latest]` with `fail-fast: false`.
 - `actions/checkout` and `actions/setup-python` are pinned by 40-char commit SHA.
-- Each leg runs: `pip install -e ".[dev]"` → `ruff check jarvis/` → `ruff format --check jarvis/` → `mypy jarvis/` → the import-cleanliness gate (0.4) → pytest with the min-passed floor (0.5).
+- Each leg runs: `pip install -e ".[dev]"` → `ruff check dodaios/` → `ruff format --check dodaios/` → `mypy dodaios/` → the import-cleanliness gate (0.4) → pytest with the min-passed floor (0.5).
 - macOS/Linux legs install ONLY `.[dev]` (no `[desktop-macos]`, no distro `pyatspi`) — proving the base €5-VPS install imports + tests clean.
 - The `ci` workflow shows green for all three OS legs on the PR.
 </outcome>
@@ -292,13 +292,13 @@ DONE means:
 1. `pwsh scripts/preflight.ps1`
 2. `git worktree add -b crossplat/w0-ci-matrix ../sub-agents-outputs/crossplat-w0-ci feat/crossplatform-port`
 3. `pip install -e ".[dev]"`
-4. NOTE: this worktree depends on 0.1/0.2 (so `import jarvis` + new platform tests exist) and 0.7 (so collection is clean). If those branches are not yet merged into `feat/crossplatform-port`, the matrix will not go green — coordinate merge order (platform module → conftest cleanup → CI last).
+4. NOTE: this worktree depends on 0.1/0.2 (so `import dodaios` + new platform tests exist) and 0.7 (so collection is clean). If those branches are not yet merged into `feat/crossplatform-port`, the matrix will not go green — coordinate merge order (platform module → conftest cleanup → CI last).
 </environment-setup>
 
 <scope>
 Create: `.github/workflows/ci.yml`.
 This sub-task references `scripts/ci/check_import_clean.py` (0.4) and `scripts/ci/assert_min_passed.py` (0.5) — they ship in the SAME worktree (WELLE-0 §Parallelism groups 0.3+0.4+0.5). Author them together or coordinate so `ci.yml` references real files.
-Do NOT touch `jarvis/` production code.
+Do NOT touch `dodaios/` production code.
 </scope>
 
 <primary-path>
@@ -309,8 +309,8 @@ Do NOT touch `jarvis/` production code.
 </primary-path>
 
 <fallback-paths>
-- If `ruff format --check` flags pre-existing formatting outside the touched ports, scope the format check to changed paths OR accept the existing format and note it — do NOT mass-reformat `jarvis/` (out of scope, churns other worktrees). Failure condition: format check fails on untouched files.
-- If `mypy jarvis/` surfaces a large pre-existing error backlog, scope mypy to the new `jarvis/platform/` package for Wave 0 and record a follow-up to widen it — do not suppress errors with blanket ignores. Failure condition: mypy red on legacy modules unrelated to the port.
+- If `ruff format --check` flags pre-existing formatting outside the touched ports, scope the format check to changed paths OR accept the existing format and note it — do NOT mass-reformat `dodaios/` (out of scope, churns other worktrees). Failure condition: format check fails on untouched files.
+- If `mypy dodaios/` surfaces a large pre-existing error backlog, scope mypy to the new `dodaios/platform/` package for Wave 0 and record a follow-up to widen it — do not suppress errors with blanket ignores. Failure condition: mypy red on legacy modules unrelated to the port.
 - You may invent the step ordering if a runner-specific quirk blocks the prescribed one, provided the matrix stays 3-OS and the floor/gate both run (HN-15/HN-16).
 </fallback-paths>
 
@@ -344,14 +344,14 @@ Final report (5 bullets):
 ```prompt
 ultrathink
 <role>
-You build the import-cleanliness gate that permanently locks in the cross-platform import discipline. Your outcome is a script that proves `import jarvis` is clean on Linux/macOS and that no module-scope Windows-only import can ever regress in.
+You build the import-cleanliness gate that permanently locks in the cross-platform import discipline. Your outcome is a script that proves `import dodaios` is clean on Linux/macOS and that no module-scope Windows-only import can ever regress in.
 </role>
 
 <outcome>
 DONE means:
 - `scripts/ci/check_import_clean.py` exists and is referenced by `ci.yml`.
-- It runs `python -c "import jarvis"` (asserting exit 0) AND AST-walks every `.py` under `jarvis/`, failing on a TOP-LEVEL (module-scope, not inside a function/try) import of any of `{win32api, win32pipe, win32file, win32security, winreg, global_hotkeys, pywinauto, winpty, pywintypes}`. Imports inside function bodies and `try/except ImportError` blocks are allowed.
-- Verified: the script exits 0 on the current tree; temporarily adding `import winreg` to the top of `jarvis/__init__.py` makes it exit non-zero (then reverted).
+- It runs `python -c "import dodaios"` (asserting exit 0) AND AST-walks every `.py` under `dodaios/`, failing on a TOP-LEVEL (module-scope, not inside a function/try) import of any of `{win32api, win32pipe, win32file, win32security, winreg, global_hotkeys, pywinauto, winpty, pywintypes}`. Imports inside function bodies and `try/except ImportError` blocks are allowed.
+- Verified: the script exits 0 on the current tree; temporarily adding `import winreg` to the top of `dodaios/__init__.py` makes it exit non-zero (then reverted).
 </outcome>
 
 <required-reading>
@@ -374,7 +374,7 @@ Call `sys.stdout.reconfigure(encoding='utf-8')` at the top (Windows cp1252 defau
 </scope>
 
 <primary-path>
-1. Implement the `import jarvis` subprocess check (assert returncode 0, print stderr on failure).
+1. Implement the `import dodaios` subprocess check (assert returncode 0, print stderr on failure).
 2. Implement the AST walker: for each `.py`, parse, and for each `ast.Import`/`ast.ImportFrom` whose `col_offset == 0` AND not nested under a `FunctionDef`/`Try`, check the forbidden name set.
 3. Run it on the current tree; then do the add-`import winreg`-and-revert verification.
 </primary-path>
@@ -630,7 +630,7 @@ You are a read-only phase auditor for Wave 0. Your outcome is a PASS/FAIL verdic
 
 <outcome>
 DONE means a verdict report stating, with command evidence, whether ALL of these hold:
-- The shared `jarvis/platform/` module exists (detector + Capabilities + probes), cache identity holds, and is import-clean.
+- The shared `dodaios/platform/` module exists (detector + Capabilities + probes), cache identity holds, and is import-clean.
 - `.github/workflows/ci.yml` defines the 3-OS matrix and the `ci` workflow is green on all three legs (EK-1).
 - The import-cleanliness gate and the min-passed floor both run in CI and pass.
 - The Orb-framework verdict (`ADR-orb-framework.md`) exists and the stale conftest references are cleaned (PC-6).
@@ -665,8 +665,8 @@ Modify: NOTHING. Verification only.
 </fallback-paths>
 
 <acceptance>
-python -c "from jarvis.platform import detect_platform; print(detect_platform())"
-python -c "from jarvis.platform.capabilities import detect_capabilities as d; print(d() is d())"
+python -c "from dodaios.platform import detect_platform; print(detect_platform())"
+python -c "from dodaios.platform.capabilities import detect_capabilities as d; print(d() is d())"
 python scripts/ci/check_import_clean.py
 python -c "import yaml; d=yaml.safe_load(open('.github/workflows/ci.yml')); assert d['jobs']['test']['strategy']['matrix']['os']==['ubuntu-latest','macos-latest','windows-latest']; print('matrix ok')"
 test -f docs/plans/cross-platform-mac-linux/ADR-orb-framework.md && echo "adr ok"
@@ -737,7 +737,7 @@ Modify: only merge commits + conflict resolutions. No new features.
 <acceptance>
 python scripts/ci/check_import_clean.py
 pytest -m "not skip_ci" --junitxml=report.xml -q; python scripts/ci/assert_min_passed.py report.xml
-ruff check jarvis/ && ruff format --check jarvis/ && mypy jarvis/platform/
+ruff check dodaios/ && ruff format --check dodaios/ && mypy dodaios/platform/
 git log --oneline --merges -3
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
 </acceptance>
@@ -845,8 +845,8 @@ You port the built-in terminal to Unix via a `PtyBackend` seam, with `ptyprocess
 
 <outcome>
 DONE means:
-- `jarvis/terminal/backend.py` defines a `PtyBackend` Protocol (the 5 methods the read-loop uses, normalized: `spawn(argv,cwd,cols,rows)->PtyHandle`; handle `write(str)->None`, `setwinsize(rows,cols)->None`, `read(size)->str`, `isalive()->bool`, `terminate(force:bool)->None`, `exitstatus->int|None`, `pid->int`) + `WinptyBackend` (thin wrapper preserving the exact `RuntimeError("pywinpty nicht installiert …")` degrade at `pty_manager.py:72-75`) + `UnixPtyBackend` (ptyprocess) + `make_pty_backend()` factory.
-- `jarvis/terminal/pty_manager.py` routes through the seam: the inline `from winpty import PtyProcess` (`:71`) and the five direct `proc.*` calls (`:127`,`:138`,`:173`,`:193`,`:206`,`:225`) go through `PtyBackend`. The daemon-thread read-loop (`_reader_loop` `:179-239`) stays structurally identical (AD-9: NO async rewrite).
+- `dodaios/terminal/backend.py` defines a `PtyBackend` Protocol (the 5 methods the read-loop uses, normalized: `spawn(argv,cwd,cols,rows)->PtyHandle`; handle `write(str)->None`, `setwinsize(rows,cols)->None`, `read(size)->str`, `isalive()->bool`, `terminate(force:bool)->None`, `exitstatus->int|None`, `pid->int`) + `WinptyBackend` (thin wrapper preserving the exact `RuntimeError("pywinpty nicht installiert …")` degrade at `pty_manager.py:72-75`) + `UnixPtyBackend` (ptyprocess) + `make_pty_backend()` factory.
+- `dodaios/terminal/pty_manager.py` routes through the seam: the inline `from winpty import PtyProcess` (`:71`) and the five direct `proc.*` calls (`:127`,`:138`,`:173`,`:193`,`:206`,`:225`) go through `PtyBackend`. The daemon-thread read-loop (`_reader_loop` `:179-239`) stays structurally identical (AD-9: NO async rewrite).
 - `UnixPtyBackend.read` decodes bytes→str (utf-8/replace); `write` encodes str→bytes; `spawn` honors `dimensions=(rows, cols)`.
 - `make_pty_backend()` returns `UnixPtyBackend` on POSIX, `WinptyBackend` on Windows, and a null backend (whose `spawn` raises a clear English RuntimeError the manager surfaces as a typed error) when `not capabilities.has_pty`.
 - `tests/unit/terminal/test_unix_pty.py` spawns a real `bash -c "echo hi"` via ptyprocess and asserts the round-trip + `exitstatus == 0`.
@@ -857,19 +857,19 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-9 (ptyprocess 1:1, no async rewrite) + AD-6 (graceful null) + AD-7 (Windows untouched).
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-1 (never rewrite the Windows impl; add a sibling behind the seam), HN-4 (no factory branch raises; degrade), HN-7 (no module-scope Windows import).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-1 (str↔bytes mismatch at the PtyBackend seam — read the full counter-pattern) + AP-12 (ship a fake, no unittest.mock).
-- Read `jarvis/terminal/pty_manager.py` around the cited lines to see the existing `isinstance(data, bytes)` defensive branch at `:210-214`.
+- Read `dodaios/terminal/pty_manager.py` around the cited lines to see the existing `isinstance(data, bytes)` defensive branch at `:210-214`.
 </required-reading>
 
 <environment-setup>
 1. `pwsh scripts/preflight.ps1`
 2. `git worktree add -b crossplat/w1-terminal-pty ../sub-agents-outputs/crossplat-w1-terminal feat/crossplatform-port`
 3. Ensure 1.5's `[desktop]` extras are present (rebase if 1.5 landed separately); `pip install -e ".[dev,desktop]" --no-deps` (or `.[dev]` + ensure `ptyprocess` importable on POSIX).
-4. `python -c "import jarvis; print(jarvis.__file__)"`
+4. `python -c "import dodaios; print(dodaios.__file__)"`
 </environment-setup>
 
 <scope>
-Create: `jarvis/terminal/backend.py`, `tests/fakes/fake_pty_backend.py`, `tests/unit/terminal/test_unix_pty.py`.
-Modify: `jarvis/terminal/pty_manager.py` (route through the seam; keep the read-loop structure). Do NOT touch the Windows winpty behavior beyond relocating its import into `WinptyBackend`.
+Create: `dodaios/terminal/backend.py`, `tests/fakes/fake_pty_backend.py`, `tests/unit/terminal/test_unix_pty.py`.
+Modify: `dodaios/terminal/pty_manager.py` (route through the seam; keep the read-loop structure). Do NOT touch the Windows winpty behavior beyond relocating its import into `WinptyBackend`.
 </scope>
 
 <primary-path>
@@ -889,9 +889,9 @@ Modify: `jarvis/terminal/pty_manager.py` (route through the seam; keep the read-
 <acceptance>
 pytest tests/unit/terminal/test_unix_pty.py -v
 pytest tests/unit/terminal/ -v
-python -c "from jarvis.terminal.backend import make_pty_backend; print(type(make_pty_backend()).__name__)"
-python -c "import ast; m=ast.parse(open('jarvis/terminal/pty_manager.py').read()); assert not any(getattr(n,'module',None)=='winpty' for n in ast.walk(m) if isinstance(n,ast.ImportFrom) and getattr(n,'col_offset',1)==0)"
-ruff check jarvis/terminal/ && mypy jarvis/terminal/
+python -c "from dodaios.terminal.backend import make_pty_backend; print(type(make_pty_backend()).__name__)"
+python -c "import ast; m=ast.parse(open('dodaios/terminal/pty_manager.py').read()); assert not any(getattr(n,'module',None)=='winpty' for n in ast.walk(m) if isinstance(n,ast.ImportFrom) and getattr(n,'col_offset',1)==0)"
+ruff check dodaios/terminal/ && mypy dodaios/terminal/
 </acceptance>
 
 <hard-rules>
@@ -924,7 +924,7 @@ You add Unix shell discovery to the terminal so the Unix PTY backend has shells 
 
 <outcome>
 DONE means:
-- `jarvis/terminal/shells.py` gains `_unix_shells() -> list[ShellInfo]` returning POSIX shells in order: (1) `$SHELL` if set and on disk (label from basename); (2) parsed `/etc/shells` paths; (3) `shutil.which("bash"/"zsh"/"fish")` fallback. Deduped by resolved path. Each `ShellInfo.argv == (path, "-i")` (interactive, never unconditional `-l`).
+- `dodaios/terminal/shells.py` gains `_unix_shells() -> list[ShellInfo]` returning POSIX shells in order: (1) `$SHELL` if set and on disk (label from basename); (2) parsed `/etc/shells` paths; (3) `shutil.which("bash"/"zsh"/"fish")` fallback. Deduped by resolved path. Each `ShellInfo.argv == (path, "-i")` (interactive, never unconditional `-l`).
 - `discover_shells()` (`:71-78`) dispatches on `detect_platform()`: `win32` → the four unchanged Windows factories (`_powershell_7` `:23`, `_windows_powershell` `:35`, `_cmd` `:48`, `_git_bash` `:55`); else → `_unix_shells()`.
 - `get_shell(shell_id)` (`:81`) works unchanged.
 - `tests/unit/terminal/test_unix_shells.py` green; the file introduces no module-scope Windows-only import.
@@ -934,7 +934,7 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/WELLE-1-easy-ports.md` §1.2.
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-9 + AD-7 (Windows factories untouched).
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-1 (add a sibling, never rewrite the Windows impl), HN-3 (read platform from the capability/detect module, not inline drift), HN-7 (no module-scope Windows import).
-- Read `jarvis/terminal/shells.py` to see `ShellInfo` and the four Windows factories.
+- Read `dodaios/terminal/shells.py` to see `ShellInfo` and the four Windows factories.
 </required-reading>
 
 <environment-setup>
@@ -944,7 +944,7 @@ DONE means:
 </environment-setup>
 
 <scope>
-Modify: `jarvis/terminal/shells.py` (add `_unix_shells()` + the dispatch). Create: `tests/unit/terminal/test_unix_shells.py`. Leave the four Windows factories untouched.
+Modify: `dodaios/terminal/shells.py` (add `_unix_shells()` + the dispatch). Create: `tests/unit/terminal/test_unix_shells.py`. Leave the four Windows factories untouched.
 </scope>
 
 <primary-path>
@@ -961,9 +961,9 @@ Modify: `jarvis/terminal/shells.py` (add `_unix_shells()` + the dispatch). Creat
 
 <acceptance>
 pytest tests/unit/terminal/test_unix_shells.py -v
-python -c "from jarvis.terminal.shells import discover_shells; print([s.id for s in discover_shells()])"
-python -c "import ast; m=ast.parse(open('jarvis/terminal/shells.py').read()); assert all(getattr(n,'module',None)!='winreg' for n in ast.walk(m))"
-ruff check jarvis/terminal/ && mypy jarvis/terminal/
+python -c "from dodaios.terminal.shells import discover_shells; print([s.id for s in discover_shells()])"
+python -c "import ast; m=ast.parse(open('dodaios/terminal/shells.py').read()); assert all(getattr(n,'module',None)!='winreg' for n in ast.walk(m))"
+ruff check dodaios/terminal/ && mypy dodaios/terminal/
 </acceptance>
 
 <hard-rules>
@@ -995,28 +995,28 @@ You port app-launch-by-name to macOS (`open -a`) and Linux (`xdg-open`/direct ex
 
 <outcome>
 DONE means:
-- `jarvis/plugins/tool/app_resolver.py`: `resolve_app_launch_target` (`:88`) branches on `detect_platform()` — macOS prefers `LaunchTarget("open_a", canonical)` (fallback `shutil.which`); Linux prefers `shutil.which(canonical)` for direct exec else `LaunchTarget("xdg_open", canonical)`. The URL/path escape hatch (`:96-99`) + Spotify protocol case (`:102`) are kept; `winreg` stays lazy-guarded (`:24-27`). The `LaunchKind` Literal (`:30`) gains `"open_a"` and `"xdg_open"`. `_EXE_ALIASES` (`:54`) becomes platform-conditional.
-- `jarvis/plugins/tool/open_app.py`: `KNOWN_APPS` (`:23`) selected by `detect_platform()` — keep Windows set as `_KNOWN_APPS_WIN`; add `_KNOWN_APPS_DARWIN` (safari, terminal, finder, calculator, firefox, chrome, vscode, slack, …) and `_KNOWN_APPS_LINUX` (firefox, nautilus, gnome-terminal, gnome-calculator, code, chromium, …) per AD-15. `_is_plausible_app_name` (`:68`), `_APP_NAME_RE`/`_HALLUCINATION_RE` (`:52`/`:58`), and the PATH/URL/path escape hatches (`:81-89`) are reused verbatim. `OpenAppTool.execute` (`:116`) branches launch on `LaunchKind`: `open_a`→`Popen(["open","-a",value,*args])`, `xdg_open`→`Popen(["xdg-open",value])`, `executable`→`Popen([value,*args])`, `startfile`→Windows-only (`:153`). Every `Popen` keeps `shell=False`.
+- `dodaios/plugins/tool/app_resolver.py`: `resolve_app_launch_target` (`:88`) branches on `detect_platform()` — macOS prefers `LaunchTarget("open_a", canonical)` (fallback `shutil.which`); Linux prefers `shutil.which(canonical)` for direct exec else `LaunchTarget("xdg_open", canonical)`. The URL/path escape hatch (`:96-99`) + Spotify protocol case (`:102`) are kept; `winreg` stays lazy-guarded (`:24-27`). The `LaunchKind` Literal (`:30`) gains `"open_a"` and `"xdg_open"`. `_EXE_ALIASES` (`:54`) becomes platform-conditional.
+- `dodaios/plugins/tool/open_app.py`: `KNOWN_APPS` (`:23`) selected by `detect_platform()` — keep Windows set as `_KNOWN_APPS_WIN`; add `_KNOWN_APPS_DARWIN` (safari, terminal, finder, calculator, firefox, chrome, vscode, slack, …) and `_KNOWN_APPS_LINUX` (firefox, nautilus, gnome-terminal, gnome-calculator, code, chromium, …) per AD-15. `_is_plausible_app_name` (`:68`), `_APP_NAME_RE`/`_HALLUCINATION_RE` (`:52`/`:58`), and the PATH/URL/path escape hatches (`:81-89`) are reused verbatim. `OpenAppTool.execute` (`:116`) branches launch on `LaunchKind`: `open_a`→`Popen(["open","-a",value,*args])`, `xdg_open`→`Popen(["xdg-open",value])`, `executable`→`Popen([value,*args])`, `startfile`→Windows-only (`:153`). Every `Popen` keeps `shell=False`.
 - `tests/unit/plugins/tool/test_app_resolver_unix.py` green.
 </outcome>
 
 <required-reading>
 - `docs/plans/cross-platform-mac-linux/WELLE-1-easy-ports.md` §1.3 (the full branch spec + line refs).
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-15 (platform-conditional KNOWN_APPS) + AD-6 (graceful) + AD-7 (Windows untouched).
-- `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-3 (read platform from the shared module), HN-4 (no branch raises), HN-7 (no module-scope Windows import), HN-18 ("Every new subprocess on ANY OS passes creationflags/equivalent from jarvis/core/process_utils.py").
+- `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-3 (read platform from the shared module), HN-4 (no branch raises), HN-7 (no module-scope Windows import), HN-18 ("Every new subprocess on ANY OS passes creationflags/equivalent from dodaios/core/process_utils.py").
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-11 (don't re-detect sys.platform per call-site) + AP-12 (ship a fake).
-- CLAUDE.md AP-1 — `NO_WINDOW_CREATIONFLAGS` from `jarvis/core/process_utils.py` on every subprocess.
+- CLAUDE.md AP-1 — `NO_WINDOW_CREATIONFLAGS` from `dodaios/core/process_utils.py` on every subprocess.
 </required-reading>
 
 <environment-setup>
 1. `pwsh scripts/preflight.ps1`
 2. `git worktree add -b crossplat/w1-app-launch ../sub-agents-outputs/crossplat-w1-applaunch feat/crossplatform-port`
 3. `pip install -e ".[dev]"`
-4. `python -c "import jarvis; print(jarvis.__file__)"`
+4. `python -c "import dodaios; print(dodaios.__file__)"`
 </environment-setup>
 
 <scope>
-Modify: `jarvis/plugins/tool/app_resolver.py`, `jarvis/plugins/tool/open_app.py`. Create: `tests/unit/plugins/tool/test_app_resolver_unix.py`.
+Modify: `dodaios/plugins/tool/app_resolver.py`, `dodaios/plugins/tool/open_app.py`. Create: `tests/unit/plugins/tool/test_app_resolver_unix.py`.
 This worktree owns no shared file with A or C. Do NOT edit `pyproject.toml` (that is 1.5).
 </scope>
 
@@ -1036,10 +1036,10 @@ This worktree owns no shared file with A or C. Do NOT edit `pyproject.toml` (tha
 
 <acceptance>
 pytest tests/unit/plugins/tool/test_app_resolver_unix.py -v
-python -c "from jarvis.plugins.tool.open_app import KNOWN_APPS; assert 'safari' in KNOWN_APPS or 'firefox' in KNOWN_APPS"
+python -c "from dodaios.plugins.tool.open_app import KNOWN_APPS; assert 'safari' in KNOWN_APPS or 'firefox' in KNOWN_APPS"
 pytest tests/unit/plugins/tool/ -k app -v
-python -c "import ast; src=open('jarvis/plugins/tool/open_app.py').read(); assert 'shell=True' not in src"
-ruff check jarvis/plugins/tool/ && mypy jarvis/plugins/tool/app_resolver.py
+python -c "import ast; src=open('dodaios/plugins/tool/open_app.py').read(); assert 'shell=True' not in src"
+ruff check dodaios/plugins/tool/ && mypy dodaios/plugins/tool/app_resolver.py
 </acceptance>
 
 <hard-rules>
@@ -1073,12 +1073,12 @@ You port the global hotkey to a dual-backend seam: Windows keeps `global-hotkeys
 
 <outcome>
 DONE means:
-- `jarvis/trigger/backends/__init__.py` defines `HotkeyBackend` Protocol (`register(bindings,on_event)`, `unregister()`, `start()`, `stop()`, `received_any_event()->bool`) + `make_hotkey_backend()` factory.
-- `jarvis/trigger/backends/global_hotkeys.py` holds the RELOCATED-VERBATIM Windows logic: `_KEY_MAP` (`hotkey.py:50`), `_normalize_combo` (`:104`), the module-level `_CHECKER_LOCK`/`_CHECKER_REFCOUNT` guard (`:69-101`), the idempotent pre-remove→register sequence (`:278-301`). These carry the BUG fixes — relocate, do not refactor (AD-7).
-- `jarvis/trigger/backends/pynput.py` maps jarvis combo syntax (`ctrl+right_alt+j`) to pynput (`<ctrl>+<alt>+j`), keeps a tiny refcount, and on macOS flags "registered but zero events" via `received_any_event()` (AD-8 Input-Monitoring guidance).
-- `jarvis/trigger/backends/noop.py` is returned when `not capabilities.has_hotkey` (true on Wayland); logs ONCE the English "global hotkey unavailable on Wayland by OS design; lean on the wake word" message then no-ops.
+- `dodaios/trigger/backends/__init__.py` defines `HotkeyBackend` Protocol (`register(bindings,on_event)`, `unregister()`, `start()`, `stop()`, `received_any_event()->bool`) + `make_hotkey_backend()` factory.
+- `dodaios/trigger/backends/global_hotkeys.py` holds the RELOCATED-VERBATIM Windows logic: `_KEY_MAP` (`hotkey.py:50`), `_normalize_combo` (`:104`), the module-level `_CHECKER_LOCK`/`_CHECKER_REFCOUNT` guard (`:69-101`), the idempotent pre-remove→register sequence (`:278-301`). These carry the BUG fixes — relocate, do not refactor (AD-7).
+- `dodaios/trigger/backends/pynput.py` maps jarvis combo syntax (`ctrl+right_alt+j`) to pynput (`<ctrl>+<alt>+j`), keeps a tiny refcount, and on macOS flags "registered but zero events" via `received_any_event()` (AD-8 Input-Monitoring guidance).
+- `dodaios/trigger/backends/noop.py` is returned when `not capabilities.has_hotkey` (true on Wayland); logs ONCE the English "global hotkey unavailable on Wayland by OS design; lean on the wake word" message then no-ops.
 - `make_hotkey_backend()`: win32→GlobalHotkeysBackend; else if `capabilities.has_hotkey`→PynputBackend; else→NoopBackend.
-- `jarvis/trigger/hotkey.py`: `HotkeyTrigger.__aenter__` (`:238`) calls the factory; its try/except degrade-to-None semantics + the "voice still works via wake word" message (`:243-248`) + `validate_hotkey` (`:121`) + the PTT press/release edges (`:256-267`) stay intact.
+- `dodaios/trigger/hotkey.py`: `HotkeyTrigger.__aenter__` (`:238`) calls the factory; its try/except degrade-to-None semantics + the "voice still works via wake word" message (`:243-248`) + `validate_hotkey` (`:121`) + the PTT press/release edges (`:256-267`) stay intact.
 - The existing 48-case `tests/unit/trigger/test_hotkey.py` stays green; `tests/unit/trigger/test_hotkey_backends.py` green.
 </outcome>
 
@@ -1087,19 +1087,19 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-8 (dual backend + Wayland no-op + macOS zero-events detection) + AD-7 (Windows untouched) + AD-6.
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-1 (relocate, never refactor the Windows impl), HN-2 (don't weaken the 48-case regression guard), HN-4 (no branch raises; degrade), HN-7 (no module-scope `global_hotkeys` import).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-4 (Wayland hotkey silently dead — read the full counter-pattern) + AP-12 (ship a fake, no unittest.mock).
-- Read `jarvis/trigger/hotkey.py` around the cited lines (the refcount guard + the degrade contract).
+- Read `dodaios/trigger/hotkey.py` around the cited lines (the refcount guard + the degrade contract).
 </required-reading>
 
 <environment-setup>
 1. `pwsh scripts/preflight.ps1`
 2. `git worktree add -b crossplat/w1-hotkey ../sub-agents-outputs/crossplat-w1-hotkey feat/crossplatform-port`
 3. Ensure 1.5's `[desktop]` (pynput) is present (rebase if landed separately); `pip install -e ".[dev,desktop]" --no-deps`.
-4. `python -c "import jarvis; print(jarvis.__file__)"`
+4. `python -c "import dodaios; print(dodaios.__file__)"`
 </environment-setup>
 
 <scope>
-Create: `jarvis/trigger/backends/__init__.py`, `jarvis/trigger/backends/global_hotkeys.py`, `jarvis/trigger/backends/pynput.py`, `jarvis/trigger/backends/noop.py`, `tests/fakes/fake_hotkey_backend.py`, `tests/unit/trigger/test_hotkey_backends.py`.
-Modify: `jarvis/trigger/hotkey.py` (route through the factory; keep degrade contract + PTT edges + validate_hotkey).
+Create: `dodaios/trigger/backends/__init__.py`, `dodaios/trigger/backends/global_hotkeys.py`, `dodaios/trigger/backends/pynput.py`, `dodaios/trigger/backends/noop.py`, `tests/fakes/fake_hotkey_backend.py`, `tests/unit/trigger/test_hotkey_backends.py`.
+Modify: `dodaios/trigger/hotkey.py` (route through the factory; keep degrade contract + PTT edges + validate_hotkey).
 </scope>
 
 <primary-path>
@@ -1119,9 +1119,9 @@ Modify: `jarvis/trigger/hotkey.py` (route through the factory; keep degrade cont
 <acceptance>
 pytest tests/unit/trigger/test_hotkey_backends.py -v
 pytest tests/unit/trigger/test_hotkey.py -v
-python -c "from jarvis.trigger.backends import make_hotkey_backend; print(type(make_hotkey_backend()).__name__)"
-python -c "import ast; m=ast.parse(open('jarvis/trigger/hotkey.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='global_hotkeys' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
-ruff check jarvis/trigger/ && mypy jarvis/trigger/
+python -c "from dodaios.trigger.backends import make_hotkey_backend; print(type(make_hotkey_backend()).__name__)"
+python -c "import ast; m=ast.parse(open('dodaios/trigger/hotkey.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='global_hotkeys' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
+ruff check dodaios/trigger/ && mypy dodaios/trigger/
 </acceptance>
 
 <hard-rules>
@@ -1190,12 +1190,12 @@ Modify: NOTHING. Also `grep` for `unittest.mock` in the new test files and for a
 </fallback-paths>
 
 <acceptance>
-python -c "from jarvis.terminal.backend import make_pty_backend; print(type(make_pty_backend()).__name__)"
+python -c "from dodaios.terminal.backend import make_pty_backend; print(type(make_pty_backend()).__name__)"
 pytest tests/unit/terminal/ -v
 pytest tests/unit/plugins/tool/ -k app -v
 pytest tests/unit/trigger/test_hotkey.py tests/unit/trigger/test_hotkey_backends.py -v
 grep -rn "unittest.mock" tests/fakes/fake_pty_backend.py tests/fakes/fake_hotkey_backend.py || echo "no unittest.mock in new fakes"
-grep -n "shell=True" jarvis/plugins/tool/open_app.py || echo "no shell=True"
+grep -n "shell=True" dodaios/plugins/tool/open_app.py || echo "no shell=True"
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
 </acceptance>
 
@@ -1263,7 +1263,7 @@ Branches in order: `crossplat/w1-deps`, then `crossplat/w1-terminal-pty`, `cross
 python scripts/ci/check_import_clean.py
 pytest -m "not skip_ci" --junitxml=report.xml -q; python scripts/ci/assert_min_passed.py report.xml
 pytest tests/unit/terminal/ tests/unit/trigger/test_hotkey.py tests/unit/plugins/tool/ -k "app or hotkey or pty or shell" -q
-ruff check jarvis/ && mypy jarvis/terminal/ jarvis/trigger/ jarvis/plugins/tool/app_resolver.py
+ruff check dodaios/ && mypy dodaios/terminal/ dodaios/trigger/ dodaios/plugins/tool/app_resolver.py
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
 </acceptance>
 
@@ -1301,7 +1301,7 @@ You build the native-role → canonical-UIA-role normalization table that keeps 
 
 <outcome>
 DONE means:
-- `jarvis/vision/role_map.py` defines the macOS AX table, the Linux AT-SPI table, and `normalize_role(native_role, platform) -> str`.
+- `dodaios/vision/role_map.py` defines the macOS AX table, the Linux AT-SPI table, and `normalize_role(native_role, platform) -> str`.
 - Every output role is a member of the canonical set: `_CLICKABLE_UIA_ROLES` (`screenshot_only_loop.py:1072`) ∪ `DEFAULT_INTERESTING_ROLES` (`pruning.py:51`): {Button, MenuItem, ListItem, TabItem, CheckBox, RadioButton, Hyperlink, Edit, ComboBox, TreeItem, SplitButton, Text}.
 - Representative mappings hold: `AXButton`→Button, `AXTextField`/`AXTextArea`→Edit, `AXPopUpButton`/`AXComboBox`→ComboBox, `AXMenuItem`→MenuItem, `AXLink`→Hyperlink, `AXStaticText`→Text, `AXRow`/`AXCell`→ListItem, `AXOutlineRow`→TreeItem; `ROLE_PUSH_BUTTON`→Button, `ROLE_TEXT`/`ROLE_ENTRY`→Edit, `ROLE_COMBO_BOX`→ComboBox, `ROLE_MENU_ITEM`→MenuItem, `ROLE_LINK`→Hyperlink, `ROLE_LABEL`→Text, `ROLE_PAGE_TAB`→TabItem, `ROLE_LIST_ITEM`/`ROLE_TABLE_CELL`→ListItem, `ROLE_TREE_ITEM`→TreeItem. Unknown roles map to `Text` (visible, not pixel-guessed) or are droppable by `filter_by_role`.
 - `tests/unit/vision/test_role_map.py` green with a parity assertion that EVERY produced role is in the canonical set.
@@ -1313,7 +1313,7 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-3 (single source of truth, no drift) and HN-7 (no module-scope OS import — pyobjc/pyatspi constants are NOT imported here; use plain strings).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-8 (role-vocabulary drift = the BUG-008 multi-layer-enum-drift class — read the full counter-pattern; note the live source of the role set is `screenshot_only_loop.py:1072`).
 - `docs/anti-drift-three-layer.md` (the five-layer pattern this defends).
-- Read `jarvis/harness/screenshot_only_loop.py:1072` and `jarvis/vision/pruning.py:51` to copy the canonical set EXACTLY.
+- Read `dodaios/harness/screenshot_only_loop.py:1072` and `dodaios/vision/pruning.py:51` to copy the canonical set EXACTLY.
 </required-reading>
 
 <environment-setup>
@@ -1323,7 +1323,7 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/vision/role_map.py`, `tests/unit/vision/test_role_map.py`.
+Create: `dodaios/vision/role_map.py`, `tests/unit/vision/test_role_map.py`.
 Do NOT edit `pruning.py`/`screenshot_only_loop.py` role sets — they are the canonical source (read-only here). This worktree (D) continues into 2.1/2.2/2.4.
 </scope>
 
@@ -1341,8 +1341,8 @@ Do NOT edit `pruning.py`/`screenshot_only_loop.py` role sets — they are the ca
 
 <acceptance>
 pytest tests/unit/vision/test_role_map.py -v
-python -c "from jarvis.vision.role_map import normalize_role; assert normalize_role('AXButton','darwin')=='Button' and normalize_role('ROLE_PUSH_BUTTON','linux')=='Button'"
-ruff check jarvis/vision/role_map.py && mypy jarvis/vision/role_map.py
+python -c "from dodaios.vision.role_map import normalize_role; assert normalize_role('AXButton','darwin')=='Button' and normalize_role('ROLE_PUSH_BUTTON','linux')=='Button'"
+ruff check dodaios/vision/role_map.py && mypy dodaios/vision/role_map.py
 </acceptance>
 
 <hard-rules>
@@ -1374,7 +1374,7 @@ You add the macOS AX-tree `VisionSource` (`pyobjc` AXUIElement) so UI-element-cl
 
 <outcome>
 DONE means:
-- `jarvis/vision/ax_tree.py` defines `AXTreeSource` satisfying `VisionSource` (`protocols.py:419`): `name="ax-tree"`, `kind="ui_tree"`, `async def observe(...) -> Observation`, `async def close()`. It returns `Observation` (`protocols.py:402`) carrying a tuple of `UIANode` (`protocols.py:394`) with the same fields (role, name, automation_id, bounds, enabled, parent_index) as the Windows `UIATreeSource` (`uia_tree.py:45`).
+- `dodaios/vision/ax_tree.py` defines `AXTreeSource` satisfying `VisionSource` (`protocols.py:419`): `name="ax-tree"`, `kind="ui_tree"`, `async def observe(...) -> Observation`, `async def close()`. It returns `Observation` (`protocols.py:402`) carrying a tuple of `UIANode` (`protocols.py:394`) with the same fields (role, name, automation_id, bounds, enabled, parent_index) as the Windows `UIATreeSource` (`uia_tree.py:45`).
 - pyobjc frameworks (`Quartz`/`ApplicationServices`/`HIServices`) are lazy-imported INSIDE `observe`, never at module scope. Frontmost app via `NSWorkspace.frontmostApplication().processIdentifier()`; walk via `AXUIElementCopyAttributeValue` (kAXRole/kAXTitle/kAXValue/kAXPosition/kAXSize/kAXEnabled/kAXChildren).
 - Roles run through `normalize_role(..., "darwin")` (2.3) while flattening; reuse the existing `_DEPTH_RETRY_LADDER (6,5,4)` (`uia_tree.py:42`) + `prune_tree` (`pruning.py`). AX `{x,y}`+`{w,h}` → `(x,y,w,h)` bounds.
 - Permission gate (AD-13): before walking, check `AXIsProcessTrusted()`. If False, log the English onboarding message ("macOS Accessibility permission not granted — grant it in System Settings › Privacy & Security › Accessibility … falling back to pixel clicks") and return an `Observation` with empty `nodes` + `source="screenshot_only"`. Never raise.
@@ -1386,7 +1386,7 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-10 + AD-13 (detect-and-degrade) + AD-3 (live sign-off deferred to Wave 4).
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-4 (never raise; degrade), HN-5 ("Never silently return an empty result to hide a fixable misconfiguration … probe → if missing, log an onboarding message AND fall back"), HN-6 (no "works" claim without live sign-off), HN-7 (no module-scope pyobjc).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-2 (empty AX tree hides ungranted permission — read the full counter-pattern), AP-9 (no real display in CI), AP-12 (ship a fake), AP-13 (no convenience module-scope import).
-- Read `jarvis/vision/uia_tree.py:42-45`, `protocols.py:394/402/419`, and the empty-tree contract at `jarvis/harness/screenshot_only_loop.py:1078-1095`.
+- Read `dodaios/vision/uia_tree.py:42-45`, `protocols.py:394/402/419`, and the empty-tree contract at `dodaios/harness/screenshot_only_loop.py:1078-1095`.
 </required-reading>
 
 <environment-setup>
@@ -1396,7 +1396,7 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/vision/ax_tree.py`, `tests/fakes/fake_ax_api.py`, `tests/unit/vision/test_ax_tree.py`.
+Create: `dodaios/vision/ax_tree.py`, `tests/fakes/fake_ax_api.py`, `tests/unit/vision/test_ax_tree.py`.
 Depends on 2.3's `role_map.py`. Do NOT edit `uia_tree.py` (Windows, untouched — AD-7).
 </scope>
 
@@ -1415,9 +1415,9 @@ Depends on 2.3's `role_map.py`. Do NOT edit `uia_tree.py` (Windows, untouched �
 
 <acceptance>
 pytest tests/unit/vision/test_ax_tree.py -v
-python -c "from jarvis.vision.ax_tree import AXTreeSource; from jarvis.core.protocols import VisionSource; assert isinstance(AXTreeSource(), VisionSource)"
-python -c "import ast; m=ast.parse(open('jarvis/vision/ax_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('Quartz','HIServices','ApplicationServices') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
-ruff check jarvis/vision/ax_tree.py && mypy jarvis/vision/ax_tree.py
+python -c "from dodaios.vision.ax_tree import AXTreeSource; from dodaios.core.protocols import VisionSource; assert isinstance(AXTreeSource(), VisionSource)"
+python -c "import ast; m=ast.parse(open('dodaios/vision/ax_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('Quartz','HIServices','ApplicationServices') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
+ruff check dodaios/vision/ax_tree.py && mypy dodaios/vision/ax_tree.py
 </acceptance>
 
 <hard-rules>
@@ -1451,7 +1451,7 @@ You add the Linux AT-SPI `VisionSource` (`pyatspi`) so UI-element-click works on
 
 <outcome>
 DONE means:
-- `jarvis/vision/atspi_tree.py` defines `AtspiTreeSource` satisfying `VisionSource` (`name="atspi-tree"`, `kind="ui_tree"`), producing the same `Observation`/`UIANode` layout as 2.1, with roles normalized via `normalize_role(..., "linux")` (2.3) + reused `prune_tree`/`_DEPTH_RETRY_LADDER`.
+- `dodaios/vision/atspi_tree.py` defines `AtspiTreeSource` satisfying `VisionSource` (`name="atspi-tree"`, `kind="ui_tree"`), producing the same `Observation`/`UIANode` layout as 2.1, with roles normalized via `normalize_role(..., "linux")` (2.3) + reused `prune_tree`/`_DEPTH_RETRY_LADDER`.
 - `pyatspi` is lazy-imported inside `observe` (AD-14: not on PyPI, distro-packaged `apt install python3-pyatspi gir1.2-atspi-2.0`); its absence is a logged degrade, not a crash.
 - Walk: `pyatspi.Registry.getDesktop(0)` → active/focused app → `Accessible` children → `getRole()`/`name`/`getState()` (enabled) + `Component.getExtents(pyatspi.DESKTOP_COORDS)` for bounds; flatten to `UIANode` with `parent_index`.
 - AT-SPI bus gate (AD-13): probe `capabilities.has_ax_tree` + a cheap `getDesktop(0)` reachability check; on failure log "Linux AT-SPI accessibility bus unavailable — install python3-pyatspi + gir1.2-atspi-2.0 and ensure the AT-SPI bus is running; falling back to pixel clicks" and return empty `nodes`. Never raise.
@@ -1472,7 +1472,7 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/vision/atspi_tree.py`, `tests/fakes/fake_atspi.py`, `tests/unit/vision/test_atspi_tree.py`.
+Create: `dodaios/vision/atspi_tree.py`, `tests/fakes/fake_atspi.py`, `tests/unit/vision/test_atspi_tree.py`.
 Depends on 2.3's `role_map.py`. Do NOT add pyatspi to `pyproject.toml` (HN-9). Do NOT edit `uia_tree.py`.
 </scope>
 
@@ -1491,10 +1491,10 @@ Depends on 2.3's `role_map.py`. Do NOT add pyatspi to `pyproject.toml` (HN-9). D
 
 <acceptance>
 pytest tests/unit/vision/test_atspi_tree.py -v
-python -c "from jarvis.vision.atspi_tree import AtspiTreeSource; from jarvis.core.protocols import VisionSource; assert isinstance(AtspiTreeSource(), VisionSource)"
-python -c "import ast; m=ast.parse(open('jarvis/vision/atspi_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='pyatspi' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
+python -c "from dodaios.vision.atspi_tree import AtspiTreeSource; from dodaios.core.protocols import VisionSource; assert isinstance(AtspiTreeSource(), VisionSource)"
+python -c "import ast; m=ast.parse(open('dodaios/vision/atspi_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='pyatspi' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
 python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); ext=d['project'].get('optional-dependencies',{}); assert all('pyatspi' not in x for g in ext.values() for x in g)"
-ruff check jarvis/vision/atspi_tree.py && mypy jarvis/vision/atspi_tree.py
+ruff check dodaios/vision/atspi_tree.py && mypy dodaios/vision/atspi_tree.py
 </acceptance>
 
 <hard-rules>
@@ -1528,11 +1528,11 @@ You build the `tree_factory` and rewire the 6 hardcoded `UIATreeSource()` litera
 
 <outcome>
 DONE means:
-- `jarvis/vision/tree_factory.py` defines `make_ui_tree_source() -> VisionSource` selecting on `detect_platform()` + `capabilities`: win32→`UIATreeSource()` (unchanged, AD-7); darwin→`AXTreeSource()`; linux→`AtspiTreeSource()` if `capabilities.has_ax_tree` else a NULL source whose `observe` returns an empty `Observation(source="screenshot_only", nodes=())` and logs once.
-- The literal `UIATreeSource()` is replaced by `make_ui_tree_source()` at all 6 sites: `click_element.py:125`, `read_visible_ui_state.py:60`, `wait_for_element.py:97`, `wait_for_ui_state.py:78`, `engine.py:71` (the `uia_source or UIATreeSource()` default), `screenshot_only_loop.py:1092` (inside `_foreground_clickable_labels`). The lazy import guard at `click_element.py:117-123` becomes a `from jarvis.vision.tree_factory import make_ui_tree_source` import.
+- `dodaios/vision/tree_factory.py` defines `make_ui_tree_source() -> VisionSource` selecting on `detect_platform()` + `capabilities`: win32→`UIATreeSource()` (unchanged, AD-7); darwin→`AXTreeSource()`; linux→`AtspiTreeSource()` if `capabilities.has_ax_tree` else a NULL source whose `observe` returns an empty `Observation(source="screenshot_only", nodes=())` and logs once.
+- The literal `UIATreeSource()` is replaced by `make_ui_tree_source()` at all 6 sites: `click_element.py:125`, `read_visible_ui_state.py:60`, `wait_for_element.py:97`, `wait_for_ui_state.py:78`, `engine.py:71` (the `uia_source or UIATreeSource()` default), `screenshot_only_loop.py:1092` (inside `_foreground_clickable_labels`). The lazy import guard at `click_element.py:117-123` becomes a `from dodaios.vision.tree_factory import make_ui_tree_source` import.
 - `screenshot_only_loop.py`'s "returns [] on any failure" contract (`:1093`) is intact (the null source's empty nodes already yield []).
 - `tests/unit/vision/test_tree_factory.py` green; `tests/unit/vision/test_engine.py` + `tests/contract/test_vision_source_protocol.py` green (add `AXTreeSource`/`AtspiTreeSource` to the parametrized contract suite at `test_vision_source_protocol.py:26`).
-- `grep -rn "UIATreeSource()" jarvis/` shows ONLY `tree_factory.py` (Windows branch) and `uia_tree.py` — none of the 6 former call sites.
+- `grep -rn "UIATreeSource()" dodaios/` shows ONLY `tree_factory.py` (Windows branch) and `uia_tree.py` — none of the 6 former call sites.
 </outcome>
 
 <required-reading>
@@ -1549,8 +1549,8 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/vision/tree_factory.py`, `tests/unit/vision/test_tree_factory.py`.
-Modify (replace the literal with the factory call): `jarvis/plugins/tool/click_element.py`, `jarvis/plugins/tool/read_visible_ui_state.py`, `jarvis/plugins/tool/wait_for_element.py`, `jarvis/plugins/tool/wait_for_ui_state.py`, `jarvis/vision/engine.py`, `jarvis/harness/screenshot_only_loop.py`. Extend `tests/contract/test_vision_source_protocol.py` parametrization.
+Create: `dodaios/vision/tree_factory.py`, `tests/unit/vision/test_tree_factory.py`.
+Modify (replace the literal with the factory call): `dodaios/plugins/tool/click_element.py`, `dodaios/plugins/tool/read_visible_ui_state.py`, `dodaios/plugins/tool/wait_for_element.py`, `dodaios/plugins/tool/wait_for_ui_state.py`, `dodaios/vision/engine.py`, `dodaios/harness/screenshot_only_loop.py`. Extend `tests/contract/test_vision_source_protocol.py` parametrization.
 </scope>
 
 <primary-path>
@@ -1569,9 +1569,9 @@ Modify (replace the literal with the factory call): `jarvis/plugins/tool/click_e
 
 <acceptance>
 pytest tests/unit/vision/test_tree_factory.py tests/unit/vision/test_engine.py tests/contract/test_vision_source_protocol.py -v
-python -c "from jarvis.vision.tree_factory import make_ui_tree_source; from jarvis.core.protocols import VisionSource; assert isinstance(make_ui_tree_source(), VisionSource)"
-grep -rn "UIATreeSource()" jarvis/
-ruff check jarvis/vision/ jarvis/plugins/tool/ jarvis/harness/screenshot_only_loop.py && mypy jarvis/vision/tree_factory.py
+python -c "from dodaios.vision.tree_factory import make_ui_tree_source; from dodaios.core.protocols import VisionSource; assert isinstance(make_ui_tree_source(), VisionSource)"
+grep -rn "UIATreeSource()" dodaios/
+ruff check dodaios/vision/ dodaios/plugins/tool/ dodaios/harness/screenshot_only_loop.py && mypy dodaios/vision/tree_factory.py
 </acceptance>
 
 <hard-rules>
@@ -1604,10 +1604,10 @@ You build the `OverlaySurface` seam and wrap the LIVE Tk orb as `TkColorKeyOverl
 
 <outcome>
 DONE means:
-- `jarvis/overlay/surface.py` defines `OverlaySurface` Protocol (`start()`, `stop()`, `set_state(state)`, `is_visible()->bool`) + `make_overlay_surface()` factory + `TkColorKeyOverlay`.
+- `dodaios/overlay/surface.py` defines `OverlaySurface` Protocol (`start()`, `stop()`, `set_state(state)`, `is_visible()->bool`) + `make_overlay_surface()` factory + `TkColorKeyOverlay`.
 - `TkColorKeyOverlay` WRAPS `OrbOverlay` (`ui/orb/overlay.py:1236`, `-transparentcolor` at ~`:966`/`:1331`) — no change to the color-key rendering; the wrapper only adapts the lifecycle to the Protocol.
 - `make_overlay_surface()` selects on `detect_platform()` + `capabilities`: win32/darwin → `TkColorKeyOverlay` (when `capabilities.has_overlay`); linux → `LinuxBestEffortOverlay`/`TrayOnlySurface` (2.6); `not has_overlay` → `TrayOnlySurface`.
-- The Windows-only `SetSystemCursor` swap (`jarvis/overlay/system_cursor.py`) is left Windows-only at its existing call site (`jarvis/ui/desktop_app.py`); it is NOT wired into the cross-platform surface (AD-11 / HN-18).
+- The Windows-only `SetSystemCursor` swap (`dodaios/overlay/system_cursor.py`) is left Windows-only at its existing call site (`dodaios/ui/desktop_app.py`); it is NOT wired into the cross-platform surface (AD-11 / HN-18).
 - `tests/overlay/test_overlay_surface.py` green under `QT_QPA_PLATFORM=offscreen`; constructs `TkColorKeyOverlay` against `tests/fakes/fake_overlay_surface.py` and asserts lifecycle + factory selection (no real window).
 - `python -c "import ui.orb.overlay"` still resolves (live orb import unbroken).
 </outcome>
@@ -1625,11 +1625,11 @@ DONE means:
 1. `pwsh scripts/preflight.ps1`
 2. `git worktree add -b crossplat/w2-orb ../sub-agents-outputs/crossplat-w2-orb feat/crossplatform-port`
 3. `pip install -e ".[dev]"`
-4. `python -c "import jarvis; print(jarvis.__file__)"`
+4. `python -c "import dodaios; print(dodaios.__file__)"`
 </environment-setup>
 
 <scope>
-Create: `jarvis/overlay/surface.py`, `tests/fakes/fake_overlay_surface.py`, `tests/overlay/test_overlay_surface.py`.
+Create: `dodaios/overlay/surface.py`, `tests/fakes/fake_overlay_surface.py`, `tests/overlay/test_overlay_surface.py`.
 Modify: none of `ui/orb/overlay.py`'s rendering (wrap only). This worktree (E) continues into 2.6 + the `desktop-macos` extra in 2.7.
 </scope>
 
@@ -1648,9 +1648,9 @@ Modify: none of `ui/orb/overlay.py`'s rendering (wrap only). This worktree (E) c
 
 <acceptance>
 QT_QPA_PLATFORM=offscreen pytest tests/overlay/test_overlay_surface.py -v
-python -c "from jarvis.overlay.surface import make_overlay_surface, OverlaySurface; assert isinstance(make_overlay_surface(), OverlaySurface)"
+python -c "from dodaios.overlay.surface import make_overlay_surface, OverlaySurface; assert isinstance(make_overlay_surface(), OverlaySurface)"
 python -c "import ui.orb.overlay; print('live orb import ok')"
-ruff check jarvis/overlay/ && mypy jarvis/overlay/surface.py
+ruff check dodaios/overlay/ && mypy dodaios/overlay/surface.py
 </acceptance>
 
 <hard-rules>
@@ -1683,8 +1683,8 @@ You build the Linux orb tiers: a best-effort transparent surface on a compositor
 
 <outcome>
 DONE means:
-- `jarvis/overlay/linux_surface.py` defines `LinuxBestEffortOverlay`: attempts the Tk `-transparentcolor` path on a Linux compositor; on a non-compositing/Wayland session (detect via `capabilities.is_wayland` or a failed `wm_attributes` probe / `TclError`) it FALLS THROUGH to `TrayOnlySurface` with a logged English message. Never shows an opaque magenta box.
-- `jarvis/overlay/tray_surface.py` defines `TrayOnlySurface`: drives the existing cross-platform pystray tray (`jarvis/ui/tray.py`, no platform marker, renders `JarvisState` icons via PIL at `tray.py:39`); `set_state(state)` maps the orb state onto `JarvisState` (`tray.py:20-26`) so IDLE/LISTENING/THINKING/SPEAKING feedback shows in the tray color (`_STATE_COLORS` at `tray.py:29`).
+- `dodaios/overlay/linux_surface.py` defines `LinuxBestEffortOverlay`: attempts the Tk `-transparentcolor` path on a Linux compositor; on a non-compositing/Wayland session (detect via `capabilities.is_wayland` or a failed `wm_attributes` probe / `TclError`) it FALLS THROUGH to `TrayOnlySurface` with a logged English message. Never shows an opaque magenta box.
+- `dodaios/overlay/tray_surface.py` defines `TrayOnlySurface`: drives the existing cross-platform pystray tray (`dodaios/ui/tray.py`, no platform marker, renders `JarvisState` icons via PIL at `tray.py:39`); `set_state(state)` maps the orb state onto `JarvisState` (`tray.py:20-26`) so IDLE/LISTENING/THINKING/SPEAKING feedback shows in the tray color (`_STATE_COLORS` at `tray.py:29`).
 - `make_overlay_surface()` (2.5) returns `LinuxBestEffortOverlay` when `display_present and not is_wayland`, else `TrayOnlySurface`.
 - `tests/overlay/test_tray_surface.py` green (TrayOnlySurface maps orb states onto `JarvisState` via a fake; no real tray thread). On a headless leg (no DISPLAY) `make_overlay_surface()` returns `TrayOnlySurface` and start/stop are no-op-safe.
 </outcome>
@@ -1694,7 +1694,7 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-11 (the ladder + the tray floor) + AD-6.
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-4 (never raise; degrade), HN-1 (do not rewrite the tray; drive it), HN-18 (SetSystemCursor stays Windows-only).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-5 (`-transparentcolor` TclError on X11 → log + fall to tray, never propagate — read the full counter-pattern), AP-9 (no real display in CI).
-- Read `jarvis/ui/tray.py:20-39` (the `JarvisState` enum + `_STATE_COLORS` + PIL icon render).
+- Read `dodaios/ui/tray.py:20-39` (the `JarvisState` enum + `_STATE_COLORS` + PIL icon render).
 </required-reading>
 
 <environment-setup>
@@ -1704,8 +1704,8 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/overlay/linux_surface.py`, `jarvis/overlay/tray_surface.py`, `tests/overlay/test_tray_surface.py`.
-Modify: `jarvis/overlay/surface.py` (wire the linux branch of `make_overlay_surface()` — coordinate with 2.5 in the same worktree). Do NOT modify `jarvis/ui/tray.py` (drive it, don't rewrite — HN-1).
+Create: `dodaios/overlay/linux_surface.py`, `dodaios/overlay/tray_surface.py`, `tests/overlay/test_tray_surface.py`.
+Modify: `dodaios/overlay/surface.py` (wire the linux branch of `make_overlay_surface()` — coordinate with 2.5 in the same worktree). Do NOT modify `dodaios/ui/tray.py` (drive it, don't rewrite — HN-1).
 </scope>
 
 <primary-path>
@@ -1723,14 +1723,14 @@ Modify: `jarvis/overlay/surface.py` (wire the linux branch of `make_overlay_surf
 
 <acceptance>
 pytest tests/overlay/test_tray_surface.py -v
-python -c "from jarvis.overlay.surface import make_overlay_surface; print(type(make_overlay_surface()).__name__)"
-ruff check jarvis/overlay/ && mypy jarvis/overlay/
+python -c "from dodaios.overlay.surface import make_overlay_surface; print(type(make_overlay_surface()).__name__)"
+ruff check dodaios/overlay/ && mypy dodaios/overlay/
 </acceptance>
 
 <hard-rules>
 INVIOLABLE:
 - HN-4 / AP-5 — `-transparentcolor` TclError on X11 → log + fall to the tray; never propagate; never an opaque magenta box.
-- HN-1 — drive `jarvis/ui/tray.py`; do not rewrite it.
+- HN-1 — drive `dodaios/ui/tray.py`; do not rewrite it.
 - HN-18 — no SetSystemCursor wiring cross-platform.
 SOFT:
 - The tray is the universal floor — guarantee SOME presence everywhere.
@@ -1864,7 +1864,7 @@ Modify: NOTHING. Grep for stray `UIATreeSource()`, module-scope native imports, 
 pytest tests/unit/vision/test_role_map.py tests/unit/vision/test_ax_tree.py tests/unit/vision/test_atspi_tree.py tests/unit/vision/test_tree_factory.py -v
 pytest tests/unit/vision/test_engine.py tests/contract/test_vision_source_protocol.py -v
 QT_QPA_PLATFORM=offscreen pytest tests/overlay/test_overlay_surface.py tests/overlay/test_tray_surface.py -v
-grep -rn "UIATreeSource()" jarvis/
+grep -rn "UIATreeSource()" dodaios/
 python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); ext=d['project']['optional-dependencies']; assert all('pyatspi' not in x for g in ext.values() for x in g); print('no pyatspi in pyproject')"
 python scripts/ci/check_import_clean.py
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
@@ -1934,7 +1934,7 @@ pytest -m "not skip_ci" --junitxml=report.xml -q; python scripts/ci/assert_min_p
 QT_QPA_PLATFORM=offscreen pytest tests/overlay/ -q
 pytest tests/unit/vision/ tests/contract/test_vision_source_protocol.py -q
 python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); ext=d['project']['optional-dependencies']; assert all('pyatspi' not in x for g in ext.values() for x in g)"
-ruff check jarvis/ && mypy jarvis/vision/tree_factory.py jarvis/overlay/surface.py
+ruff check dodaios/ && mypy dodaios/vision/tree_factory.py dodaios/overlay/surface.py
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
 </acceptance>
 
@@ -1973,7 +1973,7 @@ You extract the `AdminTransport` seam from the Windows named-pipe code while lea
 
 <outcome>
 DONE means:
-- `jarvis/admin/transport.py` defines `AdminTransport` Protocol — server: `async def serve(handler)` where `handler: Callable[[bytes], Awaitable[bytes]]`; client: `async def roundtrip(raw: bytes) -> bytes` — plus `NamedPipeTransport` (Windows) + `make_admin_transport()` factory.
+- `dodaios/admin/transport.py` defines `AdminTransport` Protocol — server: `async def serve(handler)` where `handler: Callable[[bytes], Awaitable[bytes]]`; client: `async def roundtrip(raw: bytes) -> bytes` — plus `NamedPipeTransport` (Windows) + `make_admin_transport()` factory.
 - The transport-specific Windows code is RELOCATED into `NamedPipeTransport`: `AdminPipeServer._accept_one` (`ipc.py:295`), `_handle_connection`/`_read_message`/`_write_message`/`_safe_close` (`:330-424`), `AdminPipeClient._roundtrip` (`:511`), `_build_sddl` (`:123`), `current_user_sid` (`:92`), `default_pipe_name` (`:117`). No behavior change (AD-7); the SDDL-ACL `D:(A;;FA;;;<SID>)` (`:129`) + MESSAGE-mode read still apply.
 - The HMAC/envelope core STAYS in `ipc.py` verbatim: `_canonical_args_json` (`:65`), `_compute_hmac` (`:76`), `_decode_request` (`:194`, its 5-step ordering), `_encode_response` (`:258`), the nonce LRU (`:181`), the `_TIMESTAMP_WINDOW_NS`/`_NONCE_LRU_SIZE` constants (`:43-50`).
 - `make_admin_transport()`: win32→`NamedPipeTransport`; else→`UnixSocketTransport` (3.2).
@@ -1985,20 +1985,20 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-12 (reuse the security core untouched; only transport + op vocabulary change) + AD-7.
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-1 (relocate, never rewrite the Windows impl), HN-11 ("Never use shell=True and never pass unvalidated argv anywhere on the elevation path"), HN-12 ("Never weaken, bypass, or make optional the HMAC signature or the Pydantic discriminated-union argv validation"), HN-7 (no module-scope Windows import).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-10 (shelling a privileged command string) + AP-12 (ship a fake).
-- Read `jarvis/admin/ipc.py` around all the cited lines to see exactly what is transport vs core.
+- Read `dodaios/admin/ipc.py` around all the cited lines to see exactly what is transport vs core.
 </required-reading>
 
 <environment-setup>
 1. `pwsh scripts/preflight.ps1`
 2. `git worktree add -b crossplat/w3-transport ../sub-agents-outputs/crossplat-w3-transport feat/crossplatform-port`
 3. `pip install -e ".[dev]"`
-4. `python -c "import jarvis; print(jarvis.__file__)"`
+4. `python -c "import dodaios; print(dodaios.__file__)"`
 5. Invoke the `requesting-code-review` discipline before merge (security-sensitive wave).
 </environment-setup>
 
 <scope>
-Create: `jarvis/admin/transport.py`, `tests/fakes/fake_admin_transport.py`, `tests/unit/admin/test_transport_seam.py`.
-Modify: `jarvis/admin/ipc.py` (move ONLY the transport-specific Windows code; leave the HMAC core in place). This worktree (F) continues into 3.2/3.4/3.6.
+Create: `dodaios/admin/transport.py`, `tests/fakes/fake_admin_transport.py`, `tests/unit/admin/test_transport_seam.py`.
+Modify: `dodaios/admin/ipc.py` (move ONLY the transport-specific Windows code; leave the HMAC core in place). This worktree (F) continues into 3.2/3.4/3.6.
 </scope>
 
 <primary-path>
@@ -2018,9 +2018,9 @@ Modify: `jarvis/admin/ipc.py` (move ONLY the transport-specific Windows code; le
 <acceptance>
 pytest tests/unit/admin/test_hmac_replay.py -v
 pytest tests/unit/admin/test_transport_seam.py -v
-python -c "from jarvis.admin.transport import make_admin_transport, AdminTransport; assert isinstance(make_admin_transport(), AdminTransport)"
-python -c "import ast; m=ast.parse(open('jarvis/admin/ipc.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('win32pipe','win32file','win32security','pywintypes') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
-ruff check jarvis/admin/ && mypy jarvis/admin/transport.py
+python -c "from dodaios.admin.transport import make_admin_transport, AdminTransport; assert isinstance(make_admin_transport(), AdminTransport)"
+python -c "import ast; m=ast.parse(open('dodaios/admin/ipc.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('win32pipe','win32file','win32security','pywintypes') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"
+ruff check dodaios/admin/ && mypy dodaios/admin/transport.py
 </acceptance>
 
 <hard-rules>
@@ -2053,7 +2053,7 @@ You build the `UnixSocketTransport` — a 0700 AF_UNIX socket with a peer-creden
 
 <outcome>
 DONE means:
-- `jarvis/admin/unix_socket.py` defines `UnixSocketTransport` binding an `AF_UNIX`/`SOCK_STREAM` socket at `$XDG_RUNTIME_DIR/jarvis-admin-<uid>.sock` (fallback `0700` dir under `/run/user/<uid>/` or `tempfile.mkdtemp(mode=0o700)`); the socket file is `0600` in a `0700` dir (the FS ACL replacing the SDDL-ACL).
+- `dodaios/admin/unix_socket.py` defines `UnixSocketTransport` binding an `AF_UNIX`/`SOCK_STREAM` socket at `$XDG_RUNTIME_DIR/jarvis-admin-<uid>.sock` (fallback `0700` dir under `/run/user/<uid>/` or `tempfile.mkdtemp(mode=0o700)`); the socket file is `0600` in a `0700` dir (the FS ACL replacing the SDDL-ACL).
 - Peer-credential check on accept: Linux `sock.getsockopt(SOL_SOCKET, SO_PEERCRED, struct.calcsize("3i"))`→(pid,uid,gid); macOS `LOCAL_PEERCRED`/`getpeereid`. Reject any connection whose UID != the server process UID. The HMAC envelope check (`_decode_request`) still runs on top (defense in depth).
 - Server side implements `AdminTransport.serve(handler)`: accept → read raw → `await handler(raw)` (the reused `_decode_request`→executor→`_encode_response` chain) → write → close, reusing the accept-loop/per-connection-task structure from `AdminPipeServer.serve_forever` (`ipc.py:268-293`). Client: connect→write→read→close (mirrors `_roundtrip`).
 - `tests/unit/admin/test_unix_socket_transport.py` green (socket 0600 in a 0700 dir; mismatched-UID peer rejected via a monkeypatched SO_PEERCRED reader). `tests/integration/test_admin_unix_loopback.py` green on Linux/macOS (real AF_UNIX loopback — runs fine on a runner, NOT skip_ci).
@@ -2075,7 +2075,7 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/admin/unix_socket.py`, `tests/unit/admin/test_unix_socket_transport.py`, `tests/integration/test_admin_unix_loopback.py`.
+Create: `dodaios/admin/unix_socket.py`, `tests/unit/admin/test_unix_socket_transport.py`, `tests/integration/test_admin_unix_loopback.py`.
 Depends on 3.1's `AdminTransport` Protocol. Reuse the HMAC core from `ipc.py` — do not copy it.
 </scope>
 
@@ -2096,7 +2096,7 @@ Depends on 3.1's `AdminTransport` Protocol. Reuse the HMAC core from `ipc.py` �
 pytest tests/unit/admin/test_unix_socket_transport.py -v
 pytest tests/integration/test_admin_unix_loopback.py -v
 python -c "import socket,struct; print('peercred' , hasattr(socket,'SO_PEERCRED'))"
-ruff check jarvis/admin/unix_socket.py && mypy jarvis/admin/unix_socket.py
+ruff check dodaios/admin/unix_socket.py && mypy dodaios/admin/unix_socket.py
 </acceptance>
 
 <hard-rules>
@@ -2129,10 +2129,10 @@ You define the NEW per-OS admin op vocabulary (macOS brew/launchctl, Linux apt/s
 
 <outcome>
 DONE means:
-- `jarvis/admin/schema_unix.py` defines the macOS + Linux op models, each subclassing `_AdminOpBase` (`schema.py:25`, `frozen=True`, `extra="forbid"`) so they inherit strict validation, with pattern-validated argv (mirror `InstallWingetOp` `package_id` regex `:39`, `_SERVICE_NAME` `:55`, firewall name `:82`):
+- `dodaios/admin/schema_unix.py` defines the macOS + Linux op models, each subclassing `_AdminOpBase` (`schema.py:25`, `frozen=True`, `extra="forbid"`) so they inherit strict validation, with pattern-validated argv (mirror `InstallWingetOp` `package_id` regex `:39`, `_SERVICE_NAME` `:55`, firewall name `:82`):
   - Linux: `AptInstallOp`/`AptRemoveOp` (`package` regex `^[a-z0-9][a-z0-9+\-.]{0,127}$`), `SystemctlOp` (`unit` regex, `action: Literal["start","stop","enable","disable","restart"]`), `UfwRuleOp` (port 1..65535, `action: allow|deny`, `proto: tcp|udp`), `WriteProtectedPathOp` (reuse `schema.py:161`, paths like `/etc/...`).
   - macOS: `BrewInstallOp`/`BrewRemoveOp` (`formula` regex), `LaunchctlOp` (`label` regex, `action: load|unload|enable|disable`), `WriteProtectedPathOp` (paths like `/Library/...`).
-- `jarvis/admin/schema.py`: the `AdminOperation` union (`:175-192`) + `ADMIN_OPERATION_TYPES` (`:195-209`) + `DESTRUCTIVE_OPS` (`:212`) become platform-conditional (or a superset the executor dispatches per OS). `jarvis/admin/executor.py` gains per-OS argv builders emitting validated argv lists (`["apt-get","install","-y",op.package]`, `["systemctl",op.action,op.unit]`, `["brew","install",op.formula]`, `["launchctl",op.action,op.label]`) — argv only, `shell=False`.
+- `dodaios/admin/schema.py`: the `AdminOperation` union (`:175-192`) + `ADMIN_OPERATION_TYPES` (`:195-209`) + `DESTRUCTIVE_OPS` (`:212`) become platform-conditional (or a superset the executor dispatches per OS). `dodaios/admin/executor.py` gains per-OS argv builders emitting validated argv lists (`["apt-get","install","-y",op.package]`, `["systemctl",op.action,op.unit]`, `["brew","install",op.formula]`, `["launchctl",op.action,op.label]`) — argv only, `shell=False`.
 - Destructive ops (`apt_remove`, `systemctl stop/disable`, `ufw_remove`, `brew_remove`, `launchctl unload`, `write_protected_path`) are in `DESTRUCTIVE_OPS` so the per-action approval gate (`client.py:135-139`) fires identically across OSes.
 - `tests/unit/admin/test_schema_unix.py` green; a malicious payload (`package="foo; rm -rf /"`) fails the regex.
 </outcome>
@@ -2142,7 +2142,7 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-12 + PC-7 (the 13 ops are Windows-native; port the concept, not the command).
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-11 (no shell=True / no unvalidated argv), HN-12 (every new op extends the same union; no side door).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-7 (porting the 13 ops literally via sudo is nonsense — read the full counter-pattern), AP-10 (shelling a privileged string).
-- Read `jarvis/admin/schema.py:1-9` (the §Safety mandate) + `:25` + `:175-212` and `jarvis/admin/executor.py` (the Windows argv-builder pattern).
+- Read `dodaios/admin/schema.py:1-9` (the §Safety mandate) + `:25` + `:175-212` and `dodaios/admin/executor.py` (the Windows argv-builder pattern).
 </required-reading>
 
 <environment-setup>
@@ -2153,8 +2153,8 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/admin/schema_unix.py`, `tests/unit/admin/test_schema_unix.py`.
-Modify: `jarvis/admin/schema.py` (make the union/types/destructive list platform-conditional or a superset), `jarvis/admin/executor.py` (add per-OS argv builders). Do NOT touch the HMAC core in `ipc.py`. Worktree G also owns 3.5.
+Create: `dodaios/admin/schema_unix.py`, `tests/unit/admin/test_schema_unix.py`.
+Modify: `dodaios/admin/schema.py` (make the union/types/destructive list platform-conditional or a superset), `dodaios/admin/executor.py` (add per-OS argv builders). Do NOT touch the HMAC core in `ipc.py`. Worktree G also owns 3.5.
 </scope>
 
 <primary-path>
@@ -2172,10 +2172,10 @@ Modify: `jarvis/admin/schema.py` (make the union/types/destructive list platform
 
 <acceptance>
 pytest tests/unit/admin/test_schema_unix.py -v
-python -c "from jarvis.admin.schema_unix import AptInstallOp; AptInstallOp(package='git')"
-python -c "from jarvis.admin.schema_unix import AptInstallOp; AptInstallOp(package='git; whoami')" ; test $? -ne 0 && echo "rejected as expected"
+python -c "from dodaios.admin.schema_unix import AptInstallOp; AptInstallOp(package='git')"
+python -c "from dodaios.admin.schema_unix import AptInstallOp; AptInstallOp(package='git; whoami')" ; test $? -ne 0 && echo "rejected as expected"
 pytest tests/unit/admin/ -v
-ruff check jarvis/admin/ && mypy jarvis/admin/schema_unix.py
+ruff check dodaios/admin/ && mypy dodaios/admin/schema_unix.py
 </acceptance>
 
 <hard-rules>
@@ -2207,14 +2207,14 @@ You build the `Elevator` seam and per-OS elevators (Uac / Sudo / Polkit / MacAut
 
 <outcome>
 DONE means:
-- `jarvis/admin/elevator.py` defines `Elevator` Protocol (`async def ensure_elevated_helper(transport_addr) -> ElevationResult` + `is_available() -> bool`) + `UacElevator`, `SudoElevator`, `PolkitElevator`, `MacAuthElevator`, `NullElevator` + `make_elevator()` factory.
-  - `UacElevator` (Windows): the existing `ShellExecuteW("runas", python.exe, "-m jarvis.admin.helper --pipe-name ...")` flow (`launcher.py:11`), unchanged (AD-7).
-  - `PolkitElevator` (Linux, preferred): `pkexec` to spawn the helper bound to the unix socket; a polkit policy file under `jarvis/admin/data/`; `is_available()`=`shutil.which("pkexec")`.
+- `dodaios/admin/elevator.py` defines `Elevator` Protocol (`async def ensure_elevated_helper(transport_addr) -> ElevationResult` + `is_available() -> bool`) + `UacElevator`, `SudoElevator`, `PolkitElevator`, `MacAuthElevator`, `NullElevator` + `make_elevator()` factory.
+  - `UacElevator` (Windows): the existing `ShellExecuteW("runas", python.exe, "-m dodaios.admin.helper --pipe-name ...")` flow (`launcher.py:11`), unchanged (AD-7).
+  - `PolkitElevator` (Linux, preferred): `pkexec` to spawn the helper bound to the unix socket; a polkit policy file under `dodaios/admin/data/`; `is_available()`=`shutil.which("pkexec")`.
   - `SudoElevator` (Linux, fallback): `sudo`/`sudo -A` when polkit absent; `is_available()`=`shutil.which("sudo")`.
   - `MacAuthElevator` (macOS): `osascript -e 'do shell script "…" with administrator privileges'` (or Authorization Services via pyobjc) to spawn the helper.
   - `NullElevator`: returned when `not capabilities.has_elevation`; `ensure_elevated_helper` returns a refusal `ElevationResult` and logs "no elevation mechanism available on this host — privileged operations are disabled; install pkexec or run with sudo". Never raises.
 - `make_elevator()`: win32→Uac; darwin→MacAuth; linux→Polkit if pkexec else Sudo else Null; `not has_elevation`→Null.
-- `jarvis/admin/launcher.py`: `ensure_admin_secret` (`:42`) stays transport-agnostic; the Windows `ShellExecuteW(runas,…)` helper-spawn (`:11`) moves behind `UacElevator`. `jarvis/admin/client.py`: `AdminClient` (`:66`) gains an injected `Elevator` alongside its existing injectable `pipe_client` (`:80`).
+- `dodaios/admin/launcher.py`: `ensure_admin_secret` (`:42`) stays transport-agnostic; the Windows `ShellExecuteW(runas,…)` helper-spawn (`:11`) moves behind `UacElevator`. `dodaios/admin/client.py`: `AdminClient` (`:66`) gains an injected `Elevator` alongside its existing injectable `pipe_client` (`:80`).
 - The elevator ONLY spawns the helper; the helper runs every op through the reused `_decode_request` → `extra="forbid"` schema → argv builder → `shell=False` chain (HN-11/HN-12).
 - `tests/unit/admin/test_elevator.py` green (factory selection per platform + `is_available`; `NullElevator.ensure_elevated_helper` returns a refusal and never raises). No end-to-end elevation test — any test that would trigger a real prompt is `skip_ci`.
 </outcome>
@@ -2224,7 +2224,7 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-12 + AD-6 (graceful null) + AD-3 (interactive auth never CI-testable).
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-14 ("NullElevator is the default. A headless / no-auth box refuses elevation with a clear English message; it never silently runs privileged ops"), HN-11 (no shell=True / no unvalidated argv), HN-12 (don't weaken HMAC/validation for convenience), HN-4 (never raise; degrade), HN-6 (no "works" claim without live sign-off).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-10 (shelling a privileged command string — the elevator passes a validated argv vector, never a shell string), AP-12 (ship a fake).
-- Read `jarvis/admin/launcher.py:11/42` (the dormant elevation glue, PC-7) + `jarvis/admin/client.py:66/80/152-164`.
+- Read `dodaios/admin/launcher.py:11/42` (the dormant elevation glue, PC-7) + `dodaios/admin/client.py:66/80/152-164`.
 </required-reading>
 
 <environment-setup>
@@ -2235,8 +2235,8 @@ DONE means:
 </environment-setup>
 
 <scope>
-Create: `jarvis/admin/elevator.py`, `jarvis/admin/data/` (polkit policy file), `tests/fakes/fake_elevator.py`, `tests/unit/admin/test_elevator.py`.
-Modify: `jarvis/admin/launcher.py` (move the runas spawn behind UacElevator; keep `ensure_admin_secret` transport-agnostic), `jarvis/admin/client.py` (inject `Elevator`). Depends on 3.1's transport seam.
+Create: `dodaios/admin/elevator.py`, `dodaios/admin/data/` (polkit policy file), `tests/fakes/fake_elevator.py`, `tests/unit/admin/test_elevator.py`.
+Modify: `dodaios/admin/launcher.py` (move the runas spawn behind UacElevator; keep `ensure_admin_secret` transport-agnostic), `dodaios/admin/client.py` (inject `Elevator`). Depends on 3.1's transport seam.
 </scope>
 
 <primary-path>
@@ -2256,8 +2256,8 @@ Modify: `jarvis/admin/launcher.py` (move the runas spawn behind UacElevator; kee
 <acceptance>
 pytest tests/unit/admin/test_elevator.py -v
 pytest tests/unit/admin/test_elevator.py -k null -v
-python -c "from jarvis.admin.elevator import make_elevator, Elevator; assert isinstance(make_elevator(), Elevator)"
-ruff check jarvis/admin/elevator.py && mypy jarvis/admin/elevator.py
+python -c "from dodaios.admin.elevator import make_elevator, Elevator; assert isinstance(make_elevator(), Elevator)"
+ruff check dodaios/admin/elevator.py && mypy dodaios/admin/elevator.py
 </acceptance>
 
 <hard-rules>
@@ -2360,9 +2360,9 @@ You wire the AdminTransport + Elevator seams into `AdminClient` and the helper b
 
 <outcome>
 DONE means:
-- `jarvis/admin/client.py`: `_ensure_pipe_client` (`:108`) becomes a transport-agnostic `_ensure_transport` using `make_admin_transport()`; `make_elevator()` is injected. `AdminClient.execute` (`:121`) keeps its exact control flow: destructive gate (`:135`) → cancel-token (`:142`) → ensure transport/secret (`:152`) → publish requested (`:167`) → roundtrip (`:172`) → completed/rejected event (`:174-183`). Only step 3 swaps `AdminPipeClient` for `make_admin_transport()`, and the `no_secret` refusal (`:154-164`) is EXTENDED to also cover `NullElevator` refusals with the same `AdminResponse(success=False, error_code=...)` shape.
-- `jarvis/admin/helper.py`: constructs `make_admin_transport()` (not hardcoded `AdminPipeServer`) and serves the reused `_decode_request`→executor→`_encode_response` handler.
-- `tests/unit/admin/ -v` green on all OS legs (client flow exercised with `fake_admin_transport.py` + `fake_elevator.py`). `import jarvis.admin.client, jarvis.admin.helper` clean on Linux/macOS. The Windows loopback regression `tests/integration/test_admin_ipc_loopback.py` stays green.
+- `dodaios/admin/client.py`: `_ensure_pipe_client` (`:108`) becomes a transport-agnostic `_ensure_transport` using `make_admin_transport()`; `make_elevator()` is injected. `AdminClient.execute` (`:121`) keeps its exact control flow: destructive gate (`:135`) → cancel-token (`:142`) → ensure transport/secret (`:152`) → publish requested (`:167`) → roundtrip (`:172`) → completed/rejected event (`:174-183`). Only step 3 swaps `AdminPipeClient` for `make_admin_transport()`, and the `no_secret` refusal (`:154-164`) is EXTENDED to also cover `NullElevator` refusals with the same `AdminResponse(success=False, error_code=...)` shape.
+- `dodaios/admin/helper.py`: constructs `make_admin_transport()` (not hardcoded `AdminPipeServer`) and serves the reused `_decode_request`→executor→`_encode_response` handler.
+- `tests/unit/admin/ -v` green on all OS legs (client flow exercised with `fake_admin_transport.py` + `fake_elevator.py`). `import dodaios.admin.client, dodaios.admin.helper` clean on Linux/macOS. The Windows loopback regression `tests/integration/test_admin_ipc_loopback.py` stays green.
 </outcome>
 
 <required-reading>
@@ -2370,7 +2370,7 @@ DONE means:
 - `docs/plans/cross-platform-mac-linux/_FROZEN-DECISIONS.md` AD-12 + AD-6 ("zero silent drops").
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` — inline-quote HN-14 (NullElevator refusal default), HN-12 (don't weaken validation), HN-11 (no shell=True), HN-7 (no module-scope Windows import in client/helper).
 - `docs/plans/cross-platform-mac-linux/ANTI-PATTERNS.md` AP-10 + AP-12.
-- Read `jarvis/admin/client.py:108-183` (the exact control flow to preserve) + `jarvis/admin/helper.py`.
+- Read `dodaios/admin/client.py:108-183` (the exact control flow to preserve) + `dodaios/admin/helper.py`.
 </required-reading>
 
 <environment-setup>
@@ -2381,7 +2381,7 @@ DONE means:
 </environment-setup>
 
 <scope>
-Modify: `jarvis/admin/client.py` (transport-agnostic ensure + inject elevator + extend the refusal path), `jarvis/admin/helper.py` (bind via `make_admin_transport()`). Depends on 3.1 + 3.2 + 3.4.
+Modify: `dodaios/admin/client.py` (transport-agnostic ensure + inject elevator + extend the refusal path), `dodaios/admin/helper.py` (bind via `make_admin_transport()`). Depends on 3.1 + 3.2 + 3.4.
 </scope>
 
 <primary-path>
@@ -2399,10 +2399,10 @@ Modify: `jarvis/admin/client.py` (transport-agnostic ensure + inject elevator + 
 
 <acceptance>
 pytest tests/unit/admin/ -v
-python -c "import jarvis.admin.client, jarvis.admin.helper; print('admin import clean')"
+python -c "import dodaios.admin.client, dodaios.admin.helper; print('admin import clean')"
 pytest tests/integration/test_admin_ipc_loopback.py -v
 python scripts/ci/check_import_clean.py
-ruff check jarvis/admin/ && mypy jarvis/admin/client.py jarvis/admin/helper.py
+ruff check dodaios/admin/ && mypy dodaios/admin/client.py dodaios/admin/helper.py
 </acceptance>
 
 <hard-rules>
@@ -2463,7 +2463,7 @@ Modify: NOTHING. Grep the entire admin path for `shell=True` and for module-scop
 
 <primary-path>
 1. Run each acceptance command; capture output.
-2. Grep `shell=True` across `jarvis/admin/`; confirm zero.
+2. Grep `shell=True` across `dodaios/admin/`; confirm zero.
 3. Confirm CI green + that interactive-auth tests are skip_ci.
 4. Render the verdict, explicitly flagging end-to-end elevation as Wave-4-deferred (HN-6/AD-3).
 </primary-path>
@@ -2475,9 +2475,9 @@ Modify: NOTHING. Grep the entire admin path for `shell=True` and for module-scop
 <acceptance>
 pytest tests/unit/admin/ -v
 pytest tests/integration/test_admin_unix_loopback.py tests/integration/test_admin_ipc_loopback.py -v
-grep -rn "shell=True" jarvis/admin/ || echo "no shell=True on the admin path"
+grep -rn "shell=True" dodaios/admin/ || echo "no shell=True on the admin path"
 python scripts/ci/check_import_clean.py
-python -c "from jarvis.admin.elevator import make_elevator, Elevator; from jarvis.admin.transport import make_admin_transport, AdminTransport; assert isinstance(make_elevator(), Elevator) and isinstance(make_admin_transport(), AdminTransport)"
+python -c "from dodaios.admin.elevator import make_elevator, Elevator; from dodaios.admin.transport import make_admin_transport, AdminTransport; assert isinstance(make_elevator(), Elevator) and isinstance(make_admin_transport(), AdminTransport)"
 pytest tests/unit/docs/test_adr_uniqueness.py -v
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
 </acceptance>
@@ -2547,7 +2547,7 @@ Branches: `crossplat/w3-transport` (folds in `crossplat/w3-unix-socket` + `cross
 pytest tests/unit/admin/test_hmac_replay.py -v
 pytest tests/unit/admin/ -q
 pytest tests/integration/test_admin_unix_loopback.py tests/integration/test_admin_ipc_loopback.py -v
-grep -rn "shell=True" jarvis/admin/ || echo "no shell=True"
+grep -rn "shell=True" dodaios/admin/ || echo "no shell=True"
 python scripts/ci/check_import_clean.py
 pytest -m "not skip_ci" --junitxml=report.xml -q; python scripts/ci/assert_min_passed.py report.xml
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
@@ -2726,7 +2726,7 @@ DONE means:
 - `README.md` (the "What runs where (platform capability matrix)" table at `README.md:64-79`): the rows that said Windows-only (the "—" cells for Linux/macOS at `:75-77`) now carry honest badges — Terminal + app-launch-by-name → `✅ CI-verified` (EK-4, no sign-off needed); UI-element-click, Orb, global-hotkey → the 4.2 verdict (`✅ live-verified <date>` or `🟡 unverified-on-real-desktop`); Admin/elevation → the 4.2 verdict + "never CI-E2E by design".
 - The prose paragraph at `README.md:79` no longer claims those six are Windows-only — the new truth is "cross-platform behind a seam, with per-feature verification badges". A short "Verification status" subsection links to `SIGNOFF-LOG.md`.
 - `docs/plans/cross-platform-mac-linux/README.md` (the TL;DR six-feature table at `:41-48`): the "CI-testable?" column matches the SIGNOFF-LOG.
-- `grep "Global-hotkey wake, Orb overlay" README.md` no longer shows "— | — | ✅"; `grep "CI-verified\|live-verified\|unverified-on-real-desktop" README.md` matches in the capability-matrix section. `python -c "import jarvis"` still clean (docs-only; no `npm run build` needed).
+- `grep "Global-hotkey wake, Orb overlay" README.md` no longer shows "— | — | ✅"; `grep "CI-verified\|live-verified\|unverified-on-real-desktop" README.md` matches in the capability-matrix section. `python -c "import dodaios"` still clean (docs-only; no `npm run build` needed).
 </outcome>
 
 <required-reading>
@@ -2761,7 +2761,7 @@ Modify: `README.md` (the capability matrix + the prose + a Verification-status s
 <acceptance>
 grep -n "CI-verified\|live-verified\|unverified-on-real-desktop" README.md
 grep -n "Global-hotkey wake, Orb overlay" README.md
-python -c "import jarvis; print('import clean')"
+python -c "import dodaios; print('import clean')"
 </acceptance>
 
 <hard-rules>
@@ -2787,15 +2787,15 @@ Final report (5 bullets):
 ```prompt
 ultrathink
 <role>
-You update CLAUDE.md's cross-platform framing and supersession pointers so a future agent does not "fix" the migration's intentional decisions. Your outcome is a CLAUDE.md paragraph recording the six features as cross-platform behind the `jarvis/platform/` seam, the per-feature verification status, ADR-0020, and the AD-14 dependency reality (especially: do NOT pip-install pyatspi) — while keeping the €5-VPS base-install doctrine intact.
+You update CLAUDE.md's cross-platform framing and supersession pointers so a future agent does not "fix" the migration's intentional decisions. Your outcome is a CLAUDE.md paragraph recording the six features as cross-platform behind the `dodaios/platform/` seam, the per-feature verification status, ADR-0020, and the AD-14 dependency reality (especially: do NOT pip-install pyatspi) — while keeping the €5-VPS base-install doctrine intact.
 </role>
 
 <outcome>
 DONE means:
-- `CLAUDE.md`: a paragraph (or small table) records that Terminal/Hotkey/Orb/UI-element-click/Admin are now cross-platform behind the `jarvis/platform/` seam, with per-feature verification status pointing at `SIGNOFF-LOG.md`, referencing ADR-0020 (supersedes ADR-0001) and the `jarvis/platform/` capability module (AD-5).
+- `CLAUDE.md`: a paragraph (or small table) records that Terminal/Hotkey/Orb/UI-element-click/Admin are now cross-platform behind the `dodaios/platform/` seam, with per-feature verification status pointing at `SIGNOFF-LOG.md`, referencing ADR-0020 (supersedes ADR-0001) and the `dodaios/platform/` capability module (AD-5).
 - The dependency-grouping reality is recorded (AD-14): `pynput`+`ptyprocess` in `[desktop]`, `pyobjc-*` in `[desktop-macos]`, `pyatspi` as a distro prerequisite — so a future agent does not "fix" the missing pyatspi pip dep.
 - The doctrine is intact: the base €5-VPS install still ships none of these desktop extras; they remain opt-in and degrade gracefully. The "base install boots on a headless `python:3.11-slim`" claim is unchanged and still true (no new base dependency added).
-- `grep "ADR-0020\|jarvis/platform\|SIGNOFF-LOG" CLAUDE.md` matches; `grep "pyatspi" CLAUDE.md` matches.
+- `grep "ADR-0020\|dodaios/platform\|SIGNOFF-LOG" CLAUDE.md` matches; `grep "pyatspi" CLAUDE.md` matches.
 </outcome>
 
 <required-reading>
@@ -2815,7 +2815,7 @@ Modify: `CLAUDE.md` (the cross-platform framing + the dependency-reality note + 
 </scope>
 
 <primary-path>
-1. Add the cross-platform-behind-the-seam paragraph + the per-feature verification pointer to SIGNOFF-LOG.md + the ADR-0020/`jarvis/platform/` references.
+1. Add the cross-platform-behind-the-seam paragraph + the per-feature verification pointer to SIGNOFF-LOG.md + the ADR-0020/`dodaios/platform/` references.
 2. Add the AD-14 dependency-reality note, explicitly: do NOT pip-install pyatspi.
 3. Confirm the doctrine's base-install claim is unchanged.
 4. Run the grep acceptance.
@@ -2827,9 +2827,9 @@ Modify: `CLAUDE.md` (the cross-platform framing + the dependency-reality note + 
 </fallback-paths>
 
 <acceptance>
-grep -n "ADR-0020\|jarvis/platform\|SIGNOFF-LOG" CLAUDE.md
+grep -n "ADR-0020\|dodaios/platform\|SIGNOFF-LOG" CLAUDE.md
 grep -n "pyatspi" CLAUDE.md
-python -c "import jarvis; print('import clean')"
+python -c "import dodaios; print('import clean')"
 </acceptance>
 
 <hard-rules>
@@ -3105,7 +3105,7 @@ Branch: `crossplat/w4-signoff`. Merge commit + conflict resolutions only; then o
 <acceptance>
 python scripts/ci/check_import_clean.py
 pytest -m "not skip_ci" --junitxml=report.xml -q; python scripts/ci/assert_min_passed.py report.xml
-ruff check jarvis/ && ruff format --check jarvis/
+ruff check dodaios/ && ruff format --check dodaios/
 git log --oneline --merges -1
 gh run list --workflow=ci.yml --branch feat/crossplatform-port --limit 1
 gh pr view --json url,state 2>/dev/null || echo "open the PR"
@@ -3228,7 +3228,7 @@ Modify: only the file(s) causing the red. Do NOT touch `scripts/ci/assert_min_pa
 
 <primary-path>
 1. Classify the failure from the logs:
-   - **Import-cleanliness red** (Linux/macOS `import jarvis` fails / the AST gate flags a module-scope Windows import) → move the offending import inside the function/branch, lazy + guarded (HN-7/AP-13). Reproduce locally: `python scripts/ci/check_import_clean.py`.
+   - **Import-cleanliness red** (Linux/macOS `import dodaios` fails / the AST gate flags a module-scope Windows import) → move the offending import inside the function/branch, lazy + guarded (HN-7/AP-13). Reproduce locally: `python scripts/ci/check_import_clean.py`.
    - **Min-passed-floor shortfall** (passed < FLOOR with zero failures) → this is a MASS-SKIP, not a pass: find the collection error / swallowed import that dropped the count; fix the root cause. NEVER lower the floor (HN-16/AP-6).
    - **Real test failure** → fix the code or the test honestly; do not reverse-patch the test to pass (HN-2).
    - **Flake** (passes locally, intermittent on the runner) → confirm it is truly non-deterministic (re-run); if a GUI/display test sneaked into CI, mark it `skip_ci` and move it to the live sign-off (AP-9) — but ONLY a genuinely-headless-impossible test, never a real failure.
@@ -3245,7 +3245,7 @@ Modify: only the file(s) causing the red. Do NOT touch `scripts/ci/assert_min_pa
 <acceptance>
 python scripts/ci/check_import_clean.py
 pytest -m "not skip_ci" --junitxml=report.xml -q; python scripts/ci/assert_min_passed.py report.xml
-ruff check jarvis/ && mypy jarvis/platform/
+ruff check dodaios/ && mypy dodaios/platform/
 gh run list --workflow=ci.yml --branch <branch> --limit 1
 </acceptance>
 
@@ -3300,7 +3300,7 @@ Modify: only the conflicted files, resolving the markers. Do NOT abort-and-resta
 <primary-path>
 1. For the COMMON conflict shapes in this migration:
    - **`pyproject.toml` extras** (Wave-1 `[desktop]` vs Wave-2 `[desktop-macos]`): keep BOTH groups; ensure `pynput`/`ptyprocess` in `[desktop]`, `pyobjc-*` in `[desktop-macos]`, and NO pyatspi anywhere (HN-9). Verify with tomllib.
-   - **`jarvis/admin/schema.py` / `executor.py`** (Wave-3 op tables): keep the full superset union; the Windows ops are not narrowed; the Unix ops keep pattern-validated argv (HN-11/HN-12).
+   - **`dodaios/admin/schema.py` / `executor.py`** (Wave-3 op tables): keep the full superset union; the Windows ops are not narrowed; the Unix ops keep pattern-validated argv (HN-11/HN-12).
    - **A consumer call-site** (e.g. a vision tool touched by Wave 2's factory rewire): keep the factory call (`make_*`), not the old literal; preserve the existing DI seam.
    - **A conftest / test file**: keep BOTH the live-orb path AND the skip_ci on the abandoned framework; never delete a regression guard (HN-2).
 2. Resolve each hunk by intent (both sides preserved where they are additive siblings).
@@ -3348,38 +3348,38 @@ Final report (5 bullets):
 ```prompt
 ultrathink
 <role>
-You recover a stuck git-worktree situation (a worktree that won't create/remove, a stale editable-install pin to a deleted clone, a "works in tests but Jarvis behavior unchanged" restore-trap, or a worktree whose live `import jarvis` points at the wrong path). Your outcome is a clean, correctly-pinned worktree where `import jarvis` resolves to THIS clone and preflight passes — the four-layer restore-trap defused.
+You recover a stuck git-worktree situation (a worktree that won't create/remove, a stale editable-install pin to a deleted clone, a "works in tests but Jarvis behavior unchanged" restore-trap, or a worktree whose live `import dodaios` points at the wrong path). Your outcome is a clean, correctly-pinned worktree where `import dodaios` resolves to THIS clone and preflight passes — the four-layer restore-trap defused.
 </role>
 
 <outcome>
-DONE means: the stuck condition is diagnosed (which of the four restore-trap layers: worktree / frontend build / RAM / editable-install pin); the worktree is either repaired or cleanly recreated without losing committed work; `pwsh scripts/preflight.ps1` exits 0; and `python -c "import jarvis; print(jarvis.__file__)"` points at the current worktree clone.
+DONE means: the stuck condition is diagnosed (which of the four restore-trap layers: worktree / frontend build / RAM / editable-install pin); the worktree is either repaired or cleanly recreated without losing committed work; `pwsh scripts/preflight.ps1` exits 0; and `python -c "import dodaios; print(dodaios.__file__)"` points at the current worktree clone.
 </outcome>
 
 <required-reading>
 - `docs/plans/cross-platform-mac-linux/HARD-NEGATIVES.md` HN-17 (no force-push; preserve work) + HN-15 (the matrix is the gate).
-- `CLAUDE.md` — the four-layer restore trap (BUG-006 → -014 → -015): worktree + frontend build + RAM + editable-install pin to a deleted clone. Defense: `pwsh scripts/preflight.ps1` + `python -c "import jarvis; print(jarvis.__file__)"`.
+- `CLAUDE.md` — the four-layer restore trap (BUG-006 → -014 → -015): worktree + frontend build + RAM + editable-install pin to a deleted clone. Defense: `pwsh scripts/preflight.ps1` + `python -c "import dodaios; print(dodaios.__file__)"`.
 - MEMORY: never manually delete `jarvis.lock`; `scripts/preflight.ps1` exit non-zero → fix before coding.
 </required-reading>
 
 <environment-setup>
 1. `git worktree list` — see all worktrees + their branches + locked state.
-2. `python -c "import jarvis; print(jarvis.__file__)"` — does it point at THIS worktree or a deleted/other clone?
+2. `python -c "import dodaios; print(dodaios.__file__)"` — does it point at THIS worktree or a deleted/other clone?
 3. `git status` in the affected worktree — confirm whether uncommitted work exists.
 </environment-setup>
 
 <scope>
-Modify: nothing in `jarvis/` for the recovery itself — this is environment repair (worktree + editable-install pin). Commit any in-flight work first.
+Modify: nothing in `dodaios/` for the recovery itself — this is environment repair (worktree + editable-install pin). Commit any in-flight work first.
 </scope>
 
 <primary-path>
 1. Preserve first: if uncommitted work exists, `git add -A && git commit -m "wip: checkpoint before worktree recovery"` (review the diff; never `git add .` blindly).
 2. Diagnose the layer:
-   - **Editable-install pin to a deleted/other clone** (the most common): `import jarvis` resolves to a path that is NOT this worktree → re-pin with `pip install -e . --no-deps` from THIS worktree root. Re-check the import path.
+   - **Editable-install pin to a deleted/other clone** (the most common): `import dodaios` resolves to a path that is NOT this worktree → re-pin with `pip install -e . --no-deps` from THIS worktree root. Re-check the import path.
    - **Stale worktree registration** (`git worktree add` fails "already exists" / a worktree dir was deleted manually): `git worktree prune`, then re-add: `git worktree add -b <branch> ../sub-agents-outputs/<dir> feat/crossplatform-port`.
    - **Locked worktree**: `git worktree unlock <path>` if you own it; never force-remove one another session is using.
-   - **Frontend-build / RAM layer** (UI behavior unchanged after edit): rebuild (`npm run build` in `jarvis/ui/web/frontend/`) + note an app restart is needed (pywebview holds the old bundle in RAM) — relevant only if the sub-task touched the frontend.
+   - **Frontend-build / RAM layer** (UI behavior unchanged after edit): rebuild (`npm run build` in `dodaios/ui/web/frontend/`) + note an app restart is needed (pywebview holds the old bundle in RAM) — relevant only if the sub-task touched the frontend.
 3. Run `pwsh scripts/preflight.ps1`; if non-zero, fix the reported issue before declaring done.
-4. Confirm `import jarvis` points at this worktree.
+4. Confirm `import dodaios` points at this worktree.
 </primary-path>
 
 <fallback-paths>
@@ -3390,7 +3390,7 @@ Modify: nothing in `jarvis/` for the recovery itself — this is environment rep
 
 <acceptance>
 git worktree list
-python -c "import jarvis; print(jarvis.__file__)"
+python -c "import dodaios; print(dodaios.__file__)"
 pwsh scripts/preflight.ps1
 git status --porcelain
 </acceptance>
@@ -3408,7 +3408,7 @@ Final report (5 bullets):
 - The diagnosed restore-trap layer.
 - The checkpoint commit (if work was preserved).
 - The repair applied (re-pin / prune+re-add / unlock / rebuild).
-- `import jarvis` now points at this worktree + preflight exit 0 (output).
+- `import dodaios` now points at this worktree + preflight exit 0 (output).
 - Hard-rules honored (HN-17 quoted) + path-taken.
 </done-signal>
 ```

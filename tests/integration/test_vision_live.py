@@ -29,7 +29,7 @@ pytestmark = [
 @pytest.mark.asyncio
 async def test_screenshot_roundtrip_live():
     """Screenshot-Roundtrip: capture + hash + Observation-Felder."""
-    from jarvis.vision.screenshot import ScreenshotSource
+    from dodaios.vision.screenshot import ScreenshotSource
 
     src = ScreenshotSource(save_blob=False)
     obs = await src.observe()
@@ -46,7 +46,7 @@ async def test_uia_tree_budget_on_notepad_under_2000ms():
     Prerequisite: Notepad is open and in the foreground. Arranged
     manually by the lead dev before the smoke run.
     """
-    from jarvis.vision.uia_tree import UIATreeSource
+    from dodaios.vision.uia_tree import UIATreeSource
 
     src = UIATreeSource()
     start = time.perf_counter()
@@ -61,7 +61,7 @@ async def test_uia_tree_budget_on_notepad_under_2000ms():
 @pytest.mark.asyncio
 async def test_engine_composite_roundtrip():
     """Full composite observe — beide Sources kombiniert."""
-    from jarvis.vision.engine import VisionEngine
+    from dodaios.vision.engine import VisionEngine
 
     engine = VisionEngine()
     obs = await engine.observe(mode="composite")

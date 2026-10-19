@@ -15,21 +15,21 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.desktop_app import SingleInstanceError
-from jarvis.ui.web import launcher
+from dodaios.ui.desktop_app import SingleInstanceError
+from dodaios.ui.web import launcher
 
 
 def test_early_log_path_matches_the_data_dir_the_app_uses(monkeypatch):
     """The sink is installed once per process: both resolutions MUST agree."""
-    from jarvis.core import config
-    from jarvis.ui.desktop_log import desktop_log_path
+    from dodaios.core import config
+    from dodaios.ui.desktop_log import desktop_log_path
 
     monkeypatch.delenv("JARVIS_DATA_DIR", raising=False)
     assert desktop_log_path() == config.DATA_DIR / "jarvis_desktop.log"
 
 
 def test_early_log_path_honours_the_env_override(monkeypatch, tmp_path: Path):
-    from jarvis.ui.desktop_log import desktop_log_path
+    from dodaios.ui.desktop_log import desktop_log_path
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     assert desktop_log_path() == tmp_path / "jarvis_desktop.log"
@@ -302,8 +302,8 @@ def test_a_holder_named_only_in_the_lock_error_can_still_be_evicted():
 def test_a_holder_found_on_the_admin_port_can_still_be_evicted(monkeypatch):
     """No sidecar, no pid in the error — the process bound to 47821 is the holder."""
     monkeypatch.setattr(launcher, "_holder_pid_from_error", lambda _error: None)
-    monkeypatch.setattr("jarvis.ui.desktop_app._pid_listening_on_port", lambda _port: 4242)
-    monkeypatch.setattr("jarvis.ui.desktop_app._fallback_admin_port", lambda: 47821)
+    monkeypatch.setattr("dodaios.ui.desktop_app._pid_listening_on_port", lambda _port: 4242)
+    monkeypatch.setattr("dodaios.ui.desktop_app._fallback_admin_port", lambda: 47821)
     calls = _Calls(focused=False, meta=None, consent=True)
     lock = launcher._recover_from_already_running(
         RuntimeError("Jarvis lock is held but the holder is not responding."),
@@ -391,7 +391,7 @@ def test_replacement_during_recovery_is_focused_without_reusing_consent(monkeypa
 
 
 def test_default_recovery_acquisition_disables_automatic_eviction(monkeypatch):
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     calls = _Calls(focused=False, meta={"pid": 4242}, consent=False)
 
@@ -539,7 +539,7 @@ def test_lock_io_failure_is_reported_without_terminating_holder(monkeypatch):
 
 
 def test_run_desktop_bounces_with_exit_3_when_recovery_declines(monkeypatch):
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     def _raise_lock(*args, **kwargs):
         raise desktop_app.SingleInstanceError("already running")

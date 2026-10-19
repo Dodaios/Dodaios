@@ -9,7 +9,7 @@ which reads as "Jarvis is broken on my other machine".
 
 Checks (fail-closed; run BEFORE tagging, from the repo root):
 
-1. **Version parity** - ``jarvis/__init__.py`` and ``pyproject.toml`` agree.
+1. **Version parity** - ``dodaios/__init__.py`` and ``pyproject.toml`` agree.
 2. **Dirty tree** - every dirty file is either allowlisted volatile telemetry
    or explicitly acknowledged with ``--ack-dirty``; the excluded files are
    printed so the maintainer consciously ships without them, never silently.
@@ -47,8 +47,8 @@ DIRTY_ALLOWLIST: frozenset[str] = frozenset(
     }
 )
 
-_FRONTEND_SRC = "jarvis/ui/web/frontend/src"
-_FRONTEND_DIST = "jarvis/ui/web/dist"
+_FRONTEND_SRC = "dodaios/ui/web/frontend/src"
+_FRONTEND_DIST = "dodaios/ui/web/dist"
 
 _RELEASES_LATEST_API = "https://api.github.com/repos/{slug}/releases/latest"
 
@@ -108,7 +108,7 @@ def read_versions(root: Path) -> tuple[str | None, str | None]:
     """``(package_version, pyproject_version)`` - ``None`` when unreadable."""
     package = pyproject = None
     try:
-        text = (root / "jarvis" / "__init__.py").read_text(encoding="utf-8")
+        text = (root / "dodaios" / "__init__.py").read_text(encoding="utf-8")
         m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
         package = m.group(1) if m else None
     except OSError:
@@ -133,9 +133,9 @@ def release_matches(tag: str, version: str) -> bool:
 def check_version_parity(root: Path) -> tuple[bool, str]:
     package, pyproject = read_versions(root)
     if not package or not pyproject:
-        return False, "could not read the version from jarvis/__init__.py or pyproject.toml"
+        return False, "could not read the version from dodaios/__init__.py or pyproject.toml"
     if package != pyproject:
-        return False, f"version drift: jarvis/__init__.py={package} pyproject.toml={pyproject}"
+        return False, f"version drift: dodaios/__init__.py={package} pyproject.toml={pyproject}"
     return True, f"version {package} consistent"
 
 
@@ -202,7 +202,7 @@ def check_dist_freshness(root: Path) -> tuple[bool, str]:
     if src_ts > dist_ts:
         return False, (
             "frontend sources changed AFTER the last dist/ rebuild - run "
-            "`npm run build` in jarvis/ui/web/frontend and commit the bundle"
+            "`npm run build` in dodaios/ui/web/frontend and commit the bundle"
         )
     return True, "dist/ bundle is at least as new as the frontend sources"
 

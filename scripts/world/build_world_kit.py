@@ -1,11 +1,11 @@
 """Build the island's World Kit buildings in Blender — reproducible, headless.
 
 The ONLY producer of the GLBs under
-``jarvis/ui/web/frontend/src/assets/society/world/kit/`` (world-masterplan-v2.md §4).
+``dodaios/ui/web/frontend/src/assets/society/world/kit/`` (world-masterplan-v2.md §4).
 Runs inside Blender's Python::
 
     blender -b --python scripts/world/build_world_kit.py -- --target plugin-docks \
-        --out jarvis/ui/web/frontend/src/assets/society/world/kit [--preview out.png]
+        --out dodaios/ui/web/frontend/src/assets/society/world/kit [--preview out.png]
 
 or, during development, through the Blender MCP (``exec(open(path).read())`` with
 ``KIT_ARGS`` set) — the MCP is the fast inner loop, never a build dependency.
@@ -14,7 +14,7 @@ Contract (§4.1): origin at the footprint's ground centre, the FRONT (door side)
 faces glTF +Z, which is Blender −Y; metres; bevelled edges; one flat material
 per colour; the root empty carries ``jarvis_building`` extras.
 
-Never imports ``jarvis.*`` — Blender's bundled interpreter knows nothing of it.
+Never imports ``dodaios.*`` — Blender's bundled interpreter knows nothing of it.
 """
 
 from __future__ import annotations

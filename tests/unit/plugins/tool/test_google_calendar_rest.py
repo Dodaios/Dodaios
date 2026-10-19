@@ -9,7 +9,7 @@ full autonomy (no action is ever ``ask``), and graceful "not connected" /
 
 import pytest
 
-from jarvis.plugins.tool.google_calendar_rest import (
+from dodaios.plugins.tool.google_calendar_rest import (
     GoogleCalendarRestTool,
     _default_node_runner,
 )
@@ -154,7 +154,7 @@ async def test_default_refresh_receives_failed_access_token(monkeypatch) -> None
         return True
 
     monkeypatch.setattr(
-        "jarvis.plugins.tool.google_calendar_rest._default_refresher", refresher
+        "dodaios.plugins.tool.google_calendar_rest._default_refresher", refresher
     )
     tool = GoogleCalendarRestTool(
         access_token_provider=lambda: "failed-access",

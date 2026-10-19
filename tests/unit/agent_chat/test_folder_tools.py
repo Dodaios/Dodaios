@@ -7,9 +7,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agent_chat import folder_tools as ft
-from jarvis.agent_chat.tools import READ_ONLY_TOOLS, TOOL_SPECS
-from jarvis.core.protocols import ExecutionContext, ToolResult
+from dodaios.agent_chat import folder_tools as ft
+from dodaios.agent_chat.tools import READ_ONLY_TOOLS, TOOL_SPECS
+from dodaios.core.protocols import ExecutionContext, ToolResult
 
 
 def _ctx() -> ExecutionContext:
@@ -93,11 +93,11 @@ def test_plan_filter_keeps_safe_tools_only(tmp_path: Path):
     ("RunCommand", {"command": "echo changed > marker"}),
 ])
 async def test_plan_discovery_matches_real_execution(tmp_path, name, args):
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import SafetyConfig
-    from jarvis.safety.approval import ApprovalWorkflow
-    from jarvis.safety.risk_tier import RiskTierEvaluator
-    from jarvis.safety.tool_executor import ToolExecutor
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import SafetyConfig
+    from dodaios.safety.approval import ApprovalWorkflow
+    from dodaios.safety.risk_tier import RiskTierEvaluator
+    from dodaios.safety.tool_executor import ToolExecutor
 
     (tmp_path / "hello.txt").write_text("hello", encoding="utf-8")
     bus = EventBus()
@@ -114,12 +114,12 @@ async def test_plan_discovery_matches_real_execution(tmp_path, name, args):
     "echo $(New-Item marker)", "echo innocent", "touch marker",
 ])
 async def test_plan_shell_cannot_write_even_when_described_as_read(tmp_path, command):
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import SafetyConfig
-    from jarvis.plugins.tool.run_shell import RunShellTool
-    from jarvis.safety.approval import ApprovalWorkflow
-    from jarvis.safety.risk_tier import RiskTierEvaluator
-    from jarvis.safety.tool_executor import ToolExecutor
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import SafetyConfig
+    from dodaios.plugins.tool.run_shell import RunShellTool
+    from dodaios.safety.approval import ApprovalWorkflow
+    from dodaios.safety.risk_tier import RiskTierEvaluator
+    from dodaios.safety.tool_executor import ToolExecutor
 
     shell = RunShellTool()
     assert shell.name not in ft.plan_filter({shell.name: shell})
@@ -134,7 +134,7 @@ async def test_plan_shell_cannot_write_even_when_described_as_read(tmp_path, com
 def test_safe_tier_or_display_text_alone_never_grants_plan_authority():
     from types import SimpleNamespace
 
-    from jarvis.core.tool_read_only import allows_read
+    from dodaios.core.tool_read_only import allows_read
 
     tool = SimpleNamespace(risk_tier="safe", describe_args=lambda args: {"level": "read"})
     assert not allows_read(tool)
@@ -142,8 +142,8 @@ def test_safe_tier_or_display_text_alone_never_grants_plan_authority():
 
 
 def test_workspace_plan_capability_only_allows_observation():
-    from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-    from jarvis.core.tool_read_only import allows_read
+    from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+    from dodaios.core.tool_read_only import allows_read
 
     tool = WorkspaceOrchestrationTool(None)
     assert allows_read(tool)

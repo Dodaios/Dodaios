@@ -14,10 +14,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.brain.model_catalog import CatalogResult, ModelInfo
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.brain.model_catalog import CatalogResult, ModelInfo
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 class _FakeCatalog:
@@ -113,15 +113,15 @@ def test_put_model_persists_applies_and_probes(
         writes.append((provider, model))
 
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_provider_model", _fake_writer
+        "dodaios.core.config_writer.set_brain_provider_model", _fake_writer
     )
 
-    from jarvis.brain import provider_test as pt
+    from dodaios.brain import provider_test as pt
 
     async def _fake_probe(provider: str, model: str, *, timeout_s: float = 20.0):
         return pt.ProviderTestResult(provider, pt.OK, "", 42.0)
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes._probe_brain_model", _fake_probe)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes._probe_brain_model", _fake_probe)
 
     with TestClient(server.app) as client:
         resp = client.put(
@@ -153,15 +153,15 @@ def test_put_model_inactive_provider_not_live(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_provider_model",
+        "dodaios.core.config_writer.set_brain_provider_model",
         lambda *a, **k: None,
     )
-    from jarvis.brain import provider_test as pt
+    from dodaios.brain import provider_test as pt
 
     async def _fake_probe(provider: str, model: str, *, timeout_s: float = 20.0):
         return pt.ProviderTestResult(provider, pt.OK, "", 10.0)
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes._probe_brain_model", _fake_probe)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes._probe_brain_model", _fake_probe)
 
     with TestClient(server.app) as client:
         resp = client.put(
@@ -179,15 +179,15 @@ def test_put_model_headless_requires_restart(
 ) -> None:
     server.app.state.brain = None  # headless: no running brain
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_provider_model",
+        "dodaios.core.config_writer.set_brain_provider_model",
         lambda *a, **k: None,
     )
-    from jarvis.brain import provider_test as pt
+    from dodaios.brain import provider_test as pt
 
     async def _fake_probe(provider: str, model: str, *, timeout_s: float = 20.0):
         return pt.ProviderTestResult(provider, pt.MODEL_UNAVAILABLE, "404 model", 5.0)
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes._probe_brain_model", _fake_probe)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes._probe_brain_model", _fake_probe)
 
     with TestClient(server.app) as client:
         resp = client.put(
@@ -207,7 +207,7 @@ def test_put_tts_voice_persists_no_probe(
 ) -> None:
     voices: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_tts_voice", lambda v, **k: voices.append(v)
+        "dodaios.core.config_writer.set_tts_voice", lambda v, **k: voices.append(v)
     )
     with TestClient(server.app) as client:
         resp = client.put(
@@ -231,7 +231,7 @@ def test_put_stt_model_requires_restart(
 ) -> None:
     models: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_stt_model", lambda m, **k: models.append(m)
+        "dodaios.core.config_writer.set_stt_model", lambda m, **k: models.append(m)
     )
     with TestClient(server.app) as client:
         resp = client.put(
@@ -269,7 +269,7 @@ def test_put_cu_model_persists_and_updates_live(
         writes.append((provider, cu_model))
 
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_provider_model", _fake_writer
+        "dodaios.core.config_writer.set_brain_provider_model", _fake_writer
     )
 
     with TestClient(server.app) as client:
@@ -294,14 +294,14 @@ def test_put_cu_model_persists_and_updates_live(
 def test_put_cu_model_empty_clears_to_main(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core.config import BrainProviderConfig
+    from dodaios.core.config import BrainProviderConfig
 
     server.app.state.config.brain.providers["gemini"] = BrainProviderConfig(
         model="gemini-3.5-flash", cu_model="gemini-3.1-pro-preview"
     )
     writes: list[tuple[str, str | None]] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_provider_model",
+        "dodaios.core.config_writer.set_brain_provider_model",
         lambda provider, *, cu_model=None, **_k: writes.append((provider, cu_model)),
     )
 
@@ -385,7 +385,7 @@ def test_post_tts_voice_persists(
 ) -> None:
     voices: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_tts_voice", lambda v, **k: voices.append(v)
+        "dodaios.core.config_writer.set_tts_voice", lambda v, **k: voices.append(v)
     )
     with TestClient(server.app) as client:
         resp = client.post("/api/tts/voice", json={"voice": "af_bella", "persist": True})
@@ -413,7 +413,7 @@ def test_post_tts_preview_returns_wav(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A fake OpenRouterTTS streams raw PCM; the route wraps it into a WAV blob."""
-    from jarvis.core.protocols import AudioChunk
+    from dodaios.core.protocols import AudioChunk
 
     captured: dict[str, object] = {}
 
@@ -431,7 +431,7 @@ def test_post_tts_preview_returns_wav(
         async def aclose(self) -> None:
             captured["closed"] = True
 
-    monkeypatch.setattr("jarvis.plugins.tts.openrouter_tts.OpenRouterTTS", _FakeTTS)
+    monkeypatch.setattr("dodaios.plugins.tts.openrouter_tts.OpenRouterTTS", _FakeTTS)
 
     with TestClient(server.app) as client:
         resp = client.post(
@@ -455,7 +455,7 @@ def test_post_tts_preview_returns_wav(
 def test_post_tts_preview_maps_provider_error_to_502(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.plugins.tts.openrouter_tts import OpenRouterTTSError
+    from dodaios.plugins.tts.openrouter_tts import OpenRouterTTSError
 
     class _DeadTTS:
         def __init__(self, **_k: object) -> None:
@@ -468,7 +468,7 @@ def test_post_tts_preview_maps_provider_error_to_502(
         async def aclose(self) -> None:
             pass
 
-    monkeypatch.setattr("jarvis.plugins.tts.openrouter_tts.OpenRouterTTS", _DeadTTS)
+    monkeypatch.setattr("dodaios.plugins.tts.openrouter_tts.OpenRouterTTS", _DeadTTS)
 
     with TestClient(server.app) as client:
         resp = client.post(
@@ -498,7 +498,7 @@ def test_local_card_gets_a_load_from_disk_probe_budget() -> None:
     """Measured 2026-08-05: a 30B model's first call took 70 s on a 32 GB box —
     pure load-from-disk time. Under the cloud budget the probe was timing the
     LOAD, not the model, and every large local model tested as broken."""
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.ui.web import provider_routes as pr
 
     assert pr._model_probe_budget_s("ollama") >= 120.0
     assert pr._model_probe_budget_s("local-openai") >= 120.0
@@ -510,7 +510,7 @@ def test_local_card_gets_a_load_from_disk_probe_budget() -> None:
 
 def test_local_probe_timeout_explains_itself() -> None:
     """"timeout after 240.0s" tells the user nothing about what to do next."""
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.ui.web import provider_routes as pr
 
     detail = pr._model_probe_detail(
         "ollama", "qwen3-coder:30b", "timeout after 240.0s", 240.0
@@ -529,8 +529,8 @@ def test_local_probe_timeout_explains_itself() -> None:
 def test_test_button_ceiling_stays_above_its_own_budget() -> None:
     """The route ceiling exists to guarantee an HTTP answer; a ceiling BELOW
     the per-call budget would cut every slow local test at the wrong layer."""
-    from jarvis.ui.web import provider_routes as pr
-    from jarvis.ui.web.provider_spec import get_spec
+    from dodaios.ui.web import provider_routes as pr
+    from dodaios.ui.web.provider_spec import get_spec
 
     for provider_id in ("ollama", "gemini", "piper-local"):
         spec = get_spec(provider_id)
@@ -547,7 +547,7 @@ def test_the_picker_hides_the_runtimes_own_derived_aliases() -> None:
     away; this picker used to offer them, and choosing one left that section
     reporting a running model as "Not downloaded" — it looks its pick up in the
     visible inventory alone."""
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.ui.web import provider_routes as pr
 
     catalogued = [
         ModelInfo(id="ornith:9b", label="ornith:9b"),
@@ -563,7 +563,7 @@ def test_the_picker_hides_the_runtimes_own_derived_aliases() -> None:
 def test_a_card_that_cannot_create_an_alias_is_left_alone() -> None:
     """The filter is gated on the pull capability, not a provider name (AP-21):
     a derived alias only exists where the app can create one."""
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.ui.web import provider_routes as pr
 
     catalogued = [ModelInfo(id="gpt-5-voice-8k", label="a real hosted model")]
     assert pr._derived_alias_free("openai", catalogued) == catalogued

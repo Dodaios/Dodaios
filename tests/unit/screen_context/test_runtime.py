@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import ConfigReloaded
-from jarvis.screen_context.turn import get_service, reset_service
-from jarvis.ui.web import screen_context_routes
+from dodaios.core.bus import EventBus
+from dodaios.core.events import ConfigReloaded
+from dodaios.screen_context.turn import get_service, reset_service
+from dodaios.ui.web import screen_context_routes
 
 
 @pytest.fixture(autouse=True)

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.brain.ollama_library as library
+import dodaios.brain.ollama_library as library
 
 _FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "brain"
 

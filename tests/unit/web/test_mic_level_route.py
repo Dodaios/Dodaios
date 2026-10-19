@@ -7,23 +7,23 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.platform.permission_service import PermissionOutcome
-from jarvis.platform.permissions import PermissionId
-from jarvis.ui.web.settings_routes import router
+from dodaios.platform.permission_service import PermissionOutcome
+from dodaios.platform.permissions import PermissionId
+from dodaios.ui.web.settings_routes import router
 from tests.fakes.fake_permission_service import FakePermissionService
 
 
 @pytest.fixture(autouse=True)
 def _default_to_permissionless_test_platform(monkeypatch):
     """Keep generic route tests independent of this Mac's TCC state."""
-    import jarvis.ui.web.settings_routes as settings_routes
+    import dodaios.ui.web.settings_routes as settings_routes
 
     monkeypatch.setattr(settings_routes, "_is_macos", lambda: False)
 
 
 @pytest.fixture
 def client(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     async def fake_measure(duration_s=3.0):
         return -45.0
@@ -44,7 +44,7 @@ def test_mic_level_reports_too_quiet(client):
 
 
 def test_mic_level_reports_no_device(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     async def fake_measure(duration_s=3.0):
         return -120.0
@@ -62,7 +62,7 @@ def test_mic_level_reports_no_device(monkeypatch):
 
 
 def test_mic_level_reports_good_level(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     async def fake_measure(duration_s=3.0):
         return -15.0
@@ -83,7 +83,7 @@ def test_mic_level_reports_good_level(monkeypatch):
 def test_mic_level_never_500s_on_helper_error(monkeypatch):
     """Even if the underlying measurement blows up, the route stays honest --
     the route's defensive guard catches any exception and treats it as no device."""
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     async def fake_measure(duration_s=3.0):
         raise RuntimeError("mic measurement failed")
@@ -101,7 +101,7 @@ def test_mic_level_never_500s_on_helper_error(monkeypatch):
 
 
 def _macos_app(monkeypatch, outcome: PermissionOutcome) -> tuple[FastAPI, FakePermissionService]:
-    import jarvis.ui.web.settings_routes as settings_routes
+    import dodaios.ui.web.settings_routes as settings_routes
 
     monkeypatch.setattr(settings_routes, "_is_macos", lambda: True)
     gate = FakePermissionService()
@@ -125,7 +125,7 @@ def _macos_app(monkeypatch, outcome: PermissionOutcome) -> tuple[FastAPI, FakePe
 
 
 def test_macos_mic_level_never_opens_the_microphone_without_a_grant(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     calls = 0
 
@@ -171,7 +171,7 @@ def test_macos_mic_level_on_an_undecided_mac_reports_permission_required_without
 
 
 def test_macos_mic_level_measures_once_the_microphone_is_granted(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     async def fake_measure(duration_s=3.0):
         return -15.0
@@ -191,8 +191,8 @@ def test_macos_mic_level_measures_once_the_microphone_is_granted(monkeypatch):
 
 
 def test_macos_mic_level_reports_a_grant_lost_during_the_measurement(monkeypatch):
-    import jarvis.speech.diagnose as d
-    from jarvis.audio.capture import MicrophoneAccessError
+    import dodaios.speech.diagnose as d
+    from dodaios.audio.capture import MicrophoneAccessError
 
     async def revoked(duration_s=3.0):
         raise MicrophoneAccessError("revoked")
@@ -207,7 +207,7 @@ def test_macos_mic_level_reports_a_grant_lost_during_the_measurement(monkeypatch
 
 
 def test_macos_wake_self_test_asks_at_the_button_and_never_measures_without_a_grant(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     calls = 0
 
@@ -237,7 +237,7 @@ def test_macos_wake_self_test_asks_at_the_button_and_never_measures_without_a_gr
 
 
 def test_macos_wake_self_test_measures_after_the_dialog_is_allowed(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     async def fake_measure(duration_s=3.0):
         return -20.0
@@ -253,8 +253,8 @@ def test_macos_wake_self_test_measures_after_the_dialog_is_allowed(monkeypatch):
 
 
 def test_non_macos_routes_never_touch_the_permission_service(monkeypatch):
-    import jarvis.speech.diagnose as d
-    import jarvis.ui.web.settings_routes as settings_routes
+    import dodaios.speech.diagnose as d
+    import dodaios.ui.web.settings_routes as settings_routes
 
     async def fake_measure(duration_s=3.0):
         return -20.0
@@ -275,9 +275,9 @@ def test_non_macos_routes_never_touch_the_permission_service(monkeypatch):
 def test_wake_self_test_names_its_sentences_with_stable_codes(monkeypatch):
     """Every self-test answer carries ``message_code`` / ``hint_code`` the UI
     translates, next to the unchanged English sentences."""
-    import jarvis.speech.diagnose as d
-    from jarvis.speech.wake_phrase import WAKE_PLAN_MESSAGE_CODES
-    from jarvis.ui.web.settings_routes import WAKE_HINT_CODES, WAKE_MESSAGE_CODES
+    import dodaios.speech.diagnose as d
+    from dodaios.speech.wake_phrase import WAKE_PLAN_MESSAGE_CODES
+    from dodaios.ui.web.settings_routes import WAKE_HINT_CODES, WAKE_MESSAGE_CODES
 
     async def fake_measure(duration_s=3.0):
         return -20.0
@@ -294,7 +294,7 @@ def test_wake_self_test_names_its_sentences_with_stable_codes(monkeypatch):
 
 
 def test_macos_wake_self_test_denied_hint_has_a_code(monkeypatch):
-    import jarvis.speech.diagnose as d
+    import dodaios.speech.diagnose as d
 
     async def forbidden_measure(duration_s=3.0):
         raise AssertionError("must not measure without a grant")

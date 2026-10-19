@@ -1,4 +1,4 @@
-"""Unit tests for `jarvis.memory.curator.merger.Merger`.
+"""Unit tests for `dodaios.memory.curator.merger.Merger`.
 
 Covers:
 - User facts land in USER.md (set + observation log).
@@ -13,11 +13,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import ProfileUpdated
-from jarvis.memory.curator.extractor import Candidate
-from jarvis.memory.curator.merger import Merger
-from jarvis.memory.people import PersonStore
-from jarvis.memory.user_profile import UserProfile
+from dodaios.core.events import ProfileUpdated
+from dodaios.memory.curator.extractor import Candidate
+from dodaios.memory.curator.merger import Merger
+from dodaios.memory.people import PersonStore
+from dodaios.memory.user_profile import UserProfile
 
 
 # ----------------------------------------------------------------------

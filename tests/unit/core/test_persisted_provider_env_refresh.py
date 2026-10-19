@@ -19,7 +19,7 @@ import os
 
 import pytest
 
-from jarvis.core import config
+from dodaios.core import config
 
 
 def test_refresh_overwrites_stale_process_env(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.control.cost import BudgetConfig, CostMeter, ModelPrice
+from dodaios.control.cost import BudgetConfig, CostMeter, ModelPrice
 
 # ---------------------------------------------------------------------
 # Minimal harness: initializing a real BrainManager is expensive.
@@ -52,7 +52,7 @@ def _make_meter(tmp_path, **overrides):
 
 
 def test_estimate_usd_from_usage_uses_meter_prices(tmp_path):
-    from jarvis.brain.manager import _estimate_usd_from_usage
+    from dodaios.brain.manager import _estimate_usd_from_usage
     meter = _make_meter(tmp_path)
     usd = _estimate_usd_from_usage(
         meter, "test",
@@ -62,7 +62,7 @@ def test_estimate_usd_from_usage_uses_meter_prices(tmp_path):
 
 
 def test_estimate_usd_returns_zero_for_unknown_model(tmp_path):
-    from jarvis.brain.manager import _estimate_usd_from_usage
+    from dodaios.brain.manager import _estimate_usd_from_usage
     meter = _make_meter(tmp_path)
     usd = _estimate_usd_from_usage(
         meter, "unknown-model",
@@ -73,7 +73,7 @@ def test_estimate_usd_returns_zero_for_unknown_model(tmp_path):
 
 def test_meter_accumulates_on_dispatch(tmp_path):
     """Der Hook im generate() schickt agg.usage an meter.add()."""
-    from jarvis.core.protocols import CostRecord
+    from dodaios.core.protocols import CostRecord
 
     meter = _make_meter(tmp_path)
     tid = uuid4()

@@ -1,13 +1,13 @@
 """Unit tests for the Phase B9 Obsidian Setup Wizard REST routes.
 
 Mounts ``setup_routes.router`` on a fresh FastAPI app, monkeypatches the
-detector + writer in :mod:`jarvis.setup.obsidian` so the real
+detector + writer in :mod:`dodaios.setup.obsidian` so the real
 ``%APPDATA%\\obsidian\\obsidian.json`` is never touched, and asserts the
 HTTP shapes / status codes documented in the route module.
 
 The tests use a tiny ``SimpleNamespace`` config so we never have to
 construct a full :class:`JarvisConfig`. Vault path resolution goes through
-the canonical ``jarvis.memory.wiki.vault_root.resolve_vault_root`` (spec
+the canonical ``dodaios.memory.wiki.vault_root.resolve_vault_root`` (spec
 A7), which anchors a relative ``vault_root`` to the repo root — the routes
 under test only ever inspect the resolved path's suffix, so they stay
 agnostic to which concrete repo root the resolver picks.
@@ -26,15 +26,15 @@ from fastapi.testclient import TestClient
 # is_vault_registered / register_vault by name at import time, so the
 # tests monkeypatch the names ON THE ROUTE MODULE (not on the underlying
 # package) — that is the binding the routes actually call.
-import jarvis.setup.state as _state_mod
-from jarvis.setup.obsidian import (
+import dodaios.setup.state as _state_mod
+from dodaios.setup.obsidian import (
     ObsidianDetection,
     ObsidianVaultsState,
     RegisterResult,
     VaultEntry,
 )
-from jarvis.ui.web import setup_routes
-from jarvis.ui.web.setup_routes import router as setup_router
+from dodaios.ui.web import setup_routes
+from dodaios.ui.web.setup_routes import router as setup_router
 
 
 # ----------------------------------------------------------------------

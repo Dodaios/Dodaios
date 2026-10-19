@@ -14,18 +14,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jarvis.missions.budget import BudgetTracker
-from jarvis.missions.capacity import (
+from dodaios.missions.budget import BudgetTracker
+from dodaios.missions.capacity import (
     CapacityPolicy,
     DailyPaidLedger,
     PaidCallGate,
     PaidCallRefused,
     PaidOffer,
 )
-from jarvis.missions.critic.verdict import REQUIRED_AXES, CriticAxis, CriticVerdict
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
-from jarvis.missions.manager import MissionManager
+from dodaios.missions.critic.verdict import REQUIRED_AXES, CriticAxis, CriticVerdict
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
+from dodaios.missions.manager import MissionManager
 
 SESSION_LIMIT_ERROR = "You've hit your session limit · resets 11:10pm"
 

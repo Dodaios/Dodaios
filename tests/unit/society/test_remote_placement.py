@@ -18,16 +18,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import remote_cli
-from jarvis.computers import identity, service
-from jarvis.computers.service import ComputerService
-from jarvis.computers.store import ComputerStore
-from jarvis.society import remote
-from jarvis.society.failure_reasons import FailureReason
-from jarvis.society.roster import Roster, RosterError
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.store import SocietyStore
-from jarvis.ui.web.society_routes import router
+from dodaios.agent_chat import remote_cli
+from dodaios.computers import identity, service
+from dodaios.computers.service import ComputerService
+from dodaios.computers.store import ComputerStore
+from dodaios.society import remote
+from dodaios.society.failure_reasons import FailureReason
+from dodaios.society.roster import Roster, RosterError
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.store import SocietyStore
+from dodaios.ui.web.society_routes import router
 from tests.fakes.fake_ssh_server import TEST_PASSWORD, FakeSshServer
 
 
@@ -57,7 +57,7 @@ def computers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ComputerServic
         if hasattr(module, "delete_secret"):
             monkeypatch.setattr(module, "delete_secret", box.delete)
     path = tmp_path / "computers.json"
-    monkeypatch.setattr("jarvis.computers.store.default_path", lambda: path)
+    monkeypatch.setattr("dodaios.computers.store.default_path", lambda: path)
     svc = ComputerService(ComputerStore(path))
     monkeypatch.setattr(service, "_SERVICE", svc)
     return svc
@@ -371,7 +371,7 @@ async def test_placement_follows_the_society_roster(monkeypatch: pytest.MonkeyPa
         return agents.get(agent_id)
 
     fake_runtime = SimpleNamespace(roster=SimpleNamespace(get=get))
-    monkeypatch.setattr("jarvis.society.runtime.current_runtime", lambda: fake_runtime)
+    monkeypatch.setattr("dodaios.society.runtime.current_runtime", lambda: fake_runtime)
 
     def chat(surface: str, sid: str) -> SimpleNamespace:
         return SimpleNamespace(surface=surface, session_id=sid)

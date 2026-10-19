@@ -16,7 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.speech.wake_phrase import resolve_wake_plan
+from dodaios.speech.wake_phrase import resolve_wake_plan
 
 
 def _cfg(phrase: str = "Hey Ruben", engine: str = "auto", custom: str = "") -> SimpleNamespace:
@@ -137,7 +137,7 @@ def test_mismatched_language_no_whisper_is_honest_wake_off(de_model):
 
 
 def test_resolve_wake_language_cascade():
-    from jarvis.speech.wake_model_fetch import resolve_wake_language
+    from dodaios.speech.wake_model_fetch import resolve_wake_language
 
     # the explicit wake-word pin wins over everything (the 2026-07-21
     # decoupling: the wake language must never follow the app language)
@@ -168,14 +168,14 @@ def test_resolve_wake_language_cascade():
 
 
 def test_oov_guard_empty_phrase_is_unsupported():
-    from jarvis.plugins.wake.vosk_kws_provider import vosk_model_supports_phrase
+    from dodaios.plugins.wake.vosk_kws_provider import vosk_model_supports_phrase
 
     assert vosk_model_supports_phrase("/nonexistent/model", "") is False
 
 
 def test_oov_guard_fails_open_on_bad_model_path():
     # A probe that cannot even load the model must NEVER reject a real word.
-    from jarvis.plugins.wake.vosk_kws_provider import vosk_model_supports_phrase
+    from dodaios.plugins.wake.vosk_kws_provider import vosk_model_supports_phrase
 
     assert vosk_model_supports_phrase("/definitely/not/a/model", "Hey Ruben") is True
 
@@ -188,7 +188,7 @@ def test_oov_guard_fails_open_on_bad_model_path():
 def test_wake_high_accuracy_defaults_to_cpu():
     # Guards the 2026-07-09 CPU-first flip: the sticky GPU probe caches made a
     # once-fast wake go permanently deaf after a restart, so GPU wake is opt-in.
-    from jarvis.core.config import STTConfig
+    from dodaios.core.config import STTConfig
 
     assert STTConfig().wake_high_accuracy is False
 
@@ -208,7 +208,7 @@ async def test_the_stt_language_list_has_exactly_one_source():
     #
     # Half one: the backend actually hands out the whole accepted set, because a
     # client that cannot fetch the options has no way to build a correct picker.
-    from jarvis.ui.web.settings_routes import _STT_LANGUAGES, get_stt_language
+    from dodaios.ui.web.settings_routes import _STT_LANGUAGES, get_stt_language
 
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(config=None)))
     body = get_stt_language(request)  # type: ignore[arg-type]
@@ -227,7 +227,7 @@ def test_the_frontend_never_re_mirrors_the_stt_language_list():
 
     ts_path = (
         Path(__file__).resolve().parents[3]
-        / "jarvis" / "ui" / "web" / "frontend" / "src" / "i18n" / "index.ts"
+        / "dodaios" / "ui" / "web" / "frontend" / "src" / "i18n" / "index.ts"
     )
     text = ts_path.read_text(encoding="utf-8")
 
@@ -263,12 +263,12 @@ def test_wake_language_list_parity_python_ts():
     # the fetcher can actually provision (VOSK_MODELS).
     import re
 
-    from jarvis.speech.wake_model_fetch import VOSK_MODELS
-    from jarvis.ui.web.settings_routes import _WAKE_LANGUAGES
+    from dodaios.speech.wake_model_fetch import VOSK_MODELS
+    from dodaios.ui.web.settings_routes import _WAKE_LANGUAGES
 
     ts_path = (
         Path(__file__).resolve().parents[3]
-        / "jarvis" / "ui" / "web" / "frontend" / "src" / "views" / "SettingsView.tsx"
+        / "dodaios" / "ui" / "web" / "frontend" / "src" / "views" / "SettingsView.tsx"
     )
     text = ts_path.read_text(encoding="utf-8")
     m = re.search(r"const WAKE_LANGUAGES: WakeLanguage\[\]\s*=\s*\[([^\]]+)\]", text)

@@ -12,11 +12,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import ObservationCaptured
-from jarvis.core.protocols import CancelToken, Observation, UIANode
-from jarvis.vision.cache import VisionCache
-from jarvis.vision.engine import VisionEngine
+from dodaios.core.bus import EventBus
+from dodaios.core.events import ObservationCaptured
+from dodaios.core.protocols import CancelToken, Observation, UIANode
+from dodaios.vision.cache import VisionCache
+from dodaios.vision.engine import VisionEngine
 
 
 class _FakeScreenshotSource:

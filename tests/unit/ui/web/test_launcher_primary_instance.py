@@ -25,8 +25,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui.desktop_app import acquire_single_instance_lock
-from jarvis.ui.web.launcher import (
+from dodaios.ui.desktop_app import acquire_single_instance_lock
+from dodaios.ui.web.launcher import (
     _acquire_primary_lock_for_headless,
     _claim_headless_primary_lock,
 )

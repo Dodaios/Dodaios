@@ -2,7 +2,7 @@
 gemini worker's real work and final answer, not only claude's stream-json shape.
 
 Root cause (2026-06-15 deep-dive, live mission 019ec761 + DB forensics): every
-extractor in ``jarvis.missions.stream_evidence`` parsed ONLY claude frames
+extractor in ``dodaios.missions.stream_evidence`` parsed ONLY claude frames
 (``type==assistant/user/result`` with ``tool_use``/``tool_result`` blocks). A
 codex worker writes ``item.completed`` frames and a gemini worker writes plain
 text (``--output-format text``) — both invisible. Consequence: a codex/gemini
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 
-from jarvis.missions.stream_evidence import (
+from dodaios.missions.stream_evidence import (
     capability_refusal_answer,
     extract_stream_evidence,
     extract_verified_commands,

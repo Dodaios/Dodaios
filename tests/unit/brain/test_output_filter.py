@@ -1,4 +1,4 @@
-"""Tests for ``jarvis.brain.output_filter.scrub_for_voice``.
+"""Tests for ``dodaios.brain.output_filter.scrub_for_voice``.
 
 Persona mandate Phase 1: the output filter on the Brain->TTS path scrubs
 tool JSON, stacktraces, engineering jargon, self-reference, echo paraphrase,
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.output_filter import ScrubResult, scrub_for_voice
+from dodaios.brain.output_filter import ScrubResult, scrub_for_voice
 
 
 # ---------------------------------------------------------------------------
@@ -799,7 +799,7 @@ def test_openclaw_subagenten_plural_also_scrubbed() -> None:
 
 
 def test_scrub_strips_end_call_sentinel() -> None:
-    from jarvis.speech.hangup import END_CALL_SIGNAL
+    from dodaios.speech.hangup import END_CALL_SIGNAL
 
     result = scrub_for_voice(f"Bis später, Ruben. {END_CALL_SIGNAL}", language="de")  # i18n-allow
     assert END_CALL_SIGNAL not in result.cleaned
@@ -857,7 +857,7 @@ def test_clean_answer_without_sources_is_untouched() -> None:
 
 
 def test_scrub_sentinel_only_yields_empty() -> None:
-    from jarvis.speech.hangup import END_CALL_SIGNAL
+    from dodaios.speech.hangup import END_CALL_SIGNAL
 
     result = scrub_for_voice(END_CALL_SIGNAL, language="de")
     assert result.cleaned == ""
@@ -878,7 +878,7 @@ def test_scrub_sentinel_only_yields_empty() -> None:
 
 def test_scrub_replaces_raw_harness_result_dict_with_fallback() -> None:
     """The exact leaked shape from the live bug -> fallback, never spoken."""
-    from jarvis.brain.output_filter import FALLBACK_PHRASES
+    from dodaios.brain.output_filter import FALLBACK_PHRASES
 
     leaked = (
         "{'harness': 'screenshot', 'exit_code': 0, 'stdout': \"[cu] done at "
@@ -895,7 +895,7 @@ def test_scrub_replaces_raw_harness_result_dict_with_fallback() -> None:
 def test_scrub_replaces_already_scrubbed_harness_dict() -> None:
     """Even the post-jargon form ({'' : 'screenshot', …} — what actually
     reached the user) must be refused, not merely have 'harness' removed."""
-    from jarvis.brain.output_filter import FALLBACK_PHRASES
+    from dodaios.brain.output_filter import FALLBACK_PHRASES
 
     leaked = "{'': 'screenshot', 'exit_code': 0, 'cost_usd': 0.0, 'duration_ms': 15442}"
     result = scrub_for_voice(leaked, language="de")
@@ -906,7 +906,7 @@ def test_scrub_replaces_already_scrubbed_harness_dict() -> None:
 def test_scrub_refuses_arbitrary_dict_dump_unknown_keys() -> None:
     """STRUCTURAL guard: a brand-new result shape with keys never seen before
     is refused too — no key-by-key whack-a-mole."""
-    from jarvis.brain.output_filter import FALLBACK_PHRASES
+    from dodaios.brain.output_filter import FALLBACK_PHRASES
 
     leaked = "{'foo': 1, 'bar': 'baz', 'nested': {'a': 2}, 'when': 'now'}"
     result = scrub_for_voice(leaked, language="en")
@@ -916,7 +916,7 @@ def test_scrub_refuses_arbitrary_dict_dump_unknown_keys() -> None:
 
 def test_scrub_refuses_json_list_of_objects_dump() -> None:
     """A JSON array of objects (double quotes) is a dump too."""
-    from jarvis.brain.output_filter import FALLBACK_PHRASES
+    from dodaios.brain.output_filter import FALLBACK_PHRASES
 
     leaked = '[{"title": "X", "snippet": "y"}, {"title": "Z", "snippet": "w"}]'
     result = scrub_for_voice(leaked, language="de")
@@ -929,7 +929,7 @@ def test_fallback_phrase_localized_to_spanish() -> None:
     supported locales (de/en/es). A Spanish-pinned user must hear the Spanish
     fallback, not German — true for BOTH the raw-dump guard and the stacktrace
     guard (same FALLBACK_PHRASES table)."""
-    from jarvis.brain.output_filter import FALLBACK_PHRASES
+    from dodaios.brain.output_filter import FALLBACK_PHRASES
 
     assert "es" in FALLBACK_PHRASES, "Spanish fallback phrase missing"
     # raw-dump guard in Spanish
@@ -949,7 +949,7 @@ def test_fallback_phrase_localized_to_spanish() -> None:
 
 def test_fallback_phrase_localized_to_european_portuguese() -> None:
     """Same doctrine for pt: a pt-pinned user hears the pt fallback, not German."""
-    from jarvis.brain.output_filter import FALLBACK_PHRASES
+    from dodaios.brain.output_filter import FALLBACK_PHRASES
 
     assert "pt" in FALLBACK_PHRASES, "European Portuguese fallback phrase missing"
     dump = scrub_for_voice("{'exit_code': 0, 'cost_usd': 0.0}", language="pt")
@@ -1221,7 +1221,7 @@ def test_url_is_replaced_by_a_spoken_placeholder_not_deleted() -> None:
 def test_url_placeholder_is_localized(language: str, expected: str) -> None:
     """Runtime-output-language doctrine: the placeholder table carries every
     supported locale — a Spanish-pinned user never hears the German one."""
-    from jarvis.brain.output_filter import SOURCE_LINK_PLACEHOLDER
+    from dodaios.brain.output_filter import SOURCE_LINK_PLACEHOLDER
 
     assert set(SOURCE_LINK_PLACEHOLDER) >= {"de", "en", "es", "pt"}
     result = scrub_for_voice("Mehr dazu auf https://example.org heute.", language=language)

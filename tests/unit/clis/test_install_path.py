@@ -13,11 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.clis.catalog import CliCatalog
-from jarvis.clis.external_terminal import chain_commands, path_refresh_command
-from jarvis.clis.prober import _apply_parse_strategy
+from dodaios.clis.catalog import CliCatalog
+from dodaios.clis.external_terminal import chain_commands, path_refresh_command
+from dodaios.clis.prober import _apply_parse_strategy
 
-SEED_PATH = Path(__file__).resolve().parents[3] / "jarvis/clis/catalog/seed_catalog.json"
+SEED_PATH = Path(__file__).resolve().parents[3] / "dodaios/clis/catalog/seed_catalog.json"
 
 
 def _seed_entries() -> list[dict]:
@@ -117,12 +117,12 @@ def test_unparseable_status_is_unknown_not_connected() -> None:
 
 def test_chain_stops_at_the_first_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """A failed install must not be followed by a login attempt."""
-    monkeypatch.setattr("jarvis.clis.external_terminal.sys.platform", "linux")
+    monkeypatch.setattr("dodaios.clis.external_terminal.sys.platform", "linux")
     assert chain_commands(["a", "b", "c"]) == "a && b && c"
 
     # Windows PowerShell 5.1 is a possible fallback shell and has no `&&`,
     # so the Windows spelling must not contain one.
-    monkeypatch.setattr("jarvis.clis.external_terminal.sys.platform", "win32")
+    monkeypatch.setattr("dodaios.clis.external_terminal.sys.platform", "win32")
     chained = chain_commands(["a", "b", "c"])
     assert "&&" not in chained
     assert chained == "a; if ($?) { b; if ($?) { c } }"
@@ -130,7 +130,7 @@ def test_chain_stops_at_the_first_failure(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_chain_of_one_is_left_alone(monkeypatch: pytest.MonkeyPatch) -> None:
     for platform in ("win32", "linux", "darwin"):
-        monkeypatch.setattr("jarvis.clis.external_terminal.sys.platform", platform)
+        monkeypatch.setattr("dodaios.clis.external_terminal.sys.platform", platform)
         assert chain_commands(["npm install -g x"]) == "npm install -g x"
         assert chain_commands([]) == ""
 
@@ -138,5 +138,5 @@ def test_chain_of_one_is_left_alone(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_path_refresh_exists_for_every_platform(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without it, `gcloud auth login` right after installing gcloud is not found."""
     for platform in ("win32", "linux", "darwin"):
-        monkeypatch.setattr("jarvis.clis.external_terminal.sys.platform", platform)
+        monkeypatch.setattr("dodaios.clis.external_terminal.sys.platform", platform)
         assert path_refresh_command().strip()

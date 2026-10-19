@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import intent
-from jarvis.agentic_ide.clarify import (
+from dodaios.agentic_ide import intent
+from dodaios.agentic_ide.clarify import (
     ClarificationWindow,
     addresses_workspace,
     detect_clarification,

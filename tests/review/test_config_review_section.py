@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from jarvis.core.config import JarvisConfig, ReviewConfig, ReviewRubricConfig
+from dodaios.core.config import JarvisConfig, ReviewConfig, ReviewRubricConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

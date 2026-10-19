@@ -13,22 +13,22 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ListeningStarted,
     SpeechSpoken,
     TranscriptFinal,
     VoiceSessionEnded,
     VoiceSessionStarted,
 )
-from jarvis.core.protocols import Transcript
-from jarvis.sessions.constants import (
+from dodaios.core.protocols import Transcript
+from dodaios.sessions.constants import (
     SPOKEN_KIND_COMPLETION,
     SPOKEN_KIND_PROGRESS,
     SPOKEN_KIND_SUBAGENT,
 )
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
 
 
 def _final(text: str, lang: str = "de") -> TranscriptFinal:

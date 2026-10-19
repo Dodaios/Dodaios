@@ -1,0 +1,113 @@
+"""REST API for tool-registry inspection.
+
+Shows all tools available to the brain at runtime — MCP adapters, native
+plugin tools, skills. A pure read-only API for the UI and debugging.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Request
+
+router = APIRouter(prefix="/api/tools", tags=["tools"])
+
+
+def _tool_to_dict(name: str, tool: Any) -> dict[str, Any]:
+    source = "native"
+    if name.startswith("cli_"):
+        source = "cli"
+    elif "/" in name or name.startswith("mcp__"):
+        # MCPToolAdapter.name = "<server>/<tool>"
+        source = "mcp"
+
+    return {
+        "name": name,
+        "description": getattr(tool, "description", "") or "",
+        "risk_tier": getattr(tool, "risk_tier", "monitor"),
+        "schema": getattr(tool, "schema", {}) or {},
+        "source": source,
+        # MCP adapters have an MCPClient — we show the server name for the UI
+        "mcp_server": (
+            getattr(getattr(tool, "_client", None), "spec", None).name
+            if hasattr(tool, "_client")
+            else None
+        ),
+    }
+
+
+@router.get("")
+async def list_tools(request: Request) -> dict[str, Any]:
+    # ``tool_registry`` is only the user-added MCP registry. The effective
+    # BrainManager registry also contains native, Marketplace, and connected CLI
+    # tools and is replaced atomically on live refresh. Prefer that authoritative
+    # per-turn surface so this endpoint can answer "which tools are available?"
+    # honestly; retain the MCP registry as an early-boot fallback.
+    brain = getattr(request.app.state, "brain", None)
+    registry = getattr(brain, "_tools", None)
+    if registry is None or not hasattr(registry, "items"):
+        registry = getattr(request.app.state, "tool_registry", None)
+    if registry is None or not hasattr(registry, "items"):
+        return {
+            "tools": [],
+            "total": 0,
+            "by_source": {"mcp": 0, "cli": 0, "native": 0},
+        }
+
+    tools = [_tool_to_dict(name, tool) for name, tool in registry.items()]
+    by_source: dict[str, int] = {"mcp": 0, "cli": 0, "native": 0}
+    for t in tools:
+        by_source[t["source"]] = by_source.get(t["source"], 0) + 1
+
+    return {
+        "tools": sorted(tools, key=lambda t: (t["source"], t["name"])),
+        "total": len(tools),
+        "by_source": by_source,
+    }
+
+
+@router.get("/brief")
+async def list_tools_brief(request: Request) -> dict[str, Any]:
+    """The tool surface as a language model needs it: names, one line each.
+
+    The full listing above serializes every schema and runs to 50-200k
+    characters; the model-facing tool-result cap sliced that to 8k
+    mid-JSON, so the ``tools-list`` voice command paid thousands of input
+    tokens per loop iteration for a structurally broken fragment
+    (2026-07-28 cost audit). Schemas stay in the full route for the UI.
+    """
+    full = await list_tools(request)
+    return {
+        "tools": [
+            {
+                "name": t["name"],
+                "summary": str(t["description"]).split("\n", 1)[0][:140],
+                "source": t["source"],
+            }
+            for t in full["tools"]
+        ],
+        "total": full["total"],
+        "by_source": full["by_source"],
+    }
+
+
+@router.get("/usage")
+async def tool_usage_report(request: Request, days: int = 30) -> dict[str, Any]:
+    """How often each tool actually ran over the last ``days`` days.
+
+    Read from the flight recorder's daily files, which already hold every
+    executed tool call on every surface; nothing extra is recorded.
+    ``coverage`` says how many of the most used tools carry 50, 80, 90, 95 and
+    99 percent of all calls, and ``never_used`` lists the registered tools
+    that did not run once in the window. ``days=0`` reads everything on disk.
+    """
+    import asyncio
+
+    from dodaios.telemetry import tool_usage as usage
+
+    full = await list_tools(request)
+    registered = [t["name"] for t in full["tools"]]
+    window = max(0, min(int(days), 3650))
+    # The files are read off the event loop: a month of them is tens of MB.
+    return await asyncio.to_thread(
+        usage.tool_usage, usage.DEFAULT_DATA_DIR, days=window, registered=registered
+    )

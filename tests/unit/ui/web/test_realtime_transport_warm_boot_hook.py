@@ -20,8 +20,8 @@ from typing import Any
 import pytest
 from loguru import logger
 
-from jarvis.realtime import factory as realtime_factory
-from jarvis.ui.web import server as web_server
+from dodaios.realtime import factory as realtime_factory
+from dodaios.ui.web import server as web_server
 
 
 class _StubServer:

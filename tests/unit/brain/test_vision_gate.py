@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.vision_gate import has_visual_marker, should_attach_screenshot
+from dodaios.brain.vision_gate import has_visual_marker, should_attach_screenshot
 
 # Turns that clearly refer to the screen -> attach.
 _VISUAL = [

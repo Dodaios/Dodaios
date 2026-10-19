@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import writer
+from dodaios.agentic_ide import writer
 
 
 def _cfg(choice: str) -> SimpleNamespace:
@@ -188,7 +188,7 @@ def test_both_call_sites_use_this_module() -> None:
     """The drift guard: a second copy of this decision is the bug itself."""
     import inspect
 
-    from jarvis.agentic_ide import prompt_composer, work_split
+    from dodaios.agentic_ide import prompt_composer, work_split
 
     for module, function in (
         (prompt_composer, "_resolve_writer"),
