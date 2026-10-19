@@ -8255,7 +8255,15 @@
         "stage_session": "Preparar los cambios pendientes de la sesión",
         "session_empty": "Esta sesión todavía no ha cambiado ningún archivo, o su agente no guarda registro de sus ediciones.",
         "session_committed": "confirmado",
-        "session_generated": "{n} archivos generados ocultos"
+        "session_generated": "{n} archivos generados ocultos",
+        "follow_main": "Mantener esta app en el main más reciente",
+        "follow_main_on": "Esta app se mantiene en el main más reciente.",
+        "follow_busy_update": "Actualizando al main más reciente…",
+        "follow_busy_install": "Instalando paquetes para la actualización…",
+        "follow_busy_build": "Construyendo la nueva interfaz…",
+        "follow_restart_pending": "Hay código nuevo; la app se reinicia en cuanto no haya ninguna misión ni llamada en curso.",
+        "follow_updated": "Actualizado {when}: {subject}",
+        "follow_click_off": "Haz clic para dejar de seguir main."
       }
     },
     "skills": {
