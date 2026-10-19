@@ -117,7 +117,7 @@ describe("GitOverviewTab — changes", () => {
     expect(fileRow("notes.txt").dataset.letter).toBe("U");
     expect(fileRow("src/new.ts", "staged").dataset.letter).toBe("A");
     expect(within(fileRow("old.txt")).getByText("old.txt").className).toContain("line-through");
-    expect(within(fileRow("app.py")).getByTestId("scm-letter").className).toContain("--git-modified");
+    expect(within(fileRow("app.py")).getByTestId("scm-letter").className).toContain("scm-tone-M");
     expect(screen.getByTestId("scm-branch").textContent).toBe("main*");
   });
 
@@ -266,7 +266,7 @@ describe("GitOverviewTab — graph", () => {
     render(<GitOverviewTab />);
     const commits = await screen.findAllByTestId("scm-graph-commit");
     expect(commits.map((element) => element.textContent)).toEqual([expect.stringContaining("feat: second"), expect.stringContaining("feat: first")]);
-    expect(within(commits[0]).getAllByTestId("scm-graph-ref").map((badge) => badge.textContent)).toEqual(["main", "origin/main"]);
+    expect(within(commits[0]).getAllByTestId("scm-graph-ref").map((badge) => badge.getAttribute("aria-label"))).toEqual(["main", "origin/main"]);
     expect(within(commits[1]).getByTestId("scm-graph-ref").dataset.kind).toBe("tag");
     fireEvent.click(commits[0]);
     expect((await screen.findByTestId("scm-graph-file")).textContent).toContain("x.ts");

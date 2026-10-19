@@ -1,5 +1,4 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, Cloud, GitBranch, Loader2, Tag } from "lucide-react";
 import { useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
@@ -10,10 +9,13 @@ import { agoLabel } from "../gitBadges";
 import { scmApi, type CommitDetails, type GraphCommit, type GraphPage, type GraphScope } from "./scmApi";
 import { baseName, dirName, laneColor, layoutGraph, letterTone, parseRefs, type GraphRow, type RefBadge } from "./scmModel";
 import { ScmMenu, type MenuItem } from "./ScmMenu";
+import { Codicon, Twistie } from "./Codicon";
 import type { ScmCommands } from "./useScm";
 import type { DiffSource } from "./DiffDialog";
 
 const ROW = 22;
+/** A commit's files sit one level in, under its subject. */
+const GRAPH_INDENT = 16;
 const LANE = 11;
 const PAGE = 50;
 
@@ -22,8 +24,9 @@ function laneX(lane: number) {
 }
 
 /** The lanes of one graph row: lines from above into the dot, lines from the dot down. */
-const GraphLanes = memo(function GraphLanes({ row, head }: { row: GraphRow; head: boolean }) {
-  const width = laneX(row.width - 1) + LANE / 2 + 2;
+const GraphLanes = memo(function GraphLanes({ row, head, lanes }: { row: GraphRow; head: boolean; lanes: number }) {
+  // Every row is as wide as the widest one, so the subjects line up.
+  const width = laneX(Math.max(lanes, row.width) - 1) + LANE / 2 + 2;
   const mid = ROW / 2;
   const x = laneX(row.lane);
   const paths: { d: string; color: string }[] = [];
@@ -53,34 +56,50 @@ const GraphLanes = memo(function GraphLanes({ row, head }: { row: GraphRow; head
   return (
     <svg width={width} height={ROW} className="shrink-0" aria-hidden>
       {paths.map((path, index) => (
-        <path key={index} d={path.d} stroke={path.color} strokeWidth={1.5} fill="none" />
+        <path key={index} d={path.d} stroke={path.color} strokeWidth={1} fill="none" />
       ))}
       {head ? (
-        <circle cx={x} cy={mid} r={4} fill="hsl(var(--background))" stroke={laneColor(row.lane)} strokeWidth={2} />
+        <>
+          <circle cx={x} cy={mid} r={5} fill={laneColor(row.lane)} />
+          <circle cx={x} cy={mid} r={3} fill="var(--scm-bg)" />
+        </>
       ) : merge ? (
         <>
-          <circle cx={x} cy={mid} r={4} fill="hsl(var(--background))" stroke={laneColor(row.lane)} strokeWidth={1.5} />
-          <circle cx={x} cy={mid} r={1.8} fill={laneColor(row.lane)} />
+          <circle cx={x} cy={mid} r={4} fill="var(--scm-bg)" stroke={laneColor(row.lane)} strokeWidth={2} />
+          <circle cx={x} cy={mid} r={1.5} fill={laneColor(row.lane)} />
         </>
       ) : (
-        <circle cx={x} cy={mid} r={3.5} fill={laneColor(row.lane)} />
+        <circle cx={x} cy={mid} r={4} fill={laneColor(row.lane)} />
       )}
     </svg>
   );
 });
 
-function RefChip({ badge, color }: { badge: RefBadge; color: string }) {
-  const Icon = badge.kind === "tag" ? Tag : badge.kind === "remote" ? Cloud : GitBranch;
+const REF_COLOR: Record<RefBadge["kind"], string> = {
+  head: "var(--scm-ref-local)",
+  remote: "var(--scm-ref-remote)",
+  tag: "var(--scm-ref-base)",
+};
+const REF_ICON: Record<RefBadge["kind"], string> = { head: "git-branch", remote: "cloud", tag: "tag" };
+
+/** A ref on a commit: the first one with its name, every further one as its icon only. */
+function RefChip({ badge, compact }: { badge: RefBadge; compact: boolean }) {
   return (
-    <span
-      data-testid="scm-graph-ref"
-      data-kind={badge.kind}
-      style={{ borderColor: color, color: badge.current ? "hsl(var(--background))" : color, background: badge.current ? color : "transparent" }}
-      className="inline-flex h-[16px] max-w-[140px] shrink-0 items-center gap-0.5 rounded-full border px-1.5 text-[10.5px] font-medium leading-none"
-    >
-      <Icon className="h-2.5 w-2.5 shrink-0" aria-hidden />
-      <span className="truncate">{badge.name}</span>
-    </span>
+    <QuickTooltip content={badge.name} side="bottom" className="inline-flex shrink-0">
+      <span
+        data-testid="scm-graph-ref"
+        data-kind={badge.kind}
+        aria-label={badge.name}
+        style={{ background: REF_COLOR[badge.kind], color: "var(--scm-ref-fg)" }}
+        className={cn(
+          "ml-[4px] inline-flex h-[18px] max-w-[120px] items-center gap-[2px] rounded-[9px] text-[11px] leading-[18px]",
+          compact ? "w-[18px] justify-center" : "px-[5px]",
+        )}
+      >
+        <Codicon name={badge.current ? "target" : REF_ICON[badge.kind]} className="!text-[12px] !leading-[12px]" />
+        {!compact && <span className="truncate">{badge.name}</span>}
+      </span>
+    </QuickTooltip>
   );
 }
 
@@ -158,6 +177,7 @@ export function GraphView({
   }, [loading, page, workspaceId, scope, commits.length, pushToast]);
 
   const rows = useMemo(() => layoutGraph(commits), [commits]);
+  const lanes = useMemo(() => Math.min(12, rows.reduce((most, row) => Math.max(most, row.width), 1)), [rows]);
   const incoming = useMemo(() => new Set(page?.incoming ?? []), [page]);
   const outgoing = useMemo(() => new Set(page?.outgoing ?? []), [page]);
   const head = page?.head ?? "";
@@ -210,17 +230,21 @@ export function GraphView({
   };
 
   if (error && commits.length === 0) {
-    return <p data-testid="scm-graph-error" className="px-3 py-3 text-xs text-destructive">{error}</p>;
+    return (
+      <p data-testid="scm-graph-error" className="px-[20px] py-[4px] text-[13px]" style={{ color: "var(--scm-deleted)" }}>
+        {error}
+      </p>
+    );
   }
   if (!page) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground motion-reduce:animate-none" aria-hidden />
+      <div className="flex items-center justify-center py-[8px]">
+        <Codicon name="loading" spin />
       </div>
     );
   }
   if (commits.length === 0) {
-    return <p className="px-3 py-3 text-[12px] text-muted-foreground">{t("ide_side_panel.git.scm.no_commits")}</p>;
+    return <p className="px-[20px] py-[4px] text-[13px] opacity-70">{t("ide_side_panel.git.scm.no_commits")}</p>;
   }
 
   return (
@@ -266,31 +290,33 @@ export function GraphView({
               }}
               onContextMenu={(event) => onContext(commit, event)}
               style={{ height: ROW }}
-              className="group/commit flex cursor-pointer select-none items-center gap-1 pr-2 text-[12.5px] hover:bg-secondary/70 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-accent"
+              className="scm-row flex cursor-pointer select-none items-center pr-[8px] focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-[var(--scm-focus)]"
             >
-              <GraphLanes row={row} head={commit.id === head} />
-              <QuickTooltip content={tip} side="bottom" className="flex min-w-0 flex-1 items-center gap-1.5">
-                <span className={cn("min-w-0 truncate", commit.id === head ? "font-semibold text-foreground" : "text-foreground/90", direction === "incoming" && "italic")}>
-                  {commit.subject}
-                </span>
-                <span className="min-w-0 shrink truncate text-[11.5px] text-muted-foreground/80">{commit.author}</span>
+              <GraphLanes row={row} head={commit.id === head} lanes={lanes} />
+              <QuickTooltip content={tip} side="bottom" className="ml-[4px] flex min-w-0 flex-1 items-baseline overflow-hidden whitespace-nowrap">
+                <span className={cn("min-w-0 truncate", commit.id === head && "font-semibold")}>{commit.subject}</span>
+                <span className="ml-[0.5em] min-w-0 shrink truncate text-[0.9em] opacity-70">{commit.author}</span>
               </QuickTooltip>
-              {direction === "incoming" && <ArrowDown className="h-3 w-3 shrink-0 text-accent" aria-label={t("ide_side_panel.git.scm.incoming")} />}
-              {direction === "outgoing" && <ArrowUp className="h-3 w-3 shrink-0 text-accent" aria-label={t("ide_side_panel.git.scm.outgoing")} />}
-              {badges.slice(0, 3).map((badge) => (
-                <RefChip key={`${badge.kind}:${badge.name}`} badge={badge} color={laneColor(row.lane)} />
+              {direction && (
+                <QuickTooltip content={t(`ide_side_panel.git.scm.${direction}`)} side="bottom" className="inline-flex shrink-0">
+                  <span aria-label={t(`ide_side_panel.git.scm.${direction}`)} className="ml-[4px] inline-flex opacity-80">
+                    <Codicon name={direction === "incoming" ? "arrow-circle-down" : "arrow-circle-up"} />
+                  </span>
+                </QuickTooltip>
+              )}
+              {badges.map((badge, index) => (
+                <RefChip key={`${badge.kind}:${badge.name}`} badge={badge} compact={index > 0} />
               ))}
-              {badges.length > 3 && <span className="shrink-0 text-[10.5px] text-muted-foreground">+{badges.length - 3}</span>}
             </div>
             {details === "loading" && (
-              <div className="flex h-[22px] items-center pl-8">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground motion-reduce:animate-none" aria-hidden />
+              <div className="flex h-[22px] items-center" style={{ paddingLeft: GRAPH_INDENT + 22 }}>
+                <Codicon name="loading" spin />
               </div>
             )}
             {details && details !== "loading" && (
               <div data-testid="scm-graph-files">
                 {details.message.includes("\n") && (
-                  <p className="whitespace-pre-wrap break-words py-1 pl-8 pr-3 text-[11.5px] text-muted-foreground">{details.message.split("\n").slice(1).join("\n").trim()}</p>
+                  <p className="whitespace-pre-wrap break-words py-[2px] pr-[12px] text-[12px] leading-[18px] opacity-70" style={{ paddingLeft: GRAPH_INDENT + 22 }}>{details.message.split("\n").slice(1).join("\n").trim()}</p>
                 )}
                 {details.files.map((file) => (
                   <div
@@ -308,24 +334,29 @@ export function GraphView({
                     onKeyDown={(event) => {
                       if (event.key === "Enter") event.currentTarget.click();
                     }}
-                    style={{ height: ROW }}
-                    className="flex cursor-pointer select-none items-center gap-1.5 pl-8 pr-2 text-[12.5px] hover:bg-secondary/70"
+                    style={{ height: ROW, paddingLeft: GRAPH_INDENT }}
+                    className="scm-row flex cursor-pointer select-none items-center"
                   >
-                    <FileTypeIcon path={file.path} className="h-4 w-4" />
+                    <Twistie visible={false} />
+                    <FileTypeIcon path={file.path} className="mr-[6px] h-4 w-4" />
                     <span className={cn("truncate", letterTone(file.letter), file.letter === "D" && "line-through")}>{baseName(file.path)}</span>
-                    <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground/80">{dirName(file.path)}</span>
-                    <span className={cn("w-3.5 shrink-0 text-center font-mono text-[12px] font-semibold", letterTone(file.letter))}>{file.letter}</span>
+                    <span className="ml-[0.5em] min-w-0 flex-1 truncate text-[0.9em] opacity-70">{dirName(file.path)}</span>
+                    <span className={cn("ml-[5px] mr-[12px] w-4 shrink-0 text-center text-[12px] font-semibold opacity-90", letterTone(file.letter))}>{file.letter}</span>
                   </div>
                 ))}
-                {details.stat && <p className="py-0.5 pl-8 text-[11px] text-muted-foreground">{details.stat}</p>}
+                {details.stat && (
+                  <p className="text-[12px] leading-[22px] opacity-70" style={{ paddingLeft: GRAPH_INDENT + 22 }}>
+                    {details.stat}
+                  </p>
+                )}
               </div>
             )}
           </div>
         );
       })}
       {page.more && (
-        <button type="button" data-testid="scm-graph-more" onClick={loadMore} className="flex h-[22px] w-full items-center gap-1 pl-3 text-[12px] text-accent hover:underline">
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden />}
+        <button type="button" data-testid="scm-graph-more" onClick={loadMore} className="scm-row flex h-[22px] w-full items-center gap-[6px] pl-[8px]" style={{ color: "var(--scm-focus)" }}>
+          <Codicon name={loading ? "loading" : "fold-down"} spin={loading} />
           {t("ide_side_panel.git.scm.load_more")}
         </button>
       )}

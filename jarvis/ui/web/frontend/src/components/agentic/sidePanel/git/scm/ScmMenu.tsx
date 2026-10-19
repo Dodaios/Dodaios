@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Codicon } from "./Codicon";
 
 export type MenuItem =
   | {
@@ -18,7 +17,7 @@ export type MenuItem =
   | { kind: "separator"; id: string };
 
 const MENU_WIDTH = 236;
-const ITEM_HEIGHT = 26;
+const ITEM_HEIGHT = 24;
 
 function isActionable(item: MenuItem): boolean {
   return item.kind !== "separator" && !item.disabled;
@@ -96,8 +95,8 @@ function MenuPanel({
         role="menu"
         tabIndex={-1}
         data-testid={testId}
-        style={{ left: position.left, top: position.top, minWidth: MENU_WIDTH }}
-        className="fixed z-[120] max-w-[320px] rounded-md border border-border bg-popover py-1 text-[12.5px] text-popover-foreground shadow-float outline-none"
+        className="scm-portal fixed z-[120] max-w-[320px] rounded-[5px] py-[4px] outline-none"
+        style={{ left: position.left, top: position.top, minWidth: MENU_WIDTH, background: "var(--scm-menu-bg)", color: "var(--scm-menu-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.36)" }}
         onContextMenu={(event) => event.preventDefault()}
         onKeyDown={(event) => {
           if (open) return;
@@ -114,7 +113,7 @@ function MenuPanel({
       >
         {items.map((item, index) =>
           item.kind === "separator" ? (
-            <div key={item.id} role="separator" className="mx-2 my-1 h-px bg-border" />
+            <div key={item.id} role="separator" className="mx-[10px] my-[4px] h-px" style={{ background: "var(--scm-menu-separator)" }} />
           ) : (
             <button
               key={item.id}
@@ -124,26 +123,21 @@ function MenuPanel({
               data-testid={`scm-menu-${item.id}`}
               disabled={item.disabled}
               aria-haspopup={item.kind === "submenu" || undefined}
-              style={{ height: ITEM_HEIGHT }}
               onMouseEnter={() => {
                 setActive(index);
                 if (item.kind === "submenu" && !item.disabled) openSubmenu(index, false);
                 else setOpen(null);
               }}
               onClick={() => activate(index, false)}
-              className={cn(
-                "mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2 rounded px-2 text-left disabled:opacity-40",
-                active === index && !item.disabled ? "bg-accent text-accent-foreground" : "",
-              )}
+              style={{ height: ITEM_HEIGHT, ...(active === index && !item.disabled ? { background: "var(--scm-menu-selection)", color: "var(--scm-menu-selection-fg)" } : {}) }}
+              className="mx-[4px] flex w-[calc(100%-8px)] items-center rounded-[3px] pr-[8px] text-left disabled:opacity-40"
             >
-              <span className="flex w-3.5 shrink-0 justify-center">
-                {item.kind !== "submenu" && item.checked && <Check className="h-3.5 w-3.5" aria-hidden />}
-              </span>
+              <span className="flex w-[26px] shrink-0 justify-center">{item.kind !== "submenu" && item.checked && <Codicon name="check" />}</span>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.kind === "submenu" ? (
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                <Codicon name="chevron-right" className="shrink-0" />
               ) : (
-                item.hint && <span className="shrink-0 pl-3 text-[11px] opacity-60">{item.hint}</span>
+                item.hint && <span className="shrink-0 pl-[2em]">{item.hint}</span>
               )}
             </button>
           ),
