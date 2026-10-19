@@ -5,18 +5,18 @@
 #   packaging/linux/build.sh
 #
 # Output (per the release contract):
-#   dist/installers/PersonalJarvis-Linux-x86_64.AppImage
+#   dist/installers/Dodaios-Linux-x86_64.AppImage
 #   dist/installers/personal-jarvis_<version>_amd64.deb   (when dpkg-deb exists)
 #
-# Those two file names are RELEASE ASSET names, which the updater and the
-# release pipeline look for; they move on their own, with dual publishing.
-# What is installed on the machine already carries the current names: the
-# Debian package "dodaios" (it replaces the earlier "personal-jarvis"
-# package), /opt/Dodaios, dodaios.desktop and the dodaios icon.
+# The installed names are already the current ones: the Debian package
+# "dodaios" (it replaces the earlier "personal-jarvis" package), /opt/Dodaios,
+# dodaios.desktop and the dodaios icon. A release also publishes the AppImage
+# as PersonalJarvis-Linux-x86_64.AppImage, a byte-identical copy for installs
+# from before the rename (scripts/ci/installer_aliases.py).
 #
 # The AppImage is one downloadable file that needs no Python, no pip and no
 # system packages: double-click it to run the app, or call it like the CLI
-# ("./PersonalJarvis-Linux-x86_64.AppImage serve"). Both entry points come out
+# ("./Dodaios-Linux-x86_64.AppImage serve"). Both entry points come out
 # of the same PyInstaller onedir freeze.
 #
 # What this AppImage does NOT contain is a native desktop window - read
@@ -47,7 +47,7 @@ FREEZE_DIR="${FREEZE_DIR:-${DIST_DIR}/Jarvis}"
 OUT_DIR="${DIST_DIR}/installers"
 APPDIR="${DIST_DIR}/AppDir"
 FRONTEND_DIST="${REPO_ROOT}/dodaios/ui/web/dist"
-APPIMAGE_PATH="${OUT_DIR}/PersonalJarvis-Linux-x86_64.AppImage"
+APPIMAGE_PATH="${OUT_DIR}/Dodaios-Linux-x86_64.AppImage"
 
 # Pinned build tool. "continuous" is a moving target and an unpinned build tool
 # is an unpinned supply chain, so this is an exact release plus its digest; the
