@@ -49,8 +49,12 @@ _GIT_TIMEOUT_S = 120.0
 _BUILD_TIMEOUT_S = 20 * 60.0
 _INSTALL_TIMEOUT_S = 15 * 60.0
 
-DIST = "jarvis/ui/web/dist"
-FRONTEND = "jarvis/ui/web/frontend"
+#: The package folder this module lives in, as git names it ("jarvis" or a later name).
+PACKAGE = Path(__file__).resolve().parents[1].name
+DIST = f"{PACKAGE}/ui/web/dist"
+FRONTEND = f"{PACKAGE}/ui/web/frontend"
+#: Python outside these folders is never loaded by the running app.
+_NOT_APP_CODE = ("tests/", "scripts/", "docs/", "tools/")
 _NPM_INPUTS = {f"{FRONTEND}/package.json", f"{FRONTEND}/package-lock.json"}
 _PIP_INPUTS = {"pyproject.toml", "requirements.txt"}
 
@@ -272,7 +276,7 @@ class MainFollower:
             logger.info("Follow main: updated to {} ({})", status.head[:10], status.last_subject)
             frontend = any(path.startswith((f"{FRONTEND}/", f"{DIST}/")) for path in changed)
             backend = any(
-                (path.startswith("jarvis/") and path.endswith(".py")) or path in _PIP_INPUTS
+                (path.endswith(".py") and not path.startswith(_NOT_APP_CODE)) or path in _PIP_INPUTS
                 for path in changed
             )
             if any(path in _PIP_INPUTS for path in changed) and not self._install_python():
