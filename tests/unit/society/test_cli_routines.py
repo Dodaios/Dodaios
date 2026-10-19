@@ -264,7 +264,9 @@ def test_resumed_society_seat_refreshes_routine_contract(monkeypatch, tmp_path):
             "default_tools_approval_mode" in arg
             for arg in jarvis_harness.codex_config_args(session_id)
         )
-    assert "society_propose_change" in plan.stdin_text
+    # The routine contract lives in the tool descriptions, sent fresh by MCP;
+    # the resumed turn carries only the memory refresh, never the old identity.
+    assert "<current_agent_memory>" in plan.stdin_text
     assert "LARGE OLD IDENTITY" not in plan.stdin_text
     assert plan.stdin_text.endswith("Check comments every hour")
     assert "test-key" not in " ".join(plan.argv)
