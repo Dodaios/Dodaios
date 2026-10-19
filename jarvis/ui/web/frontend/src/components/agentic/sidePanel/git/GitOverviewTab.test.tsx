@@ -47,11 +47,14 @@ const GRAPH: GraphPage = {
 };
 
 let status: ScmStatus = BASE;
+const FOLLOW = { enabled: false, eligible: true, reason: "", head: "", remote: "", last_check: 0, last_update: 0, last_subject: "", busy: "", restart_pending: false, blocked_by: [] as string[] };
+let follow = FOLLOW;
 const posts: { path: string; body: Record<string, unknown> }[] = [];
 const gets: string[] = [];
 
 beforeEach(() => {
   status = BASE;
+  follow = FOLLOW;
   posts.length = 0;
   gets.length = 0;
   window.localStorage.clear();
@@ -61,6 +64,10 @@ beforeEach(() => {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const json = (body: unknown, code = 200) => new Response(JSON.stringify(body), { status: code, headers: { "Content-Type": "application/json" } });
+      if (url.includes("/scm/follow-main")) {
+        if (init?.method === "PUT") follow = { ...follow, ...JSON.parse(String(init.body)) };
+        return json(follow);
+      }
       if (init?.method === "POST") {
         posts.push({ path: url.replace(/^.*\/api\/agentic-ide\/git\//, ""), body: JSON.parse(String(init.body)) });
         return json({ ok: true, commit: "abc1234", message: "feat: before", branch: "x", upstream: "origin/main", result: "merged" });
@@ -332,6 +339,17 @@ describe("GitOverviewTab — one agent session", () => {
     await screen.findByText("app.py");
     act(() => useGitSessionStore.getState().show("w1", "T2"));
     expect((await screen.findAllByTestId("scm-session-file")).length).toBe(2);
+  });
+});
+
+describe("GitOverviewTab — following main", () => {
+  it("turns following main on from the more menu and shows its state in the title", async () => {
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-title-more"));
+    expect(screen.queryByTestId("scm-follow-status")).toBeNull();
+    fireEvent.click(await screen.findByTestId("scm-menu-follow-main"));
+    await vi.waitFor(() => expect(follow.enabled).toBe(true));
+    expect(await screen.findByTestId("scm-follow-status")).toBeTruthy();
   });
 });
 

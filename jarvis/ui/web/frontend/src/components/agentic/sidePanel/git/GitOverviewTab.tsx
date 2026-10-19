@@ -15,7 +15,9 @@ import { useQuickInput } from "./scm/QuickInput";
 import { ScmMenu, menuPointFor, type MenuItem } from "./scm/ScmMenu";
 import { ScmViews } from "./scm/ScmViews";
 import type { SessionPick } from "./scm/SessionChanges";
-import type { GraphScope } from "./scm/scmApi";
+import { scmApi, type FollowMain, type GraphScope } from "./scm/scmApi";
+import { agoLabel } from "./gitBadges";
+import { useRunLocale } from "@/components/runs/format";
 import { scmStorage, useChoice, useScmCommands, useScmStatus, type CommitOptions } from "./scm/useScm";
 
 export { resetGitOverviewCache } from "./RepositoryOverview";
@@ -62,6 +64,34 @@ export function GitOverviewTab() {
   const [menu, setMenu] = useState<{ items: MenuItem[]; x: number; y: number } | null>(null);
   const [goHead, setGoHead] = useState(0);
   const [initializing, setInitializing] = useState(false);
+  const lang = useRunLocale();
+  // Does this app keep itself on the newest main? Read now and then while the tab is open.
+  const [follow, setFollow] = useState<FollowMain | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let timer: number | undefined;
+    const read = () => {
+      scmApi
+        .followMain()
+        .then((answer) => alive && setFollow(answer))
+        .catch(() => alive && setFollow(null)) // an older backend has no such route: no toggle
+        .finally(() => {
+          if (alive) timer = window.setTimeout(read, 20_000 + Math.random() * 5_000);
+        });
+    };
+    read();
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, []);
+  const toggleFollow = useCallback(() => {
+    if (!follow) return;
+    scmApi
+      .setFollowMain(!follow.enabled)
+      .then(setFollow)
+      .catch((err: Error) => pushToast("error", err.message));
+  }, [follow, pushToast]);
   // One agent session the Changes list is narrowed to (its pane's call-sign), per workspace.
   const [sessionPane, setSessionPane] = useState<string | null>(null);
   const panes = useWorkspacePanes(Boolean(workspaceId));
@@ -133,6 +163,9 @@ export function GitOverviewTab() {
     const operation = status?.operation ?? "";
     return [
       viewSortMenu(settings, setSettings, t),
+      ...(follow
+        ? ([{ id: "follow-main", label: t("ide_side_panel.git.scm.follow_main"), checked: follow.enabled, run: toggleFollow }] as MenuItem[])
+        : []),
       { kind: "separator", id: "m0" },
       { id: "pull", label: t("ide_side_panel.git.scm.pull"), run: () => void commands.pull() },
       { id: "push", label: t("ide_side_panel.git.scm.push"), run: () => void commands.push() },
@@ -248,7 +281,7 @@ export function GitOverviewTab() {
         ],
       },
     ];
-  }, [status, settings, commands, runCommit, undoLastCommit, t]);
+  }, [status, settings, commands, runCommit, undoLastCommit, follow, toggleFollow, t]);
 
   const pickSession = async () => {
     type Pick = { pane: string | null };
@@ -352,12 +385,33 @@ export function GitOverviewTab() {
   }
 
   const repository = status?.available;
+  const followTip = (state: FollowMain) =>
+    [
+      t("ide_side_panel.git.scm.follow_main_on"),
+      state.busy
+        ? t(`ide_side_panel.git.scm.follow_busy_${state.busy}`)
+        : state.restart_pending
+          ? t("ide_side_panel.git.scm.follow_restart_pending")
+          : state.reason,
+      state.last_update ? fill(t("ide_side_panel.git.scm.follow_updated"), { when: agoLabel(state.last_update, lang, t), subject: state.last_subject }) : "",
+      t("ide_side_panel.git.scm.follow_click_off"),
+    ]
+      .filter(Boolean)
+      .join("\n");
   return (
     <section data-testid="ide-git-tab" aria-label={t("ide_side_panel.git.aria")} className="scm-root relative flex h-full min-h-0 flex-col">
       <div className="flex h-[35px] shrink-0 items-center pl-[20px] pr-[8px]">
         <span className="min-w-0 flex-1 truncate text-[13px]" style={{ color: "var(--scm-title-fg)" }}>
           {t("ide_side_panel.git.scm.title")}
         </span>
+        {follow?.enabled && (
+          <IconButton label={followTip(follow)} testId="scm-follow-status" onClick={toggleFollow}>
+            <Codicon
+              name={follow.busy ? "sync" : follow.restart_pending ? "debug-restart" : follow.reason ? "warning" : "cloud-download"}
+              spin={Boolean(follow.busy)}
+            />
+          </IconButton>
+        )}
         {repository && (
           <IconButton label={t("ide_side_panel.git.scm.more_actions")} testId="scm-title-more" onClick={(event) => setMenu({ items: moreMenu(), ...menuPointFor(event.currentTarget) })}>
             <Codicon name="ellipsis" />

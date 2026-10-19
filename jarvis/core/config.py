@@ -4538,6 +4538,17 @@ class AgenticIdeConfig(BaseModel):
         ),
     )
 
+    follow_main: bool = Field(
+        default=False,
+        description=(
+            "Keep a desktop app that runs from a git checkout on the newest main: "
+            "fetch origin every minute, fast-forward, rebuild the frontend and restart "
+            "for new Python code once nothing would be lost (no mission, no live call). "
+            "Never merges, rebases, resets or stashes; local edits that would be "
+            "overwritten stop the update and are reported."
+        ),
+    )
+
     pane_notifications: bool = Field(
         default=True,
         description=(
