@@ -49,6 +49,7 @@ def _env(worktree: Path) -> dict[str, str]:
         paths.append(env["PYTHONPATH"])
     env["PYTHONPATH"] = os.pathsep.join(paths)
     env.setdefault("CI", "1")
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
 
 

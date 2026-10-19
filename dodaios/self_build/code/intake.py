@@ -17,7 +17,6 @@ case per pass: rarely and correctly, never noisily.
 from __future__ import annotations
 
 import asyncio
-import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,7 +24,7 @@ from typing import Any, Final
 
 from loguru import logger
 
-from ..records import Kind
+from ..records import Kind, State
 from . import brief as brief_mod
 from . import commands, gitcmd
 from .brief import Brief
@@ -48,19 +47,14 @@ class OwnedProject:
     brief: Brief
 
 
-_ORIGIN: Final[re.Pattern[str]] = re.compile(
-    r"github\.com[:/]+(?P<owner>[A-Za-z0-9-]+)/(?P<name>[A-Za-z0-9._-]+?)(?:\.git)?/?$"
-)
-
-
 def repo_of(folder: str | Path) -> str:
-    """The GitHub repository ``origin`` points at (never a guess from another remote)."""
+    """The GitHub repository ``origin`` fetches from and pushes to (both must agree)."""
     from dodaios.agentic_ide.github_link import REPO_RE
 
-    url = gitcmd.out(["remote", "get-url", "origin"], folder)
-    match = _ORIGIN.search(url)
-    repo = f"{match['owner']}/{match['name']}" if match else ""
-    return repo if REPO_RE.match(repo) else ""
+    fetch = gitcmd.origin_repo(folder)
+    if not fetch or gitcmd.origin_repo(folder, push=True).lower() != fetch.lower():
+        return ""
+    return fetch if REPO_RE.match(fetch) else ""
 
 
 def is_dodaios_source(folder: str | Path, dodaios_root: Path | None) -> bool:
@@ -126,6 +120,13 @@ def owned_projects(ctx: Context, who: Viewer) -> list[OwnedProject]:
     return out
 
 
+def offerable(records: list[Any]) -> bool:
+    """May an issue be offered again? Only when every earlier case never ran."""
+    from .builder import NOT_RUN
+
+    return all(r.state == State.FAILED and r.note.startswith(NOT_RUN) for r in records)
+
+
 def _github_part(snap: Snapshot) -> dict[str, Any]:
     return {
         "open_issues": len(snap.issues),
@@ -185,14 +186,19 @@ async def poll(ctx: Context, project: OwnedProject, who: Viewer, *, budget: int)
     await asyncio.to_thread(store.set_part, project.brief.project_key, "github", _github_part(snap))
     if snap.archived or snap.permission.upper() not in OWN_PERMISSIONS:
         return 0
+    if snap.repo.lower() != repo.lower():
+        logger.info(
+            "self-build code: {} answers as {}; skipped until origin is updated", repo, snap.repo
+        )
+        return 0
     profile = await asyncio.to_thread(store.profile, repo)
     opened = 0
     for issue in snap.issues:
         if opened >= budget:
             break
         sig = signature(repo, issue.number)
-        if await asyncio.to_thread(ledger.ever_for, sig):
-            continue  # one build per issue, ever: a closed or failed one is not retried
+        if not offerable(await asyncio.to_thread(ledger.ever_for, sig)):
+            continue  # one build per issue: a closed or failed one is not retried
         prev = await asyncio.to_thread(store.issue, repo, issue.number)
         if prev and prev["updated_at"] == issue.updated_at and prev["verdict"] == "unfit":
             continue
@@ -203,7 +209,7 @@ async def poll(ctx: Context, project: OwnedProject, who: Viewer, *, budget: int)
             pulls=snap.pulls,
             has_tests=bool(project.brief.test_commands),
         )
-        data = {**issue.to_json(), "folder": project.folder}
+        data = {**issue.to_json(), "folder": project.folder, "base": snap.default_branch}
         if not verdict.fit:
             await asyncio.to_thread(
                 store.put_issue,

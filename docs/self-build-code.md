@@ -68,11 +68,15 @@ A case in `building` runs only while the person is away from the computer
 subscription coding CLI is free (`seat.py`): its plan login is signed in, its
 own API-key variable is not set (the CLI would bill that key), it is not in a
 usage cooldown and no usage window is over 80 %. Otherwise the case waits, for
-up to three days.
+up to three days; a case that never got to run may be offered again later. The
+kill switch stops a running build at its next step and puts the case back in
+the queue; an undo stops it the same way and removes what it made.
 
-1. A fresh worktree and branch `dodaios/issue-<n>-<slug>` from the remote
-   default branch, inside the repository (`<repo>/.worktrees/`). The person's
-   checkout is never touched.
+1. A fresh worktree and a new branch `dodaios/issue-<n>-<slug>` from the
+   repository's default branch as GitHub reports it, fetched from `origin`,
+   inside the repository (`<repo>/.worktrees/`). A branch of that name that
+   already exists, here or on GitHub, stops the build. The person's checkout is
+   never touched.
 2. At most one planning call on a connected subscription, inside
    `cost.attributed(build_id)`. A `large` estimate stops the build. Without a
    subscription brain there is no call and the coding agent plans itself.
@@ -84,8 +88,8 @@ up to three days.
    clear enough for unattended work.
 4. The judge (`judge.py`), which the agent cannot edit: nothing protected was
    changed, and the test commands the brief read before the run pass.
-5. Push the branch (only after checking `origin` is the repository) and open a
-   pull request that says `Closes #<n>`, with the agent's summary and what was
+5. Push the branch (only when `origin` fetches from and pushes to that very
+   repository) and open a pull request that says `Closes #<n>`, with the agent's summary and what was
    checked. Draft by default.
 
 Nothing else leaves the machine: no issue comments, labels or reviews, and no
@@ -112,8 +116,10 @@ minutes):
 
 The undoer closes the open pull request, deletes the remote and local branch
 and removes the worktree, and stops a coding run that is still working. It
-removes only branches that start with `dodaios/` and that the build recorded.
-A merged pull request cannot be undone from here; revert it in the repository.
+removes only `dodaios/` branches the build created itself, and a branch only
+while it still points at the commit the loop pushed: commits or uncommitted
+changes the person added keep the branch and worktree. A merged pull request
+cannot be undone from here; revert it in the repository.
 
 ## Cost
 
