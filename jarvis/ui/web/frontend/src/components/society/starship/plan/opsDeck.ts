@@ -83,7 +83,8 @@ export function planDivisions(crew: readonly CrewInput[], teams: readonly TeamIn
     const lead = team.leadId && members.some((m) => m.agentId === team.leadId) ? team.leadId : null;
     if (lead) members.sort((a, b) => (a.agentId === lead ? -1 : b.agentId === lead ? 1 : 0));
     pool.push(...members.slice(BAY_SEATS));
-    divisions.push({ id: `div-${slug(team.id)}`, teamId: team.id, name: team.name, leadId: lead, members: members.slice(0, BAY_SEATS) });
+    // The index keeps ids apart that slug alike ("a b" and "a_b").
+    divisions.push({ id: `div-${divisions.length}-${slug(team.id)}`, teamId: team.id, name: team.name, leadId: lead, members: members.slice(0, BAY_SEATS) });
   }
   for (const c of staff) {
     const team = home.get(c.agentId);

@@ -224,6 +224,14 @@ DESTINATION_IDS: Final[tuple[str, ...]] = (HOME_DESTINATION,) + tuple(
 )
 
 
+def destination_level(destination_id: str) -> int:
+    """The captain's level a destination opens at (home is open from the start)."""
+    for reward in REWARDS:
+        if reward.slot == "destination" and reward.reward_id == f"destination_{destination_id}":
+            return reward.person or 1
+    return 1
+
+
 def unlocked_rewards(kind: SubjectKind, level: int) -> list[Reward]:
     return [r for r in REWARDS if (at := r.level_for(kind)) is not None and level >= at]
 

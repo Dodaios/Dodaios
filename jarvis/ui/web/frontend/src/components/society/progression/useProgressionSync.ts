@@ -37,6 +37,7 @@ export function useProgressionSync(awake: boolean, deck: string): void {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const load = async (first: boolean) => {
+      let next = false;
       try {
         const snapshot = await fetchProgression();
         if (cancelled) return;
@@ -45,10 +46,11 @@ export function useProgressionSync(awake: boolean, deck: string): void {
         seen.current = Math.max(seen.current, snapshot.latestSeq);
         writeSeenSeq(seen.current);
       } catch (error) {
-        // The ship flies on without levels; the next read tries again.
+        // The ship flies on without levels; the next read tries again (and is still the first that tells what happened away).
         console.debug("Ship levels unavailable", error);
+        next = first;
       }
-      if (!cancelled) timer = setTimeout(() => void load(false), RESYNC_MS + Math.random() * RESYNC_JITTER_MS);
+      if (!cancelled) timer = setTimeout(() => void load(next), RESYNC_MS + Math.random() * RESYNC_JITTER_MS);
     };
     void load(true);
     return () => { cancelled = true; clearTimeout(timer); };

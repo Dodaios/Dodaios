@@ -5,9 +5,10 @@ mean "something was achieved" (a finished Jarvis turn, a finished agent task,
 a completed quest) and maps each to one or two rules of
 :mod:`jarvis.progression.rules`. The ship reports its own small world
 actions (a deck discovered, a holodeck round, a warp jump) through
-:meth:`ProgressionService.report_action`; the server still applies every
-cooldown and cap and checks every reference, so a client can never award
-itself XP.
+:meth:`ProgressionService.report_action`. Those are the client's word: the
+server applies every cooldown and daily cap and checks every reference (a
+known deck, a destination the captain's rank has opened), so a client can at
+most collect the few capped XP a day that playing would have paid.
 
 Every handler is an observer: a failure is logged and swallowed, never
 raised into the bus (AP-18), and the database is opened on the first award,
@@ -31,6 +32,8 @@ from .rules import (
     RULES_BY_SOURCE,
     WORLD_ACTIONS,
     agent_subject,
+    destination_level,
+    level_for_xp,
     looks_between,
     pet_subject,
     progress_for_xp,
@@ -187,6 +190,9 @@ class ProgressionService:
         elif action == "warp_jump":
             if ref not in DESTINATION_IDS:
                 raise UnknownAction(f"warp_jump:{ref}")
+            # Only a destination the captain's rank has opened can be reached.
+            if await asyncio.to_thread(self._person_level) < destination_level(ref):
+                raise UnknownAction(f"warp_jump:{ref}:locked")
             # Jumps repeat (the cooldown and cap meter them); the ledger keeps
             # where each one went, made unique so it never reads as a replay.
             ref = f"{ref}@{self._clock()}"
@@ -194,6 +200,12 @@ class ProgressionService:
             ref = ""
         subject = PERSON_ID if rule.kind == "person" else pet_subject(self.current_pet())
         return await self.award(subject, action, ref=ref)
+
+    def _person_level(self) -> int:
+        for row in self.store.subjects():
+            if row.get("subject_id") == PERSON_ID:
+                return level_for_xp(int(row.get("xp", 0)))
+        return 1
 
     async def note_agent_hired(self, agent_id: str) -> None:
         if agent_id and agent_id != LEAD_AGENT_ID:
@@ -240,8 +252,12 @@ class ProgressionService:
         agent_id = str(getattr(event, "agent_id", "") or "")
         if not agent_id or agent_id == LEAD_AGENT_ID or agent_id in {"user", "scheduler"}:
             return
+        ref = str(getattr(event, "event_id", "") or "")
+        # Without an id a replayed result could not be told apart, and task_done has no cap.
+        if not ref:
+            return
         source = "task_done" if getattr(event, "status", "") == "done" else "task_blocked"
-        self._later((agent_subject(agent_id), source, str(getattr(event, "event_id", ""))))
+        self._later((agent_subject(agent_id), source, ref))
 
     async def _on_message(self, event: Any) -> None:
         kind = str(getattr(event, "msg_type", ""))
@@ -256,6 +272,8 @@ class ProgressionService:
         if getattr(event, "status", "") != "approved":
             return
         mission = str(getattr(event, "mission_id", "") or "")
+        if not mission:
+            return
         self._later((PERSON_ID, "mission_completed", mission))
 
     # ------------------------------------------------------------ reads

@@ -120,7 +120,7 @@ export const useShip = create<ShipState>((set, get) => ({
   },
   setDeck: (deck) => {
     try { localStorage.setItem(DECK_KEY, deck); } catch { /* storage unavailable */ }
-    set({ deck, arrivals: get().arrivals + 1, selection: null, nearby: null, hovered: null, gathering: null, follow: true });
+    set({ deck, arrivals: get().arrivals + 1, selection: null, nearby: null, hovered: null, gathering: null, follow: true, walkTo: null, placeAt: null, focus: null });
   },
   select: (selection) => set({ selection }),
   setNearby: (nearby) => { if (get().nearby !== nearby) set({ nearby }); },

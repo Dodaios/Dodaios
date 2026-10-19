@@ -18,6 +18,19 @@
           "admiral_coat": "Admiralsmantel",
           "auto": "Bester verfügbarer"
         }
+      },
+      "division": {
+        "eyebrow": "Division",
+        "lead": "Lead",
+        "empty": "Hier sitzt noch niemand.",
+        "open_chat": "Team-Chat öffnen",
+        "open_agents": "Agent-Liste öffnen",
+        "briefing": "Briefing einberufen",
+        "end_briefing": "Briefing beenden",
+        "briefing_called": "{count} aus {team} kommen an den Tisch.",
+        "briefing_over": "Briefing vorbei: Alle gehen zurück.",
+        "nobody_free": "Gerade arbeiten alle in dieser Division.",
+        "note": "Ein Briefing versammelt das Team nur auf dem Schiff an seinem Tisch; ans Team wird nichts geschickt und niemand beginnt zu arbeiten."
       }
     }
   }

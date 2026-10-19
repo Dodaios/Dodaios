@@ -184,12 +184,19 @@ async def test_world_actions_are_metered_on_the_server(setup, clock):
 
 async def test_a_warp_jump_repeats_after_its_cooldown_and_keeps_its_destination(setup, clock):
     service, _, _, _ = setup
-    first = await service.report_action("warp_jump", ref="ice_moon")
-    assert first is not None and first.xp == 5 and first.ref.startswith("ice_moon@")
+    first = await service.report_action("warp_jump", ref="home")
+    assert first is not None and first.xp == 5 and first.ref.startswith("home@")
     assert await service.report_action("warp_jump", ref="home") is None  # cooldown
     clock.now += 601_000
-    again = await service.report_action("warp_jump", ref="ice_moon")
+    again = await service.report_action("warp_jump", ref="home")
     assert again is not None and again.ref != first.ref
+
+
+async def test_a_warp_jump_only_reaches_destinations_the_rank_has_opened(setup):
+    service, _, _, _ = setup
+    # A new captain (level 1) has only the home orbit; the ice moon opens at level 15.
+    with pytest.raises(UnknownAction):
+        await service.report_action("warp_jump", ref="ice_moon")
 
 
 async def test_the_daily_caps_of_world_actions_hold(setup, clock):

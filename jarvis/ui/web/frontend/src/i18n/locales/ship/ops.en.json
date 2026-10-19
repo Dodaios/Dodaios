@@ -18,6 +18,19 @@
           "admiral_coat": "Admiral's coat",
           "auto": "Finest open"
         }
+      },
+      "division": {
+        "eyebrow": "Division",
+        "lead": "Lead",
+        "empty": "Nobody sits here yet.",
+        "open_chat": "Open team chat",
+        "open_agents": "Open the agents list",
+        "briefing": "Call a briefing",
+        "end_briefing": "End the briefing",
+        "briefing_called": "{count} of {team} are coming to the table.",
+        "briefing_over": "Briefing over: everyone heads back.",
+        "nobody_free": "Everyone in this division is working right now.",
+        "note": "A briefing only gathers the team at its table on the ship; nothing is sent to the team and nobody starts work."
       }
     }
   }

@@ -61,15 +61,19 @@ export function CaptainFigure(props: {
   }, [grid, plan]);
 
   const placeAt = useShip((s) => s.placeAt);
+  const usedPlace = useRef(0);
   useEffect(() => {
-    if (!placeAt) return;
+    if (!placeAt || placeAt.seq === usedPlace.current) return;
+    usedPlace.current = placeAt.seq;
     const at = nearestFree(grid, placeAt.at) ?? placeAt.at;
     Object.assign(body.current, { x: at.x, z: at.z, path: [], speed: 0 });
     captain.seated = null;
   }, [placeAt, grid]);
 
+  const usedWalk = useRef(0);
   useEffect(() => {
-    if (!walkTo) return;
+    if (!walkTo || walkTo.seq === usedWalk.current) return;
+    usedWalk.current = walkTo.seq;
     const route = findPath(grid, body.current, walkTo.at);
     if (route) { body.current.path = route; captain.seated = null; }
   }, [walkTo, grid]);

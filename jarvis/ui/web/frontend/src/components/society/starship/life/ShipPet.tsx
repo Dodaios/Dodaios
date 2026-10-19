@@ -27,6 +27,8 @@ class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
 const GIGI_SIZE_M = 0.5;
 const FOLLOW_BACK = 1.05;
 const FOLLOW_SIDE = 0.75;
+/** Every this many metres walked together pays the companion a little XP (metered on the server). */
+export const WALK_REPORT_M = 50;
 
 function Body({ pet, drive, reduced }: { pet: CompanionPet; drive: { current: PetDrive }; reduced: boolean }) {
   const gigi = useMemo(() => ({ ...defaultCompanion("jarvis"), sizeM: GIGI_SIZE_M }), []);
@@ -35,17 +37,24 @@ function Body({ pet, drive, reduced }: { pet: CompanionPet; drive: { current: Pe
   return <CompanionModel appearance={gigi} lead />;
 }
 
-export function ShipPet({ grid, reduced }: { grid: NavGrid; reduced: boolean }) {
+export function ShipPet({ grid, reduced, onWalked }: { grid: NavGrid; reduced: boolean; onWalked?: () => void }) {
   const pet = useCompanionPet((s) => s.pet);
   const flies = companionFlies(pet);
   const root = useRef<Group>(null);
   const body = useRef({ x: captain.x + FOLLOW_SIDE, z: captain.z + FOLLOW_BACK, yaw: captain.yaw, t: 0 });
   const drive = useRef<PetDrive>({ speed: 0, mood: "idle" });
+  const walked = useRef({ x: captain.x, z: captain.z, metres: 0 });
   const glow = useMemo(() => new Color("#ffd98a").multiplyScalar(1.6), []);
   useFrame((_, rawDt) => {
     const dt = Math.min(0.1, rawDt);
     const b = body.current;
     b.t += dt;
+    const w = walked.current;
+    const step = Math.hypot(captain.x - w.x, captain.z - w.z);
+    // A jump (a deck change, a placement) is not a walk.
+    if (step < 3) w.metres += step;
+    w.x = captain.x; w.z = captain.z;
+    if (w.metres >= WALK_REPORT_M) { w.metres -= WALK_REPORT_M; onWalked?.(); }
     // Behind the captain's right shoulder, in the captain's own frame.
     const s = Math.sin(captain.yaw), c = Math.cos(captain.yaw);
     let tx = captain.x - s * FOLLOW_BACK - c * FOLLOW_SIDE;
