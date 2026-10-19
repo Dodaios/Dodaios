@@ -26,18 +26,14 @@ Read these files first, in this order:
    - Follow the repository rules: English artifacts, cloud-first defaults, no unrelated refactors, do not overwrite user changes.
    - This repo may have a dirty worktree. Treat unrelated changes as user work.
 
-2. `docs/BUGS.md`
-   - Read the entry `Bug Voice-Turn-2026-05-31: "keeps listening, never answers" - grace-on-COMPLETE recurrence`.
-   - Important rule from that entry: a completed prompt is dispatched, never parked. Do not reintroduce grace-hold on every COMPLETE utterance.
-
-3. `docs/plans/voice-endpoint-patience/README.md`
+2. `docs/plans/voice-endpoint-patience/README.md`
    - This explains the original root cause: the STT stability probe could bypass `silence_ms` via `request_endpoint()`.
    - It also explains the intended design: quiet empty/stable tails are thinking pauses; loud empty/stable tails are speaker bleed.
 
-4. `docs/superpowers/specs/2026-05-25-incomplete-prompt-completion-design.md`
+3. `docs/superpowers/specs/2026-05-25-incomplete-prompt-completion-design.md`
    - Boundary: semantic incompleteness is a higher layer after acoustic endpointing. Do not confuse this with fixing premature acoustic endpointing.
 
-5. Relevant code:
+4. Relevant code:
    - `jarvis/speech/pipeline.py`
    - `jarvis/audio/vad.py`
    - `jarvis/speech/completion.py`
@@ -46,7 +42,7 @@ Read these files first, in this order:
    - `jarvis/ui/web/frontend/src/components/ChatInput.tsx`
    - `jarvis/ui/web/frontend/src/hooks/useWebSocket.ts`
 
-6. Relevant tests:
+5. Relevant tests:
    - `tests/unit/audio/test_vad_turn_taking.py`
    - `tests/unit/speech/test_thinking_pause_patience.py`
    - `tests/unit/speech/test_turn_taking.py`

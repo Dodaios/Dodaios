@@ -117,10 +117,9 @@ say hello.
 | Tests and fixtures | `tests/`, especially `tests/fakes/` |
 
 Read the [architecture overview](docs/architecture-overview.md) for the system
-map, [architecture decisions](docs/adr/) for past choices, and
-[AGENTS.md](AGENTS.md) for the binding engineering rules. In particular, new
-capabilities must work across supported operating systems and must not depend
-on one model provider or one developer's machine.
+map and [architecture decisions](docs/adr/) for past choices. New capabilities
+must work across supported operating systems and must not depend on one model
+provider or one developer's machine.
 
 ## Development setup
 
@@ -160,7 +159,7 @@ matches your change:
 |---|---|
 | Docs or one local view | Check rendered links and media, or show the view in light and dark mode. |
 | Existing backend, provider, or OS adapter | Run the focused tests for that family; state which supported cells you exercised and how the others behave. |
-| Shared capability or contract | Add contract tests, cover Windows/macOS/Linux behind capability checks, update `docs/os-parity.md`, and verify a fresh install with one supported key. See the T3 rules in `AGENTS.md`. |
+| Shared capability or contract | Add contract tests, cover Windows/macOS/Linux behind capability checks, update `docs/os-parity.md`, and verify a fresh install with one supported key. |
 
 Useful local commands, selected by the change:
 

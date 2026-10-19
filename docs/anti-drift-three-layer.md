@@ -8,7 +8,7 @@ scope: Any enum-like value that crosses the Python ↔ TypeScript ↔ SQL bounda
 
 ## Why this doc exists
 
-BUG-008 in `docs/BUGS.md` happened twice. Both times the symptom was
+BUG-008 happened twice. Both times the symptom was
 identical — an empty transcription tab — and both times the root cause
 was the same: the runtime path produced a string value that the
 consuming Pydantic Literal had never been told about. Each time the
@@ -182,9 +182,7 @@ Notes specific to this adoption:
 
 ## Related
 
-- `docs/BUGS.md` — Bug-008 (first episode) and Bug-008 Episode 2
-  for the full incident reports.
-- BUG-006 in `docs/BUGS.md` (Restore-Three-Layer-Trap) — explains
+- BUG-006 (Restore-Three-Layer-Trap) — explains
   why a restore can re-introduce drift even when the surrounding
   code looks healthy.
 

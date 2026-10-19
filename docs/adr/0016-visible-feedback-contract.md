@@ -12,7 +12,7 @@ runtime worked: wake-word detected, `OrbBridge._on_state: IDLE →
 LISTENING` fired, `orb.show()` deiconified the Tk window. From the
 user's perspective the orb was simply *gone*.
 
-The bug is one instance of a recurring class. `docs/BUGS.md` records
+The bug is one instance of a recurring class. The bug history records
 eight entries with the same shape — the runtime emits the expected
 lifecycle event (`AudioOutFirst`, `orb.show called`, `state =
 LISTENING`) but the actual user-visible outcome (audible sample,
@@ -171,7 +171,7 @@ visual noise on every cold boot of every user, single-monitor
 included, to defend the 1% multi-monitor secondary-pin case.
 
 **Alt-3 — "Ad-hoc per-surface fixes, like every previous silent
-regression."** **Rejected** because the BUGS.md table proves the
+regression."** **Rejected** because the bug history shows the
 pattern does not scale. Every silent regression got an ad-hoc patch;
 seven more arrived afterwards. The contract approach makes the next
 silent regression observable at the seam, not at the user.
@@ -185,7 +185,7 @@ sibling of anti-drift-three-layer, not an extension of it.
 
 ## Cross-references
 
-- BUG entry: [BUG-027 in `docs/BUGS.md`](../BUGS.md#bug-027-orb-invisible-after-accidental-drag-onto-secondary-monitor-high-2026-05-18)
+- BUG-027 (orb invisible after accidental drag onto a secondary monitor)
 - Sibling pattern: [`docs/anti-drift-three-layer.md`](../anti-drift-three-layer.md)
 - Implementation:
   - `ui/orb/drag_persistence.py` (L3 post-condition)

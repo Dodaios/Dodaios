@@ -489,5 +489,3 @@ degrading to classic.
   guarantee comes from the deterministic pre-gate, not a dispatcher prompt.
 - **New ADR** — realtime voice mode (protocols, plugin group, audio-hold safety
   gate, cross-family fallback, both surfaces).
-- **BUGS.md** — add the "heard-before-scrubbed duplex leak" class and the
-  "double-mic in duplex" class.
