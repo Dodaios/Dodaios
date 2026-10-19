@@ -64,6 +64,23 @@ def labelled_at(events: object, label: str = FREEZE_LABEL) -> datetime | None:
     return max(stamps) if stamps else None
 
 
+def issue_events(repo: str, number: int, gh_json: GhJson, *, pages: int = 10) -> list[dict]:
+    """Every event of an issue or pull request, oldest first, across pages.
+
+    One page holds 100 events; a busy pull request has more, and the label
+    event that matters is usually on the last page.
+    """
+    found: list[dict] = []
+    for page in range(1, pages + 1):
+        batch = gh_json(["api", f"repos/{repo}/issues/{number}/events?per_page=100&page={page}"])
+        if not isinstance(batch, list):
+            break
+        found.extend(event for event in batch if isinstance(event, dict))
+        if len(batch) < 100:
+            break
+    return found
+
+
 def freezes(
     repo: str,
     gh_json: GhJson,
@@ -92,9 +109,9 @@ def freezes(
         number = int(pr.get("number") or 0)
         if not number:
             continue
-        since = labelled_at(gh_json(["api", f"repos/{repo}/issues/{number}/events?per_page=100"]))
-        # Unknown label time: treat it as just set, so a freeze is never skipped by accident.
-        age = (now - since).total_seconds() / 3600 if since else 0.0
+        since = labelled_at(issue_events(repo, number, gh_json))
+        # Unknown label time counts as expired: a freeze must never hold main forever.
+        age = (now - since).total_seconds() / 3600 if since else hours
         found.append(Freeze(number, str(pr.get("title") or ""), since, age, age >= hours))
     return sorted(found, key=lambda freeze: -freeze.age_hours)
 
@@ -107,11 +124,15 @@ def active_freeze(
     hours: float = FREEZE_HOURS,
     exempt: int | None = None,
 ) -> Freeze | None:
-    """The freeze that holds main right now (never the ``exempt`` PR's own one)."""
-    for freeze in freezes(repo, gh_json, now=now, hours=hours):
-        if not freeze.expired and freeze.number != exempt:
-            return freeze
-    return None
+    """The freeze that holds ``exempt`` back right now, if any.
+
+    A pull request that holds a freeze itself is held by none: two freezing
+    pull requests must not lock each other out.
+    """
+    live = [freeze for freeze in freezes(repo, gh_json, now=now, hours=hours) if not freeze.expired]
+    if exempt is not None and any(freeze.number == exempt for freeze in live):
+        return None
+    return live[0] if live else None
 
 
 def describe(freeze: Freeze) -> str:

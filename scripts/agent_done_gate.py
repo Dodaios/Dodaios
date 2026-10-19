@@ -184,6 +184,8 @@ class Verdict:
     sha: str = ""
     checks: dict[str, bool] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    # True when the branch needs no more watching (landed, deleted, closed).
+    forget: bool = False
 
     @property
     def may_stop(self) -> bool:
@@ -338,20 +340,22 @@ def classify_checks(rollup: list[dict], required: list[str]) -> tuple[list[str],
     return failed, pending, green
 
 
-def own_changes(porcelain: str, ignored: list[str]) -> list[str]:
-    """Changed paths from ``git status --porcelain`` minus generated ones.
+def own_changes(porcelain: str, ignored: list[str]) -> tuple[list[str], list[str]]:
+    """(tracked, untracked) changed paths from ``git status --porcelain``.
 
     Build output and runtime folders (``ignore_dirty`` in the config) change
     on every local build or app run; they are nobody's unfinished work.
     """
-    paths: list[str] = []
+    tracked: list[str] = []
+    untracked: list[str] = []
     for line in porcelain.splitlines():
         if len(line) < 4:
             continue
         path = line[3:].split(" -> ")[-1].strip().strip('"')
-        if not any(fnmatch.fnmatch(path, glob) for glob in ignored):
-            paths.append(path)
-    return paths
+        if any(fnmatch.fnmatch(path, glob) for glob in ignored):
+            continue
+        (untracked if line.startswith("??") else tracked).append(path)
+    return tracked, untracked
 
 
 def parked_run(ctx: Ctx, sha: str) -> int | None:
@@ -475,14 +479,18 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
         return Verdict("HOLD", f"branch {branch} is on hold: {held}", branch=branch)
     local = ctx.git_out("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}")
     if local is None:
-        return Verdict("NONE", f"branch {branch} does not exist locally", branch=branch)
+        return Verdict(
+            "NONE", f"branch {branch} does not exist locally", branch=branch, forget=True
+        )
     dirty = ""
+    untracked: list[str] = []
     if worktree is not None:
         # Not git_out: stripping would eat the leading status column.
         proc = ctx.git("status", "--porcelain", cwd=worktree)
         status = proc.stdout if proc.returncode == 0 else ""
         ignored = [str(glob) for glob in ctx.config.get("ignore_dirty") or []]
-        dirty = "\n".join(own_changes(status, ignored))
+        tracked, untracked = own_changes(status, ignored)
+        dirty = "\n".join(tracked)
     where = f" in {worktree}" if worktree else ""
     place = str(worktree) if worktree else "its worktree"
     ahead = int(ctx.git_out("rev-list", "--count", f"origin/{base}..refs/heads/{branch}") or 0)
@@ -500,16 +508,26 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
             "5",
             "--json",
             "number,state,isDraft,labels,headRefOid,mergeCommit,mergeStateStatus,"
-            "autoMergeRequest,statusCheckRollup,title",
+            "autoMergeRequest,statusCheckRollup,title,isCrossRepository",
         ]
     )
-    prs = sorted(listed if isinstance(listed, list) else [], key=lambda p: -int(p.get("number", 0)))
+    # A fork's PR can share the branch name; only this repository's own count.
+    candidates = listed if isinstance(listed, list) else []
+    own = [p for p in candidates if not p.get("isCrossRepository")]
+    prs = sorted(own, key=lambda p: -int(p.get("number", 0)))
     pr = prs[0] if prs else None
     checks = {"D1": not dirty}
+    loose = ""
+    if untracked:
+        more = " ..." if len(untracked) > 5 else ""
+        loose = f"untracked files{where} are in no commit: {', '.join(untracked[:5])}{more}"
 
     if pr is None:
         if ahead == 0 and not dirty:
-            return Verdict("NONE", f"branch {branch} has nothing to land", branch=branch)
+            idle = Verdict("NONE", f"branch {branch} has nothing to land", branch=branch)
+            if loose:
+                idle.notes.append(loose)
+            return idle
         what = (
             "uncommitted changes"
             if ahead == 0
@@ -547,7 +565,11 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
     if state == "CLOSED":
         if pushed:
             return Verdict(
-                "NONE", f"PR #{number} was closed without merging", branch=branch, pr=number
+                "NONE",
+                f"PR #{number} was closed without merging",
+                branch=branch,
+                pr=number,
+                forget=True,
             )
         verdict.verdict, verdict.reason = (
             "FIX",
@@ -656,9 +678,12 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
         pr=number,
         sha=sha,
         checks=checks,
+        forget=True,
     )
     if note:
         done.notes.append(note)
+    if loose:
+        done.notes.append(loose)
     return done
 
 
@@ -679,8 +704,11 @@ def session_branches(ctx: Ctx, transcript: Path | None, state: dict) -> list[str
                 if offset > transcript.stat().st_size:
                     offset = 0
                 handle.seek(offset)
-                text = handle.read().decode("utf-8", "replace")
-                state["scanned"] = offset + len(text.encode("utf-8"))
+                data = handle.read()
+                # Stop at the last full line: a half-written record is read next time.
+                cut = data.rfind(b"\n") + 1
+                text = data[:cut].decode("utf-8", "replace")
+                state["scanned"] = offset + cut
         except OSError:
             text = ""
         for name in branches_in_transcript(text):
@@ -707,8 +735,9 @@ def evaluate(ctx: Ctx, transcript: Path | None = None, state: dict | None = None
     ctx.git("fetch", "--quiet", "origin", ctx.base)
     trees = worktrees(ctx)
     results = [evaluate_branch(ctx, name, trees.get(name)) for name in branches]
-    # Branches that turned out to have nothing to land are forgotten.
-    state["branches"] = [r.branch for r in results if r.verdict != "NONE"]
+    # Landed, deleted or closed branches are forgotten; an empty new branch is
+    # kept, since its commits may arrive by a push the transcript never shows.
+    state["branches"] = [r.branch for r in results if not r.forget]
     worst = max(results, key=lambda r: SEVERITY[r.verdict])
     others = [r for r in results if r is not worst and r.verdict in MUST_CONTINUE]
     if others:

@@ -60,10 +60,16 @@ export const AgentDoneGate = async ({ client, $, directory, worktree }) => {
         const verdict = await verdictFor(sessionID);
         log(`${sessionID} ${directory}: ${verdict ? verdict.verdict : "no answer"}`);
         if (!verdict || verdict.may_stop !== false) return;
-        await client.session.prompt({
-          path: { id: sessionID },
-          body: { parts: [{ type: "text", text: verdict.message }] },
-        });
+        // Do not await the reply: the session goes idle again when it is done,
+        // and that idle must be checked, so release the session first.
+        running.delete(sessionID);
+        client.session
+          .prompt({
+            path: { id: sessionID },
+            body: { parts: [{ type: "text", text: verdict.message }] },
+          })
+          .then(() => log(`${sessionID}: the session answered the next step`))
+          .catch((error) => log(`${sessionID}: could not send the next step (${error})`));
         log(`${sessionID}: sent the next step back into the session`);
       } catch (error) {
         log(`${sessionID}: gate skipped (${error})`); // fail open

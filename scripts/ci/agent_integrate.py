@@ -856,6 +856,7 @@ TRAIN_LABELS: dict[str, tuple[str, str]] = {
     merge_freeze.FREEZE_LABEL: ("b60205", "Holds main still for this pull request (2 h at most)"),
 }
 STALE_WARNING = "No activity for 7 days; this closes in 7 more days unless labelled `keep`."
+STALE_MARKER = "<!-- merge-train:stale-warning -->"
 STALE_CLOSING = (
     "No activity for 14 days, so the merge train closes this pull request. "
     "Reopen it and push a commit to continue, or label it `keep` before reopening."
@@ -1082,7 +1083,7 @@ def stale_sweep(repo: str, prs: list[dict], now: datetime) -> list[dict[str, obj
             continue
         labelled_days = None
         if STALE_LABEL in labels and idle_days >= CLOSE_DAYS:
-            events = _try_json("api", f"repos/{repo}/issues/{number}/events?per_page=100")
+            events = merge_freeze.issue_events(repo, number, lambda args: _try_json(*args))
             since = merge_freeze.labelled_at(events, STALE_LABEL)
             labelled_days = None if since is None else (now - since).total_seconds() / 86400
         verdict = stale_verdict(labels, idle_days, labelled_days)
@@ -1610,8 +1611,14 @@ def apply_housekeeping(data: dict, dry_run: bool, labels: _Labels) -> list[str]:
             continue
         if action == "warn":
             labels.ensure()
-            gh("pr", "comment", number, "--repo", repo, "--body", STALE_WARNING)
-            gh("pr", "edit", number, "--repo", repo, "--add-label", STALE_LABEL)
+            # Label first: if it cannot be set, no comment, so the next tick
+            # does not warn again. The marker guards against a repeat anyway.
+            if gh("pr", "edit", number, "--repo", repo, "--add-label", STALE_LABEL) != 0:
+                lines.append(f"#{number}: {idle}; could not label `stale`")
+                continue
+            if not already_told(repo, int(number), STALE_MARKER):
+                body = f"{STALE_WARNING}\n\n{STALE_MARKER}"
+                gh("pr", "comment", number, "--repo", repo, "--body", body)
             lines.append(f"#{number}: {idle}; labelled `stale`")
         elif action == "close":
             gh("pr", "close", number, "--repo", repo, "--comment", STALE_CLOSING)

@@ -440,6 +440,7 @@ def test_stale_sweep_warns_closes_and_lifts(monkeypatch):
 def test_the_sweep_acts_only_outside_a_dry_run(tmp_path, monkeypatch):
     fake = _FakeGh()
     monkeypatch.setattr(agent_integrate, "gh", fake)
+    monkeypatch.setattr(agent_integrate, "already_told", lambda *_: False)
     stale = [
         {"number": 1, "action": "warn", "idle_days": 8.0},
         {"number": 2, "action": "close", "idle_days": 15.0},
@@ -448,9 +449,8 @@ def test_the_sweep_acts_only_outside_a_dry_run(tmp_path, monkeypatch):
     agent_integrate.apply(tmp_path, _plan([], stale=stale), True, True)
     assert not fake.calls
     agent_integrate.apply(tmp_path, _plan([], stale=stale), False, True)
-    assert ("pr", "comment", "1", "--repo", REPO, "--body", agent_integrate.STALE_WARNING) in (
-        fake.calls
-    )
+    warning = f"{agent_integrate.STALE_WARNING}\n\n{agent_integrate.STALE_MARKER}"
+    assert ("pr", "comment", "1", "--repo", REPO, "--body", warning) in fake.calls
     assert ("pr", "edit", "1", "--repo", REPO, "--add-label", "stale") in fake.calls
     close = ("pr", "close", "2", "--repo", REPO, "--comment", agent_integrate.STALE_CLOSING)
     assert close in fake.calls
