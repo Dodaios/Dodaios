@@ -248,4 +248,4 @@ def test_macos_launch_survives_missing_editable_import(
     installer.step_launch(headless=False, dry_run=True)
 
     out = capsys.readouterr().out
-    assert "/usr/bin/open -a Personal Jarvis" in out
+    assert "/usr/bin/open -a Dodaios" in out
