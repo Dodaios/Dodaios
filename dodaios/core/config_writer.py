@@ -1289,6 +1289,34 @@ def set_agent_server(
     )
 
 
+#: Keys ``[self_build]`` accepts from the Settings page (docs/self-build.md).
+SELF_BUILD_SETTING_KEYS: frozenset[str] = frozenset(
+    {
+        "enabled", "silent_days", "memory", "skill", "routine", "agent", "code",
+        "trial_days", "trial_uses", "max_builds_per_day", "max_agents_per_week",
+        "max_open_trials", "max_code_runs_per_day", "max_rejections",
+    }
+)
+
+
+def set_self_build_settings(
+    values: dict[str, str | bool | int], *, path: Path = DEFAULT_CONFIG_FILE
+) -> None:
+    """Persist a validated ``[self_build]`` patch in one atomic write.
+
+    The caller validates against ``SelfBuildConfig`` first. Toml-only: the
+    drift guard does not track the section, and the running loop reads the
+    in-memory config the route updates, so a change applies without a restart.
+    """
+    unknown = set(values).difference(SELF_BUILD_SETTING_KEYS)
+    if unknown:
+        raise ValueError(f"unknown self_build setting(s): {sorted(unknown)!r}")
+    if not values:
+        return
+    first, *rest = values.items()
+    _patch_table(path, "self_build", first[0], first[1], extra=dict(rest))
+
+
 def set_wiki_vault_root(vault_root: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist ``[wiki_integration] vault_root`` in jarvis.toml (AP-7).
 

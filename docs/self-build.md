@@ -159,6 +159,37 @@ At `full` a used trial is kept on its own too.
 `POST /{id}/accept`, `POST /{id}/keep`, `POST /{id}/undo`. Every change
 publishes `SelfBuildChanged` on the app bus, and the WebSocket forwards it.
 
+`GET /settings` and `PUT /settings` read and change `[self_build]`. The PUT is
+validated against `SelfBuildConfig`, written to `jarvis.toml` through
+`config_writer.set_self_build_settings` and applied at once: the loop reads
+the config through a getter. `GET /provenance?type=skill` lists the artefacts
+builds created, keyed `"<type>:<id>"`, for the "built by Dodaios" badge.
+
+The settings, the pause and accepting or keeping a build are excluded from the
+brain's app actions, and `self_build.*` is on the self-mod deny list: only the
+person decides how far the loop goes (rule 3). Reading the ledger and undoing
+a build stay reachable, so "what did you build?" works when asked.
+
+The society kill switch (`POST /api/society/kill-switch`) also pauses the
+loop. Releasing it does not resume the loop; the person resumes it in "Built
+for you".
+
+### Artefact ids
+
+The badge joins on the artefact a builder records with `attach_artefact`. Use
+these ids so the badge finds its build:
+
+| `type` | `id` |
+|---|---|
+| `skill` | the skill's `name` as `/api/skills` lists it |
+| `routine` | the routine's task id (`/api/society/agents/{id}/routines`) |
+| `agent` | the society `agent_id` |
+| `memory` | the wiki or memory path |
+| `code` | the pull request URL |
+
+Extra keys (`label`, `url`, `repo`) are allowed and shown in the build's
+detail.
+
 ## Rules enforced in code
 
 1. Background work for the loop never bills a per-token key. It runs on
