@@ -97,16 +97,18 @@ describe("BrowserTab on the desktop app", () => {
     return fetchMock;
   }
 
-  it("shows the user's own browser with a profile picker", async () => {
-    renderTab({ available: true, reason: "", state: "idle", browsers: BROWSERS });
+  it("leaves the whole panel to the user's own browser, with no bar of its own", async () => {
+    renderTab({ available: true, reason: "", state: "embedded", browser: "chrome", profile: "Profile 3", browsers: BROWSERS });
     await waitFor(() => expect(screen.getByTestId("ide-browser-tab").dataset.mode).toBe("native"));
-    expect(screen.getByTestId("ide-browser-profile")).toBeTruthy();
+    expect(screen.queryByTestId("ide-browser-profile")).toBeNull();
+    expect(screen.queryByTestId("ide-browser-address")).toBeNull();
     expect(screen.queryByTestId("ide-browser-frame")).toBeNull();
   });
 
-  it("offers reopening after the window was closed", async () => {
+  it("offers reopening, and another profile, after the window was closed", async () => {
     renderTab({ available: true, reason: "", state: "closed", browser: "chrome", profile: "Profile 3", browsers: BROWSERS });
     await waitFor(() => expect(screen.getByTestId("ide-browser-reopen")).toBeTruthy());
+    expect(screen.getByTestId("ide-browser-profile")).toBeTruthy();
   });
 
   it("falls back to the built-in view where the browser cannot be shown", async () => {

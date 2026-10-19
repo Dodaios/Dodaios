@@ -144,12 +144,26 @@ class TurnHandle:
     #: A plain chat's whole system prompt (``SurfaceKit.plain_chat``); empty on
     #: every other surface. With it the turn carries no tools.
     plain_system: str = ""
+    #: A plain chat's pictures for THIS message, as files in the session's
+    #: folder (``plain_chat.image_paths``). Empty everywhere else.
+    images: tuple[str, ...] = ()
     gateway_only: bool = False
     output_language: str = ""
     goal_turn: bool = False
     control_service: Any = None
     #: A continuation keeps the turn's already resolved language and identity.
     continuation: bool = False
+
+
+async def _plain_images(handle: TurnHandle, brain: Any) -> tuple[Any, ...]:
+    """A plain chat's pictures as image blocks, when the model can see them."""
+    if not handle.images or not getattr(brain, "supports_vision", False):
+        return ()
+    from dodaios.agent_chat import plain_chat
+    from dodaios.core.protocols import ImageBlock
+
+    pairs = await asyncio.to_thread(lambda: [plain_chat.encoded(p) for p in handle.images])
+    return tuple(ImageBlock(mime=pair[0], data_b64=pair[1]) for pair in pairs if pair is not None)
 
 
 # ------------------------------------------------------------ history
@@ -314,7 +328,9 @@ async def run_api_turn(handle: TurnHandle, user_text: str) -> None:
         return
 
     messages = messages_from_events(handle.history)
-    messages.append(BrainMessage(role="user", content=user_text))
+    messages.append(
+        BrainMessage(role="user", content=user_text, images=await _plain_images(handle, brain))
+    )
     permission_mode = normalize_permission("api", session.permission_mode)
     # Either says it: a turn told to carry no tools never gets the tool set.
     plain = handle.tools_disabled or bool(handle.plain_system)
