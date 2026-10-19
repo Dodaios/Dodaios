@@ -352,6 +352,13 @@ export function useWebSocket(): void {
           void queryClient.invalidateQueries({ queryKey: ["society", "roster"] });
         }
 
+        // A build in the self-building ledger opened or moved: "Built for
+        // you", its nav count and the "built by" badges re-read the ledger.
+        // Never a toast — the loop does not interrupt (docs/self-build.md).
+        if (env.event_name === "SelfBuildChanged") {
+          void queryClient.invalidateQueries({ queryKey: ["self-build"] });
+        }
+
         // The desktop pet's pen: the backend already raised this window; land
         // on an empty typed chat with the caret in the composer. A detached
         // solo window is pinned to its section and stays where it is.
