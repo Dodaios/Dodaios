@@ -38,8 +38,9 @@ change the pipeline to be worth anything.
 API key resolution order (same convention as every other plugin here):
   1. constructor argument
   2. ``DEEPGRAM_API_KEY`` env var
-  3. OS credential manager via ``keyring`` (service ``personal-jarvis``,
-     username ``deepgram_api_key``) — the name the setup wizard already writes.
+  3. OS credential manager via ``keyring`` (service ``dodaios``, then the
+     earlier ``personal-jarvis``; username ``deepgram_api_key``) — the name
+     the setup wizard already writes.
 
 Never accept a key from voice/chat input (AP-2).
 """
@@ -133,7 +134,7 @@ class DeepgramSTT:
         self._api_key = (
             api_key
             or os.environ.get("DEEPGRAM_API_KEY", "")
-            or _read_keyring_secret(_KEYRING_SERVICE, "deepgram_api_key")
+            or _read_keyring_secret("deepgram_api_key")
         )
         self._model = model
         self._last_used_model = ""
@@ -302,13 +303,17 @@ class DeepgramSTT:
 # Helpers (module-private)
 # ----------------------------------------------------------------------
 
-#: The OS credential-store service the host saves keys under. A plugin imports
-#: no ``dodaios.*``, so this restates ``dodaios.core.branding.KEYRING_SERVICE_NAME``;
-#: ``tests/unit/core/test_identity_single_source.py`` pins the two together.
-_KEYRING_SERVICE = "personal-jarvis"
+#: The OS credential-store service the host saves keys under, and the services
+#: earlier versions saved them under (read when the current one has nothing).
+#: A plugin imports no ``dodaios.*``, so this restates
+#: ``dodaios.core.branding.KEYRING_SERVICE_NAME`` and
+#: ``LEGACY_KEYRING_SERVICE_NAMES``;
+#: ``tests/unit/core/test_identity_single_source.py`` pins them together.
+_KEYRING_SERVICE = "dodaios"
+_LEGACY_KEYRING_SERVICES = ("personal-jarvis",)
 
 
-def _read_keyring_secret(service: str, username: str) -> str:
+def _read_keyring_secret(username: str) -> str:
     """Best-effort credential-manager lookup. Returns ``""`` on any failure."""
     # No dodaios.* import here (plugin purity contract): the host's plugin
     # loader installs the process-wide keyring backend — on macOS the
@@ -323,12 +328,27 @@ def _read_keyring_secret(service: str, username: str) -> str:
         # vault to read, which is "no key" and is already reported honestly by
         # the caller. Logging it on every lookup would be noise, not a finding.
         return ""
-    try:
-        return keyring.get_password(service, username) or ""
-    except Exception:  # noqa: BLE001 — a locked or absent vault is "no key",
-        # which the caller already reports honestly; re-raising here would turn
-        # a missing optional credential into a crash.
-        return ""
+    for service in (_KEYRING_SERVICE, *_LEGACY_KEYRING_SERVICES):
+        try:
+            value = _read_one(keyring, service, username)
+        except Exception:  # noqa: BLE001, S112 — a locked or absent vault is
+            # "no key", which the caller already reports honestly; re-raising
+            # here would turn a missing optional credential into a crash.
+            continue
+        if value:
+            return value
+    return ""
+
+
+def _read_one(keyring: Any, service: str, username: str) -> str | None:
+    """One read that never writes: an earlier service is read, never changed."""
+    if service != _KEYRING_SERVICE:
+        # The host's macOS vault wrapper folds an entry it finds into its
+        # vault on a plain read; its read-only twin leaves the old name alone.
+        peek = getattr(keyring.get_keyring(), "peek_password", None)
+        if callable(peek):
+            return peek(service, username)
+    return keyring.get_password(service, username)
 
 
 def _content_type_for(filename: str) -> str:
