@@ -22,15 +22,16 @@ def test_get_persona_prompt_resolves_each_language() -> None:
     assert get_persona_prompt("pt") == PERSONA_PROMPT_PT
 
 
-def test_get_persona_prompt_normalises_tags_and_falls_back_to_de() -> None:
+def test_get_persona_prompt_normalises_tags_and_falls_back_to_en() -> None:
     assert get_persona_prompt("en-US") == PERSONA_PROMPT_EN
     assert get_persona_prompt("es-ES") == PERSONA_PROMPT_ES
     assert get_persona_prompt("pt-PT") == PERSONA_PROMPT_PT
     assert get_persona_prompt("de-DE") == PERSONA_PROMPT_DE
-    # Unknown / empty / None falls back to German (the STT default on ambiguity).
-    assert get_persona_prompt("fr") == PERSONA_PROMPT_DE
-    assert get_persona_prompt("") == PERSONA_PROMPT_DE
-    assert get_persona_prompt(None) == PERSONA_PROMPT_DE
+    assert get_persona_prompt("german") == PERSONA_PROMPT_DE
+    # Unknown / empty / None falls back to English (DEFAULT_LOCALE), never German.
+    assert get_persona_prompt("fr") == PERSONA_PROMPT_EN
+    assert get_persona_prompt("") == PERSONA_PROMPT_EN
+    assert get_persona_prompt(None) == PERSONA_PROMPT_EN
 
 
 def test_preamble_personas_are_name_neutral() -> None:

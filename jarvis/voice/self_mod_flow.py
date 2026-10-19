@@ -80,7 +80,7 @@ class FlowSession:
     state: FlowState
     echo_question: str
     deadline_ts: float
-    language: str = "de"
+    language: str = "en"
     transcript: str | None = None
     confidence: float | None = None
     final_message: str | None = None
@@ -121,7 +121,7 @@ class SelfModFlowController:
         pending_store: PendingMutationStore,
         audit: SelfModAudit | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-        default_language: str = "de",
+        default_language: str = "en",
     ) -> None:
         self._pending_store = pending_store
         # Audit for pre-events (voice_confirmed). Reject events run through
@@ -258,7 +258,7 @@ class SelfModFlowController:
                     else "validate_failed",
                     session.pending,
                     language=session.language,
-                    short_error=short_error_from_exception(exc),
+                    short_error=short_error_from_exception(exc, session.language),
                 ),
             )
         except KeyError as exc:

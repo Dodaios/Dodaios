@@ -27,6 +27,8 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Final, Literal
 
+from jarvis.i18n import catalog as i18n_catalog
+
 if TYPE_CHECKING:
     from jarvis.missions.critic.runner import CapabilityHonestyCheck
 
@@ -258,165 +260,9 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
 # so a code without an entry falls back cleanly. The de/en parity gate
 # (``test_failure_reason_phrases_de_en_parity``) still guards those two; ``es``
 # here carries only the keys that have been translated so far.
-FAILURE_REASON_PHRASES: Final[dict[str, dict[str, str]]] = {
-    "de": {
-        "critic_loop_exhausted": "Drei Versuche haben nicht gereicht.",  # i18n-allow
-        "critic_rejected": "Die Prüfung war nicht zufrieden.",  # i18n-allow
-        "task_error": "Der Worker ist abgebrochen.",  # i18n-allow
-        "attempts_timed_out": "Das Zeitlimit wurde überschritten.",  # i18n-allow (DE TTS phrase)
-        "review_time_budget_exhausted": (  # i18n-allow: German TTS phrase
-            "Das Prüfzeitlimit ist erreicht; das Zwischenergebnis ist verfügbar."  # i18n-allow
-        ),
-        "budget_exceeded": "Das Kostenlimit ist erreicht.",  # i18n-allow
-        "decompose_failed": "Die Aufgabe konnte ich nicht zerlegen.",  # i18n-allow
-        "crash_recovery": "Eine alte Mission wurde aufgeräumt.",  # i18n-allow
-        "interrupted": "Eine laufende Mission wurde unterbrochen.",  # i18n-allow (DE TTS phrase)
-        "empty_diff": "Es wurden keine Dateien geschrieben.",  # i18n-allow
-        "critic_unavailable": "Der Prüfer ist abgestürzt, die Arbeit liegt im Worktree.",  # i18n-allow
-        "worktree_setup_failed": "Ich konnte keinen Arbeitsbereich anlegen.",  # i18n-allow
-        "checkpoint_missing": (
-            "Der gesicherte Zwischenstand fehlt, ich kann nicht fortsetzen."  # i18n-allow
-        ),
-        "git_missing": "{agents} brauchen eine Git-Installation im PATH.",  # i18n-allow
-        "git_not_a_repository": (
-            "{agents} brauchen einen Git-Checkout, bitte über den "  # i18n-allow
-            "Git-Installer installieren, nicht als ZIP."  # i18n-allow
-        ),
-        "source_checkout_unavailable": (
-            "Diese {agent}-Aufgabe braucht den "  # i18n-allow: German TTS
-            "Quellcode-Checkout, der in dieser "  # i18n-allow: German TTS
-            "Installation nicht verfügbar ist."  # i18n-allow: German TTS
-        ),
-        # error_class keys (looked up BEFORE the reason key; see
-        # failure_phrase_key). Same table so announcer + direct-TTS listener
-        # cannot drift (2026-05-27 finding #7).
-        "provider_auth": (
-            "Die Anmeldung beim KI-Anbieter ist ungültig oder abgelaufen."  # i18n-allow
-        ),
-        "provider_quota": "Das Kontingent des KI-Anbieters ist erschöpft.",  # i18n-allow
-        "provider_unreachable": "Der KI-Anbieter ist gerade nicht erreichbar.",  # i18n-allow
-        "worker_timeout": "Der Worker hat das Zeitlimit überschritten.",  # i18n-allow
-    },
-    "en": {
-        "critic_loop_exhausted": "Three attempts were not enough.",
-        "critic_rejected": "The review wasn't satisfied.",
-        "task_error": "The worker aborted.",
-        "attempts_timed_out": "The time limit was reached.",
-        "review_time_budget_exhausted": (
-            "The review time budget was reached; partial output is available."
-        ),
-        "budget_exceeded": "The cost limit was reached.",
-        "decompose_failed": "I could not break the task down.",
-        "crash_recovery": "An old mission was cleaned up.",
-        "interrupted": "A running mission was interrupted; the partial results are available.",
-        "empty_diff": "No files were written.",
-        "critic_unavailable": (
-            "The reviewer crashed; the work is preserved in the worktree."
-        ),
-        "worktree_setup_failed": "I could not create a workspace.",
-        "checkpoint_missing": "The saved progress is missing, so I cannot continue.",
-        "git_missing": "{agents} require git to be installed and on PATH.",
-        "git_not_a_repository": (
-            "{agents} require a git checkout (install via the "
-            "git-based installer, not a ZIP download)."
-        ),
-        "source_checkout_unavailable": (
-            "This {agent} task requires the source checkout, which is "
-            "not available in this installation."
-        ),
-        "provider_auth": "The AI provider sign-in is invalid or expired.",
-        "provider_quota": "The AI provider's quota is exhausted.",
-        "provider_unreachable": "The AI provider is currently unreachable.",
-        "worker_timeout": "The worker hit its time limit.",
-    },
-    # Spanish and European Portuguese are equal supported product-surface
-    # languages (AGENTS.md §2); both carry the full de/en key set, guarded by
-    # ``test_failure_reason_phrases_all_locales_parity``.
-    "es": {
-        "critic_loop_exhausted": "Tres intentos no han bastado.",  # i18n-allow: Spanish TTS
-        "critic_rejected": "La revisión no quedó satisfecha.",  # i18n-allow: Spanish TTS
-        "task_error": "El worker se ha interrumpido.",  # i18n-allow: Spanish TTS
-        "attempts_timed_out": "Se alcanzó el tiempo límite.",  # i18n-allow: Spanish TTS
-        "review_time_budget_exhausted": (  # i18n-allow: Spanish TTS phrase
-            "Se agotó el tiempo de revisión; el resultado parcial está "  # i18n-allow
-            "disponible."  # i18n-allow
-        ),
-        "budget_exceeded": "Se alcanzó el límite de coste.",  # i18n-allow: Spanish TTS
-        "decompose_failed": "No he podido dividir la tarea.",  # i18n-allow: Spanish TTS
-        "crash_recovery": "Se ha limpiado una misión antigua.",  # i18n-allow: Spanish TTS
-        "interrupted": (
-            "Se interrumpió una misión en curso; los resultados "  # i18n-allow: Spanish TTS
-            "parciales están disponibles."  # i18n-allow: Spanish TTS
-        ),
-        "empty_diff": "No se escribió ningún archivo.",  # i18n-allow: Spanish TTS
-        "critic_unavailable": (
-            "El revisor ha fallado; el trabajo se conserva en el worktree."  # i18n-allow
-        ),
-        "worktree_setup_failed": "No he podido crear un espacio de trabajo.",  # i18n-allow
-        "checkpoint_missing": (
-            "Falta el progreso guardado, así que no puedo continuar."  # i18n-allow: Spanish TTS
-        ),
-        "git_missing": "{agents} necesitan que git esté instalado y en el PATH.",  # i18n-allow
-        "git_not_a_repository": (
-            "{agents} necesitan una copia de git (instala con el "  # i18n-allow
-            "instalador de git, no con una descarga ZIP)."  # i18n-allow
-        ),
-        "source_checkout_unavailable": (
-            "Esta tarea de {agent} necesita el "  # i18n-allow: Spanish TTS
-            "repositorio del código fuente, que no está "  # i18n-allow: Spanish TTS
-            "disponible en esta instalación."  # i18n-allow: Spanish TTS
-        ),
-        "provider_auth": (
-            "El inicio de sesión del proveedor de IA no es válido o ha caducado."  # i18n-allow
-        ),
-        "provider_quota": "La cuota del proveedor de IA está agotada.",  # i18n-allow: Spanish TTS
-        "provider_unreachable": "El proveedor de IA no está disponible ahora.",  # i18n-allow
-        "worker_timeout": "El worker superó su tiempo límite.",  # i18n-allow: Spanish TTS
-    },
-    "pt": {
-        "critic_loop_exhausted": "Três tentativas não chegaram.",  # i18n-allow: PT TTS
-        "critic_rejected": "A revisão não ficou satisfeita.",  # i18n-allow: PT TTS
-        "task_error": "O worker foi interrompido.",  # i18n-allow: PT TTS
-        "attempts_timed_out": "O tempo limite foi atingido.",  # i18n-allow: PT TTS
-        "review_time_budget_exhausted": (  # i18n-allow: Portuguese TTS phrase
-            "O tempo de revisão esgotou-se; o resultado parcial está "  # i18n-allow
-            "disponível."  # i18n-allow
-        ),
-        "budget_exceeded": "O limite de custo foi atingido.",  # i18n-allow: PT TTS
-        "decompose_failed": "Não consegui dividir a tarefa.",  # i18n-allow: PT TTS
-        "crash_recovery": "Uma missão antiga foi limpa.",  # i18n-allow: PT TTS
-        "interrupted": (
-            "Uma missão em curso foi interrompida; os resultados "  # i18n-allow: PT TTS
-            "parciais estão disponíveis."  # i18n-allow: PT TTS
-        ),
-        "empty_diff": "Não foi escrito nenhum ficheiro.",  # i18n-allow: PT TTS
-        "critic_unavailable": (
-            "O revisor falhou; o trabalho está guardado no worktree."  # i18n-allow: PT TTS
-        ),
-        "worktree_setup_failed": "Não consegui criar um espaço de trabalho.",  # i18n-allow: PT TTS
-        "checkpoint_missing": (
-            "Falta o progresso guardado, por isso não posso continuar."  # i18n-allow: PT TTS
-        ),
-        "git_missing": (
-            "{agents} precisam que o git esteja instalado e no PATH."  # i18n-allow: PT TTS
-        ),
-        "git_not_a_repository": (
-            "{agents} precisam de uma cópia git (instala com o "  # i18n-allow: PT TTS
-            "instalador do git, não com uma transferência ZIP)."  # i18n-allow: PT TTS
-        ),
-        "source_checkout_unavailable": (
-            "Esta tarefa de {agent} precisa do "  # i18n-allow: PT TTS
-            "repositório do código-fonte, que não está "  # i18n-allow: PT TTS
-            "disponível nesta instalação."  # i18n-allow: PT TTS
-        ),
-        "provider_auth": (
-            "O início de sessão no fornecedor de IA é inválido ou expirou."  # i18n-allow: PT TTS
-        ),
-        "provider_quota": "A quota do fornecedor de IA está esgotada.",  # i18n-allow: PT TTS
-        "provider_unreachable": "O fornecedor de IA não está acessível agora.",  # i18n-allow
-        "worker_timeout": "O worker excedeu o tempo limite.",  # i18n-allow: PT TTS
-    },
-}
+FAILURE_REASON_PHRASES: Final[dict[str, dict[str, str]]] = i18n_catalog.locale_maps(
+    "missions.readback.failure_reason"
+)
 
 
 def approved_summary(payload: object, language: str) -> str:
@@ -597,24 +443,9 @@ _PROVIDER_FALLBACK_NAME: Final[dict[str, str]] = {
 }
 
 # Spoken defaults for an empty summary / reason / destructive target.
-_EMPTY_SUMMARY: Final[dict[str, str]] = {
-    "de": "Aufgabe erledigt.",  # i18n-allow: German TTS
-    "en": "Task completed.",
-    "es": "Tarea completada.",  # i18n-allow: Spanish TTS
-    "pt": "Tarefa concluída.",  # i18n-allow: PT TTS
-}
-_UNKNOWN_REASON: Final[dict[str, str]] = {
-    "de": "unbekannter Fehler",  # i18n-allow: German TTS
-    "en": "unknown error",
-    "es": "error desconocido",  # i18n-allow: Spanish TTS
-    "pt": "erro desconhecido",  # i18n-allow: PT TTS
-}
-_NO_TOOL_CALL: Final[dict[str, str]] = {
-    "de": "Konnte ich nicht ausführen — kein Tool-Aufruf.",  # i18n-allow: German TTS
-    "en": "I could not do that — no tool call was made.",
-    "es": "No pude hacerlo: no hubo ninguna llamada a herramienta.",  # i18n-allow: Spanish TTS
-    "pt": "Não consegui fazer isso: não houve nenhuma chamada a ferramenta.",  # i18n-allow: PT TTS
-}
+_EMPTY_SUMMARY: Final[dict[str, str]] = i18n_catalog.table("missions.readback.empty_summary")
+_UNKNOWN_REASON: Final[dict[str, str]] = i18n_catalog.table("missions.readback.unknown_reason")
+_NO_TOOL_CALL: Final[dict[str, str]] = i18n_catalog.table("missions.readback.no_tool_call")
 _DEFAULT_TARGET: Final[dict[str, str]] = {
     "de": "diese Aktion",  # i18n-allow: German TTS
     "en": "this action",
