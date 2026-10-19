@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.workers import provider_chain as sjw
+from dodaios.missions.workers import provider_chain as sjw
 
 
 # --- _resolve_worker_argv_prefix -----------------------------------------

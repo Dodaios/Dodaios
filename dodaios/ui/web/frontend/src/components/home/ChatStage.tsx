@@ -1,0 +1,320 @@
+import { useTranscriptView } from "../society/chat/useTranscriptView";
+import { PairConversationBoundary } from "@/components/agentchat/PairConversation";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+
+import { useEventStore } from "@/store/events";
+import { useAgentChat } from "@/components/agentchat/AgentChatStoreContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
+import { scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
+import { AgentComposer } from "@/components/agentchat/AgentComposer";
+import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
+import { BinaryCursorField } from "@/components/home/BinaryCursorField";
+import { Greeting } from "@/components/home/Greeting";
+import { VoiceThreadStage } from "@/components/home/VoiceThreadStage";
+import type { ApprovalDecision } from "@/lib/agentChatApi";
+import { fill, useT } from "@/i18n";
+import { folderLeaf } from "@/lib/folderPath";
+import { useHistoryPolling } from "@/hooks/useHistoryPolling";
+import { FolderCode } from "lucide-react";
+
+/**
+ * The chat stage — the typed half of the front page: Jarvis with a keyboard.
+ *
+ * What is typed here goes to the same assistant the microphone reaches —
+ * the same memory, the same tools, the same voice in the answers — carried
+ * by an agent-chat session on the `jarvis` surface (dodaios/agent_chat). The
+ * composer's picks — provider, model, reasoning effort, permission mode —
+ * decide what Jarvis runs on for THIS chat; they never reach the voice
+ * path (AP-9: nothing here touches it). The Agentic IDE lists its coding
+ * sessions on its own surface (`agent`), so none of them appear here.
+ *
+ * One centred column, like a document: the greeting and the composer sit
+ * in the middle of an empty page; once there are messages the column
+ * scrolls and the composer docks to the bottom. The history is the
+ * sidebar's (components/home/RecentChats), visible from every section.
+ *
+ * One conversation is on stage at a time. The sidebar's history mixes agent
+ * chats with VOICE sessions, and a voice session opened from here is read in
+ * components/home/VoiceThreadStage — the same column, no composer. Which of
+ * the two shows is decided by the event store's active thread: opening either
+ * kind clears the other (components/home/chatRows), so the two can never both
+ * claim the stage and leave a click looking like it did nothing.
+ *
+ * Scrolling follows the Claude app: when the person sends, their message
+ * is brought to the TOP of the scroll area and the answer grows below it —
+ * the eye stays where the new turn begins instead of chasing the bottom.
+ * A spacer under the last turn makes that possible even when the turn is
+ * short; it shrinks as the answer fills the viewport. While the answer fits,
+ * nothing moves. Once it grows PAST the bottom edge — a long reasoning
+ * trace, a coding agent's run of tool calls — the view follows it down,
+ * through the rule every conversation surface here shares
+ * (hooks/useStickToBottom): new output pulls the view along ONLY while the
+ * view is already at the end. Scrolled up to read something, you keep your
+ * place while the answer goes on below, and a button over the composer takes
+ * you back. Nothing yanks the page out from under someone mid-sentence.
+ */
+export function ChatStage() {
+  const assistantName = useEventStore((s) => s.assistantName);
+  const surface = useAgentChat((s) => s.surface);
+  const sessionId = useAgentChat((s) => s.activeSessionId);
+  return surface === "jarvis" ? <PairConversationBoundary key={sessionId} recipient={{ id: "jarvis", name: assistantName }}><ChatStageContent /></PairConversationBoundary> : <ChatStageContent />;
+}
+
+function ChatStageContent() {
+  const t = useT();
+  const assistantName = useEventStore((s) => s.assistantName);
+  const surface = useAgentChat((s) => s.surface);
+  const allItems = useAgentChat((s) => s.timeline.items);
+  const cwd = useAgentChat((s) => s.draft.cwd);
+  const activeSessionId = useAgentChat((s) => s.activeSessionId);
+  const view = useTranscriptView(surface === "jarvis" ? activeSessionId : null, allItems);
+  const items = view.items;
+  const catalog = useAgentChat((s) => s.catalog);
+  const catalogStale = useAgentChat((s) => s.catalogStale);
+  const decide = useAgentChat((s) => s.decide);
+  const loadCatalog = useAgentChat((s) => s.loadCatalog);
+  const loadSessions = useAgentChat((s) => s.loadSessions);
+  const voiceThreadId = useEventStore((s) => (s.activeKind === "voice" ? s.activeThreadId : null));
+  const hasContent = items.length > 0;
+
+  // A copy from before paints the picks at once; the fresh read still runs.
+  useEffect(() => {
+    if (!catalog || catalogStale) void loadCatalog();
+  }, [catalog, catalogStale, loadCatalog]);
+  useHistoryPolling(loadSessions);
+
+  const providerLabel = useCallback(
+    (id: string) => catalog?.providers.find((p) => p.id === id)?.label ?? id,
+    [catalog],
+  );
+  const onDecide = useCallback(
+    (approvalId: string, decision: ApprovalDecision) => decide(approvalId, decision),
+    [decide],
+  );
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const columnRef = useRef<HTMLDivElement | null>(null);
+  const spacerRef = useRef<HTMLDivElement | null>(null);
+  // Whether the view is at the end — and so whether growth pulls it along —
+  // is the hook's to answer; it listens on the same viewport this stage
+  // scrolls. The column is NOT handed over as its content: the spacer must
+  // be sized before any follow, so the resize observer below does both, in
+  // that order, instead of two observers racing for the same frame.
+  const { rootRef: stickRootRef, atEnd, jumpToEnd, follow } = useStickToBottom();
+  const setRoot = useCallback(
+    (node: HTMLDivElement | null) => {
+      rootRef.current = node;
+      stickRootRef(node);
+    },
+    [stickRootRef],
+  );
+  // The user message pinned to the top of the scroll area for the current
+  // turn. Null until the person sends in this mounted column — opening an
+  // old conversation lands at its end like before, with no spacer.
+  const anchorIdRef = useRef<string | null>(null);
+  const lastItemIdRef = useRef<string | null>(null);
+  const sessionRef = useRef<string | null>(activeSessionId);
+
+  // Refs, not state, on purpose: the spacer must be sized BEFORE the scroll
+  // that relies on it, in the same layout pass — a state round-trip would
+  // scroll first and grow the page afterwards, clamping the scroll short.
+  //
+  // Answers whether the pinned turn still has room under it. While it has,
+  // the answer grows into the spacer and the page does not get any taller —
+  // there is nothing to follow, and following anyway would nudge the pinned
+  // message off its line. Once the room is gone the answer is growing past
+  // the bottom edge, and that is what the view follows.
+  const applySpacer = (): boolean => {
+    const viewport = scrollViewportOf(rootRef.current);
+    const spacer = spacerRef.current;
+    if (!viewport || !spacer) return false;
+    const anchor = anchorIdRef.current ? messageElement(viewport, anchorIdRef.current) : null;
+    if (!anchor) {
+      spacer.style.minHeight = "0px";
+      return false;
+    }
+    const turnHeight = spacer.getBoundingClientRect().top - anchor.getBoundingClientRect().top;
+    const room = viewport.clientHeight - turnHeight - TURN_BOTTOM_PAD_PX;
+    spacer.style.minHeight = `${Math.max(0, Math.round(room))}px`;
+    return room > 0;
+  };
+
+  const lastItem = items[items.length - 1];
+  const lastItemId = lastItem?.id ?? null;
+  const lastItemIsUser = lastItem?.type === "user";
+
+  useLayoutEffect(() => {
+    if (sessionRef.current !== activeSessionId) {
+      sessionRef.current = activeSessionId;
+      anchorIdRef.current = null;
+      lastItemIdRef.current = null;
+    }
+    const viewport = scrollViewportOf(rootRef.current);
+    const isNew = lastItemId !== lastItemIdRef.current;
+    lastItemIdRef.current = lastItemId;
+    if (!viewport || !lastItemId) return;
+    if (isNew && lastItemIsUser) {
+      anchorIdRef.current = lastItemId;
+      applySpacer();
+      scrollMessageToTop(viewport, lastItemId);
+      return;
+    }
+    // A turn that has outgrown its window — a live reasoning trace, a
+    // coding agent's next tool call, an opened conversation landing at
+    // its end: follow if the view was already there. Growth in place
+    // (same item, more words) used to wait for ResizeObserver and lose
+    // the reader for that frame. A reader who scrolled up is left where
+    // they are (`follow` no-ops).
+    const roomLeft = applySpacer();
+    if (!roomLeft) follow();
+    // `applySpacer` reads refs only and is recreated per render by design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastItemId, lastItemIsUser, activeSessionId, items, follow]);
+
+  // The live blocks grow without a new item — a reasoning trace, a streamed
+  // answer — so no render-driven effect fires for it; the column's own size
+  // is the honest signal. Spacer first, then the follow that depends on it.
+  // The viewport is watched too: a window that shrinks under a view at the
+  // end keeps it at the end.
+  useEffect(() => {
+    const column = columnRef.current;
+    const viewport = scrollViewportOf(rootRef.current);
+    if (!column || !viewport || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (!applySpacer()) follow();
+    });
+    ro.observe(column);
+    ro.observe(viewport);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasContent, follow]);
+
+  // The two surfaces open with different words because they are different
+  // things to be doing: here Jarvis reads with your memory and tools, there a
+  // coding agent reads the folder. Same layout, so nothing moves.
+  const isJarvis = surface === "jarvis";
+  const subtitle = useMemo(
+    () => t(isJarvis ? "agent_chat.empty_subtitle" : "agent_chat.empty_subtitle_agent"),
+    [t, isJarvis],
+  );
+
+  // A spoken thread was opened from the history: read it here, in the column
+  // the composer would otherwise own. An agent chat opening clears this.
+  // Only the front page shares its column with the voice archive; the IDE's
+  // chat is coding sessions and never shows a spoken thread.
+  if (surface === "jarvis" && voiceThreadId && !activeSessionId) return <VoiceThreadStage />;
+
+  // The front page opens with the greeting alone in
+  // the middle of the page, the composer already where it will stay — at the
+  // bottom — so the first send moves nothing.
+  if (!hasContent && isJarvis) {
+    return (
+      <div className="relative flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
+        <BinaryCursorField />
+        <div className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
+          <Greeting />
+        </div>
+        <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
+          {/* The digits make way while the pointer is on the composer. */}
+          <div data-binary-field-off>
+            <AgentComposer autoFocus />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasContent) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
+        <div className="flex w-full max-w-[720px] flex-1 flex-col justify-center gap-8 px-6 pb-20">
+          <FolderHeadline folder={cwd} subtitle={subtitle} />
+          <AgentComposer autoFocus />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="false">
+      <ScrollArea ref={setRoot} className="min-h-0 w-full flex-1">
+        <div
+          ref={columnRef}
+          className="relative mx-auto flex w-full max-w-[720px] flex-col gap-6 px-6 pb-6 pt-8"
+        >
+          <AgentTimeline
+            items={items}
+            assistantName={isJarvis ? assistantName : t("agent_chat.surface_agent")}
+            providerLabel={providerLabel}
+            onDecide={onDecide}
+            bubbles={isJarvis}
+            // The Agentic IDE mirrors Claude Code and Codex, whose own traces
+            // the maintainer kept; every other surface draws the rail.
+            traceLook={isJarvis ? "rail" : "classic"}
+            traceCompanion={isJarvis}
+          />
+          <div ref={spacerRef} aria-hidden data-testid="chat-bottom-spacer" className="shrink-0" />
+        </div>
+      </ScrollArea>
+      <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
+        {!atEnd && <ScrollToEndButton onClick={jumpToEnd} testId="chat-scroll-end" />}
+        <AgentComposer />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The IDE chat's opening line: which folder the coding agent works in.
+ *
+ * Not a greeting — nobody is being greeted by a coding agent, and the front
+ * page's "Good afternoon" would say the wrong thing about who is answering.
+ * Same typography and the same place on the page, so the two surfaces stay
+ * one design.
+ */
+function FolderHeadline({ folder, subtitle }: { folder: string; subtitle: string }) {
+  const t = useT();
+  return (
+    <div className="flex flex-col items-center text-center" data-testid="chat-folder-headline">
+      <h1 className="flex items-center gap-3 text-2xl font-semibold text-foreground-strong [text-wrap:balance]">
+        <FolderCode className="h-[30px] w-[30px] shrink-0 text-muted-foreground" aria-hidden />
+        <span>{fill(t("agent_chat.empty_title_agent"), { folder: folderLeaf(folder) })}</span>
+      </h1>
+      <p className="mt-2 max-w-md text-base text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
+/** Room kept under the turn so the composer's shadow never kisses the text. */
+const TURN_BOTTOM_PAD_PX = 24;
+
+function messageElement(viewport: HTMLElement, id: string): HTMLElement | null {
+  // Attribute compare instead of a selector: ids carry characters a CSS
+  // selector would need escaping for.
+  for (const el of Array.from(viewport.querySelectorAll<HTMLElement>("[data-message-id]"))) {
+    if (el.dataset.messageId === id) return el;
+  }
+  return null;
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+}
+
+function scrollViewport(viewport: HTMLElement, top: number) {
+  const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
+  if (typeof viewport.scrollTo === "function") viewport.scrollTo({ top, behavior });
+  else viewport.scrollTop = top;
+}
+
+/** Bring the message with `id` to the top edge of the viewport (plus a breath of padding). */
+function scrollMessageToTop(viewport: HTMLElement, id: string) {
+  const el = messageElement(viewport, id);
+  if (!el) return;
+  const top =
+    el.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop - 12;
+  scrollViewport(viewport, Math.max(0, top));
+}

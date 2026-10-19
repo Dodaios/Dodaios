@@ -23,8 +23,8 @@ import re
 import numpy as np
 import pytest
 
-from jarvis.core.protocols import AudioChunk, Transcript
-from jarvis.speech.rolling_whisper_wake import (
+from dodaios.core.protocols import AudioChunk, Transcript
+from dodaios.speech.rolling_whisper_wake import (
     RollingWhisperWake,
     SessionNoiseFloor,
 )

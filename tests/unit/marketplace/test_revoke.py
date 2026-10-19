@@ -15,9 +15,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.marketplace.catalog import PluginSpec
-from jarvis.marketplace.revoke import revoke_tokens
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.marketplace.revoke import revoke_tokens
+from dodaios.marketplace.token_store import Tokens
 
 
 def _pkce_spec(revocation_url: str | None) -> PluginSpec:

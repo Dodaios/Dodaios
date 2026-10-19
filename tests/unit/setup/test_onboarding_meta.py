@@ -1,6 +1,6 @@
 import sysconfig
 
-from jarvis.setup import onboarding_meta as m
+from dodaios.setup import onboarding_meta as m
 
 
 def test_meta_constants():

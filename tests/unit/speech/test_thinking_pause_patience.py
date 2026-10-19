@@ -23,8 +23,8 @@ import asyncio
 
 import pytest
 
-from jarvis.core.protocols import Transcript
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.protocols import Transcript
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _RecordingVad:
@@ -434,7 +434,7 @@ async def test_sustained_pre_speech_bleed_still_forces() -> None:
 
 
 def test_looks_like_delegation_composition_matches_bilingual_markers() -> None:
-    from jarvis.speech.pipeline import _looks_like_delegation_composition
+    from dodaios.speech.pipeline import _looks_like_delegation_composition
 
     assert _looks_like_delegation_composition(
         "please spawn a sub-agent that researches"
@@ -453,7 +453,7 @@ def test_looks_like_delegation_composition_matches_bilingual_markers() -> None:
 async def test_delegation_partial_extends_silence_window() -> None:
     """When the live partial shows a delegation being composed, the probe must
     extend the silence window so the user is not cut off on a thinking pause."""
-    from jarvis.speech.pipeline import _DELEGATION_SILENCE_MS
+    from dodaios.speech.pipeline import _DELEGATION_SILENCE_MS
 
     vad = _RecordingVad()
     pipe = _make_probe_pipe(_InstantSTT(text="spawn a sub-agent that researches"), vad)

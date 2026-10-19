@@ -18,11 +18,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
-from jarvis.missions.workers.codex_direct_worker import (  # noqa: E402
+from dodaios.missions.workers.codex_direct_worker import (  # noqa: E402
     CodexDirectWorker,
     _build_codex_direct_cmd,
 )
-from jarvis.missions.workers.stream_consumer import ClaudeResult  # noqa: E402
+from dodaios.missions.workers.stream_consumer import ClaudeResult  # noqa: E402
 
 PROMPT = "Plan a trip from London to Taiwan."
 

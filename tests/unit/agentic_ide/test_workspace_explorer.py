@@ -10,8 +10,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide.folders import list_workspace_dir
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide.folders import list_workspace_dir
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 def test_listing_includes_hidden_and_dependency_directories(tmp_path: Path) -> None:

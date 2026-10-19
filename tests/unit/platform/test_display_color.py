@@ -7,8 +7,8 @@ import sys
 
 import numpy as np
 
-from jarvis.platform import display_color as dc
-from jarvis.platform import win_duplication
+from dodaios.platform import display_color as dc
+from dodaios.platform import win_duplication
 
 
 def _icc(primaries: dict[bytes, tuple[float, float]]) -> bytes:

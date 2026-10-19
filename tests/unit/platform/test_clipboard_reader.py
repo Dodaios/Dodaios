@@ -10,9 +10,9 @@ from pathlib import Path
 import psutil
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.platform import clipboard
-from jarvis.platform import clipboard_reader as reader
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.platform import clipboard
+from dodaios.platform import clipboard_reader as reader
 
 
 @pytest.mark.parametrize("value", ["", "line one\nUnicode: café 🦊", None])
@@ -101,7 +101,7 @@ def test_windowed_helper_writes_to_inherited_pipe():
     if not pythonw.exists():
         pytest.skip("windowed interpreter unavailable")
     script = (
-        "from jarvis.platform.clipboard_reader import _write_response; "
+        "from dodaios.platform.clipboard_reader import _write_response; "
         "_write_response('sample\\nUnicode: café 🦊')"
     )
     result = subprocess.run(
@@ -115,7 +115,7 @@ def test_windowed_helper_writes_to_inherited_pipe():
 
 def test_private_entrypoint_does_not_boot_desktop():
     script = (
-        "import sys,runpy; import jarvis.platform.clipboard as c; "
+        "import sys,runpy; import dodaios.platform.clipboard as c; "
         "c._read_windows_native=lambda: 'sample'; "
         "sys.argv=['jarvis','--clipboard-read']; "
         "runpy.run_module('jarvis',run_name='__main__')"

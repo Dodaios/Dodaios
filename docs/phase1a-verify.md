@@ -12,7 +12,7 @@ primary channel, desktop shell via pywebview, WebSocket event stream).
    ```
 2. Frontend Node deps:
    ```bash
-   cd jarvis/ui/web/frontend
+   cd dodaios/ui/web/frontend
    npm install
    ```
 3. Build the frontend (production static build):
@@ -25,7 +25,7 @@ primary channel, desktop shell via pywebview, WebSocket event stream).
 ### 1. Backend Headless Mode
 
 ```bash
-python -m jarvis.ui.web.launcher --headless
+python -m dodaios.ui.web.launcher --headless
 ```
 
 Expectation: log line `Jarvis-Backend läuft auf http://127.0.0.1:47821`  <!-- i18n-allow -->
@@ -39,7 +39,7 @@ Expectation: log line `Jarvis-Backend läuft auf http://127.0.0.1:47821`  <!-- i
 Beforehand: `python scripts/build_frontend.py`
 
 ```bash
-python -m jarvis.ui.web.launcher
+python -m dodaios.ui.web.launcher
 ```
 
 Expectation:
@@ -50,14 +50,14 @@ Expectation:
 
 ### 3. Dev Mode with Vite HMR
 
-- Terminal A: `cd jarvis/ui/web/frontend && npm run dev`
-- Terminal B: `python -m jarvis.ui.web.launcher --dev`
+- Terminal A: `cd dodaios/ui/web/frontend && npm run dev`
+- Terminal B: `python -m dodaios.ui.web.launcher --dev`
 
 Expectation: window shows the Vite dev UI, HMR works (edit in .tsx immediately visible).
 
 ### 4. Single-Instance Lock
 
-Start `python -m jarvis.ui.web.launcher` twice in a row.
+Start `python -m dodaios.ui.web.launcher` twice in a row.
 The second invocation must abort with exit code `3` and the message `Jarvis läuft bereits.` (Jarvis is already running.)  <!-- i18n-allow -->
 
 ### 5. WebSocket Event Echo in the Browser
@@ -87,8 +87,8 @@ deps / plugins are not installed; no `FAILED` or `ERROR`).
 
 ## Known Open Points
 
-- `python -m jarvis` (without the submodule path) still starts the old tray path
-  from Phase 0. The integration into `jarvis/__main__.py` happens in a
+- `python -m dodaios` (without the submodule path) still starts the old tray path
+  from Phase 0. The integration into `dodaios/__main__.py` happens in a
   later merge turn, as soon as Phase 1b (Voice) is finished in parallel.
 - The pywebview window start cannot be automated headlessly —
   points 2 and 3 of the checklist must be verified manually.

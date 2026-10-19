@@ -25,10 +25,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted, DictationTranscript
-from jarvis.dictation.polish import POLISH_STATUSES, PolishOutcome
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted, DictationTranscript
+from dodaios.dictation.polish import POLISH_STATUSES, PolishOutcome
+from dodaios.speech.pipeline import SpeechPipeline
 
 # A transcript with the two defects our own segmenting produces: an ellipsis
 # glued to a sentence that had already ended, and a segment restarting in lower
@@ -69,7 +69,7 @@ def _install_polish(
     monkeypatch: pytest.MonkeyPatch, outcome: PolishOutcome | Exception
 ) -> list[dict[str, Any]]:
     """Replace the pass with a recorder. Returns the list of calls it saw."""
-    import jarvis.dictation.polish as polish
+    import dodaios.dictation.polish as polish
 
     calls: list[dict[str, Any]] = []
 
@@ -301,7 +301,7 @@ async def test_every_non_applied_status_delivers_the_unpolished_text(
     take it as given rather than second-guessing which ones are safe."""
     unpolished: list[str] = []
 
-    import jarvis.dictation.polish as polish
+    import dodaios.dictation.polish as polish
 
     async def _fake(raw: str, **_kwargs: Any) -> PolishOutcome:
         unpolished.append(raw)
@@ -351,8 +351,8 @@ async def test_a_pass_that_hangs_is_bounded_by_its_own_ceiling(
     a second one — but it must also not be able to hang the delivery. Verified
     against the real function with a deliberately tiny budget and a transport
     that never answers."""
-    import jarvis.dictation.polish as polish
-    from jarvis.dictation.polish_client import POLISH_FAMILIES
+    import dodaios.dictation.polish as polish
+    from dodaios.dictation.polish_client import POLISH_FAMILIES
 
     class _Slow:
         async def complete(self, *_a: Any, **_k: Any) -> str:

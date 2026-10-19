@@ -5,8 +5,8 @@ import sys
 
 import pytest
 
-from jarvis.speech.stt_eval import metrics as metrics_module
-from jarvis.speech.stt_eval.metrics import (
+from dodaios.speech.stt_eval import metrics as metrics_module
+from dodaios.speech.stt_eval.metrics import (
     WordErrors,
     repeatability_error_rate,
     switch_error_rate,
@@ -49,7 +49,7 @@ def test_word_errors_distinguishes_substitution_deletion_and_insertion(
 def test_metrics_import_without_private_tts_eval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(sys.modules, "jarvis.speech.tts_eval.metrics", None)
+    monkeypatch.setitem(sys.modules, "dodaios.speech.tts_eval.metrics", None)
 
     reloaded = importlib.reload(metrics_module)
 

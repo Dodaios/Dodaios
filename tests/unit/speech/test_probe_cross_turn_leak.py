@@ -24,8 +24,8 @@ import asyncio
 
 import pytest
 
-from jarvis.core.protocols import Transcript
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.protocols import Transcript
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _RecordingVad:

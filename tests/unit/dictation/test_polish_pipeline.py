@@ -18,14 +18,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.dictation import polish
-from jarvis.dictation.polish import POLISH_STATUSES, polish_transcript
-from jarvis.dictation.polish_client import (
+from dodaios.dictation import polish
+from dodaios.dictation.polish import POLISH_STATUSES, polish_transcript
+from dodaios.dictation.polish_client import (
     POLISH_FAMILIES,
     PolishFamily,
     PolishProviderError,
 )
-from jarvis.dictation.polish_prompt import RAW_OPEN_DELIMITER
+from dodaios.dictation.polish_prompt import RAW_OPEN_DELIMITER
 
 # Two real families so a cross-family assertion means what it says: the chain
 # genuinely walks from one credential family to a DIFFERENT one (AP-22).

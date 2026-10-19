@@ -18,8 +18,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.core.protocols import ExecutionContext
+from dodaios.core import runtime_refs
+from dodaios.core.protocols import ExecutionContext
 
 # ----------------------------------------------------------------------
 # Fixtures / fakes
@@ -79,15 +79,15 @@ class FakeBrainManager:
 @pytest.fixture
 def configured_keys(monkeypatch):
     """All providers report a stored credential."""
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda p: "tok")
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: "tok")
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda p: "tok")
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: "tok")
 
 
 @pytest.fixture
 def no_keys(monkeypatch):
     """No provider has a stored credential."""
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda p: "")
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: "")
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda p: "")
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: "")
 
 
 # ----------------------------------------------------------------------
@@ -96,7 +96,7 @@ def no_keys(monkeypatch):
 
 
 async def test_describe_rejects_params():
-    from jarvis.plugins.tool.describe_app_settings import DescribeAppSettingsTool
+    from dodaios.plugins.tool.describe_app_settings import DescribeAppSettingsTool
 
     res = await DescribeAppSettingsTool().execute({"x": 1}, _ctx())
     assert res.success is False
@@ -104,13 +104,13 @@ async def test_describe_rejects_params():
 
 
 async def test_describe_snapshot_structure(monkeypatch, configured_keys):
-    from jarvis.plugins.tool.describe_app_settings import DescribeAppSettingsTool
+    from dodaios.plugins.tool.describe_app_settings import DescribeAppSettingsTool
 
     # Use Gemini so the snapshot assertion remains independent of Grok.
     monkeypatch.setattr(
-        "jarvis.brain.app_control.resolve_running_cfg", lambda: make_cfg(brain="gemini")
+        "dodaios.brain.app_control.resolve_running_cfg", lambda: make_cfg(brain="gemini")
     )
-    monkeypatch.setattr("jarvis.brain.app_control.list_mcp_servers", lambda: [])
+    monkeypatch.setattr("dodaios.brain.app_control.list_mcp_servers", lambda: [])
 
     res = await DescribeAppSettingsTool().execute({}, _ctx())
     assert res.success is True
@@ -133,7 +133,7 @@ async def test_describe_snapshot_structure(monkeypatch, configured_keys):
 
 
 async def test_switch_brain_live(configured_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     fake = FakeBrainManager(active="grok")
     runtime_refs.set_brain_manager(fake)
@@ -149,7 +149,7 @@ async def test_switch_brain_live(configured_keys):
 
 
 async def test_switch_missing_credential(no_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     runtime_refs.set_brain_manager(FakeBrainManager())
     res = await apply_provider_switch("brain", "gemini", cfg=make_cfg(), persist=True)
@@ -158,7 +158,7 @@ async def test_switch_missing_credential(no_keys):
 
 
 async def test_switch_unknown_provider(configured_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     res = await apply_provider_switch("brain", "no-such-provider", cfg=make_cfg(), persist=False)
     assert res["ok"] is False
@@ -166,7 +166,7 @@ async def test_switch_unknown_provider(configured_keys):
 
 
 async def test_switch_wrong_tier(configured_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     # cartesia is a TTS provider — switching it as 'brain' must be rejected.
     res = await apply_provider_switch("brain", "cartesia", cfg=make_cfg(), persist=False)
@@ -175,7 +175,7 @@ async def test_switch_wrong_tier(configured_keys):
 
 
 async def test_switch_antigravity_rejected_as_main_brain(configured_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     fake = FakeBrainManager(active="grok")
     runtime_refs.set_brain_manager(fake)
@@ -190,7 +190,7 @@ async def test_switch_antigravity_rejected_as_main_brain(configured_keys):
 
 
 async def test_switch_codex_rejected_as_main_brain(configured_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     fake = FakeBrainManager(active="grok")
     runtime_refs.set_brain_manager(fake)
@@ -205,7 +205,7 @@ async def test_switch_codex_rejected_as_main_brain(configured_keys):
 
 
 async def test_switch_antigravity_allowed_as_subagent(monkeypatch, no_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     class _Status:
         installed = True
@@ -217,7 +217,7 @@ async def test_switch_antigravity_allowed_as_subagent(monkeypatch, no_keys):
             return _Status()
 
     monkeypatch.setattr(
-        "jarvis.google_cli.auth_service.GoogleCliAuthService",
+        "dodaios.google_cli.auth_service.GoogleCliAuthService",
         _FakeGoogleCliAuthService,
     )
 
@@ -235,7 +235,7 @@ async def test_switch_antigravity_allowed_as_subagent(monkeypatch, no_keys):
 async def test_switch_antigravity_rejects_key_without_cli(
     monkeypatch, configured_keys
 ):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     class _Status:
         installed = False
@@ -247,7 +247,7 @@ async def test_switch_antigravity_rejects_key_without_cli(
             return _Status()
 
     monkeypatch.setattr(
-        "jarvis.google_cli.auth_service.GoogleCliAuthService",
+        "dodaios.google_cli.auth_service.GoogleCliAuthService",
         _FakeGoogleCliAuthService,
     )
 
@@ -262,7 +262,7 @@ async def test_switch_antigravity_rejects_key_without_cli(
 
 
 async def test_switch_codex_allowed_as_subagent(monkeypatch, no_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     class _Status:
         connected = True
@@ -275,7 +275,7 @@ async def test_switch_codex_allowed_as_subagent(monkeypatch, no_keys):
         def status(self):
             return _Status()
 
-    monkeypatch.setattr("jarvis.codex_auth.CodexAuthService", _FakeCodexAuthService)
+    monkeypatch.setattr("dodaios.codex_auth.CodexAuthService", _FakeCodexAuthService)
 
     cfg = make_cfg(sub="gemini")
     res = await apply_provider_switch(
@@ -292,15 +292,15 @@ async def test_switch_native_claude_subscription_allowed_as_agent(
     monkeypatch, no_keys
 ):
     """The shared switch accepts native CLI auth when no bearer file exists."""
-    from jarvis.brain.app_control import apply_provider_switch
-    from jarvis.claude_auth import ClaudeAuthStatus
+    from dodaios.brain.app_control import apply_provider_switch
+    from dodaios.claude_auth import ClaudeAuthStatus
 
     monkeypatch.setattr(
-        "jarvis.missions.isolation.env.read_live_claude_oauth_token",
+        "dodaios.missions.isolation.env.read_live_claude_oauth_token",
         lambda: None,
     )
     monkeypatch.setattr(
-        "jarvis.claude_auth.usable_native_claude_subscription",
+        "dodaios.claude_auth.usable_native_claude_subscription",
         lambda: ClaudeAuthStatus(
             installed=True,
             connected=True,
@@ -321,7 +321,7 @@ async def test_switch_native_claude_subscription_allowed_as_agent(
 
 
 async def test_switch_unknown_tier(configured_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     res = await apply_provider_switch("wakeword", "x", cfg=make_cfg(), persist=False)
     assert res["ok"] is False
@@ -329,7 +329,7 @@ async def test_switch_unknown_tier(configured_keys):
 
 
 async def test_switch_stt_requires_restart(configured_keys):
-    from jarvis.brain.app_control import apply_provider_switch
+    from dodaios.brain.app_control import apply_provider_switch
 
     res = await apply_provider_switch("stt", "groq-api", cfg=make_cfg(), persist=False)
     assert res["ok"] is True
@@ -338,9 +338,9 @@ async def test_switch_stt_requires_restart(configured_keys):
 
 
 async def test_switch_provider_tool_missing_credential(no_keys, monkeypatch):
-    from jarvis.plugins.tool.switch_provider import SwitchProviderTool
+    from dodaios.plugins.tool.switch_provider import SwitchProviderTool
 
-    monkeypatch.setattr("jarvis.brain.app_control.resolve_running_cfg", lambda: make_cfg())
+    monkeypatch.setattr("dodaios.brain.app_control.resolve_running_cfg", lambda: make_cfg())
     # tier=tts: the brain provider is locked to user-only channels (CLI / manual
     # UI switch) and is refused up-front by the tool, so the missing-credential
     # path is exercised on a still-voice-switchable tier. The brain lock itself
@@ -353,7 +353,7 @@ async def test_switch_provider_tool_missing_credential(no_keys, monkeypatch):
 
 
 async def test_switch_provider_tool_validates_input():
-    from jarvis.plugins.tool.switch_provider import SwitchProviderTool
+    from dodaios.plugins.tool.switch_provider import SwitchProviderTool
 
     res = await SwitchProviderTool().execute(
         {"tier": "bogus", "provider": "x", "reason": "y"}, _ctx()
@@ -369,7 +369,7 @@ async def test_switch_provider_tool_validates_input():
 
 @pytest.fixture
 def fake_mcp_state(monkeypatch):
-    """In-memory stand-in for jarvis.mcp.state."""
+    """In-memory stand-in for dodaios.mcp.state."""
     store: dict[str, dict] = {}
 
     def upsert_server(name, spec):
@@ -387,7 +387,7 @@ def fake_mcp_state(monkeypatch):
     def load_config():
         return {"mcpServers": store}
 
-    import jarvis.mcp.state as st
+    import dodaios.mcp.state as st
 
     monkeypatch.setattr(st, "upsert_server", upsert_server)
     monkeypatch.setattr(st, "remove_server", remove_server)
@@ -398,7 +398,7 @@ def fake_mcp_state(monkeypatch):
 
 
 async def test_mcp_add_starts_disabled(fake_mcp_state):
-    from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
+    from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
 
     res = await ManageMcpServerTool().execute(
         {
@@ -422,7 +422,7 @@ async def test_mcp_add_rejects_unknown_field(fake_mcp_state):
     The tool itself also rejects unknown top-level keys defensively; here we
     assert it never persists a bare 'env' secret passed as a key value.
     """
-    from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
+    from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
 
     # stdio add without a command must fail (no silent empty server).
     res = await ManageMcpServerTool().execute(
@@ -434,7 +434,7 @@ async def test_mcp_add_rejects_unknown_field(fake_mcp_state):
 
 
 async def test_mcp_enable_unknown_server(fake_mcp_state):
-    from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
+    from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
 
     res = await ManageMcpServerTool().execute(
         {"action": "enable", "name": "ghost", "reason": "x"}, _ctx()
@@ -444,7 +444,7 @@ async def test_mcp_enable_unknown_server(fake_mcp_state):
 
 
 async def test_mcp_enable_without_registry_requires_restart(fake_mcp_state):
-    from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
+    from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
 
     fake_mcp_state["github"] = {"command": "npx", "enabled": False}
     res = await ManageMcpServerTool().execute(
@@ -458,7 +458,7 @@ async def test_mcp_enable_without_registry_requires_restart(fake_mcp_state):
 
 
 async def test_mcp_remove(fake_mcp_state):
-    from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
+    from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
 
     fake_mcp_state["fs"] = {"command": "uvx", "enabled": False}
     res = await ManageMcpServerTool().execute(
@@ -469,7 +469,7 @@ async def test_mcp_remove(fake_mcp_state):
 
 
 async def test_mcp_invalid_action():
-    from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
+    from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
 
     res = await ManageMcpServerTool().execute(
         {"action": "nuke", "name": "x", "reason": "y"}, _ctx()
@@ -484,7 +484,7 @@ async def test_mcp_invalid_action():
 
 
 def test_router_tools_contains_app_control():
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert {
         "describe-app-settings",
@@ -495,10 +495,10 @@ def test_router_tools_contains_app_control():
 
 
 def test_app_control_tools_have_correct_risk_tiers():
-    from jarvis.plugins.tool.describe_app_settings import DescribeAppSettingsTool
-    from jarvis.plugins.tool.manage_mcp_server import ManageMcpServerTool
-    from jarvis.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
-    from jarvis.plugins.tool.switch_provider import SwitchProviderTool
+    from dodaios.plugins.tool.describe_app_settings import DescribeAppSettingsTool
+    from dodaios.plugins.tool.manage_mcp_server import ManageMcpServerTool
+    from dodaios.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
+    from dodaios.plugins.tool.switch_provider import SwitchProviderTool
 
     assert DescribeAppSettingsTool.risk_tier == "safe"
     # Forensic 2026-06-26: a voice "switch the subagent brain to antigravity"
@@ -520,8 +520,8 @@ def test_switch_provider_does_not_trigger_voice_confirmation():
     VOICE_CONFIRM_SENTINEL and the brain asked before switching. "monitor" is
     not a confirm tier, so the switch runs immediately.
     """
-    from jarvis.core.config import SafetyConfig
-    from jarvis.plugins.tool.switch_provider import SwitchProviderTool
+    from dodaios.core.config import SafetyConfig
+    from dodaios.plugins.tool.switch_provider import SwitchProviderTool
 
     assert SwitchProviderTool.risk_tier not in SafetyConfig().always_confirm_tiers
 
@@ -533,12 +533,12 @@ def test_provider_routes_uses_shared_credential_check(monkeypatch):
     truth guarantee (BUG-008 class). provider_routes no longer keeps its own
     alias map or heuristic.
     """
-    from jarvis.brain import app_control
-    from jarvis.ui.web import provider_routes
-    from jarvis.ui.web.provider_spec import get_spec
+    from dodaios.brain import app_control
+    from dodaios.ui.web import provider_routes
+    from dodaios.ui.web.provider_spec import get_spec
 
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda p: "tok")
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: "tok")
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda p: "tok")
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: "tok")
 
     spec = get_spec("gemini")
     assert app_control.is_credential_present(spec) is True
@@ -558,12 +558,12 @@ _FAKE_KEY = "AIzaSyB1234567890abcdefXYZ"  # 26 chars; first3=AIz, last3=XYZ
 @pytest.fixture
 def long_key(monkeypatch):
     """A realistic-length stored key for every provider."""
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda p: _FAKE_KEY)
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: _FAKE_KEY)
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda p: _FAKE_KEY)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: _FAKE_KEY)
 
 
 def test_masked_preview_format(long_key):
-    from jarvis.brain.app_control import masked_secret_preview
+    from dodaios.brain.app_control import masked_secret_preview
 
     out = masked_secret_preview("gemini")
     assert out["configured"] is True
@@ -576,7 +576,7 @@ def test_masked_preview_format(long_key):
 
 
 def test_masked_preview_not_configured(no_keys):
-    from jarvis.brain.app_control import masked_secret_preview
+    from dodaios.brain.app_control import masked_secret_preview
 
     out = masked_secret_preview("gemini")
     assert out["configured"] is False
@@ -584,17 +584,17 @@ def test_masked_preview_not_configured(no_keys):
 
 
 def test_masked_preview_too_short(monkeypatch):
-    from jarvis.brain.app_control import masked_secret_preview
+    from dodaios.brain.app_control import masked_secret_preview
 
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda p: "abc123")
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: "abc123")
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda p: "abc123")
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: "abc123")
     out = masked_secret_preview("gemini")
     assert out["configured"] is True
     assert out["preview"] is None  # set, but too short to reveal safely
 
 
 async def test_reveal_tool_returns_masked_only(long_key):
-    from jarvis.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
+    from dodaios.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
 
     res = await RevealKeyPreviewTool().execute({"provider": "gemini"}, _ctx())
     assert res.success is True
@@ -604,7 +604,7 @@ async def test_reveal_tool_returns_masked_only(long_key):
 
 
 async def test_reveal_tool_not_configured(no_keys):
-    from jarvis.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
+    from dodaios.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
 
     res = await RevealKeyPreviewTool().execute({"provider": "gemini"}, _ctx())
     assert res.success is True
@@ -613,7 +613,7 @@ async def test_reveal_tool_not_configured(no_keys):
 
 
 async def test_reveal_tool_requires_provider():
-    from jarvis.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
+    from dodaios.plugins.tool.reveal_key_preview import RevealKeyPreviewTool
 
     res = await RevealKeyPreviewTool().execute({}, _ctx())
     assert res.success is False

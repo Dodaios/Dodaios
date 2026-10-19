@@ -16,22 +16,22 @@ import importlib.metadata as _md
 
 import pytest
 
-from jarvis.control import (
+from dodaios.control import (
     CancelScope,
     CostMeter,
     KillSwitch,
 )
-from jarvis.control.cost import BudgetConfig, ModelPrice
-from jarvis.control.wiring import voice_matches_kill_intent
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.control.cost import BudgetConfig, ModelPrice
+from dodaios.control.wiring import voice_matches_kill_intent
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     BudgetExceeded,
     KillRequested,
     ObservationCaptured,
     TranscriptFinal,
 )
-from jarvis.core.protocols import CostRecord, Transcript
-from jarvis.telemetry import FlightRecorder
+from dodaios.core.protocols import CostRecord, Transcript
+from dodaios.telemetry import FlightRecorder
 
 pytestmark = pytest.mark.phase5
 
@@ -66,7 +66,7 @@ async def test_kill_switch_via_voice_cancels_cu_token_under_2s():
     ks = KillSwitch()
     ks.bind(bus)
     # Voice-Wiring
-    from jarvis.control.wiring import wire_voice_kill_switch
+    from dodaios.control.wiring import wire_voice_kill_switch
     wire_voice_kill_switch(bus)
 
     import time
@@ -170,8 +170,8 @@ async def test_flight_recorder_roundtrip_for_cu_task(tmp_path):
 
     from uuid import uuid4
     trace_id = uuid4()
-    from jarvis.core.events import HarnessDispatched
-    from jarvis.core.protocols import HarnessTask
+    from dodaios.core.events import HarnessDispatched
+    from dodaios.core.protocols import HarnessTask
     await bus.publish(HarnessDispatched(
         trace_id=trace_id, harness="computer-use",
         task=HarnessTask(prompt="test"),
@@ -189,7 +189,7 @@ async def test_flight_recorder_roundtrip_for_cu_task(tmp_path):
     assert kinds == ["HarnessDispatched", "ObservationCaptured", "KillRequested"]
 
     # Replay-CLI liefert Exit-Code 0
-    from jarvis.telemetry.replay import main as replay_main
+    from dodaios.telemetry.replay import main as replay_main
     rc = replay_main([trace_id.hex, "--data-dir", str(tmp_path)])
     assert rc == 0
 
@@ -201,8 +201,8 @@ async def test_flight_recorder_roundtrip_for_cu_task(tmp_path):
 @pytest.mark.asyncio
 async def test_task_queue_startup_cleanup_marks_running_as_interrupted(tmp_path):
     """Simuliert App-Crash waehrend laufender Task."""
-    from jarvis.tasks import SpeakAction, TaskSpec, TriggerAfterDelay
-    from jarvis.tasks.store import TaskStore
+    from dodaios.tasks import SpeakAction, TaskSpec, TriggerAfterDelay
+    from dodaios.tasks.store import TaskStore
     store = TaskStore(tmp_path / "jarvis.db")
     await store.init()
     try:
@@ -229,7 +229,7 @@ async def test_task_queue_startup_cleanup_marks_running_as_interrupted(tmp_path)
 
 def test_phase5_sections_are_disabled_by_default():
     """Ohne User-Eingriff sind alle Phase-5-Sections in jarvis.toml enabled=false."""
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
     raw = cfg._RAW_CONFIG if hasattr(cfg, "_RAW_CONFIG") else {}
 
     phase5_sections = ["vision", "computer_use", "admin_helper",

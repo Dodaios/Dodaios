@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from jarvis.core.capabilities import CapabilityRegistry
-from jarvis.marketplace.plugin_registry import (
+from dodaios.core.capabilities import CapabilityRegistry
+from dodaios.marketplace.plugin_registry import (
     _deregister_plugin_capability,
     _register_plugin_capability,
 )
-from jarvis.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
+from dodaios.skills.schema import Skill, SkillFrontmatter, SkillLifecycleState
 
 
 def _gmail_skill() -> Skill:

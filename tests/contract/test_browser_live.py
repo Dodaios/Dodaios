@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser import install
-from jarvis.society.browser.live import LiveSessions
+from dodaios.society.browser import install
+from dodaios.society.browser.live import LiveSessions
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("JARVIS_BROWSER_TEST_PYTHON"), reason="requires isolated Browser-Use runtime"
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 def test_native_mouse_routes_text_to_the_webpage_widget(tmp_path):
     import subprocess
 
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     result = subprocess.run(
         [
@@ -46,7 +46,7 @@ def test_native_mouse_routes_text_to_the_webpage_widget(tmp_path):
 def test_actual_browser_click_emits_pointer_telemetry(tmp_path):
     import subprocess
 
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     result = subprocess.run(
         [
@@ -163,7 +163,7 @@ def live(tmp_path, monkeypatch):
             session.stderr_tail = (session.stderr_tail + chunk.decode("utf-8", "replace"))[-32768:]
 
     monkeypatch.setattr(install, "worker_env", diagnostic_env)
-    monkeypatch.setattr("jarvis.society.browser.live.LiveSession.drain_stderr", diagnostic_stderr)
+    monkeypatch.setattr("dodaios.society.browser.live.LiveSession.drain_stderr", diagnostic_stderr)
     python = Path(os.environ["JARVIS_BROWSER_TEST_PYTHON"])
     binary = Path(os.environ["JARVIS_BROWSER_TEST_EXECUTABLE"])
     monkeypatch.setattr(install, "is_installed", lambda _: True)
@@ -637,7 +637,7 @@ async def test_idle_animation_stream_soak(live, site, record_property):
 async def test_finished_chat_releases_real_browser_for_the_next_task(live, monkeypatch):
     import json
 
-    from jarvis.society.browser.tool import stop_chat_browser
+    from dodaios.society.browser.tool import stop_chat_browser
 
     agent = SimpleNamespace(agent_id="orphan", model="", browser_allowed_domains=[])
     thinking = asyncio.Event()
@@ -666,7 +666,7 @@ async def test_finished_chat_releases_real_browser_for_the_next_task(live, monke
         return {"ok": True}
 
     monkeypatch.setattr(
-        "jarvis.society.runtime.current_runtime",
+        "dodaios.society.runtime.current_runtime",
         lambda: SimpleNamespace(browser=SimpleNamespace(live=live)),
     )
     job = asyncio.create_task(

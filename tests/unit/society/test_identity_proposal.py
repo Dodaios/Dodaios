@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.chat_turn import ChatTurn
-from jarvis.core.protocols import current_chat_turn
-from jarvis.society import proposals
-from jarvis.society.agent_tools import ProposeChangeTool
-from jarvis.society.events import ApprovalState
-from jarvis.society.roster import is_fresh
-from jarvis.society.surface import FRESH_AGENT_GUIDANCE, build_briefing
+from dodaios.core.chat_turn import ChatTurn
+from dodaios.core.protocols import current_chat_turn
+from dodaios.society import proposals
+from dodaios.society.agent_tools import ProposeChangeTool
+from dodaios.society.events import ApprovalState
+from dodaios.society.roster import is_fresh
+from dodaios.society.surface import FRESH_AGENT_GUIDANCE, build_briefing
 from tests.unit.society.test_proposals_apply import world  # noqa: F401 — fixture
 
 IDENTITY = {
@@ -137,7 +137,7 @@ def test_an_identity_is_never_a_silent_safe_call(world):  # noqa: F811
 
 
 async def test_a_long_first_role_goes_to_a_card(world):  # noqa: F811
-    from jarvis.society.agent_tools import FRESH_IDENTITY_MAX_CHARS
+    from dodaios.society.agent_tools import FRESH_IDENTITY_MAX_CHARS
 
     rt, svc = world
     fresh, _ = await rt.roster.create()
@@ -153,7 +153,7 @@ async def test_a_long_first_role_goes_to_a_card(world):  # noqa: F811
 
 
 async def _lead(rt):
-    from jarvis.society.roster import LEAD_AGENT_ID
+    from dodaios.society.roster import LEAD_AGENT_ID
 
     lead = await rt.roster.get(LEAD_AGENT_ID)
     if lead is None:

@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
-from jarvis.plugins.brain.codex import CodexBrain, _build_cli_prompt
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+from dodaios.plugins.brain.codex import CodexBrain, _build_cli_prompt
 
 
 def test_name_and_capabilities() -> None:
@@ -108,9 +108,9 @@ def test_cli_prompt_puts_current_empty_state_after_stale_history() -> None:
 async def test_complete_raises_without_any_key_or_oauth(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda _p: None)
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: None)
-    monkeypatch.setattr("jarvis.plugins.brain.codex._codex_oauth_connected", lambda: False)
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda _p: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: None)
+    monkeypatch.setattr("dodaios.plugins.brain.codex._codex_oauth_connected", lambda: False)
     brain = CodexBrain()
     req = BrainRequest(messages=(BrainMessage(role="user", content="hello"),))
 
@@ -120,14 +120,14 @@ async def test_complete_raises_without_any_key_or_oauth(
 
 
 def _key_and_subscription(monkeypatch: pytest.MonkeyPatch, api_calls: list[str]) -> None:
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda _p: "sk-paid")
-    monkeypatch.setattr("jarvis.plugins.brain.codex._codex_oauth_connected", lambda: True)
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda _p: "sk-paid")
+    monkeypatch.setattr("dodaios.plugins.brain.codex._codex_oauth_connected", lambda: True)
 
     async def _api_stream(_client, _model, _req) -> AsyncIterator[BrainDelta]:
         api_calls.append("api")
         yield BrainDelta(content="from-api")
 
-    monkeypatch.setattr("jarvis.plugins.brain.codex.stream_complete", _api_stream)
+    monkeypatch.setattr("dodaios.plugins.brain.codex.stream_complete", _api_stream)
     monkeypatch.setattr(CodexBrain, "_ensure_client", lambda self, _key: object())
 
 
@@ -253,19 +253,19 @@ async def test_cli_subprocess_is_killed_when_stream_is_cancelled(
         return proc
 
     monkeypatch.setattr(
-        "jarvis.plugins.brain.codex._resolve_codex_binary",
+        "dodaios.plugins.brain.codex._resolve_codex_binary",
         lambda: "codex",
     )
     monkeypatch.setattr(
-        "jarvis.plugins.brain.codex.tempfile.mkdtemp",
+        "dodaios.plugins.brain.codex.tempfile.mkdtemp",
         lambda prefix: str(tmp_path),
     )
     monkeypatch.setattr(
-        "jarvis.plugins.brain.codex.shutil.rmtree",
+        "dodaios.plugins.brain.codex.shutil.rmtree",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        "jarvis.plugins.brain.codex.asyncio.create_subprocess_exec",
+        "dodaios.plugins.brain.codex.asyncio.create_subprocess_exec",
         fake_create_subprocess_exec,
     )
 

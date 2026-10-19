@@ -12,19 +12,19 @@ from typing import get_args
 
 import pytest
 
-from jarvis.brain.manager import SUPPORTED_REPLY_LANGUAGES
-from jarvis.missions.events import (
+from dodaios.brain.manager import SUPPORTED_REPLY_LANGUAGES
+from dodaios.missions.events import (
     MISSION_LANGUAGES,
     MissionApproved,
     MissionDispatched,
     MissionLanguage,
     coerce_mission_language,
 )
-from jarvis.missions.kontrollierer.deliverable import (
+from dodaios.missions.kontrollierer.deliverable import (
     MISSION_COMPLETED_PHRASES,
     build_delivered_summary,
 )
-from jarvis.missions.voice.readback import (
+from dodaios.missions.voice.readback import (
     CAPACITY_WAIT_PHRASES,
     FAILURE_REASON_PHRASES,
     READBACK_TEMPLATES,

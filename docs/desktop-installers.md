@@ -47,13 +47,13 @@ It produces **executables that share one payload**:
 | `dodaios` (`.exe`)        | yes      | the CLI: `dodaios serve`, `dodaios --version`, `dodaios missions list` |
 | `jarvis` (`.exe`)         | yes      | the same CLI under its earlier name, kept for existing scripts       |
 
-All of them run `jarvis/__main__.py`, so the CLI from a native install behaves
+All of them run `dodaios/__main__.py`, so the CLI from a native install behaves
 exactly like the pip console script.
 
 > **Why the GUI binary is not called `Jarvis`.** `Jarvis` and `jarvis` are the
 > same path on Windows (NTFS) and on a default macOS APFS volume, so one would
 > silently overwrite the other. `PersonalJarvis` is the name
-> `jarvis.core.branding` already uses for the Windows branded launcher and the
+> `dodaios.core.branding` already uses for the Windows branded launcher and the
 > macOS bundle executable.
 
 Layout:
@@ -71,7 +71,7 @@ and points the two documented overrides at the per-user application directory:
   off Windows), seeded once from the copy inside the bundle
 - `JARVIS_DATA_DIR` -> `<that directory>/data`
 
-Without it, `jarvis.core.config` would anchor both to the bundle's own
+Without it, `dodaios.core.config` would anchor both to the bundle's own
 directory, where an in-place upgrade overwrites the user's settings and an
 uninstall deletes their memory. An explicitly exported `JARVIS_CONFIG` /
 `JARVIS_DATA_DIR` still wins, so a maintainer can point a frozen build at a
@@ -82,7 +82,7 @@ scratch directory.
 ## 3. Building each installer
 
 All three scripts do the same three things: build the frontend if
-`jarvis/ui/web/dist` is missing, run PyInstaller, package the result into
+`dodaios/ui/web/dist` is missing, run PyInstaller, package the result into
 `dist/installers/`. Each prints the artifact path and exits non-zero on failure.
 
 ### Windows
@@ -135,7 +135,7 @@ identity (bundle id, minimum system version) comes from the `BUNDLE` block in
 `jarvis.spec`. The usage strings macOS shows in its permission dialogs
 (microphone, screen capture, Apple events, the Desktop / Documents / Downloads /
 removable-volume / network-volume folders, local network) come from ONE table,
-`jarvis/core/macos_privacy_strings.py`, which `jarvis.spec` and the managed
+`dodaios/core/macos_privacy_strings.py`, which `jarvis.spec` and the managed
 source-install app both load by path, so the two apps cannot drift apart. The same
 table carries the German and Spanish versions: `jarvis.spec` declares the languages
 (`CFBundleLocalizations`) and `build.sh` writes
@@ -256,15 +256,15 @@ manually via `workflow_dispatch`):
    finished `.app` with `scripts/ci/check_frozen_macos_app.py` before the
    headless smoke test.
 2. `release` downloads all of them, refuses to continue if any promised asset is
-   missing, verifies the tag equals `jarvis.__version__`, writes
+   missing, verifies the tag equals `dodaios.__version__`, writes
    `installers-SHA256SUMS.txt` (plain `sha256sum` format, flat file names),
    re-verifies it with `sha256sum -c`, and attaches everything to the Release.
 
 `contents: write` is granted to that last job only.
 
 The version check matters twice over: a tag that disagrees with
-`jarvis.__version__` publishes installers nobody can trace back to a commit, and
-the updater compares the release version against `jarvis.__version__` - so a
+`dodaios.__version__` publishes installers nobody can trace back to a commit, and
+the updater compares the release version against `dodaios.__version__` - so a
 mismatch would offer an update that installs the same build forever.
 
 ---
@@ -272,7 +272,7 @@ mismatch would offer an update that installs the same build forever.
 ## 6. How an installed copy updates itself
 
 `GET /api/update/status` and `POST /api/update/apply` serve all install kinds
-behind one "Update Now" button. `jarvis.core.frozen.is_frozen()` is the only
+behind one "Update Now" button. `dodaios.core.frozen.is_frozen()` is the only
 switch between them.
 
 | Kind        | Detected by                          | Update path                                    |
@@ -281,10 +281,10 @@ switch between them.
 | **managed** | install marker + official `origin`   | `git fetch` the published tag, reinstall       |
 | **dev**     | anything else                        | never updates                                  |
 
-For a frozen install (`jarvis/core/installer_update.py`):
+For a frozen install (`dodaios/core/installer_update.py`):
 
 1. **Pick the asset.** OS plus CPU architecture map to one row of
-   `INSTALLER_ASSET_NAMES` in `jarvis/core/installer_update.py`: the name from
+   `INSTALLER_ASSET_NAMES` in `dodaios/core/installer_update.py`: the name from
    the table in section 1, and the same file under the `Dodaios-` prefix. The
    updater takes the first accepted name a release carries; when a release
    carries more than one, the first that `installers-SHA256SUMS.txt` lists. No
@@ -328,7 +328,7 @@ installer, verifies its UI bundle and starts it. The helper does not assume the
 new tree looks like its own. Each release states where it keeps its UI bundle,
 launcher module, version file, config file and macOS app bundle (name and
 bundle identifier) in
-`install/update-contract.json` (reader: `jarvis/core/update_contract.py`), and
+`install/update-contract.json` (reader: `dodaios/core/update_contract.py`), and
 the helper reads the contract of whichever tree is checked out at that moment -
 the target after the reset, the previous one after a rollback. A tree without
 the file, or with one that fails validation (unknown schema, a path that leaves
@@ -359,12 +359,12 @@ crosses it:
   module through the old copy when one still exists, otherwise through the
   interpreter;
 - the launcher module written into autostart entries and shortcuts
-  (`LAUNCHER_MODULE` in `jarvis/autostart/command.py`, `_LAUNCHER_MODULE` in
-  `jarvis/ui/icon_utils.py`). The helper rewrites neither: shortcuts are
+  (`LAUNCHER_MODULE` in `dodaios/autostart/command.py`, `_LAUNCHER_MODULE` in
+  `dodaios/ui/icon_utils.py`). The helper rewrites neither: shortcuts are
   renewed by the installer of the new release, the autostart entry by the new
   app when it first starts;
 - processes of the old version that outlive the app window, such as the
-  terminal host (`jarvis.terminal.pty_host`), which keeps running the old code
+  terminal host (`dodaios.terminal.pty_host`), which keeps running the old code
   until it is stopped. The helper waits for the app process only.
 
 ---

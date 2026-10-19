@@ -18,8 +18,8 @@ import asyncio
 
 import pytest
 
-from jarvis.brain.persona_loader import invalidate_cache
-from jarvis.realtime.session import RealtimeVoiceSession, _session_instructions
+from dodaios.brain.persona_loader import invalidate_cache
+from dodaios.realtime.session import RealtimeVoiceSession, _session_instructions
 
 from .test_session import FakeProvider, _cfg
 

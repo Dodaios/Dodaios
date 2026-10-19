@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser.profiles import BrowserProfiles, normalize_domains
+from dodaios.society.browser.profiles import BrowserProfiles, normalize_domains
 
 
 def agent(aid="lead", domains=()):
@@ -85,7 +85,7 @@ def test_expired_pairing_does_not_bind(tmp_path, monkeypatch):
     registry = BrowserProfiles(tmp_path)
     pid = registry.create("Chrome", "chrome", ["x.com"])["id"]
     code = registry.pair_code(pid)
-    monkeypatch.setattr("jarvis.society.browser.profiles.time.time", lambda: 999999999999)
+    monkeypatch.setattr("dodaios.society.browser.profiles.time.time", lambda: 999999999999)
     with pytest.raises(ValueError, match="expired"):
         registry.pair(code, "installation")
 

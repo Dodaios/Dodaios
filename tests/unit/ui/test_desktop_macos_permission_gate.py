@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.platform.permission_service import PermissionOutcome, get_permission_service
-from jarvis.platform.permissions import PermissionId, PermissionState
-from jarvis.ui.desktop_app import (
+from dodaios.platform.permission_service import PermissionOutcome, get_permission_service
+from dodaios.platform.permissions import PermissionId, PermissionState
+from dodaios.ui.desktop_app import (
     _local_voice_permission_granted,
     _local_voice_permission_usable,
 )
@@ -134,8 +134,8 @@ def test_the_boot_path_hands_both_silent_gates_to_the_speech_pipeline() -> None:
     import inspect
     import re
 
-    from jarvis.speech.pipeline import SpeechPipeline
-    from jarvis.ui.desktop_app import DesktopApp
+    from dodaios.speech.pipeline import SpeechPipeline
+    from dodaios.ui.desktop_app import DesktopApp
 
     init_params = inspect.signature(SpeechPipeline.__init__).parameters
     assert "activation_gate" in init_params and "user_activation_gate" in init_params

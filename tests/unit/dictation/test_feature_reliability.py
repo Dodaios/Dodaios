@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.dictation import polish, polish_client, prompt_mode
+from dodaios.dictation import polish, polish_client, prompt_mode
 
 
 @pytest.fixture(autouse=True)

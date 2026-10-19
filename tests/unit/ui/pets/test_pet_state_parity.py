@@ -1,7 +1,7 @@
 """The pet state vocabulary must mean the same thing in every layer.
 
 A pet state is one animation row of a sprite sheet. It crosses Python
-(``jarvis.ui.pets.states``), the manifest on disk, the REST payload, the
+(``dodaios.ui.pets.states``), the manifest on disk, the REST payload, the
 TypeScript mirror and the ``pets.states.*`` labels — the five-layer enum this
 repo has been bitten by four times (AP-4 / BUG-008). The classic symptom here
 is a preview that cycles through a state the backend never sends, or a state
@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.pets.states import (
+from dodaios.ui.pets.states import (
     FRAME_SIZES,
     MAX_FRAMES_PER_STATE,
     NO_PET_ID,
@@ -33,7 +33,7 @@ from jarvis.ui.pets.states import (
     STATE_FALLBACKS,
 )
 
-_FRONTEND = Path(__file__).resolve().parents[4] / "jarvis/ui/web/frontend/src"
+_FRONTEND = Path(__file__).resolve().parents[4] / "dodaios/ui/web/frontend/src"
 _TS_FILE = _FRONTEND / "lib/petStates.ts"
 _LOCALES = _FRONTEND / "i18n/locales"
 

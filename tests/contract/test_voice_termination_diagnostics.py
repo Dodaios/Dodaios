@@ -7,12 +7,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import VoiceSessionEnded, VoiceSessionStarted
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
-from jarvis.ui.web.schema import event_to_ws_envelope
-from jarvis.ui.web.sessions_routes import router
+from dodaios.core.bus import EventBus
+from dodaios.core.events import VoiceSessionEnded, VoiceSessionStarted
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
+from dodaios.ui.web.schema import event_to_ws_envelope
+from dodaios.ui.web.sessions_routes import router
 
 
 @pytest.mark.parametrize(

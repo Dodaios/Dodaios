@@ -19,9 +19,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import Event
-from jarvis.platform.permission_service import PermissionOutcome
-from jarvis.platform.permissions import PermissionId, PermissionState
+from dodaios.core.events import Event
+from dodaios.platform.permission_service import PermissionOutcome
+from dodaios.platform.permissions import PermissionId, PermissionState
 from tests.fakes.fake_tcc import DialogPolicy, TccService
 from tests.unit.platform.test_permission_service import (  # noqa: F401 - fixtures
     Env,
@@ -435,7 +435,7 @@ def test_a_bus_that_raises_never_breaks_the_report(
     env = _granted_music(make_env)
     env.service.attach_bus(bus, env.loop.loop)
 
-    with caplog.at_level("DEBUG", logger="jarvis.platform.permission_service"):
+    with caplog.at_level("DEBUG", logger="dodaios.platform.permission_service"):
         result = _report(env)
         env.flush()
 
@@ -457,7 +457,7 @@ def test_a_closed_loop_drops_the_event_but_not_the_episode(
     closed.close()
     env.service.attach_bus(RecordingBus(), closed)
 
-    with caplog.at_level("DEBUG", logger="jarvis.platform.permission_service"):
+    with caplog.at_level("DEBUG", logger="dodaios.platform.permission_service"):
         result = _report(env)
 
     assert result.reason == "needs_settings"
@@ -475,7 +475,7 @@ def test_a_failed_read_is_logged_and_never_raised(
 
     monkeypatch.setattr(env.service, "_read_state", broken)
 
-    with caplog.at_level("DEBUG", logger="jarvis.platform.permission_service"):
+    with caplog.at_level("DEBUG", logger="dodaios.platform.permission_service"):
         result = _report(env)
 
     assert result.outcome is PermissionOutcome.UNAVAILABLE and result.target == _MUSIC

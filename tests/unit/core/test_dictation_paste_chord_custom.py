@@ -17,10 +17,10 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.platform
-import jarvis.platform.clipboard  # noqa: F401  (binds the package attribute)
-from jarvis.core.config import DictationConfig
-from jarvis.dictation.insert import (
+import dodaios.platform
+import dodaios.platform.clipboard  # noqa: F401  (binds the package attribute)
+from dodaios.core.config import DictationConfig
+from dodaios.dictation.insert import (
     CUSTOM_CHORD_KEYS,
     CUSTOM_CHORD_MODIFIERS,
     PASTE_CHORDS,
@@ -28,15 +28,15 @@ from jarvis.dictation.insert import (
     paste_chord_is_curated,
     resolve_paste_chord,
 )
-from jarvis.dictation.outcomes import DICTATION_OUTCOMES
+from dodaios.dictation.outcomes import DICTATION_OUTCOMES
 
 
 def _install_fake_clipboard(monkeypatch: pytest.MonkeyPatch, fake: object) -> None:
     """Put ``fake`` where ``insert_text`` actually looks for the clipboard.
 
-    ``jarvis.dictation.insert`` reaches the module with ``from jarvis.platform
+    ``dodaios.dictation.insert`` reaches the module with ``from dodaios.platform
     import clipboard``, which reads the ATTRIBUTE off the already-imported
-    ``jarvis.platform`` package and only falls back to ``sys.modules`` when
+    ``dodaios.platform`` package and only falls back to ``sys.modules`` when
     that attribute is missing. Replacing the ``sys.modules`` entry alone
     therefore works exactly once -- in a run where nothing has imported the
     real module yet -- and is silently bypassed as soon as any earlier test
@@ -44,9 +44,9 @@ def _install_fake_clipboard(monkeypatch: pytest.MonkeyPatch, fake: object) -> No
     would be ignored and the test would drive the REAL system clipboard of
     whoever ran the suite. Patch the attribute the code reads.
     """
-    from jarvis.dictation import insert as insert_mod
+    from dodaios.dictation import insert as insert_mod
 
-    monkeypatch.setattr(jarvis.platform, "clipboard", fake)
+    monkeypatch.setattr(dodaios.platform, "clipboard", fake)
     # The delayed-rendering offer bypasses the clipboard facade. Without this
     # seam, a fake clipboard can coexist with a REAL native clipboard owner.
     monkeypatch.setattr(insert_mod, "_clipboard_offer_factory", lambda: None)
@@ -151,7 +151,7 @@ def test_a_custom_chord_reports_paste_sent_and_keeps_the_clipboard(
     os_name: str,
     platform: str,
 ) -> None:
-    from jarvis.dictation import insert as insert_mod
+    from dodaios.dictation import insert as insert_mod
 
     monkeypatch.setattr(insert_mod, "os", SimpleNamespace(name=os_name))
     monkeypatch.setattr(insert_mod, "sys", SimpleNamespace(platform=platform))
@@ -181,7 +181,7 @@ def test_a_custom_chord_reports_paste_sent_and_keeps_the_clipboard(
         insert_mod, "describe_target", lambda: insert_mod.TargetReport(True, "", "")
     )
     monkeypatch.setattr(
-        "jarvis.cu.actuate.get_actuator", lambda *a, **k: actuator, raising=False
+        "dodaios.cu.actuate.get_actuator", lambda *a, **k: actuator, raising=False
     )
 
     result = insert_mod.insert_text(
@@ -212,7 +212,7 @@ def test_a_curated_chord_without_native_evidence_preserves_platform_contract(
     platform: str,
 ) -> None:
     """Windows retains unconfirmed text; existing POSIX delivery is unchanged."""
-    from jarvis.dictation import insert as insert_mod
+    from dodaios.dictation import insert as insert_mod
 
     monkeypatch.setattr(insert_mod, "os", SimpleNamespace(name=os_name))
     monkeypatch.setattr(insert_mod, "sys", SimpleNamespace(platform=platform))
@@ -243,7 +243,7 @@ def test_a_curated_chord_without_native_evidence_preserves_platform_contract(
         insert_mod, "describe_target", lambda: insert_mod.TargetReport(True, "", "")
     )
     monkeypatch.setattr(
-        "jarvis.cu.actuate.get_actuator", lambda *a, **k: _Actuator(), raising=False
+        "dodaios.cu.actuate.get_actuator", lambda *a, **k: _Actuator(), raising=False
     )
 
     result = insert_mod.insert_text(

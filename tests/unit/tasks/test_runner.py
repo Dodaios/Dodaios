@@ -6,19 +6,19 @@ from typing import Any
 
 import pytest
 
-from jarvis.control.cancel import CancelToken
-from jarvis.core.bus import EventBus
-from jarvis.core.events import TaskCompleted, TaskFailed, TaskStarted
-from jarvis.core.protocols import HarnessResult, ToolResult
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.schema import (
+from dodaios.control.cancel import CancelToken
+from dodaios.core.bus import EventBus
+from dodaios.core.events import TaskCompleted, TaskFailed, TaskStarted
+from dodaios.core.protocols import HarnessResult, ToolResult
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.schema import (
     HarnessDispatchAction,
     SpeakAction,
     TaskSpec,
     ToolCallAction,
     TriggerAfterDelay,
 )
-from jarvis.tasks.store import TaskStore
+from dodaios.tasks.store import TaskStore
 
 # ----------------------------------------------------------------------
 # Fakes
@@ -431,7 +431,7 @@ async def test_recurring_task_survives_a_failed_run(store: TaskStore, bus: Event
     """A failed run must not end a recurring automation: the task returns to
     ``scheduled`` with the reason in ``last_error`` (live 2026-08-24 — the
     first automation ever added died for good on one provider error)."""
-    from jarvis.tasks.schema import TriggerEvery
+    from dodaios.tasks.schema import TriggerEvery
 
     runner = TaskRunner(store=store, bus=bus)
     spec = TaskSpec(

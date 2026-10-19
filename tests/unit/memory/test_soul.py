@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.memory.soul import Soul, edit_soul, sync_name
-from jarvis.memory.templates import render_soul_md
-from jarvis.society.notebook import change
+from dodaios.memory.soul import Soul, edit_soul, sync_name
+from dodaios.memory.templates import render_soul_md
+from dodaios.society.notebook import change
 
 
 def _soul_file(tmp_path: Path, text: str | None = None) -> Path:

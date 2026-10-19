@@ -53,11 +53,11 @@ except Exception:  # noqa: BLE001, S110
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from jarvis.clis.registry import CliToolRegistry  # noqa: E402
-from jarvis.clis.shared import set_active_registry  # noqa: E402
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.config import JarvisConfig  # noqa: E402
-from jarvis.safety import (  # noqa: E402
+from dodaios.clis.registry import CliToolRegistry  # noqa: E402
+from dodaios.clis.shared import set_active_registry  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.config import JarvisConfig  # noqa: E402
+from dodaios.safety import (  # noqa: E402
     ApprovalWorkflow,
     RiskTierEvaluator,
     ToolExecutor,
@@ -105,7 +105,7 @@ def _install_auto_approver(bus: EventBus) -> None:
     false FAIL. We approve immediately (mirroring a UI click) because every
     probe command is a vetted, read-only operation.
     """
-    from jarvis.core.events import ActionApproved, ActionProposed
+    from dodaios.core.events import ActionApproved, ActionProposed
 
     async def _on_proposed(ev: ActionProposed) -> None:
         # Defer the approval: the executor publishes ActionProposed BEFORE it
@@ -156,7 +156,7 @@ async def _run_brain_mode(
 ) -> tuple[bool | None, str]:
     """Optionally drive the real production brain. SKIP if no provider works."""
     try:
-        from jarvis.brain.factory import build_default_brain
+        from dodaios.brain.factory import build_default_brain
 
         brain = build_default_brain()
     except Exception as exc:  # noqa: BLE001
@@ -167,7 +167,7 @@ async def _run_brain_mode(
         return None, f"{tool_name} not in brain tool set (CLI not connected)"
 
     # Capture which cli_<name> tool the brain calls via bus events.
-    from jarvis.core.events import ActionExecuted
+    from dodaios.core.events import ActionExecuted
 
     called: list[str] = []
 
@@ -194,7 +194,7 @@ async def main_async(args: argparse.Namespace) -> int:
     registry = await _build_shared_registry(bus)
 
     config = JarvisConfig()
-    from jarvis.clis.risk_integration import make_cli_patterns_fn
+    from dodaios.clis.risk_integration import make_cli_patterns_fn
 
     evaluator = RiskTierEvaluator(
         config.safety,

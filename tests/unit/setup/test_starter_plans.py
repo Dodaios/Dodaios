@@ -7,15 +7,15 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core import config as cfg
-from jarvis.setup import state as st
-from jarvis.setup.starter_plans import (
+from dodaios.core import config as cfg
+from dodaios.setup import state as st
+from dodaios.setup.starter_plans import (
     READY_SECTIONS_BY_MODE,
     STARTER_PLANS,
     get_plan,
     plan_ready_sections,
 )
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.ui.web.provider_spec import get_spec
 
 _SURFACE_TIER = {
     "brain": "brain",
@@ -54,7 +54,7 @@ def test_realtime_plans_assign_a_realtime_provider() -> None:
 
 
 def test_every_ready_section_is_a_known_section_health_key() -> None:
-    from jarvis.ui.web.provider_routes import _SECTION_HEALTH_KEYS
+    from dodaios.ui.web.provider_routes import _SECTION_HEALTH_KEYS
 
     for sections in READY_SECTIONS_BY_MODE.values():
         for name in sections:

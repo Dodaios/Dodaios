@@ -5,8 +5,8 @@ import threading
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.tool_surface import reconcile_tool_surface_async
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.tool_surface import reconcile_tool_surface_async
 
 
 @pytest.mark.asyncio
@@ -59,7 +59,7 @@ async def test_refresh_is_off_loop_coalesced_and_published_atomically(monkeypatc
 
 @pytest.mark.asyncio
 async def test_a_missed_event_is_reconciled_before_the_turn(monkeypatch):
-    import jarvis.brain.tool_surface as surface
+    import dodaios.brain.tool_surface as surface
 
     manager = BrainManager.__new__(BrainManager)
     manager._tool_surface_fp = frozenset({"old"})

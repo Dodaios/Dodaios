@@ -20,17 +20,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import instance
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.core.update_contract import (
+from dodaios.core import instance
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.update_contract import (
     CONTRACT_PATH,
     CONTRACT_SCHEMA,
     DEFAULT_CONTRACT,
     UpdateContract,
     read_update_contract,
 )
-from jarvis.ui import desktop_log, relauncher
-from jarvis.ui.web import update_routes
+from dodaios.ui import desktop_log, relauncher
+from dodaios.ui.web import update_routes
 
 REPO = Path(__file__).resolve().parents[3]
 GIT = shutil.which("git")
@@ -141,7 +141,7 @@ def test_bundle_check_without_a_contract_keeps_the_default_place(
     )
 
     assert relauncher._ui_bundle_ready(tmp_path) is True
-    assert "jarvis/ui/web/dist/index.html" in tracked
+    assert "dodaios/ui/web/dist/index.html" in tracked
 
 
 def test_admin_port_is_read_from_the_config_file_the_tree_names(
@@ -167,7 +167,7 @@ def test_launch_command_starts_the_module_the_tree_names(
     assert relauncher.build_launch_command("python") == [
         "python",
         "-m",
-        "jarvis.ui.web.launcher",
+        "dodaios.ui.web.launcher",
     ]
 
 
@@ -198,7 +198,7 @@ def _app_bundle(path: Path, bundle_id: str | None) -> Path:
 def test_macos_restart_opens_the_bundle_the_tree_names(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
 ) -> None:
-    import jarvis.setup.macos_app_bundle as bundle_module
+    import dodaios.setup.macos_app_bundle as bundle_module
 
     known = tmp_path / "Applications" / relauncher.MACOS_APP_DIR_NAME
     renamed = _app_bundle(known.with_name(MOVED.macos_app_dir_name), MOVED.macos_bundle_id)
@@ -221,7 +221,7 @@ def test_macos_restart_opens_the_bundle_the_tree_names(
 def test_macos_restart_names_the_renamed_bundle_even_before_it_exists(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
 ) -> None:
-    import jarvis.setup.macos_app_bundle as bundle_module
+    import dodaios.setup.macos_app_bundle as bundle_module
 
     known = tmp_path / "Applications" / relauncher.MACOS_APP_DIR_NAME
     monkeypatch.setattr(relauncher.sys, "platform", "darwin")
@@ -239,7 +239,7 @@ def test_macos_restart_skips_another_app_that_carries_the_same_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
 ) -> None:
     """The disk-image app can share the new name; it is a different install."""
-    import jarvis.setup.macos_app_bundle as bundle_module
+    import dodaios.setup.macos_app_bundle as bundle_module
 
     known = tmp_path / "Applications" / relauncher.MACOS_APP_DIR_NAME
     home = tmp_path / "home"
@@ -267,7 +267,7 @@ def test_macos_restart_never_opens_another_app_for_want_of_the_right_one(
     other_id: str | None,
 ) -> None:
     """Only a same-named stranger exists: the restart fails rather than open it."""
-    import jarvis.setup.macos_app_bundle as bundle_module
+    import dodaios.setup.macos_app_bundle as bundle_module
 
     known = tmp_path / "Applications" / relauncher.MACOS_APP_DIR_NAME
     home = tmp_path / "home"
@@ -510,7 +510,7 @@ def test_main_keeps_the_known_launcher_when_nothing_was_updated(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
 ) -> None:
     assert _run_main(monkeypatch, tmp_path, lambda _cwd: True) == [
-        ["python", "-m", "jarvis.ui.web.launcher"]
+        ["python", "-m", "dodaios.ui.web.launcher"]
     ]
 
 
@@ -807,8 +807,8 @@ if simulated != "native":
     # real OS. Only the package under test sees the simulated one.
     sys.platform = simulated
 
-from jarvis.core.branding import LEGACY_PACKAGE_NAMES
-from jarvis.ui import relauncher
+from dodaios.core.branding import LEGACY_PACKAGE_NAMES
+from dodaios.ui import relauncher
 
 if preload == "skip":
     relauncher._load_modules_needed_after_update = lambda: None
@@ -866,7 +866,7 @@ def write_ui_bundle(bundle_dir):
 
 
 # The tree this helper started from keeps its bundle in the default place.
-write_ui_bundle("jarvis/ui/web/dist")
+write_ui_bundle("dodaios/ui/web/dist")
 
 
 def run_update_command(cmd, *, root, timeout):
@@ -910,7 +910,7 @@ def spawn(cmd, **_kwargs):
     # swapped on the ALREADY LOADED module, reached through sys.modules:
     # importing it here would load the very module this run checks for, and
     # the helper's own import statement still has to resolve it afterwards.
-    native_dialog = sys.modules.get("jarvis.ui.native_dialog")
+    native_dialog = sys.modules.get("dodaios.ui.native_dialog")
     if native_dialog is not None:
         native_dialog.show_error_dialog = lambda title, message: dialogs.append(title)
     return SimpleNamespace(pid=4321)
@@ -1032,15 +1032,15 @@ def test_no_package_module_is_imported_after_the_checkout_changed(
     assert len(outcome["dialogs"]) == 1
     assert outcome["ports"], "the admin-port probe never ran"
     assert {
-        "jarvis.core.frozen",
-        "jarvis.core.instance",
-        "jarvis.core.process_utils",
-        "jarvis.ui.native_dialog",
+        "dodaios.core.frozen",
+        "dodaios.core.instance",
+        "dodaios.core.process_utils",
+        "dodaios.ui.native_dialog",
     } <= set(outcome["loaded_at_reset"])
 
     platform_name = REAL_PLATFORM if simulated == "native" else simulated
     if platform_name == "darwin":
-        assert "jarvis.setup.macos_app_bundle" in outcome["loaded_at_reset"]
+        assert "dodaios.setup.macos_app_bundle" in outcome["loaded_at_reset"]
 
     hook_runs = [cmd for cmd in outcome["commands"] if _is_hook_call(cmd)]
     resets = [cmd[3] for cmd in outcome["commands"] if cmd[:3] == ["git", "reset", "--hard"]]
@@ -1070,7 +1070,7 @@ def test_the_guard_notices_a_module_that_was_not_loaded_in_time(tmp_path: Path) 
     """Without the up-front load, the failure report imports from the new tree."""
     outcome = _run_import_guard(tmp_path, "native", preload="skip")
 
-    assert "jarvis.ui.native_dialog" in outcome["late"] or (
-        "jarvis.core.process_utils" in outcome["late"]
+    assert "dodaios.ui.native_dialog" in outcome["late"] or (
+        "dodaios.core.process_utils" in outcome["late"]
     )
     assert outcome["dialogs"] == []

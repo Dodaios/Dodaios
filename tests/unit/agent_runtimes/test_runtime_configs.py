@@ -8,23 +8,23 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_runtimes import RUNNER_RUNTIMES, driver
-from jarvis.agent_runtimes.base import RuntimeTurn, child_env, parse_version, persona_text
-from jarvis.agent_runtimes.hermes import HermesRuntime
-from jarvis.agent_runtimes.model_map import (
+from dodaios.agent_runtimes import RUNNER_RUNTIMES, driver
+from dodaios.agent_runtimes.base import RuntimeTurn, child_env, parse_version, persona_text
+from dodaios.agent_runtimes.hermes import HermesRuntime
+from dodaios.agent_runtimes.model_map import (
     KEY_ENV_VAR,
     ModelRoute,
     RouteUnavailable,
     route_for,
     supports,
 )
-from jarvis.agent_runtimes.openclaw import (
+from dodaios.agent_runtimes.openclaw import (
     SESSION_KEY,
     OpenClawRuntime,
     _node_supported,
     session_key,
 )
-from jarvis.core.config import override_provider_secrets
+from dodaios.core.config import override_provider_secrets
 
 _SECRET = "sk-test-" + "123"  # a fake key for assertions
 _TOKEN = "gw-" + "token"
@@ -34,8 +34,8 @@ _GATEWAY = "http://127.0.0.1:47821/api/runtime-gateway/v1"
 @pytest.fixture
 def gateway_up(monkeypatch):
     """Jarvis' gateway is listening, and this machine's Agents-tier keys stay out."""
-    import jarvis.core.config as config
-    from jarvis.agent_runtimes import gateway, provider_errors
+    import dodaios.core.config as config
+    from dodaios.agent_runtimes import gateway, provider_errors
 
     monkeypatch.setattr(gateway, "base_url", lambda: _GATEWAY)
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: None)
@@ -129,7 +129,7 @@ def test_hermes_discovers_connected_tools_with_explicit_persona_guidance(tmp_pat
 
 
 def test_hermes_profiles_share_installation_but_keep_agent_state_separate(tmp_path, monkeypatch):
-    from jarvis.agent_runtimes import base, hermes
+    from dodaios.agent_runtimes import base, hermes
 
     monkeypatch.setattr(base, "runtimes_root", lambda: tmp_path)
     monkeypatch.setattr(base, "legacy_runtimes_root", lambda: tmp_path / "legacy")
@@ -147,7 +147,7 @@ def test_hermes_profiles_share_installation_but_keep_agent_state_separate(tmp_pa
 
 
 def test_existing_runtime_homes_keep_their_native_sessions(tmp_path, monkeypatch):
-    from jarvis.agent_runtimes import base, hermes
+    from dodaios.agent_runtimes import base, hermes
 
     monkeypatch.setattr(base, "runtimes_root", lambda: tmp_path)
     monkeypatch.setattr(base, "legacy_runtimes_root", lambda: tmp_path / "legacy")
@@ -182,7 +182,7 @@ def test_hermes_never_gets_a_headless_browser_desktop_control_or_own_scheduler(t
 
 
 def test_hermes_config_never_exposes_the_data_root_and_carries_its_schema(tmp_path):
-    from jarvis.agent_runtimes import versions
+    from dodaios.agent_runtimes import versions
 
     config = HermesRuntime().config_for(_turn(tmp_path))
     assert config["cli"]["expose_on_path"] is False
@@ -249,7 +249,7 @@ def test_openclaw_loads_no_browser_desktop_or_device_plugins(tmp_path):
 
 
 def test_openclaw_logs_into_the_agents_own_folder(tmp_path, monkeypatch):
-    from jarvis.agent_runtimes import base
+    from dodaios.agent_runtimes import base
 
     monkeypatch.setattr(base, "runtimes_root", lambda: tmp_path / "rt")
     config = OpenClawRuntime().config_for(_turn(tmp_path), port=4321, token=_TOKEN)
@@ -410,7 +410,7 @@ def test_a_missing_key_is_reported_in_plain_words(gateway_up):
 
 
 def test_a_claude_login_is_not_an_api_key(gateway_up, monkeypatch):
-    import jarvis.agent_runtimes.model_map as model_map
+    import dodaios.agent_runtimes.model_map as model_map
 
     monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
     login = "sk-ant-" + "oat01-" + "x" * 20
@@ -422,7 +422,7 @@ def test_a_claude_login_is_not_an_api_key(gateway_up, monkeypatch):
 
 
 def test_claude_without_a_key_runs_on_the_claude_code_login(gateway_up, monkeypatch):
-    import jarvis.agent_runtimes.model_map as model_map
+    import dodaios.agent_runtimes.model_map as model_map
 
     live = "sk-ant-" + "oat01-" + "y" * 20
     monkeypatch.setattr(model_map, "claude_login_token", lambda: live)
@@ -441,8 +441,8 @@ def test_claude_without_a_key_runs_on_the_claude_code_login(gateway_up, monkeypa
 
 
 def test_an_agent_can_pin_claude_to_the_key_or_the_login(gateway_up, monkeypatch):
-    import jarvis.agent_runtimes.model_map as model_map
-    from jarvis.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
+    import dodaios.agent_runtimes.model_map as model_map
+    from dodaios.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
 
     live = "sk-ant-" + "oat01-" + "z" * 20
     monkeypatch.setattr(model_map, "claude_login_token", lambda: live)
@@ -472,7 +472,7 @@ def test_an_agent_can_pin_claude_to_the_key_or_the_login(gateway_up, monkeypatch
 
 
 def test_the_claude_login_brain_sends_a_bearer_not_an_api_key():
-    from jarvis.plugins.brain.claude_api import ClaudeAPIBrain
+    from dodaios.plugins.brain.claude_api import ClaudeAPIBrain
 
     bearer = "sk-ant-" + "oat01-" + "z" * 20
     client = ClaudeAPIBrain(model="claude-sonnet-5", auth_token=bearer)._ensure_client()
@@ -487,7 +487,7 @@ def test_no_route_before_the_gateway_is_up(gateway_up, monkeypatch):
 
 
 def test_hermes_restore_finds_the_key_under_its_host_name():
-    from jarvis.agent_runtimes.hermes import _restore_key_aliases
+    from dodaios.agent_runtimes.hermes import _restore_key_aliases
 
     assert _restore_key_aliases("https://api.openai.com/v1", "k") == {"OPENAI_API_KEY": "k"}
     assert _restore_key_aliases("https://openrouter.ai/api/v1", "k") == {"OPENROUTER_API_KEY": "k"}
@@ -514,7 +514,7 @@ def test_hermes_model_block_names_the_endpoint_for_session_restore(tmp_path):
 
 
 def test_routine_runs_use_their_own_runtime_folder():
-    from jarvis.agent_runtimes.base import home_key
+    from dodaios.agent_runtimes.base import home_key
 
     assert home_key("hermit", "society:hermit") == "hermit"
     assert home_key("hermit", "society:hermit:routine:t1:abc") == "hermit~runs"
@@ -523,7 +523,7 @@ def test_routine_runs_use_their_own_runtime_folder():
 async def test_turn_slots_run_one_turn_at_a_time():
     import asyncio
 
-    from jarvis.agent_runtimes.base import TurnSlots
+    from dodaios.agent_runtimes.base import TurnSlots
 
     slots = TurnSlots()
     release = await slots.acquire("hermit")
@@ -579,9 +579,9 @@ def test_openclaw_declares_only_capabilities_the_catalog_names(
 
 
 def test_capabilities_come_from_the_catalog_never_the_name(monkeypatch):
-    from jarvis.agent_chat import runner_acp
-    from jarvis.brain import model_catalog
-    from jarvis.brain.model_catalog import ModelInfo
+    from dodaios.agent_chat import runner_acp
+    from dodaios.brain import model_catalog
+    from dodaios.brain.model_catalog import ModelInfo
 
     rows = {
         ("openrouter", "a/thinks-sees"): ModelInfo(

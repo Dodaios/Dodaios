@@ -22,8 +22,8 @@ import queue
 
 import pytest
 
-from jarvis.ui.dodaiosbar import modes
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar import modes
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 def _headless_bar(*, persistent: bool, startup_gated: bool = False) -> JarvisBarOverlay:

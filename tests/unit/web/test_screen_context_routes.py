@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web import screen_context_routes
+from dodaios.ui.web import screen_context_routes
 
 
 def _app() -> FastAPI:
@@ -20,7 +20,7 @@ def test_settings_patch_uses_one_atomic_writer_call(monkeypatch) -> None:
     calls: list[dict] = []
     resets: list[bool] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_screen_context_settings",
+        "dodaios.core.config_writer.set_screen_context_settings",
         lambda values: calls.append(dict(values)),
     )
     monkeypatch.setattr(
@@ -52,7 +52,7 @@ def test_settings_patch_uses_one_atomic_writer_call(monkeypatch) -> None:
 def test_invalid_sensitive_pattern_is_rejected_before_write(monkeypatch) -> None:
     calls: list[dict] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_screen_context_settings",
+        "dodaios.core.config_writer.set_screen_context_settings",
         lambda values: calls.append(dict(values)),
     )
 
@@ -68,7 +68,7 @@ def test_invalid_sensitive_pattern_is_rejected_before_write(monkeypatch) -> None
 def test_pathological_sensitive_pattern_is_rejected_before_write(monkeypatch) -> None:
     calls: list[dict] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_screen_context_settings",
+        "dodaios.core.config_writer.set_screen_context_settings",
         lambda values: calls.append(dict(values)),
     )
 
@@ -82,7 +82,7 @@ def test_pathological_sensitive_pattern_is_rejected_before_write(monkeypatch) ->
 
 
 def test_receipt_metadata_never_exposes_app_or_window_title() -> None:
-    from jarvis.screen_context.models import (
+    from dodaios.screen_context.models import (
         CaptureTarget,
         ScreenContext,
         TargetKind,
@@ -146,9 +146,9 @@ def test_status_requires_the_complete_visual_context_path(monkeypatch) -> None:
     def capture_probe(**kwargs):
         probe_kwargs.append(kwargs)
 
-    monkeypatch.setattr("jarvis.screen_context.ports.capture_permission_error", capture_probe)
+    monkeypatch.setattr("dodaios.screen_context.ports.capture_permission_error", capture_probe)
     monkeypatch.setattr(
-        "jarvis.screen_context.ports.accessibility_permission_error",
+        "dodaios.screen_context.ports.accessibility_permission_error",
         lambda: None,
     )
 
@@ -164,7 +164,7 @@ def test_status_requires_the_complete_visual_context_path(monkeypatch) -> None:
 
 
 def test_classify_resolves_language_when_api_caller_omits_locale(monkeypatch) -> None:
-    from jarvis.screen_context.models import IntentVerdict, VisualIntent
+    from dodaios.screen_context.models import IntentVerdict, VisualIntent
 
     seen: list[str] = []
 
@@ -179,7 +179,7 @@ def test_classify_resolves_language_when_api_caller_omits_locale(monkeypatch) ->
         lambda _request: FakeService(),
     )
     monkeypatch.setattr(
-        "jarvis.core.config.load_config",
+        "dodaios.core.config.load_config",
         lambda: SimpleNamespace(
             brain=SimpleNamespace(reply_language="auto"),
             stt=SimpleNamespace(language="auto"),
@@ -228,7 +228,7 @@ def _status_capabilities(monkeypatch) -> None:
     monkeypatch.setattr(screen_context_routes, "_indicator_capability", lambda: (True, ""))
     monkeypatch.setattr(screen_context_routes, "_vision_capability", lambda: (True, ""))
     monkeypatch.setattr(screen_context_routes, "_ocr_capability", lambda _e: (False, ""))
-    monkeypatch.setattr("jarvis.screen_context.ports._is_wayland", lambda: False)
+    monkeypatch.setattr("dodaios.screen_context.ports._is_wayland", lambda: False)
 
 
 def test_status_never_prompts_and_describes_the_missing_permission(monkeypatch) -> None:

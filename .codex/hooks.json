@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [[ \"$CLAUDE_FILE_PATH\" == *jarvis/missions/* ]]; then ruff check \"$CLAUDE_FILE_PATH\" && mypy \"$CLAUDE_FILE_PATH\" 2>&1 | head -20; fi"
+            "command": "if [[ \"$CLAUDE_FILE_PATH\" == *dodaios/missions/* ]]; then ruff check \"$CLAUDE_FILE_PATH\" && mypy \"$CLAUDE_FILE_PATH\" 2>&1 | head -20; fi"
           },
           {
             "type": "command",

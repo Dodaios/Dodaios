@@ -18,11 +18,11 @@ import re
 from pathlib import Path
 from typing import get_args
 
-from jarvis.agentic_ide.activity import Activity
-from jarvis.ui.web.agentic_ide_routes import TerminalRecap
+from dodaios.agentic_ide.activity import Activity
+from dodaios.ui.web.agentic_ide_routes import TerminalRecap
 
 _REPO = Path(__file__).resolve().parents[3]
-_FRONTEND = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src"
 _API = _FRONTEND / "lib" / "agenticIdeApi.ts"
 _PILL = _FRONTEND / "components" / "agentic" / "PaneActivityPill.tsx"
 

@@ -15,9 +15,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.dictation import insert as insert_mod
-from jarvis.dictation.insert import TargetReport, insert_text
-from jarvis.platform.permission_service import get_permission_service
+from dodaios.dictation import insert as insert_mod
+from dodaios.dictation.insert import TargetReport, insert_text
+from dodaios.platform.permission_service import get_permission_service
 from tests.fakes.fake_permission_service import make_result
 from tests.fakes.fake_tcc import DialogPolicy, FakeTCC, install_port
 
@@ -51,20 +51,20 @@ class FakeActuator:
 @pytest.fixture
 def paste(monkeypatch: pytest.MonkeyPatch):
     """insert_text on macOS with fakes: no sleeping, no real clipboard, no real keys."""
-    import jarvis.platform.clipboard as real_clipboard
+    import dodaios.platform.clipboard as real_clipboard
 
     clipboard = FakeClipboard()
     actuator = FakeActuator()
     monkeypatch.setattr(real_clipboard, "read_text", clipboard.read_text)
     monkeypatch.setattr(real_clipboard, "write_text", clipboard.write_text)
     monkeypatch.setattr(insert_mod, "describe_target", lambda: TargetReport(True, "", ""))
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", lambda: actuator)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", lambda: actuator)
     monkeypatch.setattr(insert_mod.time, "sleep", lambda _s: None)
     monkeypatch.setattr(insert_mod, "_clipboard_offer_factory", lambda: None)
     monkeypatch.setattr(insert_mod, "os", SimpleNamespace(name="posix"))
     monkeypatch.setattr(insert_mod.sys, "platform", "darwin")
     # No system dialog on screen unless a test says so.
-    monkeypatch.setattr("jarvis.cu.system_dialogs.frontmost_consent_owner", lambda *a, **k: "")
+    monkeypatch.setattr("dodaios.cu.system_dialogs.frontmost_consent_owner", lambda *a, **k: "")
     # Module state of the first-paste flag must not leak between tests.
     insert_mod._FIRST_PASTE_AFTER_GRANT.clear()
     monkeypatch.setattr(insert_mod, "_grant_listener_gate", None)
@@ -165,7 +165,7 @@ def test_the_type_route_asks_too_and_never_types_without_the_grant(paste) -> Non
 def test_no_key_is_sent_while_a_system_dialog_is_frontmost(paste, monkeypatch, method) -> None:
     paste.world(granted=("accessibility",))
     monkeypatch.setattr(
-        "jarvis.cu.system_dialogs.frontmost_consent_owner",
+        "dodaios.cu.system_dialogs.frontmost_consent_owner",
         lambda *a, **k: "UserNotificationCenter",
     )
 
@@ -182,15 +182,15 @@ def test_no_key_is_sent_while_a_system_dialog_is_frontmost(paste, monkeypatch, m
 def test_a_permission_refusal_raised_by_the_actuator_shows_the_users_sentence(
     paste, monkeypatch
 ) -> None:
-    from jarvis.cu.actuate.base import PermissionNeededError
-    from jarvis.platform.permissions import PermissionId
+    from dodaios.cu.actuate.base import PermissionNeededError
+    from dodaios.platform.permissions import PermissionId
 
     paste.world(granted=("accessibility",))  # the up-front ask passes, then it is revoked
 
     def revoked():
         raise PermissionNeededError(make_result(PermissionId.ACCESSIBILITY, "needs_settings"))
 
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", revoked)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", revoked)
 
     result = insert_text("dictated text")
 

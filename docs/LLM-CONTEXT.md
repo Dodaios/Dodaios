@@ -30,7 +30,7 @@ Dodaios ships in two very different shapes with **very different hardware needs*
 
 | Component | Resident (Working Set) | Committed |
 |---|---|---|
-| Backend (`pythonw -m jarvis.ui.web.launcher` — FastAPI + voice pipeline) | 0.95 GB | 2.2 GB |
+| Backend (`pythonw -m dodaios.ui.web.launcher` — FastAPI + voice pipeline) | 0.95 GB | 2.2 GB |
 | Desktop UI (pywebview / WebView2 Chromium child processes) | 0.41 GB | — |
 | **Full desktop process tree** | **≈ 1.4 GB** | **≈ 2.6 GB** |
 
@@ -70,7 +70,7 @@ A **Hetzner CX22 at ≈ €4 / month** is the canonical €5-VPS this whole proj
 
 ### What runs where (platform capability matrix)
 
-The base + cloud-voice experience is fully cross-platform. The six desktop power-user features that were historically Windows-only are now **cross-platform behind a `jarvis/platform/` seam** (`detect_platform()` + `Capabilities` factories) — each carries an honest per-feature verification badge (see [Verification status](#verification-status) below).
+The base + cloud-voice experience is fully cross-platform. The six desktop power-user features that were historically Windows-only are now **cross-platform behind a `dodaios/platform/` seam** (`detect_platform()` + `Capabilities` factories) — each carries an honest per-feature verification badge (see [Verification status](#verification-status) below).
 
 **Badge legend:** ✅ CI-configured = the `ci.yml` matrix is configured to prove this on the ubuntu/macos runners (first green run pending the initial push). 🟡 unverified-on-real-desktop = a live GUI/permission behavior that needs a real macOS/Linux device — not yet signed off (this repo's maintainer has Windows only). ⚙ degrade-by-design = the documented graceful fallback on that OS.
 
@@ -88,7 +88,7 @@ The base + cloud-voice experience is fully cross-platform. The six desktop power
 | Orb overlay | 🟡 unverified-on-real-desktop (best-effort; ⚙ tray fallback) | 🟡 unverified-on-real-desktop (Tk `-transparentcolor`) | ✅ |
 | Admin-helper / elevation | 🟡 unverified-on-real-desktop (pkexec/sudo; ⚙ NullElevator) | 🟡 unverified-on-real-desktop (Authorization Services) | ✅ UAC |
 
-> macOS / Linux get the full Router-Brain → Worker-Critic → Mission-Manager experience — including voice, local Whisper, and the **screenshot → click → type** Computer-Use loop: the vision model picks pixel targets, and `mss` (screen capture) + `pyautogui` (click / type / scroll) are cross-platform **base** dependencies, not Windows-only. The six former Windows-only desktop features — the built-in terminal, launch-app-by-name, click-by-UI-element-name (UIA / AX / AT-SPI accessibility trees), global-hotkey wake, the Orb overlay, and the admin-helper / elevation — are now **cross-platform behind the `jarvis/platform/` seam** (one per-OS implementation per feature, selected by a `detect_platform()` factory, each degrading to a logged English no-op when its capability is absent). They remain **opt-in `[desktop]` / `[desktop-macos]` extras** (the headless €5-VPS base install ships none of them). Terminal and launch-by-name are fully CI-provable on the ubuntu/macos runners; UI-element-click, global-hotkey capture, the Orb transparency, and the elevation prompt are live GUI/permission behaviors that need a one-time sign-off on a real device (AD-3) — see the per-feature verdicts in [Verification status](#verification-status). See the `[desktop]` extras in [`pyproject.toml`](pyproject.toml), the cloud-first doctrine in [`AGENTS.md`](AGENTS.md), and ADR-0020 (cross-platform elevation, supersedes ADR-0001).
+> macOS / Linux get the full Router-Brain → Worker-Critic → Mission-Manager experience — including voice, local Whisper, and the **screenshot → click → type** Computer-Use loop: the vision model picks pixel targets, and `mss` (screen capture) + `pyautogui` (click / type / scroll) are cross-platform **base** dependencies, not Windows-only. The six former Windows-only desktop features — the built-in terminal, launch-app-by-name, click-by-UI-element-name (UIA / AX / AT-SPI accessibility trees), global-hotkey wake, the Orb overlay, and the admin-helper / elevation — are now **cross-platform behind the `dodaios/platform/` seam** (one per-OS implementation per feature, selected by a `detect_platform()` factory, each degrading to a logged English no-op when its capability is absent). They remain **opt-in `[desktop]` / `[desktop-macos]` extras** (the headless €5-VPS base install ships none of them). Terminal and launch-by-name are fully CI-provable on the ubuntu/macos runners; UI-element-click, global-hotkey capture, the Orb transparency, and the elevation prompt are live GUI/permission behaviors that need a one-time sign-off on a real device (AD-3) — see the per-feature verdicts in [Verification status](#verification-status). See the `[desktop]` extras in [`pyproject.toml`](pyproject.toml), the cloud-first doctrine in [`AGENTS.md`](AGENTS.md), and ADR-0020 (cross-platform elevation, supersedes ADR-0001).
 
 #### Verification status
 
@@ -164,10 +164,10 @@ pip install -e . --no-deps          # activates entry_points (BUG-006/014 recove
 pip install -r requirements.txt     # full runtime deps
 pip install -e ".[dev]"             # optional: pytest, ruff, mypy, pyinstaller
 
-python -m jarvis --wizard           # 7-step Setup-Wizard
+python -m dodaios --wizard           # 7-step Setup-Wizard
 ```
 
-Wizard (`jarvis/setup/wizard.py`) is idempotent: hardware analysis → API keys (written to Windows Credential Manager) → mic check → hotkey → external CLI deps (auto-installs `claude` CLI via npm; `node`/`npm` manual) → mascot install → profile.
+Wizard (`dodaios/setup/wizard.py`) is idempotent: hardware analysis → API keys (written to Windows Credential Manager) → mic check → hotkey → external CLI deps (auto-installs `claude` CLI via npm; `node`/`npm` manual) → mascot install → profile.
 
 **Console scripts** (from `[project.scripts]`):
 
@@ -178,7 +178,7 @@ Wizard (`jarvis/setup/wizard.py`) is idempotent: hardware analysis → API keys 
 | `jarvis-review-gc` | Phase 8.5 review-pipeline GC |
 | `jarvis-review-eval` | Phase 8.6 eval harness (`--quick`/`--real`/`--bucket`) |
 
-**Top-level `python -m jarvis` flags** (argparse in `jarvis/__main__.py`): `--version`, `--wizard`, `--check`, `--plugins`, `--debug`, `--phase5-doctor`, `--install-admin-helper`.
+**Top-level `python -m dodaios` flags** (argparse in `dodaios/__main__.py`): `--version`, `--wizard`, `--check`, `--plugins`, `--debug`, `--phase5-doctor`, `--install-admin-helper`.
 
 ### Headless / VPS first-run (no interactive TTY)
 
@@ -197,7 +197,7 @@ cp .env.example .env
 ```
 
 The full set of recognised ENV variable names is in `.env.example`.  Each name
-mirrors the `env_fallback` field in the `SECRETS` list in `jarvis/setup/wizard.py`
+mirrors the `env_fallback` field in the `SECRETS` list in `dodaios/setup/wizard.py`
 (e.g. `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`,
 `GROK_API_KEY`, `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `ELEVENLABS_API_KEY`, …).
 
@@ -205,7 +205,7 @@ mirrors the `env_fallback` field in the `SECRETS` list in `jarvis/setup/wizard.p
 
 ```bash
 # Preferred: API + WebSocket only, no GUI deps, no audio required.
-python -m jarvis.ui.web.launcher --headless
+python -m dodaios.ui.web.launcher --headless
 ```
 
 On first run the wizard fires, detects the missing TTY, skips prompts, writes the
@@ -213,7 +213,7 @@ On first run the wizard fires, detects the missing TTY, skips prompts, writes th
 You can also force non-interactive mode explicitly:
 
 ```bash
-JARVIS_NONINTERACTIVE=1 python -m jarvis.ui.web.launcher --headless
+JARVIS_NONINTERACTIVE=1 python -m dodaios.ui.web.launcher --headless
 ```
 
 **Step 3 — Open the browser UI.** Navigate to `http://<your-vps-ip>:47821`.
@@ -232,7 +232,7 @@ skipped in non-interactive mode together with `step_api_keys()`.  A future
 hardening pass could run the TTY-free steps (hardware check, dep check) even
 in non-interactive mode and only gate on the `input()` calls.  This is safe
 as-is: all skipped steps are idempotent and can be re-run via
-`python -m jarvis --wizard` from an interactive shell.
+`python -m dodaios --wizard` from an interactive shell.
 
 ---
 
@@ -247,7 +247,7 @@ as-is: all skipped steps are idempotent and can be re-run via
 | `run.bat --dev` | Frontend from Vite dev server `:5173`, hot reload (`JARVIS_DEV=1`) |
 | `run.bat --headless` | API + WebSocket only, no window, Mock-Brain wiring for E2E |
 
-Direct launcher: `python -m jarvis.ui.web.launcher [--headless|--dev|--port N|--no-lock]`. `--no-lock` disables the `filelock` single-instance guard for parallel dev sessions. Voice opt-out: `set JARVIS_VOICE=0`.
+Direct launcher: `python -m dodaios.ui.web.launcher [--headless|--dev|--port N|--no-lock]`. `--no-lock` disables the `filelock` single-instance guard for parallel dev sessions. Voice opt-out: `set JARVIS_VOICE=0`.
 
 ---
 
@@ -264,21 +264,21 @@ L1 Audio I/O       WASAPI via sounddevice, Device-Routing, Chime-Feedback
 L0 OS/Hardware     Win32, CUDA, Mic/Speakers, global-hotkeys
 ```
 
-**Dependency rule (strict):** higher layers reach lower layers **only via Protocols** (`jarvis/core/protocols.py:161-541` — all `runtime_checkable`, structural typing). Lateral communication is **only** via typed events on `EventBus` (`jarvis/core/bus.py`) with `frozen=True` dataclasses carrying `trace_id: UUID` + `timestamp_ns: int`. Subscriber exceptions are swallowed in `_safe_dispatch` (`bus.py:65-76`) and logged — never propagated (AP-18).
+**Dependency rule (strict):** higher layers reach lower layers **only via Protocols** (`dodaios/core/protocols.py:161-541` — all `runtime_checkable`, structural typing). Lateral communication is **only** via typed events on `EventBus` (`dodaios/core/bus.py`) with `frozen=True` dataclasses carrying `trace_id: UUID` + `timestamp_ns: int`. Subscriber exceptions are swallowed in `_safe_dispatch` (`bus.py:65-76`) and logged — never propagated (AP-18).
 
 ---
 
 ## 4. Plugin system
 
-Seven groups frozen as `PLUGIN_GROUPS` in `jarvis/core/protocols.py:363-371`: `jarvis.wakeword`, `jarvis.stt`, `jarvis.tts`, `jarvis.brain`, `jarvis.harness`, `jarvis.tool`, `jarvis.channel` (plus `jarvis.turn` for end-of-turn detection, declared in `pyproject.toml:104`).
+Seven groups frozen as `PLUGIN_GROUPS` in `dodaios/core/protocols.py:363-371`: `jarvis.wakeword`, `jarvis.stt`, `jarvis.tts`, `jarvis.brain`, `jarvis.harness`, `jarvis.tool`, `jarvis.channel` (plus `jarvis.turn` for end-of-turn detection, declared in `pyproject.toml:104`).
 
-Plugins live under `jarvis/plugins/<group>/<name>.py`, register via `pyproject.toml` `[project.entry-points."dodaios.<group>"]` (the earlier `jarvis.<group>` name stays valid and is read alongside it; the first-party tables still use it), and **must not import from `jarvis.*`** — only structural Protocol compatibility (registry at `jarvis/core/registry.py`). After editing entry-points: **`pip install -e . --no-deps`** is mandatory to activate them (this is the fourth layer of BUG-006/014).
+Plugins live under `dodaios/plugins/<group>/<name>.py`, register via `pyproject.toml` `[project.entry-points."dodaios.<group>"]` (the earlier `jarvis.<group>` name stays valid and is read alongside it; the first-party tables still use it), and **must not import from `dodaios.*`** — only structural Protocol compatibility (registry at `dodaios/core/registry.py`). After editing entry-points: **`pip install -e . --no-deps`** is mandatory to activate them (this is the fourth layer of BUG-006/014).
 
 ---
 
 ## 5. EventBus + streaming contract
 
-- Events are `frozen=True` slotted dataclasses inheriting from `Event` (`jarvis/core/events.py:29`), with auto-generated `trace_id` + `timestamp_ns`. 100+ subclasses.
+- Events are `frozen=True` slotted dataclasses inheriting from `Event` (`dodaios/core/events.py:29`), with auto-generated `trace_id` + `timestamp_ns`. 100+ subclasses.
 - Immutability enables flight-recorder replay; `bus.subscribe_all(handler)` makes the recorder a wildcard subscriber.
 - **All Brain/STT/TTS/Harness provider methods return `AsyncIterator[...]`** — non-streaming providers yield exactly one element. Consumers always write `async for chunk in provider.xxx()`.
 - `EventBus.publish` (`bus.py:44-62`) parallel-dispatches via `asyncio.gather(..., return_exceptions=True)` and routes each handler through `_safe_dispatch`. **A broken subscriber must never kill the pipeline (AP-18).**
@@ -287,9 +287,9 @@ Plugins live under `jarvis/plugins/<group>/<name>.py`, register via `pyproject.t
 
 ## 6. Brain providers + Ack-Brain
 
-Six brain plugins (`pyproject.toml:130-137`): `claude-api`, `openrouter`, `openai`, `gemini`, `grok`, `codex`. Multi-provider is mandatory — **never hardcode** Anthropic/Claude. `cfg.brain.primary` is the master selector; `BrainManager` (`jarvis/brain/manager.py`) owns a smart fallback chain (rate-limit aware, frontier aware) and a `(provider_name, model) → Brain` cache. Voice aliases in `manager.py:100-113` accept `claude/opus/haiku/sonnet/gpt/chatgpt/flash/pro/grok`.
+Six brain plugins (`pyproject.toml:130-137`): `claude-api`, `openrouter`, `openai`, `gemini`, `grok`, `codex`. Multi-provider is mandatory — **never hardcode** Anthropic/Claude. `cfg.brain.primary` is the master selector; `BrainManager` (`dodaios/brain/manager.py`) owns a smart fallback chain (rate-limit aware, frontier aware) and a `(provider_name, model) → Brain` cache. Voice aliases in `manager.py:100-113` accept `claude/opus/haiku/sonnet/gpt/chatgpt/flash/pro/grok`.
 
-**Ack-Brain** (`jarvis/brain/ack_brain/generator.py`) emits a sub-second butler-style preamble before the deep brain replies. Provider plugins: Gemini, Grok, OpenAI, Ollama. Suppress-if-fast gate at `[ack_brain].suppress_if_brain_faster_than_ms = 2000` (ADR-0014 Flash-Brain). `AckGenerator.run()` is failure-safe across F1–F10 modes and never raises.
+**Ack-Brain** (`dodaios/brain/ack_brain/generator.py`) emits a sub-second butler-style preamble before the deep brain replies. Provider plugins: Gemini, Grok, OpenAI, Ollama. Suppress-if-fast gate at `[ack_brain].suppress_if_brain_faster_than_ms = 2000` (ADR-0014 Flash-Brain). `AckGenerator.run()` is failure-safe across F1–F10 modes and never raises.
 
 User context: **No Anthropic API account** (AP-6). Workers use Claude Sonnet via **Claude Max OAuth** through the `claude-cli` backend (`@anthropic-ai/claude-code`, npm-installed by the wizard). Dodaios Brain stays on Gemini by default.
 
@@ -297,9 +297,9 @@ User context: **No Anthropic API account** (AP-6). Workers use Claude Sonnet via
 
 ## 7. Risk-Tier + Router discipline
 
-Four levels: `RiskTier = Literal["safe", "monitor", "ask", "block"]` (`protocols.py:108`). `RiskTierEvaluator.evaluate()` (`jarvis/safety/risk_tier.py:64-100`) applies **blacklist > whitelist > tool default** — blacklist match raises `ActionBlocked`; whitelist match downgrades to `safe` with `approved_by="whitelist"` (the anti-confirmation-fatigue contract). Glob matching via `fnmatch` on `"<tool_name> <serialized_args>"`. **`ToolExecutor.execute()` is the only authorized call path; AP-3 forbids direct `Tool.execute()`.**
+Four levels: `RiskTier = Literal["safe", "monitor", "ask", "block"]` (`protocols.py:108`). `RiskTierEvaluator.evaluate()` (`dodaios/safety/risk_tier.py:64-100`) applies **blacklist > whitelist > tool default** — blacklist match raises `ActionBlocked`; whitelist match downgrades to `safe` with `approved_by="whitelist"` (the anti-confirmation-fatigue contract). Glob matching via `fnmatch` on `"<tool_name> <serialized_args>"`. **`ToolExecutor.execute()` is the only authorized call path; AP-3 forbids direct `Tool.execute()`.**
 
-**Router discipline (ADR-0011 amended):** the Router Brain uses the curated `ROUTER_TOOLS` frozenset in `jarvis/brain/factory.py`. Heavy work has exactly one model-visible delegation action: `spawn-worker`. The legacy `dispatch-to-harness`, `multi-spawn`, and `dispatch-with-review` entry points are not in that set. Flat CLI, MCP, marketplace, and app-command loaders expose only capability-gated actions; the Mission Manager owns worker execution and Critic review.
+**Router discipline (ADR-0011 amended):** the Router Brain uses the curated `ROUTER_TOOLS` frozenset in `dodaios/brain/factory.py`. Heavy work has exactly one model-visible delegation action: `spawn-worker`. The legacy `dispatch-to-harness`, `multi-spawn`, and `dispatch-with-review` entry points are not in that set. Flat CLI, MCP, marketplace, and app-command loaders expose only capability-gated actions; the Mission Manager owns worker execution and Critic review.
 
 Force-spawn heuristic in `BrainManager._should_force_spawn`:
 - Smalltalk allowlist wins → never spawn.
@@ -312,7 +312,7 @@ Force-spawn heuristic in `BrainManager._should_force_spawn`:
 
 ## 8. Output filter (voice path)
 
-`scrub_for_voice` in `jarvis/brain/output_filter.py` is **regex-only, no LLM calls** (latency mandate, AP-11). Order: stacktrace → fallback phrase early-return → markdown strip → tool-JSON removal (3 forms) → self-reference → echo paraphrase (only `OPENER_BUDGET = 60` chars) → filler-opener → engineering jargon (with hyphen-compound whitelist — `Browser-Provider` stays) → whitespace normalize.
+`scrub_for_voice` in `dodaios/brain/output_filter.py` is **regex-only, no LLM calls** (latency mandate, AP-11). Order: stacktrace → fallback phrase early-return → markdown strip → tool-JSON removal (3 forms) → self-reference → echo paraphrase (only `OPENER_BUDGET = 60` chars) → filler-opener → engineering jargon (with hyphen-compound whitelist — `Browser-Provider` stays) → whitespace normalize.
 
 **Sacred whitelist** (`output_filter.py:39-42`): `Datei, Email, Browser, Terminal, Notiz, Termin, Kalender`. Jargon list: `Harness, MCP, Subprocess, Provider`; compound jargon: `Sub-Agent, Supervisor-Agent, Subagent`.
 
@@ -326,7 +326,7 @@ Wired into TTS at two sites:
 
 ## 9. Configuration & secrets
 
-**Secret access** — `jarvis.core.config.get_secret(key, env_fallback)` is the only authorized path. Hierarchy:
+**Secret access** — `dodaios.core.config.get_secret(key, env_fallback)` is the only authorized path. Hierarchy:
 
 1. Windows Credential Manager (service `personal-jarvis`) ← wizard writes here
 2. ENV variable
@@ -345,9 +345,9 @@ Voice/chat must never accept secrets (AP-2: STT log leak vector).
 
 ## 10. Atomic config writes & Self-Mod pipeline
 
-`jarvis/core/config_writer.py` uses `tomlkit` (preserves comments), `_WRITE_LOCK = threading.Lock()`, BOM-aware read/write, tempfile + `os.replace`.
+`dodaios/core/config_writer.py` uses `tomlkit` (preserves comments), `_WRITE_LOCK = threading.Lock()`, BOM-aware read/write, tempfile + `os.replace`.
 
-**Phase-7 Self-Mod 10-step pipeline** in `jarvis/core/self_mod/writer.py` is non-negotiable:
+**Phase-7 Self-Mod 10-step pipeline** in `dodaios/core/self_mod/writer.py` is non-negotiable:
 
 1. Allowlist via `SelfModRegistry.require_spec`
 2. `tomlkit` load
@@ -362,15 +362,15 @@ Voice/chat must never accept secrets (AP-2: STT log leak vector).
 9. `ConfigReloaded` bus event
 10. Backup GC (FIFO cap + age floor) → audit via `SelfModAudit`
 
-Locking is `ClassVar threading.Lock`. Three router-tier Self-Mod tools: `list_mutable_settings`, `get_config_value`, `set_config_value` (`jarvis/brain/tools/self_mod_tools.py`).
+Locking is `ClassVar threading.Lock`. Three router-tier Self-Mod tools: `list_mutable_settings`, `get_config_value`, `set_config_value` (`dodaios/brain/tools/self_mod_tools.py`).
 
 ---
 
 ## 11. Phase-6 isolation invariants
 
-- Every worker runs in a fresh `git worktree add -b agent/<task-slug>` under `<repo_parent>/sub-agents-outputs/` via `WorktreeManager` (`jarvis/missions/isolation/worktree.py`). ≤200-char path cap. No writes to user's working tree.
-- Every worker subprocess is contained for kill-on-crash: Windows via a **Job Object** with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (a kernel guarantee — no zombies even on a hard orchestrator kill); macOS/Linux via a POSIX process-group reaper (`start_new_session` + `os.killpg`-on-close, `jarvis/missions/isolation/job_object.py`) that reaps the whole worker tree on a clean shutdown / cancel / timeout / exception. Being userspace, the POSIX path cannot match the kernel guarantee on a hard `kill -9` of the orchestrator itself (the group reparents to init/launchd and survives) — `PR_SET_PDEATHSIG` is the Linux follow-up; macOS has no equivalent.
-- `MAX_CRITIC_LOOPS: Final[int] = 3` is **hardcoded** at `jarvis/missions/critic/runner.py:50-51` ("Hardcoded per ADR-0009. Not configurable without a new decision record."). Used by `Orchestrator.run_mission` at `jarvis/missions/kontrollierer/orchestrator.py:388`.
+- Every worker runs in a fresh `git worktree add -b agent/<task-slug>` under `<repo_parent>/sub-agents-outputs/` via `WorktreeManager` (`dodaios/missions/isolation/worktree.py`). ≤200-char path cap. No writes to user's working tree.
+- Every worker subprocess is contained for kill-on-crash: Windows via a **Job Object** with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (a kernel guarantee — no zombies even on a hard orchestrator kill); macOS/Linux via a POSIX process-group reaper (`start_new_session` + `os.killpg`-on-close, `dodaios/missions/isolation/job_object.py`) that reaps the whole worker tree on a clean shutdown / cancel / timeout / exception. Being userspace, the POSIX path cannot match the kernel guarantee on a hard `kill -9` of the orchestrator itself (the group reparents to init/launchd and survives) — `PR_SET_PDEATHSIG` is the Linux follow-up; macOS has no equivalent.
+- `MAX_CRITIC_LOOPS: Final[int] = 3` is **hardcoded** at `dodaios/missions/critic/runner.py:50-51` ("Hardcoded per ADR-0009. Not configurable without a new decision record."). Used by `Orchestrator.run_mission` at `dodaios/missions/kontrollierer/orchestrator.py:388`.
 - **Action/Observation invariant (ADR-0009):** the LLM never authors its own Observation. Voice readback reads only the Kontrollierer-signed `MissionApproved.summary_de`, never `correction_instruction` from the Critic-LLM.
 - **Persist-vor-Publish discipline** (`manager.py:8-11`): `upsert_mission(PENDING)` happens before `append_and_publish(MissionDispatched)` — the event log is authoritative.
 
@@ -383,18 +383,18 @@ Verified against the actual file tree (not just AGENTS.md claims):
 | Phase | Status | Evidence |
 |---|---|---|
 | 0–4 Foundations | live | Protocols, plugin system, FastAPI/React, speech pipeline, skill system, tool-use loop, harness dispatch, core memory |
-| 5 Vision/Action/Admin/Async/Control + Tiered Routing | live | `jarvis/{vision,admin,tasks,control,telemetry}/`, `ROUTER_TOOLS` frozenset, ADR-0001..0011 |
-| 6 Self-Healing Worker-Critic | live | `jarvis/missions/{manager,kontrollierer,critic,workers,isolation,worker_runtime,voice,safety}/`. 458 mission tests. Wired via `bootstrap_missions` |
-| 7 Self-Mod (foundation + writer + tools) | live | `jarvis/core/self_mod/` (audit, errors, pending, registry, schema, writer). `spawn-skill-author` is **NOT** reachable from the brain — see §25; the brain-reachable authoring path is the `create-skill` router tool (2026-08-18) over the same `SkillCreatorService` as `POST /api/skills/creator/*` and `jarvis skills create` |
+| 5 Vision/Action/Admin/Async/Control + Tiered Routing | live | `dodaios/{vision,admin,tasks,control,telemetry}/`, `ROUTER_TOOLS` frozenset, ADR-0001..0011 |
+| 6 Self-Healing Worker-Critic | live | `dodaios/missions/{manager,kontrollierer,critic,workers,isolation,worker_runtime,voice,safety}/`. 458 mission tests. Wired via `bootstrap_missions` |
+| 7 Self-Mod (foundation + writer + tools) | live | `dodaios/core/self_mod/` (audit, errors, pending, registry, schema, writer). `spawn-skill-author` is **NOT** reachable from the brain — see §25; the brain-reachable authoring path is the `create-skill` router tool (2026-08-18) over the same `SkillCreatorService` as `POST /api/skills/creator/*` and `jarvis skills create` |
 | Awareness A0–A5 | removed 2026-09-30 | Package and both router tools deleted (token cost, no longer wanted). ADR-0011 amendment "Awareness tools retired" |
-| Wiki B0/B1/B2/B3/B5/B7/B8/B9 | live | `jarvis/memory/wiki/` (curator, atomic_writer, page, integration, scheduler, session_rollup, voice_bridge, telemetry, vault_index, watcher, search). 3 router tools |
+| Wiki B0/B1/B2/B3/B5/B7/B8/B9 | live | `dodaios/memory/wiki/` (curator, atomic_writer, page, integration, scheduler, session_rollup, voice_bridge, telemetry, vault_index, watcher, search). 3 router tools |
 | Wiki B4 (legacy Curator) | soft-disabled | `factory.py:736-757` gates on `cfg.memory.legacy_curator.enabled` (default `false` since 2026-05-17). `data/workspace/` snapshot stays on disk for 35 reader sites |
 | Wiki B6 | not started | — |
-| Dodaios-Agents bridge Welle 1+4 | done | `jarvis/missions/worker_runtime/{provider_map,workspace}.py` (harness plugin removed in Welle-4, ~92% hang; see docs/BUGS.md) |
+| Dodaios-Agents bridge Welle 1+4 | done | `dodaios/missions/worker_runtime/{provider_map,workspace}.py` (harness plugin removed in Welle-4, ~92% hang; see docs/BUGS.md) |
 | Dodaios-Agents bridge Welle 2 (live default) | open | Mock-Mode in plugin file; live subprocess factory pending |
 | Dodaios-Agents bridge Welle 3 (full live mode) | open | — |
-| Ack-Brain (pre-thinking) | live | `jarvis/brain/ack_brain/` + factory hook (`factory.py:1034`) |
-| CLI catalog + terminal view | live | `jarvis/clis/` (catalog, installer, loader, prober, registry, risk_integration, usage_log) + `jarvis/terminal/` (ConPTY via `pywinpty`). Tools `cli-tools` + `spawn-cli-worker` |
+| Ack-Brain (pre-thinking) | live | `dodaios/brain/ack_brain/` + factory hook (`factory.py:1034`) |
+| CLI catalog + terminal view | live | `dodaios/clis/` (catalog, installer, loader, prober, registry, risk_integration, usage_log) + `dodaios/terminal/` (ConPTY via `pywinpty`). Tools `cli-tools` + `spawn-cli-worker` |
 
 Status drift moves fast. Verify with `git log -- <module>` rather than trusting this table.
 
@@ -408,12 +408,12 @@ Documented in [`docs/anti-drift-three-layer.md`](docs/anti-drift-three-layer.md)
 
 | Layer | File | Role |
 |---|---|---|
-| L0 source of truth | `jarvis/sessions/constants.py` | `HANGUP_REASONS` tuple + symbolic constants (`HANGUP_TURN_COMPLETE`, …) |
-| L1 producers | `jarvis/speech/pipeline.py`, `jarvis/sessions/init.py` | Import symbols — never raw strings |
-| L2 schema | `jarvis/sessions/schema.sql` | Doc-comment listing allowed values |
-| L3 Pydantic | `jarvis/sessions/models.py` | `HangupReason = Literal[...]` + **import-time `RuntimeError`** asserting `get_args(HangupReason) == HANGUP_REASONS` |
-| L4 TS | `jarvis/ui/web/frontend/src/components/sessions/types.ts` | Union type |
-| L5 UI | `jarvis/ui/web/frontend/src/components/sessions/SessionList.tsx` | `hangupLabel(reason)` switch |
+| L0 source of truth | `dodaios/sessions/constants.py` | `HANGUP_REASONS` tuple + symbolic constants (`HANGUP_TURN_COMPLETE`, …) |
+| L1 producers | `dodaios/speech/pipeline.py`, `dodaios/sessions/init.py` | Import symbols — never raw strings |
+| L2 schema | `dodaios/sessions/schema.sql` | Doc-comment listing allowed values |
+| L3 Pydantic | `dodaios/sessions/models.py` | `HangupReason = Literal[...]` + **import-time `RuntimeError`** asserting `get_args(HangupReason) == HANGUP_REASONS` |
+| L4 TS | `dodaios/ui/web/frontend/src/components/sessions/types.ts` | Union type |
+| L5 UI | `dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx` | `hangupLabel(reason)` switch |
 
 **Five defenses (D1–D5):** symbolic constants → import-time assertion → parity test (`tests/unit/sessions/test_hangup_reason_parity.py` regex-extracts all 5 layers and asserts equality) → DB compatibility test (`tests/integration/test_sessions_db_compatibility.py`) → self-defending list endpoint (`SessionStore.list_sessions` wraps per-row Pydantic in `try/except ValidationError`, returns partial list with `hangup_reason_drift_skipped` warning).
 
@@ -452,13 +452,13 @@ The single most important table for an LLM joining cold:
 
 Detail in [`docs/BUGS.md`](docs/BUGS.md) (26-entry register). Five classes recur — recognize the signal, apply the defense.
 
-**1. Four-layer restore trap** (BUG-006 → -014 → -015). Signal: fix "works in tests" but Dodaios behavior unchanged after restart. Four layers: stale worktree + outdated frontend `dist/` build + RAM-resident pywebview + **editable-install pin to a deleted clone**. Defense: `pwsh scripts/preflight.ps1` + `python -c "import jarvis; print(jarvis.__file__)"` + frontend rebuild + `taskkill /F /IM pythonw.exe`.
+**1. Four-layer restore trap** (BUG-006 → -014 → -015). Signal: fix "works in tests" but Dodaios behavior unchanged after restart. Four layers: stale worktree + outdated frontend `dist/` build + RAM-resident pywebview + **editable-install pin to a deleted clone**. Defense: `pwsh scripts/preflight.ps1` + `python -c "import dodaios; print(dodaios.__file__)"` + frontend rebuild + `taskkill /F /IM pythonw.exe`.
 
 **2. Multi-layer enum drift** (BUG-008, four episodes). Signal: empty UI list while DB has rows, HTTP 500, `literal_error` in Pydantic. Defense: the five-layer pattern from §13 — symbolic constants, import-time assertion, parity test, DB-compat test, self-defending endpoint.
 
 **3. Config drift** (BUG-010 triple-defense). Signal: provider switches silently rolled back, parallel Claude sessions rewriting `jarvis.toml`. Defense: `scripts/drift-guard-daemon.ps1` (5-min) + ENV overrides + OS-read-only TOML + BOM-safe writer.
 
-**4. Subprocess console flicker** (BUG-012). Signal: black/flickering windows under `pythonw.exe`, mascot restart storm. Cause: missing `NO_WINDOW_CREATIONFLAGS` (16 call sites fixed). Defense: every new subprocess call imports from `jarvis.core.process_utils`.
+**4. Subprocess console flicker** (BUG-012). Signal: black/flickering windows under `pythonw.exe`, mascot restart storm. Cause: missing `NO_WINDOW_CREATIONFLAGS` (16 call sites fixed). Defense: every new subprocess call imports from `dodaios.core.process_utils`.
 
 **5. Audio host-API blocking-write trap** (BUG-014). Signal: TTS silent, PortAudio `PaErrorCode -9999`. Cause: auto-resolver picks WDM-KS which PortAudio's blocking write doesn't support. Defense: `_FORBIDDEN_OUTPUT_HOSTAPIS` filter + shortest-unique-token device matching (`"PRO X"`, not full Razer marketing name).
 
@@ -466,10 +466,10 @@ Detail in [`docs/BUGS.md`](docs/BUGS.md) (26-entry register). Five classes recur
 
 ## 16. Desktop App (UI)
 
-- **Backend:** FastAPI on `localhost:47821` (admin_api_port). Single-instance lock via `filelock`. 25 route modules under `jarvis/ui/web/*_routes.py`: `board`, `cli`, `docs`, `federation_proxy`, `friends`, `frontier`, `marketplace`, `mcp`, `missions`, `missions_pty`, `missions_ws`, `outputs`, `preview`, `profile`, `provider`, `review`, `self_mod`, `sessions`, `setup`, `skills`, `sub_agents`, `tasks`, `tools`, `wiki`, `workflows`. WebSocket events serialized via `EventBus` (`subscribe_all` wildcard for flight recorder).
-- **Frontend:** React 18 + Vite 5 + TypeScript 5 + Tailwind + Radix UI + `@xterm/xterm` (ConPTY terminal view) + `react-force-graph-2d` (wiki graph) + `@xyflow/react` (workflow canvas) + Zustand + TanStack Query. Build output → `jarvis/ui/web/dist/`.
+- **Backend:** FastAPI on `localhost:47821` (admin_api_port). Single-instance lock via `filelock`. 25 route modules under `dodaios/ui/web/*_routes.py`: `board`, `cli`, `docs`, `federation_proxy`, `friends`, `frontier`, `marketplace`, `mcp`, `missions`, `missions_pty`, `missions_ws`, `outputs`, `preview`, `profile`, `provider`, `review`, `self_mod`, `sessions`, `setup`, `skills`, `sub_agents`, `tasks`, `tools`, `wiki`, `workflows`. WebSocket events serialized via `EventBus` (`subscribe_all` wildcard for flight recorder).
+- **Frontend:** React 18 + Vite 5 + TypeScript 5 + Tailwind + Radix UI + `@xterm/xterm` (ConPTY terminal view) + `react-force-graph-2d` (wiki graph) + `@xyflow/react` (workflow canvas) + Zustand + TanStack Query. Build output → `dodaios/ui/web/dist/`.
 - **Shell:** `pywebview` loads `dist/index.html` (production) or `http://localhost:5173` (`--dev`).
-- **Orb overlay:** separate `pythonw` subprocess (`jarvis/overlay/`), bus-bridged so mascot-originated events (e.g. mute on double-click) republish to the EventBus.
+- **Orb overlay:** separate `pythonw` subprocess (`dodaios/overlay/`), bus-bridged so mascot-originated events (e.g. mute on double-click) republish to the EventBus.
 
 ---
 
@@ -508,11 +508,11 @@ pytest tests/unit/sessions/test_hangup_reason_parity.py   # BUG-008 drift guard
 ## 18. Linting & type checking
 
 ```bash
-ruff check jarvis/         # rules E,F,I,UP,B,ASYNC,S,A; ignores S101/S603/S607
-ruff format jarvis/
-mypy jarvis/
+ruff check dodaios/         # rules E,F,I,UP,B,ASYNC,S,A; ignores S101/S603/S607
+ruff format dodaios/
+mypy dodaios/
 
-# Frontend (jarvis/ui/web/frontend/)
+# Frontend (dodaios/ui/web/frontend/)
 npm install
 npm run dev       # http://localhost:5173
 npm run build     # tsc -b && vite build --outDir ../dist --emptyOutDir
@@ -535,7 +535,7 @@ Line length 100. Target `py311`.
 - `cleanup-stale-agent-branches.ps1` — prunes leftover `agent/*` branches after `git worktree remove`.
 
 **One-shot guards / install:**
-- `preflight.ps1` — 5-check worktree health (git worktree assertion, editable-install re-pin, `import jarvis` path, `__editable__*.pth` stale scan, summary). **Mandatory before any new worktree code.**
+- `preflight.ps1` — 5-check worktree health (git worktree assertion, editable-install re-pin, `import dodaios` path, `__editable__*.pth` stale scan, summary). **Mandatory before any new worktree code.**
 - `install_shortcuts.py`, `stop_watchdog.ps1`, `uninstall-auto-push-task.ps1`.
 
 **Smoke / probe (manual):**
@@ -558,7 +558,7 @@ Line length 100. Target `py311`.
 - **Claude-API** plugin exists but **user has NO Anthropic API account** (AP-6). Workers use Claude Sonnet via Claude Max OAuth through the `claude-cli` backend (`@anthropic-ai/claude-code`), auto-installed by wizard via npm.
 - **OpenRouter** universal gateway, **OpenAI** GPT, **Codex** API-key mode.
 
-**STT** — 4 registered `jarvis.stt` entry points (`pyproject.toml`): `groq-api`, `openrouter-stt`, `openai-api`, `gemini-api`. Plus the key-free local `faster-whisper`, which is NOT an entry point: it is the hard-wired universal fallback built by `_build_local_fallback` (`jarvis/plugins/stt/__init__.py:316`) and selectable as `provider = "faster-whisper"`. The `deepgram*` names were REMOVED (`jarvis/plugins/stt/__init__.py:52`) so the cross-family resolver can never cross to a non-existent provider; no Google Cloud STT plugin exists.
+**STT** — 4 registered `jarvis.stt` entry points (`pyproject.toml`): `groq-api`, `openrouter-stt`, `openai-api`, `gemini-api`. Plus the key-free local `faster-whisper`, which is NOT an entry point: it is the hard-wired universal fallback built by `_build_local_fallback` (`dodaios/plugins/stt/__init__.py:316`) and selectable as `provider = "faster-whisper"`. The `deepgram*` names were REMOVED (`dodaios/plugins/stt/__init__.py:52`) so the cross-family resolver can never cross to a non-existent provider; no Google Cloud STT plugin exists.
 
 **TTS** — 6 registered `jarvis.tts` entry points (`pyproject.toml`): `inworld`, `elevenlabs`, `gemini-flash-tts`, `grok-voice` (5 voices, `leo`), `cartesia`, `openrouter-tts`. The names `elevenlabs-flash`, `google-neural2`, `openai-tts` and `piper-local` are NOT registered and have no plugin module.
 
@@ -629,7 +629,7 @@ Self-mod writeup: [`docs/self_mod.md`](docs/self_mod.md) — 8 mutable settings 
 - **Plan vs. code:** on conflict, plan wins. Master plan binds: `~/.claude/plans/also-er-muss-auch-lexical-pond.md`. Architecture contracts: [`docs/jarvis-agents-bridge.md`](docs/jarvis-agents-bridge.md), [`docs/anti-drift-three-layer.md`](docs/anti-drift-three-layer.md).  <!-- i18n-allow -->
 - **Worktree activation checklist:** **`pwsh scripts/preflight.ps1`** before code in any new worktree. If exit non-zero, fix before proceeding (BUG-006/014, AD-UF23).
 - **Before larger edits:** read [`docs/BUGS.md`](docs/BUGS.md) — every recurring bug class catalogued there.
-- **Plugin contract:** plugin modules MUST NOT import from `jarvis.*` — structural compatibility with Protocol only. After edit: `pip install -e . --no-deps`.
+- **Plugin contract:** plugin modules MUST NOT import from `dodaios.*` — structural compatibility with Protocol only. After edit: `pip install -e . --no-deps`.
 - **Streaming first:** all Brain/STT/TTS/Harness methods return `AsyncIterator[...]`.
 - **Events:** `frozen=True` dataclasses with `trace_id: UUID` + `timestamp_ns`. Subscriber exceptions never propagate (AP-18).
 - **Worker isolation invariants:** every worker = fresh `git worktree` + Windows Job Object kill-on-close. `MAX_CRITIC_LOOPS=3` hardcoded; changes require new ADR via `/skill phase6-adr-update`.
@@ -640,30 +640,30 @@ Self-mod writeup: [`docs/self_mod.md`](docs/self_mod.md) — 8 mutable settings 
 
 | File | Purpose |
 |---|---|
-| `jarvis/core/protocols.py:161` | All plugin Protocols (`WakeWordProvider`, `STTProvider`, `TTSProvider`, `Brain`, `Harness`, `Tool`, `MemoryStore`, `ChannelAdapter`, `TurnDetector`, `VisionSource`, `CancelToken`, `CostMeter`, `IntentClassifier`). Frozen dataclasses for all wire types. |
-| `jarvis/core/bus.py:23` | `EventBus` — async pub/sub with `_safe_dispatch` exception isolation, wildcard `subscribe_all` for flight recorder. |
-| `jarvis/core/events.py:29` | `Event` base + 100+ subclasses, all `frozen=True` with `trace_id` + `timestamp_ns`. |
-| `jarvis/core/config.py` | `JarvisConfig` Pydantic model + loader + `get_secret(key, env_fallback)`. |
-| `jarvis/core/config_writer.py` | `tomlkit`-based atomic patch with `_WRITE_LOCK`, BOM-aware. |
-| `jarvis/core/self_mod/writer.py` | `AtomicConfigWriter` — 10-step validate/backup/rollback pipeline. |
-| `jarvis/core/process_utils.py:33` | `NO_WINDOW_CREATIONFLAGS` — mandatory for every subprocess call (AP-1). |
-| `jarvis/brain/factory.py:40` | `ROUTER_TOOLS` frozenset + `_phase2_full_brain` builder. |
-| `jarvis/brain/manager.py` | `BrainManager` — provider cache, fallback chain, force-spawn heuristic. |
-| `jarvis/brain/output_filter.py` | `scrub_for_voice` — regex-only TTS scrubber, 40-case test suite. |
-| `jarvis/brain/ack_brain/generator.py` | `AckGenerator` — 11-step pipeline, F1–F10 coverage, never raises. |
-| `jarvis/safety/risk_tier.py:64` | `RiskTierEvaluator` — blacklist>whitelist>tool, fnmatch glob, `ActionBlocked`. |
-| `jarvis/safety/tool_executor.py` | `ToolExecutor` — only authorized call path for `Tool.execute()`. |
-| `jarvis/missions/manager.py:48` | `MissionManager` — SQLite event store, state machine, persist-vor-publish discipline. |
-| `jarvis/missions/kontrollierer/orchestrator.py` | Phase-6 heart — TaskGroup + Semaphore wiring of MissionDecomposer→Worker→Critic→ReflectionMemory→BudgetTracker. |
-| `jarvis/missions/critic/runner.py:50` | `MAX_CRITIC_LOOPS = 3` hardcoded. |
-| `jarvis/missions/workers/{base,claude_direct_worker,codex_worker,gemini_worker,subjarvis_worker,supervisor}.py` | Worker variants — `WorkerProtocol` structural contract. |
-| `jarvis/missions/isolation/{worktree,job_object,env}.py` | Git-worktree manager + Windows Job Object kill-on-close. |
-| `jarvis/harness/screenshot_only_loop.py` | Screenshot-only POAV loop — the sole `computer_use` engine (vision picks pixel targets; cross-platform `mss` + `pyautogui`). |
-| `jarvis/memory/wiki/integration.py` | `bootstrap_wiki_integration` — wires SessionRollupWorker (B7) + WikiCurator (B1). |
-| `jarvis/sessions/constants.py` | `HANGUP_REASONS` single source of truth — canonical 5-layer enum example. |
-| `jarvis/speech/pipeline.py` | Voice pipeline — wake→VAD→STT→Brain→TTS, scrub_for_voice at lines 647 and 1330. |
-| `jarvis/ui/web/server.py` | FastAPI app, mission stack bootstrap (`_init_mission_stack`). |
-| `jarvis/clis/loader.py` | Virtual-loader expanding `cli-tools` entry-point into N `cli_<name>` Tool instances. |
+| `dodaios/core/protocols.py:161` | All plugin Protocols (`WakeWordProvider`, `STTProvider`, `TTSProvider`, `Brain`, `Harness`, `Tool`, `MemoryStore`, `ChannelAdapter`, `TurnDetector`, `VisionSource`, `CancelToken`, `CostMeter`, `IntentClassifier`). Frozen dataclasses for all wire types. |
+| `dodaios/core/bus.py:23` | `EventBus` — async pub/sub with `_safe_dispatch` exception isolation, wildcard `subscribe_all` for flight recorder. |
+| `dodaios/core/events.py:29` | `Event` base + 100+ subclasses, all `frozen=True` with `trace_id` + `timestamp_ns`. |
+| `dodaios/core/config.py` | `JarvisConfig` Pydantic model + loader + `get_secret(key, env_fallback)`. |
+| `dodaios/core/config_writer.py` | `tomlkit`-based atomic patch with `_WRITE_LOCK`, BOM-aware. |
+| `dodaios/core/self_mod/writer.py` | `AtomicConfigWriter` — 10-step validate/backup/rollback pipeline. |
+| `dodaios/core/process_utils.py:33` | `NO_WINDOW_CREATIONFLAGS` — mandatory for every subprocess call (AP-1). |
+| `dodaios/brain/factory.py:40` | `ROUTER_TOOLS` frozenset + `_phase2_full_brain` builder. |
+| `dodaios/brain/manager.py` | `BrainManager` — provider cache, fallback chain, force-spawn heuristic. |
+| `dodaios/brain/output_filter.py` | `scrub_for_voice` — regex-only TTS scrubber, 40-case test suite. |
+| `dodaios/brain/ack_brain/generator.py` | `AckGenerator` — 11-step pipeline, F1–F10 coverage, never raises. |
+| `dodaios/safety/risk_tier.py:64` | `RiskTierEvaluator` — blacklist>whitelist>tool, fnmatch glob, `ActionBlocked`. |
+| `dodaios/safety/tool_executor.py` | `ToolExecutor` — only authorized call path for `Tool.execute()`. |
+| `dodaios/missions/manager.py:48` | `MissionManager` — SQLite event store, state machine, persist-vor-publish discipline. |
+| `dodaios/missions/kontrollierer/orchestrator.py` | Phase-6 heart — TaskGroup + Semaphore wiring of MissionDecomposer→Worker→Critic→ReflectionMemory→BudgetTracker. |
+| `dodaios/missions/critic/runner.py:50` | `MAX_CRITIC_LOOPS = 3` hardcoded. |
+| `dodaios/missions/workers/{base,claude_direct_worker,codex_worker,gemini_worker,subjarvis_worker,supervisor}.py` | Worker variants — `WorkerProtocol` structural contract. |
+| `dodaios/missions/isolation/{worktree,job_object,env}.py` | Git-worktree manager + Windows Job Object kill-on-close. |
+| `dodaios/harness/screenshot_only_loop.py` | Screenshot-only POAV loop — the sole `computer_use` engine (vision picks pixel targets; cross-platform `mss` + `pyautogui`). |
+| `dodaios/memory/wiki/integration.py` | `bootstrap_wiki_integration` — wires SessionRollupWorker (B7) + WikiCurator (B1). |
+| `dodaios/sessions/constants.py` | `HANGUP_REASONS` single source of truth — canonical 5-layer enum example. |
+| `dodaios/speech/pipeline.py` | Voice pipeline — wake→VAD→STT→Brain→TTS, scrub_for_voice at lines 647 and 1330. |
+| `dodaios/ui/web/server.py` | FastAPI app, mission stack bootstrap (`_init_mission_stack`). |
+| `dodaios/clis/loader.py` | Virtual-loader expanding `cli-tools` entry-point into N `cli_<name>` Tool instances. |
 
 ---
 
@@ -671,11 +671,11 @@ Self-mod writeup: [`docs/self_mod.md`](docs/self_mod.md) — 8 mutable settings 
 
 Two drifts surfaced during the agent audit; flag them before quoting AGENTS.md to a fresh chat:
 
-1. **`spawn-skill-author` is NOT wired** (corrected 2026-07-25). It carried a `pyproject.toml` entry point, and this document previously concluded from that registration that the tool was live — it was not, and that claim misled every agent session reading this file. The tool is absent from `ROUTER_TOOLS` (the only allow-set, so `factory.py` filters it out), AND its `__init__` requires a `runner=` argument the entry-point loader cannot supply — so adding it to `ROUTER_TOOLS` raises `TypeError` at tool load rather than fixing anything. The entry point has been removed. **Since 2026-08-18 the brain CAN author skills** — through the `create-skill` router tool (`jarvis/plugins/tool/create_skill.py`, in `ROUTER_TOOLS`, loader-constructible), which calls the same `SkillCreatorService.author()` as `POST /api/skills/creator/author` and `jarvis skills create`; every path lands the skill as `state: draft` (AP-15) because `commit` forces it. A spoken "erstell mir einen neuen Skill …" is recognised deterministically by `jarvis/skills/authoring_request.py` BEFORE any brand trigger, so a service named inside the request can no longer capture the turn. Guarded by `tests/unit/brain/test_router_tool_entrypoint_parity.py`, `tests/unit/plugins/test_create_skill_tool.py`, `tests/unit/brain/test_skill_authoring_turn.py`.
+1. **`spawn-skill-author` is NOT wired** (corrected 2026-07-25). It carried a `pyproject.toml` entry point, and this document previously concluded from that registration that the tool was live — it was not, and that claim misled every agent session reading this file. The tool is absent from `ROUTER_TOOLS` (the only allow-set, so `factory.py` filters it out), AND its `__init__` requires a `runner=` argument the entry-point loader cannot supply — so adding it to `ROUTER_TOOLS` raises `TypeError` at tool load rather than fixing anything. The entry point has been removed. **Since 2026-08-18 the brain CAN author skills** — through the `create-skill` router tool (`dodaios/plugins/tool/create_skill.py`, in `ROUTER_TOOLS`, loader-constructible), which calls the same `SkillCreatorService.author()` as `POST /api/skills/creator/author` and `jarvis skills create`; every path lands the skill as `state: draft` (AP-15) because `commit` forces it. A spoken "erstell mir einen neuen Skill …" is recognised deterministically by `dodaios/skills/authoring_request.py` BEFORE any brand trigger, so a service named inside the request can no longer capture the turn. Guarded by `tests/unit/brain/test_router_tool_entrypoint_parity.py`, `tests/unit/plugins/test_create_skill_tool.py`, `tests/unit/brain/test_skill_authoring_turn.py`.
 
 2. **`jarvis/sub_jarvis/` directory still exists** as an **empty placeholder** (no `__init__.py`, no files) despite AGENTS.md and `docs/jarvis-agents-bridge.md §11` declaring it deleted in Welle 4. Cleanup is structurally complete (no code references), but the empty dir itself is leftover.
 
-Neither blocks anything — but a fresh chat parroting AGENTS.md verbatim will be wrong on point 1, and confused by `ls jarvis/` on point 2.
+Neither blocks anything — but a fresh chat parroting AGENTS.md verbatim will be wrong on point 1, and confused by `ls dodaios/` on point 2.
 
 ---
 

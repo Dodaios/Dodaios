@@ -44,7 +44,7 @@ except ModuleNotFoundError:  # pragma: no cover
         allow_module_level=True,
     )
 
-from jarvis.core.events import (  # noqa: E402
+from dodaios.core.events import (  # noqa: E402
     DictationCompleted,
     DictationRefused,
     DictationStarted,
@@ -54,7 +54,7 @@ from jarvis.core.events import (  # noqa: E402
     VoiceSessionEnded,
     VoiceSessionStarted,
 )
-from jarvis.ui.dodaiosbar.modes import MODES  # noqa: E402
+from dodaios.ui.dodaiosbar.modes import MODES  # noqa: E402
 
 
 class _FakeBus:

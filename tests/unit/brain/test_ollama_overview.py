@@ -16,8 +16,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from jarvis.brain import ollama_inventory, ollama_overview, ollama_pull, ollama_runtime
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.brain import ollama_inventory, ollama_overview, ollama_pull, ollama_runtime
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 ROOT = "http://localhost:11434"

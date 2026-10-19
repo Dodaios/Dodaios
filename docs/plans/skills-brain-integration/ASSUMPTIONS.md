@@ -6,7 +6,7 @@ The master plan cites file paths and line numbers from the state of `phase-8-rev
 
 ## A-2: Another agent commits later
 
-A parallel agent is working on `latency-sprint-2-caching` on tool adapters (`jarvis/plugins/tool/email_list_unread.py`, `calendar_list_today.py`, modified SKILL.md of `morning-routine`, `deep-work-mode`, `memory-save`). This work is secured in a stash (`stash@{0}` named `wip: parallel-agent-work-on-latency-sprint-2-caching`). We must coordinate when merging later.
+A parallel agent is working on `latency-sprint-2-caching` on tool adapters (`dodaios/plugins/tool/email_list_unread.py`, `calendar_list_today.py`, modified SKILL.md of `morning-routine`, `deep-work-mode`, `memory-save`). This work is secured in a stash (`stash@{0}` named `wip: parallel-agent-work-on-latency-sprint-2-caching`). We must coordinate when merging later.
 
 ## A-3: Awareness-Layer spec is not final
 
@@ -14,7 +14,7 @@ The Awareness-Layer (A0–A5) continuous-context plan has not been started yet. 
 
 ## A-4: Phase 7 self-mod tools are a separate feature
 
-`jarvis/brain/tools/skill_authoring.py` (`spawn_skill_author` tool) is Phase 7.5 — it writes new skills, it does not run them. `run_skill` (Skills-3) runs existing skills. Disjoint tool descriptions prevent LLM confusion. **Do not develop both on the same branch** — if Phase 7 is not yet merged: conflict resolution later.
+`dodaios/brain/tools/skill_authoring.py` (`spawn_skill_author` tool) is Phase 7.5 — it writes new skills, it does not run them. `run_skill` (Skills-3) runs existing skills. Disjoint tool descriptions prevent LLM confusion. **Do not develop both on the same branch** — if Phase 7 is not yet merged: conflict resolution later.
 
 ## A-5: Token-budget realism
 

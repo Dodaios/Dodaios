@@ -1,6 +1,6 @@
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
 
-// Brand palette mirrors the desktop app (jarvis/ui/web/frontend/src/index.css):
+// Brand palette mirrors the desktop app (dodaios/ui/web/frontend/src/index.css):
 // matte-black background + signal-yellow accent.
 export const COLORS = {
   bg: "#0A0A0A",

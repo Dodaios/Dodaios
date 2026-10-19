@@ -4,11 +4,11 @@
 
 **Goal:** A dedicated "Taskbar" sidebar section owning the overlay-style selector plus two toggles — "Show bar at all times" (live `bar_persistent`) and "Mute music while dictating" (new pycaw per-app audio ducking).
 
-**Architecture:** A new `jarvis/audio/ducking/` subsystem (protocol + Windows-pycaw + null + factory + a bus-subscribing controller) mutes other apps' audio on `VoiceSessionStarted` and restores on `VoiceSessionEnded`, excluding our own PID (protects Jarvis TTS). Two boolean settings routes persist via `config_writer` and live-apply via `DesktopApp`. A new React `TaskbarView` hosts the moved style selector + two `Switch` toggles.
+**Architecture:** A new `dodaios/audio/ducking/` subsystem (protocol + Windows-pycaw + null + factory + a bus-subscribing controller) mutes other apps' audio on `VoiceSessionStarted` and restores on `VoiceSessionEnded`, excluding our own PID (protects Jarvis TTS). Two boolean settings routes persist via `config_writer` and live-apply via `DesktopApp`. A new React `TaskbarView` hosts the moved style selector + two `Switch` toggles.
 
 **Tech Stack:** Python 3.11, pycaw + comtypes (Windows-only, `[desktop]` extra), FastAPI, pydantic v2, React + Radix Switch, pytest, vitest.
 
-**Verified facts (file:line):** session events `VoiceSessionStarted` / `VoiceSessionEnded` (`jarvis/core/events.py`); EventBus `subscribe(type, async_handler)` (`jarvis/core/bus.py`); bridge bootstrap + `OrbBusBridge(...).attach()` in `jarvis/ui/desktop_app.py` (~1290); `config_writer._patch_table(path, table, key, value)`; `_config(request)` + autostart route pattern in `settings_routes.py`; `Sidebar.tsx` `NAV_ITEMS`, `MainView.tsx` switch, `store/events.ts` SectionId/SECTION_IDS/SECTION_LABELS; `OverlayStylePanel` in `SettingsView.tsx`; Radix `Switch` (checked/onCheckedChange/disabled); `useAutostart.ts` hook pattern. pycaw exists as `scripts/diag_mic_mute.py` but is NOT a declared dependency.
+**Verified facts (file:line):** session events `VoiceSessionStarted` / `VoiceSessionEnded` (`dodaios/core/events.py`); EventBus `subscribe(type, async_handler)` (`dodaios/core/bus.py`); bridge bootstrap + `OrbBusBridge(...).attach()` in `dodaios/ui/desktop_app.py` (~1290); `config_writer._patch_table(path, table, key, value)`; `_config(request)` + autostart route pattern in `settings_routes.py`; `Sidebar.tsx` `NAV_ITEMS`, `MainView.tsx` switch, `store/events.ts` SectionId/SECTION_IDS/SECTION_LABELS; `OverlayStylePanel` in `SettingsView.tsx`; Radix `Switch` (checked/onCheckedChange/disabled); `useAutostart.ts` hook pattern. pycaw exists as `scripts/diag_mic_mute.py` but is NOT a declared dependency.
 
 **Touch-files carrying parallel-session edits (edit additively, do NOT commit):** `config.py`, `config_writer.py`, `settings_routes.py`, `desktop_app.py`, `pyproject.toml`, the three i18n json, `SettingsView.tsx`. Commit only new isolated files.
 
@@ -18,16 +18,16 @@
 
 | File | Responsibility |
 |---|---|
-| `jarvis/audio/ducking/__init__.py` | Package: re-export `make_audio_duck_controller`, `AudioDuckController` |
-| `jarvis/audio/ducking/protocol.py` | `AudioDucker` Protocol (`mute_others`/`restore`) |
-| `jarvis/audio/ducking/null.py` | `NullDucker` — logged no-op |
-| `jarvis/audio/ducking/windows.py` | `WindowsPycawDucker` — pycaw mute-others/restore |
-| `jarvis/audio/ducking/factory.py` | `make_audio_ducker()` (platform/capability select) |
-| `jarvis/audio/ducking/controller.py` | `AudioDuckController` — bus subscriber + lifecycle |
-| `jarvis/core/config.py` *(mod)* | `DuckingConfig` + `JarvisConfig.ducking` |
-| `jarvis/core/config_writer.py` *(mod)* | `set_bar_persistent`, `set_mute_music` |
-| `jarvis/ui/web/settings_routes.py` *(mod)* | `bar-persistent` + `mute-music` GET/PUT |
-| `jarvis/ui/desktop_app.py` *(mod)* | `set_bar_persistent` (live) + ducker wiring + shutdown restore |
+| `dodaios/audio/ducking/__init__.py` | Package: re-export `make_audio_duck_controller`, `AudioDuckController` |
+| `dodaios/audio/ducking/protocol.py` | `AudioDucker` Protocol (`mute_others`/`restore`) |
+| `dodaios/audio/ducking/null.py` | `NullDucker` — logged no-op |
+| `dodaios/audio/ducking/windows.py` | `WindowsPycawDucker` — pycaw mute-others/restore |
+| `dodaios/audio/ducking/factory.py` | `make_audio_ducker()` (platform/capability select) |
+| `dodaios/audio/ducking/controller.py` | `AudioDuckController` — bus subscriber + lifecycle |
+| `dodaios/core/config.py` *(mod)* | `DuckingConfig` + `JarvisConfig.ducking` |
+| `dodaios/core/config_writer.py` *(mod)* | `set_bar_persistent`, `set_mute_music` |
+| `dodaios/ui/web/settings_routes.py` *(mod)* | `bar-persistent` + `mute-music` GET/PUT |
+| `dodaios/ui/desktop_app.py` *(mod)* | `set_bar_persistent` (live) + ducker wiring + shutdown restore |
 | `pyproject.toml` *(mod)* | `[desktop]` extra: pycaw, comtypes (win32) |
 | `views/taskbar/TaskbarView.tsx` | New section view (moved selector + 2 toggles) |
 | `hooks/useBarPersistent.ts`, `hooks/useMuteMusic.ts` | Boolean GET/PUT hooks |
@@ -39,15 +39,15 @@
 
 ## Task 1: `[ducking]` config + config_writer setters
 
-**Files:** Modify `jarvis/core/config.py`, `jarvis/core/config_writer.py`; Test `tests/unit/core/test_config_writer_taskbar.py`
+**Files:** Modify `dodaios/core/config.py`, `dodaios/core/config_writer.py`; Test `tests/unit/core/test_config_writer_taskbar.py`
 
 - [ ] **Step 1 — failing test**
 ```python
 # tests/unit/core/test_config_writer_taskbar.py
 from __future__ import annotations
 import tomllib
-from jarvis.core import config_writer
-from jarvis.core.config import DuckingConfig, JarvisConfig
+from dodaios.core import config_writer
+from dodaios.core.config import DuckingConfig, JarvisConfig
 
 def test_ducking_config_defaults():
     d = DuckingConfig()
@@ -98,17 +98,17 @@ def set_mute_music(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
 
 ## Task 2: ducking protocol + null + factory
 
-**Files:** Create `jarvis/audio/ducking/__init__.py`, `protocol.py`, `null.py`, `factory.py`; Test `tests/unit/audio/test_ducking_factory.py`
+**Files:** Create `dodaios/audio/ducking/__init__.py`, `protocol.py`, `null.py`, `factory.py`; Test `tests/unit/audio/test_ducking_factory.py`
 
 - [ ] **Step 1 — failing test**
 ```python
 # tests/unit/audio/test_ducking_factory.py
 from __future__ import annotations
-from jarvis.audio.ducking.factory import make_audio_ducker
-from jarvis.audio.ducking.null import NullDucker
+from dodaios.audio.ducking.factory import make_audio_ducker
+from dodaios.audio.ducking.null import NullDucker
 
 def test_factory_returns_null_when_pycaw_absent(monkeypatch):
-    monkeypatch.setattr("jarvis.audio.ducking.factory._pycaw_available", lambda: False)
+    monkeypatch.setattr("dodaios.audio.ducking.factory._pycaw_available", lambda: False)
     assert isinstance(make_audio_ducker(), NullDucker)
 
 def test_null_ducker_is_noop():
@@ -119,7 +119,7 @@ def test_null_ducker_is_noop():
 - [ ] **Step 2 — run, expect fail**
 - [ ] **Step 3 — implement**
 ```python
-# jarvis/audio/ducking/protocol.py
+# dodaios/audio/ducking/protocol.py
 from __future__ import annotations
 from typing import Protocol
 
@@ -132,10 +132,10 @@ class AudioDucker(Protocol):
         ...
 ```
 ```python
-# jarvis/audio/ducking/null.py
+# dodaios/audio/ducking/null.py
 from __future__ import annotations
 import logging
-log = logging.getLogger("jarvis.audio.ducking")
+log = logging.getLogger("dodaios.audio.ducking")
 
 class NullDucker:
     """No-op ducker (non-Windows / pycaw absent). Audio ducking unavailable."""
@@ -145,13 +145,13 @@ class NullDucker:
         return None
 ```
 ```python
-# jarvis/audio/ducking/factory.py
+# dodaios/audio/ducking/factory.py
 from __future__ import annotations
 import logging
 import sys
-from jarvis.audio.ducking.null import NullDucker
-from jarvis.audio.ducking.protocol import AudioDucker
-log = logging.getLogger("jarvis.audio.ducking")
+from dodaios.audio.ducking.null import NullDucker
+from dodaios.audio.ducking.protocol import AudioDucker
+log = logging.getLogger("dodaios.audio.ducking")
 
 def _pycaw_available() -> bool:
     import importlib.util
@@ -160,15 +160,15 @@ def _pycaw_available() -> bool:
 def make_audio_ducker() -> AudioDucker:
     """Windows + pycaw -> WindowsPycawDucker; else a logged NullDucker."""
     if sys.platform == "win32" and _pycaw_available():
-        from jarvis.audio.ducking.windows import WindowsPycawDucker
+        from dodaios.audio.ducking.windows import WindowsPycawDucker
         return WindowsPycawDucker()
     log.info("Audio ducking unavailable (platform=%s) -> no-op.", sys.platform)
     return NullDucker()
 ```
 ```python
-# jarvis/audio/ducking/__init__.py
+# dodaios/audio/ducking/__init__.py
 from __future__ import annotations
-from jarvis.audio.ducking.controller import AudioDuckController, make_audio_duck_controller
+from dodaios.audio.ducking.controller import AudioDuckController, make_audio_duck_controller
 __all__ = ["AudioDuckController", "make_audio_duck_controller"]
 ```
 *(NB: `__init__` imports controller — write Task 4 before importing the package, or guard the import. For TDD order, create `__init__.py` with the exports only after Task 4. In Task 2 leave `__init__.py` empty.)*
@@ -177,14 +177,14 @@ __all__ = ["AudioDuckController", "make_audio_duck_controller"]
 
 ## Task 3: WindowsPycawDucker (pycaw backend)
 
-**Files:** Create `jarvis/audio/ducking/windows.py`. No unit test (real COM) — live sign-off + a smoke import.
+**Files:** Create `dodaios/audio/ducking/windows.py`. No unit test (real COM) — live sign-off + a smoke import.
 
 - [ ] **Step 1 — implement** (lazy pycaw import; each session guarded)
 ```python
-# jarvis/audio/ducking/windows.py
+# dodaios/audio/ducking/windows.py
 from __future__ import annotations
 import logging
-log = logging.getLogger("jarvis.audio.ducking")
+log = logging.getLogger("dodaios.audio.ducking")
 
 class WindowsPycawDucker:
     """Mute/restore other apps' audio via the Windows Core Audio session API.
@@ -221,19 +221,19 @@ class WindowsPycawDucker:
             except Exception:  # noqa: BLE001
                 log.debug("restore skip", exc_info=True)
 ```
-- [ ] **Step 2 — smoke (Windows)** `py -3.11 -c "import jarvis.audio.ducking.factory as f; print(type(f.make_audio_ducker()).__name__)"` → `WindowsPycawDucker` if pycaw installed, else `NullDucker`.
+- [ ] **Step 2 — smoke (Windows)** `py -3.11 -c "import dodaios.audio.ducking.factory as f; print(type(f.make_audio_ducker()).__name__)"` → `WindowsPycawDucker` if pycaw installed, else `NullDucker`.
 - [ ] **Step 3 — commit** `feat(audio): WindowsPycawDucker (per-app mute via Core Audio)`
 
 ## Task 4: AudioDuckController (bus lifecycle, TDD with fake ducker)
 
-**Files:** Create `jarvis/audio/ducking/controller.py`; Test `tests/unit/audio/test_duck_controller.py`
+**Files:** Create `dodaios/audio/ducking/controller.py`; Test `tests/unit/audio/test_duck_controller.py`
 
 - [ ] **Step 1 — failing test**
 ```python
 # tests/unit/audio/test_duck_controller.py
 from __future__ import annotations
 from types import SimpleNamespace
-from jarvis.audio.ducking.controller import AudioDuckController
+from dodaios.audio.ducking.controller import AudioDuckController
 
 class FakeDucker:
     def __init__(self): self.muted_calls = 0; self.restored = []
@@ -276,15 +276,15 @@ async def test_restore_is_idempotent():
 - [ ] **Step 2 — run, expect fail**
 - [ ] **Step 3 — implement**
 ```python
-# jarvis/audio/ducking/controller.py
+# dodaios/audio/ducking/controller.py
 from __future__ import annotations
 import asyncio
 import logging
 import os
 from typing import Any
-from jarvis.core.events import VoiceSessionEnded, VoiceSessionStarted
-from jarvis.audio.ducking.factory import make_audio_ducker
-log = logging.getLogger("jarvis.audio.ducking")
+from dodaios.core.events import VoiceSessionEnded, VoiceSessionStarted
+from dodaios.audio.ducking.factory import make_audio_ducker
+log = logging.getLogger("dodaios.audio.ducking")
 
 class AudioDuckController:
     """Mutes other apps' audio for the duration of a voice session.
@@ -383,12 +383,12 @@ Then write `__init__.py` exports (Task 2 note).
   "pycaw>=20240210; sys_platform == 'win32'",
   "comtypes>=1.2; sys_platform == 'win32'",
 ```
-- [ ] **Step 2 — verify** `py -3.11 -c "import jarvis.audio.ducking; print('ok')"` (base import, no pycaw needed).
+- [ ] **Step 2 — verify** `py -3.11 -c "import dodaios.audio.ducking; print('ok')"` (base import, no pycaw needed).
 - [ ] **Step 3 — NO commit** (pyproject.toml parallel-edited).
 
 ## Task 6: settings routes (bar-persistent + mute-music)
 
-**Files:** Modify `jarvis/ui/web/settings_routes.py`; Test `tests/unit/ui/test_taskbar_routes.py`
+**Files:** Modify `dodaios/ui/web/settings_routes.py`; Test `tests/unit/ui/test_taskbar_routes.py`
 
 - [ ] **Step 1 — failing test**
 ```python
@@ -397,7 +397,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from jarvis.ui.web.settings_routes import router
+from dodaios.ui.web.settings_routes import router
 
 def _client(*, bar_persistent=True, ducking_enabled=False, desktop=None):
     app = FastAPI(); app.include_router(router)
@@ -414,7 +414,7 @@ def test_get_bar_persistent():
     assert r.status_code == 200 and r.json()["enabled"] is True
 
 def test_put_bar_persistent_live(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
     monkeypatch.setattr(cw, "set_bar_persistent", lambda v, **k: None)
     applied = {}
     desktop = SimpleNamespace(set_bar_persistent=lambda v: applied.setdefault("v", v) or {"applied_live": True})
@@ -427,7 +427,7 @@ def test_get_mute_music():
     assert r.status_code == 200 and r.json()["enabled"] is False
 
 def test_put_mute_music(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
     monkeypatch.setattr(cw, "set_mute_music", lambda v, **k: None)
     seen = {}
     async def _set_enabled(v): seen["v"] = v
@@ -459,7 +459,7 @@ async def put_bar_persistent(body: BoolToggleBody, request: Request) -> dict[str
         except Exception as exc: log.debug("in-memory bar_persistent skip: %s", exc)
     persisted = False
     try:
-        from jarvis.core import config_writer
+        from dodaios.core import config_writer
         config_writer.set_bar_persistent(enabled); persisted = True
     except Exception as exc:  # noqa: BLE001
         log.warning("bar_persistent persist failed: %s", exc)
@@ -493,7 +493,7 @@ async def put_mute_music(body: BoolToggleBody, request: Request) -> dict[str, ob
         except Exception as exc: log.debug("in-memory ducking.enabled skip: %s", exc)
     persisted = False
     try:
-        from jarvis.core import config_writer
+        from dodaios.core import config_writer
         config_writer.set_mute_music(enabled); persisted = True
     except Exception as exc:  # noqa: BLE001
         log.warning("mute_music persist failed: %s", exc)
@@ -513,14 +513,14 @@ async def put_mute_music(body: BoolToggleBody, request: Request) -> dict[str, ob
 
 ## Task 7: DesktopApp.set_bar_persistent (live) + ducker wiring
 
-**Files:** Modify `jarvis/ui/desktop_app.py`; Test `tests/unit/ui/test_desktop_bar_persistent.py`
+**Files:** Modify `dodaios/ui/desktop_app.py`; Test `tests/unit/ui/test_desktop_bar_persistent.py`
 
 - [ ] **Step 1 — failing test**
 ```python
 # tests/unit/ui/test_desktop_bar_persistent.py
 from __future__ import annotations
 from types import SimpleNamespace
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.ui.desktop_app import DesktopApp
 
 class FakeBar:
     def __init__(self): self._persistent=True; self.shown=None; self.hidden=False; self._mode="idle"
@@ -588,7 +588,7 @@ def test_set_bar_persistent_no_bridge_persisted_only():
 - [ ] **Step 4 — wire the ducker** in the voice-stack bootstrap, right after `OrbBusBridge(...).attach()`:
 ```python
             try:
-                from jarvis.audio.ducking import make_audio_duck_controller
+                from dodaios.audio.ducking import make_audio_duck_controller
                 self._ducker = make_audio_duck_controller(bus=bus, cfg=self.cfg)
                 self._ducker.attach()
             except Exception as exc:  # noqa: BLE001
@@ -607,7 +607,7 @@ def test_set_bar_persistent_no_bridge_persisted_only():
                 pass
 ```
 *(During execution: if `shutdown` already has a running loop / a loop ref, use `run_coroutine_threadsafe` instead of `asyncio.run`; pick the pattern the surrounding teardown uses.)*
-- [ ] **Step 6 — run test, expect PASS** + import smoke `py -3.11 -c "import jarvis.ui.desktop_app"`.
+- [ ] **Step 6 — run test, expect PASS** + import smoke `py -3.11 -c "import dodaios.ui.desktop_app"`.
 - [ ] **Step 7 — NO commit** (desktop_app.py parallel-edited).
 
 ## Task 8: register the Taskbar section (store/events + Sidebar + MainView)
@@ -629,15 +629,15 @@ def test_set_bar_persistent_no_bridge_persisted_only():
   - Card "Behavior": two `<Switch>` rows using `useBarPersistent` / `useMuteMusic`, each: icon + title (`taskbar_view.bar_persistent.title` / `.mute_music.title`) + description + `<Switch checked onCheckedChange disabled>`; toast on change. Brand classes `rounded-lg border border-border bg-card/60 p-4`, `text-primary` icons.
 - [ ] **Step 3 — SettingsView.tsx**: remove `<OverlayStylePanel />`, the `OverlayStylePanel` function, and the `useOverlayStyle`/`Monitor` imports if now unused.
 - [ ] **Step 4 — i18n** en/de/es: add `nav.taskbar` + a `taskbar_view` namespace (title/subtitle/bar_persistent.{title,description}/mute_music.{title,description}/toasts). English source; de/es translated.
-- [ ] **Step 5 — build** `npm --prefix jarvis/ui/web/frontend run build` (tsc must pass).
+- [ ] **Step 5 — build** `npm --prefix dodaios/ui/web/frontend run build` (tsc must pass).
 - [ ] **Step 6 — commit isolated** (TaskbarView + hooks); SettingsView + i18n stay uncommitted (parallel-edited / dependent).
 
 ## Task 10: validation
 
 - [ ] Backend suite: `py -3.11 -m pytest tests/unit/audio/test_ducking_factory.py tests/unit/audio/test_duck_controller.py tests/unit/core/test_config_writer_taskbar.py tests/unit/ui/test_taskbar_routes.py tests/unit/ui/test_desktop_bar_persistent.py -v`
-- [ ] `ruff check jarvis/audio/ducking`
-- [ ] Headless import: `py -3.11 -c "import jarvis.audio.ducking; print('ok')"` (no pycaw needed).
-- [ ] Frontend: `npm --prefix jarvis/ui/web/frontend run build` + `run test -- --run`.
+- [ ] `ruff check dodaios/audio/ducking`
+- [ ] Headless import: `py -3.11 -c "import dodaios.audio.ducking; print('ok')"` (no pycaw needed).
+- [ ] Frontend: `npm --prefix dodaios/ui/web/frontend run build` + `run test -- --run`.
 - [ ] `code-reviewer` over the new files + touch hunks.
 - [ ] Live sign-off: restart Jarvis, open Taskbar section, toggle "Mute music while dictating" on, play Spotify, say "Hey Jarvis" → music mutes; session ends → music restores. Toggle "Show bar at all times" off → bar hides at idle.
 

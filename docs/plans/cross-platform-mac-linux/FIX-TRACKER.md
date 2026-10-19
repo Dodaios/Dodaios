@@ -1,19 +1,19 @@
 # Cross-Platform macOS Surface — Fix Tracker
 
 Tracker for the macOS desktop-surface work that BUG-056/057 deferred to
-"main-thread or own-process hosting". Referenced from `jarvis/ui/tray.py`
+"main-thread or own-process hosting". Referenced from `dodaios/ui/tray.py`
 and `docs/BUGS.md` (BUG-056, BUG-057).
 
 ## Done
 
 | Item | Status | Detail / Reference |
 |---|---|---|
-| Menu-bar tray icon | Done 2026-07-17 | `pystray.Icon(..., darwin_nsapplication=...)` + `run_detached()` on the AppKit main thread; worker-thread mutations marshaled via `PyObjCTools.AppHelper.callAfter` (`jarvis/ui/tray.py`, BUG-056 follow-up). |
-| Mascot/orb subprocess host | Done 2026-07-17 | Mascot/orb renders in the jarvisbar subprocess host as `SubprocessMascotOverlay` (`jarvis/ui/dodaiosbar/subprocess_overlay.py`); `OrbOverlay` gained macOS Aqua-Tk alpha transparency (`-transparent` root) (BUG-057 follow-up). |
+| Menu-bar tray icon | Done 2026-07-17 | `pystray.Icon(..., darwin_nsapplication=...)` + `run_detached()` on the AppKit main thread; worker-thread mutations marshaled via `PyObjCTools.AppHelper.callAfter` (`dodaios/ui/tray.py`, BUG-056 follow-up). |
+| Mascot/orb subprocess host | Done 2026-07-17 | Mascot/orb renders in the jarvisbar subprocess host as `SubprocessMascotOverlay` (`dodaios/ui/dodaiosbar/subprocess_overlay.py`); `OrbOverlay` gained macOS Aqua-Tk alpha transparency (`-transparent` root) (BUG-057 follow-up). |
 | JarvisBar subprocess host | Pre-existing | The own-process Tk host the mascot work builds on (BUG-057). |
-| macOS audio ducking | Done 2026-07-17 | AppleScript (`osascript`) ducking of known players (Music, Spotify) with an opt-in master-volume fallback; every call wrapped, degrades per player (`jarvis/audio/ducking/macos.py`). |
-| WebRTC VAD tier | Done 2026-07-17 | The middle fallback tier (Silero ONNX → WebRTC VAD → RMS energy) is actually wired in `jarvis/audio/vad.py` — previously aspirational (BUG-061 follow-up). |
-| Native stub launcher | Done 2026-07-17 | In-repo compiled C stub (`jarvis/setup/macos_stub_launcher.c`) linked against the exact runtime dylib replaces py2app; launches on framework AND uv-standalone Pythons (BUG-076; numbered BUG-064 on the Mac line before the registers were merged). |
+| macOS audio ducking | Done 2026-07-17 | AppleScript (`osascript`) ducking of known players (Music, Spotify) with an opt-in master-volume fallback; every call wrapped, degrades per player (`dodaios/audio/ducking/macos.py`). |
+| WebRTC VAD tier | Done 2026-07-17 | The middle fallback tier (Silero ONNX → WebRTC VAD → RMS energy) is actually wired in `dodaios/audio/vad.py` — previously aspirational (BUG-061 follow-up). |
+| Native stub launcher | Done 2026-07-17 | In-repo compiled C stub (`dodaios/setup/macos_stub_launcher.c`) linked against the exact runtime dylib replaces py2app; launches on framework AND uv-standalone Pythons (BUG-076; numbered BUG-064 on the Mac line before the registers were merged). |
 | TSM-free hotkey backend | Done 2026-07-17 | `QuartzHotkeyBackend` (listen-only `CGEventTap`, physical-keycode matching) replaces pynput on darwin — pynput's keyboard listener SIGILLs the whole app on macOS 15 (BUG-077; numbered BUG-065 on the Mac line). |
 
 ## Open

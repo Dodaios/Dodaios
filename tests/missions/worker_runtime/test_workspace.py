@@ -1,4 +1,4 @@
-"""Tests for jarvis.missions.worker_runtime.workspace.
+"""Tests for dodaios.missions.worker_runtime.workspace.
 
 Source of truth: docs/jarvis-agents-bridge.md AD-23 + AP-OC15 +
 docs/spike-results-jarvis-agents.md B-9 (system-prompt auto-injection finding).
@@ -11,7 +11,7 @@ import pytest
 
 import subprocess
 
-from jarvis.missions.worker_runtime.workspace import (
+from dodaios.missions.worker_runtime.workspace import (
     EXPECTED_WORKSPACE_FILES,
     WORKSPACE_SUBDIR,
     _agents_md,

@@ -1,7 +1,7 @@
 """Tests for Unix shell discovery (Wave 1.2, AD-9).
 
 These run on the Windows dev box by monkeypatching ``detect_platform`` (as
-imported into ``jarvis.terminal.shells``), ``$SHELL``, ``os.path.isfile``,
+imported into ``dodaios.terminal.shells``), ``$SHELL``, ``os.path.isfile``,
 ``os.path.realpath``, ``shutil.which``, and a fake ``/etc/shells`` reader. No
 real POSIX host required — the logic (preference order + dedup + ``argv``
 shape) is fully assertable cross-platform.
@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import io
 
-import jarvis.terminal.shells as shells_mod
-from jarvis.terminal.shells import ShellInfo, discover_shells, get_shell
+import dodaios.terminal.shells as shells_mod
+from dodaios.terminal.shells import ShellInfo, discover_shells, get_shell
 
 
 def _patch_unix(monkeypatch) -> None:

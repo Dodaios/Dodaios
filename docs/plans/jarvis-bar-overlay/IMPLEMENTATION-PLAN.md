@@ -18,7 +18,7 @@
 - `MicListener(on_level: Callable[[float],None], device=None)` fully decoupled (`mic_listener.py`); bridge starts its own during LISTENING calling `orb.set_level` (`bus_bridge.py:663`).
 - `drag_persistence`: `save_position_to_toml(path, MascotPosition)`, `load_position_from_toml(path)`, `clamp_to_work_area(x,y,geo,*,mascot_size_px,margin_px)`, `screens_from_tk(root)`, section `[overlay.mascot]`.
 - Player RMS tap point: `_flush_pending` after `await asyncio.to_thread(self._write_samples,...)` (`player.py:594`); `arr = np.frombuffer(pcm, np.int16)` (`:593`) in scope; `AudioPlayer.__init__(..., bus=None)` stores `self._bus` (`:258`); `AudioOutFirst` at `:604`.
-- Click-to-talk: `pipeline.request_voice_session()` sync + thread-safe (`pipeline.py:2227`); reachable via `jarvis.core.runtime_refs.get_speech_pipeline()` (set at `desktop_app.py:1428`).
+- Click-to-talk: `pipeline.request_voice_session()` sync + thread-safe (`pipeline.py:2227`); reachable via `dodaios.core.runtime_refs.get_speech_pipeline()` (set at `desktop_app.py:1428`).
 - `UIConfig(BaseModel)` plain (no `extra`), `orb_style: str = "mascot"` (`config.py:808`), `orb_mascot_path: str = ""` (`:810`). No validator on orb_style.
 
 ---
@@ -27,14 +27,14 @@
 
 | File | Responsibility |
 |---|---|
-| `jarvis/ui/jarvisbar/__init__.py` | Package marker + exports (`JarvisBarOverlay`) |
-| `jarvis/audio/level_tap.py` | Process-local pub/sub for the TTS output level (out-of-band, NOT EventBus); zero-cost when no subscriber |
-| `jarvis/ui/jarvisbar/renderer.py` | Pure draw math: `ease`, `bar_heights`, `wave_points`, `JarvisBarRenderer.render(t,mode,level)->PIL.Image`. No Tk/IO. |
-| `jarvis/ui/jarvisbar/interaction.py` | `is_drag(dx,dy,threshold)`, `classify_release(moved)`, `resolve_bar_placement(...)`, position persistence wrapper |
-| `jarvis/ui/jarvisbar/overlay.py` | `JarvisBarOverlay` Tk window/thread; implements the surface API; drag+click-to-talk; registers `set_level` as TTS level sink |
-| `jarvis/core/config.py` *(modify)* | `orb_style` default → `"jarvis_bar"`; add `bar_persistent: bool=True`, `bar_accent: str="#e7c46e"` |
-| `jarvis/audio/player.py` *(modify)* | RMS in `_flush_pending` → `level_tap.publish` (gated on subscribers) |
-| `jarvis/ui/desktop_app.py` *(modify)* | branch `_start_speech_and_orb` on `orb_style`; `hide_on_idle=not bar_persistent` |
+| `dodaios/ui/jarvisbar/__init__.py` | Package marker + exports (`JarvisBarOverlay`) |
+| `dodaios/audio/level_tap.py` | Process-local pub/sub for the TTS output level (out-of-band, NOT EventBus); zero-cost when no subscriber |
+| `dodaios/ui/jarvisbar/renderer.py` | Pure draw math: `ease`, `bar_heights`, `wave_points`, `JarvisBarRenderer.render(t,mode,level)->PIL.Image`. No Tk/IO. |
+| `dodaios/ui/jarvisbar/interaction.py` | `is_drag(dx,dy,threshold)`, `classify_release(moved)`, `resolve_bar_placement(...)`, position persistence wrapper |
+| `dodaios/ui/jarvisbar/overlay.py` | `JarvisBarOverlay` Tk window/thread; implements the surface API; drag+click-to-talk; registers `set_level` as TTS level sink |
+| `dodaios/core/config.py` *(modify)* | `orb_style` default → `"jarvis_bar"`; add `bar_persistent: bool=True`, `bar_accent: str="#e7c46e"` |
+| `dodaios/audio/player.py` *(modify)* | RMS in `_flush_pending` → `level_tap.publish` (gated on subscribers) |
+| `dodaios/ui/desktop_app.py` *(modify)* | branch `_start_speech_and_orb` on `orb_style`; `hide_on_idle=not bar_persistent` |
 | `tests/unit/ui/jarvisbar/test_renderer.py` | renderer math + render smoke |
 | `tests/unit/ui/jarvisbar/test_interaction.py` | click/drag classification + placement |
 | `tests/unit/audio/test_level_tap.py` | pub/sub + no-subscriber no-op |
@@ -45,12 +45,12 @@
 
 ## Task 1: `level_tap` — out-of-band TTS level channel
 
-**Files:** Create `jarvis/audio/level_tap.py`; Test `tests/unit/audio/test_level_tap.py`
+**Files:** Create `dodaios/audio/level_tap.py`; Test `tests/unit/audio/test_level_tap.py`
 
 - [ ] **Step 1 — failing test**
 ```python
 # tests/unit/audio/test_level_tap.py
-from jarvis.audio import level_tap
+from dodaios.audio import level_tap
 
 def test_no_subscriber_is_noop_and_reports_empty():
     level_tap.reset()
@@ -80,7 +80,7 @@ def test_failing_subscriber_is_swallowed():
 `& "C:\Program Files\Python311\python.exe" -m pytest tests/unit/audio/test_level_tap.py -q`
 - [ ] **Step 3 — implement**
 ```python
-# jarvis/audio/level_tap.py
+# dodaios/audio/level_tap.py
 """Process-local, out-of-band level channel for the TTS output amplitude.
 
 Deliberately NOT the EventBus: amplitude updates fire ~8x/second and would
@@ -95,7 +95,7 @@ import logging
 import threading
 from typing import Callable
 
-_log = logging.getLogger("jarvis.audio.level_tap")
+_log = logging.getLogger("dodaios.audio.level_tap")
 _lock = threading.Lock()
 _subscribers: list[Callable[[float], None]] = []
 
@@ -142,13 +142,13 @@ def reset() -> None:
 
 ## Task 2: `renderer` — pure draw math
 
-**Files:** Create `jarvis/ui/jarvisbar/renderer.py`, `jarvis/ui/jarvisbar/__init__.py`; Test `tests/unit/ui/jarvisbar/test_renderer.py`
+**Files:** Create `dodaios/ui/jarvisbar/renderer.py`, `dodaios/ui/jarvisbar/__init__.py`; Test `tests/unit/ui/jarvisbar/test_renderer.py`
 
 - [ ] **Step 1 — failing tests**
 ```python
 # tests/unit/ui/jarvisbar/test_renderer.py
 import math
-from jarvis.ui.jarvisbar import renderer as R
+from dodaios.ui.jarvisbar import renderer as R
 
 def test_ease_moves_toward_target():
     assert R.ease(0.0, 1.0, 0.5) == 0.5
@@ -193,7 +193,7 @@ def test_idle_collapses_expansion_over_frames():
 - [ ] **Step 2 — run, expect fail**
 - [ ] **Step 3 — implement** (full module — `__init__.py` exports `JarvisBarOverlay` lazily to stay headless-safe)
 ```python
-# jarvis/ui/jarvisbar/__init__.py
+# dodaios/ui/jarvisbar/__init__.py
 """Jarvis-bar overlay package (slim default on-screen representation)."""
 from __future__ import annotations
 
@@ -202,12 +202,12 @@ __all__ = ["JarvisBarOverlay"]
 
 def __getattr__(name: str):  # lazy: avoid importing tkinter on headless import
     if name == "JarvisBarOverlay":
-        from jarvis.ui.jarvisbar.overlay import JarvisBarOverlay
+        from dodaios.ui.jarvisbar.overlay import JarvisBarOverlay
         return JarvisBarOverlay
     raise AttributeError(name)
 ```
 ```python
-# jarvis/ui/jarvisbar/renderer.py  (numpy/PIL — desktop only, imported lazily by overlay)
+# dodaios/ui/jarvisbar/renderer.py  (numpy/PIL — desktop only, imported lazily by overlay)
 from __future__ import annotations
 
 import math
@@ -337,12 +337,12 @@ class JarvisBarRenderer:
 
 ## Task 3: `interaction` — click vs drag + placement
 
-**Files:** Create `jarvis/ui/jarvisbar/interaction.py`; Test `tests/unit/ui/jarvisbar/test_interaction.py`
+**Files:** Create `dodaios/ui/jarvisbar/interaction.py`; Test `tests/unit/ui/jarvisbar/test_interaction.py`
 
 - [ ] **Step 1 — failing tests**
 ```python
 # tests/unit/ui/jarvisbar/test_interaction.py
-from jarvis.ui.jarvisbar import interaction as I
+from dodaios.ui.jarvisbar import interaction as I
 
 def test_is_drag_threshold():
     assert I.is_drag(10, 5, 16) is False   # 15 < 16
@@ -361,7 +361,7 @@ def test_default_bottom_center_placement():
 - [ ] **Step 2 — run, expect fail**
 - [ ] **Step 3 — implement**
 ```python
-# jarvis/ui/jarvisbar/interaction.py
+# dodaios/ui/jarvisbar/interaction.py
 """Click/drag classification + default placement for the jarvis bar.
 
 Mirrors the orb's proven movement-threshold model (overlay.py:1604): a press
@@ -392,7 +392,7 @@ def default_bottom_center(*, screen_w: int, screen_h: int, bar_w: int, bar_h: in
 
 ## Task 4: `JarvisBarOverlay` — Tk surface
 
-**Files:** Create `jarvis/ui/jarvisbar/overlay.py`; Test `tests/unit/ui/jarvisbar/test_surface_contract.py`
+**Files:** Create `dodaios/ui/jarvisbar/overlay.py`; Test `tests/unit/ui/jarvisbar/test_surface_contract.py`
 
 Implements the bridge's surface API. `show(mode)` maps to renderer mode; `set_level` writes `_ext_level` directly (atomic, like the orb). Text/mouth methods are no-ops. On `start()`, subscribes `self.set_level` to `level_tap` (TTS amplitude). Click on release-without-move → `runtime_refs.get_speech_pipeline().request_voice_session()`. Drag persists position via `drag_persistence` (reuses `[overlay.mascot]` section — shared pin acceptable for v1). Color-key transparency identical to the orb; NO `SetWindowLong` calls → no BUG-030 exposure.
 
@@ -400,7 +400,7 @@ Implements the bridge's surface API. `show(mode)` maps to renderer mode; `set_le
 ```python
 # tests/unit/ui/jarvisbar/test_surface_contract.py
 import inspect
-from jarvis.ui.jarvisbar.overlay import JarvisBarOverlay
+from dodaios.ui.jarvisbar.overlay import JarvisBarOverlay
 
 REQUIRED = [
     "show", "hide", "set_level", "play_animation", "stop_animation",
@@ -437,19 +437,19 @@ def test_show_accepts_bridge_modes_without_tk():
   - no-ops: `play_animation`, `stop_animation`, `show_listening_transcript`, `hide_comment`, `start_mouth_animation`, `stop_mouth_animation`, `set_on_mute_toggle`, `set_feedback_publisher` (store callbacks but bar emits none).
   - `_enqueue_ui` / `_schedule_ui_queue` / `_schedule_frame` / `start` / `start_in_thread`: copied structure from `overlay.py` (`tk.Tk`, `overrideredirect`, `-topmost`, `-transparentcolor`, canvas, bindings, `after(16)` render). On `start`: compute default bottom-center via `interaction.default_bottom_center` (or persisted), `level_tap.subscribe(self.set_level)` storing `_level_unsub`, set `_started`.
   - Drag handlers: `_on_press/_on_motion/_on_release` mirroring orb; on release `if not moved: _on_click()` else persist via `save_position_to_toml`.
-  - `_on_click()`: `from jarvis.core.runtime_refs import get_speech_pipeline; p=get_speech_pipeline(); p and p.request_voice_session()` (guarded try/except).
+  - `_on_click()`: `from dodaios.core.runtime_refs import get_speech_pipeline; p=get_speech_pipeline(); p and p.request_voice_session()` (guarded try/except).
   - `stop()`: `_running=False`, call `_level_unsub()` if set, destroy root.
 - [ ] **Step 4 — run, expect PASS** (contract test runs without opening a window)
 - [ ] **Step 5 — commit** `feat(ui): JarvisBarOverlay Tk surface (bridge-compatible)`
 
 ## Task 5: config — selection + persistence flags
 
-**Files:** Modify `jarvis/core/config.py:808`; Test `tests/unit/core/test_ui_config_bar.py`
+**Files:** Modify `dodaios/core/config.py:808`; Test `tests/unit/core/test_ui_config_bar.py`
 
 - [ ] **Step 1 — failing test**
 ```python
 # tests/unit/core/test_ui_config_bar.py
-from jarvis.core.config import UIConfig
+from dodaios.core.config import UIConfig
 
 def test_defaults_select_jarvis_bar():
     c = UIConfig()
@@ -474,17 +474,17 @@ def test_legacy_mascot_still_accepted():
 
 ## Task 6: player — RMS through level_tap
 
-**Files:** Modify `jarvis/audio/player.py` (`_flush_pending`, after `:596`); Test `tests/unit/audio/test_player_level_tap.py`
+**Files:** Modify `dodaios/audio/player.py` (`_flush_pending`, after `:596`); Test `tests/unit/audio/test_player_level_tap.py`
 
 - [ ] **Step 1 — failing test** (feeds a chunk iterator through a fake stream; asserts level_tap received a value)
 ```python
 # tests/unit/audio/test_player_level_tap.py
 import numpy as np, pytest
-from jarvis.audio import level_tap
+from dodaios.audio import level_tap
 
 @pytest.mark.asyncio
 async def test_player_publishes_rms_when_subscribed(monkeypatch):
-    from jarvis.audio import player as P
+    from dodaios.audio import player as P
     level_tap.reset(); got = []; level_tap.subscribe(got.append)
 
     pl = P.AudioPlayer.__new__(P.AudioPlayer)  # bypass device init
@@ -503,13 +503,13 @@ async def test_player_publishes_rms_when_subscribed(monkeypatch):
                     rms = float(np.sqrt(np.mean(np.square(arr.astype(np.float32) * (1.0 / 32768.0)))))
                     level_tap.publish(rms)
 ```
-and `from jarvis.audio import level_tap` at the top of `player.py`.
+and `from dodaios.audio import level_tap` at the top of `player.py`.
 - [ ] **Step 4 — run, expect PASS**
 - [ ] **Step 5 — commit** `feat(audio): publish TTS output RMS via level_tap`
 
 ## Task 7: desktop_app — wire the selection branch
 
-**Files:** Modify `jarvis/ui/desktop_app.py:1167-1176`. No unit test (GUI wiring) — covered by manual live sign-off + an import smoke.
+**Files:** Modify `dodaios/ui/desktop_app.py:1167-1176`. No unit test (GUI wiring) — covered by manual live sign-off + an import smoke.
 
 - [ ] **Step 1** — replace the orb construction block with a branch:
 ```python
@@ -518,7 +518,7 @@ and `from jarvis.audio import level_tap` at the top of `player.py`.
         if orb_style == "none":
             self._orb = None
         elif orb_style == "jarvis_bar":
-            from jarvis.ui.jarvisbar import JarvisBarOverlay
+            from dodaios.ui.jarvisbar import JarvisBarOverlay
             from ui.orb.bus_bridge import OrbBusBridge
             bar = JarvisBarOverlay(
                 persistent=self.cfg.ui.bar_persistent,
@@ -536,15 +536,15 @@ and `from jarvis.audio import level_tap` at the top of `player.py`.
             self._orb = orb
 ```
 (keep the surrounding `try/except Exception → self._orb=None` intact)
-- [ ] **Step 2** — import smoke: `& "C:\Program Files\Python311\python.exe" -c "import jarvis.ui.desktop_app"`
+- [ ] **Step 2** — import smoke: `& "C:\Program Files\Python311\python.exe" -c "import dodaios.ui.desktop_app"`
 - [ ] **Step 3** — commit *(deferred — desktop_app.py carries parallel edits; do NOT stage.)*
 
 ## Task 8: full validation pass
 
 - [ ] Run the whole new suite + adjacent:
 `& "C:\Program Files\Python311\python.exe" -m pytest tests/unit/ui/jarvisbar tests/unit/audio/test_level_tap.py tests/unit/audio/test_player_level_tap.py tests/unit/core/test_ui_config_bar.py -v`
-- [ ] `ruff check jarvis/ui/jarvisbar jarvis/audio/level_tap.py`
-- [ ] Headless boot guard: `& "C:\Program Files\Python311\python.exe" -c "import jarvis.ui.jarvisbar; print('ok')"` (must NOT import tkinter).
+- [ ] `ruff check dodaios/ui/jarvisbar dodaios/audio/level_tap.py`
+- [ ] Headless boot guard: `& "C:\Program Files\Python311\python.exe" -c "import dodaios.ui.jarvisbar; print('ok')"` (must NOT import tkinter).
 - [ ] Regression: `& "C:\Program Files\Python311\python.exe" -m pytest tests/unit/audio -q` (player untouched paths still green).
 - [ ] Dispatch `code-reviewer` over the new files + the two touch hunks.
 - [ ] Adversarial verify (workflow) of the risky claims: color-key transparency, click-vs-drag, level_tap zero-cost-when-idle, hide_on_idle persistence.

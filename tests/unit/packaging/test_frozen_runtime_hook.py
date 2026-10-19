@@ -17,7 +17,7 @@ from types import ModuleType
 
 import pytest
 
-from jarvis.core.paths import user_data_dir
+from dodaios.core.paths import user_data_dir
 
 HOOK_PATH = Path(__file__).resolve().parents[3] / "packaging" / "pyinstaller_rthook_frozen.py"
 
@@ -63,7 +63,7 @@ def test_hook_directory_matches_jarvis_core_paths(
     hook: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     # The hook duplicates the convention on purpose; this is the gate that keeps
-    # the duplicate honest. If jarvis.core.paths ever moves the app directory,
+    # the duplicate honest. If dodaios.core.paths ever moves the app directory,
     # this fails instead of the frozen app quietly writing to the old place.
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     assert hook._user_data_dir() == user_data_dir()

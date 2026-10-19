@@ -1,4 +1,4 @@
-"""AudioPlayer master output volume — applied in _write_samples via jarvis.audio.gain.
+"""AudioPlayer master output volume — applied in _write_samples via dodaios.audio.gain.
 
 Drives the REAL _write_samples with a capturing fake stream (no PortAudio), so
 these assert the exact samples that would reach the speaker. The 0.0-1.0 knob
@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.audio import gain, level_tap
-from jarvis.audio import player as P
+from dodaios.audio import gain, level_tap
+from dodaios.audio import player as P
 
 _UNITY = 1.0 / gain._MAKEUP_GAIN  # knob value that yields a 1:1 gain
 
