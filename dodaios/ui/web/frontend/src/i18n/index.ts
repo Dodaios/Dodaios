@@ -127,9 +127,13 @@ export type LocaleChunk =
 
 const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
 
+/** Keys that would reach an object's prototype instead of the object. */
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 function mergeDeep(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
   for (const [key, value] of Object.entries(source)) {
-    const prev = target[key];
+    if (UNSAFE_KEYS.has(key)) continue;
+    const prev = Object.prototype.hasOwnProperty.call(target, key) ? target[key] : undefined;
     if (value && typeof value === "object" && !Array.isArray(value) && prev && typeof prev === "object") {
       mergeDeep(prev as Record<string, unknown>, value as Record<string, unknown>);
     } else target[key] = value;
