@@ -81,7 +81,15 @@ DEFAULT_INSTALL_DIR_NAME = ".dodaios"
 LEGACY_DEFAULT_INSTALL_DIR_NAMES = (f".{PERSISTENT_SLUG}",)
 # The Python distribution name (``pip install <name>``) and with it the
 # ``share/<name>`` directory a wheel installs its data files under.
-DISTRIBUTION_NAME = PERSISTENT_SLUG
+DISTRIBUTION_NAME = "dodaios"
+# The distribution's earlier name. Releases publish the same wheel under it for
+# a transition, so ``pip install -U <earlier name>`` keeps updating; its data
+# files stay under ``share/<earlier name>``, which every reader still accepts.
+# Both own the same package files, so an environment should hold only one:
+# the installer removes the earlier one before installing, and the app warns
+# once when it finds both (``dodaios.core.distribution``).
+LEGACY_DISTRIBUTION_NAMES = (PERSISTENT_SLUG,)
+DISTRIBUTION_NAMES = (DISTRIBUTION_NAME, *LEGACY_DISTRIBUTION_NAMES)
 
 # Terminal commands the install puts on PATH. No command may equal the branded
 # launcher's name ignoring case: on Windows and macOS they would be one file.
@@ -303,6 +311,8 @@ __all__ = [
     "LEGACY_PLUGIN_GROUP_NAMESPACES",
     "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
     "DISTRIBUTION_NAME",
+    "DISTRIBUTION_NAMES",
+    "LEGACY_DISTRIBUTION_NAMES",
     "FALLBACK_USER_DATA_DIR_NAME",
     "FISH_CONF_FILE_NAME",
     "KEYRING_SERVICE_NAME",

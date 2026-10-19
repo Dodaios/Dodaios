@@ -60,6 +60,11 @@ CLI_EXE_NAME = "dodaios"
 # No name here may equal a GUI name ignoring case: they share one folder.
 LEGACY_CLI_EXE_NAMES = ("jarvis",)
 
+# The Python distribution this tree is installed as, current name first
+# (dodaios.core.branding.DISTRIBUTION_NAMES). An environment set up before the
+# rename still carries the earlier one.
+DISTRIBUTION_NAMES = ('dodaios', 'personal-jarvis')
+
 MACOS_APP_NAME = "Personal Jarvis.app"
 MACOS_BUNDLE_IDENTIFIER = "ai.personaljarvis.desktop"
 MACOS_MIN_SYSTEM_VERSION = "12.0"
@@ -209,8 +214,23 @@ if profiles_dir.exists():
             datas.append((str(entry), str(Path("profiles") / rel)))
 
 # Preserve distribution metadata so importlib.metadata can discover the Jarvis
-# entry-point plugins in the frozen layout.
-datas += copy_metadata("personal-jarvis")
+# entry-point plugins in the frozen layout. The build environment holds the
+# tree under one of its distribution names; bundle the first one installed.
+def _installed_distribution() -> str:
+    from importlib import metadata
+
+    for name in DISTRIBUTION_NAMES:
+        try:
+            metadata.distribution(name)
+        except metadata.PackageNotFoundError:
+            continue
+        return name
+    raise SystemExit(
+        f"none of {', '.join(DISTRIBUTION_NAMES)} is installed; run pip install -e . first"
+    )
+
+
+datas += copy_metadata(_installed_distribution())
 
 # Legacy optional data packages are collected only when installed.
 for pkg in ("chromadb", "sentence_transformers"):
