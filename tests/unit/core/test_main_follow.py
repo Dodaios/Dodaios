@@ -191,3 +191,12 @@ def test_only_the_instance_with_ambient_duties_starts_one(monkeypatch: pytest.Mo
         enabled=lambda: True, idle=lambda: True, restart=lambda: True
     )
     assert started is None and main_follow.get_follower() is None
+
+
+def test_python_outside_the_app_needs_no_restart(setup: tuple[Path, Path]) -> None:
+    app, other = setup
+    _land(other, {"tests/test_x.py": "def test_x():\n    pass\n"}, "test: x")
+    recorder = Recorder()
+    status = recorder.follower(app).tick()
+    assert (app / "tests/test_x.py").exists()
+    assert not status.restart_pending and recorder.restarts == 0
