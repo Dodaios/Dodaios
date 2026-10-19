@@ -184,7 +184,8 @@ async def test_the_seat_prompt_never_names_the_stored_lead(world):
 
 
 def test_the_lead_card_defaults_to_the_neutral_name():
-    card = render_lead_card([], [])
+    assert render_lead_card([], []) == ""  # nothing to lead, no card
+    card = render_lead_card([], [], terminals=["T1"])
     assert f"You are {DEFAULT_ASSISTANT_NAME}, the lead" in card and STORED not in card
 
 

@@ -1128,7 +1128,7 @@ async def test_jarvis_card_names_the_teams_that_have_a_lead(team):
         rt.roster.snapshot(), rt.catalog(), teams=rt.team_leads.teams_snapshot()
     )
     assert "- Launch — lead: Boss · members: Scout, Writer" in card
-    assert "goes to its LEAD with delegate_to_agent" in card
+    assert "goes to its lead with delegate_to_agent" in card
     assert "Teams with their own lead" not in render_lead_card(rt.roster.snapshot(), rt.catalog())
 
 

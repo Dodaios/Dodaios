@@ -495,9 +495,7 @@ class SocietyMemory:
             selected, omitted = select_entries(books[target], max_chars=PROMPT_BUDGETS[target])
             lines.append("## " + title)
             lines.append(
-                "USER.md: preferences and facts about the person."
-                if target == "user"
-                else "MEMORY.md: project knowledge, environment facts and working methods."
+                "USER.md (target=user)." if target == "user" else "MEMORY.md (target=memory)."
             )
             if not books[target]:
                 lines.append("Nothing remembered yet.")
@@ -510,11 +508,8 @@ class SocietyMemory:
             if omitted:
                 lines.append(f"{omitted} further entries remain on disk; recall them when needed.")
         lines.append(
-            "Maintain USER.md with society_wiki_note(kind=memory, target=user) for user facts "
-            "and preferences; maintain MEMORY.md with target=memory for experience and project "
-            "knowledge. Consolidate overlapping entries with replace; remove obsolete entries "
-            "only with evidence. Read older details with society_memory_recall. Both notebooks "
-            "belong to you alone; other agents' profiles and notes are not included."
+            "Both notebooks are yours alone; edit them with society_wiki_note and search older "
+            "entries with society_memory_recall."
         )
         return "\n".join(lines)
 
