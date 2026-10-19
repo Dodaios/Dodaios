@@ -180,14 +180,55 @@ def test_apprun_reads_the_marker_from_the_share_dir_the_build_writes() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Release asset names stay                                                     #
+# Release asset names: the current one, plus the earlier one as an alias      #
 # --------------------------------------------------------------------------- #
-def test_the_release_asset_names_keep_their_earlier_spelling() -> None:
-    """The asset names move on their own, with dual publishing: not here."""
+def test_the_appimage_is_built_under_its_current_name() -> None:
+    """The build writes the AppImage under the current asset name only; the
+    earlier name is the release's job (dual publishing), not the build's."""
     script = _BUILD_SH.read_text(encoding="utf-8")
-    appimage = INSTALLER_ASSET_NAMES[("linux", "x64")][-1]
-    assert appimage == "PersonalJarvis-Linux-x86_64.AppImage"
-    assert f'APPIMAGE_PATH="${{OUT_DIR}}/{appimage}"' in script
+    current, earlier = INSTALLER_ASSET_NAMES[("linux", "x64")]
+    assert current == "Dodaios-Linux-x86_64.AppImage"
+    assert f'APPIMAGE_PATH="${{OUT_DIR}}/{current}"' in script
+    # The earlier name appears in no command, only in the comment explaining the alias.
+    commands = [line for line in script.splitlines() if not line.lstrip().startswith("#")]
+    assert not any(earlier in line for line in commands)
+
+
+def test_the_release_also_publishes_the_appimage_under_its_earlier_name(tmp_path: Path) -> None:
+    """Installs frozen before the rename only look for PersonalJarvis-*: the
+    release copies the built AppImage to that name, byte for byte."""
+    from scripts.ci.installer_aliases import add_aliases
+    from scripts.ci.release_assets import INSTALLER_NAME_PAIRS, PLATFORM_INSTALLERS
+
+    current, earlier = INSTALLER_ASSET_NAMES[("linux", "x64")]
+    assert earlier == "PersonalJarvis-Linux-x86_64.AppImage"
+    assert (current, earlier) in INSTALLER_NAME_PAIRS
+    assert PLATFORM_INSTALLERS["linux"] == {current, earlier}
+    workflow = (_ROOT / ".github" / "workflows" / "desktop-installers.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "python scripts/ci/installer_aliases.py installers" in workflow
+
+    # Only the AppImage pair matters here; the other installers are stand-ins.
+    for other_current, _ in INSTALLER_NAME_PAIRS:
+        (tmp_path / other_current).write_bytes(b"other installer")
+    (tmp_path / current).write_bytes(b"\x7fELF appimage bytes")
+    written = add_aliases(tmp_path)
+
+    assert earlier in written
+    assert (tmp_path / earlier).read_bytes() == (tmp_path / current).read_bytes()
+
+
+def test_the_deb_keeps_its_earlier_asset_name_while_the_package_is_dodaios() -> None:
+    """The .deb file name keeps the earlier spelling; the package inside it is
+    dodaios and replaces the earlier package."""
+    script = _BUILD_SH.read_text(encoding="utf-8")
+    values = _assignments(script)
+    assert values["DEB_PACKAGE_NAME"] == "dodaios"
+    assert values["LEGACY_DEB_PACKAGE_NAME"] == "personal-jarvis"
     assert 'DEB_PATH="${OUT_DIR}/personal-jarvis_${VERSION}_amd64.deb"' in script
-    release_assets = (_ROOT / "scripts" / "ci" / "release_assets.py").read_text(encoding="utf-8")
-    assert "personal-jarvis_[0-9.]+_amd64" in release_assets
+    assert "Package: ${DEB_PACKAGE_NAME}\n" in script
+    from scripts.ci.release_assets import DEB_PATTERN
+
+    assert DEB_PATTERN.fullmatch("personal-jarvis_3.0.0_amd64.deb")
+    assert DEB_PATTERN.fullmatch("dodaios_3.0.0_amd64.deb")
