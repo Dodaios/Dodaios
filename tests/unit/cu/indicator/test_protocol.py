@@ -1,7 +1,7 @@
 """IPC protocol round-trip + garbage tolerance for the CU screen indicator."""
 from __future__ import annotations
 
-from jarvis.cu.indicator import protocol
+from dodaios.cu.indicator import protocol
 
 
 def test_command_round_trip_with_fields() -> None:

@@ -1,4 +1,4 @@
-from jarvis.marketplace.usage_cards.loader import UsageCard, load_usage_card
+from dodaios.marketplace.usage_cards.loader import UsageCard, load_usage_card
 
 
 def test_load_calendar_card_parses_frontmatter_and_body():

@@ -14,7 +14,7 @@ delegate only clear heavy chunks.
 """
 from __future__ import annotations
 
-from jarvis.brain.router import SYSTEM_PROMPT
+from dodaios.brain.router import SYSTEM_PROMPT
 
 
 class TestDelegatorPolicyInPrompt:

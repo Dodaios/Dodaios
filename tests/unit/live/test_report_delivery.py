@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.live import session as session_mod
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.session import LiveVoiceSession
+from dodaios.core import runtime_refs
+from dodaios.live import session as session_mod
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.session import LiveVoiceSession
 
 REPORT = '{"agent": "Scout", "status": "done", "report": "Three findings."}'
 

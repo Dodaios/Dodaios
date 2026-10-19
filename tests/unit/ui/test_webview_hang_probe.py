@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.ui.webview_hang_probe import (
+from dodaios.ui.webview_hang_probe import (
     REMOTE_DEBUGGING_FLAG,
     HangStackProbe,
     _active_port,

@@ -6,15 +6,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.core.protocols import ToolResult
-from jarvis.marketplace.catalog import PluginCatalog
-from jarvis.marketplace.custom_api import CustomApiStore
-from jarvis.marketplace.custom_api_runtime import CustomApiRuntime
-from jarvis.marketplace.plugin_registry import PluginToolRegistry
-from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
-from jarvis.ui.web.custom_api_routes import router
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.core.protocols import ToolResult
+from dodaios.marketplace.catalog import PluginCatalog
+from dodaios.marketplace.custom_api import CustomApiStore
+from dodaios.marketplace.custom_api_runtime import CustomApiRuntime
+from dodaios.marketplace.plugin_registry import PluginToolRegistry
+from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
+from dodaios.ui.web.custom_api_routes import router
 
 
 @pytest.fixture

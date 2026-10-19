@@ -15,8 +15,8 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.marketplace import catalog_data
-from jarvis.ui.web.marketplace_routes import router
+from dodaios.marketplace import catalog_data
+from dodaios.ui.web.marketplace_routes import router
 
 
 def _catalog(tmp_path: Path) -> Path:

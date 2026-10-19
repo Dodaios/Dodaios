@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-from jarvis.vision.pruning import (
+from dodaios.vision.pruning import (
     DEFAULT_INTERESTING_ROLES,
     RawNode,
     filter_by_depth,

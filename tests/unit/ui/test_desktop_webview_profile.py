@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.ui.desktop_app import WEBVIEW_PROFILE_DIRNAME, webview_storage_dir
+from dodaios.ui.desktop_app import WEBVIEW_PROFILE_DIRNAME, webview_storage_dir
 
 
 def test_profile_lives_under_the_data_dir(tmp_path: Path) -> None:
@@ -64,8 +64,8 @@ def test_no_writable_dir_means_none_not_a_crash(tmp_path: Path) -> None:
 
 
 def test_default_lives_next_to_the_other_per_checkout_state() -> None:
-    from jarvis.core.config import DATA_DIR
-    from jarvis.core.paths import user_data_dir
+    from dodaios.core.config import DATA_DIR
+    from dodaios.core.paths import user_data_dir
 
     got = webview_storage_dir()
 

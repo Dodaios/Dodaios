@@ -10,13 +10,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.live.config import LiveConfig
+from dodaios.live.config import LiveConfig
 
 
 @pytest.mark.asyncio
 async def test_warm_transport_preimports_without_network(monkeypatch) -> None:
     """First wake must not pay cold imports or DNS on the handshake path."""
-    from jarvis.plugins.realtime.openai_live import OpenAILiveProvider
+    from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
 
     # Removing only a package root corrupts imports in later SDK tests: its
     # cached submodules no longer belong to the reimported root object.
@@ -39,7 +39,7 @@ async def test_warm_transport_preimports_without_network(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_warm_transport_survives_offline_dns(monkeypatch) -> None:
     """Offline DNS must degrade to an unwarned call, never a failed warm."""
-    from jarvis.plugins.realtime.openai_live import OpenAILiveProvider
+    from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
 
     def _offline(*args, **kwargs):
         raise OSError("no network")
@@ -51,8 +51,8 @@ async def test_warm_transport_survives_offline_dns(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_factory_warm_reaches_openai_live(monkeypatch) -> None:
     """The boot worker must pick up the new capability for an explicit primary."""
-    from jarvis.plugins.realtime.openai_live import OpenAILiveProvider
-    from jarvis.realtime import factory
+    from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
+    from dodaios.realtime import factory
 
     seen: list[object] = []
     real_warm = OpenAILiveProvider.warm_transport
@@ -82,10 +82,10 @@ async def test_factory_warm_reaches_openai_live(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_start_opens_store_and_permit_concurrently(monkeypatch, tmp_path) -> None:
     """Ledger open and the connection budget must overlap, not stack."""
-    import jarvis.live.session as module
-    from jarvis.live.recovery import connection_permit as real_permit
-    from jarvis.live.session import LiveVoiceSession
-    from jarvis.live.state import LiveLedger
+    import dodaios.live.session as module
+    from dodaios.live.recovery import connection_permit as real_permit
+    from dodaios.live.session import LiveVoiceSession
+    from dodaios.live.state import LiveLedger
 
     events: list[tuple[str, float]] = []
 
@@ -107,7 +107,7 @@ async def test_start_opens_store_and_permit_concurrently(monkeypatch, tmp_path) 
     )
     monkeypatch.setattr(module, "user_data_dir", lambda: tmp_path)
     monkeypatch.setattr(module.LiveTools, "declarations", lambda self, **_kwargs: [])
-    monkeypatch.setattr("jarvis.live.recovery.connection_permit", _slow_permit)
+    monkeypatch.setattr("dodaios.live.recovery.connection_permit", _slow_permit)
     monkeypatch.setattr(module, "LiveLedger", _slow_ledger)
 
     sent: list[dict] = []

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui import tk_runtime
+from dodaios.ui import tk_runtime
 
 
 @pytest.fixture

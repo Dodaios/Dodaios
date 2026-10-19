@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import fleet_actions
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import (
+from dodaios.agentic_ide import fleet_actions
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import (
     PASTE_END,
     PASTE_START,
     Registry,
@@ -36,7 +36,7 @@ from tests.fakes.fake_pty_manager import FakePtyManager
 @pytest.mark.parametrize(
     "payload",
     [
-        "review this. @jarvis/agent_chat/typeahead.py",
+        "review this. @dodaios/agent_chat/typeahead.py",
         "check @tests/unit/test_x.py",
         "run /effort",
     ],
@@ -49,7 +49,7 @@ def test_a_trailing_reference_is_recognised(payload: str) -> None:
     "payload",
     [
         "review the pipeline please",
-        "look at @jarvis/x.py and report back",  # reference is not last
+        "look at @dodaios/x.py and report back",  # reference is not last
         "email me @",  # a bare @ opens nothing
         "10 / 2 is five",
     ],
@@ -219,8 +219,8 @@ async def test_a_trailing_reference_gets_a_closing_space(
 ) -> None:
     fake_pty.tui_echo = True  # a pane that draws what it is given
     term = await _live(registry, tmp_path)
-    await registry.send_prompt("Alex", "review this. @jarvis/x.py")
-    assert fake_pty.typed[0] == "review this. @jarvis/x.py ", fake_pty.typed
+    await registry.send_prompt("Alex", "review this. @dodaios/x.py")
+    assert fake_pty.typed[0] == "review this. @dodaios/x.py ", fake_pty.typed
     assert fake_pty.typed[1] == "\r"
     assert term.submitted is True
 

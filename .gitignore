@@ -48,14 +48,14 @@ build/
 # EXCEPTION: the built web UI ships IN the repo — a fresh clone/installer must
 # have a servable frontend without a Node toolchain (public installs relied on
 # this on every v1.0.x release). Rebuilt + committed as part of each release.
-!jarvis/ui/web/dist/
-!jarvis/ui/web/dist/**
-jarvis/ui/web/.frontend-*
+!dodaios/ui/web/dist/
+!dodaios/ui/web/dist/**
+dodaios/ui/web/.frontend-*
 
 # Installer-managed-install marker: written by install/installer.py at install
 # time to opt a checkout into in-app self-update. Must NEVER be committed — a
 # manual clone or a dev tree must not look like a managed install (else the
-# in-app updater could git-reset --hard it). See jarvis/ui/web/update_routes.py.
+# in-app updater could git-reset --hard it). See dodaios/ui/web/update_routes.py.
 .jarvis-managed-install
 # Atomic in-app update handoff/result files. They are local lifecycle state and
 # must never make a source checkout look like an update is pending.
@@ -67,7 +67,7 @@ jarvis/ui/web/.frontend-*
 # Jarvis Runtime-Daten (nie committen)
 data/*
 data/**/
-# The dev instance's runtime data (jarvis/core/instance.py) — same rule as data/.
+# The dev instance's runtime data (dodaios/core/instance.py) — same rule as data/.
 data-dev/
 *.db
 *.sqlite
@@ -78,19 +78,19 @@ data-dev/
 *.onnx
 models/
 # ...but the Silero VAD model we deliberately BUNDLE and ship in-repo is tracked
-# (jarvis/audio/vad.py loads it): it must ship in the base wheel so end-of-speech
+# (dodaios/audio/vad.py loads it): it must ship in the base wheel so end-of-speech
 # detection works out-of-the-box on a fresh install — it is NOT an ignored
 # user/cache model. Scoped to the exact file so nearby *.onnx (user-trained custom
 # wake models, Whisper cache) stay ignored. The word-agnostic openWakeWord feature
-# backbones under jarvis/assets/wakeword/ are likewise deliberately tracked — see
+# backbones under dodaios/assets/wakeword/ are likewise deliberately tracked — see
 # their own whitelist note below.
-!jarvis/assets/vad/silero_vad.onnx
+!dodaios/assets/vad/silero_vad.onnx
 # The word-agnostic openWakeWord feature backbones are deliberately BUNDLED and
-# shipped in-repo (jarvis/assets/__init__.py loads them for user-trained custom
+# shipped in-repo (dodaios/assets/__init__.py loads them for user-trained custom
 # wake models). Scoped to the exact files so nearby *.onnx (user-trained custom
 # wake models, Whisper cache) stay ignored. No branded hey_* model is tracked.
-!jarvis/assets/wakeword/melspectrogram.onnx
-!jarvis/assets/wakeword/embedding_model.onnx
+!dodaios/assets/wakeword/melspectrogram.onnx
+!dodaios/assets/wakeword/embedding_model.onnx
 
 # Audio-Blobs + Flight-Recorder-Traces
 blobs/
@@ -100,7 +100,7 @@ logs/
 # Stray screenshots & test artefacts (UI captures, GitHub shots, debug frames,
 # Browser-MCP screenshots, smoke-test backend logs). Root-level images are
 # throwaway scratch and must never be committed. Load-bearing images live under
-# jarvis/ui/web/frontend/public, jarvis/ui/web/dist, assets/icons, the mascot
+# dodaios/ui/web/frontend/public, dodaios/ui/web/dist, assets/icons, the mascot
 # art, and OS-Level/.../mascot-fallback.png — never at the repo root.
 /*.png
 /*.jpg
@@ -128,7 +128,7 @@ Screen Shot *
 # the working directory under its original name, so they appear in subdirectories
 # too and the root-only "/*.png" rules above miss them.
 #
-# Verified 2026-08-28: two such captures (jarvis/ui/web/frontend/pythonw_*.png)
+# Verified 2026-08-28: two such captures (dodaios/ui/web/frontend/pythonw_*.png)
 # did reach the public history this way before the first of these rules existed.
 # Written without an extension so the .gif and .mp4 variants are covered as well;
 # checked against `git ls-files` — no tracked path starts with any of these.
@@ -159,7 +159,7 @@ ChatGPT Image *
 
 # Canonical home for development/verification screenshots (see AGENTS.md).
 # The app's boot sweep consolidates stray root captures here and auto-prunes
-# them after 10 days (jarvis/core/screenshots.py). Folder is created on boot.
+# them after 10 days (dodaios/core/screenshots.py). Folder is created on boot.
 /screenshots/
 
 # Sub-Agent-Sandbox-Outputs (Research-/Demo-Drops, kein Projekt-Code)
@@ -186,8 +186,8 @@ wiki/wiki-backups/
 scripts/_*.png
 scripts/_*.json
 scripts/_flow_in_browser.png
-jarvis/assets/browser/wheels/
-jarvis/assets/browser/requirements-bundled.lock
+dodaios/assets/browser/wheels/
+dodaios/assets/browser/requirements-bundled.lock
 
 # IDE / OS
 .vscode/
@@ -250,7 +250,7 @@ git-worktree-status.csv
 /mcp.json
 
 # Personal knowledge-vault CONTENT. The vault self-creates on first run
-# (jarvis/memory/wiki/integration.py seeds schema.md); only the empty skeleton
+# (dodaios/memory/wiki/integration.py seeds schema.md); only the empty skeleton
 # (schema.md, README.md, 00-index/, 99-templates/) ships as a seed.
 wiki/obsidian-vault/sessions/
 wiki/obsidian-vault/_archive/
@@ -281,7 +281,7 @@ wiki/obsidian-vault/.obsidian/hotkeys.json
 /scratch/
 
 # Misc per-user state the code may write into the repo tree.
-# Anchored to the repo root so it does NOT also match the tracked `jarvis/state/`
+# Anchored to the repo root so it does NOT also match the tracked `dodaios/state/`
 # package (an unanchored `state/` silently dropped it from a fresh-clone release).
 /state/
 
@@ -292,9 +292,9 @@ wiki/obsidian-vault/.obsidian/hotkeys.json
 # the ad-hoc `verify_*.py` probes that land here. Never part of a release.
 /.bridge/
 /.bridgespace/
-# Pre-release dist backups (a snapshot copy of jarvis/ui/web/dist taken before a
+# Pre-release dist backups (a snapshot copy of dodaios/ui/web/dist taken before a
 # UI rework). The live build output is dist/, not these dated backup siblings.
-jarvis/ui/web/dist._predockpolish/
+dodaios/ui/web/dist._predockpolish/
 # Computer-Use restore points (plain no-git file snapshots taken before risky CU
 # work, with a restore script). Local safety nets, never committed.
 /cu-restore-points/
@@ -340,7 +340,7 @@ video/reel/
 # (render output is already covered by video/out/ + video/public/ above).
 video/*.png
 
-# Misplaced root-level duplicate of jarvis/voice/action_phrases.py.
+# Misplaced root-level duplicate of dodaios/voice/action_phrases.py.
 /action_phrases.py
 # Empty stray file (accidental version-string artifact).
 /0.26.0
@@ -414,7 +414,7 @@ Untitled document*
 
 # Agentic-IDE drop staging: files a user drags onto a pane land here, including
 # screenshots and clipboard images. The runtime writes a child .gitignore
-# (jarvis/agentic_ide/drops.py) but swallows a write failure, so anchor it here
+# (dodaios/agentic_ide/drops.py) but swallows a write failure, so anchor it here
 # too rather than relying on a best-effort side effect.
 /.jarvis/
 

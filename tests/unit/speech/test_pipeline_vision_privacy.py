@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.speech.pipeline import (
+from dodaios.speech.pipeline import (
     SpeechPipeline,
     _is_non_substantive_response,
     _smalltalk_fallback_for_non_substantive,

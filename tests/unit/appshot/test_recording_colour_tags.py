@@ -7,7 +7,7 @@ from fractions import Fraction
 import numpy as np
 import pytest
 
-from jarvis.appshot import hdr_recording
+from dodaios.appshot import hdr_recording
 
 
 def _decode_601(y: float, u: float, v: float) -> np.ndarray:
@@ -23,7 +23,7 @@ def test_libx264_recording_is_tagged_with_the_matrix_it_was_converted_with(tmp_p
     av = pytest.importorskip("av")
     if "libx264" not in av.codecs_available:
         pytest.skip("libx264 missing from this PyAV build")
-    from jarvis.appshot import recording_codec
+    from dodaios.appshot import recording_codec
 
     colours = [(255, 0, 0), (0, 255, 0), (40, 90, 200)]
     image = np.zeros((64, 64 * len(colours), 4), np.uint8)
@@ -61,7 +61,7 @@ def test_hdr_video_round_trips_through_a_software_encoder(tmp_path) -> None:
     av = pytest.importorskip("av")
     if "libx265" not in av.codecs_available and "libsvtav1" not in av.codecs_available:
         pytest.skip("no software 10-bit encoder in this PyAV build")
-    from jarvis.appshot.recording_codec import open_video
+    from dodaios.appshot.recording_codec import open_video
 
     path = tmp_path / "hdr.mp4"
     container, stream = open_video(av, path, (64, 64), 30, 4_000_000, hdr=True)
@@ -85,7 +85,7 @@ def test_hdr_video_round_trips_through_a_software_encoder(tmp_path) -> None:
 def test_clip_export_keeps_hdr_depth_and_every_colour_tag() -> None:
     from types import SimpleNamespace
 
-    from jarvis.appshot import video_edit
+    from dodaios.appshot import video_edit
 
     av = SimpleNamespace(codecs_available={"libsvtav1", "libx264"})
     hdr = SimpleNamespace(color_primaries=9, color_trc=16, colorspace=9, color_range=1)

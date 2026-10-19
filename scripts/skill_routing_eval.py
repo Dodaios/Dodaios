@@ -79,11 +79,11 @@ class _Fire:
 
 
 async def main() -> int:
-    from jarvis.brain.factory import build_default_brain
-    from jarvis.core.bus import EventBus
-    from jarvis.skills.prompt_injection import render_available_skills_section
-    from jarvis.skills.schema import SkillInvoked
-    from jarvis.skills.skill_context import try_get_skill_context
+    from dodaios.brain.factory import build_default_brain
+    from dodaios.core.bus import EventBus
+    from dodaios.skills.prompt_injection import render_available_skills_section
+    from dodaios.skills.schema import SkillInvoked
+    from dodaios.skills.skill_context import try_get_skill_context
 
     print("=" * 72)
     print("Skill-routing eval — does the router pick run-skill on a paraphrase?")

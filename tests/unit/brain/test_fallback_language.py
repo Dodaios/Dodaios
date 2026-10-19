@@ -17,14 +17,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.tool_use_loop import (
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.tool_use_loop import (
     _anti_silence_phrase,
     _meta_debug_ack_phrase,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ToolResult
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ToolResult
 
 _EN_ANTI_SILENCE = "I can't do that right now — I'm missing the right tool for it."
 _DE_ANTI_SILENCE_MARKER = "mir fehlt dafür das passende Werkzeug"  # i18n-allow: German TTS phrase

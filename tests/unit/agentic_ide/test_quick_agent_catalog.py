@@ -6,8 +6,8 @@ import threading
 
 import pytest
 
-from jarvis.ui.web import agentic_ide_routes as routes
-from jarvis.workspace import agents, launch_picks
+from dodaios.ui.web import agentic_ide_routes as routes
+from dodaios.workspace import agents, launch_picks
 
 
 @pytest.mark.parametrize("pty_available", [False, True])

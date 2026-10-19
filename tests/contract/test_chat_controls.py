@@ -11,17 +11,17 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.control_types import COMMANDS, CommandName, CommandRequest, GoalStatus
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.protocols import ToolResult
-from jarvis.core.tool_read_only import allows_read
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import ToolExecutor
-from jarvis.ui.web.agent_chat_routes import router
+from dodaios.agent_chat.control_types import COMMANDS, CommandName, CommandRequest, GoalStatus
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.protocols import ToolResult
+from dodaios.core.tool_read_only import allows_read
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import ToolExecutor
+from dodaios.ui.web.agent_chat_routes import router
 
 
 @pytest.mark.parametrize("platform", ["Windows", "Linux", "Darwin"])
@@ -58,7 +58,7 @@ def test_control_api_is_import_light_and_preserves_sessions(
 
 def test_python_sql_and_typescript_control_names_match() -> None:
     root = Path(__file__).resolve().parents[2]
-    ts = (root / "jarvis/ui/web/frontend/src/lib/chatControlApi.ts").read_text(encoding="utf-8")
+    ts = (root / "dodaios/ui/web/frontend/src/lib/chatControlApi.ts").read_text(encoding="utf-8")
     assert len(COMMANDS) == len(get_args(CommandName)) == 16
     for name in get_args(CommandName):
         assert f'"{name}"' in ts

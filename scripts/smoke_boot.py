@@ -480,7 +480,7 @@ def _spawn_app(python: str, port: int) -> subprocess.Popen:
     cmd = [
         python,
         "-m",
-        "jarvis.ui.web.launcher",
+        "dodaios.ui.web.launcher",
         "--headless",
         "--no-lock",
         "--port",

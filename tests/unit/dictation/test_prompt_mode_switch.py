@@ -17,10 +17,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import config_writer
-from jarvis.core.events import DictationPromptModeChanged
-from jarvis.dictation import prompt_mode
-from jarvis.dictation.prompt_mode_switch import (
+from dodaios.core import config_writer
+from dodaios.core.events import DictationPromptModeChanged
+from dodaios.dictation import prompt_mode
+from dodaios.dictation.prompt_mode_switch import (
     announce_prompt_mode,
     apply_prompt_mode,
     toggle_prompt_mode_pause,

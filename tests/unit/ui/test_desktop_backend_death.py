@@ -27,8 +27,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.ui import desktop_app
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.ui import desktop_app
+from dodaios.ui.desktop_app import DesktopApp
 
 # --- the recovery decision -------------------------------------------------
 

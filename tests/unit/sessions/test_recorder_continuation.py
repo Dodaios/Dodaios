@@ -11,18 +11,18 @@ from collections.abc import Iterator
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     VoiceSessionEnded,
     VoiceSessionStarted,
     VoiceTranscriptUpdated,
     VoiceTurnCompleted,
     VoiceTurnStarted,
 )
-from jarvis.sessions.continuation import continue_voice_session
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
-from jarvis.ui.web.chats_routes import _normalized_messages
+from dodaios.sessions.continuation import continue_voice_session
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
+from dodaios.ui.web.chats_routes import _normalized_messages
 
 
 @pytest.fixture(autouse=True)

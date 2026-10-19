@@ -118,7 +118,7 @@ These are proposed visual treatments, not renamed IDs or changed functions.
 
 These are not counted in the 95 files and cannot be replaced by swapping that directory alone.
 
-| Source under `jarvis/ui/web/frontend/src/components/society/world/` | Families requiring review/rework |
+| Source under `dodaios/ui/web/frontend/src/components/society/world/` | Families requiring review/rework |
 |---|---|
 | Village.tsx | Repeated houses, hub, square, hedges, lamps, festoon lighting |
 | Landmarks.tsx | Workshop, harbor/boat details, lighthouse, mine, campfire, greenhouses, solar field |

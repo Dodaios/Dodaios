@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from jarvis.missions.stream_evidence import _MUTATING_CMD_RE
+from dodaios.missions.stream_evidence import _MUTATING_CMD_RE
 
 
 @pytest.mark.parametrize(

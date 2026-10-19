@@ -28,8 +28,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta, ImageBlock
-from jarvis.cu.brain_call import CUNoVisionProviderError, call_vision_brain
+from dodaios.core.protocols import BrainDelta, ImageBlock
+from dodaios.cu.brain_call import CUNoVisionProviderError, call_vision_brain
 
 _TRUNCATED = '{"action": "open_app", "name": "'
 _COMPLETE = '[{"action": "open_app", "name": "Discord"}]'
@@ -109,7 +109,7 @@ _IMG = ImageBlock(mime="image/jpeg", data_b64="QQ==", source_hash="x")
 @pytest.fixture(autouse=True)
 def _no_backoff_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     """The transient retry waits 0.6 s in production — not in the suite."""
-    import jarvis.cu.brain_call as bc
+    import dodaios.cu.brain_call as bc
 
     monkeypatch.setattr(bc, "_TRANSIENT_RETRY_DELAY_S", 0.0)
 
@@ -171,7 +171,7 @@ async def test_account_failures_are_never_retried_in_place(detail: str) -> None:
 async def test_tool_model_calls_feed_the_health_record() -> None:
     """The Tool Model tab's dot reads what real CU steps did — it no longer
     sends a probe of its own. Only the classification is kept."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     alpha = _ScriptedBrain([RuntimeError(_BAD_KEY)])
     beta = _ScriptedBrain([(_COMPLETE, "stop")])
@@ -199,7 +199,7 @@ async def test_exhausted_chain_still_raises_the_no_provider_error() -> None:
 async def test_one_blip_does_not_block_the_candidate_for_the_mission() -> None:
     """The selector's mission-block is what made a 30-second spike cost the
     whole mission. A first transient failure keeps the candidate available."""
-    from jarvis.harness.computer_use_planner import ComputerUsePlannerSelector
+    from dodaios.harness.computer_use_planner import ComputerUsePlannerSelector
 
     selector = ComputerUsePlannerSelector(manager=object(), chain=[("alpha", "m")])
     selector.record_failure("alpha", "m", RuntimeError(_OVERLOADED))
@@ -211,7 +211,7 @@ async def test_one_blip_does_not_block_the_candidate_for_the_mission() -> None:
 
 async def test_account_failure_blocks_or_dead_lists_immediately() -> None:
     """A terminal credential state still leaves the chain on the FIRST hit."""
-    from jarvis.harness.computer_use_planner import ComputerUsePlannerSelector
+    from dodaios.harness.computer_use_planner import ComputerUsePlannerSelector
 
     class _Mgr:
         _dead_providers: set[str] = set()
@@ -246,7 +246,7 @@ async def test_second_call_starts_at_the_learned_headroom() -> None:
 async def test_headroom_is_remembered_per_model_not_globally() -> None:
     """A different model keeps the cheap small cap — the truncation is a
     property of the model, not of Computer-Use."""
-    import jarvis.cu.brain_call as bc
+    import dodaios.cu.brain_call as bc
 
     brain = _ScriptedBrain([
         (_TRUNCATED, "FinishReason.MAX_TOKENS"),

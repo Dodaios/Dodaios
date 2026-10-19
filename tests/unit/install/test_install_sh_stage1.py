@@ -15,7 +15,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 INSTALL_SH = Path(__file__).resolve().parents[3] / "install" / "install.sh"
 STOP_BEFORE_CLONE = 'if [ -d "$INSTALL_DIR/.git" ]; then'

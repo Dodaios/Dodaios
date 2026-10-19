@@ -6,7 +6,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from jarvis.missions.kontrollierer.decomposer import (
+from dodaios.missions.kontrollierer.decomposer import (
     EXTERNAL_SYSTEM_MARKERS,
     MAX_STEPS,
     SHORT_PROMPT_CHAR_LIMIT,
@@ -113,7 +113,7 @@ def _valid_plan_json() -> str:
             "steps": [
                 {
                     "slug": "refactor-auth",
-                    "prompt": "Refactor jarvis/auth/oauth.py",
+                    "prompt": "Refactor dodaios/auth/oauth.py",
                     "worker_cli": "claude",
                     "model": "sonnet",
                     "allowed_tools": "Read,Edit,Write,Bash,Grep,Glob",
@@ -298,10 +298,10 @@ async def test_german_html_news_task_is_lean() -> None:
 
 @pytest.mark.asyncio
 async def test_repo_bugfix_task_keeps_full_worktree() -> None:
-    """A repo-affinity marker (a jarvis/ path + 'bug') → needs_repo True even
+    """A repo-affinity marker (a dodaios/ path + 'bug') → needs_repo True even
     though it is a short single step."""
     d = MissionDecomposer(brain=None)
-    plan = await d.decompose("Fix the bug in jarvis/brain/manager.py")
+    plan = await d.decompose("Fix the bug in dodaios/brain/manager.py")
     assert len(plan.steps) == 1
     assert plan.steps[0].needs_repo is True
 
@@ -552,7 +552,7 @@ async def test_llm_cannot_mark_source_task_as_lean() -> None:
                 "steps": [
                     {
                         "slug": "fix-router",
-                        "prompt": "Fix the bug in jarvis/brain/manager.py",
+                        "prompt": "Fix the bug in dodaios/brain/manager.py",
                         "needs_repo": False,
                     }
                 ],
@@ -561,7 +561,7 @@ async def test_llm_cannot_mark_source_task_as_lean() -> None:
         )
 
     prompt = (
-        "Fix the bug in jarvis/brain/manager.py, commit it on a branch, open "
+        "Fix the bug in dodaios/brain/manager.py, commit it on a branch, open "
         "a GitHub pull request, and link the Jira issue with a Slack update. "
         "Preserve every existing behavior, add focused regression coverage, "
         "and explain the verification evidence in the pull request body."

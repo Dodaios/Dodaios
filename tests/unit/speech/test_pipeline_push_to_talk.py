@@ -26,13 +26,13 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.events import TranscriptionUpdate
-from jarvis.core.protocols import AudioChunk
-from jarvis.platform.permission_service import PermissionOutcome
-from jarvis.platform.permissions import PermissionId
-from jarvis.sessions.constants import HANGUP_HOTKEY, HANGUP_TURN_COMPLETE
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.events import TranscriptionUpdate
+from dodaios.core.protocols import AudioChunk
+from dodaios.platform.permission_service import PermissionOutcome
+from dodaios.platform.permissions import PermissionId
+from dodaios.sessions.constants import HANGUP_HOTKEY, HANGUP_TURN_COMPLETE
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
 from tests.fakes.fake_permission_service import FakePermissionService
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")
@@ -213,7 +213,7 @@ async def test_ptt_session_records_until_release_and_submits(monkeypatch):
     pipe._ptt_mode = True
     # 5 chunks = 500 ms — comfortably over the 300 ms min-hold gate.
     monkeypatch.setattr(
-        "jarvis.speech.pipeline.MicrophoneCapture",
+        "dodaios.speech.pipeline.MicrophoneCapture",
         lambda device=None, **kwargs: _FakeMic(chunks=[_CHUNK_100MS] * 5),
     )
     captured: dict[str, object] = {}
@@ -246,7 +246,7 @@ async def test_ptt_session_short_tap_submits_nothing(monkeypatch):
     pipe._ptt_mode = True
     # One 100 ms chunk, then immediate release → below the 300 ms gate.
     monkeypatch.setattr(
-        "jarvis.speech.pipeline.MicrophoneCapture",
+        "dodaios.speech.pipeline.MicrophoneCapture",
         lambda device=None, **kwargs: _FakeMic(chunks=[_CHUNK_100MS]),
     )
     handled = {"called": False}
@@ -268,7 +268,7 @@ async def test_ptt_session_hangup_during_hold_returns_hotkey(monkeypatch):
     _silence_side_effects(pipe)
     pipe._ptt_mode = True
     monkeypatch.setattr(
-        "jarvis.speech.pipeline.MicrophoneCapture",
+        "dodaios.speech.pipeline.MicrophoneCapture",
         lambda device=None, **kwargs: _FakeMic(chunks=[_CHUNK_100MS] * 3),
     )
     handled = {"called": False}
@@ -440,7 +440,7 @@ async def test_ptt_ack_plays_chime_only_without_dead_zone(monkeypatch):
     async def _fake_sleep(secs: float) -> None:
         slept.append(secs)
 
-    monkeypatch.setattr("jarvis.speech.pipeline.asyncio.sleep", _fake_sleep)
+    monkeypatch.setattr("dodaios.speech.pipeline.asyncio.sleep", _fake_sleep)
 
     await pipe._play_ack(ptt=True)
     # The chime plays in the background so the mic opens without waiting for
@@ -491,7 +491,7 @@ async def test_ptt_publishes_live_partials_while_holding(monkeypatch):
     pipe._publish_utterance_captured = _noop_captured  # type: ignore[method-assign]
     pipe._handle_utterance = _fake_handle  # type: ignore[method-assign]
     monkeypatch.setattr(
-        "jarvis.speech.pipeline.MicrophoneCapture",
+        "dodaios.speech.pipeline.MicrophoneCapture",
         lambda device=None, **kwargs: _FakeMic(chunks=[_CHUNK_100MS] * 10),  # ~1s buffered
     )
 
@@ -524,7 +524,7 @@ async def test_ptt_live_feed_disabled_when_interval_zero(monkeypatch):
 
     pipe._handle_utterance = _fake_handle  # type: ignore[method-assign]
     monkeypatch.setattr(
-        "jarvis.speech.pipeline.MicrophoneCapture",
+        "dodaios.speech.pipeline.MicrophoneCapture",
         lambda device=None, **kwargs: _FakeMic(chunks=[_CHUNK_100MS] * 10),
     )
 
@@ -671,7 +671,7 @@ async def test_ptt_release_recovers_timed_out_native_probe_before_final_stt(
     stt = _RecoverableNativeSTT()
     pipe._utterance_stt = stt  # type: ignore[assignment]
     monkeypatch.setattr(
-        "jarvis.speech.pipeline.MicrophoneCapture",
+        "dodaios.speech.pipeline.MicrophoneCapture",
         lambda device=None, **kwargs: _FakeMic(chunks=[_CHUNK_100MS] * 8),
     )
     captured: dict[str, object] = {}
@@ -852,7 +852,7 @@ async def test_a_wedged_dictation_warmup_replaces_the_provider(monkeypatch):
     """AP-24: timeout abandons the instance a native worker may still own."""
     import threading
 
-    import jarvis.speech.pipeline as pipeline_module
+    import dodaios.speech.pipeline as pipeline_module
 
     started = threading.Event()
     release = threading.Event()
@@ -918,7 +918,7 @@ async def test_ptt_hangup_recovers_live_probe_before_wake_rearm(monkeypatch):
     stt = _RecoverableBlockingSTT()
     pipe._utterance_stt = stt  # type: ignore[assignment]
     monkeypatch.setattr(
-        "jarvis.speech.pipeline.MicrophoneCapture",
+        "dodaios.speech.pipeline.MicrophoneCapture",
         lambda device=None, **kwargs: _FakeMic(chunks=[_CHUNK_100MS] * 8),
     )
 
@@ -942,7 +942,7 @@ async def test_non_ptt_ack_plays_spoken_ack_and_dead_zone(monkeypatch):
     async def _fake_sleep(secs: float) -> None:
         slept.append(secs)
 
-    monkeypatch.setattr("jarvis.speech.pipeline.asyncio.sleep", _fake_sleep)
+    monkeypatch.setattr("dodaios.speech.pipeline.asyncio.sleep", _fake_sleep)
 
     await pipe._play_ack(ptt=False)
     assert len(pipe._player.plays) == 2, "wake path plays chime + spoken ACK"

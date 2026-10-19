@@ -16,16 +16,16 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.brain import ollama_inventory, ollama_overview, ollama_pull, ollama_runtime
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.ui.web import local_models_routes
-from jarvis.ui.web.local_models_routes import OverviewResponse
-from jarvis.ui.web.server import WebServer
+from dodaios.brain import ollama_inventory, ollama_overview, ollama_pull, ollama_runtime
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.ui.web import local_models_routes
+from dodaios.ui.web.local_models_routes import OverviewResponse
+from dodaios.ui.web.server import WebServer
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-TS_FILE = REPO_ROOT / "jarvis/ui/web/frontend/src/hooks/useLocalModels.ts"
+TS_FILE = REPO_ROOT / "dodaios/ui/web/frontend/src/hooks/useLocalModels.ts"
 ROOT = "http://localhost:11434"
 BASE = "/api/providers/ollama/local-models"
 

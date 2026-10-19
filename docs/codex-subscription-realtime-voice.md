@@ -45,13 +45,13 @@ transport that cannot hold a dependable call.
   with conversational turns generated over the audited Codex app-server
   TEXT protocol on the dedicated, isolated ChatGPT voice login. This is
   the supported way to run voice on the ChatGPT plan. See
-  `jarvis/voice/subscription_profile.py`.
+  `dodaios/voice/subscription_profile.py`.
 - **API realtime voice** (`openai-realtime`, `gemini-live`,
   `local-realtime`): unchanged, metered or self-hosted.
 - **The isolated `codex-subscription-voice` login profile**, its
   provider routes (`/api/codex/subscription-voice/{status,login}`), status
   payloads, and the hardened app-server process containment in
-  `jarvis/codex_app_server.py` — all shared with the stable composition.
+  `dodaios/codex_app_server.py` — all shared with the stable composition.
   The unused `thread/realtime` RPC helpers inside `codex_app_server.py`
   remain as inert protocol-client surface; excising them is bounded
   follow-up work, not a runtime risk.

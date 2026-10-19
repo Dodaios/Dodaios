@@ -8,14 +8,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import SocietyMessageSent, SocietyRoomChanged
-from jarvis.society.events import MsgType
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.world_feed import ROOM_TYPES, VISIBLE_TYPES, WorldFeed, preview
-from jarvis.ui.web.schema import event_to_ws_envelope
+from dodaios.core.events import SocietyMessageSent, SocietyRoomChanged
+from dodaios.society.events import MsgType
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.world_feed import ROOM_TYPES, VISIBLE_TYPES, WorldFeed, preview
+from dodaios.ui.web.schema import event_to_ws_envelope
 
 _REPO = Path(__file__).resolve().parents[3]
-_CONVERSATION_TS = _REPO / "jarvis/ui/web/frontend/src/components/society/world/conversation.ts"
+_CONVERSATION_TS = _REPO / "dodaios/ui/web/frontend/src/components/society/world/conversation.ts"
 
 
 @pytest.fixture
@@ -221,7 +221,7 @@ def test_the_relay_is_wired_into_the_runtime(tmp_path: Path):
 
 
 async def test_a_result_reaches_the_app_bus_without_its_text(rt):
-    from jarvis.core.events import SocietyResultPosted
+    from dodaios.core.events import SocietyResultPosted
 
     runtime, pushed = rt
     await runtime.say(

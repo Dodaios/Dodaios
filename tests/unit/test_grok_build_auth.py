@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.grok_build_auth import (
+from dodaios.grok_build_auth import (
     GrokBuildAuthService,
     GrokBuildAuthStatus,
     _derive_auth,
@@ -29,7 +29,7 @@ def isolated_auth_scope(monkeypatch):
 
 
 def test_current_cli_store_connects_cards_and_agent_picker(monkeypatch, tmp_path):
-    from jarvis.ui.web.agent_chat_routes import _cli_subscription_connected
+    from dodaios.ui.web.agent_chat_routes import _cli_subscription_connected
 
     (tmp_path / "auth.json").write_text(
         json.dumps(

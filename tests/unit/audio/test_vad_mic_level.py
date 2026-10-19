@@ -1,4 +1,4 @@
-"""Integration: the VAD frame loop feeds jarvis.audio.mic_level from the audio
+"""Integration: the VAD frame loop feeds dodaios.audio.mic_level from the audio
 already captured for STT (the link that was missing — bars never reacted)."""
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from jarvis.audio import mic_level
-from jarvis.audio.vad import SileroEndpointer
+from dodaios.audio import mic_level
+from dodaios.audio.vad import SileroEndpointer
 
 
 async def _chunks(pcms):

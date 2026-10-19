@@ -16,7 +16,7 @@ import asyncio
 
 import pytest
 
-from jarvis.core import runtime_refs
+from dodaios.core import runtime_refs
 
 
 @pytest.fixture(autouse=True)

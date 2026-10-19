@@ -8,16 +8,16 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.events import MessageSent, SpeechSpoken
-from jarvis.core.protocols import AudioChunk
-from jarvis.sessions.constants import (
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.events import MessageSent, SpeechSpoken
+from dodaios.core.protocols import AudioChunk
+from dodaios.sessions.constants import (
     HANGUP_ERROR,
     HANGUP_HOTKEY,
     HANGUP_SHUTDOWN,
     HANGUP_TURN_COMPLETE,
 )
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakePlayer:
@@ -232,13 +232,13 @@ async def test_unpinned_browser_audio_engine_hands_the_call_to_the_browser(
         raise AssertionError("the native desktop session must not be built")
 
     monkeypatch.setattr(
-        "jarvis.realtime.factory.get_secret_any",
+        "dodaios.realtime.factory.get_secret_any",
         lambda candidates: (
             "gemini-key" if any(slot == "gemini_api_key" for slot, _ in candidates) else None
         ),
     )
-    monkeypatch.setattr("jarvis.live.runtime.run_browser_call", _browser_call)
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _native_build)
+    monkeypatch.setattr("dodaios.live.runtime.run_browser_call", _browser_call)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _native_build)
 
     reason = await asyncio.wait_for(_pipe()._active_realtime_session(), timeout=2.0)
 
@@ -260,7 +260,7 @@ async def test_desktop_realtime_handshake_streams_audio_and_ends_single_turn(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
 
     reason = await asyncio.wait_for(pipe._active_realtime_session(), timeout=2.0)
@@ -308,7 +308,7 @@ async def test_interim_audio_returns_to_thinking_before_final_answer(
     def _build(**kwargs):
         return _InterimSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
         pipeline_mod,
         "MicrophoneCapture",
@@ -348,7 +348,7 @@ async def test_surface_progress_ack_returns_to_thinking_while_the_tool_runs(
     result_pcm = b"\x0b\x00" * 16
     surface_tts = _FakeTTS(ack_pcm)
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda _cfg, _provider: surface_tts,
     )
 
@@ -385,7 +385,7 @@ async def test_surface_progress_ack_returns_to_thinking_while_the_tool_runs(
     def _build(**kwargs):
         return _ProgressAckSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
         pipeline_mod,
         "MicrophoneCapture",
@@ -422,7 +422,7 @@ async def test_unsafe_output_cancel_stops_playback_and_returns_to_listening(
     pipe._tts = _FakeTTS(b"\x0f\x00" * 32)
     surface_tts = _FakeTTS(fallback_pcm)
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda _cfg, _provider: surface_tts,
     )
     cancel_delivered = asyncio.Event()
@@ -449,7 +449,7 @@ async def test_unsafe_output_cancel_stops_playback_and_returns_to_listening(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
 
     task = asyncio.create_task(pipe._active_realtime_session())
@@ -513,7 +513,7 @@ async def test_error_spoken_renders_through_realtime_scoped_surface_tts(
         return surface_tts
 
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts", _scoped_surface_tts
+        "dodaios.plugins.tts.build_realtime_surface_tts", _scoped_surface_tts
     )
 
     class _ErrorSpokenSession(_HandshakeOnlyRealtimeSession):
@@ -533,7 +533,7 @@ async def test_error_spoken_renders_through_realtime_scoped_surface_tts(
     def _build(**kwargs):
         return _ErrorSpokenSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
 
     task = asyncio.create_task(pipe._active_realtime_session())
@@ -569,7 +569,7 @@ async def test_error_spoken_while_muted_is_held_and_delivered_on_unmute(
     surface_pcm = b"\x09\x00" * 32
     surface_tts = _FakeTTS(surface_pcm)
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda _cfg, _provider: surface_tts,
     )
     spoken_delivered = asyncio.Event()
@@ -589,7 +589,7 @@ async def test_error_spoken_while_muted_is_held_and_delivered_on_unmute(
     def _build(**kwargs):
         return _ErrorSpokenSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
 
     pipe._muted = True
@@ -629,7 +629,7 @@ async def test_held_muted_reply_stays_text_only_when_session_ends_muted(
     pipe = _pipe()
     surface_tts = _FakeTTS(b"\x0a\x00" * 32)
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda _cfg, _provider: surface_tts,
     )
     spoken_delivered = asyncio.Event()
@@ -649,7 +649,7 @@ async def test_held_muted_reply_stays_text_only_when_session_ends_muted(
     def _build(**kwargs):
         return _ErrorSpokenSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
 
     pipe._muted = True
@@ -727,7 +727,7 @@ async def test_tts_cancel_stops_surface_generator_before_it_can_reopen_output(
 
     surface_tts = _TwoChunkSurfaceTTS()
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda _cfg, _provider: surface_tts,
     )
 
@@ -757,7 +757,7 @@ async def test_tts_cancel_stops_surface_generator_before_it_can_reopen_output(
     def _build(**kwargs):
         return _SurfaceCancelSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
         pipeline_mod,
         "MicrophoneCapture",
@@ -799,7 +799,7 @@ async def test_tts_cancel_invalidates_surface_render_before_task_creation(
 
     pipe._set_turn_state = _set_state  # type: ignore[method-assign]
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda _cfg, _provider: surface_tts,
     )
 
@@ -826,7 +826,7 @@ async def test_tts_cancel_invalidates_surface_render_before_task_creation(
             kwargs["send_binary"], kwargs["send_json"]
         )
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
         pipeline_mod,
         "MicrophoneCapture",
@@ -875,7 +875,7 @@ async def test_error_spoken_without_realtime_scoped_tts_never_borrows_pipeline_v
 
     # No build_realtime_surface_tts mock: the REAL resolver runs and finds no
     # TTS sibling for the unmapped "fake-live" family.
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
 
     task = asyncio.create_task(pipe._active_realtime_session())
@@ -936,7 +936,7 @@ async def test_error_spoken_voice_hint_is_capability_gated(
     spoken_delivered = asyncio.Event()
 
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda _cfg, _provider: surface_tts,
     )
 
@@ -956,7 +956,7 @@ async def test_error_spoken_voice_hint_is_capability_gated(
     def _build(**kwargs):
         return _VoiceHintSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
 
     task = asyncio.create_task(pipe._active_realtime_session())
@@ -1054,9 +1054,9 @@ async def test_desktop_cpu_barge_in_cancels_and_forwards_user_preroll(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
+        "dodaios.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
     )
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _Mic())
 
@@ -1117,7 +1117,7 @@ async def test_classic_barge_grace_uses_physical_playback_probe(
             )
 
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
+        "dodaios.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
     )
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _Mic())
 
@@ -1225,9 +1225,9 @@ async def test_post_output_echo_tail_stays_local_and_preserves_immediate_user(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
+        "dodaios.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
     )
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _Mic())
 
@@ -1342,9 +1342,9 @@ async def test_post_output_tail_speech_is_buffered_and_flushed_not_dropped(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
+        "dodaios.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
     )
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _Mic())
 
@@ -1397,7 +1397,7 @@ async def test_terminal_teardown_rejects_audio_from_late_provider_callback(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
         pipeline_mod,
         "MicrophoneCapture",
@@ -1433,7 +1433,7 @@ async def test_completed_startup_tasks_do_not_end_healthy_realtime_session(
         loop.call_soon_threadsafe(built_ready.set)
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic())
     task = asyncio.create_task(pipe._active_realtime_session())
     await asyncio.wait_for(built_ready.wait(), timeout=0.5)
@@ -1461,7 +1461,7 @@ async def test_committed_realtime_turn_is_never_replayed_through_classic(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     buffer = pipeline_mod._SessionInputBuffer(  # noqa: SLF001
         initial=(AudioChunk(pcm=b"command", sample_rate=16_000, timestamp_ns=1),)
     )
@@ -1699,7 +1699,7 @@ async def test_desktop_loop_returns_voice_pattern_on_session_hangup(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
         pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _SilentMic()
     )
@@ -1720,8 +1720,8 @@ async def _collect_stream(pipe: SpeechPipeline, chunks: list) -> list:
 
 @pytest.mark.asyncio
 async def test_session_input_stream_feeds_mic_level() -> None:
-    from jarvis.audio import mic_level
-    from jarvis.audio.capture import AudioChunk
+    from dodaios.audio import mic_level
+    from dodaios.audio.capture import AudioChunk
 
     mic_level.reset_for_tests()
     levels: list[float] = []
@@ -1744,8 +1744,8 @@ async def test_session_input_stream_feeds_mic_level() -> None:
 
 @pytest.mark.asyncio
 async def test_session_input_stream_muted_feeds_no_level() -> None:
-    from jarvis.audio import mic_level
-    from jarvis.audio.capture import AudioChunk
+    from dodaios.audio import mic_level
+    from dodaios.audio.capture import AudioChunk
 
     mic_level.reset_for_tests()
     levels: list[float] = []
@@ -1769,8 +1769,8 @@ async def test_shared_input_keeps_meter_live_while_realtime_build_is_blocked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Provider/tool assembly must not starve the capture or Jarvis Bar."""
-    from jarvis.audio import mic_level
-    from jarvis.audio.capture import AudioChunk
+    from dodaios.audio import mic_level
+    from dodaios.audio.capture import AudioChunk
 
     pipe = _pipe()
     build_entered = threading.Event()
@@ -1781,7 +1781,7 @@ async def test_shared_input_keeps_meter_live_while_realtime_build_is_blocked(
         assert release_build.wait(timeout=1.0)
         return _FakeRealtimeSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     buffer = pipeline_mod._SessionInputBuffer()  # noqa: SLF001
     mic_level.reset_for_tests()
     levels: list[float] = []
@@ -1828,7 +1828,7 @@ async def test_realtime_builder_survives_exhausted_default_thread_pool(
         build_called.set()
         return _FakeRealtimeSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     buffer = pipeline_mod._SessionInputBuffer()  # noqa: SLF001
     try:
         reason = await asyncio.wait_for(
@@ -1856,7 +1856,7 @@ async def test_hangup_cancels_realtime_start_while_builder_is_blocked(
         release_build.wait(timeout=1.0)
         return _FakeRealtimeSession(kwargs["send_binary"], kwargs["send_json"])
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     buffer = pipeline_mod._SessionInputBuffer()  # noqa: SLF001
     task = asyncio.create_task(pipe._active_realtime_session(input_buffer=buffer))
     for _ in range(100):
@@ -1889,7 +1889,7 @@ async def test_capture_latency_extends_the_audible_phase(
     monkeypatch.setattr(pipeline_mod, "_REALTIME_POST_OUTPUT_ECHO_GUARD_S", 0.7)
     monkeypatch.setattr(pipeline_mod, "_REALTIME_HW_ECHO_TAIL_MARGIN_S", 0.2)
     monkeypatch.setattr(
-        "jarvis.audio.capture.last_input_latency_s", lambda: 0.3
+        "dodaios.audio.capture.last_input_latency_s", lambda: 0.3
     )
     output_finished = asyncio.Event()
     echo_pcm = b"\x01\x00" * 32  # 0.05 s after the turn: echo either way
@@ -1967,9 +1967,9 @@ async def test_capture_latency_extends_the_audible_phase(
         built["session"] = session
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
+        "dodaios.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
     )
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _Mic())
 
@@ -2074,9 +2074,9 @@ async def test_thinking_phase_barge_in_takes_the_floor_without_a_stop_word(
         ready.set()
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
+        "dodaios.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
     )
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _Mic())
 
@@ -2168,9 +2168,9 @@ async def test_thinking_barge_stays_disarmed_while_the_user_is_still_talking(
         ready.set()
         return session
 
-    monkeypatch.setattr("jarvis.realtime.factory.build_realtime_session", _build)
+    monkeypatch.setattr("dodaios.realtime.factory.build_realtime_session", _build)
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
+        "dodaios.realtime.desktop.DesktopRealtimeBargeInDetector", _Detector
     )
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", lambda **_kwargs: _Mic())
 

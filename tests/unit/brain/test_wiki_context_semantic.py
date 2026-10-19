@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.wiki_context import SEMANTIC_MIN_SCORE, WikiContextInjector
+from dodaios.brain.wiki_context import SEMANTIC_MIN_SCORE, WikiContextInjector
 
 BASE_PROMPT = "You are the assistant."
 PERSONAL = "What approach do I prefer when validating new connections?"

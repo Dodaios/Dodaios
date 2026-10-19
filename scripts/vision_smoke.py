@@ -56,7 +56,7 @@ class FakeVisionEngine:
         self.calls = 0
 
     async def observe(self, *, mode: str = "screenshot", **_: Any):
-        from jarvis.core.protocols import Observation
+        from dodaios.core.protocols import Observation
         self.calls += 1
         return Observation(
             trace_id=uuid4(),
@@ -72,13 +72,13 @@ class FakeVisionEngine:
 
 
 async def _build_router(vision_provider: Any | None = None):
-    from jarvis.brain.router import RouterBrain
-    from jarvis.brain.streaming import StreamingAggregate
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import (
+    from dodaios.brain.router import RouterBrain
+    from dodaios.brain.streaming import StreamingAggregate
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import (
         BrainProviderConfig, BrainTierConfig, JarvisConfig,
     )
-    from jarvis.core.protocols import BrainDelta, BrainRequest, ToolResult
+    from dodaios.core.protocols import BrainDelta, BrainRequest, ToolResult
 
     class _FakeTool:
         name = "bash"; description = ""; risk_tier = "monitor"
@@ -130,7 +130,7 @@ async def _build_router(vision_provider: Any | None = None):
 
 async def phase_smoke(png_path: str) -> dict[str, Any]:
     """Happy-path smoke: 1 Brain call with vision active."""
-    from jarvis.vision.context_provider import VisionContextProvider
+    from dodaios.vision.context_provider import VisionContextProvider
 
     engine = FakeVisionEngine(png_path, png_hash="smoke-hash-abc")
     provider = VisionContextProvider(engine, refresh_interval_s=0.05)
@@ -162,7 +162,7 @@ async def phase_smoke(png_path: str) -> dict[str, Any]:
 
 async def phase_benchmark(png_path: str, n: int = 20) -> dict[str, Any]:
     """N calls with vision, N without. Measurement: mean + p95 inject overhead."""
-    from jarvis.vision.context_provider import VisionContextProvider
+    from dodaios.vision.context_provider import VisionContextProvider
 
     # With vision
     engine = FakeVisionEngine(png_path)

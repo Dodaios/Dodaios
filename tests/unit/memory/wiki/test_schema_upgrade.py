@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.memory.wiki.integration import _ensure_schema_present
+from dodaios.memory.wiki.integration import _ensure_schema_present
 
 OLD_KINDS = "entity_kind: person | tool | repository | service | device"
 NEW_KINDS = (

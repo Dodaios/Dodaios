@@ -7,15 +7,15 @@
 **Goal:** TriggerMatcher live in the speech pipeline. Voice/hotkey/cron direct matches fire without a brain round-trip.
 
 **Building blocks:**
-- **D — TriggerMatcher Pre-Brain-Hook:** `jarvis/speech/pipeline.py:_handle_utterance` between the STT hallucination guard and `_complete_or_buffer_context`.
+- **D — TriggerMatcher Pre-Brain-Hook:** `dodaios/speech/pipeline.py:_handle_utterance` between the STT hallucination guard and `_complete_or_buffer_context`.
 - **E — Cron-Scheduler bootstrap:** `TriggerMatcher.run_cron_scheduler()` as an `asyncio.create_task` in `SpeechPipeline.run()`.
 - **H slice 1 — Conflict rule:** Direct match → `SkillDirectTriggered` event → brain path not entered. Idempotency window 5s.
 
 **Foundation chunks (in this order):**
-1. `jarvis/skills/skill_context.py` — singleton holder (~40 LOC)
-2. `SkillDirectTriggered` event in `jarvis/core/events.py`
+1. `dodaios/skills/skill_context.py` — singleton holder (~40 LOC)
+2. `SkillDirectTriggered` event in `dodaios/core/events.py`
 3. `match_voice()` state filter in `trigger_matcher.py` (DRAFT skip)
-4. Pipeline hook in `jarvis/speech/pipeline.py:_handle_utterance`
+4. Pipeline hook in `dodaios/speech/pipeline.py:_handle_utterance`
 5. Cron-scheduler task in `SpeechPipeline.run()`
 6. Voice-trigger-pattern audit for the 5 builtins (R10 mitigation: imperative-specific)
 
@@ -45,7 +45,7 @@
 **Goal:** The brain calls skills actively. Central phase.
 
 **Building blocks:**
-- **A — `run_skill` tool:** `jarvis/plugins/tool/run_skill.py` (~120 LOC). DI: `SkillRegistry` + `SkillRunner` via constructor.
+- **A — `run_skill` tool:** `dodaios/plugins/tool/run_skill.py` (~120 LOC). DI: `SkillRegistry` + `SkillRunner` via constructor.
 - **I — Skill-body injection (progressive disclosure):** On invocation, the body is injected into the brain as an **ephemeral** additional system message for that turn. No cache mix with the router prefix!
 - **H final — Idempotency:** `run_skill` checks the `SkillDirectTriggered` event of the last 5s for the same skill → skip.
 

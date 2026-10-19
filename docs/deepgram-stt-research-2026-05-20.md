@@ -1,7 +1,7 @@
 # Deepgram STT — Research Dossier (2026-05-20)
 
 **Status:** Research-only when written. **Item 1 of the implementation list
-was built on 2026-08-23** — `jarvis/plugins/stt/deepgram_api.py`, batch REST
+was built on 2026-08-23** — `dodaios/plugins/stt/deepgram_api.py`, batch REST
 against Nova-3, registered as the `deepgram-api` entry point and wired into the
 STT credential table and cross-family takeover order. Items 2-4 (a separate
 Nova-3 module, the Flux WebSocket plugin, and the pipeline rewiring that
@@ -85,17 +85,17 @@ The Jarvis-Agent that read the actual codebase found that **Deepgram has zero so
 - `pyproject.toml` (lines ~109-115) registers `deepgram`, `deepgram-flux`, `deepgram-nova3` (plus `openai-api`) — **all point to Python modules that do not exist on disk.**
 - The contract test [`tests/contract/test_stt_protocol.py:44-47`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/tests/contract/test_stt_protocol.py) literally documents them as ghost registrations and excludes them from `EXPECTED_PROVIDERS = {"groq-api"}`.
 - The `jarvis.toml` comments (`[turn] provider = "flux_integrated"`, the `deepgram-flux`/`deepgram-nova3` mentions) describe an **intended** architecture that was never built. `flux_integrated` is currently a NoOp plugin.
-- The wizard ([`wizard.py:87`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/jarvis/setup/wizard.py)) and provider-spec UI already know the credential key name `deepgram_api_key` (ENV `DEEPGRAM_API_KEY`) — so the secret plumbing is ready, only the plugin module is missing.
+- The wizard ([`wizard.py:87`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/dodaios/setup/wizard.py)) and provider-spec UI already know the credential key name `deepgram_api_key` (ENV `DEEPGRAM_API_KEY`) — so the secret plumbing is ready, only the plugin module is missing.
 
 **And the pipeline is batch-only:**
-- `_handle_utterance` ([`pipeline.py:~1929`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/jarvis/speech/pipeline.py)) calls `self._utterance_stt.transcribe_pcm(full_pcm, ...)` — one call, one final transcript, after the mic closes.
+- `_handle_utterance` ([`pipeline.py:~1929`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/dodaios/speech/pipeline.py)) calls `self._utterance_stt.transcribe_pcm(full_pcm, ...)` — one call, one final transcript, after the mic closes.
 - `stream_transcribe` exists in the protocol + Groq's shim but is **never called**.
 - There is no code path that reads interim transcripts during speech, regardless of provider.
 
 ### Groq = the parity target (what a finished Deepgram plugin needs)
-The working [`groq_api.py`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/jarvis/plugins/stt/groq_api.py) has: 3-tier auth (ctor → ENV → keyring `groq_api_key`), `transcribe`, `stream_transcribe` shim, `transcribe_pcm`, `_ensure_model` no-op, `aclose`, `supports_streaming` class attr, name matching the entry-point, no `jarvis.*` imports, wizard + provider-spec UI entries, and 8 contract tests.
+The working [`groq_api.py`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/dodaios/plugins/stt/groq_api.py) has: 3-tier auth (ctor → ENV → keyring `groq_api_key`), `transcribe`, `stream_transcribe` shim, `transcribe_pcm`, `_ensure_model` no-op, `aclose`, `supports_streaming` class attr, name matching the entry-point, no `dodaios.*` imports, wizard + provider-spec UI entries, and 8 contract tests.
 
-### STT protocol contract ([`protocols.py:220-235`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/jarvis/core/protocols.py))
+### STT protocol contract ([`protocols.py:220-235`](file:///<USER_HOME>/Desktop/Personal%20Jarvis/dodaios/core/protocols.py))
 Required: `name: str`, `supports_streaming: bool`, `async transcribe(AsyncIterator[AudioChunk]) -> Transcript`, `async stream_transcribe(...) -> AsyncIterator[Transcript]`. Plus the pipeline-practical `transcribe_pcm(...)` + `_ensure_model()`.
 
 ---
@@ -121,9 +121,9 @@ Required: `name: str`, `supports_streaming: bool`, `async transcribe(AsyncIterat
 
 ## What a future implementation would have to cover (NOT done — for the next decision)
 
-1. Build `jarvis/plugins/stt/deepgram.py` (batch REST, `name="deepgram"`, keyring `deepgram_api_key`, full protocol surface, no `jarvis.*` imports) — the Groq-parity baseline.
-2. Build `jarvis/plugins/stt/deepgram_nova3.py` (batch Nova-3).
-3. Build `jarvis/plugins/stt/deepgram_flux.py` (WebSocket streaming + EOT) — the hard one, and the one that delivers "tokens while speaking".
+1. Build `dodaios/plugins/stt/deepgram.py` (batch REST, `name="deepgram"`, keyring `deepgram_api_key`, full protocol surface, no `dodaios.*` imports) — the Groq-parity baseline.
+2. Build `dodaios/plugins/stt/deepgram_nova3.py` (batch Nova-3).
+3. Build `dodaios/plugins/stt/deepgram_flux.py` (WebSocket streaming + EOT) — the hard one, and the one that delivers "tokens while speaking".
 4. **Rewire the pipeline** to consume `stream_transcribe` / interim results + publish partial `TranscriptionUpdate` events — without this, streaming STT cannot be used regardless of provider.
 5. Contract-test coverage: add deepgram entries to `EXPECTED_PROVIDERS` + mocked-HTTP functional tests mirroring the 8 Groq tests.
 6. Config: `[stt]` keys for `model` (nova-3 / flux), `endpointing_ms`, `language` (de / multi), optional EU endpoint toggle.
@@ -136,7 +136,7 @@ Required: `name: str`, `supports_streaming: bool`, `async transcribe(AsyncIterat
 - Streaming: [Live streaming](https://developers.deepgram.com/docs/live-streaming-audio), [Interim results](https://developers.deepgram.com/docs/interim-results), [Endpointing](https://developers.deepgram.com/docs/endpointing), [Flux quickstart](https://developers.deepgram.com/docs/flux/quickstart)
 - Models/German: [Nova-3 German](https://deepgram.com/learn/deepgram-expands-nova-3-with-german-dutch-swedish-and-danish-support), [Multilingual code-switching](https://developers.deepgram.com/docs/multilingual-code-switching)
 - Pricing/Decision: [Pricing](https://deepgram.com/pricing), [Flux intro](https://deepgram.com/learn/introducing-flux-conversational-speech-recognition), [EU endpoint GA](https://deepgram.com/learn/deepgram-eu-endpoint-now-generally-available)
-- Repo evidence: `tests/contract/test_stt_protocol.py:34,44-47`, `pyproject.toml:109-115`, `jarvis/plugins/stt/groq_api.py`, `jarvis/core/protocols.py:220-235`, `jarvis/speech/pipeline.py:~1929`
+- Repo evidence: `tests/contract/test_stt_protocol.py:34,44-47`, `pyproject.toml:109-115`, `dodaios/plugins/stt/groq_api.py`, `dodaios/core/protocols.py:220-235`, `dodaios/speech/pipeline.py:~1929`
 
 ---
 

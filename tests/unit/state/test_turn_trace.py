@@ -1,4 +1,4 @@
-"""The reasoning trace of a turn survives the turn (jarvis/state/turn_trace.py).
+"""The reasoning trace of a turn survives the turn (dodaios/state/turn_trace.py).
 
 A trace is the event list the UI replays into "Thought for 4s" + steps. The
 collector keeps the bus's trace-relevant events in a ring, hands a turn its
@@ -11,8 +11,8 @@ from __future__ import annotations
 import sqlite3
 from uuid import uuid4
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ActionExecuted,
     ActionProposed,
     BrainTurnCompleted,
@@ -20,8 +20,8 @@ from jarvis.core.events import (
     HotkeyPressed,
     MessageSent,
 )
-from jarvis.state.chat_store import ChatStore
-from jarvis.state.turn_trace import (
+from dodaios.state.chat_store import ChatStore
+from dodaios.state.turn_trace import (
     TRACE_EVENT_KINDS,
     TurnTraceCollector,
     trace_from_events,
@@ -142,7 +142,7 @@ def test_trace_from_recorded_voice_rows_matches_collector_shape() -> None:
 
 
 def test_every_trace_kind_has_a_payload_whitelist() -> None:
-    from jarvis.state.turn_trace import _PAYLOAD_KEYS
+    from dodaios.state.turn_trace import _PAYLOAD_KEYS
 
     assert TRACE_EVENT_KINDS == frozenset(_PAYLOAD_KEYS)
 

@@ -1,4 +1,4 @@
-"""Unit tests for the OS media-session seam (``jarvis/platform/media_session``).
+"""Unit tests for the OS media-session seam (``dodaios/platform/media_session``).
 
 Every backend is driven through its injectable fake (a WinRT-shaped manager,
 a CLI runner) — no real player, no mocks. The picker is the part that decides
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from jarvis.platform.media_session import (
+from dodaios.platform.media_session import (
     LinuxMediaSession,
     MacMediaSession,
     NowPlaying,

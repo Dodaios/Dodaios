@@ -46,7 +46,7 @@ the same source of truth.
 
 ### 1. Single Source of Truth: `CapabilityRegistry`
 
-A new module `jarvis/core/capabilities.py` defines `Capability` (frozen
+A new module `dodaios/core/capabilities.py` defines `Capability` (frozen
 dataclass) and `CapabilityRegistry` (runtime singleton). Every tool, MCP
 server, harness adapter, and local-action pattern that is reachable via the
 voice path **must** be registered in the `CapabilityRegistry` at boot. No
@@ -68,7 +68,7 @@ class Capability:
 
 Seeding at boot (`bootstrap`):
 1. `ROUTER_TOOLS` frozenset → one `Capability` per tool, verbs and objects from
-   a static seed map in `jarvis/core/capabilities_seed.py`.
+   a static seed map in `dodaios/core/capabilities_seed.py`.
 2. `MCPRegistry.load` → `CapabilityRegistry.register(...)` for every namespaced
    MCP tool, verbs derived best-effort from schema descriptions plus optional
    user overrides in `[capabilities.mcp.<server>.<tool>]` in `jarvis.toml`.
@@ -79,7 +79,7 @@ Seeding at boot (`bootstrap`):
 
 ### 2. Pre-Generation Gate (two insertion points, regex-only)
 
-**(a) `jarvis/brain/local_action_gate.py`** — after `_normalize()`, before
+**(a) `dodaios/brain/local_action_gate.py`** — after `_normalize()`, before
 pattern checks, add:
 
 ```python
@@ -94,7 +94,7 @@ if registry.has_action_intent(normalized) and \
 New `LocalActionMode.UNSUPPORTED` routes directly to TTS; the brain is never
 called. This is intentionally AP-11 compliant — no LLM, regex-only.
 
-**(b) `jarvis/brain/manager.py`** — sibling check `_capability_resolves(text)`
+**(b) `dodaios/brain/manager.py`** — sibling check `_capability_resolves(text)`
 alongside the existing `_should_force_spawn` heuristic. If
 `has_action_intent AND NOT _capability_resolves AND NOT _is_smalltalk`:
 skip brain dispatch and Dodaios-Agent spawn; emit the deterministic UNSUPPORTED
@@ -118,7 +118,7 @@ A hard rule is appended:
 > user asks for one, respond with: "Das kann ich noch nicht — mir fehlt das  <!-- i18n-allow -->
 > passende Werkzeug." Do not invent tools.
 
-**3b. Ack-Brain forbidden vocabulary** (`jarvis/brain/ack_brain/persona_prompt.py`)
+**3b. Ack-Brain forbidden vocabulary** (`dodaios/brain/ack_brain/persona_prompt.py`)
 — extend the forbidden vocabulary with action-promise patterns:
 `"mache ich"`, `"wird erledigt"`, `"ist gesendet"`, `"ist eingetragen"`,  <!-- i18n-allow -->
 `"kümmere mich"`, `"I'll do that"`, `"will be sent"`, `"will be scheduled"`,  <!-- i18n-allow -->
@@ -130,7 +130,7 @@ tool-call evidence. If the mission's resolved `Capability` has
 `requires_evidence=True` and no tool-call evidence is present, `CriticVerdict`
 is `success=False` with `reason="capability_not_executed"`. `summary_de` is
 derived from tool-call evidence via `summarise_from_tool_calls(calls)` in
-`jarvis/missions/critic/summary.py`, not from the worker's text claim.
+`dodaios/missions/critic/summary.py`, not from the worker's text claim.
 
 For Dodaios-Agent missions in the current Welle-2 mock state (no tool-call telemetry
 streaming), the Critic **defaults to `success=False`** for
@@ -141,7 +141,7 @@ and will be relaxed in Welle 3 when proper tool-call telemetry lands.
 
 Adding a new capability (e.g. a Gmail MCP server) requires:
 
-1. Register the server via `mcp.json` or `jarvis.mcp` entry-point group.
+1. Register the server via `mcp.json` or `dodaios.mcp` entry-point group.
 2. `MCPRegistry.load` automatically calls `CapabilityRegistry.register(...)` for
    each namespaced tool — **zero edits** to brain, gate, filter, or critic.
 3. Optional: override verbs/objects via `[capabilities.mcp.gmail.send_mail]` in
@@ -184,7 +184,7 @@ contributor guide.
   default — accepting unverifiable success claims is the bug this ADR fixes.
   Welle-3 tool-call telemetry resolves this at the Critic layer; the gate and
   prompt layers are unaffected.
-- The output filter (`jarvis/brain/output_filter.py`) is **not touched**. This
+- The output filter (`dodaios/brain/output_filter.py`) is **not touched**. This
   is intentional (AP-11 preservation). Post-generation scrubbing is the wrong
   layer for capability enforcement; the gate is pre-generation.
 
@@ -221,13 +221,13 @@ not a confirmation loop for phantom capability.
 - Spec: `docs/plans/capability-coupling/SPEC.md`
 - Extensibility guide: `docs/plans/capability-coupling/EXTENSIBILITY.md`
 - Implementation:
-  - `jarvis/core/capabilities.py` (new — Agent A)
-  - `jarvis/core/capabilities_seed.py` (new — Agent A)
-  - `jarvis/brain/local_action_gate.py` (extended — Agent B)
-  - `jarvis/brain/manager.py` (prompt + gate — Agent C)
-  - `jarvis/brain/ack_brain/persona_prompt.py` (forbidden vocab — Agent C)
-  - `jarvis/missions/critic/runner.py` (honesty gate — Agent D)
-  - `jarvis/missions/critic/summary.py` (new — Agent D)
+  - `dodaios/core/capabilities.py` (new — Agent A)
+  - `dodaios/core/capabilities_seed.py` (new — Agent A)
+  - `dodaios/brain/local_action_gate.py` (extended — Agent B)
+  - `dodaios/brain/manager.py` (prompt + gate — Agent C)
+  - `dodaios/brain/ack_brain/persona_prompt.py` (forbidden vocab — Agent C)
+  - `dodaios/missions/critic/runner.py` (honesty gate — Agent D)
+  - `dodaios/missions/critic/summary.py` (new — Agent D)
 - Tests:
   - `tests/unit/core/test_capabilities.py` (Agent A)
   - `tests/unit/brain/test_local_action_gate.py` (Agent B)

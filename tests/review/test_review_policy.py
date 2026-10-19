@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.review.policy import PolicyDecision, ReviewPolicy
+from dodaios.core.review.policy import PolicyDecision, ReviewPolicy
 
 # ----------------------------------------------------------------------
 # Classification matrix
@@ -17,7 +17,7 @@ from jarvis.core.review.policy import PolicyDecision, ReviewPolicy
 # user-irreversible, or multi-step synthesis).
 # NOTE: the task strings below are simulated German user utterances —
 # they are the content under test for ReviewPolicy's German keyword
-# matcher (jarvis/core/review/policy.py) and must stay German.
+# matcher (dodaios/core/review/policy.py) and must stay German.
 SHOULD_REVIEW_CASES: list[tuple[str, str]] = [
     (
         "schreibe ein Python-Script in scripts/foo.py das alle .md-Files umbenennt",  # i18n-allow
@@ -32,7 +32,7 @@ SHOULD_REVIEW_CASES: list[tuple[str, str]] = [
         "generate + code-specific",
     ),
     (
-        "refactor jarvis/core/protocols.py — extract HarnessTask in eigenes Modul",  # i18n-allow
+        "refactor dodaios/core/protocols.py — extract HarnessTask in eigenes Modul",  # i18n-allow
         "refactor + code-edit",
     ),
     (

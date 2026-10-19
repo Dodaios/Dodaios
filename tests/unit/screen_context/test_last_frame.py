@@ -8,7 +8,7 @@ the capture path calls ``set`` regardless and must not have to care.
 
 from __future__ import annotations
 
-from jarvis.screen_context.last_frame import LastFrameMirror
+from dodaios.screen_context.last_frame import LastFrameMirror
 
 
 class _Clock:

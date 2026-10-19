@@ -1,6 +1,6 @@
 Hermes Agent bot avatar geometry and eye placement
 https://github.com/NousResearch/hermes-agent/blob/4a2bd7406ee3e09bd30a42cf9a7b970aac6edf9e/apps/desktop/src/plugins/hermes-bots/avatar.tsx
-Originally adapted in jarvis/ui/web/frontend/src/components/society/AgentSymbol.tsx.
+Originally adapted in dodaios/ui/web/frontend/src/components/society/AgentSymbol.tsx.
 Snapshotted in scripts/readme-video/src/identity/AgentSymbol.tsx.
 
 MIT License

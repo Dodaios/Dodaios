@@ -1,4 +1,4 @@
-"""Tests for the Set-of-Marks renderer (jarvis/vision/set_of_marks.py)."""
+"""Tests for the Set-of-Marks renderer (dodaios/vision/set_of_marks.py)."""
 from __future__ import annotations
 
 import os
@@ -6,8 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import UIANode
-from jarvis.vision.set_of_marks import Mark, render_set_of_marks
+from dodaios.core.protocols import UIANode
+from dodaios.vision.set_of_marks import Mark, render_set_of_marks
 
 pytest.importorskip("PIL")
 

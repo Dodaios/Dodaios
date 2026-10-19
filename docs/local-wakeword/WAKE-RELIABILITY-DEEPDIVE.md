@@ -31,7 +31,7 @@ not make it reliable, which is the signal to change the approach, not tune again
 
 ## What changed now (three fixes, all shipped + tested)
 
-1. **Use the GPU for the custom-phrase wake** — `jarvis/plugins/stt/__init__.py`.
+1. **Use the GPU for the custom-phrase wake** — `dodaios/plugins/stt/__init__.py`.
    On a CUDA box a custom phrase now transcribes on `large-v3-turbo/cuda` **with**
    the phrase bias instead of `base/cpu`. ~150 ms per window, so it **never blows
    the transcribe timeout** — this is what eliminates the wedge — and it hears the
@@ -39,10 +39,10 @@ not make it reliable, which is the signal to change the approach, not tune again
    name); the old "bias hallucinates on silence" worry does not apply on the
    rolling path, which gates on RMS/peak and never feeds the model a silent
    window. Reversible via the new `[stt].wake_high_accuracy` (default `true`).
-2. **Self-heal a wedge fast** — `jarvis/speech/rolling_whisper_wake.py`. Rebuild
+2. **Self-heal a wedge fast** — `dodaios/speech/rolling_whisper_wake.py`. Rebuild
    the wedged model after **2** consecutive failures instead of 5, so on any
    CPU-only host the deaf window is as short as possible.
-3. **Sound-folding matcher** — `jarvis/speech/wake_constants.py` +
+3. **Sound-folding matcher** — `dodaios/speech/wake_constants.py` +
    `wake_phrase.py`. Fold sound-equivalent spellings (`c`/`k`, `ck`, `ph`/`f`,
    `y`/`i`, doubled letters) before the fuzzy compare, so `Nova`/`Nova`/`Nicko`/
    `Nikko` all match without loosening the ratio (clearly different words still

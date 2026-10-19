@@ -1,4 +1,4 @@
-"""Tool-surface self-heal (jarvis/brain/tool_surface.py).
+"""Tool-surface self-heal (dodaios/brain/tool_surface.py).
 
 Live 2026-07-13: the plugin bootstrap wedged on one dead plugin, so the github
 MCP's 37 tools only reached the brain when their connect happened to beat the
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.tool_surface import (
+from dodaios.brain.tool_surface import (
     live_tool_surface_fingerprint,
     maybe_reconcile_tool_surface,
     stamp_tool_surface,
@@ -62,11 +62,11 @@ def _wire_sources(
     plugin: object = None,
     mcp: object = None,
 ) -> None:
-    monkeypatch.setattr("jarvis.clis.shared.get_active_registry", lambda: cli)
+    monkeypatch.setattr("dodaios.clis.shared.get_active_registry", lambda: cli)
     monkeypatch.setattr(
-        "jarvis.marketplace.plugin_shared.get_active_plugin_registry", lambda: plugin
+        "dodaios.marketplace.plugin_shared.get_active_plugin_registry", lambda: plugin
     )
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_mcp_registry", lambda: mcp)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_mcp_registry", lambda: mcp)
 
 
 def test_fingerprint_none_when_no_source_registry_reachable(monkeypatch):
@@ -95,12 +95,12 @@ def test_one_broken_source_does_not_blind_the_others(monkeypatch):
     def _boom():
         raise RuntimeError("registry exploded")
 
-    monkeypatch.setattr("jarvis.clis.shared.get_active_registry", _boom)
+    monkeypatch.setattr("dodaios.clis.shared.get_active_registry", _boom)
     monkeypatch.setattr(
-        "jarvis.marketplace.plugin_shared.get_active_plugin_registry",
+        "dodaios.marketplace.plugin_shared.get_active_plugin_registry",
         lambda: _FakeToolRegistry(["github/search_issues"]),
     )
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_mcp_registry", lambda: None)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_mcp_registry", lambda: None)
     fp = live_tool_surface_fingerprint()
     assert fp == frozenset({"plugin:github/search_issues"})
 

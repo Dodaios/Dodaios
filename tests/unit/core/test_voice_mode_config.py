@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from jarvis.core import config as cfg_mod
-from jarvis.core import config_writer
+from dodaios.core import config as cfg_mod
+from dodaios.core import config_writer
 
 
 def test_voice_mode_defaults_to_realtime():

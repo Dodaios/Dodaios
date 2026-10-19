@@ -16,10 +16,10 @@ from typing import Any
 import httpx
 import pytest
 
-import jarvis.brain.ollama_pull as pull
-import jarvis.core.config as cfg
-from jarvis.brain import ollama_inventory
-from jarvis.core.config import JarvisConfig
+import dodaios.brain.ollama_pull as pull
+import dodaios.core.config as cfg
+from dodaios.brain import ollama_inventory
+from dodaios.core.config import JarvisConfig
 
 #: Captured before any fixture swaps ``httpx.AsyncClient`` for the fake.
 _RealAsyncClient = httpx.AsyncClient
@@ -365,7 +365,7 @@ def test_a_machine_with_no_readable_gpu_falls_back_to_the_ram_rule() -> None:
 
 
 def test_accelerator_probe_survives_a_missing_hardware_module(monkeypatch) -> None:
-    import jarvis.hardware.detection as detection
+    import dodaios.hardware.detection as detection
 
     def _boom() -> tuple[float, str]:
         raise OSError("no nvidia-smi")
@@ -502,7 +502,7 @@ async def test_the_payload_names_the_hardware_it_judged_against(fake_tags, monke
 async def test_the_accelerator_is_probed_once_across_two_calls(fake_tags, monkeypatch) -> None:
     """``nvidia-smi`` costs hundreds of milliseconds; the section asks several
     times per paint, so the probe answers from a 60 s memo after the first."""
-    from jarvis.hardware import detection
+    from dodaios.hardware import detection
 
     probes: list[int] = []
 
@@ -562,7 +562,7 @@ def test_the_shortlist_only_advertises_roles_a_slot_can_take() -> None:
     than offering none: the embedding role went with the UltraWiki semantic
     memory, and the shortlist kept urging `qwen3-embedding:4b` on people who
     then had nowhere to put it (BUG-207)."""
-    from jarvis.brain.ollama_roles import ROLES
+    from dodaios.brain.ollama_roles import ROLES
 
     assignable = {spec.pull_role for spec in ROLES}
     orphaned = set(pull.ROLE_ORDER) - assignable

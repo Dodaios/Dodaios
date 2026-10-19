@@ -1,6 +1,6 @@
 """Everyday German words must not disarm the tool loop.
 
-Three deterministic guards in ``jarvis/brain/tool_use_loop.py`` keyed on plain
+Three deterministic guards in ``dodaios/brain/tool_use_loop.py`` keyed on plain
 vocabulary, so ordinary work turns were refused:
 
 * the how-to guard fired on any turn that merely OPENED with a question word,
@@ -23,14 +23,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.spawn_gate import OFFER_WINDOW
-from jarvis.brain.tool_use_loop import (
+from dodaios.brain.spawn_gate import OFFER_WINDOW
+from dodaios.brain.tool_use_loop import (
     ToolUseLoop,
     _is_instructional_question,
     _is_meta_debug_intent,
     _should_block_action_as_research,
 )
-from jarvis.core.protocols import BrainDelta, BrainRequest, ToolResult
+from dodaios.core.protocols import BrainDelta, BrainRequest, ToolResult
 
 
 class _NamedTool:

@@ -16,10 +16,10 @@ import types
 
 import pytest
 
-from jarvis.marketplace import discord_connect as dc
-from jarvis.marketplace import oauth_discord as do
-from jarvis.marketplace.catalog import OAuthPkceLoopbackAuth, PatPasteAuth, PluginSpec
-from jarvis.ui.web import marketplace_routes as mr
+from dodaios.marketplace import discord_connect as dc
+from dodaios.marketplace import oauth_discord as do
+from dodaios.marketplace.catalog import OAuthPkceLoopbackAuth, PatPasteAuth, PluginSpec
+from dodaios.ui.web import marketplace_routes as mr
 
 
 def _discord_spec() -> PluginSpec:
@@ -242,7 +242,7 @@ def _pkce_discord_spec(client_id: str) -> PluginSpec:
 def _token_store(access: str | None):
     tokens = None
     if access is not None:
-        from jarvis.marketplace.token_store import Tokens
+        from dodaios.marketplace.token_store import Tokens
 
         tokens = Tokens(access=access)
     return type("S", (), {"load": lambda self, _pid: tokens})()

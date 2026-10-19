@@ -1,4 +1,4 @@
-"""Unit tests for jarvis.brain.streaming.is_length_truncated.
+"""Unit tests for dodaios.brain.streaming.is_length_truncated.
 
 Pins the truncation guard that keeps a length-capped LLM generation out of
 durable memory. Covers every provider's finish-reason dialect plus the
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.streaming import is_length_truncated
+from dodaios.brain.streaming import is_length_truncated
 
 
 @pytest.mark.parametrize(

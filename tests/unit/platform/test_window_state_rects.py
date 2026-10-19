@@ -19,8 +19,8 @@ import sys
 import types
 from contextlib import nullcontext
 
-from jarvis.platform import window_state as ws
-from jarvis.platform.window_state import WindowInfo
+from dodaios.platform import window_state as ws
+from dodaios.platform.window_state import WindowInfo
 
 # ---------------------------------------------------------------------------
 # macOS (fake Quartz)
@@ -157,11 +157,11 @@ def test_windows_frame_rect_without_handle_is_none(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Native per-window capture seam (jarvis.platform.window_capture)
+# Native per-window capture seam (dodaios.platform.window_capture)
 # ---------------------------------------------------------------------------
 
 def test_grab_window_dispatches_to_native_windows_capture(monkeypatch):
-    from jarvis.platform import window_capture as wc
+    from dodaios.platform import window_capture as wc
 
     monkeypatch.setattr(wc, "detect_platform", lambda: "win32")
     monkeypatch.setattr(
@@ -181,8 +181,8 @@ def test_offscreen_rects_do_not_intersect_virtual_desktop():
 
 
 def test_windows_capture_uses_hwnd_and_rejects_ambiguous_framing(monkeypatch):
-    from jarvis.core import win32_dpi
-    from jarvis.platform import window_capture as wc
+    from dodaios.core import win32_dpi
+    from dodaios.platform import window_capture as wc
 
     calls: list[int] = []
 
@@ -209,8 +209,8 @@ def test_windows_capture_uses_hwnd_and_rejects_ambiguous_framing(monkeypatch):
 def test_windows_client_capture_is_padded_into_frame_coordinates(monkeypatch):
     from PIL import Image
 
-    from jarvis.core import win32_dpi
-    from jarvis.platform import window_capture as wc
+    from dodaios.core import win32_dpi
+    from dodaios.platform import window_capture as wc
 
     client_image = Image.new("RGB", (100, 80), color=(200, 10, 20))
     monkeypatch.setattr(wc, "os", types.SimpleNamespace(name="nt"))
@@ -237,7 +237,7 @@ def test_windows_client_capture_is_padded_into_frame_coordinates(monkeypatch):
 
 
 def test_grab_window_macos_degrades_without_frameworks(monkeypatch):
-    from jarvis.platform import window_capture as wc
+    from dodaios.platform import window_capture as wc
 
     monkeypatch.setattr(wc, "detect_platform", lambda: "darwin")
     monkeypatch.setitem(sys.modules, "ScreenCaptureKit", None)
@@ -350,7 +350,7 @@ def _install_fake_sck(monkeypatch, *, supports_shadow_suppression: bool):
 
 
 def test_macos_window_capture_disables_shadow_framing(monkeypatch):
-    from jarvis.platform import window_capture as wc
+    from dodaios.platform import window_capture as wc
 
     calls = _install_fake_sck(monkeypatch, supports_shadow_suppression=True)
 
@@ -363,7 +363,7 @@ def test_macos_window_capture_disables_shadow_framing(monkeypatch):
 
 
 def test_macos_window_capture_falls_back_without_shadow_suppression(monkeypatch):
-    from jarvis.platform import window_capture as wc
+    from dodaios.platform import window_capture as wc
 
     calls = _install_fake_sck(monkeypatch, supports_shadow_suppression=False)
 
@@ -372,7 +372,7 @@ def test_macos_window_capture_falls_back_without_shadow_suppression(monkeypatch)
 
 
 def test_grab_window_never_raises(monkeypatch):
-    from jarvis.platform import window_capture as wc
+    from dodaios.platform import window_capture as wc
 
     def boom():
         raise RuntimeError("platform probe exploded")

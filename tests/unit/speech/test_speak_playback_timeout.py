@@ -22,10 +22,10 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import (
     _TIMEOUT_NO_ANSWER_PHRASE,
     _TIMEOUT_TOOL_STALL_PHRASE,
     SPOKEN_KIND_COMPLETION,
@@ -477,7 +477,7 @@ async def test_fast_turn_with_stale_flag_logs_suppressed_warning(
     breadcrumb (so the stale-state event is still recorded for root-cause)."""
     p, spoken = _silent_turn_pipeline(flag=True, elapsed_s=0.1, floor=30.0)
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.speech.pipeline"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.speech.pipeline"):
         await p._handle_silent_brain_turn("de", "")
 
     assert spoken == []
@@ -498,7 +498,7 @@ async def test_spoken_warn_reports_no_first_frame_true_for_attribution(
     flag as True."""
     p, spoken = _silent_turn_pipeline(flag=True, elapsed_s=20.83, floor=30.0)
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.speech.pipeline"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.speech.pipeline"):
         await p._handle_silent_brain_turn("de", "")
 
     assert spoken == [_TIMEOUT_TOOL_STALL_PHRASE["de"]]

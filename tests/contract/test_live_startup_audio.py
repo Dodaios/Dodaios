@@ -9,16 +9,16 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.live import startup
-from jarvis.live.media import InputPrefix
-from jarvis.speech.pipeline import _SessionInputBuffer
+from dodaios.core.protocols import AudioChunk
+from dodaios.live import startup
+from dodaios.live.media import InputPrefix
+from dodaios.speech.pipeline import _SessionInputBuffer
 
 
 def test_input_prefix_python_typescript_field_parity():
     source = (
         Path(__file__).resolve().parents[2]
-        / "jarvis/ui/web/frontend/src/lib/startupAudio.ts"
+        / "dodaios/ui/web/frontend/src/lib/startupAudio.ts"
     ).read_text(encoding="utf-8")
     interface = source.split("export interface InputPrefix {", 1)[1].split("}", 1)[0]
     assert set(re.findall(r"^\s+(\w+):", interface, re.MULTILINE)) == set(InputPrefix.model_fields)

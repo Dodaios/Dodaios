@@ -11,9 +11,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.society_routes import router
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.society_routes import router
 from tests.fakes.team_chat import FakeTasks, TeamChatFake
 
 

@@ -17,13 +17,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ToolResult
-from jarvis.skills import match_log, relevance
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ToolResult
+from dodaios.skills import match_log, relevance
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 
 class _FakeSpawnTool:

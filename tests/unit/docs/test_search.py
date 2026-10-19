@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.docs.search as search_module
-from jarvis.docs.schema import Doc, DocFrontmatter
-from jarvis.docs.search import DocSearch
+import dodaios.docs.search as search_module
+from dodaios.docs.schema import Doc, DocFrontmatter
+from dodaios.docs.search import DocSearch
 
 
 def _doc(

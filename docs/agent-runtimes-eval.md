@@ -114,11 +114,11 @@ the P-45 update remains available in the original isolated commit. Activation
 requires a desktop restart. The running app's lifecycle guard requires an
 explicit desktop-UI click and rejects Control-API restart requests.
 
-- `jarvis/agent_chat/runner_acp.py`: native grants and route preparation.
-- `jarvis/agent_runtimes/model_limits.py`, `model_map.py`, `gateway.py`, `acp.py`:
+- `dodaios/agent_chat/runner_acp.py`: native grants and route preparation.
+- `dodaios/agent_runtimes/model_limits.py`, `model_map.py`, `gateway.py`, `acp.py`:
   shared budgets, catalog refresh, discovery and output limits.
-- `jarvis/agent_runtimes/hermes.py`, `openclaw.py`: runtime configuration.
-- `jarvis/brain/model_catalog.py`, `jarvis/live/subscription_reasoning.py`:
+- `dodaios/agent_runtimes/hermes.py`, `openclaw.py`: runtime configuration.
+- `dodaios/brain/model_catalog.py`, `dodaios/live/subscription_reasoning.py`:
   preserve provider-declared limits, including catalog cache reloads.
 - `scripts/spikes/agent_runtimes_e2e.py`,
   `scripts/spikes/agent_runtimes_gateway_e2e.py`: contained probes and replay.

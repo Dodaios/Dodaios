@@ -69,7 +69,7 @@ own app.
 
 - Windows: verified in the desktop app's WebView2 build.
 - macOS: pywebview's WKWebView host takes some Command shortcuts before the
-  page. `jarvis/ui/macos_editor_keys.py` routes **Cmd+W** to the page so it
+  page. `dodaios/ui/macos_editor_keys.py` routes **Cmd+W** to the page so it
   closes an editor tab instead of the window; **Cmd+Z** reaches the editor
   through the native undo. Not yet checked on a Mac.
 - Linux: pywebview's GTK and Qt hosts do not intercept keys, so the shortcuts
@@ -94,7 +94,7 @@ own app.
 
 ## Where it lives
 
-- Backend: `jarvis/agentic_ide/file_editing.py` (read, save, create, copy,
+- Backend: `dodaios/agentic_ide/file_editing.py` (read, save, create, copy,
   move, delete, encodings), `file_search.py` (search and replace),
   `editor_backups.py` (open tabs and unsaved text), `python_intel.py`
   (Python completions, hovers, definitions), and the
@@ -102,7 +102,7 @@ own app.
   `file-list`, `search`, `search/replace`, `python/{action}`,
   `editor-state`, `entries`,
   `entries/copy`, `entries/move` and `entries/delete` in
-  `jarvis/ui/web/agentic_ide_routes.py`.
+  `dodaios/ui/web/agentic_ide_routes.py`.
 - Frontend: `components/agentic/editor/`, `store/codeEditor.ts`, the Folder
   and Changes tabs in `components/agentic/sidePanel/explorer/ExplorerPanel.tsx`
   and the Search tab in `components/agentic/sidePanel/search/`.

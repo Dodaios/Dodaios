@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 import pytest
 
-from jarvis.brain import ack_generator, local_outcome_gate, mission_command_gate, output_filter
+from dodaios.brain import ack_generator, local_outcome_gate, mission_command_gate, output_filter
 
 _BUDGET_S = 1.0
 _N = 50_000

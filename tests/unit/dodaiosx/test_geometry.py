@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.dodaiosx import geometry
+from dodaios.dodaiosx import geometry
 
 # A 4K panel at 150 % left of a 1080p panel at 100 %, as Windows reports it to
 # a per-monitor DPI aware process (physical pixels).

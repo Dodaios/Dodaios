@@ -14,13 +14,13 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.events import ActionExecuted, ActionProposed
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import ToolExecutor
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.events import ActionExecuted, ActionProposed
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import ToolExecutor
 
 
 class _SafeTool:

@@ -1,15 +1,15 @@
-"""Exports Pydantic models from jarvis.ui.web.schema as JSON schema."""
+"""Exports Pydantic models from dodaios.ui.web.schema as JSON schema."""
 import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "jarvis/ui/web/frontend/src/schema/ws.json"
+OUT = ROOT / "dodaios/ui/web/frontend/src/schema/ws.json"
 
 
 def main() -> int:
     try:
-        from jarvis.ui.web.schema import (
+        from dodaios.ui.web.schema import (
             WSCommand,
             WSEventEnvelope,
             WSMessageIn,

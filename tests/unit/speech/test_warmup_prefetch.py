@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import threading
 
-from jarvis.speech.warmup_prefetch import (
+from dodaios.speech.warmup_prefetch import (
     prefetch_anthropic_imports,
     prefetch_wake_imports,
     start_anthropic_import_prefetch,

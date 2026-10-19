@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import git_local, git_ops, git_overview, github_link, github_pulls
-from jarvis.agentic_ide.git_ops import GitError
-from jarvis.agentic_ide.git_overview import CiStatus, PullRequest
+from dodaios.agentic_ide import git_local, git_ops, git_overview, github_link, github_pulls
+from dodaios.agentic_ide.git_ops import GitError
+from dodaios.agentic_ide.git_overview import CiStatus, PullRequest
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
@@ -258,7 +258,7 @@ def _open(monkeypatch: pytest.MonkeyPatch, folder: Path) -> None:
     """Make ``folder`` the open workspace ``w1`` — the Git tab's actions act on nothing else."""
     from types import SimpleNamespace
 
-    from jarvis.ui.web import agentic_ide_git_routes as routes
+    from dodaios.ui.web import agentic_ide_git_routes as routes
 
     session = SimpleNamespace(folder=str(folder), terminals=[])
     registry = SimpleNamespace(
@@ -334,7 +334,7 @@ def test_the_delete_route_takes_a_merged_pull_request_as_proof(
 ) -> None:
     from fastapi import HTTPException
 
-    from jarvis.ui.web import agentic_ide_git_routes as routes
+    from dodaios.ui.web import agentic_ide_git_routes as routes
 
     _git(repo, "switch", "-q", "-c", "feature/squashed")
     tip = _commit(repo, "b.txt")
@@ -406,7 +406,7 @@ def test_github_refusing_a_pull_request_is_said_in_its_own_words(
 def test_the_pull_request_route_pushes_and_titles_from_the_first_commit(
     repo: Path, remote: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.ui.web import agentic_ide_git_routes as routes
+    from dodaios.ui.web import agentic_ide_git_routes as routes
 
     _git(repo, "switch", "-q", "-c", "feature/x")
     _commit(repo, "b.txt")
@@ -546,7 +546,7 @@ def test_deleting_the_remote_branch_too_never_counts_it_as_a_safe_copy(
 def test_a_worktree_an_agent_pane_runs_in_counts_as_open(monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
 
-    from jarvis.ui.web import agentic_ide_git_routes as routes
+    from dodaios.ui.web import agentic_ide_git_routes as routes
 
     pane = SimpleNamespace(cwd=lambda workspace: "/code/app/.worktrees/agent-x")
     plain = SimpleNamespace(cwd=lambda workspace: workspace)
@@ -620,7 +620,7 @@ def test_the_tab_actions_only_act_on_an_open_workspace(
 ) -> None:
     from fastapi import HTTPException
 
-    from jarvis.ui.web import agentic_ide_git_routes as routes
+    from dodaios.ui.web import agentic_ide_git_routes as routes
 
     _open(monkeypatch, repo)
     for call in (
@@ -642,8 +642,8 @@ def test_an_open_workspace_is_a_folder_threads_may_read(
 ) -> None:
     from types import SimpleNamespace
 
-    from jarvis.agentic_ide import library, thread_folders
-    from jarvis.agentic_ide import session as ide_session
+    from dodaios.agentic_ide import library, thread_folders
+    from dodaios.agentic_ide import session as ide_session
 
     opened = tmp_path / "opened"
     opened.mkdir()

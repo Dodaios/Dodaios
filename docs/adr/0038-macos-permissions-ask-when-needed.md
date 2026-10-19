@@ -48,7 +48,7 @@ banner, a wizard, a readiness gate or refusing to let the OS show its own dialog
 
 **Ask when needed.** A feature asks the operating system at the moment the user first
 uses it or switches it on, from a user gesture, through one module,
-`jarvis/platform/permission_service.py`. macOS shows its own dialog. A denial degrades
+`dodaios/platform/permission_service.py`. macOS shows its own dialog. A denial degrades
 that one feature honestly (originally with a card and a passive Settings > Privacy page; since
 the amendment below, with one short toast and one action). Nothing is asked at launch and
 nothing nags.
@@ -88,10 +88,10 @@ This is rule AP-35. Its nine principles are binding:
 9. **An AI agent never answers a system dialog.** Agent-facing text is prohibitive; the
    computer-use engine pauses while a macOS consent window is frontmost.
 
-The contract is the `PermissionGate` protocol (`jarvis/core/protocols.py`): `check`
+The contract is the `PermissionGate` protocol (`dodaios/core/protocols.py`): `check`
 (silent, never prompts), `ensure` and `ensure_async` (interactive, only from a gesture
 entry), `ensure_all` and `open_settings`. The service
-(`jarvis/platform/permission_service.py`) adds `outstanding`, `add_listener`,
+(`dodaios/platform/permission_service.py`) adds `outstanding`, `add_listener`,
 `report_failed_use`, `report_use_ok`, `note_reset` and `attach_bus`, which consumers reach
 only through the service or by capability lookup. Off macOS it returns NOT_REQUIRED
 before touching the port. Two frozen events, `PermissionNeeded` and
@@ -110,7 +110,7 @@ upgrade (`macos-tcc-reset.json`, `macos-automation-consent.json`, the stored ban
 dismissal key, a stored onboarding step `permissions`) are never read, or mapped,
 and never prompt. The port's old members (`FEATURE_REQUIREMENTS`, `active_features`,
 `runtime_access_granted`, the legacy `snapshot` / `request`) are deleted from
-`jarvis/platform/permissions.py`, and a ratchet test
+`dodaios/platform/permissions.py`, and a ratchet test
 (`tests/unit/platform/test_no_legacy_permission_api.py`) fails if one returns. The
 source installer removes the two leftover state files once, on its next run
 (`remove_leftover_state_files`, called from `ensure_macos_app_bundle`). The frozen
@@ -134,7 +134,7 @@ Recording grant conflicts, so the design works either way: the backend re-probes
 tries a real capture, and offers "Quit and reopen" only after a real failed attempt.
 The app never restarts itself for a permission.
 
-**Event catalog exclusion.** `jarvis/tasks/event_catalog.py` excludes
+**Event catalog exclusion.** `dodaios/tasks/event_catalog.py` excludes
 `PermissionNeeded` and `PermissionResolved` from routine triggers. A routine or agent
 reacting to a permission event could end up answering or steering a system dialog,
 which principle 9 forbids; the exclusion is a one-way decision recorded here. No agent
@@ -219,7 +219,7 @@ temporary branch push trigger of commit `59749f859` was reverted in `945fe7949`)
   `getUserMedia`; the delegate grant stays an open item (risk R1).
 - **`report_failed_use` coverage.** `report_failed_use` produces the `restart_hint` only
   for Screen Recording and Input Monitoring (`_RESTART_HINT_FAMILIES`). Its callers for
-  those are the Input Monitoring tap (`jarvis/trigger/backends/quartz.py`, once per tap
+  those are the Input Monitoring tap (`dodaios/trigger/backends/quartz.py`, once per tap
   when no raw events arrive) and the Screen Recording capture path
   (`screen_access._unusable_grant_refusal`, when other apps' windows show no readable
   title while the state reads granted). Automation has its own path: the ducking module
@@ -256,7 +256,7 @@ still fails; that silence is the only gap left.
    note, tip, popover or Settings page for permissions. The deleted frontend pieces,
    their tests, the Python parity tests that read their TypeScript twins, the
    `shortcuts_status` field of `GET /api/settings/keybinds` with
-   `jarvis/trigger/shortcuts_status.py`, and about 170 of the 184 permission strings per
+   `dodaios/trigger/shortcuts_status.py`, and about 170 of the 184 permission strings per
    language are removed. The service, its episodes and watcher, the routes (`status`, `{id}`,
    `request`, `open-settings`, `reset`), snapshot v2, the events, the CLI, the wake-loop resume,
    the hotkey re-arm and the boot rule stay.

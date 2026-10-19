@@ -98,7 +98,7 @@ def check_pair(project_path: Path, requirements_path: Path) -> int:
 
 
 def main() -> int:
-    browser = REPO_ROOT / "jarvis" / "assets" / "browser"
+    browser = REPO_ROOT / "dodaios" / "assets" / "browser"
     base_result = check_pair(PYPROJECT, REQUIREMENTS_IN)
     browser_result = check_pair(browser / "pyproject.toml", browser / "requirements.in")
     return max(base_result, browser_result)

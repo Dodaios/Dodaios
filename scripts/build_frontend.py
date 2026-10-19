@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FE = ROOT / "jarvis" / "ui" / "web" / "frontend"
+FE = ROOT / "dodaios" / "ui" / "web" / "frontend"
 
 
 def main() -> int:

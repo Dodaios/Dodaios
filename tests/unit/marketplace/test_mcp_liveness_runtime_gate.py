@@ -5,7 +5,7 @@ liveness on the launcher being on PATH and surface ``runtime_missing``.
 """
 from __future__ import annotations
 
-from jarvis.ui.web.marketplace_routes import _mcp_live
+from dodaios.ui.web.marketplace_routes import _mcp_live
 
 
 def test_http_transport_is_always_live():
@@ -28,7 +28,7 @@ def test_no_transport_is_not_live():
 
 
 def test_http_connected_with_zero_live_tools_is_not_live(monkeypatch):
-    from jarvis.ui.web import marketplace_routes as mr
+    from dodaios.ui.web import marketplace_routes as mr
 
     class _Reg:
         def is_bootstrapped(self): return True
@@ -42,7 +42,7 @@ def test_http_connected_with_zero_live_tools_is_not_live(monkeypatch):
 
 
 def test_http_without_registry_stays_live(monkeypatch):
-    from jarvis.ui.web import marketplace_routes as mr
+    from dodaios.ui.web import marketplace_routes as mr
 
     monkeypatch.setattr(mr, "_live_plugin_registry", lambda: None)
     live, hint = mr._mcp_live({"transport": "http"}, plugin_id="notion", status="connected")
@@ -53,7 +53,7 @@ def test_http_with_unbootstrapped_registry_stays_live(monkeypatch):
     """Boot window: the registry is published before its background bootstrap
     has connected any plugin, so every live_tool_count() reads 0 although
     nothing is dead. The downgrade must wait for is_bootstrapped()."""
-    from jarvis.ui.web import marketplace_routes as mr
+    from dodaios.ui.web import marketplace_routes as mr
 
     class _Reg:
         def is_bootstrapped(self): return False

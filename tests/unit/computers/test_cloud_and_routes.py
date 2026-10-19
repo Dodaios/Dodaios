@@ -9,9 +9,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.computers import cloud
-from jarvis.computers.service import ComputerService
-from jarvis.ui.web import computers_routes
+from dodaios.computers import cloud
+from dodaios.computers.service import ComputerService
+from dodaios.ui.web import computers_routes
 
 
 async def test_hostinger_attach_creates_the_key_once_and_attaches_it(secret_box) -> None:  # noqa: ANN001

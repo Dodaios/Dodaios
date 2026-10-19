@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     JarvisChatTurnFinished,
     MissionCompleted,
     ProgressionAwarded,
@@ -17,9 +17,9 @@ from jarvis.core.events import (
     SocietyResultPosted,
     VoiceTurnCompleted,
 )
-from jarvis.progression.rules import RULES_BY_SOURCE
-from jarvis.progression.service import ProgressionService, UnknownAction
-from jarvis.progression.store import ProgressionStore
+from dodaios.progression.rules import RULES_BY_SOURCE
+from dodaios.progression.service import ProgressionService, UnknownAction
+from dodaios.progression.store import ProgressionStore
 
 
 class Clock:

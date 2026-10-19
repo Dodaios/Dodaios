@@ -7,10 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.society.browser import recovery as recovery_module
-from jarvis.society.browser.live import LiveSession, LiveSessions
-from jarvis.society.browser.recovery import restart_browser
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.society.browser import recovery as recovery_module
+from dodaios.society.browser.live import LiveSession, LiveSessions
+from dodaios.society.browser.recovery import restart_browser
 from tests.fakes.fake_browser_profiles import ProfileSession
 from tests.fakes.fake_society_shutdown import RecordingProcessTree
 
