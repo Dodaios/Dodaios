@@ -412,6 +412,8 @@ def test_truncated_shortcut_readback_is_drift_not_a_match(monkeypatch) -> None:
     bare = LaunchSpec(program=r"C:\Python\pythonw.exe", args=(), working_dir="")
     encoded = base64.b64encode(bare.program.encode("utf-8")).decode("ascii")
     monkeypatch.setattr(Path, "exists", lambda self: True)
+    # Force the PowerShell read-back path: in-process COM is "not possible here".
+    monkeypatch.setattr(win_mod, "_read_shortcut_in_process", lambda link: None)
     monkeypatch.setattr(
         win_mod,
         "_run_powershell",
@@ -528,3 +530,79 @@ def test_elevated_launcher_fails_safe_on_a_null_exit_code(monkeypatch) -> None:
     assert "if ($null -eq $p -or $null -eq $p.ExitCode) { exit 1 }" in launcher
     # The guard must come BEFORE the forwarding exit, or it changes nothing.
     assert launcher.index("$null -eq $p.ExitCode") < launcher.index("exit $p.ExitCode")
+
+
+# --------------------------------------------------------------------------- #
+# Silent paths stay in-process (issue #713: Bitdefender blocked the app for   #
+# spawning powershell.exe on its first launch to write the startup shortcut)  #
+# --------------------------------------------------------------------------- #
+
+
+def _no_powershell(script: str):
+    raise AssertionError("the silent autostart path must not spawn PowerShell")
+
+
+def test_boot_reconcile_writes_the_shortcut_without_powershell(monkeypatch, tmp_path) -> None:
+    from jarvis.autostart import windows as win_mod
+
+    written: list[tuple[object, LaunchSpec, object]] = []
+    monkeypatch.setattr(win_mod, "_run_powershell", _no_powershell)
+    monkeypatch.setattr(win_mod, "_tag_shortcut_aumid", lambda link: True)
+    monkeypatch.setattr(win_mod, "_startup_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        win_mod,
+        "_write_shortcut_in_process",
+        lambda link, spec, icon: written.append((link, spec, icon)) or True,
+    )
+    mgr = WindowsAutostart(task_probe=lambda: None, run_elevated=lambda s: False)
+    mgr.install(_SPEC)
+    assert len(written) == 1
+    assert written[0][1] == _SPEC
+
+
+def test_shortcut_falls_back_to_powershell_only_when_in_process_is_impossible(
+    monkeypatch, tmp_path
+) -> None:
+    from jarvis.autostart import windows as win_mod
+
+    scripts: list[str] = []
+    monkeypatch.setattr(win_mod, "_run_powershell", lambda script: scripts.append(script))
+    monkeypatch.setattr(win_mod, "_tag_shortcut_aumid", lambda link: True)
+    monkeypatch.setattr(win_mod, "_startup_dir", lambda: tmp_path)
+    monkeypatch.setattr(win_mod, "_write_shortcut_in_process", lambda link, spec, icon: False)
+    WindowsAutostart()._default_write_shortcut(_SPEC)
+    assert len(scripts) == 1
+    assert "CreateShortcut" in scripts[0]
+
+
+def test_task_probe_uses_com_and_skips_powershell(monkeypatch) -> None:
+    from jarvis.autostart import windows as win_mod
+
+    monkeypatch.setattr(win_mod, "_run_powershell", _no_powershell)
+    monkeypatch.setattr(win_mod, "_query_task_in_process", lambda name: _MATCHING_INFO)
+    assert WindowsAutostart()._default_task_probe() == _MATCHING_INFO
+
+
+def test_task_probe_com_failure_reads_as_absent_not_powershell(monkeypatch) -> None:
+    from jarvis.autostart import windows as win_mod
+
+    def boom(name: str):
+        raise OSError("Task Scheduler unavailable")
+
+    monkeypatch.setattr(win_mod, "_run_powershell", _no_powershell)
+    monkeypatch.setattr(win_mod, "_query_task_in_process", boom)
+    assert WindowsAutostart()._default_task_probe() is None
+
+
+def test_task_probe_without_pywin32_falls_back_to_powershell(monkeypatch) -> None:
+    import subprocess
+
+    from jarvis.autostart import windows as win_mod
+
+    monkeypatch.setattr(win_mod, "_win32com", lambda: None)
+    monkeypatch.setattr(
+        win_mod,
+        "_run_powershell",
+        lambda script: subprocess.CompletedProcess(["powershell"], 0, stdout="", stderr=""),
+    )
+    assert WindowsAutostart()._default_task_probe() is None
