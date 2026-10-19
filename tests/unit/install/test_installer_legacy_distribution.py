@@ -97,6 +97,8 @@ def test_a_failed_uninstall_stops_the_install(monkeypatch):
 def test_the_dry_run_names_the_retirement(monkeypatch, capsys):
     monkeypatch.setattr(installer, "installed_legacy_distributions", lambda: ("personal-jarvis",))
     installer.step_pip_install(with_desktop=True, with_voice_local=False, dry_run=True)
-    out = capsys.readouterr().out
+    # The console wraps long lines at the terminal's width (narrow on CI), so
+    # compare the output with its whitespace folded.
+    out = " ".join(capsys.readouterr().out.replace("│", " ").split())
     assert "retire the earlier package name (personal-jarvis)" in out
     assert out.index("uninstall -y personal-jarvis") < out.index("install -e . --no-deps")
