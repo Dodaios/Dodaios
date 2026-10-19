@@ -509,7 +509,7 @@ def test_agent_land_requests_no_auto_merge_during_another_prs_freeze() -> None:
         ("pr", "view"): view,
         ("repo", "view"): REPO,
         ("pr", "list"): [{"number": 733, "title": "package move"}],
-        ("api", f"repos/{REPO}/issues/733/events?per_page=100"): [
+        ("api", f"repos/{REPO}/issues/733/events?per_page=100&page=1"): [
             label | {"created_at": "2999-01-01T00:00:00Z"}
         ],
     }
@@ -524,3 +524,74 @@ def test_agent_land_requests_no_auto_merge_during_another_prs_freeze() -> None:
 
     assert agent_land.queue_when_green("claude/x", runner) is False
     assert all(cmd[:3] != ["gh", "pr", "merge"] for cmd in commands)
+
+
+def _freeze_answers(numbers: list[int], stamp: str | None) -> merge_freeze.GhJson:
+    def gh_json(args: list[str]) -> object:
+        if args[:2] == ["pr", "list"]:
+            return [{"number": n, "title": f"pr {n}"} for n in numbers]
+        if stamp is None:
+            return []
+        return [{"event": "labeled", "label": {"name": "merge-freeze"}, "created_at": stamp}]
+
+    return gh_json
+
+
+def test_two_freezing_pull_requests_do_not_lock_each_other_out() -> None:
+    gh_json = _freeze_answers([733, 740], "2026-10-19T10:00:00Z")
+    now = merge_freeze.parse_time("2026-10-19T10:30:00Z")
+    assert merge_freeze.active_freeze(REPO, gh_json, now=now, exempt=733) is None
+    assert merge_freeze.active_freeze(REPO, gh_json, now=now, exempt=740) is None
+    assert merge_freeze.active_freeze(REPO, gh_json, now=now, exempt=7) is not None
+
+
+def test_a_freeze_whose_label_time_is_unknown_does_not_hold_main() -> None:
+    gh_json = _freeze_answers([733], None)
+    assert merge_freeze.active_freeze(REPO, gh_json) is None
+
+
+def test_label_events_are_read_across_pages() -> None:
+    def gh_json(args: list[str]) -> object:
+        page = int(args[1].rsplit("page=", 1)[1])
+        if page == 1:
+            return [{"event": "commented"}] * 100
+        return [{"event": "labeled", "label": {"name": "merge-freeze"}, "created_at": "x"}]
+
+    events = merge_freeze.issue_events(REPO, 1, gh_json)
+    assert len(events) == 101
+
+
+def test_untracked_files_are_a_note_not_an_endless_fix(world: FakeWorld) -> None:
+    path = world.branch("claude/x")
+    world.pr("claude/x", state="MERGED", mergeCommit={"oid": MERGE_SHA})
+    world.main_runs = [main_run(MERGE_SHA, "success")]
+    world.status[path] = "?? scratch.log\n"
+    verdict = run_gate(world, ["claude/x"])
+    assert verdict.verdict == "DONE"
+    assert any("scratch.log" in note for note in verdict.notes)
+
+
+def test_an_empty_new_branch_is_remembered_until_it_lands(world: FakeWorld) -> None:
+    world.branch("claude/new", ahead=0)
+    ctx = gate.Ctx(cwd=world.top, run=world)
+    state: dict = {"branches": ["claude/new"]}
+    assert gate.evaluate(ctx, None, state).verdict == "NONE"
+    assert state["branches"] == ["claude/new"]
+    world.pr("claude/new", state="MERGED", mergeCommit={"oid": MERGE_SHA})
+    world.main_runs = [main_run(MERGE_SHA, "success")]
+    assert gate.evaluate(ctx, None, state).verdict == "DONE"
+    assert state["branches"] == []
+
+
+def test_a_half_written_transcript_line_is_read_on_the_next_check(
+    world: FakeWorld, tmp_path: Path
+) -> None:
+    transcript = tmp_path / "t.jsonl"
+    full = json.dumps({"input": {"command": "git checkout -b claude/one"}})
+    transcript.write_text(full + "\n" + '{"input": {"command": "git checkout -b claude/tw', "utf-8")
+    ctx = gate.Ctx(cwd=world.top, run=world)
+    state: dict = {}
+    assert gate.session_branches(ctx, transcript, state) == ["claude/one"]
+    with transcript.open("a", encoding="utf-8") as handle:
+        handle.write('o"}}\n')
+    assert gate.session_branches(ctx, transcript, state) == ["claude/one", "claude/two"]
