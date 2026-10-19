@@ -2410,7 +2410,7 @@ def _main(argv: list[str] | None = None) -> int:
     # embedded icon, which no window-icon / class-icon / AUMID / Start-Menu /
     # registry / icon-cache work can override (all verified to have no effect on
     # the button). Under a bare ``pythonw.exe`` that icon is the Python logo. Re-
-    # exec the SAME launcher through ``PersonalJarvis.exe`` — a pythonw copy
+    # exec the SAME launcher through ``DodaiosApp.exe`` — a pythonw copy
     # carrying the mascot icon — so the taskbar shows the Jarvis ghost. Desktop
     # only (headless has no taskbar), once (env-guarded), and fully best-effort:
     # if branding is unavailable it returns None and we boot in-process as before.
