@@ -30,10 +30,9 @@ from dodaios.core.instance import current_instance
 # window and never overwrite each other's Start-Menu entry. Bound at import —
 # the launcher pins the instance into the environment before importing this.
 _INSTANCE = current_instance()
-# The name REGISTERED with the Linux shell (desktop-entry ``Name``). It is the
-# persistent name, not the window title: a registration keeps the value
-# existing installs carry until it moves with its own migration.
-APP_DISPLAY_NAME = _INSTANCE.persistent_name
+# The name REGISTERED with the Linux shell (desktop-entry ``Name``). It moves
+# together with the entry's file name and the window class below.
+APP_DISPLAY_NAME = _INSTANCE.linux_app_name
 # The name registered with the Windows shell: toast identity, shortcut
 # description, relaunch name. It matches the shortcut's file name, which is the
 # name the taskbar and Windows Search show.
@@ -49,6 +48,9 @@ START_MENU_SHORTCUT_NAME = _INSTANCE.windows_shortcut_file_name
 #: current one is in place (``dodaios.setup.desktop_integration``).
 LEGACY_START_MENU_SHORTCUT_NAMES = _INSTANCE.legacy_windows_shortcut_file_names
 LINUX_DESKTOP_ENTRY_NAME = _INSTANCE.linux_desktop_entry_file_name
+#: Earlier names of the applications-menu entry, retired once the current one
+#: is in place, and only where they start this install.
+LEGACY_LINUX_DESKTOP_ENTRY_NAMES = _INSTANCE.legacy_linux_desktop_entry_file_names
 LINUX_WM_CLASS = _INSTANCE.linux_wm_class
 #: Launcher argv written into shortcuts / desktop entries so a click reopens
 #: THIS instance (``--instance dev`` for the dev app, nothing for the default).
@@ -1611,10 +1613,23 @@ def _refresh_linux_desktop_database(applications_dir: Path) -> bool:
         return False
 
 
+def _retire_legacy_linux_desktop_entries(applications_dir: Path, install_dir: Path) -> None:
+    """Remove the earlier-named menu entries that start this install. Never raises."""
+    try:
+        from dodaios.autostart.linux import remove_entries_of_install
+
+        remove_entries_of_install(
+            [applications_dir / name for name in LEGACY_LINUX_DESKTOP_ENTRY_NAMES],
+            str(install_dir),
+        )
+    except Exception as exc:  # noqa: BLE001 — a leftover entry is cosmetic, never load-bearing
+        logger.debug("earlier Linux menu entries not retired: {}", exc)
+
+
 def ensure_linux_desktop_entry(applications_dir: Path | None = None) -> bool:
     """Install/refresh the applications-menu ``.desktop`` entry (Linux only).
 
-    This is what makes (a) "Personal Jarvis" findable in the desktop's app
+    This is what makes (a) "Dodaios" findable in the desktop's app
     search/menu and (b) the dock/taskbar show the Jarvis icon for the RUNNING
     window: ``pin_linux_wm_class`` pins the window's WM_CLASS, and this entry's
     ``StartupWMClass`` is the other half of that handshake. Without it the dock
@@ -1624,6 +1639,11 @@ def ensure_linux_desktop_entry(applications_dir: Path | None = None) -> bool:
     Pure ``pathlib`` text I/O, idempotent (rewritten only when the rendered
     content changed), best-effort — never raises, never blocks the window.
     ``applications_dir`` is a test seam; without it, non-Linux is a no-op.
+
+    An entry an earlier release wrote under the earlier file name
+    (``personal-jarvis.desktop``) is removed once the current one is in place,
+    but only when it starts this install: left behind, the menu would list the
+    app twice, and its ``StartupWMClass`` no longer matches the window.
 
     A frozen build writes nothing. Inside an AppImage ``sys.executable`` points
     into a temporary mount that is gone the moment the app exits, so the entry
@@ -1664,10 +1684,10 @@ def ensure_linux_desktop_entry(applications_dir: Path | None = None) -> bool:
             f"StartupWMClass={escape_value(LINUX_WM_CLASS)}\n"
             "Categories=Utility;\n"
             # The app search matches Name, and only some shells also match
-            # Comment — the product name is two words, so a user typing the
-            # half they remember ("jarvis", or what the assistant is FOR) needs
-            # these to be hit at all. Same role as the Windows Start-Menu file
-            # name being the searchable token.
+            # Comment. A user typing the name they remember from earlier
+            # releases ("jarvis"), or what the assistant is FOR, needs these
+            # to be hit at all. Same role as the Windows Start-Menu file name
+            # being the searchable token.
             "Keywords=jarvis;assistant;voice;agent;automation;\n"
         )
         entry = applications_dir / LINUX_DESKTOP_ENTRY_NAME
@@ -1677,6 +1697,7 @@ def ensure_linux_desktop_entry(applications_dir: Path | None = None) -> bool:
                 # the entry — an interrupted earlier run could have written the
                 # file and never registered it. Re-announcing is cheap and
                 # idempotent, so a repaired install never needs a re-login.
+                _retire_legacy_linux_desktop_entries(applications_dir, PROJECT_ROOT)
                 _refresh_linux_desktop_database(applications_dir)
                 return True
         except OSError:
@@ -1694,6 +1715,7 @@ def ensure_linux_desktop_entry(applications_dir: Path | None = None) -> bool:
             entry.chmod(0o755)
         except OSError as exc:
             logger.debug("could not mark {} executable: {}", entry, exc)
+        _retire_legacy_linux_desktop_entries(applications_dir, PROJECT_ROOT)
         _refresh_linux_desktop_database(applications_dir)
         logger.debug("Linux applications .desktop entry written: {}", entry)
         return True

@@ -43,9 +43,11 @@ from pathlib import Path
 
 from dodaios.core.branding import (
     LAUNCHER_ENTRY_NAME,
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES,
     LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
     LEGACY_WINDOWS_MUTEX_NAMES,
     LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
+    LINUX_APP_NAME,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     LINUX_WM_CLASS,
     MACOS_BUNDLE_ID,
@@ -146,9 +148,9 @@ class InstanceIdentity:
         """The name this instance's OS artifacts are registered under.
 
         A compatibility contract (``dodaios.core.branding``) that never follows
-        ``display_name``. The Windows names moved on with their own migration
-        (``windows_launcher_entry_name`` and the ``windows_*`` file names); this
-        one still names the Linux desktop entry.
+        ``display_name``. The Windows and Linux names moved on with their own
+        migrations (``windows_launcher_entry_name``, ``linux_app_name`` and the
+        file names beside them); this is the name those earlier releases used.
         """
         if self.is_default:
             return PERSISTENT_PRODUCT_NAME
@@ -163,7 +165,11 @@ class InstanceIdentity:
 
     @property
     def slug(self) -> str:
-        """Persistent: names the Linux desktop entry and window class."""
+        """Persistent: the hyphenated earlier name (``personal-jarvis-dev``).
+
+        Earlier releases named the Linux desktop entry and window class after
+        it; ``legacy_linux_desktop_entry_file_names`` still finds those entries.
+        """
         return PERSISTENT_SLUG if self.is_default else f"{PERSISTENT_SLUG}-{self.name}"
 
     # ---- storage / network ----------------------------------------------
@@ -250,13 +256,34 @@ class InstanceIdentity:
         stem = base.removesuffix(".exe")
         return f"{stem}{self.label}.exe"
 
+    # The Linux names move together: the desktop binds a running window to the
+    # entry whose ``StartupWMClass`` is the window's class, so an entry file,
+    # its ``Name`` and the class pinned at runtime always come from one
+    # generation of the branding values.
+    @property
+    def linux_app_name(self) -> str:
+        """The name the Linux app menu lists this instance under."""
+        return LINUX_APP_NAME if self.is_default else f"{LINUX_APP_NAME} {self.label}"
+
     @property
     def linux_wm_class(self) -> str:
-        return LINUX_WM_CLASS if self.is_default else self.slug
+        return LINUX_WM_CLASS if self.is_default else f"{LINUX_WM_CLASS}-{self.name}"
 
     @property
     def linux_desktop_entry_file_name(self) -> str:
-        return LINUX_DESKTOP_ENTRY_FILE_NAME if self.is_default else f"{self.slug}.desktop"
+        return self._linux_entry_file_name(LINUX_DESKTOP_ENTRY_FILE_NAME)
+
+    @property
+    def legacy_linux_desktop_entry_file_names(self) -> tuple[str, ...]:
+        return tuple(
+            self._linux_entry_file_name(base) for base in LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES
+        )
+
+    def _linux_entry_file_name(self, base: str) -> str:
+        if self.is_default:
+            return base
+        stem = base.removesuffix(".desktop")
+        return f"{stem}-{self.name}.desktop"
 
     @property
     def macos_bundle_id(self) -> str:

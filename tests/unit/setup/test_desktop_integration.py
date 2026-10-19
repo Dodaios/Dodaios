@@ -10,8 +10,10 @@ import pytest
 
 from dodaios.core.branding import (
     LAUNCHER_ENTRY_NAME,
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES,
     LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
     LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
+    LINUX_DESKTOP_ENTRY_FILE_NAME,
     WINDOWS_SHORTCUT_FILE_NAME,
 )
 from dodaios.setup import desktop_integration as di
@@ -81,10 +83,10 @@ def test_linux_managed_install_gets_searchable_application_entry(tmp_path: Path)
 
     assert report.ok is True
     assert report.artifacts == ("applications_menu_entry",)
-    entry = apps / "personal-jarvis.desktop"
+    entry = apps / "dodaios.desktop"
     text = entry.read_text(encoding="utf-8")
-    assert "Name=Personal Jarvis" in text
-    assert "StartupWMClass=personal-jarvis" in text
+    assert "Name=Dodaios" in text
+    assert "StartupWMClass=dodaios" in text
 
 
 def test_headless_linux_does_not_create_desktop_artifacts(
@@ -181,7 +183,7 @@ def test_macos_bundle_failure_without_recorded_reason_says_unknown(
 def test_linux_uninstall_removes_application_entry(tmp_path: Path) -> None:
     apps = tmp_path / "applications"
     apps.mkdir()
-    entry = apps / "personal-jarvis.desktop"
+    entry = apps / "dodaios.desktop"
     entry.write_text("[Desktop Entry]\n", encoding="utf-8")
 
     report = di.remove_desktop_integration(
@@ -190,6 +192,64 @@ def test_linux_uninstall_removes_application_entry(tmp_path: Path) -> None:
 
     assert report.ok is True
     assert not entry.exists()
+
+
+def _earlier_linux_entry(apps: Path, working_dir: Path | str, name: str | None = None) -> Path:
+    """A menu entry as an earlier release wrote it, under the earlier name."""
+    from dodaios.core.desktop_entry import escape_value
+
+    entry = apps / (name or LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES[0])
+    entry.parent.mkdir(parents=True, exist_ok=True)
+    entry.write_text(
+        "[Desktop Entry]\nType=Application\nName=Personal Jarvis\n"
+        "Exec=/usr/bin/python3 -m jarvis.ui.web.launcher\n"
+        f"Path={escape_value(str(working_dir))}\nStartupWMClass=personal-jarvis\n",
+        encoding="utf-8",
+    )
+    return entry
+
+
+def test_linux_registration_retires_the_earlier_entry_of_this_install(tmp_path: Path) -> None:
+    from dodaios.core.config import PROJECT_ROOT
+
+    root = _managed_root(tmp_path)
+    apps = tmp_path / "applications"
+    earlier = _earlier_linux_entry(apps, PROJECT_ROOT)
+
+    report = di.ensure_desktop_integration(
+        install_dir=root, platform="linux", linux_applications_dir=apps
+    )
+
+    # The menu lists the app once, under the current name, with the window
+    # class the running window is pinned to.
+    assert report.ok is True
+    assert (apps / LINUX_DESKTOP_ENTRY_FILE_NAME).is_file()
+    assert not earlier.exists()
+
+
+def test_linux_registration_keeps_an_earlier_entry_of_another_install(tmp_path: Path) -> None:
+    root = _managed_root(tmp_path)
+    apps = tmp_path / "applications"
+    other = _earlier_linux_entry(apps, tmp_path / "another checkout")
+
+    di.ensure_desktop_integration(install_dir=root, platform="linux", linux_applications_dir=apps)
+    di.remove_desktop_integration(platform="linux", linux_applications_dir=apps)
+
+    assert other.is_file()
+
+
+def test_linux_uninstall_removes_the_earlier_entry_of_this_install(tmp_path: Path) -> None:
+    from dodaios.core.config import PROJECT_ROOT
+
+    apps = tmp_path / "applications"
+    earlier = _earlier_linux_entry(apps, PROJECT_ROOT)
+    (apps / LINUX_DESKTOP_ENTRY_FILE_NAME).write_text("[Desktop Entry]\n", encoding="utf-8")
+
+    report = di.remove_desktop_integration(platform="linux", linux_applications_dir=apps)
+
+    assert report.ok is True
+    assert not earlier.exists()
+    assert not (apps / LINUX_DESKTOP_ENTRY_FILE_NAME).exists()
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows registry and links only")
@@ -322,7 +382,7 @@ def test_frozen_uninstall_leaves_the_installers_artifacts_alone(
     _freeze(monkeypatch, tmp_path)
     apps = tmp_path / "applications"
     apps.mkdir()
-    entry = apps / "personal-jarvis.desktop"
+    entry = apps / "dodaios.desktop"
     entry.write_text("[Desktop Entry]\n", encoding="utf-8")
     bundle_plist = apps / "Personal Jarvis.app" / "Contents" / "Info.plist"
     bundle_plist.parent.mkdir(parents=True)
