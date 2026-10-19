@@ -295,7 +295,7 @@ scripts/wake_bench.py). Potential: usable ~8.9 -> ~6 s isolated.
 
 `python -X importtime` over the post-shell heavy imports (~0.97 s warm,
 ~2.6 s under boot load): fastapi ~0.29 s (openapi.models 81 ms self),
-`jarvis.core.config` tree ~0.35 s cumulative — dominated by Pydantic schema
+`dodaios.core.config` tree ~0.35 s cumulative — dominated by Pydantic schema
 compilation incl. `jarvis.awareness.config` (138 ms self, pulled in as a
 JarvisConfig field type; the module itself is clean model definitions),
 brain/dispatcher/safety chain ~0.3 s. These are foundation costs: making the

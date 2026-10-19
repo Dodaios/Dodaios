@@ -23,7 +23,7 @@ def _repo(tmp_path: Path, monkeypatch, *files: str) -> Path:
 
 
 def test_agents_md_alone_passes(tmp_path, monkeypatch):
-    _repo(tmp_path, monkeypatch, "AGENTS.md", "jarvis/AGENTS.md")
+    _repo(tmp_path, monkeypatch, "AGENTS.md", "dodaios/AGENTS.md")
 
     assert check_agents_md.main(["--quiet"]) == check_agents_md.EXIT_OK
 
@@ -36,7 +36,7 @@ def test_side_project_keeps_its_own_claude_md(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     "shadow",
-    ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md", "jarvis/CLAUDE.md"],
+    ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md", "dodaios/CLAUDE.md"],
 )
 def test_tracked_claude_md_is_blocked(tmp_path, monkeypatch, capsys, shadow):
     _repo(tmp_path, monkeypatch, "AGENTS.md", shadow)

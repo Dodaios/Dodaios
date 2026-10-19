@@ -23,15 +23,15 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.control import KillSwitch
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import HarnessResult, HarnessTask
-from jarvis.harness.computer_use_context import (
+from dodaios.control import KillSwitch
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import HarnessResult, HarnessTask
+from dodaios.harness.computer_use_context import (
     ComputerUseContext,
     cancel_active_cu,
 )
-from jarvis.plugins.harness import computer_use as cu_mod
-from jarvis.plugins.harness.computer_use import ComputerUseHarness
+from dodaios.plugins.harness import computer_use as cu_mod
+from dodaios.plugins.harness.computer_use import ComputerUseHarness
 
 
 def _ctx(bus: EventBus) -> ComputerUseContext:
@@ -46,7 +46,7 @@ def _ctx(bus: EventBus) -> ComputerUseContext:
 
 @pytest.fixture(autouse=True)
 def _fresh_lock_and_registry():
-    from jarvis.harness.computer_use_context import (
+    from dodaios.harness.computer_use_context import (
         clear_cu_suppression,
         register_active_cu_token,
     )

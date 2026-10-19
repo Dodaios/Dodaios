@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.curator_llm`` (Instance D)."""
+"""Unit tests for ``dodaios.memory.wiki.curator_llm`` (Instance D)."""
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
@@ -19,14 +19,14 @@ from jarvis.core.config import (
     WikiCuratorConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.wiki import curator_llm as curator_module
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM, _parse_updates
-from jarvis.memory.wiki.protocols import PageUpdate
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.wiki import curator_llm as curator_module
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM, _parse_updates
+from dodaios.memory.wiki.protocols import PageUpdate
 
 _REAL_SCHEMA_PATH = (
     Path(__file__).resolve().parents[4]
-    / "jarvis"
+    / "dodaios"
     / "memory"
     / "wiki"
     / "templates"
@@ -761,12 +761,12 @@ async def test_propose_updates_uses_default_registry_if_none_injected(
         _fake_instantiate,
     )
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.credential_ready_wiki_providers",
+        "dodaios.memory.wiki.provider_chain.credential_ready_wiki_providers",
         lambda *, available, **_kwargs: set(available),
     )
     # This host's real CLI logins must not reorder the chain under test.
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.subscription_login_ready",
+        "dodaios.memory.wiki.provider_chain.subscription_login_ready",
         lambda _provider, **_kwargs: None,
     )
 
@@ -791,7 +791,7 @@ def test_resolve_empty_provider_empty_model_uses_cheap_router_model_gemini() -> 
     model instead.
     """
 
-    from jarvis.memory.wiki.curator_llm import _resolve_provider_and_model
+    from dodaios.memory.wiki.curator_llm import _resolve_provider_and_model
 
     # brain.providers["gemini"] has the frontier model set, but the
     # resolver should ignore it and return the cheap router-tier model.
@@ -807,7 +807,7 @@ def test_resolve_empty_provider_empty_model_uses_cheap_router_model_gemini() -> 
 def test_resolve_claude_api_primary_uses_haiku_not_opus() -> None:
     """claude-api primary + empty model resolves to Haiku, not Opus."""
 
-    from jarvis.memory.wiki.curator_llm import _resolve_provider_and_model
+    from dodaios.memory.wiki.curator_llm import _resolve_provider_and_model
 
     cfg = _make_config(
         primary="claude-api",
@@ -821,7 +821,7 @@ def test_resolve_claude_api_primary_uses_haiku_not_opus() -> None:
 def test_resolve_explicit_curator_model_wins() -> None:
     """An explicit curator model override beats the cheap router-tier model."""
 
-    from jarvis.memory.wiki.curator_llm import _resolve_provider_and_model
+    from dodaios.memory.wiki.curator_llm import _resolve_provider_and_model
 
     cfg = _make_config(
         primary="gemini",
@@ -839,7 +839,7 @@ def test_resolve_explicit_provider_empty_model_uses_cheap_router_model() -> None
     Grok uses its universal regional default when no curator model is pinned.
     """
 
-    from jarvis.memory.wiki.curator_llm import _resolve_provider_and_model
+    from dodaios.memory.wiki.curator_llm import _resolve_provider_and_model
 
     cfg = _make_config(
         primary="gemini",
@@ -855,7 +855,7 @@ def test_resolve_explicit_provider_empty_model_uses_cheap_router_model() -> None
 def test_resolve_unknown_provider_returns_none_model() -> None:
     """An unknown provider (not in the cheap-model map) resolves model to None."""
 
-    from jarvis.memory.wiki.curator_llm import _resolve_provider_and_model
+    from dodaios.memory.wiki.curator_llm import _resolve_provider_and_model
 
     cfg = JarvisConfig(
         brain=BrainConfig(primary="never-heard-of-it", providers={}),
@@ -876,21 +876,21 @@ def test_resolve_unknown_provider_returns_none_model() -> None:
 def test_cheap_model_for_uses_local_map_when_brain_manager_unimportable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When the lazy ``jarvis.brain.manager`` import fails, the local map wins.
+    """When the lazy ``dodaios.brain.manager`` import fails, the local map wins.
 
     Forces the ``except`` branch in ``_cheap_model_for`` by replacing the
     module entry in ``sys.modules`` with ``None`` (a sentinel that makes
-    ``from jarvis.brain.manager import ...`` raise ``ImportError``). The
+    ``from dodaios.brain.manager import ...`` raise ``ImportError``). The
     returned value must come from ``_CHEAP_MODEL_FALLBACK``.
     """
 
     import sys
 
-    from jarvis.memory.wiki.curator_llm import _CHEAP_MODEL_FALLBACK, _cheap_model_for
+    from dodaios.memory.wiki.curator_llm import _CHEAP_MODEL_FALLBACK, _cheap_model_for
 
     # ``None`` in sys.modules makes the import statement raise ImportError.
     # monkeypatch restores the previous state automatically after the test.
-    monkeypatch.setitem(sys.modules, "jarvis.brain.manager", None)
+    monkeypatch.setitem(sys.modules, "dodaios.brain.manager", None)
 
     assert _cheap_model_for("gemini") == "gemini-3-flash-preview"
     assert _cheap_model_for("gemini") == _CHEAP_MODEL_FALLBACK["gemini"]
@@ -902,18 +902,18 @@ def test_cheap_model_fallback_map_matches_live_router_defaults() -> None:
     """Drift guard: every fallback entry must match the live router default.
 
     The local ``_CHEAP_MODEL_FALLBACK`` is only a last-resort mirror of
-    ``jarvis.brain.manager.get_tier_default_model("router", provider)``. If
+    ``dodaios.brain.manager.get_tier_default_model("router", provider)``. If
     a router default changes upstream, this test fails so the fallback map
-    cannot silently drift. Skips when ``jarvis.brain.manager`` is
+    cannot silently drift. Skips when ``dodaios.brain.manager`` is
     unimportable (minimal install).
     """
 
-    from jarvis.memory.wiki.curator_llm import _CHEAP_MODEL_FALLBACK
+    from dodaios.memory.wiki.curator_llm import _CHEAP_MODEL_FALLBACK
 
     try:
-        from jarvis.brain.manager import get_tier_default_model
+        from dodaios.brain.manager import get_tier_default_model
     except Exception:  # noqa: BLE001
-        pytest.skip("jarvis.brain.manager unimportable in this environment")
+        pytest.skip("dodaios.brain.manager unimportable in this environment")
 
     for provider, fallback_model in _CHEAP_MODEL_FALLBACK.items():
         live = get_tier_default_model("router", provider)

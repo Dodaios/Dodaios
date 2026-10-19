@@ -5,10 +5,10 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.marketplace.catalog import PluginCatalog
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.plugin_registry import PluginToolRegistry
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.marketplace.catalog import PluginCatalog
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.plugin_registry import PluginToolRegistry
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 from tests.fakes.fake_plugin_http import RotatingPluginHandler
 
 

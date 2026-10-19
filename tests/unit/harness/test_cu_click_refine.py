@@ -28,8 +28,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.harness.screenshot_only_loop as loop_mod
-from jarvis.harness.screenshot_only_loop import (
+import dodaios.harness.screenshot_only_loop as loop_mod
+from dodaios.harness.screenshot_only_loop import (
     _SYSTEM_PROMPT,
     _crop_norm_to_abs,
     _execute_action,

@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 def test_brain_status_falls_back_to_configured_primary_before_brain_built() -> None:

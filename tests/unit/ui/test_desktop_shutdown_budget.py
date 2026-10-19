@@ -2,8 +2,8 @@
 
 from types import SimpleNamespace
 
-from jarvis.ui import desktop_app
-from jarvis.ui.web.server import _SOCIETY_SHUTDOWN_TIMEOUT_S
+from dodaios.ui import desktop_app
+from dodaios.ui.web.server import _SOCIETY_SHUTDOWN_TIMEOUT_S
 
 
 def test_desktop_does_not_stop_loop_before_healthy_profile_flush(monkeypatch, tmp_path):

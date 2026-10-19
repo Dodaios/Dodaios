@@ -16,11 +16,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _SMALL_MODEL_DIRECT_TOOLS,
     BrainManager,
 )
-from jarvis.brain.tool_shortlist import (
+from dodaios.brain.tool_shortlist import (
     CORE_PRIORITY,
     FIND_TOOLS_NAME,
     FindToolsTool,
@@ -28,8 +28,8 @@ from jarvis.brain.tool_shortlist import (
     plan_surface,
     tool_tokens,
 )
-from jarvis.brain.tool_use_loop import ToolUseLoop
-from jarvis.core.protocols import BrainDelta, BrainRequest, ExecutionContext, ToolResult
+from dodaios.brain.tool_use_loop import ToolUseLoop
+from dodaios.core.protocols import BrainDelta, BrainRequest, ExecutionContext, ToolResult
 
 
 @dataclass
@@ -291,7 +291,7 @@ async def test_a_lookup_is_not_recorded_as_something_that_was_done() -> None:
 
 
 def test_the_dispatcher_payload_leaves_deferred_tools_out() -> None:
-    from jarvis.brain.dispatcher import BrainDispatcher
+    from dodaios.brain.dispatcher import BrainDispatcher
 
     tools, deferred = _surface()
     dispatcher = BrainDispatcher(_Brain(32_768), tools=tools, deferred_tools=deferred)  # type: ignore[arg-type]

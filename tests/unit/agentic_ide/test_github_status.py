@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import github_link
-from jarvis.agentic_ide import github_status as status
+from dodaios.agentic_ide import github_link
+from dodaios.agentic_ide import github_status as status
 
 HEAD = "a" * 40
 OTHER = "b" * 40
@@ -388,7 +388,7 @@ def test_pane_whose_only_branch_is_unconfirmed_shows_nothing(monkeypatch):
 def test_route_uses_pane_cwd_and_excludes_remote_computers(monkeypatch):
     from fastapi import HTTPException
 
-    from jarvis.ui.web import agentic_ide_git_routes as routes
+    from dodaios.ui.web import agentic_ide_git_routes as routes
 
     calls = []
     pane = SimpleNamespace(

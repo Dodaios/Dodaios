@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
@@ -29,15 +29,15 @@ from jarvis.core.config import (
     SessionRollupConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.consolidator import Consolidator
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM
-from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.vault_index import VaultIndex
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.consolidator import Consolidator
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM
+from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.vault_index import VaultIndex
 
 LENA_BODY = (
     "---\n"
@@ -197,7 +197,7 @@ def _config(*, user_entity_slug: str = "") -> JarvisConfig:
 def _no_alias_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub the write-time search-alias bridge for every test in this module.
 
-    ``ensure_page_aliases`` (jarvis/memory/wiki/search_aliases.py) makes an
+    ``ensure_page_aliases`` (dodaios/memory/wiki/search_aliases.py) makes an
     extra LLM call per add/update decision, through the SAME registry these
     tests script. Whether that call fires — and how many times — depends on
     whatever REAL provider credentials happen to be resolvable on the machine
@@ -213,7 +213,7 @@ def _no_alias_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
         return page_text
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.consolidator.ensure_page_aliases", _passthrough
+        "dodaios.memory.wiki.consolidator.ensure_page_aliases", _passthrough
     )
 
 
@@ -1752,9 +1752,9 @@ async def test_companion_page_verdict_paints_no_chain_failure_banner(
     'Chain failure' banner — the live 2026-07-23 'cloudflare-plugin' activity
     wedge listed all 8 providers as broken on every journal trigger while the
     providers were fine and only one fact was un-consolidatable."""
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki import provider_chain as pc
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki.health import WikiHealth
 
     pc.reset_provider_failure_memory()
     isolated_health = WikiHealth()

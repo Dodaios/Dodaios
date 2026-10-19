@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.society.intent import (
+from dodaios.society.intent import (
     explicitly_requests_worker,
     is_inventory_question,
     is_team_management_request,
 )
-from jarvis.society.message_routing import is_internal_message_request
+from dodaios.society.message_routing import is_internal_message_request
 
 
 @pytest.mark.parametrize(

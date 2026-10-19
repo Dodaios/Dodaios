@@ -25,9 +25,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import ShowWindowRequested
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.core.bus import EventBus
+from dodaios.core.events import ShowWindowRequested
+from dodaios.ui.desktop_app import DesktopApp
 
 
 def test_handler_is_coroutine_for_bus_dispatch() -> None:
@@ -116,13 +116,13 @@ async def test_focus_window_now_completes_the_visibility_dance(
         lambda: overlay_restored.append(True)
     )
     monkeypatch.setattr(
-        "jarvis.ui.desktop_app._bring_window_to_front_by_title",
+        "dodaios.ui.desktop_app._bring_window_to_front_by_title",
         lambda _title: True,
     )
     # A minimized window: the dance restores it. (The real probe would read
     # whatever Jarvis window happens to be open on the test machine.)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_needs_restore", lambda _title: True)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_restores_maximized", lambda _title: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_needs_restore", lambda _title: True)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_restores_maximized", lambda _title: False)
 
     import asyncio
 
@@ -146,9 +146,9 @@ def test_focus_window_now_keeps_a_maximized_window_maximized(
     window = _RecordingWindow()
     app._window = window  # noqa: SLF001
     app._restore_overlay_for_visible_window = lambda: None  # type: ignore[method-assign]  # noqa: SLF001
-    monkeypatch.setattr("jarvis.ui.desktop_app._bring_window_to_front_by_title", lambda _t: True)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_needs_restore", lambda _title: False)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_restores_maximized", lambda _title: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app._bring_window_to_front_by_title", lambda _t: True)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_needs_restore", lambda _title: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_restores_maximized", lambda _title: False)
 
     assert app._focus_window_now() == {"ok": True, "focused": True}  # noqa: SLF001
     assert [name for name, _ in window.calls] == ["show"]
@@ -170,9 +170,9 @@ def test_a_window_minimized_while_maximized_comes_back_maximized(
     app._window = window  # noqa: SLF001
     app._restore_overlay_for_visible_window = lambda: None  # type: ignore[method-assign]  # noqa: SLF001
     app._reload_window_if_stale = lambda: None  # type: ignore[method-assign]  # noqa: SLF001
-    monkeypatch.setattr("jarvis.ui.desktop_app._bring_window_to_front_by_title", lambda _t: True)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_needs_restore", lambda _title: True)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_restores_maximized", lambda _title: True)
+    monkeypatch.setattr("dodaios.ui.desktop_app._bring_window_to_front_by_title", lambda _t: True)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_needs_restore", lambda _title: True)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_restores_maximized", lambda _title: True)
 
     assert app._focus_window_now() == {"ok": True, "focused": True}  # noqa: SLF001
     app._safe_window_show()  # noqa: SLF001
@@ -192,7 +192,7 @@ class _PlacementUser32:
 
 
 def test_placement_tells_a_window_that_returns_maximized() -> None:
-    from jarvis.ui.desktop_app import _placement_restores_maximized
+    from dodaios.ui.desktop_app import _placement_restores_maximized
 
     assert _placement_restores_maximized(1, _PlacementUser32(0x0002)) is True
     assert _placement_restores_maximized(1, _PlacementUser32(0x0000)) is False
@@ -238,10 +238,10 @@ def test_a_shown_window_windows_would_not_activate_is_reported_as_shown(
     app._window = window  # noqa: SLF001
     app._restore_overlay_for_visible_window = lambda: None  # type: ignore[method-assign]  # noqa: SLF001
     flashed: list[str] = []
-    monkeypatch.setattr("jarvis.ui.desktop_app._bring_window_to_front_by_title", lambda _t: False)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_needs_restore", lambda _title: False)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_restores_maximized", lambda _title: False)
-    monkeypatch.setattr("jarvis.ui.desktop_app._flash_taskbar_button", flashed.append)
+    monkeypatch.setattr("dodaios.ui.desktop_app._bring_window_to_front_by_title", lambda _t: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_needs_restore", lambda _title: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_restores_maximized", lambda _title: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app._flash_taskbar_button", flashed.append)
 
     assert app._focus_window_now() == {  # noqa: SLF001
         "ok": True,
@@ -259,10 +259,10 @@ def test_a_window_still_minimized_after_a_refused_activation_is_not_shown(
     app._window = _RecordingWindow()  # noqa: SLF001
     app._restore_overlay_for_visible_window = lambda: None  # type: ignore[method-assign]  # noqa: SLF001
     flashed: list[str] = []
-    monkeypatch.setattr("jarvis.ui.desktop_app._bring_window_to_front_by_title", lambda _t: False)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_needs_restore", lambda _title: True)
-    monkeypatch.setattr("jarvis.ui.desktop_app.window_restores_maximized", lambda _title: False)
-    monkeypatch.setattr("jarvis.ui.desktop_app._flash_taskbar_button", flashed.append)
+    monkeypatch.setattr("dodaios.ui.desktop_app._bring_window_to_front_by_title", lambda _t: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_needs_restore", lambda _title: True)
+    monkeypatch.setattr("dodaios.ui.desktop_app.window_restores_maximized", lambda _title: False)
+    monkeypatch.setattr("dodaios.ui.desktop_app._flash_taskbar_button", flashed.append)
 
     reply = app._focus_window_now()  # noqa: SLF001
     assert reply["shown"] is False
@@ -271,7 +271,7 @@ def test_a_window_still_minimized_after_a_refused_activation_is_not_shown(
 
 
 def desktop_app_title() -> str:
-    from jarvis.ui.desktop_app import WINDOW_TITLE
+    from dodaios.ui.desktop_app import WINDOW_TITLE
 
     return WINDOW_TITLE
 
@@ -292,7 +292,7 @@ def test_launcher_focus_does_not_fall_back_to_a_quitting_window(
     import sys
     from types import ModuleType
 
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     fake_httpx = ModuleType("httpx")
     fake_httpx.post = lambda *_a, **_k: _Reply(  # type: ignore[attr-defined]
@@ -370,7 +370,7 @@ def test_the_shipped_index_satisfies_the_probe() -> None:
     """The probe's marker must exist in the document the app actually serves."""
     from pathlib import Path
 
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     index = Path(desktop_app.__file__).parent / "web" / "frontend" / "index.html"
     assert "root" in desktop_app._SPA_DOCUMENT_PROBE  # noqa: SLF001
@@ -381,7 +381,7 @@ def test_the_appshot_editor_window_opens_in_compact_proportions() -> None:
     """Live 2026-10-03: the editor should sit in front of the app,
     about 2/5 of the screen wide, a bit under half its height
     — never so small that toolbar buttons drop off, never as big as the app."""
-    from jarvis.ui.desktop_app import detached_window_size
+    from dodaios.ui.desktop_app import detached_window_size
 
     assert detached_window_size("visualization", (2560, 1440)) == (1100, 750)
     assert detached_window_size("appshot-editor", (2560, 1440)) == (1024, 662)
@@ -410,7 +410,7 @@ def test_an_open_editor_window_is_pointed_at_the_new_appshot(
     app._url = lambda: "http://127.0.0.1:47821"  # type: ignore[method-assign]  # noqa: SLF001
     raised: list[str] = []
     monkeypatch.setattr(
-        "jarvis.ui.desktop_app._bring_window_to_front_by_title", lambda title: raised.append(title)
+        "dodaios.ui.desktop_app._bring_window_to_front_by_title", lambda title: raised.append(title)
     )
 
     result = app.open_detached_window("appshot-editor", query="appshot=a1b2c3d4")

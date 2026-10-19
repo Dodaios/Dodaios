@@ -20,10 +20,10 @@ pytest.importorskip(
 )
 from board_backend.config import Settings
 from board_backend.main import create_app
-from jarvis.board.aggregator import BoardAggregator
-from jarvis.board.evaluator import AchievementEvaluator
-from jarvis.board.sync import SyncClient
-from jarvis.core.events import ActionExecuted
+from dodaios.board.aggregator import BoardAggregator
+from dodaios.board.evaluator import AchievementEvaluator
+from dodaios.board.sync import SyncClient
+from dodaios.core.events import ActionExecuted
 
 
 class _MemKeyring:

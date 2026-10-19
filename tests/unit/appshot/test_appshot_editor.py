@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from jarvis.appshot.store import Appshot, AppshotStore, get_store
+from dodaios.appshot.store import Appshot, AppshotStore, get_store
 
 
 def _shot(shot_id: str = "s1") -> Appshot:
@@ -59,7 +59,7 @@ def test_an_edit_for_a_gone_or_other_appshot_changes_nothing() -> None:
 
 
 def test_the_store_keeps_the_last_few_newest_first() -> None:
-    from jarvis.appshot.store import MAX_RECENT
+    from dodaios.appshot.store import MAX_RECENT
 
     store = AppshotStore()
     for n in range(MAX_RECENT + 1):
@@ -97,7 +97,7 @@ def test_each_kept_appshot_expires_on_its_own() -> None:
 
 @pytest.fixture
 def client():
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.ui.web.appshot_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -145,8 +145,8 @@ def test_the_route_refuses_an_expired_appshot(client) -> None:
 
 
 def _copy_client(monkeypatch: pytest.MonkeyPatch, *, native: bool, accepted: bool = True):
-    from jarvis.platform import clipboard_image
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.platform import clipboard_image
+    from dodaios.ui.web.appshot_routes import router
 
     copied: list[bytes] = []
 
@@ -199,7 +199,7 @@ def test_copy_says_when_the_os_refused(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_clipboard_image_needs_a_display(monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
 
-    from jarvis.platform import clipboard_image
+    from dodaios.platform import clipboard_image
 
     monkeypatch.setattr(
         clipboard_image, "detect_capabilities", lambda: SimpleNamespace(display_present=False)
@@ -209,7 +209,7 @@ def test_clipboard_image_needs_a_display(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_clipboard_image_dib_is_a_bitmap_without_the_file_header() -> None:
-    from jarvis.platform.clipboard_image import png_to_dib
+    from dodaios.platform.clipboard_image import png_to_dib
 
     dib = png_to_dib(_png(40, 30))
     # BITMAPINFOHEADER: its own size first, then width and height.
@@ -230,7 +230,7 @@ def test_clipboard_image_dib_is_a_bitmap_without_the_file_header() -> None:
 def test_clipboard_image_picks_the_linux_tool(
     monkeypatch: pytest.MonkeyPatch, wayland: str, tools: set[str], expected: str | None
 ) -> None:
-    from jarvis.platform import clipboard_image
+    from dodaios.platform import clipboard_image
 
     ran: list[list[str]] = []
     monkeypatch.setenv("WAYLAND_DISPLAY", wayland)
@@ -255,7 +255,7 @@ def test_drag_file_is_written_once_and_old_ones_are_swept(
 ) -> None:
     import os
 
-    from jarvis.appshot import dragfile
+    from dodaios.appshot import dragfile
 
     monkeypatch.setattr(dragfile.tempfile, "gettempdir", lambda: str(tmp_path))
     folder = dragfile.drag_folder()
@@ -275,8 +275,8 @@ def test_drag_file_is_written_once_and_old_ones_are_swept(
 def test_drag_route_returns_a_path_on_the_desktop_only(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    from jarvis.appshot import dragfile
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.appshot import dragfile
+    from dodaios.ui.web.appshot_routes import router
 
     monkeypatch.setattr(dragfile.tempfile, "gettempdir", lambda: str(tmp_path))
     app = FastAPI()
@@ -298,8 +298,8 @@ def test_drag_route_returns_a_path_on_the_desktop_only(
 
 
 def test_the_card_route_hands_the_flight_start_through(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.appshot import card_actions
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.appshot import card_actions
+    from dodaios.ui.web.appshot_routes import router
 
     seen: list = []
 
@@ -323,8 +323,8 @@ def test_the_card_route_hands_the_flight_start_through(monkeypatch: pytest.Monke
 
 
 async def test_the_card_command_carries_the_flight_start(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.cu.indicator import protocol
-    from jarvis.cu.indicator.controller import CUIndicatorController
+    from dodaios.cu.indicator import protocol
+    from dodaios.cu.indicator.controller import CUIndicatorController
 
     class _Proc:
         @staticmethod

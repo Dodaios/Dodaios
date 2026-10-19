@@ -23,10 +23,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import VoiceSessionEnded
-from jarvis.realtime.session import RealtimeVoiceSession
-from jarvis.sessions.constants import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import VoiceSessionEnded
+from dodaios.realtime.session import RealtimeVoiceSession
+from dodaios.sessions.constants import (
     HANGUP_DESKTOP_FALLBACK,
     HANGUP_REALTIME_FALLBACK,
     HANGUP_VOICE_PATTERN,

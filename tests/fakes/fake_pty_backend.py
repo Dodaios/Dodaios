@@ -22,7 +22,7 @@ from collections import deque
 class FakePtyHandle:
     """A ``PtyHandle`` that echoes ``write()`` back out of ``read()`` as str.
 
-    Structurally compatible with ``jarvis.terminal.backend.PtyHandle``:
+    Structurally compatible with ``dodaios.terminal.backend.PtyHandle``:
     ``pid``, ``exitstatus``, ``write``, ``setwinsize``, ``read``, ``isalive``,
     ``terminate``.
     """

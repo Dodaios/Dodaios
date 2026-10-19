@@ -31,24 +31,24 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import config as jarvis_config
-from jarvis.core.config import DictationConfig
-from jarvis.dictation import polish as polish_module
-from jarvis.dictation.polish import (
+from dodaios.core import config as jarvis_config
+from dodaios.core.config import DictationConfig
+from dodaios.dictation import polish as polish_module
+from dodaios.dictation.polish import (
     POLISH_STATUSES,
     polish_transcript,
     reset_polish_state,
     resolve_translate_target,
     translate_enabled,
 )
-from jarvis.dictation.polish_client import POLISH_FAMILIES, resolve_polish_chain
-from jarvis.dictation.polish_guards import (
+from dodaios.dictation.polish_client import POLISH_FAMILIES, resolve_polish_chain
+from dodaios.dictation.polish_guards import (
     TRANSLATE_DRIFT_REASONS,
     drift_reason,
     translate_drift_reason,
     writes_without_word_spaces,
 )
-from jarvis.dictation.polish_prompt import RAW_OPEN_DELIMITER
+from dodaios.dictation.polish_prompt import RAW_OPEN_DELIMITER
 
 # A real German dictation and the English a competent model returns for it.
 # Deliberately long enough to clear the polish pass's four-word floor, so a test
@@ -822,7 +822,7 @@ def test_the_openai_wording_models_come_from_the_verified_catalog() -> None:
     that roster cannot leave this pass behind — and a removal there fails here
     instead of 404-ing at dictation time.
     """
-    from jarvis.brain.model_catalog import CURATED_MODELS
+    from dodaios.brain.model_catalog import CURATED_MODELS
 
     served = {model.id for model in CURATED_MODELS["openai"]}
     family = next(f for f in POLISH_FAMILIES if f.id == "openai")
@@ -842,7 +842,7 @@ async def test_the_provider_test_button_probes_the_translation_tier(
     whose very next dictation 404s, which is the precise claim
     ``polish_probe`` exists to stop the provider cards from making.
     """
-    from jarvis.dictation.polish_probe import probe_polish_family
+    from dodaios.dictation.polish_probe import probe_polish_family
 
     family = next(f for f in POLISH_FAMILIES if f.id == "groq")
     asked: list[str] = []
@@ -867,7 +867,7 @@ async def test_the_provider_test_button_probes_the_formatter_when_not_translatin
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """And with the switch off it is the formatter's own model again."""
-    from jarvis.dictation.polish_probe import probe_polish_family
+    from dodaios.dictation.polish_probe import probe_polish_family
 
     family = next(f for f in POLISH_FAMILIES if f.id == "groq")
     asked: list[str] = []

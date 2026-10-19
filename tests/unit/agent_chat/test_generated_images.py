@@ -11,10 +11,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import generated_images as images
-from jarvis.agent_chat import runner_cli as rc
-from jarvis.missions.standalone_run import read_marker
-from jarvis.ui.web.outputs_routes import router
+from dodaios.agent_chat import generated_images as images
+from dodaios.agent_chat import runner_cli as rc
+from dodaios.missions.standalone_run import read_marker
+from dodaios.ui.web.outputs_routes import router
 from tests.unit.agent_chat.test_ide_cli_seats import _turn
 
 THREAD = "a2d21c42-3c21-4bde-b602-a8a3dc99440a"

@@ -21,9 +21,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager, _looks_like_pc_control
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager, _looks_like_pc_control
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeSpawn:

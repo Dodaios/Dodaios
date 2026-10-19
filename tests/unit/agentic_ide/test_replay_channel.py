@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.transcript import ReplayBuffer
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.transcript import ReplayBuffer
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 

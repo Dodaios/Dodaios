@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.model_catalog import catalog_spec
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.brain.model_catalog import catalog_spec
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 # Tiers that surface a model/voice picker in the API-Keys view.
 _PICKER_TIERS = {"brain", "tts", "stt"}
@@ -28,7 +28,7 @@ def test_every_provider_has_a_model_catalog(spec):
     cat = catalog_spec(spec.id)
     assert cat is not None, (
         f"Provider '{spec.id}' (tier={spec.tier}) has no model_catalog entry — "
-        f"its model picker would 400. Add it in jarvis/brain/model_catalog.py "
+        f"its model picker would 400. Add it in dodaios/brain/model_catalog.py "
         f"(CATALOG_PROVIDERS / CURATED_MODELS for brain, TTS_CATALOG, or "
         f"STT_CATALOG)."
     )

@@ -1,7 +1,7 @@
 """Tests for the configurable wake-word phrase matcher + engine resolver.
 
-These pin the contract of ``jarvis/speech/wake_phrase.py`` and
-``jarvis/speech/wake_constants.py`` — the core of the custom-wake-word feature.
+These pin the contract of ``dodaios/speech/wake_phrase.py`` and
+``dodaios/speech/wake_constants.py`` — the core of the custom-wake-word feature.
 
 The cardinal rule (see docs/local-wakeword/CUSTOM-WAKE-WORD-DESIGN.md):
 - The DEFAULT "Hey Jarvis" phrase MUST reproduce the existing strict pattern
@@ -15,9 +15,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.speech import wake_constants as wc
-from jarvis.speech import wake_phrase as wp
-from jarvis.speech.wake_phrase import (
+from dodaios.speech import wake_constants as wc
+from dodaios.speech import wake_phrase as wp
+from dodaios.speech.wake_phrase import (
     CUSTOM_ONNX_THRESHOLD,
     compile_wake_matcher,
     resolve_wake_plan,
@@ -200,7 +200,7 @@ def test_long_phrase_keeps_strict_ratio_for_short_name_relaxation() -> None:
 # --------------------------------------------------------------------------
 
 def test_pretrained_threshold_is_pinned_to_production_wake_threshold() -> None:
-    from jarvis.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
+    from dodaios.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
 
     assert wp.PRODUCTION_WAKE_THRESHOLD == PRODUCTION_WAKE_THRESHOLD
 
@@ -216,7 +216,7 @@ def test_resolved_thresholds_ignore_any_legacy_sensitivity_value(
     """Guard: resolve_wake_plan() always yields the pinned thresholds, no
     matter what a legacy config carries in ``sensitivity`` (read-compat-only
     field since 2026-07-10)."""
-    from jarvis.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
+    from dodaios.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
 
     plan = resolve_wake_plan(
         _cfg(phrase="Computer", sensitivity=sensitivity),

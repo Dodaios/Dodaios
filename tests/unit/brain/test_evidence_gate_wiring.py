@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 def _bare_manager() -> BrainManager:
@@ -40,8 +40,8 @@ def test_run_evidence_gate_degrades_to_pass_on_missing_config():
 
 
 def test_run_evidence_gate_refuses_without_any_integration(monkeypatch):
-    import jarvis.clis.shared as shared
-    import jarvis.core.capabilities as cap_mod
+    import dodaios.clis.shared as shared
+    import dodaios.core.capabilities as cap_mod
 
     m = _bare_manager()
     m._config = SimpleNamespace(
@@ -66,8 +66,8 @@ def test_run_evidence_gate_stands_down_on_matched_skill_turn(monkeypatch):
     so a CONNECTED Google Calendar plugin turn — freshly matched to
     plugin-google_calendar — was answered with the deterministic
     "no calendar access" refusal plus a CLI-setup detour."""
-    import jarvis.clis.shared as shared
-    import jarvis.core.capabilities as cap_mod
+    import dodaios.clis.shared as shared
+    import dodaios.core.capabilities as cap_mod
 
     m = _bare_manager()
     m._config = SimpleNamespace(
@@ -99,9 +99,9 @@ def test_run_evidence_gate_disabled_passes():
 def test_run_evidence_gate_activity_refuses_honestly(monkeypatch):
     """Jarvis keeps no activity history, so a window/activity question gets an
     honest refusal — never a confabulated timeline."""
-    import jarvis.clis.shared as shared
-    import jarvis.core.capabilities as cap_mod
-    from jarvis.core.config import EvidenceDomainsConfig
+    import dodaios.clis.shared as shared
+    import dodaios.core.capabilities as cap_mod
+    from dodaios.core.config import EvidenceDomainsConfig
 
     m = _bare_manager()
     m._tools = {"screenshot": object()}
@@ -137,8 +137,8 @@ def test_run_evidence_gate_refusal_follows_the_reply_language_pin(
     was no Spanish table to reach (OF-15). The utterance below is English on
     purpose: only the pin can produce the Spanish and German answers.
     """
-    import jarvis.clis.shared as shared
-    import jarvis.core.capabilities as cap_mod
+    import dodaios.clis.shared as shared
+    import dodaios.core.capabilities as cap_mod
 
     m = _bare_manager()
     m._reply_language = pin

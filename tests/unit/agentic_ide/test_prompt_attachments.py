@@ -9,8 +9,8 @@ without the other is an ordinary install, not an edge case.
 """
 from __future__ import annotations
 
-from jarvis.agentic_ide import prompt_blueprint as blueprint
-from jarvis.agentic_ide.drop_analysis import DropAnalysis
+from dodaios.agentic_ide import prompt_blueprint as blueprint
+from dodaios.agentic_ide.drop_analysis import DropAnalysis
 
 
 def _described(name: str = "shot.png") -> DropAnalysis:

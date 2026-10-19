@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.turn_buffer import Turn, TurnBuffer
+from dodaios.speech.turn_buffer import Turn, TurnBuffer
 
 
 def test_append_accepts_pipeline_kwargs() -> None:

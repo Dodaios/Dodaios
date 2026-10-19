@@ -16,9 +16,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.spawn_worker import (
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.spawn_worker import (
     SpawnWorkerTool,
     _build_mission_prompt,
 )
@@ -129,7 +129,7 @@ def test_empty_everything_returns_empty() -> None:
 def test_mission_prompt_no_longer_carries_the_quality_directive() -> None:
     """The worker contract lives in ``worker_prompt.WORKER_CONTRACT``; the
     mission prompt is only the task, in English labels."""
-    from jarvis.missions.kontrollierer.worker_prompt import WORKER_CONTRACT
+    from dodaios.missions.kontrollierer.worker_prompt import WORKER_CONTRACT
 
     for action in ("eine Landingpage baut", ""):
         prompt = _build_mission_prompt(

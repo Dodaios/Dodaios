@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.agentic_ide import fanout, prompt_composer
+from dodaios.agentic_ide import fanout, prompt_composer
 
 # The live turns this bug was measured on, kept verbatim: they ARE the input
 # under test, and a translated back-reference would not reproduce it.
@@ -33,7 +33,7 @@ class _CapturingBrain:
         self.user = ""
 
     async def complete(self, request: object):  # noqa: ANN202 - test double
-        from jarvis.core.protocols import BrainDelta
+        from dodaios.core.protocols import BrainDelta
 
         self.system = str(getattr(request, "system", "") or "")
         self.user = "\n".join(

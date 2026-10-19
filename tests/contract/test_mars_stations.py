@@ -13,10 +13,10 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from jarvis.core.protocols import MarsStationExecutor
-from jarvis.society.mars.models import CommandState, StationCommand
-from jarvis.society.mars.service import MarsStationService
-from jarvis.society.mars.store import MarsStore
+from dodaios.core.protocols import MarsStationExecutor
+from dodaios.society.mars.models import CommandState, StationCommand
+from dodaios.society.mars.service import MarsStationService
+from dodaios.society.mars.store import MarsStore
 
 
 class TestOnlyExecutor:
@@ -71,7 +71,7 @@ async def test_station_protocol_runs_without_renderer_and_replays_result(tmp_pat
 
 
 def test_station_state_vocabulary_matches_sql_and_no_graphics_imports():
-    root = Path(__file__).parents[2] / "jarvis" / "society" / "mars"
+    root = Path(__file__).parents[2] / "dodaios" / "society" / "mars"
     sql = (root / "schema.sql").read_text("utf-8")
     for state in CommandState:
         assert f"'{state.value}'" in sql
@@ -89,11 +89,11 @@ def test_station_state_vocabulary_matches_sql_and_no_graphics_imports():
 
 
 def test_state_contract_matches_all_five_layers_and_localized_ui():
-    from jarvis.ui.web.mars_routes import router
+    from dodaios.ui.web.mars_routes import router
 
     root = Path(__file__).parents[2]
     states = {state.value for state in CommandState}
-    sql = (root / "jarvis/society/mars/schema.sql").read_text("utf-8")
+    sql = (root / "dodaios/society/mars/schema.sql").read_text("utf-8")
     checks = re.findall(r"CHECK\s*\(\s*state\s+IN\s*\(([^)]+)\)", sql, re.I)
     assert checks
     assert all(set(re.findall(r"'([^']+)'", check)) == states for check in checks)
@@ -102,7 +102,7 @@ def test_state_contract_matches_all_five_layers_and_localized_ui():
     schemas = app.openapi()["components"]["schemas"]
     assert set(schemas["CommandState"]["enum"]) == states
     assert "draft" not in schemas["CommandRecord"]["properties"]
-    frontend = root / "jarvis/ui/web/frontend/src"
+    frontend = root / "dodaios/ui/web/frontend/src"
     source = (frontend / "components/society/mars/api.ts").read_text("utf-8")
     block = re.search(r"COMMAND_STATES\s*=\s*\[([^]]+)\]", source)
     assert block and set(re.findall(r'"([^"]+)"', block[1])) == states

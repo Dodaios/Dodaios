@@ -8,8 +8,8 @@ OUT = Path(__file__).resolve().parent.parent / "data" / "warm_keep_bench.log"
 
 
 async def main():
-    from jarvis.core.protocols import BrainMessage, BrainRequest
-    from jarvis.plugins.brain.jarvis_agent_sdk import JarvisAgentSDKBrain
+    from dodaios.core.protocols import BrainMessage, BrainRequest
+    from dodaios.plugins.brain.jarvis_agent_sdk import JarvisAgentSDKBrain
 
     brain = JarvisAgentSDKBrain(model="haiku")
     lines: list[str] = []

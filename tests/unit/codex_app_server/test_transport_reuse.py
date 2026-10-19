@@ -22,8 +22,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.codex_app_server as transport
-from jarvis.codex_app_server import (
+import dodaios.codex_app_server as transport
+from dodaios.codex_app_server import (
     CodexAppServerCapability,
     CodexAppServerClient,
     CodexSubscriptionUnavailable,
@@ -618,7 +618,7 @@ def test_desktop_sidecar_files_do_not_invalidate_the_profile(
     tmp_path: Path,
 ) -> None:
     """Opening the profile in Finder or Explorer must not cost the login."""
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path)
     home = transport._prepare_subscription_login_home()
@@ -663,7 +663,7 @@ def test_an_unknown_runtime_file_never_deletes_the_login(
 ) -> None:
     """Codex's scratch is regenerated on the next run; the ChatGPT login next
     to it is not. Connect clears only the scratch."""
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     binary = _trusted_linux_binary(monkeypatch, tmp_path)
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path / "data")
@@ -713,7 +713,7 @@ def test_rpc_error_forwards_status_and_type_but_nothing_else() -> None:
     assert "account@example.invalid" not in text
     assert "bearer-secret" not in text
     # The shared classifier now reads the account state instead of "error".
-    from jarvis.brain.provider_test import classify_provider_error
+    from dodaios.brain.provider_test import classify_provider_error
 
     assert classify_provider_error(text) == "no_credits"
 
@@ -775,7 +775,7 @@ def _runtime_fixture(
     The scratch lives inside a real Jarvis-owned profile so its entries carry
     the owner-only ACL the validator requires on Windows.
     """
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     binary = _trusted_linux_binary(monkeypatch, tmp_path)
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path / "data")

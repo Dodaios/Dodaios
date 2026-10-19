@@ -1,6 +1,6 @@
 """Instant acknowledgment on the classic speech pipeline (2026-08-17).
 
-The contract (jarvis/voice/instant_ack.py): a heavy turn gets its first sign
+The contract (dodaios/voice/instant_ack.py): a heavy turn gets its first sign
 of life at dispatch time from the deterministic turn plan -- research, screen
 and mission work immediately, actions and personal lookups after a short
 grace and only if the turn is still processing. Actions get a request-specific
@@ -19,11 +19,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
-from jarvis.voice import instant_ack as instant_ack_module
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.voice import instant_ack as instant_ack_module
 from tests.fakes.voice_session import open_classic_voice_session
 
 
@@ -375,8 +375,8 @@ async def test_long_turn_gets_one_progress_line_grounded_in_the_running_tool(
     processing — ONE line that names the tool actually running (search_web
     -> the search pool). A handover (spawn_worker) speaks nothing: its reply
     states the handover."""
-    from jarvis.core.events import ActionProposed
-    from jarvis.speech import pipeline as pipeline_module
+    from dodaios.core.events import ActionProposed
+    from dodaios.speech import pipeline as pipeline_module
 
     monkeypatch.setattr(pipeline_module, "PROGRESS_AFTER_S", 0.2)
     monkeypatch.setattr(
@@ -427,7 +427,7 @@ async def test_long_turn_gets_one_progress_line_grounded_in_the_running_tool(
 async def test_progress_line_yields_to_a_router_ack_that_just_spoke(monkeypatch) -> None:
     """If the grounded router ack covered the wait seconds ago, the progress
     line stays silent (no two interim lines within the window)."""
-    from jarvis.speech import pipeline as pipeline_module
+    from dodaios.speech import pipeline as pipeline_module
 
     monkeypatch.setattr(pipeline_module, "PROGRESS_AFTER_S", 0.2)
     bus = EventBus()
@@ -453,7 +453,7 @@ async def test_progress_line_is_owed_after_the_turns_own_delayed_ack(monkeypatch
     is owed PROGRESS_AFTER_S after THAT ack — the turn's own line must never
     count as "another interim line just spoke" and silence it (the 2026-08-18
     regression: no progress line ever followed a grace-delayed ack)."""
-    from jarvis.speech import pipeline as pipeline_module
+    from dodaios.speech import pipeline as pipeline_module
 
     monkeypatch.setattr(instant_ack_module, "SHORT_GRACE_S", 0.2)
     monkeypatch.setattr(pipeline_module, "PROGRESS_AFTER_S", 0.2)

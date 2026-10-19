@@ -16,9 +16,9 @@ import pytest
 
 pytest.importorskip("PIL", reason="pillow required for frame handling")
 
-import jarvis.cu.engine as engine_mod
-from jarvis.cu.capture import VisualProbe, capture_stable_frame
-from jarvis.cu.geometry import MonitorInfo
+import dodaios.cu.engine as engine_mod
+from dodaios.cu.capture import VisualProbe, capture_stable_frame
+from dodaios.cu.geometry import MonitorInfo
 from tests.fakes.fake_permission_service import FakePermissionService
 
 MONITOR = MonitorInfo(left=0, top=0, width=192, height=108)
@@ -183,9 +183,9 @@ def patched(monkeypatch, tmp_path):
     # a macOS dev machine without a grant it would refuse every dispatched action.
     # The guard's own tests drive ``_dispatch_tool`` through a FakeTCC world instead.
     monkeypatch.setattr(engine_mod, "_blocked_before_dispatch", lambda: None)
-    # The engine normalizes the target window via jarvis.platform.window_state;
+    # The engine normalizes the target window via dodaios.platform.window_state;
     # tests must never maximize a real window on the dev machine.
-    from jarvis.platform import window_state as ws
+    from dodaios.platform import window_state as ws
 
     monkeypatch.setattr(
         ws,
@@ -332,7 +332,7 @@ async def test_recent_missions_reach_the_decide_prompt_but_not_the_judge(patched
     the operator can resolve what the elliptical goal refers to — while the
     done-judge keeps verifying strictly against the goal alone, so a prior
     mission's outcome can never count as proof for this one."""
-    from jarvis.harness import cu_run_registry
+    from dodaios.harness import cu_run_registry
 
     cu_run_registry.clear_runs()
     cu_run_registry.register_run(
@@ -743,7 +743,7 @@ async def test_foreground_change_during_capture_discards_stale_frame(
     patched,
     monkeypatch,
 ):
-    from jarvis.platform import window_state as ws
+    from dodaios.platform import window_state as ws
 
     handles = iter((11, 22, 22, 22))
     monkeypatch.setattr(
@@ -1251,8 +1251,8 @@ async def test_a_screen_recording_refusal_during_perception_is_terminal(
     # The first perception frame of a mission is where Screen Recording is asked
     # for. The refusal is not flaky capture: no retries, a blocked_permission
     # ending with the people sentence and a single capture attempt.
-    from jarvis.platform import screen_access
-    from jarvis.platform.permissions import PermissionState
+    from dodaios.platform import screen_access
+    from dodaios.platform.permissions import PermissionState
 
     attempts: list[int] = []
 
@@ -1296,8 +1296,8 @@ class _RefusingExecutor(FakeExecutor):
 
 
 def _agent_refusal(permission: str = "accessibility") -> str:
-    from jarvis.platform.permission_service import agent_detail_for
-    from jarvis.platform.permissions import PermissionId
+    from dodaios.platform.permission_service import agent_detail_for
+    from dodaios.platform.permissions import PermissionId
 
     return agent_detail_for(PermissionId(permission), "needs_settings")
 
@@ -1337,7 +1337,7 @@ async def test_a_wrapped_permission_refusal_is_still_terminal(patched):
 
 
 async def test_a_system_dialog_refusal_is_terminal_and_names_no_permission(patched):
-    from jarvis.cu import system_dialogs
+    from dodaios.cu import system_dialogs
 
     brain = FakeBrain(['{"action": "key", "keys": ["enter"]}'] * 8)
     executor = _RefusingExecutor(system_dialogs.agent_detail())
@@ -1367,7 +1367,7 @@ class _ClickThenRefuseExecutor(FakeExecutor):
 
 
 async def test_a_refused_zoom_refined_retry_ends_the_mission_without_another_model_call(patched):
-    from jarvis.cu import system_dialogs
+    from dodaios.cu import system_dialogs
 
     patched.region_changes_after_click = False  # the first click misses
     brain = FakeBrain(
@@ -1401,8 +1401,8 @@ async def test_a_refused_zoom_refined_retry_ends_the_mission_without_another_mod
     ],
 )
 def test_the_user_sentence_follows_the_reason_the_refusal_carries(reason, asking):
-    from jarvis.platform.permission_service import agent_detail_for, user_detail_for
-    from jarvis.platform.permissions import PermissionId
+    from dodaios.platform.permission_service import agent_detail_for, user_detail_for
+    from dodaios.platform.permissions import PermissionId
 
     family = PermissionId.SCREEN_RECORDING
     sentence = engine_mod._permission_block(agent_detail_for(family, reason, asking=asking))

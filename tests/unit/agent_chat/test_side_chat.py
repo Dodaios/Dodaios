@@ -17,15 +17,15 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import plain_chat, runner_api, service
-from jarvis.agent_chat.catalog import rows_for
-from jarvis.agent_chat.native_control import TOOL_FREE_RUNNERS, disable_cli_tools
-from jarvis.agent_chat.runner_api import supports_api_runner
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.surface_kits import kit_for
-from jarvis.agentic_ide import side_chat
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.agent_chat import plain_chat, runner_api, service
+from dodaios.agent_chat.catalog import rows_for
+from dodaios.agent_chat.native_control import TOOL_FREE_RUNNERS, disable_cli_tools
+from dodaios.agent_chat.runner_api import supports_api_runner
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.surface_kits import kit_for
+from dodaios.agentic_ide import side_chat
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 
 class _Brain:
@@ -229,7 +229,7 @@ def test_a_plain_chat_ignores_a_folder_that_no_longer_exists(
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.ui.web.agent_chat_routes import router
+    from dodaios.ui.web.agent_chat_routes import router
 
     store = AgentChatStore(":memory:")
     try:

@@ -27,14 +27,14 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.realtime.session as session_module
-from jarvis.realtime.session import (
+import dodaios.realtime.session as session_module
+from dodaios.realtime.session import (
     _FAILURE_REASON_MAX_CHARS,
     RealtimeVoiceSession,
     _DelegateTurnState,
     _speakable_failure_reason,
 )
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.voice.action_phrases import action_phrase
 
 GMAIL_REASON = "Gmail is not connected — connect it in the Plugins view."
 

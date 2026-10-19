@@ -59,7 +59,7 @@ one click.
   frames.
 - **Worn by an agent.** In an agent's look dialog (*Companion → Look →
   Pet*) any pet from My Pets can replace the agent's shape. It is stored as
-  `companion.pet` in the agent's avatar JSON (`jarvis/society/companion.py`,
+  `companion.pet` in the agent's avatar JSON (`dodaios/society/companion.py`,
   mirrored by `components/society/companion/appearance.ts`) and drawn by
   `CompanionMark` wherever the agent appears: roster, chats, mentions, the
   level hall, the bot stage (each scene plays a pet row, `PET_STATE` in
@@ -85,11 +85,11 @@ hard one-pixel drop shadow; a pixel envelope that drops in, then a green check
 badge (a red cross when it failed) that pops onto its corner; the text in the
 pets' dark ink. Both windows show their frames through
 `ui/orb/layered_surface.py`: on Windows with real per-pixel alpha
-(`jarvis/platform/layered_window.py`, `UpdateLayeredWindow`), so cards fade in
+(`dodaios/platform/layered_window.py`, `UpdateLayeredWindow`), so cards fade in
 and out; elsewhere, or when Windows refuses a frame, flattened onto the colour
 key with hard edges.
 
-Done cards are about Jarvis and nothing else (`jarvis/ui/pets/notices.py`):
+Done cards are about Jarvis and nothing else (`dodaios/ui/pets/notices.py`):
 
 | Source | Card |
 | --- | --- |
@@ -124,13 +124,13 @@ other line is the cloud's text (ellipsized at 230 px). It repaints at ~16 fps
 while up and not at all otherwise.
 
 What it says mirrors Jarvis's real thinking, fed by bus events in
-`ui/orb/bus_bridge.py` and condensed by `jarvis/ui/pets/status_line.py`:
+`ui/orb/bus_bridge.py` and condensed by `dodaios/ui/pets/status_line.py`:
 
 The bubble shows ONE line: the detail when there is one, else the title.
 
 | Source | Title | Detail |
 |---|---|---|
-| `ReasoningSummaryUpdated` — the thinking model behind GPT-Live (`jarvis/live/session.py`, streamed as cumulative snapshots a few times per second) | the newest section heading of the summary (`**Heading**`) | the last complete sentence of that section |
+| `ReasoningSummaryUpdated` — the thinking model behind GPT-Live (`dodaios/live/session.py`, streamed as cumulative snapshots a few times per second) | the newest section heading of the summary (`**Heading**`) | the last complete sentence of that section |
 | `ActionProposed` / `ToolCallStarted` — a tool step | the current thought's heading, else the running agent task, else "Working" | the step's rationale, else the humanized tool name |
 | `ActionExecuted` while a card is up | unchanged | "Step done" / "Step failed" |
 | `JarvisAgentTaskStarted` / `JarvisAgentTaskCompleted` — an agent task | the task (the user's request, condensed) | "Working …", then "Done" / "Failed" |
@@ -155,7 +155,7 @@ paths and JSON dumps are stripped.
 
 ## States
 
-The vocabulary lives in `jarvis/ui/pets/states.py` (a module with no imports)
+The vocabulary lives in `dodaios/ui/pets/states.py` (a module with no imports)
 and is mirrored in `frontend/src/lib/petStates.ts`; a parity test keeps them
 equal.
 
@@ -169,7 +169,7 @@ equal.
 | `error` (one-shot, 2 s) | `ErrorOccurred(recoverable=False)`, `SpeechSpoken.spoken_kind` in `timeout`/`unavailable`/`stt_unavailable`, `VoiceSessionEnded(hangup_reason="error")`, `ActionExecuted(success=False)` while no turn is running |
 | `sleeping` | five minutes without any Jarvis event; any event wakes it |
 | `working` | a tool step that changes, sends or runs something (`ActionProposed` / `ToolCallStarted`) while thinking; also an agent task running in the background while Jarvis is otherwise idle (`JarvisAgentTaskStarted` until `JarvisAgentTaskCompleted`) |
-| `searching` | a tool step that looks something up: its name contains a word like search, find, read, fetch, browse, query, list or wiki (`jarvis/ui/pets/actions.py`) |
+| `searching` | a tool step that looks something up: its name contains a word like search, find, read, fetch, browse, query, list or wiki (`dodaios/ui/pets/actions.py`) |
 | `held` | the user drags the pet with the mouse (from the first real movement until the release) |
 
 Precedence, highest first: `held`, a one-shot, `listening` / `talking`, an action state, background work, `thinking` / `idle`, `sleeping`. An action ends with the tool's `ActionExecuted`, when Jarvis starts talking or the turn ends, and at the latest after 12 seconds without a newer tool call. A pet whose sheet has no row for a new state borrows one: `working` -> `thinking`, `searching` -> `working`, `held` -> `listening`.
@@ -247,7 +247,7 @@ Two row conventions make the pet feel alive:
   timer covers the wait, so idling costs nothing extra. A user upload is a
   single sheet, so the store drops `acts` from an uploaded `pet.json`.
 
-Rules the loader enforces (`jarvis/ui/pets/manifest.py`):
+Rules the loader enforces (`dodaios/ui/pets/manifest.py`):
 
 - `format` must be `jarvis-pet/1`; `id` matches `^[a-z0-9][a-z0-9-]{0,31}$`
   (built-in) or `^u[0-9a-f]{16}$` (user-created).
@@ -261,7 +261,7 @@ Rules the loader enforces (`jarvis/ui/pets/manifest.py`):
   (`#FF00FF`), so the loader nudges any exact-magenta sprite pixel to
   `#FE00FE`.
 
-Built-in pets live in `jarvis/ui/pets/builtin/<id>/` and are generated from
+Built-in pets live in `dodaios/ui/pets/builtin/<id>/` and are generated from
 pixel data by `scripts/pets/build_pets.py` (deterministic; a test checks the
 committed PNGs match the script). User-created pets live in
 `<data dir>/pets/<u…id>/`.
@@ -296,7 +296,7 @@ committed PNGs match the script). User-created pets live in
 
 `OrbOverlay` gains these methods. The bridge calls them through `getattr`, so
 the bar and `NullOverlay` stay untouched. The macOS companion process
-(`jarvis/ui/dodaiosbar/host.py`) forwards each one as a command of the same
+(`dodaios/ui/dodaiosbar/host.py`) forwards each one as a command of the same
 name.
 
 | Method | Meaning |
@@ -321,7 +321,7 @@ Control-strip actions: `bell` (handled in the surface, reported through
 `set_on_notifications_toggle`; the macOS host sends it up as `notify_toggle`),
 `mic_mute`, `talk`/`hangup` (the orb) and `speaker`.
 
-### Events (`jarvis/core/events.py`)
+### Events (`dodaios/core/events.py`)
 
 - `VoiceSpeakerMuteChanged(muted, source)`: published by
   `SpeechPipeline.set_tts_volume` when the muted-ness flips.
@@ -343,7 +343,7 @@ Control-strip actions: `bell` (handled in the surface, reported through
 | `[ui] pet_strip_always` | `false` | Keep the control strip up even at rest |
 | `[trigger] hotkey_pet_toggle` | `alt+win+p` | Hide / show the pet; empty disables it |
 
-### REST (`jarvis/ui/web/pets_routes.py`)
+### REST (`dodaios/ui/web/pets_routes.py`)
 
 | Method and path | Body / result |
 |---|---|

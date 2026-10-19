@@ -17,10 +17,10 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.missions.kontrollierer.deliverable as deliv_mod
-import jarvis.missions.kontrollierer.orchestrator as orch_mod
-from jarvis.missions.events import MissionApproved
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
+import dodaios.missions.kontrollierer.deliverable as deliv_mod
+import dodaios.missions.kontrollierer.orchestrator as orch_mod
+from dodaios.missions.events import MissionApproved
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
 
 _LONG_ANSWER = (
     "To relocate to San Francisco you need a work visa, housing secured early, "

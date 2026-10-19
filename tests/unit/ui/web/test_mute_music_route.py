@@ -16,10 +16,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.audio.ducking.controller import AudioDuckController
-from jarvis.audio.ducking.macos import MacOSScriptDucker
-from jarvis.platform.permissions import AUTOMATION_TARGETS
-from jarvis.ui.web.settings_routes import router
+from dodaios.audio.ducking.controller import AudioDuckController
+from dodaios.audio.ducking.macos import MacOSScriptDucker
+from dodaios.platform.permissions import AUTOMATION_TARGETS
+from dodaios.ui.web.settings_routes import router
 from tests.fakes.fake_tcc import CallKind, DialogPolicy, FakeTCC, install_port, make_non_darwin_port
 
 _MUSIC = "com.apple.Music"
@@ -67,7 +67,7 @@ def _app(ducker) -> FastAPI:
 
 @pytest.fixture(autouse=True)
 def _no_toml_write(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_mute_music", lambda v, **k: None)
 

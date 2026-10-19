@@ -1,0 +1,1364 @@
+"""Stage-1 conversation fact extractor (Wave 2, ADD-only).
+
+One cheap LLM call per reviewed turn extracts 0..N atomic candidate facts
+and appends them to the :class:`CandidateJournal`. This stage NEVER touches
+the vault — a failing or over-eager extractor cannot corrupt existing pages;
+the expensive judgment (ADD/UPDATE/NOOP/INVALIDATE against real page bodies)
+happens later in the batched Stage-2 consolidator.
+
+Since 2026-09-30 a turn is reviewed only when the user explicitly asked for
+it to be kept (the voice bridge's acknowledgement path) or when the user
+starts a backfill. The automatic review of every turn, the end-of-call
+sweep and the periodic auto-backfill were removed: they spent paid API keys
+around the clock for little value.
+
+Provider/model resolve through the SAME ``[memory.wiki.curator]`` pair as
+the curator, so the Wiki settings card drives both stages — cheap
+router-tier model by default, explicit override wins. Nobody waits on the
+answer, so the call bills only what background work may bill
+(:mod:`dodaios.brain.background_policy`) and counts against the wiki's daily
+call cap (:mod:`dodaios.memory.wiki.background_guard`). When it has to wait,
+:class:`~dodaios.brain.background_policy.BackgroundDeferred` reaches the
+caller instead of a key being used.
+
+Stage-1 selection contract (spec §4.2, D1 "completeness with cleanliness"):
+recall-biased — when unsure whether something matters long-term, surface a
+candidate; smalltalk and contentless turns yield ``[]``. The journal +
+Stage-2 NOOP de-duplication contain the over-capture.
+
+AP-9: callers invoke :meth:`extract_and_journal` only from fire-and-forget
+background tasks; this module never runs on the voice critical path.
+"""
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import logging
+import re
+import time
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal
+
+from dodaios.brain.background_policy import BackgroundDeferred
+from dodaios.brain.provider_registry import BrainProviderRegistry
+from dodaios.brain.streaming import aggregate, is_length_truncated
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.core.redact import safe_preview
+from dodaios.memory.wiki.background_guard import guard as background_guard
+from dodaios.memory.wiki.constants import DEFAULT_SALIENCE
+from dodaios.memory.wiki.curator_llm import _extract_json_array
+from dodaios.memory.wiki.grounding import classify_user_attitude_evidence
+from dodaios.memory.wiki.journal import CandidateFact, normalise_subjects
+from dodaios.memory.wiki.residence import detect_residence_slug
+from dodaios.memory.wiki.secret_guard import contains_secret
+from dodaios.memory.wiki.telemetry import telemetry
+
+if TYPE_CHECKING:
+    from dodaios.core.config import JarvisConfig
+    from dodaios.memory.wiki.journal import CandidateJournal
+    from dodaios.memory.wiki.provider_chain import WikiBackgroundChain
+
+log = logging.getLogger(__name__)
+
+# Hard cap on candidates accepted from one turn — a runaway extractor must
+# not flood the journal (mirrors curator_llm._MAX_UPDATES_PER_INGEST).
+_MAX_FACTS_PER_TURN = 10
+_MAX_FACTS_PER_SESSION_CHUNK = 16
+
+# Assistant reply is context only; keep the prompt tiny (cheap-model tier).
+_MAX_ASSISTANT_CONTEXT_CHARS = 500
+_MAX_CONTEXT_TURNS = 5
+_MAX_CONTEXT_CHARS_PER_TURN = 1_000
+_MAX_SESSION_CHUNK_CHARS = 9_000
+_MAX_SESSION_CHUNK_TURNS = 16
+_SESSION_CONTEXT_OVERLAP_TURNS = 2
+_MIN_SESSION_OUTPUT_TOKENS = 2_400
+_MAX_EVIDENCE_EXCERPT_CHARS = 1_200
+_MAX_FOCUS_EVIDENCE_CHARS = 800
+_MAX_PRIOR_EVIDENCE_CHARS = 150
+_MAX_EVIDENCE_TURN_ID_CHARS = 80
+
+# A valid empty array from one cheap provider gets a second opinion only when
+# the user turn has a durable first-person/relationship/project signal. The
+# binding Stage-2 judge still decides whether anything reaches the vault.
+_DURABLE_CUE_RE = re.compile(
+    r"(?i)\b(?:my|our|i\s+(?:am|own|prefer|love|hate|work|live|decided|plan"
+    r"|play|go|train|meet)"
+    r"|every\s+(?:day|week|weekend|morning|evening)"
+    r"|mein(?:e|er|en|em|es)?|unser(?:e|er|en|em|es)?"  # i18n-allow: input vocab
+    r"|ich\s+(?:bin|habe|besitze|mag|liebe|hasse|arbeite|wohne|plane"  # i18n-allow: input vocab
+    r"|spiele|gehe|trainiere|treffe)|jede[nrs]?"  # i18n-allow: input vocab
+    r"|mi|mis|nuestro|nuestra|soy|tengo|prefiero|trabajo|vivo"
+    r"|juego|voy|entreno|cada"
+    r"|friend|partner|wife|husband|boss|mother|father"
+    r"|freund|partnerin|ehefrau|ehemann|chef|mutter|vater"  # i18n-allow: input vocab
+    r"|amigo|amiga|pareja|esposa|esposo|jefe|madre|padre"
+    r"|project|projekt|proyecto)\b"  # i18n-allow: input vocab
+)
+
+# Valid candidate kinds. Anything else degrades to "other" (soft vocab —
+# kinds are retrieval hints for Stage 2, not a wire-format contract).
+_KNOWN_KINDS = frozenset(
+    {
+        "identity",
+        "preference",
+        "activity",
+        "person",
+        "project",
+        "decision",
+        "event",
+        "asset",
+        "place",
+        "organization",
+        "relationship",
+        "other",
+    }
+)
+
+# Kinds whose Stage-1 candidates are HARD-dropped without both the user slug
+# and a topic slug. Deliberately place-only: a residence always names a place,
+# but an activity can be generic ("The user exercises regularly" has no topic
+# page) — for activities the companion-page invariant stays a Stage-2 soft
+# rule that applies only when subjects DO name a topic.
+_GRAPH_SUBJECT_KINDS = frozenset({"place"})
+
+
+def _candidate_salience(item: dict[str, Any]) -> int:
+    """Model-scored 1-5 personal salience, clamped; missing/garbage -> default."""
+    try:
+        salience = int(item.get("salience", DEFAULT_SALIENCE))
+    except (TypeError, ValueError):
+        return DEFAULT_SALIENCE
+    return max(1, min(5, salience))
+
+
+# Shared by the turn extractor and the session sweep; the parser reads every
+# field and ``_KNOWN_KINDS`` the kind list.
+_FACT_CONTRACT = """\
+Return only a JSON array, [] when nothing lasting about the user's life is \
+asserted (questions, topic mentions, commands, small talk, momentary states):
+[{"fact": "<one self-contained sentence>", "kind": "identity|preference|activity|\
+person|project|decision|event|asset|place|organization|relationship|other", \
+"subjects": ["<kebab-slug>", ...], "evidence_turn_id": "<user turn id>", \
+"basis": "explicit|behavioral", "salience": <1-5>}]
+- basis: explicit = the user asserted it; behavioral = drawn from a first-person \
+account of doing or enjoying something.
+- salience = centrality to the user's own life (5 identity, close people, health; \
+4 possessions, habits, projects; 1 trivia).
+- subjects: a first-person fact about a named place, person, organization, \
+project, asset, vehicle or activity lists the user slug and the topic slug; a \
+place fact without both is dropped.
+- No credentials, keys or tokens.
+"""
+
+# The opening words route fakes in tests/integration (``startswith("You extract")``).
+_SYSTEM_PROMPT = (
+    "You extract durable personal-memory facts from the FOCUS USER TURN. Earlier "
+    "turns and assistant replies only resolve references and are never evidence; "
+    "evidence_turn_id is the focus turn id.\n\n" + _FACT_CONTRACT
+)
+
+_SESSION_SYSTEM_PROMPT = (
+    "You sweep one finished conversation for durable personal-memory facts that "
+    "only emerge across several turns. Only user turns are evidence; each fact "
+    "cites the exact user turn that supports it.\n\n" + _FACT_CONTRACT
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationContextTurn:
+    """One bounded, user-evidenced turn supplied as extraction context."""
+
+    turn_id: str
+    user_text: str
+    assistant_text: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class _ExtractionResult:
+    facts: tuple[CandidateFact, ...] = ()
+    outcome: Literal["empty", "candidates", "failed"] = "empty"
+    provider: str = ""
+    duration_ms: int = 0
+    error_code: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class _SessionChunk:
+    """One retryable focus partition with bounded user-reference overlap."""
+
+    context: tuple[ConversationContextTurn, ...]
+    focus: tuple[ConversationContextTurn, ...]
+
+
+class ConversationFactExtractor:
+    """Cheap-model Stage-1 extraction into the candidate journal."""
+
+    def __init__(
+        self,
+        *,
+        config: JarvisConfig,
+        journal: CandidateJournal,
+        registry: BrainProviderRegistry | None = None,
+    ) -> None:
+        self._root_cfg = config
+        self._cfg = config.memory.wiki.extractor
+        self._curator_cfg = config.memory.wiki.curator
+        configured_slug = str(
+            getattr(config.memory.wiki.session_rollup, "user_entity_slug", "")
+            or "user"
+        )
+        safe_slug = normalise_subjects((configured_slug,))
+        self._user_entity_slug = safe_slug[0] if safe_slug else "user"
+        self._journal = journal
+        self._registry = registry if registry is not None else BrainProviderRegistry()
+        self._credential_filter = registry is None
+        self._resolved_provider: str | None = None
+        # Wave-2 journal pressure: when attached, an append that pushes the
+        # backlog past the threshold fires a background JOURNAL trigger so
+        # the Stage-2 consolidator drains a batch (cooldown/lock gated there).
+        self._scheduler: Any = None
+        self._consolidate_after: int = 0
+
+    def _with_user_slug(self, prompt: str) -> str:
+        """Bind self-facts to a portable configured slug, never a maintainer."""
+        return (
+            prompt
+            + "\n- For facts about the speaker, include the exact subject slug "
+            + f'["{self._user_entity_slug}"].\n'
+        )
+
+    # ------------------------------------------------------------------
+    # public API
+    # ------------------------------------------------------------------
+
+    async def extract_and_journal(
+        self,
+        user_text: str,
+        assistant_text: str,
+        *,
+        source_label: str,
+        turn_hash: str,
+        review_key: str | None = None,
+        session_id: str = "",
+        turn_id: str = "",
+        source_kind: str = "turn",
+        context_turns: Sequence[ConversationContextTurn] = (),
+    ) -> int:
+        """One LLM call -> 0..N facts -> journal. Returns the appended count.
+
+        Every provider failure (brain unavailable, timeout, malformed JSON,
+        truncation) degrades to 0 with a logged warning — the conversation
+        must never notice the memory pipeline. The one exception is
+        :class:`BackgroundDeferred`: nothing background work may bill can take
+        the call right now, so the caller keeps the turn and retries later.
+        Waiting never uses up a review attempt: a wait known up front is
+        raised before the review is claimed, and a wait that starts mid-chain
+        (the subscription stops answering, the daily cap is reached) hands the
+        claimed attempt back (``CandidateJournal.release_capture``). A review
+        that cannot be claimed is logged with the reason — a WARNING when its
+        failure budget is spent — never dropped silently.
+        """
+        text = (user_text or "").strip()
+        focus_turn_id = (turn_id or turn_hash).strip()
+        key = review_key or f"turn:v2:{turn_hash}"
+        background = (
+            await self._background_chain()
+            if self._cfg.enabled and len(text) >= int(self._cfg.min_user_chars)
+            else None
+        )
+        if not await self._claim_review(
+            review_key=key,
+            source_label=source_label,
+            source_kind=source_kind,
+            text=text,
+            session_id=session_id,
+            turn_id=focus_turn_id,
+        ):
+            await self._log_unclaimed(key, source_label=source_label)
+            return 0
+
+        if not self._cfg.enabled:
+            await self._finish_review(
+                key, status="filtered", error_code="extractor-disabled"
+            )
+            return 0
+        if len(text) < int(self._cfg.min_user_chars) or background is None:
+            await self._finish_review(key, status="filtered", error_code="below-min-chars")
+            return 0
+
+        prompt = self._build_turn_prompt(
+            user_text=text,
+            assistant_text=(assistant_text or "").strip(),
+            focus_turn_id=focus_turn_id,
+            context_turns=context_turns,
+        )
+        try:
+            outcome = await self._extract(
+                prompt,
+                background=background,
+                system_prompt=self._with_user_slug(_SYSTEM_PROMPT),
+                allowed_evidence={focus_turn_id},
+                fallback_evidence="",
+                evidence_text_by_id={
+                    focus_turn_id: self._user_evidence_excerpt(
+                        ConversationContextTurn(
+                            turn_id=focus_turn_id,
+                            user_text=text,
+                        ),
+                        context_turns,
+                    )
+                },
+                max_facts=_MAX_FACTS_PER_TURN,
+                max_output_tokens=int(self._cfg.max_output_tokens),
+                retry_empty=bool(_DURABLE_CUE_RE.search(text)),
+            )
+        except asyncio.CancelledError:
+            await self._finish_review(key, status="failed", error_code="cancelled")
+            raise
+        except BackgroundDeferred:
+            # The daily cap was reached or the subscription stopped answering
+            # mid-chain: nothing was reviewed, so the attempt goes back and
+            # the caller keeps the turn for a later try.
+            await self._release_review(key)
+            raise
+        except Exception:  # noqa: BLE001 - the conversation must never notice
+            log.exception("ConversationFactExtractor: unexpected extraction failure")
+            await self._finish_review(key, status="failed", error_code="unexpected")
+            return 0
+
+        return await self._persist_outcome(
+            outcome,
+            review_key=key,
+            source_label=source_label,
+            turn_hash=turn_hash,
+        )
+
+    async def extract_session_and_journal(
+        self,
+        turns: Sequence[ConversationContextTurn],
+        *,
+        session_id: str,
+        source_label: str,
+        review_key: str | None = None,
+    ) -> int:
+        """Sweep every Realtime turn in stable, independently retryable chunks.
+
+        Used only by the user-started backfill. When the wiki has to wait
+        (subscription not usable, backoff, daily cap) the remaining chunks
+        are left unclaimed — or, if the wait started mid-call, marked
+        ``failed`` with ``deferred`` — so a later backfill picks them up.
+        """
+        usable = tuple(t for t in turns if t.turn_id and t.user_text.strip())
+        base_key = review_key or f"session:v3:{session_id}"
+        chunks = self._session_chunks(usable)
+        if not chunks:
+            empty_key = f"{base_key}:empty"
+            if await self._claim_review(
+                review_key=empty_key,
+                source_label=source_label,
+                source_kind="session-sweep",
+                text="",
+                session_id=session_id,
+                turn_id="",
+            ):
+                await self._finish_review(
+                    empty_key,
+                    status="filtered",
+                    error_code="no-user-turns",
+                )
+            return 0
+
+        keys = self.session_review_keys(
+            usable,
+            session_id=session_id,
+            review_key=base_key,
+        )
+        total = 0
+        seen_facts: set[str] = set()
+        for index, (key, chunk) in enumerate(zip(keys, chunks, strict=True)):
+            transcript = self._build_session_prompt(chunk)
+            background: WikiBackgroundChain | None = None
+            if self._cfg.enabled:
+                try:
+                    background = await self._background_chain()
+                except BackgroundDeferred as exc:
+                    log.info(
+                        "ConversationFactExtractor: session %s sweep paused at "
+                        "chunk %d — %s",
+                        session_id,
+                        index,
+                        exc,
+                    )
+                    break
+            if not await self._claim_review(
+                review_key=key,
+                source_label=f"{source_label}:chunk:{index}",
+                source_kind="session-sweep",
+                text=transcript,
+                session_id=session_id,
+                turn_id="",
+            ):
+                await self._log_unclaimed(key, source_label=f"{source_label}:chunk:{index}")
+                continue
+            if background is None:
+                await self._finish_review(
+                    key,
+                    status="filtered",
+                    error_code="extractor-disabled",
+                )
+                continue
+            try:
+                outcome = await self._extract(
+                    transcript,
+                    background=background,
+                    system_prompt=self._with_user_slug(_SESSION_SYSTEM_PROMPT),
+                    allowed_evidence={t.turn_id for t in chunk.focus},
+                    fallback_evidence="",
+                    evidence_text_by_id=self._chunk_evidence_map(chunk),
+                    max_facts=_MAX_FACTS_PER_SESSION_CHUNK,
+                    max_output_tokens=max(
+                        _MIN_SESSION_OUTPUT_TOKENS,
+                        int(self._cfg.max_output_tokens),
+                    ),
+                    retry_empty=True,
+                )
+            except asyncio.CancelledError:
+                await self._finish_review(key, status="failed", error_code="cancelled")
+                raise
+            except BackgroundDeferred as exc:
+                await self._release_review(key)
+                log.info(
+                    "ConversationFactExtractor: session %s sweep paused at chunk %d — %s",
+                    session_id,
+                    index,
+                    exc,
+                )
+                break
+            except Exception:  # noqa: BLE001
+                log.exception("ConversationFactExtractor: session chunk failed")
+                await self._finish_review(key, status="failed", error_code="unexpected")
+                continue
+
+            unique = tuple(
+                fact
+                for fact in outcome.facts
+                if " ".join(fact.fact.casefold().split()) not in seen_facts
+            )
+            seen_facts.update(" ".join(f.fact.casefold().split()) for f in unique)
+            if unique != outcome.facts:
+                outcome = _ExtractionResult(
+                    facts=unique,
+                    outcome="candidates" if unique else "empty",
+                    provider=outcome.provider,
+                    duration_ms=outcome.duration_ms,
+                    error_code=outcome.error_code,
+                )
+            total += await self._persist_outcome(
+                outcome,
+                review_key=key,
+                source_label=f"{source_label}:chunk:{index}",
+                turn_hash=key,
+            )
+        return total
+
+    def session_review_keys(
+        self,
+        turns: Sequence[ConversationContextTurn],
+        *,
+        session_id: str,
+        review_key: str | None = None,
+    ) -> tuple[str, ...]:
+        """Return stable policy-v3 review keys for every complete-run chunk."""
+        usable = tuple(t for t in turns if t.turn_id and t.user_text.strip())
+        base = review_key or f"session:v3:{session_id}"
+        keys: list[str] = []
+        for index, chunk in enumerate(self._session_chunks(usable)):
+            identity = "\0".join(
+                f"{role}\0{turn.turn_id}\0"
+                f"{hashlib.sha256(turn.user_text.encode('utf-8')).hexdigest()}"
+                for role, group in (("context", chunk.context), ("focus", chunk.focus))
+                for turn in group
+            )
+            digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+            keys.append(f"{base}:chunk:{index:03d}:{digest}")
+        return tuple(keys)
+
+    @staticmethod
+    def _session_chunks(
+        turns: Sequence[ConversationContextTurn],
+    ) -> tuple[_SessionChunk, ...]:
+        """Partition every turn and preserve boundary context for references."""
+        focus_chunks: list[tuple[ConversationContextTurn, ...]] = []
+        current: list[ConversationContextTurn] = []
+        current_chars = 0
+        for turn in turns:
+            block_chars = len(ConversationFactExtractor._session_turn_block(turn))
+            if current and (
+                len(current) >= _MAX_SESSION_CHUNK_TURNS
+                or current_chars + block_chars > _MAX_SESSION_CHUNK_CHARS
+            ):
+                focus_chunks.append(tuple(current))
+                current = []
+                current_chars = 0
+            current.append(turn)
+            current_chars += block_chars
+        if current:
+            focus_chunks.append(tuple(current))
+
+        chunks: list[_SessionChunk] = []
+        consumed = 0
+        all_turns = tuple(turns)
+        for focus in focus_chunks:
+            context = all_turns[
+                max(0, consumed - _SESSION_CONTEXT_OVERLAP_TURNS):consumed
+            ]
+            # Keep the total prompt bounded. Drop the oldest overlap first;
+            # every focus turn remains represented exactly once.
+            while context and (
+                sum(len(ConversationFactExtractor._session_turn_block(t)) for t in context)
+                + sum(len(ConversationFactExtractor._session_turn_block(t)) for t in focus)
+                > _MAX_SESSION_CHUNK_CHARS
+            ):
+                context = context[1:]
+            chunks.append(_SessionChunk(context=tuple(context), focus=focus))
+            consumed += len(focus)
+        return tuple(chunks)
+
+    @property
+    def min_user_chars(self) -> int:
+        """The one Stage-1 eligibility floor used by every bridge path."""
+        return int(self._cfg.min_user_chars)
+
+    def capture_seen(self, review_key: str) -> bool:
+        """Return whether a transport-identity review already finished."""
+        try:
+            return self._journal.capture_seen(review_key)
+        except Exception:  # noqa: BLE001
+            return False
+
+    def capture_status(self, review_key: str) -> str | None:
+        """Return the durable audit state used to coordinate live/backfill work."""
+        try:
+            return self._journal.capture_status(review_key)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def attach_scheduler(self, scheduler: Any, *, consolidate_after: int) -> None:
+        """Enable the journal-pressure trigger (Wave-2 B4).
+
+        ``scheduler`` is duck-typed: needs ``trigger(TriggerSource.JOURNAL)``.
+        """
+        self._scheduler = scheduler
+        self._consolidate_after = max(1, int(consolidate_after))
+
+    async def _maybe_trigger_consolidation(self) -> None:
+        """Fire a background JOURNAL trigger when the backlog is heavy.
+
+        Fire-and-forget (AP-9): the conversation turn never waits for the
+        consolidator; the scheduler applies its own cooldown + vault lock.
+        """
+        if self._scheduler is None:
+            return
+        try:
+            backlog = await asyncio.to_thread(self._journal.backlog_count)
+            try:
+                from dodaios.memory.wiki.health import health
+
+                health.record_backlog(backlog)
+            except Exception:  # noqa: BLE001 — health recording must never break extraction
+                log.debug(
+                    "ConversationFactExtractor: health.record_backlog failed", exc_info=True,
+                )
+            if backlog < self._consolidate_after:
+                return
+            from dodaios.memory.wiki.scheduler import fire_journal_trigger
+
+            fire_journal_trigger(
+                self._scheduler,
+                name="wiki-journal-pressure-trigger",
+                log_context="journal-pressure trigger",
+            )
+        except RuntimeError:
+            # No running event loop (sync test context) — next append from
+            # an async context will retry.
+            log.debug("ConversationFactExtractor: no event loop for journal trigger")
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "ConversationFactExtractor: journal-pressure trigger failed: %s", exc,
+            )
+
+    # ------------------------------------------------------------------
+    # internals
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_turn_prompt(
+        *,
+        user_text: str,
+        assistant_text: str,
+        focus_turn_id: str,
+        context_turns: Sequence[ConversationContextTurn],
+    ) -> str:
+        parts = [f"Today is {time.strftime('%Y-%m-%d')}."]
+        bounded = tuple(context_turns)[-_MAX_CONTEXT_TURNS:]
+        if bounded:
+            parts.append("RECENT CONTEXT (reference resolution only):")
+            for turn in bounded:
+                parts.append(
+                    f"USER TURN [{turn.turn_id}]:\n"
+                    f"{turn.user_text[:_MAX_CONTEXT_CHARS_PER_TURN]}\n"
+                    f"ASSISTANT CONTEXT (never evidence):\n"
+                    f"{turn.assistant_text[:_MAX_ASSISTANT_CONTEXT_CHARS] or '(none)'}"
+                )
+        parts.append(
+            f"FOCUS USER TURN [{focus_turn_id}] (the only evidence source):\n"
+            f"{user_text}\n\n"
+            "ASSISTANT REPLY (context only; never evidence):\n"
+            f"{assistant_text[:_MAX_ASSISTANT_CONTEXT_CHARS] or '(none)'}"
+        )
+        return "\n\n".join(parts)
+
+    @staticmethod
+    def _session_turn_block(turn: ConversationContextTurn) -> str:
+        return (
+            f"USER TURN [{turn.turn_id}]:\n"
+            f"{turn.user_text[:_MAX_CONTEXT_CHARS_PER_TURN * 2]}\n"
+            "ASSISTANT CONTEXT (never evidence):\n"
+            f"{turn.assistant_text[:_MAX_ASSISTANT_CONTEXT_CHARS] or '(none)'}"
+        )
+
+    @staticmethod
+    def _build_session_prompt(chunk: _SessionChunk) -> str:
+        parts = [f"Today is {time.strftime('%Y-%m-%d')}."]
+        if chunk.context:
+            parts.append(
+                "BOUNDARY USER CONTEXT (reference resolution only; these turn "
+                "IDs are not eligible evidence):\n\n"
+                + "\n\n".join(
+                    ConversationFactExtractor._session_turn_block(turn)
+                    for turn in chunk.context
+                )
+            )
+        parts.append(
+            "FOCUS SESSION TURNS (eligible user evidence):\n\n"
+            + "\n\n".join(
+                ConversationFactExtractor._session_turn_block(turn)
+                for turn in chunk.focus
+            )
+        )
+        return "\n\n".join(parts)
+
+    @staticmethod
+    def _user_evidence_excerpt(
+        focus: ConversationContextTurn,
+        prior_turns: Sequence[ConversationContextTurn],
+    ) -> str:
+        """Render user-only grounding, including two reference-resolution turns."""
+        prior = [
+            turn
+            for turn in prior_turns
+            if turn.turn_id != focus.turn_id and turn.user_text.strip()
+        ][-_SESSION_CONTEXT_OVERLAP_TURNS:]
+        focus_id = safe_preview(
+            focus.turn_id,
+            max_chars=_MAX_EVIDENCE_TURN_ID_CHARS,
+        ).strip()
+        focus_text = safe_preview(
+            focus.user_text.strip(),
+            max_chars=_MAX_FOCUS_EVIDENCE_CHARS,
+        ).strip()
+        # Focus comes first so the durable evidence cannot be truncated away by
+        # an unusually long reference-resolution turn.
+        lines = [f"Evidence user turn [{focus_id}]: {focus_text}"]
+        for turn in prior:
+            turn_id = safe_preview(
+                turn.turn_id,
+                max_chars=_MAX_EVIDENCE_TURN_ID_CHARS,
+            ).strip()
+            user_text = safe_preview(
+                turn.user_text.strip(),
+                max_chars=_MAX_PRIOR_EVIDENCE_CHARS,
+            ).strip()
+            lines.append(f"Prior user context [{turn_id}]: {user_text}")
+        return safe_preview(
+            "\n".join(lines),
+            max_chars=_MAX_EVIDENCE_EXCERPT_CHARS,
+        ).strip()
+
+    @classmethod
+    def _chunk_evidence_map(cls, chunk: _SessionChunk) -> dict[str, str]:
+        history = list(chunk.context)
+        evidence: dict[str, str] = {}
+        for turn in chunk.focus:
+            evidence[turn.turn_id] = cls._user_evidence_excerpt(turn, history)
+            history.append(turn)
+        return evidence
+
+    async def _claim_review(
+        self,
+        *,
+        review_key: str,
+        source_label: str,
+        source_kind: str,
+        text: str,
+        session_id: str,
+        turn_id: str,
+    ) -> bool:
+        try:
+            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            return await asyncio.to_thread(
+                self._journal.claim_capture,
+                review_key,
+                source_label=source_label,
+                source_kind=source_kind,
+                text_hash=text_hash,
+                session_id=session_id,
+                turn_id=turn_id,
+            )
+        except Exception:  # noqa: BLE001 - audit must not disable memory
+            log.warning(
+                "ConversationFactExtractor: capture audit claim failed; continuing",
+                exc_info=True,
+            )
+            return True
+
+    async def _release_review(self, review_key: str) -> None:
+        """Hand a claimed review back: it waited, it did not fail."""
+        try:
+            released = await asyncio.to_thread(self._journal.release_capture, review_key)
+        except Exception:  # noqa: BLE001 - reported below, the wait still propagates
+            log.warning(
+                "ConversationFactExtractor: could not release the waiting review %s",
+                review_key[-24:],
+                exc_info=True,
+            )
+            return
+        if not released:
+            log.warning(
+                "ConversationFactExtractor: waiting review %s was not in progress; "
+                "its attempt could not be handed back",
+                review_key[-24:],
+            )
+
+    async def _log_unclaimed(self, review_key: str, *, source_label: str) -> None:
+        """Say why a review was not started instead of returning 0 silently."""
+        try:
+            status = await asyncio.to_thread(self._journal.capture_status, review_key)
+            attempts = await asyncio.to_thread(self._journal.capture_attempts, review_key)
+        except Exception:  # noqa: BLE001 - the unclaimed review itself is reported below
+            status, attempts = None, 0
+            log.debug(
+                "ConversationFactExtractor: capture status lookup failed", exc_info=True
+            )
+        if status == "failed":
+            log.warning(
+                "ConversationFactExtractor: %s is not reviewed again — it failed %d "
+                "time(s) and its retry budget is spent (review %s)",
+                source_label,
+                attempts,
+                review_key[-24:],
+            )
+        elif status == "started":
+            log.info(
+                "ConversationFactExtractor: %s is already being reviewed (review %s)",
+                source_label,
+                review_key[-24:],
+            )
+        elif status is None:
+            log.warning(
+                "ConversationFactExtractor: %s could not be claimed — the capture "
+                "journal is unavailable (review %s)",
+                source_label,
+                review_key[-24:],
+            )
+        else:
+            log.debug(
+                "ConversationFactExtractor: %s was already reviewed (%s)",
+                source_label,
+                status,
+            )
+
+    async def _finish_review(
+        self,
+        review_key: str,
+        *,
+        status: Literal["filtered", "empty", "candidates", "failed"],
+        candidate_count: int = 0,
+        provider: str = "",
+        duration_ms: int = 0,
+        error_code: str = "",
+    ) -> None:
+        try:
+            await asyncio.to_thread(
+                self._journal.finish_capture,
+                review_key,
+                status=status,
+                candidate_count=candidate_count,
+                provider=provider,
+                duration_ms=duration_ms,
+                error_code=error_code,
+            )
+        except Exception:  # noqa: BLE001
+            log.warning(
+                "ConversationFactExtractor: capture audit finish failed",
+                exc_info=True,
+            )
+
+    async def _persist_outcome(
+        self,
+        outcome: _ExtractionResult,
+        *,
+        review_key: str,
+        source_label: str,
+        turn_hash: str,
+    ) -> int:
+        if outcome.outcome == "failed":
+            await self._finish_review(
+                review_key,
+                status="failed",
+                provider=outcome.provider,
+                duration_ms=outcome.duration_ms,
+                error_code=outcome.error_code,
+            )
+            return 0
+        if not outcome.facts:
+            await self._finish_review(
+                review_key,
+                status="empty",
+                provider=outcome.provider,
+                duration_ms=outcome.duration_ms,
+            )
+            return 0
+
+        try:
+            appended = await asyncio.to_thread(
+                self._journal.commit_capture_candidates,
+                outcome.facts,
+                review_key=review_key,
+                source_label=source_label,
+                turn_hash=turn_hash,
+                provider=outcome.provider,
+                duration_ms=outcome.duration_ms,
+            )
+        except Exception:  # noqa: BLE001 - extraction must stay off the user path
+            log.exception("ConversationFactExtractor: atomic journal commit failed")
+            await self._finish_review(
+                review_key,
+                status="failed",
+                provider=outcome.provider,
+                duration_ms=outcome.duration_ms,
+                error_code="journal-write-failed",
+            )
+            return 0
+        if not appended:
+            return 0
+        telemetry.inc("wiki_candidates_extracted", appended)
+        log.info(
+            "ConversationFactExtractor: %d candidate fact(s) journaled (%s)",
+            appended,
+            source_label,
+        )
+        await self._maybe_trigger_consolidation()
+        return appended
+
+    async def _background_chain(self) -> WikiBackgroundChain:
+        """The provider chain this extraction may bill, or raise to make it wait.
+
+        Checks the runaway guard (backoff window, daily cap) and the
+        background billing policy BEFORE any review is claimed, so an install
+        waiting on its subscription never spends a retry attempt. Provider
+        selection may shell out to vendor login probes for seconds, so it
+        runs on a worker thread, never on the voice event loop (AP-9).
+        """
+        return await asyncio.to_thread(self._background_chain_blocking)
+
+    def _background_chain_blocking(self) -> WikiBackgroundChain:
+        from dodaios.memory.wiki.provider_chain import build_background_wiki_chain
+
+        background_guard.check_ready(self._root_cfg)
+        try:
+            return build_background_wiki_chain(
+                registry=self._registry,
+                config=self._root_cfg,
+                primary=(
+                    self._curator_cfg.provider.strip() or self._root_cfg.brain.primary
+                ),
+                model_override=self._curator_cfg.model,
+                credential_filter=self._credential_filter,
+            )
+        except BackgroundDeferred as exc:
+            background_guard.note_waiting(str(exc))
+            raise
+
+    async def _extract(
+        self,
+        user_prompt: str,
+        *,
+        background: WikiBackgroundChain,
+        system_prompt: str,
+        allowed_evidence: set[str],
+        fallback_evidence: str,
+        evidence_text_by_id: dict[str, str],
+        max_facts: int,
+        max_output_tokens: int,
+        retry_empty: bool,
+    ) -> _ExtractionResult:
+        request = BrainRequest(
+            messages=(BrainMessage(role="user", content=user_prompt),),
+            system=system_prompt,
+            max_tokens=max(1, int(max_output_tokens)),
+            temperature=0.2,  # extraction, not creativity
+            stream=True,
+        )
+
+        start_ns = time.time_ns()
+        from dodaios.memory.wiki.provider_chain import complete_with_fallback
+
+        # Key-aware fallback (AP-22/23): the background chain tries the
+        # configured provider, then crosses to whatever family is reachable
+        # AND may bill background work, instead of silently dropping the turn
+        # when one provider is throttled / keyless (live 2026-06-30).
+        rejection_reasons: list[str] = []
+
+        def _validate_response(agg: Any) -> str | None:
+            if is_length_truncated(agg.finish_reason, agg.text):
+                reason = (
+                    f"truncated structured output ({len(agg.text or '')} chars, "
+                    f"finish_reason={agg.finish_reason!r})"
+                )
+                rejection_reasons.append(reason)
+                return reason
+            try:
+                parsed = _extract_json_array(agg.text)
+            except ValueError as exc:
+                reason = f"malformed JSON array: {exc}"
+                rejection_reasons.append(reason)
+                return reason
+            if not self._has_complete_residence_candidates(
+                parsed,
+                allowed_evidence=allowed_evidence,
+                fallback_evidence=fallback_evidence,
+                evidence_text_by_id=evidence_text_by_id,
+            ):
+                reason = "candidate array lacks a complete residence graph subject"
+                rejection_reasons.append(reason)
+                return reason
+            if parsed and not self._has_usable_fact_item(
+                parsed,
+                allowed_evidence=allowed_evidence,
+                fallback_evidence=fallback_evidence,
+                evidence_text_by_id=evidence_text_by_id,
+                max_facts=max_facts,
+            ):
+                reason = "candidate array has no grounded usable fact"
+                rejection_reasons.append(reason)
+                return reason
+            if retry_empty and not parsed:
+                reason = "empty-needs-second-opinion"
+                rejection_reasons.append(reason)
+                return reason
+            return None
+
+        result = await complete_with_fallback(
+            registry=self._registry,
+            chain=background.chain,
+            request=request,
+            timeout_s=float(self._cfg.timeout_s),
+            label="ConversationFactExtractor",
+            provider_options=background.provider_options,
+            # Every attempt counts against the daily runaway cap; reaching it
+            # raises BackgroundDeferred to the caller (nothing is spent).
+            before_attempt=background_guard.hook(self._root_cfg, "extractor"),
+            record_chain_failure=not background.subscription_mode,
+            aggregate=aggregate,
+            validate=_validate_response,
+            # Both reasons are CONTENT verdicts ("this turn holds nothing
+            # storable"), not provider damage. Two independent families
+            # agreeing ends the chain quietly; without this, an ordinary
+            # no-fact turn burned EVERY provider (incl. dead rungs and their
+            # timeouts) and recorded a scary chain failure the Wiki tab
+            # rendered as a red "not connected" state (live 2026-07-18).
+            allow_last_rejection=lambda reason: reason in (
+                "empty-needs-second-opinion",
+                "candidate array has no grounded usable fact",
+            ),
+            # But a LONE ungrounded array (no second opinion available) stays
+            # a retryable failure: one weak provider must never be terminal
+            # proof that the transcript held no facts. A lone valid EMPTY
+            # answer remains acceptable as before.
+            allow_lone_rejection=lambda reason: (
+                reason == "empty-needs-second-opinion"
+            ),
+        )
+        if result is not None or rejection_reasons:
+            # A provider answered: nothing is waiting on a subscription.
+            background_guard.note_progress()
+        elif background.subscription_mode:
+            # Logged out, out of credit, rate limited: the subscription did
+            # not take the turn. Wait and retry later; never a key.
+            background_guard.note_waiting("the subscription did not answer")
+            raise BackgroundDeferred("the subscription did not answer")
+        else:
+            background_guard.note_failure("every wiki provider failed")
+        if result is None:
+            duration_ms = (time.time_ns() - start_ns) // 1_000_000
+            error_code = "provider-chain-failed"
+            if any(reason.startswith("truncated") for reason in rejection_reasons):
+                log.warning(
+                    "ConversationFactExtractor: every provider hit the output-token "
+                    "cap or failed after a truncated response; no candidates were saved"
+                )
+                telemetry.inc("wiki_writes_blocked_truncated")
+                error_code = "truncated"
+            elif rejection_reasons:
+                error_code = "invalid-structured-output"
+            return _ExtractionResult(
+                outcome="failed",
+                duration_ms=duration_ms,
+                error_code=error_code,
+            )
+        agg, self._resolved_provider = result
+
+        if is_length_truncated(agg.finish_reason, agg.text):
+            log.warning(
+                "ConversationFactExtractor: response hit the output-token cap "
+                "(finish_reason=%r, %d chars) — discarding the turn's candidates",
+                agg.finish_reason, len(agg.text or ""),
+            )
+            telemetry.inc("wiki_writes_blocked_truncated")
+            return _ExtractionResult(
+                outcome="failed",
+                provider=self._resolved_provider or "",
+                duration_ms=(time.time_ns() - start_ns) // 1_000_000,
+                error_code="truncated",
+            )
+
+        try:
+            parsed = _extract_json_array(agg.text)
+        except ValueError as exc:
+            log.warning(
+                "ConversationFactExtractor: malformed JSON from %s (%s) — "
+                "no candidates this turn",
+                self._resolved_provider, exc,
+            )
+            return _ExtractionResult(
+                outcome="failed",
+                provider=self._resolved_provider or "",
+                duration_ms=(time.time_ns() - start_ns) // 1_000_000,
+                error_code="invalid-structured-output",
+            )
+
+        duration_ms = (time.time_ns() - start_ns) // 1_000_000
+        facts = self._coerce_facts(
+            parsed,
+            allowed_evidence=allowed_evidence,
+            fallback_evidence=fallback_evidence,
+            evidence_text_by_id=evidence_text_by_id,
+            max_facts=max_facts,
+        )
+        log.debug(
+            "ConversationFactExtractor: %d/%d item(s) accepted in %dms",
+            len(facts), len(parsed), duration_ms,
+        )
+        return _ExtractionResult(
+            facts=tuple(facts),
+            outcome="candidates" if facts else "empty",
+            provider=self._resolved_provider or "",
+            duration_ms=duration_ms,
+        )
+
+    def _has_usable_fact_item(
+        self,
+        parsed: list[Any],
+        *,
+        allowed_evidence: set[str],
+        fallback_evidence: str,
+        evidence_text_by_id: dict[str, str],
+        max_facts: int,
+    ) -> bool:
+        """Return whether Stage 1 can persist at least one grounded item.
+
+        JSON syntax alone is not success: objects without a fact, with only a
+        secret-shaped fact, or with an assistant/context evidence id would be
+        discarded by ``_coerce_facts``. Reject such a response early so the
+        provider chain can ask a different family instead of recording a false
+        terminal ``empty`` result.
+        """
+        if not self._has_complete_residence_candidates(
+            parsed,
+            allowed_evidence=allowed_evidence,
+            fallback_evidence=fallback_evidence,
+            evidence_text_by_id=evidence_text_by_id,
+        ):
+            telemetry.inc("wiki_candidates_blocked_incomplete_subjects")
+            return False
+
+        secret_count = 0
+        unsupported_interest_count = 0
+        incomplete_subject_count = 0
+        low_salience_count = 0
+        usable = False
+        for item in parsed[:max_facts]:
+            if not isinstance(item, dict):
+                continue
+            fact = item.get("fact")
+            if not isinstance(fact, str) or not fact.strip():
+                continue
+            if contains_secret(fact):
+                secret_count += 1
+                continue
+            raw_evidence = item.get("evidence_turn_id")
+            evidence = raw_evidence.strip() if isinstance(raw_evidence, str) else ""
+            if not evidence:
+                evidence = fallback_evidence
+            if evidence and evidence in allowed_evidence:
+                raw_subjects = item.get("subjects")
+                subjects = (
+                    normalise_subjects(raw_subjects)
+                    if isinstance(raw_subjects, list)
+                    else ()
+                )
+                kind = item.get("kind")
+                if not isinstance(kind, str) or kind not in _KNOWN_KINDS:
+                    kind = "other"
+                if not self._graph_subjects_complete(
+                    kind=kind,
+                    subjects=subjects,
+                ):
+                    incomplete_subject_count += 1
+                    continue
+                if self._effective_basis(
+                    fact=fact,
+                    subjects=subjects,
+                    evidence_excerpt=evidence_text_by_id.get(evidence, ""),
+                    claimed_basis=item.get("basis"),
+                ) is None:
+                    unsupported_interest_count += 1
+                    continue
+                if _candidate_salience(item) < self._min_salience():
+                    low_salience_count += 1
+                    continue
+                usable = True
+        if secret_count:
+            telemetry.inc("wiki_candidates_blocked_secret", secret_count)
+        if unsupported_interest_count:
+            telemetry.inc(
+                "wiki_candidates_blocked_unsupported_interest",
+                unsupported_interest_count,
+            )
+        if incomplete_subject_count:
+            telemetry.inc(
+                "wiki_candidates_blocked_incomplete_subjects",
+                incomplete_subject_count,
+            )
+        if low_salience_count:
+            telemetry.inc(
+                "wiki_candidates_blocked_low_salience",
+                low_salience_count,
+            )
+        return usable
+
+    def _coerce_facts(
+        self,
+        parsed: list[Any],
+        *,
+        allowed_evidence: set[str],
+        fallback_evidence: str,
+        evidence_text_by_id: dict[str, str],
+        max_facts: int,
+    ) -> list[CandidateFact]:
+        if not self._has_complete_residence_candidates(
+            parsed,
+            allowed_evidence=allowed_evidence,
+            fallback_evidence=fallback_evidence,
+            evidence_text_by_id=evidence_text_by_id,
+        ):
+            telemetry.inc("wiki_candidates_blocked_incomplete_subjects")
+            return []
+
+        facts: list[CandidateFact] = []
+        for item in parsed[:max_facts]:
+            if not isinstance(item, dict):
+                continue
+            fact = item.get("fact")
+            if not isinstance(fact, str) or not fact.strip():
+                continue
+            if contains_secret(fact):
+                telemetry.inc("wiki_candidates_blocked_secret")
+                log.warning(
+                    "ConversationFactExtractor: blocked secret-shaped candidate"
+                )
+                continue
+            kind = item.get("kind")
+            if not isinstance(kind, str) or kind not in _KNOWN_KINDS:
+                kind = "other"
+            raw_subjects = item.get("subjects")
+            subjects: tuple[str, ...] = ()
+            if isinstance(raw_subjects, list):
+                subjects = normalise_subjects(raw_subjects)
+            raw_evidence = item.get("evidence_turn_id")
+            evidence = raw_evidence.strip() if isinstance(raw_evidence, str) else ""
+            if not evidence and fallback_evidence:
+                evidence = fallback_evidence
+            if not evidence or evidence not in allowed_evidence:
+                log.debug(
+                    "ConversationFactExtractor: dropped fact without valid user evidence"
+                )
+                continue
+            evidence_excerpt = safe_preview(
+                evidence_text_by_id.get(evidence, ""),
+                max_chars=_MAX_EVIDENCE_EXCERPT_CHARS,
+            ).strip()
+            if not self._graph_subjects_complete(
+                kind=kind,
+                subjects=subjects,
+            ):
+                telemetry.inc("wiki_candidates_blocked_incomplete_subjects")
+                log.info(
+                    "ConversationFactExtractor: dropped graph fact without "
+                    "complete user and topic subjects"
+                )
+                continue
+            basis = self._effective_basis(
+                fact=fact,
+                subjects=subjects,
+                evidence_excerpt=evidence_excerpt,
+                claimed_basis=item.get("basis"),
+            )
+            if basis is None:
+                log.info(
+                    "ConversationFactExtractor: dropped unsupported user-interest "
+                    "candidate"
+                )
+                continue
+            salience = _candidate_salience(item)
+            if salience < self._min_salience():
+                log.info(
+                    "ConversationFactExtractor: dropped low-salience candidate "
+                    "(%d < %d)", salience, self._min_salience(),
+                )
+                continue
+            facts.append(
+                CandidateFact(
+                    fact=fact.strip(),
+                    kind=kind,
+                    subjects=subjects,
+                    evidence_turn_id=evidence,
+                    evidence_excerpt=evidence_excerpt,
+                    basis=basis,
+                    salience=salience,
+                )
+            )
+        return facts
+
+    def _min_salience(self) -> int:
+        """Configured Stage-1 personal-salience floor, clamped to 1..5."""
+        try:
+            configured = int(getattr(self._cfg, "min_salience", 3))
+        except (TypeError, ValueError):
+            configured = 3
+        return max(1, min(5, configured))
+
+    def _effective_basis(
+        self,
+        *,
+        fact: str,
+        subjects: tuple[str, ...],
+        evidence_excerpt: str,
+        claimed_basis: object,
+    ) -> str | None:
+        """Deterministic floor under the model's claimed evidence basis.
+
+        Returns the effective basis, or ``None`` when the claim is ungrounded
+        (or behavioral inference is disabled). The classifier can DOWNGRADE a
+        claimed "explicit" to "behavioral" — the model must never launder a
+        lived-experience inference into an explicit assertion — but a model
+        that honestly labels its own output "behavioral" keeps that label.
+        """
+        graded = classify_user_attitude_evidence(
+            fact=fact,
+            subjects=subjects,
+            evidence_excerpt=evidence_excerpt,
+            user_slug=self._user_entity_slug,
+        )
+        if graded is None:
+            return None
+        claimed = str(claimed_basis or "").strip().lower()
+        basis = claimed if claimed in {"explicit", "behavioral"} else "explicit"
+        if graded == "behavioral":
+            basis = "behavioral"
+        if basis == "behavioral" and not bool(
+            getattr(self._cfg, "behavioral_inference", True)
+        ):
+            return None
+        return basis
+
+    def _graph_subjects_complete(
+        self,
+        *,
+        kind: str,
+        subjects: tuple[str, ...],
+    ) -> bool:
+        """Require a named topic beyond a lone user slug for graph facts."""
+        if kind not in _GRAPH_SUBJECT_KINDS:
+            return True
+        return self._user_entity_slug in subjects and any(
+            subject != self._user_entity_slug for subject in subjects
+        )
+
+    def _has_complete_residence_candidates(
+        self,
+        parsed: list[Any],
+        *,
+        allowed_evidence: set[str],
+        fallback_evidence: str,
+        evidence_text_by_id: dict[str, str],
+    ) -> bool:
+        """Require one correctly typed user/place candidate per residence turn."""
+        requirements = {
+            evidence: place_slug
+            for evidence, excerpt in evidence_text_by_id.items()
+            if evidence in allowed_evidence
+            and (
+                place_slug := detect_residence_slug(
+                    excerpt.split("\nPrior user context", 1)[0]
+                )
+            )
+        }
+        for evidence, place_slug in requirements.items():
+            complete = False
+            for item in parsed:
+                if not isinstance(item, dict) or item.get("kind") != "place":
+                    continue
+                raw_evidence = item.get("evidence_turn_id")
+                item_evidence = (
+                    raw_evidence.strip()
+                    if isinstance(raw_evidence, str) and raw_evidence.strip()
+                    else fallback_evidence
+                )
+                if item_evidence != evidence:
+                    continue
+                raw_subjects = item.get("subjects")
+                subjects = (
+                    normalise_subjects(raw_subjects)
+                    if isinstance(raw_subjects, list)
+                    else ()
+                )
+                if self._user_entity_slug in subjects and place_slug in subjects:
+                    complete = True
+                    break
+            if not complete:
+                return False
+        return True
+
+    def seen_turn(self, turn_hash: str) -> bool:
+        """Durable dedupe: True when this turn hash is already journaled."""
+        try:
+            return self._journal.seen_turn(turn_hash)
+        except Exception:  # noqa: BLE001
+            return False
+
+
+__all__ = ["ConversationContextTurn", "ConversationFactExtractor"]

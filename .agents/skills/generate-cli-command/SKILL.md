@@ -2,7 +2,7 @@
 name: generate-cli-command
 description: >-
   Use after building a feature that adds or changes a REST route in
-  jarvis/ui/web/*_routes.py, as the "definition of done" before committing.
+  dodaios/ui/web/*_routes.py, as the "definition of done" before committing.
   Ensures the new endpoint is reachable from the Dodaios CLI: confirms the router
   is mounted, checks its OpenAPI metadata is clean, and (for high-value routes)
   scaffolds a curated `jarvis <group> <command>` plus a test and a docs entry.
@@ -12,7 +12,7 @@ description: >-
 
 # Generate a CLI Command for a New Feature
 
-The Dodaios CLI (`jarvis/cli_ctl/`, the `jarvis`/`jarvisctl`/`jctl` binaries) is a
+The Dodaios CLI (`dodaios/cli_ctl/`, the `jarvis`/`jarvisctl`/`jctl` binaries) is a
 thin HTTP client over the REST API. Its dynamic `jarvis api <tag> <op>` layer turns
 **every mounted REST route into a command automatically** — so a new feature is
 CLI-reachable the moment its route is mounted with clean OpenAPI metadata. This
@@ -20,20 +20,20 @@ skill is the checklist that guarantees that, and adds an ergonomic curated comma
 for high-traffic routes.
 
 Run this when you have finished a feature whose work added or changed a route in
-`jarvis/ui/web/*_routes.py` (or `conductor/api`), before your final commit.
+`dodaios/ui/web/*_routes.py` (or `conductor/api`), before your final commit.
 
 ## Steps
 
 ### 1. Find the new/changed routes
 
 ```bash
-git diff main...HEAD --name-only -- 'jarvis/ui/web/*_routes.py' 'conductor/api/*.py'
+git diff main...HEAD --name-only -- 'dodaios/ui/web/*_routes.py' 'conductor/api/*.py'
 ```
 
 For each changed file, list the added route decorators:
 
 ```bash
-git diff main...HEAD -- jarvis/ui/web/<file>_routes.py | grep -E '^\+\s*@router\.(get|post|put|patch|delete)'
+git diff main...HEAD -- dodaios/ui/web/<file>_routes.py | grep -E '^\+\s*@router\.(get|post|put|patch|delete)'
 ```
 
 Note each new `(METHOD, path)` and whether it is destructive (DELETE, or it
@@ -50,7 +50,7 @@ python scripts/ci/check_cli_coverage.py
 ```
 
 If it reports your new module as unmounted, add the mount in
-`jarvis/ui/web/server.py` next to the other `app.include_router(...)` calls (and
+`dodaios/ui/web/server.py` next to the other `app.include_router(...)` calls (and
 the matching `from .<module> import router as <name>` import). Re-run the gate
 until it prints OK.
 
@@ -71,11 +71,11 @@ booting the server: `jarvis api <tag> --help`.)
 
 If the route belongs to a domain users will drive often, add an ergonomic curated
 command. Copy the pattern from an existing module (e.g.
-`jarvis/cli_ctl/commands/missions.py`):
+`dodaios/cli_ctl/commands/missions.py`):
 
-- Put the command in `jarvis/cli_ctl/commands/<domain>.py` (create the module +
-  register it in `jarvis/cli_ctl/__main__.py` with `app.add_typer(...)`, and add
-  `<domain>` to `RESERVED_CONTROL_NAMES` in `jarvis/cli_ctl/reserved.py` if new).
+- Put the command in `dodaios/cli_ctl/commands/<domain>.py` (create the module +
+  register it in `dodaios/cli_ctl/__main__.py` with `app.add_typer(...)`, and add
+  `<domain>` to `RESERVED_CONTROL_NAMES` in `dodaios/cli_ctl/reserved.py` if new).
 - Call `invoke.run(method, path, ...)`. For a **destructive** route pass
   `dangerous=True` so it requires `--yes`; reversible mutations proceed without it.
   Reads (GET) need nothing. Reuse `options.yes_opt()` / `options.dry_opt()` /
@@ -93,7 +93,7 @@ and that a destructive command refuses without `--yes`.
 ```bash
 python scripts/ci/gen_cli_reference.py          # refresh docs/jarvis-cli-reference.md
 python -m pytest tests/unit/cli_ctl/ -q         # all green
-ruff check jarvis/cli_ctl/ scripts/ci/
+ruff check dodaios/cli_ctl/ scripts/ci/
 python scripts/ci/check_cli_coverage.py         # OK
 ```
 

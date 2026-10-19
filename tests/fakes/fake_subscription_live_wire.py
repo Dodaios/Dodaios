@@ -79,7 +79,7 @@ class FakeSubscriptionLiveWire:
         self.permits += 1
 
     def provider(self):
-        from jarvis.plugins.realtime.openai_subscription_live import OpenAISubscriptionLiveProvider
+        from dodaios.plugins.realtime.openai_subscription_live import OpenAISubscriptionLiveProvider
 
         return OpenAISubscriptionLiveProvider(
             credentials=self.credentials,

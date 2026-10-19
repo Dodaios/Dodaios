@@ -1,10 +1,10 @@
-"""Unit tests for live-instance discovery (jarvis.cli_ctl.discovery)."""
+"""Unit tests for live-instance discovery (dodaios.cli_ctl.discovery)."""
 from __future__ import annotations
 
 import json
 import os
 
-from jarvis.cli_ctl import discovery
+from dodaios.cli_ctl import discovery
 
 
 def _write_session(path, **data) -> None:
@@ -78,7 +78,7 @@ def test_current_process_is_alive():
 
 def test_filename_and_dir_parity_with_writer(monkeypatch):
     """discovery must target the exact file the desktop app writes."""
-    from jarvis.ui.shell import single_instance
+    from dodaios.ui.shell import single_instance
 
     assert discovery.SESSION_FILENAME == single_instance.SESSION_FILENAME
     # With the test override cleared, the resolved path must match the writer's.

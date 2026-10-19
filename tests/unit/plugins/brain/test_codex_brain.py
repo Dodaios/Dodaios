@@ -17,9 +17,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
-from jarvis.plugins.brain import codex as codex_module
-from jarvis.plugins.brain.codex import CodexBrain, _build_cli_command
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+from dodaios.plugins.brain import codex as codex_module
+from dodaios.plugins.brain.codex import CodexBrain, _build_cli_command
 
 
 def _wiki_request() -> BrainRequest:
@@ -209,7 +209,7 @@ async def test_app_server_subscription_streams_deltas_without_repeating_final(
         ]
     )
     monkeypatch.setattr(
-        "jarvis.codex_app_server.CodexAppServerClient",
+        "dodaios.codex_app_server.CodexAppServerClient",
         lambda *_a, **_k: client,
     )
     brain = CodexBrain(prefer_subscription=True)
@@ -236,7 +236,7 @@ async def test_app_server_subscription_interrupts_exact_turn_on_cancel(
         ]
     )
     monkeypatch.setattr(
-        "jarvis.codex_app_server.get_shared_codex_app_server",
+        "dodaios.codex_app_server.get_shared_codex_app_server",
         lambda *_a, **_k: client,
     )
     stream = CodexBrain(
@@ -383,7 +383,7 @@ def test_cli_timeout_accepts_a_caller_budget() -> None:
 
 
 def test_the_child_gets_a_path_the_npm_launcher_can_find_node_on(monkeypatch) -> None:
-    import jarvis.core.path_augment as path_augment
+    import dodaios.core.path_augment as path_augment
 
     monkeypatch.setattr(path_augment, "resolve_node_executable", lambda: "/opt/node/bin/node")
     env = {"PATH": "/usr/local/npm-global"}
@@ -395,7 +395,7 @@ def test_the_child_gets_a_path_the_npm_launcher_can_find_node_on(monkeypatch) ->
 
 
 def test_a_path_that_already_has_node_is_left_alone(monkeypatch) -> None:
-    import jarvis.core.path_augment as path_augment
+    import dodaios.core.path_augment as path_augment
 
     monkeypatch.setattr(path_augment, "resolve_node_executable", lambda: "/opt/node/bin/node")
     env = {"PATH": "/opt/node/bin"}
@@ -406,7 +406,7 @@ def test_a_path_that_already_has_node_is_left_alone(monkeypatch) -> None:
 
 def test_a_launcher_that_cannot_run_without_node_fails_by_name(monkeypatch) -> None:
     """ "Returned no answer" hid the real cause; the error must name it."""
-    import jarvis.core.path_augment as path_augment
+    import dodaios.core.path_augment as path_augment
 
     monkeypatch.setattr(path_augment, "resolve_node_executable", lambda: None)
     with pytest.raises(RuntimeError, match="Node.js was not found"):
@@ -415,7 +415,7 @@ def test_a_launcher_that_cannot_run_without_node_fails_by_name(monkeypatch) -> N
 
 def test_a_native_binary_never_fails_for_a_missing_interpreter(monkeypatch) -> None:
     """Guessing wrong here would break a working install: only warn."""
-    import jarvis.core.path_augment as path_augment
+    import dodaios.core.path_augment as path_augment
 
     monkeypatch.setattr(path_augment, "resolve_node_executable", lambda: None)
     codex_module._ensure_node_reachable({"PATH": ""}, "/usr/local/bin/codex")

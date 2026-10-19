@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import CostMeter, CostRecord
+from dodaios.core.protocols import CostMeter, CostRecord
 from tests.fixtures.control.fake_cost_meter import FakeCostMeter
 
 
@@ -15,7 +15,7 @@ def _get_meters() -> list[CostMeter]:
     meters: list[CostMeter] = [FakeCostMeter(over_task_after_usd=1.0,
                                              over_daily_after_usd=10.0)]
     with contextlib.suppress(Exception):
-        from jarvis.control.cost import CostMeter as ProdMeter  # type: ignore[attr-defined]
+        from dodaios.control.cost import CostMeter as ProdMeter  # type: ignore[attr-defined]
         meters.append(ProdMeter())
     return meters
 

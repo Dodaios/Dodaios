@@ -13,10 +13,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.tool_use_loop import ToolUseLoop
-from jarvis.core.protocols import BrainDelta, BrainRequest, ToolResult
-from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
-from jarvis.voice.tool_confirmation import format_tool_confirmation
+from dodaios.brain.tool_use_loop import ToolUseLoop
+from dodaios.core.protocols import BrainDelta, BrainRequest, ToolResult
+from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+from dodaios.voice.tool_confirmation import format_tool_confirmation
 
 
 class _GmailTool:

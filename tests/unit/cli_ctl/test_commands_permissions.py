@@ -10,8 +10,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from jarvis.cli_ctl.__main__ import app
-from jarvis.platform.permissions import ACCEPTED_BUNDLE_IDS
+from dodaios.cli_ctl.__main__ import app
+from dodaios.platform.permissions import ACCEPTED_BUNDLE_IDS
 
 runner = CliRunner()
 
@@ -35,7 +35,7 @@ def test_request_with_yes_uses_permission_path(monkeypatch, capture_api):
     # unstubbed helper honestly aborts when no installed app bundle exists,
     # which is not what THIS test is about (it pins the API path).
     monkeypatch.setattr(
-        "jarvis.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
+        "dodaios.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
         lambda: None,
     )
     result = runner.invoke(
@@ -62,7 +62,7 @@ def test_request_sends_no_body_because_the_installed_app_is_the_only_grantee(
     monkeypatch, capture_api
 ):
     monkeypatch.setattr(
-        "jarvis.cli_ctl.commands.permissions._activate_macos_app_for_tcc", lambda: None
+        "dodaios.cli_ctl.commands.permissions._activate_macos_app_for_tcc", lambda: None
     )
 
     result = runner.invoke(app, ["permissions", "request", "microphone", "--yes"])
@@ -87,7 +87,7 @@ def test_request_has_no_outside_app_option(capture_api):
 def test_request_refuses_clearly_without_the_installed_app_and_sends_nothing(
     monkeypatch, tmp_path, capture_api
 ):
-    from jarvis.cli_ctl.commands import permissions as module
+    from dodaios.cli_ctl.commands import permissions as module
 
     monkeypatch.setattr(module, "detect_platform", lambda: "darwin")
     monkeypatch.setattr(module, "_installed_macos_app", lambda: tmp_path / "Missing.app")
@@ -104,7 +104,7 @@ def test_request_refuses_clearly_without_the_installed_app_and_sends_nothing(
 def test_request_activates_app_after_confirmation(monkeypatch, capture_api):
     calls: list[str] = []
     monkeypatch.setattr(
-        "jarvis.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
+        "dodaios.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
         lambda: calls.append("activate"),
     )
 
@@ -119,7 +119,7 @@ def test_request_activates_app_after_confirmation(monkeypatch, capture_api):
 def test_open_settings_with_yes_uses_permission_path(monkeypatch, capture_api):
     # Same macOS-proofing as test_request_with_yes_uses_permission_path.
     monkeypatch.setattr(
-        "jarvis.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
+        "dodaios.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
         lambda: None,
     )
     result = runner.invoke(
@@ -143,7 +143,7 @@ def test_request_dry_run_sends_nothing(capture_api):
 def test_request_dry_run_does_not_activate_app(monkeypatch, capture_api):
     calls: list[str] = []
     monkeypatch.setattr(
-        "jarvis.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
+        "dodaios.cli_ctl.commands.permissions._activate_macos_app_for_tcc",
         lambda: calls.append("activate"),
     )
 
@@ -158,7 +158,7 @@ def test_request_dry_run_does_not_activate_app(monkeypatch, capture_api):
 
 def _activate_with_frontmost(monkeypatch, tmp_path, frontmost_id: str):
     """Run the macOS activation helper against a fake frontmost app."""
-    from jarvis.cli_ctl.commands import permissions as module
+    from dodaios.cli_ctl.commands import permissions as module
 
     bundle = tmp_path / "Personal Jarvis.app"
     bundle.mkdir()
@@ -240,7 +240,7 @@ class _TccutilRecorder:
 
 def _macos_with_app(monkeypatch, tmp_path, bundle_id: str | None):
     """Pretend to be macOS with an installed app carrying ``bundle_id`` (None: no app)."""
-    from jarvis.cli_ctl.commands import permissions as module
+    from dodaios.cli_ctl.commands import permissions as module
 
     app_dir = tmp_path / "Personal Jarvis.app"
     if bundle_id is not None:
@@ -256,13 +256,13 @@ def _macos_with_app(monkeypatch, tmp_path, bundle_id: str | None):
 
 
 def test_reset_is_registered_in_the_command_index() -> None:
-    from jarvis.cli_ctl.command_index import COMMAND_INDEX
+    from dodaios.cli_ctl.command_index import COMMAND_INDEX
 
     assert COMMAND_INDEX["permissions"] == ("status", "request", "open-settings", "reset")
 
 
 def test_reset_off_macos_says_so_in_one_line_and_exits_non_zero(monkeypatch, capture_api):
-    from jarvis.cli_ctl.commands import permissions as module
+    from dodaios.cli_ctl.commands import permissions as module
 
     recorder = _TccutilRecorder()
     monkeypatch.setattr(module, "detect_platform", lambda: "linux")
@@ -279,7 +279,7 @@ def test_reset_off_macos_says_so_in_one_line_and_exits_non_zero(monkeypatch, cap
 
 
 def test_reset_off_macos_refuses_even_a_dry_run(monkeypatch, capture_api):
-    from jarvis.cli_ctl.commands import permissions as module
+    from dodaios.cli_ctl.commands import permissions as module
 
     monkeypatch.setattr(module, "detect_platform", lambda: "win32")
 
@@ -442,8 +442,8 @@ def test_reset_survives_tccutil_that_cannot_run(monkeypatch, tmp_path, failure):
 
 def test_run_tccutil_is_utf8_and_windowless(monkeypatch):
     """AP-1: every subprocess passes NO_WINDOW_CREATIONFLAGS and decodes UTF-8."""
-    from jarvis.cli_ctl.commands import permissions as module
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.cli_ctl.commands import permissions as module
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     seen: dict[str, object] = {}
 
@@ -466,7 +466,7 @@ def test_run_tccutil_is_utf8_and_windowless(monkeypatch):
 @pytest.mark.skipif(sys.platform == "win32", reason="the fake tccutil is a POSIX shell script")
 def test_reset_end_to_end_with_a_fake_tccutil_executable(monkeypatch, tmp_path):
     """The real ``_run_tccutil`` path: a fake executable stands in for /usr/bin/tccutil."""
-    from jarvis.cli_ctl.commands import permissions as module
+    from dodaios.cli_ctl.commands import permissions as module
 
     log = tmp_path / "argv.log"
     fake = tmp_path / "tccutil"

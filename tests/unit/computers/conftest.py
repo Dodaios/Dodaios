@@ -6,9 +6,9 @@ from collections.abc import Iterator
 
 import pytest
 
-from jarvis.computers import cloud, identity, service
-from jarvis.computers.service import ComputerService
-from jarvis.computers.store import ComputerStore
+from dodaios.computers import cloud, identity, service
+from dodaios.computers.service import ComputerService
+from dodaios.computers.store import ComputerStore
 
 
 class SecretBox:

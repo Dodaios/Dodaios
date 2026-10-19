@@ -7,7 +7,7 @@ literal G100 (a different aircraft) and then delivered a verdict contradicting
 its own search numbers, anchored on an earlier fabricated claim in history.
 """
 
-from jarvis.brain.router import SYSTEM_PROMPT
+from dodaios.brain.router import SYSTEM_PROMPT
 
 
 def test_prompt_resolves_sound_alike_entities_to_the_discussed_one():

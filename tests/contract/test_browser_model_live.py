@@ -12,15 +12,15 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agent_chat.browser_model import browser_model_for
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig, load_config
-from jarvis.core.protocols import ExecutionContext
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import ToolExecutor
-from jarvis.society.browser.bridge import execute_live
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.browser_model import browser_model_for
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig, load_config
+from dodaios.core.protocols import ExecutionContext
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import ToolExecutor
+from dodaios.society.browser.bridge import execute_live
+from dodaios.society.runtime import SocietyRuntime
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("JARVIS_BROWSER_MODEL_TEST") != "1",

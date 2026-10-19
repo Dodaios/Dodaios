@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup import desktop_integration as di
+from dodaios.setup import desktop_integration as di
 
 
 def _managed_root(tmp_path: Path) -> Path:
@@ -97,7 +97,7 @@ def test_macos_managed_install_gets_real_app_bundle(
     # never succeed against it. The REAL darwin build + LaunchServices probe is
     # covered by the dedicated "Build and self-probe" step in
     # .github/workflows/macos-desktop.yml and tests/unit/setup/test_macos_app_bundle.py.
-    from jarvis.setup import macos_app_bundle as mab
+    from dodaios.setup import macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "linux")
 
@@ -115,7 +115,7 @@ def test_macos_managed_install_gets_real_app_bundle(
 def test_macos_bundle_failure_warning_carries_recorded_reason(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     root = _managed_root(tmp_path)
 
@@ -143,7 +143,7 @@ def test_macos_bundle_failure_warning_carries_recorded_reason(
 def test_macos_bundle_failure_without_recorded_reason_says_unknown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     root = _managed_root(tmp_path)
     monkeypatch.setattr(mab, "_LAST_ERROR", None)
@@ -242,7 +242,7 @@ def test_windows_managed_install_is_visible_to_start_and_installed_apps(
 
 
 def test_desktop_boot_repairs_registration_after_first_paint() -> None:
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     source = inspect.getsource(desktop_app.DesktopApp._inject_token)
     assert "_start_desktop_integration_repair" in source
@@ -255,12 +255,12 @@ def test_desktop_boot_repairs_registration_after_first_paint() -> None:
 # and removes them again on uninstall. Two things must therefore never happen
 # from inside a frozen app: writing a second, source-shaped launcher over the
 # installer's working one (a frozen executable cannot run
-# "<interpreter> -m jarvis.ui.web.launcher" at all), and deleting an artifact
+# "<interpreter> -m dodaios.ui.web.launcher" at all), and deleting an artifact
 # it did not create.
 
 
 def _freeze(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Make ``jarvis.core.frozen.is_frozen()`` report a PyInstaller onedir bundle."""
+    """Make ``dodaios.core.frozen.is_frozen()`` report a PyInstaller onedir bundle."""
 
     internal = tmp_path / "bundle" / "_internal"
     internal.mkdir(parents=True)
@@ -342,7 +342,7 @@ def test_frozen_build_writes_no_linux_application_entry(
     # reachable off Linux, and inside an AppImage sys.executable points into a
     # mount that is gone the moment the app exits - so the entry this would
     # write launches nothing at all.
-    from jarvis.ui import icon_utils
+    from dodaios.ui import icon_utils
 
     _freeze(monkeypatch, tmp_path)
     apps = tmp_path / "applications"
@@ -352,7 +352,7 @@ def test_frozen_build_writes_no_linux_application_entry(
 
 
 def test_windows_shortcut_writers_consult_the_frozen_guard() -> None:
-    from jarvis.ui import icon_utils
+    from dodaios.ui import icon_utils
 
     for writer in (
         icon_utils.ensure_start_menu_shortcut,
@@ -366,7 +366,7 @@ def test_windows_shortcut_writers_consult_the_frozen_guard() -> None:
 def test_frozen_windows_build_does_not_touch_the_installers_shortcut(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.ui import icon_utils
+    from dodaios.ui import icon_utils
 
     _freeze(monkeypatch, tmp_path)
     programs = tmp_path / "Programs"

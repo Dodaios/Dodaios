@@ -1,6 +1,6 @@
 """Paid-API fallback for missions: consent, caps and the one routing rule.
 
-The maintainer's decisions (2026-10-07, jarvis/missions/capacity.py):
+The maintainer's decisions (2026-10-07, dodaios/missions/capacity.py):
 
 - subscriptions first; another connected subscription is free;
 - ``[missions] paid_api_fallback`` (default OFF): ON continues on the user's
@@ -26,7 +26,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.missions.capacity import (
+from dodaios.missions.capacity import (
     PAID_DAILY_CAP_USD,
     PAID_MISSION_CAP_USD,
     CriticCapacityUnavailable,
@@ -40,16 +40,16 @@ from jarvis.missions.capacity import (
     decide_route,
     paid_api_fallback_enabled,
 )
-from jarvis.missions.critic.verdict import REQUIRED_AXES, CriticAxis, CriticVerdict
-from jarvis.missions.events import (
+from dodaios.missions.critic.verdict import REQUIRED_AXES, CriticAxis, CriticVerdict
+from dodaios.missions.events import (
     EventEnvelope,
     MissionPaidUsage,
     MissionWaitingCapacity,
     now_ms,
 )
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
 from tests.fakes.fake_mission_runtime import (
     FakeMissionWorker,
     FakePaidOption,
@@ -518,7 +518,7 @@ async def test_approval_covers_the_critic_and_shows_the_spend(
         )
     )
 
-    from jarvis.ui.web.missions_routes import router
+    from dodaios.ui.web.missions_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -597,8 +597,8 @@ def temp_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_setting_defaults_off_and_is_read_fresh(temp_config: Path) -> None:
-    from jarvis.core.config import JarvisConfig, MissionsConfig
-    from jarvis.core.config_writer import set_missions_paid_api_fallback
+    from dodaios.core.config import JarvisConfig, MissionsConfig
+    from dodaios.core.config_writer import set_missions_paid_api_fallback
 
     assert MissionsConfig().paid_api_fallback is False
     loaded = JarvisConfig(missions={"paid_api_fallback": True, "later_key": 1})
@@ -624,14 +624,14 @@ def test_an_unreadable_config_never_enables_paid_use(
     def _broken(*_a: Any, **_k: Any) -> Any:
         raise OSError("config unreadable")
 
-    monkeypatch.setattr("jarvis.core.config.load_config", _broken)
+    monkeypatch.setattr("dodaios.core.config.load_config", _broken)
     assert paid_api_fallback_enabled() is False
 
 
 def test_no_voice_chat_or_agent_surface_can_flip_it() -> None:
-    from jarvis.app_actions.catalog import is_excluded
-    from jarvis.core.self_mod.forbidden import is_forbidden
-    from jarvis.core.self_mod.schema_introspect import introspect_mutable_specs
+    from dodaios.app_actions.catalog import is_excluded
+    from dodaios.core.self_mod.forbidden import is_forbidden
+    from dodaios.core.self_mod.schema_introspect import introspect_mutable_specs
 
     assert is_forbidden("missions.paid_api_fallback")
     assert "missions.paid_api_fallback" not in {s.path for s in introspect_mutable_specs()}
@@ -643,7 +643,7 @@ def test_no_voice_chat_or_agent_surface_can_flip_it() -> None:
 
 
 def _billing_app(k: Any | None = None) -> FastAPI:
-    from jarvis.ui.web.mission_billing_routes import router
+    from dodaios.ui.web.mission_billing_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -692,7 +692,7 @@ async def test_routes_read_and_persist_the_switch(
 async def test_routes_without_a_runner_show_no_priced_key(
     temp_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.missions import init as mi
+    from dodaios.missions import init as mi
 
     monkeypatch.setattr(mi, "_api_key_family_viable", lambda _p: False)
     transport = httpx.ASGITransport(app=_billing_app(None))
@@ -713,7 +713,7 @@ def test_put_is_flagged_dangerous_for_the_cli() -> None:
 
 @pytest.mark.no_auto_web_auth
 async def test_the_global_guard_protects_the_switch(temp_config: Path) -> None:
-    from jarvis.ui.web.surface_security import SurfaceSecurity
+    from dodaios.ui.web.surface_security import SurfaceSecurity
 
     secured = SurfaceSecurity(
         _billing_app(),
@@ -745,10 +745,10 @@ def test_no_route_response_carries_a_secret(
     """The billing state names a provider and model at most — never a key."""
     from fastapi.testclient import TestClient
 
-    from jarvis.missions import init as mi
+    from dodaios.missions import init as mi
 
     fake_key = "sk-ant-api03-FAKE-NOT-A-SECRET"
-    monkeypatch.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _p: fake_key)
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _p: fake_key)
     monkeypatch.setattr(mi, "_api_key_family_viable", lambda p: p == "claude-api")
     client = TestClient(_billing_app(None))
     response = client.get("/api/mission-billing")
@@ -765,7 +765,7 @@ def test_a_fresh_codex_login_clears_needs_reauth(
     """Finding 2: a mission parked on a dead codex login resumes after
     `codex login`, without needing a codex success first (none can happen
     while it is parked) and without a restart."""
-    from jarvis import codex_auth_state as cas
+    from dodaios import codex_auth_state as cas
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     auth = tmp_path / "auth.json"
@@ -788,7 +788,7 @@ def test_a_fresh_codex_login_clears_needs_reauth(
 
 
 def test_codex_fingerprint_never_contains_the_token(tmp_path: Path) -> None:
-    from jarvis.codex_auth_state import codex_auth_fingerprint
+    from dodaios.codex_auth_state import codex_auth_fingerprint
 
     auth = tmp_path / "auth.json"
     auth.write_text('{"tokens": {"access_token": "abc-FAKE-TOKEN"}}', encoding="utf-8")
@@ -809,7 +809,7 @@ class _FakeCriticBrain:
         pass
 
     async def complete(self, _req: Any) -> AsyncIterator[Any]:
-        from jarvis.core.protocols import BrainDelta
+        from dodaios.core.protocols import BrainDelta
 
         type(self).calls += 1
         yield BrainDelta(content=_approve().model_dump_json())
@@ -817,30 +817,30 @@ class _FakeCriticBrain:
 
 
 def _subscriptions_spent(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.claude_quota_state import mark_claude_quota_cooldown
+    from dodaios.claude_quota_state import mark_claude_quota_cooldown
 
-    monkeypatch.setattr("jarvis.missions.init.install_is_pinned", lambda: True)
+    monkeypatch.setattr("dodaios.missions.init.install_is_pinned", lambda: True)
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("claude-api", "claude-sonnet-4-6"),
     )
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
         lambda: "/usr/local/bin/claude",
     )
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._codex_oauth_available", lambda: False
+        "dodaios.missions.workers.codex_direct_worker._codex_oauth_available", lambda: False
     )
     mark_claude_quota_cooldown()
     monkeypatch.setattr(
-        "jarvis.brain.provider_registry.BrainProviderRegistry.get_class",
+        "dodaios.brain.provider_registry.BrainProviderRegistry.get_class",
         lambda self, _p: _FakeCriticBrain,
     )
-    monkeypatch.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _p: "FAKE")
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _p: "FAKE")
 
 
 async def _critic_review(tmp_path: Path, gate: PaidCallGate | None) -> CriticVerdict:
-    from jarvis.missions.critic.runner import CriticRunner
+    from dodaios.missions.critic.runner import CriticRunner
 
     return await CriticRunner().run(
         mission_prompt="Build X",
@@ -869,7 +869,7 @@ def _gate(
 async def test_the_paid_critic_reserves_and_books_each_call(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from jarvis.claude_quota_state import clear_claude_quota_cooldown
+    from dodaios.claude_quota_state import clear_claude_quota_cooldown
 
     _subscriptions_spent(monkeypatch)
     try:
@@ -889,7 +889,7 @@ async def test_the_paid_critic_reserves_and_books_each_call(
 async def test_the_paid_critic_stops_when_consent_is_gone(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from jarvis.claude_quota_state import clear_claude_quota_cooldown
+    from dodaios.claude_quota_state import clear_claude_quota_cooldown
 
     _subscriptions_spent(monkeypatch)
     _FakeCriticBrain.calls = 0
@@ -911,7 +911,7 @@ async def test_the_paid_critic_stops_when_consent_is_gone(
 async def test_a_usage_less_paid_critic_call_counts_its_reservation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from jarvis.claude_quota_state import clear_claude_quota_cooldown
+    from dodaios.claude_quota_state import clear_claude_quota_cooldown
 
     _subscriptions_spent(monkeypatch)
     monkeypatch.setattr(_FakeCriticBrain, "usage", None)
@@ -929,8 +929,8 @@ async def test_a_usage_less_paid_critic_call_counts_its_reservation(
 def test_no_waits_are_lost_in_the_vocabulary() -> None:
     from typing import get_args
 
-    from jarvis.missions.capacity import CapacityWaitReason
-    from jarvis.missions.events import CAPACITY_WAIT_REASONS
+    from dodaios.missions.capacity import CapacityWaitReason
+    from dodaios.missions.events import CAPACITY_WAIT_REASONS
 
     assert set(get_args(CapacityWaitReason)) == set(CAPACITY_WAIT_REASONS)
     assert {"paid_daily_cap_reached", "paid_consent_revoked"} <= set(CAPACITY_WAIT_REASONS)

@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-from jarvis.ui.web import launcher
+from dodaios.ui.web import launcher
 
 
 class TestWindowToolkitProbe:
@@ -110,7 +110,7 @@ class TestFailureIsVisible:
     ) -> None:
         """A terminal, a pipe or a build log already showed it — a box is noise."""
         monkeypatch.setattr(
-            "jarvis.core.process_utils.standard_error_is_visible", lambda: True
+            "dodaios.core.process_utils.standard_error_is_visible", lambda: True
         )
         launcher._report_startup_failure("readable stderr")
         assert not dialogs
@@ -120,7 +120,7 @@ class TestFailureIsVisible:
     ) -> None:
         """The pythonw case — the only surface left is a box."""
         monkeypatch.setattr(
-            "jarvis.core.process_utils.standard_error_is_visible", lambda: False
+            "dodaios.core.process_utils.standard_error_is_visible", lambda: False
         )
         launcher._report_startup_failure("pywebview is missing")
         assert len(dialogs) == 1
@@ -268,7 +268,7 @@ class TestStandardErrorVisibility:
     """The probe that decides whether a dialog is needed at all."""
 
     def test_a_real_stream_counts_as_visible(self) -> None:
-        from jarvis.core.process_utils import standard_error_is_visible
+        from dodaios.core.process_utils import standard_error_is_visible
 
         assert standard_error_is_visible() is True
 
@@ -278,7 +278,7 @@ class TestStandardErrorVisibility:
         """Reproduce the pythonw substitution and confirm it reads as invisible."""
         import os
 
-        from jarvis.core import process_utils
+        from dodaios.core import process_utils
 
         null = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115
         try:
@@ -289,7 +289,7 @@ class TestStandardErrorVisibility:
             null.close()
 
     def test_missing_stream_does_not(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from jarvis.core import process_utils
+        from dodaios.core import process_utils
 
         monkeypatch.setattr(process_utils.sys, "stderr", None)
         assert process_utils.standard_error_is_visible() is False

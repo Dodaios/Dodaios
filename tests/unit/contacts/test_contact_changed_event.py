@@ -5,8 +5,8 @@ import dataclasses
 
 import pytest
 
-from jarvis.contacts.notify import CONTACT_CHANGE_ACTIONS
-from jarvis.core.events import ContactChanged, Event
+from dodaios.contacts.notify import CONTACT_CHANGE_ACTIONS
+from dodaios.core.events import ContactChanged, Event
 
 
 def test_contact_changed_is_frozen_event_with_trace():

@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.setup import cli_path
-from jarvis.setup.cli_path import COMMAND_NAMES, PROFILE_MARKER
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.setup import cli_path
+from dodaios.setup.cli_path import COMMAND_NAMES, PROFILE_MARKER
 
 _spec = importlib.util.spec_from_file_location(
     "cli_links_installer", Path(__file__).resolve().parents[3] / "install" / "installer.py"

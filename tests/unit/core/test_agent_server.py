@@ -10,9 +10,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import background_service as bg
-from jarvis.core.config import BackgroundConfig
-from jarvis.core.server_endpoint import server_endpoint
+from dodaios.core import background_service as bg
+from dodaios.core.config import BackgroundConfig
+from dodaios.core.server_endpoint import server_endpoint
 
 
 @pytest.mark.parametrize("url", [
@@ -33,7 +33,7 @@ def test_endpoint_rejects_insecure_or_credential_bearing_address(url):
 
 
 def test_setting_is_atomic_and_preserves_the_other_background_options(tmp_path):
-    from jarvis.core.config_writer import set_agent_server
+    from dodaios.core.config_writer import set_agent_server
 
     path = tmp_path / "jarvis.toml"
     path.write_text("[background]\nkeep_agents_running = false\n", encoding="utf8")
@@ -49,10 +49,10 @@ def test_setting_is_atomic_and_preserves_the_other_background_options(tmp_path):
 
 
 def test_server_spawn_keeps_independent_mode_and_instance(monkeypatch):
-    from jarvis.core.instance import resolve_instance
+    from dodaios.core.instance import resolve_instance
 
     monkeypatch.setattr(
-        "jarvis.core.instance.current_instance",
+        "dodaios.core.instance.current_instance",
         lambda: resolve_instance({"JARVIS_INSTANCE": "dev"}),
     )
     command = bg.service_command(after_pid=None, persistent=True, frozen=False, executable="python")
@@ -62,8 +62,8 @@ def test_server_spawn_keeps_independent_mode_and_instance(monkeypatch):
 
 
 async def test_persistent_server_has_no_idle_or_handover_watch(monkeypatch):
-    from jarvis.ui import background_tray
-    from jarvis.ui.web import launcher
+    from dodaios.ui import background_tray
+    from dodaios.ui.web import launcher
 
     class Tray:
         def __init__(self, **kwargs):
@@ -85,7 +85,7 @@ async def test_persistent_server_has_no_idle_or_handover_watch(monkeypatch):
 
 
 def test_reopening_never_takes_over_a_persistent_server(monkeypatch):
-    from jarvis.ui.web import launcher
+    from dodaios.ui.web import launcher
 
     monkeypatch.setattr(bg, "read_marker", lambda: {"persistent": True})
 
@@ -97,7 +97,7 @@ def test_reopening_never_takes_over_a_persistent_server(monkeypatch):
 
 
 def test_explicit_stop_is_separate_from_client_connections():
-    from jarvis.ui.web.agent_server_routes import router
+    from dodaios.ui.web.agent_server_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -116,8 +116,8 @@ def test_explicit_stop_is_separate_from_client_connections():
 
 
 async def test_agent_services_start_without_a_client(monkeypatch):
-    from jarvis.ui.web import agent_chat_routes
-    from jarvis.ui.web.agent_server import start_agents
+    from dodaios.ui.web import agent_chat_routes
+    from dodaios.ui.web.agent_server import start_agents
 
     restored = []
 
@@ -137,7 +137,7 @@ async def test_agent_services_start_without_a_client(monkeypatch):
 def test_concurrent_clients_launch_only_one_server(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
 
-    from jarvis.ui import desktop_app, server_client
+    from dodaios.ui import desktop_app, server_client
 
     marker = {}
     starts = []
@@ -159,7 +159,7 @@ def test_concurrent_clients_launch_only_one_server(tmp_path, monkeypatch):
 
 
 def test_local_client_refuses_to_interrupt_integrated_owner(tmp_path, monkeypatch):
-    from jarvis.ui import desktop_app, server_client
+    from dodaios.ui import desktop_app, server_client
 
     monkeypatch.setattr(bg, "marker_path", lambda: tmp_path / "service.json")
     monkeypatch.setattr(bg, "read_marker", lambda: None)
@@ -171,8 +171,8 @@ def test_local_client_refuses_to_interrupt_integrated_owner(tmp_path, monkeypatc
 
 
 def test_remote_readiness_never_reads_or_sends_local_credentials(monkeypatch):
-    from jarvis.core import control_key
-    from jarvis.ui.server_client import wait_for_server
+    from dodaios.core import control_key
+    from dodaios.ui.server_client import wait_for_server
 
     monkeypatch.setattr(control_key, "get_control_key", lambda: pytest.fail("must not read key"))
     with pytest.raises(ValueError, match="loopback"):
@@ -183,7 +183,7 @@ def test_direct_persistent_entry_is_recognized(monkeypatch):
     import psutil
 
     monkeypatch.setattr(psutil, "Process", lambda pid: SimpleNamespace(
-        cmdline=lambda: ["python", "-m", "jarvis", "--persistent-server"],
+        cmdline=lambda: ["python", "-m", "dodaios", "--persistent-server"],
     ))
     assert bg._is_service_process(42)
 

@@ -14,16 +14,16 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainTierConfig, load_config
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainTierConfig, load_config
 
 
 @pytest.fixture(autouse=True)
 def _all_test_providers_have_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep chain-order tests independent of the host's private key store."""
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret_any",
+        "dodaios.core.config.get_secret_any",
         lambda _candidates: "test-key",
     )
 

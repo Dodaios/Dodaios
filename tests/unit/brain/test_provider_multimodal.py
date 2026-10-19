@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, ImageBlock
+from dodaios.core.protocols import BrainMessage, ImageBlock
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def sample_block() -> ImageBlock:
 
 
 def test_anthropic_encodes_image_as_base64_source(sample_block):
-    from jarvis.plugins.brain._anthropic_base import _to_anthropic_messages
+    from dodaios.plugins.brain._anthropic_base import _to_anthropic_messages
 
     msgs = (BrainMessage(role="user", content="what is that?", images=(sample_block,)),)
     out = _to_anthropic_messages(msgs)
@@ -41,7 +41,7 @@ def test_anthropic_encodes_image_as_base64_source(sample_block):
 
 
 def test_anthropic_no_images_passes_string_through():
-    from jarvis.plugins.brain._anthropic_base import _to_anthropic_messages
+    from dodaios.plugins.brain._anthropic_base import _to_anthropic_messages
 
     msgs = (BrainMessage(role="user", content="hi"),)
     out = _to_anthropic_messages(msgs)
@@ -50,7 +50,7 @@ def test_anthropic_no_images_passes_string_through():
 
 
 def test_gemini_encodes_image_as_inline_data(sample_block):
-    from jarvis.plugins.brain.gemini import _to_gemini_contents
+    from dodaios.plugins.brain.gemini import _to_gemini_contents
 
     msgs = (BrainMessage(role="user", content="question", images=(sample_block,)),)
     contents = _to_gemini_contents(msgs)
@@ -66,7 +66,7 @@ def test_gemini_encodes_image_as_inline_data(sample_block):
 
 
 def test_openai_encodes_image_as_image_url(sample_block):
-    from jarvis.plugins.brain._openai_base import _to_openai_messages
+    from dodaios.plugins.brain._openai_base import _to_openai_messages
 
     msgs = (BrainMessage(role="user", content="question", images=(sample_block,)),)
     out = _to_openai_messages(msgs, None)
@@ -85,7 +85,7 @@ def test_openai_encodes_image_as_image_url(sample_block):
 
 def test_openai_no_images_passes_string_through():
     """Backwards compat for OpenAI — string stays a string without images."""
-    from jarvis.plugins.brain._openai_base import _to_openai_messages
+    from dodaios.plugins.brain._openai_base import _to_openai_messages
 
     msgs = (BrainMessage(role="user", content="hi"),)
     out = _to_openai_messages(msgs, None)
@@ -97,10 +97,10 @@ def test_openai_vision_unsupported_drops_images(sample_block, caplog):
     """When supports_vision=False → images are dropped + a WARN is logged."""
     import logging
 
-    from jarvis.plugins.brain._openai_base import _to_openai_messages
+    from dodaios.plugins.brain._openai_base import _to_openai_messages
 
     msgs = (BrainMessage(role="user", content="question", images=(sample_block,)),)
-    with caplog.at_level(logging.WARNING, logger="jarvis.plugins.brain._openai_base"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.plugins.brain._openai_base"):
         out = _to_openai_messages(msgs, None, supports_vision=False)
     user_msg = next(m for m in out if m["role"] == "user")
     # Content is now a plain-text string (images dropped)

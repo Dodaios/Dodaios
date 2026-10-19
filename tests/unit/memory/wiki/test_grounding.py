@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.memory.wiki.grounding import (
+from dodaios.memory.wiki.grounding import (
     classify_user_attitude_evidence,
     is_unsupported_user_interest_claim,
 )

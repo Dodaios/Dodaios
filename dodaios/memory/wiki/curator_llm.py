@@ -1,0 +1,663 @@
+"""Curator LLM — provider-agnostic intelligence layer (Phase B1, Instance D).
+
+Wraps one Brain provider in the ``CuratorLLM`` Protocol from
+``protocols.py``. The provider is resolved at construction time from
+``[memory.wiki.curator]`` with two fallbacks:
+
+1. ``provider`` empty → use ``brain.primary``.
+2. ``model`` empty → use the provider's CHEAP/FAST router-tier model
+   (``get_tier_default_model("router", provider)``), NOT the provider's
+   full frontier chat model. An explicit ``model`` override always wins.
+
+The brain call is wrapped in ``asyncio.wait_for(timeout=cfg.timeout_s)``
+so a hung provider never blocks an ingest forever. Any failure — JSON
+parse error, schema mismatch, timeout, brain exception — produces an
+empty ``list[PageUpdate]`` and a logged warning. The orchestrator is
+required to keep running across LLM faults; raising is not an option.
+
+The salience filter (smalltalk → ``[]``) lives in the prompt. Structural
+JSON checks and a narrow deterministic graph invariant protect explicit
+residence writes before translating them into ``PageUpdate`` objects.
+
+Reference pattern: ``dodaios/awareness/verdichter.py`` (same brain-via-
+config, timeout-via-wait_for, error-tolerant shape).
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from collections.abc import Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from dodaios.brain.provider_registry import BrainProviderRegistry
+from dodaios.brain.streaming import aggregate, is_length_truncated
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.memory.wiki.prompt import (
+    build_system_prompt,
+    build_user_prompt,
+    compute_vault_summary,
+    resolve_user_entity_slug,
+    select_top_slugs,
+)
+from dodaios.memory.wiki.protocols import PageUpdate
+from dodaios.memory.wiki.residence import detect_residence_slug
+from dodaios.memory.wiki.telemetry import telemetry
+from dodaios.memory.wiki.wikilink import extract_wikilinks
+
+if TYPE_CHECKING:
+    from dodaios.core.config import JarvisConfig, WikiCuratorConfig
+    from dodaios.core.protocols import Brain
+    from dodaios.memory.wiki.protocols import PageRepository, VaultIndex
+
+logger = logging.getLogger(__name__)
+
+# Hard cap on the proposed updates the writer will receive. Keeps a
+# misbehaving LLM (e.g. one that emits hundreds of speculative edits)
+# from overwhelming Instance C's backup + validate pipeline.
+_MAX_UPDATES_PER_INGEST = 30
+
+# Allowed operation strings — anything else is dropped at parse time.
+_VALID_OPERATIONS: frozenset[str] = frozenset({"create", "update", "rename", "archive"})
+
+# Minimum non-whitespace characters in a source before the LLM is even
+# called. Avoids burning tokens on empty events.
+_MIN_SOURCE_CHARS = 3
+
+# Cheap/fast model per provider for the curator's default path. This is
+# the long-term-memory tier: background ingest must NOT bill the user's
+# frontier chat model. We mirror the router-tier ("fast") defaults from
+# dodaios.brain.manager.TIER_DEFAULTS_BY_PROVIDER["router"]; the live
+# values are read from there at resolve time, this map is only the
+# last-resort fallback when that import is unavailable.
+_CHEAP_MODEL_FALLBACK: dict[str, str] = {
+    "claude-api": "claude-haiku-4-5-20251001",
+    "gemini": "gemini-3-flash-preview",
+    "openai": "gpt-5.5",
+    # codex removed: not in TIER_DEFAULTS_BY_PROVIDER["router"]; the fallback
+    # map must stay in lock-step with the live router defaults (drift guard in
+    # test_cheap_model_fallback_map_matches_live_router_defaults).
+    "deepseek": "deepseek-chat",
+    # Gateway: background curation must not bill a paid Anthropic model on a
+    # free OpenRouter key (§3/AP-22) — use a free general-purpose model.
+    "openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "mistral": "mistral-small-3.1",
+}
+
+
+def _cheap_model_for(provider: str) -> str | None:
+    """Cheap/fast model for the curator's default path.
+
+    Prefers the live router-tier default from ``dodaios.brain.manager``
+    (single source of truth); falls back to the local ``_CHEAP_MODEL_FALLBACK``
+    map if that module cannot be imported (minimal VPS / partial install).
+    Returns ``None`` for an unknown provider so the registry picks its own
+    default.
+    """
+
+    try:
+        from dodaios.brain.manager import get_tier_default_model
+
+        live = get_tier_default_model("router", provider)
+        if live:
+            return live
+    except ImportError:
+        # Minimal VPS / partial install — expected, fallback map is the plan.
+        logger.debug(
+            "_cheap_model_for(%r): dodaios.brain.manager unimportable, "
+            "using _CHEAP_MODEL_FALLBACK",
+            provider,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Anything else is unexpected — make it diagnosable.
+        logger.warning(
+            "_cheap_model_for(%r): get_tier_default_model failed (%s) — "
+            "using _CHEAP_MODEL_FALLBACK",
+            provider, exc,
+        )
+    return _CHEAP_MODEL_FALLBACK.get(provider)
+
+
+def _resolve_provider_and_model(
+    cfg: WikiCuratorConfig, root: JarvisConfig,
+) -> tuple[str, str | None]:
+    """Resolve (provider, model) for the curator LLM.
+
+    Provider: ``cfg.provider`` if set, else ``brain.primary``.
+
+    Model precedence (cheap-by-default — long-term memory must not bill
+    the user's frontier chat model):
+
+    1. An explicit ``cfg.model`` always wins.
+    2. Otherwise the resolved provider's CHEAP/FAST router-tier model
+       (``dodaios.brain.manager.get_tier_default_model("router", provider)``,
+       mirrored by ``_CHEAP_MODEL_FALLBACK``).
+    3. Otherwise ``None`` — the registry instantiates its own default
+       (matches ``BrainProviderRegistry.instantiate(name, model=None)``).
+
+    Note: ``brain.providers[provider].model`` (the user's full frontier
+    chat model) is intentionally NOT used here — that is the expensive
+    path this resolver exists to avoid.
+    """
+
+    provider = cfg.provider.strip() or root.brain.primary
+    model = cfg.model.strip()
+
+    if not model:
+        model = _cheap_model_for(provider) or ""
+
+    return provider, (model or None)
+
+
+def instantiate_curator_brain(
+    registry: Any,
+    provider: str,
+    model: str | None,
+    *,
+    cli_timeout_s: float | None = None,
+    provider_options: Mapping[str, Any] | None = None,
+) -> Any:
+    """Instantiate a curator-tier brain with extended thinking DISABLED.
+
+    Background curation (extractor, judge, legacy curator) is deterministic
+    JSON work; Gemini 3 thinking models otherwise burn the
+    ``max_output_tokens`` budget on internal reasoning tokens and the
+    visible output hits MAX_TOKENS after a few sentences — every batch then
+    dies in the truncation guard (live finding 2026-06-10). Mirrors the
+    ``BrainManager`` fast-path rules: ``thinking_budget=0`` only for
+    Gemini NON-pro models (pro rejects 0 with a 400); other providers
+    never see the kwarg; a ``TypeError`` from an older provider signature
+    falls back to plain instantiation.
+    """
+    kwargs: dict[str, Any] = {"model": model, **dict(provider_options or {})}
+    if provider == "gemini" and "pro" not in (model or "").lower():
+        kwargs["thinking_budget"] = 0
+    # Subscription-CLI brains (codex, antigravity) flatten voice turns into a
+    # conversational plain-text prompt by design — which silently destroys the
+    # curator tier's JSON contract. Providers whose constructor accepts
+    # ``structured_prompts`` forward the contract verbatim instead; the probe
+    # is signature acceptance (capability, never a provider name — AP-21).
+    # ``cli_timeout_s`` rides the same probe: CLI brains cap each turn with an
+    # internal voice-tier deadline, which must not kill a slow background call
+    # the caller is still willing to wait for (live 2026-07-21: the Stage-2
+    # judge died on every codex run at the internal 90 s cap while the wiki
+    # tier's 180 s budget was half unused).
+    structured: dict[str, Any] = {**kwargs, "structured_prompts": True}
+    if cli_timeout_s is not None and cli_timeout_s > 0:
+        structured["cli_timeout_s"] = float(cli_timeout_s)
+    attempts: list[dict[str, Any]] = [structured]
+    if "cli_timeout_s" in structured:
+        attempts.append({**kwargs, "structured_prompts": True})
+    attempts.append(kwargs)
+    for attempt in attempts:
+        try:
+            return registry.instantiate(provider, **attempt)
+        except TypeError:
+            continue
+    return registry.instantiate(provider)
+
+
+def _extract_json_array(text: str) -> Any:
+    """Best-effort JSON-array extraction from a possibly-noisy response.
+
+    LLMs sometimes wrap structured output in code fences or add a leading
+    sentence even when told not to. We strip an optional ``` fence and
+    then look for the first ``[`` and the matching last ``]``. Anything
+    that does not decode to a list is rejected.
+
+    Raises ``ValueError`` when no usable array is found.
+    """
+
+    candidate = text.strip()
+
+    # Strip a code fence if present.
+    if candidate.startswith("```"):
+        # Drop the opening fence (with or without language hint).
+        candidate = candidate.split("\n", 1)[1] if "\n" in candidate else ""
+        if candidate.endswith("```"):
+            candidate = candidate[:-3]
+        candidate = candidate.strip()
+
+    # Locate the outermost array brackets.
+    start = candidate.find("[")
+    end = candidate.rfind("]")
+    if start == -1 or end == -1 or end < start:
+        raise ValueError("no JSON array found in response")
+
+    array_text = candidate[start : end + 1]
+    parsed = json.loads(array_text)
+    if not isinstance(parsed, list):
+        raise ValueError(f"expected JSON array, got {type(parsed).__name__}")
+    return parsed
+
+
+def _coerce_to_update(item: Any) -> PageUpdate | None:
+    """Translate one JSON object into a ``PageUpdate``.
+
+    Returns ``None`` when the object is malformed (missing fields, bad
+    operation, empty body, …). The caller logs the count of dropped
+    items but does not surface individual errors.
+    """
+
+    if not isinstance(item, dict):
+        return None
+
+    target = item.get("target")
+    operation = item.get("operation")
+    new_body = item.get("new_body")
+    rename_from = item.get("rename_from")
+    reason = item.get("reason", "")
+
+    if not isinstance(target, str) or not target.strip():
+        return None
+    if not isinstance(operation, str) or operation not in _VALID_OPERATIONS:
+        return None
+    if not isinstance(new_body, str) or not new_body.strip():
+        # archive updates may carry an empty body in theory, but B1 has
+        # no archive-without-body use case; treat empty bodies as bugs.
+        return None
+
+    target_path = Path(target)
+    # Defensive: a leading "./" or absolute path would let an LLM escape
+    # the vault. Strip the leading slash; the writer joins against the
+    # vault root and re-validates.
+    if target_path.is_absolute():
+        try:
+            target_path = Path(*target_path.parts[1:])
+        except IndexError:
+            return None
+
+    rename_path: Path | None = None
+    if operation == "rename":
+        if not isinstance(rename_from, str) or not rename_from.strip():
+            return None
+        rename_path = Path(rename_from)
+        if rename_path.is_absolute():
+            try:
+                rename_path = Path(*rename_path.parts[1:])
+            except IndexError:
+                return None
+
+    return PageUpdate(
+        target_path=target_path,
+        operation=operation,
+        new_body=new_body,
+        rename_from=rename_path,
+        reason=str(reason)[:500] if reason else "",
+    )
+
+
+def _parse_updates(raw_text: str) -> list[PageUpdate]:
+    """Turn the raw LLM text into a list of ``PageUpdate``.
+
+    Returns an empty list when no usable updates survive. Logs a warning
+    when items are dropped so we can spot bad prompts in the field.
+    """
+
+    parsed = _extract_json_array(raw_text)
+    if not parsed:
+        return []
+
+    updates: list[PageUpdate] = []
+    dropped = 0
+    for item in parsed:
+        update = _coerce_to_update(item)
+        if update is None:
+            dropped += 1
+            continue
+        updates.append(update)
+        if len(updates) >= _MAX_UPDATES_PER_INGEST:
+            break
+
+    if dropped:
+        logger.warning(
+            "WikiCuratorLLM dropped %d malformed update(s) from response",
+            dropped,
+        )
+    return updates
+
+
+def _body_links_to_slug(body: str, slug: str) -> bool:
+    """Return whether a Markdown body links to ``slug`` in any Wiki form."""
+    for raw_link in extract_wikilinks(body):
+        target = raw_link.split("|", 1)[0].strip().removesuffix(".md")
+        if target.rsplit("/", 1)[-1] == slug:
+            return True
+    return False
+
+
+def _existing_entity_body(vault: Any, slug: str) -> str | None:
+    """Return an existing entity body from a real or minimal vault index."""
+    page = None
+    try:
+        page = vault.find_by_slug(slug)
+    except Exception:  # noqa: BLE001 - minimal vault fakes may omit lookup
+        page = None
+    if page is None:
+        try:
+            page = next(
+                (
+                    candidate
+                    for candidate in (vault.pages_by_type("entity") or [])
+                    if getattr(candidate, "slug", "") == slug
+                ),
+                None,
+            )
+        except Exception:  # noqa: BLE001 - semantic validation stays fail-closed
+            page = None
+    if page is None or getattr(page, "page_type", "entity") != "entity":
+        return None
+    path = getattr(page, "path", None)
+    if path is not None:
+        parts = Path(path).parts
+        if len(parts) < 2 or parts[-2:] != ("entities", f"{slug}.md"):
+            return None
+    body = getattr(page, "body", None)
+    return body if isinstance(body, str) else None
+
+
+def _effective_entity_body(
+    updates: list[PageUpdate],
+    *,
+    target: str,
+    slug: str,
+    vault: Any,
+) -> str | None:
+    """Return the proposed body for ``target``, or its current vault body."""
+    for update in reversed(updates):
+        if update.target_path.as_posix() != target:
+            continue
+        if update.operation == "archive":
+            return None
+        return update.new_body
+    return _existing_entity_body(vault, slug)
+
+
+def _semantic_graph_error(
+    source_content: str,
+    updates: list[PageUpdate],
+    *,
+    user_slug: str,
+    vault: Any,
+) -> str | None:
+    """Reject a grounded residence unless both linked graph pages exist."""
+    place_slug = detect_residence_slug(source_content)
+    if place_slug is None:
+        return None
+
+    place_target = f"entities/{place_slug}.md"
+    profile_target = f"entities/{user_slug}.md"
+    place_body = _effective_entity_body(
+        updates,
+        target=place_target,
+        slug=place_slug,
+        vault=vault,
+    )
+    if place_body is None:
+        return f"grounded residence is missing its graph page: {place_target}"
+    profile_body = _effective_entity_body(
+        updates,
+        target=profile_target,
+        slug=user_slug,
+        vault=vault,
+    )
+    if profile_body is None:
+        return f"grounded residence is missing its user profile: {profile_target}"
+    if not _body_links_to_slug(place_body, user_slug):
+        return "residence graph page does not link to the user profile"
+    if not _body_links_to_slug(profile_body, place_slug):
+        return "user profile does not link to the residence graph page"
+    return None
+
+
+class WikiCuratorLLM:
+    """Default ``CuratorLLM`` implementation.
+
+    Constructed once per process and reused across ingests. The Brain
+    instance is created lazily on the first call so a misconfigured
+    provider never crashes the orchestrator at startup.
+
+    Parameters
+    ----------
+    config:
+        Full root config — we read ``memory.wiki.curator`` and
+        ``brain.primary`` / ``brain.providers``.
+    schema_path:
+        Path to the vault's ``schema.md``. Kept for callers; the file is
+        documentation for people and no longer part of the prompt.
+    log_path:
+        Path to the wiki ``log.md`` — used only to enrich the system
+        prompt with recent activity. Missing file degrades silently.
+    registry:
+        Optional injected ``BrainProviderRegistry``. Tests inject a fake
+        registry; production code uses a fresh one.
+    """
+
+    def __init__(
+        self,
+        *,
+        config: JarvisConfig,
+        schema_path: Path,
+        log_path: Path | None = None,
+        registry: BrainProviderRegistry | None = None,
+    ) -> None:
+        self._config = config
+        self._cfg = config.memory.wiki.curator
+        self._schema_path = schema_path
+        self._log_path = log_path
+        self._registry = registry or BrainProviderRegistry()
+        self._credential_filter = registry is None
+        self._brain: Brain | None = None
+        self._resolved_provider: str | None = None
+        self._resolved_model: str | None = None
+
+    @property
+    def provider_name(self) -> str | None:
+        """The provider that will be (or has been) instantiated."""
+
+        return self._resolved_provider
+
+    async def propose_updates(
+        self,
+        source_content: str,
+        source_label: str,
+        *,
+        repo: PageRepository,
+        vault: VaultIndex,
+    ) -> list[PageUpdate]:
+        """Ask the configured Brain for a list of wiki updates.
+
+        Always returns a list. Never raises. The empty list covers:
+
+        * source content shorter than ``_MIN_SOURCE_CHARS`` chars,
+        * schema file unreadable,
+        * brain unavailable / not in the registry,
+        * brain timeout (``asyncio.wait_for`` above ``cfg.timeout_s``),
+        * brain raises any exception,
+        * response JSON is malformed,
+        * every update in the response failed validation.
+        """
+
+        # ``repo`` is unused today; the Protocol exposes it so a future
+        # post-validation pass can re-parse pages without changing the
+        # signature. Referencing it keeps mypy / pyright quiet.
+        del repo
+
+        if not source_content or len(source_content.strip()) < _MIN_SOURCE_CHARS:
+            logger.debug(
+                "WikiCuratorLLM: source too short (%d chars), skipping LLM call",
+                len(source_content or ""),
+            )
+            return []
+
+        vault_summary = await asyncio.to_thread(
+            compute_vault_summary, vault, log_path=self._log_path,
+        )
+        candidate_slugs = self._collect_candidate_slugs(vault, vault_summary)
+        top_slugs = select_top_slugs(source_content, candidate_slugs)
+
+        user_slug = resolve_user_entity_slug(
+            getattr(
+                self._config.memory.wiki.session_rollup,
+                "user_entity_slug",
+                "",
+            )
+        )
+        system_prompt = build_system_prompt(vault_summary, user_entity_slug=user_slug)
+        user_prompt = build_user_prompt(source_label, source_content, top_slugs)
+
+        request = BrainRequest(
+            messages=(BrainMessage(role="user", content=user_prompt),),
+            system=system_prompt,
+            max_tokens=self._cfg.max_output_tokens,
+            temperature=0.4,                    # factual editor, not creative
+            stream=True,
+        )
+
+        start_ns = time.time_ns()
+        from dodaios.brain.background_policy import BackgroundDeferred
+        from dodaios.memory.wiki.background_guard import guard
+        from dodaios.memory.wiki.provider_chain import (
+            build_background_wiki_chain,
+            complete_with_fallback,
+        )
+
+        # Key-aware fallback (AP-22/23): cross to a reachable family instead of
+        # dying on one dead / throttled provider (live 2026-06-30 silent brick).
+        # The curator runs after the turn with nobody waiting on it, so it
+        # bills only what background work may bill: once a subscription is
+        # connected, subscriptions and local models — never a key.
+        try:
+            # Provider selection may run vendor login probes (seconds of subprocess):
+            # keep it off the event loop (AP-9).
+            background = await asyncio.to_thread(
+                build_background_wiki_chain,
+                registry=self._registry,
+                config=self._config,
+                primary=(self._cfg.provider.strip() or self._config.brain.primary),
+                model_override=self._cfg.model,
+                credential_filter=self._credential_filter,
+            )
+        except BackgroundDeferred as exc:
+            logger.warning("WikiCuratorLLM: nothing written now — %s", exc)
+            guard.note_waiting(str(exc))
+            return []
+        chain = background.chain
+        rejection_reasons: list[str] = []
+
+        def _validate_response(agg: Any) -> str | None:
+            if is_length_truncated(agg.finish_reason, agg.text):
+                reason = (
+                    f"truncated structured output ({len(agg.text or '')} chars, "
+                    f"finish_reason={agg.finish_reason!r})"
+                )
+                rejection_reasons.append(reason)
+                return reason
+            try:
+                updates = _parse_updates(agg.text)
+            except (ValueError, json.JSONDecodeError) as exc:
+                reason = f"malformed update JSON: {exc}"
+                rejection_reasons.append(reason)
+                return reason
+            reason = _semantic_graph_error(
+                source_content,
+                updates,
+                user_slug=user_slug,
+                vault=vault,
+            )
+            if reason is not None:
+                rejection_reasons.append(reason)
+                return reason
+            return None
+
+        result = await complete_with_fallback(
+            registry=self._registry,
+            chain=chain,
+            request=request,
+            timeout_s=self._cfg.timeout_s,
+            label="WikiCuratorLLM",
+            aggregate=aggregate,
+            validate=_validate_response,
+            provider_options=background.provider_options,
+            record_chain_failure=not background.subscription_mode,
+        )
+        if result is None and background.subscription_mode and not rejection_reasons:
+            guard.note_waiting("the subscription did not answer")
+        if result is None:
+            if any(reason.startswith("truncated") for reason in rejection_reasons):
+                logger.warning(
+                    "WikiCuratorLLM: every provider hit the output-token cap "
+                    "or failed after a truncated response; no updates were persisted"
+                )
+                telemetry.inc("wiki_writes_blocked_truncated")
+            return []
+        agg, self._resolved_provider = result
+
+        if is_length_truncated(agg.finish_reason, agg.text):
+            duration_ms = (time.time_ns() - start_ns) // 1_000_000
+            logger.warning(
+                "WikiCuratorLLM: response hit the output-token cap "
+                "(finish_reason=%r, %d chars, %dms, provider=%s) — discarding "
+                "truncated updates rather than persisting a half-written page",
+                agg.finish_reason, len(agg.text), duration_ms, self._resolved_provider,
+            )
+            telemetry.inc("wiki_writes_blocked_truncated")
+            return []
+
+        try:
+            updates = _parse_updates(agg.text)
+        except (ValueError, json.JSONDecodeError) as exc:
+            logger.warning(
+                "WikiCuratorLLM: malformed JSON from %s (%s) — returning empty list",
+                self._resolved_provider, exc,
+            )
+            return []
+
+        duration_ms = (time.time_ns() - start_ns) // 1_000_000
+        logger.info(
+            "WikiCuratorLLM produced %d update(s) in %dms (provider=%s, source=%r)",
+            len(updates), duration_ms, self._resolved_provider, source_label[:60],
+        )
+        return updates
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _collect_candidate_slugs(
+        vault: VaultIndex, vault_summary: dict[str, Any],
+    ) -> list[str]:
+        """All known slugs across the four page types.
+
+        Falls back to the ``latest`` preview inside ``vault_summary``
+        when the vault implementation does not expose ``pages_by_type``
+        (e.g. minimalist test fakes).
+        """
+
+        slugs: list[str] = []
+        for ptype in ("entity", "concept", "project", "session"):
+            try:
+                pages = vault.pages_by_type(ptype) or []
+            except Exception:                                     # noqa: BLE001
+                pages = []
+            for page in pages:
+                slug = getattr(page, "slug", "")
+                if slug:
+                    slugs.append(slug)
+
+        if slugs:
+            return slugs
+
+        # Fallback: read from the summary preview block.
+        latest: dict[str, list[str]] = vault_summary.get("latest", {})
+        for ptype_slugs in latest.values():
+            slugs.extend(ptype_slugs)
+        return slugs
+
+
+__all__ = [
+    "WikiCuratorLLM",
+]

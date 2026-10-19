@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
 
 
 @pytest.fixture()

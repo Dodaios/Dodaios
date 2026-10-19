@@ -5,13 +5,13 @@ import json
 import re
 from pathlib import Path
 
-from jarvis.sessions.constants import VOICE_MODES
-from jarvis.sessions.models import KNOWN_VOICE_MODES
+from dodaios.sessions.constants import VOICE_MODES
+from dodaios.sessions.models import KNOWN_VOICE_MODES
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TYPES_TS = REPO_ROOT / "jarvis/ui/web/frontend/src/components/sessions/types.ts"
-SCHEMA_SQL = REPO_ROOT / "jarvis/sessions/schema.sql"
-LOCALES_DIR = REPO_ROOT / "jarvis/ui/web/frontend/src/i18n/locales"
+TYPES_TS = REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/types.ts"
+SCHEMA_SQL = REPO_ROOT / "dodaios/sessions/schema.sql"
+LOCALES_DIR = REPO_ROOT / "dodaios/ui/web/frontend/src/i18n/locales"
 
 
 def _expected() -> set[str]:

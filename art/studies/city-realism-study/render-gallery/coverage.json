@@ -149,7 +149,7 @@
     }
   },
   "legacy/biped-android": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-android.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-android.glb",
     "source_sha256": "e41053d204c755d17ab7cbb79cc29eb9625c52fa00f533ed437bc99a84537d37",
     "render": "render-gallery/legacy/biped-android.png",
     "render_sha256": "7153daa006c6b0bc8d88eb665133bf99c3d805a7fda5cbe8039b0c0eae638f69",
@@ -178,7 +178,7 @@
     }
   },
   "legacy/biped-athlete": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-athlete.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-athlete.glb",
     "source_sha256": "c3cba8be9a3e1df37bcf61b974884779b3e0d37306b24c07b74941df03a727b3",
     "render": "render-gallery/legacy/biped-athlete.png",
     "render_sha256": "20384c85a4f4c2e3ac247be6f65d0f1e8a065f847c26ed812778e59e98ecaf7a",
@@ -207,7 +207,7 @@
     }
   },
   "legacy/biped-barbarian": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-barbarian.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-barbarian.glb",
     "source_sha256": "116dbc1ef88db0c7c4775b0b133ab9b676ed7eb5776cdb2a396e081c9663d879",
     "render": "render-gallery/legacy/biped-barbarian.png",
     "render_sha256": "9bb233449d0f89f0c222f3fd4d9747422038a5db758442d74d9ee4adfc18b3ea",
@@ -236,7 +236,7 @@
     }
   },
   "legacy/biped-blockhead": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-blockhead.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-blockhead.glb",
     "source_sha256": "5b121c93276b7982acac55fed211404b7139610d961e2c791be0c6a01b38c4a2",
     "render": "render-gallery/legacy/biped-blockhead.png",
     "render_sha256": "ae874c79ac1f89b4818c8d67d2509d96e055743bce499dff002fab58a7bb6b4e",
@@ -265,7 +265,7 @@
     }
   },
   "legacy/biped-casual": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-casual.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-casual.glb",
     "source_sha256": "96717f434be541cee3c27d1a4fa6a63f4a369993836933dfa65e2e95f857f13e",
     "render": "render-gallery/legacy/biped-casual.png",
     "render_sha256": "c712903d54ff9e55e8a3c312b8e7d5c4ed6c6314913ce87972b4f52c86ebd53a",
@@ -294,7 +294,7 @@
     }
   },
   "legacy/biped-chibi": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-chibi.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-chibi.glb",
     "source_sha256": "f2c4824f99f5fba0961cb40ff6f20624804f59f63d9a817631508659bd2c10e1",
     "render": "render-gallery/legacy/biped-chibi.png",
     "render_sha256": "c695a04b1b8031a630ffa4c33a2e325a941dcceeb6eb126a7fca6131a5fc41bc",
@@ -323,7 +323,7 @@
     }
   },
   "legacy/biped-clips": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-clips.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-clips.glb",
     "source_sha256": "b909e2263bacfddbadba5aa38b1725bea1614c450baba14d8c386d1bbe2bce3a",
     "render": "render-gallery/legacy/biped-clips.png",
     "render_sha256": "3a2044fa286492af4972ec895d7a30db3a68cd476a52048d4c8181023712fe83",
@@ -352,7 +352,7 @@
     }
   },
   "legacy/biped-dwarf": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-dwarf.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-dwarf.glb",
     "source_sha256": "715dcc96214cc620c6ef219f7ee6117c5d928b88d2b7f35f3b920abba9a6397d",
     "render": "render-gallery/legacy/biped-dwarf.png",
     "render_sha256": "6c08901f6f7209e4c9fc30e524b6d750b50368967a49b58749dcd816c6f32a57",
@@ -381,7 +381,7 @@
     }
   },
   "legacy/biped-elf": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-elf.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-elf.glb",
     "source_sha256": "bf64a41ece95413c2b0bba29447f018880d7c74a4eab0a6e560c98b1f246be6a",
     "render": "render-gallery/legacy/biped-elf.png",
     "render_sha256": "33e248fc2ec7f49f30d899a6f51fb8ee4594b548be1daaf80d6649c0ed6b57e2",
@@ -410,7 +410,7 @@
     }
   },
   "legacy/biped-knight": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-knight.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-knight.glb",
     "source_sha256": "d2e49385401c3007dbe012db31389b7f92c6049a9ef38d81c970b73344772f05",
     "render": "render-gallery/legacy/biped-knight.png",
     "render_sha256": "fee24b7f78c55bed339703632364705d7f5bba02cb7eb073d5218091af03a851",
@@ -439,7 +439,7 @@
     }
   },
   "legacy/biped-mage": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-mage.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-mage.glb",
     "source_sha256": "523de757f1bb6d7857b59e5b8a232f234a465f773f4f419ed34adbadfd7b5012",
     "render": "render-gallery/legacy/biped-mage.png",
     "render_sha256": "08871863e527c021272ec4cc2564e836f1ee8c3fbc810a84448ae68aec2a8017",
@@ -468,7 +468,7 @@
     }
   },
   "legacy/biped-medic": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-medic.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-medic.glb",
     "source_sha256": "70c799b27888a5fad42aeb40187c2584821defd76e9dbd6faee7b8299849c607",
     "render": "render-gallery/legacy/biped-medic.png",
     "render_sha256": "c8c1c875e2b5955475ab25d4b32b27abebac0bb41c3a08f6e3715a0120d1bfe7",
@@ -497,7 +497,7 @@
     }
   },
   "legacy/biped-monk": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-monk.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-monk.glb",
     "source_sha256": "bc2e0d8a17e40858d628a27e3c9911a7495d380ef87e4a1776edb89a72dec3dd",
     "render": "render-gallery/legacy/biped-monk.png",
     "render_sha256": "49497d0b9b6087bc225390b4bce11c082890ac08131e0fb1e4f18a52a3c7c2c2",
@@ -526,7 +526,7 @@
     }
   },
   "legacy/biped-office": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-office.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-office.glb",
     "source_sha256": "d0f244cfd7ed1ae36bd394bd3e0d648571e6af6a0b69aab839dccc44350f0f1b",
     "render": "render-gallery/legacy/biped-office.png",
     "render_sha256": "4276164152886504a6a955d7119dbfdb879288236630450427aa5a36656cd039",
@@ -555,7 +555,7 @@
     }
   },
   "legacy/biped-pilot": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-pilot.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-pilot.glb",
     "source_sha256": "62ed4e8fc80fa5e3cbb054a58342bffc6c8efd7d43e67955c8af698e27a4561e",
     "render": "render-gallery/legacy/biped-pilot.png",
     "render_sha256": "e93b8ea872f404ce3263b1a1e762ab0d9a0ff7ab8ba4b510455d84067ed64efa",
@@ -584,7 +584,7 @@
     }
   },
   "legacy/biped-rogue": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-rogue.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-rogue.glb",
     "source_sha256": "6b788e69533a4af50f6a3c6d7f8970cc761c6495fb207f5aa80666ba0fc1791a",
     "render": "render-gallery/legacy/biped-rogue.png",
     "render_sha256": "2f93e0585cccea5b880ee5ec6cc86218c638459e3b984ff7d7a848d4a9930d45",
@@ -613,7 +613,7 @@
     }
   },
   "legacy/biped-scientist": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-scientist.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-scientist.glb",
     "source_sha256": "af53cbeddcda7caf05dbb928c0bb173dd520698bdda54808e6f90631af7e867f",
     "render": "render-gallery/legacy/biped-scientist.png",
     "render_sha256": "ad0ace7efa61205f175c6b2428d3cd95264ff9f7ae5144c39295ee78c4bd8482",
@@ -642,7 +642,7 @@
     }
   },
   "legacy/biped-toon": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-toon.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-toon.glb",
     "source_sha256": "c998dca5bc7dc8626be729ea33ead2c6591cf1a7cbc125e3020b4fd73c59814e",
     "render": "render-gallery/legacy/biped-toon.png",
     "render_sha256": "1012da2a74670e31ab28c01d3e4890a0e0fbdd5204582c4e67adaecd43ebb9df",
@@ -671,7 +671,7 @@
     }
   },
   "legacy/biped-trooper": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-trooper.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-trooper.glb",
     "source_sha256": "4ac782e7fd49930e4a27f1b773b2ea0c68965d33718e0a67eb62affe4d6b9dd7",
     "render": "render-gallery/legacy/biped-trooper.png",
     "render_sha256": "739c72d172556ad60f2f5196e297dcddc49edfc42317b484f709119b7f92cc32",
@@ -700,7 +700,7 @@
     }
   },
   "legacy/biped-worker": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/biped-worker.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/biped-worker.glb",
     "source_sha256": "ea743a14826d6254734e9e1fdf89609c971fbfb56eef1439d986beb4c0938cd1",
     "render": "render-gallery/legacy/biped-worker.png",
     "render_sha256": "2781df65402894053a009c89ae750c4637fd3e30f8617590b665dd33655c685b",
@@ -729,7 +729,7 @@
     }
   },
   "legacy/back-backpack": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-backpack.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-backpack.glb",
     "source_sha256": "7f4f09b95132e1a7c718ff88527f817da38e3436977ed8d1fa00c87bfbb4b0a1",
     "render": "render-gallery/legacy/back-backpack.png",
     "render_sha256": "6131b8ddc7b0a48b219e79701c5a209dd3ab18254851a3d6a355a8eac9180915",
@@ -758,7 +758,7 @@
     }
   },
   "legacy/back-cloak": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-cloak.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-cloak.glb",
     "source_sha256": "1322a9a6752e045d323d8dacb5ae5de05728054781356d3b4b67287772d39a45",
     "render": "render-gallery/legacy/back-cloak.png",
     "render_sha256": "6a4d224a49e270b1ea68417d604441a5a391e24b9657304d357bddb8adffd4a9",
@@ -787,7 +787,7 @@
     }
   },
   "legacy/back-fur-cape": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-fur-cape.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-fur-cape.glb",
     "source_sha256": "bc2bf3285a9d3ce5eff8879ea3a4ae8edd89abb946f6b631a1c0d49b3a355a50",
     "render": "render-gallery/legacy/back-fur-cape.png",
     "render_sha256": "b016ee6396f53b5a323d6c0ea3516f33bacd7342a2a36ef512575a8a5317babd",
@@ -816,7 +816,7 @@
     }
   },
   "legacy/back-jetpack": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-jetpack.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-jetpack.glb",
     "source_sha256": "bea14b156172c07354cbb1a7c267e867f01822d060b7351c45d1b3250b1cb308",
     "render": "render-gallery/legacy/back-jetpack.png",
     "render_sha256": "3f9bb65f6e17e8ca7f3566e8ead3e960b494661382c4a7282903a0fc899080a7",
@@ -845,7 +845,7 @@
     }
   },
   "legacy/back-knight-cape": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-knight-cape.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-knight-cape.glb",
     "source_sha256": "cbd9fe572faf74ded8605aeb6002fa15af889cf815066f94f26d0895a60ab277",
     "render": "render-gallery/legacy/back-knight-cape.png",
     "render_sha256": "32bbfba695181ad9ff06ce32b028f884d7c6151adec2380c9c0901ba94897ef1",
@@ -874,7 +874,7 @@
     }
   },
   "legacy/back-mage-cape": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-mage-cape.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-mage-cape.glb",
     "source_sha256": "575f36f179e6f19547985b30790582b5c1575796523eaa13d927cfdd5c1751b0",
     "render": "render-gallery/legacy/back-mage-cape.png",
     "render_sha256": "3989b8d3473f9fabbd5ec431eb5a012221b72cdada6c4d66893c00b707eb2ae9",
@@ -903,7 +903,7 @@
     }
   },
   "legacy/back-quiver": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-quiver.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-quiver.glb",
     "source_sha256": "26fd76be9d9fa589cc6523c757ff5489bd7123846b5c10b42d410e130f84367c",
     "render": "render-gallery/legacy/back-quiver.png",
     "render_sha256": "d584fe92de2e7a9316b2995247beab72f0dbc99c11612efeaf7f1995db45d208",
@@ -932,7 +932,7 @@
     }
   },
   "legacy/back-rogue-cape": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-rogue-cape.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-rogue-cape.glb",
     "source_sha256": "b33435cf28bd5ffc9379858df2059131494e7eab9f5472b4e4d9b2abb8179730",
     "render": "render-gallery/legacy/back-rogue-cape.png",
     "render_sha256": "4b6cfe8a8888773e5324c380ad484b5974d6797361acaa700f158a0689a7a349",
@@ -961,7 +961,7 @@
     }
   },
   "legacy/back-satchel": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/back-satchel.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/back-satchel.glb",
     "source_sha256": "d4c010721cfed7aa43dd767a30f8148c0d6c53bd0aa1c2747703f7c49071a33e",
     "render": "render-gallery/legacy/back-satchel.png",
     "render_sha256": "40f36726f72c0c4c7fc2c5269687d7aba9a92c43c82ab2b0b6628e0885fed200",
@@ -990,7 +990,7 @@
     }
   },
   "legacy/belt-sash-broad": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/belt-sash-broad.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/belt-sash-broad.glb",
     "source_sha256": "b18b71fe8e68f1526b0b7ad31561f01adce1fbd456a24aa119d437fe2ff1c7f5",
     "render": "render-gallery/legacy/belt-sash-broad.png",
     "render_sha256": "2cdb1580d9cff5ca0ba5861bbb40e742bf8a6ecd7a958d517a649b2862ee4f4d",
@@ -1019,7 +1019,7 @@
     }
   },
   "legacy/belt-sash": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/belt-sash.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/belt-sash.glb",
     "source_sha256": "3991f2776d15e011a49906af284676c0961f7ef570006d9b9f91841b0ccd4d6f",
     "render": "render-gallery/legacy/belt-sash.png",
     "render_sha256": "323da02ff671cbbe88182b5ec88ebcc570ccfb361d5da226aeb0574ed367a360",
@@ -1048,7 +1048,7 @@
     }
   },
   "legacy/belt-toolbelt-broad": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/belt-toolbelt-broad.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/belt-toolbelt-broad.glb",
     "source_sha256": "91f162ec597c975b582337559d237e05991901d413b48d8954f24abe8e9e7230",
     "render": "render-gallery/legacy/belt-toolbelt-broad.png",
     "render_sha256": "8ea1be833cd8d47b8cc99ca955c8c589ad7b25add98ba90d85ff08449f514c6e",
@@ -1077,7 +1077,7 @@
     }
   },
   "legacy/belt-toolbelt": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/belt-toolbelt.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/belt-toolbelt.glb",
     "source_sha256": "e8a11e04a60fbc0c5b7edefdbcdffed1724b9baaa33b2153554124222594fbac",
     "render": "render-gallery/legacy/belt-toolbelt.png",
     "render_sha256": "736a5c072cd4e1bc2d2f48e41b3393575b349dece54ecafc5d4d418b2beea5f8",
@@ -1106,7 +1106,7 @@
     }
   },
   "legacy/face_extra-glasses": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/face_extra-glasses.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/face_extra-glasses.glb",
     "source_sha256": "ff1e78f5acd1aa61033c06c9b085833ac9709f9e6eed1f55f20b9def5714faf8",
     "render": "render-gallery/legacy/face_extra-glasses.png",
     "render_sha256": "fe91791e12ecaf350f58027dbf311a179fe62e8227f3a90ba3404f64adbbd31a",
@@ -1135,7 +1135,7 @@
     }
   },
   "legacy/face_extra-respirator": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/face_extra-respirator.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/face_extra-respirator.glb",
     "source_sha256": "6496476a11345b2d7b4031ccbc92b2ce3597bdf0166480cbebe8eb38b030b24f",
     "render": "render-gallery/legacy/face_extra-respirator.png",
     "render_sha256": "c1ce314a0087fb84d37d29d856480b0eaf82406e5104436a42ce07b902360234",
@@ -1164,7 +1164,7 @@
     }
   },
   "legacy/face_extra-shades": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/face_extra-shades.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/face_extra-shades.glb",
     "source_sha256": "cbdeba4e0fbbd1a9e9de4642e20fa4df207c5cc8f107fe0271b8e690ddb7bc8d",
     "render": "render-gallery/legacy/face_extra-shades.png",
     "render_sha256": "1ba5615512b6a1cef16a83a4926efe8fbd4c9a343f1f2ca3989e63c77382c6f0",
@@ -1193,7 +1193,7 @@
     }
   },
   "legacy/hand_l-clipboard": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-clipboard.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-clipboard.glb",
     "source_sha256": "36177593f493d518268f105c2cbc105597b3a9779cd9cad89a5f9c30bcb87201",
     "render": "render-gallery/legacy/hand_l-clipboard.png",
     "render_sha256": "59937ba3ca6db0258a0576004393a87bc660689b6b6a35cc6cde3027248063f1",
@@ -1222,7 +1222,7 @@
     }
   },
   "legacy/hand_l-lantern": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-lantern.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-lantern.glb",
     "source_sha256": "5c873af6f1b6fda1d483709e2df60be1f58ebdc6eb0b2155f6a2da7087b9fdd8",
     "render": "render-gallery/legacy/hand_l-lantern.png",
     "render_sha256": "0771e003205c3714250efc6605c00f1573a561ba15440b6debc97ebbb1625c31",
@@ -1251,7 +1251,7 @@
     }
   },
   "legacy/hand_l-round-shield": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-round-shield.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-round-shield.glb",
     "source_sha256": "b5595bc24507b7e5f76400ee5b56633eeeb470f2fa78d566f3d0a850d082a894",
     "render": "render-gallery/legacy/hand_l-round-shield.png",
     "render_sha256": "591ee52f072f67cb5670095f180fcedda70a974051e9246ec70b85aa299eeeeb",
@@ -1280,7 +1280,7 @@
     }
   },
   "legacy/hand_l-spellbook": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-spellbook.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-spellbook.glb",
     "source_sha256": "d6163f7301fd29aa23ccf9478e8300dbefeb500608dd763064baa9467f3f52a4",
     "render": "render-gallery/legacy/hand_l-spellbook.png",
     "render_sha256": "19867c7dd9d53a626f7ee173a82320cf47f158cd2e3d1d726c6ce24c3841d8ed",
@@ -1309,7 +1309,7 @@
     }
   },
   "legacy/hand_l-tablet": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-tablet.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-tablet.glb",
     "source_sha256": "16be5191863d4374635376109d230e1c93796e983eed087c91c743ca6c6a0c14",
     "render": "render-gallery/legacy/hand_l-tablet.png",
     "render_sha256": "3bbebddf3ee6a5f0cd570fbd68da5d6f4565ce5b8492e81c8bfaae4d57811a0d",
@@ -1338,7 +1338,7 @@
     }
   },
   "legacy/hand_l-wooden-shield": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-wooden-shield.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_l-wooden-shield.glb",
     "source_sha256": "f921a8bec0163657db915faf6a1cd84744a70768c9eee3aaaf467c63a2d3966e",
     "render": "render-gallery/legacy/hand_l-wooden-shield.png",
     "render_sha256": "6c8fcf60c9ce741f530b13c2d2fbd064d5be231b45c733ba5bf64fc7c42507a6",
@@ -1367,7 +1367,7 @@
     }
   },
   "legacy/hand_r-axe": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-axe.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-axe.glb",
     "source_sha256": "efb1d3ced15965f1a6f7214c2e89eb4ccd54103a07c0b0bf866eac0168fbe9b6",
     "render": "render-gallery/legacy/hand_r-axe.png",
     "render_sha256": "25292703b2836cfd6f090d2c99d040de44a9e54c15bfbbf3ff6a06c5255660d8",
@@ -1396,7 +1396,7 @@
     }
   },
   "legacy/hand_r-broom": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-broom.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-broom.glb",
     "source_sha256": "b49ca2576b44b8dd35de31dc65db933b184e54414324458840c01217c2363e92",
     "render": "render-gallery/legacy/hand_r-broom.png",
     "render_sha256": "7c9701f7daeced7971344f66fe53db5778b208696c9b0e19a2cb1ae07d510a8d",
@@ -1425,7 +1425,7 @@
     }
   },
   "legacy/hand_r-knife": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-knife.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-knife.glb",
     "source_sha256": "cf812361f3f37d80d60ca859ef19353cbf2372cac517db887f70248a12e56599",
     "render": "render-gallery/legacy/hand_r-knife.png",
     "render_sha256": "e7f091dc045e4283d9d5cc6afe00ac119d7e2b6e0f5928fb3083c7d74dbd032d",
@@ -1454,7 +1454,7 @@
     }
   },
   "legacy/hand_r-mug": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-mug.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-mug.glb",
     "source_sha256": "d6a515ff942819fa4d289bd0cd487d9fde1276654c2d5be0873890639d99c76d",
     "render": "render-gallery/legacy/hand_r-mug.png",
     "render_sha256": "ec115fd7d0c6f2abda0f0987d532a776014ae60fc7905218a5f03b5b773caa3d",
@@ -1483,7 +1483,7 @@
     }
   },
   "legacy/hand_r-scanner": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-scanner.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-scanner.glb",
     "source_sha256": "6dde6fcd3dc4707c508dae016ae23a0d0bc07c82b018030b1193493eee899e0e",
     "render": "render-gallery/legacy/hand_r-scanner.png",
     "render_sha256": "72d8cafc5ed78a6063e514f76dbd6874b2c5acd4108e1a7f49346a00d2997a2f",
@@ -1512,7 +1512,7 @@
     }
   },
   "legacy/hand_r-staff": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-staff.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-staff.glb",
     "source_sha256": "bc3204e2fe7bc0731c89ed949a0794622ac7e3ea7bd8c782fa6f29bb3d827492",
     "render": "render-gallery/legacy/hand_r-staff.png",
     "render_sha256": "e93e1a4d6e8d5a4b8644c0958b52a90a707c3a84224fc1eb549b8be9105d3e86",
@@ -1541,7 +1541,7 @@
     }
   },
   "legacy/hand_r-sword": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-sword.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-sword.glb",
     "source_sha256": "9eba560a68bc649303d5d4897b35c97719ebb20aa8e590118a79c60d43ef526b",
     "render": "render-gallery/legacy/hand_r-sword.png",
     "render_sha256": "0d912d21847e1f48e31a443901c87caff706d4b4842057fd861e99e9babc02a8",
@@ -1570,7 +1570,7 @@
     }
   },
   "legacy/hand_r-torch": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-torch.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-torch.glb",
     "source_sha256": "fc790efe372931228b876d160a6ffd6c31b049dccacfec7d695688c44ec2a78f",
     "render": "render-gallery/legacy/hand_r-torch.png",
     "render_sha256": "87d25218ef882d2ae0064e70c0010e5693434c2b00eb60691a792113ff800c21",
@@ -1599,7 +1599,7 @@
     }
   },
   "legacy/hand_r-wrench": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-wrench.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/hand_r-wrench.glb",
     "source_sha256": "3ff1d0cd2b772014a7abaada2c1f09a6cb59e859d6438cba3e7f753120a2c64f",
     "render": "render-gallery/legacy/hand_r-wrench.png",
     "render_sha256": "d0a65dda30313ebbd0675ed144a8bdfd655f6528ab492e3bdd29b1dff988f233",
@@ -1628,7 +1628,7 @@
     }
   },
   "legacy/headgear-beanie": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-beanie.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-beanie.glb",
     "source_sha256": "7f5593da905d953fa795db1ea0da08919d7be06cb126349f36d336ba39fd5eda",
     "render": "render-gallery/legacy/headgear-beanie.png",
     "render_sha256": "345d078b116ab6f06094141feabfd26a10913dc9d171f1888a8d1ced75af92c1",
@@ -1657,7 +1657,7 @@
     }
   },
   "legacy/headgear-cap": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-cap.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-cap.glb",
     "source_sha256": "56596e61ede095889df236ce498968b3d8e7c49c51690275d0fedec9c58d88fe",
     "render": "render-gallery/legacy/headgear-cap.png",
     "render_sha256": "d9baf950bcae750d5930023dd8ca9fff4a362f4aaa6d5ea25d6e3aee3718dddd",
@@ -1686,7 +1686,7 @@
     }
   },
   "legacy/headgear-crown": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-crown.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-crown.glb",
     "source_sha256": "6dba514f3ee277bdc28c7755847aa65ab006882bd0c2876f43c0283beea3c68b",
     "render": "render-gallery/legacy/headgear-crown.png",
     "render_sha256": "26809cd3f100cf29a1da46f6b31608b113e95f6fef6953fd5f8d8a856f51c5f3",
@@ -1715,7 +1715,7 @@
     }
   },
   "legacy/headgear-hardhat": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-hardhat.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-hardhat.glb",
     "source_sha256": "48688bb4c1b1d8f25ef8ff8ac038ace5fe6d7903eee1f4e712aa9a15e10b56bb",
     "render": "render-gallery/legacy/headgear-hardhat.png",
     "render_sha256": "8e1c8907f81f98364a7cbf4cf96cd709fced182b2f1555d118d79634e1fbc052",
@@ -1744,7 +1744,7 @@
     }
   },
   "legacy/headgear-headset": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-headset.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-headset.glb",
     "source_sha256": "c8318541f3cb0af50c63c4d825fd0437e73a42cd71948c6c4c6e752f320c1b46",
     "render": "render-gallery/legacy/headgear-headset.png",
     "render_sha256": "884f51485d3b3ec611e435e71a03bfe648d500da1b6bfa464603947c041373c9",
@@ -1773,7 +1773,7 @@
     }
   },
   "legacy/headgear-horned-hat": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-horned-hat.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-horned-hat.glb",
     "source_sha256": "25340a1c58af3e0e997e29111736ac3c4deb69cdae77db7c243c2824d15c0938",
     "render": "render-gallery/legacy/headgear-horned-hat.png",
     "render_sha256": "26e1c20aea9c22b31dd2cd9912d07ef0470871fb00c7e4fc15c9352ecb2ae82d",
@@ -1802,7 +1802,7 @@
     }
   },
   "legacy/headgear-knight-helmet": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-knight-helmet.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-knight-helmet.glb",
     "source_sha256": "13fc89386cd477b1c2e373096fb4a6f9acec6421a02f03198e5864566de2dea2",
     "render": "render-gallery/legacy/headgear-knight-helmet.png",
     "render_sha256": "9539a8aa9b56542849278f0e0760928edc36950449769be4082bb4b8664cd65f",
@@ -1831,7 +1831,7 @@
     }
   },
   "legacy/headgear-mage-hat": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-mage-hat.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-mage-hat.glb",
     "source_sha256": "b4607620aeec39912c1ea6efe294773cf39b980c3813986667dad7f314e04448",
     "render": "render-gallery/legacy/headgear-mage-hat.png",
     "render_sha256": "8f434e0700e6e41291ef28d6713881a593678a7e87bdccaebd51cb071f084395",
@@ -1860,7 +1860,7 @@
     }
   },
   "legacy/headgear-space-helmet": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-space-helmet.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-space-helmet.glb",
     "source_sha256": "ce22ffc54941c3677d82044aae84af9784977a6dfe88d855f4da185205e58b02",
     "render": "render-gallery/legacy/headgear-space-helmet.png",
     "render_sha256": "0a0fccbf13764d33b2d8a154f7023c3f497dbbd1469c6eed502d810fc2a831c0",
@@ -1889,7 +1889,7 @@
     }
   },
   "legacy/headgear-top-hat": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-top-hat.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/headgear-top-hat.glb",
     "source_sha256": "9effd9d5c051a945f46190f40f0008c74da5a811ba6259d96cfda8a5e35a2bec",
     "render": "render-gallery/legacy/headgear-top-hat.png",
     "render_sha256": "e68108c839b4deeae560d7d0f64984081f37457db009faac2833065298eeb5dd",
@@ -1918,7 +1918,7 @@
     }
   },
   "legacy/torso_over-apron-broad": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-apron-broad.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-apron-broad.glb",
     "source_sha256": "e66ef30e822ab2f5af6d65c0c6603862ba97b55da576b3f79b86cb190bb945a4",
     "render": "render-gallery/legacy/torso_over-apron-broad.png",
     "render_sha256": "4084e0a35e8b8f635a8f50e2cfedf1ddac2d0f38094ce367ccefa948b4aca804",
@@ -1947,7 +1947,7 @@
     }
   },
   "legacy/torso_over-apron": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-apron.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-apron.glb",
     "source_sha256": "ad87cb1855ea986570d8851c055f1382908246cd1389674c9649cde6d56907c2",
     "render": "render-gallery/legacy/torso_over-apron.png",
     "render_sha256": "80a71e13251280de9a4a81c8d24c51e49954312361774238cd281bfc287a9ea3",
@@ -1976,7 +1976,7 @@
     }
   },
   "legacy/torso_over-plate-broad": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-plate-broad.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-plate-broad.glb",
     "source_sha256": "4354f0b89e3e2a3a8b178933721325f87760cf7614a248a356a3c92411d4eb35",
     "render": "render-gallery/legacy/torso_over-plate-broad.png",
     "render_sha256": "840ca436edcc460edd2afce6a60363850e62c7240f56d5227a391b5c7487d271",
@@ -2005,7 +2005,7 @@
     }
   },
   "legacy/torso_over-plate": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-plate.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-plate.glb",
     "source_sha256": "de97a409b38cafdd6bd0c5b7c0019457cf0238debda393be1f63bde77d20359b",
     "render": "render-gallery/legacy/torso_over-plate.png",
     "render_sha256": "3e234e215bb6c1c6272f12edec26f3b6a941033005dbadd638e06cb96b53c2f8",
@@ -2034,7 +2034,7 @@
     }
   },
   "legacy/torso_over-vest-broad": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-vest-broad.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-vest-broad.glb",
     "source_sha256": "965841f07884c67745074077c0df93277c13802ba28a25c46ccdc679ab41ad20",
     "render": "render-gallery/legacy/torso_over-vest-broad.png",
     "render_sha256": "9fd64814ee077fbe99cf20bdf58da0bc059928bea8826a89ad979ceb8d0f9cde",
@@ -2063,7 +2063,7 @@
     }
   },
   "legacy/torso_over-vest": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-vest.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/biped/torso_over-vest.glb",
     "source_sha256": "559f3883ccc18a3cd08366d0b284771e6418945b296ee1e06808046a650a6fa1",
     "render": "render-gallery/legacy/torso_over-vest.png",
     "render_sha256": "f21c1dd9b6cabd8547965d7e083c56414b84293233576415bb8a451ab3fc8969",
@@ -2092,7 +2092,7 @@
     }
   },
   "legacy/back-blanket": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/back-blanket.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/back-blanket.glb",
     "source_sha256": "ca2aac7ae290a16636f53b9cd5361838924f80bb980437b7c42613e0ba9b1e90",
     "render": "render-gallery/legacy/back-blanket.png",
     "render_sha256": "ef0797f0aca6311d8c05e6d49f270c534a741865c2e903d59e6eb77fcbf31e1d",
@@ -2121,7 +2121,7 @@
     }
   },
   "legacy/back-saddlebag": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/back-saddlebag.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/back-saddlebag.glb",
     "source_sha256": "c26b1e49b52f07f9d2ade50eb662e60bfd95cf9880f4ae372729b588241247b3",
     "render": "render-gallery/legacy/back-saddlebag.png",
     "render_sha256": "cc9d366ed76b4a8b6e5e290f625293dfab4028bb2109708d0e2bea3e056509ec",
@@ -2150,7 +2150,7 @@
     }
   },
   "legacy/collar-band": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/collar-band.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/collar-band.glb",
     "source_sha256": "3c2d6f3b250e33d16a9eeae4880fe9cd6e6b722c0384b3f3cb1bf08c49fc3e18",
     "render": "render-gallery/legacy/collar-band.png",
     "render_sha256": "399d3ecb2dbe6c8a89dc97bc897ccf4f0983670c1128eebad4552b670c64d4b5",
@@ -2179,7 +2179,7 @@
     }
   },
   "legacy/collar-bandana": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/collar-bandana.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/collar-bandana.glb",
     "source_sha256": "91e231e18cf36de980e870296b565903e91dce416447e5ad3c10b6add9a97a2d",
     "render": "render-gallery/legacy/collar-bandana.png",
     "render_sha256": "646345591c6e35da45e6b400ddfc760999b4ce7fbeda329460a5f4f3c3c5e176",
@@ -2208,7 +2208,7 @@
     }
   },
   "legacy/collar-scarf": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/collar-scarf.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/collar-scarf.glb",
     "source_sha256": "844250094ca56b482f7094a2430aeace49af99cb69bf67d93f967197cf113e59",
     "render": "render-gallery/legacy/collar-scarf.png",
     "render_sha256": "0c25b2b6c7f87e7f962f56ca8ece384b716e5038285fdb54565469a82a6303c1",
@@ -2237,7 +2237,7 @@
     }
   },
   "legacy/headgear-antlers": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/headgear-antlers.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/headgear-antlers.glb",
     "source_sha256": "4faa7211a2d740e5b16d2808920f2c7728fbd2384948823e6cfc24c1dc635f65",
     "render": "render-gallery/legacy/headgear-antlers.png",
     "render_sha256": "ef14bf243f2bbdcc2a6df77eb075c8bbfad7e24dbb6f60315a55efcc3cebc519",
@@ -2266,7 +2266,7 @@
     }
   },
   "legacy/headgear-pet-cap": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/headgear-pet-cap.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/headgear-pet-cap.glb",
     "source_sha256": "ef21ee05033f75532a1990ac896a4ff5030aabfd056f3ea8b22029849fe7dc7d",
     "render": "render-gallery/legacy/headgear-pet-cap.png",
     "render_sha256": "261dc611179a8e3128c7ee0ae9f6f06aec9ad9408cae1dbee1d161a4088da573",
@@ -2295,7 +2295,7 @@
     }
   },
   "legacy/tail_extra-bow": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/parts/quadruped/tail_extra-bow.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/parts/quadruped/tail_extra-bow.glb",
     "source_sha256": "1b15f5c1daaed3e1bf56a8296cd8c8bb32e047f7f06cd29faca51b1984b60cd6",
     "render": "render-gallery/legacy/tail_extra-bow.png",
     "render_sha256": "f8673012f76821a2a2ff2203d86b30b6fb8e4d9dbbaa38f5914df48f260a8405",
@@ -2324,7 +2324,7 @@
     }
   },
   "legacy/quadruped-bear": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/quadruped-bear.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/quadruped-bear.glb",
     "source_sha256": "db1974688c4b2ee85c52ff09eb4397eda825f555e52269e2620a0d0245b0a22d",
     "render": "render-gallery/legacy/quadruped-bear.png",
     "render_sha256": "1c000cdf34a331eabe359e34c16d8cc01d1c9b2fe9e59145fa5b104ae66ba944",
@@ -2353,7 +2353,7 @@
     }
   },
   "legacy/quadruped-cat": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/quadruped-cat.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/quadruped-cat.glb",
     "source_sha256": "27fea64b064eee92d4a0a0e92068e3c4050b5d094c4b0220c904114b8bc45d4c",
     "render": "render-gallery/legacy/quadruped-cat.png",
     "render_sha256": "be8596f22be213e31d4da8d3573fa032ef180b9e269f6f8210d7c57d0a0d5861",
@@ -2382,7 +2382,7 @@
     }
   },
   "legacy/quadruped-clips": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/quadruped-clips.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/quadruped-clips.glb",
     "source_sha256": "6c4e11617740dbac81b989bf93f62a136dd893fe4fb869cfc025b37935cf48d7",
     "render": "render-gallery/legacy/quadruped-clips.png",
     "render_sha256": "72b3c3cf017e0c15dc4d1b7228252013d3dd0d641cda199630efd58974216e92",
@@ -2411,7 +2411,7 @@
     }
   },
   "legacy/quadruped-dog": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/quadruped-dog.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/quadruped-dog.glb",
     "source_sha256": "48b1ed1ec6fddcd2acebcd58e8058e47679eb041ba0e163e5962caba28cee727",
     "render": "render-gallery/legacy/quadruped-dog.png",
     "render_sha256": "4d942fe125bf624441bf036d0ffdc70ad4497f2ae6245ec1fc5b9c1e9f8b433c",
@@ -2440,7 +2440,7 @@
     }
   },
   "legacy/quadruped-fox": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/quadruped-fox.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/quadruped-fox.glb",
     "source_sha256": "6cb378d5f531f92b09cb8ed02878a8b53793f835e1d6c2528bb664d35602a573",
     "render": "render-gallery/legacy/quadruped-fox.png",
     "render_sha256": "2a9bd7d04aed7c63b3c54cb8383c492d357a74cc5e4b917944f037079d918b8f",
@@ -2469,7 +2469,7 @@
     }
   },
   "legacy/quadruped-rabbit": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/quadruped-rabbit.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/quadruped-rabbit.glb",
     "source_sha256": "eb30269aa160bd6c1a4452e060aa280eec95e49d2013cc15b16025fb3feb8d26",
     "render": "render-gallery/legacy/quadruped-rabbit.png",
     "render_sha256": "180c565c6e7b0b3a4fc86d76108c8ea01e28cbbfbb3c8a8e769ea5fb148deea1",
@@ -2498,7 +2498,7 @@
     }
   },
   "legacy/quadruped-wolf": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/quadruped-wolf.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/quadruped-wolf.glb",
     "source_sha256": "25cab956cce7f84f8f0335d67bbd1022d9726c132e55c0482b5893052a73f992",
     "render": "render-gallery/legacy/quadruped-wolf.png",
     "render_sha256": "82f602dcb38bc7f6f322f7ec12c749749f09c76c25c03a90bf802d5e7c34995f",
@@ -2527,7 +2527,7 @@
     }
   },
   "legacy/spirit-gigi": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/figures/spirit-gigi.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/figures/spirit-gigi.glb",
     "source_sha256": "3ff544b97cdeeb50ff7c0bec45f6d8f843b292633e291d745f644deb8cb910b5",
     "render": "render-gallery/legacy/spirit-gigi.png",
     "render_sha256": "50546055bd5a3f1a77d042f8899f44b730a28876b2b70735641d7e62db7a6c2d",
@@ -2556,7 +2556,7 @@
     }
   },
   "legacy/agent-foundry": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/agent-foundry.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/agent-foundry.glb",
     "source_sha256": "8a34923ebfef4e0e61e4b874f89932af8d7b55b468e5a9a5030824e131e90ffa",
     "render": "render-gallery/legacy/agent-foundry.png",
     "render_sha256": "e36c9c6c8961cfdb7c04c128f8f57315bfe6c9f7eb5dd620ece5034e118dea52",
@@ -2585,7 +2585,7 @@
     }
   },
   "legacy/control-room": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/control-room.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/control-room.glb",
     "source_sha256": "1cca4e201a03278858aa5e354c76f28900818bbae03657e11b1ab60e18aacab9",
     "render": "render-gallery/legacy/control-room.png",
     "render_sha256": "26a32bcf5186954355a2ca03b47f807561ca1ae7e6dc3bcfcafcad0e4931a90b",
@@ -2614,7 +2614,7 @@
     }
   },
   "legacy/gallery-hall": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/gallery-hall.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/gallery-hall.glb",
     "source_sha256": "85fe6c9d546d32ac869b65360ff78be4ac5eef838eadbd1b216794d8de9be893",
     "render": "render-gallery/legacy/gallery-hall.png",
     "render_sha256": "02e424ca95e7a99ec186528783123b8c256eec1b04c3d99a85a5af902c69cc32",
@@ -2643,7 +2643,7 @@
     }
   },
   "legacy/memory-house": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/memory-house.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/memory-house.glb",
     "source_sha256": "b0b5a409f8fe994f918c2b58b83ada3ee6203cfa4fbc7a01178b3e7b0096306c",
     "render": "render-gallery/legacy/memory-house.png",
     "render_sha256": "2217e6e5d4e064340f2f3791434789a75c7814621b957a0ebbc59854f2529ee7",
@@ -2672,7 +2672,7 @@
     }
   },
   "legacy/model-boilerhouse": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/model-boilerhouse.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/model-boilerhouse.glb",
     "source_sha256": "73c7b6b956d6042c801802889dd1f4a841969795be49530b87de20f72c83f5fa",
     "render": "render-gallery/legacy/model-boilerhouse.png",
     "render_sha256": "bf39c1c248d50126a0866d40ef7f54c3d3f1f56932b4c4c627c8268a6924d7ab",
@@ -2701,7 +2701,7 @@
     }
   },
   "legacy/observatory": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/observatory.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/observatory.glb",
     "source_sha256": "964745086f9a7cccb9e9b38d890c5f369e0982a86eca58196ad17c1b6ccdde0d",
     "render": "render-gallery/legacy/observatory.png",
     "render_sha256": "ee354898a7960c1615b7c15a027ad25f13b0055badf7390a07308377e815b9cc",
@@ -2730,7 +2730,7 @@
     }
   },
   "legacy/plugin-docks": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/plugin-docks.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/plugin-docks.glb",
     "source_sha256": "35a67e28d0f47ccd141bbf9b9048e14f116937683089ed8ac5dae39a14fc61a0",
     "render": "render-gallery/legacy/plugin-docks.png",
     "render_sha256": "85f0f8024db4c3ff75d094480db769aace87502177874c559c650486fecd3637",
@@ -2759,7 +2759,7 @@
     }
   },
   "legacy/relay-tower": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/relay-tower.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/relay-tower.glb",
     "source_sha256": "3bdab36f72420a4b2e6de321f55264ea0b4e9b00424ab69bf7c5e4a6aa5738a6",
     "render": "render-gallery/legacy/relay-tower.png",
     "render_sha256": "dfea8553956c28e8cbad81f8dcdd83514b74d5104071a7e7bd6d37a258518484",
@@ -2788,7 +2788,7 @@
     }
   },
   "legacy/signal-office": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/signal-office.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/signal-office.glb",
     "source_sha256": "1bdd243dac3bba3c062123bc758ade698038fe996ca15c48c743ef120ca88dcf",
     "render": "render-gallery/legacy/signal-office.png",
     "render_sha256": "bbfdd5dda1ba514995170fb6a46b34c94431016e717cda678d0a9d41cefe4377",
@@ -2817,7 +2817,7 @@
     }
   },
   "legacy/skill-forge": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/skill-forge.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/skill-forge.glb",
     "source_sha256": "37c81a464ab0727e804ee265f408332a94f9796143838b1786a1c01ecaf9a725",
     "render": "render-gallery/legacy/skill-forge.png",
     "render_sha256": "5e4fc4a698d3b2afe166884a92e813b7e7e067f5249c3639fa5bc8bf22ab7d27",
@@ -2846,7 +2846,7 @@
     }
   },
   "legacy/terminal-cantina": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/terminal-cantina.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/terminal-cantina.glb",
     "source_sha256": "d26fc8b290f736b8b236dccd415614d2f2a3da94f934a22463e999e79b64523d",
     "render": "render-gallery/legacy/terminal-cantina.png",
     "render_sha256": "08fd9628e7a6517ae84687f029e80b4b22edc62bad12bb801dc96ca993add962",
@@ -2875,7 +2875,7 @@
     }
   },
   "legacy/town-hall": {
-    "source": "jarvis/ui/web/frontend/src/assets/society/world/kit/town-hall.glb",
+    "source": "dodaios/ui/web/frontend/src/assets/society/world/kit/town-hall.glb",
     "source_sha256": "6057a33719b33b421671082c82c59911501685448ca8040d83a1501d376c60fa",
     "render": "render-gallery/legacy/town-hall.png",
     "render_sha256": "13d40e7343772a5c06917869d7f653c73d3791b8b5daa7ae3ce0b3330dd493dd",

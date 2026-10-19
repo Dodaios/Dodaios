@@ -14,14 +14,14 @@ from typing import Any
 import numpy as np
 import pytest
 
-import jarvis.dictation.local_final as local_final_mod
-from jarvis.dictation.local_final import (
+import dodaios.dictation.local_final as local_final_mod
+from dodaios.dictation.local_final import (
     FINAL_BEAM_SIZE,
     FINAL_COMPUTE,
     LocalEngineUnavailable,
     LocalFinalSTT,
 )
-from jarvis.speech.stt_failure import classify_stt_failure, is_crossable_failure
+from dodaios.speech.stt_failure import classify_stt_failure, is_crossable_failure
 
 #: The slice of faster-whisper's accepted codes these tests speak.
 _KNOWN_LANGUAGE_CODES = frozenset({"de", "en", "es"})
@@ -69,8 +69,8 @@ def _pcm(seconds: float = 1.0) -> bytes:
 @pytest.fixture
 def _local_ok(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """faster-whisper present, plenty of free memory, a CUDA worker on spawn."""
-    import jarvis.dictation.local_preview as preview_mod
-    import jarvis.hardware.detection as detection
+    import dodaios.dictation.local_preview as preview_mod
+    import dodaios.hardware.detection as detection
 
     spawned: dict[str, Any] = {"args": []}
 
@@ -139,7 +139,7 @@ def test_a_pinned_language_still_reaches_the_decoder(
 def test_a_full_card_declines_the_spawn_and_crosses_over(
     _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.hardware.detection as detection
+    import dodaios.hardware.detection as detection
 
     monkeypatch.setattr(detection, "free_accelerator_gb", lambda: (0.8, "nvml"))
     stt = LocalFinalSTT(min_free_gb=1.5)
@@ -157,7 +157,7 @@ def test_unknown_free_memory_never_blocks_the_spawn(
 ) -> None:
     """Apple unified memory / ROCm have no cheap reading — refusing on a number
     nobody can read would brick every such box (AP-22 shape)."""
-    import jarvis.hardware.detection as detection
+    import dodaios.hardware.detection as detection
 
     monkeypatch.setattr(detection, "free_accelerator_gb", lambda: (0.0, "none"))
     stt = LocalFinalSTT(min_free_gb=1.5)
@@ -184,7 +184,7 @@ def test_a_cpu_only_worker_is_declined(_local_ok: dict[str, Any]) -> None:
 def test_a_missing_runtime_is_declined_without_probing_the_card(
     _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.dictation.local_preview as preview_mod
+    import dodaios.dictation.local_preview as preview_mod
 
     monkeypatch.setattr(preview_mod, "faster_whisper_available", lambda: False)
     stt = LocalFinalSTT()
@@ -225,7 +225,7 @@ def test_a_press_during_a_cold_spawn_crosses_instead_of_waiting_it_out(
     """A cold spawn takes minutes on a contended box (137 s measured on the
     2026-09-03 boot). A press must not park a worker thread behind it — it
     crosses to the cloud and comes back to the local engine once it is up."""
-    import jarvis.dictation.local_preview as preview_mod
+    import dodaios.dictation.local_preview as preview_mod
 
     release = threading.Event()
     spawning = threading.Event()
@@ -361,11 +361,11 @@ def test_a_retired_read_cannot_drop_the_replacement(_local_ok, monkeypatch):
 
 
 def test_local_only_chain_does_not_reenter_the_desktop_engine(monkeypatch):
-    import jarvis.dictation.local_preview as preview
-    import jarvis.plugins.stt as plugins
-    import jarvis.speech.pipeline as pipeline
-    import jarvis.speech.stt_dictionary as dictionary
-    from jarvis.core.config import DictationConfig, STTConfig
+    import dodaios.dictation.local_preview as preview
+    import dodaios.plugins.stt as plugins
+    import dodaios.speech.pipeline as pipeline
+    import dodaios.speech.stt_dictionary as dictionary
+    from dodaios.core.config import DictationConfig, STTConfig
 
     monkeypatch.setattr(plugins, "build_stt_from_config", lambda *a, **k: object())
     monkeypatch.setattr(pipeline, "_resolve_stt_fallback_chain", lambda *a: ())
@@ -384,11 +384,11 @@ def test_the_lane_puts_the_local_engine_in_front_of_the_configured_provider(
 ) -> None:
     """Chain order: local worker → the configured cloud provider → the other
     keyed families. The configured instance is reused, never built twice."""
-    import jarvis.plugins.stt as stt_plugins
-    import jarvis.speech.pipeline as pipeline_mod
-    import jarvis.speech.stt_dictionary as dictionary
-    from jarvis.core.config import DictationConfig, STTConfig
-    from jarvis.speech.pipeline import SpeechPipeline
+    import dodaios.plugins.stt as stt_plugins
+    import dodaios.speech.pipeline as pipeline_mod
+    import dodaios.speech.stt_dictionary as dictionary
+    from dodaios.core.config import DictationConfig, STTConfig
+    from dodaios.speech.pipeline import SpeechPipeline
 
     configured = SimpleNamespace(name="groq-instance")
     built: list[str] = []
@@ -402,7 +402,7 @@ def test_the_lane_puts_the_local_engine_in_front_of_the_configured_provider(
         pipeline_mod, "_resolve_stt_fallback_chain", lambda *_a, **_k: ("openai-api",)
     )
     monkeypatch.setattr(dictionary, "wrap_stt_with_dictionary", lambda provider: provider)
-    import jarvis.dictation.local_preview as preview_mod
+    import dodaios.dictation.local_preview as preview_mod
 
     monkeypatch.setattr(preview_mod, "faster_whisper_available", lambda: True)
 
@@ -428,11 +428,11 @@ def test_the_engine_status_names_what_really_answers_the_next_press(
 ) -> None:
     """Four days of dictations ran on a recognizer the settings did not name;
     the status card now says which one is armed and why the local one is not."""
-    import jarvis.plugins.stt as stt_plugins
-    import jarvis.speech.pipeline as pipeline_mod
-    import jarvis.speech.stt_dictionary as dictionary
-    from jarvis.core.config import DictationConfig, STTConfig
-    from jarvis.speech.pipeline import SpeechPipeline
+    import dodaios.plugins.stt as stt_plugins
+    import dodaios.speech.pipeline as pipeline_mod
+    import dodaios.speech.stt_dictionary as dictionary
+    from dodaios.core.config import DictationConfig, STTConfig
+    from dodaios.speech.pipeline import SpeechPipeline
 
     monkeypatch.setattr(
         stt_plugins, "build_stt_from_config", lambda cfg, **_k: SimpleNamespace(name="groq")
@@ -467,12 +467,12 @@ def test_the_engine_status_names_what_really_answers_the_next_press(
 def test_the_engine_status_explains_a_declined_local_engine(
     _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.hardware.detection as detection
-    import jarvis.plugins.stt as stt_plugins
-    import jarvis.speech.pipeline as pipeline_mod
-    import jarvis.speech.stt_dictionary as dictionary
-    from jarvis.core.config import DictationConfig, STTConfig
-    from jarvis.speech.pipeline import SpeechPipeline
+    import dodaios.hardware.detection as detection
+    import dodaios.plugins.stt as stt_plugins
+    import dodaios.speech.pipeline as pipeline_mod
+    import dodaios.speech.stt_dictionary as dictionary
+    from dodaios.core.config import DictationConfig, STTConfig
+    from dodaios.speech.pipeline import SpeechPipeline
 
     monkeypatch.setattr(detection, "free_accelerator_gb", lambda: (0.4, "nvml"))
     monkeypatch.setattr(
@@ -498,11 +498,11 @@ def test_the_engine_status_explains_a_declined_local_engine(
 def test_the_switch_keeps_the_configured_provider_in_front(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.plugins.stt as stt_plugins
-    import jarvis.speech.pipeline as pipeline_mod
-    import jarvis.speech.stt_dictionary as dictionary
-    from jarvis.core.config import DictationConfig, STTConfig
-    from jarvis.speech.pipeline import SpeechPipeline
+    import dodaios.plugins.stt as stt_plugins
+    import dodaios.speech.pipeline as pipeline_mod
+    import dodaios.speech.stt_dictionary as dictionary
+    from dodaios.core.config import DictationConfig, STTConfig
+    from dodaios.speech.pipeline import SpeechPipeline
 
     configured = SimpleNamespace(name="groq-instance")
     monkeypatch.setattr(stt_plugins, "build_stt_from_config", lambda cfg, **_k: configured)

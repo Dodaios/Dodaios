@@ -7,10 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.config import STTConfig
-from jarvis.core.protocols import Transcript
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
-from jarvis.speech.pipeline import (
+from dodaios.core.config import STTConfig
+from dodaios.core.protocols import Transcript
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
+from dodaios.speech.pipeline import (
     _STT_UNAVAILABLE_PHRASE,
     SpeechPipeline,
     TurnTakingState,
@@ -19,9 +19,9 @@ from jarvis.speech.pipeline import (
 
 def _pipeline(monkeypatch, *, wake=None):
     final = FasterWhisperProvider(model="small", device="cpu", language="en")
-    monkeypatch.setattr("jarvis.plugins.stt.build_stt_from_config", lambda cfg: final)
+    monkeypatch.setattr("dodaios.plugins.stt.build_stt_from_config", lambda cfg: final)
     monkeypatch.setattr(
-        "jarvis.speech.pipeline._stt_crossover_would_leave_the_machine", lambda: True
+        "dodaios.speech.pipeline._stt_crossover_would_leave_the_machine", lambda: True
     )
     pipe = SpeechPipeline(
         stt=wake,

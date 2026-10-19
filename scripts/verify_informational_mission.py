@@ -25,8 +25,8 @@ if sys.stdout.encoding != "utf-8":
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jarvis.missions.init import bootstrap_missions, shutdown_missions  # noqa: E402
-from jarvis.missions.state_machine import MissionState  # noqa: E402
+from dodaios.missions.init import bootstrap_missions, shutdown_missions  # noqa: E402
+from dodaios.missions.state_machine import MissionState  # noqa: E402
 
 PROMPT = (
     "Which Australian city would you recommend for a first visit, and why? "
@@ -68,7 +68,7 @@ async def main() -> int:
     kontrollierer = res["kontrollierer"]
     exit_code = 1
     try:
-        from jarvis.core.config import load_config
+        from dodaios.core.config import load_config
 
         cfg = load_config()
         prov = getattr(getattr(cfg.brain, "sub_jarvis", None), "provider", None)

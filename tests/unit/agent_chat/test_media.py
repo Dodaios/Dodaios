@@ -8,10 +8,10 @@ import json
 
 import pytest
 
-from jarvis.agent_chat import media
-from jarvis.agent_chat.runner_cli import _content_text
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
+from dodaios.agent_chat import media
+from dodaios.agent_chat.runner_cli import _content_text
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
 
 PNG = b"\x89PNG\r\n\x1a\nexample image bytes"
 
@@ -189,7 +189,7 @@ def test_backend_and_renderer_recognize_the_same_media_extensions():
 
     source = (
         Path(__file__).resolve().parents[3]
-        / "jarvis/ui/web/frontend/src/components/agentchat/ChatMarkdown.tsx"
+        / "dodaios/ui/web/frontend/src/components/agentchat/ChatMarkdown.tsx"
     ).read_text(encoding="utf-8")
     block = source.split("const EXTENSIONS:", 1)[1].split("};", 1)[0]
     frontend = dict(re.findall(r'(\w+): "(image|video|audio)"', block))
@@ -200,7 +200,7 @@ def test_archived_video_supports_byte_ranges_for_seeking(tmp_path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.ui.web.outputs_routes import router
+    from dodaios.ui.web.outputs_routes import router
 
     cwd = tmp_path / "work"
     cwd.mkdir()

@@ -1,8 +1,8 @@
 """Tests for the unified `jarvis` entry-point dispatch + reserved-name parity."""
 from __future__ import annotations
 
-import jarvis.__main__ as jm
-from jarvis.cli_ctl.reserved import (
+import dodaios.__main__ as jm
+from dodaios.cli_ctl.reserved import (
     CONTROL_GLOBAL_OPTIONS,
     RESERVED_CONTROL_NAMES,
     is_control_invocation,
@@ -99,7 +99,7 @@ def test_main_does_not_route_launcher(monkeypatch):
 
 
 def test_main_routes_frozen_worker_broker_mode(monkeypatch):
-    from jarvis.missions.workers import broker_stdio
+    from dodaios.missions.workers import broker_stdio
 
     monkeypatch.setattr(broker_stdio, "main", lambda: 17)
 
