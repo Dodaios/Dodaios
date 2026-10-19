@@ -25,15 +25,15 @@ from typing import Any
 
 import pytest
 
-import jarvis.claude_auth_state as cas
-from jarvis.missions.workers import claude_direct_worker as cdw
-from jarvis.missions.workers import codex_direct_worker as codex_mod
-from jarvis.missions.workers.claude_direct_worker import (
+import dodaios.claude_auth_state as cas
+from dodaios.missions.workers import claude_direct_worker as cdw
+from dodaios.missions.workers import codex_direct_worker as codex_mod
+from dodaios.missions.workers.claude_direct_worker import (
     ClaudeDirectWorker,
     _claude_error_is_auth_failure,
 )
-from jarvis.missions.workers.provider_chain import _FallbackStep
-from jarvis.missions.workers.stream_consumer import ClaudeResult
+from dodaios.missions.workers.provider_chain import _FallbackStep
+from dodaios.missions.workers.stream_consumer import ClaudeResult
 
 # The verbatim live failure text from missions 019f36e5 / 019f38b1.
 _LIVE_401 = "Failed to authenticate. API Error: 401 Invalid authentication credentials"
@@ -43,7 +43,7 @@ _LIVE_401 = "Failed to authenticate. API Error: 401 Invalid authentication crede
 def _reset_auth_flags():
     """claude_auth_dead + quota cooldown are process globals — reset around
     every test so one fallback test cannot pollute the rest of the suite."""
-    from jarvis.claude_quota_state import clear_claude_quota_cooldown
+    from dodaios.claude_quota_state import clear_claude_quota_cooldown
 
     cas.clear_claude_auth_dead()
     clear_claude_quota_cooldown()
@@ -161,7 +161,7 @@ def _pin_claude_spawn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cdw, "create_worker_subprocess", _fake_exec)
     monkeypatch.setattr(cdw, "_resolve_claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(
-        "jarvis.claude_auth.claude_cli_supports_safe_mode",
+        "dodaios.claude_auth.claude_cli_supports_safe_mode",
         lambda _prefix: False,
     )
     monkeypatch.setattr(
@@ -257,7 +257,7 @@ async def test_success_clears_claude_auth_dead(
     monkeypatch.setattr(cdw, "create_worker_subprocess", _fake_exec)
     monkeypatch.setattr(cdw, "_resolve_claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(
-        "jarvis.claude_auth.claude_cli_supports_safe_mode",
+        "dodaios.claude_auth.claude_cli_supports_safe_mode",
         lambda _prefix: False,
     )
     monkeypatch.setattr(

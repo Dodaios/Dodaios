@@ -9,7 +9,7 @@ the word, never the entry.
 
 from __future__ import annotations
 
-from jarvis.marketplace.community_source import CommunityIndex, CommunitySkillEntry
+from dodaios.marketplace.community_source import CommunityIndex, CommunitySkillEntry
 
 
 def _skill(**extra: object) -> dict[str, object]:

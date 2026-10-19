@@ -1,4 +1,4 @@
-"""Tests for the Board usage-category mapping (``jarvis/board/categories.py``).
+"""Tests for the Board usage-category mapping (``dodaios/board/categories.py``).
 
 The six categories answer "what did you use Jarvis FOR" and are derived from
 the tools that actually ran. These tests pin the mapping for the real tool
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.board.categories import (
+from dodaios.board.categories import (
     BOARD_CATEGORY_KEYS,
     categorize_tool,
 )

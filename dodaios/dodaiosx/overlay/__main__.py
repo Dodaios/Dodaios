@@ -1,0 +1,27 @@
+"""Sidecar entry: ``python -m dodaios.dodaiosx.overlay``.
+
+Guards the PySide6 import so a host without the GUI stack exits with
+``protocol.EXIT_NO_GUI`` and one English line on stderr, never a traceback.
+"""
+
+from __future__ import annotations
+
+import sys
+
+from dodaios.dodaiosx.overlay.protocol import EXIT_NO_GUI
+
+
+def main() -> int:
+    try:
+        from dodaios.dodaiosx.overlay.renderer import run  # noqa: PLC0415
+    except ImportError as exc:
+        sys.stderr.write(
+            f"jarvisx-overlay: PySide6 unavailable ({exc}); install the [desktop] extra "
+            "for the Dodaios X selection overlay and thumbnails.\n"
+        )
+        return EXIT_NO_GUI
+    return run()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -25,10 +25,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 if sys.platform != "win32":
-    from jarvis.admin.executor import AdminExecutor
-    from jarvis.admin.ipc import AdminPipeClient, AdminPipeServer
-    from jarvis.admin.schema import ReadRegistryOp
-    from jarvis.admin.unix_socket import UnixSocketTransport
+    from dodaios.admin.executor import AdminExecutor
+    from dodaios.admin.ipc import AdminPipeClient, AdminPipeServer
+    from dodaios.admin.schema import ReadRegistryOp
+    from dodaios.admin.unix_socket import UnixSocketTransport
 
 
 @pytest.mark.asyncio

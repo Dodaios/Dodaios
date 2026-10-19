@@ -18,8 +18,8 @@ from collections.abc import Iterator
 
 import pytest
 
-from jarvis.plugins.wake import openwakeword_provider as provider_module
-from jarvis.plugins.wake.openwakeword_provider import (
+from dodaios.plugins.wake import openwakeword_provider as provider_module
+from dodaios.plugins.wake.openwakeword_provider import (
     OpenWakeWordProvider,
     _train_custom_verifier_unavailable,
     load_openwakeword_model_class,
@@ -45,7 +45,7 @@ def _run_fresh(script: str) -> subprocess.CompletedProcess[str]:
 def test_loader_keeps_the_training_stack_out_of_the_process() -> None:
     script = (
         "import sys\n"
-        "from jarvis.plugins.wake.openwakeword_provider import (\n"
+        "from dodaios.plugins.wake.openwakeword_provider import (\n"
         "    load_openwakeword_model_class,\n"
         ")\n"
         "model_class = load_openwakeword_model_class()\n"
@@ -63,7 +63,7 @@ def test_loader_keeps_the_training_stack_out_of_the_process() -> None:
 def test_training_module_still_imports_for_real_afterwards() -> None:
     script = (
         "import sys\n"
-        "from jarvis.plugins.wake.openwakeword_provider import (\n"
+        "from dodaios.plugins.wake.openwakeword_provider import (\n"
         "    load_openwakeword_model_class,\n"
         ")\n"
         "load_openwakeword_model_class()\n"
@@ -82,8 +82,8 @@ def test_lean_runtime_scores_a_frame_with_the_bundled_backbones() -> None:
         "import sys\n"
         "from pathlib import Path\n"
         "import numpy as np\n"
-        "import jarvis.assets\n"
-        "from jarvis.plugins.wake.openwakeword_provider import (\n"
+        "import dodaios.assets\n"
+        "from dodaios.plugins.wake.openwakeword_provider import (\n"
         "    OWW_FRAME_SAMPLES,\n"
         "    load_openwakeword_model_class,\n"
         ")\n"
@@ -99,7 +99,7 @@ def test_lean_runtime_scores_a_frame_with_the_bundled_backbones() -> None:
         "    raise SystemExit(0)\n"
         "kwargs = {'wakeword_models': [str(candidates[0])],\n"
         "          'inference_framework': 'onnx'}\n"
-        "bundled = jarvis.assets.bundled_wakeword_models()\n"
+        "bundled = dodaios.assets.bundled_wakeword_models()\n"
         "if bundled is not None:\n"
         "    kwargs['melspec_model_path'] = str(bundled['melspec'])\n"
         "    kwargs['embedding_model_path'] = str(bundled['embedding'])\n"
@@ -150,7 +150,7 @@ def test_concurrent_loaders_get_the_same_class() -> None:
     """The boot prefetch and the provider may load at once; both get one Model."""
     script = (
         "import sys, threading\n"
-        "from jarvis.plugins.wake.openwakeword_provider import (\n"
+        "from dodaios.plugins.wake.openwakeword_provider import (\n"
         "    load_openwakeword_model_class,\n"
         ")\n"
         "found = []\n"

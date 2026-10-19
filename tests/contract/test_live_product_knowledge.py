@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.live.config import LiveConfig
-from jarvis.live.product import PRODUCT_BRIEF
-from jarvis.plugins.tool import product_help
-from jarvis.plugins.tool.product_help import ProductHelpTool
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.live.config import LiveConfig
+from dodaios.live.product import PRODUCT_BRIEF
+from dodaios.plugins.tool import product_help
+from dodaios.plugins.tool.product_help import ProductHelpTool
 
 
 @pytest.fixture(autouse=True)

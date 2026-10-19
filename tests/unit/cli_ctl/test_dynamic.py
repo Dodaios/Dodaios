@@ -1,8 +1,8 @@
 import click
 import pytest
 
-from jarvis.cli_ctl import dynamic
-from jarvis.cli_ctl.dynamic import _clean_name
+from dodaios.cli_ctl import dynamic
+from dodaios.cli_ctl.dynamic import _clean_name
 
 
 @pytest.mark.parametrize(

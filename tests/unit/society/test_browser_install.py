@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
-from jarvis.society.browser import install
+from dodaios.society.browser import install
 
 
 @pytest.fixture
@@ -90,7 +90,7 @@ def test_missing_binary_and_corrupt_marker_trigger_repair(installer):
 
 def _calls(monkeypatch):
     """Pretend to be Linux and record every command the installer runs."""
-    from jarvis.society.browser import bootstrap
+    from dodaios.society.browser import bootstrap
 
     monkeypatch.setattr(install.sys, "platform", "linux")
     monkeypatch.setattr(bootstrap, "ensure_uv", lambda _root: Path("uv"))

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.audio.player import AudioPlayer
+from dodaios.audio.player import AudioPlayer
 
 
 def _bare_player() -> AudioPlayer:
@@ -18,7 +18,7 @@ def _bare_player() -> AudioPlayer:
 
 
 def _open_and_write(monkeypatch, max_output_channels: int) -> tuple[int, list]:
-    import jarvis.audio.player as player_mod
+    import dodaios.audio.player as player_mod
 
     opened_channels: list[int] = []
     writes: list[np.ndarray] = []

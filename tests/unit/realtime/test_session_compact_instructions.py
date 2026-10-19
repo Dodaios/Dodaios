@@ -17,9 +17,9 @@ import asyncio
 
 import pytest
 
-from jarvis.brain.persona_loader import invalidate_cache
-from jarvis.realtime import session as session_mod
-from jarvis.realtime.session import RealtimeVoiceSession, _session_instructions
+from dodaios.brain.persona_loader import invalidate_cache
+from dodaios.realtime import session as session_mod
+from dodaios.realtime.session import RealtimeVoiceSession, _session_instructions
 
 from .test_session import FakeProvider, _cfg
 
@@ -63,7 +63,7 @@ def test_compact_never_grows_and_tightens_the_data_budgets() -> None:
 def test_assembly_orders_static_first_dynamic_last(monkeypatch, compact) -> None:
     """The per-turn dynamic pieces must sit BEHIND every static block, so
     the unchanged head stays a byte-stable prefix across session updates."""
-    from jarvis.brain import persona_loader
+    from dodaios.brain import persona_loader
 
     monkeypatch.setattr(
         persona_loader,

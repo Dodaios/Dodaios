@@ -1,6 +1,6 @@
 """Tests for the profile-avatar endpoints (upload / serve / delete).
 
-Contract (see jarvis/ui/web/profile_routes.py):
+Contract (see dodaios/ui/web/profile_routes.py):
 - POST   /api/profile/avatar   (multipart file)  → validate it is a real image
                                                     (Pillow magic-byte check, not
                                                     a trusted Content-Type), store
@@ -26,7 +26,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.profile_routes import router
+from dodaios.ui.web.profile_routes import router
 
 
 def _png_bytes(color: tuple[int, int, int] = (231, 196, 110), size: int = 4) -> bytes:
@@ -133,7 +133,7 @@ def test_profile_get_reports_has_avatar(tmp_path: Path, monkeypatch: pytest.Monk
     """GET /api/profile must surface ``has_avatar`` for the HeroBand."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
-    from jarvis.memory.user_profile import UserProfile
+    from dodaios.memory.user_profile import UserProfile
 
     user_md = tmp_path / "USER.md"
     user_md.write_text("---\nidentity:\n  name: Ada\n---\n\nbody\n", encoding="utf-8")

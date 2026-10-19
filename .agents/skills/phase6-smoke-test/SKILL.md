@@ -1,6 +1,6 @@
 ---
 name: phase6-smoke-test
-description: Use to run a quick end-to-end smoke test against the Phase-6 Mission-Manager + Critic-Loop. Spawns a mock-task through the full pipeline (Mission-spawn → Worker-stub → Critic-verdict → Kontrollierer signature → Bus-event trace) and reports a pass/fail with structured output. Use after Phase-6 modifications or before merging changes that touch jarvis/missions/.
+description: Use to run a quick end-to-end smoke test against the Phase-6 Mission-Manager + Critic-Loop. Spawns a mock-task through the full pipeline (Mission-spawn → Worker-stub → Critic-verdict → Kontrollierer signature → Bus-event trace) and reports a pass/fail with structured output. Use after Phase-6 modifications or before merging changes that touch dodaios/missions/.
 ---
 
 # Phase-6 Smoke-Test
@@ -9,14 +9,14 @@ This skill runs a fast end-to-end smoke test against the Phase-6 pipeline. It is
 
 ## When to use
 
-- After changes to `jarvis/missions/manager.py`, `critic/`, `kontrollierer/`, `workers/`, `isolation/`.
+- After changes to `dodaios/missions/manager.py`, `critic/`, `kontrollierer/`, `workers/`, `isolation/`.
 - Before a merge PR to `main`, so that pipeline integrity is confirmed.
 - When you suspect a Mission-Manager hang (reattach, concurrency).
 
 ## Steps
 
 1. **Check prerequisites:**
-   - `python -c "from jarvis.missions.manager import MissionManager"` — an ImportError catches drift early.
+   - `python -c "from dodaios.missions.manager import MissionManager"` — an ImportError catches drift early.
    - `pytest tests/missions/ --collect-only -q` — lists the tests, catches collection errors.
 
 2. **Run the smoke-test script** (already exists under `scripts/smoke_phase6_p1.py`, `scripts/smoke_phase6_p2.py`, `scripts/smoke_phase6_p3.py`):

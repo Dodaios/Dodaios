@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.loader import parse_skill
-from jarvis.skills.runner import SkillRunner
-from jarvis.skills.schema import SkillInvoked
+from dodaios.skills.loader import parse_skill
+from dodaios.skills.runner import SkillRunner
+from dodaios.skills.schema import SkillInvoked
 
 
 def _write_skill(tmp_path: Path, body: str, name: str = "demo") -> Path:

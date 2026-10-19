@@ -29,11 +29,11 @@ from typing import Any
 
 import pytest
 
-import jarvis.realtime.session as session_module
-from jarvis.brain.turn_planner import TurnPath, TurnPlan, TurnReason
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+import dodaios.realtime.session as session_module
+from dodaios.brain.turn_planner import TurnPath, TurnPlan, TurnReason
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 REPLY = "I opened work: T1."
 FOLLOW_UP_QUESTION = "And what time is it?"

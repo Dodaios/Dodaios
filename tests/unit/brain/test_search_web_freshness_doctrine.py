@@ -22,7 +22,7 @@ request.
 """
 from __future__ import annotations
 
-from jarvis.plugins.tool.search_web import SearchWebTool
+from dodaios.plugins.tool.search_web import SearchWebTool
 
 
 def test_search_web_description_reserved_for_fresh_facts() -> None:
@@ -53,7 +53,7 @@ def test_search_web_description_reserved_for_fresh_facts() -> None:
 
 def test_core_contract_answers_evergreen_knowledge_directly() -> None:
     """The routing doctrine must answer evergreen knowledge directly."""
-    from jarvis.brain.manager import _CORE_CONTRACT
+    from dodaios.brain.manager import _CORE_CONTRACT
 
     low = _CORE_CONTRACT.lower()
     assert "evergreen" in low, (

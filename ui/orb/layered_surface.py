@@ -3,7 +3,7 @@
 The pet's cards and its thought bubble are drawn in PIL with real alpha. This
 window puts such a frame on the desktop the best way the platform allows:
 
-* **Windows** — ``UpdateLayeredWindow`` (:mod:`jarvis.platform.layered_window`):
+* **Windows** — ``UpdateLayeredWindow`` (:mod:`dodaios.platform.layered_window`):
   real per-pixel alpha, so soft shadows, see-through surfaces and fades work,
   and fully transparent pixels let clicks through.
 * **macOS** — a transparent Tk window; the frame is flattened to hard edges
@@ -22,7 +22,7 @@ from collections.abc import Callable
 
 from PIL import Image, ImageTk
 
-from jarvis.platform import layered_window
+from dodaios.platform import layered_window
 
 log = logging.getLogger("jarvis.orb")
 

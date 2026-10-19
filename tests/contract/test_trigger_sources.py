@@ -10,21 +10,21 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import WorkflowActivationChanged
-from jarvis.core.protocols import RoutineDeferred, current_trigger_path
-from jarvis.tasks.cron_schedule import next_cron_ns
-from jarvis.tasks.hook_inbox import encode_payload
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.schema import AgentAction, TaskSpec, TriggerCron, TriggerSource, WorkflowAction
-from jarvis.tasks.source_catalog import catalog
-from jarvis.tasks.source_drivers import SourcePacket, listen_file, listen_sse
-from jarvis.tasks.source_runtime import SourceSupervisor
-from jarvis.tasks.source_schema import SourceSettings
-from jarvis.tasks.store import TaskStore
-from jarvis.ui.web.control_auth import require_control_key_or_session
-from jarvis.ui.web.routine_hooks_routes import router
+from dodaios.core.bus import EventBus
+from dodaios.core.events import WorkflowActivationChanged
+from dodaios.core.protocols import RoutineDeferred, current_trigger_path
+from dodaios.tasks.cron_schedule import next_cron_ns
+from dodaios.tasks.hook_inbox import encode_payload
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.schema import AgentAction, TaskSpec, TriggerCron, TriggerSource, WorkflowAction
+from dodaios.tasks.source_catalog import catalog
+from dodaios.tasks.source_drivers import SourcePacket, listen_file, listen_sse
+from dodaios.tasks.source_runtime import SourceSupervisor
+from dodaios.tasks.source_schema import SourceSettings
+from dodaios.tasks.store import TaskStore
+from dodaios.ui.web.control_auth import require_control_key_or_session
+from dodaios.ui.web.routine_hooks_routes import router
 
 
 class Brain:
@@ -68,7 +68,7 @@ async def finish(scheduler):
 
 
 def test_form_large_integer_does_not_overflow_float_validation():
-    from jarvis.tasks.source_schema import validate_form
+    from dodaios.tasks.source_schema import validate_form
 
     form = SourceSettings(kind="form", form_fields={"count": {"label": "Count", "kind": "number"}})
     validate_form(form, {"count": 10**400})
@@ -79,9 +79,9 @@ def test_form_large_integer_does_not_overflow_float_validation():
 async def test_chat_invocation_requires_owner_user_turn_and_is_absent_in_plan_mode(stack):
     from types import SimpleNamespace
 
-    from jarvis.agent_chat.folder_tools import plan_filter
-    from jarvis.core.protocols import ChatTurn, current_chat_turn
-    from jarvis.society.conversation_tool import RoutineInvokeTool, RoutineListTool
+    from dodaios.agent_chat.folder_tools import plan_filter
+    from dodaios.core.protocols import ChatTurn, current_chat_turn
+    from dodaios.society.conversation_tool import RoutineInvokeTool, RoutineListTool
 
     store, scheduler, _ = stack
     spec = TaskSpec(
@@ -246,8 +246,8 @@ async def test_file_source_reports_changes_and_reuses_checkpoint(tmp_path):
 
 
 async def test_sse_short_frames_are_delivered_without_waiting_for_large_chunks(monkeypatch):
-    from jarvis.core.http_pool import HttpClientPool
-    from jarvis.tasks import source_drivers
+    from dodaios.core.http_pool import HttpClientPool
+    from dodaios.tasks import source_drivers
 
     class Stream(httpx.AsyncByteStream):
         async def __aiter__(self):
@@ -291,7 +291,7 @@ async def test_sse_short_frames_are_delivered_without_waiting_for_large_chunks(m
     ],
 )
 async def test_every_listener_admits_before_ack_and_closes(stack, monkeypatch, kind, endpoint):
-    from jarvis.tasks import source_credentials
+    from dodaios.tasks import source_credentials
 
     store, scheduler, _ = stack
     acknowledged, closed = asyncio.Event(), asyncio.Event()
@@ -435,7 +435,7 @@ async def test_owned_workflow_dispatch_honors_live_owner_state(
     from types import SimpleNamespace
     from uuid import uuid4
 
-    from jarvis.society.routine_runner import guard_owned_routine
+    from dodaios.society.routine_runner import guard_owned_routine
 
     store, scheduler, _ = stack
     calls = []

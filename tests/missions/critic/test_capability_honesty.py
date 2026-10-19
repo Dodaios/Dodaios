@@ -20,19 +20,19 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.critic.runner import (
+from dodaios.missions.critic.runner import (
     CriticRunner,
     _extract_tool_call_evidence,
     _render_external_action_evidence,
     _request_is_messaging_action,
     enforce_capability_honesty,
 )
-from jarvis.missions.critic.verdict import (
+from dodaios.missions.critic.verdict import (
     REQUIRED_AXES,
     CriticAxis,
     CriticVerdict,
 )
-from jarvis.missions.stream_evidence import diff_has_action_evidence
+from dodaios.missions.stream_evidence import diff_has_action_evidence
 from tests.missions.critic.test_runner_claude_direct import (
     _patch_direct,
     _valid_verdict_json,
@@ -443,7 +443,7 @@ def _force_requires_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin requires_evidence=True so the test exercises the diff-evidence branch
     regardless of the (empty in unit tests) capability registry."""
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_capability_requires_evidence",
+        "dodaios.missions.critic.runner._resolve_capability_requires_evidence",
         lambda _req: (True, "test.write-artefact"),
     )
 

@@ -17,10 +17,10 @@ from __future__ import annotations
 import time
 from types import SimpleNamespace
 
-from jarvis.core.events import WakeCandidateDetected, WakeWordDetected
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
-from jarvis.speech.rolling_whisper_wake import RollingWhisperWake
-from jarvis.speech.wake_phrase import compile_wake_matcher
+from dodaios.core.events import WakeCandidateDetected, WakeWordDetected
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
+from dodaios.speech.rolling_whisper_wake import RollingWhisperWake
+from dodaios.speech.wake_phrase import compile_wake_matcher
 from ui.orb.bus_bridge import OrbBusBridge
 
 # Instrumented ceiling for the reveal EVENT path (wake detected -> bar shown).

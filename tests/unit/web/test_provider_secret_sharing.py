@@ -6,7 +6,7 @@ Tool Model too, because the UI had no idea the slot was shared.
 """
 from __future__ import annotations
 
-from jarvis.ui.web.provider_spec import get_spec, secret_slot_consumers
+from dodaios.ui.web.provider_spec import get_spec, secret_slot_consumers
 
 
 def test_openai_key_is_shared_across_multiple_surfaces() -> None:
@@ -52,13 +52,13 @@ def test_every_card_secret_slot_is_accepted_by_the_save_route() -> None:
     BUG-008 shape — two lists of the same fact — so it gets a guard rather than
     a fix.
     """
-    from jarvis.ui.web.provider_routes import ALLOWED_SECRET_KEYS
-    from jarvis.ui.web.provider_spec import PROVIDERS
+    from dodaios.ui.web.provider_routes import ALLOWED_SECRET_KEYS
+    from dodaios.ui.web.provider_spec import PROVIDERS
 
     declared = {key for spec in PROVIDERS for key in spec.secret_keys}
     unwritable = sorted(declared - ALLOWED_SECRET_KEYS)
     assert not unwritable, (
         "these provider cards render a key field the save route rejects: "
-        f"{unwritable}. Add a SecretSpec row in jarvis/setup/wizard.py "
+        f"{unwritable}. Add a SecretSpec row in dodaios/setup/wizard.py "
         "(prompt=False when setup should not ask for it)."
     )

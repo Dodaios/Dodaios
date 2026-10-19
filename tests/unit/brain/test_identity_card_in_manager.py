@@ -12,10 +12,10 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.config as core_config
-from jarvis.brain import identity_card as ic
-from jarvis.brain.manager import BrainManager
-from jarvis.core.config import load_config
+import dodaios.core.config as core_config
+from dodaios.brain import identity_card as ic
+from dodaios.brain.manager import BrainManager
+from dodaios.core.config import load_config
 
 PROFILE = """# Nova User
 

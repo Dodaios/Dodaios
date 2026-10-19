@@ -24,6 +24,6 @@
 # in the review) instead of blocking. Trade-off: any FUTURE personal data added
 # to README would warn rather than block — the sub-agent + human review remain
 # the backstop. Re-evaluate at the public-visibility flip.
-jarvis/ui/web/socials_routes.py
+dodaios/ui/web/socials_routes.py
 tests/unit/ui/test_socials_routes.py
 README.md

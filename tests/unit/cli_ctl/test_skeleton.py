@@ -2,6 +2,6 @@
 def test_package_exposes_app_and_main():
     import typer
 
-    from jarvis.cli_ctl import __main__ as entry
+    from dodaios.cli_ctl import __main__ as entry
     assert isinstance(entry.app, typer.Typer)
     assert callable(entry.main)

@@ -22,8 +22,8 @@ Two defences, mapping to the two requirements:
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.router import SYSTEM_PROMPT
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.router import SYSTEM_PROMPT
 
 # The exact transcript from the live failure.
 _BUG_FRAGMENT = "Kannst du mir sagen, was genau..."

@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from jarvis.marketplace.refresh_scheduler import refresh_due_tokens
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.marketplace.refresh_scheduler import refresh_due_tokens
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 
 
 class _InvalidGrantHandler:

@@ -5,10 +5,10 @@ from __future__ import annotations
 import inspect
 import re
 
-from jarvis.core.agent_brief import AGENT_BRIEF_RULE
-from jarvis.live import native
-from jarvis.live.config import LiveConfig
-from jarvis.live.coordination import (
+from dodaios.core.agent_brief import AGENT_BRIEF_RULE
+from dodaios.live import native
+from dodaios.live.config import LiveConfig
+from dodaios.live.coordination import (
     NAMED_TOOLS,
     ON_SCREEN_RULE,
     TEAM_TALK_RULE,

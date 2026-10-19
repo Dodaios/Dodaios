@@ -1,4 +1,4 @@
-from jarvis.runs.constants import (
+from dodaios.runs.constants import (
     SLO_STATUSES, SLO_OK, SLO_WARN, SLO_BREACH,
     RUN_DECISION_KINDS, DECISION_TIER, DECISION_ROUTE, DECISION_RISK,
     DECISION_BRAIN, DECISION_MISSION, DECISION_FALLBACK,

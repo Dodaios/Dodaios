@@ -1,4 +1,4 @@
-"""Unit tests for the background music player client (``jarvis/platform/music_player``).
+"""Unit tests for the background music player client (``dodaios/platform/music_player``).
 
 The host process is replaced by an in-process fake that speaks the same
 JSON-line protocol over pipe-shaped objects, so these tests cover the client's
@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.platform.music_player import MusicPlayer, MusicPlayerError
+from dodaios.platform.music_player import MusicPlayer, MusicPlayerError
 
 
 class _Pipe:
@@ -214,8 +214,8 @@ def test_argv_carries_the_window_icon_and_names_the_service():
     bundled YouTube-Music-plus-Jarvis icon and a title that names the service."""
     from pathlib import Path
 
-    from jarvis.assets import bundled_music_player_icon
-    from jarvis.core.branding import PRODUCT_NAME
+    from dodaios.assets import bundled_music_player_icon
+    from dodaios.core.branding import PRODUCT_NAME
 
     seen: list[list[str]] = []
 
@@ -241,7 +241,7 @@ def test_argv_carries_the_window_icon_and_names_the_service():
 
 
 def test_argv_skips_the_icon_when_it_is_not_bundled(monkeypatch):
-    from jarvis.platform import music_player as mp
+    from dodaios.platform import music_player as mp
 
     monkeypatch.setattr(mp, "_default_icon", lambda: "")
     seen: list[list[str]] = []
@@ -273,7 +273,7 @@ def test_argv_carries_storage_and_title():
     )
     assert player.start()
     argv = seen[0]
-    assert "-m" in argv and "jarvis.platform.music_player_host" in argv
+    assert "-m" in argv and "dodaios.platform.music_player_host" in argv
     assert argv[argv.index("--storage") + 1].endswith("profile")
     assert argv[argv.index("--title") + 1] == "Nova — Music"
     player.stop()

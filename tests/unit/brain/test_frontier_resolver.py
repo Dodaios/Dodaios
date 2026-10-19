@@ -1,4 +1,4 @@
-"""Tests for jarvis.brain.frontier_resolver.
+"""Tests for dodaios.brain.frontier_resolver.
 
 Three areas of focus:
 1. Provider picker (deterministic, against static model lists).
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain.frontier_resolver import (
+from dodaios.brain.frontier_resolver import (
     FrontierModel,
     FrontierResolver,
     _pick_anthropic,
@@ -287,7 +287,7 @@ class TestFetchModelsGeminiCapabilityGate:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(
-            "jarvis.brain.frontier_resolver.cfg.get_provider_secret",
+            "dodaios.brain.frontier_resolver.cfg.get_provider_secret",
             lambda provider: "test-key",
         )
         payload = {
@@ -319,7 +319,7 @@ class TestFetchModelsGeminiCapabilityGate:
     ) -> None:
         # Fail-open: no declared methods must never empty the roster.
         monkeypatch.setattr(
-            "jarvis.brain.frontier_resolver.cfg.get_provider_secret",
+            "dodaios.brain.frontier_resolver.cfg.get_provider_secret",
             lambda provider: "test-key",
         )
         payload = {"models": [{"name": "models/gemini-3.5-flash"}]}

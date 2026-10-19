@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.artifacts.brand_marks import (
+from dodaios.artifacts.brand_marks import (
     BRAND_FAMILIES,
     BRAND_MARKS_RULE,
     BrandMark,
@@ -19,7 +19,7 @@ from jarvis.artifacts.brand_marks import (
     find_brand_marks,
     mentioned_families,
 )
-from jarvis.artifacts.brief import build_artifact_brief
+from dodaios.artifacts.brief import build_artifact_brief
 
 
 def test_every_family_points_at_a_bundled_file_with_a_ledger() -> None:

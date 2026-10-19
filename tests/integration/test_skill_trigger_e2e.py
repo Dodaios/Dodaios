@@ -6,16 +6,16 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.trigger_matcher import TriggerMatcher
+from dodaios.core.bus import EventBus
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.trigger_matcher import TriggerMatcher
 
 pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture
 def builtin_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "jarvis" / "skills" / "builtin"
+    return Path(__file__).resolve().parents[2] / "dodaios" / "skills" / "builtin"
 
 
 async def test_voice_match_de_en(builtin_root: Path) -> None:
@@ -47,7 +47,7 @@ async def test_cron_scheduler_graceful_without_croniter(
     monkeypatch: pytest.MonkeyPatch, builtin_root: Path
 ) -> None:
     """AC9: Cron-Scheduler no-ops wenn croniter fehlt."""
-    import jarvis.skills.trigger_matcher as tm
+    import dodaios.skills.trigger_matcher as tm
 
     monkeypatch.setattr(tm, "_HAVE_CRONITER", False)
     bus = EventBus()

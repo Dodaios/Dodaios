@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import agent_transcript, delegation_wait
-from jarvis.core.delegated_work import collect_delegated_work
-from jarvis.core.protocols import ChatTurn, current_chat_turn
+from dodaios.agentic_ide import agent_transcript, delegation_wait
+from dodaios.core.delegated_work import collect_delegated_work
+from dodaios.core.protocols import ChatTurn, current_chat_turn
 
 
 def stamp(seconds):

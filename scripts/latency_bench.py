@@ -34,9 +34,9 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.config import load_config  # noqa: E402
-from jarvis.core.events import BrainTTFT, LatencySpan  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
+from dodaios.core.events import BrainTTFT, LatencySpan  # noqa: E402
 
 # (category, utterance). Mix of the turn classes the suite cares about: cheap
 # smalltalk/knowledge turns (snappiness-sensitive), screen-reference turns
@@ -77,20 +77,20 @@ def _fmt(values: list[float]) -> str:
 
 def _build_brain(bus: EventBus):
     """Mirror voice_e2e_probe.py: prefer the full router build, fall back."""
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
 
     try:
         bm = build_default_brain(tier="router", bus=bus)
         print("Brain: build_default_brain(tier='router') ✓")
         return bm
     except Exception as exc:  # noqa: BLE001
-        from jarvis.brain.manager import BrainManager
+        from dodaios.brain.manager import BrainManager
 
         print(f"Brain: factory failed ({type(exc).__name__}: {exc}); direct BrainManager")
         cfg = load_config(Path("jarvis.toml"))
         bm = BrainManager(config=cfg, bus=bus, tools={}, tool_executor=None)
         try:
-            from jarvis.brain.router import SYSTEM_PROMPT as ROUTER_SYSTEM_PROMPT
+            from dodaios.brain.router import SYSTEM_PROMPT as ROUTER_SYSTEM_PROMPT
 
             bm._system_prompt_extra = ROUTER_SYSTEM_PROMPT  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001

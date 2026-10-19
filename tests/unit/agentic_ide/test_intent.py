@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import intent
+from dodaios.agentic_ide import intent
 
 NAMES = ["Alex", "Blake", "Casey", "Dana"]
 

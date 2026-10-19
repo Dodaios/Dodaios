@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_chat import effort
-from jarvis.agent_chat.catalog import PROVIDER_ROWS, provider_row
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.runner_api import messages_from_events
-from jarvis.agent_chat.runner_cli import (
+from dodaios.agent_chat import effort
+from dodaios.agent_chat.catalog import PROVIDER_ROWS, provider_row
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.runner_api import messages_from_events
+from dodaios.agent_chat.runner_cli import (
     _ClaudeState,
     _CodexState,
     _content_text,
@@ -20,8 +20,8 @@ from jarvis.agent_chat.runner_cli import (
     translate_claude_line,
     translate_codex_line,
 )
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.tools import execute_tool, summarize_call
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.tools import execute_tool, summarize_call
 
 # ---------------------------------------------------------------- effort
 
@@ -125,7 +125,7 @@ def test_store_round_trips_sessions_and_events(tmp_path: Path):
     assert [e["seq"] for e in store.list_events(s.session_id, tail=5)] == [1, 2]
 
     # The store keeps whatever id the route validated against the runner's
-    # ladder (jarvis/agent_chat/permissions.py); it does not judge it.
+    # ladder (dodaios/agent_chat/permissions.py); it does not judge it.
     updated = store.update_session(s.session_id, effort="low", permission_mode="accept-edits")
     assert updated is not None and updated.effort == "low"
     assert updated.permission_mode == "accept-edits"
@@ -561,7 +561,7 @@ def test_codex_reasoning_start_is_announced():
 
 def test_resolve_runner_per_surface(monkeypatch):
     """Jarvis runs API seats through its brain and preserves coding CLI seats."""
-    from jarvis.agent_chat import service as svc_mod
+    from dodaios.agent_chat import service as svc_mod
 
     monkeypatch.setattr(svc_mod, "_claude_cli_installed", lambda: False)
     assert svc_mod.resolve_runner("openai") == "api"
@@ -584,9 +584,9 @@ def test_resolve_runner_per_surface(monkeypatch):
 
 def test_an_agent_can_pin_claude_to_its_api_key_or_its_subscription(monkeypatch):
     """The "New agent" dialog's access choice beats the API Keys page's setting."""
-    from jarvis.agent_chat import agent_provider_prefs
-    from jarvis.agent_chat import service as svc_mod
-    from jarvis.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
+    from dodaios.agent_chat import agent_provider_prefs
+    from dodaios.agent_chat import service as svc_mod
+    from dodaios.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
 
     monkeypatch.setattr(svc_mod, "_claude_cli_installed", lambda: True)
     monkeypatch.setattr(agent_provider_prefs, "forces_api", lambda *_: False)
@@ -609,8 +609,8 @@ def test_an_agent_can_pin_claude_to_its_api_key_or_its_subscription(monkeypatch)
 
 
 def test_a_reserved_access_value_never_names_a_login():
-    from jarvis.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
-    from jarvis.agent_chat.runner_cli import _login_id
+    from dodaios.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
+    from dodaios.agent_chat.runner_cli import _login_id
 
     assert _login_id(API_KEY_ACCOUNT) == "" and _login_id(SUBSCRIPTION_ACCOUNT) == ""
     assert _login_id("acct-1") == "acct-1" and _login_id("") == ""
@@ -618,8 +618,8 @@ def test_a_reserved_access_value_never_names_a_login():
 
 def test_the_jarvis_surface_offers_api_and_cli_seats():
     """Jarvis shares the IDE's provider seats; API-only surfaces remain filtered."""
-    from jarvis.agent_chat.catalog import PROVIDER_ROWS, offers, rows_for
-    from jarvis.agent_chat.runner_api import supports_api_runner
+    from dodaios.agent_chat.catalog import PROVIDER_ROWS, offers, rows_for
+    from dodaios.agent_chat.runner_api import supports_api_runner
 
     jarvis_ids = [row.id for row in rows_for("jarvis")]
     assert jarvis_ids == [row.id for row in rows_for("agent")]
@@ -634,8 +634,8 @@ def test_the_jarvis_surface_offers_api_and_cli_seats():
 
 def test_cli_seat_creation_follows_the_surface_capability(tmp_path):
     """CLI seats can be created on Jarvis and the IDE, but not API-only surfaces."""
-    from jarvis.agent_chat.service import AgentChatService
-    from jarvis.agent_chat.store import AgentChatStore
+    from dodaios.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.store import AgentChatStore
 
     svc = AgentChatService(AgentChatStore(":memory:"), default_cwd=lambda: str(tmp_path))
     for surface in ("jarvis", "agent"):
@@ -650,9 +650,9 @@ def test_cli_seat_retirement_follows_the_surface_capability(tmp_path, monkeypatc
     """Keep supported CLI seats; retain migration coverage for an API-only kit."""
     from dataclasses import replace
 
-    from jarvis.agent_chat import surface_kits
-    from jarvis.agent_chat.service import AgentChatService
-    from jarvis.agent_chat.store import AgentChatStore
+    from dodaios.agent_chat import surface_kits
+    from dodaios.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.store import AgentChatStore
 
     if not cli_seats:
         monkeypatch.setitem(

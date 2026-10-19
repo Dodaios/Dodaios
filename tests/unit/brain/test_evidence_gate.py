@@ -1,6 +1,6 @@
 """Evidence gate verdicts + hard negatives (AD-CLI4..AD-CLI8)."""
-from jarvis.brain.evidence_gate import check_evidence_domain, live_surface_covers
-from jarvis.core.capabilities import Capability, CapabilityRegistry
+from dodaios.brain.evidence_gate import check_evidence_domain, live_surface_covers
+from dodaios.core.capabilities import Capability, CapabilityRegistry
 
 DOMAINS = {
     "calendar": ["kalender", "termin", "termine", "steht heute", "calendar"],
@@ -48,7 +48,7 @@ def test_cloud_billing_question_with_gcloud_requires_tool():
     # Live 2026-06-17: "use the Google Cloud CLI ... my latest billing".
     # The connected gcloud must be FORCED, first try, using the real default
     # config keywords for the "cloud" domain.
-    from jarvis.core.config import EvidenceDomainsConfig
+    from dodaios.core.config import EvidenceDomainsConfig
 
     domains = EvidenceDomainsConfig().domains
     for utterance in [
@@ -89,7 +89,7 @@ def test_derived_payments_keyword_forces_cli_stripe():
 def test_general_cost_question_does_not_force_gcloud():
     # A generic price question must NOT hijack the connected gcloud (no bare
     # "kosten"/"cost" keyword), else every "was kostet X" forces a billing call.
-    from jarvis.core.config import EvidenceDomainsConfig
+    from dodaios.core.config import EvidenceDomainsConfig
 
     domains = EvidenceDomainsConfig().domains
     v = check_evidence_domain(
@@ -113,7 +113,7 @@ def test_activity_question_is_refused_honestly():
     2026-09-30), so no tool serves the domain. The gate must answer
     honestly instead of letting the model invent a timeline.
     """
-    from jarvis.core.config import EvidenceDomainsConfig
+    from dodaios.core.config import EvidenceDomainsConfig
 
     domains = EvidenceDomainsConfig().domains
     for utterance in [
@@ -136,7 +136,7 @@ def test_activity_question_is_refused_honestly():
 
 def test_activity_hard_negative_bare_offen_does_not_trigger():
     """A non-activity 'offen' (with a lookup shape) must NOT hijack the domain."""
-    from jarvis.core.config import EvidenceDomainsConfig
+    from dodaios.core.config import EvidenceDomainsConfig
 
     domains = EvidenceDomainsConfig().domains
     v = check_evidence_domain(

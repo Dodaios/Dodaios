@@ -28,7 +28,7 @@ feeling like dead filler. The driver reported it as
 
 **2. BUG-017 (Gemini account 403) makes the force-spawn-worker
 path inviable on every non-Claude/non-Gemini primary.**
-`jarvis/missions/init.py::_worker_factory` returns `GeminiWorker`
+`dodaios/missions/init.py::_worker_factory` returns `GeminiWorker`
 for every `brain.primary != "claude-api"`, and `GeminiWorker`
 hardcodes `gemini-3.1-pro-preview`. With the user's Workspace
 account currently denied access to all Gemini models, every
@@ -55,9 +55,9 @@ suppress_if_brain_faster_than_ms = 2000   # default
 ```
 
 Validated as `int` in `0..15000` ms by
-`jarvis/brain/ack_brain/config.py::AckBrainConfig`.
+`dodaios/brain/ack_brain/config.py::AckBrainConfig`.
 
-Pipeline behavior in `jarvis/speech/pipeline.py` (P3.5):
+Pipeline behavior in `dodaios/speech/pipeline.py` (P3.5):
 
 1. The Flash-Brain coroutine still runs in parallel with the
    Router-Brain on every utterance — no early-out on the request
@@ -78,7 +78,7 @@ trade after a live A/B in the same session.
 
 ### Gate 2 — Force-spawn skip on non-viable worker provider
 
-`jarvis/brain/manager.py::_should_force_spawn` returns `False`
+`dodaios/brain/manager.py::_should_force_spawn` returns `False`
 when `cfg.brain.primary` is not in `{"claude-api", "gemini"}`,
 regardless of whether the action-verb heuristic or the
 external-system-marker heuristic matches. The Router-Brain then
@@ -90,7 +90,7 @@ either of these holds, the guard can be removed:
 - The user's Google Workspace account regains access to Gemini
   on `:generateContent`, OR
 - A `GrokWorker` (or other non-Gemini worker) lands in
-  `jarvis/missions/workers/`, and `_worker_factory` is taught to
+  `dodaios/missions/workers/`, and `_worker_factory` is taught to
   pick it for `brain.primary == "grok"`.
 
 Until then, leaving the guard in place means: on a Grok primary,
@@ -140,7 +140,7 @@ have been, but at least audible.
 - **Provider-aware retry on the worker side** — let the
   GeminiWorker detect the 403 and reroute to another model.
   Rejected for this ADR scope: that's a worker-layer fix that
-  belongs in `jarvis/missions/workers/`, not in the brain
+  belongs in `dodaios/missions/workers/`, not in the brain
   routing layer. Tracked separately.
 
 ## Status
@@ -156,10 +156,10 @@ gate). Live-reproduced and verified in P6 voice runs on 2026-05-13.
 - `docs/superpowers/specs/2026-05-11-pre-thinking-ack-flash-brain-design.md`
   (original spec, unchanged — this ADR is an amendment, not a
   replacement)
-- `jarvis/brain/ack_brain/config.py::AckBrainConfig`
+- `dodaios/brain/ack_brain/config.py::AckBrainConfig`
   (`suppress_if_brain_faster_than_ms` field)
-- `jarvis/brain/manager.py::_should_force_spawn`
+- `dodaios/brain/manager.py::_should_force_spawn`
   (provider-viability gate)
-- `jarvis/speech/pipeline.py` (suppress-window polling loop)
+- `dodaios/speech/pipeline.py` (suppress-window polling loop)
 - ADR-0011 (Router-Discipline — defines which path the inline
   fallback uses when Gate 2 fires)

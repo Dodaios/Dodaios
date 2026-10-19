@@ -23,7 +23,7 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.realtime.session import (
+from dodaios.realtime.session import (
     _DELEGATE_DECLARATION,
     RealtimeVoiceSession,
     _DelegateTurnState,

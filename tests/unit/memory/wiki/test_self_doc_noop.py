@@ -10,7 +10,7 @@ import datetime as dt
 from pathlib import Path
 from types import SimpleNamespace
 
-from jarvis.memory.wiki import self_doc
+from dodaios.memory.wiki import self_doc
 
 
 class _RecordingCurator:

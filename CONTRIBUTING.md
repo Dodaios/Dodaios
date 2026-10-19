@@ -11,7 +11,7 @@ can reproduce and explain; familiarity with the whole repository is not required
 |---|---|
 | [Open bugs](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue%20is%3Aopen%20label%3Abug) | Confirm an issue still reproduces on current `main`, add a focused regression test, and fix it. Comment on the issue before starting if its scope is unclear. |
 | Installation or product docs | Follow one documented path on a named OS, then correct the exact step that differs from reality. Include the command, observed result, and working replacement. |
-| Desktop accessibility | Improve one keyboard, focus, or screen-reader interaction in `jarvis/ui/web/frontend/src/`. Show the before/after behavior in light and dark mode. |
+| Desktop accessibility | Improve one keyboard, focus, or screen-reader interaction in `dodaios/ui/web/frontend/src/`. Show the before/after behavior in light and dark mode. |
 | Platform parity | Test one existing feature on Windows, macOS, Linux, or a headless host, then submit a reproducible report or a narrow fix. Check [OS parity](docs/os-parity.md) first. |
 
 Use [GitHub Issues](https://github.com/Dodaios/Dodaios/issues/new/choose)
@@ -43,10 +43,10 @@ code.
    ```bash
    python scripts/ci/check_public_docs.py
    ```
-5. If the change touches `jarvis/ui/web/frontend/`, install once and run the
+5. If the change touches `dodaios/ui/web/frontend/`, install once and run the
    frontend tests:
    ```bash
-   cd jarvis/ui/web/frontend
+   cd dodaios/ui/web/frontend
    npm install
    npm run test
    ```
@@ -76,7 +76,7 @@ You do not need the Python backend running for this path.
    ```
 4. Confirm setup worked before writing any code:
    ```bash
-   python -c "import jarvis; print(jarvis.__file__)"
+   python -c "import dodaios; print(dodaios.__file__)"
    ```
    The printed path must point inside your cloned checkout. If it points
    somewhere else (e.g. a different Python install), your `pip install -e`
@@ -88,9 +88,9 @@ You do not need the Python backend running for this path.
    ```
 6. Before opening the PR:
    ```bash
-   ruff check jarvis/
-   ruff format --check jarvis/
-   mypy jarvis/
+   ruff check dodaios/
+   ruff format --check dodaios/
+   mypy dodaios/
    ```
 7. Commit, push to your fork, and open a pull request using the
    [PR template](.github/PULL_REQUEST_TEMPLATE.md). State which command you
@@ -110,10 +110,10 @@ say hello.
 
 | Area | Start here |
 |---|---|
-| Core contracts and events | `jarvis/core/protocols.py`, `jarvis/core/events.py` |
-| Desktop and web UI | `jarvis/ui/web/frontend/`; backend routes in `jarvis/ui/web/` |
-| Realtime voice | `jarvis/realtime/` and its focused tests |
-| Providers and plugins | `jarvis/plugins/`, entry points in `pyproject.toml`, `tests/contract/` |
+| Core contracts and events | `dodaios/core/protocols.py`, `dodaios/core/events.py` |
+| Desktop and web UI | `dodaios/ui/web/frontend/`; backend routes in `dodaios/ui/web/` |
+| Realtime voice | `dodaios/realtime/` and its focused tests |
+| Providers and plugins | `dodaios/plugins/`, entry points in `pyproject.toml`, `tests/contract/` |
 | Tests and fixtures | `tests/`, especially `tests/fakes/` |
 
 Read the [architecture overview](docs/architecture-overview.md) for the system
@@ -133,7 +133,7 @@ python -m venv .venv
 python -m pip install -e . --no-deps
 python -m pip install -r requirements.txt
 python -m pip install -e ".[dev]"
-python -c "import jarvis; print(jarvis.__file__)"
+python -c "import dodaios; print(dodaios.__file__)"
 ```
 
 The import path must point into this checkout. Re-run
@@ -144,10 +144,10 @@ on macOS/Linux. Both launch a development instance with its own data and ports.
 need the relevant OS permissions and hardware; you can work on tests and docs
 without them.
 
-For frontend work, run `npm install` in `jarvis/ui/web/frontend/`, then
+For frontend work, run `npm install` in `dodaios/ui/web/frontend/`, then
 `npm run test` and `npm run build` there. The desktop loads built frontend
 files and reloads them automatically; do not commit generated
-`jarvis/ui/web/dist/` files.
+`dodaios/ui/web/dist/` files.
 
 ## Test and review the change
 
@@ -168,9 +168,9 @@ Useful local commands, selected by the change:
 pytest tests/path/to/relevant_test.py
 pytest tests/contract/
 pytest tests/
-ruff check jarvis/
-ruff format --check jarvis/
-mypy jarvis/
+ruff check dodaios/
+ruff format --check dodaios/
+mypy dodaios/
 ```
 
 Tests use `tests/fakes/` rather than `unittest.mock`. Some repository-wide

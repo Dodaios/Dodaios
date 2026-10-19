@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _PROVIDER_DOWN_CAUSE_PHRASES,
     _PROVIDER_DOWN_PHRASES,
     BrainManager,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.core.events import ResponseGenerated
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.core.events import ResponseGenerated
 from tests.fixtures.brain.fake_brain import FakeBrain
 
 
@@ -231,7 +231,7 @@ class _EmptyBrain:
     supports_vision = False
 
     async def complete(self, req):  # type: ignore[no-untyped-def]
-        from jarvis.core.protocols import BrainDelta
+        from dodaios.core.protocols import BrainDelta
 
         yield BrainDelta(finish_reason="suppress_response")
 
@@ -258,7 +258,7 @@ async def test_empty_provider_response_is_silent_not_provider_error():
 
 
 def test_provider_chain_error_keeps_primary_failure_before_missing_fallback_keys():
-    from jarvis.brain.manager import _format_provider_chain_error
+    from dodaios.brain.manager import _format_provider_chain_error
 
     msg = _format_provider_chain_error([
         ("gemini", "gemini-2.5-flash", "call_fail", "Cannot connect"),

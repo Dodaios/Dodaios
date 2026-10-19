@@ -14,9 +14,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.plugins.tts import openrouter_tts as ortts
-from jarvis.plugins.tts.openrouter_speech_models import (
+from dodaios.core.protocols import AudioChunk
+from dodaios.plugins.tts import openrouter_tts as ortts
+from dodaios.plugins.tts.openrouter_speech_models import (
     DEFAULT_MODEL,
     MULTILINGUAL,
     coerce_speech_model,
@@ -26,7 +26,7 @@ from jarvis.plugins.tts.openrouter_speech_models import (
     voice_language,
     voices_for_model,
 )
-from jarvis.plugins.tts.openrouter_tts import (
+from dodaios.plugins.tts.openrouter_tts import (
     OPENROUTER_TTS_SAMPLE_RATE,
     OpenRouterTTS,
     OpenRouterTTSError,

@@ -1,0 +1,90 @@
+"""Map a connected Marketplace plugin into the in-process MCPServerSpec.
+
+This is the live-brain analogue of marketplace.mcp_bridge (which targets the
+claude-cli worker). Here we build a dodaios.mcp.MCPServerSpec + env_overrides
+so an in-process MCPClient can connect and expose the plugin's tools to the
+router-brain directly. Token placeholders reuse mcp_bridge's resolver so the
+two paths stay byte-identical on placeholder semantics.
+"""
+
+from __future__ import annotations
+
+import sys
+
+from dodaios.marketplace.bundled_servers import runs_bundled_server, runs_connected_server
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.marketplace.mcp_bridge import _resolve_placeholders, _token_replacements
+from dodaios.marketplace.token_store import Tokens
+from dodaios.mcp.registry import MCPServerSpec
+
+
+def plugin_to_mcp_server_spec(
+    plugin: PluginSpec, tokens: Tokens
+) -> tuple[MCPServerSpec, dict[str, str]] | None:
+    """Return (MCPServerSpec, env_overrides) for a connected plugin, or None.
+
+    None when the plugin has no mcp_server block or an MCP-incompatible
+    transport (rest_wrapper / unknown). stdio, http and sse are supported —
+    the same transports the worker bridge speaks; sse only reaches older
+    remote servers a custom connector was pointed at.
+    """
+    spec = plugin.mcp_server
+    if not spec:
+        return None
+    repl = _token_replacements(plugin.id, tokens.access)
+    transport = str(spec.get("transport") or "").lower()
+
+    if transport in ("http", "sse"):
+        url = spec.get("url")
+        if not url:
+            return None
+        headers: dict[str, str] = {}
+        header_template = spec.get("auth_header_template")
+        if header_template:
+            resolved = _resolve_placeholders(str(header_template), repl)
+            key, sep, val = resolved.partition(":")
+            if sep:
+                headers[key.strip()] = val.strip()
+        server_spec = MCPServerSpec(
+            name=plugin.id,
+            display=plugin.display_name,
+            description=plugin.description,
+            install_command=[],
+            transport="sse" if transport == "sse" else "http",
+            url=str(url),
+            headers=headers,
+        )
+        return server_spec, {}
+
+    if transport == "stdio":
+        install = spec.get("install") or []
+        if not install:
+            return None
+        resolved_install = [_resolve_placeholders(str(a), repl) for a in install]
+        if resolved_install[:1] == ["python"] and runs_bundled_server(resolved_install):
+            resolved_install[0] = sys.executable
+        env_template = spec.get("env_template") or {}
+        env_overrides = {
+            str(k): _resolve_placeholders(str(v), repl) for k, v in env_template.items()
+        }
+        if runs_connected_server(resolved_install):
+            env_overrides["JARVIS_CONNECTOR_AUTH_TYPE"] = (
+                "oauth" if tokens.extra.get("client_id") else "pat"
+            )
+        server_spec = MCPServerSpec(
+            name=plugin.id,
+            display=plugin.display_name,
+            description=plugin.description,
+            install_command=resolved_install,
+            transport="stdio",
+            # A community entry is a command line somebody else wrote, and the
+            # user approved it from a dialog, not from reading the code. It
+            # starts with the environment it needs and its own token — never
+            # with the owner's other credentials (dodaios.mcp.env_isolation).
+            # A seed plugin is this project's own; a locally uploaded one the
+            # user put there themselves.
+            isolate_env=plugin.source == "community",
+        )
+        return server_spec, env_overrides
+
+    return None

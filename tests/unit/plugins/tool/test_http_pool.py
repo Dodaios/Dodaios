@@ -10,8 +10,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.plugins.tool._http_pool import HttpClientPool
-from jarvis.plugins.tool.gmail_rest import GmailRestTool
+from dodaios.plugins.tool._http_pool import HttpClientPool
+from dodaios.plugins.tool.gmail_rest import GmailRestTool
 
 
 @pytest.mark.asyncio

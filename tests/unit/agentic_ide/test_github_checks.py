@@ -2,7 +2,7 @@
 
 import pytest
 
-from jarvis.agentic_ide.github_checks import checks
+from dodaios.agentic_ide.github_checks import checks
 
 
 def test_backend_states_and_payload_match_the_frontend_contract():
@@ -10,11 +10,11 @@ def test_backend_states_and_payload_match_the_frontend_contract():
     from dataclasses import fields
     from pathlib import Path
 
-    from jarvis.agentic_ide.github_checks import CHECK_STATES, CONTEXT_STATES
-    from jarvis.agentic_ide.github_status import BranchStatus
+    from dodaios.agentic_ide.github_checks import CHECK_STATES, CONTEXT_STATES
+    from dodaios.agentic_ide.github_status import BranchStatus
 
     root = Path(__file__).resolve().parents[3]
-    frontend = root / "jarvis/ui/web/frontend/src/components/agentic"
+    frontend = root / "dodaios/ui/web/frontend/src/components/agentic"
     schema = (frontend / "useSessionGitHub.ts").read_text(encoding="utf-8")
     extra_states = schema.split("export type SessionCiState =", 1)[1].split(";", 1)[0]
     extra_states = extra_states.replace('CiStatus["state"]', "")

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.completion import (
+from dodaios.speech.completion import (
     REASON_TRAILING_ELLIPSIS,
     is_incomplete,
 )
@@ -54,7 +54,7 @@ def test_single_period_is_complete(text: str) -> None:
 
 def test_conjunction_before_ellipsis_keeps_conjunction_reason() -> None:
     # A more specific tail (open conjunction) wins over the generic ellipsis.
-    from jarvis.speech.completion import REASON_CONJUNCTION
+    from dodaios.speech.completion import REASON_CONJUNCTION
 
     verdict = is_incomplete("ich gehe los und...")
     assert verdict is not None

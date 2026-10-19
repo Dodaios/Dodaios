@@ -18,11 +18,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import BrainMessage, ToolResult
-from jarvis.sessions.store import SessionStore
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import BrainMessage, ToolResult
+from dodaios.sessions.store import SessionStore
 
 
 async def _background_done(mgr: BrainManager) -> None:
@@ -248,7 +248,7 @@ async def test_latest_transcript_falls_back_to_active_persisted_session(
     tmp_path,
 ):
     """An empty Realtime-owned history uses only its active persisted session."""
-    from jarvis.core import runtime_refs
+    from dodaios.core import runtime_refs
 
     store = SessionStore(tmp_path / "sessions.db")
     store.open()
@@ -329,7 +329,7 @@ async def test_latest_transcript_never_uses_unscoped_persisted_history(
     tmp_path,
 ):
     """Without a reliable active session id, persisted fallback stays closed."""
-    from jarvis.core import runtime_refs
+    from dodaios.core import runtime_refs
 
     store = SessionStore(tmp_path / "sessions.db")
     store.open()

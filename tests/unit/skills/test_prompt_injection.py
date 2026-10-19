@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.skills.prompt_injection.render_available_skills_section``.
+"""Unit tests for ``dodaios.skills.prompt_injection.render_available_skills_section``.
 
 Instruction-skill model (2026-06-09 rebuild, AD-S2 L1): the renderer turns a
 SkillRegistry snapshot into a Markdown ``## AVAILABLE SKILLS`` block that the
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from jarvis.skills.prompt_injection import (
+from dodaios.skills.prompt_injection import (
     render_available_skills_section,
     render_realtime_skills_directive,
     render_skill_candidate_hint,

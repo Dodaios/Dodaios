@@ -9,11 +9,11 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig, STTConfig
-from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.ui.web import provider_routes
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig, STTConfig
+from dodaios.speech.pipeline import SpeechPipeline
+from dodaios.ui.web import provider_routes
+from dodaios.ui.web.server import WebServer
 
 
 class _Provider:
@@ -47,15 +47,15 @@ def test_pipeline_switch_replaces_voice_and_next_dictation_provider(
         assert dictionary_bias is (len(built) == 1)
         return _Provider(str(cfg.provider))
 
-    monkeypatch.setattr("jarvis.plugins.stt.build_stt_from_config", _build)
-    monkeypatch.setattr("jarvis.plugins.stt.provider_runs_on_device", lambda _provider: False)
-    monkeypatch.setattr("jarvis.speech.pipeline._resolve_stt_fallback_chain", lambda *_: ())
+    monkeypatch.setattr("dodaios.plugins.stt.build_stt_from_config", _build)
+    monkeypatch.setattr("dodaios.plugins.stt.provider_runs_on_device", lambda _provider: False)
+    monkeypatch.setattr("dodaios.speech.pipeline._resolve_stt_fallback_chain", lambda *_: ())
     monkeypatch.setattr(
-        "jarvis.speech.stt_fallback.wrap_stt_with_fallback",
+        "dodaios.speech.stt_fallback.wrap_stt_with_fallback",
         lambda provider, _cfg: provider,
     )
     monkeypatch.setattr(
-        "jarvis.speech.stt_dictionary.wrap_stt_with_dictionary",
+        "dodaios.speech.stt_dictionary.wrap_stt_with_dictionary",
         lambda provider: provider,
     )
 
@@ -89,7 +89,7 @@ def test_pipeline_switch_failure_preserves_every_live_reference(
     def _fail(_cfg: Any) -> Any:
         raise RuntimeError("constructor failed")
 
-    monkeypatch.setattr("jarvis.plugins.stt.build_stt_from_config", _fail)
+    monkeypatch.setattr("dodaios.plugins.stt.build_stt_from_config", _fail)
 
     assert pipeline.set_stt_provider("openrouter-stt") is False
     assert pipeline._utterance_stt is old_provider
@@ -132,9 +132,9 @@ def test_switch_route_applies_to_running_pipeline_without_restart(
     mode_writes: list[str] = []
     web_server.cfg.voice.mode = "realtime"
     monkeypatch.setattr(provider_routes, "_is_credential_present", lambda _spec: True)
-    monkeypatch.setattr("jarvis.brain.app_control.local_readiness_error", lambda _spec: None)
-    monkeypatch.setattr("jarvis.core.config_writer.set_stt_provider", writes.append)
-    monkeypatch.setattr("jarvis.core.config_writer.set_voice_mode", mode_writes.append)
+    monkeypatch.setattr("dodaios.brain.app_control.local_readiness_error", lambda _spec: None)
+    monkeypatch.setattr("dodaios.core.config_writer.set_stt_provider", writes.append)
+    monkeypatch.setattr("dodaios.core.config_writer.set_voice_mode", mode_writes.append)
 
     with TestClient(web_server.app) as client:
         response = client.post(
@@ -164,7 +164,7 @@ def test_switch_route_never_requests_restart_when_voice_is_not_running(
 ) -> None:
     initial_mode = web_server.cfg.voice.mode
     monkeypatch.setattr(provider_routes, "_is_credential_present", lambda _spec: True)
-    monkeypatch.setattr("jarvis.brain.app_control.local_readiness_error", lambda _spec: None)
+    monkeypatch.setattr("dodaios.brain.app_control.local_readiness_error", lambda _spec: None)
 
     with TestClient(web_server.app) as client:
         response = client.post(

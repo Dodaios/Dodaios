@@ -1,0 +1,345 @@
+"""Local-outcome gate — say-do guard for local file/folder/system actions.
+
+Why this exists
+---------------
+Maintainer report (2026-08-08): "Erstell einen neuen Ordner auf meinem
+Desktop" was answered with the dictated capability refusal ("mir fehlt das
+passende Werkzeug") although ``run_shell`` was registered AND visible in the
+turn's tool surface. Root cause: the ``tool.run-shell`` capability vocabulary
+only matched users who NAME the vehicle (shell/terminal/befehl), and no
+deterministic mandate backed natural outcome phrasings — whether the model
+mapped "create a folder" onto a shell command was model whim (a timer request
+worked one day, a folder request was refused the next).
+
+This module mirrors ``contact_intent.resolve_save_mandate`` (the say-do write
+guard) and ``evidence_gate.py`` (the read guard): it spots, deterministically,
+that a turn wants a LOCAL file/folder/system outcome, so the manager can
+mandate ``run_shell`` for the turn — the prompt directive makes the call
+non-optional, and the existing unverified-answer backstop replaces a fake
+"done" with an honest line when the tool never ran. Pure regex + the shared
+normalizer — NO LLM, NO IO (AP-9/AP-11).
+
+The German phrases quoted above and in the vocabulary below are speech-input
+matching data / forensic quotes of the failing voice requests (i18n-allow
+rationale identical to ``local_action_gate.py``).
+
+Matching contract
+-----------------
+A mandate needs BOTH an outcome verb ("erstell", "loesch", "rename", …) AND a
+file-system object ("ordner", "datei", "folder", "desktop", …) — the noun is
+what separates "erstell einen Ordner" (shell) from "erstell einen
+Kalendereintrag" (plugin/calendar flow, untouched). A second, independent
+class covers timers/alarms/countdowns ("stell einen Timer auf 10 Minuten"):
+a timer noun plus a set/stop verb or a bare duration, with its own directive
+that forces a DETACHED background process (the tool call times out at ~30s).
+
+Stand-downs (each defers to the flow that owns the turn):
+  - external-integration dispatch ("schick die Datei per Mail") — the
+    capability/plugin machinery owns it;
+  - cloud storage nouns (Drive/Dropbox/OneDrive/…) — not a local disk;
+  - how-to / definition questions ("wie erstelle ich einen Ordner") — an
+    inline answer, never an action;
+  - explicit GUI vehicle ("klick auf den Ordner") — computer-use owns the
+    screen when the user asks for it;
+  - explicit heavy vehicle ("spawn"/"subagent") or a named skill — AD-S9:
+    a user-named vehicle always wins.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+
+from dodaios.brain.local_action_gate import requires_external_integration
+from dodaios.core.capabilities import _normalize
+
+# Outcome verbs (already umlaut-normalised — matched on ``_normalize`` output).
+# ``\w*`` suffixes cover the German conjugations; the stems are chosen so the
+# common imperative/infinitive forms all start with them.
+_FS_VERB_RE = re.compile(
+    r"\b(?:"
+    r"erstell\w*|anleg\w*|create|mkdir|"  # i18n-allow
+    r"loesch\w*|entfern\w*|delete|remove|"  # i18n-allow
+    r"umbenenn\w*|benenn\w*|rename|"  # i18n-allow
+    r"verschieb\w*|schieb\w*|move|"  # i18n-allow
+    r"kopier\w*|copy|dupliz\w*|duplicate|"  # i18n-allow
+    r"entpack\w*|unzip|zipp\w*|zip|komprimier\w*|extract|pack\w*|"  # i18n-allow
+    r"liste\w*|list|zeig\w*|show|"  # i18n-allow
+    r"oeffn\w*|open|aufmach\w*|"  # i18n-allow
+    r"lies|lese|liest|read|vorles\w*|"  # i18n-allow
+    r"leg\w*|mach\w*|make|"  # i18n-allow
+    r"fuehr\w*|ausfuehr\w*|run|execute|start\w*"  # i18n-allow
+    r")\b"
+)
+
+# File-system / shell objects. Includes the legacy vehicle nouns (shell,
+# terminal, skript, …) so "fuehr das Skript aus" mandates exactly like the
+# outcome phrasings do. Deliberately NOT included: bilder/pictures/musik
+# ("zeig mir Bilder von Katzen" is a search, not a directory listing) and
+# domain nouns owned by other flows (termin, kontakt, mail, wiki).
+_FS_OBJECT_RE = re.compile(
+    r"\b(?:"
+    r"ordner|unterordner|verzeichnis\w*|datei(?:en)?|"  # i18n-allow
+    r"folders?|director(?:y|ies)|files?|"
+    r"desktop|downloads?|papierkorb|recycle\s+bin|"  # i18n-allow
+    r"archiv\w*|archive|zip|"  # i18n-allow
+    r"skript\w*|scripts?|befehl\w*|kommando\w*|commands?|"  # i18n-allow
+    r"terminal|shell|powershell|bash|cmd"
+    r")\b"
+)
+
+# How-to / definition questions are answered inline, never acted on. Matched
+# unanchored so a greeting prefix ("Hey Jarvis, wie erstelle ich …") cannot
+# defeat the guard (mirrors the greeting-prefix lesson in _is_smalltalk).
+_HOWTO_DEFINITION_RE = re.compile(
+    r"\b(?:"
+    r"wie\s+\w+\s+(?:ich|man)\b|"  # i18n-allow
+    r"how\s+(?:do|can|could|should|would)\s+(?:i|you|one)\b|how\s+to\b|"
+    r"was\s+(?:ist|sind|bedeutet|heisst)\s+(?:ein|eine|der|die|das)\b|"  # i18n-allow
+    r"what\s+(?:is|are|does)\s+an?\b"
+    r")"
+)
+
+# The user explicitly asks for the SCREEN to be operated — computer-use owns
+# that vehicle (AD-S9: a named vehicle wins). "desktop" alone is NOT a GUI
+# marker here: "auf meinem Desktop" names a folder location, not the screen.
+_GUI_VEHICLE_RE = re.compile(
+    r"\b(?:klick\w*|click\w*|maus|mouse|cursor|scroll\w*|per\s+hand)\b"  # i18n-allow
+)
+
+# The user explicitly names a heavy-work or skill vehicle — those flows own
+# the turn (AD-S9), the mandate must never fight them.
+_OTHER_VEHICLE_RE = re.compile(
+    r"\b(?:subagent\w*|sub-agents?|spawn\w*|worker|skills?|deep\s*dive)\b"
+)
+
+# Cloud storage is not the local disk — the plugin/CLI machinery owns it.
+_CLOUD_STORAGE_RE = re.compile(
+    r"\b(?:google\s*drive|gdrive|dropbox|onedrive|one\s*drive|icloud|"
+    r"sharepoint|nextcloud|cloud)\b"
+)
+
+# A foreign-domain noun makes the generic FS noun AMBIENT, not the target:
+# "Verschieb die Mail in einen anderen Ordner" is a mailbox operation on a
+# mail FOLDER, not a disk folder — the plugin/calendar/contact flows own it.
+# Unconditional co-occurrence stand-down (code-review finding 2026-08-08):
+# ``requires_external_integration`` alone cannot catch these because it needs
+# a DISPATCH verb (schick/sende/…), and the outcome verbs this gate matches
+# (verschieb/loesch/kopier/…) are deliberately not dispatch verbs.
+_FOREIGN_DOMAIN_RE = re.compile(
+    r"\b(?:"
+    r"mails?|e-?mails?|gmail|outlook|postfach|posteingang|inbox|"  # i18n-allow
+    r"nachrichten?|messages?|chats?|"  # i18n-allow
+    r"whatsapp|telegram|discord|slack|signal|"
+    r"termine?|kalender\w*|calendar|events?|"  # i18n-allow
+    r"kontakte?|contacts?|adressbuch|"  # i18n-allow
+    r"spotify|playlists?|wiki|notizen?"  # i18n-allow
+    r")\b"
+)
+
+# Timer/alarm/countdown nouns — the second mandate class (maintainer report
+# 2026-08-08, follow-up): "stell einen Timer" worked one day and was refused
+# the next, because a timer utterance carries no file-system noun and thus no
+# mandate. No dedicated timer feature exists in Jarvis (checked 2026-08-08:
+# every "timer" hit in the tree is an internal code timer), so run_shell is
+# the only vehicle and mandating it hijacks nothing.
+_TIMER_OBJECT_RE = re.compile(
+    r"\b(?:timers?|wecker|alarme?|countdowns?|stoppuhr)\b"  # i18n-allow
+)
+
+# A timer turn needs a set/start/stop verb OR a bare duration ("Timer 10
+# Minuten" is common verbless voice phrasing).
+_TIMER_VERB_RE = re.compile(
+    r"\b(?:"
+    r"stell\w*|setz\w*|start\w*|mach\w*|leg\w*|aktivier\w*|erstell\w*|"  # i18n-allow
+    r"set|create|"
+    r"stopp\w*|stop|beende\w*|abbrech\w*|cancel|loesch\w*|entfern\w*|"  # i18n-allow
+    r"delete|remove"
+    r")\b"
+)
+_DURATION_RE = re.compile(
+    r"\b\d+\s*(?:sekunden?|minuten?|stunden?|seconds?|minutes?|hours?|"  # i18n-allow
+    r"sek|min|std|s|m|h)\b"  # i18n-allow
+)
+
+# Per-turn directive injected into the system prompt when the mandate fires
+# (English — LLM-facing, mirrors CONTACT_WRITE_DIRECTIVE / the read gate).
+RUN_SHELL_OUTCOME_DIRECTIVE = (
+    "MANDATORY THIS TURN: do this local file, folder or system action now with "
+    "`run_shell` (shell named in its description; quote paths with spaces), not "
+    "computer_use. NEVER claim you lack a tool. Ask first only for an ambiguous "
+    "irreversible bulk delete or overwrite."
+)
+
+RUN_SHELL_TIMER_DIRECTIVE = (
+    "MANDATORY THIS TURN: set the timer with `run_shell`. A call times out after about "
+    "30 seconds, so start a DETACHED process that waits, then notifies (Windows: "
+    "Start-Process powershell -WindowStyle Hidden, or schtasks for a clock time; POSIX: "
+    "nohup sh -c '...' &)."
+)
+
+
+# Preserve filename dots and coordinated prohibitions: commas alone must not
+# turn "do not send, run commands, or change files" into positive requests.
+_TASK_CLAUSE_RE = re.compile(
+    r"[;!?\r\n]+|(?<!\d)\.(?=\s|$)|"
+    r"\b(?:but|however|instead(?!\s+of)|aber|sondern|stattdessen)\b|"  # i18n-allow
+    r",\s+(?:and|und)\s+(?=(?:please\s+|bitte\s+)?"  # i18n-allow
+    + _FS_VERB_RE.pattern + r")"
+)
+_QUOTE_CHAR_RE = re.compile(r"[\"'`]")
+
+
+def _scan_quoted_literal(text: str, start: int) -> tuple[bool, int]:
+    """Scan the literal opened by the quote at ``start``.
+
+    Returns ``(True, end)`` with ``end`` just past the closing quote, or
+    ``(False, stop)`` with the index where the scan gave up. Inside ``"…"``
+    and ``'…'`` a backslash escapes any next character except a line break
+    (a backslash before a line break, or at the end, ends the scan); a
+    backtick literal runs to the next backtick.
+    """
+    kind = text[start]
+    size = len(text)
+    if kind == "`":
+        close = text.find("`", start + 1)
+        return (False, size) if close < 0 else (True, close + 1)
+    pos = start + 1
+    while pos < size:
+        char = text[pos]
+        if char == "\\":
+            if pos + 1 < size and text[pos + 1] != "\n":
+                pos += 2
+                continue
+            return False, pos
+        if char == kind:
+            return True, pos + 1
+        pos += 1
+    return False, size
+
+
+def _sub_quoted_literals(repl: Callable[[int, str], str], text: str) -> str:
+    """Replace every quoted literal with ``repl(start, literal)``, in linear time.
+
+    Same matches as ``re.sub`` with the pattern
+    ``(?<!\\w)(?:"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|`[^`]*`)``. That
+    regex retried at every quote character, and an unclosed literal — or a run
+    of escaped quotes (``"\\"\\"\\"…``) — rescanned the rest of the text from
+    each of them: quadratic on long input (CodeQL py/polynomial-redos). Here a
+    quote of the same kind inside a failed scan is skipped: that scan consumed
+    it as an escaped pair, so a scan opened there would resume in step and fail
+    at the same place.
+    """
+    pieces: list[str] = []
+    consumed = 0
+    dead_until = {'"': -1, "'": -1, "`": -1}
+    for quote in _QUOTE_CHAR_RE.finditer(text):
+        start = quote.start()
+        kind = quote.group()
+        if start < consumed or start < dead_until[kind]:
+            continue
+        closed, stop = _scan_quoted_literal(text, start)
+        if not closed:
+            dead_until[kind] = stop
+            continue
+        before = text[start - 1] if start else ""
+        if before.isalnum() or before == "_":
+            continue  # the ``(?<!\w)`` guard: a quote inside a word ("don't")
+        pieces.append(text[consumed:start])
+        pieces.append(repl(start, text[start:stop]))
+        consumed = stop
+    pieces.append(text[consumed:])
+    return "".join(pieces)
+
+
+_COMMAND_LITERAL_PREFIX_RE = re.compile(
+    r"\b(?:run|execute|launch|fuehre|starte)\s+(?:(?:the|this|following)\s+)?$",  # i18n-allow
+    re.IGNORECASE,
+)
+_NEGATED_TASK_RE = re.compile(
+    r"\b(?:do\s+not|does\s+not|did\s+not|don['\u2019]t|never|without|avoid|"
+    r"instead\s+of|not(?=\s+(?:create|delete|remove|copy|move|rename|run|execute|open)\b)|"
+    r"nicht|keine?\w*|ohne|vermeide\w*)\b"  # i18n-allow
+)
+_ACTION_BOUNDARY_RE = re.compile(r",|\b(?:and|und)\b")  # i18n-allow
+_EXPLANATORY_FOLLOWUP_RE = re.compile(
+    r"^\s*(?:(?:and|then|please)\s+)*(?:show|list|explain|describe|give|include|"
+    r"write|outline|provide|read)\b|"
+    r"^\s*(?:(?:und|dann|bitte)\s+)*(?:zeig\w*|erklaer\w*|liste\w*|beschreib\w*)\b"  # i18n-allow
+)
+
+
+def _positive_task_prefix(clause: str) -> str:
+    """Keep an earlier positive action, never the following prohibited list."""
+    negative = _NEGATED_TASK_RE.search(clause)
+    if negative is None:
+        return clause
+    prefix = clause[:negative.start()]
+    marker = negative.group()
+    if marker == "nicht" or marker.startswith("kein"):
+        # German postposed negation also negates its preceding action.
+        # English noun filters such as "files not ending in .tmp" do not.
+        boundaries = list(_ACTION_BOUNDARY_RE.finditer(prefix))
+        return prefix[:boundaries[-1].start()] if boundaries else ""
+    return prefix
+
+
+def resolve_local_outcome_mandate(utterance: str) -> tuple[str, str] | None:
+    """Map a local file/folder/system request to ``(tool_name, directive)``.
+
+    Returns ``("run_shell", RUN_SHELL_OUTCOME_DIRECTIVE)`` when the turn
+    deterministically asks for a local outcome a shell command can achieve,
+    ``None`` otherwise. Single consumption point: ``BrainManager.generate()``
+    (exactly like ``resolve_save_mandate``).
+    """
+    raw = (utterance or "").strip()
+    # Mirrors the force-spawn minimum-length gate: shorter fragments are
+    # Whisper artefacts, not commands.
+    if len(raw) < 6:
+        return None
+    # A quoted filename or example is a literal, not an instruction/context
+    # marker. Preserve apostrophes inside words such as "don't".
+    def mask_literal(start: int, _literal: str) -> str:
+        # An explicit "run <quoted command>" still names an executable object.
+        # Its contents remain shielded from negation and vehicle detection.
+        prefix = _normalize(raw[:start])
+        return " command " if _COMMAND_LITERAL_PREFIX_RE.search(prefix) else " quoted_literal "
+
+    normalized = _normalize(_sub_quoted_literals(mask_literal, raw))
+    tasks = [_positive_task_prefix(clause).strip() for clause in _TASK_CLAUSE_RE.split(normalized)]
+    # An explicitly selected vehicle governs the subsequent action, even
+    # across a sentence boundary ("Use the mouse. Create a folder.").
+    if any(_GUI_VEHICLE_RE.search(task) or _OTHER_VEHICLE_RE.search(task) for task in tasks):
+        return None
+    explanatory = False
+    for t in tasks:
+        # Resolve each task independently. A verb in the handoff footer must
+        # not borrow "files" from an earlier prohibition or quoted subject.
+        if not t:
+            continue
+        if _HOWTO_DEFINITION_RE.search(t):
+            explanatory = True
+            continue
+        # "Show the commands" following a how-to question requests content,
+        # not execution. An independent imperative ("Now create a folder")
+        # still reaches the normal action detector.
+        if explanatory and _EXPLANATORY_FOLLOWUP_RE.search(t):
+            continue
+        if _CLOUD_STORAGE_RE.search(t) or _FOREIGN_DOMAIN_RE.search(t):
+            continue
+        if requires_external_integration(t):
+            continue
+        if _TIMER_OBJECT_RE.search(t) and (
+            _TIMER_VERB_RE.search(t) or _DURATION_RE.search(t)
+        ):
+            return ("run_shell", RUN_SHELL_TIMER_DIRECTIVE)
+        if _FS_OBJECT_RE.search(t) and _FS_VERB_RE.search(t):
+            return ("run_shell", RUN_SHELL_OUTCOME_DIRECTIVE)
+    return None
+
+
+__all__ = [
+    "RUN_SHELL_OUTCOME_DIRECTIVE",
+    "RUN_SHELL_TIMER_DIRECTIVE",
+    "resolve_local_outcome_mandate",
+]

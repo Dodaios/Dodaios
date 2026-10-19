@@ -21,14 +21,14 @@ from uuid import uuid4
 import mss.exception as _mss_exception
 import pytest
 
-from jarvis.core.protocols import Observation
-from jarvis.vision.context_provider import VisionContextProvider
+from dodaios.core.protocols import Observation
+from dodaios.vision.context_provider import VisionContextProvider
 
 
 @pytest.fixture(autouse=True)
 def _screen_recording_available(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep BitBlt tests independent of the macOS TCC state of the host."""
-    import jarvis.vision.screenshot as screenshot_module
+    import dodaios.vision.screenshot as screenshot_module
 
     monkeypatch.setattr(
         screenshot_module, "warn_if_screen_recording_denied", lambda: False
@@ -99,7 +99,7 @@ def test_capture_image_does_not_raise_on_bitblt_error(tmp_path, monkeypatch):
     """
     monkeypatch.setitem(sys.modules, "mss", _make_fake_mss_fail_module())
 
-    from jarvis.vision.screenshot import ScreenshotSource  # noqa: PLC0415
+    from dodaios.vision.screenshot import ScreenshotSource  # noqa: PLC0415
 
     src = ScreenshotSource(save_blob=False, blob_dir=tmp_path)
     result = src._capture_image()
@@ -117,7 +117,7 @@ async def test_observe_returns_none_on_bitblt_error(tmp_path, monkeypatch):
     """observe() must return None when _capture_image signals a BitBlt failure."""
     monkeypatch.setitem(sys.modules, "mss", _make_fake_mss_fail_module())
 
-    from jarvis.vision.screenshot import ScreenshotSource  # noqa: PLC0415
+    from dodaios.vision.screenshot import ScreenshotSource  # noqa: PLC0415
 
     src = ScreenshotSource(save_blob=False, blob_dir=tmp_path)
     # _capture_image runs in to_thread; calling it directly is fine for sync path.
@@ -142,11 +142,11 @@ def test_bitblt_error_logs_at_most_once_across_consecutive_failures(
     """
     monkeypatch.setitem(sys.modules, "mss", _make_fake_mss_fail_module())
 
-    from jarvis.vision.screenshot import ScreenshotSource  # noqa: PLC0415
+    from dodaios.vision.screenshot import ScreenshotSource  # noqa: PLC0415
 
     src = ScreenshotSource(save_blob=False, blob_dir=tmp_path)
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.vision.screenshot"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.vision.screenshot"):
         for _ in range(5):
             src._capture_image()
 
@@ -170,7 +170,7 @@ def test_bitblt_recovery_logs_info(tmp_path, monkeypatch, caplog):
 
     monkeypatch.setitem(sys.modules, "mss", _make_fake_mss_fail_module())
 
-    from jarvis.vision.screenshot import ScreenshotSource  # noqa: PLC0415
+    from dodaios.vision.screenshot import ScreenshotSource  # noqa: PLC0415
 
     src = ScreenshotSource(save_blob=False, blob_dir=tmp_path)
 
@@ -201,7 +201,7 @@ def test_bitblt_recovery_logs_info(tmp_path, monkeypatch, caplog):
     fake_ok.exception = _mss_exception  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "mss", fake_ok)
 
-    with caplog.at_level(logging.INFO, logger="jarvis.vision.screenshot"):
+    with caplog.at_level(logging.INFO, logger="dodaios.vision.screenshot"):
         result = src._capture_image()
 
     assert result is not None, "Recovery call must return image bytes"
@@ -280,8 +280,8 @@ async def test_refresh_loop_bitblt_does_not_spam_log(tmp_path, monkeypatch, capl
     """
     monkeypatch.setitem(sys.modules, "mss", _make_fake_mss_fail_module())
 
-    from jarvis.vision.engine import VisionEngine  # noqa: PLC0415
-    from jarvis.vision.screenshot import ScreenshotSource  # noqa: PLC0415
+    from dodaios.vision.engine import VisionEngine  # noqa: PLC0415
+    from dodaios.vision.screenshot import ScreenshotSource  # noqa: PLC0415
 
     # Build a real engine using a real ScreenshotSource (but with fake mss).
     # The UIA tree source is a simple null fake so it never errors.
@@ -302,7 +302,7 @@ async def test_refresh_loop_bitblt_does_not_spam_log(tmp_path, monkeypatch, capl
         capture_mode="screenshot",  # force screenshot path only
     )
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.vision"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.vision"):
         await prov.start()
         try:
             # 15 iterations with BitBlt always failing.

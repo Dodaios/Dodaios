@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.core import config_writer
+from dodaios.core import config_writer
 
 
 def test_set_wake_word_strips_legacy_persona_name(tmp_path: Path) -> None:

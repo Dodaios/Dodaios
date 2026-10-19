@@ -1,0 +1,46 @@
+"""Sidecar entry: ``python -m dodaios.cu.indicator``.
+
+Guards the PySide6 import so a host without the GUI stack (headless VPS,
+base install) exits with ``protocol.EXIT_NO_GUI`` and one English line on
+stderr instead of a traceback. The controller treats that exit code as an
+expected degradation.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from contextlib import suppress
+
+from dodaios.cu.indicator.protocol import EXIT_NO_GUI
+
+
+def main() -> int:
+    try:
+        from dodaios.cu.indicator.renderer import run  # noqa: PLC0415
+    except ImportError as exc:
+        sys.stderr.write(
+            f"cu-indicator: PySide6 unavailable ({exc}) — indicator disabled. "
+            "Install the [desktop] extra to enable the Computer-Use screen "
+            "indicator.\n"
+        )
+        return EXIT_NO_GUI
+    return run()
+
+
+def _exit(code: int) -> None:
+    """End without interpreter finalization once the sidecar has cleaned up.
+
+    ``run()`` restores the pointer and closes every card before it returns.
+    Finalization would then free Qt objects and the stdin reader thread in an
+    arbitrary order after the QApplication, which a slow machine turns into
+    an access violation (0xC0000005) on an otherwise clean exit.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        with suppress(Exception):  # A gone parent closed the pipe; nothing to flush.
+            stream.flush()
+    os._exit(code)
+
+
+if __name__ == "__main__":
+    _exit(main())

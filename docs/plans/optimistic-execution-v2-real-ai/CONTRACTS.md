@@ -26,7 +26,7 @@ FastAPI server ── Talker.handle_utterance ──► returns INSTANT ack in t
    `fastapi`, `httpx`, `sse_starlette`, `python-dotenv` (`import dotenv`),
    `pytest`. **Do NOT `pip install` anything** (esp. NOT `litellm`/`openai` —
    the real LLM call is a thin `httpx` POST to an OpenAI-compatible endpoint).
-   No `import jarvis.*`.
+   No `import dodaios.*`.
 2. **Hardware-agnostic / config-driven.** No hardcoded GPU, CUDA, OS path,
    provider, model, URL, or key anywhere. Everything via `.env` → `config.py`.
    Refuse any OS/GPU-specific code.

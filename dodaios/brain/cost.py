@@ -1,0 +1,512 @@
+"""Cost pricing for brain providers (USD per 1M tokens).
+
+Three sources, in this order (see :func:`resolve_rates`):
+
+1. ``PRICING_USD_PER_MTOK`` — the static table below, hand-verified against
+   the vendors' own price pages. Authoritative for models called through
+   their ORIGIN API (Anthropic, Google/Vertex, OpenAI, xAI, DeepSeek …).
+2. The provider feed cached by ``dodaios/brain/model_catalog.py``
+   (``data/model_catalog_cache.json``). OpenRouter's ``/api/v1/models``
+   publishes a price for every model it routes, so a ``vendor/model`` id is
+   priced from the feed FIRST (that is what OpenRouter actually bills), and
+   an origin id the table has never heard of falls back to the feed entry
+   with the same model name (``gemini-3.7-flash`` → ``google/gemini-3.7-flash``)
+   — an honest approximation instead of $0.00.
+3. Nothing → 0.0, and the caller logs it.
+
+The static table alone shipped every new model generation as "free" until
+someone noticed (1.87M deepseek tokens in 2026-07, gemini-3.7-flash in
+2026-08). :func:`ensure_pricing_for` closes that gap at runtime: an unknown
+model triggers ONE feed refresh per process before it is priced.
+
+Static table as of 2026-08-18. Sources:
+
+- Anthropic — https://www.anthropic.com/pricing
+  (Claude Opus 4.x: $15 in / $75 out, Sonnet 4.x: $3 / $15, Haiku 4.5: $0.80 / $4)
+- Google — https://ai.google.dev/pricing
+  (Gemini 2.5 Pro: $1.25 / $10, Gemini 2.5 Flash: $0.30 / $2.50,
+   Gemini 3.6/3.7 Flash: $0.75 / $3.75)
+- OpenAI — https://openai.com/api/pricing
+  (GPT-4o: $2.50 / $10, GPT-4o-mini: $0.15 / $0.60)
+- xAI / Grok — https://console.x.ai/pricing
+  (Grok-3: $5 / $15, Grok-4.1-fast: $0.40 / $1.60,
+   Grok-4.3: $1.25 / $2.50 — doubles above 200k input)
+- DeepSeek — https://platform.deepseek.com/api-docs/pricing
+  (deepseek-chat: $0.27 / $1.10, deepseek-reasoner: $0.55 / $2.19)
+
+If a model is missing here AND in the feed, ``calculate_cost_usd`` returns
+0.0 — no crash, but also no cost tracking. Logging at the call site is
+mandatory so that missing entries become visible rather than silently
+turning into a "free" banner.
+
+Only the three short names a coding CLI accepts on its command line
+(``sonnet`` / ``opus`` / ``haiku``) are mapped, in ``MODEL_ALIASES``: mission
+workers are spawned with exactly those, and 64 drafts holding 1.78M tokens
+sat unpriced because "sonnet" matched nothing (2026-08-25). Every other
+caller passes the canonical id. PROVIDER_ALIASES in ``manager.py`` is for
+provider names, not model IDs.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from pathlib import Path
+
+log = logging.getLogger(__name__)
+
+# Mapping: model ID -> (input_per_mtok, output_per_mtok) in USD.
+# As of 2026-04-29 — frontier model update (user mandate: frontier only).
+# Older snapshots are kept so that cost tracking for historical sessions
+# continues to return values; they are NOT in the tier defaults —
+# the frontier resolver picks only the most recent variant.
+PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    # ── Anthropic Claude (Frontier: Fable 5, Sonnet 4.6, Haiku 4.5) ──
+    "claude-fable-5": (10.0, 50.0),
+    # Claude 5 family (feed-verified 2026-08-25; the CLIs' "opus" / "sonnet"
+    # aliases resolve here via MODEL_ALIASES).
+    "claude-opus-5": (5.0, 25.0),
+    # Opus 5.5 / Fable 5.1 (OpenRouter feed, 2026-09-28).
+    "claude-opus-5-5": (4.0, 20.0),
+    "claude-fable-5-1": (10.0, 50.0),
+    "claude-sonnet-5": (2.0, 10.0),
+    "claude-opus-4-8": (15.0, 75.0),
+    "claude-opus-4-7-20251022": (15.0, 75.0),
+    "claude-opus-4-7": (15.0, 75.0),
+    "claude-opus-4-5": (15.0, 75.0),
+    "claude-sonnet-4-6": (3.0, 15.0),
+    "claude-sonnet-4-5": (3.0, 15.0),
+    "claude-haiku-4-5-20251001": (0.80, 4.0),
+    "claude-haiku-4-5": (0.80, 4.0),
+    # ── Google Gemini (Frontier: 3.1-pro-preview, 3-flash) ──────────
+    "gemini-3.1-pro-preview": (2.0, 12.0),
+    "gemini-3-pro-preview": (1.50, 10.0),
+    "gemini-3-flash": (0.10, 0.40),
+    "gemini-3-flash-preview": (0.10, 0.40),
+    "gemini-3.1-flash-lite": (0.05, 0.20),
+    "gemini-2.5-pro": (1.25, 10.0),
+    # 2.5 Flash GA rates (raised from the preview's $0.075/$0.30 in 2025);
+    # re-verified against the OpenRouter feed 2026-08-18.
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-flash-lite": (0.10, 0.40),
+    "gemini-3.1-flash-tts-preview": (0.075, 0.30),  # TTS, same rate
+    # 2026-07-28 cost audit: the 3.5/3.6 flash generation is ~20x pricier
+    # than 2.5-flash; these entries were missing, so the live install
+    # tallied its dominant spend as $0.00 (verified against the OpenRouter
+    # /api/v1/models pricing feed on 2026-07-28).
+    "gemini-3.5-flash": (1.50, 9.0),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
+    # 3.6 / 3.7 Flash: $0.75 / $3.75 per ai.google.dev/gemini-api/docs/pricing
+    # (2026-08-18; promotional rate "through Dec 31, 2026"). 3.7 was missing
+    # here on 2026-08-18 and the live install showed a whole session as $0.
+    "gemini-3.6-flash": (0.75, 3.75),
+    "gemini-3.7-flash": (0.75, 3.75),
+    "gemini-3.8-flash": (0.75, 3.75),  # OpenRouter feed, 2026-09-28
+    # Live API models — TEXT rates; audio rates live in
+    # REALTIME_AUDIO_PRICING_USD_PER_MTOK below.
+    "gemini-3.1-flash-live-preview": (0.75, 4.50),
+    # 2.5 Flash native-audio Live: $0.50 / $2.00 text (ai.google.dev pricing,
+    # 2026-08-18). ``gemini-live-2.5-flash-native-audio`` is the Vertex id of
+    # the same model — VertexLiveProvider.default_model — and Vertex bills
+    # the same per-token rates.
+    "gemini-2.5-flash-native-audio-preview-12-2025": (0.50, 2.0),
+    "gemini-live-2.5-flash-native-audio": (0.50, 2.0),
+    # ── OpenAI (Frontier: GPT-5.5 + 5.5-pro, released 2026-04-23) ──
+    "gpt-5.5": (5.0, 30.0),
+    # OpenAI standard short-context rates, verified 2026-09-23:
+    # https://developers.openai.com/api/docs/pricing
+    "gpt-5.6-terra": (2.0, 12.0),
+    "gpt-5.6-sol": (4.0, 20.0),
+    "gpt-5.6-luna": (0.20, 1.20),
+    # GPT-6 generation (OpenRouter feed, 2026-09-28).
+    "gpt-6-sol": (2.0, 10.0),
+    "gpt-6-sol-pro": (2.0, 10.0),
+    "gpt-6-astra": (10.0, 50.0),
+    "gpt-6-astra-pro": (10.0, 50.0),
+    "gpt-6-luna": (0.10, 0.50),
+    "gpt-6-luna-pro": (0.10, 0.50),
+    # Not a vendor model: Codex's review pass, which runs on the session's own
+    # model. Tracks gpt-5.6-sol, the default that pass runs on.
+    "codex-auto-review": (2.0, 10.0),
+    # Moonshot Kimi, as Codex names it when routed through Ollama
+    # ("kimi-k2.5:cloud" — the variant tag is stripped in resolve_rates).
+    "kimi-k2.5": (0.6, 3.0),
+    "gpt-5.5-pro": (30.0, 180.0),  # corrected 2026-07-28 (OpenRouter feed)
+    # Realtime API — TEXT rates; audio rates in the realtime table below.
+    "gpt-realtime-2.1": (4.0, 16.0),
+    "gpt-realtime-2.1-mini": (0.60, 2.40),
+    "gpt-5": (3.0, 15.0),
+    "gpt-5-mini": (0.30, 1.20),
+    "gpt-4o": (2.50, 10.0),
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4-turbo": (10.0, 30.0),
+    # ── xAI Grok (frontier since 2026-04-30: 4.3 — faster AND
+    # smarter than 4.20; older entries kept for historical
+    # cost-tracking analysis) ────────────────────────────────────────
+    "grok-4.3": (1.25, 2.50),
+    # 82 voice calls ran on grok-4.5 with no row here and were recorded at
+    # $0.00 (2026-08-25). Rate from the OpenRouter feed for x-ai/grok-4.5,
+    # which mirrors xAI's list price.
+    "grok-4.5": (2.0, 6.0),
+    # Grok Build's transcripts name the model "grok-4.6-build". Rates confirmed
+    # to the cent against xAI's own costUsdTicks in those transcripts
+    # (2026-08-25): $2 uncached in / $0.50 cached / $6 out.
+    "grok-4.6": (2.0, 6.0),
+    "grok-4.6-build": (2.0, 6.0),
+    # Grok 4.7, released 2026-09-21. Same list price as 4.6 below 200k
+    # prompt tokens ($2 in / $0.50 cached / $6 out). The long-context band
+    # is double; this row is the short-context rate, matching 4.6 above.
+    # ``-build`` is the suffix Grok Build transcripts used for 4.6.
+    "grok-4.7": (2.0, 6.0),
+    "grok-4.7-build": (2.0, 6.0),
+    # Grok Build only. Same model, twice the token rate (xAI, 2026-09-21).
+    "grok-4.7-build-fast": (4.0, 12.0),
+    "grok-4.20": (2.0, 6.0),
+    "grok-4-0709": (5.0, 15.0),
+    "grok-4": (5.0, 15.0),
+    "grok-4.1-fast": (0.40, 1.60),
+    "grok-3": (5.0, 15.0),
+    # ── Z.ai GLM (Coding Plan / direct API) ───────────────────────────
+    # Z.ai list prices (docs.z.ai pricing page, checked 2026-10-05).
+    "glm-5.3": (1.40, 4.40),
+    "glm-5.3-flash": (0.15, 0.50),
+    "glm-5.3-flashx": (0.37, 1.25),
+    "glm-5.2": (1.40, 4.40),
+    "glm-5.1": (1.40, 4.40),
+    "glm-5": (1.00, 3.20),
+    "glm-4.7": (0.60, 2.20),
+    "glm-4.7-flashx": (0.07, 0.40),
+    "glm-4.7-flash": (0.0, 0.0),
+    "glm-4.6": (0.60, 2.20),
+    "glm-4.5": (0.60, 2.20),
+    "glm-4.5-air": (0.20, 1.10),
+    # ── DeepSeek ────────────────────────────────────────────────────
+    "deepseek-chat": (0.27, 1.10),
+    "deepseek-reasoner": (0.55, 2.19),
+    # ── OpenRouter (proxied models; rates from the OpenRouter pricing
+    # feed, re-verified 2026-07-28 — they can diverge from the origin's
+    # native-API price) ────────────────────────────────────────────────
+    "anthropic/claude-haiku-4.5": (0.80, 4.0),
+    "anthropic/claude-opus-4.8": (5.0, 25.0),
+    "anthropic/claude-opus-4.8-fast": (10.0, 50.0),
+    "anthropic/claude-opus-4.7": (15.0, 75.0),
+    "anthropic/claude-sonnet-4.6": (3.0, 15.0),
+    "google/gemini-3.5-flash": (1.50, 9.0),
+    "google/gemini-3.5-flash-lite": (0.30, 2.50),
+    # Feed values 2026-08-18 (OpenRouter lists 3.7 at half of Google's own
+    # list price). These rows are the OFFLINE fallback only — a vendor/model
+    # id is priced from the live feed first (resolve_rates).
+    "google/gemini-3.6-flash": (0.75, 3.75),
+    "google/gemini-3.7-flash": (0.375, 1.875),
+    # 2026-07-28 audit: 1.87M tokens in 30 days ran on deepseek-v4-flash
+    # while it was absent here — the single biggest remaining $0 hole.
+    "deepseek/deepseek-v4-flash": (0.14, 0.28),
+    "deepseek/deepseek-v4-pro": (0.435, 0.87),
+    # ── Mistral (same ordering) ──────────────────────────────────────
+    "mistral-small-3.1": (0.20, 0.60),
+    "mistral-large-3": (3.0, 9.0),
+}
+
+
+# What a prompt-cache READ costs relative to a fresh input token. Every
+# vendor bills cache hits at a flat discount off its own input rate, so the
+# fraction — not a second price table — is what has to be known per family:
+# Anthropic, OpenAI and xAI charge 10 %, Google's implicit caching 25 %.
+# Cache WRITES are not here: they are counted as plain input by every reader
+# (``cache_creation_input_tokens`` sits in ``tokens_in``), which under-prices
+# Anthropic's 1.25x write premium slightly rather than inventing a rate.
+CACHE_READ_FRACTION_DEFAULT = 0.10
+CACHE_READ_FRACTION_BY_PREFIX: tuple[tuple[str, float], ...] = (
+    ("glm-", 0.20),
+    ("gemini", 0.25),
+    ("google/", 0.25),
+    # Measured from xAI's own costUsdTicks (2026-08-25): a quarter, not a tenth.
+    ("grok", 0.25),
+    ("x-ai/", 0.25),
+)
+
+
+def cache_read_fraction(model: str | None) -> float:
+    """The share of the input rate a cached input token bills at."""
+    key = (model or "").strip().casefold()
+    for prefix, fraction in CACHE_READ_FRACTION_BY_PREFIX:
+        if key.startswith(prefix):
+            return fraction
+    return CACHE_READ_FRACTION_DEFAULT
+
+
+def calculate_cost_usd(
+    model: str | None,
+    tokens_in: int,
+    tokens_out: int,
+    tokens_cached: int = 0,
+) -> float:
+    """Return the cost in USD for a single brain call.
+
+    Args:
+        model: Canonical model ID (e.g. ``"claude-opus-4-7-20251022"``).
+            ``None`` or unknown → 0.0.
+        tokens_in: Prompt tokens that were NOT served from the prompt cache.
+        tokens_out: Completion tokens.
+        tokens_cached: Prompt tokens served from the cache, billed at
+            :func:`cache_read_fraction` of the input rate. A coding session
+            re-sends its whole context every turn and nearly all of it is a
+            cache hit, so pricing these at the full rate multiplies a real
+            bill by ten and ignoring them hides most of a Claude Code bill.
+
+    Returns:
+        Cost in USD. 0.0 if the model is not in the pricing table
+        or if the token counts are non-positive.
+    """
+    if not model or (tokens_in <= 0 and tokens_out <= 0 and tokens_cached <= 0):
+        return 0.0
+    rates = resolve_rates(model)
+    if rates is None:
+        log.debug("Cost pricing missing for model %r — returning 0.0", model)
+        return 0.0
+    in_rate, out_rate = rates
+    cached_rate = in_rate * cache_read_fraction(model)
+    return (
+        max(0, tokens_in) * in_rate
+        + max(0, tokens_cached) * cached_rate
+        + max(0, tokens_out) * out_rate
+    ) / 1_000_000
+
+
+# ----------------------------------------------------------------------
+# Rate resolution: static table + the cached provider feed
+# ----------------------------------------------------------------------
+
+# Feed cache: model id -> (in, out) USD per 1M tokens, plus a "same model
+# name, any vendor" index for origin ids. Reloaded whenever the catalog cache
+# file changes on disk (mtime), so a picker refresh or ensure_pricing_for()
+# is picked up by the next turn without a restart.
+_feed_rates: dict[str, tuple[float, float]] = {}
+_feed_by_name: dict[str, tuple[float, float]] = {}
+_feed_loaded: tuple[Path, float] | None = None  # (path, mtime) of what is loaded
+_feed_fetched_at: float = 0.0
+# Test hook: where the feed cache lives (default: <DATA_DIR>/model_catalog_cache.json).
+_feed_path_override: Path | None = None
+# Models that already triggered a feed refresh this process — one network
+# round-trip per unknown model, never one per turn.
+_refresh_attempted: set[str] = set()
+# A feed younger than this is not re-fetched for a model it does not list —
+# the model is simply not on OpenRouter (local weights, a Live-API id …).
+_FEED_MIN_REFRESH_AGE_S = 600.0
+
+
+def _catalog_cache_path() -> Path:
+    if _feed_path_override is not None:
+        return _feed_path_override
+    from dodaios.core import config as cfg  # lazy — keeps import light
+
+    return Path(cfg.DATA_DIR) / "model_catalog_cache.json"
+
+
+def _norm(model_id: str) -> str:
+    """``claude-sonnet-4-6`` and ``claude-sonnet-4.6`` name the same model."""
+    return model_id.strip().casefold().replace(".", "-")
+
+
+def _load_feed() -> None:
+    """(Re)load feed prices from the catalog cache when the file changed."""
+    global _feed_loaded, _feed_fetched_at
+    path = _catalog_cache_path()
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        # No catalog cache (yet) — the built-in price table applies until the
+        # catalog has been fetched once; a stale feed is dropped meanwhile.
+        if _feed_loaded is not None:
+            _feed_rates.clear()
+            _feed_by_name.clear()
+            _feed_loaded = None
+            _feed_fetched_at = 0.0
+        return
+    if _feed_loaded == (path, mtime):
+        return
+    rates: dict[str, tuple[float, float]] = {}
+    fetched_at = 0.0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for entry in data.values():
+            if not isinstance(entry, dict):
+                continue
+            fetched_at = max(fetched_at, float(entry.get("fetched_at", 0.0) or 0.0))
+            for m in entry.get("models", []) or []:
+                if not isinstance(m, dict):
+                    continue
+                pricing = m.get("pricing")
+                model_id = str(m.get("id", "") or "")
+                if not model_id or not isinstance(pricing, list) or len(pricing) != 2:
+                    continue
+                rates[model_id] = (float(pricing[0]), float(pricing[1]))
+    except (OSError, ValueError, TypeError) as exc:
+        log.debug("Feed pricing unavailable from %s: %s", path, exc)
+        rates = {}
+    by_name: dict[str, tuple[float, float]] = {}
+    # Sorted → deterministic when two vendors publish the same model name;
+    # ``:free`` / ``:batch`` / ``:nitro`` variants are NOT the plain model.
+    for model_id in sorted(rates):
+        _vendor, sep, name = model_id.partition("/")
+        if not sep or ":" in name:
+            continue
+        by_name.setdefault(_norm(name), rates[model_id])
+    _feed_rates.clear()
+    _feed_rates.update(rates)
+    _feed_by_name.clear()
+    _feed_by_name.update(by_name)
+    _feed_loaded = (path, mtime)
+    _feed_fetched_at = fetched_at
+
+
+def feed_rates(model: str) -> tuple[float, float] | None:
+    """(in, out) USD per 1M tokens from the cached provider feed, or ``None``.
+
+    Exact id first; an id without a vendor prefix matches the feed entry of
+    the same model name under any vendor (``.``/``-`` insensitive).
+    """
+    if not model:
+        return None
+    _load_feed()
+    exact = _feed_rates.get(model)
+    if exact is not None:
+        return exact
+    if "/" in model:
+        return None
+    return _feed_by_name.get(_norm(model))
+
+
+#: The short names a vendor CLI resolves to its current model of that
+#: family. Kept to the frontier entry of each family so a spawn that said
+#: "sonnet" is priced as the Sonnet the CLI actually ran.
+MODEL_ALIASES: dict[str, str] = {
+    "sonnet": "claude-sonnet-5",
+    "opus": "claude-opus-5-5",
+    "haiku": "claude-haiku-4-5",
+}
+
+
+def resolve_rates(model: str | None) -> tuple[float, float] | None:
+    """The (in, out) USD-per-1M-token rates for ``model``, or ``None``.
+
+    A ``vendor/model`` id is an aggregator id → the aggregator's feed is what
+    it bills, so the feed wins over the static row (the row is the offline
+    fallback). An origin id trusts the hand-verified table first and falls
+    back to the feed's entry for the same model name.
+    """
+    if not model:
+        return None
+    model = MODEL_ALIASES.get(model.strip().casefold(), model)
+    if "/" in model:
+        rates = feed_rates(model) or PRICING_USD_PER_MTOK.get(model)
+    else:
+        rates = PRICING_USD_PER_MTOK.get(model) or feed_rates(model)
+    if rates is not None:
+        return rates
+    # An Ollama-style variant tag ("kimi-k2.5:cloud", "qwen3:32b") prices as
+    # the untagged model. ":free" is not a variant — it is the free tier and
+    # price_entry settles it before ever asking here — so it stays unknown.
+    base, sep, tag = model.partition(":")
+    if sep and tag and tag != "free":
+        return resolve_rates(base)
+    return None
+
+
+async def ensure_pricing_for(model: str | None, *, timeout_s: float = 3.0) -> bool:
+    """Make ``model`` priceable if the provider feed can do it; True when priced.
+
+    Cheap when the model is already known. Otherwise ONE catalog refresh per
+    unknown model per process, capped at ``timeout_s`` — a turn is delayed by
+    at most that once, never per turn. Never raises. Skipped for a feed
+    fetched within the last 10 minutes (the model is not on the feed at all)
+    and under the airgapped privacy profile (no outbound call).
+    """
+    if not model:
+        return False
+    if resolve_rates(model) is not None:
+        return True
+    if model in _refresh_attempted:
+        return False
+    _refresh_attempted.add(model)
+    try:
+        from dodaios.core import config as cfg  # lazy
+
+        profile = getattr(getattr(cfg, "profile", None), "name", "default")
+        if profile == "airgapped":
+            return False
+        _load_feed()
+        if _feed_fetched_at and time.time() - _feed_fetched_at < _FEED_MIN_REFRESH_AGE_S:
+            return False
+        from dodaios.brain import model_catalog as mc  # lazy (httpx)
+
+        # The process-wide instance shares its memory copy with the picker
+        # routes; a redirected feed (tests) gets its own instance on that path.
+        catalog = (
+            mc.shared_catalog()
+            if _feed_path_override is None
+            else mc.ModelCatalog(cache_path=_feed_path_override)
+        )
+        await asyncio.wait_for(catalog.list_models("openrouter", force_refresh=True), timeout_s)
+    except Exception as exc:  # noqa: BLE001 — pricing never breaks a turn
+        log.debug("Feed pricing refresh for %r skipped: %s", model, exc)
+        return False
+    return resolve_rates(model) is not None
+
+
+# Realtime/Live API audio token rates (USD per 1M AUDIO tokens).
+# Audio tokens are billed 4-40x above the same model's text tokens, so
+# realtime cost accounting that prices everything at text rates
+# understates the bill dramatically. Sources (2026-07-28):
+# - Google Live API: gemini-3.1-flash-live-preview $3.00 in / $12.00 out
+# - OpenAI Realtime: gpt-realtime-2.1 $32 in / $64 out,
+#   gpt-realtime-2.1-mini $10 in / $20 out
+REALTIME_AUDIO_PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    "gemini-3.1-flash-live-preview": (3.0, 12.0),
+    # 2.5 Flash native audio (AI Studio id + Vertex id): $3.00 in / $12.00
+    # out per ai.google.dev/gemini-api/docs/pricing, 2026-08-18.
+    "gemini-2.5-flash-native-audio-preview-12-2025": (3.0, 12.0),
+    "gemini-live-2.5-flash-native-audio": (3.0, 12.0),
+    "gpt-realtime-2.1": (32.0, 64.0),
+    "gpt-realtime-2.1-mini": (10.0, 20.0),
+}
+
+
+def calculate_realtime_cost_usd(
+    model: str | None,
+    text_in: int,
+    text_out: int,
+    audio_in: int,
+    audio_out: int,
+) -> float:
+    """Return the cost of a realtime/Live turn with per-modality rates.
+
+    Text tokens use ``PRICING_USD_PER_MTOK``; audio tokens use
+    ``REALTIME_AUDIO_PRICING_USD_PER_MTOK``. A model missing from the
+    audio table falls back to its text rates for the audio share (still
+    better than 0.0), and a fully unknown model returns 0.0 like
+    :func:`calculate_cost_usd`.
+    """
+    if not model:
+        return 0.0
+    total = calculate_cost_usd(model, text_in, text_out)
+    audio_rates = REALTIME_AUDIO_PRICING_USD_PER_MTOK.get(model)
+    if audio_rates is None:
+        total += calculate_cost_usd(model, audio_in, audio_out)
+    else:
+        a_in, a_out = audio_rates
+        total += (max(0, audio_in) * a_in + max(0, audio_out) * a_out) / 1_000_000
+    return total
+
+
+__all__ = [
+    "PRICING_USD_PER_MTOK",
+    "REALTIME_AUDIO_PRICING_USD_PER_MTOK",
+    "calculate_cost_usd",
+    "calculate_realtime_cost_usd",
+    "ensure_pricing_for",
+    "feed_rates",
+    "resolve_rates",
+]

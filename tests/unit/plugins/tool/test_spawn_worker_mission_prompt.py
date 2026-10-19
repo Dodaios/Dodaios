@@ -16,9 +16,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.spawn_worker import (
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.spawn_worker import (
     SpawnWorkerTool,
     _build_mission_prompt,
 )

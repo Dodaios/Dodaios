@@ -1,4 +1,4 @@
-"""Unit tests for the persona loader (`jarvis.brain.persona_loader`).
+"""Unit tests for the persona loader (`dodaios.brain.persona_loader`).
 
 Covers:
 - Extraction of the first code fence after `## System-Prompt`.
@@ -10,14 +10,14 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-# `jarvis.brain.__init__` pulls in the BrainManager + safety chain —
+# `dodaios.brain.__init__` pulls in the BrainManager + safety chain —
 # the latter had WIP dependencies outside this scope at refactor time.
 # The persona loader itself has no brain imports, so we isolate it
 # with `importlib.util` from the file path.
 _loader_spec = importlib.util.spec_from_file_location(
-    "jarvis.brain.persona_loader",
+    "dodaios.brain.persona_loader",
     Path(__file__).resolve().parents[3]
-    / "jarvis"
+    / "dodaios"
     / "brain"
     / "persona_loader.py",
 )
@@ -206,9 +206,9 @@ def test_persona_loader_path_points_to_real_file() -> None:
 def test_persona_ends_with_the_ending_the_call_section() -> None:
     """The realtime path cuts ``ENDING THE CALL`` to the end of the text, so the
     section must be the last one; the legacy sentinel is gone."""
-    from jarvis.brain.persona_loader import invalidate_cache, load_persona_prompt
-    from jarvis.realtime.session import _realtime_persona
-    from jarvis.speech.hangup import END_CALL_SIGNAL
+    from dodaios.brain.persona_loader import invalidate_cache, load_persona_prompt
+    from dodaios.realtime.session import _realtime_persona
+    from dodaios.speech.hangup import END_CALL_SIGNAL
 
     invalidate_cache()
     try:

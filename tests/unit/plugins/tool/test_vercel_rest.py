@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import httpx
 
-from jarvis.plugins.tool.vercel_rest import VercelRestTool
+from dodaios.plugins.tool.vercel_rest import VercelRestTool
 
 
 def _tool(token, handler):

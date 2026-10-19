@@ -43,8 +43,8 @@ def test_retargeted_blocking_route_is_new_even_with_the_same_name() -> None:
 
 
 def test_reference_drift_is_blocking_only_when_its_inputs_change() -> None:
-    assert not reference_drift_is_new({"jarvis/ui/web/agent_chat_routes.py"})
-    assert reference_drift_is_new({"jarvis/commands/registry.py"})
+    assert not reference_drift_is_new({"dodaios/ui/web/agent_chat_routes.py"})
+    assert reference_drift_is_new({"dodaios/commands/registry.py"})
 
 
 def test_missing_base_fails_closed() -> None:

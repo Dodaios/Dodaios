@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     RealtimeSessionReady,
     ResponseGenerated,
     SpeechSpoken,
@@ -16,9 +16,9 @@ from jarvis.core.events import (
     VoiceTurnCompleted,
     VoiceTurnStarted,
 )
-from jarvis.sessions.formatter import format_session_plain
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
+from dodaios.sessions.formatter import format_session_plain
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
 
 
 @pytest.mark.asyncio
