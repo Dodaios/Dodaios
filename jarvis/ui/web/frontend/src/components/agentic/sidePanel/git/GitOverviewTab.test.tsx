@@ -84,7 +84,7 @@ beforeEach(() => {
       }
       if (url.includes("/api/agentic-ide/panes")) {
         const pane = (key: string, display_name: string, recap: string) => ({
-          workspace_id: "w1", workspace_name: "App", folder: "/code/app", workspace_active: true, key, history_id: key, name: key,
+          workspace_id: "w1", workspace_name: "App", folder: "/code/app", workspace_active: true, key: key.toLowerCase(), history_id: key, name: key,
           agent: display_name.toLowerCase(), display_name, accepts_prompts: true, status: "live", exit_code: null, activity: "idle",
           activity_since: 0, worked: true, started_at: null, last_output_at: null, last_prompt: "", last_prompt_at: null, recap,
           has_resume: true, readable: true, account: null, account_label: null, archived: false,
