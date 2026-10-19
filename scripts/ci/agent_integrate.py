@@ -55,9 +55,15 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.ci import merge_freeze  # noqa: E402
+
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
 FRONTEND = "dodaios/ui/web/frontend"
 
@@ -808,6 +814,275 @@ def grant_updates(wanted: list[dict[str, object]], max_updates: int) -> set[int]
     return {int(str(entry["number"])) for entry in chosen}
 
 
+# ----- watchdog: pull requests whose agent stopped before they landed
+#
+# A coding agent's session can end before its pull request lands. Each tick
+# the train looks for the ones that stopped moving, and says so once:
+#
+# * stuck   - green CI but neither queued nor set to auto-merge for
+#             GREEN_IDLE_MINUTES; red CI and no new commit for
+#             RED_IDLE_MINUTES; or a conflict the train could not resolve.
+#             The label goes again as soon as the pull request moves.
+# * stale   - no commit for STALE_DAYS (drafts too); closed after CLOSE_DAYS
+#             unless labelled `keep`.
+# * a merge freeze (scripts/ci/merge_freeze.py) holds every other pull
+#   request out of the queue; an expired one is pointed out once.
+
+STUCK_LABEL = "stuck"
+STALE_LABEL = "stale"
+KEEP_LABEL = "keep"
+GREEN_IDLE_MINUTES = 30.0
+RED_IDLE_MINUTES = 60.0
+STALE_DAYS = 7.0
+CLOSE_DAYS = 14.0
+# The integrate job commits as this author; its merges of main are not the
+# pull request's own activity.
+TRAIN_AUTHOR = "jarvis-merge-train[bot]"
+STALE_EXEMPT = {KEEP_LABEL, "needs-human", merge_freeze.FREEZE_LABEL, *OPT_OUT_LABELS}
+DEPENDABOT_LOGINS = {"dependabot", "dependabot[bot]", "app/dependabot"}
+TRAIN_LABELS: dict[str, tuple[str, str]] = {
+    STUCK_LABEL: ("d93f0b", "The merge train found this pull request not moving"),
+    STALE_LABEL: ("cfd3d7", "No commit for 7 days; the merge train closes it after 14"),
+    KEEP_LABEL: ("0e8a16", "Never closed as stale by the merge train"),
+    merge_freeze.FREEZE_LABEL: ("b60205", "Holds main still for this pull request (2 h at most)"),
+}
+STALE_WARNING = "No activity for 7 days; this closes in 7 more days unless labelled `keep`."
+STALE_MARKER = "<!-- merge-train:stale-warning -->"
+STALE_CLOSING = (
+    "No activity for 14 days, so the merge train closes this pull request. "
+    "Reopen it and push a commit to continue, or label it `keep` before reopening."
+)
+FREEZE_EXPIRED = (
+    "This merge freeze is older than 2 h and no longer holds main. "
+    "Remove the `merge-freeze` label when done, or re-add it to renew."
+)
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _try_json(*args: str) -> object:
+    """``gh_json`` that answers ``None`` instead of raising: the watchdog
+    never stops the train."""
+    try:
+        return gh_json(*args)
+    except (subprocess.CalledProcessError, OSError, ValueError):
+        return None
+
+
+def _age(stamp: str | None, now: datetime, unit: float) -> float | None:
+    """Age of an ISO time stamp in ``unit`` seconds; ``None`` when unknown."""
+    when = merge_freeze.parse_time(stamp)
+    return None if when is None else (now - when).total_seconds() / unit
+
+
+def run_finished_at(runs: list[dict]) -> str | None:
+    """When the newest ``pull_request`` CI run of a head finished, or ``None``
+    while it runs (the same run ``run_state`` reads its verdict from)."""
+    pr_runs = [r for r in runs if r.get("event") == "pull_request"]
+    if not pr_runs or any(r.get("status") in _ACTIVE for r in pr_runs):
+        return None
+    latest = max(pr_runs, key=lambda r: r.get("created_at") or "")
+    return latest.get("updated_at") if latest.get("status") == "completed" else None
+
+
+def failing_jobs(repo: str, run_id: int | None, limit: int = 5) -> list[str]:
+    """Names of the failed jobs of a CI run (the first ``limit``)."""
+    if not run_id:
+        return []
+    data = _try_json("api", f"repos/{repo}/actions/runs/{run_id}/jobs?filter=latest&per_page=100")
+    jobs = data.get("jobs", []) if isinstance(data, dict) else []
+    names = [
+        str(job.get("name"))
+        for job in jobs
+        if isinstance(job, dict) and job.get("conclusion") in ("failure", "timed_out")
+    ]
+    # The `CI gate` job only repeats that another one failed.
+    names = [name for name in names if name != "CI gate"] or names
+    return names[:limit] + (["..."] if len(names) > limit else [])
+
+
+def watch_verdict(
+    *,
+    number: int,
+    action: str,
+    state: str,
+    merge_state: str,
+    labels: set[str] | list[str],
+    auto_merge: bool,
+    idle_minutes: float | None,
+    frozen: bool = False,
+    failing: list[str] | None = None,
+) -> dict[str, object] | None:
+    """Why one eligible pull request is stuck, and the one next step; ``None``
+    while it moves. ``idle_minutes``: since its head's CI run finished."""
+    if action == "queued" or auto_merge:
+        return None  # GitHub lands it on its own
+    if merge_state == "DIRTY" and "needs-rebase" in labels:
+        # The train already said so with `needs-rebase`; only the label is added.
+        return {
+            "reason": "conflict",
+            "why": "it conflicts with `main` and the merge train could not resolve it",
+            "step": "Merge `main` into this branch and resolve the conflicts: "
+            "`python scripts/agent_land.py --pr`.",
+            "comment": False,
+        }
+    if idle_minutes is None:
+        return None
+    if (
+        state == "success"
+        and merge_state != "DIRTY"
+        and not frozen
+        and idle_minutes >= GREEN_IDLE_MINUTES
+    ):
+        if action == "held":
+            step = (
+                "Push a fix for what failed in the merge queue (or re-add the pull "
+                "request to the queue by hand if it was a flake)."
+            )
+        else:
+            step = f"Request auto-merge: `gh pr merge {number} --auto --squash`."
+        return {
+            "reason": "green-idle",
+            "why": f"its CI has been green for {idle_minutes:.0f} min, but it is neither "
+            "in the merge queue nor set to auto-merge",
+            "step": step,
+            "comment": True,
+        }
+    if state == "failure" and idle_minutes >= RED_IDLE_MINUTES:
+        names = ", ".join(f"`{name}`" for name in failing or [])
+        return {
+            "reason": "red-idle",
+            "why": f"its CI has been red for {idle_minutes:.0f} min with no new commit",
+            "step": f"Fix the failing checks: {names}." if names else "Fix the failing checks.",
+            "comment": True,
+        }
+    return None
+
+
+def stuck_marker(head: str) -> str:
+    return f"<!-- merge-train:stuck:{head} -->"
+
+
+def freeze_marker(freeze: merge_freeze.Freeze) -> str:
+    since = freeze.since.isoformat() if freeze.since else "unknown"
+    return f"<!-- merge-train:freeze-expired:{since} -->"
+
+
+def already_told(repo: str, number: int, marker: str) -> bool:
+    """Whether a train comment carrying ``marker`` is on the pull request.
+    Unknown counts as told: a missed note is cheaper than a repeated one."""
+    data = _try_json("pr", "view", str(number), "--repo", repo, "--json", "comments")
+    if not isinstance(data, dict):
+        return True
+    return any(marker in str(c.get("body") or "") for c in data.get("comments") or [])
+
+
+def _author(pr: dict) -> str:
+    author = pr.get("author") or {}
+    return str(author.get("login") or "") if isinstance(author, dict) else ""
+
+
+def stale_candidate(pr: dict) -> bool:
+    """A pull request the abandoned-PR sweep may look at: an eligible one,
+    drafts included, never Dependabot's."""
+    branch = pr.get("headRefName") or ""
+    if _author(pr) in DEPENDABOT_LOGINS or branch.startswith("dependabot/"):
+        return False
+    if pr.get("baseRefName") != "main" or pr.get("isCrossRepository"):
+        return False
+    labels = {label["name"] for label in pr.get("labels", [])}
+    # The opt-out labels are checked by ``stale_verdict``, which also lifts
+    # `stale` again when one of them is added.
+    return OPT_IN_LABEL in labels or branch.startswith(AGENT_BRANCH_PREFIXES)
+
+
+def stale_verdict(labels: set[str], idle_days: float, labelled_days: float | None) -> str | None:
+    """warn | close | unstale | None for one candidate.
+
+    ``idle_days``: since its last own commit. ``labelled_days``: since the
+    ``stale`` label went on (``None`` when unknown - then it is never closed,
+    so a pull request is always warned a full week before it closes)."""
+    if labels & STALE_EXEMPT or idle_days < STALE_DAYS:
+        return "unstale" if STALE_LABEL in labels else None
+    if STALE_LABEL not in labels:
+        return "warn"
+    if (
+        idle_days >= CLOSE_DAYS
+        and labelled_days is not None
+        and labelled_days >= CLOSE_DAYS - STALE_DAYS
+    ):
+        return "close"
+    return None
+
+
+_ACTIVITY_QUERY = (
+    "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){"
+    "pullRequests(states:OPEN,first:100,orderBy:{field:CREATED_AT,direction:DESC}){nodes{"
+    "number commits(last:20){nodes{commit{committedDate author{name}}}}}}}}"
+)
+
+
+def last_activity(repo: str) -> dict[int, str]:
+    """The newest commit of each open pull request that the train did not
+    make. When the last twenty are all the train's, the oldest of them: the
+    pull request's own last commit is older still, so it is never read as
+    staler than it is."""
+    owner, name = repo.split("/", 1)
+    data = _try_json(
+        "api", "graphql", "-f", f"query={_ACTIVITY_QUERY}", "-f", f"owner={owner}", "-f",
+        f"name={name}",
+    )  # fmt: skip
+    repository = ((data or {}).get("data") or {}).get("repository") or {}  # type: ignore[union-attr]
+    nodes = (repository.get("pullRequests") or {}).get("nodes") or []
+    found: dict[int, str] = {}
+    for node in nodes:
+        commits = [
+            (c.get("commit") or {}) for c in ((node or {}).get("commits") or {}).get("nodes") or []
+        ]
+        stamps = [str(c.get("committedDate") or "") for c in commits]
+        own = [
+            str(c.get("committedDate") or "")
+            for c in commits
+            if ((c.get("author") or {}).get("name") or "") != TRAIN_AUTHOR
+        ]
+        if own and max(own):
+            found[int(node["number"])] = max(own)
+        elif any(stamps):
+            found[int(node["number"])] = min(s for s in stamps if s)
+    return found
+
+
+def stale_sweep(repo: str, prs: list[dict], now: datetime) -> list[dict[str, object]]:
+    """One entry per abandoned-PR action (warn, close, unstale). A pull
+    request whose activity cannot be read is left alone."""
+    activity = last_activity(repo)
+    sweep: list[dict[str, object]] = []
+    for pr in prs:
+        if not stale_candidate(pr):
+            continue
+        number = int(pr["number"])
+        labels = {label["name"] for label in pr.get("labels", [])}
+        stamp = activity.get(number)
+        if not stamp:
+            continue
+        # A pull request opened today on old commits is not idle.
+        stamp = max(stamp, str(pr.get("createdAt") or ""))
+        idle_days = _age(stamp, now, 86400)
+        if idle_days is None:
+            continue
+        labelled_days = None
+        if STALE_LABEL in labels and idle_days >= CLOSE_DAYS:
+            events = merge_freeze.issue_events(repo, number, lambda args: _try_json(*args))
+            since = merge_freeze.labelled_at(events, STALE_LABEL)
+            labelled_days = None if since is None else (now - since).total_seconds() / 86400
+        verdict = stale_verdict(labels, idle_days, labelled_days)
+        if verdict:
+            sweep.append({"number": number, "action": verdict, "idle_days": round(idle_days, 1)})
+    return sweep
+
+
 # GitHub computes mergeability on demand: the first listing after a push to
 # main answers UNKNOWN for every pull request and only starts the computation.
 SETTLE_ATTEMPTS = 6
@@ -842,7 +1117,7 @@ def open_pull_requests(
             "100",
             "--json",
             "id,number,title,headRefName,headRefOid,isDraft,labels,baseRefName,"
-            "isCrossRepository,mergeable",
+            "isCrossRepository,mergeable,mergeStateStatus,autoMergeRequest,author,createdAt",
         )
         prs = listing if isinstance(listing, list) else []
         computing = sum(1 for pr in prs if eligible(pr) and pr.get("mergeable") == "UNKNOWN")
@@ -853,11 +1128,56 @@ def open_pull_requests(
     return prs
 
 
-def plan(repo: str, max_updates: int) -> dict[str, object]:
+def freeze_lookup(
+    repo: str, now: datetime
+) -> tuple[Callable[[int], merge_freeze.Freeze | None], list[merge_freeze.Freeze]]:
+    """(the freeze that holds a given pull request back, the expired freezes).
+    One listing per tick, however many pull requests ask."""
+    cache: dict[tuple[str, ...], object] = {}
+
+    def fetch(args: list[str]) -> object:
+        key = tuple(args)
+        if key not in cache:
+            cache[key] = _try_json(*args)
+        return cache[key]
+
+    def held_by(number: int) -> merge_freeze.Freeze | None:
+        return merge_freeze.active_freeze(repo, fetch, now=now, exempt=number)
+
+    expired = [f for f in merge_freeze.freezes(repo, fetch, now=now) if f.expired]
+    return held_by, expired
+
+
+def watch_entry(repo: str, entry: dict) -> dict[str, object] | None:
+    """``watch_verdict`` for a planned entry, plus whether its comment is
+    already on the pull request (``told``) for this head."""
+    idle = entry.get("idle_minutes")
+    failing = None
+    if entry.get("state") == "failure" and idle is not None and idle >= RED_IDLE_MINUTES:
+        failing = failing_jobs(repo, entry.get("run_id"))  # type: ignore[arg-type]
+    verdict = watch_verdict(
+        number=int(entry["number"]),
+        action=str(entry["action"]),
+        state=str(entry.get("state") or ""),
+        merge_state=str(entry.get("merge_state") or ""),
+        labels=set(entry.get("labels") or ()),
+        auto_merge=bool(entry.get("auto_merge")),
+        idle_minutes=idle,  # type: ignore[arg-type]
+        frozen=bool(entry.get("frozen_by")),
+        failing=failing,
+    )
+    if verdict and verdict["comment"]:
+        verdict["told"] = already_told(repo, int(entry["number"]), stuck_marker(str(entry["head"])))
+    return verdict
+
+
+def plan(repo: str, max_updates: int, now: datetime | None = None) -> dict[str, object]:
     """Decide what the train does this tick. Reads only; runs no PR code."""
+    now = now or _now()
     prs = open_pull_requests(repo)
     queued = merge_queue_numbers(repo)
     queue_runs = queue_runs_by_pr(queue_group_runs(repo)) if queued is not None else {}
+    held_by, expired = freeze_lookup(repo, now)
     git("fetch", "--quiet", "origin", "main")
     main_sha = git("rev-parse", "origin/main").stdout.strip()
     order = sorted(
@@ -882,6 +1202,10 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
             queue_failed=queue_rejected(queue_runs.get(number), runs),
         )
         note = f"CI {state}, {mergeable or 'unknown'}"
+        freeze = held_by(number)
+        if action == "merge" and freeze:
+            # Updates, approvals and reruns go on; nothing else lands.
+            action, note = "frozen", merge_freeze.describe(freeze)
         if action == "merge" and queued is None:
             if landing:
                 action, note = (
@@ -900,13 +1224,30 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
                 "note": note,
                 "state": state,
                 "labels": sorted(lb["name"] for lb in pr.get("labels", [])),
+                "merge_state": pr.get("mergeStateStatus") or "",
+                "auto_merge": bool(pr.get("autoMergeRequest")),
+                "idle_minutes": _age(run_finished_at(runs), now, 60),
+                "frozen_by": freeze.number if freeze else None,
             }
         )
     granted = grant_updates([e for e in entries if e["action"] == "update"], max_updates)
     for entry in entries:
         if entry["action"] == "update" and entry["number"] not in granted:
             entry["action"], entry["note"] = "wait", "needs an update, waits for a free slot"
-    return {"repo": repo, "main": main_sha, "queue": queued is not None, "entries": entries}
+        entry["watch"] = watch_entry(repo, entry)
+    notices = [
+        {"number": f.number, "marker": freeze_marker(f), "age_hours": round(f.age_hours, 1)}
+        for f in expired
+    ]
+    notices = [n for n in notices if not already_told(repo, int(n["number"]), str(n["marker"]))]
+    return {
+        "repo": repo,
+        "main": main_sha,
+        "queue": queued is not None,
+        "entries": entries,
+        "expired_freezes": notices,
+        "stale": stale_sweep(repo, prs, now),
+    }
 
 
 # ----- integrate: merge -> resolve -> finish, one worktree per pull request
@@ -1195,17 +1536,112 @@ def apply_update(
     return f"updated with main ({len(state.get('resolved', []))} conflicts auto-resolved)"
 
 
+class _Labels:
+    """Creates the train's labels once per run, the first time one is set
+    (``gh pr edit --add-label`` refuses a label the repository lacks)."""
+
+    def __init__(self, repo: str) -> None:
+        self.repo = repo
+        self.ready = False
+
+    def ensure(self) -> None:
+        if self.ready:
+            return
+        self.ready = True
+        for name, (color, description) in TRAIN_LABELS.items():
+            gh(
+                "label", "create", name, "--repo", self.repo, "--color", color,
+                "--description", description, "--force",
+            )  # fmt: skip
+
+
+def apply_watch(
+    entry: dict, verdict: dict | None, repo: str, dry_run: bool, labels: _Labels
+) -> str | None:
+    """Set or lift the ``stuck`` label for one entry; comment once per head."""
+    number = str(entry["number"])
+    has_label = STUCK_LABEL in (entry.get("labels") or [])
+    if verdict is None:
+        if not has_label:
+            return None
+        if not dry_run:
+            gh("pr", "edit", number, "--repo", repo, "--remove-label", STUCK_LABEL)
+        return f"#{number}: moving again{' (would lift' if dry_run else ' (lifted'} `stuck`)"
+    say = verdict.get("comment") and not verdict.get("told")
+    if dry_run:
+        return f"#{number}: stuck - {verdict['why']}; would label{' and comment' if say else ''}"
+    if not has_label:
+        labels.ensure()
+        gh("pr", "edit", number, "--repo", repo, "--add-label", STUCK_LABEL)
+    if say:
+        body = (
+            f"The merge train found this pull request stuck: {verdict['why']}.\n\n"
+            f"**Next step:** {verdict['step']}\n\n{stuck_marker(str(entry['head']))}"
+        )
+        gh("pr", "comment", number, "--repo", repo, "--body", body)
+    return f"#{number}: stuck - {verdict['why']}. {verdict['step']}"
+
+
+def apply_housekeeping(data: dict, dry_run: bool, labels: _Labels) -> list[str]:
+    """Expired-freeze notices and the abandoned-PR sweep."""
+    repo = data["repo"]
+    lines: list[str] = []
+    for notice in data.get("expired_freezes") or []:
+        number = str(notice["number"])
+        if dry_run:
+            lines.append(f"#{number}: merge freeze expired; would comment")
+            continue
+        body = f"{FREEZE_EXPIRED}\n\n{notice['marker']}"
+        gh("pr", "comment", number, "--repo", repo, "--body", body)
+        lines.append(f"#{number}: merge freeze expired ({notice.get('age_hours')} h); commented")
+    for item in data.get("stale") or []:
+        number, action = str(item["number"]), item["action"]
+        idle = f"no commit for {item.get('idle_days')} days"
+        if dry_run:
+            lines.append(f"#{number}: {idle}; would {action}")
+            continue
+        if action == "warn":
+            labels.ensure()
+            # Label first: if it cannot be set, no comment, so the next tick
+            # does not warn again. The marker guards against a repeat anyway.
+            if gh("pr", "edit", number, "--repo", repo, "--add-label", STALE_LABEL) != 0:
+                lines.append(f"#{number}: {idle}; could not label `stale`")
+                continue
+            if not already_told(repo, int(number), STALE_MARKER):
+                body = f"{STALE_WARNING}\n\n{STALE_MARKER}"
+                gh("pr", "comment", number, "--repo", repo, "--body", body)
+            lines.append(f"#{number}: {idle}; labelled `stale`")
+        elif action == "close":
+            gh("pr", "close", number, "--repo", repo, "--comment", STALE_CLOSING)
+            lines.append(f"#{number}: {idle}; closed")
+        elif action == "unstale":
+            gh("pr", "edit", number, "--repo", repo, "--remove-label", STALE_LABEL)
+            lines.append(f"#{number}: active again; lifted `stale`")
+    return lines
+
+
 def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
     repo = data["repo"]
     summary: list[str] = []
+    labels = _Labels(repo)
     for entry in data.get("entries", []):
         number, action, run_id = entry["number"], entry["action"], entry.get("run_id")
+        moved = False  # this tick pushed, enqueued or merged it: not stuck
+        verdict = entry.get("watch")
         if action == "update":
             try:
                 outcome = apply_update(root, data, entry, dry_run)
             except (subprocess.CalledProcessError, OSError) as exc:
                 outcome = f"update push crashed ({type(exc).__name__}); left for the next tick"
             summary.append(f"#{number}: {outcome}")
+            moved = outcome.startswith("updated with main")
+            if outcome.startswith("conflict") and not verdict:
+                verdict = watch_verdict(
+                    number=number, action=action, state="", merge_state="DIRTY",
+                    labels={"needs-rebase"}, auto_merge=False, idle_minutes=None,
+                )  # fmt: skip
+        elif action == "frozen":
+            summary.append(f"#{number}: green, not enqueued - {entry.get('note', '')}")
         elif action == "merge" and data.get("queue") and token_is_bot:
             # GitHub starts no merge_group run for an entry GITHUB_TOKEN added:
             # it would wait in the queue until the timeout and block the rest.
@@ -1216,29 +1652,31 @@ def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
         elif action == "merge" and data.get("queue"):
             if dry_run:
                 summary.append(f"#{number}: would join the merge queue")
+                moved = True
             elif enqueue(entry) == 0:
                 summary.append(f"#{number}: added to the merge queue")
+                moved = True
             else:
                 summary.append(f"#{number}: merge queue refused it (head moved or not mergeable)")
         elif action == "merge":
             if dry_run:
                 summary.append(f"#{number}: would merge")
-                continue
-            code = gh(
+                moved = True
+            elif gh(
                 "pr", "merge", str(number), "--repo", repo, "--squash",
                 "--match-head-commit", entry["head"],
-            )  # fmt: skip
-            if code == 0:
+            ) == 0:  # fmt: skip
                 summary.append(f"#{number}: merged")
+                moved = True
                 if token_is_bot:
                     dispatch_ci("main")  # a GITHUB_TOKEN merge fires no push event
             else:
                 summary.append(f"#{number}: merge refused (protection or conflict)")
         elif action in ("approve", "rerun"):
             if dry_run:
+                code = None
                 summary.append(f"#{number}: would {action} CI run {run_id}")
-                continue
-            if action == "approve":
+            elif action == "approve":
                 code = gh("api", "-X", "POST", f"repos/{repo}/actions/runs/{run_id}/approve")
             else:
                 # Only the failed and cancelled jobs: a whole-run rerun of a
@@ -1246,7 +1684,7 @@ def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
                 code = gh("run", "rerun", str(run_id), "--failed", "--repo", repo)
             if code == 0:
                 summary.append(f"#{number}: CI run {run_id} {action}d")
-            else:
+            elif code is not None:
                 summary.append(
                     f"#{number}: could not {action} CI run {run_id} - approve it in the "
                     "Actions tab or configure the merge bot app (MERGE_APP_ID)"
@@ -1260,6 +1698,10 @@ def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
             )
         else:
             summary.append(f"#{number}: waiting ({entry.get('note', '')})")
+        watched = apply_watch(entry, None if moved else verdict, repo, dry_run, labels)
+        if watched:
+            summary.append(watched)
+    summary += apply_housekeeping(data, dry_run, labels)
     lines = ["## Merge train", "", *[f"- {line}" for line in summary]]
     print("\n".join(lines))
     target = os.environ.get("GITHUB_STEP_SUMMARY")
