@@ -581,6 +581,7 @@ class WebServer:
         from .starter_plan_routes import router as starter_plan_router
         from .sub_agents_routes import router as sub_agents_router
         from .tasks_routes import router as tasks_router
+        from .self_build_routes import router as self_build_router
         from .team_thread_routes import router as team_thread_router
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
@@ -715,6 +716,9 @@ class WebServer:
         app.include_router(agentic_ide_git_router)
         app.state.team_threads = None
         app.include_router(team_thread_router)
+        # "Built for you": the self-building ledger (/api/self-build/*).
+        app.state.self_build = None
+        app.include_router(self_build_router)
         # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
         app.include_router(ide_skills_router)
         app.include_router(agentic_ide_router)
@@ -2946,6 +2950,21 @@ class WebServer:
             except Exception:  # noqa: BLE001 — health recording must never break boot
                 logger.debug("wiki health.record_bootstrap(False) failed", exc_info=True)
         _boot_mark("wiki_integration")
+
+        # The self-building loop's ledger: opens self_build.db, nothing else at
+        # boot. Observers and builders register themselves later.
+        try:
+            from dodaios.self_build.service import start as start_self_build
+
+            _self_build = start_self_build(
+                Path(self.cfg.memory.data_dir), lambda: self.cfg, publish=self.bus.publish
+            )
+            self.app.state.self_build = _self_build
+            _self_build.start_sweeper()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "self-build ledger init failed — nothing will be self-built this run"
+            )
 
         # Jarvis' own self-learning loop: two bus subscriptions, nothing else
         # at boot. Reviews run later in the background (dodaios/memory/learning).

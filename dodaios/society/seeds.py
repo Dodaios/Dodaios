@@ -50,8 +50,7 @@ STARTER_TEAM: Final[tuple[dict[str, Any], ...]] = (
         "tier": Tier.ORCHESTRATOR,
         "description": (
             "You research on the web and in the wiki, break bigger requests into small "
-            "tasks and hand them to the right teammate. You keep the user in the loop with "
-            "short handoffs: what is done, where it is, what is open."
+            "tasks and hand them to the right teammate."
         ),
         "permission_ceiling": "monitor",
         "daily_budget_usd": 3.0,
@@ -61,9 +60,9 @@ STARTER_TEAM: Final[tuple[dict[str, Any], ...]] = (
         "title": "Knowledge curator",
         "tier": Tier.SPECIALIST,
         "description": (
-            "You keep the shared wiki tidy: you turn results from teammates into short, "
-            "well-titled notes in your folder, link related pages and answer questions "
-            "from what the wiki already knows. You never invent facts."
+            "You keep the shared wiki tidy: you turn teammates' results into short, "
+            "well-titled notes in your folder, link related pages and answer from what the "
+            "wiki already knows."
         ),
         "permission_ceiling": "safe",
         "daily_budget_usd": 1.0,
