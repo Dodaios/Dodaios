@@ -13,6 +13,7 @@ import type { Activity } from "../crew/rig";
 import { findPath, isFree, nearestFree, type NavGrid } from "../nav/shipNav";
 import type { DeckPlan, Vec2 } from "../plan/types";
 import { captain } from "../shipStore";
+import { seatedCrew } from "../../crewFeeds/seated";
 import { decide, PlaceBook, type Intent, type RoundView } from "./crewLife";
 import { BODY_GAP, stepAlong, turnTowards, type Body } from "./motion";
 
@@ -128,6 +129,7 @@ export function CrewLayer(props: {
       book.release(id);
       atlas.release(id);
       crewPoses.delete(id);
+      seatedCrew.delete(id);
       live.delete(id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,7 +141,7 @@ export function CrewLayer(props: {
   }, [plan]);
 
   useEffect(() => () => {
-    for (const w of walkers.current.values()) { w.figure.dispose(); crewPoses.delete(w.id); }
+    for (const w of walkers.current.values()) { w.figure.dispose(); crewPoses.delete(w.id); seatedCrew.delete(w.id); }
     walkers.current.clear();
   }, []);
 
@@ -220,6 +222,9 @@ export function CrewLayer(props: {
         w.yaw = turnTowards(w.yaw, goal, dt, 5);
       }
       const activity: Activity = w.arrived ? (w.intent?.activity ?? "stand") : "walk";
+      // Seated at its own console: its screen is worth reading.
+      const atConsole = w.arrived && !!w.intent?.placeId && w.intent.placeId === ctxRef.current.plan.seatOf.get(w.id)?.id;
+      if (atConsole) seatedCrew.add(w.id); else seatedCrew.delete(w.id);
       w.figure.apply({ activity, t: reduced ? 0 : w.t, phase: w.phase, speed: w.speed, seatY: w.intent?.seatY, seed: w.seed }, dt);
       w.figure.group.position.set(w.x, 0, w.z);
       w.figure.group.rotation.y = w.yaw;

@@ -7,7 +7,7 @@
  * working ones.
  */
 import { CanvasTexture, SRGBColorSpace } from "three";
-import type { ChatLine } from "../../../office/deskChat";
+import type { ChatLine } from "../../../crewFeeds/deskChat";
 
 export const SCREEN_COLS = 8;
 export const SCREEN_ROWS = 8;
