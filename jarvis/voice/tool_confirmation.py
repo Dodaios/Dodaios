@@ -110,7 +110,7 @@ _IMPACT_COMMANDS_MAX_CHARS = 60
 def format_tool_confirmation(
     tool_name: str,
     *,
-    language: str = "de",
+    language: str = "en",
     impact_level: str | None = None,
     impact_commands: str | None = None,
 ) -> str:
@@ -193,7 +193,7 @@ _FAILED_DETAIL_MAX_CHARS = 160
 
 
 def format_confirm_outcome(
-    kind: str, tool_name: str, *, language: str = "de", detail: str | None = None
+    kind: str, tool_name: str, *, language: str = "en", detail: str | None = None
 ) -> str:
     """Render the outcome phrase after the user answered a confirmation.
 

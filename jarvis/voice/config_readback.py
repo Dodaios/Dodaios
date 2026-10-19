@@ -21,7 +21,7 @@ from typing import Any, Literal
 from .echo_confirmation import is_sensitive_path
 
 _SUPPORTED = ("de", "en", "es", "pt")
-_DEFAULT = "de"
+_DEFAULT = "en"
 
 # outcome key -> {lang -> template}. ``{label}`` / ``{value}`` are filled for the
 # success cases; the failure cases are deliberately generic (no path/value leak).

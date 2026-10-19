@@ -39,7 +39,7 @@ POSITIVE_CASES = [
 @pytest.mark.parametrize("text", POSITIVE_CASES)
 def test_clean_text_passes_through_unchanged(text: str) -> None:
     """Clean text is not modified, no fallback_used."""
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert isinstance(result, ScrubResult)
     assert result.cleaned == text
     assert result.actions == []
@@ -54,7 +54,7 @@ def test_clean_text_passes_through_unchanged(text: str) -> None:
 def test_tool_json_is_removed() -> None:
     """Tool-call JSON in the middle of the text is cut out entirely."""
     text = 'Sub-Jarvis startet: spawn_worker({"utterance": "test"}) — bitte warten.'  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert '{"utterance"' not in result.cleaned
     assert "spawn_worker(" not in result.cleaned
     assert "removed_tool_json" in result.actions or "removed_tool_call" in result.actions
@@ -68,7 +68,7 @@ def test_tool_call_python_keyword_args_is_removed() -> None:
         "spawn_worker(utterance='Wie kann ich das beschleunigen?', "  # i18n-allow
         "context_hints=['x', 'y'], action='analyze', target='')"
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "spawn_worker" not in result.cleaned
     assert "utterance=" not in result.cleaned
     assert "removed_tool_json" in result.actions
@@ -80,7 +80,7 @@ def test_tool_xml_tags_are_removed() -> None:
         "Ich delegiere das. <spawn_worker> <utterance>Lies die Datei</utterance>"  # i18n-allow
         " <action>x</action> </spawn_worker> Fertig."  # i18n-allow
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "<spawn_worker" not in result.cleaned
     assert "<utterance>" not in result.cleaned
     assert "removed_tool_json" in result.actions
@@ -95,7 +95,7 @@ def test_tool_kw_pattern_does_not_break_harmless_python() -> None:
     match, not every ``\\w+(...)`` call.
     """
     text = "Use print(x=1) to debug."
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     # 'print' is not in TOOL_NAMES — the call is preserved (the digit is only
     # spelled out for speech output: "print(x=eins)").
     assert "print(x=" in result.cleaned
@@ -111,7 +111,7 @@ def test_stacktrace_is_replaced_with_fallback_phrase() -> None:
         "    raise ValueError('boom')\n"
         "ValueError: boom"
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Traceback" not in result.cleaned
     assert 'File "' not in result.cleaned
     assert "ValueError" not in result.cleaned
@@ -123,7 +123,7 @@ def test_stacktrace_is_replaced_with_fallback_phrase() -> None:
 def test_markdown_is_stripped() -> None:
     """Leftover markdown (``**``, ``##``, code fences, list bullets) is removed."""
     text = "## Bericht\n\n**Wichtig:** Die Datei ist da.\n\n- Punkt eins\n- Punkt zwei"  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "**" not in result.cleaned
     assert "##" not in result.cleaned
     assert "- Punkt" not in result.cleaned  # i18n-allow
@@ -136,7 +136,7 @@ def test_markdown_is_stripped() -> None:
 def test_self_reference_is_removed() -> None:
     """``Als KI`` / ``Ich bin nur ein Sprachmodell`` are scrubbed."""
     text = "Als KI kann ich das natuerlich pruefen. Halb drei."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     low = result.cleaned.lower()
     assert "als ki" not in low  # i18n-allow
     assert "als sprachmodell" not in low  # i18n-allow
@@ -196,7 +196,7 @@ def test_background_action_narration_no_false_positive(
 def test_echo_paraphrase_in_opener_is_cut() -> None:
     """Echo paraphrase at the start of the sentence is cut off — the answer is the substance."""
     text = "Du möchtest also wissen, wie spät es ist. Halb drei."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     low = result.cleaned.lower()
     assert "du möchtest also" not in low  # i18n-allow
     assert "halb drei" in low  # i18n-allow
@@ -206,7 +206,7 @@ def test_echo_paraphrase_in_opener_is_cut() -> None:
 def test_filler_opener_is_removed() -> None:
     """``Großartige Frage`` / ``Tolle Frage`` as an opener are removed."""
     text = "Großartige Frage! Es ist halb drei."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     low = result.cleaned.lower()
     assert "großartige frage" not in low  # i18n-allow
     assert "grossartige frage" not in low
@@ -217,7 +217,7 @@ def test_filler_opener_is_removed() -> None:
 def test_engineering_jargon_is_removed() -> None:
     """``MCP``/``Subprocess``/``Provider`` as standalone words are scrubbed."""
     text = "Der Subprocess wurde via MCP-Provider gestartet."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     low = result.cleaned.lower()
     # The substance words either disappear or get rephrased — what matters is
     # that none of the three jargon words remains as a standalone word.
@@ -239,7 +239,7 @@ def test_mixed_stacktrace_with_markdown() -> None:
         '  File "/x/y.py", line 1, in <module>\n'
         "    raise RuntimeError('x')"
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Traceback" not in result.cleaned
     assert "**" not in result.cleaned
     assert "##" not in result.cleaned
@@ -249,7 +249,7 @@ def test_mixed_stacktrace_with_markdown() -> None:
 def test_mixed_tool_json_with_clean_text() -> None:
     """Tool JSON mid-sentence + clean text -> tool JSON gone, text stays."""
     text = 'Bitte: dispatch_to_admin({"op": "shutdown"}) ist nicht erlaubt.'  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "dispatch_to_admin" not in result.cleaned
     assert "{\"op\"" not in result.cleaned
     assert "ist nicht erlaubt" in result.cleaned.lower()  # i18n-allow
@@ -264,7 +264,7 @@ def test_mixed_filler_with_clean_rest() -> None:
     JARGON_RE.
     """
     text = "Tolle Frage! Die Datei jarvis.toml hat vier Brain-Modelle."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Tolle Frage" not in result.cleaned  # i18n-allow
     # User-concept words (Datei) must NOT disappear
     assert "Datei" in result.cleaned  # i18n-allow
@@ -280,7 +280,7 @@ def test_mixed_filler_with_clean_rest() -> None:
 def test_whitelist_datei_is_protected() -> None:
     """``Datei`` is NEVER scrubbed, not even as a jargon lookalike."""
     text = "Die Datei wurde gespeichert."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert result.cleaned == text
     assert result.actions == []
 
@@ -288,7 +288,7 @@ def test_whitelist_datei_is_protected() -> None:
 def test_whitelist_user_concepts_protected() -> None:
     """``Browser``/``Email``/``Terminal``/``Notiz``/``Termin``/``Kalender`` stay."""
     text = "Browser geöffnet, Email versendet, Termin im Kalender eingetragen, Notiz im Terminal gespeichert."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     for concept in ("Browser", "Email", "Termin", "Kalender", "Notiz", "Terminal"):
         assert concept in result.cleaned, f"Whitelist word {concept!r} was scrubbed"
 
@@ -314,7 +314,7 @@ def test_echo_paraphrase_mid_sentence_is_kept() -> None:
     echo_pos = text.lower().find("du möchtest also")  # i18n-allow
     assert echo_pos > 60, f"Test setup bug: echo pattern at position {echo_pos}"
 
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     # Mid-sentence echo is preserved
     assert "möchtest also" in result.cleaned.lower()  # i18n-allow
     assert "rephrased_echo" not in result.actions
@@ -329,14 +329,14 @@ def test_echo_paraphrase_mid_sentence_is_kept() -> None:
 
 def test_em_dash_becomes_comma() -> None:
     text = "Kurz nach drei — Viertel nach, genau genommen."
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "—" not in result.cleaned
     assert "Kurz nach drei, Viertel nach" in result.cleaned
 
 
 def test_en_dash_becomes_comma() -> None:
     text = "Alles bereit – wir können sofort loslegen."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "–" not in result.cleaned
     assert "Alles bereit, wir können" in result.cleaned  # i18n-allow
 
@@ -344,13 +344,13 @@ def test_en_dash_becomes_comma() -> None:
 def test_hyphen_compound_survives_em_dash_filter() -> None:
     """A plain ASCII hyphen compound has no surrounding spaces and must stay."""
     text = "Dein T-Shirt liegt im Schrank."
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "T-Shirt" in result.cleaned
 
 
 def test_trailing_em_dash_leaves_no_dangling_comma() -> None:
     text = "Im Hintergrund laufen mehrere Programme —"
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "—" not in result.cleaned
     assert not result.cleaned.endswith(",")
 
@@ -360,7 +360,9 @@ def test_ascii_double_hyphen_dash_aside_becomes_comma() -> None:
     same hard TTS pause as an em dash — collapse it to a comma too. The
     Unicode-only scrub missed it, and several canned phrases / LLM outputs use
     ' -- ' (live forensic 2026-06-30)."""
-    result = scrub_for_voice("Mach ich -- ich sage Bescheid, sobald es fertig ist.")  # i18n-allow
+    result = scrub_for_voice(
+        "Mach ich -- ich sage Bescheid, sobald es fertig ist.", language="de"  # i18n-allow
+    )
     assert "--" not in result.cleaned
     assert "Mach ich, ich sage Bescheid" in result.cleaned  # i18n-allow
 
@@ -369,7 +371,7 @@ def test_ascii_hyphen_compound_and_range_survive_double_hyphen_filter() -> None:
     """No false positive: a compound ('T-Shirt') or numeric range ('20-30') has
     no surrounding spaces and must survive the double-hyphen scrub. The range
     endpoints are spelled out for speech, but the joining hyphen is preserved."""
-    result = scrub_for_voice("Dein T-Shirt kostet 20-30 Euro.")  # i18n-allow
+    result = scrub_for_voice("Dein T-Shirt kostet 20-30 Euro.", language="de")  # i18n-allow
     assert "T-Shirt" in result.cleaned
     assert "zwanzig-dreißig" in result.cleaned  # i18n-allow
 
@@ -378,13 +380,13 @@ def test_fallback_used_true_only_for_stacktrace() -> None:
     """``fallback_used`` is only ``True`` when the whole text was replaced by
     the standard phrase (stacktrace), not for a partial scrub."""
     # A filler opener only removes part of the text — no fallback
-    result = scrub_for_voice("Großartige Frage! Halb drei.")  # i18n-allow
+    result = scrub_for_voice("Großartige Frage! Halb drei.", language="de")  # i18n-allow
     assert result.fallback_used is False
 
 
 def test_empty_input_returns_empty() -> None:
     """Empty input -> empty output, no exception."""
-    result = scrub_for_voice("")
+    result = scrub_for_voice("", language="de")
     assert result.cleaned == ""
     assert result.actions == []
     assert result.fallback_used is False
@@ -406,7 +408,7 @@ def test_empty_input_returns_empty() -> None:
 def test_sir_anrede_is_removed() -> None:  # i18n-allow
     """A1: 'Sir' as a salutation is scrubbed — mandate A1 (Ruben instead of Sir)."""
     text = "Sir, ich starte die Analyse."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     low = result.cleaned.lower()
     assert "sir" not in low.split(",")[0].split()  # not as a word in the opener
     assert "sir" not in low
@@ -417,7 +419,7 @@ def test_sir_anrede_is_removed() -> None:  # i18n-allow
 def test_sir_anrede_mid_sentence_is_removed() -> None:  # i18n-allow
     """A1: 'Sir' is also removed in the middle of a sentence (after a comma)."""
     text = "Erledigt, Sir. Die Datei ist gespeichert."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Sir" not in result.cleaned
     assert "Datei" in result.cleaned  # i18n-allow
     assert "removed_anrede_drift" in result.actions  # i18n-allow
@@ -431,14 +433,14 @@ def test_legitimate_sir_in_quote_is_kept() -> None:
     quotes is not scrubbed.
     """
     text = 'Im Lied steht: "Yes, Sir, I can boogie." — kennst du das?'  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Sir" in result.cleaned, "Sir inside the quote was scrubbed by mistake"
 
 
 def test_sub_agent_jargon_is_removed() -> None:
     """'Sub-Agent' as an engineering reveal is removed — probe drift 03/07."""
     text = "Ich starte einen Sub-Agent, der die Datei analysiert."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Sub-Agent" not in result.cleaned
     assert "sub-agent" not in result.cleaned.lower()
     # Core content remains
@@ -465,7 +467,7 @@ def test_agent_compound_leaves_a_sentence_not_a_hole() -> None:
 
 def test_agent_compound_keeps_the_german_declension() -> None:
     """"einen Subagenten" must not become "einen Agent" — nor "einen"."""
-    result = scrub_for_voice("Ich starte dafür einen Subagenten.")  # i18n-allow
+    result = scrub_for_voice("Ich starte dafür einen Subagenten.", language="de")  # i18n-allow
     assert result.cleaned == "Ich starte dafür einen Agenten."  # i18n-allow
 
 
@@ -476,7 +478,8 @@ def test_agent_compound_announcement_survives() -> None:
     of a spawn with the spawned thing deleted out of it.
     """
     cleaned = scrub_for_voice(
-        "Ich aktiviere einen Subagent für die Aufgabe."  # i18n-allow
+        "Ich aktiviere einen Subagent für die Aufgabe.",  # i18n-allow
+        language="de",
     ).cleaned
     assert "Subagent" not in cleaned
     assert "Agent" in cleaned
@@ -494,7 +497,7 @@ def test_official_jarvis_agent_label_is_preserved() -> None:
 def test_supervisor_agent_jargon_is_removed() -> None:
     """'Supervisor-Agent' as an engineering reveal is removed — probe drift 13."""
     text = "Dein persoenlicher Supervisor-Agent erledigt das."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Supervisor-Agent" not in result.cleaned
     assert "supervisor-agent" not in result.cleaned.lower()
     assert "erledigt" in result.cleaned.lower()  # i18n-allow
@@ -523,7 +526,7 @@ def test_tool_args_yaml_block_is_removed() -> None:
         'action: "die Beschleunigung einer unklaren Aufgabe analysiert"\n'  # i18n-allow
         'target: ""'
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "context_hints" not in result.cleaned
     assert "action:" not in result.cleaned
     assert "target:" not in result.cleaned
@@ -542,7 +545,7 @@ def test_post_scrub_residue_triggers_fallback() -> None:
     """
     # Only a '}' remains — nothing else
     text = '<spawn_worker>{"utterance": "test"}</spawn_worker>}'
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     # Either fallback_used=True OR cleaned is empty (both acceptable)
     assert (result.fallback_used and result.cleaned), (
         f"Post-scrub residue {result.cleaned!r} was not replaced by the fallback"
@@ -554,7 +557,7 @@ def test_post_scrub_meaningful_text_no_fallback() -> None:
     """Defense against the fallback trigger: substantial remaining text does
     NOT trigger fallback_used."""
     text = "Erledigt. Die Datei ist da."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert result.fallback_used is False
     assert "Datei" in result.cleaned  # i18n-allow
 
@@ -580,7 +583,7 @@ def test_anthropic_function_calls_block_is_removed() -> None:
         '</function_calls>\n'
         'Fertig.'  # i18n-allow
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "<function_calls>" not in result.cleaned
     assert "<invoke" not in result.cleaned
     assert "<parameter" not in result.cleaned
@@ -602,7 +605,7 @@ def test_generic_tool_call_tags_are_removed() -> None:
         '</tool_response>\n'
         '09:17 Uhr.'  # i18n-allow
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "<tool_call>" not in result.cleaned
     assert "</tool_call>" not in result.cleaned
     assert "<tool_response>" not in result.cleaned
@@ -620,7 +623,7 @@ def test_base64_image_block_is_removed() -> None:
         + 'A' * 800
         + '. Fertig.'  # i18n-allow
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     # The base64 block is gone
     assert ("A" * 200) not in result.cleaned, "Long base64 sequence not removed"
     assert "data:image" not in result.cleaned
@@ -632,7 +635,7 @@ def test_short_clean_alphanumeric_is_kept() -> None:
     """Defense against base64 false positives: short alphanumeric strings
     (e.g. file names, hashes, tokens in ordinary communication) stay."""
     text = "Die Datei abc123def456 wurde gespeichert."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "abc123def456" in result.cleaned
     assert result.actions == []
 
@@ -661,7 +664,7 @@ def test_filler_selbstreferenz_opener_is_removed(opener: str, rest: str) -> None
     the user isn't meant to hear the phrase anyway.
     """
     text = f"{opener} {rest}"
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     low = result.cleaned.lower()
     assert "lass mich kurz" not in low  # i18n-allow
     assert "let me think" not in low
@@ -688,7 +691,7 @@ def test_filler_selbstreferenz_mid_sentence_is_kept() -> None:  # i18n-allow
     pos = text.lower().find("lass mich kurz")  # i18n-allow
     assert pos > 60, f"Test setup bug: pos={pos}"
 
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "lass mich kurz" in result.cleaned.lower()  # i18n-allow
     assert "removed_filler_opener" not in result.actions
 
@@ -715,7 +718,7 @@ def test_tool_call_prose_with_keys_is_removed() -> None:
         "erfassen action is das Projekt analysiert target is Arbeitsordner. "  # i18n-allow
         "Fertig."  # i18n-allow
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "spawn_worker" not in result.cleaned
     assert "utterance is" not in result.cleaned
     assert "context_hints" not in result.cleaned
@@ -729,7 +732,7 @@ def test_tool_call_prose_with_keys_is_removed() -> None:
 def test_tool_args_prose_without_tool_name_is_removed() -> None:
     """'utterance is X' alone (without a tool-name prefix) is also scrubbed."""
     text = "Ich versuche es. utterance is lies die Datei. Fertig."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "utterance is" not in result.cleaned
     assert "removed_tool_json" in result.actions
     assert "Ich versuche es" in result.cleaned  # i18n-allow
@@ -744,7 +747,7 @@ def test_legitimate_is_sentence_is_kept() -> None:
     'Es' are not tool-arg keys.
     """
     text = "Es ist halb drei. Die Datei ist gespeichert."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "ist halb drei" in result.cleaned  # i18n-allow
     assert "Datei ist gespeichert" in result.cleaned  # i18n-allow
     assert "removed_tool_json" not in result.actions
@@ -765,7 +768,7 @@ def test_openclaw_brand_name_is_scrubbed() -> None:
         "Mach ich, ich lasse dafür einen OpenClaw-Subagent "  # i18n-allow
         "ein Hello-World-Programm schreiben."  # i18n-allow
     )
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "OpenClaw" not in result.cleaned
     assert "Subagent" not in result.cleaned
     assert "removed_engineering_jargon" in result.actions
@@ -774,7 +777,7 @@ def test_openclaw_brand_name_is_scrubbed() -> None:
 def test_bare_subagent_still_scrubbed_without_brand_prefix() -> None:
     """A bare 'Subagent' / 'Sub-Agent' without a brand prefix stays scrubbed."""
     text = "Ich aktiviere einen Subagent für die Aufgabe."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "Subagent" not in result.cleaned
     assert "removed_engineering_jargon" in result.actions
 
@@ -782,7 +785,7 @@ def test_bare_subagent_still_scrubbed_without_brand_prefix() -> None:
 def test_openclaw_compound_prefix_stripped_but_noun_kept() -> None:
     """The retired 'OpenClaw-Mission' brand prefix is stripped, the noun 'Mission' stays."""
     text = "Die OpenClaw-Mission ist fertig."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "OpenClaw" not in result.cleaned
     assert "Mission" in result.cleaned
 
@@ -790,7 +793,7 @@ def test_openclaw_compound_prefix_stripped_but_noun_kept() -> None:
 def test_openclaw_subagenten_plural_also_scrubbed() -> None:
     """The plural 'OpenClaw-Subagenten' (retired brand) must also be scrubbed."""
     text = "Mehrere OpenClaw-Subagenten arbeiten parallel."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "OpenClaw" not in result.cleaned
     assert "Subagenten" not in result.cleaned
 
@@ -816,7 +819,7 @@ def test_scrub_strips_end_call_sentinel() -> None:
 def test_http_url_is_stripped_from_voice() -> None:
     """A spoken answer must never read out an http(s) URL."""
     text = "Die Prüfung dauert 190 Minuten. Mehr unter https://www.km.bayern.de/schueler.html"  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "http" not in result.cleaned.lower()
     assert "km.bayern.de" not in result.cleaned.lower()
     assert "einhundertneunzig minuten" in result.cleaned.lower()  # i18n-allow
@@ -826,7 +829,7 @@ def test_http_url_is_stripped_from_voice() -> None:
 def test_serp_more_results_footer_is_stripped() -> None:
     """The 'Weitere Ergebnisse von <domain>' SERP footer is never spoken."""
     text = "Note 2 gibt es ab 34,5 Punkten. Weitere Ergebnisse von www.gutefrage.net"
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     low = result.cleaned.lower()
     assert "gutefrage" not in low
     assert "weitere ergebnisse" not in low
@@ -837,7 +840,7 @@ def test_serp_more_results_footer_is_stripped() -> None:
 def test_bare_www_domain_is_stripped_from_voice() -> None:
     """A bare www-domain hit reference is stripped (English/Spanish SERP too)."""
     text = "Insgesamt 190 Minuten. Mehr dazu: www.realschule.bayern.de Viel Erfolg."
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert "www." not in result.cleaned.lower()
     assert "realschule.bayern.de" not in result.cleaned.lower()
     assert "einhundertneunzig minuten" in result.cleaned.lower()
@@ -848,7 +851,7 @@ def test_clean_answer_without_sources_is_untouched() -> None:
     """Defense against false positives: a normal spoken answer with no URL /
     domain / SERP footer must pass through unchanged (no source-artifact pass)."""
     text = "Morgen schreiben alle Realschüler in Bayern ihre Mathe-Abschlussprüfung."  # i18n-allow
-    result = scrub_for_voice(text)
+    result = scrub_for_voice(text, language="de")
     assert result.cleaned == text
     assert "removed_source_artifacts" not in result.actions
 
@@ -1250,4 +1253,4 @@ def test_serp_footer_is_still_deleted_whole_not_placeholdered() -> None:
 )
 def test_the_openclaw_runtime_name_survives(text: str) -> None:
     """OpenClaw as a society agent runtime is real and may be named (2026-10-06)."""
-    assert "OpenClaw" in scrub_for_voice(text).cleaned
+    assert "OpenClaw" in scrub_for_voice(text, language="de").cleaned

@@ -810,7 +810,7 @@ class SpawnWorkerTool:
         manager: MissionManager,
         kontrollierer: Any | None,
         *,
-        mission_language: str = "de",
+        mission_language: str = "en",
         readback_language: str | None = None,
     ) -> None:
         """Laeuft im Background. Dispatched + executes eine Mission.

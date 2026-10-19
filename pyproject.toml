@@ -920,6 +920,8 @@ jarvis = [
     # The Hermes / OpenClaw releases setup installs and accepts
     # (agent_runtimes/versions.py); without it setup falls back to latest.
     "agent_runtimes/runtime-versions.json",
+    # Translated system phrases, one file per language (jarvis/i18n/catalog.py).
+    "i18n/locales/*.json",
     # Seed catalogs (CLI tools / skills / marketplace plugins) — named
     # explicitly rather than a repo-wide "**/*.json" glob, which would also
     # sweep in jarvis/ui/web/frontend's SOURCE config (package.json,

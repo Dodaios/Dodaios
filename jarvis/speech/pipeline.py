@@ -97,6 +97,7 @@ from jarvis.core.turn_language import (
     normalize_language_tag,
     resolve_output_language,
 )
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
 from jarvis.plugins.tts.gemini_flash_tts import GEMINI_TTS_SAMPLE_RATE, GeminiFlashTTS
 from jarvis.plugins.wake.openwakeword_provider import (
@@ -448,24 +449,7 @@ async def _echo_brain(text: str) -> str:
 # is UI-only, so it must not be read aloud. ``_speak`` does not scrub, so these
 # phrases reach TTS verbatim. (Runtime TTS strings stay bilingual per the
 # voice-output policy; only artifacts must be English.)
-_BRAIN_UNAVAILABLE_PHRASE: dict[str, str] = {
-    "de": (
-        "Entschuldige, Ruben — ich erreiche gerade keines meiner Sprachmodelle. "
-        "Bitte prüf kurz, ob bei den Anbietern noch Guthaben ist."
-    ),
-    "en": (
-        "Sorry, Ruben — I can't reach any of my language models right now. "
-        "Please check whether your providers still have credit."
-    ),
-    "es": (
-        "Lo siento, Ruben — ahora mismo no puedo acceder a ninguno de mis "
-        "modelos de lenguaje. Comprueba si tus proveedores aún tienen crédito."
-    ),
-    "pt": (
-        "Desculpa, Ruben — neste momento não consigo aceder a nenhum dos meus "
-        "modelos de linguagem. Verifica se os teus fornecedores ainda têm crédito."
-    ),
-}
+_BRAIN_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.brain_unavailable")
 
 # AD-OE6 zero-silent-drop fallback for the *final* utterance STT. A cloud STT
 # (Groq/OpenAI/Deepgram) can transiently 429 when the in-utterance stability
@@ -473,38 +457,13 @@ _BRAIN_UNAVAILABLE_PHRASE: dict[str, str] = {
 # ``_transcribe_final`` exhausts its retries we say this instead of dropping the
 # user into silence (the "Jarvis listens forever, never answers" bug,
 # 2026-05-25). Short, bilingual, TTS-clean (``_speak`` does not scrub).
-_STT_UNAVAILABLE_PHRASE: dict[str, str] = {
-    "de": (
-        "Entschuldige, ich habe dich akustisch gerade nicht verstanden. "
-        "Sag es bitte noch einmal."
-    ),
-    "en": "Sorry, I didn't catch that just now. Could you say it again?",
-    "es": "Perdona, no te he entendido bien ahora mismo. ¿Puedes repetirlo, por favor?",
-    "pt": "Desculpa, não percebi bem o que disseste. Podes repetir, por favor?",
-}
+_STT_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.stt_unavailable")
 
 # Honest cross-family fallback when a requested duplex provider cannot open a
 # session. The classic pipeline remains available for this voice call so a
 # missing key, exhausted balance, unsupported model, or network outage never
 # turns the Realtime switch into a silent dead end (AP-22/AP-23).
-_REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = {
-    "de": (
-        "Die Realtime-Verbindung ist gerade nicht verfügbar. "
-        "Ich wechsle für diese Sitzung zur klassischen Sprachverarbeitung."
-    ),
-    "en": (
-        "The realtime connection is unavailable right now. "
-        "I am switching this session to the classic voice pipeline."
-    ),
-    "es": (
-        "La conexión en tiempo real no está disponible ahora mismo. "
-        "Cambiaré esta sesión al sistema de voz clásico."
-    ),
-    "pt": (
-        "A ligação em tempo real não está disponível neste momento. "
-        "Vou mudar esta sessão para o sistema de voz clássico."
-    ),
-}
+_REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.realtime_unavailable")
 
 # AD-OE6 zero-silent-drop fallback for a brain TURN that times out. Live bug
 # 2026-05-29: "kannst du Claude Code öffnen" stalled the Gemini stream; the
@@ -528,25 +487,9 @@ _REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = {
 # call in this timeout/scrub path (AP-11). Resolved through the ONE output-
 # language decision via ``_resolve_timeout_phrase`` below (AGENTS.md §1 — no
 # per-layer language re-derivation).
-_TIMEOUT_TOOL_STALL_PHRASE: dict[str, str] = {
-    "de": (
-        "Ich habe rechtzeitig keine Antwort bekommen. Ein Tool, auf das ich "
-        "gewartet habe, hat nicht reagiert."
-    ),
-    "en": "I couldn't get an answer in time. A tool I was waiting on didn't respond.",
-    "es": "No pude obtener una respuesta a tiempo. Una herramienta que esperaba no respondió.",
-    "pt": (
-        "Não consegui obter uma resposta a tempo. "
-        "Uma ferramenta de que estava à espera não respondeu."
-    ),
-}
+_TIMEOUT_TOOL_STALL_PHRASE: dict[str, str] = i18n_catalog.table("speech.timeout_tool_stall")
 
-_TIMEOUT_NO_ANSWER_PHRASE: dict[str, str] = {
-    "de": "Das konnte ich gerade nicht herausfinden.",
-    "en": "I couldn't find that out just now.",
-    "es": "No pude averiguar eso ahora mismo.",
-    "pt": "Não consegui descobrir isso agora.",
-}
+_TIMEOUT_NO_ANSWER_PHRASE: dict[str, str] = i18n_catalog.table("speech.timeout_no_answer")
 
 # AD-OE6 zero-silent-drop fallback for an ABANDONED incomplete utterance. When
 # the user trails off on a dangling fragment ("…erinnere mich daran, dass" +
@@ -9395,7 +9338,7 @@ class SpeechPipeline:
                             source_layer="speech.pipeline",
                             session_id=session_id,
                             wake_keyword=wake_keyword,
-                            language="de",
+                            language=DEFAULT_LOCALE,
                         )
                     )
                     # A close accepted while a slow start subscriber runs must
@@ -17360,9 +17303,7 @@ class SpeechPipeline:
                         lang, len(dropped_sentences),
                     )
                     await _speak_sentence(
-                        FALLBACK_PHRASES.get(
-                            _phrase_lang(lang), FALLBACK_PHRASES["de"]
-                        )
+                        i18n_catalog.pick(FALLBACK_PHRASES, _phrase_lang(lang))
                     )
             except asyncio.CancelledError:
                 raise
@@ -18325,7 +18266,7 @@ class SpeechPipeline:
             event = SpeechSpoken(
                 source_layer="speech.pipeline",
                 text=text,
-                language=(language or "de"),
+                language=(language or "en"),
                 spoken_kind=kind,
                 detail=(detail or None),
                 voice=voice,
@@ -18415,11 +18356,13 @@ class SpeechPipeline:
         # Conversation stickiness: a thin interjection ("Now") inherits the
         # running conversation language instead of flipping ack/phrases/TTS
         # (forensic 2026-06-18). The brain owns the sticky conversation language.
+        # An undetectable turn falls back to English (DEFAULT_LOCALE), never
+        # the UI language: the interface language says nothing about the
+        # language spoken (forensic 2026-10-19).
         conv = getattr(brain, "conversation_language", "")
-        ui = getattr(getattr(self, "_config", None), "ui", None)
         return resolve_output_language(
             pin, stt_language, text, conversation_language=conv,
-            default=_phrase_lang(getattr(ui, "language", None)),
+            default=DEFAULT_LOCALE,
         )
 
     async def _speak(
