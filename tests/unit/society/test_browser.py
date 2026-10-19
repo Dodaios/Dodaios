@@ -248,5 +248,5 @@ async def test_briefing_and_surface_reflect_the_browser(rt, tmp_path, fake_runne
     assert "society_browser" not in society_tools(cfg, None, session)
     rt.browser = _jobs(tmp_path, fake_runner)
     briefing = await society_system_extra(cfg, None, session)
-    assert "runs in your own persistent browser profile" in briefing
+    assert "your own persistent browser profile" in briefing
     assert "society_browser" in society_tools(cfg, None, session)

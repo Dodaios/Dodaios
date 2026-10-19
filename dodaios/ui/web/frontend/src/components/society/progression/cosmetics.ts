@@ -1,40 +1,31 @@
 /**
- * Which cosmetics a subject wears. Pure: the level comes from the server,
- * the unlock levels from the rulebook, and the person's own choice (for
- * themself and their pet) from browser storage. Agents always wear the best
- * they have unlocked; so does anyone who never chose.
+ * What a level has opened, and which suit the captain wears. Pure: the level
+ * comes from the server, the unlock levels from the rulebook, the captain's
+ * choice of suit from browser storage. Destinations open here too, but which
+ * one the helm has set is the ship store's (`starship/space/destinations.ts`).
  */
 import type { RewardRow, SubjectLevel } from "./progressionApi";
-import { SLOTS, type RewardId, type Slot, type SubjectKind } from "./levelCatalog";
+import { SLOTS, type SubjectKind, type SuitId } from "./levelCatalog";
 
-/** A slot left on "automatic" wears the latest unlock; "none" wears nothing. */
-export type SlotChoice = RewardId | "none" | "auto";
-export type Loadout = Partial<Record<Slot, RewardId>>;
+/** "auto" wears the finest suit open, "none" the captain's own clothes. */
+export type SuitChoice = SuitId | "none" | "auto";
 
 export function unlockedFor(rewards: readonly RewardRow[], kind: SubjectKind, level: number): RewardRow[] {
   return rewards.filter((r) => { const at = r.levels[kind]; return at !== null && level >= at; });
 }
 
-export function equippedFor(rewards: readonly RewardRow[], kind: SubjectKind, level: number,
-  choices: Partial<Record<Slot, SlotChoice>> = {}): Loadout {
-  const open = unlockedFor(rewards, kind, level);
-  const loadout: Loadout = {};
-  for (const slot of SLOTS) {
-    const choice = choices[slot] ?? "auto";
-    if (choice === "none") continue;
-    const inSlot = open.filter((r) => r.slot === slot);
-    const picked = choice !== "auto" ? inSlot.find((r) => r.rewardId === choice) : undefined;
-    const best = inSlot.reduce<RewardRow | undefined>((top, r) => (!top || (r.levels[kind] ?? 0) >= (top.levels[kind] ?? 0) ? r : top), undefined);
-    const wear = picked ?? best;
-    if (wear) loadout[slot] = wear.rewardId;
-  }
-  return loadout;
+/** The suit the captain wears at `level` with `choice`; null = own clothes. A chosen suit that is not open yet falls back to automatic. */
+export function suitFor(rewards: readonly RewardRow[], level: number, choice: SuitChoice = "auto"): SuitId | null {
+  if (choice === "none") return null;
+  const open = unlockedFor(rewards, "person", level).filter((r) => r.slot === "suit");
+  const picked = choice !== "auto" ? open.find((r) => r.rewardId === choice) : undefined;
+  const best = open.reduce<RewardRow | undefined>((top, r) => (!top || (r.levels.person ?? 0) >= (top.levels.person ?? 0) ? r : top), undefined);
+  return ((picked ?? best)?.rewardId as SuitId | undefined) ?? null;
 }
 
 /**
- * The rewards a subject kind can ever wear, in the order they unlock (lowest
- * level first; within one level in slot order). The Level Road's pedestals
- * and the reward road on screen both read this order.
+ * The rewards a subject kind can ever earn, in the order they open (lowest
+ * level first; within one level in slot order).
  */
 export function rewardRoad(rewards: readonly RewardRow[], kind: SubjectKind): RewardRow[] {
   return rewards
@@ -42,9 +33,14 @@ export function rewardRoad(rewards: readonly RewardRow[], kind: SubjectKind): Re
     .sort((a, b) => (a.levels[kind] ?? 0) - (b.levels[kind] ?? 0) || SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot));
 }
 
-/** The first reward on the road the subject has not unlocked yet; undefined once everything is open. */
+/** The first reward on the road the subject has not opened yet; undefined once everything is open. */
 export function nextUnlock(rewards: readonly RewardRow[], kind: SubjectKind, level: number): RewardRow | undefined {
   return rewardRoad(rewards, kind).find((r) => (r.levels[kind] ?? 0) > level);
+}
+
+/** Rewards a climb from `before` to `after` opened, in road order. */
+export function rewardsBetween(rewards: readonly RewardRow[], kind: SubjectKind, before: number, after: number): RewardRow[] {
+  return rewardRoad(rewards, kind).filter((r) => { const at = r.levels[kind] ?? 0; return at > before && at <= after; });
 }
 
 /** XP gathered into the current level and the level's size, from the curve the server sent. */
@@ -61,27 +57,23 @@ export function levelFraction(subject: Pick<SubjectLevel, "xpIntoLevel" | "xpFor
   return Math.max(0, Math.min(1, subject.xpIntoLevel / subject.xpForNext));
 }
 
-// v2: the rank uniforms replaced the trails, auras and gadgets of v1; old choices name ids that no longer exist.
-const CHOICES_KEY = "jarvis.verse.cosmetics.v2";
+const SUIT_KEY = "dodaios.ship.suit.v1";
 
-export type ChoiceBook = Partial<Record<"person" | "pet", Partial<Record<Slot, SlotChoice>>>>;
-
-export function loadChoices(): ChoiceBook {
+export function loadSuitChoice(): SuitChoice {
   try {
-    const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(CHOICES_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
-    return parsed && typeof parsed === "object" ? (parsed as ChoiceBook) : {};
+    const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(SUIT_KEY);
+    return raw === "none" || (raw !== null && raw.startsWith("suit_")) ? (raw as SuitChoice) : "auto";
   } catch (error) {
-    // Blocked storage: everyone wears their best unlocks, which is the default anyway.
-    console.debug("Verse cosmetics choices unavailable", error);
-    return {};
+    // Blocked storage: the captain wears the finest suit open, which is the default anyway.
+    console.debug("Ship suit choice unavailable", error);
+    return "auto";
   }
 }
 
-export function saveChoices(book: ChoiceBook): void {
+export function saveSuitChoice(choice: SuitChoice): void {
   try {
-    localStorage.setItem(CHOICES_KEY, JSON.stringify(book));
+    localStorage.setItem(SUIT_KEY, choice);
   } catch (error) {
-    console.debug("Verse cosmetics choices not saved", error);
+    console.debug("Ship suit choice not saved", error);
   }
 }

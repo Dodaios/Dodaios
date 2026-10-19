@@ -16,9 +16,9 @@ vi.mock("@/components/workspace/WorkspaceTerminal", () => ({
 }));
 
 // The real stage is a WebGL scene; the tab only owes it the right props and a place to live.
-vi.mock("@/components/society/office/OfficeStage", () => ({
-  OfficeStage: ({ onOpenLedger, initialFloor, compact }: { onOpenLedger: () => void; initialFloor?: string; compact?: boolean }) => (
-    <div data-testid="office-stage" data-floor={initialFloor} data-compact={String(Boolean(compact))}>
+vi.mock("@/components/society/starship/ShipStage", () => ({
+  ShipStage: ({ onOpenLedger, initialDeck, compact }: { onOpenLedger: () => void; initialDeck?: string; compact?: boolean }) => (
+    <div data-testid="office-stage" data-floor={initialDeck} data-compact={String(Boolean(compact))}>
       <button type="button" onClick={onOpenLedger}>ledger</button>
     </div>
   ),
@@ -263,7 +263,7 @@ describe("IdeSidePanel", () => {
     expect(screen.queryByTestId("ide-side-panel-waiting")).toBeNull();
   });
 
-  it("adds the Dodaios Verse tab from + and shows the coding floor in a compact stage", async () => {
+  it("adds the Dodaios Verse tab from + and shows the engineering deck in a compact stage", async () => {
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents"], active: "agents" }));
     render(<Harness />);
     fireEvent.click(screen.getByTestId("ide-side-panel-add"));
@@ -275,7 +275,7 @@ describe("IdeSidePanel", () => {
     expect(screen.getByTestId("ide-side-panel-tab-office").getAttribute("aria-selected")).toBe("true");
     expect(screen.getByTestId("ide-office-tab").className).toContain("h-full");
     const stage = await screen.findByTestId("office-stage");
-    expect(stage.getAttribute("data-floor")).toBe("coding");
+    expect(stage.getAttribute("data-floor")).toBe("engineering");
     expect(stage.getAttribute("data-compact")).toBe("true");
   });
 
