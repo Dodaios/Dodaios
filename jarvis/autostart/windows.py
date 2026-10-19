@@ -553,7 +553,7 @@ def _write_shortcut_in_process(link: Path, spec: LaunchSpec, *, icon: str | None
         return False
     try:
         _run_com(lambda _pythoncom, client: _save_shortcut(client, link, spec, icon))
-    except LookupError:
+    except LookupError:  # no pywin32 here - the caller writes through PowerShell
         return False
     return True
 
@@ -568,7 +568,7 @@ def _read_shortcut_in_process(link: Path) -> list[str] | None:
         return None
     try:
         return _run_com(lambda _pythoncom, client: _load_shortcut(client, link))
-    except LookupError:
+    except LookupError:  # no pywin32 here - the caller reads through PowerShell
         return None
 
 
