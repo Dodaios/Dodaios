@@ -8,9 +8,9 @@ import tkinter as tk
 
 from PIL import Image, ImageColor
 
-from jarvis.ui.pets.context_menu import appearance
-from jarvis.ui.pets.menu_renderer import MenuEntry, hit_test, menu_size, render_menu
-from jarvis.ui.theme import POPOVER_COLORS
+from dodaios.ui.pets.context_menu import appearance
+from dodaios.ui.pets.menu_renderer import MenuEntry, hit_test, menu_size, render_menu
+from dodaios.ui.theme import POPOVER_COLORS
 from ui.orb.layered_surface import AlphaWindow
 
 log = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class PetContextMenu:
         self.commands.append(None)
 
     def tk_popup(self, x, y):
-        from jarvis.platform.monitors import work_area_at
+        from dodaios.platform.monitors import work_area_at
 
         size = menu_size(self.entries, self.scale)
         area = work_area_at(x, y) or (

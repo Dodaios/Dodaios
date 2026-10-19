@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.schema import SkillLifecycleState
 
 
 @pytest.fixture

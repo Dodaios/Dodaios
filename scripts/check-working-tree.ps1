@@ -21,7 +21,7 @@
       one file gets restored, so noise during normal boots is minimal.
 
     Motivation: 2026-05-14 incident. Five tracked files under
-    ``jarvis/memory/wiki/`` (integration.py, lock.py, scheduler.py,
+    ``dodaios/memory/wiki/`` (integration.py, lock.py, scheduler.py,
     search.py, voice_bridge.py) had silently disappeared from the working
     tree while still present in HEAD. The running app loaded stale .pyc
     caches and the memory pipeline ran at half effectiveness for hours

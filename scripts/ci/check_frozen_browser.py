@@ -33,10 +33,10 @@ from websockets.sync.client import connect
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.core.config_writer import _WRITE_LOCK, _atomic_write  # noqa: E402
-from jarvis.core.instance import DEV_PORT_OFFSET  # noqa: E402
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS, wait_procs  # noqa: E402
-from jarvis.platform.permissions import ACCEPTED_BUNDLE_IDS  # noqa: E402
+from dodaios.core.config_writer import _WRITE_LOCK, _atomic_write  # noqa: E402
+from dodaios.core.instance import DEV_PORT_OFFSET  # noqa: E402
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS, wait_procs  # noqa: E402
+from dodaios.platform.permissions import ACCEPTED_BUNDLE_IDS  # noqa: E402
 
 
 def isolated_env(profile: Path, port: int, key: str) -> dict[str, str]:

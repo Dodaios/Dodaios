@@ -13,17 +13,17 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.board.aggregator import BoardAggregator
-from jarvis.board.insights import (
+from dodaios.board.aggregator import BoardAggregator
+from dodaios.board.insights import (
     SERIES_DAYS,
     BoardInsights,
     InsightSources,
     current_streak,
     longest_streak,
 )
-from jarvis.board.store import BoardStore
-from jarvis.dictation.stats import DictationStats
-from jarvis.ui.web.board_routes import board_router
+from dodaios.board.store import BoardStore
+from dodaios.dictation.stats import DictationStats
+from dodaios.ui.web.board_routes import board_router
 
 
 def _noon(days_ago: int) -> datetime:

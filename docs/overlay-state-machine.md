@@ -88,18 +88,18 @@ Notes:
 
 | Event | Source (in Hauptjarvis) | Trigger | Resulting Transition |
 |---|---|---|---|
-| `wakeword_detected` | `jarvis.speech.wakeword` | Porcupine / openWakeWord | `idle → listening` |
-| `utterance_started` | `jarvis.speech.stt` | VAD starts | `listening` enter / refresh |
-| `utterance_ended` | `jarvis.speech.stt` | VAD ends | `listening → thinking` |
-| `inference_started` | `jarvis.brain.router` | Brain-Call started | `thinking` enter |
-| `inference_done` | `jarvis.brain.router` | Brain-Call finished | `thinking → speaking` (or `→ typing/clicking` via tool) |
+| `wakeword_detected` | `dodaios.speech.wakeword` | Porcupine / openWakeWord | `idle → listening` |
+| `utterance_started` | `dodaios.speech.stt` | VAD starts | `listening` enter / refresh |
+| `utterance_ended` | `dodaios.speech.stt` | VAD ends | `listening → thinking` |
+| `inference_started` | `dodaios.brain.router` | Brain-Call started | `thinking` enter |
+| `inference_done` | `dodaios.brain.router` | Brain-Call finished | `thinking → speaking` (or `→ typing/clicking` via tool) |
 | `action_started{kind=typing}` | `OverlayBridge.action(...)` | Decorator/Context-Manager fired | `* → typing` |
 | `action_ended` | `OverlayBridge` | Same | `typing|clicking → idle` |
 | `click_event{x, y, monitor}` | `OverlayBridge.click(...)` | Direct emit after `pyautogui.click()` | `* → clicking` + ripple |
-| `tts_started` | `jarvis.speech.tts` | TTS starts | `* → speaking` |
-| `tts_ended` | `jarvis.speech.tts` | TTS ends | `speaking → idle` |
-| `tts_audio_rms{rms_db}` | `jarvis.speech.tts` | Optional, for mascot mouth sync; 30 Hz | mascot-only update, no state change |
-| `error{recoverable, message}` | `jarvis.core.errors` | Recoverable exception caught | `* → error → previous-state` |
+| `tts_started` | `dodaios.speech.tts` | TTS starts | `* → speaking` |
+| `tts_ended` | `dodaios.speech.tts` | TTS ends | `speaking → idle` |
+| `tts_audio_rms{rms_db}` | `dodaios.speech.tts` | Optional, for mascot mouth sync; 30 Hz | mascot-only update, no state change |
+| `error{recoverable, message}` | `dodaios.core.errors` | Recoverable exception caught | `* → error → previous-state` |
 
 **Implementer-Discretion:** The exact event names and signatures are up to the
 implementer, as long as **every state transition is derivable from exactly one

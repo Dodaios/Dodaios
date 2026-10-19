@@ -17,8 +17,8 @@ from typing import Any
 
 import anyio
 
-import jarvis.agent_chat.service as service_module
-from jarvis.ui.web.agent_chat_routes import _service_from_state
+import dodaios.agent_chat.service as service_module
+from dodaios.ui.web.agent_chat_routes import _service_from_state
 
 
 def test_an_async_route_waiting_for_a_worker_build_does_not_deadlock(monkeypatch) -> None:

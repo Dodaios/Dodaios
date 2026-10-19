@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_runtimes import gateway
-from jarvis.agent_runtimes.model_limits import ModelLimits
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
-from jarvis.plugins.brain import _agent_profile
+from dodaios.agent_runtimes import gateway
+from dodaios.agent_runtimes.model_limits import ModelLimits
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+from dodaios.plugins.brain import _agent_profile
 
 _BODY = {"model": "m", "messages": [{"role": "user", "content": "Hi"}]}
 
@@ -49,8 +49,8 @@ class _Brain:
 
 @pytest.fixture
 def plugins(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
-    import jarvis.agent_chat.runner_api as runner_api
-    import jarvis.core.config as config
+    import dodaios.agent_chat.runner_api as runner_api
+    import dodaios.core.config as config
 
     credential = {"key": "sk-first"}
     _Brain.built = []
@@ -152,7 +152,7 @@ def _openai_client(recorder: _Recorder) -> Any:
 
 
 async def _openai_kwargs(profile: Any) -> dict[str, Any]:
-    from jarvis.plugins.brain._openai_base import stream_complete
+    from dodaios.plugins.brain._openai_base import stream_complete
 
     recorder = _Recorder()
     token = _agent_profile.PROFILE.set(profile)
@@ -199,7 +199,7 @@ class _AnthropicStream:
 
 
 async def _anthropic_kwargs(profile: Any, messages: tuple[BrainMessage, ...]) -> dict[str, Any]:
-    from jarvis.plugins.brain._anthropic_base import stream_complete
+    from dodaios.plugins.brain._anthropic_base import stream_complete
 
     recorder = _Recorder()
     client = SimpleNamespace(

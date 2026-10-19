@@ -16,17 +16,17 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core import config as cfg_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig, SafetyConfig
-from jarvis.core.events import ActionApprovalRequired, ActionDenied, ActionExecuted
-from jarvis.core.protocols import ExecutionContext
-from jarvis.local_models import assistant_prompt, assistant_tools
-from jarvis.local_models.assistant_tools import ALLOWED_TIERS, TOOL_PREFIX, build_tools
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.approval_surface import INTERACTIVE
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import APPROVAL_DENIED_PREFIX, ToolExecutor
+from dodaios.core import config as cfg_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig, SafetyConfig
+from dodaios.core.events import ActionApprovalRequired, ActionDenied, ActionExecuted
+from dodaios.core.protocols import ExecutionContext
+from dodaios.local_models import assistant_prompt, assistant_tools
+from dodaios.local_models.assistant_tools import ALLOWED_TIERS, TOOL_PREFIX, build_tools
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.approval_surface import INTERACTIVE
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import APPROVAL_DENIED_PREFIX, ToolExecutor
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 ROOT = "http://fake-ollama:11434"
@@ -156,7 +156,7 @@ async def test_test_plan_tool_reports_per_role(monkeypatch) -> None:
         probes.append((provider, model))
         return SimpleNamespace(ok=True, error=None, latency_ms=1.0)
 
-    monkeypatch.setattr("jarvis.brain.healthcheck.BrainHealthChecker.probe", probe)
+    monkeypatch.setattr("dodaios.brain.healthcheck.BrainHealthChecker.probe", probe)
     fake = _server()
     tools = build_tools(_cfg(chat="qwen3.5:4b"), root=ROOT, transport=fake.transport())
     executor, _bus = _executor()

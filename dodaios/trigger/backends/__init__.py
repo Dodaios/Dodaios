@@ -1,0 +1,142 @@
+"""Cross-platform hotkey backends (Wave 1, sub-task 1.4; AD-6/AD-7/AD-8).
+
+The global-hotkey feature follows the uniform AD-6 seam: a ``HotkeyBackend``
+``Protocol``, a per-OS implementation, a ``sys.platform`` factory, and a
+graceful null-fallback that logs an English message and never raises.
+
+* Windows keeps the battle-tested ``global-hotkeys`` package — its left/right-Alt
+  fold, the single-checker refcount, the remove-by-string contract, and the
+  pre-remove-on-reentry sequence carry hard-won BUG fixes (the F1+F2-went-dead
+  class). That logic was **relocated verbatim** into
+  ``dodaios/trigger/backends/global_hotkeys.py`` (AD-7); it is not refactored.
+* macOS uses a listen-only Quartz event tap (``QuartzHotkeyBackend``); Linux
+  (X11) gains ``pynput`` via ``PynputBackend``.
+* Wayland (and any box where ``capabilities.has_hotkey`` is ``False``) gets
+  ``NoopBackend``: it logs once that global hotkeys are unavailable by OS design
+  and otherwise no-ops (AD-8 / AD-OE6 "zero silent drops").
+
+Import-cleanliness contract (HN-7): nothing here — nor in any backend module —
+imports a platform-only package (``global_hotkeys`` / ``pynput``) at module
+scope. Each backend lazy-imports its dependency inside ``register``/``start``,
+so ``import dodaios.trigger.backends`` succeeds on a headless €5-VPS that has
+neither package installed.
+
+``HotkeyBinding`` is the existing ``[combo_str, on_press, on_release]`` shape the
+``global_hotkeys`` registry uses; the backends consume it unchanged so the
+``HotkeyTrigger`` call site stays the single producer of those rows.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from typing import Protocol, runtime_checkable
+
+log = logging.getLogger(__name__)
+
+# A single binding row, mirroring the global_hotkeys registry format:
+#   [normalized_combo_str, on_press | None, on_release | None]
+HotkeyBinding = list
+# The event-emit callback the trigger passes down; backends are free to ignore
+# it (the global_hotkeys backend wires handlers directly into the binding rows).
+OnEvent = Callable[[str], None]
+
+
+@runtime_checkable
+class HotkeyBackend(Protocol):
+    """The seam every per-OS hotkey implementation satisfies (AD-6).
+
+    The lifecycle mirrors what ``HotkeyTrigger.__aenter__``/``__aexit__`` already
+    drive: ``register`` arms the bindings, ``start`` begins listening,
+    ``stop``/``unregister`` tear down. ``received_any_event`` is the AD-8
+    introspection hook (true once a BOUND chord fired; not a liveness signal).
+    A backend may also expose optional probes the trigger reads through
+    ``getattr``: ``is_listening()``, ``waiting_for_permission`` (the macOS tap
+    declined to start for want of Input Monitoring) and ``report_if_deaf()``
+    (the liveness pass the trigger gives a worker thread; it is built on the
+    backend's own ``deaf_tap_suspected()`` raw-callback counter, see ``quartz.py``).
+    """
+
+    def register(self, bindings: list[HotkeyBinding], on_event: OnEvent | None = None) -> None:
+        """Arm ``bindings``. Must degrade (log + no-op), never raise."""
+        ...
+
+    def unregister(self) -> None:
+        """Remove every binding this backend armed. Idempotent, never raises."""
+        ...
+
+    def start(self) -> None:
+        """Begin listening for the armed bindings. Idempotent."""
+        ...
+
+    def stop(self) -> None:
+        """Stop listening. Idempotent; safe to call without a prior ``start``."""
+        ...
+
+    def received_any_event(self) -> bool:
+        """True once at least one bound chord has actually fired (AD-8)."""
+        ...
+
+    def chord_is_down(self, combo: str) -> bool | None:
+        """Is every key of the normalized ``combo`` down RIGHT NOW?
+
+        Three answers, and the third is load-bearing: ``True`` / ``False`` when
+        the backend can see the keyboard (Windows reads ``GetAsyncKeyState``;
+        the event-tap and listener backends consult their held-set), ``None``
+        when it cannot tell — not started, no package, an unnameable token. A
+        consumer that gets ``None`` keeps working from the press/release edges
+        alone; it must never treat ``None`` as "up". This is what lets a
+        hold-to-record lane notice a key-up edge that was lost in transit
+        (BUG-191) without inventing a release on a host that has no idea.
+        """
+        ...
+
+
+def make_hotkey_backend() -> HotkeyBackend:
+    """Select the hotkey backend for this host (AD-8).
+
+    * ``win32`` → ``GlobalHotkeysBackend`` (relocated Windows logic, AD-7).
+    * else if ``capabilities.has_hotkey`` → ``QuartzHotkeyBackend`` on macOS
+      (TSM-free event tap, BUG-077) or ``PynputBackend`` on Linux-X11.
+    * else → ``NoopBackend`` (Wayland or no ``pynput``; logged-once no-op, AD-8).
+
+    Never raises and never returns ``GlobalHotkeysBackend`` off Windows — the
+    factory itself is the AD-6 graceful seam. The backend modules are imported
+    lazily so importing this package on a host missing ``pynput`` /
+    ``global_hotkeys`` stays clean (HN-7).
+    """
+    from dodaios.platform import detect_platform
+    from dodaios.platform.capabilities import detect_capabilities
+
+    platform = detect_platform()
+    if platform == "win32":
+        from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+
+        return GlobalHotkeysBackend()
+
+    caps = detect_capabilities()
+    if caps.has_hotkey:
+        if platform == "darwin":
+            # pynput's darwin keyboard listener resolves the keyboard layout
+            # via HIToolbox TSM calls from its listener thread; modern macOS
+            # asserts those run on the main queue and aborts the process with
+            # an uncatchable SIGILL (BUG-077). The Quartz tap backend matches
+            # by physical keycode and never touches TSM.
+            from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
+
+            return QuartzHotkeyBackend()
+        from dodaios.trigger.backends.pynput import PynputBackend
+
+        return PynputBackend()
+
+    from dodaios.trigger.backends.noop import NoopBackend
+
+    return NoopBackend()
+
+
+__all__ = [
+    "HotkeyBackend",
+    "HotkeyBinding",
+    "OnEvent",
+    "make_hotkey_backend",
+]

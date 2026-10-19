@@ -65,11 +65,11 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.ci import merge_freeze  # noqa: E402
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-FRONTEND = "jarvis/ui/web/frontend"
+FRONTEND = "dodaios/ui/web/frontend"
 
 # (glob, regenerator key). Main's copy is taken, then the key regenerates it.
 GENERATED: tuple[tuple[str, str], ...] = (
-    ("jarvis/ui/web/dist/*", "frontend-build"),
+    ("dodaios/ui/web/dist/*", "frontend-build"),
     # AGENTS.md and .agents/ are hand-written sources, never taken from main.
     (".claude/agents/*", "mirrors"),
     (".claude/commands/*", "mirrors"),
@@ -255,7 +255,7 @@ def regenerate(keys: set[str], cwd: Path) -> list[str]:
     order = ["npm-lock", "uv-lock", "requirements", "mirrors", "reference-docs", "frontend-build"]
     # The merge train regenerates inside a separate worktree per pull request
     # while the editable install points at the main checkout; putting the
-    # worktree first on PYTHONPATH makes `import jarvis` read the merged code.
+    # worktree first on PYTHONPATH makes `import dodaios` read the merged code.
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join(
         p for p in (str(cwd), os.environ.get("PYTHONPATH", "")) if p

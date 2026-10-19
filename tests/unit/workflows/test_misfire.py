@@ -5,7 +5,7 @@ Forensics (data-dev/workflows.sqlite, 2026-08-25 … 2026-09-02): every
 20:49, 15:04, 11:18 — because the scheduler fired any stored ``next_run_at_ns``
 that was ``<= now``, however stale. One briefing a day, at a random hour.
 
-The rule now: within :data:`jarvis.core.misfire.MISFIRE_GRACE_S` the slot
+The rule now: within :data:`dodaios.core.misfire.MISFIRE_GRACE_S` the slot
 still fires (a slow boot at 07:31 is still the morning); older than that it
 is recorded as a ``missed`` run, the schedule continues from the NEXT
 occurrence, and the runner is never called.
@@ -20,12 +20,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import WorkflowScheduled
-from jarvis.core.misfire import MISFIRE_GRACE_NS, is_missed, late_by_s
-from jarvis.workflows.scheduler import WorkflowScheduler
-from jarvis.workflows.schema import CronTrigger, SpeakStep, WorkflowDef
-from jarvis.workflows.store import WorkflowStore
+from dodaios.core.bus import EventBus
+from dodaios.core.events import WorkflowScheduled
+from dodaios.core.misfire import MISFIRE_GRACE_NS, is_missed, late_by_s
+from dodaios.workflows.scheduler import WorkflowScheduler
+from dodaios.workflows.schema import CronTrigger, SpeakStep, WorkflowDef
+from dodaios.workflows.store import WorkflowStore
 
 _HOUR_NS = 3_600 * 1_000_000_000
 

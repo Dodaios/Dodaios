@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.platform.capabilities import detect_capabilities
+from dodaios.platform.capabilities import detect_capabilities
 
 pytestmark = pytest.mark.skipif(
     not detect_capabilities().has_pty, reason="no PTY backend on this machine"
@@ -66,7 +66,7 @@ def isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterat
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
-    from jarvis.terminal import pty_host_client
+    from dodaios.terminal import pty_host_client
 
     state_path = pty_host_client._state_path()  # noqa: SLF001 - locating the test's own host
     assert tmp_path in state_path.parents, "the test must never reach the real user's host"
@@ -95,7 +95,7 @@ class Viewer:
 async def test_a_terminal_survives_a_detach_and_is_adopted_with_its_screen(
     isolated_data_dir: Path, tmp_path: Path
 ) -> None:
-    from jarvis.terminal.pty_host_client import connect
+    from dodaios.terminal.pty_host_client import connect
 
     host_pids: list[int] = []
     first = await connect(start=True)

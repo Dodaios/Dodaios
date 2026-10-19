@@ -1,0 +1,359 @@
+import { describe, expect, it } from "vitest";
+
+import type { AgentChatEvent } from "@/lib/agentChatApi";
+import {
+  EMPTY_TIMELINE,
+  reduceEvent,
+  reduceEvents,
+  runningTurn,
+  settleApproval,
+  type ToolBlock,
+  type TurnItem,
+  type UserItem,
+} from "./reduce";
+
+let seq = 0;
+function ev(kind: string, payload: Record<string, unknown>, persisted = true): AgentChatEvent {
+  if (persisted) seq += 1;
+  return { seq: persisted ? seq : 0, ts_ms: 1_000 + seq, kind, payload };
+}
+
+describe("agent-chat reduce", () => {
+  it.each(["done", "error", "cancelled"])("preserves the first %s completion through live delivery and replay", (status) => {
+    const start = ev("turn_started", { turn_id: "settled" });
+    const answer = ev("assistant_text", { turn_id: "settled", text: "Fix committed locally." });
+    const finish = ev("turn_finished", { turn_id: "settled", status, duration_ms: 1993344, usage: { output_tokens: 12 }, cost_usd: 0.01 });
+    const late = ev("turn_finished", { turn_id: "settled", status: "error", duration_ms: 3604992, usage: {}, error: "claude-cli did not finish within 3600 s." });
+    const events = [start, answer, finish, late];
+    const live = events.reduce(reduceEvent, EMPTY_TIMELINE);
+    const replay = reduceEvents(EMPTY_TIMELINE, events);
+    expect(live).toEqual(replay);
+    expect(live.items[0]).toMatchObject({ status, error: null, durationMs: 1993344, usage: { output_tokens: 12 }, costUsd: 0.01 });
+    expect(live.lastSeq).toBe(late.seq);
+  });
+
+  it("shows a real timeout even when partial text sounds final", () => {
+    const partial = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "partial" }),
+      ev("assistant_text", { turn_id: "partial", text: "Fix committed locally." }),
+    ]);
+    expect(runningTurn(partial)?.id).toBe("partial");
+    const failed = reduceEvent(partial, ev("turn_finished", { turn_id: "partial", status: "error", error: "claude-cli did not finish within 3600 s." }));
+    expect(failed.items[0]).toMatchObject({ status: "error", error: "claude-cli did not finish within 3600 s." });
+  });
+
+  it("marks the turns the team engine gave a lead, and none the person typed", () => {
+    const frame = (kind: string) => `[${kind} for team Launch]\nGoal: Launch the page\nGoal id: g1. Managing turns left: 20.`;
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: frame("team goal"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team update"), typed: "Launch the page: 2 results" }),
+      ev("user_message", { text: frame("team goal check"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team goal resumed"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team goal reply"), typed: "Germany" }),
+      ev("user_message", { text: "I read [team update for team Launch] somewhere" }),
+    ]);
+    expect(tl.items.map((item) => (item.type === "user" ? item.teamEvent : "?"))).toEqual([
+      undefined, "update", "check", "resumed", undefined, undefined,
+    ]);
+    expect(tl.items[1]).toMatchObject({ type: "user", text: "Launch the page: 2 results" });
+  });
+
+  it("folds a full turn: user line, deltas into one text block, tool call + result, finish", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "hi" }),
+      ev("turn_started", { turn_id: "t1", provider: "claude-api", model: "opus", effort: "high", runner: "claude-cli" }),
+      ev("text_delta", { turn_id: "t1", message_id: "m1", text: "Hel" }, false),
+      ev("text_delta", { turn_id: "t1", message_id: "m1", text: "lo" }, false),
+      ev("tool_call", { turn_id: "t1", call_id: "c1", name: "Read", input: { file_path: "a.py" } }),
+      ev("tool_result", { turn_id: "t1", call_id: "c1", output: "print(1)", is_error: false, duration_ms: 12 }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "Hello" }),
+      ev("turn_finished", { turn_id: "t1", status: "done", duration_ms: 900, usage: { input_tokens: 3 } }),
+    ]);
+    expect(tl.items).toHaveLength(2);
+    expect(tl.items[0]).toMatchObject({ type: "user", text: "hi" });
+    const turn = tl.items[1] as TurnItem;
+    expect(turn.status).toBe("done");
+    expect(turn.blocks.map((b) => b.kind)).toEqual(["text", "tool"]);
+    expect(turn.blocks[0]).toMatchObject({ kind: "text", text: "Hello" });
+    expect(turn.blocks[1]).toMatchObject({ kind: "tool", name: "Read", output: "print(1)", durationMs: 12 });
+    expect(turn.durationMs).toBe(900);
+    expect(tl.lastSeq).toBeGreaterThan(0);
+    expect(runningTurn(tl)).toBeNull();
+  });
+
+  it("tracks approvals: pending until resolved, and the tool row carries the decision", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t2", provider: "openai", model: "", effort: "", runner: "api" }),
+      ev("approval_required", { turn_id: "t2", approval_id: "a1", call_id: "c2", name: "RunCommand", input: { command: "rm x" }, summary: "rm x" }),
+    ]);
+    expect(tl.pendingApprovals).toHaveLength(1);
+    expect(runningTurn(tl)?.id).toBe("t2");
+    tl = reduceEvent(tl, ev("approval_resolved", { turn_id: "t2", approval_id: "a1", decision: "deny" }));
+    expect(tl.pendingApprovals).toHaveLength(0);
+    const turn = tl.items[0] as TurnItem;
+    expect(turn.blocks[0]).toMatchObject({ kind: "tool", approval: { approvalId: "a1", decision: "deny" } });
+  });
+
+  it("lets the same call asking again replace its older card", () => {
+    // 2026-10-06: an app restart re-asked the call under a new id; the old
+    // card stayed first in line and its buttons answered 404 for ever.
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t9" }),
+      ev("tool_call", { turn_id: "t9", call_id: "c9", name: "Bash", input: { command: "ls" } }),
+      ev("approval_required", { turn_id: "t9", approval_id: "old", call_id: "c9", name: "Bash", input: { command: "ls" }, summary: "ls" }),
+      ev("approval_required", { turn_id: "t9", approval_id: "other", call_id: "c10", name: "Bash", input: {}, summary: "pwd" }),
+      ev("approval_required", { turn_id: "t9", approval_id: "new", call_id: "c9", name: "Bash", input: { command: "ls" }, summary: "ls" }),
+    ]);
+    expect(tl.pendingApprovals.map((a) => a.approvalId)).toEqual(["other", "new"]);
+    const row = (tl.items[0] as TurnItem).blocks.find((b): b is ToolBlock => b.kind === "tool" && b.callId === "c9");
+    expect(row?.approval).toMatchObject({ approvalId: "new", decision: null });
+  });
+
+  it("stops offering approval buttons once the turn ended", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t10" }),
+      ev("approval_required", { turn_id: "t10", approval_id: "a10", call_id: "c10", name: "Bash", input: {}, summary: "ls" }),
+      ev("turn_finished", { turn_id: "t10", status: "error", error: "Jarvis restarted while this turn was running." }),
+    ]);
+    expect(tl.pendingApprovals).toHaveLength(0);
+    expect((tl.items[0] as TurnItem).blocks[0]).toMatchObject({ kind: "tool", approval: { approvalId: "a10", decision: "expired" } });
+  });
+
+  it("settles a card the backend answered before its event arrives", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t11" }),
+      ev("approval_required", { turn_id: "t11", approval_id: "a11", call_id: "c11", name: "Bash", input: {}, summary: "ls" }),
+    ]);
+    tl = settleApproval(tl, "a11", "allow");
+    expect(tl.pendingApprovals).toHaveLength(0);
+    expect((tl.items[0] as TurnItem).blocks[0]).toMatchObject({ approval: { approvalId: "a11", decision: "allow" } });
+    // The event that follows changes nothing; an unknown id is a no-op.
+    const after = reduceEvent(tl, ev("approval_resolved", { turn_id: "t11", approval_id: "a11", decision: "allow" }));
+    expect(after.items).toBe(tl.items);
+    expect(settleApproval(after, "nope", "expired")).toBe(after);
+  });
+
+  it("returns the same object when an event changes nothing", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [ev("turn_started", { turn_id: "t3" })]);
+    const same = reduceEvent(tl, ev("text_delta", { turn_id: "t3", message_id: "m", text: "" }, false));
+    expect(same).toBe(tl);
+    const unknownTurn = reduceEvent(tl, ev("tool_call", { turn_id: "nope", call_id: "c" }));
+    expect(unknownTurn.items).toEqual(tl.items);
+  });
+
+  it("closes live reasoning on the finished block and exposes session patches once", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t4" }),
+      ev("reasoning_delta", { turn_id: "t4", text: "hm" }, false),
+      ev("reasoning_delta", { turn_id: "t4", text: "m" }, false),
+    ]);
+    expect((tl.items[0] as TurnItem).blocks[0]).toMatchObject({ kind: "reasoning", text: "hmm", live: true });
+    tl = reduceEvent(tl, ev("reasoning", { turn_id: "t4", text: "hmm!", duration_ms: 400 }));
+    expect((tl.items[0] as TurnItem).blocks[0]).toMatchObject({ kind: "reasoning", text: "hmm!", live: false, durationMs: 400 });
+    tl = reduceEvent(tl, ev("session_updated", { permission_mode: "auto" }));
+    expect(tl.sessionPatch).toEqual({ permission_mode: "auto" });
+    tl = reduceEvent(tl, ev("turn_finished", { turn_id: "t4", status: "cancelled" }));
+    expect(tl.sessionPatch).toBeNull();
+    expect((tl.items[0] as TurnItem).status).toBe("cancelled");
+  });
+
+  it("shows redacted thinking: announced live, closed by the textless finished block", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t5" }),
+      ev("reasoning_started", { turn_id: "t5", message_id: "m1" }, false),
+    ]);
+    let turn = tl.items[0] as TurnItem;
+    expect(turn.blocks[0]).toMatchObject({ kind: "reasoning", text: "", live: true });
+    // A second announcement for the same thought does not add a row.
+    tl = reduceEvent(tl, ev("reasoning_started", { turn_id: "t5", message_id: "m1" }, false));
+    expect((tl.items[0] as TurnItem).blocks).toHaveLength(1);
+    tl = reduceEvent(tl, ev("reasoning", { turn_id: "t5", text: "", duration_ms: 8500 }));
+    turn = tl.items[0] as TurnItem;
+    expect(turn.blocks[0]).toMatchObject({ kind: "reasoning", text: "", live: false, durationMs: 8500 });
+    // A textless finished block with a duration and no live row still lands.
+    tl = reduceEvent(tl, ev("reasoning", { turn_id: "t5", text: "", duration_ms: 1200 }));
+    expect((tl.items[0] as TurnItem).blocks).toHaveLength(2);
+    // ...but one with neither text nor time is nothing.
+    tl = reduceEvent(tl, ev("reasoning", { turn_id: "t5", text: "", duration_ms: 0 }));
+    expect((tl.items[0] as TurnItem).blocks).toHaveLength(2);
+  });
+
+  it("grows one thought when a message's thinking arrives in several blocks", () => {
+    // The CLI sends each thinking block of one message as its own event,
+    // carrying everything the message thought so far (2026-10-05 thread).
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t7" }),
+      ev("reasoning", { turn_id: "t7", message_id: "m1", text: "first", duration_ms: 7595 }),
+      ev("reasoning", { turn_id: "t7", message_id: "m1", text: "first\n\nsecond", duration_ms: 7597 }),
+      ev("reasoning", { turn_id: "t7", message_id: "m2", text: "other message" }),
+    ]);
+    const turn = tl.items[0] as TurnItem;
+    expect(turn.blocks).toHaveLength(2);
+    expect(turn.blocks[0]).toMatchObject({ kind: "reasoning", text: "first\n\nsecond", durationMs: 7597 });
+    expect(turn.blocks[1]).toMatchObject({ kind: "reasoning", text: "other message" });
+  });
+
+  it("ends a live thought when text or a tool call follows, and times tool calls from the log", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t6" }),
+      ev("reasoning_started", { turn_id: "t6", message_id: "m1" }, false),
+      ev("tool_call", { turn_id: "t6", call_id: "c1", name: "Grep", input: { pattern: "x" } }),
+    ]);
+    let turn = tl.items[0] as TurnItem;
+    expect(turn.blocks[0]).toMatchObject({ kind: "reasoning", live: false });
+    expect(turn.blocks[1]).toMatchObject({ kind: "tool", name: "Grep" });
+    const callTs = (turn.blocks[1] as { startedMs: number }).startedMs;
+    const result = ev("tool_result", { turn_id: "t6", call_id: "c1", output: "hit", is_error: false });
+    result.ts_ms = callTs + 340;
+    tl = reduceEvent(tl, result);
+    turn = tl.items[0] as TurnItem;
+    expect(turn.blocks[1]).toMatchObject({ kind: "tool", output: "hit", durationMs: 340 });
+  });
+
+  it("carries a turn run by the brain — the front page's Jarvis — untouched", () => {
+    // The typed front page is Jarvis on a keyboard: its turns are announced
+    // with runner "brain" instead of a CLI's or the API runner's name. The
+    // reducer keeps the word as given; nothing here decides what it means.
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "what did I plan for today?" }),
+      ev("turn_started", { turn_id: "t8", provider: "jarvis", model: "", effort: "", runner: "brain" }),
+    ]);
+    const turn = tl.items[1] as TurnItem;
+    expect(turn.runner).toBe("brain");
+    expect(turn.provider).toBe("jarvis");
+    expect(runningTurn(tl)?.id).toBe("t8");
+  });
+
+  it("counts tokens live and keeps them when the finished turn brings no usage", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t7" }),
+      ev("usage_delta", { turn_id: "t7", usage: { input_tokens: 3, output_tokens: 40 } }, false),
+      ev("usage_delta", { turn_id: "t7", usage: { input_tokens: 4, output_tokens: 65 } }, false),
+    ]);
+    expect((tl.items[0] as TurnItem).liveUsage).toEqual({ input_tokens: 4, output_tokens: 65 });
+    tl = reduceEvent(tl, ev("turn_finished", { turn_id: "t7", status: "done" }));
+    const turn = tl.items[0] as TurnItem;
+    expect(turn.usage).toEqual({ input_tokens: 4, output_tokens: 65 });
+    expect(turn.durationMs).not.toBeNull();
+  });
+});
+
+describe("a user message with files", () => {
+  // A pane's chat reads the CLI's transcript, which holds the brief Jarvis
+  // typed; the backend folds the person's own sentence and the file receipts
+  // back in (dodaios/agentic_ide/prompt_receipts.py). The reducer shows the
+  // sentence and carries the url an image can be drawn from.
+  it("shows what the person said and keeps the picture's url", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", {
+        text: "## Task\nScroll the traces.\n\n## Dropped files\n### shot.png",
+        typed: "scroll the traces into view",
+        attachments: [
+          {
+            name: "shot.png",
+            kind: "image",
+            described_by: "none",
+            url: "/api/agentic-ide/workspaces/ide_1/file?path=.jarvis%2Fdrops%2Fshot.png",
+          },
+          { name: "notes.md", kind: "text", described_by: "extraction" },
+          { kind: "image" },
+        ],
+      }),
+    ]);
+    expect(tl.items[0]).toMatchObject({
+      type: "user",
+      text: "scroll the traces into view",
+      attachments: [
+        {
+          name: "shot.png",
+          kind: "image",
+          describedBy: "none",
+          url: "/api/agentic-ide/workspaces/ide_1/file?path=.jarvis%2Fdrops%2Fshot.png",
+        },
+        { name: "notes.md", kind: "text", describedBy: "extraction" },
+      ],
+    });
+    const [, doc] = (tl.items[0] as UserItem).attachments;
+    expect("url" in doc).toBe(false);
+  });
+});
+
+describe("agent-chat reduce: notices", () => {
+  it("folds a society result notice into a notice item the timeline can show", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "@Gmail agent answer the invoice mail" }),
+      ev("notice", {
+        kind: "society_result",
+        agent_id: "gmail-agent",
+        agent_name: "Gmail agent",
+        status: "done",
+        text: "Invoice answered.",
+      }),
+    ]);
+    expect(tl.items).toHaveLength(2);
+    const notice = tl.items[1];
+    expect(notice.type).toBe("notice");
+    if (notice.type !== "notice") throw new Error("unreachable");
+    expect(notice.kind).toBe("society_result");
+    expect(notice.agentName).toBe("Gmail agent");
+    expect(notice.status).toBe("done");
+    expect(notice.text).toBe("Invoice answered.");
+  });
+
+  it("drops an empty notice", () => {
+    expect(reduceEvent(EMPTY_TIMELINE, ev("notice", {}, false))).toBe(EMPTY_TIMELINE);
+  });
+
+  it("folds a proposal notice and its resolution into one row", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("notice", {
+        kind: "proposal",
+        proposal_id: "p1",
+        proposal_kind: "rule",
+        summary: "Add a standing rule: Always answer in English.",
+        payload: { text: "Always answer in English." },
+        reason: "asked",
+        status: "pending",
+        agent_id: "mailbox",
+        agent_name: "Mailbox",
+        text: "Add a standing rule: Always answer in English.",
+      }),
+      ev("notice", {
+        kind: "proposal_resolved",
+        proposal_id: "p1",
+        status: "applied",
+        text: "standing rule added to the description",
+        agent_id: "mailbox",
+        agent_name: "Mailbox",
+      }),
+    ]);
+    expect(tl.items).toHaveLength(1);
+    const card = tl.items[0];
+    if (card.type !== "notice") throw new Error("unreachable");
+    expect(card.kind).toBe("proposal");
+    expect(card.resolved).toBe("applied");
+    expect(card.data.proposal_kind).toBe("rule");
+    expect((card.data.payload as { text: string }).text).toBe("Always answer in English.");
+    expect(card.text).toContain("standing rule added");
+    // An outcome for a card this timeline never saw is still shown, as its own row.
+    const orphan = reduceEvent(
+      EMPTY_TIMELINE,
+      ev("notice", { kind: "proposal_resolved", proposal_id: "p9", status: "rejected", text: "Rejected." }),
+    );
+    expect(orphan.items).toHaveLength(1);
+  });
+
+  it("keeps what an identity undo restores on the resolved card", () => {
+    const previous = { name: "Nova", title: "", description: "", focus: [] };
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("notice", { kind: "proposal", proposal_id: "p2", proposal_kind: "identity",
+        summary: "Become Mail Desk", payload: { name: "Mail Desk" }, status: "pending" }),
+      ev("notice", { kind: "proposal_resolved", proposal_id: "p2", proposal_kind: "identity",
+        status: "applied", text: "I am now Mail Desk.", previous }),
+    ]);
+    const card = tl.items[0];
+    if (card.type !== "notice") throw new Error("unreachable");
+    expect(card.resolved).toBe("applied");
+    expect(card.data.previous).toEqual(previous);
+  });
+});

@@ -1,6 +1,6 @@
-"""Regression + behaviour tests for jarvis.skills.local_search.
+"""Regression + behaviour tests for dodaios.skills.local_search.
 
-BUG-D: the skills route imported ``jarvis.skills.local_search`` but the module
+BUG-D: the skills route imported ``dodaios.skills.local_search`` but the module
 was never committed, so ``POST /api/skills/query`` returned HTTP 500 on every
 Builtin/Meine/category/text filter. The import test below is the guard that
 would have caught that; the rest pin the filter + ranking behaviour.
@@ -12,7 +12,7 @@ import pytest
 
 def test_module_imports() -> None:
     """The route imports these names lazily — they must exist (BUG-D guard)."""
-    from jarvis.skills.local_search import LocalSearchFilters, LocalSkillSearch
+    from dodaios.skills.local_search import LocalSearchFilters, LocalSkillSearch
 
     assert LocalSearchFilters is not None
     assert LocalSkillSearch is not None
@@ -77,7 +77,7 @@ def _registry() -> _FakeRegistry:
 
 @pytest.mark.asyncio
 async def test_empty_query_is_filter_router() -> None:
-    from jarvis.skills.local_search import LocalSearchFilters, LocalSkillSearch
+    from dodaios.skills.local_search import LocalSearchFilters, LocalSkillSearch
 
     s = LocalSkillSearch(registry=_registry(), brain=None)
     hits, brain_used = await s.query(LocalSearchFilters(q="", limit=30))
@@ -88,7 +88,7 @@ async def test_empty_query_is_filter_router() -> None:
 
 @pytest.mark.asyncio
 async def test_query_ranks_and_drops_non_matches() -> None:
-    from jarvis.skills.local_search import LocalSearchFilters, LocalSkillSearch
+    from dodaios.skills.local_search import LocalSearchFilters, LocalSkillSearch
 
     s = LocalSkillSearch(registry=_registry(), brain=None)
     hits, _ = await s.query(LocalSearchFilters(q="calendar", limit=30))
@@ -100,7 +100,7 @@ async def test_query_ranks_and_drops_non_matches() -> None:
 
 @pytest.mark.asyncio
 async def test_state_filter() -> None:
-    from jarvis.skills.local_search import LocalSearchFilters, LocalSkillSearch
+    from dodaios.skills.local_search import LocalSearchFilters, LocalSkillSearch
 
     s = LocalSkillSearch(registry=_registry(), brain=None)
     hits, _ = await s.query(LocalSearchFilters(q="", state="draft", limit=30))
@@ -111,7 +111,7 @@ async def test_state_filter() -> None:
 @pytest.mark.asyncio
 async def test_category_filter_skips_draft_without_frontmatter() -> None:
     """A category filter must not crash on DRAFT skills (frontmatter=None)."""
-    from jarvis.skills.local_search import LocalSearchFilters, LocalSkillSearch
+    from dodaios.skills.local_search import LocalSearchFilters, LocalSkillSearch
 
     s = LocalSkillSearch(registry=_registry(), brain=None)
     hits, _ = await s.query(LocalSearchFilters(q="", category="meta", limit=30))
@@ -121,7 +121,7 @@ async def test_category_filter_skips_draft_without_frontmatter() -> None:
 
 @pytest.mark.asyncio
 async def test_limit_is_applied() -> None:
-    from jarvis.skills.local_search import LocalSearchFilters, LocalSkillSearch
+    from dodaios.skills.local_search import LocalSearchFilters, LocalSkillSearch
 
     s = LocalSkillSearch(registry=_registry(), brain=None)
     hits, _ = await s.query(LocalSearchFilters(q="", limit=1))

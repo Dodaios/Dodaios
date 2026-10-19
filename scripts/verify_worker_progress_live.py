@@ -34,8 +34,8 @@ if sys.stdout.encoding != "utf-8":
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jarvis.missions.init import bootstrap_missions, shutdown_missions  # noqa: E402
-from jarvis.missions.state_machine import MissionState  # noqa: E402
+from dodaios.missions.init import bootstrap_missions, shutdown_missions  # noqa: E402
+from dodaios.missions.state_machine import MissionState  # noqa: E402
 
 OK = "[OK]"
 FAIL = "[FAIL]"
@@ -73,7 +73,7 @@ async def verify() -> int:
         kontrollierer = result["kontrollierer"]
 
         try:
-            from jarvis.core.config import load_config
+            from dodaios.core.config import load_config
 
             cfg = load_config()
             sub = getattr(cfg.brain, "sub_jarvis", None)

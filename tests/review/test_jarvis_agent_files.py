@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from jarvis.core.review.spawns import DEFAULT_REVIEWER_TOOLS, DEFAULT_WORKER_TOOLS
+from dodaios.core.review.spawns import DEFAULT_REVIEWER_TOOLS, DEFAULT_WORKER_TOOLS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AGENTS_DIR = REPO_ROOT / ".agents" / "agents"

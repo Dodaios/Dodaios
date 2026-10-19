@@ -10,12 +10,12 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.agent_chat.credential_requests import CredentialRequestBusy
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.society import credentials
-from jarvis.society.credentials import CredentialError, CredentialVault
-from jarvis.ui.web.agent_chat_routes import router
+from dodaios.agent_chat.credential_requests import CredentialRequestBusy
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.society import credentials
+from dodaios.society.credentials import CredentialError, CredentialVault
+from dodaios.ui.web.agent_chat_routes import router
 from tests.fakes.fake_secret_store import FakeSecretStore
 from tests.unit.society.test_agent_credentials import _SPEC, SECRET, _service_with_turn
 

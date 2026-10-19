@@ -21,10 +21,10 @@ pinned here so no renderer can silently lack the control.
 
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar import host
-from jarvis.ui.dodaiosbar import renderer as R
-from jarvis.ui.dodaiosbar.null_overlay import NullOverlay
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar import host
+from dodaios.ui.dodaiosbar import renderer as R
+from dodaios.ui.dodaiosbar.null_overlay import NullOverlay
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 class _FakePipeline:
@@ -50,7 +50,7 @@ def _sparkle_x() -> float:
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: fake)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: fake)
 
 
 # --------------------------------------------------------------------------- #

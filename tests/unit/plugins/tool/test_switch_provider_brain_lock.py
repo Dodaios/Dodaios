@@ -9,8 +9,8 @@ stay fully voice-controllable.
 
 from __future__ import annotations
 
-import jarvis.brain.app_control as app_control
-from jarvis.plugins.tool.switch_provider import SwitchProviderTool
+import dodaios.brain.app_control as app_control
+from dodaios.plugins.tool.switch_provider import SwitchProviderTool
 
 
 async def test_brain_switch_is_refused_and_never_applied(monkeypatch) -> None:

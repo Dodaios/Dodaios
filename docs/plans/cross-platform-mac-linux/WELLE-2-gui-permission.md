@@ -22,7 +22,7 @@ platform-agnostic (AD-10). The **Orb** gains an `OverlaySurface` abstraction wit
 a 3-tier visual ladder: the Tk color-key surface (Windows + macOS, where
 `-transparentcolor` works), a best-effort transparent surface on a Linux
 compositor, and a `TrayOnlySurface` fallback driving the already-cross-platform
-pystray tray (`jarvis/ui/tray.py`). Both ports degrade per AD-13: a missing
+pystray tray (`dodaios/ui/tray.py`). Both ports degrade per AD-13: a missing
 permission or empty native tree logs an English onboarding message and falls back
 (to the pixel-click path / to the tray) — never silently empty, never hard-block.
 
@@ -32,7 +32,7 @@ permission or empty native tree logs an English onboarding message and falls bac
 
 ### 2.1 — macOS AX-tree `VisionSource` (`pyobjc` AXUIElement)
 
-- **Create:** `jarvis/vision/ax_tree.py` (`AXTreeSource`), `tests/fakes/fake_ax_api.py`,
+- **Create:** `dodaios/vision/ax_tree.py` (`AXTreeSource`), `tests/fakes/fake_ax_api.py`,
   `tests/unit/vision/test_ax_tree.py`.
 - **Approach:**
   - `AXTreeSource` satisfies `VisionSource` (`protocols.py:419`): `name = "ax-tree"`,
@@ -66,13 +66,13 @@ permission or empty native tree logs an English onboarding message and falls bac
     against `fake_ax_api.py` returning a canned AX tree; asserts the flattened
     `UIANode` list, the role normalization, and the empty-`nodes` degrade when the
     fake reports `AXIsProcessTrusted()==False`).
-  - `python -c "from jarvis.vision.ax_tree import AXTreeSource; from jarvis.core.protocols import VisionSource; assert isinstance(AXTreeSource(), VisionSource)"` exits 0 (runtime-checkable Protocol conformance) on any OS.
-  - `python -c "import ast; m=ast.parse(open('jarvis/vision/ax_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('Quartz','HIServices','ApplicationServices') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (no module-scope pyobjc import).
+  - `python -c "from dodaios.vision.ax_tree import AXTreeSource; from dodaios.core.protocols import VisionSource; assert isinstance(AXTreeSource(), VisionSource)"` exits 0 (runtime-checkable Protocol conformance) on any OS.
+  - `python -c "import ast; m=ast.parse(open('dodaios/vision/ax_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('Quartz','HIServices','ApplicationServices') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (no module-scope pyobjc import).
   - **Marked `skip_ci`** for any test needing a real AX grant; logic tests run on every leg.
 
 ### 2.2 — Linux AT-SPI `VisionSource` (`pyatspi`)
 
-- **Create:** `jarvis/vision/atspi_tree.py` (`AtspiTreeSource`),
+- **Create:** `dodaios/vision/atspi_tree.py` (`AtspiTreeSource`),
   `tests/fakes/fake_atspi.py`, `tests/unit/vision/test_atspi_tree.py`.
 - **Approach:**
   - `AtspiTreeSource` satisfies `VisionSource` exactly like 2.1 (`name = "atspi-tree"`,
@@ -95,12 +95,12 @@ permission or empty native tree logs an English onboarding message and falls bac
   - `pytest tests/unit/vision/test_atspi_tree.py -v` green (drives against
     `fake_atspi.py`; asserts the flattened tree, role normalization, and the
     empty-`nodes` degrade when the bus is reported unreachable).
-  - `python -c "from jarvis.vision.atspi_tree import AtspiTreeSource; from jarvis.core.protocols import VisionSource; assert isinstance(AtspiTreeSource(), VisionSource)"` exits 0.
-  - `python -c "import ast; m=ast.parse(open('jarvis/vision/atspi_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='pyatspi' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (no module-scope `pyatspi`).
+  - `python -c "from dodaios.vision.atspi_tree import AtspiTreeSource; from dodaios.core.protocols import VisionSource; assert isinstance(AtspiTreeSource(), VisionSource)"` exits 0.
+  - `python -c "import ast; m=ast.parse(open('dodaios/vision/atspi_tree.py').read()); assert not any(getattr(n,'names',None) and any(a.name=='pyatspi' for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (no module-scope `pyatspi`).
 
 ### 2.3 — Native-role → canonical-UIA-role normalization
 
-- **Create:** `jarvis/vision/role_map.py` (the AX and AT-SPI → UIA role tables +
+- **Create:** `dodaios/vision/role_map.py` (the AX and AT-SPI → UIA role tables +
   `normalize_role(native_role, platform) -> str`), `tests/unit/vision/test_role_map.py`.
 - **Approach:**
   - The canonical vocabulary is the union already used by the pipeline:
@@ -127,19 +127,19 @@ permission or empty native tree logs an English onboarding message and falls bac
   - `pytest tests/unit/vision/test_role_map.py -v` green (asserts representative
     AX + AT-SPI roles map to the canonical set, and that every output role is a
     member of `_CLICKABLE_UIA_ROLES | set(DEFAULT_INTERESTING_ROLES)`).
-  - `python -c "from jarvis.vision.role_map import normalize_role; assert normalize_role('AXButton','darwin')=='Button' and normalize_role('ROLE_PUSH_BUTTON','linux')=='Button'"` exits 0.
+  - `python -c "from dodaios.vision.role_map import normalize_role; assert normalize_role('AXButton','darwin')=='Button' and normalize_role('ROLE_PUSH_BUTTON','linux')=='Button'"` exits 0.
 
 ### 2.4 — `tree_factory` + rewire the 6 hardcoded `UIATreeSource()` literals
 
-- **Create:** `jarvis/vision/tree_factory.py` (`make_ui_tree_source() -> VisionSource`),
+- **Create:** `dodaios/vision/tree_factory.py` (`make_ui_tree_source() -> VisionSource`),
   `tests/unit/vision/test_tree_factory.py`.
 - **Modify (replace the literal `UIATreeSource()` with `make_ui_tree_source()`):**
-  - `jarvis/plugins/tool/click_element.py:125`
-  - `jarvis/plugins/tool/read_visible_ui_state.py:60`
-  - `jarvis/plugins/tool/wait_for_element.py:97`
-  - `jarvis/plugins/tool/wait_for_ui_state.py:78`
-  - `jarvis/vision/engine.py:71` (the `uia_source or UIATreeSource()` default)
-  - `jarvis/harness/screenshot_only_loop.py:1092` (inside `_foreground_clickable_labels`)
+  - `dodaios/plugins/tool/click_element.py:125`
+  - `dodaios/plugins/tool/read_visible_ui_state.py:60`
+  - `dodaios/plugins/tool/wait_for_element.py:97`
+  - `dodaios/plugins/tool/wait_for_ui_state.py:78`
+  - `dodaios/vision/engine.py:71` (the `uia_source or UIATreeSource()` default)
+  - `dodaios/harness/screenshot_only_loop.py:1092` (inside `_foreground_clickable_labels`)
 - **Approach:**
   - `make_ui_tree_source()` selects on `detect_platform()` + `capabilities`:
     `win32`→`UIATreeSource()` (unchanged, AD-7); `darwin`→`AXTreeSource()`;
@@ -152,21 +152,21 @@ permission or empty native tree logs an English onboarding message and falls bac
     <literal>` (`click_element.py:125`, `read_visible_ui_state.py:60`,
     `wait_for_element.py:97`, `wait_for_ui_state.py:78`) or
     `uia_source=` (`engine.py:62-71`). The change is mechanical: swap the literal
-    default for the factory call. The lazy `from jarvis.vision.uia_tree import
+    default for the factory call. The lazy `from dodaios.vision.uia_tree import
     UIATreeSource` import guard at `click_element.py:117-123` becomes a
-    `from jarvis.vision.tree_factory import make_ui_tree_source` import.
+    `from dodaios.vision.tree_factory import make_ui_tree_source` import.
   - Keep `screenshot_only_loop.py`'s `_foreground_clickable_labels` "returns `[]`
     on any failure" contract (`:1093`) intact — the factory's null source produces
     empty nodes, which already yields `[]`.
 - **Acceptance criteria:**
-  - `grep -rn "UIATreeSource()" jarvis/` shows only `tree_factory.py` (the Windows branch) and `uia_tree.py` itself — none of the 6 former call sites.
+  - `grep -rn "UIATreeSource()" dodaios/` shows only `tree_factory.py` (the Windows branch) and `uia_tree.py` itself — none of the 6 former call sites.
   - `pytest tests/unit/vision/test_tree_factory.py -v` green (asserts per-platform selection + the Linux null-source degrade).
   - `pytest tests/unit/vision/test_engine.py tests/contract/test_vision_source_protocol.py -v` green (existing engine + contract suites unbroken; the contract suite at `test_vision_source_protocol.py:26` already parametrizes `VisionSource` impls — add `AXTreeSource`/`AtspiTreeSource` to it).
-  - `python -c "from jarvis.vision.tree_factory import make_ui_tree_source; from jarvis.core.protocols import VisionSource; assert isinstance(make_ui_tree_source(), VisionSource)"` exits 0 on every OS.
+  - `python -c "from dodaios.vision.tree_factory import make_ui_tree_source; from dodaios.core.protocols import VisionSource; assert isinstance(make_ui_tree_source(), VisionSource)"` exits 0 on every OS.
 
 ### 2.5 — Orb: `OverlaySurface` protocol + `TkColorKeyOverlay` (Win + Mac)
 
-- **Create:** `jarvis/overlay/surface.py` (`OverlaySurface` `Protocol` +
+- **Create:** `dodaios/overlay/surface.py` (`OverlaySurface` `Protocol` +
   `make_overlay_surface()` factory + `TkColorKeyOverlay`), `tests/fakes/fake_overlay_surface.py`,
   `tests/overlay/test_overlay_surface.py`.
 - **Modify:** none of `ui/orb/overlay.py`'s rendering — the live Tk orb
@@ -182,10 +182,10 @@ permission or empty native tree logs an English onboarding message and falls bac
     equivalent on macOS) works on **both** Windows and macOS — so this surface is
     the default on `win32` and `darwin`. No code change to the color-key path; the
     wrapper just adapts the lifecycle to the `OverlaySurface` Protocol.
-  - The Windows-only `SetSystemCursor` swap (`jarvis/overlay/system_cursor.py`)
+  - The Windows-only `SetSystemCursor` swap (`dodaios/overlay/system_cursor.py`)
     stays Windows-only — it is already a no-op off Windows (it lazy-loads
     `ctypes.windll`/Win32). Do **not** wire it into the cross-platform surface;
-    leave its existing call site (`jarvis/ui/desktop_app.py`) gated on Windows.
+    leave its existing call site (`dodaios/ui/desktop_app.py`) gated on Windows.
   - `make_overlay_surface()` selects on `detect_platform()` + `capabilities`:
     `win32`/`darwin` → `TkColorKeyOverlay` (when `capabilities.has_overlay`);
     `linux` → `LinuxBestEffortOverlay` (2.6) or `TrayOnlySurface` (2.6);
@@ -195,13 +195,13 @@ permission or empty native tree logs an English onboarding message and falls bac
     `QT_QPA_PLATFORM=offscreen` (the headless guard at `tests/overlay/conftest.py:21`);
     constructs `TkColorKeyOverlay` against `fake_overlay_surface.py` and asserts the
     lifecycle + factory selection (no real window).
-  - `python -c "from jarvis.overlay.surface import make_overlay_surface, OverlaySurface; assert isinstance(make_overlay_surface(), OverlaySurface)"` exits 0 on every OS (never raises).
+  - `python -c "from dodaios.overlay.surface import make_overlay_surface, OverlaySurface; assert isinstance(make_overlay_surface(), OverlaySurface)"` exits 0 on every OS (never raises).
   - `python -c "import ui.orb.overlay"` still resolves on Windows (live orb import unbroken — Wave 0's 0.7 keeps the `sys.path` insert).
 
 ### 2.6 — Orb: Linux best-effort transparent surface + `TrayOnlySurface` fallback
 
-- **Create:** `jarvis/overlay/linux_surface.py` (`LinuxBestEffortOverlay`),
-  `jarvis/overlay/tray_surface.py` (`TrayOnlySurface`), `tests/overlay/test_tray_surface.py`.
+- **Create:** `dodaios/overlay/linux_surface.py` (`LinuxBestEffortOverlay`),
+  `dodaios/overlay/tray_surface.py` (`TrayOnlySurface`), `tests/overlay/test_tray_surface.py`.
 - **Approach:**
   - `LinuxBestEffortOverlay`: attempt the Tk `-transparentcolor` path on a Linux
     compositor (it works under some compositing window managers, fails under
@@ -210,7 +210,7 @@ permission or empty native tree logs an English onboarding message and falls bac
     **fall through to `TrayOnlySurface`** with a logged English message. Never
     show an opaque magenta box (the failure mode the color-key avoids).
   - `TrayOnlySurface` is the universal floor: it drives the existing
-    cross-platform pystray tray (`jarvis/ui/tray.py` — no platform marker, already
+    cross-platform pystray tray (`dodaios/ui/tray.py` — no platform marker, already
     renders `JarvisState` icons via PIL at `tray.py:39`). `set_state(state)` maps
     the orb's state onto `JarvisState` (`tray.py:20-26`) so the user still gets
     IDLE/LISTENING/THINKING/SPEAKING feedback through the tray icon color
@@ -222,7 +222,7 @@ permission or empty native tree logs an English onboarding message and falls bac
   - `pytest tests/overlay/test_tray_surface.py -v` green (asserts `TrayOnlySurface`
     maps orb states onto `JarvisState` and drives the pystray tray via a fake; no
     real tray thread).
-  - `python -c "import jarvis.platform; ...; print(type(make_overlay_surface()).__name__)"` prints `LinuxBestEffortOverlay` or `TrayOnlySurface` on a Linux runner (never `TkColorKeyOverlay`, never a raise).
+  - `python -c "import dodaios.platform; ...; print(type(make_overlay_surface()).__name__)"` prints `LinuxBestEffortOverlay` or `TrayOnlySurface` on a Linux runner (never `TkColorKeyOverlay`, never a raise).
   - On a headless Linux CI leg (`no DISPLAY`), `make_overlay_surface()` returns `TrayOnlySurface` and `start()`/`stop()` are no-op-safe.
 
 ### 2.7 — Dependency grouping: new `[desktop-macos]` extra
@@ -256,13 +256,13 @@ Two largely independent worktrees:
   the role map) and best done together; 2.3 (`role_map.py`) can be a quick first
   PR that 2.1/2.2 build on.
 - **Worktree E — Orb:** 2.5 + 2.6 + the `desktop-macos` extra in 2.7
-  (`jarvis/overlay/`, `pyproject.toml`).
+  (`dodaios/overlay/`, `pyproject.toml`).
 
 The only shared file is `pyproject.toml` (2.7) — split it: Worktree E owns the
 `desktop-macos` block; Worktree D adds the one-line `pyatspi` comment/doc note in
 the README, not pyproject. Each worktree runs `pwsh scripts/preflight.ps1` first.
-The 6 consumer-site edits in 2.4 touch `jarvis/plugins/tool/*` and
-`jarvis/vision/engine.py` + `jarvis/harness/screenshot_only_loop.py` — all owned
+The 6 consumer-site edits in 2.4 touch `dodaios/plugins/tool/*` and
+`dodaios/vision/engine.py` + `dodaios/harness/screenshot_only_loop.py` — all owned
 by Worktree D, no overlap with Worktree E.
 
 ## EK acceptance gate
@@ -278,7 +278,7 @@ wave proves only the logic in CI and marks the permission-dependent tests
 
 ## Dependencies on prior waves
 
-**Wave 0** (the `jarvis/platform/` factory + `capabilities.has_ax_tree`/
+**Wave 0** (the `dodaios/platform/` factory + `capabilities.has_ax_tree`/
 `has_overlay`/`is_wayland` probes, the green CI matrix, and the
 `ADR-orb-framework.md` verdict that fixes the Tk orb as the wrap target).
 Independent of Wave 1 (terminal/app-launch/hotkey) and Wave 3 (admin) — can run

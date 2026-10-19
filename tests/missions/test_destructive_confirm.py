@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions.safety.destructive_confirm import (
+from dodaios.missions.safety.destructive_confirm import (
     DESTRUCTIVE_PATTERNS,
     DestructiveDetection,
     is_destructive,

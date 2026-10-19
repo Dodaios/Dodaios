@@ -1,11 +1,11 @@
 """Regression guard: every Tk surface wears the Jarvis mascot, not the Python logo.
 
 BUG #UI-Pin-2026-05-05 recurred because the icon fix lived only in the old orb
-(``ui/orb/overlay.py``) while the JarvisBar (``jarvis/ui/dodaiosbar/overlay.py``,
+(``ui/orb/overlay.py``) while the JarvisBar (``dodaios/ui/dodaiosbar/overlay.py``,
 now the DEFAULT ``orb_style``) created its ``tk.Tk()`` root without any icon
 work — so it inherited the process icon (``pythonw.exe`` → Python logo on
 Windows, ``python3`` on Linux). The fix routes BOTH through one canonical
-helper, :func:`jarvis.ui.icon_utils.apply_tk_window_icon`. These tests fail if a
+helper, :func:`dodaios.ui.icon_utils.apply_tk_window_icon`. These tests fail if a
 Tk surface ever forgets to call it (the exact drift that caused the bug), and —
 on a real display — prove the applied class icon is the bundled mascot.
 """
@@ -18,14 +18,14 @@ import pytest
 
 
 def test_apply_tk_window_icon_is_importable() -> None:
-    from jarvis.ui.icon_utils import apply_tk_window_icon
+    from dodaios.ui.icon_utils import apply_tk_window_icon
 
     assert callable(apply_tk_window_icon)
 
 
 def test_jarvisbar_wires_the_icon_helper() -> None:
     """The JarvisBar must call the canonical Tk-icon helper on its root."""
-    import jarvis.ui.dodaiosbar.overlay as bar
+    import dodaios.ui.dodaiosbar.overlay as bar
 
     src = inspect.getsource(bar)
     assert "apply_tk_window_icon" in src, (
@@ -58,7 +58,7 @@ def test_apply_sets_a_class_icon_on_a_real_tk_root() -> None:
 
     try:
         root.withdraw()
-        from jarvis.ui.icon_utils import apply_tk_window_icon, project_icon_path
+        from dodaios.ui.icon_utils import apply_tk_window_icon, project_icon_path
 
         if not project_icon_path().is_file():
             pytest.skip("bundled icon missing in this checkout")

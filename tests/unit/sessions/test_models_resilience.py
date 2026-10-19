@@ -3,7 +3,7 @@
 as soon as the speech pipeline introduces a new value.
 
 This bug has already had three episodes (2026-05-03 / -05 / -10). The
-permanent fix lives in the module docstring of ``jarvis/sessions/models.py``.
+permanent fix lives in the module docstring of ``dodaios/sessions/models.py``.
 These tests guard the fix against regressions — anyone who migrates
 ``HangupReason`` or ``VoiceTier`` back to ``Literal`` fails here.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.sessions.models import (
+from dodaios.sessions.models import (
     KNOWN_HANGUP_REASONS,
     KNOWN_VOICE_MODES,
     KNOWN_VOICE_TIERS,
@@ -107,7 +107,7 @@ def test_live_db_distinct_hangup_reasons_all_validate() -> None:
     red, a new value was introduced in the pipeline without anyone
     updating ``KNOWN_HANGUP_REASONS``. Then: add the value to the
     constant + extend ``hangupLabel`` in the frontend
-    (jarvis/ui/web/frontend/src/components/sessions/SessionList.tsx).
+    (dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx).
     """
     con = sqlite3.connect(str(_LIVE_DB))
     try:
@@ -121,7 +121,7 @@ def test_live_db_distinct_hangup_reasons_all_validate() -> None:
     unknown = seen - KNOWN_HANGUP_REASONS
     assert not unknown, (
         f"New hangup_reason values in data/sessions.db: {sorted(unknown)}. "
-        f"Please add them to KNOWN_HANGUP_REASONS in jarvis/sessions/models.py "
+        f"Please add them to KNOWN_HANGUP_REASONS in dodaios/sessions/models.py "
         f"and to the frontend (types.ts + SessionList.hangupLabel)."
     )
 

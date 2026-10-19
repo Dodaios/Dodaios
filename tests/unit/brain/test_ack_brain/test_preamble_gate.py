@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.brain.ack_brain.config import AckBrainConfig
-from jarvis.brain.factory import build_ack_brain, build_spawn_announcer
+from dodaios.brain.ack_brain.config import AckBrainConfig
+from dodaios.brain.factory import build_ack_brain, build_spawn_announcer
 
 
 def _jcfg(ack: AckBrainConfig, *, primary: str = "gemini") -> SimpleNamespace:

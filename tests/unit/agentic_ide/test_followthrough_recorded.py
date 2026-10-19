@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import agent_transcript, followthrough, task_state
-from jarvis.core.delegation import ResultInbox
+from dodaios.agentic_ide import agent_transcript, followthrough, task_state
+from dodaios.core.delegation import ResultInbox
 
 
 def _stamp(seconds):

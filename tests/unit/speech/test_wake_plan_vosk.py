@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.speech.wake_constants import resolve_vosk_model_path
-from jarvis.speech.wake_phrase import resolve_wake_plan
+from dodaios.speech.wake_constants import resolve_vosk_model_path
+from dodaios.speech.wake_phrase import resolve_wake_plan
 
 
 @dataclass
@@ -151,9 +151,9 @@ def test_set_wake_plan_vosk_keeps_unverified_candidates_internal(
     vosk_model_dir,
 ) -> None:
     """Live-apply must not expose noisy grammar hits to the visible overlay."""
-    from jarvis.core.bus import EventBus
-    from jarvis.plugins.wake.vosk_kws_provider import VoskKwsProvider
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.core.bus import EventBus
+    from dodaios.plugins.wake.vosk_kws_provider import VoskKwsProvider
+    from dodaios.speech.pipeline import SpeechPipeline
 
     pipe = SpeechPipeline(
         tts=_FakeTTS(), bus=EventBus(),
@@ -174,9 +174,9 @@ def test_constructor_wake_plan_keeps_unverified_candidates_internal(
     vosk_model_dir,
 ) -> None:
     """The initial construction path has the same confirmed-wake boundary."""
-    from jarvis.core.bus import EventBus
-    from jarvis.plugins.wake.vosk_kws_provider import VoskKwsProvider
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.core.bus import EventBus
+    from dodaios.plugins.wake.vosk_kws_provider import VoskKwsProvider
+    from dodaios.speech.pipeline import SpeechPipeline
 
     plan = resolve_wake_plan(
         _cfg(), local_whisper_available=False, language="de", vosk_available=True
@@ -199,8 +199,8 @@ def test_set_wake_plan_vosk_arms_the_provider(vosk_model_dir) -> None:
     # vosk_kws but the detector flag stayed off (OWW=off in the ready log), so
     # the wake was silently dead. The vosk provider rides the OWW slot/loop —
     # arming it must flip the flag on.
-    from jarvis.plugins.wake.vosk_kws_provider import VoskKwsProvider
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.plugins.wake.vosk_kws_provider import VoskKwsProvider
+    from dodaios.speech.pipeline import SpeechPipeline
 
     pipe = SpeechPipeline(
         tts=_FakeTTS(), bus=None,

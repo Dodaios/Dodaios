@@ -10,10 +10,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.computers import identity, ssh, ssh_config, tailscale
-from jarvis.computers.models import Computer, ComputerFacts, ComputerRoute
-from jarvis.computers.service import ComputerService
-from jarvis.ui.web import computers_routes
+from dodaios.computers import identity, ssh, ssh_config, tailscale
+from dodaios.computers.models import Computer, ComputerFacts, ComputerRoute
+from dodaios.computers.service import ComputerService
+from dodaios.ui.web import computers_routes
 from tests.fakes.fake_ssh_server import FakeSshServer
 
 

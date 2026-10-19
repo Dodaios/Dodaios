@@ -1,7 +1,7 @@
 """Pin the producer/consumer overlap contract of the streaming TTS path.
 
 Root cause (TTS-latency deep-dive 2026-05-28): on the streaming voice path
-``_brain_streaming`` (jarvis/speech/pipeline.py) the brain-token loop did
+``_brain_streaming`` (dodaios/speech/pipeline.py) the brain-token loop did
 ``await self._speak(sentence)`` inline. That ``await`` suspends brain-token
 consumption — and therefore the construction of sentence N+1 — until sentence
 N has FULLY PLAYED. Synthesis and playback were the same task with no queue,
@@ -23,10 +23,10 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import SpeechSpoken
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.bus import EventBus
+from dodaios.core.events import SpeechSpoken
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 @dataclass
@@ -157,7 +157,7 @@ def test_performance_config_lookahead_default_and_floor() -> None:
     """The look-ahead knob defaults to 1 and is floored at 1 — a 0/negative
     look-ahead would stall the synth/playback queue (no sentence may be
     synthesized ahead of playback)."""
-    from jarvis.core.config import PerformanceConfig
+    from dodaios.core.config import PerformanceConfig
 
     assert PerformanceConfig().tts_lookahead_sentences == 1
     assert PerformanceConfig(tts_lookahead_sentences=3).tts_lookahead_sentences == 3

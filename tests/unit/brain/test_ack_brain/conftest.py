@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.ack_brain.config import (
+from dodaios.brain.ack_brain.config import (
     AckBrainConfig,
     GeminiAckProviderConfig,
     OllamaAckProviderConfig,
@@ -227,10 +227,10 @@ def build_ack_generator_with_fake(
     """Wire up an AckGenerator that uses ``fake`` as its provider.
 
     Convenience builder that mirrors the real
-    :func:`jarvis.brain.factory.build_ack_brain` enough for integration
+    :func:`dodaios.brain.factory.build_ack_brain` enough for integration
     tests that want to bypass entry-point discovery.
     """
-    from jarvis.brain.ack_brain import AckGenerator, CircuitBreaker
+    from dodaios.brain.ack_brain import AckGenerator, CircuitBreaker
 
     cfg = config or make_ack_config()
     breaker_kwargs: dict[str, Any] = {

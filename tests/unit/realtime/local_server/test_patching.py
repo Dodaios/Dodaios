@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.realtime.local_server import patching
+from dodaios.realtime.local_server import patching
 
 
 def _write_service(site: Path, data: bytes) -> Path:

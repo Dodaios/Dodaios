@@ -5,7 +5,7 @@ path, the legacy ``snapshot()``/``request()``, the identity-reset marker file an
 the Automation consent file. This module fails when any of them is reintroduced,
 by name in the product code, the CI scripts and the workflows, and by shape on the
 port itself. The only place allowed to name the two state files an earlier build
-left behind is the one-time cleanup in ``jarvis/platform/permissions.py``.
+left behind is the one-time cleanup in ``dodaios/platform/permissions.py``.
 """
 
 from __future__ import annotations
@@ -17,11 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.platform import permissions
-from jarvis.platform.permissions import SystemPermissionPort
+from dodaios.platform import permissions
+from dodaios.platform.permissions import SystemPermissionPort
 
 _ROOT = Path(__file__).resolve().parents[3]
-_SCANNED_DIRS = ("jarvis", "scripts", ".github")
+_SCANNED_DIRS = ("dodaios", "scripts", ".github")
 _SCANNED_SUFFIXES = {".py", ".yml", ".yaml", ".sh", ".ps1", ".toml", ".spec"}
 _SKIPPED_PARTS = {"node_modules", "dist", "__pycache__", ".venv", "wheels"}
 
@@ -50,7 +50,7 @@ _REMOVED_CALLS = re.compile(
     r"\s*\.\s*(?:snapshot|request|open_settings|reset)\s*\("
 )
 _LEFTOVER_FILES = ("macos-tcc-reset.json", "macos-automation-consent.json")
-_CLEANUP_HOME = "jarvis/platform/permissions.py"
+_CLEANUP_HOME = "dodaios/platform/permissions.py"
 
 
 def _scanned_files() -> list[Path]:
@@ -117,7 +117,7 @@ def test_the_leftover_cleanup_is_called_only_on_the_darwin_install_path(
     )
 
     # Nothing initialises at import time or on the boot critical path (AP-26).
-    assert callers == ["jarvis/setup/macos_app_bundle.py"]
+    assert callers == ["dodaios/setup/macos_app_bundle.py"]
     assert not re.search(r"^remove_leftover_state_files\(", sources[_CLEANUP_HOME], re.M)
 
 

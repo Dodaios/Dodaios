@@ -11,11 +11,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.board.categories import BOARD_CATEGORY_KEYS
+from dodaios.board.categories import BOARD_CATEGORY_KEYS
 
 _TS_MIRROR = (
     Path(__file__).resolve().parents[2]
-    / "jarvis" / "ui" / "web" / "frontend" / "src" / "lib" / "boardCategories.ts"
+    / "dodaios" / "ui" / "web" / "frontend" / "src" / "lib" / "boardCategories.ts"
 )
 
 
@@ -34,7 +34,7 @@ def test_ts_mirror_matches_python_source() -> None:
     ts_keys = _parse_ts_keys(_TS_MIRROR.read_text(encoding="utf-8"))
     assert tuple(ts_keys) == BOARD_CATEGORY_KEYS, (
         "boardCategories.ts BOARD_CATEGORY_KEYS drifted from "
-        "jarvis/board/categories.py — keep both in lock-step."
+        "dodaios/board/categories.py — keep both in lock-step."
     )
 
 

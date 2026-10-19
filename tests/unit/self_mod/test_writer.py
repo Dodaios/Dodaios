@@ -21,9 +21,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import ConfigReloaded
-from jarvis.core.self_mod import (
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import ConfigReloaded
+from dodaios.core.self_mod import (
     AllowlistViolationError,
     AtomicConfigWriter,
     AuditActor,
@@ -680,7 +680,7 @@ class TestListBackups:
         data_root = tmp_path / "fallback-user-data"
         monkeypatch.delenv("JARVIS_DATA_DIR", raising=False)
         monkeypatch.setattr(
-            "jarvis.core.self_mod.writer.user_data_dir", lambda: data_root
+            "dodaios.core.self_mod.writer.user_data_dir", lambda: data_root
         )
         writer = AtomicConfigWriter(
             config_path=fixture_path,

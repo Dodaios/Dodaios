@@ -15,8 +15,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import prompt_blueprint as blueprint
-from jarvis.agentic_ide import prompt_composer
+from dodaios.agentic_ide import prompt_blueprint as blueprint
+from dodaios.agentic_ide import prompt_composer
 
 
 def test_a_cli_error_line_is_not_a_brief() -> None:
@@ -61,7 +61,7 @@ class _Brain:
         self._answer = answer
 
     async def complete(self, _req: object):  # noqa: ANN202 - test double
-        from jarvis.core.protocols import BrainDelta
+        from dodaios.core.protocols import BrainDelta
 
         yield BrainDelta(content=self._answer)
 

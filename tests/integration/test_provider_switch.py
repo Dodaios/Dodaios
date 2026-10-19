@@ -7,11 +7,11 @@ from unittest.mock import patch
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import BrainProviderSwitched
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import BrainProviderSwitched
+from dodaios.core.protocols import BrainDelta, BrainRequest
 from tests.fixtures.brain.fake_brain import FakeBrain
 
 
@@ -84,7 +84,7 @@ async def test_voice_switch_intent_detected():
             await manager.switch(provider)
         return {"ok": True, "new_provider": provider}
 
-    with patch("jarvis.brain.app_control.apply_provider_switch", side_effect=_fake_apply):
+    with patch("dodaios.brain.app_control.apply_provider_switch", side_effect=_fake_apply):
         result = await manager.generate("Jarvis wechsel auf gemini bitte", use_history=False)
 
     assert manager.active_provider == "gemini"

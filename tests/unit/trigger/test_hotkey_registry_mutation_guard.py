@@ -29,7 +29,7 @@ from tests.fakes.fake_global_hotkeys import FakeGlobalHotkeys
 @pytest.fixture()
 def strict_gh():
     """A fake whose poller dies on a registry write, exactly like the real one."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
+    import dodaios.trigger.backends.global_hotkeys as ghb
 
     fake = FakeGlobalHotkeys()
     fake.strict_poller = True
@@ -50,7 +50,7 @@ def test_arming_a_second_trigger_does_not_kill_the_running_poller(strict_gh):
     """The exact live sequence: the voice trigger polls, a Computer-Use mission
     arms its cancel key, the mission ends and releases it. The poller must
     survive all of it and still deliver presses."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     fired: list[str] = []
     voice = GlobalHotkeysBackend()
@@ -77,8 +77,8 @@ def test_arming_a_second_trigger_does_not_kill_the_running_poller(strict_gh):
 def test_first_registration_needs_no_pause(strict_gh):
     """With no poller running yet there is nothing to protect — and nothing to
     restart, so the checker must not be started behind ``start()``'s back."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    import dodaios.trigger.backends.global_hotkeys as ghb
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     backend = GlobalHotkeysBackend()
     backend.register([["f3 + f4", None, lambda: None]])
@@ -91,7 +91,7 @@ def test_first_registration_needs_no_pause(strict_gh):
 def test_paused_poller_is_restarted_after_the_write(strict_gh):
     """Pause and resume are balanced: one stop, one start, never a leak that
     leaves the shortcuts dead or a second poller double-firing."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     voice = GlobalHotkeysBackend()
     voice.register([["f1 + f2", None, lambda: None]])
@@ -112,7 +112,7 @@ def test_paused_poller_is_restarted_after_the_write(strict_gh):
 def test_teardown_write_also_runs_under_the_guard(strict_gh):
     """``unregister`` removes combos by string — that is a registry write too,
     and it happened at exactly the moment the live poller died."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     voice = GlobalHotkeysBackend()
     voice.register([["f1 + f2", None, lambda: None]])

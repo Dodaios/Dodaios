@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core import config as config_module
-from jarvis.core.config import STTConfig
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.core import config as config_module
+from dodaios.core.config import STTConfig
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 STT_PROVIDER_IDS = tuple(spec.id for spec in PROVIDERS if spec.tier == "stt")
 

@@ -8,8 +8,8 @@ the voice budget until the voice call failed with "no credits".
 
 from __future__ import annotations
 
-from jarvis.brain.factory import _router_provider_override
-from jarvis.core.config import BrainConfig, BrainTierConfig, JarvisConfig
+from dodaios.brain.factory import _router_provider_override
+from dodaios.core.config import BrainConfig, BrainTierConfig, JarvisConfig
 
 
 def _config(*, primary: str, router: str | None, mode: str = "realtime") -> JarvisConfig:

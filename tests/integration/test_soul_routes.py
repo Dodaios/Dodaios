@@ -13,16 +13,16 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import jarvis.core.config as core_config
-import jarvis.society.memory as society_memory
-from jarvis.brain import agent_instructions, identity
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.notebook import JarvisNotebook
-from jarvis.memory.soul import Soul
-from jarvis.memory.templates import render_soul_md
-from jarvis.ui.web.server import WebServer
+import dodaios.core.config as core_config
+import dodaios.society.memory as society_memory
+from dodaios.brain import agent_instructions, identity
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.notebook import JarvisNotebook
+from dodaios.memory.soul import Soul
+from dodaios.memory.templates import render_soul_md
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture(autouse=True)

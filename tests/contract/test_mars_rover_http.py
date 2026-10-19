@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from jarvis.ui.web.mars_routes import ensure_mars_navigation
+from dodaios.ui.web.mars_routes import ensure_mars_navigation
 
 from .test_mars_navigation_http import BASE, HEADERS, PREFIX
 from .test_mars_navigation_http import world as world

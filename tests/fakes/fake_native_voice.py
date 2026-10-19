@@ -1,6 +1,6 @@
 """In-memory providers for ``NativeLiveVoiceSession`` (Gemini Live and the local engine).
 
-Two shapes share one file because ``jarvis/live/native.py`` serves both, and
+Two shapes share one file because ``dodaios/live/native.py`` serves both, and
 every fix there needs a regression test on each:
 
 * :func:`gemini_like_provider` creates its responses itself at the end of the
@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
 
 
 class FakeNativeConnection:

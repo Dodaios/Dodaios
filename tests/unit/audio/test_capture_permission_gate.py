@@ -25,12 +25,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.audio import capture
-from jarvis.core.bus import EventBus, get_default_bus, reset_default_bus
-from jarvis.core.events import PermissionNeeded
-from jarvis.core.protocols import AudioChunk
-from jarvis.platform.permission_service import PermissionOutcome, PermissionService
-from jarvis.platform.permissions import PermissionId, PermissionState
+from dodaios.audio import capture
+from dodaios.core.bus import EventBus, get_default_bus, reset_default_bus
+from dodaios.core.events import PermissionNeeded
+from dodaios.core.protocols import AudioChunk
+from dodaios.platform.permission_service import PermissionOutcome, PermissionService
+from dodaios.platform.permissions import PermissionId, PermissionState
 from tests.fakes.fake_permission_service import FakePermissionService, make_result
 from tests.fakes.fake_tcc import (
     DialogPolicy,
@@ -198,7 +198,7 @@ async def test_background_open_never_asks_and_never_opens_a_device(
     tcc.assert_no_prompts()
     assert audio.streams == []
     assert refused.value.result.reason == "not_determined"
-    from jarvis.platform.permission_service import get_permission_service
+    from dodaios.platform.permission_service import get_permission_service
 
     (episode,) = get_permission_service().outstanding()
     assert episode.feature == "wake_word" and episode.origin == "background"

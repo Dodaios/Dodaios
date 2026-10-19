@@ -17,9 +17,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, BrainRequest, ImageBlock
-from jarvis.plugins.brain import _openai_base
-from jarvis.plugins.brain._openai_base import stream_complete
+from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock
+from dodaios.plugins.brain import _openai_base
+from dodaios.plugins.brain._openai_base import stream_complete
 
 # The live rejection, verbatim shape (desktop log 2026-08-06 20:19:14).
 _NOT_A_CHAT_MODEL_404 = (
@@ -281,7 +281,7 @@ async def test_sdk_without_responses_api_reraises_the_honest_404() -> None:
 
 
 def test_manager_classifies_the_live_404_as_invalid_model() -> None:
-    from jarvis.brain.manager import _classify_provider_error
+    from dodaios.brain.manager import _classify_provider_error
 
     assert (
         _classify_provider_error(_NOT_A_CHAT_MODEL_404, default="call_fail")

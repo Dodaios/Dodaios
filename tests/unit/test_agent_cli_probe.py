@@ -1,4 +1,4 @@
-"""Tests for jarvis.agent_cli_probe — the live "Test" button probe.
+"""Tests for dodaios.agent_cli_probe — the live "Test" button probe.
 
 Contract under guard: the probe never raises, reports an honest not-installed
 result WITH the searched PATH (so a GUI-PATH miss is diagnosable), busts the
@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis import agent_cli_probe, claude_auth, codex_auth
-from jarvis.claude_auth import ClaudeAuthStatus
-from jarvis.codex_auth import CodexAuthStatus
-from jarvis.google_cli.resolver import GoogleCli
+from dodaios import agent_cli_probe, claude_auth, codex_auth
+from dodaios.claude_auth import ClaudeAuthStatus
+from dodaios.codex_auth import CodexAuthStatus
+from dodaios.google_cli.resolver import GoogleCli
 
 
 @pytest.fixture(autouse=True)
@@ -139,10 +139,10 @@ def test_codex_version_probe_records_why_the_spawn_was_refused(monkeypatch):
 
 
 def test_antigravity_names_the_resolved_cli_kind(monkeypatch):
-    from jarvis.google_cli import auth_service as gsvc
+    from dodaios.google_cli import auth_service as gsvc
 
     monkeypatch.setattr(
-        "jarvis.google_cli.resolver.resolve_google_cli",
+        "dodaios.google_cli.resolver.resolve_google_cli",
         lambda: GoogleCli(kind="gemini", argv_prefix=["/usr/local/bin/gemini"]),
     )
     monkeypatch.setattr(agent_cli_probe, "_live_version", lambda argv: "0.9.0")
@@ -164,7 +164,7 @@ def test_antigravity_names_the_resolved_cli_kind(monkeypatch):
 
 
 def test_grok_build_not_installed(monkeypatch):
-    from jarvis.grok_build_auth import GrokBuildAuthService, GrokBuildAuthStatus
+    from dodaios.grok_build_auth import GrokBuildAuthService, GrokBuildAuthStatus
 
     monkeypatch.setattr(
         GrokBuildAuthService,
@@ -180,7 +180,7 @@ def test_grok_build_not_installed(monkeypatch):
 
 def test_antigravity_not_installed(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.google_cli.resolver.resolve_google_cli", lambda: None
+        "dodaios.google_cli.resolver.resolve_google_cli", lambda: None
     )
     result = agent_cli_probe.test_antigravity()
     assert result.ok is False

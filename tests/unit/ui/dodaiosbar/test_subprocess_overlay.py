@@ -16,8 +16,8 @@ import weakref
 
 import pytest
 
-from jarvis.ui.dodaiosbar import subprocess_overlay as mod
-from jarvis.ui.dodaiosbar.subprocess_overlay import (
+from dodaios.ui.dodaiosbar import subprocess_overlay as mod
+from dodaios.ui.dodaiosbar.subprocess_overlay import (
     SubprocessBarOverlay,
     SubprocessMascotOverlay,
 )
@@ -262,7 +262,7 @@ def test_dictation_stop_event_discards_the_parent_recording(monkeypatch) -> None
     DISCARDS — the same "make it go away" the X means for a voice session —
     without touching the voice hang-up or starting a session."""
     pipeline = _FakeSpeechPipeline(session_active=False)
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
     surface = SubprocessBarOverlay()
 
     surface._dispatch_event({"event": "dictation_stop"})
@@ -274,7 +274,7 @@ def test_dictation_stop_event_discards_the_parent_recording(monkeypatch) -> None
 
 def test_dictation_stop_event_prefers_an_installed_callback(monkeypatch) -> None:
     pipeline = _FakeSpeechPipeline(session_active=False)
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
     surface = SubprocessBarOverlay()
     fired: list[str] = []
     surface.set_on_dictation_stop(lambda: fired.append("stop"))
@@ -287,7 +287,7 @@ def test_dictation_stop_event_prefers_an_installed_callback(monkeypatch) -> None
 
 def test_talk_event_executes_the_parent_pipeline(monkeypatch) -> None:
     pipeline = _FakeSpeechPipeline(session_active=False)
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
     surface = SubprocessBarOverlay()
 
     surface._dispatch_event({"event": "talk"})
@@ -298,7 +298,7 @@ def test_talk_event_executes_the_parent_pipeline(monkeypatch) -> None:
 
 def test_hangup_event_closes_a_live_parent_session(monkeypatch) -> None:
     pipeline = _FakeSpeechPipeline(session_active=True)
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
     surface = SubprocessBarOverlay()
 
     surface._dispatch_event({"event": "hangup"})
@@ -309,7 +309,7 @@ def test_hangup_event_closes_a_live_parent_session(monkeypatch) -> None:
 
 def test_hangup_event_escapes_a_stuck_active_parent_state(monkeypatch) -> None:
     pipeline = _FakeSpeechPipeline(session_active=False)
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
     surface = SubprocessBarOverlay()
 
     surface._dispatch_event({"event": "hangup"})
@@ -327,7 +327,7 @@ def test_hangup_event_preserves_legacy_parent_pipeline_behavior(monkeypatch) -> 
             self.hangup_calls += 1
 
     pipeline = _LegacyPipeline()
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
     surface = SubprocessBarOverlay()
 
     surface._dispatch_event({"event": "hangup"})
@@ -499,7 +499,7 @@ def test_respawn_is_bounded_to_three_attempts_then_gives_up(monkeypatch, caplog)
     monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(mod.subprocess, "Popen", _CrashLoopPopen)
     surface = SubprocessBarOverlay()
-    with caplog.at_level("WARNING", logger="jarvis.ui.dodaiosbar"):
+    with caplog.at_level("WARNING", logger="dodaios.ui.dodaiosbar"):
         surface.start_in_thread(timeout=2.0)
         assert surface._respawn_exhausted.wait(timeout=2.0)
 

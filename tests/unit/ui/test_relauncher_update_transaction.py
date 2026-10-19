@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui import relauncher
+from dodaios.ui import relauncher
 
 
 def _write_pending(root: Path) -> tuple[str, str]:
@@ -66,7 +66,7 @@ def test_installer_command_preserves_managed_profile(
 def test_ui_bundle_requires_a_tracked_javascript_entry(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    dist = tmp_path / "jarvis" / "ui" / "web" / "dist"
+    dist = tmp_path / "dodaios" / "ui" / "web" / "dist"
     assets = dist / "assets"
     assets.mkdir(parents=True)
     (dist / "index.html").write_text(

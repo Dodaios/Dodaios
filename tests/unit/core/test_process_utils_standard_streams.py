@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import sys
 
-from jarvis.core.process_utils import ensure_standard_streams
+from dodaios.core.process_utils import ensure_standard_streams
 
 
 def test_missing_windowed_streams_are_replaced(monkeypatch) -> None:

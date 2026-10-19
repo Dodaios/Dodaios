@@ -1,0 +1,935 @@
+import { create } from "zustand";
+import { browserPlaybackIsActive } from "@/lib/voiceOutputLevel";
+import type { MessageRole } from "@/types/messages";
+import { readCachedAssistantName } from "@/lib/assistantNameCache";
+import { reuseHistoryRows } from "@/lib/historyRequests";
+import {
+  finalizeThinkingSteps,
+  reduceThinkingSteps,
+  traceModel,
+  type ThinkingStep,
+  type ThinkingTraceSnapshot,
+} from "@/lib/thinkingSteps";
+
+/** The typed chat's reply while it is still being written. */
+export interface LiveReply {
+  text: string;
+  threadId: string;
+  /** The publisher said this is the last snapshot of the turn. */
+  done: boolean;
+  ts: number;
+}
+
+/**
+ * Mirror of `dodaios/state/supervisor.py::SupervisorState`, lowercased.
+ *
+ * Every member must exist here, in `isVoiceState` (useWebSocket.ts), in both
+ * style maps (Sidebar.tsx, VoiceIndicator.tsx) and as a `voice_state.*` key in
+ * en/de/es — a value the backend can publish and this union does not know is
+ * dropped silently, freezing the only live indicator the desktop has on its
+ * previous state. Guarded by `voice-state-parity.test.ts`.
+ */
+export type VoiceState =
+  | "idle"
+  // A realtime transport is negotiating: the call is accepted, the provider
+  // has not taken an audio frame yet. Hosted providers pass through it in
+  // under a second; a self-hosted server takes seconds, which is when a
+  // missing state stops being cosmetic.
+  | "connecting"
+  | "listening"
+  | "thinking"
+  | "speaking"
+  | "paused"
+  | "error";
+
+/** The full lowercased supervisor vocabulary, in the order it is declared. */
+export const VOICE_STATES: readonly VoiceState[] = [
+  "idle",
+  "connecting",
+  "listening",
+  "thinking",
+  "speaking",
+  "paused",
+  "error",
+];
+
+export type SectionId =
+  | "chats"
+  | "agents"
+  | "skills"
+  | "plugins"
+  | "docs"
+  | "mcps"
+  | "sessions"
+  // Spend & Tokens — what every provider, model and role actually cost.
+  | "costs"
+  | "clis"
+  | "cli-test-hub"
+  | "board"
+  | "languages"
+  | "profile"
+  | "memory"
+  | "apikeys"
+  // Computers: the user's own servers and local VMs, reached over SSH.
+  | "computers"
+  | "settings"
+  | "telephony"
+  | "telephony-setup"
+  | "socials"
+  | "taskbar"
+  | "feedback"
+  | "agent-instructions"
+  // Appshots: the shortcut, destination, sound and flash for showing the
+  // assistant the front window. A Settings-hub page.
+  | "appshots"
+  // Keyboard shortcuts: every shortcut in one place — the quick switcher,
+  // Call / Hang up, the dictation keys (listed) and a key tester. A
+  // Settings-hub page.
+  | "shortcuts"
+  // My Pets: the desktop pet — which one, its size, its bubble, and custom
+  // pets from a sprite sheet (docs/pets.md). A Settings-hub page.
+  | "pets"
+  | "dictionary"
+  | "dictation"
+  // The three tabs added by the merged voice section. "dictation" (default
+  // landing) and "dictionary" keep their original ids on purpose — renaming
+  // them would break the Command-Registry ui_section binding and every existing
+  // voice deep-link for no gain.
+  | "voice-shortcuts"
+  | "voice-language"
+  | "voice-api-keys"
+  // The visual stage: the pictures, diagrams and rendered pages a run produced,
+  // shown at full size instead of as a filename in a list.
+  | "visualization"
+  | "agentic-ide"
+  // The rebuilt chat surface — projects, their chats, one conversation on
+  // screen. Lives alongside "agentic-ide" until its parity checklist is empty.
+  | "chat-workspace"
+  // The OLD terminal grid. "agentic-ide" now opens the rebuilt chat surface,
+  // so the grid needs an id of its own — it still holds live panes and must
+  // stay reachable while the new surface grows into full parity.
+  | "agentic-ide-classic"
+  // The Jarvis Marketplace, in the app: everything the community published —
+  // plugins and skills — browsable and installable in one place instead of
+  // scattered across unrelated sections.
+  | "marketplace";
+
+export const SECTION_IDS = [
+  "chats",
+  "agents",
+  "skills",
+  "plugins",
+  "docs",
+  "mcps",
+  "sessions",
+  "costs",
+  "clis",
+  "cli-test-hub",
+  "board",
+  "languages",
+  "profile",
+  "memory",
+  "apikeys",
+  "computers",
+  "settings",
+  "telephony",
+  "telephony-setup",
+  "socials",
+  "taskbar",
+  "feedback",
+  "agent-instructions",
+  "appshots",
+  "shortcuts",
+  "pets",
+  "dictionary",
+  "dictation",
+  // `satisfies` only catches array entries that are missing from the union,
+  // never a union member missing from the array — these three have to be added
+  // by hand as well (docs/BUGS.md, the recurring enum-drift class).
+  "voice-shortcuts",
+  "voice-language",
+  "voice-api-keys",
+  "visualization",
+  "agentic-ide",
+  "chat-workspace",
+  "agentic-ide-classic",
+  "marketplace",
+] as const satisfies readonly SectionId[];
+
+export function isSectionId(value: unknown): value is SectionId {
+  return typeof value === "string" && SECTION_IDS.includes(value as SectionId);
+}
+
+/**
+ * Section ids that no longer exist, mapped to where their content lives now.
+ * A deep link, a remembered `?view=`, a voice command or a backend event that
+ * still names the old id lands on the new section instead of nowhere.
+ *
+ * - "outputs": the Outputs section folded into Artifacts (2026-08-23) — every
+ *   run, with or without a page, is listed there now.
+ * - "wallpaper": the Wallpaper page was removed (2026-09-30); the app paints
+ *   its flat theme colour only. A remembered link lands in Settings, where
+ *   the page used to live.
+ * - "tasks": the Automations section was removed (2026-10-01); scheduled work
+ *   lives on agents now, as each agent's routines.
+ */
+export const LEGACY_SECTION_ALIASES: Readonly<Record<string, SectionId>> = {
+  run_inspector: "sessions",
+  outputs: "visualization",
+  wallpaper: "settings",
+  tasks: "agents",
+};
+
+/** The section an id names today — itself, its successor, or null. */
+export function resolveSectionId(value: unknown): SectionId | null {
+  if (isSectionId(value)) return value;
+  if (typeof value === "string" && value in LEGACY_SECTION_ALIASES) {
+    return LEGACY_SECTION_ALIASES[value];
+  }
+  return null;
+}
+
+export function initialSectionFromSearch(search: string): SectionId {
+  const params = new URLSearchParams(search);
+  // ?view= is the general deep-link (drives detached solo windows); an invalid
+  // value falls through to the older ?doc shortcut, then the default.
+  const view = resolveSectionId(params.get("view"));
+  if (view !== null) return view;
+  return params.has("doc") ? "docs" : "chats";
+}
+
+/**
+ * Is this document a detached solo window (`?solo=1`)?
+ *
+ * A solo window renders exactly one section chrome-less (no sidebar, no top
+ * bar) inside its own desktop window. The flag lives in the URL rather than in
+ * transient state so it survives the preload-recovery full reload after a
+ * frontend rebuild.
+ */
+export function soloWindowFromSearch(search: string): boolean {
+  return new URLSearchParams(search).get("solo") === "1";
+}
+
+export const SECTION_LABELS: Record<SectionId, string> = {
+  chats: "Chats",
+  agents: "Agents",
+  skills: "Skills",
+  plugins: "Plugins",
+  docs: "Docs",
+  mcps: "MCPs",
+  sessions: "Transcription",
+  costs: "Spend",
+  clis: "CLIs",
+  "cli-test-hub": "CLI Test Hub",
+  board: "Board",
+  languages: "Languages",
+  profile: "Profile",
+  memory: "Notes",
+  apikeys: "API Keys",
+  computers: "Computers",
+  settings: "Settings",
+  telephony: "Telephony",
+  "telephony-setup": "Telephony setup",
+  socials: "Socials",
+  taskbar: "Taskbar",
+  feedback: "Feedback",
+  "agent-instructions": "Assistant",
+  appshots: "Appshots",
+  shortcuts: "Keyboard shortcuts",
+  pets: "My Pets",
+  dictionary: "Dictionary",
+  dictation: "Dictation",
+  // Plain English, deliberately NOT the "{name} Voice" brand: these labels are
+  // read back by the voice-navigation toast, which does not interpolate the
+  // assistant name. Naming the sub-section is also the more useful readback.
+  "voice-shortcuts": "Voice Shortcuts",
+  "voice-language": "Dictation Language",
+  "voice-api-keys": "Voice Input Keys",
+  visualization: "Visualization",
+  "agentic-ide": "Agentic IDE",
+  "chat-workspace": "Chat",
+  "agentic-ide-classic": "Terminal grid",
+  marketplace: "Marketplace",
+};
+/**
+ * i18n keys for `SECTION_LABELS`, for user-facing readbacks (the voice-navigation
+ * toast). Translate at render/call time; the English table above stays the
+ * search alias source for the quick switcher.
+ */
+export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
+  chats: "nav.chats",
+  agents: "nav.agents",
+  skills: "nav.skills",
+  plugins: "nav.plugins",
+  docs: "nav.docs",
+  mcps: "nav.mcps",
+  sessions: "nav.sessions",
+  costs: "nav.costs",
+  clis: "nav.clis",
+  "cli-test-hub": "nav.cli_test_hub",
+  board: "nav.board",
+  languages: "nav.languages",
+  profile: "nav.profile",
+  memory: "nav.memory",
+  apikeys: "nav.apikeys",
+  computers: "nav.computers",
+  settings: "nav.settings",
+  telephony: "nav.telephony",
+  "telephony-setup": "shell_sections.telephony_setup",
+  socials: "nav.socials",
+  taskbar: "nav.taskbar",
+  feedback: "nav.feedback",
+  "agent-instructions": "shell_sections.agent_instructions",
+  appshots: "nav.appshots",
+  shortcuts: "nav.shortcuts",
+  pets: "nav.pets",
+  dictionary: "nav.dictionary",
+  dictation: "nav.dictation",
+  "voice-shortcuts": "shell_sections.voice_shortcuts",
+  "voice-language": "shell_sections.voice_language",
+  "voice-api-keys": "shell_sections.voice_api_keys",
+  visualization: "shell_sections.visualization",
+  "agentic-ide": "nav.agentic_ide",
+  "chat-workspace": "nav.chat_workspace",
+  "agentic-ide-classic": "quick_switch.terminal_grid",
+  marketplace: "nav.marketplace",
+};
+
+export interface EventItem {
+  id: string;
+  name: string;
+  layer?: string;
+  ts: number;
+  trace_id?: string;
+  payload?: unknown;
+}
+
+export interface Toast {
+  id: string;
+  kind: "info" | "success" | "warning" | "error";
+  message: string;
+  ts: number;
+  /**
+   * How often this identical notice was raised while it was already on screen.
+   * Repeats COLLAPSE into one toast carrying this counter instead of stacking:
+   * a provider card that answers every click with the same "connect this first"
+   * line used to build a six-high wall of identical boxes covering the very
+   * button that resolves it.
+   */
+  count: number;
+  /**
+   * Wall-clock ms at which this toast auto-dismisses. A repeat pushes it out,
+   * so the expiry timer must re-check it rather than firing blindly.
+   */
+  expiresAt: number;
+  /**
+   * Absolute path of a file that was just saved to the user's Downloads. When
+   * set (desktop only), the toast renders "Show in folder" / "Open" actions and
+   * stays up longer so the user has time to click them. Empty in the browser/VPS.
+   */
+  filePath?: string;
+  /** Display name of the saved file (shown next to the actions). */
+  filename?: string;
+  /**
+   * One optional button under the message ("Open System Settings"). The layer
+   * runs `onAction` and then closes the toast, unless `keepOpen` is set (an
+   * action that can answer "try again", like a restart that needs a second
+   * press while missions run).
+   */
+  action?: ToastAction;
+}
+
+/** The one button a toast may carry. */
+export interface ToastAction {
+  label: string;
+  onAction: () => void | Promise<void>;
+  /** Leave the toast up after the press (default: it closes). */
+  keepOpen?: boolean;
+}
+
+/** Options of {@link EventStore.pushToast}. */
+export interface PushToastOptions {
+  filePath?: string;
+  filename?: string;
+  action?: ToastAction;
+  /** How long the toast stays, in ms. Default: 3.5 s, or 12 s for a saved file. */
+  ttlMs?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  ts: number;
+  thread_id?: string;
+  /**
+   * The reasoning trace behind a stored assistant reply (replayed from the
+   * backend's record when a conversation is opened). Live replies carry
+   * theirs in `thinkingTraces` instead; this travels with a loaded message
+   * so every surface that seeds itself from the list — the voice lane, the
+   * chat column — can show the steps without a second lookup.
+   */
+  trace?: ThinkingTraceSnapshot;
+}
+
+// Mirror of dodaios/state/conversation_constants.py (5-layer anti-drift: this
+// TS layer must stay in lockstep with the Python frozenset + the REST Literal).
+export const CONVERSATION_KINDS = ["text", "voice"] as const;
+export type ConversationKind = (typeof CONVERSATION_KINDS)[number];
+
+/** One row in the unified Chats history (a text thread OR a voice session). */
+export interface ConversationSummary {
+  kind: ConversationKind;
+  id: string;
+  title: string;
+  preview: string;
+  created_ms: number;
+  updated_ms: number;
+  message_count: number;
+}
+
+export interface PendingTerminalCommand {
+  command: string;
+  shell: string;
+  label: string;          // e.g. "Install GitHub CLI" — rendered as a banner in the terminal
+}
+
+/**
+ * Companion overlay to the terminal session during CLI-connect flows.
+ *
+ * Independent of pendingTerminalCommand, because the coach stays active for
+ * the entire login duration (the command is only injected once, but the coach
+ * polls until auth.status == "connected").
+ */
+export interface CliConnectCoach {
+  cliName: string;                    // API name, for polling: /api/clis/{cliName}/check
+  displayName: string;                // e.g. "GitHub CLI"
+  authMode: "oauth_cli" | "api_key" | "config_file" | "none";
+  loginCommand: string;               // shell-ready, e.g. "gh auth login"
+  statusCommand: string | null;       // e.g. "gh auth status" — optional, for a manual recheck
+}
+
+/**
+ * "Put this on the Visualization stage" — one view asking another to show
+ * something.
+ *
+ * The section owns WHICH visual is on its stage; every other surface can only
+ * ask. That direction matters: a component that reached into the section and
+ * set its selection would break the moment the section is not mounted (it is
+ * unmounted whenever another section is on screen), whereas a request simply
+ * waits in the store until the stage reads it.
+ *
+ * `target` is a `visualId(artifact)` — or the string `"latest"` for "whatever
+ * the newest picture is", which is what a caller who has not looked at the
+ * gallery actually means.
+ *
+ * `seq` exists because the same request twice must still work. Asking for
+ * "latest" again after clicking around the gallery has to pull the stage back;
+ * without a counter the store value would be unchanged and the effect that
+ * honours it would never re-run.
+ */
+export interface VisualStageRequest {
+  target: string;
+  seq: number;
+}
+
+/**
+ * Whether Jarvis is currently an Agentic IDE, for any surface that must say so.
+ *
+ * `active` mirrors the backend predicate `agentic_ide.session.coding_mode_active`
+ * exactly — a workspace is open AND its focused coding mode is on. It is the
+ * whole reason this is one flag and not two booleans a component combines
+ * itself: the assistant behaves differently only when BOTH hold, so a surface
+ * that re-derives the rule can end up telling the user something the assistant
+ * does not agree with.
+ *
+ * `hasWorkspace` is separate because it drives VISIBILITY, not state: with no
+ * workspace open at all there is nothing to report, and a permanent "coding
+ * mode off" chip would be noise for everyone who never opens the IDE.
+ */
+export interface CodingModeState {
+  active: boolean;
+  hasWorkspace: boolean;
+  /** Label of the workspace the mode belongs to; "" when the mode is off. */
+  workspace: string;
+}
+
+interface EventStore {
+  events: EventItem[];
+  voiceState: VoiceState;
+  // The desktop window connects in ~1s, but the voice feature warms up ~20s in
+  // the background (wake/STT/VAD model load). False until the backend announces
+  // readiness (VoiceBootStatus WS event / GET /api/voice/status seed) — drives
+  // the sidebar "Voice starting…" indicator.
+  voiceReady: boolean;
+  connected: boolean;
+  // True while the WS keeps getting closed with code 1013 by the fast-boot
+  // bootstrap (backend still warming up). Distinct from `connected`: drives the
+  // honest "Starting…" indicator instead of "OFFLINE". Defaults true so the
+  // first paint after a restart never flashes "OFFLINE".
+  wsWarming: boolean;
+  activeSection: SectionId;
+  /**
+   * True when this document is a detached solo window (`?solo=1`): it renders
+   * exactly one section with no app chrome and must ignore cross-window
+   * broadcasts that would switch its section (voice navigation targets the
+   * main window, not a window pinned to one view).
+   */
+  solo: boolean;
+  /**
+   * Sections currently living in their own detached desktop window, mirrored
+   * into EVERY connected window via the DetachedViewOpened/Closed WS events
+   * (plus a GET /api/window/detached resync on mount). Drives the single-
+   * IDE-instance rule: while a coding view is detached, the main window
+   * unmounts its sticky Agentic IDE and shows a placeholder instead — a second
+   * mounted instance would steal every pane's output stream.
+   */
+  detachedViews: SectionId[];
+  /**
+   * The pending "show this" request for the Visualization stage, or null when
+   * nobody has asked for anything (the stage then keeps its own selection).
+   * Written by `requestVisual`, read by the section — see VisualStageRequest.
+   */
+  visualStage: VisualStageRequest | null;
+  /**
+   * The pending "open this wiki page" request for the Wiki section, or null
+   * when nobody has asked for one. Written by `requestWikiPage`, consumed by
+   * WikiView — the same staging idiom as `visualStage`, so a request made
+   * while the section is not mounted still lands once it is.
+   */
+  wikiPageRequest: { slug: string; seq: number } | null;
+  /**
+   * The pending "bring this pane to the front" request for the coding
+   * workspace, or null. Written by `requestIdePane` (the deck's workspace card,
+   * where a click on an agent means "take me to that terminal"), consumed by
+   * the grid, which maximizes the pane by its call-sign. Same staging idiom as
+   * `wikiPageRequest`: made before the IDE is mounted, it still lands.
+   */
+  idePaneRequest: { name: string; seq: number } | null;
+  transcription: string;
+  transcriptionFinal: boolean;
+  toasts: Toast[];
+  messages: ChatMessage[];
+  // Chats conversation manager: unified history list + which conversation is
+  // currently open in the right pane. activeThreadId is null for an unsaved
+  // "New chat" (the first sent message lazily creates the text thread).
+  conversations: ConversationSummary[];
+  activeThreadId: string | null;
+  activeKind: ConversationKind;
+  // Optimistic thinking indicator for the text chat: ChatInput.send()
+  // sets it true; an incoming assistant reply (or ErrorOccurred from the brain layer,
+  // or a 60s timeout) resets it. Deliberately separate from the global voiceState,
+  // because that is also set by voice-pipeline turns (not a text-chat wait).
+  chatThinking: boolean;
+  // Live reasoning trace rendered inside the ThinkingTrace card. Steps are
+  // ingested from WS events ONLY while chatThinking is true (voice turns in
+  // the background must not paint ghost steps into the text chat).
+  thinkingSteps: ThinkingStep[];
+  // Wall-clock ms when the current thinking phase began (drives the live
+  // elapsed timer in the card header). Null when idle.
+  thinkingStartedTs: number | null;
+  // Finished traces keyed by the assistant message id that ended the turn —
+  // renders as the collapsible "Thought for Xs" disclosure above the reply.
+  // Seeded from the stored traces when a conversation is opened, so the
+  // history shows the steps behind each answer too.
+  thinkingTraces: Record<string, ThinkingTraceSnapshot>;
+  // The reply of the typed chat while it is still being written —
+  // AssistantTextDelta snapshots (channel "chat"), shown muted under the
+  // live steps and replaced by the final MessageSent. Null when nothing
+  // is streaming.
+  liveReply: LiveReply | null;
+  brainProvider: string;
+  // The model id the active provider is configured to use (e.g.
+  // "claude-opus-4-8"). Seeded from /api/brain/status on mount and refreshed on
+  // a provider switch. Empty until the first status fetch resolves.
+  brainModel: string;
+  // Whether Jarvis is currently an Agentic IDE — see CodingModeState. Lives in
+  // the store rather than in the one component that renders it because the mode
+  // changes how the assistant answers on EVERY screen, so any surface may need
+  // to reflect it. Kept in sync by useCodingMode(), called once in App.tsx.
+  codingMode: CodingModeState;
+  // How the assistant refers to itself (resolved name: derived from the wake
+  // phrase with its prefix stripped, else the neutral "Assistant" default —
+  // [persona].name was removed 2026-06-20). Seeded once at app start by
+  // useAssistantNameSeed and refreshed on a wake-word save, so the
+  // header wordmark + every assistant byline follow the configured identity.
+  // The initial value is read SYNCHRONOUSLY from the localStorage cache (the
+  // last resolved name) so the user's own name paints instantly at boot with no
+  // added latency; it falls back to the neutral "Assistant" — NEVER a
+  // trademarked placeholder like "Jarvis" — only on the very first run before
+  // any name has been cached. See src/lib/assistantNameCache.ts.
+  assistantName: string;
+  // Chat mic-dictation (transcribe-only). ``dictating`` is true while the mic
+  // session runs; ``dictationText`` is the live interim tail (overwritten by
+  // each partial). A final transcript bumps ``dictationCommitSeq`` and carries
+  // its text in ``dictationCommitText`` — ChatInput watches the seq to append
+  // the finalized text to its textarea exactly once.
+  dictating: boolean;
+  dictationText: string;
+  dictationCommitSeq: number;
+  dictationCommitText: string;
+  // Bumped on EVERY final transcript this window owns, whichever route it
+  // took (pasted into the focused field, or committed to the composer). A
+  // composer that ended a dictation with "send" waits on it.
+  dictationFinalSeq: number;
+  pendingTerminalCommand: PendingTerminalCommand | null;
+  cliConnectCoach: CliConnectCoach | null;
+  // When the user installs a CLI from within ClisView (clicking
+  // "Install in terminal"), we set the name here — TerminalView
+  // detects after exit_code=0 that it should verify an install
+  // (POST /check + toast). One-shot: reset to null after verify.
+  pendingInstallCliName: string | null;
+  pushEvent: (e: EventItem) => void;
+  setVoice: (v: VoiceState) => void;
+  setVoiceReady: (ready: boolean) => void;
+  setConnected: (c: boolean) => void;
+  setWarming: (warming: boolean) => void;
+  clearEvents: () => void;
+  setActiveSection: (s: SectionId) => void;
+  setDetachedViews: (views: SectionId[]) => void;
+  /**
+   * Route a visual into the Visualization section and go there.
+   *
+   * The one entry point for "show me this" from anywhere in the app. Pass a
+   * `visualId(artifact)`, or omit the argument for the newest visual.
+   */
+  requestVisual: (target?: string) => void;
+  /** Stage a wiki page (by slug) and switch to the Wiki section. */
+  requestWikiPage: (slug: string) => void;
+  requestIdePane: (name: string) => void;
+  setTranscription: (text: string, isFinal: boolean) => void;
+  pushToast: (kind: Toast["kind"], message: string, opts?: PushToastOptions) => void;
+  dismissToast: (id: string) => void;
+  pushMessage: (m: ChatMessage) => void;
+  setMessages: (m: ChatMessage[]) => void;
+  setConversations: (c: ConversationSummary[]) => void;
+  setActiveConversation: (kind: ConversationKind, id: string | null) => void;
+  /** Returns a text thread id to post into, creating one if the active
+   *  conversation is unsaved or a (read-only) voice session. */
+  ensureActiveThread: () => Promise<string>;
+  setChatThinking: (thinking: boolean) => void;
+  /** Feed one WS event into the live reasoning trace (no-op while idle). */
+  ingestThinkingEvent: (name: string, payload: unknown, tsMs: number) => void;
+  /** Turn ended with an assistant reply: snapshot the trace onto that message. */
+  finishThinking: (messageId: string) => void;
+  /** Stored traces of an opened conversation, keyed like its messages. */
+  seedThinkingTraces: (traces: Record<string, ThinkingTraceSnapshot>) => void;
+  /** An AssistantTextDelta for the typed chat: the reply so far. */
+  setLiveReply: (reply: LiveReply | null) => void;
+  setBrainProvider: (p: string) => void;
+  setBrainModel: (m: string) => void;
+  setCodingMode: (m: CodingModeState) => void;
+  setAssistantName: (name: string) => void;
+  setDictating: (b: boolean) => void;
+  setDictationInterim: (text: string) => void;
+  commitDictation: (text: string) => void;
+  noteDictationFinal: () => void;
+  setPendingTerminalCommand: (cmd: PendingTerminalCommand | null) => void;
+  setCliConnectCoach: (coach: CliConnectCoach | null) => void;
+  setPendingInstallCliName: (name: string | null) => void;
+}
+
+const MAX_EVENTS = 500;
+const MAX_MESSAGES = 200;
+const TOAST_TTL_MS = 3500;
+// A file toast carries "Show in folder" / "Open" actions, and any toast with a
+// button is one the user must have time to aim at and click — keep it up
+// noticeably longer than a plain notification.
+const TOAST_FILE_TTL_MS = 12000;
+// Finished reasoning traces are per-message UI sugar, not history — cap the
+// map so a long session cannot grow it unbounded (insertion order = age).
+const MAX_TRACES = 24;
+
+/**
+ * Arm the auto-dismiss timer for one toast.
+ *
+ * A repeat refreshes ``expiresAt`` and arms a NEW timer, so an older timer must
+ * not dismiss a toast that has since been pushed out — it re-checks the expiry
+ * and lets the newest timer own the removal. Without that check, the second of
+ * two rapid repeats would vanish after the FIRST one's remaining time.
+ */
+function scheduleToastExpiry(
+  get: () => EventStore,
+  id: string,
+  ttl: number,
+): void {
+  setTimeout(() => {
+    const toast = get().toasts.find((candidate) => candidate.id === id);
+    if (!toast) return;
+    if (toast.expiresAt > Date.now()) return;
+    get().dismissToast(id);
+  }, ttl);
+}
+
+export const useEventStore = create<EventStore>((set, get) => ({
+  events: [],
+  voiceState: "idle",
+  voiceReady: false,
+  connected: false,
+  wsWarming: true,
+  activeSection: initialSectionFromSearch(
+    typeof window === "undefined" ? "" : window.location.search,
+  ),
+  solo: soloWindowFromSearch(
+    typeof window === "undefined" ? "" : window.location.search,
+  ),
+  detachedViews: [],
+  visualStage: null,
+  wikiPageRequest: null,
+  idePaneRequest: null,
+  transcription: "",
+  transcriptionFinal: true,
+  toasts: [],
+  messages: [],
+  conversations: [],
+  activeThreadId: null,
+  activeKind: "text",
+  chatThinking: false,
+  thinkingSteps: [],
+  thinkingStartedTs: null,
+  thinkingTraces: {},
+  liveReply: null,
+  brainProvider: "unknown",
+  codingMode: { active: false, hasWorkspace: false, workspace: "" },
+  brainModel: "",
+  assistantName: readCachedAssistantName(),
+  dictating: false,
+  dictationText: "",
+  dictationCommitSeq: 0,
+  dictationCommitText: "",
+  dictationFinalSeq: 0,
+  pendingTerminalCommand: null,
+  cliConnectCoach: null,
+  pendingInstallCliName: null,
+
+  pushEvent: (e) =>
+    set((state) => {
+      const next = [e, ...state.events];
+      if (next.length > MAX_EVENTS) next.length = MAX_EVENTS;
+      return { events: next };
+    }),
+
+  setVoice: (v) => set({
+    voiceState: browserPlaybackIsActive() && ["thinking", "listening", "speaking"].includes(v)
+      ? "speaking" : v,
+  }),
+  setVoiceReady: (ready) => set({ voiceReady: ready }),
+  setConnected: (c) => set({ connected: c }),
+  setWarming: (warming) => set({ wsWarming: warming }),
+  clearEvents: () => set({ events: [] }),
+  setActiveSection: (s) => set({ activeSection: s }),
+  setDetachedViews: (views) => set({ detachedViews: views }),
+
+  requestVisual: (target = "latest") =>
+    set((state) => ({
+      visualStage: { target, seq: (state.visualStage?.seq ?? 0) + 1 },
+      // A solo window is pinned to the one section it was opened for, so the
+      // navigation half of this is skipped there — switching it would blank the
+      // very view the user split off to keep. The request itself still lands,
+      // which is what a detached Visualization window needs.
+      activeSection: state.solo ? state.activeSection : "visualization",
+    })),
+
+  requestIdePane: (name) =>
+    set((state) => ({
+      idePaneRequest: { name, seq: (state.idePaneRequest?.seq ?? 0) + 1 },
+    })),
+
+  requestWikiPage: (slug) =>
+    set((state) => ({
+      wikiPageRequest: { slug, seq: (state.wikiPageRequest?.seq ?? 0) + 1 },
+      // Same solo rule as requestVisual: a detached window is pinned to its
+      // one section, so only the staged request travels — never the section.
+      activeSection: state.solo ? state.activeSection : "memory",
+    })),
+
+  setTranscription: (text, isFinal) =>
+    set({ transcription: text, transcriptionFinal: isFinal }),
+
+  pushToast: (kind, message, opts) => {
+    const filePath = opts?.filePath;
+    const action = opts?.action;
+    const ttl = opts?.ttlMs ?? (filePath || action ? TOAST_FILE_TTL_MS : TOAST_TTL_MS);
+    const now = Date.now();
+    const expiresAt = now + ttl;
+
+    // Collapse a repeat of a notice that is still on screen. Every surface that
+    // answers a click with a fixed sentence ("connect this provider first") can
+    // otherwise emit it once per click — and a double click on a card emits it
+    // twice more — until the stack buries the control the user needs to press.
+    // File toasts are matched on their path too, so two different saved files
+    // stay two separate toasts with their own actions. A repeat that carries a
+    // button also swaps in the newest one (its closure may know more).
+    const existing = get().toasts.find(
+      (toast) =>
+        toast.kind === kind &&
+        toast.message === message &&
+        toast.filePath === filePath &&
+        toast.action?.label === action?.label,
+    );
+    if (existing) {
+      set((state) => ({
+        toasts: state.toasts.map((toast) =>
+          toast.id === existing.id
+            ? { ...toast, count: toast.count + 1, ts: now, expiresAt, action: action ?? toast.action }
+            : toast,
+        ),
+      }));
+      scheduleToastExpiry(get, existing.id, ttl);
+      return;
+    }
+
+    const id = `toast-${now}-${Math.random().toString(36).slice(2, 7)}`;
+    set((state) => ({
+      toasts: [
+        ...state.toasts,
+        {
+          id,
+          kind,
+          message,
+          ts: now,
+          count: 1,
+          expiresAt,
+          filePath,
+          filename: opts?.filename,
+          action,
+        },
+      ],
+    }));
+    scheduleToastExpiry(get, id, ttl);
+  },
+
+  dismissToast: (id) =>
+    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
+
+  pushMessage: (m) =>
+    set((state) => {
+      // WebSocket delivery is at-least-once: reconnect replays, connection-churn
+      // double-forwards (a page reload via main.tsx's vite:preloadError /
+      // ViewErrorBoundary onRecover briefly overlaps two /ws sockets), and
+      // multi-window all re-deliver the SAME logical MessageSent. Its id
+      // (`${timestamp_ns}-${trace_id}`) is stable, so a repeat is never a new
+      // message — drop it to keep the chat render idempotent. Without this guard
+      // a single answer surfaces as two identical bubbles ("Jarvis repeated his
+      // answer twice"). Regression: store/events.test.ts.
+      if (state.messages.some((x) => x.id === m.id)) return state;
+      const next = [...state.messages, m];
+      if (next.length > MAX_MESSAGES) next.splice(0, next.length - MAX_MESSAGES);
+      return { messages: next };
+    }),
+
+  setMessages: (m) =>
+    set({ messages: m.length > MAX_MESSAGES ? m.slice(m.length - MAX_MESSAGES) : m }),
+
+  setConversations: (c) => set((state) => {
+    const conversations = reuseHistoryRows(state.conversations, c, (row) => `${row.kind}:${row.id}`);
+    return conversations === state.conversations ? state : { conversations };
+  }),
+
+  setActiveConversation: (kind, id) => set({ activeKind: kind, activeThreadId: id }),
+
+  ensureActiveThread: async () => {
+    const { activeThreadId, activeKind } = get();
+    if (activeThreadId && activeKind === "text") return activeThreadId;
+    // Unsaved "New chat" OR continuing a (read-only) voice session by text →
+    // create a fresh text thread to post into. The voice session's context has
+    // already been seeded into the brain via the /resume call.
+    const res = await fetch("/api/chats", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "New Chat" }),
+    });
+    // Guard against a 503 (chat-store-unavailable on a headless host) whose
+    // {detail} body would otherwise leave activeThreadId = undefined.
+    if (!res.ok) throw new Error(`create-thread-failed:${res.status}`);
+    const data = (await res.json()) as { id: string };
+    set({ activeThreadId: data.id, activeKind: "text" });
+    return data.id;
+  },
+
+  setChatThinking: (thinking) =>
+    set(
+      thinking
+        ? // New turn: arm the live trace. A re-send while already thinking
+          // restarts the trace — the old steps belonged to the superseded turn.
+          {
+            chatThinking: true,
+            thinkingSteps: [],
+            thinkingStartedTs: Date.now(),
+            liveReply: null,
+          }
+        : // Timeout / brain error: discard the live trace without a snapshot.
+          { chatThinking: false, thinkingSteps: [], thinkingStartedTs: null, liveReply: null },
+    ),
+
+  ingestThinkingEvent: (name, payload, tsMs) => {
+    const { chatThinking, thinkingSteps } = get();
+    if (!chatThinking) return;
+    const next = reduceThinkingSteps(thinkingSteps, name, payload, tsMs);
+    if (next) set({ thinkingSteps: next });
+  },
+
+  finishThinking: (messageId) => {
+    const { chatThinking, thinkingSteps, thinkingStartedTs, thinkingTraces } = get();
+    if (!chatThinking) return;
+    const now = Date.now();
+    const idle = {
+      chatThinking: false,
+      thinkingSteps: [] as ThinkingStep[],
+      thinkingStartedTs: null,
+      // The final message replaces the streamed preview.
+      liveReply: null,
+    };
+    // Fast turns with zero observed steps get no disclosure — a "Thought for
+    // 0.4s · 0 steps" row on every smalltalk reply would be pure noise.
+    if (thinkingSteps.length === 0) {
+      set(idle);
+      return;
+    }
+    const snapshot: ThinkingTraceSnapshot = {
+      steps: finalizeThinkingSteps(thinkingSteps, now),
+      durationMs: Math.max(0, now - (thinkingStartedTs ?? now)),
+      model: traceModel(thinkingSteps),
+    };
+    const traces = { ...thinkingTraces, [messageId]: snapshot };
+    const keys = Object.keys(traces);
+    if (keys.length > MAX_TRACES) {
+      for (const k of keys.slice(0, keys.length - MAX_TRACES)) delete traces[k];
+    }
+    set({ ...idle, thinkingTraces: traces });
+  },
+
+  seedThinkingTraces: (traces) => set({ thinkingTraces: { ...traces } }),
+
+  setLiveReply: (reply) => {
+    // The preview belongs to the turn in flight; a stray snapshot after the
+    // reply landed (at-least-once delivery) must not resurrect it.
+    if (reply && !get().chatThinking) return;
+    set({ liveReply: reply });
+  },
+
+  setBrainProvider: (p) => set({ brainProvider: p }),
+  setBrainModel: (m) => set({ brainModel: m }),
+  setCodingMode: (m) => set({ codingMode: m }),
+
+  setAssistantName: (name) => set({ assistantName: name }),
+
+  setDictating: (b) =>
+    set(b ? { dictating: true, dictationText: "" } : { dictating: false }),
+  setDictationInterim: (text) => set({ dictationText: text }),
+  noteDictationFinal: () =>
+    set((s) => ({ dictationFinalSeq: s.dictationFinalSeq + 1 })),
+  commitDictation: (text) =>
+    set((s) => ({
+      dictationCommitText: text,
+      dictationCommitSeq: s.dictationCommitSeq + 1,
+      dictationText: "",
+      dictating: false,
+    })),
+
+  setPendingTerminalCommand: (cmd) => set({ pendingTerminalCommand: cmd }),
+
+  setCliConnectCoach: (coach) => set({ cliConnectCoach: coach }),
+
+  setPendingInstallCliName: (name) => set({ pendingInstallCliName: name }),
+}));

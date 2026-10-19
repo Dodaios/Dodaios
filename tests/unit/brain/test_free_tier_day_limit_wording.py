@@ -17,7 +17,7 @@ the user reads is at stake here.
 """
 from __future__ import annotations
 
-from jarvis.brain.provider_test import (
+from dodaios.brain.provider_test import (
     NO_CREDITS,
     classify_provider_error,
     explain_provider_error,

@@ -17,7 +17,7 @@ Three subcommands:
           again over the reconciled distribution tree before commit). Exits
           non-zero if any BLOCKING finding survives the allowlist. (Layer D.)
 
-  set-version  Set the version string in pyproject.toml + jarvis/__init__.py
+  set-version  Set the version string in pyproject.toml + dodaios/__init__.py
                inside a staged tree and assert the two agree.
 
 Design rules:
@@ -578,8 +578,8 @@ _INTERNAL_IMPORT_RX = re.compile(
 
 
 def _module_candidates(dotted: str) -> list[str]:
-    """jarvis.state.chat_store -> ['jarvis/state/chat_store.py',
-    'jarvis/state/chat_store/__init__.py']."""
+    """dodaios.state.chat_store -> ['dodaios/state/chat_store.py',
+    'dodaios/state/chat_store/__init__.py']."""
     base = dotted.replace(".", "/")
     return [base + ".py", base + "/__init__.py"]
 
@@ -591,7 +591,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
       1. Completeness — every file in the clean staged tree must actually be
          committed in the dist clone. The classic trap is `git add -A` honouring
          the dist .gitignore and SILENTLY dropping files that are tracked in the
-         working repo only because they were force-added there (e.g. jarvis/state
+         working repo only because they were force-added there (e.g. dodaios/state
          vs the unanchored `state/` ignore rule). Run AFTER `git add`.
       2. Internal-import resolution — every `import jarvis.x.y` in the staged
          tree must resolve to a file that is actually in the staged tree. Catches
@@ -688,7 +688,7 @@ def cmd_set_version(args: argparse.Namespace) -> int:
             re.compile(r'^(version\s*=\s*")[^"]*(")', re.MULTILINE),
             rf'\g<1>{version}\g<2>',
         ),
-        tree / "jarvis" / "__init__.py": (
+        tree / "dodaios" / "__init__.py": (
             re.compile(r'^(__version__\s*=\s*")[^"]*(")', re.MULTILINE),
             rf'\g<1>{version}\g<2>',
         ),

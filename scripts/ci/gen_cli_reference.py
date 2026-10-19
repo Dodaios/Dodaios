@@ -22,8 +22,8 @@ sys.path.insert(0, str(_REPO))
 import click  # noqa: E402
 import typer  # noqa: E402
 
-from jarvis.cli_ctl.__main__ import app  # noqa: E402
-from jarvis.core.branding import CLI_COMMAND_NAME, PRODUCT_NAME  # noqa: E402
+from dodaios.cli_ctl.__main__ import app  # noqa: E402
+from dodaios.core.branding import CLI_COMMAND_NAME, PRODUCT_NAME  # noqa: E402
 
 _OUT = _REPO / "docs" / "jarvis-cli-reference.md"
 

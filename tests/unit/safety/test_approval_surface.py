@@ -7,7 +7,7 @@ silence as a refusal.
 """
 from __future__ import annotations
 
-from jarvis.safety.approval_surface import (
+from dodaios.safety.approval_surface import (
     CONVERSATIONAL,
     INTERACTIVE,
     UNATTENDED,

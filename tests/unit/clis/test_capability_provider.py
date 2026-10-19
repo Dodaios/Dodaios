@@ -3,7 +3,7 @@ from dataclasses import replace
 
 import pytest
 
-from jarvis.clis.capability_provider import (
+from dodaios.clis.capability_provider import (
     DOMAIN_VOCAB,
     PLUGIN_CLI_OVERLAP,
     capability_for_spec,
@@ -14,8 +14,8 @@ from jarvis.clis.capability_provider import (
     suppress_plugin_tools_covered_by_cli,
     sync_registry,
 )
-from jarvis.clis.spec import CliCapabilityDecl, CliStatus
-from jarvis.core.capabilities import CapabilityRegistry
+from dodaios.clis.spec import CliCapabilityDecl, CliStatus
+from dodaios.core.capabilities import CapabilityRegistry
 from tests.unit.clis._fakes import FakeCliRegistry, FakeTool, make_spec
 
 
