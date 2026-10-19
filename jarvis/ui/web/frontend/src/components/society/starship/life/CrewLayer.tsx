@@ -27,6 +27,7 @@ export interface CrewView {
   pips: number;
   gold: boolean;
   lead: boolean;
+  ribbons: number;
 }
 
 export interface CrewPose { x: number; z: number; yaw: number; activity: Activity; headY: number; moving: boolean }
@@ -92,19 +93,19 @@ export function CrewLayer(props: {
     const seen = new Set<string>();
     for (const member of crew) {
       seen.add(member.agentId);
-      const lookKey = `${member.accent}|${member.pips}|${member.gold}|${member.lead}`;
+      const lookKey = `${member.accent}|${member.pips}|${member.gold}|${member.lead}|${member.ribbons}`;
       const uv = atlas.cell(member.agentId, member.face);
       let w = live.get(member.agentId);
       if (w && w.lookKey !== lookKey) {
         group.remove(w.figure.group);
         w.figure.dispose();
-        w.figure = new CrewFigure({ kind: "android", android: { accent: member.accent, pips: member.pips, gold: member.gold, lead: member.lead }, face: { material: faceMaterial, uv } });
+        w.figure = new CrewFigure({ kind: "android", android: { accent: member.accent, pips: member.pips, gold: member.gold, lead: member.lead, ribbons: member.ribbons }, face: { material: faceMaterial, uv } });
         w.figure.group.add(w.hit);
         group.add(w.figure.group);
         w.lookKey = lookKey;
       }
       if (!w) {
-        const figure = new CrewFigure({ kind: "android", android: { accent: member.accent, pips: member.pips, gold: member.gold, lead: member.lead }, face: { material: faceMaterial, uv } });
+        const figure = new CrewFigure({ kind: "android", android: { accent: member.accent, pips: member.pips, gold: member.gold, lead: member.lead, ribbons: member.ribbons }, face: { material: faceMaterial, uv } });
         const hit = new Mesh(HIT_GEO, HIT_MAT);
         hit.userData.agentId = member.agentId;
         figure.group.add(hit);
