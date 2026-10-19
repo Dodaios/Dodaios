@@ -52,7 +52,6 @@ LAUNCHER_ENTRY_NAME = PERSISTENT_PRODUCT_NAME
 # (``dodaios.core.config.resolve_config_file``).
 CONFIG_FILE_NAME = "dodaios.toml"
 LEGACY_CONFIG_FILE_NAMES = ("jarvis.toml",)
-KEYRING_SERVICE_NAME = PERSISTENT_SLUG
 # The credential-store service every key is filed under (Windows Credential
 # Manager, macOS Keychain, Secret Service, the 0600 file fallback). Spelled as
 # a literal of its own, like the commands: it does not follow the display name.
