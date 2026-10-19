@@ -16,15 +16,13 @@ from typing import Any
 
 from jarvis.brain.turn_planner import TurnReason, plan_turn
 from jarvis.core.protocols import BrainMessage, BrainRequest
-from jarvis.core.turn_language import is_substantive_turn, resolve_output_language
+from jarvis.core.turn_language import is_substantive_turn, resolve_conversation_language
+from jarvis.i18n import is_known_language, language_name
 from jarvis.plugins.brain.codex import CodexBrain
 
 CODEX_SUBSCRIPTION_VOICE_PROFILE = "codex-subscription-voice"
 LEGACY_CODEX_REALTIME_PROVIDER = "codex-subscription-realtime"
 
-_LANGUAGE_NAMES = {
-    "de": "German", "en": "English", "es": "Spanish", "pt": "European Portuguese",
-}
 _MAX_HISTORY_MESSAGES = 6
 _SUPPORTED_DESKTOP_PLATFORMS = frozenset({"win32", "darwin", "linux"})
 
@@ -119,7 +117,7 @@ def subscription_voice_selected(config: object) -> bool:
 
 
 def subscription_language_directive(language: str) -> str:
-    name = _LANGUAGE_NAMES.get(language, "English")
+    name = language_name(language) or "English"
     return (
         f"REPLY LANGUAGE — MANDATORY: Always reply in {name}, no matter which "
         "language the user writes or speaks in. This overrides every other "
@@ -241,13 +239,15 @@ class CodexSubscriptionVoiceBrain:
         self._last_turn_executed_action_tool = False
 
         reply_pin = getattr(getattr(self._config, "brain", None), "reply_language", "auto")
-        language = resolve_output_language(
+        # The language the person speaks, any one: a Turkish speaker is
+        # answered in Turkish, not in the nearest language with system phrases.
+        language = resolve_conversation_language(
             reply_pin,
             "",
             text,
             conversation_language=self._conversation_language,
         )
-        if is_substantive_turn(text):
+        if is_substantive_turn(text) and is_known_language(language):
             self._conversation_language = language
 
         messages = tuple([*self._history[-_MAX_HISTORY_MESSAGES:], BrainMessage("user", text)])

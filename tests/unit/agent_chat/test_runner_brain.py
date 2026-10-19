@@ -386,6 +386,35 @@ async def test_a_continuation_is_briefing_not_the_persons_words(
     assert kw["force_output_language"] == "en"  # the request's language, resolved once
 
 
+async def test_a_continuation_keeps_a_turkish_conversation_turkish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    """Forensic 2026-10-19: the neutral English continue line flipped a Turkish
+    chat to English on every delegated result. The turn is pinned to the
+    request's language and the brain reads its language from the request."""
+    from jarvis.agent_chat.delegation_wait import CONTINUE_TURN, continuation_prompt
+
+    fake = FakeBrainManager()
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
+    svc = _service(None)
+    session = _jarvis_session(svc, tmp_path)
+    q = svc.subscribe(session.session_id)
+    original = "Kai'ye giriş hatasını düzeltmesini söyle lütfen."  # i18n-allow
+    prompt = continuation_prompt(
+        [{"status": "failed", "report": "Kai could not finish.", "agent": "Kai"}],
+        original,
+        later=True,
+    )
+
+    await svc.send(session.session_id, prompt, display_text=original, background_result=True)
+    await _drain(q, "turn_finished")
+
+    text, kw = fake.calls[0]
+    assert text == CONTINUE_TURN
+    assert kw["force_output_language"] == "tr"
+    assert kw["language_text"] == original
+
+
 async def test_an_ordinary_turn_names_no_separate_request(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
 ):

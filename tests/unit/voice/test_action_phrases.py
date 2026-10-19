@@ -29,8 +29,8 @@ class TestResolvePhraseLanguage:
         assert resolve_phrase_language(None, "Could you please open Chrome for me?") == "en"
         assert resolve_phrase_language("auto", "Kannst du mir bitte Chrome aufmachen?") == "de"
 
-    def test_ambiguous_keeps_german_default(self) -> None:
-        assert resolve_phrase_language("auto", "ok") == "de"
+    def test_ambiguous_uses_english_default(self) -> None:
+        assert resolve_phrase_language("auto", "ok") == "en"
 
 
 class TestActionPhrase:
@@ -56,8 +56,8 @@ class TestActionPhrase:
             assert "pt" in variants, key
             assert fields(variants["pt"]) == fields(variants["es"]), key
 
-    def test_unknown_language_falls_back_to_german(self) -> None:
-        assert action_phrase("cu_done", "fr") == "Erledigt."
+    def test_unknown_language_falls_back_to_english(self) -> None:
+        assert action_phrase("cu_done", "fr") == "Done."
 
     def test_failure_with_reason_fills_field(self) -> None:
         out = action_phrase("cu_failed_reason", "en", error="HTTP 403")
@@ -296,9 +296,9 @@ class TestNoCapableProviderPhrase:
         # points the user at the real fix: keys / credit / settings.
         assert any(w in en.lower() for w in ("key", "credit", "settings"))
 
-    def test_exit_3_unknown_language_falls_back_to_german(self) -> None:
+    def test_exit_3_unknown_language_falls_back_to_english(self) -> None:
         assert action_phrase("cu_exit_no_provider", "fr") == action_phrase(
-            "cu_exit_no_provider", "de"
+            "cu_exit_no_provider", "en"
         )
 
 
@@ -324,9 +324,9 @@ class TestElevationPausePhrases:
         # It must tell the user WHAT to do: confirm an admin/security prompt.
         assert "admin" in en.lower()
 
-    def test_awaiting_elevation_unknown_language_falls_back_to_german(self) -> None:
+    def test_awaiting_elevation_unknown_language_falls_back_to_english(self) -> None:
         assert action_phrase("cu_awaiting_elevation", "fr") == action_phrase(
-            "cu_awaiting_elevation", "de"
+            "cu_awaiting_elevation", "en"
         )
 
     def test_exit_9_is_the_needs_elevation_phrase(self) -> None:

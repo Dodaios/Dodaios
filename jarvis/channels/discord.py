@@ -55,7 +55,7 @@ except ImportError:  # pragma: no cover
             self.cleaned = text
             self.fallback_used = False
 
-    def _scrub_impl(text: str, *, language: str = "de") -> Any:  # type: ignore[no-redef]
+    def _scrub_impl(text: str, *, language: str = "en") -> Any:  # type: ignore[no-redef]
         return _IdentityScrubResult(text or "")
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -64,7 +64,7 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 
-def scrub_for_voice(text: str, *, language: str = "de") -> Any:
+def scrub_for_voice(text: str, *, language: str = "en") -> Any:
     return _scrub_impl(text, language=language)
 
 __all__ = ["DiscordChannel", "InflightMap"]
@@ -458,7 +458,7 @@ class DiscordChannel:
         if channel_id is None:
             return
         await self._send_text(
-            channel_id, event.text or "", language=event.language or "de"
+            channel_id, event.text or "", language=event.language or "en"
         )
 
     async def send_message(self, msg: ChannelMessage) -> None:
@@ -474,7 +474,7 @@ class DiscordChannel:
         except (TypeError, ValueError):
             log.warning("Invalid discord_channel_id: %r — drop", raw)
             return
-        await self._send_text(channel_id, msg.content, language="de")
+        await self._send_text(channel_id, msg.content, language="en")
 
     async def broadcast_event(self, event: Event) -> None:
         """No-op: Discord routing goes through InflightMap, not broadcast."""
