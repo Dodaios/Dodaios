@@ -231,7 +231,7 @@ When a vocabulary spans Python ↔ SQL ↔ Pydantic ↔ TypeScript ↔ UI label 
 
 - Every worker runs in a fresh `git worktree add -b agent/<task-slug>` under `<repo_parent>/sub-agents-outputs/` (≤200-char path cap). No writes to the user's working tree.
 - Every worker subprocess is contained for kill-on-crash: Windows via a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (kernel guarantee — no zombies even on a hard kill); macOS/Linux via a POSIX process-group reaper (`start_new_session` + `os.killpg`-on-close) that reaps the worker tree on a clean shutdown / cancel / timeout / exception but, being userspace, leaks on a hard `kill -9` of the orchestrator itself.
-- `MAX_CRITIC_LOOPS = 3` is hardcoded. Not parameterizable. Changing requires a new ADR via `/skill phase6-adr-update`.
+- `MAX_CRITIC_LOOPS = 3` is hardcoded. Not parameterizable. Changing requires a new ADR.
 - Action/Observation invariant (ADR-0009): the LLM never authors its own Observation. Voice readback reads only Kontrollierer-signed `MissionApproved.summary_de`, never `correction_instruction` from the Critic-LLM.
 
 ---

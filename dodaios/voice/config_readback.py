@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from dodaios.i18n import catalog as i18n_catalog
+
 from .echo_confirmation import is_sensitive_path
 
 _SUPPORTED = ("de", "en", "es", "pt")
@@ -25,52 +27,7 @@ _DEFAULT = "en"
 
 # outcome key -> {lang -> template}. ``{label}`` / ``{value}`` are filled for the
 # success cases; the failure cases are deliberately generic (no path/value leak).
-_PHRASES: dict[str, dict[str, str]] = {
-    "applied": {
-        "de": "Erledigt — {label} ist jetzt {value}.",
-        "en": "Done — {label} is now {value}.",
-        "es": "Listo — {label} ahora es {value}.",
-        "pt": "Feito — {label} agora é {value}.",
-    },
-    "applied_restart": {
-        "de": "Erledigt — {label} ist jetzt {value}. Starte Dodaios einmal neu, "
-              "damit es wirkt.",
-        "en": "Done — {label} is now {value}. Restart Dodaios once for it to take "
-              "effect.",
-        "es": "Listo — {label} ahora es {value}. Reinicia Dodaios una vez para que "
-              "surta efecto.",
-        "pt": "Feito — {label} agora é {value}. Reinicia o Dodaios uma vez para "
-              "que tenha efeito.",
-    },
-    # Hard-refuse (secrets / self-lockout) — an honest decline, never a question.
-    "refused": {
-        "de": "Das ändere ich nicht per Stimme — das bitte bewusst in den "  # i18n-allow
-              "Einstellungen.",  # i18n-allow
-        "en": "I won't change that by voice — please do that deliberately in "
-              "Settings.",
-        "es": "Eso no lo cambio por voz — hazlo a propósito en los Ajustes.",
-        "pt": "Isso não altero por voz — faz isso de propósito nas Definições.",
-    },
-    "unknown_setting": {
-        "de": "Das ist keine Einstellung, die ich ändern kann.",  # i18n-allow
-        "en": "That isn't a setting I can change.",
-        "es": "Ese no es un ajuste que pueda cambiar.",
-        "pt": "Essa não é uma definição que eu possa alterar.",
-    },
-    "invalid_value": {
-        "de": "Das geht so nicht — die Einstellung bleibt unverändert.",  # i18n-allow
-        "en": "That doesn't work — the setting stays unchanged.",
-        "es": "Eso no funciona — el ajuste queda sin cambios.",
-        "pt": "Assim não dá — a definição fica sem alterações.",
-    },
-    "rollback": {
-        "de": "Konnte ich nicht speichern, ich habe den vorherigen Stand "  # i18n-allow
-              "wiederhergestellt.",  # i18n-allow
-        "en": "I couldn't save it, I restored the previous state.",
-        "es": "No pude guardarlo, restauré el estado anterior.",
-        "pt": "Não consegui guardar, repus o estado anterior.",
-    },
-}
+_PHRASES: dict[str, dict[str, str]] = i18n_catalog.nested_table("voice.config_readback.phrases")
 
 # set_config_value error_kind -> outcome key.
 _ERROR_KIND_TO_OUTCOME: dict[str, str] = {
