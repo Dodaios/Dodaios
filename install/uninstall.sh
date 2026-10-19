@@ -10,7 +10,8 @@
 #   1. the install folder (~/.personal-jarvis)
 #   2. the macOS app bundle or Linux application-menu entry
 #   3. the login-autostart entry (~/.config/autostart or ~/Library/LaunchAgents)
-#   4. the API keys saved in the OS keychain (service "personal-jarvis")
+#   4. the API keys saved in the OS keychain (service "dodaios", and
+#      "personal-jarvis" from before the rename)
 #
 # Heavy logic lives in `python -m dodaios --uninstall` (cross-platform, tested).
 # This bootstrap runs that for the autostart + keys (it asks for confirmation),
@@ -25,7 +26,8 @@ MACOS_APP_DIR_NAME="Personal Jarvis.app"
 MACOS_BUNDLE_ID="com.personal-jarvis.desktop"
 MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
 LINUX_DESKTOP_ENTRY_FILE_NAME="personal-jarvis.desktop"
-KEYRING_SERVICE_NAME="personal-jarvis"
+KEYRING_SERVICE_NAME="dodaios"
+LEGACY_KEYRING_SERVICE_NAMES="personal-jarvis"
 
 # DODAIOS_INSTALL_DIR and JARVIS_INSTALL_DIR are one option; the new name wins.
 INSTALL_DIR="${DODAIOS_INSTALL_DIR:-${JARVIS_INSTALL_DIR:-$HOME/$DEFAULT_INSTALL_DIR_NAME}}"
@@ -178,7 +180,8 @@ elif [ "$RC" -ne 0 ]; then
     note 'broken by a system/Homebrew Python upgrade.'
     note 'To remove Dodaios anyway:'
     note "  rm -rf \"$INSTALL_DIR\""
-    note "Saved API keys then stay in your OS keychain under \"$KEYRING_SERVICE_NAME\"."
+    note "Saved API keys then stay in your OS keychain under \"$KEYRING_SERVICE_NAME\""
+    note "and \"$LEGACY_KEYRING_SERVICE_NAMES\"."
     exit "$RC"
 fi
 
