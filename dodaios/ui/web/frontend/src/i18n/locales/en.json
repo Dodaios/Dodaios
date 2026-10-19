@@ -8255,7 +8255,15 @@
         "stage_session": "Stage the Session's Pending Changes",
         "session_empty": "This session has not changed any file yet, or its agent keeps no record of its edits.",
         "session_committed": "committed",
-        "session_generated": "{n} generated files hidden"
+        "session_generated": "{n} generated files hidden",
+        "follow_main": "Keep This App on the Latest Main",
+        "follow_main_on": "This app keeps itself on the latest main.",
+        "follow_busy_update": "Updating to the latest main…",
+        "follow_busy_install": "Installing packages for the update…",
+        "follow_busy_build": "Building the new interface…",
+        "follow_restart_pending": "New code is in; the app restarts as soon as no mission or call is running.",
+        "follow_updated": "Updated {when}: {subject}",
+        "follow_click_off": "Click to stop following main."
       }
     },
     "skills": {
