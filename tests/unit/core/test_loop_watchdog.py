@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.loop_watchdog import EventLoopWatchdog
+from dodaios.core.loop_watchdog import EventLoopWatchdog
 from tests.fakes.fake_watchdog_clock import ScriptedWatchdogClock
 
 
@@ -125,7 +125,7 @@ def test_an_ongoing_stall_is_not_repeated_every_check(live_loop):
 
 def test_recovery_re_arms_the_report(monkeypatch):
     """After the loop frees itself, a LATER stall is reported again."""
-    from jarvis.core import loop_watchdog
+    from dodaios.core import loop_watchdog
 
     clock = ScriptedWatchdogClock([True, False, False, False, True, False, False, False])
     monkeypatch.setattr(loop_watchdog, "time", SimpleNamespace(monotonic=clock.monotonic))
@@ -187,7 +187,7 @@ def _fake_psutil(monkeypatch, *, available_gb: float, total_gb: float = 32.0) ->
 def test_a_stall_on_a_machine_out_of_memory_says_so(monkeypatch):
     """2026-09-30: three stalls, three unrelated stacks, 1.5 GB of 32 GB free.
     The report must point at the paging, not only at the random stack."""
-    from jarvis.core.loop_watchdog import _memory_pressure_note
+    from dodaios.core.loop_watchdog import _memory_pressure_note
 
     _fake_psutil(monkeypatch, available_gb=1.5)
 
@@ -198,7 +198,7 @@ def test_a_stall_on_a_machine_out_of_memory_says_so(monkeypatch):
 
 
 def test_a_stall_with_memory_to_spare_blames_only_the_stack(monkeypatch):
-    from jarvis.core.loop_watchdog import _memory_pressure_note
+    from dodaios.core.loop_watchdog import _memory_pressure_note
 
     _fake_psutil(monkeypatch, available_gb=12.0)
 

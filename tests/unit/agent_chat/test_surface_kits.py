@@ -7,13 +7,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import surface_kits
-from jarvis.agent_chat.permissions import JARVIS_LADDER, ladder_key
-from jarvis.agent_chat.runner_brain import build_override, kit_payload
-from jarvis.agent_chat.service import resolve_runner
-from jarvis.agent_chat.store import SURFACES, AgentChatSession
-from jarvis.agent_chat.surface_kits import SurfaceKit, kit_for
-from jarvis.core.protocols import Tool
+from dodaios.agent_chat import surface_kits
+from dodaios.agent_chat.permissions import JARVIS_LADDER, ladder_key
+from dodaios.agent_chat.runner_brain import build_override, kit_payload
+from dodaios.agent_chat.service import resolve_runner
+from dodaios.agent_chat.store import SURFACES, AgentChatSession
+from dodaios.agent_chat.surface_kits import SurfaceKit, kit_for
+from dodaios.core.protocols import Tool
 
 
 def _session(surface: str) -> AgentChatSession:

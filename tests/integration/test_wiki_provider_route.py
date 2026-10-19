@@ -11,9 +11,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 class _FakeBrainManager:
@@ -54,7 +54,7 @@ def server() -> Iterator[WebServer]:
 def _no_toml_write(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     """Capture persistence calls instead of writing the real jarvis.toml."""
     calls: list[tuple[str, str]] = []
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     def _capture(name, *, model="", path=None):  # noqa: ANN001
         calls.append((name, model))
@@ -72,7 +72,7 @@ def _no_running_curator(monkeypatch: pytest.MonkeyPatch) -> None:
     ``monkeypatch.setattr`` restores the original global on teardown so a fake
     installed mid-test never leaks into the next test.
     """
-    from jarvis.memory.wiki import integration
+    from dodaios.memory.wiki import integration
 
     monkeypatch.setattr(integration, "_running_curator", None, raising=False)
 
@@ -152,7 +152,7 @@ def test_put_persists_by_default(
 
 
 def test_put_applies_live_to_running_curator(server: WebServer) -> None:
-    from jarvis.memory.wiki import integration
+    from dodaios.memory.wiki import integration
 
     # The autouse _no_running_curator fixture restores the module global on
     # teardown, so no explicit reset is needed here.

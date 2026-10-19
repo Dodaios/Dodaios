@@ -16,9 +16,9 @@ ownership; a client refuses to evict an existing owner.
 The equivalent entry points are:
 
 ```console
-python -m jarvis --persistent-server
-python -m jarvis --connect
-python -m jarvis --connect https://jarvis.example.com
+python -m dodaios --persistent-server
+python -m dodaios --connect
+python -m dodaios --connect https://jarvis.example.com
 ```
 
 A local client starts or reuses the server, guarded by a launch lock. Multiple

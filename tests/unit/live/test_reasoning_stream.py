@@ -1,4 +1,4 @@
-"""GPT-Live streams the thinking model's reasoning summary live (jarvis/live/session.py).
+"""GPT-Live streams the thinking model's reasoning summary live (dodaios/live/session.py).
 
 The Responses API sends a reasoning summary token by token. Every mirror —
 the app's thinking steps, the desktop pet's card — follows it as cumulative
@@ -13,11 +13,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.events import ReasoningSummaryUpdated, VoiceSessionStarted
-from jarvis.live import session as live_session
-from jarvis.live.session import LiveVoiceSession
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.state.turn_trace import TurnTraceCollector
+from dodaios.core.events import ReasoningSummaryUpdated, VoiceSessionStarted
+from dodaios.live import session as live_session
+from dodaios.live.session import LiveVoiceSession
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.state.turn_trace import TurnTraceCollector
 
 
 class _Bus:

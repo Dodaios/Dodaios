@@ -4,9 +4,9 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.interactive_terminal import InteractiveTerminalUnavailable
-from jarvis.google_cli.auth_service import GoogleCliAuthStatus
-from jarvis.ui.web import antigravity_routes
+from dodaios.core.interactive_terminal import InteractiveTerminalUnavailable
+from dodaios.google_cli.auth_service import GoogleCliAuthStatus
+from dodaios.ui.web import antigravity_routes
 
 
 def _client(monkeypatch, *, status: GoogleCliAuthStatus, login_raises=None):
@@ -87,7 +87,7 @@ def test_logout_ok(monkeypatch):
 
 
 def test_logout_ends_subscription_mode_for_background_work(monkeypatch):
-    from jarvis.brain import background_policy
+    from dodaios.brain import background_policy
 
     background_policy.note_connected("antigravity")
     assert background_policy.subscription_mode()

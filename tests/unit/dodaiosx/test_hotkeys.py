@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from jarvis.dodaiosx.hotkeys import JarvisXShortcuts, check_hotkeys, normalize_hotkey
+from dodaios.dodaiosx.hotkeys import JarvisXShortcuts, check_hotkeys, normalize_hotkey
 
 
 def _config(**overrides) -> SimpleNamespace:

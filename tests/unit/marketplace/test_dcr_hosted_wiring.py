@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.marketplace.auth.oauth_dcr import DcrConfig, HostedMcpDcrHandler, _RegisteredClient
-from jarvis.marketplace.hosted_callback import _PENDING, set_public_callback_base_url
+from dodaios.marketplace.auth.oauth_dcr import DcrConfig, HostedMcpDcrHandler, _RegisteredClient
+from dodaios.marketplace.hosted_callback import _PENDING, set_public_callback_base_url
 
 HOSTED = "https://jarvis.example.com"
 HOSTED_CB = "https://jarvis.example.com/api/marketplace/oauth/callback"

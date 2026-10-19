@@ -21,8 +21,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.critic.runner import CriticRunner
-from jarvis.missions.critic.verdict import REQUIRED_AXES
+from dodaios.missions.critic.runner import CriticRunner
+from dodaios.missions.critic.verdict import REQUIRED_AXES
 
 
 def _valid_verdict_json(verdict: str = "approve") -> str:
@@ -74,11 +74,11 @@ async def test_claude_critic_disallows_write_and_shell_tools(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
     monkeypatch.setattr(
-        "jarvis.claude_auth.claude_cli_supports_safe_mode",
+        "dodaios.claude_auth.claude_cli_supports_safe_mode",
         lambda _prefix: False,
     )
     captured: dict[str, Any] = {}
@@ -109,10 +109,10 @@ async def test_claude_critic_disallows_write_and_shell_tools(
 async def test_codex_critic_pins_the_worker_reasoning_effort(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    from jarvis.missions.workers.codex_direct_worker import _MISSION_REASONING_EFFORT
+    from dodaios.missions.workers.codex_direct_worker import _MISSION_REASONING_EFFORT
 
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._resolve_codex_binary",
+        "dodaios.missions.workers.codex_direct_worker._resolve_codex_binary",
         lambda: "codex",
     )
     ndjson = (

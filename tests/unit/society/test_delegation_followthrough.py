@@ -1,8 +1,8 @@
 """Results follow trusted turn provenance, even after another chat opens."""
 
-from jarvis.core.delegation import origin_metadata
-from jarvis.core.protocols import ChatTurn, current_chat_turn
-from jarvis.society.events import MsgType, SocietyEnvelope
+from dodaios.core.delegation import origin_metadata
+from dodaios.core.protocols import ChatTurn, current_chat_turn
+from dodaios.society.events import MsgType, SocietyEnvelope
 from tests.unit.society import test_lead_card
 
 rt = test_lead_card.rt

@@ -45,7 +45,7 @@ if sys.platform == "win32":  # UTF-8 stdout; cp1252 is the Windows default
 
 def _guard_veto(registry: object, skill_name: str, text: str, evidence: str) -> str:
     """The veto the runtime's own guards would return, or "" if none."""
-    from jarvis.skills.guards import evaluate_guards
+    from dodaios.skills.guards import evaluate_guards
 
     skill = registry.get(skill_name)  # type: ignore[attr-defined]
     return evaluate_guards(skill, user_text=text, evidence=evidence).vetoed_by
@@ -68,14 +68,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    from jarvis.skills.eval_harness import (
+    from dodaios.skills.eval_harness import (
         BASELINE_PATH,
         builtin_registry,
         format_report,
         load_golden,
         run_eval,
     )
-    from jarvis.skills.relevance import get_index
+    from dodaios.skills.relevance import get_index
 
     golden = load_golden()
     registry = builtin_registry()

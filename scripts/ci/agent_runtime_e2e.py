@@ -103,7 +103,7 @@ def _run(argv: list[str], env: dict[str, str]) -> tuple[int, str]:
 def _setup(runtime: str, timeout_s: float) -> tuple[object, object, str]:
     import asyncio
 
-    from jarvis.agent_runtimes import manager
+    from dodaios.agent_runtimes import manager
 
     status = asyncio.run(manager.wait_ready(runtime, timeout_s=timeout_s))
     job = manager.job(runtime)
@@ -114,7 +114,7 @@ def _setup(runtime: str, timeout_s: float) -> tuple[object, object, str]:
 
 def _keep_setup_log(runtime: str) -> None:
     """Copy the setup log where the job uploads diagnostics from."""
-    from jarvis.agent_runtimes import base
+    from dodaios.agent_runtimes import base
 
     log = base.runtimes_root() / f"{runtime}-setup.log"
     if log.exists():

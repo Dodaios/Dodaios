@@ -11,8 +11,8 @@ from importlib.metadata import entry_points
 
 import pytest
 
-from jarvis.channels import ChannelAdapter
-from jarvis.core.bus import EventBus
+from dodaios.channels import ChannelAdapter
+from dodaios.core.bus import EventBus
 
 
 def _discover_channel_eps():

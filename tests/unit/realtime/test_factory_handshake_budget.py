@@ -15,8 +15,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.realtime.factory as factory
-from jarvis.realtime.session import _PROVIDER_HANDSHAKE_TOTAL_TIMEOUT_S
+import dodaios.realtime.factory as factory
+from dodaios.realtime.session import _PROVIDER_HANDSHAKE_TOTAL_TIMEOUT_S
 
 
 class _FakeProvider:
@@ -184,7 +184,7 @@ def test_installed_local_plugin_declares_a_real_budget() -> None:
     property; a class-level read here returns the descriptor and the probe
     dies. Skipped when that plugin is not installed.
     """
-    from jarvis.core.registry import list_plugins
+    from dodaios.core.registry import list_plugins
 
     if "local-realtime" not in list_plugins("jarvis.realtime"):
         pytest.skip("local-realtime plugin is not installed")

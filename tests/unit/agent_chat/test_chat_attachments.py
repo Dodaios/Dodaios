@@ -19,11 +19,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import attachments as chat_attachments
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agentic_ide import drop_analysis
-from jarvis.ui.web.agent_chat_routes import router
+from dodaios.agent_chat import attachments as chat_attachments
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agentic_ide import drop_analysis
+from dodaios.ui.web.agent_chat_routes import router
 
 # A one-pixel PNG — real bytes, so the store and the mime guess behave.
 PNG = bytes.fromhex(

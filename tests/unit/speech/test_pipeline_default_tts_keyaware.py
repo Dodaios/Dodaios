@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import jarvis.plugins.tts as tts_pkg
-from jarvis.plugins.tts.gemini_flash_tts import GeminiFlashTTS
-from jarvis.speech.pipeline import _default_tts_for_pipeline
+import dodaios.plugins.tts as tts_pkg
+from dodaios.plugins.tts.gemini_flash_tts import GeminiFlashTTS
+from dodaios.speech.pipeline import _default_tts_for_pipeline
 
 
 def test_default_tts_uses_the_key_aware_factory(monkeypatch):

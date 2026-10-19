@@ -17,9 +17,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.overlay import drop_bridge
-from jarvis.ui.dodaiosbar import host
-from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
+from dodaios.overlay import drop_bridge
+from dodaios.ui.dodaiosbar import host
+from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
 
 
 @pytest.fixture(autouse=True)

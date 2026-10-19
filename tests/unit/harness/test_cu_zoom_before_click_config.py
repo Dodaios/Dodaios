@@ -8,8 +8,8 @@ The flags stay as opt-in escape hatches, hot-reloadable per [computer_use].
 """
 from __future__ import annotations
 
-from jarvis.core.config import ComputerUseConfig
-from jarvis.harness.computer_use_context import (
+from dodaios.core.config import ComputerUseConfig
+from dodaios.harness.computer_use_context import (
     ComputerUseContext,
     _RELOADABLE_FIELDS,
 )

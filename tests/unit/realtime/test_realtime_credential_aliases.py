@@ -6,12 +6,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.brain.app_control import AUTH_PROVIDER_ALIASES, is_credential_present
-from jarvis.core import config as cfg_mod
-from jarvis.core.config import PROVIDER_SECRET_CANDIDATES, JarvisConfig
-from jarvis.plugins.realtime.gemini_live import GeminiLiveProvider
-from jarvis.ui.web.provider_routes import router
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.brain.app_control import AUTH_PROVIDER_ALIASES, is_credential_present
+from dodaios.core import config as cfg_mod
+from dodaios.core.config import PROVIDER_SECRET_CANDIDATES, JarvisConfig
+from dodaios.plugins.realtime.gemini_live import GeminiLiveProvider
+from dodaios.ui.web.provider_routes import router
+from dodaios.ui.web.provider_spec import get_spec
 
 
 def test_gemini_live_adapter_credentials_match_canonical_family() -> None:

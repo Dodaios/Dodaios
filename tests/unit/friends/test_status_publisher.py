@@ -1,5 +1,5 @@
 # === F-FRIENDS [F4] · feature/friends-section · ruben-2026-05-01 ===
-"""Unit tests for :class:`jarvis.friends.status_publisher.StatusPublisher`.
+"""Unit tests for :class:`dodaios.friends.status_publisher.StatusPublisher`.
 
 Strategy: real FriendRegistry (in-memory SQLite) + fake ChannelManager + fake bus.
 """
@@ -11,11 +11,11 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.friends.models import Friend, FriendChannel
-from jarvis.friends.registry import FriendRegistry
-from jarvis.friends.schemas import StatusUpdate
-from jarvis.friends.status_publisher import StatusPublisher
+from dodaios.core.bus import EventBus
+from dodaios.friends.models import Friend, FriendChannel
+from dodaios.friends.registry import FriendRegistry
+from dodaios.friends.schemas import StatusUpdate
+from dodaios.friends.status_publisher import StatusPublisher
 
 
 # ----------------------------------------------------------------------

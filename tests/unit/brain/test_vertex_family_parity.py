@@ -23,15 +23,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.manager import TIER_DEFAULTS_BY_PROVIDER
-from jarvis.brain.model_catalog import catalog_spec
-from jarvis.brain.provider_registry import BrainProviderRegistry
-from jarvis.core.config import (
+from dodaios.brain.manager import TIER_DEFAULTS_BY_PROVIDER
+from dodaios.brain.model_catalog import catalog_spec
+from dodaios.brain.provider_registry import BrainProviderRegistry
+from dodaios.core.config import (
     JARVIS_AGENT_SECRET_CANDIDATES,
     PROVIDER_SECRET_CANDIDATES,
 )
-from jarvis.core.registry import list_plugins
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.core.registry import list_plugins
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 #: One provider id per tier. The whole promise of the family in one table.
 VERTEX_IDS_BY_TIER = {
@@ -83,7 +83,7 @@ def test_every_card_has_a_picker_catalog(tier: str, provider_id: str) -> None:
     """Realtime uses the dedicated /realtime-options catalog; the other three
     would 400 without a catalog_spec entry."""
     if tier == "realtime":
-        from jarvis.brain.model_catalog import REALTIME_MODELS, REALTIME_VOICES
+        from dodaios.brain.model_catalog import REALTIME_MODELS, REALTIME_VOICES
 
         assert REALTIME_MODELS.get(provider_id), (
             f"{provider_id!r} has no REALTIME_MODELS entry — the picker is empty"
@@ -145,13 +145,13 @@ def test_vertex_never_reads_a_gemini_slot_and_gemini_never_reads_a_vertex_one() 
 
 def test_the_brain_plugin_pins_the_vertex_route() -> None:
     """Unpinned, an ``AIza`` Cloud key would be probed onto AI Studio and fail."""
-    from jarvis.plugins.brain.vertex import VertexBrain
+    from dodaios.plugins.brain.vertex import VertexBrain
 
     assert VertexBrain.pinned_route == "vertex"
     assert VertexBrain.provider_id == "vertex"
     assert VertexBrain.name == "vertex"
     # Inherited, not reimplemented: the whole point of the subclass.
-    from jarvis.plugins.brain.gemini import GeminiBrain
+    from dodaios.plugins.brain.gemini import GeminiBrain
 
     assert issubclass(VertexBrain, GeminiBrain)
     assert VertexBrain.supports_tools is True
@@ -160,7 +160,7 @@ def test_the_brain_plugin_pins_the_vertex_route() -> None:
 
 def test_the_gemini_brain_is_left_on_the_inferring_route() -> None:
     """The existing behaviour for a key in a Gemini slot must not change."""
-    from jarvis.plugins.brain.gemini import GeminiBrain
+    from dodaios.plugins.brain.gemini import GeminiBrain
 
     assert GeminiBrain.pinned_route is None
     assert GeminiBrain.provider_id == "gemini"
@@ -182,7 +182,7 @@ def test_the_brain_is_registered_and_loadable() -> None:
 
 def test_the_tool_model_tier_can_select_vertex() -> None:
     """The tool model is its own selection, and must reach Vertex like any other."""
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     resolver._reset_for_tests()
     config = SimpleNamespace(
@@ -201,7 +201,7 @@ def test_the_tool_model_tier_can_select_vertex() -> None:
 
 
 def test_stt_knows_the_vertex_family_and_will_cross_to_it() -> None:
-    from jarvis.plugins.stt import (
+    from dodaios.plugins.stt import (
         _STT_CROSS_FAMILY_ORDER,
         _STT_SECRET_CANDIDATES,
         stt_family_id,
@@ -214,7 +214,7 @@ def test_stt_knows_the_vertex_family_and_will_cross_to_it() -> None:
 
 
 def test_tts_knows_the_vertex_family_and_will_cross_to_it() -> None:
-    from jarvis.plugins.tts import (
+    from dodaios.plugins.tts import (
         _TTS_CROSS_FAMILY_ORDER,
         _TTS_SECRET_CANDIDATES,
         _canonical_tts_name,
@@ -231,7 +231,7 @@ def test_tts_knows_the_vertex_family_and_will_cross_to_it() -> None:
 
 def test_realtime_declares_a_distinct_credential_family() -> None:
     """Equal families would turn a real cross-account fallback into a doomed retry."""
-    from jarvis.plugins.realtime.gemini_live import (
+    from dodaios.plugins.realtime.gemini_live import (
         GeminiLiveProvider,
         VertexLiveProvider,
     )
@@ -251,8 +251,8 @@ def test_realtime_is_eligible_on_a_keyless_cloud_project(
     Without that declaration the documented production setup — a Cloud project,
     no key anywhere — would never even become a realtime candidate.
     """
-    from jarvis.core import config as cfg
-    from jarvis.plugins.realtime.gemini_live import VertexLiveProvider
+    from dodaios.core import config as cfg
+    from dodaios.plugins.realtime.gemini_live import VertexLiveProvider
 
     monkeypatch.setattr(cfg, "vertex_credential_configured", lambda *_a, **_k: True)
     assert VertexLiveProvider.external_login_ready(None) is True
@@ -275,9 +275,9 @@ async def test_the_realtime_warm_up_really_warms_the_shared_credentials(
     """
     import threading
 
-    from jarvis.core import config as cfg
-    from jarvis.core import google_genai as gg
-    from jarvis.plugins.realtime.gemini_live import VertexLiveProvider
+    from dodaios.core import config as cfg
+    from dodaios.core import google_genai as gg
+    from dodaios.plugins.realtime.gemini_live import VertexLiveProvider
 
     loop_thread = threading.get_ident()
     calls: list[int] = []
@@ -303,8 +303,8 @@ async def test_the_ai_studio_live_route_warms_the_shared_trust_store(
     warms the same shared context at boot, off the loop."""
     import threading
 
-    from jarvis.core import google_genai as gg
-    from jarvis.plugins.realtime.gemini_live import GeminiLiveProvider
+    from dodaios.core import google_genai as gg
+    from dodaios.plugins.realtime.gemini_live import GeminiLiveProvider
 
     loop_thread = threading.get_ident()
     calls: list[int] = []
@@ -326,7 +326,7 @@ async def test_the_ai_studio_live_route_warms_the_shared_trust_store(
 
 def test_a_vertex_subagent_runs_on_vertex_rather_than_falling_back_to_claude() -> None:
     """Picking a provider must RUN that provider — the standing mandate here."""
-    from jarvis.missions.init import (
+    from dodaios.missions.init import (
         _API_AGENT_SLUGS,
         _select_subagent_worker_kind,
         subagent_runs_on_claude_fallback,
@@ -340,7 +340,7 @@ def test_a_vertex_subagent_runs_on_vertex_rather_than_falling_back_to_claude() -
 
 
 def test_the_subagent_worker_can_build_a_vertex_brain() -> None:
-    from jarvis.missions.workers.api_agent_worker import (
+    from dodaios.missions.workers.api_agent_worker import (
         _BRAIN_BY_PROVIDER,
         _DEFAULT_MODEL,
         _build_brain,
@@ -366,8 +366,8 @@ def test_a_keyless_cloud_project_reads_as_configured_on_every_card(
     access is a service account would be told to add a key it does not need —
     the "I set it up and nothing happened" failure.
     """
-    from jarvis.brain import app_control
-    from jarvis.core import config as cfg
+    from dodaios.brain import app_control
+    from dodaios.core import config as cfg
 
     spec = next(s for s in PROVIDERS if s.id == provider_id)
     monkeypatch.setattr(cfg, "vertex_credential_configured", lambda *_a, **_k: True)
@@ -380,8 +380,8 @@ def test_no_key_and_no_project_still_reads_as_unconfigured(
     provider_id: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The rescue must not turn every Vertex card permanently green."""
-    from jarvis.brain import app_control
-    from jarvis.core import config as cfg
+    from dodaios.brain import app_control
+    from dodaios.core import config as cfg
 
     spec = next(s for s in PROVIDERS if s.id == provider_id)
     monkeypatch.setattr(cfg, "vertex_credential_configured", lambda *_a, **_k: False)
@@ -391,8 +391,8 @@ def test_no_key_and_no_project_still_reads_as_unconfigured(
 
 def test_the_keyless_rescue_is_scoped_to_vertex(monkeypatch: pytest.MonkeyPatch) -> None:
     """A missing Gemini key must still read as missing, probe or no probe."""
-    from jarvis.brain import app_control
-    from jarvis.core import config as cfg
+    from dodaios.brain import app_control
+    from dodaios.core import config as cfg
 
     spec = next(s for s in PROVIDERS if s.id == "gemini")
     monkeypatch.setattr(cfg, "vertex_credential_configured", lambda *_a, **_k: True)
@@ -401,7 +401,7 @@ def test_the_keyless_rescue_is_scoped_to_vertex(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_the_subagent_tab_can_map_the_vertex_slug() -> None:
-    from jarvis.missions.worker_runtime.provider_map import (
+    from dodaios.missions.worker_runtime.provider_map import (
         env_vars_for,
         to_jarvis_from_worker_slug,
         to_worker_slug,

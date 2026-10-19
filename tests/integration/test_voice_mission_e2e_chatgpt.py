@@ -31,9 +31,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.events import CriticVerdictReady, EventEnvelope
-from jarvis.missions.init import bootstrap_missions
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.events import CriticVerdictReady, EventEnvelope
+from dodaios.missions.init import bootstrap_missions
+from dodaios.missions.state_machine import MissionState
 
 
 def _codex_logged_in() -> bool:

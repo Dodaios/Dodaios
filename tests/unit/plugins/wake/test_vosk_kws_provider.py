@@ -31,8 +31,8 @@ from collections.abc import AsyncIterator
 import numpy as np
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.plugins.wake.vosk_kws_provider import VoskKwsProvider, sound_confirm
+from dodaios.core.protocols import AudioChunk
+from dodaios.plugins.wake.vosk_kws_provider import VoskKwsProvider, sound_confirm
 
 # --- sound_confirm ------------------------------------------------------------
 
@@ -936,7 +936,7 @@ async def test_streamed_confirm_error_falls_back_to_from_scratch(
     """A broken streamed decode must not accept blindly NOR eat the wake: it
     re-runs yesterday's from-scratch confirm over the ring (which keeps the
     usual fail-open polarity)."""
-    from jarvis.plugins.wake import vosk_kws_provider as mod
+    from dodaios.plugins.wake import vosk_kws_provider as mod
 
     def _broken_finish(self):  # noqa: ANN001
         raise RuntimeError("native finalize glitch")
@@ -995,7 +995,7 @@ async def test_positive_early_check_discards_the_streamed_confirm(
 
 
 def test_stage1_budget_demotes_the_last_secondary_and_never_the_primary() -> None:
-    from jarvis.plugins.wake import vosk_kws_provider as mod
+    from dodaios.plugins.wake import vosk_kws_provider as mod
 
     p = VoskKwsProvider(
         "Hey Nova",
@@ -1051,7 +1051,7 @@ async def test_detect_demotes_a_slow_secondary_but_keeps_it_for_the_rescue(
     streaming set (the primary's recognizer is kept), yet the sibling
     still rescues a candidate the primary cannot verify — demotion trades
     stage-1 CPU, never the union's verify ear."""
-    from jarvis.plugins.wake import vosk_kws_provider as mod
+    from dodaios.plugins.wake import vosk_kws_provider as mod
 
     p = VoskKwsProvider(
         "Hey Nova",
@@ -1087,7 +1087,7 @@ async def test_a_demotion_mid_phrase_keeps_the_primarys_partial_decode(
     mid-call. It must drop only the sibling: rebuilding the primary's streaming
     recognizer threw away the "Hey" it had already decoded, so the call never
     matched and the wake was lost without a candidate (bench 2026-09-30)."""
-    from jarvis.plugins.wake import vosk_kws_provider as mod
+    from dodaios.plugins.wake import vosk_kws_provider as mod
 
     window = mod._STAGE1_RT_WINDOW  # noqa: SLF001
     p = VoskKwsProvider(
@@ -1115,7 +1115,7 @@ async def test_stage1_demotion_is_reset_per_detect_session(fake_vosk, monkeypatc
     """A transient load (a build, a dictation) must not cost the box a model
     for the rest of the process: every ``detect()`` session starts with the
     full set again and re-measures."""
-    from jarvis.plugins.wake import vosk_kws_provider as mod
+    from dodaios.plugins.wake import vosk_kws_provider as mod
 
     p = VoskKwsProvider(
         "Hey Nova",

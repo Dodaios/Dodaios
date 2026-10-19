@@ -20,7 +20,7 @@ it breaks:
   D-Bus Secret Service it blocks for seconds, and the loop it would block also
   carries the microphone, the WebSocket and the Jarvis Bar.
 
-Credentials are faked by replacing ``jarvis.core.config.get_secret`` — the real
+Credentials are faked by replacing ``dodaios.core.config.get_secret`` — the real
 lookup — so the slot NAMES in ``POLISH_FAMILIES`` stay part of what is pinned.
 """
 
@@ -34,10 +34,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import config as jarvis_config
-from jarvis.dictation import polish, polish_client
-from jarvis.dictation.polish import POLISH_STATUSES, polish_transcript
-from jarvis.dictation.polish_client import (
+from dodaios.core import config as jarvis_config
+from dodaios.dictation import polish, polish_client
+from dodaios.dictation.polish import POLISH_STATUSES, polish_transcript
+from dodaios.dictation.polish_client import (
     POLISH_FAMILIES,
     PolishFamily,
     PolishProviderError,
@@ -129,7 +129,7 @@ def test_the_recognizer_probe_asks_the_stt_layer_for_the_capability(
     with its own opinion about which engines are local would drift the moment a
     plugin changed, and the drift is invisible: it decides whether dictated
     text is uploaded."""
-    from jarvis.plugins.stt import provider_runs_on_device, stt_family_id
+    from dodaios.plugins.stt import provider_runs_on_device, stt_family_id
 
     assert provider_runs_on_device("faster-whisper") is True
     assert provider_runs_on_device("groq-api") is False
@@ -160,7 +160,7 @@ def test_a_second_on_device_recognizer_only_has_to_declare_itself(
     recognizer would have been read as a CLOUD one: the unsafe direction, on
     the one predicate where the mistake uploads the user's words.
     """
-    from jarvis.plugins import stt as stt_pkg
+    from dodaios.plugins import stt as stt_pkg
 
     class _DeclaredLocal:
         """A third-party recognizer that transcribes on this machine."""
@@ -752,8 +752,8 @@ async def test_saving_the_dictation_settings_is_what_clears_the_learned_state(
     the chain is cached against a fingerprint that a repaired key does not
     move, so the user would go on being told there is no provider until they
     restarted. This is that caller."""
-    from jarvis.core.config import DictationConfig
-    from jarvis.ui.web.dictation_routes import SettingsBody, put_settings
+    from dodaios.core.config import DictationConfig
+    from dodaios.ui.web.dictation_routes import SettingsBody, put_settings
 
     _use_the_real_resolver(monkeypatch)
     _pin_config_identity(monkeypatch, tmp_path / "jarvis.toml")

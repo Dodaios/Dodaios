@@ -1,4 +1,4 @@
-"""Regression tests for jarvis.memory.message_recorder.MessageRecorder.
+"""Regression tests for dodaios.memory.message_recorder.MessageRecorder.
 
 LIVE-VERIFY 2026-05-15: 49 occurrences of
 `sqlite3.IntegrityError: CHECK constraint failed: role IN
@@ -6,7 +6,7 @@ LIVE-VERIFY 2026-05-15: 49 occurrences of
 `data/jarvis_desktop.log` over a single day. Root cause: the desktop server
 emits `MessageSent(role="preamble")` for pre-ack UI bubbles (server.py
 around the AnnouncementRequested handler — see comment at server.py:105+),
-but the `messages.role` column in `jarvis/memory/schema.sql:17` has a hard
+but the `messages.role` column in `dodaios/memory/schema.sql:17` has a hard
 CHECK constraint that only permits {user,assistant,system,tool}. The
 recorder used to forward whatever role the event carried, triggering an
 IntegrityError on every preamble.
@@ -23,8 +23,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from jarvis.core.events import MessageSent
-from jarvis.memory.message_recorder import (
+from dodaios.core.events import MessageSent
+from dodaios.memory.message_recorder import (
     _RECALL_ALLOWED_ROLES,
     MessageRecorder,
 )
@@ -66,7 +66,7 @@ async def test_recorder_writes_all_allowed_roles(role: str) -> None:
     The set was widened in migration 0003 from the legacy four to
     also include
     ``computer_use`` and ``announcement``. Anything in
-    ``jarvis.memory.constants.ALLOWED_ROLES`` belongs here; anything
+    ``dodaios.memory.constants.ALLOWED_ROLES`` belongs here; anything
     outside it stays in the drop path covered by
     :func:`test_recorder_drops_any_unknown_role`.
     """
@@ -119,12 +119,12 @@ async def test_recorder_drops_any_unknown_role(unknown_role: str) -> None:
 def test_allowed_roles_match_schema() -> None:
     """The allowlist constant must exactly match the SQL CHECK constraint.
 
-    The canonical source is ``jarvis.memory.constants.ALLOWED_ROLES``
+    The canonical source is ``dodaios.memory.constants.ALLOWED_ROLES``
     and ``_RECALL_ALLOWED_ROLES`` is its frozenset mirror. Drift
     between the two is regression-guarded here and again, more
     thoroughly, in ``test_role_constraint.py``.
     """
-    from jarvis.memory.constants import ALLOWED_ROLES
+    from dodaios.memory.constants import ALLOWED_ROLES
 
     assert _RECALL_ALLOWED_ROLES == frozenset(ALLOWED_ROLES)
     assert _RECALL_ALLOWED_ROLES == frozenset(

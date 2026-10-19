@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import git_overview, github_link
-from jarvis.agentic_ide.git_overview import ci_from_rollup, parse_github
+from dodaios.agentic_ide import git_overview, github_link
+from dodaios.agentic_ide.git_overview import ci_from_rollup, parse_github
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 

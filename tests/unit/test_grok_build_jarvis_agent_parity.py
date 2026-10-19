@@ -1,12 +1,12 @@
 """Anti-drift parity: Grok Build slugs are a SINGLE source of truth."""
 from __future__ import annotations
 
-from jarvis.missions.init import _select_subagent_worker_kind
-from jarvis.missions.worker_runtime.provider_map import (
+from dodaios.missions.init import _select_subagent_worker_kind
+from dodaios.missions.worker_runtime.provider_map import (
     GROK_BUILD_SUBAGENT_CANONICAL,
     GROK_BUILD_SUBAGENT_SLUGS,
 )
-from jarvis.ui.web import provider_routes
+from dodaios.ui.web import provider_routes
 
 
 def test_provider_routes_reexports_the_single_source() -> None:

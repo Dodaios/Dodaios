@@ -11,8 +11,8 @@ import subprocess
 import sys
 import types
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.switch_window import (
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.switch_window import (
     SwitchWindowTool,
     _find_and_focus_linux,
     _find_and_focus_macos,
@@ -117,7 +117,7 @@ def _mac_window(title="My Editor", *, on_screen=True):
 def test_macos_focus_success(monkeypatch):
     calls = _install_fake_macos_apis(monkeypatch)
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
     found, msg = _find_and_focus_macos("Editor")
@@ -141,7 +141,7 @@ def test_macos_focus_restores_minimized_window_from_all_window_catalog(monkeypat
         return [_mac_window(on_screen=False)]
 
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         catalog,
     )
     found, msg = _find_and_focus_macos("Editor")
@@ -159,7 +159,7 @@ def test_macos_focus_survives_cooperative_activation_refusal(monkeypatch):
     """macOS 14+ refuses activation from a background app; AX must still raise."""
     calls = _install_fake_macos_apis(monkeypatch, activate_result=False)
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
     found, msg = _find_and_focus_macos("Editor")
@@ -172,7 +172,7 @@ def test_macos_focus_tolerates_a_read_only_main_attribute(monkeypatch):
     """An advisory AXMain refusal must not fail a raise that succeeded."""
     _install_fake_macos_apis(monkeypatch, set_attr_error={"AXMain": -25205})
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
     found, msg = _find_and_focus_macos("Editor")
@@ -187,7 +187,7 @@ def test_macos_focus_fails_when_raise_and_frontmost_both_fail(monkeypatch):
     services = sys.modules["ApplicationServices"]
     services.AXUIElementPerformAction = lambda element, action: -25204
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
     found, msg = _find_and_focus_macos("Editor")
@@ -200,7 +200,7 @@ def test_macos_focus_without_accessibility_asks_once_and_refuses_with_the_prefix
     tcc = _macos_permission_world(monkeypatch, trusted=False)
     calls = _install_fake_macos_apis(monkeypatch, trusted=False, tcc=tcc)
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
 
@@ -219,13 +219,13 @@ def test_macos_focus_the_dialog_answer_is_picked_up_without_a_restart(monkeypatc
     tcc = _macos_permission_world(monkeypatch, trusted=False)
     calls = _install_fake_macos_apis(monkeypatch, trusted=False, tcc=tcc)
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
     assert _find_and_focus_macos("Editor")[0] is False
 
     tcc.answer("accessibility")  # the user flips the switch
-    from jarvis.platform.permission_service import get_permission_service
+    from dodaios.platform.permission_service import get_permission_service
 
     get_permission_service().invalidate()
     found, msg = _find_and_focus_macos("Editor")
@@ -236,7 +236,7 @@ def test_macos_focus_the_dialog_answer_is_picked_up_without_a_restart(monkeypatc
 
 def test_macos_missing_native_frameworks(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
     monkeypatch.setitem(sys.modules, "AppKit", None)
@@ -248,7 +248,7 @@ def test_macos_missing_native_frameworks(monkeypatch):
 
 def test_macos_no_match(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list", lambda **_kwargs: [],
+        "dodaios.platform.window_state._quartz_window_list", lambda **_kwargs: [],
     )
     found, msg = _find_and_focus_macos("Nope")
     assert found is False
@@ -258,7 +258,7 @@ def test_macos_no_match(monkeypatch):
 def test_macos_matching_is_case_insensitive(monkeypatch):
     _install_fake_macos_apis(monkeypatch)
     monkeypatch.setattr(
-        "jarvis.platform.window_state._quartz_window_list",
+        "dodaios.platform.window_state._quartz_window_list",
         lambda **_kwargs: [_mac_window()],
     )
     found, msg = _find_and_focus_macos("EdItOr")
@@ -311,9 +311,9 @@ def test_linux_no_match(monkeypatch):
 
 
 async def test_execute_routes_to_macos_with_english_readback(monkeypatch):
-    monkeypatch.setattr("jarvis.plugins.tool.switch_window.detect_platform", lambda: "darwin")
+    monkeypatch.setattr("dodaios.plugins.tool.switch_window.detect_platform", lambda: "darwin")
     monkeypatch.setattr(
-        "jarvis.plugins.tool.switch_window._find_and_focus_macos",
+        "dodaios.plugins.tool.switch_window._find_and_focus_macos",
         lambda t: (True, "My Editor"),
     )
     res = await SwitchWindowTool().execute({"title_contains": "Editor"}, _ctx())
@@ -322,17 +322,17 @@ async def test_execute_routes_to_macos_with_english_readback(monkeypatch):
 
 
 async def test_execute_wayland_degrades_in_english(monkeypatch):
-    monkeypatch.setattr("jarvis.plugins.tool.switch_window.detect_platform", lambda: "linux")
-    monkeypatch.setattr("jarvis.plugins.tool.switch_window.is_wayland", lambda: True)
+    monkeypatch.setattr("dodaios.plugins.tool.switch_window.detect_platform", lambda: "linux")
+    monkeypatch.setattr("dodaios.plugins.tool.switch_window.is_wayland", lambda: True)
     res = await SwitchWindowTool().execute({"title_contains": "Editor"}, _ctx())
     assert res.success is False
     assert "Wayland" in res.error
 
 
 async def test_execute_headless_linux_degrades(monkeypatch):
-    monkeypatch.setattr("jarvis.plugins.tool.switch_window.detect_platform", lambda: "linux")
-    monkeypatch.setattr("jarvis.plugins.tool.switch_window.is_wayland", lambda: False)
-    monkeypatch.setattr("jarvis.plugins.tool.switch_window.display_present", lambda: False)
+    monkeypatch.setattr("dodaios.plugins.tool.switch_window.detect_platform", lambda: "linux")
+    monkeypatch.setattr("dodaios.plugins.tool.switch_window.is_wayland", lambda: False)
+    monkeypatch.setattr("dodaios.plugins.tool.switch_window.display_present", lambda: False)
     res = await SwitchWindowTool().execute({"title_contains": "Editor"}, _ctx())
     assert res.success is False
     assert "display" in res.error.lower()
@@ -340,9 +340,9 @@ async def test_execute_headless_linux_degrades(monkeypatch):
 
 async def test_execute_windows_path_unchanged(monkeypatch):
     # AD-7: the Windows readback keeps its established wording.
-    monkeypatch.setattr("jarvis.plugins.tool.switch_window.detect_platform", lambda: "win32")
+    monkeypatch.setattr("dodaios.plugins.tool.switch_window.detect_platform", lambda: "win32")
     monkeypatch.setattr(
-        "jarvis.plugins.tool.switch_window._find_and_focus_windows",
+        "dodaios.plugins.tool.switch_window._find_and_focus_windows",
         lambda t: (True, "Notepad"),
     )
     res = await SwitchWindowTool().execute({"title_contains": "Notepad"}, _ctx())

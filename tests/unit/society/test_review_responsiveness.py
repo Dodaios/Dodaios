@@ -7,20 +7,20 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.review import _ask
+from dodaios.society.review import _ask
 from tests.fakes.fake_seat_registry import RecordingRegistry
 
 
 @pytest.fixture
 def no_agent_key(monkeypatch):
-    from jarvis.core import config
+    from dodaios.core import config
 
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: None)
 
 
 @pytest.mark.asyncio
 async def test_review_seat_construction_keeps_loop_responsive(monkeypatch, no_agent_key):
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     loop = asyncio.get_running_loop()
     loop_thread = threading.get_ident()
@@ -55,7 +55,7 @@ async def test_review_seat_construction_keeps_loop_responsive(monkeypatch, no_ag
 
 @pytest.mark.asyncio
 async def test_unavailable_review_seat_finishes_without_stop_iteration(monkeypatch, no_agent_key):
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     registry = RecordingRegistry(["openai", "gemini"])
     monkeypatch.setattr(resolver, "_get_registry", lambda: registry)

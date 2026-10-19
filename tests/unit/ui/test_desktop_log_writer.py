@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.desktop_app import _AsyncLogWriter
+from dodaios.ui.desktop_app import _AsyncLogWriter
 
 
 class _BlockingHandle:

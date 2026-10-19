@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions.safety.path_guard import (
+from dodaios.missions.safety.path_guard import (
     DEFAULT_BLOCKED_GLOBS,
     check_prompt_for_blocked_paths,
     filter_diff_paths,

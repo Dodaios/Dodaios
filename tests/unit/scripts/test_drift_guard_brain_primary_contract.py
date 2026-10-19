@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 # Desired state: scripts/config-soll.json.  # i18n-allow: filename
 # This test file is at <repo>/tests/unit/scripts/, so parents[3] is the repo root.

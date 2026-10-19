@@ -10,8 +10,8 @@ from types import SimpleNamespace
 import pytest
 from filelock import FileLock, Timeout
 
-from jarvis.society.browser.live import LiveSessions, LiveUpdates
-from jarvis.society.browser.profiles import BrowserProfiles
+from dodaios.society.browser.live import LiveSessions, LiveUpdates
+from dodaios.society.browser.profiles import BrowserProfiles
 from tests.fakes.fake_browser_profiles import ProfileSession
 
 
@@ -326,7 +326,7 @@ async def test_migration_reserves_idle_run_admission_until_invalidation(
             await live._prepare_shared_default(source_agent)
 
     monkeypatch.setattr(live, "ensure", ensured)
-    monkeypatch.setattr("jarvis.society.browser.live.claim_browser", claim_wait)
+    monkeypatch.setattr("dodaios.society.browser.live.claim_browser", claim_wait)
     monkeypatch.setattr(live.profiles, "ensure_shared_default", delayed_commit)
     run = asyncio.create_task(
         live.run(other_agent, task="fixture", max_steps=1, llm=None, action=None)
@@ -376,7 +376,7 @@ async def test_run_waiting_past_migration_cannot_use_the_closed_identity(tmp_pat
         live.sessions.pop(value.agent_id)
 
     monkeypatch.setattr(live, "ensure", ensured)
-    monkeypatch.setattr("jarvis.society.browser.live.claim_browser", replaced_during_claim)
+    monkeypatch.setattr("dodaios.society.browser.live.claim_browser", replaced_during_claim)
     try:
         with pytest.raises(RuntimeError, match="profile changed"):
             await live.run(value, task="fixture", max_steps=1, llm=None, action=None)

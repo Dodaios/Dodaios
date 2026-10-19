@@ -4,9 +4,9 @@ import asyncio
 
 import numpy as np
 
-from jarvis.audio.player import AudioPlayer
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.desktop import DesktopRealtimePlayback
+from dodaios.audio.player import AudioPlayer
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.desktop import DesktopRealtimePlayback
 
 
 class Stream:

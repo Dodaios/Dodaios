@@ -10,14 +10,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from jarvis.society.agent_template import public_avatar
-from jarvis.society.companion import AccessorySlot, CompanionAppearance, validate_avatar_companion
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.society_routes import router
+from dodaios.society.agent_template import public_avatar
+from dodaios.society.companion import AccessorySlot, CompanionAppearance, validate_avatar_companion
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.society_routes import router
 
 CASES = json.loads((Path(__file__).parent / "fixtures/agent-companion.json").read_text())
 CATALOG = Path(__file__).resolve().parents[2] / (
-    "jarvis/ui/web/frontend/src/components/society/companion/accessories.json"
+    "dodaios/ui/web/frontend/src/components/society/companion/accessories.json"
 )
 
 

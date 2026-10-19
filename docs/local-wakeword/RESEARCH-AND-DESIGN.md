@@ -87,7 +87,7 @@ local model — wake + VAD local, only the post-wake utterance crosses to cloud 
 
 ### 3.4 Jarvis codebase reality (integration recon)
 
-- **All microphone capture is Python-backend** (`sounddevice`/WASAPI, `jarvis/audio/capture.py`).
+- **All microphone capture is Python-backend** (`sounddevice`/WASAPI, `dodaios/audio/capture.py`).
   The React frontend has **zero** `getUserMedia`/`AudioContext`/`AudioWorklet` — it is a
   pure event/text terminal. The `/ws` WebSocket carries **JSON only**, no audio frames.
 - Two wake detectors run in parallel (`pipeline.py:_run_parallel_wake`):
@@ -110,7 +110,7 @@ local model — wake + VAD local, only the post-wake utterance crosses to cloud 
 **Build a faster-whisper-free "lightweight local wake" default path.**
 
 - `openWakeWord` becomes the **sole** local wake detector by default.
-- Its three ONNX models are **bundled in-repo** (`jarvis/assets/wakeword/`, ~3.5 MB) and
+- Its three ONNX models are **bundled in-repo** (`dodaios/assets/wakeword/`, ~3.5 MB) and
   loaded from disk — no runtime auto-download, works offline on first boot.
 - A new config switch gates the heavy faster-whisper path. When off (the new default):
   - `RollingWhisperWake` is **not** constructed,
@@ -153,11 +153,11 @@ sweet spot. The maintainer can re-enable the heavy backstop via the opt-in switc
 
 ## 6. Files Touched
 
-- `jarvis/assets/wakeword/*.onnx` (new, bundled models)
-- `jarvis/plugins/wake/openwakeword_provider.py` (local model paths)
-- `jarvis/core/config.py` (`TriggerConfig.heavy_local_whisper`)
-- `jarvis/speech/pipeline.py` (faster-whisper optional)
-- `jarvis/ui/desktop_app.py` (conditional construction)
+- `dodaios/assets/wakeword/*.onnx` (new, bundled models)
+- `dodaios/plugins/wake/openwakeword_provider.py` (local model paths)
+- `dodaios/core/config.py` (`TriggerConfig.heavy_local_whisper`)
+- `dodaios/speech/pipeline.py` (faster-whisper optional)
+- `dodaios/ui/desktop_app.py` (conditional construction)
 - `tests/unit/speech/`, `tests/unit/plugins/wake/` (new tests)
 
 ---

@@ -12,7 +12,7 @@ a quota window auto-resets, so the cooldown is TIME-based and self-expires.
 """
 from __future__ import annotations
 
-import jarvis.claude_quota_state as qs
+import dodaios.claude_quota_state as qs
 
 
 def test_default_not_in_cooldown() -> None:

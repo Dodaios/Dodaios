@@ -7,9 +7,9 @@ import sys
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.society.browser.live import LiveSession, LiveUpdates
-from jarvis.society.runtime import SocietyRuntime, current_runtime
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.society.browser.live import LiveSession, LiveUpdates
+from dodaios.society.runtime import SocietyRuntime, current_runtime
 from tests.fakes.fake_society_shutdown import RecordingProcessTree, society_shutdown_server
 
 
@@ -82,7 +82,7 @@ async def test_cancel_during_shutdown_command_reaps_owned_process():
 
 
 async def test_server_deadline_reaps_live_and_one_shot_browser_children(tmp_path, monkeypatch):
-    from jarvis.ui.web import server as server_module
+    from dodaios.ui.web import server as server_module
 
     monkeypatch.setattr(server_module, "_SOCIETY_SHUTDOWN_TIMEOUT_S", 0.1)
     runtime = SocietyRuntime(tmp_path)
@@ -164,7 +164,7 @@ for line in sys.stdin:
 
 
 async def test_lingering_rpc_keeps_session_handle_for_cleanup_retry(tmp_path, monkeypatch):
-    from jarvis.society.browser import live as live_module
+    from dodaios.society.browser import live as live_module
 
     session, _updates = await live_session()
     await reap(session.proc)

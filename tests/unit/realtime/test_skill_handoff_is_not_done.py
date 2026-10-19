@@ -37,12 +37,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.realtime.session import (
+from dodaios.realtime.session import (
     RealtimeVoiceSession,
     _direct_tool_result_retry_prompt,
     _is_skill_handoff_result,
 )
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.voice.action_phrases import action_phrase
 
 SPOTIFY_INSTRUCTIONS = (
     "Use the connected Spotify to play and steer the user's music. Play by "

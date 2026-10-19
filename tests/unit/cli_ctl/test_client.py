@@ -2,7 +2,7 @@
 import httpx
 import pytest
 
-from jarvis.cli_ctl.client import ApiError, JarvisClient
+from dodaios.cli_ctl.client import ApiError, JarvisClient
 
 
 def _client(handler) -> JarvisClient:

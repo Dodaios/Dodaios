@@ -1,7 +1,7 @@
 """Every coding harness the workspace can open is counted by the cost index.
 
-The registry (``jarvis/workspace/agents.py``) decides what the "Open beside"
-menu offers; the index (``jarvis/costs/cli_usage_index.py``) decides whose
+The registry (``dodaios/workspace/agents.py``) decides what the "Open beside"
+menu offers; the index (``dodaios/costs/cli_usage_index.py``) decides whose
 spend the Costs section shows. Nothing forced them to agree, and the drift is
 silent: a harness that opens, runs and bills — and never appears in a report.
 This binds the two: a new harness fails the build until its transcripts are
@@ -10,8 +10,8 @@ read, or until it is listed with the reason they cannot be.
 
 from __future__ import annotations
 
-from jarvis.costs import cli_usage_index as index
-from jarvis.workspace import agents as workspace_agents
+from dodaios.costs import cli_usage_index as index
+from dodaios.workspace import agents as workspace_agents
 
 
 def _builtin_coding_harnesses() -> list[str]:
@@ -27,7 +27,7 @@ def test_every_builtin_harness_has_a_cost_reader_or_a_stated_reason() -> None:
         excused = name in index.HARNESSES_WITHOUT_LOCAL_TRANSCRIPT
         assert counted or excused, (
             f"{name!r} can be opened from the workspace but the Costs section "
-            "will never see its spend. Add a reader to jarvis/costs/cli_usage_index.py "
+            "will never see its spend. Add a reader to dodaios/costs/cli_usage_index.py "
             "and map it in COST_READER_FOR_HARNESS, or state in "
             "HARNESSES_WITHOUT_LOCAL_TRANSCRIPT why its usage cannot be read from disk."
         )

@@ -14,9 +14,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry, SessionError
-from jarvis.workspace import launch_picks
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry, SessionError
+from dodaios.workspace import launch_picks
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -25,7 +25,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> Registry:
     monkeypatch.setattr(session_mod, "agent_argv", lambda name: (f"/usr/bin/{name}",))
     reg = Registry(pty_manager=FakePtyManager())
     monkeypatch.setattr(session_mod, "get_registry", lambda: reg)
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.ui.web import agentic_ide_routes
 
     monkeypatch.setattr(agentic_ide_routes, "get_registry", lambda: reg)
     return reg
@@ -33,7 +33,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> Registry:
 
 @pytest.fixture
 def client(registry: Registry) -> TestClient:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)

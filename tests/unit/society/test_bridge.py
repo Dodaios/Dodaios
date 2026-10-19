@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.bridge import MissionBridge
-from jarvis.society.events import MsgType
-from jarvis.society.store import SocietyStore
+from dodaios.society.bridge import MissionBridge
+from dodaios.society.events import MsgType
+from dodaios.society.store import SocietyStore
 
 
 class FakeMissionBus:

@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import ollama_inventory
-from jarvis.brain.ollama_profiles import largest_context_for
-from jarvis.realtime.local_server import supervisor
+from dodaios.brain import ollama_inventory
+from dodaios.brain.ollama_profiles import largest_context_for
+from dodaios.realtime.local_server import supervisor
 
 
 class _FakeResponse:
@@ -72,7 +72,7 @@ def test_a_16gb_card_gets_a_32k_voice_context(monkeypatch) -> None:
     # voice stack, the 32k rung does.
     _fake_ollama(monkeypatch, size_bytes=3_400_000_000, native=262_144, created=[])
     monkeypatch.setattr(
-        "jarvis.hardware.detection.usable_accelerator_gb", lambda: (15.9, "nvidia-smi")
+        "dodaios.hardware.detection.usable_accelerator_gb", lambda: (15.9, "nvidia-smi")
     )
     tokens, why = supervisor.voice_brain_context_tokens("http://127.0.0.1:11434", "qwen3.5:4b")
     assert tokens == 32_768
@@ -82,7 +82,7 @@ def test_a_16gb_card_gets_a_32k_voice_context(monkeypatch) -> None:
 def test_a_128gb_box_climbs_to_the_top_rung_within_the_native_window(monkeypatch) -> None:
     _fake_ollama(monkeypatch, size_bytes=3_400_000_000, native=262_144, created=[])
     monkeypatch.setattr(
-        "jarvis.hardware.detection.usable_accelerator_gb", lambda: (128.0, "apple-unified")
+        "dodaios.hardware.detection.usable_accelerator_gb", lambda: (128.0, "apple-unified")
     )
     tokens, why = supervisor.voice_brain_context_tokens("http://127.0.0.1:11434", "qwen3.5:4b")
     assert tokens == 131_072
@@ -91,8 +91,8 @@ def test_a_128gb_box_climbs_to_the_top_rung_within_the_native_window(monkeypatch
 
 def test_unreadable_hardware_falls_back_to_the_floor_and_says_so(monkeypatch) -> None:
     _fake_ollama(monkeypatch, size_bytes=3_400_000_000, native=262_144, created=[])
-    monkeypatch.setattr("jarvis.hardware.detection.usable_accelerator_gb", lambda: (0.0, "none"))
-    monkeypatch.setattr("jarvis.hardware.detection.system_ram_gb", lambda: None)
+    monkeypatch.setattr("dodaios.hardware.detection.usable_accelerator_gb", lambda: (0.0, "none"))
+    monkeypatch.setattr("dodaios.hardware.detection.system_ram_gb", lambda: None)
     tokens, why = supervisor.voice_brain_context_tokens("http://127.0.0.1:11434", "qwen3.5:4b")
     assert tokens == supervisor.VOICE_BRAIN_CONTEXT_TOKENS_FLOOR
     assert "floor" in why
@@ -100,8 +100,8 @@ def test_unreadable_hardware_falls_back_to_the_floor_and_says_so(monkeypatch) ->
 
 def test_no_accelerator_uses_the_ram_rule(monkeypatch) -> None:
     _fake_ollama(monkeypatch, size_bytes=3_400_000_000, native=262_144, created=[])
-    monkeypatch.setattr("jarvis.hardware.detection.usable_accelerator_gb", lambda: (0.0, "none"))
-    monkeypatch.setattr("jarvis.hardware.detection.system_ram_gb", lambda: 32.0)
+    monkeypatch.setattr("dodaios.hardware.detection.usable_accelerator_gb", lambda: (0.0, "none"))
+    monkeypatch.setattr("dodaios.hardware.detection.system_ram_gb", lambda: 32.0)
     tokens, why = supervisor.voice_brain_context_tokens("http://127.0.0.1:11434", "qwen3.5:4b")
     # 60 % of 32 GB minus the 6 GB reserve = 13.2 GB -> the 64k rung fits (11.1 GB).
     assert tokens == 65_536
@@ -112,7 +112,7 @@ def test_prepare_creates_an_alias_named_after_the_chosen_context(monkeypatch) ->
     created: list[dict] = []
     _fake_ollama(monkeypatch, size_bytes=3_400_000_000, native=262_144, created=created)
     monkeypatch.setattr(
-        "jarvis.hardware.detection.usable_accelerator_gb", lambda: (15.9, "nvidia-smi")
+        "dodaios.hardware.detection.usable_accelerator_gb", lambda: (15.9, "nvidia-smi")
     )
     command = (
         "python -m server --model_name qwen3.5:4b "
@@ -150,7 +150,7 @@ def test_inventory_hides_every_voice_alias_size() -> None:
 def test_the_users_tune_choice_wins_over_the_automatic_size(monkeypatch) -> None:
     _fake_ollama(monkeypatch, size_bytes=3_400_000_000, native=262_144, created=[])
     monkeypatch.setattr(
-        "jarvis.hardware.detection.usable_accelerator_gb", lambda: (15.9, "nvidia-smi")
+        "dodaios.hardware.detection.usable_accelerator_gb", lambda: (15.9, "nvidia-smi")
     )
     tokens, why = supervisor.voice_brain_context_tokens(
         "http://127.0.0.1:11434", "qwen3.5:4b", override=131_072
@@ -173,13 +173,13 @@ def test_prepare_reads_the_override_from_the_ollama_card(monkeypatch) -> None:
 
 
 def test_override_is_the_tune_num_ctx_of_the_base_model(monkeypatch) -> None:
-    from jarvis.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
+    from dodaios.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
 
     cfg = JarvisConfig()
     cfg.brain.providers["ollama"] = BrainProviderConfig(
         models={"qwen3.5:4b": OllamaModelOptions(num_ctx=16_384)}
     )
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: cfg)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: cfg)
     assert supervisor._voice_context_override("qwen3.5:4b") == 16_384
     assert supervisor._voice_context_override("qwen3.5:4b-voice-8k") is None
     assert supervisor._voice_context_override("other:1b") is None
@@ -192,12 +192,12 @@ def test_keep_alive_follows_the_idle_window() -> None:
 
 
 def test_idle_release_reads_the_voice_setting(monkeypatch) -> None:
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     cfg = JarvisConfig()
     assert cfg.voice.local_idle_release_minutes == 30
     cfg.voice.local_idle_release_minutes = 5
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: cfg)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: cfg)
     assert supervisor.idle_release_s() == 300.0
     cfg.voice.local_idle_release_minutes = 0
     assert supervisor.idle_release_s() == 0.0

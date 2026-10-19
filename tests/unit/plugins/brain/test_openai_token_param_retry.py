@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.plugins.brain import _openai_base
-from jarvis.plugins.brain._openai_base import _create_with_token_param_retry
+from dodaios.plugins.brain import _openai_base
+from dodaios.plugins.brain._openai_base import _create_with_token_param_retry
 
 
 @pytest.fixture(autouse=True)

@@ -6,16 +6,16 @@ import sys
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 @pytest.mark.parametrize(
     "statement",
     (
-        "import jarvis.safety.approval; import jarvis.safety.tool_executor",
-        "import jarvis.core.config; from jarvis.safety import ToolExecutor",
-        "from jarvis.safety import ApprovalWorkflow; import jarvis.core.config",
-        "from jarvis.safety import ActionBlocked, RiskTierEvaluator, TierDecision",
+        "import dodaios.safety.approval; import dodaios.safety.tool_executor",
+        "import dodaios.core.config; from dodaios.safety import ToolExecutor",
+        "from dodaios.safety import ApprovalWorkflow; import dodaios.core.config",
+        "from dodaios.safety import ActionBlocked, RiskTierEvaluator, TierDecision",
     ),
 )
 def test_safety_public_imports_are_order_independent(statement: str) -> None:

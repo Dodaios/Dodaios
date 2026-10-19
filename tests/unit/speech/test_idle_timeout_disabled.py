@@ -21,11 +21,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import AudioChunk
-from jarvis.sessions.constants import HANGUP_HOTKEY, HANGUP_IDLE_TIMEOUT
-from jarvis.speech import pipeline as pipeline_mod
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import AudioChunk
+from dodaios.sessions.constants import HANGUP_HOTKEY, HANGUP_IDLE_TIMEOUT
+from dodaios.speech import pipeline as pipeline_mod
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 @dataclass
@@ -81,7 +81,7 @@ def _pipeline(idle_timeout_s: float) -> SpeechPipeline:
 
 def test_trigger_config_session_idle_timeout_default() -> None:
     # Downloaders keep the safe 30 s auto-hangup; only an explicit 0 disables it.
-    from jarvis.core.config import TriggerConfig
+    from dodaios.core.config import TriggerConfig
 
     assert TriggerConfig().session_idle_timeout_s == 30.0
 

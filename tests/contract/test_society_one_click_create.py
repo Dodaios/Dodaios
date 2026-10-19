@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.society.companion import (
+from dodaios.society.companion import (
     COMPANION_COLORS,
     COMPANION_SHAPES,
     CREATURE_EYES,
@@ -19,15 +19,15 @@ from jarvis.society.companion import (
     CompanionAppearance,
     random_companion,
 )
-from jarvis.society.failure_reasons import FailureReason
-from jarvis.society.roster import Roster, RosterError, is_fresh
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.store import SocietyStore
-from jarvis.ui.web.society_routes import router
+from dodaios.society.failure_reasons import FailureReason
+from dodaios.society.roster import Roster, RosterError, is_fresh
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.store import SocietyStore
+from dodaios.ui.web.society_routes import router
 
 APPEARANCE_TS = (
     Path(__file__).resolve().parents[2]
-    / "jarvis/ui/web/frontend/src/components/society/companion/appearance.ts"
+    / "dodaios/ui/web/frontend/src/components/society/companion/appearance.ts"
 )
 CREATURE_TS = APPEARANCE_TS.with_name("creature.ts")
 

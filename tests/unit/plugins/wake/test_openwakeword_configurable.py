@@ -7,7 +7,7 @@ nothing to load — the product ships no named model (design 2026-07-07).
 """
 from __future__ import annotations
 
-from jarvis.plugins.wake.openwakeword_provider import OpenWakeWordProvider
+from dodaios.plugins.wake.openwakeword_provider import OpenWakeWordProvider
 
 
 def test_explicit_model_path_is_used_with_bundled_backbones() -> None:

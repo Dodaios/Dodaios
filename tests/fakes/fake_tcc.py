@@ -81,9 +81,9 @@ from enum import StrEnum
 from types import SimpleNamespace
 from typing import Any, Final, Literal
 
-from jarvis.core.branding import MACOS_APP_NAME, MACOS_BUNDLE_ID, MACOS_DMG_BUNDLE_ID
-from jarvis.platform import PlatformName
-from jarvis.platform.permissions import AUTOMATION_TARGETS, SystemPermissionPort
+from dodaios.core.branding import MACOS_APP_NAME, MACOS_BUNDLE_ID, MACOS_DMG_BUNDLE_ID
+from dodaios.platform import PlatformName
+from dodaios.platform.permissions import AUTOMATION_TARGETS, SystemPermissionPort
 
 INSTALLED_BUNDLE_ID: Final = MACOS_BUNDLE_ID
 DMG_BUNDLE_ID: Final = MACOS_DMG_BUNDLE_ID
@@ -1354,7 +1354,7 @@ def install_port(monkeypatch: Any, port: SystemPermissionPort) -> SystemPermissi
     at import time keep their own reference; the lazy imports the consumers use
     resolve it per call and see this one.
     """
-    import jarvis.platform.permissions as permissions
+    import dodaios.platform.permissions as permissions
 
     monkeypatch.setattr(permissions, "get_system_permission_port", lambda: port)
     monkeypatch.setattr(permissions, "_DEFAULT_SYSTEM_PERMISSION_PORT", port)
