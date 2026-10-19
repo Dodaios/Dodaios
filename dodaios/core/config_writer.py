@@ -118,6 +118,11 @@ def set_agentic_ide_prompt_writer(value: str, *, path: Path = DEFAULT_CONFIG_FIL
     _patch_table(path, "agentic_ide", "prompt_writer", value)
 
 
+def set_agentic_ide_follow_main(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Set ``[agentic_ide] follow_main``: keep this checkout's app on the newest main."""
+    _patch_table(path, "agentic_ide", "follow_main", bool(enabled))
+
+
 def set_brain_primary(name: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Set ``[brain] primary`` to the given provider name across all layers.
 

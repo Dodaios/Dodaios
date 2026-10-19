@@ -7229,7 +7229,13 @@
     "hide_changes": "隐藏更改",
     "more_files_one": "再显示 {count} 个文件",
     "more_files_other": "再显示 {count} 个文件",
-    "collapse_files": "收起文件"
+    "collapse_files": "收起文件",
+    "errors": {
+      "mandated_tool_unfulfilled": "必要的步骤没有运行，所以我无法可靠地回答。请再试一次。",
+      "unbacked_action_claim": "我无法确认该操作确实已完成，所以没有这样声称。请再试一次。",
+      "guarded_response": "由于无法验证，该回答已被拦截。请再试一次。",
+      "delegation_continuation_limit": "委派的工作轮次过多，已被停止。请重新提问。"
+    }
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",
@@ -8249,7 +8255,15 @@
         "stage_session": "暂存该会话的待处理更改",
         "session_empty": "此会话尚未更改任何文件，或其代理不记录编辑。",
         "session_committed": "已提交",
-        "session_generated": "已隐藏 {n} 个生成的文件"
+        "session_generated": "已隐藏 {n} 个生成的文件",
+        "follow_main": "让此应用始终保持在最新的 main",
+        "follow_main_on": "此应用会自动保持在最新的 main。",
+        "follow_busy_update": "正在更新到最新的 main…",
+        "follow_busy_install": "正在为更新安装软件包…",
+        "follow_busy_build": "正在构建新界面…",
+        "follow_restart_pending": "新代码已就绪；没有任务或通话进行时应用会自动重启。",
+        "follow_updated": "{when}已更新：{subject}",
+        "follow_click_off": "点击以停止跟随 main。"
       }
     },
     "skills": {
