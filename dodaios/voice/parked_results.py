@@ -37,6 +37,8 @@ from dataclasses import dataclass
 from typing import Final
 from uuid import uuid4
 
+from dodaios.i18n import catalog as i18n_catalog
+
 #: A wait query the vocabulary does not recognise.
 WAIT_QUERY_NONE: Final[str] = ""
 #: "How far are you?" — the user asks about progress; answer with ONE grounded
@@ -334,46 +336,12 @@ _TOPIC_STOPWORDS: Final[dict[str, frozenset[str]]] = {
     ),
 }
 
-_ANCHOR_POOLS: Final[dict[str, tuple[str, ...]]] = {
-    "de": (
-        "Zu deiner Anfrage von vorhin – {topic}: {result}",
-        "Noch zu vorhin, {topic}: {result}",
-        "Das Ergebnis zu {topic}: {result}",
-    ),
-    "en": (
-        "About your earlier request – {topic}: {result}",
-        "Back to {topic}: {result}",
-        "Here's the result on {topic}: {result}",
-    ),
-    "es": (
-        "Sobre tu petición de antes – {topic}: {result}",
-        "Volviendo a {topic}: {result}",
-        "El resultado sobre {topic}: {result}",
-    ),
-    "pt": (
-        "Sobre o teu pedido de há pouco – {topic}: {result}",
-        "Voltando a {topic}: {result}",
-        "O resultado sobre {topic}: {result}",
-    ),
-}
-_ANCHOR_POOLS_NO_TOPIC: Final[dict[str, tuple[str, ...]]] = {
-    "de": (
-        "Zu deiner Anfrage von vorhin: {result}",
-        "Noch zu vorhin: {result}",
-    ),
-    "en": (
-        "About your earlier request: {result}",
-        "Back to what you asked earlier: {result}",
-    ),
-    "es": (
-        "Sobre tu petición de antes: {result}",
-        "Volviendo a lo de antes: {result}",
-    ),
-    "pt": (
-        "Sobre o teu pedido de há pouco: {result}",
-        "Voltando ao que pediste há pouco: {result}",
-    ),
-}
+_ANCHOR_POOLS: Final[dict[str, tuple[str, ...]]] = i18n_catalog.variant_table(
+    "voice.parked_results.anchor_pools"
+)
+_ANCHOR_POOLS_NO_TOPIC: Final[dict[str, tuple[str, ...]]] = i18n_catalog.variant_table(
+    "voice.parked_results.anchor_pools_no_topic"
+)
 
 _RECENT_ANCHORS: dict[str, deque[str]] = {}
 

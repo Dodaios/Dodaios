@@ -36,6 +36,8 @@ https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
 
 <p align="center"><sub>一段真实、未经剪辑的应用录屏（带声音）：用语音和 Dodaios 交谈、把工作交给智能体，并在编程工作区里跟进它们的进度。</sub></p>
 
+<p align="center">如果 Dodaios 对你有用，<a href="https://github.com/Dodaios/Dodaios/stargazers">在 GitHub 上点个 Star</a> 能帮助更多人发现它。</p>
+
 ---
 
 ## 安装

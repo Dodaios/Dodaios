@@ -152,6 +152,8 @@ export const EDITOR_OPTIONS: monaco.editor.IEditorOptions & monaco.editor.IGloba
   scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10, useShadows: false },
   cursorSmoothCaretAnimation: "on",
   renderWhitespace: "selection",
+  // Long lines wrap at the editor's edge instead of running off-screen.
+  wordWrap: "on",
   scrollBeyondLastLine: false,
   padding: { top: 8, bottom: 8 },
   // Hovers and the suggest list may overflow the editor's box instead of

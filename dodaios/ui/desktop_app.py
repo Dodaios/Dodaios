@@ -33,6 +33,7 @@ from filelock import FileLock, Timeout
 from dodaios.core.config import DATA_DIR, JarvisConfig, load_config
 from dodaios.core.instance import current_instance
 from dodaios.core.process_utils import drop_inherited_electron_node_mode, ensure_standard_streams
+from dodaios.i18n import catalog as i18n_catalog
 from dodaios.ui.section_windows import SECTION_WINDOW_TITLES, WINDOW_GROUPS, section_window
 
 if TYPE_CHECKING:
@@ -1711,20 +1712,9 @@ def acquire_single_instance_lock(
 #: in ``AnnouncementRequested.detail``, which the transcript shows and the
 #: voice never speaks. Runtime voice output is the closed product surface, so
 #: these strings stay localized (CLAUDE.md §1).
-_CONDUCTOR_NEWS_PHRASES: dict[str, dict[str, str]] = {
-    "failing": {
-        "de": "Der geplante Job {name} schlägt gerade fehl.",  # i18n-allow
-        "en": "The scheduled job {name} has started failing.",
-        "es": "El trabajo programado {name} está fallando.",
-        "pt": "A tarefa agendada {name} começou a falhar.",  # i18n-allow
-    },
-    "recovered": {
-        "de": "Der geplante Job {name} läuft wieder.",  # i18n-allow
-        "en": "The scheduled job {name} is working again.",
-        "es": "El trabajo programado {name} vuelve a funcionar.",
-        "pt": "A tarefa agendada {name} voltou a funcionar.",  # i18n-allow
-    },
-}
+_CONDUCTOR_NEWS_PHRASES: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "ui.desktop.conductor_news_phrases"
+)
 
 
 def _conductor_news_sentence(kind: str, job_name: str, language: str) -> str:
@@ -5430,6 +5420,42 @@ class DesktopApp:
         window = self._detached_windows.get(section_window(view)) if view else self._window
         return set_window_zoom(window, factor)
 
+    def browser_panel_host(self, view: str | None) -> int | None:
+        """The native handle of the window that shows ``view`` (main when None).
+
+        The IDE browser panel puts the user's own browser window inside this
+        window (see ``dodaios.ui.browser_embed``). None off Windows or when that
+        window is not open.
+        """
+        if sys.platform != "win32":
+            return None
+        from dodaios.ui.window_frame import native_hwnd
+
+        window = self._detached_windows.get(section_window(view)) if view else self._window
+        return native_hwnd(window) if window is not None else None
+
+    @staticmethod
+    def _release_browser_panel(window: Any) -> None:
+        """Close the panel's browser window before ``window`` is destroyed.
+
+        A child window goes down with its parent; closing it first lets the
+        browser keep its normal window bounds. Never raises: closing the app
+        window must not depend on it.
+        """
+        if sys.platform != "win32" or window is None:
+            return
+        try:
+            from dodaios.ui.browser_embed import release_host_if_any
+            from dodaios.ui.window_frame import native_hwnd
+
+            hwnd = native_hwnd(window)
+            if hwnd:
+                release_host_if_any(hwnd)
+        except Exception:  # noqa: BLE001
+            from loguru import logger
+
+            logger.exception("The browser panel was not released before the window closed")
+
     def _arm_window_frame(self, window: Any) -> None:
         """Let a frameless Windows window still be resized from its edges.
 
@@ -5574,6 +5600,7 @@ class DesktopApp:
         self._detached_windows[view] = window
         self._arm_window_frame(window)
         window.events.loaded += lambda w=window, v=view: self._inject_into_secondary(w, v)
+        window.events.closing += lambda w=window: self._release_browser_panel(w)
         window.events.closed += lambda v=view: self._on_detached_closed(v)
         self._publish_detached_event_threadsafe(view, opened=True)
         return {"ok": True, "already_open": False, "view": view}
@@ -6860,6 +6887,7 @@ class DesktopApp:
         are released. Explicit Quit always overrides the background preference.
         """
         self._main_window_closing = True
+        self._release_browser_panel(self._window)
         if not self._detached_windows and not self._background_keeps_running():
             self._user_requested_quit = True
             self._begin_quit_from_close()
@@ -7112,6 +7140,10 @@ class DesktopApp:
         self._shutdown_done = True
         _mark_instance_quitting()
         self._window_visible = False
+        if sys.platform == "win32":
+            from dodaios.ui.browser_embed import shutdown_embed
+
+            shutdown_embed()
         self._destroy_background_keeper()
 
         # A shutting-down backend fails every health probe by design; without
