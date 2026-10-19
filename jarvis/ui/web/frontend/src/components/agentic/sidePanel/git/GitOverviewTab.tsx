@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useT } from "@/i18n";
+import { fill, useT } from "@/i18n";
 import { prepareGit } from "@/lib/gitApi";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
+import { useGitSessionStore } from "@/store/gitSession";
+import { useWorkspacePanes } from "@/store/workspacePanes";
 import { RepositoryOverview, RestartToConnectCard } from "./RepositoryOverview";
 import { ChangesView, IconButton, viewSortMenu, type ListSettings } from "./scm/ChangesView";
 import { Codicon } from "./scm/Codicon";
@@ -12,6 +14,7 @@ import { GraphView } from "./scm/GraphView";
 import { useQuickInput } from "./scm/QuickInput";
 import { ScmMenu, menuPointFor, type MenuItem } from "./scm/ScmMenu";
 import { ScmViews } from "./scm/ScmViews";
+import type { SessionPick } from "./scm/SessionChanges";
 import type { GraphScope } from "./scm/scmApi";
 import { scmStorage, useChoice, useScmCommands, useScmStatus, type CommitOptions } from "./scm/useScm";
 
@@ -59,6 +62,23 @@ export function GitOverviewTab() {
   const [menu, setMenu] = useState<{ items: MenuItem[]; x: number; y: number } | null>(null);
   const [goHead, setGoHead] = useState(0);
   const [initializing, setInitializing] = useState(false);
+  // One agent session the Changes list is narrowed to (its pane's call-sign), per workspace.
+  const [sessionPane, setSessionPane] = useState<string | null>(null);
+  const panes = useWorkspacePanes(Boolean(workspaceId));
+  const workspacePanes = useMemo(() => panes.filter((row) => row.workspace_id === workspaceId), [panes, workspaceId]);
+  const session: SessionPick | null = useMemo(() => {
+    if (!sessionPane) return null;
+    const row = workspacePanes.find((entry) => entry.key === sessionPane);
+    return { pane: sessionPane, agentName: row?.display_name || row?.agent || "", title: row?.recap || row?.last_prompt || "" };
+  }, [sessionPane, workspacePanes]);
+  useEffect(() => setSessionPane(null), [workspaceId]);
+  // A pane's "show in Git" button narrows the list to that pane.
+  const sessionRequest = useGitSessionStore((state) => state.request);
+  useEffect(() => {
+    if (!sessionRequest || sessionRequest.workspaceId !== workspaceId) return;
+    setSessionPane(sessionRequest.pane);
+    setOpen((current) => ({ ...current, changes: true }));
+  }, [sessionRequest, workspaceId]);
   // The commit message is kept per workspace, across restarts, until it is committed.
   const [message, setMessageState] = useState(() => (workspaceId ? scmStorage.get(MESSAGE_KEY(workspaceId)) : ""));
   const [messageError, setMessageError] = useState("");
@@ -230,6 +250,22 @@ export function GitOverviewTab() {
     ];
   }, [status, settings, commands, runCommit, undoLastCommit, t]);
 
+  const pickSession = async () => {
+    type Pick = { pane: string | null };
+    const items = [
+      { label: t("ide_side_panel.git.scm.all_changes"), icon: <Codicon name="git-compare" />, value: { pane: null } as Pick },
+      ...workspacePanes.map((row) => ({
+        label: row.display_name || row.agent ? `${row.key} · ${row.display_name || row.agent}` : row.key,
+        description: row.recap || row.last_prompt || "",
+        icon: <Codicon name={row.key === sessionPane ? "check" : "terminal"} />,
+        group: t("ide_side_panel.git.scm.sessions"),
+        value: { pane: row.key } as Pick,
+      })),
+    ];
+    const picked = await quick.pick(items, t("ide_side_panel.git.scm.pick_session"));
+    if (picked) setSessionPane(picked.pane);
+  };
+
   const scopeMenu = (): MenuItem[] =>
     (["auto", "current", "all"] as GraphScope[]).map((value) => ({
       id: `scope-${value}`,
@@ -308,6 +344,9 @@ export function GitOverviewTab() {
         onDiff={setDiff}
         onRefresh={refresh}
         moreMenu={moreMenu}
+        session={session}
+        revision={revision}
+        onClearSession={() => setSessionPane(null)}
       />
     );
   }
@@ -338,6 +377,14 @@ export function GitOverviewTab() {
             onToggle: () => toggleView("changes"),
             weight: weights.changes ?? 1,
             actions: repository ? (
+              <>
+              <IconButton
+                label={session ? fill(t("ide_side_panel.git.scm.filtered_by"), { pane: session.pane }) : t("ide_side_panel.git.scm.filter_session")}
+                testId="scm-session-filter"
+                onClick={() => void pickSession()}
+              >
+                <Codicon name={session ? "filter-filled" : "filter"} />
+              </IconButton>
               <IconButton
                 label={settings.mode === "list" ? t("ide_side_panel.git.scm.view_tree") : t("ide_side_panel.git.scm.view_list")}
                 testId="scm-view-mode"
@@ -345,6 +392,7 @@ export function GitOverviewTab() {
               >
                 <Codicon name={settings.mode === "list" ? "list-tree" : "list-flat"} />
               </IconButton>
+              </>
             ) : undefined,
             body: changesBody,
           },

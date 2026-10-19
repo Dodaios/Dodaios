@@ -5759,7 +5759,8 @@
       "exited": "{agent} já não está a correr em {pane}.",
       "restart_aria": "Reiniciar {pane}",
       "restart_title": "Iniciar um {agent} novo em {pane}",
-      "restart": "Reiniciar"
+      "restart": "Reiniciar",
+      "show_in_git": "Mostrar as alterações de {pane} no Git"
     }
   },
   "prompt_writer": {
@@ -8236,7 +8237,19 @@
         "view_tree": "Ver como árvore",
         "view_sort": "Exibição e ordem",
         "working_tree": "Árvore de trabalho",
-        "yes": "Sim"
+        "yes": "Sim",
+        "all_changes": "Todas as alterações",
+        "sessions": "Sessões de agentes",
+        "pick_session": "Mostrar as alterações de uma sessão de agente",
+        "filter_session": "Mostrar as alterações de uma sessão de agente…",
+        "filtered_by": "Só as alterações de {pane}",
+        "session_since": "desde {when}",
+        "session_clear": "Mostrar todas as alterações",
+        "session_group": "Alterações da sessão",
+        "stage_session": "Preparar as alterações pendentes da sessão",
+        "session_empty": "Esta sessão ainda não alterou nenhum arquivo, ou o agente não guarda registro das edições.",
+        "session_committed": "com commit",
+        "session_generated": "{n} arquivos gerados ocultos"
       }
     },
     "skills": {
@@ -9255,7 +9268,8 @@
       "runs_on": "Corre em {computer}. Continua a trabalhar com esta app fechada.",
       "worktree_branch": "Corre na sua própria worktree git no ramo {branch}",
       "drag_hint": "Arrasta para reordenar, ou foca este título e prime Alt com uma tecla de seta.",
-      "add_beside": "Adicionar agente ao lado de {pane}"
+      "add_beside": "Adicionar agente ao lado de {pane}",
+      "show_in_git": "Mostrar alterações no Git"
     },
     "request_failed": "O pedido falhou ({status}).",
     "seam": {
