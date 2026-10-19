@@ -22,13 +22,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.critic.runner import (
+from dodaios.missions.critic.runner import (
     CriticRunner,
     _iter_balanced_json_objects,
     _strip_json_fences,
     _validate_verdict_tolerant,
 )
-from jarvis.missions.critic.verdict import (
+from dodaios.missions.critic.verdict import (
     REQUIRED_AXES,
     CriticVerdict,
     is_approval_valid,
@@ -43,14 +43,14 @@ def _claude_cli_viable_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     claude-direct path, so pin viability True; the gate itself is covered by
     the dedicated tests below."""
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._claude_cli_critic_viable",
+        "dodaios.missions.critic.runner._claude_cli_critic_viable",
         lambda: True,
     )
 
     # A WebServer or CLI-registry test may seed the process-wide capability
     # singleton before this module runs. Start every critic-path test with a
     # fresh registry so unrelated tool capabilities cannot change its verdict.
-    import jarvis.core.capabilities as capability_module
+    import dodaios.core.capabilities as capability_module
 
     previous_registry = capability_module._registry_instance
     capability_module._registry_instance = None
@@ -132,28 +132,28 @@ def _patch_direct(
     captured: dict[str, Any] = {}
 
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("claude-api", "claude-sonnet-4-6"),
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._claude_cli_critic_viable",
+        "dodaios.missions.critic.runner._claude_cli_critic_viable",
         lambda: True,
     )
     # Neutralize the in-process API critic so no live network call is made
     # even on a machine that has a real API key configured.
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_api_critic_provider",
+        "dodaios.missions.critic.runner._resolve_api_critic_provider",
         lambda *a, **k: (None, None),
     )
     # Pin the binary so the test does not depend on a real `claude` shim
     # being on PATH on the developer machine.
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker."
+        "dodaios.missions.workers.claude_direct_worker."
         "_resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
     monkeypatch.setattr(
-        "jarvis.claude_auth.claude_cli_supports_safe_mode",
+        "dodaios.claude_auth.claude_cli_supports_safe_mode",
         lambda _prefix: safe_mode,
     )
 
@@ -261,17 +261,17 @@ async def test_non_claude_provider_critic_uses_claude_model_not_foreign(
     """
     captured: dict[str, Any] = {}
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: (provider, foreign_model),
     )
     # No API key available → the in-process API critic is skipped and the flow
     # falls through to the claude-direct critic this test pins.
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_api_critic_provider",
+        "dodaios.missions.critic.runner._resolve_api_critic_provider",
         lambda *a, **k: (None, None),
     )
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker."
+        "dodaios.missions.workers.claude_direct_worker."
         "_resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
@@ -364,15 +364,15 @@ async def test_claude_direct_invalid_json_triggers_adversarial_retry(
     call_count = {"n": 0}
 
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("claude-api", "claude-sonnet-4-6"),
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_api_critic_provider",
+        "dodaios.missions.critic.runner._resolve_api_critic_provider",
         lambda *a, **k: (None, None),
     )
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker."
+        "dodaios.missions.workers.claude_direct_worker."
         "_resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
@@ -410,15 +410,15 @@ async def test_claude_direct_nonzero_exit_returns_none_for_retry(
     call_count = {"n": 0}
 
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("claude-api", "claude-sonnet-4-6"),
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_api_critic_provider",
+        "dodaios.missions.critic.runner._resolve_api_critic_provider",
         lambda *a, **k: (None, None),
     )
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker."
+        "dodaios.missions.workers.claude_direct_worker."
         "_resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
@@ -692,7 +692,7 @@ async def test_critic_unavailable_model_retries_without_model(
     Tests ``_invoke_via_claude_direct`` directly so the model arg is forced
     verbatim (``run()`` resolves it via ``primary_model or model``)."""
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
 
@@ -1025,18 +1025,18 @@ async def test_dead_claude_cli_critic_crosses_to_api_family(
     CLI): a pinned one parks instead of grading on a paid key — see
     tests/missions/test_capacity_critic.py."""
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._critic_subscription_only", lambda _p: False
+        "dodaios.missions.critic.runner._critic_subscription_only", lambda _p: False
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_critic_provider_model",
+        "dodaios.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("claude-api", "claude-sonnet-4-6"),
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._claude_cli_critic_viable",
+        "dodaios.missions.critic.runner._claude_cli_critic_viable",
         lambda: False,
     )
     monkeypatch.setattr(
-        "jarvis.missions.critic.runner._resolve_api_critic_provider",
+        "dodaios.missions.critic.runner._resolve_api_critic_provider",
         lambda *a, **k: ("openrouter", "google/gemini-3.5-flash"),
     )
 
@@ -1071,10 +1071,10 @@ def test_api_critic_resolver_skips_nonviable_families(
     """BUG-042 defect 3, critic edition: the API-critic resolver used to gate
     on key EXISTENCE — a stale sk-ant-oat claude-api credential was picked and
     401'd. It must use the shared family-viability rule and walk on."""
-    from jarvis.missions.critic.runner import _resolve_api_critic_provider
+    from dodaios.missions.critic.runner import _resolve_api_critic_provider
 
     monkeypatch.setattr(
-        "jarvis.missions.init._api_key_family_viable",
+        "dodaios.missions.init._api_key_family_viable",
         lambda p: p == "openrouter",
     )
     prov, _model = _resolve_api_critic_provider("claude-api", "claude-opus-4-8")

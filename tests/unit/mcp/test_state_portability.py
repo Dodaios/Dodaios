@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from jarvis.mcp import state
+from dodaios.mcp import state
 
 
 def test_jarvis_data_dir_owns_mcp_config_on_headless_hosts(

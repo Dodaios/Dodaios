@@ -15,13 +15,13 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.events import ActionApprovalRequired, ActionExecuted
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.events import ActionApprovalRequired, ActionExecuted
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import (
     APPROVAL_UNAVAILABLE_PREFIX,
     VOICE_CONFIRM_SENTINEL,
     ToolExecutor,
@@ -336,7 +336,7 @@ async def test_gmail_read_is_not_deferred_for_voice_confirm() -> None:
     """
     import httpx
 
-    from jarvis.plugins.tool.gmail_rest import GmailRestTool
+    from dodaios.plugins.tool.gmail_rest import GmailRestTool
 
     executor, approval, _bus = _executor()
     tool = GmailRestTool(
@@ -360,7 +360,7 @@ async def test_gmail_read_is_not_deferred_for_voice_confirm() -> None:
 @pytest.mark.asyncio
 async def test_gmail_send_still_defers_for_voice_confirm() -> None:
     """Sending stays consequential: it must still confirm before sending."""
-    from jarvis.plugins.tool.gmail_rest import GmailRestTool
+    from dodaios.plugins.tool.gmail_rest import GmailRestTool
 
     executor, approval, _bus = _executor()
     tool = GmailRestTool(access_token_provider=lambda: "at_x")

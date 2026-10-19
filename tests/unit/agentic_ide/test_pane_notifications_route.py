@@ -13,7 +13,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import notifications
+from dodaios.agentic_ide import notifications
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +25,7 @@ def _clean_store():
 
 @pytest.fixture
 def client() -> TestClient:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)

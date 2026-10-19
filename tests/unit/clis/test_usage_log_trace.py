@@ -1,4 +1,4 @@
-from jarvis.clis.usage_log import UsageLog
+from dodaios.clis.usage_log import UsageLog
 
 
 def test_list_for_trace_filters_and_orders(tmp_path):

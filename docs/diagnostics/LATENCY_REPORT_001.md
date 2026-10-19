@@ -28,7 +28,7 @@
 - The per-turn `LatencyTracker` anchor (`t0`) is set at `_handle_utterance`'s
   "natural end" point — microseconds after the VAD endpoint fires. The two are
   treated as equivalent for the report; the small (<1 ms) gap is below
-  scheduler jitter and is documented in `jarvis/speech/pipeline.py` near
+  scheduler jitter and is documented in `dodaios/speech/pipeline.py` near
   `LatencyTracker(self._bus, uuid4(), enabled=...)`.
 - `t1 STT_FIRST_PARTIAL` equals `t2 STT_FINALIZE` for Groq, because Groq's
   `/v1/audio/transcriptions` endpoint returns the full JSON in one HTTP
@@ -57,7 +57,7 @@ steady-state cost on the dev box is 0.03 ms per turn (≈140× below budget).
 
 | Mark | Phase | Site | File:line anchor |
 |---|---|---|---|
-| t0 | (anchor) | `LatencyTracker` constructed at utterance finalize | `jarvis/speech/pipeline.py` near `LatencyTracker(self._bus, uuid4(), ...)` |
+| t0 | (anchor) | `LatencyTracker` constructed at utterance finalize | `dodaios/speech/pipeline.py` near `LatencyTracker(self._bus, uuid4(), ...)` |
 | t1 | `stt_first_partial` | After `_transcribe_final` returns (= t2 for Groq) | `pipeline.py` after `await self._publish_event(TranscriptFinal(...))` |
 | t2 | `stt_finalize` | Same site as t1 | same |
 | —  | `intent_decision` | Pre-existing Wave 0 mark | `pipeline.py` |
@@ -71,15 +71,15 @@ steady-state cost on the dev box is 0.03 ms per turn (≈140× below budget).
 
 **ContextVar bridging:** the per-turn tracker is bound on a module-level
 `ContextVar` so STT/Brain/TTS plugins can mark phases via `mark_phase(phase)`
-without importing `jarvis.*` (CLAUDE.md plugin doctrine). Today only the
+without importing `dodaios.*` (CLAUDE.md plugin doctrine). Today only the
 pipeline marks all phases; future streaming providers can opt in by calling
-`from jarvis.telemetry.latency import mark_phase` inside their own iterator.
+`from dodaios.telemetry.latency import mark_phase` inside their own iterator.
 
 ---
 
 ## 3. Persistence + Aggregation
 
-**JSONL writer** (`jarvis/telemetry/latency_log.py`): subscribes to
+**JSONL writer** (`dodaios/telemetry/latency_log.py`): subscribes to
 `LatencyTurnComplete` events on the bus. The handler enqueues the row on an
 in-memory `queue.Queue` and a daemon thread drains the queue, writing one
 self-contained JSONL row per turn to `state/latency_log.jsonl`. The bus
@@ -104,14 +104,14 @@ Row schema (excerpt; see `LatencyLogWriter._build_row`):
 }
 ```
 
-**CLI** (`python -m jarvis.tools.latency_report`):
+**CLI** (`python -m dodaios.tools.latency_report`):
 
 ```
-python -m jarvis.tools.latency_report                # last 50 turns, text
-python -m jarvis.tools.latency_report --last 10      # only the latest 10
-python -m jarvis.tools.latency_report --markdown     # paste-ready report
-python -m jarvis.tools.latency_report --json         # raw aggregation
-python -m jarvis.tools.latency_report --since 2026-05-27T18:00:00+00:00
+python -m dodaios.tools.latency_report                # last 50 turns, text
+python -m dodaios.tools.latency_report --last 10      # only the latest 10
+python -m dodaios.tools.latency_report --markdown     # paste-ready report
+python -m dodaios.tools.latency_report --json         # raw aggregation
+python -m dodaios.tools.latency_report --since 2026-05-27T18:00:00+00:00
 ```
 
 The CLI computes p50 (linear-interpolation), p95, max, mean per stage offset
@@ -157,8 +157,8 @@ real baseline data:
 4. **Aggregate**:
 
    ```bash
-   python -m jarvis.tools.latency_report --last 10
-   python -m jarvis.tools.latency_report --last 10 --markdown > out.md
+   python -m dodaios.tools.latency_report --last 10
+   python -m dodaios.tools.latency_report --last 10 --markdown > out.md
    ```
 
 5. **Disable**: set `log_jsonl = false` (or unset the ENV) — the writer
@@ -299,11 +299,11 @@ diagnostic.
 ## 8. Reproducibility
 
 - Source of truth for the wire vocabulary:
-  `jarvis/core/events.py::LatencyPhase` (13 phases, runtime-validated via
+  `dodaios/core/events.py::LatencyPhase` (13 phases, runtime-validated via
   `LatencySpan.__post_init__`).
-- Tracker contract: `jarvis/telemetry/latency.py::LatencyTracker`.
-- Writer contract: `jarvis/telemetry/latency_log.py::LatencyLogWriter`.
-- CLI: `jarvis/tools/latency_report.py` (`python -m`).
+- Tracker contract: `dodaios/telemetry/latency.py::LatencyTracker`.
+- Writer contract: `dodaios/telemetry/latency_log.py::LatencyLogWriter`.
+- CLI: `dodaios/tools/latency_report.py` (`python -m`).
 - Tests:
   - `tests/unit/telemetry/test_latency_span_event.py` — phase enum,
     LatencySpan dataclass.

@@ -11,9 +11,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 class _FakeBrain:
@@ -55,7 +55,7 @@ def test_route_calls_shared_apply_provider_switch(server, monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        "jarvis.brain.app_control.apply_provider_switch", fake_apply
+        "dodaios.brain.app_control.apply_provider_switch", fake_apply
     )
     with TestClient(server.app) as client:
         resp = client.post(
@@ -81,7 +81,7 @@ def test_shared_error_kind_maps_to_http_status(server, monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        "jarvis.brain.app_control.apply_provider_switch", fake_apply
+        "dodaios.brain.app_control.apply_provider_switch", fake_apply
     )
     with TestClient(server.app) as client:
         resp = client.post("/api/brain/switch", json={"provider": "openrouter"})
@@ -107,7 +107,7 @@ def test_jarvis_agent_route_calls_shared_apply_provider_switch(
         }
 
     monkeypatch.setattr(
-        "jarvis.brain.app_control.apply_provider_switch", fake_apply
+        "dodaios.brain.app_control.apply_provider_switch", fake_apply
     )
 
     with TestClient(server.app) as client:

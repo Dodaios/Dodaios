@@ -7,7 +7,7 @@ directories are **read-only** from this instance.
 
 ## What landed
 
-Three production modules under `jarvis/memory/wiki/`:
+Three production modules under `dodaios/memory/wiki/`:
 
 | File | Public surface | Lines |
 |---|---|---|
@@ -101,7 +101,7 @@ pytest tests/unit/memory/wiki/test_vault_index.py \
   `tests/unit/memory/wiki/conftest.py`. Both fakes match the
   surface Instance A's `protocols.py` already declares.
 - In wave-2 integration the fakes can be deleted once `WikiPage`
-  / `PageRepository` from `jarvis.memory.wiki.protocols` is
+  / `PageRepository` from `dodaios.memory.wiki.protocols` is
   imported — the production code does not change because it
   never depended on a concrete type.
 
@@ -135,9 +135,9 @@ pytest tests/unit/memory/wiki/test_vault_index.py \
 ## Files touched
 
 ```
-jarvis/memory/wiki/vault_index.py            (new)
-jarvis/memory/wiki/log_writer.py             (new)
-jarvis/memory/wiki/index_builder.py          (new)
+dodaios/memory/wiki/vault_index.py            (new)
+dodaios/memory/wiki/log_writer.py             (new)
+dodaios/memory/wiki/index_builder.py          (new)
 tests/unit/memory/wiki/__init__.py           (new)
 tests/unit/memory/wiki/conftest.py           (new)
 tests/unit/memory/wiki/test_vault_index.py   (new)

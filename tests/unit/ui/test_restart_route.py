@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.settings_routes import restart_app, router
+from dodaios.ui.web.settings_routes import restart_app, router
 
 
 def _client(desktop=None, kontrollierer=None, mission_manager=None):
@@ -44,7 +44,7 @@ def test_restart_schedules_when_window_present(caplog):
         calls["n"] += 1
         return True
 
-    with caplog.at_level(logging.INFO, logger="jarvis.ui.web.settings_routes"):
+    with caplog.at_level(logging.INFO, logger="dodaios.ui.web.settings_routes"):
         r = _client(SimpleNamespace(request_restart=request_restart)).post(
             "/api/settings/restart-app"
         )

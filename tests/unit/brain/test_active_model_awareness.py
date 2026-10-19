@@ -13,12 +13,12 @@ prompt as an authoritative, anti-guessing infrastructure fact.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     BrainManager,
     _provider_display_name,
     _provider_identity_directive,
 )
-from jarvis.core.config import load_config
+from dodaios.core.config import load_config
 
 
 def _manager(*, wake_phrase: str = "Hey Jarvis") -> BrainManager:

@@ -13,16 +13,16 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.events import (
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.events import (
     VoiceSessionEnded,
     VoiceSessionStarted,
     WakeCandidateDetected,
     WakeWordDetected,
 )
-from jarvis.core.protocols import AudioChunk
-from jarvis.sessions.constants import HANGUP_TURN_COMPLETE
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
+from dodaios.core.protocols import AudioChunk
+from dodaios.sessions.constants import HANGUP_TURN_COMPLETE
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
 
 
 class _FakeTTS:
@@ -501,7 +501,7 @@ async def test_manually_fed_buffer_finishes_without_hanging_consumer() -> None:
 @pytest.mark.asyncio
 async def test_buffer_resumes_metering_between_engine_consumers() -> None:
     """Realtime teardown must not flatten the bar before classic fallback."""
-    from jarvis.audio import mic_level
+    from dodaios.audio import mic_level
 
     marker = AudioChunk(pcm=b"\x00\x10" * 320, sample_rate=16_000, timestamp_ns=1)
     buffer = pipeline_mod._SessionInputBuffer(initial=(marker,))  # noqa: SLF001

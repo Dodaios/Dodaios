@@ -90,7 +90,7 @@ def test_metadata_repair_dry_run_does_not_remove_records(tmp_path: Path) -> None
 def test_ui_bundle_check_rejects_missing_javascript(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    dist = tmp_path / "jarvis" / "ui" / "web" / "dist"
+    dist = tmp_path / "dodaios" / "ui" / "web" / "dist"
     dist.mkdir(parents=True)
     (dist / "index.html").write_text("<html></html>\n", encoding="utf-8")
     monkeypatch.setattr(installer, "repo_root", lambda: tmp_path)
@@ -101,7 +101,7 @@ def test_ui_bundle_check_rejects_missing_javascript(
 def test_ui_bundle_check_accepts_complete_entry_set(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    dist = tmp_path / "jarvis" / "ui" / "web" / "dist"
+    dist = tmp_path / "dodaios" / "ui" / "web" / "dist"
     assets = dist / "assets"
     assets.mkdir(parents=True)
     (dist / "index.html").write_text(
@@ -202,7 +202,7 @@ def test_macos_launch_survives_missing_editable_import(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """BUG-078: on a FRESH install the installer process predates the editable
-    install, so ``import jarvis`` fails in-process (.pth hooks only load at
+    install, so ``import dodaios`` fails in-process (.pth hooks only load at
     interpreter startup). step_launch must fall back to launching by app name
     instead of crashing after a fully successful install."""
     monkeypatch.setattr(installer.sys, "platform", "darwin")

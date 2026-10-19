@@ -14,9 +14,9 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.mcp import state as mcp_state
-from jarvis.mcp.registry import MCPServerSpec
-from jarvis.ui.web.mcp_routes import router
+from dodaios.mcp import state as mcp_state
+from dodaios.mcp.registry import MCPServerSpec
+from dodaios.ui.web.mcp_routes import router
 
 
 @pytest.fixture()

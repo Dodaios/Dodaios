@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.audio.wake_normalizer import AdaptiveWakeNormalizer
+from dodaios.audio.wake_normalizer import AdaptiveWakeNormalizer
 
 
 def _sine_int16(peak: float, n: int = 1280) -> np.ndarray:

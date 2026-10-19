@@ -1,7 +1,7 @@
 """UIConfig selects the jarvis bar by default and carries its flags."""
 from __future__ import annotations
 
-from jarvis.core.config import UIConfig
+from dodaios.core.config import UIConfig
 
 
 def test_defaults_select_jarvis_bar():

@@ -16,9 +16,9 @@ import asyncio
 
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 from tests.unit.realtime.test_session import FakeProvider, FakeSession, _cfg
 
 HEAD = b"\x01\x02" * 8
@@ -132,7 +132,7 @@ async def test_confirmed_barge_in_still_cuts_the_answer():
 async def test_unconfirmed_interruption_is_committed_once_the_provider_stops():
     """A generation that really did end at the edge still closes the turn."""
 
-    from jarvis.realtime import session as session_mod
+    from dodaios.realtime import session as session_mod
 
     async def script():
         yield RealtimeEvent(type="input_transcript", text=OPENING, is_final=True)
@@ -191,7 +191,7 @@ async def test_empty_interrupt_before_a_reply_is_ignored():
 async def test_completed_reply_survives_the_interrupt_silence_window():
     """A cough mid-reply must not tts_cancel after the generation's own boundary."""
 
-    from jarvis.realtime import session as session_mod
+    from dodaios.realtime import session as session_mod
 
     async def script():
         yield RealtimeEvent(type="input_transcript", text=OPENING, is_final=True)
@@ -233,7 +233,7 @@ async def test_stale_interrupt_cannot_cancel_speaker_drain():
     barge-in and sent ``tts_cancel``. The user heard half a sentence.
     """
 
-    from jarvis.realtime import session as session_mod
+    from dodaios.realtime import session as session_mod
 
     async def script():
         yield RealtimeEvent(type="input_transcript", text=OPENING, is_final=True)

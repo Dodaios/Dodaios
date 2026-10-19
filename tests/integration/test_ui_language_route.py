@@ -11,10 +11,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config as cfg_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.events import UiLanguageChanged
-from jarvis.ui.web.settings_routes import router as settings_router
+from dodaios.core import config as cfg_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.events import UiLanguageChanged
+from dodaios.ui.web.settings_routes import router as settings_router
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 """A variable written as ``DODAIOS_<NAME>`` reaches the reader of ``JARVIS_<NAME>``.
 
-``jarvis.core.env_prefix`` moves every new-prefix variable to the name the code
+``dodaios.core.env_prefix`` moves every new-prefix variable to the name the code
 reads, once per process, before any reader runs. These tests hold the
 precedence, the reason the new name is moved rather than mirrored (scrubbing
 and overrides keep working), the copy the frozen runtime hook carries, and
@@ -21,10 +21,10 @@ from types import ModuleType
 
 import pytest
 
-import jarvis.core.env_prefix as env_prefix
-from jarvis.core import config as core_config
-from jarvis.core.env_prefix import accepted_names, adopt_environment, old_name_of
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+import dodaios.core.env_prefix as env_prefix
+from dodaios.core import config as core_config
+from dodaios.core.env_prefix import accepted_names, adopt_environment, old_name_of
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _ROOT = Path(__file__).resolve().parents[3]
 _HOOK_PATH = _ROOT / "packaging" / "pyinstaller_rthook_frozen.py"
@@ -126,7 +126,7 @@ def test_the_new_name_wins_when_both_are_set_differently(
 ) -> None:
     environ = {"JARVIS_PERSONA": "old-value", "DODAIOS_PERSONA": "new-value"}
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.core.env_prefix"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.core.env_prefix"):
         clashes = adopt_environment(environ)
 
     assert clashes == ("DODAIOS_PERSONA",)
@@ -141,7 +141,7 @@ def test_the_new_name_wins_when_both_are_set_differently(
 def test_equal_values_are_no_clash(caplog: pytest.LogCaptureFixture) -> None:
     environ = {"JARVIS_DEBUG": "1", "DODAIOS_DEBUG": "1"}
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.core.env_prefix"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.core.env_prefix"):
         assert adopt_environment(environ) == ()
 
     assert environ == {"JARVIS_DEBUG": "1"}
@@ -233,7 +233,7 @@ _CHILD_REPORT = (
 )
 _GRANDCHILD_REPORT = (
     "import json, os, subprocess, sys, jarvis; "
-    "from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS as F; "
+    "from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS as F; "
     "os.environ['JARVIS_PRIMARY_INSTANCE'] = '0'; "
     "r = subprocess.run([sys.executable, '-c', sys.argv[1]], capture_output=True, text=True, "
     "encoding='utf-8', creationflags=F); "
@@ -293,7 +293,7 @@ def test_a_grandchild_reads_what_its_parent_set_after_the_adoption() -> None:
 
 
 def test_the_module_needs_nothing_but_the_standard_library() -> None:
-    tree = ast.parse((_ROOT / "jarvis" / "core" / "env_prefix.py").read_text(encoding="utf-8"))
+    tree = ast.parse((_ROOT / "dodaios" / "core" / "env_prefix.py").read_text(encoding="utf-8"))
     imported: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -304,7 +304,7 @@ def test_the_module_needs_nothing_but_the_standard_library() -> None:
 
 
 def test_the_package_runs_the_adoption_before_anything_else() -> None:
-    tree = ast.parse((_ROOT / "jarvis" / "__init__.py").read_text(encoding="utf-8"))
+    tree = ast.parse((_ROOT / "dodaios" / "__init__.py").read_text(encoding="utf-8"))
     calls = [
         node.value.func.id
         for node in tree.body
@@ -336,12 +336,12 @@ def _function_node(path: Path, name: str) -> ast.FunctionDef:
 
 
 def test_the_hook_copy_of_the_adoption_is_identical() -> None:
-    package = _function_node(_ROOT / "jarvis" / "core" / "env_prefix.py", "_adopt")
+    package = _function_node(_ROOT / "dodaios" / "core" / "env_prefix.py", "_adopt")
     hook = _function_node(_HOOK_PATH, "_adopt")
 
     assert ast.dump(hook) == ast.dump(package), (
         "packaging/pyinstaller_rthook_frozen.py::_adopt must be a verbatim copy of "
-        "jarvis/core/env_prefix.py::_adopt"
+        "dodaios/core/env_prefix.py::_adopt"
     )
 
 

@@ -81,7 +81,7 @@ def test_uv_source_is_explicit_and_matches_the_reviewed_publication():
     assert config["index"] == [
         {"name": "native-crypto", "url": index.index_url(), "explicit": True}
     ]
-    for relative in ("pyproject.toml", "jarvis/assets/browser/pyproject.toml"):
+    for relative in ("pyproject.toml", "dodaios/assets/browser/pyproject.toml"):
         project = tomllib.loads((index.ROOT / relative).read_text(encoding="utf-8"))
         assert project["tool"]["uv"]["sources"]["cryptography"] == {"index": "native-crypto"}
         assert project["tool"]["uv"]["index"] == config["index"]

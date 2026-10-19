@@ -13,8 +13,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.setup.obsidian import ObsidianDetection
-from jarvis.ui.web import setup_routes
+from dodaios.setup.obsidian import ObsidianDetection
+from dodaios.ui.web import setup_routes
 
 
 def _app(tmp_path: Path, obsidian_json: dict | None) -> FastAPI:
@@ -163,7 +163,7 @@ def test_register_existing_mode_dry_run_previews_without_side_effects(
 # ---------------------------------------------------------------------------
 def _seed_fts(db_path: Path, vault_root: Path) -> None:
     """Index an existing vault into a fresh jarvis.db FTS table."""
-    from jarvis.memory.wiki.fts_index import index_vault
+    from dodaios.memory.wiki.fts_index import index_vault
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))

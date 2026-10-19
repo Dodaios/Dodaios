@@ -13,8 +13,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool import search_web as sw
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool import search_web as sw
 
 
 def _ctx(config: dict[str, Any] | None) -> ExecutionContext:
@@ -44,7 +44,7 @@ def test_foreign_context_shape_degrades_to_spoken() -> None:
 
 def test_tool_context_reaches_execution_context() -> None:
     """ToolUseLoop merges the dispatcher's tool_context under the per-turn keys."""
-    from jarvis.brain.tool_use_loop import ToolUseLoop
+    from dodaios.brain.tool_use_loop import ToolUseLoop
 
     loop = ToolUseLoop(
         object(), {}, object(),  # type: ignore[arg-type]

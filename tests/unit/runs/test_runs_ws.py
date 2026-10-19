@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.runs.runs_ws import router as runs_ws_router
+from dodaios.runs.runs_ws import router as runs_ws_router
 
 # ---------------------------------------------------------------------------
 # Fake bus — matches the real EventBus.subscribe_all / unsubscribe_all API
@@ -108,8 +108,8 @@ def test_stalled_send_detaches_instead_of_slowing_every_publish(monkeypatch) -> 
     import asyncio
     from types import SimpleNamespace
 
-    from jarvis.runs import runs_ws
-    from jarvis.runs.runs_ws import _LIVE_KINDS
+    from dodaios.runs import runs_ws
+    from dodaios.runs.runs_ws import _LIVE_KINDS
 
     monkeypatch.setattr(runs_ws, "_SEND_TIMEOUT_S", 0.05)
     bus = _FakeBus()

@@ -11,14 +11,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.store import SURFACES, AgentChatStore
-from jarvis.society.chat_binding import ensure_session, frame_incoming, make_deliver_hook
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.store import SURFACES, AgentChatStore
+from dodaios.society.chat_binding import ensure_session, frame_incoming, make_deliver_hook
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.runtime import SocietyRuntime
 
 
 class FakeService:
-    from jarvis.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.service import AgentChatService
 
     receive_message = AgentChatService.receive_message
     message_status = AgentChatService.message_status
@@ -27,7 +27,7 @@ class FakeService:
         self.store.append_event(session_id, event)
 
     async def post_notice(self, session_id, payload):
-        from jarvis.agent_chat.events import make_event
+        from dodaios.agent_chat.events import make_event
 
         await self._emit(session_id, make_event("notice", payload))
 
@@ -36,7 +36,7 @@ class FakeService:
         return False
 
     async def bind_society_session(self, session_id):
-        from jarvis.society.chat_binding import bind_society_session
+        from dodaios.society.chat_binding import bind_society_session
 
         return await bind_society_session(self, session_id)
 
@@ -163,7 +163,7 @@ async def test_relaxed_roster_ceiling_restores_default_without_user_override(wor
 
 
 async def test_chat_route_records_an_explicit_permission_choice(world):
-    from jarvis.ui.web.agent_chat_routes import router
+    from dodaios.ui.web.agent_chat_routes import router
 
     rt, svc, cfg = world
     agent, _ = await rt.roster.create(name="Scout", provider="openai")
@@ -196,7 +196,7 @@ async def test_chat_route_records_an_explicit_permission_choice(world):
 
 
 async def test_safe_agent_route_clamps_a_requested_bypass(world):
-    from jarvis.ui.web.agent_chat_routes import router
+    from dodaios.ui.web.agent_chat_routes import router
 
     rt, svc, cfg = world
     agent, _ = await rt.roster.create(name="Reader", provider="openai", permission_ceiling="safe")
@@ -223,7 +223,7 @@ async def test_safe_agent_route_clamps_a_requested_bypass(world):
 
 
 async def test_society_route_rejects_an_unsupported_ask_before_storage(world, monkeypatch):
-    from jarvis.ui.web import agent_chat_routes
+    from dodaios.ui.web import agent_chat_routes
 
     rt, svc, cfg = world
     agent, _ = await rt.roster.create(name="Scout", provider="openai")
@@ -244,7 +244,7 @@ async def test_society_route_rejects_an_unsupported_ask_before_storage(world, mo
 
 
 async def test_society_patch_does_not_reseat_if_a_turn_starts_during_cleanup(world):
-    from jarvis.ui.web.agent_chat_routes import router
+    from dodaios.ui.web.agent_chat_routes import router
 
     rt, svc, cfg = world
     agent, _ = await rt.roster.create(name="Scout", provider="openai")
@@ -270,7 +270,7 @@ async def test_society_patch_does_not_reseat_if_a_turn_starts_during_cleanup(wor
 
 
 async def test_direct_send_rebinds_safe_agent_before_runner(tmp_path: Path):
-    from jarvis.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.service import AgentChatService
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -308,8 +308,8 @@ async def test_direct_send_rebinds_safe_agent_before_runner(tmp_path: Path):
 
 
 async def test_routine_chat_rejects_direct_messages_and_inactive_owner(tmp_path: Path):
-    from jarvis.agent_chat.service import AgentChatService
-    from jarvis.ui.web.agent_chat_routes import router
+    from dodaios.agent_chat.service import AgentChatService
+    from dodaios.ui.web.agent_chat_routes import router
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -353,8 +353,8 @@ async def test_routine_chat_rejects_direct_messages_and_inactive_owner(tmp_path:
 async def test_busy_turn_defers_provider_reseat_until_it_finishes(tmp_path: Path):
     import asyncio
 
-    from jarvis.agent_chat.control_types import CommandRequest
-    from jarvis.agent_chat.service import AgentChatService, SessionBusy
+    from dodaios.agent_chat.control_types import CommandRequest
+    from dodaios.agent_chat.service import AgentChatService, SessionBusy
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -406,7 +406,7 @@ async def test_busy_turn_defers_provider_reseat_until_it_finishes(tmp_path: Path
 
 async def test_an_older_side_chat_is_read_only(tmp_path: Path):
     """Side chats from before the one-chat change stay readable, never run."""
-    from jarvis.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.service import AgentChatService
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -435,7 +435,7 @@ async def test_an_older_side_chat_is_read_only(tmp_path: Path):
 async def test_routine_turn_does_not_reserve_direct_chat_seat(tmp_path: Path):
     import asyncio
 
-    from jarvis.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.service import AgentChatService
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -477,8 +477,8 @@ async def test_routine_turn_does_not_reserve_direct_chat_seat(tmp_path: Path):
 
 
 async def test_build_cannot_raise_a_safe_agent_above_its_ceiling(world):
-    from jarvis.agent_chat.control import ChatControls
-    from jarvis.agent_chat.control_types import CommandRequest
+    from dodaios.agent_chat.control import ChatControls
+    from dodaios.agent_chat.control_types import CommandRequest
 
     rt, svc, cfg = world
     agent, _ = await rt.roster.create(name="Scout", provider="openai")
@@ -501,8 +501,8 @@ async def test_build_cannot_raise_a_safe_agent_above_its_ceiling(world):
 
 
 async def test_build_sees_a_relaxed_roster_ceiling_before_checking_plan(world):
-    from jarvis.agent_chat.control import ChatControls
-    from jarvis.agent_chat.control_types import CommandRequest
+    from dodaios.agent_chat.control import ChatControls
+    from dodaios.agent_chat.control_types import CommandRequest
 
     rt, svc, cfg = world
     agent, _ = await rt.roster.create(name="Reader", provider="openai", permission_ceiling="safe")
@@ -559,7 +559,7 @@ async def test_legacy_ask_agent_refuses_runner_without_actionable_approvals(worl
     agent, _ = await rt.roster.create(name="Legacy", provider="openai")
     agent = await _legacy_agent(rt, agent)
     monkeypatch.setattr(
-        "jarvis.agent_chat.service.resolve_runner", lambda *_args, **_kw: "grok-cli"
+        "dodaios.agent_chat.service.resolve_runner", lambda *_args, **_kw: "grok-cli"
     )
 
     with pytest.raises(PermissionError, match="actionable approval"):
@@ -569,7 +569,7 @@ async def test_legacy_ask_agent_refuses_runner_without_actionable_approvals(worl
 
 @pytest.mark.parametrize("blocked_by", ["paused", "kill_switch"])
 async def test_inactive_agent_cannot_bind_canonical_chat(world, blocked_by):
-    from jarvis.society.chat_binding import bind_society_session
+    from dodaios.society.chat_binding import bind_society_session
 
     rt, svc, cfg = world
     agent, _ = await rt.roster.create(name="Scout", provider="openai")
@@ -591,8 +591,8 @@ async def test_live_roster_change_during_pre_admission_await_blocks_turn(
 ):
     import asyncio
 
-    from jarvis.agent_chat.control_types import GoalState
-    from jarvis.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.control_types import GoalState
+    from dodaios.agent_chat.service import AgentChatService
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -667,7 +667,7 @@ async def test_final_society_rebind_keeps_read_only_turn_override(
 ):
     import asyncio
 
-    from jarvis.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.service import AgentChatService
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -713,8 +713,8 @@ async def test_two_sends_cannot_replace_pre_admission_control_owner(
 ):
     import asyncio
 
-    from jarvis.agent_chat.events import make_event
-    from jarvis.agent_chat.service import AgentChatService, SessionBusy
+    from dodaios.agent_chat.events import make_event
+    from dodaios.agent_chat.service import AgentChatService, SessionBusy
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -790,7 +790,7 @@ async def test_stop_during_final_roster_lookup_prevents_a_runner(
 ):
     import asyncio
 
-    from jarvis.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.service import AgentChatService
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     svc = AgentChatService(store, assistant_name=lambda: "Test")
@@ -848,7 +848,7 @@ async def test_stop_during_final_roster_lookup_prevents_a_runner(
 
 
 async def test_roster_mode_edit_defers_busy_chat_and_preserves_override(world, monkeypatch):
-    from jarvis.ui.web.society_routes import router
+    from dodaios.ui.web.society_routes import router
 
     rt, svc, cfg = world
     monkeypatch.setattr(rt, "_get_chat", lambda: svc)
@@ -884,7 +884,7 @@ async def test_roster_mode_edit_defers_busy_chat_and_preserves_override(world, m
 async def test_runner_change_rejects_incompatible_chat_override(
     world, monkeypatch, method, suffix, payload
 ):
-    from jarvis.ui.web.society_routes import router
+    from dodaios.ui.web.society_routes import router
 
     rt, svc, cfg = world
     monkeypatch.setattr(rt, "_get_chat", lambda: svc)
@@ -893,7 +893,7 @@ async def test_runner_change_rejects_incompatible_chat_override(
     svc.store.set_permission_override(session.session_id, "always_ask")
     assert ensure_session(svc, cfg, agent).permission_mode == "always_ask"
     monkeypatch.setattr(
-        "jarvis.agent_chat.service.resolve_runner",
+        "dodaios.agent_chat.service.resolve_runner",
         lambda provider, **_kw: "grok-cli" if provider == "grok" else "brain",
     )
 
@@ -913,7 +913,7 @@ async def test_runner_change_rejects_incompatible_chat_override(
 
 async def test_without_provider_the_agents_tier_answers(world, monkeypatch):
     rt, svc, cfg = world
-    import jarvis.local_models.assistant_session as tier_mod
+    import dodaios.local_models.assistant_session as tier_mod
 
     monkeypatch.setattr(
         tier_mod,
@@ -999,7 +999,7 @@ async def test_scheduler_delivers_through_the_hook(world):
 
 
 def test_unfiltered_session_list_hides_society_sessions(tmp_path: Path):
-    from jarvis.ui.web.agent_chat_routes import router
+    from dodaios.ui.web.agent_chat_routes import router
 
     store = AgentChatStore(tmp_path / "agent_chat.db")
     store.create_session(provider="openai", model="m", effort="", cwd="", surface="agent")
@@ -1159,8 +1159,8 @@ async def test_empty_successful_turn_does_not_claim_task_completion(tmp_path: Pa
 async def test_lost_subscriber_recovers_the_durable_turn_result(tmp_path: Path, monkeypatch):
     import asyncio
 
-    import jarvis.society.runtime as runtime_module
-    from jarvis.agent_chat.events import make_event
+    import dodaios.society.runtime as runtime_module
+    from dodaios.agent_chat.events import make_event
 
     monkeypatch.setattr(runtime_module, "_WATCH_EVENT_POLL_SECONDS", 0.01)
     svc = FakeTurnService(AgentChatStore(tmp_path / "agent_chat.db"))
@@ -1202,7 +1202,7 @@ async def test_lost_subscriber_recovers_the_durable_turn_result(tmp_path: Path, 
 async def test_durable_read_failure_releases_the_agent_slot(tmp_path: Path, monkeypatch):
     import asyncio
 
-    import jarvis.society.runtime as runtime_module
+    import dodaios.society.runtime as runtime_module
 
     monkeypatch.setattr(runtime_module, "_WATCH_EVENT_POLL_SECONDS", 0.01)
     svc = FakeTurnService(AgentChatStore(tmp_path / "agent_chat.db"))

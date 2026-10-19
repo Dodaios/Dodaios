@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.ui.desktop_app import DesktopApp
 
 
 def test_desktop_injects_distinct_realtime_broker_capability(monkeypatch) -> None:
@@ -19,7 +19,7 @@ def test_desktop_injects_distinct_realtime_broker_capability(monkeypatch) -> Non
     monkeypatch.setattr(app, "_start_desktop_integration_repair", lambda: None)
     monkeypatch.setitem(
         sys.modules,
-        "jarvis.ui.icon_utils",
+        "dodaios.ui.icon_utils",
         SimpleNamespace(
             project_icon_path=lambda: "unused",
             set_window_icon_by_title=lambda *_args: None,

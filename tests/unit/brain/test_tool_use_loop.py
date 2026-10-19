@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.tool_call_recovery import extract_leaked_tool_calls
-from jarvis.brain.tool_use_loop import _MAX_TOOL_RESULT_CHARS, ToolUseLoop
-from jarvis.core.protocols import BrainDelta, BrainRequest, ToolResult
+from dodaios.brain.tool_call_recovery import extract_leaked_tool_calls
+from dodaios.brain.tool_use_loop import _MAX_TOOL_RESULT_CHARS, ToolUseLoop
+from dodaios.core.protocols import BrainDelta, BrainRequest, ToolResult
 
 
 class _Tool:
@@ -811,7 +811,7 @@ async def test_conversational_turn_blocks_llm_chosen_spawn() -> None:
     """Explicit-delegation gate (mandate 2026-07-18, voice sessions 08:25 +
     08:29): the model chose spawn_worker on a plain conversational remark —
     the gate must refuse execution and redirect the model to answer inline."""
-    from jarvis.brain.spawn_gate import OFFER_WINDOW
+    from dodaios.brain.spawn_gate import OFFER_WINDOW
 
     OFFER_WINDOW.disarm()
     brain = _SpawnThenAnswerBrain()
@@ -835,7 +835,7 @@ async def test_conversational_turn_blocks_llm_chosen_spawn() -> None:
 
 @pytest.mark.asyncio
 async def test_explicit_delegation_request_executes_spawn() -> None:
-    from jarvis.brain.spawn_gate import OFFER_WINDOW
+    from dodaios.brain.spawn_gate import OFFER_WINDOW
 
     OFFER_WINDOW.disarm()
     brain = _SpawnThenAnswerBrain()

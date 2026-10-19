@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser import native_window
+from dodaios.society.browser import native_window
 from tests.fakes.fake_native_browser import (
     BlockingCaptureFactory,
     BlockingStopControl,

@@ -1,6 +1,6 @@
 """The downloadable .dmg app is its own installed app, with its own identity.
 
-``jarvis.spec`` (PyInstaller) cannot import ``jarvis.core.branding``, so it
+``jarvis.spec`` (PyInstaller) cannot import ``dodaios.core.branding``, so it
 carries the .dmg bundle id as a literal. The permission port accepts that id as
 an installed identity; if the two ever drift apart, every macOS feature of the
 .dmg app fails closed again — with every permission granted and no button left
@@ -16,10 +16,10 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.setup.macos_app_bundle as mab
-from jarvis.core.branding import MACOS_BUNDLE_ID, MACOS_DMG_BUNDLE_ID
-from jarvis.platform.permissions import ACCEPTED_BUNDLE_IDS
-from jarvis.setup.macos_app_bundle import APP_DIR_NAME, installed_macos_app_bundle_path
+import dodaios.setup.macos_app_bundle as mab
+from dodaios.core.branding import MACOS_BUNDLE_ID, MACOS_DMG_BUNDLE_ID
+from dodaios.platform.permissions import ACCEPTED_BUNDLE_IDS
+from dodaios.setup.macos_app_bundle import APP_DIR_NAME, installed_macos_app_bundle_path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PYINSTALLER_SPEC = REPO_ROOT / "jarvis.spec"

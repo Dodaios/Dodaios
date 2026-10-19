@@ -14,10 +14,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.ui.desktop_app import DesktopApp
-from jarvis.ui.dodaiosbar.null_overlay import NullOverlay
-from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
+from dodaios.core import runtime_refs
+from dodaios.ui.desktop_app import DesktopApp
+from dodaios.ui.dodaiosbar.null_overlay import NullOverlay
+from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 from ui.orb import controls
 from ui.orb.overlay import OrbOverlay
 from ui.orb.pet_renderer import PetRenderer
@@ -251,7 +251,7 @@ def test_a_live_swap_to_the_pet_keeps_it_up_and_back_lets_the_mascot_hide() -> N
 
 
 def test_the_pet_shortcut_is_read_stripped_and_empty_when_unset() -> None:
-    from jarvis.ui.desktop_app import _pet_toggle_hotkey
+    from dodaios.ui.desktop_app import _pet_toggle_hotkey
 
     assert _pet_toggle_hotkey(_app().cfg) == "alt+win+p"
     assert _pet_toggle_hotkey(SimpleNamespace(trigger=SimpleNamespace())) == ""
@@ -359,7 +359,7 @@ class _StatusSurface:
 
 
 def test_the_host_dispatches_status_ops_including_the_old_keys() -> None:
-    from jarvis.ui.dodaiosbar import host
+    from dodaios.ui.dodaiosbar import host
 
     surface = _StatusSurface()
     host.dispatch(surface, {"op": "show_status", "title": "A", "detail": "b"})
@@ -451,7 +451,7 @@ def test_the_always_on_switch_keeps_the_strip_up_at_rest() -> None:
 
 
 def test_the_macos_proxy_carries_the_always_on_strip() -> None:
-    from jarvis.ui.dodaiosbar import host
+    from dodaios.ui.dodaiosbar import host
 
     proxy = SubprocessMascotOverlay(style="pet", pet_strip_always=True)
     assert proxy._init_payload()["pet_strip_always"] is True
@@ -498,7 +498,7 @@ class _ActionSurface:
 
 
 def test_the_macos_proxy_and_host_carry_actions_and_busy() -> None:
-    from jarvis.ui.dodaiosbar import host
+    from dodaios.ui.dodaiosbar import host
 
     proxy = SubprocessMascotOverlay(style="pet")
     sent: list[dict] = []

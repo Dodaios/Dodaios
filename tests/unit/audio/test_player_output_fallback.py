@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import jarvis.audio.player as player_module
-from jarvis.audio.player import AudioPlayer, is_local_output_error
+import dodaios.audio.player as player_module
+from dodaios.audio.player import AudioPlayer, is_local_output_error
 
 
 def test_is_local_output_error_detects_portaudio_device_death() -> None:

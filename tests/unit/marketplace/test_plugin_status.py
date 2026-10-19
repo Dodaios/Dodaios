@@ -3,8 +3,8 @@ renders: connected / needs_reauth / not_connected / error."""
 
 import pytest
 
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
-from jarvis.ui.web.marketplace_routes import _plugin_status
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.ui.web.marketplace_routes import _plugin_status
 
 
 def test_status_connected_for_healthy_token():
@@ -31,7 +31,7 @@ async def test_list_plugins_sends_no_store_cache_header():
     the 'plugins disappear in the desktop window' bug)."""
     from fastapi import Response
 
-    from jarvis.ui.web.marketplace_routes import list_plugins
+    from dodaios.ui.web.marketplace_routes import list_plugins
 
     resp = Response()
     await list_plugins(resp)
@@ -43,9 +43,9 @@ async def test_list_plugins_marks_native_tool_as_live_callable(monkeypatch):
     """Native Marketplace tools such as Gmail are live even without mcp_server."""
     from fastapi import Response
 
-    from jarvis.marketplace.catalog import PluginCatalog, PluginSpec
-    from jarvis.marketplace.token_store import TokenStore
-    from jarvis.ui.web import marketplace_routes
+    from dodaios.marketplace.catalog import PluginCatalog, PluginSpec
+    from dodaios.marketplace.token_store import TokenStore
+    from dodaios.ui.web import marketplace_routes
 
     catalog = PluginCatalog(
         version=1,
@@ -85,13 +85,13 @@ async def test_list_plugins_exposes_only_pkce_client_configuration_state(monkeyp
     """The UI may learn that a client exists, but never its id or secret."""
     from fastapi import Response
 
-    from jarvis.ui.web import marketplace_routes
+    from dodaios.ui.web import marketplace_routes
 
     catalog = _gmail_catalog()
     monkeypatch.setattr(marketplace_routes, "load_catalog", lambda: catalog)
     monkeypatch.setattr(marketplace_routes, "TokenStore", lambda: TokenStore(InMemoryBackend()))
     monkeypatch.setattr(
-        "jarvis.marketplace.connect_helpers.resolve_pkce_client",
+        "dodaios.marketplace.connect_helpers.resolve_pkce_client",
         lambda plugin_id, client_id, client_secret: ("configured-client", "private"),
     )
 
@@ -103,7 +103,7 @@ async def test_list_plugins_exposes_only_pkce_client_configuration_state(monkeyp
 
 
 def _gmail_catalog():
-    from jarvis.marketplace.catalog import PluginCatalog, PluginSpec
+    from dodaios.marketplace.catalog import PluginCatalog, PluginSpec
 
     return PluginCatalog(
         version=1,
@@ -136,7 +136,7 @@ async def test_list_plugins_exposes_token_expiry_meta(monkeypatch):
 
     from fastapi import Response
 
-    from jarvis.ui.web import marketplace_routes
+    from dodaios.ui.web import marketplace_routes
 
     exp = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
     store = TokenStore(InMemoryBackend())
@@ -162,7 +162,7 @@ async def test_list_plugins_omits_expiry_meta_when_absent(monkeypatch):
     never a fabricated timestamp."""
     from fastapi import Response
 
-    from jarvis.ui.web import marketplace_routes
+    from dodaios.ui.web import marketplace_routes
 
     store = TokenStore(InMemoryBackend())
     store.save("gmail", Tokens(access="tok"))

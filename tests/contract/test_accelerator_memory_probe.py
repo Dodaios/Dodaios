@@ -15,8 +15,8 @@ import builtins
 
 import pytest
 
-from jarvis.hardware import detection
-from jarvis.realtime.local_server import supervisor
+from dodaios.hardware import detection
+from dodaios.realtime.local_server import supervisor
 
 _ALLOWED_SOURCES = {"nvml", "nvidia-smi", "none"}
 

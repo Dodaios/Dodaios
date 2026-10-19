@@ -1,7 +1,7 @@
 """FakeHotkeyBackend — drop-in stand-in for a ``HotkeyBackend`` (AD-6 seam).
 
 Convention (AGENTS.md): fakes over mocks. This fake satisfies the
-``jarvis.trigger.backends.HotkeyBackend`` ``Protocol`` and records the lifecycle
+``dodaios.trigger.backends.HotkeyBackend`` ``Protocol`` and records the lifecycle
 calls so a test can prove ``HotkeyTrigger`` drives the backend correctly
 (register → start → stop → unregister) without touching any OS or optional
 package. ``fire``/``fire_press``/``fire_release`` simulate chord actuation and

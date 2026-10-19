@@ -13,8 +13,8 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.brain import ollama_profiles as profiles
-from jarvis.brain.ollama_profiles import (
+from dodaios.brain import ollama_profiles as profiles
+from dodaios.brain.ollama_profiles import (
     BAKEABLE_KEYS,
     ensure_profile,
     is_profile_alias,
@@ -23,7 +23,7 @@ from jarvis.brain.ollama_profiles import (
     to_v1_kwargs,
     warm,
 )
-from jarvis.core.config import OllamaModelOptions
+from dodaios.core.config import OllamaModelOptions
 
 ROOT = "http://fake:11434"
 

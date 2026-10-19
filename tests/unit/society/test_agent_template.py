@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.agent_template import (
+from dodaios.society.agent_template import (
     TEMPLATE_KEYS,
     TemplateError,
     build_draft,
@@ -19,7 +19,7 @@ from jarvis.society.agent_template import (
     submission,
     validate_template,
 )
-from jarvis.society.roster import AgentRecord
+from dodaios.society.roster import AgentRecord
 
 SECRET = "sk-" + "a1B2c3D4e5F6g7H8i9J0k1L2m3"
 

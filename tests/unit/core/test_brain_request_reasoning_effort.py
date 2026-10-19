@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import typing
 
-from jarvis.core.protocols import BrainRequest
+from dodaios.core.protocols import BrainRequest
 
 
 def test_declared_values_cover_every_level_in_use() -> None:

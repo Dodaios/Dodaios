@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.events import VoiceBootStatus
+from dodaios.core.events import VoiceBootStatus
 
 
 @pytest.mark.parametrize(

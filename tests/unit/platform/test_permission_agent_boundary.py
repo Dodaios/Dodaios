@@ -28,16 +28,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import ErrorOccurred, Event, PermissionNeeded, PermissionResolved
-from jarvis.platform import permission_service as service_module
-from jarvis.platform.permissions import PermissionId, PermissionState
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import ErrorOccurred, Event, PermissionNeeded, PermissionResolved
+from dodaios.platform import permission_service as service_module
+from dodaios.platform.permissions import PermissionId, PermissionState
+from dodaios.ui.web.server import WebServer
 from tests.fakes.fake_tcc import DialogPolicy, FakeTCC, install_port
 
 _ROOT = Path(__file__).resolve().parents[3]
-_JARVIS = _ROOT / "jarvis"
+_JARVIS = _ROOT / "dodaios"
 
 # Packages an agent (the router, a worker, an MCP client, a tool) can reach.
 _AGENT_REACHABLE = (
@@ -62,9 +62,9 @@ _FORBIDDEN_TEXT = ("/api/permissions", "permissions_routes")
 # conscious decision: add it here, in the same change.
 _EVENT_CONSTRUCTORS = frozenset(
     {
-        "jarvis/platform/permission_service.py",
-        "jarvis/core/events.py",
-        "jarvis/audio/capture.py",
+        "dodaios/platform/permission_service.py",
+        "dodaios/core/events.py",
+        "dodaios/audio/capture.py",
     }
 )
 _PERMISSION_TOOL_NAME = re.compile(r"permission|privacy|tcc|consent", re.IGNORECASE)
@@ -88,7 +88,7 @@ def _tool_entry_point_names() -> list[str]:
 
 
 def test_no_registered_tool_is_named_after_a_permission_operation() -> None:
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     names = [*_tool_entry_point_names(), *ROUTER_TOOLS]
 
@@ -228,8 +228,8 @@ async def test_a_fresh_mac_boots_without_a_request_or_an_implicit_prompt(
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.ui.web.control_auth import require_control_key_or_session
-    from jarvis.ui.web.permissions_routes import router
+    from dodaios.ui.web.control_auth import require_control_key_or_session
+    from dodaios.ui.web.permissions_routes import router
 
     tcc = FakeTCC(default_policy=DialogPolicy.NEVER_ANSWERED)  # every permission undecided
     install_port(monkeypatch, tcc.port("darwin"))  # type: ignore[arg-type]

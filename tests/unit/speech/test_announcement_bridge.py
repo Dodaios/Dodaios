@@ -21,14 +21,14 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     AnnouncementRequested,
     JarvisAgentAnnouncement,
     JarvisAgentBackgroundCompleted,
 )
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline
 from tests.fakes.voice_session import open_classic_voice_session
 
 

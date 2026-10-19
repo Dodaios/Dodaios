@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.continuation_buffer import ContinuationBuffer
+from dodaios.speech.continuation_buffer import ContinuationBuffer
 
 
 # --------------------------------------------------------------------------- #
@@ -44,7 +44,7 @@ def test_incomplete_utterance_is_buffered_returns_none() -> None:
 def test_last_reason_exposes_buffered_fragment_reason() -> None:
     """The buffer surfaces WHY it held the fragment so the pipeline can scope
     the clarifying question to trail-offs only (2026-06-14)."""
-    from jarvis.speech.completion import (
+    from dodaios.speech.completion import (
         REASON_TRAILING_COMMA,
         REASON_TRAILING_ELLIPSIS,
     )
@@ -118,7 +118,7 @@ def test_stale_buffer_is_discarded_on_next_process(monkeypatch: pytest.MonkeyPat
     the next process() call rather than polluting an unrelated next turn."""
     clock = {"now": 1_000.0}
     monkeypatch.setattr(
-        "jarvis.speech.continuation_buffer.time.monotonic",
+        "dodaios.speech.continuation_buffer.time.monotonic",
         lambda: clock["now"],
     )
     buf = ContinuationBuffer(timeout_s=8.0)
@@ -161,7 +161,7 @@ def test_classifier_failure_falls_open_to_complete(monkeypatch: pytest.MonkeyPat
         raise RuntimeError("simulated classifier failure")
 
     monkeypatch.setattr(
-        "jarvis.speech.continuation_buffer.is_incomplete", _boom
+        "dodaios.speech.continuation_buffer.is_incomplete", _boom
     )
     buf = ContinuationBuffer(timeout_s=8.0)
     result = buf.process("anything goes", language="de")
@@ -208,7 +208,7 @@ def test_speech_resume_rearms_deadline_so_slow_continuation_still_joins(
     """
     clock = {"now": 1_000.0}
     monkeypatch.setattr(
-        "jarvis.speech.continuation_buffer.time.monotonic",
+        "dodaios.speech.continuation_buffer.time.monotonic",
         lambda: clock["now"],
     )
     buf = ContinuationBuffer(timeout_s=8.0)
@@ -236,7 +236,7 @@ def test_speech_resume_still_bounds_a_never_finalizing_continuation(
     still drop the stale fragment (anti-pollution bound preserved)."""
     clock = {"now": 1_000.0}
     monkeypatch.setattr(
-        "jarvis.speech.continuation_buffer.time.monotonic",
+        "dodaios.speech.continuation_buffer.time.monotonic",
         lambda: clock["now"],
     )
     buf = ContinuationBuffer(timeout_s=8.0)
@@ -257,7 +257,7 @@ def test_speech_resume_after_expiry_does_not_resurrect(
     must not revive a dead buffer (the late fragment is genuinely stale)."""
     clock = {"now": 1_000.0}
     monkeypatch.setattr(
-        "jarvis.speech.continuation_buffer.time.monotonic",
+        "dodaios.speech.continuation_buffer.time.monotonic",
         lambda: clock["now"],
     )
     buf = ContinuationBuffer(timeout_s=8.0)

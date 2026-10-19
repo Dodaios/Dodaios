@@ -9,7 +9,7 @@ WARNING via ``logging.warning(...)`` on the root logger.
 
 The SDK already swallows the exception and continues — the only damage is
 the loud, repeating 19-line WARNING. These tests pin the behaviour of
-``jarvis.mcp.notification_filter``: the loud record is dropped and a single
+``dodaios.mcp.notification_filter``: the loud record is dropped and a single
 concise DEBUG line (server name when known + method) is emitted instead.
 Valid notifications and unrelated log records pass through untouched.
 """
@@ -19,7 +19,7 @@ import logging
 
 import pytest
 
-from jarvis.mcp.notification_filter import (
+from dodaios.mcp.notification_filter import (
     NotificationValidationFilter,
     install_notification_log_filter,
 )
@@ -69,12 +69,12 @@ def test_unknown_method_is_logged_once_at_debug(caplog: pytest.LogCaptureFixture
     """A dropped notification re-surfaces as a single concise DEBUG line."""
     filt = NotificationValidationFilter()
     record = _make_record(_LOUD_MESSAGE)
-    with caplog.at_level(logging.DEBUG, logger="jarvis.mcp.notification_filter"):
+    with caplog.at_level(logging.DEBUG, logger="dodaios.mcp.notification_filter"):
         result = filt.filter(record)
     assert result is False
     # Exactly one DEBUG record, and it must name the offending method.
     debug_records = [
-        r for r in caplog.records if r.name == "jarvis.mcp.notification_filter"
+        r for r in caplog.records if r.name == "dodaios.mcp.notification_filter"
     ]
     assert len(debug_records) == 1
     assert debug_records[0].levelno == logging.DEBUG
@@ -145,7 +145,7 @@ def test_installed_filter_suppresses_root_warning(
         concise = [
             r
             for r in caplog.records
-            if r.name == "jarvis.mcp.notification_filter"
+            if r.name == "dodaios.mcp.notification_filter"
             and r.levelno == logging.DEBUG
         ]
         assert len(concise) == 1

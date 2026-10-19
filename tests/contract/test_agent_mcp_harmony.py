@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from typing import Final
 
-from jarvis.mcp.agents import TOOLS
-from jarvis.ui.web.society_routes import router as society_router
-from jarvis.ui.web.society_browser_routes import router as browser_router
+from dodaios.mcp.agents import TOOLS
+from dodaios.ui.web.society_routes import router as society_router
+from dodaios.ui.web.society_browser_routes import router as browser_router
 
 #: REST route -> the MCP tool that covers it.
 COVERED: Final[dict[str, str]] = {
@@ -289,7 +289,7 @@ def test_every_society_route_is_decided() -> None:
     assert not undecided, (
         "These society routes are new to the MCP surface and nobody has decided "
         f"about them yet: {sorted(undecided)}.\n"
-        "Add a tool in jarvis/mcp/agents/tools.py and list it in COVERED, or list "
+        "Add a tool in dodaios/mcp/agents/tools.py and list it in COVERED, or list "
         "it in WITHHELD with one line saying why a remote client does not get it."
     )
 

@@ -1,0 +1,794 @@
+"""macOS hotkey backend via a Quartz ``CGEventTap`` (AD-8, BUG-077).
+
+Why not pynput on macOS: pynput's darwin keyboard listener resolves the
+keyboard layout through the HIToolbox Text Services Manager
+(``TISCopyCurrentKeyboardInputSource`` / ``TSMGetInputSourceProperty``) from
+its own listener thread. Modern macOS asserts that those calls run on the main
+dispatch queue and kills the whole process with an uncatchable SIGILL
+(``dispatch_assert_queue_fail``) — observed live on macOS 15.7 during the
+first Intel-Mac onboarding. The main thread belongs to pywebview, so the only
+safe path is to avoid the TSM APIs entirely.
+
+This backend listens with a listen-only ``CGEventTap`` on a dedicated
+CFRunLoop thread (event taps are legal off the main thread) and matches chords
+by PHYSICAL key: a fixed ANSI virtual-keycode table plus the modifier flags
+word. No layout translation, no TSM, no main-queue assertion.
+
+Permission contract (just-in-time permissions, AP-35): a LISTEN-ONLY tap needs
+Input Monitoring and nothing else (Apple WWDC19 session 701; an Accessibility
+grant also satisfies it, which is not special-cased here). The tap is created
+LAZILY: ``start()`` is a silent INFO-level no-op while Input Monitoring is not
+granted and NEVER calls ``CGEventTapCreate`` before the grant is visible (the
+BUG-058 class: creating a tap while the permission is undecided can register
+the app as denied or abort the process). This backend never asks the user
+either: the explicit request (``CGRequestListenEventAccess``) belongs to the
+permission service at a user gesture, and the service's grant listener re-runs
+``start()`` (see ``HotkeyTrigger``). A tap that is created but receives no
+event at all is detected through a raw-callback counter, never by waiting for a
+bound chord (:meth:`QuartzHotkeyBackend.deaf_tap_suspected`); the owner's watch
+task reports such a tap once to the permission service
+(:meth:`QuartzHotkeyBackend.report_if_deaf`, a "quit and reopen" hint, never an
+automatic restart).
+
+Known trade-offs (documented, honest):
+
+* Letter tokens match the ANSI/QWERTY key positions. On a non-ANSI layout the
+  chord follows the physical key, not the printed label — the same behavior
+  as most native hotkey utilities.
+* ``right_control`` matches either Control key (the flags word does not carry
+  a portable left/right distinction).
+* Mouse buttons (middle and the two side buttons) join the same tap, and only
+  when a bound combo actually contains one — the tap never asks for the
+  primary click.
+
+The combo vocabulary, edge semantics (``on_press`` fires on the chord-down
+transition, ``on_release`` on the chord-up transition — each edge only ever
+runs its OWN handler), the permission fail-closed gate, and
+``received_any_event()`` mirror ``PynputBackend`` exactly, so the
+``HotkeyTrigger`` call site stays platform-agnostic (AD-7).
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+
+from dodaios.trigger.backends.global_hotkeys import MOUSE_BUTTON_TOKENS
+from dodaios.trigger.backends.pynput import (
+    _macos_hotkey_permissions_granted,
+    _parse_combo_tokens,
+)
+
+log = logging.getLogger(__name__)
+
+# Fixed ANSI virtual keycodes (Carbon kVK_ANSI_* / kVK_* constants) -> the
+# canonical lowercase tokens `_parse_combo_tokens` produces. Physical-position
+# matching keeps this table layout-independent and TSM-free.
+#
+# COMPLETENESS IS A CONTRACT, not a nicety. The recorder offers a key, the
+# validator accepts it, the route saves it and the row renders it as bound —
+# and then a key MISSING here simply never enters ``self._held``, so the chord
+# can never match. There is no error anywhere in that chain: the user sees a
+# saved shortcut that does nothing, on this OS only. That is exactly what
+# happened to the whole nav cluster (Home/End/PageUp/PageDown/Insert), the
+# entire numpad and F13-F20, every one of which the picker draws as a live,
+# clickable cap (``keyboardLayout.ts`` NAV_ROWS, ``codeToKeyToken``'s
+# ``Numpad*`` / ``F13+`` branches) while the Windows backend registers them
+# fine.
+#
+# So the rule for this table: it must cover every token
+# ``codeToKeyToken`` / ``_NAMED_KEY_TOKENS`` can emit. Adding a bindable cap to
+# the picker without adding its keycode here is the same silent-dead-shortcut
+# bug again. ``tests/unit/trigger/test_quartz_backend.py`` pins the parity.
+_KEYCODE_TO_TOKEN: dict[int, str] = {
+    0x00: "a", 0x0B: "b", 0x08: "c", 0x02: "d", 0x0E: "e", 0x03: "f",
+    0x05: "g", 0x04: "h", 0x22: "i", 0x26: "j", 0x28: "k", 0x25: "l",
+    0x2E: "m", 0x2D: "n", 0x1F: "o", 0x23: "p", 0x0C: "q", 0x0F: "r",
+    0x01: "s", 0x11: "t", 0x20: "u", 0x09: "v", 0x0D: "w", 0x07: "x",
+    0x10: "y", 0x06: "z",
+    0x1D: "0", 0x12: "1", 0x13: "2", 0x14: "3", 0x15: "4", 0x17: "5",
+    0x16: "6", 0x1A: "7", 0x1C: "8", 0x19: "9",
+    0x31: "space", 0x24: "enter", 0x35: "esc", 0x30: "tab",
+    0x33: "backspace", 0x75: "delete",
+    0x7A: "f1", 0x78: "f2", 0x63: "f3", 0x76: "f4", 0x60: "f5", 0x61: "f6",
+    0x62: "f7", 0x64: "f8", 0x65: "f9", 0x6D: "f10", 0x67: "f11", 0x6F: "f12",
+    # F13-F20 live on the full-size Apple keyboard (and on every PC keyboard
+    # plugged into a Mac). They are the SAFEST keys to bind — nothing else
+    # claims them — and ``_SOLO_SAFE_KEYS`` allows f1..f24 solo for that reason.
+    0x69: "f13", 0x6B: "f14", 0x71: "f15", 0x6A: "f16",
+    0x40: "f17", 0x4F: "f18", 0x50: "f19", 0x5A: "f20",
+    0x7B: "left", 0x7C: "right", 0x7D: "down", 0x7E: "up",
+    # Nav cluster. ``kVK_Help`` is the physical key an external PC keyboard
+    # sends for Insert, which is how the picker labels that cap.
+    0x72: "insert", 0x73: "home", 0x74: "page_up",
+    0x77: "end", 0x79: "page_down",
+    # Numpad. The digits are ``numpad_N`` and the operators carry the
+    # ``*_key`` names, both matching what ``codeToKeyToken`` emits and what the
+    # Windows library registers. Keypad Enter folds onto the same ``enter``
+    # token the main Return key uses — the picker maps ``NumpadEnter`` there
+    # too, so one spelling covers both physical keys.
+    0x52: "numpad_0", 0x53: "numpad_1", 0x54: "numpad_2", 0x55: "numpad_3",
+    0x56: "numpad_4", 0x57: "numpad_5", 0x58: "numpad_6", 0x59: "numpad_7",
+    0x5B: "numpad_8", 0x5C: "numpad_9",
+    0x45: "add_key", 0x4E: "subtract_key", 0x43: "multiply_key",
+    0x4B: "divide_key", 0x41: "decimal_key", 0x4C: "enter",
+}
+
+# CGEventFlags modifier masks -> canonical modifier tokens. `ctrl_r` is folded
+# into `ctrl` (the portable flags word carries no left/right distinction).
+_FLAG_MASK_TO_TOKEN: tuple[tuple[int, str], ...] = (
+    (1 << 17, "shift"),      # kCGEventFlagMaskShift
+    (1 << 18, "ctrl"),       # kCGEventFlagMaskControl
+    (1 << 19, "alt"),        # kCGEventFlagMaskAlternate
+    (1 << 20, "cmd"),        # kCGEventFlagMaskCommand
+)
+
+# ``kCGMouseEventButtonNumber`` -> the shared mouse token. Quartz numbers the
+# buttons in hardware order: 0 left, 1 right, 2 middle, 3 and 4 the side pair.
+# Left and right are deliberately absent (see ``MOUSE_BUTTON_TOKENS``), which is
+# also why the tap only ever asks for the ``OtherMouse`` events — the primary
+# click never even reaches this backend.
+_MOUSE_BUTTON_TO_TOKEN: dict[int, str] = {
+    2: "mouse_middle",
+    3: "mouse_x1",
+    4: "mouse_x2",
+}
+
+# How long a grant verdict stays good inside the event-tap callback. Short
+# enough that revoking Input Monitoring mid-session stops the shortcuts about as
+# fast as a human can switch back from System Settings; long enough that
+# ordinary typing does not re-probe TCC natively dozens of times a second.
+# See :meth:`QuartzHotkeyBackend._permitted`.
+_PERMISSION_TTL_S = 1.0
+
+# A live tap that has seen no raw event for this long while the system saw the
+# user type is "deaf" (created, but macOS delivers nothing; community-observed
+# after a grant given while the app was running, UNVERIFIED on a real Mac).
+_DEAF_TAP_AFTER_S = 10.0
+
+
+def _seconds_since_last_key_event() -> float | None:
+    """Seconds since the session last saw a key-down, or ``None`` when unknown.
+
+    Asked of the window server's idle counter, which does not depend on our tap
+    (so it can tell "the user typed, our tap heard nothing" from "nobody typed").
+    Whether this counter needs a TCC grant is UNVERIFIED; any failure reads
+    "unknown" and the caller then never claims a deaf tap.
+    """
+    try:
+        import Quartz  # type: ignore[import-untyped]  # noqa: PLC0415 - lazy (HN-7)
+
+        return float(
+            Quartz.CGEventSourceSecondsSinceLastEventType(
+                Quartz.kCGEventSourceStateCombinedSessionState,
+                Quartz.kCGEventKeyDown,
+            )
+        )
+    except Exception:  # noqa: BLE001 - an unreadable idle counter is "unknown"
+        log.debug("Reading the key idle counter failed.", exc_info=True)
+        return None
+
+
+def _secure_event_input_enabled() -> bool | None:
+    """Whether Secure Event Input is on right now, or ``None`` when it cannot be read.
+
+    While it is on (a focused password field, Terminal's Secure Keyboard Entry)
+    the window server hides key events from every event tap, yet the idle counter
+    behind :func:`_seconds_since_last_key_event` still advances: a healthy tap
+    looks deaf. ``IsSecureEventInputEnabled`` is a Carbon HIToolbox call, read
+    through ctypes and lazily (AP-26). Its availability and behaviour are
+    UNVERIFIED on a real Mac; any failure reads "unknown" and the caller makes no
+    claim.
+    """
+    try:
+        import ctypes  # noqa: PLC0415 - lazy: nothing native at import time (AP-26)
+
+        carbon = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/Carbon.framework/Carbon")
+        probe = carbon.IsSecureEventInputEnabled
+        probe.restype = ctypes.c_ubyte
+        probe.argtypes = []
+        return bool(probe())
+    except Exception:  # noqa: BLE001 - an unreadable flag is "unknown"
+        log.debug("Reading the secure-event-input flag failed.", exc_info=True)
+        return None
+
+
+class QuartzHotkeyBackend:
+    """Quartz event-tap hotkey backend for macOS (AD-8).
+
+    Satisfies the ``HotkeyBackend`` ``Protocol``: receives the same normalized
+    ``[combo_str, on_press, on_release]`` rows as every other backend.
+    """
+
+    def __init__(self) -> None:
+        # Each entry: tokens (frozenset), on_press, on_release, down (bool).
+        self._combos: list[dict] = []
+        self._started = False
+        self._got_event = False
+        self._held: set[str] = set()
+        self._permission_check = _macos_hotkey_permissions_granted
+        # Raw-callback liveness: how many events the tap callback has seen since
+        # the tap came up (any key, any bound chord or not), and when. Written
+        # only by the tap thread, read lock-free by status readers.
+        self._raw_events = 0
+        self._armed_at: float | None = None
+        # True once THIS tap was reported to the permission service as deaf
+        # (:meth:`report_if_deaf`); a new tap is a new episode.
+        self._deaf_reported = False
+        # True while a ``restart_hint`` episode this backend opened is still open.
+        # Unlike the flag above it survives ``start`` (a rearm): the episode ends when
+        # a tap actually hears an event, not when a new tap is built.
+        self._deaf_episode_open = False
+        self._seconds_since_last_key = _seconds_since_last_key_event
+        self._secure_input_enabled = _secure_event_input_enabled
+        # ``start`` and ``stop`` never overlap: a grant-driven ``start`` runs in a
+        # worker thread while the owner may already be tearing the backend down,
+        # and a ``start`` that lands after ``stop`` would leave an orphan tap.
+        self._lifecycle = threading.RLock()
+        # ``start()`` declined to create the tap because Input Monitoring is not
+        # granted (as opposed to "never started" or "failed").
+        self._waiting_for_permission = False
+        # Last grant verdict + when it was taken (see ``_permitted``). ``None``
+        # means "never probed", so the first event of a session always asks.
+        self._permission_cache: bool | None = None
+        self._permission_checked_at = 0.0
+        self._tap: object | None = None
+        self._source: object | None = None
+        self._runloop: object | None = None
+        self._thread: threading.Thread | None = None
+        self._teardown_failed = False
+        # Widen the tap to mouse events only when a bound combo needs one: a
+        # narrower mask is fewer events crossing the tap for every click the
+        # user makes all day.
+        self._needs_mouse = False
+
+    # ------------------------------------------------------------------
+    # Registration + chord matching (mirrors PynputBackend semantics)
+    # ------------------------------------------------------------------
+
+    def register(self, bindings, on_event=None) -> None:
+        """Stash binding rows as token-set combos. Never raises (AD-6)."""
+        combos: list[dict] = []
+        for row in bindings:
+            combo = row[0]
+            on_press = row[1] if len(row) > 1 else None
+            on_release = row[2] if len(row) > 2 else None
+            tokens = {
+                # This backend cannot tell right from left Control.
+                "ctrl" if t == "ctrl_r" else t
+                for t in _parse_combo_tokens(combo)
+            }
+            combos.append(
+                {
+                    "tokens": frozenset(tokens),
+                    "on_press": on_press,
+                    "on_release": on_release,
+                    "down": False,
+                }
+            )
+        self._combos = combos
+        self._needs_mouse = any(
+            combo["tokens"] & MOUSE_BUTTON_TOKENS for combo in combos
+        )
+
+    def chord_is_down(self, combo: str) -> bool | None:
+        """Is every token of ``combo`` in the held-set right now? ``None`` = unknown.
+
+        The tap re-syncs the modifier half of ``_held`` from every event's
+        flags word (``_handle_flags``), so for a modifier chord this tracks the
+        keyboard closely; plain keys are edge-fed like pynput. While the tap is
+        not running there is nothing to consult, and the answer is ``None`` so a
+        consumer degrades to "edges only" instead of trusting a stale view.
+        """
+        if not self._started or self._tap is None:
+            return None
+        tokens = frozenset(
+            "ctrl" if t == "ctrl_r" else t for t in _parse_combo_tokens(combo)
+        )
+        if not tokens:
+            return None
+        return tokens.issubset(self._held)
+
+    def held_tokens(self) -> frozenset[str] | None:
+        """Copy of the tap's held-set. ``None`` while the tap is not running."""
+        if not self._started or self._tap is None:
+            return None
+        return frozenset(self._held)
+
+    def _permitted(self) -> bool:
+        """The grant verdict, re-probed at most every ``_PERMISSION_TTL_S``.
+
+        The probe is the silent, lock-free ``PermissionService.check`` (never
+        ``ensure``, never a service lock, never a prompt) and it reads the live
+        TCC value one level down — but it is a native call, and it used to run
+        on EVERY reconcile. That put ObjC round trips into the event-tap
+        callback for every keystroke the machine sees — not just ours, since a
+        session tap observes the whole system. Typing an ordinary sentence
+        therefore fired dozens of native probes a second inside a callback
+        macOS holds the input pipeline on.
+
+        That is not merely slow, it is how the shortcuts go dead: a tap whose
+        callback overruns its deadline is DISABLED by the OS
+        (``kCGEventTapDisabledByTimeout``). We re-enable it above, but the
+        events during the gap are gone — which is exactly the reported "the
+        shortcut works sometimes, or not at all" on a Mac.
+
+        A short TTL keeps the fail-closed contract intact: a grant revoked
+        mid-session still takes effect within a second, and a revocation also
+        kills the tap outright, so this check is the belt to that suspenders.
+        """
+        now = time.monotonic()
+        if (
+            self._permission_cache is not None
+            and now - self._permission_checked_at < _PERMISSION_TTL_S
+        ):
+            return self._permission_cache
+        try:
+            permitted = self._permission_check() is True
+        except Exception:  # noqa: BLE001 — the probe must never kill the tap
+            permitted = False
+        self._permission_cache = permitted
+        self._permission_checked_at = now
+        return permitted
+
+    def _reconcile(self) -> None:
+        """Fire press/release handlers on chord down/up transitions."""
+        permitted = self._permitted()
+        if permitted is not True:
+            # A grant can be revoked while the tap thread is alive: clear every
+            # partial chord and refuse the callback (same contract as pynput).
+            self._held.clear()
+            for combo in self._combos:
+                combo["down"] = False
+            return
+        for combo in self._combos:
+            is_down = combo["tokens"].issubset(self._held)
+            if is_down and not combo["down"]:
+                combo["down"] = True
+                self._got_event = True
+                # Each edge fires ONLY its own handler. A toggle binding carries
+                # on_release alone (HotkeyTrigger._build_bindings) so a held key
+                # fires exactly once on the up edge; falling back to it here made
+                # every toggle fire on key-DOWN on this backend while the Windows
+                # path fired on key-up — one config, two behaviours.
+                if combo["on_press"] is not None:
+                    combo["on_press"]()
+            elif not is_down and combo["down"]:
+                combo["down"] = False
+                self._got_event = True
+                # Push-to-talk (both edges set) and toggle (release only) alike.
+                if combo["on_release"] is not None:
+                    combo["on_release"]()
+
+    def _handle_key_down(self, keycode: int) -> None:
+        token = _KEYCODE_TO_TOKEN.get(keycode)
+        if token is None:
+            return
+        self._held.add(token)
+        self._reconcile()
+
+    def _handle_key_up(self, keycode: int) -> None:
+        token = _KEYCODE_TO_TOKEN.get(keycode)
+        if token is None:
+            return
+        self._reconcile()  # check release edges BEFORE dropping the token
+        self._held.discard(token)
+        self._reconcile()
+
+    def _handle_mouse_down(self, button_number: int) -> None:
+        token = _MOUSE_BUTTON_TO_TOKEN.get(button_number)
+        if token is None:
+            return
+        self._held.add(token)
+        self._reconcile()
+
+    def _handle_mouse_up(self, button_number: int) -> None:
+        token = _MOUSE_BUTTON_TO_TOKEN.get(button_number)
+        if token is None:
+            return
+        self._reconcile()  # check release edges BEFORE dropping the token
+        self._held.discard(token)
+        self._reconcile()
+
+    def _handle_flags(self, flags: int) -> None:
+        """Sync the modifier subset of the held-set from the flags word."""
+        for mask, token in _FLAG_MASK_TO_TOKEN:
+            if flags & mask:
+                self._held.add(token)
+            else:
+                # Release edges must be observed before the token drops.
+                if token in self._held:
+                    self._reconcile()
+                self._held.discard(token)
+        self._reconcile()
+
+    # ------------------------------------------------------------------
+    # Tap lifecycle
+    # ------------------------------------------------------------------
+
+    def start(self) -> None:
+        """Create the listen-only event tap (serialised with :meth:`stop`)."""
+        with self._lifecycle:
+            self._start_locked()
+
+    def _start_locked(self) -> None:
+        """Create the listen-only event tap on its own CFRunLoop thread.
+
+        Degrades to a logged no-op on any failure — missing pyobjc/Quartz,
+        missing Input Monitoring, or a tap-creation refusal (AD-6). Without
+        Input Monitoring this is silent (INFO) and creates no tap at all: it
+        runs at boot, where nothing may ask or abort. It is idempotent, so the
+        permission listener simply calls it again once the grant arrives.
+        """
+        if self._started:
+            return
+        if self._teardown_failed:
+            log.warning(
+                "Quartz hotkeys remain disabled after an event-tap teardown "
+                "failure; restart Dodaios to re-arm them safely. Voice still "
+                "works via the wake word."
+            )
+            return
+
+        granted = False
+        try:
+            granted = self._permission_check()
+        except Exception:  # noqa: BLE001 — the probe must never crash the trigger
+            log.debug("The Input Monitoring probe failed.", exc_info=True)
+            granted = False
+        if granted is not True:
+            self._waiting_for_permission = True
+            log.info(
+                "Global shortcuts are waiting for Input Monitoring: macOS has "
+                "not allowed it for Dodaios yet, so no event tap is "
+                "created. They arm themselves once it is allowed; voice still "
+                "works via the wake word and the buttons.",
+            )
+            return
+        self._waiting_for_permission = False
+
+        try:
+            import Quartz  # type: ignore[import-untyped]  # lazy (HN-7)
+        except Exception as exc:  # noqa: BLE001 — optional [desktop-macos] extra
+            log.warning(
+                "pyobjc Quartz unavailable (%s) — hotkeys disabled; voice "
+                "still works via wake word. Install the [full] profile to "
+                "enable global hotkeys.",
+                exc,
+            )
+            return
+
+        # Resolved once, tolerantly: a pyobjc build without the mouse constants
+        # must degrade to "keyboard shortcuts only", never make every event
+        # raise inside the tap callback.
+        mouse_down_type = getattr(Quartz, "kCGEventOtherMouseDown", None)
+        mouse_up_type = getattr(Quartz, "kCGEventOtherMouseUp", None)
+        button_field = getattr(Quartz, "kCGMouseEventButtonNumber", None)
+        mouse_ready = (
+            mouse_down_type is not None
+            and mouse_up_type is not None
+            and button_field is not None
+        )
+        if self._needs_mouse and not mouse_ready:
+            log.warning(
+                "Mouse-button shortcuts are unavailable on this system (the "
+                "installed Quartz build exposes no mouse event constants) — "
+                "shortcuts that use a key combination still work, and voice "
+                "still works via the wake word."
+            )
+
+        def _callback(_proxy, event_type, event, _refcon):
+            try:
+                if event_type not in (
+                    Quartz.kCGEventTapDisabledByTimeout,
+                    Quartz.kCGEventTapDisabledByUserInput,
+                ):
+                    # Raw liveness counter: ANY event the tap hears, bound or
+                    # not. A plain int, written only by this thread.
+                    self._raw_events += 1
+                if event_type == Quartz.kCGEventKeyDown:
+                    keycode = Quartz.CGEventGetIntegerValueField(
+                        event, Quartz.kCGKeyboardEventKeycode
+                    )
+                    self._handle_key_down(int(keycode))
+                elif event_type == Quartz.kCGEventKeyUp:
+                    keycode = Quartz.CGEventGetIntegerValueField(
+                        event, Quartz.kCGKeyboardEventKeycode
+                    )
+                    self._handle_key_up(int(keycode))
+                elif event_type == Quartz.kCGEventFlagsChanged:
+                    self._handle_flags(int(Quartz.CGEventGetFlags(event)))
+                elif mouse_ready and event_type == mouse_down_type:
+                    self._handle_mouse_down(
+                        int(Quartz.CGEventGetIntegerValueField(event, button_field))
+                    )
+                elif mouse_ready and event_type == mouse_up_type:
+                    self._handle_mouse_up(
+                        int(Quartz.CGEventGetIntegerValueField(event, button_field))
+                    )
+                elif event_type in (
+                    Quartz.kCGEventTapDisabledByTimeout,
+                    Quartz.kCGEventTapDisabledByUserInput,
+                ):
+                    tap = self._tap
+                    if tap is not None:
+                        Quartz.CGEventTapEnable(tap, True)
+            except Exception:  # noqa: BLE001 — a callback error must not kill the tap
+                log.debug("Quartz hotkey callback error (non-fatal)", exc_info=True)
+            return event
+
+        try:
+            mask = (
+                Quartz.CGEventMaskBit(Quartz.kCGEventKeyDown)
+                | Quartz.CGEventMaskBit(Quartz.kCGEventKeyUp)
+                | Quartz.CGEventMaskBit(Quartz.kCGEventFlagsChanged)
+            )
+            if self._needs_mouse and mouse_ready:
+                mask |= Quartz.CGEventMaskBit(mouse_down_type)
+                mask |= Quartz.CGEventMaskBit(mouse_up_type)
+            tap = Quartz.CGEventTapCreate(
+                Quartz.kCGSessionEventTap,
+                Quartz.kCGHeadInsertEventTap,
+                Quartz.kCGEventTapOptionListenOnly,
+                mask,
+                _callback,
+                None,
+            )
+            if tap is None:
+                raise RuntimeError(
+                    "CGEventTapCreate returned None (session restriction or "
+                    "a grant macOS does not honour yet)"
+                )
+            source = Quartz.CFMachPortCreateRunLoopSource(None, tap, 0)
+        except Exception:  # noqa: BLE001 — degrade, never crash the pipeline
+            log.error(
+                "Quartz event tap could not be created although Input "
+                "Monitoring is granted — hotkeys disabled for this session; "
+                "voice still works via wake word.",
+                exc_info=True,
+            )
+            self._tap = None
+            return
+
+        self._tap = tap
+        self._source = source
+        self._raw_events = 0
+        self._deaf_reported = False
+        self._armed_at = None
+        ready = threading.Event()
+        startup_failed = threading.Event()
+
+        def _run() -> None:
+            try:
+                loop = Quartz.CFRunLoopGetCurrent()
+                self._runloop = loop
+                Quartz.CFRunLoopAddSource(
+                    loop, source, Quartz.kCFRunLoopCommonModes
+                )
+                Quartz.CGEventTapEnable(tap, True)
+                ready.set()
+                Quartz.CFRunLoopRun()
+            except Exception:  # noqa: BLE001 — native hook failure must degrade
+                startup_failed.set()
+                log.error("Quartz event tap thread failed", exc_info=True)
+                ready.set()
+
+        thread = threading.Thread(
+            target=_run, name="jarvis-hotkey-tap", daemon=True
+        )
+        self._thread = thread
+        thread.start()
+        if (
+            not ready.wait(timeout=5.0)
+            or startup_failed.is_set()
+            or not thread.is_alive()
+        ):
+            log.error(
+                "Quartz event tap thread did not become ready — hotkeys "
+                "disabled for this session; voice still works via wake word."
+            )
+            self.stop()
+            return
+        self._armed_at = time.monotonic()
+        self._started = True
+
+    def stop(self) -> None:
+        """Stop the run loop and drop the tap. Idempotent, never raises.
+
+        Waits for a ``start`` that is already running, so the tap it creates is the
+        one this call tears down.
+        """
+        with self._lifecycle:
+            self._stop_locked()
+
+    def _stop_locked(self) -> None:
+        tap = self._tap
+        source = self._source
+        runloop = self._runloop
+        if tap is not None or runloop is not None:
+            try:
+                import Quartz  # type: ignore[import-untyped]
+            except Exception:  # noqa: BLE001 — teardown must never propagate
+                Quartz = None  # type: ignore[assignment,misc]
+                log.debug("Quartz teardown import failed (non-fatal)", exc_info=True)
+            if Quartz is not None:
+                # Re-arm used to call only CFRunLoopStop. A sleeping run loop
+                # could survive the two-second join, leaving its event tap live;
+                # after three Settings saves one physical key-up therefore
+                # produced four PTT release callbacks. Run every cleanup step
+                # independently so one native failure cannot skip stop+wake.
+                teardown_steps = []
+                if tap is not None:
+                    teardown_steps.append(
+                        ("disable", lambda: Quartz.CGEventTapEnable(tap, False))
+                    )
+                if runloop is not None and source is not None:
+                    teardown_steps.append(
+                        (
+                            "remove source",
+                            lambda: Quartz.CFRunLoopRemoveSource(
+                                runloop, source, Quartz.kCFRunLoopCommonModes
+                            ),
+                        )
+                    )
+                if tap is not None:
+                    teardown_steps.append(
+                        ("invalidate", lambda: Quartz.CFMachPortInvalidate(tap))
+                    )
+                if runloop is not None:
+                    teardown_steps.extend(
+                        [
+                            ("stop", lambda: Quartz.CFRunLoopStop(runloop)),
+                            ("wake", lambda: Quartz.CFRunLoopWakeUp(runloop)),
+                        ]
+                    )
+                for step_name, step in teardown_steps:
+                    try:
+                        step()
+                    except Exception:  # noqa: BLE001 — continue remaining steps
+                        log.debug(
+                            "Quartz event tap %s failed (non-fatal)",
+                            step_name,
+                            exc_info=True,
+                        )
+        thread = self._thread
+        if thread is not None:
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                self._teardown_failed = True
+                log.warning(
+                    "Quartz hotkey listener did not stop within two seconds; "
+                    "the replacement listener will not be started."
+                )
+        self._runloop = None
+        self._thread = None
+        self._tap = None
+        self._source = None
+        self._armed_at = None
+        self._held.clear()
+        for combo in self._combos:
+            combo["down"] = False
+        self._started = False
+        # A re-arm must ask TCC again rather than trust a verdict taken before
+        # the user was sent to System Settings.
+        self._permission_cache = None
+        self._permission_checked_at = 0.0
+
+    def unregister(self) -> None:
+        """Drop the armed bindings. The tap is torn down in ``stop``."""
+        self._combos = []
+        self._needs_mouse = False
+
+    def received_any_event(self) -> bool:
+        """True once any bound chord has fired (kept for the backend contract).
+
+        Not a liveness signal: it only flips when a BOUND chord fires, so it
+        cannot tell a deaf tap from "the user has not pressed yet". Liveness is
+        :meth:`raw_event_count` / :meth:`deaf_tap_suspected`.
+        """
+        return self._got_event
+
+    # ------------------------------------------------------------------
+    # Readiness and liveness (read by the Esc pill and the shortcuts status)
+    # ------------------------------------------------------------------
+
+    def is_listening(self) -> bool:
+        """True while the event tap exists and its run loop thread is up."""
+        return self._started and self._tap is not None
+
+    @property
+    def waiting_for_permission(self) -> bool:
+        """``start()`` declined to create the tap: Input Monitoring is missing."""
+        return self._waiting_for_permission and not self.is_listening()
+
+    def raw_event_count(self) -> int:
+        """Events the tap callback has seen since the tap came up (any key)."""
+        return self._raw_events
+
+    def deaf_tap_suspected(self) -> bool:
+        """Is the tap alive but hearing nothing although the grant is visible?
+
+        The one signal behind a "quit and reopen" hint, and only that: it never
+        restarts anything. True when the tap is running, Input Monitoring reads
+        granted (without the grant the answer is "needs Input Monitoring", not
+        "restart"), the raw callback count is still 0, and the system saw a
+        key-down after the tap came up more than ``_DEAF_TAP_AFTER_S`` ago. A user
+        who has not typed yet never counts as a deaf tap, and neither does one
+        typing under Secure Event Input (macOS hides those keys from every tap),
+        so that flag must read as off. (An explicit "still not working" from the
+        user would need its own route and UI; none exists.)
+        """
+        if not self.is_listening() or self._raw_events > 0:
+            return False
+        try:
+            granted = self._permission_check() is True
+        except Exception:  # noqa: BLE001 - an unreadable grant is "no claim"
+            log.debug("The Input Monitoring probe failed.", exc_info=True)
+            return False
+        if not granted:
+            return False
+        armed_at = self._armed_at
+        if armed_at is None:
+            return False
+        age = time.monotonic() - armed_at
+        if age < _DEAF_TAP_AFTER_S:
+            return False
+        # Under Secure Event Input the tap is meant to hear nothing, whatever the
+        # idle counter says; an unreadable flag makes no claim either.
+        if self._secure_input_enabled() is not False:
+            return False
+        idle = self._seconds_since_last_key()
+        return idle is not None and idle < age
+
+    def report_if_deaf(self) -> bool:
+        """One liveness pass for the owner's watch task: report a deaf tap, once.
+
+        When :meth:`deaf_tap_suspected` turns true (tap running, grant visible, zero
+        raw callbacks, Secure Event Input off, key activity seen) the permission
+        service is told ONCE per tap through ``report_failed_use``: that opens a
+        ``restart_hint`` episode, "quit and reopen" offered as a toast, and nothing
+        else. It never restarts the tap, never asks for anything and never reads
+        the OS while no tap runs (a boot with Input Monitoring missing costs a flag
+        check). If the tap hears an event after the report, the episode is ended
+        again. Blocking (native reads): run it in a worker thread, never on the
+        loop. Returns ``True`` while the tap is still worth watching, ``False`` once
+        it has proven healthy.
+        """
+        if not self.is_listening():
+            return True  # not up yet (waiting for the grant): nothing to judge
+        if self._raw_events > 0:
+            if self._deaf_episode_open:
+                # Also true for an episode the PREVIOUS tap opened (a rearm builds a
+                # new tap): the first event a healthy tap hears ends the episode.
+                self._deaf_episode_open = False
+                self._call_service("note_reset")
+            self._deaf_reported = False
+            return False
+        if not self._deaf_reported and self.deaf_tap_suspected():
+            self._deaf_reported = True
+            self._deaf_episode_open = True
+            self._call_service("report_failed_use")
+        return True
+
+    def _call_service(self, name: str) -> None:
+        """Run one permission-service call about Input Monitoring; never raises."""
+        try:
+            from dodaios.platform.permission_service import (  # noqa: PLC0415 - lazy (AP-26)
+                get_permission_service,
+            )
+            from dodaios.platform.permissions import PermissionId  # noqa: PLC0415
+
+            service = get_permission_service()
+            if name == "report_failed_use":
+                service.report_failed_use(PermissionId.INPUT_MONITORING, feature="global_shortcuts")
+            else:
+                service.note_reset(PermissionId.INPUT_MONITORING)
+        except Exception:  # noqa: BLE001 - reporting a liveness hint never harms the tap
+            log.debug(
+                "Reporting the tap to the permission service failed (%s).", name,
+                exc_info=True,
+            )
+
+
+__all__ = ["QuartzHotkeyBackend"]

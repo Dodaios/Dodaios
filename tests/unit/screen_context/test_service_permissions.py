@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.platform.permission_service import get_permission_service
-from jarvis.screen_context import ports
-from jarvis.screen_context.models import WindowFacts
-from jarvis.screen_context.ports import CapturePermissionIssue, WindowSnapshot
-from jarvis.screen_context.service import ScreenContextService, ScreenContextSettings
+from dodaios.platform.permission_service import get_permission_service
+from dodaios.screen_context import ports
+from dodaios.screen_context.models import WindowFacts
+from dodaios.screen_context.ports import CapturePermissionIssue, WindowSnapshot
+from dodaios.screen_context.service import ScreenContextService, ScreenContextSettings
 from tests.fakes.fake_permission_service import FakePermissionService
 from tests.fakes.fake_screen_pixels import textured_pixels, wallpaper_pixels
 from tests.fakes.fake_tcc import (
@@ -202,7 +202,7 @@ async def test_the_capture_asks_with_the_feature_that_started_it() -> None:
 
     # An appshot (take_appshot) says so in its verdict evidence; the shared service
     # carries a shutter hook for every capture, so the hook cannot tell them apart.
-    from jarvis.screen_context.models import IntentVerdict, VisualIntent
+    from dodaios.screen_context.models import IntentVerdict, VisualIntent
 
     await service.capture(verdict=IntentVerdict(intent=VisualIntent.WINDOW, evidence=("appshot",)))
     assert gate.ensure_calls("screen_recording")[-1].feature == "appshot"

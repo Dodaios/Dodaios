@@ -9,7 +9,7 @@ verbatim worker error in ``data/jarvis_desktop.log`` was::
     ClaudeDirectWorker: primary provider is openai-codex, expected claude-api
 
 Root cause: post-Welle-4 the openclaw-backed ``SubJarvisWorker`` was removed
-(the ~92% nested-claude hang), so ``jarvis.missions.init._worker_factory``
+(the ~92% nested-claude hang), so ``dodaios.missions.init._worker_factory``
 routes EVERY ``[brain.sub_jarvis].provider`` that is not ``openai-codex`` /
 ``chatgpt`` (grok, gemini, openai, openrouter, openclaw-claude, AND the unset
 default — whose chain resolver falls back to the ``("grok", "grok-4.3")`` stub)
@@ -30,9 +30,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.workers import claude_direct_worker as cdw
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.provider_chain import _FallbackStep
+from dodaios.missions.workers import claude_direct_worker as cdw
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.provider_chain import _FallbackStep
 
 
 class _FakeStream:
@@ -113,7 +113,7 @@ async def test_non_claude_provider_runs_on_claude_not_refused(
         lambda *a, **k: (_FallbackStep(provider, model),),
     )
     monkeypatch.setattr(
-        "jarvis.claude_auth.claude_cli_supports_safe_mode",
+        "dodaios.claude_auth.claude_cli_supports_safe_mode",
         lambda _prefix: False,
     )
 
@@ -173,7 +173,7 @@ async def test_safe_mode_preserves_native_auth_without_loading_user_config(
     )
     monkeypatch.setattr(cdw, "_resolve_claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(
-        "jarvis.claude_auth.claude_cli_supports_safe_mode",
+        "dodaios.claude_auth.claude_cli_supports_safe_mode",
         lambda _prefix: True,
     )
     captured: dict[str, Any] = {}
@@ -245,7 +245,7 @@ def test_default_model_is_reachable_opus_never_fable(monkeypatch) -> None:
     def _boom(*_a, **_k):
         raise RuntimeError("config unavailable")
 
-    monkeypatch.setattr("jarvis.core.config.load_config", _boom)
+    monkeypatch.setattr("dodaios.core.config.load_config", _boom)
     resolved = cdw._resolve_claude_model(None)
     assert resolved == "claude-opus-4-8"
     assert resolved != "claude-fable-5", (

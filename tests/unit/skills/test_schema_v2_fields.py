@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.skills.schema import SkillFrontmatter
+from dodaios.skills.schema import SkillFrontmatter
 
 
 def _minimal(**kw):

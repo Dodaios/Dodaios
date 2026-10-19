@@ -5,12 +5,12 @@ import asyncio
 
 import pytest
 
-from jarvis.contacts import notify
-from jarvis.contacts.store import ContactStore
-from jarvis.core.bus import EventBus
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.contact_mirror import wire_contact_mirror
-from jarvis.memory.wiki.page import MarkdownPageRepository
+from dodaios.contacts import notify
+from dodaios.contacts.store import ContactStore
+from dodaios.core.bus import EventBus
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.contact_mirror import wire_contact_mirror
+from dodaios.memory.wiki.page import MarkdownPageRepository
 
 
 @pytest.fixture(autouse=True)

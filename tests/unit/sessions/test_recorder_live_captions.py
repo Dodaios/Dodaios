@@ -10,16 +10,16 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     VoiceSessionEnded,
     VoiceSessionStarted,
     VoiceTranscriptUpdated,
     VoiceTurnCompleted,
     VoiceTurnStarted,
 )
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
 
 
 async def _start_call(bus: EventBus, session_id: str, turn_id: str) -> None:

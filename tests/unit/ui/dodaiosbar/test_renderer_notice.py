@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from jarvis.ui.dodaiosbar import modes, renderer
+from dodaios.ui.dodaiosbar import modes, renderer
 
 
 @pytest.fixture(autouse=True)
