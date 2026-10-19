@@ -101,6 +101,33 @@ export interface CommitFileDiff {
   binary: boolean;
 }
 
+/** Does this app keep itself on the newest main (`[agentic_ide] follow_main`)? */
+export interface FollowMain {
+  enabled: boolean;
+  eligible: boolean;
+  /** Why it does not follow, or what blocked the last update. */
+  reason: string;
+  head: string;
+  remote: string;
+  last_check: number;
+  last_update: number;
+  last_subject: string;
+  /** "update" | "install" | "build" | "" */
+  busy: string;
+  restart_pending: boolean;
+  blocked_by: string[];
+}
+
+async function put<T>(path: string, body: object): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await failure(res);
+  return (await res.json()) as T;
+}
+
 export interface Stash {
   ref: string;
   message: string;
@@ -162,6 +189,8 @@ export const scmApi = {
     get<CommitFileDiff>("/commit/file", { workspace_id, commit, path, original }),
   sessionFile: (workspace_id: string, pane: string, path: string, base: string) =>
     get<{ path: string; before: string | null; after: string | null; binary: boolean }>("/session-file", { workspace_id, pane, path, base }),
+  followMain: () => get<FollowMain>("/follow-main", {}),
+  setFollowMain: (enabled: boolean) => put<FollowMain>("/follow-main", { enabled }),
   stashes: (workspace_id: string) => get<{ stashes: Stash[] }>("/stashes", { workspace_id }),
 
   stage: (workspace_id: string, paths: string[]) => post("/stage", { workspace_id, paths }),
