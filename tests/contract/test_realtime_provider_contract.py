@@ -10,13 +10,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.realtime.gemini_live import GeminiLiveProvider
-from jarvis.plugins.realtime.openai_realtime import (
+from dodaios.plugins.realtime.gemini_live import GeminiLiveProvider
+from dodaios.plugins.realtime.openai_realtime import (
     LocalRealtimeProvider,
     OpenAIRealtimeProvider,
 )
-from jarvis.realtime.protocol import RealtimeEvent, RealtimeProvider
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.realtime.protocol import RealtimeEvent, RealtimeProvider
+from dodaios.realtime.session import RealtimeVoiceSession
 from tests.package_names import is_package_module
 
 # Every installed provider that declares supports_direct_tools=False must pass
@@ -136,7 +136,7 @@ async def test_capability_limited_provider_declines_handoff_without_ending_call(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Losing the delegate costs one action, never the live conversation."""
-    from jarvis.core import runtime_refs
+    from dodaios.core import runtime_refs
 
     monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: None)
     installed = provider_cls()
@@ -210,8 +210,8 @@ async def test_unconfigured_local_provider_probe_is_false() -> None:
 @pytest.mark.parametrize(
     "path",
     [
-        Path("jarvis/plugins/realtime/openai_realtime.py"),
-        Path("jarvis/plugins/realtime/gemini_live.py"),
+        Path("dodaios/plugins/realtime/openai_realtime.py"),
+        Path("dodaios/plugins/realtime/gemini_live.py"),
     ],
 )
 def test_plugin_module_imports_no_jarvis_modules(path: Path):
@@ -230,8 +230,8 @@ def test_plugin_module_imports_no_jarvis_modules(path: Path):
 @pytest.mark.parametrize(
     ("path", "sdk_root"),
     [
-        (Path("jarvis/plugins/realtime/openai_realtime.py"), "openai"),
-        (Path("jarvis/plugins/realtime/gemini_live.py"), "google"),
+        (Path("dodaios/plugins/realtime/openai_realtime.py"), "openai"),
+        (Path("dodaios/plugins/realtime/gemini_live.py"), "google"),
     ],
 )
 def test_provider_sdk_import_is_lazy(path: Path, sdk_root: str):
@@ -257,8 +257,8 @@ def test_headless_realtime_stack_reports_unavailable_without_audio_libraries() -
             "sys.modules['sounddevice'] = None",
             "sys.modules['aiortc'] = None",
             "sys.modules['av'] = None",
-            "from jarvis.audio.devices import list_devices",
-            "from jarvis.realtime.webrtc_transport import webrtc_unavailable_reason",
+            "from dodaios.audio.devices import list_devices",
+            "from dodaios.realtime.webrtc_transport import webrtc_unavailable_reason",
             "assert list_devices(output=True) == []",
             "reason = webrtc_unavailable_reason()",
             "assert reason and 'aiortc' in reason.lower(), reason",

@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from jarvis.memory import RecallStore
+from dodaios.memory import RecallStore
 
 
 @pytest_asyncio.fixture

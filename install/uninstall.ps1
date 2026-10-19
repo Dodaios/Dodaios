@@ -12,7 +12,7 @@
 #   4. the API keys saved in the OS keychain (Windows Credential Manager, service
 #      "personal-jarvis")
 #
-# Heavy logic lives in `python -m jarvis --uninstall` (cross-platform, tested).
+# Heavy logic lives in `python -m dodaios --uninstall` (cross-platform, tested).
 # This bootstrap runs that for the autostart + keys (it asks for confirmation),
 # then removes the folder itself from OUTSIDE the venv so the running python.exe
 # never locks its own tree.
@@ -58,7 +58,7 @@ function Stop-JarvisProcesses([string]$Root) {
     Write-Ok "Stopped the running Dodaios app ($($Procs.Count) process(es))."
 }
 
-# Standalone fallback projections of jarvis/core/branding.py. These remain
+# Standalone fallback projections of dodaios/core/branding.py. These remain
 # available even when a broken venv prevents importing the installed package.
 $DefaultInstallDirName = '.personal-jarvis'
 $WindowsShortcutFileName = 'Personal Jarvis.lnk'
@@ -84,7 +84,7 @@ if (-not (Test-Path -LiteralPath $InstallDir)) {
 #            keeping the folder so we can delete it below.
 $Rc = 0
 if (Test-Path -LiteralPath $VenvPython) {
-    & $VenvPython -m jarvis --uninstall --keep-folder @args
+    & $VenvPython -m dodaios --uninstall --keep-folder @args
     $Rc = $LASTEXITCODE
 } else {
     Write-Err 'Python environment missing - skipping autostart/key cleanup.'

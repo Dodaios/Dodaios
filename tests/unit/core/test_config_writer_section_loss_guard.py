@@ -21,7 +21,7 @@ import logging
 import pytest
 import tomlkit
 
-from jarvis.core import config_writer as cw
+from dodaios.core import config_writer as cw
 
 _POPULATED = """\
 [trigger]
@@ -147,7 +147,7 @@ def test_creating_an_empty_config_is_reported(tmp_path, caplog):
     """Creating the file is where a configuration can vanish without a trace."""
     config = tmp_path / "nested" / "jarvis.toml"
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.core.config_writer"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.core.config_writer"):
         cw._ensure_writable_config_path(config)
 
     assert config.exists()
@@ -161,7 +161,7 @@ def test_existing_config_is_not_reported_as_created(tmp_path, caplog):
     config = tmp_path / "jarvis.toml"
     _write(config, _POPULATED)
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.core.config_writer"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.core.config_writer"):
         cw._ensure_writable_config_path(config)
 
     assert not caplog.records

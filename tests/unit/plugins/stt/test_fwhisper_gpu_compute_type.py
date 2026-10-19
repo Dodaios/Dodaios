@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.plugins.stt.fwhisper as fwhisper
+import dodaios.plugins.stt.fwhisper as fwhisper
 
 
 @pytest.mark.parametrize("device", ["cuda", "auto", "cpu"])

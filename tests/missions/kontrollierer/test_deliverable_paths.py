@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions.kontrollierer.deliverable_paths import (
+from dodaios.missions.kontrollierer.deliverable_paths import (
     find_generator_scripts,
     is_nondeliverable_scratch,
 )

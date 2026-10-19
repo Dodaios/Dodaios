@@ -1,7 +1,7 @@
 """Unit tests for IterationBudget."""
 from __future__ import annotations
 
-from jarvis.brain import IterationBudget
+from dodaios.brain import IterationBudget
 
 
 def test_not_exceeded_initially():

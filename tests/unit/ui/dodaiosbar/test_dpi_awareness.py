@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import tkinter
 
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 class _FakeTkRoot:
@@ -47,11 +47,11 @@ def _run_start_with_probes(monkeypatch) -> list[str]:
     order: list[str] = []
 
     monkeypatch.setattr(
-        "jarvis.core.win32_dpi.ensure_dpi_awareness",
+        "dodaios.core.win32_dpi.ensure_dpi_awareness",
         lambda: order.append("dpi"),
     )
     monkeypatch.setattr(
-        "jarvis.core.win32_dpi.pin_thread_dpi_per_monitor",
+        "dodaios.core.win32_dpi.pin_thread_dpi_per_monitor",
         lambda: order.append("pin") or True,
     )
 
@@ -112,7 +112,7 @@ def test_pin_thread_dpi_per_monitor_is_safe_everywhere() -> None:
     import os
     import threading
 
-    from jarvis.core.win32_dpi import pin_thread_dpi_per_monitor
+    from dodaios.core.win32_dpi import pin_thread_dpi_per_monitor
 
     result: list[bool] = []
     t = threading.Thread(target=lambda: result.append(pin_thread_dpi_per_monitor()))
@@ -130,6 +130,6 @@ def test_unaware_pin_is_gone() -> None:
     """The UNAWARE pin produced the upscaled "fat bar" (maintainer-rejected
     twice: 2026-07-01 session and commit 5c7a5d15). It must not exist as an
     importable helper anyone could wire back in."""
-    import jarvis.core.win32_dpi as dpi
+    import dodaios.core.win32_dpi as dpi
 
     assert not hasattr(dpi, "pin_thread_dpi_unaware")

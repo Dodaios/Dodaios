@@ -8,8 +8,8 @@ gate is about "local" (auth_mode "none"), never a hand-maintained name list.
 
 from __future__ import annotations
 
-from jarvis.brain.app_control import _NO_CREDENTIAL_PROVIDERS, LOCAL_PROVIDERS
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.brain.app_control import _NO_CREDENTIAL_PROVIDERS, LOCAL_PROVIDERS
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 _LOCAL_BRAIN_IDS = {"ollama", "local-openai"}
 
@@ -29,7 +29,7 @@ def test_no_credential_set_equals_local_set() -> None:
 
 
 def test_worker_provider_map_has_rows_for_locals() -> None:
-    from jarvis.missions.worker_runtime.provider_map import (
+    from dodaios.missions.worker_runtime.provider_map import (
         to_worker_slug,
         validate_configured_providers,
     )
@@ -40,8 +40,8 @@ def test_worker_provider_map_has_rows_for_locals() -> None:
 
 
 def test_api_agent_worker_covers_locals() -> None:
-    from jarvis.missions.init import _API_AGENT_SLUGS
-    from jarvis.missions.workers.api_agent_worker import supports_api_agent_worker
+    from dodaios.missions.init import _API_AGENT_SLUGS
+    from dodaios.missions.workers.api_agent_worker import supports_api_agent_worker
 
     for provider in _LOCAL_BRAIN_IDS:
         assert provider in _API_AGENT_SLUGS
@@ -51,8 +51,8 @@ def test_api_agent_worker_covers_locals() -> None:
 def test_api_family_viability_accepts_keyless_locals(monkeypatch) -> None:
     """No credential can exist for a local family — viability must not demand
     one (the old `if not key: return False` would silently skip them)."""
-    import jarvis.core.config as cfg_mod
-    from jarvis.missions.init import _api_key_family_viable
+    import dodaios.core.config as cfg_mod
+    from dodaios.missions.init import _api_key_family_viable
 
     monkeypatch.setattr(cfg_mod, "get_jarvis_agent_secret", lambda pid: None)
     for provider in _LOCAL_BRAIN_IDS:
@@ -62,7 +62,7 @@ def test_api_family_viability_accepts_keyless_locals(monkeypatch) -> None:
 
 
 def test_critic_prefers_cloud_and_ends_local() -> None:
-    from jarvis.missions.critic.runner import _API_CRITIC_PROVIDERS
+    from dodaios.missions.critic.runner import _API_CRITIC_PROVIDERS
 
     assert _API_CRITIC_PROVIDERS[-2:] == ("ollama", "local-openai")
     # Cloud graders stay ahead of the local last resort.
@@ -73,7 +73,7 @@ def test_tool_model_static_status_treats_keyless_as_ready() -> None:
     """The Tool-Model tab must never show a local provider as blocked for a
     "missing credential" (is_credential_present is True for auth_mode none,
     unknown model capabilities default to capable)."""
-    from jarvis.ui.web.tool_model_routes import _static_candidate_status
+    from dodaios.ui.web.tool_model_routes import _static_candidate_status
 
     for provider in _LOCAL_BRAIN_IDS:
         verdict = _static_candidate_status(provider, None)

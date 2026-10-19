@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import PetVisibilityToggleRequested
-from jarvis.ui.dodaiosbar import host
-from jarvis.ui.dodaiosbar.modes import MODES
-from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
-from jarvis.ui.pets import context_menu
+from dodaios.core.bus import EventBus
+from dodaios.core.events import PetVisibilityToggleRequested
+from dodaios.ui.dodaiosbar import host
+from dodaios.ui.dodaiosbar.modes import MODES
+from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
+from dodaios.ui.pets import context_menu
 from ui.orb import overlay, pet_context_menu
 from ui.orb.bus_bridge import OrbBusBridge
 from ui.orb.overlay import OrbOverlay, PetControlStrip

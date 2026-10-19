@@ -2,8 +2,8 @@
 import os
 import sqlite3
 
-from jarvis.memory.wiki.fts_index import ensure_schema, upsert_page
-from jarvis.memory.wiki.health import WikiHealth, inspect_index_health
+from dodaios.memory.wiki.fts_index import ensure_schema, upsert_page
+from dodaios.memory.wiki.health import WikiHealth, inspect_index_health
 
 
 def test_snapshot_starts_unknown_but_valid():

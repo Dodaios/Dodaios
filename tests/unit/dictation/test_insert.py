@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.dictation import insert as insert_mod
-from jarvis.dictation.insert import (
+from dodaios.dictation import insert as insert_mod
+from dodaios.dictation.insert import (
     TargetReport,
     insert_text,
     resolve_paste_chord,
@@ -21,7 +21,7 @@ from jarvis.dictation.insert import (
 
 
 class FakeClipboard:
-    """In-memory stand-in for jarvis.platform.clipboard."""
+    """In-memory stand-in for dodaios.platform.clipboard."""
 
     def __init__(self, initial: str | None = "previous contents") -> None:
         self.content = initial
@@ -64,14 +64,14 @@ def wired(monkeypatch: pytest.MonkeyPatch):
     clipboard = FakeClipboard()
     actuator = FakeActuator()
 
-    import jarvis.platform.clipboard as real_clipboard
+    import dodaios.platform.clipboard as real_clipboard
 
     monkeypatch.setattr(real_clipboard, "read_text", clipboard.read_text)
     monkeypatch.setattr(real_clipboard, "write_text", clipboard.write_text)
     monkeypatch.setattr(
         insert_mod, "describe_target", lambda: TargetReport(True, "", "")
     )
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", lambda: actuator)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", lambda: actuator)
     monkeypatch.setattr(insert_mod.time, "sleep", lambda _s: None)
     # These tests pin the PLAIN chord path (every OS). The Windows path that
     # watches who reads the clipboard has its own file: test_insert_verified.py.
@@ -206,7 +206,7 @@ def test_missing_actuator_backend_degrades(monkeypatch: pytest.MonkeyPatch, wire
     def _boom():
         raise RuntimeError("Wayland blocks synthetic input for security.")
 
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", _boom)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", _boom)
     result = insert_text("dictated text")
 
     assert result.status == "clipboard_only"
@@ -282,8 +282,8 @@ def test_describe_target_never_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     def _boom(*_a, **_k):
         raise OSError("probe exploded")
 
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", _boom)
-    monkeypatch.setattr("jarvis.platform.probes.display_present", _boom)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", _boom)
+    monkeypatch.setattr("dodaios.platform.probes.display_present", _boom)
     report = insert_mod.describe_target()
     assert isinstance(report, TargetReport)
     assert report.can_insert is True

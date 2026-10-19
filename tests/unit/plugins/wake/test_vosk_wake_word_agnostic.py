@@ -31,7 +31,7 @@ import json
 import numpy as np
 import pytest
 
-from jarvis.plugins.wake.vosk_kws_provider import (
+from dodaios.plugins.wake.vosk_kws_provider import (
     SHAPE_SPEECH,
     SHAPE_UNDECIDED,
     VoskKwsProvider,
@@ -946,11 +946,11 @@ def test_a_suppressed_candidate_is_reported_then_rate_limited(monkeypatch) -> No
     p = VoskKwsProvider("Hey Ruben", model_path="fake", keyword="ruben")
     seen: list[int] = []
     monkeypatch.setattr(
-        "jarvis.plugins.wake.vosk_kws_provider.log.info",
+        "dodaios.plugins.wake.vosk_kws_provider.log.info",
         lambda *a, **k: seen.append(1),
     )
     monkeypatch.setattr(
-        "jarvis.plugins.wake.vosk_kws_provider.log.debug", lambda *a, **k: None
+        "dodaios.plugins.wake.vosk_kws_provider.log.debug", lambda *a, **k: None
     )
 
     for _ in range(25):
@@ -984,7 +984,7 @@ def test_the_competition_installs_its_alternatives_through_the_native_lock(
     2026-08-22: 13 false fires on 40 negatives before, 0 after. This pins
     the path the live engine takes: through the wrapper, not a bare stub.
     """
-    from jarvis.plugins.wake.vosk_native import wrap_recognizer
+    from dodaios.plugins.wake.vosk_native import wrap_recognizer
 
     p = VoskKwsProvider("Hey George", model_path="fake", keyword="george")
     free = {"text": "power", "result": [_w("power", 1.60, 2.10, conf=0.9)]}

@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.core.process_utils import (  # noqa: E402
+from dodaios.core.process_utils import (  # noqa: E402
     NO_WINDOW_CREATIONFLAGS,
     ensure_standard_streams,
 )
@@ -28,7 +28,7 @@ from scripts.ci import check_async_routes as async_gate  # noqa: E402
 from scripts.ci import check_silent_exception_handlers as silent_gate  # noqa: E402
 
 REFERENCE_PATHS = {
-    "jarvis/commands/registry.py",
+    "dodaios/commands/registry.py",
     "scripts/ci/gen_commands_reference.py",
     "docs/commands-reference.md",
 }
@@ -117,9 +117,9 @@ def added_findings(base: str, changed: set[str], gate: str) -> list[str]:
     paths = (
         path
         for path in changed
-        if path.startswith("jarvis/")
+        if path.startswith("dodaios/")
         and path.endswith(".py")
-        and (gate == "silent" or path.startswith("jarvis/ui/web/") and path.endswith("_routes.py"))
+        and (gate == "silent" or path.startswith("dodaios/ui/web/") and path.endswith("_routes.py"))
     )
     added: list[str] = []
     for path in sorted(paths):

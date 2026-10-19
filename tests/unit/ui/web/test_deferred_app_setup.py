@@ -8,11 +8,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import VoiceBootStatus
-from jarvis.ui.deferred_setup import DeferredSetup
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import VoiceBootStatus
+from dodaios.ui.deferred_setup import DeferredSetup
+from dodaios.ui.web.server import WebServer
 
 
 class BlockingFeatureBuild:
@@ -175,9 +175,9 @@ def test_desktop_shutdown_timeout_keeps_loop_until_builder_and_cleanup_finish(
     """Exercise DesktopApp.shutdown, including its bounded cross-thread waits."""
     import sys
 
-    import jarvis.agentic_ide as ide
-    from jarvis.core import runtime_refs
-    from jarvis.ui import desktop_app as desktop
+    import dodaios.agentic_ide as ide
+    from dodaios.core import runtime_refs
+    from dodaios.ui import desktop_app as desktop
 
     build = BlockingFeatureBuild()
     publications = []
@@ -207,9 +207,9 @@ def test_desktop_shutdown_timeout_keeps_loop_until_builder_and_cleanup_finish(
     monkeypatch.setattr(desktop, "META_FILE_PATH", tmp_path / "instance.json")
     offload = SimpleNamespace(target=lambda: None)
     monkeypatch.setattr(ide, "offload_on_quit", offload, raising=False)
-    monkeypatch.setitem(sys.modules, "jarvis.agentic_ide.offload_on_quit", offload)
+    monkeypatch.setitem(sys.modules, "dodaios.agentic_ide.offload_on_quit", offload)
     monkeypatch.setitem(
-        sys.modules, "jarvis.agentic_ide.session", SimpleNamespace(get_registry=lambda: None)
+        sys.modules, "dodaios.agentic_ide.session", SimpleNamespace(get_registry=lambda: None)
     )
 
     def backend():
@@ -265,7 +265,7 @@ def test_desktop_shutdown_timeout_keeps_loop_until_builder_and_cleanup_finish(
 def test_process_exit_waits_off_gui_thread_for_backend_cleanup(monkeypatch) -> None:
     from concurrent.futures import Future
 
-    from jarvis.ui import desktop_app as desktop
+    from dodaios.ui import desktop_app as desktop
 
     future = Future()
     exited = threading.Event()

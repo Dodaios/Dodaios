@@ -20,11 +20,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 # A statement whose text alone detects as German, and one that detects as
 # English — the two sides of the code-switch that made the delegate diverge.
@@ -125,7 +125,7 @@ def test_router_note_prefix_is_language_relative() -> None:
     memory-save turns (the other half of the 2026-07-23 bug). The router
     instruction now names the acknowledgement word in every supported language.
     """
-    from jarvis.brain.router import SYSTEM_PROMPT
+    from dodaios.brain.router import SYSTEM_PROMPT
 
     assert "Noted" in SYSTEM_PROMPT
     assert "Anotado" in SYSTEM_PROMPT
@@ -140,7 +140,7 @@ def test_ack_keywords_cover_all_supported_languages() -> None:
     is English/Spanish the word is not "notiert", so the detector must know the
     other languages' words too, or a non-German memory-save would be missed.
     """
-    from jarvis.memory.wiki.voice_bridge import _ACK_KEYWORDS
+    from dodaios.memory.wiki.voice_bridge import _ACK_KEYWORDS
 
     assert "notiert" in _ACK_KEYWORDS  # de
     assert "noted" in _ACK_KEYWORDS  # en

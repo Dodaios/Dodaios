@@ -19,10 +19,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.local_action_gate import LocalActionMode, LocalActionPlan
-from jarvis.brain.manager import BrainManager
-from jarvis.harness.computer_use_context import set_computer_use_context
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.brain.local_action_gate import LocalActionMode, LocalActionPlan
+from dodaios.brain.manager import BrainManager
+from dodaios.harness.computer_use_context import set_computer_use_context
+from dodaios.voice.action_phrases import action_phrase
 
 
 class _FakeBus:
@@ -71,7 +71,7 @@ def _pin_cu_plan(monkeypatch) -> None:
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="open chrome"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
 
@@ -130,7 +130,7 @@ def test_cu_not_wired_is_translated_in_every_locale() -> None:
     so a forgotten translation would ship as an untranslated German sentence to
     an English or Spanish speaker instead of failing loudly here.
     """
-    from jarvis.voice.action_phrases import _PHRASES
+    from dodaios.voice.action_phrases import _PHRASES
 
     variants = _PHRASES["cu_not_wired"]
     assert set(variants) == {"de", "en", "es", "pt"}
@@ -150,7 +150,7 @@ async def test_missing_dispatch_tool_is_logged_not_swallowed(monkeypatch, caplog
     mgr._local_action_tools = {}
     _pin_cu_plan(monkeypatch)
 
-    with caplog.at_level("WARNING", logger="jarvis.brain.manager"):
+    with caplog.at_level("WARNING", logger="dodaios.brain.manager"):
         reply = await mgr._run_local_action_fast_path("öffne chrome")  # i18n-allow: DE fixture
 
     assert reply is None

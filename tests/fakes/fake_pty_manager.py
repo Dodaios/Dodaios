@@ -1,4 +1,4 @@
-"""In-memory stand-in for ``jarvis.terminal.pty_manager.PtyManager``.
+"""In-memory stand-in for ``dodaios.terminal.pty_manager.PtyManager``.
 
 Lets the Agentic-IDE registry be driven end to end without a real
 pseudo-terminal and without Claude Code / Codex installed — which is what makes

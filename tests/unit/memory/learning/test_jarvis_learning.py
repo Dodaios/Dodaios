@@ -16,12 +16,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.chat_turn import ChatCompletion, ChatTurn
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.guard import refusal
-from jarvis.memory.learning.loop import JarvisLearningLoop
-from jarvis.memory.learning.notebook import JarvisNotebook, snapshot_block
-from jarvis.memory.learning.review import Turn, parse, validate
+from dodaios.core.chat_turn import ChatCompletion, ChatTurn
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.guard import refusal
+from dodaios.memory.learning.loop import JarvisLearningLoop
+from dodaios.memory.learning.notebook import JarvisNotebook, snapshot_block
+from dodaios.memory.learning.review import Turn, parse, validate
 
 
 class ScriptedReviewer:
@@ -172,7 +172,7 @@ def test_the_snapshot_follows_an_edit_made_outside_the_loop(book: JarvisNotebook
 
 
 def test_the_prompt_budget_keeps_the_most_important_entries(book: JarvisNotebook) -> None:
-    from jarvis.society.notebook import Entry, render
+    from dodaios.society.notebook import Entry, render
 
     # Written in one go, as a person editing the file in Obsidian could; the
     # loop's own adds would stop at the hard limit first.
@@ -320,7 +320,7 @@ async def test_ordinary_requests_cost_no_model_call(book: JarvisNotebook) -> Non
     ],
 )
 def test_personal_turns_are_picked(text: str) -> None:
-    from jarvis.memory.learning.signals import has_signal
+    from dodaios.memory.learning.signals import has_signal
 
     assert has_signal(text)
 
@@ -333,7 +333,7 @@ def test_personal_turns_are_picked(text: str) -> None:
     ],
 )
 def test_portuguese_requests_are_not_picked(text: str) -> None:
-    from jarvis.memory.learning.signals import has_signal
+    from dodaios.memory.learning.signals import has_signal
 
     assert not has_signal(text)
 
@@ -435,7 +435,7 @@ async def test_a_failing_reviewer_is_not_retried_on_every_turn(book: JarvisNoteb
 
 
 async def test_a_seat_that_keeps_failing_drops_the_turns(book: JarvisNotebook) -> None:
-    from jarvis.memory.learning import loop as loop_module
+    from dodaios.memory.learning import loop as loop_module
 
     failures = loop_module._MAX_FAILURES
     reviewer = ScriptedReviewer(*([None] * (failures + 1)))
@@ -487,8 +487,8 @@ async def test_a_quiet_conversation_is_reviewed(book: JarvisNotebook) -> None:
 async def test_voice_events_feed_the_loop_and_a_hangup_reviews_it(
     book: JarvisNotebook,
 ) -> None:
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import VoiceSessionEnded, VoiceTurnCompleted
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import VoiceSessionEnded, VoiceTurnCompleted
 
     bus = EventBus()
     reviewer = ScriptedReviewer([])
@@ -564,7 +564,7 @@ async def test_attachments_are_not_the_users_words(book: JarvisNotebook) -> None
 
 
 def test_the_realtime_instructions_carry_the_learned_block(book: JarvisNotebook) -> None:
-    from jarvis.realtime.session import _session_instructions
+    from dodaios.realtime.session import _session_instructions
 
     assert "What you have learned so far" not in _session_instructions("en")
     notebook_module.set_active(book)
@@ -577,8 +577,8 @@ def test_the_realtime_instructions_carry_the_learned_block(book: JarvisNotebook)
 
 
 def test_the_brain_prompt_carries_the_learned_block(book: JarvisNotebook) -> None:
-    from jarvis.brain.manager import BrainManager
-    from jarvis.core.config import load_config
+    from dodaios.brain.manager import BrainManager
+    from dodaios.core.config import load_config
 
     manager = BrainManager.__new__(BrainManager)
     manager._soul = None

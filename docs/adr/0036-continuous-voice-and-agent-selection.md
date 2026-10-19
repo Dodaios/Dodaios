@@ -14,7 +14,7 @@ session and continuation semantics from the older Realtime API.
 
 ## Decision
 
-The continuous voice adapters use `jarvis/live` and a shared tool gateway.
+The continuous voice adapters use `dodaios/live` and a shared tool gateway.
 OpenAI uses the explicitly chosen Responses thinking model for delegation and
 voice-triggered computer control, with the same OpenAI credential. Gemini and
 local providers use their own tool-capable protocol; capability failures are

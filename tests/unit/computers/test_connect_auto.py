@@ -13,8 +13,8 @@ from typing import Any
 import asyncssh
 import pytest
 
-from jarvis.computers import identity, ssh
-from jarvis.computers.service import ComputerError, ComputerService
+from dodaios.computers import identity, ssh
+from dodaios.computers.service import ComputerError, ComputerService
 from tests.fakes.fake_ssh_server import FakeSshServer
 
 

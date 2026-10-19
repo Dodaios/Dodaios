@@ -62,5 +62,5 @@ def test_every_size_renders_a_filled_tile(size: int) -> None:
 
 def test_committed_icons_are_the_current_render() -> None:
     """Re-run ``python scripts/make_app_icon.py`` after editing the logo."""
-    committed = Image.open(ROOT / "jarvis" / "assets" / "icons" / "jarvis.png").convert("RGBA")
+    committed = Image.open(ROOT / "dodaios" / "assets" / "icons" / "jarvis.png").convert("RGBA")
     assert committed.tobytes() == render_tile(256).tobytes()

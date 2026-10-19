@@ -11,10 +11,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.brain.provider_test import PROVIDER_TEST_STATUSES
+from dodaios.brain.provider_test import PROVIDER_TEST_STATUSES
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_TS_FILE = _REPO_ROOT / "jarvis" / "ui" / "web" / "frontend" / "src" / "hooks" / "useProviders.ts"
+_TS_FILE = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src" / "hooks" / "useProviders.ts"
 
 
 def _parse_string_union(type_name: str, text: str) -> set[str]:

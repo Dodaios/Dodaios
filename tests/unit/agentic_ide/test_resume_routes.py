@@ -13,10 +13,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
-from jarvis.ui.web import agentic_ide_routes
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.ui.web import agentic_ide_routes
 
 
 # The real probe, kept aside so one test can put it back and prove that IT, and
@@ -127,7 +127,7 @@ def test_a_broken_agent_probe_does_not_take_the_screen_down(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """This is the IDE's first screen — it must render even when a probe fails."""
-    from jarvis.workspace import agents as workspace_agents
+    from dodaios.workspace import agents as workspace_agents
 
     async def _explode() -> list[object]:
         raise RuntimeError("the CLI prober fell over")

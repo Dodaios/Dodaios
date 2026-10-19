@@ -9,16 +9,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.approval_bridge import ChatApprovalBridge, ChatGrant
-from jarvis.agent_chat.permissions import default_permission
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig, SafetyConfig
-from jarvis.core.events import ActionApproved
-from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.tasks.approval_bridge import TaskAutoApprover
-from jarvis.ui.web.society_routes import router
-from jarvis.workspace import launch_picks
+from dodaios.agent_chat.approval_bridge import ChatApprovalBridge, ChatGrant
+from dodaios.agent_chat.permissions import default_permission
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig, SafetyConfig
+from dodaios.core.events import ActionApproved
+from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.tasks.approval_bridge import TaskAutoApprover
+from dodaios.ui.web.society_routes import router
+from dodaios.workspace import launch_picks
 from tests.fakes.fake_permission_tool import FakePermissionTool
 
 

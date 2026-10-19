@@ -8,13 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.core.events import AnnouncementRequested, BrowserVoiceRequested
-from jarvis.live import runtime
-from jarvis.live.config import LiveConfig
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core import runtime_refs
+from dodaios.core.events import AnnouncementRequested, BrowserVoiceRequested
+from dodaios.live import runtime
+from dodaios.live.config import LiveConfig
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 from tests.fakes.fake_subscription_session import (
     ScriptedSubscriptionReasoning,
     SubscriptionConnection,
@@ -73,7 +73,7 @@ async def _caption(session, segment, text, *, final=True, role="output") -> None
 
 @pytest.fixture
 async def browser_call(monkeypatch, tmp_path):
-    import jarvis.live.subscription as module
+    import dodaios.live.subscription as module
 
     pipeline = _pipeline()
     monkeypatch.setattr(runtime_refs, "get_speech_pipeline", lambda: pipeline)

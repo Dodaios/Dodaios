@@ -1,5 +1,5 @@
 # === F-FRIENDS [F0] · feature/friends-section · ruben-2026-04-30 ===
-"""Unit tests for :class:`jarvis.friends.registry.FriendRegistry`."""
+"""Unit tests for :class:`dodaios.friends.registry.FriendRegistry`."""
 from __future__ import annotations
 
 from uuid import uuid4
@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from jarvis.friends.models import Friend, FriendChannel
-from jarvis.friends.registry import (
+from dodaios.friends.models import Friend, FriendChannel
+from dodaios.friends.registry import (
     FriendNotFoundError,
     FriendRegistry,
     FriendRegistryError,

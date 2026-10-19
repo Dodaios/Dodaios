@@ -1,4 +1,4 @@
-"""Unit tests for the run step-timeline reader (`jarvis.ui.web.run_plan`).
+"""Unit tests for the run step-timeline reader (`dodaios.ui.web.run_plan`).
 
 The Visualization node graph is only as honest as this parser: a tool call
 must become `done`/`failed` ONLY via its correlated result frame, a truncated
@@ -14,8 +14,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.outputs_routes import router as outputs_router
-from jarvis.ui.web.run_plan import MAX_STEPS, build_run_plan
+from dodaios.ui.web.outputs_routes import router as outputs_router
+from dodaios.ui.web.run_plan import MAX_STEPS, build_run_plan
 
 
 def _stream_dir(root: Path, task_id: str = "task-1") -> Path:

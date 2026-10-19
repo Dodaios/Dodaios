@@ -8,12 +8,12 @@ You are Agent A on Phase B3 of Personal Jarvis. **Read `00-OVERVIEW.md` first**,
 
 | File | Status | Purpose |
 |---|---|---|
-| `jarvis/ui/web/wiki_routes.py` | **NEW** | FastAPI router with six endpoints (see §3) |
-| `jarvis/ui/web/server.py` | **MODIFY** | `app.include_router(wiki_routes.router)` |
+| `dodaios/ui/web/wiki_routes.py` | **NEW** | FastAPI router with six endpoints (see §3) |
+| `dodaios/ui/web/server.py` | **MODIFY** | `app.include_router(wiki_routes.router)` |
 | `tests/unit/ui/web/test_wiki_routes.py` | **NEW** | One test per endpoint + 30s-edit-lock case + missing-vault case |
 | `tests/integration/ui/wiki/test_wiki_routes_e2e.py` | **NEW** | Real temp vault with 3 pages → all endpoints return shape-correct JSON |
 
-No other files. If you find yourself editing `frontend/`, `manager.py`, `factory.py`, `pipeline.py`, or anything under `jarvis/memory/` — stop. That is out of scope.
+No other files. If you find yourself editing `frontend/`, `manager.py`, `factory.py`, `pipeline.py`, or anything under `dodaios/memory/` — stop. That is out of scope.
 
 ---
 
@@ -21,13 +21,13 @@ No other files. If you find yourself editing `frontend/`, `manager.py`, `factory
 
 | Use | Where | What it does |
 |---|---|---|
-| `PageRepository` | `jarvis/memory/wiki/page.py` | Parses a `.md` file into `WikiPage` with frontmatter, body, wikilinks, validity flag. |
-| `VaultIndex` | `jarvis/memory/wiki/vault_index.py` | Whole-vault view: `pages_by_type`, `find_by_slug`, `backlinks_to`. |
-| `VaultSearch` | `jarvis/memory/wiki/search.py` (B5) | FTS5-aware file-walking search returning `list[SearchHit]`. |
-| `WikiIntegrationConfig` | `jarvis/core/config.py` | Holds `vault_root: Path`. |
-| FastAPI route patterns | `jarvis/ui/web/server.py` existing routes (e.g. `/api/sessions`) | The reply-envelope style `{"ok": true, ...}` is the existing house style. |
+| `PageRepository` | `dodaios/memory/wiki/page.py` | Parses a `.md` file into `WikiPage` with frontmatter, body, wikilinks, validity flag. |
+| `VaultIndex` | `dodaios/memory/wiki/vault_index.py` | Whole-vault view: `pages_by_type`, `find_by_slug`, `backlinks_to`. |
+| `VaultSearch` | `dodaios/memory/wiki/search.py` (B5) | FTS5-aware file-walking search returning `list[SearchHit]`. |
+| `WikiIntegrationConfig` | `dodaios/core/config.py` | Holds `vault_root: Path`. |
+| FastAPI route patterns | `dodaios/ui/web/server.py` existing routes (e.g. `/api/sessions`) | The reply-envelope style `{"ok": true, ...}` is the existing house style. |
 
-`app.state.bus`, `app.state.config`, `app.state.brain` are already populated by the server. Read `app.state.config.memory.wiki.vault_root` (or however the existing B1/B5 wiring exposes the vault root — confirm by greping `vault_root` in `jarvis/memory/wiki/integration.py`).
+`app.state.bus`, `app.state.config`, `app.state.brain` are already populated by the server. Read `app.state.config.memory.wiki.vault_root` (or however the existing B1/B5 wiring exposes the vault root — confirm by greping `vault_root` in `dodaios/memory/wiki/integration.py`).
 
 If a dependency you need is not already on `app.state`, instantiate it lazily inside your route handler — do **not** add startup wiring; the server boot path is sensitive (see BUG-016).
 
@@ -53,7 +53,7 @@ The `WS /api/wiki/live` endpoint is Agent D's concern, not yours.
 - **Slug not found** on `/page/{slug}` → `{"ok": false, "error": "page not found"}`. HTTP 200, not 404. (The 404 reservation is for unknown *routes*, not unknown *content*.)
 - **Schema-invalid page** (frontmatter missing or wrong type) → still return it, but include `"frontmatter_valid": false` so the UI can show a warning.
 - **Broken wikilink** → list it in `graph.broken[]`. Never crash the graph response because one target is missing.
-- **Search query with FTS5 syntax characters** → use the existing `_sanitize_fts5_query` pattern in `jarvis/memory/recall.py:22-25`. Do not pass raw user input to FTS5.
+- **Search query with FTS5 syntax characters** → use the existing `_sanitize_fts5_query` pattern in `dodaios/memory/recall.py:22-25`. Do not pass raw user input to FTS5.
 
 ---
 
@@ -90,7 +90,7 @@ Minimum 12 cases:
 
 ### 5.2 Integration test (`tests/integration/ui/wiki/test_wiki_routes_e2e.py`)
 
-Mounts the *full* server (`jarvis.ui.web.server:create_app`), populates `wiki/obsidian-vault/` in a `tmp_path` fixture with `alex.md`, `sam.md`, `pixel-art-editor.md`, and walks the same flow the live walk-through covers in `00-OVERVIEW.md §7`:
+Mounts the *full* server (`dodaios.ui.web.server:create_app`), populates `wiki/obsidian-vault/` in a `tmp_path` fixture with `alex.md`, `sam.md`, `pixel-art-editor.md`, and walks the same flow the live walk-through covers in `00-OVERVIEW.md §7`:
 
 1. `GET /api/wiki/tree` → 3 files across 2 folders.
 2. `GET /api/wiki/page/sam` → body contains "1990".
@@ -107,7 +107,7 @@ Mounts the *full* server (`jarvis.ui.web.server:create_app`), populates `wiki/ob
 - ❌ Don't return the full body in `/tree`. That endpoint is for navigation, not content. Just slug + title + mtime + size.
 - ❌ Don't add authentication. The desktop app is local-only, the existing pattern is unauthenticated.
 - ❌ Don't add OpenAPI tags/descriptions that mention internal data (no `description="reads <USER_HOME>/Desktop/Personal Jarvis/data/sessions.db"`). The OpenAPI doc is user-visible.
-- ❌ Don't import from `jarvis.brain.*`. The Wiki view is brain-free.
+- ❌ Don't import from `dodaios.brain.*`. The Wiki view is brain-free.
 - ❌ Don't write to `app.state` from a route handler. State is set at startup only.
 - ❌ Don't introduce async generators for streaming responses. All responses fit in one JSON object.
 

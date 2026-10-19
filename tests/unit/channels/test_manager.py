@@ -1,5 +1,5 @@
 # === F-FRIENDS [F0] · feature/friends-section · ruben-2026-04-30 ===
-"""Unit tests for :class:`jarvis.channels.manager.ChannelManager`."""
+"""Unit tests for :class:`dodaios.channels.manager.ChannelManager`."""
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
@@ -9,14 +9,14 @@ from uuid import UUID
 
 import pytest
 
-from jarvis.channels.base import ChannelMessage, ChannelSession
-from jarvis.channels.manager import (
+from dodaios.channels.base import ChannelMessage, ChannelSession
+from dodaios.channels.manager import (
     ChannelContext,
     ChannelManager,
     ChannelStartError,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.events import Event
+from dodaios.core.bus import EventBus
+from dodaios.core.events import Event
 
 
 class _BusOnlyChannel:
@@ -104,7 +104,7 @@ def _patch_entry_points(monkeypatch: pytest.MonkeyPatch, eps: list[_FakeEntryPoi
             return []
         return eps
 
-    monkeypatch.setattr("jarvis.channels.manager.entry_points", _fake_entry_points)
+    monkeypatch.setattr("dodaios.channels.manager.entry_points", _fake_entry_points)
 
 
 def test_discovery_lazy_and_cached(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -2,7 +2,7 @@
 
 Companion to :func:`_wake_gpu_inference_verified` (which BLOCKS on a cache miss to
 run one real turbo/cuda inference in a subprocess). Off-critical-path callers such
-as the first-run hardware recommender (``jarvis.hardware.detection``) must gate a
+as the first-run hardware recommender (``dodaios.hardware.detection``) must gate a
 GPU recommendation on a REAL, verified inference (AP-21/AP-25) WITHOUT ever paying
 the blocking probe. This reader delivers exactly that:
 
@@ -17,8 +17,8 @@ import json
 
 import pytest
 
-import jarvis.plugins.stt as stt_pkg
-from jarvis.plugins.stt import wake_gpu_probe_cached
+import dodaios.plugins.stt as stt_pkg
+from dodaios.plugins.stt import wake_gpu_probe_cached
 
 
 @pytest.fixture(autouse=True)

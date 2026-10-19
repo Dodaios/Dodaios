@@ -8,9 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.progression.rules import MAX_LEVEL, REWARDS, RULES
-from jarvis.progression.service import ProgressionService
-from jarvis.ui.web.progression_routes import router
+from dodaios.progression.rules import MAX_LEVEL, REWARDS, RULES
+from dodaios.progression.service import ProgressionService
+from dodaios.ui.web.progression_routes import router
 
 
 @pytest.fixture

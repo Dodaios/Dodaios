@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 
-from jarvis.speech.pipeline import _playback_progress_stalled
+from dodaios.speech.pipeline import _playback_progress_stalled
 
 
 def test_progress_stalled_true_when_no_writes_for_window() -> None:

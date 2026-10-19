@@ -31,8 +31,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.events import AnnouncementRequested
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core.events import AnnouncementRequested
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 
 class _FakeAckBrain:

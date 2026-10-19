@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.platform as platform_mod
-from jarvis.appshot import gesture as gesture_mod
-from jarvis.appshot import hotkey as hotkey_mod
-from jarvis.appshot.hotkey import BOTH_ALT, BOTH_OPTION_MAC_NOTE, AppshotShortcut
+import dodaios.platform as platform_mod
+from dodaios.appshot import gesture as gesture_mod
+from dodaios.appshot import hotkey as hotkey_mod
+from dodaios.appshot.hotkey import BOTH_ALT, BOTH_OPTION_MAC_NOTE, AppshotShortcut
 from tests.fakes.fake_tcc import install_port, make_darwin_port
 
 

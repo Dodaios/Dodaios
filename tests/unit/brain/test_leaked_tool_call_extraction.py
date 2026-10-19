@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.tool_call_recovery import extract_leaked_tool_calls
+from dodaios.brain.tool_call_recovery import extract_leaked_tool_calls
 
 _ENVELOPE = '{"type":"tool_use","name":"open_app","input":{"app":"spotify"}}'
 _SECOND_ENVELOPE = '{"type":"tool_use","name":"open_app","input":{"app":"notepad"}}'

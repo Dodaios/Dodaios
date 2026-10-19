@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.tools_routes import router
+from dodaios.ui.web.tools_routes import router
 
 
 def _tool(name: str) -> SimpleNamespace:
@@ -60,7 +60,7 @@ def test_usage_reports_what_ran_and_what_never_did(tmp_path, monkeypatch) -> Non
     import json
     from datetime import datetime
 
-    from jarvis.telemetry import tool_usage as usage
+    from dodaios.telemetry import tool_usage as usage
 
     day = datetime.now().date().isoformat()
     rows = [

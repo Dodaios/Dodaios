@@ -7,10 +7,10 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.society.events import AgentState, GrantMode, PermissionCeiling
-from jarvis.society.inherit import inherit_creator_fields
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.society_routes import router
+from dodaios.society.events import AgentState, GrantMode, PermissionCeiling
+from dodaios.society.inherit import inherit_creator_fields
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.society_routes import router
 
 
 def _client(tmp_path: Path) -> tuple[TestClient, SocietyRuntime]:

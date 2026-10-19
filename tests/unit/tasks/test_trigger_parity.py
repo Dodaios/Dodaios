@@ -4,17 +4,17 @@ BUG-008 class: a vocabulary that spans Python (the Pydantic discriminator) and
 the TS task model the agent card reads routines with drifts silently — the card
 mislabels a trigger it never learned.
 
-Source of truth: ``TRIGGER_TYPES`` in ``jarvis/tasks/schema.py``.
+Source of truth: ``TRIGGER_TYPES`` in ``dodaios/tasks/schema.py``.
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-from jarvis.tasks.schema import PAUSABLE_TRIGGER_TYPES, TRIGGER_TYPES
+from dodaios.tasks.schema import PAUSABLE_TRIGGER_TYPES, TRIGGER_TYPES
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-MODEL_TS = REPO_ROOT / "jarvis/ui/web/frontend/src/lib/tasksApi.ts"
+MODEL_TS = REPO_ROOT / "dodaios/ui/web/frontend/src/lib/tasksApi.ts"
 
 
 def _expected() -> set[str]:

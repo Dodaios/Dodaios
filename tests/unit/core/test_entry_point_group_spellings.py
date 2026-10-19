@@ -21,10 +21,10 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.branding as branding
-from jarvis.core import entry_points as ep_module
-from jarvis.core import registry
-from jarvis.core.protocols import PLUGIN_GROUPS
+import dodaios.core.branding as branding
+from dodaios.core import entry_points as ep_module
+from dodaios.core import registry
+from dodaios.core.protocols import PLUGIN_GROUPS
 
 _ROOT = Path(__file__).resolve().parents[3]
 
@@ -293,7 +293,7 @@ def test_the_registry_serves_a_slot_under_either_name(site: _Site) -> None:
 def _shipped_python_files() -> list[Path]:
     return [
         path
-        for path in (_ROOT / "jarvis").rglob("*.py")
+        for path in (_ROOT / "dodaios").rglob("*.py")
         if "node_modules" not in path.parts
     ]
 
@@ -303,7 +303,7 @@ def test_no_module_reads_a_plugin_group_behind_the_helpers_back() -> None:
     offenders: list[str] = []
     for path in _shipped_python_files():
         relative = path.relative_to(_ROOT).as_posix()
-        if relative == "jarvis/core/entry_points.py":
+        if relative == "dodaios/core/entry_points.py":
             continue
         source = path.read_text(encoding="utf-8-sig")
         if "entry_points" not in source:
@@ -323,7 +323,7 @@ def test_no_module_reads_a_plugin_group_behind_the_helpers_back() -> None:
                 and ast.unparse(node.func.value).endswith(("metadata", "_md"))
             ):
                 offenders.append(f"{relative}:{node.lineno}: calls metadata.entry_points")
-    assert not offenders, "read plugin groups through jarvis.core.entry_points:\n" + "\n".join(
+    assert not offenders, "read plugin groups through dodaios.core.entry_points:\n" + "\n".join(
         offenders
     )
 
@@ -331,10 +331,10 @@ def test_no_module_reads_a_plugin_group_behind_the_helpers_back() -> None:
 @pytest.mark.parametrize(
     "module",
     [
-        "jarvis.brain.provider_registry",
-        "jarvis.channels.manager",
-        "jarvis.diagnostics.doctor",
-        "jarvis.harness.manager",
+        "dodaios.brain.provider_registry",
+        "dodaios.channels.manager",
+        "dodaios.diagnostics.doctor",
+        "dodaios.harness.manager",
     ],
 )
 def test_a_manager_discovers_through_the_helper(module: str) -> None:

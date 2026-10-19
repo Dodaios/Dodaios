@@ -14,9 +14,9 @@ import re
 
 import numpy as np
 
-import jarvis.plugins.stt as stt_pkg
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.rolling_whisper_wake import RollingWhisperWake
+import dodaios.plugins.stt as stt_pkg
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.rolling_whisper_wake import RollingWhisperWake
 
 
 def _loud_chunk(marker: int, n: int = 1600) -> AudioChunk:

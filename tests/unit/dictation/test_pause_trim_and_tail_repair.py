@@ -21,11 +21,11 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.audio.capture import MicrophoneCapture
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted
-from jarvis.dictation.segment import compress_pauses, speech_runs
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.audio.capture import MicrophoneCapture
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted
+from dodaios.dictation.segment import compress_pauses, speech_runs
+from dodaios.speech.pipeline import SpeechPipeline
 
 BYTES_PER_SECOND = 16_000 * 2
 

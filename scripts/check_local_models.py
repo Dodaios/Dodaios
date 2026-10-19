@@ -87,7 +87,7 @@ def _hardware() -> Check:
     it is a WARN rather than a FAIL: the models still run, the verdicts just
     fall back to system RAM and will read a discrete AMD card as absent.
     """
-    from jarvis.hardware.detection import system_ram_gb, usable_accelerator_gb
+    from dodaios.hardware.detection import system_ram_gb, usable_accelerator_gb
 
     accel, source = usable_accelerator_gb()
     ram = system_ram_gb()
@@ -127,7 +127,7 @@ def _hardware() -> Check:
 
 def _runtime() -> Check:
     """The three-state truth about the server on this OS."""
-    from jarvis.brain import ollama_runtime
+    from dodaios.brain import ollama_runtime
 
     status = ollama_runtime.runtime_status()
     facts = {
@@ -155,7 +155,7 @@ def _runtime() -> Check:
 
 async def _inventory(root: str) -> Check:
     """Downloads the section shows, and the aliases it deliberately hides."""
-    from jarvis.brain import ollama_inventory as inventory
+    from dodaios.brain import ollama_inventory as inventory
 
     try:
         snapshot = await inventory.cached_snapshot(root)
@@ -184,7 +184,7 @@ async def _inventory(root: str) -> Check:
 
 async def _roles(root: str, cfg: Any) -> Check:
     """Every slot with its pick, and whether that pick is on disk."""
-    from jarvis.brain import ollama_roles
+    from dodaios.brain import ollama_roles
 
     try:
         states, error = await ollama_roles.list_roles(root, cfg)
@@ -227,7 +227,7 @@ async def _card_parity(root: str) -> Check:
     pick the user can make on the card and then see reported as "Not
     downloaded" on the section — the two surfaces disagreeing about one box.
     """
-    from jarvis.brain import ollama_inventory as inventory
+    from dodaios.brain import ollama_inventory as inventory
 
     try:
         snapshot = await inventory.cached_snapshot(root)
@@ -257,7 +257,7 @@ async def _card_parity(root: str) -> Check:
 
 def _autostart(cfg: Any) -> Check:
     """Whether a fresh boot brings the server up with no click."""
-    from jarvis.local_models import autostart
+    from dodaios.local_models import autostart
 
     wanted, why = autostart.should_autostart(cfg)
     facts = {"autostart": wanted, "reason": why}
@@ -275,8 +275,8 @@ def _autostart(cfg: Any) -> Check:
 
 async def run(server: str | None) -> list[Check]:
     """Every check, in the order a reader wants them."""
-    from jarvis.brain.ollama_pull import server_root
-    from jarvis.core import config as config_mod
+    from dodaios.brain.ollama_pull import server_root
+    from dodaios.core import config as config_mod
 
     cfg = config_mod.load_config()
     root = server or server_root()

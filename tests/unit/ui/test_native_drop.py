@@ -13,7 +13,7 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.ui import native_drop
+from dodaios.ui import native_drop
 
 
 def test_paths_and_names_come_from_the_resolved_files_only() -> None:

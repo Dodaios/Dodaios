@@ -60,10 +60,10 @@
 
 | Phase | Code | Persistence | Responsibility |
 |---|---|---|---|
-| **A — Personal Dashboard** | `jarvis/board/aggregator.py`, `store.py` | `data/board/personal.db` (SQLite, sync) | FlightRecorder-JSONL → daily_stats / personal_records. Read-only API. |
-| **B — Achievements + AI-Bio** | `jarvis/board/achievements.py`, `evaluator.py`, `profile.py`, `scheduler.py` | same `personal.db` (additive) | Live-EventBus subscriber unlocks achievements. Bio rewritten on achievement unlocks or on request, billed to a subscription once one is connected. `[board.bio].override_provider/override_model` is the user's deliberate pin and the only way the bio bills a per-token key while a subscription is connected. |
+| **A — Personal Dashboard** | `dodaios/board/aggregator.py`, `store.py` | `data/board/personal.db` (SQLite, sync) | FlightRecorder-JSONL → daily_stats / personal_records. Read-only API. |
+| **B — Achievements + AI-Bio** | `dodaios/board/achievements.py`, `evaluator.py`, `profile.py`, `scheduler.py` | same `personal.db` (additive) | Live-EventBus subscriber unlocks achievements. Bio rewritten on achievement unlocks or on request, billed to a subscription once one is connected. `[board.bio].override_provider/override_model` is the user's deliberate pin and the only way the bio bills a per-token key while a subscription is connected. |
 | **C — Federation Backend** | `board-backend/` (separate subproject) | `/data/board.db` (in the container) | Standalone service. Receives signed pushes from the local Jarvis. |
-| **D — Friends** | extends `board-backend/` + `jarvis/ui/web/federation_proxy_routes.py` | same `board.db` (additive) | Pair, Activity, Reactions, Stories, Federation-Pull. |
+| **D — Friends** | extends `board-backend/` + `dodaios/ui/web/federation_proxy_routes.py` | same `board.db` (additive) | Pair, Activity, Reactions, Stories, Federation-Pull. |
 
 Each phase is separately deployable — if you only want Phase A, leave
 out `board-backend/`. If you only want Phase C+D, there is no
@@ -73,7 +73,7 @@ Local-Layer lock-in.
 
 ## Component model per phase
 
-### Phase A — `jarvis/board/`
+### Phase A — `dodaios/board/`
 
 ```
 aggregator.py
@@ -87,7 +87,7 @@ store.py
 schema.sql                         # additive CREATE TABLE IF NOT EXISTS
 ```
 
-### Phase B — `jarvis/board/`
+### Phase B — `dodaios/board/`
 
 ```
 achievements.py
@@ -285,7 +285,7 @@ but does **not** alter existing ones.
 
 ## Async conventions
 
-- **`jarvis/board/`**: Aggregator + BioGenerator + Scheduler run in the
+- **`dodaios/board/`**: Aggregator + BioGenerator + Scheduler run in the
   Jarvis web server's asyncio loop. The Aggregator uses
   `asyncio.to_thread` for the SQLite batch writes — the event loop
   stays free for UI requests.

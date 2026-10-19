@@ -6,8 +6,8 @@ mode) rendered an empty decision path and a timeline of blank rows.
 """
 from __future__ import annotations
 
-from jarvis.runs import analyzer
-from jarvis.runs.constants import (
+from dodaios.runs import analyzer
+from dodaios.runs.constants import (
     EVENT_CAT_BRAIN,
     EVENT_CAT_LATENCY,
     EVENT_CAT_SYSTEM,
@@ -15,9 +15,9 @@ from jarvis.runs.constants import (
     MAX_RAW_EVENTS_PER_TURN,
     RUN_EVENT_CATEGORIES,
 )
-from jarvis.runs.model import RunTurn
-from jarvis.sessions.models import VoiceEventRow, VoiceSessionRow
-from jarvis.sessions.recorder import _RAW_EVENT_KINDS
+from dodaios.runs.model import RunTurn
+from dodaios.sessions.models import VoiceEventRow, VoiceSessionRow
+from dodaios.sessions.recorder import _RAW_EVENT_KINDS
 
 
 def _ev(kind: str, ts: int = 0, seq: int = 0, **payload) -> VoiceEventRow:

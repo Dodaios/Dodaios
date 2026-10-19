@@ -40,7 +40,7 @@ the agents URL: same transport, same auth, wrong tools, no error anywhere.
 forwards to the HTTP surface:
 
 ```
-python -m jarvis.mcp.agents.bridge
+python -m dodaios.mcp.agents.bridge
 ```
 
 It needs no URL in the config, survives Jarvis changing port, works from
@@ -293,7 +293,7 @@ Against a running instance (headless), a real MCP client saw:
   three fixed resources plus one per agent, 3 prompts, live `ecosystem_status`;
 * `/api/control/mcp/` → server `jarvis`, its own 89 tools, **no** `agent_chat` —
   the surfaces do not leak into each other;
-* the stdio bridge (`python -m jarvis.mcp.agents.bridge`) → the same catalog and
+* the stdio bridge (`python -m dodaios.mcp.agents.bridge`) → the same catalog and
   the same live answers, which is the path a desktop client takes;
 * an unauthenticated POST → rejected before it reaches either surface.
 
@@ -316,15 +316,15 @@ mount the ASGI app directly and never meet the guard.
 
 | File | Role |
 |---|---|
-| `jarvis/mcp/agents/tools.py` | the tool set: schemas, handlers, the refusal vocabulary |
-| `jarvis/mcp/agents/server.py` | the MCP server: tools, resources, prompts |
-| `jarvis/mcp/agents/context.py` | lazy access to the live runtime (AP-26: nothing on the boot path) |
-| `jarvis/mcp/agents/bridge.py` | the stdio ↔ HTTP bridge for outside clients |
-| `jarvis/mcp/agents/export.py` | per-client config paths, snippets, and the merge-safe write |
-| `jarvis/mcp/agents/tokens.py` | per-client credentials: issue, scope, verify, revoke |
-| `jarvis/mcp/agents/portable.py` | the export/import bundle and its allowlist |
-| `jarvis/ui/web/mcp_server_routes.py` | the mount and the surface dispatch |
-| `jarvis/ui/web/agent_mcp_routes.py` | `/api/agent-mcp` — status, clients, snippet, connect |
+| `dodaios/mcp/agents/tools.py` | the tool set: schemas, handlers, the refusal vocabulary |
+| `dodaios/mcp/agents/server.py` | the MCP server: tools, resources, prompts |
+| `dodaios/mcp/agents/context.py` | lazy access to the live runtime (AP-26: nothing on the boot path) |
+| `dodaios/mcp/agents/bridge.py` | the stdio ↔ HTTP bridge for outside clients |
+| `dodaios/mcp/agents/export.py` | per-client config paths, snippets, and the merge-safe write |
+| `dodaios/mcp/agents/tokens.py` | per-client credentials: issue, scope, verify, revoke |
+| `dodaios/mcp/agents/portable.py` | the export/import bundle and its allowlist |
+| `dodaios/ui/web/mcp_server_routes.py` | the mount and the surface dispatch |
+| `dodaios/ui/web/agent_mcp_routes.py` | `/api/agent-mcp` — status, clients, snippet, connect |
 
 Tests: `tests/contract/` holds the contract (`_surface`), the coverage floor
 (`_every_tool`), the drift gate (`_harmony`) and portability (`_portable`);

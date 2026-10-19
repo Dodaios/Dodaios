@@ -13,12 +13,12 @@ import sqlite3
 from pathlib import Path
 from typing import get_args
 
-from jarvis.agent_chat import store as store_mod
-from jarvis.agent_chat.store import DEFAULT_SURFACE, SURFACES, AgentChatStore
-from jarvis.ui.web import agent_chat_routes
+from dodaios.agent_chat import store as store_mod
+from dodaios.agent_chat.store import DEFAULT_SURFACE, SURFACES, AgentChatStore
+from dodaios.ui.web import agent_chat_routes
 
 _ROOT = Path(__file__).resolve().parents[3]
-_TS_API = _ROOT / "jarvis" / "ui" / "web" / "frontend" / "src" / "lib" / "agentChatApi.ts"
+_TS_API = _ROOT / "dodaios" / "ui" / "web" / "frontend" / "src" / "lib" / "agentChatApi.ts"
 
 
 def test_python_and_pydantic_spell_the_surface_the_same():

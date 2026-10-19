@@ -37,7 +37,7 @@ The LLM may **never formulate an Observation itself** — only the runtime modul
 
 > **Amendment 2026-06-28 — natural surface form of a signed Observation.**
 > The invariant binds the *content* of an Observation, not its exact spoken
-> wording. A bounded flash-LLM (`jarvis/voice/contextual_readback.py`) MAY render
+> wording. A bounded flash-LLM (`dodaios/voice/contextual_readback.py`) MAY render
 > the already-signed `summary_de`/`summary_en` into a more natural spoken sentence
 > on the readback path, under two hard guards: (a) it is given ONLY the signed
 > line as ground truth and instructed to rephrase, never invent; (b) an
@@ -83,7 +83,7 @@ The WebSocket layer (Mission Control UI) replays via the `Last-Event-ID` pattern
 
 ### 5. Positioning relative to existing Phase-5 components
 
-The Phase-5 `SubJarvisManager` (`jarvis/brain/sub_jarvis.py`) stays **untouched**. Phase-6 code lives in parallel under `jarvis/missions/` (see file layout in the research document §"Recommended file/module structure"). The main Dodaios dispatches depending on the risk tier:
+The Phase-5 `SubJarvisManager` (`dodaios/brain/sub_jarvis.py`) stays **untouched**. Phase-6 code lives in parallel under `dodaios/missions/` (see file layout in the research document §"Recommended file/module structure"). The main Dodaios dispatches depending on the risk tier:
 
 - **safe / monitor / single-shot** -> existing `SubJarvisManager` (Phase 5, tool loop without critic)
 - **ask / multi-step / repair / refactor / cross-file** -> new `MissionManager` (Phase 6, Worker-Critic-Loop)
@@ -118,13 +118,13 @@ Heuristic: a mission is Phase-6-eligible if the router classifier returns `code`
 - Prompt chain: `docs/phase6-prompt-chain.md` (skeleton created).
 - Persona mandate: `Jarvis-Behavior/persona-delegation-mandate.md` §"Phase 4 — Multi-Step-Missions".
 - Master plan: `<USER_HOME>\.claude\plans\also-er-muss-auch-lexical-pond.md` §"Phase 6 — Self-Healing".  <!-- i18n-allow -->
-- Existing code (NOT to be changed): `jarvis/brain/sub_jarvis.py:SubJarvisManager`.
-- Planned new modules: `jarvis/missions/{manager,state_machine,kontrollierer,workers,critic,isolation}/*`.
+- Existing code (NOT to be changed): `dodaios/brain/sub_jarvis.py:SubJarvisManager`.
+- Planned new modules: `dodaios/missions/{manager,state_machine,kontrollierer,workers,critic,isolation}/*`.
 - Subagents for the Phase-6 implementation: `.claude/agents/jarvis-{architect-explorer,test-runner,critic-design-reviewer}.md`.
 
 ## Open
 
-- **Reflexion memory layout:** do we persist the last 3 critic reflections as `reflections.md` in the worktree (Reflexion-paper pattern) or as JSON in SQLite (query-baker)? Decision when writing `jarvis/missions/critic/runner.py`.
+- **Reflexion memory layout:** do we persist the last 3 critic reflections as `reflections.md` in the worktree (Reflexion-paper pattern) or as JSON in SQLite (query-baker)? Decision when writing `dodaios/missions/critic/runner.py`.
 - **Cross-model-critic trigger:** should the switch to Codex/GPT as the critic happen automatically when Worker = Claude and iteration == 3, or only via config? Gather observations during Phase 6, amend if needed.
 - **Worktree-cleanup policy on MissionFailed:** immediate `git worktree remove --force` or keep for N days for forensics? Proposal: keep + automatic prune after 7 days.
 - **Voice readback at iteration 2:** should the user hear "I'm trying again" after the critic verdict `revise`, or loop silently until approval? Default silent, opt-in via `[voice].announce_critic_loop = true`.

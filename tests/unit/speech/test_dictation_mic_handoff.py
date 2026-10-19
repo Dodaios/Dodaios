@@ -21,10 +21,10 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.config import DictationConfig
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.config import DictationConfig
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")
 
@@ -441,7 +441,7 @@ async def test_a_wake_dropped_by_a_dictation_says_so_in_the_log(
     pipeline._dictation_task = blocking  # type: ignore[assignment]
     pipeline._dictation_wake_block_until = pipeline_mod.time.time() + 300.0
     try:
-        with caplog.at_level("INFO", logger="jarvis.speech.pipeline"):
+        with caplog.at_level("INFO", logger="dodaios.speech.pipeline"):
             release.set()
             await asyncio.wait_for(wake_task, timeout=2.0)
         messages = [r.getMessage() for r in caplog.records]

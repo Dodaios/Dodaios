@@ -37,8 +37,8 @@ source piped in via `tar` — the host working tree was never mounted or modifie
 
 - **Base install** — `pip install .` (pyproject base deps, **no `[desktop]` extras**)
   boots cleanly; every dependency resolved via wheels (no build tools needed). ✅
-- **Imports** — `jarvis.browser_voice.{session,route}`, `jarvis.telephony.audio`,
-  `jarvis.audio.{player,capture}` all import with **sounddevice absent** (the H4
+- **Imports** — `dodaios.browser_voice.{session,route}`, `dodaios.telephony.audio`,
+  `dodaios.audio.{player,capture}` all import with **sounddevice absent** (the H4
   lazy-import / `_PortAudioError` sentinel degrade to `sd = None`). ✅
 - **B2 backend** — `tests/unit/browser_voice/` **13/13 passed** on Linux. ✅
 - **Import-cleanliness gate** — PASS on Linux. ✅
@@ -106,7 +106,7 @@ These are not on the GUI/permission checklist; recorded here for completeness.
 |---|---|
 | Terminal — `make_pty_backend()` spawns the OS shell + echo round-trips with no mojibake | `verified-on-windows 2026-05-30` (probe ran a real PTY echo round-trip on `WinptyBackend`, `exitstatus` seam intact). macOS/Linux real-PTY: `CI-configured — first green run pending push` (the ubuntu/macos legs of `ci.yml` run the real-PTY test). |
 | App-launch — `resolve_app_launch_target()` maps names + rejects a hallucinated name | `verified-on-windows 2026-05-30` (probe resolved calculator/terminal/code to executables and routed the nonsense name to a refusable target). macOS/Linux resolution: `CI-configured — first green run pending push`. The *actual* process launch on a real device is `unverified-on-real-desktop`. |
-| Import-cleanliness gate (`python -c "import jarvis"`, no module-scope Windows-only import) | `verified-on-windows 2026-05-30` (`scripts/ci/check_import_clean.py` exits 0, 534 files scanned). On Linux/macOS: `CI-configured — first green run pending push` (the BLOCKING gate runs on every leg of `ci.yml`). |
+| Import-cleanliness gate (`python -c "import dodaios"`, no module-scope Windows-only import) | `verified-on-windows 2026-05-30` (`scripts/ci/check_import_clean.py` exits 0, 534 files scanned). On Linux/macOS: `CI-configured — first green run pending push` (the BLOCKING gate runs on every leg of `ci.yml`). |
 
 ---
 
