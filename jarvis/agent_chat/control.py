@@ -34,6 +34,27 @@ def supports_restricted_turn(session: Any) -> bool:
     return session_runner(session) not in ("kimi-cli", "dsh-cli")
 
 
+def _chat_language(current: str, text: str) -> str:
+    """The conversation language after *text*, sticky, else *current*.
+
+    Never the UI language: the interface being English says nothing about
+    the language a person chats in (forensic 2026-10-19, a Turkish chat in an
+    English UI was forced into English after a slash command).
+    """
+    from jarvis.core import runtime_refs
+    from jarvis.core.turn_language import resolve_conversation_language
+    from jarvis.i18n import is_known_language
+
+    brain = runtime_refs.get_brain_manager()
+    language = resolve_conversation_language(
+        getattr(brain, "reply_language", "auto") or "auto",
+        "unknown",
+        text or "",
+        conversation_language=current,
+    )
+    return language if is_known_language(language) else current
+
+
 class ChatControls:
     def __init__(self, service: Any, *, evaluator: Any = None, adapters: Any = None) -> None:
         self.service = service
@@ -135,15 +156,9 @@ class ChatControls:
 
             if contains_secret(request.arguments):
                 raise ValueError("Configure credentials in app settings, not in chat commands")
-            from jarvis.core.config import load_config
-            from jarvis.core.turn_language import resolve_output_language
-
             state = self.state(sid)
-            state.output_language = resolve_output_language(
-                load_config().brain.reply_language,
-                request.locale,
-                request.arguments or state.last_request,
-                default=request.locale,
+            state.output_language = _chat_language(
+                state.output_language, request.arguments or state.last_request
             )
             self.store.save(state)
             data = await self._dispatch(
@@ -343,6 +358,9 @@ class ChatControls:
         if kwargs.get("direct_user", True):
             state = self.state(sid)
             state.last_request, state.last_status = text, "running"
+            # Keep the stored language the conversation's, turn by turn, so a
+            # later send never inherits one an older command left behind.
+            state.output_language = _chat_language(state.output_language, text)
             self.store.save(state)
             origin = _command_origin.get()
             if origin:

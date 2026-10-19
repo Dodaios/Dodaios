@@ -628,9 +628,9 @@ class TelephonyCallSession:
     # -- helpers -----------------------------------------------------------
 
     def _lang_short(self) -> str:
-        """Short language code of the call (de/en/es/pt); German for others."""
+        """Short language code of the call (de/en/es/pt); English for others."""
         short = self.language_code.lower().split("-")[0]
-        return short if short in _DEFAULT_GREETINGS else "de"
+        return short if short in _DEFAULT_GREETINGS else "en"
 
     def _default_greeting(self) -> str:
         """Greeting spoken when no custom ``greeting`` was configured.

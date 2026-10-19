@@ -484,7 +484,7 @@ class SessionRecorder:
         self._state = _SessionState(
             session_id=event.session_id,
             started_ms=ts_ms,
-            language=event.language or "de",
+            language=event.language or "en",
         )
         self._auto_turn_counter = 0
         # A fresh session supersedes the previous one as the attach target for
@@ -496,7 +496,7 @@ class SessionRecorder:
             session_id=event.session_id,
             started_ms=ts_ms,
             wake_keyword=event.wake_keyword,
-            language=event.language or "de",
+            language=event.language or "en",
         )
         log.info("SessionRecorder: session started id=%s", event.session_id)
 

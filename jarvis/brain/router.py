@@ -588,12 +588,12 @@ def _detect_image_mime(data: bytes) -> str:
         return "image/jpeg"
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
-    raise ValueError("Observation enthaelt kein unterstuetztes Bildformat")
+    raise ValueError("The observation is not in a supported image format")
 
 
 async def _read_observation_png_b64(obs: Observation) -> str:
     """Backwards-compatible helper for old tests/callsites."""
     mime, data_b64 = await _read_observation_image_b64(obs)
     if mime != "image/png":
-        raise ValueError(f"Observation ist {mime}, nicht image/png")
+        raise ValueError(f"The observation is {mime}, not image/png")
     return data_b64
