@@ -143,9 +143,25 @@ def test_embed_refuses_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_embed_rejects_bad_input_before_starting_anything(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(browser_embed, "_is_windows", lambda: True)
+    # A browser that never ran lists no profiles: only its Default may open.
+    monkeypatch.setattr(browser_embed, "read_profiles", lambda _user_data: ([], None))
     embed = browser_embed.ChromeEmbed()
     assert embed.launch("netscape", "Default", None, 1)["reason"] == "unknown_browser"
+    assert embed.launch("chrome", "Profile 5", None, 1)["reason"] == "bad_profile"
     assert embed.launch("chrome", "--user-data-dir=x", None, 1)["reason"] == "bad_profile"
+    monkeypatch.setattr(browser_embed, "read_profiles", lambda _dir: ([], None))
+    # Without a profile list only the default profile may be opened.
+    assert embed.launch("chrome", "Profile 5", None, 1)["reason"] == "bad_profile"
     monkeypatch.setattr(browser_embed, "find_browser_exe", lambda spec: None)
     assert embed.launch("chrome", "Default", None, 1)["reason"] == "browser_missing"
+    assert embed._thread is None
+
+
+def test_embed_refuses_to_launch_after_shutdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(browser_embed, "_is_windows", lambda: True)
+    monkeypatch.setattr(browser_embed, "read_profiles", lambda _dir: ([], None))
+    monkeypatch.setattr(browser_embed, "find_browser_exe", lambda spec: "chrome.exe")
+    embed = browser_embed.ChromeEmbed()
+    embed.shutdown()
+    assert embed.launch("chrome", "Default", None, 1)["reason"] == "shutting_down"
     assert embed._thread is None
