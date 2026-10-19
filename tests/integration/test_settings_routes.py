@@ -10,9 +10,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 class _FakeBrain:
@@ -49,7 +49,7 @@ def server() -> Iterator[WebServer]:
 def _no_toml_write(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Capture persistence calls instead of writing the real jarvis.toml."""
     calls: list[str] = []
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(config_writer, "set_reply_language", lambda name, **kw: calls.append(name))
     return calls
@@ -110,7 +110,7 @@ def test_bar_size_get_returns_default_and_range(server: WebServer) -> None:
 def test_bar_size_put_persists_and_updates_config(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     written: list[float] = []
     monkeypatch.setattr(config_writer, "set_bar_size_scale", lambda s, **kw: written.append(s))
@@ -130,7 +130,7 @@ def test_bar_size_put_persists_and_updates_config(
 def test_bar_size_put_live_applies_to_the_desktop_app(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(config_writer, "set_bar_size_scale", lambda s, **kw: None)
 

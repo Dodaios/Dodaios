@@ -7,8 +7,8 @@
 import httpx
 import pytest
 
-from jarvis.marketplace.catalog import PatPasteAuth, PluginSpec
-from jarvis.ui.web import marketplace_routes as mr
+from dodaios.marketplace.catalog import PatPasteAuth, PluginSpec
+from dodaios.ui.web import marketplace_routes as mr
 
 
 def _spec(scheme: str, validation_endpoint: str) -> PluginSpec:

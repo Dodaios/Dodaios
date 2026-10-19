@@ -1,0 +1,3095 @@
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useEventStore } from "@/store/events";
+import {
+  ExternalLink,
+  RotateCw,
+  Plus,
+  Check,
+  Copy,
+  X,
+  Loader2,
+  AlertTriangle,
+  MoreHorizontal,
+  ArrowRight,
+  Trash2,
+} from "lucide-react";
+import { CommunityTab } from "@/views/PluginsCommunity";
+import { Breadcrumbs, type Crumb, PluginBrowse, sectionTitle } from "@/views/plugins/PluginBrowse";
+import { homeSectionId, type PluginScope } from "@/views/plugins/sections";
+import { PluginUploadDialog } from "@/views/PluginUploadDialog";
+import { AddConnectorDialog, AddPluginTabs, type AddPluginMode } from "@/views/AddConnectorDialog";
+import { removeAddedPlugin, takePluginFocus } from "@/lib/customConnector";
+import { fill, translate, useLocaleChunk } from "@/i18n";
+import { backendMessage } from "@/lib/backendMessage";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  ActionMenu,
+  ClampedText,
+  FactRows,
+  IconButton,
+  Panel,
+  SoftButton,
+  StatusDot,
+} from "@/components/extensions/primitives";
+import { FileCard, type CardFile } from "@/components/extensions/FileCard";
+import { cn } from "@/lib/utils";
+import { MarketplaceBadge } from "@/components/MarketplaceBadge";
+import { openExternalUrl } from "@/lib/openExternal";
+import { robustCopy } from "@/lib/clipboard";
+import { PRODUCT_NAME } from "@/lib/branding";
+import { bundledPluginLogo as bundledLogo } from "@/lib/pluginLogos";
+import { useRunLocale } from "@/components/runs/format";
+
+const CustomApisView = lazy(() => import("@/views/CustomApisView").then((module) => ({ default: module.CustomApisView })));
+
+// ---------------------------------------------------------------------------
+// Wire types — mirror the JSON shape served by /api/marketplace/plugins.
+// ---------------------------------------------------------------------------
+
+type AuthMode =
+  | "oauth_device_flow"
+  | "pat_paste"
+  | "hosted_mcp_oauth_dcr"
+  | "oauth_pkce_loopback"
+  | "instance_browser"
+  | "local"
+  | "hosted_mcp_allowlist"
+  | "hosted_mcp_open";
+
+type PluginStatus = "not_connected" | "connected" | "needs_reauth" | "error";
+/** Deliberately a plain string, mirroring the backend. The catalog serves the
+ *  section order (`category_order`), so adding a category is a backend-only
+ *  change and an unknown one renders in its own section instead of crashing
+ *  the view — the previous hardcoded record threw on any value it did not
+ *  already know. */
+type Category = string;
+type Longevity = "permanent" | "self_renewing" | "provider_limited";
+/** Mirrors `Acceptance` in dodaios/marketplace/catalog.py: "verified" only
+ *  after a completed end-to-end browser journey, "preview" otherwise. */
+type Acceptance = "verified" | "preview";
+/** Mirrors the backend's REAUTH_* codes (dodaios/marketplace/token_store.py). */
+type ReauthReason =
+  | "provider_rejected"
+  | "client_rejected"
+  | "client_missing"
+  | "rotation_lost"
+  | "refresh_missing";
+
+/** What actually happened, in the user's terms, and what it means for them.
+ *
+ *  A bare "Reconnect needed" makes every cause look like the same random
+ *  glitch. These four sentences are the difference between "this keeps
+ *  breaking for no reason" and "my own OAuth app is still in Testing mode".
+ */
+const REAUTH_EXPLANATION: Record<ReauthReason, string> = {
+  provider_rejected: "plugins_view.reauth_provider_rejected",
+  client_rejected: "plugins_view.reauth_client_rejected",
+  client_missing: "plugins_view.reauth_client_missing",
+  rotation_lost: "plugins_view.reauth_rotation_lost",
+  refresh_missing: "plugins_view.reauth_refresh_missing",
+};
+
+/** Whether Jarvis will keep trying on its own, so the card never implies the
+ *  user must act when a retry is already scheduled — or stays silent when one
+ *  is not. `rotation_lost` is deliberately never retried. */
+function retriesItself(reason: ReauthReason | string | null | undefined): boolean {
+  return reason !== "rotation_lost" && reason !== "refresh_missing";
+}
+
+/** Coarse age of a flag: "today", "3 days ago". Deliberately not minute-exact —
+ *  what matters is whether this happened just now or a week ago. Returns null
+ *  for a missing or unparseable stamp rather than inventing a moment. */
+function flaggedAgo(stamp: string | null | undefined, now: number = Date.now()): string | null {
+  if (!stamp) return null;
+  const then = Date.parse(stamp);
+  if (Number.isNaN(then)) return null;
+  const days = Math.floor(Math.max(0, now - then) / 86_400_000);
+  if (days < 1) return translate("plugins_view.ago_today");
+  if (days === 1) return translate("plugins_view.ago_yesterday");
+  return fill(translate("plugins_view.ago_days"), { count: days });
+}
+
+interface CatalogPlugin {
+  id: string;
+  display_name: string;
+  description: string;
+  category: Category;
+  logo_slug: string;
+  logo_color?: string | null;
+  logo_url?: string | null;
+  featured?: boolean;
+  longevity?: Longevity;
+  longevity_note?: string | null;
+  acceptance?: Acceptance;
+  oauth_client_family?: string | null;
+  oauth_client_configured?: boolean;
+  auth: { mode: AuthMode; [key: string]: unknown };
+  /** Expert token fallback for a browser-primary plugin (dual-mode).
+   *  Present only until the publisher OAuth client is provisioned. */
+  fallback_auth?: { mode: AuthMode; [key: string]: unknown } | null;
+  /** Browser-standard state for PKCE/device plugins (additive). */
+  auth_standard?: { ready: boolean; source: string; fallback: boolean } | null;
+  status: PluginStatus;
+  live_callable?: boolean;
+  unavailable_reason?: string | null;
+  /** Stable code for `unavailable_reason` (dodaios/marketplace/amd_mcp.py
+   *  AMD_UNAVAILABLE_REASONS); translated at render, else the English text. */
+  unavailable_reason_code?: string | null;
+  /** Why the connection is flagged, and since when. Only set while
+   *  `status === "needs_reauth"`; `null` when it died before Jarvis recorded
+   *  reasons. Never carries provider error text. */
+  reauth_reason?: ReauthReason | string | null;
+  reauth_at?: string | null;
+  refresh_expires_at?: string | null;
+  /** "seed" for a plugin the app ships, "community" for one installed from
+   *  the marketplace. Drives the Marketplace mark and keeps an installed
+   *  community plugin in the Installed tab before it is ever connected. */
+  source?: string;
+  publisher?: string | null;
+  version?: string | null;
+  source_url?: string | null;
+  /** Transport block; a custom connector's `url` is the server it reaches. */
+  mcp_server?: { transport?: string; url?: string; [key: string]: unknown } | null;
+}
+
+interface CatalogResponse {
+  version: number;
+  schema_version: string;
+  category_order?: string[];
+  plugins: CatalogPlugin[];
+  total: number;
+  connected: number;
+}
+
+/** Publish the status that a connect/disconnect endpoint has already committed.
+ *
+ * OAuth completion used to only invalidate the catalog query. That leaves the
+ * old card visible while an embedded WebView waits for the follow-up request,
+ * so a successful Gmail login can still look disconnected long enough for the
+ * user to start a second login. Update the canonical query cache immediately,
+ * then let a background refetch reconcile the remaining runtime metadata.
+ */
+function cachePluginStatus(
+  queryClient: QueryClient,
+  pluginId: string,
+  status: PluginStatus,
+): void {
+  queryClient.setQueryData<CatalogResponse>(
+    ["marketplace-plugins"],
+    (catalog) => {
+      if (!catalog) return catalog;
+      let found = false;
+      const plugins = catalog.plugins.map((plugin) => {
+        if (plugin.id !== pluginId) return plugin;
+        found = true;
+        return {
+          ...plugin,
+          status,
+          reauth_reason: null,
+          reauth_at: null,
+          refresh_expires_at: null,
+          ...(status === "not_connected" ? { live_callable: false } : {}),
+        };
+      });
+      if (!found) return catalog;
+      return {
+        ...catalog,
+        plugins,
+        connected: plugins.filter((plugin) => plugin.status === "connected").length,
+      };
+    },
+  );
+}
+
+interface PatPasteAuthDetail {
+  mode: "pat_paste";
+  token_creation_url: string;
+  token_prefix: string;
+  /** Extra accepted prefixes (e.g. GitHub fine-grained `github_pat_`). */
+  token_prefixes?: string[];
+  instruction_md: string;
+  /** Present for self-hosted services (Home Assistant, Jellyfin, Nextcloud…):
+   *  the server address is the user's own, so the catalog can only describe
+   *  the field, never fill it. */
+  instance_url?: {
+    label: string;
+    placeholder: string;
+    help_md?: string | null;
+  } | null;
+}
+
+export interface Plugin {
+  id: string;
+  name: string;
+  description: string;
+  category: Category;
+  logoSlug: string;
+  logoColor?: string;
+  logoUrl?: string;
+  authMode: AuthMode;
+  /** Raw auth config from the catalog. The modal needs `instruction_md`,
+   *  `token_creation_url`, and `token_prefix` for `pat_paste`-mode plugins. */
+  authConfig: { mode: AuthMode; [key: string]: unknown };
+  status: PluginStatus;
+  featured?: boolean;
+  liveCallable?: boolean;
+  unavailableReason?: string;
+  unavailableReasonCode?: string;
+  longevity: Longevity;
+  longevityNote?: string;
+  /** Undefined only in hand-built fixtures; the catalog always states it. */
+  acceptance?: Acceptance;
+  oauthClientFamily?: string;
+  reauthReason?: ReauthReason | string;
+  reauthAt?: string;
+  refreshExpiresAt?: string;
+  oauthClientConfigured: boolean;
+  /** Expert token fallback (browser-primary plugins only). */
+  fallbackAuth?: PatPasteAuthDetail | null;
+  /** True when the browser flow can start with no user setup. Optional so
+   *  older fixtures keep compiling; undefined means "not browser-ready". */
+  browserReady?: boolean;
+  /** Honest banner shown when the token dialog opens as a fallback. */
+  fallbackNotice?: string | null;
+  /** True for a plugin installed from the community marketplace. */
+  fromMarketplace: boolean;
+  /** True for a plugin the owner uploaded here — no registry, no review. */
+  selfUploaded: boolean;
+  publisher?: string;
+  sourceUrl?: string;
+  /** Remote MCP address, shown for plugins the owner added by URL. */
+  mcpUrl?: string;
+}
+
+/** Why a plugin cannot run here, in the UI language when the backend named
+ *  the reason with a code; otherwise its own sentence. */
+export function unavailableReasonText(plugin: Plugin): string | undefined {
+  if (!plugin.unavailableReason) return undefined;
+  return backendMessage(
+    translate,
+    "plugins_view.unavailable_reason",
+    plugin.unavailableReasonCode,
+    null,
+    plugin.unavailableReason,
+  );
+}
+
+/** A shipped plugin's longevity note in the UI language (keyed by plugin id);
+ *  a marketplace or uploaded plugin's own note is shown as published. */
+function longevityNoteText(plugin: Plugin): string | undefined {
+  if (!plugin.longevityNote) return undefined;
+  const shipped = !plugin.fromMarketplace && !plugin.selfUploaded;
+  return backendMessage(
+    translate,
+    "plugins_view.longevity_note",
+    shipped ? plugin.id : "",
+    null,
+    plugin.longevityNote,
+  );
+}
+
+function adapt(p: CatalogPlugin): Plugin {
+  return {
+    id: p.id,
+    name: p.display_name,
+    description: p.description,
+    category: p.category,
+    logoSlug: p.logo_slug,
+    logoColor: p.logo_color ?? undefined,
+    logoUrl: p.logo_url ?? undefined,
+    authMode: p.auth.mode,
+    authConfig: p.auth,
+    status: p.status,
+    featured: p.featured ?? false,
+    liveCallable: p.live_callable ?? false,
+    unavailableReason: p.unavailable_reason ?? undefined,
+    unavailableReasonCode: p.unavailable_reason_code ?? undefined,
+    longevity: p.longevity ?? "self_renewing",
+    longevityNote: p.longevity_note ?? undefined,
+    acceptance: p.acceptance ?? "preview",
+    oauthClientFamily: p.oauth_client_family ?? undefined,
+    reauthReason: p.reauth_reason ?? undefined,
+    reauthAt: p.reauth_at ?? undefined,
+    refreshExpiresAt: p.refresh_expires_at ?? undefined,
+    oauthClientConfigured: p.oauth_client_configured ?? false,
+    fallbackAuth:
+      p.fallback_auth != null && typeof p.fallback_auth === "object"
+        ? (p.fallback_auth as unknown as PatPasteAuthDetail)
+        : null,
+    browserReady: p.auth_standard?.ready ?? p.oauth_client_configured ?? false,
+    fromMarketplace: p.source === "community",
+    selfUploaded: p.source === "local",
+    publisher: p.publisher ?? undefined,
+    sourceUrl: p.source_url ?? undefined,
+    mcpUrl: typeof p.mcp_server?.url === "string" ? p.mcp_server.url : undefined,
+  };
+}
+
+/** The plugin catalog as one shared, polled query. Every surface of the section
+ *  reads it through this hook, so a connection made on one page is seen by the
+ *  sidebar and the directory at the same moment. */
+export function usePluginCatalog() {
+  const query = useQuery({
+    queryKey: ["marketplace-plugins"],
+    queryFn: fetchCatalog,
+    refetchInterval: 30_000,
+  });
+  const plugins = useMemo<Plugin[]>(
+    () => query.data?.plugins.map(adapt) ?? [],
+    [query.data],
+  );
+  return { ...query, plugins };
+}
+
+// --- Brand marks -----------------------------------------------------------
+// Three tiers, tried in order, so a card is never blank and never a broken
+// image:
+//   1. a full-colour SVG bundled in the app (offline-safe, no third party)
+//   2. the Simple Icons glyph in white on the brand's own colour tile
+//   3. a monogram on the brand tile — used when tier 2 cannot load at all
+//      (offline, locked-down network, or an icon the CDN has dropped)
+// Tier 2 is what makes the store look intentional before every brand mark has
+// been sourced: a coloured tile with a white glyph reads as a product decision,
+// a black glyph on a white square reads as a placeholder.
+const DEFAULT_BRAND_TILE = "#3F3F46";
+
+function brandTile(p: { logoColor?: string }): string {
+  const raw = (p.logoColor ?? "").trim();
+  if (!raw) return DEFAULT_BRAND_TILE;
+  return raw.startsWith("#") ? raw : `#${raw}`;
+}
+
+/** Pick a glyph colour that stays legible on the brand tile. A few brand
+ *  colours are near-white (and a couple are near-black), so a fixed white
+ *  glyph would vanish on them. */
+function glyphColor(tileHex: string): string {
+  const hex = tileHex.replace("#", "");
+  if (hex.length !== 6) return "ffffff";
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return luminance > 0.6 ? "111111" : "ffffff";
+}
+
+function resolveLogoUrl(p: {
+  id?: string;
+  logoUrl?: string;
+  logoSlug: string;
+  logoColor?: string;
+}): string {
+  const bundled = p.id ? bundledLogo(p.id) : undefined;
+  if (bundled) return bundled;
+  if (p.logoUrl) return p.logoUrl;
+  return `https://cdn.simpleicons.org/${p.logoSlug}/${glyphColor(brandTile(p))}`;
+}
+
+/** True when the mark is a full-colour asset that must sit on a neutral tile
+ *  rather than on the brand colour (its own colours already carry the brand). */
+function isFullColourMark(p: { id?: string; logoUrl?: string }): boolean {
+  return Boolean((p.id && bundledLogo(p.id)) || p.logoUrl);
+}
+
+/** Translation keys; translated where rendered so a language switch applies. */
+const LONGEVITY_LABEL: Record<Longevity, string> = {
+  permanent: "plugins_view.longevity_permanent",
+  self_renewing: "plugins_view.longevity_self_renewing",
+  provider_limited: "plugins_view.longevity_provider_limited",
+};
+
+async function fetchCatalog(): Promise<CatalogResponse> {
+  // `cache: "no-store"` forces the embedded WebView2 (desktop app) to bypass
+  // its HTTP cache on every fetch. The server already sends
+  // `Cache-Control: no-store`, but that only stops NEW caching — it does not
+  // evict an entry WebView2 had already frozen. Result: the desktop window kept
+  // serving a stale plugin list (a freshly-connected plugin still showed as
+  // "not connected") while a normal browser tab showed the truth. Bypassing the
+  // client cache here is the half that actually clears the residual entry.
+  const res = await fetch("/api/marketplace/plugins", { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Translation keys; translated where rendered so a language switch applies. */
+const AUTH_LABELS: Record<AuthMode, string> = {
+  instance_browser: "plugins_view.auth_browser_login",
+  local: "plugins_view.auth_local",
+  oauth_device_flow: "plugins_view.auth_device_flow",
+  pat_paste: "plugins_view.auth_access_token",
+  hosted_mcp_oauth_dcr: "plugins_view.auth_one_click",
+  oauth_pkce_loopback: "plugins_view.auth_browser_login",
+  hosted_mcp_allowlist: "plugins_view.auth_allowlist",
+  hosted_mcp_open: "plugins_view.auth_no_signin",
+};
+
+// Provider families supporting an optional expert OAuth client override: use their
+// OWN production client here (the durable fix for provider-side refresh-token
+// expiry — e.g. Google revokes a "Testing" app's token after 7 days). The Google
+// family shares ONE client pair; slack and asana each have their own. Mirrors
+// The catalog now declares this per plugin (`oauth_client_family`), so a new
+// plugin no longer needs a frontend release to get the "use your own OAuth
+// client" affordance — the omission that silently removed it before. This table
+// only supplies the human label for a family and stays as the fallback for a
+// user's `data/` catalog written before the field existed.
+const OAUTH_CLIENT_FAMILY_FALLBACK: Record<string, string> = {
+  gmail: "google",
+  google_drive: "google",
+  google_calendar: "google",
+  slack: "slack",
+  asana: "asana",
+};
+
+const OAUTH_FAMILY_LABEL: Record<string, string> = {
+  google: "Google",
+  slack: "Slack",
+  asana: "Asana",
+  microsoft: "Microsoft",
+  spotify: "Spotify",
+  github: "GitHub",
+  gitlab: "GitLab",
+  figma: "Figma",
+  hubspot: "HubSpot",
+};
+
+/** Render a translated sentence with one `{slot}` replaced by a React node,
+ *  so links and emphasised terms can sit anywhere the language needs them. */
+function withSlot(text: string, slot: string, node: React.ReactNode): React.ReactNode {
+  const marker = `{${slot}}`;
+  const at = text.indexOf(marker);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      {node}
+      {text.slice(at + marker.length)}
+    </>
+  );
+}
+
+function oauthClientFamily(
+  plugin: Plugin,
+): { family: string; label: string } | undefined {
+  const family = plugin.oauthClientFamily ?? OAUTH_CLIENT_FAMILY_FALLBACK[plugin.id];
+  if (!family) return undefined;
+  return {
+    family,
+    label: OAUTH_FAMILY_LABEL[family] ?? family[0].toUpperCase() + family.slice(1),
+  };
+}
+
+// Where the user creates/manages their own OAuth client per family.
+const OAUTH_CLIENT_CONSOLE: Record<string, string> = {
+  microsoft: "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+  x: "https://developer.x.com/portal/dashboard",
+  linkedin: "https://www.linkedin.com/developers/apps",
+  zoom: "https://marketplace.zoom.us/develop/create",
+  salesforce: "https://help.salesforce.com/s/articleView?id=sf.external_client_apps.htm&type=5",
+  google: "https://console.cloud.google.com/auth/clients",
+  slack: "https://api.slack.com/apps",
+  asana: "https://app.asana.com/0/my-apps",
+  spotify: "https://developer.spotify.com/dashboard",
+  github: "https://github.com/settings/applications/new",
+  gitlab: "https://gitlab.com/-/profile/applications",
+  figma: "https://www.figma.com/developers/apps",
+  hubspot: "https://developers.hubspot.com/",
+};
+
+// What a client id actually looks like, per provider. The field used to show
+// Google's `…apps.googleusercontent.com` to everyone, which reads as "you are
+// in the wrong place" when the provider is Spotify or Slack.
+// Literal example values stay as they are; prose hints are translation keys
+// (prefixed "plugins_view.") and are translated where rendered.
+const OAUTH_CLIENT_ID_PLACEHOLDER: Record<string, string> = {
+  google: "…apps.googleusercontent.com",
+  spotify: "plugins_view.client_id_hint_spotify",
+  slack: "1234567890123.1234567890123",
+  asana: "1234567890123456",
+  github: "plugins_view.client_id_hint_github",
+  gitlab: "plugins_view.client_id_hint_gitlab",
+  figma: "plugins_view.client_id_hint_figma",
+  hubspot: "plugins_view.client_id_hint_hubspot",
+};
+
+/** Render an OAUTH_CLIENT_ID_PLACEHOLDER entry: a key is translated, a
+ *  literal example value is returned as is. */
+function clientIdPlaceholder(value: string): string {
+  return value.startsWith("plugins_view.") ? translate(value) : value;
+}
+
+// Providers whose PKCE flow needs no secret at all. Saying so beats an empty
+// box captioned "optional for some providers", which leaves the reader to
+// guess whether they are one of them.
+const OAUTH_NO_SECRET_NEEDED: Record<string, string> = {
+  microsoft: "plugins_view.secret_not_needed_public",
+  x: "plugins_view.secret_not_needed_native",
+  spotify: "plugins_view.secret_not_needed_empty",
+  google: "plugins_view.secret_usually_not_needed",
+  github: "plugins_view.secret_not_needed_empty",
+  gitlab: "plugins_view.secret_usually_not_needed",
+  figma: "plugins_view.secret_usually_not_needed",
+};
+
+/** The redirect URI the provider must have registered for the login to work.
+ *
+ *  Built from the catalog entry rather than written out per provider, so this
+ *  hint and the loopback listener that actually binds cannot drift apart. Only
+ *  meaningful for a plugin with a FIXED port; one with an ephemeral port has
+ *  nothing stable to register.
+ *
+ *  An absent `callback_path` means the backend default (`/oauth/callback` in
+ *  `OAuthPkceLoopbackAuth`) — NOT an empty path. Showing the bare
+ *  `http://127.0.0.1:PORT` made users register exactly that address while the
+ *  listener waited one level deeper, so the provider either rejected the
+ *  login as a redirect mismatch or called back into a 404 and the dialog spun
+ *  forever.
+ *
+ *  Worth surfacing because a mismatch here is the single most common reason a
+ *  first connect fails, and the provider's error ("INVALID_CLIENT: Invalid
+ *  redirect URI") names neither the expected value nor where to put it. */
+function loopbackRedirectUri(plugin: Plugin): string | undefined {
+  if (plugin.authMode !== "oauth_pkce_loopback") return undefined;
+  const auth = plugin.authConfig as {
+    callback_port?: unknown;
+    callback_path?: unknown;
+  };
+  const port = typeof auth?.callback_port === "number" ? auth.callback_port : 0;
+  if (!port) return undefined;
+  const path = typeof auth?.callback_path === "string" ? auth.callback_path : "/oauth/callback";
+  return `http://127.0.0.1:${port}${path}`;
+}
+
+
+/** Section order for the store, straight from the catalog. Any category the
+ *  backend serves that the order does not mention is appended, so a new
+ *  category needs no frontend release. */
+function orderedCategories(
+  catalog: CatalogResponse | undefined,
+  plugins: Plugin[],
+): string[] {
+  const declared = catalog?.category_order ?? [];
+  const present = new Set(plugins.map((p) => p.category));
+  const known = declared.filter((c) => present.has(c));
+  const extra = [...present].filter((c) => !declared.includes(c)).sort();
+  return [...known, ...extra];
+}
+
+/** Free-text match over the fields a user actually remembers a plugin by: its
+ *  name, what it does, the category it sits under, its catalog id, and the
+ *  vendor family behind its OAuth client. Matching the name alone made the box
+ *  near-useless — "payments" found nothing because the word only ever appears
+ *  in Stripe's description, and "google" missed Gmail entirely, since the
+ *  vendor's name is nowhere in "Gmail".
+ *
+ *  Whitespace-separated words are AND-ed, so a second word narrows the result
+ *  instead of widening it. */
+export function matchesQuery(plugin: Plugin, query: string): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = [
+    plugin.name,
+    plugin.description,
+    plugin.category,
+    categoryLabel(plugin.category),
+    plugin.id,
+    oauthClientFamily(plugin)?.label ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
+
+/** Prefix match on the fields a user types first: plugin name, catalog id,
+ *  and vendor family label. A single letter such as "G" must list only the
+ *  plugins starting with G in A-Z order (AA on top, AZ at the bottom) instead
+ *  of every plugin whose description happens to contain that letter. */
+export function matchesNamePrefix(plugin: Plugin, query: string): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (normalized.length === 0) return true;
+  const name = plugin.name.toLowerCase();
+  if (name.startsWith(normalized)) return true;
+  const id = plugin.id.toLowerCase();
+  if (id.startsWith(normalized)) return true;
+  const family = oauthClientFamily(plugin)?.label.toLowerCase() ?? "";
+  if (family && family.startsWith(normalized)) return true;
+  return false;
+}
+
+/** What a search box lists for `query`: the plugins whose name starts with it
+ *  when any do, otherwise every plugin that mentions all its words — always
+ *  A-Z, never grouped. An empty query returns the list untouched. */
+export function searchPlugins(plugins: Plugin[], query: string): Plugin[] {
+  const trimmed = query.trim();
+  if (trimmed === "") return plugins;
+  const prefixed = plugins.filter((p) => matchesNamePrefix(p, trimmed));
+  const hits = prefixed.length > 0 ? prefixed : plugins.filter((p) => matchesQuery(p, trimmed));
+  return [...hits].sort(sortPluginsByName);
+}
+
+/** A-Z by display name, case-insensitive. Used whenever a search query is
+ *  active so "G" lists Gmail before Google Drive instead of grouping by
+ *  category. */
+export function sortPluginsByName(a: Plugin, b: Plugin): number {
+  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+}
+
+/** The order the directory lists its category sections in. A category the
+ *  catalog serves but this list does not name follows in catalog order. */
+const DIRECTORY_CATEGORY_ORDER = [
+  "Calendar & Mail", "Files & Photos", "Knowledge & Reading", "Messaging",
+  "Lists & Tasks", "Developer", "Media & Creativity", "Home & Devices",
+];
+
+/** Translation keys for the catalog's category names (dodaios/marketplace/
+ *  catalog.py CATEGORY_ORDER plus the custom-connector category). The catalog
+ *  value stays the identifier; an unknown category renders verbatim. */
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  "Home & Devices": "plugins_category.home_devices",
+  "Lists & Tasks": "plugins_category.lists_tasks",
+  "Calendar & Mail": "plugins_category.calendar_mail",
+  "Messaging": "plugins_category.messaging",
+  "Knowledge & Reading": "plugins_category.knowledge_reading",
+  "Media & Creativity": "plugins_category.media_creativity",
+  "Files & Photos": "plugins_category.files_photos",
+  "Developer": "plugins_category.developer",
+  "Custom": "plugins_category.custom",
+};
+
+/** Display label for a catalog category in the current UI language. */
+export function categoryLabel(category: string): string {
+  const key = CATEGORY_LABEL_KEYS[category];
+  return key ? translate(key) : category;
+}
+
+export function PluginsView({
+  selectedId: controlledId,
+  onSelect,
+}: {
+  /** The open plugin page, when the surrounding frame owns the selection (its
+   *  sidebar opens installed plugins). Left out, the view keeps its own. */
+  selectedId?: string | null;
+  onSelect?: (id: string | null) => void;
+} = {}) {
+  const qc = useQueryClient();
+  const setActiveSection = useEventStore((s) => s.setActiveSection);
+  const [view, setView] = useState<"list" | "community" | "custom-apis">("list");
+  const [ownSelectedId, setOwnSelectedId] = useState<string | null>(null);
+  const selectedId = controlledId !== undefined ? controlledId : ownSelectedId;
+  const setSelectedId = (id: string | null) => {
+    setOwnSelectedId(id);
+    onSelect?.(id);
+  };
+  const [scope, setScope] = useState<PluginScope>("catalog");
+  // The section whose full list is open; null on the directory's home page.
+  const [sectionId, setSectionId] = useState<string | null>(null);
+  // The installed list with its connection states, instead of the directory.
+  const [managing, setManaging] = useState(false);
+  // Which half of the "Add a plugin" dialog is open: a server URL or a folder.
+  const [addMode, setAddMode] = useState<AddPluginMode | null>(null);
+  const [removingPlugin, setRemovingPlugin] = useState<Plugin | null>(null);
+  const pushToast = useEventStore((s) => s.pushToast);
+  useLocaleChunk("marketplace");
+  // Another surface (the composer's Add menu) asked for one plugin's page.
+  useEffect(() => {
+    const focus = takePluginFocus();
+    if (focus) setSelectedId(focus);
+    // Runs once on mount: the focus request is consumed by reading it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [query, setQuery] = useState("");
+  const [connectingPlugin, setConnectingPlugin] = useState<Plugin | null>(null);
+  const [instancePlugin, setInstancePlugin] = useState<Plugin | null>(null);
+  // Browser plugin awaiting publisher readiness or an optional expert override.
+  const [connectFailure, setConnectFailure] = useState<string | null>(null);
+  const [pkceSetupPlugin, setPkceSetupPlugin] = useState<Plugin | null>(null);
+  // Plugin awaiting a "really disconnect?" confirmation. Removing a plugin is
+  // destructive (tokens dropped, brain tools re-expanded), so it must ask first.
+  const [disconnectingPlugin, setDisconnectingPlugin] = useState<Plugin | null>(null);
+  const { data, isLoading, error, refetch, isFetching, plugins: allPlugins } =
+    usePluginCatalog();
+
+  const publishPluginStatus = (pluginId: string, status: PluginStatus) => {
+    cachePluginStatus(qc, pluginId, status);
+    void qc.refetchQueries({ queryKey: ["marketplace-plugins"] });
+  };
+
+  const connectMutation = useMutation({
+    mutationFn: async ({
+      pluginId,
+      token,
+      allowedUserId,
+      instanceUrl,
+    }: {
+      pluginId: string;
+      token: string;
+      allowedUserId?: number | null;
+      instanceUrl?: string | null;
+    }) => {
+      const body: {
+        token: string;
+        allowed_user_id?: number;
+        instance_url?: string;
+      } = { token };
+      if (allowedUserId != null) body.allowed_user_id = allowedUserId;
+      if (instanceUrl) body.instance_url = instanceUrl;
+      const res = await fetch(`/api/marketplace/plugins/${pluginId}/connect/pat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `connect failed (HTTP ${res.status})`);
+      }
+      return res.json();
+    },
+    onSuccess: (_result, variables) => {
+      publishPluginStatus(variables.pluginId, "connected");
+      setConnectingPlugin(null);
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: async (pluginId: string) => {
+      const res = await fetch(`/api/marketplace/plugins/${pluginId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: (_result, pluginId) => {
+      publishPluginStatus(pluginId, "not_connected");
+      setDisconnectingPlugin(null);
+    },
+  });
+
+  // OAuth-redirect flow (DCR): kick off /connect/start, open URL in browser,
+  // long-poll /connect/poll until done.
+  const oauthStart = useMutation({
+    mutationFn: async ({ pluginId, instanceUrl }: { pluginId: string; instanceUrl?: string }) => {
+      const res = await fetch(
+        `/api/marketplace/plugins/${pluginId}/connect/start`,
+        instanceUrl
+          ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instance_url: instanceUrl }) }
+          : { method: "POST" },
+      );
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))) as {
+          error_code?: string;
+          error?: string;
+          detail?: string;
+        };
+        // The backend serves `{detail}` for HTTP errors; OAuth handlers use
+        // `{error_code}`. Prefer the code for known flows so the dialog can
+        // map it, otherwise surface the human-readable detail instead of a
+        // bare "unknown" (e.g. the 409 publisher-provisioning message).
+        throw new Error(err.error_code ?? err.error ?? err.detail ?? `HTTP ${res.status}`);
+      }
+      return res.json() as Promise<{
+        flow_id: string;
+        plugin_id: string;
+        kind: "browser_redirect" | "device_flow" | "local";
+        open_url: string | null;
+        redirect_uri: string | null;
+        expires_at_ms: number | null;
+      }>;
+    },
+  });
+
+  const [oauthSession, setOauthSession] = useState<{
+    flowId: string;
+    pluginId: string;
+    pluginName: string;
+    openUrl: string;
+    redirectUri: string | null;
+  } | null>(null);
+
+  const [deviceSession, setDeviceSession] = useState<{
+    flowId: string;
+    pluginId: string;
+    pluginName: string;
+    userCode: string;
+    verificationUri: string;
+    verificationUriComplete: string | null;
+    expiresAtMs: number | null;
+  } | null>(null);
+
+  // Kick off the real OAuth handshake: /connect/start, open the URL, then the
+  // dialog long-polls /connect/poll. Shared by the DCR/device path (called
+  // directly) and the PKCE path (called by the pre-connect dialog's Continue).
+  const startOAuthFlow = async (p: Plugin, instanceUrl?: string): Promise<boolean> => {
+    setConnectFailure(null);
+    try {
+      const r = await oauthStart.mutateAsync({ pluginId: p.id, instanceUrl });
+      if (r.kind === "local") {
+        await qc.invalidateQueries({ queryKey: ["marketplace-plugins"] });
+        return true;
+      }
+      if (r.kind === "device_flow") {
+        // GitHub-style: show the user_code in a dedicated dialog,
+        // pre-open the verification URL with code embedded if present.
+        const verifyUrl = (r as unknown as { verification_uri?: string })
+          .verification_uri;
+        const verifyUrlComplete = (r as unknown as {
+          verification_uri_complete?: string;
+        }).verification_uri_complete;
+        const userCode = (r as unknown as { user_code?: string }).user_code;
+        if (!verifyUrl || !userCode) {
+          setConnectFailure(translate("plugins_view.err_session_failed"));
+          return false;
+        }
+        // Auto-open the pre-filled verify URL if available; user lands
+        // on the consent page with the code already typed in. Awaited so the
+        // bridge dispatch happens before the dialog paints; when it reports
+        // failure the dialog's manual link + retry button take over.
+        if (verifyUrlComplete) {
+          await openExternalUrl(verifyUrlComplete);
+        }
+        setDeviceSession({
+          flowId: r.flow_id,
+          pluginId: r.plugin_id,
+          pluginName: p.name,
+          userCode,
+          verificationUri: verifyUrl,
+          verificationUriComplete: verifyUrlComplete ?? null,
+          expiresAtMs: r.expires_at_ms,
+        });
+        return true;
+      }
+      if (!r.open_url) {
+        setConnectFailure(translate("plugins_view.err_signin_page_unavailable"));
+        return false;
+      }
+      // Awaited: the bridge must dispatch before the pending dialog paints.
+      // When neither the bridge nor a fallback tab reaches a browser (popup
+      // blocker, headless host), the dialog keeps an explicit retry + a
+      // copyable link instead of claiming a tab opened.
+      await openExternalUrl(r.open_url);
+      setOauthSession({
+        flowId: r.flow_id,
+        pluginId: r.plugin_id,
+        pluginName: p.name,
+        openUrl: r.open_url,
+        redirectUri: r.redirect_uri ?? null,
+      });
+      return true;
+    } catch (e) {
+      const code = e instanceof Error ? e.message : "connect_failed";
+      const messages: Record<string, string> = {
+        denied: translate("plugins_view.err_denied"),
+        timeout: translate("plugins_view.err_timeout"),
+        provider_unreachable: translate("plugins_view.err_provider_unreachable"),
+        port_in_use: translate("plugins_view.err_port_in_use"),
+        misconfigured: translate("plugins_view.err_misconfigured"),
+      };
+      // Known OAuth codes map to a short sentence; anything else is already a
+      // backend-provided human-readable detail (e.g. the 409 provisioning
+      // note) and is shown verbatim instead of a generic fallback.
+      setConnectFailure(messages[code] ?? code);
+      return false;
+    }
+  };
+
+  const cancelOAuthSession = (session: {
+    flowId: string;
+    pluginId: string;
+  }) => {
+    void fetch(
+      `/api/marketplace/plugins/${session.pluginId}/connect/${session.flowId}`,
+      { method: "DELETE" },
+    )
+      .catch(() => undefined)
+      .finally(() => {
+        qc.invalidateQueries({ queryKey: ["marketplace-plugins"] });
+      });
+  };
+
+  /** Open the expert token fallback for a browser-primary plugin. The
+   *  browser flow stays the default everywhere else; this is only the
+   *  collapsed alternative while the publisher client is pending. */
+  const openFallback = (p: Plugin, notice?: string) => {
+    if (!p.fallbackAuth) return;
+    setConnectingPlugin({
+      ...p,
+      authMode: "pat_paste",
+      authConfig: { ...p.fallbackAuth, mode: "pat_paste" },
+      fallbackNotice:
+        notice ?? translate("plugins_view.fallback_notice"),
+    });
+  };
+
+  const handleConnect = async (p: Plugin) => {
+    setConnectFailure(null);
+    if (p.unavailableReason) return;
+    if (p.authMode === "instance_browser") {
+      setInstancePlugin(p);
+      return;
+    }
+    if (p.authMode === "pat_paste") {
+      setConnectingPlugin(p);
+      return;
+    }
+    // The pre-connect dialog is only for browser flows whose shared client is
+    // still pending (!browserReady): it explains the wait and offers the
+    // collapsed expert token fallback. A provisioned browser flow (PKCE or
+    // device) goes straight to /connect/start so the provider opens at once —
+    // the standard is "Connect → provider opens", not "Connect → setup form".
+    // An already-stored own OAuth client is still picked up by the backend's
+    // resolve step, so skipping the form loses no expert path.
+    if (
+      (p.authMode === "oauth_pkce_loopback" || p.authMode === "oauth_device_flow") &&
+      !p.browserReady
+    ) {
+      setPkceSetupPlugin(p);
+      return;
+    }
+    if (
+      p.authMode === "hosted_mcp_oauth_dcr" ||
+      p.authMode === "hosted_mcp_open" ||
+      p.authMode === "local" ||
+      p.authMode === "oauth_device_flow" ||
+      p.authMode === "oauth_pkce_loopback"
+    ) {
+      await startOAuthFlow(p);
+      return;
+    }
+    // hosted_mcp_allowlist (Vercel v2) — needs cloud proxy, deferred.
+    setConnectFailure(translate("plugins_view.err_pending_publisher"));
+  };
+
+  const handleDisconnect = (id: string) =>
+    setDisconnectingPlugin(allPlugins.find((p) => p.id === id) ?? null);
+
+  // A fresh install is never usable yet — installed ≠ connected. Bring the
+  // new card into view and immediately run its connect flow, so the provider
+  // opens in the browser and the card stays "Not connected" until the OAuth
+  // callback completes AND the verification check passes. Never marks the
+  // card connected optimistically.
+  const handleFreshInstall = async (pluginId: string) => {
+    setView("list");
+    setScope("yours");
+    setSectionId(null);
+    setManaging(false);
+    setQuery("");
+    try {
+      const fresh = await fetchCatalog();
+      qc.setQueryData<CatalogResponse>(["marketplace-plugins"], fresh);
+      const found = fresh.plugins.map(adapt).find((p) => p.id === pluginId);
+      if (found) {
+        await handleConnect(found);
+        return;
+      }
+    } catch {
+      // Fall through to a plain refetch: the card still lands in Installed.
+    }
+    void qc.refetchQueries({ queryKey: ["marketplace-plugins"] });
+  };
+  const categoryOrder = useMemo(() => {
+    const served = orderedCategories(data, allPlugins);
+    const ranked = DIRECTORY_CATEGORY_ORDER.filter((c) => served.includes(c));
+    return [...ranked, ...served.filter((c) => !ranked.includes(c))];
+  }, [data, allPlugins]);
+  // Every plugin that needs a reconnect (revoked/expired token) or errored —
+  // the ones the "needs attention" banner names.
+  const attentionPlugins = useMemo(
+    () =>
+      allPlugins.filter(
+        (p) => p.status === "needs_reauth" || p.status === "error",
+      ),
+    [allPlugins],
+  );
+
+  const selectedPlugin = selectedId
+    ? allPlugins.find((p) => p.id === selectedId) ?? null
+    : null;
+
+  const dialogs = (
+    <>
+      {connectFailure && (
+        <div role="alertdialog" aria-modal="true" aria-label={translate("plugins_view.connection_unavailable")} className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/70">
+          <div className="max-w-md rounded-lg bg-popover p-5 text-sm text-foreground shadow-float">
+            <h2 className="font-semibold">{translate("plugins_view.connection_unavailable")}</h2>
+            <p className="mt-2">{connectFailure}</p>
+            <button type="button" onClick={() => setConnectFailure(null)} className="mt-4 rounded-md border border-border px-3 py-1.5">{translate("common.close")}</button>
+          </div>
+        </div>
+      )}
+      <AddConnectorDialog
+        open={addMode === "connector"}
+        onClose={() => setAddMode(null)}
+        tabs={<AddPluginTabs mode="connector" onChange={setAddMode} />}
+        onAdded={(result) => {
+          setAddMode(null);
+          pushToast(
+            "success",
+            fill(translate("plugins_view.plugin_added"), { plugin: result.plugin.display_name }),
+          );
+          void handleFreshInstall(result.plugin.id);
+        }}
+      />
+      <PluginUploadDialog
+        open={addMode === "folder"}
+        onClose={() => setAddMode(null)}
+        tabs={<AddPluginTabs mode="folder" onChange={setAddMode} />}
+        onInstalled={(id) => {
+          setAddMode(null);
+          void handleFreshInstall(id);
+        }}
+      />
+
+      {removingPlugin && (
+        <RemovePluginDialog
+          plugin={removingPlugin}
+          onCancel={() => setRemovingPlugin(null)}
+          onRemoved={() => {
+            const name = removingPlugin.name;
+            setRemovingPlugin(null);
+            setSelectedId(null);
+            pushToast("success", fill(translate("plugins_view.plugin_removed"), { plugin: name }));
+            void qc.refetchQueries({ queryKey: ["marketplace-plugins"] });
+          }}
+        />
+      )}
+
+      {connectingPlugin && (
+        <PatConnectDialog
+          plugin={connectingPlugin}
+          notice={connectingPlugin.fallbackNotice ?? null}
+          onClose={() => {
+            setConnectingPlugin(null);
+            connectMutation.reset();
+          }}
+          onSubmit={(token, allowedUserId, instanceUrl) =>
+            connectMutation.mutate({
+              pluginId: connectingPlugin.id,
+              token,
+              allowedUserId,
+              instanceUrl,
+            })
+          }
+          isPending={connectMutation.isPending}
+          errorMessage={
+            connectMutation.error instanceof Error
+              ? connectMutation.error.message
+              : null
+          }
+        />
+      )}
+
+      {instancePlugin && (
+        <InstanceBrowserDialog
+          plugin={instancePlugin}
+          isPending={oauthStart.isPending}
+          onClose={() => setInstancePlugin(null)}
+          onSubmit={async (url) => {
+            if (await startOAuthFlow(instancePlugin, url)) setInstancePlugin(null);
+          }}
+        />
+      )}
+
+      {pkceSetupPlugin && (
+        <PkceConnectDialog
+          plugin={pkceSetupPlugin}
+          onClose={() => setPkceSetupPlugin(null)}
+          onProceed={() => startOAuthFlow(pkceSetupPlugin)}
+          onUseFallback={
+            pkceSetupPlugin.fallbackAuth
+              ? () => {
+                  const cur = pkceSetupPlugin;
+                  setPkceSetupPlugin(null);
+                  openFallback(cur);
+                }
+              : null
+          }
+        />
+      )}
+
+      {disconnectingPlugin && (
+        <DisconnectConfirmDialog
+          plugin={disconnectingPlugin}
+          isPending={disconnectMutation.isPending}
+          onCancel={() => {
+            setDisconnectingPlugin(null);
+            disconnectMutation.reset();
+          }}
+          onConfirm={() => disconnectMutation.mutate(disconnectingPlugin.id)}
+          errorMessage={
+            disconnectMutation.error instanceof Error
+              ? disconnectMutation.error.message
+              : null
+          }
+        />
+      )}
+
+      {oauthSession && (
+        <OAuthRedirectDialog
+          flowId={oauthSession.flowId}
+          pluginId={oauthSession.pluginId}
+          pluginName={oauthSession.pluginName}
+          openUrl={oauthSession.openUrl}
+          redirectUri={oauthSession.redirectUri}
+          onClose={() => {
+            cancelOAuthSession(oauthSession);
+            setOauthSession(null);
+          }}
+          onSuccess={() => {
+            setOauthSession(null);
+          }}
+        />
+      )}
+
+      {deviceSession && (
+        <DeviceCodeDialog
+          flowId={deviceSession.flowId}
+          pluginId={deviceSession.pluginId}
+          pluginName={deviceSession.pluginName}
+          userCode={deviceSession.userCode}
+          verificationUri={deviceSession.verificationUri}
+          verificationUriComplete={deviceSession.verificationUriComplete}
+          expiresAtMs={deviceSession.expiresAtMs}
+          onClose={() => {
+            cancelOAuthSession(deviceSession);
+            setDeviceSession(null);
+          }}
+          onSuccess={() => {
+            setDeviceSession(null);
+          }}
+        />
+      )}
+    </>
+  );
+
+  // Each page of the section starts at the top: the scroll area is keyed on
+  // what it shows, so opening a plugin never lands mid-page.
+  const pageKey = view !== "list"
+    ? view
+    : selectedId ? `plugin:${selectedId}` : managing ? "manage" : sectionId ?? "home";
+  const shell = (content: React.ReactNode) => (
+    <div className="flex h-full min-h-0 flex-col bg-transparent">
+      <ScrollArea key={pageKey} className="flex-1">
+        <div className="mx-auto w-full max-w-[1040px] px-6 pb-14 pt-14 sm:px-10">{content}</div>
+      </ScrollArea>
+      {dialogs}
+    </div>
+  );
+  const directoryCrumb: Crumb = {
+    label: translate("plugins_view.title"),
+    onClick: () => {
+      setView("list");
+      setSelectedId(null);
+      setSectionId(null);
+      setManaging(false);
+      setQuery("");
+    },
+  };
+
+  // ---- Plugin page ---------------------------------------------------------
+  // Checked before the community and API pages: the sidebar opens a plugin
+  // from wherever the directory currently is.
+  if (selectedId) {
+    // The crumb between the directory and the plugin is the list the plugin
+    // belongs to — the installed list while managing, otherwise its section —
+    // so the path reads the same however the page was reached.
+    const home = selectedPlugin ? homeSectionId(selectedPlugin) : null;
+    const origin: Crumb | null = managing
+      ? {
+          label: translate("plugins_view.manage_title"),
+          onClick: () => {
+            setView("list");
+            setSelectedId(null);
+          },
+        }
+      : home
+        ? {
+            label: sectionTitle(home),
+            onClick: () => {
+              setView("list");
+              setSectionId(home);
+              setQuery("");
+              setSelectedId(null);
+            },
+          }
+        : null;
+    return shell(
+      <>
+        <Breadcrumbs
+          crumbs={[
+            directoryCrumb,
+            ...(origin ? [origin] : []),
+            { label: selectedPlugin?.name ?? translate("plugins_view.plugin_fallback") },
+          ]}
+        />
+        {selectedPlugin ? (
+          <PluginDetail
+            plugin={selectedPlugin}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+            onRemove={setRemovingPlugin}
+          />
+        ) : (
+          <p className="mt-6 text-sm text-muted-foreground">
+            {isLoading ? translate("plugins_view.loading") : translate("plugins_view.not_found")}
+          </p>
+        )}
+      </>,
+    );
+  }
+
+  // ---- Own HTTP APIs and the community marketplace -------------------------
+  if (view === "custom-apis") {
+    return shell(<Suspense fallback={<p>{translate("custom_apis.loading")}</p>}>
+      <CustomApisView onBack={() => setView("list")} />
+    </Suspense>);
+  }
+
+  if (view === "community") {
+    return shell(
+      <>
+        <Breadcrumbs crumbs={[directoryCrumb, { label: translate("plugins_view.add_community") }]} />
+        <div className="mt-6">
+          <CommunityTab onInstalled={(name) => void handleFreshInstall(name)} />
+        </div>
+      </>,
+    );
+  }
+
+  // ---- Directory -----------------------------------------------------------
+  return shell(
+    <PluginBrowse
+      plugins={allPlugins}
+      categoryOrder={categoryOrder}
+      loading={isLoading}
+      error={error instanceof Error ? error.message : null}
+      refreshing={isFetching}
+      onRefresh={() => void refetch()}
+      scope={scope}
+      onScope={setScope}
+      sectionId={sectionId}
+      onSection={setSectionId}
+      query={query}
+      onQuery={setQuery}
+      managing={managing}
+      onManage={setManaging}
+      onAdd={setAddMode}
+      onCommunity={() => setView("community")}
+      onMarketplace={() => setActiveSection("marketplace")}
+      onCustomApis={() => setView("custom-apis")}
+      onOpen={setSelectedId}
+      onConnect={handleConnect}
+      onDisconnect={handleDisconnect}
+      onRemove={setRemovingPlugin}
+      banner={
+        <AttentionBanner
+          plugins={attentionPlugins}
+          onJump={() => {
+            const target = attentionPlugins[0];
+            if (target) setSelectedId(target.id);
+          }}
+        />
+      }
+    />,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Status vocabulary shared by the directory and the plugin page
+// ---------------------------------------------------------------------------
+
+function statusTone(status: PluginStatus): "ok" | "off" | "warn" | "error" {
+  switch (status) {
+    case "connected":
+      return "ok";
+    case "needs_reauth":
+      return "warn";
+    case "error":
+      return "error";
+    default:
+      return "off";
+  }
+}
+
+export function pluginStatusLabel(plugin: Plugin): string {
+  if (plugin.unavailableReason) return translate("plugins_view.unsupported_device");
+  switch (plugin.status) {
+    case "connected":
+      return plugin.liveCallable
+        ? `${translate("plugins_view.status_connected")} · ${translate("plugins_view.status_live")}`
+        : translate("plugins_view.status_connected");
+    case "needs_reauth":
+      return translate("plugins_view.status_reauth");
+    case "error":
+      return translate("plugins_view.status_error");
+    default:
+      return translate("plugins_view.status_not_connected");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail page
+// ---------------------------------------------------------------------------
+
+async function fetchPluginFiles(pluginId: string): Promise<{ files: CardFile[] }> {
+  const res = await fetch(`/api/marketplace/plugins/${encodeURIComponent(pluginId)}/files`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function PluginDetail({
+  plugin,
+  onConnect,
+  onDisconnect,
+  onRemove,
+}: { plugin: Plugin; onRemove?: (plugin: Plugin) => void } & ConnectHandlers) {
+  const { busy, run } = useConnectLock(() => onConnect(plugin));
+  const filesQuery = useQuery({
+    queryKey: ["marketplace-plugin-files", plugin.id],
+    queryFn: () => fetchPluginFiles(plugin.id),
+  });
+  const connected = plugin.status === "connected";
+  const needsReconnect = plugin.status === "needs_reauth" || plugin.status === "error";
+  const family = oauthClientFamily(plugin);
+
+  const menuActions = [
+    ...(plugin.sourceUrl
+      ? [
+          {
+            id: "source",
+            label: translate("plugins_view.view_source"),
+            icon: <ExternalLink className="h-3.5 w-3.5" />,
+            onSelect: () => void openExternalUrl(plugin.sourceUrl ?? ""),
+          },
+        ]
+      : []),
+    ...(connected || needsReconnect
+      ? [
+          {
+            id: "disconnect",
+            label: translate("plugins_view.disconnect"),
+            icon: <X className="h-3.5 w-3.5" />,
+            destructive: true,
+            separatorAbove: Boolean(plugin.sourceUrl),
+            onSelect: () => onDisconnect(plugin.id),
+          },
+        ]
+      : []),
+    // A plugin the owner added (URL, folder or community install) can leave
+    // again; a built-in one can only be disconnected.
+    ...(onRemove && (plugin.selfUploaded || plugin.fromMarketplace)
+      ? [
+          {
+            id: "remove",
+            label: translate("custom_connector.remove"),
+            icon: <Trash2 className="h-3.5 w-3.5" />,
+            destructive: true,
+            separatorAbove: Boolean(plugin.sourceUrl) || connected || needsReconnect,
+            onSelect: () => onRemove(plugin),
+          },
+        ]
+      : []),
+  ];
+
+  const primaryAction = connected ? (
+    <>
+      <SoftButton onClick={() => void run()} disabled={busy || Boolean(plugin.unavailableReason)}>
+        {busy && <Loader2 className="animate-spin" />}
+        {translate("plugins_view.reconnect")}
+      </SoftButton>
+      <span className="inline-flex h-9 items-center gap-1.5 rounded-md bg-secondary px-3 text-base font-medium text-foreground-strong">
+        <Check className="h-4 w-4 text-success" aria-hidden />
+        {translate("plugins_view.status_connected")}
+      </span>
+    </>
+  ) : (
+    <SoftButton
+      primary={!needsReconnect}
+      onClick={() => void run()}
+      disabled={busy || Boolean(plugin.unavailableReason)}
+    >
+      {busy ? <Loader2 className="animate-spin" /> : needsReconnect ? <RotateCw /> : <Plus />}
+      {needsReconnect ? translate("plugins_view.reconnect") : translate("plugins_view.connect")}
+    </SoftButton>
+  );
+
+  return (
+    <article className="mt-6 flex flex-col gap-8">
+      <header className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <BrandTile plugin={plugin} size="hero" />
+          <div className="flex flex-wrap items-center justify-end gap-2" title={unavailableReasonText(plugin)}>
+            {menuActions.length > 0 && (
+              <ActionMenu
+                label={translate("plugins_view.more_actions")}
+                actions={menuActions}
+                trigger={({ open, toggle }) => (
+                  <IconButton label={translate("plugins_view.more_actions")} onClick={toggle} active={open} className="h-9 w-9">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </IconButton>
+                )}
+              />
+            )}
+            {primaryAction}
+          </div>
+        </div>
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 className="min-w-0 break-words text-2xl font-semibold text-foreground-strong">{plugin.name}</h3>
+            <PreviewBadge plugin={plugin} />
+            {plugin.fromMarketplace && <MarketplaceBadge publisher={plugin.publisher} />}
+            {plugin.selfUploaded && (
+              <span
+                className="rounded-full bg-secondary px-1.5 text-micro font-medium text-foreground"
+                title={translate("plugin_upload.unreviewed")}
+              >
+                {translate("plugin_upload.self_badge")}
+              </span>
+            )}
+          </div>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-muted-foreground">
+            <StatusDot tone={statusTone(plugin.status)} label={pluginStatusLabel(plugin)} />
+            <span>· {categoryLabel(plugin.category)}</span>
+            {plugin.publisher && (
+              <span>· {fill(translate("plugins_view.by"), { publisher: plugin.publisher })}</span>
+            )}
+          </p>
+        </div>
+      </header>
+
+      {(plugin.unavailableReason || plugin.status === "needs_reauth" || plugin.description) && (
+        <div className="flex flex-col gap-3">
+          {plugin.unavailableReason && (
+            <p className="text-base text-muted-foreground">{unavailableReasonText(plugin)}</p>
+          )}
+          {plugin.status === "needs_reauth" ? (
+            <div className="rounded-lg bg-secondary px-3 py-2.5 text-xs">
+              <ReauthExplanation plugin={plugin} />
+            </div>
+          ) : null}
+          <GrantExpiry plugin={plugin} />
+          {plugin.description && (
+            <ClampedText
+              text={plugin.description}
+              moreLabel={translate("common.see_more")}
+              lessLabel={translate("common.see_less")}
+            />
+          )}
+        </div>
+      )}
+
+      <section aria-labelledby="plugin-information" className="flex flex-col gap-3">
+        <h4 id="plugin-information" className="text-title font-semibold text-foreground-strong">
+          {translate("plugins_view.detail_information")}
+        </h4>
+        <Panel>
+          <div className="px-5 py-4">
+            <FactRows
+              rows={[
+                { label: translate("plugins_view.col_status"), value: pluginStatusLabel(plugin) },
+                { label: translate("plugins_view.col_category"), value: categoryLabel(plugin.category) },
+                { label: translate("plugins_view.fact_signin"), value: translate(AUTH_LABELS[plugin.authMode]) },
+                {
+                  label: translate("plugins_view.fact_connection"),
+                  value: (
+                    <span className={cn(plugin.longevity === "provider_limited" && "text-foreground")}>
+                      {translate(LONGEVITY_LABEL[plugin.longevity])}
+                      {plugin.longevityNote ? (
+                        <span className="block text-xs text-muted-foreground">{longevityNoteText(plugin)}</span>
+                      ) : null}
+                    </span>
+                  ),
+                },
+                {
+                  label: translate("plugins_view.fact_oauth_client"),
+                  value: family
+                    ? plugin.oauthClientConfigured
+                      ? fill(translate("plugins_view.oauth_client_own"), { family: family.label })
+                      : translate("plugins_view.err_misconfigured")
+                    : null,
+                },
+                {
+                  label: translate("custom_connector.fact_server"),
+                  value:
+                    plugin.selfUploaded && plugin.mcpUrl ? (
+                      <code className="break-all font-mono text-meta">{plugin.mcpUrl}</code>
+                    ) : null,
+                },
+                { label: translate("plugins_view.fact_publisher"), value: plugin.publisher ?? null },
+                {
+                  label: translate("plugins_view.fact_source"),
+                  value: plugin.selfUploaded
+                    ? translate("plugin_upload.unreviewed")
+                    : plugin.fromMarketplace
+                      ? translate("marketplace_origin.tooltip")
+                      : null,
+                },
+              ]}
+            />
+          </div>
+        </Panel>
+      </section>
+
+      <section aria-labelledby="plugin-files" className="flex flex-col gap-3">
+        <h4 id="plugin-files" className="text-title font-semibold text-foreground-strong">
+          {translate("plugins_view.detail_files")}
+        </h4>
+        <FileCard
+          rootLabel={plugin.id}
+          files={filesQuery.data?.files ?? []}
+          loading={filesQuery.isPending}
+          error={filesQuery.error ? (filesQuery.error as Error).message : null}
+        />
+      </section>
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Attention banner — plain-language "what's wrong" + a one-click jump to it
+// ---------------------------------------------------------------------------
+
+// Shown at the top of the Plugins view whenever a connected plugin's token has
+// expired/been revoked (`needs_reauth`) or errored. The sidebar dot proves a
+// problem exists app-wide; this banner spells out WHICH plugin and jumps the
+// user straight to its card, so they never have to hunt for it.
+function AttentionBanner({
+  plugins,
+  onJump,
+}: {
+  plugins: Plugin[];
+  onJump: () => void;
+}) {
+  if (plugins.length === 0) return null;
+  const names = plugins.map((p) => p.name);
+  const one = plugins.length === 1;
+  const headline = one
+    ? fill(translate("plugins_view.attention_one"), { plugin: names[0] })
+    : fill(translate("plugins_view.attention_many"), { count: plugins.length });
+
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-lg bg-secondary px-3 py-2">
+      <AlertTriangle className="h-4 w-4 shrink-0 text-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-meta font-medium text-foreground">{headline}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {one
+            ? // The banner is the first thing the user reads, so it states the
+              // actual cause rather than the old catch-all guess ("expired or
+              // was revoked"), which was wrong as often as it was right.
+              fill(translate("plugins_view.attention_one_detail"), {
+                reason: translate(
+                  plugins[0].reauthReason &&
+                    plugins[0].reauthReason in REAUTH_EXPLANATION
+                    ? REAUTH_EXPLANATION[plugins[0].reauthReason as ReauthReason]
+                    : "plugins_view.reauth_unknown",
+                ),
+              })
+            : fill(translate("plugins_view.attention_many_detail"), { plugins: names.join(", ") })}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onJump}
+        className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-secondary px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-popover"
+      >
+        {translate(one ? "plugins_view.jump_to_it" : "plugins_view.jump_to_first")}
+        <ArrowRight className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Connect-handler prop type, threaded through the component tree
+// ---------------------------------------------------------------------------
+
+interface ConnectHandlers {
+  // Returns a promise for the in-flight connect so the per-row button can lock
+  // itself (spinner + disabled) until the flow has launched — see
+  // ConnectIconButton. A void return (e.g. pat_paste opening a modal) is fine.
+  onConnect: (p: Plugin) => void | Promise<void>;
+  onDisconnect: (id: string) => void;
+}
+
+export function BrandTile({ plugin, size = "md" }: { plugin: Plugin; size?: "xs" | "sm" | "md" | "row" | "hero" }) {
+  const [failed, setFailed] = useState(false);
+  const tile = brandTile(plugin);
+  const fullColour = isFullColourMark(plugin);
+  const showMonogram = failed || !plugin.logoSlug;
+  const small = size === "sm" || size === "xs";
+
+  return (
+    <div
+      className={cn(
+        "grid shrink-0 place-items-center overflow-hidden rounded-lg border",
+        size === "xs" ? "h-6 w-6 rounded-md" : small ? "h-7 w-7 rounded-md" : size === "hero" ? "h-14 w-14 rounded-2xl" : size === "row" ? "h-12 w-12 rounded-xl" : "h-10 w-10",
+        // White app-icon tiles follow the reference in either interface theme.
+        // Existing white monochrome marks are inverted below, keeping their
+        // original geometry legible without recolouring multicolour artwork.
+        fullColour && !showMonogram
+          ? "bg-[hsl(var(--plugin-icon-surface))]"
+          : "border-border/60",
+      )}
+      style={fullColour && !showMonogram ? undefined : { backgroundColor: tile }}
+    >
+      {showMonogram ? (
+        <span
+          className={cn("font-semibold", small ? "text-xs" : size === "hero" ? "text-xl" : "text-sm")}
+          style={{ color: `#${glyphColor(tile)}` }}
+        >
+          {plugin.name.slice(0, 1).toUpperCase()}
+        </span>
+      ) : (
+        <img
+          src={resolveLogoUrl(plugin)}
+          alt=""
+          className={cn(
+            fullColour
+              ? (size === "xs" ? "h-4 w-4" : small ? "h-5 w-5" : size === "hero" ? "h-10 w-10" : size === "row" ? "h-8 w-8" : "h-7 w-7")
+              : size === "xs" ? "h-3.5 w-3.5" : small ? "h-3.5 w-3.5" : size === "hero" ? "h-8 w-8" : "h-5 w-5",
+            ["github", "vercel", "notion", "cal_com"].includes(plugin.id) && "invert",
+          )}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** How long the connection will last, stated BEFORE the user connects.
+ *
+ *  Most providers keep a connection alive indefinitely; a few force a periodic
+ *  re-login and no amount of engineering on our side can extend that. Saying so
+ *  is the difference between an informed choice and a connection that quietly
+ *  dies weeks later. `provider_limited` carries a note explaining how often — a
+ *  warning without an answer would be worse than none.
+ */
+/** "Not yet proven end to end." Built-in plugins only: a marketplace or
+ *  self-uploaded plugin already carries its own not-reviewed badge. Theme
+ *  tokens only, so it reads in light and dark mode. */
+export function PreviewBadge({ plugin }: { plugin: Plugin }) {
+  if (plugin.acceptance !== "preview" || plugin.fromMarketplace || plugin.selfUploaded) {
+    return null;
+  }
+  const title = translate("plugins_view.preview_tooltip");
+  return (
+    <span
+      title={title}
+      aria-label={title}
+      className="shrink-0 rounded-full border border-border px-1.5 text-micro font-medium text-muted-foreground"
+    >
+      {translate("plugins_view.preview_badge")}
+    </span>
+  );
+}
+
+export function LongevityBadge({ plugin }: { plugin: Plugin }) {
+  const limited = plugin.longevity === "provider_limited";
+  return (
+    <span
+      title={plugin.longevityNote ?? translate(LONGEVITY_LABEL[plugin.longevity])}
+      className={cn(
+        "text-micro font-medium ",
+        limited ? "text-foreground/80" : "text-muted-foreground/45",
+      )}
+    >
+      {translate(LONGEVITY_LABEL[plugin.longevity])}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reauth explanation — why a connection died, in the user's terms
+// ---------------------------------------------------------------------------
+
+/** Why this connection died, in place of the description it replaces.
+ *
+ *  Shown INSTEAD of the plugin description: while a connection is broken, what
+ *  the plugin does matters less than why it stopped and whether the user has to
+ *  act. `longevityNote` gets its own line here because for the Google plugins it
+ *  carries the actual fix (publish the OAuth app so Google stops expiring the
+ *  grant every 7 days) — buried in a tooltip it never reached anyone.
+ */
+export function GrantExpiry({ plugin }: { plugin: Plugin }) {
+  const locale = useRunLocale();
+  const stamp = plugin.refreshExpiresAt;
+  const end = stamp ? Date.parse(stamp) : NaN;
+  if (plugin.status !== "connected" || !Number.isFinite(end)) return null;
+  const expired = end <= Date.now();
+  const date = new Date(end).toLocaleString(locale);
+  return (
+    <span className={cn("block text-xs", expired ? "text-warning" : "text-muted-foreground")}>
+      {fill(translate(expired ? "plugins_view.grant_expired" : "plugins_view.grant_ends"), { date })}
+    </span>
+  );
+}
+
+export function ReauthExplanation({ plugin, inline }: { plugin: Plugin; inline?: boolean }) {
+  const reason = plugin.reauthReason;
+  const explanation = translate(
+    reason && reason in REAUTH_EXPLANATION
+      ? REAUTH_EXPLANATION[reason as ReauthReason]
+      : // Flagged before Jarvis recorded reasons, or by a version that did not.
+        // Say so plainly rather than guess at a cause.
+        "plugins_view.reauth_unknown",
+  );
+  const ago = flaggedAgo(plugin.reauthAt);
+  const headline = ago ? `${explanation} · ${ago}` : explanation;
+  const retrying = retriesItself(reason);
+  const fix = plugin.longevity === "provider_limited" ? plugin.longevityNote : undefined;
+
+  if (inline) {
+    return <span className="text-foreground/90">{headline}</span>;
+  }
+
+  return (
+    <>
+      <p
+        className="truncate text-xs text-foreground"
+        title={
+          retrying
+            ? fill(translate("plugins_view.reauth_retrying"), { headline })
+            : fill(translate("plugins_view.reauth_no_retry"), { headline })
+        }
+      >
+        {headline}
+      </p>
+      {fix && <p className="truncate text-micro text-muted-foreground" title={fix}>{fix}</p>}
+    </>
+  );
+}
+
+/** One in-flight connect per plugin, no matter what started it.
+ *
+ *  `/connect/start` (DCR registration) takes ~0.6s with no other feedback, so
+ *  without a lock the user re-clicks and each click launches its OWN OAuth flow
+ *  — a burst of browser tabs and stray client registrations. `busyRef` is the
+ *  SYNCHRONOUS guard (React state is async and would let a fast double-click
+ *  through before the re-render disables the button); `busy` drives the UI.
+ *  A directory row owns one lock for its "+" and its menu's Reconnect, so the
+ *  two can never race into two flows.
+ */
+export function useConnectLock(onConnect: () => void | Promise<void>) {
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+
+  const run = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await onConnect();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  return { busy, run };
+}
+
+// ---------------------------------------------------------------------------
+// OAuth Redirect Dialog — used by Notion (and any future hosted-MCP plugin
+// with DCR + PKCE). The browser tab is already opened by the caller; this
+// dialog just shows progress + long-polls the backend.
+// ---------------------------------------------------------------------------
+
+// A read-only URL field + Copy button. The manual fallback for every "open a
+// page in your browser" step: when the auto-open didn't reach a browser (the
+// embedded desktop shell drops window.open, or a popup blocker ate it), the
+// user can copy the exact link and paste it into their browser by hand. Uses
+// robustCopy so the copy is reliable inside WebView2.
+function CopyableUrl({ url, hint }: { url: string; hint?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    if (await robustCopy(url)) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    }
+  };
+  return (
+    <div className="w-full text-left">
+      <div className="flex items-stretch gap-2">
+        <input
+          type="text"
+          readOnly
+          value={url}
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label={translate("plugins_view.authorization_link")}
+          className="min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-micro text-muted-foreground focus:border-border-strong focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={copy}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-micro font-medium text-foreground transition-colors hover:border-border-strong hover:text-foreground-strong"
+          title={translate("plugins_view.copy_link")}
+        >
+          {copied ? <Check className="h-3 w-3 text-muted-foreground" /> : <Copy className="h-3 w-3" />}
+          {translate(copied ? "plugins_view.copied" : "plugins_view.copy")}
+        </button>
+      </div>
+      {hint && (
+        <p className="mt-1.5 text-micro text-muted-foreground">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+function usePublishConnectedPlugin(
+  pluginId: string,
+  state: "pending" | "connected" | "error" | undefined,
+  onSuccess: () => void,
+): void {
+  const qc = useQueryClient();
+  const onSuccessRef = useRef(onSuccess);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
+
+  useEffect(() => {
+    if (state !== "connected") return;
+    cachePluginStatus(qc, pluginId, "connected");
+    void qc.refetchQueries({ queryKey: ["marketplace-plugins"] });
+    // Keep the success tick visible briefly, while the card behind the dialog
+    // has already changed to Connected.
+    const timer = window.setTimeout(() => onSuccessRef.current(), 800);
+    return () => window.clearTimeout(timer);
+  }, [pluginId, qc, state]);
+}
+
+function OAuthRedirectDialog({
+  flowId,
+  pluginId,
+  pluginName,
+  openUrl,
+  redirectUri,
+  onClose,
+  onSuccess,
+}: {
+  flowId: string;
+  pluginId: string;
+  pluginName: string;
+  openUrl: string;
+  redirectUri: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const poll = useQuery({
+    queryKey: ["marketplace-oauth-poll", flowId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/marketplace/plugins/${pluginId}/connect/poll/${flowId}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `poll failed (HTTP ${res.status})`);
+      }
+      return res.json() as Promise<{
+        state: "pending" | "connected" | "error";
+        error?: string;
+      }>;
+    },
+    refetchInterval: (q) => {
+      const s = q.state.data?.state;
+      // Stop polling once we've reached a terminal state.
+      return s === "connected" || s === "error" ? false : 1500;
+    },
+    refetchIntervalInBackground: true,
+  });
+
+  usePublishConnectedPlugin(pluginId, poll.data?.state, onSuccess);
+
+  const state = poll.data?.state ?? "pending";
+  const errorMessage =
+    state === "error"
+      ? poll.data?.error ?? translate("plugins_view.unknown_error")
+      : poll.error instanceof Error
+        ? poll.error.message
+        : null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-popover shadow-float">
+        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div>
+            <h2 className="font-display text-base font-semibold tracking-tight">
+              {fill(translate("plugins_view.connecting_plugin"), { plugin: pluginName })}
+            </h2>
+            <p className="text-micro text-muted-foreground">
+              {translate("plugins_view.browser_login")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={translate("common.close")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="space-y-5 px-5 py-6">
+          {state === "pending" && (
+            <div className="flex flex-col items-center gap-4 py-4 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-foreground-strong" />
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {fill(translate("plugins_view.authorize_in_browser"), { product: PRODUCT_NAME })}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {fill(translate("plugins_view.continue_in_browser"), { plugin: pluginName })}
+                </p>
+              </div>
+              {redirectUri && (
+                <div className="w-full rounded-md border border-border bg-background px-3 py-2 text-left">
+                  <p className="text-micro text-muted-foreground">
+                    {fill(translate("plugins_view.waiting_callback"), { plugin: pluginName })}
+                  </p>
+                  <code className="mt-0.5 block select-all break-all font-mono text-micro text-foreground">
+                    {redirectUri}
+                  </code>
+                  <p className="mt-1 text-micro text-muted-foreground">
+                    {translate("plugins_view.redirect_hint")}
+                  </p>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => void openExternalUrl(openUrl)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+              >
+                {fill(translate("plugins_view.open_plugin_again"), { plugin: pluginName })}
+                <ExternalLink className="h-3 w-3" />
+              </button>
+              <CopyableUrl
+                url={openUrl}
+                hint={translate("plugins_view.copy_link_hint_paste")}
+              />
+            </div>
+          )}
+
+          {state === "connected" && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-secondary text-foreground-strong">
+                <Check className="h-6 w-6" />
+              </div>
+              <p className="font-display text-base font-semibold tracking-tight text-foreground">
+                {fill(translate("plugins_view.plugin_connected"), { plugin: pluginName })}
+              </p>
+            </div>
+          )}
+
+          {state === "error" && errorMessage && (
+            <div className="rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
+              {errorMessage}
+            </div>
+          )}
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {translate(state === "pending" ? "common.cancel" : "common.close")}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Device Code Dialog — used by GitHub Device Flow. Shows the user_code
+// large+copyable, a countdown timer, and long-polls the backend.
+// ---------------------------------------------------------------------------
+
+function DeviceCodeDialog({
+  flowId,
+  pluginId,
+  pluginName,
+  userCode,
+  verificationUri,
+  verificationUriComplete,
+  expiresAtMs,
+  onClose,
+  onSuccess,
+}: {
+  flowId: string;
+  pluginId: string;
+  pluginName: string;
+  userCode: string;
+  verificationUri: string;
+  verificationUriComplete: string | null;
+  expiresAtMs: number | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    expiresAtMs ? Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000)) : 0,
+  );
+
+  useEffect(() => {
+    if (!expiresAtMs) return;
+    const t = window.setInterval(() => {
+      setSecondsLeft(Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000)));
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [expiresAtMs]);
+
+  const poll = useQuery({
+    queryKey: ["marketplace-device-poll", flowId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/marketplace/plugins/${pluginId}/connect/poll/${flowId}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `poll failed (HTTP ${res.status})`);
+      }
+      return res.json() as Promise<{
+        state: "pending" | "connected" | "error";
+        error?: string;
+      }>;
+    },
+    refetchInterval: (q) => {
+      const s = q.state.data?.state;
+      return s === "connected" || s === "error" ? false : 2000;
+    },
+    refetchIntervalInBackground: true,
+  });
+
+  usePublishConnectedPlugin(pluginId, poll.data?.state, onSuccess);
+
+  const copyCode = async () => {
+    if (await robustCopy(userCode)) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    }
+  };
+
+  const state = poll.data?.state ?? "pending";
+  const errorMessage =
+    state === "error"
+      ? poll.data?.error ?? translate("plugins_view.unknown_error")
+      : poll.error instanceof Error
+        ? poll.error.message
+        : null;
+
+  const mins = Math.floor(secondsLeft / 60);
+  const secs = secondsLeft % 60;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-popover shadow-float">
+        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div>
+            <h2 className="font-display text-base font-semibold tracking-tight">
+              {fill(translate("plugins_view.connect_named"), { plugin: pluginName })}
+            </h2>
+            <p className="text-micro text-muted-foreground">
+              {translate("plugins_view.device_flow")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={translate("common.close")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="space-y-5 px-5 py-6">
+          {state === "pending" && (
+            <>
+              <div>
+                <p className="text-micro text-muted-foreground">
+                  {translate("plugins_view.device_step1")}
+                </p>
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  className="group mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:border-border-strong hover:bg-secondary"
+                  title={translate("plugins_view.copy")}
+                >
+                  <span className="font-mono text-2xl font-semibold tracking-[0.3em] tabular-nums text-foreground">
+                    {userCode}
+                  </span>
+                  <span className="text-micro text-muted-foreground group-hover:text-foreground-strong">
+                    {translate(copied ? "plugins_view.copied_bang" : "plugins_view.copy")}
+                  </span>
+                </button>
+              </div>
+
+              <div>
+                <p className="text-micro text-muted-foreground">
+                  {fill(translate("plugins_view.device_step2"), { plugin: pluginName })}
+                </p>
+                <a
+                  href={verificationUriComplete ?? verificationUri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void openExternalUrl(verificationUriComplete ?? verificationUri);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+                >
+                  {fill(translate("plugins_view.open_plugin"), { plugin: pluginName })}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+                <div className="mt-2">
+                  <CopyableUrl
+                    url={verificationUri}
+                    hint={translate("plugins_view.copy_link_hint_code")}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-micro text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                {translate("plugins_view.waiting_authorization")}
+                {secondsLeft > 0 && (
+                  <span className="ml-auto font-mono tabular-nums">
+                    {String(mins).padStart(2, "0")}:
+                    {String(secs).padStart(2, "0")}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+
+          {state === "connected" && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-secondary text-foreground-strong">
+                <Check className="h-6 w-6" />
+              </div>
+              <p className="font-display text-base font-semibold tracking-tight text-foreground">
+                {fill(translate("plugins_view.plugin_connected"), { plugin: pluginName })}
+              </p>
+            </div>
+          )}
+
+          {state === "error" && errorMessage && (
+            <div className="rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
+              {errorMessage}
+            </div>
+          )}
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {translate(state === "pending" ? "common.cancel" : "common.close")}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PKCE pre-connect dialog — the in-app path to run your OWN production OAuth
+// client (no env vars, no catalog edits) plus the honest provider-side hint.
+// Shown before the browser sign-in for Google / Slack / Asana.
+// ---------------------------------------------------------------------------
+
+export function PkceConnectDialog({
+  plugin,
+  onClose,
+  onProceed,
+  onUseFallback,
+}: {
+  plugin: Plugin;
+  onClose: () => void;
+  onProceed: () => boolean | void | Promise<boolean | void>;
+  /** Expert token fallback (browser-primary plugins only). */
+  onUseFallback?: (() => void) | null;
+}) {
+  const fam = oauthClientFamily(plugin);
+  const clientRequired = !(plugin.browserReady ?? plugin.oauthClientConfigured);
+  const redirectUri = loopbackRedirectUri(plugin);
+  // Publisher-pending flows open expanded: the client form IS the way to
+  // connect today, not an expert override. Ready flows keep it collapsed.
+  const [showClient, setShowClient] = useState(clientRequired);
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const busyRef = useRef(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busyRef.current) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const writeSecret = async (key: string, value: string) => {
+    const res = await fetch(`/api/secrets/${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+      throw new Error(e.detail || `could not save ${key}`);
+    }
+  };
+
+  const handleContinue = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setErr(null);
+    try {
+      const cid = clientId.trim();
+      const csec = clientSecret.trim();
+      // Only write when the user actually entered a client — an empty field must
+      // never clobber an already-stored secret or the catalog default.
+      if (fam && cid) {
+        await writeSecret(`${fam.family}_oauth_client_id`, cid);
+        if (csec) await writeSecret(`${fam.family}_oauth_client_secret`, csec);
+      }
+      const proceeded = await onProceed();
+      if (proceeded !== false) onClose();
+    } catch (e) {
+      setErr(translate("plugins_view.err_save_settings"));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pkce-connect-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-popover shadow-float">
+        <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <BrandTile plugin={plugin} />
+          <div className="min-w-0">
+            <h2
+              id="pkce-connect-title"
+              className="font-display text-sm font-semibold tracking-tight"
+            >
+              {fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}
+            </h2>
+            <p className="text-micro text-muted-foreground">
+              {clientRequired
+                ? translate("plugins_view.pkce_browser_unavailable")
+                : fill(translate("plugins_view.pkce_signin_with"), {
+                    family: fam?.label ?? translate("plugins_view.provider_fallback"),
+                  })}
+            </p>
+          </div>
+        </header>
+
+        <div className="space-y-3 px-5 py-4">
+          {clientRequired ? (
+            <div className="rounded-md bg-secondary px-3 py-2 text-micro text-foreground">
+              <p>
+                {fill(translate("plugins_view.pkce_pending_intro"), {
+                  family: fam?.label ?? translate("plugins_view.provider_fallback"),
+                  plugin: plugin.name,
+                })}
+              </p>
+              {fam && OAUTH_CLIENT_CONSOLE[fam.family] && (
+                <button
+                  type="button"
+                  onClick={() => void openExternalUrl(OAUTH_CLIENT_CONSOLE[fam.family])}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-micro font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+                >
+                  {fill(translate("plugins_view.pkce_step1"), { family: fam.label })}
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ) : null}
+
+          {fam && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowClient((v) => !v)}
+                aria-expanded={showClient}
+                className="text-micro font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                {translate(clientRequired ? "plugins_view.pkce_your_client" : "plugins_view.pkce_own_client_advanced")}
+              </button>
+              {showClient && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-micro text-muted-foreground">
+                    {clientRequired ? (
+                      translate(
+                        fam.family === "google"
+                          ? "plugins_view.pkce_step2_google"
+                          : "plugins_view.pkce_step2",
+                      )
+                    ) : (
+                      <>
+                        {withSlot(
+                          fill(translate("plugins_view.pkce_override"), { family: fam.label }),
+                          "console",
+                          OAUTH_CLIENT_CONSOLE[fam.family] && (
+                            <a
+                              href={OAUTH_CLIENT_CONSOLE[fam.family]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-2 hover:text-foreground"
+                            >
+                              {translate("plugins_view.pkce_console")}
+                            </a>
+                          ),
+                        )}{" "}
+                        {fam.family === "google" &&
+                          translate("plugins_view.pkce_google_one_client")}
+                      </>
+                    )}
+                  </p>
+                  {redirectUri && (
+                    <div className="rounded-md border border-border bg-background px-2.5 py-2">
+                      <p className="text-micro text-muted-foreground">
+                        {withSlot(
+                          translate(clientRequired ? "plugins_view.pkce_redirect_step3" : "plugins_view.pkce_redirect"),
+                          "term",
+                          <span className="font-medium text-foreground">
+                            {translate("plugins_view.pkce_redirect_term")}
+                          </span>,
+                        )}
+                      </p>
+                      <code className="mt-1 block select-all break-all rounded bg-muted px-1.5 py-1 text-micro text-foreground">
+                        {redirectUri}
+                      </code>
+                      <p className="mt-1 text-micro text-muted-foreground">
+                        {withSlot(
+                          translate("plugins_view.pkce_redirect_numeric"),
+                          "localhost",
+                          <code className="text-micro">localhost</code>,
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <label
+                      htmlFor="pkce-client-id"
+                      className="block text-micro font-medium text-muted-foreground"
+                    >
+                      {translate("plugins_view.client_id")}
+                    </label>
+                    <input
+                      id="pkce-client-id"
+                      value={clientId}
+                      onChange={(e) => setClientId(e.target.value)}
+                      className="mt-1 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none"
+                      placeholder={
+                        OAUTH_CLIENT_ID_PLACEHOLDER[fam.family]
+                          ? clientIdPlaceholder(OAUTH_CLIENT_ID_PLACEHOLDER[fam.family])
+                          : fill(translate("plugins_view.client_id_from"), { family: fam.label })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="pkce-client-secret"
+                      className="block text-micro font-medium text-muted-foreground"
+                    >
+                      {translate("plugins_view.client_secret")}
+                    </label>
+                    <input
+                      id="pkce-client-secret"
+                      type="password"
+                      value={clientSecret}
+                      onChange={(e) => setClientSecret(e.target.value)}
+                      className="mt-1 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none"
+                      placeholder={
+                        translate(
+                          OAUTH_NO_SECRET_NEEDED[fam.family] ??
+                            "plugins_view.secret_optional_some",
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {err && (
+            <div className="rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
+              {err}
+            </div>
+          )}
+          {onUseFallback && plugin.fallbackAuth && (
+            <details className="rounded-md border border-border px-3 py-2.5 text-micro text-muted-foreground">
+              <summary className="cursor-pointer">{translate("plugins_view.expert_token_alt")}</summary>
+              <p>
+                {translate("plugins_view.expert_token_alt_body")}
+              </p>
+              <button
+                type="button"
+                onClick={onUseFallback}
+                disabled={busy}
+                className="mt-1.5 font-medium text-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-60"
+              >
+                {translate("plugins_view.paste_token_instead")}
+              </button>
+            </details>
+          )}
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+          >
+            {translate("common.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={busy || (clientRequired && !clientId.trim())}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+          >
+            {busy && <Loader2 className="h-3 w-3 animate-spin" />}
+            {translate("plugins_view.continue")}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Disconnect Confirm Dialog — guards the destructive "remove plugin" action.
+// Clicking the connected ✓ no longer disconnects immediately; it asks first.
+// ---------------------------------------------------------------------------
+
+function DisconnectConfirmDialog({
+  plugin,
+  isPending,
+  onCancel,
+  onConfirm,
+  errorMessage,
+}: {
+  plugin: Plugin;
+  isPending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  errorMessage: string | null;
+}) {
+  const assistantName = useEventStore((s) => s.assistantName);
+  // Close on Escape (unless a removal is in flight).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isPending) onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel, isPending]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="disconnect-dialog-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isPending) onCancel();
+      }}
+    >
+      <div className="relative w-full max-w-sm overflow-hidden rounded-lg bg-popover shadow-float">
+        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex items-center gap-3">
+            <BrandTile plugin={plugin} />
+            <div>
+              <h2
+                id="disconnect-dialog-title"
+                className="font-display text-base font-semibold tracking-tight"
+              >
+                {fill(translate("plugins_view.remove_named"), { plugin: plugin.name })}
+              </h2>
+              <p className="text-micro text-muted-foreground">
+                {translate("plugins_view.disconnect_plugin")}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+            aria-label={translate("common.cancel")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="px-5 py-5">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {withSlot(
+              fill(translate("plugins_view.disconnect_body"), { assistant: assistantName }),
+              "plugin",
+              <span className="font-medium text-foreground">{plugin.name}</span>,
+            )}
+          </p>
+          {errorMessage && (
+            <div className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
+              {errorMessage}
+            </div>
+          )}
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+          >
+            {translate("common.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3.5 py-1.5 text-xs font-semibold text-destructive-foreground transition-all hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {translate("plugins_view.removing")}
+              </>
+            ) : (
+              translate("plugins_view.remove")
+            )}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+/** "Remove {name}?" for a plugin the owner added: drops the catalog entry,
+ *  its stored sign-in and its tools. Built-in plugins never reach here. */
+function RemovePluginDialog({
+  plugin,
+  onCancel,
+  onRemoved,
+}: {
+  plugin: Plugin;
+  onCancel: () => void;
+  onRemoved: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel, pending]);
+
+  const remove = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      await removeAddedPlugin(plugin.id);
+      onRemoved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPending(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="remove-plugin-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !pending) onCancel();
+      }}
+    >
+      <div className="relative w-full max-w-sm overflow-hidden rounded-lg bg-popover shadow-float">
+        <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <BrandTile plugin={plugin} />
+          <h2 id="remove-plugin-title" className="font-display text-base font-semibold tracking-tight">
+            {fill(translate("plugins_view.remove_named"), { plugin: plugin.name })}
+          </h2>
+        </header>
+        <div className="px-5 py-5">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {translate("custom_connector.remove_body")}
+          </p>
+          {error && (
+            <div role="alert" className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
+        </div>
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+          >
+            {translate("common.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void remove()}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3.5 py-1.5 text-xs font-semibold text-destructive-foreground transition-all hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {pending && <Loader2 className="h-3 w-3 animate-spin" />}
+            {translate("custom_connector.remove")}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pat-Paste Connect Dialog — used by Vercel & Supabase. Opens the token-
+// creation page in a new tab, takes a paste, sends it to the backend.
+// ---------------------------------------------------------------------------
+
+// Channel plugins (bidirectional chat over Telegram/Discord) can be locked to
+// the owner: connecting captures the owner's numeric user id so the bot obeys
+// only them. Other plugins never show the field.
+const OWNER_LOCK_PLUGIN_IDS = new Set(["telegram", "discord"]);
+
+function InstanceBrowserDialog({ plugin, isPending, onClose, onSubmit }: {
+  plugin: Plugin;
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (url: string) => Promise<void>;
+}) {
+  const [address, setAddress] = useState("");
+  let valid = false;
+  try {
+    const url = new URL(address.trim());
+    valid = ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
+  } catch {
+    // An incomplete address is expected while the user types.
+  }
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onClose();
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [isPending, onClose]);
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="instance-browser-title" className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm">
+      <form className="w-full max-w-md space-y-4 rounded-lg bg-popover p-5 text-foreground shadow-float" onSubmit={(event) => {
+        event.preventDefault();
+        if (valid && !isPending) void onSubmit(address.trim());
+      }}>
+        <h2 id="instance-browser-title" className="font-semibold">{fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}</h2>
+        <p className="text-sm text-muted-foreground">{translate("plugins_view.instance_intro")}</p>
+        <label className="block text-sm" htmlFor="instance-browser-address">{translate("plugins_view.instance_address")}</label>
+        <input id="instance-browser-address" type="url" autoFocus required value={address} disabled={isPending} onChange={(event) => setAddress(event.target.value)} placeholder="http://homeassistant.local:8123" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+        <div className="flex justify-end gap-2">
+          <button type="button" disabled={isPending} onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm">{translate("common.cancel")}</button>
+          <button type="submit" disabled={!valid || isPending} className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50">{translate(isPending ? "plugins_view.opening_browser" : "plugins_view.continue_in_browser_btn")}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export function PatConnectDialog({
+  plugin,
+  notice,
+  onClose,
+  onSubmit,
+  isPending,
+  errorMessage,
+}: {
+  plugin: Plugin;
+  /** Honest banner when opened as a fallback (browser login pending). */
+  notice?: string | null;
+  onClose: () => void;
+  onSubmit: (
+    token: string,
+    allowedUserId: number | null,
+    instanceUrl: string | null,
+  ) => void;
+  isPending: boolean;
+  errorMessage: string | null;
+}) {
+  const [token, setToken] = useState("");
+  const [userId, setUserId] = useState("");
+  const [instanceUrl, setInstanceUrl] = useState("");
+  const ownerLock = OWNER_LOCK_PLUGIN_IDS.has(plugin.id);
+  const discordHelpers = plugin.id === "discord";
+  const [discordIdLoading, setDiscordIdLoading] = useState(false);
+  const [discordIdError, setDiscordIdError] = useState<string | null>(null);
+  const [discordInviteLoading, setDiscordInviteLoading] = useState(false);
+  const [discordInviteError, setDiscordInviteError] = useState<string | null>(null);
+
+  // Discord token fallback: fill the owner id from the verified browser
+  // login instead of Developer Mode, and open the official guild picker
+  // for the bot install. Both hit the backend helpers; no secret or id
+  // is ever invented client-side.
+  const fetchDiscordId = async () => {
+    setDiscordIdLoading(true);
+    setDiscordIdError(null);
+    try {
+      const res = await fetch("/api/marketplace/plugins/discord/identity");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `${translate("plugins_view.err_discord_id")} (HTTP ${res.status})`);
+      }
+      const data = await res.json();
+      if (!data.user_id) throw new Error(translate("plugins_view.err_discord_no_id"));
+      setUserId(String(data.user_id));
+    } catch (e) {
+      setDiscordIdError(e instanceof Error ? e.message : translate("plugins_view.err_discord_id"));
+    } finally {
+      setDiscordIdLoading(false);
+    }
+  };
+
+  const openDiscordInvite = async () => {
+    setDiscordInviteLoading(true);
+    setDiscordInviteError(null);
+    try {
+      const res = await fetch("/api/marketplace/plugins/discord/invite");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `${translate("plugins_view.err_discord_invite")} (HTTP ${res.status})`);
+      }
+      const data = await res.json();
+      if (!data.invite_url) throw new Error(translate("plugins_view.err_discord_no_invite"));
+      await openExternalUrl(data.invite_url);
+    } catch (e) {
+      setDiscordInviteError(
+        e instanceof Error ? e.message : translate("plugins_view.err_discord_invite"),
+      );
+    } finally {
+      setDiscordInviteLoading(false);
+    }
+  };
+  const auth = plugin.authConfig as unknown as PatPasteAuthDetail;
+  const instanceField = auth.instance_url ?? null;
+  const expectedPrefixes = [
+    auth.token_prefix ?? "",
+    ...(auth.token_prefixes ?? []),
+  ].filter((p) => p.length > 0);
+  // Same rule as the backend pre-check (`startswith`), so the dialog never
+  // rejects a token the server would accept (e.g. `github_pat_…`, whose
+  // prefix already ends in an underscore).
+  const prefixOk =
+    expectedPrefixes.length === 0 ||
+    expectedPrefixes.some((p) => token.trim().startsWith(p));
+  const userIdTrimmed = userId.trim();
+  const userIdOk = !ownerLock || userIdTrimmed === "" || /^\d+$/.test(userIdTrimmed);
+  const parsedUserId =
+    ownerLock && /^\d+$/.test(userIdTrimmed) ? Number(userIdTrimmed) : null;
+  // A self-hosted plugin cannot be reached at all without its address, so the
+  // field is required rather than optional — the backend would reject it a
+  // round-trip later otherwise.
+  const instanceOk = !instanceField || instanceUrl.trim().length > 0;
+  const canSubmit =
+    token.trim().length > 0 && prefixOk && userIdOk && instanceOk && !isPending;
+  const submit = () =>
+    onSubmit(token.trim(), parsedUserId, instanceField ? instanceUrl.trim() : null);
+
+  // Close on Escape — small but expected affordance.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isPending) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, isPending]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pat-dialog-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isPending) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-popover shadow-float">
+        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex items-center gap-3">
+            <BrandTile plugin={plugin} />
+            <div>
+              <h2
+                id="pat-dialog-title"
+                className="font-display text-base font-semibold tracking-tight"
+              >
+                {fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}
+              </h2>
+              <p className="text-micro text-muted-foreground">
+                {translate("plugins_view.access_token")} · {translate(AUTH_LABELS[plugin.authMode])}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+            aria-label={translate("common.close")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="space-y-5 px-5 py-5">
+          {notice && (
+            <p className="rounded-md bg-secondary px-3 py-2 text-micro text-foreground">
+              {notice}
+            </p>
+          )}
+          {auth.token_creation_url ? (
+          <Step
+            num={1}
+            title={fill(translate("plugins_view.pat_generate"), { plugin: plugin.name })}
+            body={auth.instruction_md}
+          >
+            <a
+              href={auth.token_creation_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.preventDefault();
+                void openExternalUrl(auth.token_creation_url);
+              }}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+            >
+              {fill(translate("plugins_view.pat_open_tokens"), { plugin: plugin.name })}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+            <div className="mt-2">
+              <CopyableUrl
+                url={auth.token_creation_url}
+                hint={translate("plugins_view.copy_link_hint_open")}
+              />
+            </div>
+          </Step>
+          ) : (
+            // A custom connector: no page is known that issues its key, so
+            // the step only says which key and where it goes.
+            <Step num={1} title={fill(translate("plugins_view.pat_get_key"), { plugin: plugin.name })} body={auth.instruction_md} />
+          )}
+
+          {instanceField && (
+            <Step num={2} title={instanceField.label} body={instanceField.help_md ?? undefined}>
+              <input
+                type="text"
+                inputMode="url"
+                autoComplete="off"
+                spellCheck={false}
+                value={instanceUrl}
+                onChange={(e) => setInstanceUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && canSubmit) submit();
+                }}
+                placeholder={instanceField.placeholder}
+                className="mt-2 w-full rounded-md bg-input px-3 py-2 font-mono text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-border-strong/30"
+                disabled={isPending}
+              />
+            </Step>
+          )}
+
+          <Step num={instanceField ? 3 : 2} title={translate("plugins_view.pat_paste_below")}>
+            <input
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canSubmit) submit();
+              }}
+              placeholder={
+                expectedPrefixes.length > 0
+                  ? `${expectedPrefixes.join(translate("plugins_view.or_separator"))}…`
+                  : translate("plugins_view.token")
+              }
+              className="mt-2 w-full rounded-md bg-input px-3 py-2 font-mono text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-border-strong/30"
+              autoFocus
+              disabled={isPending}
+            />
+            {token && expectedPrefixes.length > 0 && !prefixOk && (
+              <p className="mt-1.5 text-micro text-foreground">
+                {withSlot(
+                  translate("plugins_view.pat_should_start"),
+                  "prefix",
+                  <span className="font-mono">{expectedPrefixes.join(translate("plugins_view.or_separator"))}</span>,
+                )}
+              </p>
+            )}
+          </Step>
+
+          {ownerLock && (
+            <Step num={3} title={translate("plugins_view.owner_lock_title")}>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                spellCheck={false}
+                aria-label={translate("plugins_view.owner_lock_aria")}
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && canSubmit) submit();
+                }}
+                placeholder="123456789"
+                className="mt-2 w-full rounded-md bg-input px-3 py-2 font-mono text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-border-strong/30"
+                disabled={isPending}
+              />
+              <p className="mt-1.5 text-micro text-muted-foreground">
+                {translate("plugins_view.owner_lock_hint")}
+              </p>
+              {discordHelpers && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={isPending || discordIdLoading}
+                    onClick={() => void fetchDiscordId()}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+                  >
+                    {translate(discordIdLoading ? "plugins_view.looking_up" : "plugins_view.discord_fill_id")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending || discordInviteLoading}
+                    onClick={() => void openDiscordInvite()}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+                  >
+                    {translate(discordInviteLoading ? "plugins_view.opening" : "plugins_view.discord_add_bot")}
+                  </button>
+                </div>
+              )}
+              {(discordIdError || discordInviteError) && (
+                <p className="mt-1.5 text-micro text-destructive">
+                  {discordIdError ?? discordInviteError}
+                </p>
+              )}
+              {userIdTrimmed !== "" && !userIdOk && (
+                <p className="mt-1 text-micro text-foreground">
+                  {translate("plugins_view.owner_lock_digits")}
+                </p>
+              )}
+            </Step>
+          )}
+
+          {errorMessage && (
+            <div className="rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
+              {errorMessage}
+            </div>
+          )}
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+          >
+            {translate("common.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSubmit}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {translate("plugins_view.validating")}
+              </>
+            ) : (
+              <>
+                {translate("plugins_view.connect")}
+                <ArrowRight className="h-3 w-3" />
+              </>
+            )}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function Step({
+  num,
+  title,
+  body,
+  children,
+}: {
+  num: number;
+  title: string;
+  body?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex gap-3">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-border text-micro font-semibold text-muted-foreground">
+        {num}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {body && (
+          <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+            {body}
+          </p>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}

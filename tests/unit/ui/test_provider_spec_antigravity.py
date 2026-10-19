@@ -7,8 +7,8 @@ one-line follow-up. The brain itself uses its default model regardless.
 """
 from __future__ import annotations
 
-from jarvis.brain import model_catalog
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.brain import model_catalog
+from dodaios.ui.web.provider_spec import get_spec
 
 
 def test_antigravity_provider_spec():

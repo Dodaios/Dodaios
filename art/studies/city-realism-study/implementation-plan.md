@@ -38,7 +38,7 @@ Source paths below are relative to the repository. Recheck them at kickoff becau
 | `world/KitBuilding.tsx`, `MemoryHouse.tsx`, `worldMaterials.ts`, `figures/assembleFigure.ts` | Loaders and common preview paths | Preserve physical materials instead of converting everything to Toon/Lambert |
 | `world/WorldStage.tsx`, camera/composer/settings and WebGL hooks | Runtime integration, lifecycle, appearance and fallback behavior | City framing, study preview, measured render profiles and eventual district loading |
 
-`world/` and `figures/` above refer to `jarvis/ui/web/frontend/src/components/society/`.
+`world/` and `figures/` above refer to `dodaios/ui/web/frontend/src/components/society/`.
 
 ## Work packages and dependency order
 
@@ -135,7 +135,7 @@ Hard negatives: no island restyle presented as a new city; no looping decorative
 
 Use existing relevant suites: `walkerKinematics.test.ts`, `worldCamera.test.ts`, `useWorldControls.test.tsx`, `islandLayout.test.ts`, `checkpointPlaces.test.ts`, `buildingPoses.test.ts`, `foundry.test.ts`, `conversation.test.ts`, `retirement.test.ts`, and affected figure tests. Add meaningful graph/journey tests for C2–C6; do not create tests merely mirroring constants.
 
-Run the existing figure validator and fit audit when figures change. Run `tests/unit/test_art_pipeline.py` when study tooling changes. Backend event work additionally exercises checkpoints/world-feed tests and the appropriate society contracts. Run `npm run build` in `jarvis/ui/web/frontend` after frontend changes. Required code/test/design reviewers follow applicable repository instructions during implementation. Do not run the full suite for this planning-only artifact.
+Run the existing figure validator and fit audit when figures change. Run `tests/unit/test_art_pipeline.py` when study tooling changes. Backend event work additionally exercises checkpoints/world-feed tests and the appropriate society contracts. Run `npm run build` in `dodaios/ui/web/frontend` after frontend changes. Required code/test/design reviewers follow applicable repository instructions during implementation. Do not run the full suite for this planning-only artifact.
 
 Commit finished steps with explicit owned paths. Do not capture unrelated shared edits, force-push or bypass hooks. Every handoff updates this plan with the current package, evidence, unresolved failures and one next action. Missing runtime/device checks mean pending acceptance, not Done.
 

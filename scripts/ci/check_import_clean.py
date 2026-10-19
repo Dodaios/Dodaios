@@ -3,14 +3,14 @@
 
 Two checks:
 
-1. ``import jarvis`` must succeed in the current interpreter. On a Linux/macOS
+1. ``import dodaios`` must succeed in the current interpreter. On a Linux/macOS
    CI leg a module-scope ``import win32pipe`` / ``winreg`` / ``global_hotkeys``
    would crash here — this proves the package imports clean on the €5-VPS target.
 
-2. Belt-and-braces AST walk: no ``.py`` under ``jarvis/`` may import a
+2. Belt-and-braces AST walk: no ``.py`` under ``dodaios/`` may import a
    platform-only package at MODULE scope. The same import is allowed inside a
    function body (lazy) or inside a ``try:``/``except ImportError:`` block (the
-   guarded pattern at ``jarvis/plugins/tool/app_resolver.py:24``).
+   guarded pattern at ``dodaios/plugins/tool/app_resolver.py:24``).
 
 Exit 0 = clean. Exit non-zero = a regression that would break Mac/Linux.
 """
@@ -49,7 +49,7 @@ FORBIDDEN_MODULE_SCOPE = {
 }
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-JARVIS_DIR = REPO_ROOT / "jarvis"
+JARVIS_DIR = REPO_ROOT / "dodaios"
 
 
 def _root_name(dotted: str) -> str:
@@ -80,12 +80,12 @@ def main() -> int:
 
     # Check 1 — the package imports in this interpreter.
     try:
-        import jarvis  # noqa: F401
+        import dodaios  # noqa: F401
 
-        print(f"OK   import jarvis -> {jarvis.__file__}")
+        print(f"OK   import jarvis -> {dodaios.__file__}")
     except Exception as exc:  # noqa: BLE001
-        print(f"FAIL import jarvis raised: {exc!r}")
-        failures.append("import jarvis failed")
+        print(f"FAIL import dodaios raised: {exc!r}")
+        failures.append("import dodaios failed")
 
     # Check 2 — AST walk.
     scanned = 0
@@ -104,7 +104,7 @@ def main() -> int:
                 f"(move it inside a function or a try/except ImportError block)"
             )
 
-    print(f"OK   scanned {scanned} files under jarvis/")
+    print(f"OK   scanned {scanned} files under dodaios/")
 
     if failures:
         print("\nIMPORT-CLEANLINESS FAILURES:")

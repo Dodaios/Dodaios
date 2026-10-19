@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from jarvis.live.config import LiveConfig
-from jarvis.live.recovery import HISTORY_CONTEXT_RULE, seed_messages
+from dodaios.live.config import LiveConfig
+from dodaios.live.recovery import HISTORY_CONTEXT_RULE, seed_messages
 
 
 def transcript(messages):

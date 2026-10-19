@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import ollama_inventory as inv
+from dodaios.brain import ollama_inventory as inv
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 ROOT = "http://localhost:11434"

@@ -5,10 +5,10 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.home_assistant import HomeAssistantHandler
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.revoke import revoke_tokens
-from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
+from dodaios.marketplace.auth.home_assistant import HomeAssistantHandler
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.revoke import revoke_tokens
+from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
 
 
 @pytest.mark.asyncio
@@ -99,7 +99,7 @@ def test_builtin_catalog_uses_browser_primary():
 
 
 def test_legacy_builtin_auth_migrates_but_custom_address_does_not():
-    from jarvis.marketplace.catalog_data import _merge_with_seed
+    from dodaios.marketplace.catalog_data import _merge_with_seed
 
     spec = load_catalog().by_id("home_assistant")
     seed = {"plugins": [spec.model_dump()]}

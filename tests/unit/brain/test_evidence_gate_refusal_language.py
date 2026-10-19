@@ -14,14 +14,14 @@ every other layer (AGENTS.md §1). ``check_evidence_domain`` now takes the
 already-resolved ``language``; the utterance is only consulted when a caller
 omits it.
 """
-from jarvis.brain.evidence_gate import (
+from dodaios.brain.evidence_gate import (
     _REFUSAL_DE,
     _REFUSAL_EN,
     _REFUSAL_ES,
     _REFUSAL_PT,
     check_evidence_domain,
 )
-from jarvis.core.capabilities import CapabilityRegistry
+from dodaios.core.capabilities import CapabilityRegistry
 
 DOMAINS = {
     "calendar": ["kalender", "termin", "termine", "calendar", "meeting", "meetings"],

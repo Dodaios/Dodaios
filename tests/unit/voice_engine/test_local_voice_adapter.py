@@ -11,16 +11,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import JarvisConfig, VoiceEngineConfig
-from jarvis.plugins.realtime.local_voice import (
+from dodaios.core.config import JarvisConfig, VoiceEngineConfig
+from dodaios.plugins.realtime.local_voice import (
     EngineSettings,
     LocalVoiceProvider,
     _Engine,
 )
-from jarvis.realtime.protocol import RealtimeProvider
-from jarvis.voice_engine import models
-from jarvis.voice_engine.paths import venv_python
-from jarvis.voice_engine.protocol import AudioFrame
+from dodaios.realtime.protocol import RealtimeProvider
+from dodaios.voice_engine import models
+from dodaios.voice_engine.paths import venv_python
+from dodaios.voice_engine.protocol import AudioFrame
 
 
 @dataclass
@@ -351,7 +351,7 @@ async def test_ordered_audio_reaches_the_session_before_turn_complete() -> None:
 async def test_stalled_loading_is_failed_and_releases_the_worker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.plugins.realtime import local_voice
+    from dodaios.plugins.realtime import local_voice
 
     monkeypatch.setattr(local_voice, "_READY_TIMEOUT_S", 0.01)
     engine = _Engine(_settings())
@@ -406,7 +406,7 @@ async def test_stop_cancels_start_before_it_can_leave_a_worker_behind() -> None:
 async def test_stop_also_cancels_a_direct_prespawn_handshake(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.voice_engine import client as client_module
+    from dodaios.voice_engine import client as client_module
 
     entered = asyncio.Event()
     client = FakeClient()

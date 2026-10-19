@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.factory import build_default_brain
-from jarvis.core.capabilities import get_registry
-from jarvis.core.capabilities_seed import seed_registry
+from dodaios.brain.factory import build_default_brain
+from dodaios.core.capabilities import get_registry
+from dodaios.core.capabilities_seed import seed_registry
 
 
 @pytest.fixture()
@@ -33,7 +33,7 @@ def empty_registry():
     params failed in every full run while staying green file-scoped. Restore
     the pre-test context so the build's side effects end with this test.
     """
-    from jarvis.skills.skill_context import (
+    from dodaios.skills.skill_context import (
         set_skill_context,
         try_get_skill_context,
     )

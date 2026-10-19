@@ -7,9 +7,9 @@ import sys
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.core.protocols import BrainMessage, BrainRequest
-from jarvis.plugins.brain import _openai_base
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.plugins.brain import _openai_base
 
 
 class _Client:
@@ -36,7 +36,7 @@ async def _drain(client: _Client) -> None:
 def test_module_import_does_not_import_openai_sdk() -> None:
     code = (
         "import sys; "
-        "import jarvis.plugins.brain._openai_base as module; "
+        "import dodaios.plugins.brain._openai_base as module; "
         "assert 'openai' not in sys.modules; "
         "assert callable(module._stream_options_supported)"
     )

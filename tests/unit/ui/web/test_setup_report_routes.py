@@ -23,7 +23,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web import setup_report_routes as sr
+from dodaios.ui.web import setup_report_routes as sr
 
 
 def _stub_probes(

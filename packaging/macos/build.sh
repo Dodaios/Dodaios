@@ -51,7 +51,7 @@ VOLUME_NAME="Personal Jarvis"
 DIST_DIR="${REPO_ROOT}/dist"
 APP_BUNDLE="${DIST_DIR}/${APP_NAME}.app"
 OUT_DIR="${DIST_DIR}/installers"
-FRONTEND_DIST="${REPO_ROOT}/jarvis/ui/web/dist"
+FRONTEND_DIST="${REPO_ROOT}/dodaios/ui/web/dist"
 ENTITLEMENTS="${SCRIPT_DIR}/entitlements.plist"
 # The copy of ENTITLEMENTS that codesign embeds; see prepare_entitlements().
 NORMALIZED_ENTITLEMENTS="${DIST_DIR}/entitlements.normalized.plist"
@@ -205,12 +205,12 @@ import_signing_certificate
 if [ -d "${FRONTEND_DIST}" ] && [ -f "${FRONTEND_DIST}/index.html" ]; then
   log "web bundle present: ${FRONTEND_DIST}"
 elif [ "${SKIP_FRONTEND}" = "1" ]; then
-  die "web bundle missing and SKIP_FRONTEND=1 - build it with 'npm run build' in jarvis/ui/web/frontend"
+  die "web bundle missing and SKIP_FRONTEND=1 - build it with 'npm run build' in dodaios/ui/web/frontend"
 else
   log "web bundle missing - building it"
   command -v npm >/dev/null 2>&1 || die "npm is required to build the web bundle"
   (
-    cd "${REPO_ROOT}/jarvis/ui/web/frontend"
+    cd "${REPO_ROOT}/dodaios/ui/web/frontend"
     if [ ! -d node_modules ]; then
       run npm ci
     fi

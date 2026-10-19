@@ -11,10 +11,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import done_gate_status as gate
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
-from jarvis.agentic_ide.done_gate_status import PaneGateRecord
-from jarvis.ui.web import agentic_ide_git_routes as routes
+from dodaios.agentic_ide import done_gate_status as gate
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide.done_gate_status import PaneGateRecord
+from dodaios.ui.web import agentic_ide_git_routes as routes
 from tests.fakes.fake_done_gate import FakeRepoLocator, iso, write_session
 
 # Real time: the reader skips files by their modification time before parsing them.

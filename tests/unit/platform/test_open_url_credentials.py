@@ -3,7 +3,7 @@
 import logging
 import subprocess
 
-from jarvis.platform import open_path
+from dodaios.platform import open_path
 
 
 def test_opener_timeout_does_not_log_credential(monkeypatch, caplog):

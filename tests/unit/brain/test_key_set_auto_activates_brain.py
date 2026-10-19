@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainTierConfig, load_config
-from jarvis.core.events import SecretConfigured
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainTierConfig, load_config
+from dodaios.core.events import SecretConfigured
 
 
 def _cfg(*, primary: str):
@@ -49,7 +49,7 @@ async def test_key_set_promotes_when_active_provider_is_dead(monkeypatch) -> Non
     # Don't touch the real jarvis.toml — persist through a stubbed writer.
     persisted: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_primary",
+        "dodaios.core.config_writer.set_brain_primary",
         lambda name: persisted.append(name),
     )
 
@@ -68,7 +68,7 @@ async def test_key_set_does_not_override_a_working_active_provider(monkeypatch) 
     monkeypatch.setattr(mgr, "_active_has_usable_credential", lambda: True)
     switched: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_primary",
+        "dodaios.core.config_writer.set_brain_primary",
         lambda name: switched.append(name),
     )
 
@@ -85,7 +85,7 @@ async def test_key_set_for_a_non_brain_slot_is_ignored(monkeypatch) -> None:
     monkeypatch.setattr(mgr, "_active_has_usable_credential", lambda: False)
     switched: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_primary",
+        "dodaios.core.config_writer.set_brain_primary",
         lambda name: switched.append(name),
     )
 
@@ -99,7 +99,7 @@ async def test_key_set_for_a_non_brain_slot_is_ignored(monkeypatch) -> None:
 async def test_delete_action_never_switches(monkeypatch) -> None:
     mgr, bus = _manager("claude-api")
     monkeypatch.setattr(mgr, "_active_has_usable_credential", lambda: False)
-    monkeypatch.setattr("jarvis.core.config_writer.set_brain_primary", lambda name: None)
+    monkeypatch.setattr("dodaios.core.config_writer.set_brain_primary", lambda name: None)
 
     await bus.publish(SecretConfigured(key="openrouter_api_key", action="delete"))
 
@@ -111,13 +111,13 @@ def test_active_has_usable_credential_reflects_key_presence(monkeypatch) -> None
     # two branches without depending on which keys the test host actually has.
     mgr, _bus = _manager("claude-api")
 
-    monkeypatch.setattr("jarvis.core.config.get_secret_any", lambda specs: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret_any", lambda specs: None)
     monkeypatch.setattr(
-        "jarvis.brain.manager._keyless_provider_is_rescued_by_oauth", lambda name: False
+        "dodaios.brain.manager._keyless_provider_is_rescued_by_oauth", lambda name: False
     )
     assert mgr._active_has_usable_credential() is False
 
-    monkeypatch.setattr("jarvis.core.config.get_secret_any", lambda specs: "sk-present")
+    monkeypatch.setattr("dodaios.core.config.get_secret_any", lambda specs: "sk-present")
     assert mgr._active_has_usable_credential() is True
 
 
@@ -125,8 +125,8 @@ def test_active_has_usable_credential_true_via_oauth(monkeypatch) -> None:
     # A keyless provider rescued by a connected OAuth login counts as usable —
     # it must not be overridden even with no API key in any slot.
     mgr, _bus = _manager("claude-api")
-    monkeypatch.setattr("jarvis.core.config.get_secret_any", lambda specs: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret_any", lambda specs: None)
     monkeypatch.setattr(
-        "jarvis.brain.manager._keyless_provider_is_rescued_by_oauth", lambda name: True
+        "dodaios.brain.manager._keyless_provider_is_rescued_by_oauth", lambda name: True
     )
     assert mgr._active_has_usable_credential() is True

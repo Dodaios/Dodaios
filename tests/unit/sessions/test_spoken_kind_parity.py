@@ -7,11 +7,11 @@ pipeline can emit. A drift fails this test instead of shipping a missing label.
 
 Layers under test:
 
-1. ``jarvis/sessions/constants.py``       — ``SPOKEN_KINDS`` tuple (source of truth)
-2. ``jarvis/sessions/models.py``          — ``KNOWN_SPOKEN_KINDS`` frozenset (mirror)
-3. ``jarvis/ui/web/frontend/.../sessions/types.ts``
+1. ``dodaios/sessions/constants.py``       — ``SPOKEN_KINDS`` tuple (source of truth)
+2. ``dodaios/sessions/models.py``          — ``KNOWN_SPOKEN_KINDS`` frozenset (mirror)
+3. ``dodaios/ui/web/frontend/.../sessions/types.ts``
                                           — ``KNOWN_SPOKEN_KINDS`` const tuple
-4. ``jarvis/ui/web/frontend/.../sessions/TurnCard.tsx``
+4. ``dodaios/ui/web/frontend/.../sessions/TurnCard.tsx``
                                           — the ``SPOKEN_KIND_LABEL`` map
 """
 from __future__ import annotations
@@ -19,13 +19,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.sessions.constants import SPOKEN_KINDS
-from jarvis.sessions.models import KNOWN_SPOKEN_KINDS
+from dodaios.sessions.constants import SPOKEN_KINDS
+from dodaios.sessions.models import KNOWN_SPOKEN_KINDS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TYPES_TS = REPO_ROOT / "jarvis/ui/web/frontend/src/components/sessions/types.ts"
+TYPES_TS = REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/types.ts"
 TURN_CARD_TSX = (
-    REPO_ROOT / "jarvis/ui/web/frontend/src/components/sessions/TurnCard.tsx"
+    REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/TurnCard.tsx"
 )
 
 

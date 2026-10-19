@@ -40,7 +40,7 @@ the skill directory surfaces every site.
 
 The skill is intentionally *not* wired into Jarvis's `ROUTER_TOOLS`
 frozenset, the `pyproject.toml` entry-points, or the
-`jarvis/safety/risk_tier.py` policy table. Phase-2 will publish a
+`dodaios/safety/risk_tier.py` policy table. Phase-2 will publish a
 follow-up ADR covering router integration, cost-meter wiring, and the
 voice-bridge path for spoken summaries. Until then, the package is a
 standalone artifact that can be imported, tested, and reviewed in

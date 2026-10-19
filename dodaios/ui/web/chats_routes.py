@@ -1,0 +1,597 @@
+"""REST routes for the Chats conversation manager.
+
+A unified history over two sources:
+  - **text** conversations from :class:`dodaios.state.chat_store.ChatStore`
+  - **voice** sessions from :class:`dodaios.sessions.store.SessionStore`
+
+Endpoints (prefix ``/api/chats``):
+    GET    /api/chats                         Unified list, newest-first.
+    GET    /api/chats/{kind}/{id}             Normalized transcript.
+    POST   /api/chats                         Create a new (empty) text thread.
+    POST   /api/chats/{kind}/{id}/resume      Seed the web brain → continue by text.
+    POST   /api/chats/{kind}/{id}/speak       Seed the voice brain + open the mic.
+    DELETE /api/chats/text/{id}               Delete a text thread.
+
+Registered in ``server.py::_build_app()`` next to ``sessions_router``.
+
+DI follows the established ``getattr(request.app.state, X, None)`` + 503
+pattern. The ``/speak`` path needs a live speech pipeline (``app.state.
+speech_pipeline``), which only exists in the full desktop app — on a headless
+VPS it returns 503, consistent with the cloud-first doctrine (voice is a
+desktop extra).
+
+Loopback-only (server binds 127.0.0.1) — no auth token needed.
+"""
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+
+from dodaios.sessions import chat_titles
+from dodaios.sessions.chat_titles import TitleRequest
+from dodaios.sessions.continuation import CALL_SEGMENT_PREFIX
+from dodaios.sessions.formatter import _jarvis_outputs_for_turn
+from dodaios.state.chat_store import ChatStore
+from dodaios.state.conversation_constants import (
+    CONVERSATION_KIND_TEXT,
+    CONVERSATION_KIND_VOICE,
+    ConversationKind,
+)
+from dodaios.state.turn_trace import trace_from_events
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/chats", tags=["chats"])
+
+# How many trailing turns to seed into the brain when resuming/speaking. The
+# brain caps its own buffer too (BrainManager._HISTORY_MAX); this keeps the
+# payload small for very long voice sessions.
+_SEED_MAX_MESSAGES = 40
+
+# Roles that are meaningful to seed back into the brain conversation buffer.
+_SEEDABLE_ROLES = frozenset({"user", "assistant", "system"})
+
+
+# ----------------------------------------------------------------------
+# Response models
+# ----------------------------------------------------------------------
+
+
+class ConversationSummary(BaseModel):
+    """One row in the unified history list."""
+
+    kind: ConversationKind
+    id: str
+    title: str = ""
+    preview: str = ""
+    created_ms: int = 0
+    updated_ms: int = 0
+    message_count: int = 0
+
+
+class ChatTurn(BaseModel):
+    """A single normalized message (text thread message OR half a voice turn)."""
+
+    role: str
+    text: str
+    ts_ms: int = 0
+    # The reasoning trace behind an assistant reply — the event list
+    # ``dodaios.state.turn_trace`` stores (``{started_ms, ended_ms, events}``),
+    # replayed by the UI into the "Thought for Ns" steps. None for user and
+    # system lines and for replies recorded before traces were kept.
+    trace: dict[str, Any] | None = None
+
+
+class ConversationDetail(BaseModel):
+    kind: ConversationKind
+    id: str
+    title: str = ""
+    messages: list[ChatTurn] = Field(default_factory=list)
+
+
+class NewChatResponse(BaseModel):
+    kind: ConversationKind = CONVERSATION_KIND_TEXT
+    id: str
+    title: str = ""
+
+
+class NewChatRequest(BaseModel):
+    title: str = "New Chat"
+
+
+class ResumeResponse(BaseModel):
+    kind: ConversationKind
+    id: str
+    title: str = ""
+    messages: list[ChatTurn] = Field(default_factory=list)
+    seeded_turns: int = 0
+
+
+class SpeakResponse(BaseModel):
+    armed: bool
+    seeded_turns: int = 0
+
+
+class NewVoiceRunResponse(BaseModel):
+    """What "+ New voice chat" actually changed on the backend."""
+
+    #: The brain's conversation buffer was emptied, so the next spoken turn
+    #: starts a thread of its own.
+    cleared: bool = False
+    #: A voice session was still live and has been ended.
+    ended: bool = False
+
+
+# ----------------------------------------------------------------------
+# DI helpers
+# ----------------------------------------------------------------------
+
+
+def _require_chat_store(request: Request) -> ChatStore:
+    store = getattr(request.app.state, "chat_store", None)
+    if store is None:
+        raise HTTPException(status_code=503, detail="chat-store-unavailable")
+    return store
+
+
+def _optional_session_store(request: Request) -> Any | None:
+    return getattr(request.app.state, "session_store", None)
+
+
+def _optional_brain(request: Request) -> Any | None:
+    return getattr(request.app.state, "brain", None)
+
+
+def _optional_pipeline(request: Request) -> Any | None:
+    return getattr(request.app.state, "speech_pipeline", None)
+
+
+# ----------------------------------------------------------------------
+# Normalization
+# ----------------------------------------------------------------------
+
+
+def _voice_session_to_summary(s: Any, title: str = "") -> ConversationSummary:
+    """A voice session as a history row. An empty ``title`` means "no topic"."""
+    preview = getattr(s, "preview", "") or ""
+    started = int(getattr(s, "started_ms", 0) or 0)
+    ended = getattr(s, "ended_ms", None)
+    return ConversationSummary(
+        kind=CONVERSATION_KIND_VOICE,
+        id=str(s.id),
+        title=title,
+        preview=preview,
+        created_ms=started,
+        updated_ms=int(ended) if ended else started,
+        message_count=int(getattr(s, "turn_count", 0) or 0),
+    )
+
+
+def _text_thread_to_summary(t: dict[str, Any]) -> ConversationSummary:
+    return ConversationSummary(
+        kind=CONVERSATION_KIND_TEXT,
+        id=str(t["thread_id"]),
+        title=t.get("title") or t.get("preview") or "New Chat",
+        preview=t.get("preview", "") or "",
+        created_ms=int(t.get("created_at_ns", 0)) // 1_000_000,
+        updated_ms=int(t.get("updated_at_ns", t.get("created_at_ns", 0))) // 1_000_000,
+        message_count=int(t.get("message_count", 0)),
+    )
+
+
+def _normalized_messages(
+    kind: str, cid: str, chat_store: ChatStore, session_store: Any | None
+) -> list[ChatTurn] | None:
+    """Flatten either source into an ordered list of messages. None = not found."""
+    if kind == CONVERSATION_KIND_TEXT:
+        thread = chat_store.get_thread(cid)
+        if thread is None:
+            return None
+        return [
+            ChatTurn(
+                role=m["role"],
+                text=m["text"],
+                ts_ms=int(m["timestamp_ns"]) // 1_000_000,
+                trace=m.get("trace") if m["role"] == "assistant" else None,
+            )
+            for m in thread["messages"]
+        ]
+    if kind == CONVERSATION_KIND_VOICE:
+        if session_store is None:
+            return None
+        session = session_store.get_session(cid)
+        if session is None:
+            return None
+        turns = session_store.get_turns(cid)
+        events = _voice_events(session_store, cid)
+        live_messages = _live_voice_messages(events)
+        if live_messages:
+            # A reopened voice chat can hold an older turn-based call ahead of
+            # its live calls (dodaios/sessions/continuation.py). Those earlier
+            # turns carry no caption rows, so they would vanish behind the
+            # captions; keep them, in time order, in front.
+            first_live = min(m.ts_ms for m in live_messages)
+            captioned = {
+                getattr(e, "turn_id", None)
+                for e in events
+                if e.kind == "VoiceTranscriptUpdated"
+            }
+            earlier = [
+                turn for turn in turns
+                if int(turn.started_ms) < first_live and str(turn.id) not in captioned
+            ]
+            return _turn_messages(earlier, events) + live_messages
+        # Older GPT-Live sessions retained every fragment even while the chat
+        # rendered only the current caption. Recover them without a migration.
+        from dodaios.core.paths import user_data_dir
+        from dodaios.live.transcript import read_legacy_transcript
+
+        legacy = read_legacy_transcript(user_data_dir() / "live.sqlite3", cid)
+        if legacy:
+            origin = legacy[0].start_ms
+            return [ChatTurn(
+                role=caption.role, text=caption.text,
+                ts_ms=int(session.started_ms) + caption.start_ms - origin,
+            ) for caption in legacy]
+        return _turn_messages(turns, events)
+    return None
+
+
+def _turn_messages(turns: list[Any], events: list[Any]) -> list[ChatTurn]:
+    """A turn-based call's messages: the heard words and the audible answers."""
+    out: list[ChatTurn] = []
+    for turn in turns:
+        if getattr(turn, "user_text", ""):
+            out.append(
+                ChatTurn(role="user", text=turn.user_text, ts_ms=int(turn.started_ms))
+            )
+        turn_id = str(getattr(turn, "id", "") or "")
+        turn_events = [
+            event for event in events
+            if turn_id and getattr(event, "turn_id", None) == turn_id
+        ]
+        # Use the export's audible-track projection: preambles and progress
+        # can be all the user heard before hanging up. They remain spoken
+        # history even when no final brain reply or tool call exists.
+        for output in _jarvis_outputs_for_turn(turn, turn_events):
+            out.append(
+                ChatTurn(
+                    role="assistant",
+                    text=output.text,
+                    ts_ms=output.ts_ms,
+                    trace=(
+                        _voice_turn_trace(turn, events)
+                        if output.is_reply else None
+                    ),
+                )
+            )
+    return out
+
+
+def _voice_events(session_store: Any, session_id: str) -> list[Any]:
+    """Every recorded event of a voice session; [] when the store cannot say."""
+    getter = getattr(session_store, "get_events", None)
+    if not callable(getter):
+        return []
+    try:
+        return list(getter(session_id) or [])
+    except Exception as exc:  # noqa: BLE001 — a trace is sugar, the transcript must load
+        log.debug("voice events unavailable for %s: %s", session_id, exc)
+        return []
+
+
+def _live_voice_messages(events: list[Any]) -> list[ChatTurn]:
+    """Replay continuous speaker snapshots without collapsing a whole call."""
+    segments: dict[str, dict[str, Any]] = {}
+    for event in events:
+        if event.kind != "VoiceTranscriptUpdated":
+            continue
+        payload = event.payload
+        segment_id = str(payload.get("segment_id", ""))
+        role = payload.get("role")
+        if not segment_id or role not in {"user", "assistant"}:
+            continue
+        previous = segments.get(segment_id)
+        revision = int(payload.get("revision", 0))
+        if previous and revision <= previous["revision"]:
+            continue
+        segments[segment_id] = {
+            "role": role, "text": str(payload.get("text", "")), "revision": revision,
+            "start": previous["start"] if previous else event.ts_ms,
+            "end": event.ts_ms, "audio_start": int(payload.get("start_ms", 0)),
+        }
+    # Each call's audio clock starts at zero. A reopened voice chat holds
+    # several calls (their segment ids carry the call, see
+    # SessionRecorder._maybe_append_raw), so order calls by when they began
+    # and only then by the audio clock inside each call.
+    for segment_id, item in segments.items():
+        continued = segment_id.startswith(CALL_SEGMENT_PREFIX)
+        item["call"] = segment_id.split(":", 2)[1] if continued else ""
+    call_start: dict[str, int] = {}
+    for item in segments.values():
+        call_start[item["call"]] = min(call_start.get(item["call"], item["start"]), item["start"])
+    ordered = sorted(
+        segments.values(),
+        key=lambda item: (call_start[item["call"]], item["audio_start"], item["start"]),
+    )
+    messages = []
+    trace_start = min((item["start"] for item in ordered), default=0)
+    for item in ordered:
+        if not item["text"].strip():
+            continue
+        trace = None
+        if item["role"] == "assistant":
+            trace = trace_from_events(events, since_ms=trace_start, until_ms=item["end"])
+            trace_start = item["end"] + 1
+        messages.append(ChatTurn(
+            role=item["role"], text=item["text"], ts_ms=item["start"], trace=trace,
+        ))
+    return messages
+
+
+def _voice_turn_trace(turn: Any, events: list[Any]) -> dict[str, Any] | None:
+    """The reasoning trace of one voice turn, from the session recorder's rows.
+
+    Rows carry the turn they belong to; the ones that do not (a tool event
+    published before the recorder opened the turn) fall back to the turn's
+    time window. Either way the result is the same shape a typed turn stores,
+    so the history shows both alike.
+    """
+    turn_id = str(getattr(turn, "id", "") or "")
+    started = int(getattr(turn, "started_ms", 0) or 0)
+    ended = getattr(turn, "ended_ms", None)
+    until = int(ended) if ended else None
+    own = [e for e in events if turn_id and getattr(e, "turn_id", None) == turn_id]
+    if own:
+        # Keep the window generous around the recorder's turn bounds: a trace
+        # row tagged with this turn belongs to it wherever its clock says.
+        lo = min(started, min(int(getattr(e, "ts_ms", started)) for e in own))
+        hi = max(int(getattr(e, "ts_ms", lo)) for e in own)
+        return trace_from_events(own, since_ms=lo, until_ms=max(hi, until or hi))
+    if not started:
+        return None
+    return trace_from_events(events, since_ms=started, until_ms=until)
+
+
+def _seed_pairs(messages: list[ChatTurn]) -> list[tuple[str, str]]:
+    """Trailing seedable (role, text) pairs for BrainManager.seed_history."""
+    pairs = [
+        (m.role, m.text)
+        for m in messages
+        if m.role in _SEEDABLE_ROLES and m.text.strip()
+    ]
+    return pairs[-_SEED_MAX_MESSAGES:]
+
+
+def _voice_title_request(
+    s: Any, chat_store: ChatStore, session_store: Any
+) -> TitleRequest:
+    """What the titler needs to name one voice session (read lazily, off-request)."""
+    sid = str(s.id)
+    ended = getattr(s, "ended_ms", None)
+
+    def load() -> list[tuple[str, str]]:
+        messages = _normalized_messages(CONVERSATION_KIND_VOICE, sid, chat_store, session_store)
+        return [(m.role, m.text) for m in messages or []]
+
+    return TitleRequest(
+        kind=chat_titles.KIND_VOICE,
+        conv_id=sid,
+        version=str(ended or ""),
+        message_count=int(getattr(s, "turn_count", 0) or 0),
+        updated_ms=int(ended or getattr(s, "started_ms", 0) or 0),
+        settled=ended is not None,
+        seed=str(getattr(s, "preview", "") or ""),
+        loader=load,
+    )
+
+
+def _voice_titles(
+    request: Request, sessions: list[Any], chat_store: ChatStore, session_store: Any
+) -> dict[tuple[str, str], str]:
+    """Topic titles for voice sessions; the rules over the preview if the titler fails."""
+    requests = [_voice_title_request(s, chat_store, session_store) for s in sessions]
+    try:
+        return chat_titles.titler_for_state(request.app.state).titles_for(requests)
+    except Exception:  # noqa: BLE001 - a title is never worth an empty history
+        log.warning("chat titles unavailable, using the plain rules", exc_info=True)
+        return {(r.kind, r.conv_id): chat_titles.tidy_title([r.seed]) for r in requests}
+
+
+def _conversation_title(
+    request: Request,
+    kind: str,
+    cid: str,
+    chat_store: ChatStore,
+    session_store: Any | None,
+) -> str:
+    if kind == CONVERSATION_KIND_TEXT:
+        thread = chat_store.get_thread(cid)
+        return (thread or {}).get("title", "") if thread else ""
+    if kind == CONVERSATION_KIND_VOICE and session_store is not None:
+        if session_store.get_session(cid) is None:
+            return ""
+        titler = chat_titles.titler_for_state(request.app.state)
+        return titler.known(chat_titles.KIND_VOICE, cid)
+    return ""
+
+
+# ----------------------------------------------------------------------
+# Endpoints
+# ----------------------------------------------------------------------
+
+
+@router.get("", response_model=list[ConversationSummary])
+def list_conversations(
+    request: Request,
+    days: int = Query(default=0, ge=0, le=3650),
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> list[ConversationSummary]:
+    """Unified history (text threads + voice sessions), newest-first.
+
+    ``days`` is a soft recent-window filter (0 = no filter, show all).
+    """
+    chat_store = _require_chat_store(request)
+    session_store = _optional_session_store(request)
+
+    items: list[ConversationSummary] = [
+        _text_thread_to_summary(t) for t in chat_store.list_threads(include_empty=False)
+    ]
+    if session_store is not None:
+        try:
+            sessions = session_store.list_sessions(limit=limit, include_empty=False)
+            titles = _voice_titles(request, sessions, chat_store, session_store)
+            for s in sessions:
+                title = titles.get((chat_titles.KIND_VOICE, str(s.id)), "")
+                items.append(_voice_session_to_summary(s, title))
+        except Exception as exc:  # noqa: BLE001 — voice list must never 500 the page
+            log.warning("voice session list failed, showing text-only: %s", exc)
+
+    if days > 0:
+        cutoff = int(time.time() * 1000) - days * 86_400_000
+        items = [c for c in items if c.updated_ms >= cutoff]
+
+    items.sort(key=lambda c: c.updated_ms, reverse=True)
+    return items[:limit]
+
+
+@router.post("", response_model=NewChatResponse)
+async def create_chat(request: Request, body: NewChatRequest | None = None) -> NewChatResponse:
+    """Create a new, empty text conversation and return its id."""
+    chat_store = _require_chat_store(request)
+    title = (body.title if body else "New Chat") or "New Chat"
+    created = await chat_store.create_thread(title=title)
+    return NewChatResponse(id=str(created["thread_id"]), title=created["title"])
+
+
+@router.post("/voice/new", response_model=NewVoiceRunResponse)
+async def new_voice_run(request: Request) -> NewVoiceRunResponse:
+    """Begin a fresh voice run.
+
+    A voice thread lives in two places: the brain's in-memory conversation
+    buffer (which a re-opened chat seeds via ``.../resume``) and the session
+    the pipeline is currently recording under. "+ New voice chat" must reset
+    both, or the "new" run answers out of the old thread and its turns are
+    appended to the session already on disk.
+
+    Declared above ``GET /{kind}/{cid}`` only for readability — the literal
+    path and the parameterized one differ in method, so they never compete.
+
+    Purely in-memory: no LLM call, no I/O, nothing on the voice critical path
+    (AP-9/AP-11). The microphone is deliberately NOT re-armed; the next wake
+    word or orb click opens the new session.
+    """
+    cleared = False
+    brain = _optional_brain(request)
+    if brain is not None and hasattr(brain, "seed_history"):
+        # An empty seed is the documented equivalent of clear_history() and
+        # works on every brain that can be seeded at all.
+        brain.seed_history([])
+        cleared = True
+
+    # A fresh run is a fresh chat too: its turns must not land in the chat the
+    # previous call continued, or the new run would read as part of it.
+    try:
+        from .agent_chat_routes import _service_from_state
+
+        chat = _service_from_state(request.app.state)
+        if chat is not None:
+            chat.bind_voice_chat(None)
+    except Exception as exc:  # noqa: BLE001 — the reset itself already happened
+        log.warning("new voice run could not unbind the voice chat: %s", exc)
+
+    ended = False
+    pipeline = _optional_pipeline(request)
+    if pipeline is not None and hasattr(pipeline, "request_voice_hangup"):
+        # Same contract as the hangup key / POST /api/voice/hangup: False
+        # simply means nothing was running, which is the common case.
+        ended = bool(pipeline.request_voice_hangup())
+
+    return NewVoiceRunResponse(cleared=cleared, ended=ended)
+
+
+@router.get("/{kind}/{cid}", response_model=ConversationDetail)
+async def get_conversation(
+    kind: ConversationKind, cid: str, request: Request
+) -> ConversationDetail:
+    """Normalized transcript for one conversation."""
+    chat_store = _require_chat_store(request)
+    session_store = _optional_session_store(request)
+    messages = _normalized_messages(kind, cid, chat_store, session_store)
+    if messages is None:
+        raise HTTPException(status_code=404, detail="conversation-not-found")
+    return ConversationDetail(
+        kind=kind,
+        id=cid,
+        title=_conversation_title(request, kind, cid, chat_store, session_store),
+        messages=messages,
+    )
+
+
+@router.post("/{kind}/{cid}/resume", response_model=ResumeResponse)
+async def resume_conversation(
+    kind: ConversationKind, cid: str, request: Request
+) -> ResumeResponse:
+    """Seed the (text) brain with this conversation so the next typed message
+    continues it coherently, and return the messages so the UI can render it
+    as the active conversation."""
+    chat_store = _require_chat_store(request)
+    session_store = _optional_session_store(request)
+    messages = _normalized_messages(kind, cid, chat_store, session_store)
+    if messages is None:
+        raise HTTPException(status_code=404, detail="conversation-not-found")
+
+    seeded = 0
+    brain = _optional_brain(request)
+    if brain is not None and hasattr(brain, "seed_history"):
+        pairs = _seed_pairs(messages)
+        brain.seed_history(pairs)
+        seeded = len(pairs)
+
+    return ResumeResponse(
+        kind=kind,
+        id=cid,
+        title=_conversation_title(request, kind, cid, chat_store, session_store),
+        messages=messages,
+        seeded_turns=seeded,
+    )
+
+
+@router.post("/{kind}/{cid}/speak", response_model=SpeakResponse)
+async def speak_in_conversation(
+    kind: ConversationKind, cid: str, request: Request
+) -> SpeakResponse:
+    """Start a voice session seeded with this conversation — "Hey Jarvis" that
+    already remembers where you left off.
+
+    503 when no speech pipeline is wired (headless / VPS): voice is a desktop
+    extra. The pipeline seeds its own brain and arms the mic on its own loop.
+    """
+    chat_store = _require_chat_store(request)
+    session_store = _optional_session_store(request)
+    pipeline = _optional_pipeline(request)
+    if pipeline is None or not hasattr(pipeline, "request_voice_session"):
+        raise HTTPException(status_code=503, detail="voice-pipeline-unavailable")
+
+    messages = _normalized_messages(kind, cid, chat_store, session_store)
+    if messages is None:
+        raise HTTPException(status_code=404, detail="conversation-not-found")
+
+    pairs = _seed_pairs(messages)
+    armed = bool(pipeline.request_voice_session(seed_messages=pairs))
+    return SpeakResponse(armed=armed, seeded_turns=len(pairs))
+
+
+@router.delete("/text/{cid}")
+async def delete_text_conversation(cid: str, request: Request) -> dict[str, Any]:
+    """Delete a text conversation. Voice sessions are retention-managed and not
+    deletable here."""
+    chat_store = _require_chat_store(request)
+    deleted = await chat_store.delete_thread(cid)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="conversation-not-found")
+    return {"deleted": True, "id": cid}

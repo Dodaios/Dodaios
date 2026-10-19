@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.voice_engine.llm import OllamaChat
+from dodaios.voice_engine.llm import OllamaChat
 from tests.fakes.fake_ollama_chat_stream import FakeOllamaChatStream
 
 

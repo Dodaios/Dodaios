@@ -21,7 +21,7 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
-from jarvis.setup import dependencies as deps
+from dodaios.setup import dependencies as deps
 
 _NO_PIP_STDERR = "/opt/jarvis/.venv/bin/python: No module named pip"
 

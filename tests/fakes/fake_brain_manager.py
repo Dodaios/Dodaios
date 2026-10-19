@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from jarvis.core.events import ActionExecuted, ActionProposed
+from dodaios.core.events import ActionExecuted, ActionProposed
 
 
 class FakeBrainManager:
@@ -48,7 +48,7 @@ class FakeBrainManager:
 
     async def generate(self, text: str, **kwargs: Any) -> str:
         self.calls.append((text, dict(kwargs)))
-        from jarvis.core.config import get_provider_secret
+        from dodaios.core.config import get_provider_secret
 
         override = kwargs.get("turn_override")
         provider = getattr(override, "provider", "") or ""

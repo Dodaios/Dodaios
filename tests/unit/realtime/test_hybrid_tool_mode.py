@@ -15,10 +15,10 @@ import asyncio
 
 import pytest
 
-from jarvis.brain.cu_gate import CU_VEHICLE_TOOL_NAMES, is_explicit_computer_use_turn
-from jarvis.core.protocols import AudioChunk, SupervisorToolDescriptor, ToolResult
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.tools import (
+from dodaios.brain.cu_gate import CU_VEHICLE_TOOL_NAMES, is_explicit_computer_use_turn
+from dodaios.core.protocols import AudioChunk, SupervisorToolDescriptor, ToolResult
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.tools import (
     COMPACT_DESCRIPTION_CHARS,
     RealtimeToolBridge,
     _apply_declaration_budget,
@@ -323,11 +323,11 @@ def test_bridge_budget_hides_dropped_tools_and_reports_them() -> None:
 def test_router_catalog_renders_for_every_realtime_wire() -> None:
     """ADR-0035 §8: every router tool survives the compact rendering, the
     wire-name rule, the Gemini schema sanitizer, and the default budget."""
-    from jarvis.brain.factory import _load_tools_for_tier
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import JarvisConfig, VoiceConfig
-    from jarvis.plugins.realtime.gemini_live import _sanitize_declarations
-    from jarvis.realtime.tools import _VALID_WIRE_NAME, CHARS_PER_TOKEN
+    from dodaios.brain.factory import _load_tools_for_tier
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import JarvisConfig, VoiceConfig
+    from dodaios.plugins.realtime.gemini_live import _sanitize_declarations
+    from dodaios.realtime.tools import _VALID_WIRE_NAME, CHARS_PER_TOKEN
 
     tools = _load_tools_for_tier(
         "router",
@@ -375,10 +375,10 @@ def test_router_catalog_renders_for_every_realtime_wire() -> None:
 def _music_services_are_local(monkeypatch):
     """Execute-time music reroute reads the token store; unit tests must not."""
     monkeypatch.setattr(
-        "jarvis.core.music_service.connected_music_services", lambda: ()
+        "dodaios.core.music_service.connected_music_services", lambda: ()
     )
     monkeypatch.setattr(
-        "jarvis.core.music_service.preferred_music_service", lambda: "auto"
+        "dodaios.core.music_service.preferred_music_service", lambda: "auto"
     )
 
 
@@ -511,7 +511,7 @@ async def test_unnamed_music_call_is_rerouted_to_the_preferred_service(monkeypat
     """Live 2026-08-19: preference YouTube Music, Spotify not connected, the
     hybrid model still called ``spotify`` for an unnamed play-something-I-like
     request. Execute-time reroute is the correctness boundary."""
-    from jarvis.core import music_service as ms
+    from dodaios.core import music_service as ms
 
     monkeypatch.setattr(ms, "preferred_music_service", lambda: "youtube_music")
     monkeypatch.setattr(
@@ -533,7 +533,7 @@ async def test_unnamed_music_call_is_rerouted_to_the_preferred_service(monkeypat
 
 @pytest.mark.asyncio
 async def test_named_music_service_is_not_rerouted(monkeypatch):
-    from jarvis.core import music_service as ms
+    from dodaios.core import music_service as ms
 
     monkeypatch.setattr(ms, "preferred_music_service", lambda: "youtube_music")
     monkeypatch.setattr(
@@ -556,7 +556,7 @@ async def test_named_music_service_is_not_rerouted(monkeypatch):
 async def test_disconnected_music_tool_reroutes_to_the_connected_sibling(
     monkeypatch,
 ):
-    from jarvis.core import music_service as ms
+    from dodaios.core import music_service as ms
 
     monkeypatch.setattr(ms, "preferred_music_service", lambda: "auto")
     monkeypatch.setattr(ms, "connected_music_services", lambda: ("youtube_music",))
@@ -636,7 +636,7 @@ def _wire_suffix(name: str) -> str:
 
 def _shell_descriptor() -> SupervisorToolDescriptor:
     """The REAL ``run_shell`` hooks, so this guard cannot drift from the tool."""
-    from jarvis.plugins.tool.run_shell import RunShellTool
+    from dodaios.plugins.tool.run_shell import RunShellTool
 
     tool = RunShellTool()
     return SupervisorToolDescriptor(
@@ -732,7 +732,7 @@ def test_connected_music_connectors_are_the_last_to_go(monkeypatch):
     dropped under the 8k-token wire budget as part of the "everything else,
     biggest first" bucket, and "mach Musik an" had no native function to land
     on. A connector the user connected on purpose outranks every family."""
-    from jarvis.core import music_service as ms
+    from dodaios.core import music_service as ms
 
     monkeypatch.setattr(ms, "connected_music_services", lambda: ("youtube_music",))
     rendered = [

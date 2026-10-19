@@ -13,8 +13,8 @@ import time
 import numpy as np
 import pytest
 
-import jarvis.audio.echo_reference as echo_reference
-from jarvis.audio.player import AudioPlayer
+import dodaios.audio.echo_reference as echo_reference
+from dodaios.audio.player import AudioPlayer
 from tests.unit.audio.test_player_persistent_stream import _make_player
 
 

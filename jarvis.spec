@@ -10,11 +10,11 @@
 #       `dodaios missions list` behave exactly like the pip console script.
 #       The same console program is built a second time as `jarvis`, the
 #       command's earlier name, which scripts and shell history still call.
-#   All of them run `jarvis/__main__.py`; only the console flag differs.
+#   All of them run `dodaios/__main__.py`; only the console flag differs.
 # - The GUI binary is `PersonalJarvis`, not `Jarvis`: `Jarvis` and `jarvis`
 #   are the SAME path on Windows (NTFS) and on a default macOS APFS volume, so
 #   the second executable would overwrite the first. `PersonalJarvis` is the
-#   name jarvis.core.branding already uses for the Windows branded launcher and
+#   name dodaios.core.branding already uses for the Windows branded launcher and
 #   the macOS bundle executable.
 # - Downloaded ML models are not bundled. The first-run wizard downloads them to
 #   the platform-specific Jarvis model directory when the user enables them.
@@ -39,8 +39,8 @@ from PyInstaller.utils.hooks import (
 
 
 PROJECT_ROOT = Path(SPECPATH).resolve()  # noqa: F821  (SPECPATH is PyInstaller-injected)
-FRONTEND_DIST = PROJECT_ROOT / "jarvis" / "ui" / "web" / "dist"
-PACKAGE_ASSETS = PROJECT_ROOT / "jarvis" / "assets"
+FRONTEND_DIST = PROJECT_ROOT / "dodaios" / "ui" / "web" / "dist"
+PACKAGE_ASSETS = PROJECT_ROOT / "dodaios" / "assets"
 ICON_DIR = PROJECT_ROOT / "assets" / "icons"
 
 # The COLLECT directory name stays `Jarvis` — the per-OS packaging scripts and
@@ -60,11 +60,11 @@ MACOS_MIN_SYSTEM_VERSION = "12.0"
 
 
 def _package_version() -> str:
-    """Read ``jarvis.__version__`` without importing the package."""
-    text = (PROJECT_ROOT / "jarvis" / "__init__.py").read_text(encoding="utf-8")
+    """Read ``dodaios.__version__`` without importing the package."""
+    text = (PROJECT_ROOT / "dodaios" / "__init__.py").read_text(encoding="utf-8")
     match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
     if not match:
-        raise SystemExit("jarvis/__init__.py does not define __version__")
+        raise SystemExit("dodaios/__init__.py does not define __version__")
     return match.group(1)
 
 
@@ -72,7 +72,7 @@ VERSION = _package_version()
 
 
 def _macos_privacy_strings():
-    """Load ``jarvis/core/macos_privacy_strings.py`` by path.
+    """Load ``dodaios/core/macos_privacy_strings.py`` by path.
 
     The spec runs before ``jarvis`` is importable, and the managed app's
     ``Info.plist`` loads the very same file the very same way, so the two
@@ -80,7 +80,7 @@ def _macos_privacy_strings():
     """
     import importlib.util
 
-    path = PROJECT_ROOT / "jarvis" / "core" / "macos_privacy_strings.py"
+    path = PROJECT_ROOT / "dodaios" / "core" / "macos_privacy_strings.py"
     loader_spec = importlib.util.spec_from_file_location("_jarvis_macos_privacy_strings", path)
     if loader_spec is None or loader_spec.loader is None:
         raise SystemExit(f"cannot load the macOS usage strings from {path}")
@@ -92,27 +92,27 @@ def _macos_privacy_strings():
 # --- Data files -------------------------------------------------------------
 
 datas = []
-datas.append((str(PROJECT_ROOT / "jarvis/society/browser/live_runner.py"), "jarvis/society/browser"))
-datas.append((str(PROJECT_ROOT / "jarvis/society/browser/native_window.py"), "jarvis/society/browser"))
-datas.append((str(PROJECT_ROOT / "jarvis/society/browser/manual_chrome.py"), "jarvis/society/browser"))
-datas.append((str(PROJECT_ROOT / "jarvis/society/browser/window_actions.py"), "jarvis/society/browser"))
-datas.append((str(PROJECT_ROOT / "jarvis/society/browser/pointer.py"), "jarvis/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/live_runner.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/native_window.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/manual_chrome.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/window_actions.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/pointer.py"), "dodaios/society/browser"))
 # The Hermes / OpenClaw pins (agent_runtimes/versions.py). The package-data
 # sweep below also finds them; named here so a narrower sweep cannot drop them
 # and send a frozen app's setup to upstream latest.
-datas.append((str(PROJECT_ROOT / "jarvis/agent_runtimes/runtime-versions.json"), "jarvis/agent_runtimes"))
-# Translated system phrases (jarvis/i18n/catalog.py); without them every
+datas.append((str(PROJECT_ROOT / "dodaios/agent_runtimes/runtime-versions.json"), "dodaios/agent_runtimes"))
+# Translated system phrases (dodaios/i18n/catalog.py); without them every
 # error and fallback phrase would raise instead of being spoken.
-datas.append((str(PROJECT_ROOT / "jarvis/i18n/locales"), "jarvis/i18n/locales"))
+datas.append((str(PROJECT_ROOT / "dodaios/i18n/locales"), "dodaios/i18n/locales"))
 
 # The local voice engine runs in its OWN Python environment, so a frozen build
 # must ship its sources as plain files: setup copies them into the engine home
-# (jarvis/realtime/local_voice_setup.py). Caches never ride along.
-_VOICE_ENGINE = PROJECT_ROOT / "jarvis" / "voice_engine"
+# (dodaios/realtime/local_voice_setup.py). Caches never ride along.
+_VOICE_ENGINE = PROJECT_ROOT / "dodaios" / "voice_engine"
 for entry in _VOICE_ENGINE.rglob("*"):
     if entry.is_file() and "__pycache__" not in entry.parts and entry.suffix != ".pyc":
         rel = entry.relative_to(_VOICE_ENGINE).parent
-        datas.append((str(entry), str(Path("jarvis/voice_engine") / rel)))
+        datas.append((str(entry), str(Path("dodaios/voice_engine") / rel)))
 
 # Include the frontend build when present. Preserve its package-relative layout
 # so the FastAPI static-files mount can serve it from a frozen application.
@@ -120,7 +120,7 @@ if FRONTEND_DIST.exists():
     for entry in FRONTEND_DIST.rglob("*"):
         if entry.is_file():
             rel = entry.relative_to(FRONTEND_DIST).parent
-            datas.append((str(entry), str(Path("jarvis/ui/web/dist") / rel)))
+            datas.append((str(entry), str(Path("dodaios/ui/web/dist") / rel)))
 
 # Include the default configuration a fresh install is seeded from. The runtime
 # hook copies it to the per-user app directory on first launch; the frozen app
@@ -148,28 +148,28 @@ if assets_dir.exists():
 
 # Package assets are runtime dependencies, not downloadable models. This
 # explicitly includes the bundled CPU ONNX VAD model, wake backbones, licenses,
-# and icons in the same paths that ``jarvis.assets`` resolves after freezing.
+# and icons in the same paths that ``dodaios.assets`` resolves after freezing.
 if PACKAGE_ASSETS.exists():
     for entry in PACKAGE_ASSETS.rglob("*"):
         if entry.is_file() and "__pycache__" not in entry.parts:
             rel = entry.relative_to(PACKAGE_ASSETS).parent
-            datas.append((str(entry), str(Path("jarvis/assets") / rel)))
+            datas.append((str(entry), str(Path("dodaios/assets") / rel)))
 
 # Every non-Python file inside the `jarvis` package. PyInstaller collects only
 # modules, so without this the frozen app silently loses its SQL migrations
-# (jarvis/memory), the built-in skills (jarvis/skills/builtin
+# (dodaios/memory), the built-in skills (dodaios/skills/builtin
 # — the boot log says "builtin skill '...' missing from package"), the CLI and
 # skill catalogs, the wiki templates and the marketplace usage cards. Roughly
 # 100 files / 400 KB, so collecting them wholesale costs nothing and closes the
 # whole "works from source, missing when frozen" class at once.
 _PACKAGE_DATA_SKIP_DIRS = {"__pycache__", "node_modules"}
 _PACKAGE_DATA_SKIP_ROOTS = (
-    PROJECT_ROOT / "jarvis" / "ui" / "web" / "frontend",  # source, not runtime
+    PROJECT_ROOT / "dodaios" / "ui" / "web" / "frontend",  # source, not runtime
     FRONTEND_DIST,   # already collected above, with its own layout
     PACKAGE_ASSETS,  # collected explicitly below
 )
 _PACKAGE_DATA_SKIP_SUFFIXES = {".py", ".pyc", ".pyd", ".so", ".dylib", ".map"}
-_package_root = PROJECT_ROOT / "jarvis"
+_package_root = PROJECT_ROOT / "dodaios"
 for entry in _package_root.rglob("*"):
     if not entry.is_file():
         continue
@@ -188,7 +188,7 @@ for entry in (PROJECT_ROOT / "conductor").rglob("*"):
     if entry.is_file() and entry.suffix.lower() in {".sql", ".yaml"}:
         datas.append((str(entry), str(entry.relative_to(PROJECT_ROOT).parent)))
 
-# Configuration profiles live beside the checkout root, and jarvis.core.config
+# Configuration profiles live beside the checkout root, and dodaios.core.config
 # resolves them relative to it.
 profiles_dir = PROJECT_ROOT / "profiles"
 if profiles_dir.exists():
@@ -215,8 +215,8 @@ hiddenimports: list[str] = []
 
 # Entry-point-loaded Jarvis plugins and channels are invisible to static import
 # analysis and must be collected explicitly.
-hiddenimports += collect_submodules("jarvis.plugins")
-hiddenimports += collect_submodules("jarvis.channels")
+hiddenimports += collect_submodules("dodaios.plugins")
+hiddenimports += collect_submodules("dodaios.channels")
 
 # Uvicorn standard installs version-specific backends through dynamic imports.
 for pkg in (
@@ -321,7 +321,7 @@ excludes = [
 block_cipher = None
 
 a = Analysis(
-    ["jarvis/__main__.py"],
+    ["dodaios/__main__.py"],
     pathex=[str(PROJECT_ROOT)],
     binaries=[],
     datas=datas,
@@ -331,7 +331,7 @@ a = Analysis(
     hookspath=[str(PROJECT_ROOT / "packaging" / "pyinstaller_hooks")],
     hooksconfig={},
     # Redirects jarvis.toml + the data directory to the per-user app directory
-    # BEFORE jarvis.core.config freezes its import-time path constants.
+    # BEFORE dodaios.core.config freezes its import-time path constants.
     runtime_hooks=[str(PROJECT_ROOT / "packaging" / "pyinstaller_rthook_frozen.py")],
     excludes=excludes,
     win_no_prefer_redirects=False,
@@ -523,7 +523,7 @@ if sys.platform == "darwin":
             "LSApplicationCategoryType": "public.app-category.productivity",
             "NSHighResolutionCapable": True,
             # Every NS...UsageDescription string comes from the single table in
-            # jarvis/core/macos_privacy_strings.py, which the managed app's
+            # dodaios/core/macos_privacy_strings.py, which the managed app's
             # Info.plist loads too. Without the microphone string macOS ends the
             # process the moment it touches the microphone, so the table is
             # asserted on the built app (scripts/ci/check_frozen_macos_app.py).

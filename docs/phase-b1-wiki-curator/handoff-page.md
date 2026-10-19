@@ -5,7 +5,7 @@
 
 ## What was built
 
-Three production files under `jarvis/memory/wiki/`:
+Three production files under `dodaios/memory/wiki/`:
 
 | File | Lines | Purpose |
 |---|---|---|
@@ -96,7 +96,7 @@ curator (Instance D) which decides what to write, and to the writer
 Per the conventions in README § 3.5 ("Never block the asyncio event
 loop"). File I/O happens on a worker thread; parsing is microseconds
 and stays inline. The Verdichter pattern at
-`jarvis/awareness/verdichter.py` was the reference.
+`dodaios/awareness/verdichter.py` was the reference.
 
 ## Hard negatives I respected
 
@@ -148,15 +148,15 @@ None of substance. Two clarifications worth recording:
 ## Files changed in this branch
 
 ```
-jarvis/memory/wiki/protocols.py         (new)
-jarvis/memory/wiki/page.py              (new)
-jarvis/memory/wiki/wikilink.py          (new)
+dodaios/memory/wiki/protocols.py         (new)
+dodaios/memory/wiki/page.py              (new)
+dodaios/memory/wiki/wikilink.py          (new)
 tests/unit/memory/wiki/test_page.py     (new)
 tests/unit/memory/wiki/test_wikilink.py (new)
 docs/phase-b1-wiki-curator/handoff-page.md (new — this file)
 ```
 
-No existing file modified. `jarvis/memory/wiki/__init__.py` unchanged
+No existing file modified. `dodaios/memory/wiki/__init__.py` unchanged
 (still exposes only `TEMPLATES_DIR` from Phase B0). Wave 2 may want to
 add re-exports for ergonomic imports — that is the integrator's call.
 

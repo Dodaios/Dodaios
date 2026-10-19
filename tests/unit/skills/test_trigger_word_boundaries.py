@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-_BUILTIN = Path(__file__).resolve().parents[3] / "jarvis" / "skills" / "builtin"
+_BUILTIN = Path(__file__).resolve().parents[3] / "dodaios" / "skills" / "builtin"
 
 # Everyday speech that must reach NO plugin skill. Each line is either a real
 # transcript from the failing session or the minimal sentence that reproduces

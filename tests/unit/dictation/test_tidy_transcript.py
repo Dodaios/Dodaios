@@ -15,7 +15,7 @@ import re
 
 import pytest
 
-from jarvis.dictation.cleanup import clean_transcript, tidy_transcript
+from dodaios.dictation.cleanup import clean_transcript, tidy_transcript
 
 # The live transcript this whole repair exists for. Recorded on 2026-07-28 at
 # 18:50:05: two segments joined, the second one preceded by the ellipsis the

@@ -1,0 +1,4232 @@
+/**
+ * One named pane of the Agentic IDE: xterm.js wired to
+ * `/api/agentic-ide/pty/{name}`, running one coding agent in the chosen folder.
+ *
+ * Two conventions matter here and both are load-bearing:
+ *
+ * 1. The xterm instance lives in a ref, never in state — putting it in state
+ *    re-renders the component on every output chunk and the pane stutters.
+ * 2. Appearance and font size are applied to the LIVE instance in their own
+ *    effects. Rebuilding the terminal when the user flips to dark mode would
+ *    tear down the WebSocket, which kills the agent running behind it and
+ *    loses the whole session. So the connect effect depends on pane identity,
+ *    restart intent and one-way initial geometry readiness — never live
+ *    appearance state.
+ *
+ * ## Why this pane is configured the way it is
+ *
+ * A coding agent's TUI is the hardest thing you can ask a web terminal to
+ * draw: box-drawing frames, emoji status markers, live-rewritten spinner lines,
+ * and a prompt box that redraws on every keystroke. Rendered with xterm's
+ * defaults it came out visibly broken (reported 2026-07-25): text wrapped in
+ * the wrong places, the frame characters drifted out of their columns, and
+ * typing left artefacts behind. Four causes, all fixed here:
+ *
+ * * **Character width.** Without the Unicode 11 provider, xterm measures emoji
+ *   and many box/symbol characters as one cell when the terminal on the other
+ *   side counts them as two. Every such glyph then shifts the rest of the line
+ *   by a column — which is exactly what "the frames look wrong" means.
+ * * **ConPTY line semantics.** On Windows the agent runs behind ConPTY, which
+ *   re-wraps and re-emits lines differently from a POSIX pty. xterm has a
+ *   dedicated compatibility mode for it; without `windowsPty` the re-emitted
+ *   lines stack up as duplicated, half-overwritten rows.
+ * * **Measuring before the font is ready.** FitAddon derives the column count
+ *   from one measured character. Run before the web font loads, it measures
+ *   the fallback font, computes the wrong column count, and the agent then
+ *   formats for a width the pane does not have. Worse, xterm keeps drawing the
+ *   real font's wider glyphs into that too-narrow grid, so the text smears
+ *   across its own columns. Neither `document.fonts.ready` nor a re-fit fixes
+ *   this — see `@/lib/terminalFont`, which does.
+ * * **Renderer.** The DOM renderer draws each cell as an element; with a TUI
+ *   redrawing on every keystroke that is both slow and subtly misaligned. The
+ *   canvas renderer draws on a grid, which is what a terminal actually is.
+ */
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
+import "@xterm/xterm/css/xterm.css";
+import {
+  BookOpenText,
+  Check,
+  FileDiff,
+  FolderGit2,
+  GripVertical,
+  Loader2,
+  Maximize2,
+  MessageSquare,
+  Minimize2,
+  Paperclip,
+  Pencil,
+  RotateCcw,
+  X,
+} from "lucide-react";
+import { SplitBelowIcon, SplitRightIcon } from "./splitIcons";
+import {
+  holdsSizeLead,
+  mayLeadSize,
+  onSizeLeadReleased,
+  releaseSizeLead,
+  sizeLeadKey,
+  takeSizeLead,
+} from "./paneSizeLead";
+// A leaf module with no DOM and no terminal in it, which is the point: the
+// wizard quotes this same number before any pane exists — see ./layout.
+import { cn } from "@/lib/utils";
+import {
+  MINIMUM_CONTRAST_RATIO,
+  PANE_BRAND,
+  PANE_CHROME,
+  PANE_TILE,
+  themeFor,
+  type TerminalAppearance,
+} from "./terminalThemes";
+import { clearTuiCanvasFill } from "./terminalGlass";
+import { createLightPaneInk } from "./terminalLightInk";
+import {
+  extractPaneDrop,
+  extractPasteFiles,
+  isEmptyPayload,
+  nameClipboardFile,
+  type PaneDropPayload,
+} from "./paneDrop";
+import { usePaneFileDrag } from "./paneFileDrag";
+import { PANE_PASTE_EVENT, announceSkillRefused, pasteSkillText, type PanePasteDetail, type SkillDragPayload } from "./skillDrag";
+import { SkillDropCard } from "./sidePanel/skills/SkillDropCard";
+import { useIdeSkillsStore } from "@/store/ideSkills";
+import {
+  AgentPickerMenu,
+  offersAgentChoice,
+  type SplitAgentChoice,
+} from "./AgentPicker";
+import { describeExit, explainExit } from "./paneExit";
+import { PaneActivityPill } from "./PaneActivityPill";
+import { PaneRecap } from "./PaneRecap";
+import { attachToTerminal } from "@/lib/agenticIdeApi";
+import { attachTerminalRenderer, clearTerminalTextureAtlas } from "./terminalRenderer";
+import type { RecapReason, RecapSource } from "@/lib/agenticIdeApi";
+import { attachTerminalBridge } from "@/lib/editActions";
+import { robustCopy, robustPaste } from "@/lib/clipboard";
+import {
+  TERMINAL_FONT_STACK,
+  alignTerminalCells,
+  syncTerminalFont,
+  terminalFontSettled,
+  terminalFontWeights,
+  whenTerminalFontReady,
+} from "@/lib/terminalFont";
+import {
+  createTerminalLinkActivator,
+  createTerminalOscLinkHandler,
+  TerminalPathLinksAddon,
+} from "@/lib/terminalLinks";
+import { installPasteBridge } from "./terminalPaste";
+import { installCopyBridge } from "./terminalCopy";
+import { createKeyEventChain } from "./terminalKeyChain";
+import { PANE_INPUT_EVENT, type PaneInputDetail } from "./ideHotkeys";
+import { installNewlineBridge } from "./terminalNewline";
+import { cancelPaneReflow, queuePaneReflow } from "./paneReflowQueue";
+import {
+  boxOnScreen,
+  OffscreenBuffer,
+  OFFSCREEN_MARGIN_PX,
+  PARKED_RECHECK_MS,
+} from "./offscreenBuffer";
+import { installQuerySuppression } from "./terminalQueries";
+import { installSynchronizedOutput } from "./terminalSynchronizedOutput";
+import { FULL_SCREEN_ERASE_SCAN_TAIL, hasFullScreenErase } from "./terminalRepaint";
+import {
+  bindTerminalScrollRegion,
+  captureWheelForTerminalHistory,
+} from "./terminalScrollSurface";
+import { installMouseSelection } from "./terminalMouseSelection";
+import { installPromptSelectionBridge } from "./terminalPromptSelection";
+import { installBrowseExit } from "./terminalBrowseExit";
+import {
+  openPaneSocket,
+  type PaneSocket,
+  type PromptDelivery,
+} from "./paneSocket";
+import { PromptReceipt } from "./PromptReceipt";
+import { PromptHistoryButton } from "./PromptHistoryButton";
+import { PaneConversationDialog } from "./PaneConversationDialog";
+import { PaneChangesDialog } from "./PaneChangesDialog";
+import { useGitSessionStore } from "@/store/gitSession";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { prefetchPaneChanges } from "./paneChangesApi";
+import { WorkspaceTerminalHeader } from "./WorkspaceTerminalHeader";
+import { usePaneContextMenu } from "./usePaneContextMenu";
+import { PaneDoneGateBadge } from "./PaneDoneGateBadge";
+import { SessionGitHubBadge } from "./SessionGitHubBadge";
+import { fill, loadLocaleChunk, translate, useT } from "@/i18n";
+
+/**
+ * How old a delivery may be and still raise its receipt on a fresh connection.
+ *
+ * Only applies to the receipt recovered from the HANDSHAKE — a prompt arriving
+ * live always shows one. Half an hour comfortably covers "I looked away and
+ * came back" while keeping a reopened workspace from re-announcing deliveries
+ * the user long since watched play out.
+ */
+const RECEIPT_MAX_AGE_MS = 30 * 60 * 1000;
+
+type PreservedTerminalViewport = {
+  line: number;
+  followsTail: boolean;
+};
+
+/** Remember what the reader was looking at before a pane is rebuilt or hidden. */
+function captureTerminalViewport(
+  term: Terminal | null,
+): PreservedTerminalViewport | null {
+  if (!term) return null;
+  const buffer = term.buffer.active;
+  return {
+    line: buffer.viewportY,
+    // Alternate-screen applications do not own scrollback. Their only honest
+    // position is the live screen, just like a normal buffer already at its end.
+    followsTail: buffer.type !== "normal" || buffer.viewportY >= buffer.baseY,
+  };
+}
+
+/** Put a pane back where the reader left it, without following new output. */
+function restoreTerminalViewport(
+  term: Terminal | null,
+  viewport: PreservedTerminalViewport | null,
+) {
+  if (!term) return;
+  const buffer = term.buffer.active;
+  if (!viewport || viewport.followsTail || buffer.type !== "normal") {
+    term.scrollToBottom();
+    return;
+  }
+  term.scrollToLine(Math.min(viewport.line, buffer.baseY));
+}
+
+/**
+ * How long a rebuilding pane must see NO further output before it is revealed.
+ *
+ * A replay is only HALF of a rebuild. Handing the recorded bytes over cannot
+ * repair a tail that lost its opening frame, nor one whose cursor moves belong
+ * to another geometry — so the server follows it by asking the agent to paint
+ * its interface again, with a one-row window-size change held for 80 ms and put
+ * back (`SessionRegistry._nudge_repaint`). That answer is a SECOND full screen
+ * and it lands AFTER the replay has parsed, which is where the pane used to be
+ * revealed: the repaint then played out in front of the reader (reported
+ * 2026-08-09 — every switch onto a Codex pane opened on the top of its history
+ * and raced down, with the replay curtain already in place and working).
+ *
+ * Only a normal-buffer CLI shows it. An alternate-screen agent (Claude Code)
+ * repaints over itself, so nothing travels and nothing is there to hide.
+ *
+ * So the reveal waits for the pane's output to go QUIET rather than for one
+ * write to finish. Comfortably past the nudge's own 80 ms plus a loopback round
+ * trip, and short enough that nobody can time it.
+ */
+export const REBUILD_QUIET_MS = 140;
+
+/**
+ * The longest a pane may stay hidden while it rebuilds, however talkative.
+ *
+ * The quiet window assumes the redraw ENDS. An agent midway through streaming
+ * an answer never goes quiet at all, and waiting on it would trade a visible
+ * scroll for a pane that simply does not come back. Past this the pane is shown
+ * mid-stream — which is what every other terminal in the app looks like while
+ * an agent is talking.
+ */
+export const REBUILD_SETTLE_MAX_MS = 450;
+
+/**
+ * How long a pane coming back on screen holds its agent one row short before
+ * giving the height back — the same window the server's own repaint nudge uses
+ * (`REPAINT_NUDGE_S` in dodaios/agentic_ide/session.py).
+ *
+ * A pane in a workspace the IDE keeps warm (./RetainedWorkspaceGrid) is never
+ * rebuilt when the user switches back to it, so it never gets the replay and
+ * repaint a freshly mounted pane gets. Whatever went wrong while it was hidden
+ * stayed on screen: the agent drawing for fewer rows than the tile, its prompt
+ * and status line halfway up the pane with empty rows below (reported
+ * 2026-10-03), or a band of blank rows through the middle of its output. The
+ * nudge asks the agent for one whole new screen at the size the pane really
+ * has, behind the same curtain a stage switch already raises.
+ */
+export const RETURN_REPAINT_NUDGE_MS = 80;
+
+/**
+ * How long a rebuild may wait for a repaint the server has promised.
+ *
+ * A replay whose front was cut (or that belongs to another geometry) cannot
+ * rebuild a full-screen agent's interface; the server says so on the replay
+ * frame and asks the agent to repaint, and that repaint opens with a
+ * whole-screen erase. Revealing on quiet alone showed the broken tail
+ * whenever the agent answered late — a busy Claude Code lets a repaint request
+ * pass and the server repeats it half a second later — which after a bundle
+ * reload, with every pane rebuilding at once, read as terminals badly
+ * formatted for about a second (reported 2026-09-29). So such a rebuild waits
+ * for the erase, bounded by this, and still under {@link CURTAIN_MAX_MS}.
+ */
+export const REPAINT_WAIT_MAX_MS = 1_400;
+
+/**
+ * The longest an active pane's surface may stay behind a curtain, full stop.
+ *
+ * Every curtain in this file is lifted by a chain — a write callback, a
+ * generation check, a settle timer, then an animation frame — and every link
+ * can be dropped: a newer generation supersedes the reveal without taking the
+ * curtain down itself, and a WebView that believes its window is hidden stops
+ * delivering animation frames altogether (see `viewerMayOwn` for how long it
+ * can believe that). Either way the pane was left an empty black rectangle
+ * with a green "live" dot above it until something unrelated rebuilt it
+ * (reported 2026-09-28, one of seven panes after a bundle reload). This is
+ * the backstop that does not depend on any of those links: well past the
+ * slowest honest rebuild (a full replay parse plus {@link REBUILD_SETTLE_MAX_MS}),
+ * a pane still hidden is shown as it is. A visible scroll is a cosmetic
+ * flaw; a terminal that never comes back is not.
+ */
+export const CURTAIN_MAX_MS = 2_000;
+
+/**
+ * The longest a geometry change waits for the pane's parser to reach a gap.
+ *
+ * Resizing xterm REFLOWS its buffer, and a reflow that lands between two slices
+ * of a write moves the rows the half-parsed escape stream is addressing. An
+ * agent's TUI is drawn by relative moves — "up twelve rows, erase from here" —
+ * so the erase then lands on rows that hold something else: the frame's rule
+ * drawn twice, an answer printed under the copy it was replacing, or, when the
+ * miscount runs the other way, a pane wiped down to its status line. That is
+ * the whole class of "moving a terminal breaks it" (reported 2026-08-11), and
+ * the gate below is the answer: fit at a moment when nothing is mid-parse.
+ *
+ * The wait is bounded because a pane streaming without pause has no gap to
+ * offer, and a terminal that never follows its tile is worse than one frame
+ * parsed across a reflow — the agent would go on formatting for a size no
+ * window is showing. Comfortably longer than one of xterm's ~12 ms parse
+ * slices and than any single chunk a socket delivers, short enough that even a
+ * pane talking flat out matches its tile within a quarter of a second.
+ */
+export const RESIZE_PARSE_WAIT_MS = 250;
+
+/**
+ * How often a pane may refit while its boundary is still being dragged.
+ *
+ * The middle ground between two rejected extremes. Refitting on every observer
+ * tick (up to 120/s) was the original slideshow: every fit reflows xterm's
+ * buffer and makes the agent repaint its whole screen, on the thread that owes
+ * the drag its next frame. Refitting never — holding everything for one pass
+ * at release — kept the drag fast but froze the text mid-gesture, and the
+ * release then re-wrapped it in one visible, hard snap (maintainer,
+ * 2026-08-11: the text does not move smoothly with the drag).
+ *
+ * At this pace the text follows the seam in a few honest steps — an agent
+ * repaint costs tens of milliseconds, so about five per second is work it can
+ * absorb without stuttering — while the pointer keeps every frame in between.
+ * The exact final size still lands through the `layoutBusy` release effect,
+ * so letting go looks the same as before, just from much closer by.
+ */
+export const DRAG_REFIT_MS = 200;
+
+/**
+ * How long a call-sign may be — the same cap the backend enforces
+ * (`MAX_TERMINAL_NAME`), so the field stops where the save would have failed
+ * rather than letting somebody type a name that comes back rejected.
+ */
+const MAX_TERMINAL_NAME = 40;
+
+/**
+ * The floor under a pane's geometry — a CRASH GUARD, not a layout opinion.
+ *
+ * ## The rule this serves
+ *
+ * A terminal is exactly as wide as the tile it is shown in, and every
+ * character inside that tile is visible. Nothing this pane draws may reach
+ * past its own edge. That is the maintainer's rule for this screen
+ * (2026-08-11), and it settles a run of attempts that each broke it:
+ *
+ * * **Clipping** (until 2026-08-11) rendered a fixed 60-column grid whatever
+ *   the tile could show and cut the remainder off at the edge. Six terminals
+ *   then each showed about two thirds of themselves, and the maintainer read
+ *   the result — correctly — as terminals shoved behind one another. Adding a
+ *   sideways scrollbar and two scroll shadows did not change what it was.
+ * * **Auto-shrinking** (the same day) walked the pane's text size down until
+ *   that 60-column grid fitted. It silently overrode the toolbar's size on
+ *   every narrow pane — nine columns at ~5 px glyphs while the control read 20
+ *   — so the size controls looked dead. Do not reintroduce it.
+ *
+ * So the fit is honest in both directions: xterm is given what the tile
+ * measures, and the agent behind it is told the SAME number. The two must
+ * never disagree — an agent laying lines out for 60 columns into an xterm
+ * showing 33 re-wraps every one of them, and the TUI's cursor moves then land
+ * on rows that no longer hold what they held when it drew them, which came
+ * back as shredded one-word fragments (2026-08-10).
+ *
+ * ## What is left for this floor to do
+ *
+ * Only the absurd. A tile mid-layout measures 0, a hidden one measures
+ * nothing at all, and a PTY resized to zero columns permanently wrecks the
+ * agent's drawing. 10x4 is far below any arrangement a person builds on
+ * purpose — with a workspace opening two panes deep (`WIZARD_COLUMN_HEIGHT`)
+ * even twenty terminals leave roughly twice this — so in practice it is only
+ * ever met by a measurement that is not real.
+ *
+ * It is deliberately NOT a floor on what a coding CLI needs. That question is
+ * answered where it belongs: the launcher warns from twenty terminals up
+ * (`CROWDED_TERMINAL_COUNT`) and opens as many as the user confirms. How many
+ * agents fit on their display is theirs to decide, and a pane too narrow to be
+ * useful is a pane they can see is too narrow — which is exactly what clipping
+ * hid.
+ *
+ * The backend holds the same floor (`dodaios/agentic_ide/session.py`), so a
+ * stale or older client cannot resize a PTY into nothing either.
+ */
+const MIN_REAL_COLS = 10;
+const MIN_REAL_ROWS = 4;
+
+/**
+ * The size a pane hands over when it could not measure its tile at mount.
+ *
+ * Deliberately UNDER the server's viewer floor (`MIN_VIEWER_COLS` /
+ * `MIN_VIEWER_ROWS` in `dodaios/agentic_ide/session.py`): that is the wire's
+ * spelling of "not measured yet". The server answers it by keeping the
+ * geometry the pane already has — a running agent is not re-wrapped for a
+ * size no tile ever had, a fresh one is spawned at the transcript's default —
+ * and reports that geometry back, so the grid here follows it until the tile
+ * is shown and measured. Zero would not do: the server reads it as absent and
+ * substitutes 80x24, which is precisely a size no tile had.
+ */
+/**
+ * The least time between two gesture reclaims of one displaced pane.
+ *
+ * Long enough that two windows in use at the same moment do not hand the
+ * agent's size back and forth on every mouse move (each hand-over is a full
+ * repaint of the agent's screen), short enough to feel immediate.
+ */
+export const GESTURE_RECLAIM_MS = 2_000;
+
+export const UNMEASURED_SIZE = { cols: 1, rows: 1 } as const;
+
+/*
+ * A pane never argues about its own width any more.
+ *
+ * The number a coding CLI is comfortable at (`WORKABLE_COLS` in ./layout) is
+ * quoted ONLY by the wizard, as advice before anything opens. In here it has
+ * been four things, and every one of them was reported as a bug by the person
+ * looking at the screen:
+ *
+ * * a floor the backend enforced, which drew narrow panes wider than their
+ *   window — read as terminals shoved behind one another (2026-08-11);
+ * * an auto-shrink of the text until the floor fitted — the size controls
+ *   looked dead (2026-08-11);
+ * * a notice row saying "N columns — needs about 60" on every narrow pane;
+ * * a card that HID the terminal below 60 columns and offered "Show it anyway"
+ *   (2026-08-13, against a repaint bug measured at ~13 columns) — which then
+ *   covered every pane of an ordinary six-pane workspace at 56 columns and had
+ *   to be clicked away six times (2026-08-18).
+ *
+ * The maintainer's rule now is the simplest one: the terminal is exactly as
+ * wide as its tile, always, and it is always SHOWN. How many panes fit a
+ * screen is the user's call; the wizard says what they will get, and the pane
+ * gets out of the way. Only the absurd (`MIN_REAL_COLS`) is still refused.
+ */
+
+export type PaneStatus = "connecting" | "live" | "exited" | "error";
+
+/**
+ * Is the whole document out of sight — window behind another, minimized, or in
+ * a background tab?
+ *
+ * Read through a function rather than inlined so a pane behaves the same in a
+ * test environment that ships no `document`, and so the two places that must
+ * agree about it cannot drift apart.
+ */
+function documentHidden(): boolean {
+  return typeof document !== "undefined" && document.hidden === true;
+}
+
+/**
+ * The smallest window a pane will still measure itself in.
+ *
+ * Far below any window a person reads a terminal in, and far above the stub
+ * a minimized desktop window leaves behind: WebView2 on Windows shrinks the
+ * page to about 158x26 px while the app sits in the taskbar (measured
+ * 2026-09-28). A pane measured in that stub is not a real measurement — the
+ * full-width top pane still came out at the 10x4 floor, its agent redrew its
+ * whole interface ten columns wide, and restoring the window left that frame
+ * shredded over the real one until a click made the agent paint again.
+ */
+const MIN_WINDOW_WIDTH_PX = 320;
+const MIN_WINDOW_HEIGHT_PX = 160;
+
+/**
+ * Is the window itself collapsed to a size no pane can honestly be fitted to?
+ *
+ * Deliberately not `document.hidden`: the desktop shell can report a window
+ * that is plainly on screen as hidden for minutes (see `viewerMayOwn`), and a
+ * pane that refused to fit then could not follow a real resize. The viewport's
+ * own size cannot be wrong that way. A window that restores comes back through
+ * the ResizeObserver, which measures again.
+ */
+export function windowCollapsed(
+  width: number = typeof window !== "undefined" ? window.innerWidth : Infinity,
+  height: number = typeof window !== "undefined" ? window.innerHeight : Infinity,
+): boolean {
+  return width < MIN_WINDOW_WIDTH_PX || height < MIN_WINDOW_HEIGHT_PX;
+}
+
+/**
+ * A coding CLI a split may start.
+ *
+ * Re-exported rather than declared here: the same list is offered by the chat
+ * view's rail and by an empty workspace, so it belongs to the picker they all
+ * share (see `AgentPicker`). Kept exported from this module because that is
+ * where every caller already imports it from.
+ */
+export type { SplitAgentChoice };
+
+export type SplitDirection = "right" | "down" | "left" | "above";
+
+/**
+ * Where a pane's recap came from, kept together rather than as five more props.
+ *
+ * None of it changes what the header SAYS — it changes what the card behind the
+ * header can explain about it, which is the difference between a thin recap and
+ * a thin recap that tells you no model could be reached to write a better one.
+ */
+export interface PaneRecapMeta {
+  source?: RecapSource;
+  reason?: RecapReason;
+  /** The model that wrote it, when one did. */
+  writer?: string;
+  /** What went wrong the last time this pane was summarized. */
+  note?: string;
+  /** Unix seconds; 0 for the recap derived from the pane's own output. */
+  generatedAt?: number;
+}
+
+/** What the recap card may do about the recap. Absent leaves it read-only. */
+export interface PaneRecapActions {
+  onSave?: (headline: string, detail: string) => Promise<void>;
+  onClear?: () => Promise<void>;
+  onRefresh?: () => Promise<void>;
+}
+
+interface AgenticTerminalProps {
+  onSwapWithFocused?: () => void;
+  /** Terminal call-sign — also the WS path segment. */
+  name: string;
+  /**
+   * Which workspace this pane belongs to.
+   *
+   * Sent with the socket so the backend can pin it: several workspaces can be
+   * open, the front one changes while sockets are alive, and a keystroke must
+   * reach the pane it was typed into rather than whichever workspace happens to
+   * be showing when it arrives.
+   */
+  workspaceId?: string;
+  /** Agent label shown in the pane header ("Claude Code"). */
+  displayName: string;
+  /**
+   * Compact workspace chrome is opt-in; legacy grids retain their existing
+   * header. "none" draws the bare terminal for a host that brings its own
+   * title bar (the office's pane panel) — no header, no border of its own.
+   * "minimal" is the multiplexer tile: a square 1px frame, a slim square
+   * title row with the compact header's controls, and the pane the reader
+   * works in outlined in the signal hue.
+   */
+  headerMode?: "legacy" | "compact" | "minimal" | "none";
+  /**
+   * Minimal tiles only: may the focused pane wear the blue "you are here"
+   * edge right now? Off while the reader works in the IDE's side panel, which
+   * then wears it instead. The pane stays the prompt target either way.
+   */
+  markFocus?: boolean;
+  /** Compact header only: opens the fork dialog for this pane. */
+  onFork?: () => void;
+  /** Compact header only: the worktree branch this pane runs on, if any. */
+  branch?: string;
+  /** The pane's own git worktree folder, set only for a worktree fork. */
+  folder?: string;
+  /** Compact header only: the connected computer this pane runs on, if any. */
+  computerName?: string;
+  /** Compact header only: "Run on …" / "Bring back" menu entries. */
+  placementItems?: { label: string; run: () => void }[];
+  /** Compact header only: "Move to <workspace>" menu entries. */
+  workspaceItems?: { label: string; run: () => void }[];
+  /** Registry identity and optional custom logo for the compact header. */
+  agent?: string;
+  agentLogoUrl?: string;
+  /**
+   * What this session is doing, in one clause — the header's main label.
+   *
+   * It REPLACES the agent name there when present, because the agent name is
+   * the same for every pane in the grid and this is the part that differs. The
+   * CLI is still one hover away (the tooltip names it) and the pane's call-sign
+   * badge never moves.
+   */
+  recap?: string;
+  /** The several-sentence version of `recap`, read in the recap card. */
+  recapDetail?: string;
+  /** Who wrote the recap and why — the card's footer and its explanation. */
+  recapMeta?: PaneRecapMeta;
+  /** Rewriting, resetting and re-summarizing it. Absent = read-only card. */
+  recapActions?: PaneRecapActions;
+  /**
+   * Which subscription this pane runs on ("Work seat"), when that is worth
+   * saying. Undefined for everyone with a single login — the header must not
+   * grow a badge that answers a question the user does not have.
+   */
+  accountLabel?: string | null;
+  /** Number shown beside the pane header's prompt-history icon. */
+  promptCount?: number;
+  appearance: TerminalAppearance;
+  fontSize: number;
+  /**
+   * Has the grid measured the pane's final opening geometry?
+   *
+   * Area-aware layouts cannot know their band count until the container has a
+   * height. Opening the PTY during the width-only first pass attaches it at one
+   * size and immediately moves it to another, while its replay is still being
+   * parsed. Omitted for standalone uses, which already render at a fixed size.
+   */
+  geometryReady?: boolean;
+  /** Highlight this pane as the prompt target. */
+  focused?: boolean;
+  /** Is this pane currently visible on the chat stage? */
+  active?: boolean;
+  onFocus?: () => void;
+  onStatus?: (status: PaneStatus, detail?: string) => void;
+  /** True while this pane fills the whole grid. */
+  maximized?: boolean;
+  onToggleMaximize?: () => void;
+  /**
+   * Open another terminal beside or below this one.
+   *
+   * `agent` is the coding CLI the user picked from the split menu; omitted, the
+   * new pane inherits this pane's agent.
+   */
+  onSplit?: (direction: SplitDirection, agent?: string) => void;
+  /**
+   * Coding CLIs the split menu offers. With one (or none) there is nothing to
+   * choose, so the split buttons act immediately instead of opening a menu.
+   */
+  agents?: SplitAgentChoice[];
+  /** The split menu installed one of them — the grid re-reads its list. */
+  onAgentsChanged?: () => void;
+  /**
+   * Give this pane another call-sign.
+   *
+   * Answers whether the name was accepted, so the editor can stay open with the
+   * text still in it when the workspace already has a pane by that name.
+   * Omitted, the header shows no rename control at all rather than one that
+   * would do nothing.
+   */
+  onRename?: (name: string) => Promise<boolean>;
+  /** Close this pane (the caller asks for confirmation first). */
+  onClose?: () => void;
+  /** Disable the split buttons — the workspace is at its terminal limit. */
+  splitDisabled?: boolean;
+  /** A drop or a paste could not be completed — the grid surfaces it. */
+  onAttachError?: (message: string) => void;
+  /** Called when the user asks a dead pane to start a fresh agent. */
+  onRestart?: () => void;
+  /**
+   * Read this pane as a chat: the workspace's chat stage, this pane on it,
+   * drawn with the agent chat's timeline (see ./PaneChat). Absent on a plain
+   * shell pane, which has no conversation to read.
+   */
+  onOpenChat?: () => void;
+  /**
+   * Press on the pane's header — the grip that picks this pane up.
+   *
+   * The header rather than the whole pane, because the rest of the pane is a
+   * live terminal: a drag started there would be a text selection inside the
+   * agent's output, which is a thing people do all day. Omitted, the header is
+   * an ordinary header and the pane cannot be dragged (a maximized pane, or one
+   * in selection mode, has nowhere to be dropped).
+   */
+  onArrangeStart?: (event: React.PointerEvent) => void;
+  /** Show a dedicated grip when the surrounding layout uses insertion reorder. */
+  showArrangeHandle?: boolean;
+  /** True while THIS pane is the one being carried — it is drawn as lifted. */
+  arranging?: boolean;
+  /**
+   * True while the workspace's geometry is actively being dragged.
+   *
+   * The pane then refits itself on a leash instead of freely: a fit reflows
+   * xterm's buffer AND tells the agent its new size, and an agent answers that
+   * by redrawing its whole screen. Sixty of those a second, across every pane
+   * a seam touches, is what turned dragging a boundary into a slideshow — so
+   * mid-drag the pane takes at most one fit per DRAG_REFIT_MS, enough for the
+   * text to follow the seam in steps instead of freezing until release. The
+   * exact final size is still taken in a single pass the moment this goes
+   * false, which is what stops the terminal's contents from trailing the frame
+   * around them for longer than they must.
+   */
+  layoutBusy?: boolean;
+  /**
+   * Bump to reconnect this pane.
+   *
+   * An exited agent leaves a dead pane with no way back: the connect effect runs
+   * on mount only (deliberately — see the file header), and remounting is not an
+   * option because it is what kills a LIVE agent. So the token is part of the
+   * effect's identity: changing it tears down this one socket and opens a fresh
+   * one, and the backend spawns a new agent for it.
+   */
+  restartToken?: number;
+  /**
+   * Open as THE view of this pane in this window: while mounted it sizes the
+   * pane, and the same pane's other viewers here (the IDE grid behind the
+   * office's pane window) follow it instead of taking the size back on every
+   * gesture. Read at mount. See ./paneSizeLead.
+   */
+  sizeLead?: boolean;
+}
+
+export function AgenticTerminal({
+  onSwapWithFocused,
+  name,
+  workspaceId,
+  displayName,
+  headerMode = "legacy",
+  markFocus = true,
+  onFork,
+  branch,
+  folder,
+  computerName,
+  placementItems,
+  workspaceItems,
+  agent,
+  agentLogoUrl,
+  recap,
+  recapDetail,
+  recapMeta,
+  recapActions,
+  accountLabel,
+  promptCount = 0,
+  appearance,
+  fontSize,
+  geometryReady = true,
+  focused = false,
+  active = true,
+  onFocus,
+  onStatus,
+  maximized = false,
+  onToggleMaximize,
+  onSplit,
+  agents,
+  onAgentsChanged,
+  onRename,
+  onClose,
+  splitDisabled = false,
+  onAttachError,
+  onRestart,
+  onOpenChat,
+  restartToken = 0,
+  onArrangeStart,
+  showArrangeHandle = false,
+  arranging = false,
+  layoutBusy = false,
+  sizeLead = false,
+}: AgenticTerminalProps) {
+  const paneMenu = usePaneContextMenu(headerMode === "compact" || headerMode === "minimal");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const terminalRegionRef = useRef<HTMLDivElement | null>(null);
+  const terminalRegionId = useId();
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  // Lets the font-size effect trigger a REAL resize (xterm + the terminal
+  // process together) without reaching into the connect effect's socket.
+  const resizeRef = useRef<(() => void) | null>(null);
+  const claimResizeRef = useRef<(() => void) | null>(null);
+  /** The refit a pane makes on coming back on stage — see `returnResize`. */
+  const returnResizeRef = useRef<(() => void) | null>(null);
+  /** Asks the agent to paint its whole screen again — see RETURN_REPAINT_NUDGE_MS. */
+  const repaintOnReturnRef = useRef<(() => void) | null>(null);
+  /** Was this pane parked off the stage since it last took it? */
+  const parkedRef = useRef(false);
+  /** The claim a gesture inside the pane makes — see `takeOwnership`. */
+  const takeOwnershipRef = useRef<(() => void) | null>(null);
+  /**
+   * This viewer's identity in the window's size-lead registry (./paneSizeLead),
+   * and whether it held the lead when its terminal was last torn down. Both
+   * outlive the connect effect: a rebuild (a restart, the font arriving, the
+   * grid settling) is the same viewer, and must come back holding the lead it
+   * had rather than leaving the pane leaderless for another viewer to claim.
+   */
+  const leadTokenRef = useRef<object>({});
+  const heldLeadRef = useRef(false);
+  const visibilityRef = useRef<{
+    show: (afterFlush?: () => void) => void;
+    park: () => void;
+  } | null>(null);
+  const statusRef = useRef<PaneStatus>("connecting");
+  // Mirrored into state purely so the header can show/hide the restart button;
+  // it transitions a handful of times per pane, never per output chunk.
+  const t = useT();
+  const [visibleStatus, setVisibleStatus] = useState<PaneStatus>("connecting");
+  /*
+   * What the socket said ABOUT that status, in the user's words.
+   *
+   * Kept here as well as handed to `onStatus` because the two readers need it
+   * at different times. The grid shows it once, in a tooltip; the pane has to
+   * keep saying it — an exit reason written into the terminal scrolls away the
+   * moment anything else is drawn, and the trouble line is written at most once
+   * per KIND of trouble (see `troubleShown`), so a user who looked away has no
+   * way back to it at all. The notice below is that way back.
+   */
+  const [statusDetail, setStatusDetail] = useState<string>("");
+  /*
+   * Has this pane's agent drawn anything yet?
+   *
+   * A pane opened by voice is an EMPTY BLACK RECTANGLE for several seconds: the
+   * grid renders it the moment the workspace state arrives, and the CLI inside
+   * it only paints once the socket is up, a cold-start slot is free and the
+   * process has booted — measured at 2.6-2.8 s on a healthy machine, longer
+   * while the grid is busy relaying itself out. Nothing said so, so "open two
+   * more terminals" looked like it had silently failed and the panes were
+   * closed and asked for again (maintainer report 2026-07-28).
+   *
+   * Flipped by the first byte the agent writes, never back — a pane that has
+   * painted once is a pane the user can read, whatever its socket does later.
+   * Reconnects therefore stay quiet: the replayed screen is already there.
+   */
+  const [painted, setPainted] = useState(false);
+  // A parked chat pane may have a large asynchronous xterm write to parse when
+  // it takes the stage again. Keep its terminal surface out of the paint until
+  // that write and the final viewport restoration have both landed; otherwise xterm
+  // briefly shows the pane's old viewport (often its first prompt) and visibly
+  // jumps to the live prompt one frame later.
+  const [tailReady, setTailReady] = useState(active);
+  // The terminal itself stays in a ref. This small epoch tells appearance and
+  // font effects that the ref now points at a new instance after a restart.
+  const [terminalEpoch, setTerminalEpoch] = useState(0);
+  /*
+   * Is a replay currently rebuilding this pane behind the curtain?
+   *
+   * The replay path and the chat-stage switch both hide the surface until the
+   * viewport restoration has landed, and they can interleave: a replay arriving within
+   * a frame of a stage switch (or of the mount) would otherwise have the
+   * OTHER sequence's settle step lift the curtain while the replay is still
+   * printing its history — which is exactly the top-to-bottom scroll the
+   * curtain exists to hide. While this is true, only the replay's own
+   * completion may reveal the pane.
+   */
+  const replayCurtainRef = useRef(false);
+  // A stage switch must preserve a reader who deliberately scrolled back.
+  // Kept through replay parsing because reset() temporarily destroys xterm's
+  // own viewport, making it impossible to recover afterwards.
+  const preservedViewportRef = useRef<PreservedTerminalViewport | null>(null);
+  // Every replay and active-stage transition invalidates callbacks/frames from
+  // the one before it. A boolean alone cannot distinguish "A finished" from
+  // "B is still rebuilding", so an old callback could otherwise reveal B.
+  const replayGenerationRef = useRef(0);
+  const replayRevealFrameRef = useRef<number | undefined>(undefined);
+  const curtainWatchdogRef = useRef<number | undefined>(undefined);
+  /**
+   * Promise that the curtain just raised comes down — see {@link CURTAIN_MAX_MS}.
+   *
+   * Re-armed by every raise, so it measures the newest curtain, and touching
+   * refs and a state setter only, so the closure the connect effect keeps from
+   * its first render stays correct. An inactive pane is hidden on purpose and
+   * is left alone; taking the stage raises (and arms) a fresh curtain.
+   */
+  const armCurtainWatchdog = () => {
+    if (curtainWatchdogRef.current !== undefined) {
+      window.clearTimeout(curtainWatchdogRef.current);
+    }
+    curtainWatchdogRef.current = window.setTimeout(() => {
+      curtainWatchdogRef.current = undefined;
+      if (!activeRef.current) return;
+      replayCurtainRef.current = false;
+      containerRef.current?.style.removeProperty("visibility");
+      setTailReady(true);
+    }, CURTAIN_MAX_MS);
+  };
+  useEffect(
+    () => () => {
+      if (curtainWatchdogRef.current !== undefined) {
+        window.clearTimeout(curtainWatchdogRef.current);
+      }
+    },
+    [],
+  );
+  /**
+   * Hold a finished rebuild back until the pane has stopped being redrawn.
+   *
+   * Owned by the connect effect, because only that scope sees every byte this
+   * pane draws. Reached from the stage-switch effect below as well: taking the
+   * stage also announces a new size, and an agent answers a size the same way
+   * it answers the server's nudge — by painting its whole screen again.
+   *
+   * Null before the terminal exists; the caller then reveals straight away,
+   * which is right for a pane that has nothing to rebuild yet.
+   */
+  const settleRebuildRef = useRef<
+    ((generation: number, reveal: () => void) => void) | null
+  >(null);
+  /**
+   * The delivery this pane is currently showing a receipt for, if any.
+   *
+   * Held here rather than derived from the terminal's contents because the
+   * terminal is precisely what cannot be trusted to show it — see
+   * ./PromptReceipt for the four ways a delivered prompt fails to reach the
+   * screen. Fed from two independent sources so that neither being unavailable
+   * loses the proof: the socket's `prompt` frame (instant, lossy) and the
+   * pane's `last_prompt_at` in the workspace state (durable, one poll late).
+   */
+  const [receipt, setReceipt] = useState<PromptDelivery | null>(null);
+  /** The delivery the user has already waved away; never shown again. */
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  /** Briefly true right after a delivery — draws the eye to the right pane. */
+  const [justDelivered, setJustDelivered] = useState(false);
+  const deliveredTimer = useRef<number | undefined>(undefined);
+  // One flash at a time, and none left running once the pane is gone.
+  const flashDelivered = useCallback((ms: number) => {
+    setJustDelivered(true);
+    window.clearTimeout(deliveredTimer.current);
+    deliveredTimer.current = window.setTimeout(() => setJustDelivered(false), ms);
+  }, []);
+  useEffect(() => () => window.clearTimeout(deliveredTimer.current), []);
+  /** The pane's recorded conversation, opened from the header book button. */
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [changesOpen, setChangesOpen] = useState(false);
+  // Latest callbacks/appearance without re-running the connect effect.
+  const onStatusRef = useRef(onStatus);
+  const onAttachErrorRef = useRef(onAttachError);
+  /*
+   * The text size this pane draws at, as of NOW.
+   *
+   * A ref because the connect effect must not re-run when the user changes the
+   * size — rebuilding the terminal would drop the agent's screen and reconnect
+   * its socket for what is a one-line restyle. But it is written on EVERY
+   * render, never frozen at mount: the effect below rebuilds the terminal for
+   * reasons of its own (`geometryReady` flipping when the grid is re-measured,
+   * a pane restart, a rename), and a frozen value hands every one of those
+   * rebuilds the size this pane opened with rather than the size the user is
+   * looking at. That is the reported bug — the toolbar reads 20, the pane the
+   * user last touched is 20, and every pane rebuilt since the change is back
+   * at the 13 the grid started with, with no further size change coming to
+   * correct it (see the `fontSize` effect: it fires on CHANGES).
+   */
+  const fontSizeRef = useRef(fontSize);
+  // The ground this pane draws on, as of NOW — the socket tells the backend, so
+  // that the agent's CLI is answered with the colours it is actually drawing on
+  // when it asks. Read at connect time, hence a ref rather than the prop: the
+  // connect effect must not re-run when the user flips the theme. Same rule as
+  // the size above: current on every render, so a rebuild cannot resurrect the
+  // theme this pane happened to open with.
+  const appearanceRef = useRef(appearance);
+  const activeRef = useRef(active);
+  const focusedRef = useRef(focused);
+  // Read by the connect effect's resize scheduler, which is built once and
+  // therefore cannot see the prop change.
+  const layoutBusyRef = useRef(layoutBusy);
+  onStatusRef.current = onStatus;
+  onAttachErrorRef.current = onAttachError;
+  fontSizeRef.current = fontSize;
+  appearanceRef.current = appearance;
+  activeRef.current = active;
+  focusedRef.current = focused;
+  layoutBusyRef.current = layoutBusy;
+
+  // Only the focused pane's cursor blinks. A blinking cursor repaints its pane
+  // twice a second forever, and on a wall of a dozen idle terminals that was
+  // the renderer's biggest standing cost (CPU diet, 2026-08-22). Unfocused
+  // panes draw no cursor at all — see `cursorInactiveStyle` below.
+  useEffect(() => {
+    const term = termRef.current;
+    if (term) term.options.cursorBlink = focused;
+  }, [focused]);
+
+  useEffect(() => {
+    const region = terminalRegionRef.current;
+    if (!region) return;
+    return bindTerminalScrollRegion(region);
+  }, []);
+
+  /*
+   * Is the font this pane will draw with here to be measured?
+   *
+   * The connect effect below builds the grid from ONE measured glyph and hands
+   * the agent that grid's column count in its first message. Measured before
+   * the display font has arrived — it comes through a stylesheet the app
+   * `@import`s from the network, so after a restart it is routinely a moment
+   * late — that glyph is the fallback's, the count is wrong, and a RUNNING
+   * agent is re-wrapped for it and then re-wrapped again when the real font
+   * lands (see `whenTerminalFontReady` for what that did to every pane of a
+   * workspace on 2026-08-27). So the pane does not build until the font is
+   * measurable, or until the bounded wait says it is not coming. Settled
+   * synchronously where it can be, so a pane whose font is already here
+   * mounts exactly as it always did.
+   */
+  const [fontReady, setFontReady] = useState(() =>
+    terminalFontSettled(fontSizeRef.current),
+  );
+  useEffect(() => {
+    if (fontReady) return;
+    let cancelled = false;
+    void whenTerminalFontReady(fontSizeRef.current).then(() => {
+      if (!cancelled) setFontReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fontReady]);
+
+  useEffect(() => {
+    if (!geometryReady || !fontReady) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    // A restart builds a brand-new terminal on a blank screen, so the pane owes
+    // the user the same "it is coming up" answer it owed on its first mount.
+    setPainted(false);
+    // And it must not inherit a curtain: a rebuild can tear the old terminal
+    // down between a replay dropping the curtain and its write callback (see
+    // `replayToPane`), which would leave the new terminal invisible with
+    // nothing left to lift it.
+    replayGenerationRef.current += 1;
+    replayCurtainRef.current = false;
+    if (replayRevealFrameRef.current !== undefined) {
+      cancelAnimationFrame(replayRevealFrameRef.current);
+      replayRevealFrameRef.current = undefined;
+    }
+    setTailReady(activeRef.current);
+
+    const linkOptions = {
+      workspaceId,
+      onError: (message: string) => onAttachErrorRef.current?.(message),
+    };
+    const activateLink = createTerminalLinkActivator(linkOptions);
+    const term = new Terminal({
+      convertEol: false,
+      // A dark pane keeps the canvas clear so the shared section glass and the
+      // desktop artwork show through. A light pane is opaque: xterm rasterises
+      // glyphs on a transparent canvas with greyscale anti-aliasing only, and
+      // dark ink on paper drawn that way reads thin and grey — on a 4K screen
+      // at 100 % scaling, barely legible (maintainer, 2026-10-01). On an
+      // opaque ground the glyph atlas gets the system's subpixel smoothing.
+      allowTransparency: appearanceRef.current !== "light",
+      // A CLI configured for the other ground paints truecolor a palette can
+      // never remap — dark-theme white text into a light pane. This floor
+      // nudges any unreadable foreground toward legibility; the theme's
+      // transparent background carries the ground RGB it measures against.
+      minimumContrastRatio: MINIMUM_CONTRAST_RATIO,
+      // Shared with the measurement in ./../../lib/terminalFont: a pane that
+      // measured a different stack from the one it draws with is the bug that
+      // module exists to prevent.
+      fontFamily: TERMINAL_FONT_STACK,
+      fontSize: fontSizeRef.current,
+      // Medium body text, SemiBold on a light pane — see TERMINAL_FONT_WEIGHT
+      // and TERMINAL_FONT_WEIGHT_LIGHT for why Regular reads thin and grey
+      // under the WebGL renderer next to a native terminal.
+      fontWeight: terminalFontWeights(appearanceRef.current).body,
+      fontWeightBold: terminalFontWeights(appearanceRef.current).bold,
+      // The font's own line height, like a standalone terminal. JetBrains Mono
+      // already carries 1.32em of leading; at 1.2 on top a row was ~1.6em tall,
+      // so a pane showed large text gaps between small glyphs. At 1.0 the larger
+      // default size (./paneFont) fits the same number of rows as before.
+      lineHeight: 1.0,
+      // Zero, not 0.2: extra tracking is added per cell, so a box-drawing frame
+      // and the text under it accumulate different sub-pixel offsets and the
+      // frame visibly bends. Monospace legibility comes from the line height.
+      letterSpacing: 0,
+      // Only the focused pane blinks — see the `focused` effect above.
+      cursorBlink: focusedRef.current,
+      cursorStyle: "bar",
+      // xterm's default for a terminal without keyboard focus is a hollow box.
+      // On a wall of panes that box sat in every idle prompt and read as a
+      // stray glyph; the agent's own prompt already marks where input goes.
+      cursorInactiveStyle: "none",
+      scrollback: 10000,
+      // Required by the Unicode 11 width provider below.
+      allowProposedApi: true,
+      // Instant scrolling: an agent that redraws a live status line while
+      // animating a scroll leaves visible tearing.
+      smoothScrollDuration: 0,
+      // Plain clicks belong to text selection. xterm otherwise treats an
+      // ordinary click on an OSC-8 link as navigation and shows a native
+      // warning dialog inside the desktop WebView.
+      linkHandler: createTerminalOscLinkHandler(linkOptions),
+      // Lets Option force a selection on macOS while a CLI has mouse tracking
+      // on — the chord ./terminalMouseSelection marks every plain press with.
+      macOptionClickForcesSelection: true,
+      // Windows only. ConPTY re-emits and re-wraps lines in a way a POSIX pty
+      // never does; without telling xterm which backend it is talking to, those
+      // re-emitted lines pile up as duplicated, half-overwritten rows. Harmless
+      // to declare on other platforms — the pty there simply never triggers it,
+      // and the value is derived from the browser rather than assumed.
+      windowsPty: /windows/i.test(navigator.userAgent)
+        ? { backend: "conpty" as const }
+        : undefined,
+      theme: themeFor(appearanceRef.current),
+    });
+    // Before anything is written to this terminal: the agent's CLI asks what
+    // its terminal is and which colours it draws on within milliseconds of
+    // starting, and an answer produced HERE has to cross the socket twice
+    // before reaching it — too late, and then visible as junk in its prompt.
+    // The backend answers those instead. See ./terminalQueries.
+    const disposeQuerySuppression = installQuerySuppression(term.parser);
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.loadAddon(new WebLinksAddon(activateLink));
+    if (workspaceId) {
+      term.loadAddon(new TerminalPathLinksAddon(activateLink));
+    }
+    // Character WIDTH, not appearance: without this xterm measures emoji and
+    // many box/symbol glyphs as one cell while the agent on the other side
+    // counted two, and every such glyph shifts the rest of the line one column
+    // left. That is the "the frames are broken" symptom.
+    try {
+      const unicode = new Unicode11Addon();
+      term.loadAddon(unicode);
+      term.unicode.activeVersion = "11";
+    } catch {
+      /* proposed API unavailable in this build — widths stay at Unicode 6 */
+    }
+    // Align before the renderer joins the shared glyph atlas and before the
+    // first fit/handshake. Correcting spacing afterwards changes the grid and
+    // invalidates every existing pane's cache just to open an empty terminal.
+    alignTerminalCells(term);
+    term.open(container);
+    // The wheel always moves xterm's own history, even while a normal-buffer
+    // CLI has negotiated mouse tracking — otherwise scrolling only "works"
+    // when the CLI feels like it, which is the per-provider inconsistency the
+    // scroll rebuild removed. See captureWheelForTerminalHistory.
+    term.attachCustomWheelEventHandler(captureWheelForTerminalHistory(term));
+    // WebGL where the page can afford it, the 2D canvas otherwise, and the DOM
+    // renderer as the last resort — never the DOM renderer by choice: a coding
+    // agent's TUI redraws its prompt box on every keystroke, and per-cell DOM
+    // elements both lag and land on fractional pixel offsets. Loaded AFTER
+    // open() because it needs the mounted element. See ./terminalRenderer for
+    // why the canvas renderer alone froze a wall of streaming panes.
+    const renderer = attachTerminalRenderer(term, () => {
+      if (disposed) return;
+      // The fallback renderer starts on an empty surface.
+      term.refresh(0, term.rows - 1);
+    });
+    const synchronizedOutput = installSynchronizedOutput(term);
+    termRef.current = term;
+    fitRef.current = fit;
+    setTerminalEpoch((current) => current + 1);
+    // Let the app-wide right-click menu reach this terminal. It cannot use the
+    // browser selection here — the canvas renderer above paints the text, so
+    // there is no selectable DOM to read — and it must paste through xterm so
+    // the sequence is bracketed rather than typed key by key.
+    attachTerminalBridge(container, {
+      getSelection: () => term.getSelection(),
+      paste: (text) => term.paste(text),
+      focus: () => term.focus(),
+    });
+    // The keyboard bridges below claim keystrokes, and xterm holds exactly ONE
+    // custom key handler — attaching them directly would leave only the last
+    // one working, silently. See ./terminalKeyChain.
+    const keys = createKeyEventChain(term);
+    const isMac = /mac|iphone|ipad/i.test(navigator.userAgent);
+    // A plain left-button drag selects text even while the agent's CLI has
+    // mouse tracking on, which every coding agent negotiates at start-up.
+    const disposeMouseSelection = installMouseSelection(container, term, isMac);
+    const disposePromptSelection = installPromptSelectionBridge(term, keys.add, isMac);
+    const disposeBrowseExit = installBrowseExit(container, term);
+    // The desktop IDE reserves its platform copy chord for copying. In
+    // particular, an unselected Ctrl+C on Windows/Linux must not reach Codex
+    // as `^C`, where it cancels the current turn or exits the pane.
+    const disposeCopyBridge = installCopyBridge(
+      {
+        attachCustomKeyEventHandler: keys.add,
+        getSelection: () => term.getSelection(),
+        focus: () => term.focus(),
+      },
+      {
+        copy: robustCopy,
+        isMac,
+        onUnavailable: () =>
+          onAttachErrorRef.current?.(
+            translate("agentic_grid.pane.copy_unavailable"),
+          ),
+      },
+    );
+    // Make Ctrl+V / Cmd+V paste. Left to itself xterm reads the chord as the
+    // terminal control code ^V and CANCELS the keystroke, so the browser never
+    // runs its own paste and nothing arrives at all — see ./terminalPaste.
+    const disposePasteBridge = installPasteBridge(
+      {
+        attachCustomKeyEventHandler: keys.add,
+        paste: (text) => term.paste(text),
+      },
+      container,
+      {
+        readClipboard: robustPaste,
+        isMac,
+        onUnavailable: () =>
+          onAttachErrorRef.current?.(
+            translate("agentic_grid.pane.paste_unavailable"),
+          ),
+      },
+    );
+    // Make Shift+Enter (and Option/Cmd+Enter) break the line instead of sending
+    // the half-written instruction — see ./terminalNewline.
+    const disposeNewlineBridge = installNewlineBridge({
+      attachCustomKeyEventHandler: keys.add,
+      input: (data) => term.input(data),
+    });
+    /** Is this pane's tile something that can honestly be measured right now? */
+    const measurable = () =>
+      !windowCollapsed() &&
+      container.clientWidth >= 8 &&
+      container.clientHeight >= 8;
+    /** Did the grid below come from the tile, or is it still the constructed default? */
+    let mountMeasured = false;
+
+    try {
+      // Taken BEFORE the handshake below reads the terminal's geometry — so
+      // the grid this pane draws on and the size its agent is spawned at are
+      // the same thing from the very first byte.
+      //
+      // Only from a tile that HAS a size. A pane that mounts hidden — the
+      // chat stage hides every cell and draws the staged pane's transcript
+      // over the canvas — is a display:none box, and the fit addon answers
+      // that with its own minimum rather than with nothing. Clamped to the
+      // floors below, that became a 10x4 terminal, and the handshake then
+      // spawned the agent at exactly that (T11, 2026-08-27): a CLI drawing
+      // its input line ten columns wide, where a prompt written into it
+      // could never be seen arriving and every message was reported as
+      // unconfirmed. Unmeasured, the terminal keeps its constructed 80x24
+      // and the agent starts at a size it can draw in; the first real
+      // measurement follows from `sendResize` the moment the tile is shown.
+      const proposed = measurable() ? fit.proposeDimensions() : undefined;
+      if (
+        proposed &&
+        Number.isFinite(proposed.cols) &&
+        Number.isFinite(proposed.rows)
+      ) {
+        // The tile's own measurement, and only the absurd is refused (see
+        // MIN_REAL_COLS). `fit()` rather than a resize to the same numbers:
+        // it is what xterm offers and it keeps the renderer's own bookkeeping
+        // in step.
+        if (proposed.cols >= MIN_REAL_COLS && proposed.rows >= MIN_REAL_ROWS) {
+          fit.fit();
+        } else {
+          term.resize(
+            Math.max(proposed.cols, MIN_REAL_COLS),
+            Math.max(proposed.rows, MIN_REAL_ROWS),
+          );
+        }
+        mountMeasured = true;
+      }
+    } catch {
+      /* not measured yet — the ResizeObserver below will fit */
+    }
+    /*
+     * Did this socket's handshake go out without a size (`UNMEASURED_SIZE`),
+     * with the server's report of the agent's real size still to come?
+     *
+     * The server replays the agent's screen BEFORE it sends that report, and
+     * the screen is addressed by row at the agent's size. Parsed into this
+     * grid first — xterm's constructed 80x24 when the pane mounted hidden or
+     * in a minimized window — every row below the 24th landed on the last one
+     * (the status line written over the prompt box), and the report then grew
+     * the grid with blank rows underneath. Nothing repaired it: the PTY
+     * already had the size the pane went on to ask for, so the agent was never
+     * asked to paint again (reported 2026-10-06, the window reloading while
+     * the IDE showed the thread layout). So output is held until the report
+     * arrives and drawn after the grid has taken it (see `onGeometry`).
+     */
+    let awaitingSizeReport = false;
+
+    const report = (status: PaneStatus, detail?: string) => {
+      statusRef.current = status;
+      setVisibleStatus(status);
+      setStatusDetail(detail ?? "");
+      onStatusRef.current?.(status, detail);
+    };
+
+    let socket: PaneSocket | null = null;
+    let disposed = false;
+    // At most one line per KIND of trouble: one when the connection starts
+    // wobbling, one if it is declared unreachable. A reconnect that succeeds
+    // redraws the screen from the server's replay buffer anyway, so narrating
+    // every attempt would scroll the agent's own output away for nothing — and
+    // a pane that keeps knocking every half minute would otherwise stamp a red
+    // line into the terminal twice a minute forever.
+    let troubleShown: "retrying" | "unreachable" | null = null;
+    // And at most one line per WORDING, which is a separate limit. A refused
+    // attach reaches this twice — once as the reason the server sent, then
+    // again as the verdict on the close that immediately follows it — and the
+    // two are now the same sentence, because the second one no longer invents
+    // its own. Printing it again in red under itself in yellow reads like two
+    // problems.
+    let troubleText = "";
+
+    /*
+     * Is anyone actually looking at this pane?
+     *
+     * A workspace holds dozens of terminals and the browser draws all of them on
+     * the SAME thread that has to notice a keypress — so a pane scrolled out of
+     * the grid, or hidden behind a maximized sibling, was spending real frames
+     * painting pixels nobody could see, at the direct expense of the pane being
+     * typed into. Its output is parked instead and written in one call when it
+     * comes back (see ./offscreenBuffer).
+     *
+     * Starts as VISIBLE: the observer's first callback is asynchronous, and a
+     * pane that withheld output until it arrived would flicker blank on mount.
+     */
+    let paneVisible = activeRef.current;
+    const offscreen = new OffscreenBuffer();
+    /** When this pane last measured itself while parked (see `recheckParked`). */
+    let parkedCheckedAt = 0;
+    /** The pending deadline flush, if this pane is holding anything. */
+    let holdTimer: number | undefined;
+
+    const cancelHoldTimer = () => {
+      if (holdTimer === undefined) return;
+      window.clearTimeout(holdTimer);
+      holdTimer = undefined;
+    };
+
+    /*
+     * How many writes this pane has handed xterm that have not finished
+     * parsing.
+     *
+     * The one thing a resize has to know. xterm parses a write in time slices,
+     * so "the socket delivered it" and "the screen has it" are different
+     * moments, and reflowing the buffer in between moves the rows the rest of
+     * that stream is addressing (see RESIZE_PARSE_WAIT_MS). Counted rather
+     * than asked, because xterm exposes no such question — every byte this
+     * pane draws goes through `writeToTerminal` below, which is what makes the
+     * count complete.
+     */
+    let parsing = 0;
+    /**
+     * Run the geometry change this pane is holding back, if it is holding one.
+     *
+     * Assigned once the resize path below exists; the writes above are defined
+     * first because everything else in this scope draws through them.
+     */
+    let resumeResize: (() => void) | null = null;
+
+    /** This pane's light-ground re-inker; it tracks the CLI's faint state. */
+    const lightInk = createLightPaneInk();
+
+    /** Hand bytes to xterm, keeping the count of what is still being parsed. */
+    const writeToTerminal = (text: string, afterWrite?: () => void) => {
+      parsing += 1;
+      // A TUI that paints its theme ground on every cell would hide the
+      // glass this pane sits on. Default-background those fills here, on
+      // the way into xterm — see ./terminalGlass. A light pane also re-inks
+      // the dark-theme truecolor most CLIs paint — see ./terminalLightInk.
+      const glass = clearTuiCanvasFill(text);
+      term.write(appearanceRef.current === "light" ? lightInk(glass) : glass, () => {
+        parsing = Math.max(0, parsing - 1);
+        afterWrite?.();
+        // The parser is between chunks — the one safe moment to reflow.
+        if (parsing === 0) resumeResize?.();
+      });
+    };
+
+    /**
+     * Write what is held, whether or not this pane believes it is watched.
+     *
+     * The deadline half of parking (see ./offscreenBuffer): being wrong about
+     * visibility must cost a coalesced write, never a screen that stopped.
+     */
+    const flushHeld = (afterFlush?: () => void) => {
+      cancelHoldTimer();
+      const held = offscreen.drain();
+      if (held) {
+        writeToTerminal(held, afterFlush);
+        return;
+      }
+      afterFlush?.();
+    };
+
+    /** Make sure the held output has a flush coming, without moving one nearer. */
+    const armHoldTimer = () => {
+      if (holdTimer !== undefined) return;
+      const due = offscreen.dueIn();
+      if (due === null) return;
+      holdTimer = window.setTimeout(() => {
+        holdTimer = undefined;
+        if (disposed) return;
+        flushHeld();
+      }, due);
+    };
+
+    const showPane = (afterFlush?: () => void) => {
+      if (!activeRef.current) return;
+      if (paneVisible) {
+        afterFlush?.();
+        return;
+      }
+      paneVisible = true;
+      // Held output waits for the size report (see `awaitingSizeReport`); its
+      // deadline flush is still armed, so waiting cannot freeze the pane.
+      if (awaitingSizeReport) afterFlush?.();
+      else flushHeld(afterFlush);
+    };
+
+    const parkPane = () => {
+      paneVisible = false;
+      // The next chunk of output measures immediately rather than waiting out
+      // an interval that started before this pane was even parked.
+      parkedCheckedAt = 0;
+    };
+    const visibility = { show: showPane, park: parkPane };
+    visibilityRef.current = visibility;
+
+    /**
+     * Un-park this pane if it is genuinely on screen — measured, not remembered.
+     *
+     * The observer below reports CHANGES, and a pane can be left parked in a
+     * state no change ever leads out of (see `boxOnScreen`). This is the way
+     * back, and it is called from the two moments that produce exactly that
+     * state: the document becoming visible again, and the pane being resized.
+     */
+    const revealIfOnScreen = () => {
+      if (!activeRef.current) return;
+      if (paneVisible) return;
+      const box = container.getBoundingClientRect();
+      const viewport = {
+        width: window.innerWidth || 0,
+        height: window.innerHeight || 0,
+      };
+      if (boxOnScreen(box, viewport)) showPane();
+    };
+
+    /**
+     * A parked pane that is still being talked to, asking the only question
+     * that matters: can the user see me right now?
+     *
+     * The observer answers that for every state it reports. The failure this
+     * guards is the state it does NOT report — and the two known ones
+     * (`visibilitychange`, resize) were found one live incident at a time, so
+     * assuming they are the last two is how the next one costs another
+     * afternoon. The symptom is always identical and always severe: Jarvis
+     * types a prompt into a pane, the agent starts work, and the user watches
+     * an empty rectangle and concludes nothing was sent (reported 2026-07-27,
+     * where the prompt reached the agent 1.4 s BEFORE it was announced and the
+     * pane showed its boot screen for another minute).
+     *
+     * Throttled, because output arrives in frames and a rectangle measurement
+     * forces layout: at most one per {@link PARKED_RECHECK_MS} per parked pane,
+     * and none at all for a parked pane whose agent has gone quiet — nobody
+     * misses a screen that is not changing.
+     */
+    const recheckParked = () => {
+      const now = Date.now();
+      if (now - parkedCheckedAt < PARKED_RECHECK_MS) return;
+      parkedCheckedAt = now;
+      revealIfOnScreen();
+    };
+
+    /*
+     * Reveal a rebuilt pane on QUIET, not on one write having finished.
+     *
+     * Two timers, and the difference between them is the whole contract. The
+     * quiet timer is restarted by every chunk that arrives while the curtain is
+     * down, so the repaint the server asks for after a replay plays out behind
+     * it. The deadline is armed once and NEVER restarted by output — it is the
+     * promise that the pane comes back even if the agent never stops talking.
+     */
+    let quietTimer: number | undefined;
+    let deadlineTimer: number | undefined;
+    /** What to run once the rebuild has settled; null while none is pending. */
+    let settleReveal: (() => void) | null = null;
+    /** The rebuild being waited out, so a superseded one cannot reveal. */
+    let settlingFor = 0;
+    /**
+     * Is the current rebuild still waiting for the repaint's whole-screen
+     * erase (see {@link REPAINT_WAIT_MAX_MS})? Set by a replay that announced
+     * one, cleared by the erase arriving — which may happen before the replay
+     * has even finished parsing.
+     */
+    let repaintPending = false;
+    /** The last bytes of the preceding chunk, in case it split the erase. */
+    let eraseScanTail = "";
+
+    const noteRepaintOutput = (text: string) => {
+      if (!repaintPending) return;
+      const scanned = eraseScanTail + text;
+      if (hasFullScreenErase(scanned)) {
+        repaintPending = false;
+        eraseScanTail = "";
+        return;
+      }
+      eraseScanTail = scanned.slice(-FULL_SCREEN_ERASE_SCAN_TAIL);
+    };
+
+    const clearSettleTimers = () => {
+      if (quietTimer !== undefined) window.clearTimeout(quietTimer);
+      if (deadlineTimer !== undefined) window.clearTimeout(deadlineTimer);
+      quietTimer = undefined;
+      deadlineTimer = undefined;
+    };
+
+    const finishSettle = () => {
+      const reveal = settleReveal;
+      const generation = settlingFor;
+      clearSettleTimers();
+      settlingFor = 0;
+      settleReveal = null;
+      repaintPending = false;
+      eraseScanTail = "";
+      // Before the guards, deliberately: a settle abandoned because the pane
+      // went away must not leave the curtain flag raised, or the next stage
+      // switch would refuse to lift a curtain nobody owns any more.
+      replayCurtainRef.current = false;
+      if (
+        disposed ||
+        !activeRef.current ||
+        generation !== replayGenerationRef.current
+      ) {
+        return;
+      }
+      reveal?.();
+    };
+
+    /** Something is still being drawn — push the reveal back one quiet window. */
+    const noteRebuildOutput = () => {
+      if (settlingFor === 0) return;
+      if (quietTimer !== undefined) window.clearTimeout(quietTimer);
+      quietTimer = undefined;
+      // Quiet proves nothing while the promised repaint has not started: the
+      // agent may simply not have answered yet. Only the deadline runs then.
+      if (repaintPending) return;
+      quietTimer = window.setTimeout(finishSettle, REBUILD_QUIET_MS);
+    };
+
+    const settleRebuild = (generation: number, reveal: () => void) => {
+      if (disposed || generation !== replayGenerationRef.current) return;
+      clearSettleTimers();
+      settlingFor = generation;
+      settleReveal = reveal;
+      deadlineTimer = window.setTimeout(
+        finishSettle,
+        repaintPending ? REPAINT_WAIT_MAX_MS : REBUILD_SETTLE_MAX_MS,
+      );
+      noteRebuildOutput();
+    };
+    settleRebuildRef.current = settleRebuild;
+
+    // Everything this pane draws goes through here, not just the agent's
+    // stream: an exit banner written straight to xterm while output is parked
+    // would appear ABOVE the output it is supposed to follow.
+    const writeToPane = (text: string, afterWrite?: () => void) => {
+      if (!text) return;
+      // Anything drawn while a rebuild settles belongs to that rebuild. The
+      // viewport is deliberately NOT touched here — where the pane opens is
+      // the reveal's decision, and it restores what the reader was looking at.
+      noteRepaintOutput(text);
+      noteRebuildOutput();
+      // The first byte is what retires the "starting" overlay — and it is taken
+      // HERE rather than at the socket, so a pane whose output is parked
+      // offscreen still counts as painted. It has a screen; nobody is looking
+      // at it. Cheap to call per chunk: React bails out on an unchanged value.
+      setPainted(true);
+      if (!paneVisible) recheckParked();
+      if (paneVisible && !awaitingSizeReport) {
+        writeToTerminal(text, afterWrite);
+        return;
+      }
+      offscreen.push(text);
+      // A pane that has parked all it may hold WRITES rather than forgets. An
+      // agent's TUI is drawn by relative cursor moves, so a stream that lost
+      // its front does not repair itself — the pane would come back showing
+      // the spinner row it rewrote last and blank rows where its prompt box
+      // belongs. Parsing into a surface nobody is painting is the cheap half
+      // of what parking avoids; a permanently broken screen is not.
+      //
+      // The same answer, for the same reason, once it has held long enough:
+      // this pane's belief that nobody is watching may simply be wrong, and
+      // that must cost a coalesced write rather than a frozen terminal. The
+      // timer covers the case this branch cannot — an agent that goes quiet
+      // right after saying something would otherwise hold that last word for
+      // as long as it stays quiet.
+      if (offscreen.full || offscreen.stale()) {
+        flushHeld();
+        return;
+      }
+      armHoldTimer();
+    };
+
+    /**
+     * Draw the screen this pane is re-joining — on a terminal cleared first.
+     *
+     * A replay is not a big chunk of output, it is a REBUILD: the server hands
+     * over the raw bytes that drew the screen the agent is looking at, so that
+     * a pane which was away — a reconnect, a backend restart, a workspace
+     * switch — comes back showing the interface rather than a blank rectangle.
+     *
+     * Writing it onto whatever is already here draws that interface a second
+     * time over the copy still on screen, and the two do not stack tidily. An
+     * Ink TUI (Claude Code, Codex) skips unchanged cells with cursor moves
+     * instead of overwriting them with spaces, so the first copy shows THROUGH
+     * the second, character by character: "plus everything new" came back as
+     * "plueverythingwnew" (reported 2026-07-29, three panes, unreadable). Nor does
+     * it heal — the agent repaints its own visible rows and never the
+     * scrollback above them, so every reconnect added another layer.
+     *
+     * `reset()` rather than `clear()`: the replay re-states the screen modes
+     * the agent negotiated (alternate screen, mouse tracking), and those have
+     * to start from a known state or the pane inherits half of the old one.
+     */
+    const replayToPane = (text: string, awaitRepaint = false) => {
+      if (!text) return;
+      // A newer replay replaces whatever an older one was waiting for.
+      repaintPending = false;
+      eraseScanTail = "";
+      const replayViewport =
+        preservedViewportRef.current ?? captureTerminalViewport(term);
+      if (replayViewport) preservedViewportRef.current = replayViewport;
+      const generation = replayGenerationRef.current + 1;
+      replayGenerationRef.current = generation;
+      if (replayRevealFrameRef.current !== undefined) {
+        cancelAnimationFrame(replayRevealFrameRef.current);
+        replayRevealFrameRef.current = undefined;
+      }
+      // Parked output belongs to the screen this replay REPLACES, and it was
+      // captured before it. Written afterwards it would paint the older screen
+      // over the newer one; written before, it would be reset away regardless.
+      // The deadline goes with it — a flush firing after this would draw the
+      // screen this replay just replaced.
+      cancelHoldTimer();
+      offscreen.drain();
+      // React state is not a synchronous paint barrier. In a real WebSocket
+      // callback, `setTailReady(false)` may not reach the DOM before xterm's
+      // write queue starts parsing. Hide the canvas host imperatively BEFORE
+      // reset/write; React still mirrors the curtain below for later renders.
+      // A replay waiting for the size report is held (see
+      // `awaitingSizeReport`), and the callback that would lift a curtain
+      // goes with it.
+      const curtain = paneVisible && !awaitingSizeReport && activeRef.current;
+      if (curtain) {
+        container.style.visibility = "hidden";
+        replayCurtainRef.current = true;
+        setTailReady(false);
+        armCurtainWatchdog();
+      }
+      synchronizedOutput.reset();
+      term.reset();
+      // A normal-buffer CLI's replay is its whole scrollback — up to the
+      // server's 128 KB (see `ReplayBuffer`) — and xterm parses it in time
+      // slices. Written onto a VISIBLE surface, the history prints top to
+      // bottom with the viewport chasing it for the length of the parse
+      // (reported 2026-08-08: every switch onto a fresh Codex pane opened on
+      // the top of its history and visibly raced down). Alt-screen replays
+      // repaint in place, which is why only normal-buffer CLIs ever showed
+      // it. So the surface is hidden for the length of the rebuild — the same
+      // curtain a chat-stage switch drops — and lifted one settled frame
+      // after the reader's viewport has been restored.
+      // Through the ordinary path, so a replay arriving while nobody is looking
+      // is parked and un-parked by the same rules as anything else — and so it
+      // counts as the pane having painted.
+      writeToPane(text, () => {
+        if (generation !== replayGenerationRef.current) return;
+        if (disposed || !activeRef.current) {
+          // A callback that fired while the pane was away must not leave the
+          // stage-switch settle step refusing to lift the curtain forever.
+          replayCurtainRef.current = false;
+          return;
+        }
+        restoreTerminalViewport(term, replayViewport);
+        if (!curtain) {
+          replayCurtainRef.current = false;
+          if (preservedViewportRef.current === replayViewport) {
+            preservedViewportRef.current = null;
+          }
+          return;
+        }
+        // The bytes have parsed; the REPAINT they provoke has not arrived yet.
+        // Stay hidden until this pane stops being drawn — see REBUILD_QUIET_MS.
+        settleRebuild(generation, () => {
+          replayRevealFrameRef.current = requestAnimationFrame(() => {
+            replayRevealFrameRef.current = undefined;
+            if (
+              disposed ||
+              !activeRef.current ||
+              generation !== replayGenerationRef.current
+            ) {
+              return;
+            }
+            restoreTerminalViewport(term, replayViewport);
+            setTailReady(true);
+            container.style.removeProperty("visibility");
+            if (preservedViewportRef.current === replayViewport) {
+              preservedViewportRef.current = null;
+            }
+          });
+        });
+      });
+      // Armed only AFTER the replay went in: its own bytes may well contain
+      // an older erase, and that must not count as the repaint's answer.
+      // Output from here on is live, so the erase it waits for can arrive
+      // before the replay has finished parsing — the settle then starts on
+      // an ordinary quiet window.
+      if (curtain && awaitRepaint) repaintPending = true;
+    };
+
+    /*
+     * The size the terminal PROCESS has actually been told.
+     *
+     * Recorded only when the socket took the frame, and that is the whole
+     * point. A pane's socket is not open at all times — a backend restart, a
+     * moment of unreachability, a reconnect in flight — and anything handed to
+     * one in those states goes nowhere. Treating a size as delivered because
+     * it was offered is what let one go missing for good: the pane looked
+     * right, and the agent inside it went on formatting for the size it last
+     * heard about, drawing its screen into a corner of a pane that had become
+     * much larger. Left un-recorded, the next fit offers it again, and a fresh
+     * socket is told unconditionally.
+     */
+    let sentSize: { cols: number; rows: number } | null = null;
+    /*
+     * Does this pane believe it holds the one shared PTY geometry?
+     *
+     * A pseudo-terminal has exactly one size and a pane may be open in more
+     * than one place — the desktop app, a browser tab beside it, a window a
+     * tool opened to take a look — so the server hands the size to ONE viewer
+     * and answers every other viewer's request with the geometry the owner
+     * chose (see `onGeometry`). This flag is what tells a claim apart from a
+     * repeat: a pane that owns the size and measures the same tile again has
+     * nothing to say, while a pane that was displaced must speak up even
+     * though its own measurement never changed. Set when a claim goes out,
+     * cleared whenever the agent is reported to be in a size this pane did
+     * not ask for.
+     */
+    let owned = false;
+    /** Is this pane showing a geometry another viewer chose? See reclaimOnGesture. */
+    let displaced = false;
+    /*
+     * This viewer's place among the pane's viewers in THIS window. The server
+     * settles who sizes the pane between windows; inside one, a second viewer
+     * of the same pane (the office's pane window over the IDE grid) would
+     * otherwise take the size back on every gesture and the two would trade it
+     * every GESTURE_RECLAIM_MS. See ./paneSizeLead.
+     */
+    const leadKey = sizeLeadKey(workspaceId, name);
+    const leadToken = leadTokenRef.current;
+    if (sizeLead || heldLeadRef.current) takeSizeLead(leadKey, leadToken);
+    heldLeadRef.current = false;
+    const mayLead = () => mayLeadSize(leadKey, leadToken);
+
+    /*
+     * May this pane take the shared size without being asked to?
+     *
+     * The passive test, for the moments the browser reports on its own — the
+     * window regaining focus, a pane becoming the active stage, the grid
+     * settling after a maximize. A window that does not hold focus is not the
+     * one the user is reading, so it must not pull the agent's screen over to
+     * its own dimensions.
+     *
+     * `document.hidden` is deliberately NOT consulted. The desktop shell can
+     * report a window that is plainly on screen as hidden for minutes at a
+     * time (2026-08-23), and gating ownership on it left the app unable to
+     * take its own terminals back: a tab some tool had opened took the size,
+     * and every click and every maximize in the app was answered with that
+     * tab's geometry — the agent drawing into the top-left corner of a pane
+     * that had just been made to fill the window (2026-08-25).
+     */
+    const viewerMayOwn = () =>
+      mayLead() &&
+      activeRef.current &&
+      (typeof document === "undefined" ||
+        typeof document.hasFocus !== "function" ||
+        document.hasFocus());
+
+    /**
+     * Fit this pane to its tile and tell the agent behind it — right now.
+     *
+     * Only ever reached through `sendResize` below, which is what decides
+     * WHEN "right now" is safe. Everything here reflows xterm's buffer, and a
+     * reflow may not land in the middle of a parse (see RESIZE_PARSE_WAIT_MS).
+     */
+    const applyResize = (claimOwner: boolean) => {
+      // A hidden pane measures 0x0 (maximizing another one hides this one), and
+      // fitting to that would resize the PTY to zero columns — which permanently
+      // wrecks the agent's full-screen drawing. Skip while not measurable; the
+      // ResizeObserver fires again when the pane comes back. Re-checked here as
+      // well as at the gate: a deferred fit runs a moment later, and the tile it
+      // was asked for may be gone by then.
+      if (disposed || !measurable()) return;
+      // A pane off the stage never sizes its agent. A grid covered by the
+      // maximized side panel is invisible but still laid out, in a tile the
+      // panel narrowed: fitting there squeezed every agent behind it to a strip
+      // (37 columns, measured) and its output stayed wrapped at that width in
+      // the scrollback. Coming back on stage refits (the `active` effect).
+      if (!activeRef.current) return;
+      // The pane draws at the READER'S text size, never one it picked itself.
+      // An auto-shrink that walked this size down until the floor grid fit the
+      // tile shipped and was rejected within hours (2026-08-11): it silently
+      // overrode the toolbar's size on every narrow pane, which read as the
+      // size controls being dead (see the floors' comment above). A stale size
+      // can still linger on the terminal — a rebuild, a pane that shrank under
+      // the old build — so the choice is restated before measuring.
+      const desired = fontSizeRef.current;
+      if (term.options.fontSize !== desired) {
+        term.options.fontSize = desired;
+        // A new size is a new glyph advance, and so a new floored fraction for
+        // the canvas renderer to give back — same order as the fontSize effect.
+        alignTerminalCells(term);
+        clearTerminalTextureAtlas(term);
+      }
+      // Measured WITHOUT being applied yet: what the tile can show is a
+      // PROPOSAL, and the floors above have the last word on it.
+      let proposed: { cols: number; rows: number } | undefined;
+      try {
+        proposed = fit.proposeDimensions();
+      } catch {
+        return;
+      }
+      if (
+        !proposed ||
+        !Number.isFinite(proposed.cols) ||
+        !Number.isFinite(proposed.rows)
+      ) {
+        return;
+      }
+      // The one size everyone gets — the grid here, the agent below, and it is
+      // what the TILE measures. The two may never disagree: an agent laying
+      // its lines out for a width its xterm does not have re-wraps every one
+      // of them, and its cursor moves then land on rows that hold something
+      // else (shredded one-word fragments, 2026-08-10). Only the absurd is
+      // refused, which is all MIN_REAL_COLS is for now.
+      const measured = {
+        cols: Math.max(proposed.cols, MIN_REAL_COLS),
+        rows: Math.max(proposed.rows, MIN_REAL_ROWS),
+      };
+      /*
+       * The tile's own measurement is the size, full stop.
+       *
+       * Both axes follow the tile. A pane used to HOLD its columns below a
+       * "workable" width and show a card instead of its terminal (2026-08-13,
+       * against a coding CLI whose relative repaint wipes its own rows when it
+       * is squeezed to ~13 columns). That card covered every pane of an
+       * ordinary six-pane workspace at 56 columns and had to be clicked away on
+       * each one, so the maintainer retired it (2026-08-18): the terminal is
+       * shown at whatever width the tile has, the wizard says beforehand how
+       * narrow that will be, and how many panes to open stays the user's call.
+       */
+      const size = measured;
+      // A pane showing another viewer's geometry keeps showing it while its
+      // own tile has not changed since it last asked. Fitting it back to the
+      // tile here and then staying quiet (the request below would repeat one
+      // already turned down) left xterm at the tile's width while the agent
+      // went on drawing for the owner's: rows drawn over rows, word tails left
+      // at the end of other lines, worst on returning to the IDE, where every
+      // pane refits (2026-09-29). The geometry `onGeometry` applied is the one
+      // the agent really draws for, so it is the one this grid must hold.
+      if (
+        !claimOwner &&
+        displaced &&
+        sentSize &&
+        sentSize.cols === size.cols &&
+        sentSize.rows === size.rows
+      ) {
+        return;
+      }
+      try {
+        if (size.cols === proposed.cols && size.rows === proposed.rows) {
+          fit.fit();
+        } else if (term.cols !== size.cols || term.rows !== size.rows) {
+          term.resize(size.cols, size.rows);
+        }
+      } catch {
+        return;
+      }
+      // The grid now comes from a tile, so a reconnect may hand it over.
+      mountMeasured = true;
+      // Already delivered and unchanged: the fit above was the whole job.
+      // Re-announcing a size makes the agent on the other end redraw its
+      // entire screen, and a pane refits several times per settling layout.
+      // A claim is exempt only while the pane does not hold the size — once
+      // it does, a claim for the same measurement is the same repeat.
+      if (
+        (!claimOwner || owned) &&
+        sentSize &&
+        sentSize.cols === size.cols &&
+        sentSize.rows === size.rows
+      ) {
+        return;
+      }
+      if (socket?.send({ t: claimOwner ? "claim" : "r", ...size })) {
+        sentSize = size;
+        if (claimOwner) {
+          owned = true;
+          displaced = false;
+        }
+      }
+    };
+
+    /** A fit this pane is holding back until its parser reaches a gap. */
+    let deferredResize: { claimOwner: boolean } | null = null;
+    /** The promise that a held-back fit happens even without a gap. */
+    let deferredResizeTimer: number | undefined;
+
+    const clearDeferredResize = () => {
+      deferredResize = null;
+      if (deferredResizeTimer === undefined) return;
+      window.clearTimeout(deferredResizeTimer);
+      deferredResizeTimer = undefined;
+    };
+
+    /**
+     * Hold this fit until the parser is between chunks — or until the wait runs
+     * out, whichever comes first (see RESIZE_PARSE_WAIT_MS).
+     */
+    const deferResize = (claimOwner: boolean) => {
+      // Ownership is the stronger of the two requests: a claim carries a size
+      // as well, so merging keeps it rather than letting an ordinary refit
+      // arriving a millisecond later quietly drop the claim.
+      deferredResize = {
+        claimOwner: (deferredResize?.claimOwner ?? false) || claimOwner,
+      };
+      if (deferredResizeTimer !== undefined) return;
+      deferredResizeTimer = window.setTimeout(() => {
+        deferredResizeTimer = undefined;
+        const pending = deferredResize;
+        deferredResize = null;
+        if (disposed || !pending) return;
+        applyResize(pending.claimOwner);
+      }, RESIZE_PARSE_WAIT_MS);
+    };
+
+    resumeResize = () => {
+      const pending = deferredResize;
+      if (!pending || disposed) return;
+      clearDeferredResize();
+      applyResize(pending.claimOwner);
+    };
+
+    /**
+     * Fit this pane to its tile — at a moment when doing so cannot shred it.
+     *
+     * The gate, and the reason this is not simply `applyResize`. Reflowing
+     * xterm's buffer while a write is still being parsed moves the rows the
+     * rest of that stream is addressing, and an agent's TUI addresses rows by
+     * relative moves — so the frame it was drawing is finished into the wrong
+     * ones. See RESIZE_PARSE_WAIT_MS for what that looks like on screen and for
+     * why the wait is bounded rather than indefinite.
+     */
+    const sendResize = (claimOwner = false) => {
+      if (!measurable()) return;
+      // Resizing a pane is the other half of the un-park story. Maximizing one,
+      // dragging a seam, changing the font — all of them are a user opening up
+      // a pane to READ it, and the pane it opens must not be a parked one still
+      // holding its agent's screen.
+      //
+      // BEFORE the gate rather than after the fit, and that ordering is the
+      // second half of this bug. Parked output was drawn for the size the pane
+      // is LEAVING; written once the grid had already moved it painted an old
+      // screen into a new geometry — the doubled rules and half-erased answers
+      // the gate below exists to stop, arriving through the one path that used
+      // to walk straight past it. Un-parked here, those bytes go in first and
+      // the fit waits for them like any other write.
+      revealIfOnScreen();
+      if (parsing > 0) {
+        deferResize(claimOwner);
+        return;
+      }
+      applyResize(claimOwner);
+    };
+    resizeRef.current = sendResize;
+    /**
+     * Take the shared size if this window may, and refit either way.
+     *
+     * A refit that merely ASKS is answered, when another viewer holds the
+     * pane, with that viewer's geometry — so a pane maximized in this window
+     * would be fitted to its full tile and then resized straight back to the
+     * strip some other window is showing. Every size change the user causes
+     * here therefore claims rather than asks. The fallback matters just as
+     * much: a pane that may not own (inactive, or in a window without focus)
+     * still has to follow its tile, or the effects that route through this
+     * would stop refitting exactly the panes that are not in front.
+     */
+    const claimResize = () => sendResize(viewerMayOwn());
+    claimResizeRef.current = claimResize;
+    /**
+     * Make the agent paint its whole screen again at the size this pane holds:
+     * one row short, then back, like the server's repaint nudge. An agent
+     * answers a new size with a full redraw, and a size equal to the one it
+     * has is no new size at all — hence the detour.
+     *
+     * For a pane returning to the stage (see RETURN_REPAINT_NUDGE_MS). It also
+     * puts the agent back on this pane's size when it drifted away while the
+     * pane was hidden, which a plain refit cannot do: a refit to an unchanged
+     * tile is deliberately silent (see `applyResize`).
+     */
+    const repaintOnReturn = () => {
+      // The grid this pane HOLDS, never the size it last asked for. The two
+      // differ while the pane follows a geometry the server chose (see
+      // `onGeometry`), and a nudge carrying the old request was granted
+      // silently: the agent went back to the tile's width while xterm stayed
+      // at the followed one, so every line it drew wrapped into word
+      // fragments down the pane's edge (reported 2026-10-06, after switching
+      // from the thread layout back to the grid).
+      const size = sentSize ? { cols: term.cols, rows: term.rows } : null;
+      if (disposed || !size || !socket) return;
+      // Coming back on stage is a change made in THIS window (see `returnResize`).
+      const claimOwner = activeRef.current && mayLead();
+      const kind = claimOwner ? "claim" : "r";
+      const shorter = Math.max(MIN_REAL_ROWS, size.rows - 1);
+      if (shorter === size.rows) return;
+      if (!socket.send({ t: kind, cols: size.cols, rows: shorter })) return;
+      window.setTimeout(() => {
+        if (disposed) return;
+        // A refit may have landed during the wait; give back the grid as it is now.
+        const back = { cols: term.cols, rows: term.rows };
+        if (!socket?.send({ t: kind, cols: back.cols, rows: back.rows })) return;
+        // What the agent was last asked for, so the next refit of the tile is
+        // compared against it and not against an older request.
+        sentSize = back;
+        if (claimOwner) {
+          owned = true;
+          displaced = false;
+        }
+      }, RETURN_REPAINT_NUDGE_MS);
+    };
+    repaintOnReturnRef.current = repaintOnReturn;
+    /**
+     * Refit a pane that comes back on stage, taking the size if this window may.
+     *
+     * A layout switch, a workspace switch or leaving the Verse is something the
+     * user did in this window, so it claims like a gesture in the pane does —
+     * without asking `document.hasFocus()`, whose answer the desktop shell lets
+     * lag (see `viewerMayOwn`). Only asking left a pane that had followed
+     * another geometry while it was hidden at that geometry: `applyResize`
+     * stays silent for a tile it already requested.
+     */
+    const returnResize = () => sendResize(activeRef.current && mayLead());
+    returnResizeRef.current = returnResize;
+    /**
+     * The same, on the strength of a gesture INSIDE this pane.
+     *
+     * A pointer pressed on the pane is proof enough that this is the window in
+     * front of the user, whatever `document.hasFocus()` has to say — the
+     * desktop shell's answer to that question can lag the truth, and a click
+     * that is not allowed to take the pane back leaves the user with no way
+     * to do so at all.
+     *
+     * It also makes this viewer the pane's lead in this window, so the view
+     * the user just pressed keeps the size instead of another viewer of the
+     * same pane here taking it straight back on the next mouse move.
+     */
+    const takeOwnership = () => {
+      if (!activeRef.current) return;
+      takeSizeLead(leadKey, leadToken);
+      sendResize(true);
+    };
+    takeOwnershipRef.current = takeOwnership;
+    /**
+     * Any gesture in this WINDOW takes back every pane another viewer sized.
+     *
+     * A click inside one pane only ever repaired that pane, and the window
+     * `focus` event is exactly what the desktop shell does not reliably
+     * deliver. So a browser tab some tool had opened on the same workspace
+     * left all eight panes of the app drawing in the tab's geometry — text
+     * cut mid-word on the right, rows of empty space below the agent's
+     * status line (reported 2026-09-29) — until each pane was clicked.
+     * Pointer or keyboard activity here is proof the user is in front of this
+     * window. Only a displaced pane reacts, at most once per
+     * {@link GESTURE_RECLAIM_MS}, so an owning pane pays one boolean check
+     * and two windows being used at once cannot trade the size on every
+     * mouse move.
+     */
+    let lastGestureReclaimAt = 0;
+    const reclaimOnGesture = () => {
+      // Another viewer of this pane in this very window holds it: the gesture
+      // is as much that viewer's as this one's, and taking the size back here
+      // is what made the two trade it forever.
+      if (!displaced || !activeRef.current || !mayLead()) return;
+      const now = Date.now();
+      if (now - lastGestureReclaimAt < GESTURE_RECLAIM_MS) return;
+      lastGestureReclaimAt = now;
+      sendResize(true);
+    };
+    window.addEventListener("pointermove", reclaimOnGesture, { passive: true });
+    window.addEventListener("pointerdown", reclaimOnGesture, true);
+    window.addEventListener("keydown", reclaimOnGesture, true);
+    /*
+     * The lead viewer went away (the office's pane window closed): the size is
+     * this window's to set again, and this pane's tile is what it shows. Its
+     * own refits stayed quiet while it only watched, so nothing else would
+     * hand the agent this tile's size back.
+     */
+    const stopLeadWatch = onSizeLeadReleased(leadKey, () => {
+      if (disposed) return;
+      // A claim, not a request: the lead that just left was THIS window's,
+      // closed from here, and a request would be answered with the size the
+      // departed viewer chose — whatever the desktop shell says about focus.
+      sendResize(activeRef.current);
+    });
+
+    /*
+     * The size this socket connects with. The tile's own measurement when there
+     * was one: the mount-time fit above already clamped the grid to the floors,
+     * so the terminal's geometry is safe to hand over as-is. When that fit
+     * could not run at all — a grid cell still mid-layout, a pane mounted
+     * hidden on the chat stage — the terminal still holds what it was
+     * constructed with, and THAT must not go out as if a tile had measured it:
+     * a running agent would be re-wrapped for 80 columns no tile has, and again
+     * for the real ones a moment later (ConPTY re-flows the whole screen on
+     * each). `UNMEASURED_SIZE` says so on the wire instead; the real size
+     * follows from `onOpen`'s fit as soon as the cell settles.
+     *
+     * Read on EVERY connect, not once at mount. The socket reconnects on its
+     * own (a backend restart, sleep and wake), and a handshake carrying the
+     * size the pane had when it mounted resized the agent to a grid the pane
+     * had long left — its frame drawn for that width into this one, until the
+     * next repaint happened to come (2026-09-29).
+     */
+    let openedWithClaim = viewerMayOwn();
+    const connectSize = () => {
+      // Without a size the server answers with the agent's (see
+      // `awaitingSizeReport`), and output waits for that answer.
+      awaitingSizeReport = true;
+      if (!mountMeasured || !measurable()) return UNMEASURED_SIZE;
+      let proposed: { cols: number; rows: number } | undefined;
+      try {
+        proposed = fit.proposeDimensions();
+      } catch {
+        proposed = undefined;
+      }
+      const cols = proposed?.cols ?? term.cols;
+      const rows = proposed?.rows ?? term.rows;
+      if (!Number.isFinite(cols) || !Number.isFinite(rows)) return UNMEASURED_SIZE;
+      awaitingSizeReport = false;
+      // The same floors `applyResize` puts on the grid.
+      return {
+        cols: Math.max(cols, MIN_REAL_COLS),
+        rows: Math.max(rows, MIN_REAL_ROWS),
+      };
+    };
+    socket = openPaneSocket(
+      {
+        name,
+        workspaceId,
+        get cols() {
+          return connectSize().cols;
+        },
+        get rows() {
+          return connectSize().rows;
+        },
+        appearance: appearanceRef.current,
+        // Decided per connect as well, and remembered: `onOpen` settles
+        // ownership from what THIS handshake claimed.
+        get claimOwner() {
+          openedWithClaim = viewerMayOwn();
+          return openedWithClaim;
+        },
+      },
+      {
+        onOpen: () => {
+          report("connecting");
+          // A fresh socket has been told nothing about this pane, whatever the
+          // one before it heard — so the size goes out again unconditionally.
+          // This is also what hands over a size that was measured while the
+          // pane was unreachable.
+          sentSize = null;
+          // Ownership is settled by the handshake: a socket opened with a
+          // claim holds the size from its first byte, one opened without is a
+          // watcher until something in this window takes the pane.
+          owned = openedWithClaim;
+          // The spawn used a best-effort size (the mount-time fit usually runs
+          // before the grid cell is measured), and resizes sent while the socket
+          // was connecting were dropped — without this the agent's full-screen
+          // TUI keeps drawing at the wrong width and looks clipped.
+          sendResize();
+          requestAnimationFrame(() => sendResize());
+        },
+        onOutput: (text) => writeToPane(text),
+        onReplay: (text, awaitRepaint) => replayToPane(text, awaitRepaint),
+        /**
+         * The agent is in a different size than this pane asked for — follow it.
+         *
+         * `applyResize` reflows xterm the instant it measures the tile, before
+         * anything has agreed to that size, and the server is allowed to say no
+         * (a tile under the floor keeps the working geometry, a displaced viewer
+         * is ignored). Nothing used to reconcile the two afterwards — the wire
+         * had no way to say "not granted" — so a refusal left this grid and the
+         * agent's permanently different widths, and the agent's relative cursor
+         * moves then finished its repaints into rows holding other text. That is
+         * the doubled, character-by-character text a narrow pane showed
+         * (2026-08-11): not a renderer fault, two screens in one grid.
+         *
+         * `sentSize` is deliberately NOT updated. It records what was ASKED,
+         * and that is what stops this from oscillating: the same tile measured
+         * again matches it and is never re-sent, so a pane whose size is refused
+         * asks once and then stays quiet — while a tile that really changes
+         * still speaks up. Following the agent also repairs what is already on
+         * screen, because that content was drawn for this geometry all along.
+         */
+        onGeometry: ({ cols, rows }) => {
+          if (disposed) return;
+          // Whatever the numbers, the agent is in a size this pane did not
+          // ask for — refused, or chosen by another window. The next gesture
+          // here claims instead of repeating a request that was turned down.
+          owned = false;
+          const applyGeometry = () => {
+            if (disposed || (term.cols === cols && term.rows === rows)) return;
+            displaced = true;
+            try {
+              term.resize(cols, rows);
+            } catch {
+              /* the terminal is being torn down — nothing left to reconcile */
+            }
+          };
+          // The report a handshake without a size was waiting for. What this
+          // pane holds — the replayed screen and anything after it — was
+          // drawn at THIS size, so the grid takes it first (see
+          // `awaitingSizeReport`). Something already parsing was flushed
+          // early by the hold's deadline; it keeps the ordinary order below.
+          if (awaitingSizeReport) {
+            awaitingSizeReport = false;
+            if (parsing === 0) {
+              applyGeometry();
+              flushHeld();
+              return;
+            }
+          }
+          // A size frame belongs BETWEEN the output before and after it.
+          // xterm parses writes asynchronously, and a hidden workspace can
+          // still hold older output outside xterm. Resizing immediately made
+          // those bytes wrap at the new width, moving status rows and leaving
+          // gaps above a bottom-anchored prompt. Drain the old bytes first,
+          // then insert a parser barrier before any new-geometry output.
+          // Do not coalesce size frames or skip equal sizes here: an earlier
+          // queued geometry may still change the grid before this one runs.
+          flushHeld();
+          if (parsing > 0) writeToTerminal("", applyGeometry);
+          else applyGeometry();
+        },
+        /**
+         * A prompt just landed in this pane — make that impossible to miss.
+         *
+         * Two things, and the order matters. The pane is un-parked FIRST:
+         * whatever the observer believes, output held back now is output the
+         * user will not see while they are looking straight at the receipt
+         * telling them it arrived. Only then does it flash, which is the part
+         * that is merely nice.
+         *
+         * It used to scroll the pane into the viewport as well, because a
+         * receipt drawn on a pane two screens down is no better than no
+         * receipt. There is no such pane any more — the workspace is one
+         * screenful by rule (see the header of ./layout) — and the call would
+         * now find the app's own scroller instead and move the whole section
+         * under the user.
+         *
+         * None of this depends on the agent echoing anything, which is the
+         * whole point: this path is what remains true when the terminal is a
+         * black rectangle.
+         */
+        onPrompt: (delivery) => {
+          if (disposed) return;
+          if (activeRef.current) showPane();
+          setReceipt(delivery);
+          flashDelivered(2_000);
+        },
+        onReady: ({ resumed, reattached, lastPrompt }) => {
+          troubleShown = null;
+          troubleText = "";
+          // What this pane was told BEFORE this socket existed. A reload, a
+          // reconnect or a second window opened afterwards would otherwise
+          // show no receipt at all for a prompt that really was delivered —
+          // and that viewer is exactly the one with reason to doubt it.
+          //
+          // Bounded by age, because "durable" and "permanent" are different
+          // requirements. The receipt answers a question that is asked in the
+          // minutes after a delivery ("did that actually go?"); re-raising
+          // yesterday's every time a workspace is reopened would train the
+          // user to close it unread, which is how the next real one gets
+          // missed. Older deliveries stay readable on demand — the pane's
+          // state keeps them, and `GET /terminals/{name}/prompt` returns the
+          // text in full.
+          if (
+            lastPrompt?.at !== null &&
+            lastPrompt !== null &&
+            Date.now() - lastPrompt.at * 1000 < RECEIPT_MAX_AGE_MS
+          ) {
+            setReceipt(lastPrompt);
+          }
+          // Say which of THREE things happened. They look identical on screen and
+          // only differ when it matters: an agent that never stopped still holds
+          // everything, a resumed one re-read its history, and a fresh one will
+          // give a blank stare to the first follow-up question.
+          report(
+            "live",
+            reattached
+              ? translate("agentic_grid.pane.ready_reattached")
+              : resumed
+                ? translate("agentic_grid.pane.ready_resumed")
+                : translate("agentic_grid.pane.ready_fresh"),
+          );
+          if (
+            activeRef.current &&
+            focusedRef.current &&
+            (document.activeElement === null ||
+              document.activeElement === document.body)
+          ) {
+            term.focus();
+          }
+        },
+        onExit: (code) => {
+          report("exited", explainExit(code));
+          writeToPane(
+            `\r\n\x1b[?25h\x1b[33m${describeExit(displayName, code)}\x1b[0m\r\n`,
+          );
+        },
+        onTrouble: (message, retrying) => {
+          if (disposed) return;
+          // A scheduled retry means the pane is not dead yet. Calling it "error"
+          // there is what left a whole grid painted red over a backend that was
+          // merely restarting.
+          report(retrying ? "connecting" : "error", message);
+          const kind = retrying ? "retrying" : "unreachable";
+          const repeats = troubleShown === kind || message === troubleText;
+          troubleShown = kind;
+          // The status was reported either way — only the terminal write is
+          // skipped. The notice row keeps the sentence on screen (see
+          // `PaneNotice`), so nothing is lost by not repeating it.
+          if (repeats) return;
+          troubleText = message;
+          writeToPane(
+            `\r\n\x1b[${retrying ? "33" : "31"}m[${message}]\x1b[0m\r\n`,
+          );
+        },
+      },
+    );
+
+    term.onData((data) => {
+      socket?.send({ t: "i", d: data });
+    });
+
+    // The mount-time fit measured whatever font was loaded at that moment. If
+    // the display font arrives afterwards, the cell width changes underneath the
+    // already-computed column count: the agent formats its output for a width
+    // the pane does not have, and every glyph is painted wider than the cell it
+    // owns until the line has drifted a full column out of its grid. Both are
+    // the reported symptom. See ./../../lib/terminalFont for why waiting on
+    // `document.fonts.ready` and re-fitting cannot fix either.
+    const disposeFontSync = syncTerminalFont(term, () => {
+      if (disposed) return;
+      clearTerminalTextureAtlas(term);
+      sendResize();
+    });
+
+    // Resizes are coalesced: dragging a split or the window fires the observer
+    // dozens of times a second, and every fit both reflows xterm's buffer and
+    // sends a PTY resize the agent redraws for. Unthrottled that is the visible
+    // flicker while resizing.
+    let resizeTimer: number | undefined;
+    /** The pending mid-drag refit — a throttle, so it must NOT be reset per tick. */
+    let dragRefitTimer: number | undefined;
+    // The queued form of `sendResize`, kept as ONE stable function so the queue
+    // can recognise this pane's pending reflow — both to skip a duplicate and
+    // to drop it when the pane goes away. See ./paneReflowQueue for why panes
+    // must not reflow in the same frame as each other.
+    const reflow = () => sendResize();
+    const scheduleResize = () => {
+      // While a seam or the prompt bar is being dragged the pane still
+      // follows, but on a leash: at most one refit per DRAG_REFIT_MS, so the
+      // text flows toward the seam in steps instead of freezing until release.
+      // A throttle rather than the debounce below on purpose — the observer
+      // fires continuously for as long as the seam moves, and a debounce would
+      // wait for a pause that a moving pointer never offers.
+      if (layoutBusyRef.current) {
+        if (dragRefitTimer !== undefined) return;
+        dragRefitTimer = window.setTimeout(() => {
+          dragRefitTimer = undefined;
+          // A drag that ended while this window was pending has already taken
+          // its exact final size through the `layoutBusy` release effect.
+          if (layoutBusyRef.current) queuePaneReflow(reflow);
+        }, DRAG_REFIT_MS);
+        return;
+      }
+      if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        resizeTimer = undefined;
+        queuePaneReflow(reflow);
+      }, 80);
+    };
+
+    window.addEventListener("resize", scheduleResize);
+    const ro = new ResizeObserver(scheduleResize);
+    ro.observe(container);
+
+    /*
+     * Stop drawing panes nobody can see.
+     *
+     * Two cases, one mechanism: a pane scrolled past in a tall grid, and a pane
+     * hidden with `display:none` because a sibling is maximized — neither
+     * intersects the viewport, and both used to keep parsing and repainting an
+     * agent's full-screen UI on the thread that owes the user a keystroke.
+     *
+     * The margin is generous on purpose: a pane one flick of the wheel away
+     * catches up before it is looked at, so scrolling never shows a pane
+     * mid-write. `IntersectionObserver` is absent in some test environments and
+     * very old engines — there the pane simply stays visible, which is exactly
+     * the behaviour this replaces.
+     */
+    let io: IntersectionObserver | null = null;
+    if (typeof IntersectionObserver !== "undefined") {
+      io = new IntersectionObserver(
+        (entries) => {
+          const onScreen = entries[entries.length - 1]?.isIntersecting ?? true;
+          if (onScreen) {
+            showPane();
+            return;
+          }
+          // A hidden DOCUMENT is not an off-screen pane, and treating the two
+          // as one is what left panes black for minutes at a time. While the
+          // window is behind another one, minimized, or its tab in the
+          // background, EVERY element here reports intersecting nothing — and
+          // bringing the window back changes no geometry, so no further
+          // callback ever arrives to undo it. Parking on that verdict meant a
+          // pane opened while the user was looking elsewhere never drew again
+          // (measured 2026-07-27: a workspace spawned by voice came back with
+          // its new panes empty, and a chatty CLI took ~3 minutes to appear —
+          // exactly how long 256 KB of output takes to force the buffer out).
+          //
+          // Parking is also pointless in that state: a hidden document paints
+          // nothing, so there is no frame budget being defended. The whole
+          // reason this exists is panes competing for the main thread WHILE the
+          // user watches another one.
+          if (!documentHidden()) parkPane();
+        },
+        { rootMargin: `${OFFSCREEN_MARGIN_PX}px` },
+      );
+      io.observe(container);
+    }
+
+    /*
+     * The window came back — check whether this pane is on screen now.
+     *
+     * The observer cannot answer this on its own: showing a window again moves
+     * neither geometry nor scroll position, which are the only things that make
+     * it recompute. Without this a pane parked while the app sat behind an
+     * editor stayed parked after the user switched back to it.
+     */
+    const onDocumentVisible = () => {
+      if (documentHidden()) return;
+      revealIfOnScreen();
+      claimResize();
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onDocumentVisible);
+    }
+    window.addEventListener("focus", claimResize);
+
+    return () => {
+      disposed = true;
+      replayGenerationRef.current += 1;
+      replayCurtainRef.current = false;
+      if (replayRevealFrameRef.current !== undefined) {
+        cancelAnimationFrame(replayRevealFrameRef.current);
+        replayRevealFrameRef.current = undefined;
+      }
+      container.style.removeProperty("visibility");
+      // A pending reveal would fire into a disposed terminal, and its timers
+      // would outlive the pane that armed them.
+      clearSettleTimers();
+      settleReveal = null;
+      settlingFor = 0;
+      if (settleRebuildRef.current === settleRebuild) {
+        settleRebuildRef.current = null;
+      }
+      // Before the terminal is disposed below: a deadline flush one tick later
+      // would write into it after it is gone.
+      cancelHoldTimer();
+      // Same for a fit still waiting for a parse gap — it would reflow a
+      // disposed terminal inside a detached element.
+      clearDeferredResize();
+      resumeResize = null;
+      if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
+      if (dragRefitTimer !== undefined) window.clearTimeout(dragRefitTimer);
+      // A queued reflow outlives the pane by up to a frame, and would then fit
+      // a disposed terminal inside a detached element.
+      cancelPaneReflow(reflow);
+      window.removeEventListener("resize", scheduleResize);
+      window.removeEventListener("focus", claimResize);
+      window.removeEventListener("pointermove", reclaimOnGesture);
+      window.removeEventListener("pointerdown", reclaimOnGesture, true);
+      window.removeEventListener("keydown", reclaimOnGesture, true);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onDocumentVisible);
+      }
+      ro.disconnect();
+      io?.disconnect();
+      disposeFontSync();
+      disposeMouseSelection();
+      disposePromptSelection();
+      disposeBrowseExit();
+      disposeCopyBridge();
+      disposePasteBridge();
+      disposeNewlineBridge();
+      disposeQuerySuppression();
+      synchronizedOutput.dispose();
+      try {
+        socket?.close();
+      } catch {
+        /* ignore */
+      }
+      // After the socket, so this viewer is gone before another one of the
+      // pane here takes the size back.
+      stopLeadWatch();
+      // Remembered for a rebuild of this same viewer; forgotten on unmount,
+      // when nothing reads it again.
+      heldLeadRef.current = holdsSizeLead(leadKey, leadToken);
+      releaseSizeLead(leadKey, leadToken);
+      // Before the terminal: frees this pane's WebGL context slot.
+      renderer.dispose();
+      term.dispose();
+      termRef.current = null;
+      fitRef.current = null;
+      resizeRef.current = null;
+      claimResizeRef.current = null;
+      repaintOnReturnRef.current = null;
+      returnResizeRef.current = null;
+      takeOwnershipRef.current = null;
+      if (visibilityRef.current === visibility) visibilityRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see file header:
+    // appearance/fontSize must NOT rebuild the pane (it would kill the agent).
+  }, [name, workspaceId, restartToken, geometryReady, fontReady]);
+
+  /*
+   * A chat-stage switch changes a pane from `display:none` to the full canvas
+   * in one commit. Refit and restore the reader's viewport before that frame
+   * paints; a pane already at the tail keeps following it, while hidden
+   * siblings stay parked even when a prompt is addressed to them.
+   */
+  useLayoutEffect(() => {
+    const departingViewport = !active
+      ? captureTerminalViewport(termRef.current)
+      : null;
+    if (
+      !active &&
+      departingViewport &&
+      (!replayCurtainRef.current || !preservedViewportRef.current)
+    ) {
+      preservedViewportRef.current = departingViewport;
+    }
+    // A stage change supersedes every reveal owned by the stage before it. If
+    // a replay is still parsing, the active branch's queue barrier below waits
+    // for it and becomes the only path allowed to lift the new curtain.
+    replayGenerationRef.current += 1;
+    replayCurtainRef.current = false;
+    if (replayRevealFrameRef.current !== undefined) {
+      cancelAnimationFrame(replayRevealFrameRef.current);
+      replayRevealFrameRef.current = undefined;
+    }
+    if (!active) {
+      containerRef.current?.style.setProperty("visibility", "hidden");
+      setTailReady(false);
+      visibilityRef.current?.park();
+      if (termRef.current) parkedRef.current = true;
+      return;
+    }
+    // Back from a spell off the stage, as opposed to the first time on it: the
+    // agent is asked for a whole new screen (see RETURN_REPAINT_NUDGE_MS).
+    const returning = parkedRef.current;
+    parkedRef.current = false;
+    containerRef.current?.style.setProperty("visibility", "hidden");
+    setTailReady(false);
+    armCurtainWatchdog();
+    let cancelled = false;
+    let frame: number | undefined;
+    const returningViewport = preservedViewportRef.current;
+    const restoreViewport = () => {
+      resizeRef.current?.();
+      (returning ? returnResizeRef : claimResizeRef).current?.();
+      restoreTerminalViewport(termRef.current, returningViewport);
+    };
+    // Measure the now-mounted stage before parsing held output. Once xterm has
+    // consumed that output, one final frame lets its canvas and viewport settle;
+    // only then may the surface paint.
+    restoreViewport();
+    const settle = () => {
+      if (cancelled || !activeRef.current) return;
+      restoreViewport();
+      frame = requestAnimationFrame(() => {
+        if (cancelled || !activeRef.current) return;
+        restoreViewport();
+        // A replay mid-rebuild keeps the curtain: lifting it here would show
+        // the rest of its history printing. Its own completion reveals the
+        // pane (see `replayToPane`).
+        if (replayCurtainRef.current) return;
+        const reveal = () => {
+          restoreViewport();
+          if (returning) {
+            // Draw every row from the buffer, not only the rows that changed:
+            // a surface hidden for a while may have dropped what it showed.
+            const term = termRef.current;
+            term?.refresh?.(0, Math.max(0, term.rows - 1));
+          }
+          setTailReady(true);
+          containerRef.current?.style.removeProperty("visibility");
+          if (preservedViewportRef.current === returningViewport) {
+            preservedViewportRef.current = null;
+          }
+        };
+        // Taking the stage announces a new size, and an agent answers a size
+        // by painting its whole screen again — the same redraw the replay path
+        // waits out, arriving just as late. Reveal once this pane is quiet.
+        const settleFn = settleRebuildRef.current;
+        if (settleFn) settleFn(replayGenerationRef.current, reveal);
+        else reveal();
+      });
+    };
+    const afterFlush = () => {
+      if (cancelled || !activeRef.current) return;
+      restoreViewport();
+      // The held flush joins the END of xterm's write queue, but a write that
+      // reached the terminal earlier — a replay flushed while this pane was
+      // hidden — may still be mid-parse, and settling now would lift the
+      // curtain onto its tail printing. An empty write is a queue barrier:
+      // its callback fires only after everything already queued has parsed.
+      //
+      // A returning pane asks for its new screen first: the redraw that answers
+      // is output, and output keeps pushing the settle's quiet window back, so
+      // it lands behind the curtain.
+      if (returning) repaintOnReturnRef.current?.();
+      const term = termRef.current;
+      if (term) term.write("", settle);
+      else settle();
+    };
+    const visibility = visibilityRef.current;
+    if (visibility) visibility.show(afterFlush);
+    else afterFlush();
+    return () => {
+      cancelled = true;
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, [active]);
+
+  /*
+   * Live restyle — no reconnect, so the running agent is untouched. The canvas
+   * renderer caches rendered glyphs per colour in a texture atlas, so a theme
+   * change has to invalidate it or the old palette keeps being painted.
+   *
+   * `terminalEpoch` is in here, and in the size effect below, for a reason the
+   * appearance prop alone cannot cover: the terminal can be replaced without
+   * either prop changing. Check the replacement's actual options, but leave a
+   * correctly initialized terminal alone. Clearing its shared atlas on mount
+   * makes every existing WebGL pane rebuild its glyphs too.
+   */
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    const theme = themeFor(appearance);
+    const weights = terminalFontWeights(appearance);
+    const transparent = appearance !== "light";
+    if (
+      term.options.theme === theme &&
+      term.options.fontWeight === weights.body &&
+      term.options.fontWeightBold === weights.bold &&
+      term.options.allowTransparency === transparent
+    ) {
+      return;
+    }
+    term.options.theme = theme;
+    // Opaque on paper for subpixel-smoothed glyphs — see the constructor.
+    term.options.allowTransparency = transparent;
+    // A light pane draws one cut heavier (TERMINAL_FONT_WEIGHT_LIGHT). Every
+    // cut has the same advance, so the grid stays put and only glyphs change.
+    term.options.fontWeight = weights.body;
+    term.options.fontWeightBold = weights.bold;
+    clearTerminalTextureAtlas(term);
+  }, [appearance, terminalEpoch]);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term || term.options.fontSize === fontSize) return;
+    // The setter itself skips unchanged values; the alignment, atlas clear and
+    // resize below must also run only for an actual size change.
+    term.options.fontSize = fontSize;
+    // A new size is a new glyph advance, and so a new fraction of a pixel for
+    // the canvas renderer to floor away. Re-align before the fit below, or the
+    // pane spends this size with its glyphs overhanging their cells.
+    alignTerminalCells(term);
+    clearTerminalTextureAtlas(term);
+    // Changing the font size changes the COLUMN COUNT. Fitting locally without
+    // telling the terminal process leaves the agent formatting for the old
+    // width — it keeps wrapping at 100 columns in a pane that now holds 80, and
+    // every line breaks in the wrong place. The two must move together, so this
+    // goes through the same resize path the observer uses — claiming, because
+    // a text size is chosen in THIS window (see `claimResize`).
+    (claimResizeRef.current ?? resizeRef.current)?.();
+  }, [fontSize, terminalEpoch]);
+
+  /*
+   * Refit when the pane is maximized, and again when it is restored.
+   *
+   * Maximizing is by far the largest size change a pane ever makes — a cell in
+   * a grid of ten becomes the whole window — and until now the terminal inside
+   * it only found out through its ResizeObserver. That is a single debounced
+   * notification, competing with everything else the grid re-lays out in the
+   * same breath, and delivered when the browser gets round to it. Usually it
+   * arrives and the pane fills. Occasionally it did not, and the result was the
+   * reported bug: a pane visibly maximized with its agent still drawing at the
+   * old cell's width, the rest of the window left blank.
+   *
+   * So the one size change the pane genuinely KNOWS about is driven from that
+   * knowledge instead of waited for. Three passes because the grid settles over
+   * a frame or two — and they are nearly free: a fit that lands on the size the
+   * terminal already has sends nothing at all.
+   *
+   * Claimed, not merely requested (see `claimResize`): maximizing is the user
+   * opening a pane up to READ it, and a request from a window that had lost
+   * the pane to another viewer was being answered with that viewer's size —
+   * the pane filled the window and its agent kept drawing into the top-left
+   * corner of it (2026-08-25).
+   */
+  useLayoutEffect(() => {
+    const refit = () => (claimResizeRef.current ?? resizeRef.current)?.();
+    // The office preview may still lead this same PTY. Maximizing explicitly
+    // hands its size to the grid, before paint, without moving keyboard focus.
+    // Later settling passes only refit: they must not undo a newer pane click.
+    if (maximized && document.hasFocus()) takeOwnershipRef.current?.();
+    else refit();
+    const frame = requestAnimationFrame(refit);
+    const timers = [
+      window.setTimeout(refit, 120),
+      window.setTimeout(refit, 400),
+    ];
+    return () => {
+      cancelAnimationFrame(frame);
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+  }, [maximized]);
+
+  /*
+   * Maximizing or restoring a pane from its header leaves the keyboard IN it.
+   *
+   * The button click took focus away from the terminal, so the user had to
+   * click the pane a second time before typing reached the agent. Toggling is
+   * an explicit "I want to work in this pane" — it becomes the focused pane and
+   * its terminal takes the keyboard once the new layout has settled (a frame
+   * for the size change, a short timer for the grid re-laying out around it).
+   * Only on the user's own toggle, never from the `maximized` prop, so a pane
+   * maximized by a cross-pane request does not steal the keyboard.
+   */
+  const toggleMaximizeAndFocusPane = useCallback(() => {
+    onToggleMaximize?.();
+    onFocus?.();
+    takeOwnershipRef.current?.();
+    const focusTerminal = () => termRef.current?.focus();
+    requestAnimationFrame(focusTerminal);
+    window.setTimeout(focusTerminal, 120);
+  }, [onToggleMaximize, onFocus]);
+  const toggleMaximizeAndFocus = onToggleMaximize ? toggleMaximizeAndFocusPane : undefined;
+
+  // Keys the IDE's key menu sends on to this pane: Ctrl+B twice types one
+  // Ctrl+B, the way tmux passes its own prefix through (see ./ideHotkeys).
+  useEffect(() => {
+    const onInput = (event: Event) => {
+      const detail = (event as CustomEvent<PaneInputDetail>).detail;
+      if (detail?.pane !== name || (workspaceId && detail.workspaceId !== workspaceId)) return;
+      termRef.current?.input(detail.data);
+      termRef.current?.focus();
+    };
+    window.addEventListener(PANE_INPUT_EVENT, onInput);
+    return () => window.removeEventListener(PANE_INPUT_EVENT, onInput);
+  }, [name, workspaceId]);
+
+  /*
+   * Catch up the instant a drag lets go.
+   *
+   * While `layoutBusy` is true the pane deliberately ignores its own
+   * ResizeObserver (see the prop), so this is where the size it ended up with
+   * is finally taken. Immediately rather than through the observer's 80 ms
+   * coalescing window: this is exactly the moment where the terminal's contents
+   * still occupy the shape the pane had BEFORE the drag — the strip of empty
+   * ground under the agent's last line — and every millisecond of it is
+   * visible. The second pass one frame later is for the layout that settles
+   * after the release (a scrollbar appearing, the prompt bar reflowing); a fit
+   * that lands on the size the terminal already has sends nothing at all.
+   */
+  useEffect(() => {
+    if (layoutBusy) return;
+    // A seam was dragged in this window: the size it lands on is claimed, so
+    // a pane another viewer had taken cannot snap back the moment it is let
+    // go of (see `claimResize`).
+    const refit = () => (claimResizeRef.current ?? resizeRef.current)?.();
+    refit();
+    const frame = requestAnimationFrame(refit);
+    return () => cancelAnimationFrame(frame);
+  }, [layoutBusy]);
+
+  /*
+   * Drag a file onto the pane, or paste a screenshot into it.
+   *
+   * A native terminal writes a dragged file's PATH into the prompt; a browser
+   * cannot, because it never tells a web page where a file lives. So the drop is
+   * read synchronously (a DataTransfer empties the instant this handler
+   * returns — see ./paneDrop), handed to the backend, and what comes back is
+   * already typed into the agent's input.
+   *
+   * Deliberately typed and NOT submitted: someone dropping a screenshot wants to
+   * say what to do with it. The reference appears, the cursor sits after it.
+   *
+   * WHEN the pane arms for a drop — and when it must stay quiet — lives in
+   * ./paneFileDrag, because getting that wrong is what made a pane offer itself
+   * to a user who was holding nothing at all (BUG-110).
+   */
+  const [attaching, setAttaching] = useState(false);
+
+  const attach = useCallback(
+    async (payload: PaneDropPayload) => {
+      if (isEmptyPayload(payload)) {
+        onAttachError?.(translate("agentic_grid.pane.drop_empty"));
+        return;
+      }
+      setAttaching(true);
+      try {
+        await attachToTerminal(name, payload);
+        termRef.current?.focus();
+      } catch (e) {
+        onAttachError?.((e as Error).message);
+      } finally {
+        setAttaching(false);
+      }
+    },
+    [name, onAttachError],
+  );
+
+  /*
+   * A skill from the side panel's Skills tab: its Markdown goes into the
+   * agent's prompt as ONE bracketed paste — the same thing Ctrl+V does — so a
+   * multi-line text never submits itself line by line. Not sent: the user
+   * still says what to do with it.
+   */
+  const pasteSkill = useCallback(
+    (skill: SkillDragPayload) => {
+      const term = termRef.current;
+      if (!term || !skill.content) return;
+      onFocus?.();
+      takeOwnershipRef.current?.();
+      if (!pasteSkillText(term, skill.content)) {
+        announceSkillRefused(name);
+        return;
+      }
+      flashDelivered(1_200);
+      useIdeSkillsStore.getState().recordUse(skill.id, name);
+    },
+    [name, onFocus],
+  );
+
+  const { dragging, carrying, handlers: dragHandlers } = usePaneFileDrag(
+    useCallback(
+      (dt: DataTransfer) => {
+        onFocus?.();
+        // Read BEFORE any await — the DataTransfer is gone after this returns.
+        void attach(extractPaneDrop(dt));
+      },
+      [attach, onFocus],
+    ),
+    pasteSkill,
+  );
+  const skillInFlight = useIdeSkillsStore((state) => (carrying === "skill" ? state.dragging : null));
+
+  // "Paste into …" on a skill card: the same paste, addressed by name.
+  useEffect(() => {
+    const onPaste = (event: Event) => {
+      const detail = (event as CustomEvent<PanePasteDetail>).detail;
+      if (detail?.pane !== name || (workspaceId && detail.workspaceId !== workspaceId)) return;
+      pasteSkill(detail.skill);
+    };
+    window.addEventListener(PANE_PASTE_EVENT, onPaste);
+    return () => window.removeEventListener(PANE_PASTE_EVENT, onPaste);
+  }, [name, workspaceId, pasteSkill]);
+
+  // Clipboard images only — pasted TEXT belongs to xterm, which turns it into a
+  // proper bracketed paste the agent's prompt box understands.
+  //
+  // Registered in the CAPTURE phase, and that is load-bearing rather than a
+  // style choice: xterm's own paste handler calls `stopPropagation()`, so a
+  // listener sitting on this container in the normal bubbling phase is never
+  // reached at all and pasting a screenshot silently did nothing. Capture
+  // travels down to the target, so it gets there first.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const images = extractPasteFiles(event.clipboardData).map((f) =>
+        nameClipboardFile(f, name),
+      );
+      if (images.length === 0) return;
+      event.preventDefault();
+      void attach({ paths: [], files: images });
+    };
+    container.addEventListener("paste", onPaste, true);
+    return () => container.removeEventListener("paste", onPaste, true);
+  }, [attach, name]);
+
+  /*
+   * A primary press anywhere on the pane makes it the pane in use.
+   *
+   * The frame's own bubbling handler never saw presses INTO a coding agent's
+   * output: while the CLI tracks the mouse, ./terminalMouseSelection turns a
+   * plain press into a selection press, and xterm's selection service then
+   * stops it from propagating (so the CLI does not get it). The pane stayed
+   * unselected — no highlight, prompts aimed at the previous pane. The
+   * terminal region therefore also listens in the capture phase, which runs
+   * before any of xterm's listeners; the event identity keeps the two
+   * handlers from doing the work twice for one press.
+   */
+  const handledPress = useRef<Event | null>(null);
+  const pressPane = (event: React.MouseEvent) => {
+    if (event.button !== 0 || handledPress.current === event.nativeEvent) return;
+    handledPress.current = event.nativeEvent;
+    onFocus?.();
+    takeOwnershipRef.current?.();
+  };
+  const chrome = PANE_CHROME[appearance];
+  const minimal = headerMode === "minimal";
+  const tile = PANE_TILE[appearance];
+  // A pane whose agent runs on another computer changes files THERE, which
+  // this machine's git cannot read — so only a local pane offers the review.
+  const reviewChanges = workspaceId && !computerName ? () => setChangesOpen(true) : undefined;
+  // The Git tab, narrowed to what this pane's agent session changed.
+  const showInGit =
+    workspaceId && !computerName
+      ? () => {
+          useGitSessionStore.getState().show(workspaceId, name);
+          useIdeSidePanelStore.getState().openTab("git");
+        }
+      : undefined;
+  const prefetchReview = workspaceId && !computerName
+    ? () => {
+      void loadLocaleChunk("pane_review");
+      prefetchPaneChanges({ workspaceId, pane: name, folder });
+    }
+    : undefined;
+  const headerProps = {
+    githubStatusEnabled: active,
+    contextMenuRequest: paneMenu.request,
+    sendRightClicks: paneMenu.sendRightClicks,
+    onToggleSendRightClicks: paneMenu.toggleSendRightClicks,
+    onSwapWithFocused,
+    name,
+    workspaceId,
+    promptCount,
+    agent: agent ?? "",
+    agentLogoUrl,
+    displayName,
+    status: visibleStatus,
+    appearance,
+    arranging,
+    maximized,
+    addDisabled: splitDisabled,
+    onArrangeStart,
+    onActivate: () => { onFocus?.(); takeOwnershipRef.current?.(); },
+    onToggleMaximize: toggleMaximizeAndFocus,
+    onAdd: onSplit ? (direction: SplitDirection) => onSplit(direction) : undefined,
+    onClose,
+    onRename,
+    onOpenConversation: () => setHistoryOpen(true),
+    onOpenChat,
+    onReviewChanges: reviewChanges,
+    onReviewChangesPrefetch: prefetchReview,
+    onShowInGit: showInGit,
+    onRestart,
+    onFork,
+    branch,
+    computerName,
+    placementItems,
+    workspaceItems,
+  };
+
+  return (
+    <div
+      onMouseDown={pressPane}
+      {...dragHandlers}
+      className={cn(
+        // One quiet border per pane; the focused one carries the workspace's
+        // only standing accent. The old per-pane drop shadows made a grid of
+        // twelve read as twelve floating cards — a tiling terminal is a wall,
+        // and a wall needs edges, not elevation.
+        //
+        // The border colour is part of the transition, not just the shadow.
+        // Every state below changes BOTH, and animating only one made the
+        // change arrive twice: the edge snapped to yellow on the frame the
+        // click landed, and the ring around it faded in over the next 150 ms.
+        // On a grid where the focused pane is the one standing accent, that
+        // read as a flicker rather than as a pane taking focus.
+        "relative flex h-full w-full flex-col overflow-hidden backdrop-blur-[4px]",
+        headerMode === "none" ? "border-0" : "border",
+        headerMode === "compact" ? "rounded-2xl" : headerMode === "none" || minimal ? "rounded-none" : "rounded-lg",
+        "transition-[box-shadow,border-color,opacity] duration-150 ease-out motion-reduce:transition-none",
+        // Focus steps the RIM one notch, from the structural hairline to
+        // `--border-strong`, and stops there. It used to add a translucent
+        // white edge and a shadow ring on top, which put three marks on a
+        // state the header already announces three other ways (the filled
+        // call-sign plate, the accent hairline under it, the visible action
+        // cluster). A rim is the second separation device, never the first,
+        // and a shadow belongs only to something that floats.
+        focused && !minimal && "border-border-strong",
+        // Being carried, and "a prompt just landed here", are the two states
+        // that must be findable across a wall of twelve. They get the fill —
+        // a solid `--primary` edge plus the sanctioned focus ring — because
+        // that is the loudest neutral mark the system has. The old version
+        // added a 28px bloom around it; a glow is additive light standing in
+        // for a fill, and the fill is right here.
+        dragging && "border-primary ring-2 ring-primary",
+        justDelivered && "border-primary ring-2 ring-primary",
+        // Lifted out of the grid while it is being carried: the pane stays where
+        // it is (moving it under the cursor would tear down nothing but would
+        // reflow every other pane on every mouse move) and says so by fading.
+        arranging && "opacity-45",
+      )}
+      style={{
+        background: chrome.shell,
+        /*
+         * The edge, and WHO is allowed to paint it.
+         *
+         * An inline colour beats every class, so this property decides whether
+         * the three accent states above are drawn at all. It used to yield to
+         * `focused` alone — which meant a pane being dragged, or one that had
+         * just been handed a prompt, kept its plain grey edge and showed only
+         * the shadow half of its own highlight. All three yield now.
+         *
+         * What is left is the resting pane, and its edge is where the pane's
+         * lifecycle can be read from across the workspace rather than by
+         * landing on it: dimmer once the agent has exited, the terminal's own
+         * red when it failed, unchanged while it is connecting or live. See
+         * `PANE_CHROME.edge` for why only those two states are marked.
+         */
+        //
+        // A minimal tile paints its focused edge here too: the signal hue is a
+        // per-appearance literal (`PANE_TILE`), not a class, for the same
+        // reason the resting edge is. The pane the reader clicked into must be
+        // findable at a glance across a full grid, so its edge is doubled by an
+        // inner line of the same hue — see the focus ring at the end of the
+        // frame for why that line is its own layer.
+        borderColor:
+          dragging || justDelivered
+            ? undefined
+            : minimal
+              ? focused && markFocus ? tile.focus : tile.edge[visibleStatus]
+              : focused
+                ? undefined
+                : chrome.edge[visibleStatus],
+      }}
+      data-pane-style={minimal ? "minimal" : undefined}
+      data-testid={`agentic-pane-${name}`}
+    >
+      {headerMode === "compact" ? <WorkspaceTerminalHeader {...headerProps} />
+      : minimal ? <WorkspaceTerminalHeader {...headerProps} variant="tile" focused={focused && markFocus} />
+      : headerMode === "none" ? null : <PaneHeader
+        workspaceId={workspaceId}
+        githubStatusEnabled={active}
+        status={visibleStatus}
+        statusDetail={statusDetail}
+        onArrangeStart={onArrangeStart}
+        showArrangeHandle={showArrangeHandle}
+        arranging={arranging}
+        name={name}
+        displayName={displayName}
+        recap={recap}
+        recapDetail={recapDetail}
+        recapMeta={recapMeta}
+        recapActions={recapActions}
+        accountLabel={accountLabel}
+        promptCount={promptCount}
+        appearance={appearance}
+        focused={focused}
+        maximized={maximized}
+        onToggleMaximize={toggleMaximizeAndFocus}
+        onSplit={onSplit}
+        agents={agents}
+        onAgentsChanged={onAgentsChanged}
+        onRename={onRename}
+        onClose={onClose}
+        splitDisabled={splitDisabled}
+        onOpenConversation={() => setHistoryOpen(true)}
+        onOpenChat={onOpenChat}
+        onReviewChanges={reviewChanges}
+        onReviewChangesPrefetch={prefetchReview}
+      />}
+      {/*
+        What went wrong, kept on screen for as long as it is true — and the one
+        way out of it. See PaneStatusNotice for why this is a row of its own
+        rather than a second button in the header.
+      */}
+      <PaneStatusNotice
+        name={name}
+        displayName={displayName}
+        status={visibleStatus}
+        detail={statusDetail}
+        light={appearance === "light"}
+        onRestart={onRestart}
+      />
+      {/* Outside the terminal region on purpose: that region claims every
+          press in its capture phase to select the pane, and a click inside
+          the review must stay a click inside the review. */}
+      {workspaceId && (
+        <PaneChangesDialog
+          open={changesOpen}
+          onOpenChange={setChangesOpen}
+          workspaceId={workspaceId}
+          pane={name}
+          folder={folder}
+          branch={branch}
+        />
+      )}
+      {/*
+        Keep the visual inset OUTSIDE xterm's measured host. FitAddon reads the
+        host's border-box but does not subtract padding on that host, so putting
+        the inset there made it report one row more than the pane could show.
+        The last terminal line was consequently clipped after a vertical resize.
+
+        `min-h-0` is equally load-bearing: this is a shrinking flex child, and
+        xterm's canvas must not become its implicit minimum height.
+      */}
+      <div
+        ref={terminalRegionRef}
+        onMouseDownCapture={pressPane}
+        id={terminalRegionId}
+        className={cn(
+          "relative min-h-0 flex-1 overflow-hidden px-1.5 pb-0.5 pt-0.5",
+          active && !tailReady && "invisible",
+        )}
+      >
+        <div
+          ref={containerRef}
+          {...paneMenu.handlers}
+          data-testid={`agentic-terminal-host-${name}`}
+          // Read by ./index.css, which anchors the contents to the bottom for
+          // the length of a drag — see the rule there for why that is the side
+          // the unused ground belongs on.
+          data-layout-busy={layoutBusy ? "true" : "false"}
+          /*
+           * Nothing sideways, ever. The terminal is fitted to this element (see
+           * MIN_REAL_COLS), so there is no wider surface to scroll to — and a
+           * pane that could scroll sideways is a pane drawing past its own
+           * edge, which is the thing that read as terminals standing on one
+           * another.
+           */
+          className="agentic-terminal-host h-full min-h-0 w-full overflow-hidden"
+        />
+        <PaneConversationDialog
+          terminal={name}
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+        />
+        {/*
+          The pane says it is starting, instead of being a black rectangle.
+
+          Only until the agent's first byte, and only while nothing has gone
+          wrong: an exited or unreachable pane has its own, more specific
+          answer in the header and must not be covered by a hopeful spinner.
+          `pointer-events-none` throughout — the terminal underneath keeps
+          every click and keystroke, so typing into a pane that is still
+          booting behaves exactly as it did before.
+        */}
+        {/*
+          Proof that this pane was handed a prompt, drawn by the app rather
+          than read out of the agent's screen.
+
+          Sits INSIDE the terminal region so it points at the pane it is
+          talking about, and above the scrollbar overlay so a fleet of panes
+          cannot bury it. It is the answer to the failure this whole file keeps
+          circling: a delivery that really happened, on a pane that showed
+          nothing, told to a user who then had every reason to believe Jarvis
+          had invented it. See ./PromptReceipt.
+        */}
+        {receipt && receipt.at !== null && receipt.at !== dismissedAt && (
+          <PromptReceipt
+            key={receipt.at}
+            terminal={name}
+            workspaceId={workspaceId}
+            at={receipt.at}
+            preview={receipt.text}
+            chars={receipt.chars}
+            submitted={receipt.submitted}
+            onDismiss={() => setDismissedAt(receipt.at)}
+          />
+        )}
+        {!painted && visibleStatus === "connecting" && (
+          <div
+            data-testid={`agentic-pane-starting-${name}`}
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+          >
+            <div
+              // `rounded-lg` is the radius every card-shaped thing in the
+              // product takes; `rounded-xl` was a fourth step nothing else
+              // used. The spinner is decoration beside the sentence, so it
+              // wears the same meta ink — `--primary` is a fill, and an icon
+              // brighter than the words it sits next to is a bug.
+              className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm text-muted-foreground"
+              style={{ background: chrome.shell, borderColor: chrome.border }}
+            >
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{fill(t("agentic_grid.pane.starting"), { agent: displayName })}</span>
+            </div>
+          </div>
+        )}
+      </div>
+      {dragging && carrying === "skill" && !attaching && (
+        <SkillDropCard skill={skillInFlight} target={name}
+          blocked={Boolean(skillInFlight?.multiline) && !termRef.current?.modes.bracketedPasteMode} />
+      )}
+      {((dragging && carrying !== "skill") || attaching) && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background backdrop-blur-[2px]">
+          {/* A real card fill separates this from the pane behind it, so it
+              needs no rim of its own — and the two glyphs are decoration
+              beside their sentence, not marks, so they take the meta ink. */}
+          <div className="flex items-center gap-2 rounded-lg bg-card px-4 py-2.5 text-sm text-foreground">
+            {attaching ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span>{fill(t("agentic_grid.pane.attaching"), { pane: name })}</span>
+              </>
+            ) : (
+              <>
+                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                <span>
+                  {t("agentic_grid.pane.drop_hint_before")}<strong>{name}</strong>
+                  {t("agentic_grid.pane.drop_hint_after")}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {/*
+        The focused tile's inner edge line, drawn ABOVE everything in the pane.
+        As an inset shadow on the frame it sat underneath the title row, whose
+        own translucent ground dimmed it: the blue read darker along the top
+        than down the terminal (maintainer, 2026-09-30). One layer on top keeps
+        the line the same brightness all the way round.
+      */}
+      {minimal && focused && markFocus && !dragging && !justDelivered && (
+        <div
+          aria-hidden="true"
+          data-testid={`pane-focus-ring-${name}`}
+          className="pointer-events-none absolute inset-0 z-[45]"
+          style={{ boxShadow: `inset 0 0 0 1px ${tile.focus}` }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PaneHeader({
+  workspaceId,
+  githubStatusEnabled,
+  name,
+  displayName,
+  recap,
+  recapDetail,
+  recapMeta,
+  recapActions,
+  accountLabel,
+  promptCount,
+  appearance,
+  focused,
+  maximized,
+  onToggleMaximize,
+  onSplit,
+  agents,
+  onAgentsChanged,
+  onRename,
+  onClose,
+  splitDisabled,
+  status,
+  statusDetail,
+  onArrangeStart,
+  showArrangeHandle = false,
+  arranging = false,
+  onOpenConversation,
+  onOpenChat,
+  onReviewChanges,
+  onReviewChangesPrefetch,
+  onShowInGit,
+}: {
+  workspaceId?: string;
+  githubStatusEnabled: boolean;
+  name: string;
+  displayName: string;
+  recap?: string;
+  recapDetail?: string;
+  recapMeta?: PaneRecapMeta;
+  recapActions?: PaneRecapActions;
+  accountLabel?: string | null;
+  promptCount: number;
+  appearance: TerminalAppearance;
+  focused: boolean;
+  maximized: boolean;
+  onToggleMaximize?: () => void;
+  onSplit?: (direction: SplitDirection, agent?: string) => void;
+  agents?: SplitAgentChoice[];
+  onAgentsChanged?: () => void;
+  onRename?: (name: string) => Promise<boolean>;
+  onClose?: () => void;
+  splitDisabled: boolean;
+  /** The socket's own view of this pane — the badge beside the call-sign. */
+  status: PaneStatus;
+  /** Whatever the socket said about that status, read in the badge's tooltip. */
+  statusDetail?: string;
+  /** Press on the header picks the pane up; absent leaves it undraggable. */
+  onArrangeStart?: (event: React.PointerEvent) => void;
+  showArrangeHandle?: boolean;
+  arranging?: boolean;
+  /** Opens the pane's recorded conversation — the mode-proof scroll history. */
+  onOpenConversation?: () => void;
+  /** Puts this pane on the chat stage, read with the agent chat's timeline. */
+  onOpenChat?: () => void;
+  /** Opens the review of every uncommitted change this pane's agent made. */
+  onReviewChanges?: () => void;
+  /** Starts reading the review the moment the pointer reaches its button. */
+  onReviewChangesPrefetch?: () => void;
+  /** Opens the Git tab showing only what this pane's agent session changed. */
+  onShowInGit?: () => void;
+}) {
+  const t = useT();
+  const light = appearance === "light";
+  // The title bar's brand voice, keyed to the PANE's ground rather than the
+  // app theme — see PANE_BRAND in ./terminalThemes for why the two differ.
+  const brand = PANE_BRAND[appearance];
+  // What the split menu hangs off. The pane clips everything inside it, so the
+  // menu is measured against this bar and drawn in front of the window — see
+  // `anchorTo` in ./AgentPicker.
+  const headerRef = useRef<HTMLElement | null>(null);
+  // Which split button opened the CLI picker, if any.
+  const [picking, setPicking] = useState<SplitDirection | null>(null);
+  // The call-sign editor: null while the badge is just a badge, otherwise the
+  // text being typed. Empty string is a real state (the field was cleared), so
+  // "is it open" cannot be read off the text — hence null rather than "".
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const commitRename = async () => {
+    const wanted = (draft ?? "").trim();
+    if (!wanted || wanted === name) {
+      setDraft(null);
+      return;
+    }
+    setSaving(true);
+    // Kept open on a refusal — a duplicate call-sign is a name to CHANGE, and
+    // throwing the typing away would make the user retype the part that was
+    // fine. The grid says what went wrong.
+    const accepted = await onRename?.(wanted);
+    setSaving(false);
+    if (accepted !== false) setDraft(null);
+  };
+
+  // With one installed CLI there is nothing to pick, so the button splits
+  // straight away — a menu with a single entry is a click tax, not a choice.
+  const choices = agents ?? [];
+  const offersChoice = offersAgentChoice(choices);
+
+  const startSplit = (direction: SplitDirection) => {
+    if (offersChoice)
+      setPicking((current) => (current === direction ? null : direction));
+    else onSplit?.(direction);
+  };
+
+  /*
+   * The bar's gesture explainer — our own card, not the browser's `title`.
+   *
+   * It used to be a native tooltip, and a native tooltip is drawn by the OS:
+   * always the same white-and-black system box, square-cornered, blind to
+   * the app's theme and to the brand. The explainer is the one piece of
+   * teaching UI on the bar — it deserves the same design language as the bar
+   * it explains. So it is a portal card now (the pane clips its children,
+   * the same reason the recap card portals) carrying the SAME single
+   * sentence, keyed to the PANE's own appearance so it reads in light and
+   * dark alike.
+   *
+   * It stays strictly a tooltip: pointer-events: none, opened by a settled
+   * hover on the bar itself (never over one of the bar's own controls, which
+   * keep their small native labels), and dismissed by leaving, pressing, or
+   * anything that moves the ground under it (scroll, resize).
+   */
+  const [tip, setTip] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
+  const tipTimer = useRef<number | undefined>(undefined);
+
+  const cancelTip = () => {
+    if (tipTimer.current !== undefined) {
+      window.clearTimeout(tipTimer.current);
+      tipTimer.current = undefined;
+    }
+  };
+  const hideTip = () => {
+    cancelTip();
+    setTip(null);
+  };
+  const scheduleTip = () => {
+    if (tip || tipTimer.current !== undefined) return;
+    tipTimer.current = window.setTimeout(() => {
+      tipTimer.current = undefined;
+      const rect = headerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const left = Math.max(
+        8,
+        Math.min(rect.left + 8, window.innerWidth - 308),
+      );
+      const below = window.innerHeight - rect.bottom;
+      // Flips above the bar when the pane sits at the bottom of the window —
+      // an explainer that opens off-screen explains nothing.
+      setTip(
+        below < 150 && rect.top > below
+          ? { left, bottom: window.innerHeight - rect.top + 6 }
+          : { left, top: rect.bottom + 6 },
+      );
+    }, 500);
+  };
+
+  // The timer must not outlive the pane, and an open tip is positioned in
+  // viewport coordinates — anything that moves the pane retires it.
+  useEffect(() => cancelTip, []);
+  useEffect(() => {
+    if (!tip) return;
+    const hide = () => setTip(null);
+    window.addEventListener("scroll", hide, true);
+    window.addEventListener("resize", hide);
+    return () => {
+      window.removeEventListener("scroll", hide, true);
+      window.removeEventListener("resize", hide);
+    };
+  }, [tip]);
+
+  // The explainer's words: ONE plain sentence, the same one the native
+  // tooltip carried — by the maintainer's explicit choice. A first redesign
+  // broke it into chip-led rows, and that was more furniture than the answer
+  // needed; the card is branded, not busy. Only wired gestures make it in —
+  // a maximized pane cannot be dragged, so its sentence never claims it can.
+  const tipText = [
+    onArrangeStart
+      ? fill(t("agentic_grid.pane.tip_drag"), { pane: name })
+      : "",
+    onToggleMaximize
+      ? onArrangeStart
+        ? maximized
+          ? t("agentic_grid.pane.tip_restore")
+          : t("agentic_grid.pane.tip_fill")
+        : maximized
+          ? fill(t("agentic_grid.pane.tip_restore_named"), { pane: name })
+          : fill(t("agentic_grid.pane.tip_fill_named"), { pane: name })
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <header
+      ref={headerRef}
+      data-testid={`pane-header-${name}`}
+      // The grip. It is the header itself rather than a separate handle icon,
+      // because that is where the gesture is already expected — every window on
+      // every desktop is dragged by its title bar.
+      //
+      // The press is ignored when it lands on one of the header's own controls:
+      // the buttons stop `mousedown`, which says nothing about `pointerdown`, so
+      // without this check pressing Close would also pick the pane up and a
+      // twitchy hand would move a pane it meant to shut.
+      onPointerDown={(event) => {
+        // A press is an answer, not a question — the explainer leaves.
+        hideTip();
+        if (!onArrangeStart) return;
+        const target = event.target as HTMLElement | null;
+        if (target?.closest("button, a, input, [role='menuitem']")) return;
+        onArrangeStart(event);
+      }}
+      // A settled hover on the bar asks what the bar can do. The card yields
+      // only to controls that carry their OWN native label (`[title]` — the
+      // action cluster, the pencil, the seat chip), so two explanations never
+      // stack. Everything else on the bar belongs to the bar — including the
+      // recap line, which is a button but spans nearly the whole width: the
+      // first version suppressed the card there, and "hover the title" is
+      // exactly where people ask.
+      onPointerOver={(event) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest("[title], input, [role='menuitem']")) hideTip();
+        else if (tipText) scheduleTip();
+      }}
+      onPointerLeave={hideTip}
+      /*
+       * Double-click the title bar to fill the workspace, and again to go back.
+       *
+       * The same gesture every window manager on every desktop already binds,
+       * and the pane header is already the title bar — it is dragged like one.
+       * The button beside it stays, because a gesture nothing on screen
+       * advertises cannot be the only way in (the same rule the rename pencil
+       * follows); this is the way people who never look for a button get there.
+       *
+       * Safe beside the drag above: `paneArrange` only lifts a pane once the
+       * pointer has travelled `DRAG_THRESHOLD_PX`, so two clicks in one place
+       * are two clicks and never a move. The control check is the same one — a
+       * double-click on Close is a close, twice, not a maximize — and the
+       * call-sign stops the event itself, because a double-click there already
+       * means rename.
+       */
+      onDoubleClick={
+        onToggleMaximize
+          ? (event) => {
+              hideTip();
+              const target = event.target as HTMLElement | null;
+              if (target?.closest("button, a, input, [role='menuitem']"))
+                return;
+              onToggleMaximize();
+            }
+          : undefined
+      }
+      className={cn(
+        // No tinted strip of its own: the header shares the terminal's ground
+        // and the border underneath is enough to say where the output begins.
+        // Twelve tinted bands across the workspace were twelve horizontal
+        // stripes the eye had to skip on the way to the text that matters.
+        //
+        // `min-h-7` rather than height by content: the bar holds a 24 px action
+        // cluster, a 20 px rename field and a 16 px badge, and each of them
+        // comes and goes on its own schedule (hover, rename, a status change).
+        // Sized by whatever is in it, the header grew and shrank by a couple of
+        // pixels under the pointer — and every one of those pixels is a row the
+        // terminal underneath has to be refitted for. A floor holds it still.
+        //
+        // `overflow-hidden` is the other half of that promise: the left group
+        // truncates and the action cluster keeps its width, so a narrow pane
+        // ends in an ellipsis rather than pushing its own buttons off the edge.
+        "group/header relative flex min-h-7 items-center justify-between gap-1.5 overflow-hidden border-b px-2 py-0.5",
+        onArrangeStart && (arranging ? "cursor-grabbing" : "cursor-grab"),
+      )}
+      style={
+        {
+          borderColor: PANE_CHROME[appearance].border,
+          // Claims the touch gesture for the drag. Without it a touch that
+          // starts on the header scrolls the workspace instead of lifting the
+          // pane, and the drag never begins at all.
+          touchAction: onArrangeStart ? "none" : undefined,
+          // The bar's ladder, published as variables so hover/focus states can
+          // be CLASSES. An inline `color` beats every class (see PaneAction's
+          // note), so anything that changes on interaction reads these instead
+          // of receiving an inline style.
+          "--pane-accent": brand.accent,
+          "--pane-accent-soft": brand.accentSoft,
+          "--pane-ink": brand.ink,
+          "--pane-ink-muted": brand.inkMuted,
+          "--pane-ink-faint": brand.inkFaint,
+          "--pane-chip": brand.chip,
+        } as React.CSSProperties
+      }
+    >
+      {/* The brand hairline: a signal-yellow (gold, on paper) rule that sweeps
+          from under the call-sign of THE focused pane. It is the workspace's
+          "you are here" mark — drawn on one pane at a time, so it stays a mark
+          rather than a uniform. Opacity, not mounting, so focus changes glide. */}
+      <span
+        aria-hidden="true"
+        data-testid={`pane-header-accent-${name}`}
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 h-[2px] transition-opacity duration-200",
+          focused ? "opacity-100" : "opacity-0",
+        )}
+        style={{
+          background: `linear-gradient(90deg, ${brand.accent}, ${brand.accentSoft} 55%, transparent 92%)`,
+        }}
+      />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {showArrangeHandle && onArrangeStart && (
+          <button type="button" aria-label={fill(t("agentic_grid.pane.move"), { pane: name })} title={fill(t("agentic_grid.pane.move"), { pane: name })}
+            data-ide-drag-handle="true"
+            data-testid={`pane-move-${name}`}
+            onPointerDown={(event) => {
+              hideTip();
+              event.stopPropagation();
+              onArrangeStart(event);
+            }}
+            onClick={(event) => event.stopPropagation()}
+            className="flex h-5 w-5 shrink-0 cursor-grab items-center justify-center rounded text-[color:var(--pane-ink-muted)] hover:bg-[color:var(--pane-chip)] hover:text-[color:var(--pane-ink)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--pane-accent)] active:cursor-grabbing"
+            style={{ touchAction: "none" }}>
+            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
+        {draft !== null ? (
+          /*
+           * The call-sign, being typed.
+           *
+           * A form rather than a bare input so Enter saves the way it does in
+           * every other name field in the app, and Escape closes it — the two
+           * keys somebody renaming a pane will reach for without looking.
+           *
+           * It SHRINKS. A fixed 128 px field plus its two buttons is wider than
+           * a pane in a twelve-pane wall has to spare, and beside an action
+           * cluster that keeps its own width the surplus went somewhere: the
+           * save and cancel buttons were pushed under the cluster, so the one
+           * control the user needed next was the one they could not reach.
+           */
+          <form
+            className="flex min-w-0 flex-1 items-center gap-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void commitRename();
+            }}
+          >
+            <input
+              autoFocus
+              value={draft}
+              maxLength={MAX_TERMINAL_NAME}
+              disabled={saving}
+              aria-label={fill(t("agentic_grid.pane.rename"), { pane: name })}
+              data-testid={`pane-rename-input-${name}`}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setDraft(null);
+                // The pane underneath is a live terminal listening for keys.
+                // Without this, typing a name also types into the agent.
+                event.stopPropagation();
+              }}
+              className={cn(
+                "w-full min-w-0 max-w-[9rem] rounded-md px-2 py-0.5 font-display text-meta font-semibold tracking-tight outline-none",
+                // A field is a LIFT surface, and a surface with a real fill
+                // needs no rim: the chip ground is what says "you can type
+                // here". Focus answers with a ring rather than a second fill
+                // or a brighter edge. Both come from the pane's own ladder
+                // (the `--pane-*` variables the header publishes), so a light
+                // pane inside a dark app still edits on its own ground.
+                "transition-shadow focus:ring-2 focus:ring-[color:var(--pane-accent-soft)] disabled:opacity-60",
+              )}
+              style={{ color: brand.ink, background: brand.chip }}
+            />
+            <button
+              type="submit"
+              disabled={saving || !draft.trim()}
+              aria-label={fill(t("agentic_grid.pane.rename_save"), { pane: name })}
+              data-testid={`pane-rename-save-${name}`}
+              className={cn(
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[color:var(--pane-ink)]",
+                "transition-colors duration-150 hover:bg-[color:var(--pane-chip)] disabled:opacity-40",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--pane-accent)]",
+              )}
+            >
+              {saving ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Check className="h-3 w-3" />
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              aria-label={fill(t("agentic_grid.pane.rename_cancel"), { pane: name })}
+              onClick={() => setDraft(null)}
+              className={cn(
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
+                "transition-colors duration-150",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--pane-accent)]",
+                // On the pane's ground, so the pane's ink — not the app's
+                // muted-foreground, which disagrees exactly in mixed mode.
+                // Read from the `--pane-*` variables the header publishes
+                // rather than from a hex per appearance: the ladder lives in
+                // ONE table (./terminalThemes) and every reader of it agrees.
+                "text-[color:var(--pane-ink-muted)] hover:bg-[color:var(--pane-chip)]",
+                "hover:text-[color:var(--pane-ink)]",
+              )}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </form>
+        ) : (
+          <>
+            <span
+              // Double-click is the gesture every tab strip and file manager
+              // already uses for "rename this", so it is offered here too — but
+              // it is never the only way in, because nothing on screen advertises
+              // it. The pencil beside it is what makes the feature findable.
+              //
+              // The event stops here: the bar underneath reads a double-click as
+              // "fill the workspace", and one gesture must not do two things.
+              // The call-sign is the more specific target, so it wins.
+              onDoubleClick={
+                onRename
+                  ? (event) => {
+                      event.stopPropagation();
+                      setDraft(name);
+                    }
+                  : undefined
+              }
+              // No native `title` here: the rename gesture is a row in the
+              // bar's own explainer card, which replaced the system tooltip.
+              // The focused pane's call-sign wears the FILL — white type-holes
+              // on a dark pane, warm near-black on a light one. Every other
+              // name sits on a quiet chip (the pane's lift step) so the plate
+              // stays the workspace's one standing mark: a filled badge on all
+              // twelve panes marked nothing, because a marker everyone wears
+              // is a uniform. The colours come from PANE_BRAND (the pane's own
+              // ground), never the app theme.
+              //
+              // No shadow under the plate any more. Depth on this ground is
+              // carried by the fill; a soft glow around a 40px badge was a
+              // bloom standing in for the contrast the fill already has.
+              className="shrink-0 rounded-md px-1.5 py-0.5 font-display text-meta font-semibold leading-none tracking-tight transition-[background-color,color] duration-150"
+              style={
+                focused
+                  ? { background: brand.accent, color: brand.onAccent }
+                  : { background: brand.chip, color: brand.ink }
+              }
+            >
+              {name}
+            </span>
+            {onRename && (
+              <button
+                type="button"
+                aria-label={fill(t("agentic_grid.pane.rename"), { pane: name })}
+                title={fill(t("agentic_grid.pane.rename"), { pane: name })}
+                data-testid={`pane-rename-${name}`}
+                onClick={() => setDraft(name)}
+                onMouseDown={(event) => event.stopPropagation()}
+                className={cn(
+                  // Ink and hover ground come from the pane's own ladder
+                  // (`--pane-*`, published on the header), not from a literal
+                  // per-appearance hex and not from the app's tokens: a light
+                  // pane can sit inside a dark app, and this button has to read
+                  // on the ground it is actually drawn on.
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-opacity",
+                  "text-[color:var(--pane-ink-muted)] hover:bg-[color:var(--pane-chip)]",
+                  "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100",
+                )}
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
+          </>
+        )}
+        {/*
+          The pane's own state, in the colour language the rest of the section
+          already speaks (see ./PaneActivityPill, which owns the vocabulary and
+          is the same badge the chat rail shows).
+
+          Only three of the four states are news. `live` is a property of the
+          PIPE — true for nearly every pane nearly all the time — so a standing
+          dot on all twelve headers would mark nothing, which is exactly the
+          badge the activity pill was written to replace. It is kept in the DOM
+          and fades in with the rest of the header's controls, so the answer is
+          one hover away for anyone who wants it, while `connecting`, `exited`
+          and `error` announce themselves whether or not anyone is pointing.
+        */}
+        <span
+          data-testid={`pane-status-${name}`}
+          data-status={status}
+          className={cn(
+            "flex shrink-0 items-center transition-opacity duration-200",
+            status === "live"
+              ? "opacity-0 group-hover/header:opacity-60"
+              : "opacity-100",
+          )}
+        >
+          <PaneActivityPill status={status} detail={statusDetail} />
+        </span>
+        <PaneRecap
+          name={name}
+          displayName={displayName}
+          recap={recap}
+          detail={recapDetail}
+          source={recapMeta?.source}
+          reason={recapMeta?.reason}
+          writer={recapMeta?.writer}
+          note={recapMeta?.note}
+          generatedAt={recapMeta?.generatedAt}
+          light={light}
+          onSave={recapActions?.onSave}
+          onClear={recapActions?.onClear}
+          onRefresh={recapActions?.onRefresh}
+        />
+        {/* Which of several subscriptions this pane is spending. Only rendered
+            when the user actually has more than one, so the header stays quiet
+            for everybody else — but with two seats open side by side, knowing
+            which pane bills which plan is the whole point. */}
+        {accountLabel && (
+          <span
+            // Allowed to give way (`min-w-0`, no `shrink-0`): which seat a pane
+            // bills is worth a badge, but never worth pushing the call-sign or
+            // the pane's own state off a narrow header to say it.
+            // 11px is the type floor, and this badge sat below it. It also
+            // wore the placeholder ink, which is reserved for text that is NOT
+            // information — which seat a pane bills plainly is. Meta ink, on
+            // the lift chip, with no rim: the fill already separates it.
+            className="min-w-0 max-w-[8rem] truncate rounded-full px-2 py-px font-display text-micro font-medium tracking-wide"
+            style={{ color: brand.inkMuted, backgroundColor: brand.chip }}
+            title={fill(t("agentic_grid.pane.running_on_account"), { account: accountLabel })}
+            data-testid={`pane-account-${name}`}
+          >
+            {accountLabel}
+          </span>
+        )}
+      </div>
+
+      <PaneDoneGateBadge workspaceId={githubStatusEnabled ? workspaceId : undefined} name={name} appearance={appearance} />
+      <SessionGitHubBadge workspaceId={githubStatusEnabled ? workspaceId : undefined} name={name} appearance={appearance} />
+      {/* Pane actions appear where the eye already is: on the pane under the
+          pointer, on the focused pane, and while one of their menus is open.
+          Five buttons on every header of a twelve-pane wall were sixty
+          controls nobody was using at once — the redesign shows each pane's
+          five exactly when that pane is the one being worked. They stay in
+          the DOM throughout (opacity, not display), so keyboard focus and
+          tests reach them regardless. */}
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-0.5 transition-opacity",
+          focused || maximized || picking !== null
+            ? "opacity-100"
+            : "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100",
+        )}
+      >
+        <PromptHistoryButton
+          terminal={name}
+          workspaceId={workspaceId}
+          count={promptCount}
+          light={light}
+        />
+        {/* One click from a terminal to the same conversation read as a chat
+            — the timeline the front page's chat draws, with this pane's
+            thinking, tool calls and answers in it (maintainer, 2026-08-26). */}
+        {onOpenChat && (
+          <PaneAction
+            label={t("agentic_grid.pane_chat.open").replace("{0}", name)}
+            testId={`pane-open-chat-${name}`}
+            onClick={onOpenChat}
+          >
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+          </PaneAction>
+        )}
+        {/* The one scroll-history entry point that cannot flicker away: the
+            CLI may flip its scroll-owner mode mid-session (Claude Code does),
+            but the pane's recorded conversation is always openable. */}
+        <PaneAction
+          label={t("agentic_grid.conversation.open").replace("{0}", name)}
+          testId={`pane-conversation-${name}`}
+          onClick={onOpenConversation}
+        >
+          <BookOpenText className="h-3.5 w-3.5" aria-hidden="true" />
+        </PaneAction>
+        {onReviewChanges && (
+          <PaneAction
+            label={fill(t("agentic_grid.pane.review_changes"), { pane: name })}
+            testId={`pane-review-changes-${name}`}
+            onClick={onReviewChanges}
+            onHover={onReviewChangesPrefetch}
+          >
+            <FileDiff className="h-3.5 w-3.5" aria-hidden="true" />
+          </PaneAction>
+        )}
+        {onShowInGit && (
+          <PaneAction
+            label={fill(t("agentic_grid.pane.show_in_git"), { pane: name })}
+            testId={`pane-show-in-git-${name}`}
+            onClick={onShowInGit}
+          >
+            <FolderGit2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </PaneAction>
+        )}
+        <PaneAction
+          label={fill(
+            t(maximized ? "agentic_grid.pane.restore" : "agentic_grid.pane.maximize"),
+            { pane: name },
+          )}
+          testId={`pane-maximize-${name}`}
+          onClick={onToggleMaximize}
+        >
+          {maximized ? (
+            <Minimize2 className="h-3.5 w-3.5" />
+          ) : (
+            <Maximize2 className="h-3.5 w-3.5" />
+          )}
+        </PaneAction>
+        <PaneAction
+          label={fill(t("agentic_grid.pane.split_right"), { pane: name })}
+          testId={`pane-split-right-${name}`}
+          disabled={splitDisabled}
+          expanded={offersChoice ? picking === "right" : undefined}
+          onClick={onSplit ? () => startSplit("right") : undefined}
+        >
+          <SplitRightIcon className="h-3.5 w-3.5" />
+        </PaneAction>
+        <PaneAction
+          label={fill(t("agentic_grid.pane.split_down"), { pane: name })}
+          testId={`pane-split-down-${name}`}
+          disabled={splitDisabled}
+          expanded={offersChoice ? picking === "down" : undefined}
+          onClick={onSplit ? () => startSplit("down") : undefined}
+        >
+          <SplitBelowIcon className="h-3.5 w-3.5" />
+        </PaneAction>
+        <PaneAction
+          label={fill(t("agentic_grid.close_pane.aria"), { pane: name })}
+          testId={`pane-close-${name}`}
+          danger
+          onClick={onClose}
+        >
+          <X className="h-3.5 w-3.5" />
+        </PaneAction>
+      </div>
+
+      {picking && (
+        <AgentPickerMenu
+          title={
+            picking === "right"
+              ? t("agentic_grid.pane.split_right_picker")
+              : t("agentic_grid.pane.split_down_picker")
+          }
+          ariaLabel={fill(
+            t(
+              picking === "right"
+                ? "agentic_grid.pane.split_right_picker_aria"
+                : "agentic_grid.pane.split_down_picker_aria",
+            ),
+            { pane: name },
+          )}
+          agents={choices}
+          testId={`pane-split-menu-${picking}-${name}`}
+          itemTestId={(agent) => `pane-split-${picking}-${name}-${agent}`}
+          className="right-2 top-full mt-1"
+          // Measured against this bar and drawn in front of the window. A pane
+          // is `overflow-hidden` by necessity, so a menu positioned inside one
+          // is cut off at its edge — in a twelve-pane wall that left a sliver
+          // of the first entry and nothing to pick from. It also flips above
+          // the header when the pane sits at the bottom of the screen.
+          anchorTo={headerRef.current}
+          onDismiss={() => setPicking(null)}
+          onInstalled={() => onAgentsChanged?.()}
+          onPick={(agent) => {
+            setPicking(null);
+            onSplit?.(picking, agent);
+          }}
+        />
+      )}
+
+      {/* Suppressed while the bar is doing something else: mid-drag, with the
+          split menu open, or while the call-sign is being renamed — a card
+          that teaches gestures must never sit on top of one in progress. */}
+      {tip &&
+        tipText !== "" &&
+        !arranging &&
+        picking === null &&
+        draft === null &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <PaneHeaderTip
+            name={name}
+            appearance={appearance}
+            pos={tip}
+            text={tipText}
+          />,
+          document.body,
+        )}
+    </header>
+  );
+}
+
+/**
+ * The title bar's gesture explainer — the branded card that replaced the
+ * native `title` tooltip (see the long note in PaneHeader for why).
+ *
+ * Deliberately the SAME one sentence the system tooltip carried, redressed:
+ * the maintainer liked the words and rejected a chip-and-row redesign of
+ * them — the ask was brand, not furniture. So the card is exactly a rounded
+ * corner, the brand hairline, and the sentence, coloured off PANE_BRAND /
+ * PANE_CHROME — the PANE's own ground — so it reads in light mode, dark
+ * mode, and the mixed configurations. `pointer-events: none` keeps it a
+ * label, never a thing the pointer can land on.
+ */
+function PaneHeaderTip({
+  name,
+  appearance,
+  pos,
+  text,
+}: {
+  name: string;
+  appearance: TerminalAppearance;
+  pos: { left: number; top?: number; bottom?: number };
+  text: string;
+}) {
+  const brand = PANE_BRAND[appearance];
+  const chrome = PANE_CHROME[appearance];
+  return (
+    <div
+      role="tooltip"
+      data-testid={`pane-header-tip-${name}`}
+      className={cn(
+        // `rounded-lg` — the one radius a floating surface takes. It used to be
+        // `rounded-xl`, a fourth radius in a section that already has three.
+        "pointer-events-none fixed z-[70] w-max max-w-[360px] overflow-hidden rounded-lg border",
+        "animate-in fade-in-0 duration-150",
+        pos.top !== undefined ? "slide-in-from-top-1" : "slide-in-from-bottom-1",
+      )}
+      style={{
+        left: pos.left,
+        ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
+        // Opaque, unlike the pane's glass: the card can land on top of another
+        // pane's text, and an explainer must not be read THROUGH. This is the
+        // pane's own float step — the one surface here that is genuinely off
+        // the plane, so the one that gets a real shadow.
+        background: chrome.float,
+        borderColor: chrome.border,
+        boxShadow: "0 12px 32px -8px rgb(var(--scrim-rgb) / 0.55)",
+      }}
+    >
+      {/* The same hairline the focused pane wears under its bar. */}
+      <span
+        aria-hidden="true"
+        className="block h-[2px]"
+        style={{
+          background: `linear-gradient(90deg, ${brand.accent}, ${brand.accentSoft} 60%, transparent 95%)`,
+        }}
+      />
+      <p
+        className="px-3.5 py-2.5 text-sm leading-relaxed"
+        style={{ color: brand.ink }}
+      >
+        {text}
+      </p>
+    </div>
+  );
+}
+
+/*
+ * A header button.
+ *
+ * It no longer takes the pane's appearance: every colour it wears is read from
+ * the `--pane-*` variables the header publishes, which resolve against the
+ * PANE's ground whatever the app theme is doing. The prop used to pick between
+ * two hard-coded hexes per state — the same ladder written a second time, and
+ * the copy that drifted.
+ */
+function PaneAction({
+  label,
+  testId,
+  danger = false,
+  disabled = false,
+  expanded,
+  onClick,
+  onHover,
+  children,
+}: {
+  label: string;
+  testId: string;
+  danger?: boolean;
+  disabled?: boolean;
+  /** Set when this button opens a menu — announces its state to a screen reader. */
+  expanded?: boolean;
+  onClick?: () => void;
+  /** The pointer reached the button: a chance to start work its click will need. */
+  onHover?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerEnter={onHover}
+      aria-label={label}
+      title={label}
+      data-testid={testId}
+      aria-haspopup={expanded === undefined ? undefined : "menu"}
+      aria-expanded={expanded}
+      disabled={disabled || !onClick}
+      onClick={(e) => {
+        // The pane's own mousedown selects it as the prompt target; an action
+        // click must not also count as "typing here".
+        e.stopPropagation();
+        onClick?.();
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      className={cn(
+        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+        // Colour AND background, over the same 150 ms: hovering used to change
+        // only the ground behind the glyph, which on a translucent pane is a
+        // very small amount of contrast to confirm the pointer is on target.
+        "transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-30",
+        // Reachable by keyboard and visibly so. The cluster is revealed by
+        // `focus-within`, which is worth nothing if the focused button then
+        // looks identical to its four neighbours. The ring reads the header's
+        // own fill variable, so it lands on the PANE's ground rather than the
+        // app's — a light pane inside a dark app is a supported combination.
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--pane-accent)]",
+        // The resting colour is a CLASS rather than an inline style, and that is
+        // load-bearing rather than tidiness: an inline `color` beats every
+        // class, so the hover colour below would simply never take effect.
+        // Both steps come from the header's `--pane-*` ladder; they used to be
+        // a hex per appearance, which is the same ladder written twice.
+        "text-[color:var(--pane-ink-muted)]",
+        danger
+          ? "hover:bg-destructive/20 hover:text-destructive"
+          : "hover:bg-[color:var(--pane-chip)] hover:text-[color:var(--pane-ink)]",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * The two tones a pane notice comes in, resolved against the PANE's own ground.
+ *
+ * Not read from the app's `--warning` / `--destructive` variables, and that is
+ * the whole reason this table exists rather than a call to the section's shared
+ * `Notice`: the terminal appearance is a separate setting from the app theme
+ * (plenty of people run dark panes in a light app, and the reverse — see the
+ * appearance note in ./AgenticGrid), so a value resolved from the app's `.dark`
+ * block lands on the wrong ground in exactly those two configurations.
+ *
+ * The values ARE those tokens, re-derived per appearance: `#D6A94A` / `#A57A1D`
+ * is the degraded hue, `#E8574C` / `#C72E23` the fault hue. An earlier version
+ * dropped the hue entirely and separated the two tones by weight, using the
+ * pane's full ink for an error — which puts a status in the ink ramp, makes the
+ * loudest thing on a dead pane indistinguishable from its brightest heading,
+ * and leaves colour with nothing to say. Fault and degraded are two of the
+ * three jobs colour has in this product; a pane notice is exactly where they
+ * are spent.
+ */
+const NOTICE_TONE: Record<
+  "warning" | "error",
+  Record<TerminalAppearance, { border: string; text: string }>
+> = {
+  warning: {
+    light: { border: "rgba(165,122,29,0.85)", text: "#a57a1d" },
+    dark: { border: "rgba(214,169,74,0.85)", text: "#d6a94a" },
+  },
+  error: {
+    light: { border: "rgba(199,46,35,0.9)", text: "#c72e23" },
+    dark: { border: "rgba(232,87,76,0.9)", text: "#e8574c" },
+  },
+};
+
+/**
+ * What went wrong in this pane, and the one way out of it.
+ *
+ * ## Why a row of its own rather than a badge
+ *
+ * Both halves of this used to be somewhere else, and neither survived being
+ * there. The reason was written INTO the terminal — an exit banner, or one
+ * trouble line per kind of trouble (see `troubleShown`) — where the next thing
+ * the pane draws scrolls it away and nothing brings it back; a user returning
+ * to a dead pane found a still screen and no sentence explaining it. The way
+ * out was a small button in the header, in the cluster that hides until the
+ * pane is hovered or focused, competing for width with five others.
+ *
+ * A dead pane can afford the height. Its terminal is not being drawn into any
+ * more, so the ~24 px this costs comes out of a static screen — and it buys the
+ * two things that pane owes the user: what happened, and what to press.
+ *
+ * ## Why the live states show nothing
+ *
+ * `connecting` and `live` are answered better elsewhere and answered already:
+ * the starting overlay covers a pane that has not painted yet, and the badge in
+ * the header carries the state for anyone who looks. A standing strip for them
+ * would take a row off every healthy pane in the workspace to say "fine".
+ */
+function PaneStatusNotice({
+  name,
+  displayName,
+  status,
+  detail,
+  light,
+  onRestart,
+}: {
+  name: string;
+  displayName: string;
+  status: PaneStatus;
+  detail?: string;
+  light: boolean;
+  onRestart?: () => void;
+}) {
+  const t = useT();
+  if (status !== "exited" && status !== "error") return null;
+  const appearance: TerminalAppearance = light ? "light" : "dark";
+  const tone = NOTICE_TONE[status === "error" ? "error" : "warning"][appearance];
+  const brand = PANE_BRAND[appearance];
+  /*
+   * The two details are written for different sentences and cannot be shown the
+   * same way. A trouble message is already one ("This terminal is no longer part
+   * of the open workspace."); an exit reason is a CLAUSE — `explainExit` returns
+   * "stopped", or "stopped unexpectedly (exit code 2) — use Restart to bring it
+   * back" — which needs the agent's name in front of it to be a sentence at all.
+   * Shown raw, a dead pane said nothing but "stopped".
+   */
+  const message =
+    status === "error"
+      ? detail || fill(t("agentic_grid.pane.unreachable"), { pane: name })
+      : detail
+        ? fill(t("agentic_grid.pane.exited_detail"), { agent: displayName, detail })
+        : fill(t("agentic_grid.pane.exited"), { agent: displayName, pane: name });
+  return (
+    <div
+      data-testid={`pane-notice-${name}`}
+      data-tone={status === "error" ? "error" : "warning"}
+      // Announced once, quietly. `polite` rather than `assertive`: a pane going
+      // quiet is news, but it is never more urgent than the sentence a screen
+      // reader is in the middle of.
+      role="status"
+      aria-live="polite"
+      // The shared section's notice shape — a rule down the left edge, no fill,
+      // no icon — one size down for a pane header's scale. A filled box here
+      // would read as a second, louder terminal sitting on top of the first.
+      className="flex shrink-0 items-center gap-2 border-l-2 px-2 py-1 text-micro"
+      style={
+        {
+          borderColor: tone.border,
+          color: tone.text,
+          // The pane's ladder, published here as well as on the header: this
+          // strip is a sibling of the header, not a child, so the Restart
+          // button below cannot inherit the header's copy.
+          "--pane-accent": brand.accent,
+          "--pane-ink": brand.ink,
+          "--pane-chip": brand.chip,
+          "--pane-accent-soft": brand.accentSoft,
+        } as React.CSSProperties
+      }
+    >
+      <span className="min-w-0 flex-1 truncate" title={message}>
+        {message}
+      </span>
+      {onRestart && (
+        <button
+          type="button"
+          aria-label={fill(t("agentic_grid.pane.restart_aria"), { pane: name })}
+          title={fill(t("agentic_grid.pane.restart_title"), { agent: displayName, pane: name })}
+          data-testid={`pane-restart-${name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRestart();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className={cn(
+            // The pane's own secondary button: a real lift fill with the
+            // pane's ink on it. It used to be `--primary` at 20 % with
+            // `--primary` as the label — an opacity standing in for a surface,
+            // and a fill used as an ink. Both land wrong when the pane's
+            // appearance and the app's theme disagree.
+            "flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5",
+            "bg-[color:var(--pane-chip)] text-micro font-medium text-[color:var(--pane-ink)]",
+            "transition-colors duration-150 hover:bg-[color:var(--pane-accent-soft)]",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--pane-accent)]",
+          )}
+        >
+          <RotateCcw className="h-3 w-3" aria-hidden="true" />
+          {t("agentic_grid.pane.restart")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/*
+ * The pane badge used to live here and reported the SOCKET: "live" for any pane
+ * with a working pipe, which is nearly all of them nearly all of the time. It
+ * moved to ./PaneActivityPill, which answers the question people were actually
+ * reading it for — is this agent still working — and still reports the pipe in
+ * the three cases where the pipe is the news.
+ */

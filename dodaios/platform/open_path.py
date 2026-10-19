@@ -1,0 +1,667 @@
+"""Cross-platform "open a file" / "reveal in folder" helpers (AD-5/AD-6 style).
+
+Used by the Outputs view's native file actions (desktop-only). Each function is a
+thin per-OS dispatch with a graceful no-op fallback when no display is present
+(headless VPS), mirroring dodaios/plugins/tool/app_resolver.py. Import-cleanliness
+(HN-7): only stdlib at module scope; no platform-only package imported here.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.platform import detect_platform
+from dodaios.platform.capabilities import detect_capabilities
+
+log = logging.getLogger(__name__)
+
+
+def open_file(path: Path) -> bool:
+    """Open *path* with the OS default application.
+
+    Returns True if a launcher was invoked, False on a headless host (no display)
+    or on a launch error. Never raises.
+    """
+    if not detect_capabilities().display_present:
+        log.info("open_file: no display present — skipping %s", path)
+        return False
+    plat = detect_platform()
+    try:
+        if plat == "win32":
+            os.startfile(str(path))  # type: ignore[attr-defined]  # noqa: S606
+            return True
+        path_str = path.as_posix()
+        cmd = ["open", path_str] if plat == "darwin" else ["xdg-open", path_str]
+        subprocess.Popen(  # noqa: S603
+            cmd, creationflags=NO_WINDOW_CREATIONFLAGS, close_fds=True
+        )
+        return True
+    except OSError as exc:
+        log.warning("open_file failed for %s: %s", path, exc)
+        return False
+
+
+def reveal_in_folder(path: Path) -> bool:
+    """Open the OS file manager with *path* selected/highlighted.
+
+    Returns True if a launcher was invoked, False on a headless host. Never raises.
+    On Linux there is no portable "select the file" verb, so the containing folder
+    is opened. On Windows, ``explorer /select,`` returns a non-zero exit code even
+    on success — spawning it is treated as success, the exit code is ignored.
+    """
+    if not detect_capabilities().display_present:
+        log.info("reveal_in_folder: no display present — skipping %s", path)
+        return False
+    plat = detect_platform()
+    try:
+        if plat == "win32":
+            subprocess.Popen(  # noqa: S603
+                ["explorer", "/select,", str(path)],
+                creationflags=NO_WINDOW_CREATIONFLAGS,
+                close_fds=True,
+            )
+            return True
+        if plat == "darwin":
+            subprocess.Popen(  # noqa: S603
+                ["open", "-R", path.as_posix()],
+                creationflags=NO_WINDOW_CREATIONFLAGS,
+                close_fds=True,
+            )
+            return True
+        subprocess.Popen(  # noqa: S603
+            ["xdg-open", path.parent.as_posix()],
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+            close_fds=True,
+        )
+        return True
+    except OSError as exc:
+        log.warning("reveal_in_folder failed for %s: %s", path, exc)
+        return False
+
+
+def open_file_with(file: Path, launch_kind: str, launch_value: str) -> bool:
+    """Open *file* in a specific, already-resolved app. Returns True if launched.
+
+    ``launch_kind``/``launch_value`` come from ``resolve_app_launch_target`` in
+    the caller (so this module stays free of the plugins layer): ``executable``
+    + absolute exe, ``open_a`` + macOS app display-name, ``xdg_open`` (Linux
+    default handler), ``startfile`` + a Windows ``.lnk``/app. The file path is
+    always passed as the launch argument.
+
+    Unlike ``os.startfile(bare_name)`` — a silent ShellExecute no-op from the
+    pythonw background process — every branch starts a real ``subprocess`` so a
+    window actually appears. Returns False on a headless host, an unknown kind,
+    or a launch error. Never raises (mirrors :func:`open_file`).
+    """
+    if not detect_capabilities().display_present:
+        log.info("open_file_with: no display present — skipping %s", file)
+        return False
+    try:
+        if launch_kind == "executable":
+            # Direct exe + the file as its argument (VSCode, Sublime, a browser
+            # exe, …). CREATE_NO_WINDOW only suppresses a console, never the GUI.
+            subprocess.Popen(  # noqa: S603
+                [launch_value, str(file)],
+                creationflags=NO_WINDOW_CREATIONFLAGS,
+                close_fds=True,
+            )
+            return True
+        if launch_kind == "open_a":
+            # macOS: `open -a <AppName> <file>` resolves the .app by name.
+            subprocess.Popen(  # noqa: S603
+                ["open", "-a", launch_value, file.as_posix()],
+                creationflags=NO_WINDOW_CREATIONFLAGS,
+                close_fds=True,
+            )
+            return True
+        if launch_kind == "xdg_open":
+            # Linux fallback: hand the file to the desktop's default handler.
+            subprocess.Popen(  # noqa: S603
+                ["xdg-open", file.as_posix()],
+                creationflags=NO_WINDOW_CREATIONFLAGS,
+                close_fds=True,
+            )
+            return True
+        if launch_kind == "startfile":
+            # Windows .lnk/app launched with the file as an argument via `start`.
+            # cmd.exe re-parses its own command line, and list2cmdline only
+            # quotes arguments that contain spaces, so a file named
+            # "a&calc.md" would have run a second command. Both paths are
+            # double-quoted by hand (a Windows path cannot contain '"'; one
+            # that does is refused) and the string reaches CreateProcess as is.
+            file_str = str(file)
+            if '"' in launch_value or '"' in file_str:
+                log.warning("open_file_with: refusing a path containing a quote: %r", file_str)
+                return False
+            subprocess.Popen(  # noqa: S603
+                f'cmd /c start "" "{launch_value}" "{file_str}"',
+                creationflags=NO_WINDOW_CREATIONFLAGS,
+                close_fds=True,
+            )
+            return True
+        log.warning("open_file_with: unknown launch_kind %r", launch_kind)
+        return False
+    except OSError as exc:
+        log.warning("open_file_with failed for %s (%s): %s", file, launch_value, exc)
+        return False
+
+
+# Standard install locations for mainstream browsers, relative to the Windows
+# root dirs probed in _windows_browser_candidates. Edge ships on stock Win10/11,
+# so in practice this list almost always yields a real browser exe to fall back to
+# when the default association is broken/hijacked.
+_WINDOWS_BROWSER_RELPATHS = (
+    r"Google\Chrome\Application\chrome.exe",
+    r"Microsoft\Edge\Application\msedge.exe",
+    r"Mozilla Firefox\firefox.exe",
+    r"BraveSoftware\Brave-Browser\Application\brave.exe",
+)
+
+
+def _parse_exe_from_shell_command(command: str) -> str | None:
+    r"""Pull the executable path out of a Windows registry ``shell\open\command``.
+
+    The value looks like ``"C:\...\chrome.exe" --user-data-dir=... %1`` (usually
+    quoted). We want only the exe and deliberately drop any ``--user-data-dir`` /
+    ``--profile-directory`` override: a hijacked default handler can point those
+    at an isolated profile that no longer launches (the real-world failure this
+    guards against). Returns the exe path or None.
+    """
+    command = (command or "").strip()
+    if not command:
+        return None
+    if command.startswith('"'):
+        end = command.find('"', 1)
+        return command[1:end] if end != -1 else None
+    # Unquoted: take everything up to and including the first ``.exe`` *token* (so
+    # an unquoted path containing spaces is still captured), but only when ``.exe``
+    # ends a path segment — i.e. the next char is a separator/quote/end. This
+    # avoids mis-splitting a directory that itself contains ``.exe``. Else the
+    # first whitespace token.
+    lowered = command.lower()
+    start = 0
+    while True:
+        idx = lowered.find(".exe", start)
+        if idx == -1:
+            break
+        tail = lowered[idx + 4 : idx + 5]
+        if tail in ("", " ", '"', "\t"):
+            return command[: idx + 4]
+        start = idx + 4
+    parts = command.split()
+    return parts[0] if parts else None
+
+
+def _windows_default_browser_exe() -> str | None:
+    r"""Resolve the user's chosen default https-handler down to its ``.exe`` path.
+
+    Honors the browser CHOICE (Chrome/Edge/Firefox/…) while ignoring a dead or
+    hijacked ``--user-data-dir`` profile override. Returns an existing exe path or
+    None on any registry/parse miss. Never raises.
+    """
+    try:
+        import winreg
+    except ImportError:  # Registry integration is optional outside Windows.
+        return None
+    try:
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\Shell\Associations"
+            r"\UrlAssociations\https\UserChoice",
+        ) as key:
+            progid, _ = winreg.QueryValueEx(key, "ProgId")
+        with winreg.OpenKey(
+            winreg.HKEY_CLASSES_ROOT, rf"{progid}\shell\open\command"
+        ) as key:
+            command, _ = winreg.QueryValueEx(key, "")  # "" = the (Default) value
+    except OSError:  # An absent registry association leaves no executable to open.
+        return None
+    exe = _parse_exe_from_shell_command(command)
+    if exe and exe.lower().endswith(".exe") and Path(exe).exists():
+        return exe
+    return None
+
+
+def _windows_browser_candidates() -> list[str]:
+    r"""Ordered, existing browser exe paths: the user's default first, then the
+    standard install locations of mainstream browsers (Chrome/Edge/Firefox/Brave).
+
+    This is what lets the desktop shell ALWAYS reach a visible browser, even when
+    the OS default association silently opens nothing — e.g. a tool repointed the
+    default https handler at an isolated ``--user-data-dir`` profile that no longer
+    starts, so every association-follow (rundll32/ShellExecute) is a no-op.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+
+    def _add(path: str | None) -> None:
+        if not path:
+            return
+        norm = os.path.normcase(os.path.normpath(path))
+        if norm in seen:
+            return
+        if Path(path).exists():
+            seen.add(norm)
+            out.append(path)
+
+    _add(_windows_default_browser_exe())
+    roots = [
+        os.environ.get("PROGRAMFILES", r"C:\Program Files"),
+        os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
+        os.environ.get("LOCALAPPDATA", ""),
+    ]
+    for relpath in _WINDOWS_BROWSER_RELPATHS:
+        for root in roots:
+            if root:
+                _add(str(Path(root) / relpath))
+    return out
+
+
+def _open_url_windows(url: str) -> bool:
+    """Open *url* in a visible browser on Windows. See :func:`open_url`.
+
+    Launches a real browser exe DIRECTLY (CreateProcess, URL as one argv — ``&``
+    in OAuth URLs is safe), rather than following the OS file association via
+    rundll32/ShellExecute. The association path is what silently fails when the
+    default handler is hijacked to a dead profile; a direct exe launch lands the
+    URL in the browser's normal, visible profile. Falls back across candidates and
+    finally to ShellExecute. Returns True once a launcher is dispatched.
+    """
+    host = urlparse(url).hostname
+    for exe in _windows_browser_candidates():
+        try:
+            subprocess.Popen(  # noqa: S603
+                [exe, url], creationflags=NO_WINDOW_CREATIONFLAGS, close_fds=True
+            )
+            # Never log URL credentials, including one-time pairing fragments.
+            log.info("open_url: launched %s -> %s", exe, host)
+            log.debug("open_url: browser launch completed")
+            return True
+        except OSError as exc:
+            log.warning("open_url: %s failed (%s); trying next candidate", exe, type(exc).__name__)
+            continue
+    # Last resort: hand the URL to the OS association. It may be a UWP handler with
+    # no classic exe — but it is also the path that silently opens nothing for a
+    # dead/hijacked association, so we cannot verify it actually opened a browser.
+    try:
+        os.startfile(url)  # type: ignore[attr-defined]  # noqa: S606
+        log.warning(
+            "open_url: no browser exe found; handed off to ShellExecute "
+            "(cannot verify it opened) for %s", host,
+        )
+        return True  # best-effort; ShellExecute may open nothing for a dead handler
+    except OSError as exc:
+        log.warning("open_url: ShellExecute fallback failed for %s: %s", host, type(exc).__name__)
+        return False
+
+
+# Browser fallbacks for when the OS default opener (open / xdg-open) silently
+# fails — the same robustness the Windows path has. macOS: app display-names for
+# ``open -a``. Linux: browser executables probed on PATH.
+_MACOS_BROWSER_APPS = (
+    "Google Chrome",
+    "Safari",
+    "Firefox",
+    "Microsoft Edge",
+    "Brave Browser",
+)
+_LINUX_BROWSER_BINS = (
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+    "firefox",
+    "brave-browser",
+    "microsoft-edge",
+    "x-www-browser",
+    "sensible-browser",
+)
+# How long to wait for a quick-returning opener (open / xdg-open) before treating
+# it as failed. These wrappers dispatch and return in well under a second.
+_OPENER_TIMEOUT_S = 8
+
+
+def _run_opener_checked(argv: list[str]) -> bool:
+    """Run a quick-returning URL opener (``open`` / ``xdg-open`` / ``open -a``) and
+    report success by its EXIT CODE. Unlike a fire-and-forget ``Popen`` — which
+    cannot tell a real open from a silent no-op — these wrappers dispatch to the
+    browser and return promptly, so a non-zero exit means no handler took the URL.
+    Never raises.
+    """
+    try:
+        proc = subprocess.run(  # noqa: S603
+            argv,
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+            close_fds=True,
+            timeout=_OPENER_TIMEOUT_S,
+            capture_output=True,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log.warning("open_url: opener %r failed: %s", argv[0], type(exc).__name__)
+        return False
+    return proc.returncode == 0
+
+
+def _open_url_macos(url: str) -> bool:
+    """Open *url* on macOS: the default handler via ``open``, then explicit
+    ``open -a <App>`` fallbacks if the default association is broken. See
+    :func:`open_url`. Honest: returns False if nothing opened.
+    """
+    host = urlparse(url).hostname
+    if _run_opener_checked(["open", url]):
+        log.info("open_url: macOS launched default browser -> %s", host)
+        log.debug("open_url: browser launch completed")
+        return True
+    for app in _MACOS_BROWSER_APPS:
+        if _run_opener_checked(["open", "-a", app, url]):
+            log.info("open_url: macOS opened via %s -> %s", app, host)
+            return True
+    log.warning("open_url: macOS found no browser to open %s", host)
+    return False
+
+
+def _open_url_linux(url: str) -> bool:
+    """Open *url* on Linux: the default handler via ``xdg-open``, then a real
+    browser binary probed on PATH if that fails (broken/absent xdg associations on
+    a minimal desktop). See :func:`open_url`. Honest: returns False if nothing
+    opened. The direct-binary launch is fire-and-forget (the browser keeps running)
+    so it mirrors the Windows direct launch — success means the process started.
+    """
+    host = urlparse(url).hostname
+    if _run_opener_checked(["xdg-open", url]):
+        log.info("open_url: Linux launched default browser -> %s", host)
+        log.debug("open_url: browser launch completed")
+        return True
+    for binname in _LINUX_BROWSER_BINS:
+        exe = shutil.which(binname)
+        if not exe:
+            continue
+        try:
+            subprocess.Popen(  # noqa: S603
+                [exe, url], creationflags=NO_WINDOW_CREATIONFLAGS, close_fds=True
+            )
+            log.info("open_url: Linux opened via %s -> %s", binname, host)
+            return True
+        except OSError as exc:
+            log.warning("open_url: %s failed (%s); trying next", binname, type(exc).__name__)
+            continue
+    log.warning("open_url: Linux found no browser to open %s", host)
+    return False
+
+
+def open_url(url: str) -> bool:
+    """Open *url* in the user's web browser. ``http``/``https`` only.
+
+    The embedded desktop WebView2 cannot open external browser tabs (a
+    ``window.open`` / ``target="_blank"`` is silently dropped), so the desktop
+    shell routes OAuth-authorize and token-creation pages through this helper to
+    reach the user's real browser. Mirrors :func:`open_file`: per-OS dispatch,
+    gated on a present display, graceful False on a headless host / unsupported
+    scheme / launch error. Never raises.
+
+    On EVERY OS the dispatch is robust against a broken/hijacked default browser
+    association: the platform opener is tried first (honoring the user's chosen
+    browser), then a direct browser launch if that opener silently fails — Windows
+    via a real exe (:func:`_open_url_windows`), macOS via ``open -a``
+    (:func:`_open_url_macos`), Linux via a browser binary on PATH
+    (:func:`_open_url_linux`). macOS/Linux detect the opener failure by its exit
+    code; Windows bypasses the (unverifiable) association entirely.
+
+    Scheme is validated to ``http``/``https`` so a hostile ``open_url`` payload
+    (``file:``, ``javascript:``, an app protocol) can never be launched.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme.lower() not in ("http", "https"):
+        log.warning("open_url: refusing non-http(s) scheme %r", parsed.scheme)
+        return False
+    if not detect_capabilities().display_present:
+        log.info("open_url: no display present — skipping")
+        return False
+    plat = detect_platform()
+    if plat == "win32":
+        return _open_url_windows(url)
+    if plat == "darwin":
+        return _open_url_macos(url)
+    return _open_url_linux(url)
+
+
+# A chat link must never launch a program. Media, documents and folders open
+# with the default app; these suffixes are programs, installers or scripts.
+_REFUSED_CHAT_SUFFIXES = frozenset(
+    {
+        ".exe",
+        ".bat",
+        ".cmd",
+        ".com",
+        ".scr",
+        ".pif",
+        ".ps1",
+        ".psc1",
+        ".psm1",
+        ".psd1",
+        ".vbs",
+        ".vbe",
+        ".js",
+        ".jse",
+        ".wsf",
+        ".wsh",
+        ".wsc",
+        ".msi",
+        ".msp",
+        ".mst",
+        ".dll",
+        ".cpl",
+        ".jar",
+        ".sh",
+        ".bash",
+        ".command",
+        ".zsh",
+        ".ksh",
+        ".dmg",
+        ".pkg",
+        ".deb",
+        ".rpm",
+        ".appimage",
+        ".lnk",
+        ".scf",
+        ".url",
+        ".hta",
+        ".reg",
+        ".inf",
+        ".app",
+        ".apk",
+        ".ipa",
+        ".py",
+        ".pyw",
+        ".rb",
+        ".pl",
+        ".php",
+    }
+)
+
+
+class ChatOpenRejected(ValueError):
+    """The chat link is not a file or folder this computer should open."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
+def _path_from_file_uri(value: str) -> str | None:
+    """``file:///C:/x`` / ``file:///home/x`` → a native path, else None.
+
+    A host other than empty or ``localhost`` is a network location and is
+    refused. ``file://C:/x`` (the drive letter parsed as the host) is repaired.
+    """
+    parsed = urlparse(value)
+    host = parsed.netloc
+    path = unquote(parsed.path or "")
+    if re.fullmatch(r"[A-Za-z]:", host):
+        path = host + path
+    elif host and host.lower() != "localhost":
+        return None
+    if re.match(r"^/[A-Za-z]:[\\/]", path):
+        path = path[1:]
+    return path or None
+
+
+def chat_link_path(raw: str) -> str | None:
+    """Absolute local path inside a chat link, or None when it is not one.
+
+    Accepts a Windows drive path, a POSIX absolute path, a ``~/`` path, and a
+    ``file:`` URI with no remote host. Relative paths, UNC shares and web URLs
+    are not local opens. Does not check that the path exists.
+    """
+    text = raw.strip()
+    if len(text) >= 2 and text[0] == "<" and text[-1] == ">":
+        text = text[1:-1].strip()
+    if not text or any(ch in text for ch in "\x00\r\n"):
+        return None
+    lowered = text.lower()
+    if lowered.startswith(("http://", "https://", "javascript:", "data:", "mailto:")):
+        return None
+    if lowered.startswith("file:"):
+        converted = _path_from_file_uri(text)
+        if not converted:
+            return None
+        text = converted
+    if text.startswith("\\\\") or text.startswith("//"):
+        return None
+    if text.startswith("~/") or text.startswith("~\\"):
+        return text
+    if re.match(r"^[A-Za-z]:[\\/]", text):
+        return text
+    if text.startswith("/") and text != "/api" and not text.startswith("/api/"):
+        return text
+    return None
+
+
+def _user_file_roots() -> list[Path]:
+    """Folders a bare filename from chat may be found in."""
+    home = Path.home()
+    roots: list[Path] = []
+    for name in ("Downloads", "Desktop", "Documents"):
+        folder = home / name
+        if folder.is_dir():
+            roots.append(folder)
+    return roots
+
+
+def _relative_file_name(raw: str) -> Path | None:
+    """``notes.md`` or ``shots/photo.png``, never a path that climbs upward."""
+    text = raw.strip()
+    if len(text) >= 2 and text[0] == "<" and text[-1] == ">":
+        text = text[1:-1].strip()
+    if not text or any(ch in text for ch in "\x00\r\n"):
+        return None
+    lowered = text.lower()
+    if lowered.startswith(("http://", "https://", "javascript:", "data:", "mailto:", "file:")):
+        return None
+    if text.startswith(("\\\\", "//", "~/")) or re.match(r"^[A-Za-z]:[\\/]", text):
+        return None
+    parts = [part for part in text.replace("\\", "/").split("/") if part not in ("", ".")]
+    if not parts or any(part == ".." for part in parts):
+        return None
+    suffix = Path(parts[-1]).suffix
+    if not re.fullmatch(r"\.[A-Za-z0-9]{1,12}", suffix):
+        return None
+    return Path(*parts)
+
+
+def _inside(root: Path, candidate: Path) -> bool:
+    try:
+        resolved_root = root.resolve()
+        resolved = candidate.resolve()
+    except OSError:  # Unresolvable candidates fail the containment check closed.
+        return False
+    return resolved == resolved_root or resolved_root in resolved.parents
+
+
+def _find_named_file(raw: str) -> Path | None:
+    """Newest file of this name under Downloads, Desktop or Documents."""
+    relative = _relative_file_name(raw)
+    if relative is None:
+        return None
+    names = [relative]
+    if len(relative.parts) > 1:
+        names.append(Path(relative.name))
+    found: list[Path] = []
+    for root in _user_file_roots():
+        for name in names:
+            candidate = root / name
+            if _inside(root, candidate) and candidate.is_file():
+                found.append(candidate)
+    if not found:
+        return None
+    found.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    return found[0]
+
+
+def _refuse_program(target: Path) -> None:
+    suffix = target.suffix.lower()
+    if (target.is_file() and suffix in _REFUSED_CHAT_SUFFIXES) or (
+        target.is_dir() and suffix == ".app"
+    ):
+        raise ChatOpenRejected("refused-program")
+
+
+def _existing_absolute(native: str) -> Path | None:
+    """Resolve an absolute local path, or None when it is not on this computer."""
+    if native.startswith("~"):
+        native = str(Path(native).expanduser())
+    drive = re.match(r"^[A-Za-z]:[\\/]", native) is not None
+    if drive and os.name != "nt":
+        return None
+    path = Path(native)
+    if not path.is_absolute():
+        return None
+    try:
+        target = path.resolve()
+    except OSError:  # An unresolvable target is not an openable local path.
+        return None
+    if target.exists() and (target.is_file() or target.is_dir()):
+        return target
+    return None
+
+
+def prepare_chat_open(raw: str) -> Path:
+    """Existing local file or folder a chat link may open.
+
+    A full path opens that exact file, whatever its type: video, picture,
+    markdown or anything else the system can open. A bare filename is looked
+    up in Downloads, Desktop and Documents. Programs and scripts are refused.
+
+    Raises :class:`ChatOpenRejected`. A Windows drive path is only accepted
+    on Windows, so resolving it cannot land inside another operating system's
+    working directory.
+    """
+    native = chat_link_path(raw)
+    target = _existing_absolute(native) if native is not None else None
+    if target is None:
+        named = Path(native).name if native else raw
+        target = _find_named_file(named)
+    if target is None:
+        if native is None and _relative_file_name(raw) is None:
+            raise ChatOpenRejected("not-a-local-path")
+        raise ChatOpenRejected("not-found")
+    _refuse_program(target)
+    return target
+
+
+__all__ = [
+    "ChatOpenRejected",
+    "chat_link_path",
+    "open_file",
+    "open_file_with",
+    "open_url",
+    "prepare_chat_open",
+    "reveal_in_folder",
+]

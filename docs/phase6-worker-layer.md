@@ -4,19 +4,19 @@
 **ADR:** [`docs/adr/0009-self-healing-worker-critic.md`](adr/0009-self-healing-worker-critic.md)
 **Research doc:** Private source note §B (Claude CLI), §C (Job Objects), §E (worktree layout)
 **Branch:** `phase6-self-healing`
-**Status:** **BUILT** — `jarvis/missions/isolation/` (T1) + `jarvis/missions/workers/` (T2) are live, smoke tests green.
+**Status:** **BUILT** — `dodaios/missions/isolation/` (T1) + `dodaios/missions/workers/` (T2) are live, smoke tests green.
 
-> **Superseded:** this note documents the original Prompt-2 design (`OpenClawWorker`, now retired). The live worker layer has since moved to `jarvis/missions/workers/{provider_chain,claude_direct_worker,codex_direct_worker,gemini_worker,google_cli_worker}.py`; treat the class/file names below as historical.
+> **Superseded:** this note documents the original Prompt-2 design (`OpenClawWorker`, now retired). The live worker layer has since moved to `dodaios/missions/workers/{provider_chain,claude_direct_worker,codex_direct_worker,gemini_worker,google_cli_worker}.py`; treat the class/file names below as historical.
 
 ## What is wired up here?
 
 An **out-of-process worker subprocess** (the external `openclaw agent` CLI or `codex exec --json`) runs in its own `git worktree`, embedded in a Windows Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. The NDJSON stdout pipe is parsed into typed Pydantic events and streamed to the orchestrator as an `AsyncIterator`.
 
-Phase 6 is **additive** to Phase 5 — the Phase-5 `SubJarvisManager` (`jarvis/brain/sub_jarvis.py`) stays untouched. The new mission pipeline (Prompt 1+) only dispatches to the worker layer for ask/multi-step/repair/refactor.
+Phase 6 is **additive** to Phase 5 — the Phase-5 `SubJarvisManager` (`dodaios/brain/sub_jarvis.py`) stays untouched. The new mission pipeline (Prompt 1+) only dispatches to the worker layer for ask/multi-step/repair/refactor.
 
 ```
               ┌─────────────────────────────────────────────────────────┐
-              │ MissionManager (Prompt 1, jarvis/missions/manager.py)   │
+              │ MissionManager (Prompt 1, dodaios/missions/manager.py)   │
               │  state: PENDING → RUNNING → CRITIQUING → APPROVED|FAIL  │
               └────────────────┬────────────────────────────────────────┘
                                │ dispatch
@@ -44,7 +44,7 @@ Phase 6 is **additive** to Phase 5 — the Phase-5 `SubJarvisManager` (`jarvis/b
                                │ stdout NDJSON
                                ▼
         ┌──────────────────────────────────────────────────────┐
-        │ Stream-Consumer (jarvis/missions/workers/            │
+        │ Stream-Consumer (dodaios/missions/workers/            │
         │   stream_consumer.py)                                │
         │   read_ndjson_stream(stdout, parser=…, tee=stream.   │
         │   jsonl) → ClaudeStreamEvent (Pydantic v2)           │
@@ -59,7 +59,7 @@ Phase 6 is **additive** to Phase 5 — the Phase-5 `SubJarvisManager` (`jarvis/b
 
 ## Subdir structure
 
-### `jarvis/missions/isolation/` (T1)
+### `dodaios/missions/isolation/` (T1)
 
 | File | Purpose |
 |---|---|
@@ -67,7 +67,7 @@ Phase 6 is **additive** to Phase 5 — the Phase-5 `SubJarvisManager` (`jarvis/b
 | `job_object.py` | `WindowsJobObject` — factory returns a real Win32 wrapper (pywin32 lazy import) on Win32, otherwise `_NoOpJobObject`. async context manager, `assign(pid)` API, `KILL_ON_JOB_CLOSE | BREAKAWAY_OK` flags. |
 | `env.py` | `build_worker_env(run_dir, ...)` — strict allowlist (`PATH`, `SystemRoot`, `TEMP`, `USERPROFILE`, `LOCALAPPDATA`) plus FIX defaults (`NO_COLOR=1`, `PYTHONIOENCODING=utf-8`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, `CODEX_HOME=<run>/.codex`). NO `os.environ` inherit. |
 
-### `jarvis/missions/workers/` (T2)
+### `dodaios/missions/workers/` (T2)
 
 | File | Purpose |
 |---|---|
@@ -79,7 +79,7 @@ Phase 6 is **additive** to Phase 5 — the Phase-5 `SubJarvisManager` (`jarvis/b
 
 ## Concrete command lines
 
-**Jarvis-Agent Worker** (historical; see `_build_claude_cmd` in the retired `openclaw_worker.py:63`, superseded by `jarvis/missions/workers/provider_chain.py`):
+**Jarvis-Agent Worker** (historical; see `_build_claude_cmd` in the retired `openclaw_worker.py:63`, superseded by `dodaios/missions/workers/provider_chain.py`):
 
 ```bash
 openclaw agent "<prompt>" \

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.events import MsgType, SocietyEnvelope, Tier
-from jarvis.society.failure_reasons import FailureReason
-from jarvis.society.roster import AgentRecord, Roster
-from jarvis.society.scheduler import SocietyScheduler, validate_result
-from jarvis.society.store import SocietyStore
+from dodaios.society.events import MsgType, SocietyEnvelope, Tier
+from dodaios.society.failure_reasons import FailureReason
+from dodaios.society.roster import AgentRecord, Roster
+from dodaios.society.scheduler import SocietyScheduler, validate_result
+from dodaios.society.store import SocietyStore
 
 
 class FakeDispatcher:
@@ -284,6 +284,6 @@ async def test_dispatch_failure_becomes_typed_veto(tmp_path: Path):
 
 async def test_no_spawn_tool_in_never_granted_is_a_dispatch_path(world):
     """AP-5/14: the only way work starts is the scheduler's dispatch hook."""
-    from jarvis.society.capabilities import NEVER_GRANTED
+    from dodaios.society.capabilities import NEVER_GRANTED
 
     assert {"spawn-worker", "spawn-subagents", "multi-spawn"} <= NEVER_GRANTED

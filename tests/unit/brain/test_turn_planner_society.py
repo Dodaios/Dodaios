@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.turn_planner import TurnPath, TurnReason, plan_turn
+from dodaios.brain.turn_planner import TurnPath, TurnReason, plan_turn
 
 NAMES = ("Gmail agent", "Scout")
 

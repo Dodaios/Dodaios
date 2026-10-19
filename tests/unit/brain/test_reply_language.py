@@ -14,8 +14,8 @@ These tests lock in that:
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager, normalize_reply_language
-from jarvis.core.config import load_config
+from dodaios.brain.manager import BrainManager, normalize_reply_language
+from dodaios.core.config import load_config
 
 
 def _manager(reply_language: str) -> BrainManager:
@@ -144,7 +144,7 @@ def test_every_manager_phrase_table_carries_european_portuguese() -> None:
     pt-pinned turn never falls back to German."""
     import string
 
-    import jarvis.brain.manager as manager
+    import dodaios.brain.manager as manager
 
     def fields(value: object) -> list[set[str]]:
         texts = value if isinstance(value, tuple) else (value,)
@@ -176,7 +176,7 @@ def test_every_manager_phrase_table_carries_european_portuguese() -> None:
 
 
 def test_tool_use_loop_spoken_fallbacks_carry_european_portuguese() -> None:
-    from jarvis.brain.tool_use_loop import (
+    from dodaios.brain.tool_use_loop import (
         _ANTI_SILENCE_PHRASES,
         _META_DEBUG_ACK_PHRASES,
         _localized_phrase,

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.brain.manager import _DELEGATE_VOICE_DIRECTIVE, BrainManager
+from dodaios.brain.manager import _DELEGATE_VOICE_DIRECTIVE, BrainManager
 
 
 def _bare_manager() -> Any:

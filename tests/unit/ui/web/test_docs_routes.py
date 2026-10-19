@@ -4,7 +4,7 @@ Fix (MEDIUM): ``POST /api/docs/{slug}/open`` used to branch on
 ``hasattr(os, "startfile")`` else ``Popen(["xdg-open", ...])`` — macOS has
 neither, so the else-branch called a non-existent binary and raised a
 ``FileNotFoundError`` -> HTTP 500. The route now delegates to
-``jarvis.platform.open_path.open_file``, the cross-platform helper already
+``dodaios.platform.open_path.open_file``, the cross-platform helper already
 used by the Outputs view's native file actions.
 """
 
@@ -17,7 +17,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.docs_routes import _safe_doc_error, router
+from dodaios.ui.web.docs_routes import _safe_doc_error, router
 
 
 class _FakeRegistry:
@@ -43,7 +43,7 @@ def test_open_doc_calls_open_file(tmp_path: Path):
     target = tmp_path / "my-doc.md"
     target.write_text("# hi", encoding="utf-8")
     client = TestClient(_app(target))
-    with patch("jarvis.platform.open_path.open_file", return_value=True) as opn:
+    with patch("dodaios.platform.open_path.open_file", return_value=True) as opn:
         r = client.post("/api/docs/my-doc/open")
     assert r.status_code == 200
     assert r.json() == {"path": "my-doc.md", "opened": True}
@@ -56,7 +56,7 @@ def test_open_doc_failure_is_honest_500_not_launcher_crash(tmp_path: Path):
     target = tmp_path / "my-doc.md"
     target.write_text("# hi", encoding="utf-8")
     client = TestClient(_app(target))
-    with patch("jarvis.platform.open_path.open_file", return_value=False):
+    with patch("dodaios.platform.open_path.open_file", return_value=False):
         r = client.post("/api/docs/my-doc/open")
     assert r.status_code == 500
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.speech.wake_phrase import resolve_wake_plan
+from dodaios.speech.wake_phrase import resolve_wake_plan
 
 
 def _cfg(phrase: str, engine: str = "auto") -> SimpleNamespace:
@@ -36,7 +36,7 @@ def test_stt_match_custom_word_is_loudly_degraded() -> None:
 
 
 def test_vosk_preferred_over_stt_match_when_available(monkeypatch) -> None:
-    import jarvis.speech.wake_phrase as wp
+    import dodaios.speech.wake_phrase as wp
 
     monkeypatch.setattr(wp, "resolve_vosk_model_path", lambda lang: "/fake/de")
     plan = resolve_wake_plan(

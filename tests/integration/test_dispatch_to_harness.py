@@ -5,10 +5,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext
-from jarvis.harness.manager import HarnessManager
-from jarvis.plugins.tool.dispatch_to_harness import DispatchToHarnessTool
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext
+from dodaios.harness.manager import HarnessManager
+from dodaios.plugins.tool.dispatch_to_harness import DispatchToHarnessTool
 from tests.fixtures.harness.fake_harness import FakeHarness
 
 

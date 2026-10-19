@@ -7,7 +7,7 @@
 # public_base_url.
 #
 # This is a maintainer DEV tool (PowerShell-only is fine per the doctrine line
-# at scripts/ vs jarvis/). It does not run on the consumer's VPS runtime.
+# at scripts/ vs dodaios/). It does not run on the consumer's VPS runtime.
 #
 # Usage:
 #   pwsh scripts/telephony-tunnel.ps1 -Port 8765

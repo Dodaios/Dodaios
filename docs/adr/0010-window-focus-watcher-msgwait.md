@@ -70,6 +70,6 @@ It is recommended that §5 be updated accordingly at the next plan review (or th
 ## References
 
 - `JARVIS_AWARENESS_PLAN.md` §5 (plan wording of the deviation)
-- `jarvis/awareness/watchers/window.py:_pump_loop` (implementation)
+- `dodaios/awareness/watchers/window.py:_pump_loop` (implementation)
 - ADR-0009 (Awareness-layer architecture — parent)
 - Win32 docs: [`MsgWaitForMultipleObjects`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-msgwaitformultipleobjects)

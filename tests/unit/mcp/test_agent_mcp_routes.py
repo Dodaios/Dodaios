@@ -20,8 +20,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.agent_mcp_routes import router
-from jarvis.ui.web.mcp_server_routes import build_mcp_asgi_app
+from dodaios.ui.web.agent_mcp_routes import router
+from dodaios.ui.web.mcp_server_routes import build_mcp_asgi_app
 
 #: A stateless Streamable HTTP request needs both content types offered.
 _MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
@@ -37,7 +37,7 @@ def _mounted_app() -> FastAPI:
 @pytest.fixture
 def keyed(monkeypatch: pytest.MonkeyPatch) -> str:
     """A control key this process will accept, without touching the real one."""
-    from jarvis.core import control_key as ck
+    from dodaios.core import control_key as ck
 
     key = "not-a-real-key-only-this-test-accepts-it"
     monkeypatch.setattr(ck, "verify_control_key", lambda presented: presented == key)
@@ -158,7 +158,7 @@ def test_snippet_route_returns_pasteable_config(connect_app: FastAPI) -> None:
 def test_connect_writes_into_a_clients_config(
     connect_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.mcp.agents import export
+    from dodaios.mcp.agents import export
 
     monkeypatch.setattr(export, "_home", lambda: tmp_path)
     (tmp_path / ".cursor").mkdir()
@@ -178,7 +178,7 @@ def test_connect_writes_into_a_clients_config(
 @pytest.fixture
 def token_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """A token store of our own — never the real one on this machine."""
-    from jarvis.mcp.agents import tokens
+    from dodaios.mcp.agents import tokens
 
     store = tokens.TokenStore(tmp_path / "mcp_tokens.json")
     monkeypatch.setattr(tokens, "_store", store)
@@ -272,7 +272,7 @@ def test_pair_returns_a_finished_config_with_its_own_credential(
 
     # The config is finished: paste it, restart the client, done.
     entry = body["config"]["mcpServers"]["dodaios-agents"]
-    assert entry["args"] == ["-m", "jarvis.mcp.agents.bridge"]
+    assert entry["args"] == ["-m", "dodaios.mcp.agents.bridge"]
     assert entry["env"]["JARVIS_MCP_TOKEN"] == secret
     assert "JARVIS_CONTROL_KEY" not in entry["env"], "pairing must not hand out the master key"
     assert json.loads(body["config_text"])["mcpServers"]["dodaios-agents"] == entry

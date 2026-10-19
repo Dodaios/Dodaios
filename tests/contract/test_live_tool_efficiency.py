@@ -4,13 +4,13 @@ import json
 
 import pytest
 
-from jarvis.brain.cost import calculate_cost_usd
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
-from jarvis.live.config import LiveConfig
-from jarvis.live.cost import backend_cost_usd
-from jarvis.live.discovery import discover
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.brain.cost import calculate_cost_usd
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.live.config import LiveConfig
+from dodaios.live.cost import backend_cost_usd
+from dodaios.live.discovery import discover
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 
 
 def descriptor(name, description, *, size=0):

@@ -1,4 +1,4 @@
-"""Tests for jarvis.agentic_ide.branch_contents — reading a branch in place."""
+"""Tests for dodaios.agentic_ide.branch_contents — reading a branch in place."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide.branch_contents import branch_contents, branch_file_diff
+from dodaios.agentic_ide.branch_contents import branch_contents, branch_file_diff
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 

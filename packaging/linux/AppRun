@@ -35,7 +35,7 @@ fi
 APP="${HERE}/usr/bin/Jarvis"
 BROWSER_UI_MARKER="${HERE}/usr/share/personal-jarvis/browser-ui"
 
-# Default port from jarvis/core/config.py (ui.admin_api_port). A user who
+# Default port from dodaios/core/config.py (ui.admin_api_port). A user who
 # changed it in jarvis.toml simply gets no auto-opened tab: the probe below
 # never answers, nothing is opened, and the app still runs and logs its real
 # address. Guessing wrong is worse than doing nothing, so this never opens a

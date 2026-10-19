@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 async def test_a_typed_dot_dot_folds_away(tmp_path: Path) -> None:

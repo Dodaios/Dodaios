@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.appshot import service as appshot_service
-from jarvis.appshot.effect import placement
-from jarvis.appshot.gesture import BothAltWatcher
-from jarvis.appshot.hotkey import normalize_hotkey
-from jarvis.appshot.store import Appshot, AppshotStore, get_store
-from jarvis.brain.manager import _takes_pending_appshot
-from jarvis.screen_context.models import (
+from dodaios.appshot import service as appshot_service
+from dodaios.appshot.effect import placement
+from dodaios.appshot.gesture import BothAltWatcher
+from dodaios.appshot.hotkey import normalize_hotkey
+from dodaios.appshot.store import Appshot, AppshotStore, get_store
+from dodaios.brain.manager import _takes_pending_appshot
+from dodaios.screen_context.models import (
     CaptureTarget,
     IntentVerdict,
     ScreenContext,
@@ -24,8 +24,8 @@ from jarvis.screen_context.models import (
     VisualIntent,
     WindowFacts,
 )
-from jarvis.screen_context.service import CaptureOutcome
-from jarvis.screen_context.turn import screen_context_for_turn
+from dodaios.screen_context.service import CaptureOutcome
+from dodaios.screen_context.turn import screen_context_for_turn
 
 
 class Clock:
@@ -111,7 +111,7 @@ class Keys:
 
 
 def test_both_alt_fires_once_per_press_and_rearms_on_release(monkeypatch) -> None:
-    import jarvis.platform.self_input as self_input
+    import dodaios.platform.self_input as self_input
 
     monkeypatch.setattr(self_input, "synthetic_input_recent", lambda *a, **k: False)
     keys, clock, fired = Keys(), Clock(), []
@@ -131,7 +131,7 @@ def test_both_alt_fires_once_per_press_and_rearms_on_release(monkeypatch) -> Non
 
 
 def test_both_alt_fires_again_when_one_key_stays_down(monkeypatch) -> None:
-    import jarvis.platform.self_input as self_input
+    import dodaios.platform.self_input as self_input
 
     monkeypatch.setattr(self_input, "synthetic_input_recent", lambda *a, **k: False)
     keys, clock, fired = Keys(), Clock(), []
@@ -148,7 +148,7 @@ def test_both_alt_fires_again_when_one_key_stays_down(monkeypatch) -> None:
 
 
 def test_both_alt_ignores_a_bounce_and_synthetic_input(monkeypatch) -> None:
-    import jarvis.platform.self_input as self_input
+    import dodaios.platform.self_input as self_input
 
     keys, clock, fired = Keys(), Clock(), []
     watcher = BothAltWatcher(lambda: fired.append(1), probe=keys, clock=clock)
@@ -350,8 +350,8 @@ class Bus:
 
 @pytest.fixture
 def wired(monkeypatch, clean_store):
-    import jarvis.appshot.delivery as delivery
-    import jarvis.screen_context.turn as turn
+    import dodaios.appshot.delivery as delivery
+    import dodaios.screen_context.turn as turn
 
     service = FakeCaptureService()
     config = Config()

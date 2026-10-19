@@ -54,9 +54,9 @@ def _classify(plan: list[dict[str, str]]) -> tuple[bool, list[str]]:
 
 
 async def main() -> int:
-    import jarvis.harness.screenshot_only_loop as loop_mod
-    from jarvis.core.bus import EventBus
-    from jarvis.harness.screenshot_only_loop import _make_plan
+    import dodaios.harness.screenshot_only_loop as loop_mod
+    from dodaios.core.bus import EventBus
+    from dodaios.harness.screenshot_only_loop import _make_plan
 
     print("=" * 72)
     print("LIVE PLANNER A/B — navigation-vs-search discipline")
@@ -64,9 +64,9 @@ async def main() -> int:
     print("=" * 72)
 
     bus = EventBus()
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     build_default_brain(bus=bus)
-    from jarvis.harness.computer_use_context import get_computer_use_context
+    from dodaios.harness.computer_use_context import get_computer_use_context
     ctx = get_computer_use_context()
     print(f"[setup] brain wired; verify={ctx.verify_after_each_step}")
 

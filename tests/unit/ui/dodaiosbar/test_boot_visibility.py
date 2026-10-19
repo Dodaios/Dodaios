@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import jarvis.ui.desktop_app as desktop_app_module
-from jarvis.ui.desktop_app import DesktopApp
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+import dodaios.ui.desktop_app as desktop_app_module
+from dodaios.ui.desktop_app import DesktopApp
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 def _app(*, bar_persistent: bool) -> DesktopApp:

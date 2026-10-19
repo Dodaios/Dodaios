@@ -12,13 +12,13 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.control import CancelToken, KillSwitch
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import HarnessResult, HarnessTask
-from jarvis.harness import cu_run_registry as reg
-from jarvis.harness.computer_use_context import ComputerUseContext
-from jarvis.plugins.harness import computer_use as cu_mod
-from jarvis.plugins.harness.computer_use import (
+from dodaios.control import CancelToken, KillSwitch
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import HarnessResult, HarnessTask
+from dodaios.harness import cu_run_registry as reg
+from dodaios.harness.computer_use_context import ComputerUseContext
+from dodaios.plugins.harness import computer_use as cu_mod
+from dodaios.plugins.harness.computer_use import (
     CU_MISSION_ID_ENV_KEY,
     CU_SOURCE_ENV_KEY,
     ComputerUseHarness,
@@ -27,7 +27,7 @@ from jarvis.plugins.harness.computer_use import (
 
 @pytest.fixture(autouse=True)
 def _clean_state():
-    from jarvis.harness.computer_use_context import (
+    from dodaios.harness.computer_use_context import (
         clear_cu_suppression,
         register_active_cu_token,
     )

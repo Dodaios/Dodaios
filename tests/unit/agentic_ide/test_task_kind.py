@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide.task_kind import (
+from dodaios.agentic_ide.task_kind import (
     KIND_IMPLEMENT,
     KIND_INVESTIGATE,
     KIND_NEUTRAL,

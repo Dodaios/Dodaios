@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import jarvis_harness
-from jarvis.core import runtime_refs
-from jarvis.mcp import jarvis_tools_server as server
+from dodaios.agent_chat import jarvis_harness
+from dodaios.core import runtime_refs
+from dodaios.mcp import jarvis_tools_server as server
 
 
 @dataclass
@@ -249,7 +249,7 @@ def test_agy_plugin_is_skipped_when_the_app_is_not_ready(tmp_path, monkeypatch):
 
 
 def test_claude_argv_carries_the_tools_and_the_identity(monkeypatch):
-    from jarvis.agent_chat import runner_cli
+    from dodaios.agent_chat import runner_cli
 
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.jarvis_harness, "control_key", lambda: "k")
@@ -274,7 +274,7 @@ def test_a_chat_without_a_ready_app_spawns_exactly_as_before(monkeypatch):
     """No tools to offer must never cost the person their turn."""
     from pathlib import Path
 
-    from jarvis.agent_chat import runner_cli
+    from dodaios.agent_chat import runner_cli
 
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.jarvis_harness, "control_key", lambda: None)

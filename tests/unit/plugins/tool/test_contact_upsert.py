@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.tool.contact_upsert import ContactUpsertTool
+from dodaios.plugins.tool.contact_upsert import ContactUpsertTool
 
 
 @dataclass
