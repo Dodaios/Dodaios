@@ -448,6 +448,7 @@ class TestIntegrationToolCallToMutation:
             pending_store=pending_store,
             audit=audit_log,
             timeout_seconds=30.0,
+            default_language="de",  # the spoken answer below is German
         )
 
         # 1. Hauptjarvis ruft set_config_value-Tool

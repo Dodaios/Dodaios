@@ -119,7 +119,7 @@ def build_readback_persona(language: str, *, instruction: str, facts_block: str)
     situation supplied by the call site; ``facts_block`` is the rendered,
     deterministic ground truth the model may use and nothing else.
     """
-    language_name = _LANGUAGE_NAMES.get(language, "German")
+    language_name = _LANGUAGE_NAMES.get(language, "English")
     return f"""You are the user's personal assistant, speaking one short \
 status sentence out loud.
 

@@ -32,11 +32,20 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable, Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Literal
 
+from jarvis.i18n.locales import DEFAULT_LOCALE, LANGUAGE_NAMES, SUPPORTED_LOCALES
+
 __all__ = [
     "DEFAULT_LOCALE",
+    "TURN_LANGUAGE",
+    "conversation_language_from_history",
+    "detect_conversation_language",
+    "normalize_any_language_tag",
+    "resolve_conversation_language",
     "OutputLanguageValidation",
     "detect_language_request",
     "detect_text_language",
@@ -48,16 +57,23 @@ __all__ = [
     "validate_output_language",
 ]
 
-#: The fallback spoken/written language for a turn whose language cannot be
-#: detected AND no ``brain.reply_language`` pin is set. ONE shared constant so
-#: every output layer agrees on the auto-mode default instead of each hardcoding
-#: its own (the historical "pipeline defaults en, action phrases default de"
-#: split that let two layers diverge on the same ambiguous turn).
-DEFAULT_LOCALE = "en"
+# ``DEFAULT_LOCALE`` (imported above, re-exported) is the fallback language of
+# every system phrase: a turn whose language cannot be detected, or is one
+# without translated phrases, AND no ``brain.reply_language`` pin. ONE shared
+# constant so every output layer agrees instead of each hardcoding its own (the
+# historical "pipeline defaults en, action phrases default de" split).
+
+#: The person's language for the brain turn running in this context (any code,
+#: or "unknown"), resolved once at the top of ``BrainManager.generate()`` and
+#: scoped to that call. Concurrent turns (a chat and a voice call) each read
+#: their own; a system phrase deep in a turn reads it instead of re-deriving
+#: the language from text that may be an internal English prompt. ``None``
+#: outside a turn, ``""`` inside one before the language is known.
+TURN_LANGUAGE: ContextVar[str | None] = ContextVar("jarvis.turn_language", default=None)
 
 #: The codes an explicit ``brain.reply_language`` pin may carry (``"auto"`` is
 #: deliberately absent — it means "no pin, mirror the input").
-_REPLY_PINS: frozenset[str] = frozenset({"de", "en", "es", "pt"})
+_REPLY_PINS: frozenset[str] = frozenset(SUPPORTED_LOCALES)
 
 #: A turn with at most this many word tokens is a "thin" turn — a one- or
 #: two-word interjection ("Now", "Stop now", "jetzt", a lone loanword). A thin
@@ -66,6 +82,10 @@ _REPLY_PINS: frozenset[str] = frozenset({"de", "en", "es", "pt"})
 #: when short. Natural-flow forensic 2026-06-18: a single English "Now" in
 #: a German voice chat flipped the whole turn to English.
 _THIN_TURN_MAX_TOKENS = 2
+
+#: Evidence a thin turn needs to switch into a language without translated
+#: phrases: its own script (10), or a letter of it (3) plus one of its words.
+_THIN_TURN_SWITCH_EVIDENCE = 4
 
 _TOKEN_RE = re.compile(r"\b[\w']+\b", re.UNICODE)
 
@@ -92,8 +112,11 @@ _LANGUAGE_REQUEST_RE = re.compile(
     r"(?P<language>deutsch|german|alemán|aleman|english|englisch|inglés|ingles"  # i18n-allow
     r"|español|espanol|spanish|spanisch"  # i18n-allow
     r"|português|portugues|portugués|portuguese|portugiesisch"  # i18n-allow
-    r"|alemão|alemao|inglês|espanhol)"  # i18n-allow
-    r"(?:\s+(?:antworten|sprechen))?"  # i18n-allow
+    r"|alemão|alemao|inglês|espanhol"  # i18n-allow
+    r"|turkish|türkisch|türkçe|turkce|french|französisch|italian|italienisch"  # i18n-allow
+    r"|dutch|niederländisch|polish|polnisch|russian|russisch|greek|griechisch"  # i18n-allow
+    r"|arabic|arabisch|japanese|japanisch|korean|koreanisch|chinese|chinesisch)"  # i18n-allow
+    r"(?:\s+(?:antworten|sprechen|konuş|konus|cevap ver))?"  # i18n-allow
     r"(?:[\s,]+(?:please|bitte|por favor|now|jetzt|ahora|agora))?"  # i18n-allow
     r"[\s.!?]*",
     re.IGNORECASE,
@@ -105,6 +128,13 @@ _REQUEST_LANGUAGE_CODES = {
     "português": "pt", "portugues": "pt", "portugués": "pt",  # i18n-allow
     "portuguese": "pt", "portugiesisch": "pt",  # i18n-allow
     "alemão": "de", "alemao": "de", "inglês": "en", "espanhol": "es",  # i18n-allow
+    # Languages without translated system phrases: the model still answers in them.
+    "turkish": "tr", "türkisch": "tr", "türkçe": "tr", "turkce": "tr",  # i18n-allow
+    "french": "fr", "französisch": "fr", "italian": "it", "italienisch": "it",  # i18n-allow
+    "dutch": "nl", "niederländisch": "nl", "polish": "pl", "polnisch": "pl",  # i18n-allow
+    "russian": "ru", "russisch": "ru", "greek": "el", "griechisch": "el",  # i18n-allow
+    "arabic": "ar", "arabisch": "ar", "japanese": "ja", "japanisch": "ja",  # i18n-allow
+    "korean": "ko", "koreanisch": "ko", "chinese": "zh", "chinesisch": "zh",  # i18n-allow
 }
 
 # Output validation deliberately ignores code and links. They frequently carry
@@ -252,16 +282,238 @@ def normalize_language_tag(tag: object) -> str:
     return _TAG_TO_CODE.get(head, "unknown")
 
 
+# --- Languages without translated system phrases --------------------------
+#
+# The four supported languages are not the only ones people speak. Without a
+# way to say "this is something else", Turkish scored as German on umlauts, as
+# Portuguese on the cedilla and as Spanish on "al"/"el", so the conversation language
+# jumped between them and the model was told to answer in each in turn
+# (forensic 2026-10-19). These signals only have to recognise that a text is
+# in another language; they never decide between the four.
+
+# Whisper reports language NAMES; local STT reports ISO codes.
+_OTHER_TAG_TO_CODE: dict[str, str] = {
+    **{code: code for code in LANGUAGE_NAMES if code not in _REPLY_PINS},
+    **{
+        name.lower(): code
+        for code, name in LANGUAGE_NAMES.items()
+        if code not in _REPLY_PINS
+    },
+    "tur": "tr", "fra": "fr", "fre": "fr", "ita": "it", "nld": "nl", "dut": "nl",
+    "pol": "pl", "ces": "cs", "cze": "cs", "ron": "ro", "rum": "ro", "hun": "hu",
+    "rus": "ru", "ukr": "uk", "ell": "el", "gre": "el", "ara": "ar", "fas": "fa",
+    "per": "fa", "heb": "he", "hin": "hi", "tha": "th", "jpn": "ja", "kor": "ko",
+    "zho": "zh", "chi": "zh", "vie": "vi", "mandarin": "zh", "cantonese": "zh",
+    "farsi": "fa",
+}
+
+# Non-Latin scripts: the script itself names the language.
+_SCRIPT_LANGUAGES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("ja", re.compile(r"[\u3040-\u30ff]")),  # kana (checked before Han)
+    ("ko", re.compile(r"[\uac00-\ud7af\u1100-\u11ff]")),  # Hangul
+    ("zh", _HAN_RE),
+    ("uk", re.compile(r"[\u0456\u0457\u0454\u0491\u0406\u0407\u0404\u0490]")),
+    ("ru", re.compile(r"[\u0400-\u04ff]")),  # Cyrillic
+    ("el", re.compile(r"[\u0370-\u03ff]")),  # Greek
+    ("fa", re.compile(r"[\u067e\u0686\u0698\u06af\u06cc]")),  # Persian letters
+    ("ar", re.compile(r"[\u0600-\u06ff]")),  # Arabic script
+    ("he", re.compile(r"[\u0590-\u05ff]")),  # Hebrew
+    ("hi", re.compile(r"[\u0900-\u097f]")),  # Devanagari
+    ("th", re.compile(r"[\u0e00-\u0e7f]")),  # Thai
+)
+_ANY_LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+
+# The wider script a marker-letter language is written in: Ukrainian letters
+# inside a mostly Cyrillic text, Persian letters inside a mostly Arabic one.
+_SCRIPT_MARKERS: dict[str, re.Pattern[str]] = {
+    "uk": re.compile(r"[\u0400-\u04ff]"),
+    "fa": re.compile(r"[\u0600-\u06ff]"),
+}
+
+# Latin-script letters no supported language writes.
+_OTHER_LATIN_CHARS: dict[str, re.Pattern[str]] = {
+    "tr": re.compile(r"[\u0131\u0130\u011f\u011e\u015f\u015e]"),  # ı İ ğ Ğ ş Ş
+    "pl": re.compile(
+        r"[\u0142\u0141\u0105\u0104\u0119\u0118\u015b\u015a\u017a\u0179"
+        r"\u017c\u017b\u0144\u0143\u0107\u0106]"
+    ),  # ł ą ę ś ź ż ń ć
+    "cs": re.compile(r"[\u0159\u0158\u011b\u011a\u016f\u016e]"),  # ř ě ů
+    "ro": re.compile(r"[\u0103\u0102\u0219\u0218\u021b\u021a]"),  # ă ș ț
+    "hu": re.compile(r"[\u0151\u0150\u0171\u0170]"),  # ő ű
+    "fr": re.compile(r"[\u0153\u0152]"),  # œ
+}
+
+# Function words of languages without translated phrases. Disjoint from the
+# supported sets AND from words everyday German, English, Spanish or Portuguese
+# use outside those sets ("nie", "sie", "le", "mi", "este", "van", "most", ...):
+# a supported sentence must never read as another language. Guarded by
+# tests/unit/brain/test_conversation_language_retention.py.
+_SUPPORTED_COMMON_WORDS: frozenset[str] = frozenset(
+    (
+        "nie sie mit sei so man war am im um an in es da wo was wer hat hab habe le "  # i18n-allow
+        "les me te se su sus mi mis tu tus al del ama sana hala sur tres uno una "  # i18n-allow
+        "cosa mio mia tuo tua este esta eso nem ano nu eu ele ela posso mas ma van "  # i18n-allow
+        "met op dank most mam bestand comment ne "  # i18n-allow
+    ).split()
+)
+
+
+_OTHER_TOKENS: dict[str, frozenset[str]] = {
+    code: frozenset(words.split()) - _SUPPORTED_COMMON_WORDS
+    for code, words in {
+        "tr": (
+            "ve bir bu şu için icin ile mı mu mü misin mısın musun müsün miyim değil "  # i18n-allow
+            "degil var yok sen biz siz onlar onu bunu şunu bana beni seni benim "  # i18n-allow
+            "senin bizim çok cok daha gibi fakat nasıl nasil neden niye nerede şimdi "  # i18n-allow
+            "simdi bugün bugun yarın yarin dün evet hayır hayir lütfen lutfen "  # i18n-allow
+            "teşekkürler tesekkurler teşekkür sağol merhaba selam tamam iyi kadar "  # i18n-allow
+            "sonra önce hiç hep şey sey yap yapar yapabilir yapıyorsun yapıyor olur "  # i18n-allow
+            "oldu olarak hata dosya dosyayı aç kapat göster söyle yaz oku istiyorum "  # i18n-allow
+            "lazım gerek çalışmıyor çalışıyor bitti mesaj neler nedir hangi niçin "  # i18n-allow
+            "artık demek "  # i18n-allow
+        ),
+        "fr": (
+            "est je vous nous pas une au aux avec pour dans ce cette qui quoi pourquoi "  # i18n-allow
+            "bonjour merci oui très où c'est j'ai suis sont avez peux faire fais moi "  # i18n-allow
+            "toi ça aujourd'hui demain fichier ouvre montre s'il plaît plait qu'est "  # i18n-allow
+            "voudrais savoir marche "  # i18n-allow
+        ),
+        "it": (
+            "che sono è questo questa quello perché perche grazie ciao buongiorno "  # i18n-allow
+            "anche ancora molto fare puoi voglio della dello degli nel nella sul "  # i18n-allow
+            "alla gli dove oggi domani adesso io ho hai abbiamo di stai "  # i18n-allow
+        ),
+        "nl": (
+            "het een ik jij niet wat hoe waarom waar wanneer bedankt alsjeblieft "  # i18n-allow
+            "alstublieft goed graag kun kunt kan mijn jouw zijn hebben heb deze dit "  # i18n-allow
+            "dat voor naar nog ook maar vandaag zeg laat toon gaat "  # i18n-allow
+        ),
+        "pl": (
+            "jest się jak co czy dlaczego gdzie kiedy proszę prosze dziękuję "  # i18n-allow
+            "dziekuje dzień dzien dobry tak masz jestem ty mój moj moja może moze "  # i18n-allow
+            "teraz dzisiaj jutro plik otwórz pokaż że ze "  # i18n-allow
+        ),
+        "cs": (
+            "není neni jsem jsi proč proc kde kdy děkuji dekuji prosím prosim dobrý "  # i18n-allow
+            "dobry "  # i18n-allow
+        ),
+        "ro": (
+            "și sunt mulțumesc multumesc bună pentru cu acum astăzi astazi mâine "  # i18n-allow
+            "maine vă rog "  # i18n-allow
+        ),
+        "hu": (
+            "igen köszönöm koszonom és hogy nincs kérem kerem szia holnap egy az ez "  # i18n-allow
+            "miért miert hol mikor "  # i18n-allow
+        ),
+    }.items()
+}
+
+
+def normalize_any_language_tag(tag: object) -> str:
+    """Like :func:`normalize_language_tag`, but also places languages without
+    translated phrases (``"turkish"`` -> ``"tr"``); ``"unknown"`` otherwise."""
+    code = normalize_language_tag(tag)
+    if code != "unknown" or not tag:
+        return code
+    text = str(tag).strip().lower().replace("_", "-")
+    return _OTHER_TAG_TO_CODE.get(text) or _OTHER_TAG_TO_CODE.get(
+        text.split("-", 1)[0], "unknown"
+    )
+
+
+def _detect_script_language(text: str) -> str:
+    """A non-Latin script that makes up most of the letters, else ``""``."""
+    letters = len(_ANY_LETTER_RE.findall(text))
+    if not letters:
+        return ""
+    for code, pattern in _SCRIPT_LANGUAGES:
+        found = len(pattern.findall(text))
+        if code == "ja" and found:
+            # Kana only appear in Japanese; Han may make up most of it.
+            if found + len(_HAN_RE.findall(text)) >= max(2, letters / 2):
+                return code
+            continue
+        if found >= 2 and found >= letters / 2:
+            return code
+        if code in _SCRIPT_MARKERS and found:
+            if len(_SCRIPT_MARKERS[code].findall(text)) >= max(2, letters / 2):
+                return code
+    return ""
+
+
+def _other_language_scores(text: str, tokens: set[str]) -> dict[str, int]:
+    scores = {code: len(tokens & vocabulary) for code, vocabulary in _OTHER_TOKENS.items()}
+    for code, pattern in _OTHER_LATIN_CHARS.items():
+        if pattern.search(text):
+            scores[code] = scores.get(code, 0) + 3
+    return scores
+
+
+def _detect_other_language(text: str) -> tuple[str, int]:
+    """``(code, evidence)`` when *text* is in a language without translated
+    phrases, else ``("", 0)``.
+
+    It must beat every supported language on the same text, so a German
+    sentence that mentions "Łukasz" or "Istanbul" stays German.
+    """
+    script = _detect_script_language(text)
+    if script:
+        return script, 10
+    words = [tok.lower() for tok in _TOKEN_RE.findall(text)]
+    if _detect_gross_vietnamese_output(text, words):
+        return "vi", 10
+    tokens = set(words)
+    other = _other_language_scores(text, tokens)
+    best_code, best = max(other.items(), key=lambda kv: kv[1])
+    if best < 2 or sum(1 for value in other.values() if value == best) > 1:
+        return "", 0
+    supported = {code: len(tokens & vocab) for code, vocab in _SETS}
+    _add_script_scores(text, supported)
+    supported_best = max(supported.values())
+    if best <= supported_best:
+        return "", 0
+    if supported_best and not tokens & _OTHER_TOKENS.get(best_code, frozenset()):
+        # Only a letter, inside a sentence with supported words: a name
+        # ("Ruf bitte Łukasz an"), not a language.
+        return "", 0
+    return best_code, best
+
+
+def detect_conversation_language(text: str) -> str:
+    """The language *text* is written in, supported or not, else ``unknown``.
+
+    ``de``/``en``/``es``/``pt`` as :func:`detect_text_language` finds them;
+    any other recognised language by its code (``tr``, ``fr``, ``ru``, ...).
+    This answers "which language should the model reply in". Which language
+    a system phrase uses is a separate step (:func:`jarvis.i18n.phrase_locale`).
+    """
+    t = (text or "").strip()
+    if not t:
+        return "unknown"
+    other, _evidence = _detect_other_language(t)
+    if other:
+        return other
+    return _detect_supported_language(t)
+
+
 def detect_text_language(text: str) -> str:
     """Classify *text* as ``de``/``en``/``es``/``pt`` — or ``unknown`` when unclear.
 
     A language must score strictly higher than every other to win; ties and
     zero-overlap text (proper nouns, "ok") return ``"unknown"`` so the caller
-    can fall back to the STT tag.
+    can fall back to the STT tag. Text in another recognisable language
+    (Turkish, French, Russian, ...) is ``"unknown"`` too: it is NOT the
+    supported language whose letters it happens to share.
     """
     t = (text or "").strip()
     if not t:
         return "unknown"
+    if _detect_other_language(t)[0]:
+        return "unknown"
+    return _detect_supported_language(t)
+
+
+def _detect_supported_language(t: str) -> str:
     tokens = {tok.lower() for tok in _TOKEN_RE.findall(t)}
     scores = {code: len(tokens & vocab) for code, vocab in _SETS}
     _add_script_scores(t, scores)
@@ -422,6 +674,10 @@ def resolve_transcript_language(reported: object, text: str) -> str:
     tag_code = normalize_language_tag(lowered)
     if not (text or "").strip():
         return tag_code
+    if _detect_other_language(text)[0]:
+        # Another language: no supported word list may touch it, whatever a
+        # pinned STT tag echoes.
+        return "unknown"
     detected = detect_text_language(text)
     if detected != "unknown" and (
         # Nothing to contradict: no tag at all, or one that says "I could not
@@ -468,13 +724,74 @@ def _has_language_switch_evidence(text: str, detected: str) -> bool:
 
     A lone accented name, repeated loanword, or provider language tag is too
     weak to redefine a conversation. Existing text detection still handles a
-    first turn, for which there is no established language to protect.
+    first turn, for which there is no established language to protect. A
+    language without translated phrases carries its own evidence: the
+    detector only names it on several matching words or its own script.
     """
+    if detected not in _REPLY_PINS:
+        return detected != "unknown" and _detect_other_language(text or "")[0] == detected
     tokens = {token.lower() for token in _TOKEN_RE.findall(text or "")}
     scores = {code: len(tokens & vocabulary) for code, vocabulary in _SETS}
     score = scores.get(detected, 0)
     runner_up = max(value for code, value in scores.items() if code != detected)
     return score >= 2 and score - runner_up >= 2
+
+
+def _known_language(code: object) -> str:
+    value = str(code or "").strip().lower()
+    return value if value in LANGUAGE_NAMES else ""
+
+
+def resolve_conversation_language(
+    reply_language: object,
+    stt_language: object,
+    text: str,
+    *,
+    conversation_language: object = "",
+) -> str:
+    """The language the person is speaking in this turn: any code, or ``unknown``.
+
+    This is what the MODEL is told to answer in, so it is not limited to the
+    languages with translated system phrases: a Turkish conversation stays
+    Turkish. :func:`resolve_output_language` narrows it to a phrase language.
+
+    Precedence, highest first:
+
+    1. an explicit ``brain.reply_language`` pin (``de``/``en``/``es``/``pt``) — the
+       user-selected language wins over everything, including what STT heard;
+    2. else an explicit language instruction, even a two-word correction;
+    3. else, in auto mode, conversation stickiness: a "thin" turn (a one- or
+       two-word interjection like "Now"/"Stop"/"jetzt", or a lone loanword) is
+       in ``conversation_language`` — it must NOT flip an established
+       conversation. A switch needs independent text evidence; STT tags alone
+       cannot replace an established language;
+    4. else the detected language of the turn (text first, the STT tag breaks
+       ties), an ambiguous substantive turn inheriting ``conversation_language``;
+    5. else ``"unknown"``.
+    """
+    pin = str(reply_language or "").strip().lower()
+    if pin in _REPLY_PINS:
+        return pin
+    requested = detect_language_request(text)
+    if requested:
+        return requested
+    conv = _known_language(conversation_language)
+    detected = detect_conversation_language(text)
+    if conv and len(_TOKEN_RE.findall(text or "")) <= _THIN_TURN_MAX_TOKENS:
+        # A short turn only switches on unmistakable evidence: its own script,
+        # or a letter AND a word of a language without translated phrases
+        # ("Dosyayı aç"). "Now" or "ok" never does.
+        other, evidence = _detect_other_language(text or "")
+        if other and other != conv and evidence >= _THIN_TURN_SWITCH_EVIDENCE:
+            return other
+        return conv
+    if conv:
+        if detected == conv or not _has_language_switch_evidence(text, detected):
+            return conv
+        return detected
+    if detected != "unknown":
+        return detected
+    return normalize_any_language_tag(stt_language)
 
 
 def resolve_output_language(
@@ -494,39 +811,52 @@ def resolve_output_language(
     layer can diverge from another (AGENTS.md "Runtime Output Language";
     2026-06-18 forensic).
 
-    Precedence, highest first:
-
-    1. an explicit ``brain.reply_language`` pin (``de``/``en``/``es``/``pt``) — the
-       user-selected language wins over everything, including what STT heard;
-    2. else an explicit language instruction, even a two-word correction;
-    3. else, in auto mode, conversation stickiness: a "thin" turn (a one- or
-       two-word interjection like "Now"/"Stop"/"jetzt", or a lone loanword) is
-       spoken in ``conversation_language`` — it must NOT flip an established
-       conversation. A switch needs independent text evidence; STT tags alone
-       cannot replace an established language;
-    4. else the detected input language of the turn (``resolve_turn_language``:
-       text heuristic first, STT tag breaks ties), an ambiguous substantive turn
-       inheriting ``conversation_language`` when one is set;
-    5. else the configured ``default`` locale (``DEFAULT_LOCALE``).
+    It is :func:`resolve_conversation_language` narrowed to the languages
+    with translated phrases: a supported language is itself; a language
+    without translations (Turkish, French, ...) is ``DEFAULT_LOCALE``
+    (English) — never the supported language it happens to resemble
+    (forensic 2026-10-19); an undetectable turn is ``default``.
 
     ``reply_language`` is tolerant: case/whitespace-insensitive, and any value
     that is not a pin (``"auto"``, ``""``, ``None``, a typo) means "no pin —
-    mirror the input". ``conversation_language`` (de/en/es/pt) is the language of
-    the conversation so far; pass ``""`` when none is established yet.
+    mirror the input". ``conversation_language`` is the language of the
+    conversation so far (any code); pass ``""`` when none is established yet.
     """
-    pin = str(reply_language or "").strip().lower()
-    if pin in _REPLY_PINS:
-        return pin
-    requested = detect_language_request(text)
-    if requested:
-        return requested
-    conv = str(conversation_language or "").strip().lower()
-    conv = conv if conv in _REPLY_PINS else ""
-    if conv and len(_TOKEN_RE.findall(text or "")) <= _THIN_TURN_MAX_TOKENS:
-        return conv
-    if conv:
-        detected = detect_text_language(text)
-        if detected == conv or not _has_language_switch_evidence(text, detected):
-            return conv
-        return detected
-    return resolve_turn_language(stt_language, text, default=(conv or default))
+    language = resolve_conversation_language(
+        reply_language,
+        stt_language,
+        text,
+        conversation_language=conversation_language,
+    )
+    if language in _REPLY_PINS:
+        return language
+    if language == "unknown":
+        return default
+    return DEFAULT_LOCALE
+
+
+def conversation_language_from_history(
+    messages: Iterable[object], *, reply_language: object = None
+) -> str:
+    """The conversation language a stored history establishes, else ``""``.
+
+    Replays the person's own messages through the same stickiness rules as a
+    live turn, so a chat restored after a crash or restart picks up the
+    language it was in instead of starting from nothing. Accepts brain
+    messages (``.role``/``.content``) or plain ``{"role", "content"}`` dicts;
+    only ``user`` text counts.
+    """
+    language = ""
+    for message in messages:
+        if isinstance(message, Mapping):
+            role, content = message.get("role"), message.get("content")
+        else:
+            role, content = getattr(message, "role", None), getattr(message, "content", None)
+        if role != "user" or not isinstance(content, str) or not content.strip():
+            continue
+        resolved = resolve_conversation_language(
+            reply_language, None, content, conversation_language=language
+        )
+        if resolved != "unknown":
+            language = resolved
+    return language
