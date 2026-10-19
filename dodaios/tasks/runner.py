@@ -619,7 +619,9 @@ class TaskRunner:
         if self._owned_agent_runner is not None and tags:
             try:
                 owned_result = await self._owned_agent_runner(task_id, tags, prompt, cancel_token)
-            except (RoutineDeferred, _Cancelled):
+            except (RoutineDeferred, CapacityDeferred, _Cancelled):
+                # A deferral started no provider turn: it is recorded as such
+                # (a skip), never wrapped into a seat failure.
                 raise
             except asyncio.CancelledError:
                 raise _Cancelled(
