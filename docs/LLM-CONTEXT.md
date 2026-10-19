@@ -156,8 +156,8 @@ on a real macOS box and a real Linux desktop to convert each row to a dated
 **Manual install (works everywhere):**
 
 ```bash
-git clone https://github.com/Dodaios/Dodaios ~/.personal-jarvis
-cd ~/.personal-jarvis
+git clone https://github.com/Dodaios/Dodaios ~/.dodaios
+cd ~/.dodaios
 python -m venv .venv
 source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
 pip install -e . --no-deps          # activates entry_points (BUG-006/014 recovery)
