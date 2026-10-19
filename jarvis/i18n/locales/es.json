@@ -1,0 +1,136 @@
+{
+  "brain": {
+    "cli_failure": {
+      "cause": "El comando ha fallado: {cause}",
+      "code": "El comando ha fallado con el código de error {code}.",
+      "bare": "El comando ha fallado."
+    },
+    "nothing_found": "No he encontrado nada sobre eso.",
+    "navigation_ack": "Abriendo {label}.",
+    "evidence_unfulfilled": "No pude obtener eso ahora mismo — la llamada a la herramienta no se completó. Avísame y lo intento de nuevo.",
+    "evidence_domain_labels": {
+      "calendar": "tu calendario",
+      "email": "tu bandeja de entrada",
+      "tasks": "tus tareas",
+      "repos": "tus repositorios",
+      "deployments": "tus despliegues",
+      "cloud": "tu facturación en la nube",
+      "activity": "tu historial de actividad"
+    },
+    "evidence_unfulfilled_domain": "No pude obtener {label} ahora mismo — el acceso no se completó. Avísame y lo intento de nuevo.",
+    "action_unfulfilled": {
+      "society_propose_change": "La rutina no se creó. No se ejecutó la acción de guardarla.",
+      "society-create-routine": "La rutina no se creó. No se ejecutó la acción de guardarla.",
+      "contact-upsert": "Todavía no he guardado ese contacto — dime los datos otra vez y lo añado.",
+      "wiki-ingest": "Todavía no lo he anotado en tu wiki — dímelo otra vez y lo escribo.",
+      "run_shell": "Todavía no lo he hecho — el comando no llegó a ejecutarse. Dímelo otra vez y lo hago directamente."
+    },
+    "lang_switch_confirm_session": "Por esta sesión responderé en español — no pude guardarlo de forma permanente.",
+    "subagent_switch_confirm": "Listo — tu sub-agente usará {p} desde tu próxima misión.",
+    "subagent_switch_fail": {
+      "missing_credential": "{p} no está conectado — configúralo primero y luego cambio.",
+      "other": "No pude cambiar el sub-agente a {p}."
+    },
+    "provider_switch_confirm": "Listo — tu cerebro principal ahora usa {p}.",
+    "provider_switch_fail": {
+      "missing_credential": "{p} no está configurado — añade su clave primero y luego cambio.",
+      "subagent_only": "{p} solo funciona como sub-agente, no como cerebro principal.",
+      "other": "No pude cambiar el cerebro principal a {p}."
+    },
+    "cancel_confirm": "Listo — detuve {n} tarea(s) en curso.",
+    "cancel_none": "No había nada en curso que detener.",
+    "depth_confirm": {
+      "deep": "Entendido — pensaré más a fondo a partir de ahora.",
+      "fast": "Entendido — pensaré más rápido a partir de ahora."
+    },
+    "provider_down": [
+      "Lo siento, ahora mismo no puedo acceder a mi modelo de lenguaje. Un momento, por favor.",
+      "Me temo que mi modelo de lenguaje no está disponible en este momento. Lo intentaré de nuevo enseguida.",
+      "No puedo responder ahora mismo: la conexión con mi modelo está fallando. Dame un segundo."
+    ],
+    "provider_down_cause": {
+      "missing_key": "Lo siento: ahora mismo no hay ninguna clave de API configurada para mi modelo de lenguaje. Abre las claves de API en la barra lateral y añade una, y podré continuar enseguida.",
+      "bad_key": "Lo siento: mi clave de API almacenada está siendo rechazada; parece inválida o caducada. Sustitúyela en las claves de API de la barra lateral.",
+      "account_blocked": "Lo siento: la cuenta de mi modelo de lenguaje está bloqueada ahora mismo; probablemente se agotó el crédito o se alcanzó un límite. Revisa la cuenta del proveedor, por favor.",
+      "rate_limit": "Lo siento: mi proveedor me está limitando por demasiadas solicitudes. Espera un momento y vuelve a preguntarme.",
+      "invalid_model": "Lo siento: el modelo configurado no es aceptado por el proveedor. Revisa la selección de modelo en los ajustes.",
+      "context_overflow": "Lo siento: esta solicitud es demasiado grande para el modelo configurado; su ventana de contexto no alcanza. Elige un modelo con más contexto o empieza un chat nuevo.",
+      "local_context": "Lo siento: tu modelo local funciona con una ventana de contexto demasiado pequeña para esta solicitud. Aumenta la longitud de contexto en tu servidor de modelos local y vuelve a cargar el modelo; para los modelos de Modelos locales, usa Tune. El registro indica el tamaño necesario.",
+      "unreachable": "Lo siento: no puedo comunicarme con mi proveedor ahora mismo; probablemente sea un problema de red o del proveedor. Inténtalo de nuevo en un momento.",
+      "vision_unsupported": "Lo siento: ninguno de los asistentes conectados puede analizar imágenes ahora. La clave está; falta la visión. Elige un proveedor con visión en Claves API."
+    },
+    "mid_answer_error": "Ejecuté los pasos, pero algo falló al redactar la respuesta. Vuelve a preguntarme en un momento.",
+    "action_failed": "Reconocí la acción, pero no pude ejecutarla.",
+    "lang_switch_confirm": "Listo — a partir de ahora respondo en español.",
+    "lang_switch_confirm_auto": "Listo — a partir de ahora respondo en el idioma que uses."
+  },
+  "tool_loop": {
+    "anti_silence": "Ahora mismo no puedo hacerlo — me falta la herramienta adecuada.",
+    "meta_debug_ack": "Entendido. ¿Qué debería haber sido diferente?"
+  },
+  "output_filter": {
+    "fallback": "Se produjo un error."
+  },
+  "speech": {
+    "brain_unavailable": "Lo siento, Ruben — ahora mismo no puedo acceder a ninguno de mis modelos de lenguaje. Comprueba si tus proveedores aún tienen crédito.",
+    "stt_unavailable": "Perdona, no te he entendido bien ahora mismo. ¿Puedes repetirlo, por favor?",
+    "realtime_unavailable": "La conexión en tiempo real no está disponible ahora mismo. Cambiaré esta sesión al sistema de voz clásico.",
+    "timeout_tool_stall": "No pude obtener una respuesta a tiempo. Una herramienta que esperaba no respondió.",
+    "timeout_no_answer": "No pude averiguar eso ahora mismo."
+  },
+  "missions": {
+    "announcer": {
+      "failed_prefix": "La misión ha fallado.",
+      "reason_label": "Motivo",
+      "cancelled": "Misión cancelada.",
+      "timed_out": "La misión superó el tiempo límite."
+    },
+    "readback": {
+      "failure_reason": {
+        "critic_loop_exhausted": "Tres intentos no han bastado.",
+        "critic_rejected": "La revisión no quedó satisfecha.",
+        "task_error": "El worker se ha interrumpido.",
+        "attempts_timed_out": "Se alcanzó el tiempo límite.",
+        "review_time_budget_exhausted": "Se agotó el tiempo de revisión; el resultado parcial está disponible.",
+        "budget_exceeded": "Se alcanzó el límite de coste.",
+        "decompose_failed": "No he podido dividir la tarea.",
+        "crash_recovery": "Se ha limpiado una misión antigua.",
+        "interrupted": "Se interrumpió una misión en curso; los resultados parciales están disponibles.",
+        "empty_diff": "No se escribió ningún archivo.",
+        "critic_unavailable": "El revisor ha fallado; el trabajo se conserva en el worktree.",
+        "worktree_setup_failed": "No he podido crear un espacio de trabajo.",
+        "checkpoint_missing": "Falta el progreso guardado, así que no puedo continuar.",
+        "git_missing": "{agents} necesitan que git esté instalado y en el PATH.",
+        "git_not_a_repository": "{agents} necesitan una copia de git (instala con el instalador de git, no con una descarga ZIP).",
+        "source_checkout_unavailable": "Esta tarea de {agent} necesita el repositorio del código fuente, que no está disponible en esta instalación.",
+        "provider_auth": "El inicio de sesión del proveedor de IA no es válido o ha caducado.",
+        "provider_quota": "La cuota del proveedor de IA está agotada.",
+        "provider_unreachable": "El proveedor de IA no está disponible ahora.",
+        "worker_timeout": "El worker superó su tiempo límite."
+      },
+      "empty_summary": "Tarea completada.",
+      "unknown_reason": "error desconocido",
+      "no_tool_call": "No pude hacerlo: no hubo ninguna llamada a herramienta."
+    }
+  },
+  "realtime": {
+    "local_output_failure": "No pude reproducirlo ahora. El altavoz desapareció.",
+    "output_language_failure": "No pude generar una respuesta segura en español ahora mismo.",
+    "handshake_failure": {
+      "timeout": "La conexión de voz no se estableció a tiempo, así que lo detuve.",
+      "unavailable": "No pude establecer la conexión de voz ahora mismo.",
+      "rate_limited": "La conexión de voz está saturada ahora mismo. Inténtalo de nuevo en un momento.",
+      "no_credits": "Se agotó el saldo de la conexión de voz. Recárgalo con el proveedor y volverá a funcionar.",
+      "not_offered": "Tu cuenta no ofrece esta conexión de voz ahora mismo. Revisa el plan o elige otra cuenta.",
+      "dropped": "Se cortó la conexión de voz."
+    }
+  },
+  "self_mod": {
+    "short_error": {
+      "pre_validate": "la comprobación previa rechazó el valor",
+      "reload": "la prueba de recarga rechazó el nuevo valor",
+      "rollback": "la reversión misma ha fallado; hace falta una restauración manual",
+      "unexpected": "un error inesperado al cambiar el ajuste"
+    }
+  }
+}

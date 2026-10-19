@@ -46,11 +46,11 @@ except ImportError:  # pragma: no cover
             self.cleaned = text
             self.fallback_used = False
 
-    def _scrub_impl(text: str, *, language: str = "de") -> Any:  # type: ignore[no-redef]
+    def _scrub_impl(text: str, *, language: str = "en") -> Any:  # type: ignore[no-redef]
         return _IdentityScrubResult(text or "")
 
 
-def scrub_for_voice(text: str, *, language: str = "de") -> Any:
+def scrub_for_voice(text: str, *, language: str = "en") -> Any:
     return _scrub_impl(text, language=language)
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -319,7 +319,7 @@ class TelegramChannel:
                     chat_id,
                     "Telegram is connected. Send a message here and I will "
                     "forward it directly to Dodaios.",
-                    language="de",
+                    language="en",
                 )
                 return
 
@@ -487,7 +487,7 @@ class TelegramChannel:
         if chat_id is None:
             return
         text = event.text or ""
-        await self._send_text(chat_id, text, language=event.language or "de")
+        await self._send_text(chat_id, text, language=event.language or "en")
 
     async def send_message(self, msg: ChannelMessage) -> None:
         chat_id_raw = msg.metadata.get("telegram_chat_id")
@@ -502,7 +502,7 @@ class TelegramChannel:
         except (TypeError, ValueError):
             log.warning("Invalid telegram_chat_id: %r — drop", chat_id_raw)
             return
-        await self._send_text(chat_id, msg.content, language="de")
+        await self._send_text(chat_id, msg.content, language="en")
 
     async def broadcast_event(self, event: Event) -> None:
         """No-op: Telegram routing goes through InflightMap, not broadcast."""

@@ -44,9 +44,8 @@ class PhrasePicker:
     def pick(self, category: Category, lang: Lang = "de") -> str:
         pool = PHRASES.get(category, {}).get(lang, [])
         if not pool:
-            # Fallback: andere Sprache
-            other: Lang = "en" if lang == "de" else "de"
-            pool = PHRASES.get(category, {}).get(other, [])
+            # Fallback: English, the one fallback language of system phrases.
+            pool = PHRASES.get(category, {}).get("en", [])
         if not pool:
             return ""
         key = (category, lang)

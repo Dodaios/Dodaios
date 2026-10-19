@@ -77,9 +77,9 @@ def test_anti_silence_phrase_pin_beats_text_detection() -> None:
     assert _DE_ANTI_SILENCE_MARKER in phrase
 
 
-def test_anti_silence_phrase_ambiguous_text_defaults_german() -> None:
+def test_anti_silence_phrase_ambiguous_text_defaults_english() -> None:
     phrase = _anti_silence_phrase("", "auto")
-    assert _DE_ANTI_SILENCE_MARKER in phrase
+    assert phrase == _EN_ANTI_SILENCE
 
 
 def test_meta_debug_ack_phrase_localized() -> None:

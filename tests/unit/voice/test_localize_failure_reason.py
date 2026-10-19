@@ -106,7 +106,7 @@ def test_empty_input_stays_empty() -> None:
 
 
 def test_an_unknown_language_falls_back_to_the_module_default() -> None:
-    assert localize_failure_reason(GMAIL, "fr") == localize_failure_reason(GMAIL, "de")
+    assert localize_failure_reason(GMAIL, "fr") == localize_failure_reason(GMAIL, "en")
 
 
 def test_the_localized_cause_fits_the_failure_phrase() -> None:

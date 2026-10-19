@@ -5,6 +5,8 @@ import type { GraphPage, ScmFile, ScmStatus } from "./scm/scmApi";
 import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
+import { useGitSessionStore } from "@/store/gitSession";
+import { useWorkspacePanesStore } from "@/store/workspacePanes";
 
 vi.mock("./scm/MonacoDiff", () => ({ default: () => <div data-testid="scm-diff-editor" /> }));
 
@@ -80,6 +82,32 @@ beforeEach(() => {
           stat: "1 file changed, 2 insertions(+)",
         });
       }
+      if (url.includes("/api/agentic-ide/panes")) {
+        const pane = (key: string, display_name: string, recap: string) => ({
+          workspace_id: "w1", workspace_name: "App", folder: "/code/app", workspace_active: true, key, history_id: key, name: key,
+          agent: display_name.toLowerCase(), display_name, accepts_prompts: true, status: "live", exit_code: null, activity: "idle",
+          activity_since: 0, worked: true, started_at: null, last_output_at: null, last_prompt: "", last_prompt_at: null, recap,
+          has_resume: true, readable: true, account: null, account_label: null, archived: false,
+        });
+        return json({ panes: [pane("T1", "Claude Code", "fix the login"), pane("T2", "Codex", "add the widget")], active_id: "w1" });
+      }
+      if (url.includes("/terminals/T2/changes")) {
+        return json({
+          workspace_id: "w1",
+          available: true,
+          branch: "main",
+          truncated: false,
+          reason: "",
+          base: "b0b0b0b0b0b0",
+          since_ms: Date.now() - 600_000,
+          generated: 2,
+          files: [
+            { path: "src/widget.ts", status: "added", added: 3, removed: 0, is_directory: false, authors: [], committed: true },
+            { path: "app.py", status: "modified", added: 1, removed: 1, is_directory: false, authors: [], committed: false },
+          ],
+        });
+      }
+      if (url.includes("/scm/session-file")) return json({ path: "src/widget.ts", before: null, after: "export const w = 1;\n", binary: false });
       if (url.includes("/scm/refs")) {
         return json({
           current: "main",
@@ -258,6 +286,52 @@ describe("GitOverviewTab — changes", () => {
     render(<GitOverviewTab />);
     fireEvent.click(await screen.findByTestId("scm-init"));
     await vi.waitFor(() => expect(posted("prepare")).toEqual([{ folder: "/code/app", mode: "init", branch: "", base: "" }]));
+  });
+});
+
+describe("GitOverviewTab — one agent session", () => {
+  beforeEach(() => useWorkspacePanesStore.setState({ panes: [], loaded: false }));
+
+  it("folds the repository away from its row", async () => {
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-repo-row"));
+    expect(screen.queryByTestId("scm-message")).toBeNull();
+    expect(screen.queryByTestId("scm-file")).toBeNull();
+    fireEvent.click(screen.getByTestId("scm-repo-row"));
+    expect(await screen.findByTestId("scm-message")).toBeTruthy();
+  });
+
+  it("narrows the list to the files one session wrote, picked from the filter", async () => {
+    render(<GitOverviewTab />);
+    await screen.findByText("app.py");
+    fireEvent.click(screen.getByTestId("scm-session-filter"));
+    await vi.waitFor(() => expect(screen.getAllByTestId("scm-quick-pick-item").length).toBe(3));
+    const items = screen.getAllByTestId("scm-quick-pick-item");
+    expect(items.map((item) => item.textContent)).toEqual([expect.stringContaining("All Changes"), expect.stringContaining("T1 · Claude Code"), expect.stringContaining("T2 · Codex")]);
+    fireEvent.click(items[2]);
+    const files = await screen.findAllByTestId("scm-session-file");
+    expect(files.map((file) => [file.dataset.path, file.dataset.letter])).toEqual([["src/widget.ts", "A"], ["app.py", "M"]]);
+    expect(screen.getByTestId("scm-session-row").textContent).toContain("T2 · Codex");
+    expect(screen.getByTestId("scm-session-count").textContent).toBe("2");
+    expect(screen.queryByTestId("scm-file")).toBeNull();
+    // Only the pending file can be staged; the committed one is history.
+    expect(within(files[0]).queryByTestId("scm-session-stage")).toBeNull();
+    fireEvent.click(within(files[1]).getByTestId("scm-session-stage"));
+    await vi.waitFor(() => expect(posted("scm/stage")).toEqual([{ workspace_id: "w1", paths: ["app.py"] }]));
+    fireEvent.click(files[0]);
+    expect(await screen.findByTestId("scm-diff-dialog")).toBeTruthy();
+    await vi.waitFor(() => expect(gets.some((url) => url.includes("/scm/session-file") && url.includes("base=b0b0b0b0b0b0"))).toBe(true));
+    fireEvent.click(screen.getByTestId("scm-diff-close"));
+    fireEvent.click(screen.getByTestId("scm-session-clear"));
+    expect(await screen.findByText("notes.txt")).toBeTruthy();
+    expect(screen.queryByTestId("scm-session")).toBeNull();
+  });
+
+  it("opens straight on a session when its pane asks", async () => {
+    render(<GitOverviewTab />);
+    await screen.findByText("app.py");
+    act(() => useGitSessionStore.getState().show("w1", "T2"));
+    expect((await screen.findAllByTestId("scm-session-file")).length).toBe(2);
   });
 });
 

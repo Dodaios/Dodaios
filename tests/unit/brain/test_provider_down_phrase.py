@@ -47,11 +47,11 @@ class TestProviderDownPhrase:
         assert got[0] == got[3] and got[1] == got[4] and got[2] == got[5]
         assert len({got[0], got[1], got[2]}) == 3
 
-    def test_auto_falls_back_to_german(self) -> None:
-        assert _provider_down_phrase("auto", 0) == _PROVIDER_DOWN_PHRASES["de"][0]
+    def test_auto_falls_back_to_english(self) -> None:
+        assert _provider_down_phrase("auto", 0) == _PROVIDER_DOWN_PHRASES["en"][0]
 
-    def test_unknown_language_falls_back_to_german(self) -> None:
-        assert _provider_down_phrase("fr", 1) == _PROVIDER_DOWN_PHRASES["de"][1]
+    def test_language_without_translations_falls_back_to_english(self) -> None:
+        assert _provider_down_phrase("tr", 1) == _PROVIDER_DOWN_PHRASES["en"][1]
 
     @pytest.mark.parametrize("lang", ["de", "en", "es", "pt", "auto", "FR"])
     def test_phrase_is_voice_safe_no_provider_jargon(self, lang: str) -> None:
@@ -93,9 +93,9 @@ class TestNextProviderDownPhraseAutoDetect:
         m = self._manager("auto", "es")
         assert m._next_provider_down_phrase() == _PROVIDER_DOWN_PHRASES["es"][0]
 
-    def test_auto_mode_unknown_turn_keeps_german_default(self) -> None:
+    def test_auto_mode_unknown_turn_uses_english_default(self) -> None:
         m = self._manager("auto", "")
-        assert m._next_provider_down_phrase() == _PROVIDER_DOWN_PHRASES["de"][0]
+        assert m._next_provider_down_phrase() == _PROVIDER_DOWN_PHRASES["en"][0]
 
     def test_pin_wins_over_detected_turn_language(self) -> None:
         m = self._manager("de", "en")
@@ -148,11 +148,11 @@ class TestCauseAwareProviderDownPhrase:
     def test_unknown_cause_falls_back_to_generic_rotation(self) -> None:
         assert _provider_down_phrase("en", 1, "weird_kind") == (_PROVIDER_DOWN_PHRASES["en"][1])
 
-    def test_unknown_language_falls_back_to_german_cause_phrase(self) -> None:
+    def test_language_without_translations_falls_back_to_english_cause_phrase(self) -> None:
         from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
 
-        got = _provider_down_phrase("fr", 0, "rate_limit")
-        assert got == _PROVIDER_DOWN_CAUSE_PHRASES["rate_limit"]["de"]
+        got = _provider_down_phrase("tr", 0, "rate_limit")
+        assert got == _PROVIDER_DOWN_CAUSE_PHRASES["rate_limit"]["en"]
 
 
 class TestPrimaryProviderDownCause:
