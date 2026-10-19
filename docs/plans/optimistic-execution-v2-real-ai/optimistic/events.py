@@ -1,7 +1,7 @@
 """Shared frozen event vocabulary — the single wire contract for the prototype.
 
 This is the ONLY module every other component depends on. Mirrors
-`jarvis/core/events.py`: every event is a `frozen=True` dataclass carrying a
+`dodaios/core/events.py`: every event is a `frozen=True` dataclass carrying a
 `trace_id` (correlation across the Talker -> Bus -> Worker -> Oops chain) and a
 `timestamp_ns` (monotonic, for latency spans). Immutability is what makes the
 event stream safe to replay and safe to fan out to many subscribers.

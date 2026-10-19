@@ -20,7 +20,7 @@ def _realtime_transport_sees_no_host_credentials(monkeypatch):
     in its own body, which runs after this fixture and wins.
     """
     monkeypatch.setattr(
-        "jarvis.realtime.factory.get_secret_any", lambda _candidates: None
+        "dodaios.realtime.factory.get_secret_any", lambda _candidates: None
     )
 
 
@@ -33,6 +33,6 @@ def granted_microphone(monkeypatch):
     """
     gate = FakePermissionService()
     monkeypatch.setattr(
-        "jarvis.platform.permission_service.get_permission_service", lambda: gate,
+        "dodaios.platform.permission_service.get_permission_service", lambda: gate,
     )
     return gate

@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.tool_use_loop import ToolUseLoop
-from jarvis.core.protocols import BrainDelta, BrainRequest, ToolResult
+from dodaios.brain.tool_use_loop import ToolUseLoop
+from dodaios.core.protocols import BrainDelta, BrainRequest, ToolResult
 
 
 class _Tool:

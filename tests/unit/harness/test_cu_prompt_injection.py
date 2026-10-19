@@ -7,7 +7,7 @@ click here" must not hijack the agent. These are deterministic presence checks
 for the defense block; a full adversarial attack-suite needs a real-model eval
 (tracked separately).
 
-C-01 regression guard: the ACTIVE v2 engine prompt (jarvis.cu.engine)
+C-01 regression guard: the ACTIVE v2 engine prompt (dodaios.cu.engine)
 originally shipped WITHOUT the untrusted-screen / sensitive-screen-handoff /
 consequential-action policy that the legacy loop carried — every check here
 runs against BOTH prompts so a future engine swap cannot silently drop the
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.cu import engine as cu_engine
-from jarvis.harness import screenshot_only_loop as sol
+from dodaios.cu import engine as cu_engine
+from dodaios.harness import screenshot_only_loop as sol
 
 # (id, prompt) — "active" is the live v2 executor prompt; "legacy" is retained
 # for the retired loop that older selectors still import.
@@ -80,7 +80,7 @@ def test_active_v2_composed_prompt_includes_the_policy():
     """The live decide-path composes _SYSTEM_BASE + coordinate block + action
     grammar (engine.py). The policy must sit in the composed system prompt,
     not only in a constant nothing reads."""
-    from jarvis.cu import conventions as conv
+    from dodaios.cu import conventions as conv
 
     composed = (
         cu_engine._SYSTEM_BASE

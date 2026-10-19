@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core import task_agent
+from dodaios.core import task_agent
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +51,7 @@ def test_login_probe_is_cached(monkeypatch) -> None:
             calls.append(1)
             return _Status()
 
-    import jarvis.claude_auth as claude_auth
+    import dodaios.claude_auth as claude_auth
 
     monkeypatch.setattr(claude_auth, "ClaudeAuthService", _Service)
 
@@ -65,7 +65,7 @@ def test_unreadable_login_means_no_subscription(monkeypatch) -> None:
         def status(self):
             raise OSError("claude binary vanished")
 
-    import jarvis.claude_auth as claude_auth
+    import dodaios.claude_auth as claude_auth
 
     monkeypatch.setattr(claude_auth, "ClaudeAuthService", _Broken)
 

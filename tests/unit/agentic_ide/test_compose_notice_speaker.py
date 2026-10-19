@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from jarvis.agentic_ide.prompt_composer import STAGE_START, ComposeNotice, print_notice
-from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+from dodaios.agentic_ide.prompt_composer import STAGE_START, ComposeNotice, print_notice
+from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME
 
 _NOTICE = ComposeNotice(stage=STAGE_START, message="Writing the brief for T1.", terminal="T1")
 

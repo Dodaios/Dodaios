@@ -9,7 +9,7 @@ moved to THINKING, but never spoke. Log evidence:
         "status": "PERMISSION_DENIED"}}
     Brain-Stream timed out after 40.0s — back to LISTENING
 
-Root cause (annotated in ``jarvis/plugins/brain/gemini.py``):
+Root cause (annotated in ``dodaios/plugins/brain/gemini.py``):
 
 * ``_ensure_cache`` lazily creates a Gemini context cache with
   ``ttl="3600s"`` and stores its name in ``self._cached_content_name``.
@@ -46,8 +46,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, BrainRequest
-from jarvis.plugins.brain.gemini import GeminiBrain
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.plugins.brain.gemini import GeminiBrain
 
 
 _STALE_CACHE_NAME = "cachedContents/dead-id-from-previous-process-or-ttl-expiry"

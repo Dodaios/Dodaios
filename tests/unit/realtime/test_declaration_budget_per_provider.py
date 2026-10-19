@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.realtime.session import RealtimeVoiceSession
 
 
 class _Transport:
@@ -150,7 +150,7 @@ def test_the_real_local_card_bounds_itself_to_its_own_context_window() -> None:
     the transcript overflowed it, llama.cpp shifted the context, the cached
     prefix died and every answer paid a 4.2 s prefill instead of 0.2 s.
     """
-    from jarvis.plugins.realtime.openai_realtime import LocalRealtimeProvider
+    from dodaios.plugins.realtime.openai_realtime import LocalRealtimeProvider
 
     command = (
         '"C:\tree\venv\Scripts\speech-to-speech.exe" --mode realtime '
@@ -170,7 +170,7 @@ def test_the_real_local_card_bounds_itself_to_its_own_context_window() -> None:
 
 def test_the_local_card_scales_with_the_machine_it_runs_on() -> None:
     """The same code has to give a small laptop and a big box different room."""
-    from jarvis.plugins.realtime.openai_realtime import LocalRealtimeProvider
+    from dodaios.plugins.realtime.openai_realtime import LocalRealtimeProvider
 
     def card(model: str) -> object:
         return LocalRealtimeProvider(
@@ -191,7 +191,7 @@ def test_the_local_card_scales_with_the_machine_it_runs_on() -> None:
 def test_an_unmanaged_endpoint_is_not_bounded_by_a_guess() -> None:
     """Without a launch command there is no machine to read, and a LAN box may
     be far bigger than this one — the config bound stays the user's lever."""
-    from jarvis.plugins.realtime.openai_realtime import LocalRealtimeProvider
+    from dodaios.plugins.realtime.openai_realtime import LocalRealtimeProvider
 
     card = LocalRealtimeProvider(base_url="http://192.168.1.9:8765")
     assert card.tool_declaration_budget_tokens == 0
@@ -210,8 +210,8 @@ def test_a_small_local_brain_gets_a_compact_standing_instructions_block(
     """
     from types import SimpleNamespace as NS
 
-    from jarvis.brain import agent_instructions
-    from jarvis.realtime import session as sess_mod
+    from dodaios.brain import agent_instructions
+    from dodaios.realtime import session as sess_mod
 
     seen: list[int] = []
     monkeypatch.setattr(
@@ -231,6 +231,6 @@ def test_a_small_local_brain_gets_a_compact_standing_instructions_block(
 
 def test_the_local_card_is_the_one_asking_for_that_profile() -> None:
     """The bound follows a declared capability, never a provider name (AP-21)."""
-    from jarvis.plugins.realtime.openai_realtime import LocalRealtimeProvider
+    from dodaios.plugins.realtime.openai_realtime import LocalRealtimeProvider
 
     assert LocalRealtimeProvider.prefers_compact_instructions is True

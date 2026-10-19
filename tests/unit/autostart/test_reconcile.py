@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import jarvis.autostart as autostart
-from jarvis.autostart.protocol import AutostartStatus
+import dodaios.autostart as autostart
+from dodaios.autostart.protocol import AutostartStatus
 
 from .conftest import make_caps, make_cfg
 

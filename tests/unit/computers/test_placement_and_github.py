@@ -14,11 +14,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.computers import github_access, identity, placement, remote_os, service
-from jarvis.computers.models import Computer, ComputerHealth
-from jarvis.computers.service import ComputerError, ComputerService
-from jarvis.computers.store import ComputerStore
-from jarvis.ui.web import computers_routes
+from dodaios.computers import github_access, identity, placement, remote_os, service
+from dodaios.computers.models import Computer, ComputerHealth
+from dodaios.computers.service import ComputerError, ComputerService
+from dodaios.computers.store import ComputerStore
+from dodaios.ui.web import computers_routes
 from tests.fakes.fake_ssh_server import FakeSshServer
 
 # -- placement ---------------------------------------------------------------------
@@ -136,7 +136,7 @@ def test_placement_routes(client: TestClient, computer_service: ComputerService)
 @pytest.fixture
 def computers(tmp_path: Path, secret_box, monkeypatch: pytest.MonkeyPatch) -> ComputerService:  # noqa: ANN001
     path = tmp_path / "computers.json"
-    monkeypatch.setattr("jarvis.computers.store.default_path", lambda: path)
+    monkeypatch.setattr("dodaios.computers.store.default_path", lambda: path)
     svc = ComputerService(ComputerStore(path))
     monkeypatch.setattr(service, "_SERVICE", svc)
     return svc
@@ -164,7 +164,7 @@ TOKEN = "gho_" + "x" * 36  # noqa: S105 — a fixture, not a credential
 
 
 def _token(monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
-    from jarvis.agentic_ide import github_link
+    from dodaios.agentic_ide import github_link
 
     monkeypatch.setattr(
         github_link,

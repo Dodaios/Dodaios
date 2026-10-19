@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui import msix_redirection as mr
+from dodaios.ui import msix_redirection as mr
 
 FAMILY = "PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0"
 

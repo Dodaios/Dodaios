@@ -55,10 +55,10 @@ B3 is a **pure view layer**. It does not author wiki content. It does not write 
 
 | Code | Name | Owns | One-sentence mission |
 |------|------|------|----------------------|
-| **A** | `backend-api` | `jarvis/ui/web/wiki_routes.py` (new), `jarvis/ui/web/server.py` registration | Expose the on-disk vault as a JSON API: tree, page, graph, backlinks, search. Wraps existing `PageRepository` + `VaultIndex` + `VaultSearch`. No business logic. |
-| **B** | `react-tab` | `jarvis/ui/web/frontend/src/views/WikiView.tsx` (new), `Sidebar.tsx` label change, `MemoryView.tsx` deletion | Build the React tab that replaces "Notizen". Tree + Page-render + frontmatter pills + crumb + backlinks panel. No graph, no search, no live-reload — those come from C and D. |
-| **C** | `graph-and-search` | `jarvis/ui/web/frontend/src/components/wiki/WikiGraph.tsx` (new), `WikiSearch.tsx` (new) | Force-graph visualisation of `[[wikilinks]]` + Ctrl-K full-text search bar. Plugs into Agent B's tab as a default landing view. |
-| **D** | `live-reload-and-obsidian` | `jarvis/memory/wiki/watcher.py` (new), `jarvis/ui/web/frontend/src/hooks/useWikiLive.ts` (new), per-page "Open in Obsidian" button wiring | Watchdog on `wiki/obsidian-vault/`, WebSocket push on file change, React Query invalidation hook. Plus `obsidian://` URL-scheme button with graceful fallback when Obsidian is not installed. |
+| **A** | `backend-api` | `dodaios/ui/web/wiki_routes.py` (new), `dodaios/ui/web/server.py` registration | Expose the on-disk vault as a JSON API: tree, page, graph, backlinks, search. Wraps existing `PageRepository` + `VaultIndex` + `VaultSearch`. No business logic. |
+| **B** | `react-tab` | `dodaios/ui/web/frontend/src/views/WikiView.tsx` (new), `Sidebar.tsx` label change, `MemoryView.tsx` deletion | Build the React tab that replaces "Notizen". Tree + Page-render + frontmatter pills + crumb + backlinks panel. No graph, no search, no live-reload — those come from C and D. |
+| **C** | `graph-and-search` | `dodaios/ui/web/frontend/src/components/wiki/WikiGraph.tsx` (new), `WikiSearch.tsx` (new) | Force-graph visualisation of `[[wikilinks]]` + Ctrl-K full-text search bar. Plugs into Agent B's tab as a default landing view. |
+| **D** | `live-reload-and-obsidian` | `dodaios/memory/wiki/watcher.py` (new), `dodaios/ui/web/frontend/src/hooks/useWikiLive.ts` (new), per-page "Open in Obsidian" button wiring | Watchdog on `wiki/obsidian-vault/`, WebSocket push on file change, React Query invalidation hook. Plus `obsidian://` URL-scheme button with graceful fallback when Obsidian is not installed. |
 
 Agents work in **parallel** from `impl/b3-base`. The Wave-2 merge step is owned by the review agent (orchestrator), not by the four agents.
 
@@ -238,7 +238,7 @@ Worktree branch names: `impl/b3-agent-A`, `…B`, `…C`, `…D`.
 
 The agent **must** run `pip install -e . --no-deps` in its worktree before any other action (editable-install pin trap — see BUG-006, BUG-014 episode 2).
 
-For frontend agents (B, C, D-frontend): `cd jarvis/ui/web/frontend && npm install` before `npm run build` so the package-lock matches.
+For frontend agents (B, C, D-frontend): `cd dodaios/ui/web/frontend && npm install` before `npm run build` so the package-lock matches.
 
 ### 5.2 Commits
 
@@ -271,7 +271,7 @@ If `post-flight.log` shows new failures that are not in `pre-flight.log`, the ag
 Frontend agents additionally run:
 
 ```powershell
-cd jarvis/ui/web/frontend
+cd dodaios/ui/web/frontend
 npm run build           # must succeed
 npx tsc --noEmit -p .   # zero TypeScript errors
 ```
@@ -314,10 +314,10 @@ After all four agents commit and report, the review agent:
 5. Runs the integration smoke test:
    ```powershell
    python -m pytest tests/integration/ui/wiki/ -q
-   cd jarvis/ui/web/frontend && npm run build && npx tsc --noEmit -p .
+   cd dodaios/ui/web/frontend && npm run build && npx tsc --noEmit -p .
    ```
 6. Runs the live walk-through:
-   - Launch desktop app: `Start-Process pythonw -ArgumentList "-m","jarvis.ui.web.launcher"`
+   - Launch desktop app: `Start-Process pythonw -ArgumentList "-m","dodaios.ui.web.launcher"`
    - Click sidebar tab where "Notizen" used to be — sees the new Wiki view.
    - Lands on the graph view, sees 3 nodes (sam, alex, pixel-art-editor).
    - Clicks the `sam` node → page loads, frontmatter pills visible, body rendered.

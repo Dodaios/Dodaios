@@ -15,9 +15,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 class _InMemorySecretStore:
@@ -57,7 +57,7 @@ class _RealishBrainManager:
         self.active_provider = provider
         if persist:
             # Same call chain as production: BrainManager._persist_primary.
-            from jarvis.brain.manager import BrainManager
+            from dodaios.brain.manager import BrainManager
 
             self.last_persist_ok = BrainManager._persist_primary(provider)
         else:
@@ -67,7 +67,7 @@ class _RealishBrainManager:
 @pytest.fixture
 def secret_store(monkeypatch: pytest.MonkeyPatch) -> _InMemorySecretStore:
     store = _InMemorySecretStore()
-    from jarvis.core import config as cfg_mod
+    from dodaios.core import config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "get_secret", store.get)
     monkeypatch.setattr(cfg_mod, "set_secret", store.set)
@@ -103,7 +103,7 @@ def test_persisted_true_on_successful_write(
     """A successful config_writer write → response reports persisted=true."""
     secret_store.set("openrouter_api_key", "sk-or-test-123")
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_primary",
+        "dodaios.core.config_writer.set_brain_primary",
         lambda name, **kw: None,  # succeeds
     )
     with TestClient(server_with_brain.app) as client:
@@ -128,7 +128,7 @@ def test_persisted_false_when_writer_raises(
     def _boom(name: str, **kw: object) -> None:
         raise RuntimeError("disk full")
 
-    monkeypatch.setattr("jarvis.core.config_writer.set_brain_primary", _boom)
+    monkeypatch.setattr("dodaios.core.config_writer.set_brain_primary", _boom)
 
     with TestClient(server_with_brain.app) as client:
         resp = client.post(
@@ -150,7 +150,7 @@ def test_persisted_false_when_persist_not_requested(
     secret_store.set("openrouter_api_key", "sk-or-test-123")
     writes: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_primary",
+        "dodaios.core.config_writer.set_brain_primary",
         lambda name, **kw: writes.append(name),
     )
     with TestClient(server_with_brain.app) as client:
@@ -170,10 +170,10 @@ def test_persisted_false_when_persist_not_requested(
 def test_persist_primary_returns_true_on_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.brain.manager import BrainManager
+    from dodaios.brain.manager import BrainManager
 
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_brain_primary", lambda name, **kw: None
+        "dodaios.core.config_writer.set_brain_primary", lambda name, **kw: None
     )
     assert BrainManager._persist_primary("openai") is True
 
@@ -181,10 +181,10 @@ def test_persist_primary_returns_true_on_success(
 def test_persist_primary_returns_false_on_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.brain.manager import BrainManager
+    from dodaios.brain.manager import BrainManager
 
     def _boom(name: str, **kw: object) -> None:
         raise RuntimeError("disk full")
 
-    monkeypatch.setattr("jarvis.core.config_writer.set_brain_primary", _boom)
+    monkeypatch.setattr("dodaios.core.config_writer.set_brain_primary", _boom)
     assert BrainManager._persist_primary("openai") is False

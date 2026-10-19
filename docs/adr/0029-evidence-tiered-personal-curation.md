@@ -77,7 +77,7 @@ that guarantee while admitting lived-experience grounding.
   stored per candidate) and tunable per install (`min_salience`).
 - Vaults that pre-date this ADR keep their content; legacy journal rows
   read back as `explicit`/3. Profile cleanup is a separate manual,
-  dry-run-first re-curation pass (`python -m jarvis.memory.wiki.cli
+  dry-run-first re-curation pass (`python -m dodaios.memory.wiki.cli
   recurate-profile`): keep supported personal facts, move topic detail to
   topic pages, drop world-knowledge trivia — full vault snapshot first,
   all-or-nothing write, never scheduled.

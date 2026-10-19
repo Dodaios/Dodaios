@@ -11,12 +11,12 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.events import Event
-from jarvis.memory.curator.merger import Merger
-from jarvis.memory.curator.validator import Validator
-from jarvis.memory.people import PersonStore
-from jarvis.memory.user_profile import UserProfile
-from jarvis.memory.workspace import Workspace
+from dodaios.core.events import Event
+from dodaios.memory.curator.merger import Merger
+from dodaios.memory.curator.validator import Validator
+from dodaios.memory.people import PersonStore
+from dodaios.memory.user_profile import UserProfile
+from dodaios.memory.workspace import Workspace
 
 
 # ----------------------------------------------------------------------

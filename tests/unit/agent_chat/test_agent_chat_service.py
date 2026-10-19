@@ -12,13 +12,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import runner_api
-from jarvis.agent_chat.catalog import rows_for
-from jarvis.agent_chat.service import AgentChatService, SessionBusy
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.core.response_style import CONVERSATIONAL_RESPONSE_STYLE
-from jarvis.ui.web.agent_chat_routes import router
+from dodaios.agent_chat import runner_api
+from dodaios.agent_chat.catalog import rows_for
+from dodaios.agent_chat.service import AgentChatService, SessionBusy
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.core.response_style import CONVERSATIONAL_RESPONSE_STYLE
+from dodaios.ui.web.agent_chat_routes import router
 
 
 class ScriptedBrain:
@@ -273,7 +273,7 @@ async def test_failed_turn_setup_releases_pending_reservation(
 async def test_delivered_incoming_receipt_releases_pre_admission_reservation(
     tmp_path: Path, scripted,
 ):
-    from jarvis.society.delivery import IncomingMessage
+    from dodaios.society.delivery import IncomingMessage
 
     svc = AgentChatService(AgentChatStore(":memory:"))
     session = svc.create_session(provider="fakeprov", cwd=str(tmp_path))
@@ -341,7 +341,7 @@ def test_provider_health_reports_each_row_and_caches_the_sweep(tmp_path: Path, m
     the login reads are not free, so it is cached, and it must never lose the
     whole answer to one slow or raising row.
     """
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     calls: list[str] = []
     cli_calls: list[str] = []
@@ -363,8 +363,8 @@ def test_provider_health_reports_each_row_and_caches_the_sweep(tmp_path: Path, m
         status, reason, detail = table.get(provider_id, ("ok", "ok", f"{provider_id}: ok"))
         return SimpleNamespace(status=status, reason=reason, detail=detail)
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes.provider_health", _fake, raising=False)
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: False)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes.provider_health", _fake, raising=False)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: False)
     monkeypatch.setattr(routes, "_cli_login_snapshot", _fake_cli)
     monkeypatch.setattr(routes, "_health_cache", {})
 
@@ -401,9 +401,9 @@ def test_provider_health_sweep_sends_nothing_to_any_provider(tmp_path: Path, mon
     provider (live 2026-09-30). The composer now reads the passive record of
     real calls: zero provider requests, and a new real outcome drops the
     cached sweep so the next open shows it."""
-    import jarvis.ui.web.agent_chat_routes as routes
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes
+    import dodaios.ui.web.agent_chat_routes as routes
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes
     from tests.fakes.fake_provider_calls import ProviderCallRecorder
 
     recorder = ProviderCallRecorder().install(monkeypatch)
@@ -411,7 +411,7 @@ def test_provider_health_sweep_sends_nothing_to_any_provider(tmp_path: Path, mon
     monkeypatch.setattr(
         routes, "_cli_login_snapshot", lambda runner: ("ok", "ok", f"{runner}: signed in")
     )
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: False)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: False)
     monkeypatch.setattr(routes, "_health_cache", {})
 
     with TestClient(_app(tmp_path)) as client:
@@ -434,9 +434,9 @@ def test_provider_health_sweep_is_dropped_when_any_key_changes(tmp_path: Path, m
     """A key saved or deleted — through the API-Keys page, the Control API, a
     CLI connect flow — must show on the next open, not after five minutes,
     even when the health record had nothing for that provider."""
-    import jarvis.ui.web.agent_chat_routes as routes
-    from jarvis.core import config as cfg_mod
-    from jarvis.ui.web import provider_routes
+    import dodaios.ui.web.agent_chat_routes as routes
+    from dodaios.core import config as cfg_mod
+    from dodaios.ui.web import provider_routes
 
     present = {"grok": False}
     monkeypatch.setattr(
@@ -445,7 +445,7 @@ def test_provider_health_sweep_is_dropped_when_any_key_changes(tmp_path: Path, m
     monkeypatch.setattr(
         routes, "_cli_login_snapshot", lambda runner: ("ok", "ok", f"{runner}: signed in")
     )
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: False)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: False)
     monkeypatch.setattr(routes, "_health_cache", {})
 
     with TestClient(_app(tmp_path)) as client:
@@ -473,13 +473,13 @@ def test_cli_login_snapshot_ignores_a_stored_api_key_for_claude(monkeypatch):
     different seat — counting it as signed-in is how "Key rejected" landed
     on the CLI row in the IDE picker.
     """
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     class _Svc:
         def status(self) -> _CliStatus:
             return _CliStatus(True, "api_key", "Connected via Anthropic API key.")
 
-    monkeypatch.setattr("jarvis.claude_auth.ClaudeAuthService", _Svc)
+    monkeypatch.setattr("dodaios.claude_auth.ClaudeAuthService", _Svc)
     status, reason, detail = routes._cli_login_snapshot("claude-cli")
     assert status == "needs_setup"
     assert reason == "not_configured"
@@ -487,20 +487,20 @@ def test_cli_login_snapshot_ignores_a_stored_api_key_for_claude(monkeypatch):
 
 
 def test_cli_login_snapshot_treats_a_claude_subscription_as_ok(monkeypatch):
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     class _Svc:
         def status(self) -> _CliStatus:
             return _CliStatus(True, "subscription", "Connected via Claude Max (a@b.c).")
 
-    monkeypatch.setattr("jarvis.claude_auth.ClaudeAuthService", _Svc)
+    monkeypatch.setattr("dodaios.claude_auth.ClaudeAuthService", _Svc)
     status, reason, detail = routes._cli_login_snapshot("claude-cli")
     assert status == reason == "ok"
     assert "Claude Max" in detail
 
 
 def test_cli_login_snapshot_codex_and_antigravity_use_the_cli_login(monkeypatch):
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     class _Codex:
         def status(self) -> _CliStatus:
@@ -510,8 +510,8 @@ def test_cli_login_snapshot_codex_and_antigravity_use_the_cli_login(monkeypatch)
         def status(self) -> _CliStatus:
             return _CliStatus(True, "api_key", "Connected via Gemini API key.")
 
-    monkeypatch.setattr("jarvis.codex_auth.CodexAuthService", _Codex)
-    monkeypatch.setattr("jarvis.google_cli.auth_service.GoogleCliAuthService", _AgyOff)
+    monkeypatch.setattr("dodaios.codex_auth.CodexAuthService", _Codex)
+    monkeypatch.setattr("dodaios.google_cli.auth_service.GoogleCliAuthService", _AgyOff)
     assert routes._cli_login_snapshot("codex-cli")[0] == "ok"
     # A Gemini key is the other picker row, not the Antigravity CLI.
     status, reason, _ = routes._cli_login_snapshot("agy-cli")
@@ -528,7 +528,7 @@ def test_cli_surface_health_does_not_probe_the_api_key(tmp_path: Path, monkeypat
     The sweep must ask the CLI login instead, and never call the key probe
     for a CLI-resolved seat.
     """
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     api_calls: list[str] = []
 
@@ -536,13 +536,13 @@ def test_cli_surface_health_does_not_probe_the_api_key(tmp_path: Path, monkeypat
         api_calls.append(provider_id)
         return SimpleNamespace(status="error", reason="bad_key", detail=f"{provider_id}: 401")
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes.provider_health", _fake_api, raising=False)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes.provider_health", _fake_api, raising=False)
     monkeypatch.setattr(
         routes,
         "_cli_login_snapshot",
         lambda runner: ("ok", "ok", f"{runner}: signed in"),
     )
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: True)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: True)
     monkeypatch.setattr(routes, "_health_cache", {})
 
     with TestClient(_app(tmp_path)) as client:
@@ -563,7 +563,7 @@ def test_jarvis_surface_probes_the_claude_api_key_when_cli_is_uninstalled(
     tmp_path: Path, monkeypatch
 ):
     """Without Claude Code, its dual row uses the API while other CLIs keep their logins."""
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     api_calls: list[str] = []
     cli_calls: list[str] = []
@@ -576,9 +576,9 @@ def test_jarvis_surface_probes_the_claude_api_key_when_cli_is_uninstalled(
         cli_calls.append(runner)
         return "ok", "ok", f"{runner}: signed in"
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes.provider_health", _fake_api, raising=False)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes.provider_health", _fake_api, raising=False)
     monkeypatch.setattr(routes, "_cli_login_snapshot", _fake_cli)
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: False)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: False)
     monkeypatch.setattr(routes, "_health_cache", {})
 
     with TestClient(_app(tmp_path)) as client:
@@ -593,12 +593,12 @@ def test_jarvis_surface_probes_the_claude_api_key_when_cli_is_uninstalled(
 @pytest.mark.parametrize("claude_installed", [True, False])
 def test_the_jarvis_catalog_offers_api_and_cli_seats(tmp_path: Path, monkeypatch, claude_installed):
     """Jarvis offers coding CLIs and API seats, with Claude's installed-state fallback."""
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     async def _fake_live_models():
         return {}
 
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: claude_installed)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: claude_installed)
     monkeypatch.setattr(routes, "_live_cli_models", _fake_live_models)
     monkeypatch.setattr(
         routes, "_cli_installed", lambda runner: runner == "claude-cli" and claude_installed
@@ -733,7 +733,7 @@ def test_the_jarvis_chat_starts_in_its_own_folder_not_the_whole_profile(
     """
     workspace = tmp_path / "chat-workspace"
     home = tmp_path / "home"
-    monkeypatch.setattr("jarvis.core.paths.chat_workspace_dir", lambda: workspace)
+    monkeypatch.setattr("dodaios.core.paths.chat_workspace_dir", lambda: workspace)
     svc = AgentChatService(AgentChatStore(tmp_path / "db.sqlite"), default_cwd=lambda: str(home))
 
     assert svc.default_cwd("jarvis") == str(workspace)
@@ -752,7 +752,7 @@ def test_an_uncreatable_workspace_falls_back_instead_of_failing_the_chat(
     blocker = tmp_path / "not-a-directory"
     blocker.write_text("", encoding="utf-8")
     home = tmp_path / "home"
-    monkeypatch.setattr("jarvis.core.paths.chat_workspace_dir", lambda: blocker / "chat-workspace")
+    monkeypatch.setattr("dodaios.core.paths.chat_workspace_dir", lambda: blocker / "chat-workspace")
     svc = AgentChatService(AgentChatStore(tmp_path / "db.sqlite"), default_cwd=lambda: str(home))
 
     assert svc.default_cwd("jarvis") == str(home)
@@ -766,7 +766,7 @@ def test_allow_always_on_a_kit_that_handles_it_does_not_flip_the_mode(
     flip to auto (the test above)."""
     from dataclasses import replace
 
-    from jarvis.agent_chat import service as service_mod
+    from dodaios.agent_chat import service as service_mod
 
     remembered: list[tuple[str, str, dict[str, Any]]] = []
 

@@ -1,0 +1,415 @@
+"""Binding an agent to its one canonical chat, and delivering board messages
+into it.
+
+Identity chain (agent-definition §2, build plan decision b): roster row →
+session id ``society:<agent_id>`` (a pure function; no pointer column) →
+``ensure_session`` mirrors the row's provider / model / effort onto the
+session at bind time and re-seats it when the card changes (transcript
+kept). Without a provider on the row the session runs on the Agents tier
+the rest of the app uses (``local_models.assistant_session.agents_tier``).
+
+``make_deliver_hook`` is what the scheduler calls for SAY / QUERY / ANSWER /
+PROPOSE / RESULT envelopes: ensure the target's one chat (MASTERPLAN §2.10),
+then start a turn with the message framed as coming from the sender; the chat
+renders it as a delegation card. Side chats written before 2026-10-05
+(``society:<target>:with:<sender>``) stay readable but never run. A busy
+session raises
+``target busy`` so the scheduler writes a typed veto and the envelope stays
+in the inbox for the next turn.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, Final
+
+from .communication import response_instruction
+from .delivery import DeliveryBusy, IncomingMessage, incoming_context
+from .display_name import display_name
+from .events import MsgType, SocietyEnvelope
+from .roster import (
+    LEAD_AGENT_ID,
+    PAIR_SESSION_MARKER,
+    AgentRecord,
+    PermissionCeiling,
+)
+from .scheduler import DeliverHook
+
+log = logging.getLogger(__name__)
+
+__all__ = [
+    "SURFACE",
+    "agent_busy",
+    "bind_society_session",
+    "direct_chat_owner",
+    "ensure_session",
+    "frame_assignment",
+    "frame_incoming",
+    "make_deliver_hook",
+    "pair_for",
+]
+
+SURFACE: Final[str] = "society"
+
+#: Legacy permission ceiling → the pre-migration Jarvis stance. Explicit
+#: approval modes instead come from the roster's own persisted choice.
+_CEILING_TO_MODE: Final[dict[str, str]] = {
+    str(PermissionCeiling.SAFE): "plan",
+    str(PermissionCeiling.MONITOR): "accept-edits",
+    str(PermissionCeiling.ASK): "ask",
+}
+
+
+def pair_for(cfg: Any, agent: AgentRecord) -> tuple[str, str, str]:
+    """``(provider, model, effort)`` the agent's chat runs on."""
+    if agent.provider:
+        return agent.provider, agent.model, agent.effort
+    from dodaios.local_models.assistant_session import agents_tier
+
+    tier = agents_tier(cfg)
+    if not tier.ready:
+        raise PermissionError(tier.reason or "no provider can run the agent chat")
+    return tier.provider, tier.model, agent.effort
+
+
+def _workspace(cfg: Any, agent: AgentRecord) -> str:
+    data_dir = Path(getattr(getattr(cfg, "memory", None), "data_dir", None) or "data")
+    folder = data_dir / (agent.workspace_dir or f"society/{agent.agent_id}/workspace")
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        log.warning("society: workspace %s could not be created", folder, exc_info=True)
+    try:
+        folder = folder.resolve()
+    except OSError:
+        pass
+    return str(folder)
+
+
+def _session_runtime(agent: AgentRecord) -> str:
+    """The chat session's ``runtime`` column: empty for Jarvis' own runtime."""
+    runtime = str(getattr(agent, "runtime", "") or "jarvis")
+    return "" if runtime == "jarvis" else runtime
+
+
+def ensure_session(
+    svc: Any,
+    cfg: Any,
+    agent: AgentRecord,
+) -> Any:
+    """The agent's one chat, created or re-seated to the roster row.
+
+    The person, Jarvis and teammates all reach the agent here (MASTERPLAN
+    §2.10); work from others renders as delegation cards in the same chat.
+    """
+    from dodaios.agent_chat.effort import default_effort
+    from dodaios.agent_chat.permissions import (
+        ladder_key,
+        normalize_permission,
+        society_mode_supported,
+        stance_of,
+    )
+    from dodaios.agent_chat.service import resolve_runner, session_runner
+
+    provider, model, effort = pair_for(cfg, agent)
+    runtime = _session_runtime(agent)
+    runner = resolve_runner(provider, surface=SURFACE, runtime=runtime, account_id=agent.account_id)
+    legacy_mode = ""
+    if agent.approval_mode is None:
+        legacy_mode = normalize_permission(
+            "jarvis", _CEILING_TO_MODE[str(agent.permission_ceiling)]
+        )
+        if legacy_mode not in ("plan", "read-only") and not society_mode_supported(
+            runner, "ask"
+        ):
+            raise PermissionError(
+                f"{runner} cannot provide an actionable approval for this legacy agent"
+            )
+    if agent.approval_mode is not None and not society_mode_supported(
+        runner, str(agent.approval_mode)
+    ):
+        raise PermissionError(
+            f"{runner} cannot provide an actionable approval for {agent.approval_mode}"
+        )
+    session_id = agent.session_id
+    existing = svc.store.get_session(session_id)
+    if existing is None:
+        ladder = ladder_key(SURFACE, runner)
+        if agent.approval_mode is None:
+            # A pre-migration row keeps the old Jarvis ladder, including Plan.
+            mode = legacy_mode
+        else:
+            mode = normalize_permission(ladder, str(agent.approval_mode))
+        return svc.store.create_session(
+            provider=provider,
+            model=model,
+            effort=effort or default_effort(provider),
+            cwd=_workspace(cfg, agent),
+            permission_mode=mode,
+            title=agent.name,
+            session_id=session_id,
+            surface=SURFACE,
+            account_id=agent.account_id,
+            runtime=runtime,
+        )
+    if getattr(svc, "is_running", lambda _sid: False)(session_id):
+        # An active CLI turn still owns its provider-specific vendor session.
+        # Re-seat only after it ends so that id cannot land on another provider.
+        return existing
+    if existing.provider != provider or existing.model != model:
+        svc.store.reseat_session(session_id, provider=provider, model=model)
+        existing = svc.store.get_session(session_id)
+    if getattr(existing, "runtime", "") != runtime:
+        # The vendor session belongs to the runtime the chat is leaving; the
+        # next turn opens a fresh one from the briefing and recent transcript.
+        svc.store.update_session(session_id, runtime=runtime, vendor_session="")
+        existing = svc.store.get_session(session_id)
+    ladder = ladder_key(SURFACE, runner)
+    if agent.approval_mode is None:
+        # Legacy roster rows encoded their chat stance in permission_ceiling.
+        mode = legacy_mode
+    else:
+        # Current rows keep chat prompts separate from the per-tool risk ceiling.
+        mode = normalize_permission(ladder, str(agent.approval_mode))
+    override = svc.store.permission_override(session_id)
+    if not override and existing.permission_mode in ("plan", "read-only"):
+        # Older sessions recorded /plan in the control state before the
+        # separate override record existed. Preserve that explicit choice.
+        control_store = getattr(getattr(svc, "controls", None), "store", None)
+        if control_store is not None:
+            control = control_store.get(session_id)
+            if control.mode == "plan" and control.previous_permission:
+                override = existing.permission_mode
+                svc.store.set_permission_override(session_id, override)
+    if override:
+        chosen = (
+            "plan" if override in ("plan", "read-only")
+            else normalize_permission(ladder, override)
+        )
+        if chosen not in ("plan", "read-only") and not society_mode_supported(runner, chosen):
+            raise PermissionError(f"{runner} cannot provide an actionable approval for {chosen}")
+        # A narrower chat choice survives rebinding. Always ask is stricter
+        # than Ask even though both share the universal ask-first stance.
+        if stance_of(chosen) < stance_of(mode) or (chosen == "always_ask" and mode == "ask"):
+            mode = chosen
+    updates: dict[str, str] = {}
+    if getattr(existing, "account_id", "") != agent.account_id:
+        updates["account_id"] = agent.account_id
+        if session_runner(existing) != runner:
+            # Another way of paying moved the chat to another runner (Claude:
+            # subscription CLI <-> API key), which cannot resume the old one's
+            # vendor conversation; the next turn opens a fresh one.
+            updates["vendor_session"] = ""
+    if effort and existing.effort != effort:
+        updates["effort"] = effort
+    if existing.permission_mode != mode:
+        updates["permission_mode"] = mode
+    if existing.title != agent.name:
+        updates["title"] = agent.name
+    workspace = _workspace(cfg, agent)
+    if existing.cwd != workspace:
+        updates["cwd"] = workspace
+    if updates:
+        svc.store.update_session(session_id, **updates)
+        existing = svc.store.get_session(session_id)
+    return existing
+
+
+async def bind_society_session(svc: Any, session_id: str, *, routine_run: bool = False) -> Any:
+    """Apply the live roster ceiling before a Society session is used.
+
+    Three session shapes belong to an agent: its canonical chat
+    (``society:<agent>``), a scheduled run (``society:<agent>:routine:...``)
+    and a conversation chat with Jarvis or a teammate
+    (``society:<agent>:with:<counterpart>``).
+    """
+    from dodaios.agent_chat.service import SessionBusy
+
+    from .runtime import current_runtime
+
+    if svc.is_running(session_id):
+        raise SessionBusy(session_id)
+    runtime = current_runtime()
+    agent_id = (
+        session_id.removeprefix("society:")
+        .split(":routine:", 1)[0]
+        .split(PAIR_SESSION_MARKER, 1)[0]
+    )
+    agent = await runtime.roster.get(agent_id) if runtime is not None else None
+    session = svc.store.get_session(session_id)
+    if agent is None or session is None or session.surface != SURFACE:
+        raise PermissionError("Society agent is unavailable")
+    inactive = str(agent.state) != "active" or await runtime.store.kill_switch()
+    if session_id.startswith(f"{agent.session_id}:routine:"):
+        if not routine_run or inactive:
+            raise PermissionError("Routine chat requires an active scheduled run")
+        # Each scheduled run has its own explicitly pinned seat and permission
+        # contract. The internal caller has revalidated its live owner.
+        return session
+    if session_id.startswith(agent.session_id + PAIR_SESSION_MARKER):
+        # An older conversation chat stays readable; new work runs in the
+        # agent's one chat.
+        raise PermissionError(
+            "This older conversation is read-only. Continue in the agent's chat."
+        )
+    if agent.session_id != session_id:
+        raise PermissionError("Society agent is unavailable")
+    if inactive:
+        raise PermissionError("Society agent is paused or disabled")
+    return ensure_session(svc, runtime.config(), agent)
+
+
+def agent_busy(svc: Any, agent: AgentRecord) -> bool:
+    """Whether the person's chat or a conversation chat of ``agent`` runs a turn.
+
+    Messages wait until the agent is free, as they did when it had one chat:
+    two message turns never share its seat, workspace and browser at once.
+    Routine runs are background work and do not hold messages up.
+    """
+    running = getattr(svc, "running_session_ids", None)
+    if not callable(running):
+        return svc.is_running(agent.session_id)
+    return any(direct_chat_owner(sid) == agent.session_id for sid in running())
+
+
+def direct_chat_owner(session_id: str) -> str | None:
+    """Return the shared seat owner for a canonical or conversation chat.
+
+    Scheduled runs intentionally have independent admission and never reserve
+    the direct-chat seat.
+    """
+    if not session_id.startswith("society:") or ":routine:" in session_id:
+        return None
+    return session_id.split(PAIR_SESSION_MARKER, 1)[0]
+
+
+def frame_incoming(env: SocietyEnvelope, sender_name: str) -> str:
+    """How a board envelope reads inside the receiving agent's chat."""
+    kind = str(env.msg_type).lower()
+    lines = [f"[{kind} from {sender_name}]"]
+    if env.msg_type is MsgType.RESULT:
+        p = env.payload
+        lines.append(f"Status: {p.get('status', 'done')}")
+        lines.append(f"Done: {p.get('done', '')}")
+        if p.get("output"):
+            lines.append("Output: " + ", ".join(str(x) for x in p.get("output", [])))
+        if p.get("open"):
+            lines.append("Open: " + "; ".join(str(x) for x in p.get("open", [])))
+    text = env.text
+    if text:
+        lines.append(text)
+    refs = env.payload.get("refs")
+    if isinstance(refs, list) and refs:
+        lines.append("Refs: " + ", ".join(str(r) for r in refs))
+    lines.append(f"Message id: {env.event_id}; sender id: {env.from_agent}")
+    lines.append(response_instruction(env))
+    return "\n".join(lines)
+
+
+#: The first line of a framed assignment: ``[assignment from <sender>]``.
+#: The agent chat renders a message that starts with it as a delegation card.
+ASSIGNMENT_HEADER = "[assignment from "
+
+
+def frame_assignment(env: SocietyEnvelope, sender_name: str = "") -> str:
+    """An ASSIGN as the receiving agent's chat turn — with the handoff ask.
+
+    The header carries the sender's id (the chat reads it back to draw the
+    delegation card); the name the agent should use for the sender follows the
+    ids at the end.
+    """
+    sender = env.from_agent if env.from_agent != "user" else "the user"
+    task = env.text or str(env.payload.get("task") or "")
+    lines = [f"{ASSIGNMENT_HEADER}{sender}]", task.strip()]
+    refs = env.payload.get("refs")
+    if isinstance(refs, list) and refs:
+        lines.append("Refs: " + ", ".join(str(r) for r in refs))
+    lines.append("End with a handoff: done, output location, evidence, open items, next owner.")
+    named = sender_name if sender_name not in ("", env.from_agent) else ""
+    lines.append(
+        f"Message id: {env.event_id}; sender id: {env.from_agent}"
+        + (f"; sender name: {named}" if named else "")
+    )
+    lines.append(response_instruction(env))
+    return "\n".join(lines)
+
+
+def make_deliver_hook(
+    get_service: Callable[[], Any | None],
+    get_cfg: Callable[[], Any],
+    resolve_name: Callable[[str], str] | None = None,
+) -> DeliverHook:
+    """The scheduler's deliver hook over the agent-chat service."""
+
+    async def _receive(
+        target: AgentRecord, env: SocietyEnvelope
+    ) -> tuple[Any, Any, IncomingMessage]:
+        svc = get_service()
+        if svc is None:
+            raise DeliveryBusy("agent chat service unavailable: message stays in the inbox")
+        if resolve_name is not None:
+            sender = resolve_name(env.from_agent)
+        else:
+            from .runtime import current_runtime
+
+            runtime = current_runtime()
+            record = await runtime.roster.get(env.from_agent) if runtime is not None else None
+            sender = (
+                display_name(record, get_cfg()) if record is not None else env.from_agent
+            )
+        incoming = IncomingMessage(
+            message_id=env.event_id,
+            sender_id=env.from_agent,
+            sender_name=sender,
+            sender_kind=(
+                "jarvis"
+                if env.from_agent == LEAD_AGENT_ID
+                else "user"
+                if env.from_agent == "user"
+                else "agent"
+            ),
+            text=env.text,
+            prompt=frame_incoming(env, sender),
+            trace_id=env.trace_id,
+        )
+        if target.agent_id == LEAD_AGENT_ID:
+            sessions = svc.store.list_sessions(limit=1, surface="jarvis")
+            if not sessions:
+                raise DeliveryBusy("Dodaios chat is not open yet")
+            session = sessions[0]
+        else:
+            # Everyone reaches a created agent in its one chat; the incoming
+            # message carries its sender and renders as a delegation card.
+            session = ensure_session(svc, get_cfg(), target)
+        await svc.receive_message(session.session_id, incoming)
+        return svc, session, incoming
+
+    async def _deliver(target: AgentRecord, env: SocietyEnvelope) -> None:
+        svc, session, incoming = await _receive(target, env)
+        if target.agent_id == LEAD_AGENT_ID:
+            receipt = svc.store.incoming_message(session.session_id, env.event_id)
+            if receipt is not None and receipt["status"] != "delivered":
+                await svc.message_status(session.session_id, env.event_id, "delivered")
+            return
+        receipt = svc.store.incoming_message(session.session_id, env.event_id)
+        if receipt is not None and receipt["status"] == "delivered":
+            return
+        if svc.is_running(session.session_id) or agent_busy(svc, target):
+            raise DeliveryBusy(
+                f"target busy: {display_name(target, get_cfg())} is running a turn"
+            )
+        token = incoming_context.set(incoming)
+        try:
+            from dodaios.agent_chat.service import SessionBusy
+
+            await svc.send(session.session_id, incoming.prompt, incoming=incoming)
+        except SessionBusy as exc:
+            raise DeliveryBusy(str(exc)) from exc
+        finally:
+            incoming_context.reset(token)
+
+    # The scheduler can project later FIFO entries without starting their turns.
+    setattr(_deliver, "receive", _receive)  # noqa: B010 — optional callable capability
+    return _deliver

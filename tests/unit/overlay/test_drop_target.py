@@ -7,7 +7,7 @@ See docs/superpowers/specs/2026-06-21-dragdrop-files-into-context-design.md.
 """
 from __future__ import annotations
 
-from jarvis.overlay.drop_target import (
+from dodaios.overlay.drop_target import (
     NullDropTarget,
     _parse_dnd_files,
     make_drop_target,

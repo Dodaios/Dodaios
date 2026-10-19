@@ -30,7 +30,7 @@ you see?", never replace what is on the clipboard. **Copy to clipboard** on
 the Appshots page (`[appshot].copy_to_clipboard`) turns it off.
 
 The clipboard holds the same picture in several formats at once, because
-every app asks for a different one (`jarvis/platform/clipboard_image.py`):
+every app asks for a different one (`dodaios/platform/clipboard_image.py`):
 
 | OS | Formats | Who reads what |
 |---|---|---|
@@ -44,7 +44,7 @@ Dodaios X screenshots (`[jarvisx].copy_to_clipboard`) use the same code.
 ## Selecting an area
 
 The area picker uses a prepared PySide6 process (`python -m
-jarvis.appshot.picker --resident`). The main instance prepares it after the
+dodaios.appshot.picker --resident`). The main instance prepares it after the
 wake-ready gate when Appshots are enabled. Standby creates no selection
 windows and captures no pixels. Each shortcut samples the current screens
 and window layout; completing or cancelling releases the frozen images,
@@ -116,7 +116,7 @@ Finishing:
 
 The capture itself is unchanged: after the overlay closes, Screen Context
 grabs the area (denylist, redaction and all), and only that finished picture
-gets the markings (`jarvis/appshot/markup.py`) — blur and pixelate on the
+gets the markings (`dodaios/appshot/markup.py`) — blur and pixelate on the
 capture's own pixels first, then the drawn markings as a transparent layer
 stretched to the capture's size, then the background frame if one was
 chosen. The markings never show anything the
@@ -126,7 +126,7 @@ them too. While the toolbar is up the global Esc stops cancelling, so Esc can
 end a text box without throwing the selection away.
 
 The picker reports the rectangle as fractions of the screen it was drawn on;
-the app maps that back to capture pixels (`jarvis/appshot/region.py`), so
+the app maps that back to capture pixels (`dodaios/appshot/region.py`), so
 mixed-DPI setups capture exactly what was outlined. A selection stays on one
 screen. The window list for snapping is read before the overlay appears and
 skips minimized and (on Windows) cloaked windows; where no list is available
@@ -162,7 +162,7 @@ that card's picture (`AppshotStore` keeps the last five, each for
   right). The chip under the pointer names itself along the bottom edge.
   Copy puts the picture on the clipboard, Save writes it to Downloads and
   Copy text copies the on-screen text the appshot read (where the screen had
-  any) — all done by the main process (`jarvis/appshot/card_actions.py`), so
+  any) — all done by the main process (`dodaios/appshot/card_actions.py`), so
   the clipboard survives the overlay quitting on Linux; the card shows the
   result for a moment. **Pin** keeps the card until you close it, whatever
   *Corner card* says; a pinned card shows the pin even without the pointer.
@@ -298,7 +298,7 @@ fails too) and Save (`~/Downloads` on every OS).
 An appshot is two things at once: a screenshot the user keeps, and context
 for the assistant. **Done** decides the second: the edited picture becomes
 the appshot (`PUT /api/appshot/latest/image`), and `deliver_edit` in
-`jarvis/appshot/service.py` hands it over with a note that the markings are
+`dodaios/appshot/service.py` hands it over with a note that the markings are
 the user's — arrows, boxes, numbers and text point at what they mean, hidden
 parts were hidden on purpose:
 
@@ -454,9 +454,9 @@ original any-order behaviour.
 | | Windows | macOS | Linux/X11 | Wayland / headless |
 |---|---|---|---|---|
 | Both-Alt shortcut | `GetAsyncKeyState` (AltGr counts as right Alt) | `CGEventSourceKeyState`, needs the Input Monitoring grant; a silent check (never a prompt) reports the shortcut unavailable and names the grant when it is missing | `XQueryKeymap` via python-xlib | Unavailable, reason shown on the page; voice and the button still work where capture works |
-| Other shortcuts (incl. the area shortcut) | Shared hotkey backends (`jarvis/trigger/backends`) | same | same | same as above |
+| Other shortcuts (incl. the area shortcut) | Shared hotkey backends (`dodaios/trigger/backends`) | same | same | same as above |
 | Area picker and its marking toolbar | PySide6 overlay; a global Esc also cancels until an area is chosen, because Windows may not hand it keyboard focus until the first click | PySide6 overlay | PySide6 overlay | Unavailable, reason shown on the page; the window appshot still works |
-| Burning the markings into the appshot | Pillow, in the main process (`jarvis/appshot/markup.py`) | same | same | same (no display needed) |
+| Burning the markings into the appshot | Pillow, in the main process (`dodaios/appshot/markup.py`) | same | same | same (no display needed) |
 | Flash + thumbnail | PySide6 overlay, excluded from capture | PySide6 overlay | PySide6 overlay | No overlay; the appshot is still taken where capture works |
 | Capture | Screen Context engine | Needs Screen Recording; macOS asks for it at the first appshot you take | X11 | Honest refusal |
 
@@ -489,19 +489,19 @@ Wayland, headless hosts and installations without PySide6 remain unavailable.
 
 ## Code
 
-`jarvis/appshot/` — `service.py` (take and deliver), `store.py` (pending and
+`dodaios/appshot/` — `service.py` (take and deliver), `store.py` (pending and
 last appshot, memory only), `library.py` (the gallery's history on disk), `gesture.py` (both-Alt watcher), `hotkey.py`
 (both shortcuts' lifecycle), `region.py` (area selection and its coordinate
 mapping), `picker_host.py` (prepared-process lifecycle), `picker/` (the area
 picker sidecar), `effect.py` (shutter hook),
 `delivery.py` (voice calls). The corner card lives in the indicator sidecar
-(`jarvis/cu/indicator/renderer.py`, `_CardWindow`); the editor is
+(`dodaios/cu/indicator/renderer.py`, `_CardWindow`); the editor is
 `frontend/src/views/AppshotEditor.tsx`, hosted by
 `components/appshot/AppshotEditorHost.tsx` (opened through
 `store/appshotEditor.ts`), with its document model in
 `lib/appshotEditorModel.ts`, the copy path in `lib/appshotClipboard.ts` and
-the native clipboard in `jarvis/platform/clipboard_image.py`.
-The live model's `take_appshot` tool is `jarvis/plugins/tool/appshot.py`; the
-REST surface is `jarvis/ui/web/appshot_routes.py`; the page is
+the native clipboard in `dodaios/platform/clipboard_image.py`.
+The live model's `take_appshot` tool is `dodaios/plugins/tool/appshot.py`; the
+REST surface is `dodaios/ui/web/appshot_routes.py`; the page is
 `frontend/src/views/AppshotsView.tsx`, its gallery
 `frontend/src/views/AppshotLibrary.tsx`.

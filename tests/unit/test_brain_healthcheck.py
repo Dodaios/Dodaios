@@ -12,13 +12,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.healthcheck import (
+from dodaios.brain.healthcheck import (
     BrainConfigError,
     BrainHealthChecker,
     HealthResult,
 )
-from jarvis.core.config import BrainTierConfig
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.core.config import BrainTierConfig
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 
 class _SlowBrain:

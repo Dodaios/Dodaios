@@ -13,7 +13,7 @@ import logging
 import re
 from pathlib import Path
 
-from jarvis.trigger.backends.quartz import (
+from dodaios.trigger.backends.quartz import (
     _FLAG_MASK_TO_TOKEN,
     _KEYCODE_TO_TOKEN,
     QuartzHotkeyBackend,
@@ -98,7 +98,7 @@ def test_permission_revocation_clears_chords_and_blocks_handlers() -> None:
 def test_start_without_permission_is_a_silent_noop(caplog) -> None:
     """Boot without Input Monitoring: no tap, INFO only, never a warning."""
     backend = _backend_with_permission(granted=False)
-    with caplog.at_level(logging.DEBUG, logger="jarvis.trigger.backends.quartz"):
+    with caplog.at_level(logging.DEBUG, logger="dodaios.trigger.backends.quartz"):
         backend.start()
     assert backend._started is False
     assert backend._tap is None
@@ -155,7 +155,7 @@ def test_keycode_table_covers_every_token_the_picker_can_record() -> None:
     """
     source = (
         Path(__file__).resolve().parents[3]
-        / "jarvis/ui/web/frontend/src/hooks/useHotkey.ts"
+        / "dodaios/ui/web/frontend/src/hooks/useHotkey.ts"
     ).read_text(encoding="utf-8")
 
     named = source.split("_NAMED_KEY_TOKENS", 1)[1].split("};", 1)[0]
@@ -275,7 +275,7 @@ _FLAG_FOR_TOKEN = {mask_token: mask for mask, mask_token in _FLAG_MASK_TO_TOKEN}
 
 def _fires(combo: str, *flag_tokens: str) -> bool:
     """Whether ``combo``, as the recorder writes it, fires on those flags."""
-    from jarvis.trigger.backends.global_hotkeys import _normalize_combo
+    from dodaios.trigger.backends.global_hotkeys import _normalize_combo
 
     fired: list[str] = []
     backend = _backend_with_permission()
@@ -348,8 +348,8 @@ def test_no_modifier_spelling_survives_normalization_unfolded() -> None:
     actually sets. A survivor is the silent-dead-shortcut bug, so this asserts
     the property rather than the eleven examples above.
     """
-    from jarvis.trigger.backends.global_hotkeys import _normalize_combo
-    from jarvis.trigger.backends.pynput import _parse_combo_tokens
+    from dodaios.trigger.backends.global_hotkeys import _normalize_combo
+    from dodaios.trigger.backends.pynput import _parse_combo_tokens
 
     ui_modifier_tokens = [
         "ctrl", "control", "right_ctrl", "right_control",
@@ -381,11 +381,11 @@ def test_the_frontend_fold_table_mirrors_the_backend_one() -> None:
     Read out of the TypeScript source rather than duplicated here: a copy of
     the table in this file would be a third thing to keep in sync.
     """
-    from jarvis.trigger.backends.global_hotkeys import _KEY_MAP
+    from dodaios.trigger.backends.global_hotkeys import _KEY_MAP
 
     source = (
         Path(__file__).resolve().parents[3]
-        / "jarvis" / "ui" / "web" / "frontend" / "src" / "hooks" / "useHotkey.ts"
+        / "dodaios" / "ui" / "web" / "frontend" / "src" / "hooks" / "useHotkey.ts"
     ).read_text(encoding="utf-8")
 
     block = re.search(

@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.realtime.openai_realtime import (
+from dodaios.plugins.realtime.openai_realtime import (
     LocalRealtimeProvider,
     _normalize_local_root,
     _session_payload,
@@ -93,7 +93,7 @@ def test_the_class_satisfies_the_provider_protocol() -> None:
     ever reached the server. Declaring the attribute empty is what selects the
     keyless path; omitting it removes the provider from the product.
     """
-    from jarvis.realtime.protocol import RealtimeProvider
+    from dodaios.realtime.protocol import RealtimeProvider
 
     assert isinstance(LocalRealtimeProvider(), RealtimeProvider)
     assert LocalRealtimeProvider.credential_candidates == ()
@@ -103,8 +103,8 @@ def test_the_factory_actually_builds_it_when_selected() -> None:
     """The contract that matters is not "the class looks right", it is "a call
     that selects this card gets a provider object". The protocol failure above
     was invisible to every check that stopped at the class."""
-    from jarvis.core.config import BrainConfig, BrainProviderConfig, BrainTierConfig, JarvisConfig
-    from jarvis.realtime import factory
+    from dodaios.core.config import BrainConfig, BrainProviderConfig, BrainTierConfig, JarvisConfig
+    from dodaios.realtime import factory
 
     cfg = JarvisConfig(
         brain=BrainConfig(
@@ -122,8 +122,8 @@ def test_the_factory_actually_builds_it_when_selected() -> None:
 
 def test_an_unconfigured_card_yields_no_candidate() -> None:
     """The other half: without a server address it must stay out of the chain."""
-    from jarvis.core.config import BrainConfig, BrainTierConfig, JarvisConfig
-    from jarvis.realtime import factory
+    from dodaios.core.config import BrainConfig, BrainTierConfig, JarvisConfig
+    from dodaios.realtime import factory
 
     cfg = JarvisConfig(
         brain=BrainConfig(realtime=BrainTierConfig(provider="local-realtime"))
@@ -143,7 +143,7 @@ async def test_cold_managed_server_starts_but_does_not_hold_the_call(
 ) -> None:
     """Cold loading continues under supervision while the interactive probe
     returns immediately instead of spending 120 seconds without a pool slot."""
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[str] = []
     monkeypatch.setattr(
@@ -181,8 +181,8 @@ async def test_slow_managed_spawn_continues_after_the_call_fails_fast(
     import asyncio
     import time
 
-    from jarvis.plugins.realtime import openai_realtime as module
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.plugins.realtime import openai_realtime as module
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[str] = []
     monkeypatch.setattr(module, "_LOCAL_MANAGED_PREFLIGHT_WAIT_S", 0.005)
@@ -217,7 +217,7 @@ async def test_slow_managed_spawn_continues_after_the_call_fails_fast(
 
 
 async def test_ready_managed_pool_opens_only_with_idle_capacity(monkeypatch) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     pool = {"size": 1, "in_use": 0, "available": 1, "active": 0}
     monkeypatch.setattr(
@@ -251,8 +251,8 @@ async def test_a_serving_pool_is_never_judged_by_the_cold_start_clock(
     import asyncio
     import time
 
-    from jarvis.plugins.realtime import openai_realtime as module
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.plugins.realtime import openai_realtime as module
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(module, "_LOCAL_MANAGED_PREFLIGHT_WAIT_S", 0.05)
     monkeypatch.setattr(
@@ -299,8 +299,8 @@ async def test_a_refusal_explains_itself_in_words_a_user_can_act_on(
     static sentence pinned here.
     """
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
-    from jarvis.plugins.realtime import openai_realtime as module
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.plugins.realtime import openai_realtime as module
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(
         supervisor, "is_managed_launch_command", lambda command: True
@@ -338,7 +338,7 @@ async def test_a_refusal_explains_itself_in_words_a_user_can_act_on(
 
 
 async def test_a_missing_address_reads_as_a_setup_gap_not_an_outage() -> None:
-    from jarvis.brain.provider_test import NOT_CONFIGURED, classify_provider_error
+    from dodaios.brain.provider_test import NOT_CONFIGURED, classify_provider_error
 
     provider = LocalRealtimeProvider()
 
@@ -351,7 +351,7 @@ async def test_a_missing_address_reads_as_a_setup_gap_not_an_outage() -> None:
 
 
 async def test_byo_server_never_requires_the_private_pool(monkeypatch) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(
         supervisor, "is_managed_launch_command", lambda command: False
@@ -475,7 +475,7 @@ async def test_a_pinned_model_skips_the_probe(fake_models) -> None:
 async def test_the_managed_server_skips_its_unsupported_models_route(
     fake_models, monkeypatch
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(supervisor, "is_managed_launch_command", lambda command: True)
     provider = LocalRealtimeProvider(
@@ -524,7 +524,7 @@ def _session_kwargs(**overrides: Any) -> dict[str, Any]:
 def test_transport_rebuild_is_opt_in_and_off_by_default() -> None:
     """Hosted OpenAI-protocol cards keep their deliberate terminal semantics
     (BUG-064): a session that was not asked to rebuild must not."""
-    from jarvis.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
+    from dodaios.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
 
     session = _OpenAIRealtimeSession(**_session_kwargs())
     assert session.rebuild_on_transport_death is False
@@ -538,7 +538,7 @@ def test_prompted_response_retry_is_opt_in_and_off_by_default() -> None:
     """Hosted cards keep the bare response.create retry; only a transport
     that keeps the cancelled answer in its conversation opts into the
     send_text retry (2026-08-10: the local retry returned one empty token)."""
-    from jarvis.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
+    from dodaios.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
 
     session = _OpenAIRealtimeSession(**_session_kwargs())
     assert session.supports_prompted_response_retry is False
@@ -552,7 +552,7 @@ def test_surface_fallback_render_is_opt_in_and_off_by_default() -> None:
     """Hosted cards keep the surface re-render (their TTS sibling exists);
     only a transport whose voice lives solely behind the live session claims
     the session-voice fallback render."""
-    from jarvis.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
+    from dodaios.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
 
     session = _OpenAIRealtimeSession(**_session_kwargs())
     assert session.renders_surface_fallback is False
@@ -565,7 +565,7 @@ def test_surface_fallback_render_is_opt_in_and_off_by_default() -> None:
 async def test_local_sessions_opt_into_transport_rebuild(monkeypatch) -> None:
     """The self-hosted card asks for the in-place rebuild: its server can
     crash and come back, and the call must survive that."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     captured: dict[str, Any] = {}
 
@@ -589,7 +589,7 @@ async def test_local_sessions_opt_into_transport_rebuild(monkeypatch) -> None:
 async def test_connect_retries_until_the_server_is_back(monkeypatch) -> None:
     """A restarting local server needs seconds to warm up; the first refused
     connects are its warm-up, not its verdict."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     monkeypatch.setattr(module, "_LOCAL_CONNECT_RETRY_STEP_S", 0.0)
     provider = LocalRealtimeProvider(
@@ -615,7 +615,7 @@ async def test_connect_retries_until_the_server_is_back(monkeypatch) -> None:
 
 
 async def test_connect_gives_up_honestly_after_the_window(monkeypatch) -> None:
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     monkeypatch.setattr(module, "_LOCAL_CONNECT_RETRY_STEP_S", 0.01)
     provider = LocalRealtimeProvider(base_url="http://localhost:8080", model="m")
@@ -657,8 +657,8 @@ async def test_managed_initial_open_race_never_uses_the_recovery_window(
     first-call race is bounded separately from the patient mid-call rebuild."""
     import asyncio
 
-    from jarvis.plugins.realtime import openai_realtime as module
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.plugins.realtime import openai_realtime as module
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(module, "_LOCAL_MANAGED_INTERACTIVE_OPEN_S", 0.02)
     monkeypatch.setattr(
@@ -700,7 +700,7 @@ async def test_managed_initial_open_race_never_uses_the_recovery_window(
 def test_patience_is_earned_by_a_launch_command() -> None:
     """Without a launch command nobody revives the server — a long silent
     wait would hold the call hostage for nothing."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     patient = LocalRealtimeProvider(
         base_url="http://localhost:8080", launch_command="serve"
@@ -719,7 +719,7 @@ def _fresh_launch_state(monkeypatch) -> list[dict[str, Any]]:
     """
     import subprocess
 
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(supervisor, "_port_open", lambda port, timeout=1.0: False)
     monkeypatch.setattr(supervisor, "probe_runtime", lambda *args, **kwargs: None)
@@ -740,7 +740,7 @@ def _fresh_launch_state(monkeypatch) -> list[dict[str, Any]]:
 
 
 def test_revive_spawns_windowless_and_rate_limited(monkeypatch, tmp_path) -> None:
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     spawned = _fresh_launch_state(monkeypatch)
@@ -759,7 +759,7 @@ def test_revive_spawns_windowless_and_rate_limited(monkeypatch, tmp_path) -> Non
 
 
 def test_transient_lifecycle_refusal_is_immediately_retryable(monkeypatch) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(LocalRealtimeProvider, "_last_launch_at", float("-inf"))
     outcomes = iter(["refused:spawn-in-progress", "spawned"])
@@ -809,7 +809,7 @@ def test_declared_handshake_budget_covers_the_patient_window() -> None:
 def test_launch_command_state_missing_for_a_deleted_path(tmp_path) -> None:
     """A quoted path whose target is gone is exactly the deleted managed
     install of 2026-08-08 — the one case that must be judged decisively."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     gone = tmp_path / "venv" / "Scripts" / "speech-to-speech.exe"
     assert (
@@ -818,7 +818,7 @@ def test_launch_command_state_missing_for_a_deleted_path(tmp_path) -> None:
 
 
 def test_launch_command_state_present_for_an_existing_path(tmp_path) -> None:
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     exe = tmp_path / "server"
     exe.write_bytes(b"")
@@ -828,7 +828,7 @@ def test_launch_command_state_present_for_an_existing_path(tmp_path) -> None:
 def test_launch_command_state_fails_open_on_ambiguity() -> None:
     """Bare names and empty commands are never judged: a bring-your-own
     command must keep exactly the pre-fix behavior."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     assert module._launch_command_target_state("serve --flag") == "unknown"
     assert module._launch_command_target_state("") == "unknown"
@@ -838,7 +838,7 @@ def test_launch_command_state_fails_open_on_ambiguity() -> None:
 def test_a_stale_install_shrinks_the_retry_window(tmp_path) -> None:
     """Patience only pays when the revive could ever succeed; a deleted
     entry point earns the short window, not 120 s of knocking."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     gone = tmp_path / "venv" / "Scripts" / "speech-to-speech.exe"
     stale = LocalRealtimeProvider(
@@ -853,7 +853,7 @@ async def test_a_stale_install_fails_fast_with_the_fixing_action(
     """The first refused connect against a deleted install must end the
     attempt with the fixing action — not sit out any retry window (live
     2026-08-08: 120 s of "Connecting…" ending in a silent idle)."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     monkeypatch.setattr(module, "_LOCAL_CONNECT_RETRY_STEP_S", 0.0)
     gone = tmp_path / "venv" / "Scripts" / "speech-to-speech.exe"
@@ -894,7 +894,7 @@ async def test_a_running_orphan_still_connects_despite_a_stale_command(
 async def test_the_sdk_client_is_cached_across_sessions(monkeypatch) -> None:
     """Building AsyncOpenAI costs ~230 ms (httpx + SSL context); one cached
     client per endpoint turns that into a one-time cost."""
-    from jarvis.plugins.realtime import openai_realtime as module
+    from dodaios.plugins.realtime import openai_realtime as module
 
     captured: list[Any] = []
 
@@ -914,7 +914,7 @@ async def test_closing_a_local_session_keeps_the_cached_client_alive() -> None:
     """A cached client that dies with its first session would make every
     LATER call pay the rebuild — and closing a shared client under a
     concurrent session would kill that session's transport."""
-    from jarvis.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
+    from dodaios.plugins.realtime.openai_realtime import _OpenAIRealtimeSession
 
     class _FakeCm:
         async def __aexit__(self, *exc: Any) -> None:
@@ -965,7 +965,7 @@ async def test_warm_transport_prewarms_via_the_supervisor(
 ) -> None:
     """The shared warm worker calls this after boot: server up + brain model
     resident BEFORE the first call, which is what makes connects instant."""
-    from jarvis.realtime.local_server import install, supervisor
+    from dodaios.realtime.local_server import install, supervisor
 
     # Isolated data dir: the readiness budget is derived from THIS install's
     # recorded boot durations, so without isolation the assertion below would
@@ -1018,7 +1018,7 @@ async def test_warm_transport_prewarms_via_the_supervisor(
 async def test_warm_transport_never_warms_the_brain_before_speech_is_ready(
     monkeypatch, tmp_path
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[str] = []
     monkeypatch.setattr(supervisor, "ensure_running", lambda **kwargs: "spawned")
@@ -1037,7 +1037,7 @@ async def test_warm_transport_never_warms_the_brain_before_speech_is_ready(
 async def test_byo_warm_transport_does_not_require_the_private_pool(
     monkeypatch, tmp_path
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[str] = []
     monkeypatch.setattr(supervisor, "ensure_running", lambda **kwargs: "already-running")
@@ -1066,7 +1066,7 @@ async def test_byo_warm_transport_does_not_require_the_private_pool(
 async def test_warm_transport_skips_a_deleted_install(monkeypatch, tmp_path) -> None:
     """Prewarming a deleted entry point would just burn the rate limit and
     log noise at every boot."""
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     spawned: list[str] = []
     monkeypatch.setattr(
@@ -1112,7 +1112,7 @@ async def test_prespawn_spawns_and_arms_the_monitor_without_waiting(
     """The boot-time prestart only spawns: readiness and brain residency stay
     with warm_transport, so the prespawn can run before the warm worker's
     gates without ever blocking a boot."""
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[str] = []
     monkeypatch.setattr(
@@ -1141,7 +1141,7 @@ async def test_prespawn_spawns_and_arms_the_monitor_without_waiting(
 async def test_prespawn_does_not_arm_the_monitor_on_a_refused_spawn(
     monkeypatch, tmp_path
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[str] = []
     monkeypatch.setattr(
@@ -1162,7 +1162,7 @@ async def test_prespawn_does_not_arm_the_monitor_on_a_refused_spawn(
 async def test_prespawn_requires_an_address_and_a_local_command(
     monkeypatch, tmp_path
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     def forbidden(**kwargs: Any) -> str:
         raise AssertionError("nothing may spawn without a local endpoint")

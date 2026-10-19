@@ -28,7 +28,7 @@ def _oauth_available() -> bool:
 @pytest.mark.skipif(not _api_key_available(), reason="no Brain API key")
 @pytest.mark.asyncio
 async def test_latency_simple_answer():
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     brain = build_default_brain()
     t0 = time.perf_counter()
     r = await asyncio.wait_for(brain.generate("Sag 'Hi'."), timeout=15)
@@ -42,7 +42,7 @@ async def test_latency_simple_answer():
 @pytest.mark.skipif(not _api_key_available(), reason="no Brain API key")
 @pytest.mark.asyncio
 async def test_rate_limit_tracker_skips_bad_provider():
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     brain = build_default_brain()
 
     # Markiere Haiku als rate-limited
@@ -65,7 +65,7 @@ async def test_multitool_latency():
     (open_app was used as the tool-assertion anchor in older builds; that
     tool was removed — this test now measures pure response latency.)
     """
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     brain = build_default_brain()
 
     t0 = time.perf_counter()

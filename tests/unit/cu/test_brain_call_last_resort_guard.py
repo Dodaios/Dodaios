@@ -30,8 +30,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta, ImageBlock
-from jarvis.cu.brain_call import CUNoVisionProviderError, call_vision_brain
+from dodaios.core.protocols import BrainDelta, ImageBlock
+from dodaios.cu.brain_call import CUNoVisionProviderError, call_vision_brain
 
 _COMPLETE = '{"action": "done"}'
 _IMG = ImageBlock(mime="image/jpeg", data_b64="QQ==", source_hash="x")

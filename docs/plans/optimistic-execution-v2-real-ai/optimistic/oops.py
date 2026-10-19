@@ -16,7 +16,7 @@ v2 change from v1:
     dicts. The VAD endpoints in vad.py call flush(session_id) at turn-boundary
     time; the speaking flag is owned entirely by VADRegistry (vad.py).
 
-Standard-library only — no third-party imports, no ``import jarvis.*``.
+Standard-library only — no third-party imports, no ``import dodaios.*``.
 """
 from __future__ import annotations
 

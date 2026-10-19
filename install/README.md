@@ -37,7 +37,7 @@ and headless Linux hosts are deliberately not registered.
 
 On macOS, every launch path enters through the same app bundle so privacy
 grants stay attached to one identity. The source installer compiles a small
-native launcher (`jarvis/setup/macos_stub_launcher.c`) into
+native launcher (`dodaios/setup/macos_stub_launcher.c`) into
 `Personal Jarvis.app`, signs it with a per-user code-signing certificate it
 creates on the first run (macOS asks for the login password once to trust
 it; grants then survive every rebuild and update), verifies the identity from
@@ -96,8 +96,8 @@ uv pip compile --universal --generate-hashes --emit-find-links \
   --find-links https://dodaios.github.io/Dodaios/native-crypto/50.0.2-1/simple/cryptography/ \
   --config-file packaging/native-crypto-uv.toml \
   --default-index https://pypi.org/simple --keyring-provider disabled --no-progress --color never
-uv pip compile jarvis/assets/browser/pyproject.toml --universal --generate-hashes --emit-find-links \
-  --python-version 3.12 --no-header --output-file=jarvis/assets/browser/requirements.lock \
+uv pip compile dodaios/assets/browser/pyproject.toml --universal --generate-hashes --emit-find-links \
+  --python-version 3.12 --no-header --output-file=dodaios/assets/browser/requirements.lock \
   --config-file packaging/native-crypto-uv.toml \
   --find-links https://dodaios.github.io/Dodaios/native-crypto/50.0.2-1/simple/cryptography/ \
   --default-index https://pypi.org/simple --keyring-provider disabled
@@ -175,12 +175,12 @@ on macOS at all:
 
 ```bash
 # macOS / Linux
-~/.personal-jarvis/.venv/bin/python -m jarvis --uninstall
+~/.personal-jarvis/.venv/bin/python -m dodaios --uninstall
 ```
 
 ```powershell
 # Windows (PowerShell)
-& "$env:USERPROFILE\.personal-jarvis\.venv\Scripts\python.exe" -m jarvis --uninstall
+& "$env:USERPROFILE\.personal-jarvis\.venv\Scripts\python.exe" -m dodaios --uninstall
 ```
 
 ## Environment overrides

@@ -7,8 +7,8 @@ from dataclasses import replace
 
 import pytest
 
-from jarvis.agentic_ide import agent_transcript
-from jarvis.agentic_ide import session_branches as branches
+from dodaios.agentic_ide import agent_transcript
+from dodaios.agentic_ide import session_branches as branches
 
 
 def call(args, identity="call", name="exec_command"):

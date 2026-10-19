@@ -39,7 +39,7 @@ if str(REPO) not in sys.path:
 # The persona loader is missing on the ``router-permanent-vision`` branch —
 # import it defensively so the script still runs. It would be present on ``main``.
 try:
-    from jarvis.brain.persona_loader import invalidate_cache, load_persona_prompt  # type: ignore
+    from dodaios.brain.persona_loader import invalidate_cache, load_persona_prompt  # type: ignore
     HAS_PERSONA_LOADER = True
 except ModuleNotFoundError:
     HAS_PERSONA_LOADER = False
@@ -135,10 +135,10 @@ ANTI_PATTERNS = [
 
 
 async def probe() -> int:
-    from jarvis.brain.manager import BrainManager
-    from jarvis.brain.output_filter import scrub_for_voice
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import load_config
+    from dodaios.brain.manager import BrainManager
+    from dodaios.brain.output_filter import scrub_for_voice
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import load_config
 
     print(f"Persona loader present: {HAS_PERSONA_LOADER}")
     invalidate_cache()
@@ -155,17 +155,17 @@ async def probe() -> int:
     # Preferred: build_default_brain(tier='router') — full voice path with
     # tools + force-spawn heuristic. Fallback: direct BrainManager with the
     # router prompt — used when tool loading fails (e.g. because
-    # ``jarvis.clis.risk_integration`` is missing on the current branch).
+    # ``dodaios.clis.risk_integration`` is missing on the current branch).
     bm: BrainManager | None = None
     try:
-        from jarvis.brain.factory import build_default_brain
+        from dodaios.brain.factory import build_default_brain
         bm = build_default_brain(tier="router", bus=bus)
         print("Brain setup: build_default_brain(tier='router') ✓")
     except Exception as exc:  # noqa: BLE001
         print(f"Brain setup fallback: factory failed ({type(exc).__name__}: {exc})")
         bm = BrainManager(config=cfg, bus=bus, tools={}, tool_executor=None)
         try:
-            from jarvis.brain.router import SYSTEM_PROMPT as ROUTER_SYSTEM_PROMPT
+            from dodaios.brain.router import SYSTEM_PROMPT as ROUTER_SYSTEM_PROMPT
             bm._system_prompt_extra = ROUTER_SYSTEM_PROMPT  # type: ignore[attr-defined]
             print("Brain setup: direct BrainManager + ROUTER SYSTEM_PROMPT manually ✓")
         except Exception as exc2:  # noqa: BLE001

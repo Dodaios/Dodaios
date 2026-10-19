@@ -31,9 +31,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.intent import detect, detect_spawn
-from jarvis.agentic_ide.session import Registry
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.intent import detect, detect_spawn
+from dodaios.agentic_ide.session import Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 #: The workspace as it stood: T5 and T7 had been closed, so the free position
@@ -141,7 +141,7 @@ class TestANewPaneRunsTheWorkspacesCli:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Keep the recents file out of the developer's real data directory."""
-        from jarvis.agentic_ide import recents
+        from dodaios.agentic_ide import recents
 
         store = tmp_path_factory.mktemp("recents") / "recents.json"
         monkeypatch.setattr(recents, "_store_path", lambda: store)

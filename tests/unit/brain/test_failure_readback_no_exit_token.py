@@ -23,13 +23,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.local_action_gate import (
+from dodaios.brain.local_action_gate import (
     LocalActionMode,
     LocalActionPlan,
     LocalToolCall,
 )
-from jarvis.brain.manager import BrainManager
-from jarvis.voice.action_phrases import extract_speakable_reason
+from dodaios.brain.manager import BrainManager
+from dodaios.voice.action_phrases import extract_speakable_reason
 
 _BARE_EXIT = re.compile(r"\bexit\s*-?\d", re.IGNORECASE)
 
@@ -125,7 +125,7 @@ def _direct_plan(_text: str, **_kwargs: object) -> LocalActionPlan:
 @pytest.mark.parametrize("pin", ["de", "en", "es", "auto"])
 async def test_direct_failure_never_speaks_exit_token(monkeypatch, pin) -> None:
     mgr = _make_manager(_FailingExecutor(error="exit 1"), reply_language=pin)
-    monkeypatch.setattr("jarvis.brain.manager.match_local_action", _direct_plan)
+    monkeypatch.setattr("dodaios.brain.manager.match_local_action", _direct_plan)
 
     reply = await mgr._run_local_action_fast_path("do the thing")
 
@@ -138,7 +138,7 @@ async def test_direct_failure_never_speaks_exit_token(monkeypatch, pin) -> None:
 async def test_direct_failure_forwards_human_reason(monkeypatch) -> None:
     out = {"exit_code": 1, "stderr": "Disk is full", "stdout": ""}
     mgr = _make_manager(_FailingExecutor(error="exit 1", output=out), reply_language="en")
-    monkeypatch.setattr("jarvis.brain.manager.match_local_action", _direct_plan)
+    monkeypatch.setattr("dodaios.brain.manager.match_local_action", _direct_plan)
 
     reply = await mgr._run_local_action_fast_path("do the thing")
 
@@ -149,7 +149,7 @@ async def test_direct_failure_forwards_human_reason(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_english_pin_failure_is_not_hardcoded_german(monkeypatch) -> None:
     mgr = _make_manager(_FailingExecutor(error="exit 1"), reply_language="en")
-    monkeypatch.setattr("jarvis.brain.manager.match_local_action", _direct_plan)
+    monkeypatch.setattr("dodaios.brain.manager.match_local_action", _direct_plan)
 
     reply = await mgr._run_local_action_fast_path("do the thing")
 

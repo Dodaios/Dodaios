@@ -17,8 +17,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide import native_picker
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import native_picker
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 def _request() -> SimpleNamespace:

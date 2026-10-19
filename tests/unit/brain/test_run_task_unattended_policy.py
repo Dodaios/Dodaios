@@ -14,14 +14,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import background_policy
-from jarvis.brain.background_policy import BackgroundDeferred
-from jarvis.brain.manager import BrainManager
-from jarvis.core import task_agent
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.model_selection import ModelSelection, use_operation_model
-from jarvis.core.protocols import CapacityDeferred, ToolResult, started_by_user
+from dodaios.brain import background_policy
+from dodaios.brain.background_policy import BackgroundDeferred
+from dodaios.brain.manager import BrainManager
+from dodaios.core import task_agent
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.model_selection import ModelSelection, use_operation_model
+from dodaios.core.protocols import CapacityDeferred, ToolResult, started_by_user
 
 
 class _NullExecutor:
@@ -81,7 +81,7 @@ async def _no_seat(_provider: str) -> None:
 def mgr(monkeypatch: pytest.MonkeyPatch) -> BrainManager:
     m = _manager()
     # No subscription CLI seat answers off the loop; the chain decides.
-    monkeypatch.setattr("jarvis.core.task_agent.subscription_seat_off_loop", _no_seat)
+    monkeypatch.setattr("dodaios.core.task_agent.subscription_seat_off_loop", _no_seat)
     return m
 
 

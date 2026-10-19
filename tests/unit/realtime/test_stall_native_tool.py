@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from jarvis.realtime.protocol import RealtimeEvent
+from dodaios.realtime.protocol import RealtimeEvent
 from tests.unit.realtime.test_session import (
     FakeBrain,
     FakeToolBridge,
@@ -21,7 +21,7 @@ async def test_in_flight_native_tool_is_not_a_stalled_turn(monkeypatch):
     running when the 20 s stall watchdog closed the turn and spoke
     "that took too long". The live model is blocked on the function call
     (ADR-0034), so provider silence during execute is work, not a wedge."""
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     monkeypatch.setattr(session_module, "_DELEGATE_READBACK_WAIT_S", 0.2)
     monkeypatch.setattr(session_module, "_INSTANT_ACK_GRACE_S", 5.0)

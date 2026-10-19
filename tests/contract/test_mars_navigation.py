@@ -8,13 +8,13 @@ import aiosqlite
 import pytest
 from pydantic import ValidationError
 
-from jarvis.society.mars.definition import load_definition
-from jarvis.society.mars.models import StationCommand, StationError
-from jarvis.society.mars.navigation import NavigationGraph
-from jarvis.society.mars.navigation_models import MoveCommand, NavigationState, TravelMode
-from jarvis.society.mars.navigation_service import MarsNavigationService
-from jarvis.society.mars.navigation_store import MarsNavigationStore
-from jarvis.society.mars.store import MarsStore
+from dodaios.society.mars.definition import load_definition
+from dodaios.society.mars.models import StationCommand, StationError
+from dodaios.society.mars.navigation import NavigationGraph
+from dodaios.society.mars.navigation_models import MoveCommand, NavigationState, TravelMode
+from dodaios.society.mars.navigation_service import MarsNavigationService
+from dodaios.society.mars.navigation_store import MarsNavigationStore
+from dodaios.society.mars.store import MarsStore
 
 
 def test_canonical_routes_support_pedestrian_outpost_but_rover_stops_before_interior():

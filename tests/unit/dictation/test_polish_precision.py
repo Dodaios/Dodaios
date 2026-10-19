@@ -26,22 +26,22 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.config_writer import DICTATION_SETTING_KEYS
-from jarvis.dictation import polish
-from jarvis.dictation.polish import polish_transcript, precision_enabled
-from jarvis.dictation.polish_client import POLISH_FAMILIES, PolishFamily
-from jarvis.dictation.polish_guards import (
+from dodaios.core.config import DictationConfig
+from dodaios.core.config_writer import DICTATION_SETTING_KEYS
+from dodaios.dictation import polish
+from dodaios.dictation.polish import polish_transcript, precision_enabled
+from dodaios.dictation.polish_client import POLISH_FAMILIES, PolishFamily
+from dodaios.dictation.polish_guards import (
     DRIFT_REASONS,
     PRECISION_DRIFT_REASONS,
     drift_reason,
     precision_drift_reason,
 )
-from jarvis.dictation.polish_prompt import (
+from dodaios.dictation.polish_prompt import (
     build_polish_prompt,
     precision_block,
 )
-from jarvis.dictation.translate_prompt import build_translate_prompt
+from dodaios.dictation.translate_prompt import build_translate_prompt
 
 GROQ: PolishFamily = POLISH_FAMILIES[0]
 
@@ -351,7 +351,7 @@ def test_the_switch_survives_a_restart() -> None:
 
 def test_the_rest_body_declares_the_key() -> None:
     """FastAPI DROPS body keys a model does not declare — silently."""
-    from jarvis.ui.web.dictation_routes import SettingsBody
+    from dodaios.ui.web.dictation_routes import SettingsBody
 
     assert "polish_precision" in SettingsBody.model_fields
 

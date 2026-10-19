@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import exclusive_process_lock as process_lock
-from jarvis.core.exclusive_process_lock import (
+from dodaios.core import exclusive_process_lock as process_lock
+from dodaios.core.exclusive_process_lock import (
     ExclusiveProcessLock,
     ExclusiveProcessLockError,
 )
-from jarvis.core.private_directory import ensure_owner_only_directory
+from dodaios.core.private_directory import ensure_owner_only_directory
 
 
 def _paths(tmp_path: Path) -> tuple[Path, Path]:

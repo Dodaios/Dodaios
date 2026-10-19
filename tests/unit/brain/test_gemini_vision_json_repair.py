@@ -36,10 +36,10 @@ def test_gemini_vision_json_repair_lazy_import_discipline() -> None:
     happy path.
     """
     # Drop both modules so the import below is a true fresh import.
-    sys.modules.pop("jarvis.brain.structured_output_parser", None)
+    sys.modules.pop("dodaios.brain.structured_output_parser", None)
     sys.modules.pop("json_repair", None)
 
-    importlib.import_module("jarvis.brain.structured_output_parser")
+    importlib.import_module("dodaios.brain.structured_output_parser")
 
     assert "json_repair" not in sys.modules, (
         "structured_output_parser pulled json_repair at module-import time; "
@@ -52,7 +52,7 @@ def test_gemini_vision_json_repair_lazy_import_discipline() -> None:
 # ---------------------------------------------------------------------------
 
 
-from jarvis.brain.structured_output_parser import (  # noqa: E402 (after lazy test)
+from dodaios.brain.structured_output_parser import (  # noqa: E402 (after lazy test)
     ParsedJson,
     parse_gemini_json,
 )

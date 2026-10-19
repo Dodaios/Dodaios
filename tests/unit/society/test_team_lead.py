@@ -13,20 +13,20 @@ from typing import Any
 import aiosqlite
 import pytest
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.protocols import ChatTurn, current_chat_turn
-from jarvis.society.events import MsgType, SocietyEnvelope, TeamGoalState, TeamTaskState, Tier
-from jarvis.society.lead_card import render_lead_card
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.store import SocietyStore
-from jarvis.society.team_lead import (
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.protocols import ChatTurn, current_chat_turn
+from dodaios.society.events import MsgType, SocietyEnvelope, TeamGoalState, TeamTaskState, Tier
+from dodaios.society.lead_card import render_lead_card
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.store import SocietyStore
+from dodaios.society.team_lead import (
     INITIATIVE_PROMPT,
     MAX_LEAD_TURNS,
     TRACE_PREFIX,
     TeamLeadError,
     goal_title,
 )
-from jarvis.society.team_tools import (
+from dodaios.society.team_tools import (
     TEAM_ASSIGN_TOOL_NAME,
     TEAM_BOARD_TOOL_NAME,
     TEAM_REPORT_TOOL_NAME,
@@ -648,8 +648,8 @@ async def test_a_resume_during_a_turn_that_is_winding_down_is_not_lost(team):
 
 async def _lost_assignment(rt, svc):
     """A task whose start the scheduler abandoned: on the board, never claimed."""
-    from jarvis.agent_chat.events import make_event
-    from jarvis.society.chat_binding import ensure_session
+    from dodaios.agent_chat.events import make_event
+    from dodaios.society.chat_binding import ensure_session
 
     leads = rt.team_leads
     rt.scheduler.detach()  # the ASSIGN gets neither a CLAIM nor a VETO
@@ -703,7 +703,7 @@ async def test_the_slow_start_drill_loses_the_start_and_the_sweep_recovers_it(
     team, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     """The drill file makes a real start outlast the board's patience."""
-    from jarvis.society import bus
+    from dodaios.society import bus
 
     rt, svc = team
     leads = rt.team_leads
@@ -1058,7 +1058,7 @@ async def test_only_a_lead_holds_the_team_tools(team):
     }
     assert team_lead_tools(rt, "scout") == {}
 
-    from jarvis.society.surface import society_tools
+    from dodaios.society.surface import society_tools
 
     lead_session = SimpleNamespace(session_id=LEAD, cwd="", permission_mode="")
     member_session = SimpleNamespace(session_id=SCOUT, cwd="", permission_mode="")

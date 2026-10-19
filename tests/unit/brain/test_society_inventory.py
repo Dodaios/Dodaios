@@ -8,19 +8,19 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain import factory
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.spawn_gate import llm_spawn_allowed
-from jarvis.brain.turn_planner import TurnReason, plan_turn
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.delegate_to_agent import SocietyStatusTool
-from jarvis.society import runtime as runtime_module
-from jarvis.society.intent import blocks_background_spawn, is_inventory_question
-from jarvis.society.lead_card import society_agent_names
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.voice.instant_ack import plan_instant_ack
+from dodaios.brain import factory
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.spawn_gate import llm_spawn_allowed
+from dodaios.brain.turn_planner import TurnReason, plan_turn
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.delegate_to_agent import SocietyStatusTool
+from dodaios.society import runtime as runtime_module
+from dodaios.society.intent import blocks_background_spawn, is_inventory_question
+from dodaios.society.lead_card import society_agent_names
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.voice.instant_ack import plan_instant_ack
 
 
 @pytest.mark.parametrize(

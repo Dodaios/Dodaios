@@ -24,11 +24,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import activity as activity_mod
-from jarvis.agentic_ide import notifications
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.activity import STILL_S, read_activity
-from jarvis.agentic_ide.session import Registry
+from dodaios.agentic_ide import activity as activity_mod
+from dodaios.agentic_ide import notifications
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.activity import STILL_S, read_activity
+from dodaios.agentic_ide.session import Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 # What a coding CLI draws while it is working, and what it draws when it is not.
@@ -861,7 +861,7 @@ async def test_changes_go_to_the_bus_as_pane_activity_events(
     """What a client receives: the activity half of a `/panes` row, verbatim,
     under the workspace id and the pane's stable key — enough to patch the
     row in place without a second request."""
-    from jarvis.core.events import AgenticIdePaneActivity
+    from dodaios.core.events import AgenticIdePaneActivity
 
     published: list[Any] = []
 
@@ -1096,11 +1096,11 @@ def test_manual_pane_jobs_remain_silent_and_no_paid_composer_returns() -> None:
     import importlib.util
     import inspect
 
-    from jarvis.speech.pipeline import _HELD_FOR_CALL_SOURCES
+    from dodaios.speech.pipeline import _HELD_FOR_CALL_SOURCES
 
-    assert importlib.util.find_spec("jarvis.agentic_ide.voice_readback") is None
+    assert importlib.util.find_spec("dodaios.agentic_ide.voice_readback") is None
     assert inspect.signature(Registry.send_prompt).parameters["followup"].default is None
-    assert importlib.util.find_spec("jarvis.voice.report_readback") is None
+    assert importlib.util.find_spec("dodaios.voice.report_readback") is None
     assert "agentic_ide.readback" in _HELD_FOR_CALL_SOURCES
 
 

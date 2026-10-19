@@ -1,0 +1,1346 @@
+"""First-run setup wizard (CLI).
+
+The wizard runs once on the very first `python -m dodaios`. It:
+1. Shows hardware analysis + Whisper recommendation.
+2. Asks for API keys and stores them in the Windows Credential Manager.
+3. Checks microphone availability.
+4. Confirms the hotkey choice.
+5. Writes the `.setup-complete` marker.
+
+The wizard is idempotent — a re-run only overwrites user-confirmed values.
+
+Headless / non-interactive mode
+--------------------------------
+On a VPS or CI host where no TTY is attached, the interactive prompts cannot be
+answered.  Jarvis detects this automatically (``sys.stdin.isatty()`` is False)
+or you can force non-interactive mode explicitly:
+
+    JARVIS_NONINTERACTIVE=1 python -m dodaios
+
+In non-interactive mode the wizard skips ``step_api_keys()`` entirely and
+writes the ``.setup-complete`` marker so that subsequent runs go straight to
+the app.  API keys must be provided before boot via one of these two paths
+(both are already honoured by ``dodaios.core.config.get_secret()``):
+
+1. **Environment variables** (preferred for containers / systemd units)::
+
+       export GEMINI_API_KEY=...
+       export OPENAI_API_KEY=...   # whichever provider you use
+       python -m dodaios.ui.web.launcher --headless
+
+2. **``.env`` file** at the repo root (dev convenience)::
+
+       cp .env.example .env
+       # edit .env and fill in your keys
+       python -m dodaios.ui.web.launcher --headless
+
+The full list of recognised ENV variable names mirrors the ``env_fallback``
+field in the ``SECRETS`` list defined in this module (e.g. ``GEMINI_API_KEY``,
+``ANTHROPIC_API_KEY``, ``GROQ_API_KEY``, etc.).  See ``.env.example`` for the
+complete reference.
+"""
+from __future__ import annotations
+
+import os
+import sys
+from dataclasses import dataclass
+
+from rich.console import Console
+from rich.markup import escape
+from rich.padding import Padding
+from rich.panel import Panel
+from rich.theme import Theme
+
+from dodaios.cli.command_name import main_command
+from dodaios.core import config as cfg
+from dodaios.hardware import detection
+
+# Brand palette (Charcoal + Gold) — identical to install/installer.py so the
+# first-run wizard reads as one continuous, on-brand experience with the
+# installer that launched it. Rich auto-strips color on a non-TTY (headless
+# VPS, CI, piped/captured output), so the same calls degrade to clean plain
+# text there — no separate code path needed.
+_THEME = Theme(
+    {
+        "brand": "#e7c46e",
+        "brand.bold": "bold #e7c46e",
+        "ok": "#7ac88c",
+        "muted": "#8c8c8c",
+        "bad": "#e07a6e",
+    }
+)
+_console = Console(theme=_THEME, highlight=False)
+
+
+# ---------------------------------------------------------------------------
+# Non-interactive detection
+# ---------------------------------------------------------------------------
+
+def _is_noninteractive() -> bool:
+    """Return True when the wizard should skip all interactive prompts.
+
+    Triggered by either of:
+    * ``JARVIS_NONINTERACTIVE=1`` env var (explicit opt-in; useful in scripts
+      that need to override the TTY check).
+    * ``sys.stdin.isatty()`` returning False (no TTY attached — VPS, Docker,
+      CI, ``python -m dodaios < /dev/null``).
+    """
+    if os.environ.get("JARVIS_NONINTERACTIVE", "").strip() == "1":
+        return True
+    try:
+        return not sys.stdin.isatty()
+    except AttributeError:
+        # Fallback for exotic stdin replacements that lack isatty().
+        return True
+
+
+@dataclass(slots=True, frozen=True)
+class SecretSpec:
+    key: str              # Name in the Credential Manager
+    env_fallback: str     # ENV variable as an alternative
+    label: str            # Display name
+    help_url: str         # Where to get the key
+    required_for: str     # Human-readable: "Brain (Claude)" etc.
+    optional: bool = True
+    # When False, the slot is whitelisted for the API (so it CAN be stored from
+    # the app) but is NOT asked in the interactive first-run wizard. Used for
+    # advanced, app-only secrets (e.g. per-provider BYO OAuth client ids) so they
+    # don't lengthen onboarding.
+    prompt: bool = True
+    # Which onboarding SECTION this key belongs to (see ``_SECTIONS``). The wizard
+    # groups prompted keys under their section so the user immediately sees "one
+    # brain, one voice, one STT — I only need ONE per group, not all of them".
+    # Non-prompted / advanced slots keep the default and are never rendered.
+    section: str = "other"
+
+
+SECRETS: list[SecretSpec] = [
+    # General provider credentials. Dedicated Realtime and Jarvis-Agent slots
+    # are declared below; these remain compatibility fallbacks for upgrades.
+    SecretSpec(
+        key="anthropic_api_key",
+        env_fallback="ANTHROPIC_API_KEY",
+        label="Anthropic API Key (Claude)",
+        help_url="https://console.anthropic.com/settings/keys",
+        required_for="Brain (Claude via API key)",
+        optional=True,
+        section="brain",
+    ),
+    SecretSpec(
+        key="openrouter_api_key",
+        env_fallback="OPENROUTER_API_KEY",
+        label="OpenRouter API Key (universal gateway)",
+        help_url="https://openrouter.ai/keys",
+        required_for="Brain (universal: access to all models via one key)",
+        section="brain",
+    ),
+    SecretSpec(
+        key="nvidia_api_key",
+        env_fallback="NVIDIA_API_KEY",
+        label="NVIDIA API Key (NIM — build.nvidia.com, nvapi-)",
+        help_url="https://build.nvidia.com/settings/api-keys",
+        required_for="Brain (NVIDIA NIM: Nemotron/Llama/DeepSeek)",
+        section="brain",
+    ),
+    SecretSpec(
+        key="openai_api_key",
+        env_fallback="OPENAI_API_KEY",
+        label="OpenAI API Key",
+        help_url="https://platform.openai.com/api-keys",
+        required_for="Brain (GPT), Whisper API (STT), and TTS",
+        section="brain",
+    ),
+    SecretSpec(
+        key="codex_openai_api_key",
+        env_fallback="CODEX_OPENAI_API_KEY",
+        label="OpenAI Codex API Key",
+        help_url="https://platform.openai.com/api-keys",
+        required_for="OpenAI Codex API-key mode (separate from the OpenAI Brain provider)",
+        section="brain",
+    ),
+    SecretSpec(
+        key="zai_api_key",
+        env_fallback="ZAI_API_KEY",
+        label="Z.ai API Key (GLM Coding Plan)",
+        help_url="https://z.ai/model-api",
+        required_for=(
+            "GLM panes in the Agentic IDE — they run the Claude Code CLI "
+            "against Z.ai's endpoint, so this key is what makes them GLM "
+            "rather than Anthropic"
+        ),
+        section="brain",
+    ),
+    SecretSpec(
+        key="gemini_api_key",
+        env_fallback="GEMINI_API_KEY",
+        label="Google AI Studio / Gemini API Key",
+        help_url="https://aistudio.google.com/app/apikey",
+        required_for="Brain (Gemini)",
+        section="brain",
+    ),
+    # Vertex AI. Not prompted during setup: the ordinary Vertex path is a Cloud
+    # project signed with Application Default Credentials and stores no key at
+    # all, so asking for one in the wizard would be asking for the exception.
+    # The slots must still be DECLARED — this table is what the Control API
+    # accepts as a writable secret, and without a row here saving from the
+    # Vertex card fails with "Unknown secret key" (field report 2026-08-17).
+    SecretSpec(
+        key="vertex_api_key",
+        env_fallback="VERTEX_API_KEY",
+        label="Vertex AI express-mode API Key",
+        help_url="https://console.cloud.google.com/vertex-ai/studio/settings/api-keys",
+        required_for="Vertex AI (express mode; the Cloud project path needs no key)",
+        section="brain",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="google_vertex_api_key",
+        env_fallback="GOOGLE_VERTEX_API_KEY",
+        label="Vertex AI API Key (alias slot)",
+        help_url="https://console.cloud.google.com/vertex-ai/studio/settings/api-keys",
+        required_for="Vertex AI (compatibility alias)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="realtime_vertex_api_key",
+        env_fallback="JARVIS_REALTIME_VERTEX_API_KEY",
+        label="Vertex AI Live API Key",
+        help_url="https://console.cloud.google.com/vertex-ai/studio/settings/api-keys",
+        required_for="Realtime Voice (Vertex AI Live)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="jarvis_agent_vertex_api_key",
+        env_fallback="JARVIS_AGENT_VERTEX_API_KEY",
+        label="Vertex AI API Key for Dodaios-Agents",
+        help_url="https://console.cloud.google.com/vertex-ai/studio/settings/api-keys",
+        required_for="Dodaios-Agents (Vertex AI)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="grok_api_key",
+        env_fallback="GROK_API_KEY",
+        label="xAI Grok API Key",
+        help_url="https://console.x.ai/",
+        required_for="Grok Brain and xAI TTS",
+        section="brain",
+    ),
+    # Optional key for the generic local OpenAI-compatible provider (vLLM
+    # --api-key, proxied LM Studio, ...). App-only: local servers usually need
+    # no key, so it must not lengthen first-run onboarding.
+    SecretSpec(
+        key="local_openai_api_key",
+        env_fallback="LOCAL_OPENAI_API_KEY",
+        label="Local OpenAI-compatible server key (optional)",
+        help_url="https://huggingface.co/docs/transformers/main/serving",
+        required_for="Local server brain (only if your server enforces a key)",
+        prompt=False,
+    ),
+    # Scoped Realtime credentials. They are app-only fields in the Realtime tab,
+    # not extra first-run questions. Generic credentials remain compatibility
+    # fallbacks for existing installations.
+    SecretSpec(
+        key="realtime_openai_api_key",
+        env_fallback="JARVIS_REALTIME_OPENAI_API_KEY",
+        label="OpenAI Realtime API Key",
+        help_url="https://platform.openai.com/api-keys",
+        required_for="Realtime Voice (OpenAI)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="realtime_gemini_api_key",
+        env_fallback="JARVIS_REALTIME_GEMINI_API_KEY",
+        label="Gemini Live API Key",
+        help_url="https://aistudio.google.com/app/apikey",
+        required_for="Realtime Voice (Gemini Live)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="realtime_grok_api_key",
+        env_fallback="JARVIS_REALTIME_GROK_API_KEY",
+        label="Grok Realtime API Key",
+        help_url="https://console.x.ai/",
+        required_for="Realtime Voice (Grok)",
+        prompt=False,
+    ),
+    # Scoped Jarvis-Agent credentials. These slots never become Brain or
+    # Realtime credentials; the old generic slots are fallback-only.
+    SecretSpec(
+        key="jarvis_agent_anthropic_api_key",
+        env_fallback="JARVIS_AGENT_ANTHROPIC_API_KEY",
+        label="Anthropic API Key for Dodaios-Agents",
+        help_url="https://console.anthropic.com/settings/keys",
+        required_for="Dodaios-Agents (Claude API)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="jarvis_agent_openai_api_key",
+        env_fallback="JARVIS_AGENT_OPENAI_API_KEY",
+        label="OpenAI API Key for Dodaios-Agents",
+        help_url="https://platform.openai.com/api-keys",
+        required_for="Dodaios-Agents (OpenAI)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="jarvis_agent_gemini_api_key",
+        env_fallback="JARVIS_AGENT_GEMINI_API_KEY",
+        label="Gemini API Key for Dodaios-Agents",
+        help_url="https://aistudio.google.com/app/apikey",
+        required_for="Dodaios-Agents (Gemini)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="jarvis_agent_openrouter_api_key",
+        env_fallback="JARVIS_AGENT_OPENROUTER_API_KEY",
+        label="OpenRouter API Key for Dodaios-Agents",
+        help_url="https://openrouter.ai/keys",
+        required_for="Dodaios-Agents (OpenRouter)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="jarvis_agent_grok_api_key",
+        env_fallback="JARVIS_AGENT_GROK_API_KEY",
+        label="Grok API Key for Dodaios-Agents",
+        help_url="https://console.x.ai/",
+        required_for="Dodaios-Agents (Grok)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="jarvis_agent_nvidia_api_key",
+        env_fallback="JARVIS_AGENT_NVIDIA_API_KEY",
+        label="NVIDIA API Key for Dodaios-Agents",
+        help_url="https://build.nvidia.com/settings/api-keys",
+        required_for="Dodaios-Agents (NVIDIA NIM)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="google_tts_credentials_path",
+        env_fallback="GOOGLE_APPLICATION_CREDENTIALS",
+        label="Path to the Google Cloud service-account JSON (for TTS)",
+        help_url="https://console.cloud.google.com/apis/credentials",
+        required_for="TTS (Google Neural2 — high-quality voice output)",
+        section="tts",
+    ),
+    SecretSpec(
+        key="deepgram_api_key",
+        env_fallback="DEEPGRAM_API_KEY",
+        label="Deepgram API Key (fast STT)",
+        help_url="https://console.deepgram.com/",
+        required_for="STT (Deepgram — cloud alternative to Whisper)",
+        section="stt",
+    ),
+    SecretSpec(
+        key="groq_api_key",
+        env_fallback="GROQ_API_KEY",
+        label="Groq API Key (ultra-fast Whisper)",
+        help_url="https://console.groq.com/keys",
+        required_for="STT (Groq Whisper — <50ms latency)",
+        section="stt",
+    ),
+    SecretSpec(
+        key="apifare_api_key",
+        env_fallback="APIPAY_TOKEN",
+        label="Apifare token (optional prepaid web search)",
+        help_url="https://apifare.com/start",
+        required_for=(
+            "Optional prepaid live-Google hop. search_web already works "
+            "without a key (no Tavily, Serper or Brave account needed)"
+        ),
+        section="tools",
+    ),
+    SecretSpec(
+        key="inworld_api_key",
+        env_fallback="INWORLD_API_KEY",
+        label="Inworld API Key (premium low-latency TTS, multilingual)",
+        help_url="https://platform.inworld.ai/",
+        required_for=(
+            "TTS (Inworld — arena-#1 low-latency voice, DE/EN/ES; the recommended default)"
+        ),
+        section="tts",
+    ),
+    SecretSpec(
+        key="elevenlabs_api_key",
+        env_fallback="ELEVENLABS_API_KEY",
+        label="ElevenLabs API Key (premium TTS, multi-language)",
+        help_url="https://elevenlabs.io/app/settings/api-keys",
+        required_for="TTS (ElevenLabs — mature British voice with DE+EN auto-detect)",
+        section="tts",
+    ),
+    SecretSpec(
+        key="cartesia_api_key",
+        env_fallback="CARTESIA_API_KEY",
+        label="Cartesia.ai API Key (Sonic 3.5 TTS, 42 languages)",
+        help_url="https://play.cartesia.ai/keys",
+        required_for="TTS (Cartesia Sonic 3.5 — multilingual incl. German, ~90ms TTFB)",
+        section="tts",
+    ),
+    # Team / hosted-proxy mode (2026-06-20 spec). The per-user token a client
+    # presents to the shared key proxy instead of holding a real vendor key.
+    # The proxy URL itself lives (non-secret) in [team_proxy].url; only this
+    # token is a secret. Optional — unset means the local per-machine key model.
+    SecretSpec(
+        key="team_proxy_token",
+        env_fallback="TEAM_PROXY_TOKEN",
+        label="Team Proxy Token (shared key proxy)",
+        help_url="",
+        required_for="Team mode — per-user token for the shared key proxy",
+        optional=True,
+        section="team",
+    ),
+    # Phase 5 — admin-helper HMAC key. NOT asked interactively:
+    # on the helper's first start, `dodaios.admin.launcher` generates 32
+    # random bytes and persists them base64-URL-safe-encoded in the
+    # Credential Manager. The wizard only lists the entry so it is
+    # visible in the secrets overview (a re-run shows "already stored").
+    SecretSpec(
+        key="jarvis_admin_hmac",
+        env_fallback="JARVIS_ADMIN_HMAC",
+        label="Admin-Helper HMAC Key (auto-generated)",
+        help_url="",
+        required_for="Phase 5 — admin ops (winget, services, registry, firewall)",
+        optional=True,
+        # Auto-generated on the admin helper's first start (32 random bytes) and
+        # persisted by ``dodaios.admin.launcher``. Asking the user to *type* an
+        # auto-generated key made no sense, so it is whitelisted for the API but
+        # never prompted — the secrets overview still shows "already stored".
+        prompt=False,
+    ),
+    # === F-FRIENDS [F1] · feature/friends-section · ruben-2026-04-30 ===
+    # Phase F1 — Telegram-channel bot token. The user creates a bot via
+    # @BotFather, gets a token like ``123456:ABC-DEF...``, and enters it
+    # here. ``getMe`` validation happens in TelegramChannel.start().
+    SecretSpec(
+        key="telegram_bot_token",
+        env_fallback="TELEGRAM_BOT_TOKEN",
+        label="Telegram Bot Token (@BotFather)",
+        help_url="https://t.me/BotFather",
+        required_for="Channel (Telegram) — two-way chat with friends",
+        optional=True,
+        section="channels",
+    ),
+    # Twilio telephony — the user calls a phone number and talks to Jarvis
+    # over Twilio Media Streams (raw audio), reusing Jarvis's own STT/Brain/TTS
+    # and the same Charon voice. Only the Auth Token is a secret; the Account
+    # SID + phone number live in [integrations.twilio]. The token is validated
+    # against the Twilio REST API by POST /api/telephony/test.
+    SecretSpec(
+        key="twilio_auth_token",
+        env_fallback="TWILIO_AUTH_TOKEN",
+        label="Twilio Auth Token",
+        help_url="https://console.twilio.com",
+        required_for="Telephony (call Dodaios on a Twilio phone number)",
+        optional=True,
+        section="telephony",
+    ),
+    # === Bring-your-own OAuth client (marketplace plugins) ===
+    # A downloader can run their OWN production OAuth app instead of the shipped
+    # catalog placeholder. This is the ONLY durable fix for provider-side
+    # refresh-token expiry: a Google OAuth app left in "Testing" status drops its
+    # refresh token after 7 days; publishing one's own app to production stops the
+    # clock. Resolved by `marketplace.connect_helpers.resolve_pkce_client` via the
+    # `<family>_oauth_client_*` keys. prompt=False: advanced + entered ONLY from
+    # the Plugins UI, never asked in the first-run wizard. The Google family
+    # (gmail/drive/calendar) shares ONE client pair.
+    SecretSpec(
+        key="google_oauth_client_id",
+        env_fallback="GOOGLE_OAUTH_CLIENT_ID",
+        label="Google OAuth Client ID (Gmail / Drive / Calendar)",
+        help_url="https://console.cloud.google.com/auth/clients",
+        required_for="Marketplace plugins (Google family) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    SecretSpec(
+        key="google_oauth_client_secret",
+        env_fallback="GOOGLE_OAUTH_CLIENT_SECRET",
+        label="Google OAuth Client Secret (Gmail / Drive / Calendar)",
+        help_url="https://console.cloud.google.com/auth/clients",
+        required_for="Marketplace plugins (Google family) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    SecretSpec(
+        key="slack_oauth_client_id",
+        env_fallback="SLACK_OAUTH_CLIENT_ID",
+        label="Slack OAuth Client ID",
+        help_url="https://api.slack.com/apps",
+        required_for="Marketplace plugin (Slack) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    SecretSpec(
+        key="slack_oauth_client_secret",
+        env_fallback="SLACK_OAUTH_CLIENT_SECRET",
+        label="Slack OAuth Client Secret",
+        help_url="https://api.slack.com/apps",
+        required_for="Marketplace plugin (Slack) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    SecretSpec(
+        key="asana_oauth_client_id",
+        env_fallback="ASANA_OAUTH_CLIENT_ID",
+        label="Asana OAuth Client ID",
+        help_url="https://app.asana.com/0/my-apps",
+        required_for="Marketplace plugin (Asana) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    SecretSpec(
+        key="asana_oauth_client_secret",
+        env_fallback="ASANA_OAUTH_CLIENT_SECRET",
+        label="Asana OAuth Client Secret",
+        help_url="https://app.asana.com/0/my-apps",
+        required_for="Marketplace plugin (Asana) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    # Spotify is the one family where bring-your-own-client is not the durable
+    # fix but the ONLY option: since 2026-02-11 a Development Mode app allows
+    # five authorized users, so no shipped client could serve arbitrary
+    # downloaders. The secret is genuinely unused (PKCE) and kept only so a
+    # user who pasted one is not silently ignored.
+    SecretSpec(
+        key="spotify_oauth_client_id",
+        env_fallback="SPOTIFY_OAUTH_CLIENT_ID",
+        label="Spotify OAuth Client ID",
+        help_url="https://developer.spotify.com/dashboard",
+        required_for="Marketplace plugin (Spotify) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    *[
+        SecretSpec(
+            key=f"{family}_oauth_client_{suffix}",
+            env_fallback=f"{family.upper()}_OAUTH_CLIENT_{suffix.upper()}",
+            label=f"{label} OAuth Client {suffix.title()}",
+            help_url=url,
+            required_for=f"Marketplace plugins ({label}) — your own OAuth client",
+            optional=True,
+            prompt=False,
+        )
+        for family, label, url in (
+            ("microsoft", "Microsoft", "https://entra.microsoft.com/"),
+            ("x", "X", "https://developer.x.com/portal/dashboard"),
+            ("linkedin", "LinkedIn", "https://www.linkedin.com/developers/apps"),
+            ("zoom", "Zoom", "https://marketplace.zoom.us/develop/create"),
+            ("salesforce", "Salesforce", "https://login.salesforce.com/"),
+        )
+        for suffix in ("id", "secret")
+    ],
+    SecretSpec(
+        key="spotify_oauth_client_secret",
+        env_fallback="SPOTIFY_OAUTH_CLIENT_SECRET",
+        label="Spotify OAuth Client Secret (not needed — PKCE)",
+        help_url="https://developer.spotify.com/dashboard",
+        required_for="Marketplace plugin (Spotify) — your own OAuth client",
+        optional=True,
+        prompt=False,
+    ),
+    # === Publisher-provisioned shared OAuth clients (browser-auth standard) ===
+    # Set ONCE by the project/distribution (env fallback PUBLISHER_*), used by
+    # every end user with zero manual setup. Resolved by
+    # `marketplace.publisher_clients.resolve_publisher_client` between the
+    # expert BYO override above and the catalog value. prompt=False: never
+    # asked in the wizard or the Plugins dialog; end users must never see
+    # these. Client secrets stay in the backend secret store only.
+    *[
+        SecretSpec(
+            key=f"publisher_{family}_oauth_client_{suffix}",
+            env_fallback=f"PUBLISHER_{family.upper()}_OAUTH_CLIENT_{suffix.upper()}",
+            label=f"Publisher {label} OAuth Client {suffix.title()} (shared)",
+            help_url=url,
+            required_for=f"Marketplace plugins ({label}) — publisher-provisioned shared client",
+            optional=True,
+            prompt=False,
+        )
+        for family, label, url in (
+            ("google", "Google", "https://console.cloud.google.com/auth/clients"),
+            ("slack", "Slack", "https://api.slack.com/apps"),
+            ("asana", "Asana", "https://app.asana.com/0/my-apps"),
+            ("spotify", "Spotify", "https://developer.spotify.com/dashboard"),
+            ("microsoft", "Microsoft", "https://entra.microsoft.com/"),
+            ("x", "X", "https://developer.x.com/portal/dashboard"),
+            ("linkedin", "LinkedIn", "https://www.linkedin.com/developers/apps"),
+            ("zoom", "Zoom", "https://marketplace.zoom.us/develop/create"),
+            ("salesforce", "Salesforce", "https://login.salesforce.com/"),
+        )
+        for suffix in ("id", "secret")
+    ],
+    # === Browser-primary plugins migrated from PAT (dual-mode) ===
+    # BYO expert override (first half) + publisher shared client (second
+    # half) for the families whose catalog entries now use a browser flow
+    # with a token fallback. Same prompt=False semantics as above.
+    *[
+        SecretSpec(
+            key=f"{prefix}{family}_oauth_client_{suffix}",
+            env_fallback=f"{env_prefix}{family.upper()}_OAUTH_CLIENT_{suffix.upper()}",
+            label=f"{label} OAuth Client {suffix.title()} ({kind})",
+            help_url=url,
+            required_for=f"Marketplace plugins ({label}) — {kind} OAuth client",
+            optional=True,
+            prompt=False,
+        )
+        for family, label, url in (
+            ("github", "GitHub", "https://github.com/settings/applications/new"),
+            ("gitlab", "GitLab", "https://gitlab.com/-/profile/applications"),
+            ("figma", "Figma", "https://www.figma.com/developers/apps"),
+            ("hubspot", "HubSpot", "https://app.hubspot.com/"),
+            ("discord", "Discord", "https://discord.com/developers/applications"),
+            ("shopify", "Shopify", "https://partners.shopify.com/"),
+        )
+        for prefix, env_prefix, kind in (
+            ("", "", "your own"),
+            ("publisher_", "PUBLISHER_", "publisher-provisioned shared"),
+        )
+        for suffix in ("id", "secret")
+    ],
+    SecretSpec(
+        key="cohere_api_key",
+        env_fallback="COHERE_API_KEY",
+        label="Cohere API Key",
+        help_url="https://dashboard.cohere.com/api-keys",
+        required_for="Cohere models (chat, reranking)",
+        optional=True,
+        prompt=False,
+    ),
+    SecretSpec(
+        key="mistral_api_key",
+        env_fallback="MISTRAL_API_KEY",
+        label="Mistral API Key",
+        help_url="https://console.mistral.ai/api-keys",
+        required_for="Mistral models",
+        optional=True,
+        prompt=False,
+    ),
+    # Read-only plumbing for the Supabase CLI integration (list projects, read
+    # a host). It belongs in this allowlist because without the entry the app's
+    # own secrets route would refuse to save a token the user just pasted.
+    SecretSpec(
+        key="supabase_access_token",
+        env_fallback="SUPABASE_ACCESS_TOKEN",
+        label="Supabase Personal Access Token",
+        help_url="https://supabase.com/dashboard/account/tokens",
+        required_for="the Supabase CLI integration",
+        optional=True,
+        prompt=False,
+    ),
+]
+
+
+@dataclass(slots=True, frozen=True)
+class _Section:
+    """A user-facing group of API keys in the first-run wizard.
+
+    The whole point of grouping is honesty about choice: the user sees "voices",
+    "brains", "speech-to-text" as *buckets* and immediately understands they pick
+    at most ONE provider per bucket — not the whole list. ``pick_one`` drives the
+    "you only need ONE of these" hint; ``essential`` marks the single bucket
+    Jarvis truly needs to function (the brain).
+    """
+
+    id: str
+    title: str
+    blurb: str        # one plain-English line: what this bucket is for
+    pick_one: bool = True
+    essential: bool = False
+
+
+# Ordered most-important-first. Only sections that actually have a prompted key
+# are rendered (see ``step_api_keys``), so adding/removing a SecretSpec section
+# automatically shows/hides the group.
+_SECTIONS: tuple[_Section, ...] = (
+    _Section(
+        id="brain",
+        title="Brain — the AI that thinks",
+        blurb=(
+            "The ONE thing Dodaios needs to work. Pick a single provider you "
+            "already have. Tip: OpenRouter gives you almost every model with one key."
+        ),
+        essential=True,
+    ),
+    _Section(
+        id="stt",
+        title="Speech-to-text — understanding your voice",
+        blurb=(
+            "Optional. Dodaios can also transcribe locally & offline. Add one cloud "
+            "key only if you want faster/other transcription. (OpenAI Whisper uses "
+            "the OpenAI key from the Brain group.)"
+        ),
+    ),
+    _Section(
+        id="tts",
+        title="Voice — how Dodaios speaks back",
+        blurb=(
+            "Optional. Pick one for a natural cloud voice; without any, a basic "
+            "local/system voice is used."
+        ),
+    ),
+    _Section(
+        id="tools",
+        title="Web search & tools",
+        blurb=(
+            "Optional. Live web search already works without a key. Add one "
+            "prepaid Apifare token only if you want a metered Google hop "
+            "instead of a Tavily, Serper or Brave account."
+        ),
+    ),
+    _Section(
+        id="channels",
+        title="Messaging channels",
+        blurb="Optional. Chat with Dodaios from Telegram.",
+    ),
+    _Section(
+        id="telephony",
+        title="Phone calls",
+        blurb="Optional. Call Dodaios on a Twilio phone number.",
+    ),
+    _Section(
+        id="team",
+        title="Team / shared-key proxy",
+        blurb="Advanced & optional. Only for a shared team key proxy.",
+        pick_one=False,
+    ),
+)
+
+
+def _println(msg: str = "") -> None:
+    print(msg)
+
+
+def _ask(prompt: str, default: str | None = None) -> str:
+    if default:
+        line = input(f"{prompt} [{default}]: ").strip()
+        return line or default
+    return input(f"{prompt}: ").strip()
+
+
+def _ask_yesno(prompt: str, default: bool = True) -> bool:
+    d = "Y/n" if default else "y/N"
+    ans = input(f"{prompt} [{d}]: ").strip().lower()
+    if not ans:
+        return default
+    return ans in ("y", "yes", "j", "ja")
+
+
+# ----------------------------------------------------------------------
+# Steps
+# ----------------------------------------------------------------------
+
+def step_hardware_check() -> detection.HardwareReport:
+    _println()
+    _println("=" * 60)
+    _println(" Step 1 / 8 — Hardware analysis")
+    _println("=" * 60)
+    report = detection.analyze()
+    # Capability-verified, not presence-based (AP-21/AP-25): only recommend a GPU
+    # config when a real GPU inference has been verified on this host. Non-blocking
+    # — reads the verdict a prior background probe cached, never runs one here.
+    rec = detection.recommend_whisper(
+        report, gpu_inference_verified=detection.cuda_inference_verified()
+    )
+    _println(detection._format_report(report, rec))
+
+    if report.ffmpeg_version is None:
+        _println("⚠  WARNING: ffmpeg was not found. Whisper STT will not work.")
+        _println("   Install: https://www.gyan.dev/ffmpeg/builds/ (then add ffmpeg to PATH)")
+    if not report.torch_cuda_available and report.has_nvidia_gpu:
+        _println("⚠  Note: NVIDIA GPU detected but PyTorch CUDA is not active.")
+        _println("   Install PyTorch with CUDA for local Whisper acceleration.")
+
+    return report
+
+
+def _secret_store_location() -> str:
+    """Plain-English name for where a saved key lands on this OS.
+
+    The old copy always said "Windows Credential Manager", which was wrong (and
+    slightly alarming) on macOS/Linux. ``get_secret`` resolves keyring → ENV →
+    .env → local file, so we describe the general guarantee, not a Windows-only
+    store."""
+    if sys.platform == "win32":
+        return "Windows Credential Manager"
+    if sys.platform == "darwin":
+        return "macOS Keychain"
+    return "your OS keyring (or an encrypted local fallback)"
+
+
+def _api_keys_intro() -> None:
+    """The framing that makes onboarding calm: everything here is skippable and
+    you only ever need one provider per group."""
+    _console.print()
+    _console.print(" [brand.bold]Step 2 / 8 — API keys[/]  [muted](all optional)[/]")
+    body = (
+        "[ok]Nothing here is required right now.[/] Press [brand]Enter[/] to skip any "
+        "field — or every field — and add keys later in the app under "
+        "[brand]Settings → API Keys[/].\n\n"
+        "You only need [brand.bold]ONE provider per group[/] (one brain, one voice, "
+        "one speech-to-text …) — never the whole list. The only group Dodaios truly "
+        "needs to think is the [brand.bold]Brain[/].\n\n"
+        f"[muted]Whatever you enter is stored securely in {_secret_store_location()} — "
+        "never in the code or a plain config file.[/]"
+    )
+    _console.print(Panel(body, border_style="brand", padding=(1, 2)))
+
+
+def _ollama_reachable(timeout_s: float = 1.0) -> bool:
+    """One quick ``/api/version`` probe against the local Ollama default.
+
+    Interactive-wizard-only (never on the boot path, AP-26). Honors
+    OLLAMA_HOST via the plugin's own root resolution so wizard and runtime
+    can never disagree about where the server lives.
+    """
+    try:
+        import httpx
+
+        from dodaios.plugins.brain.ollama import default_server_root
+
+        resp = httpx.get(f"{default_server_root()}/api/version", timeout=timeout_s)
+        return resp.status_code == 200
+    except Exception:  # noqa: BLE001 — no local server is a normal state
+        return False
+
+
+def _offer_local_brain() -> bool:
+    """First-sixty-seconds local path: when a local Ollama already answers,
+    offer to run WITHOUT any API key before a single key question is asked.
+
+    Returns True when the user accepted (brain.primary pinned to ollama) —
+    the key sections still render afterwards (cloud keys stay optional
+    upgrades), so accepting never hides anything.
+    """
+    if not _ollama_reachable():
+        return False
+    _console.print()
+    _console.print(
+        Panel(
+            "[ok]Ollama detected on this machine.[/] Dodaios can run its brain "
+            "[brand.bold]fully local — no API key, nothing leaves this "
+            "computer[/]. Cloud keys below stay optional upgrades.",
+            border_style="ok",
+            padding=(1, 2),
+        )
+    )
+    answer = _ask("  Use the local Ollama as the brain? [Y/n]", default="y")
+    if answer.strip().lower() not in ("y", "yes", "j", "ja", "s", "si", "sí"):
+        return False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_brain_primary("ollama")
+        _console.print("  [ok]→ Brain set to Ollama (local). No key needed.[/]")
+        return True
+    except Exception as exc:  # noqa: BLE001 — a config hiccup must not kill setup
+        _console.print(f"  [bad]⚠ Could not persist the choice ({exc}) — "
+                       "you can switch to Ollama any time under Settings → API Keys.[/]")
+        return False
+
+
+def step_api_keys() -> dict[str, str]:
+    _api_keys_intro()
+    _offer_local_brain()
+
+    stored: dict[str, str] = {}
+    for section in _SECTIONS:
+        specs = [s for s in SECRETS if s.prompt and s.section == section.id]
+        if not specs:
+            continue
+
+        # Section header: title + one plain line + the "pick one" nudge. Wrapped
+        # sub-lines hang-indent (Padding left=2) so a long blurb stays aligned
+        # under the title instead of falling back to the left margin.
+        _console.print()
+        tag = "[bad]needed[/]" if section.essential else "[muted]optional[/]"
+        _console.print(f"[brand.bold]▸ {escape(section.title)}[/]  ({tag})")
+        _console.print(Padding(f"[muted]{escape(section.blurb)}[/]", (0, 0, 0, 2)))
+        if section.pick_one and len(specs) > 1:
+            _console.print(
+                Padding("[muted]You only need ONE of the following.[/]", (0, 0, 0, 2))
+            )
+        _console.print()
+
+        for spec in specs:
+            existing = cfg.get_secret(spec.key)
+            marker = "[ok]✓ already set[/]" if existing else "[muted]— not set[/]"
+            _console.print(f"  [brand]•[/] {escape(spec.label)}   {marker}")
+            if spec.help_url:
+                _console.print(f"    [muted]Get a key:[/] {escape(spec.help_url)}")
+            val = _ask("    Key/path (Enter = skip)", default="")
+            if val:
+                if cfg.set_secret(spec.key, val):
+                    stored[spec.key] = val
+                    _console.print("    [ok]→ saved.[/]")
+                else:
+                    _console.print(
+                        "    [bad]⚠ keyring unavailable — saved to the .env fallback.[/]"
+                    )
+            _console.print()
+
+    # Closing reassurance — the single most important line for a nervous first-timer.
+    if stored:
+        _console.print(f"  [ok]Saved {len(stored)} key(s).[/] "
+                       "[muted]Change or add more any time in Settings → API Keys.[/]")
+    else:
+        _console.print("  [muted]No keys entered — that's fine. You can add them "
+                       "any time in the app under Settings → API Keys.[/]")
+    _console.print()
+    return stored
+
+
+def step_mic_check() -> None:
+    _println()
+    _println("=" * 60)
+    _println(" Step 3 / 8 — Microphone check")
+    _println("=" * 60)
+    try:
+        import sounddevice as sd  # type: ignore[import-untyped]
+
+        devices = sd.query_devices()
+    except ImportError:
+        _println("⚠  sounddevice not installed. Run `pip install -r requirements.txt`.")
+        return
+    except Exception as exc:  # noqa: BLE001 — no audio backend must not kill setup
+        # sd.query_devices() raises (e.g. PortAudioError "library not found") on a
+        # host with no audio backend: a headless server, or a Linux desktop without
+        # libportaudio2. Degrade gracefully — a mic-check failure must NEVER abort
+        # the wizard, or step_finalize never writes the .setup-complete marker and
+        # the app re-runs its whole onboarding (same failure mode as the step-7 bug).
+        _println(f"⚠  Audio system unavailable ({exc}).")
+        _println("   Skipping the microphone check — setup continues.")
+        _println("   Headless server: expected. Linux desktop: install libportaudio2.")
+        return
+
+    inputs = [d for d in devices if d["max_input_channels"] > 0]
+    if not inputs:
+        _println("⚠  No microphone detected. Plug in a headset and restart.")
+        return
+
+    _println("Available input devices:")
+    for idx, dev in enumerate(inputs):
+        _println(f"  [{idx}] {dev['name']}  (Channels: {dev['max_input_channels']})")
+    _println()
+    _println("Default is 'auto-headset' — Dodaios detects headsets automatically.")
+    _println("Manual selection is always possible via jarvis.toml → [audio] input_device.")
+
+
+def step_hotkey_check(default_hotkey: str) -> str:
+    _println()
+    _println("=" * 60)
+    _println(" Step 4 / 8 — Hotkey configuration")
+    _println("=" * 60)
+    _println(f"Current default: {default_hotkey}")
+    _println("Safe combinations: ctrl+right_alt+<letter>, ctrl+shift+<letter>")
+    _println("Avoid: alt+f4 (closes apps), ctrl+c (copy), win+* (Windows shortcuts)")
+    choice = _ask("Customize the hotkey? (empty = keep the default)", default=default_hotkey)
+    return choice
+
+
+def step_wake_word_setup() -> str:
+    """Step 5 / 8 — let the user pick their spoken wake word.
+
+    English copy by mandate (Output Language Policy): every artifact this repo
+    produces is English; only the user-facing chat/voice reply stays bilingual.
+
+    The choice is persisted best-effort via
+    ``config_writer.set_wake_word(phrase, engine="auto")`` so the voice pipeline
+    resolves the right wake engine on the next start. ``engine="auto"`` lets
+    ``resolve_wake_plan()`` pick the offline any-word Vosk engine (a base-install
+    dependency that works for ANY phrase) or, when the optional local-voice
+    models are installed, the higher-accuracy local-Whisper transcript match
+    (see docs/local-wakeword/). No named or bundled wake model ships — the phrase
+    fires only on the user's own full phrase. After saving, this step provisions
+    the offline Vosk fallback best-effort so a base install works out of the box.
+    A failed write or download is a printed warning, never a crash — the wizard
+    always reaches the finish.
+    """
+    from dodaios.speech.wake_constants import DEFAULT_WAKE_PHRASE
+
+    _println()
+    _println("=" * 60)
+    _println(" Step 5 / 8 — Wake word")
+    _println("=" * 60)
+    _println("Choose the spoken phrase that wakes your assistant. There is no")
+    _println("preset — you type your own (e.g. \"Jonas\"). It fires only on your")
+    _println("full phrase; no branded or bundled name ships with the product.")
+    _println()
+    _println("Engine \"auto\" picks the best path available on this machine, in")
+    _println("this order:")
+    _println("  1. Offline any-word engine (Vosk) — works for ANY phrase, CPU-only,")
+    _println("     no extra to install (vosk ships in the base install). It")
+    _println("     downloads a small (~40 MB) language model once, then runs fully")
+    _println("     offline. This is the default and works out of the box.")
+    _println("  2. Higher-accuracy local-Whisper phrase matching — optional. It")
+    _println("     needs the local-voice models: install the advertised full")
+    _println("     profile with `pip install -e \".[full]\"` (or the smaller")
+    _println("     `.[local-voice]` extra). Plain `.[desktop]` does NOT include it.")
+    _println("  3. If no local model can be provisioned at all, the wake word stays")
+    _println("     off and you start a voice turn with the hotkey / Call shortcut.")
+    _println("     The assistant tells you why — it never pretends to hear a phrase")
+    _println("     it cannot detect.")
+    _println()
+
+    phrase = _ask("Your wake phrase", default=DEFAULT_WAKE_PHRASE)
+
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_wake_word(phrase, engine="auto")
+        _println(f"→ Wake word saved: \"{phrase}\" (engine: auto).")
+    except Exception as exc:  # noqa: BLE001
+        _println(f"⚠  Could not persist the wake word: {exc}")
+        _println("   You can set it later in the desktop Settings UI or in")
+        _println("   jarvis.toml under [trigger.wake_word].")
+        return phrase
+
+    # Provision the offline any-word fallback now (best-effort) so the phrase the
+    # user just chose actually works on a base install — not only after the next
+    # desktop boot. Reuses the existing ensure-vosk-model path; it fetches only
+    # the generic per-language Vosk speech model, never a named/bundled/branded
+    # wake model. Any failure (offline, no vosk wheel on this platform) is honest
+    # and non-fatal: the desktop app's off-boot provisioner and the in-app
+    # "Download wake model" button remain the backstops.
+    if phrase.strip():
+        try:
+            from dodaios.speech import wake_model_fetch as wmf
+
+            language = wmf.resolve_wake_language(cfg.load_config())
+            if wmf.vosk_model_present(language):
+                _println(
+                    f"   Offline any-word wake model for '{language}' is already "
+                    "installed — your wake word works out of the box."
+                )
+            else:
+                _println(
+                    "   Setting up the offline any-word wake model so your wake "
+                    "word works without any extra install:"
+                )
+                landed = wmf.ensure_vosk_model(
+                    language, echo=lambda m: _println(f"     {m}")
+                )
+                if landed is None:
+                    _println(
+                        "   Could not fetch it right now — until it downloads, "
+                        "start a voice turn with the hotkey / Call shortcut. It "
+                        "retries automatically on the next start, or from "
+                        "Settings → Wake word → 'Download wake model'."
+                    )
+        except Exception as exc:  # noqa: BLE001 — provisioning is best-effort
+            _println(f"   Offline wake model setup skipped ({exc}).")
+
+    _println("   Takes effect after the next Dodaios restart.")
+    return phrase
+
+
+def step_dependency_check() -> None:
+    """External CLI dependencies — node / npm / claude / openclaw.
+
+    Welle 3 (2026-05-17): before this step the wizard only *announced*
+    that the user should run ``npm i -g openclaw``. Today the worker
+    and critic both go through ``claude --print`` via the user's Claude
+    Max OAuth (BUG-023 + CRIT-1 fixes); ``claude`` is the new
+    mandatory dependency and the wizard now auto-installs it when
+    safe. ``node`` stays manual (UAC required); ``openclaw`` is
+    optional since the default path bypasses it.
+    """
+    from dodaios.setup import dependencies as deps
+
+    _println()
+    _println("=" * 60)
+    _println(" Step 6 / 8 — External CLI dependencies")
+    _println("=" * 60)
+    _println()
+
+    # 1. Node + npm — prerequisite for every npm-packaged tool.
+    node = deps.check_node()
+    npm = deps.check_npm()
+    if node.present:
+        _println(f"✓ node {node.version}")
+    else:
+        _println(f"–  node missing. {node.install_hint}")
+    if npm.present:
+        _println(f"✓ npm {npm.version}")
+    else:
+        _println(f"–  npm missing. {npm.install_hint}")
+
+    # 2. claude CLI — the canonical worker/critic backend since
+    #    BUG-023 + CRIT-1. Auto-install if missing AND npm is usable.
+    claude = deps.check_claude_cli()
+    if claude.present:
+        _println(f"✓ claude {claude.version} ({claude.path})")
+    elif not npm.present:
+        _println("–  claude missing — npm must be available first. Install manually:")
+        _println("   npm i -g @anthropic-ai/claude-code")
+    else:
+        _println("–  claude CLI missing — installing via npm (non-destructive)...")
+        ok, claude_after = deps.install_claude_cli()
+        if ok:
+            _println(f"✓ claude {claude_after.version} installed ({claude_after.path})")
+        else:
+            _println(f"✗ Auto-install failed: {claude_after.install_hint}")
+            _println("   Please install manually: npm i -g @anthropic-ai/claude-code")
+
+    # 3. openclaw — explicitly optional now.
+    openclaw = deps.check_openclaw()
+    if openclaw.present:
+        _println(f"✓ openclaw {openclaw.version} ({openclaw.path})")
+    else:
+        _println("–  openclaw missing (optional).")
+        _println(f"   {openclaw.install_hint}")
+
+    _println()
+    # End-of-step summary so a human eyeballing the wizard knows what
+    # state the worker path is in.
+    if claude.present or (not claude.present and npm.present):
+        _println(
+            "Worker/critic path: claude CLI (OAuth via Claude Max) — "
+            "preferred since Welle-4 + CRIT-1."
+        )
+    else:
+        _println(
+            "⚠  Worker path NOT ready. Voice missions will fail with "
+            "'claude binary not found' until claude is installed."
+        )
+
+
+def step_jarvis_agent_harness_check() -> None:
+    """External Jarvis-Agent worker-harness status — informational, not a key-entry step.
+
+    Contract (docs/jarvis-agents-bridge.md §4.3, Amendment 2026-05-09): NO new
+    per-harness secrets are created in the Credential Manager. The worker
+    harness uses the standard provider ENV vars (``GEMINI_API_KEY``,
+    ``ANTHROPIC_API_KEY``, ...). This step only shows the user:
+
+    1. Whether the optional external ``openclaw`` binary is on PATH
+       (``npm i -g openclaw`` — the npm package keeps that name).
+    2. Which Dodaios brain providers are thereby Jarvis-Agent-capable
+       (= which of the API keys entered above also enable the harness).
+    3. A pointer to the ``Dodaios slug → worker-harness slug`` mapping.
+    """
+    import shutil
+
+    _println()
+    _println("=" * 60)
+    _println(" Step 7 / 8 — Dodaios-Agent worker harness (optional, heavy tasks)")
+    _println("=" * 60)
+    _println()
+    _println("Dodaios-Agents handle complex multi-step tasks for you")
+    _println("('read this repo + build X', 'reproduce the bug + propose a fix').")
+    _println("Dodaios dispatches via the 'spawn_worker' tool to a short-lived")
+    _println("worker subprocess; the LLM output only lands in the voice path after")
+    _println("the Controller signature (see docs/jarvis-agents-bridge.md §3 architecture diagram).")
+    _println()
+    _println("One optional external harness is the 'openclaw' npm binary (that is the")
+    _println("package's own name); the default worker path uses the claude CLI instead.")
+    _println()
+
+    # 1. Binary check (B-7 finding: .cmd/.ps1 wrappers on Windows count too).
+    binary = shutil.which("openclaw")
+    if not binary:
+        for ext in (".cmd", ".ps1", ".exe"):
+            binary = shutil.which("openclaw" + ext)
+            if binary:
+                break
+
+    if binary:
+        _println(f"✓ Worker-harness binary found: {binary}")
+    else:
+        _println("–  'openclaw' harness binary not on PATH (optional).")
+        _println("   Install it from an agent's Brain settings (OpenClaw 2026.9.8 or newer).")
+        _println("   The harness stays inactive until the binary is available — no crash.")
+
+    # 2. Show the provider mapping (lazy import — the wizard should also run
+    #    without the fully installed modules).
+    _println()
+    _println("Provider mapping (Dodaios → worker-harness CLI):")
+    try:
+        from dodaios.missions.worker_runtime.provider_map import MAPPINGS
+    except Exception:  # noqa: BLE001
+        _println("   (Provider map not loaded — skipping the mapping display.)")
+        return
+
+    secret_key_overrides = {
+        "claude-api": "anthropic_api_key",
+        "openrouter": "openrouter_api_key",
+        "openai": "openai_api_key",
+        "gemini": "gemini_api_key",
+    }
+    for mapping in MAPPINGS:
+        secret_key = secret_key_overrides.get(
+            mapping.jarvis, f"{mapping.jarvis}_api_key"
+        )
+        has_key = bool(cfg.get_secret(secret_key))
+        marker = "✓" if has_key else "–"
+        envs = " / ".join(
+            v for v in (mapping.env_var, mapping.env_fallback) if v
+        )
+        _println(
+            f"   {marker} {mapping.jarvis:<11} → {mapping.worker_slug:<10} "
+            f"(ENV: {envs})"
+        )
+
+    _println()
+    _println("To activate: set 'enabled = true' in jarvis.toml [harness.jarvis_agent]")
+    _println("AND check 'binary_path'. The harness automatically follows the")
+    _println("provider choice under [brain].primary — no Anthropic lock.")
+
+
+class _TermsDeclined(Exception):
+    """Raised when the user declines the Terms of Use — setup cannot complete."""
+
+
+def step_finalize() -> None:
+    _println()
+    _println("=" * 60)
+    _println(" Step 8 / 8 — Terms of use & finish")
+    _println("=" * 60)
+    _println()
+
+    # Terms of Use must be accepted before first use. Deliberately short here —
+    # the authoritative full text is docs/legal/TERMS.md (and the desktop app's
+    # Terms view). Declining stops setup: Jarvis is not usable without it.
+    from dodaios.setup.onboarding_meta import CURRENT_TERMS_VERSION
+    from dodaios.setup.state import accept_terms, mark_onboarding_complete
+
+    _println(f"Terms of Use & Disclaimer (v{CURRENT_TERMS_VERSION}) — short version:")
+    _println('  • Free & open-source, provided "as is": no warranty, no liability.')
+    _println("  • You are responsible for your usage, your activation word (trademarks),")
+    _println("    your API keys, and lawful microphone use.")
+    _println("  • Stores working data on this host; remote and connected features send")
+    _println("    data to their configured services.")
+    _println("  • Shipped Google and Slack sign-in clients use the project-run")
+    _println("    token.personaljarvis.ai OAuth service, hosted on Cloudflare. It receives")
+    _println("    authorization codes, PKCE verifiers, client and redirect information,")
+    _println("    and refresh tokens, and handles provider token responses. Slack's")
+    _println("    browser callback also passes through it. No server-side logging,")
+    _println("    storage, or retention guarantee is made here.")
+    _println("  Full text: docs/legal/TERMS.md")
+    _println()
+    if not _ask_yesno("Do you accept these terms?", default=False):
+        raise _TermsDeclined()
+    accept_terms(CURRENT_TERMS_VERSION)
+    _println()
+
+    # Default Yes per the maintainer mandate ("start at boot unless explicitly
+    # disabled"). Cross-platform via the autostart port (Windows .lnk / macOS
+    # LaunchAgent / Linux XDG .desktop); a headless host degrades to a logged
+    # no-op. English copy per the Output Language Policy.
+    autostart = _ask_yesno("Start Dodaios automatically at login?", default=True)
+    _apply_autostart_choice(autostart)
+
+    # Record terms acceptance + onboarding completion so the desktop app's
+    # onboarding gate treats setup as done and does NOT re-run its own
+    # onboarding (the CLI wizard and the app share one setup_state.json).
+    mark_onboarding_complete()
+    cfg.mark_setup_complete()
+    _println()
+    _println("✓ Setup complete. Enjoy Dodaios!")
+    _println()
+    _println("Next step:")
+    _println("  Run `python -m dodaios` (or run.bat on Windows) → the tray icon appears.")
+
+
+def _apply_autostart_choice(enabled: bool) -> None:
+    """Persist the autostart toggle and apply the OS entry cross-platform.
+
+    Delegates to the ``dodaios.autostart`` port (Windows .lnk / macOS LaunchAgent
+    / Linux XDG .desktop). On a headless host the manager reports
+    ``supported=False`` and we say so honestly. Never raises — a setup wizard
+    must always reach the finish line.
+    """
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_autostart(enabled)
+    except Exception as exc:  # noqa: BLE001 — persistence is best-effort
+        _println(f"  Could not persist the autostart setting: {exc}")
+
+    try:
+        from dodaios.autostart import make_autostart_manager, resolve_launch_spec
+        from dodaios.platform.capabilities import detect_capabilities
+
+        manager = make_autostart_manager(detect_capabilities())
+        if not enabled:
+            manager.uninstall(interactive=True)
+            _println(
+                "→ Autostart disabled. Start Dodaios any time via run.bat or "
+                "`python -m dodaios.ui.web.launcher`."
+            )
+            return
+
+        # interactive=True: on Windows this registers the instant-start logon task
+        # via a one-time permission prompt (declined → startup-shortcut fallback).
+        status = manager.install(resolve_launch_spec(None), interactive=True)
+        if status.supported and status.installed:
+            _println(f"→ Autostart enabled: {status.entry_path}")
+        elif not status.supported:
+            _println(f"→ Autostart not available on this host: {status.detail}")
+        else:
+            _println(f"→ Autostart could not be installed: {status.detail}")
+    except Exception as exc:  # noqa: BLE001 — never crash the wizard
+        _println(f"⚠  Autostart setup failed (you can toggle it later in Settings): {exc}")
+
+
+# ----------------------------------------------------------------------
+# Orchestrator
+# ----------------------------------------------------------------------
+
+def run() -> int:
+    _println()
+    _println("╔══════════════════════════════════════════════════════════╗")
+    _println("║  Dodaios — First-Run Setup                               ║")
+    _println("║  Duration: ~5 minutes, one-time                          ║")
+    _println("╚══════════════════════════════════════════════════════════╝")
+
+    # Non-interactive path: headless VPS, CI, or JARVIS_NONINTERACTIVE=1.
+    # Skip all prompts; keys are read from ENV / .env by get_secret() at
+    # runtime.  Write the .setup-complete marker so subsequent boots go
+    # straight to the app without hitting this code path again.
+    if _is_noninteractive():
+        _println()
+        _println("Non-interactive mode detected (no TTY or JARVIS_NONINTERACTIVE=1).")
+        _println("Skipping interactive prompts.  API keys will be read from")
+        _println("environment variables or the .env file at runtime.")
+        _println("See .env.example for the full list of recognised variable names.")
+        _println()
+        from dodaios.setup.onboarding_meta import CURRENT_TERMS_VERSION
+
+        _println(
+            f"By running the non-interactive installer you accept the Terms of Use "
+            f"(v{CURRENT_TERMS_VERSION}, docs/legal/TERMS.md)."
+        )
+        cfg.mark_setup_complete()
+        _println("✓ Setup marker written.  Starting Dodaios...")
+        return 0
+
+    try:
+        step_hardware_check()
+        step_api_keys()
+        step_mic_check()
+        new_hotkey = step_hotkey_check(default_hotkey="ctrl+right_alt+j")
+        if new_hotkey != "ctrl+right_alt+j":
+            _println(f"→ Hotkey '{new_hotkey}' noted — please enter it in jarvis.toml.")
+            # Persistence note: the wizard only writes the hotkey into the
+            # config actively in Phase 1.
+        step_wake_word_setup()
+        step_dependency_check()
+        step_jarvis_agent_harness_check()
+        step_finalize()
+        return 0
+    except _TermsDeclined:
+        _println("\nTerms not accepted — setup stopped. You must accept the terms")
+        _println(f"to use Dodaios. Re-run `{main_command()} --wizard` when you're ready.")
+        return 3
+    except KeyboardInterrupt:
+        _println("\n\n⚠  Setup aborted. Re-run: `python -m dodaios`")
+        return 130
+    except Exception as exc:  # noqa: BLE001
+        _println(f"\n✗ Setup error: {exc}")
+        return 1
+
+
+def main() -> int:
+    return run()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

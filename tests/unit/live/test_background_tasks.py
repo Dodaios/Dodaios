@@ -14,14 +14,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.protocols import SupervisorToolDescriptor
-from jarvis.cu.direct import tool_schema
-from jarvis.live import native
-from jarvis.live import tools as live_tools
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
-from jarvis.realtime.protocol import RealtimeEvent
+from dodaios.core.protocols import SupervisorToolDescriptor
+from dodaios.cu.direct import tool_schema
+from dodaios.live import native
+from dodaios.live import tools as live_tools
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
+from dodaios.realtime.protocol import RealtimeEvent
 from tests.fakes.fake_native_voice import (
     FakeNativeConnection,
     FakeToolGateway,
@@ -445,7 +445,7 @@ class _Wire:
 
 @pytest.mark.asyncio
 async def test_the_continuous_session_releases_and_reports_the_same_way(tmp_path, monkeypatch):
-    from jarvis.live.session import LiveVoiceSession
+    from dodaios.live.session import LiveVoiceSession
 
     monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", 0.01)
 
@@ -498,8 +498,8 @@ async def test_the_continuous_session_releases_and_reports_the_same_way(tmp_path
 @pytest.mark.asyncio
 async def test_a_released_action_that_needs_approval_keeps_its_question(runtime):
     """The order is not dropped as superseded: its yes is asked with the report."""
-    from jarvis.core.protocols import ToolResult
-    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+    from dodaios.core.protocols import ToolResult
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
     tools, gateway = runtime
     gateway.results["brief-agent"] = ToolResult(
@@ -544,8 +544,8 @@ async def test_a_released_action_that_needs_approval_keeps_its_question(runtime)
 @pytest.mark.asyncio
 async def test_an_approval_reached_in_the_grace_after_moving_on_is_kept(runtime, monkeypatch):
     """Whether the question survives must not depend on how fast it was reached."""
-    from jarvis.core.protocols import ToolResult
-    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+    from dodaios.core.protocols import ToolResult
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
     monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", _HANG_GUARD_S)
     tools, gateway = runtime
@@ -564,8 +564,8 @@ async def test_an_approval_reached_in_the_grace_after_moving_on_is_kept(runtime,
 
 @pytest.mark.asyncio
 async def test_an_overtaken_call_nobody_waits_for_still_withdraws_its_approval(runtime):
-    from jarvis.core.protocols import ToolResult
-    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+    from dodaios.core.protocols import ToolResult
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
     tools, gateway = runtime
     gateway.results["brief-agent"] = ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)
@@ -587,7 +587,7 @@ class _SlowApprovalGateway(FakeToolGateway):
         self.confirm = asyncio.Event()
 
     async def execute_confirmed(self, trace, request):
-        from jarvis.core.protocols import ToolResult
+        from dodaios.core.protocols import ToolResult
 
         del trace, request
         self.confirmed_started.set()
@@ -597,8 +597,8 @@ class _SlowApprovalGateway(FakeToolGateway):
 
 @pytest.mark.asyncio
 async def test_an_approved_effect_leaves_its_turn_like_any_other_action(tmp_path, monkeypatch):
-    from jarvis.core.protocols import ToolResult
-    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+    from dodaios.core.protocols import ToolResult
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
     monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", 0.01)
     gateway = _SlowApprovalGateway()
@@ -638,7 +638,7 @@ async def test_an_approved_effect_leaves_its_turn_like_any_other_action(tmp_path
 
 @pytest.mark.asyncio
 async def test_task_status_shows_no_pictures_and_no_page_long_results(runtime):
-    from jarvis.core.protocols import ToolResult
+    from dodaios.core.protocols import ToolResult
 
     tools, gateway = runtime
     gateway.results["brief-agent"] = ToolResult(
@@ -684,8 +684,8 @@ async def test_a_background_approval_can_be_given_once_its_question_was_told(
 ):
     import sys
 
-    from jarvis.core.protocols import ToolResult
-    from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+    from dodaios.core.protocols import ToolResult
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
     session, connection, gateway, release = held_action(make_provider)
     gateway.results["brief-agent"] = ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)

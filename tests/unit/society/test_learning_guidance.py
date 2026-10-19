@@ -7,12 +7,12 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.society.knowledge import list_files, read_file
-from jarvis.society.review import review_turn
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.surface import build_briefing
-from jarvis.society.working_rules import PREFIX
-from jarvis.ui.web.society_routes import agent_knowledge, agent_knowledge_file
+from dodaios.society.knowledge import list_files, read_file
+from dodaios.society.review import review_turn
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.surface import build_briefing
+from dodaios.society.working_rules import PREFIX
+from dodaios.ui.web.society_routes import agent_knowledge, agent_knowledge_file
 from tests.fakes.fake_society_review import MemoryExecutor
 
 
@@ -265,7 +265,7 @@ async def test_memory_changes_post_one_notice_and_noop_posts_none(rt):
 
 
 async def test_permanent_language_preference_is_saved_and_used_by_subsequent_turns(rt):
-    from jarvis.society.reply_preference import resolve_agent_reply_language, stored_language
+    from dodaios.society.reply_preference import resolve_agent_reply_language, stored_language
 
     async def reviewer(*args):
         return {"memories": [], "instructions": []}
@@ -289,7 +289,7 @@ async def test_permanent_language_preference_is_saved_and_used_by_subsequent_tur
 
 
 async def test_large_tool_output_preserves_the_recent_request(rt):
-    from jarvis.society.conversation import prepare_history
+    from dodaios.society.conversation import prepare_history
     from tests.fakes.fake_society_review import SummaryProvider
 
     prompt = "Compare these two shipping options and recommend one."
@@ -307,7 +307,7 @@ async def test_large_tool_output_preserves_the_recent_request(rt):
 
 
 async def test_failed_review_retries_without_another_user_turn(rt, monkeypatch):
-    from jarvis.society import review_queue
+    from dodaios.society import review_queue
 
     attempts = []
 
@@ -350,7 +350,7 @@ async def test_removal_has_a_grounded_receipt_and_is_idempotent(rt):
 
 
 def test_memory_evidence_uses_typed_text_instead_of_attached_instructions():
-    from jarvis.society.memory_intent import user_evidence
+    from dodaios.society.memory_intent import user_evidence
 
     assert (
         user_evidence(

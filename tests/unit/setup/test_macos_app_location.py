@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.setup.macos_app_bundle as mab
-from jarvis.setup.macos_app_bundle import (
+import dodaios.setup.macos_app_bundle as mab
+from dodaios.setup.macos_app_bundle import (
     APP_DIR_NAME,
     ensure_macos_app_bundle,
     macos_applications_dir,
@@ -226,9 +226,9 @@ def test_a_damaged_bundle_of_ours_is_still_ours(roots) -> None:
 def test_the_login_item_follows_the_moved_app(
     roots, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import jarvis.autostart.macos as autostart_macos
-    from jarvis.autostart.macos import MacOSAutostart
-    from jarvis.autostart.protocol import LaunchSpec
+    import dodaios.autostart.macos as autostart_macos
+    from dodaios.autostart.macos import MacOSAutostart
+    from dodaios.autostart.protocol import LaunchSpec
 
     system, user = roots
     _bundle(user)
@@ -263,7 +263,7 @@ def test_the_login_item_follows_even_when_the_repair_fails(
     roots, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Seen live: signing failed after the move, and login kept the dead path."""
-    import jarvis.autostart.macos as autostart_macos
+    import dodaios.autostart.macos as autostart_macos
 
     system, user = roots
     _bundle(user)

@@ -8,14 +8,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide.skill_library import (
+from dodaios.agentic_ide.skill_library import (
     HUES,
     SkillLibrary,
     derive_description,
     derive_title,
     skill_library_path,
 )
-from jarvis.ui.web.ide_skills_routes import router as ide_skills_router
+from dodaios.ui.web.ide_skills_routes import router as ide_skills_router
 
 BASE = "/api/agentic-ide/skills"
 

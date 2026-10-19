@@ -1,7 +1,7 @@
 """Web-search secret slot: prepaid Apifare, not Tavily/Serper/Brave."""
 
-from jarvis.setup.wizard import SECRETS
-from jarvis.ui.web.provider_routes import ALLOWED_SECRET_KEYS
+from dodaios.setup.wizard import SECRETS
+from dodaios.ui.web.provider_routes import ALLOWED_SECRET_KEYS
 
 
 def test_search_secret_is_optional_apifare_not_tavily() -> None:

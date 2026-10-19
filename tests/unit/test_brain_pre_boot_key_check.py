@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainProviderConfig,
     BrainRouterPolicyConfig,
     BrainTierConfig,
@@ -66,7 +66,7 @@ def test_provider_without_key_lands_in_dead_providers(
     """When only claude-api+gemini have keys, openai+grok+openrouter are
     in _dead_providers after from_tier_config().
     """
-    from jarvis.core import config as _cfg_mod
+    from dodaios.core import config as _cfg_mod
 
     available_keys = {"anthropic_api_key", "gemini_api_key"}
 
@@ -89,7 +89,7 @@ def test_all_keys_missing_kills_all_providers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Worst case: not a single key. All providers are dead."""
-    from jarvis.core import config as _cfg_mod
+    from dodaios.core import config as _cfg_mod
 
     monkeypatch.setattr(
         _cfg_mod, "get_secret", lambda key, env_fallback=None: None,
@@ -106,7 +106,7 @@ def test_all_keys_present_no_dead_providers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Happy-Path: alle Keys da. _dead_providers ist leer."""
-    from jarvis.core import config as _cfg_mod
+    from dodaios.core import config as _cfg_mod
 
     monkeypatch.setattr(
         _cfg_mod, "get_secret",
@@ -123,7 +123,7 @@ def test_provider_key_aliases_are_accepted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Gemini/xAI alias keys count as configured for the canonical providers."""
-    from jarvis.core import config as _cfg_mod
+    from dodaios.core import config as _cfg_mod
 
     available_keys = {
         "anthropic_api_key",
@@ -148,7 +148,7 @@ def test_provider_key_aliases_are_accepted(
 
 def test_chain_excludes_dead_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     """Provider-Chain filtert _dead_providers raus."""
-    from jarvis.core import config as _cfg_mod
+    from dodaios.core import config as _cfg_mod
 
     monkeypatch.setattr(
         _cfg_mod, "get_secret",

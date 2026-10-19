@@ -13,7 +13,7 @@ until it fails on somebody else's machine:
   consecutive failures and the pass short-circuits for two minutes instead of
   spending its whole latency budget discovering the same outage again.
 
-Credentials are faked by replacing ``jarvis.core.config.get_secret`` — the real
+Credentials are faked by replacing ``dodaios.core.config.get_secret`` — the real
 lookup — so the slot NAMES in ``POLISH_FAMILIES`` are part of what is pinned. A
 test that patched the private helper instead would keep passing after a typo in
 a keyring slot.
@@ -30,14 +30,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import config as jarvis_config
-from jarvis.dictation import polish, polish_client
-from jarvis.dictation.polish import (
+from dodaios.core import config as jarvis_config
+from dodaios.dictation import polish, polish_client
+from dodaios.dictation.polish import (
     POLISH_BREAKER_COOLDOWN_S,
     POLISH_BREAKER_THRESHOLD,
     polish_transcript,
 )
-from jarvis.dictation.polish_client import (
+from dodaios.dictation.polish_client import (
     POLISH_FAMILIES,
     POLISH_TRANSPORTS,
     GeminiPolishClient,
@@ -641,7 +641,7 @@ def test_the_gemini_request_deadline_never_goes_under_the_server_minimum(
     who pinned Gemini never once got it and every dictation crossed silently to
     another family (AP-31). The caller's ``wait_for`` still bounds the wait.
     """
-    from jarvis.dictation import polish_client as pc
+    from dodaios.dictation import polish_client as pc
 
     captured: dict[str, object] = {}
 

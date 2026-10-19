@@ -28,7 +28,7 @@ Talker (orchestrator)  ──emit AckEmitted FIRST──▶  (spoken "Geht klar"
 ## HARD CONSTRAINTS (every module, non-negotiable)
 
 1. **Standard library only.** No `pip install`, no third-party imports. No
-   `import jarvis.*`. (Cloud-first €5-VPS doctrine, AD-OE2 — the in-process
+   `import dodaios.*`. (Cloud-first €5-VPS doctrine, AD-OE2 — the in-process
    EventBus IS the queue; no Redis/RabbitMQ/Celery.)
 2. **English** for all code, comments, docstrings, log messages. (Repo output-language policy.)
 3. Import shared types only from `optimistic.events` and `optimistic.registry`.

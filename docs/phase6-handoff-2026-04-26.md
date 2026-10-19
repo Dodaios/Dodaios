@@ -32,12 +32,12 @@ cfae4227 feat(self-mod): phase 7.3 — brain tools for mutable settings
 - **`CLAUDE.md`** — Phase 6 section set to "Live" + sub-phase table
 - **`jarvis.toml`** — new `[phase6.safety]`, `[phase6.voice]`, `[phase6.cleanup]` sections
 - **`docs/phase6-prompt-chain.md`** — status update
-- **`jarvis/missions/`** — complete subsystem (29 files):
+- **`dodaios/missions/`** — complete subsystem (29 files):
   - `__init__.py`, `events.py`, `event_bus.py`, `event_store.py`, `state_machine.py`, `manager.py`, `recovery.py`, `ids.py`, `missions_schema.sql`, `budget.py`, `cleanup.py`, `init.py`
   - `workers/` (5 files), `isolation/` (3 files), `critic/` (7 files), `kontrollierer/` (3 files), `safety/` (4 files), `voice/` (3 files)
-- **`jarvis/ui/web/missions_*`** — REST/WS/PTY/Auth routes
-- **`jarvis/ui/web/server.py`** — `_init_mission_stack()` with `bootstrap_missions()` integration
-- **`jarvis/ui/web/frontend/`** — Mission-Control UI (11 new + 3 modified files), 4 npm packages
+- **`dodaios/ui/web/missions_*`** — REST/WS/PTY/Auth routes
+- **`dodaios/ui/web/server.py`** — `_init_mission_stack()` with `bootstrap_missions()` integration
+- **`dodaios/ui/web/frontend/`** — Mission-Control UI (11 new + 3 modified files), 4 npm packages
 - **`tests/missions/`** — 458 tests (5 sub-phases)
 - **`scripts/smoke_phase6_p1.py` + `_p2.py` + `_p3.py` + `_p3_real.py`** — smoke scripts
 
@@ -47,23 +47,23 @@ The prompt chain is **complete** — all 5 prompts implemented. The next steps a
 
 1. **Branch refactor:** `git checkout -b phase6-self-healing` and cherry-pick the Phase 6 files (out of the Phase 7 branch). Clear commit order by sub-phase.
 
-2. **Master E2E run (S2 manual):** Real voice path with `python -m jarvis` → wake → "Schreib eine Primzahl-Funktion" → Mission-Tree UI → approval + DE voice output. Expected: <90s, <$0.40, 1-2 critic iterations. Document in `docs/phase6-e2e-run-<date>.md`.
+2. **Master E2E run (S2 manual):** Real voice path with `python -m dodaios` → wake → "Schreib eine Primzahl-Funktion" → Mission-Tree UI → approval + DE voice output. Expected: <90s, <$0.40, 1-2 critic iterations. Document in `docs/phase6-e2e-run-<date>.md`.
 
 3. **Activate TTS wiring + brain caller in bootstrap:** currently `bootstrap_missions(tts_speak_fn=None, brain_caller=None)` runs — the voice listener is disabled and the decomposer operates in heuristic-only mode. Production wiring of DesktopApp.SpeechPipeline._tts.synthesize → bootstrap_missions is the prerequisite for voice readback and multi-step mission decomposition to work.
 
 ## Known open questions
 
 **From ADR-0009 §"Open":**
-- ✓ **Reflection memory layout:** decided — Markdown in the mission root (not JSON in SQLite). Implemented in `jarvis/missions/critic/reflections.py`.
+- ✓ **Reflection memory layout:** decided — Markdown in the mission root (not JSON in SQLite). Implemented in `dodaios/missions/critic/reflections.py`.
 - 🔄 **Cross-model critic trigger:** still deferred — opt-in possible via a config flag in `escalation.py`, but no default path. Phase 7 decision.
 - 🔄 **Worktree cleanup policy on MissionFailed:** currently a uniform 14-day prune. Alternative: immediate `git worktree remove --force` on Failed (disk savings). Phase 7 decision.
-- ✓ **Voice readback at iteration 2:** decided — default OFF, opt-in via `[phase6.voice].announce_critic_loop=true`. Implemented in `jarvis/missions/voice/listener.py`.
+- ✓ **Voice readback at iteration 2:** decided — default OFF, opt-in via `[phase6.voice].announce_critic_loop=true`. Implemented in `dodaios/missions/voice/listener.py`.
 
 **Phase 5 CAVEAT (not in ADR-0009, but newly discovered):**
-- ✓ **Critic auth path:** `openclaw agent --bare` opt-in via `ANTHROPIC_API_KEY` detection (otherwise the OAuth/Keychain path). Implemented in `jarvis/missions/critic/runner.py:148`.
+- ✓ **Critic auth path:** `openclaw agent --bare` opt-in via `ANTHROPIC_API_KEY` detection (otherwise the OAuth/Keychain path). Implemented in `dodaios/missions/critic/runner.py:148`.
 
 **TODO/FIXME markers:**
-- `jarvis/ui/web/missions_pty_routes.py` — Phase-4-MVP stub marked as `# TODO: wire to actual log-tail in Phase 5`. The Phase 5 cleanup did NOT touch the stub file — a full PTY tail remains a Phase 7 task.
+- `dodaios/ui/web/missions_pty_routes.py` — Phase-4-MVP stub marked as `# TODO: wire to actual log-tail in Phase 5`. The Phase 5 cleanup did NOT touch the stub file — a full PTY tail remains a Phase 7 task.
 
 ## Repair before the next prompt
 

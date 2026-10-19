@@ -14,14 +14,14 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
-from jarvis.missions.workers import api_agent_worker as m
+from dodaios.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
+from dodaios.missions.workers import api_agent_worker as m
 
 _FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 
 def _patch_config(monkeypatch: pytest.MonkeyPatch, config: JarvisConfig) -> None:
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: config)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: config)
 
 
 def test_explicit_step_model_always_wins(monkeypatch: pytest.MonkeyPatch) -> None:

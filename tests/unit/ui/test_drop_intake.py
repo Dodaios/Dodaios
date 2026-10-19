@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import prompt_attachments
-from jarvis.agentic_ide.prompt_attachments import StagedPromptAttachments
-from jarvis.brain.drop_context import DroppedItem
-from jarvis.ui.drop_intake import capture_presence_drop
+from dodaios.agentic_ide import prompt_attachments
+from dodaios.agentic_ide.prompt_attachments import StagedPromptAttachments
+from dodaios.brain.drop_context import DroppedItem
+from dodaios.ui.drop_intake import capture_presence_drop
 
 
 class _Brain:

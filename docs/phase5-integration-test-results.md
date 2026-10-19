@@ -43,7 +43,7 @@ All eight ADRs live under `docs/adr/` and are part of the audit trail.
 | ID | Check | Status |
 |---|---|---|
 | `ac_pytest_phase5` | `pytest -m phase5 -v` runs without fails (except `skip_ci`) | ✅ PASS (17 tests) |
-| `ac_no_regression` | `python -m jarvis` starts without regression (Phase 0–4 green) | ✅ PASS — separate runs, Phase-2/4 suites unchanged |
+| `ac_no_regression` | `python -m dodaios` starts without regression (Phase 0–4 green) | ✅ PASS — separate runs, Phase-2/4 suites unchanged |
 | `ac_notepad_e2e` | `"Öffne Notepad, tippe Hallo, speichere als test.txt"` → E2E executed | ⚠️ SIMULATED (see Known Limitations) — `test_cu_harness_runs_notepad_like_plan` covers the Plan-Observe-Act-Verify pipeline with fakes. A real live run requires the user desktop. | <!-- i18n-allow -->
 | `ac_winget_uac` | `"Installiere 7zip via winget"` → UAC prompt, installation, success message | ⚠️ SIMULATED — `test_admin_ipc_loopback` with `skip_ci` tests the round-trip infrastructure. A real UAC prompt requires an interactive session. | <!-- i18n-allow -->
 | `ac_kill_switch_2s` | `Ctrl+Alt+Shift+K` aborts a running CU task in <2s | ✅ PASS — `test_kill_switch_via_voice_cancels_cu_token_under_2s` measures <50ms voice→token cancel (the hotkey path is structurally identical). |
@@ -63,7 +63,7 @@ All eight ADRs live under `docs/adr/` and are part of the audit trail.
 
 ### Capability 1 — Seeing (Vision)
 
-- **`jarvis/vision/`**: `screenshot.py`, `uia_tree.py`, `pruning.py`, `cache.py`, `engine.py` — ~500 LOC.
+- **`dodaios/vision/`**: `screenshot.py`, `uia_tree.py`, `pruning.py`, `cache.py`, `engine.py` — ~500 LOC.
 - **Tests:** `tests/unit/vision/{test_pruning.py, test_cache.py, test_engine.py}` — **45 green**.
   - 5000-node pruning budget < 300 ms verified.
   - Cache-hit path, FIFO evict, role filter + OnScreen-Rect filter individually against synthetic trees.
@@ -71,7 +71,7 @@ All eight ADRs live under `docs/adr/` and are part of the audit trail.
 
 ### Capability 2 — Acting (Computer-Use)
 
-- **`jarvis/plugins/harness/computer_use.py`** + **`jarvis/harness/computer_use_{loop,context}.py`** — ~450 LOC.
+- **`dodaios/plugins/harness/computer_use.py`** + **`dodaios/harness/computer_use_{loop,context}.py`** — ~450 LOC.
 - **Tests:** `tests/unit/harness/test_computer_use_loop.py` — **16 green**.
   - Plan JSON parsing (valid/invalid/steps-wrapper).
   - Happy path (single-step done, multi-step open+done).
@@ -80,7 +80,7 @@ All eight ADRs live under `docs/adr/` and are part of the audit trail.
 
 ### Capability 3 — Admin (via UAC-Helper)
 
-- **`jarvis/admin/`**: `schema.py`, `ipc.py`, `executor.py`, `client.py`, `helper.py`, `launcher.py` — ~500 LOC.
+- **`dodaios/admin/`**: `schema.py`, `ipc.py`, `executor.py`, `client.py`, `helper.py`, `launcher.py` — ~500 LOC.
 - **Tests:**
   - `tests/contract/test_admin_operation_schema.py` — **13 green** (13 op types, destructive set, shell-injection regex).
   - `tests/unit/admin/test_hmac_replay.py` — **10 green** (nonce replay, timestamp window, HMAC tamper).
@@ -91,8 +91,8 @@ All eight ADRs live under `docs/adr/` and are part of the audit trail.
 
 ### Capability 4 — Concurrent (Task-Queue)
 
-- **`jarvis/tasks/`**: `schema.py`, `schema.sql`, `store.py`, `scheduler.py`, `runner.py` — ~400 LOC.
-- **`jarvis/ui/web/tasks_routes.py`** — FastAPI router with POST/GET/cancel/DELETE.
+- **`dodaios/tasks/`**: `schema.py`, `schema.sql`, `store.py`, `scheduler.py`, `runner.py` — ~400 LOC.
+- **`dodaios/ui/web/tasks_routes.py`** — FastAPI router with POST/GET/cancel/DELETE.
 - **Tests:**
   - `tests/contract/test_scheduled_task_schema.py` — **12 green** (Trigger-Scope-3, cron-reject, mandate example).
   - `tests/unit/tasks/test_store.py`, `test_scheduler.py`, `test_runner.py` — **25 green**.
@@ -100,9 +100,9 @@ All eight ADRs live under `docs/adr/` and are part of the audit trail.
 
 ### Capability 5 — Control (Kill-Switch + Cost-Breaker + Flight-Recorder)
 
-- **`jarvis/control/`**: `cancel.py`, `cost.py`, `wiring.py` — ~550 LOC.
-- **`jarvis/telemetry/`**: `recorder.py`, `replay.py` — ~250 LOC.
-- **`jarvis/ui/tray.py`**: "Notfall-Stop" (Emergency-Stop) menu entry.
+- **`dodaios/control/`**: `cancel.py`, `cost.py`, `wiring.py` — ~550 LOC.
+- **`dodaios/telemetry/`**: `recorder.py`, `replay.py` — ~250 LOC.
+- **`dodaios/ui/tray.py`**: "Notfall-Stop" (Emergency-Stop) menu entry.
 - **Tests:**
   - `tests/contract/test_cancel_token_protocol.py` — **5 green**.
   - `tests/contract/test_cost_meter_protocol.py` — **3 green**.
@@ -122,29 +122,29 @@ docs/
   phase5-integration-test-results.md             (this report)
   adr/0001..0008-*.md                            (8 ADRs, 1 page each)
 
-jarvis/vision/                                   (Sub-Agent A)
+dodaios/vision/                                   (Sub-Agent A)
   pruning.py, cache.py, screenshot.py, uia_tree.py, engine.py
-jarvis/admin/                                    (Sub-Agent B)
+dodaios/admin/                                    (Sub-Agent B)
   schema.py, ipc.py, executor.py, client.py, helper.py, launcher.py
-jarvis/tasks/                                    (Sub-Agent C + main dev)
+dodaios/tasks/                                    (Sub-Agent C + main dev)
   schema.py, schema.sql, store.py, scheduler.py, runner.py
-jarvis/control/                                  (main dev)
+dodaios/control/                                  (main dev)
   cancel.py, cost.py, wiring.py
-jarvis/telemetry/                                (main dev)
+dodaios/telemetry/                                (main dev)
   recorder.py, replay.py
-jarvis/harness/                                  (main dev)
+dodaios/harness/                                  (main dev)
   computer_use_context.py, computer_use_loop.py
-jarvis/plugins/harness/computer_use.py           (main dev)
-jarvis/plugins/tool/dispatch_to_admin.py         (Sub-Agent B)
-jarvis/ui/web/tasks_routes.py                    (main dev)
+dodaios/plugins/harness/computer_use.py           (main dev)
+dodaios/plugins/tool/dispatch_to_admin.py         (Sub-Agent B)
+dodaios/ui/web/tasks_routes.py                    (main dev)
 
-jarvis/core/protocols.py                         (extended: VisionSource,
+dodaios/core/protocols.py                         (extended: VisionSource,
                                                   CancelToken, CostMeter,
                                                   Observation, UIANode, CostRecord)
-jarvis/core/events.py                            (+15 new events)
-jarvis/ui/tray.py                                (+"Notfall-Stop" menu)
-jarvis/__main__.py                               (+--phase5-doctor, --install-admin-helper)
-jarvis/setup/wizard.py                           (SECRETS + jarvis_admin_hmac)
+dodaios/core/events.py                            (+15 new events)
+dodaios/ui/tray.py                                (+"Notfall-Stop" menu)
+dodaios/__main__.py                               (+--phase5-doctor, --install-admin-helper)
+dodaios/setup/wizard.py                           (SECRETS + jarvis_admin_hmac)
 jarvis.toml                                      (+[vision], [computer_use],
                                                   [admin_helper], [task_queue],
                                                   [kill_switch], [cost],
@@ -175,19 +175,19 @@ pyproject.toml                                   (+computer-use, +dispatch-to-ad
    With two monitors and the active window on monitor 2, the on-screen filter prunes too aggressively because `_detect_primary_monitor_bounds` only knows monitor 1. Workaround: explicit `monitor_bounds` injection via the `VisionEngine` constructor. Not critical for Phase 5, but a config extension in Phase 6 makes sense.
 
 6. **Two-Bus-Bridge in `DesktopApp` not yet wired.**
-   `KillSwitch.forward_kill()` is built and tested (`test_forward_kill_bridges_between_busses`). But `DesktopApp._run_backend` must **explicitly** register the bridge subscriber so that the brain-factory bus sees the kill. This happens in Task 12 (Integration) for the manual config changes — **not yet done**, because DesktopApp was in flux. Documented as a follow-up in `jarvis/control/wiring.py:wire_kill_switch_on_bus` — the comment there points to the necessary `forward_kill` wiring in the DesktopApp startup.
+   `KillSwitch.forward_kill()` is built and tested (`test_forward_kill_bridges_between_busses`). But `DesktopApp._run_backend` must **explicitly** register the bridge subscriber so that the brain-factory bus sees the kill. This happens in Task 12 (Integration) for the manual config changes — **not yet done**, because DesktopApp was in flux. Documented as a follow-up in `dodaios/control/wiring.py:wire_kill_switch_on_bus` — the comment there points to the necessary `forward_kill` wiring in the DesktopApp startup.
 
 7. **CostMeter requires manual brain integration.**
-   The `BrainManager` does not (yet) have a native hook to forward every `BrainDelta.usage` to `CostMeter.add(CostRecord(...))`. The CostMeter is fully built and tested; the wiring to the BrainManager is a 20-LOC patch that belongs in `jarvis/brain/manager.py` after the current provider-dispatch line. Because of how settled `manager.py` is (Phase 2+4 core), I do not do this within the Phase 5 commits — the integration is left to the user as a one-line merge.
+   The `BrainManager` does not (yet) have a native hook to forward every `BrainDelta.usage` to `CostMeter.add(CostRecord(...))`. The CostMeter is fully built and tested; the wiring to the BrainManager is a 20-LOC patch that belongs in `dodaios/brain/manager.py` after the current provider-dispatch line. Because of how settled `manager.py` is (Phase 2+4 core), I do not do this within the Phase 5 commits — the integration is left to the user as a one-line merge.
 
 ---
 
 ## Operational use — how does the user switch Phase 5 on?
 
-1. `python -m jarvis --phase5-doctor` — shows what is on/off.
-2. `python -m jarvis --install-admin-helper` — generates the HMAC shared secret in the Credential Manager.
+1. `python -m dodaios --phase5-doctor` — shows what is on/off.
+2. `python -m dodaios --install-admin-helper` — generates the HMAC shared secret in the Credential Manager.
 3. Edit `jarvis.toml`: `[vision] enabled = true`, `[computer_use] enabled = true`, `[kill_switch] enabled = true`, `[cost] enabled = true`, `[task_queue] enabled = true`, `[admin_helper] enabled = true` — depending on the desired features.
-4. `python -m jarvis.telemetry.replay <trace_id>` — replay a trace.
+4. `python -m dodaios.telemetry.replay <trace_id>` — replay a trace.
 5. Hotkey Ctrl+Alt+Shift+K during a CU task — kill.
 6. Tray right-click → "Notfall-Stop" (Emergency-Stop).
 7. Voice: *"Jarvis, stopp"* / *"Notfall-Stopp"* / *"Alles stoppen"*.
