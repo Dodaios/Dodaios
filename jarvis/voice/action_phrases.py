@@ -18,7 +18,7 @@ import re
 
 from jarvis.core.turn_language import resolve_turn_language
 
-_DEFAULT = "de"
+_DEFAULT = "en"
 _SUPPORTED = ("de", "en", "es", "pt")
 
 #: ``HarnessTask.env`` key carrying the turn's resolved output language (de/en/es/pt)
