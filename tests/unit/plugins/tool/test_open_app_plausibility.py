@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool import open_app as oa
-from jarvis.plugins.tool.open_app import OpenAppTool, _is_plausible_app_name
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool import open_app as oa
+from dodaios.plugins.tool.open_app import OpenAppTool, _is_plausible_app_name
 
 
 def _ctx() -> ExecutionContext:

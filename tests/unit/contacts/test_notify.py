@@ -1,9 +1,9 @@
-"""Tests for the contact-change notification seam (jarvis/contacts/notify.py)."""
+"""Tests for the contact-change notification seam (dodaios/contacts/notify.py)."""
 from __future__ import annotations
 
 import pytest
 
-from jarvis.contacts import notify
+from dodaios.contacts import notify
 
 
 @pytest.fixture(autouse=True)

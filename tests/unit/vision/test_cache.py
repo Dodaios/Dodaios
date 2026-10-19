@@ -6,8 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import Observation
-from jarvis.vision.cache import VisionCache
+from dodaios.core.protocols import Observation
+from dodaios.vision.cache import VisionCache
 
 
 def _obs(hash_: str, title: str = "Notepad") -> Observation:

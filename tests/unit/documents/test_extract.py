@@ -13,7 +13,7 @@ from __future__ import annotations
 import io
 import zipfile
 
-from jarvis.documents.extract import ExtractResult, detect_kind, extract_text
+from dodaios.documents.extract import ExtractResult, detect_kind, extract_text
 
 
 def _zip(members: dict[str, str | bytes]) -> bytes:

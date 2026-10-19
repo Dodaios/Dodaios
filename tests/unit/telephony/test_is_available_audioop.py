@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 
-import jarvis.telephony as tel
+import dodaios.telephony as tel
 
 
 def test_is_available_false_when_audioop_missing_on_py313(monkeypatch):

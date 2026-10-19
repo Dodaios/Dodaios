@@ -2,7 +2,7 @@
 
 Covers the three new surfaces:
 
-* ``jarvis.telephony.outbound.place_call`` — Contract 2 (frozen). The twilio
+* ``dodaios.telephony.outbound.place_call`` — Contract 2 (frozen). The twilio
   REST ``Client`` is faked, so ``calls.create`` is asserted against without any
   network call. The twilio-missing / unconfigured paths raise
   ``TelephonyProvisionError`` (clear English, same guard as ``provisioning.py``).
@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.telephony.provisioning import TelephonyProvisionError
+from dodaios.telephony.provisioning import TelephonyProvisionError
 
 # --------------------------------------------------------------------------- #
 # Fake twilio REST client (records calls.create kwargs, returns a CallSid)
@@ -67,7 +67,7 @@ _VALID = {
 
 def test_place_call_sdk_error_is_classified_not_echoed(monkeypatch):
     """Twilio's raw REST error body never reaches the exception text (AP-34)."""
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     class _RejectingCalls:
         def create(self, **kwargs):  # noqa: ANN003, ANN201
@@ -99,7 +99,7 @@ def test_place_call_sdk_error_is_classified_not_echoed(monkeypatch):
 
 
 def test_place_call_dials_raw_number_and_returns_call_sid(fake_twilio):
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     sid = place_call(to="+4915112345678", opening="Hallo Christoph.", **_VALID)
 
@@ -115,7 +115,7 @@ def test_place_call_dials_raw_number_and_returns_call_sid(fake_twilio):
 
 
 def test_place_call_points_url_at_existing_voice_webhook(fake_twilio):
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     place_call(to="+4915112345678", opening="Guten Tag.", **_VALID)
     kwargs = fake_twilio.instances[0].calls.created[0]
@@ -126,7 +126,7 @@ def test_place_call_points_url_at_existing_voice_webhook(fake_twilio):
 def test_place_call_carries_opening_in_url_querystring(fake_twilio):
     from urllib.parse import parse_qs, urlsplit
 
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     place_call(to="+4915112345678", opening="Hallo Welt & Co", **_VALID)
     url = fake_twilio.instances[0].calls.created[0]["url"]
@@ -135,7 +135,7 @@ def test_place_call_carries_opening_in_url_querystring(fake_twilio):
 
 
 def test_place_call_without_opening_still_dials(fake_twilio):
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     sid = place_call(to="+4915112345678", **_VALID)
     assert sid == "CA_OUTBOUND_TEST"
@@ -143,7 +143,7 @@ def test_place_call_without_opening_still_dials(fake_twilio):
 
 
 def test_place_call_rejects_non_e164_number(fake_twilio):
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     with pytest.raises(TelephonyProvisionError) as exc:
         place_call(to="0151 1234", opening="Hi", **_VALID)
@@ -153,7 +153,7 @@ def test_place_call_rejects_non_e164_number(fake_twilio):
 
 
 def test_place_call_requires_from_number(fake_twilio):
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     args = {**_VALID, "from_number": ""}
     with pytest.raises(TelephonyProvisionError):
@@ -161,7 +161,7 @@ def test_place_call_requires_from_number(fake_twilio):
 
 
 def test_place_call_requires_public_base_url(fake_twilio):
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     args = {**_VALID, "public_base_url": ""}
     with pytest.raises(TelephonyProvisionError):
@@ -169,7 +169,7 @@ def test_place_call_requires_public_base_url(fake_twilio):
 
 
 def test_place_call_requires_credentials(fake_twilio):
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     args = {**_VALID, "account_sid": "", "auth_token": ""}
     with pytest.raises(TelephonyProvisionError):
@@ -178,7 +178,7 @@ def test_place_call_requires_credentials(fake_twilio):
 
 def test_place_call_raises_clear_error_when_twilio_missing(monkeypatch):
     """When the twilio SDK is absent, raise a clear English provisioning error."""
-    from jarvis.telephony.outbound import place_call
+    from dodaios.telephony.outbound import place_call
 
     # Force ``from twilio.rest import Client`` to raise ImportError.
     monkeypatch.setitem(sys.modules, "twilio.rest", None)
@@ -193,7 +193,7 @@ def test_place_call_raises_clear_error_when_twilio_missing(monkeypatch):
 
 
 def test_outbound_twiml_carries_direction_and_opening():
-    from jarvis.telephony.twiml import build_connect_stream_twiml
+    from dodaios.telephony.twiml import build_connect_stream_twiml
 
     xml = build_connect_stream_twiml(
         wss_url="wss://jarvis.example.com/api/telephony/media",
@@ -216,7 +216,7 @@ def test_outbound_twiml_carries_direction_and_opening():
 
 def test_inbound_twiml_has_no_outbound_params_regression():
     """Inbound TwiML must stay byte-identical (no direction/opening leak)."""
-    from jarvis.telephony.twiml import build_connect_stream_twiml
+    from dodaios.telephony.twiml import build_connect_stream_twiml
 
     xml = build_connect_stream_twiml(
         wss_url="wss://x/api/telephony/media",
@@ -232,7 +232,7 @@ def test_inbound_twiml_has_no_outbound_params_regression():
 
 
 def test_outbound_twiml_with_special_chars_in_opening_is_escaped():
-    from jarvis.telephony.twiml import build_connect_stream_twiml
+    from dodaios.telephony.twiml import build_connect_stream_twiml
 
     xml = build_connect_stream_twiml(
         wss_url="wss://x/api/telephony/media",
@@ -260,7 +260,7 @@ def _sink():
 
 
 def _make_session(send, **kw):
-    from jarvis.telephony.session import TelephonyCallSession
+    from dodaios.telephony.session import TelephonyCallSession
     from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
 
     params = {

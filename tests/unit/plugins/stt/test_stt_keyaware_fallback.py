@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from typing import Any
 
-import jarvis.core.config as cfg
-import jarvis.plugins.stt as stt_pkg
-import jarvis.plugins.stt.fwhisper as fwhisper
-from jarvis.core.config import ResolvedEndpoint, STTConfig
+import dodaios.core.config as cfg
+import dodaios.plugins.stt as stt_pkg
+import dodaios.plugins.stt.fwhisper as fwhisper
+from dodaios.core.config import ResolvedEndpoint, STTConfig
 
 
 class _FakeCloudSTT:

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.i18n import (
+from dodaios.i18n import (
     DEFAULT_LOCALE,
     SUPPORTED_LOCALES,
     phrase_locale,
@@ -16,10 +16,10 @@ from jarvis.i18n import (
     table,
     variants,
 )
-from jarvis.i18n.catalog import keys
+from dodaios.i18n.catalog import keys
 
 _REPO = Path(__file__).resolve().parents[3]
-_LOCALES = _REPO / "jarvis" / "i18n" / "locales"
+_LOCALES = _REPO / "dodaios" / "i18n" / "locales"
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 
@@ -76,10 +76,10 @@ def test_lookup_helpers() -> None:
 
 
 def test_reply_and_mission_languages_come_from_the_central_list() -> None:
-    from jarvis.brain.manager import SUPPORTED_REPLY_LANGUAGES
-    from jarvis.commands.registry import REPLY_LANGUAGES
-    from jarvis.core.turn_language import _REPLY_PINS
-    from jarvis.missions.events import MISSION_LANGUAGES
+    from dodaios.brain.manager import SUPPORTED_REPLY_LANGUAGES
+    from dodaios.commands.registry import REPLY_LANGUAGES
+    from dodaios.core.turn_language import _REPLY_PINS
+    from dodaios.missions.events import MISSION_LANGUAGES
 
     assert SUPPORTED_REPLY_LANGUAGES == REPLY_LANGUAGES == ("auto", *SUPPORTED_LOCALES)
     assert _REPLY_PINS == frozenset(SUPPORTED_LOCALES)
@@ -99,14 +99,14 @@ _GERMAN_FALLBACK = re.compile(
 )
 # Input-side vocabulary, not output: which word lists to MATCH against.
 _INPUT_SIDE = {
-    "jarvis/agentic_ide/clarify.py",
-    "jarvis/speech/completion.py",
+    "dodaios/agentic_ide/clarify.py",
+    "dodaios/speech/completion.py",
 }
 
 
 def test_no_backend_phrase_falls_back_to_german() -> None:
     offenders = []
-    for path in sorted((_REPO / "jarvis").rglob("*.py")):
+    for path in sorted((_REPO / "dodaios").rglob("*.py")):
         rel = path.relative_to(_REPO).as_posix()
         if rel in _INPUT_SIDE:
             continue

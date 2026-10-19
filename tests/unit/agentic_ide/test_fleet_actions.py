@@ -4,11 +4,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.agentic_ide.fleet_actions import (
+from dodaios.agentic_ide.fleet_actions import (
     close_agent_terminals,
     wait_for_prompt_ready,
 )
-from jarvis.agentic_ide.transcript import Transcript
+from dodaios.agentic_ide.transcript import Transcript
 
 
 @dataclass

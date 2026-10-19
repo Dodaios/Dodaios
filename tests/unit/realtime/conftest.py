@@ -15,8 +15,8 @@ def _reset_local_server_singletons():
     pytest session, and an install driven to "error" would leak that phase
     into unrelated tests.
     """
-    from jarvis.plugins.realtime.openai_realtime import LocalRealtimeProvider
-    from jarvis.realtime.local_server import install, supervisor
+    from dodaios.plugins.realtime.openai_realtime import LocalRealtimeProvider
+    from dodaios.realtime.local_server import install, supervisor
 
     install._reset_for_tests()
     supervisor._reset_for_tests()

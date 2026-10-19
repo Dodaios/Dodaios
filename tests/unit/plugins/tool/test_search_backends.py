@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import httpx
 
-from jarvis.plugins.tool.search_backends import (
+from dodaios.plugins.tool.search_backends import (
     _APIFARE_CALL_URL,
     _default_ddgs_searcher,
     apifare_search,

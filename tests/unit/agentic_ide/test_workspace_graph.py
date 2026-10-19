@@ -10,8 +10,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide import layout_tree, library, resume_store, session, workspace_catalog
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import layout_tree, library, resume_store, session, workspace_catalog
+from dodaios.ui.web import agentic_ide_routes as routes
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 

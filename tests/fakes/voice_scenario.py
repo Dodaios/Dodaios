@@ -21,8 +21,8 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 #: Outcomes a scenario may script for a tool call. ``blocked`` is a POLICY
 #: refusal (a guard said no), which is deliberately NOT the same as ``failed``

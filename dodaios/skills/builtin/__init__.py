@@ -1,0 +1,107 @@
+r"""Built-in skills for Jarvis.
+
+Each subdirectory contains exactly one `SKILL.md` with YAML frontmatter
+(see `dodaios.skills.schema.SkillFrontmatter`). On first run these skills are
+copied into `user_skills_dir()` by
+`dodaios.skills.bootstrap.ensure_user_skills_dir()` (Windows:
+`%LOCALAPPDATA%\Jarvis\skills`) — the `SkillRegistry` reads from and watches
+that location.
+
+List of bundled skills:
+  - deep-work-mode    DND + focus timer via hotkey/voice
+  - memory-save       "remember that ..." saved to memory-MCP
+  - skill-creator     meta-skill for building further skills
+  - plugin-<id>       Paired skills for marketplace plugins (2026-06-07): each
+                      teaches the router which voice/chat intents reach the
+                      connected plugin's tools (gmail, github, stripe, ...).
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+BUILTIN_SKILLS_DIR = Path(__file__).resolve().parent
+
+# Plugin<->skill pairing (2026-06-07): these must be listed here, or
+# ensure_user_skills_dir() never copies them into the user skills dir and the
+# SkillRegistry never loads them — the paired capabilities would never register
+# and the connected plugins would stay unreachable in a real boot.
+_PLUGIN_PAIRED_SKILLS: tuple[str, ...] = (
+    "plugin-gmail",
+    "plugin-github",
+    "plugin-stripe",
+    "plugin-notion",
+    "plugin-slack",
+    "plugin-linear",
+    "plugin-discord",
+    "plugin-asana",
+    "plugin-supabase",
+    "plugin-cloudflare",
+    "plugin-google_calendar",
+    "plugin-google_drive",
+    "plugin-vercel",
+    "plugin-todoist",
+    "plugin-clickup",
+    "plugin-dropbox",
+    "plugin-canva",
+    "plugin-airtable",
+    "plugin-cal_com",
+    "plugin-home_assistant",
+    "plugin-spotify",
+    "plugin-youtube_music",
+    "plugin-higgsfield",
+    "plugin-agentmail",
+    "plugin-amd_gpu",
+    "plugin-apollo",
+    "plugin-aws",
+    "plugin-azure",
+    "plugin-figma",
+    "plugin-gitlab",
+    "plugin-google_cloud",
+    "plugin-granola",
+    "plugin-hubspot",
+    "plugin-linkedin",
+    "plugin-meta",
+    "plugin-microsoft_todo",
+    "plugin-onedrive",
+    "plugin-onenote",
+    "plugin-outlook",
+    "plugin-salesforce",
+    "plugin-sharepoint",
+    "plugin-teams",
+    "plugin-x",
+    "plugin-youtube_studio",
+    "plugin-zoom",
+    "plugin-atlassian",
+)
+
+BUILTIN_SKILL_NAMES: tuple[str, ...] = (
+    # No shipped routine: a daily briefing ran a full brain turn at 07:00 on
+    # every install, and routines are the user's own to make (2026-09-30).
+    # The bootstrap retires an unedited copy of the old ``morning-routine``
+    # (``dodaios.skills.bootstrap._RETIRED_SHIPPED_HASHES``).
+    "deep-work-mode",
+    "memory-save",
+    "skill-creator",
+    # control-api (2026-06-08): documentation skill that teaches a local coding
+    # agent (Codex CLI, Claude Code) how to drive the Jarvis Control API to
+    # change settings/providers/language. category=meta, no voice triggers.
+    "control-api",
+    # cli-gcloud (2026-06-17): guidance skill teaching the brain to drive Google
+    # Cloud via the cli_gcloud tool instead of the browser console. category=meta,
+    # no voice triggers (a trigger would make the router pick run_skill over the
+    # cli_gcloud tool — see control-api). Gated by requires_tools=[cli_gcloud].
+    "cli-gcloud",
+    # dodaios-doc-author (2026-08-20): Diataxis rules for writing docs/ files.
+    # Shipped on disk since it was authored but never listed, so it was never
+    # copied to the user skills dir and never loaded — the same dead-bundle
+    # defect the plugin list carries its own warning about.
+    "dodaios-doc-author",
+) + _PLUGIN_PAIRED_SKILLS
+
+
+def builtin_skill_path(name: str) -> Path:
+    """Returns the path to a built-in skill's SKILL.md."""
+    return BUILTIN_SKILLS_DIR / name / "SKILL.md"
+
+
+__all__ = ["BUILTIN_SKILLS_DIR", "BUILTIN_SKILL_NAMES", "builtin_skill_path"]

@@ -9,7 +9,7 @@
 ## Goal
 
 Stand up the two pieces of scaffolding every later wave depends on. First, a
-single shared capability module `jarvis/platform/` that answers "what works on
+single shared capability module `dodaios/platform/` that answers "what works on
 this box" exactly once (cached, frozen `Capabilities` dataclass + cheap probes),
 so the six ports read capabilities from one place instead of each re-detecting
 `sys.platform`. Second — and the highest-leverage action in the whole plan,
@@ -31,7 +31,7 @@ Linux runner is honest.
 
 ### 0.1 — Shared platform detector + `Capabilities` dataclass
 
-- **Create:** `jarvis/platform/__init__.py`, `jarvis/platform/capabilities.py`
+- **Create:** `dodaios/platform/__init__.py`, `dodaios/platform/capabilities.py`
 - **Approach:**
   - `detect_platform() -> Literal["win32", "darwin", "linux"]` in `__init__.py`.
     Map `sys.platform`: `win32`→`win32`, `darwin`→`darwin`, everything starting
@@ -44,24 +44,24 @@ Linux runner is honest.
     `has_elevation: bool`, `display_present: bool`, `is_wayland: bool`,
     `ax_permission_granted: bool` (tri-state via `bool | None` where "unknown
     until first use" matters — document it). Mirror the frozen-dataclass style of
-    `jarvis/core/protocols.py:402` (`Observation`).
+    `dodaios/core/protocols.py:402` (`Observation`).
   - `detect_capabilities() -> Capabilities` computes every field from the probes
     in 0.2 and returns the frozen instance. Wrap in `functools.lru_cache` (or a
     module-level `_CACHED` guard) so the probes run once per process. Add
     `reset_capabilities_cache()` as a test-isolation hook (mirror
-    `jarvis/trigger/hotkey.py:97` `_reset_checker_state_for_tests`).
+    `dodaios/trigger/hotkey.py:97` `_reset_checker_state_for_tests`).
   - Probes must be **import-clean**: never `import winreg`/`pyobjc`/`pyatspi` at
     module scope; each probe does its platform-guarded lazy import inside the
-    function body (the pattern at `jarvis/plugins/tool/app_resolver.py:24`).
+    function body (the pattern at `dodaios/plugins/tool/app_resolver.py:24`).
 - **Acceptance criteria:**
-  - `python -c "from jarvis.platform import detect_platform; print(detect_platform())"` prints `win32` on the maintainer box.
-  - `python -c "from jarvis.platform.capabilities import detect_capabilities as d; print(d() is d())"` prints `True` (cache identity).
+  - `python -c "from dodaios.platform import detect_platform; print(detect_platform())"` prints `win32` on the maintainer box.
+  - `python -c "from dodaios.platform.capabilities import detect_capabilities as d; print(d() is d())"` prints `True` (cache identity).
   - `pytest tests/unit/platform/test_capabilities.py -v` green.
-  - `python -c "import ast,sys; m=ast.parse(open('jarvis/platform/capabilities.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('winreg','pyatspi') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (no module-scope Windows/Linux-only import).
+  - `python -c "import ast,sys; m=ast.parse(open('dodaios/platform/capabilities.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('winreg','pyatspi') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (no module-scope Windows/Linux-only import).
 
 ### 0.2 — Capability probes (display / Wayland / AX-permission / PTY / elevation)
 
-- **Create:** `jarvis/platform/probes.py` (imported by `capabilities.py`)
+- **Create:** `dodaios/platform/probes.py` (imported by `capabilities.py`)
 - **Approach:** one small function per field, each returning a plain `bool` and
   swallowing its own exceptions to a logged `False`:
   - `display_present()` — Windows: always `True`. macOS: `True`. Linux: `bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))`.
@@ -74,7 +74,7 @@ Linux runner is honest.
   - `has_elevation()` — Windows: `find_spec("win32pipe")`. macOS: `True`. Linux: `bool(shutil.which("pkexec") or shutil.which("sudo"))`.
 - **Acceptance criteria:**
   - `pytest tests/unit/platform/test_probes.py -v` green (probes patchable via monkeypatched env / `find_spec`).
-  - `python -c "from jarvis.platform.probes import is_wayland; print(is_wayland())"` exits 0 on every OS.
+  - `python -c "from dodaios.platform.probes import is_wayland; print(is_wayland())"` exits 0 on every OS.
   - `tests/fakes/fake_capabilities.py` exists and constructs a `Capabilities` for each of the three platforms (EK-3: fakes, no `unittest.mock`).
 
 ### 0.3 — GitHub Actions test matrix (the BLOCKING gate)
@@ -86,8 +86,8 @@ Linux runner is honest.
     `runs-on: ${{ matrix.os }}`). Pin `actions/checkout` and `actions/setup-python`
     by 40-char commit SHA (same hardening rationale as `cross-runner-hash.yml:91-93`).
   - Trigger on `push` to `main` + the active feature branch and on `pull_request`.
-  - Steps per matrix leg: `python -m pip install -e ".[dev]"` → `ruff check jarvis/`
-    → `ruff format --check jarvis/` → `mypy jarvis/` → import-cleanliness gate
+  - Steps per matrix leg: `python -m pip install -e ".[dev]"` → `ruff check dodaios/`
+    → `ruff format --check dodaios/` → `mypy dodaios/` → import-cleanliness gate
     (0.4) → pytest with the min-passed floor (0.5).
   - macOS/Linux legs must NOT install the `[desktop-macos]` extra or distro
     `pyatspi` — the matrix proves the **base** `.[dev]` install imports and tests
@@ -101,20 +101,20 @@ Linux runner is honest.
 
 - **Create:** `scripts/ci/check_import_clean.py` (referenced by `ci.yml`)
 - **Approach:**
-  - On Linux/macOS legs, run `python -c "import jarvis"` and assert exit 0 — a
+  - On Linux/macOS legs, run `python -c "import dodaios"` and assert exit 0 — a
     module-scope `import win32pipe`/`winreg`/`global_hotkeys` would crash here.
     PC-2 says all Windows deps are already lazy-guarded
     (`app_resolver.py:24`, `hotkey.py:241`, `pty_manager.py:71`,
     `uia_tree.py:188`); this gate **locks that in** so a future PR can't regress it.
-  - Belt-and-braces: AST-walk every `.py` under `jarvis/` and fail on a
+  - Belt-and-braces: AST-walk every `.py` under `dodaios/` and fail on a
     top-level (module-scope, not inside a function/try) `import` of
     `{win32api, win32pipe, win32file, win32security, winreg, global_hotkeys,
     pywinauto, winpty, pywintypes}`. Allow them inside function bodies and
     `try:`/`except ImportError:` blocks.
 - **Acceptance criteria:**
   - `python scripts/ci/check_import_clean.py` exits 0 on the current tree.
-  - Temporarily adding `import winreg` at the top of `jarvis/__init__.py` makes it exit non-zero (verify, then revert).
-  - On a Linux runner, the `import jarvis` step is green.
+  - Temporarily adding `import winreg` at the top of `dodaios/__init__.py` makes it exit non-zero (verify, then revert).
+  - On a Linux runner, the `import dodaios` step is green.
 
 ### 0.5 — Minimum-passed-count floor
 
@@ -191,12 +191,12 @@ Linux runner is honest.
 
 This wave satisfies **EK-1** (CI matrix green on all three OSes for
 ruff + mypy + `pytest -m "not skip_ci"`, with the import-cleanliness gate and
-min-passed floor enforced) and lays the `jarvis/platform/` factory that **EK-2**
+min-passed floor enforced) and lays the `dodaios/platform/` factory that **EK-2**
 depends on. It also discharges PC-1 (no functional CI) and PC-6 (orb-framework
 conflict). It produces the first `tests/fakes/` capability fake toward **EK-3**.
 
 ## Dependencies on prior waves
 
 None — Wave 0 is the root. Every later wave depends on **this** wave: Waves 1-4
-all read `jarvis/platform/capabilities.detect_capabilities()` for their seam
+all read `dodaios/platform/capabilities.detect_capabilities()` for their seam
 factories, and none of them may merge until 0.3's matrix is green (AD-4).

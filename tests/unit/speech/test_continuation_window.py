@@ -1,7 +1,7 @@
 """Unit tests for ContinuationWindow (voice continuation recombine, Unit A)."""
 from __future__ import annotations
 
-from jarvis.speech.continuation_window import ContinuationWindow
+from dodaios.speech.continuation_window import ContinuationWindow
 
 
 class FakeClock:

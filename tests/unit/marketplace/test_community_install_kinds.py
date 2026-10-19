@@ -20,10 +20,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.marketplace import catalog_data, community_source
-from jarvis.marketplace.usage_cards import loader as cards_loader
-from jarvis.ui.web.marketplace_routes import router as market_router
-from jarvis.ui.web.skills_routes import router as skills_router
+from dodaios.marketplace import catalog_data, community_source
+from dodaios.marketplace.usage_cards import loader as cards_loader
+from dodaios.ui.web.marketplace_routes import router as market_router
+from dodaios.ui.web.skills_routes import router as skills_router
 
 _SKILL_MD = """---
 schema_version: "1"
@@ -81,7 +81,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(community_source, "index_url", lambda: "https://reg.example/index.json")
     monkeypatch.setattr(catalog_data, "_DEFAULT_CATALOG_PATH", tmp_path / "plugin_catalog.json")
     monkeypatch.setattr(cards_loader, "_DATA_CARDS_DIR", tmp_path / "usage_cards")
-    monkeypatch.setattr("jarvis.core.paths.user_skills_dir", lambda: tmp_path / "skills")
+    monkeypatch.setattr("dodaios.core.paths.user_skills_dir", lambda: tmp_path / "skills")
     catalog_data.clear_cache()
     yield tmp_path
     catalog_data.clear_cache()
@@ -90,7 +90,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 @pytest.fixture()
 def offline_downloads(monkeypatch: pytest.MonkeyPatch, env: Path) -> None:
     """Serve the SKILL.md download locally."""
-    from jarvis.skills.finder import SkillFinder
+    from dodaios.skills.finder import SkillFinder
 
     async def fake_skill_install(self: Any, candidate: Any) -> Path:
         target_dir = env / "skills" / candidate.name
@@ -103,7 +103,7 @@ def offline_downloads(monkeypatch: pytest.MonkeyPatch, env: Path) -> None:
 
 
 def _client(env: Path, bus: Any = None) -> httpx.AsyncClient:
-    from jarvis.skills.registry import SkillRegistry
+    from dodaios.skills.registry import SkillRegistry
 
     app = FastAPI()
     app.include_router(market_router)
@@ -161,7 +161,7 @@ async def test_a_wallpaper_name_is_not_installable(env: Path) -> None:
 @pytest.mark.asyncio
 async def test_install_writes_a_receipt_for_a_skill(env: Path, offline_downloads: None) -> None:
     """A downloaded SKILL.md says nothing about its origin — the receipt does."""
-    from jarvis.skills.origin import read_origin
+    from dodaios.skills.origin import read_origin
 
     async with _client(env) as client:
         await client.post("/api/marketplace/community/install/three-point-check")
@@ -184,7 +184,7 @@ async def test_skill_listing_carries_the_origin(env: Path, offline_downloads: No
 
 
 def test_a_hand_written_skill_has_no_origin(env: Path) -> None:
-    from jarvis.skills.origin import read_origin
+    from dodaios.skills.origin import read_origin
 
     folder = env / "skills" / "mine"
     folder.mkdir(parents=True)
@@ -193,7 +193,7 @@ def test_a_hand_written_skill_has_no_origin(env: Path) -> None:
 
 
 def test_an_unreadable_receipt_costs_the_badge_not_the_skill(env: Path) -> None:
-    from jarvis.skills.origin import RECEIPT_NAME, read_origin
+    from dodaios.skills.origin import RECEIPT_NAME, read_origin
 
     folder = env / "skills" / "broken-receipt"
     folder.mkdir(parents=True)
@@ -214,7 +214,7 @@ async def test_a_skill_install_announces_its_own_kind(env: Path, offline_downloa
     An install from a terminal has to reach the window that is already open —
     nothing about `jarvis marketplace install` touches the desktop UI.
     """
-    from jarvis.core.events import MarketplaceItemInstalled
+    from dodaios.core.events import MarketplaceItemInstalled
 
     bus = _RecordingBus()
     async with _client(env, bus) as client:

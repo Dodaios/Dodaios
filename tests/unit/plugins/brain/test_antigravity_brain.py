@@ -12,10 +12,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, BrainRequest
-from jarvis.google_cli.resolver import GoogleCli
-from jarvis.plugins.brain import antigravity as agmod
-from jarvis.plugins.brain.antigravity import (
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.google_cli.resolver import GoogleCli
+from dodaios.plugins.brain import antigravity as agmod
+from dodaios.plugins.brain.antigravity import (
     AntigravityBrain,
     _build_cli_prompt,
     _parse_cli_answer,
@@ -289,7 +289,7 @@ async def test_complete_scrubs_api_key_env(monkeypatch):
 
 def test_build_argv_agy_uses_stdin_and_read_only_json():
     """The current CLI reads stdin in print mode without a PTY."""
-    from jarvis.plugins.brain.antigravity import _build_argv
+    from dodaios.plugins.brain.antigravity import _build_argv
 
     cli = GoogleCli(kind="agy", argv_prefix=["agy"])
     argv = _build_argv(cli, "hello", "gemini-3.1-pro-preview")
@@ -307,7 +307,7 @@ def test_build_argv_agy_uses_stdin_and_read_only_json():
 
 def test_build_argv_gemini_keeps_skip_trust():
     """The Gemini-CLI branch is unchanged (read-only plan + skip-trust + json)."""
-    from jarvis.plugins.brain.antigravity import _build_argv
+    from dodaios.plugins.brain.antigravity import _build_argv
 
     cli = GoogleCli(kind="gemini", argv_prefix=["gemini"])
     argv = _build_argv(cli, "hello", "gemini-3.5-flash")
@@ -490,8 +490,8 @@ async def test_complete_agy_spawn_failure_raises(monkeypatch):
 
 def test_cli_timeout_accepts_a_caller_budget() -> None:
     """Background callers may extend the internal CLI cap (wiki judge tier)."""
-    from jarvis.plugins.brain import antigravity as antigravity_module
-    from jarvis.plugins.brain.antigravity import AntigravityBrain
+    from dodaios.plugins.brain import antigravity as antigravity_module
+    from dodaios.plugins.brain.antigravity import AntigravityBrain
 
     assert AntigravityBrain(cli_timeout_s=180.0)._cli_timeout_s == 180.0
     assert AntigravityBrain()._cli_timeout_s == antigravity_module._CLI_TIMEOUT_S

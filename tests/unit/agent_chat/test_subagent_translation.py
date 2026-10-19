@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.agent_chat.events import is_transient
-from jarvis.agent_chat.runner_cli import (
+from dodaios.agent_chat.events import is_transient
+from dodaios.agent_chat.runner_cli import (
     _ClaudeState,
     _CodexState,
     subagent_status,

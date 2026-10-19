@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 
-import jarvis.plugins.wake.vosk_kws_provider as vk
+import dodaios.plugins.wake.vosk_kws_provider as vk
 
 
 def _reset_latch() -> None:

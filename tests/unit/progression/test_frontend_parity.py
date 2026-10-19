@@ -13,7 +13,7 @@ import json
 import re
 from pathlib import Path
 
-from jarvis.progression.rules import (
+from dodaios.progression.rules import (
     DESTINATION_IDS,
     LOOK_UNLOCKS,
     RANKS,
@@ -23,9 +23,9 @@ from jarvis.progression.rules import (
     SUBJECT_KINDS,
     WORLD_ACTIONS,
 )
-from jarvis.progression.service import VERSE_DECKS
+from dodaios.progression.service import VERSE_DECKS
 
-_FRONTEND = Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src"
+_FRONTEND = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src"
 _CATALOG = _FRONTEND / "components/society/progression/levelCatalog.ts"
 _STARSHIP = _FRONTEND / "components/society/starship"
 _SHIP_LOCALES = _FRONTEND / "i18n/locales/ship"

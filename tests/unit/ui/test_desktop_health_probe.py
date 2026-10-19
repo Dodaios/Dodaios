@@ -32,7 +32,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.ui.desktop_app import DesktopApp
 
 
 class _Cfg:
@@ -195,7 +195,7 @@ def test_boot_wait_shares_the_probe_client(
     socket per tick sitting in TIME_WAIT for two minutes; pooled, the whole
     wait costs one connection.
     """
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     monkeypatch.setattr(desktop_app.time, "sleep", lambda _s: None)
     app = _FakeApp()
@@ -228,7 +228,7 @@ def test_boot_wait_without_httpx_gives_up_instead_of_spinning(
     """
     import builtins
 
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     real_import = builtins.__import__
 

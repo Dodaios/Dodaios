@@ -1,4 +1,4 @@
-"""Unit tests for jarvis.claude_auth.ClaudeAuthService.
+"""Unit tests for dodaios.claude_auth.ClaudeAuthService.
 
 Exercises the real credential parsing (subscription OAuth vs API key vs not
 connected) and the display-safe account/subscription surfacing against temp
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import claude_auth, claude_credentials
-from jarvis.claude_auth import (
+from dodaios import claude_auth, claude_credentials
+from dodaios.claude_auth import (
     ClaudeAuthService,
     ClaudeCliAuthSnapshot,
     _account_from_claude_json,

@@ -13,13 +13,13 @@ You touch the backend (watchdog + WebSocket endpoint) and the frontend (React ho
 
 | File | Status | Purpose |
 |---|---|---|
-| `jarvis/memory/wiki/watcher.py` | **NEW** | `watchdog`-based file watcher with debounce + EventBus publisher |
-| `jarvis/ui/web/wiki_ws.py` | **NEW** | FastAPI WebSocket endpoint `/api/wiki/live`; subscribes to bus, forwards JSON messages |
-| `jarvis/ui/web/server.py` | **MODIFY** | Register the watcher on startup; mount the WS route |
-| `jarvis/core/events.py` | **MODIFY (additive)** | Add `WikiPageChanged` event dataclass |
-| `jarvis/ui/web/frontend/src/hooks/useWikiLive.ts` | **NEW** | React hook: connects to WS, invalidates React Query keys on each event |
-| `jarvis/ui/web/frontend/src/components/wiki/ObsidianButton.tsx` | **NEW** | Per-page "Open in Obsidian" button + protocol-handler detection |
-| `jarvis/ui/web/frontend/src/lib/obsidian.ts` | **NEW** | Pure helper: build `obsidian://open?vault=…&file=…` URL, encode params correctly |
+| `dodaios/memory/wiki/watcher.py` | **NEW** | `watchdog`-based file watcher with debounce + EventBus publisher |
+| `dodaios/ui/web/wiki_ws.py` | **NEW** | FastAPI WebSocket endpoint `/api/wiki/live`; subscribes to bus, forwards JSON messages |
+| `dodaios/ui/web/server.py` | **MODIFY** | Register the watcher on startup; mount the WS route |
+| `dodaios/core/events.py` | **MODIFY (additive)** | Add `WikiPageChanged` event dataclass |
+| `dodaios/ui/web/frontend/src/hooks/useWikiLive.ts` | **NEW** | React hook: connects to WS, invalidates React Query keys on each event |
+| `dodaios/ui/web/frontend/src/components/wiki/ObsidianButton.tsx` | **NEW** | Per-page "Open in Obsidian" button + protocol-handler detection |
+| `dodaios/ui/web/frontend/src/lib/obsidian.ts` | **NEW** | Pure helper: build `obsidian://open?vault=…&file=…` URL, encode params correctly |
 | `tests/unit/memory/wiki/test_watcher.py` | **NEW** | Watcher emits one event per file change after debounce |
 | `tests/unit/ui/web/test_wiki_ws.py` | **NEW** | WS forwards bus events, drops disconnected clients cleanly |
 | `tests/integration/ui/wiki/test_live_reload.py` | **NEW** | End-to-end: write a file in tmp vault → WS client receives event |
@@ -31,10 +31,10 @@ You touch the backend (watchdog + WebSocket endpoint) and the frontend (React ho
 | Use | Where | What it does |
 |---|---|---|
 | `watchdog` library | already in `requirements.txt` (used by Skill registry hot-reload) | Cross-platform filesystem events |
-| `EventBus` | `jarvis.core.bus` | Lateral comms; watcher publishes, WS endpoint subscribes |
-| WebSocket pattern | `jarvis/ui/web/server.py` existing WS endpoints (search for `WebSocket(`) | Reply-envelope, accept/disconnect handling |
-| Skill watcher pattern | `jarvis/skills/registry.py:94, 134` | Reference for debounce + thread-safety in a watchdog handler |
-| `process_utils.NO_WINDOW_CREATIONFLAGS` | `jarvis/core/process_utils.py` | Not needed here (no subprocess), but worth knowing exists |
+| `EventBus` | `dodaios.core.bus` | Lateral comms; watcher publishes, WS endpoint subscribes |
+| WebSocket pattern | `dodaios/ui/web/server.py` existing WS endpoints (search for `WebSocket(`) | Reply-envelope, accept/disconnect handling |
+| Skill watcher pattern | `dodaios/skills/registry.py:94, 134` | Reference for debounce + thread-safety in a watchdog handler |
+| `process_utils.NO_WINDOW_CREATIONFLAGS` | `dodaios/core/process_utils.py` | Not needed here (no subprocess), but worth knowing exists |
 
 ---
 
@@ -43,12 +43,12 @@ You touch the backend (watchdog + WebSocket endpoint) and the frontend (React ho
 ### 3.1 Watchdog
 
 ```python
-# jarvis/memory/wiki/watcher.py
+# dodaios/memory/wiki/watcher.py
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
-from jarvis.core.bus import EventBus
-from jarvis.core.events import WikiPageChanged
+from dodaios.core.bus import EventBus
+from dodaios.core.events import WikiPageChanged
 from pathlib import Path
 import threading, time, asyncio
 
@@ -74,7 +74,7 @@ Implementation notes:
 ### 3.2 New event
 
 ```python
-# jarvis/core/events.py — add:
+# dodaios/core/events.py — add:
 
 @dataclass(frozen=True)
 class WikiPageChanged:
@@ -89,7 +89,7 @@ class WikiPageChanged:
 ### 3.3 WebSocket endpoint
 
 ```python
-# jarvis/ui/web/wiki_ws.py
+# dodaios/ui/web/wiki_ws.py
 
 @router.websocket("/api/wiki/live")
 async def wiki_live(ws: WebSocket):
@@ -120,11 +120,11 @@ Drop policy: if a client is slow and the queue fills, *drop new events* (queue.f
 
 ### 3.4 Server wiring
 
-In `jarvis/ui/web/server.py`'s startup section (look for where B5's `bootstrap_wiki_integration` is called — that is the existing reference pattern):
+In `dodaios/ui/web/server.py`'s startup section (look for where B5's `bootstrap_wiki_integration` is called — that is the existing reference pattern):
 
 ```python
 # After bootstrap_wiki_integration:
-from jarvis.memory.wiki.watcher import WikiWatcher
+from dodaios.memory.wiki.watcher import WikiWatcher
 watcher = WikiWatcher(vault_root=vault_root, bus=app.state.bus)
 watcher.start()
 app.state.wiki_watcher = watcher
@@ -142,7 +142,7 @@ Wrap watcher startup in a `try/except` that **logs and continues** if `watchdog`
 ### 4.1 `useWikiLive` hook
 
 ```typescript
-// jarvis/ui/web/frontend/src/hooks/useWikiLive.ts
+// dodaios/ui/web/frontend/src/hooks/useWikiLive.ts
 
 export function useWikiLive(): { connected: boolean; lastEventAt: number | null } {
   const qc = useQueryClient();
@@ -194,7 +194,7 @@ The hook is mounted **once** at `WikiView` level (not deeper) so we have a singl
 ### 4.2 `ObsidianButton`
 
 ```typescript
-// jarvis/ui/web/frontend/src/components/wiki/ObsidianButton.tsx
+// dodaios/ui/web/frontend/src/components/wiki/ObsidianButton.tsx
 
 interface ObsidianButtonProps {
   vaultRelPath: string;     // e.g. "entities/sam.md"
@@ -222,7 +222,7 @@ export function ObsidianButton({ vaultRelPath }: ObsidianButtonProps): JSX.Eleme
 ### 4.3 `obsidian.ts` helper
 
 ```typescript
-// jarvis/ui/web/frontend/src/lib/obsidian.ts
+// dodaios/ui/web/frontend/src/lib/obsidian.ts
 
 export const VAULT_NAME = "obsidian-vault";  // matches wiki/obsidian-vault/ folder name
 

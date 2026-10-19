@@ -8,8 +8,8 @@ names — that auto-downloads third-party brand models.
 """
 from __future__ import annotations
 
-import jarvis.assets
-from jarvis.plugins.wake.openwakeword_provider import OpenWakeWordProvider
+import dodaios.assets
+from dodaios.plugins.wake.openwakeword_provider import OpenWakeWordProvider
 
 
 def test_no_model_path_means_no_model_and_no_upstream_download() -> None:
@@ -40,7 +40,7 @@ def test_custom_model_without_backbone_bundle_hands_bare_path(
 ) -> None:
     # Partial checkout: the backbone bundle is absent -> hand the bare path to
     # openWakeWord (it resolves backbones from its own package resources).
-    monkeypatch.setattr(jarvis.assets, "bundled_wakeword_models", lambda: None)
+    monkeypatch.setattr(dodaios.assets, "bundled_wakeword_models", lambda: None)
 
     onnx = tmp_path / "my_word.onnx"
     onnx.write_bytes(b"stub")
@@ -51,7 +51,7 @@ def test_custom_model_without_backbone_bundle_hands_bare_path(
 
 
 def test_bundled_assets_are_only_the_wordless_backbones() -> None:
-    bundle = jarvis.assets.bundled_wakeword_models()
+    bundle = dodaios.assets.bundled_wakeword_models()
     assert bundle is not None
     assert sorted(bundle.keys()) == ["embedding", "melspec"]
 

@@ -11,10 +11,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.tasks import context as task_context
-from jarvis.tasks.context import CLIENT_TIMEZONE_HEADER
-from jarvis.ui.web.society_routes import router
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.tasks import context as task_context
+from dodaios.tasks.context import CLIENT_TIMEZONE_HEADER
+from dodaios.ui.web.society_routes import router
 from tests.unit.society.test_routines import FakeScheduler, FakeTaskStore
 
 
@@ -142,7 +142,7 @@ def test_routine_operations_pause_resume_run_and_delete(client) -> None:
 
 
 def test_ui_timezone_route_validates_the_zone(tmp_path: Path, monkeypatch) -> None:
-    from jarvis.ui.web.tasks_routes import router as tasks_router
+    from dodaios.ui.web.tasks_routes import router as tasks_router
 
     monkeypatch.setattr(task_context, "_reported_ui_timezone", None)
     app = FastAPI()

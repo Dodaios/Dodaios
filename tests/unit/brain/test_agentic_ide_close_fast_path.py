@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.agentic_ide import session as session_mod
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _Bus:

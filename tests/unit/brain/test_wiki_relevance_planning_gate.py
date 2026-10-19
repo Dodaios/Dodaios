@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.wiki_relevance import should_consult_memory
+from dodaios.brain.wiki_relevance import should_consult_memory
 
 # ---------------------------------------------------------------------------
 # Opens: planning / recommendation / decision turns

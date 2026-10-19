@@ -16,7 +16,7 @@ the agent's chat shows the runtime.
 
 ## Setup and updates
 
-Nobody installs Hermes or OpenClaw by hand (`jarvis/agent_runtimes/manager.py`):
+Nobody installs Hermes or OpenClaw by hand (`dodaios/agent_runtimes/manager.py`):
 
 - **Picking a runtime sets it up.** The dialog sends
   `POST /api/agent-runtimes/{runtime}/ensure` as soon as Hermes or OpenClaw is
@@ -24,7 +24,7 @@ Nobody installs Hermes or OpenClaw by hand (`jarvis/agent_runtimes/manager.py`):
   runtime needs: an install when it is missing, an update when it is older
   than the minimum, and for Hermes a one-time *prepare* of the data root its
   agents share (below). The agent can be created while that runs.
-- **Pinned releases.** `jarvis/agent_runtimes/runtime-versions.json` names per
+- **Pinned releases.** `dodaios/agent_runtimes/runtime-versions.json` names per
   runtime a `minimum` (older installs are not ready) and a `tested` release
   (Hermes also its source `commit` and the `config_version` it writes). Every
   install and update goes to `tested`, never to upstream latest; `tested` is
@@ -220,7 +220,7 @@ CLI commands, and never imports their internals or speaks their private wire
 formats. An upstream update keeps working as long as the protocol does;
 capabilities are read from the `initialize` answer, not from version strings.
 
-`jarvis/agent_runtimes/acp.py` is the transport-free client for one turn:
+`dodaios/agent_runtimes/acp.py` is the transport-free client for one turn:
 `initialize` → `session/load` or `session/new` → `session/prompt`, translating
 `session/update` notifications into agent-chat events (`text_delta`,
 `assistant_text`, `reasoning`, `tool_call`, `tool_result`, `usage_delta`) and
@@ -363,7 +363,7 @@ replayed during `session/load` is swallowed because the chat already shows it.
   so no key is written to disk. OpenClaw names them `dodaios__<tool>`; Dodaios
   normalises that to `mcp__dodaios__<tool>`. Names under the server's earlier
   name (`jarvis__<tool>`, `mcp__jarvis__<tool>`) are read the same way
-  everywhere a tool name is matched (`jarvis/core/mcp_names.py`).
+  everywhere a tool name is matched (`dodaios/core/mcp_names.py`).
 - **Sessions:** the fixed session key keeps one conversation across bridge
   processes; the ACP session id changes per process and is not stored.
 - **Heartbeat:** OpenClaw runs a background model turn every 30 minutes by
@@ -409,7 +409,7 @@ each of them:
 |---|---|---|
 | `agent-runtimes-unit` | Linux and Windows on every pull request and merge group, macOS nightly and on release; the portable base install | The runtime drivers, gateway, ACP runner, chat service, send queue, controls, society binding, roster, routines and society routes (`python scripts/ci/agent_runtime_suite.py`). Fakes only. |
 | `agent-runtimes-headless` | `python:3.11-slim` | The runtime package imports and its tests pass on a server with no GPU, audio or desktop stack, and the app's Hermes setup without curl stops with "Setup needs curl". |
-| `agent-runtimes-e2e` | Every pull request and merge group: Linux × Hermes, OpenClaw and Windows × OpenClaw. Nightly and release: macOS × Hermes, OpenClaw and Windows × Hermes added | `scripts/ci/agent_runtime_e2e.py`: the app's own setup job (`manager.wait_ready`) installs the release pinned in `jarvis/agent_runtimes/runtime-versions.json` with a desktop app's PATH, never npm or a manual installer. Then two turns per model-gateway protocol against scripted providers (`--replay`), the fake-model driver check with turn-1 budgets (Hermes 30 s, OpenClaw 90 s), `pytest tests/unit/agent_runtimes`, and proof that the Windows user PATH gained no `agent_runtimes` entry and OpenClaw edited no shell profile. No key and no network to a model. |
+| `agent-runtimes-e2e` | Every pull request and merge group: Linux × Hermes, OpenClaw and Windows × OpenClaw. Nightly and release: macOS × Hermes, OpenClaw and Windows × Hermes added | `scripts/ci/agent_runtime_e2e.py`: the app's own setup job (`manager.wait_ready`) installs the release pinned in `dodaios/agent_runtimes/runtime-versions.json` with a desktop app's PATH, never npm or a manual installer. Then two turns per model-gateway protocol against scripted providers (`--replay`), the fake-model driver check with turn-1 budgets (Hermes 30 s, OpenClaw 90 s), `pytest tests/unit/agent_runtimes`, and proof that the Windows user PATH gained no `agent_runtimes` entry and OpenClaw edited no shell profile. No key and no network to a model. |
 
 Before a change lands, the merge queue has run the unit suite on Linux and
 Windows, both real runtimes on Linux and OpenClaw on Windows
@@ -438,18 +438,18 @@ an issue and leaves the pin where it is.
 
 | Piece | Where |
 |---|---|
-| ACP turn client (transport-free) | `jarvis/agent_runtimes/acp.py` |
-| Shared types, child environment, persona text | `jarvis/agent_runtimes/base.py` |
-| Dodaios provider → runtime endpoint and key | `jarvis/agent_runtimes/model_map.py` |
-| Hermes driver | `jarvis/agent_runtimes/hermes.py` |
-| OpenClaw driver and Gateway supervisor | `jarvis/agent_runtimes/openclaw.py` |
-| Pinned releases (minimum, tested, Hermes commit) and their reader | `jarvis/agent_runtimes/runtime-versions.json`, `jarvis/agent_runtimes/versions.py` |
-| One-time cleanup of PATH entries older setups left behind | `jarvis/agent_runtimes/path_cleanup.py` |
-| Every process a runtime starts, tracked for shutdown | `jarvis/core/process_tree.py` (`DescendantTracker`) |
+| ACP turn client (transport-free) | `dodaios/agent_runtimes/acp.py` |
+| Shared types, child environment, persona text | `dodaios/agent_runtimes/base.py` |
+| Dodaios provider → runtime endpoint and key | `dodaios/agent_runtimes/model_map.py` |
+| Hermes driver | `dodaios/agent_runtimes/hermes.py` |
+| OpenClaw driver and Gateway supervisor | `dodaios/agent_runtimes/openclaw.py` |
+| Pinned releases (minimum, tested, Hermes commit) and their reader | `dodaios/agent_runtimes/runtime-versions.json`, `dodaios/agent_runtimes/versions.py` |
+| One-time cleanup of PATH entries older setups left behind | `dodaios/agent_runtimes/path_cleanup.py` |
+| Every process a runtime starts, tracked for shutdown | `dodaios/core/process_tree.py` (`DescendantTracker`) |
 | CI: lane table, pins for CI, canary pin raise; setup-through-the-app check | `scripts/ci/agent_runtime_suite.py`, `scripts/ci/agent_runtime_e2e.py` |
-| Turn planning for the chat | `jarvis/agent_chat/runner_acp.py` |
-| Process, pump, rollover, approvals (shared with every CLI seat) | `jarvis/agent_chat/runner_cli.py` |
-| The agent's `runtime` field | `jarvis/society/roster.py`, `society_schema.sql` |
+| Turn planning for the chat | `dodaios/agent_chat/runner_acp.py` |
+| Process, pump, rollover, approvals (shared with every CLI seat) | `dodaios/agent_chat/runner_cli.py` |
+| The agent's `runtime` field | `dodaios/society/roster.py`, `society_schema.sql` |
 
 ## Routines
 

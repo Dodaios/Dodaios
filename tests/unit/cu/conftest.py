@@ -35,7 +35,7 @@ def _screen_recording_gate_open(
     """
     if request.node.get_closest_marker("real_tcc_gate"):
         return
-    import jarvis.cu.capture as capture
+    import dodaios.cu.capture as capture
 
     monkeypatch.setattr(
         capture, "_require_macos_screen_recording_permission", lambda: None
@@ -57,7 +57,7 @@ def _forget_learned_token_headroom() -> None:
     global; leaking it across tests would make a truncation test's outcome
     depend on execution order.
     """
-    from jarvis.cu.brain_call import _reset_headroom_memory_for_tests
+    from dodaios.cu.brain_call import _reset_headroom_memory_for_tests
 
     _reset_headroom_memory_for_tests()
     yield

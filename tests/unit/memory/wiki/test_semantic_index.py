@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki import semantic_index
+from dodaios.memory.wiki import semantic_index
 from tests.fakes.fake_semantic_encoder import FakeSemanticEncoder
 
 

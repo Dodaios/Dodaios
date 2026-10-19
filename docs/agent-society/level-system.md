@@ -1,9 +1,9 @@
 # Dodaios Verse level system: the service record
 
-Status: **rebuilt for the starship (2026-10-19).** Backend `jarvis/progression/`,
+Status: **rebuilt for the starship (2026-10-19).** Backend `dodaios/progression/`,
 REST `/api/progression`, data layer `components/society/progression/`, ship UI
 `components/society/starship/levels/`. The rulebook in
-`jarvis/progression/rules.py` is the source of truth; this page is its
+`dodaios/progression/rules.py` is the source of truth; this page is its
 readable version.
 
 ## 1. Who levels up

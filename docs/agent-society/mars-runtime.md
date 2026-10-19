@@ -14,7 +14,7 @@ form or player view; use the Agents tab to leave that view explicitly.
 
 ## Boundaries
 
-The packaged `jarvis/society/mars/definition.json` defines metre/Y-up placement,
+The packaged `dodaios/society/mars/definition.json` defines metre/Y-up placement,
 stable district/building/station IDs and navigation version. The frontend copy
 is synchronized by `python scripts/sync_mars_definition.py --check` and a
 contract test. No old-world terrain or figure art is the new visual foundation.

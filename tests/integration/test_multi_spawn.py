@@ -10,10 +10,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext, Tool
-from jarvis.harness.manager import HarnessManager
-from jarvis.plugins.tool.multi_spawn import MultiSpawnTool
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext, Tool
+from dodaios.harness.manager import HarnessManager
+from dodaios.plugins.tool.multi_spawn import MultiSpawnTool
 from tests.fixtures.harness.fake_harness import FakeHarness
 
 

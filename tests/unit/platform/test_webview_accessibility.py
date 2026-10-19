@@ -7,7 +7,7 @@ at the moment it acts — saw a window with no fields in it.
 
 from __future__ import annotations
 
-from jarvis.platform.webview_accessibility import (
+from dodaios.platform.webview_accessibility import (
     FORCE_ACCESSIBILITY_FLAG,
     WEBVIEW2_ARGS_ENV,
     enable_webview_accessibility_tree,

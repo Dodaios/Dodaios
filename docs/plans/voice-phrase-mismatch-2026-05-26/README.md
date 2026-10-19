@@ -52,7 +52,7 @@ perceived them as one utterance.
 
 ### 3.1 Code location
 
-`jarvis/missions/voice/announcer.py:151-213` — `MissionAnnouncer._render`,
+`dodaios/missions/voice/announcer.py:151-213` — `MissionAnnouncer._render`,
 the `MissionFailed` branch.
 
 ```python
@@ -74,7 +74,7 @@ if lang == "de":
 The phrase is the **deterministic readback** of a `MissionFailed` event
 whose `reason` field equals `"critic_loop_exhausted"`. That reason is
 emitted by the Critic loop once `MAX_CRITIC_LOOPS = 3` is reached without
-the Critic returning `approve` (see `jarvis/missions/critic/runner.py`
+the Critic returning `approve` (see `dodaios/missions/critic/runner.py`
 + ADR-0009 §"Self-healing Worker-Critic loop").
 
 ### 3.3 What it tells us about the failed call
@@ -104,7 +104,7 @@ deliberately makes this path narrative-free.
 |-------------------------------------------------------------|---------|-------------------------------------------------------------------------------------|
 | LLM hallucinated the sentence inside the voice path         | **No**  | Hard-coded string literal at `announcer.py:178`. No LLM call on this path (AP-11).  |
 | Critic-LLM `correction_instruction` leaked into TTS         | **No**  | ADR-0009 §1 Action/Observation-Invariant. Listener docstring repeats this.           |
-| Worker free-text response leaked                            | **No**  | `MissionApproved.summary_de` is generated *only* by `summarise_from_tool_calls` (see `jarvis/missions/critic/summary.py`). `MissionFailed` does not read worker text at all. |
+| Worker free-text response leaked                            | **No**  | `MissionApproved.summary_de` is generated *only* by `summarise_from_tool_calls` (see `dodaios/missions/critic/summary.py`). `MissionFailed` does not read worker text at all. |
 | Phrase was mis-attributed to Jarvis (it was the user)       | **No**  | The exact wording matches the literal in source.                                    |
 
 ### 3.5 Footgun on this path (informational, not the cause here)
@@ -112,11 +112,11 @@ deliberately makes this path narrative-free.
 The Mission→Voice bridge has **two parallel implementations** that both
 subscribe to the `MissionBus`:
 
-- `jarvis/missions/voice/announcer.py` — `MissionAnnouncer`, bridges
+- `dodaios/missions/voice/announcer.py` — `MissionAnnouncer`, bridges
   Mission events to the speech pipeline's `AnnouncementRequested` bus
   (so they share `scrub_for_voice` + barge-in with every other voice
   surface).
-- `jarvis/missions/voice/listener.py` — `MissionVoiceListener`, calls
+- `dodaios/missions/voice/listener.py` — `MissionVoiceListener`, calls
   `tts_speak_fn` directly using `MissionReadback` templates.
 
 If the bootstrap accidentally activates **both** for the same mission,
@@ -131,12 +131,12 @@ risk.
 ## 4. Phrase 2 — source hypotheses
 
 The grep for the literal `"schauen wir"` / `"letzte Transkription"` /
-`"was ich gesagt habe"` returns **zero hits** under `jarvis/`. The
+`"was ich gesagt habe"` returns **zero hits** under `dodaios/`. The
 sentence therefore does **not** come from any hard-coded template. It is
 LLM-generated. The remaining question is: which LLM, on which surface,
 and how did it slip through `scrub_for_voice`?
 
-The voice pipeline (`jarvis/speech/pipeline.py`) speaks via five
+The voice pipeline (`dodaios/speech/pipeline.py`) speaks via five
 surfaces. Phrase 2 must come from one of them:
 
 ```
@@ -208,7 +208,7 @@ This matches the reported intermittency. It depends on:
 - Headset vs. open speakers (open speakers raise bleed risk).
 - `silence_ms` / VAD endpoint config — a tight endpoint can finalise a
   short self-echo as a user turn.
-- The semantic-hangup detector (`jarvis/speech/hangup.py`) not having
+- The semantic-hangup detector (`dodaios/speech/hangup.py`) not having
   fired on the failure announcement (intended — that is a brain
   output, not a user turn).
 
@@ -219,7 +219,7 @@ fixed 2026-05-25, commit `e2fe8045c`), but the symmetric case
 
 ### 4.3 H3 — Ack-Brain preamble emitting the wrong content
 
-The Ack-Brain (`jarvis/brain/ack_brain/generator.py`) fires before the
+The Ack-Brain (`dodaios/brain/ack_brain/generator.py`) fires before the
 main brain replies, publishes `AnnouncementRequested(kind="preamble")`,
 and goes through `scrub_for_voice` with `ack_mode=True` (see
 `output_filter.py:464-471` — `FILLER_OPENER_RE` is *intentionally
@@ -412,10 +412,10 @@ stays exposed and is tracked separately.
 
 ### 9.2 Files changed
 
-- `jarvis/brain/ack_brain/config.py` — new field
+- `dodaios/brain/ack_brain/config.py` — new field
   `AckBrainConfig.suppress_preamble_after_interrupt_ms` (default 5 000;
   range 0..60 000; 0 disables the gate).
-- `jarvis/speech/pipeline.py` — `SpeechPipeline.__init__` tracks
+- `dodaios/speech/pipeline.py` — `SpeechPipeline.__init__` tracks
   `self._last_interrupt_announcement_ts: float | None`;
   `_on_announcement` arms the timestamp on every interrupt-priority
   event and short-circuits any subsequent `kind="preamble"` event
@@ -468,17 +468,17 @@ stays exposed and is tracked separately.
 - Anti-Pattern register `CLAUDE.md` §"Critical anti-patterns" —
   especially AP-3 (direct tool call bypassing executor),
   AP-11 (LLM in scrub), AP-13 (watchdog reload race).
-- `jarvis/missions/voice/announcer.py:151-213` — `_render`. Phrase-1
+- `dodaios/missions/voice/announcer.py:151-213` — `_render`. Phrase-1
   source.
-- `jarvis/missions/voice/readback.py` — `MissionReadback` templates.
-- `jarvis/missions/critic/summary.py` — deterministic
+- `dodaios/missions/voice/readback.py` — `MissionReadback` templates.
+- `dodaios/missions/critic/summary.py` — deterministic
   `summarise_from_tool_calls`. Why Phrase 2 cannot have come from a
   `MissionApproved.summary_de`.
-- `jarvis/brain/output_filter.py:362-536` — `scrub_for_voice` body.
+- `dodaios/brain/output_filter.py:362-536` — `scrub_for_voice` body.
   Explains why Phrase 2 passes the filter.
-- `jarvis/speech/pipeline.py:1406-1607` — `_on_announcement` and
+- `dodaios/speech/pipeline.py:1406-1607` — `_on_announcement` and
   ack-brain preamble emission.
-- `jarvis/brain/ack_brain/generator.py:1-44` — ack-brain failure
+- `dodaios/brain/ack_brain/generator.py:1-44` — ack-brain failure
   modes F1..F10.
 - Bug register `docs/BUGS.md` — for the surrounding bug ecosystem; this
   entry is *not yet* registered there and should be added once the

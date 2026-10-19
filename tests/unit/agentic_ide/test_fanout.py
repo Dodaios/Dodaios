@@ -25,9 +25,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import fanout
-from jarvis.agentic_ide.prompt_composer import ComposedPrompt
-from jarvis.agentic_ide.session import PendingPromptAttachmentBatch
+from dodaios.agentic_ide import fanout
+from dodaios.agentic_ide.prompt_composer import ComposedPrompt
+from dodaios.agentic_ide.session import PendingPromptAttachmentBatch
 
 
 @dataclass
@@ -84,7 +84,7 @@ class Recorder:
             instruction = kwargs.get("instruction") or utterance
             return ComposedPrompt(
                 text=f"## Task for {name}\n{instruction}",
-                files=["jarvis/core/bus.py"],
+                files=["dodaios/core/bus.py"],
                 composed_by="llm",
             )
         finally:

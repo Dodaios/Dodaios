@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.live import recovery, runtime
-from jarvis.live.session import LiveVoiceSession
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.live import recovery, runtime
+from dodaios.live.session import LiveVoiceSession
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 from tests.contract.test_gpt_live import Gateway
 
 
@@ -38,7 +38,7 @@ class Wire:
 
 @pytest.fixture
 def quick_reconnect(monkeypatch):
-    import jarvis.live.session as module
+    import dodaios.live.session as module
 
     permits = []
 
@@ -171,7 +171,7 @@ async def test_transport_reattach_reuses_the_existing_session_without_rest_creat
     import httpx
     import websockets.asyncio.client
 
-    from jarvis.plugins.realtime.openai_live import OpenAILiveConnection, OpenAILiveProvider
+    from dodaios.plugins.realtime.openai_live import OpenAILiveConnection, OpenAILiveProvider
 
     connected = []
     wire = object()
@@ -198,7 +198,7 @@ async def test_expired_sideband_allows_guarded_replacement(monkeypatch):
     import websockets.asyncio.client
     from websockets.exceptions import InvalidStatus
 
-    from jarvis.plugins.realtime.openai_live import OpenAILiveConnection, OpenAILiveProvider
+    from dodaios.plugins.realtime.openai_live import OpenAILiveConnection, OpenAILiveProvider
 
     async def expired(*_args, **_kwargs):
         raise InvalidStatus(SimpleNamespace(status_code=404))

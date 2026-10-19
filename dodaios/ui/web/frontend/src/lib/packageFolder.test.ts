@@ -1,0 +1,166 @@
+import { describe, expect, it } from "vitest";
+import {
+  folderToDraft,
+  frontmatterValues,
+  MAX_SKILL_MD_BYTES,
+  mcpServersMissingType,
+} from "./packageFolder";
+
+function namedFile(path: string, text: string) {
+  return { path, file: new File([text], path.split("/").pop() ?? path) };
+}
+
+const PLUGIN_JSON = JSON.stringify({
+  name: "todo-fox",
+  version: "1.2.0",
+  description: "Tasks and reminders from TodoFox",
+});
+
+const SKILL_MD = `---
+name: todo-triage
+description: Sort an inbox of tasks.
+version: 1.0.0
+---
+
+Group open tasks by due date.
+`;
+
+describe("folderToDraft — the folder is the classification (publishing-plan.md §2)", () => {
+  it("classifies a directory with plugin.json as a plugin, bundling its skills", async () => {
+    const draft = await folderToDraft([
+      namedFile("plugin.json", PLUGIN_JSON),
+      namedFile(
+        "mcp.json",
+        '{"mcpServers":{"todo-fox":{"type":"streamable-http","url":"https://mcp.todofox.example/mcp"}}}',
+      ),
+      namedFile("skills/todo-triage/SKILL.md", SKILL_MD),
+    ]);
+
+    expect(draft.kind).toBe("plugin");
+    expect(draft.name).toBe("todo-fox");
+    expect(draft.version).toBe("1.2.0");
+    expect(draft.skills).toEqual([{ name: "todo-triage", skill_md: SKILL_MD }]);
+    expect(draft.warnings).toEqual([]);
+  });
+
+  it.each(["io.github.dodaios", "io.github.personaljarvis"])(
+    "reads the usage card from the %s directory",
+    async (namespace) => {
+      const draft = await folderToDraft([
+        namedFile("plugin.json", PLUGIN_JSON),
+        namedFile(`${namespace}/usage-card.md`, "Use it for tasks."),
+      ]);
+      expect(draft.usage_card).toBe("Use it for tasks.");
+      expect(draft.files).toContain(`${namespace}/usage-card.md`);
+    },
+  );
+
+  it("takes the current directory's usage card when a package has both", async () => {
+    const draft = await folderToDraft([
+      namedFile("plugin.json", PLUGIN_JSON),
+      namedFile("io.github.personaljarvis/usage-card.md", "earlier"),
+      namedFile("io.github.dodaios/usage-card.md", "current"),
+    ]);
+    expect(draft.usage_card).toBe("current");
+  });
+
+  it('warns when an mcp.json server has no "type" — the store requires it', async () => {
+    const draft = await folderToDraft([
+      namedFile("plugin.json", PLUGIN_JSON),
+      namedFile("mcp.json", '{"mcpServers":{"todo-fox":{"url":"https://mcp.todofox.example/mcp"}}}'),
+    ]);
+    expect(draft.kind).toBe("plugin");
+    expect(draft.warnings.some((w) => /missing "type"/.test(w))).toBe(true);
+  });
+
+  it("classifies a directory with only a SKILL.md as a skill", async () => {
+    const draft = await folderToDraft([namedFile("todo-triage/SKILL.md", SKILL_MD)]);
+
+    expect(draft.kind).toBe("skill");
+    expect(draft.name).toBe("todo-triage");
+    expect(draft.description).toBe("Sort an inbox of tasks.");
+    expect(draft.skill_md).toBe(SKILL_MD);
+  });
+
+  it("rejects a folder with neither plugin.json nor SKILL.md instead of silently returning an empty draft", async () => {
+    await expect(folderToDraft([namedFile("README.md", "hello")])).rejects.toThrow(
+      /no plugin\.json and no skill\.md/i,
+    );
+  });
+
+  it("reads a lone SKILL.md file as the skill — no wrapping folder required", async () => {
+    const draft = await folderToDraft([namedFile("SKILL.md", SKILL_MD)]);
+    expect(draft.kind).toBe("skill");
+    expect(draft.name).toBe("todo-triage"); // from the frontmatter, not "SKILL"
+    expect(draft.skill_md).toBe(SKILL_MD);
+  });
+
+  it("accepts a lone Markdown file under any name once it opens with frontmatter, naming it from the file", async () => {
+    const noName = SKILL_MD.replace("name: todo-triage\n", "");
+    const draft = await folderToDraft([namedFile("Todo Triage.md", noName)]);
+    expect(draft.kind).toBe("skill");
+    expect(draft.name).toBe("todo-triage");
+    expect(draft.title).toBe("Todo Triage");
+  });
+
+  it("does not mistake a lone README.md without frontmatter for a skill", async () => {
+    await expect(folderToDraft([namedFile("notes.md", "# just notes")])).rejects.toThrow(
+      /named SKILL\.md or starts with YAML frontmatter/,
+    );
+  });
+
+  it("warns instead of dropping bundled skills once the 10-skill cap is exceeded", async () => {
+    const files = [namedFile("plugin.json", PLUGIN_JSON)];
+    for (let i = 0; i < 11; i++) {
+      files.push(namedFile(`skills/skill-${i}/SKILL.md`, SKILL_MD));
+    }
+    const draft = await folderToDraft(files);
+    expect(draft.skills).toHaveLength(10);
+    expect(draft.warnings.some((w) => /more than 10/i.test(w))).toBe(true);
+  });
+
+  it("warns when plugin.json is present but not valid JSON", async () => {
+    const draft = await folderToDraft([namedFile("plugin.json", "{not json")]);
+    expect(draft.kind).toBe("plugin");
+    expect(draft.warnings.some((w) => /not valid json/i.test(w))).toBe(true);
+  });
+});
+
+describe("frontmatterValues", () => {
+  it("reads top-level string pairs from a SKILL.md header", () => {
+    expect(frontmatterValues(SKILL_MD)).toMatchObject({
+      name: "todo-triage",
+      description: "Sort an inbox of tasks.",
+      version: "1.0.0",
+    });
+  });
+});
+
+describe("MAX_SKILL_MD_BYTES", () => {
+  it("mirrors the store's per-SKILL.md cap (dodaios/marketplace/publish.py MAX_SKILL_BYTES)", () => {
+    expect(MAX_SKILL_MD_BYTES).toBe(64 * 1024);
+  });
+});
+
+describe("mcpServersMissingType", () => {
+  it("names every server missing a \"type\" key", () => {
+    const text = JSON.stringify({
+      mcpServers: {
+        "todo-fox": { url: "https://mcp.todofox.example/mcp" },
+        "todo-fox-local": { type: "stdio", command: "npx" },
+      },
+    });
+    expect(mcpServersMissingType(text)).toEqual(["todo-fox"]);
+  });
+
+  it("returns nothing once every server declares its type", () => {
+    const text = JSON.stringify({
+      mcpServers: { "todo-fox": { type: "streamable-http", url: "https://mcp.todofox.example/mcp" } },
+    });
+    expect(mcpServersMissingType(text)).toEqual([]);
+  });
+
+  it("returns nothing for invalid JSON — the real error is reported elsewhere", () => {
+    expect(mcpServersMissingType("{not json")).toEqual([]);
+  });
+});

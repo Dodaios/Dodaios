@@ -1,0 +1,298 @@
+"""Turns real app events into XP and announces every award on the bus.
+
+The service listens to the core ``EventBus`` for the handful of events that
+mean "something was achieved" (a finished Jarvis turn, a finished agent task,
+a completed quest) and maps each to one or two rules of
+:mod:`dodaios.progression.rules`. The ship reports its own small world
+actions (a deck discovered, a holodeck round, a warp jump) through
+:meth:`ProgressionService.report_action`. Those are the client's word: the
+server applies every cooldown and daily cap and checks every reference (a
+known deck, a destination the captain's rank has opened), so a client can at
+most collect the few capped XP a day that playing would have paid.
+
+Every handler is an observer: a failure is logged and swallowed, never
+raised into the bus (AP-18), and the database is opened on the first award,
+not at boot (AP-26). Writes run off the event loop.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from .rules import (
+    DESTINATION_IDS,
+    LEAD_AGENT_ID,
+    PERSON_ID,
+    RULES_BY_SOURCE,
+    WORLD_ACTIONS,
+    agent_subject,
+    destination_level,
+    level_for_xp,
+    looks_between,
+    pet_subject,
+    progress_for_xp,
+    rewards_between,
+    subject_kind,
+    title_for,
+)
+from .store import Award, ProgressionStore
+
+log = logging.getLogger(__name__)
+
+#: The decks of the ship a ``deck_discovered`` report may name.
+VERSE_DECKS = frozenset({"bridge", "ops", "engineering", "holodeck", "honors"})
+
+
+class UnknownAction(ValueError):
+    """A world action the rulebook does not know."""
+
+
+class ProgressionService:
+    def __init__(
+        self,
+        db_path: Path,
+        *,
+        bus: Any | None = None,
+        pet_id: Callable[[], str] | None = None,
+        clock: Callable[[], int] | None = None,
+    ) -> None:
+        self._clock = clock or (lambda: int(time.time() * 1000))
+        self.store = ProgressionStore(db_path, clock=self._clock)
+        self._bus = bus
+        self._pet_id = pet_id or (lambda: "gigi")
+        self._attached = False
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    # ------------------------------------------------------------ wiring
+
+    def attach(self) -> None:
+        """Subscribe to the bus. Idempotent; opens nothing."""
+        if self._bus is None or self._attached:
+            return
+        from dodaios.core.events import (
+            JarvisChatTurnFinished,
+            MissionCompleted,
+            SocietyMessageSent,
+            SocietyQuestChanged,
+            SocietyResultPosted,
+            VoiceTurnCompleted,
+        )
+
+        self._bus.subscribe(JarvisChatTurnFinished, self._on_chat_turn)
+        self._bus.subscribe(VoiceTurnCompleted, self._on_voice_turn)
+        self._bus.subscribe(SocietyQuestChanged, self._on_quest)
+        self._bus.subscribe(SocietyResultPosted, self._on_result)
+        self._bus.subscribe(SocietyMessageSent, self._on_message)
+        self._bus.subscribe(MissionCompleted, self._on_mission)
+        self._attached = True
+
+    def close(self) -> None:
+        for task in list(self._tasks):
+            task.cancel()
+        self.store.close()
+
+    async def drain(self) -> None:
+        """Wait for every award the bus handlers queued (tests, shutdown)."""
+        while self._tasks:
+            await asyncio.gather(*list(self._tasks), return_exceptions=True)
+
+    def _later(self, *awards: tuple[str, str, str]) -> None:
+        """Queue awards off the publisher's path.
+
+        Typed bus handlers are awaited by the publisher (the voice pipeline
+        among them), so a handler only schedules its writes and returns.
+        """
+
+        async def run() -> None:
+            for subject_id, source, ref in awards:
+                await self._safe_award(subject_id, source, ref)
+
+        task = asyncio.get_running_loop().create_task(run(), name="progression-award")
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    def current_pet(self) -> str:
+        try:
+            pet = str(self._pet_id() or "").strip()
+        except Exception:  # noqa: BLE001 - a broken getter falls back to the default pet
+            log.debug("progression: pet id unavailable", exc_info=True)
+            pet = ""
+        return pet if pet and pet != "none" else "gigi"
+
+    # ------------------------------------------------------------ paying
+
+    async def award(self, subject_id: str, source: str, *, ref: str = "") -> Award | None:
+        rule = RULES_BY_SOURCE.get(source)
+        if rule is None:
+            raise UnknownAction(source)
+        result = await asyncio.to_thread(self.store.award, subject_id, rule, ref=ref)
+        if result is not None:
+            await self._announce(result)
+        return result
+
+    async def _safe_award(self, subject_id: str, source: str, ref: str = "") -> None:
+        try:
+            await self.award(subject_id, source, ref=ref)
+        except Exception:  # noqa: BLE001 - XP is a garnish; a failed write never breaks a turn
+            log.warning("progression: %s for %s not stored", source, subject_id, exc_info=True)
+
+    async def _announce(self, award: Award) -> None:
+        if self._bus is None:
+            return
+        from dodaios.core.events import ProgressionAwarded
+
+        kind = subject_kind(award.subject_id) or "person"
+        unlocked = tuple(
+            r.reward_id for r in rewards_between(kind, award.level_before, award.level_after)
+        )
+        looks = (
+            tuple(looks_between(award.level_before, award.level_after)) if kind == "agent" else ()
+        )
+        try:
+            await self._bus.publish(
+                ProgressionAwarded(
+                    source_layer="progression",
+                    seq=award.seq,
+                    subject_id=award.subject_id,
+                    subject_kind=kind,
+                    xp_source=award.source,
+                    xp=award.xp,
+                    total_xp=award.total_xp,
+                    level=award.level_after,
+                    previous_level=award.level_before,
+                    title=title_for(kind, award.level_after),
+                    unlocked=unlocked,
+                    unlocked_looks=looks,
+                )
+            )
+        except Exception:  # noqa: BLE001 - the award is stored; the Verse catches up on its next read
+            log.debug("progression: award %s not pushed", award.seq, exc_info=True)
+
+    # ------------------------------------------------------------ world actions
+
+    async def report_action(self, action: str, *, ref: str = "") -> Award | None:
+        """A small action aboard the ship, reported by the client."""
+        if action not in WORLD_ACTIONS:
+            raise UnknownAction(action)
+        rule = RULES_BY_SOURCE[action]
+        if action == "daily_visit":
+            # The server's own calendar day, whatever the client sent.
+            ref = datetime.now().astimezone().date().isoformat()
+        elif action == "deck_discovered":
+            if ref not in VERSE_DECKS:
+                raise UnknownAction(f"deck_discovered:{ref}")
+        elif action == "warp_jump":
+            if ref not in DESTINATION_IDS:
+                raise UnknownAction(f"warp_jump:{ref}")
+            # Only a destination the captain's rank has opened can be reached.
+            if await asyncio.to_thread(self._person_level) < destination_level(ref):
+                raise UnknownAction(f"warp_jump:{ref}:locked")
+            # Jumps repeat (the cooldown and cap meter them); the ledger keeps
+            # where each one went, made unique so it never reads as a replay.
+            ref = f"{ref}@{self._clock()}"
+        else:
+            ref = ""
+        subject = PERSON_ID if rule.kind == "person" else pet_subject(self.current_pet())
+        return await self.award(subject, action, ref=ref)
+
+    def _person_level(self) -> int:
+        for row in self.store.subjects():
+            if row.get("subject_id") == PERSON_ID:
+                return level_for_xp(int(row.get("xp", 0)))
+        return 1
+
+    async def note_agent_hired(self, agent_id: str) -> None:
+        if agent_id and agent_id != LEAD_AGENT_ID:
+            self._later((PERSON_ID, "agent_hired", f"agent:{agent_id}"))
+
+    # ------------------------------------------------------------ bus handlers
+
+    async def _on_chat_turn(self, event: Any) -> None:
+        if getattr(event, "status", "done") != "done":
+            return
+        turn = str(getattr(event, "turn_id", "") or getattr(event, "session_id", ""))
+        ref = f"chat:{turn}" if turn else ""
+        self._later(
+            (PERSON_ID, "chat_turn", ref),
+            (pet_subject(self.current_pet()), "jarvis_answered", ref),
+        )
+
+    async def _on_voice_turn(self, event: Any) -> None:
+        turn = str(getattr(event, "turn_id", "") or "")
+        ref = f"voice:{getattr(event, 'session_id', '')}:{turn}" if turn else ""
+        self._later(
+            (PERSON_ID, "voice_turn", ref),
+            (pet_subject(self.current_pet()), "jarvis_answered", ref),
+        )
+
+    async def _on_quest(self, event: Any) -> None:
+        quest_id = str(getattr(event, "quest_id", "") or "")
+        if not quest_id:
+            return
+        state = str(getattr(event, "state", ""))
+        previous = str(getattr(event, "previous", ""))
+        awards: list[tuple[str, str, str]] = []
+        if not previous:
+            awards.append((PERSON_ID, "quest_posted", quest_id))
+        if state == "done" and previous != "done":
+            awards.append((PERSON_ID, "quest_completed", quest_id))
+            agent_id = str(getattr(event, "agent_id", "") or "")
+            if agent_id and agent_id != LEAD_AGENT_ID:
+                awards.append((agent_subject(agent_id), "quest_done", quest_id))
+        if awards:
+            self._later(*awards)
+
+    async def _on_result(self, event: Any) -> None:
+        agent_id = str(getattr(event, "agent_id", "") or "")
+        if not agent_id or agent_id == LEAD_AGENT_ID or agent_id in {"user", "scheduler"}:
+            return
+        ref = str(getattr(event, "event_id", "") or "")
+        # Without an id a replayed result could not be told apart, and task_done has no cap.
+        if not ref:
+            return
+        source = "task_done" if getattr(event, "status", "") == "done" else "task_blocked"
+        self._later((agent_subject(agent_id), source, ref))
+
+    async def _on_message(self, event: Any) -> None:
+        kind = str(getattr(event, "msg_type", ""))
+        sender = str(getattr(event, "from_agent", "") or "")
+        ref = str(getattr(event, "event_id", "") or "")
+        if kind == "ASSIGN" and sender == LEAD_AGENT_ID:
+            self._later((pet_subject(self.current_pet()), "delegated", ref))
+        elif kind == "ANSWER" and sender and sender not in {LEAD_AGENT_ID, "user", "scheduler"}:
+            self._later((agent_subject(sender), "answered_teammate", ref))
+
+    async def _on_mission(self, event: Any) -> None:
+        if getattr(event, "status", "") != "approved":
+            return
+        mission = str(getattr(event, "mission_id", "") or "")
+        if not mission:
+            return
+        self._later((PERSON_ID, "mission_completed", mission))
+
+    # ------------------------------------------------------------ reads
+
+    def snapshot(self) -> list[dict[str, Any]]:
+        rows = []
+        for row in self.store.subjects():
+            kind = row["kind"]
+            progress = progress_for_xp(int(row["xp"]))
+            rows.append(
+                {
+                    "subject_id": row["subject_id"],
+                    "kind": kind,
+                    "xp": progress.xp,
+                    "level": progress.level,
+                    "xp_into_level": progress.into_level,
+                    "xp_for_next": progress.for_next,
+                    "title": title_for(kind, progress.level),
+                    "updated_ms": int(row["updated_ms"]),
+                }
+            )
+        return rows

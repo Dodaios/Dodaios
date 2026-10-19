@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.mcp.registry import BOOTSTRAP_SERVERS, MCPRegistry, MCPServerSpec
+from dodaios.mcp.registry import BOOTSTRAP_SERVERS, MCPRegistry, MCPServerSpec
 
 
 def _make_spec(name: str = "custom-mcp", *, mandatory: bool = False) -> MCPServerSpec:

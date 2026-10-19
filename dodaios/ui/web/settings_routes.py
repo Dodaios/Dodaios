@@ -1,0 +1,4042 @@
+"""REST API for user-facing app settings that the live runtime must honour.
+
+Covers the Reply Language pin (desktop "Languages" view → Reply Language) and
+the custom Wake Word (desktop "Settings" → Wake Word panel).
+
+Endpoints:
+    GET /api/settings/reply-language  → {"language": ..., "options": [...]}
+    PUT /api/settings/reply-language  → switch the live BrainManager + persist
+    GET /api/settings/wake-word       → {phrase, engine, custom_model_path,
+                                         fuzzy_match_ratio, engines,
+                                         instant_phrases, local_whisper_available}
+    PUT /api/settings/wake-word       → persist to jarvis.toml [trigger.wake_word]
+                                         (+ resolved-plan preview); restart required
+    GET /api/settings/keybinds/held   → live modifier keys currently held
+                                         ({available, tokens, reason})
+
+Why a dedicated route (not localStorage): the reply language has to reach the
+BrainManager so ``_build_system_prompt`` can emit the language directive — the
+choice was previously stranded in the browser and silently ignored. Both the
+voice and the chat path share one BrainManager, so this single setter covers
+both. Mirrors the provider-switch pattern in ``provider_routes.py``.
+
+Wired into the WebServer in ``server.py::_build_app`` via
+    from .settings_routes import router as settings_router
+    app.include_router(settings_router)
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import sys
+import threading
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from fastapi import APIRouter, HTTPException, Request, Response
+from pydantic import BaseModel, Field, model_validator
+
+from dodaios.brain.manager import SUPPORTED_REPLY_LANGUAGES
+from dodaios.core.config import RECOGNITION_LANGUAGE_CHOICES
+from dodaios.memory.wiki.integration import get_running_curator
+from dodaios.speech.local_models import FASTER_WHISPER_PACKAGE
+from dodaios.ui.overlay_styles import OVERLAY_STYLES, normalize_overlay_style
+
+from .error_text import LOG_HINT
+from .lifecycle_guard import require_interactive_desktop_action
+
+if TYPE_CHECKING:
+    from dodaios.core.config import WikiCuratorConfig
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+
+def _is_macos() -> bool:
+    """True on macOS. A seam so tests do not patch ``sys.platform`` for the whole process:
+    a global patch makes a first-time import of a third-party package take the wrong
+    platform branch (numpy calls ``os.uname`` when it sees ``linux``, which Windows lacks)."""
+    return sys.platform == "darwin"
+
+
+def _realtime_available_provider(cfg: object) -> str | None:
+    """Reachable realtime provider name for ``cfg``, or ``None``.
+
+    Realtime ships as a public optional capability. Import it lazily so a
+    minimal or headless install without the module still boots and reports the
+    feature as unavailable instead of taking the settings API down. When the
+    module is installed, delegate provider resolution unchanged.
+    """
+    try:
+        from dodaios.realtime.factory import realtime_available_provider
+    except ImportError:  # Optional realtime support degrades to no available provider.
+        return None
+    return realtime_available_provider(cfg)
+
+
+def _realtime_requires_webrtc_offer(cfg: object) -> bool:
+    """Whether the resolved adapter needs browser SDP, or false when absent."""
+    try:
+        from dodaios.realtime.factory import realtime_requires_webrtc_offer
+    except ImportError:  # Optional subscription transport degrades to no WebRTC requirement.
+        return False
+    return realtime_requires_webrtc_offer(cfg)
+
+
+def _webrtc_start_event_required(cfg: object) -> bool:
+    from dodaios.realtime.factory import realtime_webrtc_start_event_required
+
+    return realtime_webrtc_start_event_required(cfg)
+
+
+#: Surface floor for the realtime start budget. Only ever RAISED by a
+#: provider's declared need — never lowered — so a browser that cannot reach
+#: the capability probe still behaves exactly as it always did.
+_REALTIME_SURFACE_HANDSHAKE_FLOOR_S = 20.0
+
+
+def _realtime_handshake_budget_s(cfg: object) -> float:
+    """Longest declared realtime handshake, or the historical surface floor.
+
+    The browser gave every start attempt a fixed 20 s. That is shorter than the
+    subscription transport's declared 45 s budget and its documented 15-25 s
+    cold start, so a cold subscription call could be reported as a timed-out
+    connection while the backend was still legitimately negotiating.
+    """
+    try:
+        from dodaios.realtime.factory import realtime_handshake_budget_s
+    except ImportError:  # Optional realtime support keeps the historical floor.
+        return _REALTIME_SURFACE_HANDSHAKE_FLOOR_S
+    try:
+        declared = float(realtime_handshake_budget_s(cfg))
+    except Exception:  # noqa: BLE001 — a probe failure must not break the screen
+        log.debug("Realtime handshake-budget probe failed", exc_info=True)
+        return _REALTIME_SURFACE_HANDSHAKE_FLOOR_S
+    return max(_REALTIME_SURFACE_HANDSHAKE_FLOOR_S, declared)
+
+
+async def _realtime_transport_offer_ready(required: bool) -> bool | None:
+    """Return desktop offer readiness, or ``None`` when no offer is required."""
+    if not required:
+        return None
+    try:
+        from dodaios.realtime.offer_broker import (
+            get_realtime_transport_offer_broker,
+        )
+    except ImportError:  # Optional realtime support is absent on a minimal install.
+        return False
+    broker = get_realtime_transport_offer_broker()
+    return await broker.pending_count() > 0
+
+
+class ReplyLanguageBody(BaseModel):
+    language: str = Field(..., min_length=1)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+def _require_brain(request: Request):
+    brain = getattr(request.app.state, "brain", None)
+    if brain is None or not hasattr(brain, "set_reply_language"):
+        raise HTTPException(
+            status_code=503,
+            detail="Brain manager not available (likely headless mode)",
+        )
+    return brain
+
+
+@router.get("/reply-language")
+def get_reply_language(request: Request) -> dict[str, object]:
+    brain = _require_brain(request)
+    return {
+        "language": getattr(brain, "reply_language", "auto"),
+        "options": list(SUPPORTED_REPLY_LANGUAGES),
+    }
+
+
+@router.put("/reply-language")
+def put_reply_language(body: ReplyLanguageBody, request: Request) -> dict[str, object]:
+    brain = _require_brain(request)
+
+    # The BrainManager owns validation (single source of truth). An unknown
+    # code raises ValueError → surface as 400, live state untouched.
+    try:
+        brain.set_reply_language(body.language)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    lang = brain.reply_language
+
+    # Best-effort in-memory cfg update so a later cfg read agrees.
+    cfg = getattr(request.app.state, "config", None) or getattr(
+        request.app.state, "cfg", None
+    )
+    if cfg is not None and getattr(cfg, "brain", None) is not None:
+        try:
+            cfg.brain.reply_language = lang  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory cfg.brain.reply_language update skipped: %s", exc)
+
+    # Persist as boot default. Best-effort: a read-only / locked jarvis.toml
+    # must not break the live switch that already succeeded above.
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+
+            config_writer.set_reply_language(lang)
+            persisted = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("reply-language persist failed (live switch still applied): %s", exc)
+
+    # Gemini fixes its system instruction at connect time, while other
+    # providers may already be generating the current turn. A controlled
+    # reconnect is the only provider-neutral way to make the new reply policy
+    # authoritative immediately for an active desktop Realtime call.
+    from dodaios.ui.web.voice_runtime import reconnect_realtime
+
+    session_restarted = reconnect_realtime(
+        request, reason=f"reply_language:{lang}"
+    )
+    return {
+        "ok": True,
+        "language": lang,
+        "persisted": persisted,
+        "session_restarted": session_restarted,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Voice mode: pipeline (the classic STT→Brain→TTS pipeline) vs realtime (a
+# full-duplex provider transport, including subscription-authenticated Codex).
+# GET reports the current mode and provider readiness; PUT switches it.
+# Persisted to jarvis.toml [voice].mode via config_writer.set_voice_mode
+# (Task 1); the persist is best-effort so a locked/read-only toml never blocks
+# the live in-memory switch that already succeeded. See
+# docs/realtime-voice/PLAN-phase-0-1.md Task 8.
+# ---------------------------------------------------------------------------
+
+_VOICE_MODES = ("pipeline", "realtime")
+
+
+class VoiceModeBody(BaseModel):
+    mode: str = Field(..., min_length=1)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+def _realtime_provider_display(
+    cfg: object, provider_id: str | None
+) -> tuple[str | None, str | None, str | None]:
+    """Provider label plus model id/label for the resolved realtime provider.
+
+    The label comes from the provider registry; the model is the pin in
+    ``[brain.providers.<id>].model``, resolved to the curated catalog's default
+    (always FIRST in its list) when unset — the same value an idle realtime
+    session would actually connect with. Both are best-effort cosmetics: any
+    failure degrades to ``None`` rather than breaking the status endpoint.
+    """
+    if not provider_id:
+        return None, None, None
+    label: str | None = None
+    try:
+        from dodaios.ui.web.provider_spec import get_spec
+
+        spec = get_spec(provider_id)
+        label = getattr(spec, "label", None) or None
+    except Exception:  # noqa: BLE001 — label is cosmetic, never fatal
+        label = None
+    model: str | None = None
+    try:
+        providers = getattr(getattr(cfg, "brain", None), "providers", None)
+        pc = providers.get(provider_id) if isinstance(providers, dict) else None
+        model = (getattr(pc, "model", None) or "") if pc is not None else ""
+        if not model:
+            from dodaios.brain.model_catalog import REALTIME_MODELS
+
+            entries = REALTIME_MODELS.get(provider_id) or ()
+            model = entries[0].id if entries else ""
+        model = model or None
+    except Exception:  # noqa: BLE001 — model is cosmetic, never fatal
+        model = None
+    return label, model, _realtime_model_label(provider_id, model)
+
+
+def _realtime_model_label(provider_id: str | None, model: str | None) -> str | None:
+    """Return a curated display label while preserving unknown future ids."""
+    if not provider_id or not model:
+        return None
+    try:
+        from dodaios.brain.model_catalog import REALTIME_MODELS
+
+        for entry in REALTIME_MODELS.get(provider_id) or ():
+            if entry.id == model:
+                return entry.label
+    except Exception:  # noqa: BLE001 — display cosmetics must never break status
+        log.debug("Realtime model label lookup failed", exc_info=True)
+    return model
+
+
+@router.get("/voice-mode")
+async def get_voice_mode(request: Request) -> dict[str, object]:
+    from dodaios.realtime.factory import realtime_browser_audio
+
+    cfg = getattr(request.app.state, "config", None) or getattr(request.app.state, "cfg", None)
+    mode = getattr(getattr(cfg, "voice", None), "mode", "pipeline")
+    from dodaios.voice.subscription_profile import (
+        LEGACY_CODEX_REALTIME_PROVIDER,
+        configured_voice_profile,
+    )
+
+    profile = configured_voice_profile(cfg) if cfg is not None else ""
+    if profile:
+        mode = "pipeline"
+    # Cross-family (AP-22): resolved via the SAME ordering the realtime
+    # session factory uses, so this never disagrees with what a realtime
+    # session would actually build (Gemini-only users now get `true` too,
+    # not just OpenAI — Feature A2).
+    # External-login adapters may need a bounded CLI status probe. Keep that
+    # subprocess off the event loop so a settings poll cannot punch a hole in
+    # live Realtime audio playback.
+    prov = (
+        LEGACY_CODEX_REALTIME_PROVIDER
+        if profile
+        else await asyncio.to_thread(_realtime_available_provider, cfg)
+    )
+    realtime_available = prov is not None
+    realtime_availability_pending = False
+    codex_status: dict[str, object] | None = None
+    if profile:
+        # The classic subscription composition is judged by the ISOLATED
+        # voice-profile login, surfaced below as subscription_voice_capability.
+        from dodaios.ui.web.provider_routes import (
+            _codex_binary_path,
+            _codex_subscription_status_payload,
+        )
+
+        codex_status = await asyncio.to_thread(
+            _codex_subscription_status_payload,
+            _codex_binary_path(request),
+        )
+    requires_webrtc_offer = (
+        False
+        if profile
+        else await asyncio.to_thread(_realtime_requires_webrtc_offer, cfg)
+    )
+    # Capability, not a provider id (AP-21): the surface must not call a start
+    # attempt dead while the backend is still inside a budget it declared.
+    handshake_budget_s = await asyncio.to_thread(_realtime_handshake_budget_s, cfg)
+    # Without a pin the answer follows the first credential-ready provider,
+    # which reads credentials — off the loop like the lookups above.
+    browser_audio = await asyncio.to_thread(realtime_browser_audio, cfg)
+    transport_offer_ready = (
+        None if browser_audio else await _realtime_transport_offer_ready(requires_webrtc_offer)
+    )
+    transport_offer_detail: str | None = None
+    if requires_webrtc_offer and not browser_audio:
+        transport_offer_detail = str(
+            getattr(request.app.state, "realtime_transport_broker_error", "")
+            or (
+                "Embedded desktop WebRTC offer is ready."
+                if transport_offer_ready
+                else "Waiting for the embedded desktop WebRTC offer."
+            )
+        )
+    prov_label, prov_model, prov_model_label = _realtime_provider_display(cfg, prov)
+    if profile:
+        # The legacy provider id remains user-visible for migration only. Its
+        # active generation path is stable subscription text, not ChatGPT-Live.
+        prov_model = "subscription-text"
+        prov_model_label = "Codex App Server (subscription text)"
+    from dodaios.ui.web.voice_runtime import voice_engine_status
+
+    runtime = voice_engine_status(request)
+    session_provider = str(runtime.get("active_session_provider", "") or "")
+    session_model = str(runtime.get("active_session_model", "") or "")
+    subscription_capability: dict[str, object] | None = None
+    if profile:
+        from dodaios.platform.capabilities import detect_capabilities
+        from dodaios.voice.subscription_profile import subscription_voice_capability
+
+        host = detect_capabilities()
+        subscription_capability = subscription_voice_capability(
+            cfg,
+            account_ready=bool(codex_status and codex_status.get("connected")),
+            runtime_attached=bool(
+                getattr(request.app.state, "speech_pipeline", None)
+            ),
+            display_present=host.display_present,
+        ).to_dict()
+    return {
+        "mode": mode,
+        "profile": profile,
+        "subscription_voice_capability": subscription_capability,
+        "realtime_available": realtime_available,
+        "realtime_availability_pending": realtime_availability_pending,
+        "requires_webrtc_offer": requires_webrtc_offer,
+        "webrtc_start_event_required": _webrtc_start_event_required(cfg),
+        "browser_audio": browser_audio,
+        "handshake_budget_s": handshake_budget_s,
+        "transport_offer_ready": transport_offer_ready,
+        "transport_offer_detail": transport_offer_detail,
+        "active_provider": prov,
+        # Sidebar-footer display fields: the pretty provider name + the model
+        # an idle realtime session would use (configured pin or catalog
+        # default). A RUNNING session's live values are the separate
+        # active_session_* fields below.
+        "active_provider_label": prov_label,
+        "active_model": prov_model,
+        "active_model_label": prov_model_label,
+        "session_active": bool(runtime.get("session_active", False)),
+        "active_session_mode": runtime.get("active_session_mode"),
+        "active_session_provider": session_provider,
+        "active_session_model": session_model,
+        "active_session_model_label": _realtime_model_label(
+            session_provider, session_model
+        ),
+        "transitioning": bool(runtime.get("transitioning", False)),
+        # Why the last realtime start attempt failed ({provider, message, at}
+        # or null): rendered by the surfaces when a connecting window closes
+        # without a session instead of a silent fall-back to "idle".
+        "last_start_error": runtime.get("last_start_error"),
+    }
+
+
+@router.put("/voice-mode")
+async def put_voice_mode(body: VoiceModeBody, request: Request) -> dict[str, object]:
+    if body.mode not in _VOICE_MODES:
+        raise HTTPException(status_code=400, detail=f"mode must be one of {_VOICE_MODES}")
+
+    cfg = getattr(request.app.state, "config", None) or getattr(request.app.state, "cfg", None)
+    from dodaios.voice.subscription_profile import subscription_voice_selected
+
+    if body.mode == "realtime" and cfg is not None and subscription_voice_selected(cfg):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "ChatGPT subscription voice uses the stable Pipeline engine. "
+                "Select a different Realtime provider before enabling Realtime mode."
+            ),
+        )
+
+    # A3: never pin the boot default to an unreachable engine. A provider may
+    # use an API key or an external subscription login, so readiness — not a
+    # particular credential shape — is the boundary.
+    if body.mode == "realtime":
+        prov = await asyncio.to_thread(_realtime_available_provider, cfg)
+        if prov is None:
+            raise HTTPException(
+                status_code=400,
+                detail="no realtime provider is configured and ready",
+            )
+
+    if cfg is not None and getattr(cfg, "voice", None) is not None:
+        try:
+            cfg.voice.mode = body.mode  # type: ignore[attr-defined]
+            if body.mode == "realtime":
+                cfg.voice.profile = ""  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory cfg.voice.mode update skipped: %s", exc)
+
+    from dodaios.ui.web.voice_runtime import apply_voice_mode
+
+    session_restarted = apply_voice_mode(request, body.mode)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+
+            config_writer.set_voice_mode(body.mode)
+            persisted = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("voice-mode persist failed (live switch still applied): %s", exc)
+
+    return {
+        "ok": True,
+        "mode": body.mode,
+        "persisted": persisted,
+        "session_restarted": session_restarted,
+    }
+
+
+# ----------------------------------------------------------------------
+# Team / hosted-proxy mode ([team_proxy]) — 2026-06-20 team-proxy spec §4.
+# One global switch: when enabled with a url, every provider not in
+# local_providers is routed through {url}/p/<id> with the per-user team token
+# instead of a real vendor key. The token is a secret (slot team_proxy_token),
+# stored via the normal /secrets route — never written to jarvis.toml here.
+# ----------------------------------------------------------------------
+class TeamProxyBody(BaseModel):
+    enabled: bool = False
+    url: str = ""
+    local_providers: list[str] = Field(default_factory=list)
+
+
+def _resolve_cfg(request: Request):
+    return getattr(request.app.state, "config", None) or getattr(
+        request.app.state, "cfg", None
+    )
+
+
+@router.get("/team-proxy")
+def get_team_proxy(request: Request) -> dict[str, object]:
+    from dodaios.core import config as cfg_mod
+
+    conf = _resolve_cfg(request) or cfg_mod.load_config()
+    tp = conf.team_proxy
+    token_set = bool(cfg_mod.get_secret("team_proxy_token", "TEAM_PROXY_TOKEN"))
+    return {
+        "enabled": bool(tp.enabled),
+        "url": tp.url or "",
+        "local_providers": list(tp.local_providers),
+        "token_configured": token_set,
+    }
+
+
+@router.put("/team-proxy")
+def put_team_proxy(body: TeamProxyBody, request: Request) -> dict[str, object]:
+    url = (body.url or "").strip()
+    if body.enabled and not url:
+        raise HTTPException(status_code=400, detail="Team mode requires a proxy url.")
+
+    # Best-effort in-memory update so a later cfg read this session agrees. A
+    # provider already holding a cached client keeps its endpoint until rebuilt
+    # (provider switch / restart) — only new provider instances pick this up.
+    conf = _resolve_cfg(request)
+    if conf is not None and getattr(conf, "team_proxy", None) is not None:
+        try:
+            conf.team_proxy.enabled = bool(body.enabled)
+            conf.team_proxy.url = url or None
+            conf.team_proxy.local_providers = list(body.local_providers)
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory team_proxy update skipped: %s", exc)
+
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_team_proxy(bool(body.enabled), url, list(body.local_providers))
+        persisted = True
+    except Exception as exc:  # noqa: BLE001 — a locked/read-only toml must not 500
+        log.warning("team-proxy persist failed: %s", exc)
+
+    return {
+        "ok": True,
+        "enabled": bool(body.enabled),
+        "url": url,
+        "local_providers": list(body.local_providers),
+        "persisted": persisted,
+    }
+
+
+# ----------------------------------------------------------------------
+# Interface (display) language — what the user SEES (every label/button).
+# Distinct from the reply language. The frontend used to keep this only in
+# localStorage; giving it a backend home lets a voice command / the Control API
+# change it and the open UI switch live (a UiLanguageChanged event is forwarded
+# over /ws). Key-free same-origin route, like reply-language.
+# ----------------------------------------------------------------------
+
+_UI_LANGUAGES: tuple[str, ...] = ("en", "de", "es", "pt", "zh")
+
+
+class UiLanguageBody(BaseModel):
+    language: str = Field(..., min_length=1)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+def _current_ui_language(request: Request) -> str:
+    # Read fresh from disk so a value just written by voice/the Control API is
+    # reflected; fall back to the boot config, then the "en" default.
+    try:
+        from dodaios.core.config import load_config
+
+        return str(getattr(load_config().ui, "language", "en"))
+    except Exception as exc:  # noqa: BLE001 — never 500 a settings read
+        log.debug("ui-language fresh read failed, using boot config: %s", exc)
+    cfg = getattr(request.app.state, "config", None)
+    return str(getattr(getattr(cfg, "ui", None), "language", "en"))
+
+
+@router.get("/ui-language")
+def get_ui_language(request: Request) -> dict[str, object]:
+    return {"language": _current_ui_language(request), "options": list(_UI_LANGUAGES)}
+
+
+@router.put("/ui-language")
+async def put_ui_language(body: UiLanguageBody, request: Request) -> dict[str, object]:
+    lang = (body.language or "").strip().lower()
+    if lang not in _UI_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown UI language {body.language!r} (allowed: {list(_UI_LANGUAGES)})",
+        )
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            # Honour JARVIS_CONFIG (cloud-first) so the write lands in the same
+            # file load_config reads — no desktop/VPS split-brain.
+            config_writer.set_ui_language(lang, path=resolve_config_path())
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning("ui-language persist failed: %s", exc)
+
+    cfg = getattr(request.app.state, "config", None)
+    if cfg is not None and getattr(cfg, "ui", None) is not None:
+        try:
+            cfg.ui.language = lang  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory cfg.ui.language update skipped: %s", exc)
+
+    # Broadcast so EVERY open frontend (and other clients) switch live.
+    bus = getattr(request.app.state, "bus", None)
+    if bus is not None:
+        try:
+            from dodaios.core.events import UiLanguageChanged
+
+            await bus.publish(UiLanguageChanged(language=lang))
+        except Exception as exc:  # noqa: BLE001 — a bus hiccup must not fail the write
+            log.warning("UiLanguageChanged publish failed: %s", exc)
+
+    return {"ok": True, "language": lang, "persisted": persisted}
+
+
+# ----------------------------------------------------------------------
+# Appearance — the app's colour theme.
+#
+# Lives in the backend rather than only in the browser store for three reasons,
+# all of which the desktop app hits in practice: the native window frame is
+# painted from config BEFORE the web view loads anything (a light app inside a
+# black frame is visible for the whole boot), the choice must survive a cleared
+# web store, and every user-facing action in this project ships as a REST route
+# so it becomes a `jarvis api settings ...` command (AGENTS.md §5, CLI-first).
+#
+# "system" is stored as intent, not as a resolved value: the frontend re-reads
+# the OS preference live, so flipping the OS theme flips the app with it.
+# ----------------------------------------------------------------------
+
+_UI_THEMES: tuple[str, ...] = ("dark", "light", "system")
+
+
+class AppearanceBody(BaseModel):
+    theme: str = Field(..., min_length=1, description="dark | light | system")
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+def _current_ui_theme(request: Request) -> str:
+    # Read fresh from disk so a value just written by the Control API is
+    # reflected; fall back to the boot config, then the "dark" default.
+    try:
+        from dodaios.core.config import load_config
+
+        return str(getattr(load_config().ui, "theme", "dark"))
+    except Exception as exc:  # noqa: BLE001 — never 500 a settings read
+        log.debug("appearance fresh read failed, using boot config: %s", exc)
+    cfg = getattr(request.app.state, "config", None)
+    return str(getattr(getattr(cfg, "ui", None), "theme", "dark"))
+
+
+@router.get("/appearance")
+def get_appearance(request: Request) -> dict[str, object]:
+    """The app's colour theme, plus the values this build accepts."""
+    return {"theme": _current_ui_theme(request), "options": list(_UI_THEMES)}
+
+
+@router.put("/appearance")
+async def put_appearance(body: AppearanceBody, request: Request) -> dict[str, object]:
+    """Switch the app's colour theme and persist it as the boot default."""
+    theme = (body.theme or "").strip().lower()
+    if theme not in _UI_THEMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown theme {body.theme!r} (allowed: {list(_UI_THEMES)})",
+        )
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            # Honour JARVIS_CONFIG (cloud-first) so the write lands in the same
+            # file load_config reads — no desktop/VPS split-brain.
+            config_writer.set_ui_theme(theme, path=resolve_config_path())
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning("appearance persist failed: %s", exc)
+
+    cfg = getattr(request.app.state, "config", None)
+    if cfg is not None and getattr(cfg, "ui", None) is not None:
+        try:
+            cfg.ui.theme = theme  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory cfg.ui.theme update skipped: %s", exc)
+
+    # Broadcast so EVERY open frontend repaints live.
+    bus = getattr(request.app.state, "bus", None)
+    if bus is not None:
+        try:
+            from dodaios.core.events import UiThemeChanged
+
+            await bus.publish(UiThemeChanged(theme=theme))
+        except Exception as exc:  # noqa: BLE001 — a bus hiccup must not fail the write
+            log.warning("UiThemeChanged publish failed: %s", exc)
+
+    return {"ok": True, "theme": theme, "persisted": persisted}
+
+
+# ----------------------------------------------------------------------
+# Music — two connectors, one domain (2026-08-18)
+# ----------------------------------------------------------------------
+
+from dodaios.core.music_constants import (  # noqa: E402 — the settings vocabulary, five-layer L0
+    MUSIC_PLAYBACK_BACKGROUND,
+    MUSIC_PLAYBACK_MODES,
+    MUSIC_PLUGIN_IDS,
+    MUSIC_SERVICE_AUTO,
+    MUSIC_SERVICES,
+)
+
+
+class MusicSettingsBody(BaseModel):
+    preferred_service: str | None = Field(
+        default=None, description="auto | spotify | youtube_music (omit to leave unchanged)"
+    )
+    playback: str | None = Field(
+        default=None, description="background | browser (omit to leave unchanged)"
+    )
+
+
+def _current_music(request: Request) -> tuple[str, str]:
+    """(preferred_service, playback) — fresh from disk, boot config as fallback."""
+    try:
+        from dodaios.core.config import load_config
+
+        music = load_config().music
+        return str(music.preferred_service), str(music.playback)
+    except Exception as exc:  # noqa: BLE001 — never 500 a settings read
+        log.debug("music settings fresh read failed, using boot config: %s", exc)
+    cfg = getattr(request.app.state, "config", None)
+    music = getattr(cfg, "music", None)
+    return (
+        str(getattr(music, "preferred_service", MUSIC_SERVICE_AUTO)),
+        str(getattr(music, "playback", MUSIC_PLAYBACK_BACKGROUND)),
+    )
+
+
+def _connected_music_services() -> list[str]:
+    """Which music connectors currently hold a usable credential — so the
+    Settings card can say which of the choices would actually do something."""
+    try:
+        from dodaios.marketplace.token_store import TokenStore
+
+        store = TokenStore()
+        out: list[str] = []
+        for plugin_id in MUSIC_PLUGIN_IDS:
+            try:
+                tokens = store.load(plugin_id)
+            except Exception as exc:  # noqa: BLE001 — one broken credential stays isolated
+                log.debug("music connection probe: %s unreadable: %s", plugin_id, exc)
+                continue
+            if tokens is not None and tokens.access and not tokens.needs_reauth:
+                out.append(plugin_id)
+        return out
+    except Exception as exc:  # noqa: BLE001 — a store fault must not fail a settings read
+        log.debug("music connection probe failed: %s", exc)
+        return []
+
+
+def _background_player_available() -> bool:
+    try:
+        from dodaios.platform.music_player import background_player_available
+
+        return background_player_available()
+    except Exception as exc:  # noqa: BLE001 — a probe fault reads as "not available"
+        log.debug("background player probe failed: %s", exc)
+        return False
+
+
+@router.get("/music")
+def get_music_settings(request: Request) -> dict[str, object]:
+    """Preferred music service + where YouTube Music plays, with the accepted
+    values, which connectors are connected, and whether the background player
+    can run on this host."""
+    preferred, playback = _current_music(request)
+    return {
+        "preferred_service": preferred,
+        "playback": playback,
+        "service_options": list(MUSIC_SERVICES),
+        "playback_options": list(MUSIC_PLAYBACK_MODES),
+        "connected": _connected_music_services(),
+        "background_player_available": _background_player_available(),
+    }
+
+
+@router.put("/music")
+def put_music_settings(body: MusicSettingsBody, request: Request) -> dict[str, object]:
+    """Change the preferred music service and/or where YouTube Music plays."""
+    preferred_now, playback_now = _current_music(request)
+    preferred = preferred_now
+    playback = playback_now
+    if body.preferred_service is not None:
+        preferred = body.preferred_service.strip().lower()
+        if preferred not in MUSIC_SERVICES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unknown music service {body.preferred_service!r} "
+                    f"(allowed: {list(MUSIC_SERVICES)})"
+                ),
+            )
+    if body.playback is not None:
+        playback = body.playback.strip().lower()
+        if playback not in MUSIC_PLAYBACK_MODES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unknown playback mode {body.playback!r} "
+                    f"(allowed: {list(MUSIC_PLAYBACK_MODES)})"
+                ),
+            )
+
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+        from dodaios.core.config import resolve_config_path
+
+        path = resolve_config_path()
+        if preferred != preferred_now:
+            config_writer.set_preferred_music_service(preferred, path=path)
+        if playback != playback_now:
+            config_writer.set_music_playback(playback, path=path)
+        persisted = True
+    except Exception as exc:  # noqa: BLE001 — persist is best-effort
+        log.warning("music settings persist failed: %s", exc)
+
+    cfg = getattr(request.app.state, "config", None)
+    music = getattr(cfg, "music", None)
+    if music is not None:
+        try:
+            music.preferred_service = preferred  # type: ignore[attr-defined]
+            music.playback = playback  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory cfg.music update skipped: %s", exc)
+    try:
+        # The music tools remember the preference for a few seconds; a change
+        # here must show on the very next turn.
+        from dodaios.core.music_service import forget_connected_music_services
+
+        forget_connected_music_services()
+    except Exception as exc:  # noqa: BLE001 — a cache miss is the worst case here
+        log.debug("music preference cache reset skipped: %s", exc)
+
+    return {
+        "ok": True,
+        "preferred_service": preferred,
+        "playback": playback,
+        "persisted": persisted,
+    }
+
+
+# ----------------------------------------------------------------------
+# STT recognition language — the language Whisper TRANSCRIBES the user's voice
+# into. Distinct from BOTH the UI language (what the user sees) and the reply
+# language (what Jarvis answers in). ``auto`` lets Whisper detect the spoken
+# language per utterance (the default); a concrete code forces it.
+# This had NO UI/REST control before — the recognition language was stranded in
+# jarvis.toml, so a user whose voice was mis-recognized had no way to fix it
+# (forensic 2026-06-28: German spoken, English-only model, "Can't you me" garbage).
+# Applies on the next voice bootstrap (a restart); the STT provider is built once.
+#
+# The accepted set is EVERY language the recogniser understands, shared with
+# dictation through one constant (AP-4): what Jarvis can hear is a wider question
+# than the three locales it speaks back in, and capping it at those three locked
+# out every other speaker on earth (AGENTS.md §3).
+# ----------------------------------------------------------------------
+
+_STT_LANGUAGES: tuple[str, ...] = RECOGNITION_LANGUAGE_CHOICES
+
+
+class SttLanguageBody(BaseModel):
+    language: str = Field(..., min_length=1)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+def _current_stt_language(request: Request) -> str:
+    # Read fresh from disk so a value just written is reflected; fall back to the
+    # boot config, then the "auto" bilingual default.
+    try:
+        from dodaios.core.config import load_config
+
+        return str(getattr(load_config().stt, "language", "auto"))
+    except Exception as exc:  # noqa: BLE001 — never 500 a settings read
+        log.debug("stt-language fresh read failed, using boot config: %s", exc)
+    cfg = getattr(request.app.state, "config", None)
+    return str(getattr(getattr(cfg, "stt", None), "language", "auto"))
+
+
+@router.get("/stt-language")
+def get_stt_language(request: Request) -> dict[str, object]:
+    return {"language": _current_stt_language(request), "options": list(_STT_LANGUAGES)}
+
+
+@router.put("/stt-language")
+def put_stt_language(body: SttLanguageBody, request: Request) -> dict[str, object]:
+    lang = (body.language or "").strip().lower()
+    if lang not in _STT_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown STT language {body.language!r} (allowed: {list(_STT_LANGUAGES)})",
+        )
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            config_writer.set_stt_language(lang, path=resolve_config_path())
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning("stt-language persist failed: %s", exc)
+
+    cfg = getattr(request.app.state, "config", None)
+    if cfg is not None and getattr(cfg, "stt", None) is not None:
+        try:
+            cfg.stt.language = lang  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory cfg.stt.language update skipped: %s", exc)
+
+    # TWO different things have to change, and only one of them used to.
+    # ``_live_apply_wake_plan`` re-arms the WAKE detector; the recogniser that
+    # transcribes what you actually SAY is a separate object built once at
+    # startup. Reporting the wake result as "applied" meant the route answered
+    # "done" while every following utterance was still transcribed in the old
+    # language until the app was restarted.
+    applied_wake = _live_apply_wake_plan(request, log_tag="stt-language")
+    applied_recognizer = _live_apply_stt_language(request, lang)
+
+    return {
+        "ok": True,
+        "language": lang,
+        "persisted": persisted,
+        "applied_live": applied_recognizer,
+        # Only ask for a restart when the RECOGNISER could not be swapped — that
+        # is the part the user is actually waiting on.
+        "restart_required": not applied_recognizer,
+        "wake_reloaded": applied_wake,
+    }
+
+
+def _live_apply_stt_language(request: Request, language: str) -> bool:
+    """Swap the running recogniser to ``language``. False when there is none.
+
+    False is the honest answer on a headless host or before the voice pipeline
+    has started — the value is persisted either way and applies on the next
+    start, which is what ``restart_required`` tells the caller.
+    """
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    setter = getattr(pipeline, "set_stt_language", None)
+    if not callable(setter):
+        return False
+    try:
+        return bool(setter(language))
+    except Exception as exc:  # noqa: BLE001 — a settings click must never 500
+        log.warning("stt-language live switch failed: %s", exc)
+        return False
+
+
+def _live_apply_wake_plan(request: Request, *, log_tag: str) -> bool:
+    """Re-resolve the wake plan against the CURRENT config and live-apply it.
+
+    Makes "switch language -> it works" TRUE without a restart: re-resolve the
+    wake word against the newly-effective language and live-apply it to the
+    running voice pipeline (a Vosk model is acoustically language-specific, so
+    the language is what decides whether the wake fires at all). If the
+    matching-language model is not on disk yet, apply the best available plan
+    now (multilingual stt_match) and provision the model in the background,
+    then re-apply so it upgrades to the fast vosk_kws path. Best-effort
+    throughout; a headless/down pipeline just applies on the next voice start.
+    Shared by the stt-language and wake-language PUT routes (must be called
+    from a running event loop). Returns True when a live pipeline took the plan.
+    """
+    applied_live = False
+    try:
+        from dodaios.speech import wake_model_fetch as _wmf
+        from dodaios.speech.wake_phrase import resolve_wake_plan
+
+        live_cfg = _config(request)
+        wake_lang = _wmf.resolve_wake_language(live_cfg)
+
+        def _resolve_plan() -> object:
+            return resolve_wake_plan(
+                live_cfg.trigger.wake_word,
+                local_whisper_available=_local_whisper_available(),
+                language=wake_lang,
+            )
+
+        def _apply_plan(plan: object) -> bool:
+            pipeline = getattr(request.app.state, "speech_pipeline", None)
+            if pipeline is not None and hasattr(pipeline, "set_wake_plan"):
+                pipeline.set_wake_plan(plan)
+                return True
+            return False
+
+        applied_live = _apply_plan(_resolve_plan())
+
+        if not _wmf.vosk_model_present(wake_lang):
+
+            async def _provision_then_reapply() -> None:
+                try:
+                    landed = await asyncio.to_thread(_wmf.ensure_vosk_model, wake_lang)
+                    if landed is not None:
+                        _apply_plan(_resolve_plan())
+                except Exception as exc:  # noqa: BLE001 — background best-effort
+                    log.debug("%s background provision skipped: %s", log_tag, exc)
+
+            asyncio.create_task(_provision_then_reapply())
+    except Exception as exc:  # noqa: BLE001 — never fail the language save on a live hiccup
+        log.warning("%s wake live-apply skipped: %s", log_tag, exc)
+    return applied_live
+
+
+# ----------------------------------------------------------------------
+# Wake-word language — the language the user SPEAKS their wake word in. An
+# INDEPENDENT setting (maintainer mandate 2026-07-21): it must never follow the
+# app display language ([ui].language) or force the general recognition
+# language ([stt].language). "auto" keeps the legacy cascade (stt -> ui ->
+# default) so untouched installs keep their sensible onboarding default; a
+# concrete code pins the wake model's language for good. Persisted to
+# [trigger.wake_word] language and resolved by resolve_wake_language.
+# ----------------------------------------------------------------------
+
+_WAKE_LANGUAGES: tuple[str, ...] = ("auto", "de", "en", "es", "pt")
+
+
+class WakeLanguageBody(BaseModel):
+    language: str = Field(..., min_length=1)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+@router.get("/wake-language")
+def get_wake_language(request: Request) -> dict[str, object]:
+    from dodaios.speech.wake_model_fetch import resolve_wake_language
+
+    cfg = _config(request)
+    ww = getattr(getattr(cfg, "trigger", None), "wake_word", None)
+    pinned = str(getattr(ww, "language", "auto") or "auto").strip().lower()
+    if pinned not in _WAKE_LANGUAGES:
+        pinned = "auto"
+    return {
+        "language": pinned,
+        # What the runtime actually resolves right now (the cascade result) —
+        # lets a client show the effective language while the pin is "auto".
+        "effective_language": resolve_wake_language(cfg),
+        "options": list(_WAKE_LANGUAGES),
+    }
+
+
+@router.put("/wake-language")
+def put_wake_language(body: WakeLanguageBody, request: Request) -> dict[str, object]:
+    lang = (body.language or "").strip().lower()
+    if lang not in _WAKE_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown wake language {body.language!r} (allowed: {list(_WAKE_LANGUAGES)})",
+        )
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            config_writer.set_wake_language(lang, path=resolve_config_path())
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning("wake-language persist failed: %s", exc)
+
+    # Best-effort in-memory update so the live-apply below (and any later cfg
+    # read) already sees the new pin pre-restart.
+    cfg = _config(request)
+    ww = getattr(getattr(cfg, "trigger", None), "wake_word", None)
+    if ww is not None:
+        try:
+            ww.language = lang
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory wake_word.language update skipped: %s", exc)
+
+    applied_live = _live_apply_wake_plan(request, log_tag="wake-language")
+
+    return {
+        "ok": True,
+        "language": lang,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Wake word (custom-wake-word feature). GET current + options; PUT to switch.
+# Persisted to jarvis.toml [trigger.wake_word] and live-applied when the desktop
+# voice pipeline is running. See docs/local-wakeword/CUSTOM-WAKE-WORD-DESIGN.md.
+# ---------------------------------------------------------------------------
+
+
+class WakeWordBody(BaseModel):
+    # Optional tuning fields default to None (NOT a concrete value): the UI does
+    # not always send them, and a concrete default here would make set_wake_word
+    # write that value on every save, silently clobbering a hand-edited
+    # jarvis.toml (e.g. resetting fuzzy_match_ratio 0.8 -> 0.5). With None, the
+    # PUT handler omits the field and set_wake_word's None-guard preserves the
+    # existing toml value (idempotent round-trip).
+    phrase: str = Field(..., min_length=1, max_length=64)
+    engine: str = Field(default="auto")
+    custom_model_path: str | None = Field(default=None)
+    # READ-COMPAT ONLY, runtime-ignored since 2026-07-10: the user-facing
+    # Sensitivity slider was removed (every wake path now always runs at its
+    # calibrated-reliable maximum-speed value, identically on every OS). The
+    # field stays accepted so an old client / CLI body with a stray
+    # ``sensitivity`` value does not 422 — it is simply dropped, never
+    # persisted, never floored.
+    sensitivity: float | None = Field(default=None, ge=0.0, le=1.0)
+    fuzzy_match_ratio: float | None = Field(default=None, ge=0.5, le=1.0)
+    persist: bool = Field(default=True, description="Persist to jarvis.toml")
+
+
+def _config(request: Request):
+    return getattr(request.app.state, "config", None) or getattr(
+        request.app.state, "cfg", None
+    )
+
+
+def _microphone_service(request: Request):  # noqa: ANN202 - the PermissionGate surface
+    """The permission service: ``app.state.permission_service`` when a test injected one."""
+    injected = getattr(request.app.state, "permission_service", None)
+    if injected is not None:
+        return injected
+    from dodaios.platform.permission_service import get_permission_service
+
+    return get_permission_service()
+
+
+def _microphone_state_value(request: Request) -> str:
+    """The silent microphone state (``PermissionState`` value); never asks, never raises.
+
+    Off macOS there is nothing to ask and the answer is ``"not_required"`` without
+    the service being touched.
+    """
+    if not _is_macos():
+        return "not_required"
+    try:
+        state = _microphone_service(request).check("microphone")
+    except Exception:  # noqa: BLE001 - an unreadable state is "not usable", never a 500
+        log.debug("Reading the microphone permission failed.", exc_info=True)
+        return "unavailable"
+    return str(getattr(state, "value", state))
+
+
+def _local_microphone_capture_ready(request: Request) -> bool:
+    """Silent gate for local microphone diagnostics: True only for a live grant.
+
+    It reads the permission service with ``check`` (never asks, never opens the
+    device); the routes that are a user gesture ask through ``ensure_async`` first.
+    """
+    return _microphone_state_value(request) in ("granted", "not_required")
+
+
+# state -> the reason vocabulary of the permission layer (PERMISSION_NEEDED_REASONS)
+#: Stable codes the wake-word routes return next to their English sentences.
+#: The desktop UI translates each one (``settings_view.wake_word.msg.<code>`` /
+#: ``settings_view.wake_word.hint.<code>``); the parity test
+#: ``tests/unit/ui/test_backend_message_codes.py`` keeps both sides in step.
+WAKE_MESSAGE_CODES: tuple[str, ...] = (
+    "no_phrase",
+    "not_in_vocab",
+    "no_microphone",
+    "mic_quiet",
+    "ready",
+    "activation_not_persisted",
+    "model_ready",
+    "model_download_failed",
+)
+WAKE_HINT_CODES: tuple[str, ...] = (
+    "type_phrase",
+    "download_or_hotkey",
+    "pick_real_word",
+    "connect_mic",
+    "speak_louder",
+    "allow_mic_dialog",
+    "allow_mic_settings",
+)
+
+_MIC_STATE_REASON = {
+    "denied": "denied",
+    "restricted": "restricted",
+    "unavailable": "unavailable",
+}
+
+
+def _microphone_block_fields(
+    request: Request, result: object | None = None
+) -> dict[str, object]:
+    """The permission part of a "microphone is not ready" answer.
+
+    ``permission_required`` / ``permission`` / ``can_open_settings`` are the stable
+    keys; ``message`` is the permission layer's finished sentence and ``hint`` points
+    at the one System Settings pane. ``result`` is the ``EnsureResult`` of a gesture
+    route; a silent GET passes none and the sentence is built from the state alone.
+    """
+    from dodaios.platform.permission_service import user_detail_for
+    from dodaios.platform.permissions import SETTINGS_PATH_TEXT, PermissionId
+
+    path = SETTINGS_PATH_TEXT[PermissionId.MICROPHONE]
+    if result is not None:
+        reason = str(getattr(result, "reason", "") or "not_determined")
+        message = str(getattr(result, "user_detail", "") or "")
+        can_open = bool(getattr(result, "can_open_settings", False))
+    else:
+        reason = _MIC_STATE_REASON.get(_microphone_state_value(request), "not_determined")
+        message = ""
+        can_open = reason not in ("restricted", "unavailable")
+    if not message:
+        message = user_detail_for(PermissionId.MICROPHONE, reason)
+    if reason in ("restricted", "unavailable"):
+        hint, hint_code = "", ""
+    elif reason == "not_determined":
+        # An app that has never asked is not listed in that pane yet: the test
+        # button is what makes macOS show its dialog, so point there first.
+        hint = "Press the test button and choose Allow in the macOS dialog."
+        hint_code = "allow_mic_dialog"
+    else:
+        hint = f"Allow Microphone access in {path}, then retry."
+        hint_code = "allow_mic_settings"
+    return {
+        "permission_required": True,
+        "permission": "microphone",
+        "can_open_settings": can_open,
+        "message": message,
+        "hint": hint,
+        # Translatable hint (``WAKE_HINT_CODES``); ``path`` fills the settings
+        # pane name. ``message`` is the permission layer's own sentence.
+        "hint_code": hint_code,
+        "message_params": {"path": str(path)},
+    }
+
+
+def _blocked_mic_level_result(
+    request: Request, result: object | None = None
+) -> dict[str, object]:
+    return {
+        "max_dbfs": -120.0,
+        "no_device": False,
+        "too_quiet": False,
+        **_microphone_block_fields(request, result),
+    }
+
+
+def _local_whisper_available() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("faster_whisper") is not None
+
+
+def _local_wake_model_name() -> str:
+    """Configured faster-whisper wake checkpoint, with the packaged default."""
+    try:
+        from dodaios.core.config import load_config
+
+        cfg = load_config()
+        name = str(getattr(getattr(cfg, "stt", None), "wake_model", "base") or "base")
+        return name.strip() or "base"
+    except Exception:  # noqa: BLE001 — recovery install must keep a safe default
+        return "base"
+
+
+def _local_wake_model_cached(name: str) -> bool:
+    """Read-only cache probe; never downloads while a status route is polling."""
+    try:
+        from dodaios.setup.model_report import _whisper_cached
+
+        return bool(_whisper_cached(name))
+    except Exception:  # noqa: BLE001 — an uncertain cache is not ready
+        return False
+
+
+def _download_local_wake_model(name: str) -> None:
+    """Download the same checkpoint and cache layout the main installer uses."""
+    from dodaios.setup.prefetch import _download_whisper_model
+
+    _download_whisper_model(name)
+
+
+def _local_speech_ready() -> bool:
+    """True only when both the engine package and its wake model are usable."""
+    return _local_whisper_available() and _local_wake_model_cached(
+        _local_wake_model_name()
+    )
+
+
+# --- Local-speech (any-phrase wake) opt-in install --------------------------
+# ``faster-whisper`` powers the ``stt_match`` wake path — the ONLY local way to
+# detect an arbitrary, user-invented wake phrase. It is a torch-FREE opt-in
+# package (ctranslate2 CPU wheels, cross-platform) that the cloud-first base
+# install deliberately omits (AGENTS.md §3). Historically it was dropped from
+# every extra (2026-05-18, "Groq Whisper API is the new default"), so a fresh
+# install could not use a custom wake word at all and silently degraded to the
+# bundled "Hey Rhasspy" model. This endpoint pulls the package from INSIDE the
+# app and downloads its configured wake checkpoint so any wake word works
+# everywhere without dropping to a shell — the §3 "recoverable in-app"
+# contract. The spec is pinned to the [local-voice] extra in pyproject.toml so
+# the two never drift.
+# Aliased, not re-typed: the local-provider catalog owns this string next to the
+# models it powers, so the wake-word install and the voice-input install can
+# never end up asking pip for two different engines.
+_LOCAL_SPEECH_PACKAGE = FASTER_WHISPER_PACKAGE
+
+_local_speech_install_lock = threading.Lock()
+# state ∈ {"idle", "running", "done", "error"}; message is the last pip detail.
+_local_speech_install: dict[str, str] = {"state": "idle", "message": ""}
+
+
+def _run_local_speech_install() -> None:
+    """Install the engine and wake checkpoint on a daemon worker thread."""
+    import importlib
+
+    from dodaios.setup.dependencies import install_pip_package
+
+    # only_binary: this runs on an END USER's machine — pip must never fall
+    # back to a source build (av needs FFmpeg dev libs, ctranslate2 a
+    # toolchain). No wheel for this Python/OS → fail fast with the honest
+    # classify_pip_failure diagnosis instead (BUG-059).
+    if _local_whisper_available():
+        ok, message = True, "Local speech engine already installed."
+    else:
+        ok, message = install_pip_package(_LOCAL_SPEECH_PACKAGE, only_binary=True)
+    # Let this same process's find_spec see the freshly-installed package. Once
+    # its model is cached, the status endpoint reapplies the wake plan live when
+    # a desktop speech pipeline is present.
+    importlib.invalidate_caches()
+    if ok:
+        model_name = _local_wake_model_name()
+        try:
+            _download_local_wake_model(model_name)
+            message = f"Local speech engine and wake model '{model_name}' are ready."
+        except Exception as exc:  # noqa: BLE001 — surface an honest retry state
+            ok = False
+            message = f"Could not download wake model '{model_name}': {exc}"
+    with _local_speech_install_lock:
+        _local_speech_install["state"] = "done" if ok else "error"
+        _local_speech_install["message"] = message
+    log.info("local-speech install finished: ok=%s msg=%s", ok, message[:200])
+
+
+@router.post("/wake-word/enable-local-speech")
+def enable_local_speech(request: Request) -> dict[str, object]:
+    """Install faster-whisper plus its wake model so any wake word works.
+
+    Idempotent and non-blocking: returns immediately with a ``state`` the UI
+    polls via the status endpoint. A second call while a run is in flight does
+    not start a duplicate install.
+    """
+    if _local_speech_ready():
+        return {
+            "state": "done",
+            "already": True,
+            "available": True,
+            "message": "Local speech pack already installed.",
+        }
+    with _local_speech_install_lock:
+        if _local_speech_install["state"] == "running":
+            return {
+                "state": "running",
+                "available": False,
+                "message": _local_speech_install["message"],
+            }
+        _local_speech_install["state"] = "running"
+        _local_speech_install["message"] = f"Installing {_LOCAL_SPEECH_PACKAGE}"
+    threading.Thread(
+        target=_run_local_speech_install,
+        name="local-speech-install",
+        daemon=True,
+    ).start()
+    return {"state": "running", "available": False, "message": "Install started."}
+
+
+@router.get("/wake-word/enable-local-speech/status")
+def enable_local_speech_status(request: Request) -> dict[str, object]:
+    """Report the local-speech install progress + whether the pack is present."""
+    available = _local_speech_ready()
+    with _local_speech_install_lock:
+        state = _local_speech_install["state"]
+        message = _local_speech_install["message"]
+    # Ready but this process never ran the installer (e.g. installed manually,
+    # or by a prior app run) → report done so the UI is truthful.
+    if available and state in ("idle", "running"):
+        state = "done"
+    elif state == "done" and not available:
+        # A successful downloader exit is not enough if the cache cannot be
+        # opened afterwards. Keep the UI in a retryable, honest state.
+        state = "error"
+        message = "The local speech install finished, but its wake model is not readable."
+    applied_live = False
+    if available:
+        try:
+            from dodaios.speech.wake_model_fetch import resolve_wake_language
+            from dodaios.speech.wake_phrase import resolve_wake_plan
+
+            cfg = _config(request)
+            pipeline = getattr(request.app.state, "speech_pipeline", None)
+            if (
+                cfg is not None
+                and getattr(getattr(cfg, "trigger", None), "wake_word", None) is not None
+                and pipeline is not None
+                and hasattr(pipeline, "set_wake_plan")
+            ):
+                plan = resolve_wake_plan(
+                    cfg.trigger.wake_word,
+                    local_whisper_available=True,
+                    language=resolve_wake_language(cfg),
+                )
+                pipeline.set_wake_plan(plan)
+                applied_live = True
+        except Exception as exc:  # noqa: BLE001 — install status must never 500
+            log.warning("local-speech wake live-apply skipped: %s", exc)
+    return {
+        "state": state,
+        "message": message,
+        "available": available,
+        "applied_live": applied_live,
+        "restart_required": available and not applied_live,
+    }
+
+
+@router.get("/wake-word")
+def get_wake_word(request: Request) -> dict[str, object]:
+    from dodaios.core.config import WakeWordConfig
+    from dodaios.speech.wake_constants import INSTANT_WAKE_PHRASES, WAKE_ENGINES
+
+    cfg = _config(request)
+    ww = None
+    enabled = False
+    if cfg is not None and getattr(cfg, "trigger", None) is not None:
+        ww = getattr(cfg.trigger, "wake_word", None)
+        enabled = bool(getattr(cfg.trigger, "wake_word_enabled", False))
+    if ww is None:
+        ww = WakeWordConfig()
+    return {
+        "phrase": ww.phrase,
+        "engine": ww.engine,
+        "custom_model_path": ww.custom_model_path,
+        "fuzzy_match_ratio": ww.fuzzy_match_ratio,
+        # The independent wake-word language pin ("auto" = legacy cascade).
+        "language": str(getattr(ww, "language", "auto") or "auto"),
+        "engines": list(WAKE_ENGINES),
+        "instant_phrases": list(INSTANT_WAKE_PHRASES),
+        "local_whisper_available": _local_whisper_available(),
+        # The activation master switch: True = always-on wake word (needs a local
+        # model), False = Call shortcut only.
+        "enabled": enabled,
+    }
+
+
+@router.put("/wake-word")
+async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, object]:
+    from types import SimpleNamespace
+
+    from dodaios.speech.wake_constants import WAKE_ENGINES
+    from dodaios.speech.wake_phrase import resolve_wake_plan
+
+    engine = body.engine.strip().lower()
+    if engine not in WAKE_ENGINES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown wake engine '{body.engine}'. Allowed: {', '.join(WAKE_ENGINES)}.",
+        )
+
+    # Sensitivity is read-compat only (2026-07-10): accept it so an old
+    # client/CLI body does not 422, but never persist or floor it — every
+    # wake path always runs at its calibrated-reliable maximum-speed value.
+    if body.sensitivity is not None:
+        log.debug(
+            "wake-word PUT carried a legacy 'sensitivity' value (%s) — ignored.",
+            body.sensitivity,
+        )
+
+    # Preview the resolved plan so the UI can tell the user immediately whether
+    # the chosen phrase will work as-is or degrade (e.g. no local Whisper).
+    # Use the SAME concrete language resolver the runtime wake plan and the model
+    # download use (wake_word.language pin → stt.language → ui.language →
+    # default), never raw "auto" — a Vosk model is acoustically
+    # language-specific, so selection and provisioning must agree on the language.
+    from dodaios.speech.wake_model_fetch import resolve_wake_language
+
+    _cfg_for_lang = _config(request)
+    _wake_lang = resolve_wake_language(_cfg_for_lang)
+    plan = resolve_wake_plan(
+        SimpleNamespace(
+            phrase=body.phrase,
+            engine=engine,
+            custom_model_path=body.custom_model_path,
+            fuzzy_match_ratio=body.fuzzy_match_ratio,
+        ),
+        local_whisper_available=_local_whisper_available(),
+        language=_wake_lang,
+    )
+
+    # Best-effort in-memory cfg update so a later cfg read agrees pre-restart.
+    # Only the fields the client actually sent (non-None) are applied, mirroring
+    # the persistence path — an omitted optional field keeps its existing value.
+    cfg = _config(request)
+    if cfg is not None and getattr(cfg, "trigger", None) is not None:
+        ww = getattr(cfg.trigger, "wake_word", None)
+        updates: dict[str, object] = {"phrase": body.phrase, "engine": engine}
+        if body.custom_model_path is not None:
+            updates["custom_model_path"] = body.custom_model_path
+        if body.fuzzy_match_ratio is not None:
+            updates["fuzzy_match_ratio"] = body.fuzzy_match_ratio
+        for key, value in updates.items():
+            try:
+                setattr(ww, key, value)
+            except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+                log.debug("in-memory wake_word.%s update skipped: %s", key, exc)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+
+            config_writer.set_wake_word(
+                body.phrase,
+                engine=engine,
+                custom_model_path=body.custom_model_path,
+                fuzzy_match_ratio=body.fuzzy_match_ratio,
+            )
+            persisted = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("wake-word persist failed: %s", exc)
+
+    # Live-apply to the running voice pipeline so the new wake word works
+    # immediately — no app restart. This is the fix for "only Hey Jarvis works":
+    # the wake model/matcher were previously wired once at startup, so a UI save
+    # only took effect on the next boot. Best-effort: a headless/down pipeline
+    # just means it applies on next start.
+    applied_live = False
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    if pipeline is not None and hasattr(pipeline, "set_wake_plan"):
+        try:
+            pipeline.set_wake_plan(plan)
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001 — never fail the save on a live-apply hiccup
+            log.warning("wake-word live-apply failed (persisted; applies on restart): %s", exc)
+
+    # Out-of-vocabulary check AT SAVE TIME. The probe already existed but its
+    # only caller was the self-test button, so a user whose phrase is missing
+    # from the model's lexicon had a wake that can NEVER fire and found out by
+    # chance. Reported, never enforced: the probe fails open, the union of
+    # installed models may still hear the phrase, and blocking a save on a
+    # lexicon guess is exactly the AP-27 trap (a spelling rule deciding whether
+    # a wake word is allowed to exist).
+    phrase_in_vocab: bool | None = None
+    if plan.engine == "vosk_kws":
+        try:
+            from dodaios.speech.wake_constants import resolve_vosk_model_path
+
+            model_path = resolve_vosk_model_path(_wake_lang)
+            if model_path:
+                from dodaios.plugins.wake.vosk_kws_provider import (
+                    vosk_model_supports_phrase,
+                )
+
+                phrase_in_vocab = await asyncio.to_thread(
+                    vosk_model_supports_phrase, model_path, body.phrase
+                )
+                if phrase_in_vocab is False:
+                    log.info(
+                        "wake-word saved but %r is not in the %s model's "
+                        "vocabulary — that phrase cannot fire on this engine.",
+                        body.phrase,
+                        _wake_lang,
+                    )
+        except Exception:  # noqa: BLE001 — a probe hiccup must never fail a save
+            phrase_in_vocab = None
+
+    return {
+        "ok": True,
+        "phrase": body.phrase,
+        "engine": engine,
+        "resolved_engine": plan.engine,
+        "degraded": plan.degraded,
+        # False when no local model matches the user's word: the wake word is off
+        # and the Call shortcut is the activation.
+        "wake_available": plan.wake_available,
+        # None = not applicable / not probed. False is a WARNING, not a
+        # rejection: the phrase saved, but this engine's lexicon has no entry
+        # for it, so the UI should say so instead of leaving the user guessing.
+        "phrase_in_vocab": phrase_in_vocab,
+        "message": plan.message,
+        # Stable code + fill-in values for ``message`` so the UI can show it in
+        # the user's language (``WAKE_PLAN_MESSAGE_CODES``); ``message`` stays.
+        "message_code": plan.message_code,
+        "message_params": dict(plan.message_params),
+        "persisted": persisted,
+        # When live-applied, the running pipeline already swapped the detector;
+        # no restart needed. Otherwise it takes effect on the next voice start.
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+    }
+
+
+class WakeActivationBody(BaseModel):
+    enabled: bool
+
+
+def _ask_microphone_for_wake_switch(request: Request, *, enabled: bool) -> dict[str, object]:
+    """The wake switch's permission answer: ``{outcome, reason, can_open_settings}``.
+
+    Only switching ON asks (and only on macOS); switching off, and every other OS,
+    answers ``not_required`` without touching the permission layer. Never raises.
+    """
+    answer: dict[str, object] = {
+        "outcome": "not_required",
+        "reason": "",
+        "can_open_settings": False,
+    }
+    if not enabled or not _is_macos():
+        return answer
+    try:
+        result = _microphone_service(request).ensure(
+            "microphone", feature="wake_word", interactive=True, wait_s=0.0
+        )
+    except Exception:  # noqa: BLE001 - the switch itself must still be saved
+        log.debug("Asking for the microphone from the wake switch failed.", exc_info=True)
+        return {"outcome": "unavailable", "reason": "unavailable", "can_open_settings": False}
+    return {
+        "outcome": str(getattr(result.outcome, "value", result.outcome)),
+        "reason": str(result.reason or ""),
+        "can_open_settings": bool(result.can_open_settings),
+    }
+
+
+@router.post("/wake-word/activation")
+def set_wake_activation(body: WakeActivationBody, request: Request) -> dict[str, object]:
+    """Turn the always-on wake word ON/OFF — the "how do you activate the assistant"
+    master switch (product rule 2026-07-04).
+
+    ``True`` = always-on wake word, which REQUIRES a local model matching the
+    user's own word (see ``resolve_wake_plan``); ``False`` = Call shortcut only.
+    This was previously settable only by hand-editing jarvis.toml (default
+    False), so a fresh downloader could never enable their wake word in-app.
+
+    Persisted to ``[trigger] wake_word_enabled`` and applied to the running voice
+    pipeline when available. Headless/voice-disabled processes keep the setting
+    for their next voice start.
+
+    Switching ON is the user's gesture, so on macOS it is the just-in-time moment
+    for the microphone: the response gains ``permission`` (``{outcome, reason,
+    can_open_settings}``). The switch is saved and applied either way; without a
+    grant the wake loop waits (nothing is heard until it is allowed); a refused
+    permission reaches the app as one toast through ``PermissionNeeded``, and the
+    answer here is for callers that read it (the CLI, agents). Every existing key
+    is kept.
+    """
+    # The ask comes FIRST so the OS dialog appears while the rest of the route
+    # works. This handler is a plain ``def`` (a worker thread), so the blocking
+    # ``ensure`` with ``wait_s=0`` is the right form: it never waits for the answer.
+    permission = _ask_microphone_for_wake_switch(request, enabled=bool(body.enabled))
+    # Persisting is BEST-EFFORT, exactly like every other settings writer here
+    # (put_ui_language, put_wake_word, put_appearance, ...). This route used to
+    # raise a 500 instead, and that one inconsistency locked first-time users
+    # out of the app: this is the only write onboarding step 04/05 cannot avoid
+    # — all three of its paths (save a word, continue degraded, use the Call
+    # shortcut) call it — the step has no Skip, and the guide covers the whole
+    # window. An unwritable jarvis.toml (not UTF-8, broken TOML, locked file)
+    # therefore ended first run at "HTTP 500" with no way forward (BUG-209).
+    # The failure is REPORTED, never swallowed: `persisted` and `message` carry
+    # it so the UI can say the setting will not survive a restart.
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_wake_word_enabled(bool(body.enabled))
+        persisted = True
+    except Exception:  # noqa: BLE001 — best-effort, reported not raised
+        # The traceback stays in the log; the client gets a stable sentence.
+        log.warning("wake activation persist failed", exc_info=True)
+    # Best-effort in-memory update so a later cfg read agrees pre-restart.
+    cfg = _config(request)
+    if cfg is not None and getattr(cfg, "trigger", None) is not None:
+        try:
+            cfg.trigger.wake_word_enabled = bool(body.enabled)
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory wake_word_enabled update skipped: %s", exc)
+    applied_live = False
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    if pipeline is not None and hasattr(pipeline, "set_wake_activation"):
+        try:
+            pipeline.set_wake_activation(bool(body.enabled))
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001 — persistence already succeeded
+            log.warning("wake activation live-apply failed: %s", exc)
+    return {
+        "ok": True,
+        "enabled": bool(body.enabled),
+        "applied_live": applied_live,
+        # A live-applied switch works right now even when the file write failed;
+        # it just will not survive the next start. Both facts are reported.
+        "restart_required": not applied_live,
+        "persisted": persisted,
+        "message": (
+            ""
+            if persisted
+            else f"The setting could not be saved to jarvis.toml. {LOG_HINT}"
+        ),
+        "message_code": "" if persisted else "activation_not_persisted",
+        "permission": permission,
+    }
+
+
+@router.post("/wake-word/download-model")
+async def download_wake_model(request: Request) -> dict[str, object]:
+    """Provision (or repair) the per-language Vosk wake model in-app.
+
+    Recoverable-in-app contract (AGENTS.md §3): a user whose Vosk model is
+    absent/dead gets a working reliable wake engine without editing jarvis.toml.
+    Never 500s on a fetch failure — returns a clear message and the runtime lazy
+    net (``_heavy_backend_bg``'s one-shot provision) remains the backstop.
+    """
+    from dodaios.speech import wake_model_fetch as wmf
+
+    cfg = _config(request)
+    language = wmf.resolve_wake_language(cfg)
+    out = await asyncio.to_thread(wmf.ensure_vosk_model, language)
+    present = wmf.vosk_model_present(language)
+    return {
+        "ok": out is not None,
+        "present": present,
+        "message": (
+            "Wake model ready." if present
+            else "Could not download the wake model right now; it will retry "
+                 "automatically. The wake word uses the fallback path until then."
+        ),
+        "message_code": "model_ready" if present else "model_download_failed",
+    }
+
+
+@router.post("/wake-word/self-test")
+async def wake_word_self_test(request: Request) -> dict[str, object]:
+    """Readiness check for the configured wake word — the "Test wake word" button.
+
+    Answers, honestly and without a second mic stream (which would fight the
+    running pipeline), the three questions that decide whether a spoken wake will
+    actually fire: (1) is the right-LANGUAGE local model armed, (2) is the word in
+    that model's vocabulary (the silent out-of-vocabulary drop, live 'Hey
+    Billionar'), and (3) is the mic delivering signal. Each is a reused building
+    block (``resolve_wake_plan`` preview, ``vosk_model_supports_phrase``,
+    ``measure_mic_dbfs``), so this route can never disagree with the runtime.
+    Never 500s. A green result plus a language-matched model is a real guarantee
+    the word will wake — the acoustic mismatch that a wrong-language model causes
+    is exactly what (1) surfaces.
+    """
+    from dodaios.audio.capture import MicrophoneAccessError
+    from dodaios.speech.diagnose import measure_mic_dbfs
+    from dodaios.speech.wake_constants import resolve_vosk_model_path
+    from dodaios.speech.wake_model_fetch import resolve_wake_language
+    from dodaios.speech.wake_phrase import resolve_wake_plan
+
+    cfg = _config(request)
+    ww = getattr(cfg.trigger, "wake_word", None)
+    phrase = str(getattr(ww, "phrase", "") or "").strip()
+    language = resolve_wake_language(cfg)
+    plan = resolve_wake_plan(
+        ww,
+        local_whisper_available=_local_whisper_available(),
+        language=language,
+    )
+
+    def _blocked(
+        phrase_in_vocab: bool | None, request_result: object | None = None
+    ) -> dict[str, object]:
+        return {
+            "ok": False,
+            "phrase": phrase,
+            "engine": plan.engine,
+            "language": language,
+            "wake_available": bool(plan.wake_available),
+            "degraded": bool(plan.degraded),
+            "phrase_in_vocab": phrase_in_vocab,
+            "max_dbfs": -120.0,
+            "mic_ok": False,
+            "no_device": False,
+            **_microphone_block_fields(request, request_result),
+        }
+
+    # The test button is the just-in-time moment for the microphone: a first press
+    # on an undecided Mac raises the OS dialog and waits for the answer (up to a
+    # minute) without pinning a worker thread. Only a live grant measures anything.
+    if _is_macos():
+        asked = await _microphone_service(request).ensure_async(
+            "microphone", feature="wake_word", interactive=True, wait_s=60.0
+        )
+        if not asked.granted:
+            return _blocked(None, asked)
+
+    # Vocabulary check only makes sense for the grammar (vosk_kws) engine.
+    phrase_in_vocab: bool | None = None
+    if plan.engine == "vosk_kws":
+        model_path = resolve_vosk_model_path(language)
+        if model_path:
+            try:
+                from dodaios.plugins.wake.vosk_kws_provider import (
+                    vosk_model_supports_phrase,
+                )
+
+                phrase_in_vocab = await asyncio.to_thread(
+                    vosk_model_supports_phrase, model_path, phrase
+                )
+            except Exception:  # noqa: BLE001 — never fail the check on a probe hiccup
+                phrase_in_vocab = None
+
+    try:
+        max_dbfs = await measure_mic_dbfs(duration_s=2.0)
+    except MicrophoneAccessError as exc:
+        # The grant was lost between the ask and the capture: a permission answer,
+        # not "no microphone".
+        return _blocked(phrase_in_vocab, getattr(exc, "result", None))
+    except Exception:  # noqa: BLE001 — treat a failed measurement as no device
+        max_dbfs = -120.0
+    if not _local_microphone_capture_ready(request):
+        return _blocked(phrase_in_vocab)
+    mic_ok = max_dbfs > -40.0
+    no_device = max_dbfs <= -119.9
+
+    # Human-readable verdict + the single most useful next step.
+    ok = bool(plan.wake_available) and phrase_in_vocab is not False and mic_ok
+    # ``message_code`` / ``hint_code`` (+ ``message_params``) are the stable
+    # keys the desktop UI translates (``WAKE_SELF_TEST_CODES``); the English
+    # ``message`` / ``hint`` stay for the CLI and API callers.
+    message_params: dict[str, str] = {
+        "phrase": phrase, "engine": str(plan.engine), "language": str(language)
+    }
+    if not phrase:
+        message, hint = "No wake word set.", "Type a wake phrase first."
+        message_code, hint_code = "no_phrase", "type_phrase"
+    elif not plan.wake_available:
+        message, hint = plan.message, "Download the local model or use the hotkey."
+        message_code, hint_code = plan.message_code, "download_or_hotkey"
+        message_params = {**message_params, **dict(plan.message_params)}
+    elif phrase_in_vocab is False:
+        message = f"'{phrase}' is not in the {language} model's vocabulary."
+        hint = "Pick a real word of your language, or use a different phrase."
+        message_code, hint_code = "not_in_vocab", "pick_real_word"
+    elif no_device:
+        message, hint = "No microphone detected.", "Connect/enable a mic."
+        message_code, hint_code = "no_microphone", "connect_mic"
+    elif not mic_ok:
+        message, hint = "Mic signal is very quiet.", "Speak louder or raise input gain."
+        message_code, hint_code = "mic_quiet", "speak_louder"
+    else:
+        message = (
+            f"Ready: '{phrase}' on engine '{plan.engine}' "
+            f"(language '{language}'). Say it to wake."
+        )
+        hint = ""
+        message_code, hint_code = "ready", ""
+
+    return {
+        "ok": ok,
+        "phrase": phrase,
+        "engine": plan.engine,
+        "language": language,
+        "wake_available": bool(plan.wake_available),
+        "degraded": bool(plan.degraded),
+        "phrase_in_vocab": phrase_in_vocab,
+        "max_dbfs": max_dbfs,
+        "mic_ok": mic_ok,
+        "no_device": no_device,
+        "permission_required": False,
+        "message": message,
+        "hint": hint,
+        "message_code": message_code,
+        "message_params": message_params,
+        "hint_code": hint_code,
+    }
+
+
+@router.get("/wake-word/mic-level")
+async def wake_mic_level(request: Request) -> dict[str, object]:
+    """Live mic dBFS for the onboarding wake step (Task 7: mic + spoken-word
+    verification before ``acknowledgeWakeWord``). Never 500s — a headless/no-mic
+    host reports ``no_device=True`` rather than raising. Warn threshold −40 dBFS
+    matches ``dodaios.speech.diagnose`` (same measurement helper, so the CLI
+    diagnostics and this route can never disagree on what "too quiet" means).
+    """
+    from dodaios.audio.capture import MicrophoneAccessError
+    from dodaios.speech.diagnose import measure_mic_dbfs
+
+    # A GET never asks: it reads the state silently and reports "permission
+    # required" until the gesture routes (the wake switch, the self-test button)
+    # have got the microphone granted.
+    if not _local_microphone_capture_ready(request):
+        return _blocked_mic_level_result(request)
+    try:
+        max_dbfs = await measure_mic_dbfs(duration_s=3.0)
+    except MicrophoneAccessError as exc:  # a lost grant is a permission answer, not an error
+        return _blocked_mic_level_result(request, getattr(exc, "result", None))
+    except Exception:  # noqa: BLE001 — defensive guard: if measurement fails, treat as no device
+        max_dbfs = -120.0
+    if not _local_microphone_capture_ready(request):
+        return _blocked_mic_level_result(request)
+    return {
+        "max_dbfs": max_dbfs,
+        "no_device": max_dbfs <= -119.9,
+        "too_quiet": -119.9 < max_dbfs < -40.0,
+        "permission_required": False,
+    }
+
+
+# Curated safe combos for the voice-keybind UI quick-picks. Every entry passes
+# ``validate_hotkey`` on win32, darwin AND linux, and avoids the OS-critical
+# chords. ``f3+f4`` used to be in this list and was removed: it is the shipped
+# Call combo, so it collided with an existing binding every single time and the
+# quick-pick could never be saved.
+_KEYBIND_SUGGESTIONS = [
+    "ctrl+right_alt+j",
+    "ctrl+right_alt+k",
+    "ctrl+right_alt+space",
+    "ctrl+shift+space",
+    "ctrl+shift+d",
+    "ctrl+shift+j",
+    "ctrl+alt+d",
+]
+
+
+def _available_suggestions(bound: dict[str, str]) -> list[str]:
+    """Quick-picks minus everything that would be rejected on save.
+
+    The collision rule lives in ONE place —
+    ``dodaios.trigger.hotkey.combos_collide`` — and this list must be filtered
+    by exactly that function, never by a hand-rolled token comparison. A raw
+    token comparison here would leave a quick-pick in the list that the save
+    route then refuses (``ctrl+left_alt+…`` and ``ctrl+right_alt+…`` are the
+    same registration), which is a guaranteed 400 the moment the user clicks
+    it. The server owns the rule, so the server owns the list.
+    """
+    from dodaios.trigger.hotkey import combos_collide
+
+    taken = [c for c in bound.values() if c and c.strip()]
+    return [
+        suggestion
+        for suggestion in _KEYBIND_SUGGESTIONS
+        if not any(combos_collide(suggestion, other) for other in taken)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Voice keybinds (editable): every action in config_writer.KEYBIND_ACTIONS —
+# Call, Hangup, push-to-talk dictation and hands-free dictation. GET returns all
+# of them plus their defaults; PUT changes one action at a time. The action list
+# is never restated here; it is read from KEYBIND_ACTIONS / KEYBIND_TOML_KEY so
+# a new action reaches this route, the CLI and the UI in one edit.
+# Persisted to jarvis.toml [trigger] AND live-applied
+# to the running voice pipeline (set_keybinds → HotkeyTrigger.rearm), so a
+# change takes effect immediately without a restart; a headless/down pipeline
+# falls back to "applies on next start".
+# ---------------------------------------------------------------------------
+
+
+def _keybind_values(trig: object) -> dict[str, str]:
+    """Current combo per action, falling back to TriggerConfig defaults."""
+    from dodaios.core.config import TriggerConfig
+    from dodaios.core.config_writer import KEYBIND_TOML_KEY
+
+    d = TriggerConfig()
+    out: dict[str, str] = {}
+    for action, field in KEYBIND_TOML_KEY.items():
+        default = getattr(d, field)
+        out[action] = str(getattr(trig, field, default)) if trig is not None else default
+    return out
+
+
+class KeybindBody(BaseModel):
+    action: str = Field(
+        ...,
+        description="One of config_writer.KEYBIND_ACTIONS "
+        "(call | hangup | dictate | dictate_toggle)",
+    )
+    hotkey: str = Field(..., max_length=64)
+    persist: bool = Field(default=True, description="Persist to jarvis.toml")
+
+
+@router.get("/keybinds")
+def get_keybinds(request: Request) -> dict[str, object]:
+    from dodaios.core.config import TriggerConfig
+    from dodaios.core.config_writer import KEYBIND_TOML_KEY
+    from dodaios.trigger.hotkey import mouse_hotkeys_available, mouse_hotkeys_reason_code
+
+    cfg = _config(request)
+    trig = getattr(cfg, "trigger", None) if cfg is not None else None
+    d = TriggerConfig()
+    # A change only needs a restart when there is no live pipeline to re-arm
+    # (headless / not yet started). With a running pipeline, saves apply live.
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    restart_required = pipeline is None or not hasattr(pipeline, "set_keybinds")
+    current = _keybind_values(trig)
+    # Can THIS host fire a mouse-button shortcut at all? Asked of the one
+    # capability probe, never of a platform name (AP-21/AP-23): it is false on
+    # Wayland, on macOS without pyobjc Quartz and on Linux without the opt-in
+    # pynput extra. Without this field the picker offered mouse buttons
+    # everywhere and they silently never fired on those hosts; with it the UI
+    # hides the cluster and prints the probe's own English sentence.
+    mouse_ok, mouse_reason = mouse_hotkeys_available()
+    return {
+        "keybinds": current,
+        # DERIVED, never a hand-written dict. A literal map here is the AP-4
+        # trap in its purest form: a new action lands in KEYBIND_ACTIONS, the
+        # UI renders its row, and the row's "reset to default" reads undefined
+        # because one of the four layers was never told.
+        "defaults": {
+            action: str(getattr(d, field, "")) for action, field in KEYBIND_TOML_KEY.items()
+        },
+        "suggestions": _available_suggestions(current),
+        "mouse_buttons": {
+            "supported": mouse_ok,
+            "reason": mouse_reason,
+            # Stable code for ``reason`` (``MOUSE_HOTKEY_REASONS``) so the UI
+            # shows it in the user's language; ``reason`` stays English.
+            "reason_code": mouse_hotkeys_reason_code(mouse_reason),
+        },
+        "restart_required": restart_required,
+    }
+
+
+@router.get("/keybinds/held")
+def get_keybind_held(request: Request) -> dict[str, object]:
+    """Live modifier keys currently held, for the in-app recorder.
+
+    ``available`` is the capability probe: False on hosts that cannot read
+    modifier state (Wayland, headless, missing Quartz). The recorder then
+    keeps using DOM events and the on-screen picker instead of hanging.
+    """
+    from dodaios.trigger.hotkey import modifier_snapshot
+
+    backend_held: set[str] | None = None
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    trigger = getattr(pipeline, "_hotkey_trigger", None) if pipeline is not None else None
+    probe = getattr(trigger, "held_tokens", None) if trigger is not None else None
+    if callable(probe):
+        try:
+            raw = probe()
+        except Exception:  # noqa: BLE001 — a failed probe is "unknown"
+            log.debug("held_tokens() failed", exc_info=True)
+            raw = None
+        if raw is not None:
+            backend_held = set(raw)
+
+    tokens, reason = modifier_snapshot(backend_held=backend_held)
+    return {
+        "available": tokens is not None,
+        "tokens": sorted(tokens) if tokens is not None else [],
+        "reason": reason,
+    }
+
+
+def _ask_input_monitoring_for_saved_shortcut(
+    request: Request, *, hotkey: str, changed: bool = True
+) -> None:
+    """Ask macOS for Input Monitoring because the user just SAVED a global shortcut.
+
+    A global shortcut is a background listener: nothing the user does at the moment
+    they press it could carry a system dialog, so the save is the one gesture that
+    can. macOS only, only for a combo that is actually bound (clearing a shortcut is
+    a no-op for the OS), only when the save CHANGED the combo (re-saving the value
+    already in force is not a new gesture and must not re-open an episode, so a
+    denied permission is not announced again by an identical save), and only while
+    the key tap is not already listening. ``wait_s=0`` returns at once: the route
+    never waits for the dialog, and the outcome reaches the app as
+    ``PermissionNeeded`` / ``PermissionResolved`` (the hotkey trigger re-arms itself
+    on the grant). Never raises and never asks at launch: the save is the only
+    caller.
+
+    Any caller that passes the route's auth counts as the user's gesture, the same
+    as the wake-word activation route: the request is bounded (one ask per episode,
+    never ``allow_outside_app``) and the dialog is macOS's own.
+    """
+    if not hotkey or not changed or not _is_macos():
+        return
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    trigger = getattr(pipeline, "_hotkey_trigger", None) if pipeline is not None else None
+    probe = getattr(trigger, "listening", None)
+    if callable(probe):
+        try:
+            if probe() is True:
+                return  # the tap is up: Input Monitoring is already working
+        except Exception:  # noqa: BLE001 - a failed probe reads "unknown", not "listening"
+            log.debug("The shortcut tap liveness probe failed.", exc_info=True)
+    try:
+        _microphone_service(request).ensure(
+            "input_monitoring", feature="global_shortcuts", interactive=True, wait_s=0.0
+        )
+    except Exception:  # noqa: BLE001 - the shortcut itself is saved either way
+        log.debug("Asking for Input Monitoring after a shortcut save failed.", exc_info=True)
+
+
+@router.put("/keybinds")
+def put_keybind(body: KeybindBody, request: Request) -> dict[str, object]:
+    from dodaios.core.config_writer import KEYBIND_ACTIONS, KEYBIND_TOML_KEY
+    from dodaios.trigger.hotkey import (
+        MOUSE_BUTTON_TOKENS,
+        combos_collide,
+        mouse_hotkeys_available,
+        normalized_combo_tokens,
+        validate_hotkey,
+    )
+
+    action = body.action.strip().lower()
+    if action not in KEYBIND_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"unknown action: {action}")
+    hotkey = body.hotkey.strip().lower()
+
+    cfg = _config(request)
+    trig = getattr(cfg, "trigger", None) if cfg is not None else None
+
+    # Everything the save accepts but the user should still know about. Sent
+    # back with the response so the UI can show it without a second request.
+    cautions: list[str] = []
+
+    if hotkey:
+        # The backend is the authority — a browser key-capture cannot be
+        # trusted to filter OS-critical / unusable combos (AltGr detection is
+        # unreliable there).
+        verdict = validate_hotkey(hotkey)
+        ok, reason = verdict.ok, verdict.reason
+        if not ok:
+            raise HTTPException(status_code=400, detail=reason)
+        cautions.extend(getattr(verdict, "cautions", ()) or ())
+
+        # A mouse button is only offerable where the host can actually watch
+        # the buttons globally. Asked of the ONE capability probe, never of a
+        # platform name (AP-21/AP-23): accepting a shortcut that can never
+        # fire here — Wayland, macOS without pyobjc Quartz, Linux without the
+        # pynput extra — is the silent dishonesty this project refuses. The
+        # tokens are read from the NORMALIZED combo so the alias spellings
+        # (``mouse_back`` → ``mouse_x1``) are caught too.
+        if normalized_combo_tokens(hotkey) & MOUSE_BUTTON_TOKENS:
+            mouse_ok, mouse_reason = mouse_hotkeys_available()
+            if not mouse_ok:
+                raise HTTPException(status_code=400, detail=mouse_reason)
+
+        # Collision check: one chord can't both answer and hang up. Delegated
+        # to ``combos_collide`` — the ONE place that knows two shortcuts are
+        # the same registration. Comparing RAW tokens here (what this route
+        # used to do) accepted ``ctrl+left_alt+j`` alongside
+        # ``ctrl+right_alt+j``: both normalize to the same chord, so the
+        # second registration lost the race and that action silently never
+        # fired. The rule itself is unchanged — identical sets collide, and so
+        # does any subset/superset pair, because the polling backend matches a
+        # combo as soon as its keys are down (call=f1 + hangup=f1+f2 → F1+F2
+        # triggers both). An unbound other action never collides.
+        # Two DIFFERENT actions on the SAME registration is the one case
+        # nothing downstream can resolve: the backend sees one chord and no
+        # rule can say which action the user meant. That stays refused.
+        #
+        # An overlap where one combo merely CONTAINS the other is a different
+        # thing, and refusing it broke the maintainer's stated requirement that
+        # any combination be usable: a modifier-only chord like ctrl+alt is a
+        # subset of nearly every other shortcut, so the rule rejected almost
+        # every one of them. The consequence is real but it is the user's to
+        # accept, so it is now reported as a caution and the save goes through.
+        mine = normalized_combo_tokens(hotkey)
+        for other_action, other_combo in _keybind_values(trig).items():
+            if other_action == action or not other_combo.strip():
+                continue
+            theirs = normalized_combo_tokens(other_combo)
+            if not combos_collide(hotkey, other_combo):
+                continue
+            if mine == theirs:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"'{hotkey}' is already the shortcut for "
+                        f"'{other_action}' ('{other_combo.strip().lower()}') — "
+                        "the two are the same key press, so nothing could tell "
+                        "them apart. Clear that one first, or pick other keys."
+                    ),
+                )
+            wider, narrow = (
+                (other_combo.strip().lower(), hotkey)
+                if mine < theirs
+                else (hotkey, other_combo.strip().lower())
+            )
+            cautions.append(
+                f"'{narrow}' is contained in '{wider}' ('{other_action}'), so "
+                f"pressing '{wider}' triggers both. Clear one of them if that "
+                "is not what you want."
+            )
+    # else: hotkey == "" is an explicit "unbind this action" request (Settings
+    # Clear button) — skip validate_hotkey (that rule exists for "still
+    # recording", not "cleared on purpose") and skip the collision check
+    # (an unbound action cannot collide with anything).
+
+    field = KEYBIND_TOML_KEY[action]
+    # Read BEFORE the overwrite below: the Input Monitoring ask only follows a save
+    # that changes the combo.
+    previous = _keybind_values(trig).get(action, "").strip().lower()
+    if trig is not None:
+        try:
+            setattr(trig, field, hotkey)
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory trigger.%s update skipped: %s", field, exc)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+
+            config_writer.set_keybind(action, hotkey)
+            persisted = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("keybind persist failed: %s", exc)
+
+    # Live-apply to the running voice pipeline so the new combo (or the
+    # cleared state) takes effect immediately — no app restart. Best-effort —
+    # a headless/down pipeline just means it applies on next start.
+    applied_live = False
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    if pipeline is not None and hasattr(pipeline, "set_keybinds"):
+        try:
+            # An empty hotkey re-arms with an empty list, not a list containing
+            # "", so clearing a shortcut reliably disables that action.
+            pipeline.set_keybinds(**{action: [hotkey] if hotkey else []})
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001 — never fail the save on a live-apply hiccup
+            log.warning("keybind live-apply failed (persisted; applies on restart): %s", exc)
+
+    # Last, after the save and the live re-arm: saving a global shortcut is the
+    # just-in-time moment for Input Monitoring (macOS only; see the helper).
+    _ask_input_monitoring_for_saved_shortcut(request, hotkey=hotkey, changed=previous != hotkey)
+
+    return {
+        "ok": True,
+        "action": action,
+        "hotkey": hotkey,
+        "persisted": persisted,
+        # When live-applied the running trigger already re-armed; no restart
+        # needed. Otherwise it takes effect on the next voice start.
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+        # Accepted, but worth knowing: a modifier-only chord that also fires
+        # inside longer ones, an OS shortcut the system may take first, or an
+        # overlap with another action. Sentences, ready to show.
+        "cautions": cautions,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Assistant name (read-only). The name derives from the wake phrase; GET
+# exposes the resolved name for the frontend bylines. There is no write endpoint.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/assistant-name")
+def get_assistant_name(request: Request) -> dict[str, object]:
+    """The assistant's resolved name. Read-only: the name derives from the wake
+    phrase (set via PUT /api/settings/wake-word), there is no separate control."""
+    from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
+
+    cfg = _config(request)
+    if cfg is None:
+        # No config on app.state means the server is still warming up (or a
+        # degraded boot). Answering the neutral fallback here would be a lie
+        # the frontend persists into its localStorage name cache — every
+        # surface would then show "Assistant" until a successful re-fetch.
+        # 503 tells the seed hook to retry instead (mirrors the sessions/runs
+        # routes' warmup behavior).
+        raise HTTPException(status_code=503, detail="Configuration not loaded yet")
+    return {
+        "resolved": resolve_assistant_name(cfg),
+        "default": DEFAULT_ASSISTANT_NAME,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Login autostart (the 7th cross-platform port). GET current state + support;
+# PUT to toggle. Persisted to jarvis.toml [autostart].enabled AND applied live
+# (install/remove the OS entry immediately — no restart). On a headless host the
+# toggle persists honestly with supported=false. See
+# docs/superpowers/specs/2026-05-30-cross-platform-autostart-design.md.
+# ---------------------------------------------------------------------------
+
+
+class AutostartBody(BaseModel):
+    enabled: bool = Field(...)
+    persist: bool = Field(default=True, description="Persist to jarvis.toml")
+
+
+def _autostart_components(request: Request):
+    """Resolve (enabled, caps, manager, spec) — cheap, non-blocking.
+
+    The blocking part (reading/writing the OS entry — a PowerShell call on
+    Windows) lives in ``manager.status/install/uninstall`` and MUST be run off
+    the event loop via ``asyncio.to_thread`` (AP-18: never block the loop on a
+    subprocess — it freezes the WS fan-out + voice bus).
+    """
+    from dodaios.autostart import make_autostart_manager, resolve_launch_spec
+    from dodaios.platform.capabilities import detect_capabilities
+
+    cfg = _config(request)
+    autostart_cfg = getattr(cfg, "autostart", None) if cfg is not None else None
+    enabled = bool(getattr(autostart_cfg, "enabled", True))
+    caps = detect_capabilities()
+    manager = make_autostart_manager(caps)
+    spec = resolve_launch_spec(cfg)
+    return enabled, caps, manager, spec
+
+
+def _autostart_payload(enabled, caps, spec, status) -> dict[str, object]:
+    # Which OS mechanism is currently active — lets the Windows UI offer the
+    # "enable instant start" upgrade when only the throttled .lnk fallback is in
+    # place (scheduled-task registration needs a one-time UAC prompt).
+    mechanism = "none"
+    if status.installed:
+        if str(status.entry_path or "").startswith("Task Scheduler"):
+            mechanism = "scheduled_task"
+        elif caps.platform == "win32":
+            mechanism = "shortcut"
+        else:
+            mechanism = "native"
+    return {
+        "enabled": enabled,
+        "supported": status.supported,
+        "installed": status.installed,
+        "matches_spec": status.matches_spec,
+        "platform": caps.platform,
+        "mechanism": mechanism,
+        "resolved_command": spec.command_line(),
+        "entry_path": status.entry_path,
+        "detail": status.detail,
+    }
+
+
+@router.get("/autostart")
+async def get_autostart(request: Request) -> dict[str, object]:
+    enabled, caps, manager, spec = _autostart_components(request)
+    # status() shells out to PowerShell on Windows — keep it off the event loop.
+    status = await asyncio.to_thread(manager.status, spec)
+    return _autostart_payload(enabled, caps, spec, status)
+
+
+@router.put("/autostart")
+async def put_autostart(body: AutostartBody, request: Request) -> dict[str, object]:
+    enabled = bool(body.enabled)
+
+    # Best-effort in-memory cfg update so a later cfg read agrees pre-restart.
+    cfg = _config(request)
+    if cfg is not None and getattr(cfg, "autostart", None) is not None:
+        try:
+            cfg.autostart.enabled = enabled  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory autostart.enabled update skipped: %s", exc)
+
+    # Persist the intent. Best-effort: a read-only / locked jarvis.toml must not
+    # break the live apply below.
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+
+            config_writer.set_autostart(enabled)
+            persisted = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("autostart persist failed (live apply still attempted): %s", exc)
+
+    # Live-apply off the event loop: install/remove the OS entry now (PowerShell
+    # on Windows is blocking). A failure is reported honestly, never raised.
+    _, caps, manager, spec = _autostart_components(request)
+    applied_live = False
+    try:
+        if enabled:
+            # User-initiated → interactive: Windows may show a one-time UAC prompt
+            # to register the instant-start logon task (declined → .lnk fallback).
+            status = await asyncio.to_thread(manager.install, spec, interactive=True)
+        else:
+            status = await asyncio.to_thread(manager.uninstall, interactive=True)
+        applied_live = status.supported
+    except Exception as exc:  # noqa: BLE001 — never fail the toggle on an apply hiccup
+        log.warning("autostart live-apply failed (persisted; applies on restart): %s", exc)
+        status = await asyncio.to_thread(manager.status, spec)
+
+    # Reuse the GET payload shape (so the response carries `mechanism` — the
+    # frontend reads it to pick the right toast after "enable instant start" and
+    # to decide whether to keep showing the upgrade affordance).
+    return {
+        **_autostart_payload(enabled, caps, spec, status),
+        "ok": True,
+        "applied_live": applied_live,
+        "persisted": persisted,
+        "restart_required": False,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Background agents: what keeps running after the window closes
+# (dodaios/core/background_service.py). GET reports the setting, the login mode
+# and the work a quit would hand over right now; PUT changes either setting.
+# ---------------------------------------------------------------------------
+
+
+class BackgroundBody(BaseModel):
+    keep_agents_running: bool | None = Field(default=None)
+    background_only_at_login: bool | None = Field(default=None)
+    persistent_server: bool | None = None
+    server_url: str | None = Field(default=None, max_length=2048)
+
+    @model_validator(mode="after")
+    def check_server(self) -> BackgroundBody:
+        if self.server_url and self.server_url.strip():
+            from dodaios.core.server_endpoint import server_endpoint
+
+            self.server_url = server_endpoint(self.server_url)
+        return self
+
+
+def _background_payload(request: Request) -> dict[str, object]:
+    import sys as _sys
+
+    from dodaios.core.background_service import SERVICE_FLAG, keep_running_enabled, work_from_state
+    from dodaios.core.instance import current_instance
+
+    cfg = _config(request)
+    autostart_cfg = getattr(cfg, "autostart", None)
+    background_cfg = getattr(cfg, "background", None)
+    work = work_from_state(request.app.state)
+    return {
+        "keep_agents_running": keep_running_enabled(cfg),
+        "persistent_server": bool(getattr(background_cfg, "persistent_server", False)),
+        "server_url": str(getattr(background_cfg, "server_url", "") or ""),
+        "running_as_server": bool(getattr(request.app.state, "agent_server_mode", False)),
+        "background_only_at_login": bool(getattr(autostart_cfg, "background_only", False)),
+        "autostart_enabled": bool(getattr(autostart_cfg, "enabled", True)),
+        # This process IS the windowless service (a browser on its port).
+        "running_as_service": SERVICE_FLAG in _sys.argv or bool(
+            getattr(request.app.state, "agent_server_mode", False)
+        ),
+        # Only the default app hands off; a dev instance stops with its window.
+        "supported": current_instance().owns_ambient_duties or bool(
+            getattr(request.app.state, "agent_server_mode", False)
+        ),
+        "work": {
+            "routines": work.routines,
+            "running": work.running,
+            "channels": list(work.channels),
+        },
+    }
+
+
+@router.get("/background")
+def get_background(request: Request) -> dict[str, object]:
+    return _background_payload(request)
+
+
+@router.put("/background")
+async def put_background(body: BackgroundBody, request: Request) -> dict[str, object]:
+    from dodaios.core import config_writer
+
+    cfg = _config(request)
+    if body.persistent_server is not None or body.server_url is not None:
+        section = getattr(cfg, "background", None)
+        persistent = (
+            body.persistent_server if body.persistent_server is not None
+            else bool(getattr(section, "persistent_server", False))
+        )
+        origin = (
+            body.server_url if body.server_url is not None
+            else str(getattr(section, "server_url", "") or "")
+        )
+        await asyncio.to_thread(
+            config_writer.set_agent_server, persistent=persistent, server_url=origin,
+        )
+        if section is not None:
+            section.persistent_server = persistent
+            section.server_url = origin
+    if body.keep_agents_running is not None:
+        value = bool(body.keep_agents_running)
+        config_writer.set_background_keep_running(value)
+        section = getattr(cfg, "background", None)
+        if section is not None:
+            try:
+                section.keep_agents_running = value  # type: ignore[attr-defined]
+            except Exception as exc:  # noqa: BLE001 — frozen model: the toml write still counts
+                log.debug("in-memory background.keep_agents_running update skipped: %s", exc)
+    if body.background_only_at_login is not None:
+        value = bool(body.background_only_at_login)
+        config_writer.set_autostart_background_only(value)
+        autostart_cfg = getattr(cfg, "autostart", None)
+        if autostart_cfg is not None:
+            try:
+                autostart_cfg.background_only = value  # type: ignore[attr-defined]
+            except Exception as exc:  # noqa: BLE001 — same as above
+                log.debug("in-memory autostart.background_only update skipped: %s", exc)
+    if (
+        body.background_only_at_login is not None or body.persistent_server is not None
+        or body.server_url is not None
+    ):
+        enabled, _caps, manager, spec = _autostart_components(request)
+        if enabled:
+            # The login entry carries the mode in its command line; refresh it
+            # now (user-initiated, so Windows may ask once to update its task).
+            try:
+                await asyncio.to_thread(manager.install, spec, interactive=True)
+            except Exception as exc:  # noqa: BLE001 — persisted; the boot reconcile retries
+                log.warning("autostart refresh after a login-mode change failed: %s", exc)
+    return _background_payload(request)
+
+
+_OVERLAY_STYLES = OVERLAY_STYLES
+
+
+class OverlayStyleBody(BaseModel):
+    style: str = Field(..., min_length=1)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+@router.get("/overlay-style")
+def get_overlay_style(request: Request) -> dict[str, object]:
+    """Current on-screen overlay style + the selectable options."""
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    current = getattr(ui, "orb_style", None) or "jarvis_bar"
+    return {"style": current, "options": list(_OVERLAY_STYLES)}
+
+
+@router.put("/overlay-style")
+async def put_overlay_style(body: OverlayStyleBody, request: Request) -> dict[str, object]:
+    """Switch the on-screen overlay (see ``dodaios.ui.overlay_styles``).
+
+    Persists [ui].orb_style and live-swaps the running surface via the
+    DesktopApp (app.state.desktop_app.swap_overlay). When no live app is
+    reachable (headless), the choice is persisted and applies on restart.
+
+    Legacy values from a not-yet-rebuilt client (``whisper_bar`` before the
+    rename, ``orb`` before the procedural renderer was removed) are normalized
+    rather than rejected.
+
+    Only the default instance of the app answers this (``dodaios.core.instance``):
+    a dev instance beside it draws no overlay, and both read ONE ``jarvis.toml``
+    — a pick made there would silently change what the default app shows on its
+    next restart (the 2026-08-23 "my bar is gone" case). It answers 409 and says
+    where the switch lives instead.
+    """
+    style = normalize_overlay_style(body.style)
+    if style is None:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown overlay style '{body.style.strip()}'"
+        )
+
+    from dodaios.core.instance import current_instance
+
+    instance = current_instance()
+    if not instance.owns_ambient_duties:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"The on-screen overlay belongs to the default app; the {instance.label} "
+                "instance draws none and does not change the shared setting. Switch the "
+                "style in the regular Dodaios app."
+            ),
+        )
+
+    # Best-effort in-memory cfg update so a later read agrees pre-restart.
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    if ui is not None:
+        try:
+            ui.orb_style = style  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory orb_style update skipped: %s", exc)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+
+            config_writer.set_overlay_style(style)
+            persisted = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("overlay-style persist failed (live apply still attempted): %s", exc)
+
+    applied_live = False
+    detail = ""
+    desktop = getattr(request.app.state, "desktop_app", None)
+    swap = getattr(desktop, "swap_overlay", None)
+    if callable(swap):
+        try:
+            # swap_overlay touches Tk (spawns a daemon thread) — keep it off the loop.
+            result = await asyncio.to_thread(swap, style)
+            applied_live = (
+                bool(result.get("applied_live")) if isinstance(result, dict) else bool(result)
+            )
+        except Exception as exc:  # noqa: BLE001 — never fail the toggle on an apply hiccup
+            log.warning(
+                "overlay-style live-apply failed (persisted; applies on restart): %s",
+                exc,
+                exc_info=True,
+            )
+            detail = f"The live switch failed; the style applies on restart. {LOG_HINT}"
+
+    return {
+        "ok": True,
+        "style": style,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+        "detail": detail,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Custom system prompt (personalize-your-assistant feature). The user can
+# replace the packaged JARVIS persona with their own Markdown and reset back to
+# the default with one click. Stored as a sidecar file (data/custom_system_prompt.md);
+# reset is a delete. No restart needed: _build_system_prompt reads the override
+# fresh each turn, so a save/reset applies on the next message.
+# ---------------------------------------------------------------------------
+
+
+class SystemPromptBody(BaseModel):
+    # The full Markdown system prompt. Whitespace-only is rejected (a blank
+    # persona would strip Jarvis of its instructions) — to clear, DELETE instead.
+    content: str = Field(..., min_length=1)
+
+
+def _system_prompt_payload() -> dict[str, object]:
+    from dodaios.brain import persona_loader
+
+    content = persona_loader.load_effective_persona_prompt()
+    return {
+        "content": content,
+        "is_custom": persona_loader.has_custom_prompt(),
+        "default": persona_loader.default_persona_prompt(),
+        "char_count": len(content),
+    }
+
+
+@router.get("/system-prompt")
+def get_system_prompt() -> dict[str, object]:
+    """Current effective system prompt + the packaged default (for reset)."""
+    return _system_prompt_payload()
+
+
+@router.put("/system-prompt")
+def put_system_prompt(body: SystemPromptBody) -> dict[str, object]:
+    """Save a custom system prompt. Applies on the next turn (no restart)."""
+    from dodaios.brain import persona_loader
+
+    if not body.content.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="System prompt must not be empty. Use reset to restore the default.",
+        )
+    try:
+        persona_loader.save_custom_prompt(body.content)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not save: {exc}") from exc
+
+    return {"ok": True, "restart_required": False, **_system_prompt_payload()}
+
+
+@router.delete("/system-prompt")
+def delete_system_prompt() -> dict[str, object]:
+    """Reset to the packaged default by removing the custom override."""
+    from dodaios.brain import persona_loader
+
+    removed = persona_loader.reset_custom_prompt()
+    return {"ok": True, "removed": removed, "restart_required": False, **_system_prompt_payload()}
+
+
+# ---------------------------------------------------------------------------
+# Agent instructions (personal standing-instructions file — an AGENTS.md /
+# CLAUDE.md equivalent). The user writes personal preferences here; the file is
+# named after the assistant (e.g. Ruben.md) and injected into the brain system
+# prompt as a block distinct from the persona. No restart needed: the brain reads
+# it fresh each turn, so a save/reset applies on the next message.
+# ---------------------------------------------------------------------------
+
+
+class AgentInstructionsBody(BaseModel):
+    # The full Markdown. Whitespace-only is rejected (to clear, DELETE instead).
+    content: str = Field(..., min_length=1)
+
+
+def _agent_instructions_payload(request: Request) -> dict[str, object]:
+    from dodaios.brain import agent_instructions
+
+    cfg = _config(request)
+    content = agent_instructions.read_agent_instructions(cfg)
+    exists = content is not None
+    content = content or ""
+    return {
+        "content": content,
+        "exists": exists,
+        "filename": agent_instructions.instructions_filename(cfg),
+        "template": agent_instructions.seed_template(cfg),
+        "char_count": len(content),
+    }
+
+
+@router.get("/agent-instructions")
+def get_agent_instructions(request: Request) -> dict[str, object]:
+    """Current agent instructions + the dynamic filename + a starter template."""
+    return _agent_instructions_payload(request)
+
+
+@router.put("/agent-instructions")
+def put_agent_instructions(
+    body: AgentInstructionsBody, request: Request
+) -> dict[str, object]:
+    """Save the user's standing instructions. Applies on the next turn (no restart)."""
+    from dodaios.brain import agent_instructions
+
+    if not body.content.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Instructions must not be empty. Use reset to clear them.",
+        )
+    try:
+        agent_instructions.save_agent_instructions(_config(request), body.content)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not save: {exc}") from exc
+
+    return {"ok": True, "restart_required": False, **_agent_instructions_payload(request)}
+
+
+@router.delete("/agent-instructions")
+def delete_agent_instructions(request: Request) -> dict[str, object]:
+    """Clear the user's standing instructions by deleting the file."""
+    from dodaios.brain import agent_instructions
+
+    removed = agent_instructions.reset_agent_instructions(_config(request))
+    return {
+        "ok": True,
+        "removed": removed,
+        "restart_required": False,
+        **_agent_instructions_payload(request),
+    }
+
+
+async def _running_mission_summaries(
+    manager: object, ids: list[str]
+) -> list[dict[str, str]]:
+    """``[{id, title}]`` for the given in-flight mission ids (title = prompt[:80]).
+
+    Best-effort: a missing manager or a per-mission lookup failure degrades to an
+    empty title rather than blocking the guard from reporting the id at all.
+    """
+    summaries: list[dict[str, str]] = []
+    get = getattr(manager, "mission", None)
+    for mid in ids:
+        title = ""
+        if callable(get):
+            try:
+                view = await get(mid)
+                title = (getattr(view, "prompt", "") or "").strip()[:80]
+            except Exception as exc:  # noqa: BLE001 — never block a restart on this
+                log.debug("restart guard: prompt lookup failed for %s: %s", mid, exc)
+        summaries.append({"id": mid, "title": title})
+    return summaries
+
+
+async def _run_off_pool(fn: Callable[[], object]) -> object:
+    """Run a quick blocking callable on a fresh, dedicated thread.
+
+    Deliberately does NOT use ``asyncio.to_thread`` / the shared default
+    ``ThreadPoolExecutor``. A restart is the app's recovery path and must keep
+    working precisely *when the app is unhealthy* — including when that shared
+    pool is exhausted by un-cancellable hung threads.
+
+    Forensic 2026-06-29: the custom-wake ctranslate2 transcription hung inside
+    C code; its 8 s ``asyncio.timeout`` cancelled only the *await*, abandoning
+    the pool thread mid-call (a running thread can't be killed in Python). The
+    8 s re-poll storm leaked one default-pool worker every cycle until every
+    worker was wedged, so ``await asyncio.to_thread(request_restart)`` queued
+    behind the dead pool forever — the restart POST never returned and the
+    button spun "Restarting…" with the window still up. A dedicated thread is
+    immune to that starvation. Cross-platform: pool exhaustion hits any host
+    (a slow CPU-only Whisper on a VPS reaches the same wall as a stuck GPU one).
+    """
+    loop = asyncio.get_running_loop()
+    fut: asyncio.Future[object] = loop.create_future()
+
+    def _runner() -> None:
+        try:
+            result = fn()
+        except BaseException as exc:  # noqa: BLE001 — relay verbatim to the awaiter
+            loop.call_soon_threadsafe(_resolve, fut.set_exception, exc)
+        else:
+            loop.call_soon_threadsafe(_resolve, fut.set_result, result)
+
+    def _resolve(setter: Callable[[object], None], value: object) -> None:
+        if not fut.done():  # awaiter may have been cancelled meanwhile
+            setter(value)
+
+    threading.Thread(
+        target=_runner, name="jarvis-restart-trigger", daemon=True
+    ).start()
+    return await fut
+
+
+@router.post("/restart-app", openapi_extra={"x-jarvis-dangerous": True})
+async def restart_app(request: Request, force: bool = False) -> dict[str, object]:
+    """Cleanly self-restart the desktop app.
+
+    Delivers a pending overlay-style change (bar <-> mascot) that cannot be
+    applied live (BUG-031) without the user closing + reopening by hand. The
+    DesktopApp spawns a detached relauncher and quits ~0.8 s later, so this
+    request returns 200 first. Returns 503 on a headless host (no window).
+
+    Control/API callers are rejected even with ``force=true``: a coding agent
+    cannot prove human presence, and restarting destroys every Agentic-IDE
+    terminal in the process. Only an explicit desktop-UI click may enter the
+    restart path.
+
+    Mission guard: an app restart kills every in-flight mission (the process and
+    its worker Job-Objects die). That is the dominant cause of "aborted" missions
+    — a healthy-but-quiet worker looks like a hang, the app gets restarted, and
+    the run is lost (forensic: 102 crash_recovery / app_shutdown deaths, all
+    during active use, none correlated with system Standby). So unless the caller
+    passes ``force=true``, a restart while missions run is refused with HTTP 409
+    and the live mission list, letting the UI/CLI confirm before the kill. This
+    protects every interactive restart source at once: TopBar and taskbar
+    settings. Control clients are refused before this guard.
+    """
+    require_interactive_desktop_action(request, action="restart")
+    if not force:
+        kontrollierer = getattr(request.app.state, "kontrollierer", None)
+        list_running = getattr(kontrollierer, "running_mission_ids", None)
+        running = list(list_running()) if callable(list_running) else []
+        if running:
+            manager = getattr(request.app.state, "mission_manager", None)
+            try:
+                # A wedged mission manager (the very state a user restarts to
+                # escape) must not hang the guard — bound the title lookup and
+                # fall back to id-only summaries so the 409 still reaches the UI.
+                missions = await asyncio.wait_for(
+                    _running_mission_summaries(manager, running), timeout=2.0
+                )
+            except TimeoutError:
+                missions = [{"id": mid, "title": ""} for mid in running]
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "missions_running", "missions": missions},
+            )
+
+    desktop = getattr(request.app.state, "desktop_app", None)
+    fn = getattr(desktop, "request_restart", None)
+    if not callable(fn):
+        raise HTTPException(
+            status_code=503, detail="self-restart unavailable on this host"
+        )
+    log.info("Desktop restart requested through settings route (force=%s)", force)
+    # Off the shared default pool — a restart must survive a pool exhausted by
+    # hung threads (see ``_run_off_pool``). ``asyncio.to_thread`` would queue
+    # behind the dead pool and hang the POST forever.
+    scheduled = await _run_off_pool(fn)
+    if not scheduled:
+        raise HTTPException(
+            status_code=503, detail="no desktop window to restart"
+        )
+    return {"ok": True, "restarting": True}
+
+
+@router.get("/input-isolation", summary="Can other apps type into this window?")
+def get_input_isolation() -> dict[str, object]:
+    """Report whether outside input software can reach this app's window.
+
+    Third-party dictation and speech-to-text tools, text expanders, clipboard
+    managers, and password-manager auto-type all inject synthetic keystrokes
+    into the focused window and locate the field through the OS accessibility
+    tree. Windows blocks BOTH for any window owned by a higher-integrity
+    process — so while this app runs elevated they appear to do nothing here
+    while still working in every other app, with no error anywhere (Windows
+    does not report a UIPI drop to the sender).
+
+    Deliberately cheap, uncached, and unauthenticated-safe: it reads only this
+    process's own privilege state, so the desktop UI can poll it on mount.
+    """
+    from dodaios.platform.input_isolation import describe_input_isolation
+
+    return describe_input_isolation().to_dict()
+
+
+@router.post(
+    "/restart-unelevated",
+    summary="Restart the app without administrator rights",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def restart_unelevated(request: Request, force: bool = False) -> dict[str, object]:
+    """Restart the desktop app stripped of its administrator rights.
+
+    The repair for the condition ``GET /input-isolation`` reports: elevation
+    survives every ordinary in-app restart, so a plain restart cannot escape it.
+    This relaunches through the elevated token's filtered companion token, which
+    lands the fresh window at the same privilege level as any normally-started
+    app — and back within reach of the user's dictation software.
+
+    Refuses with 409 when the app is not elevated (nothing to repair) or when
+    privileges cannot be dropped on this account, and in that case the app stays
+    UP: a restart that never returns is worse than the problem being fixed.
+    Honours the same running-mission guard as ``/restart-app``.
+    """
+    require_interactive_desktop_action(request, action="restart")
+
+    from dodaios.platform.input_isolation import describe_input_isolation
+
+    report = describe_input_isolation()
+    if not report.can_restart_unelevated:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "not_elevated"
+                if not report.blocked
+                else "cannot_drop_privileges",
+                "report": report.to_dict(),
+            },
+        )
+
+    if not force:
+        kontrollierer = getattr(request.app.state, "kontrollierer", None)
+        list_running = getattr(kontrollierer, "running_mission_ids", None)
+        running = list(list_running()) if callable(list_running) else []
+        if running:
+            manager = getattr(request.app.state, "mission_manager", None)
+            try:
+                missions = await asyncio.wait_for(
+                    _running_mission_summaries(manager, running), timeout=2.0
+                )
+            except TimeoutError:
+                missions = [{"id": mid, "title": ""} for mid in running]
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "missions_running", "missions": missions},
+            )
+
+    desktop = getattr(request.app.state, "desktop_app", None)
+    fn = getattr(desktop, "request_unelevated_restart", None)
+    if not callable(fn):
+        raise HTTPException(
+            status_code=503, detail="self-restart unavailable on this host"
+        )
+    # Same off-pool dispatch as /restart-app: a restart must survive a default
+    # thread pool exhausted by hung threads.
+    scheduled, detail = await _run_off_pool(fn)
+    if not scheduled:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "deescalation_failed", "message": detail},
+        )
+    return {"ok": True, "restarting": True, "unelevated": True}
+
+
+class OpenExternalBody(BaseModel):
+    url: str = Field(min_length=1, max_length=4096)
+
+
+@router.post("/open-external")
+async def open_external(body: OpenExternalBody) -> dict[str, object]:
+    """Open an ``http(s)`` URL in the user's real default browser.
+
+    The desktop shell embeds WebView2, which silently drops ``window.open`` /
+    ``target="_blank"`` — so OAuth-authorize and token-creation pages never
+    reached the browser and plugin connect appeared to "do nothing". The
+    frontend calls this only when it detects the embedded shell (``window
+    .__JARVIS_TOKEN``); a real browser tab opens the URL itself. Returns
+    ``{"opened": false}`` on a headless host (no display) so the caller can
+    fall back to ``window.open``.
+
+    Scheme is validated to ``http``/``https`` here AND in ``open_url`` so no
+    ``file:``/``javascript:``/app-protocol URL can ever be launched.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(body.url)
+    if parsed.scheme.lower() not in ("http", "https"):
+        raise HTTPException(
+            status_code=400, detail="only http/https URLs may be opened"
+        )
+    from dodaios.platform.open_path import open_url
+
+    opened = await asyncio.to_thread(open_url, body.url)
+    # Pairing and OAuth URLs may carry one-time credentials in their fragments.
+    log.info("open-external: opened=%s host=%s", opened, parsed.hostname)
+    return {"opened": bool(opened)}
+
+
+class OpenPathBody(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+
+
+@router.post("/open-path")
+async def open_local_path(body: OpenPathBody, request: Request) -> dict[str, object]:
+    """Open a local file or folder from a chat link with the OS default app.
+
+    The desktop window is a web view. Following a file or folder address there
+    reloads the app, so chat asks this route to open it instead. Only an
+    existing file or folder on this computer is opened. Programs and scripts
+    are refused. A headless host has no native file actions and returns 404.
+    """
+    if not bool(getattr(request.app.state, "native_file_actions", False)):
+        raise HTTPException(status_code=404, detail="native-file-actions-disabled")
+    from dodaios.platform.open_path import ChatOpenRejected, open_file, prepare_chat_open
+
+    try:
+        target = prepare_chat_open(body.path)
+    except ChatOpenRejected as exc:
+        status = 404 if exc.reason == "not-found" else 400
+        raise HTTPException(status_code=status, detail=exc.reason) from exc
+    opened = await asyncio.to_thread(open_file, target)
+    log.info("open-path: opened=%s path=%s", opened, target)
+    return {"opened": bool(opened)}
+
+
+# ---------------------------------------------------------------------------
+# Taskbar section toggles: "Show bar at all times" (bar_persistent, live) and
+# "Mute music while dictating" (ducking.enabled, live). Both persist to
+# jarvis.toml and live-apply via app.state.desktop_app.
+# ---------------------------------------------------------------------------
+
+
+class BoolToggleBody(BaseModel):
+    enabled: bool = Field(...)
+
+
+@router.get("/bar-persistent")
+def get_bar_persistent(request: Request) -> dict[str, object]:
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    return {"enabled": bool(getattr(ui, "bar_persistent", True))}
+
+
+@router.put("/bar-persistent")
+async def put_bar_persistent(body: BoolToggleBody, request: Request) -> dict[str, object]:
+    enabled = bool(body.enabled)
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    if ui is not None:
+        try:
+            ui.bar_persistent = enabled  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            log.debug("in-memory bar_persistent update skipped: %s", exc)
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_bar_persistent(enabled)
+        persisted = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("bar_persistent persist failed (live apply still attempted): %s", exc)
+    applied_live = False
+    desktop = getattr(request.app.state, "desktop_app", None)
+    fn = getattr(desktop, "set_bar_persistent", None)
+    if callable(fn):
+        try:
+            res = await asyncio.to_thread(fn, enabled)
+            applied_live = (
+                bool(res.get("applied_live")) if isinstance(res, dict) else bool(res)
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bar_persistent live-apply failed: %s", exc)
+    return {
+        "ok": True,
+        "enabled": enabled,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+    }
+
+
+# ---------------------------------------------------------------------------
+# "Follow the mouse to the active monitor" toggle (bar_follow_cursor_monitor):
+# the on-screen bar hops to whichever monitor the mouse is on, keeping its
+# relative spot. Persists to jarvis.toml and live-applies to the running bar.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/bar-follow-cursor")
+def get_bar_follow_cursor(request: Request) -> dict[str, object]:
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    return {"enabled": bool(getattr(ui, "bar_follow_cursor_monitor", True))}
+
+
+@router.put("/bar-follow-cursor")
+async def put_bar_follow_cursor(
+    body: BoolToggleBody, request: Request
+) -> dict[str, object]:
+    enabled = bool(body.enabled)
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    if ui is not None:
+        try:
+            ui.bar_follow_cursor_monitor = enabled  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            log.debug("in-memory bar_follow_cursor_monitor update skipped: %s", exc)
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_bar_follow_cursor_monitor(enabled)
+        persisted = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "bar_follow_cursor_monitor persist failed (live apply still attempted): %s",
+            exc,
+        )
+    applied_live = False
+    desktop = getattr(request.app.state, "desktop_app", None)
+    fn = getattr(desktop, "set_bar_follow_cursor", None)
+    if callable(fn):
+        try:
+            res = await asyncio.to_thread(fn, enabled)
+            applied_live = (
+                bool(res.get("applied_live")) if isinstance(res, dict) else bool(res)
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bar_follow_cursor_monitor live-apply failed: %s", exc)
+    return {
+        "ok": True,
+        "enabled": enabled,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+    }
+
+
+# ---------------------------------------------------------------------------
+# "Bar size" slider (ui.bar_size_scale): a proportional multiplier for the
+# on-screen bar (width AND height scale together, shape preserved). Persists to
+# jarvis.toml and live-applies to the running bar via app.state.desktop_app —
+# no restart. The slider streams live PUTs with persist=false while dragging
+# (so the bar resizes on screen in real time) and one persist=true PUT on
+# release. Range mirrors renderer.USER_SIZE_MIN/MAX (0.5–2.0).
+# ---------------------------------------------------------------------------
+
+_BAR_SIZE_DEFAULT = 1.35
+
+
+class BarSizeBody(BaseModel):
+    scale: float = Field(..., ge=0.5, le=2.0)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+@router.get("/bar-size")
+def get_bar_size(request: Request) -> dict[str, object]:
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    return {
+        "scale": float(getattr(ui, "bar_size_scale", _BAR_SIZE_DEFAULT)),
+        "default": _BAR_SIZE_DEFAULT,
+        "min": 0.5,
+        "max": 2.0,
+    }
+
+
+@router.put("/bar-size")
+async def put_bar_size(body: BarSizeBody, request: Request) -> dict[str, object]:
+    scale = float(body.scale)  # already range-validated by the Pydantic Field
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    if ui is not None:
+        try:
+            ui.bar_size_scale = scale  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            log.debug("in-memory bar_size_scale update skipped: %s", exc)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+
+            config_writer.set_bar_size_scale(scale)
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning("bar-size persist failed (live apply still attempted): %s", exc)
+
+    # Live-apply to the running bar so the resize is visible immediately. A
+    # headless / down desktop app falls back to "applies on next start".
+    applied_live = False
+    desktop = getattr(request.app.state, "desktop_app", None)
+    fn = getattr(desktop, "set_bar_size", None)
+    if callable(fn):
+        try:
+            res = await asyncio.to_thread(fn, scale)
+            applied_live = (
+                bool(res.get("applied_live")) if isinstance(res, dict) else bool(res)
+            )
+        except Exception as exc:  # noqa: BLE001 — never fail the save on a live hiccup
+            log.warning("bar-size live-apply failed (persisted; applies on restart): %s", exc)
+
+    return {
+        "ok": True,
+        "scale": scale,
+        "default": _BAR_SIZE_DEFAULT,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+    }
+
+
+@router.get("/mute-music")
+def get_mute_music(request: Request) -> dict[str, object]:
+    cfg = _config(request)
+    duck = getattr(cfg, "ducking", None)
+    return {"enabled": bool(getattr(duck, "enabled", False))}
+
+
+def _mute_music_permission(report: object) -> dict[str, object] | None:
+    """The per-player permission answer of a switch-on, or ``None`` when there is none.
+
+    The macOS ducker returns a ``DuckPermissionReport``; Windows and a host without a
+    ducking backend return nothing, and then the response has no ``permission`` key.
+    """
+    as_dict = getattr(report, "as_dict", None)
+    if not callable(as_dict):
+        return None
+    try:
+        return dict(as_dict())
+    except Exception as exc:  # noqa: BLE001 - a malformed report never fails the toggle
+        log.debug("mute_music permission report skipped: %s", exc)
+        return None
+
+
+@router.put("/mute-music")
+async def put_mute_music(body: BoolToggleBody, request: Request) -> dict[str, object]:
+    """Switch "Mute music while dictating" on or off: persisted and applied live.
+
+    Switching ON is the user's gesture, so on macOS it may make the OS ask for
+    Automation access to a RUNNING player (Music, Spotify); the call returns once the
+    dialog is answered (at most ~2 minutes per player). The response keeps ``ok``,
+    ``enabled``, ``persisted`` and ``applied_live`` and, on macOS when switching on,
+    adds ``permission``: ``{feature, checked, asked, note, not_running, players}`` with
+    one ``{player, target, outcome, reason, can_open_settings, asked,
+    outside_installed_app, detail}`` per player that was running. Automation is only
+    checked while a player runs: with none open ``checked`` is false, ``players`` is
+    empty and ``note`` says so. Nothing is asked when switching off.
+    """
+    enabled = bool(body.enabled)
+    cfg = _config(request)
+    duck = getattr(cfg, "ducking", None)
+    if duck is not None:
+        try:
+            duck.enabled = enabled  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            log.debug("in-memory ducking.enabled update skipped: %s", exc)
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_mute_music(enabled)
+        persisted = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("mute_music persist failed (live apply still attempted): %s", exc)
+    applied_live = False
+    permission: dict[str, object] | None = None
+    desktop = getattr(request.app.state, "desktop_app", None)
+    ducker = getattr(desktop, "_ducker", None)
+    setter = getattr(ducker, "set_enabled", None)
+    if callable(setter):
+        try:
+            report = await setter(enabled)
+            applied_live = True
+            permission = _mute_music_permission(report)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("mute_music live-apply failed: %s", exc)
+    response: dict[str, object] = {
+        "ok": True,
+        "enabled": enabled,
+        "persisted": persisted,
+        "applied_live": applied_live,
+    }
+    if permission is not None:
+        response["permission"] = permission
+    return response
+
+
+@router.get("/sound-effects")
+def get_sound_effects(request: Request) -> dict[str, object]:
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    return {"enabled": bool(getattr(ui, "sound_effects", True))}
+
+
+@router.put("/sound-effects")
+def put_sound_effects(body: BoolToggleBody, request: Request) -> dict[str, object]:
+    """Global earcon master switch. Persists to [ui] sound_effects and applies
+    live: the in-memory UI config is the same object the speech pipeline reads
+    before every earcon, so the next tone honors the new value with no restart.
+    """
+    enabled = bool(body.enabled)
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    applied_live = False
+    if ui is not None:
+        try:
+            ui.sound_effects = enabled  # type: ignore[attr-defined]
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001
+            log.debug("in-memory sound_effects update skipped: %s", exc)
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_sound_effects(enabled)
+        persisted = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("sound_effects persist failed (live apply still attempted): %s", exc)
+    return {
+        "ok": True,
+        "enabled": enabled,
+        "persisted": persisted,
+        "applied_live": applied_live,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Optional browser lock ("ask for the Control Key in a browser"). Off by
+# default: the local (loopback) user walks straight into the UI; non-loopback
+# access always requires the key regardless. Lives next to the Control Key
+# panel in Settings → API Keys. Applies live via the shared boundary flag in
+# ``surface_security`` — no restart.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/browser-login")
+def get_browser_login(request: Request) -> dict[str, object]:
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    return {"enabled": bool(getattr(ui, "require_browser_login", False))}
+
+
+@router.put("/browser-login")
+def put_browser_login(
+    body: BoolToggleBody, request: Request, response: Response
+) -> dict[str, object]:
+    """Toggle the browser lock live and persist it to ``[ui]``.
+
+    When the lock is turned ON by a caller that entered through open access
+    (no session cookie — the normal case on loopback), a fresh HttpOnly
+    session is minted onto the response so the very browser that enabled the
+    lock stays signed in instead of instantly locking itself out.
+    """
+    from dodaios.ui.web import missions_auth, surface_security
+
+    enabled = bool(body.enabled)
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    if ui is not None:
+        try:
+            ui.require_browser_login = enabled  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            log.debug("in-memory require_browser_login update skipped: %s", exc)
+    surface_security.set_browser_login_required(enabled)
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_require_browser_login(enabled)
+        persisted = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "require_browser_login persist failed (live apply still active): %s", exc
+        )
+    session_minted = False
+    if enabled:
+        current = request.cookies.get(surface_security.COOKIE_NAME, "")
+        if not missions_auth.validate_token(current):
+            token = missions_auth.issue_token()
+            response.set_cookie(
+                surface_security.COOKIE_NAME,
+                token,
+                path="/",
+                httponly=True,
+                samesite="strict",
+                secure=request.url.scheme == "https",
+            )
+            session_minted = True
+    return {
+        "ok": True,
+        "enabled": enabled,
+        "persisted": persisted,
+        "applied_live": True,
+        "session_minted": session_minted,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Wiki curator model picker. GET current + selectable providers/models; PUT to
+# change. The dedicated long-term-memory LLM is provider-agnostic: an empty
+# provider falls back to brain.primary and an empty model falls back to that
+# provider's CHEAP/FAST router model (mirrors the ack-brain follow_brain
+# pattern). Persisted to jarvis.toml [memory.wiki.curator]; applied live to a
+# running WikiCurator when one exists, else takes effect on the next ingest /
+# restart. Reads/writes the EXISTING WikiCuratorConfig fields resolved through
+# dodaios.memory.wiki.curator_llm._resolve_provider_and_model.
+# ---------------------------------------------------------------------------
+
+
+class WikiProviderBody(BaseModel):
+    # Empty strings are meaningful: provider="" => brain.primary,
+    # model="" => the provider's cheap/fast router model. The frontend sends a
+    # concrete provider and either a concrete model or "" for "cheap default".
+    provider: str = Field(default="", max_length=64)
+    model: str = Field(default="", max_length=128)
+    persist: bool = Field(default=True, description="Persist to jarvis.toml")
+
+
+def _wiki_curator_cfg(request: Request) -> WikiCuratorConfig | None:
+    cfg = _config(request)
+    memory = getattr(cfg, "memory", None)
+    wiki = getattr(memory, "wiki", None)
+    return getattr(wiki, "curator", None)
+
+
+def _wiki_ready_providers(request: Request, names: set[str]) -> set[str]:
+    """Providers the wiki fallback chain treats as credential-ready.
+
+    Mirrors the runtime chain's own eligibility check
+    (``credential_ready_wiki_providers``), so the UI's "ready" flag can never
+    disagree with what a maintenance run will actually do. Fail-open: a probe
+    error must not break the settings page (the chain is fail-open too).
+    """
+    try:
+        from dodaios.memory.wiki.provider_chain import credential_ready_wiki_providers
+
+        return credential_ready_wiki_providers(available=names, config=_config(request))
+    except Exception:  # noqa: BLE001
+        log.debug("wiki provider readiness probe failed", exc_info=True)
+        return set(names)
+
+
+def _available_brain_providers(request: Request) -> list[dict[str, object]]:
+    """Selectable (provider, models) pairs for the Wiki picker.
+
+    Provider list comes from the live BrainManager registry when reachable
+    (same source as the brain-switch path), else from the TIER_DEFAULTS table.
+    Each provider lists its cheap router model first, then its deep model, so
+    the UI can offer "cheap default" plus an upgrade. The provider's own
+    [brain.providers.<name>].model override (if set) is surfaced too.
+
+    Each row also carries ``kind`` ("agent" for the OAuth-CLI Jarvis-Agent
+    providers such as Codex/Antigravity, "api" otherwise) and ``ready``
+    (whether the wiki chain sees a usable credential), so the picker can label
+    agent providers and warn about keyless ones. The frontend fetches the full
+    per-provider model catalog separately via GET /api/providers/{id}/models;
+    ``models`` here stays the small tier-default list for older consumers.
+    """
+    from dodaios.brain.manager import TIER_DEFAULTS_BY_PROVIDER
+    from dodaios.ui.web.provider_spec import get_spec
+
+    names: list[str] = []
+    brain = getattr(request.app.state, "brain", None)
+    if brain is not None and hasattr(brain, "available_providers"):
+        try:
+            names = list(brain.available_providers())
+        except Exception:  # noqa: BLE001
+            names = []
+    if not names:
+        names = sorted(TIER_DEFAULTS_BY_PROVIDER.get("router", {}))
+
+    cfg = _config(request)
+    providers_cfg = getattr(getattr(cfg, "brain", None), "providers", {}) or {}
+    ready = _wiki_ready_providers(request, set(names))
+
+    out: list[dict[str, object]] = []
+    for name in names:
+        models: list[str] = []
+        # Cheap/fast first (what an empty model resolves to), then deep.
+        for tier in ("router", "deep"):
+            m = TIER_DEFAULTS_BY_PROVIDER.get(tier, {}).get(name)
+            if m and m not in models:
+                models.append(m)
+        # Surface a user override from [brain.providers.<name>].model.
+        override = getattr(providers_cfg.get(name), "model", "") if providers_cfg else ""
+        if override and override not in models:
+            models.insert(0, override)
+        spec = get_spec(name)
+        kind = (
+            "agent"
+            if getattr(spec, "auth_mode", "") in ("codex", "antigravity", "grok_build")
+            else "api"
+        )
+        out.append(
+            {"provider": name, "models": models, "kind": kind, "ready": name in ready}
+        )
+    return out
+
+
+def _wiki_resolved_state(request: Request) -> dict[str, object]:
+    """What the NEXT wiki maintenance run will actually use.
+
+    Resolves through the SAME helper the runtime uses
+    (``curator_llm._resolve_provider_and_model``: provider "" → brain.primary,
+    model "" → that provider's cheap router-tier model), so the UI line "next
+    run uses X · Y" is a statement of fact, not a guess. ``ready`` mirrors the
+    chain's credential check — False means the key-aware fallback will cross to
+    another provider instead of running the configured one.
+    """
+    cfg = _config(request)
+    curator = _wiki_curator_cfg(request)
+    provider = ""
+    model = ""
+    try:
+        from dodaios.memory.wiki.curator_llm import _resolve_provider_and_model
+
+        if curator is not None and cfg is not None:
+            resolved_provider, resolved_model = _resolve_provider_and_model(curator, cfg)
+            provider = resolved_provider or ""
+            model = resolved_model or ""
+    except Exception:  # noqa: BLE001 — degrade to the raw config pair, never 500
+        log.debug("wiki resolved-state helper failed", exc_info=True)
+        provider = (getattr(curator, "provider", "") or "").strip() or getattr(
+            getattr(cfg, "brain", None), "primary", ""
+        )
+        model = (getattr(curator, "model", "") or "").strip()
+    ready = bool(provider) and provider in _wiki_ready_providers(request, {provider})
+    return {"provider": provider, "model": model, "ready": ready}
+
+
+@router.get("/wiki-provider")
+async def get_wiki_provider(request: Request) -> dict[str, object]:
+    """Current Wiki-curator provider/model + the selectable matrix.
+
+    Returns the RAW config values (empty string = "follow brain.primary" /
+    "cheap default"); the frontend renders the empty state explicitly so the
+    user sees they are tracking the main brain rather than a stale concrete
+    pin.
+    """
+    curator = _wiki_curator_cfg(request)
+    # Credential probes walk keyring/env/.env — keep them off the event loop.
+    available, resolved = await asyncio.to_thread(
+        lambda: (_available_brain_providers(request), _wiki_resolved_state(request))
+    )
+    cfg = _config(request)
+    return {
+        "provider": getattr(curator, "provider", "") or "",
+        "model": getattr(curator, "model", "") or "",
+        "available": available,
+        "resolved": resolved,
+        "brain_primary": getattr(getattr(cfg, "brain", None), "primary", "") or "",
+    }
+
+
+@router.put("/wiki-provider")
+async def put_wiki_provider(body: WikiProviderBody, request: Request) -> dict[str, object]:
+    provider = body.provider.strip()
+    model = body.model.strip()
+
+    # Resolve the selectable matrix ONCE: reused for validation below and for
+    # the response body (avoids a second BrainManager round-trip per PUT).
+    # Off-thread: the readiness column probes keyring/env credentials.
+    available = await asyncio.to_thread(_available_brain_providers, request)
+
+    # Validate the provider against the selectable matrix. An empty provider is
+    # valid and means "follow brain.primary" (resolved later by the curator).
+    if provider:
+        known = {p["provider"] for p in available}
+        if provider not in known:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unknown brain provider {body.provider!r} "
+                    f"(available: {sorted(known)})."
+                ),
+            )
+
+    # Persist FIRST: jarvis.toml is the only source of truth, so the in-memory
+    # cfg must not show a value the disk never received (live would show the new
+    # provider while a restart reverts it). Persist to [memory.wiki.curator]
+    # (AP-7: lock + tempfile + BOM-safe via config_writer). Best-effort: a
+    # read-only / locked toml must not break a live apply.
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            config_writer.set_wiki_curator_provider(
+                provider, model=model, path=resolve_config_path()
+            )
+            persisted = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("wiki-provider persist failed (live apply still attempted): %s", exc)
+
+    # In-memory cfg update so a later cfg read agrees pre-restart — ONLY when the
+    # disk write succeeded (or persist was not requested). Skipping it on a
+    # persist failure keeps the live cfg in sync with what a restart will read.
+    if persisted or not body.persist:
+        curator_cfg = _wiki_curator_cfg(request)
+        if curator_cfg is not None:
+            for attr, value in (("provider", provider), ("model", model)):
+                try:
+                    setattr(curator_cfg, attr, value)
+                except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+                    log.debug("in-memory wiki.curator.%s update skipped: %s", attr, exc)
+
+    # Live-apply: a running WikiCurator holds a WikiCuratorLLM (._llm) whose
+    # ._cfg is the WikiCuratorConfig and whose ._brain is a lazily-cached Brain.
+    # Mutating ._cfg and clearing ._brain makes the NEXT ingest re-resolve the
+    # provider/model through _resolve_provider_and_model — no restart needed.
+    applied_live = False
+    curator = get_running_curator()
+    llm = getattr(curator, "_llm", None)
+    live_cfg = getattr(llm, "_cfg", None)
+    if live_cfg is not None:
+        try:
+            live_cfg.provider = provider
+            live_cfg.model = model
+            llm._brain = None  # force re-resolution on the next ingest
+            llm._resolved_provider = None
+            llm._resolved_model = None
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001 — never fail the save on a live hiccup
+            log.warning("wiki-provider live-apply failed (persisted; applies next ingest): %s", exc)
+
+    # Recompute AFTER the in-memory update so the response reflects the pick
+    # the way the next maintenance run will actually resolve it.
+    resolved = await asyncio.to_thread(_wiki_resolved_state, request)
+    cfg = _config(request)
+    return {
+        "ok": True,
+        "provider": provider,
+        "model": model,
+        "available": available,
+        "resolved": resolved,
+        "brain_primary": getattr(getattr(cfg, "brain", None), "primary", "") or "",
+        "persisted": persisted,
+        "applied_live": applied_live,
+        # The curator re-resolves on the next ingest; when not live-applied it
+        # takes effect after the next ingest / restart.
+        "restart_required": not applied_live,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Voice silence window (the user-tunable "think buffer"). GET current + bounds;
+# PUT to change. Persisted to jarvis.toml [speech].vad_silence_ms AND live-applied
+# to the running SpeechPipeline (set_silence_window_ms → SileroEndpointer), so a
+# change takes effect immediately without a restart; a headless/down pipeline
+# falls back to "applies on next start".
+#
+# 0 = AUTOMATIC and is the default: every voice engine keeps its own factory
+# turn detection — the local VAD its 1.5 s rule, a realtime provider whatever
+# its API does out of the box (no override is sent at all). A positive value
+# is an explicit patience override and lives in 500–5000 ms.
+# ---------------------------------------------------------------------------
+
+_SILENCE_WINDOW_AUTOMATIC = 0
+_SILENCE_WINDOW_MIN = 500
+_SILENCE_WINDOW_MAX = 5000
+_SILENCE_WINDOW_DEFAULT = _SILENCE_WINDOW_AUTOMATIC
+
+
+def _normalise_silence_window_ms(ms: int) -> int:
+    """0 stays automatic; anything positive lands inside the slider's bounds."""
+    raw = int(ms)
+    if raw <= 0:
+        return _SILENCE_WINDOW_AUTOMATIC
+    return max(_SILENCE_WINDOW_MIN, min(_SILENCE_WINDOW_MAX, raw))
+
+
+class SilenceWindowBody(BaseModel):
+    # 0 is accepted alongside the 500-5000 band: it is the automatic setting,
+    # not a 0 ms window. Values between the two are snapped up to the floor by
+    # the normaliser rather than rejected — the slider can only produce them
+    # while a drag passes through the gap.
+    ms: int = Field(..., ge=_SILENCE_WINDOW_AUTOMATIC, le=_SILENCE_WINDOW_MAX)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+def _current_silence_window_ms(request: Request) -> int:
+    cfg = _config(request)
+    speech = getattr(cfg, "speech", None)
+    return _normalise_silence_window_ms(
+        int(getattr(speech, "vad_silence_ms", _SILENCE_WINDOW_DEFAULT))
+    )
+
+
+@router.get("/silence-window")
+def get_silence_window(request: Request) -> dict[str, object]:
+    ms = _current_silence_window_ms(request)
+    return {
+        "ms": ms,
+        "default": _SILENCE_WINDOW_DEFAULT,
+        "min": _SILENCE_WINDOW_AUTOMATIC,
+        "max": _SILENCE_WINDOW_MAX,
+        # The lowest value that is a real window rather than the automatic
+        # setting, so the slider knows where the gap it must skip ends.
+        "manual_min": _SILENCE_WINDOW_MIN,
+        "automatic": ms == _SILENCE_WINDOW_AUTOMATIC,
+    }
+
+
+@router.put("/silence-window")
+def put_silence_window(body: SilenceWindowBody, request: Request) -> dict[str, object]:
+    ms = _normalise_silence_window_ms(body.ms)
+
+    # Best-effort in-memory cfg update so a later cfg read agrees pre-restart.
+    cfg = _config(request)
+    if cfg is not None and getattr(cfg, "speech", None) is not None:
+        try:
+            cfg.speech.vad_silence_ms = ms  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory speech.vad_silence_ms update skipped: %s", exc)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            config_writer.set_silence_window_ms(ms, path=resolve_config_path())
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning("silence-window persist failed (live apply still attempted): %s", exc)
+
+    # Live-apply to the running voice pipeline so the new window works
+    # immediately — no app restart. Best-effort: a headless/down pipeline just
+    # means it applies on next start.
+    applied_live = False
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    if pipeline is not None and hasattr(pipeline, "set_silence_window_ms"):
+        try:
+            pipeline.set_silence_window_ms(ms)
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001 — never fail the save on a live-apply hiccup
+            log.warning("silence-window live-apply failed (persisted; applies on restart): %s", exc)
+
+    return {
+        "ok": True,
+        "ms": ms,
+        "default": _SILENCE_WINDOW_DEFAULT,
+        "manual_min": _SILENCE_WINDOW_MIN,
+        "automatic": ms == _SILENCE_WINDOW_AUTOMATIC,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        # A realtime call reads the value when it opens, so the classic
+        # pipeline's live-apply is the only thing a restart could be needed
+        # for; an automatic setting needs nothing beyond the next turn.
+        "restart_required": not applied_live,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Master TTS output volume — how loudly Jarvis speaks.
+#
+# GET to read, PUT to change. A 0.0–1.0 amplitude gain (1.0 = full, the
+# historical unattenuated behaviour), the same unit as [tts].volume; the UI
+# renders it as a 0–100% slider. Persisted to jarvis.toml [tts].volume AND
+# live-applied to the running SpeechPipeline (set_tts_volume → AudioPlayer), so
+# a change is audible immediately without a restart; a headless/down pipeline
+# falls back to "applies on next start". Provider-independent (applied in the
+# shared player, so it covers every TTS provider and ack chimes alike).
+# ---------------------------------------------------------------------------
+
+_TTS_VOLUME_DEFAULT = 1.0
+
+
+def _speaker_pipeline(request: Request):
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    if pipeline is None:
+        from dodaios.core.runtime_refs import get_speech_pipeline
+
+        pipeline = get_speech_pipeline()
+    if not callable(getattr(pipeline, "speaker_output_state", None)):
+        raise HTTPException(status_code=503, detail="Voice output is not ready.")
+    return pipeline
+
+
+@router.get("/speaker-mute", summary="Read the assistant speaker mute and volume")
+def get_speaker_mute(request: Request) -> dict[str, object]:
+    return _speaker_pipeline(request).speaker_output_state()
+
+
+@router.post(
+    "/speaker-mute", summary="Toggle assistant output; keep microphone and volume unchanged",
+)
+def toggle_speaker_mute(request: Request) -> dict[str, object]:
+    pipeline = _speaker_pipeline(request)
+    pipeline.toggle_speaker_mute(source="web")
+    return pipeline.speaker_output_state()
+
+
+class TtsVolumeBody(BaseModel):
+    volume: float = Field(..., ge=0.0, le=1.0)
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+
+def _current_tts_volume(request: Request) -> float:
+    cfg = _config(request)
+    tts = getattr(cfg, "tts", None)
+    try:
+        return max(0.0, min(1.0, float(getattr(tts, "volume", _TTS_VOLUME_DEFAULT))))
+    except (TypeError, ValueError):
+        return _TTS_VOLUME_DEFAULT
+
+
+@router.get("/tts-volume")
+def get_tts_volume(request: Request) -> dict[str, object]:
+    return {
+        "volume": _current_tts_volume(request),
+        "default": _TTS_VOLUME_DEFAULT,
+        "min": 0.0,
+        "max": 1.0,
+    }
+
+
+@router.put("/tts-volume")
+def put_tts_volume(body: TtsVolumeBody, request: Request) -> dict[str, object]:
+    volume = float(body.volume)  # already range-validated by the Pydantic Field
+
+    # Best-effort in-memory cfg update so a later cfg read agrees pre-restart.
+    cfg = _config(request)
+    if cfg is not None and getattr(cfg, "tts", None) is not None:
+        try:
+            cfg.tts.volume = volume  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory tts.volume update skipped: %s", exc)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            config_writer.set_tts_volume(volume, path=resolve_config_path())
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning("tts-volume persist failed (live apply still attempted): %s", exc)
+
+    # Live-apply to the running voice pipeline so the new volume is audible
+    # immediately — no app restart. Best-effort: a headless/down pipeline just
+    # means it applies on next start.
+    applied_live = False
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    if pipeline is not None and hasattr(pipeline, "set_tts_volume"):
+        try:
+            pipeline.set_tts_volume(volume)
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001 — never fail the save on a live-apply hiccup
+            log.warning("tts-volume live-apply failed (persisted; applies on restart): %s", exc)
+
+    return {
+        "ok": True,
+        "volume": volume,
+        "default": _TTS_VOLUME_DEFAULT,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Audio device pickers — which device Jarvis's voice plays on and which
+# microphone it listens with.
+#
+# GET lists one entry per PHYSICAL device (host-API twins deduped, the
+# localized virtual mapper and WDM-KS hidden — dodaios.audio.devices) plus the
+# current selection; PUT persists a device NAME (stable across reboots, unlike
+# PortAudio indices) or the "auto-headset" sentinel to jarvis.toml [audio] and
+# live-applies it to the running pipeline (output: player hot-swap; input:
+# wake-session re-arm). Headless / no PortAudio → available=false, the UI
+# degrades to a caption; a save still persists for the next start.
+# ---------------------------------------------------------------------------
+
+AUDIO_AUTO_DEVICE = "auto-headset"
+
+
+class AudioDeviceSelectBody(BaseModel):
+    output_device: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=256,
+        description=(
+            "Output device display name, or 'auto-headset' for automatic "
+            "selection. Omit to leave unchanged."
+        ),
+    )
+    input_device: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=256,
+        description=(
+            "Microphone display name, or 'auto-headset' for automatic "
+            "selection. Omit to leave unchanged."
+        ),
+    )
+    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
+
+    @model_validator(mode="after")
+    def _at_least_one_side(self) -> AudioDeviceSelectBody:
+        if self.output_device is None and self.input_device is None:
+            raise ValueError("Provide output_device and/or input_device.")
+        return self
+
+
+def _selected_audio_devices(request: Request) -> tuple[str, str]:
+    """The persisted (output, input) selection strings from the live config."""
+    cfg = _config(request)
+    audio = getattr(cfg, "audio", None)
+    out = str(getattr(audio, "output_device", AUDIO_AUTO_DEVICE) or AUDIO_AUTO_DEVICE)
+    inp = str(getattr(audio, "input_device", AUDIO_AUTO_DEVICE) or AUDIO_AUTO_DEVICE)
+    return out, inp
+
+
+def _audio_device_available_in_live_table(value: str, *, output: bool) -> bool:
+    """Whether the running PortAudio instance can open an explicit device.
+
+    A fresh Settings probe can see hardware connected after this process
+    initialized PortAudio, while the live table remains frozen.  Such a pick is
+    still persisted, but it must wait for the next app start instead of being
+    falsely reported as live-applied (or resolving to a different old index).
+    """
+    if value == AUDIO_AUTO_DEVICE:
+        return True
+    from dodaios.audio.devices import resolve_device_by_name
+
+    return resolve_device_by_name(value, output=output) is not None
+
+
+@router.get("/audio-devices")
+async def get_audio_devices(request: Request) -> dict[str, object]:
+    """Enumerate output/input devices + the current selection for the pickers."""
+    from dodaios.audio.devices import list_device_options
+
+    outputs, inputs = await asyncio.to_thread(
+        lambda: list_device_options(fresh=True)
+    )
+    selected_output, selected_input = _selected_audio_devices(request)
+    return {
+        "available": bool(outputs or inputs),
+        "auto_value": AUDIO_AUTO_DEVICE,
+        "outputs": [{"name": d.name, "is_default": d.is_default} for d in outputs],
+        "inputs": [{"name": d.name, "is_default": d.is_default} for d in inputs],
+        "selected_output": selected_output,
+        "selected_input": selected_input,
+    }
+
+
+@router.put("/audio-devices")
+async def put_audio_devices(
+    body: AudioDeviceSelectBody, request: Request
+) -> dict[str, object]:
+    """Persist an audio selection and live-apply it when the table is current."""
+    output_live = (
+        await asyncio.to_thread(
+            _audio_device_available_in_live_table,
+            body.output_device,
+            output=True,
+        )
+        if body.output_device is not None
+        else False
+    )
+    input_live = (
+        await asyncio.to_thread(
+            _audio_device_available_in_live_table,
+            body.input_device,
+            output=False,
+        )
+        if body.input_device is not None
+        else False
+    )
+
+    # Best-effort in-memory cfg update so later cfg reads (voice-offline
+    # alerts, the voice watchdog restart path) agree pre-restart.
+    cfg = _config(request)
+    audio_cfg = getattr(cfg, "audio", None)
+    if audio_cfg is not None:
+        try:
+            if body.output_device is not None:
+                audio_cfg.output_device = body.output_device
+            if body.input_device is not None:
+                audio_cfg.input_device = body.input_device
+        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
+            log.debug("in-memory audio device update skipped: %s", exc)
+
+    persisted = False
+    if body.persist:
+        try:
+            from dodaios.core import config_writer
+            from dodaios.core.config import resolve_config_path
+
+            cfg_path = resolve_config_path()
+            if body.output_device is not None:
+                config_writer.set_audio_device(
+                    "output", body.output_device, path=cfg_path
+                )
+            if body.input_device is not None:
+                config_writer.set_audio_device(
+                    "input", body.input_device, path=cfg_path
+                )
+            persisted = True
+        except Exception as exc:  # noqa: BLE001 — persist is best-effort
+            log.warning(
+                "audio-device persist failed (live apply still attempted): %s", exc
+            )
+
+    # Live-apply to the running voice pipeline — no app restart. Best-effort:
+    # a headless/down pipeline just means it applies on next start.
+    applied_sides = 0
+    requested_sides = int(body.output_device is not None) + int(
+        body.input_device is not None
+    )
+    pipeline = getattr(request.app.state, "speech_pipeline", None)
+    if pipeline is not None and hasattr(pipeline, "set_audio_devices"):
+        try:
+            # The OUTPUT swap can block: AudioPlayer.set_device tears down the
+            # persistent stream, and PortAudio's stream.stop() drains the
+            # ~200 ms playback buffer (longer while Jarvis is mid-sentence).
+            # Run it off the event loop so a device switch never freezes the
+            # whole API/WS surface. The INPUT side must stay ON the loop: it
+            # only sets an attribute and flips the asyncio wake-reload Event,
+            # and asyncio primitives are not thread-safe.
+            if body.output_device is not None and output_live:
+                await asyncio.to_thread(
+                    pipeline.set_audio_devices, output_device=body.output_device
+                )
+                applied_sides += 1
+            if body.input_device is not None and input_live:
+                pipeline.set_audio_devices(input_device=body.input_device)
+                applied_sides += 1
+        except Exception as exc:  # noqa: BLE001 — never fail the save on a live-apply hiccup
+            log.warning(
+                "audio-device live-apply failed (persisted; applies on restart): %s",
+                exc,
+            )
+    if body.output_device is not None and not output_live:
+        log.info(
+            "audio output %r is not present in the live PortAudio table; "
+            "saved for the next app start",
+            body.output_device,
+        )
+    if body.input_device is not None and not input_live:
+        log.info(
+            "audio input %r is not present in the live PortAudio table; "
+            "saved for the next app start",
+            body.input_device,
+        )
+
+    applied_live = applied_sides == requested_sides
+
+    selected_output, selected_input = _selected_audio_devices(request)
+    return {
+        "ok": True,
+        "selected_output": selected_output,
+        "selected_input": selected_input,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live,
+    }

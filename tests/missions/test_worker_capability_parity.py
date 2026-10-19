@@ -7,22 +7,22 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.capabilities import (
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.capabilities import (
     WorkerCapabilityInventory,
     restricted_worker_app_commands,
     restricted_worker_knowledge_tools,
 )
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.codex_direct_worker import (
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.codex_direct_worker import (
     CodexDirectWorker,
     _build_codex_direct_cmd,
 )
-from jarvis.missions.workers.gemini_worker import (
+from dodaios.missions.workers.gemini_worker import (
     GeminiWorker,
     _build_isolated_gemini_env,
 )
-from jarvis.missions.workers.google_cli_worker import GoogleCliWorker
+from dodaios.missions.workers.google_cli_worker import GoogleCliWorker
 
 
 def _inventory() -> WorkerCapabilityInventory:
@@ -123,7 +123,7 @@ def test_worker_knowledge_surface_baseline() -> None:
 
 
 def test_every_granted_knowledge_tool_passes_the_broker_denylist() -> None:
-    from jarvis.missions.workers.worker_tool_broker import worker_tool_name_allowed
+    from dodaios.missions.workers.worker_tool_broker import worker_tool_name_allowed
 
     for name in restricted_worker_knowledge_tools():
         assert worker_tool_name_allowed(name), name
@@ -132,7 +132,7 @@ def test_every_granted_knowledge_tool_passes_the_broker_denylist() -> None:
 def test_mission_inventory_combines_wiki_reads_with_relevant_connectors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.missions import init as missions_init
+    from dodaios.missions import init as missions_init
 
     monkeypatch.setattr(
         missions_init,

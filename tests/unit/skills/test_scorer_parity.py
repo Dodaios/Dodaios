@@ -20,9 +20,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.skills.local_search import LocalSearchFilters, LocalSkillSearch
-from jarvis.skills.relevance import build_index
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.local_search import LocalSearchFilters, LocalSkillSearch
+from dodaios.skills.relevance import build_index
+from dodaios.skills.schema import SkillLifecycleState
 
 # Speech input under test.
 TRIGGER_WORD = "fokusmodus"  # i18n-allow
@@ -249,7 +249,7 @@ def test_local_search_owns_no_scoring_function() -> None:
     """
     from pathlib import Path
 
-    import jarvis.skills.local_search as module
+    import dodaios.skills.local_search as module
 
     source = Path(module.__file__).read_text(encoding="utf-8")
     code = "\n".join(

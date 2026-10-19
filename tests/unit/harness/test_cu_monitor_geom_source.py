@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.harness import screenshot_only_loop as sol
+from dodaios.harness import screenshot_only_loop as sol
 
 
 def test_uses_observation_geometry_when_present(monkeypatch):

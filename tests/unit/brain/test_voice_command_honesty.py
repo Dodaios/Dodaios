@@ -10,9 +10,9 @@ from uuid import UUID
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeExecutor:
@@ -38,8 +38,8 @@ async def test_main_switch_success_speaks_real_target(monkeypatch) -> None:
         assert provider == "gemini"
         return {"ok": True, "new_provider": "gemini", "applied_live": True}
 
-    monkeypatch.setattr("jarvis.brain.app_control.apply_provider_switch", _ok)
-    monkeypatch.setattr("jarvis.brain.app_control.resolve_running_cfg", lambda: mgr._config)
+    monkeypatch.setattr("dodaios.brain.app_control.apply_provider_switch", _ok)
+    monkeypatch.setattr("dodaios.brain.app_control.resolve_running_cfg", lambda: mgr._config)
 
     out = await mgr._apply_main_provider_switch("gemini")
     assert out
@@ -56,8 +56,8 @@ async def test_main_switch_failure_is_honest(monkeypatch) -> None:
             "error": "Gemini is not configured — its API key is missing.",
         }
 
-    monkeypatch.setattr("jarvis.brain.app_control.apply_provider_switch", _fail)
-    monkeypatch.setattr("jarvis.brain.app_control.resolve_running_cfg", lambda: mgr._config)
+    monkeypatch.setattr("dodaios.brain.app_control.apply_provider_switch", _fail)
+    monkeypatch.setattr("dodaios.brain.app_control.resolve_running_cfg", lambda: mgr._config)
 
     out = await mgr._apply_main_provider_switch("gemini")
     assert out
@@ -73,8 +73,8 @@ async def test_main_switch_subagent_only_is_honest(monkeypatch) -> None:
     async def _fail(tier, provider, *, cfg, persist=True):
         return {"ok": False, "error_kind": "subagent_only", "error": "subagent only"}
 
-    monkeypatch.setattr("jarvis.brain.app_control.apply_provider_switch", _fail)
-    monkeypatch.setattr("jarvis.brain.app_control.resolve_running_cfg", lambda: mgr._config)
+    monkeypatch.setattr("dodaios.brain.app_control.apply_provider_switch", _fail)
+    monkeypatch.setattr("dodaios.brain.app_control.resolve_running_cfg", lambda: mgr._config)
 
     # "gemini" is a valid main-brain alias (so the method reaches the validated
     # switch); the mock returns subagent_only to assert the readback is honest.
@@ -117,7 +117,7 @@ def test_reply_language_persist_failure_is_honest(monkeypatch) -> None:
     def _boom(_lang):
         raise OSError("jarvis.toml is read-only")
 
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
     monkeypatch.setattr(cw, "set_reply_language", _boom)
 
     out = mgr._apply_reply_language_switch("en")

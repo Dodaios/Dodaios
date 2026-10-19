@@ -5,7 +5,7 @@ Design: docs/superpowers/specs/2026-07-07-tts-quality-curation-design.md §3.1.
 """
 from __future__ import annotations
 
-from jarvis.plugins.tts import curated_catalog as cc
+from dodaios.plugins.tts import curated_catalog as cc
 
 
 def test_keep_models_are_allowed():

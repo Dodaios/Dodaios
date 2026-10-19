@@ -13,7 +13,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from jarvis.setup.macos_app_bundle import (
+from dodaios.setup.macos_app_bundle import (
     APP_DIR_NAME,
     ensure_macos_app_bundle,
     macos_app_bundle_is_launchable,
@@ -29,13 +29,13 @@ def _no_signing_identity(monkeypatch):
     Without this every ``sys.platform = "darwin"`` test would shell out to
     the real ``security`` binary of the machine running the suite.
     """
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab, "ensure_local_signing_identity", lambda *, create: None)
 
 
 def _build(tmp_path: Path, monkeypatch) -> Path:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     # The explicit-path branch builds a structural native fixture off macOS.
     # Real clang/codesign/LaunchServices coverage lives in macOS CI.
@@ -74,7 +74,7 @@ def test_bundle_plist_carries_the_shared_usage_strings_and_no_removed_key(
     tmp_path: Path, monkeypatch
 ) -> None:
     """The managed app shows the same permission dialogs as the .dmg app (one table)."""
-    from jarvis.core import macos_privacy_strings as table
+    from dodaios.core import macos_privacy_strings as table
 
     bundle = _build(tmp_path, monkeypatch)
     info = plistlib.loads((bundle / "Contents" / "Info.plist").read_bytes())
@@ -124,7 +124,7 @@ def test_rerun_preserves_existing_bundle_byte_for_byte(tmp_path: Path, monkeypat
 
 
 def test_failed_runtime_probe_rebuilds_instead_of_preserving(tmp_path: Path, monkeypatch) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     monkeypatch.setattr(mab.sys, "platform", "darwin")
@@ -161,7 +161,7 @@ def test_failed_runtime_probe_rebuilds_instead_of_preserving(tmp_path: Path, mon
 def test_running_canonical_app_skips_second_launchservices_probe(
     tmp_path: Path, monkeypatch
 ) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     monkeypatch.setattr(mab.sys, "platform", "darwin")
@@ -189,7 +189,7 @@ def test_running_canonical_app_skips_second_launchservices_probe(
 def test_runtime_identity_probe_diagnoses_open_failure(
     tmp_path: Path, monkeypatch
 ) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     monkeypatch.setattr(
@@ -217,7 +217,7 @@ def test_runtime_identity_probe_diagnoses_open_failure(
 def test_runtime_identity_probe_diagnoses_missing_probe_file(
     tmp_path: Path, monkeypatch
 ) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     monkeypatch.setattr(
@@ -239,7 +239,7 @@ def test_runtime_identity_probe_diagnoses_missing_probe_file(
 
 
 def test_ensure_bundle_records_last_error_reason(tmp_path: Path, monkeypatch) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     monkeypatch.setattr(mab, "macos_app_bundle_is_launchable", lambda _bundle: False)
@@ -288,7 +288,7 @@ def test_bundle_path_and_launchservices_command(tmp_path: Path, monkeypatch) -> 
 
 
 def test_shell_executable_is_rejected(tmp_path: Path, monkeypatch) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "linux")
     bundle = tmp_path / APP_DIR_NAME
@@ -318,7 +318,7 @@ def test_codesign_verify_never_uses_strict_or_deep(tmp_path: Path, monkeypatch) 
     validation rejects exactly that ("invalid destination for symbolic
     link") — it failed on every freshly built bundle on real macOS CI.
     Local verification must stay a plain identity check."""
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     seen: list[list[str]] = []
@@ -336,7 +336,7 @@ def test_codesign_verify_never_uses_strict_or_deep(tmp_path: Path, monkeypatch) 
 
 
 def test_sign_bundle_reports_the_codesign_verify_detail(tmp_path: Path, monkeypatch) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
 
@@ -355,7 +355,7 @@ def test_sign_bundle_reports_the_codesign_verify_detail(tmp_path: Path, monkeypa
 
 
 def test_resolve_runtime_dylib_standalone_layout(tmp_path: Path) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     prefix = tmp_path / "cpython-3.12.13-macos-aarch64-none"
     (prefix / "lib").mkdir(parents=True)
@@ -371,7 +371,7 @@ def test_resolve_runtime_dylib_standalone_layout(tmp_path: Path) -> None:
 
 
 def test_resolve_runtime_dylib_prefers_unversioned_uv_sibling(tmp_path: Path) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     versioned = tmp_path / "cpython-3.12.13-macos-aarch64-none"
     unversioned = tmp_path / "cpython-3.12-macos-aarch64-none"
@@ -390,7 +390,7 @@ def test_resolve_runtime_dylib_prefers_unversioned_uv_sibling(tmp_path: Path) ->
 
 
 def test_resolve_runtime_dylib_framework_layout(tmp_path: Path) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     framework_prefix = tmp_path / "Library" / "Frameworks"
     runtime = framework_prefix / "Python.framework" / "Versions" / "3.13"
@@ -407,7 +407,7 @@ def test_resolve_runtime_dylib_framework_layout(tmp_path: Path) -> None:
 
 
 def test_resolve_runtime_dylib_missing_names_every_candidate(tmp_path: Path) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     info = {
         "base_prefix": str(tmp_path / "prefix"),
@@ -424,13 +424,13 @@ def test_resolve_runtime_dylib_missing_names_every_candidate(tmp_path: Path) -> 
 
 def _native_build_fixture(tmp_path: Path, monkeypatch) -> SimpleNamespace:
     """Prepare a fake install root, runtime layout, and clang subprocess."""
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     monkeypatch.setattr(mab, "_try_build_icns", lambda _resources: None)
 
     install_root = tmp_path / "install"
-    entry = install_root / "jarvis" / "setup" / "macos_launcher_entry.py"
+    entry = install_root / "dodaios" / "setup" / "macos_launcher_entry.py"
     entry.parent.mkdir(parents=True)
     entry.write_text("", encoding="utf-8")
     venv_python = install_root / ".venv" / "bin" / "python"
@@ -488,7 +488,7 @@ def test_build_native_bundle_layout_and_clang_invocation(
     info = plistlib.loads((bundle / "Contents" / "Info.plist").read_bytes())
     assert info["CFBundleExecutable"] == "PersonalJarvis"
     assert info["CFBundleIdentifier"] == "com.personal-jarvis.desktop"
-    from jarvis.setup.macos_app_bundle import _BUNDLE_FORMAT_VERSION
+    from dodaios.setup.macos_app_bundle import _BUNDLE_FORMAT_VERSION
 
     assert info["JarvisBundleFormatVersion"] == _BUNDLE_FORMAT_VERSION
     assert "other apps" in info["NSAppleEventsUsageDescription"].lower()
@@ -541,7 +541,7 @@ def test_missing_clang_surfaces_xcode_hint_in_last_error(
 
 
 def test_launcher_identity_probe_uses_main_bundle(tmp_path: Path, monkeypatch) -> None:
-    from jarvis.setup.macos_launcher_entry import main
+    from dodaios.setup.macos_launcher_entry import main
 
     bundle = SimpleNamespace(
         bundleIdentifier=lambda: "com.personal-jarvis.desktop",
@@ -560,7 +560,7 @@ def test_launcher_identity_probe_uses_main_bundle(tmp_path: Path, monkeypatch) -
         "bundle_path": "/Users/test/Applications/Personal Jarvis.app",
         "executable": ("/Users/test/Applications/Personal Jarvis.app/Contents/MacOS/launcher"),
         "launcher_file": str(
-            Path(__file__).resolve().parents[3] / "jarvis" / "ui" / "web" / "launcher.py"
+            Path(__file__).resolve().parents[3] / "dodaios" / "ui" / "web" / "launcher.py"
         ),
         "install_root": str(Path(__file__).resolve().parents[3]),
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}",
@@ -575,7 +575,7 @@ def test_icns_iconset_members_use_only_apple_valid_names(
     out-of-grammar member (icon_64x64.png) makes it reject the whole iconset,
     so the app silently shipped without an icon."""
     pytest.importorskip("PIL")
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     captured: list[str] = []
@@ -603,7 +603,7 @@ def test_icns_iconset_members_use_only_apple_valid_names(
 
 
 def test_tcc_reset_needed_only_on_a_real_signature_change() -> None:
-    from jarvis.setup.macos_app_bundle import _tcc_reset_needed
+    from dodaios.setup.macos_app_bundle import _tcc_reset_needed
 
     # A rebuild that produced a NEW code signature orphans the recorded TCC
     # rows (BUG-083) — including the fresh-install case with no prior bundle.
@@ -616,7 +616,7 @@ def test_tcc_reset_needed_only_on_a_real_signature_change() -> None:
 
 
 def test_reset_stale_tcc_grants_scopes_every_service_to_our_bundle_id() -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     commands: list[list[str]] = []
 
@@ -643,7 +643,7 @@ def test_reset_stale_tcc_grants_scopes_every_service_to_our_bundle_id() -> None:
 
 
 def test_reset_stale_tcc_grants_survives_a_failing_tccutil() -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     attempts: list[str] = []
 
@@ -665,8 +665,8 @@ def _redirect_data_dir(tmp_path: Path, monkeypatch) -> Path:
     The deleted reset note was written under ``user_data_dir()``, never beside the
     bundle, so asserting an empty bundle folder alone could not see it come back.
     """
-    import jarvis.core.paths as paths
-    import jarvis.platform.permissions as permissions
+    import dodaios.core.paths as paths
+    import dodaios.platform.permissions as permissions
 
     data = tmp_path / "jarvis-data"
     data.mkdir()
@@ -684,7 +684,7 @@ def test_an_identity_change_resets_the_own_rows_and_leaves_no_marker_behind(
     this layer only resets once per rebuild that really happened, and the app
     asks again just in time instead of explaining the reset up front.
     """
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     data = _redirect_data_dir(tmp_path, monkeypatch)
     monkeypatch.setattr(mab, "_bundle_tcc_identity", lambda _bundle: 'cdhash H"two"')
@@ -703,9 +703,9 @@ def test_a_leftover_state_file_of_an_earlier_build_is_removed_on_the_darwin_inst
     tmp_path: Path, monkeypatch
 ) -> None:
     """An upgrade deletes the two files the permission wall kept; it never asks anything."""
-    import jarvis.autostart.macos as autostart_macos
-    import jarvis.platform.permissions as permissions
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.autostart.macos as autostart_macos
+    import dodaios.platform.permissions as permissions
+    import dodaios.setup.macos_app_bundle as mab
 
     data = tmp_path / "data"
     data.mkdir()
@@ -731,8 +731,8 @@ def test_the_leftover_cleanup_leaves_other_installs_and_injected_dirs_alone(
     tmp_path: Path, monkeypatch, platform: str, inject_applications_dir: bool
 ) -> None:
     """Only the real darwin install path deletes; every other call keeps the files."""
-    import jarvis.platform.permissions as permissions
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.platform.permissions as permissions
+    import dodaios.setup.macos_app_bundle as mab
 
     data = tmp_path / "data"
     data.mkdir()
@@ -764,7 +764,7 @@ def test_a_rebuild_that_reproduces_the_same_app_is_not_repeated(
     signature, and macOS answers a changed signature by orphaning every TCC
     grant — so the user allows everything, restarts, and is asked again.
     """
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     marker = tmp_path / "macos-bundle-rebuild.json"
@@ -797,7 +797,7 @@ def test_a_rebuild_that_reproduces_the_same_app_is_not_repeated(
 
 def test_a_changed_interpreter_still_earns_a_fresh_rebuild(tmp_path: Path, monkeypatch) -> None:
     """The guard suppresses a repeat, never a build that could come out different."""
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     marker = tmp_path / "macos-bundle-rebuild.json"
@@ -846,7 +846,7 @@ def test_a_broken_bundle_is_always_rebuilt_however_often_it_recurs(
     tmp_path: Path, monkeypatch
 ) -> None:
     """A bundle that cannot launch is a real repair — the loop guard must not block it."""
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     marker = tmp_path / "macos-bundle-rebuild.json"
@@ -881,7 +881,7 @@ def test_the_running_app_is_accepted_wherever_the_user_keeps_it(
     Both copies share our bundle id, so the rebuild's ``tccutil reset`` strips
     the permissions of the app that is running at that moment (BUG-161).
     """
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     shared_copy = tmp_path / "SharedApplications" / APP_DIR_NAME
@@ -907,8 +907,8 @@ def test_the_running_app_is_accepted_wherever_the_user_keeps_it(
 
 def test_the_running_bundle_probe_ignores_the_install_location(monkeypatch) -> None:
     """Only the bundle id and the managed checkout decide — never the path."""
-    import jarvis.setup.macos_app_bundle as mab
-    import jarvis.ui.web.launcher as launcher
+    import dodaios.setup.macos_app_bundle as mab
+    import dodaios.ui.web.launcher as launcher
 
     install_root = Path(launcher.__file__).resolve().parents[3]
     running = Path("/Applications") / APP_DIR_NAME
@@ -926,7 +926,7 @@ def test_the_running_bundle_probe_ignores_the_install_location(monkeypatch) -> N
 
 
 def test_a_foreign_bundle_id_is_never_taken_for_the_managed_app(monkeypatch) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     foundation = ModuleType("Foundation")
     foundation.NSBundle = SimpleNamespace(  # type: ignore[attr-defined]
@@ -949,7 +949,7 @@ def test_a_foreign_bundle_id_is_never_taken_for_the_managed_app(monkeypatch) -> 
 
 
 def test_designated_requirement_parsing_covers_both_signature_kinds() -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     adhoc = (
         "Executable=/x/Personal Jarvis.app/Contents/MacOS/PersonalJarvis\n"
@@ -968,7 +968,7 @@ def test_designated_requirement_parsing_covers_both_signature_kinds() -> None:
 
 
 def test_sign_bundle_uses_the_identity_when_there_is_one(tmp_path: Path, monkeypatch) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     commands: list[list[str]] = []
 
@@ -989,7 +989,7 @@ def test_a_healthy_adhoc_bundle_is_moved_onto_the_identity_once(
     tmp_path: Path, monkeypatch
 ) -> None:
     """The one migration the user pays for; after it no rebuild costs a grant."""
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     monkeypatch.setattr(mab.sys, "platform", "darwin")
@@ -1030,7 +1030,7 @@ def test_a_healthy_adhoc_bundle_is_moved_onto_the_identity_once(
 
 def test_the_running_app_is_never_resigned_underneath_itself(tmp_path: Path, monkeypatch) -> None:
     """The reset that follows a re-sign would strip the grants of this process."""
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     monkeypatch.setattr(mab.sys, "platform", "darwin")
     monkeypatch.setattr(mab, "ensure_local_signing_identity", lambda *, create: "ABCDEF")
@@ -1052,7 +1052,7 @@ def test_the_running_app_is_never_resigned_underneath_itself(tmp_path: Path, mon
 def test_resign_in_place_keeps_the_files_and_resets_against_the_old_identity(
     tmp_path: Path, monkeypatch
 ) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     before = (bundle / "Contents" / "Info.plist").read_bytes()
@@ -1081,7 +1081,7 @@ def test_resign_in_place_keeps_the_files_and_resets_against_the_old_identity(
 def test_resign_in_place_rolls_back_when_the_result_cannot_launch(
     tmp_path: Path, monkeypatch
 ) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     before = (bundle / "Contents" / "Info.plist").read_bytes()
@@ -1101,7 +1101,7 @@ def test_resign_in_place_rolls_back_when_the_result_cannot_launch(
 
 def test_a_rebuild_with_the_identity_never_resets_the_grants(tmp_path: Path, monkeypatch) -> None:
     """Same certificate before and after: TCC sees the same app, nothing to reset."""
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     same = 'identifier "com.personal-jarvis.desktop" and certificate leaf = H"0e14"'
     monkeypatch.setattr(mab, "_bundle_tcc_identity", lambda _b: same)
@@ -1115,7 +1115,7 @@ def test_a_rebuild_with_the_identity_never_resets_the_grants(tmp_path: Path, mon
 
 
 def _healthy_darwin_bundle(tmp_path: Path, monkeypatch, *, identity: str | None):
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     monkeypatch.setattr(mab.sys, "platform", "darwin")
@@ -1177,7 +1177,7 @@ def test_an_adhoc_bundle_keeps_its_stale_version(tmp_path: Path, monkeypatch) ->
 
 
 def test_a_removed_app_is_dropped_from_launch_services(tmp_path: Path, monkeypatch) -> None:
-    import jarvis.setup.macos_app_bundle as mab
+    import dodaios.setup.macos_app_bundle as mab
 
     bundle = _build(tmp_path, monkeypatch)
     unregistered: list[Path] = []

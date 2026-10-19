@@ -8,10 +8,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.team import SeatPick, TeamError, TeamThreads, TeamThreadStore, prompts
-from jarvis.agent_chat.team.engine import MAX_MEMBERS
-from jarvis.ui.web import team_thread_routes
-from jarvis.ui.web.team_thread_routes import router, short_model_label
+from dodaios.agent_chat.team import SeatPick, TeamError, TeamThreads, TeamThreadStore, prompts
+from dodaios.agent_chat.team.engine import MAX_MEMBERS
+from dodaios.ui.web import team_thread_routes
+from dodaios.ui.web.team_thread_routes import router, short_model_label
 from tests.fakes.fake_team_turns import FakeTurns, FakeWorkspace, changes
 
 CLAUDE_MODELS = [

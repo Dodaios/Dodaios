@@ -126,7 +126,7 @@ jobs:
           echo "----- changed files since $base -----"
           echo "$changed"
           echo "-------------------------------------"
-          if echo "$changed" | grep -qE '^(install/installer\.py|install/install\.sh|tests/unit/install/test_install_sh_stage1\.py|pyproject\.toml|requirements\.txt|jarvis/__main__\.py|jarvis/setup/prefetch\.py|jarvis/setup/model_report\.py|jarvis/speech/wake_model_fetch\.py|\.github/workflows/installer-smoke\.yml)$'; then
+          if echo "$changed" | grep -qE '^(install/installer\.py|install/install\.sh|tests/unit/install/test_install_sh_stage1\.py|pyproject\.toml|requirements\.txt|dodaios/__main__\.py|dodaios/setup/prefetch\.py|dodaios/setup/model_report\.py|dodaios/speech/wake_model_fetch\.py|\.github/workflows/installer-smoke\.yml)$'; then
             echo "run-fresh=true" >> "$GITHUB_OUTPUT"
             echo "fresh-install smoke RUNS."
           else
@@ -206,7 +206,7 @@ jobs:
         run: |
           set -euo pipefail
           . .venv/bin/activate
-          python -c "import jarvis; print('import OK ->', jarvis.__file__)"
+          python -c "import dodaios; print('import OK ->', dodaios.__file__)"
 
       - name: Boot the headless server + health probe on the REAL admin port
         shell: bash
@@ -216,9 +216,9 @@ jobs:
           # Ask the launcher for the port it will actually bind (no jarvis.toml on
           # a fresh checkout → the packaged default), so this can never drift the
           # way the installer's launch hint did.
-          PORT=$(python -c "from jarvis.ui.web.launcher import _fast_admin_port; print(_fast_admin_port())")
+          PORT=$(python -c "from dodaios.ui.web.launcher import _fast_admin_port; print(_fast_admin_port())")
           echo "expected admin port: $PORT"
-          python -m jarvis.ui.web.launcher --headless > boot.log 2>&1 &
+          python -m dodaios.ui.web.launcher --headless > boot.log 2>&1 &
           BOOTPID=$!
           set +e
           python - "$PORT" <<'PYEOF'
@@ -305,7 +305,7 @@ jobs:
 
           # ---- Restart leg: onboarding must NOT re-arm on a second boot ----
           sleep 2
-          python -m jarvis.ui.web.launcher --headless > boot2.log 2>&1 &
+          python -m dodaios.ui.web.launcher --headless > boot2.log 2>&1 &
           BOOTPID2=$!
           set +e
           python - "$PORT" <<'PYEOF'

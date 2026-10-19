@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from jarvis.memory import CoreMemory
+from dodaios.memory import CoreMemory
 
 
 def test_load_creates_defaults(tmp_path):

@@ -2,7 +2,7 @@
 
 This exercises the exact wiring that ships in ClaudeDirectWorker:
 
-  marketplace connect (token)            <- jarvis.marketplace.mcp_bridge
+  marketplace connect (token)            <- dodaios.marketplace.mcp_bridge
     -> claude-cli mcpServers map
     -> _build_mcp_config_args writes --mcp-config   <- the real worker helper
     -> `claude` CLI connects to the MCP server and invokes the tool
@@ -24,7 +24,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from jarvis.missions.workers.claude_direct_worker import (  # noqa: E402
+from dodaios.missions.workers.claude_direct_worker import (  # noqa: E402
     _build_mcp_config_args,
     _resolve_claude_argv_prefix,
 )

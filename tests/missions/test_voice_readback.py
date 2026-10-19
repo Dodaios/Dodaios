@@ -1,7 +1,7 @@
 """Tests for MissionReadback — DE templates + name-neutral tone + 280-cap."""
 from __future__ import annotations
 
-from jarvis.missions.voice.readback import (
+from dodaios.missions.voice.readback import (
     MAX_VOICE_CHARS,
     READBACK_TEMPLATES,
     MissionReadback,
@@ -143,7 +143,7 @@ def test_git_setup_reasons_carry_spanish() -> None:
     """AGENTS.md §1: Spanish is an equal supported product-surface language,
     so every portable workspace-setup reason added here must carry an ``es``
     phrase rather than perpetuating the de/en-only gap."""
-    from jarvis.missions.voice.readback import FAILURE_REASON_PHRASES
+    from dodaios.missions.voice.readback import FAILURE_REASON_PHRASES
 
     es = FAILURE_REASON_PHRASES.get("es", {})
     assert "git_missing" in es, "git_missing missing from the es phrase map"
@@ -228,7 +228,7 @@ def test_failure_reason_phrases_de_en_parity() -> None:
     """BUG-008 discipline: every key in FAILURE_REASON_PHRASES['de'] must
     also exist in ['en'] and vice-versa. A symmetric add-or-remove in one
     lang only cannot silently survive this gate."""
-    from jarvis.missions.voice.readback import FAILURE_REASON_PHRASES
+    from dodaios.missions.voice.readback import FAILURE_REASON_PHRASES
 
     de_keys = set(FAILURE_REASON_PHRASES["de"])
     en_keys = set(FAILURE_REASON_PHRASES["en"])
@@ -246,7 +246,7 @@ def test_failure_reason_phrases_shared_with_announcer() -> None:
     """Drift guard (BUG-008 five-layer pattern): the announcer must use the
     SAME reason->phrase map as the readback, so the listener and announcer
     voice paths never diverge."""
-    from jarvis.missions.voice.readback import FAILURE_REASON_PHRASES
+    from dodaios.missions.voice.readback import FAILURE_REASON_PHRASES
 
     # Both voice components resolve a known reason to the identical phrase.
     assert (
@@ -289,7 +289,7 @@ def test_injection_blocked_is_name_neutral() -> None:
 
 def test_no_template_contains_sir_anywhere() -> None:
     """Strict A1: not a single template may contain 'Sir'/'sir'."""
-    from jarvis.missions.voice.readback import READBACK_TEMPLATES
+    from dodaios.missions.voice.readback import READBACK_TEMPLATES
     for key, lang_map in READBACK_TEMPLATES.items():
         for lang, templates in lang_map.items():
             for tpl in templates:

@@ -30,9 +30,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jarvis.speech.completion import REASON_TRAILING_ELLIPSIS
-from jarvis.speech.continuation_buffer import ContinuationBuffer
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.speech.completion import REASON_TRAILING_ELLIPSIS
+from dodaios.speech.continuation_buffer import ContinuationBuffer
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 
 def _make_pipe(*, drain_timeout_s: float = 0.08) -> SpeechPipeline:

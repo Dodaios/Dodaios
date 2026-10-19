@@ -40,7 +40,7 @@ calm at rest.
   available-geometry, Linux X11 `xrandr`; Wayland has no reliable global geometry, so the feature
   degrades to single-monitor there (see `docs/os-parity.md` P-17). Shared placement math lives in
   `interaction.py` (`relative_within` / `project_relative` / `clamp_to_work_area`), the cross-OS
-  monitor probe in `jarvis/platform/monitors.py` (`work_area_at`).
+  monitor probe in `dodaios/platform/monitors.py` (`work_area_at`).
 - **Single left-click:** starts a voice session — the same entry point as the wake word / the
   push-to-talk hotkey. (Click = "tap to talk"; hold+drag = move. Disambiguated by a press
   duration + movement threshold.)
@@ -54,9 +54,9 @@ calm at rest.
 
 **Chosen approach:** a new sibling render surface that reuses the existing event bridge.
 
-The current orb is driven by `OrbBusBridge` (`jarvis/ui/orb/bus_bridge.py`), which subscribes to
+The current orb is driven by `OrbBusBridge` (`dodaios/ui/orb/bus_bridge.py`), which subscribes to
 the `EventBus` and calls a small duck-typed surface API on `OrbOverlay`
-(`jarvis/ui/orb/overlay.py`): `show(mode)`, `hide()`, `set_level(float)`, `play_animation(...)`,
+(`dodaios/ui/orb/overlay.py`): `show(mode)`, `hide()`, `set_level(float)`, `play_animation(...)`,
 `stop_animation()`, `show_listening_transcript(...)`, `hide_comment()`,
 `start_mouth_animation(...)`, `stop_mouth_animation(...)`.
 
@@ -74,20 +74,20 @@ Rejected alternatives:
 
 | File | Purpose |
 |---|---|
-| `jarvis/ui/jarvisbar/__init__.py` | Package marker + public exports |
-| `jarvis/ui/jarvisbar/renderer.py` | Pure rendering math + drawing of pill / dots / bars / wave. State-and-level → frame. No Tk, no I/O — unit-testable. |
-| `jarvis/ui/jarvisbar/overlay.py` | `JarvisBarOverlay` — Tk window, daemon thread, thread-safe `_enqueue_ui` queue, ~60 FPS loop, color-key transparency, implements the surface API |
-| `jarvis/ui/jarvisbar/interaction.py` | Click-vs-hold-drag discrimination (duration + movement threshold) + position persistence helpers |
-| `jarvis/audio/level_tap.py` | Tiny throttled RMS helper + a process-local pub/sub for the TTS output level (out-of-band, NOT the EventBus) |
+| `dodaios/ui/jarvisbar/__init__.py` | Package marker + public exports |
+| `dodaios/ui/jarvisbar/renderer.py` | Pure rendering math + drawing of pill / dots / bars / wave. State-and-level → frame. No Tk, no I/O — unit-testable. |
+| `dodaios/ui/jarvisbar/overlay.py` | `JarvisBarOverlay` — Tk window, daemon thread, thread-safe `_enqueue_ui` queue, ~60 FPS loop, color-key transparency, implements the surface API |
+| `dodaios/ui/jarvisbar/interaction.py` | Click-vs-hold-drag discrimination (duration + movement threshold) + position persistence helpers |
+| `dodaios/audio/level_tap.py` | Tiny throttled RMS helper + a process-local pub/sub for the TTS output level (out-of-band, NOT the EventBus) |
 
 ### 3.2 Touched files (additive)
 
 | File | Change |
 |---|---|
-| `jarvis/core/config.py` | Extend `UIConfig.orb_style` accepted values to include `"jarvis_bar"` and `"none"`; default becomes `"jarvis_bar"`. Add `UIConfig.bar_persistent: bool = True`, `UIConfig.bar_accent: str = "active_only"`. |
-| `jarvis/ui/desktop_app.py` | In `_start_speech_and_orb`, branch on `orb_style`: build `JarvisBarOverlay`, `OrbOverlay`, or nothing. Wire the same `OrbBusBridge`. |
-| `jarvis/audio/player.py` | In the `_write_samples` flush (already off the hot path, inside `asyncio.to_thread`), compute a throttled RMS on the already-materialized float32 array and publish it via `level_tap` (process-local, ~25 Hz max). Guarded so it is a no-op when nobody is subscribed. |
-| `jarvis/overlay/surface.py` *(optional, seam parity)* | Teach `make_overlay_surface` about `jarvis_bar` for the `OverlaySurface` protocol seam. |
+| `dodaios/core/config.py` | Extend `UIConfig.orb_style` accepted values to include `"jarvis_bar"` and `"none"`; default becomes `"jarvis_bar"`. Add `UIConfig.bar_persistent: bool = True`, `UIConfig.bar_accent: str = "active_only"`. |
+| `dodaios/ui/desktop_app.py` | In `_start_speech_and_orb`, branch on `orb_style`: build `JarvisBarOverlay`, `OrbOverlay`, or nothing. Wire the same `OrbBusBridge`. |
+| `dodaios/audio/player.py` | In the `_write_samples` flush (already off the hot path, inside `asyncio.to_thread`), compute a throttled RMS on the already-materialized float32 array and publish it via `level_tap` (process-local, ~25 Hz max). Guarded so it is a no-op when nobody is subscribed. |
+| `dodaios/overlay/surface.py` *(optional, seam parity)* | Teach `make_overlay_surface` about `jarvis_bar` for the `OverlaySurface` protocol seam. |
 | React settings *(optional, later wave)* | A "Display style: Bar / Mascot / Off" selector. Config-only is acceptable for the first cut. |
 
 ## 4. Data flow
@@ -96,13 +96,13 @@ Two clearly separated channels — this is the core of the design:
 
 1. **State transitions (low frequency, via EventBus).**
    `SystemStateChanged(new_state ∈ {IDLE, LISTENING, THINKING, SPEAKING})`
-   (`jarvis/state/supervisor.py:57`) → `OrbBusBridge` → `surface.show(mode)`.
+   (`dodaios/state/supervisor.py:57`) → `OrbBusBridge` → `surface.show(mode)`.
    Plus `VoiceSessionStarted/Ended` for the suppression latch.
 
 2. **Amplitude (high frequency, OUT-OF-BAND — never the EventBus).**
    Publishing ~25 Hz level samples on the bus would spam the flight-recorder wildcard
    subscriber (5 s cap). Instead:
-   - **Mic level** during LISTENING: reuse the existing `jarvis/ui/orb/mic_listener.py`,
+   - **Mic level** during LISTENING: reuse the existing `dodaios/ui/orb/mic_listener.py`,
      which already taps sounddevice and calls `surface.set_level()`.
    - **TTS level** during SPEAKING: the new `level_tap` carries the player's output RMS
      directly to `surface.set_level()`.

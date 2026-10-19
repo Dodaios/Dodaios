@@ -5,8 +5,8 @@ import asyncio
 
 import numpy as np
 
-from jarvis.core.protocols import AudioChunk, Transcript
-from jarvis.speech.rolling_whisper_wake import RollingWhisperWake
+from dodaios.core.protocols import AudioChunk, Transcript
+from dodaios.speech.rolling_whisper_wake import RollingWhisperWake
 
 
 class _CountingSTT:

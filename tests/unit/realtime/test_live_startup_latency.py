@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.core.protocols import ContinuousVoiceStart
-from jarvis.live.timing import StartupTimings
-from jarvis.plugins.realtime import openai_live as wire
+from dodaios.core.protocols import ContinuousVoiceStart
+from dodaios.live.timing import StartupTimings
+from dodaios.plugins.realtime import openai_live as wire
 
 
 class FakeHttpClient:
@@ -158,7 +158,7 @@ async def test_cold_http_client_construction_stays_off_audio_loop(transport, mon
 
 def test_timings_are_once_only_and_reject_untrusted_content(caplog):
     timing = StartupTimings("test-session")
-    with caplog.at_level(logging.INFO, logger="jarvis.live.timing"):
+    with caplog.at_level(logging.INFO, logger="dodaios.live.timing"):
         timing.mark("audio_ready")
         timing.mark("audio_ready")
         timing.browser({"capture_ready": 5, "secret-text": 1, "offer_ready": float("nan")})
@@ -171,8 +171,8 @@ def test_timings_are_once_only_and_reject_untrusted_content(caplog):
 
 @pytest.mark.asyncio
 async def test_native_handoff_finishes_before_a_slow_provider_open(monkeypatch, tmp_path):
-    from jarvis.live import session as module
-    from jarvis.live.config import LiveConfig
+    from dodaios.live import session as module
+    from dodaios.live.config import LiveConfig
 
     sent = []
     handoff = asyncio.Event()
@@ -258,8 +258,8 @@ async def test_invalid_answer_after_allocation_still_hangs_up(transport, monkeyp
 
 @pytest.mark.asyncio
 async def test_late_connection_closes_even_if_hangup_send_fails(monkeypatch, tmp_path):
-    from jarvis.live import session as module
-    from jarvis.live.config import LiveConfig
+    from dodaios.live import session as module
+    from dodaios.live.config import LiveConfig
 
     opening = asyncio.Event()
     closes = []
@@ -305,7 +305,7 @@ async def test_late_connection_closes_even_if_hangup_send_fails(monkeypatch, tmp
 
 @pytest.mark.asyncio
 async def test_timing_observes_subscription_snapshots_before_adapter_dispatch():
-    from jarvis.live.session import LiveVoiceSession
+    from dodaios.live.session import LiveVoiceSession
 
     async def send(message):
         return None

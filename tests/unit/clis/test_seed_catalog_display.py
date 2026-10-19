@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import re
 
-from jarvis.clis.catalog import SEED_CATALOG_PATH, load_catalog
+from dodaios.clis.catalog import SEED_CATALOG_PATH, load_catalog
 
 # Tokens that only appear in broken ASCII-umlaut German or German fragments.
 _FORBIDDEN_TOKENS = re.compile(

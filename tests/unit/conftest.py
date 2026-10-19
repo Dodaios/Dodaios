@@ -18,7 +18,7 @@ what the vast majority of these tests are asserting about.
 
 Two things this deliberately does NOT do:
 
-* It does not touch ``jarvis.dictation.polish_client.resolve_polish_chain``.
+* It does not touch ``dodaios.dictation.polish_client.resolve_polish_chain``.
   That function is itself under test (key-aware ordering, one entry per family,
   the pin), and neutralising it would make those tests assert against this
   fixture instead of against the code.
@@ -40,6 +40,6 @@ import pytest
 @pytest.fixture(autouse=True)
 def _polish_pass_holds_no_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the polish pass see an empty provider chain, as a keyless host does."""
-    from jarvis.dictation import polish
+    from dodaios.dictation import polish
 
     monkeypatch.setattr(polish, "resolve_polish_chain", lambda cfg: ())

@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from jarvis.voice.action_phrases import (
+from dodaios.voice.action_phrases import (
     action_phrase,
     cu_blocked_permission_sentence,
     cu_failure_readback,
@@ -47,7 +47,7 @@ class TestActionPhrase:
         # German fallback to a European Portuguese speaker.
         import string
 
-        from jarvis.voice.action_phrases import _PHRASES
+        from dodaios.voice.action_phrases import _PHRASES
 
         def fields(text: str) -> set[str]:
             return {f for _, f, _, _ in string.Formatter().parse(text) if f}
@@ -257,7 +257,7 @@ class TestNoHardcodedDashes:
     """
 
     def test_no_phrase_contains_a_dash_aside(self) -> None:
-        from jarvis.voice.action_phrases import _PHRASES
+        from dodaios.voice.action_phrases import _PHRASES
 
         offenders: list[str] = []
         for key, variants in _PHRASES.items():
@@ -485,8 +485,8 @@ class TestBlockedPermissionReadback:
     ) -> None:
         # The engine's own sentence, built from the service's fixed templates, so a
         # reworded template breaks this test instead of silently degrading the voice.
-        from jarvis.platform.permission_service import user_detail_for
-        from jarvis.platform.permissions import PermissionId
+        from dodaios.platform.permission_service import user_detail_for
+        from dodaios.platform.permissions import PermissionId
 
         sentence = user_detail_for(PermissionId(permission), reason, asking=asking)
         out = cu_failure_readback(lang, error=None, exit_code=8, detail=self._detail(sentence))
@@ -499,8 +499,8 @@ class TestBlockedPermissionReadback:
 
     @pytest.mark.parametrize("lang", ["de", "es", "pt"])
     def test_a_switch_that_is_off_still_says_where_to_allow_it(self, lang: str) -> None:
-        from jarvis.platform.permission_service import user_detail_for
-        from jarvis.platform.permissions import PermissionId
+        from dodaios.platform.permission_service import user_detail_for
+        from dodaios.platform.permissions import PermissionId
 
         sentence = user_detail_for(PermissionId.MICROPHONE, "denied")
         out = cu_failure_readback(lang, error=None, exit_code=8, detail=self._detail(sentence))
@@ -540,7 +540,7 @@ class TestCuSuccessReadback:
     """
 
     def test_surfaces_verified_observation(self) -> None:
-        from jarvis.voice.action_phrases import cu_success_readback
+        from dodaios.voice.action_phrases import cu_success_readback
 
         stdout = (
             "[cu] Start: open chrome\n"
@@ -554,7 +554,7 @@ class TestCuSuccessReadback:
     def test_extracts_proof_with_inner_parens(self) -> None:
         # The proof itself can contain parentheses ("Der Browser (Chrome) ...");
         # extraction must take everything up to the FINAL closing paren.
-        from jarvis.voice.action_phrases import cu_success_readback
+        from dodaios.voice.action_phrases import cu_success_readback
 
         stdout = "[cu] done at step 2.1 (verified: Der Browser (Chrome) ist offen, Tab 'X')\n"
         out = cu_success_readback("de", stdout=stdout)
@@ -562,7 +562,7 @@ class TestCuSuccessReadback:
         assert "Tab 'X'" in out
 
     def test_falls_back_to_done_without_verified_proof(self) -> None:
-        from jarvis.voice.action_phrases import action_phrase, cu_success_readback
+        from dodaios.voice.action_phrases import action_phrase, cu_success_readback
 
         # done line without a "(verified: ...)" segment → the plain done phrase.
         assert cu_success_readback("en", stdout="[cu] done at step 1\n") == action_phrase(
@@ -583,7 +583,7 @@ class TestCuSuccessReadback:
         read out the full structural dump, including the verbatim content of an
         unrelated parallel Claude-Code AskUserQuestion box.
         """
-        from jarvis.voice.action_phrases import action_phrase, cu_success_readback
+        from dodaios.voice.action_phrases import action_phrase, cu_success_readback
 
         stdout = (
             "[cu] done at step 2.1 (verified: Foreground window (right, orange "
@@ -602,7 +602,7 @@ class TestCuSuccessReadback:
         assert "status bar" not in out.lower()
 
     def test_blocks_individual_ui_structure_markers(self) -> None:
-        from jarvis.voice.action_phrases import action_phrase, cu_success_readback
+        from dodaios.voice.action_phrases import action_phrase, cu_success_readback
 
         done_de = action_phrase("cu_done", "de")
         for proof in (
@@ -621,7 +621,7 @@ class TestCuSuccessReadback:
         gate must protect the success readback: a verified-proof that is really a
         telemetry profile, or that carries a leaked screenshot path, degrades to
         the plain done phrase instead of being spoken."""
-        from jarvis.voice.action_phrases import action_phrase, cu_success_readback
+        from dodaios.voice.action_phrases import action_phrase, cu_success_readback
 
         done_en = action_phrase("cu_done", "en")
         for proof in (
