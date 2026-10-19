@@ -114,6 +114,40 @@ def exec_value(program: str, args: Iterable[str] = ()) -> str:
     return escape_value(" ".join(tokens))
 
 
+def exec_program(value: str | None) -> str:
+    """The program an ``Exec=`` value starts: its first argument, decoded.
+
+    ``value`` is the raw field as :func:`read_field` returns it. Both layers
+    are unwound in reader order: the key-file escapes first, then the Exec
+    quoting (inside double quotes a backslash takes the next character
+    literally) and the ``%%`` doubling. An empty or missing value gives ``""``.
+    """
+    command = unescape_value(value or "").lstrip()
+    out: list[str] = []
+    index = 0
+    quoted = False
+    while index < len(command):
+        char = command[index]
+        if quoted:
+            if char == "\\" and index + 1 < len(command):
+                out.append(command[index + 1])
+                index += 2
+                continue
+            if char == '"':
+                quoted = False
+                index += 1
+                continue
+        elif char == '"':
+            quoted = True
+            index += 1
+            continue
+        elif char in " \t\n":
+            break
+        out.append(char)
+        index += 1
+    return "".join(out).replace("%%", "%")
+
+
 def read_field(text: str, key: str, *, group: str = DESKTOP_ENTRY_GROUP) -> str | None:
     """The raw (still key-file-escaped) value of ``key`` in ``group``, or ``None``.
 
@@ -159,6 +193,7 @@ __all__ = [
     "DESKTOP_ENTRY_GROUP",
     "escape_value",
     "exec_argument",
+    "exec_program",
     "exec_value",
     "read_field",
     "reads_as_false",
