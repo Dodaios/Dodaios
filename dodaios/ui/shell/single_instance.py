@@ -81,8 +81,9 @@ class InstanceClaim:
 
                 win32event.ReleaseMutex(mutex)
                 win32api.CloseHandle(mutex)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                # The kernel still releases the mutex when this process exits.
+                logger.debug("Could not release a mutex: %s", exc)
         self._mutexes = ()
         # Release the POSIX flock (closing the fd drops the kernel lock)
         if self._lock_fd is not None:
@@ -238,12 +239,13 @@ def _close_handles(handles: list[Any]) -> None:
     try:
         import win32api  # type: ignore[import-not-found]
     except ImportError:
-        return
+        return  # without pywin32 no mutex handle was ever created
     for handle in handles:
         try:
             win32api.CloseHandle(handle)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            # The kernel still closes the handle when this process exits.
+            logger.debug("Could not close a mutex handle: %s", exc)
 
 
 def _get_last_error() -> int:
