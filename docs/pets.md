@@ -52,11 +52,11 @@ one click.
   what was asked, the start of the answer (see *Cards*).
 - **The pet "None"** (`pet_id = "none"`) shows the control strip and the
   cards without a figure.
-- **In the Jarvis Verse.** The chosen pet is also Jarvis in the office map:
-  a 3D version of it walks, crawls, hops or flies behind the person's
-  character (`docs/agent-society/office-map.md`, *Jarvis is the person's
-  pet*). A pet the person drew becomes a voxel figure cut from its idle
-  frames.
+- **In the Dodaios Verse.** The chosen pet is also Jarvis aboard the
+  starship: a 3D version of it flies at the captain's shoulder or walks
+  behind the captain on the deck (`docs/agent-society/starship-verse.md`,
+  *The captain and the companion*). A pet the person drew becomes a voxel
+  figure cut from its idle frames.
 - **Worn by an agent.** In an agent's look dialog (*Companion → Look →
   Pet*) any pet from My Pets can replace the agent's shape. It is stored as
   `companion.pet` in the agent's avatar JSON (`dodaios/society/companion.py`,
