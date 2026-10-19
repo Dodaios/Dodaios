@@ -320,7 +320,10 @@ add the four controls it lacked: authenticated writes (chokepoint), bounded non-
    NOTHING auto-promotes into the user's Obsidian wiki — promotion is a reviewed action.
 7. **Self-improvement stays governed:** agents may draft skills (AP-15 `draft` status) into a
    per-agent namespace; a visible approval flow (model card → "Learned skills") is the only path to
-   active. Memory curation is rate-limited. No self-modification of society code.
+   active. One exception: a skill the trusted self-build service made and proved by replaying the
+   person's own requests goes live on trial, labelled and undoable
+   ([ADR-0043](../adr/0043-self-built-skills-go-live-on-trial.md)). Memory curation is
+   rate-limited. No self-modification of society code.
 
 ## 7. Hard repo constraints folded in (from the gap check)
 
