@@ -68,10 +68,12 @@ function useCoarsePointer(): boolean {
   return coarse;
 }
 
-export function RetroArcadeOverlay({ gameId, onClose, loadGame = loadRetroGame }: {
+export function RetroArcadeOverlay({ gameId, onClose, loadGame = loadRetroGame, report = true }: {
   gameId: RetroGameId;
   onClose: () => void;
   loadGame?: GameLoader;
+  /** False when the host meters the rounds itself (the ship's holodeck). */
+  report?: boolean;
 }) {
   const t = useT();
   const info = arcadeGame(gameId);
@@ -91,6 +93,8 @@ export function RetroArcadeOverlay({ gameId, onClose, loadGame = loadRetroGame }
   // Callers often pass fresh arrow functions; refs keep the listeners and the load from churning on every render.
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const reportRef = useRef(report);
+  reportRef.current = report;
   const loaderRef = useRef(loadGame);
   loaderRef.current = loadGame;
 
@@ -149,7 +153,7 @@ export function RetroArcadeOverlay({ gameId, onClose, loadGame = loadRetroGame }
       const newBest = saveBest(gameId, score);
       const kept = Math.max(previous, score);
       // A scored round pays the person a little XP; a new record a little more (metered on the server).
-      if (score > 0) void reportWorldAction(newBest ? "arcade_record" : "arcade_round");
+      if (score > 0 && reportRef.current) void reportWorldAction(newBest ? "arcade_record" : "arcade_round");
       setBest(kept);
       setResult({ score, best: kept, newBest, won });
       overAt = now;

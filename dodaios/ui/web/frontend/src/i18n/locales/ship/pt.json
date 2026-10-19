@@ -1,0 +1,110 @@
+{
+  "ship": {
+    "title": "Dodaios Verse",
+    "fallback": "A nave precisa de WebGL, que esta vista não consegue iniciar agora.",
+    "loading": "A embarcar…",
+    "click": "Clique",
+    "close": "Fechar",
+    "level": "Nível {n}",
+    "help": "Caminha com WASD ou com um clique no convés. Arrasta para olhar, desliza para fazer zoom. E usa o que tens à frente, O mostra o convés inteiro.",
+    "deck": {
+      "label": "Convés {n}",
+      "bridge": "Ponte",
+      "bridge_about": "Comando, o leme e o teu primeiro oficial",
+      "ops": "Operações",
+      "ops_about": "As divisões dos teus agentes, o refeitório e o transportador",
+      "engineering": "Engenharia",
+      "engineering_about": "Agentes de código a trabalhar à volta do reator",
+      "holodeck": "Holodeck",
+      "holodeck_about": "Dez jogos para jogar",
+      "honors": "Salão de Honra",
+      "honors_about": "Patentes, promoções e a tua folha de serviço"
+    },
+    "crew": {
+      "working": "{count} a trabalhar",
+      "waiting": "{count} à espera",
+      "idle": "{count} de folga"
+    },
+    "state": {
+      "working": "A trabalhar",
+      "waiting": "Precisa de ti",
+      "idle": "De folga",
+      "paused": "A descansar",
+      "error": "Falhou",
+      "vacant": "Livre"
+    },
+    "room": {
+      "lounge": "Sala de observação",
+      "quartermaster": "Intendência",
+      "pods": "Cápsulas de descanso",
+      "lift": "Turboelevador",
+      "garden": "Hidroponia"
+    },
+    "division": {
+      "pool": "Tripulação sem equipa",
+      "free": "Baía livre"
+    },
+    "screen": {
+      "standby": "Em espera",
+      "vacant": "Livre"
+    },
+    "station": {
+      "transporter": { "action": "Transportar um novo agente", "name": "Transportador" },
+      "lift": { "action": "Chamar o turboelevador", "name": "Turboelevador" },
+      "division": { "action": "Abrir a equipa", "name": "Holomesa" },
+      "newDivision": { "action": "Fundar uma equipa aqui", "name": "Baía livre" },
+      "quartermaster": { "action": "Mudar de fato", "name": "Intendência", "soon": "A intendência abre no próximo passo da construção." },
+      "mess": {
+        "action": "Chamar a tripulação ao refeitório",
+        "name": "Cozinha",
+        "called": "{count} agentes de folga vão para o refeitório.",
+        "nobody": "Ninguém está de folga agora.",
+        "ended": "Fim da pausa: todos voltam."
+      },
+      "captain": { "action": "Sentar-te na cadeira do capitão", "name": "Cadeira do capitão" },
+      "firstOfficer": { "action": "Falar com o teu primeiro oficial", "name": "Primeiro oficial" },
+      "helm": { "action": "Definir um rumo", "name": "Leme" },
+      "ops": { "action": "Abrir o diretório da tripulação", "name": "Mesa de operações" },
+      "systems": { "action": "Lançar agentes de código", "name": "Ecrã de sistemas" },
+      "holoCabinet": { "action": "Jogar", "name": "Holomáquina" },
+      "rankWall": { "action": "Abrir a tua folha de serviço", "name": "Parede de patentes" },
+      "honorCase": { "action": "Ver", "name": "Vitrine" },
+      "pods": { "action": "Espreitar", "name": "Cápsulas de descanso" }
+    },
+    "agent": {
+      "open_chat": "Abrir chat",
+      "walk_there": "Ir até lá",
+      "show": "Mostrar"
+    },
+    "lift": {
+      "title": "Turboelevador",
+      "here": "Estás aqui"
+    },
+    "tools": {
+      "label": "Controlos da nave",
+      "follow": "Seguir-me",
+      "overview": "Convés inteiro",
+      "lift": "Turboelevador",
+      "help": "Controlos"
+    },
+    "rank": {
+      "record_soon": "A tua folha de serviço abre-se no Salão de Honra.",
+      "cadet": "Cadete",
+      "crewman": "Tripulante",
+      "specialist": "Especialista",
+      "petty_officer": "Sargento",
+      "chief_petty_officer": "Sargento-chefe",
+      "warrant_officer": "Subtenente",
+      "ensign": "Guarda-marinha",
+      "lieutenant_junior_grade": "Segundo-tenente",
+      "lieutenant": "Primeiro-tenente",
+      "lieutenant_commander": "Capitão-tenente",
+      "commander": "Capitão-de-fragata",
+      "captain": "Capitão-de-mar-e-guerra",
+      "commodore": "Comodoro",
+      "rear_admiral": "Contra-almirante",
+      "vice_admiral": "Vice-almirante",
+      "admiral": "Almirante"
+    }
+  }
+}

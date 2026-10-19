@@ -1,16 +1,18 @@
 /**
- * The Verse's level state, shared by the HUD (DOM) and the effects (canvas).
+ * The ship's level state, shared by the HUD, the service record and the
+ * promotion layer.
  *
  * The first read hydrates it; every `ProgressionAwarded` push applies one
  * award, queues a floating "+XP" over whoever earned it and, on a level-up,
- * a celebration: the promotion card for the person and their pet, a toast for
- * an agent, and the moment in the world for all three.
+ * a celebration: the promotion ceremony for the captain and the pet, a quiet
+ * toast for an android. Level-ups that happened while the ship was closed are
+ * told once per subject.
  */
 import { create } from "zustand";
 import type { AwardEvent, ProgressionSnapshot, SubjectLevel } from "./progressionApi";
 import { PERSON_SUBJECT } from "./progressionApi";
-import type { RewardId, Slot, SubjectKind } from "./levelCatalog";
-import { loadChoices, progressFor, saveChoices, type ChoiceBook, type SlotChoice } from "./cosmetics";
+import type { RewardId, SubjectKind } from "./levelCatalog";
+import { loadSuitChoice, progressFor, rewardsBetween, saveSuitChoice, type SuitChoice } from "./cosmetics";
 
 export interface Celebration {
   id: number;
@@ -22,59 +24,44 @@ export interface Celebration {
   unlocked: RewardId[];
   /** Agent looks the level-up opened (agents only). */
   looks: string[];
-  /** Earned while the Verse was closed: told, not staged in the world. */
+  /** Earned while the ship was closed: told, not staged. */
   away: boolean;
 }
 
 export interface XpPopup { id: number; subjectId: string; xp: number; bornMs: number }
-/** A level-up shown in the world; `title` is the rank held after it, `previousLevel` tells a promotion from a level. */
-export interface Burst { id: number; subjectId: string; kind: SubjectKind; level: number; previousLevel: number; title: string; bornMs: number }
 
-/** How long a floating "+XP" and a level-up burst live, in ms. */
+/** How long a floating "+XP" lives, in ms. */
 export const POPUP_MS = 1600;
-export const BURST_MS = 3200;
-/** How long the person's figure cheers after their own level-up. */
+/** How long the captain's figure cheers after their own level-up. */
 export const CHEER_MS = 2200;
 const MAX_POPUPS = 12;
 const MAX_TOASTS = 4;
 
-/**
- * The Level Hall screen's pages: where you stand, the rank ladder, the studio
- * (the uniform you wear, with a live preview), the promotion road, how XP is
- * earned, and the team ranking. The hall's checkpoints, the level card and
- * `L` open it.
- */
-export type HallTab = "overview" | "ranks" | "studio" | "rewards" | "guide" | "team";
-export const HALL_TABS: readonly HallTab[] = ["overview", "ranks", "studio", "rewards", "guide", "team"];
-/** Whose level the screen shows: the person's own, or their pet's (the pet IS Jarvis in the Verse). */
-export type HallSubject = "person" | "pet";
+/** The service record's pages. */
+export type ServiceTab = "record" | "ranks" | "rewards" | "earn" | "crew";
+export const SERVICE_TABS: readonly ServiceTab[] = ["record", "ranks", "rewards", "earn", "crew"];
 
 interface ProgressionState {
   snapshot: ProgressionSnapshot | null;
   subjects: Record<string, SubjectLevel>;
   petId: string;
-  /** Person and pet level-ups waiting for the banner, oldest first. */
+  /** Captain and pet level-ups waiting for the ceremony, oldest first. */
   banners: Celebration[];
-  /** Agent level-ups, newest last. */
+  /** Android level-ups, newest last. */
   toasts: Celebration[];
   popups: XpPopup[];
-  bursts: Burst[];
   cheerUntil: number;
-  panel: HallTab | null;
-  hallSubject: HallSubject;
-  /** A reward to show on the reward road (a pedestal in the hall was clicked); null = the next unlock. */
-  focusReward: RewardId | null;
-  choices: ChoiceBook;
+  /** The service record's open page; null = closed. */
+  record: ServiceTab | null;
+  suit: SuitChoice;
   hydrate: (snapshot: ProgressionSnapshot, away: Celebration[]) => void;
   apply: (award: AwardEvent, nowMs?: number) => void;
   setPetId: (petId: string) => void;
   dismissBanner: () => void;
   dismissToast: (id: number) => void;
   expire: (nowMs: number) => void;
-  /** Open the Level Hall screen on a page (null closes it), optionally for a subject and a reward. */
-  openPanel: (tab: HallTab | null, options?: { subject?: HallSubject; reward?: RewardId | null }) => void;
-  setHallSubject: (subject: HallSubject) => void;
-  choose: (who: "person" | "pet", slot: Slot, choice: SlotChoice) => void;
+  openRecord: (tab: ServiceTab | null) => void;
+  chooseSuit: (choice: SuitChoice) => void;
 }
 
 let nextId = 1;
@@ -98,12 +85,9 @@ export const useProgression = create<ProgressionState>((set, get) => ({
   banners: [],
   toasts: [],
   popups: [],
-  bursts: [],
   cheerUntil: 0,
-  panel: null,
-  hallSubject: "person",
-  focusReward: null,
-  choices: loadChoices(),
+  record: null,
+  suit: loadSuitChoice(),
   hydrate: (snapshot, away) => set((s) => {
     // A push can land before the read that was already on its way: never roll a subject back.
     const subjects: Record<string, SubjectLevel> = { ...s.subjects };
@@ -132,14 +116,23 @@ export const useProgression = create<ProgressionState>((set, get) => ({
       subjectId: award.subjectId, kind: award.kind, xp: award.totalXp, level: award.level,
       xpIntoLevel: atCap ? 0 : into, xpForNext: atCap ? 0 : size, title: award.title,
     };
+    const subjects = { ...s.subjects, [award.subjectId]: subject };
     const popups = [...s.popups, { id: nextId++, subjectId: award.subjectId, xp: award.xp, bornMs: nowMs }].slice(-MAX_POPUPS);
-    if (award.level <= award.previousLevel) return { subjects: { ...s.subjects, [award.subjectId]: subject }, popups };
+    // The award went to the ledger too: keep the snapshot's log current for the service record.
+    const snapshot = s.snapshot && award.seq > s.snapshot.latestSeq ? {
+      ...s.snapshot,
+      latestSeq: award.seq,
+      recent: [...s.snapshot.recent, {
+        seq: award.seq, subjectId: award.subjectId, kind: award.kind, source: award.source, xp: award.xp,
+        levelBefore: award.previousLevel, levelAfter: award.level, ref: "", tsMs: Date.now(),
+      }].slice(-50),
+    } : s.snapshot;
+    if (award.level <= award.previousLevel) return { subjects, popups, snapshot };
     const party = celebrationOf(award);
-    const bursts = [...s.bursts, { id: nextId++, subjectId: award.subjectId, kind: award.kind, level: award.level, previousLevel: award.previousLevel, title: award.title, bornMs: nowMs }];
     return {
-      subjects: { ...s.subjects, [award.subjectId]: subject },
+      subjects,
       popups,
-      bursts,
+      snapshot,
       banners: award.kind === "agent" ? s.banners : [...s.banners, party],
       toasts: award.kind === "agent" ? [...s.toasts, party].slice(-MAX_TOASTS) : s.toasts,
       cheerUntil: award.subjectId === PERSON_SUBJECT ? nowMs + CHEER_MS : s.cheerUntil,
@@ -151,21 +144,13 @@ export const useProgression = create<ProgressionState>((set, get) => ({
   expire: (nowMs) => {
     const s = get();
     const popups = s.popups.filter((p) => nowMs - p.bornMs < POPUP_MS);
-    const bursts = s.bursts.filter((b) => nowMs - b.bornMs < BURST_MS);
-    if (popups.length !== s.popups.length || bursts.length !== s.bursts.length) set({ popups, bursts });
+    if (popups.length !== s.popups.length) set({ popups });
   },
-  openPanel: (panel, options = {}) => set((s) => ({
-    panel,
-    hallSubject: options.subject ?? s.hallSubject,
-    focusReward: options.reward !== undefined ? options.reward : panel === "rewards" ? s.focusReward : null,
-  })),
-  // A reward focused for one subject means nothing for the other: switching forgets it.
-  setHallSubject: (hallSubject) => set((s) => (s.hallSubject === hallSubject ? s : { hallSubject, focusReward: null })),
-  choose: (who, slot, choice) => set((s) => {
-    const choices: ChoiceBook = { ...s.choices, [who]: { ...(s.choices[who] ?? {}), [slot]: choice } };
-    saveChoices(choices);
-    return { choices };
-  }),
+  openRecord: (record) => set({ record }),
+  chooseSuit: (suit) => {
+    saveSuitChoice(suit);
+    set({ suit });
+  },
 }));
 
 const SEEN_KEY = "jarvis.verse.levels.seen.v1";
@@ -177,7 +162,7 @@ export function readSeenSeq(): number | null {
     const value = raw === null ? NaN : Number(raw);
     return Number.isFinite(value) ? value : null;
   } catch (error) {
-    console.debug("Verse level marker unavailable", error);
+    console.debug("Ship level marker unavailable", error);
     return null;
   }
 }
@@ -186,13 +171,13 @@ export function writeSeenSeq(seq: number): void {
   try {
     localStorage.setItem(SEEN_KEY, String(seq));
   } catch (error) {
-    console.debug("Verse level marker not saved", error);
+    console.debug("Ship level marker not saved", error);
   }
 }
 
 /**
- * Level-ups that happened while the Verse was closed: the latest one per
- * subject, so a busy agent that climbed three levels is told once.
+ * Level-ups that happened while the ship was closed: the latest one per
+ * subject, so a busy android that climbed three levels is told once.
  */
 export function awayCelebrations(snapshot: ProgressionSnapshot, seenSeq: number | null): Celebration[] {
   if (seenSeq === null) return [];
@@ -200,14 +185,12 @@ export function awayCelebrations(snapshot: ProgressionSnapshot, seenSeq: number 
   for (const row of snapshot.recent) {
     if (row.seq <= seenSeq || row.levelAfter <= row.levelBefore) continue;
     const prior = latest.get(row.subjectId);
-    const subject = snapshot.subjects.find((s) => s.subjectId === row.subjectId);
-    const unlocked = snapshot.rewards
-      .filter((r) => { const at = r.levels[row.kind]; return at !== null && at > (prior?.previousLevel ?? row.levelBefore) && at <= row.levelAfter; })
-      .map((r) => r.rewardId);
     const from = prior?.previousLevel ?? row.levelBefore;
+    const subject = snapshot.subjects.find((s) => s.subjectId === row.subjectId);
     latest.set(row.subjectId, celebrationOf({
       subjectId: row.subjectId, kind: row.kind, level: row.levelAfter, previousLevel: from,
-      title: subject?.title ?? "", unlocked,
+      title: subject?.title ?? "",
+      unlocked: rewardsBetween(snapshot.rewards, row.kind, from, row.levelAfter).map((r) => r.rewardId),
       unlockedLooks: row.kind === "agent" ? looksBetween(snapshot.looks, from, row.levelAfter) : [],
     }, true));
   }

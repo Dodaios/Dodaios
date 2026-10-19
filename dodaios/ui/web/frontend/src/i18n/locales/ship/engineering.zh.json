@@ -1,0 +1,36 @@
+{
+  "ship": {
+    "engineering": {
+      "other": "其他工作区",
+      "bay_free": "待命舱位",
+      "nook": "船员休息区",
+      "panel": {
+        "title": "启动编码代理",
+        "cli": "代理",
+        "workspace": "工作区",
+        "task": "首个任务（可选）",
+        "task_placeholder": "新代理应该做什么？",
+        "count": "数量",
+        "fewer": "减少",
+        "more": "增加",
+        "start_one": "启动代理",
+        "start_many": "启动 {count} 个代理",
+        "hint": "Ctrl+Enter 启动。新代理会坐到其工作区舱位中的空闲控制台。",
+        "loading": "正在读取 IDE…",
+        "load_failed": "IDE 没有响应：{error}",
+        "no_clis": "尚未安装任何编码 CLI。请在 Agentic IDE 中安装一个。",
+        "no_workspace": "尚未打开任何工作区。",
+        "open_ide": "打开 Agentic IDE",
+        "opening": "正在打开窗格…",
+        "waiting": "{pane} 正在启动…",
+        "briefing": "正在把任务交给 {pane}…",
+        "done_open": "{pane} 已打开。",
+        "done_briefed": "{pane} 已收到任务。",
+        "not_started": "{pane} 未能及时启动；任务未发送。",
+        "failed": "无法打开窗格：{error}",
+        "unconfirmed": "任务已输入，但代理没有确认。",
+        "launched": "工程甲板上新增 {count} 个。"
+      }
+    }
+  }
+}
