@@ -528,7 +528,10 @@ class Consolidator:
             )
         )
         system, user = build_consolidator_prompt(
-            rows, neighbours, user_entity_slug=user_slug,
+            rows,
+            neighbours,
+            user_entity_slug=user_slug,
+            row_flags={row.id: self._candidate_flags(row) for row in rows},
         )
         request = BrainRequest(
             messages=(BrainMessage(role="user", content=user),),
@@ -1054,6 +1057,15 @@ class Consolidator:
             if candidate.is_file():
                 return f"{candidate_dir}/{topic_slug}.md"
         return f"{directory}/{topic_slug}.md"
+
+    def _candidate_flags(self, row: JournalRow) -> str:
+        """The validator facts for ``row``, rendered on its candidate line."""
+        persist = "yes" if self._has_explicit_persistence_request(row) else "no"
+        required = (
+            self._graph_target(row) if row.kind == "place"
+            else self._required_graph_target(row)
+        )
+        return f"persist_requested={persist} required_page={required or '-'}"
 
     def _required_graph_target(self, row: JournalRow) -> str | None:
         """Return the missing page required to make ``row`` graph-visible."""

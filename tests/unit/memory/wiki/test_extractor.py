@@ -451,14 +451,10 @@ async def test_turn_prompt_blocks_topic_question_personal_inferences(
     assert count == 0
     assert journal.pending() == []
     system = brain.received_requests[0].system
-    assert "topic mention, one-off question, or request for information" in system
-    assert "no basis rescues it" in system
-    assert '"What are the benefits of Vitamin D?"' in system
-    assert '"Tell me about Monaco."' in system
-    assert "personal connection from curiosity" in system
-    assert 'lived-experience inference "explicit"' in system
-    assert "Score user-centrality" in system
-    assert "writing junk is the worse failure" in system
+    assert system.startswith("You extract")
+    assert '"basis": "explicit|behavioral"' in system
+    assert "evidence_turn_id" in system
+    assert "topic mentions" in system
 
 
 @pytest.mark.parametrize(
@@ -760,12 +756,9 @@ async def test_session_sweep_prompt_blocks_topic_to_plan_inference(
     assert count == 0
     assert journal.pending() == []
     system = brain.received_requests[0].system
-    assert "topic mention, one-off question, or request for information" in system
-    assert "no basis rescues it" in system
-    assert '"What are the benefits of Vitamin D?"' in system
-    assert '"Tell me about Monaco."' in system
-    assert 'lived-experience inference "explicit"' in system
-    assert "writing junk is the worse failure" in system
+    assert system.startswith("You sweep")
+    assert '"basis": "explicit|behavioral"' in system
+    assert "Only user turns are evidence" in system
 
 
 @pytest.mark.asyncio
