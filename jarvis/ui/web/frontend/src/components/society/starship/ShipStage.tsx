@@ -215,8 +215,9 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
       agentId: c.agentId, name: c.name, state: c.state, division: d?.room ?? null,
       face: agent ? faceLookOf(agent, creaturesByDefault) : { kind: "shape", shape: "circle", color: "#5fd4ff" },
       accent: d?.colour ?? "#8aa4c8", pips: rank.pips, gold: rank.gold, lead: !!d && d.leadId === c.agentId,
+      ribbons: (rewards ?? []).filter((r) => r.slot === "decoration" && r.levels.agent !== null && levelOf(c.agentId) >= (r.levels.agent ?? 99)).length,
     };
-  }), [crewInputs, plan, byId, divisionOf, levelOf, creaturesByDefault]);
+  }), [crewInputs, plan, byId, divisionOf, levelOf, creaturesByDefault, rewards]);
   const newcomers = useNewcomers(deck, useMemo(() => crew.map((c) => c.agentId), [crew]), ready && population !== "none" && !!plan);
 
   // Team rounds feed the holo-tables and the gatherings.

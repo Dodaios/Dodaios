@@ -57,7 +57,12 @@ export interface AndroidLook {
   gold: boolean;
   /** A small gold bar for a division lead. */
   lead: boolean;
+  /** Decorations earned (the level system's agent `decoration` rewards), worn as ribbon bars over the left breast. */
+  ribbons?: number;
 }
+
+/** The ribbons' colours, in the order they are earned. */
+const RIBBON_COLOURS = ["#3c7fd0", "#c0392b", "#e1b04f", "#2e8b57"] as const;
 
 const SHELL = "#e9e8e4";
 const JOINT = "#2b2f36";
@@ -103,6 +108,10 @@ export function androidParts(look: AndroidLook): Part[] {
     parts.push(ball("chest", 0.013, pip, [-0.05 - k * 0.032, 0.41, 0.095], [1, 1, 0.5], 8));
   }
   if (look.lead) parts.push(block("chest", 0.09, 0.018, 0.01, "#e1b04f", [0.06, 0.39, 0.1]));
+  // Ribbon bars on the figure's left breast, two to a row.
+  for (let k = 0; k < Math.min(4, look.ribbons ?? 0); k += 1) {
+    parts.push(block("chest", 0.034, 0.014, 0.01, RIBBON_COLOURS[k], [0.045 + (k % 2) * 0.037, 0.33 - Math.floor(k / 2) * 0.018, 0.118]));
+  }
   return parts;
 }
 
