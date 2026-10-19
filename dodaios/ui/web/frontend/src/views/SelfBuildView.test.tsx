@@ -203,6 +203,9 @@ describe("SelfBuildView", () => {
     expect(await screen.findByTestId("note-paused")).toBeTruthy();
     expect(await screen.findByTestId("note-stopped")).toBeTruthy();
     expect(screen.queryByTestId("society-stop-all")).toBeNull();
+    // Accepting would start a build, so it waits while building is paused.
+    const first = (await screen.findAllByTestId("build-row"))[0];
+    expect((within(first).getByTestId("build-accept") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("opens on the build a badge asked for", async () => {

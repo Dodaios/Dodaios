@@ -20,6 +20,7 @@ export function BuildDetail({
   build,
   limits,
   canBuild,
+  blockedTitle,
   busy,
   onAction,
   onClose,
@@ -27,6 +28,7 @@ export function BuildDetail({
   build: Build;
   limits: { trial_days: number; trial_uses: number } | undefined;
   canBuild: boolean;
+  blockedTitle?: string;
   busy: boolean;
   onAction: ActionHandler;
   onClose: () => void;
@@ -83,7 +85,7 @@ export function BuildDetail({
           <LifecycleRail state={current.state} reached={reached} labels={railLabels} />
         </div>
         {trial && (
-          <div className="mt-1">
+          <div className="mt-4">
             <div className="h-1 overflow-hidden rounded-full bg-secondary" aria-hidden>
               <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round(trial.share * 100)}%` }} />
             </div>
@@ -98,7 +100,7 @@ export function BuildDetail({
           </div>
         )}
         <div className="mt-5">
-          <BuildActions build={current} canBuild={canBuild} busy={busy} onAction={onAction} size="default" />
+          <BuildActions build={current} canBuild={canBuild} blockedTitle={blockedTitle} busy={busy} onAction={onAction} size="default" />
         </div>
       </header>
 
@@ -202,7 +204,9 @@ export function BuildDetail({
             </Section>
           </div>
 
-          {current.note && (
+          {/* The last move's note explains an ending ("archived: not used
+              enough"); on a live build it only repeats the history. */}
+          {current.note && ["archived", "undone", "rejected", "failed"].includes(current.state) && (
             <Section label={t("self_build.detail.note")}>
               <p className="text-sm text-muted-foreground">{current.note}</p>
             </Section>
