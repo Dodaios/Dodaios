@@ -7,7 +7,6 @@
 import type { ComponentType } from "react";
 import type { SocietyAgent } from "../../data";
 import type { PaneOccupant } from "../../office/codingFloor";
-import { buildOpsDeck } from "../plan/opsDeck";
 import type { CrewInput, DeckId, DeckPlan, Station, TeamInput } from "../plan/types";
 
 export interface DeckInput {
@@ -72,6 +71,8 @@ export interface DeckModule {
    */
   useStation?: (station: Station, plan: DeckPlan, actions: ShipActions, far: boolean) => boolean;
   Panel?: ComponentType<DeckPanelProps>;
+  /** The prompt's name for a station of this deck; undefined = the shared name. */
+  stationName?: (station: Station, t: (key: string) => string) => string | undefined;
 }
 
 const modules = new Map<DeckId, DeckModule>();
@@ -88,4 +89,3 @@ export function availableDecks(): DeckId[] {
   return [...modules.keys()];
 }
 
-registerDeck({ id: "ops", population: "agents", build: (input) => buildOpsDeck({ crew: input.crew, teams: input.teams }) });

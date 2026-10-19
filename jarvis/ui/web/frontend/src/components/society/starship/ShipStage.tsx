@@ -43,13 +43,12 @@ import type { ScreenContent } from "./render/deck/screens";
 import { SpaceBackdrop } from "./space/SpaceBackdrop";
 import { destinationById } from "./space/destinations";
 import { CrewLayer, crewPoses, type CrewView } from "./life/CrewLayer";
-import { CaptainFigure, typesText, walkCaptainTo, type CaptainLookChoice } from "./life/Captain";
+import { CaptainFigure, typesText, walkCaptainTo } from "./life/Captain";
 import type { RoundView } from "./life/crewLife";
 import { FaceAtlas, type FaceLook } from "./crew/faceAtlas";
 import { faceMaterial } from "./crew/figure";
 import { PlateDriver, PlateLayer } from "./hud/Plates";
 import { rankFor } from "./levels/ranks";
-import { COMMAND_GOLD } from "./plan/builder";
 import "./hud/ship.css";
 
 export interface ShipStageProps {
@@ -93,13 +92,6 @@ export function faceLookOf(agent: Pick<SocietyAgent, "agentId" | "figure">, crea
   const look = resolveCompanion(agent.agentId, agent.figure?.companion);
   const creature = look.creature ?? (growsCreature(look, creaturesByDefault) ? creatureFromShape(look) : undefined);
   return creature ? { kind: "creature", creature } : { kind: "shape", shape: look.shape, color: look.color };
-}
-
-const CAPTAIN_KEY = "dodaios.ship.captain.v1";
-const DEFAULT_LOOK: CaptainLookChoice = { suit: "#2c3340", trim: COMMAND_GOLD, visor: "#d6a440" };
-function loadLook(): CaptainLookChoice {
-  try { const raw = localStorage.getItem(CAPTAIN_KEY); if (raw) return { ...DEFAULT_LOOK, ...JSON.parse(raw) as Partial<CaptainLookChoice> }; } catch { /* storage */ }
-  return DEFAULT_LOOK;
 }
 
 /** Agents that joined while the ship was open walk in from the transporter. */
@@ -217,7 +209,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
     return () => clearTimeout(timer);
   }, [gathering]);
 
-  const [look] = useState(loadLook);
+  const look = useShip((st) => st.captainLook);
   const destinationId = useShip((s) => s.destination);
   const destination = useMemo(() => destinationById(destinationId), [destinationId]);
 
@@ -331,8 +323,9 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
 
   const stationText = useCallback((s: Station) => ({
     action: t(`ship.station.${s.kind}.action`),
-    name: s.kind === "division" ? (plan?.divisions.find((d) => `division:${d.room}` === s.id)?.name || t("ship.division.pool")) : t(`ship.station.${s.kind}.name`),
-  }), [t, plan]);
+    name: module?.stationName?.(s, t)
+      ?? (s.kind === "division" ? (plan?.divisions.find((d) => `division:${d.room}` === s.id)?.name || t("ship.division.pool")) : t(`ship.station.${s.kind}.name`)),
+  }), [t, plan, module]);
   const promptStation = plan?.stations.find((s) => s.id === (hovered?.kind === "station" ? hovered.id : nearby));
   const selectedAgent = selection?.kind === "agent" ? crew.find((c) => c.agentId === selection.id) : undefined;
 
@@ -420,7 +413,7 @@ export function ShipStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGr
               <div className="ship-deck-number">{deckNumber(deck)}</div>
               <div className="ship-eyebrow">{t("ship.deck.label").replace("{n}", String(deckNumber(deck)))}</div>
               <div className="ship-deck-name">{t(`ship.deck.${deck}`)}</div>
-              {population === "agents" && (
+              {population !== "none" && (
                 <div className="ship-crewline">
                   <span><i className="ship-dot" data-state="working" />{t("ship.crew.working").replace("{count}", String(counts.working))}</span>
                   <span><i className="ship-dot" data-state="waiting" />{t("ship.crew.waiting").replace("{count}", String(counts.waiting))}</span>

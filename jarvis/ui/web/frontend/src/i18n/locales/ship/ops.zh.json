@@ -1,0 +1,23 @@
+{
+  "ship": {
+    "ops": {
+      "quartermaster": {
+        "title": "你的制服",
+        "cut": "款式",
+        "suit": "制服",
+        "trim": "饰边",
+        "visor": "面罩",
+        "open": "可用",
+        "at_level": "{n} 级开放",
+        "note": "更改会立即显示在你的舰长身上，并保存在这台电脑上。",
+        "cuts": {
+          "duty": "值勤服",
+          "field_armor": "野战装甲",
+          "command_coat": "指挥大衣",
+          "dress_whites": "礼服",
+          "admiral_coat": "上将大衣"
+        }
+      }
+    }
+  }
+}

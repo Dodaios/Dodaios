@@ -1,0 +1,23 @@
+{
+  "ship": {
+    "ops": {
+      "quartermaster": {
+        "title": "Your suit",
+        "cut": "Cut",
+        "suit": "Suit",
+        "trim": "Trim",
+        "visor": "Visor",
+        "open": "Open",
+        "at_level": "Opens at level {n}",
+        "note": "Changes show on your captain at once and are kept on this computer.",
+        "cuts": {
+          "duty": "Duty suit",
+          "field_armor": "Field armour",
+          "command_coat": "Command coat",
+          "dress_whites": "Dress whites",
+          "admiral_coat": "Admiral's coat"
+        }
+      }
+    }
+  }
+}

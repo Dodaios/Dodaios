@@ -1,110 +1,110 @@
 {
   "ship": {
     "title": "Dodaios Verse",
-    "fallback": "The ship needs WebGL, which this view cannot start right now.",
-    "loading": "Boarding…",
-    "click": "Click",
-    "close": "Close",
-    "level": "Level {n}",
-    "help": "Walk with WASD or a click on the deck. Drag to look round, scroll to zoom. E uses what you stand at, O shows the whole deck.",
+    "fallback": "飞船需要 WebGL，此视图目前无法启动它。",
+    "loading": "正在登船…",
+    "click": "点击",
+    "close": "关闭",
+    "level": "等级 {n}",
+    "help": "用 WASD 或点击甲板行走。拖动环顾四周，滚动缩放。E 使用面前的设施，O 显示整层甲板。",
     "deck": {
-      "label": "Deck {n}",
-      "bridge": "Bridge",
-      "bridge_about": "Command, the helm and your first officer",
-      "ops": "Operations",
-      "ops_about": "Your agents' divisions, the mess and the transporter",
-      "engineering": "Engineering",
-      "engineering_about": "Coding agents at work round the reactor",
-      "holodeck": "Holodeck",
-      "holodeck_about": "Ten playable games",
-      "honors": "Hall of Honour",
-      "honors_about": "Ranks, promotions and your service record"
+      "label": "甲板 {n}",
+      "bridge": "舰桥",
+      "bridge_about": "指挥、舵位和你的大副",
+      "ops": "作战甲板",
+      "ops_about": "你的智能体分部、餐厅和传送器",
+      "engineering": "轮机舱",
+      "engineering_about": "编程智能体围绕反应堆工作",
+      "holodeck": "全息甲板",
+      "holodeck_about": "十款可玩的游戏",
+      "honors": "荣誉殿堂",
+      "honors_about": "军衔、晋升和你的服役记录"
     },
     "crew": {
-      "working": "{count} working",
-      "waiting": "{count} waiting",
-      "idle": "{count} off duty"
+      "working": "{count} 工作中",
+      "waiting": "{count} 等待中",
+      "idle": "{count} 休息中"
     },
     "state": {
-      "working": "Working",
-      "waiting": "Needs you",
-      "idle": "Off duty",
-      "paused": "Resting",
-      "error": "Failed",
-      "vacant": "Vacant"
+      "working": "工作中",
+      "waiting": "需要你",
+      "idle": "休息中",
+      "paused": "休眠中",
+      "error": "失败",
+      "vacant": "空闲"
     },
     "room": {
-      "lounge": "Observation Lounge",
-      "quartermaster": "Quartermaster",
-      "pods": "Rest Pods",
-      "lift": "Turbolift",
-      "garden": "Hydroponics"
+      "lounge": "观景休息室",
+      "quartermaster": "军需处",
+      "pods": "休眠舱",
+      "lift": "涡轮电梯",
+      "garden": "水培区"
     },
     "division": {
-      "pool": "Crew without a team",
-      "free": "Free bay"
+      "pool": "无团队的船员",
+      "free": "空闲舱位"
     },
     "screen": {
-      "standby": "Standing by",
-      "vacant": "Vacant"
+      "standby": "待命",
+      "vacant": "空闲"
     },
     "station": {
-      "transporter": { "action": "Beam in a new agent", "name": "Transporter" },
-      "lift": { "action": "Call the turbolift", "name": "Turbolift" },
-      "division": { "action": "Open the team", "name": "Holo-table" },
-      "newDivision": { "action": "Start a team here", "name": "Free bay" },
-      "quartermaster": { "action": "Change your suit", "name": "Quartermaster", "soon": "The quartermaster opens in the next step of the build." },
+      "transporter": { "action": "传送一个新智能体", "name": "传送器" },
+      "lift": { "action": "呼叫涡轮电梯", "name": "涡轮电梯" },
+      "division": { "action": "打开团队", "name": "全息桌" },
+      "newDivision": { "action": "在这里组建团队", "name": "空闲舱位" },
+      "quartermaster": { "action": "更换制服", "name": "军需处", "soon": "军需处将在下一个构建步骤开放。" },
       "mess": {
-        "action": "Call the crew to the mess",
-        "name": "Galley",
-        "called": "{count} off-duty agents are heading to the mess.",
-        "nobody": "Nobody is off duty right now.",
-        "ended": "Break over: everyone heads back."
+        "action": "召集船员去餐厅",
+        "name": "厨房",
+        "called": "{count} 名休息中的智能体正前往餐厅。",
+        "nobody": "现在没有人在休息。",
+        "ended": "休息结束：大家都回去了。"
       },
-      "captain": { "action": "Take the captain's chair", "name": "Captain's chair" },
-      "firstOfficer": { "action": "Talk to your first officer", "name": "First officer" },
-      "helm": { "action": "Set a course", "name": "Helm" },
-      "ops": { "action": "Open the crew directory", "name": "Operations table" },
-      "systems": { "action": "Launch coding agents", "name": "Master systems display" },
-      "holoCabinet": { "action": "Play", "name": "Holo cabinet" },
-      "rankWall": { "action": "Open your service record", "name": "Rank wall" },
-      "honorCase": { "action": "Look at it", "name": "Display case" },
-      "pods": { "action": "Look in", "name": "Rest pods" }
+      "captain": { "action": "坐上舰长席", "name": "舰长席" },
+      "firstOfficer": { "action": "与你的大副交谈", "name": "大副" },
+      "helm": { "action": "设定航向", "name": "舵位" },
+      "ops": { "action": "打开船员名册", "name": "作战桌" },
+      "systems": { "action": "启动编程智能体", "name": "主系统显示屏" },
+      "holoCabinet": { "action": "开始游戏", "name": "全息游戏机" },
+      "rankWall": { "action": "打开你的服役记录", "name": "军衔墙" },
+      "honorCase": { "action": "查看", "name": "展示柜" },
+      "pods": { "action": "看一看", "name": "休眠舱" }
     },
     "agent": {
-      "open_chat": "Open chat",
-      "walk_there": "Walk there",
-      "show": "Show"
+      "open_chat": "打开聊天",
+      "walk_there": "走过去",
+      "show": "显示"
     },
     "lift": {
-      "title": "Turbolift",
-      "here": "You are here"
+      "title": "涡轮电梯",
+      "here": "你在这里"
     },
     "tools": {
-      "label": "Ship controls",
-      "follow": "Follow me",
-      "overview": "Whole deck",
-      "lift": "Turbolift",
-      "help": "Controls"
+      "label": "飞船控制",
+      "follow": "跟随我",
+      "overview": "整层甲板",
+      "lift": "涡轮电梯",
+      "help": "操作说明"
     },
     "rank": {
-      "record_soon": "Your service record opens in the Hall of Honour.",
-      "cadet": "Cadet",
-      "crewman": "Crewman",
-      "specialist": "Specialist",
-      "petty_officer": "Petty Officer",
-      "chief_petty_officer": "Chief Petty Officer",
-      "warrant_officer": "Warrant Officer",
-      "ensign": "Ensign",
-      "lieutenant_junior_grade": "Lieutenant Junior Grade",
-      "lieutenant": "Lieutenant",
-      "lieutenant_commander": "Lieutenant Commander",
-      "commander": "Commander",
-      "captain": "Captain",
-      "commodore": "Commodore",
-      "rear_admiral": "Rear Admiral",
-      "vice_admiral": "Vice Admiral",
-      "admiral": "Admiral"
+      "record_soon": "你的服役记录在荣誉殿堂中打开。",
+      "cadet": "学员",
+      "crewman": "水兵",
+      "specialist": "专业军士",
+      "petty_officer": "下士",
+      "chief_petty_officer": "上士",
+      "warrant_officer": "准尉",
+      "ensign": "少尉",
+      "lieutenant_junior_grade": "中尉",
+      "lieutenant": "上尉",
+      "lieutenant_commander": "少校",
+      "commander": "中校",
+      "captain": "上校",
+      "commodore": "准将",
+      "rear_admiral": "少将",
+      "vice_admiral": "中将",
+      "admiral": "上将"
     }
   }
 }

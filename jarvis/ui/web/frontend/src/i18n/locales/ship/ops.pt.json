@@ -1,0 +1,23 @@
+{
+  "ship": {
+    "ops": {
+      "quartermaster": {
+        "title": "O teu fato",
+        "cut": "Corte",
+        "suit": "Fato",
+        "trim": "Debrum",
+        "visor": "Viseira",
+        "open": "Disponível",
+        "at_level": "Abre no nível {n}",
+        "note": "As alterações aparecem logo no teu capitão e ficam guardadas neste computador.",
+        "cuts": {
+          "duty": "Fato de serviço",
+          "field_armor": "Armadura de campo",
+          "command_coat": "Casaco de comando",
+          "dress_whites": "Uniforme de gala",
+          "admiral_coat": "Casaco de almirante"
+        }
+      }
+    }
+  }
+}
