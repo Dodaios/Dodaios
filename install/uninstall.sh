@@ -2,12 +2,14 @@
 # Personal Jarvis — macOS / Linux uninstaller
 #
 # Usage (from any POSIX shell), on a machine where Jarvis is installed:
-#   bash ~/.personal-jarvis/install/uninstall.sh
-#   bash ~/.personal-jarvis/install/uninstall.sh --dry-run   # preview only
-#   bash ~/.personal-jarvis/install/uninstall.sh --yes       # no prompt
+#   bash ~/.dodaios/install/uninstall.sh
+#   bash ~/.dodaios/install/uninstall.sh --dry-run   # preview only
+#   bash ~/.dodaios/install/uninstall.sh --yes       # no prompt
+# (an install never moved from its earlier name lives in ~/.personal-jarvis)
 #
 # It removes four things a plain folder-delete would miss:
-#   1. the install folder (~/.personal-jarvis)
+#   1. the install folder (~/.dodaios, or ~/.personal-jarvis before the rename;
+#      a link left at the earlier name is removed as a link, never followed)
 #   2. the macOS app bundle or Linux application-menu entry
 #   3. the login-autostart entry (~/.config/autostart or ~/Library/LaunchAgents)
 #   4. the API keys saved in the OS keychain (service "dodaios", and
@@ -21,7 +23,8 @@ set -euo pipefail
 
 # Standalone fallback projections of dodaios/core/branding.py. These remain
 # available even when a broken venv prevents importing the installed package.
-DEFAULT_INSTALL_DIR_NAME=".personal-jarvis"
+DEFAULT_INSTALL_DIR_NAME=".dodaios"
+LEGACY_INSTALL_DIR_NAME=".personal-jarvis"
 MACOS_APP_DIR_NAME="Personal Jarvis.app"
 MACOS_BUNDLE_ID="com.personal-jarvis.desktop"
 MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
@@ -29,8 +32,20 @@ LINUX_DESKTOP_ENTRY_FILE_NAME="personal-jarvis.desktop"
 KEYRING_SERVICE_NAME="dodaios"
 LEGACY_KEYRING_SERVICE_NAMES="personal-jarvis"
 
+# --- uninstall-dir begin (extracted by tests/unit/install/test_install_dir_move.py)
 # DODAIOS_INSTALL_DIR and JARVIS_INSTALL_DIR are one option; the new name wins.
-INSTALL_DIR="${DODAIOS_INSTALL_DIR:-${JARVIS_INSTALL_DIR:-$HOME/$DEFAULT_INSTALL_DIR_NAME}}"
+# Without either: the folder under its earlier name while that is a real
+# directory (an install that was never moved), else the current one.
+INSTALL_DIR="${DODAIOS_INSTALL_DIR:-${JARVIS_INSTALL_DIR:-}}"
+if [ -z "$INSTALL_DIR" ]; then
+    if [ -d "$HOME/$LEGACY_INSTALL_DIR_NAME" ] && [ ! -L "$HOME/$LEGACY_INSTALL_DIR_NAME" ]; then
+        INSTALL_DIR="$HOME/$LEGACY_INSTALL_DIR_NAME"
+    else
+        INSTALL_DIR="$HOME/$DEFAULT_INSTALL_DIR_NAME"
+    fi
+fi
+[ "$INSTALL_DIR" = "/" ] || INSTALL_DIR="${INSTALL_DIR%/}"
+# --- uninstall-dir end
 VENV_PYTHON="$INSTALL_DIR/.venv/bin/python"
 
 if [ -t 1 ]; then
@@ -99,6 +114,35 @@ stop_running_instances() {
     fi
     n=$(echo "$pids" | wc -w | tr -d ' ')
     ok "Stopped the running Dodaios app ($n process(es))."
+}
+
+# Remove the install folder, never through a link. A link (the one given, or
+# the one a move to the current folder name left at the earlier name) is
+# removed as a link, and only when it leads to this install; the folder it
+# leads to is removed as a folder.
+remove_install_dir() {
+    # --- uninstall-remove begin (extracted by tests/unit/install/test_install_dir_move.py)
+    given="$1"
+    real_dir="$(cd -P "$given" 2>/dev/null && pwd -P)" || real_dir="$given"
+    stop_running_instances "$real_dir"
+    [ "$given" = "$real_dir" ] || stop_running_instances "$given"
+    for link in "$given" "$HOME/$LEGACY_INSTALL_DIR_NAME" "$HOME/$DEFAULT_INSTALL_DIR_NAME"; do
+        [ -L "$link" ] || continue
+        link_target="$(cd -P "$link" 2>/dev/null && pwd -P)" || link_target=''
+        [ "$link_target" = "$real_dir" ] || continue
+        # rm on a symlink removes the link itself; it never descends into it.
+        if ! rm -f -- "$link"; then
+            err "Could not remove the link $link."
+            exit 3
+        fi
+        note "removed the link $link"
+    done
+    if [ -L "$real_dir" ] || ! rm -rf -- "$real_dir"; then
+        err "Could not fully remove $real_dir — something is still using files inside it."
+        note 'Close every Dodaios window, then run this uninstaller again.'
+        exit 3
+    fi
+    # --- uninstall-remove end
 }
 
 step 'Uninstall Dodaios'
@@ -190,12 +234,7 @@ fi
 #    fallback path - is caught here again. A failed delete says plainly WHY.
 if [ "$DRY_RUN" -eq 0 ]; then
     cd "$HOME"
-    stop_running_instances "$INSTALL_DIR"
-    if ! rm -rf "$INSTALL_DIR"; then
-        err "Could not fully remove $INSTALL_DIR — something is still using files inside it."
-        note 'Close every Dodaios window, then run this uninstaller again.'
-        exit 3
-    fi
+    remove_install_dir "$INSTALL_DIR"
     ok "Removed $INSTALL_DIR"
     step 'Done. Dodaios has been uninstalled.'
 fi

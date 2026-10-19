@@ -51,6 +51,9 @@ from dodaios.core.branding import (
     MANAGED_INSTALL_MARKER as MANAGED_MARKER,
 )
 from dodaios.core.branding import (
+    MANAGED_INSTALL_MARKERS as MANAGED_MARKERS,
+)
+from dodaios.core.branding import (
     WINDOWS_UNINSTALL_REGISTRY_SUBKEY as WINDOWS_UNINSTALL_SUBKEY,
 )
 from dodaios.core.frozen import is_frozen
@@ -113,9 +116,12 @@ def _platform(value: str | None = None) -> str:
 
 
 def is_managed_install(install_dir: Path) -> bool:
-    """Return whether ``install_dir`` was created by the public installer."""
+    """Return whether ``install_dir`` was created by the public installer.
 
-    return (install_dir / MANAGED_MARKER).is_file()
+    The installer's marker counts under any of its names.
+    """
+
+    return any((install_dir / name).is_file() for name in MANAGED_MARKERS)
 
 
 def _windows_uninstall_script(install_dir: Path) -> Path:
@@ -615,6 +621,7 @@ __all__ = [
     "DesktopIntegrationReport",
     "FROZEN_SKIP_REASON",
     "MANAGED_MARKER",
+    "MANAGED_MARKERS",
     "WINDOWS_APP_USER_MODEL_ID",
     "WINDOWS_UNINSTALL_SUBKEY",
     "ensure_desktop_integration",

@@ -57,7 +57,7 @@ from dodaios.core.branding import (  # noqa: E402 - bootstrap source path above
     CLI_COMMAND_NAME,
     LAUNCHER_ENTRY_NAME,
     MACOS_APP_NAME,
-    MANAGED_INSTALL_MARKER,
+    MANAGED_INSTALL_MARKERS,
     OFFICIAL_REPO_SLUG,
     PRODUCT_NAME,
 )
@@ -272,8 +272,11 @@ def write_managed_marker(*, with_desktop: bool) -> None:
     a manual clone never gets this marker, so neither can be self-reset — this is
     the load-bearing safety guard for the whole updater. Best-effort: a marker
     failure must never fail the install (it only disables in-app updates).
+
+    The marker is written under its current name and under every earlier one,
+    so an updater from before the rename (a running app that has not restarted
+    yet, or a downgrade) still recognises the checkout.
     """
-    marker = repo_root() / MANAGED_INSTALL_MARKER
     payload = {
         "managed": True,
         "install_path": str(repo_root()),
@@ -281,11 +284,18 @@ def write_managed_marker(*, with_desktop: bool) -> None:
         "profile": "full" if with_desktop else "headless",
         "desktop": with_desktop,
     }
-    try:
-        marker.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    text = json.dumps(payload, indent=2) + "\n"
+    written = 0
+    for name in MANAGED_INSTALL_MARKERS:
+        try:
+            (repo_root() / name).write_text(text, encoding="utf-8")
+            written += 1
+        except OSError as exc:
+            note(f"could not write update marker {name} ({exc})")
+    if written:
         ok("registered as a managed install (in-app updates enabled)")
-    except OSError as exc:
-        note(f"could not write update marker ({exc}); in-app updates stay disabled")
+    else:
+        note("in-app updates stay disabled")
 
 
 def _make_tree_owner_writable(root: Path) -> None:
@@ -428,8 +438,12 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
 
 
 def is_update_run() -> bool:
-    """True when this checkout was already installer-managed (re-run = update)."""
-    return (repo_root() / MANAGED_INSTALL_MARKER).exists()
+    """True when this checkout was already installer-managed (re-run = update).
+
+    A marker under any of its names counts: an install made before the rename
+    carries only the earlier one.
+    """
+    return any((repo_root() / name).exists() for name in MANAGED_INSTALL_MARKERS)
 
 
 def step_models(*, full_profile: bool, dry_run: bool) -> None:
@@ -838,10 +852,15 @@ def step_cli_links(*, dry_run: bool) -> None:
     ``dodaios/setup/cli_path.py``. Never fatal: the app itself works without
     the terminal commands, so a failure here is reported and the install goes on.
     """
-    from dodaios.setup.cli_path import install_commands
+    from dodaios.setup.cli_path import install_commands, retired_install_roots
 
     try:
-        report = install_commands(repo_root(), dry_run=dry_run)
+        # An install moved from its earlier folder name takes that folder's
+        # commands off the Windows Path and puts its own on; elsewhere the
+        # links are pointed at the new folder.
+        report = install_commands(
+            repo_root(), dry_run=dry_run, retired_roots=retired_install_roots(repo_root())
+        )
     except Exception as exc:  # noqa: BLE001 - terminal commands are optional
         note(f"Could not set up the terminal commands: {rich_escape(str(exc))}")
         return
@@ -862,6 +881,8 @@ def step_cli_links(*, dry_run: bool) -> None:
         note(f"Another {rich_escape(command)} comes first on your PATH: {rich_escape(other)}")
     if report.linked:
         note(f"Terminal commands ready: {', '.join(report.linked)}")
+    for retired in report.path_retired:
+        note(f"Took the earlier folder {rich_escape(retired)} off your PATH.")
     if report.path_updated:
         note(f"Added {target} to your PATH ({rich_escape(report.path_updated)}).")
     if report.needs_new_terminal:
