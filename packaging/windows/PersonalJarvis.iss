@@ -61,6 +61,11 @@
 ; product name (docs/code-signing-policy.md). It keeps the earlier value until
 ; the maintainer updates that configuration; then set it to the AppName.
 #define SignedProductName "Personal Jarvis"
+; The same SignPath configuration pins the setup's FILE name, so the setup is
+; built and signed under the earlier name. The release publishes a
+; byte-identical Dodaios-Setup-x64.exe next to it, copied after signing
+; (scripts/ci/installer_aliases.py).
+#define SignedSetupBaseName "PersonalJarvis-Setup-x64"
 #define CliExeName "dodaios.exe"
 ; The command's earlier name. The bundle ships it beside CliExeName, in the
 ; same folder the PATH task adds, so both names work in a terminal.
@@ -99,7 +104,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 
 OutputDir={#OutputDir}
-OutputBaseFilename=PersonalJarvis-Setup-x64
+OutputBaseFilename={#SignedSetupBaseName}
 SetupIconFile={#IconFile}
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#GuiExeName}
