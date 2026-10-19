@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/react-three-fiber.esm-sJNgmStv.js
 import{r as tt,gr as $y,co as eS,j as Bn}from"./index-D7SQwDp8.js";/**
+|||||||| parent of 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/react-three-fiber.esm-D_jSVmg7.js
+import{r as tt,gr as $y,co as eS,j as Bn}from"./index-BTj1XApU.js";/**
+========
+import{r as tt,gr as $y,co as eS,j as Bn}from"./index-Crew0UfS.js";/**
+>>>>>>>> 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/react-three-fiber.esm-CX07x7Ge.js
  * @license
  * Copyright 2010-2026 Three.js Authors
  * SPDX-License-Identifier: MIT

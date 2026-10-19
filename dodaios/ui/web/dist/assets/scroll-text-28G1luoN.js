@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/scroll-text-28G1luoN.js
 import{c as a}from"./index-D7SQwDp8.js";/**
+|||||||| parent of 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/scroll-text-Clan5d28.js
+import{c as a}from"./index-BTj1XApU.js";/**
+========
+import{c as a}from"./index-Crew0UfS.js";/**
+>>>>>>>> 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/scroll-text-CXJRYXae.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

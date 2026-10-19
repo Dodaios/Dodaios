@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/film-TOJdwDlI.js
 import{c as h}from"./index-D7SQwDp8.js";/**
+|||||||| parent of 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/film-DQOE__70.js
+import{c as h}from"./index-BTj1XApU.js";/**
+========
+import{c as h}from"./index-Crew0UfS.js";/**
+>>>>>>>> 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/film-BQ6EMpTG.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

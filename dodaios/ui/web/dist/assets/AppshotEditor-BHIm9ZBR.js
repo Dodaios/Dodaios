@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/AppshotEditor-BHIm9ZBR.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-D7SQwDp8.js";import{S as sr}from"./switch-DbGecmwv.js";import{Q as D}from"./tooltip-CbOz6wyP.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-4rYPASHe.js";import{C as Tn}from"./check-DLqOBmSn.js";import{C as En}from"./columns-2-rV6jkI8R.js";/**
+|||||||| parent of 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/AppshotEditor-qOQ0SN6M.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BTj1XApU.js";import{S as sr}from"./switch-YdilkMCb.js";import{Q as D}from"./tooltip-CRxp3u7C.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-pdmtVt6M.js";import{C as Tn}from"./check-B31JK-UW.js";import{C as En}from"./columns-2-D4jbpfla.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-Crew0UfS.js";import{S as sr}from"./switch-BAvX-yPc.js";import{Q as D}from"./tooltip-C_WEj9kA.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-KLz0t0s8.js";import{C as Tn}from"./check-K6mCUgVB.js";import{C as En}from"./columns-2-CXy72eMo.js";/**
+>>>>>>>> 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/AppshotEditor-DVb7hM4_.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

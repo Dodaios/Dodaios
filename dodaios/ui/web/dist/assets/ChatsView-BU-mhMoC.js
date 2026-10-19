@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/ChatsView-BU-mhMoC.js
 import{j as s}from"./index-D7SQwDp8.js";import{P as n}from"./PageHeader-CS7s7J1s.js";import"./WorkTrace-Wyh2GHzz.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+|||||||| parent of 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/ChatsView-xBkJ4f88.js
+import{j as s}from"./index-BTj1XApU.js";import{P as n}from"./PageHeader-CMze-ni9.js";import"./WorkTrace-BpEg6zvG.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-Crew0UfS.js";import{P as n}from"./PageHeader-Dnj3t9re.js";import"./WorkTrace-DKTEssj5.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> 62b802bde4 (build(frontend): rebuild the bundle for the Dodaios permission messages):dodaios/ui/web/dist/assets/ChatsView-Bgz4wDbj.js
