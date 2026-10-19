@@ -131,6 +131,35 @@ async def _seat_for_run(runtime: Any, agent: Any, task_id: str) -> tuple[str, st
     return provider, model, effort, account_id
 
 
+async def _hold_unattended_run_off_keys(provider: str, account_id: str) -> None:
+    """Apply the background billing rule to a run nobody started by hand.
+
+    Once a subscription is connected (``brain.background_policy``), unattended
+    work never bills a per-token API key: a scheduled, triggered or webhook run
+    whose seat answers through a key is skipped with a readable reason
+    (:class:`~dodaios.brain.background_policy.BackgroundDeferred`; the task
+    runner records it and a recurring routine fires again at its next
+    occurrence). The seat is not swapped for another one: the routine stays
+    on its model. A "Run now" click is the person's own start and runs on the
+    seat as chosen; an install that never connected a subscription keeps
+    billing the seat it picked, so a single-key download still works.
+    """
+    from dodaios.core.protocols import current_started_by_user
+
+    if current_started_by_user.get() or not _billed_via_api(provider, account_id):
+        return
+    from dodaios.brain.background_policy import BackgroundDeferred, subscription_mode
+
+    if not await asyncio.to_thread(subscription_mode, (provider,)):
+        return
+    log.info("routine: skipping an unattended run on the per-token seat %s", provider)
+    raise BackgroundDeferred(
+        f"A subscription is connected, so this scheduled run did not bill the routine's "
+        f"API-key seat ({provider}). Pick a subscription or local model for the routine, "
+        "or start it with Run now."
+    )
+
+
 def _run_runtime(agent: Any, provider: str) -> str:
     """Which runtime a routine run uses.
 
@@ -181,6 +210,7 @@ async def run_owned_routine(
         raise RoutineDeferred(
             "Background work is waiting for a subscription or local model on its owner's seat"
         )
+    await _hold_unattended_run_off_keys(provider, account_id)
     permission_mode = "bypass"
     if autonomous:
         from .autonomous_routines import ORIGIN_PERMISSION_TAG, ORIGIN_SESSION_TAG

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes in Personal Jarvis.
+All notable changes in Dodaios (called Personal Jarvis until October 2026).
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning per [SemVer](https://semver.org/).
@@ -8,6 +8,96 @@ versioning per [SemVer](https://semver.org/).
 ---
 
 ## [Unreleased]
+
+### Dodaios all the way down
+
+Personal Jarvis became Dodaios in 3.2.0 on the outside. 4.0.0 finishes the job on the inside: the program, its folders and its stored keys now carry the Dodaios name too. Nothing is lost on the way, and nothing needs to be done by hand.
+
+**What moves on the first start of 4.0.0**
+
+- The Python package is `dodaios` (it was `jarvis`). Old start commands such as `python -m jarvis`, `jarvis`, `jarvisctl`, autostart entries and MCP registrations in other tools keep working.
+- The data folder becomes `%LOCALAPPDATA%\Dodaios` on Windows and `~/.dodaios-data` elsewhere. It is renamed once, in place, and a link stays at the old path, so an older version still finds everything. If the folder is in use, the app keeps running where it is and tries again next time.
+- Saved keys move to the `dodaios` entry of the system credential store. The old entries stay readable and stay in place, so a downgrade keeps working.
+- The one-line install lives in `~/.dodaios` (it was `~/.personal-jarvis`); the next run of the installer moves it.
+- Windows: the app is `DodaiosApp.exe`, the Start menu entry `Dodaios`, the logon task `Dodaios Autostart`. Existing pins and the existing autostart task keep working.
+- macOS: the app is `Dodaios.app`. It keeps its bundle id, so every permission you granted stays granted.
+- Linux: the desktop entry is `dodaios.desktop`, the Debian package `dodaios` (it replaces `personal-jarvis`).
+- The configuration file stays `jarvis.toml` on existing installs; new installs start with `dodaios.toml`.
+
+**Downloads and packages**
+
+- Installers are published as `Dodaios-*` and, for installs from before the rename, also under their old `PersonalJarvis-*` names (byte-identical copies).
+- On PyPI the project is now `dodaios`. `personal-jarvis` is published alongside it for a transition period.
+
+If you installed before 3.2.0, run the installer once more (see the 3.2.0 notes); from 3.2.0 on, updates arrive in the app.
+
+### Added
+
+- Show the user's own Chrome, signed in with their profile, in the browser panel (#747)
+- Show the agent done gate's last verdict on each pane (#748)
+- Keep the desktop app on the newest main (#742)
+- Move the remaining spoken phrase tables into the catalog, translate turn-error codes (#737)
+- Wrap long lines at the editor's edge, like VS Code (#738)
+- Fold the repository row, and show what one agent session changed from the Git tab or the pane header (#732)
+- Blue binary-digit cursor field on the empty front page (#728)
+- Source control panel in the Git tab (#727)
+- A hard-surface courier and flying made for fun (#688)
+- Pick each member's seat, model and effort; one seat twice; swarms of up to eight (#692)
+- Rebuild the Memory section as a linked, path-addressed vault reader (#678)
+- Follow mode reads one file across several columns (#686)
+- Redesign the coding floor as a tech campus floor (#689)
+- Side chat upgrades: dictation, live thinking, code blocks (#682)
+- A sky pad off the agents floor and a courier to fly over the city (#683)
+- The coding floor as a professional office in the tower (#681)
+- A team room with a live collaboration canvas and the chats beside it (#670)
+- Rebuild the coding floor as the Foundry deck (#674)
+- The city in the singularity outside the agents floor (#671)
+- Ask a named agent and hear its answer in the same call (#676)
+- Show exact content on screen, and open one thing in the app (#641)
+- Open the plugin section full-window with new area icons (#669)
+- Replace the Prompt tab with a plain AI chat (#647)
+- A planner-and-builder mode with a living, versioned plan (#667)
+- Report private memory, peak, threads and an app total in the live snapshot (#660)
+- Rebuild the plugin section as a directory with a sidebar (#639)
+- Show a team thread as a live board, a lane per member and a band per step (#653)
+- Make 3D agent shapes livelier (#643)
+- A calm working animation for agent faces (#652)
+- Find wiki pages by meaning, next to the word search (#625)
+- Team threads, several coding agents carry one task as peers (#613)
+- Move every technical name to Dodaios with a lossless migration (#750)
+
+### Changed
+
+- Move the Python package from jarvis/ to dodaios/ (#733)
+- Rename the Jarvis-named sub-folders to Dodaios (#661)
+- Ask for named checks only where the Git tab shows them (#663)
+- Load the wake runtime without its verifier-training stack (#651)
+- Show how many checks passed and failed with the first GitHub answer (#645)
+
+### Fixed
+
+- Open a session's file in the editor's diff, and filter the Git tab only once per pane request (#744)
+- Stop the busy cursor flashing while the wake word listens (#740)
+- Keep the conversation language through errors, default system phrases to English (#731)
+- Turn the binary cursor field off over the composer (#730)
+- Write the startup entry in-process, without spawning PowerShell (#724)
+- Resolve Vosk models from the install data directory (#722)
+- Match the Start-menu shortcut when the install path has a short name (#699)
+- Fly the courier by mouse aim, with cursor steering when the mouse cannot be captured (#698)
+- Report finished work to a live call on an install without a speech pipeline (#697)
+- Finish the visible rename to Dodaios (#694)
+- Fit every named tool into a small model's budget, and watch the one busy agent (#695)
+- Keep highlighted code on its code block's background in dark mode (#691)
+- Keep an answer the call already said from being announced again (#687)
+- Give the call every tool its rules name, under readable names (#684)
+- Show a pane's branch status at once and spin while it is confirmed (#668)
+- Always give the call the tools its rules name (#677)
+- Remove a startup shortcut left beside the logon task (#664)
+- Let one pane renew an expired login before the others start (#665)
+- Address the review of the rebuilt plugin directory (#666)
+- A green nightly passes the strict gate, and the alert names the gate's reason (#658)
+- Open the Agents section with roster and teams already loaded (#642)
+- Polled reads of changed files no longer rewrite the index (#649)
 
 ---
 

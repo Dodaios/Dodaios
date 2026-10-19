@@ -11,25 +11,28 @@ How it works:
 1. The browser is started with ``--profile-directory=<profile> --new-window
    <blank page titled with a one-off token>``. A running browser opens the
    window in its existing process, so it is the user's real session.
-2. The window whose title carries the token is taken: its frame styles are
-   switched to a child window and it is parented into a small container window
-   the app owns, which sits on top of the page exactly where the panel is.
-3. The page reports the panel's rectangle (and hides the container when the
-   panel is hidden). A watchdog keeps the browser window filling the container,
-   undoes minimize / maximize from the browser's own buttons, and notices when
-   the user closes the window.
-4. On release (app exit, profile switch, "open in own window") the window gets
+2. The window whose title carries the token is taken: its frame is turned into
+   a borderless tool window (no taskbar button, no Alt+Tab entry) and it is
+   laid exactly over the panel, directly above the app window in the z-order.
+3. It stays a top-level window of its own. A child window of another process
+   would share the app's input queue and never become the active window: the
+   browser then loses clicks and never gets the keyboard (typing landed in the
+   app). As its own window it activates and takes focus like any browser.
+4. The page reports the panel's rectangle and hides the window with the panel.
+   Window events (the app moving, resizing, minimizing or coming to the front;
+   the browser being moved or maximized by its own buttons) put it back at
+   once; a watchdog timer catches the rest and notices when it is closed.
+5. On release (app exit, profile switch, "open in own window") the window gets
    its original styles and placement back, so the browser remembers sensible
    bounds, and is either closed or left as a normal window.
 
-The container and every native call run on one thread of their own that pumps
-messages: a window created on a thread without a message loop would block the
-app's UI thread the first time it sent the window a message.
+Every native call runs on one thread of the embed's own that pumps messages:
+the window events are delivered there.
 
-Limits that come with a foreign window: a page popup of the app that overlaps
-the panel is drawn below the browser (the page hides the panel's browser while
-such a popup covers it), and a link opened from another program can land in
-this window when it was the browser's last active one.
+Limits that come with a foreign window: a popup of the app that overlaps the
+panel would sit below the browser (the page hides the browser while one does),
+and a link opened from another program can land in this window when it was
+the browser's last active one.
 """
 
 from __future__ import annotations
@@ -79,7 +82,6 @@ CALL_TIMEOUT_S = 5.0
 LEASE_S = 3.0
 
 _WINDOW_CLASS = "Chrome_WidgetWin_1"
-_CONTAINER_CLASS = "DodaiosBrowserPanelHost"
 
 # winuser.h
 GWL_STYLE = -16
@@ -97,7 +99,7 @@ WS_MAXIMIZEBOX = 0x00010000
 WS_CLIPSIBLINGS = 0x04000000
 WS_CLIPCHILDREN = 0x02000000
 WS_EX_APPWINDOW = 0x00040000
-WS_EX_NOPARENTNOTIFY = 0x00000004
+WS_EX_TOOLWINDOW = 0x00000080
 SWP_NOSIZE = 0x0001
 SWP_NOMOVE = 0x0002
 SWP_NOZORDER = 0x0004
@@ -111,6 +113,7 @@ SW_SHOWNORMAL = 1
 SW_SHOW = 5
 SW_RESTORE = 9
 GW_HWNDNEXT = 2
+GW_HWNDPREV = 3
 GW_CHILD = 5
 WM_CLOSE = 0x0010
 WM_TIMER = 0x0113
@@ -118,6 +121,14 @@ WM_QUIT = 0x0012
 WM_APP_TASK = 0x8000 + 0x51
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 HWND_TOP = 0
+EVENT_SYSTEM_FOREGROUND = 0x0003
+EVENT_SYSTEM_MINIMIZESTART = 0x0016
+EVENT_SYSTEM_MINIMIZEEND = 0x0017
+EVENT_OBJECT_SHOW = 0x8002
+EVENT_OBJECT_HIDE = 0x8003
+EVENT_OBJECT_LOCATIONCHANGE = 0x800B
+WINEVENT_OUTOFCONTEXT = 0x0000
+OBJID_WINDOW = 0
 
 
 def _is_windows() -> bool:
@@ -145,17 +156,11 @@ class _Api:
         self.user32, self.kernel32 = u, k
         H, INT, B, UI = wintypes.HWND, ctypes.c_int, wintypes.BOOL, wintypes.UINT
         LP = ctypes.c_ssize_t
-        self.WNDPROC = ctypes.WINFUNCTYPE(LP, H, UI, wintypes.WPARAM, wintypes.LPARAM)
         self.ENUMPROC = ctypes.WINFUNCTYPE(B, H, wintypes.LPARAM)
-
-        class WNDCLASSEXW(ctypes.Structure):
-            _fields_ = [
-                ("cbSize", UI), ("style", UI), ("lpfnWndProc", self.WNDPROC),
-                ("cbClsExtra", INT), ("cbWndExtra", INT), ("hInstance", wintypes.HINSTANCE),
-                ("hIcon", wintypes.HICON), ("hCursor", wintypes.HANDLE),
-                ("hbrBackground", wintypes.HBRUSH), ("lpszMenuName", wintypes.LPCWSTR),
-                ("lpszClassName", wintypes.LPCWSTR), ("hIconSm", wintypes.HICON),
-            ]
+        self.WINEVENTPROC = ctypes.WINFUNCTYPE(
+            None, wintypes.HANDLE, wintypes.DWORD, H, wintypes.LONG, wintypes.LONG,
+            wintypes.DWORD, wintypes.DWORD,
+        )
 
         class WINDOWPLACEMENT(ctypes.Structure):
             _fields_ = [
@@ -164,19 +169,12 @@ class _Api:
                 ("rcNormalPosition", wintypes.RECT),
             ]
 
-        self.WNDCLASSEXW = WNDCLASSEXW
         self.WINDOWPLACEMENT = WINDOWPLACEMENT
 
         def sig(fn: Any, res: Any, *args: Any) -> None:
             fn.restype = res
             fn.argtypes = list(args)
 
-        sig(u.DefWindowProcW, LP, H, UI, wintypes.WPARAM, wintypes.LPARAM)
-        sig(u.RegisterClassExW, wintypes.ATOM, ctypes.POINTER(WNDCLASSEXW))
-        sig(u.CreateWindowExW, H, wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR,
-            wintypes.DWORD, INT, INT, INT, INT, H, wintypes.HMENU, wintypes.HINSTANCE,
-            wintypes.LPVOID)
-        sig(u.DestroyWindow, B, H)
         sig(u.GetWindowLongPtrW, LP, H, INT)
         sig(u.SetWindowLongPtrW, LP, H, INT, LP)
         sig(u.SetParent, H, H, H)
@@ -208,6 +206,11 @@ class _Api:
         sig(u.GetWindowTextLengthW, INT, H)
         sig(u.GetWindowThreadProcessId, wintypes.DWORD, H, ctypes.POINTER(wintypes.DWORD))
         sig(u.SetForegroundWindow, B, H)
+        sig(u.GetForegroundWindow, H)
+        sig(u.SetWinEventHook, wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD,
+            wintypes.HMODULE, self.WINEVENTPROC, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD)
+        sig(u.UnhookWinEvent, B, wintypes.HANDLE)
+        sig(u.SetWindowRgn, INT, H, wintypes.HRGN, B)
         sig(k.GetCurrentThreadId, wintypes.DWORD)
         sig(k.GetModuleHandleW, wintypes.HMODULE, wintypes.LPCWSTR)
         sig(k.OpenProcess, wintypes.HANDLE, wintypes.DWORD, B, wintypes.DWORD)
@@ -215,7 +218,7 @@ class _Api:
         sig(k.QueryFullProcessImageNameW, B, wintypes.HANDLE, wintypes.DWORD,
             wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD))
         gdi = ctypes.WinDLL("gdi32")
-        sig(gdi.GetStockObject, wintypes.HGDIOBJ, INT)
+        sig(gdi.CreateRectRgn, wintypes.HRGN, INT, INT, INT, INT)
         self.gdi32 = gdi
 
     # -- small readers ----------------------------------------------------------
@@ -253,6 +256,17 @@ class _Api:
         (self.user32.GetClientRect if client else self.user32.GetWindowRect)(hwnd, ctypes.byref(r))
         return r.left, r.top, r.right - r.left, r.bottom - r.top
 
+    def pid(self, hwnd: int) -> int:
+        value = self.wt.DWORD()
+        self.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(value))
+        return int(value.value)
+
+    def client_origin(self, hwnd: int) -> tuple[int, int]:
+        """Where ``hwnd``'s client area starts on the screen."""
+        point = self.wt.POINT(0, 0)
+        self.user32.MapWindowPoints(hwnd, None, ctypes.byref(point), 1)
+        return point.x, point.y
+
 
 @dataclass
 class _Request:
@@ -277,14 +291,20 @@ class ChromeEmbed:
         self._tasks: queue.Queue[tuple[Callable[[], Any], Future[Any]]] = queue.Queue()
         self._thread: threading.Thread | None = None
         self._thread_id = 0
-        self._wndproc: Any = None
-        self._container = 0
         self._host = 0
         self._chrome = 0
+        self._chrome_pid = 0
         self._saved: _Saved | None = None
         self._owner = ""
         self._visible = False
-        self._client_rect: tuple[int, int, int, int] | None = None
+        #: The panel in page pixels, ``(x, y, width, height)`` from the page's top-left.
+        self._page_rect: tuple[int, int, int, int] | None = None
+        #: Window-event hooks and their callback (kept alive while hooked).
+        self._hooks: list[Any] = []
+        self._chrome_hooks: list[Any] = []
+        self._event_proc: Any = None
+        self._syncing = False
+        self._clip_key: tuple[int, ...] | None = None
         self._state = "idle"
         self._reason = ""
         self._browser = ""
@@ -340,7 +360,7 @@ class ChromeEmbed:
             alive = bool(self._chrome and self._api and self._api.user32.IsWindow(self._chrome))
         try:
             if alive and same:
-                self._call(lambda: self._ensure_container(host))
+                self._call(lambda: self._set_host(host))
                 return {**self.status(), "ok": True}
             if alive:
                 self.release(close=True)
@@ -423,7 +443,7 @@ class ChromeEmbed:
         return {**self.status(), "ok": True}
 
     def release_host(self, host: int) -> None:
-        """Close the window before ``host`` is destroyed (it would take it along)."""
+        """Close the window when ``host`` closes, so it does not stay behind on its own."""
         if host and self._host == host and self._chrome:
             # Called from the closing window's UI thread, which does not pump
             # messages while it waits: keep the wait short.
@@ -443,7 +463,7 @@ class ChromeEmbed:
             return
         try:
             self.release(close=True, timeout=2.0)
-            self._call(self._destroy_container, 2.0)
+            self._call(self._unhook_all, 2.0)
         except Exception:  # noqa: BLE001
             logger.debug("Browser panel shutdown was not clean", exc_info=True)
         api = self._api
@@ -553,12 +573,12 @@ class ChromeEmbed:
             from dodaios.core.win32_dpi import ensure_dpi_awareness  # noqa: PLC0415
 
             ensure_dpi_awareness()
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 - only the coordinates' precision depends on it
             logger.debug("DPI awareness not set for the browser panel", exc_info=True)
         msg = api.wt.MSG()
         api.user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 0)  # creates the queue
         self._thread_id = int(api.kernel32.GetCurrentThreadId())
-        self._register_class(api)
+        self._hook_app_events(api)
         api.user32.SetTimer(None, 0, WATCH_INTERVAL_MS, None)
         ready.set()
         while api.user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
@@ -573,6 +593,7 @@ class ChromeEmbed:
             except Exception:  # noqa: BLE001 - the loop outlives one bad message
                 logger.warning("Browser panel message failed", exc_info=True)
         self._run_tasks()
+        self._unhook_all()
 
     def _run_tasks(self) -> None:
         while True:
@@ -586,50 +607,80 @@ class ChromeEmbed:
                 except BaseException as exc:  # noqa: BLE001 - handed to the caller
                     future.set_exception(exc)
 
-    def _register_class(self, api: _Api) -> None:
-        user32 = api.user32
-        self._wndproc = api.WNDPROC(lambda h, m, w, lp: user32.DefWindowProcW(h, m, w, lp))
-        wc = api.WNDCLASSEXW()
-        wc.cbSize = ctypes.sizeof(api.WNDCLASSEXW)
-        wc.lpfnWndProc = self._wndproc
-        wc.hInstance = api.kernel32.GetModuleHandleW(None)
-        wc.hbrBackground = api.gdi32.GetStockObject(4)  # BLACK_BRUSH
-        wc.lpszClassName = _CONTAINER_CLASS
-        # A second embed in the same process finds the class already there: fine.
-        user32.RegisterClassExW(ctypes.byref(wc))
+    # -- window events (delivered on the embed thread) ---------------------------
 
-    def _ensure_container(self, host: int) -> int:
+    def _hook_app_events(self, api: _Api) -> None:
+        """Follow the app: front, minimize and restore, move and resize, show and hide."""
+        self._event_proc = api.WINEVENTPROC(self._on_event)
+        own = os.getpid()
+        for low, high, pid in (
+            (EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, 0),
+            (EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND, own),
+            (EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE, own),
+            (EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, own),
+        ):
+            hook = api.user32.SetWinEventHook(
+                low, high, None, self._event_proc, pid, 0, WINEVENT_OUTOFCONTEXT,
+            )
+            if hook:
+                self._hooks.append(hook)
+
+    def _hook_browser_events(self) -> None:
+        """Follow the browser window: its own buttons or a drag must not move it."""
         api = self._load_api()
-        user32 = api.user32
-        if self._container and user32.IsWindow(self._container):
-            if self._host != host and host:
-                user32.SetParent(self._container, host)
-                self._host = host
-            return self._container
-        self._container = int(user32.CreateWindowExW(
-            WS_EX_NOPARENTNOTIFY, _CONTAINER_CLASS, None,
-            WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-            0, 0, 0, 0, host, None, api.kernel32.GetModuleHandleW(None), None,
-        ) or 0)
-        if not self._container:
-            raise RuntimeError(f"container window not created ({ctypes.get_last_error()})")
-        self._host = host
-        return self._container
+        self._unhook(self._chrome_hooks)
+        if not self._chrome_pid or self._event_proc is None:
+            return
+        hook = api.user32.SetWinEventHook(
+            EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, None,
+            self._event_proc, self._chrome_pid, 0, WINEVENT_OUTOFCONTEXT,
+        )
+        if hook:
+            self._chrome_hooks.append(hook)
 
-    def _destroy_container(self) -> None:
-        if self._container and self._api and self._api.user32.IsWindow(self._container):
-            self._api.user32.DestroyWindow(self._container)
-        self._container = 0
-        self._host = 0
+    def _unhook(self, hooks: list[Any]) -> None:
+        api = self._api
+        while hooks:
+            hook = hooks.pop()
+            if api is not None:
+                api.user32.UnhookWinEvent(hook)
+
+    def _unhook_all(self) -> None:
+        self._unhook(self._chrome_hooks)
+        self._unhook(self._hooks)
+
+    def _on_event(
+        self, _hook: Any, event: int, hwnd: Any, id_object: int, _child: int,
+        _thread: int, _time: int,
+    ) -> None:
+        if not self._chrome:
+            return
+        window = int(hwnd or 0)
+        try:
+            if event == EVENT_SYSTEM_FOREGROUND:
+                if window == self._chrome:
+                    self._raise_host_below_browser()
+                elif window == self._host:
+                    self._sync()
+                return
+            if id_object != OBJID_WINDOW or window not in (self._host, self._chrome):
+                return  # carets, cursors and the app's other windows
+            self._sync()
+        except Exception:  # noqa: BLE001 - an event must never end the loop
+            logger.debug("Browser panel event failed", exc_info=True)
 
     # -- native work (runs on the embed thread) --------------------------------
+
+    def _set_host(self, host: int) -> None:
+        if host and host != self._host:
+            self._host = host
+            self._sync()
 
     def _take(self, hwnd: int, host: int, generation: int) -> None:
         if not self._current(generation):
             raise RuntimeError("superseded")
         api = self._load_api()
         user32 = api.user32
-        container = self._ensure_container(host)
         placement = api.WINDOWPLACEMENT()
         placement.length = ctypes.sizeof(api.WINDOWPLACEMENT)
         user32.GetWindowPlacement(hwnd, ctypes.byref(placement))
@@ -638,16 +689,27 @@ class ChromeEmbed:
         self._saved = _Saved(style, exstyle, placement)
         if user32.IsZoomed(hwnd) or user32.IsIconic(hwnd):
             user32.ShowWindow(hwnd, SW_RESTORE)
-        frame = WS_POPUP | WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE
-        frame |= WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
-        user32.SetWindowLongPtrW(hwnd, GWL_STYLE, (style & ~frame) | WS_CHILD | WS_VISIBLE)
-        user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_APPWINDOW)
-        user32.SetParent(hwnd, container)
+        # Hidden until it sits on the panel: no flash at the browser's own bounds.
+        user32.ShowWindow(hwnd, SW_HIDE)
+        frame = WS_CHILD | WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE
+        frame |= WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE
+        user32.SetWindowLongPtrW(hwnd, GWL_STYLE, (style & ~frame) | WS_POPUP)
+        # A tool window has no taskbar button and no Alt+Tab entry of its own.
+        user32.SetWindowLongPtrW(
+            hwnd, GWL_EXSTYLE, (exstyle & ~WS_EX_APPWINDOW) | WS_EX_TOOLWINDOW,
+        )
+        user32.SetWindowPos(
+            hwnd, None, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        )
         with self._lock:
             self._chrome = hwnd
+            self._chrome_pid = api.pid(hwnd)
+            self._host = host or self._host
+            self._clip_key = None
             self._state, self._reason = "embedded", ""
-        self._fit()
-        self._show_container(self._visible and self._client_rect is not None)
+        self._hook_browser_events()
+        self._sync()
         logger.info("Browser panel took a %s window", self._browser)
 
     def _apply(self, request: _Request) -> None:
@@ -660,98 +722,131 @@ class ChromeEmbed:
                 self._owner = request.owner
                 self._visible = True
                 self._lease_until = time.monotonic() + LEASE_S
-        if not request.visible or not request.host:
-            self._show_container(False)
-            return
-        container = self._ensure_container(request.host)
-        if request.rect is not None:
-            origin = self._page_origin(request.host)
-            self._client_rect = panel_to_client_rect(request.rect, request.dpr, origin)
-        if self._client_rect is None:
-            return
-        x, y, w, h = self._client_rect
-        self._load_api().user32.SetWindowPos(
-            container, HWND_TOP, x, y, w, h, SWP_NOACTIVATE,
-        )
-        self._fit()
-        self._show_container(bool(self._chrome) and w > 0 and h > 0)
+        if request.host:
+            self._host = request.host
+        if request.visible and request.rect is not None:
+            self._page_rect = panel_to_client_rect(request.rect, request.dpr, (0, 0))
+        self._sync()
 
-    def _page_origin(self, host: int) -> tuple[int, int]:
-        """Where the page (the WebView) starts inside the host's client area.
+    def _page_origin(self) -> tuple[int, int]:
+        """Where the page (the WebView) starts on the screen.
 
-        The WebView is the host's largest visible child; the container itself
-        is skipped. A host without children puts the page at the origin.
+        The WebView is the host's largest visible child window. A host without
+        children shows the page in its own client area.
         """
         api = self._load_api()
         user32 = api.user32
         best, best_area = 0, -1
-        child = user32.GetWindow(host, GW_CHILD)
+        child = user32.GetWindow(self._host, GW_CHILD)
         while child:
-            if int(child) != self._container and user32.IsWindowVisible(child):
+            if user32.IsWindowVisible(child):
                 _, _, w, h = api.rect(child)
                 if w * h > best_area:
                     best, best_area = int(child), w * h
             child = user32.GetWindow(child, GW_HWNDNEXT)
-        if not best:
-            return 0, 0
-        point = api.wt.POINT(0, 0)
-        user32.MapWindowPoints(best, host, ctypes.byref(point), 1)
-        return point.x, point.y
+        return api.client_origin(best or self._host)
 
-    def _show_container(self, show: bool) -> None:
-        api = self._load_api()
-        if not self._container:
-            return
-        if show:
-            api.user32.SetWindowPos(
-                self._container, HWND_TOP, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            )
-        else:
-            api.user32.ShowWindow(self._container, SW_HIDE)
-
-    def _fit(self) -> None:
-        """Make the browser's page area fill the container exactly.
-
-        The browser keeps an invisible resize border around its client area
-        even as a child window (7 px left, right and bottom at 100 %). The
-        window is made that much larger and shifted, so the border falls
-        outside the container and is clipped instead of showing as a black
-        frame.
-        """
-        target = self._fit_target()
-        if target is None:
-            return
-        x, y, w, h = target
-        self._load_api().user32.SetWindowPos(
-            self._chrome, None, x, y, w, h,
-            SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS,
+    def _should_show(self) -> bool:
+        user32 = self._load_api().user32
+        host, rect = self._host, self._page_rect
+        return bool(
+            self._chrome and self._visible and rect is not None and rect[2] > 0 and rect[3] > 0
+            and host and user32.IsWindow(host) and user32.IsWindowVisible(host)
+            and not user32.IsIconic(host)
         )
 
-    def _fit_target(self) -> tuple[int, int, int, int] | None:
-        """Where the browser window must sit inside the container, or None."""
-        if not self._chrome or not self._container:
-            return None
+    def _sync(self) -> None:
+        """Put the browser window on the panel and just above the app, or hide it.
+
+        Idempotent: it only touches the window when something differs, because
+        every move it makes comes back as a window event.
+        """
+        hwnd = self._chrome
+        if not hwnd or self._syncing:
+            return
         api = self._load_api()
-        _, _, cw, ch = api.rect(self._container, client=True)
-        left, top, right, bottom = self._frame_insets()
-        return -left, -top, cw + left + right, ch + top + bottom
+        user32 = api.user32
+        if not user32.IsWindow(hwnd) or user32.IsHungAppWindow(hwnd):
+            return
+        self._syncing = True
+        try:
+            if not self._should_show() or self._page_rect is None:
+                if user32.IsWindowVisible(hwnd):
+                    user32.ShowWindow(hwnd, SW_HIDE)
+                return
+            if user32.IsIconic(hwnd) or user32.IsZoomed(hwnd):
+                # The browser's own minimize / maximize buttons: stay on the panel.
+                user32.ShowWindow(hwnd, SW_RESTORE)
+            ox, oy = self._page_origin()
+            x, y, w, h = self._page_rect
+            left, top, right, bottom = self._frame_insets()
+            want = (ox + x - left, oy + y - top, w + left + right, h + top + bottom)
+            shown = bool(user32.IsWindowVisible(hwnd))
+            above = shown and self._is_above_host()
+            if api.rect(hwnd) != want or not shown or not above:
+                flags = SWP_NOACTIVATE | SWP_SHOWWINDOW
+                after = None if above else self._insert_after()
+                if after is None:
+                    flags |= SWP_NOZORDER
+                user32.SetWindowPos(hwnd, after, *want, flags)
+            # The browser keeps an invisible resize border around its page; cut
+            # the window to the page so that border cannot catch the app's clicks.
+            self._clip(want[2], want[3], (left, top, right, bottom))
+        finally:
+            self._syncing = False
+
+    def _clip(self, w: int, h: int, insets: tuple[int, int, int, int]) -> None:
+        key = (w, h, *insets)
+        if self._clip_key == key:
+            return
+        left, top, right, bottom = insets
+        api = self._load_api()
+        region = api.gdi32.CreateRectRgn(left, top, w - right, h - bottom)
+        # The window owns the region once the call succeeds.
+        if region and api.user32.SetWindowRgn(self._chrome, region, True):
+            self._clip_key = key
+
+    def _is_above_host(self) -> bool:
+        """Whether the browser window lies above the app window in the z-order."""
+        user32 = self._load_api().user32
+        window = user32.GetWindow(self._host, GW_HWNDPREV)
+        for _ in range(64):
+            if not window:
+                return False
+            if int(window) == self._chrome:
+                return True
+            window = user32.GetWindow(window, GW_HWNDPREV)
+        return False
+
+    def _insert_after(self) -> Any:
+        """The window to place the browser under: the one just above the app."""
+        user32 = self._load_api().user32
+        above = user32.GetWindow(self._host, GW_HWNDPREV)
+        return above if above and int(above) != self._chrome else HWND_TOP
+
+    def _raise_host_below_browser(self) -> None:
+        """The user clicked into the browser: bring the app up right under it."""
+        if not self._host or not self._should_show():
+            return
+        self._load_api().user32.SetWindowPos(
+            self._host, self._chrome, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+        )
 
     def _frame_insets(self) -> tuple[int, int, int, int]:
-        """The browser window's border around its client area: left, top, right, bottom."""
+        """The browser window's border around its page area: left, top, right, bottom."""
         api = self._load_api()
         wx, wy, ww, wh = api.rect(self._chrome)
         _, _, cw, ch = api.rect(self._chrome, client=True)
-        origin = api.wt.POINT(0, 0)
-        api.user32.MapWindowPoints(self._chrome, None, ctypes.byref(origin), 1)
-        left, top = origin.x - wx, origin.y - wy
+        ox, oy = api.client_origin(self._chrome)
+        left, top = ox - wx, oy - wy
         right, bottom = ww - cw - left, wh - ch - top
         insets = (left, top, right, bottom)
         # A border wider than 32 px is a reading taken mid-change: ignore it.
         return insets if all(0 <= v <= 32 for v in insets) else (0, 0, 0, 0)
 
     def _watch(self) -> None:
-        """Keep the window in place and notice when it is gone. Runs on a timer."""
+        """Catch what no window event reported, and notice a closed window. Runs on a timer."""
         hwnd = self._chrome
         if not hwnd:
             return
@@ -760,33 +855,23 @@ class ChromeEmbed:
         if self._visible and time.monotonic() > self._lease_until:
             with self._lock:
                 self._visible = False
-            self._show_container(False)
         if user32.IsHungAppWindow(hwnd):
             return  # never wait on a browser that does not answer
         try:
-            if not user32.IsWindow(hwnd) or int(user32.GetParent(hwnd) or 0) != self._container:
+            if not user32.IsWindow(hwnd):
                 with self._lock:
                     self._lost("closed")
-                self._show_container(False)
+                self._unhook(self._chrome_hooks)
                 return
-            if user32.IsIconic(hwnd) or user32.IsZoomed(hwnd):
-                # The browser's own minimize / maximize buttons: stay in the panel.
-                user32.ShowWindowAsync(hwnd, SW_RESTORE)
-            target = self._fit_target()
-            if target is not None:
-                _, _, w, h = api.rect(hwnd)
-                if (w, h) != target[2:]:
-                    self._fit()
-            if self._visible and user32.IsWindowVisible(self._container):
-                top = int(user32.GetWindow(self._host, GW_CHILD) or 0)
-                if top and top != self._container:
-                    self._show_container(True)
+            self._sync()
         except Exception:  # noqa: BLE001 - a watchdog tick must never end the loop
             logger.debug("Browser panel watchdog tick failed", exc_info=True)
 
     def _lost(self, state: str) -> None:
         self._chrome = 0
+        self._chrome_pid = 0
         self._saved = None
+        self._clip_key = None
         self._state = state
 
     def _give_back(self, *, close: bool, focus: bool) -> None:
@@ -795,19 +880,18 @@ class ChromeEmbed:
         user32 = api.user32
         with self._lock:
             self._lost("released" if not close else "idle")
-        self._show_container(False)
+        self._unhook(self._chrome_hooks)
         if not hwnd or not user32.IsWindow(hwnd):
             return
         if user32.IsHungAppWindow(hwnd):
             # Every call below would wait on the frozen browser. Ask it to close
-            # once it recovers; otherwise it goes down with the app window.
+            # once it recovers.
             logger.warning("Browser panel window does not answer; not handing it back")
             if close:
                 user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
             return
-        if close:
-            user32.ShowWindow(hwnd, SW_HIDE)
-        user32.SetParent(hwnd, None)
+        user32.ShowWindow(hwnd, SW_HIDE)
+        user32.SetWindowRgn(hwnd, None, False)
         if saved is not None:
             style = saved.style & ~(WS_VISIBLE | WS_MINIMIZE | WS_MAXIMIZE)
             user32.SetWindowLongPtrW(hwnd, GWL_STYLE, style)
