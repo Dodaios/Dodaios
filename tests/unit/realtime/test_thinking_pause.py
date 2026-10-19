@@ -26,9 +26,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.realtime import session as session_module
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.realtime import session as session_module
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 _FIRST = "What is the capital"
 _SECOND = "of Peru, and how many people live there"

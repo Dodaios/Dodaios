@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.workers.process_utils import resolve_node_executable
+from dodaios.missions.workers.process_utils import resolve_node_executable
 
 
 def test_resolve_node_prefers_which(tmp_path: Path, monkeypatch) -> None:
@@ -41,7 +41,7 @@ def test_resolve_node_via_wellknown_when_which_fails(tmp_path: Path, monkeypatch
     (node_dir / "node.exe").write_text("", encoding="utf-8")
 
     monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
-    from jarvis.missions.workers import process_utils as pu
+    from dodaios.missions.workers import process_utils as pu
     monkeypatch.setattr(pu, "_windows_node_dir_candidates", lambda: [str(node_dir)])
 
     assert resolve_node_executable() == str(node_dir / "node.exe")
@@ -50,6 +50,6 @@ def test_resolve_node_via_wellknown_when_which_fails(tmp_path: Path, monkeypatch
 def test_resolve_node_returns_none_when_nowhere(monkeypatch) -> None:
     """No node anywhere → None (caller degrades to the bare binary fallback)."""
     monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
-    from jarvis.missions.workers import process_utils as pu
+    from dodaios.missions.workers import process_utils as pu
     monkeypatch.setattr(pu, "_windows_node_dir_candidates", lambda: [])
     assert resolve_node_executable() is None

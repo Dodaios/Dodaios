@@ -54,12 +54,12 @@ import numpy as np
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from jarvis.core.protocols import AudioChunk  # noqa: E402
-from jarvis.speech.rolling_whisper_wake import (  # noqa: E402
+from dodaios.core.protocols import AudioChunk  # noqa: E402
+from dodaios.speech.rolling_whisper_wake import (  # noqa: E402
     RollingWhisperWake,
     _reliable_wake_transcript,
 )
-from jarvis.speech.wake_phrase import compile_wake_matcher  # noqa: E402
+from dodaios.speech.wake_phrase import compile_wake_matcher  # noqa: E402
 
 SAMPLE_RATE = 16_000
 WAKE_DEBUG_DIR = REPO_ROOT / "data" / "wake_debug"
@@ -169,7 +169,7 @@ def build_model(args: argparse.Namespace, phrase: str) -> Any:
     """Build the wake Whisper exactly like production (or a matrix variant)."""
     bias_phrase = None if args.bias == "off" else phrase
     if args.production:
-        from jarvis.plugins.stt import build_wake_whisper
+        from dodaios.plugins.stt import build_wake_whisper
 
         cfg = SimpleNamespace(
             wake_model=args.model, wake_device="cpu",
@@ -179,7 +179,7 @@ def build_model(args: argparse.Namespace, phrase: str) -> Any:
             cfg, language=None, wake_phrase=bias_phrase,
             cuda_available=False, fast_first=True,
         )
-    from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
+    from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
 
     # --device cuda benchmarks the verified-GPU hot-swap config (the
     # large-v3-turbo/cuda/int8_float16 combo build_wake_whisper swaps in);
@@ -254,7 +254,7 @@ async def run_window_case(
     # Replicate the production bias-echo gate (2026-07-02): an exact-phrase
     # candidate on a primed model gets one unbiased confirm pass.
     if res.matched and getattr(stt, "bias_prompt", None):
-        from jarvis.speech.wake_constants import (
+        from dodaios.speech.wake_constants import (
             STT_HALLUCINATION_RE,
             normalize_phrase_for_match,
         )

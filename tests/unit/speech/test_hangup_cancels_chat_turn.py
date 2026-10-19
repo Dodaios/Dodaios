@@ -13,8 +13,8 @@ import asyncio
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core import runtime_refs
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakePlayer:

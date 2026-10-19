@@ -34,9 +34,9 @@ except ModuleNotFoundError:  # pragma: no cover
         allow_module_level=True,
     )
 
-from jarvis.core.events import DictationRefused  # noqa: E402
-from jarvis.platform.permission_service import user_detail_for  # noqa: E402
-from jarvis.platform.permissions import PermissionId  # noqa: E402
+from dodaios.core.events import DictationRefused  # noqa: E402
+from dodaios.platform.permission_service import user_detail_for  # noqa: E402
+from dodaios.platform.permissions import PermissionId  # noqa: E402
 
 _PIPELINE_DETAIL = "Microphone access is not ready — check the microphone permission."
 

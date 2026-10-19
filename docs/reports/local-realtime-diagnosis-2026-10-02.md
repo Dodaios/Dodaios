@@ -119,7 +119,7 @@ tests retain the existing tool-confirmation and shared provider contracts.
 The main checkout contains the committed repair. Its existing desktop process
 has not been restarted by this session: the application explicitly restricts
 restarts to a desktop-user action because active agent terminals would be lost
-(`jarvis/ui/web/settings_routes.py`, `restart_app`). The probe used fresh
+(`dodaios/ui/web/settings_routes.py`, `restart_app`). The probe used fresh
 processes with the repaired code. A running desktop session is therefore not
 claimed to have adopted all adapter changes yet.
 

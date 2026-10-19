@@ -1,5 +1,5 @@
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.usage_cards.loader import load_usage_card
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.usage_cards.loader import load_usage_card
 
 
 def test_every_live_callable_plugin_has_a_parsable_card():

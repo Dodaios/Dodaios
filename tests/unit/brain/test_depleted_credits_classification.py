@@ -11,7 +11,7 @@ crosses to whatever provider family actually has a usable key (AP-22).
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _DEAD_LIST_KINDS,
     _classify_provider_error,
     _is_account_blocked_exc,

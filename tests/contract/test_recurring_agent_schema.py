@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from jarvis.tasks import (
+from dodaios.tasks import (
     ACTION_KINDS,
     PLUGIN_SCOPES,
     TRIGGER_TYPES,

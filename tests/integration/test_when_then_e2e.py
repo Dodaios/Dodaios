@@ -13,13 +13,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested, MissionCompleted
-from jarvis.core.protocols import HarnessResult
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.schema import HarnessDispatchAction, TaskSpec, TriggerOnEvent
-from jarvis.tasks.store import TaskStore
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested, MissionCompleted
+from dodaios.core.protocols import HarnessResult
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.schema import HarnessDispatchAction, TaskSpec, TriggerOnEvent
+from dodaios.tasks.store import TaskStore
 
 
 class FakeHarnessManager:

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.provider_test import (
+from dodaios.brain.provider_test import (
     _RATE_LIMIT_TOKEN_MARKERS,
     BILLING_LIMIT_MARKERS,
     classify_provider_error,

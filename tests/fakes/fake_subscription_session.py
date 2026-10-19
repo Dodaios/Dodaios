@@ -4,8 +4,8 @@ import asyncio
 import copy
 from types import SimpleNamespace
 
-from jarvis.core.model_selection import operation_model
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.core.model_selection import operation_model
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
 
 
 class SubscriptionGateway:
@@ -43,7 +43,7 @@ class AppshotSubscriptionGateway(SubscriptionGateway):
         self.handoff = handoff
 
     def catalog(self):
-        from jarvis.plugins.tool.appshot import AppshotTool
+        from dodaios.plugins.tool.appshot import AppshotTool
 
         return (*super().catalog(), SupervisorToolDescriptor(
             AppshotTool.name, AppshotTool.description, AppshotTool.schema, "monitor",
@@ -101,7 +101,7 @@ class ApprovalSubscriptionGateway(SubscriptionGateway):
         ),)
 
     async def execute(self, name, args, request):
-        from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+        from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 
         self.calls.append((name, args, request))
         return ToolResult(False, {}, VOICE_CONFIRM_SENTINEL)

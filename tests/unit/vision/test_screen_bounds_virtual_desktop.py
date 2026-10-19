@@ -6,7 +6,7 @@ on-screen overlap filter to the PRIMARY monitor (Windows: GetSystemMetrics
 ANY secondary monitor lost its whole accessibility tree — no clickable
 anchors, no field hints, no focus evidence, and the click-verification had
 nothing to consult. The filter must use the union of ALL monitors
-(:func:`jarvis.platform.monitors.virtual_desktop_bounds`), resolved through
+(:func:`dodaios.platform.monitors.virtual_desktop_bounds`), resolved through
 the one platform seam on every OS.
 """
 from __future__ import annotations
@@ -15,9 +15,9 @@ import subprocess
 import sys
 import types
 
-from jarvis.platform import monitors as monitors_mod
-from jarvis.vision.pruning import RawNode
-from jarvis.vision.uia_tree import UIATreeSource
+from dodaios.platform import monitors as monitors_mod
+from dodaios.vision.pruning import RawNode
+from dodaios.vision.uia_tree import UIATreeSource
 
 # A window fully on the LEFT secondary monitor (negative X): the incident
 # geometry, nothing on the primary.

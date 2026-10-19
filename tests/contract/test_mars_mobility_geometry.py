@@ -7,7 +7,7 @@ import math
 
 import pytest
 
-from jarvis.society.mars.mobility_geometry import MobilityGeometry
+from dodaios.society.mars.mobility_geometry import MobilityGeometry
 
 
 def definition():

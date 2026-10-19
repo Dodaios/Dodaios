@@ -1,7 +1,7 @@
 """Tests for PATCH /api/profile/field — inline single-field editing from the
 Profile view (the pencil-per-field UI).
 
-Contract (see jarvis/ui/web/profile_routes.py::patch_field):
+Contract (see dodaios/ui/web/profile_routes.py::patch_field):
 - ``set`` overwrites a scalar field in place (boss → king)
 - ``clear`` empties any field so it reads back as "not known yet"
 - ``append`` / ``remove`` add/drop one item of a list field (the chips)
@@ -19,9 +19,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.events import ProfileUpdated
-from jarvis.memory.user_profile import UserProfile
-from jarvis.ui.web.profile_routes import router
+from dodaios.core.events import ProfileUpdated
+from dodaios.memory.user_profile import UserProfile
+from dodaios.ui.web.profile_routes import router
 
 INITIAL = """\
 ---

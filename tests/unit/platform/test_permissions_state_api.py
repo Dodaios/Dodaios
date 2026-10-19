@@ -19,10 +19,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.branding import MACOS_DMG_BUNDLE_ID
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.platform import permissions as permissions_module
-from jarvis.platform.permissions import (
+from dodaios.core.branding import MACOS_DMG_BUNDLE_ID
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.platform import permissions as permissions_module
+from dodaios.platform.permissions import (
     ACCEPTED_BUNDLE_IDS,
     AUTOMATION_TARGETS,
     EXPECTED_BUNDLE_ID,
@@ -569,7 +569,7 @@ def test_an_unknown_target_is_unavailable_and_logged_not_raised(
     world = _World()
     world.installed = {_MUSIC}
     world.running = {_MUSIC}
-    caplog.set_level(logging.DEBUG, logger="jarvis.platform.permissions")
+    caplog.set_level(logging.DEBUG, logger="dodaios.platform.permissions")
 
     for target in ("com.example.NotAPlayer", "", "Music"):
         assert world.port().state(PermissionId.AUTOMATION, target=target) is (
@@ -745,7 +745,7 @@ def test_request_native_never_raises_when_the_native_call_does(
 ) -> None:
     world = _World()
     world.explode = True
-    caplog.set_level(logging.DEBUG, logger="jarvis.platform.permissions")
+    caplog.set_level(logging.DEBUG, logger="dodaios.platform.permissions")
 
     outcome = world.port().request_native(permission, target=_MUSIC)
 
@@ -1002,7 +1002,7 @@ def test_an_unreadable_info_dictionary_fails_closed_without_raising(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     world = _World(info_error=RuntimeError("bundle vanished"))
-    caplog.set_level(logging.DEBUG, logger="jarvis.platform.permissions")
+    caplog.set_level(logging.DEBUG, logger="dodaios.platform.permissions")
 
     assert world.port().usage_string_present(PermissionId.MICROPHONE) is False
     assert any(record.exc_info for record in caplog.records)
@@ -1022,7 +1022,7 @@ def test_the_usage_string_check_off_macos_loads_nothing() -> None:
 
 
 def test_the_usage_keys_are_keys_the_bundles_really_carry() -> None:
-    strings = pytest.importorskip("jarvis.core.macos_privacy_strings")
+    strings = pytest.importorskip("dodaios.core.macos_privacy_strings")
 
     for key in permissions_module._USAGE_DESCRIPTION_KEYS.values():
         assert key in strings.REQUIRED_USAGE_KEYS

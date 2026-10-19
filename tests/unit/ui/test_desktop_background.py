@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui.desktop_app import DesktopApp
-from jarvis.ui.desktop_background import BackgroundSession
+from dodaios.ui.desktop_app import DesktopApp
+from dodaios.ui.desktop_background import BackgroundSession
 
 
 class Event:
@@ -105,9 +105,9 @@ def rig(monkeypatch):
         return window
 
     monkeypatch.setitem(sys.modules, "webview", SimpleNamespace(create_window=create_window))
-    monkeypatch.setattr("jarvis.ui.desktop_app._bring_window_to_front_by_title", lambda title: True)
-    monkeypatch.setattr("jarvis.ui.icon_utils.set_window_icon_by_title", lambda *args: True)
-    monkeypatch.setattr("jarvis.ui.icon_utils.project_icon_path", lambda: "icon.ico")
+    monkeypatch.setattr("dodaios.ui.desktop_app._bring_window_to_front_by_title", lambda title: True)
+    monkeypatch.setattr("dodaios.ui.icon_utils.set_window_icon_by_title", lambda *args: True)
+    monkeypatch.setattr("dodaios.ui.icon_utils.project_icon_path", lambda: "icon.ico")
     return app
 
 
@@ -240,7 +240,7 @@ async def test_explicit_quit_destroys_keeper_even_with_no_visible_window(rig, mo
         destroy_window()
         done.set()
 
-    monkeypatch.setattr("jarvis.ui.relauncher.run_restart_quit_sequence", sequence)
+    monkeypatch.setattr("dodaios.ui.relauncher.run_restart_quit_sequence", sequence)
     assert rig.request_quit()
     assert await asyncio.to_thread(done.wait, 2.0)
     assert keeper.destroyed and rig._user_requested_quit
@@ -271,7 +271,7 @@ async def test_tray_loss_with_failed_reopen_ends_hidden_execution(rig):
 async def test_idle_bridge_restores_control_without_any_client_or_status_request(rig, monkeypatch):
     import queue
 
-    from jarvis.ui.tray import TrayCommand
+    from dodaios.ui.tray import TrayCommand
 
     class BridgeTray(Tray):
         def __init__(self):
@@ -288,7 +288,7 @@ async def test_idle_bridge_restores_control_without_any_client_or_status_request
     keeper = rig._background.keeper
     rig._window = None
     tray = BridgeTray()
-    monkeypatch.setattr("jarvis.ui.tray.JarvisTray", lambda: tray)
+    monkeypatch.setattr("dodaios.ui.tray.JarvisTray", lambda: tray)
     restored = threading.Event()
     restore = rig._background_control_lost
 

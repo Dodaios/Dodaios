@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup import macos_app_bundle, macos_search_index
-from jarvis.setup.macos_search_index import (
+from dodaios.setup import macos_app_bundle, macos_search_index
+from dodaios.setup.macos_search_index import (
     SpotlightVolumeIssue,
     announce_to_spotlight,
     indexed_bundle_paths,

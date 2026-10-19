@@ -7,7 +7,7 @@ from types import ModuleType
 
 import pytest
 
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.ui.desktop_app import DesktopApp
 
 
 class _Events:
@@ -62,7 +62,7 @@ def _app(monkeypatch: pytest.MonkeyPatch) -> DesktopApp:
     app._url = lambda: "http://127.0.0.1:47821"  # type: ignore[method-assign]  # noqa: SLF001
     app._window_background = lambda: "#000000"  # type: ignore[method-assign]  # noqa: SLF001
     app._arm_window_frame = lambda _w: None  # type: ignore[method-assign]  # noqa: SLF001
-    monkeypatch.setattr("jarvis.ui.desktop_app._bring_window_to_front_by_title", lambda _t: True)
+    monkeypatch.setattr("dodaios.ui.desktop_app._bring_window_to_front_by_title", lambda _t: True)
     return app
 
 
@@ -129,7 +129,7 @@ def test_a_script_result_that_is_not_true_still_loads_the_shot(
 def test_showing_the_warm_editor_on_windows_nudges_its_size(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("jarvis.ui.desktop_app.sys.platform", "win32")
+    monkeypatch.setattr("dodaios.ui.desktop_app.sys.platform", "win32")
     app = _app(monkeypatch)
     window = _Window(width=1024, height=662)
     app._detached_windows["appshot-editor"] = window  # noqa: SLF001
@@ -166,7 +166,7 @@ def test_other_detached_views_still_close_for_real(monkeypatch: pytest.MonkeyPat
 
 
 async def test_the_editor_window_is_prepared_through_the_registered_prewarmer() -> None:
-    from jarvis.appshot import editor_window
+    from dodaios.appshot import editor_window
 
     calls: list[str] = []
     editor_window.register_window_opener(

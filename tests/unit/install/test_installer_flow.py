@@ -68,7 +68,7 @@ def test_browser_provisioning_respects_headless_profile(
 
     assert installer.main([*args, "--no-launch"]) == 0
     browser_commands = [
-        command for command in commands if "jarvis.society.browser.install" in command
+        command for command in commands if "dodaios.society.browser.install" in command
     ]
     assert bool(browser_commands) is expected_browser
     assert ("Agent browser skipped" in capsys.readouterr().out) is not expected_browser
@@ -209,13 +209,13 @@ def test_browser_provisioning_follows_install_profile(
     assert cli_links == [False]
     if with_desktop:
         assert calls == [[
-            str(installer.venv_python()), "-m", "jarvis.society.browser.install",
+            str(installer.venv_python()), "-m", "dodaios.society.browser.install",
             "--system-deps",
         ]]
     else:
         assert calls == []
         assert "browser skipped" in out
-        assert "jarvis.society.browser.install" in out
+        assert "dodaios.society.browser.install" in out
         assert "--system-deps" in out
         assert "administrator" in out
         assert "Traceback" not in out
@@ -260,13 +260,13 @@ def test_macos_launch_enters_through_application_bundle(monkeypatch, tmp_path, c
     bundle = tmp_path / "Personal Jarvis.app"
     monkeypatch.setattr(installer.sys, "platform", "darwin")
     monkeypatch.setattr(
-        "jarvis.setup.macos_app_bundle.macos_app_bundle_path", lambda: bundle
+        "dodaios.setup.macos_app_bundle.macos_app_bundle_path", lambda: bundle
     )
     monkeypatch.setattr(
-        "jarvis.setup.macos_app_bundle.macos_app_bundle_is_launchable", lambda _p: True
+        "dodaios.setup.macos_app_bundle.macos_app_bundle_is_launchable", lambda _p: True
     )
     monkeypatch.setattr(
-        "jarvis.setup.macos_app_bundle.macos_launch_services_command",
+        "dodaios.setup.macos_app_bundle.macos_launch_services_command",
         lambda _p: ["/usr/bin/open", "-a", str(bundle)],
     )
     monkeypatch.setattr(
@@ -301,7 +301,7 @@ def test_launch_fallback_hint_is_shown_on_every_desktop_os(monkeypatch, capsys) 
     installer.step_launch(headless=False, dry_run=False)
     linux_out = capsys.readouterr().out
     assert "If it doesn't open, run:" in linux_out
-    assert "jarvis.ui.web.launcher" in linux_out
+    assert "dodaios.ui.web.launcher" in linux_out
 
 
 def test_linux_gui_gets_full_profile_and_app_menu_registration(

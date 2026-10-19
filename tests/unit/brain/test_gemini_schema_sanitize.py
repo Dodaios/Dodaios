@@ -14,7 +14,7 @@ import json
 
 import pytest
 
-from jarvis.plugins.brain.gemini import _gemini_schema_keys, _sanitize_for_gemini
+from dodaios.plugins.brain.gemini import _gemini_schema_keys, _sanitize_for_gemini
 
 
 def _flatten(schema: dict) -> str:

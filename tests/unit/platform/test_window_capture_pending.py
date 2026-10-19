@@ -17,9 +17,9 @@ import types
 
 import pytest
 
-from jarvis.platform import window_capture
-from jarvis.platform.permission_service import get_permission_service
-from jarvis.platform.permissions import PermissionId
+from dodaios.platform import window_capture
+from dodaios.platform.permission_service import get_permission_service
+from dodaios.platform.permissions import PermissionId
 from tests.fakes.fake_tcc import DialogPolicy, FakeTCC, TccService, install_port
 
 _BBOX = {"left": 0, "top": 0, "width": 80, "height": 60}

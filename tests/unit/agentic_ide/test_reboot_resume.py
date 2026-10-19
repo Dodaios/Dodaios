@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
 from tests.unit.agentic_ide.test_pty_host_adoption import ConnectRecorder, FakeHostedPool
 
 
@@ -143,7 +143,7 @@ async def test_an_agent_resumed_mid_turn_reads_working_while_it_moves(
     a film under Done (maintainer report 2026-09-29). An agent that was idle
     when it died gets no such proof: its redraws must not invent work.
     """
-    from jarvis.agentic_ide.activity import read_activity
+    from dodaios.agentic_ide.activity import read_activity
 
     ws, _ = _save(tmp_path, [_pane(1, working=True), _pane(2)])
     _store(ws)

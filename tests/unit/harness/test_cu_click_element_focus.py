@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.harness import screenshot_only_loop as sol
-from jarvis.harness.computer_use_context import ComputerUseContext
-from jarvis.harness.screenshot_only_loop import _element_is_focused, _execute_action
+from dodaios.harness import screenshot_only_loop as sol
+from dodaios.harness.computer_use_context import ComputerUseContext
+from dodaios.harness.screenshot_only_loop import _element_is_focused, _execute_action
 
 
 def _node(name: str, *, focused: bool = False, role: str = "Edit") -> Any:

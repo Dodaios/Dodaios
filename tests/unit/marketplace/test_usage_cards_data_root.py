@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.marketplace.usage_cards import loader
+from dodaios.marketplace.usage_cards import loader
 
 
 @pytest.fixture()

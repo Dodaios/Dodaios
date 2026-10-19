@@ -13,8 +13,8 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.brain import model_catalog as catalog_module
-from jarvis.brain.model_catalog import (
+from dodaios.brain import model_catalog as catalog_module
+from dodaios.brain.model_catalog import (
     ModelCatalog,
     ModelInfo,
     discovered_from_feed,
@@ -214,7 +214,7 @@ async def test_discovered_reads_the_cache_on_disk_without_network(tmp_path) -> N
 def test_claude_code_picker_leads_with_discovered_releases(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    from jarvis.agent_chat import catalog as chat_catalog
+    from dodaios.agent_chat import catalog as chat_catalog
 
     catalog = ModelCatalog(cache_path=tmp_path / "c.json")
     catalog._cache["openrouter"] = (

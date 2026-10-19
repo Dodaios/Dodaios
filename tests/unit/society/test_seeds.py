@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from jarvis.society.capabilities import build_catalog
-from jarvis.society.roster import Roster
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.seeds import STARTER_TEAM, propose_seeds, seed_first_run
-from jarvis.society.store import SocietyStore
+from dodaios.society.capabilities import build_catalog
+from dodaios.society.roster import Roster
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.seeds import STARTER_TEAM, propose_seeds, seed_first_run
+from dodaios.society.store import SocietyStore
 
 
 def _tool(name: str, desc: str = "x.") -> SimpleNamespace:

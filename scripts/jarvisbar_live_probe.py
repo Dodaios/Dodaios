@@ -25,8 +25,8 @@ from PIL import Image, ImageGrab  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from jarvis.ui.dodaiosbar import interaction, renderer  # noqa: E402
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay  # noqa: E402
+from dodaios.ui.dodaiosbar import interaction, renderer  # noqa: E402
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "screenshots"
 

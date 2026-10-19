@@ -17,11 +17,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.budget import BudgetTracker
-from jarvis.missions.events import now_ms
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.budget import BudgetTracker
+from dodaios.missions.events import now_ms
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
 from tests.missions.kontrollierer.test_loop import (
     FakeCriticRunner,
     FakeJobObject,

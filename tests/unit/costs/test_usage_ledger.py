@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain.usage_meter import MeteredBrain, meter_brain
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.costs import CostSources, collect_entries, ledger
-from jarvis.costs.aggregate import filter_entries
-from jarvis.costs.model import CostEntry
+from dodaios.brain.usage_meter import MeteredBrain, meter_brain
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.costs import CostSources, collect_entries, ledger
+from dodaios.costs.aggregate import filter_entries
+from dodaios.costs.model import CostEntry
 
 
 class FakeBrain:

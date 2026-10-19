@@ -7,7 +7,7 @@ single source; every site routes through it.
 """
 from __future__ import annotations
 
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def test_bcp47_covers_all_three_locales() -> None:

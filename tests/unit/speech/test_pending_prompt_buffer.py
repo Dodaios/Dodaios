@@ -1,6 +1,6 @@
 """Unit tests for the single-slot pending-prompt buffer.
 
-Target module: ``jarvis/speech/pending_buffer.py`` (not yet implemented — RED).
+Target module: ``dodaios/speech/pending_buffer.py`` (not yet implemented — RED).
 
 The buffer is intentionally minimal: it stores a dangling fragment, allows
 concatenation of continuations, tracks the chain count and last-activity
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.pending_buffer import PendingPromptBuffer
+from dodaios.speech.pending_buffer import PendingPromptBuffer
 
 
 def _clock(*timestamps_ns: int):

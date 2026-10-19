@@ -21,7 +21,7 @@ def _no_vosk_model(monkeypatch):
     """Isolate from any per-install Vosk model: this module pins the custom_onnx
     vs stt_match/none chain. The vosk_kws chain has its own suite in
     test_wake_plan_vosk.py."""
-    import jarvis.speech.wake_phrase as wp
+    import dodaios.speech.wake_phrase as wp
 
     monkeypatch.setattr(wp, "resolve_vosk_model_path", lambda *_: None)
 
@@ -42,7 +42,7 @@ def _cfg(
 
 
 def test_custom_onnx_uses_calibrated_higher_threshold(tmp_path) -> None:
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "hey_nico.onnx"
     model.write_bytes(b"onnx")  # resolve only checks the path is a file
@@ -60,7 +60,7 @@ def test_custom_onnx_threshold_is_pinned_regardless_of_legacy_sensitivity(
     """Guard: the Sensitivity slider was removed 2026-07-10 — the custom_onnx
     threshold is now the fixed CUSTOM_ONNX_THRESHOLD, no matter what a legacy
     config carries in ``sensitivity`` (read-compat-only field)."""
-    from jarvis.speech.wake_phrase import CUSTOM_ONNX_THRESHOLD, resolve_wake_plan
+    from dodaios.speech.wake_phrase import CUSTOM_ONNX_THRESHOLD, resolve_wake_plan
 
     model = tmp_path / "m.onnx"
     model.write_bytes(b"onnx")
@@ -87,7 +87,7 @@ def test_custom_onnx_threshold_is_pinned_regardless_of_legacy_sensitivity(
 
 
 def test_stale_custom_model_does_not_hijack_new_phrase(tmp_path) -> None:
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "hey_nico.onnx"
     model.write_bytes(b"onnx")
@@ -103,7 +103,7 @@ def test_stale_custom_model_does_not_hijack_new_phrase(tmp_path) -> None:
 
 
 def test_matching_custom_model_still_adopted_on_auto(tmp_path) -> None:
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "hey_nico.onnx"
     model.write_bytes(b"onnx")
@@ -118,7 +118,7 @@ def test_matching_custom_model_still_adopted_on_auto(tmp_path) -> None:
 def test_sound_folded_spelling_still_owns_the_model(tmp_path) -> None:
     # "Hey Niko" vs hey_nico.onnx: sound-folding makes the tokens compare
     # equal, so a spelling variant of the SAME word keeps the trained model.
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "hey_nico.onnx"
     model.write_bytes(b"onnx")
@@ -133,7 +133,7 @@ def test_explicit_custom_engine_keeps_arbitrarily_named_model(tmp_path) -> None:
     # engine="custom_onnx" is the user's explicit choice — a model file named
     # differently from the phrase (their own training, their own naming) must
     # still be honoured.
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "my_wake.onnx"
     model.write_bytes(b"onnx")
@@ -149,7 +149,7 @@ def test_stale_custom_model_lets_other_phrases_through_generically(tmp_path) -> 
     # A stale custom model must not block the generic chain either: with the
     # phrase set to "Hey Jarvis", the generic engine serves it (design
     # 2026-07-07: no bundled model wins anything).
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "hey_nico.onnx"
     model.write_bytes(b"onnx")
@@ -166,7 +166,7 @@ def test_stale_custom_model_without_whisper_is_hotkey_only(tmp_path) -> None:
     # Mismatching model + no local Whisper: the wake word is OFF (hotkey-only,
     # product rule 2026-07-04) with a clear message — never a silent branded
     # fallback and never a dead listener.
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "hey_nico.onnx"
     model.write_bytes(b"onnx")
@@ -186,7 +186,7 @@ def test_custom_onnx_requires_prefix_verify(tmp_path) -> None:
     # the model alone ("it IS its own discriminator") was the root cause, so a
     # custom_onnx hit MUST run the second-stage STT verify against the phrase's
     # own sound-folded fuzzy matcher (works for ANY configured wake word).
-    from jarvis.speech.wake_phrase import resolve_wake_plan
+    from dodaios.speech.wake_phrase import resolve_wake_plan
 
     model = tmp_path / "m.onnx"
     model.write_bytes(b"onnx")

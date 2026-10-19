@@ -1,0 +1,606 @@
+"""PluginToolRegistry — connected Marketplace plugins as live in-process tools.
+
+Mirror of dodaios/clis/registry.py for MCP plugins. bootstrap() opens an
+in-process MCPClient per connected plugin, wraps each server tool in an
+MCPToolAdapter (which already runs the risk-tier flow + capability
+registration), and publishes BrainToolsChanged so the live brain re-expands.
+refresh_plugin() handles a single connect/disconnect without a restart.
+
+Never raises out of bootstrap()/refresh_plugin(): one broken plugin degrades
+to "no tools for that plugin" instead of blocking the whole brain (cloud-first
+graceful-degradation doctrine).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import random
+import threading
+import time
+from collections.abc import Callable
+from typing import Any
+
+from dodaios.core.protocols import RiskTier, Tool
+from dodaios.marketplace.bundled_servers import runs_connected_server
+from dodaios.marketplace.catalog import PluginCatalog, PluginSpec
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.plugin_mcp import plugin_to_mcp_server_spec
+from dodaios.marketplace.token_store import TokenStore
+from dodaios.mcp.adapter import MCPToolAdapter
+
+log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Module-level capability lifecycle helpers (called from connect/disconnect)
+# ---------------------------------------------------------------------------
+
+
+def _register_plugin_capability(cap_registry, plugin_id, skills) -> None:
+    """Register the paired-skill capability for a freshly connected plugin.
+
+    Finds the skill whose frontmatter plugin_id matches and registers its
+    capability so resolve_intent reaches the connected plugin's tools."""
+    from dodaios.skills.plugin_coupling import capability_from_skill
+
+    for sk in skills:
+        fm = getattr(sk, "frontmatter", None)
+        if fm is not None and getattr(fm, "plugin_id", None) == plugin_id:
+            cap = capability_from_skill(sk)
+            if cap is not None:
+                cap_registry.register(cap)
+            return
+
+
+def _deregister_plugin_capability(cap_registry, plugin_id) -> None:
+    """Withdraw the paired capability when a plugin disconnects."""
+    from dodaios.skills.plugin_coupling import PAIRED_CAP_PREFIX
+
+    cap_registry.deregister(f"{PAIRED_CAP_PREFIX}{plugin_id}")
+
+
+# Upper bound for one plugin's connect (transport handshake + list_tools).
+# A wedged remote handshake must degrade to a per-plugin connect error, never
+# stall the bootstrap loop: live 2026-07-13, mcp.linear.app answered a stale
+# token with 401 and then never completed the stream — bootstrap hung there on
+# every boot, so the completion BrainToolsChanged never fired and the github
+# plugin's tools only reached the brain when their connect happened to beat
+# the last unrelated tool refresh (the intermittent "tool not available" bug).
+_CONNECT_TIMEOUT_S_DEFAULT = 15.0
+_CLIENT_STOP_TIMEOUT_S = 5.0
+_RETRY_CONNECT_GUARD = threading.Lock()
+_NEXT_RETRY_CONNECT = 0.0
+
+
+async def _retry_connection_permit() -> None:
+    """Pace background handshakes across loops and respect socket pressure."""
+    from dodaios.core.socket_budget import should_defer_optional_io
+
+    while should_defer_optional_io():  # noqa: ASYNC110 - pressure is a shared polling probe
+        await asyncio.sleep(random.uniform(3, 6))  # noqa: S311
+    global _NEXT_RETRY_CONNECT
+    with _RETRY_CONNECT_GUARD:
+        now = time.monotonic()
+        slot = max(now, _NEXT_RETRY_CONNECT)
+        _NEXT_RETRY_CONNECT = slot + 0.25
+    await asyncio.sleep(max(0, slot - now))
+
+
+def _connect_reauth_reason(message: str) -> str | None:
+    """The reason code for a connect failure, or ``None`` for a flaky host.
+
+    Reuses the refresh scheduler's canonical OAuth marker list and adds the
+    connect-time shapes (an HTTP 401/unauthorized on the MCP endpoint itself).
+    Conservative on purpose: 'Connection closed', timeouts, and 5xx stay
+    retryable so one flaky boot never flags a healthy plugin.
+
+    Returns the CODE, not a bool, so a connection flagged here carries the same
+    explanation as one flagged by the scheduler — the plugins view has only one
+    story to tell either way."""
+    try:
+        from dodaios.marketplace.refresh_scheduler import reauth_reason_for
+
+        reason = reauth_reason_for(message)
+        if reason is not None:
+            return reason
+    except Exception:  # noqa: BLE001 — classifier is best-effort
+        log.debug("connect reauth classifier unavailable", exc_info=True)
+    m = message.lower()
+    if "401" in m or "unauthorized" in m or "invalid_token" in m:
+        # The endpoint refused the credential itself. Indistinguishable at this
+        # layer from an expired grant, and the user's move is the same either way.
+        from dodaios.marketplace.token_store import REAUTH_PROVIDER_REJECTED
+
+        return REAUTH_PROVIDER_REJECTED
+    return None
+
+
+def _connect_needs_reauth(message: str) -> bool:
+    """Boolean view of :func:`_connect_reauth_reason` for the control-flow gates."""
+    return _connect_reauth_reason(message) is not None
+
+
+def _default_refresh_handler(plugin_id: str) -> Any | None:
+    from dodaios.marketplace.connect_helpers import build_handler_from_catalog
+
+    return build_handler_from_catalog(plugin_id)
+
+
+class PluginToolRegistry:
+    def __init__(
+        self,
+        *,
+        catalog: PluginCatalog | None = None,
+        token_store: TokenStore | None = None,
+        client_factory: Callable[..., Any] | None = None,
+        bus: Any = None,
+        default_risk_tier: RiskTier = "monitor",
+        connect_timeout_s: float = _CONNECT_TIMEOUT_S_DEFAULT,
+        refresh_handler_builder: Callable[[str], Any | None] | None = None,
+        retry_initial_s: float = 5.0,
+        retry_max_s: float = 300.0,
+        custom_api_runtime: Any = None,
+    ) -> None:
+        self._catalog = catalog or load_catalog()
+        self._store = token_store or TokenStore()
+        self._client_factory = client_factory or _default_client_factory
+        self._bus = bus
+        self._risk_tier = default_risk_tier
+        self._connect_timeout_s = float(connect_timeout_s)
+        self._build_refresh_handler = refresh_handler_builder or _default_refresh_handler
+        self._clients: dict[str, Any] = {}
+        self._tools: dict[str, MCPToolAdapter] = {}
+        # Last swallowed connect/list_tools error per plugin (honest liveness
+        # badge — see live_tool_count/last_connect_error below). Cleared on a
+        # subsequent successful connect.
+        self._last_errors: dict[str, str] = {}
+        self._bootstrapped = False
+        self._stopping = False
+        self._retry_initial_s = max(0.01, retry_initial_s)
+        self._retry_max_s = max(self._retry_initial_s, retry_max_s)
+        self._retry_tasks: dict[str, asyncio.Task[None]] = {}
+        self._retry_inflight: set[str] = set()
+        # Serialises bootstrap()/refresh_plugin()/stop(): all three mutate
+        # self._clients/_tools across await points and are fired as independent
+        # asyncio tasks (server start fires bootstrap; a REST connect/disconnect
+        # fires refresh_plugin), so without this they interleave and can leak a
+        # tokenless client or double-register a plugin's tools. asyncio.Lock is
+        # not loop-bound at construction (py3.10+), so building it here is safe.
+        self._lock = asyncio.Lock()
+        from dodaios.marketplace.custom_api_runtime import CustomApiRuntime
+
+        self.custom_apis = custom_api_runtime or CustomApiRuntime()
+
+    def active_tools(self) -> list[Tool]:
+        return [*self._tools.values(), *self.custom_apis.tools.values()]
+
+    async def refresh_custom_apis(self) -> None:
+        if self._stopping:
+            return
+        await self.custom_apis.refresh()
+        await self._publish_brain_tools_changed(
+            "custom-apis", connected=bool(self.custom_apis.tools)
+        )
+
+    def is_bootstrapped(self) -> bool:
+        return self._bootstrapped
+
+    def live_tool_count(self, plugin_id: str) -> int:
+        """Number of live tool adapters currently registered for this plugin."""
+        prefix = f"{plugin_id}/"
+        return sum(1 for name in self._tools if name.startswith(prefix))
+
+    def last_connect_error(self, plugin_id: str) -> str | None:
+        """The swallowed connect/list_tools error of the last attempt, if any."""
+        return self._last_errors.get(plugin_id)
+
+    async def bootstrap(self) -> None:
+        # Idempotent: a second bootstrap() would leak the first run's MCP
+        # clients (their AsyncExitStacks) by overwriting self._clients. Callers
+        # use refresh_plugin() for incremental updates after the first boot.
+        # (_connect_plugin additionally skips already-connected ids, so a rare
+        # concurrent second bootstrap degrades to no-ops, never double-registers.)
+        async with self._lock:
+            if self._bootstrapped or self._stopping:
+                return
+            plugins = list(self._catalog.plugins)
+        try:
+            await self.refresh_custom_apis()
+        except Exception:  # noqa: BLE001 - user definitions must not block shipped plugins
+            log.warning("Custom API tools could not be loaded", exc_info=True)
+        # Per-plugin lock + per-plugin publish: an early plugin's tools reach
+        # the live brain IMMEDIATELY, even while a later plugin is still
+        # connecting or timing out. Holding one lock across the whole loop let
+        # a single wedged handshake starve every other plugin AND the
+        # completion event (live 2026-07-13, see _CONNECT_TIMEOUT_S_DEFAULT).
+        for plugin in plugins:
+            async with self._lock:
+                await self._connect_plugin(plugin)
+                connected = self.live_tool_count(plugin.id) > 0
+            # Publish outside the lock — refresh_tools() (the subscriber) must
+            # be free to call active_tools() without contending for this lock.
+            if connected:
+                await self._publish_brain_tools_changed(plugin.id, connected=True)
+        async with self._lock:
+            self._bootstrapped = True
+            log.info("plugin-registry: %d plugin tools exposed", len(self._tools))
+
+    async def refresh_credentials(self, plugin_id: str) -> None:
+        """Apply token rotation without interrupting a request-aware HTTP session."""
+        async with self._lock:
+            if self._stopping:
+                return
+            client = self._clients.get(plugin_id)
+            tokens = self._store.load(plugin_id)
+            if (
+                getattr(client, "uses_dynamic_http_auth", False)
+                and client.is_healthy
+                and tokens is not None
+                and not tokens.needs_reauth
+            ):
+                return
+        await self.refresh_plugin(plugin_id)
+
+    async def refresh_plugin(self, plugin_id: str) -> None:
+        """Re-evaluate a single plugin after connect/disconnect."""
+        async with self._lock:
+            if self._stopping:
+                return
+            self._last_errors.pop(plugin_id, None)
+            plugin = self._catalog.by_id(plugin_id)
+            had_tools = any(t.name.startswith(f"{plugin_id}/") for t in self._tools.values())
+            await self._disconnect_plugin(plugin_id)
+            if plugin is not None:
+                await self._connect_plugin(plugin)
+            now_has_tools = any(t.name.startswith(f"{plugin_id}/") for t in self._tools.values())
+            changed = had_tools or now_has_tools
+        if changed:
+            await self._publish_brain_tools_changed(plugin_id, connected=now_has_tools)
+
+    async def stop(self) -> None:
+        self._stopping = True
+        retries = list(self._retry_tasks.values())
+        for plugin_id, task in self._retry_tasks.items():
+            if plugin_id not in self._retry_inflight:
+                task.cancel()
+        if retries:
+            # A reconnect can be rotating a refresh token. Drain that operation
+            # before cancellation so its provider response can still be saved.
+            drained = asyncio.gather(*retries, return_exceptions=True)
+            try:
+                await asyncio.wait_for(asyncio.shield(drained), timeout=30)
+            except TimeoutError:
+                log.warning("plugin-registry: reconnects did not drain before shutdown")
+                for task in retries:
+                    task.cancel()
+                await drained
+        self._retry_tasks.clear()
+        await self.custom_apis.stop()
+        async with self._lock:
+            for pid in list(self._clients):
+                await self._disconnect_plugin(pid)
+
+    def _schedule_retry(self, plugin_id: str) -> None:
+        if self._stopping or plugin_id in self._retry_tasks:
+            return
+        task = asyncio.create_task(
+            self._retry_connection(plugin_id), name=f"plugin-retry:{plugin_id}"
+        )
+        self._retry_tasks[plugin_id] = task
+
+        def finished(done: asyncio.Task[None]) -> None:
+            if self._retry_tasks.get(plugin_id) is done:
+                self._retry_tasks.pop(plugin_id, None)
+            if not done.cancelled() and done.exception() is not None:
+                log.warning("plugin-registry: %s background reconnect stopped", plugin_id)
+
+        task.add_done_callback(finished)
+
+    async def _retry_connection(self, plugin_id: str) -> None:
+        delay = self._retry_initial_s
+        while not self._stopping:
+            await asyncio.sleep(delay * random.uniform(0.8, 1.2))  # noqa: S311
+            if plugin_id in self._clients or plugin_id not in self._last_errors:
+                return
+            try:
+                tokens = self._store.load(plugin_id)
+                if tokens is None or tokens.needs_reauth:
+                    return
+                await _retry_connection_permit()
+                self._retry_inflight.add(plugin_id)
+                try:
+                    await self.refresh_plugin(plugin_id)
+                finally:
+                    self._retry_inflight.discard(plugin_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Keep errors secret-free; a locked store can recover next cycle.
+                log.warning("plugin-registry: %s background reconnect deferred", plugin_id)
+            delay = min(self._retry_max_s, delay * 2)
+
+    async def _open_client(
+        self, server_spec: Any, env_overrides: dict[str, str]
+    ) -> tuple[Any, list[dict[str, Any]]]:
+        """Open one bounded client and clean up any failed attempt."""
+        client = self._client_factory(server_spec, env_overrides=env_overrides)
+        set_http_auth = getattr(client, "set_http_auth", None)
+        if server_spec.transport == "http" and callable(set_http_auth):
+            authorization = next(
+                (v for k, v in (server_spec.headers or {}).items() if k.lower() == "authorization"),
+                "",
+            )
+            if authorization.lower().startswith("bearer "):
+                from dodaios.marketplace.http_auth import PluginHttpAuth
+
+                set_http_auth(PluginHttpAuth(
+                    server_spec.name, server_spec.url, self._store, self._build_refresh_handler
+                ))
+        from dodaios.marketplace.bundled_rest_client import BundledRestMcpClient
+
+        if isinstance(client, BundledRestMcpClient):
+            client.set_token_provider(lambda: self._store.load(server_spec.name))
+        try:
+            tool_defs = await asyncio.wait_for(
+                self._start_and_list(client), timeout=self._connect_timeout_s
+            )
+        except BaseException:
+            await self._stop_client_bounded(client, "untracked-connect")
+            raise
+        return client, tool_defs
+
+    @staticmethod
+    async def _stop_client_bounded(client: Any, plugin_id: str) -> None:
+        """Stop a client within the cleanup budget without orphaning on cancel.
+
+        The stop runs in a shielded child task. Cancellation of the caller is
+        remembered and re-raised only after that bounded cleanup finishes, so
+        ownership is never dropped while a live client remains behind.
+        """
+
+        async def _stop() -> None:
+            await asyncio.wait_for(client.stop(), timeout=_CLIENT_STOP_TIMEOUT_S)
+
+        cleanup = asyncio.create_task(_stop(), name=f"plugin-stop:{plugin_id}")
+        pending_cancel: asyncio.CancelledError | None = None
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError as exc:
+                current = asyncio.current_task()
+                if current is not None and current.cancelling():
+                    pending_cancel = exc
+                if cleanup.done():
+                    break
+
+        try:
+            cleanup.result()
+        except TimeoutError:
+            log.warning("plugin-registry: %s client stop timed out", plugin_id)
+        except asyncio.CancelledError:
+            log.debug("plugin-registry: %s client stop was cancelled", plugin_id)
+        except Exception as exc:  # noqa: BLE001 - cleanup stays best-effort
+            log.debug("plugin-registry: %s stop failed: %s", plugin_id, exc)
+
+        if pending_cancel is not None:
+            raise pending_cancel
+
+    def _connect_error_message(self, exc: Exception) -> str:
+        if isinstance(exc, BaseExceptionGroup):
+            # AnyIO wraps HTTP refusals in TaskGroup errors. Its group summary
+            # contains no status code, so treating it as the error hides the 401
+            # and repeatedly reconnects with the same stale credential.
+            return "; ".join(self._connect_error_message(child) for child in exc.exceptions)
+        if isinstance(exc, asyncio.TimeoutError):
+            return (
+                f"connect timed out after {self._connect_timeout_s:.0f}s "
+                "(handshake never completed)"
+            )
+        return str(exc) or type(exc).__name__
+
+    async def _connect_plugin(self, plugin: PluginSpec) -> None:
+        if self._stopping:
+            return
+        if plugin.id in self._clients:
+            # Already connected (e.g. a refresh_plugin ran before bootstrap
+            # reached this plugin in its loop). Skip to avoid overwriting and
+            # leaking the live client; disconnect-then-reconnect is the job of
+            # refresh_plugin, which clears the entry first.
+            return
+        try:
+            tokens = self._store.load(plugin.id)
+        except Exception as exc:  # noqa: BLE001 — corrupt token must not nuke the rest
+            log.warning("plugin-registry: token load failed for %s: %s", plugin.id, exc)
+            return
+        if tokens is None:
+            return
+        if tokens.needs_reauth:
+            # The refresh scheduler marks a revoked/un-healable token this way
+            # and keeps it for the "Reconnect" affordance. Don't waste a connect
+            # attempt (and emit a misleading "connect failed") on every boot.
+            log.debug("plugin-registry: %s skipped — needs re-auth", plugin.id)
+            return
+        resolved = plugin_to_mcp_server_spec(plugin, tokens)
+        if resolved is None:
+            return
+        server_spec, env_overrides = resolved
+        try:
+            client, tool_defs = await self._open_client(server_spec, env_overrides)
+        except Exception as exc:  # noqa: BLE001 - graceful per-plugin degrade
+            message = self._connect_error_message(exc)
+            if not _connect_needs_reauth(message):
+                log.warning("plugin-registry: %s connect failed: %s", plugin.id, message)
+                self._last_errors[plugin.id] = message
+                self._schedule_retry(plugin.id)
+                return
+
+            from dodaios.marketplace.refresh_scheduler import SKIPPED, refresh_plugin_token
+
+            attempt = await refresh_plugin_token(
+                plugin.id,
+                self._store,
+                self._build_refresh_handler,
+                force=True,
+                observed_access_token=tokens.access,
+            )
+            if not attempt.usable:
+                log.warning(
+                    "plugin-registry: %s connect auth failed; refresh outcome=%s: %s",
+                    plugin.id,
+                    attempt.outcome,
+                    message,
+                )
+                self._last_errors[plugin.id] = message
+                if attempt.outcome == SKIPPED:
+                    self._maybe_mark_needs_reauth(plugin.id, message, expected_tokens=tokens)
+                else:
+                    self._schedule_retry(plugin.id)
+                return
+
+            fresh_tokens: Any | None = None
+            try:
+                fresh_tokens = self._store.load(plugin.id)
+                fresh_resolved = (
+                    plugin_to_mcp_server_spec(plugin, fresh_tokens)
+                    if fresh_tokens is not None
+                    else None
+                )
+                if fresh_resolved is None:
+                    self._last_errors[plugin.id] = message
+                    return
+                server_spec, env_overrides = fresh_resolved
+                client, tool_defs = await self._open_client(server_spec, env_overrides)
+            except Exception as retry_exc:  # noqa: BLE001 - exactly one retry
+                retry_message = self._connect_error_message(retry_exc)
+                log.warning(
+                    "plugin-registry: %s connect retry after refresh failed: %s",
+                    plugin.id,
+                    retry_message,
+                )
+                self._last_errors[plugin.id] = retry_message
+                if _connect_needs_reauth(retry_message) and fresh_tokens is not None:
+                    self._maybe_mark_needs_reauth(
+                        plugin.id,
+                        retry_message,
+                        expected_tokens=fresh_tokens,
+                    )
+                else:
+                    self._schedule_retry(plugin.id)
+                return
+        self._clients[plugin.id] = client
+        self._last_errors.pop(plugin.id, None)
+        for tool_def in tool_defs:
+            # A catalog may raise the approval floor, never lower it. New
+            # connectors that can publish or modify records opt into ask.
+            tier = "ask" if (plugin.mcp_server or {}).get("risk_tier") == "ask" else self._risk_tier
+            adapter = MCPToolAdapter(client, tool_def, risk_tier=tier)
+            self._tools[adapter.name] = adapter
+        try:
+            from dodaios.core.capabilities import get_registry as _get_cap_registry
+            from dodaios.skills.skill_context import try_get_skill_context
+
+            _ctx = try_get_skill_context()
+            if _ctx is not None:
+                _register_plugin_capability(_get_cap_registry(), plugin.id, _ctx.registry.list())
+        except Exception as exc:  # noqa: BLE001 — capability is best-effort
+            log.debug("paired cap register failed for %s: %s", plugin.id, exc)
+
+    @staticmethod
+    async def _start_and_list(client: Any) -> list[dict[str, Any]]:
+        """Handshake + tool listing as one awaitable so wait_for bounds both."""
+        await client.start()
+        return await client.list_tools()
+
+    def _maybe_mark_needs_reauth(
+        self,
+        plugin_id: str,
+        message: str,
+        *,
+        expected_tokens: Any | None = None,
+    ) -> None:
+        """Flag the stored token after an auth-shaped connect failure.
+
+        Mirrors the refresh scheduler's marking: later boots then skip the
+        doomed connect (no repeated timeout cost) and the plugins view shows
+        the Reconnect affordance instead of a silent per-boot failure."""
+        try:
+            reason = _connect_reauth_reason(message)
+            if reason is None:
+                return
+            tokens = self._store.load(plugin_id)
+            if tokens is None:
+                return
+            if expected_tokens is not None and tokens != expected_tokens:
+                log.info(
+                    "plugin-registry: %s re-auth mark skipped; token changed during connect retry",
+                    plugin_id,
+                )
+                self._schedule_retry(plugin_id)
+                return
+            from dodaios.marketplace.refresh_scheduler import _save_if_current, flag_for_reauth
+
+            if not _save_if_current(
+                self._store, plugin_id, tokens, flag_for_reauth(tokens, reason)
+            ):
+                self._schedule_retry(plugin_id)
+                return
+            log.warning(
+                "plugin-registry: %s connect needs re-auth (%s) — marked: %s",
+                plugin_id,
+                reason,
+                message,
+            )
+        except Exception as exc:  # noqa: BLE001 — marking is best-effort
+            log.debug(
+                "plugin-registry: needs_reauth save failed for %s: %s",
+                plugin_id,
+                exc,
+            )
+
+    async def _disconnect_plugin(self, plugin_id: str) -> None:
+        for name in [n for n in self._tools if n.startswith(f"{plugin_id}/")]:
+            self._tools.pop(name, None)
+        client = self._clients.get(plugin_id)
+        if client is not None:
+            try:
+                await self._stop_client_bounded(client, plugin_id)
+            finally:
+                self._clients.pop(plugin_id, None)
+        try:
+            from dodaios.core.capabilities import get_registry as _get_cap_registry
+
+            _deregister_plugin_capability(_get_cap_registry(), plugin_id)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("paired cap deregister failed for %s: %s", plugin_id, exc)
+
+    async def _publish_brain_tools_changed(self, plugin_id: str, connected: bool) -> None:
+        if self._bus is None:
+            return
+        from dodaios.core.events import BrainToolsChanged
+
+        verb = "plugin_connected" if connected else "plugin_disconnected"
+        event = BrainToolsChanged(
+            source_layer="marketplace.plugin_registry",
+            reason=f"{verb}:{plugin_id}",
+        )
+        try:
+            if asyncio.iscoroutinefunction(self._bus.publish):
+                await self._bus.publish(event)
+            else:
+                self._bus.publish(event)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("BrainToolsChanged publish failed: %s", exc)
+
+
+def _default_client_factory(spec: Any, *, env_overrides: dict[str, str] | None = None) -> Any:
+    if runs_connected_server(spec.install_command):
+        from dodaios.marketplace.bundled_rest_client import BundledRestMcpClient
+
+        return BundledRestMcpClient(spec)
+    from dodaios.mcp.client import MCPClient
+
+    return MCPClient(spec, env_overrides=env_overrides)
+
+
+__all__ = ["PluginToolRegistry"]

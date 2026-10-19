@@ -28,7 +28,7 @@ tar -cf - jarvis tests scripts/ci pyproject.toml README.md \
       echo "=== import-cleanliness gate ==="
       python scripts/ci/check_import_clean.py
       echo "=== imports with sounddevice absent ==="
-      PYTHONPATH=/build python -c "import jarvis.browser_voice.session, jarvis.browser_voice.route, jarvis.telephony.audio, jarvis.audio.player, jarvis.audio.capture; print(\"imports OK on Linux\")"
+      PYTHONPATH=/build python -c "import dodaios.browser_voice.session, dodaios.browser_voice.route, dodaios.telephony.audio, dodaios.audio.player, dodaios.audio.capture; print(\"imports OK on Linux\")"
       echo "=== B2 backend + headless-import test suites ==="
       PYTHONPATH=/build python -m pytest \
         tests/unit/browser_voice \

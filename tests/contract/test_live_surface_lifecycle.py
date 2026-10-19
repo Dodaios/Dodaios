@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import BrowserVoiceRequested, SystemStateChanged
-from jarvis.live import runtime
-from jarvis.live.session import LiveVoiceSession
+from dodaios.core.bus import EventBus
+from dodaios.core.events import BrowserVoiceRequested, SystemStateChanged
+from dodaios.live import runtime
+from dodaios.live.session import LiveVoiceSession
 
 
 @pytest.mark.asyncio
@@ -116,8 +116,8 @@ async def test_hangup_before_handoff_does_not_start_browser(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_new_input_recovers_after_task_cancellation(tmp_path):
-    from jarvis.live.state import LiveLedger
-    from jarvis.live.tools import LiveTools
+    from dodaios.live.state import LiveLedger
+    from dodaios.live.tools import LiveTools
 
     ledger = LiveLedger(tmp_path / "live.sqlite3")
     try:
@@ -166,7 +166,7 @@ async def test_an_empty_balance_is_spoken_instead_of_a_silent_hangup():
 async def test_an_account_without_voice_is_told_to_change_the_account(language, word):
     """Live 2026-10-13: "temporarily unavailable" kept a user waiting for days
     on an account whose plan no longer carried subscription voice."""
-    from jarvis.plugins.realtime.openai_subscription_live import SubscriptionLiveError
+    from dodaios.plugins.realtime.openai_subscription_live import SubscriptionLiveError
 
     frames = []
 

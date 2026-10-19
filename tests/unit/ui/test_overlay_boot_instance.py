@@ -1,4 +1,4 @@
-"""The on-screen overlay is an ambient duty (``jarvis.core.instance``): only the
+"""The on-screen overlay is an ambient duty (``dodaios.core.instance``): only the
 default app draws the Jarvis Bar / orb. A dev instance beside it boots the
 NullOverlay at runtime and leaves the configured style — shared through ONE
 ``jarvis.toml`` — exactly as it is. Regression for 2026-08-23: the dev app drew a
@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.instance import INSTANCE_ENV_VAR, InstanceIdentity
-from jarvis.ui.desktop_app import boot_overlay_style
-from jarvis.ui.overlay_styles import OVERLAY_STYLES
+from dodaios.core.instance import INSTANCE_ENV_VAR, InstanceIdentity
+from dodaios.ui.desktop_app import boot_overlay_style
+from dodaios.ui.overlay_styles import OVERLAY_STYLES
 
 
 @pytest.mark.parametrize("configured", OVERLAY_STYLES)

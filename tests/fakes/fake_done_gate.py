@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jarvis.agentic_ide.done_gate_status import STATE_DIR, RepoInfo, safe_name
+from dodaios.agentic_ide.done_gate_status import STATE_DIR, RepoInfo, safe_name
 
 
 @dataclass

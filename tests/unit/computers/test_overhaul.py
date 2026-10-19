@@ -8,9 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.computers import cloud, identity, providers
-from jarvis.computers.service import ComputerError, ComputerService
-from jarvis.ui.web import computers_routes
+from dodaios.computers import cloud, identity, providers
+from dodaios.computers.service import ComputerError, ComputerService
+from dodaios.ui.web import computers_routes
 from tests.fakes.fake_ssh_server import TEST_PASSWORD, FakeSshServer
 
 
@@ -139,7 +139,7 @@ async def test_bad_key_and_wrong_passphrase_are_sentences(
 def test_protected_keys_can_be_unlocked_on_this_install() -> None:
     """``asyncssh[bcrypt]`` is a declared dependency: ssh-keygen's default
     format needs bcrypt's KDF, and without it no protected key can be added."""
-    from jarvis.computers import service
+    from dodaios.computers import service
 
     assert service._bcrypt_kdf_available()  # noqa: SLF001
 
@@ -147,7 +147,7 @@ def test_protected_keys_can_be_unlocked_on_this_install() -> None:
 def test_a_missing_bcrypt_is_named_instead_of_blaming_the_passphrase(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.computers import service
+    from dodaios.computers import service
 
     def _locked(*_args: object, **_kwargs: object) -> object:
         raise asyncssh.KeyEncryptionError(

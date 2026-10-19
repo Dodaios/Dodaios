@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from jarvis.cli_ctl.__main__ import app
+from dodaios.cli_ctl.__main__ import app
 
 runner = CliRunner()
 
@@ -60,7 +60,7 @@ _SKILL_RESULT = {
 @pytest.fixture()
 def terminal(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pretend stdout is an interactive terminal, so the prose path runs."""
-    monkeypatch.setattr("jarvis.cli_ctl.render._stdout_isatty", lambda: True)
+    monkeypatch.setattr("dodaios.cli_ctl.render._stdout_isatty", lambda: True)
 
 
 def _out(res: Any) -> str:
@@ -214,7 +214,7 @@ def test_unreachable_server_explains_instead_of_stack_tracing(
 ) -> None:
     import httpx
 
-    import jarvis.cli_ctl.client as client_mod
+    import dodaios.cli_ctl.client as client_mod
 
     def boom(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("no listener", request=request)

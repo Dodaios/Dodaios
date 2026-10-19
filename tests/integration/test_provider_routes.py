@@ -13,10 +13,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import SecretConfigured
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import SecretConfigured
+from dodaios.ui.web.server import WebServer
 
 # ----------------------------------------------------------------------
 # Fakes
@@ -37,14 +37,14 @@ class _InMemorySecretStore:
         return self.data.get(key)
 
     def set(self, key: str, value: str) -> bool:
-        from jarvis.core import config as cfg_mod
+        from dodaios.core import config as cfg_mod
 
         self.data[key] = value
         cfg_mod._mark_secret_changed(key)
         return True
 
     def delete(self, key: str) -> bool:
-        from jarvis.core import config as cfg_mod
+        from dodaios.core import config as cfg_mod
 
         self.data.pop(key, None)
         cfg_mod._mark_secret_changed(key)
@@ -85,7 +85,7 @@ def secret_store(monkeypatch: pytest.MonkeyPatch) -> _InMemorySecretStore:
     store = _InMemorySecretStore()
     # Patches both import paths — provider_routes.py imports the module
     # under the alias `cfg_mod`, other places import it directly.
-    from jarvis.core import config as cfg_mod
+    from dodaios.core import config as cfg_mod
     monkeypatch.setattr(cfg_mod, "get_secret", store.get)
     monkeypatch.setattr(cfg_mod, "set_secret", store.set)
     monkeypatch.setattr(cfg_mod, "delete_secret", store.delete)
@@ -154,7 +154,7 @@ def no_real_provider_test(monkeypatch: pytest.MonkeyPatch) -> None:
     """Belt and braces: section-health no longer runs the connectivity test at
     all, but if a regression made it do so again, this keeps the suite off the
     network (and off the maintainer's live keyring keys)."""
-    from jarvis.brain import provider_test as _pt
+    from dodaios.brain import provider_test as _pt
 
     async def _fake_run(spec: Any, cfg: Any, **kwargs: Any) -> _FakeTestResult:  # noqa: ANN401
         return _FakeTestResult("ok", "")
@@ -246,7 +246,7 @@ def _slow_credential_check(
     credential/login read; the cancellation machinery must still keep a slow
     one for an OLD selection from blocking or labelling the new one.
     """
-    from jarvis.ui.web import provider_routes
+    from dodaios.ui.web import provider_routes
 
     original = provider_routes._provider_credential_present_for_binary_async
 
@@ -270,8 +270,8 @@ async def test_section_health_switch_cancels_old_provider_without_misattribution
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A slow NVIDIA check must never block or label the new OpenRouter card."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes
 
     secret_store.data.update(
         {
@@ -319,9 +319,9 @@ async def test_section_health_model_switch_cancels_old_check_for_same_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A check still running for an old model must not label the new model."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.core.config import BrainProviderConfig
-    from jarvis.ui.web import provider_routes
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.core.config import BrainProviderConfig
+    from dodaios.ui.web import provider_routes
 
     secret_store.data["openrouter_api_key"] = "sk-or-test"
     ledger.get_ledger().record("openrouter", ledger.MODALITY_BRAIN, "ok")
@@ -373,8 +373,8 @@ def test_section_health_computer_use_reads_the_tool_model_outcome(
     that tab red while the same provider's brain turns keep answering — and it
     is learnt from the real call, never from a probe of the page's own.
     """
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.core.config import BrainProviderConfig, BrainTierConfig
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.core.config import BrainProviderConfig, BrainTierConfig
     from tests.fakes.fake_provider_calls import ProviderCallRecorder
 
     recorder = ProviderCallRecorder().install(monkeypatch)
@@ -449,7 +449,7 @@ def test_section_health_reports_the_last_real_outcome(
     secret_store: _InMemorySecretStore,
 ) -> None:
     """A real call's outcome shows up on the very next read — no refresh, no probe."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     secret_store.data["openai_api_key"] = "sk-test"
     with TestClient(server_with_brain.app) as client:
@@ -471,8 +471,8 @@ def test_the_test_button_verdict_feeds_the_record(
 ) -> None:
     """The user-clicked Test is the one real probe left, and its verdict is
     what the dots show afterwards — without a second probe on the re-read."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.brain import provider_test as provider_test_module
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_test as provider_test_module
 
     secret_store.data["openai_api_key"] = "sk-test"
     probes: list[str] = []
@@ -500,7 +500,7 @@ def test_saving_a_key_forgets_what_the_old_key_did(
     secret_store: _InMemorySecretStore,
 ) -> None:
     """A rejected key's red dot must not outlive the key; the new one starts clean."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     record = ledger.get_ledger()
     record.record("openai", ledger.MODALITY_BRAIN, "bad_key")
@@ -524,8 +524,8 @@ def test_a_key_saved_through_any_path_forgets_and_refreshes_in_one_place(
     """The Control API, CLI connect flows and the setup wizard all save through
     ``set_secret``; none of them calls a health route. The ONE listener on the
     credential store forgets the old verdict and the rollup cache follows."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.core import config as cfg_mod
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.core import config as cfg_mod
 
     secret_store.data["openai_api_key"] = "sk-old"
     ledger.get_ledger().record("openai", ledger.MODALITY_BRAIN, "bad_key")
@@ -548,7 +548,7 @@ def test_a_key_replaced_in_another_process_voids_the_stale_verdict(
     """The terminal wizard writes the keyring from its own process: no listener
     fires here. The credential failure carries the fingerprint of the key it
     was judged against, and a different key voids it on the next read."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     secret_store.data["openai_api_key"] = "sk-old"
     ledger.get_ledger().record("openai", ledger.MODALITY_BRAIN, "bad_key")
@@ -568,7 +568,7 @@ def test_a_transient_outcome_is_amber_not_red(
 ) -> None:
     """A throttle or a blip has usually passed (or a fallback answered):
     degraded, never the red of a rejected key."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     secret_store.data["openai_api_key"] = "sk-test"
     ledger.get_ledger().record("openai", ledger.MODALITY_BRAIN, "rate_limited")
@@ -645,7 +645,7 @@ def test_list_providers_reports_codex_without_leaking_auth_files(
             self.binary_path = binary_path
 
         def status(self):
-            from jarvis.codex_auth import CodexAuthStatus
+            from dodaios.codex_auth import CodexAuthStatus
 
             return CodexAuthStatus(
                 installed=True,
@@ -656,8 +656,8 @@ def test_list_providers_reports_codex_without_leaking_auth_files(
                 accountLabel="ChatGPT/Codex-Login",
             )
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes.CodexAuthService", _FakeCodexService)
-    monkeypatch.setattr("jarvis.codex_auth.CodexAuthService", _FakeCodexService)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes.CodexAuthService", _FakeCodexService)
+    monkeypatch.setattr("dodaios.codex_auth.CodexAuthService", _FakeCodexService)
     with TestClient(server_with_brain.app) as client:
         body = client.get("/api/providers").json()
         codex = next(p for p in body["providers"] if p["id"] == "codex")
@@ -675,7 +675,7 @@ def test_codex_binary_path_persists_to_config(
 ) -> None:
     writes: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_codex_binary_path",
+        "dodaios.core.config_writer.set_codex_binary_path",
         lambda binary_path, **kw: writes.append(binary_path),
     )
     with TestClient(server_with_brain.app) as client:
@@ -855,7 +855,7 @@ def _patch_codex_status(monkeypatch: pytest.MonkeyPatch, *, connected: bool) -> 
             self.binary_path = binary_path
 
         def status(self):
-            from jarvis.codex_auth import CodexAuthStatus
+            from dodaios.codex_auth import CodexAuthStatus
 
             return CodexAuthStatus(
                 installed=True,
@@ -863,7 +863,7 @@ def _patch_codex_status(monkeypatch: pytest.MonkeyPatch, *, connected: bool) -> 
                 mode="chatgpt" if connected else "unknown",
             )
 
-    monkeypatch.setattr("jarvis.ui.web.provider_routes.CodexAuthService", _Fake)
+    monkeypatch.setattr("dodaios.ui.web.provider_routes.CodexAuthService", _Fake)
 
 
 def _patch_antigravity_status(monkeypatch: pytest.MonkeyPatch, *, connected: bool) -> None:
@@ -896,7 +896,7 @@ def _patch_antigravity_status(monkeypatch: pytest.MonkeyPatch, *, connected: boo
         def status(self) -> _Status:
             return _Status()
 
-    monkeypatch.setattr("jarvis.google_cli.auth_service.GoogleCliAuthService", _Fake)
+    monkeypatch.setattr("dodaios.google_cli.auth_service.GoogleCliAuthService", _Fake)
 
 
 def test_brain_switch_codex_rejected_as_subagent_only_even_with_chatgpt_login(
@@ -1041,7 +1041,7 @@ def test_tts_switch_persists_and_acks_restart(
 
     write_calls: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_tts_provider",
+        "dodaios.core.config_writer.set_tts_provider",
         lambda name, **kw: write_calls.append(name),
     )
 
@@ -1102,7 +1102,7 @@ def test_tts_switch_no_persist_skips_toml_write(
 
     write_calls: list[str] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_tts_provider",
+        "dodaios.core.config_writer.set_tts_provider",
         lambda name, **kw: write_calls.append(name),
     )
 
@@ -1192,7 +1192,7 @@ def test_login_status_logged_in_false_when_creds_missing(
 @pytest.fixture
 def fake_pull(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Stub the pull module so the routes never touch a real Ollama server."""
-    from jarvis.brain import ollama_pull
+    from dodaios.brain import ollama_pull
 
     calls: dict[str, Any] = {"started": [], "status": []}
 
@@ -1272,7 +1272,7 @@ def test_pull_on_an_unknown_provider_is_404(
 @pytest.fixture
 def fake_library(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Stub the library module so the routes never touch ollama.com."""
-    from jarvis.brain import ollama_library
+    from dodaios.brain import ollama_library
 
     calls: dict[str, Any] = {"searched": [], "tagged": []}
 

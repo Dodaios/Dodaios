@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis import claude_auth
-from jarvis.brain import app_control
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios import claude_auth
+from dodaios.brain import app_control
+from dodaios.ui.web.provider_spec import get_spec
 
 
 @pytest.mark.parametrize(

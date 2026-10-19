@@ -5,7 +5,7 @@ un-named, off-topic plugin/MCP is DROPPED, so a connected server never rides
 along on an unrelated turn (the live ~35s NotebookLM stall on a flight
 question). Keyword-only, no LLM, no IO (AP-9 / AP-11).
 """
-from jarvis.marketplace.plugin_relevance import (
+from dodaios.marketplace.plugin_relevance import (
     derive_plugin_keywords,
     filter_plugin_tools,
     plugin_is_relevant,

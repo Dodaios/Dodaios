@@ -28,13 +28,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import Event, PermissionNeeded, PermissionResolved
-from jarvis.platform.permission_service import (
+from dodaios.core.events import Event, PermissionNeeded, PermissionResolved
+from dodaios.platform.permission_service import (
     EnsureResult,
     PermissionOutcome,
     PermissionService,
 )
-from jarvis.platform.permissions import PermissionId, PermissionState
+from dodaios.platform.permissions import PermissionId, PermissionState
 from tests.fakes.fake_tcc import DialogPolicy, FakeTCC, install_port
 
 _MUSIC = "com.apple.Music"
