@@ -155,6 +155,29 @@ def test_admin_port_is_read_from_the_config_file_the_tree_names(
     assert relauncher._restart_admin_port(tmp_path) == 40002
 
 
+def test_admin_port_is_read_from_the_first_config_file_that_exists(
+    tmp_path: Path, default_instance: None
+) -> None:
+    # A fresh install has only the current name.
+    (tmp_path / "dodaios.toml").write_text("[ui]\nadmin_api_port = 40003\n", encoding="utf-8")
+    assert relauncher._restart_admin_port(tmp_path) == 40003
+    # An existing jarvis.toml stays the configuration beside it.
+    (tmp_path / "jarvis.toml").write_text("[ui]\nadmin_api_port = 40004\n", encoding="utf-8")
+    assert relauncher._restart_admin_port(tmp_path) == 40004
+
+
+def test_the_pre_update_snapshot_saves_the_config_under_either_name(tmp_path: Path) -> None:
+    root = tmp_path / "install"
+    root.mkdir()
+    (root / "dodaios.toml").write_text("fresh\n", encoding="utf-8")
+    snapshot = relauncher.snapshot_user_state(root)
+    assert snapshot is not None
+    assert (snapshot / "dodaios.toml").read_text(encoding="utf-8") == "fresh\n"
+    (root / "jarvis.toml").write_text("kept\n", encoding="utf-8")
+    later = relauncher.snapshot_user_state(root)
+    assert later is not None and (later / "jarvis.toml").read_text(encoding="utf-8") == "kept\n"
+
+
 def test_launch_command_starts_the_module_the_tree_names(
     monkeypatch: pytest.MonkeyPatch, default_instance: None
 ) -> None:

@@ -1188,22 +1188,6 @@ def test_the_engine_imports_only_the_standard_library() -> None:
     assert imported <= set(sys.stdlib_module_names), imported - set(sys.stdlib_module_names)
 
 
-def test_the_engine_is_not_wired_into_the_runtime() -> None:
-    """Inert until the identity actually changes: nothing in the product imports it.
-
-    The change that switches the persistent identifiers wires the engine in
-    and deletes this test.
-    """
-    package = MODULE_PATH.parents[1]
-    importers = [
-        path.relative_to(package).as_posix()
-        for path in package.rglob("*.py")
-        if path != MODULE_PATH and "identity_migration" in path.read_text(encoding="utf-8")
-    ]
-
-    assert importers == []
-
-
 # ----------------------------------------------------------------------
 # Keyring migration
 # ----------------------------------------------------------------------

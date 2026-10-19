@@ -52,7 +52,9 @@ if [[ ! "$OFFICIAL_REPO_SLUG" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
 fi
 REPO_URL="${JARVIS_INSTALL_REPO:-https://github.com/${OFFICIAL_REPO_SLUG}.git}"
 LEGACY_OFFICIAL_REPO_SLUG="PersonalJarvis/PersonalJarvis"
-CONFIG_FILE_NAME="jarvis.toml"
+CONFIG_FILE_NAME="dodaios.toml"
+# An install keeps a config file under this earlier name; it is never renamed.
+LEGACY_CONFIG_FILE_NAME="jarvis.toml"
 MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
 BRANCH="${JARVIS_INSTALL_REF:-main}"
 INSTALL_DIR="${JARVIS_INSTALL_DIR:-$HOME/.personal-jarvis}"
@@ -1052,7 +1054,7 @@ fetch_payload() {
 # Self-heal a broken install dir (leftover non-git folder from an earlier or
 # aborted install, or a checkout whose git state no longer updates): keep the
 # old tree as a timestamped sibling backup — never delete — clone fresh, then
-# carry the user's local state (data/, jarvis.toml, .env) into the new
+# carry the user's local state (data/, the config file, .env) into the new
 # checkout. A stale folder must never require manual cleanup to install.
 salvage_reclone() {
     local stale_backup
@@ -1103,7 +1105,7 @@ salvage_reclone() {
     # exist on both sides are overlay-MERGED (user files win over seed).
     # --- salvage-copy begin (extracted by tests/unit/install/test_install_salvage_copy.py)
     local item
-    for item in data "$CONFIG_FILE_NAME" .env wiki; do
+    for item in data "$LEGACY_CONFIG_FILE_NAME" "$CONFIG_FILE_NAME" .env wiki; do
         [ -e "$stale_backup/$item" ] || continue
         if [ ! -e "$INSTALL_DIR/$item" ]; then
             if cp -R "$stale_backup/$item" "$INSTALL_DIR/$item"; then

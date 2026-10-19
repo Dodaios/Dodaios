@@ -26,6 +26,7 @@ import pytest
 
 import dodaios.core.branding as branding
 from dodaios.core import config as core_config
+from dodaios.core import identity_boot
 from dodaios.core.instance import (
     DATA_DIR_ENV_VAR,
     DEV_INSTANCE_NAME,
@@ -88,12 +89,36 @@ def test_a_plugin_attributes_requests_to_the_official_repository(relative_path: 
     ("name", "expected"),
     [
         ("_WINDOWS_USER_DATA_DIR_NAME", branding.WINDOWS_USER_DATA_DIR_NAME),
+        ("_LEGACY_WINDOWS_USER_DATA_DIR_NAMES", branding.LEGACY_WINDOWS_USER_DATA_DIR_NAMES),
         ("_FALLBACK_USER_DATA_DIR_NAME", branding.FALLBACK_USER_DATA_DIR_NAME),
+        ("_LEGACY_FALLBACK_USER_DATA_DIR_NAMES", branding.LEGACY_FALLBACK_USER_DATA_DIR_NAMES),
         ("_CONFIG_FILE_NAME", branding.CONFIG_FILE_NAME),
+        ("_LEGACY_CONFIG_FILE_NAMES", branding.LEGACY_CONFIG_FILE_NAMES),
+        ("_MUTEX_NAMES", identity_boot.primary_mutex_names()),
+        ("_REPORT_ENV_VAR", identity_boot.HOOK_REPORT_ENV_VAR),
     ],
 )
-def test_the_frozen_runtime_hook_restates_the_directory_names(name: str, expected: str) -> None:
+def test_the_frozen_runtime_hook_restates_the_directory_names(name: str, expected: object) -> None:
     assert _module_constant("packaging/pyinstaller_rthook_frozen.py", name) == expected
+
+
+def test_the_frozen_runtime_hook_restates_the_lock_files_and_launcher_names() -> None:
+    hook_path = "packaging/pyinstaller_rthook_frozen.py"
+    assert _load_runtime_hook()._PRIMARY_LOCK_FILES == identity_boot.PRIMARY_LOCK_FILES
+    # Every executable that is the desktop app may migrate; nothing else.
+    gui_names = {
+        branding.MACOS_EXECUTABLE_NAME,
+        branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME.removesuffix(".exe"),
+        _module_constant("jarvis.spec", "GUI_EXE_NAME"),
+    }
+    assert set(_module_constant(hook_path, "_GUI_EXE_NAMES")) == gui_names
+    # The bundle seeds a first-run config from the file jarvis.spec ships.
+    bundled = _module_constant(hook_path, "_BUNDLED_CONFIG_FILE_NAME")
+    assert f'datas.append((str(PROJECT_ROOT / "{bundled}"), "."))' in _read("jarvis.spec")
+    # And the engine it loads by path is shipped as a plain file.
+    engine = "/".join(_module_constant(hook_path, "_ENGINE_PATH"))
+    assert f'(str(PROJECT_ROOT / "{engine}"), "dodaios/core")' in _read("jarvis.spec")
+    assert (_ROOT / engine).is_file()
 
 
 def test_the_pyinstaller_spec_restates_the_bundle_names() -> None:
@@ -122,6 +147,7 @@ _RESTATEMENTS_ALLOWED = {
     "dodaios/core/branding.py": "the single source",
     "dodaios/plugins/stt/deepgram_api.py": "plugin without dodaios.* imports, pinned above",
     "dodaios/plugins/stt/groq_api.py": "plugin without dodaios.* imports, pinned above",
+    "packaging/pyinstaller_rthook_frozen.py": "runtime hook, no dodaios.* imports, pinned above",
     "dodaios/agent_runtimes/acp.py": "ACP client name, an identifier of its own",
     "dodaios/agentic_ide/github_link.py": "HTTP user agent, an identifier of its own",
     "dodaios/brain/identity.py": "the former product name told to a model",
@@ -390,6 +416,8 @@ def test_the_frozen_hook_points_the_data_directory_inside_the_user_directory(
     assert Path(os.environ[DATA_DIR_ENV_VAR]) == user_data_dir() / "data"
     assert resolve_data_dir(tmp_path / "ignored") == user_data_dir() / "data"
     assert Path(os.environ["JARVIS_CONFIG"]) == user_data_dir() / branding.CONFIG_FILE_NAME
+    # The package resolves the same file the hook pointed at.
+    assert core_config.resolve_config_file(user_data_dir()) == Path(os.environ["JARVIS_CONFIG"])
 
 
 # ---------------------------------------------------------------------------
@@ -428,6 +456,12 @@ _ROLES: tuple[tuple[str, str, str], ...] = (
     ("applications-dir", "app", "MACOS_APP_DIR_NAME"),
     ("start-menu", "app", "WINDOWS_SHORTCUT_FILE_NAME"),
     ("desktop-entry", "app", "LINUX_DESKTOP_ENTRY_FILE_NAME"),
+    # The config file sits in the checkout root or in the per-user directory.
+    ("config-dir", "config", "CONFIG_FILE_NAME"),
+    # Both folders can land on the Desktop (deliverables fall back to it).
+    ("desktop-dir", "output-mirror", "DESKTOP_OUTPUT_MIRROR_DIR_NAME"),
+    ("desktop-dir", "deliverables", "DELIVERABLES_DIR_NAME"),
+    ("vault-dir", "wiki", "OBSIDIAN_VAULT_FOLDER_NAME"),
 )
 
 
@@ -481,12 +515,15 @@ def _current_names() -> list[IdentityName]:
 # yet. When they become the branding values, today's values become LEGACY_*
 # and the first test below covers them without this table. The commands
 # ``dodaios`` and ``dodaiosctl`` already made that move: they are console
-# scripts now, and the first test sees them among the current names.
+# scripts now, and the first test sees them among the current names. So did
+# the data directory and the config file: current names now, with their
+# earlier values in LEGACY_* tuples.
 _PLANNED_NAMES: tuple[IdentityName, ...] = (
     IdentityName("executable", "gui-exe", "planned", "DodaiosApp"),
     IdentityName("home-dir", "install", "planned", ".dodaios"),
-    IdentityName("home-dir", "data", "planned", ".dodaios-data"),
-    IdentityName("localappdata-dir", "data", "planned", "Dodaios"),
+    # The launcher folder sits beside the data directory, so it cannot take
+    # the plain product name the data directory has now.
+    IdentityName("localappdata-dir", "launcher", "planned", "DodaiosApp"),
     IdentityName("macos-bundle-id", "managed", "planned", "com.dodaios.desktop"),
     IdentityName("macos-bundle-id", "dmg", "planned", "ai.dodaios.desktop"),
     IdentityName("keyring-service", "app", "planned", "dodaios"),
@@ -522,6 +559,20 @@ def test_the_planned_launcher_name_stays_clear_of_the_commands_that_exist() -> N
 
 def test_the_planned_names_collide_with_nothing_an_installation_carries() -> None:
     assert _collisions([*_current_names(), *_PLANNED_NAMES]) == []
+
+
+def test_the_data_directory_moved_with_its_earlier_names_in_the_table() -> None:
+    names = _current_names()
+    data = {(n.namespace, n.generation, n.value) for n in names if n.role == "data"}
+    assert ("localappdata-dir", "current", "Dodaios") in data
+    assert ("localappdata-dir", "legacy", "Jarvis") in data
+    assert ("home-dir", "current", ".dodaios-data") in data
+    assert ("home-dir", "legacy", ".jarvis") in data
+    config = {(n.generation, n.value) for n in names if n.role == "config"}
+    assert config == {("current", "dodaios.toml"), ("legacy", "jarvis.toml")}
+    # A launcher folder named like the data directory would be the same folder.
+    clash = IdentityName("localappdata-dir", "launcher", "planned", "dodaios")
+    assert len(_collisions([*names, clash])) == 1
 
 
 def test_legacy_constants_join_the_table_by_name() -> None:
