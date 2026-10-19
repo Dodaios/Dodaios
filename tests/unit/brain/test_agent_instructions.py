@@ -15,8 +15,8 @@ import types
 
 import pytest
 
-from jarvis.brain import agent_instructions
-from jarvis.core import config as core_config
+from dodaios.brain import agent_instructions
+from dodaios.core import config as core_config
 
 
 @pytest.fixture(autouse=True)

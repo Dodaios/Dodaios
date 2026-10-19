@@ -4,13 +4,13 @@ import time
 import httpx
 import pytest
 
-from jarvis.cli_ctl import openapi_cache as oc
+from dodaios.cli_ctl import openapi_cache as oc
 
 SPEC = {"openapi": "3.1.0", "info": {"version": "1"}, "paths": {}}
 
 
 def _client(handler, *, base_url="http://t", control_key="jctl_k"):
-    from jarvis.cli_ctl.client import JarvisClient
+    from dodaios.cli_ctl.client import JarvisClient
 
     return JarvisClient(base_url, control_key, transport=httpx.MockTransport(handler))
 

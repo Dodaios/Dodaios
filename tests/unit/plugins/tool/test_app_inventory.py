@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.plugins.tool import app_inventory
-from jarvis.plugins.tool.app_inventory import (
+from dodaios.plugins.tool import app_inventory
+from dodaios.plugins.tool.app_inventory import (
     _sweep_darwin,
     _sweep_linux,
     _sweep_windows,

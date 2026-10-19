@@ -7,10 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.events import CUControlEnded, CUControlStarted
-from jarvis.cu import direct
-from jarvis.cu.direct import DirectComputer, StepError, parse_steps, readiness
-from jarvis.harness.computer_use_context import cancel_active_cu, register_active_cu_token
+from dodaios.core.events import CUControlEnded, CUControlStarted
+from dodaios.cu import direct
+from dodaios.cu.direct import DirectComputer, StepError, parse_steps, readiness
+from dodaios.harness.computer_use_context import cancel_active_cu, register_active_cu_token
 from tests.fakes.fake_computer import (
     FakeActuator,
     FakeBus,
@@ -24,7 +24,7 @@ from tests.fakes.fake_computer import (
 @pytest.fixture(autouse=True)
 def _isolated(monkeypatch):
     # Real monitor geometry would make landing checks depend on this host.
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
     register_active_cu_token(None)
     yield
     register_active_cu_token(None)
@@ -461,7 +461,7 @@ async def test_a_click_lets_the_visible_agent_pointer_arrive_and_dip_first(monke
 
 @pytest.mark.parametrize("granted", [False, True])
 def test_direct_macos_access_uses_the_just_in_time_service(monkeypatch, granted):
-    from jarvis.platform.permissions import PermissionId, PermissionState
+    from dodaios.platform.permissions import PermissionId, PermissionState
 
     calls = []
 
@@ -474,7 +474,7 @@ def test_direct_macos_access_uses_the_just_in_time_service(monkeypatch, granted)
         )
 
     monkeypatch.setattr(
-        "jarvis.platform.permission_service.get_permission_service",
+        "dodaios.platform.permission_service.get_permission_service",
         lambda: SimpleNamespace(ensure=ensure),
     )
     missing = direct._macos_missing(("screen_recording",))

@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide.folders import FolderEntry
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide.folders import FolderEntry
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 def _entry(name: str, path: str) -> FolderEntry:

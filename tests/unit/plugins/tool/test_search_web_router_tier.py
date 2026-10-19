@@ -8,7 +8,7 @@ fail fast and let the brain answer from context instead.
 """
 from __future__ import annotations
 
-from jarvis.plugins.tool.search_web import _TIMEOUT_S, SearchWebTool
+from dodaios.plugins.tool.search_web import _TIMEOUT_S, SearchWebTool
 
 
 def test_timeout_is_voice_path_safe() -> None:

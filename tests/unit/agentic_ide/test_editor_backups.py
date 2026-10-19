@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide import editor_backups
-from jarvis.agentic_ide.file_editing import EditError
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import editor_backups
+from dodaios.agentic_ide.file_editing import EditError
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 @pytest.fixture(autouse=True)

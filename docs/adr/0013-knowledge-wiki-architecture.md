@@ -5,7 +5,7 @@
 ## Context
 
 Dodaios already keeps long-term notes via the legacy
-`jarvis/memory/curator/` merger, which writes free-form Markdown into a
+`dodaios/memory/curator/` merger, which writes free-form Markdown into a
 small set of flat files under `data/workspace/`: `USER.md`, `MEMORY.md`,
 `soul.md`, and per-person files under `people/`. The legacy design has
 two failure modes that are now observable in practice:

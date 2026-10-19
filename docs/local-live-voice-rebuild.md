@@ -13,7 +13,7 @@
 - **Scope:** the `local-realtime` provider (the "Local voice" card): live,
   full-duplex voice with every model on the user's machine. GPT-Live, Gemini
   Live, OpenAI Realtime and the classic pipeline are out of scope, except where
-  they share the `jarvis/live` seam.
+  they share the `dodaios/live` seam.
 
 ## 1. Summary
 
@@ -105,8 +105,8 @@ Only Windows was ever run. The rest comes from code and wheel metadata.
 ### 2.6 The call path since 2026-09-18
 
 Commit `8f43cfc98` gave `LocalRealtimeProvider` `native_tool_orchestration=True`.
-`build_realtime_session` (`jarvis/realtime/factory.py:484`) therefore hands
-local calls to `NativeLiveVoiceSession` (`jarvis/live/native.py`). That path:
+`build_realtime_session` (`dodaios/realtime/factory.py:484`) therefore hands
+local calls to `NativeLiveVoiceSession` (`dodaios/live/native.py`). That path:
 
 - never calls `can_open_duplex_session()`. The 0.75 s honest refusal with a
   boot ETA is gone; `audio_start` blocks inside the provider's 120 s connect
@@ -197,14 +197,14 @@ Voice engine worker (child process, own uv venv, CPython 3.12)
    barge-in: VAD stays live while speaking -> cancel LLM + TTS -> interrupted
    |  HTTP on loopback
    v
-Ollama (separate service, managed by jarvis/brain/ollama_runtime.py), voice profile resident
+Ollama (separate service, managed by dodaios/brain/ollama_runtime.py), voice profile resident
 ```
 
 ### 4.2 Process model
 
 - One worker per Jarvis instance, started by the adapter with
   `asyncio.create_subprocess_exec` and `NO_WINDOW_CREATIONFLAGS` (AP-1) inside
-  a `jarvis/core/process_tree.py` tree (Windows Job Object with kill-on-close,
+  a `dodaios/core/process_tree.py` tree (Windows Job Object with kill-on-close,
   POSIX process group).
 - The worker exits on stdin EOF, so it dies with Jarvis. There is no pidfile,
   no lease, no port and no adoption logic. Two app instances (live and dev) get
@@ -238,7 +238,7 @@ Per session: `listening -> user_speaking -> turn_pending -> responding
    The final transcript therefore costs almost nothing after the turn decision
    (RTFx 31–35 measured by onnx-asr on a desktop CPU).
 5. **Response.** The engine emits `input_transcript(final)`. Jarvis resolves
-   the reply language once (`jarvis/core/turn_language.py`) and calls
+   the reply language once (`dodaios/core/turn_language.py`) and calls
    `request_response()` (`creates_responses_automatically=False`). The pipe
    round trip costs milliseconds.
 6. **LLM.** Streaming chat completion on the voice profile (4.6). Text deltas
@@ -258,10 +258,10 @@ Per session: `listening -> user_speaking -> turn_pending -> responding
 10. **Cancellation.** One token per response; every stage checks it between
     units of work (AP-19).
 
-### 4.4 The seam: adapter contract and `jarvis/live` fixes
+### 4.4 The seam: adapter contract and `dodaios/live` fixes
 
-Adapter `jarvis/plugins/realtime/local_voice.py` (registered in the
-`jarvis.realtime` entry-point group; the module loads nothing from `jarvis.*`):
+Adapter `dodaios/plugins/realtime/local_voice.py` (registered in the
+`jarvis.realtime` entry-point group; the module loads nothing from `dodaios.*`):
 
 - Class attributes: `supports_realtime=True`, `native_tool_orchestration=True`,
   `browser_audio=True`, `implicit_usage_fallback_allowed=False`,
@@ -278,7 +278,7 @@ Adapter `jarvis/plugins/realtime/local_voice.py` (registered in the
   `isolates_response_generations=True` and `supports_tool_results=True`.
   `send_image` exists only when the selected LLM accepts images.
 
-Fixes in `jarvis/live/native.py`. Gemini Live shares this file, so each fix
+Fixes in `dodaios/live/native.py`. Gemini Live shares this file, so each fix
 gets a regression test on both providers:
 
 1. Call `can_open_duplex_session()` before `open_session()`; refuse within 1 s
@@ -289,7 +289,7 @@ gets a regression test on both providers:
 3. On `speech_started` while Jarvis speaks, call `connection.interrupt()` and
    flush the browser.
 4. Apply the 5 s `VOICE_TOOL_BUDGET_S` deadline with an honest pending result
-   (port the logic from `jarvis/realtime/session.py`).
+   (port the logic from `dodaios/realtime/session.py`).
 5. Respect a provider's `tool_declaration_budget_tokens`. For the local engine,
    declare a curated direct set plus `discover_tools`/`call_tool` (4.6).
 6. Forward the per-turn language decision with `update_session(language=...)`
@@ -352,7 +352,7 @@ an added transport, not a redesign.
   measurement of German tool calls with thinking off exists; this is the
   largest open risk.
 - **Coupling.** Selecting local voice marks Ollama as in use, so
-  `jarvis/local_models/autostart.py` starts it at boot even when the Local
+  `dodaios/local_models/autostart.py` starts it at boot even when the Local
   models switch is off. During a local call, background work must not queue new
   generations on the same Ollama host.
 
@@ -402,7 +402,7 @@ bigger LLM. `gemma4:12b-it-qat` stays an opt-in for the best German on 16 GB+.
 
 Premium keeps at least 20 % accelerator headroom at steady state. The gate
 reads free memory (NVML on NVIDIA; available unified memory on macOS, a new
-read in `jarvis/hardware/detection.py`), never the card's label.
+read in `dodaios/hardware/detection.py`), never the card's label.
 
 ### 4.9 Lifecycle, readiness and failure behaviour
 
@@ -432,7 +432,7 @@ read in `jarvis/hardware/detection.py`), never the card's label.
 ### 4.10 Install and packaging
 
 - **Environment:** `uv venv --python 3.12` under the data dir, using the uv
-  bootstrap that `jarvis/society/browser/bootstrap.py::ensure_uv` already
+  bootstrap that `dodaios/society/browser/bootstrap.py::ensure_uv` already
   provides. It is independent of the app's interpreter and absent from the
   base install.
 - **Locks:** one hashed lock per platform profile, generated in CI:
@@ -441,8 +441,8 @@ read in `jarvis/hardware/detection.py`), never the card's label.
   `onnxruntime`, `sherpa-onnx` and `numpy` (~40 MB). Natural adds CPU torch
   (0.12–0.2 GB download). Premium adds CUDA torch (~2 GB on Windows) and
   `faster-qwen3-tts`, or `mlx` and `mlx-audio` on Mac.
-- **Worker code:** a self-contained pure-Python package (`jarvis/voice_engine/`,
-  no `jarvis.*` imports). The installer copies it into the engine venv from the
+- **Worker code:** a self-contained pure-Python package (`dodaios/voice_engine/`,
+  no `dodaios.*` imports). The installer copies it into the engine venv from the
   app's own files, so frozen builds work and no Jarvis code is downloaded.
 - **Models:** downloaded once with progress and resume, checksummed, from
   ungated repositories. Core ≈ 0.8 GB; Pocket adds a small checkpoint;
@@ -492,7 +492,7 @@ run waits for hardware. P1: code complete; the real-time latency gate (p50
 ≤ 1.0 s) and the kill drill passed; the 500-turn soak and a boot with the
 network unplugged are still open (section 12.4). P2: built — the `native.py`
 fixes (4.4, items 1–6), the `local-voice` provider with a `[voice_engine]`
-config, one-click setup (`jarvis/realtime/local_voice_setup.py`) and the Local
+config, one-click setup (`dodaios/realtime/local_voice_setup.py`) and the Local
 voice card; one setup on Windows/NVIDIA ended ready with a passed self-test.
 Open P2 gate items: 20 real calls through the app, the GPT-Live ↔ local switch,
 a light-mode check of the card body, and item 7 (local classic fallback).
@@ -501,7 +501,7 @@ a light-mode check of the card body, and item 7 (local classic fallback).
 | --- | --- | --- |
 | P0 Measurement bench (2–3 d) | Worker skeleton with a `bench` CLI that needs no Jarvis: de/en corpus with hesitations, numbers and tool requests; synthetic audio; every measurement in section 8 that needs no UI | Numbers for 8.1–8.5 and 8.7 on Windows NVIDIA, the maintainer's Mac and a CPU-only `python:3.11-slim` container; tier defaults chosen from them |
 | P1 Engine core (4–6 d) | Protocol v1; VAD, turn and speculative STT; LLM streaming with tools; clause chunker; Piper and Pocket; barge-in; cancellation; self-test; metrics; logs | Standalone p50 ≤ 1.0 s on Windows NVIDIA (core tier); 500-turn soak without memory growth; kill drill leaves zero processes; boot with the network unplugged |
-| P2 Jarvis integration (3–4 d) | `local-voice` adapter; `jarvis/live/native.py` fixes (4.4); card with setup progress, self-test, tier and expected latency; prepare-then-handover switch; Ollama coupling | 20 real calls, 0 silent failures; barge-in p95 ≤ 250 ms; GPT-Live to local and back without restart; Gemini Live regression tests green |
+| P2 Jarvis integration (3–4 d) | `local-voice` adapter; `dodaios/live/native.py` fixes (4.4); card with setup progress, self-test, tier and expected latency; prepare-then-handover switch; Ollama coupling | 20 real calls, 0 silent failures; barge-in p95 ≤ 250 ms; GPT-Live to local and back without restart; Gemini Live regression tests green |
 | P3 Installer and platforms (4–6 d) | uv venv, per-platform locks in CI, model store, uninstall; Mac and Linux runs | Fresh-install drill on Windows, macOS (real Apple Silicon) and the CPU container; Linux NVIDIA stays marked unverified until run on hardware |
 | P4 Premium voice (3–5 d) | Qwen3-TTS on CUDA and MLX; free-memory governor; degrade path | First audio p50 ≤ 300 ms on 12–16 GB NVIDIA; ≥ 20 % headroom; an out-of-memory drill degrades instead of failing |
 | P5 Cutover and removal (2–3 d) | Alias `local-realtime` to `local-voice`; delete the old stack (section 9); update `docs/os-parity.md` (P-28, P-40) and `docs/BUGS.md`; mark old docs superseded | CI gate green; no reference to `speech-to-speech` left outside history |
@@ -551,14 +551,14 @@ a light-mode check of the card body, and item 7 (local classic fallback).
 
 | Area | Lines | Fate |
 | --- | --- | --- |
-| `jarvis/realtime/local_server/` (supervisor 2,752, install 1,024, model_catalog 468, brain_link 336, boot_progress 309, preflight 241, patching 191, configure 176, tiers 129, smoke 119, `__init__` 25) with `patches/` and `pins/` | 5,770 | Delete at P5. Ideas kept: transactional model switch (configure), stage and ETA reporting (boot_progress), round-trip probe (smoke) |
-| `LocalRealtimeProvider` in `jarvis/plugins/realtime/openai_realtime.py` | ~920 | Delete at P5; the cloud `OpenAIRealtimeProvider` and `_OpenAIRealtimeSession` stay |
-| Managed-server routes in `jarvis/ui/web/provider_routes.py` | ~460 | Replace with `local-voice` setup, status and self-test routes; `realtime_switch` gets prepare-then-handover |
+| `dodaios/realtime/local_server/` (supervisor 2,752, install 1,024, model_catalog 468, brain_link 336, boot_progress 309, preflight 241, patching 191, configure 176, tiers 129, smoke 119, `__init__` 25) with `patches/` and `pins/` | 5,770 | Delete at P5. Ideas kept: transactional model switch (configure), stage and ETA reporting (boot_progress), round-trip probe (smoke) |
+| `LocalRealtimeProvider` in `dodaios/plugins/realtime/openai_realtime.py` | ~920 | Delete at P5; the cloud `OpenAIRealtimeProvider` and `_OpenAIRealtimeSession` stay |
+| Managed-server routes in `dodaios/ui/web/provider_routes.py` | ~460 | Replace with `local-voice` setup, status and self-test routes; `realtime_switch` gets prepare-then-handover |
 | `ManagedServerPanel` in `ProviderTierSection.tsx` and its types in `useProviders.ts` | ~1,080 | Replace with a smaller card that works in light and dark mode |
-| Local-realtime writers in `jarvis/core/config_writer.py` | ~160 | Replace with a structured config block instead of a launch-command string |
+| Local-realtime writers in `dodaios/core/config_writer.py` | ~160 | Replace with a structured config block instead of a launch-command string |
 | Tests: `tests/unit/realtime/local_server/`, `test_local_realtime.py`, `test_local_output.py`, `test_brain_link.py` | 4,248 + 1,344 | Delete with the code; new tests use `tests/fakes/` plus a real-engine smoke job |
-| `jarvis/live/*`, `jarvis/realtime/{protocol,factory,audio}.py`, `/ws/audio`, browser client | — | Keep; `native.py` gets the fixes in 4.4 |
-| `jarvis/brain/ollama_*`, `jarvis/local_models/autostart.py`, `jarvis/hardware/detection.py`, `jarvis/speech/local_models.py`, the Piper, Nemotron and faster-whisper plugins, `jarvis/core/process_tree.py` | — | Keep and reuse. `local_models/health_monitor.py` stops refreshing a stale voice block; `detection.py` gains free unified-memory reads |
+| `dodaios/live/*`, `dodaios/realtime/{protocol,factory,audio}.py`, `/ws/audio`, browser client | — | Keep; `native.py` gets the fixes in 4.4 |
+| `dodaios/brain/ollama_*`, `dodaios/local_models/autostart.py`, `dodaios/hardware/detection.py`, `dodaios/speech/local_models.py`, the Piper, Nemotron and faster-whisper plugins, `dodaios/core/process_tree.py` | — | Keep and reuse. `local_models/health_monitor.py` stops refreshing a stale voice block; `detection.py` gains free unified-memory reads |
 
 Estimated new code: worker about 2,000–2,500 lines, adapter about 300,
 installer about 600, card about 400, against about 8,400 lines of product code
@@ -606,7 +606,7 @@ removed.
 Machine: Windows 11, 8-core desktop CPU, 34 GB RAM, NVIDIA RTX 5070 Ti
 16 GB, with other work running (often under 6 GB RAM free); container:
 `python:3.11-slim`, 4 vCPU, no GPU. Commands are in
-`python -m jarvis.voice_engine.bench`; reports land in the engine home, not in
+`python -m dodaios.voice_engine.bench`; reports land in the engine home, not in
 the repo.
 
 ### 12.1 Speech recognition (Parakeet TDT 0.6B v3 int8, CPU)
@@ -643,7 +643,7 @@ premium option pending a blind listening test.
 
 Small models also act on mood: asked "I'm so tired today" or for a sleep tip,
 `qwen3.5:4b` set the volume, started music or a timer in 9 of 30 trials. One
-engine rule ("act only on request", `jarvis/voice_engine/engine.py`) brought
+engine rule ("act only on request", `dodaios/voice_engine/engine.py`) brought
 that to 0 of 30 with 0 of 40 real requests missed. On `qwen3.5:2b` the same
 rule only lowers it from 18 to 12 of 30, so the CPU-only tier still needs a
 safeguard for changing actions before it ships (P3).

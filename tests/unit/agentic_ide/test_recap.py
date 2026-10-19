@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import time
 
-from jarvis.agentic_ide.recap import HEADLINE_CHARS, summarize
-from jarvis.agentic_ide.session import Terminal
+from dodaios.agentic_ide.recap import HEADLINE_CHARS, summarize
+from dodaios.agentic_ide.session import Terminal
 
 
 def _pane(**changes: object) -> Terminal:
@@ -106,7 +106,7 @@ def test_a_bare_path_list_never_becomes_the_headline() -> None:
     """Search output names implementation debris, not the pane's user goal."""
     term = _pane(status="live", agent="shell", display_name="Terminal")
     term.transcript.feed("Mapped the event bus to the speech pipeline\r\n")
-    term.transcript.feed('"/core/bus.py", "jarvis/memory"\r\n')
+    term.transcript.feed('"/core/bus.py", "dodaios/memory"\r\n')
 
     assert summarize(term).headline == "Mapped the event bus to the speech pipeline"
 
@@ -127,11 +127,11 @@ def test_tui_chrome_never_becomes_the_headline() -> None:
     citation on the work.
     """
     term = _pane(status="live", agent="shell", display_name="Terminal")
-    term.transcript.feed("Writing jarvis/core/config_writer.py\r\n")
+    term.transcript.feed("Writing dodaios/core/config_writer.py\r\n")
     term.transcript.feed("? for shortcuts\r\n")
     term.transcript.feed("Context left until auto-compact: 34%\r\n")
 
-    assert summarize(term).headline == "Writing jarvis/core/config_writer.py"
+    assert summarize(term).headline == "Writing dodaios/core/config_writer.py"
 
 
 def test_the_claude_code_footer_never_reaches_the_detail_quote() -> None:
@@ -254,9 +254,9 @@ def test_the_input_boxes_placeholder_suggestion_is_not_a_request() -> None:
 
 def test_bullet_glyphs_are_stripped_from_the_headline() -> None:
     term = _pane(status="live", agent="shell", display_name="Terminal")
-    term.transcript.feed("⏺ Read jarvis/agentic_ide/session.py\r\n")
+    term.transcript.feed("⏺ Read dodaios/agentic_ide/session.py\r\n")
 
-    assert summarize(term).headline == "Read jarvis/agentic_ide/session.py"
+    assert summarize(term).headline == "Read dodaios/agentic_ide/session.py"
 
 
 def test_a_failed_pane_leads_with_the_reason() -> None:
@@ -400,7 +400,7 @@ def test_the_conversations_opening_titles_a_pane_whose_echo_scrolled_away(monkey
     is exactly when a pane is deep in the work it was typed. The CLI's own
     transcript still opens with that request, and a dropped file's reference
     in front of it is not the job."""
-    from jarvis.agentic_ide import opening
+    from dodaios.agentic_ide import opening
 
     monkeypatch.setattr(
         opening,
@@ -417,7 +417,7 @@ def test_the_conversations_opening_titles_a_pane_whose_echo_scrolled_away(monkey
 
 
 def test_a_state_label_does_not_name_the_work(monkeypatch) -> None:
-    from jarvis.agentic_ide import opening
+    from dodaios.agentic_ide import opening
 
     monkeypatch.setattr(opening, "opening_for", lambda term: "")
     term = _pane(status="live")

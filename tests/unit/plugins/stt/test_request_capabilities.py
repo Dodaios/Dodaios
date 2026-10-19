@@ -18,7 +18,7 @@ import json
 import httpx
 import pytest
 
-from jarvis.plugins.stt.capabilities import (
+from dodaios.plugins.stt.capabilities import (
     FULL_SHAPE,
     UNIVERSAL_SHAPE,
     RequestShape,
@@ -29,9 +29,9 @@ from jarvis.plugins.stt.capabilities import (
     resolve_shape,
     shape_after_rejection,
 )
-from jarvis.plugins.stt.groq_api import GroqWhisperAPI
-from jarvis.plugins.stt.openai_api import OpenAIWhisperAPI
-from jarvis.plugins.stt.openrouter_stt import OpenRouterSTT
+from dodaios.plugins.stt.groq_api import GroqWhisperAPI
+from dodaios.plugins.stt.openai_api import OpenAIWhisperAPI
+from dodaios.plugins.stt.openrouter_stt import OpenRouterSTT
 
 
 @pytest.fixture(autouse=True)

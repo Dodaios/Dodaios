@@ -14,7 +14,7 @@ machine-scoped things with your real install and quietly collide with it:
 - the **Windows Credential Manager** namespace (`personal-jarvis`) — it would read
   your real API keys (spending your billing) and could overwrite them;
 - the **editable-install pin** — `pip install -e .` re-points the global
-  `import jarvis` to the clone;
+  `import dodaios` to the clone;
 - your real **config and data** on disk.
 
 The sandbox seals all of these.
@@ -23,7 +23,7 @@ The sandbox seals all of these.
 
 | Seam | How it's isolated |
 |---|---|
-| Python import | a dedicated venv inside the sandbox; the global `import jarvis` is untouched |
+| Python import | a dedicated venv inside the sandbox; the global `import dodaios` is untouched |
 | Credentials | `keyring` is redirected to an isolated throwaway file backend — your real Credential Manager is never read or written |
 | Config | `JARVIS_CONFIG` points at the sandbox's own `jarvis.toml` |
 | Data | the separate clone makes the repo-relative `data/` resolve inside the sandbox; `LOCALAPPDATA` is also redirected so the subsystems that use the OS user-data dir (board stats, user skills, contacts, cli config — `%LOCALAPPDATA%\Jarvis`) stay in the sandbox too, instead of the real shared location |
@@ -64,6 +64,6 @@ needs no Node build.
 ## What "isolated" is proven by
 
 The provisioner prints PASS/FAIL for each before it ever launches: the sandbox's
-`import jarvis` resolves inside the sandbox; the global `import jarvis` is
+`import dodaios` resolves inside the sandbox; the global `import dodaios` is
 unchanged from the baseline; the keyring backend is the file store (not
 `WinVaultKeyring`); and the prebuilt UI is present.

@@ -5,9 +5,9 @@ import asyncio
 import httpx
 import pytest
 
-from jarvis.marketplace import connection_verification as verification
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace import connection_verification as verification
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.token_store import Tokens
 
 
 def plugin(name):
@@ -41,7 +41,7 @@ class FakeMcp:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["success", "empty", "failure", "timeout"])
 async def test_mcp_verification_owns_lifecycle_and_closes(monkeypatch, mode):
-    from jarvis.marketplace import plugin_registry
+    from dodaios.marketplace import plugin_registry
 
     client = FakeMcp(
         tools=[] if mode == "empty" else None,
@@ -62,7 +62,7 @@ async def test_mcp_verification_owns_lifecycle_and_closes(monkeypatch, mode):
 
 @pytest.mark.asyncio
 async def test_cancellation_closes_and_propagates(monkeypatch):
-    from jarvis.marketplace import plugin_registry
+    from dodaios.marketplace import plugin_registry
 
     client = FakeMcp(hang=True)
     monkeypatch.setattr(plugin_registry, "_default_client_factory", lambda *a, **k: client)
@@ -152,7 +152,7 @@ async def test_unknown_declared_hook_cannot_bypass_verification():
 
 @pytest.mark.asyncio
 async def test_rest_probe_really_calls_provider_and_rejects_denial(monkeypatch):
-    from jarvis.plugins.tool import connected_server
+    from dodaios.plugins.tool import connected_server
 
     original = connected_server.ConnectedRestClient
     calls = []
@@ -177,7 +177,7 @@ async def test_rest_probe_really_calls_provider_and_rejects_denial(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("auth_type", ["pat", "oauth"])
 async def test_figma_token_modes(auth_type):
-    from jarvis.plugins.tool.connected_server import ConnectedRestClient
+    from dodaios.plugins.tool.connected_server import ConnectedRestClient
 
     requests = []
 
@@ -200,9 +200,9 @@ async def test_figma_token_modes(auth_type):
 
 @pytest.mark.parametrize("oauth", [True, False])
 def test_both_mcp_bridges_carry_figma_auth_mode(oauth):
-    from jarvis.marketplace.catalog import PluginCatalog
-    from jarvis.marketplace.mcp_bridge import assemble_claude_mcp_servers
-    from jarvis.marketplace.plugin_mcp import plugin_to_mcp_server_spec
+    from dodaios.marketplace.catalog import PluginCatalog
+    from dodaios.marketplace.mcp_bridge import assemble_claude_mcp_servers
+    from dodaios.marketplace.plugin_mcp import plugin_to_mcp_server_spec
 
     tokens = Tokens(access="t", extra={"client_id": "app"} if oauth else {})
     spec = plugin("figma")

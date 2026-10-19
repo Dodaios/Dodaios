@@ -21,9 +21,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jarvis.speech import pipeline as pipeline_module
-from jarvis.speech.continuation_buffer import REASON_MIC_RESUMED, ContinuationBuffer
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.speech import pipeline as pipeline_module
+from dodaios.speech.continuation_buffer import REASON_MIC_RESUMED, ContinuationBuffer
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 _FIRST = "Wie spät ist es"  # i18n-allow: spoken test utterance
 _SECOND = "in Berlin gerade"  # i18n-allow: spoken test utterance

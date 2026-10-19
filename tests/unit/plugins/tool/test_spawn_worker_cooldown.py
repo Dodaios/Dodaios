@@ -26,13 +26,13 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.ack_brain.spawn_announcement import (
+from dodaios.brain.ack_brain.spawn_announcement import (
     _FALLBACK_ALREADY_RUNNING,
     _fix_en_article,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.spawn_worker import (
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.spawn_worker import (
     _COOLDOWN_SECONDS,
     SpawnWorkerTool,
 )
@@ -350,7 +350,7 @@ class _HeldKontrollierer:
 
 
 async def _typed(tool: SpawnWorkerTool, turn: str, typed: str, utterance: str | None = None):
-    from jarvis.core.protocols import ChatTurn, current_chat_turn
+    from dodaios.core.protocols import ChatTurn, current_chat_turn
 
     token = current_chat_turn.set(ChatTurn("chat-1", turn, typed, True, "trace"))
     try:

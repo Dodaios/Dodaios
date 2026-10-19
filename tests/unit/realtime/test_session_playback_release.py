@@ -17,7 +17,7 @@ import time
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.realtime.session import (
+from dodaios.realtime.session import (
     _HALF_DUPLEX_MUTE_ALERT_S,
     _HALF_DUPLEX_NO_PROBE_DRAIN_MARGIN_S,
     _HALF_DUPLEX_SILENT_RELEASE_S,

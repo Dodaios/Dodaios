@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from jarvis.dictation.audio_preprocessing import (
+from dodaios.dictation.audio_preprocessing import (
     AudioQualityAccumulator,
     assess_desktop_audio_preprocessing,
     prepare_dictation_pcm,

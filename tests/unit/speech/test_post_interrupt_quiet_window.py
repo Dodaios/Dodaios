@@ -11,7 +11,7 @@ on 2026-05-26:
 
 The first sentence is the deterministic ``MissionFailed`` voice readback
 emitted by ``MissionAnnouncer`` with ``priority="interrupt"`` (see
-``jarvis/missions/voice/announcer.py:178+209``).  The second sentence
+``dodaios/missions/voice/announcer.py:178+209``).  The second sentence
 matches the shape of a Pre-Thinking-Ack Flash-Brain preamble — a
 mission-completion / skill announcement / any other surface that
 publishes ``AnnouncementRequested(kind="preamble", ...)``.
@@ -35,10 +35,10 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline
 from tests.fakes.voice_session import open_classic_voice_session
 
 
@@ -100,7 +100,7 @@ class _FakeClock:
 @pytest.fixture
 def fake_clock(monkeypatch: pytest.MonkeyPatch) -> _FakeClock:
     clock = _FakeClock()
-    monkeypatch.setattr("jarvis.speech.pipeline.time.monotonic", clock)
+    monkeypatch.setattr("dodaios.speech.pipeline.time.monotonic", clock)
     return clock
 
 

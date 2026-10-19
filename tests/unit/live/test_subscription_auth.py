@@ -13,8 +13,8 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.core.http_pool import SyncHttpClientPool
-from jarvis.live.subscription_auth import SubscriptionAuth, SubscriptionAuthError
+from dodaios.core.http_pool import SyncHttpClientPool
+from dodaios.live.subscription_auth import SubscriptionAuth, SubscriptionAuthError
 
 
 def _token(expiry: float, account_id: str = "test-account") -> str:
@@ -137,7 +137,7 @@ async def test_concurrent_external_token_rotation_is_not_overwritten(tmp_path):
 
 @pytest.mark.asyncio
 async def test_explicit_missing_account_does_not_use_active_login(monkeypatch):
-    from jarvis import agent_accounts
+    from dodaios import agent_accounts
 
     monkeypatch.setattr(agent_accounts, "resolve", lambda _account_id: None)
 
@@ -268,7 +268,7 @@ async def test_cancelled_refresh_persists_before_http_pool_closes(tmp_path, canc
 
 @pytest.mark.asyncio
 async def test_close_budget_leaves_refresh_pool_open_until_persistence(tmp_path, monkeypatch):
-    from jarvis.live import subscription_auth
+    from dodaios.live import subscription_auth
 
     monkeypatch.setattr(subscription_auth, "_AUTH_CLOSE_WAIT_S", 0.01)
     _write(tmp_path, expired=True)

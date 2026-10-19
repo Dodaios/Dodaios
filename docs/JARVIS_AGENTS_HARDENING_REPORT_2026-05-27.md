@@ -33,11 +33,11 @@ The Jarvis-Agent spawning pipeline is **production-ready with caveats** — ther
 
 **What breaks.** When a worker creates a deliverable with a non-ASCII name (umlauts: `Werbungä.html`, `Lebenslauf-Müller.pdf`), the archive step fails to copy it into `artifacts/files/`. Mission ends APPROVED, `diff.patch` carries the content, but the Outputs UI shows no deliverable file and `build_deliverable_summary` returns `''`, so voice falls back to the generic "Mission completed". For a bilingual DE assistant, umlaut filenames are routine, so this recurs. <!-- i18n-allow -->
 
-**Evidence (`jarvis/missions/kontrollierer/orchestrator.py`).**
+**Evidence (`dodaios/missions/kontrollierer/orchestrator.py`).**
 - Lines 179-182: `_NEW_FILE_DIFF_HEADER_RE = re.compile(r'^diff --git (\"?)a/(?P<path>[^\"\n]+?)\1 (\"?)b/(?P=path)\3\nnew file mode', re.MULTILINE)`.
 - Lines 202-206: `_extract_new_file_paths_from_diff` only strips surrounding quotes (`if raw.startswith('"') and raw.endswith('"'): raw = raw[1:-1]`) — it never decodes git's C-style octal escapes.
 - Lines 1209-1219: the recovered paths feed `src = worktree / rel; if not src.is_file(): continue`.
-- With default `core.quotepath=true`, `git diff --cached HEAD` emits `diff --git "a/Werbung\303\244.html" "b/Werbung\303\244.html"`. The regex returns the literal `Werbung\303\244.html`, so `worktree / 'Werbung\303\244.html'`.is_file() is `False` while the real file `Werbungä.html` exists. The `git ls-files --others` fallback (line 1148) is also empty because `_capture_diff` already ran `git add -A` (line 1009-1010). No `core.quotepath=false` anywhere in `jarvis/` (grep = 0 hits); the dedicated test `tests/missions/kontrollierer/test_extract_new_file_paths.py` covers ASCII names only.  <!-- i18n-allow -->
+- With default `core.quotepath=true`, `git diff --cached HEAD` emits `diff --git "a/Werbung\303\244.html" "b/Werbung\303\244.html"`. The regex returns the literal `Werbung\303\244.html`, so `worktree / 'Werbung\303\244.html'`.is_file() is `False` while the real file `Werbungä.html` exists. The `git ls-files --others` fallback (line 1148) is also empty because `_capture_diff` already ran `git add -A` (line 1009-1010). No `core.quotepath=false` anywhere in `dodaios/` (grep = 0 hits); the dedicated test `tests/missions/kontrollierer/test_extract_new_file_paths.py` covers ASCII names only.  <!-- i18n-allow -->
 
 **Repro.** Voice: "baue eine Werbeseite und nenne sie Werbungä.html". Mission ends APPROVED; `artifacts/files/` is empty; Outputs UI shows no deliverable; voice says generic "Mission abgeschlossen."  <!-- i18n-allow -->
 

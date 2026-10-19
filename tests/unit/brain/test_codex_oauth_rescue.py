@@ -8,17 +8,17 @@ A keyless-but-OAuth-connected codex must survive the key check.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import _keyless_provider_is_rescued_by_oauth
+from dodaios.brain.manager import _keyless_provider_is_rescued_by_oauth
 
 
 def test_codex_keyless_but_oauth_connected_is_rescued(monkeypatch):
-    import jarvis.plugins.brain.codex as codex_mod
+    import dodaios.plugins.brain.codex as codex_mod
     monkeypatch.setattr(codex_mod, "_codex_oauth_connected", lambda: True)
     assert _keyless_provider_is_rescued_by_oauth("codex") is True
 
 
 def test_codex_keyless_no_oauth_is_not_rescued(monkeypatch):
-    import jarvis.plugins.brain.codex as codex_mod
+    import dodaios.plugins.brain.codex as codex_mod
     monkeypatch.setattr(codex_mod, "_codex_oauth_connected", lambda: False)
     assert _keyless_provider_is_rescued_by_oauth("codex") is False
 
@@ -38,7 +38,7 @@ def test_vertex_project_path_is_rescued_without_a_key(monkeypatch):
     router ran on the AI Studio account instead. The rescue must give the same
     answer the provider cards give (``KEYLESS_CREDENTIAL_PROBES``).
     """
-    from jarvis.core import config as cfg_mod
+    from dodaios.core import config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "vertex_credential_configured", lambda: True)
     assert _keyless_provider_is_rescued_by_oauth("vertex") is True
@@ -46,7 +46,7 @@ def test_vertex_project_path_is_rescued_without_a_key(monkeypatch):
 
 
 def test_vertex_without_project_or_key_stays_dead(monkeypatch):
-    from jarvis.core import config as cfg_mod
+    from dodaios.core import config as cfg_mod
 
     monkeypatch.setattr(cfg_mod, "vertex_credential_configured", lambda: False)
     assert _keyless_provider_is_rescued_by_oauth("vertex") is False

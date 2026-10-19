@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.ui.relauncher import pid_alive
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.ui.relauncher import pid_alive
 
 REPO = Path(__file__).resolve().parents[3]
 INSTALL_SH = REPO / "install" / "install.sh"
@@ -575,12 +575,12 @@ def _ps_table(*rows: tuple[str, str, str]) -> str:
     "ancestors",
     [
         # A terminal pane: the shell's parent is the app's terminal host.
-        [("SELF", "100", "bash install.sh"), ("100", "1", "VENV/bin/python -m jarvis.terminal")],
+        [("SELF", "100", "bash install.sh"), ("100", "1", "VENV/bin/python -m dodaios.terminal")],
         # Further up the chain counts just the same.
         [
             ("SELF", "100", "bash install.sh"),
             ("100", "200", "/bin/zsh -l"),
-            ("200", "300", "VENV/bin/python -m jarvis.ui.web.launcher"),
+            ("200", "300", "VENV/bin/python -m dodaios.ui.web.launcher"),
             ("300", "1", "/sbin/launchd"),
         ],
         # The script itself was started with a path inside the environment.

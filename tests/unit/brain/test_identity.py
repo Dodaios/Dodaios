@@ -13,9 +13,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain import identity
-from jarvis.brain.identity import character_block, identity_block, name_directive
-from jarvis.memory.templates import render_soul_md
+from dodaios.brain import identity
+from dodaios.brain.identity import character_block, identity_block, name_directive
+from dodaios.memory.templates import render_soul_md
 
 
 def _config(phrase: str) -> SimpleNamespace:
@@ -96,7 +96,7 @@ def test_an_edit_reaches_the_next_prompt(soul: Path, monkeypatch) -> None:
 
 
 def test_the_gpt_live_session_states_the_identity(soul: Path) -> None:
-    from jarvis.live.config import LiveConfig
+    from dodaios.live.config import LiveConfig
 
     block = identity_block(_config("Hey George"), path=soul)
     wire = LiveConfig(configured=True, backend_model="m").session_config(
@@ -108,7 +108,7 @@ def test_the_gpt_live_session_states_the_identity(soul: Path) -> None:
 
 
 def test_the_gpt_live_session_without_identity_never_claims_the_app_name() -> None:
-    from jarvis.live.config import LiveConfig
+    from dodaios.live.config import LiveConfig
 
     wire = LiveConfig(configured=True, backend_model="m").session_config(language="de", tools=[])
     assert "You are Dodaios" not in wire["instructions"]
@@ -117,7 +117,7 @@ def test_the_gpt_live_session_without_identity_never_claims_the_app_name() -> No
 
 
 def test_the_realtime_instructions_open_with_the_identity() -> None:
-    from jarvis.realtime.session import _session_instructions
+    from dodaios.realtime.session import _session_instructions
 
     block = name_directive("George")
     for compact in (False, True):
@@ -128,9 +128,9 @@ def test_the_realtime_instructions_open_with_the_identity() -> None:
 def test_a_gpt_live_call_carries_the_standing_instructions(tmp_path: Path, monkeypatch) -> None:
     # The live call answered "I have not seen a George.md" (2026-10-02):
     # GPT-Live never received the instructions file the other surfaces read.
-    import jarvis.core.config as core_config
-    from jarvis.brain import agent_instructions
-    from jarvis.live.session import _identity
+    import dodaios.core.config as core_config
+    from dodaios.brain import agent_instructions
+    from dodaios.live.session import _identity
 
     monkeypatch.setattr(core_config, "DATA_DIR", tmp_path)
     config = _config("Hey George")

@@ -1,8 +1,8 @@
 """The subscription's text-only path must not require voice transport support."""
 from __future__ import annotations
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.plugins.brain.codex import CodexBrain
-from jarvis.plugins.brain.codex import _build_cli_command
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.plugins.brain.codex import CodexBrain
+from dodaios.plugins.brain.codex import _build_cli_command
 
 def test_browser_inference_does_not_load_host_tools():
     command = _build_cli_command("codex", "", text_only=True)

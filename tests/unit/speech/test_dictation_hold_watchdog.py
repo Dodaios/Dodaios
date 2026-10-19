@@ -15,8 +15,8 @@ import asyncio
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.speech.pipeline import SpeechPipeline
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakeTrigger:

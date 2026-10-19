@@ -6,11 +6,11 @@ contract closes that hole without keyword matching; these tests pin it.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _CORE_CONTRACT,
     BrainManager,
 )
-from jarvis.core.config import load_config
+from dodaios.core.config import load_config
 
 
 def _manager() -> BrainManager:

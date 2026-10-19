@@ -21,8 +21,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.hardware.detection import recommend_whisper
-from jarvis.plugins.stt.fwhisper import _ENGLISH_ONLY_MODELS
+from dodaios.hardware.detection import recommend_whisper
+from dodaios.plugins.stt.fwhisper import _ENGLISH_ONLY_MODELS
 
 
 def _gpu_report(vram_mb: int) -> SimpleNamespace:

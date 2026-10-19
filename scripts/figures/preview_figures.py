@@ -9,7 +9,7 @@ something a build step can run without a display. With ``--parts`` it renders
 every base wearing every part of its archetype, which is the only way to see a
 combination that renders wrong from one side and right from the other.
 
-Reads only what is shipped; writes only PNGs. Never imports ``jarvis.*``.
+Reads only what is shipped; writes only PNGs. Never imports ``dodaios.*``.
 """
 
 from __future__ import annotations
@@ -25,8 +25,8 @@ from mathutils import Vector  # type: ignore[import-not-found]
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-FIGURES = REPO / "jarvis/ui/web/frontend/src/assets/society/figures"
-CATALOG = REPO / "jarvis/ui/web/frontend/src/components/society/figures/catalog.json"
+FIGURES = REPO / "dodaios/ui/web/frontend/src/assets/society/figures"
+CATALOG = REPO / "dodaios/ui/web/frontend/src/components/society/figures/catalog.json"
 
 #: yaw in degrees; 0 looks at the figure's front (it faces glTF +Z, so −Z of the camera)
 VIEWS = {"front": 0.0, "three-quarter": 35.0, "side": 90.0, "back": 180.0}

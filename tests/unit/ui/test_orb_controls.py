@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core import runtime_refs
+from dodaios.core import runtime_refs
 from ui.orb import controls
 
 
@@ -159,7 +159,7 @@ def test_speaker_toggle_never_writes_the_config(
     live_pipeline: _FakePipeline, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Session-only by design: a forgotten mute must not survive a restart."""
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     def _fail(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("the orb's speaker toggle persisted the mute")

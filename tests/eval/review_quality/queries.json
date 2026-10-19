@@ -55,7 +55,7 @@
     {
       "id": "cgc-002",
       "bucket": "code_gen_complex",
-      "task": "Refactor `jarvis/core/config.py` so dass die ProfileConfig-Klasse in eine eigene Datei `jarvis/core/profile_config.py` wandert, mit Re-Export im Original. Tests müssen weiter durchlaufen.",
+      "task": "Refactor `dodaios/core/config.py` so dass die ProfileConfig-Klasse in eine eigene Datei `dodaios/core/profile_config.py` wandert, mit Re-Export im Original. Tests müssen weiter durchlaufen.",
       "rubric_id": "code_generation",
       "expected_status": "pass",
       "expected_max_iterations": 3,

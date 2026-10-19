@@ -17,7 +17,7 @@ import sys
 
 import pytest
 
-from jarvis.plugins.tool.run_shell import RunShellTool, _windows_subprocess_env
+from dodaios.plugins.tool.run_shell import RunShellTool, _windows_subprocess_env
 
 windows_only = pytest.mark.skipif(
     sys.platform != "win32", reason="Windows PowerShell semantics"

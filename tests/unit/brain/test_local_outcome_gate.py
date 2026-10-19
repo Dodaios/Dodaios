@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.local_outcome_gate import (
+from dodaios.brain.local_outcome_gate import (
     RUN_SHELL_OUTCOME_DIRECTIVE,
     RUN_SHELL_TIMER_DIRECTIVE,
     resolve_local_outcome_mandate,

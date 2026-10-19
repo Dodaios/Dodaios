@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.core.config as core_config
-from jarvis.brain import persona_loader
+import dodaios.core.config as core_config
+from dodaios.brain import persona_loader
 
 
 @pytest.fixture(autouse=True)

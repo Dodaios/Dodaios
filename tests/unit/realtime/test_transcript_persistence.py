@@ -8,17 +8,17 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     SystemStateChanged,
     VoiceSessionEnded,
     VoiceSessionStarted,
 )
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
 from tests.fakes.fake_realtime import (
     FakeRealtimeProvider,
     FakeRealtimeToolBridge,

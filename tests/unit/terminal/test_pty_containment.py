@@ -10,7 +10,7 @@ Measured on a real install with the app already shut down: 102 ``node``, 59
 panes.
 
 So a session owns a kill-on-close container and everything it spawns lands in
-it (``jarvis.core.process_tree``). What matters is the CONTRACT, pinned here
+it (``dodaios.core.process_tree``). What matters is the CONTRACT, pinned here
 against a fake container so the tests run on every OS:
 
 * a spawned child is put in a container before it can fork,
@@ -27,8 +27,8 @@ import asyncio
 
 import pytest
 
-import jarvis.terminal.pty_manager as pty_mod
-from jarvis.terminal.pty_manager import PtyManager
+import dodaios.terminal.pty_manager as pty_mod
+from dodaios.terminal.pty_manager import PtyManager
 from tests.fakes.fake_pty_backend import FakePtyBackend
 
 

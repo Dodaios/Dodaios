@@ -17,8 +17,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide import agent_transcript, change_authors
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import agent_transcript, change_authors
+from dodaios.ui.web import agentic_ide_routes as routes
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 

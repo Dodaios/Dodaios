@@ -5,7 +5,7 @@ product name, and carries no em dashes (which render as hard TTS pauses).
 """
 from __future__ import annotations
 
-from jarvis.brain.ack_brain.persona_prompt import PERSONA_PROMPT, get_persona_prompt
+from dodaios.brain.ack_brain.persona_prompt import PERSONA_PROMPT, get_persona_prompt
 
 _EXPECTED = {
     "de": "Write in German.",

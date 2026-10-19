@@ -25,8 +25,8 @@ import threading
 import time
 from types import SimpleNamespace
 
-from jarvis.plugins.stt import fwhisper
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
+from dodaios.plugins.stt import fwhisper
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
 
 PCM_1S = b"\x00\x00" * 16_000
 

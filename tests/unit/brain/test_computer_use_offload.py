@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.local_action_gate import LocalActionMode, LocalActionPlan
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.local_action_gate import LocalActionMode, LocalActionPlan
+from dodaios.brain.manager import BrainManager
 
 
 @pytest.fixture(autouse=True)
@@ -77,7 +77,7 @@ async def test_computer_use_acks_immediately_not_blocking_on_harness(monkeypatch
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="open chrome"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     start = time.monotonic()
@@ -112,7 +112,7 @@ async def test_computer_use_result_announced_when_done(monkeypatch) -> None:
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="open chrome"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path("öffne chrome")  # i18n-allow
@@ -140,7 +140,7 @@ async def test_computer_use_failure_is_announced_not_dropped(monkeypatch) -> Non
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="open chrome"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path("öffne chrome")  # i18n-allow
@@ -183,7 +183,7 @@ async def test_user_cancel_offload_is_silent_not_announced(monkeypatch) -> None:
         prompt="screenshot the repo",
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path("mach einen screenshot")
@@ -214,7 +214,7 @@ async def test_three_parallel_cancels_speak_nothing(monkeypatch) -> None:
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="do it"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     # Each turn spawns its own background mission off a shared manager.
@@ -270,7 +270,7 @@ async def test_cu_failure_outcome_is_written_back_to_history(monkeypatch) -> Non
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="open spotify"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path("öffne mein spotify und spiel das lied")  # i18n-allow
@@ -307,7 +307,7 @@ async def test_cu_success_outcome_is_written_back_to_history(monkeypatch) -> Non
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="open spotify"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path("öffne spotify und spiel das lied")  # i18n-allow
@@ -340,7 +340,7 @@ async def test_cu_user_cancel_writes_nothing_to_history(monkeypatch) -> None:
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="do it"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path("mach einen screenshot")
@@ -362,8 +362,8 @@ async def test_cu_user_cancel_writes_nothing_to_history(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_manager_mirrors_cu_tool_completion_into_history() -> None:
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.voice.action_phrases import CU_TOOL_OUTCOME_LAYER
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.voice.action_phrases import CU_TOOL_OUTCOME_LAYER
 
     mgr = _make_manager(_SlowHarnessExecutor(), _FakeBus())
     await mgr._on_cu_tool_completion(AnnouncementRequested(
@@ -383,9 +383,9 @@ async def test_manager_mirrors_cu_tool_completion_into_history() -> None:
 async def test_cu_tool_completion_grounds_history_end_to_end() -> None:
     """Full chain: attach_to_bus wires the subscriber, and a tool-tagged
     completion published on the REAL bus lands in the live history."""
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.voice.action_phrases import CU_TOOL_OUTCOME_LAYER
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.voice.action_phrases import CU_TOOL_OUTCOME_LAYER
 
     bus = EventBus()
     mgr = _make_manager(_SlowHarnessExecutor(), bus)
@@ -408,7 +408,7 @@ async def test_manager_ignores_non_cu_tool_completion() -> None:
     """A mission / worker / other completion must NOT be mirrored — only a
     CU-tool-tagged one — so an unrelated background readback never pollutes the
     desktop-action grounding."""
-    from jarvis.core.events import AnnouncementRequested
+    from dodaios.core.events import AnnouncementRequested
 
     mgr = _make_manager(_SlowHarnessExecutor(), _FakeBus())
     await mgr._on_cu_tool_completion(AnnouncementRequested(
@@ -424,12 +424,12 @@ async def test_manager_ignores_non_cu_tool_completion() -> None:
 async def test_manager_retains_signed_mission_result_for_follow_up(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.core.events import AnnouncementRequested
+    from dodaios.core.events import AnnouncementRequested
 
     # Deterministic brand: the history label follows the wake-word-derived
     # assistant name for ANY configured value — never the host's live config.
     monkeypatch.setattr(
-        "jarvis.brain.assistant_name.agent_brand", lambda _cfg: "Nova-Agent"
+        "dodaios.brain.assistant_name.agent_brand", lambda _cfg: "Nova-Agent"
     )
     mgr = _make_manager(_SlowHarnessExecutor(), _FakeBus())
     await mgr._on_cu_tool_completion(AnnouncementRequested(
@@ -487,8 +487,8 @@ class _RecordingExecutor:
 @pytest.mark.asyncio
 async def test_cu_goal_carries_recent_conversation_context(monkeypatch) -> None:
     """A delegated follow-up turn inherits the task from the turn history."""
-    from jarvis.brain.manager import _TURN_HISTORY_OVERRIDE
-    from jarvis.core.protocols import BrainMessage
+    from dodaios.brain.manager import _TURN_HISTORY_OVERRIDE
+    from dodaios.core.protocols import BrainMessage
 
     bus = _FakeBus()
     executor = _RecordingExecutor()
@@ -498,7 +498,7 @@ async def test_cu_goal_carries_recent_conversation_context(monkeypatch) -> None:
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt=utterance
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     token = _TURN_HISTORY_OVERRIDE.set((
@@ -535,7 +535,7 @@ async def test_cu_goal_without_history_stays_bare(monkeypatch) -> None:
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt="open chrome"
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path("öffne chrome")  # i18n-allow
@@ -547,7 +547,7 @@ async def test_cu_goal_without_history_stays_bare(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_cu_goal_context_falls_back_to_live_history(monkeypatch) -> None:
     """Classic-pipeline turns (no override) use the manager's own history."""
-    from jarvis.core.protocols import BrainMessage
+    from dodaios.core.protocols import BrainMessage
 
     bus = _FakeBus()
     executor = _RecordingExecutor()
@@ -561,7 +561,7 @@ async def test_cu_goal_context_falls_back_to_live_history(monkeypatch) -> None:
         mode=LocalActionMode.COMPUTER_USE, harness="computer-use", prompt=utterance
     )
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", lambda _t, **_kw: plan
+        "dodaios.brain.manager.match_local_action", lambda _t, **_kw: plan
     )
 
     await mgr._run_local_action_fast_path(utterance)

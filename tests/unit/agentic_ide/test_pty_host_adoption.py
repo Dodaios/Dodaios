@@ -16,9 +16,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as ide
-from jarvis.terminal.pty_host_client import AdoptResult, HostedInfo
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as ide
+from dodaios.terminal.pty_host_client import AdoptResult, HostedInfo
 from tests.fakes.fake_pty_manager import FakePtyManager, FakePtySession
 
 
@@ -354,7 +354,7 @@ async def test_a_rejoined_agent_that_had_a_job_reads_working_while_it_moves(
     mid-task were listed "done" for the next half hour, because no submit stamp
     of the NEW app proved their work.
     """
-    from jarvis.agentic_ide import activity
+    from dodaios.agentic_ide import activity
 
     pool = FakeHostedPool()
     registry = ide.Registry(pty_manager=pool)

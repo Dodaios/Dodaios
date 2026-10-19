@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.protocols import BrainRequest
-from jarvis.plugins.brain import antigravity
+from dodaios.core.protocols import BrainRequest
+from dodaios.plugins.brain import antigravity
 
 
 def _agy() -> SimpleNamespace:

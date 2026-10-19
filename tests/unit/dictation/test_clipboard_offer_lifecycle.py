@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import threading
 
-from jarvis.platform import clipboard_offer as mod
+from dodaios.platform import clipboard_offer as mod
 
 
 class EventOffer(mod.ClipboardOffer):

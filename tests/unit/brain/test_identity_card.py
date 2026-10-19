@@ -1,4 +1,4 @@
-"""Guards for the ambient identity card (jarvis/brain/identity_card.py).
+"""Guards for the ambient identity card (dodaios/brain/identity_card.py).
 
 What the card promises: a deterministic, model-free, hard-capped distillation
 of who the user is, rebuilt only when its sources change, absent and silent
@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import identity_card as ic
+from dodaios.brain import identity_card as ic
 
 PROFILE = """---
 type: entity
@@ -175,7 +175,7 @@ def test_restated_facts_are_not_repeated() -> None:
 def test_section_priority_is_a_subset_of_the_wiki_profile_schema() -> None:
     """Anti-drift: a renamed profile section must fail here, not silently
     disappear from the card."""
-    from jarvis.memory.wiki.profile import PROFILE_SECTIONS
+    from dodaios.memory.wiki.profile import PROFILE_SECTIONS
 
     assert set(ic.PROFILE_SECTION_PRIORITY) <= set(PROFILE_SECTIONS)
 

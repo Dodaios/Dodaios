@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import time
 
-from jarvis.core.protocols import ImageBlock
-from jarvis.pointer.context import (
+from dodaios.core.protocols import ImageBlock
+from dodaios.pointer.context import (
     PointerContext,
     resolve_pointer_context,
     resolve_pointer_context_async,
 )
-from jarvis.vision.pointer_types import PointerElement
+from dodaios.vision.pointer_types import PointerElement
 
 
 class _Cursor:

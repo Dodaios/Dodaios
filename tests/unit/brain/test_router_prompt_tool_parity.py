@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import re
 
-from jarvis.brain.factory import ROUTER_TOOLS
-from jarvis.brain.router import SYSTEM_PROMPT
+from dodaios.brain.factory import ROUTER_TOOLS
+from dodaios.brain.router import SYSTEM_PROMPT
 
 # Direct-action tools that must stay OUT of the router (delegated, not dispatched).
 _PHANTOM_DIRECT_TOOLS = ("open_app", "remember")
@@ -74,7 +74,7 @@ def test_search_web_is_a_real_router_tool_and_advertised() -> None:
         "search-web missing from ROUTER_TOOLS — the prompt's research "
         "doctrine would advertise a phantom tool (silence bug class)."
     )
-    from jarvis.brain.manager import _CORE_CONTRACT
+    from dodaios.brain.manager import _CORE_CONTRACT
 
     assert "search_web" in _CORE_CONTRACT, (
         "core contract does not advertise search_web — the model has no "

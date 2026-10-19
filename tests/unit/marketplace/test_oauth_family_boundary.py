@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.marketplace import catalog_data
-from jarvis.marketplace.auth.oauth_pkce_loopback import _PendingPkceFlow
-from jarvis.marketplace.connect_helpers import build_handler_from_catalog, oauth_client_family
-from jarvis.marketplace.publisher_clients import resolve_publisher_client
+from dodaios.marketplace import catalog_data
+from dodaios.marketplace.auth.oauth_pkce_loopback import _PendingPkceFlow
+from dodaios.marketplace.connect_helpers import build_handler_from_catalog, oauth_client_family
+from dodaios.marketplace.publisher_clients import resolve_publisher_client
 
 
 @pytest.mark.parametrize("source", ["community", "local", "seed"])
@@ -43,7 +43,7 @@ async def test_untrusted_token_endpoint_never_receives_family_secret(
             f"{prefix}_oauth_client_secret": "unrelated-secret",
         }.get(key)
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", secret)
+    monkeypatch.setattr("dodaios.core.config.get_secret", secret)
     assert oauth_client_family(plugin_id) is None
     assert resolve_publisher_client(plugin_id, auth.client_id, auth.client_secret) == (
         "community-client",
@@ -84,7 +84,7 @@ def test_trusted_siblings_keep_shared_clients(monkeypatch, plugin_id, provisioni
         f"{prefix}_oauth_client_id": "trusted-client",
         f"{prefix}_oauth_client_secret": "trusted-secret",
     }
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda key, env=None: secrets.get(key))
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda key, env=None: secrets.get(key))
     assert oauth_client_family(plugin_id) == "google"
     assert resolve_publisher_client(plugin_id, "placeholder", None) == (
         "trusted-client",
@@ -99,7 +99,7 @@ def test_unreadable_seed_disables_secret_sharing(monkeypatch):
 
     monkeypatch.setattr(catalog_data, "load_seed_catalog", broken)
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda *args: pytest.fail("secret read on untrusted catalog"),
     )
     assert oauth_client_family("gmail") is None

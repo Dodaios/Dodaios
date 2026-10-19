@@ -6,7 +6,7 @@ four times (AP-4 / BUG-008): the classic symptom is a style the backend offers
 that the picker renders as an unlabelled, previewless card — or worse, a style
 the UI can select and the surface factory silently drops.
 
-So this pins the layers to ``jarvis.ui.overlay_styles``:
+So this pins the layers to ``dodaios.ui.overlay_styles``:
 
 * the REST options list,
 * the TypeScript ``OverlayStyle`` union and its client-side fallback array,
@@ -22,14 +22,14 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.overlay_styles import (
+from dodaios.ui.overlay_styles import (
     LEGACY_STYLE_ALIASES,
     ORB_STYLES,
     OVERLAY_STYLES,
     normalize_overlay_style,
 )
 
-_FRONTEND = Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src"
+_FRONTEND = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src"
 _LOCALES = _FRONTEND / "i18n/locales"
 
 

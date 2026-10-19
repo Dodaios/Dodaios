@@ -13,13 +13,13 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-import jarvis.autostart as autostart
-import jarvis.platform.capabilities as caps_mod
-from jarvis.autostart.protocol import AutostartStatus, LaunchSpec
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.platform.capabilities import Capabilities
-from jarvis.ui.web.server import WebServer
+import dodaios.autostart as autostart
+import dodaios.platform.capabilities as caps_mod
+from dodaios.autostart.protocol import AutostartStatus, LaunchSpec
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.platform.capabilities import Capabilities
+from dodaios.ui.web.server import WebServer
 
 
 def _caps(*, display_present: bool = True) -> Capabilities:
@@ -87,7 +87,7 @@ def fake_manager(monkeypatch: pytest.MonkeyPatch) -> _FakeManager:
         "resolve_launch_spec",
         lambda _cfg: LaunchSpec(
             program="/usr/bin/python3",
-            args=("-m", "jarvis.ui.web.launcher"),
+            args=("-m", "dodaios.ui.web.launcher"),
             working_dir="/fake/personal-jarvis",
         ),
     )
@@ -98,7 +98,7 @@ def fake_manager(monkeypatch: pytest.MonkeyPatch) -> _FakeManager:
 @pytest.fixture(autouse=True)
 def _no_toml_write(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
     calls: list[bool] = []
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(config_writer, "set_autostart", lambda enabled, **kw: calls.append(enabled))
     return calls
@@ -112,7 +112,7 @@ def test_get_reports_state(server: WebServer, fake_manager: _FakeManager) -> Non
         assert body["enabled"] is True  # default
         assert body["supported"] is True
         assert body["platform"] == "linux"
-        assert "jarvis.ui.web.launcher" in body["resolved_command"]
+        assert "dodaios.ui.web.launcher" in body["resolved_command"]
 
 
 def test_put_enable_installs_and_persists(

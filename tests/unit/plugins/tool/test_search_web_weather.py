@@ -15,9 +15,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool import search_backends
-from jarvis.plugins.tool.search_web import SearchWebTool, _extract_weather_location
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool import search_backends
+from dodaios.plugins.tool.search_web import SearchWebTool, _extract_weather_location
 
 
 def _ctx() -> ExecutionContext:
@@ -180,6 +180,6 @@ async def test_weather_lookup_failure_falls_back_to_ddg(
 def test_weather_total_budget_within_single_call_ceiling() -> None:
     """The two weather sub-calls together must not exceed the single-call voice
     budget (no 2x latency regression on the router-tier voice path)."""
-    from jarvis.plugins.tool.search_web import _TIMEOUT_S, _WEATHER_CALL_TIMEOUT_S
+    from dodaios.plugins.tool.search_web import _TIMEOUT_S, _WEATHER_CALL_TIMEOUT_S
 
     assert _WEATHER_CALL_TIMEOUT_S * 2 <= _TIMEOUT_S

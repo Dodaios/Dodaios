@@ -1,6 +1,6 @@
 """BrainManager._apply_plugin_relevance drops plugin tools irrelevant to the
 turn while leaving native tools (and card-less plugins) untouched."""
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 class _T:

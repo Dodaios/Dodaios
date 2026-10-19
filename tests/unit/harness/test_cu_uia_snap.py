@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.harness import screenshot_only_loop as sol
-from jarvis.harness.computer_use_context import ComputerUseContext
+from dodaios.harness import screenshot_only_loop as sol
+from dodaios.harness.computer_use_context import ComputerUseContext
 
 
 def _ctx() -> ComputerUseContext:
@@ -99,7 +99,7 @@ class _FakeSource:
 
 async def test_uia_snap_clicks_element_center(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.vision.tree_factory.make_ui_tree_source",
+        "dodaios.vision.tree_factory.make_ui_tree_source",
         lambda: _FakeSource([_node(40, 40, 20, 20, name="OK button")]),
     )
     clicks: list = []
@@ -121,7 +121,7 @@ async def test_uia_snap_clicks_element_center(monkeypatch):
 
 async def test_uia_snap_none_when_no_node(monkeypatch):
     monkeypatch.setattr(
-        "jarvis.vision.tree_factory.make_ui_tree_source", lambda: _FakeSource([])
+        "dodaios.vision.tree_factory.make_ui_tree_source", lambda: _FakeSource([])
     )
     res = await sol._uia_snap_click(
         _ctx(), executor=object(), tool=object(), x=5, y=5, trace_id=None
@@ -134,7 +134,7 @@ async def test_uia_snap_respects_disable_flag(monkeypatch):
     ctx.uia_click_fallback = False
     called: list = []
     monkeypatch.setattr(
-        "jarvis.vision.tree_factory.make_ui_tree_source",
+        "dodaios.vision.tree_factory.make_ui_tree_source",
         lambda: called.append(1) or _FakeSource([]),
     )
     res = await sol._uia_snap_click(
@@ -149,7 +149,7 @@ async def test_uia_snap_none_when_observe_raises(monkeypatch):
         async def observe(self, **_kw):
             raise RuntimeError("COM dead")
 
-    monkeypatch.setattr("jarvis.vision.tree_factory.make_ui_tree_source", lambda: _Boom())
+    monkeypatch.setattr("dodaios.vision.tree_factory.make_ui_tree_source", lambda: _Boom())
     res = await sol._uia_snap_click(
         _ctx(), executor=object(), tool=object(), x=5, y=5, trace_id=None
     )
@@ -186,7 +186,7 @@ async def test_snap_fires_inside_click_with_refine_on_miss(monkeypatch):
     monkeypatch.setattr(sol, "_grab_region_jpeg", lambda bbox: b"same")
     monkeypatch.setattr(sol, "_CLICK_VERIFY_SETTLE_S", 0.0)
     monkeypatch.setattr(
-        "jarvis.vision.tree_factory.make_ui_tree_source",
+        "dodaios.vision.tree_factory.make_ui_tree_source",
         lambda: _FakeSource([_node(460, 460, 40, 40, name="Submit")]),  # center (480,480)
     )
     ctx = ComputerUseContext(
@@ -219,7 +219,7 @@ def test_click_correction_layers_default_off():
     BOTH default OFF. The known-good click pipeline is coarse click -> verify ->
     LLM refine on miss; these correction layers stacked and degraded accuracy, so
     they must not silently re-enable. Re-enable per [computer_use] with a bench."""
-    from jarvis.core.config import ComputerUseConfig
+    from dodaios.core.config import ComputerUseConfig
 
     cfg = ComputerUseConfig()
     assert cfg.uia_click_fallback is False

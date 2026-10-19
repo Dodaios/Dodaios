@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from jarvis.brain.wiki_relevance import (
+from dodaios.brain.wiki_relevance import (
     DEFAULT_STRICT_MIN_COVERAGE,
     content_terms,
     fold_text,
@@ -29,7 +29,7 @@ from jarvis.brain.wiki_relevance import (
 
 @dataclass(frozen=True)
 class FakeHit:
-    """Stand-in for ``jarvis.memory.wiki.search.SearchHit`` (fakes, not mocks)."""
+    """Stand-in for ``dodaios.memory.wiki.search.SearchHit`` (fakes, not mocks)."""
 
     title: str
     snippet: str

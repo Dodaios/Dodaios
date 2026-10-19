@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.core.protocols import BrainDelta, ExecutionContext, ToolResult
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.core.protocols import BrainDelta, ExecutionContext, ToolResult
 from tests.fixtures.brain.fake_brain import FakeBrain, tool_call_delta
 
 
@@ -62,8 +62,8 @@ async def test_suppress_response_does_not_trigger_fallback():
     spawn_tool = _SuppressResponseTool()
 
     # Build manager with ToolExecutor wired up so spawn_worker can execute.
-    from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
-    from jarvis.core.config import SafetyConfig
+    from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+    from dodaios.core.config import SafetyConfig
 
     safety = SafetyConfig()
     evaluator = RiskTierEvaluator(safety)

@@ -5,7 +5,7 @@ Background
 
 BUG-008 occurred three times (2026-05-03, 2026-05-05, 2026-05-10). The
 first two episodes had the same shape: the runtime path in
-``jarvis/speech/pipeline.py`` learned to write a new hangup reason but
+``dodaios/speech/pipeline.py`` learned to write a new hangup reason but
 the Pydantic ``Literal`` did not, and the list endpoint blew up with
 HTTP 500. After the third recurrence the Pydantic side was widened
 from ``Literal`` to plain ``str`` (see ``models.py`` Z. 22-43), and
@@ -16,13 +16,13 @@ they need to agree so the Transcription view's label switch covers
 every value the pipeline can emit, and the schema.sql doc comment is
 not lying. The coordination layers under test are:
 
-1. ``jarvis/sessions/constants.py``           — the Python tuple (source of truth)
-2. ``jarvis/sessions/models.py``              — ``KNOWN_HANGUP_REASONS`` frozenset (mirror)
-3. ``jarvis/ui/web/frontend/src/components/sessions/types.ts``
+1. ``dodaios/sessions/constants.py``           — the Python tuple (source of truth)
+2. ``dodaios/sessions/models.py``              — ``KNOWN_HANGUP_REASONS`` frozenset (mirror)
+3. ``dodaios/ui/web/frontend/src/components/sessions/types.ts``
                                               — ``KNOWN_HANGUP_REASONS`` const tuple
-4. ``jarvis/ui/web/frontend/src/components/sessions/SessionList.tsx``
+4. ``dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx``
                                               — the user-facing label switch
-5. ``jarvis/sessions/schema.sql``             — the doc comment
+5. ``dodaios/sessions/schema.sql``             — the doc comment
 
 A drift introduces a single failing test instead of shipping a missing
 label, an empty Transcription cell, or a stale schema comment.
@@ -32,15 +32,15 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.sessions.constants import HANGUP_REASONS
-from jarvis.sessions.models import KNOWN_HANGUP_REASONS
+from dodaios.sessions.constants import HANGUP_REASONS
+from dodaios.sessions.models import KNOWN_HANGUP_REASONS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TYPES_TS = REPO_ROOT / "jarvis/ui/web/frontend/src/components/sessions/types.ts"
+TYPES_TS = REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/types.ts"
 SESSION_LIST_TSX = (
-    REPO_ROOT / "jarvis/ui/web/frontend/src/components/sessions/SessionList.tsx"
+    REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx"
 )
-SCHEMA_SQL = REPO_ROOT / "jarvis/sessions/schema.sql"
+SCHEMA_SQL = REPO_ROOT / "dodaios/sessions/schema.sql"
 
 
 def _expected_set() -> set[str]:
