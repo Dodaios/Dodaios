@@ -632,7 +632,7 @@ Self-mod writeup: [`docs/self_mod.md`](docs/self_mod.md) — 8 mutable settings 
 - **Plugin contract:** plugin modules MUST NOT import from `dodaios.*` — structural compatibility with Protocol only. After edit: `pip install -e . --no-deps`.
 - **Streaming first:** all Brain/STT/TTS/Harness methods return `AsyncIterator[...]`.
 - **Events:** `frozen=True` dataclasses with `trace_id: UUID` + `timestamp_ns`. Subscriber exceptions never propagate (AP-18).
-- **Worker isolation invariants:** every worker = fresh `git worktree` + Windows Job Object kill-on-close. `MAX_CRITIC_LOOPS=3` hardcoded; changes require new ADR via `/skill phase6-adr-update`.
+- **Worker isolation invariants:** every worker = fresh `git worktree` + Windows Job Object kill-on-close. `MAX_CRITIC_LOOPS=3` hardcoded; changes require a new ADR.
 
 ---
 
