@@ -62,7 +62,103 @@
     "mid_answer_error": "Executei os passos, mas algo falhou ao redigir a resposta. Volta a perguntar-me daqui a um momento.",
     "action_failed": "Reconheci a ação, mas não consegui executá-la.",
     "lang_switch_confirm": "Feito — a partir de agora respondo em português.",
-    "lang_switch_confirm_auto": "Feito — a partir de agora respondo na língua que usares."
+    "lang_switch_confirm_auto": "Feito — a partir de agora respondo na língua que usares.",
+    "ack": {
+      "final_markers": "Feito.",
+      "generic_ack": [
+        "Está bem, um momento.",
+        "Um segundo.",
+        "Já vai, dá-me um momento.",
+        "Vou já, só um segundinho.",
+        "Combinado, espera um pouco."
+      ],
+      "shell_ack": [
+        "Um momento, vou verificar.",
+        "Deixa-me dar uma vista de olhos.",
+        "Vejo isso agora mesmo.",
+        "Dá-me um segundo para ver.",
+        "Dou uma vista de olhos rápida."
+      ],
+      "cli_service_ack": [
+        "Dou uma vista de olhos rápida a {service}.",
+        "Um momento, consulto {service}.",
+        "Deixa-me ver isso em {service}.",
+        "Verifico {service} agora mesmo.",
+        "Vou ver em {service}."
+      ],
+      "harness_ack": [
+        "Entendido, eu trato disso.",
+        "Está bem, fico eu com isso.",
+        "Combinado, estou a tratar disso.",
+        "Okay, vou pôr mãos à obra.",
+        "Claro, um momento."
+      ],
+      "search_topic_ack": [
+        "Está bem, procuro {topic}.",
+        "Um momento, vou pesquisar {topic}.",
+        "Vou ver o que encontro sobre {topic}.",
+        "A procurar {topic} agora."
+      ],
+      "search_generic_ack": [
+        "Está bem, vou pesquisar um pouco.",
+        "Deixa-me procurar.",
+        "Um momento, dou uma vista de olhos.",
+        "Dá-me um momento para reunir os dados."
+      ],
+      "multi_spawn_ack": [
+        "Está bem, faço {n} coisas em paralelo.",
+        "Vou tratar das {n} tarefas ao mesmo tempo.",
+        "{n} coisas em paralelo — vou já."
+      ],
+      "open_app_ack": [
+        "Está bem, abro {app}.",
+        "Um segundo, inicio {app}.",
+        "A iniciar {app}."
+      ],
+      "run_skill_ack": [
+        "Está bem, executo {skill}.",
+        "Um momento, arranco com {skill}.",
+        "Ponho {skill} a correr."
+      ],
+      "gmail_read_ack": [
+        "Está bem, vejo o teu correio.",
+        "Um momento, abro a tua caixa de entrada.",
+        "Dou uma vista de olhos aos teus e-mails.",
+        "Vejo a tua caixa de entrada."
+      ],
+      "calendar_ack": [
+        "Está bem, vejo o teu calendário.",
+        "Um momento, vejo a tua agenda.",
+        "Verifico os teus compromissos.",
+        "Uma vista de olhos rápida ao teu calendário."
+      ],
+      "remember_ack": [
+        "Está bem, tomo nota.",
+        "Entendido, vou lembrar-me.",
+        "Fica anotado."
+      ],
+      "verify_ack": [
+        "Está bem, vou verificar.",
+        "Um momento, vou testar.",
+        "Deixa-me confirmar."
+      ],
+      "server_ack": [
+        "Está bem, inicio o servidor.",
+        "Um momento, arranco o servidor.",
+        "Ponho o servidor a correr."
+      ],
+      "set_config_ack": [
+        "Está bem, eu altero isso.",
+        "Um momento, vou ajustar.",
+        "Adapto isso agora."
+      ]
+    },
+    "action_honesty": {
+      "action_not_started_phrases": "Não iniciei nenhuma ação para isso, por isso ainda não tenho um resultado. Pede-mo outra vez."
+    },
+    "local_action_gate": {
+      "unsupported_response": "Ainda não consigo fazer isso. Não tenho nenhuma ferramenta registada para isso. Diz-me que MCP ou integração deve tratar disso e posso aprender."
+    }
   },
   "tool_loop": {
     "anti_silence": "Neste momento não consigo fazer isso — falta-me a ferramenta adequada.",
@@ -110,7 +206,38 @@
       },
       "empty_summary": "Tarefa concluída.",
       "unknown_reason": "erro desconhecido",
-      "no_tool_call": "Não consegui fazer isso: não houve nenhuma chamada a ferramenta."
+      "no_tool_call": "Não consegui fazer isso: não houve nenhuma chamada a ferramenta.",
+      "capacity_wait_phrases": {
+        "provider_quota": "A capacidade de {provider} está esgotada por agora.",
+        "provider_auth": "O início de sessão em {provider} expirou.",
+        "provider_unavailable": "{provider} não pode ser usado neste momento.",
+        "paid_cap_reached": "O limite de custo desta missão para {provider} foi atingido.",
+        "paid_daily_cap_reached": "O limite diário de uso automático de {provider} foi atingido.",
+        "paid_consent_revoked": "O uso automático de {provider} foi desligado.",
+        "saved": "O progresso até agora foi guardado.",
+        "progress": "{done} de {total} passos feitos, {open} por fazer.",
+        "progress_single": "A tarefa em si ainda está por fazer.",
+        "file": "1 ficheiro guardado.",
+        "files": "{files} ficheiros guardados.",
+        "wait": "A missão aguarda até haver capacidade outra vez.",
+        "wait_auth": "A missão aguarda até voltares a iniciar sessão.",
+        "paid": "Uso de API paga só com a tua aprovação explícita em Artefactos."
+      },
+      "provider_fallback_name": "fornecedor de IA",
+      "default_target": "esta ação"
+    },
+    "deliverable": {
+      "deliverable_templates": {
+        "one": "Feito. Guardei {name} como artefacto.",
+        "few": "Feito. Guardei {count} ficheiros como artefactos: {joined}.",
+        "many": "Feito. Guardei {count} ficheiros como artefactos."
+      },
+      "mission_completed_phrases": "Missão concluída.",
+      "delivered_templates": {
+        "one": "Feito. Guardei {name} como artefacto.",
+        "few": "Feito. Guardei {count} ficheiros como artefactos: {joined}.",
+        "many": "Feito. Guardei {count} ficheiros como artefactos."
+      }
     }
   },
   "realtime": {
@@ -123,6 +250,25 @@
       "no_credits": "O saldo da ligação de voz esgotou-se. Carrega-o no fornecedor e volta a funcionar.",
       "not_offered": "A tua conta não oferece esta ligação de voz neste momento. Verifica o plano ou escolhe outra conta.",
       "dropped": "A ligação de voz caiu."
+    },
+    "public_fact_uncertainty": "Não consegui confirmar isso com fiabilidade numa fonte pública agora.",
+    "delegate_bridge_texts": [
+      "Ainda estou a tratar disso.",
+      "Só um momento, está quase.",
+      "Continuo nisso, dá-me um momento.",
+      "Dá-me só mais um momento."
+    ],
+    "interrupt_ack_texts": [
+      "Ok, parei isso.",
+      "Está bem, vou cancelar isso.",
+      "Ok, deixo isso."
+    ],
+    "local_voice": {
+      "refusals": {
+        "not_set_up": "A voz local ainda não está configurada neste computador. Inicia a configuração no cartão Voz local das Definições.",
+        "loading": "A voz local ainda está a carregar ({percent} %). O cartão Voz local das Definições mostra o progresso.",
+        "failed": "A voz local não conseguiu arrancar. O cartão Voz local das Definições mostra o motivo."
+      }
     }
   },
   "self_mod": {
@@ -132,5 +278,238 @@
       "rollback": "a própria reversão falhou; é necessário um restauro manual",
       "unexpected": "um erro inesperado ao alterar a definição"
     }
+  },
+  "voice": {
+    "action": {
+      "phrases": {
+        "cu_done": "Feito.",
+        "lookup_unspoken": "Tenho a informação, mas não a consegui ler em voz alta. Tento outra vez?",
+        "lookup_empty": "Não encontrei nada sobre isso.",
+        "cu_done_detail": "Feito. {detail}",
+        "cu_failed": "Isso não funcionou no ecrã.",
+        "cu_failed_reason": "Isso não funcionou no ecrã: {error}",
+        "cu_crashed": "Algo correu mal ao fazer isso no ecrã.",
+        "cu_exit_gave_up": "Tentei no ecrã, mas não consegui concluir.",
+        "cu_exit_no_view": "Não consegui ver bem o ecrã, por isso parei.",
+        "cu_exit_confused": "Não consegui obter uma resposta válida para controlar o ecrã, por isso parei.",
+        "cu_exit_no_provider": "Neste momento não tenho um modelo de IA que consiga ver o ecrã. Verifica as tuas chaves de API ou o teu saldo nas definições.",
+        "cu_exit_too_many_steps": "Foram precisos demasiados passos no ecrã, por isso parei.",
+        "cu_exit_action_failed": "Uma ação no ecrã falhou, por isso parei.",
+        "cu_exit_cancelled": "A ação no ecrã foi cancelada.",
+        "cu_exit_needs_elevation": "Esperei pela confirmação de administrador, mas não chegou, por isso parei.",
+        "cu_blocked_permission": "Tive de parar: o Dodaios precisa da permissão de {permission}. Ativa-a em {pane}. Depois, tenta outra vez.",
+        "cu_blocked_restart_hint": "Tive de parar: a permissão de {permission} pode só ter efeito depois de o Dodaios ser fechado e reaberto. Reinicia a app e tenta outra vez.",
+        "cu_blocked_unavailable": "Tive de parar: o Dodaios não pode pedir a permissão de {permission} nesta sessão.",
+        "cu_blocked_waiting": "Tive de parar porque o macOS está a pedir a permissão de {permission}. Responde ao diálogo e tenta outra vez.",
+        "cu_blocked_dialog": "Tive de parar porque há um diálogo do sistema aberto no Mac. Responde tu a ele e tenta outra vez.",
+        "cu_blocked_restricted": "Tive de parar: uma permissão necessária está restrita neste Mac por um perfil ou por controlo parental. Não pode ser alterada a partir da app.",
+        "cu_blocked_generic": "Tive de parar porque o macOS precisa de uma permissão para o Dodaios. Ativa-a nas Definições do Sistema, em Privacidade e segurança, e tenta outra vez.",
+        "cu_timeout": "Isso demorou demasiado no ecrã (mais de {secs} segundos) e foi cancelado.",
+        "open_app_launched": "Iniciado: {app}",
+        "open_app_launched_raised": "Iniciado e trazido para a frente: {app}",
+        "open_app_not_found": "A aplicação '{app}' não foi encontrada.",
+        "cu_not_wired": "O controlo do ecrã está desativado neste computador. Ativa-o nas definições com computer_use.enabled e reinicia-me uma vez.",
+        "cu_dispatch_ack": "Vou já. Faço isso diretamente no ecrã e aviso-te quando terminar.",
+        "cu_awaiting_elevation": "Isto requer permissões de administrador. Confirma o aviso de segurança uma vez e eu continuo.",
+        "cu_awaiting_human": "Este passo precisa de ti, inicia sessão ou conclui a verificação e eu continuo.",
+        "cost_cooldown": "Pausa de custos ativa, o orçamento diário esgotou-se. Os novos pedidos são retomados quando a pausa terminar.",
+        "task_budget": "O orçamento de tarefas desta conversa foi excedido.",
+        "daily_budget": "O orçamento diário foi excedido.",
+        "tool_failed": "{tool} falhou.",
+        "action_failed_generic": "Isso não funcionou agora.",
+        "stale_repeat_clarify": "Acabei de responder a isso. O que querias saber exatamente?",
+        "action_failed_reason": "Isso não funcionou: {reason}",
+        "delegate_no_brain": "Nenhum dos meus modelos respondeu a este pedido.",
+        "delegate_no_result": "Não recebi nenhum resultado fiável para isso.",
+        "delegate_failed_internal": "Algo falhou internamente, por isso parei em segurança.",
+        "actions_unavailable": "Neste momento não consigo executar ações, mas podemos continuar a conversar.",
+        "actions_not_requested": "Não executei nada para isso. Diz-me o que queres que eu faça.",
+        "skill_loaded_not_run": "Carreguei as instruções para isso, mas ainda não as executei.",
+        "action_timeout": "Isso demorou demasiado, por isso parei.",
+        "spawn_failed_generic": "Não consegui iniciar o assistente em segundo plano agora.",
+        "spawn_failed_reason": "Não consegui iniciar o assistente em segundo plano: {reason}",
+        "spawn_no_runner": "Não consigo iniciar a tarefa agora. Reinicia-me, por favor.",
+        "artifact_building": "Estou a criar «{title}» em segundo plano e aviso-te quando estiver pronto.",
+        "artifact_revising": "Estou a rever «{title}» em segundo plano e aviso-te quando estiver pronto.",
+        "workflow_trigger_failed": "A rotina {name} não conseguiu arrancar. Vou tentar na próxima hora agendada.",
+        "workflow_scheduler_stalled": "As tuas rotinas agendadas não estão a correr agora. Vou continuar a tentar.",
+        "workflow_step_failed": "A rotina {name} ficou presa em {step}, por isso parei-a.",
+        "workflow_step_failed_reason": "A rotina {name} ficou presa em {step}, por isso parei-a. O motivo: {reason}",
+        "workflow_step_ordinal": "o passo {n}",
+        "workflow_unnamed": "sem nome",
+        "wiki_saving": "Estou a escrever isso na wiki.",
+        "wiki_saved": "Guardado na wiki.",
+        "wiki_saved_detail": "Guardado na wiki: {detail}.",
+        "wiki_save_failed": "Não foi possível guardar na wiki.",
+        "wiki_save_failed_reason": "Não foi possível guardar na wiki: {reason}",
+        "wiki_nothing_to_save": "Não tenho a certeza do que escrever na wiki; diz-mo outra vez com o conteúdo.",
+        "ide_prompt_sent": "Enviado para {terminal}.",
+        "ide_prompt_sent_files": "Enviado para {terminal}, com {count} ficheiros anexados.",
+        "ide_prompt_sent_one_file": "Enviado para {terminal}, juntamente com {file}.",
+        "ide_terminal_not_running": "{terminal} não está a correr agora ({status}). Não enviei nada.",
+        "ide_prompt_sent_many": "Enviado para {names}.",
+        "ide_prompt_sent_partial": "Enviado para {names}. Não consegui chegar a {failed}.",
+        "ide_prompt_sent_nobody": "Não consegui chegar a {failed}, por isso não há nada em curso.",
+        "ide_prompt_typed_not_started": "Em {names} o texto está apenas na caixa de entrada.",
+        "ide_names_pair": "{head} e {last}",
+        "ide_terminals_spawned_one": "{names} está aberto.",
+        "ide_terminals_spawned": "{count} terminais novos: {names}.",
+        "ide_terminals_briefing_queued": "Entrego-lhes a tarefa assim que os terminais estiverem prontos.",
+        "ide_terminals_closed": "Fechei {count} terminais: {names}.",
+        "ide_terminals_none_to_close": "Não há terminais abertos que correspondam.",
+        "ide_terminals_spawned_capped": "Só foi possível abrir {count}: {names}.",
+        "ide_terminals_open_failed": "Não consegui abrir nenhum terminal.",
+        "ide_terminal_kind_unclear": "Ouvi {spoken}: referes-te a {first} ou a {second}?",
+        "ide_terminal_kind_unclear_one": "Ouvi {spoken}: referes-te a {first}?",
+        "ide_terminal_kind_unknown": "Não existe nenhum tipo de terminal {name}. Disponíveis: {available}.",
+        "ide_terminals_opened_workspace": "Abri {folder}: {names}.",
+        "ide_terminal_clarify_one": "Percebi {spoken}: referes-te a {name}?",
+        "ide_terminal_clarify_many": "Percebi {spoken}: referes-te a {names}?",
+        "ide_prompt_already_delivered": "{name} recebeu a tarefa às {time}: não a envio duas vezes.",
+        "join_or": " ou ",
+        "join_and": " e ",
+        "ide_terminal_clarify_also": "Também percebi {spoken}: referes-te a {names}?",
+        "ide_terminal_who_else": "Só consegui identificar {names}: quem mais?",
+        "ide_terminals_nowhere": "Não há nenhum espaço de trabalho aberto nem nenhum recente. Escolhe uma pasta no IDE agêntico."
+      },
+      "permission_cause_templates": "O Dodaios não tem neste momento a permissão de {name}.",
+      "permission_cause_names": {
+        "microphone": "Microfone",
+        "accessibility": "Acessibilidade",
+        "screen_recording": "Gravação de ecrã",
+        "input_monitoring": "Monitorização de entrada",
+        "automation": "Automatização",
+        "event_posting": "Acessibilidade"
+      }
+    },
+    "tool_confirmation": {
+      "tool_questions": {
+        "gmail": "Queres mesmo que envie o email? Diz sim ou não.",
+        "gmail_rest": "Queres mesmo que envie o email? Diz sim ou não.",
+        "call-contact": "Queres mesmo que faça a chamada? Diz sim ou não."
+      },
+      "generic_question": "Queres mesmo que faça isso? Diz sim ou não.",
+      "impact_questions": {
+        "destructive": "Cuidado, este comando apagaria algo ({commands}). Queres mesmo que o execute? Diz sim ou não.",
+        "modify": "Este comando alteraria algo no computador ({commands}). Queres que o execute? Diz sim ou não.",
+        "read": "Este comando só lê dados ({commands}). Queres que o execute? Diz sim ou não."
+      },
+      "outcome": {
+        "done": "Feito.",
+        "vetoed": "Ok, deixo estar.",
+        "timeout": "Não ouvi resposta, deixo estar.",
+        "failed": "Isso não funcionou.",
+        "unclear": "Diz só sim ou não, por favor.",
+        "unavailable": "Isso precisa da tua aprovação e aqui ninguém a pode dar. Por isso não o fiz."
+      }
+    },
+    "echo_confirmation": {
+      "value_words": {
+        "on": "ligado",
+        "off": "desligado",
+        "empty": "vazio"
+      },
+      "echo_templates": "Entendido — {label} muda de {old} para {new}. Confirmas?",
+      "echo_templates_sensitive": "Entendido — {label} para um valor novo. Confirmas?",
+      "outcome_words": {
+        "new_value": "o valor novo",
+        "old_value": "o valor anterior",
+        "validation_failed": "a validação falhou",
+        "unknown_error": "erro desconhecido"
+      },
+      "outcome_templates": {
+        "safe_applied": "Feito — {label} agora é {new}.",
+        "applied": "Pronto — {label} agora é {new}.",
+        "applied_restart": "Pronto — {label} agora é {new}. Reinicia o Dodaios para a alteração ter efeito.",
+        "validate_failed": "Não dá — {err}. A definição fica em {old}.",
+        "rollback": "Não consegui guardar, repus o estado anterior. {err}",
+        "vetoed": "Está bem, deixo estar.",
+        "timeout": "Não ouvi resposta, vou cancelar. A definição fica em {old}."
+      }
+    },
+    "parked_results": {
+      "anchor_pools": [
+        "Sobre o teu pedido de há pouco – {topic}: {result}",
+        "Voltando a {topic}: {result}",
+        "O resultado sobre {topic}: {result}"
+      ],
+      "anchor_pools_no_topic": [
+        "Sobre o teu pedido de há pouco: {result}",
+        "Voltando ao que pediste há pouco: {result}"
+      ]
+    },
+    "config_readback": {
+      "phrases": {
+        "applied": "Feito — {label} agora é {value}.",
+        "applied_restart": "Feito — {label} agora é {value}. Reinicia o Dodaios uma vez para que tenha efeito.",
+        "refused": "Isso não altero por voz — faz isso de propósito nas Definições.",
+        "unknown_setting": "Essa não é uma definição que eu possa alterar.",
+        "invalid_value": "Assim não dá — a definição fica sem alterações.",
+        "rollback": "Não consegui guardar, repus o estado anterior."
+      }
+    }
+  },
+  "tools": {
+    "delegate": {
+      "ack": "{name} trata disso, eu aviso-te.",
+      "quiet_ack": "{name} trata disso.",
+      "error_ack": "{name} trata disso; aviso-te se houver impedimentos.",
+      "queued": "A tarefa para {name} está registada; o início ainda não está confirmado.",
+      "no_agent": "Não conheço nenhum agente chamado {target}.",
+      "ask_agent": "Referes-te a {names}?",
+      "or": " ou ",
+      "available": "Agentes disponíveis: {names}.",
+      "no_fit": "Nenhum dos teus agentes se adequa a esta tarefa.",
+      "refused": "{name} não pode tratar disso agora: {reason}.",
+      "not_ready": "Os agentes ainda não estão prontos.",
+      "status_idle": "{name} não tem nada para fazer agora.",
+      "status_working": "{name} está a trabalhar em: {text}",
+      "status_last": "{name}: último {kind}, {text}",
+      "roster": "Os teus agentes: {names}.",
+      "empty_roster": "Ainda não tens agentes na tua equipa."
+    },
+    "dispatch_review": {
+      "voice_holding_phrases": "Deixa-me trabalhar um pouco na tarefa.",
+      "voice_outcome_templates": {
+        "success": "Feito — {summary}",
+        "cap_fired": "Aqui está o meu melhor resultado, com uma ressalva: {top_issue}",
+        "fail": "Assim não funciona — {summary}",
+        "precheck_fail": "A tarefa é demasiado curta ou pouco clara — tenta outra vez com mais contexto."
+      },
+      "voice_fallback_fillers": {
+        "success": "concluído",
+        "cap_fired": "algumas pequenas dúvidas pendentes",
+        "fail": "um defeito de arquitetura"
+      }
+    }
+  },
+  "telephony": {
+    "default_greetings": "Olá, em que posso ajudar?",
+    "named_greetings": "Olá, sou {name}. Em que posso ajudar?",
+    "fallback_phrases": "Desculpa, não percebi. Podes repetir?"
+  },
+  "cu": {
+    "indicator": {
+      "esc_hints": "Esc para cancelar"
+    }
+  },
+  "clis": {
+    "capability": {
+      "refusal_hints": {
+        "installed": " {name} está instalado, mas ainda não está ligado — diz-me e configuramos isso.",
+        "catalog": " O catálogo de CLI tem {name} para isso — posso configurá-lo contigo."
+      }
+    }
+  },
+  "ui": {
+    "desktop": {
+      "conductor_news_phrases": {
+        "failing": "A tarefa agendada {name} começou a falhar.",
+        "recovered": "A tarefa agendada {name} voltou a funcionar."
+      }
+    }
+  },
+  "harness": {
+    "step_progress": "Passo {done} de {total} concluído."
   }
 }

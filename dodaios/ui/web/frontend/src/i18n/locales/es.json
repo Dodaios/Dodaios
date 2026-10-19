@@ -7229,7 +7229,13 @@
     "hide_changes": "Ocultar cambios",
     "more_files_one": "Mostrar {count} archivo más",
     "more_files_other": "Mostrar {count} archivos más",
-    "collapse_files": "Contraer archivos"
+    "collapse_files": "Contraer archivos",
+    "errors": {
+      "mandated_tool_unfulfilled": "El paso necesario no se ejecutó, así que no pude responder con fiabilidad. Inténtalo de nuevo.",
+      "unbacked_action_claim": "No pude confirmar que la acción ocurriera de verdad, así que no lo afirmé. Inténtalo de nuevo.",
+      "guarded_response": "La respuesta se retuvo porque no se pudo verificar. Inténtalo de nuevo.",
+      "delegation_continuation_limit": "El trabajo delegado necesitó demasiadas rondas y se detuvo. Vuelve a preguntar."
+    }
   },
   "work_trace": {
     "tool_failed": "Falló una acción de herramienta",
@@ -8250,6 +8256,14 @@
         "session_empty": "Esta sesión todavía no ha cambiado ningún archivo, o su agente no guarda registro de sus ediciones.",
         "session_committed": "confirmado",
         "session_generated": "{n} archivos generados ocultos",
+        "follow_main": "Mantener esta app en el main más reciente",
+        "follow_main_on": "Esta app se mantiene en el main más reciente.",
+        "follow_busy_update": "Actualizando al main más reciente…",
+        "follow_busy_install": "Instalando paquetes para la actualización…",
+        "follow_busy_build": "Construyendo la nueva interfaz…",
+        "follow_restart_pending": "Hay código nuevo; la app se reinicia en cuanto no haya ninguna misión ni llamada en curso.",
+        "follow_updated": "Actualizado {when}: {subject}",
+        "follow_click_off": "Haz clic para dejar de seguir main.",
         "session_diff_badge": "Cambios de {pane}"
       }
     },

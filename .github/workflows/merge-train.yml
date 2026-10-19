@@ -129,7 +129,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
-      - name: Regenerator dependencies (mirrors, reference docs, locks)
+      - name: Regenerator dependencies (reference docs, locks)
         # main's own checkout; each PR worktree is put first on PYTHONPATH
         # when its generators run.
         run: |
