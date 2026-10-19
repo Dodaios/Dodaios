@@ -48,7 +48,7 @@ from rich.panel import Panel
 from rich.theme import Theme
 
 from dodaios.core import config as cfg
-from dodaios.core.branding import CONFIG_FILE_NAME
+from dodaios.core.identity_boot import resolve_config_file
 from dodaios.core.process_utils import wait_procs
 from dodaios.setup.wizard import SECRETS
 
@@ -80,7 +80,7 @@ class UninstallPlan:
 
     @property
     def config_file(self) -> Path:
-        return self.install_dir / CONFIG_FILE_NAME
+        return resolve_config_file(self.install_dir)
 
     @property
     def data_dir(self) -> Path:

@@ -38,6 +38,8 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from dodaios.core.branding import LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES, OBSIDIAN_VAULT_FOLDER_NAME
+from dodaios.core.identity_boot import resolve_named_dir
 from dodaios.memory.wiki.vault_root import resolve_vault_root
 from dodaios.setup.obsidian import (
     detect_obsidian,
@@ -364,7 +366,12 @@ def obsidian_register(
                 active_vault_root=str(_resolve_vault_path(request)),
                 restart_required=False,
             )
-        jarvis_root = target_vault / "Jarvis"
+        # A new registration gets the current folder name. A folder an earlier
+        # registration of this vault created under the old name is reused, so
+        # the notes already in it stay the wiki.
+        jarvis_root = resolve_named_dir(
+            target_vault, OBSIDIAN_VAULT_FOLDER_NAME, LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES
+        )
         # ``dry_run`` previews the would-be vault root without touching disk
         # or config — same contract the ``separate`` branch gives the flag.
         if not dry_run:

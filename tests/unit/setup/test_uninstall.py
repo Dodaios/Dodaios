@@ -79,7 +79,10 @@ def test_build_plan_reflects_real_repo(monkeypatch: pytest.MonkeyPatch) -> None:
     assert plan.install_dir == Path(cfg.PROJECT_ROOT).resolve()
     # The repo we run from IS a Jarvis install.
     assert plan.is_jarvis_install is True
-    assert plan.config_file == plan.install_dir / "jarvis.toml"
+    # jarvis.toml while the checkout has one, else dodaios.toml.
+    from dodaios.core.identity_boot import resolve_config_file
+
+    assert plan.config_file == resolve_config_file(plan.install_dir)
     assert plan.data_dir == plan.install_dir / "data"
 
 

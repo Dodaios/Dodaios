@@ -20,7 +20,8 @@ _CURRENT_IDENTITY = {
     "PRODUCT_COMPACT_NAME": "PersonalJarvis",
     "PRODUCT_SLUG": "personal-jarvis",
     "LAUNCHER_ENTRY_NAME": "Personal Jarvis",
-    "CONFIG_FILE_NAME": "jarvis.toml",
+    "CONFIG_FILE_NAME": "dodaios.toml",
+    "LEGACY_CONFIG_FILE_NAMES": ("jarvis.toml",),
     "DISTRIBUTION_NAME": "personal-jarvis",
     "CLI_COMMAND_NAME": "dodaios",
     "CONTROL_CLI_COMMAND_NAME": "dodaiosctl",
@@ -34,10 +35,18 @@ _CURRENT_IDENTITY = {
     "SESSION_COOKIE_NAME": "jarvis_session",
     "MANAGED_INSTALL_MARKER": ".jarvis-managed-install",
     "DEFAULT_INSTALL_DIR_NAME": ".personal-jarvis",
-    "WINDOWS_USER_DATA_DIR_NAME": "Jarvis",
-    "FALLBACK_USER_DATA_DIR_NAME": ".jarvis",
-    "DESKTOP_OUTPUT_MIRROR_DIR_NAME": "Jarvis-Output",
+    "WINDOWS_USER_DATA_DIR_NAME": "Dodaios",
+    "LEGACY_WINDOWS_USER_DATA_DIR_NAMES": ("Jarvis",),
+    "FALLBACK_USER_DATA_DIR_NAME": ".dodaios-data",
+    "LEGACY_FALLBACK_USER_DATA_DIR_NAMES": (".jarvis",),
+    "DESKTOP_OUTPUT_MIRROR_DIR_NAME": "Dodaios-Output",
+    "LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES": ("Jarvis-Output",),
+    "DELIVERABLES_DIR_NAME": "Dodaios-Outputs",
+    "LEGACY_DELIVERABLES_DIR_NAMES": ("Jarvis-Outputs",),
+    "OBSIDIAN_VAULT_FOLDER_NAME": "Dodaios",
+    "LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES": ("Jarvis",),
     "WINDOWS_MUTEX_NAME": r"Global\PersonalJarvis_v1",
+    "LEGACY_WINDOWS_MUTEX_NAMES": (),
     "WINDOWS_APP_USER_MODEL_ID": "PersonalJarvis.PersonalJarvis",
     "WINDOWS_UNINSTALL_REGISTRY_SUBKEY": (
         r"Software\Microsoft\Windows\CurrentVersion\Uninstall\PersonalJarvis"
@@ -70,6 +79,27 @@ _CURRENT_IDENTITY = {
 }
 
 
+# Names that moved to the product's spelling together with their migration.
+# Each keeps its earlier values in the matching ``LEGACY_*`` tuple.
+_MIGRATED_TO_THE_PRODUCT_NAME = frozenset(
+    {
+        "CONFIG_FILE_NAME",
+        "WINDOWS_USER_DATA_DIR_NAME",
+        "FALLBACK_USER_DATA_DIR_NAME",
+        "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
+        "DELIVERABLES_DIR_NAME",
+        "OBSIDIAN_VAULT_FOLDER_NAME",
+    }
+)
+
+
+def test_every_migrated_name_keeps_its_earlier_values() -> None:
+    for name in _MIGRATED_TO_THE_PRODUCT_NAME:
+        legacy = getattr(branding, f"LEGACY_{name}S")
+        assert legacy, name
+        assert getattr(branding, name) not in legacy, name
+
+
 def test_default_exported_identity_values_are_frozen() -> None:
     previous = os.environ.pop(branding.OFFICIAL_REPO_SLUG_ENV_VAR, None)
     try:
@@ -90,10 +120,11 @@ def test_display_name_is_separate_from_persistent_identity() -> None:
     for name in _CURRENT_IDENTITY:
         if "REPO" in name or "RELEASES" in name:
             continue  # the repository is itself called Dodaios/Dodaios
-        if "CLI_COMMAND" in name:
-            # The commands are spelled like the product by choice, as literals
-            # of their own: the next test shows they do not follow the display
-            # name, and the earlier command names stay beside them.
+        if "CLI_COMMAND" in name or name in _MIGRATED_TO_THE_PRODUCT_NAME:
+            # Spelled like the product by choice, as literals of their own: the
+            # next test shows they do not follow the display name, and each
+            # keeps its earlier names beside it, found by the migration that
+            # carried it over (dodaios.core.identity_boot).
             continue
         assert display not in str(getattr(branding, name)).casefold(), name
 
