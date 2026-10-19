@@ -66,7 +66,10 @@ export function SelfBuildView() {
   const status = list.data?.status;
   const selected = builds.find((b) => b.id === selectedId) ?? null;
   const limits = settings.data?.settings;
-  const canBuild = (build: Build) => Boolean(status?.builders.includes(build.kind));
+  // Accepting starts a build, so it waits while building is paused.
+  const canBuild = (build: Build) => Boolean(status?.builders.includes(build.kind)) && !status?.paused;
+  const blockedTitle = (build: Build) =>
+    status?.paused ? t("self_build.notes.paused") : !status?.builders.includes(build.kind) ? t("self_build.no_builder") : undefined;
 
   const onAction = (build: Build, action: BuildAction) => {
     setError(null);
@@ -109,6 +112,7 @@ export function SelfBuildView() {
                   selectedId={selectedId}
                   onSelect={(b) => setSelectedId(b.id === selectedId ? null : b.id)}
                   canBuild={canBuild}
+                  blockedTitle={blockedTitle}
                   busyId={act.isPending ? act.variables?.id ?? null : null}
                   onAction={onAction}
                   limits={limits}
@@ -122,6 +126,7 @@ export function SelfBuildView() {
                   build={selected}
                   limits={limits}
                   canBuild={canBuild(selected)}
+                  blockedTitle={blockedTitle(selected)}
                   busy={act.isPending && act.variables?.id === selected.id}
                   onAction={onAction}
                   onClose={() => setSelectedId(null)}
@@ -235,7 +240,6 @@ function Notes({ status }: { status: SelfBuildStatus | undefined }) {
   const t = useT();
   const kill = useSocietyKillSwitch();
   const setKill = useSetSocietyKillSwitch();
-  const pause = useSelfBuildPause();
   const setActive = useEventStore((s) => s.setActiveSection);
   const notes: ReactNode[] = [];
   if (kill.data === true) {
@@ -261,8 +265,8 @@ function Notes({ status }: { status: SelfBuildStatus | undefined }) {
     );
   } else if (status?.paused) {
     notes.push(
-      <Note key="paused" tone="warning" testId="note-paused"
-        action={{ label: t("self_build.resume"), onClick: () => pause.mutate(false), busy: pause.isPending }}>
+      // The resume button sits in the header right above; the note only says why.
+      <Note key="paused" tone="warning" testId="note-paused">
         {t("self_build.notes.paused")}
       </Note>,
     );
@@ -379,6 +383,7 @@ function ShelfSection({
   selectedId,
   onSelect,
   canBuild,
+  blockedTitle,
   busyId,
   onAction,
   limits,
@@ -388,6 +393,7 @@ function ShelfSection({
   selectedId: string | null;
   onSelect: (build: Build) => void;
   canBuild: (build: Build) => boolean;
+  blockedTitle: (build: Build) => string | undefined;
   busyId: string | null;
   onAction: (build: Build, action: BuildAction) => void;
   limits: { trial_days: number; trial_uses: number } | undefined;
@@ -427,6 +433,7 @@ function ShelfSection({
               selected={build.id === selectedId}
               onSelect={() => onSelect(build)}
               canBuild={canBuild(build)}
+              blockedTitle={blockedTitle(build)}
               busy={busyId === build.id}
               onAction={onAction}
               limits={limits}
@@ -443,6 +450,7 @@ function BuildRow({
   selected,
   onSelect,
   canBuild,
+  blockedTitle,
   busy,
   onAction,
   limits,
@@ -451,6 +459,7 @@ function BuildRow({
   selected: boolean;
   onSelect: () => void;
   canBuild: boolean;
+  blockedTitle?: string;
   busy: boolean;
   onAction: (build: Build, action: BuildAction) => void;
   limits: { trial_days: number; trial_uses: number } | undefined;
@@ -520,7 +529,7 @@ function BuildRow({
         <div className="flex shrink-0 flex-col items-end gap-2.5">
           <LifecycleRail state={build.state} reached={reachedStep(build)} compact />
           {(build.state === "proposed" || build.state === "trial") && (
-            <BuildActions build={build} canBuild={canBuild} busy={busy} onAction={onAction} />
+            <BuildActions build={build} canBuild={canBuild} blockedTitle={blockedTitle} busy={busy} onAction={onAction} />
           )}
         </div>
       </div>

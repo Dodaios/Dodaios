@@ -21,7 +21,12 @@ interface Choice {
   title?: string;
 }
 
-export function choicesFor(build: Build, canBuild: boolean, t: (key: string) => string): Choice[] {
+export function choicesFor(
+  build: Build,
+  canBuild: boolean,
+  t: (key: string) => string,
+  blockedTitle?: string,
+): Choice[] {
   switch (build.state) {
     case "proposed":
       return [
@@ -30,7 +35,7 @@ export function choicesFor(build: Build, canBuild: boolean, t: (key: string) => 
           label: t("self_build.action.accept"),
           primary: true,
           disabled: !canBuild,
-          title: canBuild ? undefined : t("self_build.no_builder"),
+          title: canBuild ? undefined : blockedTitle ?? t("self_build.no_builder"),
         },
         { action: "undo", label: t("self_build.action.reject"), primary: false },
       ];
@@ -57,18 +62,20 @@ export function choicesFor(build: Build, canBuild: boolean, t: (key: string) => 
 export function BuildActions({
   build,
   canBuild,
+  blockedTitle,
   busy,
   onAction,
   size = "sm",
 }: {
   build: Build;
   canBuild: boolean;
+  blockedTitle?: string;
   busy: boolean;
   onAction: ActionHandler;
   size?: "sm" | "default";
 }) {
   const t = useT();
-  const choices = choicesFor(build, canBuild, t);
+  const choices = choicesFor(build, canBuild, t, blockedTitle);
   if (!choices.length) return null;
   return (
     <div className="flex shrink-0 items-center gap-1.5" data-testid="build-actions">

@@ -54,67 +54,91 @@ export function LifecycleRail({
   const steps = lifecycleSteps();
   const onPath = steps.includes(state);
   const endLabel = !onPath && labels ? labels[`end:${state}`] : undefined;
+  if (!compact) {
+    // Five equal columns over one track: the filled part of the track runs
+    // from the first step to the last one reached.
+    const span = steps.length - 1;
+    const filled = Math.max(0, Math.min(reached, span)) / span;
+    return (
+      <div className="flex items-start gap-3" data-testid="build-rail" data-state={state} data-reached={reached}>
+        <div className="relative grid min-w-0 flex-1 grid-cols-5">
+          <span aria-hidden className="absolute left-[10%] right-[10%] top-[5px] h-px bg-border-strong" />
+          <span
+            aria-hidden
+            className={cn("absolute left-[10%] top-[5px] h-px", onPath ? "bg-foreground-strong" : "bg-muted-foreground")}
+            style={{ width: `${filled * 80}%` }}
+          />
+          {steps.map((step, index) => {
+            const done = index <= reached;
+            const here = onPath && index === reached;
+            const live = here && state !== "kept" && state !== "proposed";
+            return (
+              <div key={step} className="relative flex min-w-0 flex-col items-center">
+                <span
+                  aria-hidden
+                  className={cn(
+                    "block h-[11px] w-[11px] rounded-full border-2 transition-colors",
+                    done
+                      ? onPath
+                        ? "border-foreground-strong bg-foreground-strong"
+                        : "border-muted-foreground bg-muted-foreground"
+                      : "border-border-strong bg-card",
+                    here && "ring-4 ring-accent/25",
+                    live && "motion-safe:animate-pulse",
+                  )}
+                />
+                {labels && (
+                  <span
+                    className={cn(
+                      "mt-2 max-w-full truncate text-xs",
+                      here ? "font-medium text-foreground-strong" : done ? "text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {labels[step]}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {!onPath && endLabel && (
+          <span
+            className={cn(
+              "-mt-1 shrink-0 rounded-full border border-border px-2 py-0.5 text-xs",
+              END_TONE[state] ?? "text-muted-foreground",
+            )}
+            data-testid="build-rail-end"
+          >
+            {endLabel}
+          </span>
+        )}
+      </div>
+    );
+  }
+  // The row's mini rail: five dots and four short rules, no labels.
   return (
-    <div
-      className={cn("flex items-center", compact ? "gap-1" : "gap-0")}
-      data-testid={compact ? "build-rail-mini" : "build-rail"}
-      data-state={state}
-      data-reached={reached}
-    >
+    <div className="flex items-center gap-1" data-testid="build-rail-mini" data-state={state} data-reached={reached}>
       {steps.map((step, index) => {
         const done = index <= reached;
-        const here = onPath && index === reached;
-        const live = here && state !== "kept" && state !== "proposed";
         return (
-          <div key={step} className={cn("flex items-center", !compact && "min-w-0 flex-1")}>
-            <div className={cn("flex flex-col items-center", !compact && "min-w-0")}>
-              <span
-                aria-hidden
-                className={cn(
-                  "block rounded-full border transition-colors",
-                  compact ? "h-1.5 w-1.5" : "h-2.5 w-2.5",
-                  done ? "border-foreground-strong bg-foreground-strong" : "border-border-strong bg-transparent",
-                  here && !compact && "ring-4 ring-accent/25",
-                  live && "motion-safe:animate-pulse",
-                  !onPath && done && index === reached && "border-muted-foreground bg-muted-foreground",
-                )}
-              />
-              {!compact && labels && (
-                <span
-                  className={cn(
-                    "mt-2 truncate text-xs",
-                    here ? "font-medium text-foreground-strong" : done ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {labels[step]}
-                </span>
+          <div key={step} className="flex items-center gap-1">
+            <span
+              aria-hidden
+              className={cn(
+                "block h-1.5 w-1.5 rounded-full border",
+                done
+                  ? onPath
+                    ? "border-foreground-strong bg-foreground-strong"
+                    : "border-muted-foreground bg-muted-foreground"
+                  : "border-border-strong bg-transparent",
               )}
-            </div>
+            />
             {index < steps.length - 1 && (
-              <span
-                aria-hidden
-                className={cn(
-                  "block h-px",
-                  compact ? "w-2" : "mx-1.5 mb-6 flex-1",
-                  index < reached ? "bg-foreground-strong" : "bg-border-strong",
-                  !onPath && index >= reached && "bg-border",
-                )}
-              />
+              <span aria-hidden className={cn("block h-px w-2", index < reached && onPath ? "bg-foreground-strong" : "bg-border-strong")} />
             )}
           </div>
         );
       })}
-      {!onPath && !compact && endLabel && (
-        <span
-          className={cn(
-            "mb-6 ml-2 shrink-0 rounded-full border border-border px-2 py-0.5 text-xs",
-            END_TONE[state] ?? "text-muted-foreground",
-          )}
-          data-testid="build-rail-end"
-        >
-          {endLabel}
-        </span>
-      )}
     </div>
   );
 }
