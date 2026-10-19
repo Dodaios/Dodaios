@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, History, Square, SquarePen, Trash2 } from "lucide-react";
+import { ArrowUp, History, Paperclip, Square, SquarePen, Trash2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { joinProviderOptions } from "@/store/agentChat";
+import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { DictationButton } from "@/components/agentchat/DictationButton";
+import { releaseHeldFiles, restoreHeldFiles, useChatAttachments } from "@/components/agentchat/useChatAttachments";
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { AgentModelPicker, EffortPicker } from "@/components/agentic/threads/ThreadPickers";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "@/components/agentic/threads/ThreadPopover";
@@ -40,7 +42,10 @@ const ICON_BTN =
 /**
  * The side panel's Chat surface: a plain AI chat with the model you pick.
  *
- * Ask anything, typed or dictated, and read the answer. It is not a coding
+ * Ask anything, typed or dictated, and read the answer. Images, videos and
+ * files go in by drop, paste or the paperclip; the backend reads them (an
+ * image described, a document extracted) and the text travels with the
+ * message, so a tool-free model still sees what was attached. It is not a coding
  * agent and knows nothing about the workspace: no seat on its surface has
  * tools, and the model is told only how to answer. Answers stream, and a
  * model's thinking folds behind one line once it is done.
@@ -78,6 +83,18 @@ export function SideChatTab() {
   const sendRef = useRef<() => void>(() => undefined);
   const dictation = useComposerDictation(setDictated, () => sendRef.current());
 
+  // Files for the next message, kept per chat like the typed text.
+  const [attachError, setAttachError] = useState("");
+  const onAttachProblem = useCallback((problem: string, severity: "warning" | "error") => {
+    setAttachError(severity === "warning" ? t("agent_chat.attach_nothing") : problem);
+  }, [t]);
+  const files = useChatAttachments(
+    { sessionId: activeSessionId, cwd: draft.cwd, provider: draft.provider, surface: "side" },
+    onAttachProblem,
+    { owner: useSideChatStore, key: activeSessionId ?? "" },
+  );
+  const fileInput = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     const store = useSideChatStore.getState();
     if (!store.catalog || store.catalogStale) void store.loadCatalog();
@@ -100,7 +117,9 @@ export function SideChatTab() {
   );
   const provider = providers.find((option) => option.id === draft.provider) ?? null;
   const running = busy || timeline.items.some((item) => item.type === "turn" && item.status === "running");
-  const canSend = (message.trim().length > 0 || dictation.dictating) && !running && Boolean(provider?.connected);
+  const hasFiles = files.attachments.length > 0;
+  const canSend = (message.trim().length > 0 || hasFiles || dictation.dictating)
+    && !running && files.analyzing === 0 && Boolean(provider?.connected);
   const started = timeline.items.length > 0;
 
   const send = useCallback(async () => {
@@ -109,12 +128,23 @@ export function SideChatTab() {
       return;
     }
     const text = message.trim();
-    if (!text || running) return;
+    // A file alone is a whole message: a dropped screenshot plus Enter.
+    if ((!text && !hasFiles) || running) return;
+    if (files.analyzing > 0) return; // it would go without its contents
+    const sessionAtSend = activeSessionId;
+    const held = files.take();
     setMessage("");
-    const outcome = await useSideChatStore.getState().send(text);
-    // A message that never left comes back into the box.
-    if (outcome === "failed") setMessage(text);
-  }, [dictation, message, running, setMessage]);
+    setAttachError("");
+    const store = useSideChatStore.getState();
+    const outcome = await store.send(text, held.attachments);
+    // A message that never left comes back into the box, files included.
+    if (outcome === "failed" || (outcome === undefined && useSideChatStore.getState().lastError)) {
+      setMessage(text);
+      restoreHeldFiles(useSideChatStore, sessionAtSend ?? "", held);
+    } else {
+      releaseHeldFiles(held);
+    }
+  }, [activeSessionId, dictation, files, hasFiles, message, running, setMessage]);
   sendRef.current = () => void send();
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -146,7 +176,14 @@ export function SideChatTab() {
   const title = listed?.title?.trim() || activeSession?.title?.trim() || t("ide_side_panel.chat.new_chat");
 
   return (
-    <div data-testid="side-chat-tab" className="flex h-full min-h-0 flex-col">
+    // The whole tab takes a drop: a side panel is narrow, and a target smaller
+    // than the area that looks like the chat is a target people miss.
+    <div data-testid="side-chat-tab" data-dragging={files.dragging ? "true" : undefined} {...files.dragHandlers}
+      className="relative flex h-full min-h-0 flex-col">
+      {files.dragging && <div data-testid="side-chat-drop-overlay" aria-hidden
+        className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/70 bg-card/95 px-6 text-center text-sm font-medium text-primary">
+        {t("agent_chat.attach_drop_hint")}
+      </div>}
       <header className="flex h-10 shrink-0 items-center gap-1 border-b border-border/60 px-2">
         <span className="min-w-0 flex-1 truncate px-1 text-sm text-foreground" data-testid="side-chat-title">{title}</span>
         <button ref={historyAnchor} type="button" onClick={() => setHistoryOpen((value) => !value)} aria-haspopup="menu" aria-expanded={historyOpen}
@@ -180,10 +217,14 @@ export function SideChatTab() {
         </div>}
 
       <div className="shrink-0 px-3 pb-3 pt-1">
-        {error && <p role="alert" data-testid="side-chat-error" className="mb-2 px-1 text-xs text-destructive">{error}</p>}
+        {(error || attachError) && <p role="alert" data-testid="side-chat-error" className="mb-2 px-1 text-xs text-destructive">{error || attachError}</p>}
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong">
+          {(hasFiles || files.analyzing > 0) && <div className="px-3 pt-3">
+            <ChatAttachmentStrip attachments={files.attachments} analyzing={files.analyzing}
+              onRemove={files.remove} previews={files.previews} look="thumbnail" />
+          </div>}
           <textarea ref={input} value={message} rows={2} autoFocus
-            onChange={(event) => setMessage(event.target.value)} onKeyDown={onKeyDown}
+            onChange={(event) => setMessage(event.target.value)} onKeyDown={onKeyDown} onPaste={files.onPaste}
             aria-label={t("ide_side_panel.chat.input_aria")} placeholder={t("ide_side_panel.chat.placeholder")}
             data-testid="side-chat-input"
             className="block max-h-[36vh] min-h-[64px] w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-base leading-6 text-foreground outline-none placeholder:text-faint-foreground scrollbar-jarvis" />
@@ -196,6 +237,16 @@ export function SideChatTab() {
                 onPick={(effort) => void useSideChatStore.getState().setDraft({ effort })} />
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
+            <input ref={fileInput} type="file" multiple className="sr-only" tabIndex={-1} data-testid="side-chat-file-input"
+              onChange={(event) => {
+                const picked = Array.from(event.currentTarget.files ?? []);
+                event.currentTarget.value = "";
+                if (picked.length > 0) files.attachFiles(picked);
+              }} />
+            <button type="button" onClick={() => fileInput.current?.click()} data-testid="side-chat-attach"
+              aria-label={t("agent_chat.attach")} title={t("agent_chat.attach_hint")} className={cn(ICON_BTN, "h-8 w-8 rounded-full")}>
+              <Paperclip className="h-4 w-4" aria-hidden />
+            </button>
             <DictationButton dictating={dictation.dictating} onToggle={dictation.toggle}
               startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
             {running
