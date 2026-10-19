@@ -128,7 +128,7 @@ describe("useWebSocket permission wiring", () => {
 
     MockWebSocket.last!.deliver(envelope("PermissionNeeded", needed));
 
-    expect(await screen.findByText("Personal Jarvis needs microphone access to hear you.")).toBeTruthy();
+    expect(await screen.findByText("Dodaios needs microphone access to hear you.")).toBeTruthy();
     expect(screen.getAllByTestId("toast-action")).toHaveLength(1);
     expect(screen.getByTestId("toast-action").textContent).toBe("Open System Settings");
   });
@@ -224,7 +224,7 @@ describe("useWebSocket permission wiring", () => {
 
     MockWebSocket.last!.deliver({ type: "welcome", session_id: "s1" });
     await waitFor(() => expect(useEventStore.getState().toasts.length).toBeGreaterThan(0));
-    expect(await screen.findByText("Personal Jarvis needs microphone access to hear you.")).toBeTruthy();
+    expect(await screen.findByText("Dodaios needs microphone access to hear you.")).toBeTruthy();
     expect(screen.getByText(/The wake word cannot listen/)).toBeTruthy();
 
     // The person lets them expire; the socket reconnects: nothing is repeated.
