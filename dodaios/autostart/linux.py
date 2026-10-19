@@ -42,6 +42,7 @@ from dodaios.core.desktop_entry import (
     unescape_value,
 )
 
+from .paths import same_path
 from .protocol import AutostartStatus, LaunchSpec
 
 log = logging.getLogger(__name__)
@@ -152,6 +153,34 @@ def _disabled_by_desktop(text: str) -> bool:
     )
 
 
+def _points_here(text: str, spec: LaunchSpec) -> bool:
+    """Does the entry start this install, under any spelling of its folder?
+
+    Exec is compared in its ENCODED form (both sides come from
+    ``_exec_value``); Path is compared decoded, so an entry another tool
+    re-encoded differently still recognises its own install. An entry written
+    before the install folder moved names the folder by its earlier path, which
+    a link still leads to: it is this install when that folder is the same one
+    on disk and its command is this command with the earlier folder spelled in.
+    """
+    stored_exec = read_field(text, "Exec")
+    stored_dir = unescape_value(read_field(text, "Path") or "")
+    if stored_exec == _exec_value(spec) and stored_dir == spec.working_dir:
+        return True
+    if not stored_dir or not same_path(stored_dir, spec.working_dir):
+        return False
+    try:
+        inner = os.path.relpath(spec.program, spec.working_dir)
+    except ValueError:
+        # Another drive (Windows only): the program is not inside the folder.
+        inner = os.pardir
+    if inner == os.pardir or inner.startswith(os.pardir + os.sep):
+        program = spec.program
+    else:
+        program = os.path.join(stored_dir, inner)
+    return stored_exec == exec_value(program, spec.args) and same_path(program, spec.program)
+
+
 class LinuxAutostart:
     """XDG ``.desktop`` autostart manager."""
 
@@ -189,13 +218,7 @@ class LinuxAutostart:
                 entry_path=str(self._path),
                 detail=f"Autostart entry present but unreadable: {exc}.",
             )
-        # Exec is compared in its ENCODED form (both sides come from
-        # ``_exec_value``); Path is compared decoded, so an entry another tool
-        # re-encoded differently still recognises its own install.
-        points_here = (
-            read_field(text, "Exec") == _exec_value(spec)
-            and unescape_value(read_field(text, "Path") or "") == spec.working_dir
-        )
+        points_here = _points_here(text, spec)
         switched_off = _disabled_by_desktop(text)
         matches = points_here and not switched_off
         if matches:
