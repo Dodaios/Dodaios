@@ -8,7 +8,7 @@ order: 3
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-07-30
+last_reviewed: 2026-10-19
 phase: "-"
 audience: end-user
 tags: [languages, voice, speech, settings]
@@ -88,12 +88,12 @@ Read [Dictate Into Any App](dictation) for history and recovery.
 
 ## Choose Pipeline or Realtime Voice
 
-Open **API Keys & Providers** and choose the voice engine:
+Open **API Keys & Providers > Live calls** and choose the **Voice engine**:
 
 | Engine | How it works | Where the voice comes from |
 |---|---|---|
-| **Pipeline** | Speech recognition creates text, the Brain writes a reply, and text-to-speech creates audio | The active **Voice Output** provider |
-| **Realtime** | One live provider listens and speaks in the same session | The model and voice selected on that Realtime provider card |
+| **Pipeline** | Speech recognition creates text, the Brain writes a reply, and text-to-speech creates audio | The active **Voice Output** provider, listed on the same tab |
+| **GPT-Live** (Realtime) | One live provider listens and speaks in the same session | The voice selected in the GPT-Live settings |
 
 The engines keep separate choices. Realtime requires a ready Realtime provider;
 if no session opens, the app can fall back to Pipeline. Any fallback can change

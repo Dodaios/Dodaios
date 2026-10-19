@@ -351,7 +351,21 @@ export function useVoiceMode() {
         ? q.data?.last_start_error ?? null
         : null,
     setMode: m.mutate,
+    /** Why the last switch was refused, in the backend's words; null otherwise. */
+    saveError: m.error ? refusalText(m.error) : null,
     isLoading: q.isLoading,
     isSaving: m.isPending,
   };
+}
+
+/** The backend answers a refused switch with `{"detail": "..."}`; show the sentence. */
+function refusalText(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  try {
+    const detail = (JSON.parse(raw) as { detail?: unknown }).detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+  } catch {
+    // Not JSON: the text itself is the reason.
+  }
+  return raw;
 }
