@@ -8249,7 +8249,8 @@
         "stage_session": "暂存该会话的待处理更改",
         "session_empty": "此会话尚未更改任何文件，或其代理不记录编辑。",
         "session_committed": "已提交",
-        "session_generated": "已隐藏 {n} 个生成的文件"
+        "session_generated": "已隐藏 {n} 个生成的文件",
+        "session_diff_badge": "{pane} 的更改"
       }
     },
     "skills": {

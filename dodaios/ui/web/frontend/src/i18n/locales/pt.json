@@ -8249,7 +8249,8 @@
         "stage_session": "Preparar as alterações pendentes da sessão",
         "session_empty": "Esta sessão ainda não alterou nenhum arquivo, ou o agente não guarda registro das edições.",
         "session_committed": "com commit",
-        "session_generated": "{n} arquivos gerados ocultos"
+        "session_generated": "{n} arquivos gerados ocultos",
+        "session_diff_badge": "Alterações de {pane}"
       }
     },
     "skills": {

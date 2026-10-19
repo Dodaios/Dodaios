@@ -318,10 +318,12 @@ describe("GitOverviewTab — one agent session", () => {
     expect(within(files[0]).queryByTestId("scm-session-stage")).toBeNull();
     fireEvent.click(within(files[1]).getByTestId("scm-session-stage"));
     await vi.waitFor(() => expect(posted("scm/stage")).toEqual([{ workspace_id: "w1", paths: ["app.py"] }]));
+    // A file in the shared folder opens in the editor's diff, against the code before the session.
     fireEvent.click(files[0]);
-    expect(await screen.findByTestId("scm-diff-dialog")).toBeTruthy();
-    await vi.waitFor(() => expect(gets.some((url) => url.includes("/scm/session-file") && url.includes("base=b0b0b0b0b0b0"))).toBe(true));
-    fireEvent.click(screen.getByTestId("scm-diff-close"));
+    const editor = useCodeEditorStore.getState();
+    expect(editor.tabs.map((tab) => [tab.path, tab.mode])).toEqual([["src/widget.ts", "diff"]]);
+    expect(editor.diffBases[editor.tabs[0].fileKey]?.ref).toBe("b0b0b0b0b0b0");
+    expect(screen.queryByTestId("scm-diff-dialog")).toBeNull();
     fireEvent.click(screen.getByTestId("scm-session-clear"));
     expect(await screen.findByText("notes.txt")).toBeTruthy();
     expect(screen.queryByTestId("scm-session")).toBeNull();
